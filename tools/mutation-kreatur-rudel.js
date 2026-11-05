@@ -22,7 +22,7 @@ const KR = 'server/sim/kreatur.js', PL = 'server/mission/bausteine/kreaturen.js'
 // [Datei, alter Text (genau einmal), neuer Text, Beschreibung, Tests, gleichwertig (Begründung) oder fehlt]
 const MUTATIONEN = [
   // ---- Platzwahl (rudelSetzen)
-  [KR, 'if (!m.geht(cx, cy) || (dist && dist[cy * m.w + cx] < 0)) continue;', 'if (!m.geht(cx, cy)) continue;', 'Plätze: Erreichbarkeit vom Abholpunkt wird nicht geprüft', [T]],
+  [KR, 'if (!m.geht(cx, cy) || dist[cy * m.w + cx] < 0) continue;', 'if (!m.geht(cx, cy)) continue;', 'Plätze: Erreichbarkeit vom Abholpunkt wird nicht geprüft', [T]],
   [KR, 'if (abhol.some((a) => Math.hypot(tx - a.x, ty - a.y) < RUDEL_ABHOLPUNKT)) continue;', 'if (false) continue;', 'Plätze: kein Mindestabstand zum Abholpunkt', [T]],
   [KR, 'if (rects && !rects.some((r) => tx >= r[0] && tx < r[0] + r[2] && ty >= r[1] && ty < r[1] + r[3])) continue;', 'if (false) continue;', 'Plätze: der Bereich wird nicht beachtet (ganze Karte)', [T]],
   [KR, "if (!b || !Array.isArray(b.rects)) return fehl('Bereich \"' + p.bereich + '\" gibt es auf der Karte ' + p.map + ' nicht (' + Object.keys(k.bereiche || {}).join(', ') + ')');\n    rects = b.rects;",
@@ -70,6 +70,13 @@ const MUTATIONEN = [
   // ---- Daten
   [JS, '"groesse": 1,\n      "kollision": { "box": 20 },', '"groesse": 2,\n      "kollision": { "box": 20 },', 'Daten: rudeltier hat Größe 2', [T]],
   [JS, '{ "auf": "aufgegeben", "nach": "suche" }, ', '', 'Daten: jagd führt nie in suche (kein Aufgeben)', [T]],
+  // ---- Nacharbeit MON-02 (N1 bis N5)
+  [KR, 'const i = v < RUDEL_VERSUCHE ? Math.floor(aw.rng() * pool.length) : 0;', 'const i = 0;', 'Zufall: Mittelpunkt immer der erste Kandidat (kein aw.rng)', [T]],
+  [KR, 'const i = v < RUDEL_VERSUCHE ? Math.floor(aw.rng() * pool.length) : 0;', 'const i = Math.floor(0.37 * pool.length);', 'Zufall: Mittelpunkt fest bei 37 % statt aus aw.rng', [T]],
+  [KR, 'pool.length && !wahl && v < RUDEL_MITTELPUNKTE;', 'pool.length && !wahl;', 'Deckel: alle Kandidaten als Mittelpunkt (Sekunden Blockade im Fehlerfall)', [T]],
+  [KR, "if (!ref) return fehl('Karte ' + p.map + ' hat keinen Abholpunkt", "if (false) return fehl('Karte ' + p.map + ' hat keinen Abholpunkt", 'Abholpunkt: Karte ohne Abholpunkt scheitert nicht laut', [T]],
+  [KR, '    if (aw.kreaturen) aw.kreaturen.length = laenge0;\n', '', 'Halbes Rudel: schon angelegte Tiere bleiben stehen', [T]],
+  [KR, '    aw.kreaturSeq = seq0;\n', '', 'Halbes Rudel: Nummernkreis wird nicht zurückgesetzt', [T]],
 ];
 
 {

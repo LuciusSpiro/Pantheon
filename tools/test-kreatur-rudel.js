@@ -218,6 +218,67 @@ section('Kein erreichbarer Platz: laute Meldung statt unerreichbarem Rudel', () 
   ok(S.fehler.length === 1 && /kein erreichbarer Platz für 2 Tiere/.test(S.fehler[0]) && S.aw.kreaturen.length === 0, 'eine Kachel für 2 Tiere: Fehler, es entsteht kein halbes Rudel');
 });
 
+section('Zufall des Mittelpunkts: anderer Strom = andere Plätze, gleicher Strom = gleiche', () => {
+  const lcg = (seed) => { let x = seed >>> 0; return () => { x = (Math.imul(x, 1664525) + 1013904223) >>> 0; return x / 4294967296; }; };
+  const plaetze = (rngSeed) => {
+    const S = szene('wiesenwald', 101, 'mittel');   // dieselbe Karte, nur der Zufallsstrom aw.rng wechselt
+    S.aw.rng = lcg(rngSeed);
+    aktion(S, { bereich: 'gelaende', typ: 'rudeltier', anzahl: 6, gruppe: 'z' });
+    return S.aw.kreaturen.map((K) => Math.round(K.x) + ',' + Math.round(K.y)).join(';');
+  };
+  const A = plaetze(1), A2 = plaetze(1);
+  const andere = [2, 3, 4, 5, 6, 7].map(plaetze);
+  ok(A.split(';').length === 6 && A === A2, 'gleicher Strom: dieselben 6 Plätze');
+  ok(andere.filter((q) => q !== A).length >= 5, 'andere Ströme: die Plätze ändern sich (' + andere.filter((q) => q !== A).length + ' von 6 anders als Strom 1, ' + new Set(andere.concat([A])).size + ' verschiedene Rudelplätze)');
+  const mittel = (str) => { const L = str.split(';').map((t) => t.split(',').map(Number)); return [L.reduce((a, q) => a + q[0], 0) / L.length, L.reduce((a, q) => a + q[1], 0) / L.length]; };
+  const ms = [A].concat(andere).map(mittel);
+  ok(Math.max(...ms.map((q) => q[0])) - Math.min(...ms.map((q) => q[0])) > 2 * TILE || Math.max(...ms.map((q) => q[1])) - Math.min(...ms.map((q) => q[1])) > 2 * TILE, 'die Mittelpunkte der Rudel liegen verstreut (nicht immer derselbe Kandidat)');
+});
+
+section('Suche gedeckelt: dichte Karte, kein Platz = schnelle laute Meldung', () => {
+  const S = szene('vulkan', 101, 'mittel');
+  // jede begehbare Kachel mit einer Platzhalter-Kreatur belegen: kein Mittelpunkt kann ein Rudel ergeben (Abstand zu vorhandenen), der Fehlerweg probiert alle erlaubten Mittelpunkte
+  let dicht = 0;
+  for (let cy = 0; cy < S.m1.h; cy++) for (let cx = 0; cx < S.m1.w; cx++) if (S.m1.geht(cx, cy)) { S.aw.kreaturen.push({ alive: true, x: (cx + 0.5) * TILE, y: (cy + 0.5) * TILE }); dicht++; }
+  const t0 = process.hrtime.bigint();
+  aktion(S, { typ: 'rudeltier', anzahl: 12, gruppe: 'd' });
+  const ms = Number(process.hrtime.bigint() - t0) / 1e6;
+  ok(dicht > 1000 && S.fehler.length === 1 && /kein erreichbarer Platz für 12 Tiere/.test(S.fehler[0]) && /100 Mittelpunkte probiert/.test(S.fehler[0]) && /Deckel 100/.test(S.fehler[0]), 'Fehler mit Anzahl der probierten Mittelpunkte (' + dicht + ' Platzhalter): "' + (S.fehler[0] || '').slice(-120) + '"');
+  ok(ms < 200, 'Fehlerweg in ' + ms.toFixed(0) + ' ms (< 200 ms; vor dem Deckel Sekunden)');
+  ok(S.aw.kreaturen.length === dicht && !S.aw.kreaturGruppen, 'es entsteht kein Tier und keine Buchführung');
+});
+
+section('Karte ohne Abholpunkt: laute Meldung statt stillem Wegfall von Erreichbarkeit und Abstand', () => {
+  const S = szene('wueste', 101, 'mittel');
+  const orig = S.k.anker;
+  try {
+    S.k.anker = orig.filter((a) => a.rolle !== 'abholpunkt');
+    ok(S.k.anker.length < orig.length, 'Karte ohne Abholpunkt vorbereitet');
+    aktion(S, { bereich: 'gelaende', typ: 'rudeltier', anzahl: 4, gruppe: 'o' });
+    ok(S.fehler.length === 1 && /keinen Abholpunkt/.test(S.fehler[0]) && S.aw.kreaturen.length === 0 && !S.aw.kreaturGruppen, 'Fehler "keinen Abholpunkt", kein Tier, keine Buchführung: "' + (S.fehler[0] || '').replace('mission-kreatur: kreatur_besetzen: ', '').slice(0, 110) + '"');
+  } finally { S.k.anker = orig; }
+  S.fehler.length = 0;
+  aktion(S, { bereich: 'gelaende', typ: 'rudeltier', anzahl: 4, gruppe: 'o' });
+  ok(S.fehler.length === 0 && S.aw.kreaturen.length === 4, 'Kontrolle: mit Abholpunkt dieselbe Aktion legt 4 Tiere an');
+});
+
+section('Halbes Rudel: wirft das Anlegen ab dem zweiten Tier, wird zurückgenommen', () => {
+  let aufrufe = 0;
+  const ab = Kreatur.kreaturBausteinAnmelden('wirftzweites', { beiErzeugen() { if (++aufrufe === 2) throw new Error('Quelle fehlt (Test)'); } });
+  KREATUREN.typen.wirftzweites = Object.assign(kopie(KREATUREN.typen.hookprobe), { name: 'kreatur.wirftzweites', bausteine: { wirftzweites: {} } });
+  try {
+    const S = szene('wueste', 101, 'mittel');
+    const seq0 = S.aw.kreaturSeq || 0;
+    aktion(S, { bereich: 'gelaende', typ: 'wirftzweites', anzahl: 5, gruppe: 'h' });
+    ok(aufrufe === 2 && S.fehler.length === 1 && /Quelle fehlt \(Test\)/.test(S.fehler[0]), 'zweites Tier wirft, Fehler gemeldet (' + S.fehler.join('|') + ')');
+    ok(S.aw.kreaturen.length === 0 && !S.aw.kreaturGruppen && (S.aw.kreaturSeq || 0) === seq0, 'kein halbes Rudel: aw.kreaturen leer, keine Buchführung, Nummernkreis zurück (' + seq0 + ')');
+    aufrufe = 10;   // wirft nicht mehr
+    S.fehler.length = 0;
+    aktion(S, { bereich: 'gelaende', typ: 'wirftzweites', anzahl: 5, gruppe: 'h' });
+    ok(S.fehler.length === 0 && S.aw.kreaturen.length === 5 && S.aw.kreaturGruppen.h.erschienen === 5 && S.aw.kreaturen[0].id === 'K' + (seq0 + 1), 'danach klappt dasselbe Rudel, Kennungen beginnen wieder bei K' + (seq0 + 1));
+  } finally { ab(); delete KREATUREN.typen.wirftzweites; }
+});
+
 section('Abstand zu vorhandenen Kreaturen', () => {
   const S = szene('wueste', 101, 'mittel');
   const a = Kreatur.rudelSetzen(S.g, { map: S.map, bereich: 'lager_1', typ: 'rudeltier', anzahl: 12, gruppe: 'a' });

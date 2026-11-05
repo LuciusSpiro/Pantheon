@@ -407,9 +407,22 @@ function ausgefallenMelden(game, K) {
 }
 // MON-02 P2: Prüfung für den Baustein kreaturen_erledigt. Erledigt = mindestens ein Tier erschien (Buchführung aw.kreaturGruppen) und kein Tier der Gruppe (oder des Typs) ist mehr nicht endgültig erledigt.
 // Aufgelöste Tiere (Bindung) zählen als erledigt, bewusstlose und liegende (erholbare) nicht. Unbekannte Karte oder Gruppe (nie erschienen): nicht erfüllt. opts { gruppe } oder { typ } (genau eines).
+// Fehler der Parameter von kreaturen_erledigt (Prüfer und Laufzeit teilen sie): genau eines von gruppe/typ, typ muss in kreaturen.json stehen. Liefert Texte ([] = in Ordnung).
+function erledigtOptionenFehler(opts) {
+  const o = opts || {};
+  if (o.gruppe == null && o.typ == null) return ["braucht genau eines von 'gruppe' oder 'typ' (beide fehlen)"];
+  if (o.gruppe != null && o.typ != null) return ["braucht genau eines von 'gruppe' oder 'typ' (beide gesetzt)"];
+  if (o.typ != null && !hat(daten().typen, o.typ)) return ["Typ '" + o.typ + "' gibt es in content/kampf/kreaturen.json nicht (" + Object.keys(daten().typen).join(', ') + ")"];
+  return [];
+}
+const erledigtFehlerGemeldet = new WeakSet();   // je Spiel höchstens eine Laufzeitmeldung (die Prüfung läuft jeden Tick)
 function rudelErledigt(game, map, opts) {
   const o = opts || {};
-  if ((o.gruppe == null) === (o.typ == null)) return false;
+  const F = erledigtOptionenFehler(o);
+  if (F.length) {
+    if (game && game.countError && !erledigtFehlerGemeldet.has(game)) { erledigtFehlerGemeldet.add(game); game.countError('mission-kreatur', new Error('kreaturen_erledigt: ' + F[0])); }
+    return false;
+  }
   const aw = game && game.aways && hat(game.aways, map) ? game.aways[map] : null;
   const G = aw && aw.kreaturGruppen;
   if (!G) return false;
@@ -605,13 +618,15 @@ function erzeugenAuf(game, aw, typId, opts) {
 // ---------- Rudel (MON-02 P1) ----------
 // rudelSetzen(game, { map, bereich?, typ, anzahl, gruppe }) -> { n, ids, fehler }: legt ein Rudel (Kennung K.gruppe) auf einer Außenkarte an (Aufrufer: Missionsaktion kreatur_besetzen).
 // Plätze: nur Ankerpunkte der Maske des Typs (Fußabdruck frei), die vom Abholpunkt aus erreichbar sind, im Bereich (ohne bereich: ganze Karte) und mindestens RUDEL_ABHOLPUNKT Kacheln vom Abholpunkt.
-// Das Rudel steht kompakt um einen Mittelpunkt (zufällig aus aw.rng, höchstens RUDEL_VERSUCHE Zufallswahlen, danach der Reihe nach, damit „kein Platz“ heißt: wirklich keiner) mit mindestens
-// RUDEL_ABSTAND Kacheln Abstand der Tiere untereinander (auch zu schon vorhandenen Kreaturen). Fehler (unbekannter Typ, Bereich, Karte, Anzahl, kein erreichbarer Platz) kommen als Text zurück, es entsteht dann nichts.
+// Das Rudel steht kompakt um einen Mittelpunkt (zufällig aus aw.rng, höchstens RUDEL_VERSUCHE Zufallswahlen, danach der Reihe nach, insgesamt höchstens RUDEL_MITTELPUNKTE; „kein Platz“ heißt dann: keiner gefunden) mit mindestens
+// RUDEL_ABSTAND Kacheln Abstand der Tiere untereinander (auch zu schon vorhandenen Kreaturen). Fehler (unbekannter Typ, Bereich, Karte, Anzahl, Karte ohne Abholpunkt, kein erreichbarer Platz) kommen als Text zurück, es entsteht dann nichts
+// (auch kein halbes Rudel, wenn das Anlegen eines Tiers wirft: schon angelegte Tiere werden wieder entfernt).
 // aw.kreaturGruppen[gruppe] = { erschienen, typ } (Buchführung je Karte, in aw, nie im Weltstand; raeumen räumt sie mit).
 const RUDEL_MAX = 12;           // Tiere je Aufruf
 const RUDEL_ABSTAND = 1.5;      // Kacheln, Mindestabstand der Tiere beim Start (Mitte zu Mitte)
 const RUDEL_ABHOLPUNKT = 10;    // Kacheln, Mindestabstand zum Abholpunkt
 const RUDEL_VERSUCHE = 60;      // Zufallswahlen des Mittelpunkts, bevor der Reihe nach gesucht wird
+const RUDEL_MITTELPUNKTE = 100; // Deckel: so viele Mittelpunkte werden höchstens probiert (jeder kostet einen Durchlauf über alle Kandidaten), danach Fehler statt Blockade im Tick
 const GRUPPE_FORM = /^[A-Za-z][A-Za-z0-9_.-]{0,39}$/;
 const hat = (o, k) => !!o && Object.prototype.hasOwnProperty.call(o, k);
 const weltMod = () => require('../world.js');
@@ -648,15 +663,14 @@ function rudelSetzen(game, o) {
   const m = Monster.maskeVonGroesse(k, typ.groesse);
   const abhol = (k.anker || []).filter((a) => a.rolle === 'abholpunkt');
   const ref = abhol.find((a) => a.ankunft) || abhol[0] || null;
-  let dist = null;
-  if (ref) {
-    const start = Mon.naechster(m, ref.x, ref.y, 4);
-    if (!start) return fehl('kein erreichbarer Platz: am Abholpunkt hat ein Tier der Größe ' + typ.groesse + ' keinen Platz');
-    dist = Mon.bfs(m, [start]);
-  }
+  // Ohne Abholpunkt gäbe es weder Erreichbarkeit noch Abstand (karte.ankunft ist selbst die Kennung eines Abholpunkts, taugt also nicht als Ersatz): laut scheitern statt still prüfen zu lassen
+  if (!ref) return fehl('Karte ' + p.map + ' hat keinen Abholpunkt: Erreichbarkeit und Abstand zum Landeplatz sind nicht prüfbar');
+  const start = Mon.naechster(m, ref.x, ref.y, 4);
+  if (!start) return fehl('kein erreichbarer Platz: am Abholpunkt hat ein Tier der Größe ' + typ.groesse + ' keinen Platz');
+  const dist = Mon.bfs(m, [start]);
   const kand = [];
   for (let cy = 0; cy < m.h; cy++) for (let cx = 0; cx < m.w; cx++) {
-    if (!m.geht(cx, cy) || (dist && dist[cy * m.w + cx] < 0)) continue;
+    if (!m.geht(cx, cy) || dist[cy * m.w + cx] < 0) continue;
     const pos = Mon.mitteVon({ cx, cy }, typ.groesse);
     const tx = Math.floor(pos.x / TILE), ty = Math.floor(pos.y / TILE);
     if (rects && !rects.some((r) => tx >= r[0] && tx < r[0] + r[2] && ty >= r[1] && ty < r[1] + r[3])) continue;
@@ -680,16 +694,22 @@ function rudelSetzen(game, o) {
   };
   const pool = kand.slice();
   let wahl = null;
-  for (let v = 0; pool.length && !wahl; v++) {
+  let probiert = 0;
+  for (let v = 0; pool.length && !wahl && v < RUDEL_MITTELPUNKTE; v++) {
     const i = v < RUDEL_VERSUCHE ? Math.floor(aw.rng() * pool.length) : 0;
     const c = pool[i]; pool[i] = pool[pool.length - 1]; pool.pop();
-    wahl = rudelUm(c);
+    wahl = rudelUm(c); probiert++;
   }
-  if (!wahl) return fehl('kein erreichbarer Platz für ' + n + ' Tiere (Größe ' + typ.groesse + ', Abstand ' + RUDEL_ABSTAND + ' Kacheln) in ' + (p.bereich != null ? 'Bereich ' + p.bereich : 'der Karte') + ' von Karte ' + p.map + ' (' + kand.length + ' erreichbare Ankerpunkte)');
+  if (!wahl) return fehl('kein erreichbarer Platz für ' + n + ' Tiere (Größe ' + typ.groesse + ', Abstand ' + RUDEL_ABSTAND + ' Kacheln) in ' + (p.bereich != null ? 'Bereich ' + p.bereich : 'der Karte') + ' von Karte ' + p.map + ' (' + kand.length + ' erreichbare Ankerpunkte, ' + probiert + ' Mittelpunkte probiert' + (probiert < kand.length ? ', Suche beim Deckel ' + RUDEL_MITTELPUNKTE + ' abgebrochen' : '') + ')');
   const ids = [];
+  const seq0 = aw.kreaturSeq || 0, laenge0 = (aw.kreaturen || []).length;
   try {
     for (const q of wahl) { const K = anlegen(game, aw, p.typ, q.x, q.y, p.gruppe); K.facing = aw.rng() * Math.PI * 2; ids.push(K.id); }
-  } catch (e) { return fehl(e.message); }
+  } catch (e) {   // kein halbes Rudel: schon angelegte Tiere zurücknehmen (Nummern wieder frei), keine Buchführung
+    if (aw.kreaturen) aw.kreaturen.length = laenge0;
+    aw.kreaturSeq = seq0;
+    return fehl(e.message);
+  }
   const G = aw.kreaturGruppen || (aw.kreaturGruppen = {});
   G[p.gruppe] = { erschienen: (alt ? alt.erschienen : 0) + n, typ: p.typ };
   return { n, ids, fehler: null };
@@ -828,7 +848,7 @@ function debugKreatur(game, p, typId) {
   return null;
 }
 
-module.exports = { update, kreaturBausteinAnmelden, bausteinTreffer, bausteinLaerm, daten, pruefen, typVon, erzeugen, erzeugenAuf, rudelSetzen, zustandSetzen, debugKreatur, kreaturen, ziele, ausruesten, raeumen, nichtEndgueltigErledigt, ausgefallenMelden, rudelErledigt };
+module.exports = { update, kreaturBausteinAnmelden, bausteinTreffer, bausteinLaerm, daten, pruefen, typVon, erzeugen, erzeugenAuf, rudelSetzen, zustandSetzen, debugKreatur, kreaturen, ziele, ausruesten, raeumen, nichtEndgueltigErledigt, ausgefallenMelden, rudelErledigt, erledigtOptionenFehler };
 
 // ---------- Anzeige und Scanner (MON-01 P4) ----------
 // Scanner: Art `monster`, billig (nur die lebenden Kreaturen mit aktueller Position, keine Karte). Typ-ID aus kreaturen.json; der Name steht im Client-Content (datenblaetter.json).

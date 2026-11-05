@@ -18,7 +18,7 @@ const T = 'tools/test-kreatur-erledigt.js';
 for (const rel of [T, 'tools/gel02-hilfen.js', 'package.json']) fs.copyFileSync(path.join(ROOT, rel), path.join(TMP, rel));
 for (const rel of ['public', 'node_modules']) { if (fs.existsSync(path.join(ROOT, rel))) { try { fs.symlinkSync(path.join(ROOT, rel), path.join(TMP, rel), 'junction'); } catch (e) { /* kein Modul nötig */ } } }
 
-const KR = 'server/sim/kreatur.js', PL = 'server/mission/bausteine/kreaturen.js', CB = 'server/sim/combat.js';
+const KR = 'server/sim/kreatur.js', PL = 'server/mission/bausteine/kreaturen.js', CB = 'server/sim/combat.js', CK = 'server/mission/checker.js';
 const EREIG = "gruppe: K.gruppe != null ? K.gruppe : null, x: Math.round(K.x), y: Math.round(K.y) };\n  game.emit('kreaturAusgefallen'";
 const FILTER_K = '(o.gruppe != null ? K.gruppe === o.gruppe : K.typ === o.typ) && nichtEndgueltigErledigt(K)) return false;';
 // [Datei, alter Text (genau einmal), neuer Text, Beschreibung, Tests, gleichwertig (Begründung) oder fehlt]
@@ -42,7 +42,6 @@ const MUTATIONEN = [
   // ---- Prüfung rudelErledigt
   [KR, '  if (!(erschienen > 0)) return false;\n', '', 'Prüfung: erschienen wird nicht geprüft (nie erschienene Gruppe gilt als erledigt)', [T]],
   [KR, '  if (!(erschienen > 0)) return false;\n', '  if (!(erschienen > 0) || (aw.kreaturen || []).filter((K) => (o.gruppe != null ? K.gruppe === o.gruppe : K.typ === o.typ)).length < erschienen) return false;\n', 'Prüfung: aufgelöste Tiere zählen nicht (alle müssten noch in der Liste stehen)', [T]],
-  [KR, '  if ((o.gruppe == null) === (o.typ == null)) return false;\n', '', 'Prüfung: gruppe und typ zugleich oder keines wird nicht abgewiesen', [T]],
   [KR, '  if (!G) return false;\n', '  if (!G) return true;\n', 'Prüfung: Karte ohne Buchführung gilt als erledigt', [T]],
   [KR, 'if (hat(G, o.gruppe)) erschienen = G[o.gruppe].erschienen; }', 'erschienen = hat(G, o.gruppe) ? G[o.gruppe].erschienen : 1; }', 'Prüfung: unbekannte Gruppe gilt als erschienen', [T]],
   [KR, 'if (G[k].typ === o.typ) erschienen += G[k].erschienen;', 'if (G[k].typ !== o.typ) erschienen += G[k].erschienen;', 'Prüfung: Typ-Variante zählt die falschen Gruppen', [T]],
@@ -56,6 +55,15 @@ const MUTATIONEN = [
   [PL, 'rudelErledigt(m.game, a.map,', "rudelErledigt(m.game, '',", 'Baustein: Karte wird nicht durchgereicht', [T]],
   [PL, "params: { map: { typ: 'map', pflicht: true }, gruppe: { typ: 'string' }, typ: { typ: 'string' } },", "params: { map: { typ: 'map', pflicht: true }, gruppe: { typ: 'squad' }, typ: { typ: 'string' } },", 'Baustein: gruppe als squad (verlangt einen Regiebuch-Eintrag)', [T]],
   [PL, "id: 'kreaturen_erledigt', art: 'pruefung',", "id: 'kreaturen_erledigt', art: 'aktion',", 'Baustein: als Aktion statt als Prüfung registriert', [T]],
+  // ---- Nacharbeit M1: Prüfer und Laufzeitfehler
+  [PL, "    argsPruefen: (args) => Kreatur().erledigtOptionenFehler(args).map((t) => ({ code: 'PARAM-WERT', text: t })),", '', 'Prüfer: kreaturen_erledigt prüft die Parameter nicht', [T]],
+  [CK, "if (typeof def.argsPruefen === 'function') for (const f of def.argsPruefen(args)) E(f.code, p, `'${name}' ${f.text}`);", '', 'Prüfer: der Aufruf von argsPruefen fehlt', [T]],
+  [KR, "  if (o.gruppe == null && o.typ == null) return [\"braucht genau eines von 'gruppe' oder 'typ' (beide fehlen)\"];\n", '', 'Fehlerregel: weder gruppe noch typ wird nicht gemeldet', [T]],
+  [KR, "  if (o.gruppe != null && o.typ != null) return [\"braucht genau eines von 'gruppe' oder 'typ' (beide gesetzt)\"];\n", '', 'Fehlerregel: gruppe und typ zugleich wird nicht gemeldet', [T]],
+  [KR, 'if (o.typ != null && !hat(daten().typen, o.typ)) return', 'if (false) return', 'Fehlerregel: unbekannter typ (Tippfehler) wird nicht gemeldet', [T]],
+  [KR, '!erledigtFehlerGemeldet.has(game)) { erledigtFehlerGemeldet.add(game);', 'true) {', 'Laufzeit: Meldung bei jedem Aufruf statt einmal', [T]],
+  [KR, "game.countError('mission-kreatur', new Error('kreaturen_erledigt: ' + F[0]));", 'void 0;', 'Laufzeit: Fehler bleibt still (nur false)', [T]],
+  [PL, "ereignisse: ['kreaturAusgefallen', 'kreaturAufgeloest'],", '', 'Baustein: kreatur_besetzen deklariert seine Folge-Ereignisse nicht', [T]],
 ];
 
 {

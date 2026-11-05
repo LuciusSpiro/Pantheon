@@ -155,6 +155,33 @@ section('Zwei Gruppen unabhängig, typ-Variante, Parameter', () => {
   ok(!!dsc && dsc.art === 'pruefung' && dsc.params.map.typ === 'map' && dsc.params.map.pflicht && dsc.params.gruppe.typ === 'string' && !dsc.params.gruppe.pflicht && dsc.params.typ.typ === 'string' && !dsc.params.typ.pflicht, 'Baustein kreaturen_erledigt registriert: Prüfung, map Pflicht, gruppe und typ als string (je optional, Laufzeitprüfung genau eines)');
 });
 
+// ---------- Prüfer und Laufzeitfehler (M1) ----------
+section('Prüfer: kreaturen_erledigt braucht genau eines von gruppe/typ, typ gegen kreaturen.json; Laufzeit meldet einmal', () => {
+  const Checker = require('../server/mission/checker.js');
+  const book = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'content', 'regiebuecher', 'm3.regiebuch.json'), 'utf8'));
+  const karte = book.buehne.aussenkarten[0];
+  const pruefe = (args) => {
+    const b = JSON.parse(JSON.stringify(book));
+    b.steps[0].next = [{ if: { check: Object.assign({ name: 'kreaturen_erledigt', map: karte }, args) }, goto: b.steps[1].id }].concat(b.steps[0].next || []);
+    return Checker.check(b);
+  };
+  const mit = (r) => r.errors.filter((e) => /kreaturen_erledigt/.test(e.msg || ''));
+  ok(mit(pruefe({ gruppe: 'r' })).length === 0 && mit(pruefe({ typ: 'rudeltier' })).length === 0, 'nur gruppe oder nur gültiger typ: keine Prüferfehler (' + pruefe({ gruppe: 'r' }).errors.map((e) => e.code + ' ' + e.msg).join('|') + ')');
+  ok(mit(pruefe({})).length === 1 && /beide fehlen/.test(mit(pruefe({}))[0].msg), 'weder gruppe noch typ: Prüferfehler');
+  ok(mit(pruefe({ gruppe: 'r', typ: 'rudeltier' })).length === 1 && /beide gesetzt/.test(mit(pruefe({ gruppe: 'r', typ: 'rudeltier' }))[0].msg), 'gruppe und typ zugleich: Prüferfehler');
+  const u = mit(pruefe({ typ: 'rudeltyp' }));
+  ok(u.length === 1 && /gibt es in content\/kampf\/kreaturen.json nicht/.test(u[0].msg) && /rudeltier/.test(u[0].msg), 'unbekannter typ (Tippfehler): Prüferfehler mit den bekannten Typen');
+  ok(!pruefe({ typ: 'rudeltyp' }).ok, 'Buch mit Tippfehler im typ besteht den Prüfer nicht');
+  // Laufzeit: genau eine countError-Meldung, nicht eine je Tick/Aufruf; weiter false
+  const S = szene('wueste', 101, 'mittel');
+  ok(!erledigt(S, {}) && !erledigt(S, { gruppe: 'a', typ: 'probe' }) && !erledigt(S, { typ: 'rudeltyp' }) && S.fehler.length === 1 && /mission-kreatur: kreaturen_erledigt/.test(S.fehler[0]), 'Laufzeit: false und genau eine Meldung (' + S.fehler.join('|') + ')');
+  const S2 = szene('wueste', 101, 'mittel');
+  ok(!erledigt(S2, { typ: 'rudeltyp' }) && S2.fehler.length === 1 && /rudeltyp/.test(S2.fehler[0]), 'Laufzeit: Tippfehler im typ meldet (' + S2.fehler.join('|') + ')');
+  ok(Kreatur.erledigtOptionenFehler({ gruppe: 'a' }).length === 0 && Kreatur.erledigtOptionenFehler({ typ: 'probe' }).length === 0, 'erledigtOptionenFehler: gültige Formen ohne Fehler');
+  const dsc = Registry.describe().find((x) => x.id === 'kreatur_besetzen');
+  ok(dsc.ereignisse.includes('kreaturAusgefallen') && dsc.ereignisse.includes('kreaturAufgeloest') && typeof Registry.describe().find((x) => x.id === 'kreaturen_erledigt').argsPruefen === 'undefined', 'kreatur_besetzen deklariert seine Folge-Ereignisse; describe gibt keine Funktion aus');
+});
+
 // ---------- Merker ----------
 section('Merker: höchstens einmal, nie für Lebende, Bewusstlose, Aufgelöste', () => {
   const S = szene('wueste', 101, 'mittel');
