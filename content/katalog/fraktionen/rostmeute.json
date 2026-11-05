@@ -78,6 +78,7 @@
     "rotte": [
       "aussenposten",
       "wildnis",
+      "hoehle",
       "station",
       "ruine",
       "schiff",
@@ -90,17 +91,20 @@
     "soeldner": [
       "aussenposten",
       "wildnis",
+      "hoehle",
       "ruine"
     ],
     "loesegeld": [
       "aussenposten",
       "wildnis",
+      "hoehle",
       "station",
       "schiff"
     ],
     "posten": [
       "aussenposten",
       "wildnis",
+      "hoehle",
       "ruine"
     ]
   },

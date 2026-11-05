@@ -705,7 +705,7 @@
   }
 
   // ------------------------------------------------------------------ B1: gebaute Karten, Testgelände-Direktstart, Prefetch
-  // URL ?arena=away&art=…&seed=…&bauweise=…&besitz=…&zustand=…[&fraktion&staerke&haltung][&biom&groesse (art=wildnis)] -> lobbyOpt { startMission: 'arena_away', arena }
+  // URL ?arena=away&art=…&seed=…&bauweise=…&besitz=…&zustand=…[&fraktion&staerke&haltung][&biom&groesse (art=wildnis) | &groesse (art=hoehle)] -> lobbyOpt { startMission: 'arena_away', arena }
   const ARENA_URL = (function () {
     try {
       const q = new URLSearchParams(location.search);

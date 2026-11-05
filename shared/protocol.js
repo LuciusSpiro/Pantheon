@@ -50,7 +50,8 @@
     // Direktstart Testgelände Außenteam (§4): lobbyOpt { startMission: 'arena_away', arena: ARENA_AWAY_FIELDS } bzw. URL
     //   ?arena=away&art=ruine&seed=3&bauweise=rom&besitz=herrenlos&zustand=verfallen. Ohne Parameter wie bisher (Kesh).
     //   GEL-01 D: art=wildnis nimmt zusätzlich biom (GELAENDE_BIOME) und groesse (GELAENDE_GROESSEN): ?arena=away&art=wildnis&seed=3&biom=vulkan&groesse=klein.
-    //   Der Server (Game.arenaParams) verwirft ungültige Werte und bei anderen Kartenarten beide Felder; arena.js reicht sie als gen: { biom, groesse }
+    //   GEL-02 B: art=hoehle nimmt nur groesse (kein Biom): ?arena=away&art=hoehle&seed=3&groesse=klein (Größen aus shared/gen-hoehle.js GROESSEN, gleiche Liste).
+    //   Der Server (Game.arenaParams) verwirft ungültige Werte und bei anderen Kartenarten beide Felder (bei hoehle nur biom); arena.js reicht sie als gen: { biom, groesse }
     //   an landepunkte.testgelaende (nur Testgelände, nie im Weltstand). Die Listen müssen zu shared/gen-gelaende.js (BIOME, GROESSEN) passen (tools/test-wildnis-client.js).
     EVT_AWAY_MAP: 'awayMap',
     AWAY_MAP_FIELDS: ['id', 'erzeuger', 'art', 'bauweise', 'besitz', 'zustand', 'w', 'h', 'rows', 'anker', 'bereiche', 'decks', 'kanten', 'plaetze', 'kv'],
@@ -61,10 +62,10 @@
     AWAY_SNAP_B1: ['map', 'kv', 'ao', 'ko', 'al', 'cd'],
     SPACE_ENEMY_ST: ['treibt'],
     TRANSFER_SNAP_FIELDS: ['lpId', 'name', 'art', 'frei', 'grund', 'inReichweite'],
-    KARTEN_ARTEN: ['aussenposten', 'station', 'ruine', 'schiff', 'wildnis', 'hand'],
+    KARTEN_ARTEN: ['aussenposten', 'station', 'ruine', 'schiff', 'wildnis', 'hoehle', 'hand'],
     ARENA_AWAY_FIELDS: ['art', 'schablone', 'seed', 'bauweise', 'besitz', 'zustand', 'fraktion', 'staerke', 'haltung', 'biom', 'groesse'],
     GELAENDE_BIOME: ['wueste', 'wiesenwald', 'vulkan'],   // GEL-01 D: Werte von ?biom= (Kartenart wildnis)
-    GELAENDE_GROESSEN: ['klein', 'mittel', 'gross'],      // GEL-01 D: Werte von ?groesse= (Kartenart wildnis)
+    GELAENDE_GROESSEN: ['klein', 'mittel', 'gross'],      // GEL-01 D: Werte von ?groesse= (Kartenart wildnis, GEL-02 B auch hoehle)
     B1_EVENTS: ['awayMap', 'ankerZustand', 'downloadAbbruch', 'ladungScharf', 'ladungExplodiert', 'landepunktAlarm', 'enternFrei', 'nachschub'],
     B1_DEBUG: ['buehne', 'anker', 'lp'],
     QA_DEBUG: ['sprungpunkt', 'ladung', 'prise'],

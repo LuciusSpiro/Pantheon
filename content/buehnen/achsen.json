@@ -139,6 +139,13 @@
         56
       ],
       "bauweise": "germanen"
+    },
+    "hoehle": {
+      "kacheln": [
+        80,
+        56
+      ],
+      "bauweise": "germanen"
     }
   }
 }

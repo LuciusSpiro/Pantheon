@@ -67,11 +67,13 @@
     "jaeger": [
       "aussenposten",
       "wildnis",
+      "hoehle",
       "ruine"
     ],
     "sturm": [
       "aussenposten",
       "wildnis",
+      "hoehle",
       "ruine",
       "schiff"
     ]

@@ -73,7 +73,7 @@ let karte;
   const ohne = Buehne.pruefen(karte, { cfg: Object.assign({}, CONFIG.buehne, { jeArt: {} }) });
   ok(ohne.fehler.some((f) => f.code === 'K-EINGAENGE'), 'Gegenprobe: ohne jeArt.wildnis meldet der Prüfer K-EINGAENGE');
   ok(aw.kampf === 'v2' && aw.zustaende && aw.ankerLauf, 'Laufzeitfelder wie bei den anderen Kartenarten');
-  let wirft = false; try { LP.neu(g, 'kesh', { art: 'hoehle' }); } catch (x) { wirft = /unbekannt/.test(x.message); }
+  let wirft = false; try { LP.neu(g, 'kesh', { art: 'tundra' }); } catch (x) { wirft = /unbekannt/.test(x.message); }
   ok(wirft, 'neu(): unbekannte Kartenart weiter abgelehnt');
 }
 {
@@ -196,7 +196,7 @@ abschnitt('Biom-Quelle');
 abschnitt('Pflichtsatz, nutztGenerator, PANTHEON_GEN=0');
 {
   const ka = Context.kartenartenOf().find((x) => x.id === 'wildnis');
-  ok(ka && JSON.stringify(ka.pflichtsatz) === JSON.stringify(Gelaende.PFLICHT) && ka.kurz && Context.kartenartenOf().map((x) => x.id).join() === 'aussenposten,station,ruine,schiff,wildnis', 'kartenartenOf(): wildnis mit Gelaende.PFLICHT und Kurztext, übrige Arten unverändert');
+  ok(ka && JSON.stringify(ka.pflichtsatz) === JSON.stringify(Gelaende.PFLICHT) && ka.kurz && Context.kartenartenOf().map((x) => x.id).join() === 'aussenposten,station,ruine,schiff,wildnis,hoehle', 'kartenartenOf(): wildnis (und hoehle, GEL-02 B) mit Gelaende.PFLICHT und Kurztext, übrige Arten unverändert');
   const gg = fakeGame(); const i = LP.neu(gg, 'kesh', { art: 'wildnis', seed: 5 });
   const e = LP.eintrag(gg, i);
   ok(LP.nutztGenerator(i, e) === true, 'nutztGenerator(wildnis) = true');
@@ -273,7 +273,7 @@ abschnitt('Szenenbau-Probe');
   }
   {
     const { env } = mitBraucht({ kartenarten: ['wildnis'], anker: ['fund'] });
-    const p = plan([{ id: 's2_x', ort: 'kesh', szenentyp: 'erkundung', buehne: { kartenart: 'hoehle', neu: true } }]);
+    const p = plan([{ id: 's2_x', ort: 'kesh', szenentyp: 'erkundung', buehne: { kartenart: 'tundra', neu: true } }]);
     ok(codes(SB.aufloesen(p, env, ctx)).has('BUEHNE-ART'), 'unbekannte Kartenart meldet weiter BUEHNE-ART');
   }
   // pruefeBuehneBraucht direkt gegen eine gebaute Karte

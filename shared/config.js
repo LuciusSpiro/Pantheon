@@ -809,7 +809,8 @@
       jeArt: { aussenposten: { sichtgasseMax: 24 }, ruine: { sichtgasseMax: 16 },
         station: { sichtgasseMax: 12, deckungMaxGefecht: 0.18, deckungMaxAussen: 0.12 },
         schiff: { sichtgasseMax: 12, deckungMaxGefecht: 0.22, deckungMaxAussen: 0.25 },   // innen enger: mehr Deckung erlaubt (Briefing: Schiff braucht mehr Deckung)
-        wildnis: { eingaengeMin: 0 } } },   // GEL-01 B: Wildnis (gen-gelaende) hat keine Eingänge (Gelände ohne Siedlung); die übrigen Prüfwerte gelten wie global
+        wildnis: { eingaengeMin: 0 },   // GEL-01 B: Wildnis (gen-gelaende) hat keine Eingänge (Gelände ohne Siedlung); die übrigen Prüfwerte gelten wie global
+        hoehle: { eingaengeMin: 0 } } },   // GEL-02 B: Höhle (gen-hoehle): ein Deck, der Zugang ist die Ankunft (abholpunkt), kein Eingang
     landepunkte: { transferRange: 360, maxGebaut: 2 },
     // Anker-Interaktionen (s, E halten; Werte aus INHALT §1.4). countdown = Ladung bis zur Explosion.
     // Rätselpaar (Abnahme F4, Studioleitung): solo Fenster = max(paarSoloFenster, Laufweg A->B / Spielertempo × paarLaufFaktor
