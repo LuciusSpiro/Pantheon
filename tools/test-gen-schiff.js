@@ -153,7 +153,7 @@ abschnitt('f) Wachen und Fallenplätze');
     if (new Set(ws.map((a) => a.deck)).size < 2) deckA++;
     for (const f of k.meta.fallenplaetze) {
       fz++;
-      if (c(f.x, f.y) !== ',' || k.anker.some((a) => Math.abs(a.x - f.x) <= 1 && Math.abs(a.y - f.y) <= 1)) fl++;
+      if (c(f.x, f.y) !== ',' || k.anker.some((a) => a.rolle !== 'falle' && Math.abs(a.x - f.x) <= 1 && Math.abs(a.y - f.y) <= 1)) fl++;
     }
   }
   ok(nahe === 0, `Wachen je Deck mindestens 4 Kacheln auseinander (${nahe} Verstöße)`);
@@ -219,6 +219,108 @@ abschnitt('g) Katalog-Bedarf (externe Referenz), Patrouillen, Ankerzahlen');
   ok(beuteAus === 0, `beute-Anker 8..12 je Karte (${beuteAus} außerhalb)`);
   ok(wacheFalsch === 0, `Wachen intakt 5 / verfallen 4 / umkaempft 7 (${wacheFalsch} Abweichungen)`);
   ok(spreng === 0, `sprengpunkt genau 1 (${spreng} Abweichungen)`);
+}
+
+abschnitt('h) Fallen (SCH-01 P5): Anzahl, Typmix, Sicht, Abstände, Erreichbarkeit mit Box, Id-Verschwiegenheit, Determinismus');
+{
+  const NAH2 = ['lift', 'leiter', 'abholpunkt', 'eingang', 'terminal', 'ziel', 'sprengpunkt'];
+  const BLOCK = ['terminal', 'sprengpunkt', 'zelle', 'beute', 'ziel'];
+  const z = { zahl: 0, bereich: 0, sicht: 0, mix: 0, deck: 0, abstand: 0, nah: 0, pad: 0, pflicht: 0, schussGang: 0, schussWand: 0, druckOrt: 0, schottKante: 0, erreich: 0, payload: 0, ids: 0, ausserPflicht: 0 };
+  const proTyp = {}, proSicht = { passiv: 0, verborgen: 0 }, ans = {};
+  let maxPayload = 0, kontrolleOk = 0, kontrolleTot = 0;
+  // unabhängige Erreichbarkeit (nicht der Prüfer, nicht der Generator): BFS über R.durchgang der gebauten Karte, Lift/Leiter-Links, Box der Selbstschussanlagen (auch verborgene) und blockende Objekte als Wand
+  const erreichbar = (k, extraWand) => {
+    const R = Buehne.raster(k), wand = new Set(extraWand || []);
+    for (const a of k.anker) if (BLOCK.includes(a.rolle) || (a.rolle === 'falle' && a.typ === 'schuss')) wand.add(a.x + ',' + a.y);
+    const lk = new Map(); for (const l of k.decks.links) { lk.set(l.a[0] + ',' + l.a[1], l.b); lk.set(l.b[0] + ',' + l.b[1], l.a); }
+    const pad = k.anker.find((a) => a.rolle === 'abholpunkt' && a.ankunft);
+    const seen = new Set([pad.x + ',' + pad.y]), q = [[pad.x, pad.y]];
+    for (let i = 0; i < q.length; i++) {
+      const [x, y] = q[i]; const nb = [[x + 1, y], [x - 1, y], [x, y + 1], [x, y - 1]]; const l = lk.get(x + ',' + y); if (l) nb.push(l);
+      for (const [nx, ny] of nb) if (!seen.has(nx + ',' + ny) && !wand.has(nx + ',' + ny) && R.durchgang(nx, ny)) { seen.add(nx + ',' + ny); q.push([nx, ny]); }
+    }
+    return k.anker.filter((a) => !['wache', 'patrouille', 'falle'].includes(a.rolle) && !seen.has(a.x + ',' + a.y) && ![[1, 0], [-1, 0], [0, 1], [0, -1]].some(([dx, dy]) => seen.has((a.x + dx) + ',' + (a.y + dy))));
+  };
+  for (const e of alle) {
+    const k = e.r.karte, rk = e.roh, fa = k.anker.filter((a) => a.rolle === 'falle');
+    const zust = e.k.split('/')[1];
+    ans[zust + ' ' + fa.length] = (ans[zust + ' ' + fa.length] || 0) + 1;
+    if (zust === 'umkaempft' ? fa.length !== 2 : (fa.length < 3 || fa.length > 4)) z.zahl++;
+    const sicht = fa.filter((a) => a.sicht === 'passiv').length, verb = fa.length - sicht;
+    if (sicht < 1 || verb < 1) z.sicht++;
+    for (const a of fa) { proTyp[a.typ] = (proTyp[a.typ] || 0) + 1; if (proSicht[a.sicht] != null) proSicht[a.sicht]++; if (!['schott', 'druck', 'schuss'].includes(a.typ) || !['passiv', 'verborgen'].includes(a.sicht) || a.bereich !== 'gefecht_d' + a.deck || a.deck !== (a.y >= 16 ? 2 : 1)) z.bereich++; }
+    if (new Set(fa.map((a) => a.typ)).size < 2) z.mix++;
+    if (fa.length >= 3 && !fa.some((a) => a.deck === 2)) z.deck++;
+    if (!fa.some((a) => a.deck === 1)) z.deck++;
+    const padA = k.anker.find((a) => a.rolle === 'abholpunkt' && a.ankunft);
+    for (let i = 0; i < fa.length; i++) {
+      const a = fa[i];
+      for (let j = i + 1; j < fa.length; j++) if (Math.max(Math.abs(fa[j].x - a.x), Math.abs(fa[j].y - a.y)) < 2) z.abstand++;
+      for (const b of k.anker) {
+        if (b === a || b.rolle === 'falle') continue;
+        const c = Math.max(Math.abs(b.x - a.x), Math.abs(b.y - a.y));
+        if (c <= 1) z.nah++;
+        if (c <= 2 && NAH2.includes(b.rolle)) z.nah++;
+      }
+      if (Math.hypot(padA.x - a.x, padA.y - a.y) < 4) z.pad++;
+      if (a.typ === 'schuss') {
+        const rd = a.y % 16;
+        if (rd === 6) z.schussGang++;
+        if (![1, 3, 9, 11].includes(rd) || k.rows[a.y][a.x] !== '.') z.schussWand++;   // Hüllenzeile der Seitenräume (1, 11) oder Wandzeile der Brücke (3, 9), Bodenkachel
+      }
+      if (a.typ === 'druck') {
+        let nahLoch = false; for (let dy = -3; dy <= 3; dy++) for (let dx = -3; dx <= 3; dx++) if (Math.hypot(dx, dy) <= 3 && (k.rows[a.y + dy] || '')[a.x + dx] === '~') nahLoch = true;
+        const heck = ['antrieb', 'reaktor'].includes(rk.plaetze[a.platz].typ);
+        if (zust === 'intakt' ? !heck : !nahLoch) z.druckOrt++;
+      }
+      if (a.typ === 'schott' && !Buehne.fallenSchottKanten(k, a, CONFIG.anker.falle.schott.radius).length) z.schottKante++;
+    }
+    if ((rk.meta.pflicht || {}).falle != null) z.ausserPflicht++;
+    const fehlt = erreichbar(k);
+    if (fehlt.length) { z.erreich++; ok(false, `${e.k} Seed ${e.seed}: nicht erreichbar mit Fallenbox: ${fehlt.slice(0, 3).map((a) => a.id).join(', ')}`); }
+    // Payload: verborgene Fallen weder mit Id noch mit Koordinaten (Anker-Zeilen) im awayMap-Payload
+    const pj = Game.prototype.awayMapPayload.call({}, k), ps = JSON.stringify(pj);
+    maxPayload = Math.max(maxPayload, Buffer.byteLength(ps));
+    for (const a of fa) {
+      const inPayload = pj.anker.some((r) => r[0] === a.id || (r[1] === 'falle' && r[2] === a.x && r[3] === a.y));
+      if (a.sicht === 'verborgen' ? (inPayload || ps.includes(a.id)) : !pj.anker.some((r) => r[0] === a.id)) z.payload++;
+      if (a.sicht === 'verborgen' ? !/^falle\.[0-9a-z]{7}$/.test(a.id) : !/^sek\d+_d[12]\.falle(\.\d)?$/.test(a.id)) z.ids++;
+    }
+    if (kontrolleTot < 12 && e.k === 'schiff/intakt') {   // Gegenprobe: dieselbe Prüfung muss eine Box im Längsgang (1 Kachel breit) bemerken
+      kontrolleTot++;
+      let gefunden = false; for (let x = 4; x < k.w - 4 && !gefunden; x++) if (k.rows[6][x] === ',' && erreichbar(k, [x + ',6']).length) gefunden = true;
+      if (gefunden) kontrolleOk++;
+    }
+  }
+  const T = alle.length;
+  ok(z.zahl === 0, `Anzahl je Karte: umkaempft genau 2, sonst 3 bis 4 (${z.zahl} Verstöße bei ${T} Karten)`);
+  ok(z.sicht === 0, `mindestens eine sichtbare (passiv) und eine verborgene Falle je Karte (${z.sicht} Verstöße)`);
+  ok(z.mix === 0, `mindestens zwei verschiedene Typen je Karte (${z.mix} Verstöße)`);
+  ok(z.deck === 0, `Fallen auf beiden Decks, Deck 2 mindestens eine bei 3 oder mehr (${z.deck} Verstöße)`);
+  ok(z.bereich === 0, `Typ und Sicht gültig, bereich gefecht_dN und deck passen zur Kachel (${z.bereich} Verstöße)`);
+  ok(z.abstand === 0, `nie zwei Fallen auf derselben oder benachbarten Kachel (${z.abstand} Verstöße)`);
+  ok(z.nah === 0, `nie auf oder neben einem Anker, nie näher als 2 an Lift/Leiter/Abholpunkt/Eingang/Terminal/Ziel/Sprengpunkt (${z.nah} Verstöße)`);
+  ok(z.pad === 0, `Mindestabstand 4 zur Ankunft (${z.pad} Verstöße)`);
+  ok(z.schussGang === 0 && z.schussWand === 0, `Selbstschussanlage nie im Gang, immer an einer Raumwand auf einer Bodenkachel (${z.schussGang + z.schussWand} Verstöße)`);
+  ok(z.druckOrt === 0, `Druckverlust: intakt im Antrieb/Reaktor, sonst höchstens 3 Kacheln von einem Hüllenloch (${z.druckOrt} Verstöße)`);
+  ok(z.schottKante === 0, `jede Schott-Falle hat ein Schott im Wirkbereich (Buehne.fallenSchottKanten, ${z.schottKante} Verstöße)`);
+  ok(z.ausserPflicht === 0, 'Fallen stehen nicht in meta.pflicht');
+  ok(z.erreich === 0, `alle Anker (außer Wachen/Patrouillen/Fallen) von der Ankunft aus erreichbar, wenn jede Selbstschussanlage (auch verborgene) ein Hindernis ist (${z.erreich} Karten von ${T})`);
+  ok(kontrolleTot > 0 && kontrolleOk === kontrolleTot, `Gegenprobe: eine Box im Längsgang wird von derselben Prüfung bemerkt (${kontrolleOk}/${kontrolleTot})`);
+  ok(z.payload === 0, `awayMap-Payload: verborgene Fallen weder mit Id noch mit Koordinaten, sichtbare mit Id (${z.payload} Verstöße)`);
+  ok(z.ids === 0, `Ids: verborgen falle.<Hash> (ohne Platz), sichtbar <platz>.falle[.n] (${z.ids} Verstöße)`);
+  ok(maxPayload <= MAX, `awayMap-Maximum mit Fallen ${maxPayload} B <= ${MAX}`);
+  console.log('  Fallen je Zustand/Anzahl: ' + JSON.stringify(ans) + '; je Typ ' + JSON.stringify(proTyp) + '; je Sicht ' + JSON.stringify(proSicht) + '; awayMap max ' + maxPayload + ' B');
+  // Determinismus: gleiche Seeds, gleiche Fallen (auch aus frischem Erzeuger); verschiedene Seeds streuen
+  let gleich = 0, tot = 0; const lagen = new Set();
+  for (const layout of LAYOUTS) for (const zustand of ZUSTAENDE) for (const seed of [3, 77, 1234]) {
+    const o = { layout, zustand, id: 'x' };
+    let a, b; try { a = G.karteRoh(seed, o).anker.filter((q) => q.rolle === 'falle'); b = GenSchiff.erzeuger().karteRoh(seed, o).anker.filter((q) => q.rolle === 'falle'); } catch (err) { continue; }
+    tot++; if (JSON.stringify(a) === JSON.stringify(b) && a.length >= 2) gleich++;
+    lagen.add(JSON.stringify(a.map((q) => [q.x, q.y])));
+  }
+  ok(tot > 0 && gleich === tot, `Fallen sind seed-stabil (${gleich}/${tot})`);
+  ok(lagen.size >= tot * 0.8, `verschiedene Seeds liefern verschiedene Fallenlagen (${lagen.size} von ${tot})`);
 }
 
 console.log(`\n${n - bad}/${n} Prüfungen bestanden`);

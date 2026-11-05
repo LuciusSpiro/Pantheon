@@ -36,7 +36,7 @@ function berechne() {
 const schreibe = process.argv.includes('--write');
 const ist = berechne();
 if (schreibe) {
-  fs.writeFileSync(DATEI, JSON.stringify({ format: 'sch01-hash-baseline/1', stand: 'SCH-01 P4 (bauversion gschiff1)', karten: ist }, null, 1) + '\n');
+  fs.writeFileSync(DATEI, JSON.stringify({ format: 'sch01-hash-baseline/1', stand: 'SCH-01 P5 (Fallen, bauversion gschiff1)', karten: ist }, null, 1) + '\n');
   console.log(`Baseline geschrieben: ${Object.keys(ist).length} Schiffs-Hashes -> ${path.relative(ROOT, DATEI)}`);
   process.exit(0);
 }

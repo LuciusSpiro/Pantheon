@@ -3,12 +3,14 @@
   else root.GenSchiff = factory();
 })(typeof self !== 'undefined' ? self : this, function () {
   'use strict';
+  const Buehne = require('./buehne.js');   // nur Node: ankerIdsVergeben (neutrale Ids verborgener Fallen); der Erzeuger läuft nur auf dem Server und in den Werkzeugen
   // SCH-01 P1: prozeduraler Schiffsgenerator im Modulraster des Prüfers (13 Zeilen je Deck, Deck-Abstand 16, Längsgang auf Zeile 6).
   // Längsachse Heck -> Mittschiffs (3..5 Sektionen, je Seite des Längsgangs 1..2 Räume) -> Bug.
   //   Deck 1 (Wohn/Lager): Heck Antrieb, Räume Schleuse/Lager/Quartier/Zellen/Messe, Bug Brücke.
   //   Deck 2 (Technik):     Heck Reaktor, Räume Transferkammer/Waffenkammer/Lager/Messe, Bug Batteriedeck.
   // layout 'schiff' (Standard): Hülle verjüngt am Heck und zum Bug. layout 'rechteck' (Rom): Rechteck, spiegelsymmetrisch in der Längsachse,
   // gleiche Sektionsbreiten, spiegelsymmetrische Raumfolge. zustand: intakt | verfallen | umkaempft (Überzug aus Trümmern, Hüllenlöchern, Barrikaden).
+  // SCH-01 P5: 2..4 Fallen je Karte (Anker der Rolle falle: schott, druck, schuss; umkaempft 2), eigener RNG-Strom, nicht in meta.pflicht; Regeln am Block "Fallen" in karteRoh.
   // Ausgabe wie GenStation.karteRoh: Rohkarte für Buehne.ausRaster. Wirft Error('gen-schiff: …'), wenn nirgends Platz ist (Aufrufer versucht Seed+1).
   const HD = 13, STRIDE = 16, GANG = 6, MAXLAENGE = 74;
   const TUEREN = 'DSLG';
@@ -507,6 +509,89 @@
           S.sek.forEach((s, i) => { if (i > 0) { add(d, s.x0 - 1, 'schott', pid(d, i - 1)); add(d, s.x0 + 1, 'schott', pid(d, i)); } });
         }
         fallen.sort((a, b) => a.y - b.y || a.x - b.x);
+      }
+      // ---- Fallen (SCH-01 P5): Anker der Rolle falle, eigener RNG-Strom R4 (R, R2, R3 bleiben unberührt). 2..4 je Karte (umkaempft 2), mindestens eine passive und eine verborgene,
+      // Typmix schott (Gang, nahe einem Schott) / druck (nahe Hüllenloch, intakt: im Antrieb/Reaktor) / schuss (Raum, Kollisionsbox an der Hüllenwand, nie im 1 Kachel breiten Gang).
+      // Nie auf/neben einem Anker, nie nahe Lift/Leiter/Abholpunkt/Eingang/Terminal/Ziel/Sprengpunkt, Abstand 4 zur Ankunft, untereinander mindestens 5. Prüfung der Erreichbarkeit mit allen Boxen als Hindernis.
+      const fallenAnker = [];
+      {
+        const R4 = rng(seed * 6271 + 101);
+        const NAH2 = { lift: 1, leiter: 1, abholpunkt: 1, eingang: 1, terminal: 1, ziel: 1, sprengpunkt: 1 };
+        const padA = anker.find((a) => a.rolle === 'abholpunkt' && a.ankunft);
+        const deckVon = (y) => (y >= STRIDE ? 1 : 0);
+        const zulaessig = (x, y, gewaehlt) => {
+          const c = at(x, y);
+          if (c !== '.' && c !== ',') return false;
+          if (reserviert.has(key(x, y)) || belegt.has(key(x, y))) return false;
+          for (const a of anker) { const ch = Math.max(Math.abs(a.x - x), Math.abs(a.y - y)); if (ch <= 1 || (NAH2[a.rolle] && ch <= 2)) return false; }
+          if (padA && Math.hypot(padA.x - x, padA.y - y) < 4) return false;
+          for (const f of gewaehlt) if (Math.hypot(f.x - x, f.y - y) < 5) return false;
+          return true;
+        };
+        const kand = { schott: [], druck: [], schuss: [] };
+        const schottNah = (x, y) => { for (let dy = -3; dy <= 3; dy++) for (let dx = -3; dx <= 3; dx++) if (Math.hypot(dx, dy) <= 3 && at(x + dx, y + dy) === 'S') return true; return false; };
+        for (const f of fallen) if (schottNah(f.x, f.y)) kand.schott.push({ x: f.x, y: f.y });
+        if (zustand === 'intakt') {
+          for (let d = 0; d < 2; d++) { const h = heck(d); for (let y = h.y0; y <= h.y1; y++) for (let x = h.x0; x <= h.x1; x++) kand.druck.push({ x, y: y + d * STRIDE }); }
+        } else {
+          for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) if (at(x, y) === '~') for (let dy = -3; dy <= 3; dy++) for (let dx = -3; dx <= 3; dx++) if (Math.hypot(dx, dy) <= 3 && !kand.druck.some((q) => q.x === x + dx && q.y === y + dy)) kand.druck.push({ x: x + dx, y: y + dy });
+        }
+        for (let d = 0; d < 2; d++) for (const r of raeumeD(d)) {
+          const oy = d * STRIDE;
+          if (r.typ === 'lager' || r.typ === 'waffenkammer') {
+            const hy = r.seite === 'o' ? r.y0 : r.y1;   // Hüllenzeile des Raums: Blick auf die Tür am Gang
+            for (let x = r.x0; x <= r.x1; x++) if (x <= r.gx - 2 || x >= r.gx + 3) kand.schuss.push({ x, y: hy + oy });
+          } else if (r.typ === 'bruecke') {   // Vorraum: die ersten Spalten an den Bordwänden
+            for (let x = r.x0; x <= r.x0 + 3; x++) for (const y of [r.y0, r.y1]) kand.schuss.push({ x, y: y + oy });
+          }
+        }
+        const typenFrei = ['schott', 'druck', 'schuss'].filter((t) => kand[t].some((c) => zulaessig(c.x, c.y, [])));
+        if (typenFrei.length < 1) throw new Error('gen-schiff: keine Fallenplätze');
+        const nSoll = zustand === 'umkaempft' ? 2 : R4.range(3, 4);
+        const wuerfeln = (n) => {
+          const basis = R4.shuffle(typenFrei.slice());
+          const typen = []; for (let i = 0; i < n; i++) typen.push(basis[i % basis.length]);
+          const sichten = [true, false]; while (sichten.length < n) sichten.push(R4.f() < 0.5);
+          R4.shuffle(sichten);
+          const gewaehlt = [], hinzu = [];
+          const zurueck = () => { for (const k of hinzu) blockiert.delete(k); anker.length = anker.length - hinzu.length; };
+          for (let i = 0; i < n; i++) {
+            const typ = typen[i];
+            const zahl = [0, 0]; for (const f of gewaehlt) zahl[deckVon(f.y)]++;
+            let c = kand[typ].filter((q) => zulaessig(q.x, q.y, gewaehlt));
+            const letztDeck = i === n - 1 && (!zahl[0] || !zahl[1]);   // letzter Platz: das noch leere Deck (beide Decks bekommen Fallen)
+            const pref = letztDeck ? (zahl[1] ? 0 : 1) : (zahl[0] === zahl[1] ? R4.int(2) : (zahl[0] < zahl[1] ? 0 : 1));
+            const c2 = c.filter((q) => deckVon(q.y) === pref);
+            if (c2.length) c = c2; else if (letztDeck) { zurueck(); return null; }
+            R4.shuffle(c);
+            let wahl = null;
+            for (const q of c) {
+              if (typ !== 'schuss') { wahl = q; break; }
+              const k = key(q.x, q.y); blockiert.add(k); anker.push({ id: '_p5', rolle: 'falle', x: q.x, y: q.y });   // Box als Hindernis: Pflicht-Anker und alle Wege müssen erreichbar bleiben
+              if (zusammenhang(g)) { hinzu.push(k); wahl = q; break; }
+              blockiert.delete(k); anker.pop();
+            }
+            if (!wahl) { zurueck(); return null; }
+            gewaehlt.push({ x: wahl.x, y: wahl.y, typ, passiv: sichten[i] });
+          }
+          zurueck();
+          return gewaehlt;
+        };
+        let gw = null;
+        for (let v = 0; !gw && v < 40; v++) gw = wuerfeln(nSoll);
+        for (let v = 0; !gw && v < 40 && nSoll > 2; v++) gw = wuerfeln(nSoll - 1);
+        if (!gw) throw new Error('gen-schiff: keine Fallen platzierbar');
+        for (const f of gw) {
+          const d = deckVon(f.y), i = sekVon(f.x), p = pid(d, i);
+          fallenAnker.push({ rolle: 'falle', x: f.x, y: f.y, platz: p, bereich: plaetze[p].bereich, deck: d + 1, typ: f.typ, sicht: f.passiv ? 'passiv' : 'verborgen' });
+        }
+      }
+      {   // Ids neu vergeben (verborgene Fallen bekommen neutrale Ids falle.<Hash>, Buehne.ankerIdsVergeben), die übrigen Ids bleiben wie vorher
+        const alle = roh.concat(fallenAnker);
+        alle.sort((a, b) => (a.platz < b.platz ? -1 : a.platz > b.platz ? 1 : 0) || (a.rolle < b.rolle ? -1 : a.rolle > b.rolle ? 1 : 0) || a.y - b.y || a.x - b.x);
+        const ids = Buehne.ankerIdsVergeben(alle);
+        anker.length = 0;
+        alle.forEach((a, i) => anker.push(Object.assign({ id: ids[i] }, a)));
       }
       const pflicht = Object.assign({}, PFLICHT);
       const titel = {}; for (const id of Object.keys(plaetze)) titel[id] = RAUMTITEL[plaetze[id].typ] || 'Mittschiffs';
