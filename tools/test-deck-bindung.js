@@ -88,11 +88,11 @@ section('(a) Bindung beim Aufstellen: Deck des Spawn-Orts', () => {
   // Szenario überschreibt danach: Wert bleibt, was das Szenario setzt
   gs.aways[MAP].squads.direkt.deckBindung = 0;
   ok(gs.aways[MAP].squads.direkt.deckBindung === 0, 'Szenario (graben.js) kann danach überschreiben');
-  // gemischt: ohne Bereich Anker beider Decks -> ungebunden (nur gemeldet, siehe Bericht)
+  // gemischte Plätze ohne Bereich (Anker beider Decks): Trupp bleibt auf EINEM Deck (Deck des ersten Platzes) und ist gebunden; Mehrspieler-Fälle: test-deck-bindung-misch.js
   const gm = mk(); const awm = gm.aways[MAP];
   squad.spawnSquad(gm, 'misch', { map: MAP, besetzung: [{ typ: 'grundtyp', anzahl: 2 }], force: true, festeZahl: true, plaetze: [r1.karte.anker.find((a) => a.id === 'hoehle.wache.11'), { x: 3, y: 3 }] });
   const dk = new Set(awm.drones.map(deckVon));
-  ok(dk.size === 2 && awm.squads.misch.deckBindung == null, `gemischter Trupp (Decks ${[...dk]}) bleibt ungebunden statt falsch gebunden`);
+  ok(dk.size === 1 && awm.squads.misch.deckBindung === [...dk][0], `Plätze auf beiden Decks ohne Bereich: Trupp auf einem Deck (${[...dk]}), gebunden (${awm.squads.misch.deckBindung}), ${awm.drones.length} statt 2 Gegner`);
   ok(fehlerZahl(g1) === 0 && fehlerZahl(g0) === 0, 'keine Serverfehler');
 });
 
@@ -182,7 +182,7 @@ section('(f) Tick-Zeit mit 4 Spielern und alarmierten Trupps auf beiden Decks', 
   // Harte Tick-Messung mit Wiederholungen und Streuung: tools/gel02-tickmess.js (0 Ticks über Budget in 18 Läufen).
   const ueber = s.filter((v) => v > budget).length;
   ok(med < budget / 4, `Median ${med.toFixed(2)} ms unter einem Viertel des Tick-Budgets ${budget.toFixed(1)} ms`);
-  ok(ueber <= Math.ceil(s.length * 0.05), `höchstens 5 % der Ticks über ${budget.toFixed(1)} ms (${ueber} von ${s.length}, max ${max.toFixed(1)} ms)`);
+  ok(ueber <= Math.ceil(s.length * 0.01), `höchstens 1 % der Ticks über ${budget.toFixed(1)} ms (${ueber} von ${s.length}, max ${max.toFixed(1)} ms)`);
   ok(fehlerZahl(g) === 0, 'keine Serverfehler');
 });
 

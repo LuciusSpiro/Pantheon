@@ -6,7 +6,7 @@
   // Höhle (GEL-02 A): organische Gänge und Kammern aus Zellularautomat. Zwei Verwendungen aus EINER Bauroutine (`bauen`):
   //   karteRoh(seed, opts)  eigene Karte art 'hoehle' (ein Deck, Ankunft = Eingang, Anker abholpunkt)
   //   deckRoh(seed, opts)   zweites Deck unter einer Wildnis-Karte (deck-lokale y, Anker leiter statt abholpunkt); die Verdrahtung macht Paket C
-  // Reine Kartenlogik wie gen-gelaende: deterministisch aus dem Seed, kein Math.random, keine Dateizugriffe, im Rauschen nur + - * /.
+  // Reine Kartenlogik wie gen-gelaende: deterministisch aus dem Seed, kein Math.random, keine Dateizugriffe. Das Rauschen rechnet nur mit + - * /; die Platzierung nutzt Math.sin/cos/hypot (V8-eigene Implementierung, wie schon in GEL-01 gen-gelaende.js), nicht bitgenau über Engines hinweg.
   // Kachelzeichen nur vorhandene: F Fels, ',' Boden (boden2 = erde), o/O Steine, a Wasserpfütze.
   //
   // Ablauf: Anfangsrauschen -> 5 Glättungsschritte (4-5-Regel) -> Kammern für Eingang, Fundorte, Lager freiräumen -> Öffnung mit 2x2-Element

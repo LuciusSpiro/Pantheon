@@ -171,12 +171,18 @@ function spawnAnKarte(game, name, o) {
   bes = bes.filter((q) => q && q.typ && !(q.anzahl <= 0));
   const scale = C.squadScale[crewSize(game)] != null ? C.squadScale[crewSize(game)] : 1;
   const used = new Set(aw.drones.filter((d) => d.alive).map((d) => { const t = tileOf(d.x, d.y); return t.x + ',' + t.y; }));   // schon besetzt
-  const take = (list) => { const a = list.find((q) => !used.has(q.x + ',' + q.y)); if (a) used.add(a.x + ',' + a.y); return a || null; };
+  // GEL-02 D: Karten mit Decks (außer Schiff: dort Leiter/Lift, B1 §6.2) und ohne bereich: ein Trupp nimmt nur Plätze EINES Decks (das Deck
+  // des ersten gezogenen Platzes); fehlen dort Plätze, wird der Trupp kleiner, nie gemischt. Mit bereich, auf Schiffen und ohne Decks unverändert.
+  const deckStride = info.decks && !o.bereich && !(info.karte && info.karte.art === 'schiff') ? (info.deckStride || 16) : 0;
+  let deckFest = null;
+  const deckOk = (q) => !deckStride || deckFest == null || Math.floor(q.y / deckStride) === deckFest;
+  const merke = (q) => { if (deckStride && deckFest == null) deckFest = Math.floor(q.y / deckStride); };
+  const take = (list) => { const a = list.find((q) => !used.has(q.x + ',' + q.y) && deckOk(q)); if (a) { used.add(a.x + ',' + a.y); merke(a); } return a || null; };
   const takeFrei = () => {
-    const rest = P.frei.filter((q) => !used.has(q.x + ',' + q.y));
+    const rest = P.frei.filter((q) => !used.has(q.x + ',' + q.y) && deckOk(q));
     if (!rest.length) return null;
     const q = rest[Math.floor(aw.rng() * rest.length)];
-    used.add(q.x + ',' + q.y);
+    used.add(q.x + ',' + q.y); merke(q);
     return q;
   };
   const list = [];
@@ -193,8 +199,9 @@ function spawnAnKarte(game, name, o) {
   if (!list.length) return 0;
   aw.spawned[name] = true;
   const s = aw.squads[name] = newSquad(name, list.length);
-  // GEL-02 D: Karten mit Decks (außer Schiff: dort Leiter/Lift, B1 §6.2) binden jeden neuen Trupp an das Deck seines Spawns, wenn alle auf einem Deck stehen
-  // (Szenarien wie graben.js überschreiben danach). Gemischte Trupps (Anker beider Decks ohne Bereich) bleiben ungebunden: eigene Bereiche je Deck im Erzeuger.
+  // GEL-02 D: Karten mit Decks (außer Schiff) binden jeden neuen Trupp an das Deck seines Spawns, wenn alle auf einem Deck stehen
+  // (Szenarien wie graben.js überschreiben danach). Ohne bereich ist das durch deckFest oben immer der Fall; ungebunden bleibt nur ein
+  // Trupp aus festen Plätzen (o.plaetze mit bereich) auf mehreren Decks.
   if (info.decks && !(info.karte && info.karte.art === 'schiff')) {
     const deckVon = (t) => Math.floor(t.y / (info.deckStride || 16)), d0 = deckVon(list[0].t);
     if (list.every((it) => deckVon(it.t) === d0)) s.deckBindung = d0;
