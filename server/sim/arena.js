@@ -222,9 +222,9 @@ function lpMod() { try { const m = require('./landepunkte.js'); return m && !m.s
 // Karte bauen und als Landepunkt registrieren (beim Start, nie im Tick) -> lpId | null
 function karteBauen(game, params) {
   // GEL-01 D: biom/groesse (Testgelände-URL, nur Wildnis) gehen als gen { biom, groesse } an landepunkte.testgelaende (überschreibt Welt/Standard, nie im Weltstand)
-  if (params && (params.biom || params.groesse)) {
-    const { biom, groesse, ...rest } = params;
-    params = Object.assign(rest, { gen: Object.assign({}, rest.gen, biom ? { biom } : {}, groesse ? { groesse } : {}) });
+  if (params && (params.biom || params.groesse || params.hoehle)) {
+    const { biom, groesse, hoehle, ...rest } = params;   // GEL-02 C: hoehle (Höhlendeck unter der Wildnis) ebenso als gen.hoehle
+    params = Object.assign(rest, { gen: Object.assign({}, rest.gen, biom ? { biom } : {}, groesse ? { groesse } : {}, hoehle ? { hoehle: true } : {}) });
   }
   const L = lpMod();
   let lp = null;

@@ -1371,6 +1371,15 @@
         else if (!anker.some((q) => q.rolle === a.rolle && q.x === o[0] && q.y === o[1])) F('K-DECK', `${a.id}: am Gegenstück (${o[0]},${o[1]}) steht kein ${a.rolle}-Anker`, a.x, a.y);
       }
       for (const l of dl) for (const e of [l.a, l.b]) if (e[0] < 0 || e[1] < 0 || e[0] >= W || e[1] >= H) F('K-DECK', `Deck-Link außerhalb der Karte: ${e[0]},${e[1]}`);
+      // GEL-02 C: ein Gefechtsbereich (Besetzung mit `bereich`) liegt mit all seinen rects und Ankern in EINEM Deck, sonst mischt `besetzen` die Decks und der Trupp bleibt ohne Deck-Bindung
+      for (const bid of Object.keys(karte.bereiche || {}).sort()) {
+        const b = karte.bereiche[bid];
+        if (!b || !b.gefecht) continue;
+        const decks = new Set();
+        for (const q of b.rects || []) { decks.add(deckVon(q[1])); decks.add(deckVon(q[1] + q[3] - 1)); }
+        for (const a of anker) if (a.bereich === bid) decks.add(deckVon(a.y));
+        if (decks.size > 1) F('K-DECK', `Gefechtsbereich ${bid} liegt in mehreren Decks (${[...decks].sort().join(', ')})`);
+      }
       // Grenzzeilen zwischen den Decks: von der letzten gebauten Zeile des oberen Decks über die Lückenzeilen bis zur ersten Zeile des unteren dürfen nur Kacheln stehen,
       // die fest sind UND die Sicht sperren (Fels F, Lücke _): sonst sieht oder läuft man aus einem Deck ins andere (Schiffe haben ihre eigene Lückenregel oben)
       for (let d = 0; d + 1 < Math.ceil(H / stride); d++) {

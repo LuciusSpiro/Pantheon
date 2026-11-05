@@ -121,7 +121,7 @@ const imp = (f) => import(pathToFileURL(path.join(ROOT, f)).href);
   abschnitt('Testgelände-Parameter biom und groesse');
   ok(Protocol.ARENA_AWAY_FIELDS.includes('biom') && Protocol.ARENA_AWAY_FIELDS.includes('groesse'), 'protocol.ARENA_AWAY_FIELDS enthält biom und groesse');
   ok(JSON.stringify(Protocol.GELAENDE_BIOME) === JSON.stringify(Gelaende.BIOME) && JSON.stringify(Protocol.GELAENDE_GROESSEN.slice().sort()) === JSON.stringify(Object.keys(Gelaende.GROESSEN).sort()), 'protocol-Listen GELAENDE_BIOME/GROESSEN entsprechen dem Erzeuger (BIOME, GROESSEN)');
-  ok(/'biom', 'groesse'\]\)\) \{/.test(lies('public/js/client.js')), 'client.js: Rückfall-Feldliste der URL kennt biom und groesse');
+  ok(/'biom', 'groesse'(, 'hoehle')?\]\)\) \{/.test(lies('public/js/client.js')), 'client.js: Rückfall-Feldliste der URL kennt biom und groesse');
   const P = (o) => Game.arenaParams(o);
   let r = P({ art: 'wildnis', seed: 3, biom: 'vulkan', groesse: 'klein' });
   ok(r && r.art === 'wildnis' && r.seed === 3 && r.biom === 'vulkan' && r.groesse === 'klein', 'arenaParams: gültiges biom/groesse für wildnis durchgereicht');
