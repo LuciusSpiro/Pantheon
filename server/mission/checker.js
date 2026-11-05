@@ -356,6 +356,7 @@ function check(doc, ctxIn) {
     if (def.intern && !actx.debug && !isIntern) E('BAUSTEIN-INTERN', p, `Interner Baustein '${name}' nur in 'skip', 'debug' oder Büchern mit kopf.art 'intern' erlaubt`);
     for (const [pn, pd] of Object.entries(def.params)) if (pd.pflicht && !(pn in args)) E('PARAM-FEHLT', p, `'${name}' braucht Parameter '${pn}'`);
     if (def.params.object && def.params.anker && !('object' in args) && !('anker' in args)) E('PARAM-FEHLT', p, `'${name}' braucht 'object' (Handkarte, Altform) oder 'anker'`);
+    if (typeof def.argsPruefen === 'function') for (const f of def.argsPruefen(args)) E(f.code, p, `'${name}' ${f.text}`);
     for (const [pn, val] of Object.entries(args)) {
       const pd = def.params[pn];
       if (!pd) { E('PARAM-UNBEKANNT', p, `'${name}' kennt keinen Parameter '${pn}'`); continue; }

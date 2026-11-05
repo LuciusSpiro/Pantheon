@@ -3,7 +3,7 @@
 // Geprüft: Daten laden, Validator lehnt kaputte Daten ab, Kreatur nur mit Debug, Zyklus (Aufladen → Rammen → Pause, Dauern), Hindernis im Rammweg, Wahrnehmung und Verfolgen,
 // Türen-Schalter, Registry (neuer Baustein ohne Umbau), kein Zufallsverbrauch aus game.rng, Station-Monster-Bahn mit/ohne Kreatur gleich, ohne Kreaturen unverändert,
 // kein Typname im server/. Nacharbeit: Station-Monster gegen den festen Sollwert aus main da8d19c (tools/fixtures/mon01-station-bahn.json), Schott-Aufbrechen mit gemessener Rammzeit,
-// Maske gegen feste Referenzen, Validator-Lücken (Größe nur 2, unbekannte Felder, Sackgasse, Namenskollisionen, unerreichbare Zustände), kein Update ohne Außenteam.
+// Maske gegen feste Referenzen, Validator-Lücken (Größe nur 1 und 2 (MON-02 G), unbekannte Felder, Sackgasse, Namenskollisionen, unerreichbare Zustände), kein Update ohne Außenteam.
 //   node tools/test-kreatur.js   (npm run test:kreatur)
 const fs = require('fs');
 const path = require('path');
@@ -118,7 +118,8 @@ section('Daten und Validator', () => {
   kaputt('Nicht-Objekt', (k) => { k.typen = []; }, 'typen');
   kaputt('Name fehlt', (k) => { delete k.typen.probe.name; }, 'typen.probe.name');
   kaputt('Größe 9', (k) => { k.typen.probe.groesse = 9; }, 'groesse');
-  for (const gr of [1, 3, 4]) kaputt('Größe ' + gr + ' (nur 2 zugelassen)', (k) => { k.typen.probe.groesse = gr; }, 'Größe ≠ 2 erst mit Mitte je Größe (MON-03)');
+  for (const gr of [0, 3, 4, '1', 1.5, null]) kaputt('Größe ' + JSON.stringify(gr) + ' (nur 1 und 2 zugelassen)', (k) => { k.typen.probe.groesse = gr; }, 'muss 1 oder 2 sein');
+  for (const gr of [1, 2]) { const k = kopie(KREATUREN); k.typen.probe.groesse = gr; ok(!Kreatur.pruefen(k).some((x) => /groesse/.test(x)), 'Validator lässt Größe ' + gr + ' zu'); }
   kaputt('Größe als Text', (k) => { k.typen.probe.groesse = '2'; }, 'groesse');
   kaputt('Sicht negativ', (k) => { k.typen.probe.sicht = -1; }, 'sicht');
   kaputt('Schild seg > max', (k) => { k.typen.probe.schild = { seg: 5, max: 4 }; }, 'schild');
@@ -488,8 +489,13 @@ section('Karte und Maske: Größenparameter', () => {
   let alle2 = 0; for (let cy = 0; cy <= 6; cy++) for (let cx = 0; cx <= 6; cx++) if (m2k.geht(cx, cy)) alle2++;
   ok(alle2 === 12 && !m2k.geht(0, 1) && !m2k.geht(5, 1) && !m2k.geht(1, 5) && !m2k.geht(2, 2), 'genau 12 Ankerpunkte, keiner außerhalb 1..4 und keiner an der Wand (' + alle2 + ')');
   // Größe 1 (Ankerpunkt 1..4, die Randspalte 5 ist nur mit Rand-Wänden gedacht): Anker (3,3) deckt die Wandkachel (2,2), alle anderen sind frei
-  const m1k = Mon.maske(kl, 1); let alle1 = 0; for (let cy = 1; cy <= 4; cy++) for (let cx = 1; cx <= 4; cx++) if (m1k.geht(cx, cy)) alle1++;
-  ok(alle1 === 15 && !m1k.geht(3, 3), 'Maske Größe 1 auf der Referenzkarte (Anker 1..4): 15 von 16, nur (3,3) fehlt (' + alle1 + ')');
+  // Größe 1: Ankerpunkt = die Kachel selbst (0..w−1). Referenz 5×5 mit Wandkacheln (0,2) und (2,2): 23 Ankerpunkte; das rohe ok-Feld hat genau diese 23 Einsen (Randfehler: cx = w lief früher in die nächste Zeile)
+  const k1 = { w: 5, h: 5, rows: ['.....', '.....', '#.#..', '.....', '.....'], legende: kl.legende, anker: [] };
+  const m1k = Mon.maske(k1, 1); let alle1 = 0; for (let cy = 0; cy < 5; cy++) for (let cx = 0; cx < 5; cx++) if (m1k.geht(cx, cy)) alle1++;
+  const einsen = Array.from(m1k.ok).reduce((s, v) => s + v, 0);
+  ok(alle1 === 23 && !m1k.geht(0, 2) && !m1k.geht(2, 2) && m1k.geht(0, 0) && m1k.geht(4, 4) && !m1k.geht(5, 0) && !m1k.geht(5, 1) && !m1k.geht(1, 5) && !m1k.geht(-1, 0), 'Maske Größe 1 auf der Referenzkarte: 23 von 25 Ankerpunkten (Wände (0,2) und (2,2)), nichts außerhalb (' + alle1 + ')');
+  ok(einsen === 23 && m1k.ok[2 * 5 + 0] === 0 && m1k.ok.length === 25, 'Maske Größe 1: ok-Feld ohne Überlauf in die nächste Zeile (' + einsen + ' Einsen, Wandkachel (0,2) bleibt 0)');
+  ok(m1k.fuss === 1 && Mon.maske(kl).fuss === 2, 'Maske trägt ihren Fußabdruck');
   const S = szene(true);
   const m2 = Mon.maske(S.k), m2b = Monster.maskeVon(S.k), m1 = Mon.maske(S.k, 1), m3 = Monster.maskeVonGroesse(S.k, 3);
   let gleich = true; for (let cy = 0; cy <= m2.h; cy++) for (let cx = 0; cx <= m2.w; cx++) if (m2.geht(cx, cy) !== m2b.geht(cx, cy)) gleich = false;

@@ -115,19 +115,20 @@ function ziel(game, E, M, c) {
 }
 
 // ---------- Bewegung ----------
+// Der Fußabdruck der Maske (m.fuss) bestimmt, welcher Ankerpunkt unter der Figur liegt (Größe 2: Ecke, Größe 1: Kachel; MON-02 G)
 function setzePfad(M, m, zielAnker) {
-  const von = Mon.ankerVon(M.x, M.y);
+  const von = Mon.ankerVonPosition(M.x, M.y, m.fuss);
   const a = m.geht(von.cx, von.cy) ? von : Mon.naechster(m, Math.floor(M.x / TILE), Math.floor(M.y / TILE), 2);
   if (!a) { M.pfad = []; return false; }
   const p = Mon.weg(m, a, zielAnker, 4000);
   M.pfad = p || []; M.ziel = zielAnker;
   return !!p;
 }
-function kanteAmSchritt(E, a) {   // geschlossene Tür im Fußabdruck des Ankerpunkts a -> Kanten-ID
+function kanteAmSchritt(E, a, fuss) {   // geschlossene Tür im Fußabdruck des Ankerpunkts a -> Kanten-ID (fuss fehlt: Größe 2 der Station)
   const kanteAt = E.info && E.info.kanteAt; if (!kanteAt) return null;
-  for (const [dx, dy] of [[-1, -1], [0, -1], [-1, 0], [0, 0]]) {
-    const kid = kanteAt.get((a.cx + dx) + ',' + (a.cy + dy));
-    if (kid) return { kid, tx: a.cx + dx, ty: a.cy + dy };
+  for (const t of Mon.fussKacheln(a, fuss)) {
+    const kid = kanteAt.get(t.x + ',' + t.y);
+    if (kid) return { kid, tx: t.x, ty: t.y };
   }
   return null;
 }
@@ -160,8 +161,8 @@ function gehenKern(game, E, M, dt, speed, hb, beiTuer) {
   if (!M.pfad.length) return null;
   let budget = speed * dt; let guard = 0; let res0 = null;
   while (budget > 0.01 && M.pfad.length && guard++ < 4) {
-    const n = M.pfad[0]; const c = Mon.mitte(n);
-    const tz = kanteAmSchritt(E, n);
+    const n = M.pfad[0]; const c = Mon.mitteVon(n, hb.fuss);   // hb.fuss: Fußabdruck der Kreatur (hbVon in kreatur.js); der Körper der Station (HB) hat keinen = Größe 2
+    const tz = kanteAmSchritt(E, n, hb.fuss);
     if (tz && tuerZu(E, tz.kid)) {
       return beiTuer(tz);
     }

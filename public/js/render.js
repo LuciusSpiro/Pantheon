@@ -2256,7 +2256,10 @@
       if (e.kind === 'kreatur') {   // MON-01 P4: Kreatur auf der Captain-Karte: Raute in Ladungsfarbe (nie verrauscht); Name nur gescannt sonst „?“, unter der Raute, und nur ohne Scan-Marker (der trägt schon das Kürzel)
         const kb = e.kr ? e.kr.b : 0;
         shape(ctx, 'diamond', s.x, s.y, 10, KREATUR.koerper[kb & 3], (kb & 8) ? KREATUR.rammKante : KREATUR.kante);
-        if (!kreaturMarker.has('monster:' + e.id)) text(ctx, kreaturName(e, st), s.x, s.y + 9, { color: kreaturName(e, st) === '?' ? KREATUR.unbekannt : KREATUR.name, align: 'center' });
+        const hf = kreaturHaufen(view, st).get(e.id);
+        if (hf && hf.n > 1) {   // B5: ein gemeinsamer Namenszug je Haufen (auch mit Scan-Marker: die Marker einzelner Tiere liegen übereinander und tragen den Namen nicht)
+          if (hf.fuehrer) { const hs = toS(hf.x, hf.ymax); text(ctx, hf.name, hs.x, hs.y + 9, { color: hf.name === '?' ? KREATUR.unbekannt : KREATUR.name, align: 'center' }); }
+        } else if (!kreaturMarker.has('monster:' + e.id)) text(ctx, kreaturName(e, st), s.x, s.y + 9, { color: kreaturName(e, st) === '?' ? KREATUR.unbekannt : KREATUR.name, align: 'center' });
         continue;
       }
       if (noisy) {
@@ -2595,7 +2598,7 @@
           const hitAge = view.enemyHit && view.enemyHit[e.id] != null ? view.enemyHit[e.id] : 99;
           const esh = v2 && Array.isArray(e.sh) ? e.sh : null;
           if (dk === 'monster') { drawMonster(ctx, ex, ey, e, t); }
-          else if (dk === 'kreatur') { const kn = kreaturName(e, st); drawKreatur(ctx, ex, ey, e, t, kn); const kg = ((e.kr.b >> 4) & 3) + 1; hindernisMerken(kn, ex, ey - kg * TILE * 0.38 - 32); }
+          else if (dk === 'kreatur') { const hf = kreaturHaufen(view, st).get(e.id); const kn = hf ? hf.name : kreaturName(e, st); drawKreatur(ctx, ex, ey, e, t, kn); const kg = ((e.kr.b >> 4) & 3) + 1; if (kn != null) hindernisMerken(kn, ex, ey - kg * TILE * 0.38 - 32); }
           else if (dk === 'warden') {
             // M2: Wächter („Lamassu“) mit Frontbogen und Blickrichtung
             const wo = { time: t, alive: e.alive !== false, kind: 'warden', facing: +e.facing || 0, asleep: !!e.asleep, wake: !e.asleep, hit: hitAge < 0.15, revealed: aufgedeckt(e, st), shieldSeg: esh ? esh[0] : null, shieldMax: esh ? esh[1] : null };
@@ -2931,7 +2934,7 @@
         const dk = e.kind || (map.id === 'wreck' ? 'scavenger' : undefined);
         if (dk === 'warden') { const s = P(e.x, e.y, 62); hindernisMerken(e.asleep ? 'WÄCHTER (schläft)' : 'WÄCHTER', s.x, s.y); text(ctx, e.asleep ? 'WÄCHTER (schläft)' : 'WÄCHTER', s.x, s.y, { color: e.asleep ? PAL.panelLight : KESH_VIOLET, align: 'center' }); }
         else if (dk === 'scavenger') { const cr = v2 && !!e.cr; const s = P(e.x, e.y, cr ? 28 : 36); hindernisMerken(gegnerSchild(e, cr), s.x, s.y); text(ctx, gegnerSchild(e, cr), s.x, s.y, { color: PAL.rust, align: 'center' }); }
-        else if (dk === 'kreatur') { const kn = kreaturName(e, st); const kg = ((e.kr.b >> 4) & 3) + 1; const s = P(e.x, e.y, 40 + kg * 14); hindernisMerken(kn, s.x, s.y); kreaturBeschriftung(ctx, kn, s.x, s.y); }   // MON-01 Nacharbeit H1: Name nur aus dem Scan, sonst „?“
+        else if (dk === 'kreatur') { const hf = kreaturHaufen(view, st).get(e.id); const kn = hf ? hf.name : kreaturName(e, st); const kg = ((e.kr.b >> 4) & 3) + 1; const s = P(e.x, e.y, 40 + kg * 14); if (kn != null) { hindernisMerken(kn, s.x, s.y); kreaturBeschriftung(ctx, kn, s.x, s.y); } }   // MON-01 Nacharbeit H1: Name nur aus dem Scan, sonst „?“
       }
     });
 
@@ -4274,6 +4277,35 @@
     const sc = st && st.away && st.away.sc; const SA = window.ScanAnzeige;
     return (sc && SA && SA.nameVon(sc, 'monster', e.id)) || '?';
   }
+  // MON-02 B5: Kreaturen gleichen Typs, die weniger als KREATUR_HAUFEN Kacheln auseinander stehen (verkettet), tragen EINEN gemeinsamen Namenszug mit Anzahl („Rudeltier ×6“; nur gescannte zählen,
+  // ungescannte bleiben „?“ je Haufen einmal), statt ihre Namen übereinanderzulegen. Einzelne Tiere behalten ihren Namen. Liefert Map id -> { name, fuehrer, x, y }: der Führer (kleinste Nummer) zeichnet
+  // den Namen (name), die übrigen nichts (name null); x/y = Mitte des Haufens, ymax = unterste Kante (Kommandokarte). Je Frame einmal je view (Zwischenspeicher).
+  const KREATUR_HAUFEN = 3;
+  let haufenMerker = null;
+  function kreaturHaufen(view, st) {
+    if (haufenMerker && haufenMerker.view === view) return haufenMerker.map;
+    const L = (view.drones || []).filter((e) => e.kind === 'kreatur' && e.alive !== false && e.kr);
+    const map = new Map(), R2 = KREATUR_HAUFEN * TILE * KREATUR_HAUFEN * TILE, gesehen = new Set();
+    for (const e0 of L) {
+      if (gesehen.has(e0.id)) continue;
+      const H = [e0]; gesehen.add(e0.id);
+      for (let i = 0; i < H.length; i++) for (const q of L) if (!gesehen.has(q.id) && q.kr.t === H[i].kr.t && (q.x - H[i].x) * (q.x - H[i].x) + (q.y - H[i].y) * (q.y - H[i].y) < R2) { gesehen.add(q.id); H.push(q); }
+      H.sort((a, b) => (+String(a.id).slice(1)) - (+String(b.id).slice(1)));
+      const namen = H.map((e) => kreaturName(e, st));
+      let name = namen[0];
+      if (H.length > 1) {
+        const zaehl = new Map(); let unbekannt = false;
+        for (const nm of namen) { if (nm === '?') unbekannt = true; else zaehl.set(nm, (zaehl.get(nm) || 0) + 1); }
+        const teile = [...zaehl].map(([nm, k]) => (k > 1 ? nm + ' ×' + k : nm));
+        if (unbekannt) teile.push('?');
+        name = teile.join(' · ');
+      }
+      const x = H.reduce((a, e) => a + e.x, 0) / H.length, y = H.reduce((a, e) => a + e.y, 0) / H.length, ymax = Math.max(...H.map((e) => e.y));
+      H.forEach((e, i) => map.set(e.id, { name: i === 0 ? name : null, fuehrer: i === 0, x, y, ymax, n: H.length }));
+    }
+    haufenMerker = { view, map };
+    return map;
+  }
   function drawKreatur(ctx, x, y, e, t, name) {
     const b = e.kr.b | 0, ladung = b & 3, pause = !!(b & 4), rammt = !!(b & 8), g = ((b >> 4) & 3) + 1;
     const h = g * TILE * 0.38, f = +e.facing || 0;
@@ -4300,7 +4332,7 @@
       text(ctx, 'zz', zx, zy - 4, { color: KREATUR.pause, align: 'center', scale: 2 });
       shape(ctx, 'diamond', zx + 18, zy + 2, 8, KREATUR.pause, KREATUR.kante); shape(ctx, 'diamond', zx - 14, zy - 10, 7, KREATUR.pause, KREATUR.kante);
     }
-    kreaturBeschriftung(ctx, name, x, y - h - 32);
+    if (name != null) kreaturBeschriftung(ctx, name, x, y - h - 32);
   }
 
   // SL7c: das Monster der Forschungsstation (Fußabdruck 2×2 Kacheln): dunkler Körper, Augen in Blickrichtung, Farbe nach Zustand (Jagd rot, Lärm orange)

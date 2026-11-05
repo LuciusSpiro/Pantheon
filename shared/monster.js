@@ -4,6 +4,8 @@
 // und die Luken (1 breit). Es gibt KEINE neue Kachelart: die Begehbarkeit des Monsters ist eine Maske über dem vorhandenen Raster (Erosion).
 //   Ankerpunkt (cx, cy) = Kachelecke, 1 ≤ cx < w, 1 ≤ cy < h; der Fußabdruck sind die Kacheln (cx−1, cy−1), (cx, cy−1), (cx−1, cy), (cx, cy).
 //   Mittelpunkt in Pixeln = (cx · 32, cy · 32).
+// Größe 1 (MON-02 G): Fußabdruck 1×1. Ankerpunkt (cx, cy) = die Kachel selbst, 0 ≤ cx < w, 0 ≤ cy < h; Mittelpunkt in Pixeln = ((cx + ½) · 32, (cy + ½) · 32), also die Kachelmitte.
+// Allgemein: Fußabdruck = Kacheln (cx − v … cx − v + f − 1) mit v = ⌊f/2⌋; die Mitte liegt bei ungeradem f in der Kachelmitte, bei geradem f auf der Kachelecke (Größe 2 wie bisher).
 // Türen zählen als passierbar: das Monster bricht sie auf (server/sim/monster.js), auch verschlossene.
 // Pfadsuche und Kollision benutzen DIESELBE Maske, damit es sich nie in einer Engstelle festläuft (Problem der Kachel-BFS bei großen Körpern).
 (function (root, factory) {
@@ -13,6 +15,7 @@
   'use strict';
   const FUSS = 2;   // Kanten des Fußabdrucks in Kacheln
   const TILE = 32;
+  const versatzVon = (f) => Math.floor(f / 2);   // Kachel links oben im Fußabdruck eines Ankerpunkts: (cx − v, cy − v)
 
   // Kachel passierbar (für das Monster): Durchgang des Rasters, Türen offen oder zu; Objekte (Möbel) sperren
   function kachelFrei(r, objekt, w, x, y) {
@@ -29,23 +32,24 @@
   }
 
   // maske(karte, fuss) -> { w, h, ok(cx, cy), anker[] }; Rasterkachelwerte einmal berechnet.
-  // fuss (MON-01 P1): Kanten des Fußabdrucks in Kacheln, Standard FUSS (2, Monster-Station unverändert). Fußabdruck = Kacheln (cx−1 … cx+fuss−2) in x und y;
-  // bei fuss 1 ist das die Kachel links oben vom Ankerpunkt (die Mitte der Kachel liegt 16 px daneben, das Mitte-/Ankerpunkt-Paar bleibt für Fuß 2 gebaut).
+  // fuss (MON-01 P1): Kanten des Fußabdrucks in Kacheln, Standard FUSS (2, Monster-Station unverändert). Fußabdruck = Kacheln (cx−v … cx−v+fuss−1) in x und y mit v = ⌊fuss/2⌋:
+  // Fuß 2 deckt (cx−1 … cx), Fuß 1 genau die Kachel (cx, cy). Das Paar Ankerpunkt/Mitte je Fußabdruck stehen in mitteVon/ankerVonPosition.
   function maske(karte, fuss) {
     const f = Number.isInteger(fuss) && fuss >= 1 ? fuss : FUSS;
+    const v = versatzVon(f);
     const r = K.raster(karte, { wSchwachOffen: false });
     const w = karte.w, h = karte.h;
     const objekt = objektKacheln(karte);
     const frei = new Uint8Array(w * h);
     for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) if (kachelFrei(r, objekt, w, x, y)) frei[y * w + x] = 1;
     const ok = new Uint8Array(w * h);
-    for (let cy = 1; cy + f - 2 < h; cy++) for (let cx = 1; cx + f - 2 < w; cx++) {
+    for (let cy = v; cy - v + f - 1 < h; cy++) for (let cx = v; cx - v + f - 1 < w; cx++) {
       let alle = true;
-      for (let dy = 0; dy < f && alle; dy++) for (let dx = 0; dx < f; dx++) if (!frei[(cy - 1 + dy) * w + cx - 1 + dx]) { alle = false; break; }
+      for (let dy = 0; dy < f && alle; dy++) for (let dx = 0; dx < f; dx++) if (!frei[(cy - v + dy) * w + cx - v + dx]) { alle = false; break; }
       if (alle) ok[cy * w + cx] = 1;
     }
     return { w, h, frei, ok, raster: r, fuss: f,
-      geht(cx, cy) { return cx >= 1 && cy >= 1 && cx + f - 2 < w && cy + f - 2 < h && ok[cy * w + cx] === 1; } };
+      geht(cx, cy) { return cx >= v && cy >= v && cx - v + f - 1 < w && cy - v + f - 1 < h && ok[cy * w + cx] === 1; } };
   }
 
   // BFS über Ankerpunkte (4er-Nachbarschaft) -> Int32Array Distanzen (−1 = unerreichbar)
@@ -87,20 +91,33 @@
     return null;
   }
 
-  // nächster Ankerpunkt (Chebyshev-Ring) zu einer Kachel (tx, ty), den das Monster einnehmen kann; null, wenn keiner im Radius
+  // nächster Ankerpunkt (Chebyshev-Ring) zu einer Kachel (tx, ty), den das Monster einnehmen kann; null, wenn keiner im Radius.
+  // Der Abstand läuft von der Mitte des Tieres (mitteVon, Fußabdruck der Maske) zur Kachelmitte; bei geradem Fußabdruck reicht der Ring eine Kachel weiter nach rechts/unten (Ecke).
   function naechster(m, tx, ty, radius) {
     let best = null, bd = Infinity;
-    for (let dy = -radius; dy <= radius + 1; dy++) for (let dx = -radius; dx <= radius + 1; dx++) {
+    const f = m.fuss || FUSS; const hi = radius + (f % 2 === 0 ? 1 : 0);
+    for (let dy = -radius; dy <= hi; dy++) for (let dx = -radius; dx <= hi; dx++) {
       const cx = tx + dx, cy = ty + dy;
       if (!m.geht(cx, cy)) continue;
-      const d = Math.hypot(cx - (tx + 0.5), cy - (ty + 0.5));
+      const c = mitteVon({ cx, cy }, f);
+      const d = Math.hypot(c.x / TILE - (tx + 0.5), c.y / TILE - (ty + 0.5));
       if (d < bd) { bd = d; best = { cx, cy }; }
     }
     return best;
   }
 
-  const mitte = (p) => ({ x: p.cx * TILE, y: p.cy * TILE });
-  const ankerVon = (x, y) => ({ cx: Math.round(x / TILE), cy: Math.round(y / TILE) });
+  // Mitte je Fußabdruck: Ankerpunkt -> Pixel (mitteVon) und Pixel -> nächster Ankerpunkt (ankerVonPosition). Fuß 2: Kachelecke, Fuß 1: Kachelmitte.
+  // mitte/ankerVon sind der Fußabdruck 2 (Monster-Station), bitgleich zu vorher.
+  const mitteVon = (p, fuss) => { const f = fuss || FUSS; const o = f / 2 - versatzVon(f); return { x: (p.cx + o) * TILE, y: (p.cy + o) * TILE }; };
+  const ankerVonPosition = (x, y, fuss) => { const f = fuss || FUSS; const o = versatzVon(f) - f / 2; return { cx: Math.round(x / TILE + o), cy: Math.round(y / TILE + o) }; };
+  // Kacheln im Fußabdruck des Ankerpunkts a (Zeilen von oben, je Zeile von links): { x, y }
+  function fussKacheln(a, fuss) {
+    const f = fuss || FUSS; const v = versatzVon(f); const out = [];
+    for (let dy = 0; dy < f; dy++) for (let dx = 0; dx < f; dx++) out.push({ x: a.cx - v + dx, y: a.cy - v + dy });
+    return out;
+  }
+  const mitte = (p) => mitteVon(p, FUSS);
+  const ankerVon = (x, y) => ankerVonPosition(x, y, FUSS);
 
   // Prüfregeln der Monster-Karte (karte.meta.monster): Fehlerliste [{ code, msg, x, y }]
   //   K-MONSTER-PULT   das Monster erreicht jedes Pult (Umfeld), sonst lockt ein Hack nichts
@@ -145,5 +162,5 @@
     return F;
   }
 
-  return { TILE, FUSS, maske, bfs, weg, naechster, mitte, ankerVon, pruefen, objektKacheln };
+  return { TILE, FUSS, maske, bfs, weg, naechster, mitte, ankerVon, mitteVon, ankerVonPosition, fussKacheln, pruefen, objektKacheln };
 });

@@ -41,7 +41,7 @@ const MUTATIONEN = [
   [KR, "  if (game.time - K.lastHitAt < r.verzoegerung) { K.regenT = 0; return; }", "", 'Schildregeneration ohne Verzögerung nach Treffer'],
   [KR, "function ziele(aw) { return aw.kreaturen && aw.kreaturen.length ? aw.drones.concat(aw.kreaturen) : aw.drones; }", "function ziele(aw) { return aw.drones.concat(aw.kreaturen || []); }", 'ziele liefert immer ein neues Array (Referenz-Gleichheit ohne Kreaturen weg)'],
   [KR, "function ziele(aw) { return aw.kreaturen && aw.kreaturen.length ? aw.drones.concat(aw.kreaturen) : aw.drones; }", "function ziele(aw) { return aw.kreaturen && aw.kreaturen.length ? aw.kreaturen.concat(aw.drones) : aw.drones; }", 'ziele: Kreaturen vor Drohnen (Reihenfolge)'],
-  [KR, "function raeumen(aw) { if (aw && aw.kreaturen && aw.kreaturen.length) aw.kreaturen = []; }", "function raeumen(aw) { }", 'raeumen tut nichts'],
+  [KR, "function raeumen(aw) { if (aw && aw.kreaturGruppen) delete aw.kreaturGruppen; if (aw && aw.kreaturen && aw.kreaturen.length) aw.kreaturen = []; }", "function raeumen(aw) { }", 'raeumen tut nichts'],
   // ---- Szenario-Resets
   [GR, "  require('./kreatur.js').raeumen(aw);   // MON-01 P2a: Kreaturen der Karte mit weg\n", "", 'Graben-Start räumt Kreaturen nicht'],
   [WE, "  require('./kreatur.js').raeumen(aw);   // MON-01 P2a\n", "", 'Wellen-Start räumt Kreaturen nicht'],

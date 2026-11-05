@@ -31,6 +31,39 @@
         "koeder": { "faktor": 1.5, "dauer": 4 },
         "rammschaden": { "radius": 30 }
       }
+    },
+    "rudeltier": {
+      "name": "kreatur.rudeltier",
+      "groesse": 1,
+      "kollision": { "box": 20 },
+      "sicht": 8,
+      "verlustZeit": 3,
+      "replan": 0.5,
+      "hitRadius": 13,
+      "schild": { "seg": 2, "max": 2 },
+      "wunden": 2,
+      "frontArc": 120,
+      "tuerenAufbrechen": false,
+      "rammZeit": 1.2,
+      "start": "patrouille",
+      "zustaende": {
+        "patrouille": { "modus": "streife", "tempo": 45, "radius": 8, "uebergang": [ { "auf": "sieht", "nach": "jagd" }, { "auf": "laerm", "nach": "laerm" } ] },
+        "laerm": { "modus": "zumKoeder", "tempo": 62, "uebergang": [ { "auf": "sieht", "nach": "jagd" }, { "auf": "koederEnde", "nach": "patrouille" } ] },
+        "jagd": { "modus": "verfolge", "tempo": 90, "uebergang": [ { "auf": "aufgegeben", "nach": "suche" }, { "auf": "nah", "abstand": 5, "nach": "aufladen" }, { "auf": "verloren", "nach": "patrouille" } ] },
+        "aufladen": { "modus": "zielen", "tempo": 0, "dauer": 1.0, "uebergang": [ { "auf": "ablauf", "nach": "rammen" } ] },
+        "rammen": { "modus": "ramme", "tempo": 240, "dauer": 0.8, "uebergang": [ { "auf": "getroffen", "nach": "pause" }, { "auf": "blockiert", "nach": "steckt" }, { "auf": "ablauf", "nach": "pause" } ] },
+        "steckt": { "modus": "steht", "tempo": 0, "dauer": 1.0, "uebergang": [ { "auf": "ablauf", "nach": "pause" } ] },
+        "pause": { "modus": "steht", "tempo": 0, "dauer": 1.8, "uebergang": [ { "auf": "ablauf", "nach": "jagd" } ] },
+        "suche": { "modus": "streife", "tempo": 50, "radius": 6, "dauer": 8, "uebergang": [ { "auf": "ablauf", "nach": "patrouille" } ] }
+      },
+      "bausteine": {
+        "zyklus": { "hindernisAb": 0.3 },
+        "ruecken": { "bogen": 90, "faktor": 2 },
+        "aufladung": { "max": 3, "zerfallNach": 4, "zerfallSchritt": 1.5, "tempoFaktor": 0.4, "rammFaktor": 0.4 },
+        "koeder": { "faktor": 1.5, "dauer": 4 },
+        "rammschaden": { "radius": 22 },
+        "aufgeben": { "anlaeufe": 3 }
+      }
     }
   }
 }

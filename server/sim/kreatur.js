@@ -12,6 +12,7 @@
 //       beiTreffer(game, K, treffer, par)     Aufruf über bausteinTreffer (Treffer-Hooks kommen in P2)
 //       beiLaerm(game, K, laerm, par)         Aufruf über bausteinLaerm (jedes neue Lärmereignis, aus dem Lärm-Leser in update, P2b)
 //       beiErzeugen(game, K, par) / beiAusruesten(game, K, par)   einmalig beim Anlegen (beiErzeugen darf werfen: dann entsteht keine Kreatur) bzw. im Kämpfer-Vertrag (Felder aus den Parametern in die Kreatur übernehmen, P2b)
+//       beiWechsel(game, K, von, nach, par)   bei jedem Zustandswechsel einer schon laufenden Kreatur, VOR dem Zurücksetzen der Zustandsfelder (K.rammTreffer, K.blockiert des alten Zustands sind noch da; MON-02 P1, Baustein aufgeben)
 //       modi: { name: { betreten?(game, K, ctx, par, zustand), tick(game, K, dt, ctx, par, zustand) } }   Bewegungsmodi, die Zustände der Tabelle verwenden dürfen
 //       ausloeser: { name(game, K, ctx, par, uebergang) -> bool }                                         zusätzliche Auslöser für `uebergang[].auf`
 //       pruefen(par) -> [Fehlertext]          Parameter-Prüfung des Validators
@@ -24,7 +25,14 @@
 //   raeumen(aw)                              Kreaturen einer Karte entfernen (Szenario-Start, P2a)
 //   daten() / pruefen(daten)                 Laden und Validator (lazy beim ersten Gebrauch, damit sich Bausteine vorher anmelden können; Fehler = Exception mit allen Befunden)
 //   erzeugen(game, typ, x, y) / debugKreatur(game, p, typ)   Anlegen; Debug `kreatur <typ>` (nur Server --debug)
+//   erzeugenAuf(game, aw, typ, { x, y, gruppe? })            Anlegen auf einer gegebenen Außenkarte (Missionsaktionen laufen vor der Landung; MON-02 P1)
+//   rudelSetzen(game, { map, bereich?, typ, anzahl, gruppe }) Rudel mit Kennung K.gruppe anlegen (Aktion kreatur_besetzen), Buchführung aw.kreaturGruppen[gruppe] = { erschienen, typ }
+//   ausgefallenMelden(game, K)               Ereignis kreaturAusgefallen {id, typ, gruppe, x, y} bei endgültigem Ausfall (aus combat.faellt; bewusstlos meldet nichts; einmal je Kreatur; MON-02 P2)
+//   rudelErledigt(game, map, { gruppe | typ })  Prüfung des Bausteins kreaturen_erledigt; nichtEndgueltigErledigt(K) ist die gemeinsame Regel (lebend oder erholbar liegend, nicht aufgelöst)
+//   Baustein `aufgeben` { anlaeufe }: Auslöser `aufgegeben` nach n erfolglosen Rammen in Folge (Hook beiWechsel)
 //
+// Größe (MON-02 G): groesse 1 oder 2 (Kanten des Fußabdrucks in Kacheln). Die Mitte des Tieres liegt bei Größe 1 in der Kachelmitte, bei Größe 2 auf der Kachelecke (shared/monster.js mitteVon/ankerVonPosition);
+// die Maske, der Pfad, die Tür-Prüfung und die Position beim Anlegen benutzen denselben Fußabdruck (typ.groesse; die Instanz bekommt kein Feld, hbVon trägt ihn). Kollisionsbox und Trefferradius stehen je Typ in den Daten (kollision.box, hitRadius).
 // Zufall NUR über aw.rng (nie game.rng, sonst verschiebt sich der Strom des Station-Monsters). Wahrnehmung wie Station: Sicht in Kacheln, Sichtlinie über combat.losBetween.
 const Mon = require('../../shared/monster.js');
 const Physics = require('../../shared/physics.js');
@@ -38,8 +46,10 @@ const combat = () => combatMod || (combatMod = require('./combat.js'));
 let waffenMod = null;
 const waffen = () => waffenMod || (waffenMod = require('./waffen.js'));
 const TILE = Physics.TILE;
-const KOERPER_PRO_FUSS = 14;   // px Kollisionsbox je Kachel Fußabdruck (Größe 2 = 28×28 = Station)
-const hbVon = (typ) => ({ w: typ.groesse * KOERPER_PRO_FUSS, h: typ.groesse * KOERPER_PRO_FUSS });
+const GROESSEN = [1, 2];   // erlaubte Kanten des Fußabdrucks in Kacheln (Mitte je Größe: shared/monster.js mitteVon); 3 und 4 sind nicht gebaut
+const KOERPER_PRO_FUSS = 14;   // Rückfall der Kollisionsbox: px je Kachel Fußabdruck (Größe 2 = 28×28 = Station), wenn der Typ kein Feld kollision.box hat
+// Körper eines Typs für die Bewegung: Kollisionsbox aus den Daten (kollision.box, px, quadratisch), sonst der Rückfall groesse × 14, dazu der Fußabdruck (fuss = groesse) für Mitte und Türprüfung
+const hbVon = (typ) => { const b = typ.kollision && typ.kollision.box != null ? typ.kollision.box : typ.groesse * KOERPER_PRO_FUSS; return { w: b, h: b, fuss: typ.groesse }; };
 
 // ---------- Registry der Bausteine ----------
 const bausteine = new Map();
@@ -48,7 +58,7 @@ function kreaturBausteinAnmelden(name, def) {
   if (typeof name !== 'string' || !name) throw new Error('kreaturBausteinAnmelden: Name fehlt');
   if (!def || typeof def !== 'object') throw new Error('kreaturBausteinAnmelden: Definition fehlt (' + name + ')');
   if (bausteine.has(name)) throw new Error('kreaturBausteinAnmelden: Baustein bereits angemeldet (' + name + ')');
-  for (const k of ['beiTick', 'beiAbgleich', 'beiTreffer', 'beiLaerm', 'beiErzeugen', 'beiAusruesten', 'pruefen']) if (def[k] !== undefined && typeof def[k] !== 'function') throw new Error('kreaturBausteinAnmelden: ' + k + ' muss eine Funktion sein (' + name + ')');
+  for (const k of ['beiTick', 'beiAbgleich', 'beiTreffer', 'beiLaerm', 'beiErzeugen', 'beiAusruesten', 'beiWechsel', 'pruefen']) if (def[k] !== undefined && typeof def[k] !== 'function') throw new Error('kreaturBausteinAnmelden: ' + k + ' muss eine Funktion sein (' + name + ')');
   for (const [gruppe, fn] of [['modi', 'tick'], ['ausloeser', null]]) {
     for (const [n, f] of Object.entries(def[gruppe] || {})) if (fn ? !f || typeof f[fn] !== 'function' : typeof f !== 'function') throw new Error('kreaturBausteinAnmelden: ' + gruppe + '.' + n + ' ungültig (' + name + ')');
   }
@@ -68,7 +78,7 @@ const KERN_MODI = {
     tick(game, K, dt, ctx, par, z) {
       if (!K.pfad.length && K.replan <= 0) {
         const aw = game.away; const r = z.radius || 8;
-        const base = Mon.ankerVon(K.x, K.y);
+        const base = Mon.ankerVonPosition(K.x, K.y, ctx.m.fuss);
         for (let i = 0; i < 12; i++) {
           const cx = base.cx + Math.round((aw.rng() * 2 - 1) * r), cy = base.cy + Math.round((aw.rng() * 2 - 1) * r);
           if (ctx.m.geht(cx, cy)) { Monster.setzePfad(K, ctx.m, { cx, cy }); break; }
@@ -240,6 +250,37 @@ kreaturBausteinAnmelden('rammschaden', {
   pruefen(par) { return !par || !zahl(par.radius, 1) ? ['radius muss eine Zahl >= 1 sein (px, Mittelpunktabstand)'] : []; },
 });
 
+// ---------- Baustein aufgeben (MON-02 P1): erfolgloses Rammen gibt irgendwann auf ----------
+// Zählt Anläufe in Folge ohne Treffer auf einen Spieler: jedes Verlassen eines Zustands mit dem Modus `ramme`, bei dem K.rammTreffer nicht gesetzt ist (steckt, blockiert, ins Leere, Zeit um).
+// Hook beiWechsel: läuft vor dem Zurücksetzen der Zustandsfelder, K.rammTreffer des alten Zustands ist also noch da. Ist der Zähler bei `anlaeufe`, wird der Auslöser `aufgegeben` wahr; die Tabelle führt dann
+// in einen Zustand ohne Angriff (suche, patrouille). Der Auslöser VERBRAUCHT den Zähler (zurück auf 0): wird er wahr, nimmt die Tabelle den Übergang, danach beginnt eine neue Runde mit `anlaeufe` Versuchen.
+// Zähler zurück bei: Treffer auf einen Spieler (rammschaden setzt K.rammTreffer; mit game.god trifft nichts, dann zählt jeder Anlauf), Verlust des Ziels (nicht mehr `jagend`), Auslösen.
+// Ohne den Baustein bleibt eine Kreatur, die ihr Ziel sieht und nie erreicht (Wasser, Lava, Fels dazwischen), für immer im Zyklus Aufladen, Rammen, steckt, Pause (gemessen: 12 von 12 Paaren am Wasser).
+//   anlaeufe  ganze Zahl >= 1: erfolglose Anläufe in Folge, dann `aufgegeben`
+const AUFGEBEN_FELDER = ['anlaeufe'];
+const aufgebenVon = (K) => K.aufgeben || (K.aufgeben = { n: 0 });
+kreaturBausteinAnmelden('aufgeben', {
+  beiWechsel(game, K, von, nach, par) {
+    if (typVon(K.typ).zustaende[von].modus !== 'ramme') return;
+    const a = aufgebenVon(K);
+    a.n = K.rammTreffer ? 0 : a.n + 1;
+  },
+  beiTick(game, K, dt, par, ctx) { if (K.aufgeben && K.aufgeben.n > 0 && !jagend(K, ctx.typ)) K.aufgeben.n = 0; },
+  ausloeser: {
+    aufgegeben(game, K, ctx, par) {
+      const a = K.aufgeben; if (!a || a.n < par.anlaeufe) return false;
+      a.n = 0; return true;
+    },
+  },
+  pruefen(par) {
+    const F = [];
+    if (!par || typeof par !== 'object' || Array.isArray(par)) return ['Objekt { anlaeufe } erwartet'];
+    for (const k of Object.keys(par)) if (!AUFGEBEN_FELDER.includes(k)) F.push(k + ': unbekanntes Feld');
+    if (!Number.isInteger(par.anlaeufe) || par.anlaeufe < 1 || par.anlaeufe > 50) F.push('anlaeufe muss eine ganze Zahl 1 bis 50 sein (erfolglose Anläufe in Folge)');
+    return F;
+  },
+});
+
 // ---------- Baustein bindung (P3): Kreatur hängt an einer Quelle ----------
 // Fällt die Bindung weg, löst sich die Kreatur auf (Folge `aufloesen`): sauber aus aw.kreaturen entfernt, kein Fall, kein droneKilled, kein knockOut; Ereignis `kreaturAufgeloest {id, typ, x, y}`
 // und Missionsereignis gleichen Namens. Gebunden bleibt sie auch betäubt, bewusstlos oder ohne Außenteam (der Abgleich läuft vor der Handlungsfähigkeit); endgültig erledigte Kreaturen (verwundet/aus) werden nicht mehr geprüft.
@@ -354,6 +395,45 @@ kreaturBausteinAnmelden('bindung', {
   },
 });
 
+// MON-02 P2: Kreatur fällt endgültig aus (verwundet/aus, nicht bewusstlos): Ereignis `kreaturAusgefallen {id, typ, gruppe, x, y}` (Spiel- und Missionsereignis), höchstens einmal je Kreatur.
+// Aufrufer: combat.faellt nach knockOut. Bewusstlose Kreaturen melden nichts (sie stehen wieder auf); fällt eine aufgewachte später verwundet, meldet sie dann. Der Merker K.ausgefallenGemeldet entsteht erst bei der Meldung (nicht in anlegen).
+function ausgefallenMelden(game, K) {
+  if (!K || !K.kreatur || K.weg || K.ausgefallenGemeldet || nichtEndgueltigErledigt(K)) return false;
+  K.ausgefallenGemeldet = true;
+  const d = { id: K.id, typ: K.typ, gruppe: K.gruppe != null ? K.gruppe : null, x: Math.round(K.x), y: Math.round(K.y) };
+  game.emit('kreaturAusgefallen', d);
+  game.missionEvent('kreaturAusgefallen', d);
+  return true;
+}
+// MON-02 P2: Prüfung für den Baustein kreaturen_erledigt. Erledigt = mindestens ein Tier erschien (Buchführung aw.kreaturGruppen) und kein Tier der Gruppe (oder des Typs) ist mehr nicht endgültig erledigt.
+// Aufgelöste Tiere (Bindung) zählen als erledigt, bewusstlose und liegende (erholbare) nicht. Unbekannte Karte oder Gruppe (nie erschienen): nicht erfüllt. opts { gruppe } oder { typ } (genau eines).
+// Fehler der Parameter von kreaturen_erledigt (Prüfer und Laufzeit teilen sie): genau eines von gruppe/typ, typ muss in kreaturen.json stehen. Liefert Texte ([] = in Ordnung).
+function erledigtOptionenFehler(opts) {
+  const o = opts || {};
+  if (o.gruppe == null && o.typ == null) return ["braucht genau eines von 'gruppe' oder 'typ' (beide fehlen)"];
+  if (o.gruppe != null && o.typ != null) return ["braucht genau eines von 'gruppe' oder 'typ' (beide gesetzt)"];
+  if (o.typ != null && !hat(daten().typen, o.typ)) return ["Typ '" + o.typ + "' gibt es in content/kampf/kreaturen.json nicht (" + Object.keys(daten().typen).join(', ') + ")"];
+  return [];
+}
+const erledigtFehlerGemeldet = new WeakSet();   // je Spiel höchstens eine Laufzeitmeldung (die Prüfung läuft jeden Tick)
+function rudelErledigt(game, map, opts) {
+  const o = opts || {};
+  const F = erledigtOptionenFehler(o);
+  if (F.length) {
+    if (game && game.countError && !erledigtFehlerGemeldet.has(game)) { erledigtFehlerGemeldet.add(game); game.countError('mission-kreatur', new Error('kreaturen_erledigt: ' + F[0])); }
+    return false;
+  }
+  const aw = game && game.aways && hat(game.aways, map) ? game.aways[map] : null;
+  const G = aw && aw.kreaturGruppen;
+  if (!G) return false;
+  let erschienen = 0;
+  if (o.gruppe != null) { if (hat(G, o.gruppe)) erschienen = G[o.gruppe].erschienen; }
+  else for (const k of Object.keys(G)) if (G[k].typ === o.typ) erschienen += G[k].erschienen;
+  if (!(erschienen > 0)) return false;
+  for (const K of aw.kreaturen || []) if ((o.gruppe != null ? K.gruppe === o.gruppe : K.typ === o.typ) && nichtEndgueltigErledigt(K)) return false;
+  return true;
+}
+
 // Kreatur sauber auflösen: hier nur markiert (update() entfernt nach der Schleife), Ereignisse sofort. Kein Fall, kein droneKilled, kein knockOut.
 function aufloesen(game, K) {
   if (K.weg) return;
@@ -364,9 +444,10 @@ function aufloesen(game, K) {
 }
 
 // ---------- Daten laden und prüfen ----------
-const TYP_FELDER = ['name', 'groesse', 'sicht', 'verlustZeit', 'replan', 'hitRadius', 'schild', 'schildRegen', 'wunden', 'frontArc', 'tuerenAufbrechen', 'rammZeit', 'start', 'zustaende', 'bausteine'];
+const TYP_FELDER = ['name', 'groesse', 'kollision', 'sicht', 'verlustZeit', 'replan', 'hitRadius', 'schild', 'schildRegen', 'wunden', 'frontArc', 'tuerenAufbrechen', 'rammZeit', 'start', 'zustaende', 'bausteine'];
 const ZUSTAND_FELDER = ['modus', 'tempo', 'dauer', 'radius', 'uebergang'];
 const UEBERGANG_FELDER = ['auf', 'nach', 'abstand'];
+const KOLLISION_FELDER = ['box'];
 const SCHILD_FELDER = ['seg', 'max'];
 const SCHILDREGEN_FELDER = ['verzoegerung', 'schritt'];
 const zahl = (v, min, max) => typeof v === 'number' && Number.isFinite(v) && v >= min && (max === undefined || v <= max);
@@ -382,8 +463,15 @@ function pruefen(d) {
     if (!t || typeof t !== 'object' || Array.isArray(t)) { f(P, 'Objekt erwartet'); continue; }
     for (const k of Object.keys(t)) if (!TYP_FELDER.includes(k)) f(P + '.' + k, 'unbekanntes Feld');
     if (typeof t.name !== 'string' || !t.name) f(P + '.name', 'Name-Schlüssel (String) fehlt');
-    // Größe ≠ 2: Kollisionsbox (groesse × 14 px um Mon.mitte) und Maske (Ankerpunkt = Kachelecke) passen erst mit einer Mitte je Größe zusammen (MON-03)
-    if (t.groesse !== 2) f(P + '.groesse', 'muss 2 sein (Kanten des Fußabdrucks in Kacheln); Größe ≠ 2 erst mit Mitte je Größe (MON-03)');
+    if (!GROESSEN.includes(t.groesse)) f(P + '.groesse', 'muss ' + GROESSEN.join(' oder ') + ' sein (Kanten des Fußabdrucks in Kacheln; 3 und 4 gibt es nicht)');
+    // kollision.box: Kante der quadratischen Kollisionsbox in px, um die Mitte des Tieres (Größe 1: Kachelmitte, Größe 2: Kachelecke). Obergrenze: 8 px Luft zum Fußabdruck, damit die Box nie in eine feste Kachel ragt, die die Maske nicht prüft.
+    if (t.kollision !== undefined) {
+      if (!t.kollision || typeof t.kollision !== 'object' || Array.isArray(t.kollision)) f(P + '.kollision', 'optional: { box } (Objekt)');
+      else {
+        for (const k of Object.keys(t.kollision)) if (!KOLLISION_FELDER.includes(k)) f(P + '.kollision.' + k, 'unbekanntes Feld');
+        if (!zahl(t.kollision.box, 4, GROESSEN.includes(t.groesse) ? t.groesse * TILE - 8 : undefined)) f(P + '.kollision.box', 'Zahl 4 bis ' + (GROESSEN.includes(t.groesse) ? t.groesse * TILE - 8 : 'Größe × 32 − 8') + ' (px Kantenlänge der Kollisionsbox)');
+      }
+    }
     if (!zahl(t.sicht, 0.1)) f(P + '.sicht', 'Zahl > 0 (Kacheln)');
     if (!zahl(t.verlustZeit, 0)) f(P + '.verlustZeit', 'Zahl >= 0 (s)');
     if (!zahl(t.replan, 0.05)) f(P + '.replan', 'Zahl >= 0,05 (s)');
@@ -470,6 +558,7 @@ const typIds = () => Object.keys(daten().typen);
 const kreaturen = (game) => { const aw = game.away; return aw && aw.kreaturen ? aw.kreaturen : null; };
 function betreten(game, K, zn, ctx) {
   const typ = typVon(K.typ); const z = typ.zustaende[zn];
+  if (K.z != null) bausteinWechsel(game, K, K.z, zn);   // MON-02 P1: Hook vor dem Zurücksetzen (K.rammTreffer, K.blockiert des alten Zustands gelten noch)
   K.z = zn; K.zt = 0; K.t = z.dauer !== undefined ? z.dauer : null; K.blockiert = false; K.rammTreffer = false; K.ramm = null; K.pfad = []; K.replan = 0; K.tuerGesperrt = false;
   const modus = modusVon(typ, z.modus);
   if (modus && modus.betreten) modus.betreten(game, K, ctx || null, parVon(typ, z.modus), z);
@@ -496,21 +585,134 @@ function zustandSetzen(game, K, zustand) {
   betreten(game, K, zustand, null);
 }
 
-// Neue Kreatur in aw.kreaturen. Liefert die Instanz. Nur über Debug oder (später) über Karten-/Szenenbausteine aufrufen.
-function erzeugen(game, typId, x, y) {
-  const aw = game.away; if (!aw) throw new Error('erzeugen: keine Außenkarte');
+// Neue Kreatur auf einer Außenkarte. Gemeinsamer Kern von erzeugen (game.away) und erzeugenAuf (gegebene Karte). `gruppe` (MON-02 P1) ist die Rudel-Kennung K.gruppe, nur gesetzt, wenn angegeben.
+function anlegen(game, aw, typId, x, y, gruppe) {
+  if (!aw) throw new Error('erzeugen: keine Außenkarte');
   const typ = typVon(typId); if (!typ) throw new Error('erzeugen: unbekannter Typ ' + typId);
+  // beiErzeugen-Hooks (bindung) lesen game.away: auf einer anderen als der aktiven Karte wären sie falsch. Lieber laut abbrechen als still die falsche Karte lesen.
+  if (aw !== game.away) for (const b of Object.keys(typ.bausteine)) { const def = bausteine.get(b); if (def && def.beiErzeugen) throw new Error('erzeugenAuf: Baustein ' + b + ' liest die aktive Außenkarte, Typ ' + typId + ' nur auf game.away anlegen'); }
   if (!aw.kreaturen) aw.kreaturen = [];
   aw.kreaturSeq = (aw.kreaturSeq || 0) + 1;
   const K = { id: 'K' + aw.kreaturSeq, kind: 'kreatur', kreatur: true, typ: typId, x, y, facing: 0, alive: true, team: 'feind',
     seg: typ.schild.seg, max: typ.schild.max, hp: typ.schild.seg, lastHitAt: -99, regenT: 0, wunden: { n: typ.wunden, max: typ.wunden }, frontArc: typ.frontArc, hitRadius: typ.hitRadius,
     z: null, zt: 0, t: null, pfad: [], ziel: null, ramm: null, replan: 0, blockiert: false, tuerGesperrt: false, verlust: 0, letzte: null, stuckT: 0, ref: { x, y } };
+  if (gruppe != null) K.gruppe = gruppe;
   K.laermCursor = laermCursorAnlegen(aw);   // Altlast im Lärmpuffer nicht lesen
   betreten(game, K, typ.start, null);
   try { for (const b of Object.keys(typ.bausteine)) { const def = bausteine.get(b); if (def && def.beiErzeugen) def.beiErzeugen(game, K, typ.bausteine[b]); } }
   catch (e) { aw.kreaturSeq--; throw e; }   // Quelle fehlt o. ä.: keine halbe Kreatur, Nummer wieder frei
   aw.kreaturen.push(K);
   return K;
+}
+// Neue Kreatur in game.away. Liefert die Instanz. Nur über Debug oder über Karten-/Szenenbausteine aufrufen.
+function erzeugen(game, typId, x, y) { return anlegen(game, game.away, typId, x, y, null); }
+// Neue Kreatur auf einer gegebenen Außenkarte aw (MON-02 P1): für Missionsaktionen, die VOR der Landung laufen (game.away ist dann eine andere oder keine Karte). opts { x, y, gruppe? }.
+// Typen mit einem Baustein, dessen beiErzeugen game.away liest (bindung), gehen nur auf der aktiven Karte (Fehler sonst).
+function erzeugenAuf(game, aw, typId, opts) {
+  const o = opts || {};
+  if (!Number.isFinite(o.x) || !Number.isFinite(o.y)) throw new Error('erzeugenAuf: x und y (Zahlen) fehlen');
+  if (o.gruppe != null && (typeof o.gruppe !== 'string' || !GRUPPE_FORM.test(o.gruppe))) throw new Error('erzeugenAuf: gruppe muss ein Text der Form ' + GRUPPE_FORM + ' sein');
+  return anlegen(game, aw, typId, o.x, o.y, o.gruppe != null ? o.gruppe : null);
+}
+
+// ---------- Rudel (MON-02 P1) ----------
+// rudelSetzen(game, { map, bereich?, typ, anzahl, gruppe }) -> { n, ids, fehler }: legt ein Rudel (Kennung K.gruppe) auf einer Außenkarte an (Aufrufer: Missionsaktion kreatur_besetzen).
+// Plätze: nur Ankerpunkte der Maske des Typs (Fußabdruck frei), die vom Abholpunkt aus erreichbar sind, im Bereich (ohne bereich: ganze Karte) und mindestens RUDEL_ABHOLPUNKT Kacheln vom Abholpunkt.
+// Das Rudel steht kompakt um einen Mittelpunkt (zufällig aus aw.rng, höchstens RUDEL_VERSUCHE Zufallswahlen, danach der Reihe nach, insgesamt höchstens RUDEL_MITTELPUNKTE; „kein Platz“ heißt dann: keiner gefunden) mit mindestens
+// RUDEL_ABSTAND Kacheln Abstand der Tiere untereinander (auch zu schon vorhandenen Kreaturen). Fehler (unbekannter Typ, Bereich, Karte, Anzahl, Karte ohne Abholpunkt, kein erreichbarer Platz) kommen als Text zurück, es entsteht dann nichts
+// (auch kein halbes Rudel, wenn das Anlegen eines Tiers wirft: schon angelegte Tiere werden wieder entfernt).
+// aw.kreaturGruppen[gruppe] = { erschienen, typ } (Buchführung je Karte, in aw, nie im Weltstand; raeumen räumt sie mit).
+const RUDEL_MAX = 12;           // Tiere je Aufruf
+const RUDEL_ABSTAND = 1.5;      // Kacheln, Mindestabstand der Tiere beim Start (Mitte zu Mitte)
+const RUDEL_ABHOLPUNKT = 10;    // Kacheln, Mindestabstand zum Abholpunkt
+const RUDEL_VERSUCHE = 60;      // Zufallswahlen des Mittelpunkts, bevor der Reihe nach gesucht wird
+const RUDEL_MITTELPUNKTE = 100; // Deckel: so viele Mittelpunkte werden höchstens probiert (jeder kostet einen Durchlauf über alle Kandidaten), danach Fehler statt Blockade im Tick
+const GRUPPE_FORM = /^[A-Za-z][A-Za-z0-9_.-]{0,39}$/;
+const hat = (o, k) => !!o && Object.prototype.hasOwnProperty.call(o, k);
+const weltMod = () => require('../world.js');
+// Karte registrieren wie combat.besetzen (F1): nicht registrierte Landepunkt-Karte aus dem Cache holen, nie bauen
+function karteRegistriert(game, map) {
+  let aw = game.aways && game.aways[map];
+  if ((!aw || !weltMod().AWAY_MAPS[map]) && map) {
+    try { const L = require('./landepunkte.js'); if (L && typeof L.bereit === 'function' && L.bereit(game, map)) aw = game.aways[map]; } catch (e) { /* ohne Landepunkte: unbekannt */ }
+  }
+  return aw && weltMod().AWAY_MAPS[map] ? aw : null;
+}
+function rudelSetzen(game, o) {
+  const fehl = (t) => ({ n: 0, ids: [], fehler: 'kreatur_besetzen: ' + t });
+  const p = o || {};
+  let typ = null;
+  try { typ = hat(daten().typen, p.typ) ? typVon(p.typ) : null; } catch (e) { return fehl(e.message.split('\n')[0]); }
+  if (!typ) return fehl('unbekannter Typ "' + p.typ + '"');
+  const n = p.anzahl;
+  if (!Number.isInteger(n) || n < 1 || n > RUDEL_MAX) return fehl('anzahl muss eine ganze Zahl von 1 bis ' + RUDEL_MAX + ' sein (' + n + ')');
+  if (typeof p.gruppe !== 'string' || !GRUPPE_FORM.test(p.gruppe)) return fehl('gruppe muss ein Text der Form ' + GRUPPE_FORM + ' sein (' + p.gruppe + ')');
+  const aw = karteRegistriert(game, p.map);
+  if (!aw) return fehl('Karte ' + p.map + ' unbekannt');
+  const k = game.karteOf ? game.karteOf(p.map) : null;
+  if (!k) return fehl('Karte ' + p.map + ' hat keine Kartendaten');
+  let rects = null;
+  if (p.bereich != null) {   // ein unbekannter Bereich fällt NICHT still auf die ganze Karte zurück
+    const b = hat(k.bereiche, p.bereich) ? k.bereiche[p.bereich] : null;
+    if (!b || !Array.isArray(b.rects)) return fehl('Bereich "' + p.bereich + '" gibt es auf der Karte ' + p.map + ' nicht (' + Object.keys(k.bereiche || {}).join(', ') + ')');
+    rects = b.rects;
+  }
+  const alt = hat(aw.kreaturGruppen, p.gruppe) ? aw.kreaturGruppen[p.gruppe] : null;
+  if (alt && alt.typ !== p.typ) return fehl('Gruppe "' + p.gruppe + '" besteht schon mit dem Typ ' + alt.typ);
+  combat().ensureV2(game, aw, p.map);   // aw.rng
+  const m = Monster.maskeVonGroesse(k, typ.groesse);
+  const abhol = (k.anker || []).filter((a) => a.rolle === 'abholpunkt');
+  const ref = abhol.find((a) => a.ankunft) || abhol[0] || null;
+  // Ohne Abholpunkt gäbe es weder Erreichbarkeit noch Abstand (karte.ankunft ist selbst die Kennung eines Abholpunkts, taugt also nicht als Ersatz): laut scheitern statt still prüfen zu lassen
+  if (!ref) return fehl('Karte ' + p.map + ' hat keinen Abholpunkt: Erreichbarkeit und Abstand zum Landeplatz sind nicht prüfbar');
+  const start = Mon.naechster(m, ref.x, ref.y, 4);
+  if (!start) return fehl('kein erreichbarer Platz: am Abholpunkt hat ein Tier der Größe ' + typ.groesse + ' keinen Platz');
+  const dist = Mon.bfs(m, [start]);
+  const kand = [];
+  for (let cy = 0; cy < m.h; cy++) for (let cx = 0; cx < m.w; cx++) {
+    if (!m.geht(cx, cy) || dist[cy * m.w + cx] < 0) continue;
+    const pos = Mon.mitteVon({ cx, cy }, typ.groesse);
+    const tx = Math.floor(pos.x / TILE), ty = Math.floor(pos.y / TILE);
+    if (rects && !rects.some((r) => tx >= r[0] && tx < r[0] + r[2] && ty >= r[1] && ty < r[1] + r[3])) continue;
+    if (abhol.some((a) => Math.hypot(tx - a.x, ty - a.y) < RUDEL_ABHOLPUNKT)) continue;
+    kand.push(pos);
+  }
+  const R2 = Math.pow(Math.max(4, Math.ceil(Math.sqrt(n) * 2)) * TILE, 2), D2 = Math.pow(RUDEL_ABSTAND * TILE, 2);
+  const vorhanden = (aw.kreaturen || []).filter((K) => K.alive);
+  const rudelUm = (c) => {   // die n Plätze, die der Mitte am nächsten liegen und je RUDEL_ABSTAND auseinander (greedy), sonst null
+    const d = (q) => (q.x - c.x) * (q.x - c.x) + (q.y - c.y) * (q.y - c.y);
+    const nah = kand.filter((q) => d(q) <= R2);
+    nah.sort((a, b) => d(a) - d(b));
+    const wahl = [];
+    for (const q of nah) {
+      if (wahl.some((w) => (w.x - q.x) * (w.x - q.x) + (w.y - q.y) * (w.y - q.y) < D2)) continue;
+      if (vorhanden.some((K) => (K.x - q.x) * (K.x - q.x) + (K.y - q.y) * (K.y - q.y) < D2)) continue;
+      wahl.push(q);
+      if (wahl.length === n) return wahl;
+    }
+    return null;
+  };
+  const pool = kand.slice();
+  let wahl = null;
+  let probiert = 0;
+  for (let v = 0; pool.length && !wahl && v < RUDEL_MITTELPUNKTE; v++) {
+    const i = v < RUDEL_VERSUCHE ? Math.floor(aw.rng() * pool.length) : 0;
+    const c = pool[i]; pool[i] = pool[pool.length - 1]; pool.pop();
+    wahl = rudelUm(c); probiert++;
+  }
+  if (!wahl) return fehl('kein erreichbarer Platz für ' + n + ' Tiere (Größe ' + typ.groesse + ', Abstand ' + RUDEL_ABSTAND + ' Kacheln) in ' + (p.bereich != null ? 'Bereich ' + p.bereich : 'der Karte') + ' von Karte ' + p.map + ' (' + kand.length + ' erreichbare Ankerpunkte, ' + probiert + ' Mittelpunkte probiert' + (probiert < kand.length ? ', Suche beim Deckel ' + RUDEL_MITTELPUNKTE + ' abgebrochen' : '') + ')');
+  const ids = [];
+  const seq0 = aw.kreaturSeq || 0, laenge0 = (aw.kreaturen || []).length;
+  try {
+    for (const q of wahl) { const K = anlegen(game, aw, p.typ, q.x, q.y, p.gruppe); K.facing = aw.rng() * Math.PI * 2; ids.push(K.id); }
+  } catch (e) {   // kein halbes Rudel: schon angelegte Tiere zurücknehmen (Nummern wieder frei), keine Buchführung
+    if (aw.kreaturen) aw.kreaturen.length = laenge0;
+    aw.kreaturSeq = seq0;
+    return fehl(e.message);
+  }
+  const G = aw.kreaturGruppen || (aw.kreaturGruppen = {});
+  G[p.gruppe] = { erschienen: (alt ? alt.erschienen : 0) + n, typ: p.typ };
+  return { n, ids, fehler: null };
 }
 
 // ---------- Tick ----------
@@ -612,10 +814,11 @@ function schildRegeneration(game, K, dt) {
   K.regenT = 0; K.seg++; K.hp = K.seg;
 }
 // Alle Kreaturen einer Außenkarte entfernen (Szenario-Start räumt die Karte wie aw.drones)
-function raeumen(aw) { if (aw && aw.kreaturen && aw.kreaturen.length) aw.kreaturen = []; }
+function raeumen(aw) { if (aw && aw.kreaturGruppen) delete aw.kreaturGruppen; if (aw && aw.kreaturen && aw.kreaturen.length) aw.kreaturen = []; }
 
 // Dispatcher für die Hooks der Bausteine (Aufrufer: Treffer-Auswertung P2, Lärm-Leser P2b)
 function bausteinTreffer(game, K, treffer) { const typ = typVon(K.typ); for (const b of Object.keys(typ.bausteine)) { const def = bausteine.get(b); if (def && def.beiTreffer) def.beiTreffer(game, K, treffer, typ.bausteine[b]); } }
+function bausteinWechsel(game, K, von, nach) { const typ = typVon(K.typ); for (const b of Object.keys(typ.bausteine)) { const def = bausteine.get(b); if (def && def.beiWechsel) def.beiWechsel(game, K, von, nach, typ.bausteine[b]); } }
 function bausteinAbgleich(game, K, dt) { const typ = typVon(K.typ); for (const b of Object.keys(typ.bausteine)) { const def = bausteine.get(b); if (def && def.beiAbgleich) def.beiAbgleich(game, K, dt, typ.bausteine[b]); } }
 function bausteinLaerm(game, K, laerm) { const typ = typVon(K.typ); for (const b of Object.keys(typ.bausteine)) { const def = bausteine.get(b); if (def && def.beiLaerm) def.beiLaerm(game, K, laerm, typ.bausteine[b]); } }
 
@@ -639,13 +842,13 @@ function debugKreatur(game, p, typId) {
     a = Mon.naechster(m, tx + dx, ty + dy, 2); if (a) break;
   }
   if (!a) return 'kreatur: kein freier Platz in der Nähe.';
-  const pos = Mon.mitte(a);
+  const pos = Mon.mitteVon(a, typ.groesse);
   const K = erzeugen(game, typId, pos.x, pos.y);
   if (game.notice) game.notice(p, 'kreatur: ' + typId + ' ' + K.id + ' bei (' + a.cx + ',' + a.cy + ').');
   return null;
 }
 
-module.exports = { update, kreaturBausteinAnmelden, bausteinTreffer, bausteinLaerm, daten, pruefen, typVon, erzeugen, zustandSetzen, debugKreatur, kreaturen, ziele, ausruesten, raeumen };
+module.exports = { update, kreaturBausteinAnmelden, bausteinTreffer, bausteinLaerm, daten, pruefen, typVon, erzeugen, erzeugenAuf, rudelSetzen, zustandSetzen, debugKreatur, kreaturen, ziele, ausruesten, raeumen, nichtEndgueltigErledigt, ausgefallenMelden, rudelErledigt, erledigtOptionenFehler };
 
 // ---------- Anzeige und Scanner (MON-01 P4) ----------
 // Scanner: Art `monster`, billig (nur die lebenden Kreaturen mit aktueller Position, keine Karte). Typ-ID aus kreaturen.json; der Name steht im Client-Content (datenblaetter.json).
