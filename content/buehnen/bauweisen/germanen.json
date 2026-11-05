@@ -241,6 +241,14 @@
       "belag": 0,
       "hinweis": "VOX-01 5a: Feldteil mit eigener Palette",
       "palette": "sommer_wald"
+    },
+    "schleier": {
+      "terrain": true,
+      "hinweis": "GEL-01: Sichtschleier (Varianten, bisher strauch); kein Kit-Teil, Platzhalter FB.schleier in kit.js, Kit-Teil je Variante folgt"
+    },
+    "fluessig": {
+      "terrain": true,
+      "hinweis": "GEL-01: Fluessigkeit (Varianten wasser, lava); kein Kit-Teil, Platzhalter FB.fluessig in kit.js, Kit-Teil je Variante folgt"
     }
   },
   "anker": {
@@ -435,7 +443,11 @@
     "aussenposten": "outpost_frost",
     "station": "hall_forge",
     "schiff": "ship_nord",
-    "ruine": "outpost_frost"
+    "ruine": "outpost_frost",
+    "wildnis": "wildnis_wiesenwald",
+    "wildnis:wueste": "wildnis_wueste",
+    "wildnis:gras": "wildnis_wiesenwald",
+    "wildnis:vulkan": "wildnis_vulkan"
   },
   "leitmaterial": {
     "hinweis": "artdirector.md §8.6: geteilt werden Props und Details, nie Wand, Boden und Licht zugleich.",
@@ -512,6 +524,26 @@
       },
       "weg": {
         "top": "wald_hell",
+        "f": 1
+      }
+    },
+    "wueste": {
+      "gelaende": {
+        "top": "wueste",
+        "fill": "wueste_dunkel"
+      },
+      "weg": {
+        "top": "wueste_hell",
+        "f": 1
+      }
+    },
+    "vulkan": {
+      "gelaende": {
+        "top": "vulkan",
+        "fill": "vulkan_dunkel"
+      },
+      "weg": {
+        "top": "vulkan_hell",
         "f": 1
       }
     }

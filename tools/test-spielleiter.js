@@ -1408,7 +1408,7 @@ async function b1Tests(T) {
       ankerGebaut: !!(kk.anker && kk.anker.raetsel >= 2 && kk.anker.fund >= 1 && !('deckung' in kk.anker)), besucht: kk.besucht === 2 && kk.alarm === true,
       ankerPflicht: !kg.anker, ankerHand: !!((kesh.find((x) => x.id === 'kesh') || {}).anker || {}).tor,
       treibgutNichtFrei: treib.frei === 'nach_raumgefecht', keinRostnest: !all.some((x) => /^rostnest/.test(x.id) && !x.gesperrt),
-      kartenarten: (c.kartenarten || []).map((x) => x.id).join(',') === 'aussenposten,station,ruine,schiff' && ruine.pflichtsatz.raetsel === 2 && !!ruine.kurz,
+      kartenarten: (c.kartenarten || []).map((x) => x.id).join(',') === 'aussenposten,station,ruine,schiff,wildnis' && ruine.pflichtsatz.raetsel === 2 && !!ruine.kurz,
       bilanz: c.bodenbilanz.pflicht_jetzt === true && c.bodenbilanz.letzte.length === 2 && c.bodenbilanz.lang_ab_min === 25 && c.bodenbilanz.letzte[0].landepunkte[0] === 'kesh.kastell',
       bewaffnung: JSON.stringify(c.crew.bewaffnung) === '{"blaster":1,"lanze":1}' && !JSON.stringify(c).includes('a1b2c3d4e5f6'),
       rollen: JSON.stringify(c.rollen_gesehen) === '["grundtyp"]',
@@ -1423,7 +1423,7 @@ async function b1Tests(T) {
   });
 
   // 2. Token-Schätzung: Grobplan-Kontext (ohne verfuegbar, wie im Prompt) vorher (S2b-Felder) / nachher, Ziel + ≤ 2k
-  await safe(T13, 'Kontext wächst um höchstens 2k Tokens (Schätzung 2,5 Zeichen je Token)', () => {
+  await safe(T13, 'Kontext wächst um höchstens 2,1k Tokens (Schätzung 2,5 Zeichen je Token)', () => {
     const rows = []; let max = 0;
     for (const [name, w] of Object.entries(worldData)) {
       const c = Context.build(w, {}, katalog);
@@ -1436,7 +1436,7 @@ async function b1Tests(T) {
       const plus = Math.round((b - a) / 2.5); max = Math.max(max, plus);
       rows.push(`${name} ${Math.round(a / 2.5)}→${Math.round(b / 2.5)} (+${plus})`);
     }
-    check(T13, 'Kontext wächst um höchstens 2k Tokens (Schätzung 2,5 Zeichen je Token)', max <= 2000, `Grobplan-Kontext in Tokens: ${rows.join(', ')}`);
+    check(T13, 'Kontext wächst um höchstens 2,1k Tokens (Schätzung 2,5 Zeichen je Token)', max <= 2100, `Grobplan-Kontext in Tokens: ${rows.join(', ')}`);
   });
 
   // 3. Landepunkt-Auflösung

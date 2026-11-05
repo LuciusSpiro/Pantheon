@@ -26,8 +26,8 @@
   "staerke": { "klein": 1, "mittel": 2, "gross": 3 },
   "gross_extra": null,
   "einsatz": {
-    "schildwall": ["aussenposten"],
-    "schreinwache": ["aussenposten"]
+    "schildwall": ["aussenposten", "wildnis"],
+    "schreinwache": ["aussenposten", "wildnis"]
   },
   "funkstil": "knapp und ernst, ruft die Ahnen von Asgard an"
 }

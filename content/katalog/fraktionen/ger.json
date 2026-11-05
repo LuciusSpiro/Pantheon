@@ -48,11 +48,13 @@
     "wache": [
       "station",
       "aussenposten",
+      "wildnis",
       "hand"
     ],
     "sturmtrupp": [
       "station",
-      "aussenposten"
+      "aussenposten",
+      "wildnis"
     ]
   },
   "funkstil": "derb und stolz, spricht von Sippe, Ehre und Wergeld"

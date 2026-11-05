@@ -29,12 +29,14 @@ export const ALT_BESITZ_ORT = /gemein\/(fass|kette|werkzeug|feuerschale)$/;
 // Orte (Station, Außenposten, ORT-01 9): nur Regeln mit Kartenart-Präfix ('station:lager', 'aussenposten:*'), nie die
 // unpräfixierten Altstück-Regeln, die Schiff und Ruine weiter nutzen (Schiff und Ruine byte-gleich zu main).
 export function regelFuer(typ, art, R) {
+  if (art === 'wildnis') return null;   // GEL-01 D: die Wildnis streut nur ihren eigenen Bewuchs (streuenWildnis), nie die Altstück-Regeln der Bauweise (unpräfixiert = Schiff/Ruine)
   if (art === 'station' || art === 'aussenposten') return R[art + ':' + typ] || R[art + ':*'] || null;
   return R[typ] || R['*'] || null;
 }
 /** Besitz-Streu für eine Kartenart: in Station und Außenposten ohne ALT_BESITZ_ORT, sonst unverändert (kit.js und tools/hash-baseline.js). */
 export function besitzStreuFuerOrt(art, streu) {
   const liste = Array.isArray(streu) ? streu : [];
+  if (art === 'wildnis') return [];   // GEL-01 D: kein Besitz-Streugut in der Wildnis (Gelände ohne Siedlung)
   if (art !== 'station' && art !== 'aussenposten') return liste;
   return liste.filter((e) => !ALT_BESITZ_ORT.test(typeof e === 'string' ? e : (e && e.id) || ''));
 }
@@ -108,6 +110,46 @@ export function istKantenmitte(x, y, k) {
   if ((lx === 3 || lx === 4) && (ly === 0 || ly === 7)) return true;
   if ((ly === 3 || ly === 4) && (lx === 0 || lx === 7)) return true;
   return false;
+}
+
+// ---------------------------------------------------------------------------------------------------------------------------------------
+// GEL-01 D: Bodenbewuchs der Kartenart wildnis. Deko im Sinne der Prop-Regeln (Kai): KEINE Kachel (steht nie in rows, kein awayMap-Byte), keine Kollision,
+// keine Deckung, keine Sichtsperre; reine Optik aus Seed, Bodenton (Biom) und Position, nie Math.random und nie game.rng (gleiche Karte = gleiche Streuung).
+// Biom aus dem Bodenton der Karte (k.boden, vom Erzeuger gesetzt): wueste = Wüste, gras = Wiesenwald, vulkan = Vulkan. Ohne bekannten Ton: keine Streuung.
+// Kandidaten: nur freies Gelände (kind gelaende), nie Boden/Weg/Pad/Rampe, nie in Reichweite ANKER_FREI (Chebyshev) um einen Anker. Je Kachel höchstens ein Eintrag.
+// Rückgabe: [{ id, x, y, rot, seed, dx, dz, var }] (id: gras | blume | kiesel | asche, var = Farbgruppe der Blume 0–4, sonst 0),
+// zeilenweise sortiert. Gezeichnet wird in kit.js über FB.bewuchs (Platzhalter, bis VOX-02 echte Modelle liefert).
+export const WILDNIS_BIOM = { wueste: 'wueste', gras: 'wiesenwald', vulkan: 'vulkan' };
+export const WILDNIS_ANKER_FREI = 1;
+// dichte = Anteil der freien Kacheln mit Bewuchs; satz = [id, Gewicht]; blumen = Anteil der Kacheln in Blühflecken (Flecken zu 5×5 Kacheln, je Fleck eine Farbgruppe)
+export const WILDNIS_SAETZE = {
+  wueste: { dichte: 0.14, satz: [['gras', 3.5], ['kiesel', 5.5]], bluehen: 0 },   // kein Kaktus (Gegenstand ohne Kollision, Befund 13): nur flaches Bodendetail
+  wiesenwald: { dichte: 0.5, satz: [['gras', 7]], bluehen: 0.2 },
+  vulkan: { dichte: 0.2, satz: [['asche', 6], ['kiesel', 2.7]], bluehen: 0 },   // keine Glutsteinchen im Boden (Befund 10: Glut nur in der Lava)
+};
+export function streuenWildnis(k) {
+  if (!k || k.art !== 'wildnis') return [];
+  const biom = WILDNIS_BIOM[k.boden], def = biom ? WILDNIS_SAETZE[biom] : null;
+  if (!def) return [];
+  const W = k.w, H = k.h, seed = (k.seed >>> 0) || fnv(String(k.id || 'wildnis'));
+  const gesperrt = new Uint8Array(W * H), R = WILDNIS_ANKER_FREI;
+  for (const a of k.anker || []) {
+    const ax = a.x | 0, ay = a.y | 0;
+    for (let dy = -R; dy <= R; dy++) for (let dx = -R; dx <= R; dx++) { const x = ax + dx, y = ay + dy; if (x >= 0 && y >= 0 && x < W && y < H) gesperrt[y * W + x] = 1; }
+  }
+  const gesamt = def.satz.reduce((n, e) => n + e[1], 0);
+  const out = [];
+  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+    if (gesperrt[y * W + x] || k.kindAt(x, y) !== 'gelaende') continue;
+    const rnd = mulberry32(fnv('wildnis:' + biom + ':' + x + ':' + y, seed));
+    if (rnd() >= def.dichte) continue;
+    let id, v = 0;
+    const fleck = def.bluehen ? fnv('fleck:' + Math.floor(x / 5) + ':' + Math.floor(y / 5), seed) : 0;
+    if (def.bluehen && fleck % 100 < 55 && rnd() < def.bluehen / def.dichte) { id = 'blume'; v = Math.floor(fleck / 100) % 5; }   // Blühfleck: Farbgruppe aus dem Fleck
+    else { let t = rnd() * gesamt; id = def.satz[0][0]; for (const [name, g] of def.satz) { id = name; if ((t -= g) < 0) break; } }
+    out.push({ id, x, y, rot: Math.floor(rnd() * 4) * (Math.PI / 2), seed: Math.floor(rnd() * 8), dx: (rnd() - 0.5) * 0.3, dz: (rnd() - 0.5) * 0.3, var: v });
+  }
+  return out;
 }
 
 /**

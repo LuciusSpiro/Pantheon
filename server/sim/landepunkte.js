@@ -12,6 +12,7 @@ const Buehne = require('../../shared/buehne.js');
 const GenSiedlung = require('../../shared/gen-siedlung.js');
 const GenStation = require('../../shared/gen-station.js');
 const GenFest = require('../../shared/gen-fest.js');
+const GenGelaende = require('../../shared/gen-gelaende.js');
 const Locations = require('../../shared/locations.js');
 const W = require('../world.js');
 
@@ -74,7 +75,10 @@ function bauOpts(lpId, e) {
 // Landepunkte dieser beiden Kartenarten (Bodenkampf-Auswahl, Testgelände, Szenenbau, feste Orte). Schiff, Ruine und Handkarten bleiben bei
 // den Modulen. Aus: landepunkte.json "erzeuger": "modul" (ein Ort), Schablone explizit gesetzt (Test/Werkzeug) oder PANTHEON_GEN=0 (alles).
 // Gleicher Seed = gleiche Karte; die Karten erfüllen den Pflichtsatz der Kartenart (Missionsplanung nimmt ihn an).
-const GEN_GROESSE = { aussenposten: { n: 10 }, station: { n: 8 } };
+const GEN_GROESSE = { aussenposten: { n: 10 }, station: { n: 8 }, wildnis: { groesse: 'mittel' } };
+// GEL-01 B: Kartenarten, die NUR der Erzeuger baut (keine Modulordner/Schablonen, kein Modulbau als Rückfall). Der Aus-Schalter PANTHEON_GEN=0
+// und ein Definitionseintrag "erzeuger": "modul" gelten für sie nicht (es gäbe nichts, worauf sie zurückfallen könnten) – wie bei festen Karten.
+const NUR_GENERATOR = ['wildnis'];
 // BOD-01: feste Karten (shared/gen-fest.js, content/buehnen/festkarten/<name>.json). Eintrag (Definition oder Debug-Landepunkt) mit
 // gen: { fest: '<name>', abschnitte: { <abschnitt>: '<variante>' } } (Kartenart bleibt aussenposten): die Karte ist handgebaut, der Seed ohne Wirkung.
 const FEST_DIR = path.join(__dirname, '..', '..', 'content', 'buehnen', 'festkarten');
@@ -87,6 +91,7 @@ function festkarte(name) {   // Definition einer festen Karte (gelesen und gemer
 function genVorgaben(lpId, e) { return (e && e.gen) || (defs().byId[lpId] || {}).gen || {}; }
 function nutztGenerator(lpId, e) {
   if (genVorgaben(lpId, e).fest) return true;   // feste Karte: immer der Erzeuger (auch bei PANTHEON_GEN=0)
+  if (NUR_GENERATOR.includes(e.art)) return true;   // Wildnis: immer der Erzeuger (auch bei PANTHEON_GEN=0, s. NUR_GENERATOR)
   if (!GEN_GROESSE[e.art] || process.env.PANTHEON_GEN === '0' || (e.schablone && !/^gen-/.test(e.schablone))) return false;   // gen-… = vom Generator gesetzt (uebernehmen)
   const d = defs().byId[lpId] || {};   // Aus-Schalter steht in der Definition, nicht im (gespeicherten) Eintrag
   return d.erzeuger !== 'modul';
@@ -95,6 +100,24 @@ function nutztGenerator(lpId, e) {
 // Ohne diesen Eintrag (Limes/Eisenwald) bleibt jede Siedlung wie bisher; ein Landepunkt kann mit gen.boden / gen.ausstattung abweichen.
 function siedlungWelt() {
   try { const W = require('./welt.js'); const k = W.karte(W.kartenId()); return (k && k.siedlung) || null; } catch (x) { return null; }
+}
+// GEL-01 B (T2): Biome der Wildnis je Ort aus der aktiven Welt (content/welt/<karte>.json "biome": { "<ort-id>": "wueste"|"wiesenwald"|"vulkan" }).
+// `gen` steht nicht im Weltstand: Die Karte muss sich aus art + seed + besitz + zustand + Ort allein neu bauen lassen, darum kommt das Biom aus
+// der Weltkonfiguration, nicht aus dem Eintrag. Ohne Eintrag 'auto' (der Erzeuger wählt aus dem Seed). gen.biom / gen.groesse überschreiben nur
+// für Testgelände/Debug (nie gespeichert).
+function biomeWelt() {
+  try { const Wt = require('./welt.js'); const k = Wt.karte(Wt.kartenId()); return (k && k.biome) || {}; } catch (x) { return {}; }
+}
+// ACHTUNG: Welt-Biome dürfen nur VOR dem ersten Besuch gesetzt/geändert werden. Ein späterer Wechsel (oder eine neue Erzeuger-VERSION)
+// ändert die Karte; mitZustaenden() verwirft dann die gespeicherten Anker-Zustände dieser Wildnis (neue Karte = neue Funde, Log).
+function biomVonOrt(ort) {
+  const b = ort ? biomeWelt()[ort] : null;
+  return GenGelaende.BIOME.includes(b) ? b : 'auto';
+}
+function ortVon(lpId, e) { return (e && e.ort) || (defs().byId[lpId] || {}).ort || null; }
+function wildnisVorgaben(lpId, e) {
+  const gv = genVorgaben(lpId, e);
+  return { biom: gv.biom || biomVonOrt(ortVon(lpId, e)), groesse: gv.groesse || GEN_GROESSE.wildnis.groesse };
 }
 // Feste Karte: ein Bau, kein Seed-Wechsel (das Raster ist handgebaut); scheitert der Prüfer, ist die Karte falsch
 function festBauen(lpId, e, gv) {
@@ -134,7 +157,31 @@ function genBauen(lpId, e) {
   const err = new Error(`Generator ${lpId} ab Seed ${e.seed | 0}: 6 Versuche gescheitert (${letzte.fehler.slice(0, 3).map((f) => f.code + ' ' + f.msg).join('; ')})`);
   err.fehler = letzte.fehler; throw err;
 }
-function rohBauen(lpId, e) { return nutztGenerator(lpId, e) ? genBauen(lpId, e) : Buehne.bauen(bauOpts(lpId, e)); }
+// Erzeuger der Wildnis; nur der Test tauscht ihn (wildnisErzeugerSetzen), um Würfe zu provozieren
+let wildnisErzeugerFn = null;
+function wildnisErzeuger() { return wildnisErzeugerFn ? wildnisErzeugerFn() : GenGelaende.erzeuger(); }
+function wildnisErzeugerSetzen(fn) { wildnisErzeugerFn = fn || null; }
+// GEL-01 B: Wildnis (shared/gen-gelaende.js). Wie genBauen: scheitert der Prüfer, Seed + 1, bis zu 6 Versuche.
+function wildnisBauen(lpId, e) {
+  const v = wildnisVorgaben(lpId, e);
+  const o = { biom: v.biom, groesse: v.groesse, bauweise: e.bauweise || 'germanen', besitz: e.besitz || null, zustand: e.zustand || 'intakt', id: lpId };
+  let letzte = null;
+  for (let i = 0; i < 6; i++) {
+    const seed = (e.seed | 0) + i;
+    let roh;
+    try { roh = wildnisErzeuger().karteRoh(seed, o); }
+    catch (x) { letzte = { fehler: [{ code: 'GEN', msg: String(x.message) }] }; continue; }   // Wurf des Erzeugers wie ein Prüferfehler: nächster Seed
+    const r = Buehne.ausRaster(roh, { spiel: true });
+    if (r.pruefung.ok) { r.karte.meta.versuche = i + 1; r.karte.meta.seedStart = e.seed | 0; return r.karte; }
+    letzte = r;
+  }
+  const err = new Error(`Generator ${lpId} ab Seed ${e.seed | 0}: 6 Versuche gescheitert (${letzte.fehler.slice(0, 3).map((f) => f.code + ' ' + f.msg).join('; ')})`);
+  err.fehler = letzte.fehler; throw err;
+}
+function rohBauen(lpId, e) {
+  if (e.art === 'wildnis') return wildnisBauen(lpId, e);
+  return nutztGenerator(lpId, e) ? genBauen(lpId, e) : Buehne.bauen(bauOpts(lpId, e));
+}
 // Wirksame Bauwerte der (Roh-)Karte in den Eintrag
 function uebernehmen(e, roh) {
   e.seed = roh.seed; e.schablone = roh.schablone; e.bauversion = roh.bauversion;
@@ -143,9 +190,13 @@ function uebernehmen(e, roh) {
 // Gespeicherte Zustände auf eine eigene Kopie anwenden; Unbekanntes verwerfen. alt = bauversion vor dem Neubau (Logbuch).
 function mitZustaenden(game, lpId, e, roh, alt) {
   const karte = JSON.parse(JSON.stringify(roh));
-  const verworfen = Buehne.zustaendeAnwenden(karte, e.zustaende || {});
+  // GEL-01 Befund 2: Wildnis-Anker-IDs sind Ordnungsnummern nach y/x; bei anderer Karte (bauversion) säße fund.1 woanders und „genommen“
+  // spränge auf einen nie geborgenen Fundort. Neue Karte = neue Funde: gespeicherte Zustände dieser Karte werden nicht übertragen.
+  const wildnisNeu = e.art === 'wildnis' && !!alt && alt !== roh.bauversion;
+  const verworfen = wildnisNeu ? Object.keys(e.zustaende || {}) : Buehne.zustaendeAnwenden(karte, e.zustaende || {});
+  if (wildnisNeu && e.zustaende) e.zustaende = {};
   if (alt && alt !== roh.bauversion) {
-    log(game, `${lpId}: bauversion ${alt} -> ${roh.bauversion}, Karte neu gebaut (Seed ${roh.seed}); ${verworfen.length} Zustände verworfen`);
+    log(game, `${lpId}: bauversion ${alt} -> ${roh.bauversion}, Karte neu gebaut (Seed ${roh.seed}); ${verworfen.length} Zustände verworfen${wildnisNeu ? ' (Wildnis: neue Karte = neue Funde)' : ''}`);
     if (game.mission && typeof game.mission.regieLog === 'function') { try { game.mission.regieLog('landepunkt_neu_gebaut', { lp: lpId, alt, neu: roh.bauversion, verworfen }); } catch (x) { /* */ } }
   }
   if (verworfen.length && e.zustaende) for (const k of verworfen) delete e.zustaende[k];
@@ -305,8 +356,8 @@ const KARTEN_CACHE = new Map();
 const CACHE_MAX = 64;
 // Frischer Eintrag (bauversion null): die aktuelle Modul-Bauversion der Kartenart steht im Schlüssel, damit neu geladene
 // Module/Schablonen nicht die alte Karte treffen (F9b); cacheLeeren(art) ist zusätzlich die Absicherung der Werkstatt.
-function aktBauversion(art) { if (!art || art === 'hand') return 'hand'; try { return '~' + Buehne.bauversion(art); } catch (x) { return '~'; } }
-function cacheKey(lpId, e) { return [lpId, e.seed, e.art, e.schablone, e.bauweise, e.besitz, e.zustand, e.bauversion != null ? e.bauversion : aktBauversion(e.art), nutztGenerator(lpId, e) ? 'gen' : 'modul'].concat(genVorgaben(lpId, e).fest ? [JSON.stringify([genVorgaben(lpId, e).fest, genVorgaben(lpId, e).abschnitte || null])] : []).join('|'); }
+function aktBauversion(art) { if (!art || art === 'hand') return 'hand'; if (art === 'wildnis') return '~gelaende.' + GenGelaende.VERSION; try { return '~' + Buehne.bauversion(art); } catch (x) { return '~'; } }
+function cacheKey(lpId, e) { return [lpId, e.seed, e.art, e.schablone, e.bauweise, e.besitz, e.zustand, e.bauversion != null ? e.bauversion : aktBauversion(e.art), nutztGenerator(lpId, e) ? 'gen' : 'modul'].concat(genVorgaben(lpId, e).fest ? [JSON.stringify([genVorgaben(lpId, e).fest, genVorgaben(lpId, e).abschnitte || null])] : []).concat(e.art === 'wildnis' ? [JSON.stringify(wildnisVorgaben(lpId, e))] : []).join('|'); }
 // cacheLeeren(art?): Karten-Cache dieser Kartenart (ohne art: ganz) leeren (Werkstatt nach dem Speichern eines Moduls). -> Zahl
 function cacheLeeren(art) {
   let n = 0; FEST.clear();   // BOD-01: Definitionen fester Karten neu lesen
@@ -464,7 +515,7 @@ function bauweiseFuerBesitz(art, besitz) {
 function neu(game, ort, o) {
   o = o || {};
   if (!ort) throw new Error('neu: ort fehlt');
-  if (!['aussenposten', 'station', 'ruine', 'schiff'].includes(o.art)) throw new Error(`neu: Kartenart ${o.art} unbekannt`);
+  if (!['aussenposten', 'station', 'ruine', 'schiff', 'wildnis'].includes(o.art)) throw new Error(`neu: Kartenart ${o.art} unbekannt`);
   const S = st(game);
   let n = 1;
   while (defs().byId[`${ort}.${o.art}-${n}`] || S.dyn[`${ort}.${o.art}-${n}`] || S.eintraege[`${ort}.${o.art}-${n}`]) n++;
@@ -653,6 +704,7 @@ function debug(game, cmd, args, p) {
 
 module.exports = {
   MAX_GEBAUT, bauweiseFuerBesitz, vorwaermen, defs, neuLaden, get, karte, bauen, vorbauen, vorbauenOrt, verwerfen, liste, waehlen, sperrgrund, beamSpot, betreten, freigeben, neu, prise, priseVerlassen,
+  biomVonOrt, nutztGenerator,   // GEL-01 B
   toSave, restore, ankerZahlen, debug, sichern, eintrag, festkarte,   // BOD-01: feste Karten
-  bereit, sobaldGeladen, zuruecksetzen, testgelaende, cacheLeeren,   // F1, F6, F9b
+  bereit, sobaldGeladen, zuruecksetzen, testgelaende, cacheLeeren, wildnisErzeugerSetzen,   // F1, F6, F9b
 };

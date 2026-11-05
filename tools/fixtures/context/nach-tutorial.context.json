@@ -263,6 +263,15 @@
         "zelle": 1,
         "ziel": 2
       }
+    },
+    {
+      "id": "wildnis",
+      "kurz": "Offenes Gelände ohne Siedlung (80×56; Wüste, Wiesenwald, Vulkan): Abholpunkt, Fundorte, Deckung, Gegnerlager – Suchen, Bergen, Überfall.",
+      "pflichtsatz": {
+        "abholpunkt": 1,
+        "deckung": 4,
+        "fund": 2
+      }
     }
   ],
   "missionen": {

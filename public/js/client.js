@@ -705,13 +705,13 @@
   }
 
   // ------------------------------------------------------------------ B1: gebaute Karten, Testgelände-Direktstart, Prefetch
-  // URL ?arena=away&art=…&seed=…&bauweise=…&besitz=…&zustand=…[&fraktion&staerke&haltung] -> lobbyOpt { startMission: 'arena_away', arena }
+  // URL ?arena=away&art=…&seed=…&bauweise=…&besitz=…&zustand=…[&fraktion&staerke&haltung][&biom&groesse (art=wildnis)] -> lobbyOpt { startMission: 'arena_away', arena }
   const ARENA_URL = (function () {
     try {
       const q = new URLSearchParams(location.search);
       if (q.get('arena') !== 'away' || !q.get('art')) return null;
       const a = {};
-      for (const k of (P.ARENA_AWAY_FIELDS || ['art', 'schablone', 'seed', 'bauweise', 'besitz', 'zustand', 'fraktion', 'staerke', 'haltung'])) {
+      for (const k of (P.ARENA_AWAY_FIELDS || ['art', 'schablone', 'seed', 'bauweise', 'besitz', 'zustand', 'fraktion', 'staerke', 'haltung', 'biom', 'groesse'])) {
         const v = q.get(k); if (v != null && v !== '') a[k] = k === 'seed' && isFinite(+v) ? +v : v;
       }
       // Bodenkampf: Wellen auf genau dieser Karte (fester Seed); statische Karten-QA mit &wellen=0 bzw. mit fraktion

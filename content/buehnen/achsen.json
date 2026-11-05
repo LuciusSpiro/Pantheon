@@ -132,6 +132,13 @@
         29
       ],
       "bauweise": "germanen"
+    },
+    "wildnis": {
+      "kacheln": [
+        80,
+        56
+      ],
+      "bauweise": "germanen"
     }
   }
 }

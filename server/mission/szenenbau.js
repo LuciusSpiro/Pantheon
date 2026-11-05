@@ -80,7 +80,7 @@ function buildEnv(katalog) {
 // Meldungen beginnen mit dem Code („BODEN-QUOTE: …“), wie SPRECHER/ERINNERUNG-WIDERSPRUCH.
 // =================================================================================================================
 const KOORD_KEYS = ['x', 'y', 'tile', 'pos'];
-const KARTEN_ARTEN = ['aussenposten', 'station', 'ruine', 'schiff'];
+const KARTEN_ARTEN = ['aussenposten', 'station', 'ruine', 'schiff', 'wildnis'];
 const STAERKEN = ['klein', 'mittel', 'gross'];
 const HALTUNGEN = ['ruhig', 'wach'];
 let ContextMod = null;

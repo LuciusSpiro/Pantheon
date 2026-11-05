@@ -37,6 +37,12 @@ const KARTENART_KURZ = {
   station: 'Germanische Raumstation (48×24): Gänge, Schotten, Hallen, Reaktor – Daten, Krise, Evakuieren, Sabotage.',
   ruine: 'Verfallenes römisches Grenzkastell (64×40): Tore, Gewölbe, Rätselpaar, Fund – Rätsel, Bergung, Probe.',
   schiff: 'Germanisches Langschiff, zwei Decks (37×13): Brücke, Laderaum, Zellen – Kapern, Sabotage, Bergung.',
+  wildnis: 'Offenes Gelände ohne Siedlung (80×56; Wüste, Wiesenwald, Vulkan): Abholpunkt, Fundorte, Deckung, Gegnerlager – Suchen, Bergen, Überfall.',
+};
+// Kartenarten, die ein Erzeuger ohne Modul-Schablonen baut: der Pflichtsatz kommt aus dem Erzeuger selbst (jede Karte der Art hat ihn auf jedem Seed).
+// Künftige Generator-Arten (Höhle, Schiff) hier eintragen. Quelle als Funktion, damit das Laden des Erzeugers erst beim ersten Kontext passiert.
+const ERZEUGER_PFLICHT = {
+  wildnis: () => require('../../shared/gen-gelaende.js').PFLICHT,
 };
 const BODEN_DEFAULT = { langAbMin: 25, langMaxMin: 35, langeJeRunde: 1, wiederholtFenster: 3 };
 function bodenConfig() {
@@ -182,6 +188,7 @@ function kartenartenOf() {
     const sch = Object.values(obj(B.daten().schablonen));
     for (const art of Object.keys(KARTENART_KURZ)) {
       const list = sch.filter((s) => s && s.art === art && isObjPlain(s.pflicht));
+      if (!list.length && ERZEUGER_PFLICHT[art]) { out.push({ id: art, kurz: KARTENART_KURZ[art], pflichtsatz: Object.assign({}, ERZEUGER_PFLICHT[art]()) }); continue; }
       if (!list.length) continue;
       const p = {};
       for (const r of Object.keys(list[0].pflicht).sort()) if (list.every((s) => s.pflicht[r] > 0)) p[r] = Math.min(...list.map((s) => s.pflicht[r]));

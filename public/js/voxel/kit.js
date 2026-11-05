@@ -27,10 +27,10 @@
 //   Im Spiel: Layer `buehne` (boot.js lädt ihn), Zone 'buehne' (renderer.js) für alle Karten außer platform/wreck/kesh.
 import * as THREE from 'three';
 import * as DefaultLoader from './loader.js';
-import { streuen, belegungVon, besitzStreuFuerOrt } from './deko.js';
-import { mitAkzent } from './stimmung.js';
+import { streuen, streuenWildnis, belegungVon, besitzStreuFuerOrt } from './deko.js';
+import { mitAkzent, WILDNIS_STIMMUNG, stimmungVon } from './stimmung.js';
 import { glutAusnahme } from './glut.js';
-import { KLASSE, connVon, hash2, eintragVon, ankerEintragVon, eintragIds, baumWahl, kronenZelle, hochRichtung, segmentBox, mitNachlauf, kronenAus, bauweiseMerken } from './kit-regeln.js';
+import { KLASSE, connVon, hash2, eintragVon, ankerEintragVon, eintragIds, baumWahl, kronenZelle, hochRichtung, segmentBox, mitNachlauf, kronenAus, bauweiseMerken, jsonLader } from './kit-regeln.js';
 
 const BASE = '/content/buehnen/';
 // ORT-01: Rollen-Dateien (rollen/1) gibt es je Kartenart; für andere Kartenarten wird nicht gefragt (kein 404)
@@ -46,6 +46,7 @@ const KACHELN_FB = {
   '.': ['boden'], ',': ['boden2'], ':': ['gelaende'], '^': ['plateau'], '/': ['rampe'], k: ['kante'], '#': ['wand'], '=': ['zaun'],
   z: ['gitter'], '|': ['fenster'], F: ['fels'], '~': ['abgrund'], _: ['leere'], o: ['deckung_halb'], O: ['deckung_voll'], I: ['pfeiler'],
   Y: ['baum'], H: ['brustwehr'], ';': ['grabensohle'],
+  s: ['schleier'], a: ['fluessig'], v: ['fluessig'],   // GEL-01: Sichtschleier (strauch), Flüssigkeit (wasser, lava); die Variante steht nur in kacheln.json
   x: ['truemmer'], X: ['schutt'], D: ['tuer', ['offen', 'zu', 'verschlossen', 'gesprengt']], S: ['schott', ['zu', 'offen', 'gehackt', 'verschlossen']],
   G: ['tor', ['zu', 'offen', 'gesprengt']], L: ['luke', ['zu', 'offen']], w: ['wand_schwach', ['intakt', 'offen']], P: ['pad'],
 };
@@ -87,23 +88,10 @@ const mix = (a, b, t) => [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, a[
 const now = () => (typeof performance !== 'undefined' ? performance.now() : Date.now());
 
 // --------------------------------------------------------------------------------------------- Daten (JSON, gecacht)
-const jsonCache = new Map();
-function getJson(url, ms = 4000) {
-  if (jsonCache.has(url)) return jsonCache.get(url);
-  const p = (async () => {
-    try {
-      const ctl = typeof AbortController !== 'undefined' ? new AbortController() : null;
-      const timer = setTimeout(() => ctl && ctl.abort(), ms);
-      const r = await fetch(url, ctl ? { signal: ctl.signal, cache: 'no-cache' } : { cache: 'no-cache' });
-      clearTimeout(timer);
-      if (!r.ok) return null;
-      return await r.json();
-    } catch (e) { return null; }
-  })();
-  jsonCache.set(url, p);
-  return p;
-}
-export function clearCache() { jsonCache.clear(); }
+// Zeitüberlauf/Netzfehler werden wiederholt und nie als null zwischengespeichert (kit-regeln.js jsonLader, GEL-01 Befund 6)
+const lader = jsonLader();
+function getJson(url) { return lader.lade(url); }
+export function clearCache() { lader.leeren(); }
 
 // Shared_Buehne (UMD, shared/buehne.js) für leitFuss – im Spiel nicht per index.html geladen, deshalb bei Bedarf nachladen
 let sharedLauf = null;
@@ -154,7 +142,7 @@ export function normKarte(src, D) {
     let i = infoCache.get(ch);
     if (i) return i;
     const z = (legende && legende[ch]) || (zeichen && zeichen[ch]);
-    if (z && z.kind) i = { kind: z.kind, zustaende: z.zustaende || [] };
+    if (z && z.kind) i = { kind: z.kind, zustaende: z.zustaende || [], variante: z.variante || null };   // variante: GEL-01 (schleier, fluessig)
     else if (KACHELN_FB[ch]) i = { kind: KACHELN_FB[ch][0], zustaende: KACHELN_FB[ch][1] || [] };
     else i = { kind: 'boden', zustaende: [], unbekannt: true };
     infoCache.set(ch, i);
@@ -343,6 +331,10 @@ const FARB_FB = {
   glass: '#9FC4D8',
   // Bodentöne der Siedlungen (TA, Bauweise.boden_varianten): Wiese wie grass in base, Wald dunkler und kühler (eigene Namen, damit sand/rock anderer Karten unberührt bleiben)
   sandton: '#A8987A', sandton_hell: '#BEAE8E', wiese: '#6E9A3E', wiese_hell: '#8DB352', wald: '#3F6B34', wald_hell: '#5A8446',
+  // GEL-01 D: Bodenton vulkan (Basalt und Asche, dunkel, leicht rötlich; Wildnis-Biom Vulkan)
+  vulkan: '#5E5456', vulkan_hell: '#7C7070', vulkan_dunkel: '#3A3234',   // Befund 9: Boden eine Wertstufe heller (vorher #4C4446), Steine (FB.findling) bleiben dunkler
+  // GEL-01 D: Bodenton wueste (warmer, satter Sand als sandton der Siedlungen; Steinchen im Boden in hellerem Sandstein)
+  wueste: '#D2AE6E', wueste_hell: '#E2C688', wueste_dunkel: '#A88C58',
   // Leuchtrollen aus base (ART-PALETTEN B1): rune (Runenlicht), ember (Glut), alarm (Rot-Alarm), frost (Reif), leit (Leitstück/Ziel)
   rune: '#D4DEE6', rune_dim: '#9AA6AE', ember: '#FFCC7A', ember_dark: '#8A4A26', alarm: '#A82A2A', alarm_dark: '#6A2020',
   frost: '#DCE4E8', frost_dark: '#A8B4BC', leit: '#B48CFF',
@@ -375,11 +367,16 @@ const FB = {
     const top = mul(F.get(p.top || 'soil'), (1 - vr * 0.6 + r * vr) * (p.f || 1));
     const nb = p.nb || [-99, -99, -99, -99], skip = [];
     if (nb[0] >= 0) skip.push('z-'); if (nb[1] >= 0) skip.push('x+'); if (nb[2] >= 0) skip.push('z+'); if (nb[3] >= 0) skip.push('x-');
+    // Stufe: ein Teil der Kacheln liegt 3 cm tiefer (Siedlungen). Die Seitenfläche zum Nachbarn entfällt (skip), an der Kante blitzt der Himmel durch: helle Gitterlinien.
+    // Die Wildnis setzt stufe [0, 0] (eben, GEL-01 Befund 8); andere Kartenarten unverändert.
     const stufe = p.stufe || [0.2, 0.03];
     pen.box(-0.5, -(p.dick || 1.6), -0.5, 0.5, r < stufe[0] ? -stufe[1] : 0, 0.5, top, F.get(p.fill || 'soil_dark'), { jit: false, low: 0.7, skip });
     if (r > (p.steinDichte != null ? 1 - p.steinDichte : 0.9) && p.stein !== false) {   // steinDichte (Terrain-Parameter, Standard 0,1 der Kacheln)
       const sx = (hash2(x, y, 54) - 0.5) * 0.5, sz = (hash2(x, y, 55) - 0.5) * 0.5, w = 0.06 + hash2(x, y, 56) * 0.1;
-      pen.box(sx - w, 0, sz - w, sx + w, 0.04 + w * 0.6, sz + w, F.get(p.fill || 'soil_dark', 1.25), F.get(p.fill || 'soil_dark'));
+      if (p.kiesel) {   // Wildnis (Befund 12): flacher Kiesel im Ton des Bodens (höchstens 4 cm, Helligkeit nahe am Boden), kein brauner Würfel
+        const kh = 0.015 + hash2(x, y, 57) * 0.025;
+        pen.box(sx - w, 0, sz - w, sx + w, kh, sz + w, lin(p.kiesel[0]), lin(p.kiesel[1]), { jit: false });
+      } else pen.box(sx - w, 0, sz - w, sx + w, 0.04 + w * 0.6, sz + w, F.get(p.fill || 'soil_dark', 1.25), F.get(p.fill || 'soil_dark'));
     }
   },
   plateau(pen, p, F) {
@@ -400,8 +397,96 @@ const FB = {
     pen.box(-0.6, 1.0, -0.6, 0.6, 2.4, 0.6, F.get('plant'), F.get('plant_dark'), { low: 0.8 });
     pen.box(-0.4, 2.4, -0.4, 0.4, 3.2, 0.4, F.get('plant_light'), F.get('plant'), { low: 0.9 });
   },
+  schleier(pen, p, F) {
+    // GEL-01 Platzhalter Sichtschleier (Variante strauch): niedriger, lückiger Busch aus grünen Blöcken; der Boden darunter bleibt sichtbar,
+    // die Kachel wirkt nicht massiv (man läuft hindurch). Weitere Varianten (Vorhang, Rauch, Dampf, Nebel) bekommen hier je einen Zweig.
+    // Befund 14 (Platzhalter): eine flache, ganze Bodenplatte etwa 40 % dunkler als der Boden (Biom-getönt) unter dem Busch, damit „begehbar, aber sichtdicht“
+    // auch in Graustufen lesbar ist; der Busch selbst schmaler und lückiger als Deckung, je Biom getönt (Wüste olivgrau, Wiesenwald grün, Vulkan aschgrün).
+    const x = p.x | 0, y = p.y | 0, ton = p.ton;
+    const BODEN_TON = { wueste: '#D2AE6E', vulkan: '#5E5456' }, PFL = { wueste: ['#4A4E38', '#6C7250', '#8A9068'], vulkan: ['#3C4A3A', '#586A52', '#74866C'] };
+    const pf = PFL[ton] || ['#2E5A2A', '#4C8A3A', '#78B050'];
+    pen.box(-0.5, 0, -0.5, 0.5, 0.025, 0.5, lin(BODEN_TON[ton] || '#6E9A3E', 0.35), null, { only: 'top', jit: false });
+    const dunkel = lin(pf[0]), mitte = lin(pf[1]), hell = lin(pf[2]);
+    for (let i = 0; i < 4; i++) {
+      const cx = (hash2(x, y, 60 + i) - 0.5) * 0.76, cz = (hash2(x, y, 70 + i) - 0.5) * 0.76;
+      const w = 0.08 + hash2(x, y, 80 + i) * 0.06, h = 0.5 + hash2(x, y, 90 + i) * 0.5;
+      pen.box(cx - w, 0.025, cz - w, cx + w, h, cz + w, i % 2 ? mitte : hell, dunkel, { low: 0.75 });
+    }
+  },
+  fluessig(pen, p, F) {
+    // GEL-01 Platzhalter Flüssigkeit: flache Fläche etwas unter Bodenniveau (Boden der Nachbarn steht 4–6 cm höher, ergibt eine Uferkante).
+    // wasser: kühles Blau, matt; lava: orange-rote Glut (leuchtet) mit hellen Adern. Feste Farben, damit beide unabhängig von der Palette
+    // und klar anders als Abgrund (dunkel, tief) und Fels (grau, hoch) aussehen.
+    const x = p.x | 0, y = p.y | 0;
+    if (p.variante === 'lava') {
+      pen.box(-0.5, -0.5, -0.5, 0.5, -0.1, 0.5, lin('#E0501A'), lin('#7A2410'), { jit: false });
+      pen.box(-0.5, -0.1, -0.5, 0.5, -0.08, 0.5, lin('#FF7A28'), null, { only: 'top', emit: true, jit: false });
+      for (let i = 0; i < 2; i++) {
+        const cx = (hash2(x, y, 100 + i) - 0.5) * 0.6, cz = (hash2(x, y, 110 + i) - 0.5) * 0.6, w = 0.1 + hash2(x, y, 120 + i) * 0.14;
+        pen.box(cx - w, -0.08, cz - w, cx + w, -0.07, cz + w, lin('#FFD060'), null, { only: 'top', emit: true, jit: false });
+      }
+      return;
+    }
+    pen.box(-0.5, -0.5, -0.5, 0.5, -0.1, 0.5, lin('#1F5E96'), lin('#143E66'), { jit: false });   // Befund 11: eine Wertstufe unter der Wiese (Graustufe)
+    if (hash2(x, y, 130) < 0.5) {   // schwache Wellenstreifen
+      const cz = (hash2(x, y, 131) - 0.5) * 0.6;
+      pen.box(-0.3, -0.1, cz - 0.03, 0.3, -0.09, cz + 0.03, lin('#8CC4EC'), null, { only: 'top', jit: false });
+    }
+  },
   rampe(pen, p, F) {
     for (let i = 0; i < 4; i++) pen.box(-0.5, 0, -0.5 + i * 0.25, 0.5, 0.12 + i * 0.12, -0.25 + i * 0.25, F.get('paving'), F.get('stone_dark'));
+  },
+  findling(pen, p, F) {
+    // GEL-01 D Platzhalter Steine der Wildnis (o halb = Findling niedrig <= 0,85 m, O voll = Felsblock >= 2,2 m), je Biom getönt: Sandstein, Moosgrau, Basalt mit Glutriss.
+    // Gestapelte Blöcke mit Versatz statt Kiste/Tank der Siedlungen; bleibt innerhalb der Kachel (Kollision und Deckung hat der Server).
+    const x = p.x | 0, y = p.y | 0, voll = !!p.voll, ton = p.ton;
+    const T = ton === 'vulkan' ? ['#4C4446', '#2E282A', '#1E191B'] : ton === 'wueste' ? ['#D6B47A', '#AE8A52', '#80643C'] : ['#9AA098', '#707670', '#505650'];
+    const j = 0.92 + hash2(x, y, 140) * 0.16;
+    const hell = lin(T[0], j), mitte = lin(T[1], j), dunkel = lin(T[2]);
+    const ox = (hash2(x, y, 141) - 0.5) * 0.12, oz = (hash2(x, y, 142) - 0.5) * 0.12;
+    if (voll) {
+      pen.box(-0.46 + ox, 0, -0.44 + oz, 0.46 + ox, 1.15, 0.44 + oz, mitte, dunkel, { low: 0.7 });
+      pen.box(-0.38 - ox, 1.15, -0.36 - oz, 0.36 - ox, 1.95, 0.38 - oz, hell, mitte, { low: 0.9 });
+      pen.box(-0.26 + oz, 1.95, -0.24 + ox, 0.24 + oz, 2.4, 0.26 + ox, hell, mitte, { low: 1 });
+    } else {
+      pen.box(-0.44 + ox, 0, -0.34 + oz, 0.44 + ox, 0.5, 0.34 + oz, mitte, dunkel, { low: 0.72 });
+      pen.box(-0.32 - ox, 0.5, -0.24 - oz, 0.3 - ox, 0.84, 0.26 - oz, hell, mitte, { low: 1 });
+    }
+    if (ton === 'gras' && hash2(x, y, 143) < 0.7) pen.box(-0.3, voll ? 1.95 : 0.84, -0.2, 0.2, (voll ? 1.95 : 0.84) + 0.05, 0.22, lin('#6E9A3E'), null, { only: 'top', jit: false });   // Moos
+    // kein Glutriss auf Vulkan-Steinen (Befund 10, Kai-Regel: Glut nur in der Lava)
+  },
+  bewuchs(pen, p, F) {
+    // GEL-01 D Platzhalter Bodenbewuchs der Wildnis (Deko, kein Gegenstand: keine Kollision, keine Deckung, keine Sichtsperre, niedriger als 0,6 m).
+    // id: gras | blume | kiesel | asche (Kaktus und Glut entfallen: Gegenstände ohne Kollision bzw. Glut außerhalb der Lava); ton: wueste | gras | vulkan; var: Farbgruppe der Blume.
+    const x = p.x | 0, y = p.y | 0, ton = p.ton, h = (n) => hash2(x, y, n + (p.seed | 0));
+    if (p.id === 'gras') {
+      const c1 = ton === 'wueste' ? lin('#B2A25A') : lin('#5E8E36'), c2 = ton === 'wueste' ? lin('#CDBE72') : lin('#86B24C');
+      for (let i = 0; i < 4; i++) {
+        const cx = (h(150 + i) - 0.5) * 0.36, cz = (h(160 + i) - 0.5) * 0.36, hh = ton === 'wueste' ? 0.08 + h(170 + i) * 0.1 : 0.14 + h(170 + i) * 0.2;   // Wüste: Gras höchstens 0,18 m
+        pen.box(cx - 0.025, 0, cz - 0.025, cx + 0.025, hh, cz + 0.025, i % 2 ? c1 : c2, c1, { low: 0.8, jit: false });
+      }
+    } else if (p.id === 'blume') {
+      const FARBEN = ['#F4D23C', '#F2F2F6', '#E0509E', '#6E82E6', '#EE6A2C'];
+      const kopf = lin(FARBEN[(p.var | 0) % FARBEN.length]), stiel = lin('#4E8030');
+      for (let i = 0; i < 3; i++) {
+        const cx = (h(180 + i) - 0.5) * 0.4, cz = (h(190 + i) - 0.5) * 0.4, hh = 0.16 + h(200 + i) * 0.1;
+        pen.box(cx - 0.012, 0, cz - 0.012, cx + 0.012, hh, cz + 0.012, stiel, stiel, { jit: false });
+        pen.box(cx - 0.055, hh, cz - 0.055, cx + 0.055, hh + 0.07, cz + 0.055, kopf, mul(kopf, 0.8), { jit: false });
+      }
+    } else if (p.id === 'asche') {
+      const a = lin('#6E6668'), b = lin('#928A8C');
+      for (let i = 0; i < 4; i++) {
+        const cx = (h(220 + i) - 0.5) * 0.7, cz = (h(230 + i) - 0.5) * 0.7, w = 0.05 + h(240 + i) * 0.07;
+        pen.box(cx - w, 0, cz - w * 0.8, cx + w, 0.02, cz + w * 0.8, i % 2 ? a : b, a, { jit: false });
+      }
+    } else {   // kiesel
+      const c = ton === 'vulkan' ? [lin('#544C4E'), lin('#3A3436')] : ton === 'wueste' ? [lin('#BCAC86'), lin('#9A8C68')] : [lin('#7E8A62'), lin('#6A7552')];
+      const flach = ton === 'gras';   // Wiesenwald (Befund 12): höchstens 4 cm, grau-oliv, Helligkeit nahe am Boden; sonst bis 0,11 m
+      for (let i = 0; i < 3; i++) {
+        const cx = (h(250 + i) - 0.5) * 0.5, cz = (h(260 + i) - 0.5) * 0.5, w = 0.04 + h(270 + i) * 0.06;
+        pen.box(cx - w, 0, cz - w, cx + w, flach ? 0.015 + h(280 + i) * 0.025 : w * 1.1, cz + w, c[0], c[1], { jit: false });
+      }
+    }
   },
   wand(pen, p, F) {
     const H = p.cut ? 1.25 : 3;
@@ -463,9 +548,10 @@ const FB = {
   fels(pen, p, F) {
     // Terrain wie Kesh (M4 §3.6): 1-m-Schichten, Oberseite hell gestreut, obere Schichten Stein, darunter dunkle Füllung
     const H = Math.max(1, p.h | 0 || 3), x = p.x | 0, y = p.y | 0;
-    const top = hash2(x, y, 53) < 0.35 ? F.get(p.hell || 'stone_light') : F.get('stone');   // hell: Reif (frost) draußen im Norden
+    const T = p.tint, tin = T ? (c) => [c[0] * T[0], c[1] * T[1], c[2] * T[2]] : (c) => c;   // tint: Wildnis (Biom-Ton), sonst keine Wirkung
+    const top = tin(hash2(x, y, 53) < 0.35 ? F.get(p.hell || 'stone_light') : F.get('stone'));   // hell: Reif (frost) draußen im Norden
     for (let l = 0; l < H; l++) {
-      const side = l >= H - 1 ? F.get('stone') : l >= H - 3 ? ((l + x + y) % 2 ? F.get('stone') : F.get('stone', 0.92)) : F.get('stone_dark');
+      const side = tin(l >= H - 1 ? F.get('stone') : l >= H - 3 ? ((l + x + y) % 2 ? F.get('stone') : F.get('stone', 0.92)) : F.get('stone_dark'));
       const j = 1 + (hash2(x * 7 + l, y * 13 - l, 51) - 0.5) * 0.1;
       const nb = p.nb || [-99, -99, -99, -99], skip = [];
       if (nb[0] > l) skip.push('z-'); if (nb[1] > l) skip.push('x+'); if (nb[2] > l) skip.push('z+'); if (nb[3] > l) skip.push('x-');
@@ -716,7 +802,7 @@ async function bauKarte(parent, karteIn, opts) {
   stats.palette = paletteId;
   // Stimmung
   try {
-    const mood = (BW.stimmung && BW.stimmung[k.art]) || null;
+    const mood = stimmungVon(BW.stimmung, k.art, k.boden);   // GEL-01 D: wildnis je Bodenton (stimmung["wildnis:<boden>"]), sonst stimmung[art]
     if (mood && opts.setMood) opts.setMood(mood);
     stats.stimmung = mood;
   } catch (e) { countErr('kit.mood', e); }
@@ -836,6 +922,12 @@ async function bauKarte(parent, karteIn, opts) {
   const gel = Object.assign({}, kitId('gelaende') || {}, (bodenTon && bodenTon.gelaende) || {});
   const draussen = k.art !== 'station' && k.art !== 'schiff';   // Außenposten, Ruine: Gelände; Station, Schiff: All
   const felsHell = k.art === 'aussenposten' ? 'frost' : 'stone_light';   // Außenposten liegen im Frost (Stimmung outpost_frost)
+  // GEL-01 D: Wildnis: Fels je Bodenton getönt (Sandstein | Moosgrau | Basalt), sonst unverändert; Steine o/O als Findling/Felsblock (FB.findling), Bewuchs siehe Deko
+  const wildnis = k.art === 'wildnis';
+  const felsTint = wildnis ? (k.boden === 'vulkan' ? [0.8, 0.72, 0.74] : k.boden === 'wueste' ? [1.2, 1.0, 0.74] : k.boden === 'gras' ? [0.94, 1.0, 0.92] : null) : null;
+  // Wildnis: ebener Boden (keine 3-cm-Stufen, Befund 8) und flache Kiesel im Ton des Bodens statt brauner Würfel (Befund 12); andere Kartenarten unverändert
+  const KIESEL = { gras: ['#7E8A62', '#6A7552'], wueste: ['#BCAC86', '#9A8C68'], vulkan: ['#544C4E', '#3A3436'] };
+  const wildGel = wildnis ? { stufe: [0, 0], kiesel: KIESEL[k.boden] || null } : {};
   const RAND = 6;
   // Geländehöhe je Kachel (auch im Rand außerhalb der Karte): Fels 1–5 m, Boden 0, Abgrund tief – für verdeckte Seiten
   const ringHoehe = (tx, ty) => {
@@ -971,13 +1063,15 @@ async function bauKarte(parent, karteIn, opts) {
       const seed = seedOf(tx, ty);
       const base = { zustand: zKit, art: k.art, seed, bauweise: bw };
       try {
-        if (kind === 'fels') { placeKit('fels', { h: felsHoehe(tx, ty), seed, x: tx, y: ty, nb: nachbarn(tx, ty), hell: felsHell }, m, d, tx, ty, { ids: [], fb: 'fels' }); continue; }
+        if (kind === 'fels') { placeKit('fels', { h: felsHoehe(tx, ty), seed, x: tx, y: ty, nb: nachbarn(tx, ty), hell: felsHell, tint: felsTint }, m, d, tx, ty, { ids: [], fb: 'fels' }); continue; }
+        // GEL-01: Flüssigkeit steht ohne Boden darunter (Fläche unter Bodenniveau); Kit-Teil kits.fluessig, sonst Platzhalter FB.fluessig
+        if (kind === 'fluessig') { placeKit(kind, kitParams(kind, base, { variante: inf.variante, x: tx, y: ty }), m, d, tx, ty, { ids: kandidaten(kind) }); continue; }
         if (stationBoden && (kind === 'boden' || kind === 'boden2')) { placeKit('gelaende', Object.assign({ seed }, stationFliese(kind, tx, ty)), m, d, tx, ty, { ids: [], fb: 'gelaende' }); continue; }
         if (huelle && draussen && (kind === 'boden' || kind === 'boden2' || kind === 'pad') && !inBau.has(tx + ',' + ty)) {
           placeKit('gelaende', Object.assign({ seed, x: tx, y: ty, fill: gel.fill, steinDichte: gel.steinDichte, nb: nachbarn(tx, ty) }, bodenFarbe(tx, ty, kind)), m, d, tx, ty, { ids: [], fb: 'gelaende' });
           continue;
         }
-        if (kind === 'gelaende') { placeKit('gelaende', { seed, x: tx, y: ty, top: gel.top, fill: gel.fill, steinDichte: gel.steinDichte, nb: nachbarn(tx, ty) }, m, d, tx, ty, { ids: [], fb: 'gelaende' }); continue; }
+        if (kind === 'gelaende') { placeKit('gelaende', Object.assign({ seed, x: tx, y: ty, top: gel.top, fill: gel.fill, steinDichte: gel.steinDichte, nb: nachbarn(tx, ty) }, wildGel), m, d, tx, ty, { ids: [], fb: 'gelaende' }); continue; }
         if (kind === 'plateau' || kind === 'rampe' || kind === 'pad' || kind === 'grabensohle') {
           // eigene_hoehe (Rampe rom_feld): das Teil bringt die Steigung selbst mit, steht auf Bodenhöhe (kein Absenken/Anheben, kein Boden darunter);
           // hoch_zu: die Steigung zeigt im Modell nach Norden und dreht zum ersten Nachbarn dieser Arten hin
@@ -1012,6 +1106,12 @@ async function bauKarte(parent, karteIn, opts) {
           continue;
         }
         if (kind === 'baum') { baumSetzen(tx, ty, d); continue; }
+        // GEL-01: Sichtschleier auf dem Boden (oben gesetzt); Kit-Teil kits.schleier, sonst Platzhalter FB.schleier
+        if (kind === 'schleier') { placeKit(kind, kitParams(kind, base, { variante: inf.variante, x: tx, y: ty, ton: k.boden }), m, d, tx, ty, { ids: kandidaten(kind) }); continue; }
+        if (wildnis && (kind === 'deckung_halb' || kind === 'deckung_voll')) {   // GEL-01 D: Steine der Wildnis
+          placeKit(kind, { x: tx, y: ty, voll: kind === 'deckung_voll' ? 1 : 0, ton: k.boden }, m, d, tx, ty, { ids: [], fb: 'findling' });
+          continue;
+        }
         if (kind === 'deckung_halb' || kind === 'deckung_voll' || kind === 'pfeiler') {
           const vertical = (conn & 5) && !(conn & 10);
           placeKit(kind, kitParams(kind, base, { conn, cut: 0 }), tileMatrix(tx, ty, vertical ? Math.PI / 2 : 0), d, tx, ty);
@@ -1054,8 +1154,8 @@ async function bauKarte(parent, karteIn, opts) {
       const m = new THREE.Matrix4().makeTranslation(tx + 0.5, 0, ty + 0.5);
       pen.to(b, m);
       if (kd === 'abgrund') FB.tiefe(pen, {}, F);
-      else if (kd === 'fels' || kd === 'wand' || kd === 'zaun') FB.fels(pen, { h: ringHoehe(tx, ty), x: tx, y: ty, nb: nachbarn(tx, ty), hell: felsHell }, F);   // Süden niedrig (Kamera)
-      else FB.gelaende(pen, { x: tx, y: ty, top: gel.top, fill: gel.fill, steinDichte: gel.steinDichte, nb: nachbarn(tx, ty) }, F);
+      else if (kd === 'fels' || kd === 'wand' || kd === 'zaun') FB.fels(pen, { h: ringHoehe(tx, ty), x: tx, y: ty, nb: nachbarn(tx, ty), hell: felsHell, tint: felsTint }, F);   // Süden niedrig (Kamera)
+      else FB.gelaende(pen, Object.assign({ x: tx, y: ty, top: gel.top, fill: gel.fill, steinDichte: gel.steinDichte, nb: nachbarn(tx, ty) }, wildGel), F);
     }
   }
   // Deko (deterministisch, nur Optik)
@@ -1082,6 +1182,17 @@ async function bauKarte(parent, karteIn, opts) {
       }
     }
   } catch (e) { countErr('kit.deko', e); }
+  // GEL-01 D: Bodenbewuchs der Wildnis (deko.js streuenWildnis): reine Optik aus Seed, Biom und Position, nie in rows, ohne Kollision/Deckung/Sichtsperre
+  try {
+    stats.bewuchs = 0;
+    if (wildnis && opts.deko !== false) {
+      for (const dd of streuenWildnis({ w: k.w, h: k.h, seed: k.seed, art: k.art, boden: k.boden, kindAt: k.kindAt, anker: k.anker })) {
+        pen.to(bucketAt(k.deckOf(dd.y), dd.x, k.localY(dd.y)), tileMatrix(dd.x, dd.y, dd.rot, dd.dx, dd.dz));
+        FB.bewuchs(pen, { id: dd.id, var: dd.var, seed: dd.seed, x: dd.x, y: dd.y, ton: k.boden }, F);
+        stats.bewuchs++;
+      }
+    }
+  } catch (e) { countErr('kit.bewuchs', e); }
   // TA: Möbel setzen (statisch, gebacken): Mitte des Rechtecks, Vorderseite nach 'drehung' (0 S, 1 O, 2 N, 3 W)
   try {
     stats.moebel = 0;
@@ -1457,7 +1568,7 @@ function sharedRenderer(w, h) {
 const MOOD_FB = { background: '#1A1E26', hemi: { sky: '#C8D2DE', ground: '#4A4236', intensity: 1.0 }, sun: { color: '#FFF0DC', intensity: 2.2, dir: [-0.5, 0.85, 0.55] }, exposure: 1 };
 async function ladeMood(loader, id) {
   if (!id) return MOOD_FB;
-  try { const m = loader.mood ? await loader.mood(id) : null; return m ? mitAkzent(id, m) : MOOD_FB; } catch (e) { return MOOD_FB; }
+  try { const m = loader.mood ? await loader.mood(id) : null; return m ? mitAkzent(id, m) : WILDNIS_STIMMUNG[id] || MOOD_FB; } catch (e) { return WILDNIS_STIMMUNG[id] || MOOD_FB; }
 }
 /** Szene mit Licht nach Stimmung (für Galerie/Umsehen) */
 export function lightScene(scene, mood, ext) {

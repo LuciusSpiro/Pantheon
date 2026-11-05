@@ -34,7 +34,7 @@ for (const [alt, neu] of Object.entries(NEU)) {
   ok(REGELFELDER.every((f) => JSON.stringify(a[f]) === JSON.stringify(b[f])), `"${neu}" hat alle Regelfelder wie "${alt}" (${a.kind}): ` + JSON.stringify(REGELFELDER.filter((f) => a[f] !== undefined).map((f) => [f, a[f]])));
   ok(Object.keys(b).filter((k) => k !== 'kind' && k !== 'hinweis').sort().join() === Object.keys(a).filter((k) => k !== 'kind' && k !== 'hinweis').sort().join(), `"${neu}": keine zusätzlichen/fehlenden Felder gegenüber "${alt}"`);
 }
-ok(Object.keys(kj.zeichen).length === new Set(Object.keys(kj.zeichen)).size && !Object.values(kj.zeichen).some((z, i, l) => l.some((q, j) => i !== j && q.kind === z.kind)), 'jede Art kommt genau einmal vor');
+ok(Object.keys(kj.zeichen).length === new Set(Object.keys(kj.zeichen)).size && !Object.values(kj.zeichen).some((z, i, l) => l.some((q, j) => i !== j && q.kind === z.kind && (q.variante || '') === (z.variante || ''))), 'jede Art kommt genau einmal vor (GEL-01: Klassen mit Varianten zählen je Art und Variante)');
 
 // Client-Rückfälle (kit.js, render.js) spiegeln die Zuordnung (Quelltext-Prüfung: kit.js braucht three und läuft nicht in Node)
 console.log('\n[Rückfalldarstellung: Voxel (kit.js) und 2D (render.js)]');
