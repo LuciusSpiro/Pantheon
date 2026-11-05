@@ -128,7 +128,8 @@ function bauen(seed, gen, extra) {
     LP.restore(blk, gC); LP.get(gC, lp);
     ok(/bauversion hoehle\.0\[alt\]/.test(geloggt) && LP.eintrag(gC, lp).bauversion === kA.bauversion, 'bauversion-Wechsel: Karte neu gebaut, Logbuch');
     ok(blk[lp].zustaende && blk[lp].zustaende[fund.id] === 'genommen', 'Ausgangslage: gespeicherter Zustand genommen');
-    ok(!Object.keys(gC.aways[lp].zustaende).length && !Object.keys(LP.eintrag(gC, lp).zustaende || {}).length && /neue Karte = neue Funde/.test(geloggt) && /1 Zustände verworfen/.test(geloggt), 'bauversion-Wechsel: Zustände verworfen (Laufzeit und Eintrag), Logbuch nennt es');
+    ok(!Object.keys(gC.aways[lp].zustaende).some((k) => !/^hoehle\.abbau/.test(k)) && !Object.keys(LP.eintrag(gC, lp).zustaende || {}).length &&   // GEL-03 C: nur die Runde-0-Auswahl der Ader-Kandidaten steht im Laufzeitzustand
+     /neue Karte = neue Funde/.test(geloggt) && /[1-9]\d* Zustände verworfen/.test(geloggt)   /* Fund + die gespeicherte Runde-0-Auswahl der Ader-Kandidaten (GEL-03 C) */, 'bauversion-Wechsel: Zustände verworfen (Laufzeit und Eintrag), Logbuch nennt es');
     const gD = fakeGame(); LP.restore(klon(block), gD); LP.get(gD, lp);
     ok(gD.aways[lp].zustaende[fund.id] === 'genommen' && LP.eintrag(gD, lp).zustaende[fund.id] === 'genommen', 'ohne Wechsel der bauversion bleiben die Zustände');
     const gT = fakeGame(); const t = LP.testgelaende(gT, { art: 'hoehle', seed: 3 }); LP.get(gT, t);

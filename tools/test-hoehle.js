@@ -134,12 +134,12 @@ for (const gr of GR) {
 }
 {
   const kl = H.karteRoh(seedVon(1), { groesse: 'klein' });
-  ok(kl.art === 'hoehle' && /^hoehle\.1\[/.test(kl.bauversion) && kl.meta.boden2 === 'erde', 'art hoehle, bauversion hoehle.1[...], meta.boden2 erde');
+  ok(kl.art === 'hoehle' && /^hoehle\.2\[/.test(kl.bauversion) && kl.meta.boden2 === 'erde', 'art hoehle, bauversion hoehle.2[...] (GEL-03 C: Ader-Kandidaten), meta.boden2 erde');
   ok(kl.w === 56 && kl.h === 40 && kl.rows.every((z) => z.length === 56), 'klein 56x40');
   ok(kl.ankunft === 'hoehle.abholpunkt' && kl.anker.some((a) => a.id === 'hoehle.abholpunkt' && a.ankunft === true), 'Ankunft = Anker hoehle.abholpunkt mit ankunft: true');
   const ids = kl.anker.map((a) => a.id);
   ok(new Set(ids).size === ids.length, 'Anker-IDs eindeutig');
-  ok(JSON.stringify(Hoehle.PFLICHT) === JSON.stringify({ abholpunkt: 1, fund: 2, deckung: 4 }) && JSON.stringify(Hoehle.PFLICHT_DECK) === JSON.stringify({ fund: 2, deckung: 4 }), 'PFLICHT und PFLICHT_DECK exportiert');
+  ok(JSON.stringify(Hoehle.PFLICHT) === JSON.stringify({ abholpunkt: 1, fund: 2, deckung: 4, abbau: 4 }) && JSON.stringify(Hoehle.PFLICHT_DECK) === JSON.stringify({ fund: 2, deckung: 4, abbau: 4 }), 'PFLICHT und PFLICHT_DECK exportiert (mit abbau: 4, GEL-03 C)');
   ok(!/[^F,oOa]/.test(kl.rows.join('')), 'nur vorhandene Kachelzeichen F , o O a');
   // Stein-Deckung: jedes Deckungsanker liegt neben einem Stein
   const nachbar = (a) => { for (const [dx, dy] of [[0, -1], [1, 0], [0, 1], [-1, 0], [1, 1], [-1, -1], [1, -1], [-1, 1]]) if ('oO'.includes(kl.rows[a.y + dy][a.x + dx])) return true; return false; };

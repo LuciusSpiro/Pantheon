@@ -12,11 +12,17 @@
   // Ablauf: Anfangsrauschen -> 5 Glättungsschritte (4-5-Regel) -> Kammern für Eingang, Fundorte, Lager freiräumen -> Öffnung mit 2x2-Element
   // (alles, was nicht in einem 2x2-Bodenblock liegt, wird Fels: keine Engstellen unter 2 Kacheln) -> Reste verbinden (2 breite, gewundene Tunnel) oder
   // zu Fels -> Diagonal-Engpässe öffnen -> Steinhaufen (nur wo 5x5 frei ist) und Pfützen -> Anker -> Erreichbarkeit prüfen, nachbessern (Tunnel), sonst werfen.
-  const VERSION = 1;
+  const VERSION = 2;   // 2 (GEL-03 C): Ader-Kandidaten (Rolle abbau) additiv, eigener Zufallsstrom; Raster und alle übrigen Anker bleiben wie in 1
   const GROESSEN = { klein: { w: 56, h: 40 }, mittel: { w: 80, h: 56 }, gross: { w: 104, h: 72 } };
   // Pflichtsätze: gelten auf jedem Seed jeder Größe, unabhängig von opts. Das Deck hat statt abholpunkt einen leiter (Deck-Link, den zählt der Prüfer selbst).
-  const PFLICHT = { abholpunkt: 1, fund: 2, deckung: 4 };
-  const PFLICHT_DECK = { fund: 2, deckung: 4 };
+  const PFLICHT = { abholpunkt: 1, fund: 2, deckung: 4, abbau: 4 };   // abbau (GEL-03 C): Ader-Kandidaten, mindestens 4 (Ziel je Größe: ADERN_ZIEL)
+  const PFLICHT_DECK = { fund: 2, deckung: 4, abbau: 4 };
+  // Ader-Kandidaten (GEL-03 C): feste Orte für Erzadern (Anker rolle abbau, id `hoehle.abbau[.n]`); je Mission sind nur 2 bis 3 davon aktiv (adernWahl), alle stehen in der Karte.
+  // Ziel je Fläche: unter 2400 Kacheln (klein 56x40 = 2240, flaches Deck 56x30) 4, bis 5000 (mittel 80x56 = 4480, Deck 80x42) 5, darüber (gross) 6. Mindestens PFLICHT.abbau (4): Mit
+  // 2 bis 3 aktiven bleibt so jede Runde eine echte Auswahl (bei 4 Kandidaten 2 aus 4, sonst 2 bis 3 aus 5/6), und der Payload wächst nur um 4 bis 6 Anker (ca. 70 B je Anker).
+  const ADERN_ZIEL = (flaeche) => (flaeche < 2400 ? 4 : flaeche < 5000 ? 5 : 6);
+  const ADER_ID = /^hoehle\.abbau(\.\d+)?$/;
+  const istAderKandidat = (a) => !!a && a.rolle === 'abbau' && ADER_ID.test(String(a.id));
   const MAX_DECKUNG = 16;   // Deckungsanker je Karte begrenzt (Payload: jedes Anker kostet in der awayMap ca. 80-100 B, ein tiefes Deck bekäme sonst Dutzende)
   const PLATZ = 'hoehle';
   const KETTEN = 'abcdefgh';
@@ -337,6 +343,55 @@
       const pp = [];
       for (const p of ring) { if (pp.length >= 3) break; if (!besetzt.has(ix(p[0], p[1])) && pp.every((r) => Math.max(Math.abs(r[0] - p[0]), Math.abs(r[1] - p[1])) >= 4)) { pp.push(p); besetzt.add(ix(p[0], p[1])); ank('patrouille', p, { kette: KETTEN[l.nr] }, bid); } }
     }
+    // ---- Ader-Kandidaten (GEL-03 C): eigener Strom RA (R und das Raster bleiben unberührt). Die Ader hat Kollision, darum gilt die Raster-Invariante dieses Erzeugers weiter: jede
+    // Bodenkachel liegt in einem 2x2-Bodenblock. Eine Kachel ist nur Kandidat, wenn jede Bodenkachel ihrer Nachbarschaft auch OHNE sie noch in einem Block liegt (Gang bleibt
+    // mindestens 2 breit, keine Engstelle, keine Trennung); nicht näher als 6 am Eingang, nicht näher als 3 an einem Fund (Objekt), nicht auf einem anderen Anker. Mindestabstand
+    // untereinander (Streuung: Farthest-Point über eine Stichprobe). Zu wenig Platz: Abstand lockern, nie unter PFLICHT.abbau (sonst wirft bauen, der Aufrufer nimmt Seed + 1).
+    {
+      const RA = rng(fnv('hoehle-abbau', seed >>> 0) ^ (deck ? 0x3C6EF372 : 0x1B873593));
+      const ziel = ADERN_ZIEL(N);
+      const objekte = roh.filter((a) => a.rolle === 'fund').map((a) => [a.x, a.y]);
+      const belegtAnker = new Set(roh.map((a) => ix(a.x, a.y)));
+      const blockBoden = (x, y) => x >= 0 && y >= 0 && x < W && y < H && at(x, y) === BODEN;
+      // Kachel (tx, ty) liegt in einem 2x2-Bodenblock, der (ox, oy) nicht enthält
+      const imBlock = (tx, ty, ox, oy) => {
+        for (const [bx, by] of [[tx - 1, ty - 1], [tx, ty - 1], [tx - 1, ty], [tx, ty]]) {
+          let ok = true;
+          for (const [dx, dy] of [[0, 0], [1, 0], [0, 1], [1, 1]]) { const qx = bx + dx, qy = by + dy; if (!blockBoden(qx, qy) || (qx === ox && qy === oy)) { ok = false; break; } }
+          if (ok) return true;
+        }
+        return false;
+      };
+      const kand = [];
+      for (let y = 3; y < H - 3; y++) for (let x = 3; x < W - 3; x++) {
+        if (!blockBoden(x, y) || belegtAnker.has(ix(x, y)) || dist([x, y], E) < 6) continue;
+        if (objekte.some((q) => Math.max(Math.abs(q[0] - x), Math.abs(q[1] - y)) < 3)) continue;
+        let frei = true;
+        for (let dy = -1; dy <= 1 && frei; dy++) for (let dx = -1; dx <= 1; dx++) if ((dx || dy) && blockBoden(x + dx, y + dy) && !imBlock(x + dx, y + dy, x, y)) { frei = false; break; }
+        if (frei) kand.push([x, y]);
+      }
+      RA.shuffle(kand);
+      const pool = kand.slice(0, 400);
+      const abst0 = Math.max(6, Math.round(0.14 * (W + H) / 2));
+      let gew = [];
+      for (const faktor of [1, 0.75, 0.55]) {
+        const abst = Math.max(4, Math.round(abst0 * faktor));
+        gew = [];
+        if (pool.length) gew.push(pool[0]);
+        while (gew.length < ziel) {
+          let best = null;
+          for (const p of pool) {
+            const dm = Math.min(...gew.map((q) => dist(p, q)));
+            if (dm >= abst && (!best || dm > best.dm)) best = { p, dm };
+          }
+          if (!best) break;
+          gew.push(best.p);
+        }
+        if (gew.length >= PFLICHT.abbau) break;
+      }
+      if (gew.length < PFLICHT.abbau) throw new Error(`Höhle: nur ${gew.length} Ader-Kandidaten (Seed ${seed}, ${kand.length} Plätze, Abstand ${abst0})`);
+      for (const p of gew) ank('abbau', p);
+    }
     const rows = []; for (let y = 0; y < H; y++) rows.push(g.slice(y * W, (y + 1) * W).join(''));
     return { rows, anker: roh, lager, W, H };
   }
@@ -386,5 +441,25 @@
     }
     return { karteRoh, deckRoh };
   }
-  return { erzeuger, PFLICHT, PFLICHT_DECK, GROESSEN, VERSION };
+  // Auswahl der aktiven Adern je Runde (GEL-03 C): reine Funktion (Seed, Kandidaten-IDs, Runde) -> { da: [ids], leer: [ids] }, beide in der Reihenfolge von ids. Kein Zustand, kein Zufall:
+  // dieselbe Eingabe, dieselbe Auswahl (Mission 1 und Server-Neustart sehen dieselben Adern). Aktiv sind 2 (bis 4 Kandidaten) oder 2 bis 3 (ab 5), nie mehr als vorhanden.
+  // Runde 0 = Landepunkt-Seed; ab Runde 1 werden bevorzugt Kandidaten genommen, die in der Vorrunde NICHT aktiv waren (frische Vorkommen), der Rest füllt auf (bei 4 Kandidaten und 2 aktiv: immer die beiden anderen).
+  function adernWahl(seed, ids, runde) {
+    const liste = (ids || []).slice().sort();
+    const n = liste.length;
+    runde = Math.max(0, runde | 0);
+    const rang = (r) => liste.map((id) => ({ id, s: fnv(`${seed | 0}:${r}:${id}`) })).sort((a, b) => a.s - b.s || (a.id < b.id ? -1 : 1));
+    const anzahl = (r) => (n >= 5 ? 2 + (fnv(`${seed | 0}:${r}:anzahl`) % 2) : Math.min(2, n));
+    const einfach = (r) => rang(r).slice(0, anzahl(r)).map((x) => x.id);
+    // Runde 0 aus dem Seed; jede weitere Runde nimmt bevorzugt Kandidaten, die in der tatsächlichen Vorrunde nicht aktiv waren (Kette bis runde, je Schritt reine Rechnung)
+    let da = einfach(0);
+    for (let r = 1; r <= runde; r++) {
+      if (n <= anzahl(r)) { da = einfach(r); continue; }
+      const vor = new Set(da), rg = rang(r);
+      da = rg.filter((x) => !vor.has(x.id)).concat(rg.filter((x) => vor.has(x.id))).slice(0, anzahl(r)).map((x) => x.id);
+    }
+    const s = new Set(da);
+    return { da: liste.filter((id) => s.has(id)), leer: liste.filter((id) => !s.has(id)) };
+  }
+  return { erzeuger, PFLICHT, PFLICHT_DECK, GROESSEN, VERSION, ADERN_ZIEL, istAderKandidat, adernWahl };
 });
