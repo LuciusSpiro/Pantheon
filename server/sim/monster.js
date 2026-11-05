@@ -137,11 +137,15 @@ function tuerZu(E, kid) {
 }
 
 // gehen: die Station geht mit Standard-Kollisionsbox (HB), Rammzeit aus der Konfiguration und bricht Türen auf.
-function gehen(game, E, M, dt, speed) { return gehenMit(game, E, M, dt, speed, { hb: HB, rammZeit: cfg(game).rammZeit, tueren: 'aufbrechen' }); }
-// gehenMit (MON-01 P1): derselbe Schritt mit eigenen Werten je Figur. opt = { hb: {w,h}, rammZeit: s, tueren: 'aufbrechen' | 'sperren' }.
-// 'sperren': eine geschlossene Tür im Weg bleibt zu, die Figur steht davor (Pfad bleibt; der Aufrufer plant neu oder gibt auf).
-// Rückgabe: 'tuer' (Tür sperrt den Weg), 'blockiert' (Kollision hat den Schritt auf unter 30 % gekürzt), sonst null.
-function gehenMit(game, E, M, dt, speed, opt) {
+function gehen(game, E, M, dt, speed) { return gehenMitAufbrechen(game, E, M, dt, speed, HB, cfg(game).rammZeit); }
+// MON-01: derselbe Schritt für Figuren mit eigener Kollisionsbox; die Verhaltensvariante an geschlossenen Türen ist je eine benannte Funktion (gemeinsamer Kern gehenKern).
+// gehenMitAufbrechen: eine geschlossene Tür im Weg wird nach rammZeit s aufgebrochen (M.ramm), solange steht die Figur davor. Rückgabe 'blockiert' oder null.
+function gehenMitAufbrechen(game, E, M, dt, speed, hb, rammZeit) { return gehenKern(game, E, M, dt, speed, hb, (tz) => { M.ramm = { kid: tz.kid, t: rammZeit }; return null; }); }
+// gehenOhneAufbrechen: eine geschlossene Tür im Weg bleibt zu, die Figur steht davor (Pfad bleibt; der Aufrufer plant neu oder gibt auf). Rückgabe 'tuer', 'blockiert' oder null.
+function gehenOhneAufbrechen(game, E, M, dt, speed, hb) { return gehenKern(game, E, M, dt, speed, hb, () => 'tuer'); }
+// Kern: beiTuer(tz) entscheidet, was an einer geschlossenen Tür geschieht, und liefert den Rückgabewert des Schritts.
+// Rückgabe sonst: 'blockiert' (Kollision hat den Schritt auf unter 30 % gekürzt) oder null.
+function gehenKern(game, E, M, dt, speed, hb, beiTuer) {
   const aw = game.away;
   if (M.ramm) {
     M.ramm.t -= dt;
@@ -159,13 +163,12 @@ function gehenMit(game, E, M, dt, speed, opt) {
     const n = M.pfad[0]; const c = Mon.mitte(n);
     const tz = kanteAmSchritt(E, n);
     if (tz && tuerZu(E, tz.kid)) {
-      if (opt.tueren === 'sperren') return 'tuer';
-      M.ramm = { kid: tz.kid, t: opt.rammZeit }; return null;
+      return beiTuer(tz);
     }
     const dx = c.x - M.x, dy = c.y - M.y; const d = Math.hypot(dx, dy);
     if (d < 1) { M.pfad.shift(); continue; }
     const s = Math.min(d, budget);
-    const res = Physics.moveWithCollision(E.solid, M.x, M.y, dx / d * s, dy / d * s, opt.hb);
+    const res = Physics.moveWithCollision(E.solid, M.x, M.y, dx / d * s, dy / d * s, hb);
     const moved = Math.hypot(res.x - M.x, res.y - M.y);
     M.facing = Math.atan2(dy, dx); M.x = res.x; M.y = res.y;
     budget -= Math.max(moved, 0.01);
@@ -306,4 +309,4 @@ function pulteFertig(game) { const P = game.away && game.away.monsterPulte; retu
 function pulteErledigt(game) { const P = game.away && game.away.monsterPulte; return P ? P.erledigt : 0; }
 
 module.exports = { einrichten, zuruecksetzen, update, laerm, snap, pulteSnap, alleVerwundet, pulteFertig, pulteErledigt, maskeVon, STANDARD,
-  maskeVonGroesse, gehen, gehenMit, setzePfad, ziel, spieler, HB };   // MON-01 P1: Bewegungsbausteine für server/sim/kreatur.js
+  maskeVonGroesse, gehen, gehenMitAufbrechen, gehenOhneAufbrechen, setzePfad, ziel, spieler, HB };   // MON-01 P1: Bewegungsbausteine für server/sim/kreatur.js

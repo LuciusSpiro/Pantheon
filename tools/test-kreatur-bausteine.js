@@ -43,7 +43,7 @@ typ('tb_ohne', { start: 'steht', zustaende: STEHT, bausteine: {} });
 typ('tb_auf', { start: 'steht', zustaende: STEHT, bausteine: { aufladung: AUF } });
 typ('tb_auf_front', { frontArc: 120, start: 'steht', zustaende: STEHT, bausteine: { aufladung: AUF } });
 typ('tb_tempo', { start: 'steht', zustaende: {
-  steht: { modus: 'steht', tempo: 0, uebergang: [] },
+  steht: { modus: 'steht', tempo: 0, uebergang: [ { auf: 'blockiert', nach: 'rammen' } ] },   // blockiert löst im Stehen nie aus: rammen wird nur über zustandSetzen betreten, der Validator verlangt aber Erreichbarkeit
   rammen: { modus: 'ramme', tempo: 100, dauer: 0.5, uebergang: [ { auf: 'ablauf', nach: 'steht' } ] } }, bausteine: { zyklus: { hindernisAb: 0.3 }, aufladung: AUF } });
 typ('tb_koeder', { start: 'patrouille', zustaende: {
   patrouille: { modus: 'steht', tempo: 0, uebergang: [ { auf: 'sieht', nach: 'jagd' }, { auf: 'laerm', nach: 'laerm' } ] },

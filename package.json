@@ -316,6 +316,7 @@
     "test:scanbar-mutation": "node tools/mutation-scanbar.js",
     "test:scanbar-debug": "node tools/test-scanbar-debug.js",
     "test:kreatur": "node tools/test-kreatur.js",
+    "test:kreatur-mutation": "node tools/mutation-kreatur.js",
     "test:kreatur-treffer": "node tools/test-kreatur-treffer.js",
     "test:kreatur-treffer-mutation": "node tools/mutation-kreatur-treffer.js",
     "test:kreatur-bausteine": "node tools/test-kreatur-bausteine.js",

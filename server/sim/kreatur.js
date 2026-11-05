@@ -90,7 +90,7 @@ const KERN_MODI = {
 // Tempo eines Zustands mit dem Faktor aus Bausteinen (aufladung); ohne Faktor der Wert aus der Tabelle
 const tempoVon = (K, z) => z.tempo * (K.tempoF || 1);
 function gehe(game, K, dt, ctx, tempo) {
-  const r = Monster.gehenMit(game, ctx.E, K, dt, tempo, { hb: hbVon(ctx.typ), rammZeit: ctx.typ.rammZeit, tueren: ctx.typ.tuerenAufbrechen ? 'aufbrechen' : 'sperren' });
+  const r = ctx.typ.tuerenAufbrechen ? Monster.gehenMitAufbrechen(game, ctx.E, K, dt, tempo, hbVon(ctx.typ), ctx.typ.rammZeit) : Monster.gehenOhneAufbrechen(game, ctx.E, K, dt, tempo, hbVon(ctx.typ));
   if (r === 'tuer') { K.pfad = []; K.replan = Math.max(K.replan, 1); K.tuerGesperrt = true; }   // Tür bleibt zu: Pfad verwerfen, später neu planen
   return r;
 }
@@ -238,6 +238,9 @@ kreaturBausteinAnmelden('rammschaden', {
 // ---------- Daten laden und prüfen ----------
 const TYP_FELDER = ['name', 'groesse', 'sicht', 'verlustZeit', 'replan', 'hitRadius', 'schild', 'schildRegen', 'wunden', 'frontArc', 'tuerenAufbrechen', 'rammZeit', 'start', 'zustaende', 'bausteine'];
 const ZUSTAND_FELDER = ['modus', 'tempo', 'dauer', 'radius', 'uebergang'];
+const UEBERGANG_FELDER = ['auf', 'nach', 'abstand'];
+const SCHILD_FELDER = ['seg', 'max'];
+const SCHILDREGEN_FELDER = ['verzoegerung', 'schritt'];
 const zahl = (v, min, max) => typeof v === 'number' && Number.isFinite(v) && v >= min && (max === undefined || v <= max);
 
 function pruefen(d) {
@@ -251,12 +254,15 @@ function pruefen(d) {
     if (!t || typeof t !== 'object' || Array.isArray(t)) { f(P, 'Objekt erwartet'); continue; }
     for (const k of Object.keys(t)) if (!TYP_FELDER.includes(k)) f(P + '.' + k, 'unbekanntes Feld');
     if (typeof t.name !== 'string' || !t.name) f(P + '.name', 'Name-Schlüssel (String) fehlt');
-    if (!Number.isInteger(t.groesse) || t.groesse < 1 || t.groesse > 4) f(P + '.groesse', 'ganze Zahl 1..4 (Kanten des Fußabdrucks in Kacheln)');
+    // Größe ≠ 2: Kollisionsbox (groesse × 14 px um Mon.mitte) und Maske (Ankerpunkt = Kachelecke) passen erst mit einer Mitte je Größe zusammen (MON-03)
+    if (t.groesse !== 2) f(P + '.groesse', 'muss 2 sein (Kanten des Fußabdrucks in Kacheln); Größe ≠ 2 erst mit Mitte je Größe (MON-03)');
     if (!zahl(t.sicht, 0.1)) f(P + '.sicht', 'Zahl > 0 (Kacheln)');
     if (!zahl(t.verlustZeit, 0)) f(P + '.verlustZeit', 'Zahl >= 0 (s)');
     if (!zahl(t.replan, 0.05)) f(P + '.replan', 'Zahl >= 0,05 (s)');
     if (!zahl(t.hitRadius, 1)) f(P + '.hitRadius', 'Zahl >= 1 (px)');
     if (!t.schild || !zahl(t.schild.seg, 0) || !zahl(t.schild.max, 1) || t.schild.seg > t.schild.max || !Number.isInteger(t.schild.seg) || !Number.isInteger(t.schild.max)) f(P + '.schild', '{ seg, max } ganze Zahlen, 0 <= seg <= max, max >= 1');
+    if (t.schild && typeof t.schild === 'object') for (const k of Object.keys(t.schild)) if (!SCHILD_FELDER.includes(k)) f(P + '.schild.' + k, 'unbekanntes Feld');
+    if (t.schildRegen && typeof t.schildRegen === 'object') for (const k of Object.keys(t.schildRegen)) if (!SCHILDREGEN_FELDER.includes(k)) f(P + '.schildRegen.' + k, 'unbekanntes Feld');
     if (t.schildRegen !== undefined && (!t.schildRegen || !zahl(t.schildRegen.verzoegerung, 0) || !zahl(t.schildRegen.schritt, 0.05))) f(P + '.schildRegen', 'optional: { verzoegerung (s ohne Treffer) >= 0, schritt (s je Segment) >= 0,05 }; fehlt = keine Regeneration');
     if (!Number.isInteger(t.wunden) || t.wunden < 1) f(P + '.wunden', 'ganze Zahl >= 1');
     if (!zahl(t.frontArc, 0, 360)) f(P + '.frontArc', 'Zahl 0..360 (Grad, 0 = keine Frontpanzerung)');
@@ -272,6 +278,18 @@ function pruefen(d) {
     }
     const modi = new Set(KERN_NAMEN.modi), ausl = new Set(KERN_NAMEN.ausloeser);
     for (const b of aktiv) { const def = bausteine.get(b); if (def) { for (const n of Object.keys(def.modi || {})) modi.add(n); for (const n of Object.keys(def.ausloeser || {})) ausl.add(n); } }
+    // Namen der Bausteine dürfen sich nicht überdecken: weder untereinander noch mit den Kernnamen (sonst gewinnt still einer)
+    for (const [gruppe, kern] of [['modi', KERN_NAMEN.modi], ['ausloeser', KERN_NAMEN.ausloeser]]) {
+      const von = new Map();
+      for (const b of aktiv) {
+        const def = bausteine.get(b); if (!def) continue;
+        for (const n of Object.keys(def[gruppe] || {})) {
+          if (kern.includes(n)) f(P + '.bausteine.' + b, (gruppe === 'modi' ? 'Modus "' : 'Auslöser "') + n + '" ist ein Kernname und darf nicht überdeckt werden');
+          else if (von.has(n)) f(P + '.bausteine.' + b, (gruppe === 'modi' ? 'Modus "' : 'Auslöser "') + n + '" gibt es schon im Baustein ' + von.get(n));
+          else von.set(n, b);
+        }
+      }
+    }
     const Z = t.zustaende;
     if (!Z || typeof Z !== 'object' || Array.isArray(Z) || !Object.keys(Z).length) { f(P + '.zustaende', 'mindestens ein Zustand'); continue; }
     if (typeof t.start !== 'string' || !Z[t.start]) f(P + '.start', 'muss ein Zustand der Tabelle sein');
@@ -287,11 +305,24 @@ function pruefen(d) {
       z.uebergang.forEach((u, i) => {
         const UP = ZP + '.uebergang[' + i + ']';
         if (!u || typeof u !== 'object') { f(UP, 'Objekt erwartet'); return; }
+        for (const k of Object.keys(u)) if (!UEBERGANG_FELDER.includes(k)) f(UP + '.' + k, 'unbekanntes Feld');
         if (!ausl.has(u.auf)) f(UP + '.auf', 'unbekannter Auslöser "' + u.auf + '" (bekannt bei diesem Typ: ' + [...ausl].join(', ') + ')');
         if (typeof u.nach !== 'string' || !Z[u.nach]) f(UP + '.nach', 'Zustand "' + u.nach + '" gibt es nicht');
         if (u.auf === 'ablauf' && z.dauer === undefined) f(UP, 'Auslöser ablauf braucht eine dauer im Zustand');
         if (u.auf === 'nah' && !zahl(u.abstand, 0.1)) f(UP + '.abstand', 'Auslöser nah braucht abstand > 0 (Kacheln)');
+        if (u.auf !== 'nah' && u.abstand !== undefined) f(UP + '.abstand', 'abstand gilt nur für den Auslöser nah');
       });
+      // Sackgasse: der Modus ramme mit Tempo 0 bewegt sich nie, `blockiert` kann daher nie auslösen; gibt es keinen anderen Ausgang, bleibt die Kreatur dort für immer
+      if (z.modus === 'ramme' && z.tempo === 0 && z.uebergang.every((u) => u && u.auf === 'blockiert')) f(ZP, 'Sackgasse: Modus ramme mit tempo 0 kann nie blockieren, und es gibt keinen anderen Ausgang');
+    }
+    // unerreichbare Zustände: von `start` aus über die Übergänge nicht zu betreten
+    if (typeof t.start === 'string' && Z[t.start]) {
+      const gesehen = new Set([t.start]); const rest = [t.start];
+      while (rest.length) {
+        const z = Z[rest.pop()];
+        for (const u of (z && Array.isArray(z.uebergang) ? z.uebergang : [])) if (u && typeof u.nach === 'string' && Z[u.nach] && !gesehen.has(u.nach)) { gesehen.add(u.nach); rest.push(u.nach); }
+      }
+      for (const zn of Object.keys(Z)) if (!gesehen.has(zn)) f(P + '.zustaende.' + zn, 'unerreichbar (von start "' + t.start + '" führt kein Übergang dorthin)');
     }
   }
   return F;

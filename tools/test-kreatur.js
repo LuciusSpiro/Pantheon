@@ -2,7 +2,8 @@
 // MON-01 P1: Kreaturen-Rahmen (server/sim/kreatur.js, content/kampf/kreaturen.json). Echtes Spiel (Game), Debug `kreatur <typ>`.
 // Geprüft: Daten laden, Validator lehnt kaputte Daten ab, Kreatur nur mit Debug, Zyklus (Aufladen → Rammen → Pause, Dauern), Hindernis im Rammweg, Wahrnehmung und Verfolgen,
 // Türen-Schalter, Registry (neuer Baustein ohne Umbau), kein Zufallsverbrauch aus game.rng, Station-Monster-Bahn mit/ohne Kreatur gleich, ohne Kreaturen unverändert,
-// kein Typname im server/.
+// kein Typname im server/. Nacharbeit: Station-Monster gegen den festen Sollwert aus main da8d19c (tools/fixtures/mon01-station-bahn.json), Schott-Aufbrechen mit gemessener Rammzeit,
+// Maske gegen feste Referenzen, Validator-Lücken (Größe nur 2, unbekannte Felder, Sackgasse, Namenskollisionen, unerreichbare Zustände), kein Update ohne Außenteam.
 //   node tools/test-kreatur.js   (npm run test:kreatur)
 const fs = require('fs');
 const path = require('path');
@@ -20,6 +21,8 @@ const Monster = require('../server/sim/monster.js');
 const Kreatur = require('../server/sim/kreatur.js');
 const Protocol = require('../shared/protocol.js');
 const KREATUREN = require('../content/kampf/kreaturen.json');
+const Soll = require('./fixture-station-bahn.js');
+const SOLL = JSON.parse(fs.readFileSync(path.join(__dirname, 'fixtures', 'mon01-station-bahn.json'), 'utf8'));
 
 const DT = 1 / CONFIG.tickHz;
 const TILE = 32;
@@ -95,7 +98,17 @@ section('Daten und Validator', () => {
   ok(typeof t.name === 'string' && t.groesse === 2 && t.sicht > 0 && t.hitRadius > 0 && t.schild && t.wunden >= 1 && t.frontArc > 0 && typeof t.tuerenAufbrechen === 'boolean' && t.zustaende && t.bausteine.zyklus,
     'Typ probe trägt Name-Schlüssel, Größe, Sicht, hitRadius, Schild, Wunden, frontArc, tuerenAufbrechen, Zustandstabelle, Bausteine');
   ok(Object.values(t.zustaende).every((z) => typeof z.tempo === 'number'), 'Tempo je Zustand');
-  ok(!JSON.stringify(d).match(/[A-ZÄÖÜ][a-zäöüß]+ [a-zäöüß]+ [a-zäöüß]+/) || true, 'keine Anzeigetexte (nur Schlüssel)');
+  // keine Anzeigetexte: keine Textfelder, und jeder String der Typen ist ein Bezeichner/Schlüssel (kein Leerzeichen, keine Umlaute, keine Satzzeichen)
+  const verboten = ['text', 'zeile', 'hinweis', 'beschreibung', 'titel', 'label', 'anzeige'];
+  const schlechte = [];
+  const geh = (v, pfad) => {
+    if (typeof v === 'string') { if (!/^[A-Za-z0-9_.]+$/.test(v)) schlechte.push(pfad + '="' + v + '"'); }
+    else if (Array.isArray(v)) v.forEach((x, i) => geh(x, pfad + '[' + i + ']'));
+    else if (v && typeof v === 'object') for (const [k, x] of Object.entries(v)) { if (verboten.includes(k)) schlechte.push(pfad + '.' + k + ' (Textfeld)'); geh(x, pfad + '.' + k); }
+  };
+  geh(d.typen, 'typen');
+  ok(schlechte.length === 0, 'keine Anzeigetexte in den Typen (nur Schlüssel und Zahlen)' + (schlechte.length ? ': ' + schlechte.slice(0, 3).join('; ') : ''));
+  { const k = kopie(d); k.typen.probe.zustaende.jagd.hinweis = 'Der Jäger sucht'; schlechte.length = 0; geh(k.typen, 'typen'); ok(schlechte.length === 2, 'Gegenprobe: ein Textfeld mit Satz wird erkannt (' + schlechte.length + ' Befunde)'); }
   // kaputte Daten: jeweils eine gezielte Beschädigung muss mit Pfad im Text abgelehnt werden
   const kaputt = (name, mut, erwartet) => {
     const k = kopie(KREATUREN); mut(k);
@@ -105,6 +118,8 @@ section('Daten und Validator', () => {
   kaputt('Nicht-Objekt', (k) => { k.typen = []; }, 'typen');
   kaputt('Name fehlt', (k) => { delete k.typen.probe.name; }, 'typen.probe.name');
   kaputt('Größe 9', (k) => { k.typen.probe.groesse = 9; }, 'groesse');
+  for (const gr of [1, 3, 4]) kaputt('Größe ' + gr + ' (nur 2 zugelassen)', (k) => { k.typen.probe.groesse = gr; }, 'Größe ≠ 2 erst mit Mitte je Größe (MON-03)');
+  kaputt('Größe als Text', (k) => { k.typen.probe.groesse = '2'; }, 'groesse');
   kaputt('Sicht negativ', (k) => { k.typen.probe.sicht = -1; }, 'sicht');
   kaputt('Schild seg > max', (k) => { k.typen.probe.schild = { seg: 5, max: 4 }; }, 'schild');
   kaputt('tuerenAufbrechen kein Boolean', (k) => { k.typen.probe.tuerenAufbrechen = 'ja'; }, 'tuerenAufbrechen');
@@ -119,6 +134,31 @@ section('Daten und Validator', () => {
   kaputt('Modus ramme ohne eingeschalteten Baustein zyklus', (k) => { k.typen.probe.bausteine = {}; }, 'Modus');
   kaputt('Baustein-Parameter falsch', (k) => { k.typen.probe.bausteine.zyklus.hindernisAb = 5; }, 'hindernisAb');
   kaputt('Version', (k) => { k.version = 2; }, 'version');
+  kaputt('schild: unbekanntes Feld', (k) => { k.typen.probe.schild.bonus = 1; }, 'schild.bonus');
+  kaputt('schildRegen: unbekanntes Feld', (k) => { k.typen.probe.schildRegen = { verzoegerung: 1, schritt: 1, extra: 1 }; }, 'schildRegen.extra');
+  kaputt('Übergang: unbekanntes Feld', (k) => { k.typen.probe.zustaende.jagd.uebergang[0].bonus = 1; }, 'uebergang[0].bonus');
+  kaputt('abstand bei Auslöser ≠ nah', (k) => { k.typen.probe.zustaende.pause.uebergang[0].abstand = 3; }, 'abstand gilt nur für den Auslöser nah');
+  kaputt('Sackgasse: ramme mit tempo 0, einziger Ausgang blockiert', (k) => { const z = k.typen.probe.zustaende.rammen; z.tempo = 0; z.uebergang = [{ auf: 'blockiert', nach: 'steckt' }]; }, 'Sackgasse');
+  kaputt('unerreichbarer Zustand', (k) => { k.typen.probe.zustaende.insel = { modus: 'steht', tempo: 0, uebergang: [{ auf: 'sieht', nach: 'jagd' }] }; }, 'zustaende.insel: unerreichbar');
+  { // gültige Gegenproben: ramme mit tempo 0 UND einem weiteren Ausgang ist keine Sackgasse; ein eigener Typ, der alles erreicht, bleibt gültig
+    const k = kopie(KREATUREN); const z = k.typen.probe.zustaende.rammen; z.tempo = 0; z.uebergang.push({ auf: 'ablauf', nach: 'pause' });
+    ok(!Kreatur.pruefen(k).some((x) => /Sackgasse/.test(x)), 'Gegenprobe: ramme mit tempo 0 und weiterem Ausgang ist keine Sackgasse');
+  }
+  // Namenskollisionen unter Bausteinen (Modi und Auslöser): erst mit zwei temporär angemeldeten Bausteinen
+  { const abm = [
+      Kreatur.kreaturBausteinAnmelden('__dopp1', { modi: { gleich: { tick() {} } }, ausloeser: { gleichA: () => false } }),
+      Kreatur.kreaturBausteinAnmelden('__dopp2', { modi: { gleich: { tick() {} } }, ausloeser: { gleichA: () => false } }),
+      Kreatur.kreaturBausteinAnmelden('__kern', { modi: { zielen: { tick() {} } }, ausloeser: { sieht: () => false } }),
+    ];
+    try {
+      const mitB = (namen) => { const k = kopie(KREATUREN); for (const b of namen) k.typen.probe.bausteine[b] = {}; return Kreatur.pruefen(k); };
+      ok(!mitB(['__dopp1']).some((x) => /gibt es schon|Kernname/.test(x)), 'Gegenprobe: ein einzelner Baustein mit eigenem Modusnamen ist gültig');
+      const F2 = mitB(['__dopp1', '__dopp2']);
+      ok(F2.some((x) => /Modus "gleich" gibt es schon im Baustein __dopp1/.test(x)) && F2.some((x) => /Auslöser "gleichA" gibt es schon/.test(x)), 'Validator lehnt ab: zwei Bausteine mit gleichem Modus- und Auslösernamen (' + (F2[0] || '-') + ')');
+      const F3 = mitB(['__kern']);
+      ok(F3.some((x) => /Modus "zielen" ist ein Kernname/.test(x)) && F3.some((x) => /Auslöser "sieht" ist ein Kernname/.test(x)), 'Validator lehnt ab: Baustein überdeckt Kernmodus und Kernauslöser (' + (F3[0] || '-') + ')');
+    } finally { abm.forEach((a) => a()); }
+  }
   // Laden: kaputte Daten sind beim Laden ein Fehler mit klarer Meldung (alle Befunde in einem Text)
   const alt = KREATUREN.typen.probe.start;
   const abm = Kreatur.kreaturBausteinAnmelden('__cache__', {}); // Anmelden/Abmelden verwirft die geprüften Daten (nächster Gebrauch lädt neu)
@@ -374,11 +414,9 @@ section('Zufall und Station-Monster', () => {
   A.g.away.drones.length = 0; B.g.away.drones.length = 0;
   const KA = kreaturIn(A, 'probe', lang.cx0 + 2, lang.cy);
   A.setz(A.pad.x, A.pad.y);
-  const rngA0 = A.g.rng.state ? A.g.rng.state() : null;
   A.lauf(20); B.lauf(20);
   const nextA = A.g.rng(), nextB = B.g.rng();
   ok(KA.z && nextA === nextB, 'game.rng nach 20 s mit und ohne Kreatur identisch (' + nextA.toFixed(6) + ' = ' + nextB.toFixed(6) + ')');
-  void rngA0;
   const streifte = Math.hypot(KA.x - (lang.cx0 + 2) * TILE, KA.y - lang.cy * TILE) > 20;
   ok(streifte, 'die Kreatur hat in dieser Zeit tatsächlich gestreift (Zufall über aw.rng)');
   // ohne Kreaturen: update ändert nichts und verbraucht keinen Zufall
@@ -409,7 +447,49 @@ section('Zufall und Station-Monster', () => {
   ok(mk.kre && Math.hypot(mk.kre.x - 0, mk.kre.y - 0) > 0, 'die Kreatur lief in dieser Szene mit');
 });
 
+// ---------- Station-Monster gegen den festen Sollwert (main da8d19c, vor dem Umbau gehen -> gehenMit) ----------
+section('Station-Monster gegen den Sollwert aus main da8d19c', () => {
+  const R = Soll.messen(path.join(__dirname, '..'));
+  ok(SOLL.seed === 21 && SOLL.patrouille.ticks === 900 && /^[0-9a-f]{64}$/.test(SOLL.patrouille.sha256), 'Fixture geladen (Seed ' + SOLL.seed + ', ' + SOLL.patrouille.ticks + ' Ticks, Hash ' + SOLL.patrouille.sha256.slice(0, 10) + ')');
+  ok(R.patrouille.ticks === SOLL.patrouille.ticks && R.patrouille.sha256 === SOLL.patrouille.sha256, 'Bahn über 30 s (Patrouille) identisch zum Sollwert aus main' + (R.patrouille.sha256 === SOLL.patrouille.sha256 ? '' : ' (Abweichung, erste Probe: ' + R.patrouille.probe.find((s, i) => s !== SOLL.patrouille.probe[i]) + ' statt ' + SOLL.patrouille.probe.find((s, i) => s !== R.patrouille.probe[i]) + ')'));
+  // Tür: Schott zu, das Station-Monster bricht es auf und braucht dafür die Rammzeit (Konfiguration, 1,2 s); Spur bis zum Ziel hinter dem Schott wie in main
+  const s = R.schott, S0 = SOLL.schott;
+  ok(!s.fehler && s.offenAbTick > 0 && s.zielAbTick > 0, 'Schott zu: das Station-Monster bricht es auf (offen ab Tick ' + s.offenAbTick + ') und kommt durch (Ziel ab Tick ' + s.zielAbTick + ')');
+  ok(Math.abs(s.rammSekunden - Monster.STANDARD.rammZeit) <= 1.5 * DT, 'Aufbrechen dauert rammZeit ' + Monster.STANDARD.rammZeit + ' s (gemessen ' + s.rammSekunden + ' s zwischen Rammbeginn und offener Tür)');
+  ok(s.rammAbTick === S0.rammAbTick && s.offenAbTick === S0.offenAbTick && s.zielAbTick === S0.zielAbTick && s.sha256 === S0.sha256, 'Schott-Spur identisch zum Sollwert (Rammbeginn ' + s.rammAbTick + '/' + S0.rammAbTick + ', offen ' + s.offenAbTick + '/' + S0.offenAbTick + ', Ziel ' + s.zielAbTick + '/' + S0.zielAbTick + ')');
+  // Kollisionsbox 28×28: Endlage beim Anstoßen an die Wand
+  const w = R.wand, W0 = SOLL.wand;
+  ok(Monster.HB.w === 28 && Monster.HB.h === 28, 'Kollisionsbox des Station-Monsters 28×28');
+  ok(Math.abs(w.endeX - W0.endeX) < 0.01 && Math.abs(w.endeY - W0.endeY) < 0.01 && w.sha256 === W0.sha256, 'Anstoßen an die Wand: Endlage (' + w.endeX + ', ' + w.endeY + ') wie in main (' + W0.endeX + ', ' + W0.endeY + '), Sperre bei x ' + w.sperreX);
+  ok(R.maskeHash.sha256 === SOLL.maskeHash.sha256 && R.maskeHash.ankerpunkte === SOLL.maskeHash.ankerpunkte, 'Maske der Station (Größe 2) identisch zu main (' + R.maskeHash.ankerpunkte + ' Ankerpunkte)');
+});
+
+// ---------- Ohne Außenteam rührt sich keine Kreatur (der Cursor des Lärm-Lesers läuft allein mit) ----------
+section('Kein Update ohne Außenteam', () => {
+  const bau = () => { const S = szene(true); const lang = strecken(S.m, 16)[0]; S.g.away.drones.length = 0; const K = kreaturIn(S, 'probe', lang.cx0 + 2, lang.cy); S.setz(S.pad.x, S.pad.y); return { S, K, x0: K.x, y0: K.y }; };
+  const A = bau(), B = bau(), C = bau();
+  A.S.p.zone = 'ship';   // niemand mehr am Boden: Kreatur.update direkt aufrufen (kein Spielschritt, damit nur dieser Pfad geprüft wird)
+  for (let i = 0; i < Math.round(5 / DT); i++) Kreatur.update(A.S.g, DT);
+  A.S.p.zone = 'away';
+  ok(A.K.x === A.x0 && A.K.y === A.y0 && A.K.pfad.length === 0 && A.K.z === 'patrouille', 'ohne Spieler am Boden: Kreatur bleibt stehen (kein Pfad, Zustand ' + A.K.z + ')');
+  ok(A.S.g.away.rng() === B.S.g.away.rng(), 'ohne Spieler am Boden: kein Zufallsverbrauch aus aw.rng (Strom wie ohne Update)');
+  // Kontrolle: mit Spieler am Boden zieht dasselbe Update Zufall und bewegt die Kreatur (sonst wäre die Prüfung oben leer)
+  for (let i = 0; i < Math.round(5 / DT); i++) Kreatur.update(C.S.g, DT);
+  ok(C.K.pfad.length > 0 || Math.hypot(C.K.x - C.x0, C.K.y - C.y0) > 5, 'Kontrolle: mit Spieler am Boden plant und bewegt sich dieselbe Kreatur');
+  ok(C.S.g.away.rng() !== B.S.g.away.rng(), 'Kontrolle: mit Spieler am Boden wird aw.rng verbraucht');
+});
+
 section('Karte und Maske: Größenparameter', () => {
+  // feste Referenz (von Hand gerechnet): 5×5, eine Wandkachel (2,2). Anker (cx,cy) deckt die Kacheln cx−1..cx, cy−1..cy (Größe 2)
+  const kl = { w: 5, h: 5, rows: ['.....', '.....', '..#..', '.....', '.....'], legende: { '.': { kind: 'boden', solid: false }, '#': { kind: 'wand', solid: true } }, anker: [] };
+  const rasterRef = (m) => { const z = []; for (let cy = 1; cy <= 4; cy++) { let r = ''; for (let cx = 1; cx <= 4; cx++) r += m.geht(cx, cy) ? '1' : '0'; z.push(r); } return z; };
+  const m2k = Mon.maske(kl);
+  ok(JSON.stringify(rasterRef(m2k)) === JSON.stringify(['1111', '1001', '1001', '1111']), 'Maske Größe 2 auf der 5×5-Referenzkarte: ' + rasterRef(m2k).join('/') + ' (soll 1111/1001/1001/1111, auch die letzte Zeile und Spalte)');
+  let alle2 = 0; for (let cy = 0; cy <= 6; cy++) for (let cx = 0; cx <= 6; cx++) if (m2k.geht(cx, cy)) alle2++;
+  ok(alle2 === 12 && !m2k.geht(0, 1) && !m2k.geht(5, 1) && !m2k.geht(1, 5) && !m2k.geht(2, 2), 'genau 12 Ankerpunkte, keiner außerhalb 1..4 und keiner an der Wand (' + alle2 + ')');
+  // Größe 1 (Ankerpunkt 1..4, die Randspalte 5 ist nur mit Rand-Wänden gedacht): Anker (3,3) deckt die Wandkachel (2,2), alle anderen sind frei
+  const m1k = Mon.maske(kl, 1); let alle1 = 0; for (let cy = 1; cy <= 4; cy++) for (let cx = 1; cx <= 4; cx++) if (m1k.geht(cx, cy)) alle1++;
+  ok(alle1 === 15 && !m1k.geht(3, 3), 'Maske Größe 1 auf der Referenzkarte (Anker 1..4): 15 von 16, nur (3,3) fehlt (' + alle1 + ')');
   const S = szene(true);
   const m2 = Mon.maske(S.k), m2b = Monster.maskeVon(S.k), m1 = Mon.maske(S.k, 1), m3 = Monster.maskeVonGroesse(S.k, 3);
   let gleich = true; for (let cy = 0; cy <= m2.h; cy++) for (let cx = 0; cx <= m2.w; cx++) if (m2.geht(cx, cy) !== m2b.geht(cx, cy)) gleich = false;
