@@ -145,6 +145,20 @@
       "attribute": {},
       "regel": "Name über das Lexikon"
     },
+    "abbau": {
+      "objekt": "erzader",
+      "zustaende": [
+        "da",
+        "laeuft",
+        "abgebaut",
+        "leer"
+      ],
+      "halten": "abbau",
+      "attribute": {
+        "art": "text"
+      },
+      "regel": "GEL-03: Erzader; E halten (CONFIG.anker.halten.abbau), genau ein Halter, Treffer bricht ab (da); einmal je Mission (abgebaut); leer = in dieser Runde kein Vorkommen, nicht interagierbar; art Standard erz; Name über das Lexikon"
+    },
     "tor": {
       "objekt": null,
       "zustaende": [

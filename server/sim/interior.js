@@ -154,13 +154,14 @@ function blockierendeKacheln(game, k) {
   if (!c || c.alle !== alle || c.n !== alle.length || c.sig !== sig) {
     let kand = null;
     if (sig) for (const a of alle) if (a.rolle === 'falle' && Buehne.ankerBlockiert(a, cf)) (kand || (kand = [])).push({ id: a.id, kachel: a.y * k.w + a.x, verborgen: a.sicht !== 'passiv' });
+    for (const a of alle) if (a.rolle === 'abbau') (kand || (kand = [])).push({ id: a.id, kachel: a.y * k.w + a.x, abbau: true });   // GEL-03 A1: Erzader = Kollisionsbox, außer im Zustand leer
     c = { alle, n: alle.length, sig, kand };
     BLOCK_CACHE.set(k, c);
   }
   if (!c.kand) return null;
   const zs = (game.away && game.away.zustaende) || {};
   let set = null;
-  for (const e of c.kand) if (!e.verborgen || (zs[e.id] && zs[e.id] !== 'verborgen')) (set || (set = new Set())).add(e.kachel);
+  for (const e of c.kand) if (e.abbau ? zs[e.id] !== 'leer' : (!e.verborgen || (zs[e.id] && zs[e.id] !== 'verborgen'))) (set || (set = new Set())).add(e.kachel);
   return set;
 }
 function awaySolid(game) {

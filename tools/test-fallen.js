@@ -120,7 +120,7 @@ const gesamt = (S) => JSON.stringify([S.snap()]);
 section('Konfiguration, Register, Protokoll');
 {
   const A = require('../content/buehnen/anker.json');
-  ok(Object.keys(A.rollen).length === 22 && A.rollen.falle, 'anker.json: 22 Rollen, falle vorhanden');
+  ok(Object.keys(A.rollen).length === 23 && A.rollen.falle, 'anker.json: 23 Rollen, falle vorhanden');
   ok(A.rollen.falle.zustaende.join() === ZUSTAENDE.join(), 'Zustandsindex = Reihenfolge verborgen, erkannt, entschaerft, ausgeloest');
   ok(A.rollen.falle.halten === 'falle' && A.rollen.falle.objekt === 'falle' && CONFIG.anker.halten.falle === 3, 'Rolle falle: halten falle (3 s), Objekt falle');
   const R = CONFIG.anker.falle.radius;

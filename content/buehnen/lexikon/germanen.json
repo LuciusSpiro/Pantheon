@@ -5,6 +5,7 @@
   "hinweis": "Platzhalter {{lex.<schluessel>}} in Umsetzungs- und Spielleitertexten, aufgelöst nach der Bauweise des Landepunkts. Zeichenketten ersetzen direkt; Listen (namen, fund_alt, ort_muster) sind Auswahl für den Spielleiter, als Platzhalter gilt der erste Eintrag. rollen: Anzeigenamen der neutralen Gegnerrollen (content/katalog/gegner/*.json). Fehlt ein Schlüssel, gilt der neutrale Wert aus 'neutral'. Einträge: Zeichenkette (nur artikellos) oder { wort, genus m|f|n, plural?, gen?, dat? }. Formen im Text: {{lex.x}} Wort, {{lex.x:der|den|dem|des|ein|einen|einem}} mit Artikel, {{lex.x:pl}} Plural (server/mission/lexikon.js).",
   "eintraege": {
     "fund": { "wort": "Runenstein", "genus": "m", "plural": "Runensteine", "gen": "Runensteins" },
+    "abbau": { "wort": "Erzader", "genus": "f", "plural": "Erzadern" },
     "fund_alt": [
       "Clanschatz",
       "Eidring"
@@ -66,6 +67,7 @@
   },
   "neutral": {
     "fund": { "wort": "Fundstück", "genus": "n", "plural": "Fundstücke", "gen": "Fundstücks" },
+    "abbau": { "wort": "Erzader", "genus": "f", "plural": "Erzadern" },
     "tor": { "wort": "Tor", "genus": "n", "plural": "Tore", "gen": "Tors" },
     "schluessel": { "wort": "Doppelschloss", "genus": "n", "plural": "Doppelschlösser", "gen": "Doppelschlosses" },
     "raetsel_tipp": "Das Schloss öffnet nur, wenn zwei gleichzeitig halten.",

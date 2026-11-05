@@ -141,7 +141,7 @@
   function objektRolle(D, rolle) {
     const r = D.anker.rollen && D.anker.rollen[rolle];
     if (r) return !!r.objekt;
-    return ['terminal', 'sprengpunkt', 'zelle', 'beute', 'ziel', 'fund', 'raetsel', 'abholpunkt', 'lift', 'leiter', 'falle'].includes(rolle);
+    return ['terminal', 'sprengpunkt', 'zelle', 'beute', 'ziel', 'fund', 'raetsel', 'abholpunkt', 'lift', 'leiter', 'falle', 'abbau'].includes(rolle);
   }
   // ITM-01 D: Fallen sind pauschal begehbar (NICHT_BLOCKEND), außer ihr Typ steht in CONFIG.anker.falle.blockiert (Selbstschussanlage: Kollisionsbox). Die Regel gilt für Prüfer,
   // Server-Kollision (interior.awaySolid) und Client-Vorhersage gleich: ankerBlockiert(anker, falleCfg?) -> bool. falleCfg: CONFIG.anker.falle (Server: game.C, Client: Shared_Config).
@@ -168,7 +168,9 @@
       return zaehl[k] > 1 ? k + '.' + lauf[k] : k;
     });
   }
+  // GEL-03 A1: Erzadern (Rolle abbau) sind immer feste Objekte (Kollisionsbox, Kai 2026-10-27); nur der Zustand leer (kein Vorkommen in dieser Runde) nimmt sie weg (interior.blockierendeKacheln)
   function ankerBlockiert(a, falleCfg) {
+    if (a && a.rolle === 'abbau') return true;
     if (!a || a.rolle !== 'falle' || !a.typ) return false;
     const C = falleCfg || ((getConfig() || {}).anker || {}).falle;
     return !!(C && C.blockiert && C.blockiert[a.typ]);
@@ -1839,7 +1841,7 @@
 
   // Zelle als Text (Werkzeug, Galerie-Rückfall): Anker als Buchstaben über den Zeilen
   const ANKER_GLYPHE = { eingang: 'E', abholpunkt: 'A', wache: 'W', patrouille: 'p', deckung: 'd', terminal: 'T', sprengpunkt: 'B', zelle: 'Z',
-    beute: 'K', ziel: '*', fund: 'F', tor: 'G', raetsel: 'R', aussicht: 'V', nsc: 'N', versteck: 'H', lift: 'U', leiter: 'H', falle: '!' };
+    beute: 'K', ziel: '*', fund: 'F', abbau: 'Q', tor: 'G', raetsel: 'R', aussicht: 'V', nsc: 'N', versteck: 'H', lift: 'U', leiter: 'H', falle: '!' };
   function alsText(karte, mitAnker) {
     const rows = karte.rows.map((r) => r.split(''));
     if (mitAnker) for (const a of karte.anker) if (rows[a.y]) rows[a.y][a.x] = '\u001b[1;33m' + (ANKER_GLYPHE[a.rolle] || '?') + '\u001b[0m';

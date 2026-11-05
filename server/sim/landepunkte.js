@@ -378,8 +378,8 @@ function sichern(game, lpId) {
     if (aw.zustaende[id] !== start[id] || (e.zustaende && e.zustaende[id] != null)) z[id] = aw.zustaende[id];
   }
   try { require('./fallen-typen.js').beimSichern(aw, z, start, k); } catch (e) { if (game.countError) game.countError('fallen-sichern', e); }   // ITM-01 D: von einer Schott-Falle geschlossene Kanten mit ihrem Zustand davor (die Zeitwirkung wird nicht gespeichert)
-  // laufende Interaktionen werden nicht gespeichert (scharf -> intakt, laedt -> bereit; Fortschritt bleibt nicht)
-  for (const id of Object.keys(z)) if (z[id] === 'scharf') z[id] = 'intakt'; else if (z[id] === 'laedt') z[id] = 'bereit'; else if (z[id] === 'gehalten') z[id] = 'ruhe';
+  // laufende Interaktionen werden nicht gespeichert (scharf -> intakt, laedt -> bereit, laeuft (Abbau) -> da; Fortschritt bleibt nicht)
+  for (const id of Object.keys(z)) if (z[id] === 'scharf') z[id] = 'intakt'; else if (z[id] === 'laedt') z[id] = 'bereit'; else if (z[id] === 'gehalten') z[id] = 'ruhe'; else if (z[id] === 'laeuft') z[id] = 'da';
   e.zustaende = z;
   e.alarm = !!aw.alarm;
 }
