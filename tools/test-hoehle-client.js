@@ -158,7 +158,7 @@ async function sitzung(chromium, startServer, W, away, karte, lp) {
   const fehler = [];
   const page = await b.newPage({ viewport: { width: 1280, height: 720 } });
   page.on('pageerror', (e) => fehler.push('pageerror: ' + e.message));
-  page.on('console', (m) => { if (m.type() === 'error') fehler.push('console: ' + m.text().slice(0, 240)); });
+  page.on('console', (m) => { if (m.type() === 'error' || (m.type() === 'warning' && /Fehler in Voxel|\[kit\]/.test(m.text()))) fehler.push(m.type() + ': ' + m.text().slice(0, 240)); });   // GEL-02 E1: der Loader meldet Kit-Fehler per console.warn
   await page.goto(`http://127.0.0.1:${srv.port}/?render=voxel&debug=1`);
   await page.waitForFunction(() => window.__game && __game.send && __game.state, null, { timeout: 30000, polling: 20 });
   await page.waitForTimeout(1000);
@@ -286,7 +286,7 @@ async function mitBrowser(karten) {
       s.platz(U[0], U[1] + stride); await sleep(800);
       await page.addStyleTag({ content: '#game { visibility: hidden !important; }' }).catch(() => null);
       await page.setViewportSize({ width: 1600, height: 900 }); await sleep(600);
-      await page.evaluate(([cx, cz, h]) => { const Rr = VoxelRender.renderer; Rr.setSeat({ pos: [cx, h, cz + h * 0.95], look: [cx, 0, cz], fov: 45 }); }, [karte.w / 2, Hd / 2 + 1, Math.max(karte.w, Hd) * 0.55]);
+      await page.evaluate(([cx, cz, h]) => { const Rr = VoxelRender.renderer; Rr.state().scene.fog = null; if (window.Render) window.Render.teamVision = () => null; Rr.setSeat({ pos: [cx, h, cz + h * 0.95], look: [cx, 0, cz], fov: 45 }); }, [karte.w / 2, Hd / 2 + 1, Math.max(karte.w, Hd) * 0.55]);
       await sleep(2500);
       await page.screenshot({ path: path.join(OUT, `${biom}-deck1-uebersicht.png`) });
       await page.evaluate(() => VoxelRender.renderer.setSeat(null));
@@ -326,7 +326,7 @@ async function mitBrowser(karten) {
       // Uebersicht
       await page.addStyleTag({ content: '#game { visibility: hidden !important; }' }).catch(() => null);
       await page.setViewportSize({ width: 1600, height: 900 }); await sleep(600);
-      await page.evaluate(([cx, cz, h]) => { VoxelRender.renderer.setSeat({ pos: [cx, h, cz + h * 0.95], look: [cx, 0, cz], fov: 45 }); }, [karte.w / 2, karte.h / 2, Math.max(karte.w, karte.h) * 0.55]);
+      await page.evaluate(([cx, cz, h]) => { VoxelRender.renderer.state().scene.fog = null; if (window.Render) window.Render.teamVision = () => null; VoxelRender.renderer.setSeat({ pos: [cx, h, cz + h * 0.95], look: [cx, 0, cz], fov: 45 }); }, [karte.w / 2, karte.h / 2, Math.max(karte.w, karte.h) * 0.55]);
       await sleep(2500);
       await page.screenshot({ path: path.join(OUT, 'hoehle-nur-uebersicht.png') });
     } finally { await s.ende(); }

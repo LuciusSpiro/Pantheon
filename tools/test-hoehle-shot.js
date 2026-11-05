@@ -14,7 +14,7 @@ const arg = (name, def) => { const i = process.argv.indexOf('--' + name); return
 const PORT = +arg('port', '3396');
 const OUT = path.resolve(ROOT, arg('out', 'shots/gel02'));
 const SEED = arg('seed', '3');
-const GROESSE = arg('groesse', 'klein');
+const GROESSE = arg('groesse', 'mittel');   // GEL-02 E1: mittel, damit Steine und Pfuetzen des echten Erzeugers dabei sind (klein hatte keine Kit-Fehler gezeigt)
 const WARTE = +arg('warte', '1500');
 function playwright() {
   for (const k of [process.env.PLAYWRIGHT_CORE, 'playwright-core', 'C:/tmp/pw-test/node_modules/playwright-core'].filter(Boolean)) { try { return require(k); } catch (e) { /* nächster */ } }
@@ -44,7 +44,7 @@ async function lauf(b) {
   const err = [];
   const page = await b.newPage({ viewport: { width: 1280, height: 720 } });
   page.on('pageerror', (e) => err.push('pageerror: ' + e.message));
-  page.on('console', (m) => { if (m.type() === 'error') err.push('console: ' + m.text().slice(0, 200)); });
+  page.on('console', (m) => { if (m.type() === 'error' || (m.type() === 'warning' && /Fehler in Voxel|\[kit\]/.test(m.text()))) err.push(m.type() + ': ' + m.text().slice(0, 200)); });   // GEL-02 E1: Kit-Fehler kommen als console.warn (Loader)
   await page.goto(`http://127.0.0.1:${PORT}/?render=voxel&debug=1&arena=away&art=hoehle&seed=${SEED}&groesse=${GROESSE}&wellen=0`);
   await page.waitForFunction(() => window.__game && __game.send && __game.state, null, { timeout: 30000, polling: 20 });
   await page.waitForFunction(() => __game.state && __game.state.phase === 'lobby', null, { timeout: 30000, polling: 40 });

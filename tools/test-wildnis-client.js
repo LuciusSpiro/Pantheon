@@ -79,7 +79,7 @@ const imp = (f) => import(pathToFileURL(path.join(ROOT, f)).href);
     ok(fbKinds.has(kd) || NO_KIT.includes(kd) || mitTabelle || kd === 'baum', `kind ${kd}: Platzhalter FB.${kd}, Terrain oder Bauweisen-Eintrag`);
   }
   ok(fbKinds.has('findling') && fbKinds.has('bewuchs'), 'kit.js: Platzhalter FB.findling (Steine o/O) und FB.bewuchs (Bodenbewuchs)');
-  ok(/wildnis && \(kind === 'deckung_halb' \|\| kind === 'deckung_voll'\)/.test(kit) && /fb: 'findling'/.test(kit), 'kit.js: o/O der Wildnis laufen über FB.findling');
+  ok(/\(wildnis \|\| hoehle\) && \(kind === 'deckung_halb' \|\| kind === 'deckung_voll'\)/.test(kit) && /fb: 'findling'/.test(kit), 'kit.js: o/O der Wildnis laufen über FB.findling');
   ok(/streuenWildnis\(\{ w: k\.w/.test(kit) && /FB\.bewuchs\(pen/.test(kit), 'kit.js: Bodenbewuchs wird aus streuenWildnis über FB.bewuchs gezeichnet (nur Optik)');
 
   abschnitt('Bodenbewuchs: Determinismus und Grenzen');

@@ -96,6 +96,7 @@
     "test:wildnis-hoehle-client": "node tools/test-wildnis-hoehle-client.js",
     "test:hoehle-client": "node tools/test-hoehle-client.js",
     "test:hoehle-kulisse": "node tools/test-hoehle-kulisse.js",
+    "test:hoehle-lesbar": "node tools/test-hoehle-lesbar.js",
     "test:vox01-kit": "node tools/test-vox01-kit.js",
     "test:vox01-kronen": "node tools/test-vox01-kronen.js",
     "mess:klumpen": "node tools/mess-klumpen.js --selbsttest",
