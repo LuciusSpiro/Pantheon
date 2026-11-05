@@ -300,6 +300,8 @@
     "test:scanner-mutation": "node tools/mutation-scanner.js",
     "test:scanbar": "node tools/test-scanbar.js",
     "test:scanbar-mutation": "node tools/mutation-scanbar.js",
+    "test:scanbar-debug": "node tools/test-scanbar-debug.js",
+    "test:scanner-anzeige": "node tools/test-scanner-anzeige.js",
     "test:ausruestung-hud": "node tools/test-ausruestung-hud.js",
     "test:ausruestung-bot": "node tools/test-ausruestung-bot.js",
     "test:sektoren": "node tools/test-sektoren.js",

@@ -1601,6 +1601,7 @@ class Game {
       case 'konvoi': err = require('./sim/konvoi.js').debug(this, argList(msg)); break;   // EK3 Teil B: konvoi [n] [aufhalten|pluendern] [voll|jaeger|korvette|keine]
       case 'sprungpunkt': case 'ladung': case 'prise': err = this.onDebugQa(p, cmd, msg); break;           // QA-Nachzug (OFFEN-STUDIO)
       case 'scantest': err = Scanbar.debugScantest(this, p); break;   // SCA-01 P2: drei Testziele in Reichweite, eines außerhalb
+      case 'scanfertig': err = Scanbar.debugScanfertig(this, p, msg.stufe != null ? msg.stufe : argList(msg)[0]); break;   // SCA-01 P4: scanfertig [stufe 0..3] – Scan-Wirkung ohne Minispiel
       case 'welle': err = this.phase === 'lobby' ? 'Erst das Spiel starten.' : require('./sim/wellen.js').debugWelle(this, argList(msg)[0] != null ? argList(msg)[0] : msg.n); break;   // Bodenkampf: Wellen
       case 'graben': err = this.phase === 'lobby' ? 'Erst das Spiel starten.' : require('./sim/graben.js').debug(this, argList(msg)[0]); break;   // BOD-01: graben [welle2|reset|status]
       default: err = 'Unbekannter Debug-Befehl.';

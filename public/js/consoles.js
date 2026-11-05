@@ -1563,6 +1563,15 @@
       y = this.drawPersonen(ctx, st, lx, y + 3, lw);   // W2 AP6
       // Karte rechts
       const rect = { x: a.x + 246, y: a.y + 2, w: a.w - 246, h: 196 };
+      // SCA-01 P4: mit Scan-Ergebnissen wird die Karte kleiner (größte Zelle, die noch passt), damit unter ihr das Datenblatt Platz hat; ohne Ergebnis bleibt alles wie zuvor
+      const scan = this.scanAnsicht(away);
+      const bottom = a.y + a.h - 12;   // darunter liegt die Frachtleiste des Pults
+      const blk = scan ? this.scanMass(scan, rect.w) : null;
+      if (blk) {
+        const am = R.mapFor('away', st);
+        const c = Math.max(2, Math.min(Math.floor((rect.w - 4) / am.w), Math.floor((rect.h - 4) / am.h), Math.floor((bottom - rect.y - 6 - 11 - blk.h - 4) / am.h)));
+        rect.h = Math.min(rect.h, am.h * c + 4);
+      }
       this.maps.away = Object.assign(R.drawAwayCommandMap(ctx, view, rect, { highlight: this.order.hoverEnemy }), { rect });
       // Legende/Gegnerlage unter der Karte
       let ly = rect.y + rect.h + 6;
@@ -1572,6 +1581,7 @@
       R.text(ctx, 'GEGNERLAGE', rect.x, ly, { color: PAL.brass });
       R.text(ctx, (q < 1 ? 'ca. ' : '') + sc + ' Plünderer' + (wd ? ' · Wächter ' + (wd.asleep ? 'schläft' : 'WACH') : '') + (mon ? ' · MONSTER ' + ({ j: 'JAGT', l: 'hört Lärm', s: 'sucht', p: 'patrouilliert' }[mon.mo && mon.mo.z] || '') : ''), rect.x + 70, ly, { color: (wd && !wd.asleep) || (mon && mon.mo && mon.mo.z === 'j') ? PAL.red : PAL.star });
       ly += 11;
+      if (blk) { this.scanZeichne(ctx, scan, blk, rect.x, ly, rect.w); return 'Q/W/E/R/F/G Befehl wählen · Klick setzen · X löschen · S Sensor · K Kuppel · 1–6 Reiter'; }   // SCA-01 P4: Datenblatt statt der Hilfszeilen (der gewählte Befehl steht links markiert)
       const lines = [];
       if (q < 1) lines.push(['Störrelais verrauschen den Scan – Außenteam: E halten am Relais (Nord- und Südkorridor).', PAL.panelLight]);
       lines.push(['Gewählt: ' + R.ORDER_NAMES[this.order.kind] + (this.order.kind === 'fokus' ? ' – Gegner anklicken (8 s für alle sichtbar)' : ' – Klick auf die Karte setzt die Lichtsäule'), R.ORDER_COL[this.order.kind]]);
@@ -1581,6 +1591,49 @@
     sendOrder(view, fields) {
       this.cmd(view, 'captain.order', fields);
     },
+    // ---- SCA-01 P4: Scan-Ergebnisse (Datenblatt) im Reiter Außenteam. Zustand und Texte liegen in ScanAnzeige (public/js/scan-anzeige.js); hier nur Anordnung und Farben.
+    // Ansicht { zeilen, rest, fokus } oder null (ohne Ergebnis, ohne Modul: nichts zeichnen, nichts reservieren)
+    scanAnsicht(away) {
+      const SA = window.ScanAnzeige;
+      if (!SA || !away || !Array.isArray(away.sc) || !away.sc.length) return null;
+      try { SA.beobachte(away.sc); const v = SA.ansicht(away.sc, SA.MAX_ZEILEN); return v.zeilen.length ? v : null; } catch (e) { Net.reportError('Consoles.scanAnsicht', e); return null; }
+    },
+    // Maße des Blocks: Liste links (140 px), Datenblatt des Fokus rechts; h = Überschrift + höhere der beiden Spalten
+    scanMass(scan, w) {
+      const SA = window.ScanAnzeige, LW = 140, SW = Math.max(100, w - LW - 8);
+      const b = SA.blatt(scan.fokus, TILE);
+      const sheet = [];
+      for (const l of R.wrap(b.zeile, SW, 1)) sheet.push([l, PAL.star]);
+      if (b.hinweis) for (const l of R.wrap(b.hinweis, SW, 1)) sheet.push([l, PAL.ice]);
+      for (const l of R.wrap(b.position, SW, 1)) sheet.push([l, b.hatPosition ? PAL.mint : PAL.panelLight]);
+      const MAXL = 7;   // Name/Gefahr + höchstens 6 Textzeilen; Überlanges endet mit „...“
+      if (sheet.length > MAXL - 1) { sheet.length = MAXL - 1; sheet[MAXL - 2][0] = SA.kuerze(sheet[MAXL - 2][0] + ' ...', SW, (t) => R.measure(t, 1)); }
+      const rows = scan.zeilen.length + (scan.rest ? 1 : 0);
+      return { LW, SW, b, sheet, h: 11 + Math.max(rows * 10, 10 + sheet.length * 10) };
+    },
+    scanPips(ctx, x, y, n) {   // Gefahrenstufe 0..3: drei Kästchen, Rot nur für Gefahr
+      for (let i = 0; i < 3; i++) { ctx.fillStyle = i < n ? PAL.red : '#3A4250'; ctx.fillRect(x + i * 6, y + 1, 4, 6); }
+    },
+    scanZeichne(ctx, scan, blk, x, y, w) {
+      const SA = window.ScanAnzeige, meas = (t) => R.measure(t, 1), ICE = PAL.ice;
+      R.text(ctx, 'SCAN-ERGEBNISSE', x, y, { color: PAL.brass });
+      y += 11;
+      const LW = blk.LW, sx = x + LW + 8, SW = blk.SW;
+      scan.zeilen.forEach((z, i) => {
+        const ry = y + i * 10, fok = z === scan.fokus;
+        if (fok) { ctx.fillStyle = 'rgba(169,214,229,0.2)'; ctx.fillRect(x, ry - 1, LW, 10); }
+        R.text(ctx, z.symbol, x + 2, ry, { color: ICE });
+        R.text(ctx, SA.kuerze(z.name, LW - 16 - 52 - 3, meas), x + 16, ry, { color: fok ? PAL.star : PAL.panelLight });
+        this.scanPips(ctx, x + LW - 52, ry, z.gefahr);
+        R.text(ctx, SA.sterne(z.sk), x + LW - 32, ry, { color: ICE });
+        R.ui.buttons.push({ x, y: ry - 1, w: LW, h: 10, label: z.name, onClick: () => SA.waehle(z.key) });
+      });
+      if (scan.rest) R.text(ctx, '+' + scan.rest + ' weitere', x + 16, y + scan.zeilen.length * 10, { color: PAL.panelLight });
+      R.text(ctx, SA.kuerze(blk.b.titel, SW - 24, meas), sx, y, { color: ICE });
+      this.scanPips(ctx, sx + SW - 18, y, blk.b.gefahr);
+      let sy = y + 10;
+      for (const [txt, col] of blk.sheet) { R.text(ctx, txt, sx, sy, { color: col }); sy += 10; }
+    },
     // Klick in die Kommandokarte (Captain, Reiter Außenteam auf v2-Karten)
     awayMapClick(view, x, y, button) {
       const mp = this.maps.away;
@@ -1588,6 +1641,7 @@
       const kind = this.order.kind;
       if (button === 2) { this.sendOrder(view, { kind, clear: true }); return true; }
       const w = mp.toW(x, y);
+      for (const m of mp.scanRects || []) if (this.inRect(x, y, m)) { if (window.ScanAnzeige) ScanAnzeige.waehle(m.key); break; }   // SCA-01 P4: Klick auf einen Scan-Marker wählt den Datenblatt-Eintrag; der Befehl wird trotzdem gesetzt
       let hitE = null;
       for (const r of mp.enemyRects || []) if (this.inRect(x, y, { x: r.x - 3, y: r.y - 3, w: r.w + 6, h: r.h + 6 })) { hitE = r; break; }
       if (kind === 'fokus') {
