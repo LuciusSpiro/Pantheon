@@ -1579,8 +1579,8 @@
       // Legende/Gegnerlage unter der Karte
       let ly = rect.y + rect.h + 6;
       const alive = (view.drones || []).filter(d => d.alive !== false);
-      const mon = alive.find(d => d.kind === 'monster');   // SL7c: das Monster zählt nicht als Plünderer
-      const sc = alive.filter(d => d.kind !== 'warden' && d.kind !== 'monster').length, wd = alive.find(d => d.kind === 'warden');
+      const mon = alive.find(d => d.kind === 'monster');   // SL7c: das Monster zählt nicht als Plünderer (MON-01: Kreaturen auch nicht)
+      const sc = alive.filter(d => d.kind !== 'warden' && d.kind !== 'monster' && d.kind !== 'kreatur').length, wd = alive.find(d => d.kind === 'warden');
       R.text(ctx, 'GEGNERLAGE', rect.x, ly, { color: PAL.brass });
       R.text(ctx, (q < 1 ? 'ca. ' : '') + sc + ' Plünderer' + (wd ? ' · Wächter ' + (wd.asleep ? 'schläft' : 'WACH') : '') + (mon ? ' · MONSTER ' + ({ j: 'JAGT', l: 'hört Lärm', s: 'sucht', p: 'patrouilliert' }[mon.mo && mon.mo.z] || '') : ''), rect.x + 70, ly, { color: (wd && !wd.asleep) || (mon && mon.mo && mon.mo.z === 'j') ? PAL.red : PAL.star });
       ly += 11;

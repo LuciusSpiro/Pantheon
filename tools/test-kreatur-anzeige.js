@@ -159,6 +159,29 @@ section('Snapshot kr', () => {
   K1.x = x0;
 });
 
+section('Snapshot kr: Sichtregel wie combat.updateVisibility (Sichtradius je Spieler, Lanzenkegel, Sensor, Fokus)', () => {
+  const Stellung = require('../server/sim/stellung.js'); const orig = Stellung.sichtKacheln;
+  const sieht = () => (g.snapshot().away.kr || []).some((r) => r[0] === 1);
+  const x0 = K1.x, y0 = K1.y; Kreatur.zustandSetzen(g, K1, 'patrouille'); K1.x = p.x + 5 * TILE; K1.y = p.y;
+  try {
+    ok(sieht(), 'Kontrolle: Kreatur 5 Kacheln entfernt in der Reihe ist bei Sichtradius 10 sichtbar');
+    Stellung.sichtKacheln = () => 3;   // Sichtradius des Spielers kleiner als sightTiles (wie anderer Sichtradius in Stellung/Posten, nur kleiner)
+    ok(!sieht(), 'Sichtradius des Spielers (sichtRadius) gilt, nicht das feste sightTiles: bei 3 Kacheln ist die Kreatur 5 Kacheln entfernt unsichtbar');
+    Stellung.sichtKacheln = () => 20;
+    K1.x = p.x + 14 * TILE;
+    ok(sieht() === (require('../server/sim/combat.js').losBetween(require('../server/sim/combat.js').env(g), p, K1)), 'Sichtradius 20: Kreatur 14 Kacheln entfernt sichtbar, soweit Sichtlinie besteht');
+    K1.x = p.x + 5 * TILE; Stellung.sichtKacheln = () => 3;
+    p.ladung = { tx: K1.x, ty: K1.y };   // zielt mit der Lanze auf die Kreatur: Weitsicht im Kegel
+    ok(sieht(), 'Lanzenkegel: zielt der Spieler mit der Lanze auf die Kreatur, ist sie trotz kleinem Sichtradius sichtbar');
+    p.ladung = { tx: p.x, ty: p.y + 100 * TILE };
+    ok(!sieht(), 'Lanze zielt in eine andere Richtung: kein Kegel, wieder unsichtbar');
+    p.ladung = null; K1.focusUntil = g.time + 5;
+    ok(sieht(), 'Captain-Fokus (focusUntil) deckt auf, wie bei den Drohnen');
+    K1.focusUntil = 0;
+    ok(!sieht(), 'Fokus abgelaufen: wieder unsichtbar');
+  } finally { Stellung.sichtKacheln = orig; p.ladung = null; K1.focusUntil = 0; K1.x = x0; K1.y = y0; }
+});
+
 section('Bytes je Kreatur', () => {
   K1.facing = -2.3456789; K1.aufladung = { stufe: 3, ruhe: 0, zerfallT: 0 };
   Kreatur.zustandSetzen(g, K1, 'rammen');
@@ -185,6 +208,30 @@ section('Datenblatt-Eintrag probe', () => {
   ok(SA.nameVon([['K1', 'monster', 'probe', 1]], 'monster', 'K2', DATEN) === null, 'nameVon: nicht gescannt -> null (Anzeige "?")');
   const mk = SA.marker([['K1', 'monster', 'probe', 3, 96, 64], ['K2', 'monster', 'probe', 1]], DATEN);
   ok(mk.length === 1 && mk[0].symbol === 'MO' && mk[0].artTitel === 'Monster', 'Marker nur mit Position, Art Monster (Symbol MO)');
+});
+
+section('typCode: Reihenfolge der Typen in kreaturen.json ist Protokoll', () => {
+  // Neue Typen nur ans ENDE von kreaturen.json, nie umsortieren oder einfügen (der Client kennt den Index als Wiedererkennung). Beim Anhängen eines Typs diese Liste ergänzen.
+  const PROTOKOLL = ['probe'];
+  const ids = Object.keys(KREATUREN.typen);
+  ok(PROTOKOLL.every((t, i) => ids[i] === t), 'die ersten Typen in kreaturen.json sind unverändert und in dieser Reihenfolge: ' + PROTOKOLL.join(', '));
+  const kr = g.snapshot().away.kr || [];
+  const r = kr.find((q) => q[0] === 1);
+  ok(!!r && r[1] === 0 && ids[0] === 'probe', 'ausgelieferter typCode von probe ist 0 (' + (r ? r[1] : 'nicht im Bild') + ')');
+  ok(/typCode[\s\S]*Reihenfolge/.test(read('CONTRACT-B2.md')) && /Reihenfolge[\s\S]{0,300}kreaturen\.json/.test(read('shared/protocol.js')), 'CONTRACT-B2.md und shared/protocol.js halten die Reihenfolge als Protokoll fest');
+});
+
+section('Client: Gegnerlage und Kommandokarte, eine Farbquelle', () => {
+  const co = read('public/js/consoles.js'), rd = read('public/js/render.js'), ac = read('public/js/voxel/actors.js');
+  ok(/d\.kind !== 'warden' && d\.kind !== 'monster' && d\.kind !== 'kreatur'/.test(co), 'consoles.js: Kreaturen zählen in der Gegnerlage nicht als Plünderer');
+  const karte = rd.slice(rd.indexOf('function drawAwayCommandMap'), rd.indexOf('SL7c: nächstes Pult der Monster-Station'));
+  ok(/noisy && !ungestoertAufKarte\(e\)/.test(karte) && /ungestoertAufKarte = \(e\) => e\.kind === 'monster' \|\| e\.kind === 'kreatur'/.test(rd), 'Kommandokarte: Monster und Kreaturen werden weder verschoben noch flackern');
+  ok(/kreaturMarker\.has\('monster:' \+ e\.id\)/.test(karte), 'Kommandokarte: Name entfällt, wenn ein Scan-Marker derselben Kreatur existiert');
+  const kr = rd.slice(rd.indexOf('const KREATUR = {'), rd.indexOf('// SL7c: das Monster der Forschungsstation'));
+  ok(!/#[0-9A-Fa-f]{6}|rgba\(/.test(kr.replace(/\/\/.*$/gm, '')), 'Kreaturen-Darstellung in render.js ohne freie Farbwerte (nur Palette)');
+  const vx = ac.slice(ac.indexOf("kind.startsWith('kreatur|')"), ac.indexOf("else if (kind === 'warden') { box(1.4"));
+  ok(/Render\.KREATUR/.test(vx) && !/'#[0-9A-Fa-f]{6}'/.test(vx.replace(/if \(!KR\) \{[^}]*\}/, '')), 'voxel/actors.js liest Render.KREATUR (keine eigenen Farbwerte, außer dem Notfall ohne Render)');
+  ok(/kreaturBeschriftung\(ctx, kn, s\.x, s\.y\)/.test(rd) && /dk === 'kreatur'\) \{ const kn = kreaturName\(e, st\); const kg/.test(rd), 'Voxel-Überlagerung beschriftet Kreaturen (Name aus dem Scan, sonst „?“)');
 });
 
 section('Client-Einhängestellen (Quelltext)', () => {

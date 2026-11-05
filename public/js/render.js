@@ -1886,11 +1886,12 @@
     const noisy = q < 1;
     const enemyRects = [];
     const slot = Math.floor(t * 2);
+    const kreaturMarker = new Set(scanMarker(st).map((m) => m.key));   // M4: Kreaturen mit Scan-Marker tragen den Namen nicht zusätzlich
     for (const e of view.drones || []) {
       if (e.alive === false) continue;
       let ex = e.x, ey = e.y;
       const seed = String(e.id).split('').reduce((s, ch) => s * 31 + ch.charCodeAt(0), 7);
-      if (noisy) {
+      if (noisy && !ungestoertAufKarte(e)) {   // Monster und Kreaturen: weder Positionsrauschen noch Flackern (sie stehen am Boden in Sicht des Teams)
         const amp = (1 - q) * 3 * TILE;
         ex += (hash(seed + slot * 13) - 0.5) * amp; ey += (hash(seed + slot * 29 + 1) - 0.5) * amp;
         if (hash(seed * 3 + slot * 7 + Math.floor(t * 6)) < (1 - q) * 0.4) continue;   // Blip flackert
@@ -1905,10 +1906,10 @@
         text(ctx, 'MONSTER', s.x, s.y - 18, { color: '#FF8A5C', align: 'center' });
         continue;
       }
-      if (e.kind === 'kreatur') {   // MON-01 P4: Kreatur auf der Captain-Karte: Raute in Ladungsfarbe, Name nur gescannt sonst „?“ (nie verrauscht)
+      if (e.kind === 'kreatur') {   // MON-01 P4: Kreatur auf der Captain-Karte: Raute in Ladungsfarbe (nie verrauscht); Name nur gescannt sonst „?“, unter der Raute, und nur ohne Scan-Marker (der trägt schon das Kürzel)
         const kb = e.kr ? e.kr.b : 0;
-        shape(ctx, 'diamond', s.x, s.y, 10, KREATUR_LADUNG[kb & 3], (kb & 8) ? PAL.star : PAL.space);
-        text(ctx, kreaturName(e, st), s.x, s.y - 14, { color: '#FF8A5C', align: 'center' });
+        shape(ctx, 'diamond', s.x, s.y, 10, KREATUR.koerper[kb & 3], (kb & 8) ? KREATUR.rammKante : KREATUR.kante);
+        if (!kreaturMarker.has('monster:' + e.id)) text(ctx, kreaturName(e, st), s.x, s.y + 9, { color: kreaturName(e, st) === '?' ? KREATUR.unbekannt : KREATUR.name, align: 'center' });
         continue;
       }
       if (noisy) {
@@ -2239,7 +2240,7 @@
           const hitAge = view.enemyHit && view.enemyHit[e.id] != null ? view.enemyHit[e.id] : 99;
           const esh = v2 && Array.isArray(e.sh) ? e.sh : null;
           if (dk === 'monster') { drawMonster(ctx, ex, ey, e, t); }
-          else if (dk === 'kreatur') { const kn = kreaturName(e, st); drawKreatur(ctx, ex, ey, e, t, kn); const kg = ((e.kr.b >> 4) & 3) + 1; hindernisMerken(kn, ex, ey - kg * TILE * 0.38 - 22); }
+          else if (dk === 'kreatur') { const kn = kreaturName(e, st); drawKreatur(ctx, ex, ey, e, t, kn); const kg = ((e.kr.b >> 4) & 3) + 1; hindernisMerken(kn, ex, ey - kg * TILE * 0.38 - 32); }
           else if (dk === 'warden') {
             // M2: Wächter („Lamassu“) mit Frontbogen und Blickrichtung
             const wo = { time: t, alive: e.alive !== false, kind: 'warden', facing: +e.facing || 0, asleep: !!e.asleep, wake: !e.asleep, hit: hitAge < 0.15, revealed: aufgedeckt(e, st), shieldSeg: esh ? esh[0] : null, shieldMax: esh ? esh[1] : null };
@@ -2574,6 +2575,7 @@
         const dk = e.kind || (map.id === 'wreck' ? 'scavenger' : undefined);
         if (dk === 'warden') { const s = P(e.x, e.y, 62); hindernisMerken(e.asleep ? 'WÄCHTER (schläft)' : 'WÄCHTER', s.x, s.y); text(ctx, e.asleep ? 'WÄCHTER (schläft)' : 'WÄCHTER', s.x, s.y, { color: e.asleep ? PAL.panelLight : KESH_VIOLET, align: 'center' }); }
         else if (dk === 'scavenger') { const cr = v2 && !!e.cr; const s = P(e.x, e.y, cr ? 28 : 36); hindernisMerken(gegnerSchild(e, cr), s.x, s.y); text(ctx, gegnerSchild(e, cr), s.x, s.y, { color: PAL.rust, align: 'center' }); }
+        else if (dk === 'kreatur') { const kn = kreaturName(e, st); const kg = ((e.kr.b >> 4) & 3) + 1; const s = P(e.x, e.y, 40 + kg * 14); hindernisMerken(kn, s.x, s.y); kreaturBeschriftung(ctx, kn, s.x, s.y); }   // MON-01 Nacharbeit H1: Name nur aus dem Scan, sonst „?“
       }
     });
 
@@ -3880,9 +3882,22 @@
     }
   }
 
-  // MON-01 P4: Kreaturen (Platzhalter, kein Modell): Box in Typgröße, Nase in Blickrichtung, Farbe nach Ladung 0..3, Rammen = rote Spur und heller Rand, Pause = blass mit „…“.
-  // e.kr = { t: typCode, b: bits } (bits: 0-1 Ladung, 2 Pause, 3 rammt, 4-5 Größe-1). Der Name steht nur im Scan (away.sc), sonst „?“.
-  const KREATUR_LADUNG = ['#5E6B7E', '#C9A33A', '#E0792E', '#E0392E'];
+  // MON-01 P4: Kreaturen (Platzhalter, kein Modell): Box in Typgröße, Nase in Blickrichtung. Körper neutral (grau) bis Ladung 2, ab Ladung 3 rot; die Ladung zeigen helle Punkte unter dem
+  // Körper (leere Plätze als Umriss), Rammen = helle Streifen hinter dem Körper und heller Rand, Pause = gestrichelter Umriss in Sternweiß plus „zz“ und zwei Sternchen.
+  // e.kr = { t: typCode, b: bits } (bits: 0-1 Ladung, 2 Pause, 3 rammt, 4-5 Größe-1). Der Name steht nur im Scan (away.sc), sonst „?“ (Plakette, damit er auf jedem Boden lesbar bleibt).
+  // KREATUR ist die EINE Farbquelle der Platzhalter (2D hier, Voxel in voxel/actors.js über Render.KREATUR), alles aus der Palette.
+  const KREATUR = {
+    koerper: [PAL.grey, PAL.grey, PAL.grey, PAL.red],   // je Ladung 0..3
+    kante: PAL.space, rammKante: PAL.star, spur: PAL.spark, kopf: PAL.panelLight,
+    punkt: PAL.spark, punktLeer: PAL.panelLight, pause: PAL.star, name: PAL.rust, unbekannt: PAL.star,
+  };
+  // Monster und Kreaturen sind am Boden in Sicht des Teams: die Kommandokarte verrauscht sie nie (Störrelais betreffen Plünderer und Wächter)
+  const ungestoertAufKarte = (e) => e.kind === 'monster' || e.kind === 'kreatur';
+  function kreaturBeschriftung(ctx, name, x, y) {
+    const w = measure(name, 1) + 6;
+    ctx.save(); ctx.globalAlpha = 0.7; ctx.fillStyle = PAL.space; ctx.fillRect(x - Math.ceil(w / 2), y - 1, w, 10); ctx.restore();
+    text(ctx, name, x, y, { color: name === '?' ? KREATUR.unbekannt : KREATUR.name, align: 'center' });
+  }
   function kreaturName(e, st) {
     const sc = st && st.away && st.away.sc; const SA = window.ScanAnzeige;
     return (sc && SA && SA.nameVon(sc, 'monster', e.id)) || '?';
@@ -3891,17 +3906,29 @@
     const b = e.kr.b | 0, ladung = b & 3, pause = !!(b & 4), rammt = !!(b & 8), g = ((b >> 4) & 3) + 1;
     const h = g * TILE * 0.38, f = +e.facing || 0;
     ctx.save(); ctx.translate(x, y);
-    ctx.fillStyle = 'rgba(0,0,0,0.35)'; ctx.beginPath(); ctx.ellipse(0, h * 0.6, h * 1.1, h * 0.4, 0, 0, Math.PI * 2); ctx.fill();
-    if (rammt) { ctx.strokeStyle = 'rgba(255,90,60,0.7)'; ctx.lineWidth = 2; for (let i = -1; i <= 1; i++) { ctx.beginPath(); ctx.moveTo(-Math.cos(f) * h * 1.2 - Math.sin(f) * i * h * 0.6, -Math.sin(f) * h * 1.2 + Math.cos(f) * i * h * 0.6); ctx.lineTo(-Math.cos(f) * h * 2.4 - Math.sin(f) * i * h * 0.6, -Math.sin(f) * h * 2.4 + Math.cos(f) * i * h * 0.6); ctx.stroke(); } }
+    ctx.globalAlpha = 0.4; ctx.fillStyle = KREATUR.kante; ctx.beginPath(); ctx.ellipse(0, h * 0.6, h * 1.1, h * 0.4, 0, 0, Math.PI * 2); ctx.fill(); ctx.globalAlpha = 1;
+    if (rammt) { ctx.strokeStyle = KREATUR.spur; ctx.lineWidth = 2; for (let i = -1; i <= 1; i++) { ctx.beginPath(); ctx.moveTo(-Math.cos(f) * h * 1.2 - Math.sin(f) * i * h * 0.6, -Math.sin(f) * h * 1.2 + Math.cos(f) * i * h * 0.6); ctx.lineTo(-Math.cos(f) * h * 2.4 - Math.sin(f) * i * h * 0.6, -Math.sin(f) * h * 2.4 + Math.cos(f) * i * h * 0.6); ctx.stroke(); } }
     ctx.rotate(f);
-    ctx.globalAlpha = pause ? 0.6 : 1;
-    ctx.fillStyle = KREATUR_LADUNG[ladung]; ctx.strokeStyle = rammt ? '#FFFFFF' : '#1A1220'; ctx.lineWidth = rammt ? 3 : 2;
-    ctx.beginPath(); ctx.rect(-h, -h * 0.8, h * 2, h * 1.6); ctx.fill(); ctx.stroke();
-    ctx.fillStyle = '#1A1220'; ctx.beginPath(); ctx.moveTo(h + h * 0.5, 0); ctx.lineTo(h, -h * 0.4); ctx.lineTo(h, h * 0.4); ctx.closePath(); ctx.fill();
+    ctx.globalAlpha = pause ? 0.8 : 1;
+    ctx.fillStyle = KREATUR.koerper[ladung]; ctx.strokeStyle = rammt ? KREATUR.rammKante : KREATUR.kante; ctx.lineWidth = rammt ? 3 : 2;
+    ctx.beginPath(); ctx.rect(-h, -h, h * 2, h * 2); ctx.fill(); ctx.stroke();   // quadratisch 2h × 2h: deckt den Trefferkreis in jeder Drehung
+    ctx.fillStyle = KREATUR.kante; ctx.beginPath(); ctx.moveTo(h + h * 0.5, 0); ctx.lineTo(h, -h * 0.4); ctx.lineTo(h, h * 0.4); ctx.closePath(); ctx.fill();
+    if (pause) { ctx.globalAlpha = 1; ctx.setLineDash([5, 4]); ctx.strokeStyle = KREATUR.pause; ctx.lineWidth = 2; ctx.strokeRect(-h - 4, -h - 4, h * 2 + 8, h * 2 + 8); ctx.setLineDash([]); }
     ctx.restore();
-    for (let i = 0; i < 3; i++) { ctx.fillStyle = i < ladung ? KREATUR_LADUNG[3] : '#3A4250'; ctx.fillRect(x - 7 + i * 5, y - h - 10, 4, 4); }
-    if (pause) text(ctx, '...', x, y - 4, { color: PAL.star, align: 'center' });
-    text(ctx, name, x, y - h - 22, { color: name === '?' ? PAL.panelLight : '#FF8A5C', align: 'center' });
+    // Ladung: drei Plätze unter dem Körper (6×6, 2 px Abstand, dunkle Kontur), gefüllt = hell, leer = Umriss
+    const px = Math.round(x - 11), py = Math.round(y + h + 4);
+    for (let i = 0; i < 3; i++) {
+      const bx = px + i * 8;
+      ctx.fillStyle = KREATUR.kante; ctx.fillRect(bx - 1, py - 1, 8, 8);
+      if (i < ladung) { ctx.fillStyle = KREATUR.punkt; ctx.fillRect(bx, py, 6, 6); }
+      else { ctx.strokeStyle = KREATUR.punktLeer; ctx.lineWidth = 1; ctx.strokeRect(bx + 0.5, py + 0.5, 5, 5); }
+    }
+    if (pause) {   // eigenes Zeichen für das Strafen-Fenster, neben der Körpermitte: „zz“ und zwei Sternchen
+      const zx = Math.round(x + h * 0.75), zy = Math.round(y - h - 8);
+      text(ctx, 'zz', zx, zy, { color: KREATUR.pause, align: 'center' });
+      shape(ctx, 'diamond', zx + 11, zy - 4, 5, KREATUR.pause, KREATUR.kante); shape(ctx, 'diamond', zx - 10, zy - 6, 4, KREATUR.pause, KREATUR.kante);
+    }
+    kreaturBeschriftung(ctx, name, x, y - h - 32);
   }
 
   // SL7c: das Monster der Forschungsstation (Fußabdruck 2×2 Kacheln): dunkler Körper, Augen in Blickrichtung, Farbe nach Zustand (Jagd rot, Lärm orange)
@@ -5199,7 +5226,7 @@
   }
 
   window.Render = {
-    PAL, SHAPES, TILE, VW, VH,
+    PAL, SHAPES, TILE, VW, VH, KREATUR,   // KREATUR: Farben der Kreaturen-Platzhalter (auch voxel/actors.js)
     OBJ, SYS_BY_CHAR, CONSOLE_BY_CHAR,
     // M3a: Legenden-Ableitung und Schiffslayout
     legendOf, sysOf, consoleOf, objKindOf, shelfItemAt, shelfTiles,
