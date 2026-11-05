@@ -103,6 +103,13 @@
     };
   }
 
+  // Name eines gescannten Ziels (Art + id) aus dem Datenblatt-Content, sonst null (noch nicht gescannt): für Beschriftungen am Boden (MON-01 P4)
+  function nameVon(sc, art, id, daten) {
+    const d = daten === undefined ? store.daten : daten;
+    for (const e of lesen(sc)) if (e.art === art && e.id === id) return zeile(e, d).name;
+    return null;
+  }
+
   // Marker (nur Einträge mit Position): [{ key, x, y, symbol, fokus }]
   function marker(sc, daten) {
     const d = daten === undefined ? store.daten : daten;
@@ -162,5 +169,5 @@
   }
   if (typeof window !== 'undefined' && root === window) laden();
 
-  return { store, MAX_ZEILEN, MAXL_BLATT, HINWEIS_EINZUG, LIMIT, TXT_KEINE_POS, FALLBACK, lesen, zeile, sortiere, beobachte, waehle, fokusKey, fokusWeiter, ansicht, blatt, blattZeilen, marker, kuerze, umbruch, sterne, laden };
+  return { store, MAX_ZEILEN, MAXL_BLATT, HINWEIS_EINZUG, LIMIT, TXT_KEINE_POS, FALLBACK, lesen, zeile, sortiere, nameVon, beobachte, waehle, fokusKey, fokusWeiter, ansicht, blatt, blattZeilen, marker, kuerze, umbruch, sterne, laden };
 });

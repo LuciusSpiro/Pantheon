@@ -1907,7 +1907,7 @@ module.exports = {
   makeKesh, rolleGesehen, isV2, isV2Away, playerOnV2, onArrive, onLeave, hitPlayer, woundPlayer, revive, updateWounded, krankenstationHolt, squadRecall,
   shoot, fireEnemy, hitEnemy, strikeEnemy, knockOut, order, interactionsAt, holdDuration, holdValid, completeHold, completeRevive,
   jammerOff, keyTurned, openVault, takeTablet, spawnSquad, wakeWarden, update, updateVisibility, verdecktVor, scanQuality, tune, tuneList,
-  playerSnap, droneSnap, awaySnap, pickupMedkit, fullShield, env, teamOf,
+  playerSnap, droneSnap, awaySnap, pickupMedkit, fullShield, env, teamOf, sichtRadius,
   losBetween, setCrouch, checkCrouch, canCrouch, speedFactor, crouchCfg,
   // B1/B2 (BODENKAMPF Welle 1): kartenneutral, Waffen-Schnittstelle
   ensureV2, ruesteV2, coverSpots, spawnProjectile, flaeche, strahl, kaempfer, wirkungVon, waffenAktiv, _setzeModul,

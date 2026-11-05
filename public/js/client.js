@@ -2302,6 +2302,8 @@
     v.drones = lerpList(aa.drones, ba.drones, f);
     // SL7c: das Monster der Station Helix (away.mo) läuft als Pseudo-Gegner mit (nicht verwundbar, immer sichtbar: es ist laut); Zeichnung in render.js
     if (aa.mo) { const bm = (ba && ba.mo) || aa.mo; v.drones = (v.drones || []).concat([{ id: 'M1', kind: 'monster', alive: true, vis: true, x: lerp(aa.mo.x, bm.x, f), y: lerp(aa.mo.y, bm.y, f), mo: aa.mo }]); }
+    // MON-01 P4: Kreaturen (away.kr [[nr, typCode, x, y, f, bits]], nur sichtbare, lebende) laufen wie das Station-Monster als Pseudo-Gegner mit; Zeichnung in render.js (Platzhalter)
+    if (aa.kr) { const bk = {}; for (const r of (ba && ba.kr) || []) bk[r[0]] = r; v.drones = (v.drones || []).concat(aa.kr.map(r => { const b = bk[r[0]] || r; return { id: 'K' + r[0], kind: 'kreatur', alive: true, vis: true, x: lerp(r[2], b[2], f), y: lerp(r[3], b[3], f), facing: lerpAngle(r[4], b[4], f), kr: { t: r[1], b: r[5] } }; })); }
     v.awayProjectiles = lerpList(aa.projectiles, ba.projectiles, f);
     // W2 AP6: Personen (bis 3 gleichzeitig) interpoliert über die id; nur die auf der Karte (gerettete: HUD-Liste aus st)
     v.npcs = lerpList(aa.npcs, ba.npcs, f).filter(n => !n.rescued);

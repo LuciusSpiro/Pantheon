@@ -1905,6 +1905,12 @@
         text(ctx, 'MONSTER', s.x, s.y - 18, { color: '#FF8A5C', align: 'center' });
         continue;
       }
+      if (e.kind === 'kreatur') {   // MON-01 P4: Kreatur auf der Captain-Karte: Raute in Ladungsfarbe, Name nur gescannt sonst „?“ (nie verrauscht)
+        const kb = e.kr ? e.kr.b : 0;
+        shape(ctx, 'diamond', s.x, s.y, 10, KREATUR_LADUNG[kb & 3], (kb & 8) ? PAL.star : PAL.space);
+        text(ctx, kreaturName(e, st), s.x, s.y - 14, { color: '#FF8A5C', align: 'center' });
+        continue;
+      }
       if (noisy) {
         ctx.fillStyle = 'rgba(224,71,60,' + (0.45 + 0.3 * hash(seed + slot)) + ')';
         ctx.beginPath(); ctx.arc(s.x, s.y, sz / 2 + 1, 0, Math.PI * 2); ctx.fill();
@@ -2233,6 +2239,7 @@
           const hitAge = view.enemyHit && view.enemyHit[e.id] != null ? view.enemyHit[e.id] : 99;
           const esh = v2 && Array.isArray(e.sh) ? e.sh : null;
           if (dk === 'monster') { drawMonster(ctx, ex, ey, e, t); }
+          else if (dk === 'kreatur') { const kn = kreaturName(e, st); drawKreatur(ctx, ex, ey, e, t, kn); const kg = ((e.kr.b >> 4) & 3) + 1; hindernisMerken(kn, ex, ey - kg * TILE * 0.38 - 22); }
           else if (dk === 'warden') {
             // M2: Wächter („Lamassu“) mit Frontbogen und Blickrichtung
             const wo = { time: t, alive: e.alive !== false, kind: 'warden', facing: +e.facing || 0, asleep: !!e.asleep, wake: !e.asleep, hit: hitAge < 0.15, revealed: aufgedeckt(e, st), shieldSeg: esh ? esh[0] : null, shieldMax: esh ? esh[1] : null };
@@ -3871,6 +3878,30 @@
       ctx.restore();
       lab('ZIELT AUF ' + escortName(e).toUpperCase(), Math.round((a.x + bx) / 2), Math.round((a.y + by) / 2) - 4, { color: '#FF5A4A', align: 'center' }, 2, true);   // QA-Abnahme S2: nach den Gegnernamen setzen (sonst überlappt JÄGER)
     }
+  }
+
+  // MON-01 P4: Kreaturen (Platzhalter, kein Modell): Box in Typgröße, Nase in Blickrichtung, Farbe nach Ladung 0..3, Rammen = rote Spur und heller Rand, Pause = blass mit „…“.
+  // e.kr = { t: typCode, b: bits } (bits: 0-1 Ladung, 2 Pause, 3 rammt, 4-5 Größe-1). Der Name steht nur im Scan (away.sc), sonst „?“.
+  const KREATUR_LADUNG = ['#5E6B7E', '#C9A33A', '#E0792E', '#E0392E'];
+  function kreaturName(e, st) {
+    const sc = st && st.away && st.away.sc; const SA = window.ScanAnzeige;
+    return (sc && SA && SA.nameVon(sc, 'monster', e.id)) || '?';
+  }
+  function drawKreatur(ctx, x, y, e, t, name) {
+    const b = e.kr.b | 0, ladung = b & 3, pause = !!(b & 4), rammt = !!(b & 8), g = ((b >> 4) & 3) + 1;
+    const h = g * TILE * 0.38, f = +e.facing || 0;
+    ctx.save(); ctx.translate(x, y);
+    ctx.fillStyle = 'rgba(0,0,0,0.35)'; ctx.beginPath(); ctx.ellipse(0, h * 0.6, h * 1.1, h * 0.4, 0, 0, Math.PI * 2); ctx.fill();
+    if (rammt) { ctx.strokeStyle = 'rgba(255,90,60,0.7)'; ctx.lineWidth = 2; for (let i = -1; i <= 1; i++) { ctx.beginPath(); ctx.moveTo(-Math.cos(f) * h * 1.2 - Math.sin(f) * i * h * 0.6, -Math.sin(f) * h * 1.2 + Math.cos(f) * i * h * 0.6); ctx.lineTo(-Math.cos(f) * h * 2.4 - Math.sin(f) * i * h * 0.6, -Math.sin(f) * h * 2.4 + Math.cos(f) * i * h * 0.6); ctx.stroke(); } }
+    ctx.rotate(f);
+    ctx.globalAlpha = pause ? 0.6 : 1;
+    ctx.fillStyle = KREATUR_LADUNG[ladung]; ctx.strokeStyle = rammt ? '#FFFFFF' : '#1A1220'; ctx.lineWidth = rammt ? 3 : 2;
+    ctx.beginPath(); ctx.rect(-h, -h * 0.8, h * 2, h * 1.6); ctx.fill(); ctx.stroke();
+    ctx.fillStyle = '#1A1220'; ctx.beginPath(); ctx.moveTo(h + h * 0.5, 0); ctx.lineTo(h, -h * 0.4); ctx.lineTo(h, h * 0.4); ctx.closePath(); ctx.fill();
+    ctx.restore();
+    for (let i = 0; i < 3; i++) { ctx.fillStyle = i < ladung ? KREATUR_LADUNG[3] : '#3A4250'; ctx.fillRect(x - 7 + i * 5, y - h - 10, 4, 4); }
+    if (pause) text(ctx, '...', x, y - 4, { color: PAL.star, align: 'center' });
+    text(ctx, name, x, y - h - 22, { color: name === '?' ? PAL.panelLight : '#FF8A5C', align: 'center' });
   }
 
   // SL7c: das Monster der Forschungsstation (Fußabdruck 2×2 Kacheln): dunkler Körper, Augen in Blickrichtung, Farbe nach Zustand (Jagd rot, Lärm orange)
