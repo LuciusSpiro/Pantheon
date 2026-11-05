@@ -6,17 +6,19 @@
 // Schild/Wunden/Frontbogen und eingeschaltete Bausteine mit Parametern. Der Server kennt keinen Typnamen: kein `if (typ === …)`.
 //
 //   update(game, dt)                         je Tick (aus combat.update, nach dem Station-Monster); ohne Kreaturen sofort zurück, ohne Zufallsverbrauch
-//   kreaturBausteinAnmelden(name, def)       Registry der Bausteine. def = { beiTick?, beiTreffer?, beiLaerm?, beiErzeugen?, beiAusruesten?, modi?, ausloeser?, pruefen? } -> Abmelder
+//   kreaturBausteinAnmelden(name, def)       Registry der Bausteine. def = { beiTick?, beiAbgleich?, beiTreffer?, beiLaerm?, beiErzeugen?, beiAusruesten?, modi?, ausloeser?, pruefen? } -> Abmelder
 //       beiTick(game, K, dt, par, ctx)        je Tick vor dem Zustandswechsel (ctx = { E, m, typ, ziel, k })
+//       beiAbgleich(game, K, dt, par)         je Tick für jede lebende Kreatur, auch betäubt oder ohne Außenteam (vor der Handlungsfähigkeit); Bindungen (P3), ruft aufloesen
 //       beiTreffer(game, K, treffer, par)     Aufruf über bausteinTreffer (Treffer-Hooks kommen in P2)
 //       beiLaerm(game, K, laerm, par)         Aufruf über bausteinLaerm (jedes neue Lärmereignis, aus dem Lärm-Leser in update, P2b)
-//       beiErzeugen(game, K, par) / beiAusruesten(game, K, par)   einmalig beim Anlegen bzw. im Kämpfer-Vertrag (Felder aus den Parametern in die Kreatur übernehmen, P2b)
+//       beiErzeugen(game, K, par) / beiAusruesten(game, K, par)   einmalig beim Anlegen (beiErzeugen darf werfen: dann entsteht keine Kreatur) bzw. im Kämpfer-Vertrag (Felder aus den Parametern in die Kreatur übernehmen, P2b)
 //       modi: { name: { betreten?(game, K, ctx, par, zustand), tick(game, K, dt, ctx, par, zustand) } }   Bewegungsmodi, die Zustände der Tabelle verwenden dürfen
 //       ausloeser: { name(game, K, ctx, par, uebergang) -> bool }                                         zusätzliche Auslöser für `uebergang[].auf`
 //       pruefen(par) -> [Fehlertext]          Parameter-Prüfung des Validators
 //   Eingebaut: Modi steht, zielen, streife, verfolge; Auslöser sieht, verloren, ablauf, nah (abstand), blockiert; Baustein `zyklus` (Modus `ramme`).
 //   Teamregeln (P2b, je Baustein, nur über Daten eingeschaltet): `ruecken` {bogen, faktor}, `aufladung` {max, zerfallNach, zerfallSchritt, tempoFaktor, rammFaktor},
 //   `koeder` {faktor, dauer} (Modus `zumKoeder`, Auslöser `laerm`, `koederEnde`), `rammschaden` {radius} (Auslöser `getroffen`).
+//   Bindung (P3, nur über Daten): `bindung` {quelle, bedingung, folge}: Kopplungsabfrage (alle Anker im Zustand, Eintritte im Fenster) und Folge `aufloesen`; Details am Baustein.
 //   ziele(aw)                                Drohnen + Kreaturen für Treffer-Schleifen; ohne Kreaturen DIESELBE Referenz aw.drones (P2a)
 //   ausruesten(game, K)                      Kämpfer-Vertrag (aus combat.kaempfer): Schild, Wunden, Frontbogen, Blickrichtung, Trefferradius aus dem Typ (P2a)
 //   raeumen(aw)                              Kreaturen einer Karte entfernen (Szenario-Start, P2a)
@@ -46,7 +48,7 @@ function kreaturBausteinAnmelden(name, def) {
   if (typeof name !== 'string' || !name) throw new Error('kreaturBausteinAnmelden: Name fehlt');
   if (!def || typeof def !== 'object') throw new Error('kreaturBausteinAnmelden: Definition fehlt (' + name + ')');
   if (bausteine.has(name)) throw new Error('kreaturBausteinAnmelden: Baustein bereits angemeldet (' + name + ')');
-  for (const k of ['beiTick', 'beiTreffer', 'beiLaerm', 'beiErzeugen', 'beiAusruesten', 'pruefen']) if (def[k] !== undefined && typeof def[k] !== 'function') throw new Error('kreaturBausteinAnmelden: ' + k + ' muss eine Funktion sein (' + name + ')');
+  for (const k of ['beiTick', 'beiAbgleich', 'beiTreffer', 'beiLaerm', 'beiErzeugen', 'beiAusruesten', 'pruefen']) if (def[k] !== undefined && typeof def[k] !== 'function') throw new Error('kreaturBausteinAnmelden: ' + k + ' muss eine Funktion sein (' + name + ')');
   for (const [gruppe, fn] of [['modi', 'tick'], ['ausloeser', null]]) {
     for (const [n, f] of Object.entries(def[gruppe] || {})) if (fn ? !f || typeof f[fn] !== 'function' : typeof f !== 'function') throw new Error('kreaturBausteinAnmelden: ' + gruppe + '.' + n + ' ungültig (' + name + ')');
   }
@@ -238,6 +240,124 @@ kreaturBausteinAnmelden('rammschaden', {
   pruefen(par) { return !par || !zahl(par.radius, 1) ? ['radius muss eine Zahl >= 1 sein (px, Mittelpunktabstand)'] : []; },
 });
 
+// ---------- Baustein bindung (P3): Kreatur hängt an einer Quelle ----------
+// Fällt die Bindung weg, löst sich die Kreatur auf (Folge `aufloesen`): sauber aus aw.kreaturen entfernt, kein Fall, kein droneKilled, kein knockOut; Ereignis `kreaturAufgeloest {id, typ, x, y}`
+// und Missionsereignis gleichen Namens. Gebunden bleibt sie auch betäubt oder ohne Außenteam (der Abgleich läuft vor der Handlungsfähigkeit); tote Kreaturen werden nicht mehr geprüft.
+//   quelle    { art: 'anker', ids: [...] } | { art: 'anker', rolle } (alle Anker der Karte dieser Rolle) | { art: 'kreatur', typ } | { art: 'kreatur', id: 'K…' }
+//   bedingung Anker-Quelle (Pflicht): { zustand, fenster? }  gelöst, wenn ALLE Anker der Quelle im Zustand sind und jeder Eintritt höchstens `fenster` s zurückliegt (fehlt/0: nur gleichzeitig).
+//             Kreatur-Quelle: keine Bedingung; gelöst, sobald keine lebende Kreatur der Quelle (ohne die gebundene selbst) mehr existiert.
+//   folge     { art: 'aufloesen', verzoegerung? }  nach `verzoegerung` s (Standard 0) entfernen. Ist die Folge ausgelöst, gilt sie endgültig (Wiederkehr ist MON-03).
+// Der Baustein liest Anker nur über Anker.zustand (Karte ohne Neuaufbau, je Anker ein Lookup) und beobachtet den Eintritt je Anker pro Tick; er schreibt nie in Anker. Ein Anker, der schon beim
+// Anlegen im Zustand ist, hat einen unbekannten Eintritt: mit Fenster zählt er erst nach Verlassen und erneutem Eintritt, ohne Fenster zählt er sofort.
+// Fehlt die Quelle beim Anlegen (Anker-ID oder Rolle nicht auf der Karte, unbekannter Zustand für die Rolle, Karte ohne Anker, keine lebende Kreatur der Quelle), wirft erzeugen() mit klarer Meldung.
+const BINDUNG_FELDER = ['quelle', 'bedingung', 'folge'];
+const ankerMod = () => require('./anker.js');
+const ankerRollen = () => { try { return require('../../shared/buehne.js').daten().anker.rollen || {}; } catch (e) { return {}; } };
+const quelleLebt = (aw, K, q) => {
+  for (const o of aw.kreaturen) if (o !== K && o.alive && (q.id ? o.id === q.id : o.typ === q.typ)) return true;
+  return false;
+};
+function bindungAnkerLesen(game, K, par) {
+  const aw = game.away; const k = (require('../world.js').AWAY_MAPS[aw.map] || {}).karte;
+  if (!k || !Array.isArray(k.anker)) throw new Error('bindung: Karte ' + aw.map + ' hat keine Anker (' + K.typ + ')');
+  const q = par.quelle;
+  const ids = q.ids ? q.ids.slice() : k.anker.filter((a) => a.rolle === q.rolle).map((a) => a.id);
+  if (!ids.length) throw new Error('bindung: Karte ' + aw.map + ' hat keinen Anker der Rolle ' + q.rolle + ' (' + K.typ + ')');
+  const R = ankerRollen();
+  for (const id of ids) {
+    const a = k.anker.find((x) => x.id === id);
+    if (!a) throw new Error('bindung: Anker ' + id + ' gibt es auf der Karte ' + aw.map + ' nicht (' + K.typ + ')');
+    const erlaubt = (R[a.rolle] && R[a.rolle].zustaende) || [];
+    if (!erlaubt.includes(par.bedingung.zustand)) throw new Error('bindung: Zustand ' + par.bedingung.zustand + ' gibt es für Anker ' + id + ' (Rolle ' + a.rolle + ') nicht (' + erlaubt.join(', ') + ')');
+  }
+  return ids;
+}
+// Eintritt je Anker beobachten: Zeit des Eintritts (game.time), null = nicht im Zustand, -Infinity = schon beim Anlegen im Zustand (Eintritt unbekannt)
+function bindungBeobachten(game, B, zustand, erstmals) {
+  const Ank = ankerMod();
+  for (let i = 0; i < B.ids.length; i++) {
+    const drin = Ank.zustand(game, B.map, B.ids[i]) === zustand;
+    if (!drin) B.eintritt[i] = null;
+    else if (B.eintritt[i] == null) B.eintritt[i] = erstmals ? -Infinity : game.time;
+  }
+}
+function bindungGeloest(game, B, bed) {
+  const f = bed.fenster || 0;
+  for (const t of B.eintritt) if (t == null || (f > 0 && game.time - t > f)) return false;
+  return true;
+}
+kreaturBausteinAnmelden('bindung', {
+  beiErzeugen(game, K, par) {
+    const aw = game.away; const q = par.quelle;
+    if (q.art === 'kreatur') {
+      if (!quelleLebt(aw, K, q)) throw new Error('bindung: keine lebende Kreatur der Quelle ' + (q.id || q.typ) + ' beim Anlegen (' + K.typ + ')');
+      K.bindung = { art: 'kreatur', loesT: null };
+      return;
+    }
+    const ids = bindungAnkerLesen(game, K, par);
+    K.bindung = { art: 'anker', map: aw.map, ids, eintritt: ids.map(() => null), loesT: null };
+    bindungBeobachten(game, K.bindung, par.bedingung.zustand, true);
+  },
+  beiAbgleich(game, K, dt, par) {
+    const B = K.bindung; if (!B || K.weg) return;
+    if (B.loesT == null) {
+      let geloest;
+      if (B.art === 'kreatur') geloest = !quelleLebt(game.away, K, par.quelle);
+      else { bindungBeobachten(game, B, par.bedingung.zustand, false); geloest = bindungGeloest(game, B, par.bedingung); }
+      if (!geloest) return;
+      B.loesT = par.folge.verzoegerung || 0;
+    } else B.loesT -= dt;
+    if (B.loesT <= 0) aufloesen(game, K);
+  },
+  pruefen(par) {
+    const F = [];
+    if (!par || typeof par !== 'object' || Array.isArray(par)) return ['Objekt { quelle, bedingung, folge } erwartet'];
+    for (const k of Object.keys(par)) if (!BINDUNG_FELDER.includes(k)) F.push(k + ': unbekanntes Feld');
+    const nur = (o, erlaubt, pfad) => { for (const k of Object.keys(o)) if (!erlaubt.includes(k)) F.push(pfad + '.' + k + ': unbekanntes Feld'); };
+    const q = par.quelle;
+    let anker = false;
+    if (!q || typeof q !== 'object' || Array.isArray(q)) F.push('quelle: Objekt erwartet');
+    else if (q.art === 'anker') {
+      anker = true; nur(q, ['art', 'ids', 'rolle'], 'quelle');
+      if ((q.ids === undefined) === (q.rolle === undefined)) F.push('quelle: genau eines von ids und rolle');
+      else if (q.ids !== undefined && (!Array.isArray(q.ids) || !q.ids.length || q.ids.some((i) => typeof i !== 'string' || !i) || new Set(q.ids).size !== q.ids.length)) F.push('quelle.ids: nichtleere Liste verschiedener Anker-IDs (Strings)');
+      else if (q.rolle !== undefined && !ankerRollen()[q.rolle]) F.push('quelle.rolle: unbekannte Anker-Rolle "' + q.rolle + '"');
+    } else if (q.art === 'kreatur') {
+      nur(q, ['art', 'typ', 'id'], 'quelle');
+      if ((q.typ === undefined) === (q.id === undefined)) F.push('quelle: genau eines von typ und id');
+      else if (q.typ !== undefined && ('string' !== typeof q.typ || !KREATUREN.typen[q.typ])) F.push('quelle.typ: unbekannter Kreaturentyp "' + q.typ + '"');
+      else if (q.id !== undefined && !(typeof q.id === 'string' && /^K\d+$/.test(q.id))) F.push('quelle.id: Instanz-ID der Form K<Zahl> erwartet');
+    } else F.push('quelle.art: "anker" oder "kreatur"');
+    const b = par.bedingung;
+    if (anker) {
+      if (!b || typeof b !== 'object' || Array.isArray(b)) F.push('bedingung: { zustand, fenster? } erwartet (Anker-Quelle)');
+      else {
+        nur(b, ['zustand', 'fenster'], 'bedingung');
+        if (typeof b.zustand !== 'string' || !b.zustand) F.push('bedingung.zustand: Ankerzustand (String) erwartet');
+        else if (q.rolle !== undefined && ankerRollen()[q.rolle] && !(ankerRollen()[q.rolle].zustaende || []).includes(b.zustand)) F.push('bedingung.zustand: "' + b.zustand + '" gibt es für die Rolle ' + q.rolle + ' nicht');
+        if (b.fenster !== undefined && !zahl(b.fenster, 0)) F.push('bedingung.fenster: Zahl >= 0 (s), 0 = kein Zeitfenster');
+      }
+    } else if (b !== undefined && q && q.art === 'kreatur') F.push('bedingung: gibt es bei einer Kreatur-Quelle nicht (gelöst = keine lebende Kreatur der Quelle)');
+    const f = par.folge;
+    if (!f || typeof f !== 'object' || Array.isArray(f)) F.push('folge: { art: "aufloesen", verzoegerung? } erwartet');
+    else {
+      nur(f, ['art', 'verzoegerung'], 'folge');
+      if (f.art !== 'aufloesen') F.push('folge.art: nur "aufloesen"');
+      if (f.verzoegerung !== undefined && !zahl(f.verzoegerung, 0)) F.push('folge.verzoegerung: Zahl >= 0 (s)');
+    }
+    return F;
+  },
+});
+
+// Kreatur sauber auflösen: hier nur markiert (update() entfernt nach der Schleife), Ereignisse sofort. Kein Fall, kein droneKilled, kein knockOut.
+function aufloesen(game, K) {
+  if (K.weg) return;
+  K.weg = true;
+  const d = { id: K.id, typ: K.typ, x: Math.round(K.x), y: Math.round(K.y) };
+  game.emit('kreaturAufgeloest', d);
+  game.missionEvent('kreaturAufgeloest', d);
+}
+
 // ---------- Daten laden und prüfen ----------
 const TYP_FELDER = ['name', 'groesse', 'sicht', 'verlustZeit', 'replan', 'hitRadius', 'schild', 'schildRegen', 'wunden', 'frontArc', 'tuerenAufbrechen', 'rammZeit', 'start', 'zustaende', 'bausteine'];
 const ZUSTAND_FELDER = ['modus', 'tempo', 'dauer', 'radius', 'uebergang'];
@@ -382,6 +502,8 @@ function erzeugen(game, typId, x, y) {
     z: null, zt: 0, t: null, pfad: [], ziel: null, ramm: null, replan: 0, blockiert: false, tuerGesperrt: false, verlust: 0, letzte: null, stuckT: 0, ref: { x, y } };
   K.laermCursor = laermCursorAnlegen(aw);   // Altlast im Lärmpuffer nicht lesen
   betreten(game, K, typ.start, null);
+  try { for (const b of Object.keys(typ.bausteine)) { const def = bausteine.get(b); if (def && def.beiErzeugen) def.beiErzeugen(game, K, typ.bausteine[b]); } }
+  catch (e) { aw.kreaturSeq--; throw e; }   // Quelle fehlt o. ä.: keine halbe Kreatur, Nummer wieder frei
   aw.kreaturen.push(K);
   return K;
 }
@@ -420,14 +542,18 @@ function update(game, dt) {
   const k = team && game.karteOf ? game.karteOf(aw.map) : null;
   const E = k ? combat().env(game) : null;
   const Wf = waffen();
+  let entfernen = false;
   for (const K of aw.kreaturen) {
     const neu = laermLesen(aw, K);   // der Cursor läuft immer mit (auch bei Stillstand), damit nichts Altes nachgeholt wird
+    if (K.alive) bausteinAbgleich(game, K, dt);   // P3: Bindungen auch bei Betäubung und Stillstand
+    if (K.weg) { entfernen = true; continue; }
     if (!k || !K.alive) continue;    // gefallen/liegend: tot oder bewusstlos, keine Bewegung (Aufstehen zieht combat.folgenAbgleich nach)
     schildRegeneration(game, K, dt);
     if (Wf && !Wf.handlungsfaehig(game, K)) continue;   // betäubt/bewusstlos: steht still
     for (const ev of neu) bausteinLaerm(game, K, ev);
     tickEine(game, E, k, K, dt);
   }
+  if (entfernen) { const L = aw.kreaturen; let w = 0; for (let i = 0; i < L.length; i++) if (!L[i].weg) L[w++] = L[i]; L.length = w; }   // aufgelöste Kreaturen erst nach der Schleife entfernen
 }
 
 // ---------- Lärm-Leser (P2b) ----------
@@ -485,6 +611,7 @@ function raeumen(aw) { if (aw && aw.kreaturen && aw.kreaturen.length) aw.kreatur
 
 // Dispatcher für die Hooks der Bausteine (Aufrufer: Treffer-Auswertung P2, Lärm-Leser P2b)
 function bausteinTreffer(game, K, treffer) { const typ = typVon(K.typ); for (const b of Object.keys(typ.bausteine)) { const def = bausteine.get(b); if (def && def.beiTreffer) def.beiTreffer(game, K, treffer, typ.bausteine[b]); } }
+function bausteinAbgleich(game, K, dt) { const typ = typVon(K.typ); for (const b of Object.keys(typ.bausteine)) { const def = bausteine.get(b); if (def && def.beiAbgleich) def.beiAbgleich(game, K, dt, typ.bausteine[b]); } }
 function bausteinLaerm(game, K, laerm) { const typ = typVon(K.typ); for (const b of Object.keys(typ.bausteine)) { const def = bausteine.get(b); if (def && def.beiLaerm) def.beiLaerm(game, K, laerm, typ.bausteine[b]); } }
 
 // ---------- Debug ----------
