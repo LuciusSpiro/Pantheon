@@ -299,6 +299,7 @@ function bark(game, s, e, kind) {
 
 // ---------- Ereignisse aus combat.js ----------
 function onEnemyHit(game, e, src) {
+  if (e.kreatur) return;   // MON-01 P2a: Kreaturen haben keinen Trupp (sonst Phantom-Trupp, Funkspruch, Zufallsverbrauch)
   const s = squadOf(game, e);
   if (src && src.pid) {
     const p = game.playerById(src.pid);
@@ -314,6 +315,7 @@ function onEnemyHit(game, e, src) {
   }
 }
 function onEnemyDown(game, e) {
+  if (e.kreatur) return;   // MON-01 P2a
   const aw = game.away; const s = squadOf(game, e);
   if (s.flanker === e.id) s.flanker = null;
   const alive = aw.drones.filter((d) => d.alive && d.squad === e.squad);

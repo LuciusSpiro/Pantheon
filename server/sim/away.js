@@ -514,7 +514,7 @@ function update(game, dt) {
     game.emit('strike', { x: s.x, y: s.y });
     game.emit('explosion', { x: s.x, y: s.y, zone: 'away' });
     game.emit('sfx', { name: 'strike', zone: 'away', x: s.x, y: s.y });
-    for (const d of away.drones) {
+    for (const d of require('./kreatur.js').ziele(away)) {   // MON-01 P2a: Drohnen und Kreaturen
       if (d.alive && dist(d.x, d.y, s.x, s.y) <= C.support.strike.radius) {
         if (v2) combat.strikeEnemy(game, d); else damageDrone(game, d, C.support.strike.damage);
       }

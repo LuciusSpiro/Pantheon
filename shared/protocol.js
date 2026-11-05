@@ -127,6 +127,9 @@
     // SCA-01 P2: Ergebnis eines vollendeten Scans (alle Ziele im Umkreis config.scanner.reichweite, Luftlinie): Snapshot `away.sc` (NICHT players[].sc), nur wenn nicht leer, sichtbar für alle, bis zum Kartenende (nichts im Weltstand):
     //   away.sc = [[id, art, typ, sk], …] bzw. [id, art, typ, sk, x, y] ab der Positionsstufe der Art (Standard 3; Erz später 1). id String, art/typ kurze Strings ('test'/'testerz'), sk 1..3 (nur steigend),
     //   x, y ganze px (ab der Positionsstufe bei jedem Scan neu gesetzt). Höchstens config.scanner.maxEintraege (16) Einträge. Texte (Name, Gefahr, Regelhinweis) und die Hinweisstufe (`hinweisAb`) liegen im Client-Content, nicht im Snapshot und nicht am Server. Die Position steht vor der Positionsstufe nirgends im Snapshot. Debug: cmd 'scantest' (nur Server --debug).
+    // MON-01 P4: Kreaturen (server/sim/kreatur.js): Snapshot `away.kr` = [[nr, typCode, x, y, f, bits], …], nur wenn mindestens eine lebende Kreatur im Sichtbereich des Teams steht (sonst KEIN Feld,
+    //   nie []; Sensor deckt alle auf, Tote werden nicht gesendet). nr = Zahl hinter dem K der Instanz-ID ('K'+nr = id in away.sc), typCode = Index des Typs in content/kampf/kreaturen.json (PROTOKOLL: die Reihenfolge der Typen in kreaturen.json ist Protokoll; neue Typen nur ans Ende anhängen, nie umsortieren; der Client liest typCode bisher nicht),
+    //   x, y px (1 Nachkommastelle), f Blickrichtung rad (2), bits: 0-1 Ladung 0..3, 2 Pause/steht, 3 rammt, 4-5 Größe-1 in Kacheln. Name nur über den Scan (away.sc + datenblaetter.json).
     CMD_SCAN_STIMME: 'scan.stimme',
     CMD_SCAN_ABBRUCH: 'scan.abbruch',
     WAFFEN: ['blaster', 'sturmgewehr', 'granatwerfer', 'lanze', 'nahkampf', 'betaeuber', 'faust'],
@@ -379,6 +382,7 @@
     // M2: tune { path, value } | { args: 'pfad wert' }, kesh, squad { which: '1'|'2'|'rear' }, wake, shield { n }, wound
     DEBUG_CMDS: ['ausbau', 'werft', 'marken', 'stage', 'damage', 'fire', 'breach', 'spawn', 'marks', 'inv', 'verlust', 'skip', 'god', 'goto', 'reveal', 'mission', 'reactor', 'scanall',
       'tune', 'kesh', 'squad', 'wake', 'shield', 'wound', 'tele', 'fragile', 'sl', 'escort', 'flotte', 'szene', 'ruf', 'absicht', 'finale', 'lage', 'abspann',   // SUND-04a-3: abspann palatina|sieg (nur Freie Fahrt Sund, zeigt den Abspann ohne Marker); SUND-03 A2: lage [status | plan | fail] (Lage-Spielleiter, LAGE_SPIELLEITER=1); SUND-02b D: absicht [status | angebot | wahl <id> | ende | reset] (nur Freie Fahrt Sund); SUND-02b B: ruf [rom|ger|kon] [wert] (nur Freie Fahrt Sund); SUND-02a: szene [staerke] [ger|pirat] [belagerung]; M3a: tele [id], fragile {system}; M3b: 'burst' entfallen; S2: sl, escort
+      'kreatur',   // MON-01 P1: kreatur <typ> (Kreatur am Boden erzeugen, Typen aus content/kampf/kreaturen.json; ohne Typ: Liste)
       'scantest',   // SCA-01 P2: scantest (drei Testziele am Boden)
       'scanfertig',   // SCA-01 P4: scanfertig { stufe 0..3, Standard 3 } (Scan-Wirkung am Ort des Aufrufers, nur Boden)
       'buehne', 'anker', 'lp',   // B1 (B1_DEBUG)

@@ -134,6 +134,7 @@ const landepunkteMod = () => optional('landepunkte', './sim/landepunkte.js');   
 const ankerMod = () => optional('anker', './sim/anker.js');               // BUEHNE (B1)
 const Loadout = require('./sim/loadout.js');   // AUS-01 A: Loadout-Slots
 const Scanbar = require('./sim/scanbar.js');   // SCA-01 P2: scanbare Objekte und Scan-Wirkung (aw.sc)
+const Kreatur = require('./sim/kreatur.js');   // MON-01 P1: Kreaturen-Rahmen (aw.kreaturen)
 const Scanner = require('./sim/scanner.js');   // SCA-01 P1: Scanner am Boden (meldet sich als Item `scanner` an)
 const waffenMod = () => optional('waffen', './sim/waffen.js');            // WAFFEN (B2)
 const enternMod = () => optional('entern', './sim/entern.js');            // ENTERN (B1)
@@ -1602,6 +1603,7 @@ class Game {
       case 'verfolgung': err = Verfolgung.debug(this, argList(msg)); break;   // SUND-04a-1 A: verfolgung [frachter|raider|korvette|fregatte|kreuzer] [ohne] – Zielschiff flieht zum Fluchtpunkt
       case 'konvoi': err = require('./sim/konvoi.js').debug(this, argList(msg)); break;   // EK3 Teil B: konvoi [n] [aufhalten|pluendern] [voll|jaeger|korvette|keine]
       case 'sprungpunkt': case 'ladung': case 'prise': err = this.onDebugQa(p, cmd, msg); break;           // QA-Nachzug (OFFEN-STUDIO)
+      case 'kreatur': err = Kreatur.debugKreatur(this, p, msg.typ != null ? String(msg.typ) : argList(msg)[0]); break;   // MON-01 P1: kreatur <typ> – Kreatur aus content/kampf/kreaturen.json in der Nähe (nur Boden)
       case 'scantest': err = Scanbar.debugScantest(this, p); break;   // SCA-01 P2: drei Testziele in Reichweite, eines außerhalb
       case 'scanfertig': err = Scanbar.debugScanfertig(this, p, msg.stufe != null ? msg.stufe : argList(msg)[0]); break;   // SCA-01 P4: scanfertig [stufe 0..3] – Scan-Wirkung ohne Minispiel
       case 'welle': err = this.phase === 'lobby' ? 'Erst das Spiel starten.' : require('./sim/wellen.js').debugWelle(this, argList(msg)[0] != null ? argList(msg)[0] : msg.n); break;   // Bodenkampf: Wellen
@@ -2381,6 +2383,7 @@ class Game {
         hollow: aw.hollow ? { x: aw.hollow.x, y: aw.hollow.y, marked: aw.hollow.marked, open: aw.hollow.open } : null,
         ...combat.awaySnap(this, aw),
         ...(aw.monster ? { mo: Monster.snap(this), mp: Monster.pulteSnap(this) } : {}),   // SL7c: Monster (x, y, z, f) und Pult-Stand für den Captain (nur auf der Monster-Station)
+        ...Kreatur.snapFeld(this),   // MON-01 P4: kr [[nr, typCode, x, y, f, bits]] (nur bei lebenden, sichtbaren Kreaturen)
         ...Scanbar.snapshot(aw),   // SCA-01 P2: sc [[id, art, typ, sk, x?, y?]] (nur bei nicht leerem aw.sc)
         ...this.awayB1Snap(aw),   // B1 §9: kv, ao, ko, al, cd (gebaute Karten)
       },
