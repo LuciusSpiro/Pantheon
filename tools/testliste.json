@@ -210,6 +210,7 @@
   {"id":"test-hoehle-verdrahtung","kette":"test","cmd":["tools/test-hoehle-verdrahtung.js"],"stufe":"fast","budget_s":10},
   {"id":"test-hoehle-shot","kette":"test","cmd":["tools/test-hoehle-shot.js"],"stufe":"full","budget_s":40,"timeout_s":180},
   {"id":"test-wildnis-gruppenlauf","kette":"test","cmd":["tools/test-wildnis-gruppenlauf.js"],"stufe":"full","budget_s":14},
+  {"id":"test-hoehle-gruppenlauf","kette":"test","cmd":["tools/test-hoehle-gruppenlauf.js"],"stufe":"full","budget_s":45},
   {"id":"test-wildnis-client","kette":"test","cmd":["tools/test-wildnis-client.js"],"stufe":"fast","budget_s":6},
   {"id":"test-wildnis-hoehle","kette":"test","cmd":["tools/test-wildnis-hoehle.js"],"stufe":"full","budget_s":30},
   {"id":"test-wildnis-hoehle-client","kette":"test","cmd":["tools/test-wildnis-hoehle-client.js"],"stufe":"full","budget_s":200,"timeout_s":600},
