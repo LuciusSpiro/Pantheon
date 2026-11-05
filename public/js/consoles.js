@@ -2512,6 +2512,17 @@
       }
       return text;
     },
+    // ITM-01 B: Symbol eines Items (10×8, x/y = linke obere Ecke): Scanner = Peilring (scanner.js), Medipack = Koffer mit Kreuz wie das Item in der Welt (Kofferweiß, Mint-Kreuz)
+    itemSymbol(ctx, id, x, y) {
+      if (id === 'scanner') { if (window.Scanner) window.Scanner.symbol(ctx, x, y, PAL.ice); return; }
+      if (id === 'medipack') {
+        ctx.fillStyle = '#EDE6D6'; ctx.fillRect(x, y, 10, 8);
+        ctx.fillStyle = '#B9B19E'; ctx.fillRect(x + 3, y - 1, 4, 1);   // Griff
+        ctx.fillStyle = PAL.mint; ctx.fillRect(x + 4, y + 1, 2, 6); ctx.fillRect(x + 2, y + 3, 6, 2);
+        return;
+      }
+      ctx.fillStyle = PAL.star; ctx.fillRect(x, y, 10, 8);
+    },
     // Auswahlliste je Slot: null = leer, dahinter die Waffen (Protocol.WAFFEN_WAHL)
     ausruestungWahl() { return [null].concat(this.waffenListe(), H.SLOT_ITEMS || []); },   // SCA-01 P3: Items (Scanner) stehen immer zur Wahl, auch ohne Scan-Ziele
     ausruestungGrund(id, slot) {   // Grund, warum id in Slot slot nicht geht (null = möglich); der Server prüft dasselbe
@@ -2556,7 +2567,7 @@
         if (selekt) { ctx.strokeStyle = PAL.red; ctx.lineWidth = 2; ctx.strokeRect(17, y + 1, 298, 40); ctx.lineWidth = 1; }
         R.text(ctx, 'SLOT ' + (i + 1), 24, y + 5, { color: selekt ? PAL.red : PAL.brass });
         if (id) {
-          if ((H.SLOT_ITEMS || []).includes(id) && window.Scanner) window.Scanner.symbol(ctx, 43, y + 22, PAL.ice);   // SCA-01 P3: Item-Symbol (die Waffen-Icons kennen keine Items)
+          if ((H.SLOT_ITEMS || []).includes(id)) this.itemSymbol(ctx, id, 43, y + 22);   // SCA-01 P3 / ITM-01 B: Item-Symbol je Item (die Waffen-Icons kennen keine Items)
           else if (!(IB && IB.draw && IB.has && IB.has('waffe', id) && IB.draw(ctx, 'waffe', id, 48, y + 26, {}) !== false)) { ctx.fillStyle = PAL.star; ctx.fillRect(43, y + 22, 10, 8); }
           R.text(ctx, this.ausruestungName(id), 70, y + 22, { color: PAL.star, scale: 1 });
         } else R.text(ctx, 'leer', 70, y + 22, { color: PAL.panelLight });
@@ -2590,7 +2601,7 @@
       if (a.fokus === 'slot') rahmen(12, 42, 308, linksEnde - 42 - 2, PAL.brass); else rahmen(x0 - 4, 42, w + 8, ry - 42 + 2, PAL.brass);
       // Serverfehler direkt unter der Waffenliste
       if (a.fehler && now - a.fehlerT < 8000) for (const [k, l] of R.wrap(a.fehler, w, 1).entries()) R.text(ctx, l, x0, fy + (infoId ? 2 : 0) + k * 10, { color: PAL.red });
-      return '←→ Spalte · ↑↓ wählen · Enter belegen · 1–7 direkt · 0/Entf leeren';   // „Esc verlassen“ hängt der Rahmen selbst an
+      return '←→ Spalte · ↑↓ wählen · Enter belegen · 1–8 direkt · 0/Entf leeren';   // „Esc verlassen“ hängt der Rahmen selbst an
     },
     ausruestungTaste(code, view) {
       const a = this.ausr, s = a.stand;
@@ -2744,7 +2755,7 @@
         const desc = {
           werkzeuggurt: 'Du reparierst 30 % schneller (nur du).',
           ersatzteil: 'Repariert ausgefallene Systeme.', loeschgel: 'Fünf Löschladungen.', flickblech: 'Flickt ein Leck.',
-          bolzen: 'Torpedo für den Torpedowerfer (Heck, Platz 2): zielsuchend, prallt am stehenden Schild ab und trifft sonst ein System. Das Lager fasst höchstens ' + (SCH ? SCH.TORPEDO.lagerMax : 12) + '.', medipack: 'Heilt 50 HP (Nachschub fürs Außenteam).',
+          bolzen: 'Torpedo für den Torpedowerfer (Heck, Platz 2): zielsuchend, prallt am stehenden Schild ab und trifft sonst ein System. Das Lager fasst höchstens ' + (SCH ? SCH.TORPEDO.lagerMax : 12) + '.', medipack: 'Beschleunigt das Wiederbeleben, verarztet Verletzte (Nachschub fürs Außenteam).',
           ladung: 'Sprengstoff für das Außenteam: am Sprengziel platzieren (E halten). Keine Explosion, die Folge kommt nach dem Hochbeamen.',
           kristalllampe: 'Vaelen-Handwerk: leuchtet in Mint. Nur hier zu haben.',
         }[r.id] || (r.kind === 'deko' ? 'Für dein Quartier (an der eigenen Koje platzieren).' : r.kind === 'upgrade' ? 'Umbau für die Lerche.' : '');
