@@ -14,6 +14,7 @@ const GenStation = require('../../shared/gen-station.js');
 const GenFest = require('../../shared/gen-fest.js');
 const GenGelaende = require('../../shared/gen-gelaende.js');
 const GenHoehle = require('../../shared/gen-hoehle.js');
+const GenSchiff = require('../../shared/gen-schiff.js');
 const Locations = require('../../shared/locations.js');
 const W = require('../world.js');
 
@@ -72,11 +73,11 @@ function bauOpts(lpId, e) {
   return { spiel: true, id: lpId, art: e.art, schablone: e.schablone || undefined, seed: e.seed | 0, bauweise: e.bauweise || undefined,
     besitz: e.besitz || null, zustand: e.zustand || 'intakt' };
 }
-// Generatoren (shared/gen-siedlung.js, gen-station.js, Kai 2026-10-11): Außenposten = Siedlung, Station = Stationsgrammatik. Standard für alle
-// Landepunkte dieser beiden Kartenarten (Bodenkampf-Auswahl, Testgelände, Szenenbau, feste Orte). Schiff, Ruine und Handkarten bleiben bei
-// den Modulen. Aus: landepunkte.json "erzeuger": "modul" (ein Ort), Schablone explizit gesetzt (Test/Werkzeug) oder PANTHEON_GEN=0 (alles).
+// Generatoren (shared/gen-siedlung.js, gen-station.js, Kai 2026-10-11; gen-schiff.js SCH-01 P2): Außenposten = Siedlung, Station = Stationsgrammatik,
+// Schiff = Schiffsgrammatik. Standard für alle Landepunkte dieser Kartenarten (Bodenkampf-Auswahl, Testgelände, Szenenbau, feste Orte). Ruine und
+// Handkarten bleiben bei den Modulen. Aus: landepunkte.json "erzeuger": "modul" (ein Ort), Schablone explizit gesetzt (Test/Werkzeug) oder PANTHEON_GEN=0 (alles).
 // Gleicher Seed = gleiche Karte; die Karten erfüllen den Pflichtsatz der Kartenart (Missionsplanung nimmt ihn an).
-const GEN_GROESSE = { aussenposten: { n: 10 }, station: { n: 8 }, wildnis: { groesse: 'mittel' }, hoehle: { groesse: 'mittel' } };
+const GEN_GROESSE = { aussenposten: { n: 10 }, station: { n: 8 }, wildnis: { groesse: 'mittel' }, hoehle: { groesse: 'mittel' }, schiff: {} };   // SCH-01 P2: Schiff (shared/gen-schiff.js; Layout aus der Bauweise, s. genBauen)
 // GEL-01 B: Kartenarten, die NUR der Erzeuger baut (keine Modulordner/Schablonen, kein Modulbau als Rückfall). Der Aus-Schalter PANTHEON_GEN=0
 // und ein Definitionseintrag "erzeuger": "modul" gelten für sie nicht (es gäbe nichts, worauf sie zurückfallen könnten) – wie bei festen Karten.
 const NUR_GENERATOR = ['wildnis', 'hoehle'];   // GEL-02 B: auch die Höhle (shared/gen-hoehle.js)
@@ -92,6 +93,7 @@ function festkarte(name) {   // Definition einer festen Karte (gelesen und gemer
 function genVorgaben(lpId, e) { return (e && e.gen) || (defs().byId[lpId] || {}).gen || {}; }
 function nutztGenerator(lpId, e) {
   if (genVorgaben(lpId, e).fest) return true;   // feste Karte: immer der Erzeuger (auch bei PANTHEON_GEN=0)
+  if (e.art === 'schiff' && /^gen-/.test(e.schablone || '')) return true;   // SCH-01: gespeichertes Generatorschiff bleibt beim Erzeuger (der Aus-Schalter wirkt nur auf noch nicht gebaute Einträge)
   if (NUR_GENERATOR.includes(e.art)) return true;   // Wildnis, Höhle: immer der Erzeuger (auch bei PANTHEON_GEN=0, s. NUR_GENERATOR)
   if (!GEN_GROESSE[e.art] || process.env.PANTHEON_GEN === '0' || (e.schablone && !/^gen-/.test(e.schablone))) return false;   // gen-… = vom Generator gesetzt (uebernehmen)
   const d = defs().byId[lpId] || {};   // Aus-Schalter steht in der Definition, nicht im (gespeicherten) Eintrag
@@ -150,10 +152,12 @@ function genBauen(lpId, e) {
     const seed = (e.seed | 0) + i;
     let roh;
     try {
-      roh = e.art === 'aussenposten'
+      if (e.art === 'schiff') roh = GenSchiff.erzeuger().karteRoh(seed, Object.assign({ layout: e.bauweise === 'rom' ? 'rechteck' : 'schiff' }, o));   // SCH-01 P2: Rom = Rechteck-Layout
+      else roh = e.art === 'aussenposten'
         ? GenSiedlung.erzeuger(130, 90).karteRoh(seed, gv.haeuser || GEN_GROESSE.aussenposten.n, Object.assign({ typ, variante: gv.variante || null, ausstattung, boden }, o))
         : GenStation.erzeuger(96, 56).karteRoh(seed, GEN_GROESSE.station.n, gv.monster ? Object.assign({ monster: true }, o) : o);   // SL7c: gen.monster = Monster-Station (4 Pulte, meta.monster)
     } catch (x) {
+      if (e.art === 'schiff') { letzte = { fehler: [{ code: 'GEN', msg: String(x.message) }] }; continue; }   // Wurf des Erzeugers wie ein Prüferfehler: nächster Seed
       if (gv.variante && i < 5) { letzte = { fehler: [{ code: 'GEN', msg: String(x.message) }] }; continue; }   // Variante ohne Platz: nächster Seed
       throw x;
     }
@@ -222,11 +226,12 @@ function mitZustaenden(game, lpId, e, roh, alt) {
   const karte = JSON.parse(JSON.stringify(roh));
   // GEL-01 Befund 2: Wildnis-Anker-IDs sind Ordnungsnummern nach y/x; bei anderer Karte (bauversion) säße fund.1 woanders und „genommen“
   // spränge auf einen nie geborgenen Fundort. Neue Karte = neue Funde: gespeicherte Zustände dieser Karte werden nicht übertragen.
-  const wildnisNeu = (e.art === 'wildnis' || e.art === 'hoehle') && !!alt && alt !== roh.bauversion;
+  // SCH-01: Generatorschiff (alte bauversion gschiff…): Anker-IDs sind Laufnummern je Platz/Rolle, ein neuer Generatorstand verschiebt sie -> wie Gelände
+  const wildnisNeu = (e.art === 'wildnis' || e.art === 'hoehle' || (e.art === 'schiff' && /^gschiff/.test(alt || ''))) && !!alt && alt !== roh.bauversion;
   const verworfen = wildnisNeu ? Object.keys(e.zustaende || {}) : Buehne.zustaendeAnwenden(karte, e.zustaende || {});
   if (wildnisNeu && e.zustaende) e.zustaende = {};
   if (alt && alt !== roh.bauversion) {
-    log(game, `${lpId}: bauversion ${alt} -> ${roh.bauversion}, Karte neu gebaut (Seed ${roh.seed}); ${verworfen.length} Zustände verworfen${wildnisNeu ? ' (Gelände: neue Karte = neue Funde)' : ''}`);
+    log(game, `${lpId}: bauversion ${alt} -> ${roh.bauversion}, Karte neu gebaut (Seed ${roh.seed}); ${verworfen.length} Zustände verworfen${wildnisNeu ? (e.art === 'schiff' ? ' (Schiff: neue Karte = neue Anker-IDs)' : ' (Gelände: neue Karte = neue Funde)') : ''}`);
     if (game.mission && typeof game.mission.regieLog === 'function') { try { game.mission.regieLog('landepunkt_neu_gebaut', { lp: lpId, alt, neu: roh.bauversion, verworfen }); } catch (x) { /* */ } }
   }
   if (verworfen.length && e.zustaende) for (const k of verworfen) delete e.zustaende[k];
@@ -581,13 +586,16 @@ function ortBeam(ort) {
   if (sc) return { x: Math.round(sc.w / 2), y: Math.round(sc.h / 2), range: 360 };
   return { x: 0, y: 0, range: 360 };
 }
-// prise(game, ort, gegner { id, fraktion, x, y, beam? }) -> lpId '<ort>.prise' (§7); beam z. B. aus Entern.beamPunkt: Schiff, germanen, Besitz = Fraktion, Seed aus der Gegner-ID, umkaempft
+// prise(game, ort, gegner { id, fraktion, x, y, beam? }) -> lpId '<ort>.prise' (§7); beam z. B. aus Entern.beamPunkt: Schiff, Bauweise aus dem Besitz (bauweiseFuerBesitz; germanen, solange achsen.json Schiff nicht freigibt), Besitz = Fraktion, Seed aus der Gegner-ID, umkaempft
+// SCH-01 P2: Seed einer Prise aus der Gegner-ID (FNV-1a % 100000 + 1); entern.js nutzt dieselbe Funktion (kein zweites Exemplar der Formel)
+function priseSeed(gegnerId) { return (Buehne.fnv(String(gegnerId != null ? gegnerId : 'prise')) % 100000) + 1; }
 function prise(game, ort, gegner) {
   const g = gegner || {};
   const id = `${ort}.prise`;
   const S = st(game);
-  const seed = (Buehne.fnv(String(g.id != null ? g.id : 'prise')) % 100000) + 1;
-  S.dyn[id] = { id, ort, art: 'schiff', bauweise: 'germanen', besitz: g.fraktion || g.besitz || 'raubzug', zustand: 'umkaempft', seed, schablone: null,
+  const seed = priseSeed(g.id);
+  const besitz = g.fraktion || g.besitz || 'raubzug';
+  S.dyn[id] = { id, ort, art: 'schiff', bauweise: bauweiseFuerBesitz('schiff', besitz), besitz, zustand: 'umkaempft', seed, schablone: null,
     beam: g.beam ? { x: Math.round(g.beam.x), y: Math.round(g.beam.y), range: g.beam.range || (game.C && game.C.entern && game.C.entern.transferRange) || 300 }
       : { x: Math.round(g.x || 0), y: Math.round(g.y || 0), range: (game.C && game.C.entern && game.C.entern.transferRange) || 300 },
     name: 'Prise', frei: 'immer', gesperrt: false, neu: true, prise: true };
@@ -598,6 +606,12 @@ function prise(game, ort, gegner) {
   e.ort = ort; e.prise = true;
   return id;
 }
+// Zustände ohne die der Fallen-Anker (Rolle falle): das Wrack wird mit demselben Seed als verfallen neu gebaut, seine Fallen sind andere, tragen aber teils gleiche Ids
+function zustaendeOhneFallen(z, k) {
+  const out = Object.assign({}, z || {});
+  for (const a of (k && k.anker) || []) if (a.rolle === 'falle') delete out[a.id];
+  return out;
+}
 // Prise verfällt beim Verlassen der Szene, außer merken: dann treibendes Wrack (verfallen) am Ort unter neuer ID
 // <ort>.wrack-<n> (Wunsch ENTERN: die ID <ort>.prise bleibt frei für die nächste Prise). -> neue ID | null
 function priseVerlassen(game, ort, merken) {
@@ -605,6 +619,7 @@ function priseVerlassen(game, ort, merken) {
   const S = st(game);
   if (!S.dyn[id]) return null;
   const alt = S.dyn[id]; const altE = S.eintraege[id];
+  let priseKarte = null; try { priseKarte = karte(game, id); } catch (e) { priseKarte = null; }   // vor dem Löschen: welche Ids sind Fallen? (ihre Zustände gehören zur Prise)
   if (game.aways && game.aways[id] && !belegt(game, id)) sichern(game, id);
   if (game.aways && game.aways[id] && !belegt(game, id)) { delete game.aways[id]; W.unregister(id); }
   S.lru = S.lru.filter((x) => x !== id);
@@ -615,7 +630,7 @@ function priseVerlassen(game, ort, merken) {
   const neuId = `${ort}.wrack-${n}`;
   S.dyn[neuId] = Object.assign({}, alt, { id: neuId, zustand: 'verfallen', prise: false, name: 'Treibendes Wrack', neu: false });
   const e = eintrag(game, neuId);
-  if (altE) { e.seed = altE.seed; e.schablone = altE.schablone; e.bauversion = altE.bauversion; e.zustaende = altE.zustaende || {}; e.besuche = altE.besuche; }
+  if (altE) { e.seed = altE.seed; e.schablone = altE.schablone; e.bauversion = altE.bauversion; e.zustaende = zustaendeOhneFallen(altE.zustaende, priseKarte); e.besuche = altE.besuche; }
   e.zustand = 'verfallen'; e.ort = ort;
   return neuId;
 }
@@ -735,7 +750,7 @@ function debug(game, cmd, args, p) {
 
 module.exports = {
   MAX_GEBAUT, bauweiseFuerBesitz, vorwaermen, defs, neuLaden, get, karte, bauen, vorbauen, vorbauenOrt, verwerfen, liste, waehlen, sperrgrund, beamSpot, betreten, freigeben, neu, prise, priseVerlassen,
-  biomVonOrt, hoehleVonOrt, nutztGenerator,   // GEL-01 B
+  biomVonOrt, hoehleVonOrt, nutztGenerator, priseSeed,   // GEL-01 B
   toSave, restore, ankerZahlen, debug, sichern, eintrag, festkarte,   // BOD-01: feste Karten
   bereit, sobaldGeladen, zuruecksetzen, testgelaende, cacheLeeren, wildnisErzeugerSetzen,   // F1, F6, F9b
 };
