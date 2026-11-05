@@ -114,10 +114,16 @@ function biomVonOrt(ort) {
   const b = ort ? biomeWelt()[ort] : null;
   return GenGelaende.BIOME.includes(b) ? b : 'auto';
 }
+// GEL-02 C: Höhle unter der Wildnis je Ort aus der Welt (content/welt/<karte>.json "hoehlen": { "<ort-id>": true }), genau wie das Biom: nicht im Weltstand,
+// die Karte baut sich aus art + seed + Ort neu. Ohne Eintrag keine Höhle (die Karte ist dann byteweise die alte). Wechsel ändert bauversion (sig) und verwirft die Zustände.
+function hoehlenWelt() {
+  try { const Wt = require('./welt.js'); const k = Wt.karte(Wt.kartenId()); return (k && k.hoehlen) || {}; } catch (x) { return {}; }
+}
+function hoehleVonOrt(ort) { return !!ort && hoehlenWelt()[ort] === true; }
 function ortVon(lpId, e) { return (e && e.ort) || (defs().byId[lpId] || {}).ort || null; }
 function wildnisVorgaben(lpId, e) {
   const gv = genVorgaben(lpId, e);
-  return { biom: gv.biom || biomVonOrt(ortVon(lpId, e)), groesse: gv.groesse || GEN_GROESSE.wildnis.groesse };
+  return { biom: gv.biom || biomVonOrt(ortVon(lpId, e)), groesse: gv.groesse || GEN_GROESSE.wildnis.groesse, hoehle: gv.hoehle != null ? !!gv.hoehle : hoehleVonOrt(ortVon(lpId, e)) };
 }
 // Feste Karte: ein Bau, kein Seed-Wechsel (das Raster ist handgebaut); scheitert der Prüfer, ist die Karte falsch
 function festBauen(lpId, e, gv) {
@@ -165,6 +171,10 @@ function wildnisErzeugerSetzen(fn) { wildnisErzeugerFn = fn || null; }
 function wildnisBauen(lpId, e) {
   const v = wildnisVorgaben(lpId, e);
   const o = { biom: v.biom, groesse: v.groesse, bauweise: e.bauweise || 'germanen', besitz: e.besitz || null, zustand: e.zustand || 'intakt', id: lpId };
+  if (v.hoehle) {   // GEL-02 C: nur klein/mittel; eine unzulässige Größe scheitert sofort (Seed + 1 würde nichts ändern)
+    if (!GenGelaende.HOEHLE_GROESSEN.includes(v.groesse)) throw new Error('Gelände: Höhle unter Wildnis gibt es nur für klein und mittel');
+    o.hoehle = true;
+  }
   let letzte = null;
   for (let i = 0; i < 6; i++) {
     const seed = (e.seed | 0) + i;
@@ -704,7 +714,7 @@ function debug(game, cmd, args, p) {
 
 module.exports = {
   MAX_GEBAUT, bauweiseFuerBesitz, vorwaermen, defs, neuLaden, get, karte, bauen, vorbauen, vorbauenOrt, verwerfen, liste, waehlen, sperrgrund, beamSpot, betreten, freigeben, neu, prise, priseVerlassen,
-  biomVonOrt, nutztGenerator,   // GEL-01 B
+  biomVonOrt, hoehleVonOrt, nutztGenerator,   // GEL-01 B
   toSave, restore, ankerZahlen, debug, sichern, eintrag, festkarte,   // BOD-01: feste Karten
   bereit, sobaldGeladen, zuruecksetzen, testgelaende, cacheLeeren, wildnisErzeugerSetzen,   // F1, F6, F9b
 };

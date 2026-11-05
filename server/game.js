@@ -987,12 +987,13 @@ class Game {
       const s = String(v).toLowerCase().slice(0, 40);
       if (k === 'biom') { if ((Protocol.GELAENDE_BIOME || []).includes(s)) out.biom = s; continue; }   // GEL-01 D: nur gültige Werte, sonst ignoriert
       if (k === 'groesse') { if ((Protocol.GELAENDE_GROESSEN || []).includes(s)) out.groesse = s; continue; }
+      if (k === 'hoehle') { if (s === '1' || s === 'true') out.hoehle = true; continue; }   // GEL-02 C: Höhle unter der Wildnis (Testgelände); alles andere = keine Höhle
       if (/^[a-z0-9_.-]+$/.test(s)) out[k] = s;
     }
     if (!out.art) return null;
     if (!(Protocol.KARTEN_ARTEN || []).includes(out.art) || out.art === 'hand') return null;
     if (out.seed == null) out.seed = 1;
-    if (out.art !== 'wildnis') { delete out.biom; delete out.groesse; }   // GEL-01 D: Biom und Größe gibt es nur für die Wildnis
+    if (out.art !== 'wildnis') { delete out.biom; delete out.groesse; delete out.hoehle; }   // GEL-01 D: Biom und Größe gibt es nur für die Wildnis (GEL-02 C: Höhle ebenso)
     return out;
   }
 

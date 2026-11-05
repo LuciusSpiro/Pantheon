@@ -87,6 +87,8 @@
     "test:hoehle": "node tools/test-hoehle.js",
     "test:wildnis-gruppenlauf": "node tools/test-wildnis-gruppenlauf.js",
     "test:wildnis-client": "node tools/test-wildnis-client.js",
+    "test:wildnis-hoehle": "node tools/test-wildnis-hoehle.js",
+    "test:wildnis-hoehle-client": "node tools/test-wildnis-hoehle-client.js",
     "test:hoehle-client": "node tools/test-hoehle-client.js",
     "test:vox01-kit": "node tools/test-vox01-kit.js",
     "test:vox01-kronen": "node tools/test-vox01-kronen.js",
