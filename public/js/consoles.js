@@ -2620,7 +2620,7 @@
     awayMapTitle(st, amap) {
       if (R.isBuehne(amap)) {
         const lp = this.landepunkte(st).find(l => l.id === amap.id);
-        const ART = { aussenposten: 'AUSSENPOSTEN', station: 'RAUMSTATION', ruine: 'RUINE', schiff: 'SCHIFF', wildnis: 'WILDNIS' };
+        const ART = { aussenposten: 'AUSSENPOSTEN', station: 'RAUMSTATION', ruine: 'RUINE', schiff: 'SCHIFF', wildnis: 'WILDNIS', hoehle: 'HÖHLE' };
         return (lp && lp.name && lp.name !== lp.id ? String(lp.name).toUpperCase() : ART[amap.art] || 'LANDEPUNKT');
       }
       return amap.id === 'wreck' ? 'WRACK' : amap.id === 'kesh' ? 'MOND KESH' : 'PLATTFORM B-7';
@@ -2641,7 +2641,7 @@
     drawLandepunkte(ctx, view, lps, x, y, w) {
       const st = view.state, away = st.away || {};
       const ziel = (st.transfer && st.transfer.ziel) || away.map || null;
-      const ART = { aussenposten: 'Außenposten', station: 'Station', ruine: 'Ruine', schiff: 'Schiff', wildnis: 'Wildnis', hand: '' };
+      const ART = { aussenposten: 'Außenposten', station: 'Station', ruine: 'Ruine', schiff: 'Schiff', wildnis: 'Wildnis', hoehle: 'Höhle', hand: '' };
       R.text(ctx, 'LANDEPUNKT', x, y, { color: PAL.brass }); y += 12;
       // aktuelles Ziel immer sichtbar: höchstens 4 Zeilen (Tasten 7, 8, 9, 0)
       let rows = lps.slice(0, 4);

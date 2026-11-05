@@ -96,7 +96,62 @@
     if (opts.gegner === 'keine') gegner = 0;
     else if (opts.gegner != null && !isNaN(+opts.gegner)) gegner = clamp(Math.round(+opts.gegner), 0, KETTEN.length);
     else gegner = 1 + grIdx + Math.floor(hash2(seed, 13, 0x53) * 2);   // klein 1-2, mittel 2-3, gross 3-4 Gruppen
-    return { seed, groesse: gr, biom, dichte, fundorte, gegner };
+    // GEL-02 C: Höhlendeck darunter (nur klein und mittel); fehlt die Option oder ist sie false, bleibt die Karte byteweise wie vor GEL-02
+    const hoehle = opts.hoehle === true || opts.hoehle === 1 || opts.hoehle === '1' || opts.hoehle === 'true';
+    return { seed, groesse: gr, biom, dichte, fundorte, gegner, hoehle };
+  }
+
+  // ---- GEL-02 C: Höhle unter der Wildnis ----
+  // Arbeitet auf der FERTIGEN Oberfläche (Zeilen und Anker bleiben unberührt, nur der Anker gelaende.leiter kommt dazu) und mit eigenem Zufallsstrom:
+  // die Landschaft ist mit und ohne Höhle dieselbe. Deck gestapelt wie gen-fest (Zeilen untereinander, y-Versatz stride), Deckhöhe 0,75 x Oberfläche,
+  // damit stride = Oberflächenhöhe (kein Auffüllen, K-DECK ohne Sonderfall; höhere Decks sprengen die awayMap-Grenze). Wirft, wenn kein Eingang passt (Aufrufer: Seed + 1).
+  const HOEHLE_GROESSEN = ['klein', 'mittel'];
+  const HOEHLE_DECK_ANTEIL = 0.75;
+  function hoehleFehlerGroesse() { return new Error('Gelände: Höhle unter Wildnis gibt es nur für klein und mittel'); }
+  function hoehleDazu(roh, P) {
+    const Hoehle = require('./gen-hoehle.js');
+    const W = roh.w, S = roh.h, seed = P.seed;
+    const A = roh.anker.find((a) => a.ankunft);
+    const begehbar = (x, y) => x >= 0 && y >= 0 && x < W && y < S && (roh.rows[y][x] === ':' || roh.rows[y][x] === 's');
+    const d = new Int32Array(W * S).fill(-1), q = [A.y * W + A.x]; d[q[0]] = 0;
+    for (let i = 0; i < q.length; i++) {
+      const u = q[i], ux = u % W, uy = (u - ux) / W;
+      for (const [dx, dy] of [[0, -1], [1, 0], [0, 1], [-1, 0]]) { const x = ux + dx, y = uy + dy; if (begehbar(x, y) && d[y * W + x] < 0) { d[y * W + x] = d[u] + 1; q.push(y * W + x); } }
+    }
+    // Lagermitten (Mitte des Gefechtsbereichs): der Eingang liegt nicht im Lager
+    const lagerMitten = Object.values(roh.bereiche).filter((b) => b.gefecht).map((b) => [b.rects[0][0] + (b.rects[0][2] - 1) / 2, b.rects[0][1] + (b.rects[0][3] - 1) / 2]);
+    const minAbstand = 0.6 * Math.round(0.30 * (W + S) / 2);   // 0,6 x Abstandsvorgabe der Fundorte zur Ankunft
+    const kand = [];
+    for (let y = 3; y < S - 4; y++) for (let x = 4; x < W - 4; x++) {
+      if (d[y * W + x] < 0 || Math.hypot(x - A.x, y - A.y) < minAbstand) continue;
+      let frei = true;   // Umgebung Radius 1 nur freier Boden ':' (kein Stein, Busch, Wasser, Lava, Fels)
+      for (let dy = -1; dy <= 1 && frei; dy++) for (let dx = -1; dx <= 1; dx++) if (roh.rows[y + dy][x + dx] !== ':') { frei = false; break; }
+      if (!frei) continue;
+      if (roh.anker.some((a) => Math.max(Math.abs(a.x - x), Math.abs(a.y - y)) < 4)) continue;
+      if (lagerMitten.some((m) => Math.hypot(m[0] - x, m[1] - y) < 7)) continue;
+      kand.push([x, y]);
+    }
+    if (!kand.length) throw new Error(`Gelände: kein Platz für den Höhleneingang (Seed ${seed})`);
+    const Rh = rng(fnv('gelaende-hoehle', seed >>> 0) ^ 0x4C0FFEE1);
+    const E = kand[Rh.int(kand.length)];
+    const hoehe = Math.round(HOEHLE_DECK_ANTEIL * S), stride = S;
+    // Anzahl Fundorte und Gruppen unten: klein 2 (das Deck verlangt mindestens 2 Funde), mittel 2-3; Gruppen 1-2. Die Oberfläche erfüllt ihre Pflicht allein.
+    const deckFund = P.groesse === 'klein' ? 2 : 2 + Math.floor(hash2(seed, 31, 0x71) * 2);
+    const deckGegner = P.gegner === 0 ? 0 : 1 + Math.floor(hash2(seed, 32, 0x72) * 2);
+    const deck = Hoehle.erzeuger().deckRoh(seed, { w: W, hoehe, eingangX: E[0], fundorte: deckFund, gegner: deckGegner, dichte: P.dichte });
+    const U = deck.anker.find((a) => a.rolle === 'leiter');
+    const oben = roh.anker.concat([{ id: 'gelaende.leiter', rolle: 'leiter', x: E[0], y: E[1], platz: PLATZ, bereich: PLATZ }]);
+    oben.sort((a, b) => (a.rolle < b.rolle ? -1 : a.rolle > b.rolle ? 1 : 0) || a.y - b.y || a.x - b.x);
+    roh.anker = oben.concat(deck.anker.map((a) => Object.assign({}, a, { y: a.y + stride })));
+    roh.rows = roh.rows.concat(deck.rows);
+    roh.h = roh.rows.length;
+    for (const [id, b] of Object.entries(deck.bereiche)) roh.bereiche[id] = Object.assign({}, b, { rects: b.rects.map((r) => [r[0], r[1] + stride, r[2], r[3]]) });
+    roh.plaetze.hoehle = Object.assign({}, deck.plaetze.hoehle, { rect: deck.plaetze.hoehle.rect.map((v, i) => (i === 1 ? v + stride : v)) });
+    roh.decks = { stride, links: [{ a: [E[0], E[1]], b: [U.x, U.y + stride], via: 'leiter' }] };
+    roh.meta.pflicht = Object.assign({}, roh.meta.pflicht, { leiter: 1 });
+    roh.meta.boden2 = deck.meta.boden2;
+    roh.meta.hoehle = true;
+    return roh;
   }
 
   function erzeuger() {
@@ -104,6 +159,7 @@
       const P = normiere(seed, opts);
       opts = opts || {};
       seed = P.seed;
+      if (P.hoehle && !HOEHLE_GROESSEN.includes(P.groesse)) throw hoehleFehlerGroesse();
       const { w: W, h: H } = GROESSEN[P.groesse];
       const N = W * H, flaeche = (W - 2) * (H - 2);
       const R = rng(fnv('gelaende', seed >>> 0) ^ 0x9E3779B1);
@@ -395,9 +451,10 @@
       const anker = roh.map((a) => { lauf[a.rolle] = (lauf[a.rolle] || 0) + 1; return Object.assign({ id: zz[a.rolle] > 1 ? `${PLATZ}.${a.rolle}.${lauf[a.rolle]}` : `${PLATZ}.${a.rolle}` }, a); });
 
       const rows = []; for (let y = 0; y < H; y++) rows.push(g.slice(y * W, (y + 1) * W).join(''));
-      const sig = fnv(JSON.stringify([P.biom, P.groesse, P.dichte, P.fundorte, P.gegner])).toString(36);
+      // sig: mit Höhle kommen die Option und die Erzeugerversion der Höhle dazu (sonst ändert sich die Signatur nicht, ohne Höhle bleibt sie wie vor GEL-02)
+      const sig = fnv(JSON.stringify(P.hoehle ? [P.biom, P.groesse, P.dichte, P.fundorte, P.gegner, 'hoehle', require('./gen-hoehle.js').VERSION] : [P.biom, P.groesse, P.dichte, P.fundorte, P.gegner])).toString(36);
       const ab = anker.filter((a) => a.rolle === 'abholpunkt');
-      return {
+      const karte = {
         id: opts.id || null, erzeuger: 'gen-gelaende/1', art: 'wildnis', bauweise: opts.bauweise || 'germanen', besitz: opts.besitz || null,
         zustand: opts.zustand || 'intakt', seed, bauversion: `gelaende.${VERSION}[${sig}]`, schablone: 'gen-gelaende', spiegel: null, w: W, h: H, rows, legende: null, anker,
         bereiche, plaetze: { [PLATZ]: { typ: 'gelaende', modul: 'gen-gelaende', lage: { rot: 0, spiegel: false, aussen: null }, rect: [1, 1, W - 2, H - 2], bereich: PLATZ } },
@@ -406,8 +463,9 @@
         meta: { versuche: 1, kennzahlen: null, linear: false, pflicht: Object.assign({}, PFLICHT), zellen: null, schiffDecks: null, torStart: 'offen', huelle: true, typ: 'wildnis', titel: {},
           biom: P.biom, boden: BODEN[P.biom] },
       };
+      return P.hoehle ? hoehleDazu(karte, P) : karte;
     }
     return { karteRoh };
   }
-  return { erzeuger, PFLICHT, BIOME, GROESSEN, VERSION };
+  return { erzeuger, PFLICHT, BIOME, GROESSEN, VERSION, HOEHLE_GROESSEN };
 });

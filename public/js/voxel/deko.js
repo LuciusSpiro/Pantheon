@@ -29,14 +29,14 @@ export const ALT_BESITZ_ORT = /gemein\/(fass|kette|werkzeug|feuerschale)$/;
 // Orte (Station, Außenposten, ORT-01 9): nur Regeln mit Kartenart-Präfix ('station:lager', 'aussenposten:*'), nie die
 // unpräfixierten Altstück-Regeln, die Schiff und Ruine weiter nutzen (Schiff und Ruine byte-gleich zu main).
 export function regelFuer(typ, art, R) {
-  if (art === 'wildnis') return null;   // GEL-01 D: die Wildnis streut nur ihren eigenen Bewuchs (streuenWildnis), nie die Altstück-Regeln der Bauweise (unpräfixiert = Schiff/Ruine)
+  if (art === 'wildnis' || art === 'hoehle') return null;   // GEL-02 B: auch die Höhle (kein Siedlungs-Streugut unter der Erde). GEL-01 D: die Wildnis streut nur ihren eigenen Bewuchs (streuenWildnis), nie die Altstück-Regeln der Bauweise (unpräfixiert = Schiff/Ruine)
   if (art === 'station' || art === 'aussenposten') return R[art + ':' + typ] || R[art + ':*'] || null;
   return R[typ] || R['*'] || null;
 }
 /** Besitz-Streu für eine Kartenart: in Station und Außenposten ohne ALT_BESITZ_ORT, sonst unverändert (kit.js und tools/hash-baseline.js). */
 export function besitzStreuFuerOrt(art, streu) {
   const liste = Array.isArray(streu) ? streu : [];
-  if (art === 'wildnis') return [];   // GEL-01 D: kein Besitz-Streugut in der Wildnis (Gelände ohne Siedlung)
+  if (art === 'wildnis' || art === 'hoehle') return [];   // GEL-02 B: Höhle wie Wildnis. GEL-01 D: kein Besitz-Streugut in der Wildnis (Gelände ohne Siedlung)
   if (art !== 'station' && art !== 'aussenposten') return liste;
   return liste.filter((e) => !ALT_BESITZ_ORT.test(typeof e === 'string' ? e : (e && e.id) || ''));
 }
@@ -140,6 +140,7 @@ export function streuenWildnis(k) {
   const gesamt = def.satz.reduce((n, e) => n + e[1], 0);
   const out = [];
   for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+    if (k.stride && y >= k.stride) continue;   // GEL-02: Decks ab 1 (Höhle unter der Wildnis) bekommen nie Bodenbewuchs, auch nicht auf ':'-Kacheln
     if (gesperrt[y * W + x] || k.kindAt(x, y) !== 'gelaende') continue;
     const rnd = mulberry32(fnv('wildnis:' + biom + ':' + x + ':' + y, seed));
     if (rnd() >= def.dichte) continue;

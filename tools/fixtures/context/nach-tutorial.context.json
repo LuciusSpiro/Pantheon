@@ -272,6 +272,15 @@
         "deckung": 4,
         "fund": 2
       }
+    },
+    {
+      "id": "hoehle",
+      "kurz": "Unterirdische Höhle (80×56; Gänge, Kammern): Abholpunkt, Fundorte, Deckung, Gegnerlager – Suchen, Bergen, Überfall.",
+      "pflichtsatz": {
+        "abholpunkt": 1,
+        "deckung": 4,
+        "fund": 2
+      }
     }
   ],
   "missionen": {

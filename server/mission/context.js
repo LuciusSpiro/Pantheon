@@ -38,11 +38,13 @@ const KARTENART_KURZ = {
   ruine: 'Verfallenes römisches Grenzkastell (64×40): Tore, Gewölbe, Rätselpaar, Fund – Rätsel, Bergung, Probe.',
   schiff: 'Germanisches Langschiff, zwei Decks (37×13): Brücke, Laderaum, Zellen – Kapern, Sabotage, Bergung.',
   wildnis: 'Offenes Gelände ohne Siedlung (80×56; Wüste, Wiesenwald, Vulkan): Abholpunkt, Fundorte, Deckung, Gegnerlager – Suchen, Bergen, Überfall.',
+  hoehle: 'Unterirdische Höhle (80×56; Gänge, Kammern): Abholpunkt, Fundorte, Deckung, Gegnerlager – Suchen, Bergen, Überfall.',
 };
 // Kartenarten, die ein Erzeuger ohne Modul-Schablonen baut: der Pflichtsatz kommt aus dem Erzeuger selbst (jede Karte der Art hat ihn auf jedem Seed).
-// Künftige Generator-Arten (Höhle, Schiff) hier eintragen. Quelle als Funktion, damit das Laden des Erzeugers erst beim ersten Kontext passiert.
+// Künftige Generator-Arten (Schiff) hier eintragen. Quelle als Funktion, damit das Laden des Erzeugers erst beim ersten Kontext passiert.
 const ERZEUGER_PFLICHT = {
   wildnis: () => require('../../shared/gen-gelaende.js').PFLICHT,
+  hoehle: () => require('../../shared/gen-hoehle.js').PFLICHT,
 };
 const BODEN_DEFAULT = { langAbMin: 25, langMaxMin: 35, langeJeRunde: 1, wiederholtFenster: 3 };
 function bodenConfig() {

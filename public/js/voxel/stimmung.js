@@ -57,10 +57,22 @@ export const WILDNIS_STIMMUNG = {
     exposure: 1.25, bloom: { strength: 0.6, radius: 0.5, threshold: 0.85 },   // Befund 9: milder (heller Boden, weniger Rot); Lava bleibt das hellste Element
   },
 };
+// GEL-02 Paket 0: Stimmung unter der Erde (ein Eintrag, nicht je Biom). Gilt für die Karte art 'hoehle' und für Deck >= 1 einer Wildnis mit Decks (renderer.js felsHintergrund).
+// Kühl, dunkel, enger Nebel; der Nebel hat die Höhlenfarbe, die Figur bleibt durch Hemisphäre und Sonne gut lesbar (kein Schwarz). Eine Datei moods/hoehle.json gewinnt, sobald sie im Index steht.
+export const HOEHLE_STIMMUNG = {
+  hoehle: {
+    id: 'hoehle', background: '#0C0F14', fog: { color: '#10141B', near: 1.4, far: 4.4 },
+    hemi: { sky: '#9CB0C8', ground: '#4C4038', intensity: 0.95 }, ambient: { color: '#5E6E82', intensity: 0.3 },
+    sun: { color: '#B4C8E6', intensity: 1.1, dir: [-0.35, 1, 0.5], softness: 2.5 },
+    exposure: 1.1, bloom: { strength: 0.2, radius: 0.4, threshold: 0.92 },
+  },
+};
+/** Kartenarten, deren Decks ab 1 (bzw. die ganze Karte bei 'hoehle') die Höhlenstimmung tragen */
+export const HOEHLE_ARTEN = ['wildnis', 'hoehle'];
 /** Stimmungs-ID einer Karte aus der Bauweisen-Tabelle: stimmung["<art>:<boden>"] (nur wildnis nutzt das), sonst stimmung[<art>]; sonst null. */
 // Letzter Rückfall nur für wildnis (Befund 6): fehlt die Bauweisen-Tabelle ganz (Datei nicht geladen), bekommt die Wildnis trotzdem die Stimmung ihres Bodentons.
 const WILDNIS_STIMMUNG_JE_BODEN = { wueste: 'wildnis_wueste', gras: 'wildnis_wiesenwald', vulkan: 'wildnis_vulkan' };
 export function stimmungVon(tabelle, art, boden) {
   const t = tabelle || {};
-  return (boden && t[art + ':' + boden]) || t[art] || (art === 'wildnis' && boden && WILDNIS_STIMMUNG_JE_BODEN[boden]) || null;
+  return (art === 'hoehle' && (t.hoehle || 'hoehle')) || (boden && t[art + ':' + boden]) || t[art] || (art === 'wildnis' && boden && WILDNIS_STIMMUNG_JE_BODEN[boden]) || null;
 }

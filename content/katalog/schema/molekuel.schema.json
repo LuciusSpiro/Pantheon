@@ -120,7 +120,7 @@
           "required": ["anker"],
           "description": "B1 (CONTRACT-B1 §11.1): was die gebaute Karte des Landepunkts haben muss; ersetzt params.map.werte. Der Szenenbau wählt den Landepunkt und setzt map ein (nie das LLM); Prüfung gegen die gebaute Karte (BUEHNE-ART, BUEHNE-ANKER, server/mission/objects.js pruefeBuehneBraucht).",
           "properties": {
-            "kartenarten": { "type": "array", "items": { "enum": ["aussenposten", "station", "ruine", "schiff", "wildnis", "platform", "wreck", "kesh"] }, "description": "erlaubte Kartenarten bzw. Handkarten-IDs; fehlt = alle" },
+            "kartenarten": { "type": "array", "items": { "enum": ["aussenposten", "station", "ruine", "schiff", "wildnis", "hoehle", "platform", "wreck", "kesh"] }, "description": "erlaubte Kartenarten bzw. Handkarten-IDs; fehlt = alle" },
             "anker": { "type": "array", "items": { "oneOf": [
               { "type": "string", "pattern": "^[a-z_]+$" },
               { "type": "object", "additionalProperties": false, "required": ["rolle"], "properties": { "rolle": { "type": "string", "pattern": "^[a-z_]+$" }, "paar": { "type": "integer", "minimum": 1 } } }

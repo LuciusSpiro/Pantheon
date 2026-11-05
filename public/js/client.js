@@ -705,13 +705,13 @@
   }
 
   // ------------------------------------------------------------------ B1: gebaute Karten, Testgelände-Direktstart, Prefetch
-  // URL ?arena=away&art=…&seed=…&bauweise=…&besitz=…&zustand=…[&fraktion&staerke&haltung][&biom&groesse (art=wildnis)] -> lobbyOpt { startMission: 'arena_away', arena }
+  // URL ?arena=away&art=…&seed=…&bauweise=…&besitz=…&zustand=…[&fraktion&staerke&haltung][&biom&groesse&hoehle (art=wildnis) | &groesse (art=hoehle)] -> lobbyOpt { startMission: 'arena_away', arena }
   const ARENA_URL = (function () {
     try {
       const q = new URLSearchParams(location.search);
       if (q.get('arena') !== 'away' || !q.get('art')) return null;
       const a = {};
-      for (const k of (P.ARENA_AWAY_FIELDS || ['art', 'schablone', 'seed', 'bauweise', 'besitz', 'zustand', 'fraktion', 'staerke', 'haltung', 'biom', 'groesse'])) {
+      for (const k of (P.ARENA_AWAY_FIELDS || ['art', 'schablone', 'seed', 'bauweise', 'besitz', 'zustand', 'fraktion', 'staerke', 'haltung', 'biom', 'groesse', 'hoehle'])) {
         const v = q.get(k); if (v != null && v !== '') a[k] = k === 'seed' && isFinite(+v) ? +v : v;
       }
       // Bodenkampf: Wellen auf genau dieser Karte (fester Seed); statische Karten-QA mit &wellen=0 bzw. mit fraktion
@@ -1562,6 +1562,16 @@
     }
     return false;
   }
+  // GEL-02 E1: Karte unter der Erde (Höhle, Wildnis-Deck >= 1; wie unterErde in voxel/kit.js) und der Hinweistext der Leiter dort. Schiff und Bunker behalten den alten Text.
+  function unterErde(map, ty) {
+    const d = map && map.decks;
+    return !!map && (map.art === 'hoehle' || (map.art === 'wildnis' && !!(d && d.stride) && Math.floor(ty / d.stride) >= 1));
+  }
+  function leiterText(map, ty) {
+    if (map && map.art === 'wildnis' && map.decks && map.decks.stride) return unterErde(map, ty) ? 'E halten: Hinauf zur Oberfläche' : 'E halten: In die Höhle hinabsteigen';
+    return 'E halten: Leiter zum anderen Deck';
+  }
+  G.leiterText = (ty, mp) => leiterText(mp || Maps[G.state && G.state.away && G.state.away.map], ty);   // nur für Tests (tools/test-hoehle-lesbar.js)
   function buehneInteraction(st, m, map, tx, ty) {
     const HZ = (CFG.anker && CFG.anker.halten) || {};
     const sec = (k) => String(HZ[k] != null ? HZ[k] : 3).replace('.', ',') + ' s';
@@ -1619,7 +1629,7 @@
           break;
         }
         case 'lift': return { label: 'E: Lift zum anderen Deck', ok: true };
-        case 'leiter': return { label: 'E halten: Leiter zum anderen Deck', ok: true };
+        case 'leiter': return { label: leiterText(map, ty), ok: true };
         default: break;
       }
     }

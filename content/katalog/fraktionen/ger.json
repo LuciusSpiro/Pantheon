@@ -49,12 +49,14 @@
       "station",
       "aussenposten",
       "wildnis",
+      "hoehle",
       "hand"
     ],
     "sturmtrupp": [
       "station",
       "aussenposten",
-      "wildnis"
+      "wildnis",
+      "hoehle"
     ]
   },
   "funkstil": "derb und stolz, spricht von Sippe, Ehre und Wergeld"

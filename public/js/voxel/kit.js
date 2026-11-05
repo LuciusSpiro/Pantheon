@@ -30,6 +30,7 @@ import * as DefaultLoader from './loader.js';
 import { streuen, streuenWildnis, belegungVon, besitzStreuFuerOrt } from './deko.js';
 import { mitAkzent, WILDNIS_STIMMUNG, stimmungVon } from './stimmung.js';
 import { glutAusnahme } from './glut.js';
+import * as KULISSE from './hoehle-kulisse.js';   // GEL-02 E2: Schacht, Pilze, Kristalle, Glutring (nur Karten mit erdBoden)
 import { KLASSE, connVon, hash2, eintragVon, ankerEintragVon, eintragIds, baumWahl, kronenZelle, hochRichtung, segmentBox, mitNachlauf, kronenAus, bauweiseMerken, jsonLader } from './kit-regeln.js';
 
 const BASE = '/content/buehnen/';
@@ -183,7 +184,7 @@ export function normKarte(src, D) {
     moebel: Array.isArray(m.moebel) ? m.moebel : (m.meta && Array.isArray(m.meta.moebel) ? m.meta.moebel : []),
     boden: m.boden || (m.meta && m.meta.boden) || null,
     boden2: m.boden2 || (m.meta && m.meta.boden2) || null,   // BOD-01 N2: optionaler Belag der Kachel ',' (boden2) in Hüllen-Karten (BODEN2_TON); fehlt er, bleibt alles wie bisher
-    huelle: !!(m.huelle || (m.meta && m.meta.huelle)) && !decks,   // Wände als schaltbare Gruppen (hoch/niedrig), siehe huelleUpdate
+    huelle: !!(m.huelle || (m.meta && m.meta.huelle)) && !decks && m.art !== 'hoehle',   // Wände als schaltbare Gruppen (hoch/niedrig), siehe huelleUpdate
     deckOf: (ty) => (decks ? Math.min(deckN - 1, Math.max(0, Math.floor(ty / stride))) : 0),
     localY: (ty) => (decks ? ty - Math.min(deckN - 1, Math.max(0, Math.floor(ty / stride))) * stride : ty),
   };
@@ -346,6 +347,7 @@ function farben(pal, basePal) {
 }
 
 // Platzhalter je Kit-Kind (lesbar, palettengefärbt, nie Magenta). p = Parameter wie beim echten Teil.
+const STEIN_HOEHLE_F = { hell: 3.4, mitte: 3.8, dunkel: 12 };   // GEL-02 E: Helligkeitsfaktoren der Findlinge unter der Erde (nur ton hoehle), im Bild gemessen
 const FB = {
   boden(pen, p, F) {
     const belag = p.belag | 0, s = p.seed | 0;
@@ -427,6 +429,19 @@ const FB = {
       }
       return;
     }
+    if (p.unter) {   // GEL-02 E1: Höhlenpfütze: dunkles Grau-Blau, 2 bis 3 überlappende flache Flächen statt eines blauen Quadrats, Glanzstreifen an der Nordkante; alles unter Bodenniveau (Kollision hat die Kachelklasse)
+      const ober = lin('#22384A'), tief = lin('#162533');
+      pen.box(-0.5, -0.5, -0.5, 0.5, -0.1, 0.5, lin('#1B2833'), tief, { jit: false });   // nasser Grund, füllt die Kachel (kein Loch), eine Stufe dunkler als die Pfütze
+      const nflaechen = 2 + (hash2(x, y, 132) < 0.5 ? 1 : 0);
+      for (let i = 0; i < nflaechen; i++) {
+        const w = 0.3 + hash2(x, y, 133 + i) * 0.15, d = 0.3 + hash2(x, y, 137 + i) * 0.15;   // Halbmaße: Fläche 0,6 bis 0,9 m
+        const cx = (hash2(x, y, 141 + i) - 0.5) * 2 * (0.48 - w), cz = (hash2(x, y, 145 + i) - 0.5) * 2 * (0.48 - d);   // bleibt in der Kachel
+        const hh = -0.1 + 0.005 * (i + 1);
+        pen.box(cx - w, -0.1, cz - d, cx + w, hh, cz + d, ober, null, { jit: false, only: 'top' });
+        if (i === 0) pen.box(cx - w + 0.06, hh, cz - d, cx + w - 0.06, hh + 0.003, cz - d + 0.07, lin('#5A7A90'), null, { only: 'top', jit: false });   // Glanzstreifen an der Nordkante
+      }
+      return;
+    }
     pen.box(-0.5, -0.5, -0.5, 0.5, -0.1, 0.5, lin('#1F5E96'), lin('#143E66'), { jit: false });   // Befund 11: eine Wertstufe unter der Wiese (Graustufe)
     if (hash2(x, y, 130) < 0.5) {   // schwache Wellenstreifen
       const cz = (hash2(x, y, 131) - 0.5) * 0.6;
@@ -440,9 +455,10 @@ const FB = {
     // GEL-01 D Platzhalter Steine der Wildnis (o halb = Findling niedrig <= 0,85 m, O voll = Felsblock >= 2,2 m), je Biom getönt: Sandstein, Moosgrau, Basalt mit Glutriss.
     // Gestapelte Blöcke mit Versatz statt Kiste/Tank der Siedlungen; bleibt innerhalb der Kachel (Kollision und Deckung hat der Server).
     const x = p.x | 0, y = p.y | 0, voll = !!p.voll, ton = p.ton;
-    const T = ton === 'vulkan' ? ['#4C4446', '#2E282A', '#1E191B'] : ton === 'wueste' ? ['#D6B47A', '#AE8A52', '#80643C'] : ['#9AA098', '#707670', '#505650'];
+    const T = ton === 'hoehle' ? ['#9A9C98', '#6E716F', '#474A4A'] : ton === 'vulkan' ? ['#4C4446', '#2E282A', '#1E191B'] : ton === 'wueste' ? ['#D6B47A', '#AE8A52', '#80643C'] : ['#9AA098', '#707670', '#505650'];
     const j = 0.92 + hash2(x, y, 140) * 0.16;
-    const hell = lin(T[0], j), mitte = lin(T[1], j), dunkel = lin(T[2]);
+    const gh = ton === 'hoehle' ? STEIN_HOEHLE_F : { hell: 1, mitte: 1, dunkel: 1 };   // GEL-02 E: unter der Erde kommen die Steine im Bild viel zu dunkel an (Licht der Höhlenstimmung)
+    const hell = lin(T[0], j * gh.hell), mitte = lin(T[1], j * gh.mitte), dunkel = lin(T[2], gh.dunkel);
     const ox = (hash2(x, y, 141) - 0.5) * 0.12, oz = (hash2(x, y, 142) - 0.5) * 0.12;
     if (voll) {
       pen.box(-0.46 + ox, 0, -0.44 + oz, 0.46 + ox, 1.15, 0.44 + oz, mitte, dunkel, { low: 0.7 });
@@ -556,7 +572,9 @@ const FB = {
       const nb = p.nb || [-99, -99, -99, -99], skip = [];
       if (nb[0] > l) skip.push('z-'); if (nb[1] > l) skip.push('x+'); if (nb[2] > l) skip.push('z+'); if (nb[3] > l) skip.push('x-');
       if (l < H - 1) skip.push('y+');
+      if (l === 0 && p.nische) skip.push('z+');   // GEL-02 E2: Südfläche mit Nische (Pilze/Glutriss), siehe hoehle-kulisse.js
       pen.box(-0.5, l, -0.5, 0.5, l + 1, 0.5, mul(top, j), mul(side, j), { low: l === 0 ? 0.75 : 0.95, jit: false, skip });
+      if (l === 0 && p.nische) KULISSE.zeichne(pen, KULISSE.nischeBoxen(p.nische), F, lin, mul(side, j));
     }
   },
   // --- Türen (state = Index in den Zuständen der Kachelart)
@@ -913,14 +931,21 @@ async function bauKarte(parent, karteIn, opts) {
   const felsHoehe = (x, y) => {
     const southWalk = (n) => { for (let i = 1; i <= n; i++) { const kd = k.kindAt(x, y + i); if (kd && !AUSSEN[kd] && kd !== 'fels') return i; } return 0; };
     let h = 2 + Math.floor(hash2(x, y, 31) * 3);
+    if (unterErde(y)) {   // GEL-02 E1: Kamera schaut von Süden; Fels direkt südlich eines Gangs steht zwischen Kamera und Figur (wie away.js walkNorth): 1 m, eine Reihe weiter höchstens 2 m, nie über die Deckgrenze
+      const n = nordGang(x, y, 2);
+      if (n === 1) h = 1; else if (n === 2) h = Math.min(h, 2);
+      return h;
+    }
     const s = southWalk(2);
     if (s === 1) h = 1; else if (s === 2) h = Math.min(h, 2);
     return h;
   };
+  const nordGang = (x, y, n) => { const dk = k.deckOf(y); for (let i = 1; i <= n; i++) { if (k.deckOf(y - i) !== dk) break; const kd = k.kindAt(x, y - i); if (kd && !AUSSEN[kd] && kd !== 'fels') return i; } return 0; };
   // TA: Bodenton der Siedlung (Karte.boden, vom Generator je Welt/Planet gewählt): Bauweise.boden_varianten[ton] = { gelaende: { top, fill }, weg: { top, f } }
   const bodenTon = (k.boden && BW.boden_varianten && BW.boden_varianten[k.boden]) || null;
   const gel = Object.assign({}, kitId('gelaende') || {}, (bodenTon && bodenTon.gelaende) || {});
-  const draussen = k.art !== 'station' && k.art !== 'schiff';   // Außenposten, Ruine: Gelände; Station, Schiff: All
+  const hoehle = k.art === 'hoehle';   // GEL-02 Paket 0: eigene Höhlenkarte (ein Deck, rundum Fels), kein Gelände-Außenring, kein Biomton
+  const draussen = k.art !== 'station' && k.art !== 'schiff' && !hoehle;   // Außenposten, Ruine: Gelände; Station, Schiff, Höhle: kein Gelände ringsum
   const felsHell = k.art === 'aussenposten' ? 'frost' : 'stone_light';   // Außenposten liegen im Frost (Stimmung outpost_frost)
   // GEL-01 D: Wildnis: Fels je Bodenton getönt (Sandstein | Moosgrau | Basalt), sonst unverändert; Steine o/O als Findling/Felsblock (FB.findling), Bewuchs siehe Deko
   const wildnis = k.art === 'wildnis';
@@ -928,6 +953,13 @@ async function bauKarte(parent, karteIn, opts) {
   // Wildnis: ebener Boden (keine 3-cm-Stufen, Befund 8) und flache Kiesel im Ton des Bodens statt brauner Würfel (Befund 12); andere Kartenarten unverändert
   const KIESEL = { gras: ['#7E8A62', '#6A7552'], wueste: ['#BCAC86', '#9A8C68'], vulkan: ['#544C4E', '#3A3436'] };
   const wildGel = wildnis ? { stufe: [0, 0], kiesel: KIESEL[k.boden] || null } : {};
+  // GEL-02 Paket 0: Erdboden unter der Erde. Wildnis mit Decks (Deck 1 = Höhle) und die Karte 'hoehle' zeichnen boden (.) und boden2 (,) als Gelände-Boden
+  // (gleicher Weg wie die Hüllen-Karten, aber ohne huelle: Wände sind dort nicht schaltbar). Deck >= 1 bzw. Höhle: Belag aus Karte.boden2 (BODEN2_TON, Standard erde),
+  // ohne Biomton, ohne Kiesel, ohne Felstönung. Deck 0 der Wildnis behält Biomton (boden unter Steinen und Büschen); Wildnis ohne Deck bleibt unverändert.
+  const erdBoden = hoehle || (wildnis && !!k.decks);
+  const unterErde = (ty) => hoehle || (wildnis && !!k.decks && k.deckOf(ty) >= 1);
+  const kulKarte = { art: k.art, w: k.w, h: k.h, seed: k.seed, stride: k.decks ? k.stride : 0, boden: k.boden, kindAt: k.kindAt, felsHoehe };
+  const kul = KULISSE.platziere(kulKarte);   // GEL-02 E2: leer ohne erdBoden
   const RAND = 6;
   // Geländehöhe je Kachel (auch im Rand außerhalb der Karte): Fels 1–5 m, Boden 0, Abgrund tief – für verdeckte Seiten
   const ringHoehe = (tx, ty) => {
@@ -1033,6 +1065,12 @@ async function bauKarte(parent, karteIn, opts) {
   // BOD-01 N2: Karte.boden2 (nur feste Karten, z. B. Grabenangriff): ',' trägt einen eigenen Belag statt des Geländetons (Graben, Wall, Waldweg); ohne das Feld unverändert
   const BODEN2_TON = { erde: { top: 'soil', f: 1.3 }, kies: { top: 'stone', f: 0.85 }, bohlen: { top: 'wood', f: 1.1 } };
   const b2Ton = (k.boden2 && BODEN2_TON[k.boden2]) || null;
+  const erdTon = b2Ton || BODEN2_TON.erde;
+  // GEL-02 E1: unter der Erde heller (Boden L* 10 -> ca. 19 im Bild; Faktor 1,8 aus dem Review brachte nur 14, gemessen), eigener Eintrag, damit der Grabenangriff (BODEN2_TON) unverändert bleibt; Kacheln an Fels x 0,85 (Umgebungsverdeckung), mehr Streuung
+  const HOEHLE_F = { erde: 2.4, kies: 1.5, bohlen: 1.95 };
+  const amFels = (x, y) => [[0, -1], [1, 0], [0, 1], [-1, 0]].some(([dx, dy]) => k.kindAt(x + dx, y + dy) === 'fels');
+  const erdParams = (tx, ty, kd, mitSeed) => Object.assign({ seed: mitSeed, x: tx, y: ty, nb: nachbarn(tx, ty), stufe: [0, 0] },
+    unterErde(ty) ? { top: erdTon.top, f: (HOEHLE_F[k.boden2] || HOEHLE_F.erde) * (amFels(tx, ty) ? 0.85 : 1), var: 0.16, fill: 'soil_dark', stein: false } : Object.assign({ fill: gel.fill, steinDichte: gel.steinDichte }, wildGel, bodenFarbe(tx, ty, kd)));
   const bodenFarbe = (tx, ty, kd) => (kd === 'pad' && b2Ton ? { top: 'paving', f: 1.1 } : kd === 'boden2' && b2Ton ? { top: b2Ton.top, f: b2Ton.f } : wegSet.has(tx + ',' + ty) ? { top: wegBoden.top, f: wegBoden.f } : { top: gel.top, f: 1 });
   if (huelle) for (const pl of k.plaetze || []) if (HUELL_TYPEN[pl.typ]) for (let y = pl.y; y < pl.y + pl.h; y++) for (let x = pl.x; x < pl.x + pl.w; x++) inBau.add(x + ',' + y);
   // VOX-01 5a: Bäume. Stumpf (Stamm bis 1,25 m, teil 3) backt in den normalen Chunk und bleibt immer stehen (Kollisionsanzeige, wie die geschnittene Wand);
@@ -1063,14 +1101,15 @@ async function bauKarte(parent, karteIn, opts) {
       const seed = seedOf(tx, ty);
       const base = { zustand: zKit, art: k.art, seed, bauweise: bw };
       try {
-        if (kind === 'fels') { placeKit('fels', { h: felsHoehe(tx, ty), seed, x: tx, y: ty, nb: nachbarn(tx, ty), hell: felsHell, tint: felsTint }, m, d, tx, ty, { ids: [], fb: 'fels' }); continue; }
+        if (kind === 'fels') { placeKit('fels', { h: felsHoehe(tx, ty), seed, x: tx, y: ty, nb: nachbarn(tx, ty), hell: felsHell, tint: unterErde(ty) ? null : felsTint, nische: kul.nischen.get(tx + ',' + ty) }, m, d, tx, ty, { ids: [], fb: 'fels' }); continue; }
         // GEL-01: Flüssigkeit steht ohne Boden darunter (Fläche unter Bodenniveau); Kit-Teil kits.fluessig, sonst Platzhalter FB.fluessig
-        if (kind === 'fluessig') { placeKit(kind, kitParams(kind, base, { variante: inf.variante, x: tx, y: ty }), m, d, tx, ty, { ids: kandidaten(kind) }); continue; }
+        if (kind === 'fluessig') { placeKit(kind, kitParams(kind, base, { variante: inf.variante, x: tx, y: ty, unter: unterErde(ty) ? 1 : 0 }), m, d, tx, ty, { ids: kandidaten(kind) }); continue; }
         if (stationBoden && (kind === 'boden' || kind === 'boden2')) { placeKit('gelaende', Object.assign({ seed }, stationFliese(kind, tx, ty)), m, d, tx, ty, { ids: [], fb: 'gelaende' }); continue; }
         if (huelle && draussen && (kind === 'boden' || kind === 'boden2' || kind === 'pad') && !inBau.has(tx + ',' + ty)) {
           placeKit('gelaende', Object.assign({ seed, x: tx, y: ty, fill: gel.fill, steinDichte: gel.steinDichte, nb: nachbarn(tx, ty) }, bodenFarbe(tx, ty, kind)), m, d, tx, ty, { ids: [], fb: 'gelaende' });
           continue;
         }
+        if (erdBoden && (kind === 'boden' || kind === 'boden2')) { placeKit('gelaende', erdParams(tx, ty, kind, seed), m, d, tx, ty, { ids: [], fb: 'gelaende' }); continue; }
         if (kind === 'gelaende') { placeKit('gelaende', Object.assign({ seed, x: tx, y: ty, top: gel.top, fill: gel.fill, steinDichte: gel.steinDichte, nb: nachbarn(tx, ty) }, wildGel), m, d, tx, ty, { ids: [], fb: 'gelaende' }); continue; }
         if (kind === 'plateau' || kind === 'rampe' || kind === 'pad' || kind === 'grabensohle') {
           // eigene_hoehe (Rampe rom_feld): das Teil bringt die Steigung selbst mit, steht auf Bodenhöhe (kein Absenken/Anheben, kein Boden darunter);
@@ -1083,6 +1122,7 @@ async function bauKarte(parent, karteIn, opts) {
         }
         // Boden unter allem anderen (auch unter Wänden/Türen/Deckung – keine Lücken an Kanten)
         if (stationBoden) placeKit('gelaende', Object.assign({ seed }, stationFliese('boden', tx, ty)), m, d, tx, ty, { ids: [], fb: 'gelaende' });
+        else if (erdBoden) placeKit('gelaende', erdParams(tx, ty, null, seed), m, d, tx, ty, { ids: [], fb: 'gelaende' });   // GEL-02: auch unter Steinen/Büschen Erde bzw. Biomton statt Platzhalter
         else if (huelle && draussen && !inBau.has(tx + ',' + ty)) placeKit('gelaende', Object.assign({ seed, x: tx, y: ty, fill: gel.fill, steinDichte: gel.steinDichte, nb: nachbarn(tx, ty) }, bodenFarbe(tx, ty)), m, d, tx, ty, { ids: [], fb: 'gelaende' });   // Siedlung: auch unter Deckung/Mauer Geländeboden
         else placeKit(kind === 'boden2' ? 'boden2' : 'boden', kitParams(kind === 'boden2' ? 'boden2' : 'boden', base, bodenPar(tx, ty)), m, d, tx, ty, { floor: true, fb: 'boden' });
         if (BODEN_KINDS[kind]) continue;
@@ -1108,8 +1148,8 @@ async function bauKarte(parent, karteIn, opts) {
         if (kind === 'baum') { baumSetzen(tx, ty, d); continue; }
         // GEL-01: Sichtschleier auf dem Boden (oben gesetzt); Kit-Teil kits.schleier, sonst Platzhalter FB.schleier
         if (kind === 'schleier') { placeKit(kind, kitParams(kind, base, { variante: inf.variante, x: tx, y: ty, ton: k.boden }), m, d, tx, ty, { ids: kandidaten(kind) }); continue; }
-        if (wildnis && (kind === 'deckung_halb' || kind === 'deckung_voll')) {   // GEL-01 D: Steine der Wildnis
-          placeKit(kind, { x: tx, y: ty, voll: kind === 'deckung_voll' ? 1 : 0, ton: k.boden }, m, d, tx, ty, { ids: [], fb: 'findling' });
+        if ((wildnis || hoehle) && (kind === 'deckung_halb' || kind === 'deckung_voll')) {   // GEL-01 D: Steine der Wildnis; GEL-02 E1: auch in der Höhle (sonst generisches Kit mit Fehler), unter der Erde im Höhlenton
+          placeKit(kind, { x: tx, y: ty, voll: kind === 'deckung_voll' ? 1 : 0, ton: unterErde(ty) ? 'hoehle' : k.boden }, m, d, tx, ty, { ids: [], fb: 'findling' });
           continue;
         }
         if (kind === 'deckung_halb' || kind === 'deckung_voll' || kind === 'pfeiler') {
@@ -1186,13 +1226,18 @@ async function bauKarte(parent, karteIn, opts) {
   try {
     stats.bewuchs = 0;
     if (wildnis && opts.deko !== false) {
-      for (const dd of streuenWildnis({ w: k.w, h: k.h, seed: k.seed, art: k.art, boden: k.boden, kindAt: k.kindAt, anker: k.anker })) {
+      for (const dd of streuenWildnis({ w: k.w, h: k.h, seed: k.seed, art: k.art, boden: k.boden, kindAt: k.kindAt, anker: k.anker, stride: k.decks ? k.stride : 0 })) {
         pen.to(bucketAt(k.deckOf(dd.y), dd.x, k.localY(dd.y)), tileMatrix(dd.x, dd.y, dd.rot, dd.dx, dd.dz));
         FB.bewuchs(pen, { id: dd.id, var: dd.var, seed: dd.seed, x: dd.x, y: dd.y, ton: k.boden }, F);
         stats.bewuchs++;
       }
     }
   } catch (e) { countErr('kit.bewuchs', e); }
+  // GEL-02 E2: Kristalle auf niedrigen Randfelsen (Teil des Felsens, in der Kachel, ohne Kollision)
+  try {
+    for (const c of kul.kristalle) { pen.to(bucketAt(k.deckOf(c.y), c.x, k.localY(c.y)), tileMatrix(c.x, c.y)); KULISSE.zeichne(pen, c.boxen, F, lin); }
+    stats.kulisse = { pilze: kul.pilze.length, risse: kul.risse.length, kristalle: kul.kristalle.length, stellen: { pilze: kul.pilze, risse: kul.risse } };   // stellen: Kartenkoordinaten der Nischen (für die Bildmessung in tools/test-hoehle-lesbar.js)
+  } catch (e) { countErr('kit.kulisse', e); }
   // TA: Möbel setzen (statisch, gebacken): Mitte des Rechtecks, Vorderseite nach 'drehung' (0 S, 1 O, 2 N, 3 W)
   try {
     stats.moebel = 0;
@@ -1227,7 +1272,9 @@ async function bauKarte(parent, karteIn, opts) {
     const id = propId(a.rolle, a.platz);
     if (!id && !rs.objekt) continue;
     if (a.rolle === 'tor' || a.rolle === 'eingang' || a.rolle === 'aussicht' && !id) continue;
-    dyn.push({ typ: 'prop', anker: a, rolle: a.rolle, id, zustaende: rs.zustaende, d: k.deckOf(a.y), tx: a.x, ty: a.y });
+    // GEL-02 E2: Leiter in Karten mit Erdboden: Schacht (oben) bzw. Lichtfleck (unten) statt des Schiffs-Props; Fund unter der Erde bekommt einen Glutring
+    const ende = a.rolle === 'leiter' ? KULISSE.leiterEnde(kulKarte, a.y) : null;
+    dyn.push({ typ: 'prop', anker: a, rolle: a.rolle, id: ende ? null : id, zustaende: rs.zustaende, d: k.deckOf(a.y), tx: a.x, ty: a.y, boxen: ende ? KULISSE.leiterBoxen(ende, k.boden) : null, ende, ring: a.rolle === 'fund' && kul.aktiv });
   }
   // Türen: Läufe gleicher Türkacheln (für tor-Anker und Kanten) gruppieren
   const doorAt = new Map();
@@ -1380,7 +1427,7 @@ async function bauKarte(parent, karteIn, opts) {
     } else {
       const a = t.anker, zst = t.zustaende;
       const pe = propEintrag(a.rolle, a.platz);
-      t.rot = pe && pe.dreh != null ? pe.dreh * Math.PI / 180 : facing(a.x, a.y);   // fester Eintrag (dreh, Grad) gewinnt gegen die Drehung zur freien Nachbarkachel
+      t.rot = t.boxen ? 0 : pe && pe.dreh != null ? pe.dreh * Math.PI / 180 : facing(a.x, a.y);   // fester Eintrag (dreh, Grad) gewinnt gegen die Drehung zur freien Nachbarkachel; Schacht: Nordkante bleibt im Norden
       const fp = t.id && loader.manifest && loader.manifest(t.id) ? loader.manifest(t.id).footprint : null;
       t.off = [0, 0];
       if (fp && (fp[0] > 1 || fp[1] > 1)) {
@@ -1417,6 +1464,12 @@ async function bauKarte(parent, karteIn, opts) {
       grp.add(mesh);
       return grp;
     }
+    if (t.boxen) {   // GEL-02 E2: Schacht/Lichtfleck (flach, ohne Kollision)
+      const b = new Bucket(); pen.to(b, new THREE.Matrix4()); KULISSE.zeichne(pen, t.boxen, F, lin);
+      const g = b.toGeometry();
+      if (g) { geos.push(g); const mesh = new THREE.Mesh(g, mat); mesh.receiveShadow = true; grp.add(mesh); }
+      return grp;
+    }
     // Platzhalter (gecacht je Art + Parameter)
     const kind = t.typ === 'tuer' ? t.kind : t.rolle;
     const ck = kind + '|' + (t.breite || 1) + '|' + JSON.stringify(p);
@@ -1433,6 +1486,11 @@ async function bauKarte(parent, karteIn, opts) {
     if (g) { const mesh = new THREE.Mesh(g, mat); mesh.castShadow = true; mesh.receiveShadow = true; grp.add(mesh); }
     return grp;
   };
+  let ringGeo = null;
+  const glutring = () => {
+    if (!ringGeo) { const b = new Bucket(); pen.to(b, new THREE.Matrix4()); KULISSE.zeichne(pen, KULISSE.glutring(), F, lin); ringGeo = b.toGeometry(); if (ringGeo) geos.push(ringGeo); }
+    return new THREE.Mesh(ringGeo, mat);
+  };
   const refresh = () => {
     for (const o of dynObjs) {
       try {
@@ -1441,6 +1499,7 @@ async function bauKarte(parent, karteIn, opts) {
         if (key === o.key) continue;
         if (o.group && o.group.parent) o.group.parent.remove(o.group);
         o.group = buildDyn(o, p);
+        if (o.def.ring && KULISSE.fundRing(kulKarte, o.def.anker.y, ankerName(o.def.anker))) o.group.add(glutring());   // GEL-02 E2: der Fund ist das Hellste im Raum
         deckGroups[o.def.d || 0].add(o.group);
         o.key = key;
       } catch (e) { countErr('kit.dyn', e); }
@@ -1477,6 +1536,17 @@ async function bauKarte(parent, karteIn, opts) {
       }
     },
     setDeck,
+    /** GEL-02 E2: Punktlichter der Kulisse für das gezeigte Deck (Lichtschacht am unteren Leiter-Ende, Licht über dem Fund solange er da ist); frische Objekte je Aufruf */
+    lichter() {
+      const out = [];
+      for (const o of dynObjs) {
+        const t = o.def; if (t.typ !== 'prop' || shownDeck !== t.d) continue;
+        const a = t.anker, pos = { x: a.x + 0.5, z: k.localY(a.y) + 0.5 };
+        if (t.ende === 'unten') out.push(Object.assign(pos, KULISSE.LICHT_LEITER));
+        else if (t.ring && KULISSE.fundRing(kulKarte, a.y, ankerName(a))) out.push(Object.assign(pos, KULISSE.LICHT_FUND));
+      }
+      return out;
+    },
     /** Mitte der Karte (Welt) und Ausdehnung – für Kameras der Galerie */
     center() { return { x: k.w / 2, z: (k.decks ? k.stride : k.h) / 2, w: k.w, h: k.decks ? Math.min(k.h, k.stride) : k.h }; },
     /** Hüllen: Gruppen, die eine Sichtlinie Kamera → Ziel kreuzen, schalten auf niedrig (hart, 250 ms Nachlauf gegen Flackern).
@@ -1712,6 +1782,7 @@ export const layer = {
     const aw = (view && view.state && view.state.away) || {};
     LZ.h.update({ ao: aw.ao || [], ko: aw.ko || [] });
     LZ.h.setDeck(ctx.deck || 0);
+    if (ctx.addLight && LZ.h.lichter) for (const l of LZ.h.lichter()) ctx.addLight(l);   // GEL-02 E2
     teamFog(LZ.h, view, ctx, dt);
     if (ctx.camera && ((LZ.h.huelleAnzahl && LZ.h.huelleAnzahl()) || (LZ.h.kronenAnzahl && LZ.h.kronenAnzahl()))) {
       // Ziele: alle Spieler im Außeneinsatz plus Gegner und Personen, die das Team nach der Sichtlogik sieht (keine versteckten)

@@ -358,7 +358,7 @@ function landepunktDaten() {
   }
   return lpDaten;
 }
-const KARTEN_ARTEN = ['aussenposten', 'station', 'ruine', 'schiff', 'wildnis'];
+const KARTEN_ARTEN = ['aussenposten', 'station', 'ruine', 'schiff', 'wildnis', 'hoehle'];
 // Landepunkt-ID -> { id, ort, art, gesperrt, frei, dynamisch? } | null. Dynamisch: <ort>.<art>-<n> (lp neu) und <ort>.prise (§7)
 function landepunkt(id) {
   if (typeof id !== 'string' || !id) return null;

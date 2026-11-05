@@ -79,7 +79,7 @@ const imp = (f) => import(pathToFileURL(path.join(ROOT, f)).href);
     ok(fbKinds.has(kd) || NO_KIT.includes(kd) || mitTabelle || kd === 'baum', `kind ${kd}: Platzhalter FB.${kd}, Terrain oder Bauweisen-Eintrag`);
   }
   ok(fbKinds.has('findling') && fbKinds.has('bewuchs'), 'kit.js: Platzhalter FB.findling (Steine o/O) und FB.bewuchs (Bodenbewuchs)');
-  ok(/wildnis && \(kind === 'deckung_halb' \|\| kind === 'deckung_voll'\)/.test(kit) && /fb: 'findling'/.test(kit), 'kit.js: o/O der Wildnis laufen über FB.findling');
+  ok(/\(wildnis \|\| hoehle\) && \(kind === 'deckung_halb' \|\| kind === 'deckung_voll'\)/.test(kit) && /fb: 'findling'/.test(kit), 'kit.js: o/O der Wildnis laufen über FB.findling');
   ok(/streuenWildnis\(\{ w: k\.w/.test(kit) && /FB\.bewuchs\(pen/.test(kit), 'kit.js: Bodenbewuchs wird aus streuenWildnis über FB.bewuchs gezeichnet (nur Optik)');
 
   abschnitt('Bodenbewuchs: Determinismus und Grenzen');
@@ -121,7 +121,7 @@ const imp = (f) => import(pathToFileURL(path.join(ROOT, f)).href);
   abschnitt('Testgelände-Parameter biom und groesse');
   ok(Protocol.ARENA_AWAY_FIELDS.includes('biom') && Protocol.ARENA_AWAY_FIELDS.includes('groesse'), 'protocol.ARENA_AWAY_FIELDS enthält biom und groesse');
   ok(JSON.stringify(Protocol.GELAENDE_BIOME) === JSON.stringify(Gelaende.BIOME) && JSON.stringify(Protocol.GELAENDE_GROESSEN.slice().sort()) === JSON.stringify(Object.keys(Gelaende.GROESSEN).sort()), 'protocol-Listen GELAENDE_BIOME/GROESSEN entsprechen dem Erzeuger (BIOME, GROESSEN)');
-  ok(/'biom', 'groesse'\]\)\) \{/.test(lies('public/js/client.js')), 'client.js: Rückfall-Feldliste der URL kennt biom und groesse');
+  ok(/'biom', 'groesse'(, 'hoehle')?\]\)\) \{/.test(lies('public/js/client.js')), 'client.js: Rückfall-Feldliste der URL kennt biom und groesse');
   const P = (o) => Game.arenaParams(o);
   let r = P({ art: 'wildnis', seed: 3, biom: 'vulkan', groesse: 'klein' });
   ok(r && r.art === 'wildnis' && r.seed === 3 && r.biom === 'vulkan' && r.groesse === 'klein', 'arenaParams: gültiges biom/groesse für wildnis durchgereicht');
