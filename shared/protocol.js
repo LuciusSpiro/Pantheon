@@ -33,6 +33,10 @@
     // Ereignisse: ankerZustand { map, anker, zustand, rolle?, pid? }, downloadAbbruch { anker }, ladungScharf { anker, t },
     //   ladungExplodiert { anker }, landepunktAlarm { map, an } (Entscheidung Studioleitung: `alarm` bleibt der Schiffsalarm
     //   { level }), enternFrei { id }.
+    // ITM-01 C (Fallen): ankerEnthuellt { map, kv, i, anker: [id, 'falle', x, y, { typ, sicht }] } – eine verborgene Falle (sicht verborgen) steht NICHT in awayMap.anker; sie kommt erst beim Erkennen
+    //   (Scanner ab Stufe CONFIG.anker.falle.position, oder Auslösen) einzeln an jeden Spieler der Karte (auch Nachzügler und Wiederverbinder, in derselben Reihenfolge). i = ankerIdx im Snapshot ao;
+    //   der Client hängt den Anker ans Ende seiner Liste an (i = bisherige Länge). Ein neu gesendetes awayMap setzt die Liste zurück. Zustandsindizes der Falle: verborgen 0, erkannt 1, entschaerft 2, ausgeloest 3;
+    //   Start: sicht passiv -> erkannt, sonst verborgen. Siehe CONTRACT-B2.md (ITM-01 C).
     // awayMap.kanten: [[kantenId, [[x, y], …], startZustandIdx]] sortiert nach kantenId (Quelle karte.kanten); diese Reihenfolge
     //   ist der kantenIdx im Snapshot ko. awayMap.anker-Reihenfolge = ankerIdx im Snapshot ao.
     // awayMap.plaetze: [[platzId, typ, x, y, w, h]] in Kacheln (aus karte.plaetze, nach platzId sortiert).
@@ -67,7 +71,8 @@
     ARENA_AWAY_FIELDS: ['art', 'schablone', 'seed', 'bauweise', 'besitz', 'zustand', 'fraktion', 'staerke', 'haltung', 'biom', 'groesse', 'hoehle'],
     GELAENDE_BIOME: ['wueste', 'wiesenwald', 'vulkan'],   // GEL-01 D: Werte von ?biom= (Kartenart wildnis)
     GELAENDE_GROESSEN: ['klein', 'mittel', 'gross'],      // GEL-01 D: Werte von ?groesse= (Kartenart wildnis, GEL-02 B auch hoehle)
-    B1_EVENTS: ['awayMap', 'ankerZustand', 'downloadAbbruch', 'ladungScharf', 'ladungExplodiert', 'landepunktAlarm', 'enternFrei', 'nachschub'],
+    EVT_ANKER_ENTHUELLT: 'ankerEnthuellt',
+    B1_EVENTS: ['awayMap', 'ankerEnthuellt', 'ankerZustand', 'downloadAbbruch', 'ladungScharf', 'ladungExplodiert', 'landepunktAlarm', 'enternFrei', 'nachschub'],
     B1_DEBUG: ['buehne', 'anker', 'lp'],
     QA_DEBUG: ['sprungpunkt', 'ladung', 'prise'],
     // ---- B2 (CONTRACT-B2 §8): Bodenkampf – Waffen mit Hitze, Wunden, Rollen ----
@@ -379,6 +384,7 @@
     // M2: tune { path, value } | { args: 'pfad wert' }, kesh, squad { which: '1'|'2'|'rear' }, wake, shield { n }, wound
     DEBUG_CMDS: ['ausbau', 'werft', 'marken', 'stage', 'damage', 'fire', 'breach', 'spawn', 'marks', 'inv', 'verlust', 'skip', 'god', 'goto', 'reveal', 'mission', 'reactor', 'scanall',
       'tune', 'kesh', 'squad', 'wake', 'shield', 'wound', 'tele', 'fragile', 'sl', 'escort', 'flotte', 'szene', 'ruf', 'absicht', 'finale', 'lage', 'abspann',   // SUND-04a-3: abspann palatina|sieg (nur Freie Fahrt Sund, zeigt den Abspann ohne Marker); SUND-03 A2: lage [status | plan | fail] (Lage-Spielleiter, LAGE_SPIELLEITER=1); SUND-02b D: absicht [status | angebot | wahl <id> | ende | reset] (nur Freie Fahrt Sund); SUND-02b B: ruf [rom|ger|kon] [wert] (nur Freie Fahrt Sund); SUND-02a: szene [staerke] [ger|pirat] [belagerung]; M3a: tele [id], fragile {system}; M3b: 'burst' entfallen; S2: sl, escort
+      'falletest',   // ITM-01 C: falletest [typ] [sicht] (Test-Fallen verborgen/passiv neben dem Spieler, gebaute Karte)
       'scantest',   // SCA-01 P2: scantest (drei Testziele am Boden)
       'scanfertig',   // SCA-01 P4: scanfertig { stufe 0..3, Standard 3 } (Scan-Wirkung am Ort des Aufrufers, nur Boden)
       'buehne', 'anker', 'lp',   // B1 (B1_DEBUG)

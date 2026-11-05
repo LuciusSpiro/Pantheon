@@ -134,6 +134,7 @@ const landepunkteMod = () => optional('landepunkte', './sim/landepunkte.js');   
 const ankerMod = () => optional('anker', './sim/anker.js');               // BUEHNE (B1)
 const Loadout = require('./sim/loadout.js');   // AUS-01 A: Loadout-Slots
 const Scanbar = require('./sim/scanbar.js');   // SCA-01 P2: scanbare Objekte und Scan-Wirkung (aw.sc)
+const Fallen = require('./sim/fallen.js');   // ITM-01 C: Fallen (Auslösen, Wirkungs-Register, Enthüllen; meldet sich beim Scanner an)
 const Scanner = require('./sim/scanner.js');   // SCA-01 P1: Scanner am Boden (meldet sich als Item `scanner` an)
 require('./sim/medipack.js');   // ITM-01 A: Medipack als Slot-Item (meldet sich als Item `medipack` an, vor Loadout.restore)
 const waffenMod = () => optional('waffen', './sim/waffen.js');            // WAFFEN (B2)
@@ -163,6 +164,17 @@ function kantenZustaende(kind) {
     } catch (e) { /* ohne Vokabular: Index 0 */ }
   }
   return kachelZustaende[kind] || [];
+}
+// Anker als Payload-Zeile [id, rolle, x, y, attr?] (awayMap.anker und Ereignis ankerEnthuellt; ohne this: Tests rufen awayMapPayload losgelöst auf)
+function ankerZeileVon(a) {
+  const attrKeys = ['art', 'paar', 'kette', 'schwer', 'ankunft', 'deck', 'kern', 'modus'];   // platz = Präfix der ID; bereich über plaetze/bereiche (Budget 8 KB)
+  const row = [a.id, a.rolle, a.x, a.y];
+  const attr = {};
+  for (const key of attrKeys) if (a[key] != null && a[key] !== false) attr[key] = a[key];
+  if (a.rolle === 'leit') { if (Array.isArray(a.fuss)) attr.fuss = a.fuss; if (a.modell) attr.modell = a.modell; }   // Leitstück: Grundfläche + Modell (BUEHNE)
+  if (a.rolle === 'falle') { if (a.typ) attr.typ = a.typ; attr.sicht = a.sicht === 'passiv' ? 'passiv' : 'verborgen'; }   // ITM-01 C: Typ und Sicht (Start: passiv erkannt, sonst verborgen)
+  if (Object.keys(attr).length) row.push(attr);
+  return row;
 }
 const argList = (msg) => (typeof msg.args === 'string' ? msg.args.trim().split(/\s+/).filter(Boolean) : (Array.isArray(msg.args) ? msg.args.map(String) : []));
 
@@ -888,16 +900,10 @@ class Game {
   }
   // kv = Kartenversion (Seed + bauversion): ändert sich, wenn die Karte neu gebaut wird
   static kartenVersion(k) { return k ? `${k.seed != null ? k.seed : 0}.${k.bauversion || 'x'}` : null; }
+  ankerZeile(a) { return ankerZeileVon(a); }   // ITM-01 C: Payload-Zeile eines Ankers (fallen.nachreichen)
   awayMapPayload(k) {
-    const attrKeys = ['art', 'paar', 'kette', 'schwer', 'ankunft', 'deck', 'kern', 'modus'];   // platz = Präfix der ID; bereich über plaetze/bereiche (Budget 8 KB)
-    const anker = (k.anker || []).map((a) => {
-      const row = [a.id, a.rolle, a.x, a.y];
-      const attr = {};
-      for (const key of attrKeys) if (a[key] != null && a[key] !== false) attr[key] = a[key];
-      if (a.rolle === 'leit') { if (Array.isArray(a.fuss)) attr.fuss = a.fuss; if (a.modell) attr.modell = a.modell; }   // Leitstück: Grundfläche + Modell (BUEHNE)
-      if (Object.keys(attr).length) row.push(attr);
-      return row;
-    });
+    const fnA = fnOf(ankerMod(), 'payloadAnker');
+    const anker = (fnA ? fnA(k) : (k.anker || [])).map(ankerZeileVon);   // ITM-01 C: verborgene Fallen fehlen (anker.payloadAnker = einzige Quelle der Reihenfolge, auch für ao)
     const bereiche = {};
     for (const [id, b] of Object.entries(k.bereiche || {})) {   // rolle/gefecht nur, wenn gesetzt (Budget)
       const o = { name: b.name, rects: b.rects };
@@ -931,6 +937,7 @@ class Game {
     if (s > (Protocol.AWAY_MAP_MAX_BYTES || 16384)) this.countError('awayMap-groesse', new Error(`${lp}: ${s} B > ${Protocol.AWAY_MAP_MAX_BYTES} B`));
     if (p.conn) this.sendTo(p.conn, Object.assign({ t: 'event', kind: Protocol.EVT_AWAY_MAP || 'awayMap' }, payload));
     p.awayKv = lp + '@' + payload.kv;
+    (p.awayEnth || (p.awayEnth = {}))[lp] = { ep: -1, n: 0 };   // ITM-01 C: der Client hat die Liste neu, keine nachgereichten Anker (Fallen.nachreichen sendet sie nach)
     return null;
   }
   // SL7b: gescannte Landepunkte: ihre Karte geht einmal an jeden verbundenen Spieler (Planungstisch), auch wenn niemand dort unten ist.
@@ -955,6 +962,7 @@ class Game {
     if (!k || k.art === 'hand') return;
     const key = lp + '@' + Game.kartenVersion(k);
     for (const p of this.players) if (p.connected && p.conn && p.awayKv !== key) this.sendAwayMap(p, lp);
+    Fallen.nachreichen(this, aw, key, k);   // ITM-01 C: enthüllte verborgene Fallen an alle, die sie noch nicht kennen
   }
 
   // B1 §6.1 cmd transfer.ziel: Landepunkt am aktuellen Ort für den nächsten Transfer wählen. Prüfen und Bauen macht
@@ -1603,6 +1611,7 @@ class Game {
       case 'verfolgung': err = Verfolgung.debug(this, argList(msg)); break;   // SUND-04a-1 A: verfolgung [frachter|raider|korvette|fregatte|kreuzer] [ohne] – Zielschiff flieht zum Fluchtpunkt
       case 'konvoi': err = require('./sim/konvoi.js').debug(this, argList(msg)); break;   // EK3 Teil B: konvoi [n] [aufhalten|pluendern] [voll|jaeger|korvette|keine]
       case 'sprungpunkt': case 'ladung': case 'prise': err = this.onDebugQa(p, cmd, msg); break;           // QA-Nachzug (OFFEN-STUDIO)
+      case 'falletest': err = Fallen.debugFalletest(this, p, msg.typ != null ? [String(msg.typ)].concat(msg.sicht != null ? [String(msg.sicht)] : []) : argList(msg)); break;   // ITM-01 C: falletest [typ] [sicht] – Test-Fallen (verborgen/passiv) neben dem Spieler
       case 'scantest': err = Scanbar.debugScantest(this, p); break;   // SCA-01 P2: drei Testziele in Reichweite, eines außerhalb
       case 'scanfertig': err = Scanbar.debugScanfertig(this, p, msg.stufe != null ? msg.stufe : argList(msg)[0]); break;   // SCA-01 P4: scanfertig [stufe 0..3] – Scan-Wirkung ohne Minispiel
       case 'welle': err = this.phase === 'lobby' ? 'Erst das Spiel starten.' : require('./sim/wellen.js').debugWelle(this, argList(msg)[0] != null ? argList(msg)[0] : msg.n); break;   // Bodenkampf: Wellen
@@ -1893,6 +1902,7 @@ class Game {
       this.safe('scanbar', () => Scanbar.update(this));   // SCA-01 P2: verschwundene Ziele fallen aus aw.sc (nur wenn aw.sc nicht leer)
       this.safe('scanner', () => Scanner.update(this, dt));   // SCA-01 P1: Scan am Boden (früher Rücksprung, solange niemand scannt)
       { const au = fnOf(ankerMod(), 'update'); if (au) this.safe('anker', () => au(this, dt)); }   // B1 §6.2: Anker (Download, Ladung, Rätsel)
+      this.safe('fallen', () => Fallen.update(this, dt));   // ITM-01 C: Fallen auslösen (nur die fertige Fallenliste der Außenkarte), Zeitwirkungen
       if (this.weltsim && this.weltsim.finale && this.weltsim.finale.anfrage) this.safe('finale-verfall', () => Finale.verfall(this));   // K5: der Verfall der Anfrage kommt rechtzeitig, nicht erst im naechsten Sim-Tick
       if (this.finaleBoden) this.safe('finale-boden', () => FinaleBoden.update(this));   // SUND-04a-3 Boden: Landung, Freigabe, Sieg, Abbruch (nur solange ein Boden-Teil läuft)
       this.safe('betreten', () => this.trackBetreten());

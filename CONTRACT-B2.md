@@ -366,3 +366,32 @@ sie ab.
    Fesseln, Aufrichten und ein Ausbruch (gefangen → Zelle → Ausrüstung → Abholpunkt) sowie die Notrückholung als Rückfall.
 5. Schleichen: Ein Ziel lässt sich mit leisen Waffen ohne Alarm erreichen, ein lauter Schuss alarmiert messbar.
 6. Golden-Ablauf §0 dokumentiert, `npm test` grün, Snapshot < 13 KB (Messung §0), README-Abschnitt „B2 Bodenkampf“.
+
+## 12. ITM-01 C: Fallen (Anker-Rolle `falle`, `server/sim/fallen.js`)
+Fallen sind eine Anker-Rolle (`content/buehnen/anker.json`), die alle Generatoren nutzen können; in ITM-01 setzt noch kein Generator Fallen (kein rng-Aufruf, Seeds und Golden unverändert). Paket C baut Kern, Register und Test-Wirkung, Paket D (Schott, Druckverlust, Selbstschussanlage) hängt die Wirkungen ein, Paket E ist der Client.
+
+**Zustände** (Reihenfolge = Zustandsindex in `ao` und für die Voxel-Modelle, nie ändern): `verborgen` 0, `erkannt` 1, `entschaerft` 2, `ausgeloest` 3. Attribute am Anker: `typ` (`schott|druck|schuss`, später mehr; der Typ ist offen, jeder Text ist erlaubt) und `sicht` (`passiv` oder `verborgen`, Standard `verborgen`). **Start:** `passiv` → `erkannt`, sonst `verborgen` (`anker.startFuer(a)`; `ao` sendet nur Abweichungen von diesem Start, der Client leitet ihn aus `sicht` im Payload ab, nicht aus `zustaende[0]`). Gültige Übergänge: `verborgen → erkannt | ausgeloest`, `erkannt → entschaerft | ausgeloest`; `entschaerft` und `ausgeloest` sind endgültig (`anker.setzen` lehnt jeden anderen Wechsel mit Fehlertext ab, gilt für Bausteine und Debug `anker` gleich).
+
+**Entschärfen:** E halten (`CONFIG.anker.halten.falle`, 3 s), nur aus `erkannt`; Hold-Art `anker:falle` (`players[].action.kind`, `progress`). Bei `verborgen`, `entschaerft`, `ausgeloest` bietet E nichts an und meldet nichts (eine verborgene Falle verrät sich nicht). Abbruch: jeder Treffer (`anker.onTreffer`, Meldung „Getroffen – das Entschärfen ist unterbrochen.“, Fortschritt weg), E loslassen, Bewegung, Konsole, Wunde/Bewusstlosigkeit, Kartenwechsel (`hold.map`), Trennung, Auslösen durch einen anderen („Zu spät – die Falle ist ausgelöst.“). Erfolg: Zustand `entschaerft`, Missions-Ereignis `falleEntschaerft { map, anker, typ, pid }`.
+
+**Auslösen:** `CONFIG.anker.falle.radius` (Kacheln je Typ, Rückfall `standard`; alle ≤ 0,9, damit man von der Nachbarkachel entschärfen kann). Betritt ein aufrechter Spieler (`zone away`, nicht `downed`) die Zone einer Falle in `verborgen` oder `erkannt`, wird der Zustand zuerst auf `ausgeloest` gesetzt, danach laufen Abbruch der Entschärfer, Missions-Ereignis `falleAusgeloest { map, anker, typ, pid }` und die Wirkung. Genau einmal je Falle (Zustandsprüfung in `Fallen.ausloesen`, auch bei zwei Spielern im selben Tick oder doppeltem Update; gleichzeitig gewinnt der erste Spieler der Spielerreihenfolge). Gegner lösen nichts aus. Prüfung im Tick `Fallen.update` (`game.safe('fallen')`) über die fertige Liste der Außenkarte, nie aus der Karte.
+
+**Wirkungs-Register (für Paket D):**
+- `Fallen.fallenWirkung(typ, handler)` → Abmelder; `handler(game, aw, falle, ausloeser)`; doppelter `typ` wirft. `falle = { id, x, y (Kachel), px, py (Pixel, Kachelmitte), typ, sicht, start }`, `ausloeser` = Spielerobjekt. Ein werfender Handler lässt den Zustand `ausgeloest` stehen (Fehler wird gezählt). Der Typ `test` ist bei Modulstart angemeldet und wirkt nur mit `game.debug` (Hinweis an den Spieler).
+- Schaden: `combat.hitPlayer(game, p, segs, source, wirkung)` (unterbricht Scan und Holds von selbst).
+- Zeitwirkung (Dauer, Takt): `Fallen.zeitwirkung(game, aw, falle, fn)`; `fn(game, aw, dt, eintrag)` läuft jeden Tick, `eintrag.t` = Sekunden seit dem Start, `false` beendet; wirft `fn`, endet sie. Die Liste hängt an der Außenkarte (fällt mit ihr weg), kein Snapshot-Feld: was die Clients sehen müssen, sendet der Handler als Ereignis.
+
+**Verborgene Falle und Karten-Payload.** `awayMap.anker` enthält verborgene Fallen (`sicht` ≠ `passiv`) NICHT; passive stehen mit Attributen `typ`, `sicht` darin. Eine Quelle der Wahrheit für die Reihenfolge: `anker.payloadAnker(k)` (Payload) und `anker.ankerListe(game, aw, k)` (= Payload + später enthüllte, in Enthüllungsreihenfolge) – `ao`, `sp` und `cd` nutzen die zweite. Wird eine verborgene Falle erkannt (Scanner ab Stufe `CONFIG.anker.falle.position` = 2, Debug oder Baustein `anker_zustand`) oder löst sie aus, kommt sie als Ereignis an jeden Spieler, der die Karte hat:
+
+`{ t: 'event', kind: 'ankerEnthuellt', map, kv, i, anker: [id, 'falle', x, y, { typ, sicht: 'verborgen' }] }`
+
+- `i` = ankerIdx im Snapshot `ao` = bisherige Länge der Client-Ankerliste. Der Client hängt den Anker ans Ende seiner Liste an (Payload-Anker, dann Enthüllte in der Reihenfolge des Eintreffens). Ein neues `awayMap` setzt die Liste zurück. Der Zustand kommt wie immer über `ao` und `ankerZustand`.
+- Nachzügler, Wiederverbinden und Neuaufbau der Außenkarte: der Server schickt nach jedem `awayMap` (`Game.syncAwayMaps` → `Fallen.nachreichen`) alle schon Enthüllten in derselben Reihenfolge nach. Wurde die Außenkarte neu aufgebaut (Entladen, Weltstand), kommt zuerst das `awayMap` neu, danach die Enthüllten von vorn (der Client darf also `ankerEnthuellt` nie als „nur neu“ annehmen; `i` prüfen).
+- `ankerZustand` für eine noch unbekannte Id (Client-Liste kennt sie noch nicht) ignoriert der Client; Snapshot-Indizes ≥ Listenlänge ebenfalls.
+- Der Payload verrät eine verborgene Falle nicht (Test `tools/test-fallen.js`: Regex über Payload und mehrere Snapshots, Stufe 1 liefert nur das Datenblatt ohne Ort).
+
+**Scanner:** Art `falle` (`scanbarAnmelden('falle', { ziele, tiefen: { position: 2 }, beiPosition })`): `ziele` liefert nur Fallen in `verborgen`/`erkannt` aus der fertigen Liste; Stufe 1 = Datenblatt (`typ`) ohne Ort, ab Stufe 2 `x,y` im `sc`-Eintrag und die verborgene Falle wird `erkannt` und enthüllt (neuer optionaler Haken `def.beiPosition(game, aw, ziel, p)` in `scanbar.js`). Bei voller `aw.sc` (16) wird nichts erfasst und nichts enthüllt. Texte: `content/scanner/datenblaetter.json` (`typen.schott|druck|schuss|test`, Platzhalter).
+
+**Debug** (nur `--debug`): `falletest [typ] [sicht]` setzt echte Anker `falle.test1/2` in die Nähe des Spielers der gebauten Karte (ohne Argumente: eine verborgene, eine passive; Typ `test`), sendet die Karte neu; ein zweiter Aufruf ersetzt sie.
+
+**Weltstand:** Fallen-Zustände laufen über `aw.zustaende` und `opts.merken` (Version 3, nichts Neues). Die Liste der Enthüllten wird beim Neuaufbau aus den Zuständen abgeleitet (Kartenreihenfolge).

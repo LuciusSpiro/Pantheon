@@ -823,7 +823,11 @@
     // Anker-Interaktionen (s, E halten; Werte aus INHALT §1.4). countdown = Ladung bis zur Explosion.
     // Rätselpaar (Abnahme F4, Studioleitung): solo Fenster = max(paarSoloFenster, Laufweg A->B / Spielertempo × paarLaufFaktor
     // + halten.raetsel + paarPuffer) (shared/buehne.js raetselFenster); ab 2 Spielern das enge paarFenster (beide gleichzeitig).
-    anker: { explosion: { radius: 2, segmente: 3 }, halten: { terminal: 6, lesen: 2, sprengpunkt: 4, beute: 2, fund: 3, raetsel: 3, zelle: 3, versteck: 2, ziel: 3, schott_hacken: 6, flagge: 6 },
+    anker: { explosion: { radius: 2, segmente: 3 }, halten: { terminal: 6, lesen: 2, sprengpunkt: 4, beute: 2, fund: 3, raetsel: 3, zelle: 3, versteck: 2, ziel: 3, schott_hacken: 6, flagge: 6, falle: 3 },
+      // ITM-01 C: Fallen (Rolle falle, server/sim/fallen.js). radius = Auslösezone in Kacheln je Typ (standard für Typen ohne Eintrag): betritt ein Spieler die Zone einer
+      // verborgenen oder erkannten Falle, löst sie genau einmal aus. Muss kleiner als der E-Griff zum Entschärfen bleiben (Nachbarkachel, Mittelpunktabstand 1,0 Kachel): Werte ≤ 0,9.
+      // position = Scanstufe, ab der der Scanner den Ort einer verborgenen Falle enthüllt (Stufe 1 liefert nur das Datenblatt). halten.falle = Zeit zum Entschärfen (s).
+      falle: { radius: { standard: 0.6, schott: 0.6, druck: 0.5, schuss: 0.7 }, position: 2 },
       flagge: { min: 2 },   // EK6: Feldzeichen hissen: mindestens 2 lebende Spieler halten gleichzeitig (Fortschritt bleibt, wenn einer loslässt)
       countdown: 60, paarFenster: 1.5, paarSoloFenster: 15, paarLaufFaktor: 1.3, paarPuffer: 2 },
     // SUND-02a A1: Wellenplan einer Flottenbegegnung (server/weltsim/wellenplan.js, rein). punkte = Stärkepunkte je Klasse (Flotten der

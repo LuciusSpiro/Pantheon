@@ -24,7 +24,7 @@
   // s gilt als begehbar (K.fest false → durchgang, K-ERREICHBAR läuft hindurch, K.sicht sperrt), a/v als fest (bfs umgeht sie, K-ERREICHBAR meldet abgeschnittene Ziele).
   const BOEDEN = { '.': 1, ',': 1, ':': 1 };
   const BELEG_ZEICHEN = { o: 1, O: 1, I: 1 };
-  const NICHT_BLOCKEND = { abholpunkt: 1, lift: 1, leiter: 1 };   // Objekt-Anker, die man betreten kann
+  const NICHT_BLOCKEND = { abholpunkt: 1, lift: 1, leiter: 1, falle: 1 };   // Objekt-Anker, die man betreten kann
   const SCHIFF_GAENGE = [2, 6, 10];
   const SCHIFF_STRIDE = 16;
   const STANDARD_CFG = { versuche: 20, backtrack: 200, deckungMin: 0.6, deckungRadius: 1, sichtgasseMax: 12, eingaengeMin: 2,
@@ -141,7 +141,7 @@
   function objektRolle(D, rolle) {
     const r = D.anker.rollen && D.anker.rollen[rolle];
     if (r) return !!r.objekt;
-    return ['terminal', 'sprengpunkt', 'zelle', 'beute', 'ziel', 'fund', 'raetsel', 'abholpunkt', 'lift', 'leiter'].includes(rolle);
+    return ['terminal', 'sprengpunkt', 'zelle', 'beute', 'ziel', 'fund', 'raetsel', 'abholpunkt', 'lift', 'leiter', 'falle'].includes(rolle);
   }
   function blockendesObjekt(D, rolle) { return objektRolle(D, rolle) && !NICHT_BLOCKEND[rolle]; }
   function module(D) { D = D || daten(); return Object.keys(D.module).sort().map((k) => D.module[k]); }
@@ -1784,7 +1784,7 @@
 
   // Zelle als Text (Werkzeug, Galerie-Rückfall): Anker als Buchstaben über den Zeilen
   const ANKER_GLYPHE = { eingang: 'E', abholpunkt: 'A', wache: 'W', patrouille: 'p', deckung: 'd', terminal: 'T', sprengpunkt: 'B', zelle: 'Z',
-    beute: 'K', ziel: '*', fund: 'F', tor: 'G', raetsel: 'R', aussicht: 'V', nsc: 'N', versteck: 'H', lift: 'U', leiter: 'H' };
+    beute: 'K', ziel: '*', fund: 'F', tor: 'G', raetsel: 'R', aussicht: 'V', nsc: 'N', versteck: 'H', lift: 'U', leiter: 'H', falle: '!' };
   function alsText(karte, mitAnker) {
     const rows = karte.rows.map((r) => r.split(''));
     if (mitAnker) for (const a of karte.anker) if (rows[a.y]) rows[a.y][a.x] = '\u001b[1;33m' + (ANKER_GLYPHE[a.rolle] || '?') + '\u001b[0m';
