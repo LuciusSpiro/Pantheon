@@ -639,7 +639,7 @@
   // ------------------------------------------------------------------ ITM-01 E: Fallen (Client, rein anzeigend)
   // Zustände kommen aus ankerZustand (Start je sicht, Abweichungen aus ao). Verborgene Fallen stehen nicht in der Ankerliste, bis das Ereignis ankerEnthuellt sie anhängt (CONTRACT-B2 §12).
   // Farbe: ROT = Gefahr/Waffen (nicht Bernstein: am Boden ist Bernstein Hitze, Lava und Glut; Eisblau gehört dem Scanner). Die Gefahr trägt die FORM, nicht die Farbe allein:
-  // Warndreieck mit Glyphe je Typ (erkannt), gestricheltes Feld mit Schraffur (Druckverlust), Kreuz (ausgelöst), kleines graues Dreieck mit Strich (entschärft).
+  // Das Modell (oder im 2D-Rückfall die symbolfreie Platte) trägt Typ und Zustand; eine Marke oder ein Kreuz gibt es nicht. Hier bleiben das gestrichelte Feld mit Schraffur (Druckverlust), Schott-Sperre und Strahl.
   const FALLEN = { felder: new Map(), schotts: new Map(), blitze: [] };   // Wirkungsereignisse (falleFeld, falleSchott, selbstschuss, Auslösen); kein Snapshot-Feld
   const FALLE_GNADE = 3;   // s über dauer hinaus: ging ein an:0 verloren (Kartenwechsel), verschwindet das Feld von selbst
   const FELD_NAME = { druck: 'DRUCKVERLUST' };   // Name je Feldvariante; neue Varianten (dorn, kabel) fallen auf GEFAHRENFELD zurück, bis hier ein Eintrag steht
@@ -762,7 +762,7 @@
       }
     }
   }
-  // Glyphe im Warndreieck je Typ (kleine Pixelzeichnung um (cx, cy), s = Maßstab): schott = zwei Balken (Schott), druck = Kasten mit Pfeil nach außen (Druck entweicht), schuss = Visier; sonst Ausrufezeichen
+  // Glyphe je Typ für die Scan-Liste (kleine Pixelzeichnung um (cx, cy), s = Maßstab): schott = zwei Balken (Schott), druck = Kasten mit Pfeil nach außen (Druck entweicht), schuss = Visier; sonst Ausrufezeichen
   function falleGlyphe(ctx, typ, cx, cy, s, col) {
     const u = Math.max(1, Math.round(s));
     ctx.fillStyle = col;
@@ -790,8 +790,9 @@
     }
     ctx.restore();
   }
-  // Schwebehöhe der Scan-Raute über einer Falle je Typ (px, 22 px = 1 m): die Selbstschussanlage steht höher als die flachen Bodenfallen
-  const FALLE_SCHWEBE = { schuss: 52, standard: 22 };
+  // Schwebehöhe der Scan-Raute über einer Falle je Typ im Voxel-Modus (hpx, 22 hpx = 1 m, Mitte der Raute über dem Bodenpunkt): flache Fallen 0 = wie alle Scan-Marker (SCAN_SCHWEBE über dem Ring),
+  // die Selbstschussanlage (Modellhöhe 1,0 bis 1,1 m) trägt die Raute knapp über dem Kopf.
+  const FALLE_SCHWEBE = { schuss: 26, standard: 0 };
   const falleSchwebe = (typ) => (FALLE_SCHWEBE[typ] != null ? FALLE_SCHWEBE[typ] : FALLE_SCHWEBE.standard);
   // 2D-Rückfall der Falle (kein Modell, ?render=2d / F8): je Zustand und Typ eine eigene flache Form ohne Symbol. Der Zustand trägt über Helligkeit und eine große Form (Kachel = 32 px, nichts unter 2 px):
   //   erkannt = hellster Punkt (rote Fläche mit hellem Kern im dunklen Rahmen), entschärft = mittlerer Grauwert, nichts leuchtet, dunkles Loch (abgeschaltet),
@@ -805,12 +806,14 @@
       ctx.fillStyle = F.rahmen; ctx.fillRect(px + 3, py + 5, 26, 24);
       if (z === 'erkannt') {
         ctx.fillStyle = F.dunkel; ctx.fillRect(px + 5, py + 7, 22, 20);
-        ctx.fillStyle = F.rot; ctx.beginPath(); ctx.arc(cx, cy, 7, 0, Math.PI * 2); ctx.fill();   // rotes Auge
-        ctx.fillRect(cx - 2, py + 2, 4, 14);   // Lauf nach vorn (Norden)
+        ctx.fillStyle = F.rot; ctx.beginPath(); ctx.arc(cx, cy, 8, 0, Math.PI * 2); ctx.fill();   // rotes Auge mit hellem Kern (hellster Punkt der drei Zustände)
+        ctx.fillStyle = F.kern; ctx.beginPath(); ctx.arc(cx, cy, 5, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = F.rot; ctx.fillRect(cx - 2, py + 2, 4, 14);   // Lauf nach vorn (Norden)
         ctx.fillStyle = F.kern; ctx.fillRect(cx - 2, cy - 2, 4, 4);
         ctx.strokeStyle = F.rot; ctx.lineWidth = 2; ctx.strokeRect(px + 4, py + 6, 24, 22);
       } else if (z === 'entschaerft') {
-        ctx.fillStyle = F.grau; ctx.fillRect(px + 5, py + 7, 22, 20);
+        ctx.fillStyle = F.dunkel; ctx.fillRect(px + 5, py + 7, 22, 20);
+        ctx.fillStyle = F.grau; ctx.beginPath(); ctx.arc(cx, cy, 8, 0, Math.PI * 2); ctx.fill();
         ctx.fillStyle = F.loch; ctx.beginPath(); ctx.arc(cx, cy, 6, 0, Math.PI * 2); ctx.fill();
         ctx.fillStyle = F.grauRand; ctx.fillRect(cx - 2, cy + 3, 4, 13);   // Lauf nach unten
         ctx.strokeStyle = F.grauRand; ctx.lineWidth = 2; ctx.strokeRect(px + 4, py + 6, 24, 22);
@@ -2152,10 +2155,11 @@
   // gestrichelter Bodenring, keine Säule, die Raute schwebt knapp (14 px) über dem Ring. Das Kürzel steht auf dunklem Grund (lesbar auf hellem Sand und Objekten).
   // foot = Bildschirmpunkt des Ringmittelpunkts, rad = Ringradius in px.
   const SCAN_SCHWEBE = 14;
-  // ITM-01 F: eine Falle trägt kein Textkürzel; die Raute sitzt auf dem schwebenden Warndreieck (Spitze + 9 px) und eine dünne Lotlinie läuft zum Bodenpunkt (wo das Dreieck sie nicht verdeckt).
-  //   voxel = Voxel-Modus (Dreieck schwebt falleSchwebe(typ) hoch, Maß s = rad / 10), sonst 2D (Dreieck nahe der Kachel, Schussanlage höher: drawFalle2d)
+  // ITM-01 F / ITM-02: eine Falle trägt kein Textkürzel (der Typ steht im Modell und in der Scan-Liste mit Glyphe und vollem Namen). Eine dünne Lotlinie läuft ohne Lücke von der Raute zum Bodenpunkt.
+  //   voxel = Voxel-Modus (Raute SCAN_SCHWEBE + falleSchwebe(typ) * s hoch, Maß s = rad / 10; flache Fallen wie alle Marker 14 px, Selbstschussanlage knapp über dem Kopf), sonst 2D (Raute nahe der Kachel, Schussanlage höher; kein Modell dort)
   function drawScanMarkerBoden(ctx, foot, rad, m, t, voxel) {
-    const falle = m.art === 'falle', s = rad / 10, mitteHoch = falle ? (voxel ? falleSchwebe(m.typ || '') * s : (m.typ === 'schuss' ? 18 : -2)) : 0;   // Dreieckmitte über dem Bodenpunkt (px)
+    const falle = m.art === 'falle', s = rad / 10;
+    const hoch = !falle ? SCAN_SCHWEBE : voxel ? Math.max(SCAN_SCHWEBE, Math.round(falleSchwebe(m.typ || '') * s)) : Math.round((m.typ === 'schuss' ? 18 : -2) + 10 * s + 9);   // Rautenmitte über dem Bodenpunkt (px)
     const pu = 0.5 + 0.5 * Math.sin(t * 3);
     ctx.save();
     ctx.setLineDash([3, 3]);
@@ -2164,15 +2168,14 @@
     ctx.strokeStyle = 'rgba(169,214,229,' + (0.75 + 0.25 * pu) + ')'; ctx.lineWidth = m.fokus ? 2 : 1.5;
     ctx.beginPath(); ctx.ellipse(foot.x, foot.y, rad, rad * 0.5, 0, 0, Math.PI * 2); ctx.stroke();
     ctx.restore();
-    const dx = Math.round(foot.x), dy = Math.round(foot.y) - (falle ? Math.round(mitteHoch + 10 * s + 9) : SCAN_SCHWEBE);
-    if (falle) {   // Lotlinie: Raute -> Dreieckspitze und Dreieckbasis -> Bodenpunkt
+    const dx = Math.round(foot.x), dy = Math.round(foot.y) - hoch;
+    if (falle) {   // Lotlinie: von der Raute durchgehend zum Bodenpunkt
       ctx.save(); ctx.strokeStyle = 'rgba(169,214,229,0.75)'; ctx.lineWidth = 1; ctx.beginPath();
-      ctx.moveTo(dx + 0.5, dy + 4); ctx.lineTo(dx + 0.5, Math.round(foot.y - mitteHoch - 10 * s));
-      ctx.moveTo(dx + 0.5, Math.round(foot.y - mitteHoch + 7 * s)); ctx.lineTo(dx + 0.5, Math.round(foot.y));
+      ctx.moveTo(dx + 0.5, dy + 4); ctx.lineTo(dx + 0.5, Math.round(foot.y));
       ctx.stroke(); ctx.restore();
     }
     shape(ctx, 'diamond', dx, dy, 7, PAL.ice, PAL.space);
-    if (falle) return;   // keine Beschriftung: das Dreieck mit Glyphe sagt, was es ist (Name im Datenblatt)
+    if (falle) return;   // keine Beschriftung: der Typ steht im Modell und in der Scan-Liste (Glyphe + voller Name)
     const w = measure(m.symbol, 1) + 4, ty = dy - 15;
     ctx.fillStyle = 'rgba(11,14,26,0.7)'; ctx.fillRect(dx - Math.ceil(w / 2), ty - 1, w, 10);
     text(ctx, m.symbol, dx, ty, { color: PAL.ice, align: 'center' });
@@ -2432,7 +2435,7 @@
     env.roomStyle = null;
     if (buehne2d) {
       drawFallenFelder(ctx, st, (x, y, h) => ({ x: Math.round(x - camX), y: Math.round(y - camY - (h || 0)) }), t);   // ITM-01 E: Gefahrenfeld am Boden (unter Marken und Figuren)
-      drawFallenSchotts(ctx, st, (x, y, h) => ({ x: Math.round(x - camX), y: Math.round(y - camY - (h || 0)) }), t, 1, false);   // ITM-01 F: gesperrte Schotts (Schraffur, Kontur, II)
+      drawFallenSchotts(ctx, st, (x, y, h) => ({ x: Math.round(x - camX), y: Math.round(y - camY - (h || 0)) }), t, 1, false);   // ITM-01 F: gesperrte Schotts (Schraffur, Kontur)
       drawBuehneAnker(ctx, map, st, camX, camY, t);   // B1: Anker als einfache Marken
     }
 
