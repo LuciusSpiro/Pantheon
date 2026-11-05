@@ -206,7 +206,7 @@ abschnitt('d) Bauzeit und Payload');
 }
 
 // ---------------------------------------------------------------- e) Kombination: Wildnis + Deck durch den Prüfer
-abschnitt('e) Kombination Wildnis + Höhlendeck (Testhilfe, Produktcode folgt in Paket C)');
+abschnitt('e) Kombination Wildnis + Höhlendeck (Testhilfe: baut Wildnis + deckRoh von Hand; der Produktweg ist gen-gelaende hoehleDazu, geprüft in test-wildnis-hoehle.js)');
 // Wie Paket C es tun wird: Zeilen untereinander (stride = Höhe der Oberfläche, keine Lücke: die zwei Randzeilen F trennen die Decks), Deck-Anker um stride versetzt,
 // Leiter oben auf einer erreichbaren Oberflächenkachel mit freier Umgebung (40-80 % des Wegs zur Ankunft), unten freigeräumte Kammer nahe eingangX.
 function kombi(seed, groesse, biom, hoehe) {
