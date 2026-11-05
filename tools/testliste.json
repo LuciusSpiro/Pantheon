@@ -215,6 +215,7 @@
   {"id":"test-niederhalten","kette":"test","cmd":["tools/test-niederhalten.js"],"stufe":"fast","budget_s":7},
   {"id":"test-festkarte-decks","kette":"test","cmd":["tools/test-festkarte-decks.js"],"stufe":"fast","budget_s":8},
   {"id":"test-bunker","kette":"test","cmd":["tools/test-bunker.js"],"stufe":"fast","budget_s":8},
+  {"id":"test-deck-bindung","kette":"test","cmd":["tools/test-deck-bindung.js"],"stufe":"fast","budget_s":30},
   {"id":"test-bunker-wellen","kette":"test","cmd":["tools/test-bunker-wellen.js"],"stufe":"fast","budget_s":12},
   {"id":"test-bunker-sprengung","kette":"test","cmd":["tools/test-bunker-sprengung.js"],"stufe":"fast","budget_s":10},
   {"id":"test-bunker-bots","kette":"test","cmd":["tools/test-bunker-bots.js"],"stufe":"fast","budget_s":40},

@@ -193,6 +193,12 @@ function spawnAnKarte(game, name, o) {
   if (!list.length) return 0;
   aw.spawned[name] = true;
   const s = aw.squads[name] = newSquad(name, list.length);
+  // GEL-02 D: Karten mit Decks (außer Schiff: dort Leiter/Lift, B1 §6.2) binden jeden neuen Trupp an das Deck seines Spawns, wenn alle auf einem Deck stehen
+  // (Szenarien wie graben.js überschreiben danach). Gemischte Trupps (Anker beider Decks ohne Bereich) bleiben ungebunden: eigene Bereiche je Deck im Erzeuger.
+  if (info.decks && !(info.karte && info.karte.art === 'schiff')) {
+    const deckVon = (t) => Math.floor(t.y / (info.deckStride || 16)), d0 = deckVon(list[0].t);
+    if (list.every((it) => deckVon(it.t) === d0)) s.deckBindung = d0;
+  }
   const pre = String(name).replace(/[^a-z0-9]/gi, '').slice(0, 3) || 't';
   for (const it of list) {
     const e = makeEnemy(game, aw, it.kind, pre + '-' + game.nextId(''), W.tileCenter(it.t.x, it.t.y), name);
