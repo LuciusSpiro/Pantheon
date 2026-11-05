@@ -21,6 +21,10 @@ export const FLACH_MAX = 0.2;          // flache Optik ohne Kollision: höchsten
 export const DICHTE_PILZ = 1 / 50;     // Cluster je begehbare Kachel (Pilze, im Vulkan Glutrisse)
 export const DICHTE_KRISTALL = 1 / 150;
 const ABSTAND_PILZ = 3, ABSTAND_KRISTALL = 7;   // Kacheln (Chebyshev) zwischen zwei Clustern
+// Leuchtfaktoren der Kulisse unter der Erde: alles dunkler als der Fund-Glutring (RING_F), aber sichtbar
+export const PILZ_F_MIN = 0.45, RISS_F_MIN = 0.4, KRISTALL_F_MIN = 0.28;   // je + Streuung bis 0,1 (Pilz, Riss) bzw. 0,07 (Kristall)
+const KRISTALL_HOCH_MAX = 0.6;         // höchster Kristall (siehe kristalle()); Fels + Kristall bleibt unter der Erde <= FELS_REIHE2_MAX (GEL-02 E1: zweite Felsreihe hinter dem Gang höchstens 2 m)
+const FELS_REIHE2_MAX = 2;
 const KAMMER_MIN = 17;                 // von 25 Kacheln um die Südkachel müssen so viele begehbar sein (offene Fläche, nicht Gang)
 const WALK = { boden: 1, boden2: 1, gelaende: 1 };
 
@@ -75,14 +79,17 @@ export function lichtfleck() {
 /** Lichtschacht am unteren Leiter-Ende (Punktlicht; Signatur wie ship.js addLight) */
 export const LICHT_LEITER = { color: '#FFE2A0', intensity: 2.5, distance: 6, y: 2.5, priority: 1 };
 /** Licht über dem Fund, solange er da ist */
-export const LICHT_FUND = { color: '#FFB868', intensity: 2, distance: 5, y: 1.3, priority: 1 };
+export const LICHT_FUND = { color: '#FFB868', intensity: 3.2, distance: 6, y: 1.3, priority: 1 };
 
-/** Glutring unter dem Fund (0,02 m hoch, emissiv, Farbe ember): Außenband 0,28 bis 0,49 m um die Kachelmitte voll hell, innen gedämpft (das Prop deckt die Mitte meist ab, sichtbar bleibt das Band) */
+export const RING_HEX = '#FFE2A8';   // helles, warmes Gold (der Shader deckelt die Leuchtfläche bei max. Kanal 1,5: die Helligkeit kommt aus dem geringen Sättigungsgrad, nicht aus dem Faktor)
+export const RING_F = 1.25;           // Leuchtfaktor des Fund-Glutrings (über 1: der Fund ist das hellste Element unter der Erde; Pilze, Risse, Kristalle sind dunkler)
+export const RING_IN = 0.2;           // Innenkante des Außenbands (Band 0,2 bis 0,49 m um die Kachelmitte)
+/** Glutring unter dem Fund (0,02 m hoch, emissiv, Farbe ember): Außenband 0,2 bis 0,49 m um die Kachelmitte voll hell, innen gedämpft (das Prop deckt die Mitte meist ab, sichtbar bleibt das Band) */
 export function glutring() {
-  const c = { rolle: 'ember', f: 1.0 }, d = { rolle: 'ember', f: 0.55 };
-  const B = [flaeche('y+', -0.49, 0, 0.28, 0.49, 0.02, 0.49, c), flaeche('y+', -0.49, 0, -0.49, 0.49, 0.02, -0.28, c),
-    flaeche('y+', 0.28, 0, -0.28, 0.49, 0.02, 0.28, c), flaeche('y+', -0.49, 0, -0.28, -0.28, 0.02, 0.28, c),
-    flaeche('y+', -0.28, 0, -0.28, 0.28, 0.02, 0.28, d)];
+  const c = { hex: RING_HEX, f: RING_F }, d = { hex: RING_HEX, f: RING_F * 0.6 };
+  const B = [flaeche('y+', -0.49, 0, RING_IN, 0.49, 0.02, 0.49, c), flaeche('y+', -0.49, 0, -0.49, 0.49, 0.02, -RING_IN, c),
+    flaeche('y+', RING_IN, 0, -RING_IN, 0.49, 0.02, RING_IN, c), flaeche('y+', -0.49, 0, -RING_IN, -RING_IN, 0.02, RING_IN, c),
+    flaeche('y+', -RING_IN, 0, -RING_IN, RING_IN, 0.02, RING_IN, d)];
   return B.map((x) => Object.assign(x, { emit: true }));
 }
 
@@ -114,14 +121,14 @@ function pilzNische(x, y, seed, riss) {
   boxen.push(flaeche('x-', n.x1, n.y0, Z0, n.x1 + 0.001, n.y1, 0.5, dunkel));                    // rechte Wand
   if (riss) {
     // Glutriss: schmaler, gezackter Streifen aus 4 Segmenten (ember, etwas dunkler als der Fund)
-    const f = 0.75 + h(3) * 0.15, w = 0.05;
+    const f = RISS_F_MIN + h(3) * 0.1, w = 0.05;
     for (let i = 0; i < 4; i++) {
       const mx = (n.x0 + n.x1) / 2 + (i % 2 ? 0.05 : -0.05) * (h(4) < 0.5 ? 1 : -1);
       const ya = n.y0 + 0.02 + i * 0.18;
       boxen.push(box(r2(mx - w / 2), r2(ya), Z0, r2(mx + w / 2), r2(ya + 0.2), r2(0.42 + i * 0.01), { rolle: 'ember', f }, { emit: true, skip: ['z-'] }));
     }
   } else {
-    const m = 3 + Math.floor(h(5) * 3), f = 0.68 + h(6) * 0.14;   // 3 bis 5 Pilze, Leuchtfarbe nur ein Teil der Fundhelligkeit
+    const m = 3 + Math.floor(h(5) * 3), f = PILZ_F_MIN + h(6) * 0.1;   // 3 bis 5 Pilze, Leuchtfarbe nur ein Teil der Fundhelligkeit
     const breite = n.x1 - n.x0 - 0.04;
     for (let i = 0; i < m; i++) {
       const s = 0.06 + h(10 + i) * 0.06;
@@ -146,7 +153,7 @@ export function nischeBoxen(nis) {
 // --------------------------------------------------------------------------------------------- Kristalle (auf der Oberseite niedriger Randfelsen)
 function kristalle(x, y, seed, H) {
   const S = seed | 0, h = (n) => hash2(x * 7 + n, y * 11 - n, (S ^ 0x3C6E) + n);
-  const L = [], m = 2 + Math.floor(h(1) * 2), f = 0.38 + h(2) * 0.1;
+  const L = [], m = 2 + Math.floor(h(1) * 2), f = KRISTALL_F_MIN + h(2) * 0.07;
   for (let i = 0; i < m; i++) {
     const bx = (h(10 + i) - 0.5) * 0.5, bz = (h(20 + i) - 0.5) * 0.5, w = 0.1 + h(30 + i) * 0.04, hoch = 0.3 + h(40 + i) * 0.3;
     const dx = (h(50 + i) < 0.5 ? -1 : 1) * 0.035, dz = (h(60 + i) < 0.5 ? -1 : 1) * 0.03;
@@ -168,6 +175,13 @@ function kammer(k, x, y) {   // offene Fläche um die Kachel (x, y) (die begehba
   let n = 0;
   for (let dy = -2; dy <= 2; dy++) for (let dx = -2; dx <= 2; dx++) if (begehbar(k, x + dx, y + dy)) n++;
   return n;
+}
+/** Kristall auf Fels (x, y): Felsoberseite <= 2 m; liegt die Kachel in der zweiten Felsreihe hinter einem Gang (Fels davor, dahinter begehbar: kit.js nordGang 2), muss Fels + Kristall <= 2 m bleiben (sonst verdeckt der Kristall die Figur, GEL-02 E1) */
+function kristallOk(k, S, x, y) {
+  const H = k.felsHoehe ? k.felsHoehe(x, y) : 1;
+  if (H > 2) return false;
+  const zweiteReihe = k.kindAt(x, y - 1) === 'fels' && S.deckOf(y - 2) === S.deckOf(y) && begehbar(k, x, y - 2);
+  return !zweiteReihe || H + KRISTALL_HOCH_MAX <= FELS_REIHE2_MAX + 1e-9;
 }
 function waehle(kand, menge, abstand, salz, seed, belegt) {
   const s = (seed ^ salz) | 0;
@@ -198,7 +212,7 @@ export function platziere(k) {
     for (let x = 0; x < k.w; x++) {
       if (k.kindAt(x, y) !== 'fels' || !begehbar(k, x, y + 1)) continue;
       kand.push([x, y]);
-      if (kammer(k, x, y + 1) >= KAMMER_MIN && (k.felsHoehe ? k.felsHoehe(x, y) : 1) <= 2) kandK.push([x, y]);
+      if (kammer(k, x, y + 1) >= KAMMER_MIN && kristallOk(k, S, x, y)) kandK.push([x, y]);
     }
   }
   const kr = waehle(kandK, Math.round(begehbarN * DICHTE_KRISTALL), ABSTAND_KRISTALL, 0x51C7, seed);

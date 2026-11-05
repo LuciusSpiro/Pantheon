@@ -347,6 +347,7 @@ function farben(pal, basePal) {
 }
 
 // Platzhalter je Kit-Kind (lesbar, palettengefärbt, nie Magenta). p = Parameter wie beim echten Teil.
+const STEIN_HOEHLE_F = { hell: 3.4, mitte: 3.8, dunkel: 12 };   // GEL-02 E: Helligkeitsfaktoren der Findlinge unter der Erde (nur ton hoehle), im Bild gemessen
 const FB = {
   boden(pen, p, F) {
     const belag = p.belag | 0, s = p.seed | 0;
@@ -456,7 +457,8 @@ const FB = {
     const x = p.x | 0, y = p.y | 0, voll = !!p.voll, ton = p.ton;
     const T = ton === 'hoehle' ? ['#9A9C98', '#6E716F', '#474A4A'] : ton === 'vulkan' ? ['#4C4446', '#2E282A', '#1E191B'] : ton === 'wueste' ? ['#D6B47A', '#AE8A52', '#80643C'] : ['#9AA098', '#707670', '#505650'];
     const j = 0.92 + hash2(x, y, 140) * 0.16;
-    const hell = lin(T[0], j), mitte = lin(T[1], j), dunkel = lin(T[2]);
+    const gh = ton === 'hoehle' ? STEIN_HOEHLE_F : { hell: 1, mitte: 1, dunkel: 1 };   // GEL-02 E: unter der Erde kommen die Steine im Bild viel zu dunkel an (Licht der Höhlenstimmung)
+    const hell = lin(T[0], j * gh.hell), mitte = lin(T[1], j * gh.mitte), dunkel = lin(T[2], gh.dunkel);
     const ox = (hash2(x, y, 141) - 0.5) * 0.12, oz = (hash2(x, y, 142) - 0.5) * 0.12;
     if (voll) {
       pen.box(-0.46 + ox, 0, -0.44 + oz, 0.46 + ox, 1.15, 0.44 + oz, mitte, dunkel, { low: 0.7 });
@@ -1234,7 +1236,7 @@ async function bauKarte(parent, karteIn, opts) {
   // GEL-02 E2: Kristalle auf niedrigen Randfelsen (Teil des Felsens, in der Kachel, ohne Kollision)
   try {
     for (const c of kul.kristalle) { pen.to(bucketAt(k.deckOf(c.y), c.x, k.localY(c.y)), tileMatrix(c.x, c.y)); KULISSE.zeichne(pen, c.boxen, F, lin); }
-    stats.kulisse = { pilze: kul.pilze.length, risse: kul.risse.length, kristalle: kul.kristalle.length };
+    stats.kulisse = { pilze: kul.pilze.length, risse: kul.risse.length, kristalle: kul.kristalle.length, stellen: { pilze: kul.pilze, risse: kul.risse } };   // stellen: Kartenkoordinaten der Nischen (für die Bildmessung in tools/test-hoehle-lesbar.js)
   } catch (e) { countErr('kit.kulisse', e); }
   // TA: Möbel setzen (statisch, gebacken): Mitte des Rechtecks, Vorderseite nach 'drehung' (0 S, 1 O, 2 N, 3 W)
   try {
