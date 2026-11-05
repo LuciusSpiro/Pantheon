@@ -115,6 +115,7 @@ section('Ausrüstungsstation: Medipack wählbar, eigenes Symbol, eigener Text');
     ok(K.ausruestungName('medipack') === 'Medipack', 'Anzeigename „Medipack“');
     ok(K.ausruestungSlotText('medipack', { state: { inventory: { medipack: 2 } } }) === 'Medipack · ' + CONFIG.medipack.ladungen + ' Ladungen · Lager 2', 'Station: „Medipack · 3 Ladungen · Lager 2“ (Ladungen aus der Config, Lagerstand aus inventory)');
     ok(K.ausruestungSlotText('medipack', { state: {} }) === 'Medipack · ' + CONFIG.medipack.ladungen + ' Ladungen' && K.ausruestungSlotText('medipack', null) === 'Medipack · ' + CONFIG.medipack.ladungen + ' Ladungen', 'Station ohne Lagerstand im Client: nur die Ladungen, kein erfundenes „Lager 0“');
+    ok(K.ausruestungSlotText('medipack', { state: { inventory: { medipack: 2, medipackCharges: 1 } } }) === 'Medipack · ' + CONFIG.medipack.ladungen + ' Ladungen · Lager 2 + 1 Rest' && K.ausruestungSlotText('medipack', { state: { inventory: { medipack: 0, medipackCharges: 2 } } }) === 'Medipack · ' + CONFIG.medipack.ladungen + ' Ladungen · Lager 0 + 2 Rest', 'Station: Rest-Topf wird mit angezeigt („Lager 2 + 1 Rest“)');
     ok(K.ausruestungSlotText('sturmgewehr', { state: {} }) === K.ausruestungName('sturmgewehr'), 'Station: andere Slot-Zeilen unverändert');
     K.ausr.stand = { slotzahl: 3, slots: ['sturmgewehr', null, null] };
     ok(K.ausruestungGrund('medipack', 1) === null && !K.ausruestungGesperrt('medipack', 1), 'Medipack in einen freien Slot: möglich');

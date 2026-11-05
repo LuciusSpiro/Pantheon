@@ -9,7 +9,7 @@
 //   ausgeben(game, p)         Beamen nach unten (combat.onArrive): Träger bekommt erst den Rest, sonst ein Pack aus dem Lager; Nichtträger 0
 //   zurueckgeben(game, p)     Beamen nach oben/Abbruch (combat.onLeave): voller Pack zurück als `medipack`, Teilmenge als `medipackCharges`
 //   verbrauchen(p)            eine Ladung weg (nach erfolgreichem Wiederbeleben/Verarzten)
-//   aufheben(game, p)         Bodenpack (v2): füllt die Ladungen eines Trägers auf -> null | Hinweistext (Pack bleibt dann liegen)
+//   aufheben(game, p)         Bodenpack (v2): füllt den Träger auf die Packgröße auf, sein alter Rest geht ins Lager (REST) -> null | Hinweistext (Pack bleibt dann liegen)
 //   nutzen(game, p)           Item-Handler (Taste im Medipack-Slot): zeigt nur den Rest per game.notice
 const Loadout = require('./loadout.js');
 const Vorrat = require('./vorrat.js');
@@ -49,7 +49,12 @@ function verbrauchen(p) { if (p.medkit > 0) p.medkit -= 1; }
 function aufheben(game, p) {
   if (!traegt(game, p)) return 'Kein Medipack-Slot.';
   if (p.medkit >= ladungen(game)) return 'Dein Medipack ist schon voll.';
-  p.medkit = ladungen(game);
+  // Ein Bodenpack hat eine volle Packgröße. Der Träger wird bis zur Packgröße aufgefüllt; was darüber hinaus im Pack steckt
+  // (= die alten Restladungen des Trägers), geht als Rest ins Lager. So verschwinden nie Ladungen (Summe bleibt gleich).
+  const n = ladungen(game);
+  const alt = Math.max(0, Math.floor(Number(p.medkit) || 0));
+  p.medkit = n;
+  if (alt > 0) Vorrat.einlagern(game, REST, alt, 'medkit');
   return null;
 }
 

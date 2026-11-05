@@ -299,6 +299,40 @@ section('Aufheben auf v2 (Bodenpack, Nachschub)');
   ok(typeof fehl === 'string' && /Medipack-Slot/.test(fehl) && S.g.inventory.medipack === vor && !S.g.away.items.some((i) => i.kind === 'medipack'), 'Nachschub ohne Träger unten: abgelehnt, nichts gebucht (' + fehl + ')');
 }
 
+section('ITM-01 G B1: Aufheben vernichtet keine Ladungen');
+for (const start of [0, 1, 2, N]) {
+  const S = szene(1, { lager: 2 });
+  S.runter(0);
+  const p = S.P(0);
+  const aw = S.g.away;
+  const bilanz = () => (S.g.inventory.medipack || 0) * N + (S.g.inventory.medipackCharges || 0) + p.medkit + aw.items.filter((i) => i.kind === 'medipack').length * N;
+  p.medkit = start;
+  const it = { id: 'g' + start, kind: 'medipack', x: p.x, y: p.y };
+  aw.items.push(it);
+  const vor = bilanz();
+  const r = combat.pickupMedkit(S.g, p, it);
+  if (start >= N) ok(r === false && aw.items.includes(it) && bilanz() === vor, 'Träger mit ' + start + ' (voll): abgelehnt, Summe unverändert ' + vor);
+  else ok(r === true && p.medkit === N && !aw.items.includes(it) && bilanz() === vor && (S.g.inventory.medipackCharges || 0) === start, 'Träger mit ' + start + ': aufgefüllt auf ' + N + ', alter Rest im Lager, Summe ' + bilanz() + ' = ' + vor);
+  S.hoch(0);
+  ok(bilanz() === vor, 'Träger mit ' + start + ': nach dem Hochbeamen Summe weiter ' + vor + ' (ist ' + bilanz() + ')');
+}
+
+section('ITM-01 G H3: Rest-Topf bei Nachschub und Snapshot');
+{
+  const S = szene(1, { lager: 0 });
+  S.runter(0);
+  const aw = S.g.away;
+  const p = S.P(0);
+  aw.marker = { x: p.x, y: p.y }; S.g.support.supply = 0; S.g.ship.systems.transfer = 'ok';
+  ok(S.g.snapshot().inventory.medipackCharges === undefined, 'Snapshot ohne Rest: kein Feld medipackCharges (Wire unverändert)');
+  Vorrat.einlagern(S.g, 'medipackCharges', 2, 'debug');
+  const fehl = Away.supply(S.g);
+  ok(typeof fehl === 'string' && /Kein voller Medipack/.test(fehl) && /2 Restladungen/.test(fehl) && !aw.items.some((i) => i.kind === 'medipack') && S.g.inventory.medipackCharges === 2, 'Nachschub mit nur Rest im Lager: ehrlicher Hinweis (' + fehl + '), nichts gebucht');
+  ok(S.g.snapshot().inventory.medipackCharges === 2, 'Snapshot mit Rest: medipackCharges = 2');
+  Vorrat.leeren(S.g, 'medipackCharges', 'debug');
+  ok(/^Keine Medipacks mehr an Bord/.test(Away.supply(S.g)), 'Nachschub ohne Pack und ohne Rest: „Keine Medipacks mehr“');
+}
+
 section('NSC verarzten: eine Ladung');
 {
   const S = szene(1);

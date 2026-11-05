@@ -2509,7 +2509,8 @@
       if (id !== 'medipack') return this.ausruestungName(id);
       const lad = CFG.medipack && CFG.medipack.ladungen, inv = view && view.state && view.state.inventory;
       const lager = inv && typeof inv.medipack === 'number' ? Math.max(0, Math.floor(inv.medipack)) : null;
-      return this.ausruestungName(id) + (lad >= 1 ? ' · ' + lad + (lad === 1 ? ' Ladung' : ' Ladungen') : '') + (lager != null ? ' · Lager ' + lager : '');
+      const rest = inv && typeof inv.medipackCharges === 'number' ? Math.max(0, Math.floor(inv.medipackCharges)) : 0;   // ITM-01 G: angebrochener Rest im Lager
+      return this.ausruestungName(id) + (lad >= 1 ? ' · ' + lad + (lad === 1 ? ' Ladung' : ' Ladungen') : '') + (lager != null ? ' · Lager ' + lager + (rest > 0 ? ' + ' + rest + ' Rest' : '') : '');
     },
     // Serverfehler mit Waffe und Slot nennen („Sturmgewehr steckt schon in Slot 1.“); der Servertext selbst bleibt unverändert
     ausruestungFehlerText(text) {
