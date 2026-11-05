@@ -82,10 +82,10 @@
       const l = !!(me.action && me.action.kind === 'scan');
       return { feld: l ? '#3F7F99' : '#27394A', rahmen: l ? PAL.ice : null, text: l ? '#FFFFFF' : '#8FB3C4', namen: null };
     },
-    medipack(me) {   // ITM-01 B: Ladungen als Ziffer (3 Slots: 41 px Platz, „Medi 3“ ist 29 px breit); leer = dunkle Zelle, graue Schrift
+    medipack(me) {   // ITM-01 B: Ladungen als Ziffer (3 Slots: 41 px Platz, „Medi ×3“ ist 35 px breit); leer = dunkle Zelle, graue Schrift
       const n = Math.max(0, Math.floor(+me.medkit || 0));
       return { feld: n > 0 ? '#27394A' : '#1B252F', rahmen: null, text: n > 0 ? PAL.star : '#5E6A78',
-        namen: n > 0 ? ['Medipack ' + n, 'Medi ' + n, 'Med ' + n] : ['Medipack leer', 'Med 0'] };
+        namen: ['Medi ×' + n, 'Medi'] };   // ITM-01 F: überall die feste Kurzform „Medi“, Ladungen als „×n“ (leer: „Medi ×0“ auf dunkler Zelle)
     },
   };
   const itemZelle = (id, me) => (ITEM_ZELLE[id] || (() => ITEM_ZELLE_STANDARD))(me || {});
@@ -739,13 +739,14 @@
         wx += 2 + IconsB.wundenPips(ctx, wx + 2, y0 + 3, wn, wm, 12, 3);
       }
       const mx = wx + 8;
-      // Medipack-Symbol
-      if (me.medkit) {
+      // Medipack-Symbol. ITM-01 F: nur ohne Slot-Leiste; die Zelle „Medi ×n“ der Leiste zeigt dieselbe Ladungszahl (medkit > 0 gibt es nur mit Medipack im wirksamen Slot, server/sim/medipack.js ausgeben),
+      // die Zeile hier wäre die Doppelung. Ohne Loadout-Stand (Leiste fehlt, z. B. vor der ersten Serverantwort) bleibt sie als Rückfall.
+      if (slotZeile) { /* Leiste zeigt das Medipack */ } else if (me.medkit) {
         if (!R.art('drawItem', 'drawItem:medipack', [ctx, 'medipack', mx + 6, y0 + 9, { time: t }])) {
           ctx.fillStyle = PAL.star; ctx.fillRect(mx, y0 + 3, 12, 12);
           ctx.fillStyle = PAL.red; ctx.fillRect(mx + 5, y0 + 5, 2, 8); ctx.fillRect(mx + 2, y0 + 8, 8, 2);
         }
-        R.text(ctx, 'Medipack', mx + 15, y0 + 5, { color: PAL.star });
+        R.text(ctx, 'Medi ×' + Math.max(0, Math.floor(+me.medkit || 0)), mx + 15, y0 + 5, { color: PAL.star });
       } else {
         ctx.strokeStyle = '#4A5260'; ctx.lineWidth = 1; ctx.strokeRect(mx + 0.5, y0 + 3.5, 11, 11);
       }

@@ -61,8 +61,28 @@ async function lauf(RENDER, PORT) {
     await cap.evaluate(() => __game.send({ t: 'debug', cmd: 'sitz', console: 'captain' }));
     await page.waitForTimeout(700);
     const p = game.players[0];
-    const capShot = async (name) => { const pc = game.players[1]; if (pc && pc.zone !== 'ship') require('../server/sim/interior.js').placeOnShipPad(game, pc, 1); await page.waitForTimeout(500); await cap.evaluate(() => __game.send({ t: 'debug', cmd: 'sitz', console: 'captain' })); await page.waitForTimeout(800); await cap.keyboard.press('Digit4'); await cap.mouse.move(5, 5); await page.waitForTimeout(700); const f = path.join(OUT, RENDER + '-captain-' + name + '.png'); await cap.screenshot({ path: f }); console.log('  Bild ' + path.relative(ROOT, f).split(path.sep).join('/')); };
-    const shot = async (name, clip) => { nr++; const f = path.join(OUT, RENDER + '-' + String(nr).padStart(2, '0') + '-' + name + '.png'); await page.screenshot(clip ? { path: f, clip } : { path: f }); console.log('  Bild ' + path.relative(ROOT, f).split(path.sep).join('/')); return f; };
+    // Captain-Konsole (zweiter Spieler, immer 2D): Spieler 2 an Bord setzen, die Konsole SERVERSEITIG belegen (der Debug-Befehl sitz kam im Voxel-Lauf nicht an: Bild zeigte die Bodenansicht),
+    // warten bis der Client sie wirklich zeigt (me.console), Reiter Außenteam (Taste 4), Aufnahme, Spieler 2 zurück an den Boden (die Karte ist danach wie vorher)
+    const capShot = async (name) => {
+      const interior = require('../server/sim/interior.js'), combat = require('../server/sim/combat.js');
+      const pc = game.players[1];
+      if (!pc) throw new Error('kein zweiter Spieler für die Captain-Konsole');
+      if (pc.zone !== 'ship') interior.placeOnShipPad(game, pc, 1);
+      if (!game.away.active) { console.log('  Hinweis: away.active war aus (Debug-Karte), für den Reiter Außenteam der Konsole eingeschaltet'); game.away.active = true; }   // Reiter 4 ist nur während der Außenmission wählbar
+      await cap.waitForFunction(() => { const q = __game.state.players.find((x) => x.id === __game.pid); return !!q && q.zone === 'ship'; }, null, { timeout: 10000, polling: 40 });
+      pc.console = 'captain';
+      await cap.waitForFunction(() => { const q = __game.state.players.find((x) => x.id === __game.pid); return !!q && q.console === 'captain'; }, null, { timeout: 10000, polling: 40 });
+      await cap.keyboard.press('Digit4'); await cap.mouse.move(5, 5); await page.waitForTimeout(900);
+      const istKonsole = await cap.evaluate(() => { const q = __game.state.players.find((x) => x.id === __game.pid); return !!q && q.console === 'captain'; });
+      ok(istKonsole, 'Captain-Konsole offen für ' + name + ' (Server und Client: console captain)');
+      const f = path.join(OUT, RENDER + '-captain-' + name + '.png'); await cap.screenshot({ path: f }); console.log('  Bild ' + path.relative(ROOT, f).split(path.sep).join('/'));
+      pc.console = null;
+      interior.placeOnAwayPad(game, pc, 1); combat.onArrive(game, pc);
+      await cap.waitForFunction(() => { const q = __game.state.players.find((x) => x.id === __game.pid); return !!q && q.zone === 'away' && !q.console; }, null, { timeout: 10000, polling: 40 }).catch(() => null);
+    };
+    // Debug-Echos („anker.falle… = …“, „tune …“, „ohne Wirkung“) stören das Bild und gehören nicht zum Spiel: vor jeder Aufnahme aus den Toasts nehmen (echte Spieltexte bleiben)
+    const entrausche = () => page.evaluate(() => { if (window.Hud && Array.isArray(Hud.notices)) for (let i = Hud.notices.length - 1; i >= 0; i--) if (/^(anker\.|tune |god |scanfertig|falletest)|ohne Wirkung|Debug/i.test(String(Hud.notices[i].text || ''))) Hud.notices.splice(i, 1); });
+    const shot = async (name, clip) => { nr++; await entrausche(); const f = path.join(OUT, RENDER + '-' + String(nr).padStart(2, '0') + '-' + name + '.png'); await page.screenshot(clip ? { path: f, clip } : { path: f }); console.log('  Bild ' + path.relative(ROOT, f).split(path.sep).join('/')); return f; };
     const baue = async (befehl) => {
       await page.evaluate((l) => __game.dbg(l), befehl);
       await page.waitForFunction(() => { const st = __game.state, me = st && st.players.find((q) => q.id === __game.pid); return !!(me && me.zone === 'away' && st.away && Shared_Maps[st.away.map] && Shared_Maps[st.away.map].buehne); }, null, { timeout: 60000, polling: 40 });
@@ -227,11 +247,18 @@ async function lauf(RENDER, PORT) {
     }
     ok(!!schottSzene, 'Station: freie Kachel mit Schott im Wirkbereich gefunden (' + JSON.stringify(schottSzene) + ')');
     if (schottSzene) {
-      p.x = schottSzene.px * 32 + 16; p.y = schottSzene.py * 32 + 16;
+      // Aufnahme: die Spielfigur 2 bis 3 Kacheln neben der Kante (das Schott im Bild, nicht auf der Kante), mindestens 2 Kacheln von der Falle (kein Auslösen durch Hinstellen)
+      const kt = K.kanten[schottSzene.kid].tiles;
+      const bild = [[0, 2], [0, -2], [2, 0], [-2, 0], [0, 3], [0, -3], [3, 0], [-3, 0], [2, 2], [-2, 2], [2, -2], [-2, -2]].map(([dx, dy]) => ({ x: kt[0][0] + dx, y: kt[0][1] + dy })).find((q) => {
+        const i = R.info(q.x, q.y);
+        return i && i.kante === 'begehbar' && R.durchgang(q.x, q.y) && !K.anker.some((a) => a.x === q.x && a.y === q.y) && Math.max(Math.abs(q.x - schottSzene.fx), Math.abs(q.y - schottSzene.fy)) >= 2 && !kt.some((t) => t[0] === q.x && t[1] === q.y);
+      }) || { x: schottSzene.px, y: schottSzene.py };
+      console.log('  Schott-Kante ' + schottSzene.kid + ' (' + kt.map((t) => t.join(',')).join(' ') + '), Falle ' + schottSzene.fx + ',' + schottSzene.fy + ', Spieler ' + bild.x + ',' + bild.y);
+      p.x = bild.x * 32 + 16; p.y = bild.y * 32 + 16;
       K.anker.push({ id: 'falle.e1', rolle: 'falle', x: schottSzene.fx, y: schottSzene.fy, typ: 'schott', sicht: 'passiv' });
       Fallen.standVerwerfen(game.away);
       for (const q of game.players) { q.awayKv = null; if (q.awayEnth) delete q.awayEnth[aw.map]; }
-      await page.evaluate(() => __game.dbg('tune anker.falle.schott.dauer 6'));
+      await page.evaluate(() => __game.dbg('tune anker.falle.schott.dauer 9'));
       await page.waitForFunction(() => Shared_Maps[__game.state.away.map].anker.some((a) => a[0] === 'falle.e1'), null, { timeout: 15000, polling: 40 });
       await page.waitForTimeout(1500);
       await shot('schott-vorher-offen');
@@ -242,6 +269,7 @@ async function lauf(RENDER, PORT) {
       ok(kz === 'zu', 'Schott-Kante ' + schottSzene.kid + ' ist zu (Client liest ko: ' + kz + ')');
       ok((await page.evaluate(() => Render.fallenLaufend(__game.state).map((x) => x.name + ' ' + x.rest))).join() !== '', 'Lagezeile SCHOTTS GESPERRT mit Restzeit');
       await shot('schott-zu');
+      await capShot('kommandokarte-schott-zu');
       await page.waitForFunction(() => !Render.fallenLaufend(__game.state).some((x) => x.art === 'schott'), null, { timeout: 12000, polling: 100 });
       await page.waitForTimeout(900);
       const kz2 = await page.evaluate((kid) => { const st = __game.state, m = Shared_Maps[st.away.map]; const idx = m.kanten.findIndex((k) => k[0] === kid); return Render.kantenZustand(m, st, idx); }, schottSzene.kid);
@@ -251,6 +279,7 @@ async function lauf(RENDER, PORT) {
     const kf2 = await kitFehler();
     if (kf2) ok(kf2.fehler === 0, 'Voxel (Station): kitFehler ' + kf2.fehler);
 
+    for (const [nm, pg] of [['Spieler', page], ['Captain', cap]]) { const n = await pg.evaluate(() => __game.errors).catch(() => -1); ok(n === 0, nm + '-Client: Fehlerzähler des Clients (Net.reportError, nicht nur Konsole) ' + n); }
     console.log('Konsolenfehler (' + RENDER + '): ' + err.length); err.slice(0, 8).forEach((e) => console.log('  ' + e));
     if (err.length) fails++;
   } finally { await b.close().catch(() => null); await srv.close().catch(() => null); }

@@ -69,7 +69,32 @@ const MUTATIONEN = [
   // ---- Scan-Anzeige
   [SA, "position: z.pos ? 'Position: Feld ' + Math.floor(z.pos.x / T) + ' / ' + Math.floor(z.pos.y / T) : txtKeinePos(z.posAb || POS_AB_STANDARD),", "position: z.pos ? 'Position: Feld ' + Math.floor(z.pos.x / T) + ' / ' + Math.floor(z.pos.y / T) : TXT_KEINE_POS,", 'Positionstext der Falle bleibt „erst ab Stufe 3“'],
   [SA, "return v == null ? POS_AB_STANDARD : int(v, 1, 3, POS_AB_STANDARD);", "return v == null ? 1 : int(v, 1, 3, POS_AB_STANDARD);", 'Arten ohne positionAb zeigen „Stufe 1“ statt der Standardstufe'],
-  [DB, '"symbol": "FA",\n      "positionAb": 2', '"symbol": "FA",\n      "positionAb": 3', 'Content positionAb weicht von der Server-Config ab'],
+  [DB, '"titel": "Falle",\n      "positionAb": 2', '"titel": "Falle",\n      "positionAb": 3', 'Content positionAb weicht von der Server-Config ab'],
+  // ---- ITM-01 F: gesperrtes Schott sichtbar, Kürzel weg, Glyphen, Strahl
+  [RN, "if (idx < 0 || kantenZustand(map, st, idx) !== 'zu') continue;", "if (idx < 0) continue;", 'Schott-Sperranzeige läuft weiter, obwohl die Kante (Hacken) schon offen ist'],
+  [RN, "e.a = ein ? Math.min(1, e.a + dt / SCHOTT_EIN) : Math.max(0, e.a - dt / SCHOTT_AUS);", "e.a = ein ? Math.min(1, e.a + dt / SCHOTT_EIN) : 0;", 'Schott blendet beim Öffnen nicht aus (0,3 s)'],
+  [RN, "schottStreifen(ctx, bo, rot(0.3 * e.a), 3, 9, (t * 6) % 9);", "schottStreifen(ctx, bo, rot(0.03 * e.a), 3, 9, (t * 6) % 9);", '2D-Schraffur des Schotts praktisch unsichtbar (Alpha 0,03)'],
+  [RN, "schottPfad(ctx, bo); ctx.lineJoin = 'miter'; ctx.strokeStyle = rot(e.a); ctx.lineWidth = 2; ctx.stroke();", "schottPfad(ctx, bo); ctx.lineJoin = 'miter'; ctx.strokeStyle = rot(e.a); ctx.lineWidth = 1; ctx.stroke();", 'Schott-Kontur nur 1 px statt 2 px'],
+  [RN, "schottPfad(ctx, top); ctx.fillStyle = rot(e.a); ctx.fill();", "schottPfad(ctx, top);", 'Voxel: kein rotes Leuchtband an der Oberkante des gesperrten Schotts'],
+  [RN, "falleGlyphe(ctx, 'schott', cx, Math.round(cy + 1 * k), k, '#F6E7E4');", "", 'gesperrtes Schott ohne schwebende II-Glyphe'],
+  [RN, "ctx.save(); ctx.clip(); schottStreifen(ctx, face, rot(0.92 * e.a), Math.max(2, 3 * s), Math.max(7, 11 * s), 0); ctx.restore();", "", 'Voxel: Blattfläche ohne rote Schrägstreifen'],
+  [RN, "    if (falle) return;   // keine Beschriftung: das Dreieck mit Glyphe sagt, was es ist (Name im Datenblatt)\n", "", 'Weltlabel der Falle trägt wieder Text (Kürzel)'],
+  [RN, "ctx.moveTo(dx + 0.5, Math.round(foot.y - mitteHoch + 7 * s)); ctx.lineTo(dx + 0.5, Math.round(foot.y));", "ctx.moveTo(dx + 0.5, Math.round(foot.y - mitteHoch + 7 * s));", 'Lotlinie endet nicht am Bodenpunkt'],
+  [RN, "if (!istFalle) shape(ctx, 'diamond', s.x, s.y, 7, PAL.ice, PAL.space);", "shape(ctx, 'diamond', s.x, s.y, 7, PAL.ice, PAL.space);", 'Kommandokarte zeichnet wieder die Eisblau-Raute an Fallen'],
+  [RN, "for (const m of scanMarker(st)) { if (m.art === 'falle') continue; const mx", "for (const m of scanMarker(st)) { const mx", 'Minikarte zeigt Fallen nach dem Scan wieder als Eisblau-Raute'],
+  [RN, "if (buehneMap) miniSchotts(ctx, st,", "if (false) miniSchotts(ctx, st,", 'Minikarte ohne rote Striche für gesperrte Schotts'],
+  [RN, "if (isBuehne(map)) miniSchotts(ctx, st,", "if (false) miniSchotts(ctx, st,", 'Kommandokarte ohne rote Striche für gesperrte Schotts'],
+  [RN, "drawFallenSchotts(ctx, st, P, t, ppm / 32, true);", "", 'Voxel-Overlay zeichnet gesperrte Schotts nicht'],
+  [RN, "drawFallenSchotts(ctx, st, (x, y, h) => ({ x: Math.round(x - camX), y: Math.round(y - camY - (h || 0)) }), t, 1, false);", "", '2D-Ansicht zeichnet gesperrte Schotts nicht'],
+  [RN, "ctx.fillRect(cx - 2 * u, cy - u, 4 * u, 2 * u); ctx.fillRect(cx + 2 * u, cy - 2 * u, u, 4 * u); ctx.fillRect(cx + 3 * u, cy - u, u, 2 * u);", "", 'Druck-Glyphe ohne Pfeil (nur Kasten)'],
+  [RN, "ctx.lineWidth = 3 * (1 - p) + 3;", "ctx.lineWidth = 3 * (1 - p) + 1;", 'Selbstschuss-Strahl wieder zu dünn'],
+  [RN, "ctx.arc(a.x, a.y, 3 + 6 * (1 - p), 0, Math.PI * 2); ctx.fill();", "ctx.arc(a.x, a.y, 2 + 3 * (1 - p), 0, Math.PI * 2); ctx.fill();", 'Mündungsblitz wieder klein'],
+  [SA, "symbol: e.art === 'falle' ? '' : kurz(", "symbol: kurz(", 'Scan-Zeile/Marker der Falle trägt wieder ein Kürzel'],
+  [SA, "out.push({ key: z.key, x: e.x, y: e.y, symbol: z.symbol, art: z.art, typ: z.typ,", "out.push({ key: z.key, x: e.x, y: e.y, symbol: z.symbol, typ: z.typ,", 'Marker kennt die Art nicht (Falle nicht von Erz unterscheidbar)'],
+  [DB, '"hinweisAb": 1\n    },\n    "test": {', '"hinweisAb": 1,\n      "symbol": "SS"\n    },\n    "test": {', 'Content: Selbstschussanlage trägt wieder das Kürzel SS'],
+  [RN, "ctx.strokeStyle = PAL.red; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(mx - 2, my - 2);", "ctx.strokeStyle = '#8A2A24'; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(mx - 2, my - 2);", 'Minikarte: ausgelöste Falle nicht mehr PAL.red'],
+  [RN, "ctx.fillStyle = PAL.red; ctx.beginPath(); ctx.moveTo(mx, my - h); ctx.lineTo(mx + h, my + h - 1);", "ctx.fillStyle = PAL.ice; ctx.beginPath(); ctx.moveTo(mx, my - h); ctx.lineTo(mx + h, my + h - 1);", 'Minikarte: erkannte Falle eisblau statt rot'],
+  [CO, "if (z.glyphe != null) R.falleGlyphe(ctx, z.glyphe, x + 7, ry + 4, 1, PAL.red);", "if (false) R.falleGlyphe(ctx, z.glyphe, x + 7, ry + 4, 1, PAL.red);", 'Scan-Liste ohne Glyphe vor dem Namen'],
 ];
 
 {
