@@ -31,7 +31,7 @@ const ERLAUBT = [
 const DIENSTE = ['server/sim/geld.js', 'server/sim/vorrat.js'];
 
 // ---- Scanner ----
-const NAMEN = '(?:marks|bolzen|sonde|medipack|loeschgel|loeschgelCharges|medipackCharges|ersatzteil|flickblech|tafel|ladung)';
+const NAMEN = '(?:marks|bolzen|sonde|medipack|loeschgel|loeschgelCharges|medipackCharges|ersatzteil|flickblech|tafel|ladung|erz)';
 const OP = '(?:=(?!=|>)|\\+=|-=|\\*=|\\*\\*=|/=|%=|<<=|>>=|>>>=|&=|\\|=|\\^=|&&=|\\|\\|=|\\?\\?=|\\+\\+|--)';
 
 function ohneKommentare(text) {
@@ -249,7 +249,7 @@ section('Vorrat: entnehmen / verbrauchen / einlagern / leeren / abziehenHoechste
   ok(wirft(() => Vorrat.einlagern(g, 'bolzen', 1, 'gibtsnicht')) && wirft(() => Vorrat.entnehmen(g, 'bolzen', 1)) && wirft(() => Vorrat.standSetzen(g, 'bolzen', 1, 'gibtsnicht')), 'STRENG: unbekannter oder fehlender Grund wirft');
   ok(wirft(() => Vorrat.leeren(g, 'gibtsnicht', 'regal')) && wirft(() => Vorrat.einlagern(g, 'deko', 1, 'kauf')) && wirft(() => Vorrat.standSetzen(g, 'datenkern', 1, 'debug')), 'STRENG: ein Gut ausserhalb GUETER wirft (auch deko)');
   ok(wirft(() => Vorrat.einlagernBis(g, 'bolzen', 1, 5, 'gibtsnicht')) && wirft(() => Vorrat.verbrauchen(g, 'bolzen', 1, 'gibtsnicht')) && wirft(() => Vorrat.kappen(g, 'bolzen', 1, 'gibtsnicht')), 'STRENG: Grund-Prüfung auch in verbrauchen, einlagernBis, kappen');
-  ok(Vorrat.GUETER.length === 10 && ['bolzen', 'sonde', 'medipack', 'loeschgel', 'loeschgelCharges', 'medipackCharges', 'ersatzteil', 'flickblech', 'tafel', 'ladung'].every((x) => Vorrat.GUETER.includes(x)), 'Güter: die acht Verbrauchsgüter (mit medipackCharges, ITM-01) plus die Zähler tafel und ladung');
+  ok(Vorrat.GUETER.length === 11 && ['bolzen', 'sonde', 'medipack', 'loeschgel', 'loeschgelCharges', 'medipackCharges', 'ersatzteil', 'flickblech', 'tafel', 'ladung', 'erz'].every((x) => Vorrat.GUETER.includes(x)), 'Güter: die acht Verbrauchsgüter (mit medipackCharges, ITM-01) plus die Zähler tafel und ladung, plus das Material erz (GEL-03 B)');
 }
 
 section('Vorrat: marks wird an geld.js weitergeleitet (Ergebnis wie früher)');

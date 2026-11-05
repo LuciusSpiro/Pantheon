@@ -1,6 +1,7 @@
 'use strict';
 // Vorrat: Verbrauchsgüter im Schiffslager (game.inventory.*). Der EINZIGE Schreibweg dafür (tools/test-buchungen.js erzwingt das); Marken laufen über geld.js.
 //   Verbrauchsgüter: bolzen (= Torpedos), sonde, medipack, medipackCharges (angebrochener Rest, entsteht erst bei Bedarf), loeschgel, loeschgelCharges, ersatzteil, flickblech.
+//   Material: erz (GEL-03 B, Abbau; spätes Konto, nur Zugang über einlagern(…, 'abbau')).
 //   Zähler-Gegenstände im Inventar: tafel, ladung (Sprengstoff; NICHT das Frachtmodul server/sim/ladung.js).
 //   Nicht hier: deko (Liste), Fracht (server/sim/ladung.js), p.medkit / p.carryCharges (Gegenstand am Spieler, kein Lager).
 //
@@ -16,14 +17,14 @@ const Geld = require('./geld.js');
 const Pruefung = require('./buchungspruefung.js');
 const Haken = require('../telemetrie/haken.js');
 
-const GUETER = Object.freeze(['bolzen', 'sonde', 'medipack', 'loeschgel', 'loeschgelCharges', 'medipackCharges', 'ersatzteil', 'flickblech', 'tafel', 'ladung']);
+const GUETER = Object.freeze(['bolzen', 'sonde', 'medipack', 'loeschgel', 'loeschgelCharges', 'medipackCharges', 'ersatzteil', 'flickblech', 'tafel', 'ladung', 'erz']);
 
 // Konten, die erst beim ersten Zugang entstehen (kein Eintrag im Anfangsbestand: Golden-Spuren und Weltstände bleiben ohne neuen Schlüssel)
-const SPAET = Object.freeze(['medipackCharges']);
+const SPAET = Object.freeze(['medipackCharges', 'erz']);   // erz: GEL-03 B, Abbau (Erzader); das Konto entsteht beim ersten Abbau
 
 const GRUENDE = Object.freeze([
   'start', 'laden', 'debug', 'migration',   // Stand setzen / Korrektur
-  'kauf', 'bergung', 'fund', 'belohnung',   // Zugang
+  'kauf', 'bergung', 'fund', 'belohnung', 'abbau',   // Zugang (abbau: Erz aus der Erzader, GEL-03 B)
   'torpedo', 'sonde', 'nachschub', 'posten', 'mission', 'sprengung',   // Verbrauch
   'regal', 'bot', 'medkit',   // Entnahme und Rückgabe am Regal, Bot-Reparatur, Medipack am Mann
 ]);

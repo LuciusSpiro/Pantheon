@@ -336,8 +336,17 @@ function abbauHalterAnderer(game, p, id) {
   if (!b || b.pid === p.id) return false;
   return abbauHaelt(game.players.find((q) => q.id === b.pid), id);
 }
-// Platzhalter-Hook: Menge je Abbau. Paket B/C ersetzt NUR diese Funktion (Ableitung aus Runde/Weltstand, Buchung ins Lager); Rückgabe { menge, art }.
-function abbauMenge(game, map, a) { return { menge: 1, art: (a && a.art) || 'erz' }; }
+// GEL-03 B: Menge je Abbau, 1 bis 3, deterministisch aus (abbau_runde des Landepunkts, Anker-ID) per FNV (kein Zufall, kein Spielzustand): dieselbe Ader gibt in derselben Runde immer
+// dieselbe Menge, in einer späteren Runde (abbauNeu) darf sie anders ausfallen. Art: Attribut art der Ader, Standard und einzige Art heute erz. Rückgabe { menge, art }.
+const ABBAU_ARTEN = ['erz'];
+function abbauRunde(game, map) {
+  try { const e = require('./landepunkte.js').eintrag(game, map); return (e && e.abbau_runde | 0) || 0; } catch (x) { return 0; }
+}
+function abbauMenge(game, map, a) {
+  const art = a && ABBAU_ARTEN.includes(a.art) ? a.art : 'erz';
+  const h = Buehne.fnv(`abbau:${abbauRunde(game, map)}:${a ? a.id : ''}`) >>> 0;
+  return { menge: 1 + ((h >>> 8) % 3), art };
+}
 function abbauLaerm(game, map, a, pid) {
   const c = mitte(a);
   const d = { map, anker: a.id, pid, x: c.x, y: c.y };
@@ -377,6 +386,7 @@ function abbauFertig(game, p, h) {
   delete L.abbau[a.id];
   setzen(game, aw.map, a.id, 'abgebaut', p.id);
   const m = abbauMenge(game, aw.map, a);
+  Vorrat.einlagern(game, m.art, m.menge, 'abbau');   // GEL-03 B: Ablage im Schiffslager (Buchungsdienst, Grund abbau); nicht Fracht
   const d = { map: aw.map, anker: a.id, pid: p.id, menge: m.menge, art: m.art };
   game.emit('abbauFertig', d); game.missionEvent('abbauFertig', d);
   const c = mitte(a);
