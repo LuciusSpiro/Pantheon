@@ -146,6 +146,13 @@ section('Snapshot kr', () => {
   ok(bits('steckt') === (2 | 4), 'steckt zählt als Pause');
   ok(bits('rammen') === (2 | 8), 'Rammen: Bit 8');
   ok(bits('jagd', 7) === 3, 'Ladung wird auf 3 begrenzt');
+  // MON-02 O3a: Bit 6 (64) = zielt (Modus zielen, Aufladen); nur dort gesetzt, die Bits 0-5 bleiben unberührt
+  const bit6 = (zu, lad) => { Kreatur.zustandSetzen(g, K1, zu); K1.aufladung = lad != null ? { stufe: lad, ruhe: 0, zerfallT: 0 } : null; return g.snapshot().away.kr.find((q) => q[0] === 1)[5]; };
+  const g1 = (KREATUREN.typen.probe.groesse - 1) << 4;   // Bits 4-5 (probe: Größe 2)
+  ok(bit6('aufladen', 1) === (1 | 64 | g1), 'Aufladen mit Ladung 1: Bit 6 gesetzt, Ladung in Bit 0-1, Größenbits unberührt (' + (1 | 64 | g1) + ')');
+  ok(bit6('aufladen', 3) === (3 | 64 | g1) && bit6('aufladen', 0) === (64 | g1), 'Aufladen mit Ladung 3 und 0: 64 + Ladung + Größe');
+  ok(['patrouille', 'jagd', 'rammen', 'pause', 'steckt', 'laerm'].every((z) => (bit6(z, 1) & 64) === 0), 'Bit 6 nur im Zustand aufladen (Patrouille, Lärm, Jagd, Rammen, Pause, steckt: nicht gesetzt)');
+  K1.aufladung = null;
   K1.aufladung = null;
   K2.alive = false;
   ok(g.snapshot().away.kr.every((r) => r[0] !== 2), 'tote Kreatur K2 steht nicht im Snapshot');
