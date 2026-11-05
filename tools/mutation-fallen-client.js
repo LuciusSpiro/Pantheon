@@ -84,8 +84,8 @@ const MUTATIONEN = [
   [RN, "ctx.save(); ctx.clip(); schottStreifen(ctx, face, rot(0.92 * e.a), Math.max(2, 3 * s), Math.max(7, 11 * s), 0); ctx.restore();", "", 'Voxel: Blattfläche ohne rote Schrägstreifen'],
   [RN, "    if (falle) return;   // keine Beschriftung: der Typ steht im Modell und in der Scan-Liste (Glyphe + voller Name)\n", "", 'Weltlabel der Falle trägt wieder Text (Kürzel)'],
   [RN, "ctx.moveTo(dx + 0.5, dy + 4); ctx.lineTo(dx + 0.5, Math.round(foot.y));", "ctx.moveTo(dx + 0.5, dy + 4); ctx.lineTo(dx + 0.5, Math.round(foot.y) - 6);", 'Lotlinie endet nicht am Bodenpunkt'],
-  [RN, "const FALLE_SCHWEBE = { schuss: 26, standard: 0 };", "const FALLE_SCHWEBE = { schuss: 26, standard: 22 };", 'Raute über flachen Fallen schwebt wieder hoch (22 statt 14 px)'],
-  [RN, "const FALLE_SCHWEBE = { schuss: 26, standard: 0 };", "const FALLE_SCHWEBE = { schuss: 52, standard: 0 };", 'Raute über der Selbstschussanlage schwebt wieder weit über dem Kopf (52 statt 26)'],
+  [RN, "const FALLE_SCHWEBE = { schuss: 40, standard: 0 };", "const FALLE_SCHWEBE = { schuss: 40, standard: 22 };", 'Raute über flachen Fallen schwebt wieder hoch (22 statt 14 px)'],
+  [RN, "const FALLE_SCHWEBE = { schuss: 40, standard: 0 };", "const FALLE_SCHWEBE = { schuss: 52, standard: 0 };", 'Raute über der Selbstschussanlage schwebt wieder weit über dem Kopf (52 statt 40)'],
   [RN, "ctx.moveTo(dx + 0.5, dy + 4); ctx.lineTo(dx + 0.5, Math.round(foot.y));", "ctx.moveTo(dx + 0.5, dy + 4); ctx.lineTo(dx + 0.5, Math.round(foot.y) - 20); ctx.moveTo(dx + 0.5, Math.round(foot.y) - 10); ctx.lineTo(dx + 0.5, Math.round(foot.y));", 'Lotlinie hat wieder eine Lücke'],
   // ---- ITM-02 D: kein Warnsymbol im Voxel-Overlay, Helligkeit je Zustand
   [RN, "          drawFallenBlitze(ctx, st, P, ppm);", "          drawFallenBlitze(ctx, st, P, ppm); for (const a of (st.away && st.away.ao) || []) shape(ctx, 'triangle', 10, 10, 8, PAL.red);", 'Voxel-Overlay: Warndreieck über shape() wieder eingehängt'],

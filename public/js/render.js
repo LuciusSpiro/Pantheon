@@ -792,7 +792,7 @@
   }
   // Schwebehöhe der Scan-Raute über einer Falle je Typ im Voxel-Modus (hpx, 22 hpx = 1 m, Mitte der Raute über dem Bodenpunkt): flache Fallen 0 = wie alle Scan-Marker (SCAN_SCHWEBE über dem Ring),
   // die Selbstschussanlage (Modellhöhe 1,0 bis 1,1 m) trägt die Raute knapp über dem Kopf.
-  const FALLE_SCHWEBE = { schuss: 26, standard: 0 };
+  const FALLE_SCHWEBE = { schuss: 40, standard: 0 };
   const falleSchwebe = (typ) => (FALLE_SCHWEBE[typ] != null ? FALLE_SCHWEBE[typ] : FALLE_SCHWEBE.standard);
   // 2D-Rückfall der Falle (kein Modell, ?render=2d / F8): je Zustand und Typ eine eigene flache Form ohne Symbol. Der Zustand trägt über Helligkeit und eine große Form (Kachel = 32 px, nichts unter 2 px):
   //   erkannt = hellster Punkt (rote Fläche mit hellem Kern im dunklen Rahmen), entschärft = mittlerer Grauwert, nichts leuchtet, dunkles Loch (abgeschaltet),

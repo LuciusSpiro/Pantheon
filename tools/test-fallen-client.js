@@ -546,7 +546,7 @@ section('Scan-Anzeige: Positionstext der Falle (Stufe 2), andere Arten unveränd
     ok(mk.lot.length === 2 && mk.lot[0].op === 'moveTo' && mk.lot[1].op === 'lineTo' && mk.lot[1].a[1] === 100 && mk.lot[0].a[1] === mk.mitte + 4, (voxel ? 'Voxel' : '2D') + ' ' + typ + ': Lotlinie ein einziger Abschnitt von der Raute bis zum Bodenpunkt, keine Lücke');
   }
   ok(['schott', 'druck'].every((typ) => marke({ ...mfa, typ }, true).mitte === erzM.mitte && erzM.mitte === 100 - 14), 'Voxel: Raute über flachen Fallen (schott, druck) wie bei allen Scan-Markern 14 px über dem Ring, nicht höher');
-  { const h = 100 - marke({ ...mfa, typ: 'schuss' }, true).mitte; ok(h >= 22 && h <= 30 && h > 14, 'Voxel: Raute über der Selbstschussanlage knapp über dem Kopf (Mitte ' + h + ' px über dem Boden, Modell 22 bis 24 px)'); }
+  { const h = 100 - marke({ ...mfa, typ: 'schuss' }, true).mitte; ok(h >= 36 && h <= 44 && h > 14, 'Voxel: Raute über der Selbstschussanlage frei über dem Kopf der Anlage (Mitte ' + h + ' px über dem Boden, Modell 22 bis 24 px, Kopf bis ca. 30 px auf dem Schirm)'); }
   ok(100 - marke({ ...mfa, typ: 'schuss' }, true, 20).mitte === 2 * (100 - marke({ ...mfa, typ: 'schuss' }, true).mitte) && 100 - marke({ ...mfa, typ: 'schott' }, true, 20).mitte === 14, 'Voxel: Schwebehöhe der Anlage wächst mit dem Maßstab (Zoom), die der flachen Fallen bleibt bei 14 px');
   const conT = read('public/js/consoles.js');
   ok(/if \(z\.glyphe != null\) R\.falleGlyphe\(ctx, z\.glyphe, x \+ 7, ry \+ 4, 1, PAL\.red\);/.test(conT), 'consoles.js: Scan-Liste zeichnet die Glyphe vor dem vollen Namen');
