@@ -298,6 +298,7 @@
     "test:waffenwechsel-mutation": "node tools/mutation-waffenwechsel.js",
     "test:scanner": "node tools/test-scanner.js",
     "test:scanner-mutation": "node tools/mutation-scanner.js",
+    "test:scanner-client": "node tools/test-scanner-client.js",
     "test:scanbar": "node tools/test-scanbar.js",
     "test:scanbar-mutation": "node tools/mutation-scanbar.js",
     "test:ausruestung-hud": "node tools/test-ausruestung-hud.js",

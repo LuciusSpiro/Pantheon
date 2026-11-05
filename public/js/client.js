@@ -2003,6 +2003,7 @@
     Client.keys = {}; Client.fireHeld = { mouse: false, key: false };
     if (Client.actDown) { Client.actDown = false; send({ t: P.C.ACT || 'act', down: false }); }
     if (Client.view) K.releaseAll(Client.view);
+    if (window.Scanner) for (const o of Scanner.loslassen()) send(o);   // SCA-01 P3: Fokusverlust -> gehaltene Frequenzrichtung zurücknehmen
     H.showCrew = false;
   }
 
@@ -2047,6 +2048,8 @@
       if (Tasten.passt(e, 'allgemein.funkWaehlen')) { e.preventDefault(); if (!e.repeat) Funkwahl.markieren(); return; }
       if (Tasten.passt(e, 'allgemein.funkSenden')) { e.preventDefault(); if (!e.repeat) Funkwahl.senden(send); return; }
     }
+    // SCA-01 P3: Scanner-Overlay (Zustand aus dem Snapshot): A/D halten die Frequenzrichtung, Esc/Rücktaste/Slot-Taste brechen ab; alles andere ist geschluckt (Bewegung, Schuss und Waffenwechsel würden den Scan serverseitig abbrechen)
+    if (window.Scanner && m.zone === 'away' && !m.console && Scanner.aktiv(m)) { e.preventDefault(); const sr = Net.guard('Scanner.taste', () => Scanner.taste(e, true, H.loadoutStand), null); if (sr) for (const o of sr.senden) send(o); return; }
     Client.keys[code] = true;
     if (DEBUG && Client.serverDebug && code === 'F6') { e.preventDefault(); send({ t: 'debug', cmd: 'skip' }); return; }
     // QA M1: Der Ende-Screen erscheint auch über Konsolen (der Captain sitzt beim Kernscan an der Konsole) – Enter/Esc schließt ihn zuerst.
@@ -2100,6 +2103,7 @@
   window.addEventListener('keyup', (e) => {
     const code = e.code;
     delete Client.keys[code];
+    { const sm = me(); if (window.Scanner && sm && Scanner.aktiv(sm)) { const sr = Net.guard('Scanner.taste', () => Scanner.taste(e, false, H.loadoutStand), null); if (sr) for (const o of sr.senden) send(o); } }   // SCA-01 P3: Richtungstaste losgelassen -> dir 0
     if (code === 'Delete' && Client.ui.hold && !Client.ui.hold.mouse && !Client.ui.hold.sent) Client.ui.hold = null;   // S1: Halten abgebrochen
     if (uiTop()) return;
     if (code === 'KeyE' && Client.actDown) { Client.actDown = false; send({ t: P.C.ACT || 'act', down: false }); }
@@ -2142,7 +2146,7 @@
       if (KA && KA.druecken(p.x, p.y, () => Net.guard('Consoles.mouseDown', () => K.mouseDown(p.x, p.y, Client.view)))) return;
       Net.guard('Consoles.mouseDown', () => K.mouseDown(p.x, p.y, Client.view)); return;
     }
-    if (m && m.zone === 'away' && Client.state && Client.state.phase !== 'lobby') { Client.lanzeSperre = false; shoot(); Client.fireHeld.mouse = true; }
+    if (m && m.zone === 'away' && Client.state && Client.state.phase !== 'lobby' && !(window.Scanner && Scanner.schluckt(m))) { Client.lanzeSperre = false; shoot(); Client.fireHeld.mouse = true; }
   });
   // TB1: Kartenansicht – Ziehen (Pan) auch außerhalb des Canvas, Mausrad = Zoom um den Mauszeiger, Fokusverlust bricht ab
   window.addEventListener('mousemove', (e) => {
@@ -2194,7 +2198,8 @@
     if (Client.view && m.console) Net.guard('Consoles.update', () => K.update(dt, Client.view));
 
     Net.guard('Client.minigame', () => updateMinigame(dt));
-    const canMove = st.phase !== 'lobby' && !m.console && !m.downed && !m.lift && !m.stun && Net.isOpen() && self.init && !Client.minigame && !uiTop() && !st.paused && !Client.chapter;
+    if (window.Scanner) Net.guard('Scanner.abgleichen', () => { for (const o of Scanner.abgleichen(m)) send(o); });   // SCA-01 P3: Scan zu Ende -> dir 0
+    const canMove = st.phase !== 'lobby' && !m.console && !(window.Scanner && Scanner.aktiv(m)) && !m.downed && !m.lift && !m.stun && Net.isOpen() && self.init && !Client.minigame && !uiTop() && !st.paused && !Client.chapter;
     let { mx, my } = canMove ? moveAxes() : { mx: 0, my: 0 };
     const len = Math.hypot(mx, my);
     if (len > 1) { mx /= len; my /= len; }
@@ -2383,6 +2388,7 @@
         K.verdeckt = null; Net.guard('TerminalUI.zusehen', () => { if (!TerminalUI.drawZusehen(ctx, v)) Client.keys = {}; });
         Net.guard('Hud.drawLagefunk', () => H.drawLagefunk(ctx, v));   // SUND-01 C: Lagemeldung auch für Zuschauer am Terminal (sonst gehen die Pflichtmeldungen verloren)
       } else if (Client.minigame) Net.guard('Hud.drawMinigame', () => H.drawMinigame(ctx, v, Client.minigame));
+      else if (window.Scanner && Scanner.aktiv(v.me)) Net.guard('Scanner.draw', () => Scanner.draw(ctx, v));   // SCA-01 P3: Frequenz-Overlay des Scanners (Zustand aus dem Snapshot)
       if (window.Funkwahl && !uiTop()) Net.guard('Funkwahl.zeichne', () => Funkwahl.zeichne(ctx, v));   // SUND-03b A: Antwortleiste am Funk (nur Freie Fahrt Sund mit Reise-Ereignissen), über Konsole und HUD
       const ended = st.phase === 'end' || !!(st.mission && st.mission.m1Done);
       if (ended && !Client.endDismissed) Net.guard('Hud.drawEnd', () => H.drawEnd(ctx, v));

@@ -44,6 +44,7 @@
   {"id":"test-waffenwechsel","kette":"test","cmd":["tools/test-waffenwechsel.js"],"stufe":"full","budget_s":20},
   {"id":"test-waffenwechsel-client","kette":"test","cmd":["tools/test-waffenwechsel-client.js"],"stufe":"full","budget_s":10},
   {"id":"test-scanner","kette":"test","cmd":["tools/test-scanner.js"],"stufe":"full","budget_s":20},
+  {"id":"test-scanner-client","kette":"test","cmd":["tools/test-scanner-client.js"],"stufe":"full","budget_s":10},
   {"id":"test-scanbar","kette":"test","cmd":["tools/test-scanbar.js"],"stufe":"full","budget_s":25},
   {"id":"test-sektoren","kette":"test","cmd":["tools/test-sektoren.js"],"stufe":"full","budget_s":22},
   {"id":"test-entern","kette":"test","cmd":["tools/test-entern.js"],"stufe":"fast","budget_s":6},

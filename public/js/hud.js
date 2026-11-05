@@ -67,8 +67,11 @@
   const SYSTEMS = PROTO.SYSTEMS || ['reactor', 'engines', 'shields', 'weapons', 'transfer'];
   // B2: Waffen- und Zustandsnamen (Snapshot wf / zs / bt)
   // EIN Kurzname je Waffe (Waffenzeile, Slot-Leiste, Ausrüstungsstation); die Station zeigt dahinter zusätzlich WAFFE_NAME
-  const WAFFE_KURZ = { blaster: 'Blaster', sturmgewehr: 'Gewehr', granatwerfer: 'Werfer', lanze: 'Lanze', nahkampf: 'Klinge', betaeuber: 'Betäuber', faust: 'Fäuste', pistole: 'Pistole', schrottblaster: 'Schrottbl.' };
-  const WAFFE_NAME = { blaster: 'Blaster', sturmgewehr: 'Sturmgewehr', granatwerfer: 'Granatwerfer', lanze: 'Lanze', nahkampf: 'Nahkampf', betaeuber: 'Betäuber', faust: 'Fäuste', pistole: 'Pistole', schrottblaster: 'Schrottblaster' };
+  const WAFFE_KURZ = { blaster: 'Blaster', sturmgewehr: 'Gewehr', granatwerfer: 'Werfer', lanze: 'Lanze', nahkampf: 'Klinge', betaeuber: 'Betäuber', faust: 'Fäuste', pistole: 'Pistole', schrottblaster: 'Schrottbl.', scanner: 'Scanner' };
+  const WAFFE_NAME = { blaster: 'Blaster', sturmgewehr: 'Sturmgewehr', granatwerfer: 'Granatwerfer', lanze: 'Lanze', nahkampf: 'Nahkampf', betaeuber: 'Betäuber', faust: 'Fäuste', pistole: 'Pistole', schrottblaster: 'Schrottblaster', scanner: 'Scanner' };
+  // SCA-01 P3: Items im Loadout-Slot (keine Waffen: nie „aktive Waffe“, kein Aktiv-Rahmen); Ausrüstungsstation und Slot-Leiste lesen diese Liste. Beschreibung nur für die Station.
+  const SLOT_ITEMS = ['scanner'];
+  const ITEM_INFO = { scanner: 'Scanner: findet Erz, scannt Monster und Fallen. Forscher-Rolle.' };
   // Icon je Waffe; schrottblaster (Rostmeute) = Blaster-Icon (Nachtrag Studioleitung)
   function waffeIcon(wf) { return wf === 'schrottblaster' ? 'blaster' : wf; }
   const ZS_TEXT = { betaeubt: 'BETÄUBT', bewusstlos: 'BEWUSSTLOS – niemand kann helfen', gefesselt: 'GEFESSELT – Kamerad: E halten', gefangen: 'GEFANGEN – Ausbruch!', verwundet: 'VERWUNDET' };
@@ -495,7 +498,7 @@
       pips(cur[1] || 0, x + 3 - ex, y + 13, false, 1);  // Steuerbord unten
     },
 
-    WAFFE_NAME, WAFFE_KURZ, ZS_TEXT, waffeIcon, HUD_LAYOUT, aktiverSlot,
+    WAFFE_NAME, WAFFE_KURZ, SLOT_ITEMS, ITEM_INFO, ZS_TEXT, waffeIcon, HUD_LAYOUT, aktiverSlot,
     drawShipHud(ctx, view) {
       const st = view.state;
       const ship = st.ship || {};
@@ -820,15 +823,18 @@
       const breite = 164, cw = Math.floor(breite / n);
       slots.forEach((id, i) => {
         const cx = x - 2 + i * cw;
-        const on = i === aktiv;
+        const item = !!id && SLOT_ITEMS.indexOf(id) >= 0;   // SCA-01 P3: Item – nie aktive Waffe (kein Aktiv-Rahmen); kühles Stahlblau statt Waffenrot, beim laufenden Scan Eisblau
+        const on = i === aktiv && !item;
+        const scanLaeuft = item && id === 'scanner' && !!(view.me.action && view.me.action.kind === 'scan');
         const sp = on ? this.wechselAnteil(view.time) : null;   // AUS-02 B: Wechselzeit der aktiven Waffe
         if (on && sp != null) { ctx.fillStyle = '#5A2A28'; ctx.fillRect(cx, y - 2, cw - 2, 11); ctx.fillStyle = '#B83A2E'; ctx.fillRect(cx, y - 2, Math.round((cw - 2) * sp), 11); }
         else if (on) { ctx.fillStyle = '#B83A2E'; ctx.fillRect(cx, y - 2, cw - 2, 11); }
+        else if (item) { ctx.fillStyle = scanLaeuft ? '#3F7F99' : '#27394A'; ctx.fillRect(cx, y - 2, cw - 2, 11); }
         else if (id) { ctx.fillStyle = '#46282B'; ctx.fillRect(cx, y - 2, cw - 2, 11); }
         else { ctx.strokeStyle = '#4A5260'; ctx.lineWidth = 1; ctx.strokeRect(cx + 0.5, y - 1.5, cw - 3, 10); }
         const txt = id ? this.fit(WAFFE_KURZ[id] || WAFFE_NAME[id] || id, cw - 13, 1) : '–';   // Nacharbeit: nie über die Zelle hinaus (3 Slots: 41 px; „Betäuber“ ist 45 px breit und wird gekürzt)
-        R.text(ctx, this.slotKappe(i), cx + 2, y, { color: on ? '#FFE9B0' : id ? '#C9B27A' : '#6B7380', shadow: !on });   // AUS-02 B: Tastenziffer links in der Zelle
-        R.text(ctx, txt, cx + 10, y, { color: on ? (sp != null ? '#D8C4C0' : '#FFFFFF') : id ? '#9A8F90' : '#6B7380', shadow: !on });   // Nacharbeit: Name immer linksbündig hinter der Ziffer (2 und 3 Slots sehen gleich aus)
+        R.text(ctx, this.slotKappe(i), cx + 2, y, { color: on ? '#FFE9B0' : item ? '#A9D6E5' : id ? '#C9B27A' : '#6B7380', shadow: !on });   // AUS-02 B: Tastenziffer links in der Zelle
+        R.text(ctx, txt, cx + 10, y, { color: on ? (sp != null ? '#D8C4C0' : '#FFFFFF') : scanLaeuft ? '#FFFFFF' : item ? '#8FB3C4' : id ? '#9A8F90' : '#6B7380', shadow: !on });   // Nacharbeit: Name immer linksbündig hinter der Ziffer (2 und 3 Slots sehen gleich aus)
       });
     },
     // B2: Waffe (Icon, Name), Hitzebalken; überhitzt, Lanze lädt, Ausholen
@@ -968,7 +974,7 @@
           R.text(ctx, alt.label, x + 15, y + 15, { color: alt.ok !== false ? PAL.star : '#8C93A0', shadow: false });
         }
       }
-      if (me && me.action && !(me.action.kind === 'flick' || me.action.kind === 'swap' || me.action.kind === 'minigame')) {
+      if (me && me.action && !(me.action.kind === 'flick' || me.action.kind === 'swap' || me.action.kind === 'minigame' || me.action.kind === 'scan')) {
         const v3 = !!(R.overlay3d && R.overlay3d.on);
         const s = v3 ? R.worldToScreen(view.self.x, view.self.y, 2.0) : R.worldToScreen(view.self.x, view.self.y);
         R.ring(ctx, s.x, v3 ? s.y - 8 : s.y - 46, 7, me.action.progress || 0, PAL.mint);
