@@ -480,3 +480,47 @@ function debugKreatur(game, p, typId) {
 }
 
 module.exports = { update, kreaturBausteinAnmelden, bausteinTreffer, bausteinLaerm, daten, pruefen, typVon, erzeugen, zustandSetzen, debugKreatur, kreaturen, ziele, ausruesten, raeumen };
+
+// ---------- Anzeige und Scanner (MON-01 P4) ----------
+// Scanner: Art `monster`, billig (nur die lebenden Kreaturen mit aktueller Position, keine Karte). Typ-ID aus kreaturen.json; der Name steht im Client-Content (datenblaetter.json).
+require('./scanbar.js').scanbarAnmelden('monster', {
+  ziele(game, aw) {
+    const out = [];
+    for (const K of (aw && aw.kreaturen) || []) if (K.alive) out.push({ id: K.id, x: K.x, y: K.y, typ: K.typ });
+    return out;
+  },
+  tiefen: { position: 3 },
+});
+
+// Snapshot-Feld away.kr: [[nr, typCode, x, y, f, bits], …] oder null (ohne lebende, sichtbare Kreatur gibt es kein Feld).
+//   nr       Zahl hinter dem K der Instanz-ID (K7 -> 7); der Client bildet 'K' + nr und findet so den Scan-Eintrag `monster:K7` in away.sc
+//   typCode  Index des Typs in der Reihenfolge von kreaturen.json (deterministisch, nur für den Client-Wiedererkennen; Namen kommen aus dem Scan)
+//   x, y     px, 1 Nachkommastelle (wie mo);  f  Blickrichtung rad, 2 Nachkommastellen
+//   bits     0-1 Ladung 0..3 (Baustein aufladung), 2 Pause/steht (Modus `steht`), 3 rammt (Modus `ramme`), 4-5 Größe-1 (Kacheln, 0..3)
+// Nur lebende Kreaturen, die jemand im Team sieht (Sichtradius und Sichtlinie wie combat.updateVisibility, Sensor deckt alles auf). Tote werden nicht gesendet.
+const BIT_PAUSE = 4, BIT_RAMMT = 8;
+function snap(game) {
+  const aw = game.away; const L = aw && aw.kreaturen;
+  if (!L || !L.length || !L.some((K) => K.alive)) return null;
+  const C = combat();
+  const team = C.teamOf(game);
+  if (!team.length) return null;
+  const E = C.env(game);
+  const R = game.C.awayCombat.sightTiles * TILE;
+  const sensor = game.time < aw.sensorUntil;
+  const ids = Object.keys(daten().typen);
+  const out = [];
+  for (const K of L) {
+    if (!K.alive) continue;
+    if (!sensor && !team.some((p) => Math.hypot(p.x - K.x, p.y - K.y) <= C.sichtRadius(game, E, p, R) && C.losBetween(E, p, K))) continue;
+    const typ = typVon(K.typ); const modus = typ.zustaende[K.z].modus;
+    const ladung = K.aufladung ? Math.min(3, K.aufladung.stufe) : 0;
+    const bits = ladung | (modus === 'steht' ? BIT_PAUSE : 0) | (modus === 'ramme' ? BIT_RAMMT : 0) | ((typ.groesse - 1) << 4);
+    out.push([Number(K.id.slice(1)), ids.indexOf(K.typ), Math.round(K.x * 10) / 10, Math.round(K.y * 10) / 10, Math.round(K.facing * 100) / 100, bits]);
+  }
+  return out.length ? out : null;
+}
+Object.assign(module.exports, { snap });
+// Fürs Snapshot-Spread in game.js: { kr } oder {} (ohne Kreaturen kein Feld, nie ein leeres Array)
+function snapFeld(game) { const kr = snap(game); return kr ? { kr } : {}; }
+Object.assign(module.exports, { snapFeld });

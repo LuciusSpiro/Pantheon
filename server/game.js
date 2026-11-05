@@ -2383,6 +2383,7 @@ class Game {
         hollow: aw.hollow ? { x: aw.hollow.x, y: aw.hollow.y, marked: aw.hollow.marked, open: aw.hollow.open } : null,
         ...combat.awaySnap(this, aw),
         ...(aw.monster ? { mo: Monster.snap(this), mp: Monster.pulteSnap(this) } : {}),   // SL7c: Monster (x, y, z, f) und Pult-Stand für den Captain (nur auf der Monster-Station)
+        ...Kreatur.snapFeld(this),   // MON-01 P4: kr [[nr, typCode, x, y, f, bits]] (nur bei lebenden, sichtbaren Kreaturen)
         ...Scanbar.snapshot(aw),   // SCA-01 P2: sc [[id, art, typ, sk, x?, y?]] (nur bei nicht leerem aw.sc)
         ...this.awayB1Snap(aw),   // B1 §9: kv, ao, ko, al, cd (gebaute Karten)
       },

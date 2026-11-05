@@ -198,6 +198,14 @@ function fallbackModel(kind) {
   else if (kind === 'monster') {   // SL7c: Monster der Forschungsstation (2×2 Kacheln groß, nicht verwundbar): massiger Körper, Stacheln, Augen
     box(2.0, 1.5, 2.3, 0, 0.95, 0, '#3A1E26'); box(1.4, 1.0, 1.1, 0, 1.25, 1.35, '#4A2530'); box(0.3, 0.2, 0.1, -0.35, 1.45, 1.92, '#FF5A3C'); box(0.3, 0.2, 0.1, 0.35, 1.45, 1.92, '#FF5A3C');
     for (let i = -2; i <= 2; i++) box(0.22, 0.7, 0.22, i * 0.38, 1.9, -0.2, '#6B2E3A'); box(0.5, 0.5, 1.4, -1.15, 0.5, 0.6, '#2A1319'); box(0.5, 0.5, 1.4, 1.15, 0.5, 0.6, '#2A1319'); }
+  else if (typeof kind === 'string' && kind.startsWith('kreatur|')) {   // MON-01 P4: Kreatur (Platzhalter), kind = 'kreatur|bits'
+    const b = +kind.slice(8) | 0, w = (((b >> 4) & 3) + 1) * 0.8, ladung = b & 3, pause = (b & 4) !== 0, rammt = (b & 8) !== 0;
+    const col = ['#5E6B7E', '#C9A33A', '#E0792E', '#E0392E'][ladung];
+    box(w, pause ? 0.7 : 1.0, w, 0, pause ? 0.35 : 0.5, 0, pause ? '#3E4655' : col);
+    box(w * 0.35, 0.3, 0.35, 0, 0.55, w * 0.5 + 0.1, rammt ? '#FFFFFF' : '#1A1220');   // Nase: Blickrichtung (+z, wie das Station-Monster)
+    for (let i = 0; i < ladung; i++) box(0.18, 0.18, 0.18, (i - 1) * 0.3, 1.25, 0, '#E0392E');   // Ladungsanzeige über dem Körper
+    if (rammt) { box(w * 0.9, 0.12, 0.9, 0, 0.1, -w * 0.5 - 0.5, '#FF5A3C'); }   // Rammspur hinten
+  }
   else if (kind === 'warden') { box(1.4, 1.1, 1.8, 0, 0.75, 0, '#4B3F6B'); box(0.9, 0.6, 0.5, 0, 1.4, 0.8, '#B57CFF'); box(1.2, 0.2, 0.3, 0, 0.3, 1.0, '#7FF3FF'); }
   else box(0.22, 0.22, 0.22, 0, 0.11, 0, '#F2C94C');
   return g;
@@ -1142,6 +1150,22 @@ function updateEnemy(e, view, st, dt, t) {
     locomote(a, pos.x, pos.z, dt, yawOf(Math.cos(f), Math.sin(f)), true);
     a.body.position.y = Math.abs(Math.sin(t * (z === 'j' ? 9 : 3))) * 0.08;
     a.body.rotation.z = z === 'j' ? Math.sin(t * 30) * 0.04 : 0;
+    return;
+  }
+  if (kind === 'kreatur') {   // MON-01 P4: Platzhalter-Volumen (Box in Typgröße, Zustandsfarben wie 2D); e.kr = { t, b } (bits: 0-1 Ladung, 2 Pause, 3 rammt, 4-5 Größe-1)
+    const b = (e.kr && e.kr.b) | 0;
+    const mk = 'kreatur:' + (b & 3) + ((b >> 2) & 3) + ((b >> 4) & 3);   // je Ladung/Pause/Rammen/Größe ein eigenes Modell (höchstens 64 Stück, gecacht)
+    if (a.modelKey !== mk) {
+      let o = a.models[mk];
+      if (!o) { o = fallbackModel('kreatur|' + b); a.models[mk] = o; }
+      if (a.model && a.model !== o) a.body.remove(a.model);
+      if (a.model !== o) a.body.add(o);
+      a.model = o; a.modelKey = mk;
+    }
+    a.labelH = ((b >> 4) & 3) * 0.8 + 1.8;
+    const pos = place(a, e.x, e.y, 0);
+    const f = +e.facing || 0;
+    locomote(a, pos.x, pos.z, dt, yawOf(Math.cos(f), Math.sin(f)), (b & 12) === 8);
     return;
   }
   if (kind === 'warden' || e.ro === 'waechter') {

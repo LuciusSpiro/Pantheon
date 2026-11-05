@@ -1,0 +1,203 @@
+'use strict';
+// MON-01 P4: Kreaturen sichtbar und scanbar. Echtes Spiel (Game, Station Helix, Debug `kreatur`, `scanfertig`).
+// Geprüft: Anmeldung der Scan-Art `monster` (nur Lebende, billig), Scan Stufe 1/2/3 (Position erst ab 3, sk steigt nur, bewegtes Ziel zieht nach), Snapshot-Feld away.kr
+// (nur bei lebenden, sichtbaren Kreaturen, Felder und Bits, Größe je Kreatur, Tote nicht), ohne Kreaturen identischer Snapshot, Datenblatt-Eintrag `probe` (Texte, Grenzen),
+// Einhängestellen im Client (client.js, render.js, voxel/actors.js) am Quelltext.
+//   node tools/test-kreatur-anzeige.js   (npm run test:kreatur-anzeige)
+const fs = require('fs');
+const path = require('path');
+const CONFIG = require('../shared/config.js');
+const Locations = require('../shared/locations.js');
+const { Game } = require('../server/game.js');
+const space = require('../server/sim/space.js');
+const Welt = require('../server/sim/welt.js');
+const away = require('../server/sim/away.js');
+const Scanbar = require('../server/sim/scanbar.js');
+const Kreatur = require('../server/sim/kreatur.js');
+const Monster = require('../server/sim/monster.js');
+const SA = require('../public/js/scan-anzeige.js');
+const KREATUREN = require('../content/kampf/kreaturen.json');
+const DATEN = require('../content/scanner/datenblaetter.json');
+
+const DT = 1 / CONFIG.tickHz;
+const TILE = 32;
+let fails = 0, n = 0;
+const ok = (c, t) => { n++; if (c) console.log('  ok   ' + t); else { fails++; console.log('  FEHLER ' + t); } };
+const section = (name, body) => {
+  console.log('\n[' + name + ']');
+  try { body(); } catch (e) { fails++; n++; console.log('  FEHLER Abschnitt abgebrochen: ' + (e.stack || e).toString().split('\n').slice(0, 5).join(' | ')); }
+};
+const read = (f) => fs.readFileSync(path.join(__dirname, '..', f), 'utf8').replace(/\r\n/g, '\n');
+const bytes = (v) => Buffer.byteLength(JSON.stringify(v));
+
+function szene() {
+  const g = new Game({ noStore: true, worlds: false, seed: 21, debug: true, env: { MISSION_SOURCE: 'fallback' }, log: () => {} });
+  const c = { inbox: [], send() {}, sendRaw() {} };
+  g.addConnection(c); g.handleMessage(c, { t: 'hello', clientId: 'T0', name: 'Kre', color: 0 });
+  g.handleMessage(c, { t: 'lobbyOpt', startMission: 'free' }); g.handleMessage(c, { t: 'ready', ready: true });
+  Welt.waehle(g, 'sund'); g.god = true; space.enterScene(g, 'helix', {});
+  const sc = Locations.get('helix').scene; g.ship.x = sc.station.x - 100; g.ship.y = sc.station.y;
+  const run = (sec) => { for (let k = 0; k < Math.round(sec / DT); k++) g.step(); };
+  run(0.2);
+  g.chooseLandepunkt(g.players[0], 'helix.station');
+  away.executeBeam(g, g.players.map((q) => q.id), 'down');
+  run(0.3);
+  g.away.monster = null;
+  const p = g.players[0];
+  const m = Monster.maskeVon(g.karteOf(g.away.map));
+  // längste waagerechte Strecke freier Ankerpunkte: der Spieler steht darin, die Kreaturen liegen in Sicht auf derselben Zeile
+  let best = null;
+  for (let cy = 2; cy < m.h - 1; cy++) {
+    let cx = 1;
+    while (cx < m.w) {
+      if (!m.geht(cx, cy)) { cx++; continue; }
+      let e = cx; while (m.geht(e + 1, cy)) e++;
+      if (!best || e - cx > best.cx1 - best.cx0) best = { cy, cx0: cx, cx1: e };
+      cx = e + 1;
+    }
+  }
+  p.x = (best.cx0 + 1) * TILE; p.y = best.cy * TILE; p.downed = false;
+  return { g, c, p, run, dbg: (cmd, extra) => g.handleMessage(c, Object.assign({ t: 'debug', cmd }, extra || {})) };
+}
+const S = szene();
+const { g, p } = S;
+const aw = g.away;
+
+section('Anmeldung der Scan-Art monster', () => {
+  let doppelt = false;
+  try { Scanbar.scanbarAnmelden('monster', { ziele: () => [] }); } catch (e) { doppelt = /bereits angemeldet/.test(e.message); }
+  ok(doppelt, 'Art `monster` ist beim Laden von kreatur.js angemeldet (zweite Anmeldung wird abgelehnt)');
+  const src = read('server/sim/kreatur.js');
+  ok(/scanbarAnmelden\('monster'[\s\S]*tiefen: \{ position: 3 \}/.test(src), 'Positionsstufe 3 steht in der Anmeldung');
+});
+
+section('Snapshot ohne Kreaturen', () => {
+  const s0 = g.snapshot();
+  ok(!('kr' in s0.away), 'ohne Kreaturen kein Feld kr');
+  S.dbg('kreatur', { typ: 'probe' });
+  ok(aw.kreaturen && aw.kreaturen.length === 1, 'Debug kreatur probe legt eine Kreatur an');
+  aw.kreaturen[0].alive = false;
+  ok(!('kr' in g.snapshot().away), 'nur tote Kreaturen: kein Feld kr (nie ein leeres Array)');
+  aw.kreaturen = [];
+  ok(JSON.stringify(g.snapshot().away) === JSON.stringify(s0.away), 'nach dem Räumen ist away identisch zum Stand vor den Kreaturen (JSON)');
+  aw.kreaturSeq = 0;
+});
+
+let K1, K2;
+section('Scanner: Ziele und Stufen', () => {
+  S.dbg('kreatur', { typ: 'probe' }); S.dbg('kreatur', { typ: 'probe' });
+  [K1, K2] = aw.kreaturen;
+  ok(aw.kreaturen.length === 2 && K1.id === 'K1' && K2.id === 'K2', 'zwei Kreaturen K1 und K2');
+  K2.alive = false;
+  Scanbar.debugScanfertig(g, p, 1);
+  const e1 = aw.sc && aw.sc['monster:K1'];
+  ok(e1 && e1.sk === 1 && e1.typ === 'probe' && e1.x === undefined, 'Stufe 1: K1 erfasst (typ probe), ohne Position');
+  ok(!aw.sc['monster:K2'], 'tote Kreatur K2 wird nicht erfasst (ziele liefert nur Lebende)');
+  Scanbar.debugScanfertig(g, p, 2);
+  ok(aw.sc['monster:K1'].sk === 2 && aw.sc['monster:K1'].x === undefined, 'Stufe 2: sk 2, weiter ohne Position');
+  Scanbar.debugScanfertig(g, p, 1);
+  ok(aw.sc['monster:K1'].sk === 2, 'schlechterer Scan senkt sk nicht');
+  Scanbar.debugScanfertig(g, p, 3);
+  ok(aw.sc['monster:K1'].sk === 3 && aw.sc['monster:K1'].x === Math.round(K1.x) && aw.sc['monster:K1'].y === Math.round(K1.y), 'Stufe 3: Position gleich der Kreatur');
+  K1.x += 64; K1.y += 32;
+  Scanbar.debugScanfertig(g, p, 3);
+  ok(aw.sc['monster:K1'].x === Math.round(K1.x) && aw.sc['monster:K1'].y === Math.round(K1.y), 'bewegte Kreatur: der nächste Scan zieht die neue Position nach');
+  const sn = g.snapshot().away.sc;
+  ok(Array.isArray(sn) && sn.some((r) => r[0] === 'K1' && r[1] === 'monster' && r[2] === 'probe' && r[3] === 3 && r.length === 6), 'Snapshot away.sc trägt [K1, monster, probe, 3, x, y]');
+});
+
+section('Scanner: billig', () => {
+  // Scanbar.update ruft ziele() bei nicht leerem aw.sc; es darf keine Karte neu aufgebaut werden (karteOf ist der Weg zur Karte)
+  const orig = g.karteOf; let karte = 0;
+  g.karteOf = function () { karte++; return orig.apply(this, arguments); };
+  const t0 = process.hrtime.bigint();
+  const zeit0 = g.time;
+  for (let i = 0; i < 20000; i++) { Scanbar.update(g); g.time += 1; }   // Zeit läuft, damit jede Prüfung (höchstens alle 0,5 s) ziele() ruft
+  const us = Number(process.hrtime.bigint() - t0) / 1000 / 20000;
+  g.time = zeit0;
+  g.karteOf = orig;
+  ok(karte === 0, 'ziele()/Scanbar.update fassen die Karte nie an (karteOf-Aufrufe: ' + karte + ')');
+  ok(us < 20, 'Scanbar.update mit Kreaturen: ' + us.toFixed(2) + ' µs je Aufruf (< 20)');
+  ok(aw.sc['monster:K1'] && aw.sc['monster:K1'].sk === 3, 'lebende Kreatur bleibt in aw.sc (wird weiter geliefert)');
+});
+
+section('Snapshot kr', () => {
+  K2.alive = true;
+  Kreatur.zustandSetzen(g, K2, 'patrouille');
+  K1.x = p.x + 3 * TILE; K1.y = p.y; K2.x = p.x + 5 * TILE; K2.y = p.y;
+  Kreatur.zustandSetzen(g, K1, 'patrouille');
+  const kr = g.snapshot().away.kr;
+  ok(Array.isArray(kr) && kr.length >= 1, 'kr vorhanden bei lebenden Kreaturen in Teamsicht (' + (kr ? kr.length : 0) + ')');
+  const codes = Object.keys(KREATUREN.typen);
+  const r1 = kr.find((r) => r[0] === 1);
+  ok(r1 && r1.length === 6, 'Eintrag [nr, typCode, x, y, f, bits]');
+  ok(r1[1] === codes.indexOf('probe') && Number.isInteger(r1[1]), 'typCode = Index in kreaturen.json (' + r1[1] + ')');
+  ok(r1[2] === Math.round(K1.x * 10) / 10 && r1[3] === Math.round(K1.y * 10) / 10, 'x, y gerundet (1 Nachkommastelle)');
+  ok(r1[4] === Math.round(K1.facing * 100) / 100, 'Blickrichtung 2 Nachkommastellen');
+  ok(((r1[5] >> 4) & 3) === KREATUREN.typen.probe.groesse - 1, 'Größe-1 in Bit 4-5');
+  ok((r1[5] & 15) === 0, 'Grundzustand (Patrouille): Ladung 0, nicht Pause, nicht rammt');
+  const bits = (zu, lad) => {
+    Kreatur.zustandSetzen(g, K1, zu);
+    if (lad != null) K1.aufladung = { stufe: lad, ruhe: 0, zerfallT: 0 };
+    const r = g.snapshot().away.kr.find((q) => q[0] === 1);
+    return r[5] & 15;
+  };
+  ok(bits('pause', 2) === (2 | 4), 'Pause + Ladung 2: Bits 2 | 4');
+  ok(bits('steckt') === (2 | 4), 'steckt zählt als Pause');
+  ok(bits('rammen') === (2 | 8), 'Rammen: Bit 8');
+  ok(bits('jagd', 7) === 3, 'Ladung wird auf 3 begrenzt');
+  K1.aufladung = null;
+  K2.alive = false;
+  ok(g.snapshot().away.kr.every((r) => r[0] !== 2), 'tote Kreatur K2 steht nicht im Snapshot');
+  // Sicht: weit außerhalb der Sichtweite -> nicht im Snapshot; Sensor deckt auf
+  const x0 = K1.x;
+  K1.x = x0 + 80 * TILE;
+  ok(!(g.snapshot().away.kr || []).some((r) => r[0] === 1), 'Kreatur weit außerhalb der Teamsicht fehlt im Snapshot');
+  aw.sensorUntil = g.time + 30;
+  ok((g.snapshot().away.kr || []).some((r) => r[0] === 1), 'Sensor (sensorUntil) deckt sie auf');
+  aw.sensorUntil = 0;
+  K1.x = x0;
+});
+
+section('Bytes je Kreatur', () => {
+  K1.facing = -2.3456789; K1.aufladung = { stufe: 3, ruhe: 0, zerfallT: 0 };
+  Kreatur.zustandSetzen(g, K1, 'rammen');
+  const r = g.snapshot().away.kr.find((q) => q[0] === 1);
+  const b = bytes(r) + 1;
+  console.log('  Messwert: ' + JSON.stringify(r) + ' = ' + b + ' B je Kreatur (mit Komma)');
+  ok(b <= 40, 'höchstens 40 B je Kreatur (' + b + ')');
+  K1.aufladung = null;
+});
+
+section('Datenblatt-Eintrag probe', () => {
+  const d = DATEN.typen.probe;
+  ok(d && d.name === 'Probe-Monster' && d.symbol && d.hinweisAb === 1, 'Eintrag probe mit hinweisAb 1');
+  ok(d.name.length <= SA.LIMIT.name && d.zeile.length <= SA.LIMIT.zeile && d.hinweis.length <= SA.LIMIT.hinweis,
+    'Grenzen: name ' + d.name.length + '/' + SA.LIMIT.name + ', zeile ' + d.zeile.length + '/' + SA.LIMIT.zeile + ', hinweis ' + d.hinweis.length + '/' + SA.LIMIT.hinweis);
+  ok(Number.isInteger(d.gefahr) && d.gefahr >= 0 && d.gefahr <= 3, 'gefahr 0..3');
+  ok(/vorn/.test(d.hinweis) && /Rücken/.test(d.hinweis) && /Beschuss/.test(d.hinweis) && /Lärm/.test(d.hinweis), 'Regelhinweis nennt Panzerung vorn, Rücken, Beschuss, Lärm');
+  ok(Object.keys(KREATUREN.typen).every((t) => DATEN.typen[t]), 'jeder Kreaturentyp hat einen Datenblatt-Eintrag');
+  const z1 = SA.zeile(SA.lesen([['K1', 'monster', 'probe', 1]])[0], DATEN);
+  ok(z1.name === 'Probe-Monster' && z1.hinweis === d.hinweis && z1.pos === null && z1.artTitel === 'Monster', 'Stufe 1: Name, Regelhinweis, keine Position, Art Monster');
+  const z3 = SA.zeile(SA.lesen([['K1', 'monster', 'probe', 3, 96, 64]])[0], DATEN);
+  ok(z3.pos && z3.pos.x === 96 && z3.pos.y === 64 && z3.hinweis === d.hinweis, 'Stufe 3: Position und Hinweis');
+  ok(SA.nameVon([['K1', 'monster', 'probe', 1]], 'monster', 'K1', DATEN) === 'Probe-Monster', 'nameVon liefert den Namen des gescannten Ziels');
+  ok(SA.nameVon([['K1', 'monster', 'probe', 1]], 'monster', 'K2', DATEN) === null, 'nameVon: nicht gescannt -> null (Anzeige "?")');
+  const mk = SA.marker([['K1', 'monster', 'probe', 3, 96, 64], ['K2', 'monster', 'probe', 1]], DATEN);
+  ok(mk.length === 1 && mk[0].symbol === 'MO' && mk[0].artTitel === 'Monster', 'Marker nur mit Position, Art Monster (Symbol MO)');
+});
+
+section('Client-Einhängestellen (Quelltext)', () => {
+  const cl = read('public/js/client.js'), rd = read('public/js/render.js'), ac = read('public/js/voxel/actors.js');
+  ok(/aa\.kr\b/.test(cl) && /kind: 'kreatur', alive: true, vis: true/.test(cl), 'client.js: away.kr wird zu Pseudo-Gegnern (kind kreatur)');
+  ok(/dk === 'kreatur'/.test(rd) && /function drawKreatur/.test(rd) && /e\.kind === 'kreatur'/.test(rd), 'render.js: Weltansicht und Captain-Karte zeichnen Kreaturen');
+  const f = rd.slice(rd.indexOf('function drawKreatur'), rd.indexOf('// SL7c: das Monster der Forschungsstation'));
+  ok(!/MONSTER/.test(f) && /'\?'/.test(rd.slice(rd.indexOf('function kreaturName'), rd.indexOf('function drawKreatur'))), 'kein fest verdrahtetes "MONSTER", Name nur aus dem Scan, sonst "?"');
+  ok(/kind === 'kreatur'/.test(ac) && /kreatur\|/.test(ac), 'voxel/actors.js: Platzhalter-Volumen für Kreaturen');
+  const sv = read('server/sim/kreatur.js'), gm = read('server/game.js');
+  ok(/Kreatur\.snapFeld\(this\)/.test(gm), 'game.js ruft nur Kreatur.snapFeld auf (Verdrahtung)');
+  ok(/Object\.assign\(module\.exports, \{ snap \}\)/.test(sv), 'Kreatur.snap exportiert');
+});
+
+console.log('\n' + (n - fails) + '/' + n + ' ok' + (fails ? ', ' + fails + ' FEHLER' : ''));
+process.exit(fails ? 1 : 0);
