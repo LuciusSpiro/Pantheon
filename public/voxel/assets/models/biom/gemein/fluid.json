@@ -1,0 +1,889 @@
+{
+ "id": "biom/gemein/fluid",
+ "name": "Fluid-Kachel (VOX-02), palettenunabhängig: art 0 Wasser, 1 Lava (mit biom_vulkan: fluid leuchtet), 2 Treibsand. Das Becken liegt im Modell: Anker = Lauffläche (y 0), Fluid-Oberfläche 25 cm darunter, Wände bis 1 m Tiefe. conn (Nachbarn gleicher Klasse N1 O2 S4 W8): an Seiten ohne Nachbarn eine Uferkante in zwei Stufen, mit Nachbar nahtlos. diag (optional, Standard 0; Bit je Ecke NO1 SO2 SW4 NW8: dort ist kein Fluid): schließt die Lücke an einer Innenecke, wo beide Nachbarn Fluid sind und nur die Diagonale nicht. Treibsand ist begehbar, ohne Ufer, conn und diag ohne Wirkung; sein Muster (schräge Streifen 2 Voxel breit, Periode 8 Voxel in x und z) setzt sich über Kachelränder nahtlos fort, ohne Kachelmitte. Das Terrain unter der Kachel muss mindestens 1 m tiefer liegen (sonst verdeckt es das Becken)",
+ "tier": "detail",
+ "palette": "biom_wiesenwald",
+ "jitter": 0,
+ "tags": [
+  "biom",
+  "gemein",
+  "fluid",
+  "wasser",
+  "lava",
+  "treibsand"
+ ],
+ "footprint": [
+  1,
+  1
+ ],
+ "budgetTris": 400,
+ "params": {
+  "art": {
+   "default": 0,
+   "min": 0,
+   "max": 2,
+   "step": 1,
+   "label": "0 Wasser · 1 Lava · 2 Treibsand"
+  },
+  "conn": {
+   "default": 0,
+   "min": 0,
+   "max": 15,
+   "step": 1,
+   "label": "Nachbarn gleicher Klasse (N1 O2 S4 W8)"
+  },
+  "diag": {
+   "default": 0,
+   "min": 0,
+   "max": 15,
+   "step": 1,
+   "label": "Ecken ohne Fluid (NO1 SO2 SW4 NW8), nur wirksam, wenn beide Nachbarn der Ecke Fluid sind"
+  }
+ },
+ "variants": {
+  "wasser": {
+   "art": 0
+  },
+  "wasser_ufer_ns": {
+   "art": 0,
+   "conn": 5
+  },
+  "wasser_mitte": {
+   "art": 0,
+   "conn": 15
+  },
+  "lava": {
+   "art": 1
+  },
+  "lava_ecke": {
+   "art": 1,
+   "conn": 6
+  },
+  "treibsand": {
+   "art": 2
+  },
+  "wasser_innenecke": {
+   "art": 0,
+   "conn": 15,
+   "diag": 1
+  }
+ },
+ "let": {
+  "cN": "conn % 2",
+  "cO": "floor(conn / 2) % 2",
+  "cS": "floor(conn / 4) % 2",
+  "cW": "floor(conn / 8) % 2"
+ },
+ "ops": [
+  {
+   "op": "box",
+   "name": "Becken-Körper (Fluid)",
+   "if": "art < 2",
+   "at": [
+    -8,
+    -16,
+    -8
+   ],
+   "size": [
+    16,
+    12,
+    16
+   ],
+   "color": "fluid",
+   "jitter": false
+  },
+  {
+   "op": "box",
+   "name": "Variation A",
+   "if": "art < 2",
+   "mode": "paint",
+   "at": [
+    "-7 + floor(hash(seed, 1) * 4) * 2",
+    -5,
+    "-7 + floor(hash(seed, 2) * 4) * 2"
+   ],
+   "size": [
+    4,
+    1,
+    4
+   ],
+   "color": "fluid_v",
+   "jitter": false
+  },
+  {
+   "op": "box",
+   "name": "Variation B",
+   "if": "art < 2",
+   "mode": "paint",
+   "at": [
+    "1 + floor(hash(seed, 3) * 3) * 2",
+    -5,
+    "-1 + floor(hash(seed, 4) * 3) * 2"
+   ],
+   "size": [
+    4,
+    1,
+    6
+   ],
+   "color": "fluid_v",
+   "jitter": false
+  },
+  {
+   "op": "box",
+   "name": "Ufer N außen",
+   "if": "art == 0 && cN == 0",
+   "at": [
+    -8,
+    -16,
+    -8
+   ],
+   "size": [
+    16,
+    15,
+    2
+   ],
+   "color": "grass_dark",
+   "jitter": false
+  },
+  {
+   "op": "box",
+   "name": "Ufer N innen",
+   "if": "art == 0 && cN == 0",
+   "at": [
+    "(cW == 1 ? -8 : -6)",
+    -16,
+    -6
+   ],
+   "size": [
+    "(cO == 1 ? 8 : 6) - (cW == 1 ? -8 : -6)",
+    13,
+    2
+   ],
+   "color": "soil",
+   "jitter": false
+  },
+  {
+   "op": "box",
+   "name": "Ufer N außen",
+   "if": "art == 1 && cN == 0",
+   "at": [
+    -8,
+    -16,
+    -8
+   ],
+   "size": [
+    16,
+    15,
+    2
+   ],
+   "color": "soil",
+   "jitter": false
+  },
+  {
+   "op": "box",
+   "name": "Ufer N innen",
+   "if": "art == 1 && cN == 0",
+   "at": [
+    "(cW == 1 ? -8 : -6)",
+    -16,
+    -6
+   ],
+   "size": [
+    "(cO == 1 ? 8 : 6) - (cW == 1 ? -8 : -6)",
+    13,
+    2
+   ],
+   "color": "soil_dark",
+   "jitter": false
+  },
+  {
+   "op": "box",
+   "name": "Ufer O außen",
+   "if": "art == 0 && cO == 0",
+   "at": [
+    6,
+    -16,
+    -8
+   ],
+   "size": [
+    2,
+    15,
+    16
+   ],
+   "color": "grass_dark",
+   "jitter": false
+  },
+  {
+   "op": "box",
+   "name": "Ufer O innen",
+   "if": "art == 0 && cO == 0",
+   "at": [
+    4,
+    -16,
+    "(cN == 1 ? -8 : -6)"
+   ],
+   "size": [
+    2,
+    13,
+    "(cS == 1 ? 8 : 6) - (cN == 1 ? -8 : -6)"
+   ],
+   "color": "soil",
+   "jitter": false
+  },
+  {
+   "op": "box",
+   "name": "Ufer O außen",
+   "if": "art == 1 && cO == 0",
+   "at": [
+    6,
+    -16,
+    -8
+   ],
+   "size": [
+    2,
+    15,
+    16
+   ],
+   "color": "soil",
+   "jitter": false
+  },
+  {
+   "op": "box",
+   "name": "Ufer O innen",
+   "if": "art == 1 && cO == 0",
+   "at": [
+    4,
+    -16,
+    "(cN == 1 ? -8 : -6)"
+   ],
+   "size": [
+    2,
+    13,
+    "(cS == 1 ? 8 : 6) - (cN == 1 ? -8 : -6)"
+   ],
+   "color": "soil_dark",
+   "jitter": false
+  },
+  {
+   "op": "box",
+   "name": "Ufer S außen",
+   "if": "art == 0 && cS == 0",
+   "at": [
+    -8,
+    -16,
+    6
+   ],
+   "size": [
+    16,
+    15,
+    2
+   ],
+   "color": "grass_dark",
+   "jitter": false
+  },
+  {
+   "op": "box",
+   "name": "Ufer S innen",
+   "if": "art == 0 && cS == 0",
+   "at": [
+    "(cW == 1 ? -8 : -6)",
+    -16,
+    4
+   ],
+   "size": [
+    "(cO == 1 ? 8 : 6) - (cW == 1 ? -8 : -6)",
+    13,
+    2
+   ],
+   "color": "soil",
+   "jitter": false
+  },
+  {
+   "op": "box",
+   "name": "Ufer S außen",
+   "if": "art == 1 && cS == 0",
+   "at": [
+    -8,
+    -16,
+    6
+   ],
+   "size": [
+    16,
+    15,
+    2
+   ],
+   "color": "soil",
+   "jitter": false
+  },
+  {
+   "op": "box",
+   "name": "Ufer S innen",
+   "if": "art == 1 && cS == 0",
+   "at": [
+    "(cW == 1 ? -8 : -6)",
+    -16,
+    4
+   ],
+   "size": [
+    "(cO == 1 ? 8 : 6) - (cW == 1 ? -8 : -6)",
+    13,
+    2
+   ],
+   "color": "soil_dark",
+   "jitter": false
+  },
+  {
+   "op": "box",
+   "name": "Ufer W außen",
+   "if": "art == 0 && cW == 0",
+   "at": [
+    -8,
+    -16,
+    -8
+   ],
+   "size": [
+    2,
+    15,
+    16
+   ],
+   "color": "grass_dark",
+   "jitter": false
+  },
+  {
+   "op": "box",
+   "name": "Ufer W innen",
+   "if": "art == 0 && cW == 0",
+   "at": [
+    -6,
+    -16,
+    "(cN == 1 ? -8 : -6)"
+   ],
+   "size": [
+    2,
+    13,
+    "(cS == 1 ? 8 : 6) - (cN == 1 ? -8 : -6)"
+   ],
+   "color": "soil",
+   "jitter": false
+  },
+  {
+   "op": "box",
+   "name": "Ufer W außen",
+   "if": "art == 1 && cW == 0",
+   "at": [
+    -8,
+    -16,
+    -8
+   ],
+   "size": [
+    2,
+    15,
+    16
+   ],
+   "color": "soil",
+   "jitter": false
+  },
+  {
+   "op": "box",
+   "name": "Ufer W innen",
+   "if": "art == 1 && cW == 0",
+   "at": [
+    -6,
+    -16,
+    "(cN == 1 ? -8 : -6)"
+   ],
+   "size": [
+    2,
+    13,
+    "(cS == 1 ? 8 : 6) - (cN == 1 ? -8 : -6)"
+   ],
+   "color": "soil_dark",
+   "jitter": false
+  },
+  {
+   "op": "box",
+   "name": "Ufer Ecke NO außen",
+   "if": "art == 0 && (diag % 2) == 1 && cN == 1 && cO == 1",
+   "at": [
+    6,
+    -16,
+    -8
+   ],
+   "size": [
+    2,
+    15,
+    2
+   ],
+   "color": "grass_dark",
+   "jitter": false
+  },
+  {
+   "op": "box",
+   "name": "Ufer Ecke NO innen 1",
+   "if": "art == 0 && (diag % 2) == 1 && cN == 1 && cO == 1",
+   "at": [
+    4,
+    -16,
+    -8
+   ],
+   "size": [
+    2,
+    13,
+    4
+   ],
+   "color": "soil",
+   "jitter": false
+  },
+  {
+   "op": "box",
+   "name": "Ufer Ecke NO innen 2",
+   "if": "art == 0 && (diag % 2) == 1 && cN == 1 && cO == 1",
+   "at": [
+    6,
+    -16,
+    -6
+   ],
+   "size": [
+    2,
+    13,
+    2
+   ],
+   "color": "soil",
+   "jitter": false
+  },
+  {
+   "op": "box",
+   "name": "Ufer Ecke NO außen",
+   "if": "art == 1 && (diag % 2) == 1 && cN == 1 && cO == 1",
+   "at": [
+    6,
+    -16,
+    -8
+   ],
+   "size": [
+    2,
+    15,
+    2
+   ],
+   "color": "soil",
+   "jitter": false
+  },
+  {
+   "op": "box",
+   "name": "Ufer Ecke NO innen 1",
+   "if": "art == 1 && (diag % 2) == 1 && cN == 1 && cO == 1",
+   "at": [
+    4,
+    -16,
+    -8
+   ],
+   "size": [
+    2,
+    13,
+    4
+   ],
+   "color": "soil_dark",
+   "jitter": false
+  },
+  {
+   "op": "box",
+   "name": "Ufer Ecke NO innen 2",
+   "if": "art == 1 && (diag % 2) == 1 && cN == 1 && cO == 1",
+   "at": [
+    6,
+    -16,
+    -6
+   ],
+   "size": [
+    2,
+    13,
+    2
+   ],
+   "color": "soil_dark",
+   "jitter": false
+  },
+  {
+   "op": "box",
+   "name": "Ufer Ecke SO außen",
+   "if": "art == 0 && (floor(diag / 2) % 2) == 1 && cS == 1 && cO == 1",
+   "at": [
+    6,
+    -16,
+    6
+   ],
+   "size": [
+    2,
+    15,
+    2
+   ],
+   "color": "grass_dark",
+   "jitter": false
+  },
+  {
+   "op": "box",
+   "name": "Ufer Ecke SO innen 1",
+   "if": "art == 0 && (floor(diag / 2) % 2) == 1 && cS == 1 && cO == 1",
+   "at": [
+    4,
+    -16,
+    4
+   ],
+   "size": [
+    2,
+    13,
+    4
+   ],
+   "color": "soil",
+   "jitter": false
+  },
+  {
+   "op": "box",
+   "name": "Ufer Ecke SO innen 2",
+   "if": "art == 0 && (floor(diag / 2) % 2) == 1 && cS == 1 && cO == 1",
+   "at": [
+    6,
+    -16,
+    4
+   ],
+   "size": [
+    2,
+    13,
+    2
+   ],
+   "color": "soil",
+   "jitter": false
+  },
+  {
+   "op": "box",
+   "name": "Ufer Ecke SO außen",
+   "if": "art == 1 && (floor(diag / 2) % 2) == 1 && cS == 1 && cO == 1",
+   "at": [
+    6,
+    -16,
+    6
+   ],
+   "size": [
+    2,
+    15,
+    2
+   ],
+   "color": "soil",
+   "jitter": false
+  },
+  {
+   "op": "box",
+   "name": "Ufer Ecke SO innen 1",
+   "if": "art == 1 && (floor(diag / 2) % 2) == 1 && cS == 1 && cO == 1",
+   "at": [
+    4,
+    -16,
+    4
+   ],
+   "size": [
+    2,
+    13,
+    4
+   ],
+   "color": "soil_dark",
+   "jitter": false
+  },
+  {
+   "op": "box",
+   "name": "Ufer Ecke SO innen 2",
+   "if": "art == 1 && (floor(diag / 2) % 2) == 1 && cS == 1 && cO == 1",
+   "at": [
+    6,
+    -16,
+    4
+   ],
+   "size": [
+    2,
+    13,
+    2
+   ],
+   "color": "soil_dark",
+   "jitter": false
+  },
+  {
+   "op": "box",
+   "name": "Ufer Ecke SW außen",
+   "if": "art == 0 && (floor(diag / 4) % 2) == 1 && cS == 1 && cW == 1",
+   "at": [
+    -8,
+    -16,
+    6
+   ],
+   "size": [
+    2,
+    15,
+    2
+   ],
+   "color": "grass_dark",
+   "jitter": false
+  },
+  {
+   "op": "box",
+   "name": "Ufer Ecke SW innen 1",
+   "if": "art == 0 && (floor(diag / 4) % 2) == 1 && cS == 1 && cW == 1",
+   "at": [
+    -6,
+    -16,
+    4
+   ],
+   "size": [
+    2,
+    13,
+    4
+   ],
+   "color": "soil",
+   "jitter": false
+  },
+  {
+   "op": "box",
+   "name": "Ufer Ecke SW innen 2",
+   "if": "art == 0 && (floor(diag / 4) % 2) == 1 && cS == 1 && cW == 1",
+   "at": [
+    -8,
+    -16,
+    4
+   ],
+   "size": [
+    2,
+    13,
+    2
+   ],
+   "color": "soil",
+   "jitter": false
+  },
+  {
+   "op": "box",
+   "name": "Ufer Ecke SW außen",
+   "if": "art == 1 && (floor(diag / 4) % 2) == 1 && cS == 1 && cW == 1",
+   "at": [
+    -8,
+    -16,
+    6
+   ],
+   "size": [
+    2,
+    15,
+    2
+   ],
+   "color": "soil",
+   "jitter": false
+  },
+  {
+   "op": "box",
+   "name": "Ufer Ecke SW innen 1",
+   "if": "art == 1 && (floor(diag / 4) % 2) == 1 && cS == 1 && cW == 1",
+   "at": [
+    -6,
+    -16,
+    4
+   ],
+   "size": [
+    2,
+    13,
+    4
+   ],
+   "color": "soil_dark",
+   "jitter": false
+  },
+  {
+   "op": "box",
+   "name": "Ufer Ecke SW innen 2",
+   "if": "art == 1 && (floor(diag / 4) % 2) == 1 && cS == 1 && cW == 1",
+   "at": [
+    -8,
+    -16,
+    4
+   ],
+   "size": [
+    2,
+    13,
+    2
+   ],
+   "color": "soil_dark",
+   "jitter": false
+  },
+  {
+   "op": "box",
+   "name": "Ufer Ecke NW außen",
+   "if": "art == 0 && (floor(diag / 8) % 2) == 1 && cN == 1 && cW == 1",
+   "at": [
+    -8,
+    -16,
+    -8
+   ],
+   "size": [
+    2,
+    15,
+    2
+   ],
+   "color": "grass_dark",
+   "jitter": false
+  },
+  {
+   "op": "box",
+   "name": "Ufer Ecke NW innen 1",
+   "if": "art == 0 && (floor(diag / 8) % 2) == 1 && cN == 1 && cW == 1",
+   "at": [
+    -6,
+    -16,
+    -8
+   ],
+   "size": [
+    2,
+    13,
+    4
+   ],
+   "color": "soil",
+   "jitter": false
+  },
+  {
+   "op": "box",
+   "name": "Ufer Ecke NW innen 2",
+   "if": "art == 0 && (floor(diag / 8) % 2) == 1 && cN == 1 && cW == 1",
+   "at": [
+    -8,
+    -16,
+    -6
+   ],
+   "size": [
+    2,
+    13,
+    2
+   ],
+   "color": "soil",
+   "jitter": false
+  },
+  {
+   "op": "box",
+   "name": "Ufer Ecke NW außen",
+   "if": "art == 1 && (floor(diag / 8) % 2) == 1 && cN == 1 && cW == 1",
+   "at": [
+    -8,
+    -16,
+    -8
+   ],
+   "size": [
+    2,
+    15,
+    2
+   ],
+   "color": "soil",
+   "jitter": false
+  },
+  {
+   "op": "box",
+   "name": "Ufer Ecke NW innen 1",
+   "if": "art == 1 && (floor(diag / 8) % 2) == 1 && cN == 1 && cW == 1",
+   "at": [
+    -6,
+    -16,
+    -8
+   ],
+   "size": [
+    2,
+    13,
+    4
+   ],
+   "color": "soil_dark",
+   "jitter": false
+  },
+  {
+   "op": "box",
+   "name": "Ufer Ecke NW innen 2",
+   "if": "art == 1 && (floor(diag / 8) % 2) == 1 && cN == 1 && cW == 1",
+   "at": [
+    -8,
+    -16,
+    -6
+   ],
+   "size": [
+    2,
+    13,
+    2
+   ],
+   "color": "soil_dark",
+   "jitter": false
+  },
+  {
+   "op": "group",
+   "name": "Treibsand",
+   "if": "art == 2",
+   "ops": [
+    {
+     "op": "box",
+     "name": "Sand (2 Voxel eingesunken)",
+     "at": [
+      -8,
+      -16,
+      -8
+     ],
+     "size": [
+      16,
+      14,
+      16
+     ],
+     "color": "soil",
+     "jitter": false
+    },
+    {
+     "op": "group",
+     "name": "Streifenspalte",
+     "repeat": {
+      "count": 16,
+      "step": [
+       1,
+       0,
+       0
+      ],
+      "var": "i"
+     },
+     "at": [
+      -8,
+      0,
+      0
+     ],
+     "let": {
+      "s": "(((0 - (i - 8)) % 8) + 8) % 8"
+     },
+     "ops": [
+      {
+       "op": "box",
+       "name": "Streifen",
+       "mode": "paint",
+       "repeat": {
+        "count": 4,
+        "step": [
+         0,
+         0,
+         0
+        ],
+        "var": "k"
+       },
+       "at": [
+        0,
+        -3,
+        "-8 + ((s + k % 2) % 8) + 8 * floor(k / 2)"
+       ],
+       "size": [
+        1,
+        1,
+        1
+       ],
+       "color": "grass_dark",
+       "jitter": false
+      }
+     ]
+    }
+   ]
+  }
+ ],
+ "anchor": [
+  0,
+  0,
+  0
+ ]
+}

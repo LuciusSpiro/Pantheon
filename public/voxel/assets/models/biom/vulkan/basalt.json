@@ -1,0 +1,2309 @@
+{
+ "id": "biom/vulkan/basalt",
+ "name": "Basaltsäulen (VOX-02): Stein mit Kollision (ganze Kachel) und Deckung. hoch 0 = halb (0,75 m), hoch 1 = voll (2,06 m). Säulen verschiedener Breite und Höhe (die höchste immer volle Höhe), jeder Kopf in zwei Stufen zu einer Seite schräg abgetreppt (je 1 Voxel), am Fuß liegen ein bis zwei umgestürzte Säulenstücke als Schuttkranz. Jede Säule hat eine eigene Zufallsfarbe aus stone/stone_dark/stone_light (Rollen stone*), keine helle Kappe, kein heller Sockel. seed wählt das Bündel (seed % 3: 0 Bündel aus neun Säulen mit hoher Mitte, 1 Hang aus sechs Säulen, die zur einen Seite abfallen, 2 eine dicke Säule mit Nachbarn und Stümpfen); die Seeds verändern Höhen, Kopfneigung und Schutt",
+ "tier": "detail",
+ "palette": "biom_vulkan",
+ "jitter": 0,
+ "tags": [
+  "biom",
+  "vulkan",
+  "stein",
+  "basalt",
+  "deckung"
+ ],
+ "footprint": [
+  1,
+  1
+ ],
+ "budgetTris": 900,
+ "params": {
+  "hoch": {
+   "default": 0,
+   "min": 0,
+   "max": 1,
+   "step": 1,
+   "label": "0 halbe Deckung (0,75 m) · 1 volle Deckung (2,06 m)"
+  }
+ },
+ "variants": {
+  "halb": {
+   "hoch": 0
+  },
+  "voll": {
+   "hoch": 1
+  }
+ },
+ "let": {
+  "H": "hoch ? 33 : 12",
+  "typ": "floor(seed) % 3"
+ },
+ "ops": [
+  {
+   "op": "group",
+   "name": "Säule 0",
+   "if": "typ == 0",
+   "let": {
+    "h": "max(3, round(H * 0.5) - floor(hash(seed, 0, 1) * (hoch ? 8 : 3)))",
+    "dr": "floor(hash(seed, 0, 2) * 4)"
+   },
+   "ops": [
+    {
+     "op": "box",
+     "name": "Körper 0",
+     "at": [
+      -6,
+      0,
+      -6
+     ],
+     "size": [
+      4,
+      "h - 1 - hoch",
+      4
+     ],
+     "color": {
+      "noise": [
+       "stone",
+       "stone_dark",
+       "stone_light"
+      ],
+      "weights": [
+       3,
+       3,
+       2
+      ],
+      "cell": 1000,
+      "seed": "0 * 5 + 1"
+     }
+    },
+    {
+     "op": "box",
+     "name": "Kopf 0 Stufe 1",
+     "at": [
+      "-6 + (dr == 0 ? 1 : 0)",
+      "h - 1 - hoch",
+      "-6 + (dr == 2 ? 1 : 0)"
+     ],
+     "size": [
+      "4 - (dr < 2 ? 1 : 0)",
+      1,
+      "4 - (dr >= 2 ? 1 : 0)"
+     ],
+     "color": {
+      "noise": [
+       "stone",
+       "stone_dark",
+       "stone_light"
+      ],
+      "weights": [
+       3,
+       3,
+       2
+      ],
+      "cell": 1000,
+      "seed": "0 * 5 + 1"
+     }
+    },
+    {
+     "op": "box",
+     "name": "Kopf 0 Stufe 2",
+     "at": [
+      "-6 + (dr == 0 ? 2 : 0)",
+      "h - 1",
+      "-6 + (dr == 2 ? 2 : 0)"
+     ],
+     "size": [
+      "4 - (dr < 2 ? 2 : 0)",
+      1,
+      "4 - (dr >= 2 ? 2 : 0)"
+     ],
+     "color": {
+      "noise": [
+       "stone",
+       "stone_dark",
+       "stone_light"
+      ],
+      "weights": [
+       3,
+       3,
+       2
+      ],
+      "cell": 1000,
+      "seed": "0 * 5 + 1"
+     },
+     "if": "hoch"
+    }
+   ]
+  },
+  {
+   "op": "group",
+   "name": "Säule 1",
+   "if": "typ == 0",
+   "let": {
+    "h": "max(3, round(H * 0.75) - floor(hash(seed, 1, 1) * (hoch ? 8 : 3)))",
+    "dr": "floor(hash(seed, 1, 2) * 4)"
+   },
+   "ops": [
+    {
+     "op": "box",
+     "name": "Körper 1",
+     "at": [
+      -2,
+      0,
+      -6
+     ],
+     "size": [
+      4,
+      "h - 1 - hoch",
+      4
+     ],
+     "color": {
+      "noise": [
+       "stone",
+       "stone_dark",
+       "stone_light"
+      ],
+      "weights": [
+       3,
+       3,
+       2
+      ],
+      "cell": 1000,
+      "seed": "1 * 5 + 1"
+     }
+    },
+    {
+     "op": "box",
+     "name": "Kopf 1 Stufe 1",
+     "at": [
+      "-2 + (dr == 0 ? 1 : 0)",
+      "h - 1 - hoch",
+      "-6 + (dr == 2 ? 1 : 0)"
+     ],
+     "size": [
+      "4 - (dr < 2 ? 1 : 0)",
+      1,
+      "4 - (dr >= 2 ? 1 : 0)"
+     ],
+     "color": {
+      "noise": [
+       "stone",
+       "stone_dark",
+       "stone_light"
+      ],
+      "weights": [
+       3,
+       3,
+       2
+      ],
+      "cell": 1000,
+      "seed": "1 * 5 + 1"
+     }
+    },
+    {
+     "op": "box",
+     "name": "Kopf 1 Stufe 2",
+     "at": [
+      "-2 + (dr == 0 ? 2 : 0)",
+      "h - 1",
+      "-6 + (dr == 2 ? 2 : 0)"
+     ],
+     "size": [
+      "4 - (dr < 2 ? 2 : 0)",
+      1,
+      "4 - (dr >= 2 ? 2 : 0)"
+     ],
+     "color": {
+      "noise": [
+       "stone",
+       "stone_dark",
+       "stone_light"
+      ],
+      "weights": [
+       3,
+       3,
+       2
+      ],
+      "cell": 1000,
+      "seed": "1 * 5 + 1"
+     },
+     "if": "hoch"
+    }
+   ]
+  },
+  {
+   "op": "group",
+   "name": "Säule 2",
+   "if": "typ == 0 && hoch",
+   "let": {
+    "h": "max(3, round(H * 0.4) - floor(hash(seed, 2, 1) * (hoch ? 8 : 3)))",
+    "dr": "floor(hash(seed, 2, 2) * 4)"
+   },
+   "ops": [
+    {
+     "op": "box",
+     "name": "Körper 2",
+     "at": [
+      2,
+      0,
+      -6
+     ],
+     "size": [
+      4,
+      "h - 1 - hoch",
+      4
+     ],
+     "color": {
+      "noise": [
+       "stone",
+       "stone_dark",
+       "stone_light"
+      ],
+      "weights": [
+       3,
+       3,
+       2
+      ],
+      "cell": 1000,
+      "seed": "2 * 5 + 1"
+     }
+    },
+    {
+     "op": "box",
+     "name": "Kopf 2 Stufe 1",
+     "at": [
+      "2 + (dr == 0 ? 1 : 0)",
+      "h - 1 - hoch",
+      "-6 + (dr == 2 ? 1 : 0)"
+     ],
+     "size": [
+      "4 - (dr < 2 ? 1 : 0)",
+      1,
+      "4 - (dr >= 2 ? 1 : 0)"
+     ],
+     "color": {
+      "noise": [
+       "stone",
+       "stone_dark",
+       "stone_light"
+      ],
+      "weights": [
+       3,
+       3,
+       2
+      ],
+      "cell": 1000,
+      "seed": "2 * 5 + 1"
+     }
+    },
+    {
+     "op": "box",
+     "name": "Kopf 2 Stufe 2",
+     "at": [
+      "2 + (dr == 0 ? 2 : 0)",
+      "h - 1",
+      "-6 + (dr == 2 ? 2 : 0)"
+     ],
+     "size": [
+      "4 - (dr < 2 ? 2 : 0)",
+      1,
+      "4 - (dr >= 2 ? 2 : 0)"
+     ],
+     "color": {
+      "noise": [
+       "stone",
+       "stone_dark",
+       "stone_light"
+      ],
+      "weights": [
+       3,
+       3,
+       2
+      ],
+      "cell": 1000,
+      "seed": "2 * 5 + 1"
+     },
+     "if": "hoch"
+    }
+   ]
+  },
+  {
+   "op": "group",
+   "name": "Säule 3",
+   "if": "typ == 0",
+   "let": {
+    "h": "max(3, round(H * 0.85) - floor(hash(seed, 3, 1) * (hoch ? 8 : 3)))",
+    "dr": "floor(hash(seed, 3, 2) * 4)"
+   },
+   "ops": [
+    {
+     "op": "box",
+     "name": "Körper 3",
+     "at": [
+      -6,
+      0,
+      -2
+     ],
+     "size": [
+      4,
+      "h - 1 - hoch",
+      4
+     ],
+     "color": {
+      "noise": [
+       "stone",
+       "stone_dark",
+       "stone_light"
+      ],
+      "weights": [
+       3,
+       3,
+       2
+      ],
+      "cell": 1000,
+      "seed": "3 * 5 + 1"
+     }
+    },
+    {
+     "op": "box",
+     "name": "Kopf 3 Stufe 1",
+     "at": [
+      "-6 + (dr == 0 ? 1 : 0)",
+      "h - 1 - hoch",
+      "-2 + (dr == 2 ? 1 : 0)"
+     ],
+     "size": [
+      "4 - (dr < 2 ? 1 : 0)",
+      1,
+      "4 - (dr >= 2 ? 1 : 0)"
+     ],
+     "color": {
+      "noise": [
+       "stone",
+       "stone_dark",
+       "stone_light"
+      ],
+      "weights": [
+       3,
+       3,
+       2
+      ],
+      "cell": 1000,
+      "seed": "3 * 5 + 1"
+     }
+    },
+    {
+     "op": "box",
+     "name": "Kopf 3 Stufe 2",
+     "at": [
+      "-6 + (dr == 0 ? 2 : 0)",
+      "h - 1",
+      "-2 + (dr == 2 ? 2 : 0)"
+     ],
+     "size": [
+      "4 - (dr < 2 ? 2 : 0)",
+      1,
+      "4 - (dr >= 2 ? 2 : 0)"
+     ],
+     "color": {
+      "noise": [
+       "stone",
+       "stone_dark",
+       "stone_light"
+      ],
+      "weights": [
+       3,
+       3,
+       2
+      ],
+      "cell": 1000,
+      "seed": "3 * 5 + 1"
+     },
+     "if": "hoch"
+    }
+   ]
+  },
+  {
+   "op": "group",
+   "name": "Säule 4",
+   "if": "typ == 0",
+   "let": {
+    "h": "H",
+    "dr": "floor(hash(seed, 4, 2) * 4)"
+   },
+   "ops": [
+    {
+     "op": "box",
+     "name": "Körper 4",
+     "at": [
+      -2,
+      0,
+      -2
+     ],
+     "size": [
+      4,
+      "h - 1 - hoch",
+      4
+     ],
+     "color": {
+      "noise": [
+       "stone",
+       "stone_dark",
+       "stone_light"
+      ],
+      "weights": [
+       3,
+       3,
+       2
+      ],
+      "cell": 1000,
+      "seed": "4 * 5 + 1"
+     }
+    },
+    {
+     "op": "box",
+     "name": "Kopf 4 Stufe 1",
+     "at": [
+      "-2 + (dr == 0 ? 1 : 0)",
+      "h - 1 - hoch",
+      "-2 + (dr == 2 ? 1 : 0)"
+     ],
+     "size": [
+      "4 - (dr < 2 ? 1 : 0)",
+      1,
+      "4 - (dr >= 2 ? 1 : 0)"
+     ],
+     "color": {
+      "noise": [
+       "stone",
+       "stone_dark",
+       "stone_light"
+      ],
+      "weights": [
+       3,
+       3,
+       2
+      ],
+      "cell": 1000,
+      "seed": "4 * 5 + 1"
+     }
+    },
+    {
+     "op": "box",
+     "name": "Kopf 4 Stufe 2",
+     "at": [
+      "-2 + (dr == 0 ? 2 : 0)",
+      "h - 1",
+      "-2 + (dr == 2 ? 2 : 0)"
+     ],
+     "size": [
+      "4 - (dr < 2 ? 2 : 0)",
+      1,
+      "4 - (dr >= 2 ? 2 : 0)"
+     ],
+     "color": {
+      "noise": [
+       "stone",
+       "stone_dark",
+       "stone_light"
+      ],
+      "weights": [
+       3,
+       3,
+       2
+      ],
+      "cell": 1000,
+      "seed": "4 * 5 + 1"
+     },
+     "if": "hoch"
+    }
+   ]
+  },
+  {
+   "op": "group",
+   "name": "Säule 5",
+   "if": "typ == 0",
+   "let": {
+    "h": "max(3, round(H * 0.55) - floor(hash(seed, 5, 1) * (hoch ? 8 : 3)))",
+    "dr": "floor(hash(seed, 5, 2) * 4)"
+   },
+   "ops": [
+    {
+     "op": "box",
+     "name": "Körper 5",
+     "at": [
+      2,
+      0,
+      -2
+     ],
+     "size": [
+      4,
+      "h - 1 - hoch",
+      4
+     ],
+     "color": {
+      "noise": [
+       "stone",
+       "stone_dark",
+       "stone_light"
+      ],
+      "weights": [
+       3,
+       3,
+       2
+      ],
+      "cell": 1000,
+      "seed": "5 * 5 + 1"
+     }
+    },
+    {
+     "op": "box",
+     "name": "Kopf 5 Stufe 1",
+     "at": [
+      "2 + (dr == 0 ? 1 : 0)",
+      "h - 1 - hoch",
+      "-2 + (dr == 2 ? 1 : 0)"
+     ],
+     "size": [
+      "4 - (dr < 2 ? 1 : 0)",
+      1,
+      "4 - (dr >= 2 ? 1 : 0)"
+     ],
+     "color": {
+      "noise": [
+       "stone",
+       "stone_dark",
+       "stone_light"
+      ],
+      "weights": [
+       3,
+       3,
+       2
+      ],
+      "cell": 1000,
+      "seed": "5 * 5 + 1"
+     }
+    },
+    {
+     "op": "box",
+     "name": "Kopf 5 Stufe 2",
+     "at": [
+      "2 + (dr == 0 ? 2 : 0)",
+      "h - 1",
+      "-2 + (dr == 2 ? 2 : 0)"
+     ],
+     "size": [
+      "4 - (dr < 2 ? 2 : 0)",
+      1,
+      "4 - (dr >= 2 ? 2 : 0)"
+     ],
+     "color": {
+      "noise": [
+       "stone",
+       "stone_dark",
+       "stone_light"
+      ],
+      "weights": [
+       3,
+       3,
+       2
+      ],
+      "cell": 1000,
+      "seed": "5 * 5 + 1"
+     },
+     "if": "hoch"
+    }
+   ]
+  },
+  {
+   "op": "group",
+   "name": "Säule 6",
+   "if": "typ == 0 && hoch",
+   "let": {
+    "h": "max(3, round(H * 0.35) - floor(hash(seed, 6, 1) * (hoch ? 8 : 3)))",
+    "dr": "floor(hash(seed, 6, 2) * 4)"
+   },
+   "ops": [
+    {
+     "op": "box",
+     "name": "Körper 6",
+     "at": [
+      -6,
+      0,
+      2
+     ],
+     "size": [
+      4,
+      "h - 1 - hoch",
+      4
+     ],
+     "color": {
+      "noise": [
+       "stone",
+       "stone_dark",
+       "stone_light"
+      ],
+      "weights": [
+       3,
+       3,
+       2
+      ],
+      "cell": 1000,
+      "seed": "6 * 5 + 1"
+     }
+    },
+    {
+     "op": "box",
+     "name": "Kopf 6 Stufe 1",
+     "at": [
+      "-6 + (dr == 0 ? 1 : 0)",
+      "h - 1 - hoch",
+      "2 + (dr == 2 ? 1 : 0)"
+     ],
+     "size": [
+      "4 - (dr < 2 ? 1 : 0)",
+      1,
+      "4 - (dr >= 2 ? 1 : 0)"
+     ],
+     "color": {
+      "noise": [
+       "stone",
+       "stone_dark",
+       "stone_light"
+      ],
+      "weights": [
+       3,
+       3,
+       2
+      ],
+      "cell": 1000,
+      "seed": "6 * 5 + 1"
+     }
+    },
+    {
+     "op": "box",
+     "name": "Kopf 6 Stufe 2",
+     "at": [
+      "-6 + (dr == 0 ? 2 : 0)",
+      "h - 1",
+      "2 + (dr == 2 ? 2 : 0)"
+     ],
+     "size": [
+      "4 - (dr < 2 ? 2 : 0)",
+      1,
+      "4 - (dr >= 2 ? 2 : 0)"
+     ],
+     "color": {
+      "noise": [
+       "stone",
+       "stone_dark",
+       "stone_light"
+      ],
+      "weights": [
+       3,
+       3,
+       2
+      ],
+      "cell": 1000,
+      "seed": "6 * 5 + 1"
+     },
+     "if": "hoch"
+    }
+   ]
+  },
+  {
+   "op": "group",
+   "name": "Säule 7",
+   "if": "typ == 0",
+   "let": {
+    "h": "max(3, round(H * 0.7) - floor(hash(seed, 7, 1) * (hoch ? 8 : 3)))",
+    "dr": "floor(hash(seed, 7, 2) * 4)"
+   },
+   "ops": [
+    {
+     "op": "box",
+     "name": "Körper 7",
+     "at": [
+      -2,
+      0,
+      2
+     ],
+     "size": [
+      4,
+      "h - 1 - hoch",
+      4
+     ],
+     "color": {
+      "noise": [
+       "stone",
+       "stone_dark",
+       "stone_light"
+      ],
+      "weights": [
+       3,
+       3,
+       2
+      ],
+      "cell": 1000,
+      "seed": "7 * 5 + 1"
+     }
+    },
+    {
+     "op": "box",
+     "name": "Kopf 7 Stufe 1",
+     "at": [
+      "-2 + (dr == 0 ? 1 : 0)",
+      "h - 1 - hoch",
+      "2 + (dr == 2 ? 1 : 0)"
+     ],
+     "size": [
+      "4 - (dr < 2 ? 1 : 0)",
+      1,
+      "4 - (dr >= 2 ? 1 : 0)"
+     ],
+     "color": {
+      "noise": [
+       "stone",
+       "stone_dark",
+       "stone_light"
+      ],
+      "weights": [
+       3,
+       3,
+       2
+      ],
+      "cell": 1000,
+      "seed": "7 * 5 + 1"
+     }
+    },
+    {
+     "op": "box",
+     "name": "Kopf 7 Stufe 2",
+     "at": [
+      "-2 + (dr == 0 ? 2 : 0)",
+      "h - 1",
+      "2 + (dr == 2 ? 2 : 0)"
+     ],
+     "size": [
+      "4 - (dr < 2 ? 2 : 0)",
+      1,
+      "4 - (dr >= 2 ? 2 : 0)"
+     ],
+     "color": {
+      "noise": [
+       "stone",
+       "stone_dark",
+       "stone_light"
+      ],
+      "weights": [
+       3,
+       3,
+       2
+      ],
+      "cell": 1000,
+      "seed": "7 * 5 + 1"
+     },
+     "if": "hoch"
+    }
+   ]
+  },
+  {
+   "op": "group",
+   "name": "Säule 8",
+   "if": "typ == 0",
+   "let": {
+    "h": "max(3, round(H * 0.5) - floor(hash(seed, 8, 1) * (hoch ? 8 : 3)))",
+    "dr": "floor(hash(seed, 8, 2) * 4)"
+   },
+   "ops": [
+    {
+     "op": "box",
+     "name": "Körper 8",
+     "at": [
+      2,
+      0,
+      2
+     ],
+     "size": [
+      4,
+      "h - 1 - hoch",
+      4
+     ],
+     "color": {
+      "noise": [
+       "stone",
+       "stone_dark",
+       "stone_light"
+      ],
+      "weights": [
+       3,
+       3,
+       2
+      ],
+      "cell": 1000,
+      "seed": "8 * 5 + 1"
+     }
+    },
+    {
+     "op": "box",
+     "name": "Kopf 8 Stufe 1",
+     "at": [
+      "2 + (dr == 0 ? 1 : 0)",
+      "h - 1 - hoch",
+      "2 + (dr == 2 ? 1 : 0)"
+     ],
+     "size": [
+      "4 - (dr < 2 ? 1 : 0)",
+      1,
+      "4 - (dr >= 2 ? 1 : 0)"
+     ],
+     "color": {
+      "noise": [
+       "stone",
+       "stone_dark",
+       "stone_light"
+      ],
+      "weights": [
+       3,
+       3,
+       2
+      ],
+      "cell": 1000,
+      "seed": "8 * 5 + 1"
+     }
+    },
+    {
+     "op": "box",
+     "name": "Kopf 8 Stufe 2",
+     "at": [
+      "2 + (dr == 0 ? 2 : 0)",
+      "h - 1",
+      "2 + (dr == 2 ? 2 : 0)"
+     ],
+     "size": [
+      "4 - (dr < 2 ? 2 : 0)",
+      1,
+      "4 - (dr >= 2 ? 2 : 0)"
+     ],
+     "color": {
+      "noise": [
+       "stone",
+       "stone_dark",
+       "stone_light"
+      ],
+      "weights": [
+       3,
+       3,
+       2
+      ],
+      "cell": 1000,
+      "seed": "8 * 5 + 1"
+     },
+     "if": "hoch"
+    }
+   ]
+  },
+  {
+   "op": "group",
+   "name": "Säule 10",
+   "if": "typ == 1",
+   "let": {
+    "h": "H",
+    "dr": "floor(hash(seed, 10, 2) * 4)"
+   },
+   "ops": [
+    {
+     "op": "box",
+     "name": "Körper 10",
+     "at": [
+      -7,
+      0,
+      -6
+     ],
+     "size": [
+      4,
+      "h - 1 - hoch",
+      4
+     ],
+     "color": {
+      "noise": [
+       "stone",
+       "stone_dark",
+       "stone_light"
+      ],
+      "weights": [
+       3,
+       3,
+       2
+      ],
+      "cell": 1000,
+      "seed": "10 * 5 + 1"
+     }
+    },
+    {
+     "op": "box",
+     "name": "Kopf 10 Stufe 1",
+     "at": [
+      "-7 + (dr == 0 ? 1 : 0)",
+      "h - 1 - hoch",
+      "-6 + (dr == 2 ? 1 : 0)"
+     ],
+     "size": [
+      "4 - (dr < 2 ? 1 : 0)",
+      1,
+      "4 - (dr >= 2 ? 1 : 0)"
+     ],
+     "color": {
+      "noise": [
+       "stone",
+       "stone_dark",
+       "stone_light"
+      ],
+      "weights": [
+       3,
+       3,
+       2
+      ],
+      "cell": 1000,
+      "seed": "10 * 5 + 1"
+     }
+    },
+    {
+     "op": "box",
+     "name": "Kopf 10 Stufe 2",
+     "at": [
+      "-7 + (dr == 0 ? 2 : 0)",
+      "h - 1",
+      "-6 + (dr == 2 ? 2 : 0)"
+     ],
+     "size": [
+      "4 - (dr < 2 ? 2 : 0)",
+      1,
+      "4 - (dr >= 2 ? 2 : 0)"
+     ],
+     "color": {
+      "noise": [
+       "stone",
+       "stone_dark",
+       "stone_light"
+      ],
+      "weights": [
+       3,
+       3,
+       2
+      ],
+      "cell": 1000,
+      "seed": "10 * 5 + 1"
+     },
+     "if": "hoch"
+    }
+   ]
+  },
+  {
+   "op": "group",
+   "name": "Säule 11",
+   "if": "typ == 1",
+   "let": {
+    "h": "max(3, round(H * 0.78) - floor(hash(seed, 11, 1) * (hoch ? 8 : 3)))",
+    "dr": "floor(hash(seed, 11, 2) * 4)"
+   },
+   "ops": [
+    {
+     "op": "box",
+     "name": "Körper 11",
+     "at": [
+      -7,
+      0,
+      -1
+     ],
+     "size": [
+      4,
+      "h - 1 - hoch",
+      5
+     ],
+     "color": {
+      "noise": [
+       "stone",
+       "stone_dark",
+       "stone_light"
+      ],
+      "weights": [
+       3,
+       3,
+       2
+      ],
+      "cell": 1000,
+      "seed": "11 * 5 + 1"
+     }
+    },
+    {
+     "op": "box",
+     "name": "Kopf 11 Stufe 1",
+     "at": [
+      "-7 + (dr == 0 ? 1 : 0)",
+      "h - 1 - hoch",
+      "-1 + (dr == 2 ? 1 : 0)"
+     ],
+     "size": [
+      "4 - (dr < 2 ? 1 : 0)",
+      1,
+      "5 - (dr >= 2 ? 1 : 0)"
+     ],
+     "color": {
+      "noise": [
+       "stone",
+       "stone_dark",
+       "stone_light"
+      ],
+      "weights": [
+       3,
+       3,
+       2
+      ],
+      "cell": 1000,
+      "seed": "11 * 5 + 1"
+     }
+    },
+    {
+     "op": "box",
+     "name": "Kopf 11 Stufe 2",
+     "at": [
+      "-7 + (dr == 0 ? 2 : 0)",
+      "h - 1",
+      "-1 + (dr == 2 ? 2 : 0)"
+     ],
+     "size": [
+      "4 - (dr < 2 ? 2 : 0)",
+      1,
+      "5 - (dr >= 2 ? 2 : 0)"
+     ],
+     "color": {
+      "noise": [
+       "stone",
+       "stone_dark",
+       "stone_light"
+      ],
+      "weights": [
+       3,
+       3,
+       2
+      ],
+      "cell": 1000,
+      "seed": "11 * 5 + 1"
+     },
+     "if": "hoch"
+    }
+   ]
+  },
+  {
+   "op": "group",
+   "name": "Säule 12",
+   "if": "typ == 1",
+   "let": {
+    "h": "max(3, round(H * 0.6) - floor(hash(seed, 12, 1) * (hoch ? 8 : 3)))",
+    "dr": "floor(hash(seed, 12, 2) * 4)"
+   },
+   "ops": [
+    {
+     "op": "box",
+     "name": "Körper 12",
+     "at": [
+      -3,
+      0,
+      -6
+     ],
+     "size": [
+      4,
+      "h - 1 - hoch",
+      5
+     ],
+     "color": {
+      "noise": [
+       "stone",
+       "stone_dark",
+       "stone_light"
+      ],
+      "weights": [
+       3,
+       3,
+       2
+      ],
+      "cell": 1000,
+      "seed": "12 * 5 + 1"
+     }
+    },
+    {
+     "op": "box",
+     "name": "Kopf 12 Stufe 1",
+     "at": [
+      "-3 + (dr == 0 ? 1 : 0)",
+      "h - 1 - hoch",
+      "-6 + (dr == 2 ? 1 : 0)"
+     ],
+     "size": [
+      "4 - (dr < 2 ? 1 : 0)",
+      1,
+      "5 - (dr >= 2 ? 1 : 0)"
+     ],
+     "color": {
+      "noise": [
+       "stone",
+       "stone_dark",
+       "stone_light"
+      ],
+      "weights": [
+       3,
+       3,
+       2
+      ],
+      "cell": 1000,
+      "seed": "12 * 5 + 1"
+     }
+    },
+    {
+     "op": "box",
+     "name": "Kopf 12 Stufe 2",
+     "at": [
+      "-3 + (dr == 0 ? 2 : 0)",
+      "h - 1",
+      "-6 + (dr == 2 ? 2 : 0)"
+     ],
+     "size": [
+      "4 - (dr < 2 ? 2 : 0)",
+      1,
+      "5 - (dr >= 2 ? 2 : 0)"
+     ],
+     "color": {
+      "noise": [
+       "stone",
+       "stone_dark",
+       "stone_light"
+      ],
+      "weights": [
+       3,
+       3,
+       2
+      ],
+      "cell": 1000,
+      "seed": "12 * 5 + 1"
+     },
+     "if": "hoch"
+    }
+   ]
+  },
+  {
+   "op": "group",
+   "name": "Säule 13",
+   "if": "typ == 1",
+   "let": {
+    "h": "max(3, round(H * 0.5) - floor(hash(seed, 13, 1) * (hoch ? 8 : 3)))",
+    "dr": "floor(hash(seed, 13, 2) * 4)"
+   },
+   "ops": [
+    {
+     "op": "box",
+     "name": "Körper 13",
+     "at": [
+      -3,
+      0,
+      -1
+     ],
+     "size": [
+      4,
+      "h - 1 - hoch",
+      4
+     ],
+     "color": {
+      "noise": [
+       "stone",
+       "stone_dark",
+       "stone_light"
+      ],
+      "weights": [
+       3,
+       3,
+       2
+      ],
+      "cell": 1000,
+      "seed": "13 * 5 + 1"
+     }
+    },
+    {
+     "op": "box",
+     "name": "Kopf 13 Stufe 1",
+     "at": [
+      "-3 + (dr == 0 ? 1 : 0)",
+      "h - 1 - hoch",
+      "-1 + (dr == 2 ? 1 : 0)"
+     ],
+     "size": [
+      "4 - (dr < 2 ? 1 : 0)",
+      1,
+      "4 - (dr >= 2 ? 1 : 0)"
+     ],
+     "color": {
+      "noise": [
+       "stone",
+       "stone_dark",
+       "stone_light"
+      ],
+      "weights": [
+       3,
+       3,
+       2
+      ],
+      "cell": 1000,
+      "seed": "13 * 5 + 1"
+     }
+    },
+    {
+     "op": "box",
+     "name": "Kopf 13 Stufe 2",
+     "at": [
+      "-3 + (dr == 0 ? 2 : 0)",
+      "h - 1",
+      "-1 + (dr == 2 ? 2 : 0)"
+     ],
+     "size": [
+      "4 - (dr < 2 ? 2 : 0)",
+      1,
+      "4 - (dr >= 2 ? 2 : 0)"
+     ],
+     "color": {
+      "noise": [
+       "stone",
+       "stone_dark",
+       "stone_light"
+      ],
+      "weights": [
+       3,
+       3,
+       2
+      ],
+      "cell": 1000,
+      "seed": "13 * 5 + 1"
+     },
+     "if": "hoch"
+    }
+   ]
+  },
+  {
+   "op": "group",
+   "name": "Säule 14",
+   "if": "typ == 1",
+   "let": {
+    "h": "max(3, round(H * 0.34) - floor(hash(seed, 14, 1) * (hoch ? 8 : 3)))",
+    "dr": "floor(hash(seed, 14, 2) * 4)"
+   },
+   "ops": [
+    {
+     "op": "box",
+     "name": "Körper 14",
+     "at": [
+      1,
+      0,
+      -5
+     ],
+     "size": [
+      4,
+      "h - 1 - hoch",
+      4
+     ],
+     "color": {
+      "noise": [
+       "stone",
+       "stone_dark",
+       "stone_light"
+      ],
+      "weights": [
+       3,
+       3,
+       2
+      ],
+      "cell": 1000,
+      "seed": "14 * 5 + 1"
+     }
+    },
+    {
+     "op": "box",
+     "name": "Kopf 14 Stufe 1",
+     "at": [
+      "1 + (dr == 0 ? 1 : 0)",
+      "h - 1 - hoch",
+      "-5 + (dr == 2 ? 1 : 0)"
+     ],
+     "size": [
+      "4 - (dr < 2 ? 1 : 0)",
+      1,
+      "4 - (dr >= 2 ? 1 : 0)"
+     ],
+     "color": {
+      "noise": [
+       "stone",
+       "stone_dark",
+       "stone_light"
+      ],
+      "weights": [
+       3,
+       3,
+       2
+      ],
+      "cell": 1000,
+      "seed": "14 * 5 + 1"
+     }
+    },
+    {
+     "op": "box",
+     "name": "Kopf 14 Stufe 2",
+     "at": [
+      "1 + (dr == 0 ? 2 : 0)",
+      "h - 1",
+      "-5 + (dr == 2 ? 2 : 0)"
+     ],
+     "size": [
+      "4 - (dr < 2 ? 2 : 0)",
+      1,
+      "4 - (dr >= 2 ? 2 : 0)"
+     ],
+     "color": {
+      "noise": [
+       "stone",
+       "stone_dark",
+       "stone_light"
+      ],
+      "weights": [
+       3,
+       3,
+       2
+      ],
+      "cell": 1000,
+      "seed": "14 * 5 + 1"
+     },
+     "if": "hoch"
+    }
+   ]
+  },
+  {
+   "op": "group",
+   "name": "Säule 15",
+   "if": "typ == 1",
+   "let": {
+    "h": "max(3, round(H * 0.26) - floor(hash(seed, 15, 1) * (hoch ? 8 : 3)))",
+    "dr": "floor(hash(seed, 15, 2) * 4)"
+   },
+   "ops": [
+    {
+     "op": "box",
+     "name": "Körper 15",
+     "at": [
+      1,
+      0,
+      -1
+     ],
+     "size": [
+      5,
+      "h - 1 - hoch",
+      4
+     ],
+     "color": {
+      "noise": [
+       "stone",
+       "stone_dark",
+       "stone_light"
+      ],
+      "weights": [
+       3,
+       3,
+       2
+      ],
+      "cell": 1000,
+      "seed": "15 * 5 + 1"
+     }
+    },
+    {
+     "op": "box",
+     "name": "Kopf 15 Stufe 1",
+     "at": [
+      "1 + (dr == 0 ? 1 : 0)",
+      "h - 1 - hoch",
+      "-1 + (dr == 2 ? 1 : 0)"
+     ],
+     "size": [
+      "5 - (dr < 2 ? 1 : 0)",
+      1,
+      "4 - (dr >= 2 ? 1 : 0)"
+     ],
+     "color": {
+      "noise": [
+       "stone",
+       "stone_dark",
+       "stone_light"
+      ],
+      "weights": [
+       3,
+       3,
+       2
+      ],
+      "cell": 1000,
+      "seed": "15 * 5 + 1"
+     }
+    },
+    {
+     "op": "box",
+     "name": "Kopf 15 Stufe 2",
+     "at": [
+      "1 + (dr == 0 ? 2 : 0)",
+      "h - 1",
+      "-1 + (dr == 2 ? 2 : 0)"
+     ],
+     "size": [
+      "5 - (dr < 2 ? 2 : 0)",
+      1,
+      "4 - (dr >= 2 ? 2 : 0)"
+     ],
+     "color": {
+      "noise": [
+       "stone",
+       "stone_dark",
+       "stone_light"
+      ],
+      "weights": [
+       3,
+       3,
+       2
+      ],
+      "cell": 1000,
+      "seed": "15 * 5 + 1"
+     },
+     "if": "hoch"
+    }
+   ]
+  },
+  {
+   "op": "group",
+   "name": "Säule 20",
+   "if": "typ == 2",
+   "let": {
+    "h": "H",
+    "dr": "floor(hash(seed, 20, 2) * 4)"
+   },
+   "ops": [
+    {
+     "op": "box",
+     "name": "Körper 20",
+     "at": [
+      -6,
+      0,
+      -6
+     ],
+     "size": [
+      5,
+      "h - 1 - hoch",
+      5
+     ],
+     "color": {
+      "noise": [
+       "stone",
+       "stone_dark",
+       "stone_light"
+      ],
+      "weights": [
+       3,
+       3,
+       2
+      ],
+      "cell": 1000,
+      "seed": "20 * 5 + 1"
+     }
+    },
+    {
+     "op": "box",
+     "name": "Kopf 20 Stufe 1",
+     "at": [
+      "-6 + (dr == 0 ? 1 : 0)",
+      "h - 1 - hoch",
+      "-6 + (dr == 2 ? 1 : 0)"
+     ],
+     "size": [
+      "5 - (dr < 2 ? 1 : 0)",
+      1,
+      "5 - (dr >= 2 ? 1 : 0)"
+     ],
+     "color": {
+      "noise": [
+       "stone",
+       "stone_dark",
+       "stone_light"
+      ],
+      "weights": [
+       3,
+       3,
+       2
+      ],
+      "cell": 1000,
+      "seed": "20 * 5 + 1"
+     }
+    },
+    {
+     "op": "box",
+     "name": "Kopf 20 Stufe 2",
+     "at": [
+      "-6 + (dr == 0 ? 2 : 0)",
+      "h - 1",
+      "-6 + (dr == 2 ? 2 : 0)"
+     ],
+     "size": [
+      "5 - (dr < 2 ? 2 : 0)",
+      1,
+      "5 - (dr >= 2 ? 2 : 0)"
+     ],
+     "color": {
+      "noise": [
+       "stone",
+       "stone_dark",
+       "stone_light"
+      ],
+      "weights": [
+       3,
+       3,
+       2
+      ],
+      "cell": 1000,
+      "seed": "20 * 5 + 1"
+     },
+     "if": "hoch"
+    }
+   ]
+  },
+  {
+   "op": "group",
+   "name": "Säule 21",
+   "if": "typ == 2",
+   "let": {
+    "h": "max(3, round(H * 0.62) - floor(hash(seed, 21, 1) * (hoch ? 8 : 3)))",
+    "dr": "floor(hash(seed, 21, 2) * 4)"
+   },
+   "ops": [
+    {
+     "op": "box",
+     "name": "Körper 21",
+     "at": [
+      0,
+      0,
+      -3
+     ],
+     "size": [
+      5,
+      "h - 1 - hoch",
+      5
+     ],
+     "color": {
+      "noise": [
+       "stone",
+       "stone_dark",
+       "stone_light"
+      ],
+      "weights": [
+       3,
+       3,
+       2
+      ],
+      "cell": 1000,
+      "seed": "21 * 5 + 1"
+     }
+    },
+    {
+     "op": "box",
+     "name": "Kopf 21 Stufe 1",
+     "at": [
+      "0 + (dr == 0 ? 1 : 0)",
+      "h - 1 - hoch",
+      "-3 + (dr == 2 ? 1 : 0)"
+     ],
+     "size": [
+      "5 - (dr < 2 ? 1 : 0)",
+      1,
+      "5 - (dr >= 2 ? 1 : 0)"
+     ],
+     "color": {
+      "noise": [
+       "stone",
+       "stone_dark",
+       "stone_light"
+      ],
+      "weights": [
+       3,
+       3,
+       2
+      ],
+      "cell": 1000,
+      "seed": "21 * 5 + 1"
+     }
+    },
+    {
+     "op": "box",
+     "name": "Kopf 21 Stufe 2",
+     "at": [
+      "0 + (dr == 0 ? 2 : 0)",
+      "h - 1",
+      "-3 + (dr == 2 ? 2 : 0)"
+     ],
+     "size": [
+      "5 - (dr < 2 ? 2 : 0)",
+      1,
+      "5 - (dr >= 2 ? 2 : 0)"
+     ],
+     "color": {
+      "noise": [
+       "stone",
+       "stone_dark",
+       "stone_light"
+      ],
+      "weights": [
+       3,
+       3,
+       2
+      ],
+      "cell": 1000,
+      "seed": "21 * 5 + 1"
+     },
+     "if": "hoch"
+    }
+   ]
+  },
+  {
+   "op": "group",
+   "name": "Säule 22",
+   "if": "typ == 2",
+   "let": {
+    "h": "max(3, round(H * 0.4) - floor(hash(seed, 22, 1) * (hoch ? 8 : 3)))",
+    "dr": "floor(hash(seed, 22, 2) * 4)"
+   },
+   "ops": [
+    {
+     "op": "box",
+     "name": "Körper 22",
+     "at": [
+      -6,
+      0,
+      0
+     ],
+     "size": [
+      4,
+      "h - 1 - hoch",
+      4
+     ],
+     "color": {
+      "noise": [
+       "stone",
+       "stone_dark",
+       "stone_light"
+      ],
+      "weights": [
+       3,
+       3,
+       2
+      ],
+      "cell": 1000,
+      "seed": "22 * 5 + 1"
+     }
+    },
+    {
+     "op": "box",
+     "name": "Kopf 22 Stufe 1",
+     "at": [
+      "-6 + (dr == 0 ? 1 : 0)",
+      "h - 1 - hoch",
+      "0 + (dr == 2 ? 1 : 0)"
+     ],
+     "size": [
+      "4 - (dr < 2 ? 1 : 0)",
+      1,
+      "4 - (dr >= 2 ? 1 : 0)"
+     ],
+     "color": {
+      "noise": [
+       "stone",
+       "stone_dark",
+       "stone_light"
+      ],
+      "weights": [
+       3,
+       3,
+       2
+      ],
+      "cell": 1000,
+      "seed": "22 * 5 + 1"
+     }
+    },
+    {
+     "op": "box",
+     "name": "Kopf 22 Stufe 2",
+     "at": [
+      "-6 + (dr == 0 ? 2 : 0)",
+      "h - 1",
+      "0 + (dr == 2 ? 2 : 0)"
+     ],
+     "size": [
+      "4 - (dr < 2 ? 2 : 0)",
+      1,
+      "4 - (dr >= 2 ? 2 : 0)"
+     ],
+     "color": {
+      "noise": [
+       "stone",
+       "stone_dark",
+       "stone_light"
+      ],
+      "weights": [
+       3,
+       3,
+       2
+      ],
+      "cell": 1000,
+      "seed": "22 * 5 + 1"
+     },
+     "if": "hoch"
+    }
+   ]
+  },
+  {
+   "op": "group",
+   "name": "Säule 23",
+   "if": "typ == 2",
+   "let": {
+    "h": "max(3, round(H * 0.3) - floor(hash(seed, 23, 1) * (hoch ? 8 : 3)))",
+    "dr": "floor(hash(seed, 23, 2) * 4)"
+   },
+   "ops": [
+    {
+     "op": "box",
+     "name": "Körper 23",
+     "at": [
+      -1,
+      0,
+      2
+     ],
+     "size": [
+      3,
+      "h - 1 - hoch",
+      4
+     ],
+     "color": {
+      "noise": [
+       "stone",
+       "stone_dark",
+       "stone_light"
+      ],
+      "weights": [
+       3,
+       3,
+       2
+      ],
+      "cell": 1000,
+      "seed": "23 * 5 + 1"
+     }
+    },
+    {
+     "op": "box",
+     "name": "Kopf 23 Stufe 1",
+     "at": [
+      "-1 + (dr == 0 ? 1 : 0)",
+      "h - 1 - hoch",
+      "2 + (dr == 2 ? 1 : 0)"
+     ],
+     "size": [
+      "3 - (dr < 2 ? 1 : 0)",
+      1,
+      "4 - (dr >= 2 ? 1 : 0)"
+     ],
+     "color": {
+      "noise": [
+       "stone",
+       "stone_dark",
+       "stone_light"
+      ],
+      "weights": [
+       3,
+       3,
+       2
+      ],
+      "cell": 1000,
+      "seed": "23 * 5 + 1"
+     }
+    },
+    {
+     "op": "box",
+     "name": "Kopf 23 Stufe 2",
+     "at": [
+      "-1 + (dr == 0 ? 2 : 0)",
+      "h - 1",
+      "2 + (dr == 2 ? 2 : 0)"
+     ],
+     "size": [
+      "3 - (dr < 2 ? 2 : 0)",
+      1,
+      "4 - (dr >= 2 ? 2 : 0)"
+     ],
+     "color": {
+      "noise": [
+       "stone",
+       "stone_dark",
+       "stone_light"
+      ],
+      "weights": [
+       3,
+       3,
+       2
+      ],
+      "cell": 1000,
+      "seed": "23 * 5 + 1"
+     },
+     "if": "hoch"
+    }
+   ]
+  },
+  {
+   "op": "group",
+   "name": "Säule 24",
+   "if": "typ == 2",
+   "let": {
+    "h": "max(3, round(H * 0.45) - floor(hash(seed, 24, 1) * (hoch ? 8 : 3)))",
+    "dr": "floor(hash(seed, 24, 2) * 4)"
+   },
+   "ops": [
+    {
+     "op": "box",
+     "name": "Körper 24",
+     "at": [
+      0,
+      0,
+      -7
+     ],
+     "size": [
+      4,
+      "h - 1 - hoch",
+      3
+     ],
+     "color": {
+      "noise": [
+       "stone",
+       "stone_dark",
+       "stone_light"
+      ],
+      "weights": [
+       3,
+       3,
+       2
+      ],
+      "cell": 1000,
+      "seed": "24 * 5 + 1"
+     }
+    },
+    {
+     "op": "box",
+     "name": "Kopf 24 Stufe 1",
+     "at": [
+      "0 + (dr == 0 ? 1 : 0)",
+      "h - 1 - hoch",
+      "-7 + (dr == 2 ? 1 : 0)"
+     ],
+     "size": [
+      "4 - (dr < 2 ? 1 : 0)",
+      1,
+      "3 - (dr >= 2 ? 1 : 0)"
+     ],
+     "color": {
+      "noise": [
+       "stone",
+       "stone_dark",
+       "stone_light"
+      ],
+      "weights": [
+       3,
+       3,
+       2
+      ],
+      "cell": 1000,
+      "seed": "24 * 5 + 1"
+     }
+    },
+    {
+     "op": "box",
+     "name": "Kopf 24 Stufe 2",
+     "at": [
+      "0 + (dr == 0 ? 2 : 0)",
+      "h - 1",
+      "-7 + (dr == 2 ? 2 : 0)"
+     ],
+     "size": [
+      "4 - (dr < 2 ? 2 : 0)",
+      1,
+      "3 - (dr >= 2 ? 2 : 0)"
+     ],
+     "color": {
+      "noise": [
+       "stone",
+       "stone_dark",
+       "stone_light"
+      ],
+      "weights": [
+       3,
+       3,
+       2
+      ],
+      "cell": 1000,
+      "seed": "24 * 5 + 1"
+     },
+     "if": "hoch"
+    }
+   ]
+  },
+  {
+   "op": "group",
+   "name": "Säule 25",
+   "if": "typ == 2",
+   "let": {
+    "h": "max(3, round(H * 0.26) - floor(hash(seed, 25, 1) * (hoch ? 8 : 3)))",
+    "dr": "floor(hash(seed, 25, 2) * 4)"
+   },
+   "ops": [
+    {
+     "op": "box",
+     "name": "Körper 25",
+     "at": [
+      4,
+      0,
+      2
+     ],
+     "size": [
+      3,
+      "h - 1 - hoch",
+      3
+     ],
+     "color": {
+      "noise": [
+       "stone",
+       "stone_dark",
+       "stone_light"
+      ],
+      "weights": [
+       3,
+       3,
+       2
+      ],
+      "cell": 1000,
+      "seed": "25 * 5 + 1"
+     }
+    },
+    {
+     "op": "box",
+     "name": "Kopf 25 Stufe 1",
+     "at": [
+      "4 + (dr == 0 ? 1 : 0)",
+      "h - 1 - hoch",
+      "2 + (dr == 2 ? 1 : 0)"
+     ],
+     "size": [
+      "3 - (dr < 2 ? 1 : 0)",
+      1,
+      "3 - (dr >= 2 ? 1 : 0)"
+     ],
+     "color": {
+      "noise": [
+       "stone",
+       "stone_dark",
+       "stone_light"
+      ],
+      "weights": [
+       3,
+       3,
+       2
+      ],
+      "cell": 1000,
+      "seed": "25 * 5 + 1"
+     }
+    },
+    {
+     "op": "box",
+     "name": "Kopf 25 Stufe 2",
+     "at": [
+      "4 + (dr == 0 ? 2 : 0)",
+      "h - 1",
+      "2 + (dr == 2 ? 2 : 0)"
+     ],
+     "size": [
+      "3 - (dr < 2 ? 2 : 0)",
+      1,
+      "3 - (dr >= 2 ? 2 : 0)"
+     ],
+     "color": {
+      "noise": [
+       "stone",
+       "stone_dark",
+       "stone_light"
+      ],
+      "weights": [
+       3,
+       3,
+       2
+      ],
+      "cell": 1000,
+      "seed": "25 * 5 + 1"
+     },
+     "if": "hoch"
+    }
+   ]
+  },
+  {
+   "op": "group",
+   "name": "Schutt",
+   "let": {
+    "s1": "floor(hash(seed, 62, 1) * 4)",
+    "s2": "(floor(hash(seed, 62, 1) * 4) + 1 + floor(hash(seed, 63, 1) * 3)) % 4",
+    "a1": "floor(hash(seed, 64, 1) * 3)",
+    "a2": "floor(hash(seed, 65, 1) * 3)",
+    "l1": "4 + floor(hash(seed, 60, 1) * 3)",
+    "l2": "4 + floor(hash(seed, 61, 1) * 3)"
+   },
+   "ops": [
+    {
+     "op": "box",
+     "name": "Schutt A Seite 0",
+     "at": [
+      "-7 + a1",
+      0,
+      6
+     ],
+     "size": [
+      "l1",
+      2,
+      2
+     ],
+     "color": {
+      "noise": [
+       "stone",
+       "stone_dark",
+       "stone_light"
+      ],
+      "weights": [
+       3,
+       3,
+       2
+      ],
+      "cell": 1000,
+      "seed": "40 * 5 + 1"
+     },
+     "if": "s1 == 0"
+    },
+    {
+     "op": "box",
+     "name": "Schutt B Seite 0",
+     "at": [
+      "-7 + a2",
+      0,
+      6
+     ],
+     "size": [
+      "l2",
+      2,
+      2
+     ],
+     "color": {
+      "noise": [
+       "stone",
+       "stone_dark",
+       "stone_light"
+      ],
+      "weights": [
+       3,
+       3,
+       2
+      ],
+      "cell": 1000,
+      "seed": "50 * 5 + 1"
+     },
+     "if": "s2 == 0 && (hoch || typ != 0)"
+    },
+    {
+     "op": "box",
+     "name": "Schutt A Seite 1",
+     "at": [
+      -8,
+      0,
+      "-7 + a1"
+     ],
+     "size": [
+      2,
+      2,
+      "l1"
+     ],
+     "color": {
+      "noise": [
+       "stone",
+       "stone_dark",
+       "stone_light"
+      ],
+      "weights": [
+       3,
+       3,
+       2
+      ],
+      "cell": 1000,
+      "seed": "41 * 5 + 1"
+     },
+     "if": "s1 == 1"
+    },
+    {
+     "op": "box",
+     "name": "Schutt B Seite 1",
+     "at": [
+      -8,
+      0,
+      "-7 + a2"
+     ],
+     "size": [
+      2,
+      2,
+      "l2"
+     ],
+     "color": {
+      "noise": [
+       "stone",
+       "stone_dark",
+       "stone_light"
+      ],
+      "weights": [
+       3,
+       3,
+       2
+      ],
+      "cell": 1000,
+      "seed": "51 * 5 + 1"
+     },
+     "if": "s2 == 1 && (hoch || typ != 0)"
+    },
+    {
+     "op": "box",
+     "name": "Schutt A Seite 2",
+     "at": [
+      "-7 + a1",
+      0,
+      -8
+     ],
+     "size": [
+      "l1",
+      2,
+      2
+     ],
+     "color": {
+      "noise": [
+       "stone",
+       "stone_dark",
+       "stone_light"
+      ],
+      "weights": [
+       3,
+       3,
+       2
+      ],
+      "cell": 1000,
+      "seed": "42 * 5 + 1"
+     },
+     "if": "s1 == 2"
+    },
+    {
+     "op": "box",
+     "name": "Schutt B Seite 2",
+     "at": [
+      "-7 + a2",
+      0,
+      -8
+     ],
+     "size": [
+      "l2",
+      2,
+      2
+     ],
+     "color": {
+      "noise": [
+       "stone",
+       "stone_dark",
+       "stone_light"
+      ],
+      "weights": [
+       3,
+       3,
+       2
+      ],
+      "cell": 1000,
+      "seed": "52 * 5 + 1"
+     },
+     "if": "s2 == 2 && (hoch || typ != 0)"
+    },
+    {
+     "op": "box",
+     "name": "Schutt A Seite 3",
+     "at": [
+      6,
+      0,
+      "-7 + a1"
+     ],
+     "size": [
+      2,
+      2,
+      "l1"
+     ],
+     "color": {
+      "noise": [
+       "stone",
+       "stone_dark",
+       "stone_light"
+      ],
+      "weights": [
+       3,
+       3,
+       2
+      ],
+      "cell": 1000,
+      "seed": "43 * 5 + 1"
+     },
+     "if": "s1 == 3"
+    },
+    {
+     "op": "box",
+     "name": "Schutt B Seite 3",
+     "at": [
+      6,
+      0,
+      "-7 + a2"
+     ],
+     "size": [
+      2,
+      2,
+      "l2"
+     ],
+     "color": {
+      "noise": [
+       "stone",
+       "stone_dark",
+       "stone_light"
+      ],
+      "weights": [
+       3,
+       3,
+       2
+      ],
+      "cell": 1000,
+      "seed": "53 * 5 + 1"
+     },
+     "if": "s2 == 3 && (hoch || typ != 0)"
+    }
+   ]
+  }
+ ],
+ "anchor": [
+  0,
+  0,
+  0
+ ]
+}

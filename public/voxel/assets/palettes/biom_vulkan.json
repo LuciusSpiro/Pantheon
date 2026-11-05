@@ -1,0 +1,27 @@
+{
+  "id": "biom_vulkan",
+  "name": "Biom Vulkan (VOX-02): neutrale Asche, dunkler Basalt, Lava als einzige Glut. Setzt nur Geländerollen (Wertleiter A)",
+  "extends": "base",
+  "roles": {
+    "sand": "#878686",
+    "grass": "#848484",
+    "grass_dark": "#7E7E7E",
+    "grass_light": "#8A8989",
+    "soil": "#838181",
+    "soil_dark": "#3E3834",
+    "teppich": "#686767",
+    "stone": "#757474",
+    "stone_dark": "#727171",
+    "stone_light": "#818181",
+    "rock": "#3F3E3E",
+    "rock_dark": "#353535",
+    "abgrund": "#0E0E0E",
+    "plant": "#6A6C48",
+    "plant_dark": "#56583C",
+    "plant_light": "#7C7E58",
+    "flower": "#9C93B8",
+    "flower2": "#C9C7CC",
+    "fluid": { "color": "#FF6A1E", "emit": 1.2 },
+    "fluid_v": "#B04418"
+  }
+}

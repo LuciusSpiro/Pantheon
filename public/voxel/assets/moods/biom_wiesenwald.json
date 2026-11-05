@@ -1,0 +1,10 @@
+{
+  "id": "biom_wiesenwald",
+  "name": "Biom Wiesenwald, Mittag: blauer Himmel, weiches warmes Sonnenlicht, klare Luft (Wertleiter A)",
+  "background": "#A9C6DE",
+  "fog": { "color": "#B9CFE0", "near": 3, "far": 9 },
+  "hemi": { "sky": "#C3D8EC", "ground": "#7A6648", "intensity": 1.1 },
+  "sun": { "color": "#FFEBCC", "intensity": 3.2, "dir": [-0.55, 1, 0.42], "softness": 2.5 },
+  "exposure": 1.0,
+  "bloom": { "strength": 0.25, "radius": 0.4, "threshold": 0.92 }
+}
