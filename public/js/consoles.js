@@ -2683,6 +2683,7 @@
         const a = amap.anker && amap.anker[away.cd.i];
         R.text(ctx, 'LADUNG SCHARF: ' + Math.ceil(n(away.cd.t)) + ' s' + (a ? ' (' + (R.ANKER_NAME[a[1]] || a[1]) + ')' : ''), x, y, { color: Math.floor(performance.now() / 300) % 2 ? PAL.red : PAL.amber }); y += 10;
       }
+      for (const w of R.fallenLaufend(st)) { R.text(ctx, w.name + ': noch ' + w.rest + ' s', x, y, { color: w.art === 'feld' ? PAL.red : PAL.warn }); y += 10; }   // ITM-01 E: Druckverlust, gesperrte Schotts
       const cnt = {};
       (amap.anker || []).forEach((a, i) => {
         if (['terminal', 'sprengpunkt', 'beute', 'fund', 'ziel', 'zelle'].indexOf(a[1]) < 0) return;

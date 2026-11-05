@@ -150,6 +150,12 @@
     const C = falleCfg || ((getConfig() || {}).anker || {}).falle;
     return !!(C && C.blockiert && C.blockiert[a.typ]);
   }
+  // ITM-01 E: Startzustand eines Ankers aus der Zustandsliste der Rolle: der erste Eintrag, eine passive Falle (sicht passiv) startet als erkannt (gleiche Regel wie server/sim/anker.js startFuer).
+  // Der Client leitet den Start aus `sicht` im Payload ab, nicht aus zustaende[0] (render.js ankerZustand, voxel/kit.js).
+  function ankerStart(a, zustaende) {
+    if (a && a.rolle === 'falle' && a.sicht === 'passiv') return 'erkannt';
+    return (zustaende && zustaende.length ? zustaende[0] : null) || null;
+  }
   function blockendesObjekt(D, rolle, a) {
     if (rolle === 'falle') return a ? objektRolle(D, rolle) && ankerBlockiert(a) : false;
     return objektRolle(D, rolle) && !NICHT_BLOCKEND[rolle];
@@ -1769,7 +1775,11 @@
     for (const b of (o && o.bauweisen) || []) {
       for (const [rolle, je] of Object.entries(b.anker || {})) {
         if (!je || typeof je !== 'object' || SILHOUETTE_ROLLEN_FREI[rolle] || blockendesObjekt(D, rolle)) continue;
-        for (const [art, v] of Object.entries(je)) pruef(typeof v === 'string' ? v : v && v.id, `${b.id} anker.${rolle}.${art}`, false);
+        for (const [art, v] of Object.entries(je)) {
+          // ITM-01 E: eine blockende Falle (Typ in CONFIG.anker.falle.blockiert: die Selbstschussanlage) hat eine Kollisionsbox: ihr Modell darf höher als die Figur sein
+          if (rolle === 'falle' && ankerBlockiert({ rolle: 'falle', typ: art })) continue;
+          pruef(typeof v === 'string' ? v : v && v.id, `${b.id} anker.${rolle}.${art}`, false);
+        }
       }
     }
     for (const b of (o && o.bauweisen) || []) {
@@ -1820,7 +1830,7 @@
     modulLagen, pruefeModul, kantenTyp, vertraeglich, segmentTyp: (seg, opts) => segmentTyp(opts && opts.daten ? normalisiere(opts.daten) : daten(), seg, cfgVon(opts).freiMin),
     bauen, bauRoh, ausRaster, pruefen, kennzahlen, vorwaermen, hand, leitFuss, zustaendeAnwenden, alsText, ANKER_GLYPHE,
     tuerKacheln: K.tuerKacheln, raster: K.raster, SCHIFF_STRIDE, STANDARD_CFG,
-    TUER_ZEIT, kantenListe, ankerKanten, eingangAktion, kachelZustandRegel, ankerBlockiert, fallenSchottKanten,
+    TUER_ZEIT, kantenListe, ankerKanten, eingangAktion, kachelZustandRegel, ankerBlockiert, ankerStart, fallenSchottKanten,
     raetselWege, raetselFenster, raetselHinweis, raetselSolo, raetselSoloFenster, karteServerForm, padTiles, deckLinkInReichweite, interaktionsVorrang, fehlerhafteModule,
     silhouetteFehler, silhouetteDaten, FIGUR_HOEHE_M,
   };

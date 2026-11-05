@@ -1,5 +1,5 @@
 {
-  "_hinweis": "SCA-01 P4: Texte der Scan-Ergebnisse (Datenblatt auf dem Captain-Schirm, Marker). Vom Server nur gelesen ausgeliefert (/content/scanner/datenblaetter.json), Client public/js/scan-anzeige.js. Der Snapshot trägt nur art, typ, Stufe sk und (ab Positionsstufe) x,y. gefahr 0..3, hinweisAb = ab welcher Scan-Stufe der Regelhinweis erscheint. LÄNGEN (Zeichen, tools/test-scanner-anzeige.js prüft sie für alle Typen): name höchstens 20, zeile höchstens 34 (eine Zeile im Datenblatt), hinweis höchstens 100 (3 Zeilen; darüber hinaus kürzt der Client mit „…“, die Positionszeile darunter bleibt immer sichtbar). Einträge testerz/testmonster sind Platzhalter der Debug-Testziele; echte Typen bringen GEL-03 (Erz), MON-01 (Monster); ITM-01 C/D: Fallentypen schott, druck, schuss (echte Texte aus ITM-01 D) und test (Debug falletest, Platzhalter).",
+  "_hinweis": "SCA-01 P4: Texte der Scan-Ergebnisse (Datenblatt auf dem Captain-Schirm, Marker). Vom Server nur gelesen ausgeliefert (/content/scanner/datenblaetter.json), Client public/js/scan-anzeige.js. Der Snapshot trägt nur art, typ, Stufe sk und (ab Positionsstufe) x,y. gefahr 0..3, hinweisAb = ab welcher Scan-Stufe der Regelhinweis erscheint. positionAb (je Art oder Typ, Standard 3) = Stufe, ab der der Server die Position liefert; nur für den Text „Position: erst ab Stufe n“ der Datenblattzeile (Falle: 2 = CONFIG.anker.falle.position, tools/test-fallen-client.js prüft die Gleichheit). LÄNGEN (Zeichen, tools/test-scanner-anzeige.js prüft sie für alle Typen): name höchstens 20, zeile höchstens 34 (eine Zeile im Datenblatt), hinweis höchstens 100 (3 Zeilen; darüber hinaus kürzt der Client mit „…“, die Positionszeile darunter bleibt immer sichtbar). Einträge testerz/testmonster sind Platzhalter der Debug-Testziele; echte Typen bringen GEL-03 (Erz), MON-01 (Monster); ITM-01 C/D: Fallentypen schott, druck, schuss (echte Texte aus ITM-01 D) und test (Debug falletest, Platzhalter).",
   "typen": {
     "testerz": {
       "name": "Testerz",
@@ -65,7 +65,8 @@
     },
     "falle": {
       "titel": "Falle",
-      "symbol": "FA"
+      "symbol": "FA",
+      "positionAb": 2
     }
   },
   "unbekannt": {

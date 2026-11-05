@@ -674,6 +674,7 @@
           R.backdrop(ctx, Math.round(VW / 2 - w / 2), 4, w, 22, 0.8);
           R.text(ctx, txt, VW / 2, 8, { color: Math.floor(view.time * 4) % 2 ? PAL.red : PAL.amber, align: 'center', scale: 2 });
         }
+        for (const w of R.fallenLaufend(st)) lines.push([w.name + ' · ' + w.rest + ' s', w.art === 'feld' ? (Math.floor(view.time * 2) % 2 ? PAL.red : '#FF8A7A') : PAL.warn]);   // ITM-01 E: Druckverlust, gesperrte Schotts (Restzeit)
         const cnt = {};
         (map.anker || []).forEach((a, i) => {
           if (['terminal', 'sprengpunkt', 'beute', 'fund', 'zelle'].indexOf(a[1]) < 0) return;

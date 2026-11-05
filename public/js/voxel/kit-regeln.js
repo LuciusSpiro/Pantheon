@@ -49,11 +49,13 @@ export function eintragVon(e, art) {
 /**
  * Eintrag der Bauweisen-Tabelle für eine Anker-Rolle (anker.<rolle>): String, Objekt { id, <feste Parameter>, dreh?, versatz? } oder Tabelle je Kartenart
  * ({ <art>: …, '*': … }) bzw. je Platztyp ({ '*': ID, <platztyp>: ID }). → eintragVon(…) oder null. platzTyp = Platztyp des Ankers (oder null).
+ * typ (ITM-01 E, optional): Anker-Typ der Falle; die Zeile <typ> gewinnt vor <art> und '*' (Reihenfolge typ, art, '*').
  */
-export function ankerEintragVon(bw, rolle, art, platzTyp) {
+export function ankerEintragVon(bw, rolle, art, platzTyp, typ) {
   const e = bw && bw.anker && bw.anker[rolle];
   if (!e) return null;
-  let v = typeof e === 'string' ? e : e[art] || e['*'] || null;
+  // ITM-01 E: typ (Attribut des Ankers, bisher nur die Falle: schott | druck | schuss | später mehr) hat Vorrang vor der Kartenart; ohne Zeile für den Typ gilt art, dann '*'
+  let v = typeof e === 'string' ? e : (typ && e[typ]) || e[art] || e['*'] || null;
   if (v && typeof v === 'object' && !v.id) v = (platzTyp && v[platzTyp]) || v['*'] || null;
   return eintragVon(v, art);
 }

@@ -239,7 +239,7 @@
     // B1: Anker-Interaktionen (Kinds anker:<rolle>), B2: Halte-Interaktionen
     'anker:terminal': 'DOWNLOAD', 'anker:sprengpunkt': 'LADUNG', 'anker:flagge': 'HISSEN', 'anker:zelle': 'ZELLE', 'anker:beute': 'BERGEN', 'anker:ziel': 'HALTEN',
     'anker:fund': 'BERGEN', 'anker:raetsel': 'SCHLOSS', 'anker:versteck': 'AUFBRECHEN', 'anker:eingang': 'HACKEN', 'anker:tuer': 'ÖFFNEN',
-    'anker:leiter': 'LEITER', fesseln: 'FESSELN', befreien: 'BEFREIEN', aufrichten: 'AUFRICHTEN', ausruestung: 'AUSRÜSTUNG', zellentuer: 'ZELLENTÜR' };
+    'anker:leiter': 'LEITER', 'anker:falle': 'ENTSCHÄRFEN', fesseln: 'FESSELN', befreien: 'BEFREIEN', aufrichten: 'AUFRICHTEN', ausruestung: 'AUSRÜSTUNG', zellentuer: 'ZELLENTÜR' };
   // setbackAge: M3b §4 – Sekunden seit einem Rückschlag (repairSetback) oder null. Dann: verlorenes Stück rot, verblassend,
   // Balken zittert, Beschriftung „RÜCKSCHLAG −50 %“.
   function actionBar(ctx, x, y, action, mine, setbackAge) {
@@ -439,7 +439,8 @@
   // Ankerrollen: Zustände (erster = Start) aus content/buehnen/anker.json (gleiche Werte als Auszug)
   let ANKER_ZUSTAENDE = { eingang: ['offen', 'verschlossen'], abholpunkt: ['bereit', 'gestoert'], terminal: ['bereit', 'laedt', 'geladen', 'gesperrt'],
     sprengpunkt: ['intakt', 'scharf', 'zerstoert', 'platziert'], zelle: ['zu', 'offen'], beute: ['voll', 'leer'], ziel: ['frei', 'genommen', 'aktiviert'],
-    fund: ['da', 'genommen'], tor: ['zu', 'offen', 'verschlossen', 'gesprengt'], raetsel: ['ruhe', 'gehalten', 'geloest'], versteck: ['zu', 'offen'], flagge: ['unten', 'gehisst'] };
+    fund: ['da', 'genommen'], tor: ['zu', 'offen', 'verschlossen', 'gesprengt'], raetsel: ['ruhe', 'gehalten', 'geloest'], versteck: ['zu', 'offen'], flagge: ['unten', 'gehisst'],
+    falle: ['verborgen', 'erkannt', 'entschaerft', 'ausgeloest'] };   // ITM-01 E: Reihenfolge = Zustandsindex in ao (anker.json)
   function ladeBuehnenDaten() {
     if (typeof fetch !== 'function') return;
     fetch('/content/buehnen/kacheln.json').then(r => r.ok ? r.json() : null).then(j => {
@@ -516,14 +517,21 @@
     return m;
   }
   function isBuehne(map) { return !!(map && map.buehne); }
-  // Laufzeitzustand einer Ankerrolle: Start bzw. Abweichung aus away.ao
+  // Startzustand eines Ankers (awayMap-Payload [id, rolle, x, y, attr]): erster Zustand der Rolle, eine passive Falle startet erkannt (Regel Shared_Buehne.ankerStart, eine Quelle mit Server und Kit)
+  function ankerStartZustand(a, liste) {
+    const SB = window.Shared_Buehne;
+    const x = { rolle: a[1], sicht: a[4] && a[4].sicht };
+    if (SB && typeof SB.ankerStart === 'function') return SB.ankerStart(x, liste);
+    return x.rolle === 'falle' && x.sicht === 'passiv' ? 'erkannt' : (liste && liste[0]) || null;
+  }
+  // Laufzeitzustand einer Ankerrolle: Start bzw. Abweichung aus away.ao. Indizes ≥ Listenlänge (eine Falle, die ankerEnthuellt noch nicht gemeldet hat) gibt es hier nicht: null
   function ankerZustand(map, st, idx) {
     const a = map && map.anker && map.anker[idx];
     if (!a) return null;
     const liste = ANKER_ZUSTAENDE[a[1]] || [];
     const ao = (st && st.away && st.away.map === map.id && st.away.ao) || [];
-    for (const e of ao) if (e[0] === idx) return liste[e[1]] || liste[0] || null;
-    return liste[0] || null;
+    for (const e of ao) if (e[0] === idx) return liste[e[1]] || ankerStartZustand(a, liste);
+    return ankerStartZustand(a, liste);
   }
   // Zustandsliste des Kantentyps: typ = Kachelart der ersten Kachel (so setzt shared/buehne.js bauen karte.kanten[].typ);
   // in dieser Liste zählen startZustandIdx (awayMap.kanten) und der Snapshot-Index (ko) – auch bei gemischten Kanten.
@@ -553,6 +561,24 @@
     if (SB && SB.kachelZustandRegel) return SB.kachelZustandRegel(liste, kz.lauf, az, kz.start, kz.durch);
     return (kz.start && liste.indexOf(kz.start) >= 0) ? kz.start : (liste[0] || null);
   }
+  // ITM-01 E: Kollisionskacheln gebauter Karten nur für die Bewegung (Client-Vorhersage, client.js isSolidFor): Anker mit Kollisionsbox (Falle: Typ in CONFIG.anker.falle.blockiert, Selbstschussanlage),
+  // gleiche Regel wie der Server (interior.awaySolid) über Shared_Buehne.ankerBlockiert. Sicht und Schuss gehen durch die Box, deshalb gilt sie NICHT in buehneSolid (Sichtfeld, Nebel, Deckung).
+  // Je Karte gecacht (Ankerliste), Karten ohne blockierende Anker kosten einen Vergleich. Eine verborgene Anlage steht erst nach ankerEnthuellt in der Liste (der Server blockiert sie schon vorher;
+  // die Auslösezone liegt vor der Box, die Falle wird also enthüllt, bevor die Figur sie berührt).
+  const BLOCK_ANKER = new WeakMap();
+  function blockierendeAnker(map) {
+    const alle = map.anker || [], SB = window.Shared_Buehne;
+    let c = BLOCK_ANKER.get(map);
+    if (c && c.alle === alle && c.n === alle.length) return c.set;
+    let set = null;
+    if (SB && typeof SB.ankerBlockiert === 'function') for (const a of alle) if (a[1] === 'falle' && SB.ankerBlockiert({ rolle: 'falle', typ: a[4] && a[4].typ })) (set || (set = new Set())).add(a[3] * map.w + a[2]);
+    BLOCK_ANKER.set(map, { alle, n: alle.length, set });
+    return set;
+  }
+  function buehneBewegungSolid(map, st) {
+    const fest = buehneSolid(map, st), blk = blockierendeAnker(map);
+    return blk ? (tx, ty) => fest(tx, ty) || blk.has(ty * map.w + tx) : fest;
+  }
   function buehneSolid(map, st) {
     return (tx, ty) => {
       const info = map.info(tx, ty);
@@ -578,12 +604,12 @@
     return (info.variante && BUEHNE_FARBE[info.kind + ':' + info.variante]) || BUEHNE_FARBE[info.kind] || '#3B4658';
   }
   const ANKER_FARBE = { terminal: '#7FE0C2', sprengpunkt: '#FF6A4C', zelle: '#C9974A', beute: '#D9A441', ziel: '#FFC66B', fund: '#E8D27A',
-    raetsel: '#B57CFF', abholpunkt: '#7FE0C2', versteck: '#9AA6B8', tor: '#C9974A', lift: '#A9D6E5', leiter: '#A9D6E5', flagge: '#E8554A' };
+    raetsel: '#B57CFF', abholpunkt: '#7FE0C2', versteck: '#9AA6B8', tor: '#C9974A', lift: '#A9D6E5', leiter: '#A9D6E5', flagge: '#E8554A', falle: '#E0473C' };   // falle: Rot = Gefahr (ITM-01 E)
   const ANKER_NAME = { terminal: 'Terminal', sprengpunkt: 'Sprengpunkt', zelle: 'Zelle', beute: 'Kiste', ziel: 'Ziel', fund: 'Fund',
-    raetsel: 'Schloss', abholpunkt: 'Abholpunkt', versteck: 'Versteck', tor: 'Tor', lift: 'Lift', leiter: 'Leiter', eingang: 'Eingang', flagge: 'Feldzeichen' };
+    raetsel: 'Schloss', abholpunkt: 'Abholpunkt', versteck: 'Versteck', tor: 'Tor', lift: 'Lift', leiter: 'Leiter', eingang: 'Eingang', flagge: 'Feldzeichen', falle: 'Falle' };
   const ANKER_ZUSTAND_NAME = { bereit: 'bereit', laedt: 'lädt', geladen: 'geladen', gesperrt: 'gesperrt', intakt: 'intakt', scharf: 'SCHARF',
     zerstoert: 'zerstört', zu: 'zu', offen: 'offen', voll: 'voll', leer: 'leer', frei: 'frei', genommen: 'genommen', aktiviert: 'aktiviert',
-    da: 'da', ruhe: 'Ruhe', gehalten: 'gehalten', geloest: 'gelöst', verschlossen: 'verschlossen', gestoert: 'gestört', gesprengt: 'gesprengt', platziert: 'platziert', unten: 'unten', gehisst: 'gehisst' };
+    da: 'da', ruhe: 'Ruhe', gehalten: 'gehalten', geloest: 'gelöst', verschlossen: 'verschlossen', gestoert: 'gestört', gesprengt: 'gesprengt', platziert: 'platziert', unten: 'unten', gehisst: 'gehisst', verborgen: 'verborgen', erkannt: 'erkannt', entschaerft: 'entschärft', ausgeloest: 'ausgelöst' };
   // Anker als einfache Marken (2D-Rückfall und Minikarte). Nur Rollen mit Objekt.
   function drawBuehneAnker(ctx, map, st, camX, camY, t) {
     const cd = st && st.away && st.away.map === map.id ? st.away.cd : null;
@@ -593,6 +619,7 @@
       const px = a[2] * TILE - camX, py = a[3] * TILE - camY;
       if (px < -TILE || py < -TILE || px > VW + TILE || py > VH + TILE) return;
       const z = ankerZustand(map, st, i);
+      if (a[1] === 'falle') { drawFalle2d(ctx, a, z, px, py, t); return; }   // ITM-01 E: eigene Form je Zustand und Typ
       const aus = ['leer', 'genommen', 'zerstoert', 'offen', 'geloest', 'gesperrt', 'gehisst'].indexOf(z) >= 0 && a[1] !== 'abholpunkt';
       ctx.save();
       ctx.globalAlpha = aus ? 0.45 : 1;
@@ -607,6 +634,202 @@
       }
       if (a[1] === 'terminal' && z === 'laedt') { ctx.fillStyle = '#7FE0C2'; ctx.fillRect(px + 12, py + 12, 8, 8); }
     });
+  }
+
+  // ------------------------------------------------------------------ ITM-01 E: Fallen (Client, rein anzeigend)
+  // Zustände kommen aus ankerZustand (Start je sicht, Abweichungen aus ao). Verborgene Fallen stehen nicht in der Ankerliste, bis das Ereignis ankerEnthuellt sie anhängt (CONTRACT-B2 §12).
+  // Farbe: ROT = Gefahr/Waffen (nicht Bernstein: am Boden ist Bernstein Hitze, Lava und Glut; Eisblau gehört dem Scanner). Die Gefahr trägt die FORM, nicht die Farbe allein:
+  // Warndreieck mit Glyphe je Typ (erkannt), gestricheltes Feld mit Schraffur (Druckverlust), Kreuz (ausgelöst), kleines graues Dreieck mit Strich (entschärft).
+  const FALLEN = { felder: new Map(), schotts: new Map(), blitze: [] };   // Wirkungsereignisse (falleFeld, falleSchott, selbstschuss, Auslösen); kein Snapshot-Feld
+  const FALLE_GNADE = 3;   // s über dauer hinaus: ging ein an:0 verloren (Kartenwechsel), verschwindet das Feld von selbst
+  const FELD_NAME = { druck: 'DRUCKVERLUST' };   // Name je Feldvariante; neue Varianten (dorn, kabel) fallen auf GEFAHRENFELD zurück, bis hier ein Eintrag steht
+  const FELD_RGB = { standard: '224,71,60' };   // Farbe je Feldvariante (r,g,b), Standard = Rot der Gefahr (PAL.red); eine neue Variante mit eigener Farbe trägt hier einen Eintrag ein (z. B. kabel: Warngelb, nicht Eisblau = Scanner)
+  const fxNow = () => performance.now() / 1000;
+  const aktuelleKarte = (st) => (st && st.away && st.away.map) || null;
+
+  // Ereignis ankerEnthuellt { map, kv, i, anker:[id, rolle, x, y, attr] }: hängt den Anker an die Client-Liste der gebauten Karte (Payload-Anker, danach die Enthüllten in der Reihenfolge des Eintreffens).
+  // i muss gleich der Listenlänge sein (so zählt auch ao). Wiederholung (i < Länge) und andere Kartenversion ändern nichts; eine Lücke (i > Länge) wird nicht angehängt (die Indizes stimmten sonst nicht).
+  // -> 'neu' | 'doppelt' | 'andere_version' | 'luecke' | 'keine_karte'. Voxel: der kit-Layer hängt die Anker nach (handle.ankerNeu), der Zustand läuft über ao.
+  function ankerEnthuellt(ev) {
+    const m = ev && ev.map ? Maps[ev.map] : null;
+    if (!m || !m.buehne || !Array.isArray(m.anker) || !Array.isArray(ev.anker) || ev.anker.length < 4) return 'keine_karte';
+    if (ev.kv != null && m.kv != null && String(ev.kv) !== String(m.kv)) return 'andere_version';
+    const i = ev.i | 0;
+    if (i < m.anker.length) return 'doppelt';
+    if (i > m.anker.length) { report('Render.ankerEnthuellt', new Error('Lücke: i ' + i + ' > Länge ' + m.anker.length)); return 'luecke'; }
+    m.anker.push(ev.anker);
+    m.ankerIdx[ev.anker[0]] = i;
+    return 'neu';
+  }
+  // Wirkungsereignisse der Fallen (client.js reicht sie durch): Feld an/aus, Schott zu/auf, Schuss, Auslösen
+  function fallenEreignis(ev) {
+    if (!ev) return;
+    const key = ev.map + '|' + ev.anker;
+    if (ev.kind === 'falleFeld') {
+      if (+ev.an) FALLEN.felder.set(key, { map: ev.map, anker: ev.anker, typ: String(ev.typ || ''), x: +ev.x, y: +ev.y, rect: Array.isArray(ev.rect) ? ev.rect.map(Number) : null, r: ev.r != null ? +ev.r : null, t0: fxNow(), dauer: +ev.dauer || 0 });
+      else FALLEN.felder.delete(key);
+    } else if (ev.kind === 'falleSchott') {
+      if (+ev.an) FALLEN.schotts.set(key, { map: ev.map, anker: ev.anker, t0: fxNow(), dauer: +ev.dauer || 0, n: (ev.kanten || []).length });
+      else FALLEN.schotts.delete(key);
+    } else if (ev.kind === 'selbstschuss') {
+      FALLEN.blitze.push({ kind: 'schuss', map: ev.map, x: +ev.x, y: +ev.y, tx: +ev.tx, ty: +ev.ty, t0: fxNow(), dur: 0.22 });
+    } else if (ev.kind === 'falleAusgeloest') {
+      FALLEN.blitze.push({ kind: 'ausloesen', map: ev.map, x: +ev.x, y: +ev.y, t0: fxNow(), dur: 0.6 });
+    }
+    if (FALLEN.blitze.length > 24) FALLEN.blitze.splice(0, FALLEN.blitze.length - 24);
+  }
+  function fallenAufraeumen(now) {
+    for (const [k, f] of FALLEN.felder) if (now - f.t0 > f.dauer + FALLE_GNADE) FALLEN.felder.delete(k);
+    for (const [k, f] of FALLEN.schotts) if (now - f.t0 > f.dauer + FALLE_GNADE) FALLEN.schotts.delete(k);
+    for (let i = FALLEN.blitze.length - 1; i >= 0; i--) if (now - FALLEN.blitze[i].t0 > FALLEN.blitze[i].dur) FALLEN.blitze.splice(i, 1);
+  }
+  // Laufende Wirkungen der aktuellen Karte mit Restzeit (Sekunden, aufgerundet) für die Lagezeile im HUD: [{ art: 'feld' | 'schott', name, rest }]
+  function fallenLaufend(st) {
+    const mid = aktuelleKarte(st), now = fxNow(), out = [];
+    fallenAufraeumen(now);
+    for (const f of FALLEN.felder.values()) if (f.map === mid) out.push({ art: 'feld', name: FELD_NAME[f.typ] || 'GEFAHRENFELD', rest: Math.max(0, Math.ceil(f.dauer - (now - f.t0))) });
+    for (const f of FALLEN.schotts.values()) if (f.map === mid) out.push({ art: 'schott', name: 'SCHOTTS GESPERRT', rest: Math.max(0, Math.ceil(f.dauer - (now - f.t0))) });
+    return out;
+  }
+  // Gefahrenfeld am Boden (Druckverlust): rotes Polygon (Rechteck rect in Kacheln oder Kreis r), pulsierend, mit Schraffur und laufendem Rand; füllt wenig (Sicht bleibt frei).
+  // P(px, py, hpx) -> Bildschirmpunkt (2D: Kamera, Voxel: VoxelRender.worldToScreen), so dass beide Modi dieselbe Funktion nutzen.
+  function drawFallenFelder(ctx, st, P, t) {
+    if (!FALLEN.felder.size) return;
+    const mid = aktuelleKarte(st), now = fxNow();
+    for (const f of FALLEN.felder.values()) {
+      if (f.map !== mid || now - f.t0 > f.dauer + FALLE_GNADE) continue;
+      let pts = null;
+      if (f.rect && f.rect.length === 4) { const [rx, ry, rw, rh] = f.rect; pts = [P(rx * TILE, ry * TILE, 0), P((rx + rw) * TILE, ry * TILE, 0), P((rx + rw) * TILE, (ry + rh) * TILE, 0), P(rx * TILE, (ry + rh) * TILE, 0)]; }
+      else if (f.r != null && f.r > 0) { pts = []; for (let i = 0; i < 28; i++) { const a = i / 28 * Math.PI * 2; pts.push(P(f.x + Math.cos(a) * f.r * TILE, f.y + Math.sin(a) * f.r * TILE, 0)); } }
+      if (!pts || pts.some((q) => !q || q.behind)) continue;
+      const pu = 0.5 + 0.5 * Math.sin(t * 4), rgb = FELD_RGB[f.typ] || FELD_RGB.standard;
+      const path = () => { ctx.beginPath(); pts.forEach((q, i) => (i ? ctx.lineTo(q.x, q.y) : ctx.moveTo(q.x, q.y))); ctx.closePath(); };
+      ctx.save();
+      path();
+      ctx.fillStyle = 'rgba(' + rgb + ',' + (0.07 + 0.06 * pu).toFixed(3) + ')'; ctx.fill();
+      ctx.clip();
+      // Schraffur (Warnstreifen, wandert langsam): Form statt nur Farbe
+      let x0 = 1e9, y0 = 1e9, x1 = -1e9, y1 = -1e9;
+      for (const q of pts) { x0 = Math.min(x0, q.x); y0 = Math.min(y0, q.y); x1 = Math.max(x1, q.x); y1 = Math.max(y1, q.y); }
+      const gap = 16, off = (t * 8) % gap;
+      ctx.strokeStyle = 'rgba(' + rgb + ',' + (0.10 + 0.06 * pu).toFixed(3) + ')'; ctx.lineWidth = 3;
+      ctx.beginPath();
+      for (let d = x0 - (y1 - y0) - gap + off; d < x1 + gap; d += gap) { ctx.moveTo(d, y1); ctx.lineTo(d + (y1 - y0), y0); }
+      ctx.stroke();
+      ctx.restore();
+      // Rand: dunkle Unterlage, darüber gestrichelt rot (läuft)
+      ctx.save();
+      path();
+      ctx.setLineDash([7, 5]); ctx.lineDashOffset = -(t * 14) % 12;
+      ctx.strokeStyle = 'rgba(11,14,26,0.5)'; ctx.lineWidth = 4; ctx.stroke();
+      ctx.strokeStyle = 'rgba(' + rgb + ',' + (0.7 + 0.3 * pu).toFixed(3) + ')'; ctx.lineWidth = 2; ctx.stroke();
+      ctx.restore();
+      // Name mit Restzeit am oberen Rand (kleine Schrift auf dunklem Grund)
+      const top = pts.reduce((a, q) => (q.y < a.y ? q : a), pts[0]);
+      const lab = (FELD_NAME[f.typ] || 'GEFAHRENFELD') + ' ' + Math.max(0, Math.ceil(f.dauer - (now - f.t0))) + ' s';
+      const lw = measure(lab, 1) + 6;
+      if (top.x > -40 && top.x < VW + 40 && top.y > -20 && top.y < VH + 20) {
+        backdrop(ctx, Math.round(top.x - lw / 2), Math.round(top.y) + 3, lw, 11, 0.75);
+        text(ctx, lab, top.x, Math.round(top.y) + 5, { color: PAL.red, align: 'center', shadow: false });
+      }
+    }
+  }
+  // Kurzlebige Wirkungen: Schuss der Selbstschussanlage (Strahl von der Anlage zum Getroffenen, Mündungsblitz, Einschlagring) und der Auslöse-Ring an der Falle
+  function drawFallenBlitze(ctx, st, P, ppm) {
+    if (!FALLEN.blitze.length) return;
+    const mid = aktuelleKarte(st), now = fxNow();
+    fallenAufraeumen(now);
+    for (const b of FALLEN.blitze) {
+      if (b.map !== mid) continue;
+      const p = clamp01((now - b.t0) / b.dur);
+      if (b.kind === 'schuss') {
+        const a = P(b.x, b.y, 18), c = P(b.tx, b.ty, 14);
+        ctx.save();
+        ctx.strokeStyle = 'rgba(224,71,60,' + (0.9 * (1 - p)).toFixed(3) + ')'; ctx.lineWidth = 3 * (1 - p) + 1;
+        ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(c.x, c.y); ctx.stroke();
+        ctx.strokeStyle = 'rgba(255,241,184,' + (1 - p).toFixed(3) + ')'; ctx.lineWidth = 1;
+        ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(c.x, c.y); ctx.stroke();
+        ctx.fillStyle = 'rgba(255,241,184,' + (1 - p).toFixed(3) + ')'; ctx.beginPath(); ctx.arc(a.x, a.y, 2 + 3 * (1 - p), 0, Math.PI * 2); ctx.fill();
+        ctx.strokeStyle = 'rgba(224,71,60,' + (1 - p).toFixed(3) + ')'; ctx.lineWidth = 1;
+        ctx.beginPath(); ctx.arc(c.x, c.y, 3 + 9 * p, 0, Math.PI * 2); ctx.stroke();
+        ctx.restore();
+      } else if (b.kind === 'ausloesen') {
+        const o = P(b.x, b.y, 0), r = (8 + 34 * p) * ppm / 32;
+        ctx.save();
+        ctx.strokeStyle = 'rgba(224,71,60,' + (0.95 * (1 - p)).toFixed(3) + ')'; ctx.lineWidth = 3 * (1 - p) + 1;
+        ctx.beginPath(); ctx.ellipse(o.x, o.y, r, r * 0.6, 0, 0, Math.PI * 2); ctx.stroke();
+        ctx.restore();
+      }
+    }
+  }
+  // Glyphe im Warndreieck je Typ (kleine Pixelzeichnung um (cx, cy), s = Maßstab): schott = zwei Balken (Schott), druck = Pfeil nach unten (Druck fällt), schuss = Visier; sonst Ausrufezeichen
+  function falleGlyphe(ctx, typ, cx, cy, s, col) {
+    const u = Math.max(1, Math.round(s));
+    ctx.fillStyle = col;
+    if (typ === 'schott') { ctx.fillRect(cx - 3 * u, cy - 3 * u, u * 2, u * 6); ctx.fillRect(cx + u, cy - 3 * u, u * 2, u * 6); }
+    else if (typ === 'druck') { for (let i = 0; i < 3; i++) ctx.fillRect(cx - (3 - i) * u, cy - 3 * u + i * 2 * u, (3 - i) * 2 * u, u * 2); ctx.fillRect(cx - u, cy + 3 * u, u * 2, u); }
+    else if (typ === 'schuss') { ctx.fillRect(cx - u, cy - 4 * u, u * 2, u * 3); ctx.fillRect(cx - u, cy + u, u * 2, u * 3); ctx.fillRect(cx - 4 * u, cy - u, u * 3, u * 2); ctx.fillRect(cx + u, cy - u, u * 3, u * 2); }
+    else { ctx.fillRect(cx - u, cy - 4 * u, u * 2, u * 5); ctx.fillRect(cx - u, cy + 2 * u, u * 2, u * 2); }
+  }
+  // Marke einer Falle am Anker: (sx, sy) = Bodenmitte der Kachel auf dem Bildschirm, hpx = Schwebehöhe über dem Boden (px, nur erkannt), s = Maßstab (ppm / 32).
+  // erkannt: Warndreieck (rot, pulsiert); entschärft: kleines graues Dreieck mit Strich, ruhig; ausgelöst: dunkelrotes Kreuz; verborgen: nichts (steht nie in der Liste).
+  function drawFalleMarke(ctx, sx, sy, hpx, s, z, typ, t) {
+    if (z === 'erkannt') {
+      const pu = 0.5 + 0.5 * Math.sin(t * 5), k = s * (1 + 0.06 * pu), cx = Math.round(sx), cy = Math.round(sy - hpx * s);
+      ctx.save();
+      ctx.beginPath(); ctx.moveTo(cx, cy - 10 * k); ctx.lineTo(cx + 10 * k, cy + 7 * k); ctx.lineTo(cx - 10 * k, cy + 7 * k); ctx.closePath();
+      ctx.fillStyle = 'rgba(11,14,26,0.82)'; ctx.fill();
+      ctx.lineJoin = 'round'; ctx.strokeStyle = 'rgba(224,71,60,' + (0.8 + 0.2 * pu).toFixed(3) + ')'; ctx.lineWidth = 2; ctx.stroke();
+      falleGlyphe(ctx, typ, cx, Math.round(cy + 1 * k), k, '#F6E7E4');
+      ctx.restore();
+    } else if (z === 'entschaerft') {
+      const cx = Math.round(sx), cy = Math.round(sy - 4 * s), k = s * 0.7;
+      ctx.save(); ctx.globalAlpha = 0.5;
+      ctx.beginPath(); ctx.moveTo(cx, cy - 10 * k); ctx.lineTo(cx + 10 * k, cy + 7 * k); ctx.lineTo(cx - 10 * k, cy + 7 * k); ctx.closePath();
+      ctx.fillStyle = 'rgba(11,14,26,0.6)'; ctx.fill();
+      ctx.strokeStyle = PAL.panelLight; ctx.lineWidth = 1.5; ctx.stroke();
+      ctx.fillStyle = PAL.panelLight; ctx.fillRect(cx - 3 * k, cy + 1 * k, 6 * k, Math.max(1, 2 * k));
+      ctx.restore();
+    } else if (z === 'ausgeloest') {
+      const cx = Math.round(sx), cy = Math.round(sy - 2 * s), d = 6 * s;
+      ctx.save(); ctx.globalAlpha = 0.7; ctx.lineCap = 'round';
+      ctx.strokeStyle = 'rgba(11,14,26,0.8)'; ctx.lineWidth = 5; ctx.beginPath(); ctx.moveTo(cx - d, cy - d * 0.6); ctx.lineTo(cx + d, cy + d * 0.6); ctx.moveTo(cx + d, cy - d * 0.6); ctx.lineTo(cx - d, cy + d * 0.6); ctx.stroke();
+      ctx.strokeStyle = '#8A2A24'; ctx.lineWidth = 2.5; ctx.stroke();
+      ctx.restore();
+    }
+  }
+  // Falle auf Minikarte und Kommandokarte: erkannt = rotes Dreieck (gefüllt, hebt sich vom Punktraster ab), entschärft = kleiner grauer Umriss, ausgelöst = kleines Kreuz; verborgen = nichts
+  function miniFalle(ctx, mx, my, c, z) {
+    const h = Math.max(3, Math.min(5, Math.round(c * 0.9)));
+    mx = Math.round(mx); my = Math.round(my);
+    ctx.save();
+    if (z === 'erkannt') {
+      ctx.fillStyle = PAL.red; ctx.beginPath(); ctx.moveTo(mx, my - h); ctx.lineTo(mx + h, my + h - 1); ctx.lineTo(mx - h, my + h - 1); ctx.closePath(); ctx.fill();
+      ctx.fillStyle = '#0B0E1A'; ctx.fillRect(mx, my - 1, 1, 2);
+    } else if (z === 'entschaerft') {
+      ctx.strokeStyle = PAL.panelLight; ctx.globalAlpha = 0.6; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(mx, my - h + 1); ctx.lineTo(mx + h - 1, my + h - 2); ctx.lineTo(mx - h + 1, my + h - 2); ctx.closePath(); ctx.stroke();
+    } else if (z === 'ausgeloest') {
+      ctx.strokeStyle = '#8A2A24'; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(mx - 2, my - 2); ctx.lineTo(mx + 3, my + 3); ctx.moveTo(mx + 2, my - 2); ctx.lineTo(mx - 3, my + 3); ctx.stroke();
+    }
+    ctx.restore();
+  }
+  // Schwebehöhe der Marke je Typ (px, 22 px = 1 m): die Selbstschussanlage steht höher als die flachen Bodenfallen
+  const FALLE_SCHWEBE = { schuss: 52, standard: 22 };
+  const falleSchwebe = (typ) => (FALLE_SCHWEBE[typ] != null ? FALLE_SCHWEBE[typ] : FALLE_SCHWEBE.standard);
+  // 2D-Rückfall (Anker-Marke ohne Modell): flache Fallen = Marke; die Selbstschussanlage hat eine Kollisionsbox und wird als dunkler Block mit Geschützkreis gezeichnet
+  function drawFalle2d(ctx, a, z, px, py, t) {
+    const typ = (a[4] && a[4].typ) || '';
+    const cx = px + 16, cy = py + 16;
+    if (typ === 'schuss' && z !== 'verborgen') {
+      const aus = z !== 'erkannt';
+      ctx.save(); ctx.globalAlpha = aus ? 0.6 : 1;
+      ctx.fillStyle = '#241A1C'; ctx.fillRect(px + 4, py + 6, 24, 22);
+      ctx.strokeStyle = aus ? '#6E4A48' : PAL.red; ctx.lineWidth = 2; ctx.strokeRect(px + 4.5, py + 6.5, 23, 21);
+      ctx.fillStyle = aus ? '#4A3A3A' : '#5A2A28'; ctx.beginPath(); ctx.arc(cx, cy - 1, 6, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = aus ? '#6E4A48' : PAL.red; ctx.fillRect(cx - 1, cy - 12, 3, 9);
+      ctx.restore();
+      drawFalleMarke(ctx, cx, cy - 10, 8, 1, z, typ, t);
+    } else drawFalleMarke(ctx, cx, cy + 6, 4, 1, z, typ, t);
   }
 
   // Koordinaten aus dem Snapshot, die Kachel ODER Pixel sein können (salvage/hollow) -> Kachel
@@ -1942,6 +2165,8 @@
       }
       scanRects.push({ key: m.key, x: s.x - 8, y: s.y - 8, w: 16, h: 16 });
     }
+    // ITM-01 E: bekannte Fallen (erkannt/entschärft/ausgelöst; verborgene stehen nicht in der Liste)
+    if (isBuehne(map)) (map.anker || []).forEach((an, ai) => { if (an[1] === 'falle') { const fs = toS(an[2] * TILE + TILE / 2, an[3] * TILE + TILE / 2); miniFalle(ctx, fs.x, fs.y, c, ankerZustand(map, st, ai)); } });
     // Außenteam
     for (const p of view.players || []) {
       if (p.zone !== 'away' || p.connected === false) continue;
@@ -2067,7 +2292,10 @@
       }
     }
     env.roomStyle = null;
-    if (buehne2d) drawBuehneAnker(ctx, map, st, camX, camY, t);   // B1: Anker als einfache Marken
+    if (buehne2d) {
+      drawFallenFelder(ctx, st, (x, y, h) => ({ x: Math.round(x - camX), y: Math.round(y - camY - (h || 0)) }), t);   // ITM-01 E: Gefahrenfeld am Boden (unter Marken und Figuren)
+      drawBuehneAnker(ctx, map, st, camX, camY, t);   // B1: Anker als einfache Marken
+    }
 
     // Deko in den Quartieren (nur Schiff)
     if (zone === 'ship' && st.deco) {
@@ -2411,6 +2639,7 @@
       const p = (now - f.t0) / f.dur;
       drawFx(ctx, f.kind, f.x - camX, f.y - camY, t, { p });
     }
+    if (zone === 'away' && buehne2d) { try { drawFallenBlitze(ctx, st, (x, y, h) => ({ x: Math.round(x - camX), y: Math.round(y - camY - (h || 0)) }), 32); } catch (e) { report('Render.fallenBlitze2d', e); } }   // ITM-01 E
 
     if (view.debug) {
       ctx.strokeStyle = '#FF00FF'; ctx.lineWidth = 1;
@@ -2694,6 +2923,21 @@
         ctx.strokeRect(Math.round(lo.x) - 9.5, Math.round(hi.y) + 0.5, 19, Math.max(8, Math.round(lo.y - hi.y)));
       }
       try { for (const m of scanMarker(st)) drawScanMarkerBoden(ctx, P(m.x, m.y, 0), 10 * ppm / 32, m, t); } catch (e) { report('Render.scanMarker3d', e); }   // SCA-01 P4
+      try {   // ITM-01 E: Fallen im Voxel-Modus – Feld am Boden, Marke über der Anlage (auch mit Modell: Sicherheitsnetz für die Lesbarkeit), Schuss- und Auslöse-Effekte
+        if (isBuehne(map)) {
+          drawFallenFelder(ctx, st, P, t);
+          (map.anker || []).forEach((a, i) => {
+            if (a[1] !== 'falle') return;
+            const z = ankerZustand(map, st, i);
+            if (z !== 'erkannt' && z !== 'entschaerft' && z !== 'ausgeloest') return;
+            const s0 = P(a[2] * TILE + 16, a[3] * TILE + 16, 0);
+            if (!inView(s0)) return;
+            const typ = (a[4] && a[4].typ) || '';
+            drawFalleMarke(ctx, s0.x, s0.y, z === 'erkannt' ? falleSchwebe(typ) : 0, ppm / 32, z, typ, t);
+          });
+          drawFallenBlitze(ctx, st, P, ppm);
+        }
+      } catch (e) { report('Render.fallen3d', e); }
       if (away.marker) {
         const s = P(away.marker.x, away.marker.y, 0);
         ctx.strokeStyle = PAL.amber; ctx.lineWidth = 1;
@@ -5112,6 +5356,7 @@
     if (buehneMap) (map.anker || []).forEach((a, i) => {   // B1: Objektanker als Punkte
       const col = ANKER_FARBE[a[1]]; if (!col || a[1] === 'tor') return;
       const z = ankerZustand(map, st, i);
+      if (a[1] === 'falle') { miniFalle(ctx, x + a[2] * c + c / 2, y + a[3] * c + c / 2, c, z); return; }   // ITM-01 E: Dreieck statt Punkt (Form), nur bekannte Fallen
       ctx.fillStyle = a[1] === 'sprengpunkt' && z === 'scharf' ? (blink ? PAL.red : '#5A1E1A') : col;
       ctx.fillRect(x + a[2] * c, y + a[3] * c, c, c);
     });
@@ -5190,7 +5435,7 @@
     zielNameFarbe, textKontur, drawSpace, drawFrontView, frontProjektion, bannerMasse, hyperraum, drawStarMap, drawStarMapAlt, drawLocalMap, FRONT,
     // B1: gebaute Außenkarten
     drawKoerperStatus, statusIcon,
-    registerAwayMap, isBuehne, ankerZustand, kachelZustand, kantenZustand, buehneSolid, buehnenKarten, ANKER_NAME, ANKER_ZUSTAND_NAME, ANKER_FARBE,
+    registerAwayMap, isBuehne, ankerZustand, ankerEnthuellt, fallenEreignis, fallenLaufend, buehneBewegungSolid, drawFallenFelder, drawFallenBlitze, drawFalleMarke, kachelZustand, kantenZustand, buehneSolid, buehnenKarten, ANKER_NAME, ANKER_ZUSTAND_NAME, ANKER_FARBE,
     // S2: Schützling
     ESCORT_COL, ESCORT_R, ESCORT_KIND_NAMES, ESCORT_STATE_NAMES, ESCORT_ORDER_NAMES, escortHpFrac, escortName, escortRingCol, escortSegBar, escortBarCol, FLOTTE_ART_NAMEN, fbEscort, drawEscortSprite,
     // M3a
