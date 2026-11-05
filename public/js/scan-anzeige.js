@@ -11,7 +11,10 @@
   const store = { daten: null, bekannt: {}, fokus: null };
   const MAX_ZEILEN = 4;
   const FALLBACK = { name: 'Unbekanntes Objekt', gefahr: 0, zeile: 'Keine Angaben zu diesem Ziel.', hinweis: '', hinweisAb: 1, symbol: '??' };
-  const TXT_KEINE_POS = 'Position: Stufe 3 oder Sicht';   // eine Zeile (MON-01: die Raute auf der Karte zeigt auch ohne Scan, was das Außenteam sieht; Stufe 3 liefert die Position unabhängig von der Sicht) (Nacharbeit D2); die Positionszeile ist die feste letzte Zeile des Datenblatts und wird nie gekürzt
+  const POS_AB_STANDARD = 3;   // Stufe, ab der der Server die Position liefert (scanbar.js tiefen.position, Standard 3); je Art/Typ im Content überschreibbar (positionAb), z. B. Falle 2, Erz 1
+  const TXT_STANDARD = 'Position: Stufe 3 oder Sicht';   // eine Zeile (MON-01: die Raute auf der Karte zeigt auch ohne Scan, was das Außenteam sieht; Stufe 3 liefert die Position unabhängig von der Sicht) (Nacharbeit D2); die Positionszeile ist die feste letzte Zeile des Datenblatts und wird nie gekürzt
+  const txtKeinePos = (n) => (n === POS_AB_STANDARD ? TXT_STANDARD : 'Position: erst ab Stufe ' + n);   // ITM-01: Arten mit eigener Stufe (Falle: verborgen, keine Sicht) sagen die Stufe
+  const TXT_KEINE_POS = txtKeinePos(POS_AB_STANDARD);   // Text der Standardstufe (Tests, Rückfall)
   const LIMIT = { name: 20, zeile: 34, hinweis: 100 };   // Content-Längen (Zeichen), der Test prüft alle Typen dagegen
   const MAXL_BLATT = 7;   // Zeilen unter dem Namen im Datenblatt: Zeile (1-2), Regelhinweis (bis 4), Position (immer die letzte)
   const obj = (v) => (v && typeof v === 'object' ? v : {});
@@ -36,6 +39,11 @@
   const typDef = (daten, typ) => { const t = obj(obj(daten).typen)[typ]; return t && typeof t === 'object' ? t : null; };
   const artDef = (daten, art) => { const a = obj(obj(daten).arten)[art]; return a && typeof a === 'object' ? a : null; };
 
+  // Positionsstufe für den Text: Typ vor Art, sonst die Standardstufe (kein Wert = Standard, nicht Stufe 1)
+  function posAbVon(t, a) {
+    const v = t && t.positionAb != null ? t.positionAb : a && a.positionAb != null ? a.positionAb : null;
+    return v == null ? POS_AB_STANDARD : int(v, 1, 3, POS_AB_STANDARD);
+  }
   // Anzeigezeile eines Eintrags: Texte nach Typ aus dem Content, sonst Fallback; Regelhinweis erst ab hinweisAb
   function zeile(e, daten) {
     const t = typDef(daten, e.typ), a = artDef(daten, e.art), fb = Object.assign({}, FALLBACK, obj(obj(daten).unbekannt));
@@ -45,7 +53,9 @@
       key: key(e), id: e.id, art: e.art, typ: e.typ, sk: e.sk,
       name: String(q.name || fb.name), gefahr: int(q.gefahr, 0, 3, 0), zeile: String(q.zeile || ''),
       hinweis: e.sk >= hinweisAb && q.hinweis ? String(q.hinweis) : '',
-      symbol: kurz((t && t.symbol) || (a && a.symbol) || fb.symbol, 3),
+      symbol: e.art === 'falle' ? '' : kurz((t && t.symbol) || (a && a.symbol) || fb.symbol, 3),   // ITM-01 F: Fallen tragen kein Textkürzel, sondern die Glyphe ihres Typs (glyphe, gezeichnet vom Renderer)
+      glyphe: e.art === 'falle' ? String(e.typ || '') : null,
+      posAb: posAbVon(t, a),   // Positionsstufe nur für den Text „erst ab Stufe n“ (die Position selbst liefert der Server, der Client rechnet keine Stufenregel)
       artTitel: a && a.titel ? String(a.titel) : '',
       pos: e.x != null ? { x: e.x, y: e.y } : null,
     };
@@ -98,7 +108,7 @@
     const T = tile > 0 ? tile : 32;
     return {
       titel: z.name, gefahr: z.gefahr, zeile: z.zeile, hinweis: z.hinweis,
-      position: z.pos ? 'Position: Feld ' + Math.floor(z.pos.x / T) + ' / ' + Math.floor(z.pos.y / T) : TXT_KEINE_POS,
+      position: z.pos ? 'Position: Feld ' + Math.floor(z.pos.x / T) + ' / ' + Math.floor(z.pos.y / T) : txtKeinePos(z.posAb || POS_AB_STANDARD),
       hatPosition: !!z.pos,
     };
   }
@@ -114,7 +124,7 @@
   function marker(sc, daten) {
     const d = daten === undefined ? store.daten : daten;
     const out = [];
-    for (const e of lesen(sc)) if (e.x != null) { const z = zeile(e, d); out.push({ key: z.key, x: e.x, y: e.y, symbol: z.symbol, artTitel: z.artTitel, fokus: z.key === store.fokus }); }
+    for (const e of lesen(sc)) if (e.x != null) { const z = zeile(e, d); out.push({ key: z.key, x: e.x, y: e.y, symbol: z.symbol, art: z.art, typ: z.typ, artTitel: z.artTitel, fokus: z.key === store.fokus }); }
     return out;
   }
 

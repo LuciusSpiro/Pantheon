@@ -192,7 +192,7 @@ section('Zeichnung des Overlays');
 
 section('HUD: Name, Zelle, nie aktive Waffe');
 ok(H.WAFFE_KURZ.scanner === 'Scanner' && H.WAFFE_NAME.scanner === 'Scanner', 'WAFFE_KURZ und WAFFE_NAME kennen den Scanner');
-ok(Array.isArray(H.SLOT_ITEMS) && H.SLOT_ITEMS.includes('scanner') && !H.SLOT_ITEMS.some((i) => PROTO.WAFFEN.includes(i)), 'SLOT_ITEMS = [scanner], keine Waffe');
+ok(Array.isArray(H.SLOT_ITEMS) && H.SLOT_ITEMS.includes('scanner') && !H.SLOT_ITEMS.some((i) => PROTO.WAFFEN.includes(i)), 'SLOT_ITEMS enthält den Scanner, keine Waffe');
 const zelle = (slots, wf, aktion) => {
   calls.length = 0; const fills = [];
   const ctx = { fillStyle: '', strokeStyle: '', lineWidth: 1, fillRect(x, y, w, h) { fills.push({ x, w, c: this.fillStyle }); }, strokeRect() {} };
@@ -232,7 +232,7 @@ section('Ausrüstungsstation: Scanner wählbar');
   ok(K && typeof K.ausruestungWahl === 'function', 'consoles.js lädt im Sandkasten' + (fehler ? ': ' + fehler.message : ''));
   if (K) {
     const wahl = K.ausruestungWahl();
-    ok(wahl[0] === null && PROTO.WAFFEN_WAHL.every((id, i) => wahl[i + 1] === id) && wahl[wahl.length - 1] === 'scanner' && wahl.length === PROTO.WAFFEN_WAHL.length + 2, 'Auswahlliste: leer, die sechs Waffen, dann Scanner (immer wählbar, auch ohne Scan-Ziele)');
+    ok(wahl[0] === null && PROTO.WAFFEN_WAHL.every((id, i) => wahl[i + 1] === id) && wahl[PROTO.WAFFEN_WAHL.length + 1] === 'scanner' && wahl[wahl.length - 1] === 'medipack' && wahl.length === PROTO.WAFFEN_WAHL.length + 3, 'Auswahlliste: leer, die sechs Waffen, dann Scanner (immer wählbar, auch ohne Scan-Ziele), dann Medipack (ITM-01 B)');
     ok(K.ausruestungName('scanner') === 'Scanner', 'Anzeigename „Scanner“ (kein doppelter Kurzname)');
     K.ausr.stand = { slotzahl: 3, slots: ['sturmgewehr', null, null] };
     ok(K.ausruestungGrund('scanner', 1) === null && K.ausruestungGesperrt('scanner', 1) === false, 'Scanner in einen freien Slot: möglich, Zeile nicht gesperrt');
@@ -246,14 +246,14 @@ section('Ausrüstungsstation: Scanner wählbar');
     K.ausr.stand = { slotzahl: 3, slots: ['sturmgewehr', null, null] }; K.ausr.sel = 1; K.ausr.fokus = 'waffe';
     K.ausruestungTaste('Digit7', view);
     ok(gesendet.length === 1 && gesendet[0].c === 'ausruestung.slot' && gesendet[0].slot === 1 && gesendet[0].id === 'scanner', 'Taste 7 setzt den Scanner in den gewählten Slot (ausruestung.slot { slot 1, id scanner })');
-    K.ausr.cur = K.ausruestungWahl().length - 1; gesendet.length = 0;
+    K.ausr.cur = K.ausruestungWahl().indexOf('scanner'); gesendet.length = 0;
     K.ausruestungTaste('Enter', view);
     ok(gesendet.length === 1 && gesendet[0].id === 'scanner', 'Enter auf der Scanner-Zeile setzt ihn');
     K.ausr.cur = 0; K.ausruestungTaste('ArrowUp', view);
-    ok(K.ausr.cur === K.ausruestungWahl().length - 1, 'Pfeil hoch aus der obersten Zeile springt auf die Scanner-Zeile (Liste umlaufend)');
+    ok(K.ausr.cur === K.ausruestungWahl().length - 1, 'Pfeil hoch aus der obersten Zeile springt auf die letzte Zeile (Liste umlaufend)');
     // Zeichnen: Beschreibung und Symbol
     calls.length = 0; const c = ctxStub(); const sym = []; w2.Scanner = { symbol: (cc, x, y, col) => sym.push([x, y, col]) };
-    K.ausr.stand = { slotzahl: 3, slots: ['sturmgewehr', 'scanner', null] }; K.ausr.sel = 1; K.ausr.cur = K.ausruestungWahl().length - 1; K.ausr.fehler = null;
+    K.ausr.stand = { slotzahl: 3, slots: ['sturmgewehr', 'scanner', null] }; K.ausr.sel = 1; K.ausr.cur = K.ausruestungWahl().indexOf('scanner'); K.ausr.fehler = null;
     R.button = (ctx, x, y, w, h, lab, o) => { calls.push({ txt: 'BTN:' + lab, x, y, o }); };
     R.wrap = (t, w) => { const out = []; let z = ''; for (const wd of String(t).split(' ')) { if ((z + ' ' + wd).trim().length * 6 > w && z) { out.push(z); z = wd; } else z = (z + ' ' + wd).trim(); } if (z) out.push(z); return out; };
     let hilfe = null, f2 = null;
@@ -266,7 +266,7 @@ section('Ausrüstungsstation: Scanner wählbar');
     ok(/Am Boden aktiv: Gewehr/.test(t2), 'am Boden aktiv bleibt die erste Waffe');
     K.ausr.stand = { slotzahl: 3, slots: ['scanner', null, null] }; calls.length = 0; K.drawAusruestung(c, view);
     ok(/Kein Waffen-Slot = Fäuste/.test(calls.map((x) => x.txt).join('\n')) && !/Am Boden aktiv: Scanner/.test(calls.map((x) => x.txt).join('\n')), 'nur Scanner im Slot: „Kein Waffen-Slot = Fäuste.“ (ein Item ist nie die aktive Waffe)');
-    ok(/1–7 direkt/.test(hilfe), 'Hilfezeile nennt 1–7');
+    ok(/1–8 direkt/.test(hilfe), 'Hilfezeile nennt 1–8 (acht wählbare Zeilen hinter „leer“)');
   }
 }
 

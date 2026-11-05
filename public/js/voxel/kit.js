@@ -651,6 +651,19 @@ const PROP_FB = {
     pen.box(-0.14, 0.3, -0.14, 0.14, 2.2, 0.14, F.get('metal'), F.get('metal_dark'));
     pen.box(-0.2, 1.1, -0.2, 0.2, 1.3, 0.2, F.get(st === 1 ? 'ember' : 'alarm_dark', st === 1 ? 1.6 : 1.0), null, { emit: st === 1 });
   },
+  // ITM-01 E: Platzhalter einer Falle (nur wenn die Bauweise kein Prop nennt): flache Platte, Zustand = Farbe des Kerns (0 verborgen: dunkel, 1 erkannt: Warnrot, 2 entschärft: ruhig, 3 ausgelöst: verbrannt);
+  // die Selbstschussanlage (typ schuss, Kollisionsbox) steht als Block mit Rohr
+  falle(pen, p, F) {
+    const st = p.state | 0;
+    pen.box(-0.4, 0, -0.4, 0.4, 0.05, 0.4, F.get('metal_dark'), F.get('metal_dark'));
+    if (p.typ === 'schuss') {
+      pen.box(-0.38, 0.05, -0.38, 0.38, 0.7, 0.38, F.get('metal'), F.get('metal_dark'));
+      pen.box(-0.06, 0.45, 0.05, 0.06, 0.58, 0.55, F.get('metal_dark'), null);
+      if (st === 1) pen.box(-0.1, 0.7, -0.1, 0.1, 0.8, 0.1, F.get('alarm_dark', 1.2), null, { emit: true });
+      return;
+    }
+    pen.box(-0.22, 0.05, -0.22, 0.22, 0.08, 0.22, st === 1 ? F.get('alarm_dark', 1.2) : st === 2 ? F.get('metal') : F.get('dark'), null, { emit: st === 1 });
+  },
   zelle(pen, p, F) {
     const open = (p.state | 0) === 1;
     pen.box(-0.5, 0, -0.5, 0.5, 0.08, 0.5, F.get('metal_dark'), F.get('metal_dark'));
@@ -762,8 +775,9 @@ async function bauKarte(parent, karteIn, opts) {
   };
   // anker[rolle][art|'*'] = ID | { id, <feste Parameter> } | { '*': ID, <platztyp>: ID } (Prop je Platztyp, Nachtrag)
   const platzTyp = new Map((k.plaetze || []).map((p) => [p.id, p.typ]));
-  const propEintrag = (rolle, platz) => ankerEintragVon(BW, rolle, k.art, platz ? platzTyp.get(platz) || String(platz).replace(/_\d+$/, '') : null);
-  const propId = (rolle, platz) => { const e = propEintrag(rolle, platz); return e ? e.id : null; };
+  // typ: Anker-Typ der Falle (ITM-01 E): die Zeile anker.falle.<typ> gewinnt vor <art> und '*' (kit-regeln.js ankerEintragVon)
+  const propEintrag = (rolle, platz, typ) => ankerEintragVon(BW, rolle, k.art, platz ? platzTyp.get(platz) || String(platz).replace(/_\d+$/, '') : null, rolle === 'falle' ? typ : null);
+  const propId = (rolle, platz, typ) => { const e = propEintrag(rolle, platz, typ); return e ? e.id : null; };
   const kindsDa = new Set();
   for (let y = 0; y < k.h; y++) for (let x = 0; x < k.w; x++) kindsDa.add(k.kindAt(x, y));
   const want = new Set();
@@ -781,7 +795,9 @@ async function bauKarte(parent, karteIn, opts) {
   for (const kd of kindsDa) for (const id of kandidaten(kd)) if (inManifest(id)) want.add(id);
   const dachEintrag = k.huelle ? kitId('dach') : null;   // Dach nur in Hüllen-Karten und nur, wenn die Bauweise ein Dach-Teil nennt
   if (dachEintrag && dachEintrag.id && inManifest(dachEintrag.id)) want.add(dachEintrag.id);
-  for (const a of k.anker) { const id = propId(a.rolle, a.platz); if (id && inManifest(id)) want.add(id); }
+  for (const a of k.anker) { const id = propId(a.rolle, a.platz, a.typ); if (id && inManifest(id)) want.add(id); }
+  // ITM-01 E: verborgene Fallen stehen beim Bau noch nicht in der Ankerliste (ankerEnthuellt hängt sie später an, handle.ankerNeu): alle Typ-Zeilen der Bauweise vorladen
+  if (BW.anker && BW.anker.falle && typeof BW.anker.falle === 'object') for (const v of Object.values(BW.anker.falle)) { const id = typeof v === 'string' ? v : v && v.id; if (id && inManifest(id)) want.add(id); }
   // TA: Möbel der Siedlung (Bauweise.moebel: Schlüssel → Prop-ID oder { id, <feste Parameter> })
   const moebelEintrag = (key) => { const e = BW.moebel && BW.moebel[key]; if (!e) return null; if (typeof e === 'string') return { id: e, params: {} }; const p = {}; for (const kk of Object.keys(e)) if (kk !== 'id' && kk !== 'hinweis') p[kk] = e[kk]; return { id: e.id, params: p }; };
   for (const mb of k.moebel) { const e = moebelEintrag(mb[4]); if (e && e.id && inManifest(e.id)) want.add(e.id); }
@@ -1269,7 +1285,7 @@ async function bauKarte(parent, karteIn, opts) {
   // Props an Ankern (dynamisch: Zustand)
   for (const a of k.anker) {
     const rs = rollenStates(a.rolle);
-    const id = propId(a.rolle, a.platz);
+    const id = propId(a.rolle, a.platz, a.typ);
     if (!id && !rs.objekt) continue;
     if (a.rolle === 'tor' || a.rolle === 'eingang' || a.rolle === 'aussicht' && !id) continue;
     // GEL-02 E2: Leiter in Karten mit Erdboden: Schacht (oben) bzw. Lichtfleck (unten) statt des Schiffs-Props; Fund unter der Erde bekommt einen Glutring
@@ -1380,10 +1396,16 @@ async function bauKarte(parent, karteIn, opts) {
     i = zst.indexOf(alias[name]);
     return i >= 0 ? i : null;
   };
+  // Startzustand: erster der Rolle, eine passive Falle (sicht passiv) startet erkannt – Regel in shared/buehne.js (ankerStart), eine Quelle mit render.js
+  const ankerStart = (a, zst) => {
+    const SBs = typeof window !== 'undefined' ? window.Shared_Buehne : null;
+    if (SBs && typeof SBs.ankerStart === 'function') return SBs.ankerStart(a, zst);
+    return a.rolle === 'falle' && a.sicht === 'passiv' ? 'erkannt' : (zst && zst[0]) || null;
+  };
   const ankerName = (a) => {
     const rs = rollenStates(a.rolle);
     if (ankerZustand.has(a.i)) return ankerZustand.get(a.i);
-    return k.zustaende[a.id] || rs.zustaende[0] || null;
+    return k.zustaende[a.id] || ankerStart(a, rs.zustaende);
   };
   const tuerState = (t) => {
     let s = 0;
@@ -1401,6 +1423,30 @@ async function bauKarte(parent, karteIn, opts) {
       if (i != null) s = i;
     }
     return s;
+  };
+  // Prop-Objekt eines Ankers (Drehung, Versatz, Parameter); auch für spät enthüllte Anker (handle.ankerNeu)
+  const propParams = (o, t) => {
+    const a = t.anker, zst = t.zustaende;
+    const pe = propEintrag(a.rolle, a.platz, a.typ);
+    t.rot = t.boxen ? 0 : pe && pe.dreh != null ? pe.dreh * Math.PI / 180 : facing(a.x, a.y);   // fester Eintrag (dreh, Grad) gewinnt gegen die Drehung zur freien Nachbarkachel; Schacht: Nordkante bleibt im Norden
+    const fp = t.id && loader.manifest && loader.manifest(t.id) ? loader.manifest(t.id).footprint : null;
+    t.off = [0, 0];
+    if (fp && (fp[0] > 1 || fp[1] > 1)) {
+      // 2×2-Prop: in die Blockmitte zur freien Seite. Beide Seiten begehbar (freie Wahl): zur Mitte des Platzes (Karte, wenn kein Platz) hin,
+      // damit ein Reaktor nicht an der Türwand landet (ORT-01 6D). Nur der Darstellungsversatz ändert sich, Anker-Kachel und Karte bleiben.
+      const pl = (k.plaetze || []).find((p) => p.id === a.platz);
+      const cx = pl ? pl.x + pl.w / 2 : k.w / 2, cy = pl ? pl.y + pl.h / 2 : k.h / 2;
+      const sx = walk(a.x + 1, a.y) && walk(a.x - 1, a.y) ? (a.x + 0.5 < cx ? 0.5 : -0.5) : walk(a.x + 1, a.y) || !walk(a.x - 1, a.y) ? 0.5 : -0.5;
+      const sz = walk(a.x, a.y + 1) && walk(a.x, a.y - 1) ? (a.y + 0.5 < cy ? 0.5 : -0.5) : walk(a.x, a.y + 1) || !walk(a.x, a.y - 1) ? 0.5 : -0.5;
+      t.off = [fp[0] > 1 ? sx : 0, fp[1] > 1 ? sz : 0];
+    }
+    if (pe && pe.versatz) t.off = pe.versatz;   // fester Versatz (Meter, Weltrichtung) gewinnt gegen den automatischen
+    t.lift = hoeheOf(k.kindAt(a.x, a.y));
+    o.params = () => {
+      const nm = ankerName(a);
+      const p = Object.assign({ state: Math.max(0, zst.indexOf(nm)), zustand: zKit, art: k.art, seed: seedOf(a.x, a.y) }, (pe || { fest: {} }).fest);
+      return p;
+    };
   };
   const dynObjs = [];
   for (const t of dyn) {
@@ -1424,29 +1470,7 @@ async function bauKarte(parent, karteIn, opts) {
         if (t.kind === 'tor') p.breite = Math.max(2, Math.min(4, t.breite || p.breite || 2));
         return p;
       };
-    } else {
-      const a = t.anker, zst = t.zustaende;
-      const pe = propEintrag(a.rolle, a.platz);
-      t.rot = t.boxen ? 0 : pe && pe.dreh != null ? pe.dreh * Math.PI / 180 : facing(a.x, a.y);   // fester Eintrag (dreh, Grad) gewinnt gegen die Drehung zur freien Nachbarkachel; Schacht: Nordkante bleibt im Norden
-      const fp = t.id && loader.manifest && loader.manifest(t.id) ? loader.manifest(t.id).footprint : null;
-      t.off = [0, 0];
-      if (fp && (fp[0] > 1 || fp[1] > 1)) {
-        // 2×2-Prop: in die Blockmitte zur freien Seite. Beide Seiten begehbar (freie Wahl): zur Mitte des Platzes (Karte, wenn kein Platz) hin,
-        // damit ein Reaktor nicht an der Türwand landet (ORT-01 6D). Nur der Darstellungsversatz ändert sich, Anker-Kachel und Karte bleiben.
-        const pl = (k.plaetze || []).find((p) => p.id === a.platz);
-        const cx = pl ? pl.x + pl.w / 2 : k.w / 2, cy = pl ? pl.y + pl.h / 2 : k.h / 2;
-        const sx = walk(a.x + 1, a.y) && walk(a.x - 1, a.y) ? (a.x + 0.5 < cx ? 0.5 : -0.5) : walk(a.x + 1, a.y) || !walk(a.x - 1, a.y) ? 0.5 : -0.5;
-        const sz = walk(a.x, a.y + 1) && walk(a.x, a.y - 1) ? (a.y + 0.5 < cy ? 0.5 : -0.5) : walk(a.x, a.y + 1) || !walk(a.x, a.y - 1) ? 0.5 : -0.5;
-        t.off = [fp[0] > 1 ? sx : 0, fp[1] > 1 ? sz : 0];
-      }
-      if (pe && pe.versatz) t.off = pe.versatz;   // fester Versatz (Meter, Weltrichtung) gewinnt gegen den automatischen
-      t.lift = hoeheOf(k.kindAt(a.x, a.y));
-      o.params = () => {
-        const nm = ankerName(a);
-        const p = Object.assign({ state: Math.max(0, zst.indexOf(nm)), zustand: zKit, art: k.art, seed: seedOf(a.x, a.y) }, (pe || { fest: {} }).fest);
-        return p;
-      };
-    }
+    } else propParams(o, t);
     dynObjs.push(o);
   }
   const fbGeoCache = new Map();
@@ -1472,12 +1496,13 @@ async function bauKarte(parent, karteIn, opts) {
     }
     // Platzhalter (gecacht je Art + Parameter)
     const kind = t.typ === 'tuer' ? t.kind : t.rolle;
-    const ck = kind + '|' + (t.breite || 1) + '|' + JSON.stringify(p);
+    const ptyp = t.typ === 'tuer' ? undefined : t.anker && t.anker.typ;   // ITM-01 E: Anker-Typ (Falle) für den Platzhalter
+    const ck = kind + '|' + (t.breite || 1) + '|' + (ptyp || '') + '|' + JSON.stringify(p);
     let g = fbGeoCache.get(ck);
     if (g === undefined) {
       const b = new Bucket();
       const fn = t.typ === 'tuer' ? FB[t.kind] : PROP_FB[t.rolle];
-      if (fn) { pen.to(b, new THREE.Matrix4()); fn(pen, Object.assign({ zustaende: t.zustaende, lauf: t.breite || 1 }, p), F, THREE); }
+      if (fn) { pen.to(b, new THREE.Matrix4()); fn(pen, Object.assign({ zustaende: t.zustaende, lauf: t.breite || 1, typ: ptyp }, p), F, THREE); }
       else { pen.to(b, new THREE.Matrix4()); pen.box(-0.3, 0, -0.3, 0.3, 1, 0.3, F.get('leit'), F.get('stone')); }
       g = b.toGeometry(); fbGeoCache.set(ck, g);
       if (g) geos.push(g);
@@ -1536,6 +1561,23 @@ async function bauKarte(parent, karteIn, opts) {
       }
     },
     setDeck,
+    /** ITM-01 E: spät enthüllter Anker (verborgene Falle, Ereignis ankerEnthuellt) hinten an die Ankerliste hängen (Index = Position, wie ao ihn zählt): Prop und Zustand wie beim Bau. raw = [id, rolle, x, y, attr] oder Objekt. → true, wenn ein Prop dazukam */
+    ankerNeu(raw) {
+      const i = k.anker.length;
+      const a = Array.isArray(raw) ? Object.assign({ id: raw[0], rolle: raw[1], x: raw[2], y: raw[3], i }, raw[4] && typeof raw[4] === 'object' ? raw[4] : {}) : Object.assign({}, raw, { i });
+      if (!a.platz && a.id) a.platz = String(a.id).split('.')[0];
+      k.anker.push(a);
+      handle._zKey = null;   // ao beim nächsten update neu lesen (der neue Index kann dort schon stehen)
+      const rs = rollenStates(a.rolle), id = propId(a.rolle, a.platz, a.typ);
+      if ((!id && !rs.objekt) || a.rolle === 'tor' || a.rolle === 'eingang' || a.rolle === 'aussicht') return false;
+      const t = { typ: 'prop', anker: a, rolle: a.rolle, id, zustaende: rs.zustaende, d: k.deckOf(a.y), tx: a.x, ty: a.y, boxen: null, ende: null, ring: false };
+      const o = { def: t, key: null, group: null };
+      propParams(o, t);
+      dynObjs.push(o);
+      stats.dynamisch = dynObjs.length;
+      refresh();
+      return true;
+    },
     /** GEL-02 E2: Punktlichter der Kulisse für das gezeigte Deck (Lichtschacht am unteren Leiter-Ende, Licht über dem Fund solange er da ist); frische Objekte je Aufruf */
     lichter() {
       const out = [];
@@ -1780,6 +1822,10 @@ export const layer = {
     }
     if (!LZ.h) return;
     const aw = (view && view.state && view.state.away) || {};
+    {   // ITM-01 E: später enthüllte Anker (Falle) der Client-Liste an die Ankerliste des Baus hängen; maßgeblich ist die aktuell registrierte Karte (ein neues awayMap ersetzt das Kartenobjekt)
+      const cm = aw.map && (G.Shared_Maps || {})[aw.map];
+      if (cm && Array.isArray(cm.anker) && LZ.h.ankerNeu) for (let i = LZ.h.karte.anker.length; i < cm.anker.length; i++) { try { LZ.h.ankerNeu(cm.anker[i]); } catch (e) { ctx.countError('kit.ankerNeu', e); } }
+    }
     LZ.h.update({ ao: aw.ao || [], ko: aw.ko || [] });
     LZ.h.setDeck(ctx.deck || 0);
     if (ctx.addLight && LZ.h.lichter) for (const l of LZ.h.lichter()) ctx.addLight(l);   // GEL-02 E2

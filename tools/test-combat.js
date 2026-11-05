@@ -18,6 +18,7 @@ WAFFEN_MOD.aktiv = false;
 let fails = 0, n = 0;
 const ok = (c, t) => { n++; if (c) console.log('  ok   ' + t); else { fails++; console.log('  FEHLER ' + t); } };
 const AC = require('../shared/config.js').awayCombat;
+const LAD = require('../shared/config.js').medipack.ladungen;   // ITM-01 A: Ladungen je Medipack (p.medkit)
 // W1 AP1: Snapshot-Grenze. SNAP_ZIEL (snapMax − snapLuft) ist bewusst strenger: Worst Case Außenposten und die Szenen ohne
 // Worst-Case-Last (Kesh, Raumkampf; früher fest 12 KB) müssen die Luft unter snapMax einhalten.
 const NET = require('../shared/config.js').net;
@@ -68,11 +69,11 @@ console.log('\n[Aufbau, Kesh, Snapshot]');
   ok(aw().drones.filter((d) => d.squad === 'squad1' && d.alive).length === 4, 'Trupp 1: 4 Plünderer (zu dritt)');
   ok(aw().drones.some((d) => d.kind === 'warden' && d.asleep), 'Wächter schläft');
   ok(P(0).shield.seg === 3 && P(0).shield.max === 3, 'voller Schild beim Herunterbeamen');
-  ok(P(0).medkit === 1 && P(1).medkit === 1 && P(2).medkit === 0 && g.inventory.medipack === 0, 'Medipacks aus dem Lager (2 vorhanden)');
+  ok(P(0).medkit === LAD && P(1).medkit === LAD && P(2).medkit === 0 && g.inventory.medipack === 0, 'Medipacks aus dem Lager (2 vorhanden): zwei Träger mit je allen Ladungen');
   const s = g.snapshot();
   const sp = s.players[0];
   // W1 AP1: Standardwerte fehlen (fl false, bleed null, cr false, zs 'ok', ov/bt 0)
-  ok(JSON.stringify(sp.sh) === '[3,3]' && 'shR' in sp && 'cv' in sp && sp.medkit === 1 && ['fl', 'bleed', 'cr', 'zs', 'ov', 'bt'].every((k) => !(k in sp)),
+  ok(JSON.stringify(sp.sh) === '[3,3]' && 'shR' in sp && 'cv' in sp && sp.medkit === LAD && ['fl', 'bleed', 'cr', 'zs', 'ov', 'bt'].every((k) => !(k in sp)),
     'Snapshot players: sh, shR, cv, medkit; fl/bleed/cr/zs/ov/bt fehlen als Standard');
   ok(s.away.combat === 'v2' && s.away.scanQuality === AC.scanQualityJammed && s.away.vault.open === false && s.away.jammers.length === 2 && s.away.keys.length === 2 && s.away.tablet && Array.isArray(s.away.orders), 'Snapshot away: combat, scanQuality, vault, jammers, keys, tablet, orders');
   const d = s.away.drones.find((q) => q.kind === 'scavenger');
@@ -147,7 +148,7 @@ console.log('\n[Wiederbeleben, Medipack]');
   // Nachschub-Medipack durch Darüberlaufen
   g.away.items.push({ id: 'mk', kind: 'medipack', x: P(0).x, y: P(0).y });
   run(0.1);
-  ok(P(0).medkit === 1 && !g.away.items.length, 'Medipack durch Darüberlaufen aufgehoben');
+  ok(P(0).medkit === LAD && !g.away.items.length, 'Medipack durch Darüberlaufen aufgehoben');
   // Hochbeamen gibt das Medipack zurück ins Lager
   const inv = g.inventory.medipack;
   const it = require('../server/sim/interior.js');
@@ -696,7 +697,7 @@ console.log('\n[Testgelände (Lobby-Start arena_space / arena_away)]');
     ok(g.phase === 'play' && g.mission.activeId === 'm3' && g.mission.state.stage === 'courtyard', 'Außenteam solo: m3 Schritt courtyard');
     ok(p.zone === 'away' && g.away.map === 'kesh' && g.aways.kesh.active, 'Solo-Spieler unten auf Kesh');
     ok(W.AWAY_MAPS.kesh.pads.some((q) => { const t = Physics.toTile(p.x, p.y); return t.x === q.x && t.y === q.y; }), 'auf einem Kesh-Pad');
-    ok(p.shield && p.shield.seg === p.shield.max && p.medkit === 1, 'voller Schild, Medipack mitgenommen');
+    ok(p.shield && p.shield.seg === p.shield.max && p.medkit === LAD, 'voller Schild, Medipack mitgenommen');
     const st = Locations.get('kesh').scene.station;
     ok(g.ship.scene === 'kesh' && Math.hypot(g.ship.x - st.x, g.ship.y - st.y) <= Locations.get('kesh').scene.beam.range && g.ship.speed === 0, 'Schiff in Transferreichweite über Kesh');
     ok(g.aways.kesh.drones.some((d) => d.squad === 'squad1' && d.alive), 'Trupp 1 im Hof');

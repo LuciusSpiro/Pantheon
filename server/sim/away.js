@@ -312,7 +312,9 @@ function supply(game) {
   if (isDown(game.ship.systems.transfer)) return 'Transfer ausgefallen.';
   if (!game.away.marker) return 'Keine Markierung gesetzt (Außenteam: Q).';
   if (game.support.supply > 0) return `Nachschub lädt noch (${Math.ceil(game.support.supply)} s).`;
-  if (game.inventory.medipack <= 0) return 'Keine Medipacks mehr an Bord.';
+  // ITM-01 G: Nachschub setzt ein ganzes Pack auf die Karte; ein Rest (medipackCharges) ist kein Pack. Der Hinweis nennt den Rest, statt „keine mehr“ zu behaupten
+  if (game.inventory.medipack <= 0) return (game.inventory.medipackCharges || 0) > 0 ? 'Kein voller Medipack mehr an Bord (nur ' + game.inventory.medipackCharges + ' Restladung' + (game.inventory.medipackCharges === 1 ? '' : 'en') + ').' : 'Keine Medipacks mehr an Bord.';
+  if (require('./combat.js').isV2(game) && !game.players.some((q) => q.zone === 'away' && require('./medipack.js').traegt(game, q))) return 'Niemand im Außenteam hat einen Medipack-Slot.';   // ITM-01 A: auf v2 hebt nur ein Träger den Pack auf
   Vorrat.verbrauchen(game, 'medipack', 1, 'nachschub');   // Wächter: <= 0 oben
   game.support.supply = game.C.support.supply.cooldown;
   const m = game.away.marker;

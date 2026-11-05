@@ -8,8 +8,9 @@ const Waffen = require('./waffen.js');
 const SLOTS_MAX = 3;
 const SLOTS_BIS_2_SPIELER = 3;
 const SLOTS_AB_3_SPIELER = 2;
-// Standardloadout: Wirksamer Stand eines Spielers OHNE gespeichertes Loadout (Blaster in Slot 1). Gespeichert wird er erst, wenn jemand etwas ändert.
-const standardLoadout = () => ['blaster', ...Array(SLOTS_MAX - 1).fill(null)];
+// Standardloadout: Wirksamer Stand eines Spielers OHNE gespeichertes Loadout (Blaster in Slot 1, Medipack in Slot 2). Gespeichert wird er erst, wenn jemand etwas ändert.
+// ITM-01 A: Blaster + Medipack (wie früher: jeder hatte ein Medipack); der dritte Slot ist leer.
+const standardLoadout = () => ['blaster', 'medipack', ...Array(SLOTS_MAX - 2).fill(null)];
 const OHNE_WAFFE = 'faust';   // Loadout gespeichert, aber keine Waffe in den wirksamen Slots
 
 // Die EINE Stelle, die entscheidet, was in einen Slot darf. Spätere Aufträge (Medipack, Scanner) ergänzen hier ihre Ids.

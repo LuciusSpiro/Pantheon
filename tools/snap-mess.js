@@ -14,6 +14,7 @@
 //           Anführer (Modifikator, Bit gs) greifen von allen Seiten an, alle Spieler bleiben stehen (Worst Case: 4 Spieler + 11 Gegner).
 //   worst_scan  SCA-01 NS: der Worst Case oben PLUS 4 Scannende (players[].sc und action) und 16 Einträge in away.sc (18 Ziele geliefert, Obergrenze scanner.maxEintraege greift), über den echten Weg
 //           (Scanner.scanStarten, Scanbar.debugScanfertig).
+//   worst_falle ITM-01 C: worst_scan, aber die 16 Einträge in away.sc sind 16 Fallen (verborgen gebaut, per Scan Stufe 3 erkannt und enthüllt: 16 nachgereichte Anker, 16 ao-Einträge, Position in sc).
 // Ausgabe je Aufbau: Max, p95, Mittel; Bytes je Top-Level-Schlüssel (Mittel und im Max-Snapshot); Bytes je Gegner
 // (Mittel) und je Gegnerfeld bzw. Spielerfeld (Mittel, Anteil am Gegner bzw. Spieler).
 // Gemessen wird wie im Vertrag: Buffer.byteLength(JSON.stringify(g.snapshot())). Grenze: CONFIG.net.snapMax − snapLuft.
@@ -26,6 +27,7 @@ const combat = require('../server/sim/combat.js');
 const squad = require('../server/sim/squad.js');
 const away = require('../server/sim/away.js');
 const W2 = require('../server/sim/waffen.js');
+const W3 = require('../server/world.js');
 
 const args = process.argv.slice(2);
 const has = (k) => args.includes(k);
@@ -84,6 +86,30 @@ function auswerten(S) {
 function worstCase(S, seed) { return worstCaseLauf(S, seed, null); }
 // SCA-01 NS: derselbe Aufbau mit 4 Scannenden und gefülltem away.sc
 function worstCaseScan(S, seed) { return worstCaseLauf(S, seed, { aufbauen: scanAufbauen, halten: scanHalten }); }
+// ITM-01 C: 16 verborgene Fallen um die Spieler (Anker in die gebaute Karte, BFS-Abstand 4..14 vom ersten Spieler, mindestens 2 Kacheln auseinander), per Scan Stufe 3 erkannt und enthüllt
+function falleAufbauen(g) {
+  const Buehne = require('../shared/buehne.js');
+  const Fallen = require('../server/sim/fallen.js');
+  const k = W3.AWAY_MAPS[g.away.map].karte;
+  const r = Buehne.raster(k);
+  const t0 = Physics.toTile(g.players[0].x, g.players[0].y);
+  const dist = new Map([[t0.y * k.w + t0.x, 0]]); const q = [[t0.x, t0.y]];
+  for (let i = 0; i < q.length; i++) { const [x, y] = q[i]; for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) { const nx = x + dx, ny = y + dy, key = ny * k.w + nx; if (dist.has(key) || !r.durchgang(nx, ny)) continue; dist.set(key, dist.get(y * k.w + x) + 1); q.push([nx, ny]); } }
+  const belegt = new Set(k.anker.map((a) => a.x + ',' + a.y)); const gew = [];
+  for (const key of [...dist.keys()].sort((a, b) => dist.get(a) - dist.get(b) || a - b)) {
+    const x = key % k.w, y = Math.floor(key / k.w), d = dist.get(key), inf = r.info(x, y);
+    if (d < 4 || d > 14 || !inf || inf.kante !== 'begehbar' || belegt.has(x + ',' + y) || gew.some((o) => Math.hypot(o.x - x, o.y - y) < 2) || gew.length >= 16) continue;
+    gew.push({ x, y });
+  }
+  gew.forEach((t, i) => k.anker.push({ id: 'falle.' + (i + 1), rolle: 'falle', x: t.x, y: t.y, typ: ['schott', 'druck', 'schuss'][i % 3], sicht: 'verborgen' }));
+  Fallen.standVerwerfen(g.away);
+  require('../server/sim/scanbar.js').debugScanfertig(g, g.players[0], 3);
+}
+function falleBericht(g) {
+  const z = Object.values(g.away.zustaende || {}); const F = require('../server/sim/fallen.js');
+  return { fallen: g.away.sc ? Object.keys(g.away.sc).filter((x) => x.startsWith('falle:')).length : 0, erkannt: z.filter((x) => x === 'erkannt').length, ausgeloest: z.filter((x) => x === 'ausgeloest').length, nachgereicht: F.enthuellteIds(g, g.away).length };
+}
+function worstCaseFalle(S, seed) { return worstCaseLauf(S, seed, { aufbauen: falleAufbauen, halten: scanHalten, bericht: falleBericht }); }
 
 // MON-01 P4: der Worst Case oben PLUS 6 Kreaturen (Typ probe, in Teamsicht, alle gescannt Stufe 3 -> 6 Einträge monster in away.sc); Bytes von away.kr je Kreatur und Summe
 function worstCaseKreaturen(S, seed) {
@@ -154,7 +180,7 @@ function worstCaseLauf(S, seed, scan) {
     messen(S, sn);
     if (scan && scan.messen) scan.messen(sn);
   }
-  return { lp, fehler: g.errors, scannende: scan ? g.players.filter((p) => p.scan).length : 0, scEintraege: g.away && g.away.sc ? Object.keys(g.away.sc).length : 0, kreaturen: scan && scan.ergebnis ? scan.ergebnis() : null };
+  return { lp, fehler: g.errors, scannende: scan ? g.players.filter((p) => p.scan).length : 0, scEintraege: g.away && g.away.sc ? Object.keys(g.away.sc).length : 0, kreaturen: scan && scan.ergebnis ? scan.ergebnis() : null, falle: scan && scan.bericht ? scan.bericht(g) : undefined };
 }
 
 // ---------- Aufbau 2: Wellenlauf (wie test-wellen.js „kampf“) ----------
@@ -673,10 +699,11 @@ function brettLauf(S, seed) {
 
 // ---------- Lauf ----------
 const t0 = Date.now();
-const W = sammler('worst'), WS = sammler('worst_scan'), WK = sammler('worst_kreaturen'), WL = sammler('wellen'), RA = sammler('raum-alarm'), WM = sammler('methalle'), WE = sammler('endkampf'), WB = sammler('boden'), KV = sammler('konvoi'), FL = sammler('flotte'), OB = sammler('orbit'), FF = sammler('freie_fahrt'), VF = sammler('verfolgung'), FO = sammler('finale_orbit'), FD = sammler('faden'), BR = sammler('abenteuer_brett');
-const laeufe = { worst: [], worstScan: [], worstKreaturen: [], wellen: [], raum: [], methalle: [], endkampf: [], boden: [], konvoi: [], flotte: [], orbit: [], freieFahrt: [], verfolgung: [], finaleOrbit: [], faden: [], brett: [] };
+const W = sammler('worst'), WS = sammler('worst_scan'), WF = sammler('worst_falle'), WK = sammler('worst_kreaturen'), WL = sammler('wellen'), RA = sammler('raum-alarm'), WM = sammler('methalle'), WE = sammler('endkampf'), WB = sammler('boden'), KV = sammler('konvoi'), FL = sammler('flotte'), OB = sammler('orbit'), FF = sammler('freie_fahrt'), VF = sammler('verfolgung'), FO = sammler('finale_orbit'), FD = sammler('faden'), BR = sammler('abenteuer_brett');
+const laeufe = { worst: [], worstScan: [], worstFalle: [], worstKreaturen: [], wellen: [], raum: [], methalle: [], endkampf: [], boden: [], konvoi: [], flotte: [], orbit: [], freieFahrt: [], verfolgung: [], finaleOrbit: [], faden: [], brett: [] };
 for (let s = 1; s <= SEEDS; s++) laeufe.worst.push(Object.assign({ seed: s }, worstCase(W, s)));
 for (let s = 1; s <= SEEDS; s++) laeufe.worstScan.push(Object.assign({ seed: s }, worstCaseScan(WS, s)));   // SCA-01 NS
+for (let s = 1; s <= SEEDS; s++) laeufe.worstFalle.push(Object.assign({ seed: s }, worstCaseFalle(WF, s)));   // ITM-01 C
 for (let s = 1; s <= SEEDS; s++) laeufe.worstKreaturen.push(Object.assign({ seed: s }, worstCaseKreaturen(WK, s)));   // MON-01 P4
 for (const karte of ['aussenposten', 'kesh']) for (let s = 1; s <= SEEDS; s++) laeufe.wellen.push(Object.assign({ seed: s }, wellenlauf(WL, 20 + s, karte)));
 for (let s = 1; s <= SEEDS; s++) laeufe.raum.push(Object.assign({ seed: s }, raumAlarm(RA, 40 + s)));
@@ -691,7 +718,7 @@ for (let s = 1; s <= SEEDS; s++) laeufe.verfolgung.push(Object.assign({ seed: s 
 for (let s = 1; s <= SEEDS; s++) laeufe.finaleOrbit.push(Object.assign({ seed: s }, finaleOrbit(FO, 100 + s)));
 for (let s = 1; s <= SEEDS; s++) laeufe.faden.push(Object.assign({ seed: s }, fadenLauf(FD, 110 + s)));   // SUND-04b B2
 for (let s = 1; s <= SEEDS; s++) laeufe.brett.push(Object.assign({ seed: s }, brettLauf(BR, 120 + s)));   // SUND-04b C
-const res = { ziel: ZIEL, grenze: MAX, luft: LUFT, seeds: SEEDS, sek: SEK, worst: auswerten(W), worstScan: auswerten(WS), worstKreaturen: auswerten(WK), wellen: auswerten(WL), raum: auswerten(RA), methalle: auswerten(WM), endkampf: auswerten(WE), boden: auswerten(WB), konvoi: auswerten(KV), flotte: auswerten(FL), orbit: auswerten(OB), freieFahrt: auswerten(FF), verfolgung: auswerten(VF), finaleOrbit: auswerten(FO), faden: auswerten(FD), brett: auswerten(BR), laeufe, ms: Date.now() - t0 };
+const res = { ziel: ZIEL, grenze: MAX, luft: LUFT, seeds: SEEDS, sek: SEK, worst: auswerten(W), worstScan: auswerten(WS), worstFalle: auswerten(WF), worstKreaturen: auswerten(WK), wellen: auswerten(WL), raum: auswerten(RA), methalle: auswerten(WM), endkampf: auswerten(WE), boden: auswerten(WB), konvoi: auswerten(KV), flotte: auswerten(FL), orbit: auswerten(OB), freieFahrt: auswerten(FF), verfolgung: auswerten(VF), finaleOrbit: auswerten(FO), faden: auswerten(FD), brett: auswerten(BR), laeufe, ms: Date.now() - t0 };
 
 if (JSON_OUT) { console.log(JSON.stringify(res, null, 1)); process.exit(0); }
 
@@ -707,6 +734,8 @@ zeigen(res.worst);
 console.log('  Läufe: ' + laeufe.worst.map((l) => `s${l.seed} ${l.lp}${l.fehler ? ' Fehler ' + l.fehler : ''}`).join(', '));
 zeigen(res.worstScan);
 console.log('  Läufe: ' + laeufe.worstScan.map((l) => `s${l.seed} ${l.scannende} Scannende, ${l.scEintraege} Einträge in away.sc${l.fehler ? ' Fehler ' + l.fehler : ''}`).join(', '));
+zeigen(res.worstFalle);
+console.log('  Läufe: ' + laeufe.worstFalle.map((l) => `s${l.seed} ${l.scannende} Scannende, ${l.scEintraege} Einträge in away.sc (${l.falle ? l.falle.fallen + ' Fallen, ' + l.falle.erkannt + ' erkannt, ' + l.falle.nachgereicht + ' nachgereicht, ' + l.falle.ausgeloest + ' ausgelöst' : '-'})${l.fehler ? ' Fehler ' + l.fehler : ''}`).join(', '));
 zeigen(res.worstKreaturen);
 const kmax = Math.max(...laeufe.worstKreaturen.map((l) => l.kreaturen.anzMax)), kn = laeufe.worstKreaturen.reduce((a, l) => a + l.kreaturen.krN, 0), ksum = laeufe.worstKreaturen.reduce((a, l) => a + l.kreaturen.krSumme, 0), kbmax = Math.max(...laeufe.worstKreaturen.map((l) => l.kreaturen.krMax));
 const krJe = kn ? Math.round(ksum / kn / Math.max(1, kmax) * 10) / 10 : 0;

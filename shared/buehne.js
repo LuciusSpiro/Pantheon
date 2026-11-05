@@ -24,7 +24,7 @@
   // s gilt als begehbar (K.fest false → durchgang, K-ERREICHBAR läuft hindurch, K.sicht sperrt), a/v als fest (bfs umgeht sie, K-ERREICHBAR meldet abgeschnittene Ziele).
   const BOEDEN = { '.': 1, ',': 1, ':': 1 };
   const BELEG_ZEICHEN = { o: 1, O: 1, I: 1 };
-  const NICHT_BLOCKEND = { abholpunkt: 1, lift: 1, leiter: 1 };   // Objekt-Anker, die man betreten kann
+  const NICHT_BLOCKEND = { abholpunkt: 1, lift: 1, leiter: 1, falle: 1 };   // Objekt-Anker, die man betreten kann
   const SCHIFF_GAENGE = [2, 6, 10];
   const SCHIFF_STRIDE = 16;
   const STANDARD_CFG = { versuche: 20, backtrack: 200, deckungMin: 0.6, deckungRadius: 1, sichtgasseMax: 12, eingaengeMin: 2,
@@ -141,9 +141,48 @@
   function objektRolle(D, rolle) {
     const r = D.anker.rollen && D.anker.rollen[rolle];
     if (r) return !!r.objekt;
-    return ['terminal', 'sprengpunkt', 'zelle', 'beute', 'ziel', 'fund', 'raetsel', 'abholpunkt', 'lift', 'leiter'].includes(rolle);
+    return ['terminal', 'sprengpunkt', 'zelle', 'beute', 'ziel', 'fund', 'raetsel', 'abholpunkt', 'lift', 'leiter', 'falle'].includes(rolle);
   }
-  function blockendesObjekt(D, rolle) { return objektRolle(D, rolle) && !NICHT_BLOCKEND[rolle]; }
+  // ITM-01 D: Fallen sind pauschal begehbar (NICHT_BLOCKEND), außer ihr Typ steht in CONFIG.anker.falle.blockiert (Selbstschussanlage: Kollisionsbox). Die Regel gilt für Prüfer,
+  // Server-Kollision (interior.awaySolid) und Client-Vorhersage gleich: ankerBlockiert(anker, falleCfg?) -> bool. falleCfg: CONFIG.anker.falle (Server: game.C, Client: Shared_Config).
+  // ITM-01 G (S2): Ankerids der sortierten Rohliste (Platz, Rolle, y, x). `<platz>.<rolle>`, bei mehreren gleicher Rolle auf einem Platz `.n` (Zählung in Listenreihenfolge).
+  // Eine verborgene Falle (sicht nicht passiv) bekommt stattdessen eine neutrale Id `falle.<Hash aus Platz und Kachel>` und zählt bei den anderen nicht mit: die Id steht im Scan (Stufe 1)
+  // und im Ereignis ankerEnthuellt, `<platz>.falle` verriete den Raum und die Nummer eines Geschwisters die Existenz weiterer Fallen. Sichtbare (passive) Fallen zählen nur untereinander.
+  // Bestimmt (FNV-1a, bei Kollision mit Salz); Karten ohne verborgene Fallen bekommen dieselben Ids wie vorher.
+  function ankerIdsVergeben(roh) {
+    const verborgen = (a) => a.rolle === 'falle' && a.sicht !== 'passiv';
+    const zaehl = {}; for (const a of roh) { if (verborgen(a)) continue; const k = a.platz + '.' + a.rolle; zaehl[k] = (zaehl[k] || 0) + 1; }
+    const lauf = {}, vergeben = new Set();
+    const neutral = (a) => {
+      for (let salz = 0; ; salz++) {
+        let h = 0x811c9dc5; const t = a.platz + '|' + a.x + '|' + a.y + '|' + salz;
+        for (let i = 0; i < t.length; i++) { h ^= t.charCodeAt(i); h = Math.imul(h, 0x01000193) >>> 0; }
+        const id = 'falle.' + h.toString(36).padStart(7, '0');
+        if (!vergeben.has(id)) { vergeben.add(id); return id; }
+      }
+    };
+    return roh.map((a) => {
+      if (verborgen(a)) return neutral(a);
+      const k = a.platz + '.' + a.rolle;
+      lauf[k] = (lauf[k] || 0) + 1;
+      return zaehl[k] > 1 ? k + '.' + lauf[k] : k;
+    });
+  }
+  function ankerBlockiert(a, falleCfg) {
+    if (!a || a.rolle !== 'falle' || !a.typ) return false;
+    const C = falleCfg || ((getConfig() || {}).anker || {}).falle;
+    return !!(C && C.blockiert && C.blockiert[a.typ]);
+  }
+  // ITM-01 E: Startzustand eines Ankers aus der Zustandsliste der Rolle: der erste Eintrag, eine passive Falle (sicht passiv) startet als erkannt (gleiche Regel wie server/sim/anker.js startFuer).
+  // Der Client leitet den Start aus `sicht` im Payload ab, nicht aus zustaende[0] (render.js ankerZustand, voxel/kit.js).
+  function ankerStart(a, zustaende) {
+    if (a && a.rolle === 'falle' && a.sicht === 'passiv') return 'erkannt';
+    return (zustaende && zustaende.length ? zustaende[0] : null) || null;
+  }
+  function blockendesObjekt(D, rolle, a) {
+    if (rolle === 'falle') return a ? objektRolle(D, rolle) && ankerBlockiert(a) : false;
+    return objektRolle(D, rolle) && !NICHT_BLOCKEND[rolle];
+  }
   function module(D) { D = D || daten(); return Object.keys(D.module).sort().map((k) => D.module[k]); }
   function schablonen(art, D) {
     D = D || daten();
@@ -382,7 +421,7 @@
         const mitte = ((a.y === 0 || a.y === H - 1) && (mx === 3 || mx === 4)) || ((a.x === 0 || a.x === W - 1) && (my === 3 || my === 4));
         if (mitte) F('K-ANKER-WAND', `${a.rolle} (Objekt) in der Kantenmitte`, a.x, a.y);
       }
-      if (blockendesObjekt(D, a.rolle) && ![[0, -1], [1, 0], [0, 1], [-1, 0]].some(([dx, dy]) => begeh(a.x + dx, a.y + dy) || K.istTuer(info(a.x + dx, a.y + dy)))) {
+      if (blockendesObjekt(D, a.rolle, a) && ![[0, -1], [1, 0], [0, 1], [-1, 0]].some(([dx, dy]) => begeh(a.x + dx, a.y + dy) || K.istTuer(info(a.x + dx, a.y + dy)))) {
         F('K-ANKER-WAND', `${a.rolle} ohne begehbaren Nachbarn`, a.x, a.y);
       }
       if (a.rolle === 'abholpunkt' && !lPad(begeh, a.x, a.y)) F('K-ABHOLPUNKT', 'Pad-Fläche: 3 freie Kacheln in L-Form fehlen', a.x, a.y);
@@ -394,7 +433,7 @@
     // Objektanker, die zur Laufzeit fest werden, dürfen das Modul nicht in getrennte Teile zerschneiden
     if (!fehler.length) {
       // zelle trennt absichtlich (Gefangenenraum, öffnet über den Anker) und zählt hier nicht
-      const trennt = (a) => blockendesObjekt(D, a.rolle) && a.rolle !== 'zelle';
+      const trennt = (a) => blockendesObjekt(D, a.rolle, a) && a.rolle !== 'zelle';
       const obj = new Set(anker.filter(trennt).map((a) => a.y * W + a.x));
       const pass = (x, y) => { const i = info(x, y); return !!i && (!K.fest(i) || K.istTuer(i)); };
       const teile = (ohne) => {
@@ -731,13 +770,11 @@
     const ankunftPlatz = plaetze.filter((p) => p.ankunft).map((p) => p.id);
     if (ankunftPlatz.length !== 1) return { fehler: [{ code: 'K-ABHOLPUNKT', msg: `Schablone ${sch.id}: ${ankunftPlatz.length} Plätze mit ankunft (genau 1)` }] };
     roh.sort((a, b) => (a.platz < b.platz ? -1 : a.platz > b.platz ? 1 : 0) || (a.rolle < b.rolle ? -1 : a.rolle > b.rolle ? 1 : 0) || a.y - b.y || a.x - b.x);
-    const zaehl = {}; for (const a of roh) { const k = a.platz + '.' + a.rolle; zaehl[k] = (zaehl[k] || 0) + 1; }
-    const lauf = {};
+    const ids = ankerIdsVergeben(roh);
     const anker = [];
-    for (const a of roh) {
-      const k = a.platz + '.' + a.rolle;
-      lauf[k] = (lauf[k] || 0) + 1;
-      const o = { id: zaehl[k] > 1 ? k + '.' + lauf[k] : k, rolle: a.rolle, x: a.x, y: a.y, platz: a.platz, bereich: a.bereich };
+    for (let ri = 0; ri < roh.length; ri++) {
+      const a = roh[ri];
+      const o = { id: ids[ri], rolle: a.rolle, x: a.x, y: a.y, platz: a.platz, bereich: a.bereich };
       for (const f of Object.keys(a).sort()) {
         if (['rolle', 'x', 'y', 'platz', 'bereich', 'hinweis'].includes(f)) continue;
         o[f] = a[f];
@@ -1303,7 +1340,7 @@
     }
     // K-ANKER-WAND
     const objekt = new Set();
-    for (const a of anker) if (blockendesObjekt(D, a.rolle)) objekt.add(a.y * W + a.x);
+    for (const a of anker) if (blockendesObjekt(D, a.rolle, a)) objekt.add(a.y * W + a.x);
     if (!hand) for (const a of anker) {
       const i = r.info(a.x, a.y);
       const tuer = K.istTuer(i);
@@ -1311,9 +1348,15 @@
       if (tuer && !(a.rolle === 'tor' || a.rolle === 'eingang')) F('K-ANKER-WAND', `${a.id} auf Türkachel`, a.x, a.y);
       else if (!tuer && K.fest(i) && !(a.rolle === 'versteck' && i.kind === 'wand_schwach') && !(a.rolle === 'leit' && leitAufDeckung(i))) F('K-ANKER-WAND', `${a.id} auf fester Kachel "${karte.rows[a.y][a.x]}"`, a.x, a.y);
       if (a.rolle === 'leit' && Array.isArray(a.fuss)) { const e = fussFehler(karte.rows, a.fuss); if (e) F('K-LEIT-FUSS', `${a.id}: ${e}`, a.x, a.y); }
-      if (blockendesObjekt(D, a.rolle) && ![[0, -1], [1, 0], [0, 1], [-1, 0]].some(([dx, dy]) => (r.durchgang(a.x + dx, a.y + dy)) && !objekt.has((a.y + dy) * W + a.x + dx))) {
+      if (blockendesObjekt(D, a.rolle, a) && ![[0, -1], [1, 0], [0, 1], [-1, 0]].some(([dx, dy]) => (r.durchgang(a.x + dx, a.y + dy)) && !objekt.has((a.y + dy) * W + a.x + dx))) {
         F('K-ANKER-WAND', `${a.id}: Objekt ohne begehbaren Nachbarn`, a.x, a.y);
       }
+    }
+    // K-FALLE (ITM-01 D): eine Schott-Falle ohne Schott im Wirkbereich wirkt nie. Nur Warnung (in ITM-01 setzt kein Generator Fallen; Test und Debug falletest zeigen sie)
+    if (!hand) {
+      const fc = ((getConfig() || {}).anker || {}).falle;
+      const rr = (fc && fc.schott && fc.schott.radius) || 3;
+      for (const a of anker) if (a.rolle === 'falle' && a.typ === 'schott' && !fallenSchottKanten(karte, a, rr).length) Wn('K-FALLE', `${a.id}: kein Schott im Wirkbereich (${rr} Kacheln), die Falle wirkt nie`, a.x, a.y);
     }
     // K-PLATEAU
     for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
@@ -1572,6 +1615,14 @@
     return zu.some((k) => k.typ === 'schott') ? 'hacken' : 'luke';
   }
 
+  // ITM-01 D: Schott-Kanten im Wirkbereich einer Schott-Falle (Art schott, mindestens eine Kachel im Umkreis r Kacheln um die Falle; Kanten eines tor-Ankers bleiben außen: ein Rätseltor
+  // soll keine Falle schließen). Eine Quelle für die Wirkung (server/sim/fallen-typen.js) und den Karten-Hinweis K-FALLE. -> [{ id, typ, tiles }] nach id sortiert.
+  function fallenSchottKanten(karte, a, r) {
+    const tor = new Set();
+    for (const q of karte.anker || []) if (q.rolle === 'tor') for (const k of ankerKanten(karte, q)) tor.add(k.id);
+    return kantenListe(karte).filter((k) => k.typ === 'schott' && !tor.has(k.id) && k.tiles.some((t) => Math.hypot(t[0] - a.x, t[1] - a.y) <= r));
+  }
+
   // Zustand einer Zustandskachel (D/S/G/L/w) auf einer gebauten Karte – maßgeblich für Kollision und Darstellung.
   // Regel des Servers (server/sim/interior.js kachelZustand), auch für gemischte Kanten (z. B. Schott + Tür): der Zustand
   // wird als NAME übertragen und gilt für eine Kachel nur, wenn ihre Kachelart ihn kennt.
@@ -1745,7 +1796,11 @@
     for (const b of (o && o.bauweisen) || []) {
       for (const [rolle, je] of Object.entries(b.anker || {})) {
         if (!je || typeof je !== 'object' || SILHOUETTE_ROLLEN_FREI[rolle] || blockendesObjekt(D, rolle)) continue;
-        for (const [art, v] of Object.entries(je)) pruef(typeof v === 'string' ? v : v && v.id, `${b.id} anker.${rolle}.${art}`, false);
+        for (const [art, v] of Object.entries(je)) {
+          // ITM-01 E: eine blockende Falle (Typ in CONFIG.anker.falle.blockiert: die Selbstschussanlage) hat eine Kollisionsbox: ihr Modell darf höher als die Figur sein
+          if (rolle === 'falle' && ankerBlockiert({ rolle: 'falle', typ: art })) continue;
+          pruef(typeof v === 'string' ? v : v && v.id, `${b.id} anker.${rolle}.${art}`, false);
+        }
       }
     }
     for (const b of (o && o.bauweisen) || []) {
@@ -1784,7 +1839,7 @@
 
   // Zelle als Text (Werkzeug, Galerie-Rückfall): Anker als Buchstaben über den Zeilen
   const ANKER_GLYPHE = { eingang: 'E', abholpunkt: 'A', wache: 'W', patrouille: 'p', deckung: 'd', terminal: 'T', sprengpunkt: 'B', zelle: 'Z',
-    beute: 'K', ziel: '*', fund: 'F', tor: 'G', raetsel: 'R', aussicht: 'V', nsc: 'N', versteck: 'H', lift: 'U', leiter: 'H' };
+    beute: 'K', ziel: '*', fund: 'F', tor: 'G', raetsel: 'R', aussicht: 'V', nsc: 'N', versteck: 'H', lift: 'U', leiter: 'H', falle: '!' };
   function alsText(karte, mitAnker) {
     const rows = karte.rows.map((r) => r.split(''));
     if (mitAnker) for (const a of karte.anker) if (rows[a.y]) rows[a.y][a.x] = '\u001b[1;33m' + (ANKER_GLYPHE[a.rolle] || '?') + '\u001b[0m';
@@ -1796,7 +1851,7 @@
     modulLagen, pruefeModul, kantenTyp, vertraeglich, segmentTyp: (seg, opts) => segmentTyp(opts && opts.daten ? normalisiere(opts.daten) : daten(), seg, cfgVon(opts).freiMin),
     bauen, bauRoh, ausRaster, pruefen, kennzahlen, vorwaermen, hand, leitFuss, zustaendeAnwenden, alsText, ANKER_GLYPHE,
     tuerKacheln: K.tuerKacheln, raster: K.raster, SCHIFF_STRIDE, STANDARD_CFG,
-    TUER_ZEIT, kantenListe, ankerKanten, eingangAktion, kachelZustandRegel,
+    TUER_ZEIT, kantenListe, ankerKanten, eingangAktion, kachelZustandRegel, ankerBlockiert, ankerIdsVergeben, ankerStart, fallenSchottKanten,
     raetselWege, raetselFenster, raetselHinweis, raetselSolo, raetselSoloFenster, karteServerForm, padTiles, deckLinkInReichweite, interaktionsVorrang, fehlerhafteModule,
     silhouetteFehler, silhouetteDaten, FIGUR_HOEHE_M,
   };

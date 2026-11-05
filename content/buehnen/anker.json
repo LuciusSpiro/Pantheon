@@ -224,6 +224,21 @@
       "halten": null,
       "attribute": {},
       "regel": "Position eines Leitstücks (Signatur/Herzstück) im Modul; nur Optik, keine Interaktion. Der Kit-Renderer setzt das Leitstück aus der Bauweisen-Tabelle leit[platztyp][art] hierhin, sonst in die Platzmitte. Höchstens 1 je Modul, auf begehbarer oder Deckungskachel."
+    },
+    "falle": {
+      "objekt": "falle",
+      "zustaende": [
+        "verborgen",
+        "erkannt",
+        "entschaerft",
+        "ausgeloest"
+      ],
+      "halten": "falle",
+      "attribute": {
+        "typ": ["schott", "druck", "schuss"],
+        "sicht": ["passiv", "verborgen"]
+      },
+      "regel": "ITM-01 C/D: Falle auf einer begehbaren Kachel (nicht blockierend, außer der Typ steht in CONFIG.anker.falle.blockiert: die Selbstschussanlage schuss hat eine Kollisionsbox). Die Reihenfolge der zustaende ist der Zustandsindex für ao und die Voxel-Modelle – nie ändern. sicht passiv: Startzustand erkannt, steht im awayMap-Payload; sicht verborgen (Standard): Startzustand verborgen, steht NICHT im awayMap-Payload, der Server reicht sie beim Erkennen per Ereignis ankerEnthuellt nach (CONTRACT-B2 §ITM-01 C). Erkennen: passiv oder Scanner (ab Stufe CONFIG.anker.falle.position). Entschärfen: E halten (CONFIG.anker.halten.falle) nur aus erkannt. Betritt ein Spieler die Auslösezone (CONFIG.anker.falle.radius je typ) einer verborgenen oder erkannten Falle, löst sie genau einmal aus (ausgeloest), die Wirkung hängt der Typ über fallenWirkung ein. Gegner lösen keine Fallen aus."
     }
   },
   "bereiche": [

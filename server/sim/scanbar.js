@@ -4,6 +4,7 @@
 //
 //   scanbarAnmelden(art, def)    def = { ziele(game, aw) -> [{ id, x, y, typ }], tiefen?: { position } } (Mindest-scanStufe für x,y, Standard 3); doppelte Art = Ausnahme. -> Abmelder
 //                                Hinweisstufe steht im Client-Content (`hinweisAb`), nicht hier; tiefen.hinweis wird abgelehnt.
+//                                def.beiPosition(game, aw, ziel, p) (optional, ITM-01 C): nach jedem Scan, der das Ziel mit Stufe >= tiefen.position erfasst (Ort enthüllt); darf Zustand ändern (Falle: verborgen -> erkannt), muss wiederholbar sein.
 //                                ziele() MUSS billig sein (Liste vorhandener Objekte, kein Neuaufbau aus der Karte): update ruft es bei nicht leerem aw.sc höchstens alle 0,5 s je Art,
 //                                jeder Scan ruft es einmal. Die Liste darf bewegte Ziele mit aktueller Position liefern (der nächste Scan zieht x,y nach).
 //   update(game)                 Ziele, die nicht mehr geliefert werden, fallen aus aw.sc (nur wenn aw.sc nicht leer, höchstens alle 0,5 s: Zeit über game.time)
@@ -30,7 +31,7 @@ function scanbarAnmelden(art, def) {
   const t = Object.assign({}, STANDARD, def.tiefen || {});
   for (const k of Object.keys(t)) if (k !== 'position') throw new Error('scanbarAnmelden: tiefen.' + k + ' gibt es nicht; die Hinweisstufe steht im Client-Content (hinweisAb) (' + art + ')');
   if (!Number.isInteger(t.position) || t.position < 1 || t.position > 3) throw new Error('scanbarAnmelden: tiefen.position muss 1..3 sein (' + art + ')');
-  const eintrag = { ziele: def.ziele, tiefen: t };
+  const eintrag = { ziele: def.ziele, tiefen: t, beiPosition: typeof def.beiPosition === 'function' ? def.beiPosition : null };
   arten.set(art, eintrag);
   return () => { if (arten.get(art) === eintrag) arten.delete(art); };
 }
@@ -43,7 +44,7 @@ function alleZiele(game, aw) {
   for (const [art, a] of arten) {
     let liste;
     try { liste = a.ziele(game, aw); } catch (e) { if (game.countError) game.countError('scanbar-' + art, e); continue; }
-    for (const z of liste || []) out.push({ art, id: z.id, x: z.x, y: z.y, typ: z.typ, tiefen: a.tiefen });
+    for (const z of liste || []) out.push({ art, id: z.id, x: z.x, y: z.y, typ: z.typ, tiefen: a.tiefen, bei: a.beiPosition });
   }
   return out;
 }
@@ -83,6 +84,7 @@ function scanWirkung(game, p, stufe, ort) {
     const bekannt = !!(aw.sc && aw.sc[schluessel(z.art, z.id)]);
     if (!bekannt && belegt >= max) { voll++; continue; }
     const r = erfassen(aw, z, stufe);
+    if (z.bei && stufe >= z.tiefen.position) { try { z.bei(game, aw, z, p); } catch (e) { if (game.countError) game.countError('scanbar-position-' + z.art, e); } }   // Ort enthüllt (ITM-01 C: Falle wird erkannt)
     if (r === 'neu') { neu++; if (!bekannt) belegt++; } else if (r === 'bewegt') bewegt++;
   }
   meldung(game, p, scanText(imKreis.length, neu, bewegt, voll));

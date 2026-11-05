@@ -67,11 +67,28 @@
   const SYSTEMS = PROTO.SYSTEMS || ['reactor', 'engines', 'shields', 'weapons', 'transfer'];
   // B2: Waffen- und Zustandsnamen (Snapshot wf / zs / bt)
   // EIN Kurzname je Waffe (Waffenzeile, Slot-Leiste, Ausrüstungsstation); die Station zeigt dahinter zusätzlich WAFFE_NAME
-  const WAFFE_KURZ = { blaster: 'Blaster', sturmgewehr: 'Gewehr', granatwerfer: 'Werfer', lanze: 'Lanze', nahkampf: 'Klinge', betaeuber: 'Betäuber', faust: 'Fäuste', pistole: 'Pistole', schrottblaster: 'Schrottbl.', scanner: 'Scanner' };
-  const WAFFE_NAME = { blaster: 'Blaster', sturmgewehr: 'Sturmgewehr', granatwerfer: 'Granatwerfer', lanze: 'Lanze', nahkampf: 'Nahkampf', betaeuber: 'Betäuber', faust: 'Fäuste', pistole: 'Pistole', schrottblaster: 'Schrottblaster', scanner: 'Scanner' };
+  const WAFFE_KURZ = { blaster: 'Blaster', sturmgewehr: 'Gewehr', granatwerfer: 'Werfer', lanze: 'Lanze', nahkampf: 'Klinge', betaeuber: 'Betäuber', faust: 'Fäuste', pistole: 'Pistole', schrottblaster: 'Schrottbl.', scanner: 'Scanner', medipack: 'Medipack' };
+  const WAFFE_NAME = { blaster: 'Blaster', sturmgewehr: 'Sturmgewehr', granatwerfer: 'Granatwerfer', lanze: 'Lanze', nahkampf: 'Nahkampf', betaeuber: 'Betäuber', faust: 'Fäuste', pistole: 'Pistole', schrottblaster: 'Schrottblaster', scanner: 'Scanner', medipack: 'Medipack' };
   // SCA-01 P3: Items im Loadout-Slot (keine Waffen: nie „aktive Waffe“, kein Aktiv-Rahmen); Ausrüstungsstation und Slot-Leiste lesen diese Liste. Beschreibung nur für die Station.
-  const SLOT_ITEMS = ['scanner'];
-  const ITEM_INFO = { scanner: 'Scanner: findet Erz, scannt Monster und Fallen. Slot-Taste startet, A/D stimmt ab.' };
+  // ITM-01 B: Medipack (Ladungen aus Snapshot medkit; die Packgröße steht nicht im Protokoll, darum keine Zahl im Text).
+  const SLOT_ITEMS = ['scanner', 'medipack'];
+  const ITEM_INFO = { scanner: 'Scanner: findet Erz, scannt Monster und Fallen. Slot-Taste startet, A/D stimmt ab.',
+    medipack: 'Medipack: beschleunigt das Wiederbeleben und verarztet Verletzte, je Einsatz eine Ladung. Das Pack kommt aus dem Lager; ohne Medipack im Slot bekommst du keins mit nach unten.' };
+  // ITM-01 B: Zellzustand eines Items in der Slot-Leiste (me = eigener Spieler). Ein Item ist nie aktiv: Stahlblau; je Item eigene Zusätze.
+  //   feld = Zellfarbe, rahmen = 1-px-Rahmen oder null, text = Namensfarbe, namen = Namenskandidaten von lang nach kurz (der erste, der in die Zelle passt; sonst der letzte, gekürzt) oder null = Kurzname
+  const ITEM_ZELLE_STANDARD = { feld: '#27394A', rahmen: null, text: '#8FB3C4', namen: null };
+  const ITEM_ZELLE = {
+    scanner(me) {   // SCA-01: laufender Scan = hellere Zelle, Eisblau-Rahmen, weißer Name
+      const l = !!(me.action && me.action.kind === 'scan');
+      return { feld: l ? '#3F7F99' : '#27394A', rahmen: l ? PAL.ice : null, text: l ? '#FFFFFF' : '#8FB3C4', namen: null };
+    },
+    medipack(me) {   // ITM-01 B: Ladungen als Ziffer (3 Slots: 41 px Platz, „Medi ×3“ ist 35 px breit); leer = dunkle Zelle, graue Schrift
+      const n = Math.max(0, Math.floor(+me.medkit || 0));
+      return { feld: n > 0 ? '#27394A' : '#1B252F', rahmen: null, text: n > 0 ? PAL.star : '#5E6A78',
+        namen: ['Medi ×' + n, 'Medi'] };   // ITM-01 F: überall die feste Kurzform „Medi“, Ladungen als „×n“ (leer: „Medi ×0“ auf dunkler Zelle)
+    },
+  };
+  const itemZelle = (id, me) => (ITEM_ZELLE[id] || (() => ITEM_ZELLE_STANDARD))(me || {});
   // Icon je Waffe; schrottblaster (Rostmeute) = Blaster-Icon (Nachtrag Studioleitung)
   function waffeIcon(wf) { return wf === 'schrottblaster' ? 'blaster' : wf; }
   const ZS_TEXT = { betaeubt: 'BETÄUBT', bewusstlos: 'BEWUSSTLOS – niemand kann helfen', gefesselt: 'GEFESSELT – Kamerad: E halten', gefangen: 'GEFANGEN – Ausbruch!', verwundet: 'VERWUNDET' };
@@ -657,6 +674,7 @@
           R.backdrop(ctx, Math.round(VW / 2 - w / 2), 4, w, 22, 0.8);
           R.text(ctx, txt, VW / 2, 8, { color: Math.floor(view.time * 4) % 2 ? PAL.red : PAL.amber, align: 'center', scale: 2 });
         }
+        for (const w of R.fallenLaufend(st)) lines.push([w.name + ' · ' + w.rest + ' s', w.art === 'feld' ? (Math.floor(view.time * 2) % 2 ? PAL.red : '#FF8A7A') : PAL.warn]);   // ITM-01 E: Druckverlust, gesperrte Schotts (Restzeit)
         const cnt = {};
         (map.anker || []).forEach((a, i) => {
           if (['terminal', 'sprengpunkt', 'beute', 'fund', 'zelle'].indexOf(a[1]) < 0) return;
@@ -721,13 +739,14 @@
         wx += 2 + IconsB.wundenPips(ctx, wx + 2, y0 + 3, wn, wm, 12, 3);
       }
       const mx = wx + 8;
-      // Medipack-Symbol
-      if (me.medkit) {
+      // Medipack-Symbol. ITM-01 F: nur ohne Slot-Leiste; die Zelle „Medi ×n“ der Leiste zeigt dieselbe Ladungszahl (medkit > 0 gibt es nur mit Medipack im wirksamen Slot, server/sim/medipack.js ausgeben),
+      // die Zeile hier wäre die Doppelung. Ohne Loadout-Stand (Leiste fehlt, z. B. vor der ersten Serverantwort) bleibt sie als Rückfall.
+      if (slotZeile) { /* Leiste zeigt das Medipack */ } else if (me.medkit) {
         if (!R.art('drawItem', 'drawItem:medipack', [ctx, 'medipack', mx + 6, y0 + 9, { time: t }])) {
           ctx.fillStyle = PAL.star; ctx.fillRect(mx, y0 + 3, 12, 12);
           ctx.fillStyle = PAL.red; ctx.fillRect(mx + 5, y0 + 5, 2, 8); ctx.fillRect(mx + 2, y0 + 8, 8, 2);
         }
-        R.text(ctx, 'Medipack', mx + 15, y0 + 5, { color: PAL.star });
+        R.text(ctx, 'Medi ×' + Math.max(0, Math.floor(+me.medkit || 0)), mx + 15, y0 + 5, { color: PAL.star });
       } else {
         ctx.strokeStyle = '#4A5260'; ctx.lineWidth = 1; ctx.strokeRect(mx + 0.5, y0 + 3.5, 11, 11);
       }
@@ -825,16 +844,16 @@
         const cx = x - 2 + i * cw;
         const item = !!id && SLOT_ITEMS.indexOf(id) >= 0;   // SCA-01 P3: Item – nie aktive Waffe (kein Aktiv-Rahmen); kühles Stahlblau statt Waffenrot, beim laufenden Scan Eisblau
         const on = i === aktiv && !item;
-        const scanLaeuft = item && id === 'scanner' && !!(view.me.action && view.me.action.kind === 'scan');
+        const iz = item ? itemZelle(id, view.me) : null;   // ITM-01 B: item-spezifischer Zellzustand (Scanner: laufender Scan; Medipack: Ladungen)
         const sp = on ? this.wechselAnteil(view.time) : null;   // AUS-02 B: Wechselzeit der aktiven Waffe
         if (on && sp != null) { ctx.fillStyle = '#5A2A28'; ctx.fillRect(cx, y - 2, cw - 2, 11); ctx.fillStyle = '#B83A2E'; ctx.fillRect(cx, y - 2, Math.round((cw - 2) * sp), 11); }
         else if (on) { ctx.fillStyle = '#B83A2E'; ctx.fillRect(cx, y - 2, cw - 2, 11); }
-        else if (item) { ctx.fillStyle = scanLaeuft ? '#3F7F99' : '#27394A'; ctx.fillRect(cx, y - 2, cw - 2, 11); if (scanLaeuft) { ctx.strokeStyle = PAL.ice; ctx.lineWidth = 1; ctx.strokeRect(cx + 0.5, y - 1.5, cw - 3, 10); } }   // SCA-01 Nacharbeit D10: laufender Scan = 1-px-Eisblau-Rahmen um die Zelle
+        else if (item) { ctx.fillStyle = iz.feld; ctx.fillRect(cx, y - 2, cw - 2, 11); if (iz.rahmen) { ctx.strokeStyle = iz.rahmen; ctx.lineWidth = 1; ctx.strokeRect(cx + 0.5, y - 1.5, cw - 3, 10); } }   // SCA-01 Nacharbeit D10: laufender Scan = 1-px-Eisblau-Rahmen um die Zelle
         else if (id) { ctx.fillStyle = '#46282B'; ctx.fillRect(cx, y - 2, cw - 2, 11); }
         else { ctx.strokeStyle = '#4A5260'; ctx.lineWidth = 1; ctx.strokeRect(cx + 0.5, y - 1.5, cw - 3, 10); }
-        const txt = id ? this.fit(WAFFE_KURZ[id] || WAFFE_NAME[id] || id, cw - 13, 1) : '–';   // Nacharbeit: nie über die Zelle hinaus (3 Slots: 41 px; „Betäuber“ ist 45 px breit und wird gekürzt)
+        const txt = !id ? '–' : iz && iz.namen ? this.fit(iz.namen.find((nm) => R.measure(nm, 1) <= cw - 13) || iz.namen[iz.namen.length - 1], cw - 13, 1) : this.fit(WAFFE_KURZ[id] || WAFFE_NAME[id] || id, cw - 13, 1);   // Nacharbeit: nie über die Zelle hinaus (3 Slots: 41 px; „Betäuber“ ist 45 px breit und wird gekürzt)
         R.text(ctx, this.slotKappe(i), cx + 2, y, { color: on ? '#FFE9B0' : item ? '#A9D6E5' : id ? '#C9B27A' : '#6B7380', shadow: !on });   // AUS-02 B: Tastenziffer links in der Zelle
-        R.text(ctx, txt, cx + 10, y, { color: on ? (sp != null ? '#D8C4C0' : '#FFFFFF') : scanLaeuft ? '#FFFFFF' : item ? '#8FB3C4' : id ? '#9A8F90' : '#6B7380', shadow: !on });   // Nacharbeit: Name immer linksbündig hinter der Ziffer (2 und 3 Slots sehen gleich aus)
+        R.text(ctx, txt, cx + 10, y, { color: on ? (sp != null ? '#D8C4C0' : '#FFFFFF') : item ? iz.text : id ? '#9A8F90' : '#6B7380', shadow: !on });   // Nacharbeit: Name immer linksbündig hinter der Ziffer (2 und 3 Slots sehen gleich aus)
       });
     },
     // B2: Waffe (Icon, Name), Hitzebalken; überhitzt, Lanze lädt, Ausholen

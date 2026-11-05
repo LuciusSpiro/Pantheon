@@ -1,0 +1,27 @@
+{
+  "_kommentar": "ITM-01 H: Allow-Datei fuer den Vergleich Basis main (ohne ITM-01, Temp/itm01-golden-main) gegen itm01-h, NUR fuer m3 / Crew 3 (Seeds 1-20): node tools/golden-trace.js --compare <basis nur m3-c3> <neu> --allow tools/fixtures/golden/allow-itm01.json. m1 und m2 (Seeds 1-3, Crew 1 und 3) sind OHNE Allow byte-identisch und brauchen diese Datei nicht. Befund m3/3: 10 von 20 Traces byte-identisch. 8 Seeds (2, 5, 8, 9, 13, 15, 17, 19) weichen NUR im Inventar ab: medipackCharges undefined -> 2 (am Ende der Mission hat die Crew einen angebrochenen Medipack-Rest im Lager; die Ladungen sind neu in ITM-01, Standardloadout hat Medipack). Seeds 7 und 20 haben zusaetzlich einen anderen Spielverlauf, weil Wiederbeleben jetzt eine Ladung kostet und Schildsegmente gibt: andere Verwundungen/Notrueckholungen, danach anderer Zufall (gleiche Schrittfolge, Schrittzeiten innerhalb +-1 s; Gesamtdauer Seed 7 +5 s, Seed 20 -6 s). Seed 7 (Basis: Bo verwundet, Notrueckholung, Transfer zerstoert; neu: nichts davon) und Seed 20 (Basis: Cem/Bo stehen auf; neu: Bo Notrueckholung, Transfer zerstoert, Waechter erlegt). (1) inventory medipackCharges, medipack: direkte Wirkung der Ladungen. marks, deko, ersatzteil: nur Seed 7 (ersatzteil 2->4, Transfer wird nicht zerstoert/repariert) und Seed 20 (marks 310->370, deko +lamassu_figur, ersatzteil 4->3, medipack 0->1): Folge des geaenderten Verlaufs (Waechter-Beute, Reparaturmaterial). (2) flags wardenKilled: das Ziel 'Waechter' ist in m3 optional (regiebuch m3 Z. 170); der Bot erlegt ihn in der Basis in 8 von 20, jetzt in 9 von 20 Seeds (nur Seed 20 anders); Seed 20 divergiert schon vorher ueber die Wiederbeleben-Texte (Cem/Bo stehen in der Basis ohne Medipack auf). (3) texts: ausschliesslich die Texte der beiden divergierenden Seeds: Aufstehen/Verwundet-Hinweise, Krankenstation-Notrueckholung und Transfer-Schaden samt den dazugehoerigen Tutorial-Hinweisen (Getragenes/Schrauben), sowie die Waechter-Beute (Seed 20). Alles Weitere (Schrittfolge, Erfolg, Median-Dauer) laeuft ohne Allow gruen.",
+  "stages": [],
+  "texts": [
+    "ist wieder auf den Beinen",
+    "^Krankenstation: Notrückholung für \\w+! Schild wieder voll – der Transfer ist dabei durchgebrannt",
+    "^Notrückholung! Alle an Bord, Schilde voll\\.",
+    "^Der Transfer ist zerstört! E halten",
+    "^Transfer zerstört – kein Beamen!$",
+    "^\\w+ ist verwundet! Kameraden: E halten zum Aufhelfen",
+    "^Getragenes legst du mit G ab\\.",
+    "^E gedrückt halten und stillstehen",
+    "^Drohne erledigt\\. Die Kustoden bauen solide",
+    "^Der Wächter liegt! Er hinterlässt eine kleine Lamassu-Figur"
+  ],
+  "flags": [
+    "wardenKilled"
+  ],
+  "inventory": [
+    "medipackCharges",
+    "medipack",
+    "marks",
+    "deko",
+    "ersatzteil"
+  ],
+  "duration": []
+}

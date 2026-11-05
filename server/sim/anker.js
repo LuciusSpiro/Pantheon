@@ -16,6 +16,7 @@
 //   onTreffer(game, pid)                    bei jedem Treffer auf einen Spieler (Abbruch Download/Ladung)
 //   setzen(game, map, id, zustand, pid?, opts?)  Bausteine anker_zustand/kante_zustand, Debug `anker`
 //   zustand(game, map, id)  alarm(game, map, an)  markieren(game, map)  awaySnap(game, aw)
+//   payloadAnker(k)  ankerListe(game, aw, k)  startFuer(a)   ITM-01 C: Ankerreihenfolge für awayMap und ao (verborgene Fallen fehlen im Payload, enthüllte hängen hinten an), Startzustand je Anker (Falle: sicht)
 const W = require('../world.js');
 const Physics = require('../../shared/physics.js');
 const Buehne = require('../../shared/buehne.js');
@@ -31,6 +32,25 @@ function rollen() {
   return rollenCache;
 }
 function startZustand(rolle) { const r = rollen()[rolle]; return r && r.zustaende && r.zustaende.length ? r.zustaende[0] : null; }
+// Startzustand eines Ankers: erster Eintrag der Rolle; eine passive Falle (sicht passiv) startet als erkannt (der Client kennt sicht aus dem Payload)
+function startFuer(a) { return a.rolle === 'falle' && a.sicht === 'passiv' ? 'erkannt' : startZustand(a.rolle); }
+function fallenMod() { return require('./fallen.js'); }   // lazy: fallen.js lädt anker.js
+// ITM-01 C: verdeckte Anker (verborgene Fallen) stehen nicht im awayMap-Payload. EINE Quelle der Wahrheit für die Reihenfolge, die Payload und Snapshot-Indizes
+// (ao, sp, cd) teilen: payloadAnker(k) = Anker im Payload (Karte ohne Fallen: k.anker selbst), ankerListe = payloadAnker + später enthüllte (in Enthüllungsreihenfolge).
+const verdeckt = (a) => a.rolle === 'falle' && a.sicht !== 'passiv';
+const payloadCache = new WeakMap();   // Karte -> { quelle, n, liste }
+function payloadAnker(k) {
+  const alle = k.anker || [];
+  let c = payloadCache.get(k);
+  if (!c || c.quelle !== alle || c.n !== alle.length) { c = { quelle: alle, n: alle.length, liste: alle.some(verdeckt) ? alle.filter((a) => !verdeckt(a)) : alle }; payloadCache.set(k, c); }
+  return c.liste;
+}
+function ankerListe(game, aw, k) {
+  const p = payloadAnker(k);
+  if (p === k.anker) return p;
+  const ids = fallenMod().enthuellteIds(game, aw);
+  return ids.length ? p.concat(ids.map((id) => ankerById(k, id)).filter(Boolean)) : p;
+}
 function kfg(game) { return (game.C && game.C.anker) || { halten: {}, countdown: 60, paarFenster: 1.5, paarSoloFenster: 15 }; }
 function karteVon(map) { const e = W.AWAY_MAPS[map]; return e && e.karte && Array.isArray(e.karte.rows) ? e.karte : null; }
 function awVon(game, map) { return (game.aways && game.aways[map]) || null; }
@@ -49,7 +69,7 @@ function zustandIn(aw, k, id) {
   if (k.kanten && k.kanten[id]) return k.kanten[id].zustand;
   if (k.zustaende && k.zustaende[id]) return k.zustaende[id];
   const a = ankerById(k, id);
-  return a ? startZustand(a.rolle) : null;
+  return a ? startFuer(a) : null;
 }
 function zustand(game, map, id) {
   const k = karteVon(map); if (!k) return null;
@@ -88,6 +108,13 @@ function setzen(game, map, id, z, pid, opts) {
   else return `Anker/Kante ${id} gibt es auf ${map} nicht.`;
   if (!erlaubt.includes(z)) return `Zustand ${z} unbekannt für ${id} (${erlaubt.join(', ') || 'keine Zustände'}).`;
   const vorher = zustandIn(aw, k, id);
+  if (rolle === 'falle' && vorher !== z && !fallenMod().uebergangErlaubt(vorher, z)) return `Falle ${id}: ${vorher} -> ${z} ist kein gültiger Übergang.`;   // ITM-01 C: entschaerft und ausgeloest sind endgültig
+  // ITM-01 G (H1): Ein Übergang einer Falle nach ausgeloest ist immer ein Auslösen (Wirkung, Missionsereignis falleAusgeloest, Entschärfer-Abbruch): auch über den Baustein anker_zustand
+  // und das Debug `anker` läuft er über Fallen.ausloesen. Dessen eigener setzen-Aufruf trägt opts.ausloesen und setzt nur den Zustand.
+  if (rolle === 'falle' && z === 'ausgeloest' && vorher !== z && !o.ausloesen) {
+    const e = fallenMod().ausloesenVonAnker(game, aw, id, pid, o);
+    if (e !== undefined) return e;
+  }
   aw.zustaende[id] = z;
   // Tore, Eingänge, Verstecke steuern ihre Kacheln: Kanten mitsetzen
   if (a && (a.rolle === 'tor' || a.rolle === 'eingang' || a.rolle === 'versteck')) {
@@ -99,6 +126,7 @@ function setzen(game, map, id, z, pid, opts) {
     const e = L.eintrag(game, map);
     if (e) { e.zustaende = e.zustaende || {}; e.zustaende[id] = z; if (a && (a.rolle === 'tor' || a.rolle === 'versteck')) for (const kid of kantenVonAnker(k, a)) e.zustaende[kid] = aw.zustaende[kid]; }
   });
+  if (rolle === 'falle' && vorher !== z) safe(game, 'falle-zustand', () => fallenMod().beiZustand(game, aw, a, z));   // verborgene Falle wird sichtbar: Enthüllen merken (Nachsendung an die Clients)
   if (!o.still && vorher !== z) {
     game.emit('ankerZustand', { map, anker: id, zustand: z, rolle: rolle || undefined, pid: pid || undefined });
     game.missionEvent('ankerZustand', { map, anker: id, rolle, zustand: z, pid: pid || null, vorher });
@@ -148,6 +176,7 @@ function interactionsAt(game, p, tx, ty, list) {
       case 'beute': if (z === 'voll') it(); else block('Leer geräumt.'); break;
       case 'ziel': if (z !== 'frei') block('Erledigt.'); else if (aw.ankerSperre && aw.ankerSperre[a.id]) block(aw.ankerSperre[a.id]); else it(); break;   // ankerSperre: { ankerId: Text } zur Laufzeit (Finale-Boden: Schrein gesperrt bis der Wächter fällt)
       case 'fund': if (z === 'da') it(); else block('Der Sockel ist leer.'); break;
+      case 'falle': if (z === 'erkannt') it({ op: 'entschaerfen', map: aw.map }); break;   // verborgen, entschärft, ausgelöst: nichts anzubieten (verborgen verrät sich nicht durch einen Hinweis)
       case 'raetsel':
         if (z === 'geloest') block('Gelöst.');
         else if (z === 'gehalten') block(istSolo(game) ? 'Gedreht! Jetzt das zweite Schloss – ' + Buehne.raetselHinweis(true, paarFenster(game, k, a.paar)) + '.' : 'Gedreht! Jetzt muss das Gegenstück – sofort.');
@@ -223,6 +252,7 @@ function holdValid(game, p, h) {
     case 'beute': return z === 'voll';
     case 'ziel': return z === 'frei' && !(aw.ankerSperre && aw.ankerSperre[a.id]);
     case 'fund': return z === 'da';
+    case 'falle': return z === 'erkannt' && h.map === aw.map && !p.downed;   // nur aus erkannt, nur auf der Karte, auf der das Halten begann; nach dem Auslösen ist Entschärfen unmöglich
     case 'raetsel': return z === 'ruhe';
     case 'versteck': return z !== 'offen';
     case 'eingang': return !!eingangOp(aw, k, a);
@@ -264,6 +294,12 @@ function completeHold(game, p, h) {
     case 'beute': setzen(game, map, a.id, 'leer', p.id); game.missionEvent('beuteGeborgen', { map, anker: a.id, pid: p.id }); return;
     case 'ziel': setzen(game, map, a.id, 'aktiviert', p.id); return;
     case 'fund': setzen(game, map, a.id, 'genommen', p.id); game.missionEvent('fundGeborgen', { map, anker: a.id, pid: p.id }); return;
+    case 'falle':
+      if (zustandIn(aw, k, a.id) !== 'erkannt') return;
+      setzen(game, map, a.id, 'entschaerft', p.id);
+      game.emit('sfx', { name: 'repair_done', zone: 'away', x: c.x, y: c.y });
+      game.missionEvent('falleEntschaerft', { map, anker: a.id, typ: a.typ || null, pid: p.id });
+      return;
     case 'versteck': setzen(game, map, a.id, 'offen', p.id); return;
     case 'eingang':
       for (const kid of kantenVonAnker(k, a)) {
@@ -432,6 +468,9 @@ function onTreffer(game, pid) {
     p.hold = null;   // Ladung zurück: nichts verbraucht, Zustand bleibt intakt
     const platz = k && (ankerById(k, h.anker) || {}).modus === 'platzieren';
     if (game.notice) game.notice(p, platz ? 'Getroffen – der Sprengstoff liegt noch nicht.' : 'Getroffen – die Ladung ist nicht scharf.');
+  } else if (h.kind === 'anker:falle') {
+    p.hold = null;   // Entschärfen von vorn (kein Fortschritt gemerkt); der Zustand bleibt erkannt
+    if (game.notice) game.notice(p, 'Getroffen – das Entschärfen ist unterbrochen.');
   }
 }
 
@@ -456,12 +495,13 @@ function awaySnap(game, aw) {
   const k = aw && karteVon(aw.map); if (!k) return {};
   const L = lauf(aw);
   const ao = [];
-  k.anker.forEach((a, i) => {
+  const al = ankerListe(game, aw, k);   // ITM-01 C: dieselbe Reihenfolge wie im awayMap-Payload (+ enthüllte Fallen am Ende)
+  al.forEach((a, i) => {
     const z = aw.zustaende[a.id];
     if (!z) return;
     const liste = (rollen()[a.rolle] || {}).zustaende || [];
     const zi = liste.indexOf(z);
-    if (zi > 0) ao.push([i, zi]);
+    if (zi >= 0 && z !== startFuer(a)) ao.push([i, zi]);   // nur Abweichungen vom Start (Falle: Start je sicht)
   });
   const ko = [];
   Object.keys(k.kanten || {}).sort().forEach((kid, i) => {
@@ -472,15 +512,16 @@ function awaySnap(game, aw) {
     if (zi >= 0) ko.push([i, zi]);
   });
   const o = { ao, ko, al: aw.alarm ? 1 : 0 };
-  const sp = aw.ankerSperre ? k.anker.map((a, i) => (aw.ankerSperre[a.id] ? i : -1)).filter((i) => i >= 0) : [];
+  const sp = aw.ankerSperre ? al.map((a, i) => (aw.ankerSperre[a.id] ? i : -1)).filter((i) => i >= 0) : [];
   if (aw.ohneZaehler) o.oz = 1;   // Welle 5, M3: Boden des Finales ohne Erkunden-/Plünder-Zähler (finale-boden.js)
   if (sp.length) o.sp = sp;   // SUND-04a-3: gesperrte Anker (Index), der Client zeigt „Versiegelt“ statt des Haltehinweises
   const ids = Object.keys(L.ladung).sort();
-  if (ids.length) { const i = k.anker.findIndex((a) => a.id === ids[0]); o.cd = { i, t: Math.max(0, Math.round(L.ladung[ids[0]].t * 10) / 10) }; }
+  if (ids.length) { const i = al.findIndex((a) => a.id === ids[0]); o.cd = { i, t: Math.max(0, Math.round(L.ladung[ids[0]].t * 10) / 10) }; }
   return o;
 }
 
 module.exports = {
   istAnkerHold, interactionsAt, holdDuration, holdValid, holdStart, completeHold, update, onTreffer,
   setzen, zustand, alarm, markieren, awaySnap, kantenVonAnker, ladungScharf, ladungPlatzieren, paarFenster,
+  payloadAnker, ankerListe, startFuer,
 };

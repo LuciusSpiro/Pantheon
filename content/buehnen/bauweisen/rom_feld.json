@@ -157,6 +157,12 @@
     }
   },
   "anker": {
+    "falle": {
+      "schott": "ort/rom/gemein/bake",
+      "druck": "ort/rom/gemein/verteiler",
+      "schuss": "ort/rom/station/pumpe",
+      "*": "ort/rom/gemein/bake"
+    },
     "terminal": {
       "station": "ort/rom/gemein/terminal",
       "aussenposten": "ort/rom/gemein/terminal",

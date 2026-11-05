@@ -31,7 +31,7 @@ const ERLAUBT = [
 const DIENSTE = ['server/sim/geld.js', 'server/sim/vorrat.js'];
 
 // ---- Scanner ----
-const NAMEN = '(?:marks|bolzen|sonde|medipack|loeschgel|loeschgelCharges|ersatzteil|flickblech|tafel|ladung)';
+const NAMEN = '(?:marks|bolzen|sonde|medipack|loeschgel|loeschgelCharges|medipackCharges|ersatzteil|flickblech|tafel|ladung)';
 const OP = '(?:=(?!=|>)|\\+=|-=|\\*=|\\*\\*=|/=|%=|<<=|>>=|>>>=|&=|\\|=|\\^=|&&=|\\|\\|=|\\?\\?=|\\+\\+|--)';
 
 function ohneKommentare(text) {
@@ -249,7 +249,7 @@ section('Vorrat: entnehmen / verbrauchen / einlagern / leeren / abziehenHoechste
   ok(wirft(() => Vorrat.einlagern(g, 'bolzen', 1, 'gibtsnicht')) && wirft(() => Vorrat.entnehmen(g, 'bolzen', 1)) && wirft(() => Vorrat.standSetzen(g, 'bolzen', 1, 'gibtsnicht')), 'STRENG: unbekannter oder fehlender Grund wirft');
   ok(wirft(() => Vorrat.leeren(g, 'gibtsnicht', 'regal')) && wirft(() => Vorrat.einlagern(g, 'deko', 1, 'kauf')) && wirft(() => Vorrat.standSetzen(g, 'datenkern', 1, 'debug')), 'STRENG: ein Gut ausserhalb GUETER wirft (auch deko)');
   ok(wirft(() => Vorrat.einlagernBis(g, 'bolzen', 1, 5, 'gibtsnicht')) && wirft(() => Vorrat.verbrauchen(g, 'bolzen', 1, 'gibtsnicht')) && wirft(() => Vorrat.kappen(g, 'bolzen', 1, 'gibtsnicht')), 'STRENG: Grund-Prüfung auch in verbrauchen, einlagernBis, kappen');
-  ok(Vorrat.GUETER.length === 9 && ['bolzen', 'sonde', 'medipack', 'loeschgel', 'loeschgelCharges', 'ersatzteil', 'flickblech', 'tafel', 'ladung'].every((x) => Vorrat.GUETER.includes(x)), 'Güter: die sieben Verbrauchsgüter plus die Zähler tafel und ladung');
+  ok(Vorrat.GUETER.length === 10 && ['bolzen', 'sonde', 'medipack', 'loeschgel', 'loeschgelCharges', 'medipackCharges', 'ersatzteil', 'flickblech', 'tafel', 'ladung'].every((x) => Vorrat.GUETER.includes(x)), 'Güter: die acht Verbrauchsgüter (mit medipackCharges, ITM-01) plus die Zähler tafel und ladung');
 }
 
 section('Vorrat: marks wird an geld.js weitergeleitet (Ergebnis wie früher)');
@@ -416,10 +416,10 @@ section('Spielverhalten: Bruchteil-Bestände rechnen wie vor dem Umbau');
   const p = g.players[0];
   g.inventory.medipack = 0.5;
   Combat.onArrive(g, p);
-  ok(g.inventory.medipack === -0.5 && p.medkit === 1, 'combat.onArrive bei medipack 0,5: -0,5 und ein Medipack am Mann (wie früher)');
+  ok(g.inventory.medipack === -0.5 && p.medkit === CONFIG.medipack.ladungen, 'combat.onArrive bei medipack 0,5: -0,5 und ein Medipack (alle Ladungen) am Mann (wie früher)');
   g.inventory.medipack = 1.5; p.medkit = 0;
   Combat.onArrive(g, p);
-  ok(g.inventory.medipack === 0.5 && p.medkit === 1, 'combat.onArrive bei medipack 1,5: 0,5');
+  ok(g.inventory.medipack === 0.5 && p.medkit === CONFIG.medipack.ladungen, 'combat.onArrive bei medipack 1,5: 0,5');
 }
 
 section('Aufrufstellen mit echtem Spiel: Betrag und Ereignisse wie bisher');

@@ -31,7 +31,9 @@ export const ALT_ERLAUBT = [
 const istObj = (v) => v && typeof v === 'object' && !Array.isArray(v);
 const idVon = (v) => (typeof v === 'string' ? v : istObj(v) && typeof v.id === 'string' ? v.id : null);
 /** Eintrag einer Tabelle (String | {id} | {'*': ..., <platztyp>: ...}) → Liste von IDs für eine Kartenart. */
-function aufloesen(e, art) {
+function aufloesen(e, art, rolle) {
+  // ITM-01 E: die Falle wählt das Prop auch nach Typ (anker.falle.<typ>, kit-regeln.js ankerEintragVon): jede Zeile der Tabelle ist für jede Kartenart erreichbar, also prüfen wir alle
+  if (rolle === 'falle' && istObj(e)) { const out = []; for (const x of Object.values(e)) { const i = idVon(x); if (i) out.push(i); } return out; }
   let v = typeof e === 'string' ? e : istObj(e) ? (e[art] ?? e['*'] ?? null) : null;
   const out = [];
   if (istObj(v) && !v.id) { for (const x of Object.values(v)) { const i = idVon(x); if (i) out.push(i); } return out; }
@@ -67,7 +69,7 @@ export function pruefeOrte(ctx, opts = {}) {
   for (const bw of ['rom', 'germanen']) {
     const b = ctx.bauweisen[bw]; if (!b) continue;
     for (const art of KARTENARTEN) {
-      for (const [rolle, e] of Object.entries(b.anker || {})) if (rolle !== 'hinweis') for (const id of aufloesen(e, art)) melde(bw, art, `anker.${rolle}`, id);
+      for (const [rolle, e] of Object.entries(b.anker || {})) if (rolle !== 'hinweis') for (const id of aufloesen(e, art, rolle)) melde(bw, art, `anker.${rolle}`, id);
       for (const [typ, je] of Object.entries(b.leit || {})) if (istObj(je) && typ !== 'hinweis') for (const id of aufloesen(je, art)) melde(bw, art, `leit.${typ}`, id);
       const dp = b.deckung_props && b.deckung_props[art];
       if (istObj(dp)) for (const [kind, l] of Object.entries(dp)) if (Array.isArray(l)) for (const id of l) melde(bw, art, `deckung_props.${kind}`, id);
