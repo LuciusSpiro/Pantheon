@@ -189,7 +189,9 @@ function debugFalletest(game, p, args) {
   sichten.forEach((sicht, i) => { const t = frei[i]; k.anker.push({ id: 'falle.test' + (i + 1), rolle: 'falle', x: t.x, y: t.y, typ, sicht }); });
   standVerwerfen(aw);
   for (const q of game.players) { q.awayKv = null; if (q.awayEnth) delete q.awayEnth[aw.map]; }   // Karte neu senden (Payload ändert sich)
-  meldung(game, p, 'falletest: ' + sichten.map((sicht, i) => 'falle.test' + (i + 1) + ' (' + typ + ', ' + sicht + ') bei ' + frei[i].x + '/' + frei[i].y).join('; ') + '.');
+  const rr = (((game.C && game.C.anker && game.C.anker.falle) || CONFIG.anker.falle).schott || {}).radius || 3;
+  const leer = typ === 'schott' ? sichten.map((s, i) => i).filter((i) => !require('../../shared/buehne.js').fallenSchottKanten(k, frei[i], rr).length) : [];   // ITM-01 D: Schott-Falle ohne Schott im Wirkbereich wirkt nie (Hinweis wie Prüfer K-FALLE)
+  meldung(game, p, 'falletest: ' + sichten.map((sicht, i) => 'falle.test' + (i + 1) + ' (' + typ + ', ' + sicht + ') bei ' + frei[i].x + '/' + frei[i].y).join('; ') + '.' + (leer.length ? ' Hinweis: kein Schott im Wirkbereich bei ' + leer.map((i) => 'falle.test' + (i + 1)).join(', ') + ' – die Falle wirkt nie.' : ''));
   return null;
 }
 

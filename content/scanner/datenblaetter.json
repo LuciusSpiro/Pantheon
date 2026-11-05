@@ -1,5 +1,5 @@
 {
-  "_hinweis": "SCA-01 P4: Texte der Scan-Ergebnisse (Datenblatt auf dem Captain-Schirm, Marker). Vom Server nur gelesen ausgeliefert (/content/scanner/datenblaetter.json), Client public/js/scan-anzeige.js. Der Snapshot trägt nur art, typ, Stufe sk und (ab Positionsstufe) x,y. gefahr 0..3, hinweisAb = ab welcher Scan-Stufe der Regelhinweis erscheint. LÄNGEN (Zeichen, tools/test-scanner-anzeige.js prüft sie für alle Typen): name höchstens 20, zeile höchstens 34 (eine Zeile im Datenblatt), hinweis höchstens 100 (3 Zeilen; darüber hinaus kürzt der Client mit „…“, die Positionszeile darunter bleibt immer sichtbar). Einträge testerz/testmonster sind Platzhalter der Debug-Testziele; echte Typen bringen GEL-03 (Erz), MON-01 (Monster); ITM-01 C: Fallentypen schott, druck, schuss (Platzhaltertexte, ITM-01 D ersetzt sie) und test (Debug falletest).",
+  "_hinweis": "SCA-01 P4: Texte der Scan-Ergebnisse (Datenblatt auf dem Captain-Schirm, Marker). Vom Server nur gelesen ausgeliefert (/content/scanner/datenblaetter.json), Client public/js/scan-anzeige.js. Der Snapshot trägt nur art, typ, Stufe sk und (ab Positionsstufe) x,y. gefahr 0..3, hinweisAb = ab welcher Scan-Stufe der Regelhinweis erscheint. LÄNGEN (Zeichen, tools/test-scanner-anzeige.js prüft sie für alle Typen): name höchstens 20, zeile höchstens 34 (eine Zeile im Datenblatt), hinweis höchstens 100 (3 Zeilen; darüber hinaus kürzt der Client mit „…“, die Positionszeile darunter bleibt immer sichtbar). Einträge testerz/testmonster sind Platzhalter der Debug-Testziele; echte Typen bringen GEL-03 (Erz), MON-01 (Monster); ITM-01 C/D: Fallentypen schott, druck, schuss (echte Texte aus ITM-01 D) und test (Debug falletest, Platzhalter).",
   "typen": {
     "testerz": {
       "name": "Testerz",
@@ -19,25 +19,25 @@
     },
     "schott": {
       "name": "Schottfalle",
-      "gefahr": 2,
-      "zeile": "Platzhalter: sperrt Schotts.",
-      "hinweis": "Platzhalter-Regelhinweis, z. B. schließt den Ausgang. Entschärfen: E halten.",
+      "gefahr": 1,
+      "zeile": "Sperrt Schotts, richtet nichts an.",
+      "hinweis": "Schließt die Schotts ringsum für kurze Zeit. Hacken am Schott öffnet früher. Entschärfen: E halten.",
       "hinweisAb": 1,
       "symbol": "SC"
     },
     "druck": {
       "name": "Druckfalle",
       "gefahr": 2,
-      "zeile": "Platzhalter: Druckverlust.",
-      "hinweis": "Platzhalter-Regelhinweis, z. B. reißt die Luft ab. Entschärfen: E halten.",
+      "zeile": "Druckverlust, kostet Schild.",
+      "hinweis": "Im Raum schwindet regelmäßig ein Schildsegment. Raus aus dem Raum stoppt es. Entschärfen: E halten.",
       "hinweisAb": 1,
       "symbol": "DR"
     },
     "schuss": {
       "name": "Selbstschussanlage",
       "gefahr": 3,
-      "zeile": "Platzhalter: schießt auf Ziele.",
-      "hinweis": "Platzhalter-Regelhinweis, z. B. feuert in einen Bereich. Entschärfen: E halten.",
+      "zeile": "Feste Anlage, feuert Salven.",
+      "hinweis": "Feuert nach Auslösen drei Schüsse auf den Nächsten in Sicht. Deckung hilft. Entschärfen: E halten.",
       "hinweisAb": 1,
       "symbol": "SS"
     },
