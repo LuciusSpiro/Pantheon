@@ -30,6 +30,7 @@ import * as DefaultLoader from './loader.js';
 import { streuen, streuenWildnis, belegungVon, besitzStreuFuerOrt } from './deko.js';
 import { mitAkzent, WILDNIS_STIMMUNG, stimmungVon } from './stimmung.js';
 import { glutAusnahme } from './glut.js';
+import * as KULISSE from './hoehle-kulisse.js';   // GEL-02 E2: Schacht, Pilze, Kristalle, Glutring (nur Karten mit erdBoden)
 import { KLASSE, connVon, hash2, eintragVon, ankerEintragVon, eintragIds, baumWahl, kronenZelle, hochRichtung, segmentBox, mitNachlauf, kronenAus, bauweiseMerken, jsonLader } from './kit-regeln.js';
 
 const BASE = '/content/buehnen/';
@@ -556,7 +557,9 @@ const FB = {
       const nb = p.nb || [-99, -99, -99, -99], skip = [];
       if (nb[0] > l) skip.push('z-'); if (nb[1] > l) skip.push('x+'); if (nb[2] > l) skip.push('z+'); if (nb[3] > l) skip.push('x-');
       if (l < H - 1) skip.push('y+');
+      if (l === 0 && p.nische) skip.push('z+');   // GEL-02 E2: Südfläche mit Nische (Pilze/Glutriss), siehe hoehle-kulisse.js
       pen.box(-0.5, l, -0.5, 0.5, l + 1, 0.5, mul(top, j), mul(side, j), { low: l === 0 ? 0.75 : 0.95, jit: false, skip });
+      if (l === 0 && p.nische) KULISSE.zeichne(pen, KULISSE.nischeBoxen(p.nische), F, lin, mul(side, j));
     }
   },
   // --- Türen (state = Index in den Zuständen der Kachelart)
@@ -934,6 +937,8 @@ async function bauKarte(parent, karteIn, opts) {
   // ohne Biomton, ohne Kiesel, ohne Felstönung. Deck 0 der Wildnis behält Biomton (boden unter Steinen und Büschen); Wildnis ohne Deck bleibt unverändert.
   const erdBoden = hoehle || (wildnis && !!k.decks);
   const unterErde = (ty) => hoehle || (wildnis && !!k.decks && k.deckOf(ty) >= 1);
+  const kulKarte = { art: k.art, w: k.w, h: k.h, seed: k.seed, stride: k.decks ? k.stride : 0, boden: k.boden, kindAt: k.kindAt, felsHoehe };
+  const kul = KULISSE.platziere(kulKarte);   // GEL-02 E2: leer ohne erdBoden
   const RAND = 6;
   // Geländehöhe je Kachel (auch im Rand außerhalb der Karte): Fels 1–5 m, Boden 0, Abgrund tief – für verdeckte Seiten
   const ringHoehe = (tx, ty) => {
@@ -1072,7 +1077,7 @@ async function bauKarte(parent, karteIn, opts) {
       const seed = seedOf(tx, ty);
       const base = { zustand: zKit, art: k.art, seed, bauweise: bw };
       try {
-        if (kind === 'fels') { placeKit('fels', { h: felsHoehe(tx, ty), seed, x: tx, y: ty, nb: nachbarn(tx, ty), hell: felsHell, tint: unterErde(ty) ? null : felsTint }, m, d, tx, ty, { ids: [], fb: 'fels' }); continue; }
+        if (kind === 'fels') { placeKit('fels', { h: felsHoehe(tx, ty), seed, x: tx, y: ty, nb: nachbarn(tx, ty), hell: felsHell, tint: unterErde(ty) ? null : felsTint, nische: kul.nischen.get(tx + ',' + ty) }, m, d, tx, ty, { ids: [], fb: 'fels' }); continue; }
         // GEL-01: Flüssigkeit steht ohne Boden darunter (Fläche unter Bodenniveau); Kit-Teil kits.fluessig, sonst Platzhalter FB.fluessig
         if (kind === 'fluessig') { placeKit(kind, kitParams(kind, base, { variante: inf.variante, x: tx, y: ty }), m, d, tx, ty, { ids: kandidaten(kind) }); continue; }
         if (stationBoden && (kind === 'boden' || kind === 'boden2')) { placeKit('gelaende', Object.assign({ seed }, stationFliese(kind, tx, ty)), m, d, tx, ty, { ids: [], fb: 'gelaende' }); continue; }
@@ -1204,6 +1209,11 @@ async function bauKarte(parent, karteIn, opts) {
       }
     }
   } catch (e) { countErr('kit.bewuchs', e); }
+  // GEL-02 E2: Kristalle auf niedrigen Randfelsen (Teil des Felsens, in der Kachel, ohne Kollision)
+  try {
+    for (const c of kul.kristalle) { pen.to(bucketAt(k.deckOf(c.y), c.x, k.localY(c.y)), tileMatrix(c.x, c.y)); KULISSE.zeichne(pen, c.boxen, F, lin); }
+    stats.kulisse = { pilze: kul.pilze.length, risse: kul.risse.length, kristalle: kul.kristalle.length };
+  } catch (e) { countErr('kit.kulisse', e); }
   // TA: Möbel setzen (statisch, gebacken): Mitte des Rechtecks, Vorderseite nach 'drehung' (0 S, 1 O, 2 N, 3 W)
   try {
     stats.moebel = 0;
@@ -1238,7 +1248,9 @@ async function bauKarte(parent, karteIn, opts) {
     const id = propId(a.rolle, a.platz);
     if (!id && !rs.objekt) continue;
     if (a.rolle === 'tor' || a.rolle === 'eingang' || a.rolle === 'aussicht' && !id) continue;
-    dyn.push({ typ: 'prop', anker: a, rolle: a.rolle, id, zustaende: rs.zustaende, d: k.deckOf(a.y), tx: a.x, ty: a.y });
+    // GEL-02 E2: Leiter in Karten mit Erdboden: Schacht (oben) bzw. Lichtfleck (unten) statt des Schiffs-Props; Fund unter der Erde bekommt einen Glutring
+    const ende = a.rolle === 'leiter' ? KULISSE.leiterEnde(kulKarte, a.y) : null;
+    dyn.push({ typ: 'prop', anker: a, rolle: a.rolle, id: ende ? null : id, zustaende: rs.zustaende, d: k.deckOf(a.y), tx: a.x, ty: a.y, boxen: ende ? KULISSE.leiterBoxen(ende, k.boden) : null, ende, ring: a.rolle === 'fund' && kul.aktiv });
   }
   // Türen: Läufe gleicher Türkacheln (für tor-Anker und Kanten) gruppieren
   const doorAt = new Map();
@@ -1391,7 +1403,7 @@ async function bauKarte(parent, karteIn, opts) {
     } else {
       const a = t.anker, zst = t.zustaende;
       const pe = propEintrag(a.rolle, a.platz);
-      t.rot = pe && pe.dreh != null ? pe.dreh * Math.PI / 180 : facing(a.x, a.y);   // fester Eintrag (dreh, Grad) gewinnt gegen die Drehung zur freien Nachbarkachel
+      t.rot = t.boxen ? 0 : pe && pe.dreh != null ? pe.dreh * Math.PI / 180 : facing(a.x, a.y);   // fester Eintrag (dreh, Grad) gewinnt gegen die Drehung zur freien Nachbarkachel; Schacht: Nordkante bleibt im Norden
       const fp = t.id && loader.manifest && loader.manifest(t.id) ? loader.manifest(t.id).footprint : null;
       t.off = [0, 0];
       if (fp && (fp[0] > 1 || fp[1] > 1)) {
@@ -1428,6 +1440,12 @@ async function bauKarte(parent, karteIn, opts) {
       grp.add(mesh);
       return grp;
     }
+    if (t.boxen) {   // GEL-02 E2: Schacht/Lichtfleck (flach, ohne Kollision)
+      const b = new Bucket(); pen.to(b, new THREE.Matrix4()); KULISSE.zeichne(pen, t.boxen, F, lin);
+      const g = b.toGeometry();
+      if (g) { geos.push(g); const mesh = new THREE.Mesh(g, mat); mesh.receiveShadow = true; grp.add(mesh); }
+      return grp;
+    }
     // Platzhalter (gecacht je Art + Parameter)
     const kind = t.typ === 'tuer' ? t.kind : t.rolle;
     const ck = kind + '|' + (t.breite || 1) + '|' + JSON.stringify(p);
@@ -1444,6 +1462,11 @@ async function bauKarte(parent, karteIn, opts) {
     if (g) { const mesh = new THREE.Mesh(g, mat); mesh.castShadow = true; mesh.receiveShadow = true; grp.add(mesh); }
     return grp;
   };
+  let ringGeo = null;
+  const glutring = () => {
+    if (!ringGeo) { const b = new Bucket(); pen.to(b, new THREE.Matrix4()); KULISSE.zeichne(pen, KULISSE.glutring(), F, lin); ringGeo = b.toGeometry(); if (ringGeo) geos.push(ringGeo); }
+    return new THREE.Mesh(ringGeo, mat);
+  };
   const refresh = () => {
     for (const o of dynObjs) {
       try {
@@ -1452,6 +1475,7 @@ async function bauKarte(parent, karteIn, opts) {
         if (key === o.key) continue;
         if (o.group && o.group.parent) o.group.parent.remove(o.group);
         o.group = buildDyn(o, p);
+        if (o.def.ring && KULISSE.fundRing(kulKarte, o.def.anker.y, ankerName(o.def.anker))) o.group.add(glutring());   // GEL-02 E2: der Fund ist das Hellste im Raum
         deckGroups[o.def.d || 0].add(o.group);
         o.key = key;
       } catch (e) { countErr('kit.dyn', e); }
@@ -1488,6 +1512,17 @@ async function bauKarte(parent, karteIn, opts) {
       }
     },
     setDeck,
+    /** GEL-02 E2: Punktlichter der Kulisse für das gezeigte Deck (Lichtschacht am unteren Leiter-Ende, Licht über dem Fund solange er da ist); frische Objekte je Aufruf */
+    lichter() {
+      const out = [];
+      for (const o of dynObjs) {
+        const t = o.def; if (t.typ !== 'prop' || shownDeck !== t.d) continue;
+        const a = t.anker, pos = { x: a.x + 0.5, z: k.localY(a.y) + 0.5 };
+        if (t.ende === 'unten') out.push(Object.assign(pos, KULISSE.LICHT_LEITER));
+        else if (t.ring && KULISSE.fundRing(kulKarte, a.y, ankerName(a))) out.push(Object.assign(pos, KULISSE.LICHT_FUND));
+      }
+      return out;
+    },
     /** Mitte der Karte (Welt) und Ausdehnung – für Kameras der Galerie */
     center() { return { x: k.w / 2, z: (k.decks ? k.stride : k.h) / 2, w: k.w, h: k.decks ? Math.min(k.h, k.stride) : k.h }; },
     /** Hüllen: Gruppen, die eine Sichtlinie Kamera → Ziel kreuzen, schalten auf niedrig (hart, 250 ms Nachlauf gegen Flackern).
@@ -1723,6 +1758,7 @@ export const layer = {
     const aw = (view && view.state && view.state.away) || {};
     LZ.h.update({ ao: aw.ao || [], ko: aw.ko || [] });
     LZ.h.setDeck(ctx.deck || 0);
+    if (ctx.addLight && LZ.h.lichter) for (const l of LZ.h.lichter()) ctx.addLight(l);   // GEL-02 E2
     teamFog(LZ.h, view, ctx, dt);
     if (ctx.camera && ((LZ.h.huelleAnzahl && LZ.h.huelleAnzahl()) || (LZ.h.kronenAnzahl && LZ.h.kronenAnzahl()))) {
       // Ziele: alle Spieler im Außeneinsatz plus Gegner und Personen, die das Team nach der Sichtlogik sieht (keine versteckten)
