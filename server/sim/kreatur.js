@@ -26,6 +26,7 @@
 // Zufall NUR über aw.rng (nie game.rng, sonst verschiebt sich der Strom des Station-Monsters). Wahrnehmung wie Station: Sicht in Kacheln, Sichtlinie über combat.losBetween.
 const Mon = require('../../shared/monster.js');
 const Physics = require('../../shared/physics.js');
+const Los = require('../../shared/los.js');
 const Monster = require('./monster.js');
 const Tel = require('../telemetrie/gefecht.js');
 const KREATUREN = require('../../content/kampf/kreaturen.json');
@@ -218,10 +219,12 @@ kreaturBausteinAnmelden('koeder', {
 kreaturBausteinAnmelden('rammschaden', {
   beiTick(game, K, dt, par, ctx) {
     if (ctx.typ.zustaende[K.z].modus !== 'ramme' || game.god) return;
+    if (K.rammTreffer) return;   // ein Rammen trifft höchstens einmal, auch wenn die Tabelle den Übergang `getroffen` nicht hat
     const r = par.radius * (K.rammF || 1);
     for (const p of game.players) {
       if (p.zone !== 'away' || p.connected === false || p.downed || p.lift) continue;
       if (Math.hypot(p.x - K.x, p.y - K.y) > r) continue;
+      if (!Los.lineOfSight(ctx.E.shotBlocked, K.x, K.y, p.x, p.y)) continue;   // Berührung geht nicht durch Wand oder Fenster (wie Schüsse)
       combat().woundPlayer(game, p, 'kreatur');
       if (p.downed) Tel.gefallenOhneTreffer(game, p.id, 'kreatur', K.typ);
       game.emit('kreaturTreffer', { pid: p.id, id: K.id, x: Math.round(p.x), y: Math.round(p.y) });

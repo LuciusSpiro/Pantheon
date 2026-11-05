@@ -2,9 +2,9 @@
 // MON-01 P2b: Teamregeln des Monster-Rahmens als Bausteine (server/sim/kreatur.js), alle nur über Daten eingeschaltet: ruecken, aufladung, koeder, rammschaden.
 // Echtes Spiel (Game). Kesh (Schüsse über alle Waffenwege) und Station Helix (Bewegung, Lärm, Rammen).
 // Geprüft: Rücken (vorn/Seite/hinten/ohne Feld/Front+Rücken/Bogenrand/Drohne unverändert/Nahkampf läuft vorbei), Aufladung (jeder Treffer genau einmal über Projektil, Granate auf
-// mehrere Ziele, Lanze, Nahkampf, Orbitalschlag; Tempo, Zerfall, Obergrenze, abgelenkt zählt, Basiswert ohne Treffer), Köder (Hörweite, Suche und Rückkehr, Cursor: Altlast,
-// gleiche Tickzeit, aw.laerm unberührt, Trupp-Verhalten mit/ohne Kreatur gleich, nicht bei Jagd), Ramm-Schaden (verwundet, god schützt, Pause, Ladung wirkt über die Reichweite,
-// Wunde bleibt Wunde), Probe-Monster mit allen vier Regeln und je Regel abgeschaltet, Validator der Parameter.
+// mehrere Ziele, Lanze, Nahkampf, Orbitalschlag; Tempo, Zerfall, Obergrenze, abgelenkt zählt, Basiswert ohne Treffer), Köder (Hörweite, Suche und Rückkehr, Tempo der Ladung, Cursor: Altlast,
+// gleiche Tickzeit (zwei Ereignisse eines Ticks, beide gezählt), aw.laerm unberührt, Trupp-Verhalten mit/ohne Kreatur gleich, nicht bei Jagd), Ramm-Schaden (verwundet, god schützt, Pause, Ladung wirkt über die Reichweite,
+// Wunde bleibt Wunde, nicht durch Wände, nicht im Lift/getrennt, höchstens eine Wunde je Rammen auch ohne Übergang getroffen), Probe-Monster mit allen vier Regeln und je Regel abgeschaltet, Validator der Parameter.
 //   node tools/test-kreatur-bausteine.js   (npm run test:kreatur-bausteine)
 const Physics = require('../shared/physics.js');
 const CONFIG = require('../shared/config.js');
@@ -57,6 +57,13 @@ typ('tb_ramm', { start: 'rammen', zustaende: {
   rammen: { modus: 'ramme', tempo: 0, dauer: 5, uebergang: [ { auf: 'getroffen', nach: 'pause' }, { auf: 'ablauf', nach: 'pause' } ] },
   pause: { modus: 'steht', tempo: 0, dauer: 2, uebergang: [ { auf: 'ablauf', nach: 'rammen' } ] } },
   bausteine: { zyklus: { hindernisAb: 0.3 }, rammschaden: { radius: 30 }, aufladung: AUF } });
+typ('tb_ramm_ohne', { start: 'rammen', zustaende: {   // kein Übergang `getroffen`: das Rammen endet nur mit der Dauer
+  rammen: { modus: 'ramme', tempo: 0, dauer: 5, uebergang: [ { auf: 'ablauf', nach: 'rammen' } ] } },
+  bausteine: { zyklus: { hindernisAb: 0.3 }, rammschaden: { radius: 30 } } });
+typ('tb_koeder_auf', { start: 'patrouille', zustaende: {
+  patrouille: { modus: 'steht', tempo: 0, uebergang: [ { auf: 'sieht', nach: 'jagd' }, { auf: 'laerm', nach: 'laerm' } ] },
+  laerm: { modus: 'zumKoeder', tempo: 100, uebergang: [ { auf: 'sieht', nach: 'jagd' }, { auf: 'koederEnde', nach: 'patrouille' } ] },
+  jagd: { modus: 'steht', tempo: 0, uebergang: [] } }, bausteine: { koeder: { faktor: 1.5, dauer: 2 }, aufladung: AUF } });
 // Probe-Monster ohne je einen Baustein (Daten wie probe, jede Regel einzeln abgeschaltet)
 function probeOhne(baustein) {
   const t = kopie(KREATUREN.typen.probe); delete t.bausteine[baustein];
@@ -118,11 +125,14 @@ function szene(seed) {
 }
 
 // ---------- Szene Station Helix: lange breite Gänge für Bewegung, Lärm, Rammen (Station-Monster aus, ein Spieler unverwundbar) ----------
-function stationRoh() {
+function stationRoh(nSp) {
   const g = new Game({ noStore: true, worlds: false, seed: 21, debug: true, env: { MISSION_SOURCE: 'fallback' }, log: () => {} });
   const c = { inbox: [], send() {}, sendRaw() {} };
   g.addConnection(c); g.handleMessage(c, { t: 'hello', clientId: 'T0', name: 'Kre', color: 0 });
+  const weitere = [];
+  for (let i = 1; i < (nSp || 1); i++) { const w = { inbox: [], send() {}, sendRaw() {} }; weitere.push(w); g.addConnection(w); g.handleMessage(w, { t: 'hello', clientId: 'T' + i, name: 'Kre' + i, color: i }); }
   g.handleMessage(c, { t: 'lobbyOpt', startMission: 'free' }); g.handleMessage(c, { t: 'ready', ready: true });
+  for (const w of weitere) g.handleMessage(w, { t: 'ready', ready: true });
   Welt.waehle(g, 'sund'); g.god = true; space.enterScene(g, 'helix', {});
   const sc = Locations.get('helix').scene; g.ship.x = sc.station.x - 100; g.ship.y = sc.station.y;
   const run = (sec, each) => { for (let k = 0; k < Math.round(sec / DT); k++) { if (each && each(k * DT) === true) return true; g.step(); } return false; };
@@ -145,8 +155,8 @@ function strecken(m, min) {
   }
   return out.sort((a, b) => (b.cx1 - b.cx0) - (a.cx1 - a.cx0));
 }
-function station() {
-  const T = stationRoh(); const g = T.g; const p = T.p;
+function station(nSp) {
+  const T = stationRoh(nSp); const g = T.g; const p = T.p;
   g.away.monster = null;
   p.x = 3 * TILE; p.y = 3 * TILE; p.downed = false;
   const k = g.karteOf(g.away.map);
@@ -237,7 +247,10 @@ section('Aufladung: jeder Treffer genau einmal (Projektil, Granate auf mehrere Z
   S = szene(); S.platz(0); K = S.kreatur(6, { typ: 'tb_auf' });
   S.aw.pendingStrikes.push({ x: K.x, y: K.y, at: S.g.time + 0.1 }); S.lauf(0.6);
   const seg = S.g.C.awayCombat.strikeSegments;
-  ok(K.seg === 2 && anzahl(K) === seg && K.aufladung.stufe === Math.min(AUF.max, seg), 'Orbitalschlag: ' + seg + ' Segmente = ' + seg + ' Treffer, Stufe gedeckelt auf ' + AUF.max + ' (Meldungen ' + anzahl(K) + ', Stufe ' + K.aufladung.stufe + ')');
+  ok(K.seg === 6 - seg && anzahl(K) === 1 && K.aufladung.stufe === 1, 'Orbitalschlag: ' + seg + ' Segmente Schildschaden, aber EIN Treffer für die Aufladung (Schild ' + K.seg + ', Meldungen ' + anzahl(K) + ', Stufe ' + K.aufladung.stufe + ')');
+  zaehl.clear();
+  S.aw.pendingStrikes.push({ x: K.x, y: K.y, at: S.g.time + 0.1 }); S.lauf(0.6);
+  ok(anzahl(K) === 1 && K.aufladung.stufe === 2, 'zweiter Orbitalschlag: wieder genau ein Treffer, Stufe 2 (Meldungen seit dem Zurücksetzen ' + anzahl(K) + ', Stufe ' + K.aufladung.stufe + ')');
   zaehl.clear();
   S = szene(); S.platz(0); K = S.kreatur(6, { typ: 'tb_auf' }); K.alive = false; K.zustand = 'verwundet'; K.liegt = true; S.schuss('blaster'); S.lauf(1.0);
   ok(anzahl(K) === 0 && K.seg === 6, 'liegende Kreatur wird nicht getroffen und nicht gemeldet');
@@ -312,6 +325,22 @@ section('Köder: Hörweite, Weg zum Ort, Suche, Rückkehr', () => {
   ok(K2.z === 'laerm' && nahe(K2.koeder.x, zweit.x, 1), 'zweiter Lärm während der Suche lenkt auf den neuen Ort um');
 });
 
+section('Köder: die Ladung beschleunigt den Gang zum Ort', () => {
+  const S = station(); const l = S.lang; S.fern();
+  const hoer = S.laerm(0, 0, 'leise').radius * 1.5; S.g.away.laerm.pop();
+  const gang = (stufen) => {
+    const K = S.kreatur('tb_koeder_auf', l.cx0 + 1, l.cy);
+    for (let i = 0; i < stufen; i++) hitVon(S, K);
+    S.laerm(K.x + hoer * 0.9, K.y, 'leise'); S.lauf(0.05);
+    const x0 = K.x; S.lauf(0.4);
+    return { K, d: K.x - x0 };
+  };
+  const g0 = gang(0), g3 = gang(3);
+  ok(g0.K.z === 'laerm' && g3.K.z === 'laerm' && g3.K.aufladung.stufe === 3, 'beide laufen zum Lärm, die zweite mit Stufe 3 (' + g0.K.z + ', ' + g3.K.z + ')');
+  ok(g0.d > 30 && g0.d < 45, 'Stufe 0: Köder-Gang mit Tempo 100 (' + g0.d.toFixed(1) + ' px in 0,4 s)');
+  ok(nahe(g3.d / g0.d, 2.5, 0.15), 'Stufe 3: Köder-Gang Tempo × 2,5 (' + (g3.d / g0.d).toFixed(2) + ')');
+});
+
 section('Köder: Cursor (Altlast, gleiche Tickzeit, Puffer unberührt)', () => {
   // Altlast: Lärm VOR dem Anlegen wird nie gelesen
   let S = station(); let l = S.lang; S.fern();
@@ -358,6 +387,16 @@ section('Köder: Cursor (Altlast, gleiche Tickzeit, Puffer unberührt)', () => {
   ok(r.Kt.z === 'laerm' && r.Kt.koeder && nahe(r.Kt.koeder.x, r.innen.x + 7, 1), 'erstes außerhalb (gelesen), zweites gleicher Tickzeit innerhalb: wird gesehen (nicht verloren)');
   r = gleichTick(true, false);
   ok(r.Kt.z === 'laerm' && r.Kt.koeder && nahe(r.Kt.koeder.x, r.innen.x, 1), 'erstes innerhalb, zweites außerhalb: erstes gesehen');
+  // Zwei Ereignisse derselben Tickzeit beide in Hörweite: beide gelesen, der Cursor zählt beide mit; das zweite wird nie erneut gelesen (sonst startet die Suche jeden Tick von vorn)
+  S = station(); l = S.lang; S.fern();
+  K = S.kreatur('tb_koeder', l.cx0 + 1, l.cy);
+  const h2 = S.laerm(0, 0, 'leise').radius * 1.5; S.g.away.laerm.pop();
+  const e1 = S.laerm(K.x + h2 * 0.5, K.y, 'leise'), e2 = S.laerm(K.x + h2 * 0.6, K.y, 'leise');
+  ok(e1.t === e2.t, 'Voraussetzung: beide Ereignisse haben dieselbe Tickzeit');
+  S.lauf(0.2);
+  ok(K.z === 'laerm' && nahe(K.koeder.x, e2.x, 1) && K.laermCursor.n === 2, 'beide gelesen: das spätere Ereignis gilt, Cursor n=' + K.laermCursor.n + ' (erwartet 2)');
+  S.lauf(6);
+  ok(K.z === 'patrouille', 'Suche endet nach Dauer; das zweite Ereignis wird nicht in jedem Tick neu gelesen (' + K.z + ', Cursor n=' + K.laermCursor.n + ')');
   // Leser schreibt nur den eigenen Cursor
   S = station(); l = S.lang; S.fern();
   K = S.kreatur('tb_koeder', l.cx0 + 1, l.cy);
@@ -451,6 +490,60 @@ section('Ramm-Schaden: verwundet, god schützt, Pause, Ladung wirkt über die Re
   ok(r.S.g.away.stats.wounds === 1, 'Wunde bleibt Wunde: auch bei Stufe 3 genau eine Wunde, kein Mehrschaden');
   r = ramm({ abstand: 90, treffer: 3 });
   ok(!r.S.p.downed, 'Abstand 90 px auch bei Stufe 3 (75 px): kein Treffer');
+  // Wand dazwischen (Reichweite Stufe 3 = 75 px, Wandkachel 32 px): keine Wunde; dieselbe Lage ohne Wand: Wunde
+  {
+    const W = station(); W.g.god = false;
+    const E = combat.env(W.g);
+    let wand = null;
+    for (let ty = 2; ty < W.k.h - 2 && !wand; ty++) for (let tx = 3; tx < W.k.w - 3; tx++) {
+      if (E.solid(tx, ty) && E.shotBlocked(tx, ty) && !E.solid(tx - 1, ty) && !E.solid(tx + 1, ty) && E.solid(tx, ty - 1) && E.solid(tx, ty + 1)) { wand = { tx, ty }; break; }
+    }
+    ok(!!wand, 'Station hat eine freistehende Wandkachel zwischen zwei freien Kacheln');
+    const stoss = (ax, ay, kx, ky) => {
+      const K = W.kreatur('tb_ramm', 3, 3); K.x = kx; K.y = ky;
+      for (let i = 0; i < 3; i++) hitVon(W, K);
+      Kreatur.zustandSetzen(W.g, K, 'rammen'); W.setz(ax, ay);
+      W.lauf(0.3);
+      const d = Math.round(Math.hypot(W.p.x - K.x, W.p.y - K.y)), downed = W.p.downed; W.p.downed = false;
+      W.g.away.kreaturen = W.g.away.kreaturen.filter((q) => q !== K);
+      return { d, downed, stufe: K.aufladung.stufe };
+    };
+    const mitte = (c) => (c + 0.5) * TILE;
+    const rw = stoss(mitte(wand.tx + 1), mitte(wand.ty), mitte(wand.tx - 1), mitte(wand.ty));
+    ok(rw.stufe === 3 && rw.d === 64 && !rw.downed, 'Wand zwischen Kreatur und Spieler (' + rw.d + ' px, Stufe ' + rw.stufe + ', Reichweite 75 px): keine Wunde (downed=' + rw.downed + ')');
+    const nah = stoss(wand.tx * TILE + TILE + 4, mitte(wand.ty), wand.tx * TILE - 4, mitte(wand.ty));
+    ok(!nah.downed, 'direkt an der Wand (' + nah.d + ' px): auch ohne Sichtlinie keine Wunde');
+    const fr = W.lang;
+    const rf = stoss(mitte(fr.cx0 + 3), mitte(fr.cy), mitte(fr.cx0 + 1), mitte(fr.cy));
+    ok(rf.stufe === 3 && rf.d === 64 && rf.downed, 'ohne Wand, gleicher Abstand (' + rf.d + ' px): Wunde (downed=' + rf.downed + ')');
+  }
+  // Spieler im Lift oder getrennt werden nicht gerammt
+  {
+    const sonder = (setze) => {
+      const T = station(); T.g.god = false; const K = T.kreatur('tb_ramm', T.lang.cx0 + 2, T.lang.cy);
+      T.setz(K.x + 15, K.y); const w0 = T.g.away.stats.wounds;
+      T.lauf(0.5, () => { setze(T.p); return false; });
+      return { downed: T.p.downed, wunden: T.g.away.stats.wounds - w0, z: K.z };
+    };
+    const ref = sonder(() => {});
+    ok(ref.downed && ref.wunden === 1, 'Kontrolle: derselbe Aufbau ohne Besonderheit verwundet den Spieler (downed=' + ref.downed + ')');
+    const lift = sonder((p) => { p.lift = { away: true, to: 0, t: 0, T: 999, via: 'lift' }; });
+    ok(!lift.downed && lift.wunden === 0, 'Spieler im Lift (p.lift) wird nicht gerammt (downed=' + lift.downed + ', Wunden ' + lift.wunden + ')');
+    const getrennt = sonder((p) => { p.connected = false; });
+    ok(!getrennt.downed && getrennt.wunden === 0, 'getrennter Spieler (connected=false) wird nicht gerammt (downed=' + getrennt.downed + ', Wunden ' + getrennt.wunden + ')');
+  }
+  // ohne Übergang getroffen: höchstens eine Wunde je Rammen, auch bei mehreren Spielern im Radius
+  {
+    const T = station(3); T.g.god = false;
+    const ps = T.g.players.filter((q) => q.zone === 'away');
+    ok(ps.length === 3, 'drei Spieler am Boden (' + ps.length + ')');
+    const K = T.kreatur('tb_ramm_ohne', T.lang.cx0 + 2, T.lang.cy);
+    ps.forEach((q, i) => { q.x = K.x + 5 + i * 5; q.y = K.y; q.downed = false; });
+    const w0 = T.g.away.stats.wounds; T.ev.length = 0;
+    T.lauf(0.5);
+    ok(T.g.away.stats.wounds - w0 === 1 && T.ev.filter((e) => e === 'wounded').length === 1 && ps.filter((q) => q.downed).length === 1,
+      'ohne Übergang getroffen, 3 Spieler im Radius: genau eine Wunde je Rammen (Wunden ' + (T.g.away.stats.wounds - w0) + ', downed ' + ps.filter((q) => q.downed).length + ')');
+  }
   // nur im Rammen
   const S = station(); const l = S.lang; S.g.god = false;
   const K = S.kreatur('tb_ramm', l.cx0 + 2, l.cy); Kreatur.zustandSetzen(S.g, K, 'pause');

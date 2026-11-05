@@ -942,11 +942,18 @@ function updateProjectiles(game, dt) {
 // B2 §3.3: Hülle um waffen.treffer (wenn aktiv). src: { x, y, pid, strike?, flaeche?, wirkung? }.
 // Rückgabe wie bisher: 'dead'|'asleep'|'deflect'|'shield'|'down' (+ mit Waffen: 'wunde'|'bewusstlos').
 function hitEnemy(game, e, segs, src) {
-  const C = cfg(game); const aw = game.away;
   if (!e.alive) return 'dead';
   const s = src || {};
   squad.onEnemyHit(game, e, s);
-  if (e.kreatur) kreatur().bausteinTreffer(game, e, { x: s.x, y: s.y, pid: s.pid || null, strike: !!s.strike, flaeche: !!s.flaeche });   // MON-01 P2b: Beschuss (auch abgelenkt) genau einmal je Treffer
+  kreaturTrefferMelden(game, e, s);
+  return hitEnemyWirkung(game, e, segs, s);
+}
+// MON-01 P2b: Beschuss (auch abgelenkt) genau einmal je Treffer; ein Orbitalschlag meldet über strikeEnemy einmal für alle Segmente
+function kreaturTrefferMelden(game, e, s) {
+  if (e.kreatur) kreatur().bausteinTreffer(game, e, { x: s.x, y: s.y, pid: s.pid || null, strike: !!s.strike, flaeche: !!s.flaeche });
+}
+function hitEnemyWirkung(game, e, segs, s) {
+  const C = cfg(game); const aw = game.away;
   const Wf = waffen();
   if (Wf) return hitEnemyWaffen(game, e, Wf, segs, s);
   if (e.asleep) {
@@ -1015,7 +1022,12 @@ function knockOut(game, e) {
 // Orbitalschlag: strikeSegments Treffer, unabhängig von der Wächter-Front (schlafender Wächter bleibt unverwundbar)
 function strikeEnemy(game, e) {
   const n = cfg(game).strikeSegments;
-  for (let i = 0; i < n && e.alive; i++) hitEnemy(game, e, 1, { strike: true });
+  for (let i = 0; i < n && e.alive; i++) {   // Schildschaden je Segment wie bisher, die Treffer-Meldung an die Kreatur nur einmal je Schlag
+    const s = { strike: true };
+    squad.onEnemyHit(game, e, s);
+    if (i === 0) kreaturTrefferMelden(game, e, s);
+    hitEnemyWirkung(game, e, 1, s);
+  }
 }
 
 function updateEnemyShields(game, dt) {

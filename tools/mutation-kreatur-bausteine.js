@@ -35,6 +35,7 @@ const MUTATIONEN = [
   [CB, HOOK_K, "", 'Hook in trefferGemeldet entfällt (Granate, Lanze, Nahkampf melden nichts)'],
   [CB, HOOK_E, HOOK_E + "\n" + HOOK_E, 'Hook in hitEnemy doppelt (Treffer zählt zweimal)'],
   [CB, HOOK_K, HOOK_K + "\n" + HOOK_K, 'Hook in trefferGemeldet doppelt (Treffer zählt zweimal)'],
+  [CB, "    if (i === 0) kreaturTrefferMelden(game, e, s);\n", "    kreaturTrefferMelden(game, e, s);\n", 'Orbitalschlag meldet jedes Segment als eigenen Treffer (statt einmal je Schlag)'],
   // ---- Aufladung
   [KR, "    const a = aufladungVon(K);\n    a.stufe = Math.min(par.max, a.stufe + 1); a.ruhe = 0; a.zerfallT = 0;", "    return;\n    const a = aufladungVon(K);\n    a.stufe = Math.min(par.max, a.stufe + 1); a.ruhe = 0; a.zerfallT = 0;", 'aufladung: beiTreffer tut nichts'],
   [KR, "a.stufe = Math.min(par.max, a.stufe + 1);", "a.stufe = a.stufe + 1;", 'aufladung: keine Obergrenze'],
@@ -66,6 +67,12 @@ const MUTATIONEN = [
   [KR, "      K.rammTreffer = true;\n", "", 'rammschaden: Treffer beendet das Rammen nicht (Auslöser getroffen)'],
   [KR, "      game.missionEvent('kreaturTreffer', { pid: p.id, id: K.id });\n", "", 'rammschaden: Missionsereignis kreaturTreffer fehlt'],
   [KR, "      if (p.zone !== 'away' || p.connected === false || p.downed || p.lift) continue;\n", "      if (p.zone !== 'away') continue;\n", 'rammschaden: liegende Spieler werden erneut verwundet'],
+  [KR, "      if (!Los.lineOfSight(ctx.E.shotBlocked, K.x, K.y, p.x, p.y)) continue;", "", 'rammschaden: keine Sichtlinienprüfung (Berührung durch Wand oder Fenster)'],
+  [KR, "    if (K.rammTreffer) return;", "", 'rammschaden: nach dem Treffer weiter prüfen (ohne Übergang getroffen trifft das Rammen alle Spieler nacheinander)'],
+  [KR, "p.connected === false || ", "", 'rammschaden: getrennte Spieler (connected=false) werden gerammt'],
+  [KR, " || p.lift) continue;", ") continue;", 'rammschaden: Spieler im Lift (p.lift) werden gerammt'],
+  [KR, "gehe(game, K, dt, ctx, tempoVon(K, z)); if (!K.pfad.length && !K.ramm) o.da = true;", "gehe(game, K, dt, ctx, z.tempo); if (!K.pfad.length && !K.ramm) o.da = true;", 'koeder: Gang zum Ort ignoriert den Tempofaktor der Ladung (tempoF)'],
+  [KR, "if (++gleich <= c.n) continue; c.n++; }", "if (++gleich <= c.n) continue; }", 'Cursor: n zählt bei gleicher Tickzeit nicht hoch (zweites Ereignis wird jeden Tick neu gelesen)'],
   [KR, "K.blockiert = false; K.rammTreffer = false; K.ramm = null;", "K.blockiert = false; K.ramm = null;", 'betreten: Treffer-Merker wird nicht zurückgesetzt'],
   [KR, "  ausloeser: { getroffen: (game, K) => !!K.rammTreffer },", "  ausloeser: { getroffen: (game, K) => false },", 'rammschaden: Auslöser getroffen löst nie aus'],
 ];
