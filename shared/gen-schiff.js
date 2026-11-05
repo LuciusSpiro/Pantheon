@@ -13,7 +13,7 @@
   const HD = 13, STRIDE = 16, GANG = 6, MAXLAENGE = 74;
   const TUEREN = 'DSLG';
   const WACHEN = { intakt: 5, verfallen: 4, umkaempft: 7 };
-  const PFLICHT = { eingang: 2, abholpunkt: 2, sprengpunkt: 1, ziel: 2, terminal: 2, zelle: 1, beute: 3, nsc: 1, wache: 4, lift: 1, leiter: 1 };
+  const PFLICHT = { eingang: 2, abholpunkt: 2, sprengpunkt: 1, ziel: 3, terminal: 2, zelle: 1, beute: 3, nsc: 1, wache: 4, lift: 1, leiter: 1 };
   const RAUMTITEL = { antrieb: 'Antrieb', reaktor: 'Reaktor', bruecke: 'Brücke', batteriedeck: 'Batteriedeck', schleuse: 'Schleuse', lager: 'Laderaum', quartier: 'Quartiere', zellen: 'Zellen', messe: 'Messe', waffenkammer: 'Waffenkammer', transferkammer: 'Transferkammer' };
   // Raumbedarf je Deck (Typ, Mindestzahl) in Rangfolge, danach Füllung
   const BEDARF = [[['schleuse', 1], ['zellen', 1], ['lager', 2], ['quartier', 1], ['messe', 1]], [['transferkammer', 1], ['waffenkammer', 1], ['lager', 1], ['messe', 1]]];
@@ -334,16 +334,28 @@
         const sp = muss(neben(1, h1, 'O') || kachel(1, h1, 'rand'), 'den Sprengpunkt'); ank(1, 'sprengpunkt', sp[0], sp[1], { bereich: 'ziel' });
         const z1 = muss(kachel(0, b0, 'innen'), 'ein Ziel (Brücke)'); ank(0, 'ziel', z1[0], z1[1], { bereich: 'ziel' });
         const z2 = muss(kachel(1, h1, 'innen') || kachel(1, h1, 'rand'), 'ein Ziel (Reaktor)'); ank(1, 'ziel', z2[0], z2[1], { bereich: 'ziel' });
+        const z3 = muss(kachel(1, b1, 'innen') || kachel(1, b1, 'rand'), 'ein Ziel (Batteriedeck)'); ank(1, 'ziel', z3[0], z3[1], { bereich: 'ziel' });
+        const lg = rolleRaum(0, 'lager'); let z4 = null; for (const r of lg) { z4 = kachel(0, r, 'innen'); if (z4) { ank(0, 'ziel', z4[0], z4[1], { bereich: 'ziel' }); break; } }   // Katalog (krise_eindaemmen/ventile) verlangt min. 3 ziel; Lager als vierter Standort
         const t1 = muss(kachel(0, b0, 'rand'), 'ein Terminal (Brücke)'); ank(0, 'terminal', t1[0], t1[1], { bereich: 'ziel' });
         const t2 = muss(kachel(1, b1, 'rand'), 'ein Terminal (Batteriedeck)'); ank(1, 'terminal', t2[0], t2[1], { bereich: 'ziel' });
       }
       // Raumrollen: Beute (Lager, Waffenkammer), NSC (Quartier, Messe), Zellen
       for (let d = 0; d < 2; d++) for (const r of mitte(d)) {
-        if (r.typ === 'lager') for (let i = 0; i < 2; i++) { const p = kachel(d, r, 'rand'); if (p) ank(d, 'beute', p[0], p[1], d === 0 ? { bereich: 'ziel' } : {}); }
-        if (r.typ === 'waffenkammer') { const p = kachel(d, r, 'rand'); if (p) ank(d, 'beute', p[0], p[1]); }
         if (r.typ === 'quartier') { const p = kachel(d, r, 'innen'); if (p) ank(d, 'nsc', p[0], p[1]); }
         if (r.typ === 'messe' && R2.f() < 0.5) { const p = kachel(d, r, 'innen'); if (p) ank(d, 'nsc', p[0], p[1]); }
-        if (r.typ === 'quartier' && R2.f() < 0.3) { const p = kachel(d, r, 'rand'); if (p) ank(d, 'beute', p[0], p[1]); }
+      }
+      // Beute: Budget 8..12 gesamt (keine Beute-Spirale). Zuerst je Lager/Waffenkammer eine, dann zweite im Lager, dann Auffüllen; überzählige Räume bleiben bei Deckung/Props
+      {
+        const soll = R2.range(8, 12);
+        const lagerR = [], zweit = [];
+        for (let d = 0; d < 2; d++) for (const r of mitte(d)) if (r.typ === 'lager' || r.typ === 'waffenkammer') { lagerR.push([d, r]); if (r.typ === 'lager') zweit.push([d, r]); }
+        R2.shuffle(lagerR); R2.shuffle(zweit);
+        const setzeBeute = ([d, r]) => { const p = kachel(d, r, 'rand'); if (p) ank(d, 'beute', p[0], p[1], d === 0 && r.typ === 'lager' ? { bereich: 'ziel' } : {}); return !!p; };
+        const zb = () => roh.filter((a) => a.rolle === 'beute').length;
+        for (const q of lagerR.concat(zweit)) { if (zb() >= soll) break; setzeBeute(q); }
+        const fuell = [];
+        for (let d = 0; d < 2; d++) for (const r of mitte(d)) if (r.typ !== 'zellen') fuell.push([d, r]);
+        for (let v = 0; zb() < soll && v < 40; v++) setzeBeute(R2.pick(fuell));
       }
       for (const [x, y] of zellNischen) if (frei(x, y)) ank(0, 'zelle', x, y - 0);
       {
@@ -355,6 +367,22 @@
             if (!p) throw new Error('gen-schiff: kein Platz für ' + rolle);
             ank(d, rolle, p[0], p[1]);
           }
+        }
+      }
+      // Patrouillen: je Deck eine Kette (kette 'a' Deck 1, 'b' Deck 2) auf Gangkacheln, mindestens eine je Mittschiffs-Sektion; Buehne.kompilierePatrouillen verbindet sie zu karte.patrouillen
+      {
+        for (let d = 0; d < 2; d++) {
+          const mine = [];
+          S.sek.forEach((s, i) => {
+            if (s.art !== 'mitte') return;
+            const mx = s.x0 + Math.floor(s.w / 2);
+            for (const dx of [0, 1, -1, 2, -2, 3, -3, 4, -4, 5, -5, 6, -6, 7, -7]) {
+              const x = mx + dx, Y = GANG + d * STRIDE;
+              if (x <= s.x0 || x >= s.x0 + s.w - 1 || at(x, Y) !== ',' || !frei(x, Y) || TUEREN.includes(at(x, Y - 1)) || TUEREN.includes(at(x, Y + 1)) || mine.some(([qx]) => Math.abs(qx - x) < 2)) continue;
+              mine.push([x, Y]); break;
+            }
+          });
+          mine.forEach(([x, Y]) => ank(d, 'patrouille', x, Y - d * STRIDE, { kette: d === 0 ? 'a' : 'b' }));
         }
       }
       // Wachen: Brücke (schwer), Reaktor, Gang, Batteriedeck, Antrieb … mit Abstand zueinander, zur Ankunft und zu den Eingängen; nie auf oder neben Türen

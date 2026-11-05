@@ -160,6 +160,7 @@ abschnitt('Prise: Bauweise aus dem Besitz (bauweiseFuerBesitz)');
   const rom = (kopie.bauweise_nach_besitz.kartenarten.schiff = { erlaubt: true, je_besitz: { rom: 'rom', rostmeute: 'germanen' } });
   const Roh = { achsen: kopie };
   let besitzRom = null;
+  const vorher = D.achsen.bauweise_nach_besitz.kartenarten.schiff;   // gesicherter Original-Eintrag
   try {
     D.achsen.bauweise_nach_besitz.kartenarten.schiff = rom;   // in-memory, nicht gespeichert
     const g3 = fakeGame();
@@ -172,7 +173,7 @@ abschnitt('Prise: Bauweise aus dem Besitz (bauweiseFuerBesitz)');
     // entern.js nimmt dieselbe Bauweise
     const { g: g4, p } = enternPrise('rom');
     ok(p.bauweise === 'rom' && p.besitz === 'rom' && LP.eintrag(g4, p.lpId).bauweise === 'rom', 'entern.js: Bauweise rom aus dem Besitz, Eintrag stimmt überein');
-  } finally { D.achsen.bauweise_nach_besitz.kartenarten.schiff = { erlaubt: false, hinweis: 'Schiff innen bleibt germanisch' }; }
+  } finally { D.achsen.bauweise_nach_besitz.kartenarten.schiff = vorher; }
   ok(Buehne.daten().achsen.bauweise_nach_besitz.kartenarten.schiff.erlaubt === false, 'Tabelle wieder zu');
   void Roh;
   // entern.js bei geschlossener Tabelle
@@ -220,6 +221,66 @@ mitGen('0', () => {
   const kw = LP.karte(g, neu);
   ok(kw.schablone && !/^gen-/.test(kw.schablone), 'Wrack: Modulkarte');
 });
+
+// ---------------- gespeicherte Generatorschiffe unter PANTHEON_GEN=0 ----------------
+abschnitt('PANTHEON_GEN=0: gespeichertes gen-schiff bleibt beim Generator');
+{
+  LP.cacheLeeren();
+  const g = fakeGame();
+  const lp = LP.prise(g, 'kesh', { id: 'gs1', fraktion: 'rostmeute', x: 1, y: 1 });
+  frisch(g, lp);
+  const k0 = LP.karte(g, lp);
+  ok(k0.schablone === 'gen-schiff', 'Ausgangslage: gebaut mit Generator');
+  const blk = JSON.parse(JSON.stringify(LP.toSave(g)));
+  ok(blk[lp].schablone === 'gen-schiff', 'Weltstand trägt schablone gen-schiff');
+  ok(mitGen('0', () => LP.nutztGenerator(lp, { art: 'schiff', schablone: 'gen-schiff' })) === true, 'nutztGenerator: gespeichert gen-schiff + PANTHEON_GEN=0 -> Generator');
+  ok(mitGen('0', () => LP.nutztGenerator(lp, { art: 'schiff', schablone: null })) === false, 'ungebauter Eintrag (schablone null) + PANTHEON_GEN=0 -> weiter Modul');
+  const k1 = mitGen('0', () => { const g2 = fakeGame(); LP.restore(JSON.parse(JSON.stringify(blk)), g2); frisch(g2, lp); return LP.karte(g2, lp); });
+  ok(k1.schablone === 'gen-schiff' && k1.rows.join('') === k0.rows.join(''), 'Weltstand laden unter PANTHEON_GEN=0: dieselbe Generatorkarte, kein „Schablone gen-schiff unbekannt“');
+}
+
+// ---------------- bauversion-Wechsel ----------------
+abschnitt('bauversion-Wechsel gschiff0 -> gschiff1 verwirft Zustände');
+{
+  LP.cacheLeeren();
+  const g = fakeGame();
+  const lp = LP.prise(g, 'kesh', { id: 'gs2', fraktion: 'rostmeute', x: 1, y: 1 });
+  frisch(g, lp);
+  const k0 = LP.karte(g, lp);
+  const beute = k0.anker.find((a) => a.rolle === 'beute');
+  const blk = JSON.parse(JSON.stringify(LP.toSave(g)));
+  blk[lp].zustaende = { [beute.id]: 'genommen' };
+  blk[lp].bauversion = 'gschiff0';   // Simulation: Stand des Vorgängers, echte Version bleibt gschiff1
+  const gB = fakeGame(); let geloggt = ''; gB.log = (s) => { geloggt += s; };
+  LP.cacheLeeren(); LP.restore(blk, gB); frisch(gB, lp); LP.get(gB, lp); const kB = W.AWAY_MAPS[lp].karte;
+  ok(kB.bauversion === 'gschiff1' && LP.eintrag(gB, lp).bauversion === 'gschiff1', 'Karte neu gebaut mit gschiff1');
+  ok(!Object.keys(LP.eintrag(gB, lp).zustaende || {}).length, 'gespeicherter Zustand des Beute-Ankers im Eintrag verworfen');
+  ok(!Object.keys((gB.aways[lp] || {}).zustaende || {}).length && !(kB.anker.find((a) => a.id === beute.id) || {}).zustand, 'Zustand nicht auf die neue Karte übertragen (Laufzeit)');
+  ok(/bauversion gschiff0 -> gschiff1/.test(geloggt) && /1 Zustände verworfen/.test(geloggt), 'Logbuch vermerkt Wechsel und verworfene Zustände');
+  // Kontrolle: gleiche bauversion behält den Zustand
+  const blk2 = JSON.parse(JSON.stringify(LP.toSave(g))); blk2[lp].zustaende = { [beute.id]: 'genommen' };
+  const gC = fakeGame(); LP.cacheLeeren(); LP.restore(blk2, gC); frisch(gC, lp); LP.get(gC, lp);
+  ok(LP.eintrag(gC, lp).zustaende[beute.id] === 'genommen', 'ohne Versionswechsel bleibt der Zustand erhalten');
+}
+
+// ---------------- Sammelmeldung ----------------
+abschnitt('genBauen: Wurf im letzten Versuch -> Sammelmeldung mit .fehler');
+{
+  const GenSchiff = require('../shared/gen-schiff.js');
+  const echt = GenSchiff.erzeuger;
+  let aufrufe = 0;
+  GenSchiff.erzeuger = () => ({ karteRoh() { aufrufe++; throw new Error('gen-schiff: kein Platz (Test)'); } });
+  try {
+    LP.cacheLeeren();
+    const g = fakeGame();
+    const id = LP.neu(g, 'kesh', { art: 'schiff', seed: 5 });
+    frisch(g, id);
+    let err = null; try { LP.karte(g, id); } catch (x) { err = x; } if (process.env.VERBOSE) console.log(err && err.message);
+    ok(aufrufe === 6, '6 Versuche (Seed + 0..5) (' + aufrufe + ')');
+    ok(!!err && /6 Versuche gescheitert/.test(err.message) && /kein Platz/.test(err.message), 'Sammelmeldung „6 Versuche gescheitert“ mit Ursache');
+    ok(!!err && Array.isArray(err.fehler) && err.fehler.length > 0, 'Fehler trägt .fehler');
+  } finally { GenSchiff.erzeuger = echt; LP.cacheLeeren(); }
+}
 
 // ---------------- Determinismus ----------------
 abschnitt('Determinismus und Versuche');

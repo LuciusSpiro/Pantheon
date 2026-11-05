@@ -4,6 +4,8 @@
 //   a) Prüfer-Sweep je layout × zustand (K-KANTE, K-DECK …), Würfe < 2 %, awayMap-Größe, Länge   b) Pflichtsatz, Bereichsrollen
 //   c) Determinismus   d) Zustandsunterschied   e) Rechteck symmetrisch   f) Wachen (Abstand, Türnähe), Fallenplätze
 //   node tools/test-gen-schiff.js      (Umgebung: SEEDS=<n> je layout × zustand, Standard 50; VERBOSE=1)
+const fs = require('fs');
+const path = require('path');
 const Buehne = require('../shared/buehne.js');
 const GenSchiff = require('../shared/gen-schiff.js');
 const CONFIG = require('../shared/config.js');
@@ -159,6 +161,64 @@ abschnitt('f) Wachen und Fallenplätze');
   ok(pad === 0, `keine Wache näher als 6 Kacheln an der Ankunft (${pad} Verstöße)`);
   ok(deckA === 0, 'Wachen auf beiden Decks');
   ok(fl === 0, `Fallenplätze liegen auf Gangkacheln ohne Anker in der Nähe (${fz} Plätze, ${fl} Verstöße)`);
+}
+
+abschnitt('g) Katalog-Bedarf (externe Referenz), Patrouillen, Ankerzahlen');
+{
+  // Referenz ist der Katalog, nicht der Generator: jede Molekül-Umsetzung mit buehne_braucht, die Kartenart schiff zulässt, muss auf jeder Generatorkarte bestehen
+  const O = require('../server/mission/objects.js');
+  const dir = path.join(__dirname, '..', 'content', 'katalog', 'molekuele');
+  const bedarf = [];
+  const geh = (o, datei) => { if (!o || typeof o !== 'object') return; if (o.buehne_braucht && (!o.buehne_braucht.kartenarten || o.buehne_braucht.kartenarten.includes('schiff'))) bedarf.push([datei + ':' + (o.id || '?'), o.buehne_braucht]); for (const v of Object.values(o)) geh(v, datei); };
+  for (const fn of fs.readdirSync(dir)) if (fn.endsWith('.json')) geh(JSON.parse(fs.readFileSync(path.join(dir, fn), 'utf8')), fn);
+  ok(bedarf.length >= 10, `Katalog: ${bedarf.length} Umsetzungen mit buehne_braucht für Kartenart schiff gefunden (mindestens 10)`);
+  ok(bedarf.some(([nm, b]) => b.min && b.min.ziel >= 3), 'Katalog enthält den Bedarf ziel >= 3 (krise_eindaemmen/ventile)');
+  const fehl = new Map(); let geprueft = 0;
+  for (const e of alle) for (const [nm, b] of bedarf) { geprueft++; const f = O.pruefeBuehneBraucht(b, e.r.karte, 'test.prise'); if (f.length) fehl.set(nm + ' | ' + f[0].msg, (fehl.get(nm + ' | ' + f[0].msg) || 0) + 1); }
+  ok(alle.length >= 30 * 6 || SEEDS < 30, `Stichprobe ${alle.length} Karten (Seeds x Layouts x Zustände)`);
+  ok(fehl.size === 0, `alle ${bedarf.length} Katalog-Bedarfe auf allen ${alle.length} Generatorkarten erfüllt (${geprueft} Prüfungen)${fehl.size ? ' – ' + [...fehl].slice(0, 3).map(([k2, c]) => k2 + ' x' + c).join('; ') : ''}`);
+
+  // Patrouillen: karte.patrouillen aus den Ankern (Prüfer), je Deck eine zusammenhängende Kette auf begehbaren Kacheln
+  const BEG = ',.PDSLG';
+  let leer = 0, ketten = 0, kachelFalsch = 0, luecke = 0, idFalsch = 0, zuWenig = 0, zielWenig = 0, beuteAus = 0, wacheFalsch = 0, spreng = 0;
+  const SOLL_WACHE = { intakt: 5, verfallen: 4, umkaempft: 7 };
+  for (const e of alle) {
+    const k = e.r.karte, rows = k.rows, byId = new Map(k.anker.map((a) => [a.id, a]));
+    const zahl = (rolle) => k.anker.filter((a) => a.rolle === rolle).length;
+    if (!k.patrouillen.length || k.patrouillen.some((w) => !w.length)) leer++;
+    if (k.patrouillen.length !== 2) ketten++;
+    for (const w of k.patrouillen) {
+      const pts = w.map((id) => byId.get(id));
+      if (pts.some((a) => !a || a.rolle !== 'patrouille')) { idFalsch++; continue; }
+      if (pts.some((a) => !BEG.includes(rows[a.y][a.x]))) kachelFalsch++;
+      for (let i = 1; i < pts.length; i++) {   // Kettenglieder zusammenhängend: BFS über begehbare Kacheln (Decks getrennt, kein Lift nötig)
+        const [a, b] = [pts[i - 1], pts[i]];
+        if (Math.floor(a.y / 16) !== Math.floor(b.y / 16)) { luecke++; continue; }
+        const seen = new Set([a.x + ',' + a.y]), q = [[a.x, a.y]]; let hit = false;
+        for (let j = 0; j < q.length && !hit; j++) for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+          const x = q[j][0] + dx, y = q[j][1] + dy;
+          if (x === b.x && y === b.y) { hit = true; break; }
+          if (!seen.has(x + ',' + y) && BEG.includes((rows[y] || '')[x] || '_')) { seen.add(x + ',' + y); q.push([x, y]); }
+        }
+        if (!hit) luecke++;
+      }
+    }
+    // Untere Schranken aus 30 Modul-Seeds (Modul: patrouille 8..9, ziel 5, beute 9..12, wache 9..10, sprengpunkt 2): Hälfte bzw. Katalogbedarf
+    if (zahl('patrouille') < 4) zuWenig++;
+    if (zahl('ziel') < 3) zielWenig++;
+    if (zahl('beute') < 8 || zahl('beute') > 12) beuteAus++;
+    if (zahl('wache') !== SOLL_WACHE[k.zustand]) wacheFalsch++;
+    if (zahl('sprengpunkt') !== 1) spreng++;
+  }
+  ok(leer === 0, `Patrouillen vorhanden und nicht leer (${leer} Karten ohne)`);
+  ok(ketten === 0, `je Deck eine Patrouillenkette, also genau 2 Wege (${ketten} Abweichungen)`);
+  ok(idFalsch === 0 && kachelFalsch === 0, `Kettenglieder sind patrouille-Anker auf begehbaren Kacheln (${idFalsch} fremde Glieder, ${kachelFalsch} auf nicht begehbaren Kacheln)`);
+  ok(luecke === 0, `Ketten zusammenhängend: aufeinanderfolgende Glieder über begehbare Kacheln verbunden (${luecke} Lücken)`);
+  ok(zuWenig === 0, `patrouille-Anker >= 4 je Karte (${zuWenig} darunter)`);
+  ok(zielWenig === 0, `ziel-Anker >= 3 je Karte (${zielWenig} darunter)`);
+  ok(beuteAus === 0, `beute-Anker 8..12 je Karte (${beuteAus} außerhalb)`);
+  ok(wacheFalsch === 0, `Wachen intakt 5 / verfallen 4 / umkaempft 7 (${wacheFalsch} Abweichungen)`);
+  ok(spreng === 0, `sprengpunkt genau 1 (${spreng} Abweichungen)`);
 }
 
 console.log(`\n${n - bad}/${n} Prüfungen bestanden`);

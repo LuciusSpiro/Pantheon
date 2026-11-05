@@ -93,6 +93,7 @@ function festkarte(name) {   // Definition einer festen Karte (gelesen und gemer
 function genVorgaben(lpId, e) { return (e && e.gen) || (defs().byId[lpId] || {}).gen || {}; }
 function nutztGenerator(lpId, e) {
   if (genVorgaben(lpId, e).fest) return true;   // feste Karte: immer der Erzeuger (auch bei PANTHEON_GEN=0)
+  if (e.art === 'schiff' && /^gen-/.test(e.schablone || '')) return true;   // SCH-01: gespeichertes Generatorschiff bleibt beim Erzeuger (der Aus-Schalter wirkt nur auf noch nicht gebaute Einträge)
   if (NUR_GENERATOR.includes(e.art)) return true;   // Wildnis, Höhle: immer der Erzeuger (auch bei PANTHEON_GEN=0, s. NUR_GENERATOR)
   if (!GEN_GROESSE[e.art] || process.env.PANTHEON_GEN === '0' || (e.schablone && !/^gen-/.test(e.schablone))) return false;   // gen-… = vom Generator gesetzt (uebernehmen)
   const d = defs().byId[lpId] || {};   // Aus-Schalter steht in der Definition, nicht im (gespeicherten) Eintrag
@@ -156,7 +157,7 @@ function genBauen(lpId, e) {
         ? GenSiedlung.erzeuger(130, 90).karteRoh(seed, gv.haeuser || GEN_GROESSE.aussenposten.n, Object.assign({ typ, variante: gv.variante || null, ausstattung, boden }, o))
         : GenStation.erzeuger(96, 56).karteRoh(seed, GEN_GROESSE.station.n, gv.monster ? Object.assign({ monster: true }, o) : o);   // SL7c: gen.monster = Monster-Station (4 Pulte, meta.monster)
     } catch (x) {
-      if (e.art === 'schiff' && i < 5) { letzte = { fehler: [{ code: 'GEN', msg: String(x.message) }] }; continue; }   // Wurf des Erzeugers wie ein Prüferfehler: nächster Seed
+      if (e.art === 'schiff') { letzte = { fehler: [{ code: 'GEN', msg: String(x.message) }] }; continue; }   // Wurf des Erzeugers wie ein Prüferfehler: nächster Seed
       if (gv.variante && i < 5) { letzte = { fehler: [{ code: 'GEN', msg: String(x.message) }] }; continue; }   // Variante ohne Platz: nächster Seed
       throw x;
     }
@@ -225,11 +226,12 @@ function mitZustaenden(game, lpId, e, roh, alt) {
   const karte = JSON.parse(JSON.stringify(roh));
   // GEL-01 Befund 2: Wildnis-Anker-IDs sind Ordnungsnummern nach y/x; bei anderer Karte (bauversion) säße fund.1 woanders und „genommen“
   // spränge auf einen nie geborgenen Fundort. Neue Karte = neue Funde: gespeicherte Zustände dieser Karte werden nicht übertragen.
-  const wildnisNeu = (e.art === 'wildnis' || e.art === 'hoehle') && !!alt && alt !== roh.bauversion;
+  // SCH-01: Generatorschiff (alte bauversion gschiff…): Anker-IDs sind Laufnummern je Platz/Rolle, ein neuer Generatorstand verschiebt sie -> wie Gelände
+  const wildnisNeu = (e.art === 'wildnis' || e.art === 'hoehle' || (e.art === 'schiff' && /^gschiff/.test(alt || ''))) && !!alt && alt !== roh.bauversion;
   const verworfen = wildnisNeu ? Object.keys(e.zustaende || {}) : Buehne.zustaendeAnwenden(karte, e.zustaende || {});
   if (wildnisNeu && e.zustaende) e.zustaende = {};
   if (alt && alt !== roh.bauversion) {
-    log(game, `${lpId}: bauversion ${alt} -> ${roh.bauversion}, Karte neu gebaut (Seed ${roh.seed}); ${verworfen.length} Zustände verworfen${wildnisNeu ? ' (Gelände: neue Karte = neue Funde)' : ''}`);
+    log(game, `${lpId}: bauversion ${alt} -> ${roh.bauversion}, Karte neu gebaut (Seed ${roh.seed}); ${verworfen.length} Zustände verworfen${wildnisNeu ? (e.art === 'schiff' ? ' (Schiff: neue Karte = neue Anker-IDs)' : ' (Gelände: neue Karte = neue Funde)') : ''}`);
     if (game.mission && typeof game.mission.regieLog === 'function') { try { game.mission.regieLog('landepunkt_neu_gebaut', { lp: lpId, alt, neu: roh.bauversion, verworfen }); } catch (x) { /* */ } }
   }
   if (verworfen.length && e.zustaende) for (const k of verworfen) delete e.zustaende[k];
@@ -583,7 +585,7 @@ function ortBeam(ort) {
   if (sc) return { x: Math.round(sc.w / 2), y: Math.round(sc.h / 2), range: 360 };
   return { x: 0, y: 0, range: 360 };
 }
-// prise(game, ort, gegner { id, fraktion, x, y, beam? }) -> lpId '<ort>.prise' (§7); beam z. B. aus Entern.beamPunkt: Schiff, germanen, Besitz = Fraktion, Seed aus der Gegner-ID, umkaempft
+// prise(game, ort, gegner { id, fraktion, x, y, beam? }) -> lpId '<ort>.prise' (§7); beam z. B. aus Entern.beamPunkt: Schiff, Bauweise aus dem Besitz (bauweiseFuerBesitz; germanen, solange achsen.json Schiff nicht freigibt), Besitz = Fraktion, Seed aus der Gegner-ID, umkaempft
 // SCH-01 P2: Seed einer Prise aus der Gegner-ID (FNV-1a % 100000 + 1); entern.js nutzt dieselbe Funktion (kein zweites Exemplar der Formel)
 function priseSeed(gegnerId) { return (Buehne.fnv(String(gegnerId != null ? gegnerId : 'prise')) % 100000) + 1; }
 function prise(game, ort, gegner) {
