@@ -1,0 +1,109 @@
+{
+ "id": "kreatur/rudeltier_marken",
+ "name": "Rudeltier, Ladungsmarken (MON-02): drei Marken 2x2 Voxel mit 2 Voxeln Abstand auf der Kruppe, die ersten `ladung` leuchten hell (Rolle marke_an), die uebrigen sind dunkel (marke_aus). Immer mitzeichnen (der Koerper laesst die Plaetze frei); Pose wie am Koerper, gleicher Anker",
+ "tier": "detail",
+ "palette": "kreatur",
+ "jitter": 0,
+ "tags": [
+  "kreatur",
+  "rudeltier",
+  "monster",
+  "mon02",
+  "marken"
+ ],
+ "footprint": [
+  1,
+  1
+ ],
+ "budgetTris": 300,
+ "params": {
+  "ladung": {
+   "default": 0,
+   "min": 0,
+   "max": 3,
+   "step": 1,
+   "label": "Ladung (leuchtende Marken)"
+  },
+  "pose": {
+   "default": 0,
+   "min": 0,
+   "max": 3,
+   "step": 1,
+   "label": "Pose: 0 steh, 1 aufladen, 2 pause, 3 rammen"
+  }
+ },
+ "variants": {
+  "leer": {
+   "ladung": 0
+  },
+  "eins": {
+   "ladung": 1
+  },
+  "zwei": {
+   "ladung": 2
+  },
+  "voll": {
+   "ladung": 3
+  }
+ },
+ "let": {
+  "duck": "pose == 1 ? -1 : (pose == 2 ? -2 : (pose == 3 ? -1 : 0))"
+ },
+ "ops": [
+  {
+   "op": "box",
+   "name": "Marke an",
+   "at": [
+    -1,
+    "13 + duck",
+    "4 * i - 8"
+   ],
+   "size": [
+    2,
+    1,
+    2
+   ],
+   "color": "marke_an",
+   "repeat": {
+    "count": 3,
+    "step": [
+     0,
+     0,
+     0
+    ],
+    "var": "i"
+   },
+   "if": "i < ladung"
+  },
+  {
+   "op": "box",
+   "name": "Marke aus",
+   "at": [
+    -1,
+    "13 + duck",
+    "4 * i - 8"
+   ],
+   "size": [
+    2,
+    1,
+    2
+   ],
+   "color": "marke_aus",
+   "repeat": {
+    "count": 3,
+    "step": [
+     0,
+     0,
+     0
+    ],
+    "var": "i"
+   },
+   "if": "i >= ladung"
+  }
+ ],
+ "anchor": [
+  0,
+  0,
+  0
+ ]
+}

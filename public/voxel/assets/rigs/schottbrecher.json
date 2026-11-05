@@ -1,0 +1,171 @@
+{
+  "id": "schottbrecher",
+  "name": "Schottbrecher (Station-Monster): gedrungener Vierbeiner ohne Schwanz, Sensor statt Kopf. Blick nach +z, links = +x.",
+  "tier": "detail",
+  "poses": "schottbrecher",
+  "notes": "Alle Gelenkpositionen absolut in Figur-Koordinaten (Boden bei y=0, Fußabdruck-Mitte bei x=0, z=0, 2x2 Kacheln = 32x32 Voxel, Kreisregel: alle Voxel höchstens 16 Voxel von der Mitte). Teile werden in denselben Koordinaten modelliert. Hüfte, Knie und Fuß je Bein: hip dreht das ganze Bein (rx = vor/zurück, rz = seitlich abspreizen), knee beugt den Unterschenkel seitlich (rz), foot ist das Teleskop-Gelenk (Stange mit Fußplatte, wird per shift entlang der Unterschenkelachse eingefahren). Rechts = links gespiegelt (x -> -x), Winkel rechts: ry und rz mit umgekehrtem Vorzeichen. Beine: V = vorn, H = hinten, L = links, R = rechts.",
+  "joints": {
+    "root": {
+      "at": [
+        0,
+        0,
+        0
+      ]
+    },
+    "hull": {
+      "parent": "root",
+      "at": [
+        0,
+        11,
+        0
+      ]
+    },
+    "sensor": {
+      "parent": "hull",
+      "at": [
+        0,
+        19,
+        2
+      ]
+    },
+    "lampe": {
+      "parent": "sensor",
+      "at": [
+        0,
+        21,
+        5
+      ]
+    },
+    "horchL": {
+      "parent": "hull",
+      "at": [
+        8,
+        19.5,
+        0
+      ]
+    },
+    "horchR": {
+      "parent": "hull",
+      "at": [
+        -8,
+        19.5,
+        0
+      ]
+    },
+    "schild": {
+      "parent": "hull",
+      "at": [
+        0,
+        11,
+        5
+      ]
+    },
+    "hipVL": {
+      "parent": "hull",
+      "at": [
+        9,
+        15.5,
+        3.5
+      ]
+    },
+    "kneeVL": {
+      "parent": "hipVL",
+      "at": [
+        12.5,
+        21.5,
+        3.5
+      ]
+    },
+    "footVL": {
+      "parent": "kneeVL",
+      "at": [
+        12.5,
+        11,
+        3.5
+      ]
+    },
+    "hipVR": {
+      "parent": "hull",
+      "at": [
+        -9,
+        15.5,
+        3.5
+      ]
+    },
+    "kneeVR": {
+      "parent": "hipVR",
+      "at": [
+        -12.5,
+        21.5,
+        3.5
+      ]
+    },
+    "footVR": {
+      "parent": "kneeVR",
+      "at": [
+        -12.5,
+        11,
+        3.5
+      ]
+    },
+    "hipHL": {
+      "parent": "hull",
+      "at": [
+        9,
+        15.5,
+        -3.5
+      ]
+    },
+    "kneeHL": {
+      "parent": "hipHL",
+      "at": [
+        12.5,
+        21.5,
+        -3.5
+      ]
+    },
+    "footHL": {
+      "parent": "kneeHL",
+      "at": [
+        12.5,
+        11,
+        -3.5
+      ]
+    },
+    "hipHR": {
+      "parent": "hull",
+      "at": [
+        -9,
+        15.5,
+        -3.5
+      ]
+    },
+    "kneeHR": {
+      "parent": "hipHR",
+      "at": [
+        -12.5,
+        21.5,
+        -3.5
+      ]
+    },
+    "footHR": {
+      "parent": "kneeHR",
+      "at": [
+        -12.5,
+        11,
+        -3.5
+      ]
+    }
+  },
+  "lichtquelle": {
+    "gelenk": "lampe",
+    "ursprung": "Position des Gelenks lampe (Mitte des Lichtschlitzes an der Front des Sensorkopfes)",
+    "achse": [
+      0,
+      -0.3,
+      0.954
+    ],
+    "achseHinweis": "Kegelachse im lokalen Raum des Gelenks lampe (Ruhelage: nach vorn, 17 Grad nach unten, Einheitsvektor); sie dreht mit dem Sensorkopf mit. Der Client legt den Bodenkegel (additive Fläche) so an, dass seine Spitze am Gelenk liegt und er entlang der Achse auf den Boden fällt. Öffnungswinkel und Länge je Zustand bestimmt der Client (Designer-Notiz MON-02)."
+  },
+  "bereiche_hinweis": "Kein Feld bereiche: die Gelenkbereiche (Schichtprüfung) gelten nur für human. Die Grenzen dieses Rigs prüft tools/test-schottbrecher.mjs (Kreisregel, Bodenkontakt, Dreiecksbudget)."
+}

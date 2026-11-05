@@ -1,0 +1,104 @@
+{
+  "id": "schottbrecher",
+  "rig": "schottbrecher",
+  "notes": "Winkel in Grad [x, y, z] wie human (x negativ = nach vorn). Neu gegenüber human: shift = { gelenk: [x, y, z] } verschiebt ein Gelenk gegenüber seinem Elterngelenk (Voxel, im Raum des Elterngelenks); cycle.shift wie cycle.joints, aber mit Verschiebung statt Winkel. Rechte Seite = linke gespiegelt (ry und rz mit umgekehrtem Vorzeichen). hull.shift y senkt die Wanne, foot*.shift y zieht das Teleskop ein (Sohle bleibt am Boden), schild.shift z fährt den Rammschild aus (4 Voxel = Kreisrand), lampe.shift [0,-2,-2] versenkt Lichtschlitz und Lichtfeld (Licht aus; beide sind Voxel des Teils lampe, der Client blendet das Teil aus). Aus away.mo: z p = patrouille, l und s = laerm, j = jagd, r = rammen, h = pause. hull rx POSITIV kippt die Wanne nach vorn (Bug vorn tiefer), da y' = cos·y − sin·z; bei Gliedmaßen heißt negatives rx dagegen nach vorn.",
+  "cycleNotes": "cycle = { hz, stride, joints: { gelenk: { c, a, p, k? } }, shift: { gelenk: { c, a, p, k? } } }; Winkel/Verschiebung = c + a·sin(2π·φ·k + p). φ = Zeit·hz oder Laufweg/stride (der Client wählt). Diagonale Beinpaare VL+HR und VR+HL um 180 Grad versetzt. Der Sensorkopf schwenkt mit k = 0.5 (Periode 2 Zyklen).",
+  "poses": {
+    "patrouille": {
+      "joints": { },
+      "shift": {
+        "hull": [0,0,0],
+        "footVL": [0,0,0],
+        "footVR": [0,0,0],
+        "footHL": [0,0,0],
+        "footHR": [0,0,0]
+      },
+      "breathe": 0,
+      "look": false,
+      "cycle": {
+        "hz": 1.2,
+        "stride": 0.4,
+        "joints": {
+          "hipVL": { "c": [0,0,0], "a": [-11,0,0], "p": 0 },
+          "hipVR": { "c": [0,0,0], "a": [-11,0,0], "p": 180 },
+          "hipHL": { "c": [0,0,0], "a": [-11,0,0], "p": 180 },
+          "hipHR": { "c": [0,0,0], "a": [-11,0,0], "p": 0 },
+          "sensor": { "c": [0,0,0], "a": [0,28,0], "p": 0, "k": 0.5 }
+        },
+        "shift": {
+          "footVL": { "c": [0,1.5,0], "a": [0,1.5,0], "p": 90 },
+          "footVR": { "c": [0,1.5,0], "a": [0,1.5,0], "p": 270 },
+          "footHL": { "c": [0,1.5,0], "a": [0,1.5,0], "p": 270 },
+          "footHR": { "c": [0,1.5,0], "a": [0,1.5,0], "p": 90 }
+        }
+      }
+    },
+    "laerm": {
+      "joints": { "horchL": [0,0,-82], "horchR": [0,0,82] },
+      "shift": {
+        "hull": [0,0,0],
+        "footVL": [0,0,0],
+        "footVR": [0,0,0],
+        "footHL": [0,0,0],
+        "footHR": [0,0,0]
+      },
+      "breathe": 0,
+      "look": false
+    },
+    "jagd": {
+      "joints": { },
+      "shift": {
+        "hull": [0,-5,0],
+        "footVL": [0,5,0],
+        "footVR": [0,5,0],
+        "footHL": [0,5,0],
+        "footHR": [0,5,0]
+      },
+      "breathe": 0,
+      "look": false,
+      "cycle": {
+        "hz": 2.6,
+        "stride": 0.69,
+        "joints": {
+          "hipVL": { "c": [0,0,0], "a": [-16,0,0], "p": 0 },
+          "hipVR": { "c": [0,0,0], "a": [-16,0,0], "p": 180 },
+          "hipHL": { "c": [0,0,0], "a": [-16,0,0], "p": 180 },
+          "hipHR": { "c": [0,0,0], "a": [-16,0,0], "p": 0 }
+        },
+        "shift": {
+          "footVL": { "c": [0,7,0], "a": [0,2,0], "p": 90 },
+          "footVR": { "c": [0,7,0], "a": [0,2,0], "p": 270 },
+          "footHL": { "c": [0,7,0], "a": [0,2,0], "p": 270 },
+          "footHR": { "c": [0,7,0], "a": [0,2,0], "p": 90 }
+        }
+      }
+    },
+    "rammen": {
+      "joints": { "hipVL": [-9,0,0], "hipVR": [-9,0,0], "hipHL": [0,0,0], "hipHR": [0,0,0], "hull": [9,0,0] },
+      "shift": {
+        "hull": [0,0,0],
+        "schild": [0,-2,3],
+        "footVL": [0,0.6,0],
+        "footVR": [0,0.6,0],
+        "footHL": [0,-0.53,0],
+        "footHR": [0,-0.53,0]
+      },
+      "breathe": 0,
+      "look": false
+    },
+    "pause": {
+      "joints": { "sensor": [20,0,0], "hipVL": [0,0,-10], "kneeVL": [0,0,9.1], "hipVR": [0,0,10], "kneeVR": [0,0,-9.1], "hipHL": [0,0,-10], "kneeHL": [0,0,9.1], "hipHR": [0,0,10], "kneeHR": [0,0,-9.1] },
+      "shift": {
+        "hull": [0,-6,0],
+        "schild": [0,2,0],
+        "lampe": [0,-2,-2],
+        "footVL": [0,6.71,0],
+        "footVR": [0,6.71,0],
+        "footHL": [0,6.71,0],
+        "footHR": [0,6.71,0]
+      },
+      "breathe": 0,
+      "look": false
+    }
+  }
+}

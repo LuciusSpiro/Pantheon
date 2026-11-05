@@ -1,0 +1,24 @@
+{
+ "id": "kreatur",
+ "name": "Kreaturen (MON-02): Rudeltier Helmhyaene. Knochen hell (Panzer vorn), Fell dunkel in sechs Toenen gleicher Helligkeit, Marken leuchten hell. Funktionsfarben (Mint, Eisblau, Bernstein, Rot) kommen nicht vor",
+ "extends": "base",
+ "roles": {
+  "knochen": "#E0D4B8",
+  "knochen_dunkel": "#BCAE92",
+  "kralle": "#3A3632",
+  "nase": "#1E1A18",
+  "maehne": "#28221E",
+  "fell": "#624A36",
+  "fell_0": "#624A36",
+  "fell_1": "#6C463C",
+  "fell_2": "#544D3C",
+  "fell_3": "#4C4C54",
+  "fell_4": "#604C2A",
+  "fell_5": "#624654",
+  "marke_an": {
+   "color": "#FFBA9C",
+   "emit": 1.4
+  },
+  "marke_aus": "#422C26"
+ }
+}

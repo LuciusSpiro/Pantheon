@@ -1,0 +1,170 @@
+{
+ "id": "kreatur/rudeltier",
+ "name": "Rudeltier Helmhyaene 1x1 (MON-02, Richtung D): starres Modell, Blick +z. Panzer vorn (ein heller Block aus Schaedelhelm und Knochenkragen), Rumpf einfarbig dunkel. Die Ladungsmarken sind ein eigenes Teilmodell (kreatur/rudeltier_marken) mit gleichem Anker",
+ "tier": "detail",
+ "palette": "kreatur",
+ "jitter": 0,
+ "tags": [
+  "kreatur",
+  "rudeltier",
+  "monster",
+  "mon02"
+ ],
+ "footprint": [
+  1,
+  1
+ ],
+ "budgetTris": 2300,
+ "params": {
+  "pose": {
+   "default": 0,
+   "min": 0,
+   "max": 3,
+   "step": 1,
+   "label": "Pose: 0 steh, 1 aufladen, 2 pause, 3 rammen"
+  },
+  "fell": {
+   "default": 0,
+   "min": 0,
+   "max": 5,
+   "step": 1,
+   "label": "Fellton (6 Toene gleicher Helligkeit)"
+  },
+  "beinphase": {
+   "default": 0,
+   "min": 0,
+   "max": 1,
+   "step": 1,
+   "label": "Beinphase (zwei Phasen im Wechsel)"
+  }
+ },
+ "variants": {
+  "steh": {
+   "pose": 0
+  },
+  "aufladen": {
+   "pose": 1
+  },
+  "pause": {
+   "pose": 2
+  },
+  "rammen": {
+   "pose": 3
+  }
+ },
+ "ops": [
+  {
+   "op": "use",
+   "name": "Fellton 0",
+   "if": "fell == 0",
+   "model": "kreatur/rudeltier_koerper",
+   "colors": {
+    "fell": "fell_0"
+   },
+   "params": {
+    "pose": "pose",
+    "beinphase": "beinphase"
+   },
+   "at": [
+    0,
+    0,
+    0
+   ]
+  },
+  {
+   "op": "use",
+   "name": "Fellton 1",
+   "if": "fell == 1",
+   "model": "kreatur/rudeltier_koerper",
+   "colors": {
+    "fell": "fell_1"
+   },
+   "params": {
+    "pose": "pose",
+    "beinphase": "beinphase"
+   },
+   "at": [
+    0,
+    0,
+    0
+   ]
+  },
+  {
+   "op": "use",
+   "name": "Fellton 2",
+   "if": "fell == 2",
+   "model": "kreatur/rudeltier_koerper",
+   "colors": {
+    "fell": "fell_2"
+   },
+   "params": {
+    "pose": "pose",
+    "beinphase": "beinphase"
+   },
+   "at": [
+    0,
+    0,
+    0
+   ]
+  },
+  {
+   "op": "use",
+   "name": "Fellton 3",
+   "if": "fell == 3",
+   "model": "kreatur/rudeltier_koerper",
+   "colors": {
+    "fell": "fell_3"
+   },
+   "params": {
+    "pose": "pose",
+    "beinphase": "beinphase"
+   },
+   "at": [
+    0,
+    0,
+    0
+   ]
+  },
+  {
+   "op": "use",
+   "name": "Fellton 4",
+   "if": "fell == 4",
+   "model": "kreatur/rudeltier_koerper",
+   "colors": {
+    "fell": "fell_4"
+   },
+   "params": {
+    "pose": "pose",
+    "beinphase": "beinphase"
+   },
+   "at": [
+    0,
+    0,
+    0
+   ]
+  },
+  {
+   "op": "use",
+   "name": "Fellton 5",
+   "if": "fell == 5",
+   "model": "kreatur/rudeltier_koerper",
+   "colors": {
+    "fell": "fell_5"
+   },
+   "params": {
+    "pose": "pose",
+    "beinphase": "beinphase"
+   },
+   "at": [
+    0,
+    0,
+    0
+   ]
+  }
+ ],
+ "anchor": [
+  0,
+  0,
+  0
+ ]
+}

@@ -1,0 +1,25 @@
+{
+  "team": "mon02",
+  "assets": [
+    {
+      "id": "kreatur/rudeltier", "kind": "model", "tier": "detail", "palette": "kreatur",
+      "footprint": [1, 1], "height": 0.81, "facing": "+z",
+      "params": { "pose": [0, 3], "fell": [0, 5], "beinphase": [0, 1] },
+      "states": { "steh": { "pose": 0 }, "aufladen": { "pose": 1 }, "pause": { "pose": 2 }, "rammen": { "pose": 3 } },
+      "sockets": {}, "tint": [], "budgetTris": 2300, "tags": ["kreatur", "rudeltier", "monster"]
+    },
+    {
+      "id": "kreatur/rudeltier_marken", "kind": "model", "tier": "detail", "palette": "kreatur",
+      "footprint": [1, 1], "height": 0.9, "facing": "+z",
+      "params": { "ladung": [0, 3], "pose": [0, 3] },
+      "states": { "aus": { "ladung": 0 }, "voll": { "ladung": 3 } },
+      "sockets": {}, "tint": [], "budgetTris": 300, "tags": ["kreatur", "rudeltier", "marken"]
+    },
+    {
+      "id": "kreatur/rudeltier_koerper", "kind": "model", "tier": "detail", "palette": "kreatur",
+      "footprint": [1, 1], "height": 0.81, "facing": "+z",
+      "params": { "pose": [0, 3], "beinphase": [0, 1] },
+      "sockets": {}, "tint": [], "budgetTris": 2300, "tags": ["kreatur", "rudeltier", "teilmodell"]
+    }
+  ]
+}

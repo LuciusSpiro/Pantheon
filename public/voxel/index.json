@@ -498,6 +498,9 @@
   "kit/test/gemein/zaun_pfosten",
   "kit/test/ruine/wand_fuellung",
   "kit/test/station/wand_fuellung",
+  "kreatur/rudeltier",
+  "kreatur/rudeltier_koerper",
+  "kreatur/rudeltier_marken",
   "leit/germanen/aussenposten/kraehenwacht_turm",
   "leit/germanen/aussenposten/statue_platz",
   "leit/germanen/aussenposten/thing_stein",
@@ -810,6 +813,7 @@
   "kontor",
   "kontor_umkaempft",
   "kontor_verfallen",
+  "kreatur",
   "kustoden",
   "lerche",
   "lerche_rom",
@@ -828,6 +832,7 @@
   "rom_umkaempft",
   "rom_verfallen",
   "rostmeute",
+  "schottbrecher",
   "sommer_wald",
   "station_esse",
   "station_esse_umkaempft",
@@ -836,7 +841,8 @@
   "wrack"
  ],
  "rigs": [
-  "human"
+  "human",
+  "schottbrecher"
  ],
  "figures": [
   "cha/spieler",
@@ -856,7 +862,8 @@
   "lerche/scavenger"
  ],
  "poses": [
-  "human"
+  "human",
+  "schottbrecher"
  ],
  "moods": [
   "biom_vulkan",
