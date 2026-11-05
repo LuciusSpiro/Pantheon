@@ -60,7 +60,7 @@
   // HUD-Raster: obere Zeile Heck/Mitte/Bug, untere Zeile Backbord | Steuerbord
   const HUD_ROWS = [['engines', 'emitter_aft', 'reactor', 'shields', 'weapon_bow', 'emitter_bow'],
     ['thruster_port', 'battery_port', 'emitter_port', 'thruster_stbd', 'battery_stbd', 'emitter_stbd', 'transfer']];
-  const ITEM_NAMES = { ersatzteil: 'Ersatzteil', loeschgel: 'Löschgel', flickblech: 'Flickblech', bolzen: 'Torpedo', medipack: 'Medipack', datenkern: 'Datenkern', tafel: 'Tafel von Kesh' };
+  const ITEM_NAMES = { ersatzteil: 'Ersatzteil', loeschgel: 'Löschgel', flickblech: 'Flickblech', bolzen: 'Torpedo', medipack: 'Medipack', erz: 'Erz', datenkern: 'Datenkern', tafel: 'Tafel von Kesh' };
   const STATE_NAMES = { ok: 'in Ordnung', damaged: 'beschädigt', broken: 'zerstört' };
   const CONSOLE_NAMES = { helm: 'Steuer', captain: 'Captain', weapons: 'Ops', technik: 'Technik', transfer: 'Transfer', shop: 'Terminal', quartier: 'Quartier', spind: 'Spind', kustodenpult: 'Kustodenpult', plan: 'Planungstisch', ausruestung: 'Ausrüstung' };
   const SECTOR_NAMES = ['Bug', 'Steuerbord', 'Heck', 'Backbord'];
@@ -1288,6 +1288,7 @@
       const inv = st.inventory || {};
       R.text(ctx, 'LAGER', x + 10, ly, { color: PAL.brass }); ly += 11;
       const items = ['ersatzteil', 'loeschgel', 'flickblech', 'bolzen', 'medipack'];
+      if (inv.erz > 0) items.push('erz');   // GEL-03 N1: Erz aus dem Abbau (Snapshot inventory.erz nur wenn > 0): sechster Platz der Lagerzeile
       items.forEach((it, i) => R.text(ctx, ITEM_NAMES[it] + ': ' + (inv[it] || 0), x + 10 + (i % 3) * 130, ly + Math.floor(i / 3) * 11, { color: PAL.star }));
       ly += 26;
       R.text(ctx, 'Marken: ' + (inv.marks || 0), x + 10, ly, { color: PAL.brass });

@@ -1630,7 +1630,7 @@
           return z === 'frei' ? { label: 'E halten (' + sec('ziel') + ')', ok: true } : { label: 'Erledigt', ok: false };
         case 'fund': return z === 'da' ? { label: 'E halten: Fund bergen (' + sec('fund') + ')', ok: true } : { label: 'Sockel leer', ok: false };
         case 'abbau':   // GEL-03 A2: da bietet an, laeuft (ein Halter) ebenfalls: ein zweiter Spieler bekommt vom Server den Blocktext; abgebaut/leer bieten nichts an
-          if (z === 'laeuft' && (st.players || []).some(q => q.id !== m.id && q.zone === 'away' && q.action && q.action.kind === 'anker:abbau' && Math.hypot(q.x - (tx * TILE + TILE / 2), q.y - (ty * TILE + TILE / 2)) < TILE * 1.8)) return { label: 'Dort wird schon abgebaut.', ok: false };   // ein Halter je Ader: der Text des Servers (anker.js interactionsAt), der Halter steht neben der Ader
+          if (z === 'laeuft' && st.away && Array.isArray(st.away.ab) && st.away.ab.some(h => h[0] === i && h[1] !== m.id)) return { label: 'Dort wird schon abgebaut.', ok: false };   // ein Halter je Ader: der Text des Servers (anker.js interactionsAt); Halter je Ader aus dem Snapshot (away.ab = [[Ankerindex, Spieler-ID]], GEL-03 N2)
           if (z === 'da' || z === 'laeuft') return { label: 'E halten: Erz abbauen (' + sec('abbau') + ', Treffer unterbricht)', ok: true };
           if (z === 'abgebaut') return { label: 'Die Ader ist erschöpft', ok: false };
           break;

@@ -349,6 +349,8 @@
     "test:abbau-client": "node tools/test-abbau-client.js",
     "test:abbau-mutation": "node tools/mutation-abbau.js",
     "test:abbau-neu": "node tools/test-abbau-neu.js",
+    "test:abbau-scan": "node tools/test-abbau-scan.js",
+    "test:abbau-scan-mutation": "node tools/mutation-abbau-scan.js",
     "test:abbau-neu-mutation": "node tools/mutation-abbau-neu.js",
     "mess:fallen-tick": "node tools/mess-fallen-tick.js",
     "test:fallen-ids": "node tools/test-fallen-ids.js",

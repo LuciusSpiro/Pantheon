@@ -454,6 +454,23 @@ function abbauTick(game, aw, k, L, dt) {
   }
 }
 
+// GEL-03 G: Scanner-Anmeldung, Art `erz`: die Adern der Außenkarte im Zustand da oder laeuft (leer und abgebaut fehlen, sie fallen beim Scan-Aufräumen aus aw.sc). Position schon ab Stufe 1.
+// ziele() billig: die Aderliste je Karte wird gemerkt (Anker einer gebauten Karte ändern sich nicht), je Aufruf nur die Zustandsabfrage.
+const aderCache = new WeakMap();   // Karte -> { quelle, n, liste }
+function aderListe(k) {
+  const alle = k.anker || [];
+  let c = aderCache.get(k);
+  if (!c || c.quelle !== alle || c.n !== alle.length) { c = { quelle: alle, n: alle.length, liste: alle.filter((a) => a.rolle === 'abbau') }; aderCache.set(k, c); }
+  return c.liste;
+}
+function erzZiele(game, aw) {
+  const k = aw && karteVon(aw.map); if (!k) return [];
+  const out = [];
+  for (const a of aderListe(k)) { const z = zustandIn(aw, k, a.id); if (z === 'da' || z === 'laeuft') { const m = mitte(a); out.push({ id: a.id, x: m.x, y: m.y, typ: 'erzader' }); } }
+  return out;
+}
+require('./scanbar.js').scanbarAnmelden('erz', { ziele: erzZiele, tiefen: { position: 1 } });
+
 // Ladung am Anker scharf schalten (Spiel, Debug `ladung`, Bausteine): ladungScharf(game, map, id, t?, pid?) -> Fehlertext | null.
 // t = Countdown in s (Standard CONFIG.anker.countdown). Verbraucht kein Inventar. Ereignisse wie im Spiel.
 function ladungScharf(game, map, id, t, pid) {
@@ -658,6 +675,10 @@ function awaySnap(game, aw) {
   });
   const o = { ao, ko, al: aw.alarm ? 1 : 0 };
   const sp = aw.ankerSperre ? al.map((a, i) => (aw.ankerSperre[a.id] ? i : -1)).filter((i) => i >= 0) : [];
+  // GEL-03 N2: Halter der laufenden Ader, [Index im ankerListe-Schema, Spieler-ID]; nur solange abgebaut wird (der Client zeigt „Dort wird schon abgebaut“ nur an der besetzten Ader)
+  const ab = [];
+  al.forEach((a, i) => { if (a.rolle !== 'abbau') return; const b = L.abbau[a.id]; if (b && aw.zustaende[a.id] === 'laeuft') ab.push([i, b.pid]); });
+  if (ab.length) o.ab = ab;
   if (aw.ohneZaehler) o.oz = 1;   // Welle 5, M3: Boden des Finales ohne Erkunden-/Plünder-Zähler (finale-boden.js)
   if (sp.length) o.sp = sp;   // SUND-04a-3: gesperrte Anker (Index), der Client zeigt „Versiegelt“ statt des Haltehinweises
   const ids = Object.keys(L.ladung).sort();
