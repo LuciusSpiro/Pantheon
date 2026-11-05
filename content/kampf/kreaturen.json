@@ -1,0 +1,31 @@
+{
+  "version": 1,
+  "hinweis": "MON-01 P1: Kreaturen-Typen für server/sim/kreatur.js. Alles Zahlen und Verhalten, KEINE Anzeigetexte (die kommen mit dem Name-Schlüssel aus dem Client-Content). Einheiten: Tempo in px/s, Dauern in s, Sicht und Abstände in Kacheln, hitRadius in px, frontArc in Grad. Der Server enthält keine Typnamen; ein neuer Typ ist ein neuer Eintrag hier.",
+  "typen": {
+    "probe": {
+      "name": "kreatur.probe",
+      "groesse": 2,
+      "sicht": 9,
+      "verlustZeit": 3,
+      "replan": 0.5,
+      "hitRadius": 24,
+      "schild": { "seg": 4, "max": 4 },
+      "wunden": 3,
+      "frontArc": 120,
+      "tuerenAufbrechen": false,
+      "rammZeit": 1.2,
+      "start": "patrouille",
+      "zustaende": {
+        "patrouille": { "modus": "streife", "tempo": 45, "radius": 8, "uebergang": [ { "auf": "sieht", "nach": "jagd" } ] },
+        "jagd": { "modus": "verfolge", "tempo": 84, "uebergang": [ { "auf": "nah", "abstand": 6, "nach": "aufladen" }, { "auf": "verloren", "nach": "patrouille" } ] },
+        "aufladen": { "modus": "zielen", "tempo": 0, "dauer": 1.2, "uebergang": [ { "auf": "ablauf", "nach": "rammen" } ] },
+        "rammen": { "modus": "ramme", "tempo": 260, "dauer": 0.9, "uebergang": [ { "auf": "blockiert", "nach": "steckt" }, { "auf": "ablauf", "nach": "pause" } ] },
+        "steckt": { "modus": "steht", "tempo": 0, "dauer": 1.0, "uebergang": [ { "auf": "ablauf", "nach": "pause" } ] },
+        "pause": { "modus": "steht", "tempo": 0, "dauer": 2.0, "uebergang": [ { "auf": "ablauf", "nach": "jagd" } ] }
+      },
+      "bausteine": {
+        "zyklus": { "hindernisAb": 0.3 }
+      }
+    }
+  }
+}

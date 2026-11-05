@@ -315,6 +315,7 @@
     "test:scanbar": "node tools/test-scanbar.js",
     "test:scanbar-mutation": "node tools/mutation-scanbar.js",
     "test:scanbar-debug": "node tools/test-scanbar-debug.js",
+    "test:kreatur": "node tools/test-kreatur.js",
     "test:scanner-anzeige": "node tools/test-scanner-anzeige.js",
     "mess:scanner-tick": "node tools/mess-scanner-tick.js",
     "test:ausruestung-hud": "node tools/test-ausruestung-hud.js",

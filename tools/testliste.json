@@ -47,6 +47,7 @@
   {"id":"test-scanner-client","kette":"test","cmd":["tools/test-scanner-client.js"],"stufe":"full","budget_s":10},
   {"id":"test-scanbar","kette":"test","cmd":["tools/test-scanbar.js"],"stufe":"full","budget_s":25},
   {"id":"test-scanbar-debug","kette":"test","cmd":["tools/test-scanbar-debug.js"],"stufe":"full","budget_s":15},
+  {"id":"test-kreatur","kette":"test","cmd":["tools/test-kreatur.js"],"stufe":"full","budget_s":25},
   {"id":"test-scanner-anzeige","kette":"test","cmd":["tools/test-scanner-anzeige.js"],"stufe":"fast","budget_s":8},
   {"id":"test-sektoren","kette":"test","cmd":["tools/test-sektoren.js"],"stufe":"full","budget_s":22},
   {"id":"test-entern","kette":"test","cmd":["tools/test-entern.js"],"stufe":"fast","budget_s":6},

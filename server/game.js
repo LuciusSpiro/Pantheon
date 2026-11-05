@@ -134,6 +134,7 @@ const landepunkteMod = () => optional('landepunkte', './sim/landepunkte.js');   
 const ankerMod = () => optional('anker', './sim/anker.js');               // BUEHNE (B1)
 const Loadout = require('./sim/loadout.js');   // AUS-01 A: Loadout-Slots
 const Scanbar = require('./sim/scanbar.js');   // SCA-01 P2: scanbare Objekte und Scan-Wirkung (aw.sc)
+const Kreatur = require('./sim/kreatur.js');   // MON-01 P1: Kreaturen-Rahmen (aw.kreaturen)
 const Scanner = require('./sim/scanner.js');   // SCA-01 P1: Scanner am Boden (meldet sich als Item `scanner` an)
 const waffenMod = () => optional('waffen', './sim/waffen.js');            // WAFFEN (B2)
 const enternMod = () => optional('entern', './sim/entern.js');            // ENTERN (B1)
@@ -1602,6 +1603,7 @@ class Game {
       case 'verfolgung': err = Verfolgung.debug(this, argList(msg)); break;   // SUND-04a-1 A: verfolgung [frachter|raider|korvette|fregatte|kreuzer] [ohne] – Zielschiff flieht zum Fluchtpunkt
       case 'konvoi': err = require('./sim/konvoi.js').debug(this, argList(msg)); break;   // EK3 Teil B: konvoi [n] [aufhalten|pluendern] [voll|jaeger|korvette|keine]
       case 'sprungpunkt': case 'ladung': case 'prise': err = this.onDebugQa(p, cmd, msg); break;           // QA-Nachzug (OFFEN-STUDIO)
+      case 'kreatur': err = Kreatur.debugKreatur(this, p, msg.typ != null ? String(msg.typ) : argList(msg)[0]); break;   // MON-01 P1: kreatur <typ> – Kreatur aus content/kampf/kreaturen.json in der Nähe (nur Boden)
       case 'scantest': err = Scanbar.debugScantest(this, p); break;   // SCA-01 P2: drei Testziele in Reichweite, eines außerhalb
       case 'scanfertig': err = Scanbar.debugScanfertig(this, p, msg.stufe != null ? msg.stufe : argList(msg)[0]); break;   // SCA-01 P4: scanfertig [stufe 0..3] – Scan-Wirkung ohne Minispiel
       case 'welle': err = this.phase === 'lobby' ? 'Erst das Spiel starten.' : require('./sim/wellen.js').debugWelle(this, argList(msg)[0] != null ? argList(msg)[0] : msg.n); break;   // Bodenkampf: Wellen

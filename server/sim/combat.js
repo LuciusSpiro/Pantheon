@@ -1787,6 +1787,7 @@ function update(game, dt) {
   game.safe('combat-medkit', () => updateMedkitPickup(game));
   game.safe('combat-ai', () => squad.update(game, dt));
   game.safe('combat-monster', () => require('./monster.js').update(game, dt));   // SL7c: das Monster der Station Helix (ohne meta.monster sofort zurück)
+  game.safe('combat-kreaturen', () => require('./kreatur.js').update(game, dt));   // MON-01 P1: Kreaturen (aw.kreaturen; ohne Kreaturen sofort zurück)
   game.safe('combat-enemyShields', () => updateEnemyShields(game, dt));
   game.safe('combat-projectiles', () => updateProjectiles(game, dt));
   game.safe('combat-keys', () => updateKeys(game));
