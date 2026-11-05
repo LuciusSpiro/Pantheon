@@ -2079,6 +2079,9 @@ Token-Deckel: höchstens 500 000 Token pro Serverlauf (`CLAUDE_TOKEN_BUDGET`), d
 Der Teaser ist in der Demo nur Text, kein spielbarer Auftrag. **Seit S2 abgelöst:** Nach m3 übernimmt der Spielleiter
 (siehe „Neu in S2“); die Bridge wird für die Kampagne nicht mehr gebraucht.
 
+## Fallen (ITM-01 C, nur Server und Daten)
+Anker-Rolle `falle` (`content/buehnen/anker.json`, Kern in `server/sim/fallen.js`): vier Zustände `verborgen, erkannt, entschaerft, ausgeloest`, Attribute `typ` und `sicht` (`passiv` startet erkannt, sonst verborgen). Entschärfen = E halten (`CONFIG.anker.halten.falle`, nur aus `erkannt`), Auslösen beim Betreten der Zone (`CONFIG.anker.falle.radius` je Typ) genau einmal, Wirkung über `Fallen.fallenWirkung(typ, handler)` (Paket D), Zeitwirkungen über `Fallen.zeitwirkung`. Verborgene Fallen stehen nicht im `awayMap`-Payload; beim Erkennen (Scanner ab Stufe 2) oder Auslösen kommt das Ereignis `ankerEnthuellt { map, kv, i, anker }` an die Clients der Karte (Nachsendung für Nachzügler und Wiederverbinden). Nachrichtenform, Index-Regeln und Register-Signatur: `CONTRACT-B2.md` §12. Kein Generator setzt in ITM-01 Fallen. Debug `falletest [typ] [sicht]` (nur `--debug`). Tests: `npm run test:fallen` (Kette), `npm run test:fallen-mutation` (auf Abruf), `npm run mess:fallen-tick` (Tickkosten).
+
 ## Bekannte Grenzen
 
 - Umfang: drei Tutorial-Missionen und acht Orte im Saumraum, dazu die Eisenwald-Kampagne (EK1–EK8, 15 Hexe). Gespeichert wird nur angedockt bzw. beim Missionsabschluss (S1) –
