@@ -215,6 +215,7 @@ function fallbackModel(kind) {
       g.add(z); g.userData.pauseZeichen = z;
     }
   }
+  else if (kind === 'leer') { /* MON-02 O3a: leerer Ersatz, der Platzhalter wird anderswo gezeigt (kreaturPlatzhalter) */ }
   else if (kind === 'warden') { box(1.4, 1.1, 1.8, 0, 0.75, 0, '#4B3F6B'); box(0.9, 0.6, 0.5, 0, 1.4, 0.8, '#B57CFF'); box(1.2, 0.2, 0.3, 0, 0.3, 1.0, '#7FF3FF'); }
   else box(0.22, 0.22, 0.22, 0, 0.11, 0, '#F2C94C');
   return g;
@@ -1103,6 +1104,148 @@ function updateGermane(a, e, view, dt, t, hitAge) {
   applyFessel(a, !!ks.fessel);
 }
 
+// ------------------------------------------------------------------------------------------------------------------------------
+// MON-02 O3a: Kreaturen im Voxelmodus (Rudeltier D „Helmhyäne“ u. a.). Zuordnung Typ → Modell NUR aus dem Client-Content
+// content/kreaturen/modelle.json (kein Typname hier), ohne Eintrag oder ohne geladenes Asset bleibt der graue Platzhalter (Rückfall).
+// Der Block bis KREATUR-OPTIK-ENDE ist rein (ohne THREE und DOM); tools/test-kreatur-optik.js liest ihn aus dem Quelltext.
+// Bits von away.kr (Snapshot): 0-1 Ladung, 2 Pause, 3 rammt, 4-5 Größe-1, 6 zielt (Aufladen).
+const KR_SCHRITT = 0.45;        // m zurückgelegte Strecke je Beinphase (zwei Phasen im Wechsel; Stillstand = keine Beinbewegung)
+const KR_WIPPEN_PERIODE = 0.9;  // m je Wipp-Zyklus
+const KR_PULS_HZ = 1.5;         // Marken pulsieren bei Ladung 3 (1 bis 2 Hz)
+/** typCode (Index in kreaturen.json) → Eintrag { modell, marken, varianten } aus dem Client-Content, sonst null (Platzhalter). */
+function kreaturEintrag(inhalt, typCode) {
+  if (!inhalt || !Array.isArray(inhalt.reihenfolge) || !inhalt.typen) return null;
+  const id = inhalt.reihenfolge[typCode | 0];
+  const e = id != null ? inhalt.typen[id] : null;
+  return e && e.modell && e.marken && e.varianten > 0 ? e : null;
+}
+/** Fellton aus der Tier-Nummer (Zahl hinter dem K der ID): deterministisch, bei allen Clients gleich. */
+function kreaturFell(nr, varianten) { const v = Math.max(1, varianten | 0); return (((nr | 0) % v) + v) % v; }
+/** Pose des Modells aus den Bits: Pause 2, rammt 3, zielt (Aufladen) 1, sonst 0 (steh). */
+function kreaturPose(b) { return (b & 4) ? 2 : (b & 8) ? 3 : (b & 64) ? 1 : 0; }
+function kreaturLadung(b) { return b & 3; }
+/** Beinphase 0/1 nach zurückgelegter Strecke (m), nur im Gehen (Pose 0); die anderen Posen haben eigene Beinstellung. */
+function kreaturBeinphase(pose, strecke) { return pose === 0 ? (Math.floor(Math.max(0, strecke) / KR_SCHRITT) & 1) : 0; }
+/** Parameter der beiden Teilmodelle; die Marken tragen dieselbe Pose wie der Körper. */
+function kreaturParameter(eintrag, nr, b, strecke) {
+  const pose = kreaturPose(b);
+  return { koerper: { pose, fell: kreaturFell(nr, eintrag.varianten), beinphase: kreaturBeinphase(pose, strecke) }, marken: { ladung: kreaturLadung(b), pose } };
+}
+/** Cache-Schlüssel eines Teilmodells (Modell-ID + Parameter, Reihenfolge fest). */
+function kreaturSchluessel(id, p) { return id + '|' + Object.keys(p).sort().map((k) => k + '=' + p[k]).join(','); }
+/** Zittern beim Aufladen: Amplitude in m (0 sonst), wächst mit der Ladung. */
+function kreaturZitterAmp(b) { return (b & 64) && !(b & 12) ? 0.008 + 0.006 * (b & 3) : 0; }
+/** Staubspur nur beim Rammen. */
+function kreaturStaubAn(b) { return (b & 8) !== 0 && (b & 4) === 0; }
+/** Sterne nur bei Pause. */
+function kreaturSterneAn(b) { return (b & 4) !== 0; }
+/** Skalierung der Marken: bei Ladung 3 pulsierend (1 bis 1,2), sonst 1. */
+function kreaturPuls(b, t) { return (b & 3) === 3 ? 1 + 0.2 * (0.5 + 0.5 * Math.sin(t * Math.PI * 2 * KR_PULS_HZ)) : 1; }
+/** Wippen (m Höhe): leicht beim Gehen, stärker in Jagd (Tempo) und Rammen; im Stand 0. speed in m/s, strecke in m. */
+function kreaturWippen(b, speed, strecke) {
+  if (speed < 0.25) return 0;
+  const amp = (b & 8) ? 0.05 : 0.012 + 0.016 * Math.min(1, speed / 2.8);
+  return amp * Math.abs(Math.sin(strecke * Math.PI / KR_WIPPEN_PERIODE));
+}
+/** Pivot der Marken (m, vor der Rückenlinie der Pose): Pulsieren um die eigene Mitte statt um den Anker. */
+function kreaturMarkenPivot(pose) { return [0, (13.5 + [0, -1, -2, -1][pose & 3]) / 16, -3 / 16]; }
+// KREATUR-OPTIK-ENDE
+
+// MON-02 O3a (Fortsetzung): Teilmodelle, Anzeige, Effekte. Eigene Funktionen, der Platzhalter bleibt als Rückfall.
+function kreaturInhaltLaden() {
+  if (L.kreaturInhalt !== undefined || typeof fetch !== 'function') return;
+  L.kreaturInhalt = null;
+  fetch('/content/kreaturen/modelle.json').then((r) => (r.ok ? r.json() : null)).then((j) => { if (j && typeof j === 'object' && j.typen) L.kreaturInhalt = j; }).catch(() => { /* ohne Inhalt: Platzhalter */ });
+}
+/** Teilmodell (Körper oder Marken) je Akteur gecacht; der Slot sagt über userData.slot.ready, ob das Asset gebaut ist. */
+function kreaturTeil(a, id, params) {
+  const k = kreaturSchluessel(id, params);
+  let s = a.models[k];
+  if (!s) { s = loadModel(id, params, 'leer'); a.models[k] = s; }
+  refreshSlot(s);
+  return s;
+}
+function kreaturSterne(a) {
+  if (!a.sterne) {
+    const T = L.THREE; if (!L.fbGeo) L.fbGeo = new T.BoxGeometry(1, 1, 1);
+    const KR = window.Render && window.Render.KREATUR, g = new T.Group(); g.name = 'kreatur-sterne';
+    const mat = fbMaterial((KR && KR.pause) || '#F2E6A0');
+    for (let i = 0; i < 3; i++) { const m = new T.Mesh(L.fbGeo, mat); m.scale.set(0.14, 0.14, 0.14); const w = i * Math.PI * 2 / 3; m.position.set(Math.cos(w) * 0.28, 0, Math.sin(w) * 0.28); g.add(m); }
+    a.sterne = g; a.body.add(g);
+  }
+  return a.sterne;
+}
+/** Körper + Marken zeigen (true) oder, solange ein Asset fehlt oder noch baut, nichts tun (false, dann Platzhalter). */
+function kreaturModellAnwenden(a, e, eintrag, b, t) {
+  const nr = +String(e.id).slice(1) || 0;
+  const p = kreaturParameter(eintrag, nr, b, a.dist || 0);
+  const kor = kreaturTeil(a, eintrag.modell, p.koerper), mar = kreaturTeil(a, eintrag.marken, p.marken);
+  if (!kor.userData.slot.ready || !mar.userData.slot.ready) return false;
+  if (a.model !== kor) { if (a.model) a.body.remove(a.model); a.body.add(kor); a.model = kor; a.modelKey = 'kreatur-modell'; }
+  if (!a.markenPivot) { a.markenPivot = new L.THREE.Group(); a.markenPivot.name = 'kreatur-marken'; a.body.add(a.markenPivot); }
+  if (a.marken !== mar) { if (a.marken) a.markenPivot.remove(a.marken); a.markenPivot.add(mar); a.marken = mar; }
+  const pv = kreaturMarkenPivot(p.koerper.pose);
+  a.markenPivot.position.set(pv[0], pv[1], pv[2]); mar.position.set(-pv[0], -pv[1], -pv[2]);
+  a.markenPivot.scale.setScalar(kreaturPuls(b, t));
+  a.markenPivot.visible = true;
+  return true;
+}
+/** Zittern, Wippen, Sterne, Staubspur: nur Darstellung (Math.random/Zeit erlaubt, nie Serverzustand). */
+function kreaturEffekte(a, e, b, dt, t) {
+  const nr = +String(e.id).slice(1) || 0, ph = nr * 1.7;
+  const z = kreaturZitterAmp(b);
+  a.body.position.set(z ? Math.sin(t * 83 + ph) * z : 0, kreaturWippen(b, a.speed, a.dist || 0) + (z ? Math.abs(Math.sin(t * 71 + ph)) * z * 0.5 : 0), z ? Math.sin(t * 97 + ph * 2) * z : 0);
+  a.body.rotation.set((b & 8) && a.speed > 0.25 ? 0.05 : 0, 0, z ? Math.sin(t * 79 + ph) * z * 3 : 0);   // Rammen: leicht vorgebeugt
+  const stern = kreaturSterneAn(b);
+  if (stern || a.sterne) {
+    const s = kreaturSterne(a);
+    s.visible = stern;
+    if (stern) { s.rotation.y = t * 2.2 + ph; s.position.set(0, 0.75 + 0.04 * Math.sin(t * 3 + ph), 0.3); }
+  }
+  if (kreaturStaubAn(b) && a.speed > 0.25) {
+    a.staubT = (a.staubT || 0) + dt;
+    const fx = window.VoxelFx;
+    if (fx && fx.spawnFx) {
+      while (a.staubT >= 0.04) {
+        a.staubT -= 0.04;
+        const yaw = a.container.rotation.y, pos = a.container.position;
+        fx.spawnFx('staub', { pos: [pos.x - Math.sin(yaw) * 0.35, pos.y + 0.04, pos.z - Math.cos(yaw) * 0.35], dir: [-Math.sin(yaw), -Math.cos(yaw)], dt });
+      }
+    }
+    a.staubT = Math.min(a.staubT, 0.04);
+  } else a.staubT = 0;
+}
+/** Graues Platzhalter-Volumen (MON-01 P4), Rückfall ohne Modell-Eintrag oder Asset: je Ladung/Pause/Rammen/Größe ein eigenes Modell, gecacht. */
+function kreaturPlatzhalter(a, b, t) {
+  const mk = 'kreatur:' + (b & 3) + ((b >> 2) & 3) + ((b >> 4) & 3);
+  if (a.modelKey !== mk) {
+    let o = a.models[mk];
+    if (!o) { o = fallbackModel('kreatur|' + b); a.models[mk] = o; }
+    if (a.model && a.model !== o) a.body.remove(a.model);
+    if (a.model !== o) a.body.add(o);
+    a.model = o; a.modelKey = mk;
+  }
+  a.labelH = ((b >> 4) & 3) * 0.8 + 1.8;
+  if (a.markenPivot) a.markenPivot.visible = false;
+  if (a.sterne) a.sterne.visible = false;
+  if (a.model && a.model.userData.pauseZeichen) a.model.userData.pauseZeichen.rotation.y = t * 1.2;
+}
+function updateKreatur(a, e, dt, t) {
+  const b = (e.kr && e.kr.b) | 0;
+  kreaturInhaltLaden();
+  const pos = place(a, e.x, e.y, 0);
+  const f = +e.facing || 0;
+  locomote(a, pos.x, pos.z, dt, yawOf(Math.cos(f), Math.sin(f)), false);   // Blick = Snapshot-Blick (nicht auf 45 Grad gerastet), a.dist zählt die Strecke
+  const eintrag = kreaturEintrag(L.kreaturInhalt, e.kr && e.kr.t);
+  if (eintrag && kreaturModellAnwenden(a, e, eintrag, b, t)) {
+    a.labelH = 1.45;
+    kreaturEffekte(a, e, b, dt, t);
+  } else {
+    kreaturPlatzhalter(a, b, t);
+    a.body.position.set(0, 0, 0); a.body.rotation.set(0, 0, 0);
+  }
+}
+
 function updateEnemy(e, view, st, dt, t) {
   const map = L.ctx.map;
   const kind = e.kind || (map && map.id === 'wreck' ? 'scavenger' : 'drone');
@@ -1161,23 +1304,7 @@ function updateEnemy(e, view, st, dt, t) {
     a.body.rotation.z = z === 'j' ? Math.sin(t * 30) * 0.04 : 0;
     return;
   }
-  if (kind === 'kreatur') {   // MON-01 P4: Platzhalter-Volumen (Box in Typgröße, Zustandsfarben wie 2D); e.kr = { t, b } (bits: 0-1 Ladung, 2 Pause, 3 rammt, 4-5 Größe-1)
-    const b = (e.kr && e.kr.b) | 0;
-    const mk = 'kreatur:' + (b & 3) + ((b >> 2) & 3) + ((b >> 4) & 3);   // je Ladung/Pause/Rammen/Größe ein eigenes Modell (höchstens 64 Stück, gecacht)
-    if (a.modelKey !== mk) {
-      let o = a.models[mk];
-      if (!o) { o = fallbackModel('kreatur|' + b); a.models[mk] = o; }
-      if (a.model && a.model !== o) a.body.remove(a.model);
-      if (a.model !== o) a.body.add(o);
-      a.model = o; a.modelKey = mk;
-    }
-    a.labelH = ((b >> 4) & 3) * 0.8 + 1.8;
-    if (a.model && a.model.userData.pauseZeichen) a.model.userData.pauseZeichen.rotation.y = t * 1.2;
-    const pos = place(a, e.x, e.y, 0);
-    const f = +e.facing || 0;
-    locomote(a, pos.x, pos.z, dt, yawOf(Math.cos(f), Math.sin(f)), (b & 12) === 8);
-    return;
-  }
+  if (kind === 'kreatur') { updateKreatur(a, e, dt, t); return; }   // MON-02 O3a: Modell aus dem Client-Content, sonst MON-01-Platzhalter (kreaturPlatzhalter)
   if (kind === 'warden' || e.ro === 'waechter') {
     const state = !alive ? 2 : hitAge < 0.15 ? 1 : 0;
     // Kastell-Automat (Rom, herrenlose Kastelle) statt Kustoden-Wächter: Fraktion bzw. Bauweise der Bühne
@@ -1454,6 +1581,8 @@ window.VoxelActors = { stats: () => Object.assign({}, L.stats), layer, poses: FA
     const posen = {}; for (const n of ['stand', 'walk', 'sit', 'aim', 'crouch', 'wounded', 'operate', 'carry']) posen[n] = quelle(n);
     return { figId: a.figId, key: a.figKey, gebaut: !!(a.fig.inner || a.fig.skinned), posenGeladen: !!eigene, posen, skinned: !!a.fig.skinned, gelenke: Object.keys(a.fig.joints || {}).length, sichtbar: a.container.visible };
   },
+  // QA (MON-02 O3a): Anzeige einer Kreatur (K<nr>) – gezeigtes Modell, Marken-Skalierung, Sterne, Zitterversatz
+  kreaturInfo: (id) => { const a = actorOf(id); if (!a) return null; const m = a.model; return { modell: m ? m.name : null, platzhalter: !!(m && m.userData && m.userData.placeholder), marken: a.marken ? a.marken.name : null, markenSkala: a.markenPivot ? +a.markenPivot.scale.x.toFixed(3) : null, markenSichtbar: !!(a.markenPivot && a.markenPivot.visible), sterne: !!(a.sterne && a.sterne.visible), versatz: [a.body.position.x, a.body.position.y, a.body.position.z].map((v) => +v.toFixed(4)), dist: +(a.dist || 0).toFixed(2), speed: +(a.speed || 0).toFixed(2), labelH: a.labelH }; },
   // QA: Deck und laufende Einblendung einer Figur
   deckInfo: (id) => { const a = actorOf(id); return a ? { deck: a.deck, arrive: a.arrive ? Object.assign({}, a.arrive) : null, visible: a.container.visible } : null; },
   itemBox: (id) => { const a = actorOf(id); if (!a || !a.item) return null; a.container.updateMatrixWorld(true); const b = new L.THREE.Box3().setFromObject(a.item); return [b.min.y, b.max.y]; },
