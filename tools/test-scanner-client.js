@@ -163,10 +163,12 @@ section('Zeichnung des Overlays');
   ok(panels.length === 1 && panels[0].o.title === 'SCANNER – FREQUENZ ABSTIMMEN', 'Panel mit Titel „SCANNER – FREQUENZ ABSTIMMEN“');
   const p = panels[0];
   ok(p.x >= 174 && p.x + p.w <= 640 && p.y + p.h <= 360 && p.y >= 180 + 40, 'Panel mittig-unten: rechts der Bodenleiste (x ≥ 174), unter der Figurmitte, im Bild (' + p.x + ',' + p.y + ',' + p.w + 'x' + p.h + ')');
+  ok(p.w === 240 && p.h === 84 && p.y === 360 - 8 - 84, 'Nacharbeit D5: 240 x 84, feste Lage y = VH - 8 - H');
   const txt = calls.map((x) => x.txt);
-  ok(txt.includes('FREQUENZ') && txt.includes('SIGNAL') && txt.includes('SCAN') && txt.some((t) => /Qualität bisher \[\*\*-\]/.test(t)) && txt.includes('A/D stimmen · Esc Abbruch'), 'Beschriftungen, Sterne [**-], Hilfezeile „A/D stimmen · Esc Abbruch“');
+  ok(txt.includes('FREQUENZ') && txt.includes('SIGNAL') && txt.includes('SCAN') && txt.includes('Qualität [**-]') && txt.includes('· A/D stimmen · Esc') && !txt.some((t) => /bisher/.test(t)), 'Beschriftungen: „Qualität [**-]“ + „· A/D stimmen · Esc“ in EINER Zeile (kein „bisher“, keine zweite Hilfezeile)');
+  { const q1 = calls.find((x) => x.txt === 'Qualität [**-]'), q2 = calls.find((x) => x.txt === '· A/D stimmen · Esc'); ok(q1 && q2 && q1.y === q2.y && q2.x > q1.x + R.measure(q1.txt), 'Qualität und Hinweis stehen auf einer Zeile'); }
   ok(bars.length === 2 && Math.abs(bars[0].f - 0.62) < 1e-9 && Math.abs(bars[1].f - 0.25) < 1e-9, 'Balken Signal 0,62 und Fortschritt 0,25 kommen aus dem Snapshot');
-  ok(bars.every((b) => b.col === '#ice') && calls.filter((x) => x.o.color).every((x) => ['#brass', '#ice', '#panelLight'].includes(x.o.color)), 'nur Eisblau/Messing/Grau: weder Rot (Waffen/Gefahr) noch Bernstein (Hitze)');
+  ok(bars[0].col === '#ice' && bars[1].col === '#star' && calls.filter((x) => x.o.color).every((x) => ['#brass', '#ice', '#panelLight'].includes(x.o.color)), 'D5: SIGNAL Eisblau, SCAN-Fortschritt in PAL.star (nicht dieselbe Farbe); Schrift nur Eisblau/Messing/Grau: weder Rot (Waffen/Gefahr) noch Bernstein (Hitze)');
   ok(c.fills.some((f) => f.c === '#EAF6FA' && f.w === 3), 'Frequenzmarke gezeichnet');
   ok(calls.every((x) => x.x >= p.x && x.x + R.measure(x.txt) <= p.x + p.w - 4), 'alle Texte liegen innerhalb des Rahmens (kürzt über Hud.fit)');
   // Frequenzmarke folgt f
@@ -181,10 +183,10 @@ section('Zeichnung des Overlays');
   ok(bars[0].f === 1 && bars[1].f === 0 && calls.some((x) => /\[\*\*\*\]/.test(x.txt)), 'Werte werden auf 0..1 bzw. 0..3 Sterne begrenzt');
   zeichne(Object.assign({}, sicht, { me: { id: 1, action: null } }));
   ok(panels.length === 0, 'ohne Scan zeichnet draw nichts');
-  // ODA-Zeile unten: das Panel rückt darüber
+  // D5: ODA-Zeile unten ändert die Lage nicht (sie wird während des Scans nicht gezeichnet)
   const odaAlt = H.odaHoehe; H.odaHoehe = () => 30;
   zeichne(sicht); const mitOda = panels[0].y; H.odaHoehe = odaAlt; zeichne(sicht);
-  ok(mitOda < panels[0].y, 'läuft unten eine ODA-Zeile, sitzt das Panel darüber');
+  ok(mitOda === panels[0].y && S.rechteck().y === panels[0].y, 'läuft unten eine ODA-Zeile, bleibt das Panel an seiner festen Stelle (kein Springen)');
   ok(S.sterne(0) === '[---]' && S.sterne(1) === '[*--]' && S.sterne(3) === '[***]' && S.sterne(-4) === '[---]' && S.sterne(NaN) === '[---]', 'sterne(): [---] bis [***], begrenzt');
 }
 
@@ -259,13 +261,204 @@ section('Ausrüstungsstation: Scanner wählbar');
     ok(!f2, 'drawAusruestung mit Scanner zeichnet ohne Fehler' + (f2 ? ': ' + f2.message : ''));
     const t2 = calls.map((x) => x.txt).join('\n');
     ok(/BTN:Scanner/.test(t2) && calls.some((x) => x.txt === 'BTN:Scanner' && x.o.hotkey === '7'), 'Zeile „Scanner“ mit Taste 7 in der Auswahl');
-    ok(/Scanner: findet Erz, scannt Monster und Fallen\. Forscher-Rolle\./.test(calls.map((x) => x.txt).filter((x) => !x.startsWith('BTN:')).join(' ')) || calls.filter((x) => !x.txt.startsWith('BTN:')).map((x) => x.txt).join(' ').replace(/\s+/g, ' ').includes('Scanner: findet Erz, scannt Monster und Fallen. Forscher-Rolle.'), 'Beschreibung „Scanner: findet Erz, scannt Monster und Fallen. Forscher-Rolle.“ steht in der Station');
+    ok(/Scanner: findet Erz, scannt Monster und Fallen\. Slot-Taste startet, A\/D stimmt ab\./.test(calls.map((x) => x.txt).filter((x) => !x.startsWith('BTN:')).join(' ')) || calls.filter((x) => !x.txt.startsWith('BTN:')).map((x) => x.txt).join(' ').replace(/\s+/g, ' ').includes('Scanner: findet Erz, scannt Monster und Fallen. Slot-Taste startet, A/D stimmt ab.'), 'Beschreibung „Scanner: findet Erz, scannt Monster und Fallen. Slot-Taste startet, A/D stimmt ab.“ steht in der Station');
     ok(sym.length === 1 && sym[0][2] === '#ice', 'Slot mit Scanner zeigt das Scanner-Symbol in Eisblau (die Waffen-Icons kennen keine Items)');
     ok(/Am Boden aktiv: Gewehr/.test(t2), 'am Boden aktiv bleibt die erste Waffe');
     K.ausr.stand = { slotzahl: 3, slots: ['scanner', null, null] }; calls.length = 0; K.drawAusruestung(c, view);
     ok(/Kein Waffen-Slot = Fäuste/.test(calls.map((x) => x.txt).join('\n')) && !/Am Boden aktiv: Scanner/.test(calls.map((x) => x.txt).join('\n')), 'nur Scanner im Slot: „Kein Waffen-Slot = Fäuste.“ (ein Item ist nie die aktive Waffe)');
     ok(/1–7 direkt/.test(hilfe), 'Hilfezeile nennt 1–7');
   }
+}
+
+section('Nacharbeit D10: HUD-Zelle beim Scan mit 1-px-Eisblau-Rahmen');
+{
+  const strokes = [];
+  const ctx = { fillStyle: '', strokeStyle: '', lineWidth: 1, fillRect() {}, strokeRect(x, y, w, h) { strokes.push({ c: this.strokeStyle, w, h }); } };
+  const zeichneZelle = (aktion) => { strokes.length = 0; H.loadoutStand = { slotzahl: 3, slots: ['sturmgewehr', 'scanner', 'lanze'] }; H.wechselSperre = null; H.drawSlotZeile.call(H, ctx, { me: { wf: 'sturmgewehr', action: aktion }, time: 1 }, 8, 50); return strokes.slice(); };
+  ok(zeichneZelle({ kind: 'scan' }).filter((q) => q.c === '#ice').length === 1, 'laufender Scan: genau ein Eisblau-Rahmen (strokeRect) um die Scanner-Zelle');
+  ok(zeichneZelle(null).every((q) => q.c !== '#ice') && zeichneZelle({ kind: 'minigame' }).every((q) => q.c !== '#ice'), 'ohne Scan: kein Rahmen');
+}
+
+section('Nacharbeit D5: ODA-Zeile wird während des Scans nicht gezeichnet (Marke „ODA +n“ bleibt)');
+{
+  H.oda = { queue: [{ text: 'a' }, { text: 'b' }], cur: { text: 'Hier spricht die Orbitale Datenanalyse, bitte kommen.', shown: 999 } };
+  const rects = [];
+  const c2 = { fillStyle: '', strokeStyle: '', lineWidth: 1, fillRect(x, y, w, h) { rects.push({ x, y, w, h }); }, strokeRect() {} };
+  calls.length = 0;
+  H.drawOda(c2, { me: { action: { kind: 'scan' } }, time: 1 }, false);
+  ok(!rects.some((q) => q.w === 284) && !calls.some((q) => /Hier spricht/.test(q.txt)), 'Scan läuft: keine ODA-Zeile (kein 284-px-Feld, kein Text)');
+  ok(calls.some((q) => q.txt === 'ODA +2'), 'Zähler bleibt sichtbar als kleine Marke „ODA +2“');
+  const r0 = S.rechteck();
+  ok(rects.every((q) => q.y + q.h <= r0.y), 'die Marke liegt über dem Overlay und überdeckt es nicht');
+  rects.length = 0; calls.length = 0;
+  H.drawOda(c2, { me: { action: null }, time: 1 }, false);
+  ok(rects.some((q) => q.w === 284) && calls.some((q) => /Hier spricht/.test(q.txt)), 'nach dem Scan erscheint die ODA-Zeile wieder');
+  rects.length = 0; calls.length = 0;
+  H.drawOda(c2, { me: { action: { kind: 'scan' } }, time: 1 }, true);
+  ok(rects.some((q) => q.w === 284), 'an der Konsole (top) gilt die Regel nicht');
+  H.oda = { queue: [], cur: null };
+}
+
+section('Nacharbeit N4: Boden-Slots nie auf A, D, Pfeil links/rechts, Rücktaste');
+{
+  const std = (id) => T.aktion(id).std.join();
+  for (const code of ['KeyA', 'KeyD', 'ArrowLeft', 'ArrowRight', 'Backspace', 'Shift+KeyD', 'Shift+Backspace']) {
+    ok(T.setze('boden.slot2', 0, code) === false && T.belegung('boden.slot2').join() === std('boden.slot2') && T.reserviert(code), code + ': Umbelegung abgelehnt, Belegung unverändert');
+  }
+  ok(T.setze('boden.slot2', 0, 'KeyU') === true && T.belegung('boden.slot2')[0] === 'KeyU', 'eine freie Taste (U) lässt sich weiterhin belegen');
+  T.zuruecksetzen('boden');
+  speicher['pantheon.tasten'] = JSON.stringify({ 'boden.slot1': ['KeyD'], 'boden.slot3': ['Backspace'], 'boden.slot2': ['KeyU'] });
+  T.laden();
+  ok(T.belegung('boden.slot1').join() === std('boden.slot1') && T.belegung('boden.slot3').join() === std('boden.slot3'), 'gespeicherte Altbelegungen auf D / Rücktaste werden beim Laden verworfen (Standard gilt)');
+  ok(T.belegung('boden.slot2')[0] === 'KeyU', 'eine gültige gespeicherte Belegung bleibt');
+  delete speicher['pantheon.tasten']; T.laden();
+  ok(T.AKTIONEN.filter((a) => a.gruppe === 'boden').every((a) => a.std.every((t) => !T.reserviert(t))), 'keine Standardbelegung am Boden liegt auf einer reservierten Taste');
+  ok(T.konflikte('boden').length === 0, 'Boden ohne Konflikte');
+  // Verhalten: Scanner im Slot 2, Standardtasten: D stimmt die Frequenz (bricht nicht ab), Slot-Taste 2 bricht ab
+  S.loslassen();
+  let r2 = S.taste(ev('KeyD'), true, STAND);
+  ok(r2.senden.length === 1 && r2.senden[0].c === 'scan.stimme' && r2.senden[0].dir === 1, 'D stimmt die Frequenz (scan.stimme dir +1), kein Abbruch');
+  S.loslassen();
+  ok(S.taste(ev('Digit2'), true, STAND).senden[0].c === 'slot.nutzen', 'die Slot-Taste des Scanners bricht weiterhin ab');
+}
+
+section('Nacharbeit N5: Datenblatt, Klicks, Tasten, Störrelais als Verhalten (consoles.js im Sandkasten)');
+{
+  const proxy = () => new Proxy(function () {}, { get: (t, k) => (k === Symbol.toPrimitive ? () => '' : proxy()), apply: () => proxy(), construct: () => proxy() });
+  const w3 = { performance, localStorage: win.localStorage, Render: R, Hud: H, Shared_Maps: {}, Shared_Config: CONFIG, Shared_Protocol: PROTO, Tasten: T, Scanner: S, Net: { guard: (nm, f) => f(), on() {}, reportError() {} }, console };
+  w3.window = w3;
+  vm.createContext(w3);
+  vm.runInContext(read('public/js/scan-anzeige.js'), w3, { filename: 'scan-anzeige.js' });
+  vm.runInContext(read('public/js/consoles.js'), w3, { filename: 'consoles.js' });
+  const K = w3.Consoles, SA = w3.ScanAnzeige;
+  ok(K && SA && typeof K.scanMass === 'function' && typeof SA.blattZeilen === 'function', 'consoles.js und scan-anzeige.js laden im Sandkasten');
+  const DATEN = JSON.parse(read('content/scanner/datenblaetter.json'));
+  const REAL = { name: 'Panzerkäfer', gefahr: 3, zeile: 'Schweres Tier, jagt im Rudel.', hinweis: 'Panzerung vorn, Schwachstelle am Rücken. Bäume und Felsen halten es auf.', hinweisAb: 1, symbol: 'PK' };
+  const LANG = Object.assign({}, REAL, { name: 'Vierundzwanzigzeichenname', hinweis: 'Ein überlanger Regelhinweis, der weit mehr als hundert Zeichen hat und deshalb gekürzt werden muss, ohne die Positionszeile zu verdrängen. Wirklich.' });
+  SA.store.daten = Object.assign({}, DATEN, { typen: Object.assign({}, DATEN.typen, { real: REAL, lang: LANG }) });
+  R.ui = { buttons: [] };
+  R.measure = (t) => Math.round(String(t).length * 4.9 * 10) / 10;
+  const W = 318;   // Breite der Karte im echten Layout (Außenteam-Reiter, 640 x 360)
+  const zeichne = (sc, stoer) => {
+    calls.length = 0; R.ui.buttons.length = 0;
+    SA.beobachte(sc);
+    const scan = K.scanAnsicht({ sc }), blk = K.scanMass(scan, W);
+    const fills = [], strokes = [];
+    const ctx = { fillStyle: '', strokeStyle: '', lineWidth: 1, fillRect(x, y, w, h) { fills.push({ x, y, w, h, c: this.fillStyle }); }, strokeRect(x, y, w, h) { strokes.push({ x, y, w, h, c: this.strokeStyle }); } };
+    const X0 = 312, Y0 = 170;
+    K.scanZeichne(ctx, scan, blk, X0, Y0, W, !!stoer);
+    return { scan, blk, ctx, fills, strokes, calls: calls.slice(), X0, Y0 };
+  };
+
+  // D9: die Blockhöhe hängt nicht vom Text des Fokus ab (die Kartenzelle springt nicht)
+  const hoehen = new Set();
+  for (const sc of [[['a', 'test', 'testerz', 1]], [['a', 'test', 'real', 3, 224, 96]], [['a', 'test', 'lang', 1]], [['a', 'x', 'real', 1], ['b', 'x', 'real', 2], ['c', 'x', 'real', 3], ['d', 'x', 'real', 1], ['e', 'x', 'real', 1], ['f', 'x', 'real', 1]]]) hoehen.add(zeichne(sc).blk.h);
+  ok(hoehen.size === 1 && [...hoehen][0] === 11 + 10 + 10 * SA.MAXL_BLATT, 'D9: blk.h ist immer gleich (' + [...hoehen].join() + '), egal ob 1 oder 6 Einträge, kurzer oder langer Text');
+
+  // D2/D7/D8: kein Überlauf mit echtem langem Text, Position als letzte Zeile, Hierarchie, Gefahr nicht nur über Farbe
+  for (const [titel, sc] of [['real Stufe 1', [['a', 'test', 'real', 1]]], ['real Stufe 3', [['a', 'test', 'real', 3, 224, 96]]], ['überlanger Hinweis, Stufe 3', [['a', 'test', 'lang', 3, 224, 96]]], ['überlanger Hinweis, Stufe 1', [['a', 'test', 'lang', 1]]]]) {
+    const z = zeichne(sc), r = { x: z.X0, y: z.Y0, w: W, h: z.blk.h };
+    const sx = z.X0 + z.blk.LW + 8, rechts = z.X0 + W, unten = z.Y0 + z.blk.h;
+    const ueber = z.calls.filter((q) => q.x + R.measure(q.txt) > rechts + 0.5 || q.y + 8 > unten + 0.5 || q.x < z.X0);
+    ok(ueber.length === 0, titel + ': kein Text über den Rand' + (ueber.length ? ' (' + ueber.map((q) => q.txt).join(' | ') + ')' : ''));
+    const blatt = z.calls.filter((q) => q.x >= sx);
+    const pos = blatt.filter((q) => /^Position: /.test(q.txt));
+    ok(pos.length === 1 && blatt.every((q) => q.y <= pos[0].y), titel + ': Position steht (genau einmal) als letzte Zeile des Datenblatts: „' + (pos[0] && pos[0].txt) + '“');
+    ok(pos[0] && pos[0].o.color === (/Feld/.test(pos[0].txt) ? '#ice' : '#panelLight') && !blatt.some((q) => q.o.color === '#mint'), titel + ': Position Eisblau (bekannt) bzw. Grau (unbekannt), kein Mint');
+    const name = blatt.find((q) => q.txt === q.txt.toUpperCase() && q.o.color === '#ice' && /[A-Z]/.test(q.txt) && !/^Position/.test(q.txt));
+    ok(name && name.o.color === '#ice', titel + ': Name in Versalien und Eisblau („' + (name && name.txt) + '“)');
+    ok(blatt.some((q) => q.txt === 'GEFAHR') && z.strokes.length >= 0, titel + ': Beschriftung „GEFAHR“ vor den Kästchen');
+    const hinweis = blatt.filter((q) => q.o.color === '#star' && q.x === sx + SA.HINWEIS_EINZUG);
+    if (!/Stufe 1/.test(titel) || /real/.test(titel)) ok(hinweis.length >= 1 && z.fills.some((f) => f.c === '#ice' && f.w === 1 && f.x === sx), titel + ': Hinweis 7 px eingerückt mit 1-px-Eisblau-Strich links');
+    if (/überlang/.test(titel)) ok(/…$/.test(hinweis[hinweis.length - 1].txt), titel + ': Hinweis endet mit „…“, Position bleibt');
+    // Kästchen: Gefahr 3 = drei volle (Rot), keine Umrisse; leere sind Umrisse
+    ok(z.fills.filter((f) => f.c === '#red' && f.w === 4).length >= 3, titel + ': volle Gefahrenkästchen gefüllt (Rot)');
+  }
+  {
+    const z = zeichne([['a', 'test', 'testerz', 1]]);   // Gefahr 0
+    ok(z.strokes.filter((q) => q.c === '#grey' && q.w === 3).length >= 6 && z.fills.filter((f) => f.c === '#red').length === 0, 'D8: Gefahr 0 = drei leere Kästchen als 1-px-Umriss in Liste UND Datenblatt, keine Füllung (lesbar ohne Farbe)');
+    const ls = z.calls.find((q) => q.txt === 'GEF'), st = z.calls.find((q) => q.txt === 'SCAN' && q.y === z.Y0), stern = z.calls.find((q) => /^\[/.test(q.txt));
+    const pipX = Math.min(...z.strokes.filter((q) => q.c === '#grey' && q.w === 3 && q.x < z.X0 + z.blk.LW).map((q) => q.x));
+    ok(ls && st && stern && stern.x - (pipX + 16) >= 8, 'D8: Sterne in eigener Spalte rechts, Abstand zur Gefahr ' + (stern && Math.round((stern.x - (pipX + 16)) * 10) / 10) + ' px (>= 8), Kopfzeile „GEF“ / „SCAN“');
+    ok(stern.x + R.measure(stern.txt) <= z.X0 + z.blk.LW, 'Sterne liegen in der Listenspalte');
+  }
+
+  // Liste: kein Namensüberlauf in die Gefahrenspalte
+  {
+    const z = zeichne([['a', 'test', 'lang', 3, 1, 1], ['b', 'x', 'unbekannt', 1]]);
+    const liste = z.calls.filter((q) => q.x >= z.X0 + 15 && q.x < z.X0 + z.blk.LW - 40 && q.y > z.Y0);
+    ok(liste.length > 0, 'Liste gezeichnet');
+    const pipX = Math.min(...z.strokes.concat(z.fills.map((f) => Object.assign({}, f))).filter((q) => (q.c === '#grey' || q.c === '#red') && q.x < z.X0 + z.blk.LW).map((q) => q.x));
+    ok(liste.every((q) => q.x + R.measure(q.txt) <= pipX), 'Listennamen enden vor der Gefahrenspalte (' + liste.map((q) => q.txt).join(' | ') + ')');
+  }
+
+  // N2: Störrelais-Zeile auch mit Scan-Ergebnissen
+  {
+    const mit = zeichne([['a', 'test', 'testerz', 1]], true), ohne = zeichne([['a', 'test', 'testerz', 1]], false);
+    ok(mit.calls.some((q) => /^Störrelais stören den Scan/.test(q.txt)) && !ohne.calls.some((q) => /Störrelais/.test(q.txt)), 'N2: bei q < 1 steht „Störrelais stören den Scan“ auch mit Ergebnissen, bei klarem Scan nicht');
+    ok(mit.calls.every((q) => q.x + R.measure(q.txt) <= mit.X0 + W + 0.5), 'N2: die Zeile läuft nicht über den Rand');
+    const c = read('public/js/consoles.js');
+    ok(/this\.scanZeichne\(ctx, scan, blk, rect\.x, ly, rect\.w, q < 1\)/.test(c), 'capAwayV2 übergibt q < 1 an scanZeichne (Verdrahtung)');
+  }
+
+  // D3: Marker-Klick wählt nur den Fokus; Shift+Klick und Klick daneben setzen den Befehl
+  {
+    const sent = [];
+    K.cmd = (v, c, extra) => sent.push(Object.assign({ c }, extra));
+    K.denied = () => {};
+    K.order = { kind: 'sammeln' };
+    K.keys = {};
+    K.maps.away = { rect: { x: 300, y: 10, w: 300, h: 150 }, toW: (x, y) => ({ x: x * 2, y: y * 2 }), enemyRects: [], scanRects: [{ key: 'test:a', x: 400, y: 60, w: 16, h: 16 }, { key: 'test:b', x: 500, y: 60, w: 16, h: 16 }] };
+    SA.beobachte([['a', 'test', 'testerz', 1, 1, 1], ['b', 'test', 'testerz', 1, 2, 2]]);
+    const view = { state: { away: {} }, drones: [], actions: { sfx() {} } };
+    sent.length = 0;
+    let rv = K.awayMapClick(view, 408, 68, 0);
+    ok(rv === true && sent.length === 0 && SA.fokusKey() === 'test:a', 'D3: Klick auf den Marker: Fokus gewählt, return true, KEIN Befehl');
+    rv = K.awayMapClick(view, 508, 68, 0, false);
+    ok(rv === true && sent.length === 0 && SA.fokusKey() === 'test:b', 'D3: Klick auf den zweiten Marker: Fokus wechselt, kein Befehl');
+    rv = K.awayMapClick(view, 408, 68, 0, true);
+    ok(rv === true && sent.length === 1 && sent[0].c === 'captain.order' && sent[0].kind === 'sammeln' && sent[0].x === 816 && SA.fokusKey() === 'test:b', 'D3: Shift+Klick auf den Marker setzt den Befehl (Fokus bleibt)');
+    sent.length = 0; K.keys = { ShiftLeft: true };
+    K.awayMapClick(view, 408, 68, 0);
+    ok(sent.length === 1 && sent[0].c === 'captain.order', 'D3: gehaltene Shift-Taste (Consoles.keys) wirkt wie Shift+Klick');
+    K.keys = {}; sent.length = 0;
+    rv = K.awayMapClick(view, 450, 100, 0);
+    ok(rv === true && sent.length === 1 && sent[0].c === 'captain.order' && sent[0].x === 900, 'D3: Klick daneben setzt den Befehl wie bisher');
+    sent.length = 0;
+    K.awayMapClick(view, 408, 68, 2);
+    ok(sent.length === 1 && sent[0].clear === true, 'Rechtsklick auf den Marker löscht den Befehl wie bisher');
+    ok(K.awayMapClick(view, 10, 10, 0) === false && sent.length === 1, 'Klick außerhalb der Karte: false, nichts gesendet');
+  }
+
+  // D4: Taste -> Fokus durch alle Einträge (Consoles.keyDown, Reiter Außenteam)
+  {
+    const sc = [['a', 'test', 'testerz', 1], ['b', 'test', 'testmonster', 1], ['c', 'test', 'testerz', 3], ['d', 'test', 'testerz', 2], ['e', 'test', 'testmonster', 3], ['f', 'test', 'testerz', 1]];
+    const view = { state: { phase: 'play', away: { active: true, sc }, players: [] }, me: { console: 'captain' }, drones: [], actions: { sfx() {}, leave() {} }, send() {} };
+    SA.beobachte(sc);
+    K.tab = 3; K.keys = {};
+    K.isAwayV2 = () => true;
+    const ids = [];
+    SA.waehle(SA.ansicht(sc, 12).zeilen[0].key);
+    let verbraucht = true;
+    for (let i = 0; i < sc.length; i++) { ids.push(SA.fokusKey()); verbraucht = K.keyDown(ev('PageDown'), view) && verbraucht; }
+    ok(verbraucht && new Set(ids).size === sc.length && SA.fokusKey() === ids[0], 'D4: BildB schaltet reihum durch alle 6 Einträge (' + ids.join(' ') + ') und wieder zum Anfang');
+    K.keyDown(ev('PageUp'), view);
+    ok(SA.fokusKey() === ids[ids.length - 1], 'D4: BildA geht rückwärts (umlaufend)');
+    const sichtbar = SA.ansicht(sc, SA.MAX_ZEILEN);
+    ok(sichtbar.zeilen.includes(sichtbar.fokus) && sichtbar.rest === 2, 'der Fokus ist nach dem Umschalten in den 4 Listenzeilen sichtbar, „+2 weitere“');
+    // umbelegt: die Taste der Aktion gilt, die Standardtaste nicht mehr
+    T.setze('captain.aussen.scanVor', 0, 'KeyM');
+    const f0 = SA.fokusKey();
+    K.keyDown(ev('PageDown'), view);
+    ok(SA.fokusKey() === f0, 'umbelegt (M): die Standardtaste BildB tut nichts mehr');
+    K.keyDown(ev('KeyM'), view);
+    ok(SA.fokusKey() !== f0, 'umbelegt (M): die neue Taste schaltet weiter');
+    ok(/ M\//.test(K.aussenHilfeScan().replace('/', ' M/')) && /BildA\/M Ergebnis/.test(K.aussenHilfeScan()), 'die Hilfezeile nennt die echte Taste: „' + K.aussenHilfeScan() + '“');
+    T.zuruecksetzen('captain');
+    ok(/BildA\/BildB Ergebnis/.test(K.aussenHilfeScan()) && K.aussenHilfeScan().length <= 92, 'Standard-Hilfezeile „' + K.aussenHilfeScan() + '“ (' + K.aussenHilfeScan().length + ' Zeichen)');
+    K.tab = 0;
+  }
+  SA.beobachte([]);
 }
 
 console.log(fails ? '\n' + fails + ' FEHLER' : '\nalle ok');

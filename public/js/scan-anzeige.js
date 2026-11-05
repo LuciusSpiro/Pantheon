@@ -11,7 +11,9 @@
   const store = { daten: null, bekannt: {}, fokus: null };
   const MAX_ZEILEN = 4;
   const FALLBACK = { name: 'Unbekanntes Objekt', gefahr: 0, zeile: 'Keine Angaben zu diesem Ziel.', hinweis: '', hinweisAb: 1, symbol: '??' };
-  const TXT_KEINE_POS = 'Position unbekannt – höherer Scan nötig';
+  const TXT_KEINE_POS = 'Position: erst ab Stufe 3';   // eine Zeile (Nacharbeit D2); die Positionszeile ist die feste letzte Zeile des Datenblatts und wird nie gekürzt
+  const LIMIT = { name: 20, zeile: 34, hinweis: 100 };   // Content-Längen (Zeichen), der Test prüft alle Typen dagegen
+  const MAXL_BLATT = 7;   // Zeilen unter dem Namen im Datenblatt: Zeile (1-2), Regelhinweis (bis 4), Position (immer die letzte)
   const obj = (v) => (v && typeof v === 'object' ? v : {});
   const key = (e) => e.art + ':' + e.id;
   const int = (v, lo, hi, d) => { const n = Math.round(Number(v)); return Number.isFinite(n) ? Math.max(lo, Math.min(hi, n)) : d; };
@@ -63,16 +65,31 @@
   function waehle(k) { if (typeof k === 'string' && k in store.bekannt) store.fokus = k; }
   const fokusKey = () => store.fokus;
 
-  // Ansicht für das Pult: { zeilen (höchstens max, der Fokus ist immer dabei), rest, fokus (Zeile | null) }; ohne Ergebnisse { zeilen: [], rest: 0, fokus: null }
+  // Reihenfolge der Liste: Gefahr absteigend, dann Stufe absteigend; bei Gleichstand die Lieferreihenfolge des Servers (stabil, der Fokus hängt an der id, nicht am Platz)
+  function sortiere(zeilen) {
+    return zeilen.map((z, i) => ({ z, i })).sort((a, b) => (b.z.gefahr - a.z.gefahr) || (b.z.sk - a.z.sk) || (a.i - b.i)).map((o) => o.z);
+  }
+  // Ansicht für das Pult: { zeilen (höchstens max, der Fokus ist immer dabei, Reihenfolge wie sortiere), rest, fokus (Zeile | null) }; ohne Ergebnisse { zeilen: [], rest: 0, fokus: null }
   function ansicht(sc, max, daten) {
     const d = daten === undefined ? store.daten : daten;
-    const alle = lesen(sc).map((e) => zeile(e, d));
+    const alle = sortiere(lesen(sc).map((e) => zeile(e, d)));
     const m = Math.max(1, int(max, 1, 12, MAX_ZEILEN));
     if (!alle.length) return { zeilen: [], rest: 0, fokus: null };
     const fk = alle.find((z) => z.key === store.fokus) || alle[alle.length - 1];
-    let sicht = alle.slice(0, m);
-    if (!sicht.includes(fk)) sicht = alle.slice(0, m - 1).concat([fk]);
+    const fi = alle.indexOf(fk);
+    const von = fi < m ? 0 : fi - m + 1;   // das Fenster wandert mit dem Fokus (er steht dann in der letzten Zeile), die Reihenfolge bleibt
+    const sicht = alle.slice(von, von + m);
     return { zeilen: sicht, rest: alle.length - sicht.length, fokus: fk };
+  }
+  // Fokus per Taste: dir +1 / -1 reihum durch die sortierte Liste (alle Einträge, auch die hinter „+n weitere“); Rückgabe der neuen Fokus-id oder null
+  function fokusWeiter(sc, dir, daten) {
+    const d = daten === undefined ? store.daten : daten;
+    const alle = sortiere(lesen(sc).map((e) => zeile(e, d)));
+    if (!alle.length) return null;
+    let i = alle.findIndex((z) => z.key === store.fokus);
+    i = i < 0 ? (dir < 0 ? alle.length - 1 : 0) : (i + (dir < 0 ? -1 : 1) + alle.length) % alle.length;
+    store.fokus = alle[i].key;
+    return store.fokus;
   }
 
   // Datenblatt des Fokus als Textblöcke (Umbruch macht der Aufrufer nach Pixelbreite): Name, Gefahr, Zeile, Hinweis, Position (Kachelkoordinate)
@@ -94,12 +111,48 @@
     return out;
   }
 
-  // Text auf Pixelbreite kürzen (... am Ende); measure(text) liefert die Breite
+  // Text auf Pixelbreite kürzen („…“ am Ende, die Pixelschrift kennt das Zeichen); measure(text) liefert die Breite
+  const PUNKTE = '…';
   function kuerze(text, maxW, measure) {
     let s = String(text == null ? '' : text);
     if (measure(s) <= maxW) return s;
-    while (s.length > 1 && measure(s + '...') > maxW) s = s.slice(0, -1);
-    return s.trimEnd() + '...';
+    while (s.length > 1 && measure(s + PUNKTE) > maxW) s = s.slice(0, -1);
+    return s.trimEnd() + PUNKTE;
+  }
+  // Wortumbruch nach Pixelbreite (wie Render.wrap, aber mit übergebenem measure, damit es ohne Browser läuft); ein einzelnes zu langes Wort wird gekürzt
+  function umbruch(text, maxW, measure) {
+    const lines = [];
+    let line = '';
+    for (const w of String(text == null ? '' : text).split(/\s+/)) {
+      if (!w) continue;
+      const test = line ? line + ' ' + w : w;
+      if (measure(test) > maxW && line) { lines.push(line); line = w; } else line = test;
+    }
+    if (line) lines.push(line);
+    return lines.map((l) => kuerze(l, maxW, measure));
+  }
+  // Textzeilen des Datenblatts unter dem Namen: [{ art: 'zeile' | 'hinweis' | 'pos', text }], höchstens maxL Stück. Die Positionszeile ist immer die letzte und wird nie gekürzt oder gestrichen;
+  // gekürzt wird nur der Regelhinweis (die letzte erlaubte Hinweiszeile endet dann mit „…“). Der Hinweis ist eingerückt (HINWEIS_EINZUG px), seine Zeilen sind entsprechend schmaler.
+  const HINWEIS_EINZUG = 7;   // 6 px Einzug + 1 px Strich links
+  function blattZeilen(b, w, measure, maxL) {
+    const out = [];
+    if (!b) return out;
+    const m = Math.max(2, int(maxL, 2, 12, MAXL_BLATT));
+    const zl = umbruch(b.zeile, w, measure).slice(0, Math.min(2, m - 1));
+    let hl = b.hinweis ? umbruch(b.hinweis, w - HINWEIS_EINZUG, measure) : [];
+    const platz = m - zl.length - 1;
+    if (hl.length > platz) {
+      hl = hl.slice(0, Math.max(0, platz));
+      if (hl.length) {
+        const ganz = umbruch(b.hinweis, w - HINWEIS_EINZUG, measure);
+        const rest = ganz.slice(hl.length - 1).join(' ');
+        hl[hl.length - 1] = kuerze(rest, w - HINWEIS_EINZUG, measure);
+      }
+    }
+    for (const t of zl) out.push({ art: 'zeile', text: t });
+    for (const t of hl) out.push({ art: 'hinweis', text: t });
+    out.push({ art: 'pos', text: b.position, hat: !!b.hatPosition });
+    return out;
   }
   const sterne = (q) => { const k = Math.max(0, Math.min(3, q)); return '[' + '*'.repeat(k) + '-'.repeat(3 - k) + ']'; };   // wie entschluesseln.js (die Pixelschrift hat keine Sterne)
 
@@ -109,5 +162,5 @@
   }
   if (typeof window !== 'undefined' && root === window) laden();
 
-  return { store, MAX_ZEILEN, TXT_KEINE_POS, FALLBACK, lesen, zeile, beobachte, waehle, fokusKey, ansicht, blatt, marker, kuerze, sterne, laden };
+  return { store, MAX_ZEILEN, MAXL_BLATT, HINWEIS_EINZUG, LIMIT, TXT_KEINE_POS, FALLBACK, lesen, zeile, sortiere, beobachte, waehle, fokusKey, fokusWeiter, ansicht, blatt, blattZeilen, marker, kuerze, umbruch, sterne, laden };
 });

@@ -47,7 +47,7 @@ section('Einträge -> Anzeigezeilen je Stufe (Position nur mit x,y)');
   const b = SA.blatt(z3, 32);
   ok(b.position === 'Position: Feld 7 / 3' && b.hatPosition, 'Datenblatt: Position als Feldkoordinate (Kacheln)');
   const b1 = SA.blatt(z1, 32);
-  ok(b1.position === SA.TXT_KEINE_POS && !b1.hatPosition && /höherer Scan/.test(b1.position), 'Datenblatt ohne Position: „Position unbekannt – höherer Scan nötig“');
+  ok(b1.position === SA.TXT_KEINE_POS && !b1.hatPosition && SA.TXT_KEINE_POS === 'Position: erst ab Stufe 3', 'Datenblatt ohne Position: „Position: erst ab Stufe 3“ (eine Zeile)');
   ok(SA.blatt(null) === null, 'kein Eintrag: kein Datenblatt');
   ok(SA.sterne(0) === '[---]' && SA.sterne(1) === '[*--]' && SA.sterne(3) === '[***]' && SA.sterne(9) === '[***]' && SA.sterne(-2) === '[---]', 'Stufe als Sterne wie sterne() im Entschlüsseln');
 }
@@ -139,14 +139,13 @@ section('Texte nie über die Breite');
     const k = SA.kuerze(t, w, meas);
     if (meas(k) > w && k.length > 4) { ok(false, 'Breite ' + w + ': „' + t + '“ -> „' + k + '“ ist zu breit'); }
   }
-  ok(SA.kuerze('Unbekanntes Objekt', 100, meas).endsWith('...') && meas(SA.kuerze('Unbekanntes Objekt', 100, meas)) <= 100, 'zu langer Text endet mit „...“ und passt in die Breite');
+  ok(SA.kuerze('Unbekanntes Objekt', 100, meas).endsWith('…') && meas(SA.kuerze('Unbekanntes Objekt', 100, meas)) <= 100, 'zu langer Text endet mit „…“ und passt in die Breite');
   ok(SA.kuerze('Testmonster', 100, meas) === 'Testmonster', 'passender Text bleibt unverändert');
   ok(SA.kuerze('', 10, meas) === '' && !wirft(() => SA.kuerze(null, 10, meas)), 'leerer/fehlender Text: kein Wurf');
   // Quelltext: Liste und Datenblatt kürzen bzw. umbrechen nach Pixelbreite, der Block bleibt unter der Frachtleiste
   const c = read('public/js/consoles.js');
-  ok(/SA\.kuerze\(z\.name, LW - 16 - 52 - 3, meas\)/.test(c) && /SA\.kuerze\(blk\.b\.titel, SW - 24, meas\)/.test(c), 'Listenname und Titel werden auf ihre Spalte gekürzt');
-  ok(/R\.wrap\(b\.zeile, SW, 1\)/.test(c) && /R\.wrap\(b\.hinweis, SW, 1\)/.test(c) && /R\.wrap\(b\.position, SW, 1\)/.test(c), 'Zeile, Hinweis und Position brechen nach Spaltenbreite um');
-  ok(/const MAXL = 7;/.test(c) && /sheet\.length = MAXL - 1;/.test(c), 'Datenblatt hat eine feste Höchstzeilenzahl (endet mit „...“)');
+  ok(/SA\.kuerze\(z\.name, nameW, meas\)/.test(c) && /SA\.kuerze\(String\(blk\.b\.titel\)\.toUpperCase\(\), /.test(c), 'Listenname und Titel werden auf ihre Spalte gekürzt');
+  ok(/SA\.blattZeilen\(b, SW, \(t\) => R\.measure\(t, 1\), SA\.MAXL_BLATT\)/.test(c), 'Zeile, Hinweis und Position brechen nach Spaltenbreite um (SA.blattZeilen, Verhalten unten getestet)');
   ok(/const bottom = a\.y \+ a\.h - 12;/.test(c) && /\(bottom - rect\.y - 6 - 11 - blk\.h - 4\)/.test(c), 'die Karte schrumpft so, dass der Block über der Frachtleiste (a.y + a.h - 12) endet');
 }
 
@@ -161,16 +160,115 @@ section('Einhängestellen im Quelltext');
   // ohne Ergebnis bleibt der Reiter unverändert: nur über scanAnsicht, kein Platzhalter
   ok(/const scan = this\.scanAnsicht\(away\);/.test(c) && /const blk = scan \? this\.scanMass\(scan, rect\.w\) : null;/.test(c) && /if \(blk\) \{ this\.scanZeichne\(/.test(c), 'capAwayV2: Block und Karten-Schrumpfen nur mit Ergebnissen (blk), sonst unveränderter Pfad');
   ok(/if \(!SA \|\| !away \|\| !Array\.isArray\(away\.sc\) \|\| !away\.sc\.length\) return null;/.test(c), 'ohne away.sc oder ohne Modul: null, keine Platzhalterzeile');
-  ok(/for \(const m of mp\.scanRects \|\| \[\]\)/.test(c) && /ScanAnzeige\.waehle\(m\.key\)/.test(c), 'awayMapClick: Marker-Treffer wählt den Fokus, der Befehl wird danach unverändert gesetzt');
-  ok(c.indexOf('ScanAnzeige.waehle(m.key)') < c.indexOf("if (kind === 'fokus') {", c.indexOf('awayMapClick(view')), 'awayMapClick: Marker-Wahl steht vor der Befehlsverzweigung, ersetzt aber keinen Zweig');
+  ok(/\(mp\.scanRects \|\| \[\]\)\.find/.test(c) && /ScanAnzeige\.waehle\(hitS\.key\); return true; \}/.test(c), 'awayMapClick: Marker-Treffer wählt nur den Fokus und kehrt zurück (Verhalten in test-scanner-client getestet)');
+  ok(c.indexOf('ScanAnzeige.waehle(hitS.key)') < c.indexOf("if (kind === 'fokus') {", c.indexOf('awayMapClick(view')), 'awayMapClick: Marker-Wahl steht vor der Befehlsverzweigung');
   ok(/scanRects, cell: c/.test(r) && /scanMarker\(st\)/.test(r), 'drawAwayCommandMap liefert scanRects und zeichnet scanMarker');
   ok((r.match(/drawScanMarkerBoden\(/g) || []).length === 3 && /report\('Render\.scanMarker2d'/.test(r) && /report\('Render\.scanMarker3d'/.test(r), 'Bodenmarker im 2D- und im Voxel-Pfad (beide hinter try/report)');
   ok(/for \(const m of scanMarker\(st\)\) \{ const mx = /.test(r), 'Bodenmarker auch in der Minikarte');
-  ok(/PAL\.ice/.test(r.slice(r.indexOf('function drawScanMarkerBoden'), r.indexOf('function drawScanMarkerBoden') + 900)), 'Bodenmarker in Eisblau (PAL.ice)');
+  const bodenQ = r.slice(r.indexOf('function drawScanMarkerBoden'), r.indexOf('function scanEckwinkel'));
+  ok(/PAL\.ice/.test(bodenQ) && /setLineDash\(\[3, 3\]\)/.test(bodenQ) && !/lineTo\(top/.test(bodenQ) && /SCAN_SCHWEBE = 14/.test(r), 'Bodenmarker: Eisblau, gestrichelter Ring ([3,3]), keine Säule, Raute 14 px über dem Ring (unterscheidet sich von der Flanke)');
+  const kartenQ = r.slice(r.indexOf('const scanRects = [];'), r.indexOf('// Außenteam', r.indexOf('const scanRects = [];')));
+  ok(!/arc\(/.test(kartenQ) && /scanEckwinkel\(ctx, s\.x, s\.y, 6\)/.test(r) && /m\.fokus \|\| m\.key === opts\.scanHover/.test(r), 'Karte: Fokus als vier Eckwinkel statt Kreis, Kürzel nur für Fokus und Hover');
   // Architektur: keine Stufenregel im Client
   ok(!/sk\s*(>=|>|<=|<|===|==)\s*[23]\b/.test(sa) && !/\.sk\s*(>=|>)\s*\d/.test(sa.replace(/hinweisAb/g, '')), 'scan-anzeige.js enthält keine feste Stufenregel (Position nur über x,y, Hinweis über hinweisAb aus dem Content)');
   ok(!/Math\.hypot|reichweite/.test(sa), 'keine Reichweitenrechnung im Client');
   ok(!/scantest|scanfertig/.test(c + r + sa), 'Debug-Kommandos kommen im Client-Code nicht vor');
+}
+
+section('Nacharbeit D2: Content-Längen (name <= 20, zeile <= 34, hinweis <= 100)');
+{
+  ok(SA.LIMIT.name === 20 && SA.LIMIT.zeile === 34 && SA.LIMIT.hinweis === 100, 'Grenzen im Modul: 20 / 34 / 100');
+  ok(/name höchstens 20/.test(DATEN._hinweis) && /zeile höchstens 34/.test(DATEN._hinweis) && /hinweis höchstens 100/.test(DATEN._hinweis), 'die Grenzen stehen im Feld _hinweis des Contents (JSON kennt keinen Kommentar)');
+  for (const [t, d] of Object.entries(Object.assign({}, DATEN.typen, { unbekannt: DATEN.unbekannt }))) {
+    ok(String(d.name).length <= SA.LIMIT.name && String(d.zeile).length <= SA.LIMIT.zeile && String(d.hinweis || '').length <= SA.LIMIT.hinweis, t + ': name ' + String(d.name).length + ' <= 20, zeile ' + String(d.zeile).length + ' <= 34, hinweis ' + String(d.hinweis || '').length + ' <= 100');
+  }
+}
+
+section('Nacharbeit D4: Sortierung (Gefahr absteigend, dann Stufe absteigend, stabil) und Fokus-Durchlauf');
+{
+  reset();
+  const D = { typen: { a: { name: 'A', gefahr: 0, zeile: 'z', hinweis: '', symbol: 'AA' }, b: { name: 'B', gefahr: 2, zeile: 'z', hinweis: '', symbol: 'BB' }, c: { name: 'C', gefahr: 3, zeile: 'z', hinweis: '', symbol: 'CC' } } };
+  const sc = [['1', 'x', 'a', 1], ['2', 'x', 'b', 1], ['3', 'x', 'c', 1], ['4', 'x', 'b', 3], ['5', 'x', 'a', 3], ['6', 'x', 'b', 3], ['7', 'x', 'a', 1]];
+  SA.beobachte(sc);
+  const ids = (v) => v.zeilen.map((z) => z.id).join('');
+  const alle = SA.ansicht(sc, 12, D);
+  ok(ids(alle) === '3462517', 'Gefahr 3 vor 2 vor 0; je Gefahr Stufe 3 vor 1; bei Gleichstand Lieferreihenfolge: ' + ids(alle) + ' (erwartet 3462517)');
+  ok(ids(SA.ansicht(sc, 12, D)) === ids(alle), 'gleicher Snapshot, gleiche Reihenfolge (stabil)');
+  // der Fokus hängt an der id: die Plätze verschieben sich, der Fokus bleibt auf seinem Eintrag
+  const sc2 = sc.concat([['8', 'x', 'c', 1]]);
+  SA.beobachte(sc2);
+  ok(SA.fokusKey() === 'x:8', 'neuer Eintrag wird Fokus (Regel unverändert)');
+  SA.waehle('x:2');
+  SA.beobachte(sc2);
+  const nach = SA.ansicht(sc2, 12, D);
+  ok(nach.fokus.id === '2' && ids(nach).indexOf('2') > ids(nach).indexOf('3'), 'der Fokus bleibt auf Eintrag 2 (Platz: ' + (ids(nach).indexOf('2') + 1) + ')');
+  // Durchlauf: jeder Eintrag erreichbar, vor und zurück, umlaufend
+  const ordnung = ids(SA.ansicht(sc2, 12, D)).split('').map((i) => 'x:' + i);
+  const besucht = [];
+  SA.waehle(ordnung[0]);
+  for (let i = 0; i < sc2.length; i++) { besucht.push(SA.fokusKey()); SA.fokusWeiter(sc2, 1, D); }
+  ok(new Set(besucht).size === sc2.length && besucht.join() === ordnung.join(), 'Taste vor: alle ' + sc2.length + ' Einträge in Listenreihenfolge (auch die hinter „+n weitere“)');
+  ok(SA.fokusKey() === ordnung[0], 'nach einer vollen Runde wieder am Anfang (umlaufend)');
+  SA.fokusWeiter(sc2, -1, D);
+  ok(SA.fokusKey() === ordnung[ordnung.length - 1], 'zurück vom ersten Eintrag: der letzte');
+  const rueck = [];
+  for (let i = 0; i < sc2.length; i++) { rueck.push(SA.fokusKey()); SA.fokusWeiter(sc2, -1, D); }
+  ok(new Set(rueck).size === sc2.length, 'Taste zurück: ebenfalls alle erreichbar');
+  // Fenster: der Fokus ist immer sichtbar, die Reihenfolge bleibt
+  let alleSichtbar = true, reihenfolge = true;
+  for (const k of ordnung) {
+    SA.waehle(k);
+    const v = SA.ansicht(sc2, 4, D);
+    if (!v.zeilen.includes(v.fokus) || v.zeilen.length !== 4 || v.rest !== sc2.length - 4) alleSichtbar = false;
+    const rang = v.zeilen.map((z) => ordnung.indexOf('x:' + z.id));
+    if (rang.some((r, i) => i && r <= rang[i - 1])) reihenfolge = false;
+  }
+  ok(alleSichtbar, 'bei 4 Zeilen und 8 Einträgen: jeder Fokus steht in der Liste, rest = 4');
+  ok(reihenfolge, 'die sichtbaren Zeilen behalten die Sortierreihenfolge (Fenster statt Austausch der letzten Zeile)');
+  ok(SA.fokusWeiter([], 1, D) === null && SA.fokusWeiter(undefined, -1, D) === null && !wirft(() => SA.fokusWeiter('x', 1, D)), 'ohne Einträge: kein Wurf, kein Fokus');
+  reset();
+}
+
+section('Nacharbeit D2: Datenblatt-Zeilen mit echten Texten (Position bleibt die letzte, unverkürzte Zeile)');
+{
+  const gut = (px) => (t) => String(t).length * px;
+  const REAL_H = 'Panzerung vorn, Schwachstelle am Rücken. Bäume und Felsen halten es auf.';
+  const LANG_H = 'Ein überlanger Regelhinweis, der weit mehr als hundert Zeichen hat und deshalb gekürzt werden muss, ohne die Positionszeile zu verdrängen. Wirklich.';
+  ok(REAL_H.length <= 100 && LANG_H.length >= 130, 'Testtexte: real ' + REAL_H.length + ' Zeichen, überlang ' + LANG_H.length);
+  const mk = (zeile, hinweis, pos) => ({ titel: 'X', gefahr: 1, zeile, hinweis, position: pos ? SA.blatt({ pos, name: 'X', gefahr: 1, zeile: '', hinweis: '' }, 32).position : SA.TXT_KEINE_POS, hatPosition: !!pos });
+  for (const px of [3.4, 4.9, 5.6, 7]) for (const SW of [100, 140, 160, 176]) {
+    for (const [zeile, h, pos] of [['Schweres Tier, jagt im Rudel.', REAL_H, null], ['Erzader mit hohem Reinheitsgrad', REAL_H, { x: 224, y: 96 }], ['Z'.repeat(34), LANG_H, { x: 1000, y: 2000 }], ['Kurz.', '', { x: 32, y: 32 }], ['Zwei Wörter', LANG_H, null]]) {
+      const b = mk(zeile, h, pos), m = gut(px);
+      const l = SA.blattZeilen(b, SW, m, SA.MAXL_BLATT);
+      const letzte = l[l.length - 1];
+      const hl = l.filter((q) => q.art === 'hinweis');
+      const fehler = [];
+      if (!l.length || l.length > SA.MAXL_BLATT) fehler.push('Zeilenzahl ' + l.length);
+      if (letzte.art !== 'pos' || letzte.text !== b.position) fehler.push('Position nicht die unverkürzte letzte Zeile');
+      if (l.filter((q) => q.art === 'pos').length !== 1) fehler.push('Position nicht genau einmal');
+      for (const q of l) { const bw = q.art === 'hinweis' ? SW - SA.HINWEIS_EINZUG : SW; if (q.art !== 'pos' && m(q.text) > bw) fehler.push('Zeile zu breit: ' + q.text); }
+      if (h && hl.join && hl.map((q) => q.text).join(' ') !== h && !hl[hl.length - 1].text.endsWith('…')) fehler.push('gekürzter Hinweis endet nicht mit …');
+      ok(!fehler.length, 'px ' + px + ', Breite ' + SW + ', „' + zeile.slice(0, 12) + '“, Hinweis ' + h.length + ' Z.: ' + (fehler.join('; ') || 'passt, Position zuletzt'));
+    }
+  }
+  const m = gut(4.9);
+  const l130 = SA.blattZeilen(mk('Panzer.', LANG_H, { x: 96, y: 64 }), 160, m, SA.MAXL_BLATT);
+  ok(l130[l130.length - 1].art === 'pos' && l130[l130.length - 1].text === 'Position: Feld 3 / 2' && /…$/.test(l130[l130.length - 2].text), 'Hinweis mit ' + LANG_H.length + ' Zeichen: Hinweis endet mit „…“, Position sichtbar und unverkürzt');
+  const lk = SA.blattZeilen(mk('Panzer.', 'Kurz und gut.', null), 160, m, SA.MAXL_BLATT);
+  ok(lk.map((q) => q.art).join() === 'zeile,hinweis,pos' && lk[1].text === 'Kurz und gut.' && lk[2].text === 'Position: erst ab Stufe 3', 'kurzer Hinweis bleibt ganz, „Position: erst ab Stufe 3“ in einer Zeile');
+  const lz = SA.blattZeilen(mk('A'.repeat(70), LANG_H, null), 100, m, 3);
+  ok(lz.length <= 3 && lz[lz.length - 1].art === 'pos', 'auch bei knapper Zeilenzahl (3) bleibt die Position, der Hinweis weicht');
+  ok(SA.blattZeilen(null, 100, m, 6).length === 0, 'ohne Datenblatt: keine Zeilen');
+  ok(SA.umbruch('Donaudampfschifffahrtsgesellschaftskapitän ' + 'x'.repeat(40), 60, gut(5)).every((q) => gut(5)(q) <= 60), 'umbruch: auch ein einzelnes zu langes Wort bleibt in der Breite');
+  ok(JSON.stringify(SA.umbruch('', 50, m)) === '[]' && !wirft(() => SA.umbruch(null, 50, m)), 'umbruch: leer/null ohne Wurf');
+}
+
+section('Nacharbeit D4: Tasten für das Datenblatt im Register');
+{
+  const t = read('public/js/tasten.js');
+  ok(/'captain\.aussen\.scanZurueck'[^\n]*\['PageUp'\], 'captain\.aussen'/.test(t) && /'captain\.aussen\.scanVor'[^\n]*\['PageDown'\], 'captain\.aussen'/.test(t), 'captain.aussen.scanZurueck (BildA) und scanVor (BildB) sind umbelegbare Aktionen im Reiter Außenteam');
+  const c = read('public/js/consoles.js');
+  ok(/code === 'PageUp' \|\| code === 'PageDown'\) \{ this\.scanFokusWeiter\(view, code === 'PageUp' \? -1 : 1\)/.test(c) && /aussenHilfeScan\(\)/.test(c), 'Consoles.keyDown (Reiter Außenteam) ruft scanFokusWeiter; die Hilfezeile nennt die Tasten aus dem Register');
 }
 
 console.log(fails ? '\n' + fails + ' FEHLER' : '\nalles ok');
