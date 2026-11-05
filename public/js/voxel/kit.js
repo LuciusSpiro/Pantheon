@@ -58,6 +58,7 @@ const ANKER_FB = {
   tor: [null, ['zu', 'offen', 'verschlossen', 'gesprengt']], raetsel: ['schloss', ['ruhe', 'gehalten', 'geloest']], aussicht: [null, []], nsc: [null, []],
   versteck: [null, ['zu', 'offen']], lift: ['lift', []], leiter: ['leiter', []],
   flagge: ['flagge', ['unten', 'gehisst']],   // EK6: Feldzeichen in der Platzmitte
+  abbau: ['erzader', ['da', 'laeuft', 'abgebaut', 'leer']],   // GEL-03 A2: Erzader (Reihenfolge = anker.json; maßgeblich ist der Datensatz, das hier ist der Rückfall)
 };
 // VOX-01 5a: baum, brustwehr und grabensohle haben eigene Kit-Teile (Bauweisen-Tabelle kits.baum/brustwehr/grabensohle, Zuordnung in kit-regeln.js).
 // Fehlt ein Modell, zeichnet placeKit den Platzhalter FB.baum / FB.deckung_halb / FB.boden (Rückfall wie bei allen Arten).
@@ -339,6 +340,8 @@ const FARB_FB = {
   // Leuchtrollen aus base (ART-PALETTEN B1): rune (Runenlicht), ember (Glut), alarm (Rot-Alarm), frost (Reif), leit (Leitstück/Ziel)
   rune: '#D4DEE6', rune_dim: '#9AA6AE', ember: '#FFCC7A', ember_dark: '#8A4A26', alarm: '#A82A2A', alarm_dark: '#6A2020',
   frost: '#DCE4E8', frost_dark: '#A8B4BC', leit: '#B48CFF',
+  // GEL-03 A2: Erzader (Platzhalter): Erz kupfrig-metallisch mit Patina-Blau, das Restgestein dunkel und kühl (deutlich anders als Höhlenfels und Erde)
+  erz: '#B9774F', erz_hell: '#DDA074', erz_patina: '#4F9FB4', erz_fels: '#4B4A48', erz_fels_hell: '#6E6B66',
 };
 function farben(pal, basePal) {
   const r = (pal && pal.roles) || {}, b = (basePal && basePal.roles) || {};
@@ -347,6 +350,7 @@ function farben(pal, basePal) {
 }
 
 // Platzhalter je Kit-Kind (lesbar, palettengefärbt, nie Magenta). p = Parameter wie beim echten Teil.
+const ERZ_HOEHLE_F = 3.0;   // GEL-03 A2: Helligkeitsfaktor der Erzader unter der Erde (nicht leuchtend), im Bild nachgemessen
 const STEIN_HOEHLE_F = { hell: 3.4, mitte: 3.8, dunkel: 12 };   // GEL-02 E: Helligkeitsfaktoren der Findlinge unter der Erde (nur ton hoehle), im Bild gemessen
 const FB = {
   boden(pen, p, F) {
@@ -700,6 +704,39 @@ const PROP_FB = {
   fund(pen, p, F) {
     pen.box(-0.35, 0, -0.35, 0.35, 0.85, 0.35, F.get('stone_light'), F.get('stone'));
     if ((p.state | 0) === 0) pen.box(-0.15, 0.85, -0.15, 0.15, 1.15, 0.15, F.get('ember', 1.4), null, { emit: true });
+  },
+  // GEL-03 A2: Erzader (Platzhalter, eine Kachel, Kollisionsbox = volle Kachel). Zustand 0 da: niedriger Felsblock (höchstens so hoch wie der Fund-Sockel, die Figur dahinter bleibt sichtbar)
+  // mit Kupfererz und Patina; 1 laeuft: Erz heller, Funken darüber (kleine Glut, Faktor <= 1,25); 2 abgebaut: kleiner, dunkler Resthaufen ohne Erz; 3 leer: kein Vorkommen, nichts gezeichnet.
+  abbau(pen, p, F) {
+    const st = p.state | 0;
+    if (st === 3) return;
+    const h = p.hoehle ? ERZ_HOEHLE_F : 1;   // nur die nicht leuchtenden Flächen; die Funken bleiben bei 1,25
+    const G = (n, f = 1) => F.get(n, f * h);
+    const fels = G('erz_fels_hell'), felsS = G('erz_fels');
+    if (st === 2) {   // Restgestein: flacher Haufen, kein Erz
+      pen.box(-0.38, 0, -0.34, 0.3, 0.2, 0.3, fels, felsS);
+      pen.box(0.04, 0.2, -0.22, 0.26, 0.3, 0.06, fels, felsS);
+      pen.box(0.3, 0, 0.0, 0.42, 0.1, 0.3, fels, felsS);
+      pen.box(-0.42, 0, 0.18, -0.26, 0.1, 0.34, fels, felsS);
+      return;
+    }
+    const an = st === 1;
+    const erz = G(an ? 'erz_hell' : 'erz', an ? 1.0 : 0.8), erzS = G('erz', an ? 0.8 : 0.6), blau = G('erz_patina', 0.62), blauS = G('erz_patina', 0.45);
+    pen.box(-0.46, 0, -0.42, 0.3, 0.34, 0.44, fels, felsS);   // Felsblock, stufig (niedriger als der Fund-Sockel)
+    pen.box(0.1, 0, -0.46, 0.46, 0.26, 0.2, fels, felsS);
+    pen.box(-0.4, 0.34, -0.3, 0.1, 0.48, 0.3, fels, felsS);
+    pen.box(-0.3, 0.48, -0.22, -0.14, 0.86, -0.06, erz, erzS);   // Kristalle und Zapfen aus Kupfererz, dazwischen blaue Patina
+    pen.box(-0.08, 0.48, 0.04, 0.08, 0.78, 0.2, erz, erzS);
+    pen.box(-0.3, 0.48, 0.08, -0.18, 0.66, 0.2, blau, blauS);
+    pen.box(0.16, 0.26, -0.34, 0.32, 0.7, -0.18, blau, blauS);
+    pen.box(0.22, 0.26, -0.08, 0.34, 0.5, 0.04, erz, erzS);
+    pen.box(-0.3, 0.1, 0.44, 0.2, 0.2, 0.47, erz, erzS);   // Erzader quer über der Vorderseite
+    pen.box(-0.1, 0.22, 0.44, 0.1, 0.3, 0.47, blau, blauS);
+    if (an) {
+      pen.box(-0.05, 0.9, -0.05, 0.07, 1.02, 0.07, F.get('ember', 1.25), null, { emit: true });
+      pen.box(0.18, 0.96, 0.18, 0.26, 1.04, 0.26, F.get('ember', 1.25), null, { emit: true });
+      pen.box(-0.26, 0.84, -0.18, -0.19, 0.91, -0.11, F.get('ember', 1.25), null, { emit: true });
+    }
   },
   raetsel(pen, p, F) {
     const st = p.state | 0;
@@ -1445,6 +1482,7 @@ async function bauKarte(parent, karteIn, opts) {
     o.params = () => {
       const nm = ankerName(a);
       const p = Object.assign({ state: Math.max(0, zst.indexOf(nm)), zustand: zKit, art: k.art, seed: seedOf(a.x, a.y) }, (pe || { fest: {} }).fest);
+      if (a.rolle === 'abbau' && unterErde(a.y)) p.hoehle = true;   // GEL-03 A2: unter der Erde hellt der Platzhalter die Matte auf (wie Boden und Findlinge, Stimmung hoehle)
       return p;
     };
   };

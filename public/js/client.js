@@ -1193,7 +1193,7 @@
     'fund:genommen': 'Fund geborgen', 'zelle:offen': 'Zelle geöffnet', 'raetsel:geloest': 'Schloss gelöst', 'tor:offen': 'Durchgang offen',
     'tor:gesprengt': 'Durchgang gesprengt', 'versteck:offen': 'Versteck geöffnet', 'ziel:genommen': 'Ziel genommen', 'ziel:aktiviert': 'Ziel aktiviert',
     'eingang:offen': 'Eingang offen', 'sprengpunkt:zerstoert': 'Sprengpunkt zerstört', 'sprengpunkt:platziert': 'Sprengstoff platziert', 'flagge:gehisst': 'Feldzeichen gehisst – Gegner von allen Seiten!',
-    'falle:erkannt': 'Falle erkannt', 'falle:entschaerft': 'Falle entschärft',   // ITM-01 E: ausgelöst sagt der Server selbst (Wirkungstext je Typ)
+    'falle:erkannt': 'Falle erkannt', 'falle:entschaerft': 'Falle entschärft', 'abbau:abgebaut': 'Ader abgebaut',   // ITM-01 E: ausgelöst sagt der Server selbst (Wirkungstext je Typ)
   };
   function playerName(id) { const p = ((Client.state && Client.state.players) || []).find(q => q.id === id); return p ? p.name : null; }
   function ankerRolle(mapId, id) { const m = Maps[mapId]; const a = m && m.anker && m.anker.find(q => q[0] === id); return a ? a[1] : ''; }
@@ -1629,6 +1629,11 @@
           if (z === 'frei' && st.away && Array.isArray(st.away.sp) && st.away.sp.includes(i)) return { label: 'Versiegelt', ok: false, versiegelt: true };   // SUND-04a-3: Schrein gesperrt (anker.js ankerSperre, Snapshot away.sp)
           return z === 'frei' ? { label: 'E halten (' + sec('ziel') + ')', ok: true } : { label: 'Erledigt', ok: false };
         case 'fund': return z === 'da' ? { label: 'E halten: Fund bergen (' + sec('fund') + ')', ok: true } : { label: 'Sockel leer', ok: false };
+        case 'abbau':   // GEL-03 A2: da bietet an, laeuft (ein Halter) ebenfalls: ein zweiter Spieler bekommt vom Server den Blocktext; abgebaut/leer bieten nichts an
+          if (z === 'laeuft' && (st.players || []).some(q => q.id !== m.id && q.zone === 'away' && q.action && q.action.kind === 'anker:abbau' && Math.hypot(q.x - (tx * TILE + TILE / 2), q.y - (ty * TILE + TILE / 2)) < TILE * 1.8)) return { label: 'Dort wird schon abgebaut.', ok: false };   // ein Halter je Ader: der Text des Servers (anker.js interactionsAt), der Halter steht neben der Ader
+          if (z === 'da' || z === 'laeuft') return { label: 'E halten: Erz abbauen (' + sec('abbau') + ', Treffer unterbricht)', ok: true };
+          if (z === 'abgebaut') return { label: 'Die Ader ist erschöpft', ok: false };
+          break;
         case 'falle':   // ITM-01 E: nur aus erkannt (wie server anker.js interactionsAt); verborgen, entschärft, ausgelöst bieten nichts an
           if (z === 'erkannt') return { label: 'E halten: Entschärfen (' + sec('falle') + ')', ok: true };
           break;

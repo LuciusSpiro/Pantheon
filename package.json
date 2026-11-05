@@ -346,6 +346,7 @@
     "test:fallen": "node tools/test-fallen.js",
     "test:fallen-mutation": "node tools/mutation-fallen.js",
     "test:abbau": "node tools/test-abbau.js",
+    "test:abbau-client": "node tools/test-abbau-client.js",
     "test:abbau-mutation": "node tools/mutation-abbau.js",
     "mess:fallen-tick": "node tools/mess-fallen-tick.js",
     "test:fallen-ids": "node tools/test-fallen-ids.js",
