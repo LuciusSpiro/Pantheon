@@ -2425,7 +2425,7 @@
       return text;
     },
     // Auswahlliste je Slot: null = leer, dahinter die Waffen (Protocol.WAFFEN_WAHL)
-    ausruestungWahl() { return [null].concat(this.waffenListe()); },
+    ausruestungWahl() { return [null].concat(this.waffenListe(), H.SLOT_ITEMS || []); },   // SCA-01 P3: Items (Scanner) stehen immer zur Wahl, auch ohne Scan-Ziele
     ausruestungGrund(id, slot) {   // Grund, warum id in Slot slot nicht geht (null = möglich); der Server prüft dasselbe
       const s = this.ausr.stand;
       if (!s) return 'Stand wird geladen';
@@ -2468,14 +2468,15 @@
         if (selekt) { ctx.strokeStyle = PAL.red; ctx.lineWidth = 2; ctx.strokeRect(17, y + 1, 298, 40); ctx.lineWidth = 1; }
         R.text(ctx, 'SLOT ' + (i + 1), 24, y + 5, { color: selekt ? PAL.red : PAL.brass });
         if (id) {
-          if (!(IB && IB.draw && IB.has && IB.has('waffe', id) && IB.draw(ctx, 'waffe', id, 48, y + 26, {}) !== false)) { ctx.fillStyle = PAL.star; ctx.fillRect(43, y + 22, 10, 8); }
+          if ((H.SLOT_ITEMS || []).includes(id) && window.Scanner) window.Scanner.symbol(ctx, 43, y + 22, PAL.ice);   // SCA-01 P3: Item-Symbol (die Waffen-Icons kennen keine Items)
+          else if (!(IB && IB.draw && IB.has && IB.has('waffe', id) && IB.draw(ctx, 'waffe', id, 48, y + 26, {}) !== false)) { ctx.fillStyle = PAL.star; ctx.fillRect(43, y + 22, 10, 8); }
           R.text(ctx, this.ausruestungName(id), 70, y + 22, { color: PAL.star, scale: 1 });
         } else R.text(ctx, 'leer', 70, y + 22, { color: PAL.panelLight });
         y += 48;
       }
       const linksEnde = y;
       // Aktive Waffe am Boden = erste Waffe der Slots (Paket A); ohne Waffe Fäuste
-      const aktiv = s.slots.find(x => !!x) || null;
+      const aktiv = s.slots.find(x => !!x && !(H.SLOT_ITEMS || []).includes(x)) || null;   // SCA-01 P3: ein Item ist nie die aktive Waffe
       y += 4;
       if (aktiv) R.text(ctx, 'Am Boden aktiv: ' + ((H.WAFFE_KURZ || {})[aktiv] || aktiv), 16, y, { color: PAL.mint });
       else R.text(ctx, 'Kein Waffen-Slot = Fäuste.', 16, y, { color: PAL.amber });
@@ -2493,11 +2494,15 @@
         if (i === a.cur) rahmen(x0 + 12, ry, w - 12, 20, a.fokus === 'waffe' ? PAL.star : '#6B7380');   // Cursor = heller Zeilenrahmen, Mint bleibt die Belegung
         ry += 24;
       });
+      // SCA-01 P3: Beschreibung des Items unter dem Cursor (bzw. des Items im gewählten Slot), wenn die Zeile ein Item ist
+      const infoId = wahl[a.cur] && (H.ITEM_INFO || {})[wahl[a.cur]] ? wahl[a.cur] : null;
+      let fy = ry + 6;
+      if (infoId) for (const l of R.wrap(H.ITEM_INFO[infoId], w, 1)) { R.text(ctx, l, x0, fy, { color: PAL.ice }); fy += 10; }
       // Fokus: Rahmen um die Spalte, in der die Pfeiltasten wirken
       if (a.fokus === 'slot') rahmen(12, 42, 308, linksEnde - 42 - 2, PAL.brass); else rahmen(x0 - 4, 42, w + 8, ry - 42 + 2, PAL.brass);
       // Serverfehler direkt unter der Waffenliste
-      if (a.fehler && now - a.fehlerT < 8000) for (const [k, l] of R.wrap(a.fehler, w, 1).entries()) R.text(ctx, l, x0, ry + 6 + k * 10, { color: PAL.red });
-      return '←→ Spalte · ↑↓ wählen · Enter belegen · 1–6 direkt · 0/Entf leeren';   // „Esc verlassen“ hängt der Rahmen selbst an
+      if (a.fehler && now - a.fehlerT < 8000) for (const [k, l] of R.wrap(a.fehler, w, 1).entries()) R.text(ctx, l, x0, fy + (infoId ? 2 : 0) + k * 10, { color: PAL.red });
+      return '←→ Spalte · ↑↓ wählen · Enter belegen · 1–7 direkt · 0/Entf leeren';   // „Esc verlassen“ hängt der Rahmen selbst an
     },
     ausruestungTaste(code, view) {
       const a = this.ausr, s = a.stand;
