@@ -50,6 +50,9 @@ function quelltext() {
   const faktoren = [...ab.matchAll(/F\.get\('ember', ([0-9.]+)\)/g)].map((m) => +m[1]);
   ok(faktoren.length === 3 && Math.max(...faktoren) <= 1.25, `kit.js: die Funken (einzige leuchtende Flaechen der Erzader) liegen nicht ueber Faktor 1,25 (${faktoren.join(', ')})`);
   ok((ab.match(/emit: true/g) || []).length === 3, 'kit.js: nur die drei Funken leuchten (emit), Erz und Fels nicht');
+  ok(/inv\.erz > 0\) items\.push\('erz'\)/.test(hud) && /erz: 'Erz'/.test(hud), 'hud.js: Lagerzeile zeigt Erz (nur wenn inventory.erz > 0)');
+  ok(/away\.ab\)/.test(client) && !/Math\.hypot\(q\.x - \(tx/.test(client), 'client.js: fremder Halter aus away.ab, keine Abstandsheuristik mehr');
+  ok(/'sechseck'/.test(render) && /m\.art === 'erz'/.test(render), 'render.js: Scan-Marker der Erzader als Sechseck');
   ok(/blk\.abbau/.test(render) && /!== 'leer'/.test(render), 'render.js: Kollisionsspiegel der Erzader (ausser leer)');
 }
 
@@ -199,13 +202,22 @@ async function mitBrowser(k) {
     ok(pr2 && pr2.meshes > 0 && pr2.box.x0 >= -0.51 && pr2.box.x1 <= 0.51 && pr2.box.z0 >= -0.51 && pr2.box.z1 <= 0.51 && pr2.box.y1 <= 1.1 + 1e-6, `laeuft: Prop innerhalb der Kachel, hoechstens 1,1 m mit Funken (${pr2 && pr2.box.y1.toFixed(2)} m)`);
     ok(pr2 && MESS.da && pr2.tris > MESS.da.tris, `laeuft hat zusaetzlich die Funken (${pr2 && pr2.tris} > ${MESS.da && MESS.da.tris} Dreiecke)`);
     ok(await clientSolid(a2.x, a2.y) === true && !!awaySolid()(a2.x, a2.y) === true, 'laeuft: Kollision Client und Server fest');
-    // fremder Halter: ein zweiter Spieler (Kopie des Snapshots) haelt mit action anker:abbau neben dieser Ader -> der Text des Servers
-    const fremd = await page.evaluate(([x, y]) => {
-      const st = __game.state, m = st.players.find((p) => p.id === __game.pid);
-      const kopie = Object.assign({}, st, { players: st.players.concat([{ id: 'fremd', zone: 'away', x: x * 32 + 16, y: (y + 1) * 32 + 16, action: { kind: 'anker:abbau', progress: 0.3 } }]) });
-      return __game.client.interactionAt(kopie, m, x, y, 'away', false);
-    }, [a2.x, a2.y]);
-    ok(fremd && fremd.label === 'Dort wird schon abgebaut.' && fremd.ok === false, 'fremder Halter an der Ader: "' + (fremd && fremd.label) + '" (Text des Servers)');
+    // fremder Halter (GEL-03 N2): Quelle ist away.ab = [[Ankerindex, Spieler-ID]] aus dem Server-Snapshot, nicht der Abstand. Kopie des Snapshots: zwei Adern laufen (a1, a2), nur a2 hat den
+    // Halter 'fremd'; die Figur 'fremd' steht dabei neben a1 (die alte Abstandsheuristik haette dort den Hinweis gezeigt). Nur an a2 steht der Fremd-Hinweis.
+    const fremd = await page.evaluate(([x1, y1, x2, y2]) => {
+      const st = __game.state, m = st.players.find((p) => p.id === __game.pid), map = Shared_Maps[st.away.map];
+      const i1 = map.anker.findIndex((a) => a[2] === x1 && a[3] === y1), i2 = map.anker.findIndex((a) => a[2] === x2 && a[3] === y2);
+      const ao = (st.away.ao || []).filter((e) => e[0] !== i1 && e[0] !== i2).concat([[i1, 1], [i2, 1]]);   // Zustandsindex 1 = laeuft
+      const kopie = (ab) => Object.assign({}, st, { away: Object.assign({}, st.away, { ao, ab }), players: st.players.concat([{ id: 'fremd', zone: 'away', x: x1 * 32 + 16, y: (y1 + 1) * 32 + 16, action: { kind: 'anker:abbau', progress: 0.3 } }]) });
+      const t = (k, x, y) => __game.client.interactionAt(k, m, x, y, 'away', false);
+      return { an2: t(kopie([[i2, 'fremd']]), x2, y2), an1: t(kopie([[i2, 'fremd']]), x1, y1), ohne: t(kopie(undefined), x2, y2), eigener: t(kopie([[i2, m.id]]), x2, y2) };
+    }, [a1.x, a1.y, a2.x, a2.y]);
+    ok(fremd.an2 && fremd.an2.label === 'Dort wird schon abgebaut.' && fremd.an2.ok === false, 'fremder Halter an a2 (away.ab): "' + (fremd.an2 && fremd.an2.label) + '" (Text des Servers)');
+    ok(fremd.an1 && fremd.an1.ok === true && /E halten/.test(fremd.an1.label), 'zweite Ader nebenan ohne Halter: kein Fremd-Hinweis, obwohl die fremde Figur daneben steht (' + (fremd.an1 && fremd.an1.label) + ')');
+    ok(fremd.ohne && fremd.ohne.ok === true, 'ohne away.ab (kein Halter bekannt): kein Fremd-Hinweis, der Server entscheidet');
+    ok(fremd.eigener && fremd.eigener.ok === true, 'away.ab nennt mich selbst: weiter E halten');
+    const abEcht = await page.evaluate(() => (__game.state.away || {}).ab || null), pidEcht = await page.evaluate(() => __game.pid);
+    ok(Array.isArray(abEcht) && abEcht.length === 1 && abEcht[0][1] === pidEcht, 'echter Snapshot waehrend des eigenen Haltens: away.ab = ' + JSON.stringify(abEcht));
     const eigen = await hinweis(a2);
     ok(eigen && eigen.ok === true, 'Halten: eigener Halter sieht weiter "E halten" (' + (eigen && eigen.label) + ')');
     await page.evaluate(() => __game.send({ t: 'act', down: false }));
