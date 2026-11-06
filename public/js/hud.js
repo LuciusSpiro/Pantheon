@@ -685,6 +685,7 @@
           if (a[1] === 'terminal' && z === 'laedt') c.laedt = true;
         });
         if (!away.oz) for (const r of Object.keys(cnt)) lines.push([(R.ANKER_NAME[r] || r) + ': ' + cnt[r][0] + '/' + cnt[r][1] + (cnt[r].laedt ? ' · lädt' : ''), cnt[r][0] === cnt[r][1] ? PAL.mint : PAL.star]);
+        if ((st.inventory && st.inventory.erz) > 0) lines.push(['Erz: ' + st.inventory.erz, PAL.star]);   // GEL-03 Nacharbeit HUD: Lager-Erz im Boden-HUD unter dem Zielzähler (Snapshot inventory.erz nur wenn > 0)
         if (pins.length) lines.push(['Plan-Pins: ' + pins.length, PAL.panelLight]);
         if (lines.length) {
           hy = VH - map.h * mc - 12 - lines.length * 10;
@@ -967,7 +968,9 @@
     drawInteraction(ctx, view) {
       const ia = view.interaction;
       const me = view.me;
-      if (ia) {
+      // GEL-03 Nacharbeit HUD: läuft mein Abbau, zeigt der Fortschrittsring (unten) den Stand: der Hinweistext darunter verschwindet, statt vom Ring überdeckt zu werden
+      const abbauHaelt = !!(me && me.action && me.action.kind === 'anker:abbau');
+      if (ia && !abbauHaelt) {
         const v3 = !!(R.overlay3d && R.overlay3d.on);
         // M4/QA: in 3D über dem Objekt (≈ Socket label, 2,1 m), sonst verdeckt der Hinweis die Figur davor
         const s = v3 ? R.worldToScreen(ia.tx * TILE + 16, ia.ty * TILE + 16, 2.1) : R.worldToScreen(ia.tx * TILE + 16, ia.ty * TILE);

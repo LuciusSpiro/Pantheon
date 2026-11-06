@@ -194,12 +194,19 @@ async function mitBrowser(k) {
     abschnitt('Halten (E) an einer Ader: Fortschritt, Zustand, Loslassen, Vollendung');
     setze('abbau.2', 'da'); await warte('da', 'abbau.2');
     platz(a2.x, a2.y - 1, 'down'); await sleep(800);
+    // HUD-Texte mitschreiben (Render.text): Boden-HUD "Erz: n" und Hinweis waehrend des Haltens
+    await page.evaluate(() => { window.__texte = []; const t0 = Render.text; Render.text = function (c, s) { if (window.__texte.length < 4000) window.__texte.push(String(s)); return t0.apply(this, arguments); }; });
+    const texte = async () => { await page.evaluate(() => { window.__texte = []; }); await sleep(400); return page.evaluate(() => window.__texte.slice()); };
+    const t0 = await texte();
+    ok(t0.some((t) => /^Erzader: \d+\/\d+/.test(t)) && !t0.some((t) => /^Erz: /.test(t)), 'Boden-HUD ohne Erz im Lager: Zielzaehler da, "Erz: n" nicht (' + t0.filter((t) => /^Erz/.test(t)).join(' | ') + ')');
     await page.evaluate(() => __game.send({ t: 'act', down: true }));
     let aktion = null;
     for (let i = 0; i < 40 && !(aktion && aktion.progress > 0.15); i++) { await sleep(100); aktion = (await page.evaluate(IM_BROWSER.ich)).action; }
     ok(aktion && aktion.kind === 'anker:abbau' && aktion.progress > 0, `Halten: Aktion ${JSON.stringify(aktion)} (Fortschritt kommt vom Server, Beschriftung ABBAUEN)`);
     ok(await warte('laeuft', 'abbau.2'), 'Halten: Ader im Zustand laeuft');
     await page.screenshot({ path: path.join(OUT, 'abbau-laeuft.png') });   // mit Fortschrittsbalken
+    const t2 = await texte();
+    ok(!t2.some((t) => /^E halten: Erz abbauen/.test(t)), 'Halten: Hinweistext "E halten: Erz abbauen" wird nicht gezeichnet (Ring bleibt frei) (' + t2.filter((t) => /Erz/.test(t)).join(' | ') + ')');
     const pr2 = await page.evaluate(IM_BROWSER.prop, { id: 'abbau.2' });
     MESS.laeuft = pr2;
     ok(pr2 && pr2.meshes > 0 && pr2.box.x0 >= -0.51 && pr2.box.x1 <= 0.51 && pr2.box.z0 >= -0.51 && pr2.box.z1 <= 0.51 && pr2.box.y1 <= 1.1 + 1e-6, `laeuft: Prop innerhalb der Kachel, hoechstens 1,1 m mit Funken (${pr2 && pr2.box.y1.toFixed(2)} m)`);
@@ -241,6 +248,10 @@ async function mitBrowser(k) {
     const h2 = await hinweis(a2);
     ok(h2 && h2.label === 'Die Ader ist ersch\u00f6pft' && h2.ok === false, 'abgebaut: "' + (h2 && h2.label) + '"');
     const aufg = path.join(OUT, 'abbau-abgebaut-nach-halten.png'); await page.screenshot({ path: aufg });
+    const t3 = await texte();
+    const erzSnap = await page.evaluate(() => (__game.state.inventory || {}).erz || 0);
+    ok(erzSnap > 0 && t3.includes('Erz: ' + erzSnap), 'Boden-HUD mit Erz im Lager: "Erz: ' + erzSnap + '" gezeichnet (' + t3.filter((t) => /^Erz/.test(t)).join(' | ') + ')');
+    
 
     ok(fehler.length === 0, `keine Konsolenfehler, keine Loader-Warnungen (${fehler.length}${fehler[0] ? ': ' + fehler[0] : ''})`);
     const kit1 = await page.evaluate(IM_BROWSER.kit);
