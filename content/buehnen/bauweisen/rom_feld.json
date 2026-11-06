@@ -158,10 +158,10 @@
   },
   "anker": {
     "falle": {
-      "schott": "ort/rom/gemein/bake",
-      "druck": "ort/rom/gemein/verteiler",
-      "schuss": "ort/rom/station/pumpe",
-      "*": "ort/rom/gemein/bake"
+      "schott": "ort/rom/gemein/falle_schott",
+      "druck": "ort/rom/gemein/falle_druck",
+      "schuss": "ort/rom/gemein/falle_schuss",
+      "*": "ort/rom/gemein/falle_schott"
     },
     "terminal": {
       "station": "ort/rom/gemein/terminal",

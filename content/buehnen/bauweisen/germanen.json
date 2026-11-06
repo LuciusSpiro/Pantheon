@@ -253,10 +253,10 @@
   },
   "anker": {
     "falle": {
-      "schott": "prop/germanen/gemein/decal_runen",
-      "druck": "ort/germanen/aussenposten/streu_glutleitung",
-      "schuss": "prop/germanen/aussenposten/schuerfgeraet",
-      "*": "prop/germanen/gemein/decal_runen"
+      "schott": "ort/germanen/gemein/falle_schott",
+      "druck": "ort/germanen/gemein/falle_druck",
+      "schuss": "ort/germanen/gemein/falle_schuss",
+      "*": "ort/germanen/gemein/falle_schott"
     },
     "terminal": {
       "station": "ort/germanen/gemein/terminal",

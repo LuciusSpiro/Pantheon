@@ -1,0 +1,365 @@
+{
+  "team": "ort-fallen",
+  "assets": [
+    {
+      "id": "ort/germanen/gemein/falle_schott",
+      "kind": "model",
+      "tier": "detail",
+      "palette": "nord",
+      "footprint": [
+        1,
+        1
+      ],
+      "height": 0.15,
+      "facing": "+z",
+      "params": {
+        "state": [
+          0,
+          3
+        ]
+      },
+      "states": {
+        "erkannt": {
+          "state": 1
+        },
+        "entschaerft": {
+          "state": 2
+        },
+        "ausgeloest": {
+          "state": 3
+        }
+      },
+      "sockets": {
+        "use": [
+          0,
+          0,
+          0.5
+        ],
+        "label": [
+          0,
+          0.45,
+          0
+        ],
+        "fx_spark": [
+          0,
+          0.13,
+          0
+        ],
+        "fx_smoke": [
+          0,
+          0.2,
+          0
+        ]
+      },
+      "tint": [],
+      "budgetTris": 600,
+      "tags": [
+        "prop",
+        "anker",
+        "falle",
+        "schott",
+        "germanen"
+      ]
+    },
+    {
+      "id": "ort/germanen/gemein/falle_druck",
+      "kind": "model",
+      "tier": "detail",
+      "palette": "nord",
+      "footprint": [
+        1,
+        1
+      ],
+      "height": 0.4,
+      "facing": "+z",
+      "params": {
+        "state": [
+          0,
+          3
+        ]
+      },
+      "states": {
+        "erkannt": {
+          "state": 1
+        },
+        "entschaerft": {
+          "state": 2
+        },
+        "ausgeloest": {
+          "state": 3
+        }
+      },
+      "sockets": {
+        "use": [
+          0,
+          0,
+          0.5
+        ],
+        "label": [
+          0,
+          0.6,
+          0
+        ],
+        "fx_spark": [
+          0,
+          0.2,
+          0
+        ],
+        "fx_smoke": [
+          0,
+          0.38,
+          0
+        ]
+      },
+      "tint": [],
+      "budgetTris": 800,
+      "tags": [
+        "prop",
+        "anker",
+        "falle",
+        "druck",
+        "germanen"
+      ]
+    },
+    {
+      "id": "ort/germanen/gemein/falle_schuss",
+      "kind": "model",
+      "tier": "detail",
+      "palette": "nord",
+      "footprint": [
+        1,
+        1
+      ],
+      "height": 1,
+      "facing": "+z",
+      "params": {
+        "state": [
+          0,
+          3
+        ]
+      },
+      "states": {
+        "erkannt": {
+          "state": 1
+        },
+        "entschaerft": {
+          "state": 2
+        },
+        "ausgeloest": {
+          "state": 3
+        }
+      },
+      "sockets": {
+        "use": [
+          0,
+          0,
+          0.5
+        ],
+        "label": [
+          0,
+          1.3,
+          0
+        ],
+        "fx_spark": [
+          0,
+          0.8,
+          0.45
+        ],
+        "fx_smoke": [
+          0,
+          1,
+          0
+        ]
+      },
+      "tint": [],
+      "budgetTris": 1500,
+      "tags": [
+        "prop",
+        "anker",
+        "falle",
+        "schuss",
+        "germanen"
+      ]
+    },
+    {
+      "id": "ort/rom/gemein/falle_schott",
+      "kind": "model",
+      "tier": "detail",
+      "palette": "rom",
+      "footprint": [
+        1,
+        1
+      ],
+      "height": 0.15,
+      "facing": "+z",
+      "params": {
+        "state": [
+          0,
+          3
+        ]
+      },
+      "states": {
+        "erkannt": {
+          "state": 1
+        },
+        "entschaerft": {
+          "state": 2
+        },
+        "ausgeloest": {
+          "state": 3
+        }
+      },
+      "sockets": {
+        "use": [
+          0,
+          0,
+          0.5
+        ],
+        "label": [
+          0,
+          0.45,
+          0
+        ],
+        "fx_spark": [
+          0,
+          0.13,
+          0
+        ],
+        "fx_smoke": [
+          0,
+          0.2,
+          0
+        ]
+      },
+      "tint": [],
+      "budgetTris": 600,
+      "tags": [
+        "prop",
+        "anker",
+        "falle",
+        "schott",
+        "rom"
+      ]
+    },
+    {
+      "id": "ort/rom/gemein/falle_druck",
+      "kind": "model",
+      "tier": "detail",
+      "palette": "rom",
+      "footprint": [
+        1,
+        1
+      ],
+      "height": 0.4,
+      "facing": "+z",
+      "params": {
+        "state": [
+          0,
+          3
+        ]
+      },
+      "states": {
+        "erkannt": {
+          "state": 1
+        },
+        "entschaerft": {
+          "state": 2
+        },
+        "ausgeloest": {
+          "state": 3
+        }
+      },
+      "sockets": {
+        "use": [
+          0,
+          0,
+          0.5
+        ],
+        "label": [
+          0,
+          0.6,
+          0
+        ],
+        "fx_spark": [
+          0,
+          0.2,
+          0
+        ],
+        "fx_smoke": [
+          0,
+          0.38,
+          0
+        ]
+      },
+      "tint": [],
+      "budgetTris": 800,
+      "tags": [
+        "prop",
+        "anker",
+        "falle",
+        "druck",
+        "rom"
+      ]
+    },
+    {
+      "id": "ort/rom/gemein/falle_schuss",
+      "kind": "model",
+      "tier": "detail",
+      "palette": "rom",
+      "footprint": [
+        1,
+        1
+      ],
+      "height": 1,
+      "facing": "+z",
+      "params": {
+        "state": [
+          0,
+          3
+        ]
+      },
+      "states": {
+        "erkannt": {
+          "state": 1
+        },
+        "entschaerft": {
+          "state": 2
+        },
+        "ausgeloest": {
+          "state": 3
+        }
+      },
+      "sockets": {
+        "use": [
+          0,
+          0,
+          0.5
+        ],
+        "label": [
+          0,
+          1.3,
+          0
+        ],
+        "fx_spark": [
+          0,
+          0.8,
+          0.45
+        ],
+        "fx_smoke": [
+          0,
+          1,
+          0
+        ]
+      },
+      "tint": [],
+      "budgetTris": 1500,
+      "tags": [
+        "prop",
+        "anker",
+        "falle",
+        "schuss",
+        "rom"
+      ]
+    }
+  ]
+}

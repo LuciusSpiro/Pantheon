@@ -1,0 +1,650 @@
+{
+ "id": "ort/germanen/gemein/falle_schott",
+ "name": "Falle Schott (Germanen): flache Eisenplatte mit quadratischem Auge; erkannt = rotes Auge im dunklen Rahmen, entschärft = Loch mit Deckel daneben, ausgelöst = verkohlt, Loch schwarz",
+ "tier": "detail",
+ "palette": "nord",
+ "jitter": 0,
+ "tags": [
+  "prop",
+  "anker",
+  "falle",
+  "schott",
+  "germanen"
+ ],
+ "footprint": [
+  1,
+  1
+ ],
+ "params": {
+  "state": {
+   "default": 1,
+   "min": 0,
+   "max": 3,
+   "step": 1,
+   "label": "Zustand (0 verborgen, 1 erkannt, 2 entschärft, 3 ausgelöst)"
+  }
+ },
+ "variants": {
+  "verborgen": {
+   "state": 0
+  },
+  "erkannt": {
+   "state": 1
+  },
+  "entschaerft": {
+   "state": 2
+  },
+  "ausgeloest": {
+   "state": 3
+  }
+ },
+ "ops": [
+  {
+   "op": "box",
+   "name": "Platte",
+   "at": [
+    -7,
+    0,
+    -7
+   ],
+   "size": [
+    14,
+    1,
+    14
+   ],
+   "color": "metal"
+  },
+  {
+   "op": "box",
+   "name": "Fase Ecke",
+   "at": [
+    -7,
+    0,
+    -7
+   ],
+   "size": [
+    2,
+    1,
+    1
+   ],
+   "color": "metal",
+   "mode": "carve",
+   "mirror": "xz",
+   "mirrorAt": {
+    "x": -0.5,
+    "z": -0.5
+   }
+  },
+  {
+   "op": "box",
+   "name": "Fase Ecke 2",
+   "at": [
+    -7,
+    0,
+    -7
+   ],
+   "size": [
+    1,
+    1,
+    2
+   ],
+   "color": "metal",
+   "mode": "carve",
+   "mirror": "xz",
+   "mirrorAt": {
+    "x": -0.5,
+    "z": -0.5
+   }
+  },
+  {
+   "op": "box",
+   "name": "Planke",
+   "at": [
+    -3,
+    0,
+    -7
+   ],
+   "size": [
+    1,
+    1,
+    14
+   ],
+   "color": "metal_light",
+   "mode": "paint",
+   "mirror": "x",
+   "mirrorAt": -0.5
+  },
+  {
+   "op": "box",
+   "name": "Niet",
+   "at": [
+    -6,
+    1,
+    -6
+   ],
+   "size": [
+    1,
+    1,
+    1
+   ],
+   "color": "copper",
+   "mirror": "xz",
+   "mirrorAt": {
+    "x": -0.5,
+    "z": -0.5
+   }
+  },
+  {
+   "op": "box",
+   "name": "Bruch hinten",
+   "at": [
+    2,
+    0,
+    -7
+   ],
+   "size": [
+    4,
+    1,
+    1
+   ],
+   "color": "metal",
+   "mode": "carve",
+   "if": "state == 3"
+  },
+  {
+   "op": "box",
+   "name": "Bruch links",
+   "at": [
+    -7,
+    0,
+    0
+   ],
+   "size": [
+    1,
+    1,
+    4
+   ],
+   "color": "metal",
+   "mode": "carve",
+   "if": "state == 3"
+  },
+  {
+   "op": "box",
+   "name": "Bruch rechts",
+   "at": [
+    6,
+    0,
+    1
+   ],
+   "size": [
+    1,
+    1,
+    3
+   ],
+   "color": "metal",
+   "mode": "carve",
+   "if": "state == 3"
+  },
+  {
+   "op": "box",
+   "name": "Bruch vorn",
+   "at": [
+    -5,
+    0,
+    6
+   ],
+   "size": [
+    3,
+    1,
+    1
+   ],
+   "color": "metal",
+   "mode": "carve",
+   "if": "state == 3"
+  },
+  {
+   "op": "box",
+   "name": "Bruch vorn rechts",
+   "at": [
+    4,
+    0,
+    5
+   ],
+   "size": [
+    2,
+    1,
+    2
+   ],
+   "color": "metal",
+   "mode": "carve",
+   "if": "state == 3"
+  },
+  {
+   "op": "box",
+   "name": "Ruß Platte",
+   "at": [
+    -7,
+    0,
+    -7
+   ],
+   "size": [
+    14,
+    2,
+    14
+   ],
+   "color": {
+    "noise": [
+     {
+      "shade": "metal_dark",
+      "f": 0.78
+     },
+     {
+      "shade": "metal_dark",
+      "f": 0.55
+     }
+    ],
+    "weights": [
+     1,
+     1
+    ],
+    "cell": 1
+   },
+   "mode": "paint",
+   "if": "state == 3"
+  },
+  {
+   "op": "box",
+   "name": "Ruß Niete",
+   "at": [
+    -6,
+    1,
+    -6
+   ],
+   "size": [
+    1,
+    1,
+    1
+   ],
+   "color": {
+    "noise": [
+     {
+      "shade": "metal_dark",
+      "f": 0.5
+     },
+     {
+      "shade": "dark",
+      "f": 1
+     }
+    ],
+    "weights": [
+     1,
+     1
+    ],
+    "cell": 1
+   },
+   "mode": "paint",
+   "if": "state == 3",
+   "mirror": "xz",
+   "mirrorAt": {
+    "x": -0.5,
+    "z": -0.5
+   }
+  },
+  {
+   "op": "box",
+   "name": "Naht",
+   "at": [
+    -3,
+    0,
+    -3
+   ],
+   "size": [
+    6,
+    1,
+    6
+   ],
+   "color": {
+    "frame": "metal_dark",
+    "fill": "metal",
+    "axes": "xz",
+    "width": 1
+   },
+   "mode": "paint",
+   "if": "state == 0"
+  },
+  {
+   "op": "box",
+   "name": "Rahmen",
+   "at": [
+    -4,
+    0,
+    -4
+   ],
+   "size": [
+    8,
+    2,
+    8
+   ],
+   "color": "falle_dunkel",
+   "if": "state == 1",
+   "jitter": false
+  },
+  {
+   "op": "box",
+   "name": "Auge",
+   "at": [
+    -3,
+    0,
+    -3
+   ],
+   "size": [
+    6,
+    2,
+    6
+   ],
+   "color": {
+    "role": "falle",
+    "emit": 1.1
+   },
+   "if": "state == 1",
+   "jitter": false
+  },
+  {
+   "op": "box",
+   "name": "Kern",
+   "at": [
+    -2,
+    1,
+    -2
+   ],
+   "size": [
+    4,
+    1,
+    4
+   ],
+   "color": {
+    "role": "falle_kern",
+    "emit": 1.3
+   },
+   "if": "state == 1",
+   "jitter": false
+  },
+  {
+   "op": "box",
+   "name": "Lochrand",
+   "at": [
+    -4,
+    0,
+    -4
+   ],
+   "size": [
+    8,
+    1,
+    8
+   ],
+   "color": "metal_dark",
+   "mode": "paint",
+   "if": "state == 2"
+  },
+  {
+   "op": "box",
+   "name": "Loch",
+   "at": [
+    -3,
+    0,
+    -3
+   ],
+   "size": [
+    6,
+    1,
+    6
+   ],
+   "color": {
+    "shade": "dark",
+    "f": 0.3
+   },
+   "mode": "paint",
+   "if": "state == 2",
+   "jitter": false
+  },
+  {
+   "op": "box",
+   "name": "Deckel",
+   "at": [
+    3,
+    1,
+    3
+   ],
+   "size": [
+    4,
+    1,
+    4
+   ],
+   "color": "metal_light",
+   "if": "state == 2"
+  },
+  {
+   "op": "box",
+   "name": "Deckel Niet",
+   "at": [
+    4,
+    1,
+    4
+   ],
+   "size": [
+    2,
+    1,
+    2
+   ],
+   "color": "copper_dark",
+   "mode": "paint",
+   "if": "state == 2"
+  },
+  {
+   "op": "box",
+   "name": "Loch ausgelöst",
+   "at": [
+    -3,
+    0,
+    -3
+   ],
+   "size": [
+    6,
+    1,
+    6
+   ],
+   "color": {
+    "shade": "dark",
+    "f": 0.3
+   },
+   "mode": "paint",
+   "if": "state == 3",
+   "jitter": false
+  },
+  {
+   "op": "box",
+   "name": "Loch ausgelöst links",
+   "at": [
+    -4,
+    0,
+    -2
+   ],
+   "size": [
+    1,
+    1,
+    4
+   ],
+   "color": {
+    "shade": "dark",
+    "f": 0.3
+   },
+   "mode": "paint",
+   "if": "state == 3",
+   "jitter": false
+  },
+  {
+   "op": "box",
+   "name": "Loch ausgelöst rechts",
+   "at": [
+    3,
+    0,
+    -3
+   ],
+   "size": [
+    1,
+    1,
+    5
+   ],
+   "color": {
+    "shade": "dark",
+    "f": 0.3
+   },
+   "mode": "paint",
+   "if": "state == 3",
+   "jitter": false
+  },
+  {
+   "op": "box",
+   "name": "Schutt",
+   "at": [
+    -4,
+    1,
+    -4
+   ],
+   "size": [
+    2,
+    1,
+    2
+   ],
+   "color": {
+    "noise": [
+     {
+      "shade": "metal_dark",
+      "f": 0.5
+     },
+     {
+      "shade": "dark",
+      "f": 1
+     }
+    ],
+    "weights": [
+     1,
+     1
+    ],
+    "cell": 1
+   },
+   "if": "state == 3"
+  },
+  {
+   "op": "box",
+   "name": "Schutt 2",
+   "at": [
+    3,
+    1,
+    2
+   ],
+   "size": [
+    2,
+    1,
+    2
+   ],
+   "color": {
+    "noise": [
+     {
+      "shade": "metal_dark",
+      "f": 0.5
+     },
+     {
+      "shade": "dark",
+      "f": 1
+     }
+    ],
+    "weights": [
+     1,
+     1
+    ],
+    "cell": 1
+   },
+   "if": "state == 3"
+  },
+  {
+   "op": "box",
+   "name": "Schutt 3",
+   "at": [
+    2,
+    1,
+    -5
+   ],
+   "size": [
+    3,
+    1,
+    1
+   ],
+   "color": {
+    "noise": [
+     {
+      "shade": "metal_dark",
+      "f": 0.5
+     },
+     {
+      "shade": "dark",
+      "f": 1
+     }
+    ],
+    "weights": [
+     1,
+     1
+    ],
+    "cell": 1
+   },
+   "if": "state == 3"
+  },
+  {
+   "op": "box",
+   "name": "Riss",
+   "at": [
+    -6,
+    0,
+    2
+   ],
+   "size": [
+    3,
+    1,
+    1
+   ],
+   "color": {
+    "role": "ember_dark",
+    "emit": 0.12
+   },
+   "mode": "paint",
+   "if": "state == 3",
+   "jitter": false
+  },
+  {
+   "op": "box",
+   "name": "Riss 2",
+   "at": [
+    4,
+    0,
+    -5
+   ],
+   "size": [
+    1,
+    1,
+    3
+   ],
+   "color": {
+    "role": "ember_dark",
+    "emit": 0.12
+   },
+   "mode": "paint",
+   "if": "state == 3",
+   "jitter": false
+  }
+ ],
+ "anchor": [
+  0,
+  0,
+  0
+ ]
+}

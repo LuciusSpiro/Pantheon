@@ -7,7 +7,7 @@
     "light": 0.85,
     "tint": "#4A2818",
     "mix": 0.2,
-    "except": ["glow", "glow2", "rune", "rune_dim", "ember", "alarm", "leit"]
+    "except": ["glow", "glow2", "rune", "rune_dim", "ember", "alarm", "leit", "falle", "falle_kern", "falle_dunkel"]
   },
   "roles": {
     "dark": "#141210",

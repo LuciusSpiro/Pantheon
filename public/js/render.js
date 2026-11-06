@@ -619,7 +619,7 @@
       const px = a[2] * TILE - camX, py = a[3] * TILE - camY;
       if (px < -TILE || py < -TILE || px > VW + TILE || py > VH + TILE) return;
       const z = ankerZustand(map, st, i);
-      if (a[1] === 'falle') { drawFalle2d(ctx, a, z, px, py, t); return; }   // ITM-01 E: eigene Form je Zustand und Typ
+      if (a[1] === 'falle') { drawFalle2d(ctx, a, z, px, py); return; }   // ITM-01 E: eigene Form je Zustand und Typ
       const aus = ['leer', 'genommen', 'zerstoert', 'offen', 'geloest', 'gesperrt', 'gehisst'].indexOf(z) >= 0 && a[1] !== 'abholpunkt';
       ctx.save();
       ctx.globalAlpha = aus ? 0.45 : 1;
@@ -639,7 +639,7 @@
   // ------------------------------------------------------------------ ITM-01 E: Fallen (Client, rein anzeigend)
   // Zustände kommen aus ankerZustand (Start je sicht, Abweichungen aus ao). Verborgene Fallen stehen nicht in der Ankerliste, bis das Ereignis ankerEnthuellt sie anhängt (CONTRACT-B2 §12).
   // Farbe: ROT = Gefahr/Waffen (nicht Bernstein: am Boden ist Bernstein Hitze, Lava und Glut; Eisblau gehört dem Scanner). Die Gefahr trägt die FORM, nicht die Farbe allein:
-  // Warndreieck mit Glyphe je Typ (erkannt), gestricheltes Feld mit Schraffur (Druckverlust), Kreuz (ausgelöst), kleines graues Dreieck mit Strich (entschärft).
+  // Das Modell (oder im 2D-Rückfall die symbolfreie Platte) trägt Typ und Zustand; eine Marke oder ein Kreuz gibt es nicht. Hier bleiben das gestrichelte Feld mit Schraffur (Druckverlust), Schott-Sperre und Strahl.
   const FALLEN = { felder: new Map(), schotts: new Map(), blitze: [] };   // Wirkungsereignisse (falleFeld, falleSchott, selbstschuss, Auslösen); kein Snapshot-Feld
   const FALLE_GNADE = 3;   // s über dauer hinaus: ging ein an:0 verloren (Kartenwechsel), verschwindet das Feld von selbst
   const FELD_NAME = { druck: 'DRUCKVERLUST' };   // Name je Feldvariante; neue Varianten (dorn, kabel) fallen auf GEFAHRENFELD zurück, bis hier ein Eintrag steht
@@ -762,7 +762,7 @@
       }
     }
   }
-  // Glyphe im Warndreieck je Typ (kleine Pixelzeichnung um (cx, cy), s = Maßstab): schott = zwei Balken (Schott), druck = Kasten mit Pfeil nach außen (Druck entweicht), schuss = Visier; sonst Ausrufezeichen
+  // Glyphe je Typ für die Scan-Liste (kleine Pixelzeichnung um (cx, cy), s = Maßstab): schott = zwei Balken (Schott), druck = Kasten mit Pfeil nach außen (Druck entweicht), schuss = Visier; sonst Ausrufezeichen
   function falleGlyphe(ctx, typ, cx, cy, s, col) {
     const u = Math.max(1, Math.round(s));
     ctx.fillStyle = col;
@@ -774,33 +774,6 @@
     }
     else if (typ === 'schuss') { ctx.fillRect(cx - u, cy - 4 * u, u * 2, u * 3); ctx.fillRect(cx - u, cy + u, u * 2, u * 3); ctx.fillRect(cx - 4 * u, cy - u, u * 3, u * 2); ctx.fillRect(cx + u, cy - u, u * 3, u * 2); }
     else { ctx.fillRect(cx - u, cy - 4 * u, u * 2, u * 5); ctx.fillRect(cx - u, cy + 2 * u, u * 2, u * 2); }
-  }
-  // Marke einer Falle am Anker: (sx, sy) = Bodenmitte der Kachel auf dem Bildschirm, hpx = Schwebehöhe über dem Boden (px, nur erkannt), s = Maßstab (ppm / 32).
-  // erkannt: Warndreieck (rot, pulsiert); entschärft: kleines graues Dreieck mit Strich, ruhig; ausgelöst: dunkelrotes Kreuz; verborgen: nichts (steht nie in der Liste).
-  function drawFalleMarke(ctx, sx, sy, hpx, s, z, typ, t) {
-    if (z === 'erkannt') {
-      const pu = 0.5 + 0.5 * Math.sin(t * 5), k = s * (1 + 0.06 * pu), cx = Math.round(sx), cy = Math.round(sy - hpx * s);
-      ctx.save();
-      ctx.beginPath(); ctx.moveTo(cx, cy - 10 * k); ctx.lineTo(cx + 10 * k, cy + 7 * k); ctx.lineTo(cx - 10 * k, cy + 7 * k); ctx.closePath();
-      ctx.fillStyle = 'rgba(11,14,26,0.82)'; ctx.fill();
-      ctx.lineJoin = 'round'; ctx.strokeStyle = 'rgba(224,71,60,' + (0.8 + 0.2 * pu).toFixed(3) + ')'; ctx.lineWidth = 2; ctx.stroke();
-      falleGlyphe(ctx, typ, cx, Math.round(cy + 1 * k), k, '#F6E7E4');
-      ctx.restore();
-    } else if (z === 'entschaerft') {
-      const cx = Math.round(sx), cy = Math.round(sy - 4 * s), k = s * 0.7;
-      ctx.save(); ctx.globalAlpha = 0.5;
-      ctx.beginPath(); ctx.moveTo(cx, cy - 10 * k); ctx.lineTo(cx + 10 * k, cy + 7 * k); ctx.lineTo(cx - 10 * k, cy + 7 * k); ctx.closePath();
-      ctx.fillStyle = 'rgba(11,14,26,0.6)'; ctx.fill();
-      ctx.strokeStyle = PAL.panelLight; ctx.lineWidth = 1.5; ctx.stroke();
-      ctx.fillStyle = PAL.panelLight; ctx.fillRect(cx - 3 * k, cy + 1 * k, 6 * k, Math.max(1, 2 * k));
-      ctx.restore();
-    } else if (z === 'ausgeloest') {
-      const cx = Math.round(sx), cy = Math.round(sy - 2 * s), d = 6 * s;
-      ctx.save(); ctx.globalAlpha = 0.7; ctx.lineCap = 'round';
-      ctx.strokeStyle = 'rgba(11,14,26,0.8)'; ctx.lineWidth = 5; ctx.beginPath(); ctx.moveTo(cx - d, cy - d * 0.6); ctx.lineTo(cx + d, cy + d * 0.6); ctx.moveTo(cx + d, cy - d * 0.6); ctx.lineTo(cx - d, cy + d * 0.6); ctx.stroke();
-      ctx.strokeStyle = '#8A2A24'; ctx.lineWidth = 2.5; ctx.stroke();
-      ctx.restore();
-    }
   }
   // Falle auf Minikarte und Kommandokarte: immer PAL.red, nie Eisblau (das gehört dem Scanner): erkannt = rotes Dreieck (gefüllt, hebt sich vom Punktraster ab), entschärft = kleiner grauer Umriss, ausgelöst = rotes Kreuz; verborgen = nichts
   function miniFalle(ctx, mx, my, c, z) {
@@ -817,28 +790,71 @@
     }
     ctx.restore();
   }
-  // Schwebehöhe der Marke je Typ (px, 22 px = 1 m): die Selbstschussanlage steht höher als die flachen Bodenfallen
-  const FALLE_SCHWEBE = { schuss: 52, standard: 22 };
+  // Schwebehöhe der Scan-Raute über einer Falle je Typ im Voxel-Modus (hpx, 22 hpx = 1 m, Mitte der Raute über dem Bodenpunkt): flache Fallen 0 = wie alle Scan-Marker (SCAN_SCHWEBE über dem Ring),
+  // die Selbstschussanlage (Modellhöhe 1,0 bis 1,1 m) trägt die Raute knapp über dem Kopf.
+  const FALLE_SCHWEBE = { schuss: 40, standard: 0 };
   const falleSchwebe = (typ) => (FALLE_SCHWEBE[typ] != null ? FALLE_SCHWEBE[typ] : FALLE_SCHWEBE.standard);
-  // 2D-Rückfall (Anker-Marke ohne Modell): flache Fallen = Marke; die Selbstschussanlage hat eine Kollisionsbox und wird als dunkler Block mit Geschützkreis gezeichnet
-  function drawFalle2d(ctx, a, z, px, py, t) {
-    const typ = (a[4] && a[4].typ) || '';
-    const cx = px + 16, cy = py + 16;
-    if (typ === 'schuss' && z !== 'verborgen') {
-      const aus = z !== 'erkannt';
-      ctx.save(); ctx.globalAlpha = aus ? 0.6 : 1;
-      ctx.fillStyle = '#241A1C'; ctx.fillRect(px + 4, py + 6, 24, 22);
-      ctx.strokeStyle = aus ? '#6E4A48' : PAL.red; ctx.lineWidth = 2; ctx.strokeRect(px + 4.5, py + 6.5, 23, 21);
-      ctx.fillStyle = aus ? '#4A3A3A' : '#5A2A28'; ctx.beginPath(); ctx.arc(cx, cy - 1, 6, 0, Math.PI * 2); ctx.fill();
-      ctx.fillStyle = aus ? '#6E4A48' : PAL.red; ctx.fillRect(cx - 1, cy - 12, 3, 9);
+  // 2D-Rückfall der Falle (kein Modell, ?render=2d / F8): je Zustand und Typ eine eigene flache Form ohne Symbol. Der Zustand trägt über Helligkeit und eine große Form (Kachel = 32 px, nichts unter 2 px):
+  //   erkannt = hellster Punkt (rote Fläche mit hellem Kern im dunklen Rahmen), entschärft = mittlerer Grauwert, nichts leuchtet, dunkles Loch (abgeschaltet),
+  //   ausgelöst = dunkelste Fläche, Umriss gebrochen, Ruß, höchstens matte Restglut. Typ über die Form: schott = Platte mit Kern, druck = Gitter mit Schlitzen, schuss = Anlage mit Geschützkreis.
+  const FALLE_2D = { rot: '#E84030', kern: '#FFC4A8', rahmen: '#1A0E10', grau: '#5E5A60', grauRand: '#8A8286', loch: '#14101A', russ: '#0C0809', dunkel: '#241A1C', bruch: '#4A3436', glut: '#5A2420' };
+  function drawFalle2d(ctx, a, z, px, py) {
+    if (z !== 'erkannt' && z !== 'entschaerft' && z !== 'ausgeloest') return;   // verborgen: nichts (verrät die Falle nicht)
+    const F = FALLE_2D, typ = (a[4] && a[4].typ) || '', cx = px + 16, cy = py + 16;
+    ctx.save();
+    if (typ === 'schuss') {   // Block mit Geschützkreis (hat eine Kollisionsbox)
+      ctx.fillStyle = F.rahmen; ctx.fillRect(px + 3, py + 5, 26, 24);
+      if (z === 'erkannt') {
+        ctx.fillStyle = F.dunkel; ctx.fillRect(px + 5, py + 7, 22, 20);
+        ctx.fillStyle = F.rot; ctx.beginPath(); ctx.arc(cx, cy, 8, 0, Math.PI * 2); ctx.fill();   // rotes Auge mit hellem Kern (hellster Punkt der drei Zustände)
+        ctx.fillStyle = F.kern; ctx.beginPath(); ctx.arc(cx, cy, 5, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = F.rot; ctx.fillRect(cx - 2, py + 2, 4, 14);   // Lauf nach vorn (Norden)
+        ctx.fillStyle = F.kern; ctx.fillRect(cx - 2, cy - 2, 4, 4);
+        ctx.strokeStyle = F.rot; ctx.lineWidth = 2; ctx.strokeRect(px + 4, py + 6, 24, 22);
+      } else if (z === 'entschaerft') {
+        ctx.fillStyle = F.dunkel; ctx.fillRect(px + 5, py + 7, 22, 20);
+        ctx.fillStyle = F.grau; ctx.beginPath(); ctx.arc(cx, cy, 8, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = F.loch; ctx.beginPath(); ctx.arc(cx, cy, 6, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = F.grauRand; ctx.fillRect(cx - 2, cy + 3, 4, 13);   // Lauf nach unten
+        ctx.strokeStyle = F.grauRand; ctx.lineWidth = 2; ctx.strokeRect(px + 4, py + 6, 24, 22);
+      } else {
+        ctx.fillStyle = F.russ; ctx.fillRect(px + 5, py + 7, 22, 20);
+        ctx.fillStyle = F.dunkel; ctx.beginPath(); ctx.arc(cx, cy, 6, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = F.russ; ctx.fillRect(cx - 2, cy + 2, 4, 6);   // Lauf abgeknickt, verkohlt
+        ctx.fillStyle = F.bruch;   // Umriss gebrochen: nur Teilstücke
+        ctx.fillRect(px + 3, py + 5, 10, 2); ctx.fillRect(px + 19, py + 5, 10, 2); ctx.fillRect(px + 3, py + 5, 2, 8); ctx.fillRect(px + 27, py + 17, 2, 12); ctx.fillRect(px + 3, py + 27, 12, 2);
+      }
       ctx.restore();
-      drawFalleMarke(ctx, cx, cy - 10, 8, 1, z, typ, t);
-    } else drawFalleMarke(ctx, cx, cy + 6, 4, 1, z, typ, t);
+      return;
+    }
+    // flache Fallen: Platte 26 x 26 im dunklen Rahmen
+    const x0 = px + 3, y0 = py + 3, n = 26, i0 = x0 + 3, i1 = y0 + 3, w = n - 6;
+    ctx.fillStyle = F.rahmen; ctx.fillRect(x0, y0, n, n);
+    if (z === 'erkannt') {
+      ctx.fillStyle = F.rot; ctx.fillRect(i0, i1, w, w);
+      ctx.fillStyle = F.kern;
+      if (typ === 'druck') { for (let k = 0; k < 3; k++) ctx.fillRect(i0 + 2, i1 + 3 + k * 7, w - 4, 3); }   // helle Schlitze
+      else ctx.fillRect(cx - 4, cy - 4, 8, 8);   // heller Kern
+    } else if (z === 'entschaerft') {
+      ctx.fillStyle = F.grau; ctx.fillRect(i0, i1, w, w);
+      ctx.fillStyle = F.loch;
+      if (typ === 'druck') { for (let k = 0; k < 3; k++) ctx.fillRect(i0 + 2, i1 + 3 + k * 7, w - 4, 3); }   // dunkle, geschlossene Schlitze
+      else ctx.fillRect(cx - 5, cy - 5, 10, 10);   // dunkles Loch, Deckel offen
+      if (typ !== 'druck') { ctx.fillStyle = F.grauRand; ctx.fillRect(i0, i1, w, 3); }   // aufgeklappter Deckel oben
+    } else {
+      ctx.fillStyle = F.russ; ctx.fillRect(i0, i1, w, w);
+      ctx.fillStyle = F.dunkel;
+      if (typ === 'druck') { ctx.fillRect(i0 + 2, i1 + 3, 10, 3); ctx.fillRect(i0 + 14, i1 + 10, 8, 3); ctx.fillRect(i0 + 2, i1 + 17, 12, 3); }   // Schlitze verbogen, gebrochen
+      else { ctx.fillRect(cx - 6, cy - 6, 12, 12); ctx.fillStyle = F.glut; ctx.fillRect(cx - 2, cy - 2, 4, 4); }   // Krater mit matter Restglut
+      ctx.fillStyle = F.bruch;   // Umriss gebrochen: Teilstücke statt geschlossener Kante
+      ctx.fillRect(x0, y0, 12, 2); ctx.fillRect(x0 + 18, y0, 8, 2); ctx.fillRect(x0, y0 + 4, 2, 10); ctx.fillRect(x0 + 24, y0 + 14, 2, 12); ctx.fillRect(x0 + 4, y0 + 24, 14, 2);
+    }
+    ctx.restore();
   }
 
   // ------------------------------------------------------------------ ITM-01 F: gesperrte Schotts (Designer-Review: das geschlossene Schott war unsichtbar)
   // Eine Kante gilt als gesperrt, solange das Ereignis falleSchott (an 1) sie nennt UND ihr Zustand `zu` ist (Hacken öffnet früher: dann endet die Anzeige mit dem Zustand).
-  // Anzeige beider Modi: rote Bodenschraffur mit 2-px-Kontur über die ganze Kante und ein Warndreieck mit II (Schott) in der Mitte; im Voxel-Modus zusätzlich die Blattfläche mit
+  // Anzeige beider Modi: rote Bodenschraffur mit 2-px-Kontur über die ganze Kante (kein Symbol: die Fläche sagt es); im Voxel-Modus zusätzlich die Blattfläche mit
   // roten Schrägstreifen auf dunklem Grund und ein rotes Leuchtband an der Oberkante (Overlay, unabhängig vom Modell: trägt auch den Rückfall-Kit). Beim Öffnen 0,3 s Ausblenden.
   const SCHOTT_ANZ = new Map();   // map|kante -> { map, kid, kacheln, ori 'h'|'v', hoch (Blatthöhe hpx), a (Sichtbarkeit 0..1) }
   const SCHOTT_EIN = 0.1, SCHOTT_AUS = 0.3;   // s bis voll sichtbar bzw. ausgeblendet
@@ -894,7 +910,7 @@
     ctx.stroke();
   }
   const schottPfad = (ctx, pts) => { ctx.beginPath(); pts.forEach((q, i) => (i ? ctx.lineTo(q.x, q.y) : ctx.moveTo(q.x, q.y))); ctx.closePath(); };
-  // P(x, y, hpx) wie bei drawFallenFelder, s = Maßstab (ppm / 32), hoch = Voxel-Modus (Blattfläche, Leuchtband, schwebendes Dreieck)
+  // P(x, y, hpx) wie bei drawFallenFelder, s = Maßstab (ppm / 32), hoch = Voxel-Modus (Blattfläche, Leuchtband)
   function drawFallenSchotts(ctx, st, P, t, s, hoch) {
     for (const e of fallenSchottStand(st)) {
       const r = schottRahmen(e), rot = (al) => 'rgba(' + SCHOTT_ROT + ',' + al.toFixed(3) + ')';
@@ -919,17 +935,6 @@
           schottPfad(ctx, band); ctx.fill();
           ctx.shadowBlur = 0;
         }
-      }
-      // Warndreieck mit II (Schott) in der Mitte der Kante: Voxel schwebt über dem Blatt, 2D liegt auf der Kante
-      const mx = (r.x0 + r.x1) / 2, my = (r.y0 + r.y1) / 2, pu = 0.5 + 0.5 * Math.sin(t * 5);
-      const g = P(mx, my, hoch ? e.hoch + 16 : 8);
-      if (g && !g.behind) {
-        const k = s * (1 + 0.06 * pu), cx = Math.round(g.x), cy = Math.round(g.y);
-        ctx.globalAlpha = e.a;
-        ctx.beginPath(); ctx.moveTo(cx, cy - 10 * k); ctx.lineTo(cx + 10 * k, cy + 7 * k); ctx.lineTo(cx - 10 * k, cy + 7 * k); ctx.closePath();
-        ctx.fillStyle = 'rgba(11,14,26,0.85)'; ctx.fill();
-        ctx.lineJoin = 'round'; ctx.strokeStyle = PAL.red; ctx.lineWidth = 2; ctx.stroke();
-        falleGlyphe(ctx, 'schott', cx, Math.round(cy + 1 * k), k, '#F6E7E4');
       }
       ctx.restore();
     }
@@ -2150,10 +2155,11 @@
   // gestrichelter Bodenring, keine Säule, die Raute schwebt knapp (14 px) über dem Ring. Das Kürzel steht auf dunklem Grund (lesbar auf hellem Sand und Objekten).
   // foot = Bildschirmpunkt des Ringmittelpunkts, rad = Ringradius in px.
   const SCAN_SCHWEBE = 14;
-  // ITM-01 F: eine Falle trägt kein Textkürzel; die Raute sitzt auf dem schwebenden Warndreieck (Spitze + 9 px) und eine dünne Lotlinie läuft zum Bodenpunkt (wo das Dreieck sie nicht verdeckt).
-  //   voxel = Voxel-Modus (Dreieck schwebt falleSchwebe(typ) hoch, Maß s = rad / 10), sonst 2D (Dreieck nahe der Kachel, Schussanlage höher: drawFalle2d)
+  // ITM-01 F / ITM-02: eine Falle trägt kein Textkürzel (der Typ steht im Modell und in der Scan-Liste mit Glyphe und vollem Namen). Eine dünne Lotlinie läuft ohne Lücke von der Raute zum Bodenpunkt.
+  //   voxel = Voxel-Modus (Raute SCAN_SCHWEBE + falleSchwebe(typ) * s hoch, Maß s = rad / 10; flache Fallen wie alle Marker 14 px, Selbstschussanlage knapp über dem Kopf), sonst 2D (Raute nahe der Kachel, Schussanlage höher; kein Modell dort)
   function drawScanMarkerBoden(ctx, foot, rad, m, t, voxel) {
-    const falle = m.art === 'falle', s = rad / 10, mitteHoch = falle ? (voxel ? falleSchwebe(m.typ || '') * s : (m.typ === 'schuss' ? 18 : -2)) : 0;   // Dreieckmitte über dem Bodenpunkt (px)
+    const falle = m.art === 'falle', s = rad / 10;
+    const hoch = !falle ? SCAN_SCHWEBE : voxel ? Math.max(SCAN_SCHWEBE, Math.round(falleSchwebe(m.typ || '') * s)) : Math.round((m.typ === 'schuss' ? 18 : -2) + 10 * s + 9);   // Rautenmitte über dem Bodenpunkt (px)
     const pu = 0.5 + 0.5 * Math.sin(t * 3);
     ctx.save();
     ctx.setLineDash([3, 3]);
@@ -2162,15 +2168,14 @@
     ctx.strokeStyle = 'rgba(169,214,229,' + (0.75 + 0.25 * pu) + ')'; ctx.lineWidth = m.fokus ? 2 : 1.5;
     ctx.beginPath(); ctx.ellipse(foot.x, foot.y, rad, rad * 0.5, 0, 0, Math.PI * 2); ctx.stroke();
     ctx.restore();
-    const dx = Math.round(foot.x), dy = Math.round(foot.y) - (falle ? Math.round(mitteHoch + 10 * s + 9) : SCAN_SCHWEBE);
-    if (falle) {   // Lotlinie: Raute -> Dreieckspitze und Dreieckbasis -> Bodenpunkt
+    const dx = Math.round(foot.x), dy = Math.round(foot.y) - hoch;
+    if (falle) {   // Lotlinie: von der Raute durchgehend zum Bodenpunkt
       ctx.save(); ctx.strokeStyle = 'rgba(169,214,229,0.75)'; ctx.lineWidth = 1; ctx.beginPath();
-      ctx.moveTo(dx + 0.5, dy + 4); ctx.lineTo(dx + 0.5, Math.round(foot.y - mitteHoch - 10 * s));
-      ctx.moveTo(dx + 0.5, Math.round(foot.y - mitteHoch + 7 * s)); ctx.lineTo(dx + 0.5, Math.round(foot.y));
+      ctx.moveTo(dx + 0.5, dy + 4); ctx.lineTo(dx + 0.5, Math.round(foot.y));
       ctx.stroke(); ctx.restore();
     }
     shape(ctx, 'diamond', dx, dy, 7, PAL.ice, PAL.space);
-    if (falle) return;   // keine Beschriftung: das Dreieck mit Glyphe sagt, was es ist (Name im Datenblatt)
+    if (falle) return;   // keine Beschriftung: der Typ steht im Modell und in der Scan-Liste (Glyphe + voller Name)
     const w = measure(m.symbol, 1) + 4, ty = dy - 15;
     ctx.fillStyle = 'rgba(11,14,26,0.7)'; ctx.fillRect(dx - Math.ceil(w / 2), ty - 1, w, 10);
     text(ctx, m.symbol, dx, ty, { color: PAL.ice, align: 'center' });
@@ -2430,7 +2435,7 @@
     env.roomStyle = null;
     if (buehne2d) {
       drawFallenFelder(ctx, st, (x, y, h) => ({ x: Math.round(x - camX), y: Math.round(y - camY - (h || 0)) }), t);   // ITM-01 E: Gefahrenfeld am Boden (unter Marken und Figuren)
-      drawFallenSchotts(ctx, st, (x, y, h) => ({ x: Math.round(x - camX), y: Math.round(y - camY - (h || 0)) }), t, 1, false);   // ITM-01 F: gesperrte Schotts (Schraffur, Kontur, II)
+      drawFallenSchotts(ctx, st, (x, y, h) => ({ x: Math.round(x - camX), y: Math.round(y - camY - (h || 0)) }), t, 1, false);   // ITM-01 F: gesperrte Schotts (Schraffur, Kontur)
       drawBuehneAnker(ctx, map, st, camX, camY, t);   // B1: Anker als einfache Marken
     }
 
@@ -3062,19 +3067,10 @@
         ctx.strokeRect(Math.round(lo.x) - 9.5, Math.round(hi.y) + 0.5, 19, Math.max(8, Math.round(lo.y - hi.y)));
       }
       try { for (const m of scanMarker(st)) drawScanMarkerBoden(ctx, P(m.x, m.y, 0), 10 * ppm / 32, m, t, true); } catch (e) { report('Render.scanMarker3d', e); }   // SCA-01 P4
-      try {   // ITM-01 E: Fallen im Voxel-Modus – Feld am Boden, Marke über der Anlage (auch mit Modell: Sicherheitsnetz für die Lesbarkeit), Schuss- und Auslöse-Effekte
+      try {   // ITM-01 E: Fallen im Voxel-Modus – Feld am Boden, Schuss- und Auslöse-Effekte (keine Marke: der Zustand steht im Modell)
         if (isBuehne(map)) {
           drawFallenFelder(ctx, st, P, t);
-          drawFallenSchotts(ctx, st, P, t, ppm / 32, true);   // ITM-01 F: gesperrte Schotts (Boden, Blatt, Leuchtband, schwebendes II)
-          (map.anker || []).forEach((a, i) => {
-            if (a[1] !== 'falle') return;
-            const z = ankerZustand(map, st, i);
-            if (z !== 'erkannt' && z !== 'entschaerft' && z !== 'ausgeloest') return;
-            const s0 = P(a[2] * TILE + 16, a[3] * TILE + 16, 0);
-            if (!inView(s0)) return;
-            const typ = (a[4] && a[4].typ) || '';
-            drawFalleMarke(ctx, s0.x, s0.y, z === 'erkannt' ? falleSchwebe(typ) : 0, ppm / 32, z, typ, t);
-          });
+          drawFallenSchotts(ctx, st, P, t, ppm / 32, true);   // ITM-01 F: gesperrte Schotts (Boden, Blatt, Leuchtband)
           drawFallenBlitze(ctx, st, P, ppm);
         }
       } catch (e) { report('Render.fallen3d', e); }
@@ -5654,7 +5650,7 @@
     zielNameFarbe, textKontur, drawSpace, drawFrontView, frontProjektion, bannerMasse, hyperraum, drawStarMap, drawStarMapAlt, drawLocalMap, FRONT,
     // B1: gebaute Außenkarten
     drawKoerperStatus, statusIcon,
-    registerAwayMap, isBuehne, ankerZustand, ankerEnthuellt, fallenEreignis, fallenLaufend, fallenSchottStand, drawFallenSchotts, miniSchotts, falleGlyphe, drawScanMarkerBoden, miniFalle, buehneBewegungSolid, drawFallenFelder, drawFallenBlitze, drawFalleMarke, kachelZustand, kantenZustand, buehneSolid, buehnenKarten, ANKER_NAME, ANKER_ZUSTAND_NAME, ANKER_FARBE,
+    registerAwayMap, isBuehne, ankerZustand, ankerEnthuellt, fallenEreignis, fallenLaufend, fallenSchottStand, drawFallenSchotts, miniSchotts, falleGlyphe, drawScanMarkerBoden, miniFalle, buehneBewegungSolid, drawFallenFelder, drawFallenBlitze, drawFalle2d, kachelZustand, kantenZustand, buehneSolid, buehnenKarten, ANKER_NAME, ANKER_ZUSTAND_NAME, ANKER_FARBE,
     // S2: Schützling
     ESCORT_COL, ESCORT_R, ESCORT_KIND_NAMES, ESCORT_STATE_NAMES, ESCORT_ORDER_NAMES, escortHpFrac, escortName, escortRingCol, escortSegBar, escortBarCol, FLOTTE_ART_NAMEN, fbEscort, drawEscortSprite,
     // M3a
