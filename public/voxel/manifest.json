@@ -102,6 +102,16 @@
       "count": 1
     },
     {
+      "team": "mon02-station",
+      "file": "mon02-station.json",
+      "count": 9
+    },
+    {
+      "team": "mon02",
+      "file": "mon02.json",
+      "count": 3
+    },
+    {
       "team": "ort-2a",
       "file": "ort-2a.json",
       "count": 20
@@ -5559,6 +5569,128 @@
       ],
       "source": "kit/rom_feld/rampe",
       "team": "vox01"
+    },
+    "kreatur/rudeltier": {
+      "id": "kreatur/rudeltier",
+      "kind": "model",
+      "tier": "detail",
+      "palette": "kreatur",
+      "footprint": [
+        1,
+        1
+      ],
+      "height": 0.81,
+      "facing": "+z",
+      "params": {
+        "pose": [
+          0,
+          3
+        ],
+        "fell": [
+          0,
+          5
+        ],
+        "beinphase": [
+          0,
+          1
+        ]
+      },
+      "states": {
+        "steh": {
+          "pose": 0
+        },
+        "aufladen": {
+          "pose": 1
+        },
+        "pause": {
+          "pose": 2
+        },
+        "rammen": {
+          "pose": 3
+        }
+      },
+      "sockets": {},
+      "tint": [],
+      "budgetTris": 2300,
+      "tags": [
+        "kreatur",
+        "rudeltier",
+        "monster"
+      ],
+      "source": "kreatur/rudeltier",
+      "team": "mon02"
+    },
+    "kreatur/rudeltier_koerper": {
+      "id": "kreatur/rudeltier_koerper",
+      "kind": "model",
+      "tier": "detail",
+      "palette": "kreatur",
+      "footprint": [
+        1,
+        1
+      ],
+      "height": 0.81,
+      "facing": "+z",
+      "params": {
+        "pose": [
+          0,
+          3
+        ],
+        "beinphase": [
+          0,
+          1
+        ]
+      },
+      "sockets": {},
+      "tint": [],
+      "budgetTris": 2300,
+      "tags": [
+        "kreatur",
+        "rudeltier",
+        "teilmodell"
+      ],
+      "source": "kreatur/rudeltier_koerper",
+      "team": "mon02"
+    },
+    "kreatur/rudeltier_marken": {
+      "id": "kreatur/rudeltier_marken",
+      "kind": "model",
+      "tier": "detail",
+      "palette": "kreatur",
+      "footprint": [
+        1,
+        1
+      ],
+      "height": 0.9,
+      "facing": "+z",
+      "params": {
+        "ladung": [
+          0,
+          3
+        ],
+        "pose": [
+          0,
+          3
+        ]
+      },
+      "states": {
+        "aus": {
+          "ladung": 0
+        },
+        "voll": {
+          "ladung": 3
+        }
+      },
+      "sockets": {},
+      "tint": [],
+      "budgetTris": 300,
+      "tags": [
+        "kreatur",
+        "rudeltier",
+        "marken"
+      ],
+      "source": "kreatur/rudeltier_marken",
+      "team": "mon02"
     },
     "leit/germanen/aussenposten/kraehenwacht_turm": {
       "id": "leit/germanen/aussenposten/kraehenwacht_turm",
@@ -19469,6 +19601,250 @@
       ],
       "source": "rom/standarte",
       "team": "ort-2a"
+    },
+    "station/schottbrecher": {
+      "id": "station/schottbrecher",
+      "kind": "figure",
+      "tier": "detail",
+      "palette": "schottbrecher",
+      "footprint": [
+        2,
+        2
+      ],
+      "height": 1.5,
+      "facing": "+z",
+      "params": {},
+      "sockets": {
+        "label": [
+          0,
+          1.7,
+          0
+        ],
+        "fx_spark": [
+          0,
+          0.5,
+          0.45
+        ]
+      },
+      "tint": [],
+      "budgetTris": 3500,
+      "tags": [
+        "station",
+        "monster",
+        "schottbrecher",
+        "figure"
+      ],
+      "notes": "Station-Monster (MON-02 O3b), Rig schottbrecher, Posen patrouille/laerm/jagd/rammen/pause. Zyklen und Ueberblenden wertet der Client aus (actors.js, Block STATION-MONSTER).",
+      "source": "station/schottbrecher",
+      "team": "mon02-station"
+    },
+    "station/schottbrecher/foot": {
+      "id": "station/schottbrecher/foot",
+      "kind": "model",
+      "tier": "detail",
+      "palette": "schottbrecher",
+      "footprint": [
+        2,
+        2
+      ],
+      "height": 0.82,
+      "facing": "+z",
+      "params": {
+        "zc": [
+          -5,
+          5
+        ]
+      },
+      "sockets": {},
+      "tint": [],
+      "budgetTris": 300,
+      "tags": [
+        "station",
+        "monster",
+        "teilmodell"
+      ],
+      "source": "station/schottbrecher/foot",
+      "team": "mon02-station"
+    },
+    "station/schottbrecher/hip": {
+      "id": "station/schottbrecher/hip",
+      "kind": "model",
+      "tier": "detail",
+      "palette": "schottbrecher",
+      "footprint": [
+        2,
+        2
+      ],
+      "height": 1.5,
+      "facing": "+z",
+      "params": {
+        "zc": [
+          -5,
+          5
+        ],
+        "sg": [
+          -1,
+          1
+        ]
+      },
+      "sockets": {},
+      "tint": [],
+      "budgetTris": 400,
+      "tags": [
+        "station",
+        "monster",
+        "teilmodell"
+      ],
+      "source": "station/schottbrecher/hip",
+      "team": "mon02-station"
+    },
+    "station/schottbrecher/horch": {
+      "id": "station/schottbrecher/horch",
+      "kind": "model",
+      "tier": "detail",
+      "palette": "schottbrecher",
+      "footprint": [
+        2,
+        2
+      ],
+      "height": 1.5,
+      "facing": "+z",
+      "params": {},
+      "sockets": {},
+      "tint": [],
+      "budgetTris": 200,
+      "tags": [
+        "station",
+        "monster",
+        "teilmodell"
+      ],
+      "source": "station/schottbrecher/horch",
+      "team": "mon02-station"
+    },
+    "station/schottbrecher/hull": {
+      "id": "station/schottbrecher/hull",
+      "kind": "model",
+      "tier": "detail",
+      "palette": "schottbrecher",
+      "footprint": [
+        2,
+        2
+      ],
+      "height": 1.2,
+      "facing": "+z",
+      "params": {},
+      "sockets": {},
+      "tint": [],
+      "budgetTris": 1500,
+      "tags": [
+        "station",
+        "monster",
+        "teilmodell"
+      ],
+      "source": "station/schottbrecher/hull",
+      "team": "mon02-station"
+    },
+    "station/schottbrecher/knee": {
+      "id": "station/schottbrecher/knee",
+      "kind": "model",
+      "tier": "detail",
+      "palette": "schottbrecher",
+      "footprint": [
+        2,
+        2
+      ],
+      "height": 1.5,
+      "facing": "+z",
+      "params": {
+        "zc": [
+          -5,
+          5
+        ]
+      },
+      "sockets": {},
+      "tint": [],
+      "budgetTris": 400,
+      "tags": [
+        "station",
+        "monster",
+        "teilmodell"
+      ],
+      "source": "station/schottbrecher/knee",
+      "team": "mon02-station"
+    },
+    "station/schottbrecher/lampe": {
+      "id": "station/schottbrecher/lampe",
+      "kind": "model",
+      "tier": "detail",
+      "palette": "schottbrecher",
+      "footprint": [
+        2,
+        2
+      ],
+      "height": 1.5,
+      "facing": "+z",
+      "params": {},
+      "sockets": {},
+      "tint": [],
+      "budgetTris": 200,
+      "tags": [
+        "station",
+        "monster",
+        "teilmodell"
+      ],
+      "source": "station/schottbrecher/lampe",
+      "team": "mon02-station"
+    },
+    "station/schottbrecher/schild": {
+      "id": "station/schottbrecher/schild",
+      "kind": "model",
+      "tier": "detail",
+      "palette": "schottbrecher",
+      "footprint": [
+        2,
+        2
+      ],
+      "height": 1.2,
+      "facing": "+z",
+      "params": {
+        "ausfahrt": [
+          0,
+          6
+        ]
+      },
+      "sockets": {},
+      "tint": [],
+      "budgetTris": 1100,
+      "tags": [
+        "station",
+        "monster",
+        "teilmodell"
+      ],
+      "source": "station/schottbrecher/schild",
+      "team": "mon02-station"
+    },
+    "station/schottbrecher/sensor": {
+      "id": "station/schottbrecher/sensor",
+      "kind": "model",
+      "tier": "detail",
+      "palette": "schottbrecher",
+      "footprint": [
+        2,
+        2
+      ],
+      "height": 1.5,
+      "facing": "+z",
+      "params": {},
+      "sockets": {},
+      "tint": [],
+      "budgetTris": 600,
+      "tags": [
+        "station",
+        "monster",
+        "teilmodell"
+      ],
+      "source": "station/schottbrecher/sensor",
+      "team": "mon02-station"
     }
   }
 }

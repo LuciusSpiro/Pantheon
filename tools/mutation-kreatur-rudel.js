@@ -68,7 +68,7 @@ const MUTATIONEN = [
   [PL, 'anzahl: { typ: \'number\', pflicht: true, min: 1, max: 12 }', 'anzahl: { typ: \'number\', pflicht: true, min: 1, max: 99 }', 'Aktion: Parameter anzahl ohne Obergrenze 12', [T]],
   [PL, "gruppe: { typ: 'string', pflicht: true } },", "gruppe: { typ: 'squad', pflicht: true } },", 'Aktion: gruppe als squad (der Prüfer verlangt einen Regiebuch-Eintrag)', [T]],
   // ---- Daten
-  [JS, '"groesse": 1,\n      "kollision": { "box": 20 },', '"groesse": 2,\n      "kollision": { "box": 20 },', 'Daten: rudeltier hat Größe 2', [T]],
+  [JS, '"groesse": 1,\n      "kollision": { "box": 24 },', '"groesse": 2,\n      "kollision": { "box": 24 },', 'Daten: rudeltier hat Größe 2', [T]],
   [JS, '{ "auf": "aufgegeben", "nach": "suche" }, ', '', 'Daten: jagd führt nie in suche (kein Aufgeben)', [T]],
   // ---- Nacharbeit MON-02 (N1 bis N5)
   [KR, 'const i = v < RUDEL_VERSUCHE ? Math.floor(aw.rng() * pool.length) : 0;', 'const i = 0;', 'Zufall: Mittelpunkt immer der erste Kandidat (kein aw.rng)', [T]],

@@ -865,9 +865,9 @@ require('./scanbar.js').scanbarAnmelden('monster', {
 //   nr       Zahl hinter dem K der Instanz-ID (K7 -> 7); der Client bildet 'K' + nr und findet so den Scan-Eintrag `monster:K7` in away.sc
 //   typCode  Index des Typs in der Reihenfolge von kreaturen.json (deterministisch, nur für den Client-Wiedererkennen; Namen kommen aus dem Scan)
 //   x, y     px, 1 Nachkommastelle (wie mo);  f  Blickrichtung rad, 2 Nachkommastellen
-//   bits     0-1 Ladung 0..3 (Baustein aufladung), 2 Pause/steht (Modus `steht`), 3 rammt (Modus `ramme`), 4-5 Größe-1 (Kacheln, 0..3)
+//   bits     0-1 Ladung 0..3 (Baustein aufladung), 2 Pause/steht (Modus `steht`), 3 rammt (Modus `ramme`), 4-5 Größe-1 (Kacheln, 0..3), 6 zielt (Modus `zielen`, Aufladen; MON-02 O3a)
 // Nur lebende Kreaturen, die jemand im Team sieht (gemeinsame Regel combat.sichtbarFuerTeam wie updateVisibility: Sichtradius, Lanzenkegel, Sensor, Captain-Fokus; Kreaturen sind kein Fokusziel, focusUntil bleibt 0). Tote werden nicht gesendet.
-const BIT_PAUSE = 4, BIT_RAMMT = 8;
+const BIT_PAUSE = 4, BIT_RAMMT = 8, BIT_ZIELT = 64;
 function snap(game) {
   const aw = game.away; const L = aw && aw.kreaturen;
   if (!L || !L.length || !L.some((K) => K.alive)) return null;
@@ -884,7 +884,7 @@ function snap(game) {
     if (!C.sichtbarFuerTeam(game, E, team, R, K, sensor)) continue;   // dieselbe Regel wie combat.updateVisibility (Radius, Lanzenkegel, Sensor, Fokus)
     const typ = typVon(K.typ); const modus = typ.zustaende[K.z].modus;
     const ladung = K.aufladung ? Math.min(3, K.aufladung.stufe) : 0;
-    const bits = ladung | (modus === 'steht' ? BIT_PAUSE : 0) | (modus === 'ramme' ? BIT_RAMMT : 0) | ((typ.groesse - 1) << 4);
+    const bits = ladung | (modus === 'steht' ? BIT_PAUSE : 0) | (modus === 'ramme' ? BIT_RAMMT : 0) | (modus === 'zielen' ? BIT_ZIELT : 0) | ((typ.groesse - 1) << 4);
     out.push([Number(K.id.slice(1)), ids.indexOf(K.typ), Math.round(K.x * 10) / 10, Math.round(K.y * 10) / 10, Math.round(K.facing * 100) / 100, bits]);
   }
   return out.length ? out : null;

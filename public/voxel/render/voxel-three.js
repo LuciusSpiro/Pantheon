@@ -114,7 +114,7 @@ export function figureObject(lib, figId, opts = {}) {
   return { root, joints, rig, poses, phase: opts.phase ?? Math.random() * 6, s };
 }
 
-/** Pose anwenden. Pose = { joints: { name: [rx,ry,rz] Grad }, lift: Voxel, breathe: 0..1 } */
+/** Pose anwenden. Pose = { joints: { name: [rx,ry,rz] Grad }, shift: { name: [x,y,z] Voxel }, lift: Voxel, breathe: 0..1 } */
 export function applyPose(f, poseName, t = 0) {
   const p = f.poses[poseName] || f.poses.stand || { joints: {} };
   for (const [name, obj] of Object.entries(f.joints)) {
@@ -124,6 +124,10 @@ export function applyPose(f, poseName, t = 0) {
   for (const [name, r] of Object.entries(p.joints || {})) {
     const obj = f.joints[name]; if (!obj) continue;
     obj.rotation.set(r[0] * D2R, r[1] * D2R, r[2] * D2R, 'YXZ');
+  }
+  for (const [name, d] of Object.entries(p.shift || {})) {   // shift: Gelenk gegenüber dem Elterngelenk verschieben (Voxel), z. B. Schild ausfahren (Rig schottbrecher)
+    const obj = f.joints[name]; if (!obj) continue;
+    obj.position.x += d[0] * f.s; obj.position.y += d[1] * f.s; obj.position.z += d[2] * f.s;
   }
   const br = Math.sin(t * 2.0 + f.phase) * (p.breathe ?? 0.5);
   if (f.joints.hips) f.joints.hips.position.y += ((p.lift ?? 0) + br * 0.25) * f.s;

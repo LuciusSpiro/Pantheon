@@ -135,8 +135,8 @@
     //   away.sc = [[id, art, typ, sk], …] bzw. [id, art, typ, sk, x, y] ab der Positionsstufe der Art (Standard 3; Erz später 1). id String, art/typ kurze Strings ('test'/'testerz'), sk 1..3 (nur steigend),
     //   x, y ganze px (ab der Positionsstufe bei jedem Scan neu gesetzt). Höchstens config.scanner.maxEintraege (16) Einträge. Texte (Name, Gefahr, Regelhinweis) und die Hinweisstufe (`hinweisAb`) liegen im Client-Content, nicht im Snapshot und nicht am Server. Die Position steht vor der Positionsstufe nirgends im Snapshot. Debug: cmd 'scantest' (nur Server --debug).
     // MON-01 P4: Kreaturen (server/sim/kreatur.js): Snapshot `away.kr` = [[nr, typCode, x, y, f, bits], …], nur wenn mindestens eine lebende Kreatur im Sichtbereich des Teams steht (sonst KEIN Feld,
-    //   nie []; Sensor deckt alle auf, Tote werden nicht gesendet). nr = Zahl hinter dem K der Instanz-ID ('K'+nr = id in away.sc), typCode = Index des Typs in content/kampf/kreaturen.json (PROTOKOLL: die Reihenfolge der Typen in kreaturen.json ist Protokoll; neue Typen nur ans Ende anhängen, nie umsortieren; der Client liest typCode bisher nicht),
-    //   x, y px (1 Nachkommastelle), f Blickrichtung rad (2), bits: 0-1 Ladung 0..3, 2 Pause/steht, 3 rammt, 4-5 Größe-1 in Kacheln. Name nur über den Scan (away.sc + datenblaetter.json).
+    //   nie []; Sensor deckt alle auf, Tote werden nicht gesendet). nr = Zahl hinter dem K der Instanz-ID ('K'+nr = id in away.sc), typCode = Index des Typs in content/kampf/kreaturen.json (PROTOKOLL: die Reihenfolge der Typen in kreaturen.json ist Protokoll; neue Typen nur ans Ende anhängen, nie umsortieren; der Client liest typCode seit MON-02 O3a für die Modell-Zuordnung, content/kreaturen/modelle.json),
+    //   x, y px (1 Nachkommastelle), f Blickrichtung rad (2), bits: 0-1 Ladung 0..3, 2 Pause/steht, 3 rammt, 4-5 Größe-1 in Kacheln, 6 zielt (Modus zielen = Aufladen, Wert 64). Name nur über den Scan (away.sc + datenblaetter.json).
     CMD_SCAN_STIMME: 'scan.stimme',
     CMD_SCAN_ABBRUCH: 'scan.abbruch',
     WAFFEN: ['blaster', 'sturmgewehr', 'granatwerfer', 'lanze', 'nahkampf', 'betaeuber', 'faust'],

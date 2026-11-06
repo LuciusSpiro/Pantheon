@@ -1,0 +1,50 @@
+{
+  "id": "station/schottbrecher/lampe",
+  "name": "Schottbrecher: Lichtschlitz (6×1, volle Sensorbreite, Front) und Lichtstreifen (6×1, Dach des Sensorkopfes, vorn), weiß, leuchten. Eigenes Gelenk, damit der Client beides gemeinsam ausblenden kann.",
+  "tier": "detail",
+  "palette": "schottbrecher",
+  "tags": [
+    "station",
+    "monster",
+    "schottbrecher"
+  ],
+  "ops": [
+    {
+      "jitter": false,
+      "name": "Schlitz",
+      "op": "box",
+      "at": [
+        -3,
+        21,
+        4
+      ],
+      "size": [
+        6,
+        1,
+        1
+      ],
+      "color": "licht"
+    },
+    {
+      "jitter": false,
+      "name": "Lichtstreifen oben",
+      "op": "box",
+      "at": [
+        -3,
+        23,
+        3
+      ],
+      "size": [
+        6,
+        1,
+        1
+      ],
+      "color": "licht"
+    }
+  ],
+  "anchor": [
+    0,
+    0,
+    0
+  ]
+}

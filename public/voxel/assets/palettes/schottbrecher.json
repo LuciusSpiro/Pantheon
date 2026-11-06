@@ -1,0 +1,16 @@
+{
+  "id": "schottbrecher",
+  "name": "Schottbrecher (Station-Monster, Notfall-Bergungsmaschine)",
+  "extends": "base",
+  "notes": "Nur unbunte Stahlgrautöne und weißes Licht. Kein Rot, Violett, Mint, Eisblau oder Bernstein: das sind Funktionsfarben des Spiels. Werte aus Designer-Notiz MON-02 (Station-Monster, Richtung A).",
+  "roles": {
+    "panzer": "#484C52",
+    "panzer_dark": "#2C2E34",
+    "panzer_light": "#686C74",
+    "hydraulik": "#222428",
+    "schild": "#949694",
+    "kolben": "#ACAEB0",
+    "niete": "#969692",
+    "licht": { "color": "#FAF8EE", "emit": 1.4 }
+  }
+}

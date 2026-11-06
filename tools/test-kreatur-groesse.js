@@ -30,11 +30,12 @@ const section = (name, body) => {
 };
 const kopie = (o) => JSON.parse(JSON.stringify(o));
 
-// ---------- Testtypen (Datenzeilen): Größe 1 mit Box 20 und hitRadius 13, Größe 1 ohne kollision (Rückfall 14), Größe 1 mit großem Radius; probe ist Größe 2 ----------
+// ---------- Testtypen (Datenzeilen): Größe 1 mit Box und hitRadius des echten Rudeltiers (MON-02 O3a: Werte aus content/kampf/kreaturen.json, nicht fest), Größe 1 ohne kollision (Rückfall 14), Größe 1 mit großem Radius; probe ist Größe 2 ----------
 const probe = KREATUREN.typen.probe;
-KREATUREN.typen.klein = Object.assign(kopie(probe), { name: 'kreatur.klein', groesse: 1, hitRadius: 13, kollision: { box: 20 } });
+const RUD = KREATUREN.typen.rudeltier, KB = RUD.kollision.box, KH = RUD.hitRadius;   // Box (px) und Trefferradius (px) des echten Rudeltiers
+KREATUREN.typen.klein = Object.assign(kopie(probe), { name: 'kreatur.klein', groesse: 1, hitRadius: KH, kollision: { box: KB } });
 KREATUREN.typen.kleinrueck = Object.assign(kopie(probe), { name: 'kreatur.kleinrueck', groesse: 1, hitRadius: 13 });
-const STILL = { name: 'kreatur.kleinstill', groesse: 1, sicht: 4, verlustZeit: 3, replan: 0.5, hitRadius: 13, kollision: { box: 20 }, schild: { seg: 3, max: 3 }, wunden: 2, frontArc: 0, tuerenAufbrechen: false, rammZeit: 1.2, start: 'steht',
+const STILL = { name: 'kreatur.kleinstill', groesse: 1, sicht: 4, verlustZeit: 3, replan: 0.5, hitRadius: KH, kollision: { box: KB }, schild: { seg: 3, max: 3 }, wunden: 2, frontArc: 0, tuerenAufbrechen: false, rammZeit: 1.2, start: 'steht',
   zustaende: { steht: { modus: 'steht', tempo: 0, uebergang: [] } }, bausteine: {} };
 KREATUREN.typen.kleinstill = STILL;
 KREATUREN.typen.kleinbreit = Object.assign(kopie(STILL), { name: 'kreatur.kleinbreit', hitRadius: 30 });
@@ -196,19 +197,19 @@ section('Position beim Anlegen (Debug kreatur <typ>)', () => {
     const a = Mon.ankerVonPosition(K.x, K.y, f);
     ok(!!K && KREATUREN.typen[typId].groesse === f && S.m[f].geht(a.cx, a.cy) && Mon.mitteVon(a, f).x === K.x && Mon.mitteVon(a, f).y === K.y, 'Größe ' + f + ': Debug legt die Kreatur auf die Mitte eines Maskenpunkts (' + K.x + ', ' + K.y + ')');
     ok(f === 1 ? (K.x % TILE === 16 && K.y % TILE === 16) : (K.x % TILE === 0 && K.y % TILE === 0), 'Größe ' + f + ': ' + (f === 1 ? 'Kachelmitte' : 'Kachelecke'));
-    ok(boxVon(typId) === (f === 1 ? 20 : 28) && K.hitRadius === KREATUREN.typen[typId].hitRadius, 'Größe ' + f + ': Box ' + boxVon(typId) + ' px, hitRadius ' + K.hitRadius + ' aus den Daten');
+    ok(boxVon(typId) === (f === 1 ? KB : 28) && K.hitRadius === KREATUREN.typen[typId].hitRadius, 'Größe ' + f + ': Box ' + boxVon(typId) + ' px, hitRadius ' + K.hitRadius + ' aus den Daten');
   }
 });
 
 // ---------- Kontrolle der Messung: eine Box auf der Kachelecke neben einer Wand ragt in sie (so sah der Fehler vorher aus) ----------
 section('Kontrolle der Überlappungs-Messung', () => {
   const S = stationSzene();
-  // Ecke: freier Ankerpunkt (Größe 1) mit fester Kachel rechts: Box 28 auf der Kachelecke dazwischen überlappt, Box 20 auf der Kachelmitte nicht
+  // Ecke: freier Ankerpunkt (Größe 1) mit fester Kachel rechts: Box 28 auf der Kachelecke dazwischen überlappt, Box KB auf der Kachelmitte nicht
   const m = S.m[1]; let gef = null;
   for (let cy = 1; cy < m.h - 1 && !gef; cy++) for (let cx = 1; cx < m.w - 1; cx++) if (m.geht(cx, cy) && !m.frei[cy * m.w + cx + 1] && S.E.solid(cx + 1, cy)) { gef = { cx, cy }; break; }
   ok(!!gef, 'Stelle mit fester Kachel neben einem Ankerpunkt gefunden');
   ok(boxUeberlappt(S.E, (gef.cx + 1) * TILE, (gef.cy + 0.5) * TILE, 28), 'Kontrolle: Box 28 auf der Kachelecke vor der festen Kachel überlappt (die Messung schlägt an)');
-  ok(!boxUeberlappt(S.E, (gef.cx + 0.5) * TILE, (gef.cy + 0.5) * TILE, 20), 'Box 20 auf der Kachelmitte: keine Überlappung');
+  ok(!boxUeberlappt(S.E, (gef.cx + 0.5) * TILE, (gef.cy + 0.5) * TILE, KB), 'Box ' + KB + ' auf der Kachelmitte: keine Überlappung');
 });
 
 // ---------- Bewegung: Streife (Patrouille) und Verfolgen auf 8 Wegen, je Szene ----------
@@ -248,7 +249,7 @@ fuerSzenen((S) => {
     if (!st) { console.log('  (kein 1 breiter Gang in dieser Szene)'); return; }
     engGefunden++;
     const typ = KREATUREN.typen.klein, b = boxVon('klein');
-    for (const aufbrechen of [false, true]) for (const dy of [5, -5]) {
+    for (const aufbrechen of [false, true]) for (const dy of [Math.min(5, (TILE - KB) / 2 - 1), -Math.min(5, (TILE - KB) / 2 - 1)]) {   // Start neben der Mitte, die Box bleibt in der Kachel
       typ.tuerenAufbrechen = aufbrechen;
       try {
         S.g.away.kreaturen = [];
@@ -370,8 +371,8 @@ section('Treffer: Projektil auf Größe 1 mit eigenem hitRadius', () => {
     return K;
   };
   const Kn = schuss('kleinstill', 6), Kf = schuss('kleinstill', 26), Kb = schuss('kleinbreit', 26);
-  ok(Kn.hitRadius === 13 && Kn.seg === 2, 'Größe 1, hitRadius 13: Schuss 6 px neben der Linie trifft (seg ' + Kn.seg + ')');
-  ok(Kf.seg === 3, 'Größe 1, hitRadius 13: Schuss 26 px neben der Linie trifft nicht (seg ' + Kf.seg + ')');
+  ok(Kn.hitRadius === KH && Kn.seg === 2, 'Größe 1, hitRadius ' + KH + ': Schuss 6 px neben der Linie trifft (seg ' + Kn.seg + ')');
+  ok(Kf.seg === 3, 'Größe 1, hitRadius ' + KH + ': Schuss 26 px neben der Linie trifft nicht (seg ' + Kf.seg + ')');
   ok(Kb.hitRadius === 30 && Kb.seg === 2, 'Größe 1, hitRadius 30 (eigener Wert aus den Daten): derselbe Schuss 26 px daneben trifft (seg ' + Kb.seg + ')');
 });
 

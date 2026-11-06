@@ -498,6 +498,9 @@
   "kit/test/gemein/zaun_pfosten",
   "kit/test/ruine/wand_fuellung",
   "kit/test/station/wand_fuellung",
+  "kreatur/rudeltier",
+  "kreatur/rudeltier_koerper",
+  "kreatur/rudeltier_marken",
   "leit/germanen/aussenposten/kraehenwacht_turm",
   "leit/germanen/aussenposten/statue_platz",
   "leit/germanen/aussenposten/thing_stein",
@@ -787,7 +790,15 @@
   "rom/laterne",
   "rom/scutum",
   "rom/standarte",
-  "rom/standartenfuss"
+  "rom/standartenfuss",
+  "station/schottbrecher/foot",
+  "station/schottbrecher/hip",
+  "station/schottbrecher/horch",
+  "station/schottbrecher/hull",
+  "station/schottbrecher/knee",
+  "station/schottbrecher/lampe",
+  "station/schottbrecher/schild",
+  "station/schottbrecher/sensor"
  ],
  "palettes": [
   "aegypten",
@@ -816,6 +827,7 @@
   "kontor",
   "kontor_umkaempft",
   "kontor_verfallen",
+  "kreatur",
   "kustoden",
   "lerche",
   "lerche_rom",
@@ -834,6 +846,7 @@
   "rom_umkaempft",
   "rom_verfallen",
   "rostmeute",
+  "schottbrecher",
   "sommer_wald",
   "station_esse",
   "station_esse_umkaempft",
@@ -842,7 +855,8 @@
   "wrack"
  ],
  "rigs": [
-  "human"
+  "human",
+  "schottbrecher"
  ],
  "figures": [
   "cha/spieler",
@@ -859,10 +873,12 @@
   "lerche/crew_1",
   "lerche/crew_2",
   "lerche/ivo",
-  "lerche/scavenger"
+  "lerche/scavenger",
+  "station/schottbrecher"
  ],
  "poses": [
-  "human"
+  "human",
+  "schottbrecher"
  ],
  "moods": [
   "biom_vulkan",

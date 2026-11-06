@@ -207,7 +207,15 @@ const FX = {
     for (let i = 0; i < n; i++) {
       const a = Math.random() * Math.PI * 2, sp = rnd(0.8, 2.4) * (o.speed || 1);
       spawn({ mesh: 'emit', p: [p[0], p[1], p[2]], v: [Math.cos(a) * sp * 0.6 + (o.dir ? o.dir[0] : 0), rnd(0.6, 2.2) * (o.up || 1), Math.sin(a) * sp * 0.6 + (o.dir ? o.dir[2] : 0)],
-        life: rnd(0.25, 0.55), s0: rnd(0.03, 0.05), s1: 0.01, c0: o.c0 || COL.spark, c1: o.c1 || COL.amber, grav: 6, drag: 0.5, stretch: 2.2 });
+        life: rnd(0.25, 0.55), s0: o.s0 ? rnd(o.s0[0], o.s0[1]) : rnd(0.03, 0.05), s1: 0.01, c0: o.c0 || COL.spark, c1: o.c1 || COL.amber, grav: 6, drag: 0.5, stretch: 2.2 });
+    }
+  },
+  // MON-02 O3a: Staubspur eines rammenden Kreatur-Tiers (actors.js ruft im 25-Hz-Takt): wenige kleine, helle Würfel, kurz, fallen hinter dem Tier zu Boden. dir = [x, z] der Rückrichtung
+  staub(p, dir) {
+    const d = dir || [0, 0];
+    for (let i = 0; i < 2; i++) {
+      spawn({ mesh: 'lit', p: [p[0] + rnd(-0.12, 0.12), p[1] + rnd(0, 0.08), p[2] + rnd(-0.12, 0.12)], v: [d[0] * rnd(0.3, 0.9) + rnd(-0.25, 0.25), rnd(0.25, 0.7), d[1] * rnd(0.3, 0.9) + rnd(-0.25, 0.25)],
+        life: rnd(0.35, 0.6), s0: rnd(0.07, 0.11), s1: 0.02, c0: '#C2B59C', c1: '#8C8068', grav: 1.5, drag: 1.2 });
     }
   },
   // Leck: Sog-Partikel zum Leck, Eiskristalle, kaltes Glimmen
@@ -1466,7 +1474,7 @@ function installEventHook() {
 // ------------------------------------------------------------------------------------------------------------------------------
 /**
  * Effekt von außen auslösen (ship.js, away.js, Debug). opts: { x, y } Spiel-Pixel oder { pos: [x,y,z] } Welt, { h } Höhe,
- * { color, size, n, to: {x,y}|[x,y,z] }. Typen: fire, smoke, sparks, breach, gel, foam, foam_burst, repair, setback, beam_out, beam_in,
+ * { color, size, n, to: {x,y}|[x,y,z] }. Typen: fire, smoke, sparks, staub (MON-02, dir [x, z]), breach, gel, foam, foam_burst, repair, setback, beam_out, beam_in,
  * shield_hit, shield_break, muzzle, impact, cover_hit, warden_deflect, emp_wave, heal, revive, explosion, sensor, strike_boom.
  */
 export function spawnFx(type, opts) {
@@ -1479,7 +1487,8 @@ export function spawnFx(type, opts) {
     switch (type) {
       case 'fire': FX.fire(p, o.size || 0, dt, F.time); break;
       case 'smoke': FX.smoke(p, dt, o.n || 3); break;
-      case 'sparks': FX.sparks(p, o.n || 10, { c0: o.color }); break;
+      case 'sparks': FX.sparks(p, o.n || 10, { c0: o.color, s0: o.s0 }); break;   // s0 = [min, max] Größe (m), optional (MON-02 Nacharbeit: Funken des Schottbrechers)
+      case 'staub': FX.staub(p, o.dir); break;   // MON-02 O3a
       case 'breach': FX.breach(p, dt, F.time); break;
       case 'gel': if (to) FX.gelStream(p, to, dt); break;
       case 'foam': FX.foam(p, dt, o.n || 3); break;

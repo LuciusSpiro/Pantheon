@@ -21,6 +21,7 @@ const STATIC_DIRS = [
   { prefix: '/content/welt/', dir: path.join(ROOT, 'content', 'welt'), nur: ['ruf-werte.json', 'handel-info-anzeige.json'] },   // SUND-03b I: handel-info-anzeige.json (Texte, Preise und Überschriften des Bereichs Information; public/js/handel-info.js). NICHT handel-info-werte.json: die Regeln (Falschquote, Falschfelder) bleiben auf dem Server
   { prefix: '/content/kampf/', dir: path.join(ROOT, 'content', 'kampf'), nur: ['zielsysteme-werte.json', 'gegner-systeme.json'] },   // SUND-04a-1 A: Zielsysteme der Ops (Namen, Klassen, Stufen; public/js/zielsysteme.js), nur diese Datei, nur lesen (verfolgung-werte.json bleibt auf dem Server)
   { prefix: '/content/scanner/', dir: path.join(ROOT, 'content', 'scanner'), nur: ['datenblaetter.json'] },   // SCA-01 P4: Texte der Scan-Ergebnisse (public/js/scan-anzeige.js), nur lesen
+  { prefix: '/content/kreaturen/', dir: path.join(ROOT, 'content', 'kreaturen'), nur: ['modelle.json'] },   // MON-02 O3a: Zuordnung Kreatur-Typ -> Voxelmodell (public/js/voxel/actors.js), nur lesen
   { prefix: '/', dir: path.join(ROOT, 'public') },
 ];
 const MIME = {

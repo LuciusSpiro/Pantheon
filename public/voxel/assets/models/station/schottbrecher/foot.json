@@ -1,0 +1,55 @@
+{
+  "id": "station/schottbrecher/foot",
+  "name": "Schottbrecher: Teleskopstange mit Fußplatte (links; fährt per shift entlang der Unterschenkelachse in die Hülse)",
+  "tier": "detail",
+  "palette": "schottbrecher",
+  "tags": [
+    "station",
+    "monster",
+    "schottbrecher"
+  ],
+  "params": {
+    "zc": {
+      "default": 4.5,
+      "min": -5,
+      "max": 5,
+      "label": "Bein-Mitte z (vorn 4.5, hinten -4.5)"
+    }
+  },
+  "ops": [
+    {
+      "jitter": false,
+      "name": "Stange",
+      "op": "cyl",
+      "at": [
+        12.5,
+        2,
+        "zc"
+      ],
+      "r": 1,
+      "h": 11,
+      "color": "kolben"
+    },
+    {
+      "jitter": false,
+      "name": "Fußplatte",
+      "op": "box",
+      "at": [
+        11,
+        0,
+        "zc - 1.5"
+      ],
+      "size": [
+        3,
+        2,
+        3
+      ],
+      "color": "panzer_dark"
+    }
+  ],
+  "anchor": [
+    0,
+    0,
+    0
+  ]
+}

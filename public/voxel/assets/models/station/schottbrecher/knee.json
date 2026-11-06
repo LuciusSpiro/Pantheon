@@ -1,0 +1,55 @@
+{
+  "id": "station/schottbrecher/knee",
+  "name": "Schottbrecher: Knie und Unterschenkelhülse (links, Hülse reicht von y 11 bis 20)",
+  "tier": "detail",
+  "palette": "schottbrecher",
+  "tags": [
+    "station",
+    "monster",
+    "schottbrecher"
+  ],
+  "params": {
+    "zc": {
+      "default": 4.5,
+      "min": -5,
+      "max": 5,
+      "label": "Bein-Mitte z (vorn 4.5, hinten -4.5)"
+    }
+  },
+  "ops": [
+    {
+      "jitter": false,
+      "name": "Kniekappe",
+      "op": "box",
+      "at": [
+        11,
+        20,
+        "zc - 1.5"
+      ],
+      "size": [
+        3,
+        3,
+        3
+      ],
+      "color": "panzer_dark"
+    },
+    {
+      "jitter": false,
+      "name": "Hülse",
+      "op": "cyl",
+      "at": [
+        12.5,
+        11,
+        "zc"
+      ],
+      "r": 1.5,
+      "h": 10,
+      "color": "hydraulik"
+    }
+  ],
+  "anchor": [
+    0,
+    0,
+    0
+  ]
+}

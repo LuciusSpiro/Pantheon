@@ -35,11 +35,11 @@
     "rudeltier": {
       "name": "kreatur.rudeltier",
       "groesse": 1,
-      "kollision": { "box": 20 },
+      "kollision": { "box": 24 },
       "sicht": 8,
       "verlustZeit": 3,
       "replan": 0.5,
-      "hitRadius": 13,
+      "hitRadius": 15,
       "schild": { "seg": 2, "max": 2 },
       "wunden": 2,
       "frontArc": 120,

@@ -1,0 +1,96 @@
+{
+  "id": "station/schottbrecher/hip",
+  "name": "Schottbrecher: Hüfte und Oberschenkel (links; zc = Bein-Mitte in z)",
+  "tier": "detail",
+  "palette": "schottbrecher",
+  "tags": [
+    "station",
+    "monster",
+    "schottbrecher"
+  ],
+  "params": {
+    "zc": {
+      "default": 4.5,
+      "min": -5,
+      "max": 5,
+      "label": "Bein-Mitte z (vorn 4.5, hinten -4.5)"
+    },
+    "sg": {
+      "default": 1,
+      "min": -1,
+      "max": 1,
+      "label": "vorn +1, hinten -1"
+    }
+  },
+  "ops": [
+    {
+      "jitter": false,
+      "name": "Hüftlager",
+      "op": "box",
+      "at": [
+        8,
+        13,
+        "zc - 1.5"
+      ],
+      "size": [
+        2,
+        5,
+        3
+      ],
+      "color": "panzer_dark"
+    },
+    {
+      "jitter": false,
+      "name": "Oberschenkel unten",
+      "op": "box",
+      "at": [
+        9,
+        14,
+        "zc - 1.5"
+      ],
+      "size": [
+        3,
+        3,
+        3
+      ],
+      "color": "hydraulik"
+    },
+    {
+      "jitter": false,
+      "name": "Oberschenkel oben",
+      "op": "box",
+      "at": [
+        11,
+        17,
+        "zc - 1.5"
+      ],
+      "size": [
+        3,
+        3,
+        3
+      ],
+      "color": "hydraulik"
+    },
+    {
+      "jitter": false,
+      "name": "Kolben am Oberschenkel",
+      "op": "box",
+      "at": [
+        12,
+        17,
+        "zc + 2 * sg - 0.5"
+      ],
+      "size": [
+        1,
+        4,
+        1
+      ],
+      "color": "kolben"
+    }
+  ],
+  "anchor": [
+    0,
+    0,
+    0
+  ]
+}

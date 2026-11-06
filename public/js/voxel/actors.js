@@ -215,6 +215,7 @@ function fallbackModel(kind) {
       g.add(z); g.userData.pauseZeichen = z;
     }
   }
+  else if (kind === 'leer') { /* MON-02 O3a: leerer Ersatz, der Platzhalter wird anderswo gezeigt (kreaturPlatzhalter) */ }
   else if (kind === 'warden') { box(1.4, 1.1, 1.8, 0, 0.75, 0, '#4B3F6B'); box(0.9, 0.6, 0.5, 0, 1.4, 0.8, '#B57CFF'); box(1.2, 0.2, 0.3, 0, 0.3, 1.0, '#7FF3FF'); }
   else box(0.22, 0.22, 0.22, 0, 0.11, 0, '#F2C94C');
   return g;
@@ -440,7 +441,7 @@ class Actor {
     refreshSlot(this.extra);
     return this.extra;
   }
-  dispose() { if (this.container.parent) this.container.parent.remove(this.container); if (this.fig && this.fig.skinned) { this.fig.skinned.geometry.dispose(); if (this.fig.skinned.skeleton) this.fig.skinned.skeleton.dispose(); } }
+  dispose() { if (this.smKegel) { this.smKegel.geometry.dispose(); this.smKegel.material.dispose(); } if (this.container.parent) this.container.parent.remove(this.container); if (this.fig && this.fig.skinned) { this.fig.skinned.geometry.dispose(); if (this.fig.skinned.skeleton) this.fig.skinned.skeleton.dispose(); } }
 }
 
 function actor(key) {
@@ -1103,6 +1104,393 @@ function updateGermane(a, e, view, dt, t, hitAge) {
   applyFessel(a, !!ks.fessel);
 }
 
+// ------------------------------------------------------------------------------------------------------------------------------
+// MON-02 O3a: Kreaturen im Voxelmodus (Rudeltier D „Helmhyäne“ u. a.). Zuordnung Typ → Modell NUR aus dem Client-Content
+// content/kreaturen/modelle.json (kein Typname hier), ohne Eintrag oder ohne geladenes Asset bleibt der graue Platzhalter (Rückfall).
+// Der Block bis KREATUR-OPTIK-ENDE ist rein (ohne THREE und DOM); tools/test-kreatur-optik.js liest ihn aus dem Quelltext.
+// Bits von away.kr (Snapshot): 0-1 Ladung, 2 Pause, 3 rammt, 4-5 Größe-1, 6 zielt (Aufladen).
+const KR_SCHRITT = 0.45;        // m zurückgelegte Strecke je Beinphase (zwei Phasen im Wechsel; Stillstand = keine Beinbewegung)
+const KR_WIPPEN_PERIODE = 0.9;  // m je Wipp-Zyklus
+const KR_PULS_HZ = 2.0;         // Marken pulsieren bei Ladung 3 (1 bis 2 Hz)
+const KR_PULS_AMP = 0.35;       // Skala 1 bis 1,35 (bei 1,2 war es in der Spielgröße kaum zu sehen)
+const KR_INHALT_WARTE = 5;       // s bis zum nächsten Abruf von modelle.json nach einem Fehler
+const KR_STERN_FARBE = '#FFF4C0', KR_STERN_HELL = 1.6;   // Pause-Sterne: unbeleuchtet und über 1 (greift im Bloom), deutlich heller als der Knochenhelm
+const KR_STERN_GROESSE = 0.12, KR_STERN_RING = 0.32, KR_STERN_HOEHE = 0.95;   // m: Raute, Ringradius, Höhe über dem Boden des Tiers (klar über dem Helm)
+/** typCode (Index in kreaturen.json) → Eintrag { modell, marken, varianten } aus dem Client-Content, sonst null (Platzhalter). */
+function kreaturEintrag(inhalt, typCode) {
+  if (!inhalt || !Array.isArray(inhalt.reihenfolge) || !inhalt.typen) return null;
+  const id = inhalt.reihenfolge[typCode | 0];
+  const e = id != null ? inhalt.typen[id] : null;
+  return e && e.modell && e.marken && e.varianten > 0 ? e : null;
+}
+/** Fellton aus der Tier-Nummer (Zahl hinter dem K der ID): deterministisch, bei allen Clients gleich. */
+function kreaturFell(nr, varianten) { const v = Math.max(1, varianten | 0); return (((nr | 0) % v) + v) % v; }
+/** Pose des Modells aus den Bits: Pause 2, rammt 3, zielt (Aufladen) 1, sonst 0 (steh). */
+function kreaturPose(b) { return (b & 4) ? 2 : (b & 8) ? 3 : (b & 64) ? 1 : 0; }
+function kreaturLadung(b) { return b & 3; }
+/** Beinphase 0/1 nach zurückgelegter Strecke (m), nur im Gehen (Pose 0); die anderen Posen haben eigene Beinstellung. */
+function kreaturBeinphase(pose, strecke) { return pose === 0 ? (Math.floor(Math.max(0, strecke) / KR_SCHRITT) & 1) : 0; }
+/** Parameter der beiden Teilmodelle; die Marken tragen dieselbe Pose wie der Körper. */
+function kreaturParameter(eintrag, nr, b, strecke) {
+  const pose = kreaturPose(b);
+  return { koerper: { pose, fell: kreaturFell(nr, eintrag.varianten), beinphase: kreaturBeinphase(pose, strecke) }, marken: { ladung: kreaturLadung(b), pose } };
+}
+/** Cache-Schlüssel eines Teilmodells (Modell-ID + Parameter, Reihenfolge fest). */
+function kreaturSchluessel(id, p) { return id + '|' + Object.keys(p).sort().map((k) => k + '=' + p[k]).join(','); }
+/** Zittern beim Aufladen: Amplitude in m (0 sonst), wächst mit der Ladung. */
+function kreaturZitterAmp(b) { return (b & 64) && !(b & 12) ? 0.02 + 0.01 * (b & 3) : 0; }   // 0,64 bis 1,6 px bei 32 px/m
+/** Staubspur nur beim Rammen. */
+function kreaturStaubAn(b) { return (b & 8) !== 0 && (b & 4) === 0; }
+/** Sterne nur bei Pause. */
+function kreaturSterneAn(b) { return (b & 4) !== 0; }
+/** Skalierung der Marken: bei Ladung 3 pulsierend (1 bis 1,35), sonst 1. */
+function kreaturPuls(b, t) { return (b & 3) === 3 ? 1 + KR_PULS_AMP * (0.5 + 0.5 * Math.sin(t * Math.PI * 2 * KR_PULS_HZ)) : 1; }
+/** Wippen (m Höhe): leicht beim Gehen, stärker in Jagd (Tempo) und Rammen; im Stand 0. speed in m/s, strecke in m. */
+function kreaturWippen(b, speed, strecke) {
+  if (speed < 0.25) return 0;
+  const amp = (b & 8) ? 0.05 : 0.012 + 0.016 * Math.min(1, speed / 2.8);
+  return amp * Math.abs(Math.sin(strecke * Math.PI / KR_WIPPEN_PERIODE));
+}
+/** Pivot der Marken (m, vor der Rückenlinie der Pose): Pulsieren um die eigene Mitte statt um den Anker. */
+function kreaturMarkenPivot(pose) { return [0, (13.5 + [0, -1, -2, -1][pose & 3]) / 16, -3 / 16]; }
+// KREATUR-OPTIK-ENDE
+
+// MON-02 O3a (Fortsetzung): Teilmodelle, Anzeige, Effekte. Eigene Funktionen, der Platzhalter bleibt als Rückfall.
+/** Client-Content einmal laden; schlägt der Abruf fehl (Netz, 404, kaputtes JSON), bleibt es bis dahin beim Platzhalter und nach KR_INHALT_WARTE s wird neu versucht (t = Zeit in s). */
+function kreaturInhaltLaden(t) {
+  if (L.kreaturInhalt || L.kreaturInhaltLaedt || typeof fetch !== 'function') return;
+  if (L.kreaturInhaltNeuAb != null && !(t >= L.kreaturInhaltNeuAb)) return;
+  L.kreaturInhaltLaedt = true;
+  const fehl = () => { L.kreaturInhaltLaedt = false; L.kreaturInhaltNeuAb = (+t || 0) + KR_INHALT_WARTE; };
+  fetch('/content/kreaturen/modelle.json').then((r) => (r.ok ? r.json() : null)).then((j) => { if (j && typeof j === 'object' && j.typen) { L.kreaturInhalt = j; L.kreaturInhaltLaedt = false; } else fehl(); }).catch(fehl);
+}
+/** Teilmodell (Körper oder Marken) je Akteur gecacht; der Slot sagt über userData.slot.ready, ob das Asset gebaut ist. */
+function kreaturTeil(a, id, params) {
+  const k = kreaturSchluessel(id, params);
+  let s = a.models[k];
+  if (!s) { s = loadModel(id, params, 'leer'); a.models[k] = s; }
+  refreshSlot(s);
+  return s;
+}
+function kreaturSterne(a) {
+  if (!a.sterne) {
+    const T = L.THREE; if (!L.fbGeo) L.fbGeo = new T.BoxGeometry(1, 1, 1);
+    const g = new T.Group(); g.name = 'kreatur-sterne';
+    // unbeleuchtet und über 1 (toneMapped false): bleibt hell wie Glut, hebt sich vom beleuchteten Knochenhelm ab und greift im Bloom (Qualität high); ohne Bloom bleibt es ein weißlicher Stern (Raute, kreisend, über dem Helm)
+    const mat = new T.MeshBasicMaterial({ color: KR_STERN_FARBE, toneMapped: false }); mat.color.multiplyScalar(KR_STERN_HELL);
+    for (let i = 0; i < 3; i++) { const m = new T.Mesh(L.fbGeo, mat); m.scale.set(KR_STERN_GROESSE, KR_STERN_GROESSE, KR_STERN_GROESSE); m.rotation.set(Math.PI / 4, 0, Math.PI / 4); const w = i * Math.PI * 2 / 3; m.position.set(Math.cos(w) * KR_STERN_RING, 0, Math.sin(w) * KR_STERN_RING); g.add(m); }
+    a.sterne = g; a.body.add(g);
+  }
+  return a.sterne;
+}
+/** Körper + Marken zeigen (true) oder, solange ein Asset fehlt oder noch baut, nichts tun (false, dann Platzhalter). */
+function kreaturModellAnwenden(a, e, eintrag, b, t) {
+  const nr = +String(e.id).slice(1) || 0;
+  const p = kreaturParameter(eintrag, nr, b, a.dist || 0);
+  const kor = kreaturTeil(a, eintrag.modell, p.koerper), mar = kreaturTeil(a, eintrag.marken, p.marken);
+  if (!kor.userData.slot.ready || !mar.userData.slot.ready) return false;
+  if (a.model !== kor) { if (a.model) a.body.remove(a.model); a.body.add(kor); a.model = kor; a.modelKey = 'kreatur-modell'; }
+  if (!a.markenPivot) { a.markenPivot = new L.THREE.Group(); a.markenPivot.name = 'kreatur-marken'; a.body.add(a.markenPivot); }
+  if (a.marken !== mar) { if (a.marken) a.markenPivot.remove(a.marken); a.markenPivot.add(mar); a.marken = mar; }
+  const pv = kreaturMarkenPivot(p.koerper.pose);
+  a.markenPivot.position.set(pv[0], pv[1], pv[2]); mar.position.set(-pv[0], -pv[1], -pv[2]);
+  a.markenPivot.scale.setScalar(kreaturPuls(b, t));
+  a.markenPivot.visible = true;
+  return true;
+}
+/** Zittern, Wippen, Sterne, Staubspur: nur Darstellung (Math.random/Zeit erlaubt, nie Serverzustand). */
+function kreaturEffekte(a, e, b, dt, t) {
+  const nr = +String(e.id).slice(1) || 0, ph = nr * 1.7;
+  const z = kreaturZitterAmp(b);
+  a.body.position.set(z ? Math.sin(t * 83 + ph) * z : 0, kreaturWippen(b, a.speed, a.dist || 0) + (z ? Math.abs(Math.sin(t * 71 + ph)) * z * 0.5 : 0), z ? Math.sin(t * 97 + ph * 2) * z : 0);
+  a.body.rotation.set((b & 8) && a.speed > 0.25 ? 0.05 : 0, 0, z ? Math.sin(t * 79 + ph) * z * 2 : 0);   // Rammen: leicht vorgebeugt
+  const stern = kreaturSterneAn(b);
+  if (stern || a.sterne) {
+    const s = kreaturSterne(a);
+    s.visible = stern;
+    if (stern) { s.rotation.y = t * 2.2 + ph; s.position.set(0, KR_STERN_HOEHE + 0.04 * Math.sin(t * 3 + ph), 0.3); }
+  }
+  if (kreaturStaubAn(b) && a.speed > 0.25) {
+    a.staubT = (a.staubT || 0) + dt;
+    const fx = window.VoxelFx;
+    if (fx && fx.spawnFx) {
+      while (a.staubT >= 0.04) {
+        a.staubT -= 0.04;
+        const yaw = a.container.rotation.y, pos = a.container.position;
+        fx.spawnFx('staub', { pos: [pos.x - Math.sin(yaw) * 0.35, pos.y + 0.04, pos.z - Math.cos(yaw) * 0.35], dir: [-Math.sin(yaw), -Math.cos(yaw)], dt });
+      }
+    }
+    a.staubT = Math.min(a.staubT, 0.04);
+  } else a.staubT = 0;
+}
+/** Graues Platzhalter-Volumen (MON-01 P4), Rückfall ohne Modell-Eintrag oder Asset: je Ladung/Pause/Rammen/Größe ein eigenes Modell, gecacht. */
+function kreaturPlatzhalter(a, b, t) {
+  const mk = 'kreatur:' + (b & 3) + ((b >> 2) & 3) + ((b >> 4) & 3);
+  if (a.modelKey !== mk) {
+    let o = a.models[mk];
+    if (!o) { o = fallbackModel('kreatur|' + b); a.models[mk] = o; }
+    if (a.model && a.model !== o) a.body.remove(a.model);
+    if (a.model !== o) a.body.add(o);
+    a.model = o; a.modelKey = mk;
+  }
+  a.labelH = ((b >> 4) & 3) * 0.8 + 1.8;
+  if (a.markenPivot) a.markenPivot.visible = false;
+  if (a.sterne) a.sterne.visible = false;
+  if (a.model && a.model.userData.pauseZeichen) a.model.userData.pauseZeichen.rotation.y = t * 1.2;
+}
+function updateKreatur(a, e, dt, t) {
+  const b = (e.kr && e.kr.b) | 0;
+  kreaturInhaltLaden(t);
+  const pos = place(a, e.x, e.y, 0);
+  const f = +e.facing || 0;
+  locomote(a, pos.x, pos.z, dt, yawOf(Math.cos(f), Math.sin(f)), false);   // Blick = Snapshot-Blick (nicht auf 45 Grad gerastet), a.dist zählt die Strecke
+  const eintrag = kreaturEintrag(L.kreaturInhalt, e.kr && e.kr.t);
+  if (eintrag && kreaturModellAnwenden(a, e, eintrag, b, t)) {
+    a.labelH = 1.45;
+    kreaturEffekte(a, e, b, dt, t);
+  } else {
+    kreaturPlatzhalter(a, b, t);
+    a.body.position.set(0, 0, 0); a.body.rotation.set(0, 0, 0);
+  }
+}
+
+// ------------------------------------------------------------------------------------------------------------------------------
+// MON-02 O3b: Station-Monster „Schottbrecher“ im Voxelmodus (Figur station/schottbrecher, Rig und Posen schottbrecher aus dem Voxelwerk).
+// Eigene Klasse, nicht verwundbar, Verhalten und Snapshot away.mo unverändert (z p|l|s|j, f Blickrichtung, r rammt, h Pause): hier wird nur dargestellt.
+// Fünf Zustände aus mo (Vorrang Pause > Rammen > Jagd > Lärm/Suche > Patrouille). Die Zyklen der Posen (Schritt, Sensorschwenk) wertet der Client aus,
+// Phase = Zeit · hz nur in Bewegung; Posenwechsel überblendet in SM_BLEND s. Lichtkegel = flache additive Bodenfläche (Form statt Farbe), Ruck und Funken beim Rammen.
+// Der Block bis STATION-MONSTER-OPTIK-ENDE ist rein (ohne THREE und DOM); tools/test-station-monster-optik.js liest ihn aus dem Quelltext.
+const SM_FIGUR = 'station/schottbrecher';
+const SM_ZUSTAENDE = ['patrouille', 'laerm', 'jagd', 'rammen', 'pause'];
+const SM_BLEND = 0.15;            // s: Überblenden zwischen zwei Posen (Auftrag: unter 0,2 s)
+const SM_BEWEGT = 0.25;           // m/s: darüber läuft der Zyklus, darunter ruht er (Stillstand = Standpose ohne Schritt)
+const SM_RUCK_VOXEL = 7;          // Ruck beim Rammen: Wurzel um 7 Voxel (0,44 m) nach vorn, dann halten
+const SM_RUCK_ZEIT = 0.15;        // s bis zum vollen Ruck
+const SM_RUCK_ZURUECK = 0.3;      // s zurück, wenn das Rammen endet
+const SM_FUNKEN_TAKT = 0.04;      // s zwischen zwei Funkenschauern (25 Hz)
+const SM_SCHILD_VOR = 0.95;       // m: Schildspitze vor der Mitte (Kreisregel des Rigs: höchstens 15 Voxel)
+const SM_TILE = 32;               // px je Kachel
+const SM_KEGEL_TEMPO = 12;        // m/s: so schnell darf die Kegellänge wachsen oder schrumpfen
+const SM_NULL = [0, 0, 0];
+// Lichtkegel je Zustand: laenge (m ab dem Lichtschlitz, ein Stück davon liegt unter dem Rumpf), breite (m am Ende), hell (Faktor auf Weiß 250,248,238)
+const SM_KEGEL = {
+  patrouille: { laenge: 3.4, breite: 1.8, hell: 0.34 },   // mittel, schwenkt mit dem Sensor
+  laerm: { laenge: 5.6, breite: 0.8, hell: 0.42 },        // lang und schmal
+  jagd: { laenge: 2.4, breite: 3.0, hell: 0.50 },         // kurz und breit, hell
+  rammen: { laenge: 1.3, breite: 1.6, hell: 0.42 },       // sehr kurz, gestaucht
+  pause: { laenge: 0, breite: 0, hell: 0 },               // aus
+};
+/** Zustand aus away.mo: Pause (h) vor Rammen (r) vor Jagd (z j) vor Lärm/Suche (z l, s) vor Patrouille. */
+function monsterZustand(mo) {
+  if (!mo) return 'patrouille';
+  if (mo.h) return 'pause';
+  if (mo.r) return 'rammen';
+  if (mo.z === 'j') return 'jagd';
+  if (mo.z === 'l' || mo.z === 's') return 'laerm';
+  return 'patrouille';
+}
+/** Winkel (Grad) und Verschiebung (Voxel) je Gelenk: Pose + Zyklus (c + a·sin(2π·φ·k + p)), der Zyklus mit Gewicht gehen (0 = Standpose, 1 = voll). */
+function monsterPoseWerte(posen, name, phi, gehen) {
+  const p = posen && posen[name], out = { joints: {}, shift: {} };
+  if (!p) return out;
+  for (const [j, r] of Object.entries(p.joints || {})) out.joints[j] = [r[0], r[1], r[2]];
+  for (const [j, r] of Object.entries(p.shift || {})) out.shift[j] = [r[0], r[1], r[2]];
+  const cyc = p.cycle, w = gehen > 0 ? Math.min(1, gehen) : 0;
+  if (cyc && w > 0) {
+    for (const art of ['joints', 'shift']) {
+      for (const [j, c] of Object.entries(cyc[art] || {})) {
+        const s = Math.sin(2 * Math.PI * phi * (c.k || 1) + (c.p || 0) * Math.PI / 180), C = c.c || SM_NULL, A = c.a || SM_NULL, b = out[art][j] || SM_NULL;
+        out[art][j] = [0, 1, 2].map((i) => b[i] + (C[i] + A[i] * s - b[i]) * w);
+      }
+    }
+  }
+  return out;
+}
+/** Linear von einer Pose zur Zielpose (Winkel und Verschiebung je Gelenk), s 0..1; von null = gleich dem Ziel. */
+function monsterBlend(von, ziel, s) {
+  if (!von) return ziel;
+  const out = { joints: {}, shift: {} };
+  for (const art of ['joints', 'shift']) {
+    for (const j of new Set([...Object.keys(von[art] || {}), ...Object.keys(ziel[art] || {})])) {
+      const a = (von[art] && von[art][j]) || SM_NULL, b = (ziel[art] && ziel[art][j]) || SM_NULL;
+      out[art][j] = [a[0] + (b[0] - a[0]) * s, a[1] + (b[1] - a[1]) * s, a[2] + (b[2] - a[2]) * s];
+    }
+  }
+  return out;
+}
+/** Fortschritt des Überblendens (0..1) nach seit Sekunden, linear. */
+function monsterBlendFaktor(seit) { return seit >= SM_BLEND ? 1 : seit <= 0 ? 0 : seit / SM_BLEND; }
+function monsterBewegt(speed) { return speed > SM_BEWEGT; }
+/** Gewicht des Zyklus: läuft in SM_BLEND s auf 1 (Bewegung) bzw. 0 (Stillstand). */
+function monsterGehenGewicht(g, bewegt, dt) { const z = bewegt ? 1 : 0, d = dt / SM_BLEND; return g < z ? Math.min(z, g + d) : Math.max(z, g - d); }
+/** Zyklusphase (Perioden): läuft mit hz nur in Bewegung, steht sonst. Modulo 1024, damit auch der halbe Takt des Sensorschwenks (k 0,5) glatt bleibt. */
+function monsterPhase(phi, hz, dt, bewegt) { return bewegt ? (phi + hz * dt) % 1024 : phi; }
+/** Ruck in Voxeln (0..SM_RUCK_VOXEL): wächst nur, solange gerammt wird (steigende Flanke von r), hält, geht danach zurück. */
+function monsterRuckSchritt(ruck, rammt, dt) {
+  return rammt ? Math.min(SM_RUCK_VOXEL, ruck + SM_RUCK_VOXEL / SM_RUCK_ZEIT * dt) : Math.max(0, ruck - SM_RUCK_VOXEL / SM_RUCK_ZURUECK * dt);
+}
+/** Sekunden seit Beginn des Rammens (0 außerhalb). */
+function monsterRammSeit(seit, rammt, dt) { return rammt ? seit + dt : 0; }
+function monsterLampeAn(zustand) { return zustand !== 'pause'; }
+function monsterKegelZiel(zustand) { return SM_KEGEL[zustand] || SM_KEGEL.patrouille; }
+/** Kurz heller zu Beginn des Rammens (1,6-fach, in 0,25 s auf 1). */
+function monsterKegelBlitz(zustand, seit) { return zustand === 'rammen' && seit < 0.25 ? 1.6 - 0.6 * Math.max(0, seit) / 0.25 : 1; }
+function monsterKegelMischen(von, ziel, s) {
+  if (!von) return ziel;
+  return { laenge: von.laenge + (ziel.laenge - von.laenge) * s, breite: von.breite + (ziel.breite - von.breite) * s, hell: von.hell + (ziel.hell - von.hell) * s };
+}
+/** Abstand (px) vom Punkt in Richtung (dx, dy) bis zur ersten festen Kachel, höchstens maxPx; solid(tx, ty) → bool. */
+function monsterStrahl(x, y, dx, dy, maxPx, solid) {
+  if (!solid) return maxPx;
+  for (let d = 0; d <= maxPx; d += 4) if (solid(Math.floor((x + dx * d) / SM_TILE), Math.floor((y + dy * d) / SM_TILE))) return d;
+  return maxPx;
+}
+/**
+ * Länge des Kegels (m ab dem Lichtschlitz) nach dem Kürzen an der ersten festen Kachel: Mittelstrahl und beide Kanten, gemessen von der Mitte des Monsters
+ * (px-Ursprung x, y; die Mitte liegt nach der Wegesuche immer frei, der Lichtschlitz kann an Ecken in einer Wand stecken), Blickwinkel yaw wie yawOf,
+ * vorlauf = Abstand des Lichtschlitzes von der Mitte in Blickrichtung (m).
+ */
+function monsterKegelLaenge(laenge, breite, vorlauf, x, y, yaw, solid) {
+  if (!(laenge > 0)) return 0;
+  const gesamt = laenge + vorlauf, maxPx = gesamt * SM_TILE, a = breite > 0 ? Math.atan2(breite / 2, gesamt) : 0;
+  let best = maxPx;
+  for (const w of a > 0 ? [0, -a, a] : [0]) {
+    const d = monsterStrahl(x, y, Math.sin(yaw + w), Math.cos(yaw + w), maxPx / Math.cos(w), solid);
+    best = Math.min(best, d * Math.cos(w));
+  }
+  return Math.max(0, best / SM_TILE - vorlauf);
+}
+/** Länge weich nachführen (höchstens SM_KEGEL_TEMPO m/s): Ecken und Türen lassen den Kegel nicht aufblitzen oder springen. */
+function monsterKegelGlaetten(cur, ziel, dt) { const d = SM_KEGEL_TEMPO * dt; return cur == null ? ziel : ziel > cur ? Math.min(ziel, cur + d) : Math.max(ziel, cur - d); }
+/** Funken nur beim Rammen. */
+function monsterFunkenAn(zustand) { return zustand === 'rammen'; }
+/** Zahl der Funkenschauer in dt (25-Hz-Takt, höchstens 3 je Bild) und Rest. */
+function monsterFunkenZahl(acc, dt) {
+  const s = acc + dt, n = Math.min(3, Math.floor(s / SM_FUNKEN_TAKT));
+  return { n, acc: Math.min(SM_FUNKEN_TAKT, s - n * SM_FUNKEN_TAKT) };
+}
+/** Weltpunkt vor dem Schild: Akteurposition, Blick yaw, vor (m nach vorn), quer (m nach links), hoch (m). */
+function monsterFunkenPunkt(pos, yaw, vor, quer, hoch) {
+  return [pos[0] + Math.cos(yaw) * quer + Math.sin(yaw) * vor, pos[1] + hoch, pos[2] - Math.sin(yaw) * quer + Math.cos(yaw) * vor];
+}
+/** Echt = die geladene Figur schottbrecher (Gelenke sensor und lampe) mit allen fünf Posen; sonst Rückfall. */
+function monsterFigurEcht(f) {
+  return !!(f && f.joints && f.joints.sensor && f.joints.lampe && f.poses && SM_ZUSTAENDE.every((z) => f.poses[z]));
+}
+// STATION-MONSTER-OPTIK-ENDE
+
+// MON-02 O3b (Fortsetzung): Anzeige. Eigene Funktionen, der alte Quader fallbackModel('monster') bleibt als Rückfall (Asset fehlt oder baut noch).
+/** Flacher additiver Bodenkegel: 5 × 5 Eckpunkte, Einheitsform (z 0..1, x ±0,5 mit wachsender Breite), Helligkeit in den Vertexfarben (Rand und Ende weich, ohne Alpha). */
+function monsterKegelBauen(a) {
+  const T = L.THREE, cols = [-0.5, -0.25, 0, 0.25, 0.5], rand = [0, 0.55, 1, 0.55, 0], reihen = [0, 0.25, 0.5, 0.75, 1], laengs = [0.95, 0.85, 0.6, 0.3, 0];
+  const pos = [], col = [], idx = [];
+  for (let r = 0; r < reihen.length; r++) {
+    const z = reihen[r], breit = 0.25 + 0.75 * z;
+    for (let c = 0; c < cols.length; c++) { pos.push(cols[c] * breit, 0, z); const v = rand[c] * laengs[r]; col.push(v, v, v); }
+  }
+  for (let r = 0; r < reihen.length - 1; r++) for (let c = 0; c < cols.length - 1; c++) { const i = r * cols.length + c; idx.push(i, i + cols.length, i + 1, i + 1, i + cols.length, i + cols.length + 1); }
+  const g = new T.BufferGeometry();
+  g.setAttribute('position', new T.Float32BufferAttribute(pos, 3)); g.setAttribute('color', new T.Float32BufferAttribute(col, 3)); g.setIndex(idx);
+  const mat = new T.MeshBasicMaterial({ color: 0xffffff, vertexColors: true, blending: T.AdditiveBlending, transparent: true, depthWrite: false, toneMapped: false, side: T.DoubleSide });
+  const m = new T.Mesh(g, mat); m.name = 'schottbrecher-kegel'; m.renderOrder = 3; m.frustumCulled = false; m.visible = false;
+  a.container.add(m);
+  return m;
+}
+/** Starre Pose auf die Gelenke: Winkel YXZ wie applyPose, Verschiebung in Voxeln des Rigs (Größe des Voxels = fig.inner.s). */
+function monsterPoseAnwenden(a, werte, zustand) {
+  const f = a.fig, s = (f.inner && f.inner.s) || VX;
+  for (const [n, o] of Object.entries(f.joints)) {
+    const r = werte.joints[n] || SM_NULL, sh = werte.shift[n];
+    o.rotation.set(r[0] * D2R, r[1] * D2R, r[2] * D2R, 'YXZ');
+    if (o.userData.rest) o.position.copy(o.userData.rest);
+    if (sh) { o.position.x += sh[0] * s; o.position.y += sh[1] * s; o.position.z += sh[2] * s; }
+  }
+  f.joints.lampe.scale.setScalar(monsterLampeAn(zustand) ? 1 : 0.001);   // Licht aus: das ganze Teil lampe (Lichtschlitz und Lichtfeld) ausblenden
+}
+/** Feste Kachel für den Kegel: Bühnenkarten mit Türen nach Zustand (Render.buehneSolid, wie Sicht und 2D), sonst die statische Karte; null ohne Karte. */
+function monsterFesteKachel(st) {
+  const m = L.ctx && L.ctx.map, R = window.Render;
+  if (!m) return null;
+  try {
+    if (R && R.isBuehne && R.buehneSolid && R.isBuehne(m)) { const f = R.buehneSolid(m, st); return (tx, ty) => !!f(tx, ty); }
+  } catch (err) { /* statische Karte */ }
+  return typeof m.solid === 'function' ? (tx, ty) => { try { return !!m.solid(tx, ty); } catch (err) { return false; } } : null;
+}
+/** Kegel an die Lichtquelle (Gelenk lampe) legen, drehen (Sensor), an der ersten festen Kachel kürzen, Helligkeit setzen. */
+function monsterKegelAnwenden(a, e, S, zustand, s, dt, st) {
+  if (!a.smKegel) a.smKegel = monsterKegelBauen(a);
+  const k = a.smKegel, T = L.THREE;
+  const ziel = monsterKegelZiel(zustand);
+  const kg = S.kegelVon ? monsterKegelMischen(S.kegelVon, ziel, s) : ziel;
+  S.kegelGezeigt = kg;
+  const hell = kg.hell * monsterKegelBlitz(zustand, S.rammSeit);
+  if (hell < 0.01 || kg.laenge < 0.05) { k.visible = false; S.kegelLaenge = null; S.kegelInfo = { laenge: 0, breite: 0, hell: 0 }; return; }
+  if (!L.smV) { L.smV = new T.Vector3(); L.smFarbe = new T.Color('#FAF8EE'); }
+  const lampe = a.fig.joints.lampe;
+  lampe.getWorldPosition(L.smV);                  // aktualisiert die Weltmatrizen bis zum Container
+  a.container.worldToLocal(L.smV);
+  const yaw = a.container.rotation.y, lx = L.smV.x, lz = L.smV.z;
+  const sens = S.gezeigt.joints.sensor, psi = (sens ? sens[1] : 0) * D2R;
+  const wx = Math.cos(yaw) * lx + Math.sin(yaw) * lz, wz = -Math.sin(yaw) * lx + Math.cos(yaw) * lz;   // Lichtschlitz relativ zur Mitte (Welt, m)
+  const vorlauf = wx * Math.sin(yaw + psi) + wz * Math.cos(yaw + psi);
+  const solid = monsterFesteKachel(st);
+  const ziel0 = monsterKegelLaenge(kg.laenge, kg.breite, vorlauf, e.x, e.y, yaw + psi, solid);
+  const laenge = S.kegelLaenge = monsterKegelGlaetten(S.kegelLaenge, ziel0, dt);
+  k.visible = laenge > 0.05;
+  k.position.set(lx, 0.03, lz); k.rotation.y = psi; k.scale.set(kg.breite, 1, laenge);
+  k.material.color.copy(L.smFarbe).multiplyScalar(hell);
+  S.kegelInfo = { laenge, breite: kg.breite, hell, vorlauf: +vorlauf.toFixed(2), frei: +ziel0.toFixed(2) };
+}
+/** Funkenschauer an der Schildunterkante, nur beim Rammen (vorhandenes Effektsystem fx.js, Typ sparks). */
+function monsterFunken(a, S, zustand, dt) {
+  if (!monsterFunkenAn(zustand)) { S.funkenAcc = 0; return; }
+  const fx = window.VoxelFx;
+  if (!fx || !fx.spawnFx) return;
+  const r = monsterFunkenZahl(S.funkenAcc || 0, dt); S.funkenAcc = r.acc;
+  const p = a.container.position, yaw = a.container.rotation.y;
+  for (let i = 0; i < r.n; i++) fx.spawnFx('sparks', { pos: monsterFunkenPunkt([p.x, p.y, p.z], yaw, SM_SCHILD_VOR + S.ruck * VX, (Math.random() * 2 - 1) * 0.5, 0.1), n: 5, s0: [0.05, 0.08], dt });
+}
+/** Rückfall: der alte Quader (Asset fehlt oder baut noch), Verhalten wie vor MON-02 O3b. */
+function monsterRueckfall(a, mo, t) {
+  const z = (mo && mo.z) || 'p';
+  if (a.fig && a.fig.root) a.fig.root.visible = false;
+  if (a.smKegel) a.smKegel.visible = false;
+  a.setModel('lerche/actor/monster', { jagd: z === 'j' ? 1 : 0 }, 'monster');
+  if (a.model) a.model.visible = true;
+  a.labelH = 2.6;
+  a.body.position.set(0, Math.abs(Math.sin(t * (z === 'j' ? 9 : 3))) * 0.08, 0);
+  a.body.rotation.z = z === 'j' ? Math.sin(t * 30) * 0.04 : 0;
+}
+function updateStationMonster(a, e, dt, t, st) {
+  const mo = e.mo || null;
+  a.setFigure(SM_FIGUR, {}, 'monster');
+  const pos = place(a, e.x, e.y, 0);
+  const f = +(mo && mo.f) || 0;
+  locomote(a, pos.x, pos.z, dt, yawOf(Math.cos(f), Math.sin(f)), false);   // Blick = Snapshot-Blick (nicht auf 45 Grad gerastet); a.speed zählt die Bewegung
+  const zustand = monsterZustand(mo);
+  if (a.smT0 == null) a.smT0 = performance.now();   // QA: Aufbauzeit beim ersten Auftreten (monsterInfo.aufbauMs)
+  if (!monsterFigurEcht(a.fig)) { monsterRueckfall(a, mo, t); return; }
+  if (a.smEchtMs == null) a.smEchtMs = performance.now() - a.smT0;
+  a.fig.root.visible = true;
+  if (a.model) a.model.visible = false;
+  const S = a.sm || (a.sm = { zustand: null, von: null, gezeigt: null, seit: 0, kegelVon: null, kegelGezeigt: null, kegelInfo: null, phi: 0, gehen: 0, ruck: 0, rammSeit: 0, funkenAcc: 0, kegelLaenge: null });
+  if (S.zustand !== zustand) { S.von = S.gezeigt; S.kegelVon = S.kegelGezeigt; S.seit = 0; S.zustand = zustand; }
+  S.seit += dt;
+  const bewegt = monsterBewegt(a.speed), pose = a.fig.poses[zustand];
+  S.gehen = monsterGehenGewicht(S.gehen, bewegt, dt);
+  S.phi = monsterPhase(S.phi, (pose.cycle && pose.cycle.hz) || 1, dt, bewegt);
+  const s = monsterBlendFaktor(S.seit);
+  S.gezeigt = monsterBlend(S.von, monsterPoseWerte(a.fig.poses, zustand, S.phi, S.gehen), s);
+  monsterPoseAnwenden(a, S.gezeigt, zustand);
+  const rammt = zustand === 'rammen';
+  S.rammSeit = monsterRammSeit(S.rammSeit, rammt, dt);
+  S.ruck = monsterRuckSchritt(S.ruck, rammt, dt);
+  a.body.position.set(0, 0, S.ruck * VX); a.body.rotation.set(0, 0, 0);   // Ruck: Wurzel nach vorn (Blickrichtung = +z des Akteurs)
+  monsterKegelAnwenden(a, e, S, zustand, s, dt, st);
+  monsterFunken(a, S, zustand, dt);
+  a.labelH = 1.75;
+}
+
 function updateEnemy(e, view, st, dt, t) {
   const map = L.ctx.map;
   const kind = e.kind || (map && map.id === 'wreck' ? 'scavenger' : 'drone');
@@ -1150,34 +1538,8 @@ function updateEnemy(e, view, st, dt, t) {
     a.setItem(null, null);   // ART-G: Gewehr steckt schon in der Figur (handR)
     return;
   }
-  if (kind === 'monster') {   // SL7c: Monster (Snapshot away.mo: z p|l|s|j, f Blickrichtung); Figur 2×2 Kacheln, wiegt sich, in der Jagd Ruckeln
-    const z = (e.mo && e.mo.z) || 'p';
-    a.setModel('lerche/actor/monster', { jagd: z === 'j' ? 1 : 0 }, 'monster');
-    a.labelH = 2.6;
-    const pos = place(a, e.x, e.y, 0);
-    const f = +(e.mo && e.mo.f) || 0;
-    locomote(a, pos.x, pos.z, dt, yawOf(Math.cos(f), Math.sin(f)), true);
-    a.body.position.y = Math.abs(Math.sin(t * (z === 'j' ? 9 : 3))) * 0.08;
-    a.body.rotation.z = z === 'j' ? Math.sin(t * 30) * 0.04 : 0;
-    return;
-  }
-  if (kind === 'kreatur') {   // MON-01 P4: Platzhalter-Volumen (Box in Typgröße, Zustandsfarben wie 2D); e.kr = { t, b } (bits: 0-1 Ladung, 2 Pause, 3 rammt, 4-5 Größe-1)
-    const b = (e.kr && e.kr.b) | 0;
-    const mk = 'kreatur:' + (b & 3) + ((b >> 2) & 3) + ((b >> 4) & 3);   // je Ladung/Pause/Rammen/Größe ein eigenes Modell (höchstens 64 Stück, gecacht)
-    if (a.modelKey !== mk) {
-      let o = a.models[mk];
-      if (!o) { o = fallbackModel('kreatur|' + b); a.models[mk] = o; }
-      if (a.model && a.model !== o) a.body.remove(a.model);
-      if (a.model !== o) a.body.add(o);
-      a.model = o; a.modelKey = mk;
-    }
-    a.labelH = ((b >> 4) & 3) * 0.8 + 1.8;
-    if (a.model && a.model.userData.pauseZeichen) a.model.userData.pauseZeichen.rotation.y = t * 1.2;
-    const pos = place(a, e.x, e.y, 0);
-    const f = +e.facing || 0;
-    locomote(a, pos.x, pos.z, dt, yawOf(Math.cos(f), Math.sin(f)), (b & 12) === 8);
-    return;
-  }
+  if (kind === 'monster') { updateStationMonster(a, e, dt, t, st); return; }   // SL7c: Monster (Snapshot away.mo: z p|l|s|j, f Blickrichtung, r rammt, h Pause); MON-02 O3b: Schottbrecher, Rückfall der alte Quader
+  if (kind === 'kreatur') { updateKreatur(a, e, dt, t); return; }   // MON-02 O3a: Modell aus dem Client-Content, sonst MON-01-Platzhalter (kreaturPlatzhalter)
   if (kind === 'warden' || e.ro === 'waechter') {
     const state = !alive ? 2 : hitAge < 0.15 ? 1 : 0;
     // Kastell-Automat (Rom, herrenlose Kastelle) statt Kustoden-Wächter: Fraktion bzw. Bauweise der Bühne
@@ -1454,6 +1816,10 @@ window.VoxelActors = { stats: () => Object.assign({}, L.stats), layer, poses: FA
     const posen = {}; for (const n of ['stand', 'walk', 'sit', 'aim', 'crouch', 'wounded', 'operate', 'carry']) posen[n] = quelle(n);
     return { figId: a.figId, key: a.figKey, gebaut: !!(a.fig.inner || a.fig.skinned), posenGeladen: !!eigene, posen, skinned: !!a.fig.skinned, gelenke: Object.keys(a.fig.joints || {}).length, sichtbar: a.container.visible };
   },
+  // QA (MON-02 O3a): Anzeige einer Kreatur (K<nr>) – gezeigtes Modell, Marken-Skalierung, Sterne, Zitterversatz
+  kreaturInfo: (id) => { const a = actorOf(id); if (!a) return null; const m = a.model; return { modell: m ? m.name : null, platzhalter: !!(m && m.userData && m.userData.placeholder), marken: a.marken ? a.marken.name : null, markenSkala: a.markenPivot ? +a.markenPivot.scale.x.toFixed(3) : null, markenSichtbar: !!(a.markenPivot && a.markenPivot.visible), sterne: !!(a.sterne && a.sterne.visible), versatz: [a.body.position.x, a.body.position.y, a.body.position.z].map((v) => +v.toFixed(4)), dist: +(a.dist || 0).toFixed(2), speed: +(a.speed || 0).toFixed(2), labelH: a.labelH }; },
+  // QA (MON-02 O3b): Anzeige des Station-Monsters – echt (Figur geladen) oder Rückfall, Zustand, Zyklus, Ruck, Kegel, Lampe
+  monsterInfo: (id) => { const a = actorOf(id || 'M1'); if (!a) return null; const S = a.sm || {}; const f = a.fig; return { echt: monsterFigurEcht(f), zustand: S.zustand || null, phi: +(S.phi || 0).toFixed(3), gehen: +(S.gehen || 0).toFixed(2), ruck: +(S.ruck || 0).toFixed(2), kegel: S.kegelInfo || null, kegelSichtbar: !!(a.smKegel && a.smKegel.visible), lampeSkala: f && f.joints && f.joints.lampe ? f.joints.lampe.scale.x : null, rueckfall: !!(a.model && a.model.visible), aufbauMs: a.smEchtMs == null ? null : Math.round(a.smEchtMs), speed: +(a.speed || 0).toFixed(2), labelH: a.labelH }; },
   // QA: Deck und laufende Einblendung einer Figur
   deckInfo: (id) => { const a = actorOf(id); return a ? { deck: a.deck, arrive: a.arrive ? Object.assign({}, a.arrive) : null, visible: a.container.visible } : null; },
   itemBox: (id) => { const a = actorOf(id); if (!a || !a.item) return null; a.container.updateMatrixWorld(true); const b = new L.THREE.Box3().setFromObject(a.item); return [b.min.y, b.max.y]; },

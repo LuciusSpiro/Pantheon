@@ -146,6 +146,12 @@ section('Snapshot kr', () => {
   ok(bits('steckt') === (2 | 4), 'steckt zählt als Pause');
   ok(bits('rammen') === (2 | 8), 'Rammen: Bit 8');
   ok(bits('jagd', 7) === 3, 'Ladung wird auf 3 begrenzt');
+  // MON-02 O3a: Bit 6 (64) = zielt (Modus zielen, Aufladen); nur dort gesetzt, die Bits 0-5 bleiben unberührt
+  const bit6 = (zu, lad) => { Kreatur.zustandSetzen(g, K1, zu); K1.aufladung = lad != null ? { stufe: lad, ruhe: 0, zerfallT: 0 } : null; return g.snapshot().away.kr.find((q) => q[0] === 1)[5]; };
+  const g1 = (KREATUREN.typen.probe.groesse - 1) << 4;   // Bits 4-5 (probe: Größe 2)
+  ok(bit6('aufladen', 1) === (1 | 64 | g1), 'Aufladen mit Ladung 1: Bit 6 gesetzt, Ladung in Bit 0-1, Größenbits unberührt (' + (1 | 64 | g1) + ')');
+  ok(bit6('aufladen', 3) === (3 | 64 | g1) && bit6('aufladen', 0) === (64 | g1), 'Aufladen mit Ladung 3 und 0: 64 + Ladung + Größe');
+  ok(['patrouille', 'jagd', 'rammen', 'pause', 'steckt', 'laerm'].every((z) => (bit6(z, 1) & 64) === 0), 'Bit 6 nur im Zustand aufladen (Patrouille, Lärm, Jagd, Rammen, Pause, steckt: nicht gesetzt)');
   K1.aufladung = null;
   K2.alive = false;
   ok(g.snapshot().away.kr.every((r) => r[0] !== 2), 'tote Kreatur K2 steht nicht im Snapshot');
@@ -301,6 +307,33 @@ section('Haufen: ein gemeinsamer Namenszug je Rudel (render.js kreaturHaufen), n
   const n = (rd.match(/kreaturHaufen\(view, st\)\.get\(e\.id\)/g) || []).length;
   ok(n === 3, 'alle drei Zeichenstellen (Kommandokarte, Boden 2D, Boden 3D) lesen den Haufen (' + n + ')');
   ok(/if \(name != null\) kreaturBeschriftung\(ctx, name, x, y - h - 32\)/.test(rd), 'drawKreatur zeichnet nichts bei name null');
+  const hk = kreaturHaufen({ drones: rudel }, null).get('K1');
+  ok(hk.ymin === 100 && hk.ymax === 148, 'Haufen liefert die oberste (ymin 100) und unterste (ymax 148) Kante für die Kommandokarte');
+});
+
+section('Kommandokarte: Namenszug des Haufens bleibt im Kartenrechteck (MON-02 Nacharbeit M5)', () => {
+  const rd = read('public/js/render.js');
+  const a = rd.indexOf('function kreaturNamenPos'), b = rd.indexOf('function drawKreatur(');
+  ok(a > 0 && b > a, 'kreaturNamenPos im Quelltext gefunden');
+  const pos = new Function(rd.slice(a, b) + '\nreturn kreaturNamenPos;')();
+  const rect = { x: 10, y: 20, w: 300, h: 200 };   // Kartenrechteck: y 20 bis 220
+  const mitte = pos({ x: 150, y: 100 }, { x: 150, y: 60 }, rect, 60);
+  ok(mitte.x === 150 && mitte.y === 109, 'genug Platz: der Name steht wie bisher 9 px unter dem untersten Tier (' + JSON.stringify(mitte) + ')');
+  const knapp = pos({ x: 150, y: 203 }, { x: 150, y: 170 }, rect, 60);
+  ok(knapp.y === 212, 'gerade noch im Rechteck (Text 7 px hoch, endet bei 219): bleibt unten (' + knapp.y + ')');
+  const unten = pos({ x: 150, y: 210 }, { x: 150, y: 175 }, rect, 60);
+  ok(unten.y === 175 - 17 && unten.y < 175, 'am unteren Kartenrand (Tiere bei y 175 bis 210, unten wäre y 219 und abgeschnitten): der Name steht 17 px über dem obersten Tier (' + unten.y + ')');
+  let aus = 0, ueber = 0;
+  for (let y = -50; y <= 400; y += 3) for (const x of [-20, 12, 150, 300, 330]) {
+    const p = pos({ x, y }, { x, y: y - 40 }, rect, 90);
+    if (p.y < rect.y + 1 || p.y + 7 > rect.y + rect.h || p.x - 46 < rect.x || p.x + 46 > rect.x + rect.w) aus++;
+    if (y + 9 + 7 > rect.y + rect.h && y - 40 - 17 >= rect.y + 1 && p.y > y - 40) ueber++;
+  }
+  ok(aus === 0, 'der Name liegt für jede Haufenlage (y -50 bis 400, x auch außerhalb) vollständig im Kartenrechteck, auch seitlich (' + aus + ' Verstöße)');
+  ok(ueber === 0, 'wo unten kein Platz ist und oben Platz, steht er über dem Haufen, nie darunter (' + ueber + ' Verstöße)');
+  const rand = pos({ x: 4, y: 100 }, { x: 4, y: 60 }, rect, 80);
+  ok(rand.x === 10 + 41 && pos({ x: 400, y: 100 }, { x: 400, y: 60 }, rect, 80).x === 10 + 300 - 41, 'seitlich in das Rechteck geklemmt (Textbreite 80 px halbiert + 1 px)');
+  ok(/kreaturNamenPos\(toS\(hf\.x, hf\.ymax\), toS\(hf\.x, hf\.ymin\), rect, measure\(hf\.name, 1\)\)/.test(rd), 'die Kommandokarte (drawAwayCommandMap) setzt den Namen über kreaturNamenPos');
 });
 
 section('Client-Einhängestellen (Quelltext)', () => {
