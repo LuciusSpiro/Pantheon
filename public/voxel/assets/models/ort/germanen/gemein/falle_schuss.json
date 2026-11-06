@@ -1,0 +1,814 @@
+{
+ "id": "ort/germanen/gemein/falle_schuss",
+ "name": "Selbstschussanlage (Germanen, Falle schuss): Eisenkasten auf Plankenpfosten, Rohr nach vorn, rotes Auge; entschärft = Kopf gesenkt, Rohr nach unten, Auge zu; ausgelöst = verrußt, Auge geborsten",
+ "tier": "detail",
+ "palette": "nord",
+ "jitter": 0,
+ "tags": [
+  "prop",
+  "anker",
+  "falle",
+  "schuss",
+  "germanen"
+ ],
+ "footprint": [
+  1,
+  1
+ ],
+ "params": {
+  "state": {
+   "default": 1,
+   "min": 0,
+   "max": 3,
+   "step": 1,
+   "label": "Zustand (0 verborgen, 1 erkannt, 2 entschärft, 3 ausgelöst)"
+  }
+ },
+ "variants": {
+  "verborgen": {
+   "state": 0
+  },
+  "erkannt": {
+   "state": 1
+  },
+  "entschaerft": {
+   "state": 2
+  },
+  "ausgeloest": {
+   "state": 3
+  }
+ },
+ "ops": [
+  {
+   "op": "box",
+   "name": "Boden Deckel",
+   "at": [
+    -7,
+    0,
+    -7
+   ],
+   "size": [
+    14,
+    1,
+    14
+   ],
+   "color": "metal_dark",
+   "if": "state == 0"
+  },
+  {
+   "op": "box",
+   "name": "Deckel Platte",
+   "at": [
+    -5,
+    0,
+    -5
+   ],
+   "size": [
+    10,
+    1,
+    10
+   ],
+   "color": {
+    "stripes": [
+     "metal",
+     "metal_dark"
+    ],
+    "axis": "x",
+    "period": 2
+   },
+   "if": "state == 0"
+  },
+  {
+   "op": "box",
+   "name": "Deckel Schlitz",
+   "at": [
+    -1,
+    0,
+    -4
+   ],
+   "size": [
+    2,
+    1,
+    8
+   ],
+   "color": "dark",
+   "if": "state == 0",
+   "mode": "paint"
+  },
+  {
+   "op": "box",
+   "name": "Fuß",
+   "at": [
+    -7,
+    0,
+    -7
+   ],
+   "size": [
+    14,
+    2,
+    14
+   ],
+   "color": "metal_dark",
+   "if": "state > 0"
+  },
+  {
+   "op": "box",
+   "name": "Fuß Ecken",
+   "at": [
+    -7,
+    0,
+    -7
+   ],
+   "size": [
+    1,
+    2,
+    1
+   ],
+   "color": 0,
+   "if": "state > 0",
+   "mode": "carve",
+   "mirror": "xz",
+   "mirrorAt": {
+    "x": 0,
+    "z": 0
+   }
+  },
+  {
+   "op": "box",
+   "name": "Fuß Niete",
+   "at": [
+    -6,
+    2,
+    -6
+   ],
+   "size": [
+    1,
+    1,
+    1
+   ],
+   "color": "copper",
+   "if": "state > 0",
+   "mirror": "xz",
+   "mirrorAt": {
+    "x": 0,
+    "z": 0
+   }
+  },
+  {
+   "op": "box",
+   "name": "Pfosten",
+   "at": [
+    -3,
+    2,
+    -3
+   ],
+   "size": [
+    6,
+    6,
+    6
+   ],
+   "color": {
+    "stripes": [
+     "wood",
+     "wood_dark"
+    ],
+    "axis": "x",
+    "period": 1
+   },
+   "if": "state != 0 && state != 2"
+  },
+  {
+   "op": "box",
+   "name": "Pfosten niedrig",
+   "at": [
+    -3,
+    2,
+    -3
+   ],
+   "size": [
+    6,
+    2,
+    6
+   ],
+   "color": {
+    "stripes": [
+     "wood",
+     "wood_dark"
+    ],
+    "axis": "x",
+    "period": 1
+   },
+   "if": "state == 2"
+  },
+  {
+   "op": "box",
+   "name": "Pfostenband",
+   "at": [
+    -3,
+    4,
+    -3
+   ],
+   "size": [
+    6,
+    1,
+    6
+   ],
+   "color": "metal_dark",
+   "if": "state > 0",
+   "mode": "paint"
+  },
+  {
+   "op": "box",
+   "name": "Kopf Kasten",
+   "at": [
+    -5,
+    8,
+    -8
+   ],
+   "size": [
+    10,
+    8,
+    8
+   ],
+   "color": "metal",
+   "if": "state == 1 || state == 3"
+  },
+  {
+   "op": "box",
+   "name": "Kopf Deckplatte",
+   "at": [
+    -5,
+    15,
+    -8
+   ],
+   "size": [
+    10,
+    1,
+    8
+   ],
+   "color": "metal_dark",
+   "if": "state == 1 || state == 3",
+   "mode": "paint"
+  },
+  {
+   "op": "box",
+   "name": "Kopf Kante links",
+   "at": [
+    -5,
+    8,
+    -8
+   ],
+   "size": [
+    1,
+    8,
+    8
+   ],
+   "color": "metal_dark",
+   "if": "state == 1 || state == 3",
+   "mode": "paint"
+  },
+  {
+   "op": "box",
+   "name": "Kopf Kante rechts",
+   "at": [
+    4,
+    8,
+    -8
+   ],
+   "size": [
+    1,
+    8,
+    8
+   ],
+   "color": "metal_dark",
+   "if": "state == 1 || state == 3",
+   "mode": "paint"
+  },
+  {
+   "op": "box",
+   "name": "Kopf Niete",
+   "at": [
+    -4,
+    14,
+    -7
+   ],
+   "size": [
+    1,
+    1,
+    1
+   ],
+   "color": "copper",
+   "if": "state == 1 || state == 3",
+   "mirror": "x",
+   "mirrorAt": 0
+  },
+  {
+   "op": "box",
+   "name": "Rohr",
+   "at": [
+    -2,
+    8,
+    0
+   ],
+   "size": [
+    4,
+    4,
+    8
+   ],
+   "color": "metal_dark",
+   "if": "state == 1 || state == 3"
+  },
+  {
+   "op": "box",
+   "name": "Rohr Mündung",
+   "at": [
+    -2,
+    8,
+    7
+   ],
+   "size": [
+    4,
+    4,
+    1
+   ],
+   "color": "dark",
+   "if": "state == 1 || state == 3",
+   "mode": "paint"
+  },
+  {
+   "op": "box",
+   "name": "Rohr Band",
+   "at": [
+    -2,
+    8,
+    1
+   ],
+   "size": [
+    4,
+    4,
+    1
+   ],
+   "color": "copper_dark",
+   "if": "state == 1 || state == 3",
+   "mode": "paint"
+  },
+  {
+   "op": "box",
+   "name": "Kopf gesenkt",
+   "at": [
+    -5,
+    4,
+    -8
+   ],
+   "size": [
+    10,
+    8,
+    8
+   ],
+   "color": "metal",
+   "if": "state == 2"
+  },
+  {
+   "op": "box",
+   "name": "Kopf Deckplatte gesenkt",
+   "at": [
+    -5,
+    11,
+    -8
+   ],
+   "size": [
+    10,
+    1,
+    8
+   ],
+   "color": "metal_dark",
+   "if": "state == 2",
+   "mode": "paint"
+  },
+  {
+   "op": "box",
+   "name": "Kopf Kante links gesenkt",
+   "at": [
+    -5,
+    4,
+    -8
+   ],
+   "size": [
+    1,
+    8,
+    8
+   ],
+   "color": "metal_dark",
+   "if": "state == 2",
+   "mode": "paint"
+  },
+  {
+   "op": "box",
+   "name": "Kopf Kante rechts gesenkt",
+   "at": [
+    4,
+    4,
+    -8
+   ],
+   "size": [
+    1,
+    8,
+    8
+   ],
+   "color": "metal_dark",
+   "if": "state == 2",
+   "mode": "paint"
+  },
+  {
+   "op": "box",
+   "name": "Rohr hängt",
+   "at": [
+    -2,
+    2,
+    0
+   ],
+   "size": [
+    4,
+    5,
+    4
+   ],
+   "color": "metal_dark",
+   "if": "state == 2"
+  },
+  {
+   "op": "box",
+   "name": "Rohr Mündung unten",
+   "at": [
+    -2,
+    2,
+    0
+   ],
+   "size": [
+    4,
+    1,
+    4
+   ],
+   "color": "dark",
+   "if": "state == 2",
+   "mode": "paint"
+  },
+  {
+   "op": "box",
+   "name": "Rohr Band hängt",
+   "at": [
+    -2,
+    4,
+    0
+   ],
+   "size": [
+    4,
+    1,
+    4
+   ],
+   "color": "copper_dark",
+   "if": "state == 2",
+   "mode": "paint"
+  },
+  {
+   "op": "box",
+   "name": "Gelenk",
+   "at": [
+    -2,
+    4,
+    -1
+   ],
+   "size": [
+    4,
+    3,
+    1
+   ],
+   "color": "metal_dark",
+   "if": "state == 2"
+  },
+  {
+   "op": "line",
+   "name": "Kabel links",
+   "from": [
+    -4,
+    4,
+    -3
+   ],
+   "to": [
+    -5,
+    2,
+    1
+   ],
+   "r": 0.9,
+   "color": "copper_dark",
+   "if": "state == 2"
+  },
+  {
+   "op": "line",
+   "name": "Kabel rechts",
+   "from": [
+    4,
+    4,
+    -3
+   ],
+   "to": [
+    5,
+    2,
+    0
+   ],
+   "r": 0.9,
+   "color": "copper_dark",
+   "if": "state == 2"
+  },
+  {
+   "op": "box",
+   "name": "Auge Rahmen",
+   "at": [
+    -3,
+    11,
+    -1
+   ],
+   "size": [
+    6,
+    5,
+    1
+   ],
+   "color": "falle_dunkel",
+   "if": "state == 1"
+  },
+  {
+   "op": "box",
+   "name": "Auge",
+   "at": [
+    -2,
+    12,
+    -1
+   ],
+   "size": [
+    4,
+    3,
+    2
+   ],
+   "color": {
+    "role": "falle",
+    "emit": 1.1
+   },
+   "if": "state == 1",
+   "jitter": false
+  },
+  {
+   "op": "box",
+   "name": "Auge Kern",
+   "at": [
+    -1,
+    12,
+    0
+   ],
+   "size": [
+    2,
+    2,
+    1
+   ],
+   "color": {
+    "role": "falle_kern",
+    "emit": 1.3
+   },
+   "if": "state == 1",
+   "jitter": false
+  },
+  {
+   "op": "box",
+   "name": "Auge Rahmen aus",
+   "at": [
+    -3,
+    7,
+    -1
+   ],
+   "size": [
+    6,
+    5,
+    1
+   ],
+   "color": "dark",
+   "if": "state == 2"
+  },
+  {
+   "op": "box",
+   "name": "Auge Loch",
+   "at": [
+    -2,
+    8,
+    -1
+   ],
+   "size": [
+    4,
+    3,
+    1
+   ],
+   "color": "black",
+   "if": "state == 2",
+   "jitter": false
+  },
+  {
+   "op": "box",
+   "name": "Lid",
+   "at": [
+    -3,
+    7,
+    0
+   ],
+   "size": [
+    6,
+    3,
+    1
+   ],
+   "color": "metal_light",
+   "if": "state == 2"
+  },
+  {
+   "op": "box",
+   "name": "Lid Scharnier",
+   "at": [
+    -3,
+    10,
+    0
+   ],
+   "size": [
+    6,
+    1,
+    1
+   ],
+   "color": "metal_dark",
+   "if": "state == 2"
+  },
+  {
+   "op": "box",
+   "name": "Ruß Fuß",
+   "at": [
+    -7,
+    0,
+    -7
+   ],
+   "size": [
+    14,
+    2,
+    14
+   ],
+   "color": {
+    "noise": [
+     "dark",
+     "metal_dark"
+    ],
+    "weights": [
+     3,
+     2
+    ],
+    "cell": 1
+   },
+   "if": "state == 3",
+   "mode": "paint"
+  },
+  {
+   "op": "box",
+   "name": "Ruß Pfosten",
+   "at": [
+    -3,
+    2,
+    -3
+   ],
+   "size": [
+    6,
+    6,
+    6
+   ],
+   "color": {
+    "noise": [
+     "black",
+     "wood_dark"
+    ],
+    "weights": [
+     2,
+     3
+    ],
+    "cell": 1
+   },
+   "if": "state == 3",
+   "mode": "paint"
+  },
+  {
+   "op": "box",
+   "name": "Ruß Kopf",
+   "at": [
+    -5,
+    8,
+    -8
+   ],
+   "size": [
+    10,
+    8,
+    8
+   ],
+   "color": {
+    "noise": [
+     "black",
+     "dark"
+    ],
+    "weights": [
+     3,
+     2
+    ],
+    "cell": 1
+   },
+   "if": "state == 3",
+   "mode": "paint"
+  },
+  {
+   "op": "box",
+   "name": "Ruß Rohr",
+   "at": [
+    -2,
+    8,
+    0
+   ],
+   "size": [
+    4,
+    4,
+    8
+   ],
+   "color": "black",
+   "if": "state == 3",
+   "mode": "paint"
+  },
+  {
+   "op": "box",
+   "name": "Auge Rahmen geborsten",
+   "at": [
+    -3,
+    11,
+    -1
+   ],
+   "size": [
+    6,
+    5,
+    1
+   ],
+   "color": "black",
+   "if": "state == 3"
+  },
+  {
+   "op": "box",
+   "name": "Auge Loch geborsten",
+   "at": [
+    -2,
+    12,
+    -1
+   ],
+   "size": [
+    4,
+    3,
+    1
+   ],
+   "color": "dark",
+   "if": "state == 3",
+   "jitter": false
+  },
+  {
+   "op": "box",
+   "name": "Riss",
+   "at": [
+    -1,
+    11,
+    -1
+   ],
+   "size": [
+    1,
+    5,
+    1
+   ],
+   "color": "black",
+   "if": "state == 3",
+   "mode": "paint"
+  },
+  {
+   "op": "box",
+   "name": "Riss quer",
+   "at": [
+    -3,
+    13,
+    -1
+   ],
+   "size": [
+    6,
+    1,
+    1
+   ],
+   "color": "black",
+   "if": "state == 3",
+   "mode": "paint"
+  }
+ ],
+ "anchor": [
+  0,
+  0,
+  0
+ ]
+}

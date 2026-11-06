@@ -7,7 +7,7 @@
     "light": 0.86,
     "tint": "#4A2818",
     "mix": 0.14,
-    "except": ["glow", "glow2", "leit"]
+    "except": ["glow", "glow2", "leit", "falle", "falle_kern", "falle_dunkel"]
   },
   "roles": {
     "dark": "#141210",

@@ -1,0 +1,873 @@
+{
+ "id": "ort/germanen/gemein/falle_druck",
+ "name": "Falle Druck (Germanen): flaches Eisengitter mit Schlitzen; erkannt = Schlitze glühen, entschärft = Ventilrad auf dem Gitter, ausgelöst = Gitter abgesprengt, Schacht schwarz, kleiner Dampf",
+ "tier": "detail",
+ "palette": "nord",
+ "jitter": 0,
+ "tags": [
+  "prop",
+  "anker",
+  "falle",
+  "druck",
+  "germanen"
+ ],
+ "footprint": [
+  1,
+  1
+ ],
+ "params": {
+  "state": {
+   "default": 1,
+   "min": 0,
+   "max": 3,
+   "step": 1,
+   "label": "Zustand (0 verborgen, 1 erkannt, 2 entschärft, 3 ausgelöst)"
+  }
+ },
+ "variants": {
+  "verborgen": {
+   "state": 0
+  },
+  "erkannt": {
+   "state": 1
+  },
+  "entschaerft": {
+   "state": 2
+  },
+  "ausgeloest": {
+   "state": 3
+  }
+ },
+ "ops": [
+  {
+   "op": "box",
+   "name": "Platte",
+   "at": [
+    -7,
+    0,
+    -7
+   ],
+   "size": [
+    14,
+    1,
+    14
+   ],
+   "color": "metal"
+  },
+  {
+   "op": "box",
+   "name": "Fase Ecke",
+   "at": [
+    -7,
+    0,
+    -7
+   ],
+   "size": [
+    2,
+    1,
+    1
+   ],
+   "color": "metal",
+   "mode": "carve",
+   "mirror": "xz",
+   "mirrorAt": {
+    "x": -0.5,
+    "z": -0.5
+   }
+  },
+  {
+   "op": "box",
+   "name": "Fase Ecke 2",
+   "at": [
+    -7,
+    0,
+    -7
+   ],
+   "size": [
+    1,
+    1,
+    2
+   ],
+   "color": "metal",
+   "mode": "carve",
+   "mirror": "xz",
+   "mirrorAt": {
+    "x": -0.5,
+    "z": -0.5
+   }
+  },
+  {
+   "op": "box",
+   "name": "Planke",
+   "at": [
+    -3,
+    0,
+    -7
+   ],
+   "size": [
+    1,
+    1,
+    14
+   ],
+   "color": "metal_light",
+   "mode": "paint",
+   "mirror": "x",
+   "mirrorAt": -0.5
+  },
+  {
+   "op": "box",
+   "name": "Niet",
+   "at": [
+    -6,
+    1,
+    -6
+   ],
+   "size": [
+    1,
+    1,
+    1
+   ],
+   "color": "copper",
+   "mirror": "xz",
+   "mirrorAt": {
+    "x": -0.5,
+    "z": -0.5
+   }
+  },
+  {
+   "op": "box",
+   "name": "Bruch hinten",
+   "at": [
+    2,
+    0,
+    -7
+   ],
+   "size": [
+    4,
+    1,
+    1
+   ],
+   "color": "metal",
+   "mode": "carve",
+   "if": "state == 3"
+  },
+  {
+   "op": "box",
+   "name": "Bruch links",
+   "at": [
+    -7,
+    0,
+    0
+   ],
+   "size": [
+    1,
+    1,
+    4
+   ],
+   "color": "metal",
+   "mode": "carve",
+   "if": "state == 3"
+  },
+  {
+   "op": "box",
+   "name": "Bruch rechts",
+   "at": [
+    6,
+    0,
+    1
+   ],
+   "size": [
+    1,
+    1,
+    3
+   ],
+   "color": "metal",
+   "mode": "carve",
+   "if": "state == 3"
+  },
+  {
+   "op": "box",
+   "name": "Bruch vorn",
+   "at": [
+    -5,
+    0,
+    6
+   ],
+   "size": [
+    3,
+    1,
+    1
+   ],
+   "color": "metal",
+   "mode": "carve",
+   "if": "state == 3"
+  },
+  {
+   "op": "box",
+   "name": "Bruch vorn rechts",
+   "at": [
+    4,
+    0,
+    5
+   ],
+   "size": [
+    2,
+    1,
+    2
+   ],
+   "color": "metal",
+   "mode": "carve",
+   "if": "state == 3"
+  },
+  {
+   "op": "box",
+   "name": "Ruß Platte",
+   "at": [
+    -7,
+    0,
+    -7
+   ],
+   "size": [
+    14,
+    2,
+    14
+   ],
+   "color": {
+    "noise": [
+     {
+      "shade": "metal_dark",
+      "f": 0.78
+     },
+     {
+      "shade": "metal_dark",
+      "f": 0.55
+     }
+    ],
+    "weights": [
+     1,
+     1
+    ],
+    "cell": 1
+   },
+   "mode": "paint",
+   "if": "state == 3"
+  },
+  {
+   "op": "box",
+   "name": "Ruß Niete",
+   "at": [
+    -6,
+    1,
+    -6
+   ],
+   "size": [
+    1,
+    1,
+    1
+   ],
+   "color": {
+    "noise": [
+     {
+      "shade": "metal_dark",
+      "f": 0.5
+     },
+     {
+      "shade": "dark",
+      "f": 1
+     }
+    ],
+    "weights": [
+     1,
+     1
+    ],
+    "cell": 1
+   },
+   "mode": "paint",
+   "if": "state == 3",
+   "mirror": "xz",
+   "mirrorAt": {
+    "x": -0.5,
+    "z": -0.5
+   }
+  },
+  {
+   "op": "box",
+   "name": "Feld",
+   "at": [
+    -5,
+    0,
+    -5
+   ],
+   "size": [
+    10,
+    1,
+    10
+   ],
+   "color": {
+    "frame": "metal_dark",
+    "fill": "metal",
+    "axes": "xz",
+    "width": 1
+   },
+   "mode": "paint",
+   "if": "state == 0"
+  },
+  {
+   "op": "box",
+   "name": "Schlitz zu",
+   "at": [
+    -3,
+    0,
+    -5
+   ],
+   "size": [
+    2,
+    1,
+    4
+   ],
+   "color": "metal_dark",
+   "mode": "paint",
+   "if": "state == 0"
+  },
+  {
+   "op": "box",
+   "name": "Schlitz zu",
+   "at": [
+    -3,
+    0,
+    1
+   ],
+   "size": [
+    2,
+    1,
+    4
+   ],
+   "color": "metal_dark",
+   "mode": "paint",
+   "if": "state == 0"
+  },
+  {
+   "op": "box",
+   "name": "Schlitz zu",
+   "at": [
+    1,
+    0,
+    -5
+   ],
+   "size": [
+    2,
+    1,
+    4
+   ],
+   "color": "metal_dark",
+   "mode": "paint",
+   "if": "state == 0"
+  },
+  {
+   "op": "box",
+   "name": "Schlitz zu",
+   "at": [
+    1,
+    0,
+    1
+   ],
+   "size": [
+    2,
+    1,
+    4
+   ],
+   "color": "metal_dark",
+   "mode": "paint",
+   "if": "state == 0"
+  },
+  {
+   "op": "box",
+   "name": "Schacht",
+   "at": [
+    -5,
+    0,
+    -5
+   ],
+   "size": [
+    10,
+    1,
+    10
+   ],
+   "color": {
+    "shade": "dark",
+    "f": 0.3
+   },
+   "mode": "paint",
+   "if": "state > 0",
+   "jitter": false
+  },
+  {
+   "op": "box",
+   "name": "Schlitz glüht",
+   "at": [
+    -3,
+    0,
+    -5
+   ],
+   "size": [
+    2,
+    1,
+    4
+   ],
+   "color": {
+    "role": "falle",
+    "emit": 1.1
+   },
+   "mode": "paint",
+   "if": "state == 1",
+   "jitter": false
+  },
+  {
+   "op": "box",
+   "name": "Schlitz glüht",
+   "at": [
+    -3,
+    0,
+    1
+   ],
+   "size": [
+    2,
+    1,
+    4
+   ],
+   "color": {
+    "role": "falle",
+    "emit": 1.1
+   },
+   "mode": "paint",
+   "if": "state == 1",
+   "jitter": false
+  },
+  {
+   "op": "box",
+   "name": "Schlitz glüht",
+   "at": [
+    1,
+    0,
+    -5
+   ],
+   "size": [
+    2,
+    1,
+    4
+   ],
+   "color": {
+    "role": "falle",
+    "emit": 1.1
+   },
+   "mode": "paint",
+   "if": "state == 1",
+   "jitter": false
+  },
+  {
+   "op": "box",
+   "name": "Schlitz glüht",
+   "at": [
+    1,
+    0,
+    1
+   ],
+   "size": [
+    2,
+    1,
+    4
+   ],
+   "color": {
+    "role": "falle",
+    "emit": 1.1
+   },
+   "mode": "paint",
+   "if": "state == 1",
+   "jitter": false
+  },
+  {
+   "op": "box",
+   "name": "Glut Kern",
+   "at": [
+    -3,
+    0,
+    -3
+   ],
+   "size": [
+    2,
+    1,
+    2
+   ],
+   "color": {
+    "role": "falle_kern",
+    "emit": 1.3
+   },
+   "mode": "paint",
+   "if": "state == 1",
+   "jitter": false
+  },
+  {
+   "op": "box",
+   "name": "Glut Kern 2",
+   "at": [
+    1,
+    0,
+    1
+   ],
+   "size": [
+    2,
+    1,
+    2
+   ],
+   "color": {
+    "role": "falle_kern",
+    "emit": 1.3
+   },
+   "mode": "paint",
+   "if": "state == 1",
+   "jitter": false
+  },
+  {
+   "op": "box",
+   "name": "Gitter links",
+   "at": [
+    -5,
+    1,
+    -5
+   ],
+   "size": [
+    2,
+    1,
+    10
+   ],
+   "color": "metal_light",
+   "if": "state == 1 || state == 2"
+  },
+  {
+   "op": "box",
+   "name": "Gitter mitte",
+   "at": [
+    -1,
+    1,
+    -5
+   ],
+   "size": [
+    2,
+    1,
+    10
+   ],
+   "color": "metal_light",
+   "if": "state == 1 || state == 2"
+  },
+  {
+   "op": "box",
+   "name": "Gitter rechts",
+   "at": [
+    3,
+    1,
+    -5
+   ],
+   "size": [
+    2,
+    1,
+    10
+   ],
+   "color": "metal_light",
+   "if": "state == 1 || state == 2"
+  },
+  {
+   "op": "box",
+   "name": "Gitter quer",
+   "at": [
+    -5,
+    1,
+    -1
+   ],
+   "size": [
+    10,
+    1,
+    2
+   ],
+   "color": "metal_light",
+   "if": "state == 1 || state == 2"
+  },
+  {
+   "op": "box",
+   "name": "Wölbung mitte",
+   "at": [
+    -1,
+    2,
+    -5
+   ],
+   "size": [
+    2,
+    1,
+    10
+   ],
+   "color": "metal_light",
+   "if": "state == 1"
+  },
+  {
+   "op": "box",
+   "name": "Wölbung quer",
+   "at": [
+    -5,
+    2,
+    -1
+   ],
+   "size": [
+    10,
+    1,
+    2
+   ],
+   "color": "metal_light",
+   "if": "state == 1"
+  },
+  {
+   "op": "box",
+   "name": "Rad Kranz",
+   "at": [
+    -3,
+    2,
+    -3
+   ],
+   "size": [
+    6,
+    1,
+    6
+   ],
+   "color": "copper_dark",
+   "if": "state == 2"
+  },
+  {
+   "op": "box",
+   "name": "Rad Kranz frei",
+   "at": [
+    -2,
+    2,
+    -2
+   ],
+   "size": [
+    4,
+    1,
+    4
+   ],
+   "color": "copper_dark",
+   "mode": "carve",
+   "if": "state == 2"
+  },
+  {
+   "op": "box",
+   "name": "Rad Speiche",
+   "at": [
+    -3,
+    2,
+    -1
+   ],
+   "size": [
+    6,
+    1,
+    2
+   ],
+   "color": "copper_dark",
+   "if": "state == 2"
+  },
+  {
+   "op": "box",
+   "name": "Rad Speiche 2",
+   "at": [
+    -1,
+    2,
+    -3
+   ],
+   "size": [
+    2,
+    1,
+    6
+   ],
+   "color": "copper_dark",
+   "if": "state == 2"
+  },
+  {
+   "op": "box",
+   "name": "Rad Nabe",
+   "at": [
+    -1,
+    3,
+    -1
+   ],
+   "size": [
+    2,
+    1,
+    2
+   ],
+   "color": "copper",
+   "if": "state == 2"
+  },
+  {
+   "op": "box",
+   "name": "Rest",
+   "at": [
+    -5,
+    1,
+    -5
+   ],
+   "size": [
+    2,
+    1,
+    3
+   ],
+   "color": {
+    "noise": [
+     {
+      "shade": "metal_dark",
+      "f": 0.5
+     },
+     {
+      "shade": "dark",
+      "f": 1
+     }
+    ],
+    "weights": [
+     1,
+     1
+    ],
+    "cell": 1
+   },
+   "if": "state == 3"
+  },
+  {
+   "op": "box",
+   "name": "Rest 2",
+   "at": [
+    -5,
+    1,
+    -2
+   ],
+   "size": [
+    1,
+    1,
+    1
+   ],
+   "color": {
+    "noise": [
+     {
+      "shade": "metal_dark",
+      "f": 0.5
+     },
+     {
+      "shade": "dark",
+      "f": 1
+     }
+    ],
+    "weights": [
+     1,
+     1
+    ],
+    "cell": 1
+   },
+   "if": "state == 3"
+  },
+  {
+   "op": "box",
+   "name": "Bügel",
+   "at": [
+    3,
+    1,
+    1
+   ],
+   "size": [
+    2,
+    1,
+    4
+   ],
+   "color": {
+    "noise": [
+     {
+      "shade": "metal_dark",
+      "f": 0.5
+     },
+     {
+      "shade": "dark",
+      "f": 1
+     }
+    ],
+    "weights": [
+     1,
+     1
+    ],
+    "cell": 1
+   },
+   "if": "state == 3"
+  },
+  {
+   "op": "box",
+   "name": "Rand Ruß",
+   "at": [
+    -5,
+    1,
+    3
+   ],
+   "size": [
+    3,
+    1,
+    2
+   ],
+   "color": {
+    "noise": [
+     {
+      "shade": "metal_dark",
+      "f": 0.5
+     },
+     {
+      "shade": "dark",
+      "f": 1
+     }
+    ],
+    "weights": [
+     1,
+     1
+    ],
+    "cell": 1
+   },
+   "if": "state == 3"
+  },
+  {
+   "op": "ellipsoid",
+   "name": "Dampf unten",
+   "at": [
+    3,
+    2.5,
+    -4.5
+   ],
+   "r": [
+    2.6,
+    1.8,
+    2.2
+   ],
+   "color": "frost_dark",
+   "if": "state == 3"
+  },
+  {
+   "op": "ellipsoid",
+   "name": "Dampf oben",
+   "at": [
+    4,
+    4.3,
+    -5
+   ],
+   "r": [
+    2,
+    1.6,
+    1.8
+   ],
+   "color": "frost",
+   "if": "state == 3"
+  }
+ ],
+ "anchor": [
+  0,
+  0,
+  0
+ ]
+}
