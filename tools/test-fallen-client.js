@@ -509,7 +509,8 @@ section('Scan-Anzeige: Positionstext der Falle (Stufe 2), andere Arten unveränd
   ok(b1.position === 'Position: erst ab Stufe 2' && !b1.hatPosition, 'Falle, Stufe 1: „Position: erst ab Stufe 2“ (nicht mehr „Stufe 3“)');
   const b2 = blatt({ id: 'f1', art: 'falle', typ: 'druck', sk: 2, x: 5 * 32 + 16, y: 7 * 32 + 16 });
   ok(b2.position === 'Position: Feld 5 / 7' && b2.hatPosition, 'Falle, Stufe 2: die Position steht im Datenblatt (Feld 5 / 7)');
-  for (const art of ['test', 'erz', 'monster']) ok(blatt({ id: 'x', art, typ: 'testerz', sk: 1 }).position === 'Position: Stufe 3 oder Sicht', 'Art ' + art + ' ohne Position: weiter der Standardtext „Stufe 3 oder Sicht“ (MON-01)');
+  ok(DATEN.arten.erz.positionAb === 1, 'Art erz: positionAb 1 (GEL-03 G: Erz meldet sich mit tiefen.position 1 an, tools/test-abbau-scan.js)');
+  for (const art of ['test', 'monster']) ok(blatt({ id: 'x', art, typ: 'testerz', sk: 1 }).position === 'Position: Stufe 3 oder Sicht', 'Art ' + art + ' ohne Position: weiter der Standardtext „Stufe 3 oder Sicht“ (MON-01)');
   ok(blatt({ id: 'x', art: 'unbekannt', typ: 'gibtsnicht', sk: 1 }).position === SA.TXT_KEINE_POS && SA.TXT_KEINE_POS === 'Position: Stufe 3 oder Sicht', 'unbekannte Art: Standardtext Stufe 3 oder Sicht');
   ok(DATEN.typen.test && !DATEN.typen.test.positionAb, 'positionAb steht je Art im Content, nicht je Typ und nicht im Code');
   // Echter Server: Scan Stufe 1 und 2 an der Arena
@@ -540,7 +541,7 @@ section('Scan-Anzeige: Positionstext der Falle (Stufe 2), andere Arten unveränd
   ok(nText(sl2) > nText(sl) && sl.ops.filter((o) => o.op === 'fillRect').length === 0, 'Weltlabel der Falle: kein Text und kein Etikett-Kasten (der Typ steht im Modell und in der Scan-Liste); der Erz-Marker zeichnet weiter sein Kürzel');
   // Scan-Raute der Falle: flache Fallen wie jeder andere Marker (14 px über dem Ring), Selbstschussanlage knapp über dem Kopf (22 hpx = 1 m, Modell 1,0 bis 1,1 m), Lotlinie ohne Lücke bis zum Bodenpunkt
   const marke = (m, voxel, rad) => { const q = flaeche(); R.drawScanMarkerBoden(q.ctx, { x: 100, y: 100 }, rad || 10, m, 1.0, voxel); const dm = q.ops.find((o) => o.op === 'moveTo' && o.a[0] === 100); return { lot: q.ops.filter((o) => (o.op === 'lineTo' || o.op === 'moveTo') && o.a[0] === 100.5), mitte: dm ? dm.a[1] + 3.5 : null }; };
-  const erzM = marke({ art: 'erz', typ: 'testerz', symbol: 'ER', key: 'erz:a' }, true);
+  const erzM = marke({ art: 'monster', typ: 'testmonster', symbol: 'MO', key: 'monster:a' }, true);   // GEL-03 G: Bezugsmarker ist die Raute (monster); Erz zeichnet ein Sechseck, dessen erster Pfadpunkt höher liegt
   for (const voxel of [true, false]) for (const typ of ['schott', 'druck', 'schuss']) {
     const mk = marke({ ...mfa, typ }, voxel);
     ok(mk.lot.length === 2 && mk.lot[0].op === 'moveTo' && mk.lot[1].op === 'lineTo' && mk.lot[1].a[1] === 100 && mk.lot[0].a[1] === mk.mitte + 4, (voxel ? 'Voxel' : '2D') + ' ' + typ + ': Lotlinie ein einziger Abschnitt von der Raute bis zum Bodenpunkt, keine Lücke');

@@ -60,7 +60,7 @@
   // HUD-Raster: obere Zeile Heck/Mitte/Bug, untere Zeile Backbord | Steuerbord
   const HUD_ROWS = [['engines', 'emitter_aft', 'reactor', 'shields', 'weapon_bow', 'emitter_bow'],
     ['thruster_port', 'battery_port', 'emitter_port', 'thruster_stbd', 'battery_stbd', 'emitter_stbd', 'transfer']];
-  const ITEM_NAMES = { ersatzteil: 'Ersatzteil', loeschgel: 'Löschgel', flickblech: 'Flickblech', bolzen: 'Torpedo', medipack: 'Medipack', datenkern: 'Datenkern', tafel: 'Tafel von Kesh' };
+  const ITEM_NAMES = { ersatzteil: 'Ersatzteil', loeschgel: 'Löschgel', flickblech: 'Flickblech', bolzen: 'Torpedo', medipack: 'Medipack', erz: 'Erz', datenkern: 'Datenkern', tafel: 'Tafel von Kesh' };
   const STATE_NAMES = { ok: 'in Ordnung', damaged: 'beschädigt', broken: 'zerstört' };
   const CONSOLE_NAMES = { helm: 'Steuer', captain: 'Captain', weapons: 'Ops', technik: 'Technik', transfer: 'Transfer', shop: 'Terminal', quartier: 'Quartier', spind: 'Spind', kustodenpult: 'Kustodenpult', plan: 'Planungstisch', ausruestung: 'Ausrüstung' };
   const SECTOR_NAMES = ['Bug', 'Steuerbord', 'Heck', 'Backbord'];
@@ -677,13 +677,15 @@
         for (const w of R.fallenLaufend(st)) lines.push([w.name + ' · ' + w.rest + ' s', w.art === 'feld' ? (Math.floor(view.time * 2) % 2 ? PAL.red : '#FF8A7A') : PAL.warn]);   // ITM-01 E: Druckverlust, gesperrte Schotts (Restzeit)
         const cnt = {};
         (map.anker || []).forEach((a, i) => {
-          if (['terminal', 'sprengpunkt', 'beute', 'fund', 'zelle'].indexOf(a[1]) < 0) return;
+          if (['terminal', 'sprengpunkt', 'beute', 'fund', 'zelle', 'abbau'].indexOf(a[1]) < 0) return;
           const z = R.ankerZustand(map, st, i);
+          if (a[1] === 'abbau' && z === 'leer') return;   // GEL-03 A2: kein Vorkommen in dieser Runde zählt nicht mit
           const c = cnt[a[1]] || (cnt[a[1]] = [0, 0]); c[1]++;
-          if (['geladen', 'zerstoert', 'leer', 'genommen', 'offen'].indexOf(z) >= 0) c[0]++;
+          if (['geladen', 'zerstoert', 'leer', 'genommen', 'offen', 'abgebaut'].indexOf(z) >= 0) c[0]++;
           if (a[1] === 'terminal' && z === 'laedt') c.laedt = true;
         });
         if (!away.oz) for (const r of Object.keys(cnt)) lines.push([(R.ANKER_NAME[r] || r) + ': ' + cnt[r][0] + '/' + cnt[r][1] + (cnt[r].laedt ? ' · lädt' : ''), cnt[r][0] === cnt[r][1] ? PAL.mint : PAL.star]);
+        if ((st.inventory && st.inventory.erz) > 0) lines.push(['Erz: ' + st.inventory.erz, PAL.star]);   // GEL-03 Nacharbeit HUD: Lager-Erz im Boden-HUD unter dem Zielzähler (Snapshot inventory.erz nur wenn > 0)
         if (pins.length) lines.push(['Plan-Pins: ' + pins.length, PAL.panelLight]);
         if (lines.length) {
           hy = VH - map.h * mc - 12 - lines.length * 10;
@@ -966,7 +968,9 @@
     drawInteraction(ctx, view) {
       const ia = view.interaction;
       const me = view.me;
-      if (ia) {
+      // GEL-03 Nacharbeit HUD: läuft mein Abbau, zeigt der Fortschrittsring (unten) den Stand: der Hinweistext darunter verschwindet, statt vom Ring überdeckt zu werden
+      const abbauHaelt = !!(me && me.action && me.action.kind === 'anker:abbau');
+      if (ia && !abbauHaelt) {
         const v3 = !!(R.overlay3d && R.overlay3d.on);
         // M4/QA: in 3D über dem Objekt (≈ Socket label, 2,1 m), sonst verdeckt der Hinweis die Figur davor
         const s = v3 ? R.worldToScreen(ia.tx * TILE + 16, ia.ty * TILE + 16, 2.1) : R.worldToScreen(ia.tx * TILE + 16, ia.ty * TILE);
@@ -1287,6 +1291,7 @@
       const inv = st.inventory || {};
       R.text(ctx, 'LAGER', x + 10, ly, { color: PAL.brass }); ly += 11;
       const items = ['ersatzteil', 'loeschgel', 'flickblech', 'bolzen', 'medipack'];
+      if (inv.erz > 0) items.push('erz');   // GEL-03 N1: Erz aus dem Abbau (Snapshot inventory.erz nur wenn > 0): sechster Platz der Lagerzeile
       items.forEach((it, i) => R.text(ctx, ITEM_NAMES[it] + ': ' + (inv[it] || 0), x + 10 + (i % 3) * 130, ly + Math.floor(i / 3) * 11, { color: PAL.star }));
       ly += 26;
       R.text(ctx, 'Marken: ' + (inv.marks || 0), x + 10, ly, { color: PAL.brass });

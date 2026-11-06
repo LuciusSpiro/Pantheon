@@ -2039,14 +2039,14 @@ class Game {
   }
 
   // B1 §9: Snapshot away für gebaute Karten: kv + Anker-/Kantenabweichungen, Alarm, Countdown (anker.js, BUEHNE:
-  // awaySnap(game, aw) -> { ao?, ko?, al?, cd?, sp?, oz? }). Handkarten: leer (Golden/Budget unverändert).
+  // awaySnap(game, aw) -> { ao?, ko?, al?, cd?, sp?, ab?, oz? }). Handkarten: leer (Golden/Budget unverändert).
   awayB1Snap(aw) {
     if (!aw || ['platform', 'wreck', 'kesh'].includes(aw.map)) return {};
     const k = this.karteOf(aw.map);
     if (!k || k.art === 'hand') return {};
     const o = { kv: Game.kartenVersion(k) };
     const fn = fnOf(ankerMod(), 'awaySnap');
-    if (fn) { try { const x = fn(this, aw); if (x && typeof x === 'object') for (const key of ['ao', 'ko', 'al', 'cd', 'sp', 'oz']) if (x[key] != null) o[key] = x[key]; } catch (e) { this.countError('snapshot-anker', e); } }
+    if (fn) { try { const x = fn(this, aw); if (x && typeof x === 'object') for (const key of ['ao', 'ko', 'al', 'cd', 'sp', 'ab', 'oz']) if (x[key] != null) o[key] = x[key]; } catch (e) { this.countError('snapshot-anker', e); } }
     return o;
   }
 
@@ -2404,6 +2404,7 @@ class Game {
         ersatzteil: this.inventory.ersatzteil, loeschgel: this.inventory.loeschgel, loeschgelCharges: this.inventory.loeschgelCharges,
         flickblech: this.inventory.flickblech, bolzen: this.inventory.bolzen, medipack: this.inventory.medipack, ...(this.inventory.medipackCharges ? { medipackCharges: this.inventory.medipackCharges } : {}), ...(this.inventory.sonde ? { sonde: this.inventory.sonde } : {}), marks: this.inventory.marks, deko: this.inventory.deko, tafel: this.inventory.tafel || 0,
         ...(this.inventory.ladung ? { ladung: this.inventory.ladung } : {}),   // EK5: Sprengstoff (Gegenstand, nur wenn vorhanden; Budget)
+        ...(this.inventory.erz ? { erz: this.inventory.erz } : {}),   // GEL-03 B: Erz aus dem Abbau (spätes Konto, nur wenn vorhanden; Budget)
       },
       upgrades: this.upgrades,
       deco: this.deco,

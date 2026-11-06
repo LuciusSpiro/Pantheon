@@ -58,7 +58,7 @@ function eintrag(game, lpId) {
   const d = def(game, lpId);
   if (!d) return null;
   const e = { seed: d.seed, bauversion: null, schablone: d.schablone || null, art: d.art, bauweise: d.bauweise || null, besitz: d.besitz || null,
-    zustand: d.zustand || 'intakt', zustaende: {}, alarm: false, besuche: 0, letzte_mission: null, neu: !!d.neu, gesperrt: !!d.gesperrt };
+    zustand: d.zustand || 'intakt', zustaende: {}, abbau_runde: 0, alarm: false, besuche: 0, letzte_mission: null, neu: !!d.neu, gesperrt: !!d.gesperrt };
   if (d.ort && !defs().byId[lpId]) e.ort = d.ort;
   if (d.frei_gesetzt) e.frei = true;
   if (d.gen) e.gen = d.gen;   // Generator-Vorgaben (nur Laufzeit, nicht im Weltstand)
@@ -265,6 +265,8 @@ function makeAway(game, lpId, karte, e) {
     alarm: !!(e && e.alarm), haltung: (karte.meta && karte.meta.haltung) || null,
     ankerLauf: { download: {}, ladung: {}, raetsel: {} },
   };
+  // GEL-03 C: Ader-Kandidaten ohne gespeicherten Zustand bekommen die Auswahl der Runde (Runde 0 = Landepunkt-Seed); gespeicherte Zustände bleiben
+  try { const w = require('./anker.js').abbauWahlZustaende(karte, (e && e.abbau_runde) | 0); for (const id of Object.keys(w)) if (aw.zustaende[id] == null) aw.zustaende[id] = w[id]; } catch (x) { countError(game, 'landepunkte-adern', x); }
   try {
     const combat = require('./combat.js');
     if (typeof combat.ensureV2 === 'function') combat.ensureV2(game, aw, (Buehne.fnv(lpId) >>> 0));
@@ -377,9 +379,12 @@ function sichern(game, lpId) {
   for (const id of Object.keys(aw.zustaende || {}).sort()) {
     if (aw.zustaende[id] !== start[id] || (e.zustaende && e.zustaende[id] != null)) z[id] = aw.zustaende[id];
   }
+  // GEL-03 Nacharbeit W1: eine vorgemerkte Ader (abbauNeu wartet, bis keine Figur mehr auf der Kachel steht) wird ohne Zustand gespeichert: beim Laden gilt die Auswahl der Runde (da)
+  const vm = aw.ankerLauf && aw.ankerLauf.abbauVormerk;
+  if (vm) for (const id of Object.keys(vm)) delete z[id];
   try { require('./fallen-typen.js').beimSichern(aw, z, start, k); } catch (e) { if (game.countError) game.countError('fallen-sichern', e); }   // ITM-01 D: von einer Schott-Falle geschlossene Kanten mit ihrem Zustand davor (die Zeitwirkung wird nicht gespeichert)
-  // laufende Interaktionen werden nicht gespeichert (scharf -> intakt, laedt -> bereit; Fortschritt bleibt nicht)
-  for (const id of Object.keys(z)) if (z[id] === 'scharf') z[id] = 'intakt'; else if (z[id] === 'laedt') z[id] = 'bereit'; else if (z[id] === 'gehalten') z[id] = 'ruhe';
+  // laufende Interaktionen werden nicht gespeichert (scharf -> intakt, laedt -> bereit, laeuft (Abbau) -> da; Fortschritt bleibt nicht)
+  for (const id of Object.keys(z)) if (z[id] === 'scharf') z[id] = 'intakt'; else if (z[id] === 'laedt') z[id] = 'bereit'; else if (z[id] === 'gehalten') z[id] = 'ruhe'; else if (z[id] === 'laeuft') z[id] = 'da';
   e.zustaende = z;
   e.alarm = !!aw.alarm;
 }
@@ -636,7 +641,16 @@ function priseVerlassen(game, ort, merken) {
 }
 
 // ---------- Weltstand (welt.landepunkte, §8) ----------
-const FELDER = ['seed', 'bauversion', 'schablone', 'art', 'bauweise', 'besitz', 'zustand', 'zustaende', 'alarm', 'besuche', 'letzte_mission', 'neu', 'gesperrt'];
+// GEL-03 Nacharbeit K3: Obergrenze für abbau_runde (adernWahl rechnet die Vorrunden nach: 10000 Runden kosten ca. 25 ms, 100000 ca. 220 ms im Tick; bei 1 Runde je Mission unerreichbar)
+const ABBAU_RUNDE_MAX = GenHoehle.ADERN_RUNDE_MAX;
+const abbauRundeKlemmen = (r) => Math.min(ABBAU_RUNDE_MAX, Math.max(0, r | 0));
+// GEL-03 Nacharbeit K2: kann diese Karte Erzadern tragen, OHNE sie zu bauen? Art hoehle immer, Wildnis nur mit Höhlen-Deck (wildnisVorgaben.hoehle); alles andere nie.
+function hatAdern(game, lpId) {
+  const e = eintrag(game, lpId);
+  if (!e || istHand(lpId)) return false;
+  return e.art === 'hoehle' || (e.art === 'wildnis' && !!wildnisVorgaben(lpId, e).hoehle);
+}
+const FELDER = ['seed', 'bauversion', 'schablone', 'art', 'bauweise', 'besitz', 'zustand', 'zustaende', 'alarm', 'besuche', 'letzte_mission', 'neu', 'gesperrt', 'abbau_runde'];   // abbau_runde: GEL-03 C (additiv, Standard 0, VERSION bleibt 3)
 function toSave(game) {
   const S = st(game);
   for (const id of Object.keys(game.aways || {})) if (S.eintraege[id] && !istHand(id)) sichern(game, id);
@@ -647,7 +661,7 @@ function toSave(game) {
     const o = {};
     for (const f of FELDER) o[f] = e[f] === undefined ? null : JSON.parse(JSON.stringify(e[f]));
     if (!o.zustaende) o.zustaende = {};
-    o.alarm = !!o.alarm; o.besuche = o.besuche | 0; o.neu = !!o.neu; o.gesperrt = !!o.gesperrt;
+    o.alarm = !!o.alarm; o.besuche = o.besuche | 0; o.abbau_runde = abbauRundeKlemmen(o.abbau_runde); o.neu = !!o.neu; o.gesperrt = !!o.gesperrt;
     // Laufzeit-Landepunkte (neu/prise) brauchen ihren Ort und Transferpunkt
     const d = S.dyn[id];
     if (d) { o.ort = d.ort; o.beam = d.beam; if (d.name) o.name = d.name; }
@@ -673,6 +687,7 @@ function restore(block, game) {
     if (!e) continue;
     for (const f of FELDER) if (b[f] !== undefined && b[f] !== null) e[f] = JSON.parse(JSON.stringify(b[f]));
     if (!e.zustaende || typeof e.zustaende !== 'object') e.zustaende = {};
+    e.abbau_runde = abbauRundeKlemmen(e.abbau_runde);   // Altstand ohne Feld: 0; Obergrenze ABBAU_RUNDE_MAX (K3)
     if (defs().byId[id] && defs().byId[id].gesperrt) e.gesperrt = true;   // Datei gewinnt (E33)
     if (b.frei) e.frei = true;
   }
@@ -750,7 +765,7 @@ function debug(game, cmd, args, p) {
 
 module.exports = {
   MAX_GEBAUT, bauweiseFuerBesitz, vorwaermen, defs, neuLaden, get, karte, bauen, vorbauen, vorbauenOrt, verwerfen, liste, waehlen, sperrgrund, beamSpot, betreten, freigeben, neu, prise, priseVerlassen,
-  biomVonOrt, hoehleVonOrt, nutztGenerator, priseSeed,   // GEL-01 B
+  biomVonOrt, hoehleVonOrt, nutztGenerator, priseSeed, hatAdern, ABBAU_RUNDE_MAX,   // GEL-01 B; GEL-03 Nacharbeit
   toSave, restore, ankerZahlen, debug, sichern, eintrag, festkarte,   // BOD-01: feste Karten
   bereit, sobaldGeladen, zuruecksetzen, testgelaende, cacheLeeren, wildnisErzeugerSetzen,   // F1, F6, F9b
 };

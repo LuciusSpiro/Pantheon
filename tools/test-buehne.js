@@ -433,7 +433,7 @@ function fakeGame(o) {
   ok(Anker.setzen(g, 'kesh.kastell', tor.id, 'verschlossen', null) === null, 'anker.setzen tor verschlossen');
   const block = JSON.parse(JSON.stringify(LP.toSave(g)));
   ok(block['kesh.kastell'] && block['kesh.kastell'].zustaende[tor.id] === 'verschlossen' && block['kesh.kastell'].seed === k2.seed, 'toSave: Zustand + Seed im Block');
-  ok(['seed', 'bauversion', 'schablone', 'art', 'bauweise', 'besitz', 'zustand', 'zustaende', 'alarm', 'besuche', 'letzte_mission', 'neu', 'gesperrt'].every((f) => f in block['kesh.kastell']), 'Block-Felder nach §8');
+  ok(['seed', 'bauversion', 'schablone', 'art', 'bauweise', 'besitz', 'zustand', 'zustaende', 'alarm', 'besuche', 'letzte_mission', 'neu', 'gesperrt', 'abbau_runde'].every((f) => f in block['kesh.kastell']) && block['kesh.kastell'].abbau_runde === 0, 'Block-Felder nach §8 (+ abbau_runde, GEL-03 C: Standard 0)');
   const g2 = fakeGame(); LP.restore(block, g2);
   const aw2 = LP.get(g2, 'kesh.kastell');
   ok(aw2.zustaende[tor.id] === 'verschlossen' && Buehne.hash(W.AWAY_MAPS['kesh.kastell'].karte) === Buehne.hash(k2), 'restore: dieselbe Karte, Zustand wieder da (zweiter Besuch)');

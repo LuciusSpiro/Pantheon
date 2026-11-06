@@ -10,7 +10,7 @@
   const DECKUNG_KINDS = { deckung_halb: 1, deckung_voll: 1, pfeiler: 1, kante: 1, truemmer: 1, schutt: 1, brustwehr: 1,
     cover_low: 1, pillar: 1, archive_key: 1, tablet_pedestal: 1 };   // + Handkarten-Kinds (Kesh)
   const WAND_KINDS = { wand: 1, zaun: 1, fels: 1, baum: 1, leere: 1, wall: 1, wall_ruin: 1, rock: 1 };
-  const ZIEL_ROLLEN = ['ziel', 'terminal', 'fund', 'sprengpunkt', 'zelle', 'beute', 'raetsel', 'tor'];
+  const ZIEL_ROLLEN = ['ziel', 'terminal', 'fund', 'abbau', 'sprengpunkt', 'zelle', 'beute', 'raetsel', 'tor'];
 
   // ---- Raster: Kachelinfo, Begehbarkeit (jetzt) und Durchgang (für Prüfungen: Türen zählen als passierbar) ----
   // info: Legenden-Eintrag (kacheln.json-Format oder Handkarten-Legende). Türen: kante === 'tuer'.

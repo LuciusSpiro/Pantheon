@@ -183,6 +183,7 @@
     if (kind === 'circle' || kind === 'kreis') ctx.arc(x, y, s, 0, Math.PI * 2);
     else if (kind === 'triangle' || kind === 'dreieck') { ctx.moveTo(x, y - s); ctx.lineTo(x + s, y + s * 0.85); ctx.lineTo(x - s, y + s * 0.85); ctx.closePath(); }
     else if (kind === 'diamond' || kind === 'raute') { ctx.moveTo(x, y - s); ctx.lineTo(x + s, y); ctx.lineTo(x, y + s); ctx.lineTo(x - s, y); ctx.closePath(); }
+    else if (kind === 'sechseck') { for (let i = 0; i < 6; i++) { const a = -Math.PI / 2 + i * Math.PI / 3; ctx.lineTo(x + Math.cos(a) * s, y + Math.sin(a) * s); } ctx.closePath(); }   // GEL-03 G: Scan-Marker der Erzader (Sensorfarbe, andere Form als die Raute)
     else if (kind === 'stern') {
       for (let i = 0; i < 10; i++) { const r = i % 2 ? s * 0.45 : s; const a = -Math.PI / 2 + i * Math.PI / 5; ctx.lineTo(x + Math.cos(a) * r, y + Math.sin(a) * r); }
       ctx.closePath();
@@ -239,7 +240,7 @@
     // B1: Anker-Interaktionen (Kinds anker:<rolle>), B2: Halte-Interaktionen
     'anker:terminal': 'DOWNLOAD', 'anker:sprengpunkt': 'LADUNG', 'anker:flagge': 'HISSEN', 'anker:zelle': 'ZELLE', 'anker:beute': 'BERGEN', 'anker:ziel': 'HALTEN',
     'anker:fund': 'BERGEN', 'anker:raetsel': 'SCHLOSS', 'anker:versteck': 'AUFBRECHEN', 'anker:eingang': 'HACKEN', 'anker:tuer': 'ÖFFNEN',
-    'anker:leiter': 'LEITER', 'anker:falle': 'ENTSCHÄRFEN', fesseln: 'FESSELN', befreien: 'BEFREIEN', aufrichten: 'AUFRICHTEN', ausruestung: 'AUSRÜSTUNG', zellentuer: 'ZELLENTÜR' };
+    'anker:leiter': 'LEITER', 'anker:falle': 'ENTSCHÄRFEN', 'anker:abbau': 'ABBAUEN', fesseln: 'FESSELN', befreien: 'BEFREIEN', aufrichten: 'AUFRICHTEN', ausruestung: 'AUSRÜSTUNG', zellentuer: 'ZELLENTÜR' };
   // setbackAge: M3b §4 – Sekunden seit einem Rückschlag (repairSetback) oder null. Dann: verlorenes Stück rot, verblassend,
   // Balken zittert, Beschriftung „RÜCKSCHLAG −50 %“.
   function actionBar(ctx, x, y, action, mine, setbackAge) {
@@ -440,7 +441,8 @@
   let ANKER_ZUSTAENDE = { eingang: ['offen', 'verschlossen'], abholpunkt: ['bereit', 'gestoert'], terminal: ['bereit', 'laedt', 'geladen', 'gesperrt'],
     sprengpunkt: ['intakt', 'scharf', 'zerstoert', 'platziert'], zelle: ['zu', 'offen'], beute: ['voll', 'leer'], ziel: ['frei', 'genommen', 'aktiviert'],
     fund: ['da', 'genommen'], tor: ['zu', 'offen', 'verschlossen', 'gesprengt'], raetsel: ['ruhe', 'gehalten', 'geloest'], versteck: ['zu', 'offen'], flagge: ['unten', 'gehisst'],
-    falle: ['verborgen', 'erkannt', 'entschaerft', 'ausgeloest'] };   // ITM-01 E: Reihenfolge = Zustandsindex in ao (anker.json)
+    falle: ['verborgen', 'erkannt', 'entschaerft', 'ausgeloest'],
+    abbau: ['da', 'laeuft', 'abgebaut', 'leer'] };   // GEL-03 A2: Reihenfolge = Zustandsindex in ao (anker.json)   // ITM-01 E: Reihenfolge = Zustandsindex in ao (anker.json)
   function ladeBuehnenDaten() {
     if (typeof fetch !== 'function') return;
     fetch('/content/buehnen/kacheln.json').then(r => r.ok ? r.json() : null).then(j => {
@@ -569,15 +571,25 @@
   function blockierendeAnker(map) {
     const alle = map.anker || [], SB = window.Shared_Buehne;
     let c = BLOCK_ANKER.get(map);
-    if (c && c.alle === alle && c.n === alle.length) return c.set;
+    if (c && c.alle === alle && c.n === alle.length) return c.set || c.abbau ? c : null;
     let set = null;
     if (SB && typeof SB.ankerBlockiert === 'function') for (const a of alle) if (a[1] === 'falle' && SB.ankerBlockiert({ rolle: 'falle', typ: a[4] && a[4].typ })) (set || (set = new Set())).add(a[3] * map.w + a[2]);
-    BLOCK_ANKER.set(map, { alle, n: alle.length, set });
-    return set;
+    // GEL-03 A2: Erzadern (abbau) sind immer fest (Shared_Buehne.ankerBlockiert), nur im Zustand leer nicht (Server: interior.blockierendeKacheln). Der Zustand ändert sich zur Laufzeit,
+    // deshalb steht hier nur Kachel -> Ankerindex; geprüft wird bei jeder Abfrage.
+    let abbau = null;
+    alle.forEach((a, i) => { if (a[1] === 'abbau' && SB && SB.ankerBlockiert({ rolle: 'abbau' })) (abbau || (abbau = new Map())).set(a[3] * map.w + a[2], i); });
+    BLOCK_ANKER.set(map, { alle, n: alle.length, set, abbau });
+    return set || abbau ? { set, abbau } : null;
   }
   function buehneBewegungSolid(map, st) {
     const fest = buehneSolid(map, st), blk = blockierendeAnker(map);
-    return blk ? (tx, ty) => fest(tx, ty) || blk.has(ty * map.w + tx) : fest;
+    if (!blk) return fest;
+    return (tx, ty) => {
+      if (fest(tx, ty)) return true;
+      const key = ty * map.w + tx;
+      if (blk.set && blk.set.has(key)) return true;
+      return !!(blk.abbau && blk.abbau.has(key) && window.Shared_Buehne.ankerBlockiertIn({ rolle: 'abbau' }, ankerZustand(map, st, blk.abbau.get(key))));
+    };
   }
   function buehneSolid(map, st) {
     return (tx, ty) => {
@@ -604,12 +616,12 @@
     return (info.variante && BUEHNE_FARBE[info.kind + ':' + info.variante]) || BUEHNE_FARBE[info.kind] || '#3B4658';
   }
   const ANKER_FARBE = { terminal: '#7FE0C2', sprengpunkt: '#FF6A4C', zelle: '#C9974A', beute: '#D9A441', ziel: '#FFC66B', fund: '#E8D27A',
-    raetsel: '#B57CFF', abholpunkt: '#7FE0C2', versteck: '#9AA6B8', tor: '#C9974A', lift: '#A9D6E5', leiter: '#A9D6E5', flagge: '#E8554A', falle: '#E0473C' };   // falle: Rot = Gefahr (ITM-01 E)
+    raetsel: '#B57CFF', abholpunkt: '#7FE0C2', versteck: '#9AA6B8', tor: '#C9974A', lift: '#A9D6E5', leiter: '#A9D6E5', flagge: '#E8554A', falle: '#E0473C', abbau: '#C98A5A' };   // falle: Rot = Gefahr (ITM-01 E)
   const ANKER_NAME = { terminal: 'Terminal', sprengpunkt: 'Sprengpunkt', zelle: 'Zelle', beute: 'Kiste', ziel: 'Ziel', fund: 'Fund',
-    raetsel: 'Schloss', abholpunkt: 'Abholpunkt', versteck: 'Versteck', tor: 'Tor', lift: 'Lift', leiter: 'Leiter', eingang: 'Eingang', flagge: 'Feldzeichen', falle: 'Falle' };
+    raetsel: 'Schloss', abholpunkt: 'Abholpunkt', versteck: 'Versteck', tor: 'Tor', lift: 'Lift', leiter: 'Leiter', eingang: 'Eingang', flagge: 'Feldzeichen', falle: 'Falle', abbau: 'Erzader' };
   const ANKER_ZUSTAND_NAME = { bereit: 'bereit', laedt: 'lädt', geladen: 'geladen', gesperrt: 'gesperrt', intakt: 'intakt', scharf: 'SCHARF',
     zerstoert: 'zerstört', zu: 'zu', offen: 'offen', voll: 'voll', leer: 'leer', frei: 'frei', genommen: 'genommen', aktiviert: 'aktiviert',
-    da: 'da', ruhe: 'Ruhe', gehalten: 'gehalten', geloest: 'gelöst', verschlossen: 'verschlossen', gestoert: 'gestört', gesprengt: 'gesprengt', platziert: 'platziert', unten: 'unten', gehisst: 'gehisst', verborgen: 'verborgen', erkannt: 'erkannt', entschaerft: 'entschärft', ausgeloest: 'ausgelöst' };
+    da: 'da', ruhe: 'Ruhe', gehalten: 'gehalten', geloest: 'gelöst', verschlossen: 'verschlossen', gestoert: 'gestört', gesprengt: 'gesprengt', platziert: 'platziert', unten: 'unten', gehisst: 'gehisst', verborgen: 'verborgen', erkannt: 'erkannt', entschaerft: 'entschärft', ausgeloest: 'ausgelöst', laeuft: 'wird abgebaut', abgebaut: 'abgebaut' };
   // Anker als einfache Marken (2D-Rückfall und Minikarte). Nur Rollen mit Objekt.
   function drawBuehneAnker(ctx, map, st, camX, camY, t) {
     const cd = st && st.away && st.away.map === map.id ? st.away.cd : null;
@@ -620,7 +632,8 @@
       if (px < -TILE || py < -TILE || px > VW + TILE || py > VH + TILE) return;
       const z = ankerZustand(map, st, i);
       if (a[1] === 'falle') { drawFalle2d(ctx, a, z, px, py); return; }   // ITM-01 E: eigene Form je Zustand und Typ
-      const aus = ['leer', 'genommen', 'zerstoert', 'offen', 'geloest', 'gesperrt', 'gehisst'].indexOf(z) >= 0 && a[1] !== 'abholpunkt';
+      if (a[1] === 'abbau' && z === 'leer') return;   // GEL-03 A2: kein Vorkommen in dieser Runde: nichts zeichnen
+      const aus = ['abgebaut', 'leer', 'genommen', 'zerstoert', 'offen', 'geloest', 'gesperrt', 'gehisst'].indexOf(z) >= 0 && a[1] !== 'abholpunkt';
       ctx.save();
       ctx.globalAlpha = aus ? 0.45 : 1;
       ctx.strokeStyle = col; ctx.lineWidth = 2;
@@ -2174,7 +2187,7 @@
       ctx.moveTo(dx + 0.5, dy + 4); ctx.lineTo(dx + 0.5, Math.round(foot.y));
       ctx.stroke(); ctx.restore();
     }
-    shape(ctx, 'diamond', dx, dy, 7, PAL.ice, PAL.space);
+    shape(ctx, m.art === 'erz' ? 'sechseck' : 'diamond', dx, dy, m.art === 'erz' ? 10 : 7, PAL.ice, PAL.space);   // GEL-03 G: Erz = Sechseck
     if (falle) return;   // keine Beschriftung: der Typ steht im Modell und in der Scan-Liste (Glyphe + voller Name)
     const w = measure(m.symbol, 1) + 4, ty = dy - 15;
     ctx.fillStyle = 'rgba(11,14,26,0.7)'; ctx.fillRect(dx - Math.ceil(w / 2), ty - 1, w, 10);
@@ -2296,7 +2309,7 @@
       const s = toS(m.x, m.y);
       ctx.strokeStyle = PAL.ice; ctx.lineWidth = 1;
       const istFalle = m.art === 'falle';   // ITM-01 F: eine Falle zeigt nur ihr rotes Dreieck (unten), keine Eisblau-Raute und kein Kürzel; Fokus und Klickfläche bleiben
-      if (!istFalle) shape(ctx, 'diamond', s.x, s.y, 7, PAL.ice, PAL.space);
+      if (!istFalle) shape(ctx, m.art === 'erz' ? 'sechseck' : 'diamond', s.x, s.y, m.art === 'erz' ? 10 : 7, PAL.ice, PAL.space);   // GEL-03 G: Erz = Sechseck
       if (m.fokus) scanEckwinkel(ctx, s.x, s.y, 6);   // D1: vier Eckwinkel statt Fokuskreis
       if (!istFalle && (m.fokus || m.key === opts.scanHover)) {   // D6: Kürzel nur für Fokus und Hover, sonst nur die Raute
         const w = measure(m.symbol, 1) + 4;

@@ -146,7 +146,9 @@ function kachelZustand(aw, info, tx, ty, ki) {
 // Sicht und Schuss gehen durch (awaySight/awayShotBlock lesen nur Kachelart und Zustandskacheln). Regel gemeinsam mit Prüfer und Client: Buehne.ankerBlockiert.
 // Je Karte gecacht (Ankerliste und blockiert-Config als Schlüssel), Karten ohne blockierende Anker kosten einen Vergleich.
 const BLOCK_CACHE = new WeakMap();
-function blockierendeKacheln(game, k) {
+function blockierendeKacheln(game, k) { return blockierendeKachelnIn(game, game.away, k); }
+// GEL-03 Nacharbeit W2: dieselbe Menge für den Zustand einer bestimmten Außenkarte (aw), auch wenn sie nicht game.away ist (Spawn auf einer anderen Karte, squad.spawnPlaetze)
+function blockierendeKachelnIn(game, aw, k) {
   const alle = k.anker || [];
   const cf = game.C && game.C.anker && game.C.anker.falle;
   const sig = cf && cf.blockiert ? Object.keys(cf.blockiert).filter((t) => cf.blockiert[t]).join() : '';
@@ -154,13 +156,14 @@ function blockierendeKacheln(game, k) {
   if (!c || c.alle !== alle || c.n !== alle.length || c.sig !== sig) {
     let kand = null;
     if (sig) for (const a of alle) if (a.rolle === 'falle' && Buehne.ankerBlockiert(a, cf)) (kand || (kand = [])).push({ id: a.id, kachel: a.y * k.w + a.x, verborgen: a.sicht !== 'passiv' });
+    for (const a of alle) if (a.rolle === 'abbau') (kand || (kand = [])).push({ id: a.id, kachel: a.y * k.w + a.x, abbau: true });   // GEL-03 A1: Erzader = Kollisionsbox, außer im Zustand leer
     c = { alle, n: alle.length, sig, kand };
     BLOCK_CACHE.set(k, c);
   }
   if (!c.kand) return null;
-  const zs = (game.away && game.away.zustaende) || {};
+  const zs = (aw && aw.zustaende) || {};
   let set = null;
-  for (const e of c.kand) if (!e.verborgen || (zs[e.id] && zs[e.id] !== 'verborgen')) (set || (set = new Set())).add(e.kachel);
+  for (const e of c.kand) if (e.abbau ? Buehne.ankerBlockiertIn({ rolle: 'abbau' }, zs[e.id]) : (!e.verborgen || (zs[e.id] && zs[e.id] !== 'verborgen'))) (set || (set = new Set())).add(e.kachel);
   return set;
 }
 function awaySolid(game) {
@@ -1638,7 +1641,7 @@ function sysName(sys) { const n = SYS_NAMES[sys]; return n ? `${n[1]} ${n[2]}` :
 
 module.exports = {
   schubs, betaeubt,
-  platformSolid, awaySolid, awayInfo, solidFor,
+  platformSolid, awaySolid, awayInfo, solidFor, blockierendeKachelnIn,
   // B1 (BODENKAMPF): gebaute Karten, Sicht/Schuss-Sperre, Deck-Links, Lift/Leiter in der Außenzone
   awayInfoOf, awaySight, awayShotBlock, awayLinks, awayDeckOf, awayLink, startAwayLift, finishAwayDeck, coverSpotsOf, kartenMap, mapFor, updatePlayers, damagePlayer, healPlayer, downPlayer, revivePlayer, placeOnShipPad,
   placeOnPlatformPad, placeOnAwayPad, dropCarry, onDrop, onAct, enterConsole, konsoleVerlassen, konsoleLoesen, interactionsAt, candidateTiles,

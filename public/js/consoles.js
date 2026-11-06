@@ -2695,11 +2695,12 @@
       for (const w of R.fallenLaufend(st)) { R.text(ctx, w.name + ': noch ' + w.rest + ' s', x, y, { color: w.art === 'feld' ? PAL.red : PAL.warn }); y += 10; }   // ITM-01 E: Druckverlust, gesperrte Schotts
       const cnt = {};
       (amap.anker || []).forEach((a, i) => {
-        if (['terminal', 'sprengpunkt', 'beute', 'fund', 'ziel', 'zelle'].indexOf(a[1]) < 0) return;
+        if (['terminal', 'sprengpunkt', 'beute', 'fund', 'ziel', 'zelle', 'abbau'].indexOf(a[1]) < 0) return;
         const z = R.ankerZustand(amap, st, i);
+        if (a[1] === 'abbau' && z === 'leer') return;   // GEL-03 A2: kein Vorkommen in dieser Runde zählt nicht mit
         const c = cnt[a[1]] || (cnt[a[1]] = { n: 0, fertig: 0 });
         c.n++;
-        if (['geladen', 'zerstoert', 'leer', 'genommen', 'aktiviert', 'offen'].indexOf(z) >= 0) c.fertig++;
+        if (['geladen', 'zerstoert', 'leer', 'genommen', 'aktiviert', 'offen', 'abgebaut'].indexOf(z) >= 0) c.fertig++;
       });
       if (!away.oz) for (const r of Object.keys(cnt)) { if (y > 300) break; R.text(ctx, (R.ANKER_NAME[r] || r) + ': ' + cnt[r].fertig + '/' + cnt[r].n, x, y, { color: cnt[r].fertig === cnt[r].n ? PAL.mint : PAL.panelLight }); y += 10; }
       return y + 4;

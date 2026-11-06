@@ -16,10 +16,13 @@
 //   onTreffer(game, pid)                    bei jedem Treffer auf einen Spieler (Abbruch Download/Ladung)
 //   setzen(game, map, id, zustand, pid?, opts?)  Bausteine anker_zustand/kante_zustand, Debug `anker`
 //   zustand(game, map, id)  alarm(game, map, an)  markieren(game, map)  awaySnap(game, aw)
+//   abbauStarten(game, p, h)  abbauAbbrechen(game, map, id, pid?)  abbauFertig(game, p, h)  abbauMenge(game, map, anker)   GEL-03 A1: Rolle abbau (Erzader), s. u. „Abbau“
+//   abbauNeu(game, map)  abbauWahlZustaende(karte, runde)   GEL-03 C: frische Adern je Mission (Runde hoch, Auswahl aus adernWahl, Karte unverändert), Startauswahl beim Laden
 //   payloadAnker(k)  ankerListe(game, aw, k)  startFuer(a)   ITM-01 C: Ankerreihenfolge für awayMap und ao (verborgene Fallen fehlen im Payload, enthüllte hängen hinten an), Startzustand je Anker (Falle: sicht)
 const W = require('../world.js');
 const Physics = require('../../shared/physics.js');
 const Buehne = require('../../shared/buehne.js');
+const GenHoehle = require('../../shared/gen-hoehle.js');   // GEL-03 C: adernWahl, istAderKandidat
 const Vorrat = require('./vorrat.js');   // TEL-01 G: Verbrauchsgüter nur über den Buchungsdienst
 
 const TILE = Physics.TILE;
@@ -54,8 +57,15 @@ function ankerListe(game, aw, k) {
 function kfg(game) { return (game.C && game.C.anker) || { halten: {}, countdown: 60, paarFenster: 1.5, paarSoloFenster: 15 }; }
 function karteVon(map) { const e = W.AWAY_MAPS[map]; return e && e.karte && Array.isArray(e.karte.rows) ? e.karte : null; }
 function awVon(game, map) { return (game.aways && game.aways[map]) || null; }
+const abbauKarten = new WeakMap();   // Karte -> hat Adern (Kartenobjekt ist je Laufzeitkarte fest)
+function hatAbbau(aw) {
+  const k = karteVon(aw.map); if (!k) return false;
+  let h = abbauKarten.get(k); if (h === undefined) { h = (k.anker || []).some((x) => x.rolle === 'abbau'); abbauKarten.set(k, h); }
+  return h;
+}
 function lauf(aw) {
   if (!aw.ankerLauf) aw.ankerLauf = { download: {}, ladung: {}, raetsel: {} };
+  if (!aw.ankerLauf.abbau && hatAbbau(aw)) aw.ankerLauf.abbau = {};   // GEL-03: nur Karten mit Erzadern tragen das Feld (aw-JSON anderer Karten bleibt byteweise wie vor GEL-03); graben/landepunkte legen ankerLauf ohne abbau an
   if (!aw.zustaende) aw.zustaende = {};
   return aw.ankerLauf;
 }
@@ -176,6 +186,10 @@ function interactionsAt(game, p, tx, ty, list) {
       case 'beute': if (z === 'voll') it(); else block('Leer geräumt.'); break;
       case 'ziel': if (z !== 'frei') block('Erledigt.'); else if (aw.ankerSperre && aw.ankerSperre[a.id]) block(aw.ankerSperre[a.id]); else it(); break;   // ankerSperre: { ankerId: Text } zur Laufzeit (Finale-Boden: Schrein gesperrt bis der Wächter fällt)
       case 'fund': if (z === 'da') it(); else block('Der Sockel ist leer.'); break;
+      case 'abbau':   // GEL-03 A1: leer bietet nichts an (kein Hinweis); abgebaut ist erschöpft; ein Halter je Ader
+        if (z === 'da' || z === 'laeuft') { if (abbauHalterAnderer(game, p, a.id)) block('Dort wird schon abgebaut.'); else it({ op: 'abbauen' }); }
+        else if (z === 'abgebaut') block('Die Ader ist erschöpft.');
+        break;
       case 'falle': if (z === 'erkannt') it({ op: 'entschaerfen', map: aw.map }); break;   // verborgen, entschärft, ausgelöst: nichts anzubieten (verborgen verrät sich nicht durch einen Hinweis)
       case 'raetsel':
         if (z === 'geloest') block('Gelöst.');
@@ -234,6 +248,7 @@ function holdDuration(game, p, kind, it) {
   }
   if (rolle === 'eingang') return it && it.op === 'luke' ? TUER_ZEIT.luke : (H.schott_hacken || 6);
   if (rolle === 'sprengpunkt' && it && it.modus === 'platzieren') return H.platzieren || H.sprengpunkt || 4;   // EK5: Sprengstoff legen
+  if (rolle === 'abbau') return Number(H.abbau) || 5;   // GEL-03 A1: Gesamtzeit, kein Fortschritt-Merken
   if (rolle === 'flagge') return flaggeZeit(game) + 0.2;   // EK6: gemeinsamer Fortschritt (update); die eigene Zeit des Halters erreicht das nie vor update
   return H[rolle] || 1;
 }
@@ -252,6 +267,7 @@ function holdValid(game, p, h) {
     case 'beute': return z === 'voll';
     case 'ziel': return z === 'frei' && !(aw.ankerSperre && aw.ankerSperre[a.id]);
     case 'fund': return z === 'da';
+    case 'abbau': return (z === 'da' || z === 'laeuft') && !p.downed && !abbauHalterAnderer(game, p, a.id);   // erster Halter gewinnt: der andere ist ungültig
     case 'falle': return z === 'erkannt' && h.map === aw.map && !p.downed;   // nur aus erkannt, nur auf der Karte, auf der das Halten begann; nach dem Auslösen ist Entschärfen unmöglich
     case 'raetsel': return z === 'ruhe';
     case 'versteck': return z !== 'offen';
@@ -262,6 +278,7 @@ function holdValid(game, p, h) {
 // Hold-Start (optional; sonst übernimmt update den Fortschritt): Terminal -> 'laedt'
 function holdStart(game, p, h) {
   const aw = game.away; const k = aw && karteVon(aw.map);
+  if (k && h.kind === 'anker:abbau') { abbauStarten(game, p, h); return; }
   if (!k || h.kind !== 'anker:terminal' || h.op === 'lesen') return;
   if (zustandIn(aw, k, h.anker) === 'bereit') setzen(game, aw.map, h.anker, 'laedt', p.id);
 }
@@ -294,6 +311,7 @@ function completeHold(game, p, h) {
     case 'beute': setzen(game, map, a.id, 'leer', p.id); game.missionEvent('beuteGeborgen', { map, anker: a.id, pid: p.id }); return;
     case 'ziel': setzen(game, map, a.id, 'aktiviert', p.id); return;
     case 'fund': setzen(game, map, a.id, 'genommen', p.id); game.missionEvent('fundGeborgen', { map, anker: a.id, pid: p.id }); return;
+    case 'abbau': abbauFertig(game, p, h); return;
     case 'falle':
       if (zustandIn(aw, k, a.id) !== 'erkannt') return;
       setzen(game, map, a.id, 'entschaerft', p.id);
@@ -313,6 +331,191 @@ function completeHold(game, p, h) {
     default: return;
   }
 }
+
+// ---------- Abbau (GEL-03 A1, Rolle abbau: Erzader) ----------
+// Zustände da -> laeuft -> abgebaut (leer: in dieser Runde kein Vorkommen). Wie das Terminal ein Halte-Anker (da <-> laeuft, update setzt laeuft ohne Halter zurück), aber der Abbruch
+// ist der der Falle: Treffer/Loslassen lässt KEINEN Fortschritt zurück (CONFIG.anker.halten.abbau ist die Gesamtzeit). Genau ein Halter je Ader: ankerLauf.abbau[id] = { pid, t }
+// (t = Lärmtakt in s). Ereignisse (Spiel- und Missionsereignis): abbauStart {map, anker, pid}, abbauFertig {map, anker, pid, menge, art}, abbauLaerm {map, anker, pid, x, y}
+// beim Start und danach alle CONFIG.anker.abbauLaermTakt s, solange gehalten wird. Die Wirkung des Lärms (Schwarm) gehört MON-03, hier nur das Ereignis.
+const abbauHaelt = (p, id) => !!(p && p.hold && p.hold.kind === 'anker:abbau' && p.hold.anker === id && p.zone === 'away' && p.connected !== false);
+// Hält ein ANDERER Spieler diese Ader? Maßgeblich ist der Halter-Eintrag (nicht die Spielerreihenfolge): erster Halter gewinnt, ein Eintrag ohne lebendes Halten ist verwaist.
+function abbauHalterAnderer(game, p, id) {
+  const aw = game.away; const b = aw && aw.ankerLauf && aw.ankerLauf.abbau && aw.ankerLauf.abbau[id];
+  if (!b || b.pid === p.id) return false;
+  return abbauHaelt(game.players.find((q) => q.id === b.pid), id);
+}
+// GEL-03 B: Menge je Abbau, 1 bis 3, deterministisch aus (abbau_runde des Landepunkts, Anker-ID) per FNV (kein Zufall, kein Spielzustand): dieselbe Ader gibt in derselben Runde immer
+// dieselbe Menge, in einer späteren Runde (abbauNeu) darf sie anders ausfallen. Art: Attribut art der Ader, Standard und einzige Art heute erz. Rückgabe { menge, art }.
+const ABBAU_ARTEN = ['erz'];
+function abbauRunde(game, map) {
+  try { const e = require('./landepunkte.js').eintrag(game, map); return (e && e.abbau_runde | 0) || 0; } catch (x) { return 0; }
+}
+function abbauMenge(game, map, a) {
+  const art = a && ABBAU_ARTEN.includes(a.art) ? a.art : 'erz';
+  const h = Buehne.fnv(`abbau:${abbauRunde(game, map)}:${a ? a.id : ''}`) >>> 0;
+  return { menge: 1 + ((h >>> 8) % 3), art };
+}
+function abbauLaerm(game, map, a, pid) {
+  const c = mitte(a);
+  const d = { map, anker: a.id, pid, x: c.x, y: c.y };
+  game.emit('abbauLaerm', d); game.missionEvent('abbauLaerm', d);
+}
+// Halten beginnt (aus holdStart): übernimmt die Ader, setzt laeuft, meldet abbauStart und den ersten Lärm. Hält schon ein anderer: Hold verwerfen (gleicher Tick).
+function abbauStarten(game, p, h) {
+  const aw = game.away; const k = aw && karteVon(aw.map); if (!k) return;
+  const a = ankerById(k, h.anker); if (!a || a.rolle !== 'abbau') return;
+  const z = zustandIn(aw, k, a.id);
+  if (z !== 'da' && z !== 'laeuft') { p.hold = null; return; }
+  if (abbauHalterAnderer(game, p, a.id)) { p.hold = null; if (game.notice) game.notice(p, 'Dort wird schon abgebaut.'); return; }
+  const L = lauf(aw);
+  const neu = !L.abbau[a.id] || L.abbau[a.id].pid !== p.id;
+  L.abbau[a.id] = { pid: p.id, t: 0 };
+  if (z === 'da') setzen(game, aw.map, a.id, 'laeuft', p.id);
+  if (neu) {
+    game.emit('abbauStart', { map: aw.map, anker: a.id, pid: p.id }); game.missionEvent('abbauStart', { map: aw.map, anker: a.id, pid: p.id });
+    abbauLaerm(game, aw.map, a, p.id);
+  }
+}
+// Halten endet ohne Ergebnis (Treffer, Loslassen, Verlassen): Halter-Eintrag weg, laeuft -> da. Kein Fortschritt. pid nur für den Zustandswechsel (Ereignis).
+function abbauAbbrechen(game, map, id, pid) {
+  const aw = awVon(game, map); const k = karteVon(map); if (!aw || !k) return;
+  const a = ankerById(k, id); if (!a || a.rolle !== 'abbau') return;
+  delete lauf(aw).abbau[id];
+  if (zustandIn(aw, k, id) === 'laeuft') setzen(game, map, id, 'da', pid || null);
+}
+// Halten vollendet: nur aus da/laeuft und nur durch den Halter (erster gewinnt); setzt abgebaut, meldet abbauFertig mit Menge und Art.
+function abbauFertig(game, p, h) {
+  const aw = game.away; const k = aw && karteVon(aw.map); if (!k) return;
+  const a = ankerById(k, h.anker); if (!a || a.rolle !== 'abbau') return;
+  const z = zustandIn(aw, k, a.id);
+  if (z !== 'da' && z !== 'laeuft') return;
+  if (abbauHalterAnderer(game, p, a.id)) return;
+  const L = lauf(aw);
+  delete L.abbau[a.id];
+  setzen(game, aw.map, a.id, 'abgebaut', p.id);
+  const m = abbauMenge(game, aw.map, a);
+  Vorrat.einlagern(game, m.art, m.menge, 'abbau');   // GEL-03 B: Ablage im Schiffslager (Buchungsdienst, Grund abbau); nicht Fracht
+  const d = { map: aw.map, anker: a.id, pid: p.id, menge: m.menge, art: m.art };
+  game.emit('abbauFertig', d); game.missionEvent('abbauFertig', d);
+  const c = mitte(a);
+  game.emit('sfx', { name: 'repair_done', zone: 'away', x: c.x, y: c.y });
+}
+// GEL-03 C: Neusetzen je Mission. Die Ader-Kandidaten (Anker hoehle.abbau*, shared/gen-hoehle.js) stehen in jeder Runde in der Karte; welche davon ein Vorkommen tragen (da) und welche leer sind,
+// entscheidet adernWahl(Karte-Seed, Kandidaten, abbau_runde) – rein aus Seed und Runde, nie in die Karte geschrieben (JSON der Karte bleibt byteweise gleich), nur in die Zustände.
+// Runde 0 (abbau_runde fehlt/0) wirkt beim Laden der Karte (landepunkte.makeAway, abbauWahlZustaende) für alle Kandidaten OHNE gespeicherten Zustand: ohne Aufruf von abbauNeu gibt es also schon
+// in der ersten Mission nur 2 bis 3 aktive Adern, und gespeicherte Zustände (abgebaut, leer, da) gehen beim Laden nie verloren. Handgesetzte abbau-Anker (Tests, Regiebuch) sind keine Kandidaten.
+const aderKandidaten = (k) => (k && k.anker ? k.anker.filter((a) => GenHoehle.istAderKandidat(a)) : []);
+// { id: 'da' | 'leer' } für die Kandidaten einer Karte in dieser Runde
+function abbauWahlZustaende(k, runde) {
+  const kand = aderKandidaten(k); const out = {};
+  if (!kand.length) return out;
+  const w = GenHoehle.adernWahl(k.seed | 0, kand.map((a) => a.id), runde | 0);
+  for (const id of w.da) out[id] = 'da';
+  for (const id of w.leer) out[id] = 'leer';
+  return out;
+}
+// GEL-03 Nacharbeit W1: Überlappt eine Figur (Spieler dieser Karte, lebende Drohne, lebende Kreatur) die Kachel (tx, ty)? Dieselbe Box-Prüfung wie die Bewegung (Physics.boxHits).
+const DROHNEN_BOX = { w: 14, h: 10 };   // wie away.js DRONE_HITBOX / squad.js HITBOX
+function figurAufKachel(game, aw, tx, ty) {
+  const hier = (a, b) => a === tx && b === ty;
+  if (game.away === aw) {
+    const hb = (game.C && game.C.player && game.C.player.hitbox) || { w: 18, h: 12 };
+    for (const p of game.players || []) if (p.zone === 'away' && Physics.boxHits(hier, p.x, p.y, hb.w, hb.h)) return true;
+  }
+  for (const d of aw.drones || []) if (d.alive !== false && Physics.boxHits(hier, d.x, d.y, DROHNEN_BOX.w, DROHNEN_BOX.h)) return true;
+  const Kr = aw.kreaturen && aw.kreaturen.length ? require('./kreatur.js') : null;
+  if (Kr) for (const K of aw.kreaturen) if (K.alive !== false) { const bx = Kr.koerperBox(K); if (Physics.boxHits(hier, K.x, K.y, bx, bx)) return true; }
+  return false;
+}
+// GEL-03 Nacharbeit W1: ein Wechsel leer -> da wird zurückgestellt, solange eine Figur auf der Kachel steht (sonst wäre sie eingemauert: leer ist begehbar, da ist fest). Vormerkung in
+// ankerLauf.abbauVormerk { id: true }; update() setzt da, sobald die Kachel frei ist (deterministisch, Spielzeit). Gespeichert wird eine vorgemerkte Ader ohne Zustand (landepunkte.sichern),
+// beim Laden gilt die Auswahl der Runde. Gewählt gegenüber „Kachel erst fest, wenn keine Figur überlappt“: die Kollisionsregel bleibt eine reine Funktion des Zustands (Server, Client-Vorhersage,
+// Snapshot ao stimmen überein), und es gibt keine Figurenabfrage in der Kollisionsabfrage (die läuft je Kachel und Figur).
+function vormerkung(aw) { const L = lauf(aw); return L.abbauVormerk || (L.abbauVormerk = {}); }
+function abbauVormerkTick(game, aw, k) {
+  const vm = aw.ankerLauf && aw.ankerLauf.abbauVormerk; if (!vm) return;
+  for (const id of Object.keys(vm).sort()) {
+    const a = ankerById(k, id);
+    if (!a || zustandIn(aw, k, id) !== 'leer') { delete vm[id]; continue; }   // inzwischen anders gesetzt (Baustein, Debug): nichts mehr zu tun
+    if (figurAufKachel(game, aw, a.x, a.y)) continue;
+    delete vm[id];
+    setzen(game, aw.map, id, 'da', null, { merken: true });
+  }
+}
+// abbauNeu(game, map) -> Fehlertext | null: abbau_runde + 1 (höchstens ABBAU_RUNDE_MAX), alle Kandidaten bekommen den Zustand der neuen Runde (vorher abgebaut/leer/laeuft wird überschrieben), laufende Halter
+// DIESER Karte werden abgebrochen (Hold weg, Halter-Eintrag weg), der Weltstand-Eintrag merkt alles (Zustände + Runde). Ereignis abbauNeu {map, runde, adern:[ids da]} (Spiel und Mission).
+// Geladene Karte: Zustände in aw.zustaende (setzen, mit merken); ein Wechsel leer -> da unter einer Figur wartet (W1). Nicht geladene Karte (K2): KEIN Kartenbau (58 bis 300 ms im Tick), nur
+// abbau_runde im Eintrag hoch und die gespeicherten Zustände der Kandidaten verwerfen: makeAway leitet sie beim Laden aus Karte-Seed und neuer Runde ab. Das Ereignis trägt dort adern: []
+// (die Kandidaten sind ohne Karte nicht bekannt); ist die Karte registriert (W.AWAY_MAPS, z. B. Ader-Prüfung durch einen anderen Aufrufer), wird adern aus adernWahl berechnet.
+function abbauNeu(game, map) {
+  const LP = require('./landepunkte.js');
+  const e = LP.eintrag(game, map);
+  if (!e) return `Karte ${map} ist kein Landepunkt.`;
+  const k = karteVon(map);
+  const aw = awVon(game, map);
+  if (!k && !LP.hatAdern(game, map)) return `Karte ${map} hat keine Erzadern.`;
+  const kand = k ? aderKandidaten(k) : null;
+  if (k && !kand.length) return `Karte ${map} hat keine Erzadern.`;
+  const runde = Math.min(LP.ABBAU_RUNDE_MAX, ((e.abbau_runde | 0) || 0) + 1);   // an der Obergrenze bleibt sie stehen
+  e.abbau_runde = runde;
+  e.zustaende = e.zustaende || {};
+  if (!k) {   // nicht gebaut/geladen: Zustände der Kandidaten verfallen, beim Laden gilt die neue Runde
+    for (const id of Object.keys(e.zustaende)) if (GenHoehle.istAderKandidat({ rolle: 'abbau', id })) delete e.zustaende[id];
+    game.emit('abbauNeu', { map, runde, adern: [] }); game.missionEvent('abbauNeu', { map, runde, adern: [] });
+    return null;
+  }
+  const neu = abbauWahlZustaende(k, runde);
+  if (aw) {
+    // K4: nur Halter DIESER Karte abbrechen (ein Halt auf einer anderen Karte bleibt)
+    if (game.away && game.away.map === map) for (const p of game.players || []) if (p.hold && p.hold.kind === 'anker:abbau' && neu[p.hold.anker] !== undefined) p.hold = null;
+    for (const a of kand) { if (lauf(aw).abbau[a.id]) abbauAbbrechen(game, map, a.id, null); }
+    const vm = vormerkung(aw); for (const a of kand) delete vm[a.id];
+  }
+  for (const a of kand) {
+    if (aw && neu[a.id] === 'da' && zustandIn(aw, k, a.id) === 'leer' && figurAufKachel(game, aw, a.x, a.y)) {   // W1: wartet, bis die Kachel frei ist
+      vormerkung(aw)[a.id] = true; delete e.zustaende[a.id]; continue;
+    }
+    e.zustaende[a.id] = neu[a.id];
+    if (aw) setzen(game, map, a.id, neu[a.id], null, { merken: true });
+  }
+  const adern = kand.map((a) => a.id).filter((id) => neu[id] === 'da');
+  game.emit('abbauNeu', { map, runde, adern }); game.missionEvent('abbauNeu', { map, runde, adern });
+  return null;
+}
+
+// Tick: ohne lebenden Halter fällt laeuft auf da zurück (Loslassen, Bewegung, Kartenwechsel, Trennung); mit Halter läuft der Lärmtakt über dt (deterministisch, Spielzeit).
+function abbauTick(game, aw, k, L, dt) {
+  const takt = Number(kfg(game).abbauLaermTakt) || 2;
+  for (const a of k.anker) {
+    if (a.rolle !== 'abbau') continue;
+    const b = L.abbau[a.id];
+    const z = zustandIn(aw, k, a.id);
+    const halter = b ? game.players.find((q) => q.id === b.pid) : null;
+    if (!b || !abbauHaelt(halter, a.id) || (z !== 'laeuft' && z !== 'da')) {
+      if (b || z === 'laeuft') abbauAbbrechen(game, aw.map, a.id, null);
+      continue;
+    }
+    b.t += dt;
+    if (b.t >= takt - 1e-9) { b.t -= takt; abbauLaerm(game, aw.map, a, b.pid); }
+  }
+}
+
+// GEL-03 G: Scanner-Anmeldung, Art `erz`: die Adern der Außenkarte im Zustand da oder laeuft (leer und abgebaut fehlen, sie fallen beim Scan-Aufräumen aus aw.sc). Position schon ab Stufe 1.
+// ziele() billig: die Aderliste je Karte wird gemerkt (Anker einer gebauten Karte ändern sich nicht), je Aufruf nur die Zustandsabfrage.
+const aderCache = new WeakMap();   // Karte -> { quelle, n, liste }
+function aderListe(k) {
+  const alle = k.anker || [];
+  let c = aderCache.get(k);
+  if (!c || c.quelle !== alle || c.n !== alle.length) { c = { quelle: alle, n: alle.length, liste: alle.filter((a) => a.rolle === 'abbau') }; aderCache.set(k, c); }
+  return c.liste;
+}
+function erzZiele(game, aw) {
+  const k = aw && karteVon(aw.map); if (!k) return [];
+  const out = [];
+  for (const a of aderListe(k)) { const z = zustandIn(aw, k, a.id); if (z === 'da' || z === 'laeuft') { const m = mitte(a); out.push({ id: a.id, x: m.x, y: m.y, typ: 'erzader' }); } }
+  return out;
+}
+require('./scanbar.js').scanbarAnmelden('erz', { ziele: erzZiele, tiefen: { position: 1 } });
 
 // Ladung am Anker scharf schalten (Spiel, Debug `ladung`, Bausteine): ladungScharf(game, map, id, t?, pid?) -> Fehlertext | null.
 // t = Countdown in s (Standard CONFIG.anker.countdown). Verbraucht kein Inventar. Ereignisse wie im Spiel.
@@ -395,6 +598,8 @@ function update(game, dt) {
     if (zustandIn(aw, k, h.anker) === 'bereit') setzen(game, aw.map, h.anker, 'laedt', p.id);
   }
   for (const a of k.anker) if (a.rolle === 'terminal' && !haelt.has(a.id) && zustandIn(aw, k, a.id) === 'laedt') setzen(game, aw.map, a.id, 'bereit', null);
+  abbauTick(game, aw, k, L, dt);
+  abbauVormerkTick(game, aw, k);
   // Feldzeichen (EK6): Fortschritt läuft nur, solange mindestens flagge.min lebende Spieler gleichzeitig halten; er bleibt, wenn einer loslässt
   for (const a of k.anker) {
     if (a.rolle !== 'flagge' || zustandIn(aw, k, a.id) !== 'unten') continue;
@@ -468,6 +673,10 @@ function onTreffer(game, pid) {
     p.hold = null;   // Ladung zurück: nichts verbraucht, Zustand bleibt intakt
     const platz = k && (ankerById(k, h.anker) || {}).modus === 'platzieren';
     if (game.notice) game.notice(p, platz ? 'Getroffen – der Sprengstoff liegt noch nicht.' : 'Getroffen – die Ladung ist nicht scharf.');
+  } else if (h.kind === 'anker:abbau') {
+    p.hold = null;   // wie die Falle: kein Fortschritt gemerkt, Abbau von vorn; der andere Spieler kann sofort übernehmen
+    abbauAbbrechen(game, aw && aw.map, h.anker, pid);
+    if (game.notice) game.notice(p, 'Getroffen – der Abbau ist unterbrochen.');
   } else if (h.kind === 'anker:falle') {
     p.hold = null;   // Entschärfen von vorn (kein Fortschritt gemerkt); der Zustand bleibt erkannt
     if (game.notice) game.notice(p, 'Getroffen – das Entschärfen ist unterbrochen.');
@@ -513,6 +722,10 @@ function awaySnap(game, aw) {
   });
   const o = { ao, ko, al: aw.alarm ? 1 : 0 };
   const sp = aw.ankerSperre ? al.map((a, i) => (aw.ankerSperre[a.id] ? i : -1)).filter((i) => i >= 0) : [];
+  // GEL-03 N2: Halter der laufenden Ader, [Index im ankerListe-Schema, Spieler-ID]; nur solange abgebaut wird (der Client zeigt „Dort wird schon abgebaut“ nur an der besetzten Ader)
+  const ab = [];
+  al.forEach((a, i) => { if (a.rolle !== 'abbau') return; const b = L.abbau[a.id]; if (b && aw.zustaende[a.id] === 'laeuft') ab.push([i, b.pid]); });
+  if (ab.length) o.ab = ab;
   if (aw.ohneZaehler) o.oz = 1;   // Welle 5, M3: Boden des Finales ohne Erkunden-/Plünder-Zähler (finale-boden.js)
   if (sp.length) o.sp = sp;   // SUND-04a-3: gesperrte Anker (Index), der Client zeigt „Versiegelt“ statt des Haltehinweises
   const ids = Object.keys(L.ladung).sort();
@@ -523,5 +736,5 @@ function awaySnap(game, aw) {
 module.exports = {
   istAnkerHold, interactionsAt, holdDuration, holdValid, holdStart, completeHold, update, onTreffer,
   setzen, zustand, alarm, markieren, awaySnap, kantenVonAnker, ladungScharf, ladungPlatzieren, paarFenster,
-  payloadAnker, ankerListe, startFuer,
+  payloadAnker, ankerListe, startFuer, abbauStarten, abbauAbbrechen, abbauFertig, abbauMenge, abbauNeu, abbauWahlZustaende,
 };

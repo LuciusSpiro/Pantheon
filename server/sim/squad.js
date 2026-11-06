@@ -144,9 +144,12 @@ function spawnPlaetze(game, info, bereich) {
   const map = info.map;
   const pads = new Set((info.pads || []).map((q) => q.x + ',' + q.y));
   const hb = bereich && !b ? handBereich(info, bereich) : null;
+  // GEL-03 Nacharbeit W2: feste Anker-Kacheln (Erzader, Selbstschussanlage; Zustandsprüfung wie die Kollision) sind keine Ersatzplätze: ein Gegner dort säße fest. Zustand der Zielkarte, nicht game.away.
+  const blk = k ? interior().blockierendeKachelnIn(game, (game.aways && game.aways[info.id]) || game.away, k) : null;
   const frei = [];
   for (let y = 1; y < map.h - 1; y++) for (let x = 1; x < map.w - 1; x++) {
     if (map.solid(x, y) || pads.has(x + ',' + y)) continue;
+    if (blk && blk.has(y * k.w + x)) continue;
     if (b && !inRects(b.rects, x, y)) continue;
     if (gefRects && !inRects(gefRects, x, y)) continue;   // ohne Bereich: Ersatzplätze in den Gefechtsbereichen
     if (hb && !hb(x, y)) continue;

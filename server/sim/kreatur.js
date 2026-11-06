@@ -848,7 +848,9 @@ function debugKreatur(game, p, typId) {
   return null;
 }
 
-module.exports = { update, kreaturBausteinAnmelden, bausteinTreffer, bausteinLaerm, daten, pruefen, typVon, erzeugen, erzeugenAuf, rudelSetzen, zustandSetzen, debugKreatur, kreaturen, ziele, ausruesten, raeumen, nichtEndgueltigErledigt, ausgefallenMelden, rudelErledigt, erledigtOptionenFehler };
+// GEL-03 Nacharbeit W1: Kantenlänge der Kollisionsbox einer Kreatur in px (für die Überlappungsprüfung des Ader-Wechsels, anker.js)
+const koerperBox = (K) => { const t = typVon(K.typ); return t ? hbVon(t).w : 14; };
+module.exports = { koerperBox, update, kreaturBausteinAnmelden, bausteinTreffer, bausteinLaerm, daten, pruefen, typVon, erzeugen, erzeugenAuf, rudelSetzen, zustandSetzen, debugKreatur, kreaturen, ziele, ausruesten, raeumen, nichtEndgueltigErledigt, ausgefallenMelden, rudelErledigt, erledigtOptionenFehler };
 
 // ---------- Anzeige und Scanner (MON-01 P4) ----------
 // Scanner: Art `monster`, billig (nur die lebenden Kreaturen mit aktueller Position, keine Karte). Typ-ID aus kreaturen.json; der Name steht im Client-Content (datenblaetter.json).

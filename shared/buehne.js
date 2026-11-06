@@ -141,7 +141,7 @@
   function objektRolle(D, rolle) {
     const r = D.anker.rollen && D.anker.rollen[rolle];
     if (r) return !!r.objekt;
-    return ['terminal', 'sprengpunkt', 'zelle', 'beute', 'ziel', 'fund', 'raetsel', 'abholpunkt', 'lift', 'leiter', 'falle'].includes(rolle);
+    return ['terminal', 'sprengpunkt', 'zelle', 'beute', 'ziel', 'fund', 'raetsel', 'abholpunkt', 'lift', 'leiter', 'falle', 'abbau'].includes(rolle);
   }
   // ITM-01 D: Fallen sind pauschal begehbar (NICHT_BLOCKEND), außer ihr Typ steht in CONFIG.anker.falle.blockiert (Selbstschussanlage: Kollisionsbox). Die Regel gilt für Prüfer,
   // Server-Kollision (interior.awaySolid) und Client-Vorhersage gleich: ankerBlockiert(anker, falleCfg?) -> bool. falleCfg: CONFIG.anker.falle (Server: game.C, Client: Shared_Config).
@@ -168,10 +168,18 @@
       return zaehl[k] > 1 ? k + '.' + lauf[k] : k;
     });
   }
+  // GEL-03 A1: Erzadern (Rolle abbau) sind immer feste Objekte (Kollisionsbox, Kai 2026-10-27); nur der Zustand leer (kein Vorkommen in dieser Runde) nimmt sie weg (interior.blockierendeKacheln)
   function ankerBlockiert(a, falleCfg) {
+    if (a && a.rolle === 'abbau') return true;
     if (!a || a.rolle !== 'falle' || !a.typ) return false;
     const C = falleCfg || ((getConfig() || {}).anker || {}).falle;
     return !!(C && C.blockiert && C.blockiert[a.typ]);
+  }
+  // GEL-03 Nacharbeit K5: EINE Quelle für „blockiert dieser Anker im Zustand z?“ (Server interior.blockierendeKacheln, Client render.js buehneBewegungSolid): Erzadern sind fest, außer im Zustand
+  // leer (kein Vorkommen in dieser Runde: begehbar). Für alle anderen Rollen gilt ankerBlockiert (der Zustand ändert nichts; die Sichtbarkeit verborgener Fallen regelt der Aufrufer).
+  function ankerBlockiertIn(a, zustand, falleCfg) {
+    if (!ankerBlockiert(a, falleCfg)) return false;
+    return !(a.rolle === 'abbau' && zustand === 'leer');
   }
   // ITM-01 E: Startzustand eines Ankers aus der Zustandsliste der Rolle: der erste Eintrag, eine passive Falle (sicht passiv) startet als erkannt (gleiche Regel wie server/sim/anker.js startFuer).
   // Der Client leitet den Start aus `sicht` im Payload ab, nicht aus zustaende[0] (render.js ankerZustand, voxel/kit.js).
@@ -1839,7 +1847,7 @@
 
   // Zelle als Text (Werkzeug, Galerie-Rückfall): Anker als Buchstaben über den Zeilen
   const ANKER_GLYPHE = { eingang: 'E', abholpunkt: 'A', wache: 'W', patrouille: 'p', deckung: 'd', terminal: 'T', sprengpunkt: 'B', zelle: 'Z',
-    beute: 'K', ziel: '*', fund: 'F', tor: 'G', raetsel: 'R', aussicht: 'V', nsc: 'N', versteck: 'H', lift: 'U', leiter: 'H', falle: '!' };
+    beute: 'K', ziel: '*', fund: 'F', abbau: 'Q', tor: 'G', raetsel: 'R', aussicht: 'V', nsc: 'N', versteck: 'H', lift: 'U', leiter: 'H', falle: '!' };
   function alsText(karte, mitAnker) {
     const rows = karte.rows.map((r) => r.split(''));
     if (mitAnker) for (const a of karte.anker) if (rows[a.y]) rows[a.y][a.x] = '\u001b[1;33m' + (ANKER_GLYPHE[a.rolle] || '?') + '\u001b[0m';
@@ -1851,7 +1859,7 @@
     modulLagen, pruefeModul, kantenTyp, vertraeglich, segmentTyp: (seg, opts) => segmentTyp(opts && opts.daten ? normalisiere(opts.daten) : daten(), seg, cfgVon(opts).freiMin),
     bauen, bauRoh, ausRaster, pruefen, kennzahlen, vorwaermen, hand, leitFuss, zustaendeAnwenden, alsText, ANKER_GLYPHE,
     tuerKacheln: K.tuerKacheln, raster: K.raster, SCHIFF_STRIDE, STANDARD_CFG,
-    TUER_ZEIT, kantenListe, ankerKanten, eingangAktion, kachelZustandRegel, ankerBlockiert, ankerIdsVergeben, ankerStart, fallenSchottKanten,
+    TUER_ZEIT, kantenListe, ankerKanten, eingangAktion, kachelZustandRegel, ankerBlockiert, ankerBlockiertIn, ankerIdsVergeben, ankerStart, fallenSchottKanten,
     raetselWege, raetselFenster, raetselHinweis, raetselSolo, raetselSoloFenster, karteServerForm, padTiles, deckLinkInReichweite, interaktionsVorrang, fehlerhafteModule,
     silhouetteFehler, silhouetteDaten, FIGUR_HOEHE_M,
   };
