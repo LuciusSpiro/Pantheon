@@ -541,7 +541,7 @@ section('Scan-Anzeige: Positionstext der Falle (Stufe 2), andere Arten unveränd
   ok(nText(sl2) > nText(sl) && sl.ops.filter((o) => o.op === 'fillRect').length === 0, 'Weltlabel der Falle: kein Text und kein Etikett-Kasten (der Typ steht im Modell und in der Scan-Liste); der Erz-Marker zeichnet weiter sein Kürzel');
   // Scan-Raute der Falle: flache Fallen wie jeder andere Marker (14 px über dem Ring), Selbstschussanlage knapp über dem Kopf (22 hpx = 1 m, Modell 1,0 bis 1,1 m), Lotlinie ohne Lücke bis zum Bodenpunkt
   const marke = (m, voxel, rad) => { const q = flaeche(); R.drawScanMarkerBoden(q.ctx, { x: 100, y: 100 }, rad || 10, m, 1.0, voxel); const dm = q.ops.find((o) => o.op === 'moveTo' && o.a[0] === 100); return { lot: q.ops.filter((o) => (o.op === 'lineTo' || o.op === 'moveTo') && o.a[0] === 100.5), mitte: dm ? dm.a[1] + 3.5 : null }; };
-  const erzM = marke({ art: 'erz', typ: 'testerz', symbol: 'ER', key: 'erz:a' }, true);
+  const erzM = marke({ art: 'monster', typ: 'testmonster', symbol: 'MO', key: 'monster:a' }, true);   // GEL-03 G: Bezugsmarker ist die Raute (monster); Erz zeichnet ein Sechseck, dessen erster Pfadpunkt höher liegt
   for (const voxel of [true, false]) for (const typ of ['schott', 'druck', 'schuss']) {
     const mk = marke({ ...mfa, typ }, voxel);
     ok(mk.lot.length === 2 && mk.lot[0].op === 'moveTo' && mk.lot[1].op === 'lineTo' && mk.lot[1].a[1] === 100 && mk.lot[0].a[1] === mk.mitte + 4, (voxel ? 'Voxel' : '2D') + ' ' + typ + ': Lotlinie ein einziger Abschnitt von der Raute bis zum Bodenpunkt, keine Lücke');
