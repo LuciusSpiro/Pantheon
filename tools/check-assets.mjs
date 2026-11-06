@@ -497,9 +497,11 @@ async function main() {
     if (e.kind === 'figure') {
       const rig = lib.get('rigs', asset.rig);
       if (!rig) { bad(`Rig ${asset.rig} fehlt`); continue; }
-      for (const j of ['handR', 'handL', 'back']) if (!rig.joints[j]) bad(`Rig ${rig.id}: Anker "${j}" fehlt`);
+      const menschRig = !!rig.joints.hips;   // MON-02 O3b: Rig schottbrecher (Vierbeiner) hat weder Hände noch Rücken, die Anker und Standardposen gelten nur für Menschen-Rigs
+      if (menschRig) for (const j of ['handR', 'handL', 'back']) if (!rig.joints[j]) bad(`Rig ${rig.id}: Anker "${j}" fehlt`);
       const parts = [...Object.entries(asset.parts || {}), ...Object.entries(asset.attach || {})];
-      if (parts.length > 16) bad(`${parts.length} Teile (max. 16)`);
+      const maxTeile = menschRig ? 16 : 18;   // die Teile einer Figur werden zu einem SkinnedMesh verschmolzen (actors.js skinFigure), die Teilezahl kostet keine Draw Calls
+      if (parts.length > maxTeile) bad(`${parts.length} Teile (max. ${maxTeile})`);
       // generierte Figuren: scale (z. B. Enterer 1,1) wirkt auf die Maße, nicht auf die Dreiecke
       const s = voxelSize(rig.tier || 'detail') * (typeof asset.scale === 'number' && asset.scale > 0 ? asset.scale : 1);
       // Jeder Zustand / jeder Parameterwert (z. B. rank 0/1) wird gebaut, gezählt wird der teuerste
@@ -525,7 +527,7 @@ async function main() {
         if (tris > res.tris) { res.tris = tris; res.worst = fvars.length > 1 ? fv.label : null; }
         if (isFinite(box.min[0])) { const d = [0, 2, 1].map((i) => (box.max[i] - box.min[i]) * s); if (!res.dims || d[2] > res.dims[2]) res.dims = d; }
       }
-      if (rig.poses) {
+      if (rig.poses && menschRig) {
         const poses = lib.get('poses', rig.poses)?.poses || {};
         const miss = EXPECTED_POSES.filter((p) => !poses[p]);
         if (miss.length) res.notes.push(`· Posen fehlen (${rig.poses}, ART-F): ${miss.join(', ')}`);

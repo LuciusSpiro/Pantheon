@@ -1,0 +1,310 @@
+{
+  "id": "station/schottbrecher/schild",
+  "name": "Schottbrecher: Rammschild (Pflugform: Mitte gerade, nach hinten abgewinkelte Seitenflügel; ausgefahren folgt die Front dem Kreis von 1 m Radius) mit Kolbenstangen",
+  "tier": "detail",
+  "palette": "schottbrecher",
+  "tags": [
+    "station",
+    "monster",
+    "schottbrecher"
+  ],
+  "params": {
+    "ausfahrt": {
+      "default": 4,
+      "min": 0,
+      "max": 6,
+      "step": 1,
+      "label": "Ausfahrweg bis zum Kreis (Voxel)"
+    }
+  },
+  "let": {
+    "r2": "15.29 * 15.29"
+  },
+  "ops": [
+    {
+      "jitter": false,
+      "name": "Schildband x -5..4",
+      "op": "box",
+      "at": [
+        -5,
+        5,
+        "ausfahrt * -1 + 13"
+      ],
+      "size": [
+        10,
+        14,
+        2
+      ],
+      "color": "schild"
+    },
+    {
+      "jitter": false,
+      "name": "Flügel x 5..7",
+      "op": "box",
+      "at": [
+        5,
+        5,
+        "ausfahrt * -1 + 11"
+      ],
+      "size": [
+        3,
+        14,
+        2
+      ],
+      "color": "schild"
+    },
+    {
+      "jitter": false,
+      "name": "Flügel x -8..-6",
+      "op": "box",
+      "at": [
+        -8,
+        5,
+        "ausfahrt * -1 + 11"
+      ],
+      "size": [
+        3,
+        14,
+        2
+      ],
+      "color": "schild"
+    },
+    {
+      "jitter": false,
+      "name": "Flügel x 8..9",
+      "op": "box",
+      "at": [
+        8,
+        5,
+        "ausfahrt * -1 + 10"
+      ],
+      "size": [
+        2,
+        14,
+        2
+      ],
+      "color": "schild"
+    },
+    {
+      "jitter": false,
+      "name": "Flügel x -10..-9",
+      "op": "box",
+      "at": [
+        -10,
+        5,
+        "ausfahrt * -1 + 10"
+      ],
+      "size": [
+        2,
+        14,
+        2
+      ],
+      "color": "schild"
+    },
+    {
+      "jitter": false,
+      "name": "Flügelspitze x 10..11",
+      "op": "box",
+      "at": [
+        10,
+        5,
+        "ausfahrt * -1 + 9"
+      ],
+      "size": [
+        2,
+        14,
+        1
+      ],
+      "color": "schild"
+    },
+    {
+      "jitter": false,
+      "name": "Flügelspitze x -12..-11",
+      "op": "box",
+      "at": [
+        -12,
+        5,
+        "ausfahrt * -1 + 9"
+      ],
+      "size": [
+        2,
+        14,
+        1
+      ],
+      "color": "schild"
+    },
+    {
+      "jitter": false,
+      "name": "Schneide unten",
+      "op": "box",
+      "mode": "paint",
+      "at": [
+        -12,
+        5,
+        "ausfahrt * -1 + 9"
+      ],
+      "size": [
+        24,
+        1,
+        6
+      ],
+      "color": "panzer_dark"
+    },
+    {
+      "jitter": false,
+      "name": "Oberkante dunkel",
+      "op": "box",
+      "mode": "paint",
+      "at": [
+        -12,
+        18,
+        "ausfahrt * -1 + 9"
+      ],
+      "size": [
+        24,
+        1,
+        6
+      ],
+      "color": "panzer_dark"
+    },
+    {
+      "jitter": false,
+      "name": "Niete x -4",
+      "op": "box",
+      "mode": "paint",
+      "at": [
+        -4,
+        16,
+        "ausfahrt * -1 + 14"
+      ],
+      "size": [
+        1,
+        1,
+        1
+      ],
+      "color": "niete"
+    },
+    {
+      "jitter": false,
+      "name": "Niete x -1",
+      "op": "box",
+      "mode": "paint",
+      "at": [
+        -1,
+        16,
+        "ausfahrt * -1 + 14"
+      ],
+      "size": [
+        1,
+        1,
+        1
+      ],
+      "color": "niete"
+    },
+    {
+      "jitter": false,
+      "name": "Niete x 0",
+      "op": "box",
+      "mode": "paint",
+      "at": [
+        0,
+        16,
+        "ausfahrt * -1 + 14"
+      ],
+      "size": [
+        1,
+        1,
+        1
+      ],
+      "color": "niete"
+    },
+    {
+      "jitter": false,
+      "name": "Niete x 3",
+      "op": "box",
+      "mode": "paint",
+      "at": [
+        3,
+        16,
+        "ausfahrt * -1 + 14"
+      ],
+      "size": [
+        1,
+        1,
+        1
+      ],
+      "color": "niete"
+    },
+    {
+      "jitter": false,
+      "name": "Niete x -7",
+      "op": "box",
+      "mode": "paint",
+      "at": [
+        -7,
+        16,
+        "ausfahrt * -1 + 12"
+      ],
+      "size": [
+        1,
+        1,
+        1
+      ],
+      "color": "niete"
+    },
+    {
+      "jitter": false,
+      "name": "Niete x 6",
+      "op": "box",
+      "mode": "paint",
+      "at": [
+        6,
+        16,
+        "ausfahrt * -1 + 12"
+      ],
+      "size": [
+        1,
+        1,
+        1
+      ],
+      "color": "niete"
+    },
+    {
+      "jitter": false,
+      "name": "Kolbenstange links",
+      "op": "box",
+      "at": [
+        3,
+        13,
+        3
+      ],
+      "size": [
+        2,
+        2,
+        7
+      ],
+      "color": "kolben"
+    },
+    {
+      "jitter": false,
+      "name": "Kolbenstange rechts",
+      "op": "box",
+      "at": [
+        -5,
+        13,
+        3
+      ],
+      "size": [
+        2,
+        2,
+        7
+      ],
+      "color": "kolben"
+    }
+  ],
+  "anchor": [
+    0,
+    0,
+    0
+  ]
+}

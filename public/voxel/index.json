@@ -784,7 +784,15 @@
   "rom/laterne",
   "rom/scutum",
   "rom/standarte",
-  "rom/standartenfuss"
+  "rom/standartenfuss",
+  "station/schottbrecher/foot",
+  "station/schottbrecher/hip",
+  "station/schottbrecher/horch",
+  "station/schottbrecher/hull",
+  "station/schottbrecher/knee",
+  "station/schottbrecher/lampe",
+  "station/schottbrecher/schild",
+  "station/schottbrecher/sensor"
  ],
  "palettes": [
   "aegypten",
@@ -859,7 +867,8 @@
   "lerche/crew_1",
   "lerche/crew_2",
   "lerche/ivo",
-  "lerche/scavenger"
+  "lerche/scavenger",
+  "station/schottbrecher"
  ],
  "poses": [
   "human",

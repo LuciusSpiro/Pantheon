@@ -1,0 +1,392 @@
+{
+  "id": "station/schottbrecher/hull",
+  "name": "Schottbrecher: Wanne (Panzerstahl, 16 Voxel breit, massiv; flache Farben für das Dreiecksbudget)",
+  "tier": "detail",
+  "palette": "schottbrecher",
+  "tags": [
+    "station",
+    "monster",
+    "schottbrecher"
+  ],
+  "ops": [
+    {
+      "jitter": false,
+      "name": "Wanne",
+      "op": "box",
+      "at": [
+        -8,
+        12,
+        -10
+      ],
+      "size": [
+        16,
+        6,
+        15
+      ],
+      "color": "panzer"
+    },
+    {
+      "jitter": false,
+      "name": "Abschrägung unten links",
+      "op": "box",
+      "mode": "carve",
+      "at": [
+        7,
+        12,
+        -10
+      ],
+      "size": [
+        1,
+        1,
+        15
+      ]
+    },
+    {
+      "jitter": false,
+      "name": "Abschrägung unten rechts",
+      "op": "box",
+      "mode": "carve",
+      "at": [
+        -8,
+        12,
+        -10
+      ],
+      "size": [
+        1,
+        1,
+        15
+      ]
+    },
+    {
+      "jitter": false,
+      "name": "Abschrägung vorn",
+      "op": "box",
+      "mode": "carve",
+      "at": [
+        -8,
+        12,
+        4
+      ],
+      "size": [
+        16,
+        1,
+        1
+      ]
+    },
+    {
+      "jitter": false,
+      "name": "Deckplatte",
+      "op": "box",
+      "at": [
+        -7,
+        18,
+        -9
+      ],
+      "size": [
+        14,
+        1,
+        14
+      ],
+      "color": "panzer_light"
+    },
+    {
+      "jitter": false,
+      "name": "Deckplattenrand vorn",
+      "op": "box",
+      "mode": "paint",
+      "at": [
+        -7,
+        18,
+        4
+      ],
+      "size": [
+        14,
+        1,
+        1
+      ],
+      "color": "panzer_dark"
+    },
+    {
+      "jitter": false,
+      "name": "Deckplattenrand hinten",
+      "op": "box",
+      "mode": "paint",
+      "at": [
+        -7,
+        18,
+        -9
+      ],
+      "size": [
+        14,
+        1,
+        1
+      ],
+      "color": "panzer_dark"
+    },
+    {
+      "jitter": false,
+      "name": "Deckplattenrand links",
+      "op": "box",
+      "mode": "paint",
+      "at": [
+        6,
+        18,
+        -9
+      ],
+      "size": [
+        1,
+        1,
+        14
+      ],
+      "color": "panzer_dark"
+    },
+    {
+      "jitter": false,
+      "name": "Deckplattenrand rechts",
+      "op": "box",
+      "mode": "paint",
+      "at": [
+        -7,
+        18,
+        -9
+      ],
+      "size": [
+        1,
+        1,
+        14
+      ],
+      "color": "panzer_dark"
+    },
+    {
+      "jitter": false,
+      "name": "Nieten Deckplatte rechts",
+      "op": "box",
+      "mode": "paint",
+      "repeat": {
+        "count": 2,
+        "step": [
+          3,
+          0,
+          0
+        ]
+      },
+      "at": [
+        -5,
+        18,
+        -7
+      ],
+      "size": [
+        1,
+        1,
+        1
+      ],
+      "color": "niete"
+    },
+    {
+      "jitter": false,
+      "name": "Nieten Deckplatte links",
+      "op": "box",
+      "mode": "paint",
+      "repeat": {
+        "count": 2,
+        "step": [
+          3,
+          0,
+          0
+        ]
+      },
+      "at": [
+        1,
+        18,
+        -7
+      ],
+      "size": [
+        1,
+        1,
+        1
+      ],
+      "color": "niete"
+    },
+    {
+      "jitter": false,
+      "name": "Nieten Deckplatte 2 rechts",
+      "op": "box",
+      "mode": "paint",
+      "repeat": {
+        "count": 2,
+        "step": [
+          3,
+          0,
+          0
+        ]
+      },
+      "at": [
+        -5,
+        18,
+        -3
+      ],
+      "size": [
+        1,
+        1,
+        1
+      ],
+      "color": "niete"
+    },
+    {
+      "jitter": false,
+      "name": "Nieten Deckplatte 2 links",
+      "op": "box",
+      "mode": "paint",
+      "repeat": {
+        "count": 2,
+        "step": [
+          3,
+          0,
+          0
+        ]
+      },
+      "at": [
+        1,
+        18,
+        -3
+      ],
+      "size": [
+        1,
+        1,
+        1
+      ],
+      "color": "niete"
+    },
+    {
+      "jitter": false,
+      "name": "Gegengewicht hinten",
+      "op": "box",
+      "at": [
+        -7,
+        12,
+        -11
+      ],
+      "size": [
+        14,
+        5,
+        1
+      ],
+      "color": "panzer_dark"
+    },
+    {
+      "jitter": false,
+      "name": "Hydraulikstreben hinten links",
+      "op": "box",
+      "repeat": {
+        "count": 2,
+        "step": [
+          3,
+          0,
+          0
+        ]
+      },
+      "at": [
+        -4,
+        12,
+        -12
+      ],
+      "size": [
+        1,
+        5,
+        1
+      ],
+      "color": "hydraulik"
+    },
+    {
+      "jitter": false,
+      "name": "Hydraulikstreben hinten rechts",
+      "op": "box",
+      "repeat": {
+        "count": 2,
+        "step": [
+          3,
+          0,
+          0
+        ]
+      },
+      "at": [
+        0,
+        12,
+        -12
+      ],
+      "size": [
+        1,
+        5,
+        1
+      ],
+      "color": "hydraulik"
+    },
+    {
+      "jitter": false,
+      "name": "Seitenfuge links",
+      "op": "box",
+      "mode": "paint",
+      "at": [
+        7,
+        14,
+        -8
+      ],
+      "size": [
+        1,
+        1,
+        12
+      ],
+      "color": "panzer_dark"
+    },
+    {
+      "jitter": false,
+      "name": "Seitenfuge rechts",
+      "op": "box",
+      "mode": "paint",
+      "at": [
+        -8,
+        14,
+        -8
+      ],
+      "size": [
+        1,
+        1,
+        12
+      ],
+      "color": "panzer_dark"
+    },
+    {
+      "jitter": false,
+      "name": "Kolbenführung links",
+      "op": "cyl",
+      "axis": "z",
+      "at": [
+        3.5,
+        13.5,
+        5
+      ],
+      "r": 1.7,
+      "h": 3,
+      "color": "hydraulik"
+    },
+    {
+      "jitter": false,
+      "name": "Kolbenführung rechts",
+      "op": "cyl",
+      "axis": "z",
+      "at": [
+        -3.5,
+        13.5,
+        5
+      ],
+      "r": 1.7,
+      "h": 3,
+      "color": "hydraulik"
+    }
+  ],
+  "anchor": [
+    0,
+    0,
+    0
+  ]
+}

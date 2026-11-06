@@ -1,0 +1,66 @@
+{
+  "id": "station/schottbrecher/horch",
+  "name": "Schottbrecher: Horchplatte links (liegt flach auf der Deckplatte, Scharnier außen bei x = 8)",
+  "tier": "detail",
+  "palette": "schottbrecher",
+  "tags": [
+    "station",
+    "monster",
+    "schottbrecher"
+  ],
+  "ops": [
+    {
+      "jitter": false,
+      "name": "Platte",
+      "op": "box",
+      "at": [
+        3,
+        19,
+        -2
+      ],
+      "size": [
+        5,
+        1,
+        5
+      ],
+      "color": "schild"
+    },
+    {
+      "jitter": false,
+      "name": "Rand außen",
+      "op": "box",
+      "at": [
+        7,
+        19,
+        -2
+      ],
+      "size": [
+        1,
+        1,
+        5
+      ],
+      "color": "kolben"
+    },
+    {
+      "jitter": false,
+      "name": "Mittelrippe",
+      "op": "box",
+      "at": [
+        4,
+        19,
+        0
+      ],
+      "size": [
+        3,
+        1,
+        1
+      ],
+      "color": "hydraulik"
+    }
+  ],
+  "anchor": [
+    0,
+    0,
+    0
+  ]
+}

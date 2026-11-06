@@ -1,0 +1,110 @@
+{
+  "id": "station/schottbrecher",
+  "name": "Schottbrecher (Station-Monster, Richtung A)",
+  "rig": "schottbrecher",
+  "palette": "schottbrecher",
+  "params": {},
+  "parts": {
+    "hull": {
+      "model": "station/schottbrecher/hull"
+    },
+    "sensor": {
+      "model": "station/schottbrecher/sensor"
+    },
+    "lampe": {
+      "model": "station/schottbrecher/lampe"
+    },
+    "horchL": {
+      "model": "station/schottbrecher/horch"
+    },
+    "horchR": {
+      "model": "station/schottbrecher/horch",
+      "mirror": true
+    },
+    "schild": {
+      "model": "station/schottbrecher/schild"
+    },
+    "hipVL": {
+      "model": "station/schottbrecher/hip",
+      "params": {
+        "zc": 3.5,
+        "sg": 1
+      }
+    },
+    "kneeVL": {
+      "model": "station/schottbrecher/knee",
+      "params": {
+        "zc": 3.5
+      }
+    },
+    "footVL": {
+      "model": "station/schottbrecher/foot",
+      "params": {
+        "zc": 3.5
+      }
+    },
+    "hipVR": {
+      "model": "station/schottbrecher/hip",
+      "params": {
+        "zc": 3.5,
+        "sg": 1
+      },
+      "mirror": true
+    },
+    "kneeVR": {
+      "model": "station/schottbrecher/knee",
+      "params": {
+        "zc": 3.5
+      },
+      "mirror": true
+    },
+    "footVR": {
+      "model": "station/schottbrecher/foot",
+      "params": {
+        "zc": 3.5
+      },
+      "mirror": true
+    },
+    "hipHL": {
+      "model": "station/schottbrecher/hip",
+      "params": {
+        "zc": -3.5,
+        "sg": -1
+      }
+    },
+    "kneeHL": {
+      "model": "station/schottbrecher/knee",
+      "params": {
+        "zc": -3.5
+      }
+    },
+    "footHL": {
+      "model": "station/schottbrecher/foot",
+      "params": {
+        "zc": -3.5
+      }
+    },
+    "hipHR": {
+      "model": "station/schottbrecher/hip",
+      "params": {
+        "zc": -3.5,
+        "sg": -1
+      },
+      "mirror": true
+    },
+    "kneeHR": {
+      "model": "station/schottbrecher/knee",
+      "params": {
+        "zc": -3.5
+      },
+      "mirror": true
+    },
+    "footHR": {
+      "model": "station/schottbrecher/foot",
+      "params": {
+        "zc": -3.5
+      },
+      "mirror": true
+    }
+  }
+}

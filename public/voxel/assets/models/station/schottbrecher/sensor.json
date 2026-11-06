@@ -1,0 +1,114 @@
+{
+  "id": "station/schottbrecher/sensor",
+  "name": "Schottbrecher: Sensorkopf (Gehäuse mit Aussparung für den Lichtschlitz)",
+  "tier": "detail",
+  "palette": "schottbrecher",
+  "tags": [
+    "station",
+    "monster",
+    "schottbrecher"
+  ],
+  "ops": [
+    {
+      "jitter": false,
+      "name": "Gehäuse",
+      "op": "box",
+      "at": [
+        -3,
+        19,
+        -1
+      ],
+      "size": [
+        6,
+        4,
+        6
+      ],
+      "color": "panzer_light"
+    },
+    {
+      "jitter": false,
+      "name": "Dach",
+      "op": "box",
+      "at": [
+        -3,
+        23,
+        0
+      ],
+      "size": [
+        6,
+        1,
+        4
+      ],
+      "color": "panzer"
+    },
+    {
+      "jitter": false,
+      "name": "Aussparung Lichtschlitz",
+      "op": "box",
+      "mode": "carve",
+      "at": [
+        -2,
+        20,
+        4
+      ],
+      "size": [
+        4,
+        2,
+        1
+      ]
+    },
+    {
+      "jitter": false,
+      "name": "Aussparung Lichtfeld (Dach)",
+      "op": "box",
+      "mode": "carve",
+      "at": [
+        -1,
+        23,
+        2
+      ],
+      "size": [
+        2,
+        1,
+        1
+      ]
+    },
+    {
+      "jitter": false,
+      "name": "Blendkante oben",
+      "op": "box",
+      "at": [
+        -3,
+        22,
+        5
+      ],
+      "size": [
+        6,
+        1,
+        1
+      ],
+      "color": "panzer_dark"
+    },
+    {
+      "jitter": false,
+      "name": "Blendkante unten",
+      "op": "box",
+      "at": [
+        -3,
+        19,
+        5
+      ],
+      "size": [
+        6,
+        1,
+        1
+      ],
+      "color": "panzer_dark"
+    }
+  ],
+  "anchor": [
+    0,
+    0,
+    0
+  ]
+}

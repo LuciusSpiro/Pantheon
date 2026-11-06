@@ -1,0 +1,231 @@
+{
+  "team": "mon02-station",
+  "assets": [
+    {
+      "id": "station/schottbrecher",
+      "kind": "figure",
+      "tier": "detail",
+      "palette": "schottbrecher",
+      "footprint": [
+        2,
+        2
+      ],
+      "height": 1.5,
+      "facing": "+z",
+      "params": {},
+      "sockets": {
+        "label": [
+          0,
+          1.7,
+          0
+        ],
+        "fx_spark": [
+          0,
+          0.5,
+          0.45
+        ]
+      },
+      "tint": [],
+      "budgetTris": 3500,
+      "tags": [
+        "station",
+        "monster",
+        "schottbrecher",
+        "figure"
+      ],
+      "notes": "Station-Monster (MON-02 O3b), Rig schottbrecher, Posen patrouille/laerm/jagd/rammen/pause. Zyklen und Ueberblenden wertet der Client aus (actors.js, Block STATION-MONSTER)."
+    },
+    {
+      "id": "station/schottbrecher/hull",
+      "kind": "model",
+      "tier": "detail",
+      "palette": "schottbrecher",
+      "footprint": [
+        2,
+        2
+      ],
+      "height": 1.2,
+      "facing": "+z",
+      "params": {},
+      "sockets": {},
+      "tint": [],
+      "budgetTris": 1500,
+      "tags": [
+        "station",
+        "monster",
+        "teilmodell"
+      ]
+    },
+    {
+      "id": "station/schottbrecher/sensor",
+      "kind": "model",
+      "tier": "detail",
+      "palette": "schottbrecher",
+      "footprint": [
+        2,
+        2
+      ],
+      "height": 1.5,
+      "facing": "+z",
+      "params": {},
+      "sockets": {},
+      "tint": [],
+      "budgetTris": 600,
+      "tags": [
+        "station",
+        "monster",
+        "teilmodell"
+      ]
+    },
+    {
+      "id": "station/schottbrecher/lampe",
+      "kind": "model",
+      "tier": "detail",
+      "palette": "schottbrecher",
+      "footprint": [
+        2,
+        2
+      ],
+      "height": 1.5,
+      "facing": "+z",
+      "params": {},
+      "sockets": {},
+      "tint": [],
+      "budgetTris": 200,
+      "tags": [
+        "station",
+        "monster",
+        "teilmodell"
+      ]
+    },
+    {
+      "id": "station/schottbrecher/horch",
+      "kind": "model",
+      "tier": "detail",
+      "palette": "schottbrecher",
+      "footprint": [
+        2,
+        2
+      ],
+      "height": 1.5,
+      "facing": "+z",
+      "params": {},
+      "sockets": {},
+      "tint": [],
+      "budgetTris": 200,
+      "tags": [
+        "station",
+        "monster",
+        "teilmodell"
+      ]
+    },
+    {
+      "id": "station/schottbrecher/schild",
+      "kind": "model",
+      "tier": "detail",
+      "palette": "schottbrecher",
+      "footprint": [
+        2,
+        2
+      ],
+      "height": 1.2,
+      "facing": "+z",
+      "params": {
+        "ausfahrt": [
+          0,
+          6
+        ]
+      },
+      "sockets": {},
+      "tint": [],
+      "budgetTris": 1100,
+      "tags": [
+        "station",
+        "monster",
+        "teilmodell"
+      ]
+    },
+    {
+      "id": "station/schottbrecher/hip",
+      "kind": "model",
+      "tier": "detail",
+      "palette": "schottbrecher",
+      "footprint": [
+        2,
+        2
+      ],
+      "height": 1.5,
+      "facing": "+z",
+      "params": {
+        "zc": [
+          -5,
+          5
+        ],
+        "sg": [
+          -1,
+          1
+        ]
+      },
+      "sockets": {},
+      "tint": [],
+      "budgetTris": 400,
+      "tags": [
+        "station",
+        "monster",
+        "teilmodell"
+      ]
+    },
+    {
+      "id": "station/schottbrecher/knee",
+      "kind": "model",
+      "tier": "detail",
+      "palette": "schottbrecher",
+      "footprint": [
+        2,
+        2
+      ],
+      "height": 1.5,
+      "facing": "+z",
+      "params": {
+        "zc": [
+          -5,
+          5
+        ]
+      },
+      "sockets": {},
+      "tint": [],
+      "budgetTris": 400,
+      "tags": [
+        "station",
+        "monster",
+        "teilmodell"
+      ]
+    },
+    {
+      "id": "station/schottbrecher/foot",
+      "kind": "model",
+      "tier": "detail",
+      "palette": "schottbrecher",
+      "footprint": [
+        2,
+        2
+      ],
+      "height": 0.82,
+      "facing": "+z",
+      "params": {
+        "zc": [
+          -5,
+          5
+        ]
+      },
+      "sockets": {},
+      "tint": [],
+      "budgetTris": 300,
+      "tags": [
+        "station",
+        "monster",
+        "teilmodell"
+      ]
+    }
+  ]
+}
