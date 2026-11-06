@@ -44,7 +44,8 @@ section('Zustand aus away.mo: alle Kombinationen, Vorrang Pause > Rammen > Jagd 
   }
   ok(alle === 16 && falsch === 0, 'alle 16 Kombinationen aus z (p, l, s, j), r und h folgen dem Vorrang (' + falsch + ' falsch)');
   ok(P.monsterZustand({ z: 'j', r: 1, h: 1 }) === 'pause' && P.monsterZustand({ z: 'j', r: 1 }) === 'rammen' && P.monsterZustand({ z: 'j' }) === 'jagd' && P.monsterZustand({ z: 's' }) === 'laerm' && P.monsterZustand({ z: 'p' }) === 'patrouille', 'Beispiele: Jagd + rammt + Pause = Pause, Jagd + rammt = Rammen, Suche = Lärm');
-  ok(P.monsterZustand(null) === 'patrouille' && P.monsterZustand({}) === 'patrouille' && P.monsterZustand({ z: 'x' }) === 'patrouille', 'ohne mo oder mit unbekanntem z: Patrouille');
+  const sicher = (f) => { try { return f(); } catch (e) { return 'WURF ' + e.message; } };
+  ok(sicher(() => P.monsterZustand(null)) === 'patrouille' && sicher(() => P.monsterZustand({})) === 'patrouille' && sicher(() => P.monsterZustand({ z: 'x' })) === 'patrouille', 'ohne mo oder mit unbekanntem z: Patrouille (ohne Ausnahme)');
   ok(JSON.stringify(P.SM_ZUSTAENDE) === JSON.stringify(ZUSTAENDE) && ZUSTAENDE.every((z) => POSEN[z]), 'die fünf Zustände heißen wie die Posen des Assets (patrouille, laerm, jagd, rammen, pause)');
 });
 
@@ -166,11 +167,11 @@ function welt(opt) {
   const THREE = { Group: O3, Mesh: class extends O3 { constructor(g, m) { super('mesh'); this.geometry = g; this.material = m; } }, BufferGeometry: class { setAttribute() {} setIndex() {} }, Float32BufferAttribute: class {}, AdditiveBlending: 2, DoubleSide: 2, Vector3: V3, Color: Farbe,
     MeshBasicMaterial: class { constructor(o) { Object.assign(this, o); this.color = new Farbe(); } } };
   const L = { THREE, ctx: { map: opt.solid === undefined ? { solid: () => false } : (opt.solid ? { solid: opt.solid } : null) }, smV: null };
-  const window = { VoxelFx: opt.keinFx ? null : { spawnFx: (t, o) => w.fx.push([t, o]) } };
+  const window = { VoxelFx: opt.keinFx ? null : { spawnFx: (t, o) => w.fx.push([t, o]) }, Render: opt.render || null };
   const place = (a, x, y) => { a.container.position.set(x / 32, 0, y / 32); return { x: x / 32, z: y / 32 }; };
   const locomote = (a, wx, wz, dt, yaw) => { a.container.rotation.y = yaw; return 0; };
   const yawOf = (dx, dy) => Math.atan2(dx, dy);
-  const fn = new Function('L', 'place', 'locomote', 'yawOf', 'window', 'VX', 'D2R', 'performance', REIN + ANZEIGE + '\nreturn { updateStationMonster, monsterRueckfall };')(L, place, locomote, yawOf, window, 1 / 16, D2R, { now: () => 0 });
+  const fn = new Function('L', 'place', 'locomote', 'yawOf', 'window', 'VX', 'D2R', 'performance', REIN + ANZEIGE + '\nreturn { updateStationMonster, monsterRueckfall, monsterFesteKachel };')(L, place, locomote, yawOf, window, 1 / 16, D2R, { now: () => 0 });
   w.fn = fn; w.L = L;
   w.akteur = () => {
     const a = { container: new O3('container'), body: new O3('body'), model: null, speed: 0, labelH: null, setFigure() {}, setModel(id, p, fb) { w.modelle.push([id, p, fb]); if (!a.model) a.model = new O3('quader'); } };
@@ -187,7 +188,9 @@ function welt(opt) {
 }
 const mo = (z, r, h, f) => { const o = { x: 640, y: 320, z: z || 'p', f: f == null ? Math.PI / 2 : f }; if (r) o.r = 1; if (h) o.h = 1; return o; };
 const ent = (m) => ({ id: 'M1', kind: 'monster', alive: true, vis: true, x: 640, y: 320, mo: m });
-function lauf(w, a, m, sek, speed, dt) { dt = dt || 1 / 60; a.speed = speed || 0; for (let i = 0; i < Math.round(sek / dt); i++) w.fn.updateStationMonster(a, ent(m), dt, i * dt); }
+const gewuerft = new Set();
+function up(w, a, e, dt, t, st) { try { w.fn.updateStationMonster(a, e, dt, t, st); } catch (err) { if (!gewuerft.has(err.message)) { gewuerft.add(err.message); ok(false, 'Anzeige wirft eine Ausnahme: ' + err.message); } } }
+function lauf(w, a, m, sek, speed, dt) { dt = dt || 1 / 60; a.speed = speed || 0; for (let i = 0; i < Math.round(sek / dt); i++) up(w, a, ent(m), dt, i * dt); }
 const winkel = (a, j) => a.fig.joints[j].rotation, verschub = (a, j) => a.fig.joints[j].position;
 
 section('Anzeige: Pose je Zustand auf den Gelenken', () => {
@@ -195,6 +198,7 @@ section('Anzeige: Pose je Zustand auf den Gelenken', () => {
   lauf(w, a, mo('p'), 0.5, 0);
   ok(a.fig.root.visible && !a.model && w.modelle.length === 0 && a.sm.zustand === 'patrouille', 'Patrouille: Figur sichtbar, der alte Quader nicht gezeigt');
   ok(near(winkel(a, 'hipVL').x, 0) && near(verschub(a, 'hull').y, 0) && near(verschub(a, 'footVL').y, 0), 'Patrouille im Stand: Standpose (Hüfte 0°, Füße am Boden)');
+  ok(winkel(a, 'hipVL').order === 'YXZ', 'Winkel in der Reihenfolge YXZ wie applyPose des Voxelwerks');
   lauf(w, a, mo('l'), 0.4, 0);
   ok(near(winkel(a, 'horchL').z, -82 * D2R) && near(winkel(a, 'horchR').z, 82 * D2R) && a.sm.zustand === 'laerm', 'Lärm: Horchplatten oben (∓82°)');
   lauf(w, a, mo('s'), 0.4, 0);
@@ -229,7 +233,7 @@ section('Anzeige: Zyklus läuft nur in Bewegung, Überblenden', () => {
   lauf(w, a, mo('p', 0, 1), 0.1, 0);
   ok(near(verschub(a, 'hull').y, -6 / 16, 1e-6) && near(winkel(a, 'hipVL').z, -10 * D2R, 1e-9) && near(verschub(a, 'footVL').y, 6.71 / 16, 1e-6), 'nach 0,175 s insgesamt: Zielpose erreicht (unter 0,2 s)');
   // erste Pose ohne Überblenden
-  w = welt(); a = w.akteur(); w.fn.updateStationMonster(a, ent(mo('j', 0, 1)), 1 / 60, 0);
+  w = welt(); a = w.akteur(); up(w, a, ent(mo('j', 0, 1)), 1 / 60, 0);
   ok(near(verschub(a, 'hull').y, -6 / 16, 1e-6), 'erstes Bild: gleich die Zielpose (kein Überblenden aus dem Nichts)');
 });
 
@@ -254,6 +258,14 @@ section('Anzeige: Lichtkegel je Zustand', () => {
   ok(dicht.k.scale.z < 0.8 && dicht.k.scale.z > 0.4, 'Wand 1 m vor dem Monster (Kachel 21): der Kegel ist auf ' + dicht.k.scale.z.toFixed(2) + ' m ab dem Lichtschlitz gekürzt, er reicht kaum über den Rumpf');
   const keineKarte = kegel(mo('l'), 0, null);
   ok(near(keineKarte.k.scale.z, K.laerm.laenge, 1e-6), 'ohne Kartenfunktion im Client (map fehlt): volle Länge, kein Absturz (Grenze: dann ragt der Kegel durch Wände)');
+  // Türen nach Zustand: Render.buehneSolid (Snapshot) statt der statischen Karte
+  const wT = welt({ solid: () => true, render: { isBuehne: () => true, buehneSolid: (map, st) => (tx) => (tx >= 24 && st && st.zu) } }), aT = wT.akteur();
+  up(wT, aT, ent(mo('l', 0, 0, 0)), 1 / 60, 0, { zu: false });
+  ok(wT.fn.monsterFesteKachel({ zu: false })(30, 0) === false && wT.fn.monsterFesteKachel({ zu: true })(30, 0) === true, 'Kachelfunktion folgt dem Zustand im Snapshot (Render.buehneSolid), nicht der statischen Karte');
+  ok(near(aT.smKegel.scale.z, K.laerm.laenge, 1e-6) , 'offene Tür (Snapshot): der Kegel läuft hindurch, obwohl die statische Karte dort „fest“ sagt');
+  const wT2 = welt({ solid: () => false, render: { isBuehne: () => true, buehneSolid: (map, st) => (tx) => (tx >= 24 && st && st.zu) } }), aT2 = wT2.akteur();
+  for (let i = 0; i < 30; i++) up(wT2, aT2, ent(mo('l', 0, 0, 0)), 1 / 60, i / 60, { zu: true });
+  ok(aT2.smKegel.scale.z < K.laerm.laenge - 1, 'geschlossene Tür (Snapshot): der Kegel endet an ihr (' + aT2.smKegel.scale.z.toFixed(2) + ' m)');
   // Zustandswechsel: Kegel wird weich
   const w = welt(), a = w.akteur(); lauf(w, a, mo('l'), 0.5, 0); lauf(w, a, mo('j'), 0.075, 0);
   ok(a.smKegel.scale.z < K.laerm.laenge && a.smKegel.scale.z > K.jagd.laenge && a.smKegel.scale.x > K.laerm.breite && a.smKegel.scale.x < K.jagd.breite, 'Lärm -> Jagd: nach 0,075 s Zwischenwerte (Länge ' + a.smKegel.scale.z.toFixed(2) + ', Breite ' + a.smKegel.scale.x.toFixed(2) + ')');
@@ -269,7 +281,7 @@ section('Anzeige: Lichtkegel je Zustand', () => {
 
 section('Anzeige: Ruck und Funken', () => {
   const dt = 1 / 60;
-  const lauf2 = (folge) => { const w = welt(), a = w.akteur(); const rz = []; let t = 0; for (const [m, sek] of folge) for (let i = 0; i < Math.round(sek / dt); i++, t += dt) { w.fn.updateStationMonster(a, ent(m), dt, t); rz.push(a.body.position.z * 16); } return { w, a, rz }; };
+  const lauf2 = (folge) => { const w = welt(), a = w.akteur(); const rz = []; let t = 0; for (const [m, sek] of folge) for (let i = 0; i < Math.round(sek / dt); i++, t += dt) { up(w, a, ent(m), dt, t); rz.push(a.body.position.z * 16); } return { w, a, rz }; };
   let r = lauf2([[mo('p'), 1], [mo('j'), 1], [mo('l'), 1]]);
   ok(r.rz.every((v) => v === 0) && r.w.fx.length === 0, 'ohne Rammen: Wurzel steht (kein Ruck), keine Funken');
   r = lauf2([[mo('j'), 0.3], [mo('j', 1), 1.2], [mo('j'), 0.6]]);
@@ -284,7 +296,7 @@ section('Anzeige: Ruck und Funken', () => {
   const k0 = lauf2([[mo('p'), 1], [mo('l'), 1], [mo('j'), 1], [mo('p', 0, 1), 1]]);
   ok(k0.w.fx.length === 0, 'Patrouille, Lärm, Jagd und Pause: keine Funken');
   const kf = lauf2([[mo('j', 1), 1]]); const kn = welt({ keinFx: true }); const an = kn.akteur();
-  let fehler = null; try { for (let i = 0; i < 30; i++) kn.fn.updateStationMonster(an, ent(mo('j', 1)), dt, i * dt); } catch (e) { fehler = e; }
+  let fehler = null; try { for (let i = 0; i < 30; i++) up(kn, an, ent(mo('j', 1)), dt, i * dt); } catch (e) { fehler = e; }
   ok(kf.w.fx.length > 0 && fehler === null, 'ohne Effektsystem (window.VoxelFx fehlt) kein Absturz');
   const z2 = lauf2([[mo('j', 1), 0.5], [mo('j'), 0.1], [mo('j', 1), 0.1]]);
   let sprung = 0; for (let i = 1; i < z2.rz.length; i++) sprung = Math.max(sprung, Math.abs(z2.rz[i] - z2.rz[i - 1]));
@@ -305,9 +317,10 @@ section('Rückfall ohne Asset: alter Quader, 2D unberührt', () => {
   w = welt(); a = w.akteur(); lauf(w, a, mo('p'), 0.2, 0);
   ok(P.monsterFigurEcht(a.fig) && !P.monsterFigurEcht(null) && !P.monsterFigurEcht({}) && !P.monsterFigurEcht({ joints: { sensor: {} }, poses: POSEN }), 'monsterFigurEcht: Figur mit Sensor, Lampe und allen fünf Posen; sonst nicht');
   // Wechsel echt -> Rückfall am selben Akteur blendet den Kegel aus
-  w = welt(); a = w.akteur(); lauf(w, a, mo('p'), 0.3, 0); const k = a.smKegel;
+  w = welt(); a = w.akteur(); a.model = new O3('quader-vorher'); lauf(w, a, mo('p'), 0.3, 0); const k = a.smKegel;
+  ok(a.model.visible === false && a.fig.root.visible === true, 'mit geladener Figur: ein vorhandener Quader ist ausgeblendet, die Figur sichtbar');
   a.fig.joints.lampe = undefined; lauf(w, a, mo('p'), 0.1, 0);
-  ok(k.visible === false && a.model.visible === true, 'echt -> Rückfall am selben Akteur: Kegel aus, Quader da');
+  ok(k.visible === false && a.model.visible === true && a.fig.root.visible === false, 'echt -> Rückfall am selben Akteur: Kegel aus, Figur aus, Quader wieder sichtbar');
   ok(a.labelH === 2.6, 'Namenshöhe im Rückfall 2,6 m');
   w = welt(); a = w.akteur(); lauf(w, a, mo('p'), 0.3, 0);
   ok(a.labelH === 1.75, 'Namenshöhe mit Modell 1,75 m (Modell 1,5 m hoch)');
@@ -329,7 +342,7 @@ section('Snapshot mo unverändert, kein Zugriff auf den Serverzustand', () => {
   const kern = strip(REIN + '\n' + ANZEIGE);
   ok(!/\bgame\b|\bsrv\b|require\(|aw\.monster|server\/|\bMonster\b|\bMon\.|\.monster\b/.test(kern), 'Schottbrecher-Code (ohne Kommentare) greift nicht auf Serverzustand zu (kein game, require, away.monster)');
   ok(!/\bmo\.[a-z]+\s*=[^=]/.test(kern) && !/\be\.[a-z]+\s*=[^=]/.test(kern) && !/\bM\.[a-z]+\s*=[^=]/.test(kern), 'der Client schreibt nie in mo, den Gegner e oder ein Server-Monster M');
-  ok(/if \(kind === 'monster'\) \{ updateStationMonster\(a, e, dt, t\); return; \}/.test(ac), 'updateEnemy ruft updateStationMonster für kind monster');
+  ok(/if \(kind === 'monster'\) \{ updateStationMonster\(a, e, dt, t, st\); return; \}/.test(ac), 'updateEnemy ruft updateStationMonster für kind monster');
   ok(/else if \(kind === 'monster'\) \{   \/\/ SL7c/.test(ac) && /function fallbackModel/.test(ac), 'fallbackModel(\'monster\') bleibt als Rückfall');
   const rd = read('public/js/render.js');
   ok(/function drawMonster/.test(rd) && !/schottbrecher|Schottbrecher/.test(rd), '2D (render.js drawMonster) unberührt: das Oval bleibt der Ersatz');

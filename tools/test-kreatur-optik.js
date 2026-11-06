@@ -211,7 +211,7 @@ section('Quelltext: keine Typnamen im Client-Kern, Effekte, Einhängestellen', (
   ok(/kind === 'kreatur'\) \{ updateKreatur\(a, e, dt, t\); return; \}/.test(ac), 'updateEnemy ruft updateKreatur für Kreaturen');
   ok(/function kreaturPlatzhalter/.test(ac) && /fallbackModel\('kreatur\|' \+ b\)/.test(ac), 'der MON-01-Platzhalter bleibt als Rückfall (kreaturPlatzhalter, fallbackModel kreatur|bits)');
   const mo = ac.slice(ac.lastIndexOf("if (kind === 'monster')"), ac.indexOf("if (kind === 'kreatur')"));
-  ok(/lerche\/actor\/monster/.test(mo) && !/kreatur/.test(mo), 'Station-Monster-Pfad (mo) unberührt');
+  ok(/updateStationMonster/.test(mo) && !/kreatur/.test(mo) && /lerche\/actor\/monster/.test(ac.slice(ac.indexOf('function monsterRueckfall'), ac.indexOf('function updateStationMonster'))), 'Station-Monster-Pfad (mo) getrennt von den Kreaturen (MON-02 O3b: updateStationMonster, der alte Quader bleibt im Rückfall monsterRueckfall)');
   const fx = read('public/js/voxel/fx.js');
   ok(/case 'staub': FX\.staub\(p, o\.dir\); break;/.test(fx) && /\n  staub\(p, dir\) \{/.test(fx), 'fx.js: Effekt staub (spawnFx(\'staub\', { pos, dir })) vorhanden');
   ok(/fx\.spawnFx\('staub'/.test(ac), 'actors.js löst die Staubspur über spawnFx aus (vorhandenes Effektsystem, keine Eigenlösung)');

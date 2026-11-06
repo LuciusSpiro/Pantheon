@@ -441,7 +441,7 @@ class Actor {
     refreshSlot(this.extra);
     return this.extra;
   }
-  dispose() { if (this.container.parent) this.container.parent.remove(this.container); if (this.fig && this.fig.skinned) { this.fig.skinned.geometry.dispose(); if (this.fig.skinned.skeleton) this.fig.skinned.skeleton.dispose(); } }
+  dispose() { if (this.smKegel) { this.smKegel.geometry.dispose(); this.smKegel.material.dispose(); } if (this.container.parent) this.container.parent.remove(this.container); if (this.fig && this.fig.skinned) { this.fig.skinned.geometry.dispose(); if (this.fig.skinned.skeleton) this.fig.skinned.skeleton.dispose(); } }
 }
 
 function actor(key) {
@@ -1399,8 +1399,17 @@ function monsterPoseAnwenden(a, werte, zustand) {
   }
   f.joints.lampe.scale.setScalar(monsterLampeAn(zustand) ? 1 : 0.001);   // Licht aus: das ganze Teil lampe (Lichtschlitz und Lichtfeld) ausblenden
 }
+/** Feste Kachel für den Kegel: Bühnenkarten mit Türen nach Zustand (Render.buehneSolid, wie Sicht und 2D), sonst die statische Karte; null ohne Karte. */
+function monsterFesteKachel(st) {
+  const m = L.ctx && L.ctx.map, R = window.Render;
+  if (!m) return null;
+  try {
+    if (R && R.isBuehne && R.buehneSolid && R.isBuehne(m)) { const f = R.buehneSolid(m, st); return (tx, ty) => !!f(tx, ty); }
+  } catch (err) { /* statische Karte */ }
+  return typeof m.solid === 'function' ? (tx, ty) => { try { return !!m.solid(tx, ty); } catch (err) { return false; } } : null;
+}
 /** Kegel an die Lichtquelle (Gelenk lampe) legen, drehen (Sensor), an der ersten festen Kachel kürzen, Helligkeit setzen. */
-function monsterKegelAnwenden(a, e, S, zustand, s, dt) {
+function monsterKegelAnwenden(a, e, S, zustand, s, dt, st) {
   if (!a.smKegel) a.smKegel = monsterKegelBauen(a);
   const k = a.smKegel, T = L.THREE;
   const ziel = monsterKegelZiel(zustand);
@@ -1416,8 +1425,7 @@ function monsterKegelAnwenden(a, e, S, zustand, s, dt) {
   const sens = S.gezeigt.joints.sensor, psi = (sens ? sens[1] : 0) * D2R;
   const wx = Math.cos(yaw) * lx + Math.sin(yaw) * lz, wz = -Math.sin(yaw) * lx + Math.cos(yaw) * lz;   // Lichtschlitz relativ zur Mitte (Welt, m)
   const vorlauf = wx * Math.sin(yaw + psi) + wz * Math.cos(yaw + psi);
-  const m = L.ctx && L.ctx.map;
-  const solid = m && typeof m.solid === 'function' ? (tx, ty) => { try { return !!m.solid(tx, ty); } catch (err) { return false; } } : null;
+  const solid = monsterFesteKachel(st);
   const ziel0 = monsterKegelLaenge(kg.laenge, kg.breite, vorlauf, e.x, e.y, yaw + psi, solid);
   const laenge = S.kegelLaenge = monsterKegelGlaetten(S.kegelLaenge, ziel0, dt);
   k.visible = laenge > 0.05;
@@ -1445,7 +1453,7 @@ function monsterRueckfall(a, mo, t) {
   a.body.position.set(0, Math.abs(Math.sin(t * (z === 'j' ? 9 : 3))) * 0.08, 0);
   a.body.rotation.z = z === 'j' ? Math.sin(t * 30) * 0.04 : 0;
 }
-function updateStationMonster(a, e, dt, t) {
+function updateStationMonster(a, e, dt, t, st) {
   const mo = e.mo || null;
   a.setFigure(SM_FIGUR, {}, 'monster');
   const pos = place(a, e.x, e.y, 0);
@@ -1470,7 +1478,7 @@ function updateStationMonster(a, e, dt, t) {
   S.rammSeit = monsterRammSeit(S.rammSeit, rammt, dt);
   S.ruck = monsterRuckSchritt(S.ruck, rammt, dt);
   a.body.position.set(0, 0, S.ruck * VX); a.body.rotation.set(0, 0, 0);   // Ruck: Wurzel nach vorn (Blickrichtung = +z des Akteurs)
-  monsterKegelAnwenden(a, e, S, zustand, s, dt);
+  monsterKegelAnwenden(a, e, S, zustand, s, dt, st);
   monsterFunken(a, S, zustand, dt);
   a.labelH = 1.75;
 }
@@ -1522,7 +1530,7 @@ function updateEnemy(e, view, st, dt, t) {
     a.setItem(null, null);   // ART-G: Gewehr steckt schon in der Figur (handR)
     return;
   }
-  if (kind === 'monster') { updateStationMonster(a, e, dt, t); return; }   // SL7c: Monster (Snapshot away.mo: z p|l|s|j, f Blickrichtung, r rammt, h Pause); MON-02 O3b: Schottbrecher, Rückfall der alte Quader
+  if (kind === 'monster') { updateStationMonster(a, e, dt, t, st); return; }   // SL7c: Monster (Snapshot away.mo: z p|l|s|j, f Blickrichtung, r rammt, h Pause); MON-02 O3b: Schottbrecher, Rückfall der alte Quader
   if (kind === 'kreatur') { updateKreatur(a, e, dt, t); return; }   // MON-02 O3a: Modell aus dem Client-Content, sonst MON-01-Platzhalter (kreaturPlatzhalter)
   if (kind === 'warden' || e.ro === 'waechter') {
     const state = !alive ? 2 : hitAge < 0.15 ? 1 : 0;
