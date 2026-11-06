@@ -302,7 +302,7 @@ function speedAbgeleitet() {
 }
 
 // ======================================================================
-section('Zeichnen: Feld-Overlay an/aus, Marken je Zustand, Schuss-Strahl, Restzeit');
+section('Zeichnen: Feld-Overlay an/aus, 2D-Platten je Zustand, Schuss-Strahl, Restzeit');
 const flaeche = () => {
   const ops = [], stl = { fillStyle: '', strokeStyle: '', globalAlpha: 1, lineWidth: 1 }, dash = [];
   const f = { ops, stl, dash };
@@ -348,16 +348,50 @@ const rot = (s) => /rgba\(224,71,60/.test(String(s)) || s === '#E0473C';
   ok(ls.length === 1 && ls[0].art === 'schott' && ls[0].name === 'SCHOTTS GESPERRT' && ls[0].rest === 20, 'falleSchott an: Lagezeile „SCHOTTS GESPERRT“ mit Restzeit');
   R.fallenEreignis({ kind: 'falleSchott', map: id, anker: 'falle.eC', kanten: ['k1', 'k2'], dauer: 20, an: 0 });
   ok(R.fallenLaufend(stA).length === 0, 'falleSchott aus: Zeile weg');
-  // Marken je Zustand
-  const marke = (z, typ) => { const q = flaeche(); R.drawFalleMarke(q.ctx, 100, 100, 22, 1, z, typ, 1.0); return q.ops; };
-  ok(marke('verborgen', 'druck').length === 0, 'Marke verborgen: nichts');
-  const mE = marke('erkannt', 'schuss');
-  ok(mE.some((o) => o.op === 'stroke' && rot(o.ss)) && mE.filter((o) => o.op === 'lineTo').length === 2, 'Marke erkannt: Warndreieck (3 Ecken) mit rotem Rand');
-  ok(new Set(['schott', 'druck', 'schuss', 'dorn'].map((t) => marke('erkannt', t).filter((o) => o.op === 'fillRect').map((o) => o.a.join()).join('|'))).size === 4, 'Glyphe im Dreieck je Typ verschieden (Form trägt die Art, nicht die Farbe)');
-  const mN = marke('entschaerft', 'druck');
-  ok(mN.every((o) => o.alpha <= 0.5 + 1e-9 || o.op === 'save' || o.op === 'restore') && !mN.some((o) => o.op === 'stroke' && rot(o.ss)), 'Marke entschärft: ruhig (halb transparent, grau, kein Rot)');
-  const mA = marke('ausgeloest', 'druck');
-  ok(mA.some((o) => o.op === 'stroke') && !mA.some((o) => o.op === 'lineTo' && false) && mA.filter((o) => o.op === 'moveTo').length === 2, 'Marke ausgelöst: Kreuz (zwei Striche), keine Warnfarbe mehr');
+  // Marken entfallen (ITM-02 D): der Zustand steht im Modell. Der 2D-Rückfall (drawFalle2d) zeichnet je Zustand und Typ eine eigene symbolfreie Platte.
+  const d2 = (z, typ) => { const q = flaeche(); R.drawFalle2d(q.ctx, ['falle.x', 'falle', 3, 3, { typ }], z, 100, 100); return q.ops; };
+  const sig = (ops) => ops.map((o) => [o.op, o.a.join(','), o.fs, o.ss].join('~')).join('|');
+  const TYPEN = ['schott', 'druck', 'schuss'], ZUST = ['erkannt', 'entschaerft', 'ausgeloest'];
+  ok(TYPEN.every((t) => d2('verborgen', t).length === 0), 'drawFalle2d verborgen: keine Zeichnung (verrät die Falle nicht)');
+  ok(TYPEN.every((t) => new Set(ZUST.map((z) => sig(d2(z, t)))).size === 3), 'drawFalle2d: je Typ drei verschiedene Zeichnungen (erkannt / entschärft / ausgelöst)');
+  ok(ZUST.every((z) => new Set(TYPEN.map((t) => sig(d2(z, t)))).size === 3), 'drawFalle2d: je Zustand drei verschiedene Formen (schott / druck / schuss), die Form trägt den Typ');
+  ok(TYPEN.every((t) => ZUST.every((z) => !d2(z, t).some((o) => o.op === 'lineTo' || o.op === 'moveTo' || o.op === 'closePath'))), 'drawFalle2d: kein Pfad mit Ecken, also kein Dreieck und kein Kreuz');
+  ok(TYPEN.every((t) => ZUST.every((z) => !d2(z, t).some((o) => o.op === 'fillText' || (o.op === 'fillRect' && o.fs === '#F6E7E4')))), 'drawFalle2d: weder Text noch Glyphe');
+  const farben = (ops) => new Set(ops.filter((o) => o.op === 'fillRect' || o.op === 'fill').map((o) => String(o.fs).toUpperCase()));
+  ok(TYPEN.every((t) => farben(d2('erkannt', t)).has('#E84030') && farben(d2('erkannt', t)).has('#FFC4A8')), 'drawFalle2d erkannt: Fallenrot mit hellem Kern (#FFC4A8)');
+  ok(TYPEN.every((t) => ['entschaerft', 'ausgeloest'].every((z) => { const c = farben(d2(z, t)); return !c.has('#E84030') && !c.has('#FFC4A8'); })), 'drawFalle2d entschärft/ausgelöst: kein Fallenrot und kein heller Kern (nichts leuchtet, kein roter Punkt an der Mündung)');
+  ok(TYPEN.every((t) => ZUST.every((z) => d2(z, t).every((o) => !['fillRect', 'strokeRect'].includes(o.op) || (o.a[2] >= 2 && o.a[3] >= 2)))), 'drawFalle2d: keine Fläche unter 2 px');
+  // Helligkeit je Zustand (Graustufen, über die 32-px-Kachel gemittelt): erkannt > entschärft > ausgelöst, deutlich. Die Messfläche entsteht aus den echten Zeichenoperationen
+  // (fillRect, strokeRect, arc + fill, später überdeckt früher), nicht aus Konstanten im Quelltext; das rote Auge der Anlage ist ein Kreis.
+  const lum = (ops) => {
+    const g = new Float64Array(32 * 32), L = (h) => { const m = /^#([0-9a-f]{6})$/i.exec(String(h)); if (!m) return null; const n = parseInt(m[1], 16); return 0.299 * (n >> 16) + 0.587 * ((n >> 8) & 255) + 0.114 * (n & 255); };
+    const punkt = (x, y, l) => { x -= 100; y -= 100; if (x >= 0 && x < 32 && y >= 0 && y < 32) g[y * 32 + x] = l; };
+    let kreis = null;
+    for (const o of ops) {
+      if (o.op === 'beginPath') kreis = null;
+      else if (o.op === 'arc') kreis = o.a;
+      else if (o.op === 'fill' && kreis) { const l = L(o.fs); if (l != null) for (let y = Math.floor(kreis[1] - kreis[2]); y <= Math.ceil(kreis[1] + kreis[2]); y++) for (let x = Math.floor(kreis[0] - kreis[2]); x <= Math.ceil(kreis[0] + kreis[2]); x++) if ((x + 0.5 - kreis[0]) ** 2 + (y + 0.5 - kreis[1]) ** 2 <= kreis[2] ** 2) punkt(x, y, l); }
+      else if (o.op === 'fillRect') { const l = L(o.fs); if (l != null) for (let y = o.a[1]; y < o.a[1] + o.a[3]; y++) for (let x = o.a[0]; x < o.a[0] + o.a[2]; x++) punkt(x, y, l); }
+      else if (o.op === 'strokeRect') { const l = L(o.ss); if (l == null) continue; const [x, y, w, h] = o.a, d = o.lw / 2; for (let yy = Math.floor(y - d); yy < Math.ceil(y + h + d); yy++) for (let xx = Math.floor(x - d); xx < Math.ceil(x + w + d); xx++) if (xx < x + d || xx >= x + w - d || yy < y + d || yy >= y + h - d) punkt(xx, yy, l); }
+    }
+    return g.reduce((s, v) => s + v, 0) / g.length;
+  };
+  ok(d2('erkannt', 'schuss').some((o) => o.op === 'arc') && d2('erkannt', 'schuss').some((o) => o.op === 'strokeRect'), 'Messfläche: schuss zeichnet Kreis (Auge) und Rahmen, beides geht in die Helligkeit ein');
+  for (const t of ['schott', 'druck', 'schuss']) { const l = ZUST.map((z) => lum(d2(z, t))); ok(l[0] - l[1] >= 5 && l[1] - l[2] >= 5, 'drawFalle2d ' + t + ': Helligkeit erkannt > entschärft > ausgelöst (' + l.map((v) => v.toFixed(0)).join(' > ') + ')'); }
+  // Quelltext: keine Marke mehr, weder im Voxel-Overlay noch im 2D-Rückfall
+  {
+    const rq = read('public/js/render.js');
+    ok(!/drawFalleMarke/.test(rq) && !R.drawFalleMarke, 'drawFalleMarke ist entfernt (Quelltext und Export)');
+    const ovStart = rq.indexOf('ITM-01 E: Fallen im Voxel-Modus'), ov = rq.slice(rq.lastIndexOf(String.fromCharCode(10), ovStart) + 1, rq.indexOf("report('Render.fallen3d'"));
+    // positive Liste: im Overlay-Block darf für Fallen nur dies gerufen werden (ein Dreieck über shape(), ctx.arc, Pfad oder Text fiele sofort auf)
+    const aufrufe = [...ov.replace(/\/\/[^\n]*/g, '').matchAll(/([A-Za-z_$][\w$.]*)\s*\(/g)].map((m) => m[1]).filter((n) => !['if', 'for', 'catch', 'while', 'switch'].includes(n));
+    const erlaubt = ['drawFallenFelder', 'drawFallenSchotts', 'drawFallenBlitze', 'isBuehne', 'report'];
+    ok(ov.length > 100 && ['drawFallenFelder', 'drawFallenSchotts', 'drawFallenBlitze'].every((n) => aufrufe.includes(n)) && aufrufe.every((n) => erlaubt.includes(n)), 'Voxel-Overlay: Feld, Schott und Strahl bleiben, sonst kein Aufruf (keine Marke, kein Dreieck über shape/arc/Pfad, kein Kreuz); gefunden: ' + [...new Set(aufrufe)].join(', '));
+    ok(!/falleSchwebe|falleGlyphe|drawFalle(2d|Marke)/.test(ov), 'Voxel-Overlay: ruft weder Glyphe noch Schwebehöhe noch 2D-Platte');
+    const f2 = rq.slice(rq.indexOf('function drawFalle2d'), rq.indexOf('ITM-01 F: gesperrte Schotts'));
+    ok(f2.length > 500 && !/moveTo|lineTo|closePath|falleGlyphe|fillText/.test(f2), 'drawFalle2d (Quelltext): keine Pfade mit Ecken, keine Glyphe');
+    ok(/drawFalle2d\(ctx, a, z, px, py\); return; \}/.test(rq), 'Einhängestelle: der 2D-Rückfall der Anker ruft drawFalle2d');
+  }
   // Schuss
   R.fallenEreignis({ kind: 'selbstschuss', map: id, anker: 'falle.eS', i: 0, x: 400, y: 200, tx: 600, ty: 300, pid: 'p' });
   f = flaeche(); R.drawFallenBlitze(f.ctx, stA, P1, 32);
@@ -392,14 +426,14 @@ section('ITM-01 F: gesperrtes Schott ist sichtbar (2D und Voxel), blendet in 0,3
   const o2 = zeichne(stZu, false);
   ok(o2.some((o) => o.op === 'stroke' && rot(o.ss) && o.lw === 2), '2D: Schott-Kachel mit 2-px-Kontur in PAL.red');
   ok(o2.some((o) => o.op === 'stroke' && /^rgba\(224,71,60,0\.300\)$/.test(String(o.ss))), '2D: Schraffur in PAL.red mit Alpha 0,3');
-  ok(o2.filter((o) => o.op === 'fillRect' && o.fs === '#F6E7E4').length >= 2, '2D: II-Glyphe (zwei Balken) im Warndreieck');
+  ok(!o2.some((o) => o.op === 'fillRect' && o.fs === '#F6E7E4') && !o2.some((o) => o.op === 'fill' && o.fs === 'rgba(11,14,26,0.85)'), '2D: kein Warndreieck und keine II-Glyphe mehr auf der Kante');
   ok(o2.some((o) => o.op === 'clip'), '2D: Schraffur auf die Fläche beschnitten');
   const xs = o2.filter((o) => o.op === 'moveTo' || o.op === 'lineTo').map((o) => o.a[0]);
   ok(Math.min(...xs) <= 3 * TILE / 2 && Math.max(...xs) >= 5 * TILE / 2, '2D: die Fläche deckt beide Kacheln der Kante (x ' + Math.min(...xs) + '..' + Math.max(...xs) + ')');
   const o3 = zeichne(stZu, true);
   ok(o3.length > o2.length && o3.some((o) => o.op === 'fill' && o.fs === 'rgba(224,71,60,1.000)'), 'Voxel: zusätzlich rotes Leuchtband an der Oberkante (volles PAL.red)');
   ok(o3.some((o) => o.op === 'fill' && /^rgba\(16,10,12/.test(String(o.fs))) && o3.some((o) => o.op === 'stroke' && /^rgba\(224,71,60,0\.9/.test(String(o.ss))), 'Voxel: Blattfläche dunkel mit roten Schrägstreifen');
-  ok(o3.filter((o) => o.op === 'fillRect' && o.fs === '#F6E7E4').length >= 2, 'Voxel: schwebendes II im Dreieck');
+  ok(!o3.some((o) => o.op === 'fillRect' && o.fs === '#F6E7E4') && !o3.some((o) => o.op === 'fill' && o.fs === 'rgba(11,14,26,0.85)'), 'Voxel: kein schwebendes Warndreieck mit II');
   T += 100;
   ok(zeichne(stOffen, false).every((o) => !(o.op === 'stroke' && o.alpha === 1 && rot(o.ss) && o.lw === 2 && /^rgba\(224,71,60,1\.000\)$/.test(String(o.ss)))) && R.fallenSchottStand(stOffen).length === 1, 'Kante geöffnet (Hacken): die Anzeige fällt in die Ausblendung (0,3 s), nicht mehr voll');
   T += 400;
@@ -445,7 +479,7 @@ section('ITM-01 F: gesperrtes Schott ist sichtbar (2D und Voxel), blendet in 0,3
     const mitSc = (sc) => Object.assign({}, sn, { away: Object.assign({}, sn.away, { sc }) });
     const vF = Object.assign({}, view, { state: mitSc([['falle.eC', 'falle', 'schott', 2, 200, 200]]) }), vE = Object.assign({}, view, { state: mitSc([['erz.t', 'erz', 'testerz', 2, 200, 200]]) });
     const kF = flaeche(), kE = flaeche(); R.drawAwayCommandMap(kF.ctx, vF, { x: 0, y: 0, w: 400, h: 300 }, {}); R.drawAwayCommandMap(kE.ctx, vE, { x: 0, y: 0, w: 400, h: 300 }, {});
-    ok(eis(kE) > 0 && eis(kF) === 0, 'Kommandokarte: Erz-Marker mit Eisblau-Raute, Falle ohne (nur das rote Dreieck, kein Label)');
+    ok(eis(kE) > 0 && eis(kF) === 0, 'Kommandokarte: Erz-Marker mit Eisblau-Raute, Falle ohne (auf der Karte nur miniFalle, kein Label)');
     const nF = flaeche(), nE = flaeche(); R.drawMiniPlan(nF.ctx, vF, 0, 0, { zone: 'away', cell: 3 }); R.drawMiniPlan(nE.ctx, vE, 0, 0, { zone: 'away', cell: 3 });
     ok(eis(nE) > 0 && eis(nF) === 0, 'Minikarte: Erz-Marker eisblau, Falle nicht (Fallen sind auf der Minikarte immer rot)');
     // Falle auf den Karten immer PAL.red: erkannt gefülltes rotes Dreieck, entschärft grau, ausgelöst rotes Kreuz
@@ -461,6 +495,7 @@ section('ITM-01 F: gesperrtes Schott ist sichtbar (2D und Voxel), blendet in 0,3
   const rtxt = read('public/js/render.js');
   ok(/drawFallenSchotts\(ctx, st, \(x, y, h\) => \(\{ x: Math\.round\(x - camX\)[^\n]*, t, 1, false\);/.test(rtxt) && /drawFallenSchotts\(ctx, st, P, t, ppm \/ 32, true\);/.test(rtxt), 'Einhängestellen: 2D-Bodenansicht und Voxel-Overlay rufen drawFallenSchotts');
   ok(/miniSchotts\(ctx, st, \(tx, ty\) => \(\{ x: x \+ tx \* c/.test(rtxt) && /miniSchotts\(ctx, st, \(tx, ty\) => \(\{ x: Math\.round\(ox \+ tx \* c\)/.test(rtxt), 'Einhängestellen: Minikarte und Kommandokarte zeichnen gesperrte Schotts');
+  { const fs0 = rtxt.indexOf('function drawFallenSchotts'), fs1 = rtxt.indexOf('function miniSchotts'); ok(fs0 > 0 && fs1 > fs0 && !/falleGlyphe|Warndreieck|F6E7E4/.test(rtxt.slice(fs0, fs1)), 'drawFallenSchotts (Quelltext): keine Glyphe, kein Dreieck'); }
   ok(/name: 'SCHOTTS GESPERRT'/.test(rtxt), 'Bernstein-Zeile „SCHOTTS GESPERRT“ bleibt');
 }
 
@@ -503,18 +538,26 @@ section('Scan-Anzeige: Positionstext der Falle (Stufe 2), andere Arten unveränd
   const sl = flaeche(); R.drawScanMarkerBoden(sl.ctx, { x: 100, y: 100 }, 10, mfa, 1.0, false);
   const sl2 = flaeche(); R.drawScanMarkerBoden(sl2.ctx, { x: 100, y: 100 }, 10, { art: 'erz', typ: 'testerz', symbol: 'ER', key: 'erz:a' }, 1.0, false);
   const nText = (q) => q.ops.filter((o) => o.op === 'fillText' || (o.op === 'fillRect' && o.fs !== 'rgba(11,14,26,0.7)')).length;
-  ok(nText(sl2) > nText(sl) && sl.ops.filter((o) => o.op === 'fillRect').length === 0, 'Weltlabel der Falle: kein Text und kein Etikett-Kasten (Glyphe im Dreieck reicht); der Erz-Marker zeichnet weiter sein Kürzel');
-  const lv = flaeche(); R.drawScanMarkerBoden(lv.ctx, { x: 100, y: 100 }, 10, mfa, 1.0, true);
-  const lot = lv.ops.filter((o) => (o.op === 'lineTo' || o.op === 'moveTo') && o.a[0] === 100.5);
-  ok(lot.length === 4 && lot.some((o) => o.op === 'lineTo' && o.a[1] === 100), 'Voxel: Lotlinie von der Raute am schwebenden Dreieck zum Bodenpunkt (zwei Abschnitte, nicht durch das Dreieck)');
+  ok(nText(sl2) > nText(sl) && sl.ops.filter((o) => o.op === 'fillRect').length === 0, 'Weltlabel der Falle: kein Text und kein Etikett-Kasten (der Typ steht im Modell und in der Scan-Liste); der Erz-Marker zeichnet weiter sein Kürzel');
+  // Scan-Raute der Falle: flache Fallen wie jeder andere Marker (14 px über dem Ring), Selbstschussanlage knapp über dem Kopf (22 hpx = 1 m, Modell 1,0 bis 1,1 m), Lotlinie ohne Lücke bis zum Bodenpunkt
+  const marke = (m, voxel, rad) => { const q = flaeche(); R.drawScanMarkerBoden(q.ctx, { x: 100, y: 100 }, rad || 10, m, 1.0, voxel); const dm = q.ops.find((o) => o.op === 'moveTo' && o.a[0] === 100); return { lot: q.ops.filter((o) => (o.op === 'lineTo' || o.op === 'moveTo') && o.a[0] === 100.5), mitte: dm ? dm.a[1] + 3.5 : null }; };
+  const erzM = marke({ art: 'erz', typ: 'testerz', symbol: 'ER', key: 'erz:a' }, true);
+  for (const voxel of [true, false]) for (const typ of ['schott', 'druck', 'schuss']) {
+    const mk = marke({ ...mfa, typ }, voxel);
+    ok(mk.lot.length === 2 && mk.lot[0].op === 'moveTo' && mk.lot[1].op === 'lineTo' && mk.lot[1].a[1] === 100 && mk.lot[0].a[1] === mk.mitte + 4, (voxel ? 'Voxel' : '2D') + ' ' + typ + ': Lotlinie ein einziger Abschnitt von der Raute bis zum Bodenpunkt, keine Lücke');
+  }
+  ok(['schott', 'druck'].every((typ) => marke({ ...mfa, typ }, true).mitte === erzM.mitte && erzM.mitte === 100 - 14), 'Voxel: Raute über flachen Fallen (schott, druck) wie bei allen Scan-Markern 14 px über dem Ring, nicht höher');
+  { const h = 100 - marke({ ...mfa, typ: 'schuss' }, true).mitte; ok(h >= 36 && h <= 44 && h > 14, 'Voxel: Raute über der Selbstschussanlage frei über dem Kopf der Anlage (Mitte ' + h + ' px über dem Boden, Modell 22 bis 24 px, Kopf bis ca. 30 px auf dem Schirm)'); }
+  ok(100 - marke({ ...mfa, typ: 'schuss' }, true, 20).mitte === 2 * (100 - marke({ ...mfa, typ: 'schuss' }, true).mitte) && 100 - marke({ ...mfa, typ: 'schott' }, true, 20).mitte === 14, 'Voxel: Schwebehöhe der Anlage wächst mit dem Maßstab (Zoom), die der flachen Fallen bleibt bei 14 px');
   const conT = read('public/js/consoles.js');
   ok(/if \(z\.glyphe != null\) R\.falleGlyphe\(ctx, z\.glyphe, x \+ 7, ry \+ 4, 1, PAL\.red\);/.test(conT), 'consoles.js: Scan-Liste zeichnet die Glyphe vor dem vollen Namen');
   const rn = read('public/js/render.js');
-  ok(/const istFalle = m\.art === 'falle';/.test(rn) && /if \(m\.art === 'falle'\) continue; const mx = /.test(rn), 'Kommandokarte ohne Raute und Label für Fallen (nur das Dreieck), Minikarte ohne Eisblau-Marker für Fallen');
+  ok(/const istFalle = m\.art === 'falle';/.test(rn) && /if \(m\.art === 'falle'\) continue; const mx = /.test(rn), 'Kommandokarte ohne Raute und Label für Fallen (auf der Karte nur miniFalle), Minikarte ohne Eisblau-Marker für Fallen');
   const gl = (typ) => { const q = flaeche(); R.falleGlyphe(q.ctx, typ, 100, 100, 1, '#fff'); return q.ops.filter((o) => o.op === 'fillRect'); };
   ok(gl('druck').length >= 8 && gl('druck').some((o) => o.a[0] > 100) && gl('druck').some((o) => o.a[0] < 98), 'Druck-Glyphe: Kasten mit Pfeil nach außen (Teile links und rechts der Mitte, kein T)');
   const hoch = (typ) => { const r = gl(typ); return Math.max(...r.map((o) => o.a[1] + o.a[3])) - Math.min(...r.map((o) => o.a[1])); };
   ok(['schott', 'druck', 'schuss'].every((t) => hoch(t) <= 8), 'Glyphen höchstens 8 px hoch (passen ins Dreieck)');
+  ok(new Set(['schott', 'druck', 'schuss', 'dorn'].map((t) => gl(t).map((o) => o.a.join()).join('|'))).size === 4, 'Glyphe je Typ verschieden (Scan-Liste: die Form trägt die Art, nicht die Farbe)');
   const neuEnth = evs.filter((e) => e.t === 'event' && e.kind === 'ankerEnthuellt');
   ok(neuEnth.length === 0 && M.anker.length === vorEnth, 'bereits enthüllte Fallen: der Scan meldet nichts doppelt');
   // Marker-Position = Anker-Position
@@ -549,6 +592,23 @@ section('Rückfall-Kits: Bauweisen-Zeile je Typ auf vorhandene Props, Austauschb
     }
     ok(true, b.id + ': jeder Typ löst auf ein Prop mit Fuß ≤ 1×1 auf, begehbare Typen nicht höher als die Figur (' + Buehne.FIGUR_HOEHE_M.toFixed(2) + ' m)');
   }
+  // ITM-02 C: die sechs Fallenmodelle sind verdrahtet (kein Rückfall-Prop mehr), je Bauweise und Typ
+  const FALLEN = { germanen: 'germanen', germanen_halle_holz: 'germanen', germanen_halle_stein: 'germanen', rom: 'rom', rom_feld: 'rom' };
+  const SOLL_HOEHE = { schott: 0.15, druck: 0.4, schuss: 1.0 };
+  for (const b of bauweisen) {
+    const fam = FALLEN[b.id];
+    ok(!!fam, b.id + ': bekannte Bauweise für die Fallenmodelle');
+    for (const t of ['schott', 'druck', 'schuss', '*']) {
+      const soll = 'ort/' + fam + '/gemein/falle_' + (t === '*' ? 'schott' : t);
+      const e = KR.ankerEintragVon(b, 'falle', 'aussenposten', null, t === '*' ? 'unbekannt' : t);
+      const m = manifest.get(soll);
+      ok(!!e && e.id === soll, b.id + '/' + t + ': löst auf ' + soll + ' auf (ist ' + (e && e.id) + ')');
+      ok(!!m && m.kind === 'model' && m.footprint.join() === '1,1' && m.params && m.params.state && m.params.state.join() === '0,3', soll + ': im Manifest, 1×1, Parameter state 0..3');
+      ok(!!m && m.states && m.states.erkannt.state === 1 && m.states.entschaerft.state === 2 && m.states.ausgeloest.state === 3, soll + ': Zustände erkannt/entschärft/ausgelöst = state 1/2/3');
+      ok(!!m && m.height === SOLL_HOEHE[t === '*' ? 'schott' : t], soll + ': height im Manifest ' + (m && m.height) + ' m (Soll ' + SOLL_HOEHE[t === '*' ? 'schott' : t] + ')');
+    }
+  }
+
   const sd = Buehne.silhouetteDaten();
   ok(Buehne.silhouetteFehler(sd).filter((x) => /anker\.falle/.test(x.msg)).length === 0, 'K-SILHOUETTE: die echten Bauweisen sind sauber');
   const hoch = JSON.parse(JSON.stringify(sd));

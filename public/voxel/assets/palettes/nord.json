@@ -61,6 +61,9 @@
       "emit": 1
     },
     "alarm_dark": "#6A2020",
+    "falle": "#E84030",
+    "falle_kern": "#FFC4A8",
+    "falle_dunkel": "#2A0F0C",
     "frost": "#DCE4E8",
     "frost_dark": "#AEB8BE",
     "leit": {
