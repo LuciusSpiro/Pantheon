@@ -57,9 +57,15 @@ function ankerListe(game, aw, k) {
 function kfg(game) { return (game.C && game.C.anker) || { halten: {}, countdown: 60, paarFenster: 1.5, paarSoloFenster: 15 }; }
 function karteVon(map) { const e = W.AWAY_MAPS[map]; return e && e.karte && Array.isArray(e.karte.rows) ? e.karte : null; }
 function awVon(game, map) { return (game.aways && game.aways[map]) || null; }
+const abbauKarten = new WeakMap();   // Karte -> hat Adern (Kartenobjekt ist je Laufzeitkarte fest)
+function hatAbbau(aw) {
+  const k = karteVon(aw.map); if (!k) return false;
+  let h = abbauKarten.get(k); if (h === undefined) { h = (k.anker || []).some((x) => x.rolle === 'abbau'); abbauKarten.set(k, h); }
+  return h;
+}
 function lauf(aw) {
-  if (!aw.ankerLauf) aw.ankerLauf = { download: {}, ladung: {}, raetsel: {}, abbau: {} };
-  if (!aw.ankerLauf.abbau) aw.ankerLauf.abbau = {};   // GEL-03 A1: Karten, deren ankerLauf anderswo angelegt wurde (landepunkte, graben)
+  if (!aw.ankerLauf) aw.ankerLauf = { download: {}, ladung: {}, raetsel: {} };
+  if (!aw.ankerLauf.abbau && hatAbbau(aw)) aw.ankerLauf.abbau = {};   // GEL-03: nur Karten mit Erzadern tragen das Feld (aw-JSON anderer Karten bleibt byteweise wie vor GEL-03); graben/landepunkte legen ankerLauf ohne abbau an
   if (!aw.zustaende) aw.zustaende = {};
   return aw.ankerLauf;
 }
