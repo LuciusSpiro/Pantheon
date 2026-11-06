@@ -53,7 +53,10 @@ function quelltext() {
   ok(/inv\.erz > 0\) items\.push\('erz'\)/.test(hud) && /erz: 'Erz'/.test(hud), 'hud.js: Lagerzeile zeigt Erz (nur wenn inventory.erz > 0)');
   ok(/away\.ab\)/.test(client) && !/Math\.hypot\(q\.x - \(tx/.test(client), 'client.js: fremder Halter aus away.ab, keine Abstandsheuristik mehr');
   ok(/'sechseck'/.test(render) && /m\.art === 'erz'/.test(render), 'render.js: Scan-Marker der Erzader als Sechseck');
-  ok(/blk\.abbau/.test(render) && /!== 'leer'/.test(render), 'render.js: Kollisionsspiegel der Erzader (ausser leer)');
+  ok(/blk\.abbau/.test(render) && /Shared_Buehne\.ankerBlockiertIn\(/.test(render), 'render.js: Kollisionsspiegel der Erzader aus der einen Quelle Buehne.ankerBlockiertIn');
+  const bbs = render.slice(render.indexOf('function buehneBewegungSolid'), render.indexOf('function buehneSolid'));
+  ok(bbs.length > 50 && !/'leer'/.test(bbs), 'render.js: buehneBewegungSolid traegt keine eigene leer-Ausnahme (K5)');
+  ok(Buehne.ankerBlockiertIn({ rolle: 'abbau' }, 'leer') === false && ['da', 'laeuft', 'abgebaut', undefined].every((z) => Buehne.ankerBlockiertIn({ rolle: 'abbau' }, z) === true), 'Buehne.ankerBlockiertIn: Ader fest ausser im Zustand leer');
 }
 
 // ----------------------------------------------------------------------------------------------------------------------------------------------- Karte

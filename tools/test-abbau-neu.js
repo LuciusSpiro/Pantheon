@@ -260,12 +260,17 @@ section('7. nicht geladene Karte: nur der Eintrag ändert sich, beim Laden gilt 
   g.players[0].zone = 'ship'; g.away = null; g.aways[S.id].active = false;
   delete g.aways[S.id]; W.unregister(S.id);
   ok(!g.aways[S.id] && !W.AWAY_MAPS[S.id], 'Vorbedingung: Karte nicht geladen');
+  const ladeAnz = Object.keys(W.AWAY_MAPS).length;
+  const t0 = Date.now();
   ok(Anker.abbauNeu(g, S.id) === null && e.abbau_runde === 1, 'abbauNeu auf nicht geladener Karte: Runde 1');
+  ok(Date.now() - t0 < 20 && !W.AWAY_MAPS[S.id] && !g.aways[S.id] && Object.keys(W.AWAY_MAPS).length === ladeAnz, 'K2: kein Kartenbau (unter 20 ms, Karte weiter weder registriert noch geladen, ' + (Date.now() - t0) + ' ms)');
+  ok(abgebaut.every((id) => e.zustaende[id] === undefined) && !Object.keys(e.zustaende).some((id) => GenHoehle.istAderKandidat({ rolle: 'abbau', id })), 'K2: gespeicherte Zustände der Kandidaten sind verfallen (die Vorrunde gilt nicht mehr)');
+  const ne = S.evn('abbauNeu'); ok(ne.length && ne[ne.length - 1][1].map === S.id && ne[ne.length - 1][1].runde === 1 && Array.isArray(ne[ne.length - 1][1].adern), 'K2: Ereignis abbauNeu {map, runde 1, adern} (adern ohne Karte leer)');
   const w1 = GenHoehle.adernWahl(L.karte(g, S.id).seed | 0, kandidaten(L.karte(g, S.id)).map((a) => a.id), 1);
-  ok(Object.keys(w1.da).length && w1.da.every((id) => e.zustaende[id] === 'da') && w1.leer.every((id) => e.zustaende[id] === 'leer') && abgebaut.every((id) => e.zustaende[id] !== 'abgebaut'), 'Eintrag: da/leer nach adernWahl, abgebaute überschrieben');
   ok(JSON.stringify(L.karte(g, S.id)) === kartenVor, 'Karte (neu aus dem Cache) byteweise gleich');
+  delete g.aways[S.id]; W.unregister(S.id);
   const aw = L.get(g, S.id);
-  ok(JSON.stringify(kandidaten(W.AWAY_MAPS[S.id].karte).map((a) => aw.zustaende[a.id])) === JSON.stringify(kandidaten(W.AWAY_MAPS[S.id].karte).map((a) => e.zustaende[a.id])), 'beim Laden gelten die Zustände des Eintrags');
+  ok(w1.da.length >= 2 && w1.da.every((id) => aw.zustaende[id] === 'da') && w1.leer.every((id) => aw.zustaende[id] === 'leer') && abgebaut.every((id) => aw.zustaende[id] !== 'abgebaut'), 'beim Laden gilt die Auswahl der neuen Runde (da/leer nach adernWahl, abgebaute überschrieben)');
   // ohne gespeicherte Zustände (neue Partie, Runde 1 im Eintrag): Auswahl der Runde, nicht Runde 0
   for (const id of Object.keys(e.zustaende)) delete e.zustaende[id];
   delete g.aways[S.id]; W.unregister(S.id);
@@ -273,13 +278,27 @@ section('7. nicht geladene Karte: nur der Eintrag ändert sich, beim Laden gilt 
   ok(JSON.stringify(Object.keys(aw2.zustaende).filter((id) => aw2.zustaende[id] === 'da').sort()) === JSON.stringify(w1.da), 'Eintrag ohne Zustände, abbau_runde 1: Auswahl der Runde 1 (nicht 0)');
 }
 
+section('7b. K2: Karte registriert, aber nicht geladen (aw fehlt): Eintrag bekommt die Auswahl der neuen Runde');
+{
+  const S = szene('hoehle', { seed: 5 }); S.betreten();
+  const g = S.g; const e = L.eintrag(g, S.id);
+  for (const aid of S.aktiv()) abbauen(S, aid);
+  L.sichern(g, S.id);
+  g.players[0].zone = 'ship'; g.away = null; delete g.aways[S.id];   // Karte bleibt registriert
+  ok(!!W.AWAY_MAPS[S.id] && !g.aways[S.id], 'Vorbedingung: Karte registriert, nicht geladen');
+  ok(Anker.abbauNeu(g, S.id) === null && e.abbau_runde === 1, 'abbauNeu: Runde 1');
+  const w1 = GenHoehle.adernWahl(W.AWAY_MAPS[S.id].karte.seed | 0, kandidaten(W.AWAY_MAPS[S.id].karte).map((a) => a.id), 1);
+  ok(w1.da.every((id) => e.zustaende[id] === 'da') && w1.leer.every((id) => e.zustaende[id] === 'leer'), 'Eintrag: da/leer nach adernWahl (Runde 1)');
+  const ne = S.evn('abbauNeu'); ok(JSON.stringify(ne[ne.length - 1][1].adern) === JSON.stringify(w1.da), 'Ereignis: adern aus adernWahl (Karte registriert)');
+}
+
 section('8. Speichern und Laden: Zustände, Runde, Lager; Altstand ohne Feld');
 {
   const S = szene('hoehle', { seed: 5 }); S.betreten();
   const g = S.g; const e = L.eintrag(g, S.id);
-  const m1 = S.aktiv(); abbauen(S, m1[0]);
+  const m1 = S.aktiv(); abbauen(S, m1[0]); interior.placeOnAwayPad(g, S.p, 0);   // Spieler vom Abbauort weg (sonst wartet ein Wechsel leer -> da, W1)
   Anker.abbauNeu(g, S.id); Anker.abbauNeu(g, S.id);
-  const m3 = S.aktiv(); abbauen(S, m3[0]);
+  const m3 = S.aktiv(); abbauen(S, m3[0]); interior.placeOnAwayPad(g, S.p, 0);
   const zustaende = kandidaten(S.k).map((a) => [a.id, S.z(a.id)]);
   const erz = Vorrat.stand(g, 'erz');
   const cap = JSON.parse(JSON.stringify(Weltstand.capture(g)));
@@ -289,8 +308,7 @@ section('8. Speichern und Laden: Zustände, Runde, Lager; Altstand ohne Feld');
   ok(cap.schiff.lager.erz === erz && Number.isInteger(erz) && erz >= 2, 'Weltstand-Lager trägt erz (' + erz + ')');
   ok(Weltstand.validate(cap).length === 0, 'der Stand ist schemagültig' + Weltstand.validate(cap).slice(0, 1).map((x) => ' – ' + x).join(''));
   const g2 = new Game({ noStore: true, seed: 11, debug: true, env: { MISSION_SOURCE: 'fallback' }, log: () => {} });
-  L.restore(cap.welt.landepunkte, g2);
-  Vorrat.standSetzen(g2, 'erz', cap.schiff.lager.erz, 'laden');
+  Weltstand.apply(g2, cap);   // K7: der echte Ladeweg (weltstand.apply: Landepunkte, Lager über Vorrat.standSetzen)
   const e2 = L.eintrag(g2, S.id);
   ok(e2 && e2.abbau_runde === 2 && Vorrat.stand(g2, 'erz') === erz, 'nach dem Laden: Runde 2 und Lager erz erhalten');
   const aw2 = L.get(g2, S.id);
@@ -314,6 +332,149 @@ section('8. Speichern und Laden: Zustände, Runde, Lager; Altstand ohne Feld');
   const MAIN = JSON.parse(require('fs').readFileSync(require('path').join(__dirname, 'fixtures', 'weltstand-main.schema.json'), 'utf8'));
   const lp = ((((MAIN.properties || {}).welt || {}).properties || {}).landepunkte || {}).additionalProperties || {};
   ok(lp.additionalProperties !== false, 'Schema von main erlaubt weitere Felder im Landepunkt-Eintrag (abbau_runde ist additiv)');
+}
+
+// ---------- GEL-03 Nacharbeit: W1, W2, K3, K4 ----------
+// Szene mit einer Ader, die in Runde abbau_runde + 1 von leer auf da wechselt (sucht über Seeds)
+function szeneLeerWirdDa() {
+  for (let seed = 5; seed < 40; seed++) {
+    const S = szene('hoehle', { seed }); S.betreten();
+    const e = L.eintrag(S.g, S.id);
+    const w = GenHoehle.adernWahl(S.k.seed | 0, kandidaten(S.k).map((a) => a.id), (e.abbau_runde | 0) + 1);
+    const id = w.da.find((x) => S.z(x) === 'leer');
+    if (id) { S.ader = S.k.anker.find((a) => a.id === id); S.e = e; return S; }
+  }
+  throw new Error('keine Karte mit leer -> da gefunden');
+}
+const festIn = (S, a) => interior.awaySolid(S.g)(a.x, a.y);
+const KREATUR = require('../server/sim/kreatur.js');
+
+section('9. W1: abbauNeu mauert keine Figur ein (Wechsel leer -> da wartet, bis die Kachel frei ist)');
+for (const art of ['spieler', 'drohne', 'kreatur']) {
+  const S = szeneLeerWirdDa(); const g = S.g, a = S.ader, aw = S.aw;
+  const c = Physics.tileCenter(a.x, a.y);
+  aw.drones.length = 0;
+  let fig = S.p;
+  if (art === 'drohne') { combat.spawnSquad(g, 'w1', { map: S.id, besetzung: [{ typ: 'scavenger', anzahl: 1 }], festeZahl: true, force: true }); fig = aw.drones[0]; fig.x = c.x; fig.y = c.y; fig.alive = true; interior.placeOnAwayPad(g, S.p, 0); }
+  else if (art === 'kreatur') { combat.ensureV2(g, aw); fig = KREATUR.erzeugen(g, 'rudeltier', c.x, c.y); interior.placeOnAwayPad(g, S.p, 0); }
+  else { fig.x = c.x; fig.y = c.y; }
+  ok(S.z(a.id) === 'leer' && !festIn(S, a), `${art}: Vorbedingung, ${a.id} ist leer und begehbar, die Figur steht darauf`);
+  ok(Anker.abbauNeu(g, S.id) === null, `${art}: abbauNeu läuft ohne Fehler`);
+  ok(S.z(a.id) === 'leer' && !festIn(S, a) && g.away.ankerLauf.abbauVormerk && g.away.ankerLauf.abbauVormerk[a.id] === true, `${art}: Wechsel zurückgestellt (Zustand leer, Kachel begehbar, vorgemerkt)`);
+  ok(S.e.abbau_runde === 1 && S.e.zustaende[a.id] === undefined, `${art}: Runde 1, kein Zustand im Eintrag (beim Laden gilt die Auswahl der Runde)`);
+  if (art === 'spieler') {
+    const x0 = S.p.x, y0 = S.p.y;
+    for (const [mx, my] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) { S.p.input.mx = mx; S.p.input.my = my; for (let i = 0; i < 10; i++) g.step(); }
+    S.p.input.mx = 0; S.p.input.my = 0;
+    ok(Math.hypot(S.p.x - x0, S.p.y - y0) > 5, 'spieler: kann sich bewegen (nicht eingemauert, ' + Math.hypot(S.p.x - x0, S.p.y - y0).toFixed(1) + ' px)');
+    ok(S.z(a.id) === 'da' && festIn(S, a) && !g.away.ankerLauf.abbauVormerk[a.id], 'spieler: nach dem Verlassen der Kachel wird die Ader da und fest');
+    for (let i = 0; i < 10; i++) g.step();
+    ok(!Physics.boxHits((tx, ty) => tx === a.x && ty === a.y, S.p.x, S.p.y, 18, 12) && S.z(a.id) === 'da', 'spieler: steht nicht in der festen Kachel');
+  } else {
+    for (let i = 0; i < 5; i++) g.step();
+    ok(S.z(a.id) === 'leer' && !festIn(S, a), `${art}: bleibt zurückgestellt, solange die Figur dort steht (5 Ticks)`);
+    fig.alive = false;   // Figur fällt aus (oder verlässt die Kachel): die Kachel ist frei
+    g.step();
+    ok(S.z(a.id) === 'da' && festIn(S, a), `${art}: Figur weg, im nächsten Tick wird die Ader da und fest`);
+  }
+}
+{
+  const S = szeneLeerWirdDa(); const g = S.g, a = S.ader; const c = Physics.tileCenter(a.x, a.y);
+  S.p.x = c.x; S.p.y = c.y;
+  L.sichern(g, S.id);
+  ok(S.e.zustaende[a.id] === 'leer', 'W1 Vorbedingung: die Ader steht als leer im Eintrag');
+  Anker.abbauNeu(g, S.id);
+  ok(S.e.zustaende[a.id] === undefined, 'W1: abbauNeu verwirft den alten Zustand (leer) der vorgemerkten Ader im Eintrag');
+  L.sichern(g, S.id);
+  ok(S.e.zustaende[a.id] === undefined && !(a.id in L.toSave(g)[S.id].zustaende), 'W1 Speichern: die vorgemerkte Ader steht nicht im Weltstand-Eintrag');
+  const w1 = GenHoehle.adernWahl(S.k.seed | 0, kandidaten(S.k).map((x) => x.id), 1);
+  const blk = JSON.parse(JSON.stringify(L.toSave(g)));
+  const g2 = new Game({ noStore: true, seed: 11, debug: true, env: { MISSION_SOURCE: 'fallback' }, log: () => {} });
+  L.restore(blk, g2);
+  const aw2 = L.get(g2, S.id);
+  ok(w1.da.every((x) => aw2.zustaende[x] === 'da') && w1.leer.every((x) => aw2.zustaende[x] === 'leer'), 'W1 Laden: die vorgemerkte Ader ist da (Auswahl der Runde 1), die übrigen wie gewählt');
+  Anker.abbauNeu(g, S.id);   // weiteres abbauNeu bei offener Vormerkung: neu berechnet, nichts hängt
+  const vm = g.away.ankerLauf.abbauVormerk || {};
+  ok(Object.keys(vm).every((id) => S.z(id) === 'leer'), 'W1: nach einem weiteren abbauNeu sind nur leere Adern vorgemerkt (keine hängende Vormerkung)');
+}
+
+section('10. W2: Gegner erscheinen nicht in festen Ader-Kacheln');
+{
+  const squad = require('../server/sim/squad.js');
+  let seeds = 0, mitAdernImFeld = 0, frei = 0, inFest = 0, spawnFest = 0, leerFrei = 0;
+  for (let seed = 1; seed <= (process.env.ABBAU_NEU_SCHNELL ? 3 : 14); seed++) {
+    const S = szene('hoehle', { seed }); S.betreten(); const g = S.g, aw = S.aw;
+    const info = interior.awayInfoOf(S.id); seeds++;
+    ok(info.id === S.id, `Seed ${seed}: awayInfo.id ist die Karten-ID (spawnPlaetze liest den Zustand der Zielkarte)`);
+    const fest = interior.blockierendeKachelnIn(g, aw, S.k);
+    const P = squad.spawnPlaetze(g, info, null);
+    const adern = kandidaten(S.k);
+    if (adern.some((a) => fest && fest.has(a.y * S.k.w + a.x))) mitAdernImFeld++;
+    frei += P.frei.length; inFest += P.frei.filter((q) => fest && fest.has(q.y * S.k.w + q.x)).length;
+    leerFrei += P.frei.filter((q) => adern.some((a) => a.x === q.x && a.y === q.y && S.z(a.id) === 'leer')).length;
+    aw.drones.length = 0;
+    for (let i = 0; i < 6; i++) combat.spawnSquad(g, 'w2_' + i, { map: S.id, besetzung: [{ typ: 'scavenger', anzahl: 12 }], festeZahl: true, force: true });
+    const solid = interior.awaySolid(g);
+    for (const d of aw.drones) { const t = Physics.toTile(d.x, d.y); if (solid(t.x, t.y)) spawnFest++; }
+  }
+  ok(inFest === 0 && frei > 0, `Ersatzplätze: keiner auf einer festen Kachel (${frei} Plätze über ${seeds} Seeds)`);
+  ok(spawnFest === 0, `kein Gegner startet in einer festen Kachel (${seeds} Seeds, je 72 Gegner)`);
+  ok(mitAdernImFeld === seeds, `jede Karte hat feste Adern (${mitAdernImFeld}/${seeds}): die Regel wird wirklich geprüft`);
+  ok(leerFrei > 0, `leere Adern (begehbar) bleiben Ersatzplätze (${leerFrei})`);
+  // Zustand entscheidet: abgebaut schließt aus, leer nicht; Zustand der ZIELkarte (nicht game.away)
+  const S = szene('hoehle', { seed: 5 }); S.betreten(); const g = S.g;
+  const leer = kandidaten(S.k).find((a) => S.z(a.id) === 'leer');
+  const hat = (a) => squad.spawnPlaetze(g, interior.awayInfoOf(S.id), null).frei.some((q) => q.x === a.x && q.y === a.y);
+  ok(hat(leer), 'leere Ader ist Ersatzplatz');
+  Anker.setzen(g, S.id, leer.id, 'abgebaut', null);
+  ok(!hat(leer), 'abgebaut: kein Ersatzplatz');
+  Anker.setzen(g, S.id, leer.id, 'leer', null);
+  ok(hat(leer), 'zurück auf leer: wieder Ersatzplatz');
+  const da = kandidaten(S.k).find((a) => S.z(a.id) === 'da');
+  const g0 = g.away; g.away = null;   // Karte nicht aktiv: der Zustand der Zielkarte (game.aways) gilt trotzdem
+  ok(hat(leer) && !hat(da), 'Karte nicht game.away: Zustand der Zielkarte gilt (leere Ader Ersatzplatz, aktive nicht)');
+  g.away = g0;
+}
+
+section('11. K3: abbau_runde hat eine Obergrenze');
+{
+  const MAXR = L.ABBAU_RUNDE_MAX;
+  ok(MAXR === GenHoehle.ADERN_RUNDE_MAX && MAXR === 10000, 'Obergrenze 10000 (eine Quelle: gen-hoehle)');
+  const S = szene('hoehle', { seed: 5 }); S.betreten(); const e = L.eintrag(S.g, S.id);
+  e.abbau_runde = MAXR - 1;
+  ok(Anker.abbauNeu(S.g, S.id) === null && e.abbau_runde === MAXR, 'abbauNeu erreicht die Grenze');
+  ok(Anker.abbauNeu(S.g, S.id) === null && e.abbau_runde === MAXR, 'an der Grenze bleibt sie stehen (kein Überlauf)');
+  const blk = JSON.parse(JSON.stringify(L.toSave(S.g)));
+  blk[S.id].abbau_runde = 99999999;
+  const g2 = new Game({ noStore: true, seed: 11, debug: true, env: { MISSION_SOURCE: 'fallback' }, log: () => {} });
+  L.restore(blk, g2);
+  ok(L.eintrag(g2, S.id).abbau_runde === MAXR, 'restore klemmt einen manipulierten Wert (99999999) auf die Grenze');
+  e.abbau_runde = 5e9; ok(L.toSave(S.g)[S.id].abbau_runde === MAXR, 'toSave klemmt ebenfalls');
+  e.abbau_runde = MAXR;
+  const cap = JSON.parse(JSON.stringify(Weltstand.capture(S.g)));
+  ok(Weltstand.validate(cap).length === 0, 'Weltstand mit Grenzwert ist schemagültig');
+  cap.welt.landepunkte[S.id].abbau_runde = MAXR + 1;
+  ok(Weltstand.validate(cap).length > 0, 'Schema lehnt abbau_runde über der Grenze ab');
+  const t0 = Date.now(); GenHoehle.adernWahl(7, ['hoehle.abbau', 'hoehle.abbau.2', 'hoehle.abbau.3', 'hoehle.abbau.4'], 1e6);
+  ok(Date.now() - t0 < 200, 'adernWahl rechnet auch bei absurder Runde nur bis zur Grenze (' + (Date.now() - t0) + ' ms)');
+}
+
+section('12. K4: abbauNeu bricht nur Halte-Aktionen der eigenen Karte ab');
+{
+  const S = szene('hoehle', { seed: 5 }); S.betreten(); const g = S.g;
+  const idB = L.neu(g, g.ship.scene, { art: 'hoehle', seed: 9 });
+  const awB = L.get(g, idB);
+  ok(g.away.map === S.id && awB && awB.map === idB, 'Vorbedingung: Karte A aktiv, Karte B geladen, aber nicht aktiv');
+  const aid = S.aktiv()[0]; const a = S.k.anker.find((q) => q.id === aid); const c = Physics.tileCenter(a.x + 1, a.y);
+  S.p.x = c.x; S.p.y = c.y;
+  S.p.hold = { kind: 'anker:abbau', anker: aid, dur: 5, t: 1 };
+  Anker.abbauStarten(g, S.p, S.p.hold);
+  ok(S.z(aid) === 'laeuft' && !!S.p.hold, 'Halter auf Karte A läuft');
+  ok(kandidaten(W.AWAY_MAPS[idB].karte).some((q) => q.id === aid), 'Karte B hat eine Ader mit derselben ID (der Fehler träfe sie)');
+  ok(Anker.abbauNeu(g, idB) === null && L.eintrag(g, idB).abbau_runde === 1, 'abbauNeu für Karte B');
+  ok(!!S.p.hold && S.p.hold.anker === aid && g.away.ankerLauf.abbau[aid] && S.z(aid) === 'laeuft', 'Halt auf Karte A bleibt (Hold, Halter-Eintrag, Zustand laeuft)');
+  Anker.abbauNeu(g, S.id);
+  ok(!S.p.hold && S.z(aid) !== 'laeuft', 'abbauNeu für Karte A bricht den Halt weiterhin ab');
 }
 
 console.log(`\n${n - fails}/${n} Prüfungen ok`);

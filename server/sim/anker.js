@@ -408,27 +408,67 @@ function abbauWahlZustaende(k, runde) {
   for (const id of w.leer) out[id] = 'leer';
   return out;
 }
-// abbauNeu(game, map) -> Fehlertext | null: abbau_runde + 1, alle Kandidaten bekommen den Zustand der neuen Runde (vorher abgebaut/leer/laeuft wird überschrieben), laufende Halter
-// werden abgebrochen (Hold weg, Halter-Eintrag weg), der Weltstand-Eintrag merkt alles (Zustände + Runde). Ereignis abbauNeu {map, runde, adern:[ids da]} (Spiel und Mission).
-// Geladene Karte: Zustände in aw.zustaende (setzen, mit merken); nicht geladene: nur der Eintrag, beim Laden gilt er.
+// GEL-03 Nacharbeit W1: Überlappt eine Figur (Spieler dieser Karte, lebende Drohne, lebende Kreatur) die Kachel (tx, ty)? Dieselbe Box-Prüfung wie die Bewegung (Physics.boxHits).
+const DROHNEN_BOX = { w: 14, h: 10 };   // wie away.js DRONE_HITBOX / squad.js HITBOX
+function figurAufKachel(game, aw, tx, ty) {
+  const hier = (a, b) => a === tx && b === ty;
+  if (game.away === aw) {
+    const hb = (game.C && game.C.player && game.C.player.hitbox) || { w: 18, h: 12 };
+    for (const p of game.players || []) if (p.zone === 'away' && Physics.boxHits(hier, p.x, p.y, hb.w, hb.h)) return true;
+  }
+  for (const d of aw.drones || []) if (d.alive !== false && Physics.boxHits(hier, d.x, d.y, DROHNEN_BOX.w, DROHNEN_BOX.h)) return true;
+  const Kr = aw.kreaturen && aw.kreaturen.length ? require('./kreatur.js') : null;
+  if (Kr) for (const K of aw.kreaturen) if (K.alive !== false) { const bx = Kr.koerperBox(K); if (Physics.boxHits(hier, K.x, K.y, bx, bx)) return true; }
+  return false;
+}
+// GEL-03 Nacharbeit W1: ein Wechsel leer -> da wird zurückgestellt, solange eine Figur auf der Kachel steht (sonst wäre sie eingemauert: leer ist begehbar, da ist fest). Vormerkung in
+// ankerLauf.abbauVormerk { id: true }; update() setzt da, sobald die Kachel frei ist (deterministisch, Spielzeit). Gespeichert wird eine vorgemerkte Ader ohne Zustand (landepunkte.sichern),
+// beim Laden gilt die Auswahl der Runde. Gewählt gegenüber „Kachel erst fest, wenn keine Figur überlappt“: die Kollisionsregel bleibt eine reine Funktion des Zustands (Server, Client-Vorhersage,
+// Snapshot ao stimmen überein), und es gibt keine Figurenabfrage in der Kollisionsabfrage (die läuft je Kachel und Figur).
+function vormerkung(aw) { const L = lauf(aw); return L.abbauVormerk || (L.abbauVormerk = {}); }
+function abbauVormerkTick(game, aw, k) {
+  const vm = aw.ankerLauf && aw.ankerLauf.abbauVormerk; if (!vm) return;
+  for (const id of Object.keys(vm).sort()) {
+    const a = ankerById(k, id);
+    if (!a || zustandIn(aw, k, id) !== 'leer') { delete vm[id]; continue; }   // inzwischen anders gesetzt (Baustein, Debug): nichts mehr zu tun
+    if (figurAufKachel(game, aw, a.x, a.y)) continue;
+    delete vm[id];
+    setzen(game, aw.map, id, 'da', null, { merken: true });
+  }
+}
+// abbauNeu(game, map) -> Fehlertext | null: abbau_runde + 1 (höchstens ABBAU_RUNDE_MAX), alle Kandidaten bekommen den Zustand der neuen Runde (vorher abgebaut/leer/laeuft wird überschrieben), laufende Halter
+// DIESER Karte werden abgebrochen (Hold weg, Halter-Eintrag weg), der Weltstand-Eintrag merkt alles (Zustände + Runde). Ereignis abbauNeu {map, runde, adern:[ids da]} (Spiel und Mission).
+// Geladene Karte: Zustände in aw.zustaende (setzen, mit merken); ein Wechsel leer -> da unter einer Figur wartet (W1). Nicht geladene Karte (K2): KEIN Kartenbau (58 bis 300 ms im Tick), nur
+// abbau_runde im Eintrag hoch und die gespeicherten Zustände der Kandidaten verwerfen: makeAway leitet sie beim Laden aus Karte-Seed und neuer Runde ab. Das Ereignis trägt dort adern: []
+// (die Kandidaten sind ohne Karte nicht bekannt); ist die Karte registriert (W.AWAY_MAPS, z. B. Ader-Prüfung durch einen anderen Aufrufer), wird adern aus adernWahl berechnet.
 function abbauNeu(game, map) {
   const LP = require('./landepunkte.js');
   const e = LP.eintrag(game, map);
   if (!e) return `Karte ${map} ist kein Landepunkt.`;
-  let k = null; try { k = LP.karte(game, map); } catch (x) { k = null; }
-  if (!k || !k.anker) return `Karte ${map} ist keine gebaute Karte.`;
-  const kand = aderKandidaten(k);
-  if (!kand.length) return `Karte ${map} hat keine Erzadern.`;
-  const runde = ((e.abbau_runde | 0) || 0) + 1;
-  e.abbau_runde = runde;
-  const neu = abbauWahlZustaende(k, runde);
+  const k = karteVon(map);
   const aw = awVon(game, map);
+  if (!k && !LP.hatAdern(game, map)) return `Karte ${map} hat keine Erzadern.`;
+  const kand = k ? aderKandidaten(k) : null;
+  if (k && !kand.length) return `Karte ${map} hat keine Erzadern.`;
+  const runde = Math.min(LP.ABBAU_RUNDE_MAX, ((e.abbau_runde | 0) || 0) + 1);   // an der Obergrenze bleibt sie stehen
+  e.abbau_runde = runde;
   e.zustaende = e.zustaende || {};
+  if (!k) {   // nicht gebaut/geladen: Zustände der Kandidaten verfallen, beim Laden gilt die neue Runde
+    for (const id of Object.keys(e.zustaende)) if (GenHoehle.istAderKandidat({ rolle: 'abbau', id })) delete e.zustaende[id];
+    game.emit('abbauNeu', { map, runde, adern: [] }); game.missionEvent('abbauNeu', { map, runde, adern: [] });
+    return null;
+  }
+  const neu = abbauWahlZustaende(k, runde);
   if (aw) {
-    for (const p of game.players || []) if (p.hold && p.hold.kind === 'anker:abbau' && neu[p.hold.anker] !== undefined) p.hold = null;
+    // K4: nur Halter DIESER Karte abbrechen (ein Halt auf einer anderen Karte bleibt)
+    if (game.away && game.away.map === map) for (const p of game.players || []) if (p.hold && p.hold.kind === 'anker:abbau' && neu[p.hold.anker] !== undefined) p.hold = null;
     for (const a of kand) { if (lauf(aw).abbau[a.id]) abbauAbbrechen(game, map, a.id, null); }
+    const vm = vormerkung(aw); for (const a of kand) delete vm[a.id];
   }
   for (const a of kand) {
+    if (aw && neu[a.id] === 'da' && zustandIn(aw, k, a.id) === 'leer' && figurAufKachel(game, aw, a.x, a.y)) {   // W1: wartet, bis die Kachel frei ist
+      vormerkung(aw)[a.id] = true; delete e.zustaende[a.id]; continue;
+    }
     e.zustaende[a.id] = neu[a.id];
     if (aw) setzen(game, map, a.id, neu[a.id], null, { merken: true });
   }
@@ -553,6 +593,7 @@ function update(game, dt) {
   }
   for (const a of k.anker) if (a.rolle === 'terminal' && !haelt.has(a.id) && zustandIn(aw, k, a.id) === 'laedt') setzen(game, aw.map, a.id, 'bereit', null);
   abbauTick(game, aw, k, L, dt);
+  abbauVormerkTick(game, aw, k);
   // Feldzeichen (EK6): Fortschritt läuft nur, solange mindestens flagge.min lebende Spieler gleichzeitig halten; er bleibt, wenn einer loslässt
   for (const a of k.anker) {
     if (a.rolle !== 'flagge' || zustandIn(aw, k, a.id) !== 'unten') continue;

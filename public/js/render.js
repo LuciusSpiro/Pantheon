@@ -240,7 +240,7 @@
     // B1: Anker-Interaktionen (Kinds anker:<rolle>), B2: Halte-Interaktionen
     'anker:terminal': 'DOWNLOAD', 'anker:sprengpunkt': 'LADUNG', 'anker:flagge': 'HISSEN', 'anker:zelle': 'ZELLE', 'anker:beute': 'BERGEN', 'anker:ziel': 'HALTEN',
     'anker:fund': 'BERGEN', 'anker:raetsel': 'SCHLOSS', 'anker:versteck': 'AUFBRECHEN', 'anker:eingang': 'HACKEN', 'anker:tuer': 'ÖFFNEN',
-    'anker:leiter': 'LEITER', 'anker:falle': 'ENTSCHÄRFEN', 'anker:abbau': 'ABBAUEN', 'anker:abbau': 'ABBAUEN', fesseln: 'FESSELN', befreien: 'BEFREIEN', aufrichten: 'AUFRICHTEN', ausruestung: 'AUSRÜSTUNG', zellentuer: 'ZELLENTÜR' };
+    'anker:leiter': 'LEITER', 'anker:falle': 'ENTSCHÄRFEN', 'anker:abbau': 'ABBAUEN', fesseln: 'FESSELN', befreien: 'BEFREIEN', aufrichten: 'AUFRICHTEN', ausruestung: 'AUSRÜSTUNG', zellentuer: 'ZELLENTÜR' };
   // setbackAge: M3b §4 – Sekunden seit einem Rückschlag (repairSetback) oder null. Dann: verlorenes Stück rot, verblassend,
   // Balken zittert, Beschriftung „RÜCKSCHLAG −50 %“.
   function actionBar(ctx, x, y, action, mine, setbackAge) {
@@ -588,7 +588,7 @@
       if (fest(tx, ty)) return true;
       const key = ty * map.w + tx;
       if (blk.set && blk.set.has(key)) return true;
-      return !!(blk.abbau && blk.abbau.has(key) && ankerZustand(map, st, blk.abbau.get(key)) !== 'leer');
+      return !!(blk.abbau && blk.abbau.has(key) && window.Shared_Buehne.ankerBlockiertIn({ rolle: 'abbau' }, ankerZustand(map, st, blk.abbau.get(key))));
     };
   }
   function buehneSolid(map, st) {

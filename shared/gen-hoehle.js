@@ -444,10 +444,11 @@
   // Auswahl der aktiven Adern je Runde (GEL-03 C): reine Funktion (Seed, Kandidaten-IDs, Runde) -> { da: [ids], leer: [ids] }, beide in der Reihenfolge von ids. Kein Zustand, kein Zufall:
   // dieselbe Eingabe, dieselbe Auswahl (Mission 1 und Server-Neustart sehen dieselben Adern). Aktiv sind 2 (bis 4 Kandidaten) oder 2 bis 3 (ab 5), nie mehr als vorhanden.
   // Runde 0 = Landepunkt-Seed; ab Runde 1 werden bevorzugt Kandidaten genommen, die in der Vorrunde NICHT aktiv waren (frische Vorkommen), der Rest füllt auf (bei 4 Kandidaten und 2 aktiv: immer die beiden anderen).
+  const ADERN_RUNDE_MAX = 10000;   // ca. 25 ms für 10000 Runden; bei einer Runde je Mission unerreichbar (Weltstand-Schema und landepunkte klemmen auf denselben Wert)
   function adernWahl(seed, ids, runde) {
     const liste = (ids || []).slice().sort();
     const n = liste.length;
-    runde = Math.max(0, runde | 0);
+    runde = Math.min(ADERN_RUNDE_MAX, Math.max(0, runde | 0));   // Nacharbeit K3: die Kette rechnet jede Vorrunde nach, die Länge ist begrenzt
     const rang = (r) => liste.map((id) => ({ id, s: fnv(`${seed | 0}:${r}:${id}`) })).sort((a, b) => a.s - b.s || (a.id < b.id ? -1 : 1));
     const anzahl = (r) => (n >= 5 ? 2 + (fnv(`${seed | 0}:${r}:anzahl`) % 2) : Math.min(2, n));
     const einfach = (r) => rang(r).slice(0, anzahl(r)).map((x) => x.id);
@@ -461,5 +462,5 @@
     const s = new Set(da);
     return { da: liste.filter((id) => s.has(id)), leer: liste.filter((id) => !s.has(id)) };
   }
-  return { erzeuger, PFLICHT, PFLICHT_DECK, GROESSEN, VERSION, ADERN_ZIEL, istAderKandidat, adernWahl };
+  return { erzeuger, PFLICHT, PFLICHT_DECK, GROESSEN, VERSION, ADERN_ZIEL, istAderKandidat, adernWahl, ADERN_RUNDE_MAX };
 });

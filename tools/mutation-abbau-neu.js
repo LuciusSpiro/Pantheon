@@ -21,7 +21,7 @@ fs.copyFileSync(path.join(ROOT, TEST), path.join(TMP, TEST));
 fs.copyFileSync(path.join(ROOT, 'package.json'), path.join(TMP, 'package.json'));
 for (const rel of ['public', 'node_modules']) { if (fs.existsSync(path.join(ROOT, rel))) { try { fs.symlinkSync(path.join(ROOT, rel), path.join(TMP, rel), 'junction'); } catch (e) { /* kein Modul nötig */ } } }
 
-const AN = 'server/sim/anker.js', LP = 'server/sim/landepunkte.js', GH = 'shared/gen-hoehle.js', VO = 'server/sim/vorrat.js';
+const AN = 'server/sim/anker.js', LP = 'server/sim/landepunkte.js', GH = 'shared/gen-hoehle.js', VO = 'server/sim/vorrat.js', SQ = 'server/sim/squad.js', BH = 'shared/buehne.js', SC = 'content/schema/weltstand.schema.json';
 // [Datei, alter Text (genau einmal), neuer Text, Beschreibung, gleichwertig?, Generator-Regel (voller Lauf)?]
 const MUTATIONEN = [
   // ---- Menge und Buchung (Paket B)
@@ -35,10 +35,10 @@ const MUTATIONEN = [
   [VO, "'belohnung', 'abbau',", "'belohnung',", 'Grund abbau fehlt im Buchungsdienst'],
   [VO, "'tafel', 'ladung', 'erz']);", "'tafel', 'ladung']);", 'Gut erz fehlt im Buchungsdienst'],
   // ---- Runde erhöht, Auswahl, Ereignis
-  [AN, "  const runde = ((e.abbau_runde | 0) || 0) + 1;", "  const runde = ((e.abbau_runde | 0) || 0) + 0;", 'abbauNeu erhöht die Runde nicht'],
+  [AN, "  const runde = Math.min(LP.ABBAU_RUNDE_MAX, ((e.abbau_runde | 0) || 0) + 1);", "  const runde = Math.min(LP.ABBAU_RUNDE_MAX, ((e.abbau_runde | 0) || 0) + 0);", 'abbauNeu erhöht die Runde nicht'],
   [AN, "  e.abbau_runde = runde;\n", "", 'abbauNeu schreibt die Runde nicht in den Eintrag'],
   [AN, "game.emit('abbauNeu', { map, runde, adern }); game.missionEvent('abbauNeu', { map, runde, adern });", "game.emit('abbauNeu', { map, runde, adern });", 'Missionsereignis abbauNeu fehlt'],
-  [AN, "    for (const p of game.players || []) if (p.hold && p.hold.kind === 'anker:abbau' && neu[p.hold.anker] !== undefined) p.hold = null;\n", "", 'abbauNeu bricht laufende Halter nicht ab'],
+  [AN, "    if (game.away && game.away.map === map) for (const p of game.players || []) if (p.hold && p.hold.kind === 'anker:abbau' && neu[p.hold.anker] !== undefined) p.hold = null;\n", "", 'abbauNeu bricht laufende Halter nicht ab'],
   [AN, "    if (aw) setzen(game, map, a.id, neu[a.id], null, { merken: true });", "", 'abbauNeu setzt die Zustände der geladenen Karte nicht'],
   [AN, "    e.zustaende[a.id] = neu[a.id];\n", "", 'abbauNeu schreibt nur die geladene Karte, nicht den Eintrag'],
   [GH, "      da = rg.filter((x) => !vor.has(x.id)).concat(rg.filter((x) => vor.has(x.id))).slice(0, anzahl(r)).map((x) => x.id);", "      da = rg.slice(0, anzahl(r)).map((x) => x.id);", 'adernWahl: keine Bevorzugung frischer Adern'],
@@ -50,8 +50,27 @@ const MUTATIONEN = [
   [LP, "'neu', 'gesperrt', 'abbau_runde'];", "'neu', 'gesperrt'];", 'Weltstand: abbau_runde nicht in FELDER (Laden verliert die Runde)'],
   [LP, "if (aw.zustaende[id] == null) aw.zustaende[id] = w[id];", "aw.zustaende[id] = w[id];", 'Laden: die Auswahl überschreibt gespeicherte Zustände (abgebaut geht verloren)'],
   [LP, "abbauWahlZustaende(karte, (e && e.abbau_runde) | 0)", "abbauWahlZustaende(karte, 0)", 'Laden: nimmt immer Runde 0 statt der Runde des Eintrags'],
-  [LP, "    e.abbau_runde = Math.max(0, e.abbau_runde | 0);   // Altstand ohne Feld: 0\n", "", 'Laden: Rundenfeld nicht auf Ganzzahl gezwungen (eintrag() setzt schon 0)', true],
-  [LP, " o.abbau_runde = Math.max(0, o.abbau_runde | 0);", "", 'Speichern: Rundenfeld nicht auf Ganzzahl gezwungen (eintrag() setzt schon 0)', true],
+  [LP, "    e.abbau_runde = abbauRundeKlemmen(e.abbau_runde);   // Altstand ohne Feld: 0; Obergrenze ABBAU_RUNDE_MAX (K3)\n", "", 'Laden: Rundenfeld nicht geklemmt (K3: manipulierter Wert bleibt)'],
+  [LP, " o.abbau_runde = abbauRundeKlemmen(o.abbau_runde);", "", 'Speichern: Rundenfeld nicht geklemmt (K3)'],
+  [AN, "    if (aw && neu[a.id] === 'da' && zustandIn(aw, k, a.id) === 'leer' && figurAufKachel(game, aw, a.x, a.y)) {", "    if (false) {", "W1: abbauNeu stellt den Wechsel unter einer Figur nicht zurück (Einmauern)"],
+  [AN, "  for (const d of aw.drones || []) if (d.alive !== false && Physics.boxHits(hier, d.x, d.y, DROHNEN_BOX.w, DROHNEN_BOX.h)) return true;\n", "", "W1: Drohnen zählen nicht als Figur auf der Kachel"],
+  [AN, "  if (Kr) for (const K of aw.kreaturen) if (K.alive !== false) {", "  if (Kr) for (const K of []) if (K.alive !== false) {", "W1: Kreaturen zählen nicht als Figur auf der Kachel"],
+  [AN, "    for (const p of game.players || []) if (p.zone === 'away' && Physics.boxHits(hier, p.x, p.y, hb.w, hb.h)) return true;\n", "", "W1: Spieler zählen nicht als Figur auf der Kachel"],
+  [AN, "  abbauVormerkTick(game, aw, k);\n  // Feldzeichen", "  // Feldzeichen", "W1: update setzt vorgemerkte Adern nie (Ader bleibt dauerhaft leer)"],
+  [AN, "    if (figurAufKachel(game, aw, a.x, a.y)) continue;\n    delete vm[id];", "    delete vm[id];", "W1: Vormerkung wird sofort gesetzt, auch unter einer Figur"],
+  [AN, "vormerkung(aw)[a.id] = true; delete e.zustaende[a.id]; continue;", "vormerkung(aw)[a.id] = true; continue;", "W1: vorgemerkte Ader behält ihren alten Zustand im Eintrag"],
+  [LP, "  if (vm) for (const id of Object.keys(vm)) delete z[id];\n", "", "W1: Speichern schreibt eine vorgemerkte Ader als leer (Laden verliert da)"],
+  [SQ, "    if (blk && blk.has(y * k.w + x)) continue;\n", "", "W2: Ersatzplätze nehmen feste Anker-Kacheln"],
+  [SQ, "(game.aways && game.aways[info.id]) || game.away", "game.away", "W2: Ersatzplätze lesen den Zustand von game.away statt der Zielkarte"],
+  [AN, "  const k = karteVon(map);\n  const aw = awVon(game, map);\n  if (!k && !LP.hatAdern(game, map))", "  const k = karteVon(map) || LP.karte(game, map);\n  const aw = awVon(game, map);\n  if (!k && !LP.hatAdern(game, map))", "K2: abbauNeu baut die nicht geladene Karte"],
+  [AN, "    for (const id of Object.keys(e.zustaende)) if (GenHoehle.istAderKandidat({ rolle: 'abbau', id })) delete e.zustaende[id];\n", "", "K2: nicht geladen: Zustände der Vorrunde bleiben im Eintrag"],
+  [GH, "    runde = Math.min(ADERN_RUNDE_MAX, Math.max(0, runde | 0));", "    runde = Math.max(0, runde | 0);", "K3: adernWahl ohne Obergrenze der Kette"],
+  [AN, "Math.min(LP.ABBAU_RUNDE_MAX, ((e.abbau_runde | 0) || 0) + 1);   // an der Obergrenze", "((e.abbau_runde | 0) || 0) + 1;   // an der Obergrenze", "K3: abbauNeu zählt über die Obergrenze"],
+  [LP, "const abbauRundeKlemmen = (r) => Math.min(ABBAU_RUNDE_MAX, Math.max(0, r | 0));", "const abbauRundeKlemmen = (r) => Math.max(0, r | 0);", "K3: restore/toSave klemmen nicht"],
+  [SC, "\"maximum\": 10000, ", "", "K3: Schema ohne maximum"],
+  [AN, "    if (game.away && game.away.map === map) for (const p of game.players || []) if (p.hold", "    for (const p of game.players || []) if (p.hold", "K4: abbauNeu bricht Halter anderer Karten ab"],
+  [BH, "    return !(a.rolle === 'abbau' && zustand === 'leer');", "    return true;", "K5: ankerBlockiertIn: leere Ader blockiert"],
+  
   // ---- Generator (voller Lauf)
   [GH, "        if (frei) kand.push([x, y]);", "        kand.push([x, y]);", 'Generator: Engstellen-Regel (2x2-Block) entfällt', false, true],
   [GH, "if (!blockBoden(x, y) || belegtAnker.has(ix(x, y)) || dist([x, y], E) < 6) continue;", "if (!blockBoden(x, y) || belegtAnker.has(ix(x, y))) continue;", 'Generator: Abstand zum Eingang entfällt', false, true],

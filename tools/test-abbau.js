@@ -320,5 +320,16 @@ section('Speichern und Laden, Snapshot');
   ok(Anker.zustand(g, id, 'abbau.2') === 'abgebaut' && Anker.zustand(g, id, 'abbau.3') === 'leer' && Anker.zustand(g, id, 'abbau.1') === 'da', 'nach restore: Zustände je Ader erhalten');
 }
 
+section('K5: die Ausnahme "leer ist begehbar" hat eine Quelle (Buehne.ankerBlockiertIn)');
+{
+  const ader = { rolle: 'abbau', id: 'x' };
+  ok(Buehne.ankerBlockiert(ader) === true && Buehne.ankerBlockiertIn(ader, 'leer') === false, 'ankerBlockiert (Prüfer): Ader pauschal fest; ankerBlockiertIn: leer begehbar');
+  ok(['da', 'laeuft', 'abgebaut', undefined, null].every((z) => Buehne.ankerBlockiertIn(ader, z) === true), 'ankerBlockiertIn: da, laeuft, abgebaut und unbekannt sind fest');
+  ok(Buehne.ankerBlockiertIn({ rolle: 'terminal' }, 'leer') === false, 'andere Rollen: wie ankerBlockiert');
+  const src = require('fs').readFileSync(require('path').join(__dirname, '..', 'server', 'sim', 'interior.js'), 'utf8');
+  const bl = src.slice(src.indexOf('function blockierendeKachelnIn'), src.indexOf('function awaySolid'));
+  ok(bl.length > 100 && /Buehne\.ankerBlockiertIn\(/.test(bl) && !/'leer'/.test(bl), 'interior.blockierendeKachelnIn nutzt die eine Quelle, keine eigene leer-Ausnahme');
+}
+
 console.log(`\n${n - fails}/${n} Prüfungen ok`);
 process.exit(fails ? 1 : 0);

@@ -175,6 +175,12 @@
     const C = falleCfg || ((getConfig() || {}).anker || {}).falle;
     return !!(C && C.blockiert && C.blockiert[a.typ]);
   }
+  // GEL-03 Nacharbeit K5: EINE Quelle für „blockiert dieser Anker im Zustand z?“ (Server interior.blockierendeKacheln, Client render.js buehneBewegungSolid): Erzadern sind fest, außer im Zustand
+  // leer (kein Vorkommen in dieser Runde: begehbar). Für alle anderen Rollen gilt ankerBlockiert (der Zustand ändert nichts; die Sichtbarkeit verborgener Fallen regelt der Aufrufer).
+  function ankerBlockiertIn(a, zustand, falleCfg) {
+    if (!ankerBlockiert(a, falleCfg)) return false;
+    return !(a.rolle === 'abbau' && zustand === 'leer');
+  }
   // ITM-01 E: Startzustand eines Ankers aus der Zustandsliste der Rolle: der erste Eintrag, eine passive Falle (sicht passiv) startet als erkannt (gleiche Regel wie server/sim/anker.js startFuer).
   // Der Client leitet den Start aus `sicht` im Payload ab, nicht aus zustaende[0] (render.js ankerZustand, voxel/kit.js).
   function ankerStart(a, zustaende) {
@@ -1853,7 +1859,7 @@
     modulLagen, pruefeModul, kantenTyp, vertraeglich, segmentTyp: (seg, opts) => segmentTyp(opts && opts.daten ? normalisiere(opts.daten) : daten(), seg, cfgVon(opts).freiMin),
     bauen, bauRoh, ausRaster, pruefen, kennzahlen, vorwaermen, hand, leitFuss, zustaendeAnwenden, alsText, ANKER_GLYPHE,
     tuerKacheln: K.tuerKacheln, raster: K.raster, SCHIFF_STRIDE, STANDARD_CFG,
-    TUER_ZEIT, kantenListe, ankerKanten, eingangAktion, kachelZustandRegel, ankerBlockiert, ankerIdsVergeben, ankerStart, fallenSchottKanten,
+    TUER_ZEIT, kantenListe, ankerKanten, eingangAktion, kachelZustandRegel, ankerBlockiert, ankerBlockiertIn, ankerIdsVergeben, ankerStart, fallenSchottKanten,
     raetselWege, raetselFenster, raetselHinweis, raetselSolo, raetselSoloFenster, karteServerForm, padTiles, deckLinkInReichweite, interaktionsVorrang, fehlerhafteModule,
     silhouetteFehler, silhouetteDaten, FIGUR_HOEHE_M,
   };

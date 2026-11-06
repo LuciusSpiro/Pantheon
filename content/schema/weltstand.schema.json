@@ -119,7 +119,7 @@
               "letzte_mission": { "type": ["string", "null"] },
               "neu": { "type": "boolean" },
               "gesperrt": { "type": "boolean" },
-              "abbau_runde": { "type": "integer", "minimum": 0, "description": "GEL-03 C (optional, additiv, Standard 0): wie oft die Erzadern dieses Orts neu gesetzt wurden (Aktion abbauNeu). Fehlt im Altstand: 0." }
+              "abbau_runde": { "type": "integer", "minimum": 0, "maximum": 10000, "description": "GEL-03 C (optional, additiv, Standard 0): wie oft die Erzadern dieses Orts neu gesetzt wurden (Aktion abbauNeu). Fehlt im Altstand: 0." }
             }
           }
         },
