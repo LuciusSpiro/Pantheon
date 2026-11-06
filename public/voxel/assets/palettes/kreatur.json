@@ -8,16 +8,16 @@
   "kralle": "#3A3632",
   "nase": "#1E1A18",
   "maehne": "#28221E",
-  "fell": "#624A36",
-  "fell_0": "#624A36",
-  "fell_1": "#6C463C",
-  "fell_2": "#544D3C",
-  "fell_3": "#4C4C54",
-  "fell_4": "#604C2A",
-  "fell_5": "#624654",
+  "fell": "#82442A",
+  "fell_0": "#82442A",
+  "fell_1": "#4A5A24",
+  "fell_2": "#465470",
+  "fell_3": "#76446A",
+  "fell_4": "#6C503A",
+  "fell_5": "#6C5012",
   "marke_an": {
-   "color": "#FFBA9C",
-   "emit": 1.4
+   "color": "#FF9A78",
+   "emit": 2.0
   },
   "marke_aus": "#422C26"
  }

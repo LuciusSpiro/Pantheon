@@ -22,7 +22,7 @@ for (const rel of [T1, T2, 'tools/gel02-hilfen.js', 'package.json']) fs.copyFile
 for (const rel of ['README.md', 'CONTRACT-B2.md']) fs.copyFileSync(path.join(ROOT, rel), path.join(TMP, rel));
 if (fs.existsSync(path.join(ROOT, 'node_modules'))) { try { fs.symlinkSync(path.join(ROOT, 'node_modules'), path.join(TMP, 'node_modules'), 'junction'); } catch (e) { /* kein Modul nötig */ } }
 
-const AC = 'public/js/voxel/actors.js', FX = 'public/js/voxel/fx.js', KR = 'server/sim/kreatur.js', MO = 'content/kreaturen/modelle.json', IX = 'server/index.js';
+const RD = 'public/js/render.js', AC = 'public/js/voxel/actors.js', FX = 'public/js/voxel/fx.js', KR = 'server/sim/kreatur.js', MO = 'content/kreaturen/modelle.json', IX = 'server/index.js';
 // [Datei, alter Text (genau einmal), neuer Text, Beschreibung, Tests, gleichwertig (Begründung) oder fehlt]
 const MUTATIONEN = [
   // ---- Bits und Pose
@@ -46,20 +46,20 @@ const MUTATIONEN = [
   [AC, 'if (!kor.userData.slot.ready || !mar.userData.slot.ready) return false;', 'if (!kor.userData.slot.ready) return false;', 'Rückfall nur nach dem Körper (fehlende Marken lassen die Plätze leer)', [T1]],
   [AC, 'if (!kor.userData.slot.ready || !mar.userData.slot.ready) return false;', 'if (!mar.userData.slot.ready) return false;', 'Rückfall nur nach den Marken (Körper fehlt, nur Marken sichtbar)', [T1]],
   [AC, "if (a.markenPivot) a.markenPivot.visible = false;", '', 'Rückfall blendet die Marken nicht aus', [T1]],
-  [AC, "L.kreaturInhalt = null;\n  fetch('/content/kreaturen/modelle.json')", "L.kreaturInhalt = null;\n  fetch('/content/kreaturen/modelle.jsn')", 'Client lädt eine falsche Datei', [T1]],
+  [AC, "fetch('/content/kreaturen/modelle.json')", "fetch('/content/kreaturen/modelle.jsn')", 'Client lädt eine falsche Datei', [T1]],
   [AC, 'a.labelH = 1.45;', '', 'Namenshöhe nicht dem kleineren Modell angepasst', [T1]],
   [AC, "const mk = 'kreatur:' + (b & 3) + ((b >> 2) & 3) + ((b >> 4) & 3);\n  if (a.modelKey !== mk) {", "const mk = 'kreatur:' + (b & 3) + ((b >> 2) & 3) + ((b >> 4) & 3);\n  if (a.modelKey !== mk || true) {", 'Platzhalter baut sich je Frame neu auf (Cache-Prüfung)', [T1], 'gleichwertig für das Ergebnis: das Platzhalter-Modell kommt weiter aus a.models (Cache), nur das Umhängen läuft je Frame; im Spiel unsichtbar'],
   // ---- Effekte
-  [AC, 'return (b & 64) && !(b & 12) ? 0.008 + 0.006 * (b & 3) : 0; }', 'return !(b & 12) ? 0.008 + 0.006 * (b & 3) : 0; }', 'Zittern auch im Stehen (ohne Bit zielt)', [T1]],
-  [AC, 'return (b & 64) && !(b & 12) ? 0.008 + 0.006 * (b & 3) : 0; }', 'return (b & 64) && !(b & 12) ? 0.008 : 0; }', 'Zittern wächst nicht mit der Ladung', [T1]],
-  [AC, 'return (b & 64) && !(b & 12) ? 0.008 + 0.006 * (b & 3) : 0; }', 'return (b & 64) ? 0.008 + 0.006 * (b & 3) : 0; }', 'Zittern auch bei gesetzten Pause-/Rammbits', [T1], 'gleichwertig: der Server setzt Bit 6 nur im Modus zielen, der nie zugleich steht oder rammt; nur der Test erzwingt die Eindeutigkeit mit synthetischen Bits'],
+  [AC, 'return (b & 64) && !(b & 12) ? 0.02 + 0.01 * (b & 3) : 0; }', 'return !(b & 12) ? 0.02 + 0.01 * (b & 3) : 0; }', 'Zittern auch im Stehen (ohne Bit zielt)', [T1]],
+  [AC, 'return (b & 64) && !(b & 12) ? 0.02 + 0.01 * (b & 3) : 0; }', 'return (b & 64) && !(b & 12) ? 0.02 : 0; }', 'Zittern wächst nicht mit der Ladung', [T1]],
+  [AC, 'return (b & 64) && !(b & 12) ? 0.02 + 0.01 * (b & 3) : 0; }', 'return (b & 64) ? 0.02 + 0.01 * (b & 3) : 0; }', 'Zittern auch bei gesetzten Pause-/Rammbits', [T1], 'gleichwertig: der Server setzt Bit 6 nur im Modus zielen, der nie zugleich steht oder rammt; nur der Test erzwingt die Eindeutigkeit mit synthetischen Bits'],
   [AC, 'function kreaturStaubAn(b) { return (b & 8) !== 0 && (b & 4) === 0; }', 'function kreaturStaubAn(b) { return (b & 12) !== 0; }', 'Staubspur auch bei Pause', [T1]],
   [AC, 'function kreaturStaubAn(b) { return (b & 8) !== 0 && (b & 4) === 0; }', 'function kreaturStaubAn(b) { return false; }', 'Staubspur nie', [T1]],
   [AC, 'function kreaturSterneAn(b) { return (b & 4) !== 0; }', 'function kreaturSterneAn(b) { return (b & 12) !== 0; }', 'Sterne auch beim Rammen', [T1]],
   [AC, 'function kreaturSterneAn(b) { return (b & 4) !== 0; }', 'function kreaturSterneAn(b) { return false; }', 'Sterne nie', [T1]],
-  [AC, 'return (b & 3) === 3 ? 1 + 0.2 *', 'return (b & 3) >= 2 ? 1 + 0.2 *', 'Pulsieren schon ab Ladung 2', [T1]],
-  [AC, 'return (b & 3) === 3 ? 1 + 0.2 * (0.5 + 0.5 * Math.sin(t * Math.PI * 2 * KR_PULS_HZ)) : 1; }', 'return (b & 3) === 3 ? 1 + 0 * (0.5 + 0.5 * Math.sin(t * Math.PI * 2 * KR_PULS_HZ)) : 1; }', 'Marken pulsieren nicht (Amplitude 0)', [T1]],
-  [AC, 'const KR_PULS_HZ = 1.5;', 'const KR_PULS_HZ = 8;', 'Puls viel zu schnell (8 Hz)', [T1]],
+  [AC, 'return (b & 3) === 3 ? 1 + KR_PULS_AMP *', 'return (b & 3) >= 2 ? 1 + KR_PULS_AMP *', 'Pulsieren schon ab Ladung 2', [T1]],
+  [AC, 'return (b & 3) === 3 ? 1 + KR_PULS_AMP * (0.5 + 0.5 * Math.sin(t * Math.PI * 2 * KR_PULS_HZ)) : 1; }', 'return (b & 3) === 3 ? 1 + 0 * (0.5 + 0.5 * Math.sin(t * Math.PI * 2 * KR_PULS_HZ)) : 1; }', 'Marken pulsieren nicht (Amplitude 0)', [T1]],
+  [AC, 'const KR_PULS_HZ = 2.0;', 'const KR_PULS_HZ = 8;', 'Puls viel zu schnell (8 Hz)', [T1]],
   [AC, 'a.markenPivot.scale.setScalar(kreaturPuls(b, t));', 'a.markenPivot.scale.setScalar(1);', 'Anzeige wendet das Pulsieren nicht an', [T1]],
   [AC, '  if (speed < 0.25) return 0;\n', '', 'Wippen auch im Stand', [T1]],
   [AC, 'const amp = (b & 8) ? 0.05 : 0.012 + 0.016 * Math.min(1, speed / 2.8);', 'const amp = 0.012;', 'Wippen in Jagd und Rammen nicht stärker', [T1]],
@@ -69,6 +69,33 @@ const MUTATIONEN = [
   [AC, 'if (stern) { s.rotation.y = t * 2.2 + ph;', 'if (stern) { s.rotation.y = 0;', 'Sterne drehen nicht', [T1], 'gleichwertig für den Test: die Drehung ist reine Optik und wird nur im Browser-Beleg beurteilt'],
   [AC, "if (kind === 'kreatur') { updateKreatur(a, e, dt, t); return; }", "if (kind === 'kreatur') { kreaturPlatzhalter(a, (e.kr && e.kr.b) | 0, t); return; }", 'updateEnemy nutzt nur noch den Platzhalter', [T1]],
   [FX, "      case 'staub': FX.staub(p, o.dir); break;", '', 'fx.js: Effekt staub fehlt', [T1]],
+  // ---- MON-02 Nacharbeit (Optik): Sterne, Zittern, Puls, Wechsel, Neuversuch
+  [AC, "const mat = new T.MeshBasicMaterial({ color: KR_STERN_FARBE, toneMapped: false }); mat.color.multiplyScalar(KR_STERN_HELL);", "const mat = fbMaterial(KR_STERN_FARBE);", 'H1: Sterne wieder mit dem beleuchteten Standardmaterial (fbMaterial)', [T1]],
+  [AC, "new T.MeshBasicMaterial({ color: KR_STERN_FARBE, toneMapped: false })", "new T.MeshBasicMaterial({ color: KR_STERN_FARBE, toneMapped: true })", 'H1: Sterne mit Tonemapping (kein Bloom-Anteil über 1)', [T1]],
+  [AC, ' mat.color.multiplyScalar(KR_STERN_HELL);', '', 'H1: Sternfarbe nicht über 1 (Faktor 1,6 fehlt)', [T1]],
+  [AC, 'm.rotation.set(Math.PI / 4, 0, Math.PI / 4);', '', 'H1: Sterne achsparallele Würfel statt Rauten', [T1]],
+  [AC, 'const KR_STERN_GROESSE = 0.12,', 'const KR_STERN_GROESSE = 0.14,', 'H1: Sterngröße 0,14 statt 0,12', [T1]],
+  [AC, 'KR_STERN_RING = 0.32,', 'KR_STERN_RING = 0.28,', 'H1: Ring-Radius 0,28 statt 0,32', [T1]],
+  [AC, 'KR_STERN_HOEHE = 0.95;', 'KR_STERN_HOEHE = 0.75;', 'H1: Sterne in Helmhöhe (0,75 statt 0,95)', [T1]],
+  [AC, "const KR_STERN_FARBE = '#FFF4C0',", "const KR_STERN_FARBE = '#F2E6A0',", 'H1: Sternfarbe wieder #F2E6A0 (fast die Helmfarbe)', [T1]],
+  [AC, 'return (b & 64) && !(b & 12) ? 0.02 + 0.01 * (b & 3) : 0; }', 'return (b & 64) && !(b & 12) ? 0.008 + 0.006 * (b & 3) : 0; }', 'M1: Zittern wieder unter einem Pixel (0,008 + 0,006 je Ladung)', [T1]],
+  [AC, 'Math.sin(t * 79 + ph) * z * 2 : 0);', 'Math.sin(t * 79 + ph) * z * 3 : 0);', 'M1: Kippfaktor wieder 3 (Ladung 3 kippt bis 0,15 rad)', [T1]],
+  [AC, 'const KR_PULS_AMP = 0.35;', 'const KR_PULS_AMP = 0.2;', 'M2: Puls-Amplitude wieder 0,2', [T1]],
+  [AC, 'const KR_PULS_HZ = 2.0;', 'const KR_PULS_HZ = 1.5;', 'M2: Puls wieder 1,5 Hz', [T1]],
+  [AC, '    kreaturPlatzhalter(a, b, t);\n    a.body.position.set(0, 0, 0); a.body.rotation.set(0, 0, 0);\n', '    kreaturPlatzhalter(a, b, t);\n', '13d: Körper-Versatz wird beim Wechsel zum Platzhalter nicht zurückgesetzt', [T1]],
+  [AC, 'L.kreaturInhaltNeuAb = (+t || 0) + KR_INHALT_WARTE; };', 'L.kreaturInhaltNeuAb = (+t || 0) + 1e9; };', '13e: nach einem Fehler nie neu versuchen', [T1]],
+  [AC, 'L.kreaturInhaltNeuAb = (+t || 0) + KR_INHALT_WARTE; };', 'L.kreaturInhaltNeuAb = (+t || 0); };', '13e: nach einem Fehler sofort (jedes Bild) neu versuchen', [T1]],
+  [AC, 'const KR_INHALT_WARTE = 5;', 'const KR_INHALT_WARTE = 50;', '13e: Wartezeit 50 s statt 5 s', [T1]],
+  [AC, 'if (L.kreaturInhalt || L.kreaturInhaltLaedt || typeof fetch', 'if (L.kreaturInhalt || typeof fetch', '13e: laufender Abruf wird nicht erkannt (Doppelabrufe)', [T1]],
+  [AC, '.catch(fehl);\n}', '.catch(() => {});\n}', '13e: Netzfehler (Ausnahme) löst keinen neuen Versuch aus', [T1]],
+  [AC, 'else fehl(); })', '})', '13e: Antwort ohne Inhalt (404, kaputt) löst keinen neuen Versuch aus', [T1]],
+  // ---- M5: Namenszug des Haufens auf der Kommandokarte
+  [RD, '    if (y + 7 > rect.y + rect.h - 1) y = ht.y - 17;\n', '', 'M5: Name am unteren Kartenrand nicht über den Haufen gesetzt', [T2]],
+  [RD, '    y = Math.max(rect.y + 1, Math.min(rect.y + rect.h - 8, y));\n', '', 'M5: Name nicht in das Kartenrechteck geklemmt (y)', [T2]],
+  [RD, 'return { x: Math.max(rect.x + hb, Math.min(rect.x + rect.w - hb, hs.x)), y };', 'return { x: hs.x, y };', 'M5: Name seitlich nicht geklemmt', [T2]],
+  [RD, '    let y = hs.y + 9;\n', '    let y = hs.y + 20;\n', 'M5: Name 20 statt 9 px unter dem Haufen', [T2]],
+  [RD, 'toS(hf.x, hf.ymin), rect, measure(hf.name, 1))', 'toS(hf.x, hf.ymax), rect, measure(hf.name, 1))', 'M5: Kommandokarte übergibt die untere statt der oberen Haufenkante', [T2]],
+  [RD, 'ymax = Math.max(...H.map((e) => e.y)), ymin = Math.min(...H.map((e) => e.y));', 'ymax = Math.max(...H.map((e) => e.y)), ymin = Math.max(...H.map((e) => e.y));', 'M5: Haufen liefert als ymin die untere Kante', [T2]],
   // ---- Content, Auslieferung
   [MO, '"reihenfolge": ["probe", "rudeltier"]', '"reihenfolge": ["rudeltier", "probe"]', 'Client-Content: Typ-Reihenfolge vertauscht (falsches Modell für typCode)', [T1]],
   [MO, '"varianten": 6', '"varianten": 7', 'Client-Content: sieben statt sechs Fellvarianten', [T1]],

@@ -21,7 +21,7 @@ const T1 = 'tools/test-station-monster-optik.js';
 for (const rel of [T1, 'package.json']) fs.copyFileSync(path.join(ROOT, rel), path.join(TMP, rel));
 if (fs.existsSync(path.join(ROOT, 'node_modules'))) { try { fs.symlinkSync(path.join(ROOT, 'node_modules'), path.join(TMP, 'node_modules'), 'junction'); } catch (e) { /* kein Modul nötig */ } }
 
-const AC = 'public/js/voxel/actors.js', MA = 'assets/manifest/mon02-station.json';
+const AC = 'public/js/voxel/actors.js', FX = 'public/js/voxel/fx.js', MA = 'assets/manifest/mon02-station.json';
 const RUCK = '  return rammt ? Math.min(SM_RUCK_VOXEL, ruck + SM_RUCK_VOXEL / SM_RUCK_ZEIT * dt) : Math.max(0, ruck - SM_RUCK_VOXEL / SM_RUCK_ZURUECK * dt);';
 const FUNKEN = "function monsterFunkenAn(zustand) { return zustand === 'rammen'; }";
 const ZYKLUS = 'const s = Math.sin(2 * Math.PI * phi * (c.k || 1) + (c.p || 0) * Math.PI / 180)';
@@ -85,9 +85,9 @@ const MUTATIONEN = [
   // ---- Kegel
   [AC, '  pause: { laenge: 0, breite: 0, hell: 0 },', '  pause: { laenge: 2, breite: 1, hell: 0.3 },', 'Kegel in der Pause an', [T1]],
   [AC, '  jagd: { laenge: 2.4, breite: 3.0, hell: 0.50 },', '  jagd: { laenge: 6.4, breite: 3.0, hell: 0.50 },', 'Jagd-Kegel lang statt kurz', [T1]],
-  [AC, '  laerm: { laenge: 5.6, breite: 0.8, hell: 0.36 },', '  laerm: { laenge: 5.6, breite: 2.8, hell: 0.36 },', 'Lärm-Kegel breit statt schmal', [T1]],
+  [AC, '  laerm: { laenge: 5.6, breite: 0.8, hell: 0.42 },', '  laerm: { laenge: 5.6, breite: 2.8, hell: 0.42 },', 'Lärm-Kegel breit statt schmal', [T1]],
   [AC, '  rammen: { laenge: 1.3, breite: 1.6, hell: 0.42 },', '  rammen: { laenge: 4.3, breite: 1.6, hell: 0.42 },', 'Ramm-Kegel nicht gestaucht', [T1]],
-  [AC, '  patrouille: { laenge: 3.4, breite: 1.8, hell: 0.30 },', '  patrouille: { laenge: 3.4, breite: 1.8, hell: 0.80 },', 'Patrouille-Kegel viel zu hell', [T1]],
+  [AC, '  patrouille: { laenge: 3.4, breite: 1.8, hell: 0.34 },', '  patrouille: { laenge: 3.4, breite: 1.8, hell: 0.80 },', 'Patrouille-Kegel viel zu hell', [T1]],
   [AC, KEGELZEILE, '  return laenge;', 'Kegel wird nicht an Wänden gekürzt', [T1]],
   [AC, KEGELZEILE, '  return Math.max(0, best / SM_TILE);', 'Kegelkürzung rechnet den Abstand des Lichtschlitzes nicht ab', [T1]],
   [AC, '  for (const w of a > 0 ? [0, -a, a] : [0]) {', '  for (const w of [0]) {', 'Kegel prüft nur den Mittelstrahl, nicht die Kanten', [T1]],
@@ -123,7 +123,19 @@ const MUTATIONEN = [
   [AC, '  if (!monsterFunkenAn(zustand)) { S.funkenAcc = 0; return; }', '  if (!monsterFunkenAn(zustand)) { return; }', 'Funken-Zähler wird außerhalb des Rammens nicht zurückgesetzt', [T1], 'gleichwertig: der Zähler läuft höchstens auf einen Takt (0,04 s, Obergrenze in monsterFunkenZahl), das erste Rammbild löst höchstens einen Schauer früher aus'],
   [AC, FUNKENPUNKT, '  return [pos[0] + Math.cos(yaw) * quer, pos[1] + hoch, pos[2] + Math.cos(yaw) * vor];', 'Funkenpunkt ignoriert die Blickrichtung (nur yaw 0 stimmt)', [T1]],
   [AC, 'const SM_SCHILD_VOR = 0.95;', 'const SM_SCHILD_VOR = -0.95;', 'Funken hinter dem Monster statt am Schild', [T1]],
-  [AC, '(Math.random() * 2 - 1) * 0.5, 0.1), n: 3, dt });', '(Math.random() * 2 - 1) * 0.5, 1.6), n: 3, dt });', 'Funken in Kopfhöhe statt am Boden', [T1]],
+  [AC, '(Math.random() * 2 - 1) * 0.5, 0.1), n: 5, s0: [0.05, 0.08], dt });', '(Math.random() * 2 - 1) * 0.5, 1.6), n: 5, s0: [0.05, 0.08], dt });', 'Funken in Kopfhöhe statt am Boden', [T1]],
+  // ---- MON-02 Nacharbeit (Optik Station-Monster): Kegel-Helligkeit, Funken, Schwenk, Freigabe
+  [AC, '  patrouille: { laenge: 3.4, breite: 1.8, hell: 0.34 },', '  patrouille: { laenge: 3.4, breite: 1.8, hell: 0.30 },', 'N2: Patrouille-Kegel wieder zart (0,30)', [T1]],
+  [AC, '  laerm: { laenge: 5.6, breite: 0.8, hell: 0.42 },', '  laerm: { laenge: 5.6, breite: 0.8, hell: 0.36 },', 'N2: Lärm-Kegel wieder zart (0,36)', [T1]],
+  [AC, 'n: 5, s0: [0.05, 0.08], dt });', 'n: 3, s0: [0.05, 0.08], dt });', 'N1: nur 3 Funken je Schauer', [T1]],
+  [AC, 'n: 5, s0: [0.05, 0.08], dt });', 'n: 5, dt });', 'N1: Funken ohne Größenangabe (klein)', [T1]],
+  [AC, 'n: 5, s0: [0.05, 0.08], dt });', 'n: 5, s0: [0.03, 0.05], dt });', 'N1: Funken wieder 0,03 bis 0,05 m', [T1]],
+  [FX, '{ c0: o.color, s0: o.s0 }); break;', '{ c0: o.color }); break;', 'N1: spawnFx reicht die Größe nicht an FX.sparks', [T1]],
+  [FX, 's0: o.s0 ? rnd(o.s0[0], o.s0[1]) : rnd(0.03, 0.05),', 's0: rnd(0.03, 0.05),', 'N1: FX.sparks ignoriert die Größenoption', [T1]],
+  [AC, 'e.x, e.y, yaw + psi, solid);', 'e.x, e.y, yaw, solid);', '13a: Wandkürzung ignoriert den Sensorschwenk (yaw statt yaw + psi)', [T1]],
+  [AC, 'if (this.smKegel) { this.smKegel.geometry.dispose(); this.smKegel.material.dispose(); } ', '', '13b: dispose gibt den Kegel nicht frei', [T1]],
+  [AC, 'this.smKegel.geometry.dispose(); this.smKegel.material.dispose(); }', 'this.smKegel.material.dispose(); }', '13b: dispose gibt die Geometrie des Kegels nicht frei', [T1]],
+  [AC, 'this.smKegel.geometry.dispose(); this.smKegel.material.dispose(); }', 'this.smKegel.geometry.dispose(); }', '13b: dispose gibt das Material des Kegels nicht frei', [T1]],
   // ---- Blick
   [AC, BLICK, BLICK.replace('yawOf(Math.cos(f), Math.sin(f))', 'yawOf(0, 1)'), 'Blickrichtung ignoriert mo.f', [T1]],
   [AC, BLICK, BLICK.replace('), false);', '), true);'), 'Blick rastet auf 45 Grad (locomote mit moving true)', [T1], 'gleichwertig für den Test: die Attrappe von locomote kennt das Einrasten nicht; geprüft nur im Browser (Kegel zeigt in Fahrtrichtung)'],

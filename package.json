@@ -79,6 +79,7 @@
     "test:spind": "node tools/test-spind.js",
     "test:spind-mutation": "node tools/mutation-spind.js",
     "test:sync-assets": "node tools/test-sync-assets.js",
+    "test:rig-art": "node tools/test-rig-art.js",
     "test:trefferbox": "node tools/test-trefferbox.js",
     "test:vox01-kacheln": "node tools/test-vox01-kacheln.js",
     "test:kachelklassen": "node tools/test-kachelklassen.js",

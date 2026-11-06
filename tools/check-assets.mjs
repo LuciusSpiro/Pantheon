@@ -24,6 +24,7 @@ import { createRequire } from 'node:module';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { readManifests, mergeSockets } from './sync-assets.mjs';
 import { pruefeRollenDatei } from './rollen-pruefung.mjs';
+import { istMenschenRig } from './rig-art.mjs';
 import { pruefeOrte } from './orte-sperre.mjs';
 import { isBau, bauBudget, bauHoehe, bauFlaecheUrteil, BAU_H } from './asset-klassen.mjs';
 
@@ -497,7 +498,7 @@ async function main() {
     if (e.kind === 'figure') {
       const rig = lib.get('rigs', asset.rig);
       if (!rig) { bad(`Rig ${asset.rig} fehlt`); continue; }
-      const menschRig = !!rig.joints.hips;   // MON-02 O3b: Rig schottbrecher (Vierbeiner) hat weder Hände noch Rücken, die Anker und Standardposen gelten nur für Menschen-Rigs
+      const menschRig = istMenschenRig(rig);   // MON-02: Rig mit art "vierbeiner" (schottbrecher) hat weder Hände noch Rücken, die Anker und Standardposen gelten nur für Menschen-Rigs (Rigs ohne art = Mensch, streng)
       if (menschRig) for (const j of ['handR', 'handL', 'back']) if (!rig.joints[j]) bad(`Rig ${rig.id}: Anker "${j}" fehlt`);
       const parts = [...Object.entries(asset.parts || {}), ...Object.entries(asset.attach || {})];
       const maxTeile = menschRig ? 16 : 18;   // die Teile einer Figur werden zu einem SkinnedMesh verschmolzen (actors.js skinFigure), die Teilezahl kostet keine Draw Calls

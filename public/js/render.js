@@ -2263,7 +2263,7 @@
         shape(ctx, 'diamond', s.x, s.y, 10, KREATUR.koerper[kb & 3], (kb & 8) ? KREATUR.rammKante : KREATUR.kante);
         const hf = kreaturHaufen(view, st).get(e.id);
         if (hf && hf.n > 1) {   // B5: ein gemeinsamer Namenszug je Haufen (auch mit Scan-Marker: die Marker einzelner Tiere liegen übereinander und tragen den Namen nicht)
-          if (hf.fuehrer) { const hs = toS(hf.x, hf.ymax); text(ctx, hf.name, hs.x, hs.y + 9, { color: hf.name === '?' ? KREATUR.unbekannt : KREATUR.name, align: 'center' }); }
+          if (hf.fuehrer) { const np = kreaturNamenPos(toS(hf.x, hf.ymax), toS(hf.x, hf.ymin), rect, measure(hf.name, 1)); text(ctx, hf.name, np.x, np.y, { color: hf.name === '?' ? KREATUR.unbekannt : KREATUR.name, align: 'center' }); }
         } else if (!kreaturMarker.has('monster:' + e.id)) text(ctx, kreaturName(e, st), s.x, s.y + 9, { color: kreaturName(e, st) === '?' ? KREATUR.unbekannt : KREATUR.name, align: 'center' });
         continue;
       }
@@ -4296,11 +4296,20 @@
         if (unbekannt) teile.push('?');
         name = teile.join(' · ');
       }
-      const x = H.reduce((a, e) => a + e.x, 0) / H.length, y = H.reduce((a, e) => a + e.y, 0) / H.length, ymax = Math.max(...H.map((e) => e.y));
-      H.forEach((e, i) => map.set(e.id, { name: i === 0 ? name : null, fuehrer: i === 0, x, y, ymax, n: H.length }));
+      const x = H.reduce((a, e) => a + e.x, 0) / H.length, y = H.reduce((a, e) => a + e.y, 0) / H.length, ymax = Math.max(...H.map((e) => e.y)), ymin = Math.min(...H.map((e) => e.y));
+      H.forEach((e, i) => map.set(e.id, { name: i === 0 ? name : null, fuehrer: i === 0, x, y, ymax, ymin, n: H.length }));
     }
     haufenMerker = { view, map };
     return map;
+  }
+  // MON-02 Nacharbeit M5: Ort des Haufen-Namens auf der Kommandokarte. Normal 9 px unter dem untersten Tier (hs); reicht das über den unteren Kartenrand hinaus, steht er 17 px über dem obersten (ht);
+  // danach in das Rechteck geklemmt (y und, wegen der Textbreite, x), damit er nie abgeschnitten wird oder die Zonenbeschriftung am Rand überlagert. hs/ht = Bildpunkte, rect = Kartenrechteck, breite = Textbreite px.
+  function kreaturNamenPos(hs, ht, rect, breite) {
+    let y = hs.y + 9;
+    if (y + 7 > rect.y + rect.h - 1) y = ht.y - 17;
+    y = Math.max(rect.y + 1, Math.min(rect.y + rect.h - 8, y));
+    const hb = Math.ceil(breite / 2) + 1;
+    return { x: Math.max(rect.x + hb, Math.min(rect.x + rect.w - hb, hs.x)), y };
   }
   function drawKreatur(ctx, x, y, e, t, name) {
     const b = e.kr.b | 0, ladung = b & 3, pause = !!(b & 4), rammt = !!(b & 8), g = ((b >> 4) & 3) + 1;

@@ -267,6 +267,7 @@
   {"id":"test-spind","kette":"test","cmd":["tools/test-spind.js"],"stufe":"fast","budget_s":6},
   {"id":"mutation-spind","kette":"test","cmd":["tools/mutation-spind.js"],"stufe":"fast","budget_s":11},
   {"id":"test-sync-assets","kette":"test","cmd":["tools/test-sync-assets.js"],"stufe":"fast","budget_s":6},
+  {"id":"test-rig-art","kette":"test","cmd":["tools/test-rig-art.js"],"stufe":"fast","budget_s":6},
   {"id":"test-menue","kette":"test","cmd":["tools/test-menue.js"],"stufe":"fast","budget_s":7},
   {"id":"test-karte-ausrichtung","kette":"test","cmd":["tools/test-karte-ausrichtung.js"],"stufe":"fast","budget_s":6},
   {"id":"test-karte-sichtweite","kette":"test","cmd":["tools/test-karte-sichtweite.js"],"stufe":"fast","budget_s":6},

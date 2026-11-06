@@ -92,11 +92,12 @@ section('Effekte nur im richtigen Zustand (rein)', () => {
     ok(P.kreaturStaubAn(z.b) === (w === 'rammt'), 'Staubspur nur beim Rammen: ' + (w || 'gehen') + ' Ladung ' + z.l);
     ok(P.kreaturSterneAn(z.b) === (w === 'pause'), 'Sterne nur bei Pause: ' + (w || 'gehen') + ' Ladung ' + z.l);
   }
-  ok(P.kreaturZitterAmp(64 | 3) > P.kreaturZitterAmp(64 | 0) && P.kreaturZitterAmp(64 | 3) < 0.05, 'Zittern wächst mit der Ladung und bleibt klein (< 5 cm)');
+  ok(P.kreaturZitterAmp(64 | 3) > P.kreaturZitterAmp(64 | 0) && P.kreaturZitterAmp(64 | 3) <= 0.05 + 1e-9, 'Zittern wächst mit der Ladung und bleibt klein (höchstens 5 cm)');
+  ok(P.kreaturZitterAmp(64) * 32 >= 0.6 && P.kreaturZitterAmp(64 | 1) * 32 >= 0.9, 'Zittern bei Ladung 0 und 1 mindestens 0,6 bzw. 0,9 px bei 32 px/m (MON-02 Nacharbeit M1: vorher 0,26 bis 0,8 px, in der Spielgröße unsichtbar): ' + (P.kreaturZitterAmp(64) * 32).toFixed(2) + ' und ' + (P.kreaturZitterAmp(65) * 32).toFixed(2) + ' px');
   let max = 0, min = 9; for (let t = 0; t < 2; t += 0.01) { const s = P.kreaturPuls(3, t); max = Math.max(max, s); min = Math.min(min, s); }
-  ok(max > 1.15 && min < 1.02 && max <= 1.2001, 'Marken pulsieren bei Ladung 3 (Skalierung ' + min.toFixed(2) + ' bis ' + max.toFixed(2) + ')');
-  const per = []; for (let t = 0.001; t < 2; t += 0.001) if (P.kreaturPuls(3, t) > 1.199 && P.kreaturPuls(3, t - 0.001) <= 1.199) per.push(t);
-  ok(per.length >= 2 && per.length <= 4, 'Puls 1 bis 2 Hz (' + per.length + ' Spitzen in 2 s)');
+  ok(max > 1.3 && min < 1.03 && max <= 1.3501, 'Marken pulsieren bei Ladung 3 (Skalierung ' + min.toFixed(2) + ' bis ' + max.toFixed(2) + '; MON-02 Nacharbeit M2: Amplitude 0,35, vorher 0,2)');
+  const per = []; for (let t = 0.001; t < 2; t += 0.001) if (P.kreaturPuls(3, t) > 1.3 && P.kreaturPuls(3, t - 0.001) <= 1.3) per.push(t);
+  ok(per.length === 4, 'Puls 2 Hz (' + per.length + ' Spitzen in 2 s, MON-02 Nacharbeit M2: vorher 1,5 Hz)');
   ok([0, 1, 2, 2 | 4, 2 | 8, 2 | 64, 64].every((b) => P.kreaturPuls(b, 0.123) === 1 && P.kreaturPuls(b, 0.4) === 1) && P.kreaturPuls(3 | 8, 0.1) !== 1, 'Pulsieren nur bei Ladung 3 (in jedem Zustand, auch beim Rammen; nicht bei Ladung 0 bis 2)');
   ok(P.kreaturWippen(0, 0, 1.3) === 0 && P.kreaturWippen(0, 0.1, 1.3) === 0 && P.kreaturWippen(8, 0, 0.3) === 0, 'Wippen: im Stand (Tempo 0) kein Versatz');
   let wg = 0, wj = 0, wr = 0; for (let s = 0; s < 3; s += 0.01) { wg = Math.max(wg, P.kreaturWippen(0, 1.4, s)); wj = Math.max(wj, P.kreaturWippen(0, 2.8, s)); wr = Math.max(wr, P.kreaturWippen(8, 7.5, s)); }
@@ -106,21 +107,24 @@ section('Effekte nur im richtigen Zustand (rein)', () => {
 });
 
 // ---- Anzeige gegen Attrappen
+class Farbe3 { constructor() { this.v = 1; } multiplyScalar(k) { this.v *= k; return this; } }
 class O3 {
   constructor(name) { this.name = name; this.children = []; this.parent = null; this.userData = {}; this.visible = true; const v = (o) => Object.assign(o, { set(x, y, z) { o.x = x; o.y = y; o.z = z; return o; } }); this.position = v({ x: 0, y: 0, z: 0 }); this.rotation = v({ x: 0, y: 0, z: 0 }); this.scale = Object.assign({ x: 1, y: 1, z: 1 }, { setScalar(s) { this.x = this.y = this.z = s; }, set(x, y, z) { this.x = x; this.y = y; this.z = z; } }); }
   add(c) { this.children.push(c); c.parent = this; return this; }
   remove(c) { const i = this.children.indexOf(c); if (i >= 0) { this.children.splice(i, 1); c.parent = null; } return this; }
 }
+class Mesh3 extends O3 { constructor(g, m) { super('mesh'); this.geometry = g; this.material = m; } }
+class Mat3 { constructor(o) { Object.assign(this, o); this.farbe = o.color; this.color = new Farbe3(); } }
 function welt(opt) {
-  const w = { bereit: !!(opt && opt.bereit), marken: opt && opt.marken !== undefined ? opt.marken : null, loads: [], fallbacks: [], fx: [] };
-  const L = { THREE: { Group: O3, Mesh: O3 }, fbGeo: {}, kreaturInhalt: opt && opt.inhalt !== undefined ? opt.inhalt : MODELLE };
+  const w = { bereit: !!(opt && opt.bereit), marken: opt && opt.marken !== undefined ? opt.marken : null, loads: [], fallbacks: [], fx: [], fbCalls: 0 };
+  const L = { THREE: { Group: O3, Mesh: Mesh3, MeshBasicMaterial: Mat3 }, fbGeo: {}, kreaturInhalt: opt && opt.leer ? undefined : opt && opt.inhalt !== undefined ? opt.inhalt : MODELLE };
   const loadModel = (id, params, fb) => { const s = new O3('slot:' + id); const isMarken = /marken/.test(id); s.userData.slot = { ready: isMarken && w.marken !== null ? w.marken : w.bereit, id, params }; s.userData.params = params; w.loads.push({ id, params, fb }); return s; };
   const refreshSlot = () => {};
   const fallbackModel = (k) => { w.fallbacks.push(k); const g = new O3('fb:' + k); g.userData.placeholder = true; return g; };
   const window = { VoxelFx: { spawnFx: (t, o) => w.fx.push([t, o]) }, Render: { KREATUR: { pause: '#fff' } } };
   const place = (a, x, y) => { a.container.position.set(x / 32, 0, y / 32); return { x: x / 32, z: y / 32 }; };
-  const locomote = () => 0, yawOf = () => 0, fbMaterial = () => ({});
-  const fn = new Function('L', 'loadModel', 'refreshSlot', 'fallbackModel', 'place', 'locomote', 'yawOf', 'fbMaterial', 'window', 'fetch', REIN + ANZEIGE + '\nreturn { updateKreatur, kreaturModellAnwenden, kreaturPlatzhalter, kreaturEffekte };')(L, loadModel, refreshSlot, fallbackModel, place, locomote, yawOf, fbMaterial, window, undefined);
+  const locomote = () => 0, yawOf = () => 0, fbMaterial = () => { w.fbCalls++; return {}; };
+  const fn = new Function('L', 'loadModel', 'refreshSlot', 'fallbackModel', 'place', 'locomote', 'yawOf', 'fbMaterial', 'window', 'fetch', REIN + ANZEIGE + '\nreturn { updateKreatur, kreaturModellAnwenden, kreaturPlatzhalter, kreaturEffekte };')(L, loadModel, refreshSlot, fallbackModel, place, locomote, yawOf, fbMaterial, window, opt && opt.fetch);
   w.L = L; w.fn = fn;
   w.akteur = () => { const a = { models: {}, body: new O3('body'), container: new O3('container'), dist: 0, speed: 0, model: null, modelKey: null, labelH: null }; a.container.rotation.y = 0; return a; };
   return w;
@@ -169,6 +173,13 @@ section('Anzeige: Modell, Marken, Rückfall', () => {
   ok(a.model && a.model.userData.placeholder && !a.markenPivot.visible, 'Rückfall am selben Akteur blendet die Marken aus');
   w.L.kreaturInhalt = MODELLE; w.fn.updateKreatur(a, tier(8, 2), 0.05, 1.2);
   ok(a.model && a.model.name === 'slot:kreatur/rudeltier' && a.markenPivot.visible && a.body.children.filter((c) => c.userData.placeholder).length === 0, 'danach wieder das Modell, der Platzhalter ist abgehängt');
+  // Code-Review 13d: Körper-Versatz (Zittern, Wippen, Kippen) wird beim Wechsel zum Platzhalter im selben Aufruf zurückgesetzt, nicht erst im nächsten Bild
+  w = welt({ bereit: true }); a = w.akteur(); a.speed = 0;
+  for (let i = 0; i < 12; i++) w.fn.updateKreatur(a, tier(8, 64 | 3), 0.025, 1 + i * 0.025);
+  const vorher = Math.abs(a.body.position.x) + Math.abs(a.body.position.z) + Math.abs(a.body.rotation.z);
+  ok(vorher > 0.01 && a.model.name === 'slot:kreatur/rudeltier', 'Modell mit Aufladen: der Körper ist versetzt (zittert, Betrag ' + vorher.toFixed(3) + ')');
+  w.L.kreaturInhalt = null; w.fn.updateKreatur(a, tier(8, 64 | 3), 0.025, 2);
+  ok(a.model.userData.placeholder && a.body.position.x === 0 && a.body.position.y === 0 && a.body.position.z === 0 && a.body.rotation.x === 0 && a.body.rotation.y === 0 && a.body.rotation.z === 0, 'erst das Modell, dann der Platzhalter: Körper-Versatz und Drehung sind im selben Aufruf wieder 0 (nicht erst einen Frame später)');
 });
 
 section('Anzeige: Zittern, Staubspur, Sterne, Pulsieren', () => {
@@ -205,6 +216,32 @@ section('Anzeige: Zittern, Staubspur, Sterne, Pulsieren', () => {
   ok(rf.fx === 0 && rf.y === 0 && rf.rz === 0, 'Rückfall (Platzhalter): keine Effekte des Modells, body ruhig');
 });
 
+section('Pause-Sterne: Material, Form, Größe, Höhe (MON-02 Nacharbeit H1)', () => {
+  const w = welt({ bereit: true }), a = w.akteur(); a.speed = 0;
+  const hoehen = [];
+  for (let i = 0; i < 40; i++) { w.fn.updateKreatur(a, tier(3, 4 | 2), 0.025, 1 + i * 0.025); hoehen.push(a.sterne.position.y); }
+  const s = a.sterne, T = w.L.THREE, near = (x, y, e) => Math.abs(x - y) <= (e == null ? 1e-9 : e);
+  ok(s && s.children.length === 3 && s.visible, 'drei Sterne im Zustand Pause');
+  const mat = s.children[0].material;
+  ok(s.children.every((m) => m.material === mat) && mat instanceof T.MeshBasicMaterial && mat.toneMapped === false, 'Material: MeshBasicMaterial (unbeleuchtet) mit toneMapped false, ein Material für alle drei');
+  ok(mat.farbe === '#FFF4C0' && near(mat.color.v, 1.6), 'Farbe #FFF4C0, mit 1,6 multipliziert (über 1: greift im Bloom; der Helm #E0D4B8 ist beleuchtet und liegt darunter)');
+  ok(w.fbCalls === 0, 'kein fbMaterial (das beleuchtete Standardmaterial) für die Sterne');
+  ok(s.children.every((m) => near(m.scale.x, 0.12) && near(m.scale.y, 0.12) && near(m.scale.z, 0.12)), 'Größe 0,12 m');
+  ok(s.children.every((m) => near(m.rotation.x, Math.PI / 4) && near(m.rotation.z, Math.PI / 4)), 'um π/4 gedreht (Rauten statt achsparalleler Würfel, nicht wie Sandbrocken)');
+  ok(s.children.every((m) => near(Math.hypot(m.position.x, m.position.z), 0.32)), 'Ring-Radius 0,32 m');
+  ok(Math.min(...hoehen) >= 0.95 - 0.0401 && Math.max(...hoehen) <= 0.95 + 0.0401 && Math.min(...hoehen) > 0.9, 'Höhe um 0,95 m (schwankt ±0,04), klar über dem Helm (Modell 0,81 m hoch): ' + Math.min(...hoehen).toFixed(2) + ' bis ' + Math.max(...hoehen).toFixed(2));
+});
+
+section('Zittern: Größe in px, Kippen (MON-02 Nacharbeit M1)', () => {
+  for (const l of [0, 1, 2, 3]) {
+    const w = welt({ bereit: true }), a = w.akteur(); a.speed = 0; let pos = 0, rot = 0;
+    for (let i = 0; i < 120; i++) { w.fn.updateKreatur(a, tier(3, 64 | l), 0.025, 1 + i * 0.025); pos = Math.max(pos, Math.abs(a.body.position.x), Math.abs(a.body.position.z)); rot = Math.max(rot, Math.abs(a.body.rotation.z)); }
+    const amp = 0.02 + 0.01 * l;
+    ok(pos * 32 >= (l === 0 ? 0.55 : 0.85 + (l - 1) * 0.3) && pos <= amp + 1e-9, 'Ladung ' + l + ': Zittern bis ' + (pos * 32).toFixed(2) + ' px (Amplitude ' + amp.toFixed(2) + ' m, sichtbar ab etwa 0,6 px)');
+    ok(rot <= 2 * amp + 1e-9 && rot >= 2 * amp * 0.9, 'Ladung ' + l + ': Kippen bis ' + rot.toFixed(3) + ' rad (Faktor 2 auf die Amplitude, bei Ladung 3 höchstens 0,1 rad)');
+  }
+});
+
 section('Quelltext: keine Typnamen im Client-Kern, Effekte, Einhängestellen', () => {
   const kern = ac.slice(a0, a3).split('\n').filter((l) => !/^\s*(\/\/|\/\*\*|\*)/.test(l)).map((l) => l.replace(/\/\/.*$/, '')).join('\n');
   ok(!/rudeltier|probe|helmhy/i.test(kern.replace(/kreatur\/rudeltier/g, '')) && !/'kreatur\/[a-z_]+'/.test(kern), 'actors.js: im Kreaturen-Code (ohne Kommentare) kein Typname und keine feste Modell-ID, nur Daten aus dem Client-Content');
@@ -223,5 +260,46 @@ section('Quelltext: keine Typnamen im Client-Kern, Effekte, Einhängestellen', (
   ok(/kreaturen\/modelle\.json/.test(rm) && /kreaturen\/modelle\.json/.test(c2), 'Client-Content modelle.json ist in README.md und CONTRACT-B2.md beschrieben');
 });
 
-console.log('\n' + (n - fails) + '/' + n + ' ok' + (fails ? ', ' + fails + ' FEHLER' : ''));
-process.exit(fails ? 1 : 0);
+// Code-Review 13e: schlägt der Abruf von modelle.json fehl, bleibt es nicht bis zum Neuladen beim Platzhalter, sondern nach KR_INHALT_WARTE s wird neu versucht
+async function inhaltNeuVersuchen() {
+  console.log('\n[Client-Content: neuer Abruf nach einem Fehler]');
+  const flush = () => new Promise((r) => setTimeout(r, 5));
+  const mkFetch = (plan) => {
+    const f = (url) => {
+      f.calls.push(url); const p = plan.shift();
+      return p === 'netz' ? Promise.reject(new Error('Netz weg'))
+        : p === '404' ? Promise.resolve({ ok: false })
+        : p === 'kaputt' ? Promise.resolve({ ok: true, json: () => Promise.reject(new Error('kein JSON')) })
+        : p === 'leer' ? Promise.resolve({ ok: true, json: () => Promise.resolve({ ohne: 1 }) })
+        : Promise.resolve({ ok: true, json: () => Promise.resolve(MODELLE) });
+    };
+    f.calls = []; return f;
+  };
+  const f = mkFetch(['netz', '404', 'kaputt', 'leer', 'ok']), w = welt({ bereit: true, leer: true, fetch: f }), a = w.akteur();
+  const up = (t) => w.fn.updateKreatur(a, tier(8, 2), 0.05, t);
+  up(1); up(1.05);
+  ok(f.calls.length === 1 && f.calls[0] === '/content/kreaturen/modelle.json', 'erster Abruf beim ersten Bild, ein laufender Abruf wird nicht doppelt gestartet (' + f.calls.length + ' Aufruf)');
+  await flush();
+  ok(!w.L.kreaturInhalt && w.fallbacks.length > 0 && a.model && a.model.userData.placeholder, 'Netzfehler: bis dahin der Platzhalter');
+  up(2); up(5.9);
+  ok(f.calls.length === 1, 'innerhalb der Wartezeit (5 s) kein neuer Abruf');
+  up(6.1); await flush();
+  ok(f.calls.length === 2, 'nach 5 s ein zweiter Abruf (Antwort 404)');
+  up(8); up(11.0);
+  ok(f.calls.length === 2, 'wieder erst nach der Wartezeit');
+  up(11.2); await flush();
+  ok(f.calls.length === 3, 'dritter Abruf (kaputtes JSON)');
+  up(16.3); await flush();
+  ok(f.calls.length === 4 && !w.L.kreaturInhalt, 'vierter Abruf (JSON ohne typen: gilt als Fehler)');
+  up(21.4); await flush();
+  ok(f.calls.length === 5 && w.L.kreaturInhalt && w.L.kreaturInhalt.typen, 'fünfter Abruf gelingt: der Inhalt ist geladen');
+  up(21.5);
+  ok(a.model && a.model.name === 'slot:kreatur/rudeltier' && w.loads.length > 0, 'danach zeigt das Tier das Modell statt des Platzhalters');
+  up(60); up(100);
+  ok(f.calls.length === 5, 'nach Erfolg kein weiterer Abruf');
+}
+
+inhaltNeuVersuchen().then(() => {
+  console.log('\n' + (n - fails) + '/' + n + ' ok' + (fails ? ', ' + fails + ' FEHLER' : ''));
+  process.exit(fails ? 1 : 0);
+}).catch((e) => { console.log('  FEHLER Abschnitt abgebrochen: ' + (e.stack || e)); console.log('\n' + (n - fails) + '/' + n + ' ok, FEHLER'); process.exit(1); });

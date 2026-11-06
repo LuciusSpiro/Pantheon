@@ -1,6 +1,6 @@
 {
   "id": "station/schottbrecher/horch",
-  "name": "Schottbrecher: Horchplatte links (liegt flach auf der Deckplatte, Scharnier außen bei x = 8)",
+  "name": "Schottbrecher: Horchplatte links (dunkel wie die Hydraulik, kein helles Augenpaar; liegt flach auf der Deckplatte, Scharnier außen bei x = 8)",
   "tier": "detail",
   "palette": "schottbrecher",
   "tags": [
@@ -23,7 +23,7 @@
         1,
         5
       ],
-      "color": "schild"
+      "color": "hydraulik"
     },
     {
       "jitter": false,
@@ -39,7 +39,7 @@
         1,
         5
       ],
-      "color": "kolben"
+      "color": "hydraulik"
     },
     {
       "jitter": false,
@@ -55,7 +55,7 @@
         1,
         1
       ],
-      "color": "hydraulik"
+      "color": "panzer_dark"
     }
   ],
   "anchor": [

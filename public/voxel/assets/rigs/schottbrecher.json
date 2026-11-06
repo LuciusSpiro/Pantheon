@@ -2,6 +2,7 @@
   "id": "schottbrecher",
   "name": "Schottbrecher (Station-Monster): gedrungener Vierbeiner ohne Schwanz, Sensor statt Kopf. Blick nach +z, links = +x.",
   "tier": "detail",
+  "art": "vierbeiner",
   "poses": "schottbrecher",
   "notes": "Alle Gelenkpositionen absolut in Figur-Koordinaten (Boden bei y=0, Fußabdruck-Mitte bei x=0, z=0, 2x2 Kacheln = 32x32 Voxel, Kreisregel: alle Voxel höchstens 16 Voxel von der Mitte). Teile werden in denselben Koordinaten modelliert. Hüfte, Knie und Fuß je Bein: hip dreht das ganze Bein (rx = vor/zurück, rz = seitlich abspreizen), knee beugt den Unterschenkel seitlich (rz), foot ist das Teleskop-Gelenk (Stange mit Fußplatte, wird per shift entlang der Unterschenkelachse eingefahren). Rechts = links gespiegelt (x -> -x), Winkel rechts: ry und rz mit umgekehrtem Vorzeichen. Beine: V = vorn, H = hinten, L = links, R = rechts.",
   "joints": {

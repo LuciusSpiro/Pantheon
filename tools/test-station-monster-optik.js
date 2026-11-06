@@ -78,7 +78,7 @@ section('Pose-Werte aus den Zyklen: Phase, Periode, shift, Sensor', () => {
   ok(Object.keys(st.joints).length === 0 && st.shift.hull.join() === '0,0,0' && st.shift.footVL.join() === '0,0,0', 'Gewicht 0 (Stillstand): Standpose ohne Schritt und ohne Schwenk, alle Füße am Boden (shift 0)');
   const lm = P.monsterPoseWerte(POSEN, 'laerm', 0.3, 1), pz = P.monsterPoseWerte(POSEN, 'pause', 0.3, 1), ra = P.monsterPoseWerte(POSEN, 'rammen', 0.3, 1);
   ok(lm.joints.horchL.join() === '0,0,-82' && lm.joints.horchR.join() === '0,0,82' && !POSEN.laerm.cycle, 'Lärm: Horchplatten klappen hoch (∓82°), kein Zyklus');
-  ok(pz.shift.lampe.join() === '0,-2,-2' && pz.shift.hull[1] === -6 && !POSEN.pause.cycle && ra.shift.schild.join() === '0,-2,3' && ra.joints.hull[0] === 9 && !POSEN.rammen.cycle, 'Pause: Lampe versenkt, Wanne 6 tiefer; Rammen: Schild ausgefahren und abgesenkt, Wanne vorn gekippt; beide ohne Zyklus');
+  ok(pz.shift.lampe.join() === '0,-2,-2' && pz.shift.hull[1] === -10.5 && !POSEN.pause.cycle && ra.shift.schild.join() === '0,-2,3' && ra.joints.hull[0] === 9 && !POSEN.rammen.cycle, 'Pause: Lampe versenkt, Wanne 10,5 tiefer (liegt fast am Boden; MON-02 Nacharbeit M4, vorher 6); Rammen: Schild ausgefahren und abgesenkt, Wanne vorn gekippt; beide ohne Zyklus');
   ok(P.monsterPoseWerte(POSEN, 'gibtesnicht', 0, 1).joints && Object.keys(P.monsterPoseWerte(null, 'patrouille', 0, 1).joints).length === 0, 'unbekannte Pose oder keine Posen: leere Werte statt Absturz');
   // Phase
   ok(near(P.monsterPhase(0.2, 1.2, 0.5, true), 0.8) && P.monsterPhase(0.2, 1.2, 0.5, false) === 0.2, 'Phase läuft mit hz (1,2 Hz · 0,5 s = 0,6 Perioden), nur in Bewegung; im Stand steht sie');
@@ -93,7 +93,7 @@ section('Überblenden unter 0,2 s', () => {
   const von = P.monsterPoseWerte(POSEN, 'patrouille', 0.25, 1), ziel = P.monsterPoseWerte(POSEN, 'pause', 0, 0);
   ok(gleich(P.monsterBlend(von, ziel, 0), von) && gleich(P.monsterBlend(von, ziel, 1), ziel), 'Blend s 0 = Ausgangspose, s 1 = Zielpose (Winkel und shift)');
   const mid = P.monsterBlend(von, ziel, 0.5);
-  ok(near(mid.joints.hipVL[0], (von.joints.hipVL[0] + 0) / 2) && near(mid.joints.hipVL[2], (von.joints.hipVL[2] + -10) / 2) && near(mid.shift.hull[1], -3) && near(mid.shift.lampe[2], -1), 'Zwischenwert: Mitte je Gelenk (Winkel und shift, auch Gelenke, die nur eine Seite kennt, z. B. hull -6 und lampe -2)');
+  ok(near(mid.joints.hipVL[0], (von.joints.hipVL[0] + 0) / 2) && near(mid.joints.hipVL[2], (von.joints.hipVL[2] + -10) / 2) && near(mid.shift.hull[1], -5.25) && near(mid.shift.lampe[2], -1), 'Zwischenwert: Mitte je Gelenk (Winkel und shift, auch Gelenke, die nur eine Seite kennt, z. B. hull -10,5 und lampe -2)');
   ok(P.monsterBlend(null, ziel, 0.3) === ziel, 'ohne Ausgangspose (erstes Bild) = Zielpose');
   // Zustandsmaschine: kein Frame-Sprung größer als der Schritt
   let maxSprung = 0, prev = null;
@@ -208,7 +208,7 @@ section('Anzeige: Pose je Zustand auf den Gelenken', () => {
   lauf(w, a, mo('j', 1), 0.4, 0);
   ok(a.sm.zustand === 'rammen' && near(winkel(a, 'hull').x, 9 * D2R, 1e-9) && near(verschub(a, 'schild').z, 3 / 16, 1e-6) && near(verschub(a, 'schild').y, -2 / 16, 1e-6), 'Rammen: Wanne vorn gekippt (+9°), Schild 3 Voxel ausgefahren, 2 abgesenkt');
   lauf(w, a, mo('j', 1, 1), 0.4, 0);
-  ok(a.sm.zustand === 'pause' && near(verschub(a, 'hull').y, -6 / 16, 1e-6) && near(winkel(a, 'hipVL').z, -10 * D2R, 1e-9) && near(winkel(a, 'sensor').x, 20 * D2R, 1e-9), 'Pause (auch mit z j und r): Wanne 6 Voxel tiefer, Hüften gespreizt, Sensor nach unten');
+  ok(a.sm.zustand === 'pause' && near(verschub(a, 'hull').y, -10.5 / 16, 1e-6) && near(winkel(a, 'hipVL').z, -10 * D2R, 1e-9) && near(winkel(a, 'sensor').x, 20 * D2R, 1e-9), 'Pause (auch mit z j und r): Wanne 10,5 Voxel tiefer (fast am Boden), Hüften gespreizt, Sensor nach unten');
   ok(a.fig.joints.lampe.scale.x < 0.01, 'Pause: das Teil lampe (Lichtschlitz und Lichtfeld) ist ausgeblendet (Skalierung ≈ 0)');
   lauf(w, a, mo('p'), 0.4, 0);
   ok(a.fig.joints.lampe.scale.x === 1, 'danach wieder Licht an (Skalierung 1)');
@@ -229,18 +229,19 @@ section('Anzeige: Zyklus läuft nur in Bewegung, Überblenden', () => {
   const vor = verschub(a, 'hull').y, vorF = verschub(a, 'footVL').y;
   lauf(w, a, mo('p', 0, 1), 0.075, 0);
   const mitte = verschub(a, 'hull').y, mitteH = winkel(a, 'hipVL').z;
-  ok(mitte < vor - 0.05 && mitte > -6 / 16 + 0.05 && mitteH < 0 && mitteH > -10 * D2R, 'nach 0,075 s: Zwischenwerte (Wanne ' + (mitte * 16).toFixed(1) + ' Voxel auf dem Weg nach -6, Hüfte ' + (mitteH / D2R).toFixed(1) + '° auf dem Weg nach -10°)');
+  ok(mitte < vor - 0.05 && mitte > -10.5 / 16 + 0.05 && mitteH < 0 && mitteH > -10 * D2R, 'nach 0,075 s: Zwischenwerte (Wanne ' + (mitte * 16).toFixed(1) + ' Voxel auf dem Weg nach -10,5, Hüfte ' + (mitteH / D2R).toFixed(1) + '° auf dem Weg nach -10°)');
   lauf(w, a, mo('p', 0, 1), 0.1, 0);
-  ok(near(verschub(a, 'hull').y, -6 / 16, 1e-6) && near(winkel(a, 'hipVL').z, -10 * D2R, 1e-9) && near(verschub(a, 'footVL').y, 6.71 / 16, 1e-6), 'nach 0,175 s insgesamt: Zielpose erreicht (unter 0,2 s)');
+  ok(near(verschub(a, 'hull').y, -10.5 / 16, 1e-6) && near(winkel(a, 'hipVL').z, -10 * D2R, 1e-9) && near(verschub(a, 'footVL').y, 10.8 / 16, 1e-6), 'nach 0,175 s insgesamt: Zielpose erreicht (unter 0,2 s)');
   // erste Pose ohne Überblenden
   w = welt(); a = w.akteur(); up(w, a, ent(mo('j', 0, 1)), 1 / 60, 0);
-  ok(near(verschub(a, 'hull').y, -6 / 16, 1e-6), 'erstes Bild: gleich die Zielpose (kein Überblenden aus dem Nichts)');
+  ok(near(verschub(a, 'hull').y, -10.5 / 16, 1e-6), 'erstes Bild: gleich die Zielpose (kein Überblenden aus dem Nichts)');
 });
 
 section('Anzeige: Lichtkegel je Zustand', () => {
   const dauer = 0.4;
   const kegel = (m, speed, solid) => { const w = welt({ solid }), a = w.akteur(); lauf(w, a, m, dauer, speed || 0); return { w, a, k: a.smKegel }; };
   const K = P.SM_KEGEL;
+  ok(K.patrouille.hell === 0.34 && K.laerm.hell === 0.42 && K.jagd.hell === 0.50 && K.rammen.hell === 0.42, 'Kegel-Helligkeit: Patrouille 0,34 und Lärm 0,42 (MON-02 Nacharbeit N2, vorher 0,30 und 0,36: zart), Jagd 0,50 und Rammen 0,42 unverändert');
   for (const [z, m] of [['patrouille', mo('p')], ['laerm', mo('l')], ['jagd', mo('j')], ['rammen', mo('j', 1)]]) {
     const r = kegel(m, 0, null);
     const bl = z === 'rammen' ? 1 : 1;   // Blitz ist nach 0,4 s vorbei
@@ -254,6 +255,11 @@ section('Anzeige: Lichtkegel je Zustand', () => {
   // Wand
   const wand = kegel(mo('l', 0, 0, 0), 0, (tx) => tx >= 24);   // Monster bei x = 640 px (Kachel 20), Wand ab Kachel 24 (768 px): 128 px = 4 m
   ok(wand.k.scale.z < K.laerm.laenge - 1 && wand.k.scale.z > 3 && wand.k.visible, 'Lärm-Kegel an einer Wand 4 m vor dem Monster gekürzt auf ' + wand.k.scale.z.toFixed(2) + ' m (statt 5,6)');
+  // Code-Review 13a: die Wandkürzung folgt dem Sensorschwenk (yaw + psi), nicht nur dem Blick des Monsters: es blickt nach +z, der Sensor ist um 90° nach +x gedreht, die Wand steht im Osten (2 m)
+  const pS = JSON.parse(JSON.stringify(POSEN)); pS.laerm.joints.sensor = [0, 90, 0];
+  const schwenk = (posen) => { const w = welt({ solid: (tx) => tx >= 22, posen }), a = w.akteur(); lauf(w, a, mo('l'), dauer, 0); return a.smKegel; };
+  const kS = schwenk(pS), kG = schwenk(POSEN);
+  ok(near(kS.rotation.y, 90 * D2R, 1e-9) && kS.scale.z > 1.2 && kS.scale.z < 2.3 && near(kG.scale.z, K.laerm.laenge, 1e-6), 'Sensor 90° zur Wand gedreht: der Kegel ist auf ' + kS.scale.z.toFixed(2) + ' m gekürzt (Wand 2 m im Osten); mit geradem Sensor (Blick nach Süden) läuft er ungekürzt (' + kG.scale.z.toFixed(2) + ' m)');
   const dicht = kegel(mo('l', 0, 0, 0), 0, (tx) => tx >= 21);
   ok(dicht.k.scale.z < 0.8 && dicht.k.scale.z > 0.4, 'Wand 1 m vor dem Monster (Kachel 21): der Kegel ist auf ' + dicht.k.scale.z.toFixed(2) + ' m ab dem Lichtschlitz gekürzt, er reicht kaum über den Rumpf');
   const keineKarte = kegel(mo('l'), 0, null);
@@ -290,6 +296,9 @@ section('Anzeige: Ruck und Funken', () => {
   ok(near(r.rz[r.rz.length - 1], 0, 1e-9) && r.rz[i0 + 72 + 3] < 7, 'danach läuft die Wurzel zurück auf 0');
   const fu = r.w.fx.filter((f) => f[0] === 'sparks');
   ok(fu.length >= 26 && fu.length <= 32 && fu.every((f) => f[1].pos.length === 3 && f[1].pos[1] > 0 && f[1].pos[1] < 0.3), 'Funken nur beim Rammen: ' + fu.length + ' Schauer in 1,2 s (25 Hz), am Boden vor dem Schild');
+  ok(fu.every((f) => f[1].n === 5 && f[1].s0 && f[1].s0[0] === 0.05 && f[1].s0[1] === 0.08), 'Funken: je Schauer 5 Stück mit der Größe 0,05 bis 0,08 m (1,6 bis 2,6 px; vorher 3 Stück mit 0,03 bis 0,05 m = 1 bis 1,6 px, kaum zu sehen)');
+  const fxq = read('public/js/voxel/fx.js');
+  ok(/case 'sparks': FX\.sparks\(p, o\.n \|\| 10, \{ c0: o\.color, s0: o\.s0 \}\)/.test(fxq) && /s0: o\.s0 \? rnd\(o\.s0\[0\], o\.s0\[1\]\) : rnd\(0\.03, 0\.05\)/.test(fxq), 'fx.js: spawnFx(\'sparks\') reicht s0 [min, max] an FX.sparks, ohne s0 bleibt die Größe 0,03 bis 0,05 (bestehende Aufrufer unverändert)');
   ok(fu.every((f) => f[1].pos[2] > 10 + 0.5 * 0 && near(f[1].pos[0], 20, 0.6)), 'Funken liegen vor dem Schild (Blick +z): vor der Mitte (z 10) und ±0,5 m quer (x 20)');
   const p1 = lauf2([[mo('j', 1, 1), 1]]);
   ok(p1.w.fx.length === 0 && p1.rz.every((v) => v === 0), 'Pause hat Vorrang: kein Ruck, keine Funken, auch wenn r gesetzt ist');
@@ -347,6 +356,21 @@ section('Snapshot mo unverändert, kein Zugriff auf den Serverzustand', () => {
   const rd = read('public/js/render.js');
   ok(/function drawMonster/.test(rd) && !/schottbrecher|Schottbrecher/.test(rd), '2D (render.js drawMonster) unberührt: das Oval bleibt der Ersatz');
   ok(!/schottbrecher/i.test(sv) && !/Schottbrecher/.test(read('server/game.js')), 'Server kennt den Schottbrecher nicht (reine Client-Darstellung, keine Protokolländerung)');
+});
+
+section('Freigabe: Actor.dispose gibt den Kegel frei (Code-Review 13b)', () => {
+  const m = /\n  dispose\(\) (\{[^\n]*\})\n/.exec(ac);
+  ok(!!m, 'dispose() der Klasse Actor im Quelltext gefunden');
+  const dispose = new Function('return function dispose() ' + m[1])();
+  const w = welt(), a = w.akteur(); lauf(w, a, mo('l'), 0.3, 0);
+  const z = { geo: 0, mat: 0, rem: 0 }, k = a.smKegel;
+  a.container.parent = { remove() { z.rem++; } };
+  k.geometry.dispose = () => { z.geo++; }; k.material.dispose = () => { z.mat++; };
+  dispose.call(a);
+  ok(!!k && z.geo === 1 && z.mat === 1 && z.rem === 1, 'ein Akteur mit Kegel: dispose gibt Geometrie (' + z.geo + ') und Material (' + z.mat + ') des Kegels frei und hängt den Container ab (' + z.rem + ')');
+  const b = { container: { parent: { remove() {} } }, fig: null };
+  let wurf = null; try { dispose.call(b); } catch (e) { wurf = e; }
+  ok(wurf === null, 'ein Akteur ohne Kegel (kein Schottbrecher): dispose wirft nicht');
 });
 
 section('Manifest und Asset-Sync', () => {

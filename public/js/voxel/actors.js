@@ -1111,7 +1111,11 @@ function updateGermane(a, e, view, dt, t, hitAge) {
 // Bits von away.kr (Snapshot): 0-1 Ladung, 2 Pause, 3 rammt, 4-5 Größe-1, 6 zielt (Aufladen).
 const KR_SCHRITT = 0.45;        // m zurückgelegte Strecke je Beinphase (zwei Phasen im Wechsel; Stillstand = keine Beinbewegung)
 const KR_WIPPEN_PERIODE = 0.9;  // m je Wipp-Zyklus
-const KR_PULS_HZ = 1.5;         // Marken pulsieren bei Ladung 3 (1 bis 2 Hz)
+const KR_PULS_HZ = 2.0;         // Marken pulsieren bei Ladung 3 (1 bis 2 Hz)
+const KR_PULS_AMP = 0.35;       // Skala 1 bis 1,35 (bei 1,2 war es in der Spielgröße kaum zu sehen)
+const KR_INHALT_WARTE = 5;       // s bis zum nächsten Abruf von modelle.json nach einem Fehler
+const KR_STERN_FARBE = '#FFF4C0', KR_STERN_HELL = 1.6;   // Pause-Sterne: unbeleuchtet und über 1 (greift im Bloom), deutlich heller als der Knochenhelm
+const KR_STERN_GROESSE = 0.12, KR_STERN_RING = 0.32, KR_STERN_HOEHE = 0.95;   // m: Raute, Ringradius, Höhe über dem Boden des Tiers (klar über dem Helm)
 /** typCode (Index in kreaturen.json) → Eintrag { modell, marken, varianten } aus dem Client-Content, sonst null (Platzhalter). */
 function kreaturEintrag(inhalt, typCode) {
   if (!inhalt || !Array.isArray(inhalt.reihenfolge) || !inhalt.typen) return null;
@@ -1134,13 +1138,13 @@ function kreaturParameter(eintrag, nr, b, strecke) {
 /** Cache-Schlüssel eines Teilmodells (Modell-ID + Parameter, Reihenfolge fest). */
 function kreaturSchluessel(id, p) { return id + '|' + Object.keys(p).sort().map((k) => k + '=' + p[k]).join(','); }
 /** Zittern beim Aufladen: Amplitude in m (0 sonst), wächst mit der Ladung. */
-function kreaturZitterAmp(b) { return (b & 64) && !(b & 12) ? 0.008 + 0.006 * (b & 3) : 0; }
+function kreaturZitterAmp(b) { return (b & 64) && !(b & 12) ? 0.02 + 0.01 * (b & 3) : 0; }   // 0,64 bis 1,6 px bei 32 px/m
 /** Staubspur nur beim Rammen. */
 function kreaturStaubAn(b) { return (b & 8) !== 0 && (b & 4) === 0; }
 /** Sterne nur bei Pause. */
 function kreaturSterneAn(b) { return (b & 4) !== 0; }
-/** Skalierung der Marken: bei Ladung 3 pulsierend (1 bis 1,2), sonst 1. */
-function kreaturPuls(b, t) { return (b & 3) === 3 ? 1 + 0.2 * (0.5 + 0.5 * Math.sin(t * Math.PI * 2 * KR_PULS_HZ)) : 1; }
+/** Skalierung der Marken: bei Ladung 3 pulsierend (1 bis 1,35), sonst 1. */
+function kreaturPuls(b, t) { return (b & 3) === 3 ? 1 + KR_PULS_AMP * (0.5 + 0.5 * Math.sin(t * Math.PI * 2 * KR_PULS_HZ)) : 1; }
 /** Wippen (m Höhe): leicht beim Gehen, stärker in Jagd (Tempo) und Rammen; im Stand 0. speed in m/s, strecke in m. */
 function kreaturWippen(b, speed, strecke) {
   if (speed < 0.25) return 0;
@@ -1152,10 +1156,13 @@ function kreaturMarkenPivot(pose) { return [0, (13.5 + [0, -1, -2, -1][pose & 3]
 // KREATUR-OPTIK-ENDE
 
 // MON-02 O3a (Fortsetzung): Teilmodelle, Anzeige, Effekte. Eigene Funktionen, der Platzhalter bleibt als Rückfall.
-function kreaturInhaltLaden() {
-  if (L.kreaturInhalt !== undefined || typeof fetch !== 'function') return;
-  L.kreaturInhalt = null;
-  fetch('/content/kreaturen/modelle.json').then((r) => (r.ok ? r.json() : null)).then((j) => { if (j && typeof j === 'object' && j.typen) L.kreaturInhalt = j; }).catch(() => { /* ohne Inhalt: Platzhalter */ });
+/** Client-Content einmal laden; schlägt der Abruf fehl (Netz, 404, kaputtes JSON), bleibt es bis dahin beim Platzhalter und nach KR_INHALT_WARTE s wird neu versucht (t = Zeit in s). */
+function kreaturInhaltLaden(t) {
+  if (L.kreaturInhalt || L.kreaturInhaltLaedt || typeof fetch !== 'function') return;
+  if (L.kreaturInhaltNeuAb != null && !(t >= L.kreaturInhaltNeuAb)) return;
+  L.kreaturInhaltLaedt = true;
+  const fehl = () => { L.kreaturInhaltLaedt = false; L.kreaturInhaltNeuAb = (+t || 0) + KR_INHALT_WARTE; };
+  fetch('/content/kreaturen/modelle.json').then((r) => (r.ok ? r.json() : null)).then((j) => { if (j && typeof j === 'object' && j.typen) { L.kreaturInhalt = j; L.kreaturInhaltLaedt = false; } else fehl(); }).catch(fehl);
 }
 /** Teilmodell (Körper oder Marken) je Akteur gecacht; der Slot sagt über userData.slot.ready, ob das Asset gebaut ist. */
 function kreaturTeil(a, id, params) {
@@ -1168,9 +1175,10 @@ function kreaturTeil(a, id, params) {
 function kreaturSterne(a) {
   if (!a.sterne) {
     const T = L.THREE; if (!L.fbGeo) L.fbGeo = new T.BoxGeometry(1, 1, 1);
-    const KR = window.Render && window.Render.KREATUR, g = new T.Group(); g.name = 'kreatur-sterne';
-    const mat = fbMaterial((KR && KR.pause) || '#F2E6A0');
-    for (let i = 0; i < 3; i++) { const m = new T.Mesh(L.fbGeo, mat); m.scale.set(0.14, 0.14, 0.14); const w = i * Math.PI * 2 / 3; m.position.set(Math.cos(w) * 0.28, 0, Math.sin(w) * 0.28); g.add(m); }
+    const g = new T.Group(); g.name = 'kreatur-sterne';
+    // unbeleuchtet und über 1 (toneMapped false): bleibt hell wie Glut, hebt sich vom beleuchteten Knochenhelm ab und greift im Bloom (Qualität high); ohne Bloom bleibt es ein weißlicher Stern (Raute, kreisend, über dem Helm)
+    const mat = new T.MeshBasicMaterial({ color: KR_STERN_FARBE, toneMapped: false }); mat.color.multiplyScalar(KR_STERN_HELL);
+    for (let i = 0; i < 3; i++) { const m = new T.Mesh(L.fbGeo, mat); m.scale.set(KR_STERN_GROESSE, KR_STERN_GROESSE, KR_STERN_GROESSE); m.rotation.set(Math.PI / 4, 0, Math.PI / 4); const w = i * Math.PI * 2 / 3; m.position.set(Math.cos(w) * KR_STERN_RING, 0, Math.sin(w) * KR_STERN_RING); g.add(m); }
     a.sterne = g; a.body.add(g);
   }
   return a.sterne;
@@ -1195,12 +1203,12 @@ function kreaturEffekte(a, e, b, dt, t) {
   const nr = +String(e.id).slice(1) || 0, ph = nr * 1.7;
   const z = kreaturZitterAmp(b);
   a.body.position.set(z ? Math.sin(t * 83 + ph) * z : 0, kreaturWippen(b, a.speed, a.dist || 0) + (z ? Math.abs(Math.sin(t * 71 + ph)) * z * 0.5 : 0), z ? Math.sin(t * 97 + ph * 2) * z : 0);
-  a.body.rotation.set((b & 8) && a.speed > 0.25 ? 0.05 : 0, 0, z ? Math.sin(t * 79 + ph) * z * 3 : 0);   // Rammen: leicht vorgebeugt
+  a.body.rotation.set((b & 8) && a.speed > 0.25 ? 0.05 : 0, 0, z ? Math.sin(t * 79 + ph) * z * 2 : 0);   // Rammen: leicht vorgebeugt
   const stern = kreaturSterneAn(b);
   if (stern || a.sterne) {
     const s = kreaturSterne(a);
     s.visible = stern;
-    if (stern) { s.rotation.y = t * 2.2 + ph; s.position.set(0, 0.75 + 0.04 * Math.sin(t * 3 + ph), 0.3); }
+    if (stern) { s.rotation.y = t * 2.2 + ph; s.position.set(0, KR_STERN_HOEHE + 0.04 * Math.sin(t * 3 + ph), 0.3); }
   }
   if (kreaturStaubAn(b) && a.speed > 0.25) {
     a.staubT = (a.staubT || 0) + dt;
@@ -1232,7 +1240,7 @@ function kreaturPlatzhalter(a, b, t) {
 }
 function updateKreatur(a, e, dt, t) {
   const b = (e.kr && e.kr.b) | 0;
-  kreaturInhaltLaden();
+  kreaturInhaltLaden(t);
   const pos = place(a, e.x, e.y, 0);
   const f = +e.facing || 0;
   locomote(a, pos.x, pos.z, dt, yawOf(Math.cos(f), Math.sin(f)), false);   // Blick = Snapshot-Blick (nicht auf 45 Grad gerastet), a.dist zählt die Strecke
@@ -1266,8 +1274,8 @@ const SM_KEGEL_TEMPO = 12;        // m/s: so schnell darf die Kegellänge wachse
 const SM_NULL = [0, 0, 0];
 // Lichtkegel je Zustand: laenge (m ab dem Lichtschlitz, ein Stück davon liegt unter dem Rumpf), breite (m am Ende), hell (Faktor auf Weiß 250,248,238)
 const SM_KEGEL = {
-  patrouille: { laenge: 3.4, breite: 1.8, hell: 0.30 },   // mittel, schwenkt mit dem Sensor
-  laerm: { laenge: 5.6, breite: 0.8, hell: 0.36 },        // lang und schmal
+  patrouille: { laenge: 3.4, breite: 1.8, hell: 0.34 },   // mittel, schwenkt mit dem Sensor
+  laerm: { laenge: 5.6, breite: 0.8, hell: 0.42 },        // lang und schmal
   jagd: { laenge: 2.4, breite: 3.0, hell: 0.50 },         // kurz und breit, hell
   rammen: { laenge: 1.3, breite: 1.6, hell: 0.42 },       // sehr kurz, gestaucht
   pause: { laenge: 0, breite: 0, hell: 0 },               // aus
@@ -1440,7 +1448,7 @@ function monsterFunken(a, S, zustand, dt) {
   if (!fx || !fx.spawnFx) return;
   const r = monsterFunkenZahl(S.funkenAcc || 0, dt); S.funkenAcc = r.acc;
   const p = a.container.position, yaw = a.container.rotation.y;
-  for (let i = 0; i < r.n; i++) fx.spawnFx('sparks', { pos: monsterFunkenPunkt([p.x, p.y, p.z], yaw, SM_SCHILD_VOR + S.ruck * VX, (Math.random() * 2 - 1) * 0.5, 0.1), n: 3, dt });
+  for (let i = 0; i < r.n; i++) fx.spawnFx('sparks', { pos: monsterFunkenPunkt([p.x, p.y, p.z], yaw, SM_SCHILD_VOR + S.ruck * VX, (Math.random() * 2 - 1) * 0.5, 0.1), n: 5, s0: [0.05, 0.08], dt });
 }
 /** Rückfall: der alte Quader (Asset fehlt oder baut noch), Verhalten wie vor MON-02 O3b. */
 function monsterRueckfall(a, mo, t) {

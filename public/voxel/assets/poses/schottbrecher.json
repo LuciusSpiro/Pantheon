@@ -89,13 +89,13 @@
     "pause": {
       "joints": { "sensor": [20,0,0], "hipVL": [0,0,-10], "kneeVL": [0,0,9.1], "hipVR": [0,0,10], "kneeVR": [0,0,-9.1], "hipHL": [0,0,-10], "kneeHL": [0,0,9.1], "hipHR": [0,0,10], "kneeHR": [0,0,-9.1] },
       "shift": {
-        "hull": [0,-6,0],
-        "schild": [0,2,0],
+        "hull": [0,-10.5,0],
+        "schild": [0,6,0],
         "lampe": [0,-2,-2],
-        "footVL": [0,6.71,0],
-        "footVR": [0,6.71,0],
-        "footHL": [0,6.71,0],
-        "footHR": [0,6.71,0]
+        "footVL": [0,10.8,0],
+        "footVR": [0,10.8,0],
+        "footHL": [0,10.8,0],
+        "footHR": [0,10.8,0]
       },
       "breathe": 0,
       "look": false
