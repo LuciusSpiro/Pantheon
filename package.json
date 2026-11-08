@@ -280,6 +280,7 @@
     "test:wellen": "node tools/test-wellen.js",
     "test:labor": "node tools/test-labor.js",
     "test:ablage": "node tools/test-ablage.js",
+    "test:mitschnitt-render": "node tools/test-mitschnitt-render.js",
     "missionen": "node tools/missionen.js",
     "test:flight": "node tools/test-flight.js",
     "test:klassen": "node tools/test-klassen.js",
