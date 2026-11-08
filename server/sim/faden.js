@@ -162,6 +162,7 @@ function anwenden(game, wirkungen) {   // Aufrufer: Kriegslage.tickMit (gueltig 
     if (!w || w.typ !== 'haltung_aenderung' || !haltungPruefen(game, w).ok) continue;
     const nsc = nscVon(game, w.npc);
     nsc.haltung = klemmen(nsc.haltung + w.delta);
+    game.mitschnitt && game.mitschnitt.haltung(w, nsc);   // MIT-01 A H5: Beobachter, wirft nie
     n++;
   }
   return n;

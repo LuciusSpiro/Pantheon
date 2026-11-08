@@ -39,6 +39,10 @@ const MAX_TUNING = 100;                 // tuning/: nur die neuesten N Dateien b
 const RETRY_MS = 1000;
 const SCHLUESSEL = /^[a-z0-9_]{1,40}$/;
 const RESERVIERT = new Set(['v', 'typ', 'sitzung', 'tick', 't']);
+// MIT-01 A (H0): Betriebsmodus 'senke' (TELEMETRIE=senke, oder vom Mitschnitt eingeschaltet, wenn die Telemetrie sonst aus ist): die Session ist offen, aber ohne Datei, ohne Verzeichnis, ohne Kopf, ohne Puffer.
+// Zeilen dieser Typen gehen an die angemeldeten Senken (senkeAnmelden), alle anderen werden vor dem Aufbau verworfen (nichts Teures: keine Zeitreihe, keine Schuesse, keine Treffer).
+// Die Senken bekommen dieselben Typen auch bei TELEMETRIE=an (dann zusaetzlich zur Datei). Ohne Senke und ohne Modus verhaelt sich alles wie vorher.
+const SENKE_TYPEN = new Set(['ruf', 'buchung', 'szene_start', 'szene_ende', 'szene_neustart', 'kill', 'gegner_neu', 'gegner_weg', 'spielleiter_warten']);
 
 function dirVon(env) {
   const v = (env && env.TELEMETRIE_DIR) || process.env.TELEMETRIE_DIR;
@@ -145,6 +149,7 @@ function abschliessen(s, grund, tick, t) {
   const haken = s.abschluss; s.abschluss = [];
   for (const h of haken) { try { h(); } catch (e) { fehler(s, 'abschluss', e); } }
   offene.delete(s);
+  if (s.senke) return;   // MIT-01 A (H0): keine Datei, kein session_ende
   try {
     s.kopfFertig = true;   // Kopf wie er ist (Notfall)
     schreibe(s, true);
@@ -174,7 +179,9 @@ class Telemetrie {
     // Aktivierung NUR über TELEMETRIE=an|aus (game.env, sonst process.env). Standard: an für einen echten Server, aus für Spiele
     // ohne Speicher (noStore: Tests, Smoke- und Messwerkzeuge). TELEMETRIE_QUELLE ist nur ein Etikett im Kopf und schaltet nichts.
     const w = envWert(game, 'TELEMETRIE').toLowerCase();
-    this.aktiv = /^(an|on|1|true)$/.test(w) ? true : /^(aus|off|0|false)$/.test(w) ? false : !game.storeDisabled;
+    this.senke = w === 'senke';   // MIT-01 A (H0): nur die Senken bedienen, nichts schreiben
+    this.senken = [];
+    this.aktiv = this.senke || (/^(an|on|1|true)$/.test(w) ? true : /^(aus|off|0|false)$/.test(w) ? false : !game.storeDisabled);
     this.SCHEMA_VERSION = SCHEMA_VERSION;
     this.s = null;   // Zustand der laufenden Session
     this.summe = { zeilen: 0, fehler: 0, verworfen: 0, verworfeneFelder: 0 };   // abgeschlossene Sessions dieser Instanz
@@ -182,6 +189,12 @@ class Telemetrie {
     this.werkzeugSzenario = null;   // nur Werkzeuge (siehe szenario())
   }
   get offen() { return this.s !== null; }
+  // MIT-01 A (H0): meldet eine Senke an (fn(zeile) mit { typ, tick, t, ...felder }, nur Typen aus SENKE_TYPEN, wirft nie in die Telemetrie). Ist die Telemetrie sonst aus, schaltet das den Senkenbetrieb ein (vor der ersten Session).
+  senkeAnmelden(fn) {
+    if (typeof fn !== 'function') return;
+    this.senken.push(fn);
+    if (!this.aktiv) { this.aktiv = true; this.senke = true; }
+  }
   get sitzung() { return this.s ? this.s.sitzung : null; }
   get zeilen() { return this.summe.zeilen + (this.s ? this.s.zeilen : 0); }
   get fehler() { return this.summe.fehler + (this.s ? this.s.fehler : 0); }
@@ -209,6 +222,7 @@ class Telemetrie {
       const s = neuerZustand(String(g.runId).replace(/[^A-Za-z0-9_-]/g, '_') + '-' + process.pid.toString(36), dirVon(g.env), melde, g.time);
       s.spiel = ref;   // schwach: beim Prozessende (Bot-Läufe ohne eigenes Sessionende) den letzten Spielstand ablesen
       this.s = s;
+      if (this.senke) { s.senke = true; s.kopfFertig = true; return; }   // MIT-01 A (H0): Session ohne Datei, Kopf und Puffer; abschliessen() ruft nur die Abschluss-Haken (offene Szenen schliessen)
       s.kopf = this._zeile('kopf', {});
       s.puffer.push(s.kopf); s.zeilen = 1;
       offene.add(s);
@@ -259,9 +273,10 @@ class Telemetrie {
   ereignis(typ, felder) {
     const s = this.s;
     if (!s) return;
+    if (s.senke && !SENKE_TYPEN.has(typ)) return;   // MIT-01 A (H0): im Senkenbetrieb nur die Typen der Senke
     try {
       s.zeilen++;
-      if (s.puffer.length >= PUFFER_MAX) { s.verworfen++; return; }   // harte Grenze: bei Fehler oder fehlendem Kopf wächst der Puffer nicht weiter
+      if (!s.senke && s.puffer.length >= PUFFER_MAX) { s.verworfen++; return; }   // harte Grenze: bei Fehler oder fehlendem Kopf wächst der Puffer nicht weiter
       const f = {};
       if (felder) for (const k of Object.keys(felder)) {
         if (!SCHLUESSEL.test(k)) { s.verworfeneFelder++; continue; }   // nur [a-z0-9_] als Feldname (Namen und Freitext kommen nie als Schlüssel durch)
@@ -269,9 +284,15 @@ class Telemetrie {
         if (typeof v === 'string' && v.length > 200) v = v.slice(0, 200);
         if (Array.isArray(v) ? v.length <= 64 && v.every(flach) : flach(v)) f[k] = v; else s.verworfeneFelder++;
       }
-      s.puffer.push(this._zeile(String(typ), f));
+      const z = this._zeile(String(typ), f);
+      if (this.senken.length && SENKE_TYPEN.has(z.typ)) this._anSenken(z);
+      if (s.senke) return;
+      s.puffer.push(z);
       if (s.puffer.length >= PUFFER_GRENZE) schreibe(s, false); else this._plane();
     } catch (e) { fehler(s, 'ereignis', e); }
+  }
+  _anSenken(z) {
+    for (const fn of this.senken) { try { fn(z); } catch (e) { /* eine Senke darf die Telemetrie nie stoeren */ } }
   }
   _tabelle(tab, name, daten) {
     if (!this.s) return;
@@ -308,7 +329,7 @@ class Telemetrie {
   }
   schreibeJetzt() { if (this.s) schreibe(this.s, true); }
   // Serverstart: Dateiliste und Inhalte der Werte-Dateien einmal einlesen (kalt ~20 ms), damit der Kopf der ersten Session im Nachrichtenhandler nur ~1,5 ms kostet
-  vorwaermen() { if (this.aktiv) { try { Kopf.tuningStand(this.game); } catch (e) { /* egal */ } } }
+  vorwaermen() { if (this.aktiv && !this.senke) { try { Kopf.tuningStand(this.game); } catch (e) { /* egal */ } } }
 }
 
 const offeneSessions = () => offene.size;   // für Tests: Sessions ohne session_ende

@@ -18,6 +18,11 @@ const { r2, num, txt, slotVon, sektorName } = require('./hilfen.js');
 const ZUSTAND = new WeakMap();
 function dienst(game) {
   const t = game && game.telemetrie;
+  return t && t.offen && !t.senke ? t : null;   // MIT-01 A: im Senkenbetrieb (voll = false) nichts bauen
+}
+// MIT-01 A (H0): die Typen der Senke (szene_*, kill, gegner_neu/weg) laufen auch im Senkenbetrieb
+function dienstSenke(game) {
+  const t = game && game.telemetrie;
   return t && t.offen ? t : null;
 }
 function zustand(t) {
@@ -51,7 +56,7 @@ const spielerzahl = (game) => (typeof game.connectedCount === 'function' ? game.
 // Eine Szene = Kampagnenmission, Labor-Umsetzung, Testgelaende, Wellen, Grabenangriff, Endkampf, Sund-Szene. Key = modus + szene.
 // Eine Szene ohne szene_ende lief bis zum session_ende.
 function szeneStart(game, modus, szene, extra) {
-  const t = dienst(game); if (!t) return;
+  const t = dienstSenke(game); if (!t) return;
   try {
     const z = zustand(t);
     z.boden.clear(); z.letzteBoden.clear(); z.bodenSchuss.clear(); z.letzterSchuss.clear();   // Merkzustand des Bodens gehoert zur Szene: eine neue Szene beginnt ohne den der alten
@@ -61,7 +66,7 @@ function szeneStart(game, modus, szene, extra) {
 }
 // dauer = ab Beginn bzw. letztem Neustart (Graben: letzter Versuch), dauer_gesamt = ab szene_start
 function szeneEnde(game, modus, szene, ausgang, extra) {
-  const t = dienst(game); if (!t) return;
+  const t = dienstSenke(game); if (!t) return;
   try {
     const z = zustand(t); const key = modus + '|' + szene;
     const e = z.szenen.get(key);
@@ -91,7 +96,7 @@ function welleGeschafft(game, modus, nr) {
   } catch (e) { /* nie werfen */ }
 }
 function szeneNeustart(game, modus, szene, versuch) {
-  const t = dienst(game); if (!t) return;
+  const t = dienstSenke(game); if (!t) return;
   try {
     const z = zustand(t); const e = z.szenen.get(modus + '|' + szene);
     if (e) e.t0 = game.time; else z.szenen.set(modus + '|' + szene, { modus, szene: txt(szene), t0: game.time, anfang: game.time });
@@ -192,7 +197,7 @@ function trefferMine(game, sektor, r) {
 // Ein Sweep faengt jeden Weg des Erscheinens und Verschwindens (Spawn, Flotte, Eskorte, Sprung, Rueckzug, Szenenwechsel ...), ohne dutzende Stellen anzufassen.
 // Die Ursache des Verschwindens wird aus dem letzten gesehenen Zustand des Gegners gelesen (leaving, entkommen, hp), sonst 'unbekannt'.
 function raumGegner(game) {
-  const t = dienst(game); if (!t) return;
+  const t = dienstSenke(game); if (!t) return;
   try {
     const z = zustand(t); const sp = game.space; if (!sp) return;
     const bekannt = z.raum;
@@ -225,13 +230,13 @@ function raumGegner(game) {
 }
 // Aufrufer, die Gegner gezielt wegnehmen (Debug-Skip, Wellenende), nennen den Grund; raumGegner liest ihn beim naechsten Sweep (statt 'unbekannt')
 function raumWegGrund(game, liste, grund) {
-  const t = dienst(game); if (!t) return;
+  const t = dienstSenke(game); if (!t) return;
   try { const z = zustand(t); for (const e of liste) z.wegGrund.set(e.id, grund); } catch (err) { /* nie werfen */ }
 }
 // space.enemyDown: Abschuss. Mitten in Waffen.schade (schadeBeginn) wird er bis nach dem treffer zurueckgehalten, Waffe = die dieses Treffers.
 // Sonst von/waffe aus dem letzten Treffer der Lerche auf diesen Gegner (der Tod kann spaeter kommen, Reaktor-Countdown); ohne Treffer von sonstige.
 function killRaum(game, e) {
-  const t = dienst(game); if (!t) return;
+  const t = dienstSenke(game); if (!t) return;
   try {
     const z = zustand(t);
     const b = z.raum.get(e.id);
@@ -251,7 +256,7 @@ function bodenRolle(k) { return txt(k.rolle || k.kind); }
 // Boden-Gegner erfassen (idempotent): gegner_neu beim ersten Mal. quelle 'spawn' = der Wellen-/Grabenablauf sieht ihn beim Erscheinen,
 // 'kontakt' = erstmals im Gefecht aufgefallen (Schuss, Treffer, Tod), dann ist t spaeter als der Spawn.
 function bodenGegnerSehen(game, e, wie) {
-  const t = dienst(game); if (!t || !e || e.team === 'crew') return null;
+  const t = dienstSenke(game); if (!t || !e || e.team === 'crew') return null;
   try {
     const z = zustand(t);
     let b = z.boden.get(e.id);
@@ -324,7 +329,7 @@ function trefferBoden(game, ziel, wirkung, quelleObj, ergebnis, seg0) {
 }
 // combat.knockOut: ein Gegner geht zu Boden (liegt oder ist tot). Von/Waffe aus dem letzten Treffer auf ihn
 function killBoden(game, e) {
-  const t = dienst(game); if (!t) return;
+  const t = dienstSenke(game); if (!t) return;
   try {
     const z = zustand(t);
     const b = bodenGegnerSehen(game, e, 'kontakt');
@@ -334,7 +339,7 @@ function killBoden(game, e) {
   } catch (err) { /* nie werfen */ }
 }
 function bodenGegnerWeg(game, e, grund) {
-  const t = dienst(game); if (!t) return;
+  const t = dienstSenke(game); if (!t) return;
   try {
     const z = zustand(t); const b = z.boden.get(e.id);
     if (!b) return;

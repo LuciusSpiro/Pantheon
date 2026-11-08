@@ -1,0 +1,158 @@
+'use strict';
+// MIT-01 A: Test des Recorders (server/telemetrie/mitschnitt.js) – ohne Netz, ohne LLM (Mock-Spielleiter), Fäden-Szenario mit Bitte.
+//   node tools/test-mitschnitt-aufnahme.js
+// Prüft: aus = keine Datei/kein Ordner; Verlaufs-Hash (snapshot, rng, Fäden, Ruf, Chronik) mit und ohne MITSCHNITT=1 und mit einem Empfänger, der in jedem Eingang wirft, gleich;
+// Vollständigkeit/Reihenfolge (nr lückenlos, Funkzeilen = radio-Ereignisse einer Beobachter-Verbindung, Optionen und Wahl der Bitte); Namensfilter (Spieler „Bo“, Ganzwort); Ende/Renderer-Stub/Fallback.
+const fs = require('fs');
+const os = require('os');
+const path = require('path');
+const crypto = require('crypto');
+const F = require('./regie-fixture.js');
+const Faden = require('../server/sim/faden.js');
+const Bitte = require('../server/sim/faden-bitte.js');
+const Kriegslage = require('../server/sim/kriegslage.js');
+const { Mitschnitt } = require('../server/telemetrie/mitschnitt.js');
+
+let fails = 0;
+const ok = (c, t) => { if (c) console.log('  ok   ' + t); else { fails++; console.log('  FEHLER ' + t); } };
+const root = fs.mkdtempSync(path.join(os.tmpdir(), 'pantheon-mit-'));
+let zaehler = 0;
+const neuesVerz = () => path.join(root, 'm' + (++zaehler));
+const frei = () => new Promise((r) => setImmediate(r));
+const alleDateien = (d, out) => { out = out || []; if (!fs.existsSync(d)) return out; for (const e of fs.readdirSync(d, { withFileTypes: true })) { const f = path.join(d, e.name); if (e.isDirectory()) alleDateien(f, out); else out.push(f); } return out; };
+
+// Szenario der Erkundung: Notruf -> Faden -> Bitte -> Antwort -> Fristen -> Abschluss. modus: 'aus' | 'an' | 'wirft'
+async function szenario(modus, dir, names) {
+  const env = { FAEDEN: '1', LAGE_SPIELLEITER: '1', SPIELLEITER_LLM: 'mock', REISE_EREIGNISSE: '1', REGIE_DIR: path.join(dir, 'regie') };
+  if (modus !== 'aus') { env.MITSCHNITT = '1'; env.MITSCHNITT_DIR = path.join(dir, 'mit'); }
+  const t = F.neuesSpiel({ crew: 2, seed: 7, names: names || ['Ada', 'Bo'], env });
+  const g = t.g, cs = t.cs;
+  const radios = [];
+  const w = { send(o) { if (o && o.t === 'event' && o.kind === 'radio') radios.push(o); } };
+  g.addConnection(w); w.observer = true;
+  const startNr = g.mitschnitt ? g.mitschnitt.nr : 0;   // ab hier zählt die Beobachter-Verbindung mit
+  if (modus === 'wirft') {   // jeder Eingang des Empfängers wirft (innen, hinter _sicher) und die Senke der Telemetrie auch
+    const boese = () => { throw new Error('Mutationsprobe'); };
+    const m = g.mitschnitt;
+    m._neu = boese; m._lesen = boese; m._filter = boese; m._fadenEreignis = boese; m._bauplan = boese; m._brett = boese; m._szeneStart = boese; m._szeneEnde = boese;
+    g.telemetrie.senken = [boese];
+  }
+  Faden.ausgangMitPerson(g, { art: 'notruf', id: 'notruf_pirat_frachter', hex: '0403', sprecher: 'Frachter Aurelia', ausgang: 'gelungen' });
+  let faden = null, gemeldet = 0;
+  for (let i = 0; i < 600; i++) {
+    Kriegslage.tick(g, 'spiel');
+    g.lageGrenze('szene_ende');
+    for (let k = 0; k < 3; k++) g.step();
+    await frei();
+    faden = faden || g.weltsim.faeden.liste.find((f) => f.vorlage === 'dankbarer_captain') || null;
+    const off = Bitte.offen(g);
+    if (off && off.nr !== gemeldet) {
+      gemeldet = off.nr;
+      const a = off.optionen.find((o) => o.id === 'annehmen') || off.optionen[0];
+      g.handleMessage(cs[0], { t: 'cmd', c: 'faden.bitte', id: a.id, nr: off.nr });
+    }
+    if (faden && faden.phase === 'abgeschlossen') break;
+  }
+  for (let i = 0; i < 40; i++) { Kriegslage.tick(g, 'spiel'); g.lageGrenze('szene_ende'); g.step(); await frei(); }
+  const h = crypto.createHash('sha1');
+  h.update(JSON.stringify(g.snapshot())); h.update(String(g.rng())); h.update(JSON.stringify(g.weltsim.faeden.liste.map((f) => [f.id, f.phase, f.beat, f.ausgang, f.nsc.haltung, f.nsc.status])));
+  h.update(JSON.stringify(g.weltsim.ruf)); h.update(JSON.stringify(g.weltsim.chronik));
+  return { g, hash: h.digest('hex'), radios, faden, startNr };
+}
+
+(async () => {
+  // ---------- 1. aus = aus ----------
+  console.log('Aus');
+  const d1 = neuesVerz();
+  const aus = await szenario('aus', d1);
+  ok(aus.g.mitschnitt === null, 'ohne MITSCHNITT=1: game.mitschnitt ist null');
+  ok(!aus.g.telemetrie.offen && !fs.existsSync(path.join(d1, 'mit')), 'ohne Schalter: Telemetrie nicht offen, kein Ordner');
+  const vorherEnv = process.env.MITSCHNITT_DIR;
+  ok(alleDateien(path.join(d1, 'mit')).length === 0, 'ohne Schalter: keine Datei');
+  ok(aus.g.telemetrie.aktiv === false && aus.g.telemetrie.senke === false, 'TELEMETRIE-Verhalten ohne Mitschnitt unverändert (inaktiv, keine Senke)');
+
+  // ---------- 2. Verlaufs-Hash ----------
+  console.log('Verlaufs-Hash');
+  const d2 = neuesVerz();
+  const an = await szenario('an', d2);
+  const d3 = neuesVerz();
+  const wirft = await szenario('wirft', d3);
+  ok(aus.faden && aus.faden.phase === 'abgeschlossen', 'Szenario: Faden bis zum Abschluss gespielt');
+  ok(an.hash === aus.hash, 'Hash mit MITSCHNITT=1 = ohne (' + an.hash.slice(0, 8) + ')');
+  ok(wirft.hash === aus.hash, 'Hash mit werfendem Empfänger = ohne');
+  ok(wirft.g.mitschnitt.fehler > 0, 'Mutationsprobe: der Empfänger hat tatsächlich geworfen (' + wirft.g.mitschnitt.fehler + ' gezählt)');
+  ok(wirft.g.errors === aus.g.errors, 'Mutationsprobe: Fehlerzähler des Spiels unverändert');
+
+  // ---------- 3. Vollständigkeit und Reihenfolge ----------
+  console.log('Vollständigkeit');
+  const m = an.g.mitschnitt; const v = m.verlauf();
+  ok(v.format === 'mitschnitt/1' && v.eintraege.length > 20, 'Verlauf hat Format und Einträge (' + v.eintraege.length + ')');
+  ok(v.eintraege.every((e, i) => e.nr === i + 1), 'nr lückenlos und aufsteigend');
+  ok(v.eintraege.every((e, i) => i === 0 || e.spielzeit >= v.eintraege[i - 1].spielzeit), 'spielzeit nicht fallend');
+  const funk = v.eintraege.filter((e) => e.art === 'funk' && e.nr > an.startNr);
+  ok(funk.length === an.radios.length && funk.length > 5, 'Funkzeilen = radio-Ereignisse der Beobachter-Verbindung (' + funk.length + ')');
+  ok(funk.every((e, i) => e.text === an.radios[i].text && e.von === an.radios[i].from), 'Funk in gleicher Reihenfolge und gleichem Text');
+  const bitte = v.eintraege.find((e) => e.art === 'bitte'), wahl = v.eintraege.find((e) => e.art === 'wahl' && e.quelle === 'bitte');
+  ok(bitte && bitte.optionen.length >= 2 && bitte.optionen.every((o) => o.id && o.text) && Number.isInteger(bitte.bitte_nr), 'Bitte mit Optionsliste (id, text) und bitte_nr');
+  ok(wahl && bitte.optionen.some((o) => o.id === wahl.id) && wahl.option === wahl.id && wahl.optionen.length === bitte.optionen.length, 'Wahl der Bitte mit gewählter Option und Liste');
+  ok(wahl && bitte.nr < wahl.nr, 'Bitte steht vor der Wahl');
+  const gf = v.gruppen.find((g) => g.id === 'f1');
+  ok(gf && gf.von_nr <= gf.bis_nr && gf.ausgang !== 'offen' && gf.nsc.length === 1 && gf.nsc[0].name, 'Faden f1: Gruppe mit Ausgang und NSC (' + (gf && gf.ausgang) + ')');
+  ok(v.eintraege.some((e) => e.art === 'faden' && e.ausgang === 'geoeffnet') && v.eintraege.some((e) => e.art === 'faden' && e.ausgang === 'abgeschlossen'), 'Faden-Ereignisse geoeffnet und abgeschlossen');
+  ok(v.eintraege.some((e) => e.art === 'chronik' && e.chronik_art), 'Chronik mit chronik_art');
+  ok(v.eintraege.some((e) => e.art === 'taetigkeit' && e.taetigkeit_art === 'szene_ende'), 'Tätigkeitsgrenzen');
+  ok(v.angebote.length > 0 && v.angebote.every((a) => a.angebot > 0 && a.ausgang), 'angebote[] gefüllt (' + v.angebote.length + ')');
+  ok(!/"status"\s*:/.test(JSON.stringify(v.lauf)), 'lauf trägt kein status');
+  ok(an.g.telemetrie.senke && an.g.telemetrie.stand().datei === null, 'Telemetrie läuft nur als Senke (kein Protokoll)');
+  ok(alleDateien(path.join(d2, 'mit')).length === 0, 'ohne ende(): bisher keine Datei');
+
+  // ---------- 4. Namenstest ----------
+  console.log('Namen');
+  ok(!/\bBo\b|\bAda\b/.test(JSON.stringify(v.eintraege)), 'Szenario: weder „Bo“ noch „Ada“ im Verlauf');
+  const d4 = neuesVerz();
+  const n = F.neuesSpiel({ crew: 2, seed: 3, names: ['Bo', 'Cem'], env: { MITSCHNITT: '1', MITSCHNITT_DIR: path.join(d4, 'mit'), REGIE_DIR: path.join(d4, 'regie') } });
+  const mn = n.g.mitschnitt;
+  n.g.oda('Bordintelligenz ODA: Bo ist verwundet, Cem hilft; Cemetery.');
+  n.g.emit('radio', { from: 'Lerche', text: 'Bo, bitte kommen. Bos Schiff, bo!' });
+  n.g.notice(n.g.players[0], 'Bordintelligenz: Bo, du bist dran.');
+  n.g.removeConnection(n.cs[0]);   // Bo geht, der Name bleibt im Filter
+  n.g.oda('Bo ist von Bord gegangen.');
+  const t4 = mn.verlauf().eintraege.filter((e) => ['oda', 'funk', 'anzeige'].includes(e.art)).map((e) => e.text);
+  ok(t4.includes('Bordintelligenz ODA: Crew ist verwundet, Crew hilft; Cemetery.'), 'Ganzwort: Bordintelligenz bleibt, Bo/Cem werden Crew, Cemetery bleibt (' + t4[0] + ')');
+  ok(t4.includes('Crew, bitte kommen. Bos Schiff, Crew!'), 'Funk: „Bos“ bleibt (kein ganzes Wort), „bo“ wird Crew');
+  ok(t4.includes('Bordintelligenz: Crew, du bist dran.'), 'notice als anzeige gefiltert');
+  ok(t4[t4.length - 1] === 'Crew ist von Bord gegangen.', 'ausgeschiedener Spieler bleibt gefiltert');
+  const Aus = require('../server/sim/lage-ausschnitt.js');
+  ok(Aus.ohneNamen('Bordintelligenz', ['Bo']) === 'Crew' && Aus.ohneNamenGanzwort('Bordintelligenz', ['Bo']) === 'Bordintelligenz', 'ohneNamen unverändert, ohneNamenGanzwort neu daneben');
+
+  // ---------- 5. Ende, Renderer-Stub, Fallback ----------
+  console.log('Ende');
+  const stubAufrufe = [];
+  Mitschnitt.renderLader = () => ({ schreibeLauf(verlauf, dir, opts) { stubAufrufe.push({ dir, opts }); fs.mkdirSync(dir, { recursive: true }); fs.writeFileSync(path.join(dir, 'verlauf.json'), JSON.stringify(verlauf)); fs.writeFileSync(path.join(dir, 'index.md'), 'stub'); return { dir, dateien: [] }; } });
+  m.lauf({ werkzeug: 'test-mitschnitt', regel: 'Bitte: annehmen', seed: 7, crew: 2, modus: 'faeden', kuenstlich: ['teleport', 'teleport'] });
+  const o1 = m.ende();
+  ok(o1 && o1.startsWith(path.join(d2, 'mit')) && /_test-mitschnitt-s7-c2-faeden$/.test(o1), 'ende() gibt den Lauf-Ordner unter MITSCHNITT_DIR (' + (o1 && path.basename(o1)) + ')');
+  ok(stubAufrufe.length === 1 && stubAufrufe[0].opts && stubAufrufe[0].opts.jetzt, 'Renderer-Stub einmal mit { jetzt } gerufen');
+  ok(m.ende() === o1 && stubAufrufe.length === 1, 'ende() idempotent');
+  const vj = JSON.parse(fs.readFileSync(path.join(o1, 'verlauf.json'), 'utf8'));
+  ok(vj.lauf.werkzeug === 'test-mitschnitt' && vj.lauf.regel === 'Bitte: annehmen' && vj.lauf.kuenstlich.length === 1 && vj.lauf.beendet && vj.lauf.id === path.basename(o1), 'lauf-Kopf gefüllt, kuenstlich ohne Doppel');
+  ok(vj.gruppen.every((g) => g.bis_nr >= g.von_nr), 'Gruppen mit gültiger Spanne');
+  m.vonEmit('oda', { text: 'zu spät' });
+  ok(m.verlauf().eintraege.length === vj.eintraege.length, 'nach ende() nimmt der Mitschnitt nichts mehr auf');
+  // ohne Renderer: nur verlauf.json, nie werfen
+  Mitschnitt.renderLader = () => { throw new Error('Renderer fehlt'); };
+  const d5 = neuesVerz();
+  const r = F.neuesSpiel({ crew: 1, seed: 5, names: ['Zed'], env: { MITSCHNITT: '1', MITSCHNITT_DIR: path.join(d5, 'mit'), REGIE_DIR: path.join(d5, 'regie') } });
+  r.g.oda('Ein Text.');
+  const o5 = r.g.mitschnitt.lauf({ werkzeug: 'x' }).ende();
+  ok(o5 && fs.existsSync(path.join(o5, 'verlauf.json')) && alleDateien(o5).length === 1, 'ohne Renderer: nur verlauf.json, kein Wurf');
+  const leer = F.neuesSpiel({ crew: 1, seed: 6, names: ['Zed'], env: { MITSCHNITT: '1', MITSCHNITT_DIR: path.join(d5, 'leer'), REGIE_DIR: path.join(d5, 'regie') } });
+  leer.g.mitschnitt.nr = 0;
+  ok(leer.g.mitschnitt.ende() === null && !fs.existsSync(path.join(d5, 'leer')), 'Lauf ohne Einträge schreibt nichts');
+  ok(process.env.MITSCHNITT_DIR === vorherEnv, 'process.env unverändert');
+
+  // Aufräumen: keine offenen Mitschnitte beim Prozessende (der Exit-Haken würde sonst ins Temp schreiben)
+  for (const g of [wirft.g, n.g]) g.mitschnitt.ende();
+  console.log(fails ? `\n${fails} FEHLER` : '\nalle ok');
+  process.exit(fails ? 1 : 0);
+})().catch((e) => { console.log('FEHLER ' + (e && e.stack)); process.exit(1); });

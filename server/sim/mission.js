@@ -938,6 +938,7 @@ class Mission {
     const c = this.step && this.step.choices && this.step.choices[id];
     if (!c) return;
     this.state.choice = { id, prompt: this.tpl(c.prompt), options: c.options.map((o) => ({ id: o.id, label: this.tpl(o.label), disabled: !!(o.disabledIf && this.cond(o.disabledIf)) })) };
+    this.game.mitschnitt && this.game.mitschnitt.buchEntscheidung(this.state.choice);   // MIT-01 A H4: Beobachter, wirft nie
   }
   refreshChoice() {
     const ch = this.state.choice;
@@ -954,6 +955,7 @@ class Mission {
     if (opt.disabled) return 'Nicht genug Marken.';
     const c = this.step.choices[ch.id];
     this.state.choice = null;
+    this.game.mitschnitt && this.game.mitschnitt.buchWahl(ch, opt);   // MIT-01 A H4: Beobachter, wirft nie
     this.choicesMade.add(ch.id);
     this.events.add('choice:' + ch.id);
     this.game.emit('sfx', { name: 'ui_click' });
