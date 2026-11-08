@@ -63,11 +63,11 @@ der Renderer weist es im Dokument aus).
 | `bauplan` | `ausgang`, `anbieter`, `modell`, `tokens`, `dauer_s`, `eskaliert?`, `angebot?` | Regielog `abenteuer_bauplan` |
 | `brett` | `ausgang`, `key?`, `angebot?` | Regielog (`abenteuer_*`) |
 | `regie` | `logart`, Rest des Logbuch-Eintrags | Regielog (alles Übrige, generisch) |
-| `bitte` | `faden`, `beat`, `nr`, `von`, `text`, `optionen: [{id,text}]` | H3 |
+| `bitte` | `faden`, `beat`, `bitte_nr`, `von`, `text`, `optionen: [{id,text}]` | H3 |
 | `wahl` | `quelle: bitte\|buch\|funk`, `id`, `text?`, `ausgang?`, `optionen?` | H3, H4 |
 | `entscheidung` | `id`, `prompt`, `optionen: [{id,label}]` (offen gestellt) | H4 |
 | `haltung` | `npc`, `delta`, `stand`, `grund?` | H5 |
-| `chronik` | `art`, `ref`, `kurz`, `param?` | H6 |
+| `chronik` | `chronik_art`, `ref`, `kurz`, `param?` | H6 |
 | `taetigkeit` | `art`, `zaehler?` | H2 |
 | `wirkung` | `konto: ruf\|marks\|ladung\|…`, `ziel`, `grund`, `betrag`, `stand` | Telemetrie-Senke (`ruf`, `buchung`) |
 | `kill`, `gegner` | knapp, wie Telemetrie | Telemetrie-Senke |
