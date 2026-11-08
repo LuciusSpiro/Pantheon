@@ -62,6 +62,7 @@
     "test:buchungen-mutation": "node tools/mutation-buchungen.js",
     "test:telemetrie": "node tools/test-telemetrie.js",
     "test:mitschnitt-aufnahme": "node tools/test-mitschnitt-aufnahme.js",
+    "test:mitschnitt-lauf": "node tools/test-mitschnitt-lauf.js",
     "test:telemetrie-oeffnen": "node tools/test-telemetrie-oeffnen.js",
     "test:telemetrie-kennung": "node tools/test-telemetrie-kennung.js",
     "test:telemetrie-b2": "node tools/test-telemetrie-b2.js",
