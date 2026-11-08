@@ -77,6 +77,7 @@ const KULISSE = (() => { try { return require('../content/welt/kulisse.json'); }
 const { makeRng, clamp, r1, r2, r3, f2 } = require('./util.js');
 const Haken = require('./telemetrie/haken.js');   // TEL-01 B2: Haken (Deckung, Menschen, Wirtschaft, Technik, Zeitreihe)
 const { Telemetrie } = require('./telemetrie/protokoll.js');   // TEL-01 A: Spielprotokoll (game.telemetrie)
+const { Mitschnitt } = require('./telemetrie/mitschnitt.js');   // MIT-01 A: Mitschnitt simulierter Läufe (game.mitschnitt, nur mit MITSCHNITT=1)
 
 const TUTORIAL_TITLES = { m1: 'Die stumme Boje', m2: 'Echo im Nebel', m3: 'Die Tafel von Kesh' };   // nur Ersatzstart ohne startCampaign
 const CAMPAIGN_STARTS = Protocol.CAMPAIGN_STARTS || ['m1', 'free'];
@@ -209,6 +210,7 @@ class Game {
     this.idCounter = 0;
     this.runCounter = 0;
     this.telemetrie = new Telemetrie(this);   // TEL-01 A: vor reset() (reset beendet eine offene Session)
+    this.mitschnitt = Mitschnitt.an(this) ? new Mitschnitt(this) : null;   // MIT-01 A: reiner Beobachter, ohne MITSCHNITT=1 null (jeder Haken: game.mitschnitt && …)
     this.roomCode = typeof o.roomCode === 'string' && o.roomCode ? o.roomCode.toUpperCase() : null;
     this.lobbyOpts = { skipDrill: false, startMission: 'm1', world: null, arena: null, wellen: null,   // wellen: Kartenwahl Bodenkampf: Wellen
       szene: null,   // W2 AP3b: Szenenwahl Wellen All (CONFIG.arena.szenen); null = Altweg Testgelände Raumkampf
@@ -314,7 +316,9 @@ class Game {
   texteUpdate(dt) { TextePool.update(this, dt); }
   // Tätigkeitsgrenze (szene_ende | andocken | absicht): benannter Hook, wirft nie in den Aufrufer
   lageGrenze(art) {
-    try { require('./sim/faden.js').taetigkeit(this, art); } catch (e) { this.countError('faden-taetigkeit', e); }   // SUND-04a-1 B: jede Tätigkeitsgrenze zählt für die Geschichtsfäden (nur mit FAEDEN=1; der Spielleiter plant danach mit frischem Zähler)
+    try { require('./sim/faden.js').taetigkeit(this, art); } catch (e) { this.countError('faden-taetigkeit', e); }
+    this.mitschnitt && this.mitschnitt.taetigkeit(art);   // MIT-01 A H2: Beobachter, liest den Zähler nur (wirft nie)
+    // SUND-04a-1 B: jede Tätigkeitsgrenze zählt für die Geschichtsfäden (nur mit FAEDEN=1; der Spielleiter plant danach mit frischem Zähler)
     TextePool.beiGrenze(this, art);   // SUND-03b T: der Text-Pool füllt an Tätigkeitsgrenzen nach (nur mit TEXTE_POOL; nichts Schweres im Hook)
     const l = this.lageSpielleiter;
     if (!l) return null;
@@ -611,10 +615,12 @@ class Game {
     if (kind === 'missionDone') this.markSaveDue('missionDone');   // S1 §5.3: speichern am Tick-Ende (auch ohne Dock)
     this.telemetrie.vonEmit(kind, data);   // TEL-01 A: Übersetzer (Positivliste), wirft nie
     this.broadcast(Object.assign({ t: 'event', kind }, data));
+    this.mitschnitt && this.mitschnitt.vonEmit(kind, data);   // MIT-01 A: Beobachter hinter dem Broadcast (wirft nie)
   }
   notice(p, text) {
     const msg = { t: 'event', kind: 'notice', pid: p.id, text };
     if (p.conn) this.sendTo(p.conn, msg);
+    this.mitschnitt && this.mitschnitt.anzeige(p, text);   // MIT-01 A H7: Beobachter (wirft nie)
   }
   oda(text, onceKey) {
     if (onceKey) { if (this.odaSeen.has(onceKey)) return; this.odaSeen.add(onceKey); }
@@ -1849,7 +1855,7 @@ class Game {
   // ---------- Tick ----------
   // TEL-01 B2: misst die Dauer des Ticks (nur die Uhr lesen) und gibt dem Protokoll am Tickende die Zeitreihe
   step() {
-    if (!this.telemetrie.offen) { this.tickKern(); return; }
+    if (!this.telemetrie.offen || this.telemetrie.senke) { this.tickKern(); return; }   // MIT-01 A: Senkenbetrieb (offen, ohne Protokoll) misst die Tickdauer nicht
     const t0 = performance.now(); const z0 = this.time;
     this.tickKern();
     Haken.tickEnde(this, t0, this.time !== z0);

@@ -46,6 +46,7 @@ function eintragen(game, e) {
   const p = paramLesen(e.param, game);
   if (p) x.param = p;
   ws.chronik.push(x);
+  game.mitschnitt && game.mitschnitt.chronik(x);   // MIT-01 A H6: Beobachter, wirft nie
   while (ws.chronik.length > MAX) ws.chronik.shift();
   return x;
 }

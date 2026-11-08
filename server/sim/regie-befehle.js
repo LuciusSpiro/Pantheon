@@ -427,7 +427,7 @@ function logger(game) {
   if (!game.lageRegie || game.lageRegie.id !== id) {
     const env = game.env || process.env;
     try {
-      game.lageRegie = { id, log: Regielog.create({ dir: Regielog.dir(env), weltId: id, memoryOnly: game.worldsEnabled === false && !(env && env.REGIE_DIR), onError: (e) => { if (game.countError) game.countError('regielog', e); }, sitzung: () => game.runId }) };
+      game.lageRegie = { id, log: Regielog.create({ dir: Regielog.dir(env), weltId: id, memoryOnly: game.worldsEnabled === false && !(env && env.REGIE_DIR), onError: (e) => { if (game.countError) game.countError('regielog', e); }, sitzung: () => game.runId, beobachter: (rec) => { if (game.mitschnitt) game.mitschnitt.vonRegielog(rec); } }) };
     } catch (e) { if (game.countError) game.countError('regielog', e); return null; }
   }
   return game.lageRegie.log;

@@ -6,7 +6,7 @@
 // wunschliste.json sammelt fehlende Bausteine ({ text: { n, zuerst, zuletzt, missionen[] } }).
 // Schreiben wirft nie (Fehler -> onError, z. B. game.countError). Lesen: Regielog.read(dir, weltId).
 //
-//   const log = Regielog.create({ dir, weltId, rotateBytes, onError, sitzung })   // sitzung: () => Sitzungskennung (TEL-01 A: game.runId), Eintrag bekommt Feld sitzung
+//   const log = Regielog.create({ dir, weltId, rotateBytes, onError, sitzung, beobachter })   // sitzung: () => Sitzungskennung (TEL-01 A: game.runId), Eintrag bekommt Feld sitzung
 //   log.write(entry) / log.wish(text, { mission }) / log.file / log.entries (letzte 200 im Speicher)
 //   Regielog.dir(env)   // REGIE_DIR oder data/regie
 
@@ -33,6 +33,7 @@ function create(opts) {
   const rotateBytes = o.rotateBytes || DEFAULT_ROTATE;
   const onError = typeof o.onError === 'function' ? o.onError : () => {};
   const sitzung = typeof o.sitzung === 'function' ? o.sitzung : null;
+  const beobachter = typeof o.beobachter === 'function' ? o.beobachter : null;   // MIT-01 A H1: bekommt jeden normalisierten Eintrag (Mitschnitt), wirft nie nach aussen
   const entries = [];
   let mkdirDone = false;
   const ensureDir = () => { if (!mkdirDone) { fs.mkdirSync(d, { recursive: true }); mkdirDone = true; } };
@@ -70,6 +71,7 @@ function create(opts) {
   }
   function write(e) {
     const rec = normalize(e);
+    if (beobachter) { try { beobachter(rec); } catch (err) { /* MIT-01 A H1: ein Beobachter darf das Logbuch nie stoeren */ } }
     entries.push(rec); if (entries.length > KEEP) entries.splice(0, entries.length - KEEP);
     if (o.memoryOnly) return rec;
     try { ensureDir(); rotate(); fs.appendFileSync(file, JSON.stringify(rec) + '\n', 'utf8'); } catch (err) { onError(err); }
