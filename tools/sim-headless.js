@@ -64,10 +64,24 @@ function botEnv(extra) {
   const e = process.env;
   return Object.assign({ TELEMETRIE: args.includes('--ohne-telemetrie') ? 'aus' : (e.TELEMETRIE || (require.main === module ? 'an' : 'aus')), TELEMETRIE_QUELLE: 'bot', TELEMETRIE_DIR: e.TELEMETRIE_DIR || require('path').join('data', 'telemetrie', 'bot') }, extra);
 }
+// MIT-01 C: --mitschnitt / --mitschnitt-dir bzw. MITSCHNITT=1 (tools/lib/mitschnitt-lauf.js): die Umgebung wird vor dem ersten Game gesetzt; ohne Schalter ist alles ein Nulleffekt
+const MitLauf = require('./lib/mitschnitt-lauf.js');
+MitLauf.einschalten(args);
+const BOT_MODUS = args.find((a) => /^(kette|labor|umsetzung|wellen|graben|arena|archiv|escort|flotte|sl|dauer|m3)$/.test(a)) || 'szenario';
 const BOT_SPIELE = [];
-function botSpiel(game) { BOT_SPIELE.push(game); return game; }
+// Standard-Lauf-Daten fuer jedes Bot-Spiel (Werkzeug, Modus, Seed); runGeneric/runWellen/runGraben/runScenario ergaenzen Crew und Wahlregel ueber botLauf
+function botSpiel(game) { BOT_SPIELE.push(game); MitLauf.anmelden(game, { werkzeug: 'sim-headless', modus: BOT_MODUS, seed: game.seed, quelle: 'bot' }); return game; }
+function botLauf(game, daten) { MitLauf.anmelden(game, daten); }
+// Wahlregel der Bots als Klartext (Szenario-Parameter, Umgebung BOT_WAHL), fuer den Kopf des Mitschnitts
+function botRegel(opts) {
+  const o = opts || {};
+  const t = ['Entscheidungen: die Szenario-Option des Bots, sonst die erste nicht gesperrte Option'];
+  for (const k of ['grauzahn', 'decision', 'sela', 'parley', 'funk', 'bluff', 'weg']) if (o[k] != null) t.push(k + '=' + o[k]);
+  if (process.env.BOT_WAHL) t.push('BOT_WAHL=' + process.env.BOT_WAHL);
+  return t.join('; ');
+}
 // Jede Bot-Session endet am Ende des Laufs (auch bei Wurf), nicht erst beim Prozessende: sonst fehlt Ctrl-C das Ende, und offene Sessions halten ihr Tuning im Speicher.
-function botEnde() { for (const g of BOT_SPIELE.splice(0)) { try { g.telemetrie.sessionBeenden('bot-ende'); } catch (e) { /* nie werfen */ } } }
+function botEnde() { for (const g of BOT_SPIELE.splice(0)) { try { MitLauf.beenden(g); } catch (e) { /* nie werfen */ } try { g.telemetrie.sessionBeenden('bot-ende'); } catch (e) { /* nie werfen */ } } }   // MIT-01 C: der Mitschnitt endet vor der Telemetrie-Session
 const mitBotEnde = (fn) => async function (...a) { try { return await fn.apply(this, a); } finally { botEnde(); } };
 
 const argVal = (k, d) => (args.indexOf(k) >= 0 ? args[args.indexOf(k) + 1] : d);
@@ -2137,6 +2151,7 @@ async function runScenario(n, opts) {
   simRng = makeRng(seed * 7919 + n);
   const odaTexts = [];
   const game = botSpiel(new Game({ noStore: true, seed, env: botEnv({ MISSION_SOURCE: 'fallback' }), log: VERBOSE ? (...a) => log('  [game] ' + a.join(' ')) : () => {} }));
+  botLauf(game, { regel: botRegel(opts), crew: n, kuenstlich: opts.skipDrill ? ['skip'] : [] });   // MIT-01 C: skipDrill ueberspringt die Hafen-Uebung (Lobby-Option)
   game.simStats = { reactorRestarts: 0, widescans: 0, wreckDone: false };
   const roles = n === 1 ? ['solo'] : ['captain', 'helm', 'weapons'].slice(0, n);
   const agents = roles.map((r, i) => new Agent(game, i, r, opts));
@@ -3656,6 +3671,7 @@ async function runGeneric(opts) {
   simRng = makeRng(seed * 7919 + 500 + crew);
   const env = botEnv({ MISSION_SOURCE: 'fallback', SPIELLEITER_LLM: 'off', LLM_LIVE: '0', REGIE_DIR: path.join(os.tmpdir(), 'pantheon-regie-bots') });
   const game = botSpiel(new Game(Object.assign({ noStore: true, seed, env, log: VERBOSE ? (...a) => log('  [game] ' + a.join(' ')) : () => {} }, opts.gameOpts || {})));   // SL11: gameOpts (Weltstand-Ordner für Speichern/Laden)
+  botLauf(game, { regel: botRegel(opts), crew, modus: opts.mode === 'labor' ? 'labor-' + opts.labor : opts.mode, kuenstlich: opts.einstieg ? ['einstieg'] : [] });   // MIT-01 C: Einstieg stellt den Zustand vor einem Kapitel her
   const errList = [];
   const origCount = game.countError.bind(game);
   game.countError = (where, err) => { if (errList.length < 40) errList.push(`${where}: ${err && err.message ? err.message : err}`); origCount(where, err); };
@@ -3761,6 +3777,7 @@ async function runGeneric(opts) {
         game.explore.openLink(L.key);
         (res.debugLinks || (res.debugLinks = [])).push(`${L.key} (für ${nr.loc}, ${cur ? cur.archiv || cur.id : '-'})`);
         if (cur) cur.debugLink = true;
+        MitLauf.kuenstlich(game, 'debug-route');   // MIT-01 C: die Route wurde per Debug geoeffnet
       }
     }
     // Schrittwechsel + Zeitlimit (Debug-skip, zählt als „nicht gespielt“)
@@ -3781,6 +3798,7 @@ async function runGeneric(opts) {
         const why = curStep.known ? `Zeitlimit` : `Umsetzung ohne Bot-Handler`;
         (cur.skips || (cur.skips = [])).push({ step: curStep.id, ums: curStep.ums, why, t: r1(game.time - cur.t0) });
         if (VERBOSE) log(`  [SKIP ${game.time.toFixed(1)}] ${curStep.id} (${curStep.ums}) – ${why}`);
+        MitLauf.kuenstlich(game, 'skip');   // MIT-01 C: die Szene wird uebersprungen, der Verlauf ist teilweise gesetzt
         try { const e = m.skip(); if (e && VERBOSE) log('  skip: ' + e); } catch (e) { errList.push('skip: ' + e.message); }
         curStep.limitAt = game.time + 45;
       }
@@ -4239,6 +4257,7 @@ async function runWellen(opts) {
   const seed = opts.seed;
   simRng = makeRng(seed * 7919 + 4242);
   const game = botSpiel(new Game({ noStore: true, seed, env: botEnv({ MISSION_SOURCE: 'fallback' }), log: VERBOSE ? (...a) => log('  [game] ' + a.join(' ')) : () => {} }));
+  botLauf(game, { regel: 'Wellenkampf ohne Entscheidungen (Bot-Spieler' + (process.env.BOT_WAFFE ? ', Waffe BOT_WAFFE=' + process.env.BOT_WAFFE : '') + ')', crew: opts.players, modus: 'wellen-' + opts.karte });   // MIT-01 C
   game.simStats = { reactorRestarts: 0, widescans: 0, wreckDone: false, orders: 0, coverShots: 0, keyTries: 0 };
   const agents = [];
   for (let i = 0; i < opts.players; i++) agents.push(new WellenAgent(game, i, opts.players === 1 ? 'solo' : ['helm', 'weapons', 'captain'][i], opts));
@@ -4359,6 +4378,7 @@ async function runGraben(opts) {
   const seed = opts.seed;
   simRng = makeRng(seed * 7919 + 4242);
   const game = botSpiel(new Game({ noStore: true, seed, env: botEnv({ MISSION_SOURCE: 'fallback' }), log: VERBOSE ? (...a) => log('  [game] ' + a.join(' ')) : () => {} }));
+  botLauf(game, { regel: 'Grabenangriff ohne Entscheidungen (Bot-Spieler)', crew: opts.players, modus: 'graben', kuenstlich: opts.god ? ['god'] : [] });   // MIT-01 C: --god macht die Crew unverwundbar
   game.simStats = { reactorRestarts: 0, widescans: 0, wreckDone: false, orders: 0, coverShots: 0, keyTries: 0 };
   const agents = [];
   for (let i = 0; i < opts.players; i++) agents.push(new GrabenAgent(game, i, opts.players === 1 ? 'solo' : ['helm', 'weapons', 'captain', 'captain'][i], opts));

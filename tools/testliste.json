@@ -300,6 +300,7 @@
   {"id":"mutation-tutorial-sprung","kette":"test","cmd":["tools/mutation-tutorial-sprung.js"],"stufe":"full","budget_s":47},
   {"id":"test-telemetrie","kette":"test","cmd":["tools/test-telemetrie.js"],"stufe":"fast","seriell":true,"budget_s":7},
   {"id":"test-mitschnitt-aufnahme","kette":"test","cmd":["tools/test-mitschnitt-aufnahme.js"],"stufe":"fast","budget_s":12},
+  {"id":"test-mitschnitt-lauf","kette":"test","cmd":["tools/test-mitschnitt-lauf.js"],"stufe":"fast","budget_s":14},
   {"id":"test-telemetrie-kennung","kette":"test","cmd":["tools/test-telemetrie-kennung.js"],"stufe":"fast","budget_s":8},
   {"id":"test-telemetrie-b2","kette":"test","cmd":["tools/test-telemetrie-b2.js"],"stufe":"fast","budget_s":6},
   {"id":"test-telemetrie-deckung","kette":"test","cmd":["tools/test-telemetrie-deckung.js"],"stufe":"fast","budget_s":6},
