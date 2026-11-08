@@ -1,0 +1,39 @@
+{
+  "format": "mitschnitt/1",
+  "lauf": { "id": "2026-11-08_spiel-faden", "werkzeug": "spiel-faden", "quelle": "bot", "regel": "Brett: annehmen; Bitte: erste Option", "seed": 7, "crew": 3, "modus": "faeden", "gestartet": "2026-11-08T10:00:00.000Z", "beendet": "2026-11-08T10:03:09.000Z", "kuenstlich": ["teleport"] },
+  "eintraege": [
+    { "nr": 1, "spielzeit": 1.3, "art": "funk", "von": "Auftragsbrett", "text": "Neuer Auftrag am Brett: Der letzte Konvoi" },
+    { "nr": 2, "spielzeit": 2.0, "art": "brett", "ausgang": "angeboten", "key": "konvoi", "angebot": 1 },
+    { "nr": 3, "spielzeit": 2.1, "art": "faden", "ausgang": "geoeffnet", "faden": "f3", "beat": "b_notruf", "typ": "notruf", "begruendung": "Notruf liegt an", "plan": { "angebot": 1 } },
+    { "nr": 4, "spielzeit": 2.1, "art": "funk", "von": "Quintus Serran", "text": "Freunde! Könnt ihr uns bei Speculum decken?\nDanke.", "pid": "f:5:rom" },
+    { "nr": 5, "spielzeit": 2.2, "art": "bitte", "faden": "f3", "beat": "b_notruf", "nr_bitte": 1, "von": "Quintus Serran", "text": "Deckt uns bei Speculum.", "optionen": [ { "id": "o1", "text": "Wir kommen." }, { "id": "o2", "text": "Keine Zeit." }, { "id": "o3", "text": "Später." } ] },
+    { "nr": 6, "spielzeit": 2.4, "art": "wahl", "quelle": "bitte", "id": "o1", "text": "Wir kommen.", "ausgang": "angenommen" },
+    { "nr": 7, "spielzeit": 2.5, "art": "funk", "von": "Lerche", "text": "Wir kommen mit euch." },
+    { "nr": 8, "spielzeit": 3.0, "art": "oda", "text": "Sprung nach Speculum eingeleitet." },
+    { "nr": 9, "spielzeit": 3.2, "art": "pruefung_unbekannt", "foo": "bar", "zahl": 4 },
+    { "nr": 10, "spielzeit": 3.5, "art": "faden_pruefung", "ausgang": "abgelehnt", "key": "geleit", "fehler": ["Beat ohne Ausgang", "Ort unbekannt"] },
+    { "nr": 11, "spielzeit": 4.0, "art": "bauplan", "ausgang": "ausfall", "anbieter": "ollama", "modell": "qwen-klein", "tokens": 410, "dauer_s": 12.5, "angebot": 1 },
+    { "nr": 12, "spielzeit": 4.1, "art": "bauplan", "ausgang": "gueltig", "anbieter": "ollama", "modell": "qwen-gross", "tokens": 980, "dauer_s": 31, "eskaliert": true, "angebot": 1 },
+    { "nr": 13, "spielzeit": 5.0, "art": "wirkung", "konto": "ruf", "ziel": "rom", "grund": "Konvoi gedeckt", "betrag": 3, "stand": 8 },
+    { "nr": 14, "spielzeit": 5.1, "art": "haltung", "npc": "n12", "delta": 1, "stand": 4, "grund": "Hilfe geleistet" },
+    { "nr": 15, "spielzeit": 5.2, "art": "chronik", "ref": "f3", "kurz": "Der Konvoi erreichte Speculum.", "param": { "wahl": "o1" } },
+    { "nr": 16, "spielzeit": 5.3, "art": "faden", "ausgang": "abgeschlossen", "faden": "f3" },
+    { "nr": 17, "spielzeit": 6.0, "art": "sprung", "szene": "freie_fahrt", "ort": "hafen_ulfsvakt", "von": "speculum" },
+    { "nr": 18, "spielzeit": 6.5, "art": "funk", "von": "Auftragsbrett", "text": "Neuer Auftrag am Brett: Rauch ueber dem Hafen" },
+    { "nr": 19, "spielzeit": 7.0, "art": "szene", "ereignis": "start", "modus": "graben", "szene": "graben_1" },
+    { "nr": 20, "spielzeit": 7.5, "art": "kill", "gegner": "schwarmling" },
+    { "nr": 21, "spielzeit": 9.0, "art": "szene", "ereignis": "ende", "modus": "graben", "szene": "graben_1", "ausgang": "gelungen", "dauer": 2 }
+  ],
+  "gruppen": [
+    { "id": "f3", "art": "mission", "titel": "Der letzte Konvoi", "kennung": "konvoi", "von_nr": 3, "bis_nr": 16, "ausgang": "gelungen", "angebot": 1,
+      "plan": { "titel": "Der letzte Konvoi", "anlass": "Ein Konvoi bei Speculum wird bedrängt.\nDie Crew soll helfen.", "beats": ["b_notruf", "b_geleit"], "folgen": "Ruf Rom +3" },
+      "nsc": [ { "id": "n12", "name": "Quintus Serran", "volk": "rom", "titel": "Kapitän", "ort": "speculum", "haltung": 4, "ausgang": "lebt" } ],
+      "modell": { "stufe": "bauplan", "anbieter": "ollama", "modell": "qwen-gross", "quelle": "llm", "rueckfall": "qwen-klein ausgefallen", "tokens": 1390, "dauer_s": 43.5, "aufrufe": [ { "modell": "qwen-klein", "ausgang": "ausfall", "tokens": 410 }, { "modell": "qwen-gross", "ausgang": "gueltig", "tokens": 980 } ] },
+      "pruefer": ["Folge ohne Deckel geplant"] },
+    { "id": "s1", "art": "szene", "titel": "Graben bei Hafen Ulfsvakt", "kennung": "graben_1", "von_nr": 19, "bis_nr": 21, "ausgang": "gelungen", "angebot": null, "plan": null, "nsc": [], "modell": null, "pruefer": [] }
+  ],
+  "angebote": [
+    { "angebot": 1, "titel": "Der letzte Konvoi", "ausgang": "gespielt" },
+    { "angebot": 2, "titel": "Rauch ueber dem Hafen", "ausgang": "verfallen" }
+  ]
+}
