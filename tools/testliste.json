@@ -35,6 +35,7 @@
   {"id":"messe-szenen-ollama --selbsttest","kette":"test","cmd":["tools/messe-szenen-ollama.js","--selbsttest"],"stufe":"fast","budget_s":7},
   {"id":"test-ablage","kette":"test","cmd":["tools/test-ablage.js"],"stufe":"fast","budget_s":8},
   {"id":"test-mitschnitt-render","kette":"test","cmd":["tools/test-mitschnitt-render.js"],"stufe":"fast","budget_s":14},
+  {"id":"test-mitschnitt-werkzeug","kette":"test","cmd":["tools/test-mitschnitt-werkzeug.js"],"stufe":"fast","budget_s":14},
   {"id":"test-buehne","kette":"test","cmd":["tools/test-buehne.js"],"stufe":"fast","budget_s":14},
   {"id":"test-generatoren","kette":"test","cmd":["tools/test-generatoren.js"],"stufe":"fast","budget_s":10},
   {"id":"test-waffen","kette":"test","cmd":["tools/test-waffen.js"],"stufe":"fast","budget_s":6},

@@ -283,6 +283,8 @@
     "test:ablage": "node tools/test-ablage.js",
     "test:mitschnitt-render": "node tools/test-mitschnitt-render.js",
     "missionen": "node tools/missionen.js",
+    "mitschnitt": "node tools/mitschnitt.js",
+    "test:mitschnitt-werkzeug": "node tools/test-mitschnitt-werkzeug.js",
     "test:flight": "node tools/test-flight.js",
     "test:klassen": "node tools/test-klassen.js",
     "test:m3": "node tools/test-m3.js",
