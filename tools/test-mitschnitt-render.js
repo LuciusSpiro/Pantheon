@@ -161,6 +161,41 @@ check('unbekannte Art erscheint mit Feldern', md.includes('| pruefung_unbekannt 
   check('Index: Notizen-Abschnitt', /^## Notizen$/m.test(ix));
 }
 
+// 9 Nacharbeit N1: leere Gruppen, interne Felder, Funk-Antwort
+{
+  const w = clone(v);
+  const max = Math.max(...w.eintraege.map((e) => e.nr));
+  w.eintraege.push({ nr: max + 1, spielzeit: 90, art: 'mission', ereignis: 'start', id: 'k1', titel: 'Vorversuch', gruppe: 'mission-k1' },
+    { nr: max + 2, spielzeit: 90, art: 'oda', text: 'Ankündigung', gruppe: 'mission-k1', zuordnung: 'heuristik' },
+    { nr: max + 3, spielzeit: 91, art: 'mission', ereignis: 'start', id: 'k9', titel: 'Schlussstart', gruppe: 'mission-k9' });
+  w.gruppen.push({ id: 'mission-k1', art: 'mission', titel: 'Vorversuch', kennung: 'k1', von_nr: max + 1, bis_nr: max + 2, ausgang: 'abgebrochen', leer: true, ersetzt_durch: 'f3', angebot: null, plan: null, nsc: [], modell: null, pruefer: [] },
+    { id: 'mission-k9', art: 'mission', titel: 'Schlussstart', kennung: 'k9', von_nr: max + 3, bis_nr: max + 3, ausgang: 'offen', leer: true, angebot: null, plan: null, nsc: [], modell: null, pruefer: [] });
+  w.eintraege.find((e) => e.nr === 3).gruppe = 'f3'; w.eintraege.find((e) => e.nr === 3).zuordnung = 'heuristik';
+  const ix = R.renderIndex(w, { ordner: { f3: '01_konvoi', s1: '02_graben_1' } });
+  const haupt = ix.slice(ix.indexOf('## Aufträge'), ix.indexOf('## Leere Versuche'));
+  check('Index: leere Gruppen nicht in der Hauptliste, Nummerierung zählt nur Gruppen mit Inhalt', !haupt.includes('Vorversuch') && !haupt.includes('Schlussstart') && haupt.includes('| 2 | Graben bei Hafen Ulfsvakt |'));
+  const lv = ix.slice(ix.indexOf('## Leere Versuche'), ix.indexOf('## Angebote'));
+  check('Index: Abschnitt Leere Versuche mit Titel, Ausgang, Hinweis', lv.includes('| Vorversuch | abgebrochen | Vorversuch (0:00), ersetzt durch f3;') && lv.includes('| Schlussstart | offen | ohne eigenen Inhalt (0:00), kein eigenes Dokument;'), lv);
+  check('Index: Leere Einträge nicht unter „Zwischen den Aufträgen“', !ix.slice(ix.indexOf('## Zwischen den Aufträgen')).includes('Ankündigung'));
+  check('Index ohne leere Gruppen: kein Abschnitt Leere Versuche', !R.renderIndex(v).includes('## Leere Versuche'));
+  const dir = tmp('leer');
+  const alt = path.join(dir, '03_k1'); fs.mkdirSync(alt, { recursive: true }); fs.writeFileSync(path.join(alt, 'mission.md'), '---\nbewertung: gut\n---\n\n## Notizen\n\nfrüherer Lauf\n');
+  const out = R.schreibeLauf(w, dir, { jetzt: new Date(2026, 10, 8) });
+  check('schreibeLauf: leere Gruppen ohne Ordner und mission.md', !out.dateien.some((f) => /k1|k9/.test(f)) && fs.readdirSync(dir).filter((n) => /k9/.test(n)).length === 0 && !fs.existsSync(path.join(dir, '03_k1', 'verlauf.json')));
+  check('schreibeLauf: Ordner mit Inhalt durchnummeriert (01, 02)', fs.existsSync(path.join(dir, '01_konvoi', 'mission.md')) && fs.readdirSync(dir).filter((n) => /^02_/.test(n) && fs.existsSync(path.join(dir, n, 'mission.md'))).length === 1, fs.readdirSync(dir).join(','));
+  check('schreibeLauf: vorhandener Ordner gleichen Namens bleibt samt Bewertung und Notizen', read(path.join(alt, 'mission.md')).includes('früherer Lauf') && read(path.join(alt, 'mission.md')).includes('bewertung: gut'));
+  check('verlauf.json des Laufs behält die leeren Gruppen samt Einträgen', (() => { const j = JSON.parse(read(path.join(dir, 'verlauf.json'))); return j.gruppen.filter((g) => g.leer).length === 2 && j.eintraege.some((e) => e.nr === max + 2); })());
+  const z = R.renderMission(w, w.gruppen.find((g) => g.id === 'f3'));
+  check('Zeitleiste und Zeilenausgabe ohne interne Felder (gruppe, zuordnung, nr, spielzeit, art)', !/gruppe:|zuordnung:|; nr:|spielzeit:|art:/.test(z) && w.eintraege.find((e) => e.nr === 3).gruppe === 'f3');
+  const roh = R.renderIndex({ format: 'mitschnitt/1', lauf: {}, gruppen: [], angebote: [], eintraege: [{ nr: 1, spielzeit: 1, art: 'wirkung', konto: 'ruf', ziel: 'rom', gruppe: 'x', zuordnung: 'heuristik', betrag: 3 }] });
+  check('generische Zeile zeigt Fachfelder, blendet Interna aus', roh.includes('konto: ruf; ziel: rom; betrag: 3') && !roh.includes('gruppe: x') && !roh.includes('zuordnung'));
+  const fa = { format: 'mitschnitt/1', lauf: { id: 'l' }, angebote: [], gruppen: [{ id: 'g', art: 'mission', titel: 'G', kennung: 'g', von_nr: 1, bis_nr: 3, ausgang: 'erfolg', nsc: [], pruefer: [] }], eintraege: [
+    { nr: 1, spielzeit: 1, art: 'entscheidung', quelle: 'funk', id: 'patrouille_rom_gruss', von: 'Patrouille', funk_nr: 1, optionen: [{ id: 'verstanden', text: 'Verstanden.' }, { id: 'ignorieren', text: 'Ignorieren' }] },
+    { nr: 2, spielzeit: 2, art: 'wahl', quelle: 'funk', id: 'verstanden', option: 'verstanden', text: 'Verstanden.', entscheidung: 'patrouille_rom_gruss', optionen: [{ id: 'verstanden', text: 'Verstanden.' }, { id: 'ignorieren', text: 'Ignorieren' }] }] };
+  const fm2 = R.renderMission(fa, fa.gruppen[0]);
+  check('Funk-Antwort: Angebot mit Optionen, Wahl hervorgehoben und der Frage zugeordnet', fm2.includes('### Funk-Antwort an Patrouille') && fm2.includes('- **verstanden: Verstanden.** ← gewählt') && fm2.includes('- ignorieren: Ignorieren') && !fm2.includes('_Keine Wahl erfasst._') && !fm2.includes('### Wahl ('));
+}
+
 // 8 ablage.js unverändert im Verhalten
 check('ablage.js re-exportiert weiter readMdState/renderMarkdown/setStatus', ['readMdState', 'renderMarkdown', 'setStatus', 'list', 'rewrite', 'create'].every((k) => typeof Ablage[k] === 'function'));
 {

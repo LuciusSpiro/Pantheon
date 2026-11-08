@@ -11,7 +11,11 @@ const F = require('./regie-fixture.js');
 const Faden = require('../server/sim/faden.js');
 const Bitte = require('../server/sim/faden-bitte.js');
 const Kriegslage = require('../server/sim/kriegslage.js');
-const { Mitschnitt } = require('../server/telemetrie/mitschnitt.js');
+const { Mitschnitt, gruppeIstLeer } = require('../server/telemetrie/mitschnitt.js');
+const Sektoren = require('../shared/sektoren.js');
+const Sprung = require('../server/sim/sprung.js');
+const RE = require('../server/sim/reise-ereignis.js');
+const FA = require('../server/sim/funk-antwort.js');
 
 let fails = 0;
 const ok = (c, t) => { if (c) console.log('  ok   ' + t); else { fails++; console.log('  FEHLER ' + t); } };
@@ -20,6 +24,31 @@ let zaehler = 0;
 const neuesVerz = () => path.join(root, 'm' + (++zaehler));
 const frei = () => new Promise((r) => setImmediate(r));
 const alleDateien = (d, out) => { out = out || []; if (!fs.existsSync(d)) return out; for (const e of fs.readdirSync(d, { withFileTypes: true })) { const f = path.join(d, e.name); if (e.isDirectory()) alleDateien(f, out); else out.push(f); } return out; };
+
+// Funk-Antwort (SUND-03b): Angebot erzwingen (Katalog auf einen Eintrag mit antworten, Wahrscheinlichkeit 1) und eine Option wählen
+function funkAntwortProbe(g, wahl) {
+  g.weltsim.zustand.flotten = []; g.space.enemies = [];
+  const kopie = RE.KATALOG.slice(); const id = 'patrouille_rom_gruss';
+  const alt = RE.WERTE.wahrscheinlichkeit; RE.WERTE.wahrscheinlichkeit = 1;
+  RE.KATALOG.length = 0; RE.KATALOG.push(kopie.find((e) => e.id === id));
+  try { const R = g.weltsim.reise; R.letzter = null; R.letzte = []; Sprung.springeNach(g, Sektoren.ortVonHex('0305')); } finally { RE.WERTE.wahrscheinlichkeit = alt; RE.KATALOG.length = 0; RE.KATALOG.push(...kopie); }
+  const off = g.weltsim.funkwahl && g.weltsim.funkwahl.offen;
+  if (off) FA.beantworten(g, wahl === 'ignorieren' ? 'ignorieren' : off.optionen[0].id, off.lfd);
+  return off;
+}
+// Befund N1/3: Funk-Antwort (Angebot + Wahl) mit/ohne Mitschnitt/werfendem Empfänger; Hash über Snapshot, rng, Ruf, Chronik
+function funkSzenario(modus, dir, wahl) {
+  const env = { REISE_EREIGNISSE: '1', REGIE_DIR: path.join(dir, 'regie') };
+  if (modus !== 'aus') { env.MITSCHNITT = '1'; env.MITSCHNITT_DIR = path.join(dir, 'mit'); }
+  const t = F.neuesSpiel({ crew: 1, seed: 7, names: ['Ada'], env });
+  const g = t.g;
+  if (modus === 'wirft') { const boese = () => { throw new Error('Mutationsprobe'); }; const m = g.mitschnitt; m._neu = boese; m._lesen = boese; m._filter = boese; m._funkOptionen = boese; }
+  const off = funkAntwortProbe(g, wahl);
+  for (let i = 0; i < 400; i++) g.step();
+  const h = crypto.createHash('sha1');
+  h.update(JSON.stringify(g.snapshot())); h.update(String(g.rng())); h.update(JSON.stringify(g.weltsim.ruf)); h.update(JSON.stringify(g.weltsim.chronik));
+  return { g, off, hash: h.digest('hex') };
+}
 
 // Szenario der Erkundung: Notruf -> Faden -> Bitte -> Antwort -> Fristen -> Abschluss. modus: 'aus' | 'an' | 'wirft'
 async function szenario(modus, dir, names) {
@@ -34,7 +63,7 @@ async function szenario(modus, dir, names) {
   if (modus === 'wirft') {   // jeder Eingang des Empfängers wirft (innen, hinter _sicher) und die Senke der Telemetrie auch
     const boese = () => { throw new Error('Mutationsprobe'); };
     const m = g.mitschnitt;
-    m._neu = boese; m._lesen = boese; m._filter = boese; m._fadenEreignis = boese; m._bauplan = boese; m._brett = boese; m._szeneStart = boese; m._szeneEnde = boese;
+    m._neu = boese; m._lesen = boese; m._filter = boese; m._fadenEreignis = boese; m._bauplan = boese; m._brett = boese; m._szeneStart = boese; m._szeneEnde = boese; m._funkOptionen = boese;   // _funkOptionen: Weg der neuen Haken funkAntwortGestellt/-Gewaehlt
     g.telemetrie.senken = [boese];
   }
   Faden.ausgangMitPerson(g, { art: 'notruf', id: 'notruf_pirat_frachter', hex: '0403', sprecher: 'Frachter Aurelia', ausgang: 'gelungen' });
@@ -83,6 +112,22 @@ async function szenario(modus, dir, names) {
   ok(wirft.g.mitschnitt.fehler > 0, 'Mutationsprobe: der Empfänger hat tatsächlich geworfen (' + wirft.g.mitschnitt.fehler + ' gezählt)');
   ok(wirft.g.errors === aus.g.errors, 'Mutationsprobe: Fehlerzähler des Spiels unverändert');
 
+  // Funk-Antwort: Hash gleich, Haken im Verlauf
+  const fA = funkSzenario('aus', neuesVerz()), fB = funkSzenario('an', neuesVerz()), fC = funkSzenario('wirft', neuesVerz()), fD = funkSzenario('an', neuesVerz(), 'ignorieren'), fE = funkSzenario('aus', neuesVerz(), 'ignorieren');
+  ok(fA.off && fA.off.optionen.length >= 2, 'Funk-Szenario: ein Angebot mit Optionen entstand');
+  ok(fA.hash === fB.hash && fA.hash === fC.hash && fD.hash === fE.hash, 'Funk-Antwort: Hash mit Schalter = ohne = mit werfendem Empfänger (auch Ignorieren)');
+  ok(fC.g.mitschnitt.fehler > 0, 'Funk-Antwort: der werfende Empfänger hat tatsächlich geworfen (' + fC.g.mitschnitt.fehler + ')');
+  {
+    const ev = fB.g.mitschnitt.verlauf().eintraege;
+    const q = ev.find((e) => e.art === 'entscheidung' && e.quelle === 'funk'), w = ev.find((e) => e.art === 'wahl' && e.quelle === 'funk');
+    const ids = fB.off.optionen.map((o) => o.id);
+    ok(q && q.id === fB.off.id && q.von === fB.off.von && ids.every((i) => q.optionen.some((o) => o.id === i && o.text)) && q.optionen.some((o) => o.id === 'ignorieren'), 'Funk-Angebot im Verlauf: entscheidung quelle funk mit Optionen (id, text) inkl. ignorieren');
+    ok(w && w.option === ids[0] && w.id === ids[0] && w.text === fB.off.optionen[0].text && w.optionen.length === q.optionen.length && q.nr < w.nr, 'Funk-Wahl im Verlauf: wahl quelle funk, option = gewählte Id, gleiche Optionsliste, nach dem Angebot');
+    ok(ev.some((e) => e.art === 'funk' && e.text === w.text), 'der Antworttext steht als Funkzeile im Verlauf (Wahl und Funk stimmen überein)');
+    const wi = fD.g.mitschnitt.verlauf().eintraege.find((e) => e.art === 'wahl' && e.quelle === 'funk');
+    ok(wi && wi.option === 'ignorieren', 'Ignorieren wird als Wahl aufgenommen');
+  }
+
   // ---------- 3. Vollständigkeit und Reihenfolge ----------
   console.log('Vollständigkeit');
   const m = an.g.mitschnitt; const v = m.verlauf();
@@ -124,6 +169,33 @@ async function szenario(modus, dir, names) {
   ok(t4[t4.length - 1] === 'Crew ist von Bord gegangen.', 'ausgeschiedener Spieler bleibt gefiltert');
   const Aus = require('../server/sim/lage-ausschnitt.js');
   ok(Aus.ohneNamen('Bordintelligenz', ['Bo']) === 'Crew' && Aus.ohneNamenGanzwort('Bordintelligenz', ['Bo']) === 'Bordintelligenz', 'ohneNamen unverändert, ohneNamenGanzwort neu daneben');
+
+  // Befund N1/4: Ganzwort-Filter auf ALLE Strings (rekursiv), technische Ids bleiben
+  {
+    const x = mn._filter({ id: 'Bo', key: 'Bo', kennung: 'Bo', ref: 'Bo', faden: 'Bo', pid: 'Bo', ausgang: 'Bo', art: 'Bo', typ: 'Bo', chronik_art: 'Bo', titel: 'Bo und Bordintelligenz', frei: 'Bo wartet', tief: { liste: [{ y: 'Bo ruft', z: 3 }, 'Bo'] }, zahl: 4 });
+    ok(x.id === 'Bo' && x.key === 'Bo' && x.kennung === 'Bo' && x.ref === 'Bo' && x.faden === 'Bo' && x.pid === 'Bo' && x.ausgang === 'Bo' && x.art === 'Bo' && x.typ === 'Bo' && x.chronik_art === 'Bo', 'plan-Filter: technische Ids bleiben unverändert');
+    ok(x.titel === 'Crew und Bordintelligenz' && x.frei === 'Crew wartet' && x.tief.liste[0].y === 'Crew ruft' && x.tief.liste[0].z === 3 && x.tief.liste[1] === 'Crew' && x.zahl === 4, 'plan-Filter: Spieler „Bo“ wird Crew in beliebigen Feldern und Tiefen, Bordintelligenz bleibt');
+    const e = mn._neu('faden', { id: 'f9', plan: { titel: 'Bo hilft', schritte: [{ beat: 'b1', ziel_x: 'Bo trifft Cem', unbekannt_feld: 'Bo' }] } }, { keine: true });
+    ok(e.plan.titel === 'Crew hilft' && e.plan.schritte[0].unbekannt_feld === 'Crew' && e.plan.schritte[0].beat === 'b1' && e.id === 'f9', 'plan im Eintrag: auch unbekannte Felder gefiltert, Ids nicht');
+  }
+  // Befund N1/1: Regel für leere Gruppen
+  {
+    const gr = (o) => Object.assign({ id: 'g', art: 'mission', von_nr: 1, bis_nr: 5, ausgang: 'abgebrochen' }, o || {});
+    const rahmen = [{ nr: 1, spielzeit: 0, art: 'mission' }, { nr: 2, spielzeit: 0, art: 'szene', ereignis: 'start' }, { nr: 3, spielzeit: 0, art: 'oda', text: 'Ankündigung' }, { nr: 4, spielzeit: 0, art: 'oda', text: 'Ankündigung 2' }, { nr: 5, spielzeit: 0, art: 'szene', ereignis: 'ende', ausgang: 'abgebrochen' }];
+    ok(gruppeIstLeer(gr(), rahmen), 'leer: abgebrochen, 0 s, nur Rahmen + ODA-Ankündigung (Vorversuch)');
+    ok(gruppeIstLeer(gr({ ausgang: 'offen' }), rahmen), 'leer: Schlussstart (offen, 0 s)');
+    ok(!gruppeIstLeer(gr({ ausgang: 'erfolg' }), rahmen), 'nicht leer: inhaltlicher Ausgang');
+    ok(!gruppeIstLeer(gr(), rahmen.map((e) => (e.nr === 5 ? Object.assign({}, e, { spielzeit: 6 }) : e))), 'nicht leer: Dauer ab 5 s');
+    for (const art of ['funk', 'anzeige', 'entscheidung', 'wahl', 'wirkung', 'faden', 'bitte']) ok(!gruppeIstLeer(gr(), rahmen.concat([{ nr: 5, spielzeit: 0, art }])), 'nicht leer: enthält ' + art);
+    ok(!gruppeIstLeer(gr({ art: 'faden' }), rahmen), 'Fäden/Abenteuer sind nie leer');
+    const d6 = neuesVerz();
+    const m2 = F.neuesSpiel({ crew: 1, seed: 2, names: ['Zed'], env: { MITSCHNITT: '1', MITSCHNITT_DIR: path.join(d6, 'mit'), REGIE_DIR: path.join(d6, 'regie') } }).g.mitschnitt;
+    m2.v.eintraege.push(...rahmen.map((e) => Object.assign({}, e, { nr: e.nr + 1005 })), { nr: 1011, spielzeit: 0, art: 'mission' }, { nr: 1020, spielzeit: 30, art: 'funk', text: 't' });
+    m2.v.gruppen.push(gr({ id: 'mission-x', von_nr: 1006, bis_nr: 1010, kennung: 'x' }), gr({ id: 'mission-x-2', von_nr: 1011, bis_nr: 1020, kennung: 'x', ausgang: 'erfolg' }));
+    m2._leereMarkieren();
+    ok(m2.v.gruppen[0].leer === true && m2.v.gruppen[0].ersetzt_durch === 'mission-x-2' && !m2.v.gruppen[1].leer && m2.v.eintraege.length >= 7, 'Recorder: leer + ersetzt_durch gesetzt, Einträge bleiben');
+    m2.nr = 0; m2.ende();   // ohne Einträge: schreibt nichts, entfernt den Mitschnitt aus dem Exit-Haken
+  }
 
   // ---------- 5. Ende, Renderer-Stub, Fallback ----------
   console.log('Ende');
