@@ -124,6 +124,7 @@ function anbieten(game, ev) {
     lfd: ++F.lfd, id: e.id, ev, von: e.sprecher || 'Aufklärung', bis: R.n + W.antwort_gilt_spruenge,
     optionen: erlaubt.map((o) => ({ id: o.id, text: textFuer(ev, 'antwort', o.id, game).text })),   // Katalogtext der Beschriftung
   };
+  game.mitschnitt && game.mitschnitt.funkAntwortGestellt(F.offen, { id: IGNORIEREN, text: W.ignorieren_text });   // MIT-01 A N1 H8: Beobachter (Optionsliste der Funk-Antwort), wirft nie
   return F.offen;
 }
 function nachSprung(game) {
@@ -151,8 +152,9 @@ function beantworten(game, id, lfd) {
   const kat = id === IGNORIEREN || !off.optionen.some((o) => o.id === id) ? null : optionVon(e, id);   // nur, was im Angebot steht (nicht, was der Rom-Deckel ausgeblendet hat)
   if (id !== IGNORIEREN && !kat) return fehl('unbekannt');
   F.offen = null;
-  if (id === IGNORIEREN) { F.zuletzt = { lfd: off.lfd, n: ws.reise.n, id, gebucht: 0 }; return null; }   // kostet nichts, kein Funk, keine Chronik
+  if (id === IGNORIEREN) { game.mitschnitt && game.mitschnitt.funkAntwortGewaehlt(off, id, { id: IGNORIEREN, text: W.ignorieren_text }); F.zuletzt = { lfd: off.lfd, n: ws.reise.n, id, gebucht: 0 }; return null; }   // kostet nichts, kein Funk, keine Chronik
   if (!folgeBuchbar(game, F, kat.folge)) return fehl('deckel');   // der Deckel hat sich seit dem Angebot gefüllt: das Angebot ist zurückgezogen (F.offen ist schon null), keine Scheinwirkung
+  game.mitschnitt && game.mitschnitt.funkAntwortGewaehlt(off, id, { id: IGNORIEREN, text: W.ignorieren_text });   // MIT-01 A N1 H8: Beobachter (gewählte Option), wirft nie
   const gezeigt = off.optionen.find((o) => o.id === id);
   const antwort = { von: W.antwort_von, text: gezeigt.text };   // genau der Text, den die Crew angeklickt hat (nicht neu gezogen)
   const gebucht = RE.gruendeBuchen(game, Array.isArray(kat.folge) ? kat.folge : [], 'rom');   // im Reise-Ruf-Deckel zählt nur Rom

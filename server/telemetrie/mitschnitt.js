@@ -25,12 +25,28 @@ const ROOT = path.join(__dirname, '..', '..');
 const FORMAT = 'mitschnitt/1';
 const MAX_EINTRAEGE = 200000;   // harte Grenze je Lauf (danach zaehlen statt aufnehmen)
 const MAX_AUFRUFE = 10;
-const TEXT = new Set(['text', 'texte', 'titel', 'kurz', 'begruendung', 'prompt', 'label', 'anlass', 'von', 'grund', 'zeilen', 'hinweise', 'funk', 'beschreibung', 'ziel_text', 'kurzbeschreibung']);
+// Technische Ids: hier ersetzt der Namensfilter nie (alle anderen String-Werte, auch tief in plan/nsc/modell, laufen durch den Ganzwort-Filter)
+const ID_FELDER = new Set(['id', 'key', 'kennung', 'ref', 'faden', 'pid', 'ausgang', 'art', 'typ', 'beat', 'option', 'entscheidung', 'logart', 'ereignis', 'konto', 'modus', 'quelle']);
+const istIdFeld = (k) => ID_FELDER.has(k) || /_art$/.test(k);
+// Leere Gruppen (Befund N1/1): Rahmenarten, die allein keinen Inhalt ergeben; 'oda' zaehlt nur im Kurzstart (Ankuendigungszeilen beim Start einer Mission)
+const RAHMEN_ARTEN = new Set(['mission', 'szene', 'sprung', 'taetigkeit']);
+const KURZSTART_S = 5;
 const envWert = (game, k) => { const e = game && game.env; return e && e[k] != null ? String(e[k]) : (process.env[k] != null ? String(process.env[k]) : ''); };
 const r1 = (x) => Math.round(x * 10) / 10;
 const istObjekt = (x) => !!x && typeof x === 'object' && !Array.isArray(x);
 const slug = (s) => String(s == null ? '' : s).normalize('NFKD').replace(/[̀-ͯ]/g, '').replace(/[^A-Za-z0-9]+/g, '-').replace(/^-+|-+$/g, '').toLowerCase().slice(0, 40);
 const lokalesDatum = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+// Eine Mission/Szene-Gruppe ohne eigenen Inhalt: nur Rahmenarten (+ ODA-Ankuendigungen), kein inhaltlicher Ausgang (nur abgebrochen/offen/session_ende) und eine Dauer unter KURZSTART_S.
+// Funk, Anzeige, Entscheidung, Wahl, Wirkung, Faden, Bitte usw. machen eine Gruppe nie leer.
+function gruppeIstLeer(g, es) {
+  if (!g || (g.art !== 'mission' && g.art !== 'szene')) return false;
+  if (g.ausgang && !['offen', 'abgebrochen', 'session_ende'].includes(g.ausgang)) return false;
+  const mine = (es || []).filter((e) => e.nr >= g.von_nr && e.nr <= g.bis_nr);
+  if (mine.some((e) => !RAHMEN_ARTEN.has(e.art) && e.art !== 'oda')) return false;
+  if (mine.some((e) => e.art === 'szene' && e.ereignis === 'ende' && e.ausgang != null && !['abgebrochen', 'session_ende'].includes(e.ausgang))) return false;
+  const dauer = mine.length ? mine[mine.length - 1].spielzeit - mine[0].spielzeit : 0;
+  return dauer < KURZSTART_S;
+}
 const Aus = () => require('../sim/lage-ausschnitt.js');   // lazy: erst mit eingeschaltetem Mitschnitt (kein Ladezyklus mit game.js)
 
 const offene = new Set();   // Mitschnitte ohne ende(): der Exit-Haken schreibt sie (das Werkzeug muss ende() nicht rufen)
@@ -153,6 +169,28 @@ class Mitschnitt {
       this._neu('wahl', { quelle: 'buch', id: opt.id, option: opt.id, text: opt.label, entscheidung: c.id, optionen: (c.options || []).map((o) => ({ id: o.id, label: o.label })) });
     });
   }
+  // Funk-Antwort (server/sim/funk-antwort.js): das Angebot (Optionen inkl. Ignorieren) und die Wahl, im Format der Bitte
+  funkAntwortGestellt(off, ignorieren) {
+    this._sicher(() => {
+      if (this.beendet || !off) return;
+      this._lesen();
+      this._neu('entscheidung', { quelle: 'funk', id: off.id, von: off.von, funk_nr: off.lfd, optionen: this._funkOptionen(off, ignorieren) });
+    });
+  }
+  funkAntwortGewaehlt(off, id, ignorieren) {
+    this._sicher(() => {
+      if (this.beendet || !off) return;
+      this._lesen();
+      const optionen = this._funkOptionen(off, ignorieren);
+      const o = optionen.find((x) => x.id === id);
+      this._neu('wahl', { quelle: 'funk', id, option: id, text: o ? o.text : null, entscheidung: off.id, funk_nr: off.lfd, optionen });
+    });
+  }
+  _funkOptionen(off, ign) {
+    const l = (off.optionen || []).map((o) => ({ id: o.id, text: o.text }));
+    if (ign && ign.id) l.push({ id: ign.id, text: ign.text });
+    return l;
+  }
   haltung(w, nsc) {
     this._sicher(() => {
       if (this.beendet || !w || !nsc) return;
@@ -265,7 +303,7 @@ class Mitschnitt {
     this.v.gruppen.push(g);
     e.gruppe = id;
     this._fadenLesen(g, id, true, pl.vorlage);
-    if (g.angebot != null && this._angebotModell.has(g.angebot)) g.modell = JSON.parse(JSON.stringify(this._angebotModell.get(g.angebot)));
+    if (g.angebot != null && this._angebotModell.has(g.angebot)) g.modell = this._filter(JSON.parse(JSON.stringify(this._angebotModell.get(g.angebot))));
   }
   // Plan und NSC LESEND aus dem Spielzustand kopieren (nichts davon schreibt ins Spiel)
   _fadenLesen(g, id, plan, vorlageId) {
@@ -276,13 +314,13 @@ class Mitschnitt {
     if (plan || !g.plan) {
       let p = fd.plan || null;
       if (!p) { try { p = require('../sim/faden-daten.js').vorlage(vorlageId || fd.vorlage) || null; } catch (e) { p = null; } }
-      if (p) g.plan = this._filter(JSON.parse(JSON.stringify(p)));
+      if (p) g.plan = this._filter(JSON.parse(JSON.stringify(p)));   // alle Strings, ausser technischen Ids
       const titel = (g.plan && g.plan.titel) || (kanon && kanon.titel) || null;
       if (titel) { g.titel = this._text(titel); g.kennung = slug(titel) || id; } else if (fd.vorlage) { g.titel = fd.vorlage; g.kennung = slug(fd.vorlage) || id; }
     }
     const n = fd.nsc;
     if (n) {
-      const eintrag = { id: n.id, name: n.name, volk: n.fraktion, titel: (kanon && kanon.titel) || null, ort: (kanon && (kanon.ort_ende || kanon.ort)) || null, haltung: n.haltung, ausgang: (kanon && kanon.ausgang) || null, status: n.status || null };
+      const eintrag = this._filter({ id: n.id, name: n.name, volk: n.fraktion, titel: (kanon && kanon.titel) || null, ort: (kanon && (kanon.ort_ende || kanon.ort)) || null, haltung: n.haltung, ausgang: (kanon && kanon.ausgang) || null, status: n.status || null });
       const i = g.nsc.findIndex((x) => x.id === n.id);
       if (i >= 0) g.nsc[i] = eintrag; else g.nsc.push(eintrag);
     }
@@ -313,7 +351,7 @@ class Mitschnitt {
     if (rec.ausgang === 'gueltig' && Number.isInteger(pl.angebot)) {
       const au = this._aufrufe; this._aufrufe = [];
       this._angebotModell.set(pl.angebot, { stufe: 'bauplan', anbieter: f.anbieter, modell: f.modell, quelle: rec.quelle || null, rueckfall: false, eskaliert: au.some((x) => x.eskaliert), tokens: au.reduce((s, x) => s + (x.tokens || 0), 0), dauer_s: au.reduce((s, x) => s + (x.dauer_s || 0), 0), aufrufe: au });
-      if (grp) grp.modell = JSON.parse(JSON.stringify(this._angebotModell.get(pl.angebot)));
+      if (grp) grp.modell = this._filter(JSON.parse(JSON.stringify(this._angebotModell.get(pl.angebot))));
     }
   }
   _brett(rec) {
@@ -385,11 +423,11 @@ class Mitschnitt {
     if (neu) this._namenListe = [...this._namen].sort((a, b) => b.length - a.length);
   }
   _text(t) { if (t == null) return t; const s = String(t); return this._namenListe.length ? Aus().ohneNamenGanzwort(s, this._namenListe) : s; }
-  // Kopie mit Namensfilter auf allen Textfeldern (Schluessel in TEXT, auch in Listen darunter); Struktur (Ids, Zahlen) bleibt
-  _filter(v, textuell) {
-    if (typeof v === 'string') return textuell ? this._text(v) : v;
-    if (Array.isArray(v)) return v.map((x) => this._filter(x, textuell));
-    if (istObjekt(v)) { const o = {}; for (const k of Object.keys(v)) o[k] = this._filter(v[k], textuell || TEXT.has(k)); return o; }
+  // Kopie mit Ganzwort-Namensfilter auf ALLEN String-Werten (rekursiv); Ausnahme: Werte technischer Id-Felder (ID_FELDER); Zahlen/Struktur bleiben
+  _filter(v, idFeld) {
+    if (typeof v === 'string') return idFeld ? v : this._text(v);
+    if (Array.isArray(v)) return v.map((x) => this._filter(x, idFeld));
+    if (istObjekt(v)) { const o = {}; for (const k of Object.keys(v)) o[k] = this._filter(v[k], istIdFeld(k)); return o; }
     return v;
   }
   _zeit() { const g = this.game; if (g && Number.isFinite(g.time)) this._zeit0 = g.time; return r1(this._zeit0); }
@@ -427,6 +465,7 @@ class Mitschnitt {
         if (g) { for (const id of this._idx.keys()) { const m = this._meta.get(id); if (m && m.offen && this._idx.get(id).art !== 'mission') this._fadenLesen(this._idx.get(id), id); } }
         for (const gr of this.v.gruppen) { const m = this._meta.get(gr.id); if (m && m.offen) { gr.bis_nr = Math.max(gr.bis_nr, this.nr); m.offen = false; } }
       });
+      this._sicher(() => this._leereMarkieren());
     } finally { this.beendet = true; offene.delete(this); }
     if (!this.nr) return null;
     try {
@@ -447,6 +486,16 @@ class Mitschnitt {
     } catch (e) { this.fehler++; this.ordner = null; }
     return this.ordner;
   }
+  // Leere Gruppen bekommen `leer: true` (+ `ersetzt_durch`: die naechste nicht leere Gruppe derselben Kennung, ein Vorversuch); die Eintraege bleiben im Verlauf
+  _leereMarkieren() {
+    const gs = this.v.gruppen;
+    for (const g of gs) { if (gruppeIstLeer(g, this.v.eintraege)) g.leer = true; }
+    for (const g of gs) {
+      if (!g.leer) continue;
+      const nachfolger = gs.find((x) => x !== g && !x.leer && x.kennung === g.kennung && x.von_nr > g.bis_nr);
+      if (nachfolger) g.ersetzt_durch = nachfolger.id;
+    }
+  }
   _ordnerWaehlen() {
     const l = this.v.lauf;
     const name = [slug(l.werkzeug) || 'lauf', l.seed != null ? 's' + slug(l.seed) : '', l.crew != null ? 'c' + slug(l.crew) : '', slug(l.modus)].filter(Boolean).join('-');
@@ -463,4 +512,4 @@ class Mitschnitt {
 // Der Renderer (Paket B) wird erst beim Schreiben geladen; Tests ersetzen den Lader durch einen Stub.
 Mitschnitt.renderLader = () => require('./mitschnitt-render.js');
 
-module.exports = { Mitschnitt, FORMAT };
+module.exports = { Mitschnitt, FORMAT, gruppeIstLeer };

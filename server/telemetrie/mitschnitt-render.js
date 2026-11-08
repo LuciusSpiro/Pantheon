@@ -20,6 +20,7 @@ const FORMAT = 'mitschnitt/1';
 const BEWERTUNG_OFFEN = 'offen';
 const NOTES_STANDARD = '_Platz für Anmerkungen zum Review – dieser Abschnitt bleibt beim Neuschreiben erhalten._';
 const KURZ_MAX = 240;
+const INTERNE_FELDER = new Set(['gruppe', 'zuordnung', 'nr', 'spielzeit', 'art']);   // Recorder-Interna: nur in verlauf.json, nie in der Zeilenausgabe
 
 // ---------- Textbausteine ----------
 const istObj = (x) => !!x && typeof x === 'object' && !Array.isArray(x);
@@ -51,16 +52,18 @@ function objektTabelle(liste, bevorzugt) {
 
 // ---------- Auswahl aus dem Verlauf ----------
 const eintraege = (verlauf) => (Array.isArray(verlauf && verlauf.eintraege) ? verlauf.eintraege.slice().sort((a, b) => a.nr - b.nr) : []);
-const gruppen = (verlauf) => (Array.isArray(verlauf && verlauf.gruppen) ? verlauf.gruppen.slice().sort((a, b) => (a.von_nr - b.von_nr) || (a.bis_nr - b.bis_nr)) : []);
+const alleGruppen = (verlauf) => (Array.isArray(verlauf && verlauf.gruppen) ? verlauf.gruppen.slice().sort((a, b) => (a.von_nr - b.von_nr) || (a.bis_nr - b.bis_nr)) : []);
+const gruppen = (verlauf) => alleGruppen(verlauf).filter((g) => !g.leer);   // Gruppen mit Inhalt: nur sie bekommen Ordner und mission.md
+const leereGruppen = (verlauf) => alleGruppen(verlauf).filter((g) => g.leer);
 const imBereich = (e, g) => e.nr >= g.von_nr && e.nr <= g.bis_nr;
 const eintraegeVon = (verlauf, g) => eintraege(verlauf).filter((e) => imBereich(e, g));
 function eintraegeOhneGruppe(verlauf) {
-  const gs = gruppen(verlauf);
+  const gs = alleGruppen(verlauf);   // auch leere Gruppen: ihre Einträge stehen unter 'Leere Versuche', nicht zwischen den Aufträgen
   return eintraege(verlauf).filter((e) => !gs.some((g) => imBereich(e, g)));
 }
 const lauf = (verlauf) => (istObj(verlauf && verlauf.lauf) ? verlauf.lauf : {});
 const kuenstlichText = (l) => (Array.isArray(l.kuenstlich) ? l.kuenstlich : []).join(', ');
-const feldText = (e) => Object.entries(e).filter(([k]) => !['nr', 'spielzeit', 'art'].includes(k)).map(([k, v]) => `${k}: ${wert(v)}`).join('; ');
+const feldText = (e) => Object.entries(e).filter(([k]) => !INTERNE_FELDER.has(k)).map(([k, v]) => `${k}: ${wert(v)}`).join('; ');
 
 // Kurztext einer Zeile der Zeitleiste. Nur Arten des Vertrags mit Sondertext, alles andere generisch (Leitprinzip).
 function kurztext(e) {
@@ -131,8 +134,9 @@ function abschnittWahl(es, l) {
   }
   for (const f of fragen) {
     const w = zuFrage.get(f);
-    const titel = f.art === 'bitte' ? `Bitte von ${wert(f.von)}` : `Entscheidung ${wert(f.id)}`;
-    L.push(`### ${titel} (${zeit(f.spielzeit)}, Nr ${f.nr})`, '', zitat(f.art === 'bitte' ? f.text : f.prompt), '');
+    const titel = f.art === 'bitte' ? `Bitte von ${wert(f.von)}` : f.quelle === 'funk' ? `Funk-Antwort an ${wert(f.von)} (${wert(f.id)})` : `Entscheidung ${wert(f.id)}`;
+    L.push(`### ${titel} (${zeit(f.spielzeit)}, Nr ${f.nr})`, '');
+    if (f.art === 'bitte' || !leer(f.prompt)) L.push(zitat(f.art === 'bitte' ? f.text : f.prompt), '');
     L.push(...optionsListe(f.optionen, w ? gewaehltId(w) : undefined), '');
     L.push(w ? wahlZeile(w) : '_Keine Wahl erfasst._', '');
   }
@@ -226,7 +230,7 @@ function renderMission(verlauf, gruppe, opts) {
 function renderIndex(verlauf, opts) {
   const o = opts || {};
   const l = lauf(verlauf);
-  const gs = gruppen(verlauf), es = eintraege(verlauf);
+  const gs = gruppen(verlauf), leere = leereGruppen(verlauf), es = eintraege(verlauf);
   const kst = kuenstlichText(l);
   const L = ['---', `titel: ${yamlText(`Mitschnitt ${l.id || ''}`.trim())}`, `lauf: ${yamlText(l.id)}`, `werkzeug: ${yamlText(l.werkzeug)}`,
     `quelle: ${yamlText(l.quelle)}`, `seed: ${yamlZahl(l.seed)}`, `crew: ${yamlZahl(l.crew)}`,
@@ -234,7 +238,7 @@ function renderIndex(verlauf, opts) {
   if (o.jetzt) L.push(`erzeugt: ${MD.localDate(o.jetzt)}`);
   L.push('---', '', `# Mitschnitt ${l.id || ''}`.trim(), '');
   L.push(...tabelle(['Feld', 'Wert'], [['Werkzeug', l.werkzeug], ['Quelle', l.quelle], ['Seed', l.seed], ['Crew', l.crew], ['Modus', l.modus],
-    ['Gestartet', l.gestartet], ['Beendet', l.beendet], ['Wahlregel', l.regel], ['Künstlich gesetzt', kst || 'nichts'], ['Einträge', es.length], ['Gruppen', gs.length]]));
+    ['Gestartet', l.gestartet], ['Beendet', l.beendet], ['Wahlregel', l.regel], ['Künstlich gesetzt', kst || 'nichts'], ['Einträge', es.length], ['Gruppen', gs.length], ...(leere.length ? [['Leere Versuche', leere.length]] : [])]));
   if (kst) L.push(`> **Verlauf teilweise gesetzt:** ${kst}.`, '');
   L.push('## Aufträge', '');
   const ordner = o.ordner || {}, bew = o.bewertungen || {};
@@ -244,6 +248,15 @@ function renderIndex(verlauf, opts) {
     const ord = ordner[g.id];
     return [i + 1, g.titel || g.kennung, g.art, g.ausgang, d, bew[g.id] || BEWERTUNG_OFFEN, ord ? `[${ord}](${ord}/mission.md)` : '–'];
   })) : ['_Keine Gruppen._', '']));
+  if (leere.length) {
+    L.push('## Leere Versuche', '');
+    L.push(...tabelle(['Titel', 'Ausgang', 'Hinweis'], leere.map((g) => {
+      const mine = es.filter((e) => imBereich(e, g));
+      const d = mine.length ? zeit(mine[mine.length - 1].spielzeit - mine[0].spielzeit) : '–';
+      const ers = g.ersetzt_durch ? `Vorversuch (${d}), ersetzt durch ${wert(g.ersetzt_durch)}` : `ohne eigenen Inhalt (${d}), kein eigenes Dokument`;
+      return [g.titel || g.kennung || g.id, g.ausgang, `${ers}; ${mine.length} Einträge nur in verlauf.json`];
+    })));
+  }
   L.push('## Angebote', '');
   const an = Array.isArray(verlauf && verlauf.angebote) ? verlauf.angebote : [];
   if (an.length) {
