@@ -26,7 +26,7 @@ const FORMAT = 'mitschnitt/1';
 const MAX_EINTRAEGE = 200000;   // harte Grenze je Lauf (danach zaehlen statt aufnehmen)
 const MAX_AUFRUFE = 10;
 // Technische Ids: hier ersetzt der Namensfilter nie (alle anderen String-Werte, auch tief in plan/nsc/modell, laufen durch den Ganzwort-Filter)
-const ID_FELDER = new Set(['id', 'key', 'kennung', 'ref', 'faden', 'pid', 'ausgang', 'art', 'typ', 'beat', 'option', 'entscheidung', 'logart', 'ereignis', 'konto', 'modus', 'quelle']);
+const ID_FELDER = new Set(['id', 'key', 'kennung', 'ref', 'faden', 'pid', 'ausgang', 'art', 'typ', 'beat', 'option', 'entscheidung', 'logart', 'ereignis', 'konto', 'modus', 'quelle', 'vorlage']);
 const istIdFeld = (k) => ID_FELDER.has(k) || /_art$/.test(k);
 // Leere Gruppen (Befund N1/1): Rahmenarten, die allein keinen Inhalt ergeben; 'oda' zaehlt nur im Kurzstart (Ankuendigungszeilen beim Start einer Mission)
 const RAHMEN_ARTEN = new Set(['mission', 'szene', 'sprung', 'taetigkeit']);
@@ -39,11 +39,22 @@ const lokalesDatum = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padSt
 // Eine Mission/Szene-Gruppe ohne eigenen Inhalt: nur Rahmenarten (+ ODA-Ankuendigungen), kein inhaltlicher Ausgang (nur abgebrochen/offen/session_ende) und eine Dauer unter KURZSTART_S.
 // Funk, Anzeige, Entscheidung, Wahl, Wirkung, Faden, Bitte usw. machen eine Gruppe nie leer.
 function gruppeIstLeer(g, es) {
+  if (g && (g.art === 'faden' || g.art === 'abenteuer')) return offenerFadenIstLeer(g, es);
   if (!g || (g.art !== 'mission' && g.art !== 'szene')) return false;
   if (g.ausgang && !['offen', 'abgebrochen', 'session_ende'].includes(g.ausgang)) return false;
   const mine = (es || []).filter((e) => e.nr >= g.von_nr && e.nr <= g.bis_nr);
   if (mine.some((e) => !RAHMEN_ARTEN.has(e.art) && e.art !== 'oda')) return false;
   if (mine.some((e) => e.art === 'szene' && e.ereignis === 'ende' && e.ausgang != null && !['abgebrochen', 'session_ende'].includes(e.ausgang))) return false;
+  const dauer = mine.length ? mine[mine.length - 1].spielzeit - mine[0].spielzeit : 0;
+  return dauer < KURZSTART_S;
+}
+// Befund N2/2: ein vom Spielleiter geoeffneter, nie gespielter Faden/Abenteuer (Ausgang offen, kurz, keine eigenen Inhaltseintraege) ist ein leerer Versuch. Es zaehlen nur Eintraege, die der Gruppe
+// EXPLIZIT gehoeren (gruppe = Id, nicht heuristisch zugeordnet): ein heuristisch zugeordneter Funk kann zum Nachbarn gehoeren. Ein Faden mit Ausgang ausser offen ist nie leer.
+const INHALT_ARTEN = new Set(['funk', 'anzeige', 'oda', 'entscheidung', 'wahl', 'bitte', 'wirkung']);
+function offenerFadenIstLeer(g, es) {
+  if (g.ausgang !== 'offen') return false;
+  const mine = (es || []).filter((e) => e.nr >= g.von_nr && e.nr <= g.bis_nr);
+  if (mine.some((e) => e.gruppe === g.id && e.zuordnung !== 'heuristik' && INHALT_ARTEN.has(e.art))) return false;
   const dauer = mine.length ? mine[mine.length - 1].spielzeit - mine[0].spielzeit : 0;
   return dauer < KURZSTART_S;
 }
@@ -350,7 +361,7 @@ class Mitschnitt {
     }
     if (rec.ausgang === 'gueltig' && Number.isInteger(pl.angebot)) {
       const au = this._aufrufe; this._aufrufe = [];
-      this._angebotModell.set(pl.angebot, { stufe: 'bauplan', anbieter: f.anbieter, modell: f.modell, quelle: rec.quelle || null, rueckfall: false, eskaliert: au.some((x) => x.eskaliert), tokens: au.reduce((s, x) => s + (x.tokens || 0), 0), dauer_s: au.reduce((s, x) => s + (x.dauer_s || 0), 0), aufrufe: au });
+      this._angebotModell.set(pl.angebot, { stufe: 'bauplan', anbieter: f.anbieter, modell: f.modell, quelle: rec.quelle || null, vorlage: f.vorlage || null, rueckfall: false, eskaliert: au.some((x) => x.eskaliert), tokens: au.reduce((s, x) => s + (x.tokens || 0), 0), dauer_s: au.reduce((s, x) => s + (x.dauer_s || 0), 0), aufrufe: au });
       if (grp) grp.modell = this._filter(JSON.parse(JSON.stringify(this._angebotModell.get(pl.angebot))));
     }
   }
@@ -362,7 +373,7 @@ class Mitschnitt {
     if (rec.begruendung) f.begruendung = rec.begruendung;
     this._neu('brett', f, { keine: true });
     if (rec.art === 'abenteuer_anschluss' && Number.isInteger(pl.angebot) && !this._angebotModell.has(pl.angebot)) {   // Rueckfall ohne Modell: Standardplan der Anschluss-Garantie
-      this._angebotModell.set(pl.angebot, { stufe: 'bauplan', anbieter: null, modell: null, quelle: 'rueckfall', rueckfall: true, eskaliert: this._aufrufe.some((x) => x.eskaliert), tokens: 0, dauer_s: 0, aufrufe: this._aufrufe.slice() });
+      this._angebotModell.set(pl.angebot, { stufe: 'bauplan', anbieter: null, modell: null, quelle: 'rueckfall', vorlage: rec.key != null ? String(rec.key) : null, rueckfall: true, eskaliert: this._aufrufe.some((x) => x.eskaliert), tokens: 0, dauer_s: 0, aufrufe: this._aufrufe.slice() });
       this._aufrufe = [];
     }
   }

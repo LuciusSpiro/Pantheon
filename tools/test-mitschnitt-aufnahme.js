@@ -187,7 +187,7 @@ async function szenario(modus, dir, names) {
     ok(!gruppeIstLeer(gr({ ausgang: 'erfolg' }), rahmen), 'nicht leer: inhaltlicher Ausgang');
     ok(!gruppeIstLeer(gr(), rahmen.map((e) => (e.nr === 5 ? Object.assign({}, e, { spielzeit: 6 }) : e))), 'nicht leer: Dauer ab 5 s');
     for (const art of ['funk', 'anzeige', 'entscheidung', 'wahl', 'wirkung', 'faden', 'bitte']) ok(!gruppeIstLeer(gr(), rahmen.concat([{ nr: 5, spielzeit: 0, art }])), 'nicht leer: enthält ' + art);
-    ok(!gruppeIstLeer(gr({ art: 'faden' }), rahmen), 'Fäden/Abenteuer sind nie leer');
+    ok(!gruppeIstLeer(gr({ art: 'faden' }), rahmen), 'Fäden/Abenteuer mit abgebrochenem Ausgang sind nie leer (N2: nur offene, ungespielte)');
     const d6 = neuesVerz();
     const m2 = F.neuesSpiel({ crew: 1, seed: 2, names: ['Zed'], env: { MITSCHNITT: '1', MITSCHNITT_DIR: path.join(d6, 'mit'), REGIE_DIR: path.join(d6, 'regie') } }).g.mitschnitt;
     m2.v.eintraege.push(...rahmen.map((e) => Object.assign({}, e, { nr: e.nr + 1005 })), { nr: 1011, spielzeit: 0, art: 'mission' }, { nr: 1020, spielzeit: 30, art: 'funk', text: 't' });
@@ -222,6 +222,68 @@ async function szenario(modus, dir, names) {
   leer.g.mitschnitt.nr = 0;
   ok(leer.g.mitschnitt.ende() === null && !fs.existsSync(path.join(d5, 'leer')), 'Lauf ohne Einträge schreibt nichts');
   ok(process.env.MITSCHNITT_DIR === vorherEnv, 'process.env unverändert');
+
+  // ---------- Nacharbeit N2 ----------
+  console.log('N2: leerer offener Faden');
+  {
+    const fg = (o) => Object.assign({ id: 'f10', art: 'faden', von_nr: 1, bis_nr: 6, ausgang: 'offen' }, o || {});
+    const kopf = [{ nr: 1, spielzeit: 204.1, art: 'faden', ausgang: 'geoeffnet', gruppe: 'f10' }, { nr: 2, spielzeit: 204.2, art: 'regie' }, { nr: 3, spielzeit: 204.8, art: 'funk', von: 'Hafen', text: 'Ulfsvakt ist gefallen.' },
+      { nr: 4, spielzeit: 205.2, art: 'faden', ausgang: 'beat_start', gruppe: 'f10' }, { nr: 5, spielzeit: 205.2, art: 'funk', von: 'Hafenfunk', text: 'Gerücht', gruppe: 'f10', zuordnung: 'heuristik' }, { nr: 6, spielzeit: 205.2, art: 'chronik', gruppe: 'f10', zuordnung: 'heuristik' }];
+    ok(gruppeIstLeer(fg(), kopf), 'leer: offener Faden, nie gespielt (nur Faden-Zeilen, heuristischer Funk, fremder Funk im Bereich)');
+    ok(gruppeIstLeer(fg({ art: 'abenteuer' }), kopf), 'leer: offenes Abenteuer ohne Inhalt');
+    ok(!gruppeIstLeer(fg({ ausgang: 'gelungen' }), kopf) && !gruppeIstLeer(fg({ ausgang: 'abgebrochen' }), kopf), 'nie leer: abgeschlossener Faden (Ausgang nicht offen)');
+    for (const art of ['funk', 'anzeige', 'oda', 'entscheidung', 'wahl', 'bitte', 'wirkung']) ok(!gruppeIstLeer(fg(), kopf.concat([{ nr: 6, spielzeit: 205.2, art, gruppe: 'f10' }])), 'nie leer: offener Faden mit eigenem Eintrag ' + art);
+    ok(!gruppeIstLeer(fg(), kopf.map((e) => (e.nr === 6 ? Object.assign({}, e, { spielzeit: 220 }) : e))), 'nie leer: offener Faden, der länger als 5 s lief');
+    const d7 = neuesVerz();
+    const m7 = F.neuesSpiel({ crew: 1, seed: 3, names: ['Zed'], env: { MITSCHNITT: '1', MITSCHNITT_DIR: path.join(d7, 'mit'), REGIE_DIR: path.join(d7, 'regie') } }).g.mitschnitt;
+    m7.v.eintraege.push(...kopf.map((e) => Object.assign({}, e, { nr: e.nr + 100 })));
+    m7.v.gruppen.push(fg({ von_nr: 101, bis_nr: 106, kennung: 'falscher-handler' }));
+    m7._leereMarkieren();
+    ok(m7.v.gruppen[0].leer === true && m7.v.eintraege.length >= 6, 'Recorder: leerer offener Faden bekommt leer: true, die Einträge bleiben im Verlauf');
+    const dR = neuesVerz();
+    Mitschnitt.renderLader = () => require('../server/telemetrie/mitschnitt-render.js');
+    const m8 = F.neuesSpiel({ crew: 1, seed: 3, names: ['Zed'], env: { MITSCHNITT: '1', MITSCHNITT_DIR: path.join(dR, 'mit'), REGIE_DIR: path.join(dR, 'regie') } }).g.mitschnitt;
+    m8.lauf({ werkzeug: 'n2' });
+    m8.v.eintraege.push(...kopf.map((e) => Object.assign({}, e, { nr: e.nr + 100 })));
+    m8.v.gruppen.push(fg({ von_nr: 101, bis_nr: 106, kennung: 'falscher-handler', titel: 'Falscher Händler' }));
+    m8.nr = 106;
+    const o8 = m8.ende();
+    const ix8 = o8 && fs.readFileSync(path.join(o8, 'index.md'), 'utf8');
+    ok(o8 && !fs.existsSync(path.join(o8, '01_falscher-handler')) && ix8.includes('## Leere Versuche') && ix8.includes('| Falscher Händler | offen |'), 'Renderer: leerer offener Faden ohne eigenes mission.md, im Index unter Leere Versuche');
+  }
+
+  console.log('N2: Modell der Gruppe (Mock-Spielleiter, kein LLM)');
+  {
+    const Brett = require('../server/sim/abenteuer-brett.js');
+    const modellSzenario = async (anschluss) => {
+      const d = neuesVerz();
+      const env = { FAEDEN: '1', LAGE_SPIELLEITER: '1', SPIELLEITER_LLM: 'mock', ABENTEUER_ANSCHLUSS: anschluss, MITSCHNITT: '1', MITSCHNITT_DIR: path.join(d, 'mit'), REGIE_DIR: path.join(d, 'regie') };
+      const t = F.neuesSpiel({ crew: 1, seed: 7, names: ['Ada'], env });
+      const g = t.g;
+      const Z = Faden.zustandVon(g);
+      const pumpen = async (k) => { for (let i = 0; i < k; i++) { g.step(); await frei(); } };
+      await pumpen(20);
+      for (let k = 0; k < 40 && !Z.abenteuerAngebote.length; k++) { if (anschluss === '0') g.lageSpielleiter.abenteuer.erzwingen(); await pumpen(4); }
+      const a = Z.abenteuerAngebote[0];
+      const antwort = a ? Brett.annehmen(g, 'a' + a.nr) : 'kein Angebot';
+      await pumpen(5);
+      const v = g.mitschnitt.verlauf();
+      return { g, v, a, antwort, gruppe: a && v.gruppen.find((x) => x.angebot === a.nr), bau: v.eintraege.filter((e) => e.art === 'bauplan') };
+    };
+    const gut = await modellSzenario('0');
+    ok(gut.a && gut.antwort === null && gut.gruppe && gut.gruppe.art === 'abenteuer', 'gültiger Fall: Angebot des Mock-Spielleiters angenommen, Gruppe vorhanden');
+    const mg = gut.gruppe && gut.gruppe.modell;
+    const gu = gut.bau.find((e) => e.ausgang === 'gueltig' && e.angebot === gut.a.nr);
+    ok(gu && mg && mg.stufe === 'bauplan' && mg.anbieter === 'mock' && mg.modell === 'mock' && mg.quelle === 'mock' && mg.rueckfall === false && typeof mg.tokens === 'number' && mg.dauer_s != null && mg.vorlage === gu.vorlage, 'gültiger Fall: gruppe.modell gefüllt (Anbieter, Modell, Quelle, Rückfall false, Tokens, Dauer, Vorlage)');
+    ok(mg && Array.isArray(mg.aufrufe) && mg.aufrufe.length >= 1 && mg.aufrufe[mg.aufrufe.length - 1].ausgang === 'gueltig', 'gültiger Fall: aufrufe endet mit dem gültigen Aufruf (abgelehnte Vorläufer zählen mit)');
+    const rf = await modellSzenario('1');
+    ok(rf.a && rf.antwort === null && rf.gruppe, 'Rückfall-Fall: Standardplan der Anschluss-Garantie angenommen, Gruppe vorhanden');
+    const mr = rf.gruppe && rf.gruppe.modell;
+    ok(mr && mr.rueckfall === true && mr.anbieter === null && mr.modell === null && mr.quelle === 'rueckfall' && mr.tokens === 0 && /^abenteuer_/.test(String(mr.vorlage)) && !rf.bau.some((e) => e.ausgang === 'gueltig'), 'Rückfall-Fall: gruppe.modell mit rueckfall true, ohne Anbieter und Modell, mit Vorlage-Key; kein Bauplan-Aufruf');
+    const R2 = require('../server/telemetrie/mitschnitt-render.js');
+    ok(R2.renderMission(gut.v, gut.gruppe).includes('Anbieter mock · Modell mock · Quelle mock · Rückfall: nein') && R2.renderMission(rf.v, rf.gruppe).includes('Rückfall: ja (kein Modell, Anschluss-Vorlage ' + mr.vorlage + ')'), 'Dokument: Modellweg-Zeile zeigt beide Fälle');
+    for (const s of [gut, rf]) s.g.mitschnitt.ende();
+  }
 
   // Aufräumen: keine offenen Mitschnitte beim Prozessende (der Exit-Haken würde sonst ins Temp schreiben)
   for (const g of [wirft.g, n.g]) g.mitschnitt.ende();

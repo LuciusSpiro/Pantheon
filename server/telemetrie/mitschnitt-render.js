@@ -20,6 +20,12 @@ const FORMAT = 'mitschnitt/1';
 const BEWERTUNG_OFFEN = 'offen';
 const NOTES_STANDARD = '_Platz für Anmerkungen zum Review – dieser Abschnitt bleibt beim Neuschreiben erhalten._';
 const KURZ_MAX = 240;
+// Rauschen der Zeitleiste (Befund N2/1): Arten, die im Referenzlauf 57 % der Einträge stellten (taetigkeit 24 %, regie 33 %) und für die Bewertung einer Mission nichts beitragen. Aufeinanderfolgende
+// Rauscheinträge werden zu EINER Zeile zusammengefasst. Nicht dabei, nach Sichtung: wirkung (Ruf/Marken, 3 %: Folgen der Mission), chronik, gegner/kill (Kampfgeschehen), sprung, brett und jeder Bauplan-Eintrag mit Aufruf (Modellweg).
+// Ausnahme: ein Regie-Eintrag mit Ausgang abgelehnt oder fehler ist nie Rauschen.
+const RAUSCH_ARTEN = ['taetigkeit', 'regie'];
+const RAUSCH_NAMEN = { taetigkeit: ['Tätigkeitsgrenze', 'Tätigkeitsgrenzen'], regie: ['Regie-Eintrag', 'Regie-Einträge'], bauplan: ['übersprungener Bauplan-Aufruf', 'übersprungene Bauplan-Aufrufe'] };
+const RAUSCH_AUSNAHME_AUSGAENGE = ['abgelehnt', 'fehler'];
 const INTERNE_FELDER = new Set(['gruppe', 'zuordnung', 'nr', 'spielzeit', 'art']);   // Recorder-Interna: nur in verlauf.json, nie in der Zeilenausgabe
 
 // ---------- Textbausteine ----------
@@ -88,10 +94,36 @@ function abschnittAnlass(g) {
   if (rest.length) L.push(...tabelle(['Feld', 'Inhalt'], rest.map(([k, v]) => [k, v])));
   return L;
 }
+// Dazu: ein übersprungener Bauplan-Aufruf (kein Modellaufruf, nur Grund des Auslassens); der Modellweg weist ihn als Zähler aus
+const istRauschen = (e) => (RAUSCH_ARTEN.includes(e.art) && !(e.art === 'regie' && RAUSCH_AUSNAHME_AUSGAENGE.includes(e.ausgang))) || (e.art === 'bauplan' && e.ausgang === 'uebersprungen');
+const rauschName = (art, n) => { const x = RAUSCH_NAMEN[art]; return x ? x[n === 1 ? 0 : 1] : art; };
+function rauschZeile(lauf) {
+  const zaehl = new Map();
+  for (const e of lauf) zaehl.set(e.art, (zaehl.get(e.art) || 0) + 1);
+  const teile = [...zaehl].map(([art, n]) => `${n} ${rauschName(art, n)}`);
+  const von = lauf[0].nr, bis = lauf[lauf.length - 1].nr;
+  return [zeit(lauf[0].spielzeit), von === bis ? von : `${von}–${bis}`, 'zusammengefasst', `… ${teile.join(', ')} (${von === bis ? `Nr ${von}` : `Nr ${von}–${bis}`}, Details in verlauf.json)`];
+}
+// Zeilen der Zeitleiste: Rauschläufe zu einer Zeile, alles andere einzeln, Reihenfolge nach nr
+function zeitleistenZeilen(es) {
+  const zeilen = []; let lauf = [];
+  const leeren = () => { if (lauf.length) zeilen.push(rauschZeile(lauf)); lauf = []; };
+  for (const e of es) { if (istRauschen(e)) lauf.push(e); else { leeren(); zeilen.push([zeit(e.spielzeit), e.nr, e.art, kurztext(e)]); } }
+  leeren();
+  return zeilen;
+}
 function abschnittZeitleiste(es) {
   const L = ['## Zeitleiste', ''];
   if (!es.length) return L.concat('_Keine Einträge._', '');
-  return L.concat(tabelle(['Spielzeit', 'Nr', 'Art', 'Eintrag'], es.map((e) => [zeit(e.spielzeit), e.nr, e.art, kurztext(e)])));
+  return L.concat(tabelle(['Spielzeit', 'Nr', 'Art', 'Eintrag'], zeitleistenZeilen(es)));
+}
+// Lesbarer Titel (Befund N2/4a): eine Szene heißt im Verlauf 'modus szene' (Rohbezeichner); mit Modus und Szene aus dem Startereignis wird daraus 'Szene: <szene> (modus <modus>)'
+function anzeigeTitel(verlauf, g) {
+  const roh = g.titel || g.kennung || g.id;
+  if (g.art !== 'szene') return roh;
+  const s = eintraegeVon(verlauf, g).find((e) => e.art === 'szene' && e.ereignis === 'start' && !leer(e.szene));
+  if (!s || String(g.titel) !== `${wert(s.modus)} ${wert(s.szene)}`.trim()) return roh;   // ein echter Titel bleibt
+  return `Szene: ${wert(s.szene)}${leer(s.modus) ? '' : ` (modus ${wert(s.modus)})`}`;
 }
 function abschnittTexte(es) {
   const L = ['## Funk- und Anzeigetexte', ''];
@@ -166,19 +198,27 @@ function abschnittNsc(g) {
   const n = Array.isArray(g.nsc) ? g.nsc : [];
   return L.concat(n.length ? objektTabelle(n, ['id', 'name', 'volk', 'titel', 'ort', 'haltung', 'ausgang']) : ['_Keine erfasst._', '']);
 }
+const jaNein = (b) => (b ? 'ja' : 'nein');
+const sek = (x) => (x === null || x === undefined || !Number.isFinite(Number(x)) ? '–' : `${Number(x)} s`);
+// Zusammenfassungszeile des Modellwegs (Befund N2/3): steht IMMER zuerst, entweder aus gruppe.modell oder als ausdrückliche Feststellung
+function modellZeile(m) {
+  if (!istObj(m)) return 'Kein Modellaufruf zu diesem Auftrag aufgezeichnet (Plan vom Werkzeug gesetzt oder Vorlage ohne Plan).';
+  const rueck = m.rueckfall === true ? (m.vorlage ? `ja (kein Modell, Anschluss-Vorlage ${wert(m.vorlage)})` : 'ja (kein Modell)') : (typeof m.rueckfall === 'string' && m.rueckfall ? `ja (${m.rueckfall})` : 'nein');
+  return `**Stufe ${wert(m.stufe)} · Anbieter ${wert(m.anbieter)} · Modell ${wert(m.modell)} · Quelle ${wert(m.quelle)} · Rückfall: ${rueck} · eskaliert ${jaNein(m.eskaliert !== undefined && m.eskaliert !== null ? m.eskaliert : (Array.isArray(m.aufrufe) && m.aufrufe.some((x) => x && x.eskaliert)))} · Tokens ${m.tokens === undefined || m.tokens === null ? '–' : m.tokens} · Dauer ${sek(m.dauer_s)}**`;
+}
 function abschnittModell(es, g) {
   const L = ['## Modellweg', ''];
   const m = g.modell;
+  L.push(modellZeile(m), '');
+  if (istObj(m) && Array.isArray(m.aufrufe) && m.aufrufe.length) L.push('Aufrufe bis zum gültigen Plan:', '', ...objektTabelle(m.aufrufe));
   const bau = es.filter((e) => e.art === 'bauplan');
-  if (!istObj(m) && !bau.length) return L.concat('_Kein Modell beteiligt (Vorlage oder Regelweg)._', '');
-  if (istObj(m)) {
-    L.push(...tabelle(['Feld', 'Wert'], Object.entries(m).filter(([k]) => k !== 'aufrufe').map(([k, v]) => [k, v])));
-    if (Array.isArray(m.aufrufe) && m.aufrufe.length) L.push('Aufrufe:', '', ...objektTabelle(m.aufrufe));
-  }
-  if (bau.length) {
+  const echt = bau.filter((e) => e.ausgang !== 'uebersprungen');
+  const skip = bau.length - echt.length;
+  if (echt.length) {
     L.push('Bauplan-Einträge im Verlauf (Rückfall und Eskalation sichtbar):', '');
-    L.push(...tabelle(['Spielzeit', 'Ausgang', 'Anbieter', 'Modell', 'Tokens', 'Dauer s', 'eskaliert'], bau.map((e) => [zeit(e.spielzeit), e.ausgang, e.anbieter, e.modell, e.tokens, e.dauer_s, e.eskaliert])));
+    L.push(...tabelle(['Spielzeit', 'Ausgang', 'Anbieter', 'Modell', 'Tokens', 'Dauer s', 'eskaliert'], echt.map((e) => [zeit(e.spielzeit), e.ausgang, e.anbieter, e.modell, e.tokens, e.dauer_s, e.eskaliert])));
   }
+  if (skip) L.push(`_${skip} übersprungene Bauplan-Aufrufe im Zeitraum (kein Modellaufruf, Details in verlauf.json)._`, '');
   return L;
 }
 function abschnittPruefer(es, g) {
@@ -213,7 +253,7 @@ function renderMission(verlauf, gruppe, opts) {
     `verlauf_kuenstlich: ${JSON.stringify(Array.isArray(l.kuenstlich) ? l.kuenstlich : [])}`,
     `bewertung: ${o.bewertung || BEWERTUNG_OFFEN}`];
   if (o.jetzt) L.push(`erzeugt: ${MD.localDate(o.jetzt)}`);
-  L.push('---', '', `# ${gruppe.titel || gruppe.kennung || gruppe.id}`, '',
+  L.push('---', '', `# ${anzeigeTitel(verlauf, gruppe)}`, '',
     '> Review: Setze im Frontmatter `bewertung` auf `gut`, `schwach` oder `verwerfen` und schreibe Anmerkungen unter „Notizen“. Beides bleibt beim Neuschreiben erhalten. Dies ist ein Mitschnitt eines simulierten Laufs, keine Freigabe.', '');
   L.push(...tabelle(['Feld', 'Wert'], [
     ['Gruppe', `${gruppe.art || '–'} (${gruppe.id})`], ['Ausgang', gruppe.ausgang], ['Lauf', l.id], ['Werkzeug', l.werkzeug],
@@ -246,7 +286,7 @@ function renderIndex(verlauf, opts) {
     const mine = es.filter((e) => imBereich(e, g));
     const d = mine.length ? zeit(mine[mine.length - 1].spielzeit - mine[0].spielzeit) : '–';
     const ord = ordner[g.id];
-    return [i + 1, g.titel || g.kennung, g.art, g.ausgang, d, bew[g.id] || BEWERTUNG_OFFEN, ord ? `[${ord}](${ord}/mission.md)` : '–'];
+    return [i + 1, anzeigeTitel(verlauf, g), g.art, g.ausgang, d, bew[g.id] || BEWERTUNG_OFFEN, ord ? `[${ord}](${ord}/mission.md)` : '–'];
   })) : ['_Keine Gruppen._', '']));
   if (leere.length) {
     L.push('## Leere Versuche', '');
@@ -254,7 +294,7 @@ function renderIndex(verlauf, opts) {
       const mine = es.filter((e) => imBereich(e, g));
       const d = mine.length ? zeit(mine[mine.length - 1].spielzeit - mine[0].spielzeit) : '–';
       const ers = g.ersetzt_durch ? `Vorversuch (${d}), ersetzt durch ${wert(g.ersetzt_durch)}` : `ohne eigenen Inhalt (${d}), kein eigenes Dokument`;
-      return [g.titel || g.kennung || g.id, g.ausgang, `${ers}; ${mine.length} Einträge nur in verlauf.json`];
+      return [anzeigeTitel(verlauf, g), g.ausgang, `${ers}; ${mine.length} Einträge nur in verlauf.json`];
     })));
   }
   L.push('## Angebote', '');
@@ -267,7 +307,7 @@ function renderIndex(verlauf, opts) {
   } else L.push('_Keine Angebote._', '');
   L.push('## Zwischen den Aufträgen', '');
   const frei = eintraegeOhneGruppe(verlauf);
-  L.push(...(frei.length ? tabelle(['Spielzeit', 'Nr', 'Art', 'Eintrag'], frei.map((e) => [zeit(e.spielzeit), e.nr, e.art, kurztext(e)])) : ['_Keine Einträge außerhalb von Aufträgen._', '']));
+  L.push(...(frei.length ? tabelle(['Spielzeit', 'Nr', 'Art', 'Eintrag'], zeitleistenZeilen(frei)) : ['_Keine Einträge außerhalb von Aufträgen._', '']));
   L.push('> Hinweis: Die Zuordnung von Funk und Anzeigen zu Aufträgen ist heuristisch (laufender Faden).', '');
   L.push(...notizBlock(o.notizen));
   return schliessen(L);

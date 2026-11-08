@@ -45,7 +45,7 @@ check('Frontmatter: bewertung offen', /^bewertung: offen$/m.test(fm));
 check('Frontmatter enthält nie status (mission.md, Szene, Index)', !/^status:/m.test(fm) && !/^status:/m.test(frontmatter(R.renderMission(v, szene))) && !/^status:/m.test(frontmatter(R.renderIndex(v))));
 check('Review-Hinweiszeile', /^> Review:/m.test(md));
 check('Anlass aus plan', md.includes('Ein Konvoi bei Speculum wird bedrängt.') && md.includes('b_notruf, b_geleit'));
-check('Szene ohne Plan: Anlass-Platzhalter, Modell-Platzhalter', R.renderMission(v, szene).includes('_Kein Plan erfasst._') && R.renderMission(v, szene).includes('_Kein Modell beteiligt'));
+check('Szene ohne Plan: Anlass-Platzhalter, Modell-Platzhalter', R.renderMission(v, szene).includes('_Kein Plan erfasst._') && R.renderMission(v, szene).includes('Kein Modellaufruf zu diesem Auftrag aufgezeichnet'));
 
 // 2 Reihenfolge, Optionen, Wahl, Bot-Regel
 {
@@ -194,6 +194,47 @@ check('unbekannte Art erscheint mit Feldern', md.includes('| pruefung_unbekannt 
     { nr: 2, spielzeit: 2, art: 'wahl', quelle: 'funk', id: 'verstanden', option: 'verstanden', text: 'Verstanden.', entscheidung: 'patrouille_rom_gruss', optionen: [{ id: 'verstanden', text: 'Verstanden.' }, { id: 'ignorieren', text: 'Ignorieren' }] }] };
   const fm2 = R.renderMission(fa, fa.gruppen[0]);
   check('Funk-Antwort: Angebot mit Optionen, Wahl hervorgehoben und der Frage zugeordnet', fm2.includes('### Funk-Antwort an Patrouille') && fm2.includes('- **verstanden: Verstanden.** ← gewählt') && fm2.includes('- ignorieren: Ignorieren') && !fm2.includes('_Keine Wahl erfasst._') && !fm2.includes('### Wahl ('));
+}
+
+// 10 Nacharbeit N2: Rauschen zusammenfassen, Modellweg-Zeile, lesbarer Szenentitel
+{
+  const mk = (es, gr) => ({ format: 'mitschnitt/1', lauf: { id: 'l', werkzeug: 't' }, angebote: [], gruppen: [Object.assign({ id: 'g', art: 'abenteuer', titel: 'Probe', kennung: 'probe', von_nr: 1, bis_nr: es.length, ausgang: 'gelungen', angebot: null, plan: null, nsc: [], modell: null, pruefer: [] }, gr || {})], eintraege: es.map((e, i) => Object.assign({ nr: i + 1, spielzeit: 10 + i }, e)) });
+  const es = [{ art: 'faden', ausgang: 'geoeffnet', faden: 'g' }, { art: 'taetigkeit', taetigkeit_art: 'sprung' }, { art: 'regie', logart: 'lage_grobplan', ausgang: 'uebersprungen' }, { art: 'taetigkeit', taetigkeit_art: 'sprung' },
+    { art: 'regie', logart: 'lage_befehl', ausgang: 'abgelehnt' }, { art: 'taetigkeit', taetigkeit_art: 'sprung' }, { art: 'funk', von: 'Quintus', text: 'Hört zu.' }, { art: 'wirkung', konto: 'ruf', ziel: 'rom', betrag: 1 },
+    { art: 'regie', logart: 'lage_grobplan', ausgang: 'angewandt' }, { art: 'bauplan', ausgang: 'uebersprungen', grund: 'deckel' }, { art: 'regie', logart: 'x', ausgang: 'fehler' }, { art: 'regie', logart: 'y', ausgang: 'ok' }];
+  const w = mk(es);
+  const t = R.renderMission(w, w.gruppen[0]);
+  const z = t.slice(t.indexOf('## Zeitleiste'), t.indexOf('## Funk- und Anzeigetexte'));
+  const zeilen = z.split('\n').filter((l) => l.startsWith('| ') && !l.startsWith('| Spielzeit'));
+  check('Zeitleiste: aufeinanderfolgendes Rauschen wird EINE Zeile (Tätigkeit + Regie)', z.includes('… 2 Tätigkeitsgrenzen, 1 Regie-Eintrag (Nr 2–4, Details in verlauf.json)') && z.includes('| zusammengefasst |'), z);
+  check('Zeitleiste: Regie abgelehnt/fehler ist kein Rauschen und bleibt einzeln', z.includes('| 5 | regie | logart: lage_befehl; ausgang: abgelehnt') && z.includes('| 11 | regie | logart: x; ausgang: fehler') && z.includes('… 1 Tätigkeitsgrenze (Nr 6, Details in verlauf.json)'), z);
+  check('Zeitleiste: faden, funk, wirkung bleiben einzeln; Regie und übersprungener Bauplan laufen zusammen', z.includes('| 1 | faden |') && z.includes('| 7 | funk |') && z.includes('| 8 | wirkung |') && z.includes('… 1 Regie-Eintrag, 1 übersprungener Bauplan-Aufruf (Nr 9–10, Details in verlauf.json)') && z.includes('… 1 Regie-Eintrag (Nr 12, Details in verlauf.json)'), z);
+  check('Zeitleiste: 12 Einträge werden 9 Zeilen, nach nr geordnet; der Kopf zählt die echten 12 Einträge', zeilen.length === 9 && /\| Einträge \| Nr 1–12 \(12\) \|/.test(t), String(zeilen.length));
+  const viele = mk(Array.from({ length: 30 }, (_, i) => (i % 2 ? { art: 'regie', logart: 'lage_grobplan', ausgang: 'uebersprungen' } : { art: 'taetigkeit' })));
+  const tv = R.renderMission(viele, viele.gruppen[0]);
+  check('Zeitleiste: 30 Rauscheinträge in Folge werden eine Zeile mit Zählung je Art', tv.includes('… 15 Tätigkeitsgrenzen, 15 Regie-Einträge (Nr 1–30, Details in verlauf.json)') && (tv.slice(tv.indexOf('## Zeitleiste'), tv.indexOf('## Funk')).match(/^\| \d+:\d\d \|/gm) || []).length === 1);
+  const ohneGr = mk(Array.from({ length: 30 }, (_, i) => (i % 2 ? { art: 'regie', logart: 'a', ausgang: 'ok' } : { art: 'taetigkeit' })), { von_nr: 99, bis_nr: 99 });
+  check('Index: Zwischen den Aufträgen fasst Rauschen ebenfalls zusammen', R.renderIndex(ohneGr).includes('… 15 Tätigkeitsgrenzen, 15 Regie-Einträge (Nr 1–30, Details in verlauf.json)'));
+  check('verlauf.json des Laufs behält alle Rauscheinträge', (() => { const dir = tmp('rausch'); R.schreibeLauf(viele, dir, {}); const j = JSON.parse(read(path.join(dir, 'verlauf.json'))); return j.eintraege.length === 30; })());
+
+  // Modellweg
+  const ohne = mk([{ art: 'faden', ausgang: 'geoeffnet' }, { art: 'bauplan', ausgang: 'uebersprungen', grund: 'deckel' }]);
+  const m0 = R.renderMission(ohne, ohne.gruppen[0]);
+  const mw0 = m0.slice(m0.indexOf('## Modellweg'), m0.indexOf('## Prüfer-Warnungen'));
+  check('Modellweg ohne modell: ausdrückliche Feststellung als erste Zeile, übersprungene Aufrufe nur als Zähler', mw0.startsWith('## Modellweg\n\nKein Modellaufruf zu diesem Auftrag aufgezeichnet (Plan vom Werkzeug gesetzt oder Vorlage ohne Plan).') && mw0.includes('1 übersprungene Bauplan-Aufrufe') && !mw0.includes('| uebersprungen |'), mw0);
+  const gut = mk([{ art: 'faden', ausgang: 'geoeffnet' }], { modell: { stufe: 'bauplan', anbieter: 'ollama', modell: 'qwen3', quelle: 'llm', vorlage: 'abenteuer_x', rueckfall: false, eskaliert: true, tokens: 812, dauer_s: 21.4, aufrufe: [{ ausgang: 'abgelehnt', tokens: 400 }, { ausgang: 'gueltig', tokens: 412, eskaliert: true }] } });
+  const m1 = R.renderMission(gut, gut.gruppen[0]);
+  check('Modellweg gültig: Zusammenfassungszeile mit Stufe, Anbieter, Modell, Quelle, Rückfall, eskaliert, Tokens, Dauer', m1.includes('**Stufe bauplan · Anbieter ollama · Modell qwen3 · Quelle llm · Rückfall: nein · eskaliert ja · Tokens 812 · Dauer 21.4 s**') && m1.indexOf('Stufe bauplan') < m1.indexOf('Aufrufe bis zum gültigen Plan'), m1.slice(m1.indexOf('## Modellweg'), m1.indexOf('## Prüfer')));
+  const rueck = mk([{ art: 'faden', ausgang: 'geoeffnet' }], { modell: { stufe: 'bauplan', anbieter: null, modell: null, quelle: 'rueckfall', vorlage: 'abenteuer_45e9', rueckfall: true, eskaliert: false, tokens: 0, dauer_s: 0, aufrufe: [] } });
+  const m2 = R.renderMission(rueck, rueck.gruppen[0]);
+  check('Modellweg Rückfall: Rückfall: ja mit Vorlage-Key, kein Modell, Tokens 0', m2.includes('Rückfall: ja (kein Modell, Anschluss-Vorlage abenteuer_45e9)') && m2.includes('Anbieter – · Modell –') && m2.includes('Tokens 0 · Dauer 0 s'));
+
+  // Szenentitel
+  const sz = { format: 'mitschnitt/1', lauf: { id: 'l' }, angebote: [], gruppen: [{ id: 's1', art: 'szene', titel: 'sund verteidigung', kennung: 'sund-verteidigung', von_nr: 1, bis_nr: 2, ausgang: 'sieg', nsc: [], pruefer: [] }, { id: 's2', art: 'szene', titel: 'Graben bei Ulfsvakt', kennung: 'graben', von_nr: 3, bis_nr: 3, ausgang: 'sieg', nsc: [], pruefer: [] }],
+    eintraege: [{ nr: 1, spielzeit: 1, art: 'szene', ereignis: 'start', modus: 'sund', szene: 'verteidigung' }, { nr: 2, spielzeit: 2, art: 'szene', ereignis: 'ende', modus: 'sund', szene: 'verteidigung' }, { nr: 3, spielzeit: 3, art: 'szene', ereignis: 'start', modus: 'graben', szene: 'graben_1' }] };
+  const ts = R.renderMission(sz, sz.gruppen[0]);
+  check('Szene ohne eigenen Titel: Überschrift „Szene: <szene> (modus <modus>)“, Frontmatter-Titel bleibt der Rohbezeichner', /^# Szene: verteidigung \(modus sund\)$/m.test(ts) && /^titel: "sund verteidigung"$/m.test(ts));
+  check('Index zeigt den lesbaren Szenentitel; ein echter Titel bleibt', R.renderIndex(sz).includes('| 1 | Szene: verteidigung (modus sund) | szene |') && R.renderIndex(sz).includes('| 2 | Graben bei Ulfsvakt | szene |'));
 }
 
 // 8 ablage.js unverändert im Verhalten
