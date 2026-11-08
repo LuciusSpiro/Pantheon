@@ -20,6 +20,7 @@
 
 const fs = require('fs');
 const path = require('path');
+const MD = require('../mission/md-ablage.js');
 
 const ROOT = path.join(__dirname, '..', '..');
 const FORMAT = 'mitschnitt/1';
@@ -31,13 +32,14 @@ const istIdFeld = (k) => ID_FELDER.has(k) || /_art$/.test(k);
 // Leere Gruppen (Befund N1/1): Rahmenarten, die allein keinen Inhalt ergeben; 'oda' zaehlt nur im Kurzstart (Ankuendigungszeilen beim Start einer Mission)
 const RAHMEN_ARTEN = new Set(['mission', 'szene', 'sprung', 'taetigkeit']);
 const KURZSTART_S = 5;
+// envWert: Kopie des Musters aus protokoll.js (dort nicht exportiert; protokoll.js bleibt unangetastet). slug: eigene Form (Bindestrich, leer statt Ersatzwert); md-ablage.slugify setzt '_' und liefert 'mission' als Ersatz.
 const envWert = (game, k) => { const e = game && game.env; return e && e[k] != null ? String(e[k]) : (process.env[k] != null ? String(process.env[k]) : ''); };
 const r1 = (x) => Math.round(x * 10) / 10;
 const istObjekt = (x) => !!x && typeof x === 'object' && !Array.isArray(x);
 const slug = (s) => String(s == null ? '' : s).normalize('NFKD').replace(/[̀-ͯ]/g, '').replace(/[^A-Za-z0-9]+/g, '-').replace(/^-+|-+$/g, '').toLowerCase().slice(0, 40);
-const lokalesDatum = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 // Eine Mission/Szene-Gruppe ohne eigenen Inhalt: nur Rahmenarten (+ ODA-Ankuendigungen), kein inhaltlicher Ausgang (nur abgebrochen/offen/session_ende) und eine Dauer unter KURZSTART_S.
 // Funk, Anzeige, Entscheidung, Wahl, Wirkung, Faden, Bitte usw. machen eine Gruppe nie leer.
+// Exportiert nur für den Test (tools/test-mitschnitt-aufnahme.js); im Spielcode ruft sie allein _leereMarkieren.
 function gruppeIstLeer(g, es) {
   if (g && (g.art === 'faden' || g.art === 'abenteuer')) return offenerFadenIstLeer(g, es);
   if (!g || (g.art !== 'mission' && g.art !== 'szene')) return false;
@@ -327,7 +329,7 @@ class Mitschnitt {
       if (!p) { try { p = require('../sim/faden-daten.js').vorlage(vorlageId || fd.vorlage) || null; } catch (e) { p = null; } }
       if (p) g.plan = this._filter(JSON.parse(JSON.stringify(p)));   // alle Strings, ausser technischen Ids
       const titel = (g.plan && g.plan.titel) || (kanon && kanon.titel) || null;
-      if (titel) { g.titel = this._text(titel); g.kennung = slug(titel) || id; } else if (fd.vorlage) { g.titel = fd.vorlage; g.kennung = slug(fd.vorlage) || id; }
+      if (titel) { g.titel = this._text(titel); g.kennung = slug(g.titel) || id; } else if (fd.vorlage) { g.titel = this._text(fd.vorlage); g.kennung = slug(g.titel) || id; }   // Kennung aus dem GEFILTERTEN Titel (Ordnername, Frontmatter)
     }
     const n = fd.nsc;
     if (n) {
@@ -413,7 +415,13 @@ class Mitschnitt {
     const f = { ereignis: 'ende', modus: z.modus, szene: z.szene, ausgang: z.ausgang };
     if (z.dauer != null) f.dauer = z.dauer;
     const e = this._neu('szene', f, gid ? { gruppe: gid } : undefined);
-    if (gid && e) { this._offeneSzenen.delete(key); const g = this._idx.get(gid); if (z.ausgang != null) g.ausgang = String(z.ausgang); this._schliessen(g, e.nr); }
+    if (gid && e) { this._offeneSzenen.delete(key); const g = this._idx.get(gid); if (z.ausgang != null) g.ausgang = String(z.ausgang); this._schliessen(g, e.nr); return; }
+    // Befund N3/2: ohne Szenen-Gruppe endet hier eine Mission (abbrechen() sendet kein missionDone, nur dieses Ereignis): die offene Mission-Gruppe schliessen, Ausgang aus dem Ereignis
+    if (e) {
+      let mg = null;
+      for (const [id, m] of this._meta) if (m.offen && m.mission !== undefined && m.mission === z.szene) mg = this._idx.get(id);
+      if (mg) { if (z.ausgang != null) mg.ausgang = String(z.ausgang); this._schliessen(mg, e.nr); }
+    }
   }
   _schliessen(g, nr) {
     g.bis_nr = Math.max(g.bis_nr, nr);
@@ -482,6 +490,7 @@ class Mitschnitt {
     try {
       const jetzt = new Date();
       this.v.lauf.beendet = jetzt.toISOString();
+      this.v.lauf.verworfen = this.verworfen;   // Befund N3/4: ueber MAX_EINTRAEGE hinaus gekappte Eintraege (sonst stumm verloren)
       const dir = this._ordnerWaehlen();
       this.v.lauf.id = path.basename(dir);
       let ok = false;
@@ -507,17 +516,19 @@ class Mitschnitt {
       if (nachfolger) g.ersetzt_durch = nachfolger.id;
     }
   }
+  // Befund N3/6: der Lauf-Ordner wird EXKLUSIV angelegt (mkdir ohne recursive scheitert mit EEXIST, wenn ein anderer Lauf ihn hat): -2, -3, ... Ein frueherer Lauf gleichen Namens bleibt samt Bewertung und Notizen unberuehrt.
   _ordnerWaehlen() {
     const l = this.v.lauf;
     const name = [slug(l.werkzeug) || 'lauf', l.seed != null ? 's' + slug(l.seed) : '', l.crew != null ? 'c' + slug(l.crew) : '', slug(l.modus)].filter(Boolean).join('-');
-    const basis = lokalesDatum(this._beginn) + '_' + name;
-    for (let i = 1; i < 100; i++) {   // ein frueherer Lauf gleichen Namens bleibt (samt Bewertung und Notizen) unberuehrt
+    const basis = MD.localDate(this._beginn) + '_' + name;
+    fs.mkdirSync(this._wurzel, { recursive: true });
+    for (let i = 1; i < 1000; i++) {
       const dir = path.join(this._wurzel, i === 1 ? basis : basis + '-' + i);
-      let fremd = false;
-      try { const alt = JSON.parse(fs.readFileSync(path.join(dir, 'verlauf.json'), 'utf8')); fremd = !!(alt && alt.lauf && alt.lauf.gestartet !== l.gestartet); } catch (e) { fremd = fs.existsSync(path.join(dir, 'mission.md')); }
-      if (!fremd) return dir;
+      try { fs.mkdirSync(dir); return dir; } catch (e) { if (e.code !== 'EEXIST') throw e; }
     }
-    return path.join(this._wurzel, basis + '-' + Date.now());
+    const dir = path.join(this._wurzel, basis + '-' + Date.now());
+    fs.mkdirSync(dir, { recursive: true });
+    return dir;
   }
 }
 // Der Renderer (Paket B) wird erst beim Schreiben geladen; Tests ersetzen den Lader durch einen Stub.

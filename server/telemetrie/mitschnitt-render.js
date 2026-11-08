@@ -37,10 +37,13 @@ function wert(v) {
   if (istObj(v)) { const e = Object.entries(v); return e.length ? e.map(([k, x]) => `${k}: ${wert(x)}`).join('; ') : '–'; }
   return String(v);
 }
-const zelle = (v) => wert(v).replace(/\r?\n/g, ' ').replace(/\|/g, '\\|').trim();
+// einzeilig: fuer jeden einzeiligen Kontext (Ueberschrift, Fettzeile, Listenpunkt, Frontmatter-Wert, Tabellenzelle): Zeilenumbrueche und Kontrollzeichen werden zu Leerzeichen (Befund N3/8: ein Text mit '\n## Notizen' verwirrte notizenAus).
+// Das '|' escapen nur die Tabellenzellen (zelle).
+const einzeilig = (t) => String(t === undefined || t === null ? '' : t).replace(/[\u0000-\u001f\u007f-\u009f\u2028\u2029]+/g, ' ');
+const zelle = (v) => einzeilig(wert(v)).replace(/\|/g, '\\|').trim();
 const kuerze = (s, n) => { const t = String(s); const m = n || KURZ_MAX; return t.length > m ? t.slice(0, m - 1) + '…' : t; };
 const zitat = (text) => String(text === undefined || text === null ? '' : text).split(/\r?\n/).map((z) => `> ${z}`).join('\n');
-const yamlText = (s) => JSON.stringify(String(s === undefined || s === null ? '' : s));
+const yamlText = (s) => JSON.stringify(einzeilig(s));
 const yamlZahl = (v) => (v === undefined || v === null || v === '' ? '""' : (Number.isFinite(v) ? String(v) : yamlText(v)));
 const zeit = (s) => MD.mmss(s);
 function tabelle(kopf, zeilen) {
@@ -63,6 +66,10 @@ const gruppen = (verlauf) => alleGruppen(verlauf).filter((g) => !g.leer);   // G
 const leereGruppen = (verlauf) => alleGruppen(verlauf).filter((g) => g.leer);
 const imBereich = (e, g) => e.nr >= g.von_nr && e.nr <= g.bis_nr;
 const eintraegeVon = (verlauf, g) => eintraege(verlauf).filter((e) => imBereich(e, g));
+// Befund N3/1: im Nr-Bereich einer Gruppe liegen auch Eintraege paralleler Faeden. Als EIGENE zaehlen: gleiche Gruppe, heuristisch zugeordnete (laufender Faden, nicht aus den Daten belegt) und solche ohne Gruppe.
+const istEigen = (e, g) => e.gruppe === undefined || e.gruppe === null || e.gruppe === g.id || e.zuordnung === 'heuristik';
+const eigene = (es, g) => es.filter((e) => istEigen(e, g));
+const fremdMarker = (e, g) => (istEigen(e, g) ? '' : ` (${/^f\d+$/.test(String(e.gruppe)) ? 'Faden' : 'Gruppe'} ${einzeilig(e.gruppe)})`);
 function eintraegeOhneGruppe(verlauf) {
   const gs = alleGruppen(verlauf);   // auch leere Gruppen: ihre Einträge stehen unter 'Leere Versuche', nicht zwischen den Aufträgen
   return eintraege(verlauf).filter((e) => !gs.some((g) => imBereich(e, g)));
@@ -74,10 +81,10 @@ const feldText = (e) => Object.entries(e).filter(([k]) => !INTERNE_FELDER.has(k)
 // Kurztext einer Zeile der Zeitleiste. Nur Arten des Vertrags mit Sondertext, alles andere generisch (Leitprinzip).
 function kurztext(e) {
   switch (e.art) {
-    case 'funk': return `**${wert(e.von)}:** ${wert(e.text)}`;
+    case 'funk': return `**${einzeilig(wert(e.von))}:** ${wert(e.text)}`;
     case 'oda': return `**ODA:** ${wert(e.text)}`;
-    case 'anzeige': return `${e.titel ? `**${e.titel}** ` : ''}${wert(e.text)}`;
-    case 'bitte': return `${wert(e.von)} bittet: ${kuerze(wert(e.text))} (${(e.optionen || []).length} Optionen)`;
+    case 'anzeige': return `${e.titel ? `**${einzeilig(e.titel)}** ` : ''}${wert(e.text)}`;
+    case 'bitte': return `${einzeilig(wert(e.von))} bittet: ${kuerze(wert(e.text))} (${(e.optionen || []).length} Optionen)`;
     default: return kuerze(feldText(e)) || '–';
   }
 }
@@ -88,7 +95,7 @@ function abschnittAnlass(g) {
   const p = g.plan;
   if (leer(p)) return L.concat('_Kein Plan erfasst._', '');
   if (!istObj(p)) return L.concat(wert(p), '');
-  if (!leer(p.titel)) L.push(`**${wert(p.titel)}**`, '');
+  if (!leer(p.titel)) L.push(`**${einzeilig(wert(p.titel))}**`, '');
   if (!leer(p.anlass)) L.push(zitat(p.anlass), '');
   const rest = Object.entries(p).filter(([k]) => !['titel', 'anlass'].includes(k));
   if (rest.length) L.push(...tabelle(['Feld', 'Inhalt'], rest.map(([k, v]) => [k, v])));
@@ -105,17 +112,17 @@ function rauschZeile(lauf) {
   return [zeit(lauf[0].spielzeit), von === bis ? von : `${von}–${bis}`, 'zusammengefasst', `… ${teile.join(', ')} (${von === bis ? `Nr ${von}` : `Nr ${von}–${bis}`}, Details in verlauf.json)`];
 }
 // Zeilen der Zeitleiste: Rauschläufe zu einer Zeile, alles andere einzeln, Reihenfolge nach nr
-function zeitleistenZeilen(es) {
+function zeitleistenZeilen(es, g) {
   const zeilen = []; let lauf = [];
   const leeren = () => { if (lauf.length) zeilen.push(rauschZeile(lauf)); lauf = []; };
-  for (const e of es) { if (istRauschen(e)) lauf.push(e); else { leeren(); zeilen.push([zeit(e.spielzeit), e.nr, e.art, kurztext(e)]); } }
+  for (const e of es) { if (istRauschen(e)) lauf.push(e); else { leeren(); zeilen.push([zeit(e.spielzeit), e.nr, e.art, kurztext(e) + (g ? fremdMarker(e, g) : '')]); } }
   leeren();
   return zeilen;
 }
-function abschnittZeitleiste(es) {
+function abschnittZeitleiste(es, g) {
   const L = ['## Zeitleiste', ''];
   if (!es.length) return L.concat('_Keine Einträge._', '');
-  return L.concat(tabelle(['Spielzeit', 'Nr', 'Art', 'Eintrag'], zeitleistenZeilen(es)));
+  return L.concat(tabelle(['Spielzeit', 'Nr', 'Art', 'Eintrag'], zeitleistenZeilen(es, g)));
 }
 // Lesbarer Titel (Befund N2/4a): eine Szene heißt im Verlauf 'modus szene' (Rohbezeichner); mit Modus und Szene aus dem Startereignis wird daraus 'Szene: <szene> (modus <modus>)'
 function anzeigeTitel(verlauf, g) {
@@ -130,7 +137,7 @@ function abschnittTexte(es) {
   const ts = es.filter((e) => ['funk', 'oda', 'anzeige'].includes(e.art));
   if (!ts.length) L.push('_Keine Texte._', '');
   for (const e of ts) {
-    const wer = e.art === 'funk' ? wert(e.von) : e.art === 'oda' ? 'ODA' : `Anzeige${e.titel ? ` „${e.titel}“` : ''}${e.slot !== undefined ? ` (Slot ${e.slot})` : ''}`;
+    const wer = einzeilig(e.art === 'funk' ? wert(e.von) : e.art === 'oda' ? 'ODA' : `Anzeige${e.titel ? ` „${e.titel}“` : ''}${e.slot !== undefined ? ` (Slot ${e.slot})` : ''}`);
     L.push(`**${zeit(e.spielzeit)} – ${wer}**`, '', zitat(e.text), '');
   }
   L.push('> Hinweis: Die Zuordnung der Funk- und Anzeigetexte zu dieser Mission ist heuristisch (laufender Faden zum Zeitpunkt des Eintreffens). Bei parallel laufenden Fäden kann ein Text zur Nachbarmission gehören.', '');
@@ -141,20 +148,21 @@ function optionsListe(optionen, gewaehlt) {
     const id = istObj(o) ? o.id : o;
     const text = istObj(o) ? (o.text !== undefined ? o.text : o.label) : o;
     const treffer = gewaehlt !== undefined && String(id) === String(gewaehlt);
-    const zeile = `${wert(id)}: ${wert(text)}`.replace(/\r?\n/g, ' ');
+    const zeile = einzeilig(`${wert(id)}: ${wert(text)}`);
     return treffer ? `- **${zeile}** ← gewählt` : `- ${zeile}`;
   });
 }
 const gewaehltId = (w) => (w.option !== undefined ? w.option : w.id);
-const wahlZeile = (w) => `Gewählt: **${wert(gewaehltId(w))}**${w.text ? ` – ${wert(w.text)}` : ''}${w.ausgang ? ` (Ausgang: ${wert(w.ausgang)})` : ''}`;
+const wahlZeile = (w) => einzeilig(`Gewählt: **${wert(gewaehltId(w))}**${w.text ? ` – ${wert(w.text)}` : ''}${w.ausgang ? ` (Ausgang: ${wert(w.ausgang)})` : ''}`);
 function regelHinweis(l) {
-  const regel = leer(l.regel) ? 'keine Regel angegeben' : String(l.regel);
+  const regel = leer(l.regel) ? 'keine Regel angegeben' : einzeilig(l.regel);
   if (l.quelle === 'spieler') return [`> **Wahl durch Spieler.** Aufgezeichnete Regel des Laufs: ${regel}.`, ''];
   const wer = l.quelle === 'messung' ? 'des Messlaufs' : 'des Bots';
   return [`> **Wahlregel ${wer}:** ${regel}. Die gewählten Optionen oben folgen dieser Regel und sind kein Spielerverhalten.`, ''];
 }
-function abschnittWahl(es, l) {
+function abschnittWahl(alle, l, g) {
   const L = ['## Optionen und Wahl', ''];
+  const es = eigene(alle, g);   // Befund N3/1: Bitten und Wahlen paralleler Faeden gehoeren nicht hierher
   const fragen = es.filter((e) => e.art === 'bitte' || e.art === 'entscheidung');
   const waehlen = es.filter((e) => e.art === 'wahl');
   const verbraucht = new Set();
@@ -166,14 +174,14 @@ function abschnittWahl(es, l) {
   }
   for (const f of fragen) {
     const w = zuFrage.get(f);
-    const titel = f.art === 'bitte' ? `Bitte von ${wert(f.von)}` : f.quelle === 'funk' ? `Funk-Antwort an ${wert(f.von)} (${wert(f.id)})` : `Entscheidung ${wert(f.id)}`;
+    const titel = einzeilig(f.art === 'bitte' ? `Bitte von ${wert(f.von)}` : f.quelle === 'funk' ? `Funk-Antwort an ${wert(f.von)} (${wert(f.id)})` : `Entscheidung ${wert(f.id)}`);
     L.push(`### ${titel} (${zeit(f.spielzeit)}, Nr ${f.nr})`, '');
     if (f.art === 'bitte' || !leer(f.prompt)) L.push(zitat(f.art === 'bitte' ? f.text : f.prompt), '');
     L.push(...optionsListe(f.optionen, w ? gewaehltId(w) : undefined), '');
     L.push(w ? wahlZeile(w) : '_Keine Wahl erfasst._', '');
   }
   for (const w of waehlen.filter((x) => !verbraucht.has(x))) {
-    L.push(`### Wahl (${zeit(w.spielzeit)}, Nr ${w.nr}, Quelle ${wert(w.quelle)})`, '');
+    L.push(`### Wahl (${zeit(w.spielzeit)}, Nr ${w.nr}, Quelle ${einzeilig(wert(w.quelle))})`, '');
     if (w.optionen) L.push(...optionsListe(w.optionen, gewaehltId(w)), '');
     L.push(wahlZeile(w), '');
   }
@@ -181,10 +189,11 @@ function abschnittWahl(es, l) {
   L.push(...regelHinweis(l));
   return L;
 }
-function abschnittFolgen(es, g) {
+function abschnittFolgen(alle, g) {
   const L = ['## Folgen', ''];
+  const es = eigene(alle, g);   // Befund N3/1: Wirkung, Haltung und Chronik paralleler Faeden nicht als eigene zeigen
   const w = es.filter((e) => e.art === 'wirkung'), h = es.filter((e) => e.art === 'haltung'), c = es.filter((e) => e.art === 'chronik');
-  if (istObj(g.plan) && !leer(g.plan.folgen)) L.push(`**Geplante Folgen:** ${wert(g.plan.folgen)}`, '');
+  if (istObj(g.plan) && !leer(g.plan.folgen)) L.push(`**Geplante Folgen:** ${einzeilig(wert(g.plan.folgen))}`, '');
   L.push('### Wirkung (Ruf, Marken, Ladung, …)', '');
   L.push(...(w.length ? tabelle(['Spielzeit', 'Konto', 'Ziel', 'Betrag', 'Stand', 'Grund'], w.map((e) => [zeit(e.spielzeit), e.konto, e.ziel, e.betrag, e.stand, e.grund])) : ['_Keine erfasst._', '']));
   L.push('### Haltung der NSC', '');
@@ -204,7 +213,7 @@ const sek = (x) => (x === null || x === undefined || !Number.isFinite(Number(x))
 function modellZeile(m) {
   if (!istObj(m)) return 'Kein Modellaufruf zu diesem Auftrag aufgezeichnet (Plan vom Werkzeug gesetzt oder Vorlage ohne Plan).';
   const rueck = m.rueckfall === true ? (m.vorlage ? `ja (kein Modell, Anschluss-Vorlage ${wert(m.vorlage)})` : 'ja (kein Modell)') : (typeof m.rueckfall === 'string' && m.rueckfall ? `ja (${m.rueckfall})` : 'nein');
-  return `**Stufe ${wert(m.stufe)} · Anbieter ${wert(m.anbieter)} · Modell ${wert(m.modell)} · Quelle ${wert(m.quelle)} · Rückfall: ${rueck} · eskaliert ${jaNein(m.eskaliert !== undefined && m.eskaliert !== null ? m.eskaliert : (Array.isArray(m.aufrufe) && m.aufrufe.some((x) => x && x.eskaliert)))} · Tokens ${m.tokens === undefined || m.tokens === null ? '–' : m.tokens} · Dauer ${sek(m.dauer_s)}**`;
+  return einzeilig(`**Stufe ${wert(m.stufe)} · Anbieter ${wert(m.anbieter)} · Modell ${wert(m.modell)} · Quelle ${wert(m.quelle)} · Rückfall: ${rueck} · eskaliert ${jaNein(m.eskaliert !== undefined && m.eskaliert !== null ? m.eskaliert : (Array.isArray(m.aufrufe) && m.aufrufe.some((x) => x && x.eskaliert)))} · Tokens ${m.tokens === undefined || m.tokens === null ? '–' : m.tokens} · Dauer ${sek(m.dauer_s)}**`);
 }
 function abschnittModell(es, g) {
   const L = ['## Modellweg', ''];
@@ -226,8 +235,8 @@ function abschnittPruefer(es, g) {
   const p = Array.isArray(g.pruefer) ? g.pruefer : [];
   const pe = es.filter((e) => e.art === 'faden_pruefung');
   if (!p.length && !pe.length) return L.concat('_Keine._', '');
-  for (const x of p) L.push(`- ${wert(x)}`);
-  for (const e of pe) L.push(`- ${zeit(e.spielzeit)} ${wert(e.ausgang)}${e.key ? ` (${e.key})` : ''}: ${(Array.isArray(e.fehler) ? e.fehler : [e.fehler]).map(wert).join('; ')}`);
+  for (const x of p) L.push(`- ${einzeilig(wert(x))}`);
+  for (const e of pe) L.push(`- ${einzeilig(`${zeit(e.spielzeit)} ${wert(e.ausgang)}${e.key ? ` (${e.key})` : ''}: ${(Array.isArray(e.fehler) ? e.fehler : [e.fehler]).map(wert).join('; ')}`)}`);
   return L.concat('');
 }
 const notizBlock = (notizen) => [MD.NOTES_HEAD, '', (notizen && String(notizen).trim()) || NOTES_STANDARD, ''];
@@ -253,7 +262,7 @@ function renderMission(verlauf, gruppe, opts) {
     `verlauf_kuenstlich: ${JSON.stringify(Array.isArray(l.kuenstlich) ? l.kuenstlich : [])}`,
     `bewertung: ${o.bewertung || BEWERTUNG_OFFEN}`];
   if (o.jetzt) L.push(`erzeugt: ${MD.localDate(o.jetzt)}`);
-  L.push('---', '', `# ${anzeigeTitel(verlauf, gruppe)}`, '',
+  L.push('---', '', `# ${einzeilig(anzeigeTitel(verlauf, gruppe))}`, '',
     '> Review: Setze im Frontmatter `bewertung` auf `gut`, `schwach` oder `verwerfen` und schreibe Anmerkungen unter „Notizen“. Beides bleibt beim Neuschreiben erhalten. Dies ist ein Mitschnitt eines simulierten Laufs, keine Freigabe.', '');
   L.push(...tabelle(['Feld', 'Wert'], [
     ['Gruppe', `${gruppe.art || '–'} (${gruppe.id})`], ['Ausgang', gruppe.ausgang], ['Lauf', l.id], ['Werkzeug', l.werkzeug],
@@ -261,8 +270,8 @@ function renderMission(verlauf, gruppe, opts) {
     ['Spielzeit', es.length ? `${zeit(von)} – ${zeit(bis)} (${zeit(bis - von)})` : '–'],
     ['Einträge', es.length ? `Nr ${gruppe.von_nr}–${gruppe.bis_nr} (${es.length})` : '0'],
     ['Angebot', gruppe.angebot]]));
-  if (kst) L.push(`> **Verlauf teilweise gesetzt:** ${kst}. Diese Schritte hat das Werkzeug künstlich herbeigeführt, sie sind nicht aus freiem Spiel entstanden.`, '');
-  L.push(...abschnittAnlass(gruppe), ...abschnittZeitleiste(es), ...abschnittTexte(es), ...abschnittWahl(es, l),
+  if (kst) L.push(`> **Verlauf teilweise gesetzt:** ${einzeilig(kst)}. Diese Schritte hat das Werkzeug künstlich herbeigeführt, sie sind nicht aus freiem Spiel entstanden.`, '');
+  L.push(...abschnittAnlass(gruppe), ...abschnittZeitleiste(es, gruppe), ...abschnittTexte(es), ...abschnittWahl(es, l, gruppe),
     ...abschnittFolgen(es, gruppe), ...abschnittNsc(gruppe), ...abschnittModell(es, gruppe), ...abschnittPruefer(es, gruppe), ...notizBlock(o.notizen));
   return schliessen(L);
 }
@@ -276,10 +285,11 @@ function renderIndex(verlauf, opts) {
     `quelle: ${yamlText(l.quelle)}`, `seed: ${yamlZahl(l.seed)}`, `crew: ${yamlZahl(l.crew)}`,
     `verlauf_kuenstlich: ${JSON.stringify(Array.isArray(l.kuenstlich) ? l.kuenstlich : [])}`];
   if (o.jetzt) L.push(`erzeugt: ${MD.localDate(o.jetzt)}`);
-  L.push('---', '', `# Mitschnitt ${l.id || ''}`.trim(), '');
+  L.push('---', '', `# Mitschnitt ${einzeilig(l.id || '')}`.trim(), '');
   L.push(...tabelle(['Feld', 'Wert'], [['Werkzeug', l.werkzeug], ['Quelle', l.quelle], ['Seed', l.seed], ['Crew', l.crew], ['Modus', l.modus],
-    ['Gestartet', l.gestartet], ['Beendet', l.beendet], ['Wahlregel', l.regel], ['Künstlich gesetzt', kst || 'nichts'], ['Einträge', es.length], ['Gruppen', gs.length], ...(leere.length ? [['Leere Versuche', leere.length]] : [])]));
-  if (kst) L.push(`> **Verlauf teilweise gesetzt:** ${kst}.`, '');
+    ['Gestartet', l.gestartet], ['Beendet', l.beendet], ['Wahlregel', l.regel], ['Künstlich gesetzt', kst || 'nichts'], ['Einträge', es.length], ['Gruppen', gs.length], ...(leere.length ? [['Leere Versuche', leere.length]] : []), ...(l.verworfen > 0 ? [['Verworfene Einträge', l.verworfen]] : [])]));
+  if (l.verworfen > 0) L.push(`> **Achtung: ${l.verworfen} Einträge wurden verworfen** (Obergrenze je Lauf erreicht). Der Verlauf ist ab dort unvollständig.`, '');
+  if (kst) L.push(`> **Verlauf teilweise gesetzt:** ${einzeilig(kst)}.`, '');
   L.push('## Aufträge', '');
   const ordner = o.ordner || {}, bew = o.bewertungen || {};
   L.push(...(gs.length ? tabelle(['Nr', 'Titel', 'Art', 'Ausgang', 'Dauer', 'Bewertung', 'Ordner'], gs.map((g, i) => {
@@ -366,4 +376,4 @@ function schreibeLauf(verlauf, dir, opts) {
   return { dir, dateien };
 }
 
-module.exports = { renderMission, renderIndex, schreibeLauf, FORMAT };
+module.exports = { renderMission, renderIndex, schreibeLauf, einzeilig, FORMAT };

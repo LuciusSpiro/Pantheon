@@ -56,10 +56,12 @@ function client(port, hello, name) {
   });
 }
 
+let spielG = null;   // MIT-01 N3/7a: fuer den Fehlerpfad (catch am Ende) zugaenglich
 (async () => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'spiel-faden-'));
   const srv = await startServer({ port: 0, quiet: true, noStore: true, worlds: true, worldDir: dir, debug: true, roomCode: CODE });
   const g = srv.game, port = srv.port;
+  spielG = g;
   // MIT-01 C: Werkzeugdaten fuer den Mitschnitt. Kuenstlich gesetzt ist, was dieser Bot per Testhelfer/Hook tut (siehe k(...) an den Stellen)
   MitLauf.anmelden(g, { werkzeug: 'spiel-faden', modus: 'faeden', seed: g.seed, crew: NAMEN.length, quelle: 'bot',
     regel: 'Bitte: Option annehmen, sonst die erste Option (ein zweiter Client antwortet gleichzeitig ablehnen: wird verworfen); Brett: Angebot annehmen (zwei Clients zugleich), Ablehnen nur zum Platzschaffen' });
@@ -111,7 +113,7 @@ function client(port, hello, name) {
   zeile(`Bitten-Antworten bei allen drei: ${cl.map((x) => x.antw).join(', ')}`);
   // ---------------------------------------------------------------- SUND-04b B1: Gerücht, Rätsel-Spur, Wiedersehen
   // TEST-ARTEFAKT: der Deckel von 6 Anfragen je Sitzung (lageSpielleiter.aufrufe) gilt dem ECHTEN Claude (Kosten). Der Bot spielt mit dem Mock und setzt den Zaehler zurueck, sonst stuende die Geschichte nach einigen Runden still; im Spiel mit Claude gilt der Deckel unveraendert.
-  const runde = async () => { k('aufrufe-zuruecksetzen'); Kriegslage.tick(g, 'spiel'); g.lageGrenze('szene_ende'); if (g.lageSpielleiter && g.lageSpielleiter.aufrufe > 4) g.lageSpielleiter.aufrufe = 0; await sleep(100); };   // der Deckel von 6 Anfragen je Sitzung gilt dem echten Claude: im Bot-Lauf mit dem Mock wird er zurueckgesetzt, sonst stuende die Geschichte still
+  const runde = async () => { Kriegslage.tick(g, 'spiel'); g.lageGrenze('szene_ende'); if (g.lageSpielleiter && g.lageSpielleiter.aufrufe > 4) { k('aufrufe-zuruecksetzen'); g.lageSpielleiter.aufrufe = 0; } await sleep(100); };   // MIT-01 N3/7b: als kuenstlich nur markieren, wenn tatsaechlich zurueckgesetzt wird   // der Deckel von 6 Anfragen je Sitzung gilt dem echten Claude: im Bot-Lauf mit dem Mock wird er zurueckgesetzt, sonst stuende die Geschichte still
   const hierHex = () => Sektoren.hexVonOrt(g.ship.scene);
   const flieg = (hex) => { k('teleport'); const o = Sektoren.ortVonHex(hex) || ('leer-' + hex); Space.enterScene(g, o, {}); g.explore.location = o; const s = g.ship; s.docked = false; s.dockedAt = null; s.vx = 0; s.vy = 0; s.speed = 0; };
   // Die Crew sitzt an einer Konsole (Platz und Taste Benutzen, wie die Ops bei der Spur): der Sprung geht ueber die echten Befehle weapons.widescan und helm.jump
@@ -400,4 +402,4 @@ function client(port, hello, name) {
   for (const x of cl) x.ws.close();
   MitLauf.beenden(g);   // MIT-01 C: Mitschnitt schreiben, Ordner nennen (ohne Schalter: nichts)
   process.exit(fertig && alleB1 && alleB2 && alleC && g.errors === 0 ? 0 : 1);
-})().catch((e) => { console.log('FEHLER: ' + (e && e.stack)); process.exit(1); });
+})().catch((e) => { console.log('FEHLER: ' + (e && e.stack)); MitLauf.beenden(spielG); process.exit(1); });   // MIT-01 N3/7a: auch im Fehlerfall schreiben und den Ordner nennen
