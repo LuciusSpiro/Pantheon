@@ -289,6 +289,8 @@
     "mitschnitt": "node tools/mitschnitt.js",
     "test:mitschnitt-werkzeug": "node tools/test-mitschnitt-werkzeug.js",
     "test:kontingent": "node tools/test-kontingent.js",
+    "test:kontingent-ui": "node tools/test-kontingent-ui.js",
+    "sicht:kontingent": "node tools/sicht-kontingent.js",
     "test:flight": "node tools/test-flight.js",
     "test:klassen": "node tools/test-klassen.js",
     "test:m3": "node tools/test-m3.js",
