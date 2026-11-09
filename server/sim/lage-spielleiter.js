@@ -26,7 +26,8 @@ const Abenteuer = require('./abenteuer-spielleiter.js');   // SUND-04b A2: Kompo
 const Stufen = require('../mission/stufen.js');   // SUND-04b A2
 
 const DATEN = require('../../content/welt/lage-spielleiter-werte.json').werte;
-const WERTE = Object.fromEntries(Object.entries(DATEN).map(([k, v]) => [k, v.wert]));
+const NOTBETRIEB = require('../../content/welt/notbetrieb-hinweis.json').werte;   // FRE-01 C: Texte und Gruende des Notbetrieb-Hinweises (eigene Datei: kein Teil des Tuning-Hashes)
+const WERTE = Object.fromEntries(Object.entries(Object.assign({}, DATEN, NOTBETRIEB)).map(([k, v]) => [k, v.wert]));
 
 // Modus aus der Umgebung wie der Spielleiter der Kampagne: live nur mit SPIELLEITER_LLM=live UND LLM_LIVE=1
 function modusAusEnv(env) {
@@ -100,6 +101,8 @@ class LageSpielleiter {
     this.failNext = false;
     this.aus = null;             // Grund, wenn der Transport für diese Sitzung aus ist (CLI fehlt)
     this.ausGemeldet = false;
+    this.notbetriebGemeldet = false;   // FRE-01 C: Hinweis "Notbetrieb" einmal je Sitzung (Objekt-Zustand, nie im Weltstand)
+    this.startGeprueft = false;
     this.disposed = false;
     this.sitzung = (game.runId || ('lage-' + Date.now())) + '';
     this.abenteuer = Abenteuer.create(this, o.abenteuerWerte ? { werte: o.abenteuerWerte } : undefined);   // SUND-04b A2: tut ohne FAEDEN=1 nichts
@@ -134,6 +137,32 @@ class LageSpielleiter {
     } catch (e) { this.fehlerZaehlen('stufen-konfig', e); }
   }
   fehlerZaehlen(wo, e) { if (this.game.countError) this.game.countError(wo, e); }
+  // FRE-01 C: eigener Fehler (kein Ausfall des Modells: Prompt, Plan, Antwort), meldet nie Notbetrieb
+  lokalFehler(msg) { const e = LLM.llmError('EXIT', msg); e.lokal = true; return e; }
+  // FRE-01 C: faellt das Modell im Live-Betrieb aus, merkt die Crew es EINMAL je Sitzung (Funk lage:1 + Zeile im Server-Log mit Grund). Nur im Betrieb live: im Rueckfall-Betrieb (absichtlich ohne
+  // Modell) und bei mode off/mock kein Hinweis. Welche Gruende zaehlen, steht in den Daten (notbetrieb_gruende). Nichts blockiert, nichts wirft; das Regie-Logbuch schreiben die Ausfallstellen selbst.
+  notbetriebMelden(grund, detail) {
+    if (this.disposed || this.mode !== 'live' || this.rueckfallBetrieb || this.notbetriebGemeldet) return false;
+    if (!this.W.notbetrieb_gruende.includes(grund)) return false;
+    this.notbetriebGemeldet = true;
+    const T = this.W.notbetrieb_funk;
+    const d = detail ? ': ' + String(detail).replace(/\s+/g, ' ').slice(0, 160) : '';
+    try { this.game.log(T.log.replace('{grund}', grund).replace('{detail}', d)); } catch (e) { this.fehlerZaehlen('lage-notbetrieb-log', e); }
+    try { this.game.emit('radio', { from: T.sprecher, text: T.text, lage: 1, r: 1 }); } catch (e) { this.fehlerZaehlen('lage-notbetrieb', e); }
+    return true;
+  }
+  // aus einem Fehlerobjekt des Transports: eigene Fehler (lokal) und Codes ausserhalb der Liste melden nicht
+  notbetriebBeiFehler(e) { return this.notbetriebMelden(e && e.lokal ? 'lokal' : ((e && e.code) || 'EXIT'), e && e.message); }
+  // Beim ersten update im Live-Betrieb: ist keine Claude-CLI zu finden, sofort melden (nicht erst beim ersten Plan). Ohne Modellaufruf. Mit eingehaengtem Transport/Modell (Tests) nur mit opts.cliFinden.
+  startPruefen() {
+    if (this.startGeprueft) return;
+    this.startGeprueft = true;
+    if (this.mode !== 'live' || this.rueckfallBetrieb || this.llm || (this.opts.transport && !this.opts.cliFinden)) return;
+    try {
+      const f = (this.opts.cliFinden || LLM.claudeFinden)({ env: this.env });
+      if (!f || !f.cmd) { this.aus = this.aus || 'CLI fehlt (beim Start gesucht)'; this.notbetriebMelden('cli_fehlt', 'versucht: ' + ((f && f.versucht) || []).join(', ')); }
+    } catch (e) { this.fehlerZaehlen('lage-cli-pruefung', e); }
+  }
   schreibe(eintrag) { Regie.schreibe(this.game, Object.assign({ art: 'lage_grobplan', quelle: this.mode === 'mock' || this.mode === 'script' ? 'mock' : 'llm' }, eintrag)); }
   bereit() { return !this.disposed && !!this.game.weltsim; }
   // Übersprungene Grenze: gezählt immer, im Logbuch höchstens einmal je Tick und Grund (K1: keine Flut), der Grund steht im eigenen Feld `grund`
@@ -177,6 +206,7 @@ class LageSpielleiter {
     if (this.rueckfallBetrieb) return { gestartet: false, grund: 'rueckfall' };   // FRE-01 A: kein Lage-Plan, kein Modell, kein Logbuch-Rauschen
     if (this.mode === 'off' || (this.llm && this.llm.mode === 'off')) {
       if (!this.ausGemeldet) { this.ausGemeldet = true; Regie.rueckfall(this.game, 'Lage-Spielleiter aus (Modus off)'); }
+      if (this.mode === 'live') this.notbetriebMelden('OFF', 'Modell nicht verfügbar (Modus off im Live-Betrieb)');
       return { gestartet: false, grund: 'aus' };
     }
     if (this.aus) return this.ueberspringen('transport_aus', art);
@@ -191,6 +221,7 @@ class LageSpielleiter {
       Regie.rueckfall(this.game, `Token-Budget fast leer (${b.used} von ${b.limit}, Rest < ${this.W.min_budget})`);
       this.schreibe({ ausgang: 'fehler', grund: 'budget', fehler: ['BUDGET'], budget: { used: b.used, limit: b.limit }, begruendung: 'Grenze ' + art + ': Budget leer', plan: { grenze: art, tick: ws.tickZahl, sitzung: this.sitzung } });
       this.zaehler.fehler++;
+      this.notbetriebMelden('BUDGET', `Token-Budget fast leer (${b.used} von ${b.limit})`);
       return { gestartet: false, grund: 'budget' };
     }
     this.budgetGemeldet = false;
@@ -204,6 +235,7 @@ class LageSpielleiter {
   // ---------- Tick-Pfad (zwischen den Ticks): abholen, Frist prüfen, vorgemerkte Anfrage starten
   update(dt) {
     if (!this.bereit()) return;
+    this.startPruefen();
     this.abholen();
     this.fristPruefen();
     if (this.zustand === 'angefragt') this.starten();
@@ -212,10 +244,10 @@ class LageSpielleiter {
   starten() {
     const job = this.job;
     if (!job) { this.zustand = 'idle'; return; }
-    if (this.failNext) { this.failNext = false; return this.stoerung(job, LLM.llmError('EXIT', 'Debug: lage fail'), null); }
+    if (this.failNext) { this.failNext = false; return this.stoerung(job, this.lokalFehler('Debug: lage fail'), null); }
     let bau;
-    try { bau = Prompt.baue(this.game, { art: job.art, nr: job.nr, letzte: this.letzte_plaene, werte: this.W }); } catch (e) { this.fehlerZaehlen('lage-prompt', e); return this.stoerung(job, LLM.llmError('EXIT', 'Prompt nicht baubar: ' + e.message), null); }
-    if (bau.fehler) return this.stoerung(job, LLM.llmError('EXIT', bau.fehler), null);
+    try { bau = Prompt.baue(this.game, { art: job.art, nr: job.nr, letzte: this.letzte_plaene, werte: this.W }); } catch (e) { this.fehlerZaehlen('lage-prompt', e); return this.stoerung(job, this.lokalFehler('Prompt nicht baubar: ' + e.message), null); }
+    if (bau.fehler) return this.stoerung(job, this.lokalFehler(bau.fehler), null);
     job.bau = { zeichen: bau.zeichen, stufe: bau.ausschnitt.stufe, ausschnitt_zeichen: bau.ausschnitt.zeichen };
     job.token = ++this.seq; job.start = this.game.time; job.wall = Date.now(); job.startTick = this.game.weltsim.tickZahl;
     this.zustand = 'laeuft';
@@ -239,7 +271,7 @@ class LageSpielleiter {
       this.job = null; this.zustand = 'idle';
       Haken.spielleiterWarten(this.game, 'lage', this.game.time - job.start, Haken.warteAusgang(it.e));   // TEL-01 B2: Anfrage -> Antwort (liest nur)
       if (it.e) this.stoerung(job, it.e, null);
-      else { try { this.antwort(job, it.r); } catch (e) { this.fehlerZaehlen('lage-antwort', e); this.stoerung(job, LLM.llmError('EXIT', 'Plan nicht anwendbar: ' + e.message), it.r); } }
+      else { try { this.antwort(job, it.r); } catch (e) { this.fehlerZaehlen('lage-antwort', e); this.stoerung(job, this.lokalFehler('Plan nicht anwendbar: ' + e.message), it.r); } }
     }
   }
   // Beendet den Transport der Anfrage (AbortSignal an llm.ask → CLI-Prozess bzw. Ollama-Aufruf)
@@ -272,12 +304,13 @@ class LageSpielleiter {
     const m = this.messung(job, r || (e && e.anbieter ? { anbieter: e.anbieter, modell: e.modell } : null));
     this.schreibe(Object.assign({ ausgang: 'fehler', fehler: [code + ': ' + String((e && e.message) || e).slice(0, 250)], begruendung: `Grenze ${job.art}: Plan gescheitert, die Standard-KI läuft allein weiter`, plan: this.planInfo(job) }, m));
     try { Regie.rueckfall(this.game, `${code}: ${String((e && e.message) || e).slice(0, 120)}`); } catch (err) { this.fehlerZaehlen('lage-rueckfall', err); }
+    this.notbetriebBeiFehler(e);   // FRE-01 C: nur Ausfaelle des Modells (Daten notbetrieb_gruende), nie eigene Fehler
   }
   antwort(job, r) {
     const ws = this.game.weltsim;
     if (r && r.cli) this.cli = r.cli;   // welche CLI lief, mit Hinweis bei falsch gesetztem CLAUDE_CLI (im Logbuch unter plan.cli und in status)
     const gelesen = Prompt.planAusText(r && r.text);
-    if (gelesen.fehler) return this.stoerung(job, LLM.llmError('EXIT', 'Antwort unbrauchbar: ' + gelesen.fehler), r);
+    if (gelesen.fehler) return this.stoerung(job, this.lokalFehler('Antwort unbrauchbar: ' + gelesen.fehler), r);
     const alter = ws.tickZahl - job.startTick;
     if (alter > this.W.plan_alter_max_ticks) {
       // die Lage hat sich geändert: der Plan wird nie gespielt (kein Rückfall: frühere, geprüfte Pläne bleiben)
@@ -287,7 +320,7 @@ class LageSpielleiter {
     }
     const wh = Wiederholung.pruefen(gelesen.plan, this.verlauf, this.W);   // SUND-03 D: Wiederholungen fallen vor der Prüfung der Regie heraus (mit Grund im Logbuch)
     const res = Regie.planAnwenden(this.game, wh.plan);
-    if (!res.ok) return this.stoerung(job, LLM.llmError('EXIT', 'Plan ungültig: ' + res.grund), r);
+    if (!res.ok) return this.stoerung(job, this.lokalFehler('Plan ungültig: ' + res.grund), r);
     this.zaehler.angewandt++;
     this.wiederholungenMelden(wh.abgelehnt);
     this.verlauf.push(Wiederholung.verlaufEintrag(wh.plan, res));

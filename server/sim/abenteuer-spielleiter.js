@@ -98,7 +98,7 @@ class AbenteuerSpielleiter {
     if (!ort) return this.ueberspringen('kein_ort', art);
     // Budget: nur eine Stufe bei Claude zaehlt gegen den Token-Zaehler (CLAUDE_TOKEN_BUDGET)
     const llm = this.lage.getLlm();
-    if (llm.mode === 'live' && llm.anbieterFuer('abenteuer', STUFE) !== 'ollama' && LLM.budget().remaining < this.W.min_budget) return this.ueberspringen('budget', art);
+    if (llm.mode === 'live' && llm.anbieterFuer('abenteuer', STUFE) !== 'ollama' && LLM.budget().remaining < this.W.min_budget) { this.lage.notbetriebMelden('BUDGET', 'Token-Budget fast leer (Abenteuer-Komposition)'); return this.ueberspringen('budget', art); }
     this.letzterSprung = null;
     this.aufrufe++;
     this.grenzenSeit = 0;
@@ -119,8 +119,8 @@ class AbenteuerSpielleiter {
     const job = this.job;
     if (!job) { this.zustand = 'idle'; return; }
     let bau;
-    try { bau = Prompt.baue(this.game, { nr: job.nr, grenze: job.art, hex: job.hex, letzte: this.letzte, werte: this.W }); } catch (e) { this.fehlerZaehlen('abenteuer-prompt', e); return this.ausfall(job, LLM.llmError('EXIT', 'Prompt nicht baubar: ' + e.message), null); }
-    if (bau.fehler) return this.ausfall(job, LLM.llmError('EXIT', bau.fehler), null);
+    try { bau = Prompt.baue(this.game, { nr: job.nr, grenze: job.art, hex: job.hex, letzte: this.letzte, werte: this.W }); } catch (e) { this.fehlerZaehlen('abenteuer-prompt', e); return this.ausfall(job, this.lage.lokalFehler('Prompt nicht baubar: ' + e.message), null); }
+    if (bau.fehler) return this.ausfall(job, this.lage.lokalFehler(bau.fehler), null);
     job.bau = { prompt_zeichen: bau.zeichen, kontext_zeichen: bau.kontextZeichen };
     job.input = { system: Prompt.SYSTEM_DATEI, prompt: bau.prompt, art: 'abenteuer', nr: job.nr };
     this.losschicken(job, false);
@@ -149,7 +149,7 @@ class AbenteuerSpielleiter {
       }
       Haken.spielleiterWarten(this.game, 'abenteuer', this.game.time - job.start, Haken.warteAusgang(it.e));   // TEL-01 B2: Anfrage -> Antwort (liest nur)
       if (it.e) this.ausfall(job, it.e, null);
-      else { try { this.antwort(job, it.r); } catch (e) { this.fehlerZaehlen('abenteuer-antwort', e); this.ausfall(job, LLM.llmError('EXIT', 'Antwort nicht verarbeitbar: ' + e.message), it.r); } }
+      else { try { this.antwort(job, it.r); } catch (e) { this.fehlerZaehlen('abenteuer-antwort', e); this.ausfall(job, this.lage.lokalFehler('Antwort nicht verarbeitbar: ' + e.message), it.r); } }
     }
   }
   fristPruefen() {
@@ -191,13 +191,15 @@ class AbenteuerSpielleiter {
     if (code !== 'ABORTED' && this.eskalieren(job, code)) return;   // ein Abbruch eskaliert nie
     this.job = null; this.zustand = 'idle';
     this.zaehler.ausfall++;
+    let nurEskalation = false;
     if (code === 'ENOENT') {
       // fehlt die Claude-CLI erst bei der Eskalation und liegt die Stufe bei Ollama, ist nur die Eskalation aus, nicht die ganze Komposition
       const grund = 'CLI fehlt (' + String((e && e.message) || '').slice(0, 80) + ')';
       const llm = this.lage.llm;
-      if (job.eskaliert && llm && typeof llm.anbieterFuer === 'function' && llm.anbieterFuer('abenteuer', STUFE) === 'ollama') this.eskalationAus = grund; else this.aus = grund;
+      if (job.eskaliert && llm && typeof llm.anbieterFuer === 'function' && llm.anbieterFuer('abenteuer', STUFE) === 'ollama') { this.eskalationAus = grund; nurEskalation = true; } else this.aus = grund;
     }
     this.schreibe(Object.assign({ ausgang: 'ausfall', grund: code, fehler: [code + ': ' + String((e && e.message) || e).slice(0, 250)], begruendung: `Grenze ${job.art}: kein Abenteuer (Anbieter ausgefallen), das Spiel laeuft weiter`, plan: this.planInfo(job) }, this.messung(job, r, e)));
+    if (!nurEskalation) this.lage.notbetriebBeiFehler(e);   // FRE-01 C: Hinweis einmal je Sitzung (die Lage meldet; nur Modell-Ausfaelle, Daten notbetrieb_gruende)
   }
   abgelehnt(job, code, fehler, r) {
     if (this.job !== job) return;
