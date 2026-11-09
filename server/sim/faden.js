@@ -20,6 +20,7 @@
 //   taetigkeit(game, art) -> { t, faellig: [Id] } | null    EINE Taetigkeit zaehlen (Aufrufer: game.lageGrenze fuer szene_ende, andocken, absicht; ausgangMitPerson fuer notruf): Zaehler t, Zaehler je Faden, Fristen
 //   ausgangMitPerson(game, { art: 'notruf', id, hex, sprecher, ausgang }) -> Angebot | null   (Hook in reise-ereignis.js, nur wenn aktiv) macht ein Angebot, wenn Platz ist und eine Vorlage passt
 //   befehlPruefen(game, b, ctx) -> null | Grund / befehlAnwenden(game, b) -> { ok, grund?, faden? }   faden_oeffnen { vorlage, parameter? } und faden_weiter { faden, beat, art? } (art: FAD-01 A, nur bei einem Beat mit der Folge sim_befehl; Aufrufer: regie-befehle.js)
+//   DYN-01 B: Landeplaetze im Plan (Vorlage.landeplaetze, Beat-Parameter landeplatz): P.pruefeLandeplaetze beim Anbieten und Oeffnen, abenteuer-orte.beatStarten beim Start des Beats (der Ort entsteht dann, scheitert das, scheitert der Beat)
 //   oeffnen / weiterSetzen / beatAusgang(game, fadenId, 'gelungen'|'gescheitert') / optionWaehlen(game, fadenId, optionId)   die Schritte; Ausgang und Optionen melden die Bausteine
 //   haltungPruefen / haltungBuchen / anwenden   Wirkung haltung_aenderung (Aufsatz-Wirkung, Katalog server/weltsim/wirkungen.js); haltungVon(npc), chanceSpontanhilfe(npc), tonVon(npc)
 //   ausschnittBlock(game) / promptText()   kleiner Faden-Block fuer den Lage-Spielleiter (hoechstens 3 Faeden, nie Spielernamen, die verborgene Wahrheit nur als Kennung)
@@ -295,6 +296,8 @@ function anbietenMit(game, bauplan, o, wiederholung) {
   if (F.abenteuerAngebote.some((a) => a.ref === r.vorlage.id && a.hex === o.hex)) return abgelehnt('ABENTEUER_DOPPELT: dieses Abenteuer liegt an diesem Ort schon als Angebot vor');
   const lg = P.pruefeLage(game, r.vorlage);   // SUND-04b B2: ein Beat, der von der Lage abhaengt (Sabotage: ein Ziel muss stehen), wird nie ohne sie angeboten
   if (lg) return abgelehnt(lg);
+  const lpg = P.pruefeLandeplaetze(game, r.vorlage, o.hex);   // DYN-01 B: die bestellten Landeplaetze passen zum Hex der Crew
+  if (lpg) return abgelehnt(lpg);
   if (P.nscAlt(r.vorlage) && !wiedersehenKandidaten(game, r.vorlage).length) return abgelehnt('WIEDERSEHEN_KEIN_NSC: es gibt keinen NSC aus einem abgeschlossenen Faden, der sich an eine Tat der Crew erinnert');   // SUND-04b B1
   if (wiederholung) { const wd = require('./abenteuer-wiederholung.js').pruefe(game, r.vorlage, o.hex); if (wd) return abgelehnt(wd); }   // SUND-04b E3
   const a = { nr: ++F.angNr, art: 'abenteuer', ref: r.vorlage.id, hex: o.hex, volk: volkVonHex(game, o.hex) || '', vorlage: r.vorlage, alter: 0 };
@@ -313,6 +316,8 @@ function abenteuerOeffnen(game, nr, p) {
   const a = F.abenteuerAngebote.find((x) => x.nr === nr);
   const lg = P.pruefeLage(game, a.vorlage);   // SUND-04b B2: das Angebot kann veraltet sein (das Ziel ist weg, die Pause laeuft)
   if (lg) return abgelehnt(lg);
+  const lpg = P.pruefeLandeplaetze(game, a.vorlage, a.hex);   // DYN-01 B: das Angebot kann veraltet sein; der Hex gilt wie beim Anbieten
+  if (lpg) return abgelehnt(lpg);
   const reg = D.registriereAbenteuer(a.vorlage, F);
   if (!reg.ok) return abgelehnt(reg.fehler[0]);
   const v = D.vorlage(a.vorlage.id);
@@ -410,7 +415,9 @@ function weiterSetzen(game, b) {
   // nicht im Faden und nicht im Weltstand; ohne Angabe gilt die Standardart der Daten (faden-p3.js).
   const ctx = { vorlage: v, beat, katalog: cat, parameter: klon(f.parameter), nsc: klon(f.nsc) };
   if (typeof b.art === 'string') ctx.art = b.art;
-  try { r = bs.starten(game, f, ctx); } catch (e) {
+  const lpFehler = require('./abenteuer-orte.js').beatStarten(game, f, beat);   // DYN-01 B: nutzt der Beat einen Landeplatz, entsteht der Ort jetzt (lazy); geht das nicht, scheitert der Beat
+  if (lpFehler) { melde(game, 'landeplatz_fehlt', f.id, `Beat ${beat.id}: ${lpFehler}`, { faden: f.id, beat: beat.id }); r = { ausgang: 'gescheitert' }; }
+  else try { r = bs.starten(game, f, ctx); } catch (e) {
     fehlerZaehlen(game, 'faden-baustein', e);
     melde(game, 'baustein_fehler', f.id, `Baustein ${cat.baustein} wirft: ${String(e && e.message).slice(0, 120)}`, { faden: f.id, beat: beat.id });
     r = { ausgang: 'gescheitert' };   // ein werfender Baustein blockiert nichts: der Beat gilt als gescheitert, der Faden lebt weiter

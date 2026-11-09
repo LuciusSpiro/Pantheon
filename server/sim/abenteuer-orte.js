@@ -9,6 +9,8 @@
 //                                                                     Die Kartenart muss zur Planetenart passen (content/welt/planeten-eignung.json, server/sim/planeten-eignung.js), sonst null; grundAmKoerper(o) -> Klartext | null nennt den Grund
 //   bestellenAmPunkt(game, fadenId, { ort | hex, x, y, art, besitz?, name?, platz? }) -> lpId | null   Ort an einem Raumpunkt (z. B. Wrack); Schiff = verfallen (Daten)
 //   landeplatzVon(game, fadenId, platz?) -> lpId | null     der Landepunkt dieses Platzes (auch Kachel-Landepunkt), solange er da ist
+//   DYN-01 B (Plan-Feld landeplaetze, Beat-Parameter landeplatz): grundAmHex(hex, art) -> Klartext | null (Plan-Pruefer: geht die Art an diesem Hex?); moeglicheArten(hex) -> [art]; platzBestellen(game, fadenId, { id, art, besitz?, name? }) -> lpId | null
+//     (Koerper oder Raumpunkt waehlt der Code, idempotent); beatStarten(game, faden, beat) -> null | Grund (Haken in faden.weiterSetzen, wirft nie). Kein Seed, kein Biom, keine Besetzung im Plan (BEA-02/BEA-03).
 //   abraeumen(game, fadenId) -> bool                        alle Orte dieses Fadens weg (true) bzw. noch belegt (false, der Takt versucht es wieder); idempotent
 //   abgleichen(game) -> { weg, bleibt, neu }                Takt und nach dem Laden: Orte ohne lebende Bestellung weg (Faden beendet, nicht mehr da), fehlende Orte lebender Bestellungen neu
 //   lese(roh) -> [Bestellung]                               muellfester Leser fuer welt.sim.faeden.liste[].orte
@@ -153,6 +155,62 @@ function landeplatzVon(game, fadenId, platz) {
   return game.landepunkte && game.landepunkte.dyn[id] ? id : null;
 }
 
+// ---------- Plan: Landeplaetze (DYN-01 B). Der Plan (faden-bauplan/1 `landeplaetze`, expandiert in Faden.plan.landeplaetze) nennt je Platz id, art, besitz?, name?; ein Beat mit Parameter `landeplatz` (= id) nutzt ihn.
+// Welcher Koerper oder Raumpunkt es wird, entscheidet nicht der Plan, sondern der Code beim Start des ersten Beats, der den Platz nutzt (der Hex der Geschichte wandert, siehe geruecht).
+// Kartenarten, die ein Plan an diesem Hex bestellen darf (Koerper-Arten des Hex und Raumpunkt-Arten), in der Reihenfolge der Daten; Hex ohne Szene: []. Der Prompt des Komponisten nennt sie im Kontext.
+function moeglicheArten(hex) {
+  const am = Eignung.artenAmHex(hex);
+  return D.arten.filter((a) => am.punkt.includes(a) || am.koerper.some((k) => k.arten.includes(a)));
+}
+// Warum die Kartenart an diesem Hex nicht geht (Klartext), null = geht (an einem Koerper des Hex oder am Raumpunkt). Fuer den Plan-Pruefer (faden-pruefer.pruefeLandeplaetze).
+function grundAmHex(hex, art) {
+  const am = Eignung.artenAmHex(hex);
+  if (!am.koerper.length && !am.punkt.length) return `Hex '${String(hex).slice(0, 12)}' ist kein Sektor der Karte mit Szene (nichts bestellbar)`;
+  if (moeglicheArten(hex).includes(art)) return null;
+  const gruende = Array.from(new Set(am.koerper.map((k) => (k.planetenart ? Eignung.grundGegen(k.planetenart, art) : `Kachel ${k.id} erlaubt nur ${k.arten.join('/') || 'keine Landung'}`))));
+  return `Kartenart '${art}' ist an Hex ${hex} nicht moeglich: ${gruende.length ? gruende.join('; ') : 'kein Planet im Sektor'}; am Raumpunkt gehen ${am.punkt.join('/')}`;
+}
+// Raumpunkt eines Landeplatzes in der Szene: der erste Kandidat der Daten mit genug Abstand zu Planeten, Sternen und Station, sonst der freieste
+function punktInSzene(sc) {
+  const L = D.punkt.lage;
+  const massen = [].concat(sc.planeten || [], sc.stern || [], sc.station ? [sc.station] : []).filter((m) => m && Number.isFinite(m.x) && Number.isFinite(m.y));
+  const abstand = (x, y) => massen.reduce((mn, m) => Math.min(mn, Math.hypot(m.x - x, m.y - y) - (Number.isFinite(m.r) ? m.r : 0)), Infinity);
+  let best = null;
+  for (const [ax, ay] of L.kandidaten) {
+    const p = { x: Math.round(sc.w * ax), y: Math.round(sc.h * ay) };
+    const a = abstand(p.x, p.y);
+    if (a >= L.abstand_min) return p;
+    if (!best || a > best.a) best = { p, a };
+  }
+  return best && best.p;
+}
+// Den Landeplatz `def` ({ id, art, besitz?, name? }) fuer den Faden bestellen, am Hex der Geschichte (faden.parameter.ort). Koerper-Art: der erste Koerper des Hex, an dem die Art geht (Reihenfolge der Szene, stabil);
+// schiff/station: Raumpunkt (punktInSzene). Idempotent: ein Platz, der schon da ist, wird nur zurueckgegeben (mehrere Beats teilen ihn). -> lpId | null (null: kein Platz, Faden weg, Obergrenze, Angaben ungueltig)
+function platzBestellen(game, fadenId, def) {
+  const f = fadenVon(game, fadenId);
+  if (!lebt(f) || !istObjekt(def) || typeof def.id !== 'string') return null;
+  const da = landeplatzVon(game, fadenId, def.id);
+  if (da) return da;
+  const hex = f.parameter && f.parameter.ort;
+  const am = Eignung.artenAmHex(hex);
+  const o = { hex, art: def.art, besitz: def.besitz, name: def.name, platz: def.id };
+  const k = am.koerper.find((x) => x.arten.includes(def.art));
+  if (k) return bestellenAmKoerper(game, fadenId, Object.assign(o, { koerper: k.id }));
+  if (!am.punkt.includes(def.art)) return null;
+  const s = szene(o), p = s && punktInSzene(s.sc);
+  return p ? bestellenAmPunkt(game, fadenId, Object.assign(o, p)) : null;
+}
+// Haken beim Start eines Beats (faden.weiterSetzen): nutzt der Beat einen Landeplatz, wird er bestellt. -> null (nichts zu tun oder bestellt) | Grund (Klartext), dann scheitert der Beat wie bei einem werfenden Baustein. Wirft nie.
+function beatStarten(game, f, beat) {
+  const id = beat && beat.parameter ? beat.parameter.landeplatz : undefined;
+  if (id === undefined) return null;
+  try {
+    const def = ((f.plan && f.plan.landeplaetze) || []).find((x) => x && x.id === id);
+    if (!def) return `Landeplatz '${String(id).slice(0, 16)}' steht nicht im Plan`;
+    return platzBestellen(game, f.id, def) ? null : `Landeplatz '${def.id}' (${def.art}) laesst sich am Hex ${f.parameter.ort} nicht bestellen`;
+  } catch (e) { fehler(game, 'abenteuer-orte-beat', e); return `Landeplatz '${String(id).slice(0, 16)}': Ausnahme beim Bestellen`; }
+}
+
 // ---------- Abraeumen
 const unten = (game, id) => (game.players || []).some((p) => p.zone === 'away' && game.away && game.away.map === id);   // game-weit: ein away, ein Transferziel, alle Spieler teilen die Karte
 function andereKarte(game, id) {   // die Karte nicht mehr als Aussenkarte halten, sonst gilt sie als belegt (Muster finale-boden.aufraeumen)
@@ -224,4 +282,4 @@ function abgleichen(game) {
 }
 const update = (game) => { if (game.landepunkte || fadenZustand(game)) abgleichen(game); };   // jeder Tick (game.js): Retry, solange jemand unten ist
 
-module.exports = { grundAmKoerper, bestellenAmKoerper,bestellenAmPunkt, landeplatzVon, abraeumen, abgleichen, update, lese, parse, idVon, DATEN: D };
+module.exports = { grundAmKoerper, grundAmHex, moeglicheArten, punktInSzene, bestellenAmKoerper, bestellenAmPunkt, platzBestellen, beatStarten, landeplatzVon, abraeumen, abgleichen, update, lese, parse, idVon, DATEN: D };

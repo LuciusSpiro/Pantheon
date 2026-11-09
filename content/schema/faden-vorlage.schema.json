@@ -120,6 +120,22 @@
         }
       }
     },
+    "landeplaetze": {
+      "type": "array",
+      "maxItems": 8,
+      "description": "DYN-01 B: Orte, die ein Abenteuer bestellt (aus dem Bauplan, Form wie faden-bauplan.schema.json). Ein Beat nutzt einen Platz mit parameter landeplatz = id. Regeln: faden-pruefer.pruefeLandeplaetze (beim Anbieten und Oeffnen, weltabhaengig).",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "art"],
+        "properties": {
+          "id": {"type": "string", "maxLength": 32},
+          "art": {"type": "string", "maxLength": 24},
+          "besitz": {"type": "string", "maxLength": 32},
+          "name": {"type": "string", "maxLength": 80}
+        }
+      }
+    },
     "hinweise": {
       "type": "object",
       "maxProperties": 8,

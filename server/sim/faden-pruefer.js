@@ -13,6 +13,7 @@
 //   ENTHUELLUNG_OHNE_WAHRHEIT · HINWEIS_UNBEKANNT · HINWEIS_FEHLT (auf JEDEM Weg vor der Enthuellung mindestens ein Hinweis) · AUSGANG_FEHLT · AUSGANG_UNGUELTIG · WEITER_UNGUELTIG (nur nach vorn) ·
 //   SCHEITERN_FOLGENLOS (Scheitern veraendert den Faden: anderer Zustand oder anderer Weg als Gelingen, beide Ausgaenge fuehren zu einem Beat oder zum Abschluss) · STATUS_PASST_NICHT · TOT_BLEIBT_TOT ·
 //   NSC_ALT_NICHT_ERSTER / NSC_VON_FEHLT / NSC_VON (SUND-04b B1: ein Beat mit braucht.nsc_alt, das Wiedersehen, gehoert einem NSC aus einem frueheren, abgeschlossenen Faden: nur als erster Beat, geoeffnet mit parameter nsc_von) ·
+//   LANDEPLATZ_ANZAHL / LANDEPLATZ_FORM / LANDEPLATZ_ID_DOPPELT / LANDEPLATZ_ART_UNBEKANNT / LANDEPLATZ_UNBEKANNT / LANDEPLATZ_UNBENUTZT / LANDEPLATZ_ART (DYN-01 B, pruefeLandeplaetze: Plan-Feld landeplaetze und Beat-Parameter landeplatz, weltabhaengig wie pruefeLage) ·
 //   SABOTAGE_NUR_EINMAL (SUND-04b B2: ein Beat mit nur_einmal steht höchstens einmal im Plan) · LAGE_ZIEL_FEHLT / SABOTAGE_PAUSE / LAGE_UNBEKANNT (SUND-04b B2, pruefeLage: ein Beat mit braucht.lage haengt von der Welt ab; beim Anbieten und Oeffnen, nicht in pruefeVorlage) ·
 //   NAMENLOS (SUND-04b A1: vorlage.nsc.rolle namenlos: der NSC bleibt aktiv, die Ausgaenge brauchen keinen status; die Statuspruefung bleibt, nur der Status faellt weg; Scheitern veraendert dann ueber Weg oder Folge) ·
 //   ERFOLG_FEHLT / ERFOLG_UNGUELTIG (Abschluss: wann gilt der Faden als gelungen, Nacharbeit Welle 3) · VARIANTE_UNERREICHBAR / TON_UNERREICHBAR (Haltung: gibt es in der Vorlage einen Weg dorthin) ·
@@ -578,6 +579,31 @@ function pruefeLage(game, v) {
   }
   return null;
 }
+// DYN-01 B: die Landeplaetze eines Plans (Vorlage.landeplaetze, Beat-Parameter landeplatz) -> null | 'CODE: Text'. Wie pruefeLage weltabhaengig (die Art muss am Hex der Crew gehen) und darum beim Anbieten und Oeffnen,
+// nicht in pruefeVorlage. Muster, Arten und Obergrenze stehen in content/welt/abenteuer-orte.json (kein Wert hier), die Eignung der Hex in planeten-eignung.json (ueber abenteuer-orte.grundAmHex).
+// Codes: LANDEPLATZ_ANZAHL · LANDEPLATZ_FORM (id, besitz, name) · LANDEPLATZ_ID_DOPPELT · LANDEPLATZ_ART_UNBEKANNT · LANDEPLATZ_UNBEKANNT (ein Beat nennt eine id, die der Plan nicht hat) · LANDEPLATZ_UNBENUTZT · LANDEPLATZ_ART (geht am Hex nicht).
+function pruefeLandeplaetze(game, v, hex) {
+  if (!v || !Array.isArray(v.beats)) return null;
+  const AO = require('./abenteuer-orte.js'), OD = AO.DATEN;
+  const liste = Array.isArray(v.landeplaetze) ? v.landeplaetze : [];
+  const nutzer = v.beats.filter((b) => istObjekt(b) && istObjekt(b.parameter) && has(b.parameter, 'landeplatz'));
+  if (!liste.length && !nutzer.length) return null;
+  if (liste.length > OD.orte_max) return fehl('LANDEPLATZ_ANZAHL', `${liste.length} Landeplätze, erlaubt sind höchstens ${OD.orte_max}`);
+  const muster = (m) => new RegExp('^' + m + '$');
+  const ids = new Set();
+  for (const p of liste) {
+    if (!istObjekt(p) || typeof p.id !== 'string' || !muster(OD.platz_muster).test(p.id)) return fehl('LANDEPLATZ_FORM', `Landeplatz-Id "${istObjekt(p) ? String(p.id).slice(0, 20) : '?'}" ungültig (${OD.platz_muster})`);
+    if (ids.has(p.id)) return fehl('LANDEPLATZ_ID_DOPPELT', `Landeplatz-Id ${p.id} kommt doppelt vor`);
+    ids.add(p.id);
+    if (!OD.arten.includes(p.art)) return fehl('LANDEPLATZ_ART_UNBEKANNT', `Landeplatz ${p.id}: Kartenart "${String(p.art).slice(0, 20)}" gibt es nicht (erlaubt: ${OD.arten.join(', ')})`);
+    if (p.besitz !== undefined && !(typeof p.besitz === 'string' && muster(OD.besitz_muster).test(p.besitz))) return fehl('LANDEPLATZ_FORM', `Landeplatz ${p.id}: besitz muss ${OD.besitz_muster} sein`);
+    if (p.name !== undefined && !(typeof p.name === 'string' && p.name.trim().length >= 1 && p.name.length <= OD.name_max && !/[{}]/.test(p.name))) return fehl('LANDEPLATZ_FORM', `Landeplatz ${p.id}: name braucht 1 bis ${OD.name_max} Zeichen ohne Platzhalter`);
+  }
+  for (const b of nutzer) if (!ids.has(b.parameter.landeplatz)) return fehl('LANDEPLATZ_UNBEKANNT', `Beat ${b.id}: der Landeplatz "${String(b.parameter.landeplatz).slice(0, 20)}" steht nicht in landeplaetze`);
+  for (const p of liste) if (!nutzer.some((b) => b.parameter.landeplatz === p.id)) return fehl('LANDEPLATZ_UNBENUTZT', `Landeplatz ${p.id}: kein Beat nutzt ihn (Parameter landeplatz)`);
+  for (const p of liste) { const g = AO.grundAmHex(hex, p.art); if (g) return fehl('LANDEPLATZ_ART', `Landeplatz ${p.id}: ${g}`); }
+  return null;
+}
 
 // ---------- Abenteuer (SUND-04b A1): der zweite, benannte Weg, einen Faden zu oeffnen (nicht ueber ein Notruf-Angebot, sondern ueber einen geprueften Bauplan)
 // Obergrenze aktiv_max und Abstand gelten weiter (der Abstand wird beim Oeffnen gezogen, faden.js); dazu hoechstens laufend_max laufende Abenteuer und hoechstens angebote_max offene Abenteuer-Angebote.
@@ -616,4 +642,4 @@ function befehlPruefen(F, b, ctx) {
 }
 const istBefehl = (b) => istObjekt(b) && has(BEFEHL_FELDER, b.typ);
 
-module.exports = { istSimBefehl, simBefehlFolge, simBefehlArten, sundSpielbar, nscAlt, wiedersehenNsc, pruefeNscVon, pruefeLage, pruefeAbenteuerAnbieten, pruefeAbenteuerOeffnen, abenteuerLaufend, abschlussGelungen, haltungsWege, tonFuer, effektiv, katalogFehler, TEXT_KEY, pruefeVorlage, pruefeFaden, pruefeOeffnen, pruefeWeiter, befehlPruefen, istBefehl, neuerKontext, folgeWirkung, folgeProfil, optionenFehler, fluchtzielOk, aktive, nameOk, BEFEHL_FELDER, PARAM_FELDER };
+module.exports = { istSimBefehl, simBefehlFolge, simBefehlArten, sundSpielbar, nscAlt, wiedersehenNsc, pruefeNscVon, pruefeLage, pruefeLandeplaetze, pruefeAbenteuerAnbieten, pruefeAbenteuerOeffnen, abenteuerLaufend, abschlussGelungen, haltungsWege, tonFuer, effektiv, katalogFehler, TEXT_KEY, pruefeVorlage, pruefeFaden, pruefeOeffnen, pruefeWeiter, befehlPruefen, istBefehl, neuerKontext, folgeWirkung, folgeProfil, optionenFehler, fluchtzielOk, aktive, nameOk, BEFEHL_FELDER, PARAM_FELDER };

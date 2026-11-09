@@ -12,6 +12,22 @@
     "namenlos": {"type": "boolean", "description": "true = kein fester NSC (nsc.rolle namenlos): Zustand bleibt aktiv, die Ausgaenge brauchen keinen Status."},
     "volk_erlaubt": {"type": "array", "minItems": 1, "maxItems": 3, "items": {"type": "string", "maxLength": 8}},
     "wahrheit": {"type": "string", "maxLength": 32, "description": "Kennung aus bauplan.json wahrheiten; nur mit Enthuellungs-Beat (ohne Angabe: wahrheit_standard)."},
+    "landeplaetze": {
+      "type": "array",
+      "maxItems": 8,
+      "description": "DYN-01 B: Orte, die das Abenteuer bestellt (id, Kartenart, Besitz, Name). Kein Seed, kein Biom, keine Besetzung. Ein Beat nutzt einen Platz mit parameter landeplatz = id. Obergrenze (orte_max), Muster, Arten und Eignung am Hex prueft faden-pruefer.pruefeLandeplaetze aus den Daten (abenteuer-orte.json, planeten-eignung.json); die Grenze 8 hier ist nur die Form.",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "art"],
+        "properties": {
+          "id": {"type": "string", "maxLength": 32},
+          "art": {"type": "string", "maxLength": 24},
+          "besitz": {"type": "string", "maxLength": 32},
+          "name": {"type": "string", "maxLength": 80}
+        }
+      }
+    },
     "beats": {
       "type": "array",
       "maxItems": 16,

@@ -9,6 +9,7 @@
 //   pruefe(plan)     -> { ok, vorlage, fehler, codes }                      expandiere + faden-pruefer.pruefeVorlage (der Weg, den faden.abenteuerAnbieten nimmt)
 //   katalogFehler()  -> [Text]                                              die Daten des Expanders sind in sich stimmig (Test, und einmal je Prozess vor dem ersten Plan; katalogNeuLesen() fuer Tests)
 //
+// DYN-01 B: Plan-Feld landeplaetze ([{ id, art, besitz?, name? }], kommt unveraendert in die Vorlage) und Beat-Parameter landeplatz (id; nur bei Beats, die ihn in beats.json deklarieren); ob die ids stimmen und die Arten am Hex gehen, prueft faden-pruefer.pruefeLandeplaetze.
 // Regeln des Expanders (Code): FORM · BAUPLAN_TEXT · VOLK · BEATS_ANZAHL · ID_DOPPELT · TYP_UNBEKANNT · BAUPLAN_TYP_NICHT_PLANBAR · ABSCHLUSS_NICHT_LETZT · ABSCHLUSS_FEHLT · PARAMETER · FLUCHTZIEL_FEHLT ·
 //   OPTION_BEI_GEFAHR · OPTIONEN_NICHT_ERLAUBT · BAUPLAN_OPTIONEN_PFLICHT · OPTIONEN_GLEICHER_WEG · WEITER_UNGUELTIG · AUSGANG_UNGUELTIG (Verzweigung am Abschluss) · ERFOLG_UNGUELTIG · BAUPLAN_NAMENLOS_TYP ·
 //   BAUPLAN_WAHRHEIT_UNBEKANNT · NSC_ALT_NICHT_ERSTER (SUND-04b B1: Wiedersehen nur als erster Beat, nie namenlos) · WAHRHEIT_OHNE_ENTHUELLUNG · HINWEIS_FEHLT · UNERREICHBAR · STATUS_PASST_NICHT · SCHEITERN_FOLGENLOS · BAUPLAN_KATALOG. Gleiche Codes wie der Pruefer, wo es dieselbe Regel ist.
@@ -23,6 +24,7 @@ const istObjekt = (x) => !!x && typeof x === 'object' && !Array.isArray(x);
 const klon = (x) => JSON.parse(JSON.stringify(x));
 const fehl = (code, text) => `${code}: ${text}`;
 const codeVon = (t) => String(t).split(':')[0];
+const ORTE = require('../../content/welt/abenteuer-orte.json');
 const waren = () => Object.keys(require('../../content/faeden/szenen-werte.json').werte.waren.wert);
 
 let schemaCache = null;
@@ -34,6 +36,7 @@ function parameterErlaubt(erlaubt, wert) {
   if (Array.isArray(erlaubt)) return erlaubt.includes(wert);
   if (erlaubt === 'fluchtziel') return P.fluchtzielOk(wert);
   if (erlaubt === 'waren') return waren().includes(wert);
+  if (erlaubt === 'landeplatz') return typeof wert === 'string' && new RegExp('^' + ORTE.platz_muster + '$').test(wert);   // DYN-01 B: die Id eines Landeplatzes des Plans (ob es sie gibt: faden-pruefer.pruefeLandeplaetze)
   return false;
 }
 const textOk = (t) => typeof t === 'string' && !/[{}]/.test(t);
@@ -80,7 +83,8 @@ function katalogFehler() {
     const ps = bp.parameter || {};
     for (const [k, s] of Object.entries(ps)) {
       if (!erl.includes(k)) g(`Parameter ${k} steht nicht in parameter (pflicht/optional)`);
-      if (!istObjekt(s) || s.standard === undefined || !parameterErlaubt(s.erlaubt, s.standard)) g(`Parameter ${k}: standard fehlt oder steht nicht in erlaubt`);
+      if (istObjekt(s) && s.erlaubt === 'landeplatz' && s.standard === undefined) { /* DYN-01 B: ein Landeplatz hat keinen Standard, ohne Angabe gibt es keinen */ }
+      else if (!istObjekt(s) || s.standard === undefined || !parameterErlaubt(s.erlaubt, s.standard)) g(`Parameter ${k}: standard fehlt oder steht nicht in erlaubt`);
       if (k === 'text_key' && istObjekt(s) && Array.isArray(s.erlaubt)) {
         for (const t of s.erlaubt) {
           if (!P.TEXT_KEY.test(t)) g(`text_key ${t} ungueltig`);
@@ -160,7 +164,7 @@ function expandiere(plan) {
     }
     // Parameter: Standards der Daten, der Plan darf nur nennen, was die Daten erlauben
     const p = {};
-    for (const [k, s] of Object.entries(bp.parameter || {})) p[k] = s.standard;
+    for (const [k, s] of Object.entries(bp.parameter || {})) if (s.standard !== undefined) p[k] = s.standard;
     const gegeben = b.parameter || {};
     for (const [k, v] of Object.entries(gegeben)) {
       const s = (bp.parameter || {})[k];
@@ -283,6 +287,7 @@ function expandiere(plan) {
     }),
   };
   if (plan.anlass !== undefined) v.anlass = plan.anlass.trim();
+  if (plan.landeplaetze !== undefined) v.landeplaetze = plan.landeplaetze.map((p) => Object.assign({ id: p.id, art: p.art }, p.besitz !== undefined ? { besitz: p.besitz } : {}, p.name !== undefined ? { name: p.name.trim() } : {}));   // DYN-01 B: Orte des Plans (geprueft in faden-pruefer.pruefeLandeplaetze)
   if (namenlos) v.nsc.rolle = 'namenlos';
   if (wahrheit) v.wahrheit = Object.assign({ id: wahrheitId }, wahrheit.fraktion !== undefined ? { fraktion: wahrheit.fraktion } : {});
   v.id = D.abenteuerId(v);

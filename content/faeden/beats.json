@@ -8,8 +8,8 @@
       "gefahr": false,
       "optionen": "erlaubt",
       "braucht": {"nsc_status": ["aktiv", "verbuendet"]},
-      "parameter": {"pflicht": [], "optional": ["text_key", "text_key_kein_ziel"]},
-      "bauplan": {"start_status":"aktiv","hinweis_traeger":true,"optionen_pflicht":true,"parameter":{"text_key":{"standard":"hilfe_rom","erlaubt":["hilfe_rom","hilfe_kon"]}},"optionen":[{"id":"annehmen","text":"Wir helfen euch.","ausgang":"gelungen","folge":[{"typ":"haltung_aenderung","grund":"geholfen"}]},{"id":"ablehnen","text":"Sucht euch jemand anderen.","ausgang":"gescheitert","folge":[{"typ":"haltung_aenderung","grund":"bitte_abgelehnt"}]}],"aus":{"gelungen":{"status":["verbuendet","aktiv"],"folge":[]},"gescheitert":{"status":["aktiv","geflohen"],"folge":[]}}}
+      "parameter": {"pflicht": [], "optional": ["text_key", "text_key_kein_ziel", "landeplatz"]},
+      "bauplan": {"start_status":"aktiv","hinweis_traeger":true,"optionen_pflicht":true,"parameter":{"text_key":{"standard":"hilfe_rom","erlaubt":["hilfe_rom","hilfe_kon"]},"landeplatz":{"erlaubt":"landeplatz"}},"optionen":[{"id":"annehmen","text":"Wir helfen euch.","ausgang":"gelungen","folge":[{"typ":"haltung_aenderung","grund":"geholfen"}]},{"id":"ablehnen","text":"Sucht euch jemand anderen.","ausgang":"gescheitert","folge":[{"typ":"haltung_aenderung","grund":"bitte_abgelehnt"}]}],"aus":{"gelungen":{"status":["verbuendet","aktiv"],"folge":[]},"gescheitert":{"status":["aktiv","geflohen"],"folge":[]}}}
     },
     "spontanhilfe": {
       "zweck": "Der NSC erscheint in einer Schlacht und greift ein (Verbuendeter der Flottenengine).",
@@ -27,8 +27,8 @@
       "gefahr": false,
       "optionen": "keine",
       "braucht": {"nsc_status": ["aktiv", "verbuendet", "gefangen"]},
-      "parameter": {"pflicht": [], "optional": ["text_key", "hex"]},
-      "bauplan": {"start_status":"aktiv","hinweis_traeger":true,"parameter":{"text_key":{"standard":"notruf_standard","erlaubt":["notruf_standard","notruf_entfuehrt"]}},"aus":{"gelungen":{"status":["verbuendet","gefangen","aktiv"],"folge":[{"typ":"haltung_aenderung","grund":"geholfen"}]},"gescheitert":{"status":["gefangen","aktiv","geflohen","tot"],"folge":[{"typ":"haltung_aenderung","grund":"im_stich_gelassen"}]}}}
+      "parameter": {"pflicht": [], "optional": ["text_key", "hex", "landeplatz"]},
+      "bauplan": {"start_status":"aktiv","hinweis_traeger":true,"parameter":{"text_key":{"standard":"notruf_standard","erlaubt":["notruf_standard","notruf_entfuehrt"]},"landeplatz":{"erlaubt":"landeplatz"}},"aus":{"gelungen":{"status":["verbuendet","gefangen","aktiv"],"folge":[{"typ":"haltung_aenderung","grund":"geholfen"}]},"gescheitert":{"status":["gefangen","aktiv","geflohen","tot"],"folge":[{"typ":"haltung_aenderung","grund":"im_stich_gelassen"}]}}}
     },
     "enthuellung": {
       "zweck": "Die verborgene Wahrheit kommt heraus (Sabotage, falsche Identitaet).",
