@@ -118,6 +118,47 @@ section('Hochstufen: Prüfer lehnt ab, Fremdfelder', () => {
   ok(pruefe(g, HOCH(fl.id)).ok, 'Gegenprobe: die gültige Flotte wird angenommen');
 });
 
+section('Hochstufen versorgt die Fraktion (vorrat_auffuellen)', () => {
+  const stufeHoch = (gg, ff) => Kern.BEFEHLE.KATALOG.flotte_hochstufen.anwenden({ z: z(gg) }, HOCH(ff.id));   // genau der Befehl, ohne Tick (der erzeugt und verbraucht Vorrat)
+  const A = BW.angreifen.wert, V = BW.flotte_hochstufen.wert;
+  ok(V.vorrat_auffuellen === true, 'Schalter vorrat_auffuellen steht in den Daten (befehle-werte.json), die Zahlen sind die von angreifen (min_treibstoff ' + A.min_treibstoff + ', min_munition ' + A.min_munition + ')');
+  // unter dem Minimum: wird auf das Minimum gehoben, genau darauf (nicht darüber)
+  const g = szene().g, fl = gerFlotten(g)[0];
+  z(g).vorrat.ger.T = 3; z(g).vorrat.ger.U = 4; z(g).vorrat.rom.T = 2; z(g).vorrat.rom.U = 1; const kon = JSON.stringify(z(g).vorrat.kon);
+  stufeHoch(g, fl);
+  ok(z(g).vorrat.ger.T === A.min_treibstoff && z(g).vorrat.ger.U === A.min_munition, 'Vorrat unter Minimum: T und U genau auf angreifen.min_* gehoben (T ' + z(g).vorrat.ger.T + ', U ' + z(g).vorrat.ger.U + ')');
+  ok(z(g).vorrat.rom.T === 2 && z(g).vorrat.rom.U === 1 && JSON.stringify(z(g).vorrat.kon) === kon, 'nur der Vorrat der Fraktion der Flotte, Rom und Konkordat unberührt');
+  // nur ein Gut darunter: das andere bleibt
+  const g2 = szene().g, f2 = gerFlotten(g2)[0];
+  z(g2).vorrat.ger.T = A.min_treibstoff - 1; z(g2).vorrat.ger.U = 77;
+  stufeHoch(g2, f2);
+  ok(z(g2).vorrat.ger.T === A.min_treibstoff && z(g2).vorrat.ger.U === 77, 'nur Treibstoff darunter: T gehoben, U (77) bleibt');
+  // nie absenken: Vorrat darüber und genau auf dem Minimum bleibt
+  const g3 = szene().g, f3 = gerFlotten(g3)[0];
+  z(g3).vorrat.ger.T = 55; z(g3).vorrat.ger.U = A.min_munition;
+  stufeHoch(g3, f3);
+  ok(z(g3).vorrat.ger.T === 55 && z(g3).vorrat.ger.U === A.min_munition, 'Vorrat darüber/auf dem Minimum: nie abgesenkt (T 55, U ' + A.min_munition + ')');
+  // der Angriff direkt danach: ohne Hochstufen abgelehnt, mit Hochstufen davor (filtereBefehle, wie fadenInvasion) angenommen
+  const g4 = szene().g, f4 = flotte(g4, Kern.BEFEHLE.angriffsflotten(z(g4), 'ger', ZIEL)[0]);
+  z(g4).vorrat.ger.T = 3; z(g4).vorrat.ger.U = 4;
+  const ang = { typ: 'angreifen', fraktion: 'ger', ziel: ZIEL, flotten: [f4.id] };
+  const r0 = pruefe(g4, ang);
+  ok(!r0.ok && /Munition oder Treibstoff unter/.test(r0.grund), 'ohne Hochstufen weiterhin abgelehnt (' + r0.grund + ')');
+  const fi = Kern.filtereBefehle(z(g4), [HOCH(f4.id), ang]);
+  ok(fi.gueltig.length === 2 && fi.verworfen.length === 0, 'Hochstufen zuerst: der Angriff direkt danach ist gültig (' + fi.verworfen.map((x) => x.grund).join() + ')');
+  const fi2 = Kern.filtereBefehle(z(g4), [ang, HOCH(f4.id)]);
+  ok(fi2.verworfen.length === 1 && fi2.verworfen[0].befehl.typ === 'angreifen', 'Gegenprobe: Angriff vor dem Hochstufen wird verworfen');
+  ok(z(g4).vorrat.ger.T === 3 && z(g4).vorrat.ger.U === 4, 'die Prüfung auf der Kopie lässt den echten Vorrat unberührt');
+  const r = Regie.fadenInvasion(g4, { ziel: ZIEL, flotte: f4.id });
+  ok(r.ok, 'Invasion mit leerem Vorrat (T 3, U 4) wird angenommen (' + (r.grund || 'angenommen') + ')');
+  // Wirkung zu Tick ab: beide Befehle angewendet, der Angriff läuft (Flotte bricht auf)
+  const vg = ws(g4).regie.vorgemerkt;
+  ok(vg.length === 2, 'zwei Befehle vorgemerkt');
+  tick(g4, vg[0].ab - ws(g4).tickZahl + 1);
+  ok(flotte(g4, f4.id).hochgestuft === true, 'zur Wirkung: Flotte hochgestuft');
+  ok(z(g4).vorrat.ger.T >= 0 && z(g4).vorrat.ger.U >= 0, 'danach kein negativer Vorrat');
+});
+
 section('Nur aus Fäden: der Plan des Spielleiters kann ihn nicht setzen', () => {
   const t = szene(), g = t.g, fl = gerFlotten(g)[0];
   const r = Regie.planAnwenden(g, { befehle: [HOCH(fl.id)] });
@@ -218,9 +259,9 @@ section('Invasion: Vorwarnung vor der Wirkung', () => {
 });
 
 section('Invasion: Entwarnung', () => {
-  // im Tick abgelehnt (Munition und Treibstoff weg)
+  // im Tick abgelehnt (Angriff nicht mehr zu schaffen)
   const t = szene(), g = t.g, r = Regie.fadenInvasion(g, { ziel: ZIEL }), f0 = funkAll(t).length;
-  z(g).vorrat.ger.T = 1; z(g).vorrat.ger.U = 1;
+  z(g).werte = Object.assign({}, z(g).werte, { war: false });   // der Krieg endet bis zur Wirkung (der Vorrat kann es nicht sein: das Hochstufen füllt ihn auf)
   while (ws(g).tickZahl < r.ab) tick(g);
   ok(entw(t, f0).length === 1 && /Speculum/.test(entw(t, f0)[0]) && /Invasion/.test(entw(t, f0)[0]), 'im Tick abgelehnt: genau eine Entwarnung, Invasions-Text');
   tick(g, 3);

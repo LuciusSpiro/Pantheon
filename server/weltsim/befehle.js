@@ -17,6 +17,8 @@
 //   soeldner          { von: 'kon', an: rom|ger, flotten: [ids], dauer }  Flotten des Konkordats dienen für die Dauer unter einem Reich (flotte.miete), Marken an das Konkordat.
 //   flotte_hochstufen { fraktion: ger, flotte: id }    NUR aus einem Faden (regie-befehle fadenInvasion, nie im Katalog des Spielleiters): die Stärke einer germanischen Flotte steigt EINMAL je Partie um staerke_zuwachs
 //                     (Anteil der aktuellen Stärke, darf über kap gehen), Flottenfeld hochgestuft: true. Nie Mietflotten, Krieg muss laufen.
+//                     Zusätzlich (flotte_hochstufen.vorrat_auffuellen) hebt er den Vorrat der Fraktion auf die Angriffs-Voraussetzungen (T auf mindestens angreifen.min_treibstoff, U auf min_munition; nur nach oben,
+//                     die Waffenlieferung versorgt die Fraktion), damit der folgende Angriff der Invasion angenommen wird. Kein eigenes Ereignis; ohne den Befehl ändert sich nichts (Bit-Parität).
 //   piratenueberfall  { ort: Hex }                     bereite Piratenflotte im Piratennetz greift einen Ort mit Besitzer an (pirat_raid ohne Würfel).
 //   fokus             { fraktion: rom|ger, hex, radius, dauer }  Überlagerung zustand.regie[fraktion].fokus: Angriffsziele der Standard-KI nur im Umkreis.
 //   regler            { fraktion: rom|ger|kon, p_act?, aggr?, max_active?, dauer }  die drei Regler der Standard-KI als Überlagerung zustand.regie[fraktion].
@@ -341,6 +343,11 @@ const KATALOG = {
       const fl = flotteMit(c, b.flotte);
       fl.staerke += fl.staerke * W.flotte_hochstufen.wert.staerke_zuwachs;   // darf über kap gehen (sonst wirkungslos bei voller Flotte)
       fl.hochgestuft = true;
+      if (W.flotte_hochstufen.wert.vorrat_auffuellen) {   // die Waffenlieferung versorgt die Fraktion: Vorrat mindestens auf die Angriffs-Voraussetzungen (nie absenken)
+        const A = W.angreifen.wert, st = c.z.vorrat[fl.fraktion];
+        if (st.T < A.min_treibstoff) st.T = A.min_treibstoff;
+        if (st.U < A.min_munition) st.U = A.min_munition;
+      }
     },
   },
 

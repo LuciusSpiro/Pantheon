@@ -27,8 +27,8 @@ const B = 'server/weltsim/befehle.js', R = 'server/sim/regie-befehle.js';
 const MUTATIONEN = [
   [B, "      if (fl.hochgestuft === true) return 'Flotte ist schon hochgestuft';\n", "", 'hochstufen: zweites Hochstufen derselben Flotte geht durch (hochgestuft-Test entfernt)'],
   [B, "fl.staerke += fl.staerke * W.flotte_hochstufen.wert.staerke_zuwachs;", "fl.staerke += fl.staerke * 0.2;", 'hochstufen: Zuwachs 20 statt 30 Prozent'],
-  [B, "      fl.hochgestuft = true;\n    },\n  },\n\n  piratenueberfall", "      fl.staerke = Math.min(fl.staerke, fl.kap); fl.hochgestuft = true;\n    },\n  },\n\n  piratenueberfall", 'hochstufen: Stärke bleibt unter kap'],
-  [B, "      fl.hochgestuft = true;\n    },\n  },\n\n  piratenueberfall", "    },\n  },\n\n  piratenueberfall", 'hochstufen: Feld hochgestuft wird nicht gesetzt'],
+  [B, "      fl.hochgestuft = true;\n      if (W.flotte_hochstufen.wert.vorrat_auffuellen) {", "      fl.staerke = Math.min(fl.staerke, fl.kap); fl.hochgestuft = true;\n      if (W.flotte_hochstufen.wert.vorrat_auffuellen) {", 'hochstufen: Stärke bleibt unter kap'],
+  [B, "      fl.hochgestuft = true;\n      if (W.flotte_hochstufen.wert.vorrat_auffuellen) {", "      if (W.flotte_hochstufen.wert.vorrat_auffuellen) {", 'hochstufen: Feld hochgestuft wird nicht gesetzt'],
   [B, "      if (fl.miete) return 'Mietflotten werden nicht hochgestuft';\n", "", 'hochstufen: Mietflotte wird hochgestuft'],
   [B, "      if (fl.fraktion !== b.fraktion) return `Flotte ${fl.id} gehört nicht zu ${b.fraktion}`;\n", "", 'hochstufen: fremde Flotte wird hochgestuft'],
   [B, "      if (!F.fraktionen.includes(b.fraktion)) return `fraktion muss ${F.fraktionen.join(' oder ')} sein`;\n", "", 'hochstufen: Fraktion wird nicht geprüft'],
@@ -47,6 +47,10 @@ const MUTATIONEN = [
   [R, "const w = e.w === 2 ? { art: 'invasion', ort: e.b.ziel } : trifftRom(ws.zustand, e.b);", "const w = trifftRom(ws.zustand, e.b);", 'laden: erneute Ankündigung ohne Invasions-Text'],
   [R, "w: e.w === 2 ? 2 : 1 }", "w: 1 }", 'speichern: w 2 geht verloren'],
   [R, "(e.b.typ === 'sabotage' || e.b.typ === 'flotte_hochstufen' || e.w === 2)", "(e.b.typ === 'sabotage')", 'laden: Invasionsbefehle zählen in vorgemerkt_max'],
+  [B, "      if (W.flotte_hochstufen.wert.vorrat_auffuellen) {", "      if (false) {", 'hochstufen: Vorrat der Fraktion wird nicht aufgefuellt'],
+  [B, "if (st.T < A.min_treibstoff) st.T = A.min_treibstoff;", "st.T = A.min_treibstoff;", 'hochstufen: Treibstoff wird auch abgesenkt'],
+  [B, "if (st.U < A.min_munition) st.U = A.min_munition;", "", 'hochstufen: Munition wird nicht aufgefuellt'],
+  [B, "const A = W.angreifen.wert, st = c.z.vorrat[fl.fraktion];", "const A = W.angreifen.wert, st = c.z.vorrat.rom;", 'hochstufen: falsche Fraktion wird versorgt'],
 ];
 
 const FILTER = process.argv.slice(2).filter((a) => !a.startsWith('--')).map((s) => s.toLowerCase());
