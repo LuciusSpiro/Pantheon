@@ -6,6 +6,8 @@
 //   C  Kontingent (kleines Limit, Fake mit hohem usage): Schwelle erreicht, Funkmeldung, der Abend laeuft im Rueckfall weiter, Index zeigt es; mit --freigeben der Knopfweg (Captain, Limit +500 000)
 //   D  --live ohne LLM_LIVE=1: "nicht gemessen", Exit 0, nichts angelegt, die CLI wird nie aufgerufen      E  falsche Aufrufe: Exit 2, nichts angelegt (auch --out im Repo)
 //   F  nichts im Repo (git status, data/), Fremddatei und fruehere Laeufe in --out unberuehrt, nichts geloescht
+//   Nacharbeit (Reviewer-Befunde): U Einheiten ohne Server (K1 Ausgang/Takt je Angebot, K1c je Beat, M1 Nachhilfe, M2 gespielt, M3 Zuordnung Faden, N2 Abschuesse, N5 Titel); N Mock-Lauf --ohne-testhelfer (K1, M2, N1, N4, N5, N10, Index);
+//   M4 harter Abbruch (Plaene, Protokoll, unvollstaendiges Ergebnis); M5 Pflicht CLAUDE_TOKEN_BUDGET und --gesamtdeckel; N8 Standardablage.  LIVE_ABEND_TEST=einheit|neu faehrt nur diese Teile (fuer schnelle Belege).
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
@@ -39,10 +41,22 @@ const NAMEN = /\b(Ada|Bo|Cem)\b/;
 const repoStatus = () => (cp.spawnSync('git', ['status', '--porcelain', '--untracked-files=all'], { cwd: ROOT, encoding: 'utf8' }).stdout || '');
 const dataListe = () => dateien(path.join(ROOT, 'data')).join('|');
 const statusVorher = repoStatus(), dataVorher = dataListe();
+const NUR = process.env.LIVE_ABEND_TEST || '';
 const kurz = ['--dauer', '240', '--grenzabstand', '0.3', '--geduld', '5', '--rueckfall-nach', '40'];
 
 (async () => {
+  const abschlussMeldung = () => {
+    let bad = 0;
+    for (const r of results) { if (!r.ok) { bad++; console.log(`✗ ${r.name}${r.detail ? ' – ' + String(r.detail).slice(0, 600) : ''}`); } }
+    if (!bad) fs.rmSync(TMP, { recursive: true, force: true });   // das eigene mkdtemp-Verzeichnis dieses Tests (bei Fehlern bleibt es zur Analyse liegen)
+    else console.log('Ablage zur Analyse: ' + TMP);
+    console.log(`${results.length - bad}/${results.length} Prüfungen ok`);
+    process.exit(bad ? 1 : 0);
+  };
   // ---------- D und E zuerst (sofort, ohne Server)
+  // N8: der Standardort der Ablage ist <Temp>/pantheon-messung (nicht <TMP>/pantheon-messung): Zustand vorher merken, nach den Fehlaufrufen unveraendert
+  const stdAblage = path.join(os.tmpdir(), 'pantheon-messung');
+  const stdVorher = fs.existsSync(stdAblage) ? fs.readdirSync(stdAblage).sort().join('|') : null;
   const marker = path.join(TMP, 'cli-aufgerufen.txt');
   const spion = path.join(TMP, 'spion-cli.js');
   fs.writeFileSync(spion, `require('fs').writeFileSync(${JSON.stringify(marker)}, 'aufgerufen');\n`);
@@ -59,7 +73,103 @@ const kurz = ['--dauer', '240', '--grenzabstand', '0.3', '--geduld', '5', '--rue
     const r = await lauf(['--mock', ...a], {}, TMP);
     check(`E ${a.join(' ')}: Exit 2`, r.code === 2, r.text);
   }
-  check('E nach den Fehlaufrufen ist nichts im Repo und nichts in der Ablage', !fs.existsSync(path.join(TMP, 'pantheon-messung')));
+  check('E nach den Fehlaufrufen ist nichts im Repo und nichts in der Standard-Ablage (<Temp>/pantheon-messung unveraendert)', (fs.existsSync(stdAblage) ? fs.readdirSync(stdAblage).sort().join('|') : null) === stdVorher, stdAblage);
+
+  // =====================================================================================================================================================
+  // Nacharbeit: Einheiten ohne Server (U)
+  // =====================================================================================================================================================
+  const LA = require('./live-abend.js');
+  const Beats = require('./lib/bot-beats.js');
+  // K1 a: Ausgang je Angebot, getrennt nach angenommen / verfallen / verdraengt / abgeloest / offen, mit Taetigkeiten und Bot-Anteil
+  const mkA = (nr, extra) => Object.assign(LA.angebotNeu({ nr, ref: 'x', hex: '0101', alter: 0, vorlage: { titel: 'T' + nr, beats: [{ typ: 'geruecht' }] } }, { titel: 'T' + nr }, { t: 100, grenzen: 10, spielzeit: 1, wall: 1 }), extra || {});
+  const verf = LA.angebotAusgang(mkA(1, { weg: { t: 113, bot: 23 } }), []);
+  check('U K1 Ausgang verfallen: 13 Taetigkeiten seit Erstellung (Alter 12 ueberschritten), davon 13 vom Bot, Text "verfallen (Alter 12 erreicht)"', verf.art === 'verfallen' && verf.taetigkeiten === 13 && verf.davon_bot === 13 && /Alter 12 erreicht/.test(verf.text), JSON.stringify(verf));
+  const gemischt = LA.angebotAusgang(mkA(2, { weg: { t: 113, bot: 18 } }), []);
+  check('U K1 Bot-Anteil getrennt von der Gesamtzahl: 13 Taetigkeiten, davon nur 8 vom Bot', gemischt.taetigkeiten === 13 && gemischt.davon_bot === 8, JSON.stringify(gemischt));
+  const verdr = LA.angebotAusgang(mkA(3, { weg: { t: 105, bot: 12 }, im_brett: false }), []);
+  const verdr2 = LA.angebotAusgang(mkA(3, { weg: { t: 105, bot: 12 } }), []);
+  check('U K1 Ausgang verdraengt: vor Alter 13 weg und nicht angenommen (nie im Brett der Crew: angebote_max), nicht "verfallen"', verdr.art === 'verdraengt' && /angebote_max/.test(verdr.text) && verdr2.art === 'verdraengt' && !/angebote_max/.test(verdr2.text), JSON.stringify([verdr, verdr2]));
+  const abl = LA.angebotAusgang(mkA(4, { weg: { t: 104, bot: 11 } }), [{ plan: { angebot: 4 }, ausgang: 'abenteuer_veraltet' }]), abl2 = LA.angebotAusgang(mkA(5, { weg: { t: 113, bot: 11 } }), [{ plan: { angebot: 5 }, ausgang: 'abenteuer_abgelehnt' }]);
+  check('U K1 Ausgang abgeloest: Logbuch (abenteuer_veraltet / abenteuer_abgelehnt) schlaegt die Altersrechnung', abl.art === 'abgeloest' && /veraltet/.test(abl.text) && abl2.art === 'abgeloest' && /abgelehnt/.test(abl2.text), JSON.stringify([abl, abl2]));
+  const ang = LA.angebotAusgang(mkA(6, { weg: { t: 101, bot: 10 }, annahme_gesendet: true, faden: 'f3' }), []), off = LA.angebotAusgang(mkA(7, { t_zuletzt: 104 }), [], { t: 106, bot: 14 });
+  check('U K1 Ausgang angenommen (Faden da) und offen (am Ende noch am Brett, Taetigkeiten bis jetzt)', ang.art === 'angenommen' && off.art === 'offen' && off.taetigkeiten === 6 && off.davon_bot === 4, JSON.stringify([ang, off]));
+  const e0 = LA.angebotNeu({ nr: 9, ref: 'x', hex: '0101', alter: 2, vorlage: { titel: 'Titel aus dem Plan', beats: [{ typ: 'spur' }] } }, undefined, { t: 50, grenzen: 3, spielzeit: 1, wall: 1 });
+  check('U N5 Titel nie null: ohne Eintrag im Brett der Crew kommt der Titel aus dem Plan; Erstellungsstand t_erstellt = t - alter', e0.titel === 'Titel aus dem Plan' && e0.t_erstellt === 48 && LA.titelVon(undefined, { titel: 'P' }, 'F') === 'P' && LA.titelVon(undefined, null, 'F') === 'F', JSON.stringify(e0));
+  // M2: gespielt nur mit mindestens einem tatsaechlich gespielten Beat
+  const sNicht = LA.spielStatus({ ausgang: 'gescheitert', beats: [{ typ: 'konvoi', wie: 'nicht gespielt' }, { typ: 'abschluss', wie: 'gespielt' }] });
+  const sOffen = LA.spielStatus({ ausgang: 'offen beim Ende (laeuft, Beat konvoi)', beats: [{ typ: 'konvoi', wie: 'nicht gespielt' }] });
+  const sJa = LA.spielStatus({ ausgang: 'gelungen', beats: [{ typ: 'geruecht', wie: 'gespielt (Anflug gesetzt)' }, { typ: 'abschluss', wie: 'gespielt' }] });
+  const sTeils = LA.spielStatus({ ausgang: 'gelungen', beats: [{ typ: 'konvoi', wie: 'teils kuenstlich' }] });
+  check('U M2 gespielt nur mit gespieltem Beat: nur "nicht gespielt" + abschluss = "angenommen, nicht gespielt"; offen = "offen bei Zeitende"; Gerücht gespielt = gespielt', !sNicht.gespielt && sNicht.status === 'angenommen, nicht gespielt' && !sOffen.gespielt && sOffen.status === 'offen bei Zeitende' && sJa.gespielt && sTeils.gespielt, JSON.stringify([sNicht, sOffen, sJa, sTeils]));
+  // M3: Faden zum Angebot
+  const alt = { id: 'f1', plan: {}, vorlage: 'RF', phase: 'abgeschlossen' }, neu2 = { id: 'f2', plan: {}, vorlage: 'RF', phase: 'laeuft' };
+  const z1 = LA.fadenZuAngebot({ liste: [alt, neu2], logbuch: [], nr: 7, ref: 'RF', vergeben: new Set(['f1']) });
+  const z2 = LA.fadenZuAngebot({ liste: [alt, neu2], logbuch: [], nr: 7, ref: 'RF', vergeben: new Set() });
+  const z3 = LA.fadenZuAngebot({ liste: [alt, neu2], logbuch: [], nr: 7, ref: 'RF', vergeben: new Set(['f2']) });
+  const z4 = LA.fadenZuAngebot({ liste: [alt, neu2], logbuch: [{ art: 'faden_ereignis', ausgang: 'geoeffnet', plan: { angebot: 7, faden: 'f2' } }], nr: 7, ref: 'RF', vergeben: new Set() });
+  check('U M3 dieselbe Rueckfall-Vorlage zweimal im Abend: nie der alte abgeschlossene Faden (auch ohne Vermerk), kein schon zugeordneter Faden, mit Logbuch exakt der geoeffnete', z1 && z1.id === 'f2' && z2 && z2.id === 'f2' && z3 === null && z4 && z4.id === 'f2', JSON.stringify([z1 && z1.id, z2 && z2.id, z3 && z3.id, z4 && z4.id]));
+  // M1 / K1 c: Beats der Vorlage
+  const vorl = { beats: [{ id: 'b1', typ: 'konvoi' }, { id: 'b2', typ: 'abschluss' }] };
+  const rec0 = { beats: [{ typ: 'konvoi', id: 'b1', wie: 'nicht gespielt', ausgang: 'gescheitert', kuenstlich: { 'grenze-gesetzt': 6 }, notiz: 'Frist lief ab' }], nachhilfe: [{ beat: 'abschluss', beat_id: 'b2', ok: true }, { beat: 'konvoi', beat_id: 'b1', ok: false }], gedaechtnis: ['abschluss_gelungen'] };
+  const bv = LA.beatsVorlage(vorl, rec0, { b1: { warten: 2, laeuft: 6 }, b2: { warten: 3, laeuft: 0 } }, new Set(['b1']));
+  check('U K1c je Beat: Bot-Grenzen davor/im Beat und Beat-Frist (allein durch den Bot-Takt, wenn die Bot-Grenzen die Frist 6 fuellen); grenze-gesetzt bleibt in "kuenstlich"', bv[0].grenzen_davor === 2 && bv[0].grenzen_beat === 6 && bv[0].frist_abgelaufen && bv[0].frist.nach === 6 && bv[0].frist.allein_durch_bot === true && bv[0].kuenstlich['grenze-gesetzt'] === 6 && bv[1].frist === null && !bv[1].frist_abgelaufen, JSON.stringify(bv));
+  check('U M1 Nachhilfe dem gestarteten Beat zugeordnet: Beat ohne Bot-Spiel (nie "laeuft" gesehen) steht als "vom Bot gestartet (Nachhilfe) ... Baustein" mit faden-weiter-bot, abgelehnte Nachhilfe zaehlt nicht', /vom Bot gestartet \(Nachhilfe\)/.test(bv[1].wie) && bv[1].kuenstlich['faden-weiter-bot'] === 1 && bv[1].nachhilfe === 1 && bv[1].kuenstlich['grenze-gesetzt'] === 3 && bv[0].nachhilfe === 0 && !('faden-weiter-bot' in bv[0].kuenstlich), JSON.stringify(bv[1]));
+  // N2: Abschuesse zaehlen, nicht Schleifendurchlaeufe
+  const TH = require('./gegner-testhilfe.js'), toetenOrig = TH.toeten;
+  try {
+    const kzT = {}; const gT = { space: { enemies: [] } };
+    const BT = Beats.neu({ g: gT, cl: [], w: {}, zeile() {}, k: (...a) => { for (const x of a) kzT[x] = (kzT[x] || 0) + 1; }, kz: kzT, opts: { testhelfer: true }, grenze() {}, ereignis() {} });
+    TH.toeten = (game, e) => { game.space.enemies.splice(game.space.enemies.indexOf(e), 1); };
+    for (let i = 0; i < 5; i++) BT.alleGegner();
+    const ohneGegner = kzT['testhelfer-kill'] || 0;
+    gT.space.enemies.push({ id: 1 }, { id: 2 });
+    BT.alleGegner(); BT.alleGegner();
+    const mitZwei = kzT['testhelfer-kill'] || 0;
+    const lingering = { id: 3 }; gT.space.enemies.push(lingering);
+    TH.toeten = () => {};   // der Gegner treibt noch (Countdown): noch kein Abschuss
+    BT.alleGegner(); const waehrend = kzT['testhelfer-kill'] || 0;
+    gT.space.enemies.splice(gT.space.enemies.indexOf(lingering), 1);   // jetzt ist er weg
+    BT.alleGegner(); BT.alleGegner();
+    check('U N2 testhelfer-kill zaehlt Abschuesse: 5 Durchlaeufe ohne Gegner = 0, zwei Gegner = 2 (nicht je Durchlauf), treibender Gegner erst bei Abgang, danach genau einmal', ohneGegner === 0 && mitZwei === 2 && waehrend === 2 && kzT['testhelfer-kill'] === 3, JSON.stringify([ohneGegner, mitZwei, waehrend, kzT]));
+  } finally { TH.toeten = toetenOrig; }
+  if (NUR === 'einheit') return abschlussMeldung();
+
+  // =====================================================================================================================================================
+  // Nacharbeit: Laeufe (N: Mock ohne Testhelfer; M4 harter Abbruch; M5 Pflicht-Budget und Gesamtdeckel)
+  // =====================================================================================================================================================
+  const outN = path.join(TMP, 'ablage-n'), outH = path.join(TMP, 'ablage-hart'), outG = path.join(TMP, 'ablage-gesamt'), outB = path.join(TMP, 'ablage-budget');
+  for (const d of [outN, outH, outG, outB]) fs.mkdirSync(d);
+  const rBud = await lauf(['--live', '--seed', '5', '--dauer', '5', '--out', outB], fakeEnv({ CLAUDE_TOKEN_BUDGET: '' }));   // M5: Pflicht, sofort
+  const [rN, rH, rG] = await Promise.all([
+    lauf(['--mock', '--seed', '7', '--abenteuer', '2', '--dauer', '100', '--grenzabstand', '0.3', '--geduld', '5', '--rueckfall-nach', '20', '--ohne-testhelfer', '--out', outN]),
+    lauf(['--live', '--seed', '5', '--abenteuer', '2', '--dauer', '240', '--hart', '25', '--grenzabstand', '0.3', '--geduld', '5', '--rueckfall-nach', '40', '--out', outH], fakeEnv({ FAKE_PLAN_MIT: 'geruecht,spur' })),
+    lauf(['--live', '--seed', '5,6,7', '--gesamtdeckel', '1', '--abenteuer', '1', '--dauer', '20', '--grenzabstand', '0.3', '--geduld', '5', '--rueckfall-nach', '40', '--out', outG], fakeEnv({ FAKE_PLAN_MIT: 'geruecht,spur' })),
+  ]);
+  // ----- M5
+  check('M5 Live ohne CLAUDE_TOKEN_BUDGET: Exit 2 mit Hinweis, nichts angelegt, die Standard-500 000 gelten nie still', rBud.code === 2 && /CLAUDE_TOKEN_BUDGET/.test(rBud.err) && lauford(outB).length === 0, rBud.text);
+  const dirG = lauford(outG)[0], mG = dirG && json(path.join(dirG, 'messung.json'));
+  check('M5 --gesamtdeckel 1: nach dem ersten fertigen Seed startet kein weiterer (Seeds 6 und 7 nicht gestartet, kein Abend-Ordner), im Index und in messung.json ausgewiesen', !!mG && mG.abende.length === 3 && !mG.abende[0].uebersprungen && mG.abende[1].uebersprungen === true && mG.abende[2].uebersprungen === true && !fs.existsSync(path.join(dirG, 'abend-6')) && !fs.existsSync(path.join(dirG, 'abend-7')) && mG.optionen.gesamtdeckel === 1 && mG.verbraucht_tokens >= 1 && /nicht gestartet/.test(lies(path.join(dirG, 'index.md'))) && /Gesamtdeckel/.test(lies(path.join(dirG, 'index.md'))), mG ? JSON.stringify(mG.abende.map((a) => [a.seed, a.uebersprungen, a.grund])) + rG.text.slice(-500) : rG.text.slice(-800));
+  check('M5 --gesamtdeckel ungueltig (0 / Text): Exit 2', (await lauf(['--mock', '--gesamtdeckel', '0'])).code === 2 && (await lauf(['--mock', '--gesamtdeckel', 'x'])).code === 2);
+  // ----- M4
+  const dirH = lauford(outH)[0], eH = dirH && json(path.join(dirH, 'abend-5', 'ergebnis.json')), mH = dirH && json(path.join(dirH, 'messung.json'));
+  const plH = dirH ? dateien(path.join(dirH, 'abend-5', 'plaene')).filter((x) => /\.md$/.test(x)) : [];
+  check('M4 harter Abbruch (--hart 25): Exit 1, Plaene (Datei + Prompt) und Protokoll liegen trotzdem vor, ergebnis.json als "unvollstaendig" markiert, im messung.json und im Index ausgewiesen', rH.code === 1 && plH.length >= 1 && dateien(path.join(dirH, 'abend-5', 'plaene')).some((x) => /prompt\.txt$/.test(x)) && lies(path.join(dirH, 'abend-5', 'protokoll.txt')).split('\n').length > 5 && !!eH && eH.unvollstaendig === true && !!mH && mH.abende[0].ergebnis && mH.abende[0].ergebnis.unvollstaendig === true && /unvollständig/.test(lies(path.join(dirH, 'index.md'))), rH.text.slice(-600) + JSON.stringify([plH.length, eH && eH.unvollstaendig]));
+  // ----- Mock ohne Testhelfer: K1, M2, N1, N4, N5, N10
+  const dirN = lauford(outN)[0], mN = dirN && json(path.join(dirN, 'messung.json')), eN = mN && mN.abende[0] && mN.abende[0].ergebnis, idxN = dirN ? lies(path.join(dirN, 'index.md')) : '', protN = dirN ? lies(path.join(dirN, 'abend-7', 'protokoll.txt')) : '';
+  const SZ = ['konvoi', 'geleit', 'raumschlacht', 'verfolgung', 'befreiung', 'spontanhilfe'];
+  const szBeats = eN ? eN.abenteuer.flatMap((x) => x.beats_vorlage.filter((b) => SZ.includes(b.typ) && b.wie !== 'nicht erreicht' && !/Baustein/.test(b.wie))) : [];
+  const gespieltN = (x) => x.beats_vorlage.some((b) => b.typ !== 'abschluss' && b.typ !== 'enthuellung' && /^(gespielt|teils)/.test(b.wie));
+  check('N10 --ohne-testhelfer: Exit 0, Szenen-Beats stehen als "nicht gespielt" (nie "gespielt"/"teils kuenstlich"), "gespielt" je Abenteuer genau dann, wenn ein Nicht-Szenen-Beat gespielt wurde (Gerücht, Spur ...), Index-Summe stimmt', rN.code === 0 && !!eN && eN.abenteuer.length >= 1 && szBeats.every((b) => b.wie === 'nicht gespielt') && eN.abenteuer.every((x) => x.gespielt === gespieltN(x) && x.spiel_status === (x.gespielt ? 'gespielt' : /^offen/.test(x.ausgang) ? 'offen bei Zeitende' : 'angenommen, nicht gespielt')) && idxN.includes(`Summe: ${eN.abenteuer.filter((x) => x.gespielt).length} Abenteuer gespielt (`) && idxN.includes(`abenteuer_gespielt: ${eN.abenteuer.filter((x) => x.gespielt).length}`), rN.text.slice(-300) + (eN ? JSON.stringify(eN.abenteuer.map((x) => [x.spiel_status, x.beats_vorlage.map((b) => b.wie)])) : ''));
+  check('M2 Index: Spalte "gespielt" zaehlt nur gespielte, daneben "angenommen, nicht gespielt"; der Ausgang je Angebot folgt dem Abenteuer (angenommen und gespielt / angenommen, nicht gespielt / offen bei Zeitende), nie pauschal "gespielt"', !!eN && /\| Serverfehler \| angenommen, nicht gespielt \|/.test(idxN) && eN.angebote.filter((a) => a.abenteuer).every((a) => { const x = eN.abenteuer.find((y) => y.angebot === a.nr); return a.ausgang === (x.gespielt ? 'angenommen und gespielt' : x.spiel_status === 'offen bei Zeitende' ? 'angenommen, offen bei Zeitende' : 'angenommen, nicht gespielt'); }), eN && JSON.stringify(eN.angebote.map((a) => a.ausgang)));
+  const alleEnde = eN ? eN.angebote.filter((a) => a.ende && a.ende.art !== 'offen') : [];
+  check('K1 a Index je Angebot: Taetigkeiten bis Ende (davon Bot) und getrennter Ausgang; Verfall kommt hier allein vom Bot-Takt (davon Bot = alle Taetigkeiten)', !!eN && eN.angebote.every((a) => a.ende && Number.isInteger(a.ende.taetigkeiten) && Number.isInteger(a.ende.davon_bot) && a.ende.davon_bot <= a.ende.taetigkeiten + 1) && eN.angebote.some((a) => a.ende.art === 'verfallen' && a.ende.davon_bot >= a.ende.taetigkeiten - 1 && a.ende.taetigkeiten >= 12) && /Tätigkeiten bis Ende \(davon Bot\)/.test(idxN) && /verfallen \(Alter 12 erreicht\)/.test(idxN) && /\| \d+ \(davon Bot \d+\), Alter \d+ \| (verfallen|verdrängt|abgelöst|angenommen|am Ende)/.test(idxN) && alleEnde.length >= 2, eN && JSON.stringify(eN.angebote.map((a) => [a.id, a.ende])));
+  check('K1 b Hinweis-Kasten je Abend: Bot-Takt = N Grenzen in T s (eine alle X s), Verfall nach rund Y s, Tokens/Kosten deckelgebunden (deckel_je_sitzung)', !!eN && eN.takt.grenzen === eN.grenzen && eN.takt.grenzen > 10 && eN.takt.verfall_angebot_s > 0 && /Bot-Takt = \d+ Grenzen in [\d.,]+ s\*\* \(eine alle [\d.,]+ s, eingestellt: --grenzabstand 0\.3 s\)/.test(idxN) && /Verfall wäre nach rund [\d.,]+ s/.test(idxN) && /deckelgebunden/.test(idxN) && /deckel_je_sitzung: Lage \d+, Abenteuer \d+/.test(idxN), idxN.slice(idxN.indexOf('Bot-Takt'), idxN.indexOf('Bot-Takt') + 900));
+  check('K1 c Beat-Tabelle: Bot-Grenzen (davor / im Beat) und Beat-Frist je Beat; grenze-gesetzt steht in "Künstlich"; ohne Testhelfer lief die Frist allein durch den Bot-Takt ab', !!eN && eN.abenteuer.some((x) => x.beats_vorlage.some((b) => b.grenzen_beat >= 6 && b.frist_abgelaufen && b.frist && b.frist.allein_durch_bot && b.kuenstlich['grenze-gesetzt'] >= 6)) && /allein durch den Bot-Takt/.test(idxN) && /grenze-gesetzt ×\d+/.test(idxN), eN && JSON.stringify(eN.abenteuer.map((x) => x.beats_vorlage.map((b) => [b.typ, b.grenzen_davor, b.grenzen_beat, b.frist_abgelaufen]))));
+  check('K1 d benutzter --grenzabstand steht in index.md (Kopf und Frontmatter) und messung.json (optionen und grenzabstand_s)', !!mN && mN.optionen.grenzabstand === 0.3 && mN.grenzabstand_s === 0.3 && /grenzabstand_s: 0\.3/.test(idxN) && /Bot-Takt \(--grenzabstand\): 0\.3 s/.test(idxN));
+  check('N1 Angebote werden auch waehrend langer Beats gesehen (Hintergrund-Beobachter): kein Angebot wird erst bei hohem Alter bemerkt (Alter beim ersten Sehen hoechstens 2)', !!eN && eN.angebote.length >= 3 && eN.angebote.every((a) => a.alter_sichtbar <= 2), eN && JSON.stringify(eN.angebote.map((a) => [a.id, a.alter_sichtbar])));
+  check('N5 kein Titel null: weder „null“ im Protokoll noch eine Ueberschrift ohne Titel im Index (#### f<Nr> / #### null)', !!eN && !/„null“/.test(protN) && !/^#### (null|f\d+) \(/m.test(idxN) && eN.angebote.every((a) => a.titel) && eN.abenteuer.every((x) => x.titel), protN.split('\n').filter((l) => /null/.test(l)).slice(0, 3).join(' | '));
+  check('N4 namensfilter_ersetzungen in messung.json: Summe aus Eltern- und Abendprozessen (mindestens die Zahl des Abends, > 0, weil das Protokoll Spielernamen enthaelt)', !!eN && Number.isFinite(eN.namensfilter_ersetzungen) && eN.namensfilter_ersetzungen > 0 && mN.namensfilter_ersetzungen >= eN.namensfilter_ersetzungen, eN && JSON.stringify([eN.namensfilter_ersetzungen, mN.namensfilter_ersetzungen]));
+  if (NUR === 'neu') return abschlussMeldung();
 
   // ---------- A, B, C parallel (jeder Lauf hat seinen eigenen Server auf freiem Port)
   const outA = path.join(TMP, 'ablage-a'); fs.mkdirSync(outA); fs.writeFileSync(path.join(outA, 'FREMD.txt'), 'darf nie verschwinden');
@@ -82,7 +192,7 @@ const kurz = ['--dauer', '240', '--grenzabstand', '0.3', '--geduld', '5', '--rue
   check('A messung.json: zwei Abende (Seed 7 und 8) mit Ergebnis', mA.abende.length === 2 && mA.abende.every((a) => a.ergebnis) && mA.abende.map((a) => a.seed).join() === '7,8', JSON.stringify(mA.abende.map((a) => [a.seed, !!a.ergebnis, a.grund])));
   const eA = mA.abende.map((a) => a.ergebnis).filter(Boolean);
   check('A jeder Abend: Angebote gesehen, mindestens ein Abenteuer angenommen UND zu Ende gespielt (Ausgang gelungen/gescheitert)', eA.length === 2 && eA.every((e) => e.angebote.length >= 1 && e.abenteuer.length >= 1 && e.abenteuer.every((x) => /^(gelungen|gescheitert)/.test(x.ausgang))), JSON.stringify(eA.map((e) => e.abenteuer.map((x) => x.ausgang))));
-  check('A jeder gespielte Beat steht mit "wie gespielt" und Ausgang im Index (nichts still uebersprungen)', eA.every((e) => e.abenteuer.every((x) => x.beats_vorlage.length >= 2 && x.beats_vorlage.every((b) => b.wie && b.ausgang))) && /\| Beat \| Typ \| Wie gespielt \| Ausgang \| Künstlich \| Notiz \|/.test(idxA));
+  check('A jeder gespielte Beat steht mit "wie gespielt" und Ausgang im Index (nichts still uebersprungen)', eA.every((e) => e.abenteuer.every((x) => x.beats_vorlage.length >= 2 && x.beats_vorlage.every((b) => b.wie && b.ausgang))) && /\| Beat \| Typ \| Wie gespielt \| Ausgang \| Künstlich \| Bot-Grenzen \(davor \/ im Beat\) \| Beat-Frist \| Notiz \|/.test(idxA));
   const lA = links(path.join(oA, 'index.md'));
   const missionen = lA.filter((l) => /mission\.md$/.test(l));
   check('A index.md: alle relativen Links loesen auf, mindestens eine mission.md je Abend verlinkt', lA.length >= 8 && lA.every((l) => fs.existsSync(l)) && missionen.length >= 2, lA.filter((l) => !fs.existsSync(l)).join(',') + ' | ' + missionen.length);
@@ -134,10 +244,5 @@ const kurz = ['--dauer', '240', '--grenzabstand', '0.3', '--geduld', '5', '--rue
   const ohne = require('./live-abend.js').ohneNamen;
   check('F ohneNamen: Ganzwort, Spieler 1 bis 3', ohne('Ada und Bo, Cem. Adam, Bob') === 'Spieler 1 und Spieler 2, Spieler 3. Adam, Bob');
 
-  let bad = 0;
-  for (const r of results) { if (!r.ok) { bad++; console.log(`✗ ${r.name}${r.detail ? ' – ' + String(r.detail).slice(0, 600) : ''}`); } }
-  if (!bad) fs.rmSync(TMP, { recursive: true, force: true });   // das eigene mkdtemp-Verzeichnis dieses Tests (bei Fehlern bleibt es zur Analyse liegen)
-  else console.log('Ablage zur Analyse: ' + TMP);
-  console.log(`${results.length - bad}/${results.length} Prüfungen ok`);
-  process.exit(bad ? 1 : 0);
+  abschlussMeldung();
 })().catch((e) => { console.log('FEHLER im Test: ' + (e && e.stack)); process.exit(1); });

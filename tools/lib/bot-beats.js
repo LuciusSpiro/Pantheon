@@ -47,7 +47,11 @@ function neu(ctx) {
   };
   const leerlauf = async (ms) => { bitteSpielen(); grenze(); await sleep(ms || 100); };
 
-  const alleGegner = () => { k('testhelfer-kill'); for (const e of g.space.enemies.slice()) Testhilfe.toeten(g, e); };
+  // N2: testhelfer-kill zaehlt ABSCHUESSE, nicht Schleifendurchlaeufe: ein Gegner wird einmal vermerkt, wenn der Testhelfer ihn trifft, und gezaehlt, sobald er tatsaechlich aus dem Raum ist (Countdown/Treiben kann dauern)
+  const getroffen = new Set();
+  const abgaenge = () => { for (const e of [...getroffen]) if (!g.space.enemies.includes(e)) { getroffen.delete(e); k('testhelfer-kill'); } };
+  const schlage = (e) => { getroffen.add(e); Testhilfe.toeten(g, e); };
+  const alleGegner = () => { abgaenge(); for (const e of g.space.enemies.slice()) schlage(e); abgaenge(); };
   const hin = async (hex, text) => {   // echte Spruenge; gibt es keinen Weg ueber offene Kanten: der Ort wird gesetzt (kuenstlich)
     if (!hex) return false;
     if (w.hierHex() === hex) return true;
@@ -141,7 +145,7 @@ function neu(ctx) {
     const es = () => (g.space.escorts || []).find((q) => g.fadenSzene && q.tag === g.fadenSzene.tag);
     const modus = (b.parameter && b.parameter.modus) || 'geleit';
     await warteBeatEnde(f, b.id, 90000, async () => {
-      if (typ === 'konvoi') { const Konvoi = require('../../server/sim/konvoi.js'); k('testhelfer-kill'); for (const e of Konvoi.transporter(g)) Testhilfe.toeten(g, e); }
+      if (typ === 'konvoi') { const Konvoi = require('../../server/sim/konvoi.js'); for (const e of Konvoi.transporter(g)) schlage(e); }
       alleGegner();
       if (typ === 'geleit') {
         const q = es();
@@ -169,12 +173,13 @@ function neu(ctx) {
       if (laeuft(f, b.id)) { for (let i = 0; i < 800 && laeuft(f, b.id); i++) await leerlauf(150); if (laeuft(f, b.id)) notiz = (notiz ? notiz + '; ' : '') + 'Beat laeuft nach 2 Minuten noch'; else if (versucht) notiz = (notiz ? notiz + '; ' : '') + 'Frist ablief'; else notiz = (notiz ? notiz + '; ' : '') + 'Frist lief ab'; }
     } catch (e) { notiz = 'Fehler im Bot: ' + (e && e.message); zeile(`Beat ${typ}: ${notiz}`); }
     await sleep(200);
+    abgaenge();
     const kuenstlich = {}; for (const [a, n] of Object.entries(kz)) if (n > (vor[a] || 0)) kuenstlich[a] = n - (vor[a] || 0);
     const neuGed = f.nsc.gedaechtnis.slice(gedVor).map((x) => x.ereignis).filter((x) => String(x).startsWith(typ + '_'));
     const ausgang = neuGed.find((x) => /_gelungen$/.test(x)) ? 'gelungen' : neuGed.find((x) => /_gescheitert$/.test(x)) ? 'gescheitert' : (neuGed[0] || (laeuft(f, b.id) ? 'offen' : 'ohne Eintrag'));
-    const TAKT = ['spieler-setzen', 'grenze-gesetzt'];   // das Setzen an eine Konsole ist Bedienung, die Taetigkeitsgrenze der Takt des Abends: beides keine Abkuerzung im Beat
-    for (const a of TAKT) delete kuenstlich[a];
-    const eigene = Object.keys(kuenstlich).filter((a) => a !== 'ort-setzen');   // ort-setzen: der Anflug an Sprungpunkt oder Spurkern wird gesetzt (das Anfliegen ist in test-flight geprueft), die Spruenge selbst sind echt
+    delete kuenstlich['spieler-setzen'];   // das Setzen an eine Konsole ist Bedienung, keine Abkuerzung im Beat
+    // K1 c: grenze-gesetzt (vom Bot gesetzte Taetigkeiten WAEHREND des Beats) bleibt sichtbar: sie treiben die Beat-Frist. Sie machen den Beat aber nicht zu "teils kuenstlich" (kein Spielschritt)
+    const eigene = Object.keys(kuenstlich).filter((a) => a !== 'ort-setzen' && a !== 'grenze-gesetzt');   // ort-setzen: der Anflug an Sprungpunkt oder Spurkern wird gesetzt (das Anfliegen ist in test-flight geprueft), die Spruenge selbst sind echt
     const wie = !versucht ? 'nicht gespielt' : eigene.length ? 'teils kuenstlich' : (ausgang === 'gescheitert' && notiz && /Frist/.test(notiz) ? 'nicht gespielt' : (kuenstlich['ort-setzen'] ? 'gespielt (Anflug gesetzt)' : 'gespielt'));
     return { typ, id: b.id, wie, ausgang, kuenstlich, sekunden: Math.round((Date.now() - t0) / 100) / 10, notiz };
   }
