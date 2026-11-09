@@ -34,6 +34,8 @@ const LB = lies('content/flotte/lage-befehle.json');
 const FH = lies('content/faeden/vorlagen/falscher_haendler.json');
 const ORT = '0403';   // Speculum, römisch (wie test-sim-befehl-invasion.js)
 const VID = 'sim_test';
+// FAD-01 C: die echte Vorlage fuehrt die Folge sim_befehl jetzt selbst; fuer die Gegenproben „Beat ohne die Folge“ dient dieselbe Vorlage ohne sie (eigene Id, gueltig: die Enthuellung bleibt ueber gelungen erreichbar)
+const FH_OHNE = klon(FH); FH_OHNE.id = 'sim_test_ohne'; delete FH_OHNE.beats.find((x) => x.id === 'b_enthuell').aus.gelungen.folge;
 
 // ---------- Testvorlage: der Falsche Händler, so umgebaut, dass die Enthüllung nur nach der gelungenen Fracht kommt (Paket C baut die echte Vorlage um)
 const b = (v, id) => v.beats.find((x) => x.id === id);
@@ -77,8 +79,9 @@ section('Prüfer: korrekter Aufbau', () => {
   { const w = gut(); b(w, 'b_enthuell').aus.gelungen.folge = [{ typ: 'sim_befehl' }, { typ: 'haltung_aenderung', grund: 'gedankt' }]; ok(Pruefer.pruefeVorlage(w).ok, 'neben einer Haltungs-Folge: gültig'); }
   ok(Pruefer.simBefehlFolge(b(v, 'b_enthuell')).typ === 'sim_befehl' && Pruefer.simBefehlFolge(b(v, 'b_fracht')) === null, 'simBefehlFolge liest die Folge des Beats');
   ok(Pruefer.simBefehlArten({ typ: 'sim_befehl' }).join() === Object.keys(SB.arten).join(), 'ohne arten gelten alle Arten');
-  ok(Pruefer.pruefeVorlage(klon(FH)).ok, 'die echte Vorlage falscher_haendler (ohne die Folge) bleibt gültig');
-  ok(!JSON.stringify(FH).includes('sim_befehl'), 'die echte Vorlage falscher_haendler hat noch keine Folge sim_befehl (Paket C)');
+  ok(Pruefer.pruefeVorlage(klon(FH)).ok, 'die echte Vorlage falscher_haendler (mit der Folge, Paket C) ist gültig');
+  ok(JSON.stringify(b(FH, 'b_enthuell').aus.gelungen.folge) === '[{"typ":"sim_befehl"}]' && (JSON.stringify(FH).match(/sim_befehl/g) || []).length === 1, 'die echte Vorlage falscher_haendler hat genau eine Folge sim_befehl (Standard-Arten) im Ausgang gelungen der Enthüllung');
+  ok(Pruefer.pruefeVorlage(klon(FH_OHNE)).ok, 'dieselbe Vorlage ohne die Folge bleibt gültig (Gegenprobe)');
 });
 
 section('Prüfer: Regel (a) nur in aus.gelungen.folge', () => {
@@ -183,8 +186,8 @@ section('faden_weiter mit art: gültig, ungültig, ohne Folge', () => {
   const pe = (art) => Faden.befehlPruefen(e.g, { typ: 'faden_weiter', faden: e.f.id, beat: 'b_enthuell', art });
   ok(pe('invasion') === null && pe('beides') === null && /^ART_NICHT_ERLAUBT/.test(pe('sprengung') || ''), 'arten invasion|beides: sprengung wird abgelehnt (ART_NICHT_ERLAUBT)');
   // ein Beat ohne die Folge (die echte Vorlage): art gibt es dort nicht
-  const h = bereit({ vorlage: klon(FH), vorlageId: 'falscher_haendler' });
-  ok(/^ART_OHNE_FOLGE/.test(Faden.befehlPruefen(h.g, { typ: 'faden_weiter', faden: h.f.id, beat: 'b_enthuell', art: 'invasion' }) || ''), 'Beat ohne sim_befehl (falscher_haendler heute): art abgelehnt (ART_OHNE_FOLGE)');
+  const h = bereit({ vorlage: klon(FH_OHNE), vorlageId: 'sim_test_ohne' });
+  ok(/^ART_OHNE_FOLGE/.test(Faden.befehlPruefen(h.g, { typ: 'faden_weiter', faden: h.f.id, beat: 'b_enthuell', art: 'invasion' }) || ''), 'Beat ohne sim_befehl (die Vorlage ohne die Folge): art abgelehnt (ART_OHNE_FOLGE)');
   ok(Faden.befehlPruefen(h.g, { typ: 'faden_weiter', faden: h.f.id, beat: 'b_enthuell' }) === null, 'derselbe Beat ohne art: gültig');
   const r = Faden.befehlAnwenden(h.g, { typ: 'faden_weiter', faden: h.f.id, beat: 'b_enthuell', art: 'invasion' });
   ok(!r.ok && /ART_OHNE_FOLGE/.test(r.grund) && h.f.phase === 'wartet' && vorg(h.g).length === 0, 'abgelehnt: der Faden wartet weiter, nichts vorgemerkt');
@@ -368,7 +371,7 @@ section('Fallback bei Ablehnung: der Beat scheitert, Funk und Logbuch', () => {
 });
 
 section('Vorlagen ohne die Folge: das bisherige Verhalten', () => {
-  const { g, f, funk } = bereit({ vorlage: klon(FH), vorlageId: 'falscher_haendler' });
+  const { g, f, funk } = bereit({ vorlage: klon(FH_OHNE), vorlageId: 'sim_test_ohne' });
   const p = postenNah(g), z = P3.ziel(g, ORT);
   ok(weiter(g, f).ok, 'faden_weiter ohne art');
   ok(typen(g).join() === 'sabotage' && vorg(g)[0].b.ort === z, 'die feste Sprengung am nächsten Posten, keine Invasion');
@@ -376,7 +379,7 @@ section('Vorlagen ohne die Folge: das bisherige Verhalten', () => {
   const lb = logbuch(g).filter((x) => x.art === 'faden_baustein').pop();
   ok(lb && lb.ausgang === 'sabotage' && /^Sprengung bei /.test(lb.begruendung) && lb.plan.ziel === z && !('art' in lb.plan), 'Logbuch wie bisher (ausgang sabotage, plan mit ziel)');
   // eine Ausgangs-Folge der Katalog-Wirkungen bleibt unberührt
-  const v = D.vorlage('falscher_haendler');
+  const v = D.vorlage('sim_test_ohne');
   ok(Pruefer.simBefehlFolge(b(v, 'b_enthuell')) === null, 'die Vorlage hat keine sim_befehl-Folge');
   // nach einer Folge-Anwendung (beatAusgang) wird sim_befehl nie als Wirkung gebucht
   const e = bereit();

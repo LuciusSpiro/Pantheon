@@ -71,7 +71,7 @@ const MUTATIONEN = [
   // ---- F7: Ablehnen laedt keine Ware
   [PR, "ags.has('gelungen') && ags.has('gescheitert') && zielIndex(v, i, aus.gelungen, idx) === zielIndex(v, i, aus.gescheitert, idx)", "ags.has('gelungen') && ags.has('gescheitert') && zielIndex(v, i, aus.gelungen, idx) === -5", 'Pruefer: Annehmen und Ablehnen duerfen in denselben Beat fuehren'],
   [P3, "    const mitFracht = (nsc.gedaechtnis || []).some((g) => g.ereignis === 'fracht_gelungen' || g.ereignis === 'fracht_gescheitert');", '    const mitFracht = true;', 'Enthuellung: der Text spricht von Fracht, die es nie gab'],
-  [VF, '"gescheitert": { "status": "aktiv", "weiter": "b_enthuell" }\n      }\n    },\n    {\n      "id": "b_fracht"', '"gescheitert": { "status": "aktiv", "weiter": "b_fracht" }\n      }\n    },\n    {\n      "id": "b_fracht"', 'Daten: Ablehnen fuehrt wieder in die Fracht (Scheinwahl)'],
+  [VF, '"gescheitert": { "status": "aktiv", "weiter": "b_abschluss" }\n      }\n    },\n    {\n      "id": "b_fracht"', '"gescheitert": { "status": "aktiv", "weiter": "b_fracht" }\n      }\n    },\n    {\n      "id": "b_fracht"', 'Daten: Ablehnen fuehrt wieder in die Fracht (Scheinwahl)'],
   // ---- Client: Bittentext, Kopf, Frist, Plakette, Kappe
   [FW, "    if (von && t.toLowerCase().indexOf((von + ':').toLowerCase()) === 0) t = t.slice(von.length + 1).trim();", '', 'Client: „<von>: “ am Anfang des Bittentextes bleibt stehen'],
   [FW, "    return /\\{\\w*\\}/.test(t) ? '' : t;", '    return t;', 'Client: Text mit offenem Platzhalter wird gezeigt'],

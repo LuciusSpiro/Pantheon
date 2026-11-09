@@ -192,6 +192,8 @@
     "test:invasion-mutation": "node tools/mutation-invasion.js",
     "test:faden-sim-befehl": "node tools/test-faden-sim-befehl.js",
     "test:faden-sim-befehl-mutation": "node tools/mutation-sim-befehl.js",
+    "test:haendler-invasion": "node tools/test-faden-haendler-invasion.js",
+    "test:haendler-invasion-mutation": "node tools/mutation-haendler.js",
     "test:lage-ausschnitt": "node tools/test-lage-ausschnitt.js",
     "test:lage-spielleiter": "node tools/test-lage-spielleiter.js && node tools/test-llm-cli.js && node tools/test-weltstand-kompat.js && node tools/test-reise-verteilung.js && node tools/test-pult-hover.js && node tools/test-lage-texte.js",
     "test:weltstand-kompat": "node tools/test-weltstand-kompat.js",

@@ -49,7 +49,7 @@
     "enthuellung_sabotage": "Ich bin Germane, kein Händler. Die Ladung ist scharf. Warnt {ziel}!",
     "enthuellung_sabotage_ohne_fracht": "Ich bin Germane. Meine Ladung geht auch ohne euch hoch: {ziel}. Warnt es!",
     "enthuellung_ohne": "Ich bin Germane. Die Ladung zündet nicht: kein römischer Posten bei {ort}.",
-    "enthuellung_invasion": "Ich bin Germane, kein Händler. Meine Flotte greift {invasion} an. Warnt es!",
+    "enthuellung_invasion": "Ich bin Germane, kein Händler. Die Ladung war Waffe: Meine Flotte greift {invasion} an!",
     "enthuellung_invasion_ohne_fracht": "Ich bin Germane. Meine Flotte greift {invasion} an, auch ohne euch. Warnt es!",
     "enthuellung_invasion_ohne": "Ich bin Germane. Meine Flotte findet bei {ort} kein Ziel in Reichweite.",
     "enthuellung_beides": "Ich bin Germane. Die Ladung ist scharf, meine Flotte greift an: {ziel}, {invasion}!",

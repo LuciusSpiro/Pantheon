@@ -8,7 +8,8 @@
   "wahrheit": { "id": "ist_germane", "fraktion": "ger" },
   "hinweise": {
     "h_gerucht": { "kanal": "geruecht", "text": "Gerücht: Von {name} hat noch kein Kontor je eine Lieferung gesehen." },
-    "h_papiere": { "kanal": "papiere", "text": "Das Siegel auf den Papieren von {name} führt kein Kontor." }
+    "h_papiere": { "kanal": "papiere", "text": "Das Siegel auf den Papieren von {name} führt kein Kontor." },
+    "h_schmuggel": { "kanal": "geruecht", "text": "Gerücht: Piraten wollen bei {name} Schmuggelware an Bord gewittert haben." }
   },
   "beats": [
     {
@@ -22,22 +23,22 @@
       ],
       "aus": {
         "gelungen": { "status": "verbuendet", "weiter": "b_fracht" },
-        "gescheitert": { "status": "aktiv", "weiter": "b_enthuell" }
+        "gescheitert": { "status": "aktiv", "weiter": "b_abschluss" }
       }
     },
     {
       "id": "b_fracht", "typ": "fracht",
-      "hinweise": ["h_papiere"],
+      "hinweise": ["h_papiere", "h_schmuggel"],
       "parameter": { "nach": "$ort", "ware": "fracht_kiste" },
       "aus": {
         "gelungen": { "status": "verbuendet", "weiter": "b_enthuell" },
-        "gescheitert": { "status": "aktiv", "weiter": "b_enthuell" }
+        "gescheitert": { "status": "aktiv", "weiter": "b_abschluss" }
       }
     },
     {
       "id": "b_enthuell", "typ": "enthuellung",
       "aus": {
-        "gelungen": { "status": "feindlich", "weiter": "b_jagd" },
+        "gelungen": { "status": "feindlich", "weiter": "b_jagd", "folge": [{ "typ": "sim_befehl" }] },
         "gescheitert": { "status": "geflohen", "weiter": "b_jagd" }
       }
     },

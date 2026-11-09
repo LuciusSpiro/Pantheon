@@ -171,15 +171,12 @@ async function main() {
     ok(funk.some((x) => x && x.from), `${id}: die Funkzeilen liefen (${funk.length})`);
     ok(!funk.some((x) => x && /Fehler/.test(String(x.text))), `${id}: kein Fehlertext im Funk`);
     if (id === 'falscher_haendler') {
+      // FAD-01 C: die Enthuellung des falschen Haendlers wirkt ueber die Folge sim_befehl (Standardart invasion, ohne Angabe des Spielleiters), nicht mehr als feste Sprengung. Die Wirkung (Hochstufen, Angriff,
+      // Funk vor der Wirkung) prueft test-faden-haendler-invasion.js; hier zaehlt, dass die Enthuellung im Bot-Durchlauf lief, ohne Sprengung, und der Funk die Flotte nennt
       const lb = ((g.lageRegie && g.lageRegie.log && g.lageRegie.log.entries) || []).filter((e) => e.key === 'sabotage' || e.art === 'faden_baustein').map((e) => e.ausgang + ':' + (e.begruendung || '')).join(' | ');
-      // Ziel: der Posten, den die Enthuellung gewaehlt hat (Logbuch des Bausteins, plan.ziel). Die Sprengung wirkt erst nach dem Vorlauf: die Welt laeuft weiter, bis sie greift (hoechstens 40 Ticks)
       const bs = ((g.lageRegie && g.lageRegie.log && g.lageRegie.log.entries) || []).find((e) => e.art === 'faden_baustein' && e.plan && e.plan.beat === 'b_enthuell');
-      const ziel = bs && bs.plan.ziel;
-      // Der Bot spielt jetzt alle Beats (Nacharbeit Welle 2), die Welt laeuft danach weiter und Rom kann den Posten zurueckholen: gezaehlt wird die Meldung der Sprengung (Posten verloren) und das Logbuch
-      const meldung = 'Posten ' + Sektoren.hexName(ziel) + ' verloren.';
-      const vorwarnung = funk.findIndex((x) => /Sprengladung bei /.test(String(x.text))), wirkung = funk.findIndex((x) => x.text === meldung);
-      const gespieltLb = ((g.lageRegie && g.lageRegie.log && g.lageRegie.log.entries) || []).some((e) => e.key === 'sabotage' && e.ausgang === 'gespielt');
-      ok(!!ziel && vorwarnung >= 0 && wirkung > vorwarnung && gespieltLb && !!stand[meldung] && stand[meldung][ziel].besitzer !== 'rom', `falscher Haendler: die Sprengung hat den roemischen Posten ${ziel} vernichtet (Sim-Befehl sabotage: erst die Vorwarnung, dann die Meldung „${meldung}“, Logbuch gespielt) [Logbuch: ${lb}]`);
+      const funkInv = funk.find((x) => /^Ich bin Germane/.test(String(x.text)));
+      ok(!!bs && !!funkInv && /Flotte/.test(funkInv.text) && !funk.some((x) => /Sprengladung bei /.test(String(x.text))), `falscher Haendler: die Enthuellung kuendigt die Invasion an (Standardart), keine Sprengung (${funkInv && funkInv.text}) [Logbuch: ${lb}]`);
       ok(f.nsc.wahrheit && f.nsc.wahrheit.offenbart === true, 'falscher Haendler: die Wahrheit ist enthuellt');
     }
   }
@@ -254,7 +251,7 @@ async function main() {
     const f = liste(g).find((x) => x.vorlage === 'falscher_haendler');
     f.hinweise = ['h_gerucht', 'h_papiere'];   // Testwelt: die Hinweise sind schon gestreut (ihr Weg ist eigens geprueft)
     f.beat = 2; f.phase = 'wartet'; f.zaehler = f.abstand;   // b_enthuell
-    const e = Faden.befehlAnwenden(g, { typ: 'faden_weiter', faden: f.id, beat: 'b_enthuell' });
+    const e = Faden.befehlAnwenden(g, { typ: 'faden_weiter', faden: f.id, beat: 'b_enthuell', art: 'sprengung' });   // FAD-01 C: die Sprengung waehlt der Spielleiter mit art
     ok(e.ok === true, 'die Enthuellung startet (faden_weiter angenommen)');
     ok(f.nsc.status === 'geflohen' && f.beat === 3, `ohne roemischen Posten in Reichweite: gescheitert, der NSC ist geflohen, der Faden geht den anderen Weg (${f.nsc.status}, Beat ${f.beat})`);
     ok(require('../server/sim/regie-befehle.js').fadenSabotage(g, '0305').ok === false, 'die Sprengung wird ohne gueltiges Ziel abgelehnt');
@@ -425,7 +422,7 @@ async function main() {
       Faden.befehlAnwenden(g, { typ: 'faden_oeffnen', vorlage: 'falscher_haendler', parameter: { angebot: a.nr } });
       const f = liste(g).find((x) => x.vorlage === 'falscher_haendler');
       f.hinweise = ['h_gerucht', 'h_papiere']; f.beat = 2; f.phase = 'wartet'; f.zaehler = f.abstand;
-      ok(Faden.befehlAnwenden(g, { typ: 'faden_weiter', faden: f.id, beat: 'b_enthuell' }).ok && f.nsc.status === 'geflohen' && f.beat === 3, 'nur Posten der Crew: die Enthuellung scheitert (der NSC flieht, der Faden geht den anderen Weg)');
+      ok(Faden.befehlAnwenden(g, { typ: 'faden_weiter', faden: f.id, beat: 'b_enthuell', art: 'sprengung' }).ok && f.nsc.status === 'geflohen' && f.beat === 3, 'nur Posten der Crew: die Enthuellung scheitert (der NSC flieht, der Faden geht den anderen Weg)');
       ok(funk.some((x) => /zündet nicht/.test(String(x.text))) && g.weltsim.regie.vorgemerkt.length === 0, 'Funk: die Sprengladung zuendet nicht; nichts vorgemerkt');
     }
     // Entwarnung: die angekuendigte Sprengung kommt nicht
@@ -578,9 +575,9 @@ async function main() {
     const hinweisText = (id, name) => v.hinweise[id].text.split('{name}').join(name);
     const wege = [
       ['Annehmen, Fracht, Enthuellung', ['gelungen', 'gelungen', 'gelungen', 'gelungen', 'gelungen'], true],
-      ['Ablehnen', ['gescheitert', 'gelungen', 'gelungen', 'gelungen', 'gelungen'], false],
+      ['Ablehnen', ['gescheitert', 'gelungen', 'gelungen', 'gelungen', 'gelungen'], false],   // FAD-01 C: ohne Ablieferung keine Enthuellung (der Faden endet im Abschluss gescheitert)
     ];
-    ok(v.hinweise.h_gerucht.text && v.hinweise.h_papiere.text && v.hinweise.h_gerucht.text !== v.hinweise.h_papiere.text, 'beide Hinweise der Vorlage tragen einen eigenen Text (Daten)');
+    ok(v.hinweise.h_gerucht.text && v.hinweise.h_papiere.text && v.hinweise.h_schmuggel.text && new Set(Object.values(v.hinweise).map((h) => h.text)).size === 3, 'alle drei Hinweise der Vorlage tragen einen eigenen Text (Daten)');
     for (const [titel, pfad, mitWare] of wege) {
       const g = neu(21);
       const funk = funkMit(g);
@@ -588,8 +585,8 @@ async function main() {
       const r = await lauf(g, 'falscher_haendler', pfad, { hex: '0203' });
       const f = r.faeden[0];
       const iEnth = funk.findIndex((x) => /^Ich bin Germane/.test(String(x.text)));
-      ok(!!f && iEnth > 0, `${titel}: die Enthuellung kam per Funk (${iEnth})`);
-      const vor = funk.slice(0, iEnth);
+      ok(!!f && (mitWare ? iEnth > 0 : iEnth === -1), `${titel}: die Enthuellung ${mitWare ? 'kam per Funk' : 'kam nicht (keine Ablieferung)'} (${iEnth})`);
+      const vor = mitWare ? funk.slice(0, iEnth) : funk;
       const gerucht = vor.find((x) => x.text === hinweisText('h_gerucht', f.nsc.name));
       ok(!!gerucht && gerucht.from === 'Hafenfunk' && gerucht.lage === 1 && gerucht.fd === 1, `${titel}: VOR der Enthuellung ging der Gerüchte-Hinweis als Funkzeile an alle (from ${gerucht && gerucht.from})`);
       const papiere = vor.find((x) => x.text === hinweisText('h_papiere', f.nsc.name));
@@ -603,9 +600,13 @@ async function main() {
       ok(mitWare ? ware.length === 1 && /Versiegelte Frachtkiste für Campania/.test(ware[0].text) && abl.length === 1 && /Campania/.test(abl[0].text) : ware.length === 0 && abl.length === 0, `${titel}: ${mitWare ? 'die Crew hoert „Ware an Bord“ mit Hafenname und „abgeliefert“' : 'keine Ware an Bord, nichts abgeliefert'} (${ware.map((x) => x.text).join(' | ')})`);
       ok(mitWare ? f.nsc.gedaechtnis.some((x) => x.ereignis === 'fracht_gelungen') : !f.nsc.gedaechtnis.some((x) => /^fracht_/.test(x.ereignis)), `${titel}: Gedaechtnis des NSC ${mitWare ? 'kennt die Fracht' : 'kennt keine Fracht'}`);
       const seq = (r.seqs.get(f.id) || []).join(' > ');
-      ok(mitWare ? seq.startsWith('b_bitte > b_fracht > b_enthuell') : seq.startsWith('b_bitte > b_enthuell') && !seq.includes('b_fracht'), `${titel}: Beat-Pfad ${seq}`);
-      const sab = funk[iEnth];
-      ok(mitWare ? /Die Ladung ist scharf/.test(sab.text) : /Meine Ladung geht auch ohne euch hoch/.test(sab.text), `${titel}: der Enthuellungstext passt zum Weg (${sab.text})`);
+      ok(mitWare ? seq.startsWith('b_bitte > b_fracht > b_enthuell') : seq === 'b_bitte > b_abschluss', `${titel}: Beat-Pfad ${seq}`);
+      if (mitWare) {
+        const sab = funk[iEnth];
+        ok(/Flotte/.test(sab.text) && !/Ladung ist scharf/.test(sab.text), `${titel}: der Enthuellungstext nennt die Flotte, nicht die Sprengung (${sab.text})`);
+        const schmuggel = vor.find((x) => x.text === hinweisText('h_schmuggel', f.nsc.name));
+        ok(!!schmuggel && schmuggel.from === 'Hafenfunk' && f.hinweise.includes('h_schmuggel'), `${titel}: VOR der Enthuellung ging der Schmuggel-Hinweis raus`);
+      } else ok(!funk.some((x) => /^Ich bin Germane/.test(String(x.text))) && f.ausgang && f.ausgang.art === 'gescheitert', `${titel}: der Faden endet gescheitert, ohne Enthuellungstext`);
     }
     // Ablehnen direkt: keine Ware, Haltung sinkt, der Faden steht vor der Enthuellung
     {
@@ -617,7 +618,7 @@ async function main() {
       ok(!!off && off.optionen.some((o) => o.id === 'ablehnen'), 'die Bitte ist offen');
       const h0 = f.nsc.haltung;
       Bitte.beantworten(g, 'ablehnen', off.nr);
-      ok(!f.fracht && f.beat === 2 && f.nsc.haltung < h0, `Ablehnen: der Faden steht vor der Enthuellung (Beat ${f.beat}), keine Ware (${!!f.fracht}), Haltung ${h0} -> ${f.nsc.haltung}`);
+      ok(!f.fracht && f.beat === 5 && f.nsc.haltung < h0, `Ablehnen: der Faden steht vor dem Abschluss, nie vor der Enthuellung (Beat ${f.beat}), keine Ware (${!!f.fracht}), Haltung ${h0} -> ${f.nsc.haltung}`);
     }
     // unbeantwortet verfaellt die Bitte: gleiche Folge wie Ablehnen (kein Laden), der Hinweis ging vorher raus
     {
@@ -628,7 +629,7 @@ async function main() {
       for (let i = 0; i < 8 && !Bitte.offen(g); i++) await runde(g);
       const f = liste(g).find((x) => x.vorlage === 'falscher_haendler');
       for (let i = 0; i < 12 && f.beat === 0; i++) await runde(g);
-      ok(f.beat === 2 && !f.fracht, `unbeantwortet verfaellt die Bitte: der Faden steht vor der Enthuellung (Beat ${f.beat}), keine Ware`);
+      ok(f.beat === 5 && !f.fracht, `unbeantwortet verfaellt die Bitte: der Faden steht vor dem Abschluss (Beat ${f.beat}), keine Ware`);
       ok(f.hinweise.includes('h_gerucht') && funk.some((x) => x.from === 'Hafenfunk'), 'der Hinweis wurde vorher gesendet');
     }
   }
