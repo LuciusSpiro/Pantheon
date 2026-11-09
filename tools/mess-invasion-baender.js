@@ -1,5 +1,5 @@
 'use strict';
-// FAD-01 D: Messung der Sim-Baender mit der Invasion des Falschen-Haendler-Fadens (Regie().fadenInvasion: Vorlauf-Funk, Hochstufen +30 %, Angriff auf das naechste roemische Ziel).
+// FAD-01 D: Messung der Sim-Baender mit der Invasion des Falschen-Haendler-Fadens (Regie().fadenInvasion: Vorlauf-Funk, ein atomarer Befehl invasion = Hochstufen +30 % und Angriff auf das naechste roemische Ziel, mit Abkuehlzeit je Fraktion).
 // Treiber wie tools/sim-regie.js (Kz.lauf mit befehle/nach, Regie.vorTick/nachTick), aber ohne Spielleiter-Plaene: nur die Invasion, zu Ticks aus content/welt/invasion-messplan.json.
 // Kennzahlen je Seed-Satz wie SUND-04b (Eroberungen · Angriffe/100 Ticks · Stillstand), dazu Kollaps und Hauptwelt verloren (Anzahl Laeufe) und je Invasion: Annahme durch den Kern,
 // Eroberung des Ziels, mittlere Staerke vor/nach dem Hochstufen. Grundlast aller Szenarien ausser kern: Sabotage-Strategie der Crew wie tools/sim-crew-sprengen.js (Quelle der Bericht-Werte 1,65 · 1,88 · 4 %). Szenarien: kern (nackte Sim, nichts), basis (Sabotage, keine Invasion; der Treiber ruft nur invasionsZiel lesend auf, fuer den Vergleich "Ziel faellt ohnehin"),
@@ -7,8 +7,8 @@
 //   node tools/mess-invasion-baender.js --selbsttest                    schneller Selbsttest (wenige Seeds) plus Gueltigkeit der Messdatei
 //   node tools/mess-invasion-baender.js --satz <seed0> --szenario <kern|basis|realistisch|drei|worst> [--laeufe N] [--set pfad=wert]   ein Seed-Satz, JSON auf stdout
 //   node tools/mess-invasion-baender.js --messen [--prozesse N] [--out tools/fixtures/mess/fad01-baender.json] [--einstellung "text"]   alle Saetze x Szenarien parallel, schreibt die Messdatei
-//   node tools/mess-invasion-baender.js --tabelle [datei]                Messdatei als Tabelle
-//   --set regie:vorwarnung.vorlauf.invasion=5 | befehle:flotte_hochstufen.wert.staerke_zuwachs=0.2   ueberschreibt einen Datenwert nur fuer diesen Lauf (zum Abstimmen vor dem Eintragen)
+//   node tools/mess-invasion-baender.js --tabelle [datei]                Messdatei als Tabelle (ohne Pfad: tools/fixtures/mess/fad01-baender.json)
+//   --set regie:vorwarnung.vorlauf.invasion=5 | regie:abkuehlung.wert.invasion=60 | befehle:ruhe.wert.invasion=60 | befehle:invasion.wert.staerke_zuwachs=0.2   ueberschreibt einen Datenwert nur fuer diesen Lauf (zum Abstimmen vor dem Eintragen)
 //   Echte Laeufe: npm run mess:invasion-baender -- --messen
 const path = require('path');
 const fs = require('fs');
@@ -23,9 +23,14 @@ const BAENDER = require('../content/welt/absichten.json').werte.baender.wert;
 const PW = require('../content/welt/posten-werte.json').werte;
 const SAB = require('../content/faeden/b2-texte.json').werte.sabotage.wert;
 const MESSDATEI = path.join(__dirname, 'fixtures', 'mess', 'fad01-baender.json');
+// Die Datenwerte, von denen die Messung abhaengt: die Messdatei traegt sie, der Selbsttest erkennt eine veraltete Messung (Daten geaendert, nicht neu gemessen)
+const werteStand = () => {
+  const BV = Kern.BEFEHLE.WERTE;
+  return { vorlauf_invasion: Regie.R.vorwarnung.wert.vorlauf.invasion, abkuehlung_invasion: Regie.R.abkuehlung.wert.invasion, ruhe_invasion: BV.ruhe.wert.invasion, invasion: JSON.parse(JSON.stringify(BV.invasion.wert)), angreifen_min_treibstoff: BV.angreifen.wert.min_treibstoff, angreifen_min_munition: BV.angreifen.wert.min_munition };
+};
 
 const args = process.argv.slice(2);
-const argVal = (k, d) => (args.indexOf(k) >= 0 ? args[args.indexOf(k) + 1] : d);
+const argVal = (k, d) => { const i = args.indexOf(k), v = i >= 0 ? args[i + 1] : undefined; return v !== undefined && !String(v).startsWith('--') ? v : d; };   // ohne Wert (oder vor dem naechsten Schalter): der Standard
 args.forEach((a, i) => {   // --set regie:pfad=wert | befehle:pfad=wert (nur dieser Prozess)
   if (a !== '--set') return;
   const m = /^(regie|befehle):([\w.]+)=(.+)$/.exec(args[i + 1] || '');
@@ -181,7 +186,7 @@ if (args.includes('--satz')) {
     out.sort((x, y) => SZENARIEN.indexOf(x.szenario) - SZENARIEN.indexOf(y.szenario) || x.seed0 - y.seed0);
     const datei = argVal('--out', MESSDATEI);
     const doc = { format: 'fad01-baender/1', datum: new Date().toISOString().slice(0, 10), ticks: PLAN.ticks.wert, laeufe: PLAN.laeufe.wert, seeds: PLAN.seed_saetze.wert, invasion_ticks: PLAN.szenarien.wert, einstellung: argVal('--einstellung', 'Daten unveraendert'),
-      baender: BAENDER, werte_stand: { vorlauf_invasion: Regie.R.vorwarnung.wert.vorlauf.invasion, staerke_zuwachs: Kern.BEFEHLE.WERTE.flotte_hochstufen.wert.staerke_zuwachs }, zeilen: out };
+      baender: BAENDER, werte_stand: werteStand(), zeilen: out };
     fs.writeFileSync(datei, JSON.stringify(doc, null, 1) + '\n');
     tabelle(out);
     console.log(`geschrieben: ${datei} (${((Date.now() - t0) / 1000).toFixed(0)} s, ${maxP} Prozesse)`);
@@ -225,8 +230,11 @@ if (args.includes('--satz')) {
     ok(m.format === 'fad01-baender/1' && m.zeilen.length === SZENARIEN.length * PLAN.seed_saetze.wert.length, 'Messdatei hat alle Szenarien x Seed-Saetze');
     const real = m.zeilen.filter((z) => z.szenario === 'realistisch');
     ok(real.length === PLAN.seed_saetze.wert.length && real.every((z) => baendeFehler(z).length === 0), 'Messdatei: realistischer Fall haelt in allen Saetzen die Baender');
+    const wor = m.zeilen.filter((z) => z.szenario === 'worst'), dr = m.zeilen.filter((z) => z.szenario === 'drei');
+    ok(wor.length === PLAN.seed_saetze.wert.length && wor.every((z) => baendeFehler(z).length === 0), 'Messdatei: auch der Worst Case haelt mit der Abkuehlzeit der Invasion in allen Saetzen die Baender (Angriffe/100 hoechstens ' + Math.max(...wor.map((z) => z.angriffe_je100)).toFixed(2) + ')');
+    ok(dr.length === PLAN.seed_saetze.wert.length && dr.every((z) => baendeFehler(z).length === 0), 'Messdatei: drei Invasionen je Lauf halten die Baender');
     ok(m.zeilen.every((z) => z.kollaps === 0 && z.hauptwelt_verloren === 0), 'Messdatei: Kollaps 0 und Hauptwelt nie verloren (alle Szenarien)');
-    ok(m.werte_stand.vorlauf_invasion === Regie.R.vorwarnung.wert.vorlauf.invasion && m.werte_stand.staerke_zuwachs === Kern.BEFEHLE.WERTE.flotte_hochstufen.wert.staerke_zuwachs, 'Messdatei gehoert zu den aktuellen Datenwerten (sonst neu messen)');
+    ok(JSON.stringify(m.werte_stand) === JSON.stringify(werteStand()), 'Messdatei gehoert zu den aktuellen Datenwerten (Vorlauf, Abkuehlzeit, Ruhe, Block invasion, angreifen.min_*; sonst neu messen): ' + JSON.stringify(m.werte_stand));
   } else ok(false, 'Messdatei tools/fixtures/mess/fad01-baender.json fehlt');
   console.log(fails ? `\n${fails} von ${n} FEHLER` : `\nMESS-INVASION-BAENDER OK (${n} Pruefungen)`);
   process.exit(fails ? 1 : 0);

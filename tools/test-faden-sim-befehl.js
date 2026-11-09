@@ -200,7 +200,7 @@ section('Standardart ohne Angabe: invasion', () => {
   const { g, f, funk } = bereit();
   const r = weiter(g, f);
   ok(r.ok, 'faden_weiter ohne art angewandt');
-  ok(typen(g).join() === 'flotte_hochstufen,angreifen', 'vorgemerkt: Hochstufen und Angriff (die Invasion), keine Sprengung (' + typen(g).join() + ')');
+  ok(typen(g).join() === 'invasion', 'vorgemerkt: EIN Befehl invasion (Hochstufen und Angriff in einem), keine Sprengung (' + typen(g).join() + ')');
   ok(f.nsc.status === 'feindlich' && f.beat === 3, 'Ausgang gelungen: der NSC ist feindlich, der Faden geht weiter (b_jagd)');
   const t = nscTexte(funk, f);
   ok(t.length === 1 && t[0] === txt('enthuellung_invasion', { invasion: nameVon(ORT) }), 'Funk des NSC: Text enthuellung_invasion mit Ziel ' + nameVon(ORT) + ' (' + t[0] + ')');
@@ -228,8 +228,8 @@ section('Art invasion: Invasion mit Funk-Reihenfolge Ankündigung vor Wirkung', 
   ok(weiter(g, f, 'invasion').ok, 'angewandt');
   const z = P3.invasionsZiel(g, ORT);
   ok(z === ORT, 'Ziel der Invasion: ' + z);
-  const hoch = vorg(g).find((e) => e.b.typ === 'flotte_hochstufen'), ang = vorg(g).find((e) => e.b.typ === 'angreifen');
-  ok(!!hoch && !!ang && ang.b.ziel === z && hoch.ab === ang.ab && ang.w === 2, 'vorgemerkt: Hochstufen und Angriff auf ' + z + ', gleiches ab, Angriff mit Ankündigungsmarke');
+  const inv = vorg(g).find((e) => e.b.typ === 'invasion');
+  ok(vorg(g).length === 1 && !!inv && inv.b.ziel === z && inv.b.fraktion === 'ger' && inv.w === 1, 'vorgemerkt: genau ein Eintrag invasion auf ' + z + ', mit Ankündigungsmarke');
   ok(g.weltsim.zustand.angriffe.length === 0, 'noch keine Wirkung auf die Sim (kein Feldzug)');
   const iVor = funk.findIndex((x) => x.from === LB.vorwarnung.invasion.sprecher && x.text.startsWith(LB.vorwarnung.invasion.text.split('{')[0]));
   const iNsc = funk.findIndex((x) => x.from === f.nsc.name);
@@ -241,28 +241,17 @@ section('Art invasion: Invasion mit Funk-Reihenfolge Ankündigung vor Wirkung', 
   ok(iVor < nFunk, 'die Ankündigung kam vor der Wirkung');
 });
 
-section('Art invasion: das Ziel der Lieferung, falls noch bekannt', () => {
-  const g0 = bereit().g, d0 = Dat.datenVon(g0.weltsim.zustand), haupt = Object.values(d0.hauptwelten);
-  const standard = P3.invasionsZiel(g0, ORT);
-  const kand = Object.keys(hexe(g0)).sort().filter((c) => c !== standard && hexe(g0)[c].besitzer === 'rom' && !haupt.includes(c) && (hexe(g0)[c].posten || d0.hex[c].hafen) && P3.invasionsZiel(g0, c) === c);
-  let gefunden = null;
-  for (const c of kand) {
-    const { g, f } = bereit();
-    f.fracht = { ware: 'fracht_kiste', nach: c, tick: 0 };
-    weiter(g, f, 'invasion');
-    const ang = vorg(g).find((e) => e.b.typ === 'angreifen');
-    if (ang && ang.b.ziel === c) { gefunden = c; break; }
-  }
-  ok(!!gefunden && gefunden !== standard, 'mit bekanntem Ziel der Lieferung (faden.fracht.nach) trifft die Invasion dieses Ziel (' + gefunden + ') statt des Orts (' + standard + ')');
+section('Art invasion: das Ziel ist das römische Ziel nahe dem Ort des Fadens', () => {
   const { g, f } = bereit(); weiter(g, f, 'invasion');
-  ok(vorg(g).find((e) => e.b.typ === 'angreifen').b.ziel === standard, 'ohne fracht: der Ort des Fadens (' + standard + ')');
+  const standard = P3.invasionsZiel(g, ORT);
+  ok(vorg(g).find((e) => e.b.typ === 'invasion').b.ziel === standard, 'der Ort des Fadens bestimmt das Ziel (' + standard + '); das Lieferziel wird nicht aufbewahrt (faden.fracht wird am Ende jedes Beats gelöscht)');
 });
 
 section('Art beides: beide, Ankündigungen vor dem NSC', () => {
   const { g, f, funk } = bereit();
   const p = postenNah(g), z = P3.ziel(g, ORT), zi = P3.invasionsZiel(g, ORT);
   ok(weiter(g, f, 'beides').ok, 'angewandt');
-  ok(typen(g).join() === 'sabotage,flotte_hochstufen,angreifen', 'vorgemerkt: Sprengung, dann Hochstufen und Angriff (' + typen(g).join() + ')');
+  ok(typen(g).join() === 'sabotage,invasion', 'vorgemerkt: Sprengung, dann Invasion (' + typen(g).join() + ')');
   const iS = funk.findIndex((x) => x.from === LB.vorwarnung.sabotage.sprecher && /Sprengladung/.test(x.text));
   const iI = funk.findIndex((x) => x.from === LB.vorwarnung.invasion.sprecher && /rückt gegen/.test(x.text));
   const iN = funk.findIndex((x) => x.from === f.nsc.name);

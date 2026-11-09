@@ -40,7 +40,7 @@ const klon = (x) => JSON.parse(JSON.stringify(x));
 const beat = (v, id) => v.beats.find((x) => x.id === id);
 const ORT = '0203';   // Ort des Notrufs, wie test-faden-nach3.js (Zielhafen Campania)
 const ZIEL_BEAT = 5;  // Index von b_abschluss
-const FEIND = ['sabotage', 'flotte_hochstufen', 'angreifen'];   // die Sim-Befehle, die aus einer Enthüllung entstehen
+const FEIND = ['sabotage', 'invasion'];   // die Sim-Befehle, die aus einer Enthüllung entstehen
 
 const ab = (g) => { const s = g.ship; s.docked = false; s.dockedAt = null; s.helm.stage = 1; s.vx = 0; s.vy = 0; s.speed = 0; s.helm.thrust = 0; s.helm.turn = 0; };
 const ankunft = (g, hex) => { Space.enterScene(g, Sektoren.ortVonHex(hex), {}); ab(g); };
@@ -120,7 +120,7 @@ async function keineWirkung(p, f, titel) {
   const sprueche = p.funk().filter((x) => /^Ich bin Germane/.test(String(x.text)));
   ok(f.phase === 'abgeschlossen' && f.ausgang && f.ausgang.art === 'gescheitert', `${titel}: der Faden endet im Abschluss gescheitert (${f.phase}, ${f.ausgang && f.ausgang.art})`);
   ok(sprueche.length === 0 && !p.funk().some((x) => x.from === f.nsc.name && /Flotte|Ladung ist scharf/.test(String(x.text))), `${titel}: keine Enthüllung per Funk`);
-  ok(feindBefehle(g).length === 0 && hochgestuft(g).length === 0 && !befohleneAngriffe(g).length, `${titel}: 0 vorgemerkte Sim-Befehle (sabotage, flotte_hochstufen, angreifen), keine Hochstufung, kein befohlener Feldzug (vorgemerkt: ${vorg(g).map((e) => e.b.typ).join(',') || '-'}; hochgestuft ${hochgestuft(g).length}; Angriffe ${JSON.stringify(g.weltsim.zustand.angriffe.map((a) => a.fraktion + '>' + a.ziel))})`);
+  ok(feindBefehle(g).length === 0 && hochgestuft(g).length === 0 && !befohleneAngriffe(g).length, `${titel}: 0 vorgemerkte Sim-Befehle (sabotage, invasion), keine Hochstufung, kein befohlener Feldzug (vorgemerkt: ${vorg(g).map((e) => e.b.typ).join(',') || '-'}; hochgestuft ${hochgestuft(g).length}; Angriffe ${JSON.stringify(g.weltsim.zustand.angriffe.map((a) => a.fraktion + '>' + a.ziel))})`);
   ok(!logbuch(g).some((e) => e.art === 'faden_baustein' && e.key === 'enthuellung') && !p.funk().some((x) => /Sprengladung bei |rückt gegen/.test(String(x.text))), `${titel}: kein Enthüllungs-Eintrag im Logbuch, keine Ankündigung des Oberkommandos`);
   ok(p.funk().some((x) => x.from === f.nsc.name && x.text === String(TX.texte.abschluss_gescheitert).replace('{name}', f.nsc.name)) || p.funk().some((x) => x.text === String(TX.texte.abschluss_gescheitert).replace('{name}', f.nsc.name)), `${titel}: der Abschlusstext abschluss_gescheitert wird gesprochen`);
   ok(f.nsc.status === 'aktiv', `${titel}: der NSC bleibt aktiv, nicht feindlich (${f.nsc.status})`);
@@ -159,9 +159,9 @@ async function keineWirkung(p, f, titel) {
     const stark0 = germ(g).map((fl) => ({ id: fl.id, s: fl.staerke, kap: fl.kap }));
     const r = weiter(g, f);   // ohne art: Standardart invasion
     ok(r.ok, 'faden_weiter enthuellung ohne Art angenommen');
-    ok(feindBefehle(g).map((e) => e.b.typ).join() === 'flotte_hochstufen,angreifen', 'vorgemerkt: Hochstufen und Angriff (Invasion, keine Sprengung): ' + feindBefehle(g).map((e) => e.b.typ).join());
-    const ang = feindBefehle(g).find((e) => e.b.typ === 'angreifen');
-    ok(ang && ang.b.ziel === ziel, 'der Angriff gilt dem Ziel ' + ziel);
+    ok(feindBefehle(g).map((e) => e.b.typ).join() === 'invasion' && vorg(g).length === 1, 'vorgemerkt: EIN Befehl invasion (Hochstufen und Angriff in einem, keine Sprengung): ' + feindBefehle(g).map((e) => e.b.typ).join());
+    const ang = feindBefehle(g).find((e) => e.b.typ === 'invasion');
+    ok(ang && ang.b.ziel === ziel && ang.w === 1, 'die Invasion gilt dem Ziel ' + ziel + ', angekündigt');
     const iVor = p.ereig.findIndex((e) => e.k === 'radio' && e.x.from === LB.vorwarnung.invasion.sprecher && String(e.x.text).startsWith(LB.vorwarnung.invasion.text.split('{')[0]));
     const iNsc = p.ereig.findIndex((e) => e.k === 'radio' && e.x.from === f.nsc.name && /^Ich bin Germane/.test(String(e.x.text)));
     ok(iVor >= 0 && iNsc > iVor, `Funk: erst die Ankündigung des Oberkommandos (${iVor}), dann der Enthüllungstext des NSC (${iNsc})`);
@@ -199,7 +199,7 @@ async function keineWirkung(p, f, titel) {
       const { p, g, f } = await vorEnthuellung(503);
       const post = postenNah(g), z = P3.ziel(g, ORT), zi = P3.invasionsZiel(g, ORT);
       ok(weiter(g, f, 'beides').ok, 'faden_weiter art beides angenommen');
-      ok(feindBefehle(g).map((e) => e.b.typ).join() === 'sabotage,flotte_hochstufen,angreifen', 'vorgemerkt: Sprengung, Hochstufen, Angriff (' + feindBefehle(g).map((e) => e.b.typ).join() + ')');
+      ok(feindBefehle(g).map((e) => e.b.typ).join() === 'sabotage,invasion', 'vorgemerkt: Sprengung, Invasion (' + feindBefehle(g).map((e) => e.b.typ).join() + ')');
       const iS = p.ereig.findIndex((e) => e.k === 'radio' && /Sprengladung/.test(String(e.x.text))), iI = p.ereig.findIndex((e) => e.k === 'radio' && /rückt gegen/.test(String(e.x.text)));
       const iN = p.ereig.findIndex((e) => e.k === 'radio' && e.x.from === f.nsc.name && /^Ich bin Germane/.test(String(e.x.text)));
       ok(iS >= 0 && iI > iS && iN > iI && !p.ereig.slice(0, iN).some((e) => e.k === 'tick' && e.hoch.length), `Funk-Reihenfolge Sprengung (${iS}), Invasion (${iI}), NSC (${iN}), alles vor der Wirkung`);
@@ -280,46 +280,51 @@ async function keineWirkung(p, f, titel) {
   });
 
   // ---------------------------------------------------------------------------------------------------------------------------------
-  await section('(5) Zweiter Händlerfaden: dieselbe Flotte wird nicht ein zweites Mal hochgestuft', async () => {
+  await section('(5) Weitere Händlerfäden: Abkühlzeit der Invasion, dann eine andere Flotte, nie dieselbe zweimal', async () => {
+    const abk = lies('content/welt/regie-werte.json').werte.abkuehlung.wert.invasion;
     const e1 = await vorEnthuellung(541);
     const { p, g, f } = e1;
     ok(weiter(g, f).ok, 'erste Invasion angekündigt');
     for (let i = 0; i < 8 && !hochgestuft(g).length; i++) p.tick();
     const erste = hochgestuft(g).map((fl) => fl.id);
     ok(erste.length === 1, 'erste Flotte hochgestuft (' + erste.join() + ')');
-    // der erste Faden läuft zu Ende, ein zweiter Händler öffnet sich in derselben Welt
-    for (let i = 0; i < 4; i++) { f.phase = 'abgeschlossen'; }
-    f.ausgang = { art: 'gescheitert', status: f.nsc.status, tick: g.weltsim.tickZahl };
-    const f2 = Faden.befehlAnwenden(g, { typ: 'faden_oeffnen', vorlage: 'falscher_haendler', parameter: { angebot: notrufOhneOrt(g, 'notruf_havarie_konvoi', ORT, 'gelungen').nr } });
-    ok(f2.ok, 'zweiter Händlerfaden geöffnet' + (f2.ok ? '' : ' (' + f2.grund + ')'));
-    const h = f2.faden;
-    for (let i = 0; i < 8 && !Bitte.offen(g); i++) await runde(g);
-    await annehmenBisWare(p, h);
-    ok(!!h.fracht, 'zweiter Faden: Ware an Bord');
-    abliefern(p, h);
-    stille(g);
-    h.zaehler = h.abstand;
-    const vorher = hochgestuft(g).map((fl) => fl.id);
-    ok(vorher.join() === erste.join() && germ(g).length >= 2, 'die erste Flotte trägt das Feld hochgestuft weiter (' + vorher.join() + '), mehrere germanische Flotten da (' + germ(g).length + ')');
-    const stark = Object.fromEntries(germ(g).map((fl) => [fl.id, fl.staerke]));
-    const r = weiter(g, h);
-    ok(r.ok, 'faden_weiter angenommen');
-    const hoch2 = feindBefehle(g).find((e) => e.b.typ === 'flotte_hochstufen');
+    // Hilfe: der Vorgänger läuft zu Ende, ein weiterer Händler öffnet sich in derselben Welt und steht vor der Enthüllung
+    const naechster = async (vorgaenger) => {
+      vorgaenger.phase = 'abgeschlossen'; vorgaenger.ausgang = { art: 'gescheitert', status: vorgaenger.nsc.status, tick: g.weltsim.tickZahl };
+      const r = Faden.befehlAnwenden(g, { typ: 'faden_oeffnen', vorlage: 'falscher_haendler', parameter: { angebot: notrufOhneOrt(g, 'notruf_havarie_konvoi', ORT, 'gelungen').nr } });
+      if (!r.ok) throw new Error('weiterer Händlerfaden nicht geöffnet: ' + r.grund);
+      const h = r.faden;
+      for (let i = 0; i < 8 && !Bitte.offen(g); i++) await runde(g);
+      await annehmenBisWare(p, h);
+      if (!h.fracht) throw new Error('keine Ware an Bord');
+      abliefern(p, h);
+      stille(g);
+      h.zaehler = h.abstand;
+      return h;
+    };
+    // (a) zweiter Faden WÄHREND der Abkühlzeit: die Invasion wird abgelehnt (Grund Abkühlzeit), nichts vorgemerkt, der Faden scheitert sauber
+    const h = await naechster(f);
+    ok(feindBefehle(g).length === 0 && hochgestuft(g).map((fl) => fl.id).join() === erste.join() && germ(g).length >= 2, 'zweiter Faden: die erste Flotte trägt das Feld hochgestuft weiter (' + erste.join() + '), mehrere germanische Flotten da (' + germ(g).length + ')');
+    ok(weiter(g, h).ok, 'faden_weiter angenommen (der Beat scheitert, der Faden geht weiter)');
     const lb = logbuch(g).filter((e) => e.art === 'faden_baustein').pop();
-    if (hoch2) {
-      ok(!erste.includes(hoch2.b.flotte), 'die Invasion wechselt die Flotte: vorgemerkt wird ' + hoch2.b.flotte + ' (nicht ' + erste.join() + ')');
-      for (let i = 0; i < 8; i++) p.tick();
-      ok(hochgestuft(g).length === 2 && germ(g).filter((fl) => fl.hochgestuft).every((fl) => fl.staerke <= (stark[fl.id] || fl.kap) * 1.3 + 1e-6 || erste.includes(fl.id)), 'zwei verschiedene Flotten hochgestuft, jede höchstens einmal');
-    } else {
-      ok(feindBefehle(g).length === 0 && h.nsc.status === 'geflohen' && lb && lb.ausgang === 'sim_befehl_abgelehnt', 'keine weitere Flotte frei: die Invasion scheitert sauber (nichts vorgemerkt, NSC geflohen, Logbuch sim_befehl_abgelehnt: ' + (lb && lb.begruendung) + ')');
-      const t = nscFunk(p, h, /Ich bin Germane/).pop();
-      ok(!!t && t.text === String(TX.texte.enthuellung_invasion_ohne).replace('{ort}', nameVon(ORT)), 'Fallback-Text enthuellung_invasion_ohne wird gesprochen (' + (t && t.text) + ')');
-    }
+    ok(feindBefehle(g).length === 0 && h.nsc.status === 'geflohen' && lb && lb.ausgang === 'sim_befehl_abgelehnt' && /Abkühlzeit/.test(lb.begruendung), 'in der Abkühlzeit: nichts vorgemerkt, NSC geflohen, Logbuch sim_befehl_abgelehnt mit Grund Abkühlzeit (' + (lb && lb.begruendung) + ')');
+    const t2 = nscFunk(p, h, /Ich bin Germane/).pop();
+    ok(!!t2 && t2.text === String(TX.texte.enthuellung_invasion_ohne).replace('{ort}', nameVon(ORT)), 'Fallback-Text enthuellung_invasion_ohne wird gesprochen (' + (t2 && t2.text) + ')');
+    ok(!/Ziel/.test(t2.text), 'der Text behauptet keinen Grund (kein "Ziel"), er stimmt für die Abkühlzeit ebenso wie für alle anderen Ablehnungen');
+    // (b) dritter Faden NACH der Abkühlzeit (der Stand der letzten Annahme liegt abk Ticks zurück): angenommen, eine ANDERE Flotte
+    const h3 = await naechster(h);
+    g.weltsim.regie.letzte['invasion:ger'] = g.weltsim.tickZahl - abk;
+    const stark = Object.fromEntries(germ(g).map((fl) => [fl.id, fl.staerke]));
+    ok(weiter(g, h3).ok, 'dritter Faden: faden_weiter angenommen');
+    const inv = feindBefehle(g).find((e) => e.b.typ === 'invasion');
+    ok(!!inv && !erste.includes(inv.b.flotte), 'nach der Abkühlzeit: die Invasion wechselt die Flotte, vorgemerkt wird ' + (inv && inv.b.flotte) + ' (nicht ' + erste.join() + ')');
+    for (let i = 0; i < 8; i++) p.tick();
+    ok(hochgestuft(g).length === 2 && germ(g).filter((fl) => fl.hochgestuft).every((fl) => fl.staerke <= (stark[fl.id] || fl.kap) * 1.3 + 1e-6 || erste.includes(fl.id)), 'zwei verschiedene Flotten hochgestuft, jede höchstens einmal');
     ok(hochgestuft(g).every((fl, _, arr) => arr.filter((x) => x.id === fl.id).length === 1), 'keine Flotte wird zweimal gezählt');
     // alle germanischen Flotten schon hochgestuft: keine weitere Hochstufung, die Invasion scheitert sauber (Fallback-Text, Faden geht als gescheitert weiter)
     const e3 = await vorEnthuellung(542);
     for (const fl of germ(e3.g)) fl.hochgestuft = true;
-    ok(weiter(e3.g, e3.f).ok, 'dritter Faden: faden_weiter angenommen, obwohl keine Flotte mehr frei ist');
+    ok(weiter(e3.g, e3.f).ok, 'weiterer Faden: faden_weiter angenommen, obwohl keine Flotte mehr frei ist');
     const lb3 = logbuch(e3.g).filter((e) => e.art === 'faden_baustein').pop();
     const t3 = nscFunk(e3.p, e3.f, /Ich bin Germane/).pop();
     ok(feindBefehle(e3.g).length === 0 && e3.f.nsc.status === 'geflohen' && lb3 && lb3.ausgang === 'sim_befehl_abgelehnt' && /hochgestuft|keine bereite/.test(lb3.begruendung), 'alle Flotten schon hochgestuft: nichts vorgemerkt, NSC geflohen, Logbuch sim_befehl_abgelehnt (' + (lb3 && lb3.begruendung) + ')');

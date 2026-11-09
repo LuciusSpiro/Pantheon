@@ -52,7 +52,6 @@ const MUTATIONEN = [
   [P3, "const art = Pruefer.simBefehlArten(folge).includes(ctx.art) ? ctx.art : SB.standard_art;", "const art = SB.standard_art;", 'Baustein: die Art des Spielleiters wird ignoriert'],
   [P3, "return { ausgang: ok.length ? 'gelungen' : 'gescheitert' };", "return { ausgang: 'gelungen' };", 'Fallback: auch ohne angekündigte Wirkung gilt der Beat als gelungen'],
   [P3, "if (folge) return simBefehl(game, faden, ctx, folge);", "return simBefehl(game, faden, ctx, folge || { typ: 'sim_befehl' });", 'Baustein: auch eine Vorlage ohne die Folge bekommt die Invasion'],
-  [P3, "const nach = faden.fracht && HEX.test(faden.fracht.nach || '') ? faden.fracht.nach : null;", "const nach = null;", 'invasion: das Ziel der Lieferung wird nie benutzt'],
   // invasionsZiel
   [P3, "if (nd.besitzer !== 'rom' || nd.crew === true || haupt.includes(code)) continue;", "if (nd.besitzer !== 'rom' || haupt.includes(code)) continue;", 'invasionsZiel: ein Posten der Crew ist ein Ziel'],
   [P3, "if (nd.besitzer !== 'rom' || nd.crew === true || haupt.includes(code)) continue;", "if (nd.besitzer !== 'rom' || nd.crew === true) continue;", 'invasionsZiel: die Hauptwelt ist ein Ziel'],
