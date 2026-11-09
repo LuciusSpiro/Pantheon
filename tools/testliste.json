@@ -307,7 +307,7 @@
   {"id":"test-telemetrie-b2","kette":"test","cmd":["tools/test-telemetrie-b2.js"],"stufe":"fast","budget_s":6},
   {"id":"test-telemetrie-deckung","kette":"test","cmd":["tools/test-telemetrie-deckung.js"],"stufe":"fast","budget_s":6},
   {"id":"test-telemetrie-spielleiter","kette":"test","cmd":["tools/test-telemetrie-spielleiter.js"],"stufe":"fast","budget_s":6},
-  {"id":"test-telemetrie-server","kette":"test","cmd":["tools/test-telemetrie-server.js"],"stufe":"fast","budget_s":18},
+  {"id":"test-telemetrie-server","kette":"test","cmd":["tools/test-telemetrie-server.js"],"stufe":"fast","seriell":true,"budget_s":18},
   {"id":"test-konsole","kette":"test","cmd":["tools/test-konsole.js"],"stufe":"fast","budget_s":6},
   {"id":"test-telemetrie-schema","kette":"test","cmd":["tools/test-telemetrie-schema.js"],"stufe":"full","budget_s":92},
   {"id":"test-buchungen","kette":"test","cmd":["tools/test-buchungen.js"],"stufe":"full","seriell":true,"budget_s":67},
