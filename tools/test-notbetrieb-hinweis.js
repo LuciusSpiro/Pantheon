@@ -1,5 +1,5 @@
 'use strict';
-// FRE-01 C: Hinweis "Spielleiter arbeitet im Notbetrieb" (LageSpielleiter.notbetriebMelden, Daten content/welt/lage-spielleiter-werte.json: notbetrieb_funk, notbetrieb_gruende). Faellt das Modell im
+// FRE-01 C: Hinweis "Spielleiter arbeitet im Notbetrieb" (LageSpielleiter.notbetriebMelden, Daten content/welt/notbetrieb-hinweis.json: notbetrieb_funk, notbetrieb_gruende). Faellt das Modell im
 // Live-Betrieb der Freien Fahrt aus, merkt die Crew es EINMAL je Sitzung (Funk lage:1 + Zeile im Server-Log mit Grund); nichts blockiert, der Rueckfall (content/faeden/anschluss.json) liefert weiter.
 // Ohne Netz und ohne echten Aufruf: Transport-Stubs, Spion auf jeden Kindprozess, kein LLM_LIVE in process.env. Die Erwartungen stehen hier selbst.
 // Geprueft: (a) live + CLI fehlt: Hinweis genau einmal ueber viele Ausfaelle und Spruenge, Brett liefert, 0 Fehler · (b) je Ausfallgrund · Einzelfehler melden nicht · (c) Rueckfall-Betrieb: kein Hinweis ·
@@ -26,7 +26,7 @@ const Brett = require('../server/sim/abenteuer-brett.js');
 const Weltstand = require('../server/weltstand.js');
 const Sektoren = require('../shared/sektoren.js');
 const Sprung = require('../server/sim/sprung.js');
-const DATEN = require('../content/welt/lage-spielleiter-werte.json').werte;
+const DATEN = require('../content/welt/notbetrieb-hinweis.json').werte;
 const T = DATEN.notbetrieb_funk.wert;
 const GRUENDE = DATEN.notbetrieb_gruende.wert;
 
@@ -274,7 +274,7 @@ section('(f) Funktext aus den Daten', async () => {
   ok(logZeilen(g).length === 0 && g.logs.some((z) => /Log cli_fehlt: versucht: \/x/.test(z)), 'Logzeile aus der Daten-Vorlage mit Grund und Detail');
   l.dispose();
   const g2 = startLive(ENV_OHNE_CLI);
-  ok(hinweise(g2)[0] && hinweise(g2)[0].text === T.text && hinweise(g2)[0].from === T.sprecher && !g2.funk.some((f) => /\bBot\b/.test(f.text || '')), 'Standardtext aus content/welt/lage-spielleiter-werte.json, ohne Spielername');
+  ok(hinweise(g2)[0] && hinweise(g2)[0].text === T.text && hinweise(g2)[0].from === T.sprecher && !g2.funk.some((f) => /\bBot\b/.test(f.text || '')), 'Standardtext aus content/welt/notbetrieb-hinweis.json, ohne Spielername');
   g.zurLobby(); g2.zurLobby();
 });
 

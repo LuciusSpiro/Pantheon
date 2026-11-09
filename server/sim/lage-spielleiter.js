@@ -26,7 +26,8 @@ const Abenteuer = require('./abenteuer-spielleiter.js');   // SUND-04b A2: Kompo
 const Stufen = require('../mission/stufen.js');   // SUND-04b A2
 
 const DATEN = require('../../content/welt/lage-spielleiter-werte.json').werte;
-const WERTE = Object.fromEntries(Object.entries(DATEN).map(([k, v]) => [k, v.wert]));
+const NOTBETRIEB = require('../../content/welt/notbetrieb-hinweis.json').werte;   // FRE-01 C: Texte und Gruende des Notbetrieb-Hinweises (eigene Datei: kein Teil des Tuning-Hashes)
+const WERTE = Object.fromEntries(Object.entries(Object.assign({}, DATEN, NOTBETRIEB)).map(([k, v]) => [k, v.wert]));
 
 // Modus aus der Umgebung wie der Spielleiter der Kampagne: live nur mit SPIELLEITER_LLM=live UND LLM_LIVE=1
 function modusAusEnv(env) {

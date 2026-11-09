@@ -1,0 +1,29 @@
+{
+  "format": "notbetrieb-hinweis/1",
+  "_hinweis": "FRE-01 C: Hinweis \"Spielleiter arbeitet im Notbetrieb\" des Lage-Spielleiters (server/sim/lage-spielleiter.js notbetriebMelden). Bewusst NICHT in lage-spielleiter-werte.json: jede Datei *-werte.json geht in den Tuning-Hash der Telemetrie (server/telemetrie/kopf.js) und wuerde die Golden-Basis (tools/fixtures/telemetrie) und test-rueckprobe ungueltig machen; diese Texte und Gruende beeinflussen keine Spielwerte. Format wie die Nachbarwerte (wert, einheit, _hinweis), die Werte stehen mit denen des Lage-Spielleiters in sl.W (opts.werte ueberschreibt).",
+  "werte": {
+    "notbetrieb_funk": {
+      "wert": {
+        "sprecher": "Oberkommando",
+        "text": "Spielleiter arbeitet im Notbetrieb: die Welt läuft mit der Standard-Führung weiter.",
+        "log": "Spielleiter im Notbetrieb (Grund {grund}{detail}): die Standard-Führung läuft weiter, nichts blockiert."
+      },
+      "einheit": "Texte",
+      "_hinweis": "FRE-01 C: Hinweis an die Crew, wenn das Modell im Live-Betrieb ausfaellt (EINMAL je Sitzung, Funk lage:1, ohne Spielername) und Zeile im Server-Log (mit Grund, fuer den Operator). {grund} und {detail} setzt der Code ein. Im Rueckfall-Betrieb (absichtlich ohne Modell) und im Betrieb aus kommt kein Hinweis."
+    },
+    "notbetrieb_gruende": {
+      "wert": [
+        "cli_fehlt",
+        "ENOENT",
+        "RATE_LIMIT",
+        "ETIMEDOUT",
+        "REFUSED",
+        "BUDGET",
+        "OFF",
+        "EXIT"
+      ],
+      "einheit": "Fehlercodes",
+      "_hinweis": "FRE-01 C: Diese Gruende heissen Notbetrieb, weil das Modell nicht erreichbar, gesperrt oder das Kontingent leer ist: cli_fehlt (beim Start gesucht, keine CLI), ENOENT (CLI nicht startbar), RATE_LIMIT (429), ETIMEDOUT (Frist), REFUSED (Live-Aufruf verweigert), BUDGET (Token-Deckel oder min_budget), OFF (Modell-Objekt im Live-Betrieb nicht entstanden), EXIT (CLI-Prozess scheitert). Nur Einzelfehler stehen NICHT hier und melden nie: eigener Fehler 'lokal' (Prompt nicht baubar, Plan ungueltig oder nicht anwendbar, unbrauchbare Antwort) und Ablehnungen des Pruefers (ANTWORT_*, ABENTEUER_*): das Modell lief, ein Plan taugt nicht, der naechste ersetzt ihn. Fehlt ein Code hier, bleibt es still (im Regie-Logbuch steht er immer)."
+    }
+  }
+}
