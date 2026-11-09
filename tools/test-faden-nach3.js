@@ -279,7 +279,7 @@ async function main() {
       ok(!e.includes('fracht_gescheitert') && e.includes('fracht_ohne_ware'), `das Gedaechtnis schreibt fracht_ohne_ware, nicht fracht_gescheitert (${e.join(',')})`);
       ok(P3.notrufText(f.nsc, { parameter: { text_key: 'notruf_standard' } }) === 'notruf_standard', 'ein spaeterer Notruf erinnert sich nicht an eine Ladung, die es nie gab');
       // FAD-01 C: ohne Ablieferung (hier: keine Ware) fuehrt der Faden direkt in den Abschluss, die Enthuellung kommt nie
-      ok(f.beat === 5 && !funk.some((x) => /^Ich bin Germane/.test(String(x.text))) && !g.weltsim.regie.vorgemerkt.some((x) => ['sabotage', 'flotte_hochstufen'].includes(x.b.typ)), 'ohne Ablieferung keine Enthuellung (Beat ' + f.beat + '), keine Funkzeile Ich bin Germane, keine Sim-Befehle vorgemerkt (' + g.weltsim.regie.vorgemerkt.map((x) => x.b.typ).join(',') + ')');
+      ok(f.beat === 5 && !funk.some((x) => /^Ich bin Germane/.test(String(x.text))) && !g.weltsim.regie.vorgemerkt.some((x) => ['sabotage', 'invasion'].includes(x.b.typ)), 'ohne Ablieferung keine Enthuellung (Beat ' + f.beat + '), keine Funkzeile Ich bin Germane, keine Sim-Befehle vorgemerkt (' + g.weltsim.regie.vorgemerkt.map((x) => x.b.typ).join(',') + ')');
     }
     {   // eine Ware war an Bord und ging verloren (Frist): fracht_gescheitert bleibt
       const g = neu(351); ab(g);
@@ -363,6 +363,7 @@ async function main() {
       ankunft(g, '0305');   // die Crew fliegt (abgelegt in einem Ort, nicht angedockt: sonst kaeme keine Szene)
       const seq = []; const ziel = new Map(); let geoeffnet = false, szenen = 0;
       for (let r = 0; r < 700; r++) {
+        if (id === 'falscher_haendler') V.bereiteInvasion(g, hex);
         Kriegslage.tick(g, 'test');
         if (!geoeffnet) { if (notrufOhneOrt(g, AUSLOESER[id], hex, 'gelungen')) geoeffnet = true; } else g.lageGrenze('szene_ende');
         await pumpen(g, 3);
@@ -404,9 +405,8 @@ async function main() {
       const e = f ? f.nsc.gedaechtnis.map((x) => x.ereignis) : [];
       const erfolge = D.vorlage(id).beats[D.vorlage(id).beats.length - 1].erfolg.ereignis;
       ok(erfolge.some((x) => e.includes(x)), `${id}: das Gedaechtnis kennt die Leistung der Crew (${e.join(',')})`);
-      let erwEreignisse = r.seq.slice(0, -1).map((bid, i) => D.vorlage(id).beats.find((b) => b.id === bid).typ + '_' + (pfad[i] || 'gelungen'));
-      // FAD-01 C: den Ausgang der Enthuellung stellt die Welt her (Invasion der Standardart: gelingt nur mit einer Flotte, die stark genug ist), nicht der Bot; die Wirkung prueft test-faden-haendler-invasion.js
-      erwEreignisse = erwEreignisse.map((x, i) => (x.startsWith('enthuellung_') && e[i] && e[i].startsWith('enthuellung_') ? e[i] : x));
+      const erwEreignisse = r.seq.slice(0, -1).map((bid, i) => D.vorlage(id).beats.find((b) => b.id === bid).typ + '_' + (pfad[i] || 'gelungen'));
+      // FAD-01 C: die Enthuellung wirkt ueber die Invasion der Standardart; die Welt ist vorbereitet (V.bereiteInvasion), der Kern nimmt sie an: der Sollwert kommt aus den Daten (Pfad), nie aus dem Ergebnis
       ok(JSON.stringify(e.slice(0, erwEreignisse.length)) === JSON.stringify(erwEreignisse), `${id}: jeder Beat hat den Ausgang, den die Crew im Spiel hergestellt hat (${erwEreignisse.join(',')}; war ${e.join(',')})`);
       ok(e.includes('abschluss_gelungen') && g.weltsim.ruf.rom > rom0, `${id}: der gelungene Abschluss ist gebucht, der Ruf stieg (${rom0} -> ${g.weltsim.ruf.rom})`);
       ok(!funk.some((x) => x && /Fehler/.test(String(x.text))) && g.errors === 0, `${id}: keine Fehler (g.errors ${g.errors})`);

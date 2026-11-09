@@ -31,8 +31,8 @@ const ST = (r, id, ag) => beatVon(r.vorlage, id).aus[ag].status;
 // ---------------------------------------------------------------- (a) die drei Vorlagen aus 04a
 section('(a) Die drei Vorlagen aus 04a laufen unveraendert durch denselben Pruefer', () => {
   const dir = path.join(D.DIR, 'vorlagen');
-  // die Dateien selbst sind unveraendert (Hash aus main 6e7b34c, hier fest, nicht aus dem Produktivcode)
-  const SOLL = { 'dankbarer_captain.json': 'c2a50af791f560267972aadca05c09eb3ba30b9d', 'entfuehrter_haendler.json': '417172987f65d7e9f4342b20f088805c77bddfbf', 'falscher_haendler.json': 'e4e91545021891041740a2b7d2d6e961e892b313' };   // SHA-1 des Inhalts mit LF-Zeilenenden (git show 6e7b34c:<Datei>); FAD-01 C: falscher_haendler.json bewusst umgebaut (Ablieferung, Hinweis h_schmuggel, Folge sim_befehl), die anderen beiden unveraendert
+  // die Dateien selbst sind unveraendert (Hashes hier fest, nicht aus dem Produktivcode: dankbarer_captain und entfuehrter_haendler aus main 6e7b34c, falscher_haendler aus FAD-01 C, Commit 4a80b74)
+  const SOLL = { 'dankbarer_captain.json': 'c2a50af791f560267972aadca05c09eb3ba30b9d', 'entfuehrter_haendler.json': '417172987f65d7e9f4342b20f088805c77bddfbf', 'falscher_haendler.json': 'e4e91545021891041740a2b7d2d6e961e892b313' };   // SHA-1 des Inhalts mit LF-Zeilenenden (dankbarer_captain, entfuehrter_haendler: git show 6e7b34c:<Datei>; falscher_haendler: git show 4a80b74:content/faeden/vorlagen/falscher_haendler.json); FAD-01 C: falscher_haendler.json bewusst umgebaut (Ablieferung, Hinweis h_schmuggel, Folge sim_befehl), die anderen beiden unveraendert
   for (const [datei, soll] of Object.entries(SOLL)) {
     const roh = fs.readFileSync(path.join(dir, datei));
     const h = crypto.createHash('sha1').update(roh).digest('hex'), h2 = crypto.createHash('sha1').update(Buffer.from(roh.toString('utf8').replace(/\r\n/g, '\n'))).digest('hex');

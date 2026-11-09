@@ -10,7 +10,7 @@
     "invasion_reichweite": {
       "wert": 4,
       "einheit": "Sprünge (Hex-Abstand)",
-      "_hinweis": "FAD-01 A: die Invasion nach einer Enthüllung (Folge sim_befehl, Art invasion oder beides) trifft das nächste römische Ziel (Posten oder Hafen, nie ein Posten der Crew, nie eine Hauptwelt) innerhalb dieses Hex-Abstands vom Ort des Fadens (Ziel-Hex der Lieferung, sonst parameter.ort); bei Gleichstand der kleinere Code (faden-p3.js invasionsZiel). Ob eine germanische Flotte es erreicht, prüft der Kern (regie-befehle fadenInvasion)."
+      "_hinweis": "FAD-01 A: die Invasion nach einer Enthüllung (Folge sim_befehl, Art invasion oder beides) trifft das nächste römische Ziel (Posten oder Hafen, nie ein Posten der Crew, nie eine Hauptwelt) innerhalb dieses Hex-Abstands vom Ort des Fadens (parameter.ort; das Lieferziel wird nicht aufbewahrt, faden.fracht wird am Ende jedes Beats gelöscht); bei Gleichstand der kleinere Code (faden-p3.js invasionsZiel). Ob eine germanische Flotte es erreicht, prüft der Kern (regie-befehle fadenInvasion)."
     },
     "sim_texte": {
       "wert": {
@@ -24,7 +24,7 @@
     "sim_texte_keines": {
       "wert": {"sprengung": "enthuellung_ohne", "invasion": "enthuellung_invasion_ohne", "beides": "enthuellung_beides_ohne"},
       "einheit": "Art -> text_key",
-      "_hinweis": "FAD-01 A: der Funktext, wenn die Folge sim_befehl wirken sollte, der Kern aber nichts annahm oder es kein Ziel gab (der Beat gilt als gescheitert)."
+      "_hinweis": "FAD-01 A: der Funktext, wenn die Folge sim_befehl wirken sollte, der Kern aber nichts annahm oder es kein Ziel gab (der Beat gilt als gescheitert). Die Texte der Art invasion und beides sagen nur, dass die Flotte nicht durchkommt: sie stimmen für jeden Ablehnungsgrund (kein Ziel in Reichweite, keine bereite oder zu schwache Flotte, alle schon hochgestuft, Feldzug läuft schon, Abkühlzeit der Invasion)."
     },
     "tot_sprecher": {
       "wert": "Lerche",
@@ -51,9 +51,9 @@
     "enthuellung_ohne": "Ich bin Germane. Die Ladung zündet nicht: kein römischer Posten bei {ort}.",
     "enthuellung_invasion": "Ich bin Germane, kein Händler. Die Ladung war Waffe: Meine Flotte greift {invasion} an!",
     "enthuellung_invasion_ohne_fracht": "Ich bin Germane. Meine Flotte greift {invasion} an, auch ohne euch. Warnt es!",
-    "enthuellung_invasion_ohne": "Ich bin Germane. Meine Flotte findet bei {ort} kein Ziel in Reichweite.",
+    "enthuellung_invasion_ohne": "Ich bin Germane. Meine Flotte kommt bei {ort} nicht durch.",
     "enthuellung_beides": "Ich bin Germane. Die Ladung ist scharf, meine Flotte greift an: {ziel}, {invasion}!",
-    "enthuellung_beides_ohne": "Ich bin Germane. Weder Ladung noch Flotte finden bei {ort} ein Ziel.",
+    "enthuellung_beides_ohne": "Ich bin Germane. Weder Ladung noch Flotte kommen bei {ort} durch.",
     "abschluss_gelungen": "Danke, dass ihr mit mir gegangen seid. Ich vergesse nicht, was ihr getan habt.",
     "abschluss_gescheitert": "Von {name} hört ihr nichts mehr. Die Sache verläuft im Sand.",
     "abschluss_tot": "{name} ist tot. Der Name bleibt auf den Karten der Crew."

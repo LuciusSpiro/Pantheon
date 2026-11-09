@@ -6,7 +6,8 @@
 //               Ausgang gelungen, wenn das Schiff den Ort erreicht (update, Takt aus reise-ereignis), gescheitert, wenn die Frist des Beats abläuft (Faden-Takt).
 //               Der Text erinnert sich: hat der NSC im Gedaechtnis ein Ereignis aus p3-texte.json (erinnert), spricht er es an.
 //   enthuellung (Beat „enthuellung“) Die verborgene Wahrheit kommt heraus (Funk, nsc.wahrheit.offenbart setzt faden.js). Die Folge ist eine germanische Sprengung eines
-//               römischen Postens in der Nähe des Ortes (Sim-Befehl sabotage, regie-befehle fadenSabotage). Was für die Sprengung gilt (Nacharbeit L12, so im Code):
+//               römischen Postens in der Nähe des Ortes (Sim-Befehl sabotage, regie-befehle fadenSabotage). ALTWEG: diese feste Sprengung ohne Folge sim_befehl gilt nur noch für Abenteuer (Bauplan, faden-bauplan.js),
+//               deren Enthüllungs-Beat keine Folge sim_befehl trägt (keine der mitgelieferten Vorlagen); die Vorlagen kennen sie nicht mehr. Was für die Sprengung gilt (Nacharbeit L12, so im Code):
 //                 Ziel     der nächste römische Posten (nie ein Hafen, NIE ein Posten der Crew) innerhalb von sprengung_reichweite Sprüngen (Daten p3-texte.json, Hex-Abstand
 //                          über shared/sektoren.js hexAbstand), bei Gleichstand der kleinere Code. Der Vorwarntext `sabotage_stuetzpunkt` entfällt: ein Posten der Crew ist kein Ziel.
 //                 Prüfung  der Kern-Prüfer (server/weltsim/befehle.js sabotage) und Vorwarnung mit Vorlauf (regie-werte.json vorwarnung.sabotage, Text in lage-befehle.json), wie bei den
@@ -16,7 +17,7 @@
 //               Gelungen, wenn die Sprengung angekündigt ist; gescheitert, wenn es kein gültiges Ziel gibt oder der Kern die Sprengung ablehnt (Fallback: der Faden ändert sich, Funk und Chronik).
 //               FAD-01 A: hat der Beat in der Vorlage die Folge sim_befehl (aus.gelungen.folge, Prüfer faden-pruefer.js simBefehlFolge), bestimmt die Art (faden_weiter.art des Spielleiters, sonst die Standardart,
 //                 Daten werte.json sim_befehl) die Wirkung: sprengung = wie oben, invasion = invasionsZiel + regie-befehle fadenInvasion (eine germanische Flotte wird hochgestuft und greift das römische Ziel an),
-//                 beides = beide in der Reihenfolge der Daten. Gelungen, wenn mindestens eine Wirkung angekündigt ist (die Ankündigung per Funk kommt aus dem Kern vor jeder Wirkung). Ohne diese Folge
+//                 beides = beide in der Reihenfolge der Daten. Die Invasion ist EIN atomarer Kern-Befehl (Hochstufen und Angriff, beides oder nichts), mit Abkühlzeit je Fraktion (regie-werte.json abkuehlung.invasion). Gelungen, wenn mindestens eine Wirkung angekündigt ist (die Ankündigung per Funk kommt aus dem Kern vor jeder Wirkung). Ohne diese Folge
 //                 bleibt der Baustein unverändert (andere Vorlagen). Eine solche Folge steht nur hinter einer Tat der Crew (Prüfer SIM_BEFEHL_OHNE_TAT), nie bei bloßem Zeitablauf.
 //   abschluss   (letzter Beat) Der Faden endet. Welle 3: gelungen nur, wenn die Crew etwas geleistet hat (Daten: beat.erfolg.ereignis, Gedächtnis des NSC), sonst gescheitert. Nur der gelungene Abschluss
 //               zahlt Haltung und Ruf seines Ausgangs (Wirkungen aus den Daten, faden.js beatAusgang); ein gescheiterter Faden endet ohne Belohnung (Text abschluss_gescheitert, ein Toter: abschluss_tot).
@@ -144,8 +145,7 @@ const SIM_BEFEHLE = {
     return { ziel: z, r: z ? Regie().fadenSabotage(game, z) : { ok: false, grund: 'kein römischer Posten in der Nähe' } };
   },
   invasion(game, faden) {
-    const nach = faden.fracht && HEX.test(faden.fracht.nach || '') ? faden.fracht.nach : null;   // das Ziel der Lieferung, falls noch bekannt, sonst der Ort des Fadens
-    const z = invasionsZiel(game, nach || (faden.parameter && faden.parameter.ort));
+    const z = invasionsZiel(game, faden.parameter && faden.parameter.ort);   // der Ort des Fadens (das Lieferziel wird nicht aufbewahrt: faden.fracht wird am Ende jedes Beats gelöscht, faden.js)
     return { ziel: z, r: z ? Regie().fadenInvasion(game, { ziel: z }) : { ok: false, grund: 'kein römisches Ziel in Reichweite' } };
   },
 };
