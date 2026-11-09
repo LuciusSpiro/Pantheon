@@ -110,7 +110,7 @@ const angebote = (g) => (g.weltsim && g.weltsim.faeden ? g.weltsim.faeden.abente
 section('Daten', () => {
   ok(typeof T.text === 'string' && /Notbetrieb/.test(T.text) && typeof T.sprecher === 'string' && T.sprecher.length > 0, 'notbetrieb_funk: Text mit Notbetrieb und Sprecher');
   ok(typeof DATEN.notbetrieb_funk._hinweis === 'string' && DATEN.notbetrieb_funk.einheit && DATEN.notbetrieb_gruende._hinweis && DATEN.notbetrieb_gruende.einheit, 'Format der Nachbarwerte: einheit und _hinweis');
-  ok(Array.isArray(GRUENDE) && ['cli_fehlt', 'ENOENT', 'RATE_LIMIT', 'ETIMEDOUT', 'REFUSED', 'BUDGET'].every((g) => GRUENDE.includes(g)) && !GRUENDE.includes('lokal') && !GRUENDE.includes('ANTWORT_UNLESBAR'), 'Gruende-Liste: Modell-Ausfaelle ja, Einzelfehler (lokal, Pruefer-Ablehnung) nein');
+  ok(Array.isArray(GRUENDE) && ['cli_fehlt', 'ENOENT', 'RATE_LIMIT', 'ETIMEDOUT', 'REFUSED', 'BUDGET', 'OFFLINE', 'EMPTY'].every((g) => GRUENDE.includes(g)) && !GRUENDE.includes('lokal') && !GRUENDE.includes('ANTWORT_UNLESBAR'), 'Gruende-Liste: Modell-Ausfaelle ja, Einzelfehler (lokal, Pruefer-Ablehnung) nein');
   ok(!/\bBot\b/.test(T.text) && !/\{/.test(T.text), 'kein Spielername, keine Platzhalter im Funktext');
 });
 
@@ -136,7 +136,7 @@ section('(a) live + CLI fehlt: Hinweis genau einmal, nichts blockiert', async ()
 });
 
 section('(b) je Ausfallgrund genau ein Hinweis; Einzelfehler melden nicht', async () => {
-  for (const [code, msg] of [['RATE_LIMIT', 'claude: 429 Too Many Requests'], ['ETIMEDOUT', 'Zeitueberschreitung'], ['REFUSED', 'Live-Aufruf verweigert'], ['ENOENT', 'claude nicht startbar'], ['EXIT', 'claude fehlgeschlagen (1)']]) {
+  for (const [code, msg] of [['RATE_LIMIT', 'claude: 429 Too Many Requests'], ['ETIMEDOUT', 'Zeitueberschreitung'], ['REFUSED', 'Live-Aufruf verweigert'], ['ENOENT', 'claude nicht startbar'], ['EXIT', 'claude fehlgeschlagen (1)'], ['OFFLINE', 'Ollama nicht erreichbar'], ['EMPTY', 'Ollama: leere Antwort']]) {
     const g = startLive(ENV_MIT_CLI, stubFehler(code, msg));
     ok(hinweise(g).length === 0, code + ': vor dem Ausfall kein Hinweis (CLI da)');
     await aufrufe(g); await aufrufe(g);

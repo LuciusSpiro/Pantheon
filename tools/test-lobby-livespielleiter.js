@@ -124,6 +124,33 @@ console.log('Start mit Option aus: Rueckfall-Betrieb ohne Modell');
   g.zurLobby();
 }
 
+console.log('W1: Leerlauf-Reset loescht die Kostenentscheidung');
+{
+  const g = bauGame();
+  opt(g, { startMission: 'freie_fahrt' }); opt(g, { liveSpielleiter: true }); alleBereit(g);
+  for (let k = 0; k < 5; k++) g.step();
+  ok(g.phase === 'play' && g.env.LLM_LIVE === '1', 'Vorbereitung: live gestartet');
+  g.removeConnection(g.conn); g.removeConnection(g.conn2);
+  for (let k = 0; k < Math.ceil((g.C.net.emptyResetAfter + 2) * 30) && g.players.length; k++) g.step();
+  ok(g.phase === 'lobby' && g.players.length === 0, 'Alle weg: Partie zurueckgesetzt, Spielerliste leer (' + g.phase + ')');
+  ok(g.lobbyOpts.liveSpielleiter === false, 'Option nach dem Leerlauf-Reset aus');
+  const neu = { inbox: [], send() {}, sendRaw() {} }; g.addConnection(neu); g.handleMessage(neu, { t: 'hello', clientId: 'NEU', name: 'Neu', color: 2 });
+  opt(g, { startMission: 'freie_fahrt' }, neu);
+  g.handleMessage(neu, { t: 'ready', ready: true });
+  for (let k = 0; k < 5; k++) g.step();
+  ok(g.phase === 'play' && g.env.LLM_LIVE === undefined && g.env.SPIELLEITER_LLM === undefined && g.env.SPIELLEITER_RUECKFALL === '1', 'neue Gruppe startet im Rueckfall-Betrieb, kein LLM_LIVE');
+  ok(g.lageSpielleiter && g.lageSpielleiter.mode === 'off' && prozesse.length === 0, 'Lage-Spielleiter mode off, kein Kindprozess');
+  g.zurLobby();
+}
+
+console.log('W1: alle trennen in der Lobby loescht die Kostenentscheidung');
+{
+  const g = bauGame();
+  opt(g, { startMission: 'freie_fahrt' }); opt(g, { liveSpielleiter: true });
+  g.removeConnection(g.conn); g.removeConnection(g.conn2);
+  ok(g.players.length === 0 && g.lobbyOpts.liveSpielleiter === false, 'Lobby leer: Option aus');
+}
+
 ok(JSON.stringify(Object.assign({}, process.env)) === ENV_VOR, 'process.env am Ende unveraendert');
 try { fs.rmSync(TMP, { recursive: true, force: true }); } catch (e) { /* Temp */ }
 console.log('\n' + (n - fails) + ' von ' + n + ' ok' + (fails ? ', ' + fails + ' FEHLER' : ''));

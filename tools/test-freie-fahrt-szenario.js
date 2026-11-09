@@ -106,7 +106,21 @@ section('Daten und reine Funktion wirksamesEnv', () => {
   const l = Sz.wirksamesEnv({}, 'freie_fahrt', { live: true });
   ok(l.SPIELLEITER_LLM === 'live' && l.LLM_LIVE === '1' && l.SPIELLEITER_RUECKFALL === undefined, 'live: SPIELLEITER_LLM=live, LLM_LIVE=1, kein Rueckfall-Marker');
   const o = Sz.wirksamesEnv({ FAEDEN: '0', LLM_LIVE: '0', REISE_EREIGNISSE: '' }, 'freie_fahrt', { live: true });
-  ok(o.FAEDEN === '0' && o.LLM_LIVE === '0' && o.REISE_EREIGNISSE === '1', 'gesetzte Variablen ueberstimmen (auch LLM_LIVE=0), leere zaehlen als nicht gesetzt');
+  ok(o.FAEDEN === '0' && o.LLM_LIVE === '1' && o.REISE_EREIGNISSE === '1', 'Schalter: gesetzte Variablen ueberstimmen, leere zaehlen als nicht gesetzt; LLM_LIVE gehoert der Lobby (Option an => 1)');
+  ok(DATEN.werte.lobby_eigene_schluessel.wert.join() === 'SPIELLEITER_LLM,LLM_LIVE,SPIELLEITER_RUECKFALL', 'Daten: lobby_eigene_schluessel benennt die drei Betriebsart-Schluessel');
+  const e = (b, live) => Sz.wirksamesEnv(b, 'freie_fahrt', { live });
+  const x1 = e({ SPIELLEITER_LLM: 'live', LLM_LIVE: '1' }, false);
+  ok(x1.SPIELLEITER_LLM === undefined && x1.LLM_LIVE === undefined && x1.SPIELLEITER_RUECKFALL === '1', 'W2: Basis live+LLM_LIVE, Option aus => Rueckfall, kein Modell');
+  const x2 = e({ SPIELLEITER_LLM: 'off', SPIELLEITER_RUECKFALL: '0' }, false);
+  ok(x2.SPIELLEITER_LLM === undefined && x2.SPIELLEITER_RUECKFALL === '1' && LS.rueckfallAn(x2), 'W3: Basis SPIELLEITER_LLM=off, Option aus => rueckfallAn');
+  const x3 = e({ SPIELLEITER_LLM: 'off' }, true);
+  ok(x3.SPIELLEITER_LLM === 'live' && x3.LLM_LIVE === '1' && LS.schalterAn(x3), 'W3: Basis off, Option an => live');
+  const x4 = e({ SPIELLEITER_LLM: 'live' }, false);
+  ok(x4.SPIELLEITER_LLM === undefined && LS.rueckfallAn(x4), 'W3: Basis live ohne LLM_LIVE, Option aus => Rueckfall funktioniert');
+  const x5 = e({ LLM_LIVE: '0' }, true);
+  ok(x5.LLM_LIVE === '1' && x5.SPIELLEITER_LLM === 'live', 'W3: Basis LLM_LIVE=0, Option an => live');
+  const x6 = e({ SPIELLEITER_LLM: 'mock', LLM_LIVE: '1' }, false), x7 = e({ SPIELLEITER_LLM: 'mock' }, true);
+  ok(x6.SPIELLEITER_LLM === 'mock' && x6.SPIELLEITER_RUECKFALL === undefined && x6.LLM_LIVE === undefined && x7.SPIELLEITER_LLM === 'mock' && x7.LLM_LIVE === undefined, 'mock im Basis-Env bleibt (Option ohne Wirkung), kein LLM_LIVE, kein Rueckfall-Marker');
   const a = Sz.wirksamesEnv({ B: '1' }, 'm1', { live: true });
   ok(a.B === '1' && a.FAEDEN === undefined && a.LLM_LIVE === undefined, 'anderer Modus: nur die Kopie der Basis');
   const p = Sz.wirksamesEnv(undefined, 'freie_fahrt', {});
@@ -155,6 +169,32 @@ section('(b) Env-Variable ueberstimmt das Szenario', () => {
   starte(g3, { startMission: 'freie_fahrt' });
   ok(g3.lageSpielleiter == null && !Faden.spielleiterAktiv(g3), 'LAGE_SPIELLEITER=0: kein Lage-Spielleiter');
   ok(prozesse.length === 0, 'kein CLI-Prozess');
+});
+
+section('(b2) Server-Env gegen Lobby-Option (W2, W3)', () => {
+  const g = bauGame({ env: { SPIELLEITER_LLM: 'live', LLM_LIVE: '1' } });
+  starte(g, { startMission: 'freie_fahrt' });
+  ok(g.lobbyOpts.liveSpielleiter === false && g.env.SPIELLEITER_LLM === undefined && g.env.LLM_LIVE === undefined, 'W2: Option aus => Kopie ohne SPIELLEITER_LLM und LLM_LIVE');
+  ok(g.lageSpielleiter && g.lageSpielleiter.mode === 'off' && g.lageSpielleiter.rueckfallBetrieb === true, 'W2: Rueckfall-Betrieb, nicht live');
+  ok(prozesse.length === 0, 'W2: kein Kindprozess');
+  const h = bauGame({ env: { SPIELLEITER_LLM: 'off' } });
+  starte(h, { startMission: 'freie_fahrt' });
+  ok(h.lageSpielleiter && h.lageSpielleiter.rueckfallBetrieb === true && Faden.spielleiterAktiv(h), 'W3: Basis off, Option aus => Rueckfall-Lage-Spielleiter, Brett aktiv');
+  ok(springe(h, 12) === 12 && angebote(h) >= 1, 'W3: Angebot am Brett nach Spruengen (' + angebote(h) + ')');
+  const i = bauGame({ env: { SPIELLEITER_LLM: 'off' } });
+  starte(i, { startMission: 'freie_fahrt', liveSpielleiter: true }, 3);
+  ok(i.env.SPIELLEITER_LLM === 'live' && i.env.LLM_LIVE === '1' && i.lageSpielleiter && i.lageSpielleiter.mode === 'live', 'W3: Basis off, Option an => live');
+  const j = bauGame({ env: { SPIELLEITER_LLM: 'live' } });
+  starte(j, { startMission: 'freie_fahrt' });
+  ok(j.lageSpielleiter && j.lageSpielleiter.rueckfallBetrieb === true && Faden.spielleiterAktiv(j), 'W3: Basis live ohne LLM_LIVE, Option aus => Rueckfall laeuft');
+  const k = bauGame({ env: { LLM_LIVE: '0' } });
+  starte(k, { startMission: 'freie_fahrt', liveSpielleiter: true }, 3);
+  ok(k.env.LLM_LIVE === '1' && k.lageSpielleiter && k.lageSpielleiter.mode === 'live', 'W3: Basis LLM_LIVE=0, Option an => live');
+  const m = bauGame({ env: { SPIELLEITER_LLM: 'mock' } });
+  starte(m, { startMission: 'freie_fahrt', liveSpielleiter: true }, 3);
+  ok(m.lageSpielleiter && m.lageSpielleiter.mode === 'mock' && m.env.LLM_LIVE === undefined, 'mock im Basis-Env bleibt mock, auch mit Option an');
+  ok(prozesse.length === 0, 'kein CLI-Prozess');
+  for (const x of [g, h, i, j, k, m]) x.zurLobby();
 });
 
 section('(c) andere Modi: Basis-Env, nichts aktiv', () => {

@@ -1150,9 +1150,9 @@
       case 'lobbyOpt':
         if (typeof msg.skipDrill === 'boolean') W.lobbyOpts.skipDrill = msg.skipDrill;
         if (((window.Shared_Protocol && window.Shared_Protocol.START_MISSIONS) || ['m1', 'm3']).concat(['free', 'freie_fahrt']).indexOf(msg.startMission) >= 0 && msg.startMission !== W.lobbyOpts.startMission) W.lobbyOpts.liveSpielleiter = false;   // FRE-01 B: Moduswechsel setzt zurück (wie der Server)
-        if (typeof msg.liveSpielleiter === 'boolean' && W.lobbyOpts.startMission === 'freie_fahrt' && !W.lobbyOpts.world) W.lobbyOpts.liveSpielleiter = msg.liveSpielleiter;
         if (((window.Shared_Protocol && window.Shared_Protocol.START_MISSIONS) || ['m1', 'm3']).concat(['free', 'freie_fahrt']).indexOf(msg.startMission) >= 0) W.lobbyOpts.startMission = msg.startMission;
-        if ('world' in msg) W.lobbyOpts.world = msg.world == null ? null : (W.lobbyOpts.worlds.some(x => x.id === msg.world && x.state === 'ok') ? msg.world : W.lobbyOpts.world);
+        if ('world' in msg) { const vor = W.lobbyOpts.world; W.lobbyOpts.world = msg.world == null ? null : (W.lobbyOpts.worlds.some(x => x.id === msg.world && x.state === 'ok') ? msg.world : W.lobbyOpts.world); if (W.lobbyOpts.world && W.lobbyOpts.world !== vor) W.lobbyOpts.liveSpielleiter = false; }   // FRE-01 B: Fortsetzen läuft nie live (wie der Server)
+        if (typeof msg.liveSpielleiter === 'boolean' && W.lobbyOpts.startMission === 'freie_fahrt' && !W.lobbyOpts.world) W.lobbyOpts.liveSpielleiter = msg.liveSpielleiter;
         break;
       case 'mark': W.away.marker = { x: msg.x, y: msg.y }; break;
       case 'cmd': cmd(p, msg); break;

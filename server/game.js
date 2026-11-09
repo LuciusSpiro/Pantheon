@@ -679,6 +679,7 @@ class Game {
     if (this.phase === 'lobby') {
       this.raeumeKarte(p);   // die ID wird neu vergeben, die Mitspieler räumen die alte Karte
       this.players = this.players.filter((o) => o !== p);
+      if (!this.players.length) this.lobbyOpts.liveSpielleiter = false;   // FRE-01 Nacharbeit W1: leere Lobby, die nächste Gruppe entscheidet neu
       this.telemetrie.spielerWeg(p.id);   // TEL-01 A: nur Slot und Zahl; vor checkLobbyStart, sonst landet der Abgang als Phantom in der gerade begonnenen Session
       this.checkLobbyStart();
     } else {
@@ -1654,7 +1655,7 @@ class Game {
   // SUND-03 A2: lage status | plan | fail (Antwort als Hinweis an den Absender)
   onDebugLage(p, args) {
     const l = this.lageSpielleiter;
-    if (!l) return this.weltsim ? 'Kein Lage-Spielleiter (LAGE_SPIELLEITER=1 und SPIELLEITER_LLM=mock|live setzen).' : 'Kein Lage-Spielleiter – nur in der Freien Fahrt Sund.';
+    if (!l) return this.weltsim ? 'Kein Lage-Spielleiter (Freie Fahrt: die Lobby-Option Live-Spielleiter wählt Rückfall oder live; sonst LAGE_SPIELLEITER=1 und SPIELLEITER_LLM=mock|live setzen).' : 'Kein Lage-Spielleiter – nur in der Freien Fahrt Sund.';
     try { const r = l.debug(args, p); if (r) this.notice(p, String(r).slice(0, 400)); return null; } catch (e) { this.countError('lage-debug', e); return 'lage: Fehler (' + e.message + ')'; }
   }
   // S2: sl status | sl plan | sl fail grobplan|szene | sl archiv  (Text in msg.args oder msg.sub/msg.what)
@@ -1904,6 +1905,7 @@ class Game {
           if (this.weltstand && this.weltstand.persistent && this.ship.docked) this.safe('weltstand', () => this.saveWorld('empty'));
           this.telemetrie.sessionBeenden('leer');   // TEL-01 A
           this.players = [];
+          this.lobbyOpts.liveSpielleiter = false;   // FRE-01 Nacharbeit W1: Kostenentscheidung der leeren Runde gilt nicht für die nächste Gruppe (reset() selbst löscht sie nicht: startGame liest sie danach)
           Welt.waehle(this, Welt.STANDARD);
           this.reset();
           return;
