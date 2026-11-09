@@ -31,7 +31,10 @@ const MUT = process.env.KACHEL_MUT || '';
 // landepunkte.js: normal per require; mit KACHEL_MUT eine verdorbene Kopie (der Test muss dann rot werden)
 const MUTATIONEN = {
   biom: ['GenSektor.biomVon(hex, kz.index, h)', "GenSektor.biomVon(String(1000 + kz.index), kz.index, h)"],   // Biom aus dem Index statt aus dem Hex
-  tosave: ["if (!defs().byId[id] && !S.dyn[id] && kachelDef(id)) { out[id] = kachelZustand(e); continue; }", ''],   // Kachel-Landepunkte wie statische Defs voll in den Weltstand
+  k1: ['function kachelZustaendeGelten(block, def) { return !(', 'function kachelZustaendeGelten(block, def) { return true || !('],   // K1: Kartenart-Regel aus
+  w2: ['|| kachelDef(lpId) || null; }', '|| null; }'],   // W2: info() kennt die Kachel nicht
+  k3: ['kachelCache = { version: -1, defs: new Map() };   // K3: die', '/* K3 */ void 0;   // K3: die'],   // K3: cacheLeeren leert den Kachel-Cache nicht
+  tosave: ["if (!defs().byId[id] && !S.dyn[id] && kachelDef(id)) { out[id] = kachelZustand(e, kachelDef(id).art); continue; }", ''],   // Kachel-Landepunkte wie statische Defs voll in den Weltstand
 };
 function ladeLP() {
   const f = require.resolve('../server/sim/landepunkte.js');
@@ -156,7 +159,7 @@ pruefe('b) Biom bleibt nach toSave/restore je Körper gleich; der Weltstand enth
   LP.eintrag(g, 'k_0103.k0').zustaende['anker.test'] = 'gehalten-wert';
   const block = JSON.parse(JSON.stringify(LP.toSave(g)));
   assert.deepStrictEqual(Object.keys(block).sort(), ['k_0103.k0', 'k_0103.k1', 'k_0103.k2']);
-  const FELDER = ['abbau_runde', 'alarm', 'bauversion', 'besuche', 'letzte_mission', 'neu', 'zustaende'];
+  const FELDER = ['abbau_runde', 'alarm', 'bauversion', 'besuche', 'kartenart', 'letzte_mission', 'neu', 'zustaende'];   // K1: kartenart additiv
   for (const [id, e] of Object.entries(block)) {
     assert.deepStrictEqual(Object.keys(e).sort(), FELDER, 'nur Zustandsfelder in ' + id);
     for (const v of ['ort', 'beam', 'name', 'seed', 'art', 'besitz', 'bauweise', 'gen', 'schablone']) assert.ok(!(v in e), `${id}: Feld ${v} gehört nicht in den Weltstand`);
@@ -418,6 +421,119 @@ pruefe('Spiel: weltstand-Pfad der Partie speichert keine Kachel-Definition (toSa
   for (const l of lpListe(g)) lpm.get(g, l.id);
   const text = JSON.stringify(lpm.toSave(g));
   assert.ok(!/"ort"|"beam"|"name"|"seed"|"art"|"gen"/.test(text), text.slice(0, 200));
+});
+
+// ---- i) Nacharbeit W1/W2/K1/K3/K4 ----
+const SPRUNG = require('../server/sim/sprung.js');
+const REISE = require('../server/sim/reise.js');
+const CTX = require('../server/mission/context.js');
+// Testkarte mit offener Kante 0106 (Piratenlager) -> 0107 (zwei Stationen, nicht platzierbar)
+function karteMitKante() { const k = testkarte(); k.kanten = k.kanten.concat([{ a: '0106', b: '0107', art: 'open' }]); return k; }
+pruefe('i) W1 hatSzene: ohne typ bitgleich zu `!!ortVonHex` auf allen Hexen von limes/sund/sund_frei (Leerraum eingeschlossen)', () => {
+  let anzahl = 0;
+  for (const id of ['limes', 'sund', 'sund_frei']) {
+    const K = JSON.parse(fs.readFileSync(path.join(ROOT, 'content', 'welt', id + '.json'), 'utf8'));
+    Sektoren.setzeKarte(K);
+    for (let c = 1; c <= K.spalten; c++) for (let r = 1; r <= K.zeilen; r++) {
+      const hx = String(c).padStart(2, '0') + String(r).padStart(2, '0');
+      assert.strictEqual(Sektoren.hatSzene(hx), !!Sektoren.ortVonHex(hx), `${id} ${hx}`); anzahl++;
+    }
+  }
+  assert.ok(anzahl >= 200, 'Hexe verglichen: ' + anzahl); console.log('    Hexe verglichen: ' + anzahl);
+  Sektoren.setzeKarte(testkarte());
+});
+pruefe('i) W1 hatSzene: unplatzierbares typ-Hex (0107) false obwohl ortVonHex gesetzt; platzierbares (0103) und typ-Hex mit eigenem ort true', () => {
+  Sektoren.setzeKarte(testkarte());
+  const [r] = stumm(() => [Sektoren.hatSzene('0107'), Sektoren.hatSzene('0103'), Sektoren.hatSzene('0201'), Sektoren.hatSzene('0302'), Sektoren.hatSzene('0108')]);
+  assert.strictEqual(Sektoren.ortVonHex('0107'), 'k_0107');
+  assert.deepStrictEqual(r.slice(0, 3), [false, true, true]);
+});
+pruefe('i) W1 Notsprung und Zielfilter: nie in ein Hex ohne baubare Szene; notsprung() wirft nicht und teleportiert nicht nach hafen', () => {
+  const T = neuesSpiel(); const g = T.g;
+  Sektoren.setzeKarte(karteMitKante());
+  const [res] = stumm(() => {
+    space.enterScene(g, 'k_0106', {}); T.run(0.3);
+    const kand = SPRUNG.notsprungKandidaten(g);
+    const nb = SPRUNG.nachbarOrte(g, 'k_0106');
+    const umk = REISE.weich(g, '0106', '0107', false);
+    const ziel = SPRUNG.zielId('0107');
+    return { kand, nb, umk, ziel };
+  });
+  assert.ok(res.kand.length > 0 && !res.kand.includes('0107'), 'Kandidaten: ' + res.kand.join());
+  assert.ok(!res.nb.includes('k_0107'), 'nachbarOrte: ' + res.nb.join());
+  assert.strictEqual(res.umk, null, 'weiche Route nach 0107'); assert.strictEqual(res.ziel, null, 'zielId(0107)');
+  const [err] = stumm(() => {
+    g.ship.reactorCtl = g.ship.reactorCtl || {}; g.rng = Object.assign(() => 0.99, { pick: (a) => a[a.length - 1] });
+    return SPRUNG.notsprung(g);
+  });
+  assert.strictEqual(err, null, 'notsprung: ' + err);
+  assert.notStrictEqual(g.ship.scene, 'hafen'); assert.notStrictEqual(g.ship.scene, 'k_0107');
+  assert.ok(Locations.get(g.ship.scene), 'Szene vorhanden');
+});
+pruefe('i) W2 Kachel-Landepunkt in lpScanVon (Name, x/y wie liste) und im Kontext-Adapter (info/bekannt nach Bau/Besuch)', () => {
+  const T = neuesSpiel(); const g = T.g;
+  Sektoren.setzeKarte(testkarte());
+  space.enterScene(g, 'k_0103', {}); T.run(0.3);
+  const lp = LP.liste(g, 'k_0103').find((x) => x.id === 'k_0103.k0');
+  g.explore.lpScan.add('k_0103.k0');
+  const scan = g.explore.lpScanVon('k_0103');
+  assert.deepStrictEqual(scan, [{ id: 'k_0103.k0', name: lp.name, x: Math.round(lp.beam.x), y: Math.round(lp.beam.y) }]);
+  assert.notStrictEqual(lp.name, 'k_0103.k0');
+  const ad = CTX.lpAdapter(g);
+  const d = ad.info('k_0103.k0');
+  assert.ok(d && d.kachel === true && d.art === 'wildnis', 'info liefert die Kachel-Def');
+  assert.strictEqual(ad.bekannt('k_0103.k0'), false, 'vor dem Bau unbekannt');
+  LP.get(g, 'k_0103.k0');
+  assert.strictEqual(ad.bekannt('k_0103.k0'), true, 'nach dem Bau bekannt');
+  assert.strictEqual(CTX.lpAdapter({}).info('k_0103.k0').id, 'k_0103.k0', 'auch ohne game.landepunkte');
+  assert.strictEqual(ad.info('gibt.es.nicht'), null); assert.strictEqual(LP.info(g, 'k_0103.k0').kachel, true, 'LP.info kennt die Kachel');
+  assert.strictEqual(LP.info({}, 'carrara.k0'), null);
+});
+pruefe('i) W2 info() für Nicht-Kachel-IDs wie vorher: statische Defs und dyn', () => {
+  const g = fakeGame('carrara'); const alleIds = Object.keys(LP.defs().byId);
+  assert.ok(alleIds.length > 5);
+  for (const id of alleIds) assert.strictEqual(LP.info(g, id), LP.defs().byId[id], id);
+  g.landepunkte = { eintraege: {}, lru: [], dyn: { 'x.dyn-1': { id: 'x.dyn-1', ort: 'x' } } };
+  assert.strictEqual(LP.info(g, 'x.dyn-1'), g.landepunkte.dyn['x.dyn-1']);
+});
+pruefe('i) K1 Kartenart im Weltstand: gespeicherte Art != abgeleitete Art -> Zustände verworfen; gleich -> übernommen; Altstand ohne Feld -> übernommen', () => {
+  Sektoren.setzeKarte(testkarte()); LP.cacheLeeren();
+  const g = fakeGame('k_0103');
+  LP.eintrag(g, 'k_0103.k0').zustaende['anker.test'] = 'x';
+  const block = JSON.parse(JSON.stringify(LP.toSave(g)));
+  assert.strictEqual(block['k_0103.k0'].kartenart, LP.kachelDef('k_0103.k0').art);
+  assert.strictEqual(block['k_0103.k0'].kartenart, 'wildnis');
+  const mit = (b) => { const g2 = fakeGame('k_0103'); LP.restore({ 'k_0103.k0': b }, g2); return LP.eintrag(g2, 'k_0103.k0'); };
+  assert.deepStrictEqual(mit(Object.assign({}, block['k_0103.k0'])).zustaende, { 'anker.test': 'x' });
+  assert.deepStrictEqual(mit(Object.assign({}, block['k_0103.k0'], { kartenart: 'station' })).zustaende, {}, 'Art geändert -> verworfen');
+  const alt = Object.assign({}, block['k_0103.k0']); delete alt.kartenart;
+  assert.deepStrictEqual(mit(alt).zustaende, { 'anker.test': 'x' }, 'Altstand ohne Feld lädt unverändert');
+  assert.strictEqual(LP.kachelZustaendeGelten({ kartenart: 'a' }, { art: 'b' }), false); assert.strictEqual(LP.kachelZustaendeGelten({}, { art: 'b' }), true);
+});
+pruefe('i) K3 cacheLeeren() und neuLaden() leeren den Kachel-Cache', () => {
+  Sektoren.setzeKarte(testkarte());
+  const a = LP.kachelDef('k_0103.k0'); assert.strictEqual(LP.kachelDef('k_0103.k0'), a, 'gecached');
+  LP.cacheLeeren(); const b = LP.kachelDef('k_0103.k0'); assert.notStrictEqual(b, a, 'nach cacheLeeren neu abgeleitet'); assert.deepStrictEqual(b, a);
+  LP.neuLaden(); const c = LP.kachelDef('k_0103.k0'); assert.notStrictEqual(c, b, 'nach neuLaden neu abgeleitet');
+});
+pruefe('i) K4 eine Regel: typ-Hex mit ort ohne gen:true ist kein Kachel-Hex (datenOrt null, nicht in datenOrte); mit gen oder ohne ort schon; ohne typ unverändert', () => {
+  const k = testkarte();
+  k.hexe['0201'] = { name: 'Fest', region: 'rom', spielbar: true, typ: 'planet', ort: 'fest_ort' };
+  Sektoren.setzeKarte(k);
+  assert.strictEqual(Sektoren.istKachelHex(k.hexe['0201']), false);
+  assert.strictEqual(Sektoren.datenOrt('fest_ort'), null); assert.ok(!Sektoren.datenOrte().includes('fest_ort'));
+  assert.strictEqual(Sektoren.hatSzene('0201'), true, 'Hex bleibt ein Hex mit fest codierter Szene (ortVonHex gesetzt)');
+  for (const hx of ['0103', '0106']) assert.strictEqual(Sektoren.istKachelHex(k.hexe[hx]), true);
+  assert.strictEqual(Sektoren.istKachelHex({ typ: 'planet', ort: 'a', gen: true }), true);
+  assert.strictEqual(Sektoren.istKachelHex({ ort: 'a', gen: true }), false); assert.strictEqual(Sektoren.istKachelHex(null), false);
+  Sektoren.setzeKarte(testkarte());
+  assert.ok(Sektoren.datenOrte().includes('kachel_eigen') && Sektoren.datenOrt('kachel_eigen'));
+  for (const id of ['limes', 'sund', 'sund_frei']) {
+    const K = JSON.parse(fs.readFileSync(path.join(ROOT, 'content', 'welt', id + '.json'), 'utf8')); Sektoren.setzeKarte(K);
+    const soll = Object.keys(K.hexe).filter((h) => K.hexe[h].gen && K.hexe[h].ort).sort().map((h) => K.hexe[h].ort);
+    assert.deepStrictEqual(Sektoren.datenOrte(), soll, id);
+  }
+  Sektoren.setzeKarte(testkarte());
 });
 
 // ---- h) Mutationsproben ----

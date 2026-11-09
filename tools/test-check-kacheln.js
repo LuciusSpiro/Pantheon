@@ -49,9 +49,10 @@ pruefe('Testkarte: alle zehn Typen, [planet,planet,station] und grosser_asteroid
   assert.ok(Object.values(KARTE.hexe).some((d) => d.typ === 'grosser_asteroid'));
   assert.strictEqual(Object.values(KARTE.hexe).filter((d) => d.typ === undefined).length, 1);
 });
-pruefe('Testkarte: jeder Hex mit eigenem ort und gen:true, Orte eindeutig, Kanten zwischen Nachbarn', () => {
-  const orte = Object.values(KARTE.hexe).map((d) => d.ort);
-  assert.ok(Object.values(KARTE.hexe).every((d) => d.gen === true && d.ort && d.spielbar === true));
+pruefe('Testkarte: jeder Hex mit eigenem ort und gen:true (ausser dem typ-Hex 0304 ohne ort), Orte eindeutig, Kanten zwischen Nachbarn', () => {
+  const orte = Object.values(KARTE.hexe).map((d) => d.ort).filter(Boolean);
+  assert.ok(Object.values(KARTE.hexe).every((d) => d.spielbar === true && (d.ort ? d.gen === true : d.typ !== undefined)));   // W3: ohne ort nur mit typ (Ort-ID k_<hex>)
+  assert.deepStrictEqual(Object.keys(KARTE.hexe).filter((h) => !KARTE.hexe[h].ort), ['0304']);
   assert.strictEqual(new Set(orte).size, orte.length);
   const vorher = Sektoren.KARTE;
   try { Sektoren.setzeKarte(KARTE); for (const e of KARTE.kanten) assert.ok(Sektoren.sindNachbarn(e.a, e.b), `${e.a}-${e.b} sind keine Nachbarn`); } finally { Sektoren.setzeKarte(vorher); }
@@ -275,6 +276,54 @@ pruefe('Planetenarten der Szenen aller Typ-Hexe der Testkarte sind gezeichnet (P
   try {
     Sektoren.setzeKarte(KARTE);
     for (const [hex, d] of Object.entries(KARTE.hexe)) { const sc = Locations.get(Sektoren.ortVonHex(hex)).scene; for (const p of sc.planeten) assert.ok(T.PLANET[p.art], `${hex}: Planetenart '${p.art}' ohne Palette`); }
+  } finally { Sektoren.setzeKarte(vorher); }
+});
+
+// ---------- d) Sternkarte (W3): typ-Hex ohne eigenes ort ----------
+// StarMap im vm mit dem echten Shared_Sektoren; starmapQuelle erlaubt die Mutationsprobe (alte prep-Zeile)
+const starmapQuelle = () => fs.readFileSync(path.join(ROOT, 'public', 'js', 'starmap.js'), 'utf8');
+function sternkarteTreffer(src) {
+  const vm = require('vm');
+  const calls = []; const fehlerListe = [];
+  const rec = () => new Proxy({}, { get: (t, k) => (k in t ? t[k] : (...a) => { calls.push(k); }), set: (t, k, v) => { t[k] = v; return true; } });
+  const win = {}; let alt = 0;
+  win.Net = { reportError: (l, e) => fehlerListe.push(l + ': ' + (e && e.message)), on() { return () => {}; } };
+  win.Render = { text() {}, measure: (s) => String(s).length * 5, wrap: (s) => [String(s)], worldOf: (st) => st.world, drawPin() {}, drawStarMapAlt() { alt++; } };
+  win.Shared_Sektoren = Sektoren;
+  const ctxVm = { window: win, self: win, document: { createElement: () => ({ getContext: rec, width: 0, height: 0 }) }, console };
+  vm.createContext(ctxVm);
+  for (const f of ['kartenzeichen.js']) vm.runInContext(fs.readFileSync(path.join(ROOT, 'public', 'js', f), 'utf8'), ctxVm, { filename: f });
+  vm.runInContext(src, ctxVm, { filename: 'starmap.js' });
+  const SM = win.StarMap;
+  SM.setKarte(KARTE);
+  const state = { ship: { scene: 'k_0304', jump: {} }, world: { location: 'k_0304', locations: [
+    { id: 'k_0304', name: 'Namenlos', known: true, visited: true, links: [] }, { id: 'kt_0303', name: 'Dreiklang', known: true, visited: true, links: [] } ] },
+  space: {}, plan: { pins: [] } };
+  const rect = { x: 0, y: 0, w: 640, h: 360 };
+  SM.draw(rec(), { state, time: 3, mouse: null, actions: {} }, rect, {});
+  const m = SM.hexMitte('0304');
+  const treffer = m ? SM.hit(m.x, m.y, null) : 'keine Hexmitte';
+  return { alt, fehlerListe, treffer };
+}
+pruefe('Sternkarte: typ-Hex ohne ort (0304 = k_0304) ist wählbar (Klick liefert Ort und Hex), ohne Rückfall auf die Punktkarte', () => {
+  const vorher = Sektoren.KARTE;
+  try {
+    Sektoren.setzeKarte(KARTE);
+    assert.strictEqual(Sektoren.ortVonHex('0304'), 'k_0304'); assert.strictEqual(Sektoren.hexVonOrt('k_0304'), '0304');
+    const r = sternkarteTreffer(starmapQuelle());
+    assert.deepStrictEqual(r.fehlerListe, []); assert.strictEqual(r.alt, 0);
+    assert.strictEqual(JSON.stringify(r.treffer), JSON.stringify({ id: 'k_0304', hex: '0304' }));
+  } finally { Sektoren.setzeKarte(vorher); }
+});
+pruefe('Mutation Sternkarte: alte prep-Zeile (nur K.hexe[h].ort) -> das ort-lose typ-Hex ist nicht wählbar', () => {
+  const vorher = Sektoren.KARTE;
+  try {
+    Sektoren.setzeKarte(KARTE);
+    const src = starmapQuelle();
+    const von = "const o = d && (d.ort || (d.typ !== undefined && SS && typeof SS.kachelOrt === 'function' ? SS.kachelOrt(h) : null));";
+    assert.ok(src.includes(von), 'Mutationsstelle fehlt');
+    const r = sternkarteTreffer(src.replace(von, () => 'const o = d && d.ort;'));
+    assert.strictEqual(r.treffer, null);
   } finally { Sektoren.setzeKarte(vorher); }
 });
 

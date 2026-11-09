@@ -126,6 +126,14 @@
     "station"
    ]
   },
+  "0304": {
+   "name": "Namenlos",
+   "fraktion": "frei",
+   "art": "Testsektor",
+   "region": "test",
+   "spielbar": true,
+   "typ": "planet"
+  },
   "0401": {
    "name": "Altbestand",
    "fraktion": "frei",
@@ -229,6 +237,11 @@
   {
    "a": "0102",
    "b": "0202",
+   "art": "open"
+  },
+  {
+   "a": "0303",
+   "b": "0304",
    "art": "open"
   }
  ],

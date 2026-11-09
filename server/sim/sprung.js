@@ -57,7 +57,7 @@ function hexHier(game) { return Sektoren.hexVonOrt(game.ship.scene); }
 // Ziel aus cmd: Ort-ID, 'leer-<hex>' oder Hex-Code -> Ort-ID (bzw. Leerraum-ID); Hex ohne Raumszene -> null
 function zielId(dest) {
   if (typeof dest !== 'string') return null;
-  if (/^\d{4}$/.test(dest)) return Sektoren.ortVonHex(dest);
+  if (/^\d{4}$/.test(dest)) return Sektoren.hatSzene(dest) ? Sektoren.ortVonHex(dest) : null;
   return dest;
 }
 // Lage des Sprungpunkts der Kante here -> nach in der aktuellen Szene (bzw. in der Szene von `ort`)
@@ -83,7 +83,7 @@ function amSprungpunkt(game, kanteId) {
 function nachbarOrte(game, ort) {
   const here = Sektoren.hexVonOrt(ort);
   if (!here) return [];
-  return Sektoren.nachbarn(here).filter((h) => Sektoren.spielbar(h) && !Sektoren.istLeerraum(h) && Sektoren.ortVonHex(h)
+  return Sektoren.nachbarn(here).filter((h) => Sektoren.spielbar(h) && !Sektoren.istLeerraum(h) && Sektoren.hatSzene(h)
     && game.explore.kanteOffen(Sektoren.kanteId(here, h))).map((h) => Sektoren.ortVonHex(h));
 }
 
@@ -293,7 +293,7 @@ function selectDest(game, dest) {
 function notsprungKandidaten(game) {
   const here = hexHier(game);
   if (!here) return [];
-  let c = Sektoren.nachbarn(here).filter((h) => Sektoren.spielbar(h) && Sektoren.ortVonHex(h)
+  let c = Sektoren.nachbarn(here).filter((h) => Sektoren.spielbar(h) && Sektoren.hatSzene(h)   // W1: nie in ein Hex ohne baubare Szene
     && (!Sektoren.istVerborgen(h) || game.explore.kanteOffen(Sektoren.kanteId(here, h)))   // SL1: verborgene Hexe nur über enthüllte Kante
     && !(Sektoren.hexDaten(h) && Sektoren.hexDaten(h).notsprung === false));   // SL3: Hex mit "notsprung": false ist nie Ziel eines Notfallsprungs (z. B. Helix nur über temporären Sprungpunkt)
   // EK7: Solange das Tutorial läuft, führt der Notfallsprung nie aus dem Saumraum hinaus (Statio Limitis grenzt an den Splittergürtel)

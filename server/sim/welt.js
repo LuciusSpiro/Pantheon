@@ -47,7 +47,8 @@ function waehle(game, id) {
     Sektoren.setzeKarte(doc);
     if (game && typeof game.broadcast === 'function') {
       const k = Sektoren.fuerClient();
-      if (k) { try { game.broadcast(Object.assign({ t: 'sektorkarte', sektorkarte: k }, katalogFuerClient() ? { sektortypen: katalogFuerClient() } : {})); } catch (e) { if (game.countError) game.countError('welt-broadcast', e); } }
+      const katalog = katalogFuerClient();   // K5: einmal je Broadcast
+      if (k) { try { game.broadcast(Object.assign({ t: 'sektorkarte', sektorkarte: k }, katalog ? { sektortypen: katalog } : {})); } catch (e) { if (game.countError) game.countError('welt-broadcast', e); } }
     }
   }
   if (game) game.weltId = Sektoren.kartenId();

@@ -41,7 +41,7 @@ function defs() {
   }
   return DEF;
 }
-function neuLaden() { DEF = null; return defs(); }
+function neuLaden() { DEF = null; kachelCache = { version: -1, defs: new Map() }; return defs(); }   // K3: auch die abgeleiteten Kachel-Defs neu
 
 // ---------- Laufzeitzustand: game.landepunkte = { eintraege: { lpId: Eintrag }, lru: [lpId], dyn: { lpId: Def } } ----------
 // halten: { lpId: missionId } – Karte der laufenden Mission (Besetzung/Setup), wird nicht verdrängt (F1)
@@ -55,6 +55,8 @@ function st(game) {
 }
 function istHand(id) { return W.istHand(id); }
 function def(game, lpId) { return defs().byId[lpId] || st(game).dyn[lpId] || kachelDef(lpId); }
+// W2: Definition eines Landepunkts nur lesend (Datei, Laufzeit-dyn, Kachel); legt game.landepunkte nie an. Die einzige Lookup-Regel für Leser außerhalb dieses Moduls (explore.lpScanVon, Kontext-Adapter).
+function info(game, lpId) { const S = game && game.landepunkte; return defs().byId[lpId] || (S && S.dyn && S.dyn[lpId]) || kachelDef(lpId) || null; }
 function eintrag(game, lpId) {
   const S = st(game);
   if (S.eintraege[lpId]) return S.eintraege[lpId];
@@ -405,6 +407,7 @@ function cacheKey(lpId, e) { return [lpId, e.seed, e.art, e.schablone, e.bauweis
 // cacheLeeren(art?): Karten-Cache dieser Kartenart (ohne art: ganz) leeren (Werkstatt nach dem Speichern eines Moduls). -> Zahl
 function cacheLeeren(art) {
   let n = 0; FEST.clear();   // BOD-01: Definitionen fester Karten neu lesen
+  kachelCache = { version: -1, defs: new Map() };   // K3: die abgeleiteten Kachel-Defs lesen Buehne-Achsen (Zustand), nach einem Cache-Leeren neu ableiten
   for (const k of Array.from(KARTEN_CACHE.keys())) if (!art || k.split('|')[2] === art) { KARTEN_CACHE.delete(k); n++; }
   return n;
 }
@@ -700,11 +703,15 @@ function hatAdern(game, lpId) {
 const FELDER = ['seed', 'bauversion', 'schablone', 'art', 'bauweise', 'besitz', 'zustand', 'zustaende', 'alarm', 'besuche', 'letzte_mission', 'neu', 'gesperrt', 'abbau_runde'];   // abbau_runde: GEL-03 C (additiv, Standard 0, VERSION bleibt 3)
 // KAC-01 C: Weltstand-Eintrag eines Kachel-Landepunkts: nur Zustände/Besuche (Seed, Art, Besitz, Lage leitet kachelDef aus dem Hex ab; bauversion erkennt einen neuen Erzeugerstand)
 const KACHEL_FELDER = ['bauversion', 'zustaende', 'alarm', 'besuche', 'letzte_mission', 'neu', 'abbau_runde'];
-function kachelZustand(e) {
+// K1: Die Körper-Indizes eines typ-Hexes hängen an EINEM Zufallsstrom über alle Vorlagen; ein Katalogwechsel kann die Art eines Körpers ändern (wildnis -> station), seine
+// Anker-IDs sind dann andere. Gespeicherte Zustände gelten nur, wenn die abgeleitete Kartenart noch die gespeicherte ist (Altstände ohne `kartenart` gelten, die bauversion prüft mitZustaenden).
+function kachelZustaendeGelten(block, def) { return !(block && typeof block.kartenart === 'string' && def && def.art !== block.kartenart); }
+function kachelZustand(e, kartenart) {
   const o = {};
   for (const f of KACHEL_FELDER) o[f] = e[f] === undefined ? null : JSON.parse(JSON.stringify(e[f]));
   if (!o.zustaende) o.zustaende = {};
   o.alarm = !!o.alarm; o.besuche = o.besuche | 0; o.abbau_runde = abbauRundeKlemmen(o.abbau_runde); o.neu = !!o.neu;
+  if (kartenart) o.kartenart = kartenart;   // K1: additiv, Weltstand-Version bleibt 3
   return o;
 }
 function toSave(game) {
@@ -714,7 +721,7 @@ function toSave(game) {
   for (const id of Object.keys(S.eintraege).sort()) {
     if (S.dyn[id] && (S.dyn[id].test || S.dyn[id].fluechtig)) continue;   // Testgelände-Landepunkte nie in den Weltstand (F6); fluechtig: Schrein des Finales (SUND-04a-3), das nicht speicherbar ist
     const e = S.eintraege[id];
-    if (!defs().byId[id] && !S.dyn[id] && kachelDef(id)) { out[id] = kachelZustand(e); continue; }   // KAC-01 C: nur Zustände, keine Definition
+    if (!defs().byId[id] && !S.dyn[id] && kachelDef(id)) { out[id] = kachelZustand(e, kachelDef(id).art); continue; }   // KAC-01 C: nur Zustände, keine Definition
     const o = {};
     for (const f of FELDER) o[f] = e[f] === undefined ? null : JSON.parse(JSON.stringify(e[f]));
     if (!o.zustaende) o.zustaende = {};
@@ -744,6 +751,10 @@ function restore(block, game) {
     const e = eintrag(game, id);
     if (!e) continue;
     for (const f of kachel ? KACHEL_FELDER : FELDER) if (b[f] !== undefined && b[f] !== null) e[f] = JSON.parse(JSON.stringify(b[f]));
+    if (kachel && !kachelZustaendeGelten(b, kachelDef(id))) {   // K1: Katalog hat die Kartenart dieses Körpers geändert -> alte Zustände gehören zu einer anderen Karte
+      log(game, `${id}: Kartenart ${b.kartenart} -> ${kachelDef(id).art}, ${Object.keys(e.zustaende || {}).length} Zustände verworfen`);
+      e.zustaende = {}; e.bauversion = null;
+    }
     if (!e.zustaende || typeof e.zustaende !== 'object') e.zustaende = {};
     e.abbau_runde = abbauRundeKlemmen(e.abbau_runde);   // Altstand ohne Feld: 0; Obergrenze ABBAU_RUNDE_MAX (K3)
     if (defs().byId[id] && defs().byId[id].gesperrt) e.gesperrt = true;   // Datei gewinnt (E33)
@@ -823,7 +834,7 @@ function debug(game, cmd, args, p) {
 
 module.exports = {
   MAX_GEBAUT, bauweiseFuerBesitz, vorwaermen, defs, neuLaden, get, karte, bauen, vorbauen, vorbauenOrt, verwerfen, liste, waehlen, sperrgrund, beamSpot, betreten, freigeben, neu, prise, priseVerlassen,
-  biomVonOrt, hoehleVonOrt, kachelDef, kachelListe, nutztGenerator, priseSeed, hatAdern, ABBAU_RUNDE_MAX,   // GEL-01 B; GEL-03 Nacharbeit
+  biomVonOrt, hoehleVonOrt, kachelDef, kachelListe, kachelZustaendeGelten, info, nutztGenerator, priseSeed, hatAdern, ABBAU_RUNDE_MAX,   // GEL-01 B; GEL-03 Nacharbeit
   toSave, restore, ankerZahlen, debug, sichern, eintrag, festkarte,   // BOD-01: feste Karten
   bereit, sobaldGeladen, zuruecksetzen, testgelaende, cacheLeeren, wildnisErzeugerSetzen,   // F1, F6, F9b
 };
