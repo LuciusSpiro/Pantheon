@@ -45,7 +45,7 @@
       "id": "station", "name": "Station", "icon": "station",
       "szene": { "sterne": [1, 1], "bojen": [2, 4], "brocken": [0, 0], "nebel": false, "zonen": null },
       "koerper": [
-        { "id": "station", "art": "station", "anzahl": [1, 1], "radius": [60, 60], "landbar": true, "beam": { "extra": 200 } },
+        { "id": "station", "art": "station", "anzahl": [1, 1], "radius": [60, 60], "landbar": true, "beam": { "extra": 260 } },
         { "id": "kulisse", "art": "planet", "anzahl": [0, 1], "radius": [110, 230], "arten": ["fels", "eis", "ozean"], "landbar": false }
       ],
       "boden": { "kartenart": "station", "biom": null },
@@ -98,7 +98,7 @@
       "id": "piratenlager", "name": "Piratenlager", "icon": "lager",
       "szene": { "sterne": [1, 1], "bojen": [2, 4], "brocken": [14, 14], "nebel": false, "zonen": null },
       "koerper": [
-        { "id": "lager", "art": "siedlung", "anzahl": [1, 1], "radius": [60, 60], "landbar": true, "beam": { "extra": 200 } }
+        { "id": "lager", "art": "siedlung", "anzahl": [1, 1], "radius": [60, 60], "landbar": true, "beam": { "extra": 260 } }
       ],
       "boden": { "kartenart": "aussenposten", "biom": null },
       "quelle": [],

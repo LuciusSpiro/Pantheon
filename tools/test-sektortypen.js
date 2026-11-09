@@ -46,8 +46,8 @@ pruefe('gasriese, asteroidenfeld, nebel, leerraum: keine Landung, keine Kartenar
     assert.ok(!t.koerper.some((k) => k.landbar), id);
   }
 });
-pruefe('landbare Koerper tragen beam.extra 200 (Radius + 200 wie die Erkundung)', () => {
-  for (const t of S.katalog().typen) for (const k of t.koerper) if (k.landbar) assert.strictEqual(k.beam.extra, 200, `${t.id}.${k.id}`);
+pruefe('landbare Koerper tragen beam.extra: Planet/Asteroid 200, Station/Siedlung 260 (range 320 wie die Landepunkte)', () => {
+  for (const t of S.katalog().typen) for (const k of t.koerper) if (k.landbar) assert.strictEqual(k.beam.extra, k.art === 'station' || k.art === 'siedlung' ? 260 : 200, `${t.id}.${k.id}`);
 });
 pruefe('Planet: 1 landbarer Planet plus 0..1 Kulisse', () => {
   const [haupt, kul] = S.typ('planet').koerper;
