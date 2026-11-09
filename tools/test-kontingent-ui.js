@@ -6,6 +6,7 @@
 //  3. Modell gegen einen ECHTEN Server (Game im Live-Modus, Zähler per addUsage auf 54 000 von 60 000): Snapshot -> Modell, Befehl des Captains -> Antwort -> Snapshot,
 //     Nicht-Captain bekommt die Absage, ohne Live-Schalter kein Block
 // Die Erwartungen stehen hier selbst. Aufruf: node tools/test-kontingent-ui.js   (npm run test:kontingent-ui)
+const fs = require('fs');
 const path = require('path');
 process.chdir(path.join(__dirname, '..'));
 process.env.MISSION_SOURCE = 'fallback';
@@ -156,6 +157,69 @@ section('Gegen den echten Server (Live-Modus, Zähler 54 000 von 60 000)');
     const u = X.spiel({ names: ['ZEBRAKAI'], env: Object.assign({}, LIVE, { SPIELLEITER_LLM: 'off' }) });
     u.g.players[0].console = 'captain'; u.g.step(); feed(u.g);
     ok(K.store.block === null && K.modell('captain', 0) === null, 'ohne Live-Schalter: nie ein Block, nie ein Modell');
+    // ---- M3: der Client leitet die Rolle wie der Server ab (Consoles.stationOf = Station.stationOf: p.station || p.console), nie aus console allein
+    {
+      const Station = require('../server/sim/station.js');
+      const src = fs.readFileSync(path.join(__dirname, '..', 'public', 'js', 'consoles.js'), 'utf8');
+      const zeile = /stationOf\(me\) \{[^\n]*\}/.exec(src);   // die ECHTE Zeile aus consoles.js, nicht eine Kopie im Test
+      ok(!!zeile, 'consoles.js: Consoles.stationOf gefunden');
+      const Consoles = new Function('return ({ ' + zeile[0] + ' })')();
+      const befehle = [];
+      const stub = () => { const st = {}; const f = function () {}; const p = new Proxy(f, { get: (t, k) => (k === 'style' ? st : k in t ? t[k] : p), apply: () => p, set: (t, k, v) => { t[k] = v; return true; } }); return p; };
+      const lokal = (me) => ({ pid: 7, state: { phase: 'play', players: [Object.assign({ id: 7 }, me)] } });
+      const laden = (me) => {
+        const c = lokal(me);
+        global.window = { Kontingent: K, Client: Object.assign({ pid: 7 }, { state: c.state }), Net: { on() {}, send: (m) => { befehle.push(m); return true; } }, Tasten, Consoles };
+        global.Client = global.window.Client; global.Consoles = Consoles; global.Net = global.window.Net; global.Tasten = Tasten;
+        global.document = { createElement: stub, head: { appendChild() {} }, body: { appendChild() {} } };
+        delete require.cache[require.resolve('../public/js/kontingent-ui.js')];
+        require('../public/js/kontingent-ui.js');
+        return global.window.KontingentUi;
+      };
+      const UI = laden({ console: 'captain', station: 'helm' });
+      LLM.resetBudget(); LLM.setBudgetLimit(60000); LLM.addUsage(54000);
+      const S = X.spiel({ names: ['ZEBRAKAI', 'Mireille_Kas'], crew: 2, env: LIVE });
+      S.g.players.forEach((p) => { p.zone = 'ship'; });
+      const pCap = S.g.players[0], pHelm = S.g.players[1];
+      // (a) Captain-Konsole, aber Tab auf dem Steuer-Interface: der Server weist ab, der Client darf nicht freigeben
+      pCap.console = 'captain'; pCap.station = 'helm';
+      let ui = laden({ console: 'captain', station: 'helm' });
+      reset(); K.lesen(snap(ERREICHT));
+      ok(ui.konsole() === 'helm' && ui.konsole() === Station.stationOf(pCap), '(a) Captain-Konsole mit Tab Steuer-Interface: Client-Rolle helm = Server-Rolle');
+      befehle.length = 0;
+      ok(ui.taste({ code: 'KeyK', shiftKey: true, preventDefault() {}, repeat: false }) === true && befehle.length === 0, '(a) Taste Umschalt+K: nichts gesendet (Server würde absagen)');
+      ok(K.modell(ui.konsole(), 0).bedienbar === false, '(a) Meldung zeigt den Hinweis "nur Captain", Knopf gesperrt');
+      S.g.handleMessage(S.cs[0], { t: 'cmd', c: 'kontingent.freigeben' });
+      ok(LLM.budget().limit === 60000, '(a) Server-Gegenprobe: Captain-Konsole auf dem Steuer-Interface darf nicht freigeben');
+      // (b) Helm-Spieler mit Tab auf dem Captain-Interface: der Server gibt frei, also muss der Client senden
+      pHelm.console = 'helm'; pHelm.station = 'captain';
+      ui = laden({ console: 'helm', station: 'captain' });
+      reset(); K.lesen(snap(ERREICHT));
+      ok(ui.konsole() === 'captain' && ui.konsole() === Station.stationOf(pHelm), '(b) Helm-Konsole mit Tab Captain-Interface: Client-Rolle captain = Server-Rolle');
+      befehle.length = 0;
+      ok(ui.taste({ code: 'KeyK', shiftKey: true, preventDefault() {}, repeat: false }) === true && befehle.length === 1 && befehle[0].c === 'kontingent.freigeben', '(b) Taste Umschalt+K: Befehl gesendet');
+      S.g.handleMessage(S.cs[1], befehle[0]);
+      ok(LLM.budget().limit === 560000, '(b) Server-Gegenprobe: Freigabe wirkt (Limit 560 000)');
+      // ohne station wie bisher: nur die Konsole zählt
+      ui = laden({ console: 'captain' });
+      ok(ui.konsole() === 'captain', 'ohne p.station: console captain -> captain');
+      ui = laden({ console: null, station: 'captain' });
+      ok(ui.konsole() === null, 'ohne Konsole zählt ein veraltetes station nie (wie der Server)');
+      delete global.window; delete global.Client; delete global.Consoles; delete global.Net; delete global.Tasten; delete global.document;
+    }
+    // ---- M3: lehnt der Server per notice ab (kein kontingentAntwort), zeigt der Streifen die Absage, der Knopf hängt nicht im Wartezustand
+    {
+      reset(); K.lesen({ t: 'welcome', pid: 7 }); K.lesen(snap(ERREICHT));
+      const l = gesendet(); K.freigeben(l.send, 'captain', 0);
+      K.lesen({ t: 'event', kind: 'notice', pid: 9, text: 'fremde Meldung' });
+      ok(K.modell('captain', 10).wartet && K.modell('captain', 10).antwort === null, 'notice an einen anderen Spieler: ändert nichts');
+      K.lesen({ t: 'event', kind: 'notice', pid: 7, text: 'Dafür musst du an der passenden Konsole sein.' });
+      m = K.modell('captain', 20);
+      ok(!m.wartet && m.aktiv && m.antwort && m.antwort.ok === false && m.antwort.text === 'Dafür musst du an der passenden Konsole sein.', 'notice des Servers nach dem Befehl: Absage als Text sichtbar, Knopf wieder frei');
+      reset(); K.lesen({ t: 'welcome', pid: 7 }); K.lesen(snap(ERREICHT));
+      K.lesen({ t: 'event', kind: 'notice', pid: 7, text: 'irgendein notice' });
+      ok(K.modell('captain', 0).antwort === null, 'notice ohne laufenden Befehl: nicht als Absage gezeigt');
+    }
   } catch (e) { fails++; n++; console.log('  FEHLER Ausnahme: ' + (e && e.stack ? e.stack.split('\n').slice(0, 4).join(' | ') : e)); }
   LLM.resetBudget();
   console.log(`\n${n - fails}/${n} ok` + (fails ? `, ${fails} FEHLER` : ''));

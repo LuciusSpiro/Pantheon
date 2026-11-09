@@ -179,6 +179,27 @@ check('8 Claude hoechstens 10 Aufrufe, im Werkzeug dokumentiert', /Math\.min\(n 
   check('9 messe-lage live: Aufnahmen und Logbuch im Lauf-Ordner, Fehler im Logbuch', o9b && fs.existsSync(path.join(o9b, 'abend1', 'regie')) && /"ausgang":"fehler"/.test(fs.readFileSync(path.join(o9b, 'abend1', 'logbuch.jsonl'), 'utf8')));
 }
 
+// ---------- 10 N7 (a): --auswerten prueft den Ordner wie --out (nie im Repo)   (b): gleicher Median in Konsole und index.md   N6: Kontingent im Index
+{
+  const shots = path.join(ROOT, 'shots'), vorherListe = fs.existsSync(shots) ? fs.readdirSync(shots).join('|') : null;
+  const r10 = lauf('messe-lage.js', ['--auswerten', shots], TMP);
+  check('10 messe-lage --auswerten <Ordner im Repo>: Exit 2, Meldung nennt den Ordner, nichts geschrieben', r10.code === 2 && /liegt im Repo/.test(r10.text) && /--auswerten/.test(r10.text) && (vorherListe === null || fs.readdirSync(shots).join('|') === vorherListe), r10.text);
+  const r10b = lauf('messe-lage.js', ['--auswerten', path.relative(TMP, ROOT)], TMP);
+  check('10 messe-lage --auswerten mit relativem Pfad ins Repo: ebenfalls Exit 2', r10b.code === 2 && /liegt im Repo/.test(r10b.text), r10b.text);
+  const MA = require('./messe-abenteuer.js');
+  check('10 Konsolen-Median = Ablage.median (gerade Anzahl: Mittel der beiden mittleren, nicht dauer[floor(n/2)])', MA.dauerText([1, 2, 3, 10]) === 'Median 2,5 s, max 10 s' && MA.dauerText([1, 2, 9]) === 'Median 2 s, max 9 s' && MA.dauerText([]) === 'Median – s, max – s' && MA.dauerText([4, 1]) === 'Median 2,5 s, max 4 s', [1, 2, 3, 10].map(String).join() + ' -> ' + MA.dauerText([1, 2, 3, 10]));
+  // N6: Kontingent im Index (CLAUDE_TOKEN_BUDGET=1: Schwelle 0, der Zaehler ist am Anfang "erreicht")
+  const out10 = path.join(TMP, 'kontingent-lage');
+  const r10c = lauf('messe-lage.js', ['--mock', '--abend', '1', '--spruenge', '30', '--plaene', '1', '--out', out10], TMP, { CLAUDE_TOKEN_BUDGET: '1' });
+  const o10 = fs.existsSync(out10) ? laufOrdner(out10)[0] : null;
+  const idx10 = o10 && fs.existsSync(path.join(o10, 'index.md')) ? fs.readFileSync(path.join(o10, 'index.md'), 'utf8') : '';
+  check('10 index.md: Abend mit erreichtem Kontingent ist ausdruecklich als gesperrt ausgewiesen, Zaehler prozessweit', r10c.code === 0 && /Kontingent erreicht: Abend 1 war wegen des Kontingents gesperrt/.test(idx10) && /prozessweit/.test(idx10) && /spaeteren|späteren Abende/.test(idx10), r10c.text + idx10.slice(0, 600));
+  const mj10 = o10 && fs.existsSync(path.join(o10, 'messung.json')) ? JSON.parse(fs.readFileSync(path.join(o10, 'messung.json'), 'utf8')) : { abende_ergebnis: [] };
+  check('10 messung.json: zusammenfassung.kontingent_gesperrt wahr', mj10.abende_ergebnis.length === 1 && mj10.abende_ergebnis[0].zusammenfassung.kontingent_gesperrt === true);
+  const idxNormal = fs.existsSync(path.join(o5, 'index.md')) ? fs.readFileSync(path.join(o5, 'index.md'), 'utf8') : '';
+  check('10 ohne erreichtes Kontingent (Lauf 5): keine Sperr-Zeile, aber der Hinweis auf den prozessweiten Zaehler', !/war wegen des Kontingents gesperrt/.test(idxNormal) && /prozessweit/.test(idxNormal) && JSON.parse(fs.readFileSync(path.join(o5, 'messung.json'), 'utf8')).abende_ergebnis.every((a) => a.zusammenfassung.kontingent_gesperrt === false));
+}
+
 // ---------- Repo bleibt sauber
 check('Repo: keine Ablage-Dateien entstanden (git status)', repoSpuren().join('\n') === spurenVorher, repoSpuren().join('\n'));
 

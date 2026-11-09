@@ -180,6 +180,7 @@ class AbenteuerSpielleiter {
   eskalieren(job, grund) {
     const llm = this.lage.llm;
     if (this.job !== job || this.eskalationAus || job.eskaliert || !job.input || !llm || typeof llm.eskalationMoeglich !== 'function' || !llm.eskalationMoeglich('abenteuer', STUFE)) return false;
+    if (Kontingent.sperrtEskalation(this.game, this.W.min_budget)) return false;   // LIV-01: die Eskalation geht an Claude und zaehlt gegen den Zaehler: ab der Schwelle nie (kein Ausweg am Gate in vormerken vorbei)
     this.zaehler.eskaliert++;
     this.schreibe(Object.assign({ ausgang: 'eskaliert', grund, begruendung: 'Anfrage geht einmal an Claude (Stufe bauplan, eskalation: true)', plan: this.planInfo(job) }));
     this.losschicken(job, true);

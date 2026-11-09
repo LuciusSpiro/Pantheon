@@ -50,6 +50,8 @@ function aufrufPruefen() {
 }
 
 // Anzahl der Aufrufe: Mock beliebig (Standard 200), Claude hoechstens 10 (kostet Geld), Ollama hoechstens 50
+// Konsolenzeile der Dauer: derselbe Median wie in index.md (Ablage.median, bei gerader Anzahl der Mittelwert der beiden mittleren), nicht dauer[floor(n/2)]
+function dauerText(dauer) { return `Median ${fmt(Ablage.median(dauer), 100)} s, max ${fmt(dauer.length ? Math.max(...dauer) : null, 100)} s`; }
 function aufrufZahl(modus, n) { return modus === 'claude' ? Math.min(n || 10, 10) : modus === 'ollama' ? Math.min(n || 10, 50) : (n || 200); }
 // gleiche Typenfolge wie die vorige: Anzahl der Wiederholungen hintereinander
 function wiederholungen(folgen) { let n = 0; for (let i = 1; i < folgen.length; i++) if (folgen[i] === folgen[i - 1]) n++; return n; }
@@ -214,7 +216,7 @@ async function main() {
   console.log(`Ablehnquote je Code (Anteil an allen Aufrufen): ${sortiert(zaehl.abgelehnt)}`);
   if (ausfall) console.log(`Ausfälle je Code: ${sortiert(zaehl.ausfall)}`);
   console.log(`Wiederholungsrate (gleiche Typenfolge wie die vorige lesbare Antwort): ${wiederholt} von ${Math.max(0, folgen.length - 1)} (${prozent(wiederholt, Math.max(0, folgen.length - 1))}); ${new Set(folgen).size} verschiedene Typenfolgen in ${folgen.length} lesbaren Antworten`);
-  console.log(`Tokens: ${fmt(zaehl.tokens)} (je Aufruf ${gesamt ? fmt(zaehl.tokens / gesamt) : '–'}); Dauer je Aufruf: Median ${fmt(dauer[Math.floor(dauer.length / 2)], 100)} s, max ${fmt(dauer[dauer.length - 1], 100)} s; Geld: ${zaehl.geldBekannt ? (Math.round(zaehl.geld * 10000) / 10000).toLocaleString('de-DE', { maximumFractionDigits: 4 }) + ' USD' : 'nicht gemeldet'}; Laufzeit ${fmt((Date.now() - t0) / 1000, 10)} s`);
+  console.log(`Tokens: ${fmt(zaehl.tokens)} (je Aufruf ${gesamt ? fmt(zaehl.tokens / gesamt) : '–'}); Dauer je Aufruf: ${dauerText(dauer)}; Geld: ${zaehl.geldBekannt ? (Math.round(zaehl.geld * 10000) / 10000).toLocaleString('de-DE', { maximumFractionDigits: 4 }) + ' USD' : 'nicht gemeldet'}; Laufzeit ${fmt((Date.now() - t0) / 1000, 10)} s`);
   if (modus === 'mock') console.log('Hinweis: Mock-Werte pruefen die Kette und das Werkzeug; sie sagen nichts ueber die Qualitaet eines echten Modells (dafuer --live bzw. --anbieter).');
   g.errors && console.log(`Serverfehler im Lauf: ${g.errors}`);
   if (ordner) {
@@ -226,4 +228,4 @@ async function main() {
   sl.dispose();
 }
 if (require.main === module) main().then(() => process.exit(process.exitCode || 0), (e) => { console.error('Abbruch: ' + (e && e.stack)); process.exit(1); });
-module.exports = { wiederholungen, prozent, aufrufZahl };
+module.exports = { wiederholungen, prozent, aufrufZahl, dauerText };

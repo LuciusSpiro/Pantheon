@@ -59,6 +59,7 @@ function aufrufLesen() {
     try { o.wurzel = Ablage.wurzelPruefen(a && !a.startsWith('--') ? a : '', START_CWD); } catch (e) { fehler(e.message); }
   } else o.wurzel = path.join(os.tmpdir(), 'pantheon-messung');
   if (!o.auswerten) { try { Ablage.wurzelPruefen(o.wurzel, START_CWD); } catch (e) { fehler(e.message); } }
+  else { try { Ablage.wurzelPruefen(o.auswerten, START_CWD); } catch (e) { fehler(e.message.replace(/^--out /, '--auswerten ')); } }   // auch die Auswertung schreibt in den Ordner: nie im Repo
   return o;
 }
 
@@ -295,6 +296,8 @@ async function abend(cfg, o, dir, modus) {
     nr: cfg.nr, modus, seed: cfg.seed, stil: cfg.stil, spruenge: sprueng, tickEnde: ws.tickZahl, wall_s: (Date.now() - t0) / 1000, abbruch, grenzen,
     aufrufe: sl ? sl.aufrufe : 0, abenteuer_aufrufe: sl && sl.abenteuer ? sl.abenteuer.aufrufe : 0, status: sl ? sl.status() : null, zaehler: sl ? sl.zaehler : null,
     budget: { limit: budget1.limit, vorher_used: budget0.used, nachher_used: budget1.used, zaehler_delta: budget1.used - budget0.used, calls: budget1.calls }, kontingent: g.world && g.world.kontingent !== undefined ? g.world.kontingent : undefined,
+    // LIV-01: der Zaehler (BUDGET) gilt prozessweit, nicht je Abend: war die Schwelle erreicht, fragte der Spielleiter dieses Abends (und aller spaeteren) nicht mehr; index.md weist das aus
+    kontingent_gesperrt: logbuch.some((e) => e.art === 'kontingent' && e.ausgang === 'erreicht') || require('../server/sim/kontingent.js').erreicht(),
     fehlerServer: g.errors, angriffe_gesamt: z.angriffe.length, eroberungen: (ws.ereignisse || []).filter((e) => e.typ === 'hafen_gefallen').length, ereignisTypen: zaehle(ws.ereignisse || [], 'typ'), reise: ws.reise,
   };
   fs.writeFileSync(log('zusammenfassung.json'), JSON.stringify(sum, null, 1));
@@ -498,6 +501,9 @@ function indexSchreiben(lauf, o, modus, ergebnisse, A, t0, kopf) {
   L.push('## Zusammenfassung', '', `- Laufzeit ${f((Date.now() - t0) / 1000, 10)} s; Abende ${o.abende.join(', ')}; FAEDEN ${o.faeden ? 'an' : 'aus'}`,
     `- Tokens gegen CLAUDE_TOKEN_BUDGET: ${f(bud)} von ${f(LLM.budget().limit)} (${LLM.budget().limit ? f((100 * bud) / LLM.budget().limit, 100) + ' %' : '–'}); der Zähler zählt nur Claude-Läufe`);
   for (const [n, s] of [['Lage-Pläne', A.lage], ['Abenteuer-Pläne', A.abenteuer]]) L.push(`- ${n}: ${s.n}; ${Object.entries(s.ausgaenge).map(([k, v]) => `${k} ${v}`).join(', ') || '–'}; Dauer Median ${f(s.dauer_median_s, 100)} s, p90 ${f(s.dauer_p90_s, 100)} s; Tokens ${f(s.tokens)}; Kosten ${s.kosten_usd != null ? f(s.kosten_usd, 10000) + ' USD' : 'nicht gemeldet'}; gleiche Pläne ${s.gleiche_plaene}`);
+  L.push('- Der Token-Zähler gilt prozessweit: alle Abende dieses Laufs teilen ihn (Limit CLAUDE_TOKEN_BUDGET, Schwelle 90 %).');
+  const gesperrt = live.filter((e) => e.sum.kontingent_gesperrt);
+  if (gesperrt.length) L.push(`- **Kontingent erreicht: Abend ${gesperrt.map((e) => e.nr).join(', ')} war wegen des Kontingents gesperrt** (Zähler ab der Schwelle von ${f(require('../server/sim/kontingent.js').schwelle())} Tokens). Der Spielleiter fragte dort nicht mehr; die Pläne dieser Abende kommen aus dem Rückfall, nicht vom Modell, und alle späteren Abende dieses Laufs sind ebenfalls gesperrt. Neuer Lauf oder höheres CLAUDE_TOKEN_BUDGET nötig.`);
   L.push('- Auswertung der vier Befunde: [auswertung.md](auswertung.md); Rohdaten: [messung.json](messung.json)', '');
   for (const art of ['lage', 'abenteuer']) {
     const zeilen = live.flatMap((e) => e.plaene.filter((p) => p.art === art));

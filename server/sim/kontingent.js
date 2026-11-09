@@ -10,6 +10,7 @@
 //   erreicht()               used >= schwelle (rein lesend)
 //   pruefen(game)            erreicht() und meldet das Erreichen einmal je Schwelle (Funk nur im Live-Modus, Logbuch immer); -> erreicht
 //   sperrt(game, minBudget)  das Gate der drei Spielleiter: pruefen(game) oder Rest < mindestRest(minBudget)
+//   sperrtClaude(game, llm, kind, stufe, minBudget)  wie sperrt, aber nur für Anfragen, die an Claude gehen (Ollama-Stufe: false); sperrtEskalation(game, minBudget): jede Eskalation geht an Claude
 //   mindestRest(minBudget)   min(minBudget, Limit - Schwelle); ist das Limit höchstens minBudget, bleibt minBudget (Anfragen wären ohnehin unmöglich)
 //   freigeben(game)          Befehl kontingent.freigeben: Limit UND Schwelle +500 000, nur wenn erreicht (Einmal-Sperre) -> null | { code, text }; Logbuch
 //   weigerung(code)          { code, text }  (codes: nicht_erreicht, fehler)
@@ -17,6 +18,7 @@
 const LLM = require('../mission/llm.js');
 
 const FREIGABE = 500000;
+const MIN_BUDGET = 30000;                        // Standard-Rest für Aufrufer ohne eigenen Wert (Text-Pool); die Spielleiter geben ihr min_budget mit
 const ANTEIL_ZAEHLER = 9, ANTEIL_NENNER = 10;   // Schwelle = 90 % des Limits (ganzzahlig gerechnet)
 const SCHRITT = 10000;                           // Schlüssel: Zähler grob in Stufen, damit der Snapshot nicht je Anfrage wechselt
 const FUNK_VON = 'Bordrechner';
@@ -56,13 +58,19 @@ function pruefen(game) {
   }
   return true;
 }
-function sperrt(game, minBudget) { return pruefen(game) || LLM.budget().remaining < mindestRest(minBudget); }
+function sperrt(game, minBudget) { const mb = minBudget == null ? MIN_BUDGET : minBudget; return pruefen(game) || LLM.budget().remaining < mindestRest(mb); }
+// Jeder Weg zu Claude fragt hier: die Eskalation geht immer an Claude; eine normale Anfrage nur, wenn die Stufe nicht bei Ollama liegt. Ollama zählt nicht gegen den Zähler und bleibt frei.
+function sperrtClaude(game, llm, kind, stufe, minBudget) {
+  if (!llm || llm.mode !== 'live') return false;
+  if (typeof llm.anbieterFuer === 'function' && llm.anbieterFuer(kind, stufe) === 'ollama') return false;
+  return sperrt(game, minBudget);
+}
+function sperrtEskalation(game, minBudget) { return sperrt(game, minBudget); }
 
 function freigeben(game) {
   if (!erreicht()) return weigerung('nicht_erreicht');   // Einmal-Sperre: nach der Freigabe liegt used unter der neuen Schwelle, ein zweiter Druck erhöht nichts
   const vor = LLM.budget();
   const b = LLM.raiseBudget(FREIGABE);
-  zustand(game).gemeldetBei = null;
   logbuch(game, { ausgang: 'freigabe', begruendung: `Kontingent freigegeben: +${FREIGABE} (Limit ${vor.limit} -> ${b.limit}, Schwelle ${schwelle()}, verbraucht ${b.used})`, budget: { used: b.used, limit: b.limit } });
   return null;
 }
@@ -78,4 +86,4 @@ function schluessel(game) {
   return [Math.floor(b.used / SCHRITT), b.limit, schwelle(), b.used >= schwelle() ? 1 : 0].join('|');
 }
 
-module.exports = { FREIGABE, live, schwelle, erreicht, pruefen, sperrt, mindestRest, freigeben, weigerung, snapshotFeld, schluessel };
+module.exports = { FREIGABE, MIN_BUDGET, sperrtClaude, sperrtEskalation, live, schwelle, erreicht, pruefen, sperrt, mindestRest, freigeben, weigerung, snapshotFeld, schluessel };

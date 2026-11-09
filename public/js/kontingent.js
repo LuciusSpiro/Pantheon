@@ -11,7 +11,7 @@
   else root.Kontingent = api;
 })(typeof self !== 'undefined' ? self : this, function (root) {
   'use strict';
-  const store = { block: null, wartet: false, wartetT: 0, antwort: null };
+  const store = { block: null, wartet: false, wartetT: 0, antwort: null, pid: null };
   const WARTE_MS = 4000;   // länger als eine Antwort braucht; bleibt sie aus (Verbindung weg), ist der Knopf wieder frei
   const KONSOLE = 'captain';   // wie der Server (CMD_CONSOLE.kontingent)
   const TEXT = {
@@ -36,7 +36,12 @@
   }
   function lesen(msg) {
     if (!msg || typeof msg !== 'object') return;
-    if (msg.t === 'welcome') { store.block = null; store.wartet = false; store.antwort = null; return; }
+    if (msg.t === 'welcome') { store.block = null; store.wartet = false; store.antwort = null; store.pid = msg.pid == null ? null : msg.pid; return; }
+    // Der Server lehnt den Befehl mit einem notice ab (falsche Konsole, kein kontingentAntwort): die Absage zeigt der Streifen, der Knopf bleibt nicht 4 s im Wartezustand
+    if (msg.t === 'event' && msg.kind === 'notice') {
+      if (store.wartet && msg.pid != null && msg.pid === store.pid) { store.wartet = false; store.antwort = { ok: false, code: 'notice', text: str(msg.text, 120), limit: store.block ? store.block.limit : 0 }; }
+      return;
+    }
     if (msg.t === 'event' && msg.kind === 'kontingentAntwort') {
       store.wartet = false;
       const ok = msg.ok === true || msg.ok === 1;

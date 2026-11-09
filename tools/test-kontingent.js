@@ -14,6 +14,14 @@ for (const fn of ['spawn', 'spawnSync', 'execFile', 'execFileSync', 'exec', 'exe
   const orig = cp[fn];
   cp[fn] = function (...a) { prozesse.push(fn + ' ' + String(a[0]).slice(0, 60)); return orig.apply(this, a); };
 }
+// N2: nichts ins Repo und nichts dauerhaft nach %TEMP%: alle Logbuecher dieses Tests liegen in EINEM selbst angelegten Ordner, der am Ende geloescht wird
+const TMP = fs.mkdtempSync(path.join(os.tmpdir(), 'liv01-kont-'));
+const REGIE = path.join(TMP, 'regie');
+const repoDatei = path.join(process.cwd(), 'data', 'regie', 'w-kontingent.jsonl');
+const dateiStand = () => { try { const st = fs.statSync(repoDatei); return st.size + '|' + st.mtimeMs; } catch (e) { return 'fehlt'; } };
+const tempOrdner = () => fs.readdirSync(os.tmpdir()).filter((d) => d.startsWith('liv01-regie-')).length;
+const vorher = { datei: dateiStand(), ordner: tempOrdner() };
+process.on('exit', () => { try { fs.rmSync(TMP, { recursive: true, force: true }); } catch (e) { /* egal */ } });
 const LLM = require('../server/mission/llm.js');
 const Kontingent = require('../server/sim/kontingent.js');
 const LS = require('../server/sim/lage-spielleiter.js');
@@ -68,7 +76,7 @@ const blockNach = (g) => { for (let i = 0; i < 40; i++) { const s = g.snapshot()
 function fakeGame() {
   const events = [], errors = [];
   const g = {
-    time: 0, C: CONFIG, env: Object.assign({}, LIVE), players: [{ connected: true }],
+    time: 0, C: CONFIG, env: Object.assign({}, LIVE, { REGIE_DIR: REGIE }), players: [{ connected: true }],
     ship: { scene: 'hafen' },
     emit(k, d) { events.push({ k, d }); }, oda() {}, notice() {}, countError(w, e) { errors.push(w + ': ' + (e && e.message)); }, log() {},
     weltstand: { id: 'w-kontingent', persistent: true, data: null, npcMemory() { return true; } },
@@ -87,7 +95,7 @@ function fakeGame() {
 async function missionLauf(katalog, ctx, archiv) {
   const F = fakeGame();
   const tr = fakeTransport();
-  const sl = Spielleiter.create(F.g, { llm: LLM.create({ mode: 'live', katalog, transport: tr }), kontext: () => ctx, archiv, regieDir: fs.mkdtempSync(path.join(os.tmpdir(), 'liv01-regie-')), katalog, config: { offers: 1 } });
+  const sl = Spielleiter.create(F.g, { llm: LLM.create({ mode: 'live', katalog, transport: tr }), kontext: () => ctx, archiv, regieDir: fs.mkdtempSync(path.join(TMP, 'r-')), katalog, config: { offers: 1 } });
   sl.onMissionDone({ id: 'm3', ausgang: 'erfolg' });
   for (let t = 0; t < 12; t += 0.5) { F.g.time += 0.5; sl.update(0.5); await frei(); if (sl.offers().length >= 2) break; }
   return { sl, tr, F };
@@ -240,6 +248,123 @@ section('Kleines Limit 60 000: Schwelle 54 000, min_budget-Deckel greift', async
   LLM.resetBudget();
 });
 
+// ---------- M1/M2: Eskalation und Text-Pool (jeder Claude-Weg fragt das Gate) ----------
+// Router-Fake: Stufe bei Ollama, Eskalation an Claude erlaubt. call = Ollama (ungueltige Antwort), callEskalation = Claude (zaehlt).
+function ollamaMitEskalation() {
+  const t = { name: 'fake-router', gefragt: [], eskaliert: [], anbieterFuer: () => 'ollama', eskalationFuer: () => 'claude',
+    call: async (text, co) => { t.gefragt.push(co.kind); return { text: '{}', usage: { input: 0, output: 0 }, sec: 0, anbieter: 'ollama', modell: 'fake' }; },
+    callEskalation: async (text, co) => { t.eskaliert.push(co.kind); return { text: '{}', usage: { input: 0, output: 0 }, sec: 0, anbieter: 'claude', eskaliert: true }; } };
+  return t;
+}
+section('M1: Abenteuer-Spielleiter eskaliert nach Erreichen der Schwelle nie an Claude (Stufe bei Ollama)', async () => {
+  const lauf = async (used, nachStart) => {
+    gesetzt(used);
+    const t = neuesSpiel(), tr = ollamaMitEskalation();
+    const llm = LLM.create({ mode: 'live', transport: tr });
+    const sl = LS.create(t.g, { llm, werte: { deckel_je_sitzung: 1e9, min_abstand_ticks: 0 }, abenteuerWerte: { deckel_je_sitzung: 1e9, cooldown_grenzen: 0 } });
+    t.g.lageSpielleiter = sl; t.g.lageSchalter = true;
+    const r = sl.abenteuer.erzwingen();
+    if (nachStart) LLM.addUsage(nachStart);
+    await pumpen(t.g, 6);
+    return { r, tr };
+  };
+  let x = await lauf(0, 0);
+  ok(x.r.gestartet && x.tr.gefragt.length === 1 && x.tr.eskaliert.length === 1, 'Kontrolle unter der Schwelle: Ollama fragt, die ungueltige Antwort eskaliert einmal an Claude');
+  x = await lauf(449999, 1);   // Job laeuft, waehrenddessen wird die Schwelle erreicht
+  ok(x.r.gestartet && x.tr.gefragt.length === 1 && x.tr.eskaliert.length === 0, `Schwelle waehrend des Jobs erreicht: Ollama antwortete, KEINE Eskalation an Claude (${x.tr.eskaliert.length})`);
+  x = await lauf(450000, 0);
+  ok(x.r.gestartet && x.tr.gefragt.length === 1 && x.tr.eskaliert.length === 0, `Schwelle schon erreicht: Ollama-Pfad bleibt frei (${x.tr.gefragt.length}), keine Eskalation (${x.tr.eskaliert.length})`);
+  LLM.resetBudget();
+});
+
+const Pool = require('../server/sim/texte-pool.js');
+function textLlm(o) {
+  const l = { mode: 'live', asks: [], esk: [], anbieterFuer: () => o.anbieter, eskalationMoeglich: () => !!o.eskalation,
+    async ask(kind, input) { l.asks.push(kind); if (o.ausfall) throw Object.assign(new Error('Fake-Ausfall'), { code: 'EXIT' }); return { text: JSON.stringify({ text: 'x' }), tokens: 0, sec: 0, anbieter: o.anbieter }; },
+    async eskaliere(kind) { l.esk.push(kind); return { text: JSON.stringify({ text: 'x' }), tokens: 0, sec: 0, anbieter: 'claude', eskaliert: true }; } };
+  return l;
+}
+section('M2: Text-Pool fragt das Gate vor jedem Claude-Weg (Stufe bei Claude, Eskalation), Ollama bleibt frei', async () => {
+  const lauf = async (used, o) => {
+    gesetzt(used);
+    Pool.zuruecksetzen();
+    const t = X.spiel({ names: ['ZEBRAKAI'], env: Object.assign({}, LIVE, { TEXTE_POOL: '1' }) });
+    const llm = textLlm(o); Pool.setLlm(llm);
+    Pool.beiGrenze(t.g); Pool.update(t.g, 0.1); await Pool.jobFertig();
+    Pool.zuruecksetzen();
+    return llm;
+  };
+  let l = await lauf(0, { anbieter: 'claude' });
+  ok(l.asks.length > 0, 'Kontrolle unter der Schwelle: Stufe bei Claude fragt');
+  l = await lauf(450000, { anbieter: 'claude' });
+  ok(l.asks.length === 0 && l.esk.length === 0, `Schwelle erreicht, Stufe bei Claude: keine Anfrage (${l.asks.length}), keine Eskalation (${l.esk.length})`);
+  l = await lauf(0, { anbieter: 'ollama', eskalation: true });
+  ok(l.asks.length > 0 && l.esk.length === 1, `Kontrolle: ungueltige Ollama-Antworten eskalieren unter der Schwelle einmal (${l.esk.length})`);
+  l = await lauf(450000, { anbieter: 'ollama', eskalation: true });
+  ok(l.asks.length > 0 && l.esk.length === 0, `Schwelle erreicht: Ollama fragt weiter (${l.asks.length}), die Eskalation nach ungueltiger Antwort bleibt aus (${l.esk.length})`);
+  l = await lauf(450000, { anbieter: 'ollama', eskalation: true, ausfall: true });
+  ok(l.asks.length > 0 && l.esk.length === 0, `Schwelle erreicht, Ollama-Ausfall: keine Eskalation an Claude (${l.esk.length})`);
+  l = await lauf(0, { anbieter: 'ollama', eskalation: true, ausfall: true });
+  ok(l.esk.length > 0, 'Kontrolle: Ollama-Ausfall eskaliert unter der Schwelle');
+  LLM.resetBudget();
+});
+
+// ---------- M4: neue Verbindung, Wiederverbinden, Uebernahme, Neustart bei erreichtem Kontingent: der Block kommt (erneut) an ----------
+section('Verbindungen: erreicht, dann Wiederverbinden / Beitritt / Uebernahme / Neustart -> Block kommt erneut', async () => {
+  const bloecke = (c) => c.inbox.filter((m) => m.t === 'snap' && m.world && m.world.kontingent).map((m) => m.world.kontingent);
+  const neu = () => ({ inbox: [], send(m) { if (this.inbox.length < 2000) this.inbox.push(m); }, sendRaw(s) { this.send(JSON.parse(s)); } });
+  const pump = async (g, k) => { for (let i = 0; i < k; i++) { g.step(); if (g.wantsSnapshot()) g.broadcast(g.snapshot()); await frei(); } };   // wie server/index.js: Schritt, dann alle snapEvery Ticks ein Snapshot an alle Verbindungen
+  gesetzt(450000);
+  const t = X.spiel({ names: ['ZEBRAKAI', 'Mireille_Kas', 'Ouzo_Brandt'], crew: 3, env: LIVE });
+  const g = t.g;
+  g.players.forEach((p) => { p.zone = 'ship'; });
+  await pump(g, 40);
+  ok(t.cs.every((c) => bloecke(c).length >= 1 && bloecke(c).every((b) => b.erreicht === true)), 'Ausgangslage: alle drei Verbindungen bekamen den Block (erreicht)');
+  // (1) Wiederverbinden: gleiche clientId, neue Verbindung
+  const c0 = neu(); g.addConnection(c0); g.handleMessage(c0, { t: 'hello', clientId: 'A0', name: 'ZEBRAKAI', color: 0 });
+  await pump(g, 40);
+  ok(bloecke(c0).length === 1 && bloecke(c0)[0].erreicht === true && bloecke(c0)[0].used === 450000, `Wiederverbinden: die neue Verbindung bekommt den Block erneut (${bloecke(c0).length})`);
+  // (2) Beitritt eines neuen Spielers (vierter Platz, Spiel laeuft)
+  const c3 = neu(); g.addConnection(c3); g.handleMessage(c3, { t: 'hello', clientId: 'NEU1', name: 'Tzvi_Lund', color: 3 });
+  await pump(g, 40);
+  ok(g.players.length === 4 && bloecke(c3).length === 1 && bloecke(c3)[0].erreicht === true, `Beitritt: der neue Spieler bekommt den Block (${bloecke(c3).length})`);
+  // (3) Uebernahme: Server voll, ein Platz getrennt, ein Fremder nimmt ihn
+  const weg = t.cs[1]; g.removeConnection(weg);
+  await pump(g, 10);
+  const c4 = neu(); g.addConnection(c4); g.handleMessage(c4, { t: 'hello', clientId: 'NEU2', name: 'Fremder', color: 2 });
+  await pump(g, 40);
+  ok(g.players.length === 4 && g.players.some((p) => p.clientId === 'NEU2' && p.connected) && bloecke(c4).length === 1, `Uebernahme eines freien Platzes: der Uebernehmer bekommt den Block (${bloecke(c4).length})`);
+  // (4) Neustart der Partie (reset in startGame): der Block wird allen erneut geschickt
+  t.cs.forEach((c) => { c.inbox.length = 0; }); c0.inbox.length = 0; c3.inbox.length = 0; c4.inbox.length = 0;
+  g.reset();
+  g.handleMessage(c0, { t: 'lobbyOpt', startMission: 'freie_fahrt' });
+  for (const p of g.players) if (p.conn) g.handleMessage(p.conn, { t: 'ready', ready: true });
+  await pump(g, 60);
+  ok(g.phase === 'play' && bloecke(c0).length >= 1 && bloecke(c0).every((b) => b.erreicht === true), `Neustart: die Verbindung bekommt den Block nach dem Neustart erneut (${bloecke(c0).length})`);
+  LLM.resetBudget();
+});
+
+// ---------- N8: Snapshot-Budget des Feldes world.kontingent im echten Delta-Snapshot (Vertrag: CONTRACT-LIV01.md "Snapshot-Budget")
+section('Snapshot-Budget: world.kontingent im echten Delta-Snapshot', async () => {
+  const bytes = (o) => Buffer.byteLength(JSON.stringify(o));
+  const ORBIT_MAX = 13327, ZIEL = CONFIG.net.snapMax - CONFIG.net.snapLuft;   // Worst Case von npm run snap:mess (Orbitschlacht) und das Ziel
+  ok(ZIEL === 18944, 'Ziel snapMax - snapLuft = 18 944 B (' + ZIEL + ')');
+  let groesst = 0;
+  for (const [used, limit] of [[0, 500000], [450000, 500000], [9999999, 9999999]]) {   // kurz, typisch, die breitesten Zahlen
+    gesetzt(used, limit);
+    const t = neuesSpiel();
+    let s = null; for (let i = 0; i < 30 && !s; i++) { const x = t.g.snapshot(); if ('kontingent' in x.world) s = x; }
+    ok(!!s, 'Block im Delta-Snapshot (' + used + ' von ' + limit + ')');
+    if (!s) continue;
+    const mit = bytes(s); const feld = s.world.kontingent; delete s.world.kontingent;
+    const diff = mit - bytes(s);
+    groesst = Math.max(groesst, diff);
+    ok(diff <= 100, 'Feld kostet ' + diff + ' B im echten Snapshot (JSON ' + bytes(feld) + ' B plus Schluessel), hoechstens 100 B');
+  }
+  ok(ORBIT_MAX + groesst <= ZIEL, 'Worst Case Orbitschlacht ' + ORBIT_MAX + ' B + Feld ' + groesst + ' B = ' + (ORBIT_MAX + groesst) + ' B <= ' + ZIEL + ' B');
+  LLM.resetBudget();
+});
+
 section('Ohne Live-Schalter: kein world.kontingent, Snapshot unveraendert', async () => {
   gesetzt(450000);
   for (const env of [{ SPIELLEITER_LLM: 'mock', LLM_LIVE: undefined }, { SPIELLEITER_LLM: 'live', LLM_LIVE: '0' }, { SPIELLEITER_LLM: 'off', LLM_LIVE: '1' }]) {
@@ -278,6 +403,11 @@ section('Live-Snapshot: nur bei Aenderung, Funk im Mitschnitt', async () => {
   gesetzt(0); await pumpen(g, 2); LLM.addUsage(450000); await pumpen(g, 3);
   ok(gesehen.filter((d) => String(d.text).startsWith(MELDUNG)).length === 1, 'Mitschnitt-Beobachter (vonEmit radio) sieht die Meldung einmal');
   LLM.resetBudget();
+});
+
+section('Aufraeumen: nichts ins Repo, keine liegengebliebenen Ordner in %TEMP%', async () => {
+  ok(dateiStand() === vorher.datei, 'data/regie/w-kontingent.jsonl im Repo: nicht angelegt, nicht veraendert (' + vorher.datei.split('|')[0] + ' -> ' + dateiStand().split('|')[0] + ')');
+  ok(tempOrdner() === vorher.ordner, 'keine neuen liv01-regie-*-Ordner in %TEMP% (' + vorher.ordner + ' -> ' + tempOrdner() + ')');
 });
 
 (async () => {

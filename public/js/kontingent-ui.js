@@ -11,7 +11,8 @@
 
   const state = () => (window.Client && Client.state) || null;
   const ich = () => { const s = state(); return s && s.players ? s.players.find((p) => p.id === Client.pid) || null : null; };
-  const konsole = () => { const m = ich(); return m && m.console ? m.console : null; };
+  // dieselbe Ableitung wie der Server (Station.stationOf: aktives Interface, p.station oder die Konsole): Consoles.stationOf (consoles.js, lädt vor dieser Datei)
+  const konsole = () => { const m = ich(); return m && window.Consoles && Consoles.stationOf ? Consoles.stationOf(m) : null; };
   const sichtbar = () => { const s = state(); return !!s && s.phase !== 'lobby' && !!ich(); };
   const kappe = () => { try { return window.Tasten && Tasten.belegung(AKTION).length ? Tasten.kappe(AKTION) : '–'; } catch (e) { return '–'; } };
   const senden = (msg) => { try { return window.Net && Net.send(msg); } catch (e) { return false; } };
@@ -77,5 +78,5 @@
   }
 
   if (window.Net && typeof Net.on === 'function') Net.on(() => zeichnen());   // nach kontingent.js (Skriptreihenfolge): erst lesen, dann zeichnen
-  window.KontingentUi = { taste, zeichnen, element: () => el };
+  window.KontingentUi = { taste, zeichnen, konsole, element: () => el };
 })();
