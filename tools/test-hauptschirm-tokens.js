@@ -91,7 +91,9 @@ const gen = fs.readFileSync(path.join(__dirname, '..', 'shared', 'gen-sektor.js'
 const liste = (name) => { const m = gen.match(new RegExp('const ' + name + " = \\[([^\\]]*)\\]")); return m ? m[1].match(/'(\w+)'/g).map((s) => s.slice(1, -1)) : null; };
 const sterne = liste('KIND_STERN'), planeten = liste('KIND_PLANET');
 ok(sterne && sterne.slice().sort().join() === Object.keys(T.STERN).sort().join(), `Sternklassen ≠ gen-sektor.js (${sterne})`);
-ok(planeten && planeten.concat('gasriese').sort().join() === Object.keys(T.PLANET).sort().join(), `Planetentypen ≠ gen-sektor.js + gasriese (${planeten})`);
+// KAC-01 D: dazu die Planetenarten des Sektortypen-Katalogs (wiesenwald, vulkan, ...), die scene.planeten[].art der Typ-Hexe tragen
+const katalogArten = Object.keys(require('../shared/sektortypen.js').katalog().planetenarten);
+ok(planeten && [...new Set(planeten.concat(katalogArten, 'gasriese'))].sort().join() === Object.keys(T.PLANET).sort().join(), `Planetentypen ≠ gen-sektor.js + Katalog-Planetenarten + gasriese (${planeten}; ${katalogArten})`);
 ok(T.PLANET.ozean.land, 'Ozean braucht Landrampe');
 
 // 4. Wertebereiche

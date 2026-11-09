@@ -906,7 +906,7 @@
       const A = mod.A, hd = (h) => K.hexe[h] || {};
       const quellen = A.codes.filter((c) => A.hex[c] && A.hex[c].f === 'r' && (hd(c).hafen || A.hex[c].posten)).concat(A.fl.filter((q) => q.f === 'r' && q.a === 0).map((q) => q.h), mod.hier ? [mod.hier] : []);
       const dist = KL.abstaende(quellen, mod.adj);
-      const o = { rx, rw, y, ohneArt: rw < 190, sel: hex, verborgen: (h) => !!(mod.verborgen && mod.verborgen.has(h)), name: (h) => hd(h).name || h, art: (h) => hd(h).art || '', hafen: (h) => hd(h).hafen || '', karteFraktion: (h) => KL.kartenFraktion(hd(h).fraktion), dist: (h) => dist[h], kurs: (q) => (q.v ? KL.winkelHex(q.v, q.h) : q.n ? KL.winkelHex(q.h, q.n) : 0) };
+      const o = { rx, rw, y, ohneArt: rw < 190, sel: hex, verborgen: (h) => !!(mod.verborgen && mod.verborgen.has(h)), name: (h) => hd(h).name || h, art: (h) => window.Kartenzeichen.typName(hd(h)) || hd(h).art || '', hafen: (h) => hd(h).hafen || '', karteFraktion: (h) => KL.kartenFraktion(hd(h).fraktion), dist: (h) => dist[h], kurs: (q) => (q.v ? KL.winkelHex(q.v, q.h) : q.n ? KL.winkelHex(q.h, q.n) : 0) };
       y = KL.ortsinfo(ctx, A, o) + 4;
       // Client-Runde A3: Im eigenen Hex steht während einer Sim-Szene „Feindkontakt“ (sonst „Keine Flotten gemeldet“ – die Meldeliste ist Wissen von Rom, die Szene die Wahrheit vor Ort)
       // Fixrunde N7: nur solange die Szene läuft (p v/k/f), nicht nach dem Ende (SIEG/NIEDERLAGE); „vor Ort“ grenzt es von der Meldeliste (Wissen von Rom) darunter ab

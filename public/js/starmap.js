@@ -619,6 +619,8 @@
       const f = FRAKTION[s.fraktion];
       const kopf = [f ? f.name : s.fraktion, s.hafen ? 'Hafen ' + s.hafen : null].filter(Boolean).join(' · ');
       if (kopf) out.push({ t: kopf, c: COL.text });
+      const typTxt = KZ.typName(s);   // KAC-01 D: Typname des Hex-Felds typ (null ohne typ), vor der Freitext-Art
+      if (typTxt && (hs.art !== 'unerkundet' || hs.nameBekannt)) out.push({ t: typTxt, c: COL.text, max: 2 });
       if (s.art && (hs.art !== 'unerkundet' || hs.nameBekannt)) out.push({ t: s.art, c: COL.grau, max: 2 });
       const extra = [];
       if (s.einfluss) extra.push('Einfluss: ' + (EINFLUSS[s.einfluss] || s.einfluss));
