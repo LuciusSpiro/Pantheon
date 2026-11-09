@@ -509,6 +509,13 @@
       send({ t: (P.C && P.C.LOBBY_OPT) || 'lobbyOpt', skipDrill: !cur });
       audio.play('ui_click');
     },
+    // FRE-01 B: Live-Spielleiter (echter Claude, Kostenentscheidung) – nur Freie Fahrt; jeder darf umschalten, der Server hält den Zustand
+    toggleLiveSpielleiter() {
+      const st = Client.state;
+      const cur = !!(st && st.lobby && st.lobby.liveSpielleiter);
+      send({ t: (P.C && P.C.LOBBY_OPT) || 'lobbyOpt', liveSpielleiter: !cur });
+      audio.play('ui_click');
+    },
     // AP3a: Szenario-Labor – Auswahl (↑/↓) und Parameter (R Seed, ←/→ Stärke, G god); jeder darf umschalten
     laborWahl(dir) {
       const lob = Client.state && Client.state.lobby;

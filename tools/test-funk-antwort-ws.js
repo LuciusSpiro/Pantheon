@@ -143,9 +143,9 @@ function client(port, hello) {
   ws().reise.laufend.splice(ws().reise.laufend.indexOf(gefahr), 1);
 
   // 8. Schalter aus: nichts
-  process.env.REISE_EREIGNISSE = '0';
+  process.env.REISE_EREIGNISSE = '0'; g.env.REISE_EREIGNISSE = '0';   // FRE-01 A: der Server hat mit szenarioSchalter eine Kopie des Env (kein gemeinsamer Verweis mehr)
   ok(FA.anbieten(g, { id: 'funk_handel_stimmen', nr: 1, hex: '0305', textIdx: 0 }) === null, 'Schalter aus: kein Angebot');
-  process.env.REISE_EREIGNISSE = '1';
+  process.env.REISE_EREIGNISSE = '1'; g.env.REISE_EREIGNISSE = '1';
 
   // 9. Ein Spieler geht, nichts bricht ab
   ereignis('funk_handel_stimmen', '0305');

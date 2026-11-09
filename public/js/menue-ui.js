@@ -101,7 +101,7 @@
     const mitWelt = e && e.weltstand, voll = !!(mitWelt && ws.voll);
     const wert = mitWelt ? (voll ? ME.text(T.detail.weltstandVollKurz, { max: ws.max }) : ME.text(T.detail.neuerWeltstand, { n: ws.naechste, max: ws.max })) : T.detail.keinWeltstand;
     const m = { art: (e ? e.art : T.lobby.gruppeModus) + ' · ' + wert.toUpperCase(), titel: label(modus), satz: F.satzZeile(zusatzSatz(modus, lob).concat(hinweisText(modus)), breite, 400), welt: null,   // Stand zuerst, die Beschreibung zuletzt (sie entfällt als Erste, wenn der Platz fehlt)
-    warnung: voll ? ME.text(T.detail.weltstandVollLang, { max: ws.max }) : null };
+    warnung: voll ? ME.text(T.detail.weltstandVollLang, { max: ws.max }) : modus === 'freie_fahrt' && lob.liveSpielleiter ? T.opt.liveHinweis : null };   // FRE-01 B: eingeschaltet steht der Kostenhinweis in Warnfarbe unter dem Titel
     if (modus === 'labor') {   // Labor: der Titel bleibt „Szenario-Labor“, die gewählte Umsetzung steht in der Satzzeile, ihre Position in der Gruppenzeile
       const la = F.laborAuswahl(lob), le = la.eintrag;
       if (le) { m.art = e.art + ' · ' + T.opt.umsetzung.toUpperCase() + ' ' + la.position + '/' + la.n; m.satz = F.laborSatz(le, { ort: (id) => H.locLabel(id), karte: (k) => T.opt.karteNamen[k] || H.wellenKarteName(k) }); }
@@ -134,6 +134,7 @@
       case 'laborSeed': return lob.labor && lob.labor.seed != null ? String(lob.labor.seed) : T.opt.zufaellig;
       case 'laborGod': return lob.labor && lob.labor.god ? T.opt.an : T.opt.aus;
       case 'menue.tutorialRunde': return lob.startMission === 'eisenwald' ? T.detail.an : T.detail.aus;   // in der Lobby gilt der Modus der Runde
+      case 'toggleLiveSpielleiter': return lob.liveSpielleiter ? T.opt.liveAn : T.detail.aus;
       case 'toggleSkipDrill': return lob.skipDrill ? T.detail.an : T.detail.aus;
       default: return '';
     }
@@ -283,7 +284,7 @@
         const x = x0 + ch.x;
         rect(c, x - 2, y - 1, ch.w + 4, 15, P.rgba(MF.kachel, MM.kachelDeckkraft));   // deckende Unterlage: die Optionen laufen über die Textzone des Tokens hinaus
         let tx = x; if (ch.taste) tx = kappeM(c, x, y, ch.taste) + 4;
-        if (ch.wert == null) txt(c, ch.name, tx, y + 3, MF.dim); else { tx = txt(c, ch.name + ': ', tx, y + 3, MF.dim); txt(c, ch.wert, tx, y + 3, MF.text); }
+        if (ch.wert == null) txt(c, ch.name, tx, y + 3, MF.dim); else { tx = txt(c, ch.name + ': ', tx, y + 3, MF.dim); txt(c, ch.wert, tx, y + 3, ch.aktion === 'toggleLiveSpielleiter' && lob.liveSpielleiter ? MF.nichtBereit : MF.text); }   // FRE-01 B: live an = Warnfarbe (der Wortlaut „an (Claude, Abo)“ trägt es auch ohne Farbe)
         klick({ x, y, w: ch.w, h: 13 }, ch.name, () => (ch.aktion === 'menue.modusWahl' ? F.oeffneModusWahl(lob) : optionAusfuehren(ch, view, lob)));
       }
     });

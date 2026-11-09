@@ -35,7 +35,7 @@
     hinweisEinladung: { charakter: 'Charakter', neu: 'neu', liste: 'Liste', anBord: 'an Bord', abbrechen: 'ablehnen' },
     status: { crewEinheit: '/4' },
     tasten: { auswahl: '↑↓', ziffern: '1–4', enter: 'Enter', esc: 'Esc', stellen: '←→' },
-    opt: { seedFest: 'Seed {n} fest', seedNeu: 'neuer Seed je Start', zuletzt: 'zuletzt W{n}', waffeStandard: 'Standard', karte: 'Karte', waffe: 'Waffe', szene: 'Szene', umsetzung: 'Umsetzung', staerke: 'Stärke', seed: 'Seed', god: 'Unverwundbar', hafenUebung: 'Hafen-Übung', abschnitt: 'Abschnitt', standard: 'Standard', zufaellig: 'zufällig', altweg: 'Altweg', keschKlassisch: 'Kesh (klassisch)', rekord: 'Rekord W{n}', an: 'an', aus: 'aus', leer: '–', laborBoden: 'Boden', laborRaum: 'Raum', laborStart: 'Start: {z}', karteNamen: { wreck: 'Wrack', platform: 'Plattform' } },
+    opt: { seedFest: 'Seed {n} fest', seedNeu: 'neuer Seed je Start', zuletzt: 'zuletzt W{n}', waffeStandard: 'Standard', karte: 'Karte', waffe: 'Waffe', szene: 'Szene', umsetzung: 'Umsetzung', staerke: 'Stärke', seed: 'Seed', god: 'Unverwundbar', hafenUebung: 'Hafen-Übung', liveSpielleiter: 'Live-Spielleiter', liveAn: 'an (Claude, Abo)', liveHinweis: 'Echter Claude, läuft auf dem Abo. Deckel: Zähler CLAUDE_TOKEN_BUDGET.', abschnitt: 'Abschnitt', standard: 'Standard', zufaellig: 'zufällig', altweg: 'Altweg', keschKlassisch: 'Kesh (klassisch)', rekord: 'Rekord W{n}', an: 'an', aus: 'aus', leer: '–', laborBoden: 'Boden', laborRaum: 'Raum', laborStart: 'Start: {z}', karteNamen: { wreck: 'Wrack', platform: 'Plattform' } },
     ton: { kappe: 'Taste', hinweis: 'oder Klick schaltet den Ton ein' },
     eingang: { abgelehnt: 'EINLADUNG ABGELEHNT', raumcode: 'RAUMCODE', satz: 'Code eingeben, den du vom Gastgeber bekommst.', knopf: 'An Bord gehen', falsch: 'Falscher Raumcode – bitte nachfragen.' },
     kammer: { lobby: 'In die Lobby', einladung: 'Zur Einladung', menue: 'Zum Hauptmenü', titel: 'Zum Titel' },
@@ -405,6 +405,7 @@
         { taste: TEXT.tasten.stellen, code: 'ArrowLeft', aktion: 'laborStaerke', arg: -1, label: TEXT.opt.staerke }, { code: 'ArrowRight', aktion: 'laborStaerke', arg: 1, versteckt: true },
         { taste: 'R', code: 'KeyR', aktion: 'laborSeed', label: TEXT.opt.seed }, { taste: 'G', code: 'KeyG', aktion: 'laborGod', label: TEXT.opt.god }, waffe);
       if (modus === 'eisenwald' || modus === 'eisenwald_ohne') o.push({ taste: 'U', code: 'KeyU', aktion: 'menue.tutorialRunde', label: TEXT.detail.tutorial });
+      if (modus === 'freie_fahrt') o.push({ taste: 'V', code: 'KeyV', aktion: 'toggleLiveSpielleiter', label: TEXT.opt.liveSpielleiter });   // FRE-01 B: Kostenentscheidung, Standard aus; V ist in Lobby und Menü frei (M, F, L, O, H, C, U, 1–4 belegt)
       if (modus === 'm1') o.push({ taste: 'U', code: 'KeyU', aktion: 'toggleSkipDrill', label: TEXT.opt.hafenUebung });
       return o;
     }

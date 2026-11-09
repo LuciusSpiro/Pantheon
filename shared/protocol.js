@@ -286,7 +286,7 @@
     C: {
       HELLO: 'hello', READY: 'ready', INPUT: 'input', ACT: 'act', SHOOT: 'shoot', MARK: 'mark',
       DROP: 'drop', LEAVE: 'leave', SCHUBS: 'schubs', CMD: 'cmd', PING: 'ping', DEBUG: 'debug',
-      LOBBY_OPT: 'lobbyOpt',   // M0: { skipDrill: bool } – nur in der Lobby, jeder darf umschalten; M2: { startMission: START_MISSIONS }; S1: { world }
+      LOBBY_OPT: 'lobbyOpt',   // M0: { skipDrill: bool } – nur in der Lobby, jeder darf umschalten; FRE-01: { liveSpielleiter: bool } – nur Lobby, nur Modus freie_fahrt mit neuer Welt (sonst ignoriert), Standard false, Wechsel von Modus/Weltstand setzt zurück; M2: { startMission: START_MISSIONS }; S1: { world }
       WORLD: 'world',          // S1: { op: 'delete', id }
       MENU: 'menu',            // S1: { op: 'end' } | { op: 'pause', on }
     },

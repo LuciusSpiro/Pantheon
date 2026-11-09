@@ -247,7 +247,7 @@ function taetigkeit(game, art) {
 // B-S3: der Lage-Spielleiter ist da und nicht aus (Schalter aus, Fehler, dispose und Modus off sind Ausfall)
 function spielleiterAktiv(game) {
   const l = game && game.lageSpielleiter;
-  return !!(l && !l.disposed && l.mode !== 'off');
+  return !!(l && !l.disposed && (l.mode !== 'off' || l.rueckfallBetrieb === true));   // FRE-01 A: der Rückfall-Betrieb (ohne Modell) trägt Brett und Angebote
 }
 
 // ---------- Angebot aus einem Taetigkeitsausgang mit Person

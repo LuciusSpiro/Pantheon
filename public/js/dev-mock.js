@@ -150,7 +150,7 @@
       tick: 0, time: 0, phase: params.get('phase') === 'lobby' ? 'lobby' : 'play',
       players,
       bots: Maps.BOT_SPAWNS.slice(0, 2).map((b, i) => ({ id: 'b' + i, variant: i, ...tc(b.x, b.y), dir: 'down', moving: false, carry: null, task: null, progress: 0, home: tc(b.x, b.y) })),
-      lobbyOpts: { skipDrill: false, startMission: 'm1', world: null, worlds: mockWorlds(+params.get('worlds') || 0) },
+      lobbyOpts: { skipDrill: false, liveSpielleiter: false, startMission: 'm1', world: null, worlds: mockWorlds(+params.get('worlds') || 0) },
       paused: false,
       world: { location: 'hafen', locations: LOCS.map(l => Object.assign({}, l, { known: ['hafen', 'splitter', 'b7', 'vaelen', 'wrack', 'nebel', 'kesh'].indexOf(l.id) >= 0, visited: ['hafen', 'splitter', 'b7'].indexOf(l.id) >= 0, unknown: false, map: l.id === 'b7' ? 'platform' : l.id === 'wrack' ? 'wreck' : l.id === 'kesh' ? 'kesh' : null, discoveries: { found: 0, total: (SCENES[l.id].hidden || []).length + 1 } })) },
       ship: {
@@ -1149,8 +1149,10 @@
         break;
       case 'lobbyOpt':
         if (typeof msg.skipDrill === 'boolean') W.lobbyOpts.skipDrill = msg.skipDrill;
+        if (((window.Shared_Protocol && window.Shared_Protocol.START_MISSIONS) || ['m1', 'm3']).concat(['free', 'freie_fahrt']).indexOf(msg.startMission) >= 0 && msg.startMission !== W.lobbyOpts.startMission) W.lobbyOpts.liveSpielleiter = false;   // FRE-01 B: Moduswechsel setzt zurück (wie der Server)
         if (((window.Shared_Protocol && window.Shared_Protocol.START_MISSIONS) || ['m1', 'm3']).concat(['free', 'freie_fahrt']).indexOf(msg.startMission) >= 0) W.lobbyOpts.startMission = msg.startMission;
-        if ('world' in msg) W.lobbyOpts.world = msg.world == null ? null : (W.lobbyOpts.worlds.some(x => x.id === msg.world && x.state === 'ok') ? msg.world : W.lobbyOpts.world);
+        if ('world' in msg) { const vor = W.lobbyOpts.world; W.lobbyOpts.world = msg.world == null ? null : (W.lobbyOpts.worlds.some(x => x.id === msg.world && x.state === 'ok') ? msg.world : W.lobbyOpts.world); if (W.lobbyOpts.world && W.lobbyOpts.world !== vor) W.lobbyOpts.liveSpielleiter = false; }   // FRE-01 B: Fortsetzen läuft nie live (wie der Server)
+        if (typeof msg.liveSpielleiter === 'boolean' && W.lobbyOpts.startMission === 'freie_fahrt' && !W.lobbyOpts.world) W.lobbyOpts.liveSpielleiter = msg.liveSpielleiter;
         break;
       case 'mark': W.away.marker = { x: msg.x, y: msg.y }; break;
       case 'cmd': cmd(p, msg); break;
@@ -1379,7 +1381,7 @@
     const strip = (o) => { const r = {}; for (const k in o) if (k[0] !== '_') r[k] = o[k]; return r; };
     const snap = {
       t: 'snap', tick: W.tick, time: Math.round(W.time * 100) / 100, phase: W.phase,
-      lobby: { skipDrill: W.lobbyOpts.skipDrill, startMission: W.lobbyOpts.startMission },
+      lobby: Object.assign({ skipDrill: W.lobbyOpts.skipDrill, startMission: W.lobbyOpts.startMission }, W.lobbyOpts.startMission === 'freie_fahrt' ? { liveSpielleiter: !!W.lobbyOpts.liveSpielleiter } : {}),
       paused: !!W.paused,
       players: W.players.map(p => { const r = strip(p); if (r.action) r.action = { kind: r.action.kind, system: r.action.sys || r.action.system, progress: r.action.kind === 'switch' ? W.ship.reactor.restartProgress : r.action.progress }; return r; }),
       bots: W.bots.map(b => { const r = strip(b); delete r.home; return r; }),

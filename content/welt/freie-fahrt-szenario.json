@@ -1,0 +1,11 @@
+{
+  "format": "freie-fahrt-szenario/1",
+  "_hinweis": "FRE-01 A: Spielleiter-Schalter der Lobby-Partie 'Freie Fahrt' als Daten statt Umgebungsvariablen (server/sim/szenario-schalter.js, Game-Option szenarioSchalter, nur der echte Server setzt sie). Gesetzte Umgebungsvariablen des Betreibers ueberstimmen die Werte unter 'schalter', NICHT die lobby-eigenen Betriebsart-Schluessel (siehe 'lobby_eigene_schluessel'): die gehoeren allein der Lobby-Option, damit das Menue die Wahrheit zeigt und Live-Claude nur durch das Menue entsteht. Die Betriebsart waehlt die Lobby: 'rueckfall' = Faeden, Reise-Funk und Auftragsbrett laufen ohne Modell (Rueckfall content/faeden/anschluss.json, kein CLI-Prozess, keine Lage-Plaene), 'live' = Lage-Spielleiter und Komponist mit Claude (LLM_LIVE=1 nur in der Kopie des Raums, process.env bleibt unberuehrt). CLAUDE_TOKEN_BUDGET und CLAUDE_CLI bleiben Betreiberwerte.",
+  "werte": {
+    "modus": {"wert": "freie_fahrt", "_hinweis": "Nur dieser Lobby-Modus (Kriegslage.MODUS) bekommt das Szenario; alle anderen Modi laufen mit dem Basis-Env des Servers."},
+    "schalter": {"wert": {"FAEDEN": "1", "REISE_EREIGNISSE": "1", "LAGE_SPIELLEITER": "1"}, "_hinweis": "Gelten in jeder Betriebsart. Namen und Werte wie die Umgebungsvariablen."},
+    "betriebsarten": {"wert": {"rueckfall": {"SPIELLEITER_RUECKFALL": "1"}, "live": {"SPIELLEITER_LLM": "live", "LLM_LIVE": "1"}}, "_hinweis": "Zusaetzliche Werte je Betriebsart. rueckfall: kein SPIELLEITER_LLM (kein Modell), dafuer der benannte Rueckfall-Zustand des Lage-Spielleiters. live: Modell an."},
+    "lobby_eigene_schluessel": {"wert": ["SPIELLEITER_LLM", "LLM_LIVE", "SPIELLEITER_RUECKFALL"], "_hinweis": "Betriebsart-Schluessel, die nur die Lobby-Option setzt: Basis-Werte des Servers werden aus der Kopie entfernt, dann gelten die Werte der gewaehlten Betriebsart (Option aus = Schluessel weg, nur SPIELLEITER_RUECKFALL=1). Kosten-Schranke fuer Live-Claude ist das Menue, nicht LLM_LIVE im Server-Env."},
+    "ausnahme_basiswert": {"wert": {"SPIELLEITER_LLM": "mock"}, "_hinweis": "Steht dieser Wert in der Basis, bleibt er erhalten (Test- und Debug-Haken ohne Kostenrisiko; die Lobby-Option ist dann ohne Wirkung)."}
+  }
+}

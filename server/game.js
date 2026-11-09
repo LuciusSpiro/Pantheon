@@ -187,6 +187,8 @@ class Game {
     this.C = CONFIG;
     this.debug = !!o.debug;
     this.env = o.env || process.env;
+    this.envBasis = this.env;   // FRE-01 A: Basis-Env des Servers; this.env ist in der Freien Fahrt (nur mit szenarioSchalter) eine Kopie mit den Szenario-Schaltern
+    this.szenarioSchalter = !!o.szenarioSchalter;   // FRE-01 A: nur der echte Server (index.js) schaltet es ein; Tests und Bots laufen ohne
     this.logFn = o.log || ((...a) => console.log('[Pantheon]', ...a));
     this.storeDisabled = !!o.noStore;
     // S1 §5: Weltstände auf der Platte (Standard: an, außer noStore – Tests/Smoke schreiben nichts). worlds: true erzwingt.
@@ -212,7 +214,7 @@ class Game {
     this.telemetrie = new Telemetrie(this);   // TEL-01 A: vor reset() (reset beendet eine offene Session)
     this.mitschnitt = Mitschnitt.an(this) ? new Mitschnitt(this) : null;   // MIT-01 A: reiner Beobachter, ohne MITSCHNITT=1 null (jeder Haken: game.mitschnitt && …)
     this.roomCode = typeof o.roomCode === 'string' && o.roomCode ? o.roomCode.toUpperCase() : null;
-    this.lobbyOpts = { skipDrill: false, startMission: 'm1', world: null, arena: null, wellen: null,   // wellen: Kartenwahl Bodenkampf: Wellen
+    this.lobbyOpts = { skipDrill: false, liveSpielleiter: false, startMission: 'm1', world: null, arena: null, wellen: null,   // wellen: Kartenwahl Bodenkampf: Wellen
       szene: null,   // W2 AP3b: Szenenwahl Wellen All (CONFIG.arena.szenen); null = Altweg Testgelände Raumkampf
       graben: null,   // BOD-01: Variantenwahl Grabenangriff { abschnitt: variante } (null = Standard der Karte)
       labor: { id: null, seed: null, staerke: null, god: false } };   // AP3a: Szenario-Labor (Auswahl und Parameter)
@@ -301,10 +303,15 @@ class Game {
   createLageSpielleiter() {
     if (this.lageSpielleiter || !this.weltsim) return this.lageSpielleiter || null;
     const mod = require('./sim/lage-spielleiter.js');
-    if (this.lageSchalter === undefined) this.lageSchalter = mod.schalterAn(this.env);
+    if (this.lageSchalter === undefined) this.lageSchalter = mod.betriebAn(this.env);   // FRE-01 A: mit Modell oder im Rückfall-Betrieb (ohne Modell)
     if (!this.lageSchalter) return null;
     try { this.lageSpielleiter = mod.create(this); } catch (e) { this.countError('lage-create', e); this.lageSchalter = false; this.lageSpielleiter = null; }
     return this.lageSpielleiter;
+  }
+  // FRE-01 A: wirksames Env der Partie (Kopie; process.env bleibt unberührt). Nur mit Option szenarioSchalter und nur in der Freien Fahrt; sonst das Basis-Env.
+  // Betriebsart live nur aus lobbyOpts.liveSpielleiter (Lobby-Schalter, FRE-01 B), beim Fortsetzen immer false.
+  szenarioEnvSetzen(modus, live) {
+    this.env = this.szenarioSchalter && modus === Kriegslage.MODUS ? require('./sim/szenario-schalter.js').wirksamesEnv(this.envBasis, modus, { live: live === true }) : this.envBasis;
   }
   // zwischen den Ticks (Game-Step): Antwort abholen, Frist prüfen, vorgemerkte Anfrage starten; legt den Lage-Spielleiter beim ersten Schritt im Modus an
   lageUpdate(dt) {
@@ -362,6 +369,7 @@ class Game {
       this.emit('worldLoadFailed', { id, reason });
       this.log(`Weltstand ${id} nicht geladen: ${reason}`);
       this.lobbyOpts.world = null;
+      this.env = this.envBasis;   // FRE-01 A: kein Szenario-Env in der Lobby
       for (const p of this.players) p.ready = false;
       this.refreshWorldList();
     };
@@ -371,6 +379,7 @@ class Game {
     // reset() spielt den Erstbesuch im Hafen ab (ODA, Logbuch, +20 Marken) – beim Fortsetzen ist das kein Erstbesuch
     this.muteEvents = true;
     try { this.reset(); } finally { this.muteEvents = false; }
+    { const sim = r.data && r.data.welt && r.data.welt.sim; this.szenarioEnvSetzen(sim && typeof sim === 'object' ? sim.modus : null, false); }   // FRE-01 A: Freie-Fahrt-Stand -> Szenario-Env (nach reset(), vor apply und erstem Speichern), Betriebsart beim Fortsetzen immer Rückfall
     const lk = Weltstand.lock(dir, id, { port: this.port });
     if (!lk.ok) return fail(lk.error);
     this.worldLock = { dir, id };
@@ -444,6 +453,7 @@ class Game {
     try { this.reset(); } finally { this.muteEvents = false; }
     // QA-Abnahme S1: den gerade gespielten Stand in der Lobby vorauswählen (statt „Neu: Kampagne“), sofern er in der Liste ok ist
     this.lobbyOpts.world = prevWorld && this.worldList.some((w) => w.id === prevWorld && w.state === 'ok') ? prevWorld : null;
+    this.lobbyOpts.liveSpielleiter = false;   // FRE-01 B: live gilt für eine Partie, nicht für die nächste
     for (const q of this.players) q.ready = false;
   }
 
@@ -501,6 +511,7 @@ class Game {
     this.spielleiter = null;
     if (this.lageSpielleiter) { try { this.lageSpielleiter.dispose(); } catch (e) { this.countError('lage-dispose', e); } }   // SUND-03 A2: Anfrage in der Luft verwerfen, späte Antworten kommen nie an
     this.lageSpielleiter = null; this.lageSchalter = undefined;
+    this.env = this.envBasis;   // FRE-01 A: zurück auf das Basis-Env; startGame/continueWorld setzen das Szenario-Env danach neu
     this.phase = 'lobby';
     this.paused = false;
     this.saveDue = null; this.dockSaveT = 0; this.pendingRadio = null;
@@ -668,6 +679,7 @@ class Game {
     if (this.phase === 'lobby') {
       this.raeumeKarte(p);   // die ID wird neu vergeben, die Mitspieler räumen die alte Karte
       this.players = this.players.filter((o) => o !== p);
+      if (!this.players.length) this.lobbyOpts.liveSpielleiter = false;   // FRE-01 Nacharbeit W1: leere Lobby, die nächste Gruppe entscheidet neu
       this.telemetrie.spielerWeg(p.id);   // TEL-01 A: nur Slot und Zahl; vor checkLobbyStart, sonst landet der Abgang als Phantom in der gerade begonnenen Session
       this.checkLobbyStart();
     } else {
@@ -712,6 +724,7 @@ class Game {
           // M2: Direktstart der Planetenmission (CONTRACT-M2 §3.3)
           if (this.phase === 'lobby' && this.startModi().includes(msg.startMission) && msg.startMission !== this.lobbyOpts.startMission) {
             this.lobbyOpts.startMission = msg.startMission;
+            if (msg.startMission !== Kriegslage.MODUS) this.lobbyOpts.liveSpielleiter = false;   // FRE-01 B: Wechsel weg von der Freien Fahrt setzt die Kostenentscheidung zurück
             this.log(`${p.name}: Start ${(Protocol.START_LABELS && Protocol.START_LABELS[msg.startMission]) || msg.startMission}.`);
           } else if (this.phase === 'lobby' && msg.startMission === 'labor' && !Labor.an(this.C)) this.notice(p, 'Das Szenario-Labor ist auf diesem Server aus.');
           // AP3a: Szenario-Labor – Auswahl und Parameter (Felder werden zusammengeführt; jeder darf umschalten)
@@ -754,8 +767,14 @@ class Game {
               const w = this.worldList.find((o) => o.id === id);
               if (!w) this.notice(p, 'Diesen Weltstand gibt es nicht (mehr).');
               else if (w.state !== 'ok') this.notice(p, w.grund || 'Dieser Weltstand lässt sich nicht fortsetzen.');
-              else if (this.lobbyOpts.world !== id) { this.lobbyOpts.world = id; this.log(`${p.name}: Fortsetzen „${w.name}“ (${id}).`); }
+              else if (this.lobbyOpts.world !== id) { this.lobbyOpts.world = id; this.lobbyOpts.liveSpielleiter = false; this.log(`${p.name}: Fortsetzen „${w.name}“ (${id}).`); }   // FRE-01 B: Fortsetzen läuft nie live
             }
+          }
+          // FRE-01 B: Live-Spielleiter (echter Claude auf dem Abo, Kostenentscheidung) – nur Freie Fahrt mit neuer Welt, nur in der Lobby, jeder darf umschalten; nach Modus und Weltstand verarbeitet, damit eine Sammelnachricht stimmt
+          if (this.phase === 'lobby' && typeof msg.liveSpielleiter === 'boolean' && msg.liveSpielleiter !== this.lobbyOpts.liveSpielleiter
+            && this.lobbyOpts.startMission === Kriegslage.MODUS && !this.lobbyOpts.world) {
+            this.lobbyOpts.liveSpielleiter = msg.liveSpielleiter;
+            this.log(`${p.name}: Live-Spielleiter ${msg.liveSpielleiter ? 'an (echter Claude)' : 'aus'}.`);
           }
           break;
         case C.WORLD: this.onWorldMsg(conn, p, msg); break;   // S1 §6
@@ -1127,6 +1146,7 @@ class Game {
     const freieFahrt = sm === Kriegslage.MODUS;   // SUND-01 B: Weltstand, aber ohne Kette und ohne Spielleiter
     Welt.waehle(this, freieFahrt ? Kriegslage.KARTE : UEBUNG_WELTEN[sm] || (campaign && CAMPAIGN_KETTEN[sm] && CAMPAIGN_KETTEN[sm].welt) || Welt.STANDARD);
     this.reset();
+    this.szenarioEnvSetzen(freieFahrt ? sm : null, this.lobbyOpts.liveSpielleiter === true);   // FRE-01 A: nach reset() (das setzt das Basis-Env), vor dem ersten Schritt und dem Kopf
     this.phase = 'play';
     this.stats.playTimeStart = this.time;
     this.players.forEach((p, i) => { this.resetPlayer(p, i); p.ready = true; });
@@ -1635,7 +1655,7 @@ class Game {
   // SUND-03 A2: lage status | plan | fail (Antwort als Hinweis an den Absender)
   onDebugLage(p, args) {
     const l = this.lageSpielleiter;
-    if (!l) return this.weltsim ? 'Kein Lage-Spielleiter (LAGE_SPIELLEITER=1 und SPIELLEITER_LLM=mock|live setzen).' : 'Kein Lage-Spielleiter – nur in der Freien Fahrt Sund.';
+    if (!l) return this.weltsim ? 'Kein Lage-Spielleiter (Freie Fahrt: die Lobby-Option Live-Spielleiter wählt Rückfall oder live; sonst LAGE_SPIELLEITER=1 und SPIELLEITER_LLM=mock|live setzen).' : 'Kein Lage-Spielleiter – nur in der Freien Fahrt Sund.';
     try { const r = l.debug(args, p); if (r) this.notice(p, String(r).slice(0, 400)); return null; } catch (e) { this.countError('lage-debug', e); return 'lage: Fehler (' + e.message + ')'; }
   }
   // S2: sl status | sl plan | sl fail grobplan|szene | sl archiv  (Text in msg.args oder msg.sub/msg.what)
@@ -1885,6 +1905,7 @@ class Game {
           if (this.weltstand && this.weltstand.persistent && this.ship.docked) this.safe('weltstand', () => this.saveWorld('empty'));
           this.telemetrie.sessionBeenden('leer');   // TEL-01 A
           this.players = [];
+          this.lobbyOpts.liveSpielleiter = false;   // FRE-01 Nacharbeit W1: Kostenentscheidung der leeren Runde gilt nicht für die nächste Gruppe (reset() selbst löscht sie nicht: startGame liest sie danach)
           Welt.waehle(this, Welt.STANDARD);
           this.reset();
           return;
@@ -2300,6 +2321,7 @@ class Game {
       t: 'snap', tick: this.tick, time: r2(this.time), phase: this.phase,
       lobby: this.phase === 'lobby'
         ? { skipDrill: this.lobbyOpts.skipDrill, startMission: this.lobbyOpts.startMission,   // S1 §6: Weltstände nur in der Lobby
+          ...(this.lobbyOpts.startMission === Kriegslage.MODUS ? { liveSpielleiter: this.lobbyOpts.liveSpielleiter === true } : {}),   // FRE-01 B: nur in der Freien Fahrt
           worlds: this.worldList, world: this.lobbyOpts.world || null, worldsFull: this.worldsEnabled && this.worldList.length >= this.worldMax(),
           ...(this.lobbyOpts.arena ? { arena: this.lobbyOpts.arena } : {}),   // B1 §4: gewählte Testgelände-Karte
           ...(this.lobbyOpts.wellen ? { wellen: this.lobbyOpts.wellen } : {}),   // Bodenkampf: Wellen – Kartenwahl
