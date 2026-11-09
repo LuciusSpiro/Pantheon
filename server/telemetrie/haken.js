@@ -29,7 +29,7 @@ function neu(sitzung, game) {
 // beim Sessionende schliesst der Dienst die offenen Deckungszustaende (Abschluss-Haken vor session_ende).
 function zust(game) {
   const t = game.telemetrie;
-  if (!t || !t.offen) return null;
+  if (!t || !t.offen || t.senke) return null;   // MIT-01 A: im Senkenbetrieb (voll = false) wird keine Zeitreihe und kein Deckungszustand aufgebaut
   let s = Zustaende.get(game);
   if (!s || s.sitzung !== t.sitzung) {
     s = neu(t.sitzung, game); Zustaende.set(game, s);
@@ -127,7 +127,7 @@ function deckungPruefen(game, s) {
 // ---------- Konsole / Rolle (4) ----------
 function konsole(game, p, rein, grund) {
   const t = game.telemetrie;
-  if (!t || !t.offen) return;
+  if (!t || !t.offen || t.senke) return;
   nie(game, () => t.ereignis('konsole', { slot: p.id, konsole: p.console || null, station: p.console ? (p.station || p.console) : null, rein: !!rein, grund: String(grund || 'sonst').slice(0, 30) }));
 }
 
@@ -155,7 +155,7 @@ function reparaturEnde(game, slot, m) {
 // Typ und Felder wie Paket B1 (system, zone, wie) plus durch; zone = Sektor der Lerche (bug, steuerbord, heck, backbord, mitte), wie bei zone_aus
 function zoneWieder(game, sys, wie, durch) {
   const t = game.telemetrie;
-  if (!t || !t.offen) return;
+  if (!t || !t.offen || t.senke) return;
   nie(game, () => {
     let sektor = null;
     try { const z = require('../sim/interior.js').systemSector(sys); sektor = sektorName(z); } catch (e) { /* ohne Sektor */ }
@@ -165,7 +165,7 @@ function zoneWieder(game, sys, wie, durch) {
 // Feuer geloescht / Leck geflickt (Halteprozess extinguish bzw. patch); raum = Raumkennung der Kachel
 function loeschen(game, p, art, tx, ty) {
   const t = game.telemetrie;
-  if (!t || !t.offen) return;
+  if (!t || !t.offen || t.senke) return;
   nie(game, () => {
     let raum = null;
     try { const r = require('../world.js').Maps.roomAt(tx, ty); raum = r ? String(r.id) : null; } catch (e) { /* ohne Raum */ }

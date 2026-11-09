@@ -29,12 +29,12 @@
 const fs = require('fs');
 const path = require('path');
 const Archiv = require('./archiv.js');
+const MD = require('./md-ablage.js');
+const { writeAtomic, slugify, localDate, readJson, mmss, NOTES_HEAD, NOTES_DEFAULT } = MD;
 
 const FORMAT = 'llm-aufzeichnung/1';
 const STATUS = ['offen', 'angenommen', 'abgelehnt'];
 const DIR = Archiv.ERZEUGT_DIR;
-const NOTES_HEAD = '## Notizen';
-const NOTES_DEFAULT = '_Platz für Anmerkungen beim Review – dieser Abschnitt bleibt beim Neuschreiben erhalten._';
 const isObj = (x) => !!x && typeof x === 'object' && !Array.isArray(x);
 const clone = (o) => (o === undefined ? undefined : JSON.parse(JSON.stringify(o)));
 
@@ -50,42 +50,13 @@ function npcName(id, book) {
   if (st && st[id] && st[id].name) return st[id].name;
   try { return require('./loader.js').npcName(id) || id; } catch (e) { return id; }
 }
-function slugify(s, n) {
-  return String(s || '').toLowerCase().replace(/ä/g, 'ae').replace(/ö/g, 'oe').replace(/ü/g, 'ue').replace(/ß/g, 'ss')
-    .replace(/[^a-z0-9_-]+/g, '_').replace(/^_+|_+$/g, '').slice(0, n || 48) || 'mission';
-}
-function localDate(d) {
-  const x = d instanceof Date ? d : new Date(d);
-  const p = (n) => String(n).padStart(2, '0');
-  return `${x.getFullYear()}-${p(x.getMonth() + 1)}-${p(x.getDate())}`;
-}
-function readJson(file) {
-  const raw = fs.readFileSync(file, 'utf8');
-  return JSON.parse(raw.charCodeAt(0) === 0xfeff ? raw.slice(1) : raw);
-}
-let SEQ = 0;
-function writeAtomic(file, text) {
-  fs.mkdirSync(path.dirname(file), { recursive: true });
-  const tmp = `${file}.${process.pid}.${++SEQ}.tmp`;
-  fs.writeFileSync(tmp, text, 'utf8');
-  try { fs.renameSync(tmp, file); } catch (e) {
-    // Windows: Datei gerade in einem Editor offen (EPERM/EBUSY) -> direkt schreiben
-    try { fs.unlinkSync(tmp); } catch (e2) { /* egal */ }
-    if (e.code === 'EPERM' || e.code === 'EBUSY' || e.code === 'EACCES') fs.writeFileSync(file, text, 'utf8'); else throw e;
-  }
-}
 // Vorhandene mission.md: Status und Notizen (bleiben beim Neuschreiben erhalten)
 function readMdState(file) {
   let text = null;
   try { text = fs.readFileSync(file, 'utf8'); } catch (e) { return { status: null, notizen: null }; }
-  const s = text.replace(/^﻿/, '').replace(/\r\n?/g, '\n');
-  const i = s.indexOf('\n' + NOTES_HEAD);
-  let notizen = null;
-  if (i >= 0) { const rest = s.slice(i + 1 + NOTES_HEAD.length); const nl = rest.indexOf('\n'); notizen = (nl >= 0 ? rest.slice(nl + 1) : '').replace(/^\n+|\s+$/g, '') || null; }
-  return { status: Archiv.mdStatus(s), notizen };
+  return { status: Archiv.mdStatus(text), notizen: MD.notizenAus(text) };
 }
 const fmtErr = (x) => (typeof x === 'string' ? x : `${x.code || ''} ${x.p || ''}: ${x.msg || ''}`.trim());
-function mmss(sec) { if (!Number.isFinite(sec)) return '–'; const s = Math.max(0, Math.round(sec)); return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`; }
 
 // ---------- Eintrag (mission.json) ----------
 function normAnswers(szenen) {

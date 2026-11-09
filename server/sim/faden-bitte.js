@@ -174,6 +174,7 @@ function anbieten(game, o) {
     optionen: erlaubt.map((x) => ({ id: x.id, text: String(x.text).slice(0, BW.option_text_max), folge: klon(x.folge), ausgang: x.ausgang })),
     bis: F.t + BW.frist_taetigkeiten,
   };
+  game.mitschnitt && game.mitschnitt.bitteGestellt(F.bitte);   // MIT-01 A H3: Beobachter (Optionsliste der Bitte), wirft nie
   // Nacharbeit F1/F2: die Bitte geht EINMAL als Funkzeile des NSC an alle (sie steht im Funk-Log), danach werden die Hinweise des Beats gesendet; erst das Senden macht sie gueltig (B-S1)
   funkVon(game, { name: ab.name, fraktion: ab.fraktion, portrait: ab.portrait }, F.bitte.text);
   for (const h of beat.hinweise || []) Hinweis().senden(game, f.id, h);
@@ -209,6 +210,7 @@ function beantworten(game, id, nr) {
   const opt = off.optionen.find((x) => x.id === id);
   if (!opt) return fehl('unbekannt');   // nur was im Angebot steht (Später ist nur lokal, kein Befehl)
   F.bitte = null;
+  game.mitschnitt && game.mitschnitt.bitteGewaehlt(off, opt);   // MIT-01 A H3: Beobachter (gewählte Option), wirft nie
   if (opt.ausgang === undefined) {   // Option ohne Ausgang (Daten: „später“): die Bitte wird zurückgestellt, der Beat bleibt offen; nachTaetigkeit bietet erneut an. Welle 3: eine Haltungs-Folge (hingehalten) gilt, der Ton der nächsten Bitte folgt ihr
     funkSenden(game, BW.antwort_von, opt.text);
     if (opt.folge.length) Faden().folgenAnwenden(game, f, opt.folge, true);

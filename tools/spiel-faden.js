@@ -16,6 +16,9 @@ const os = require('os');
 const path = require('path');
 process.chdir(path.join(__dirname, '..'));
 process.env.MISSION_SOURCE = 'fallback'; process.env.SPIELLEITER_LLM = 'mock'; process.env.LAGE_SPIELLEITER = '1'; process.env.REISE_EREIGNISSE = '1'; process.env.FAEDEN = '1';
+// MIT-01 C: --mitschnitt / --mitschnitt-dir <ordner> (tools/lib/mitschnitt-lauf.js) schaltet den Mitschnitt des Laufs ein; ohne den Schalter aendert sich nichts
+const MitLauf = require('./lib/mitschnitt-lauf.js');
+MitLauf.einschalten(process.argv.slice(2));
 const WebSocket = require('ws');
 const { startServer } = require('../server/index.js');
 const Faden = require('../server/sim/faden.js');
@@ -53,10 +56,16 @@ function client(port, hello, name) {
   });
 }
 
+let spielG = null;   // MIT-01 N3/7a: fuer den Fehlerpfad (catch am Ende) zugaenglich
 (async () => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'spiel-faden-'));
   const srv = await startServer({ port: 0, quiet: true, noStore: true, worlds: true, worldDir: dir, debug: true, roomCode: CODE });
   const g = srv.game, port = srv.port;
+  spielG = g;
+  // MIT-01 C: Werkzeugdaten fuer den Mitschnitt. Kuenstlich gesetzt ist, was dieser Bot per Testhelfer/Hook tut (siehe k(...) an den Stellen)
+  MitLauf.anmelden(g, { werkzeug: 'spiel-faden', modus: 'faeden', seed: g.seed, crew: NAMEN.length, quelle: 'bot',
+    regel: 'Bitte: Option annehmen, sonst die erste Option (ein zweiter Client antwortet gleichzeitig ablehnen: wird verworfen); Brett: Angebot annehmen (zwei Clients zugleich), Ablehnen nur zum Platzschaffen' });
+  const k = (...arten) => MitLauf.kuenstlich(g, ...arten);
   zeile(`Server auf Port ${port}, Schalter FAEDEN=1`);
   const cl = [await client(port, { clientId: 'A', name: NAMEN[0], color: 0 }, NAMEN[0]), await client(port, { clientId: 'B', name: NAMEN[1], color: 1 }, NAMEN[1]), await client(port, { clientId: 'C', name: NAMEN[2], color: 2 }, NAMEN[2])];
   await sleep(300);
@@ -66,6 +75,7 @@ function client(port, hello, name) {
   zeile(`drei Clients im Spiel: ${g.players.filter((p) => p.connected).length} verbunden, Phase ${g.phase}, Lage-Spielleiter ${g.lageSpielleiter && !g.lageSpielleiter.disposed ? 'aktiv (Mock, Modus ' + g.lageSpielleiter.mode + ')' : 'nicht aktiv'}`);
 
   // Der Notruf ist bewaeltigt: die Person am Ausgang oeffnet ein Angebot (Hook, wie reise-ereignis)
+  k('notruf-hook');   // der Notruf ist kein gespielter Einsatz: der Ausgang wird per Hook gesetzt
   const angebot = Faden.ausgangMitPerson(g, { art: 'notruf', id: 'notruf_pirat_frachter', hex: '0403', sprecher: 'Frachter Aurelia', ausgang: 'gelungen' });
   zeile(`Notruf bewaeltigt (notruf_pirat_frachter): Angebot ${angebot ? 'Nr ' + angebot.nr + ' fuer ' + angebot.vorlagen.join(', ') : 'keines'}`);
   let faden = null;
@@ -103,14 +113,15 @@ function client(port, hello, name) {
   zeile(`Bitten-Antworten bei allen drei: ${cl.map((x) => x.antw).join(', ')}`);
   // ---------------------------------------------------------------- SUND-04b B1: Gerücht, Rätsel-Spur, Wiedersehen
   // TEST-ARTEFAKT: der Deckel von 6 Anfragen je Sitzung (lageSpielleiter.aufrufe) gilt dem ECHTEN Claude (Kosten). Der Bot spielt mit dem Mock und setzt den Zaehler zurueck, sonst stuende die Geschichte nach einigen Runden still; im Spiel mit Claude gilt der Deckel unveraendert.
-  const runde = async () => { Kriegslage.tick(g, 'spiel'); g.lageGrenze('szene_ende'); if (g.lageSpielleiter && g.lageSpielleiter.aufrufe > 4) g.lageSpielleiter.aufrufe = 0; await sleep(100); };   // der Deckel von 6 Anfragen je Sitzung gilt dem echten Claude: im Bot-Lauf mit dem Mock wird er zurueckgesetzt, sonst stuende die Geschichte still
+  const runde = async () => { Kriegslage.tick(g, 'spiel'); g.lageGrenze('szene_ende'); if (g.lageSpielleiter && g.lageSpielleiter.aufrufe > 4) { k('aufrufe-zuruecksetzen'); g.lageSpielleiter.aufrufe = 0; } await sleep(100); };   // MIT-01 N3/7b: als kuenstlich nur markieren, wenn tatsaechlich zurueckgesetzt wird   // der Deckel von 6 Anfragen je Sitzung gilt dem echten Claude: im Bot-Lauf mit dem Mock wird er zurueckgesetzt, sonst stuende die Geschichte still
   const hierHex = () => Sektoren.hexVonOrt(g.ship.scene);
-  const flieg = (hex) => { const o = Sektoren.ortVonHex(hex) || ('leer-' + hex); Space.enterScene(g, o, {}); g.explore.location = o; const s = g.ship; s.docked = false; s.dockedAt = null; s.vx = 0; s.vy = 0; s.speed = 0; };
+  const flieg = (hex) => { k('teleport'); const o = Sektoren.ortVonHex(hex) || ('leer-' + hex); Space.enterScene(g, o, {}); g.explore.location = o; const s = g.ship; s.docked = false; s.dockedAt = null; s.vx = 0; s.vy = 0; s.speed = 0; };
   // Die Crew sitzt an einer Konsole (Platz und Taste Benutzen, wie die Ops bei der Spur): der Sprung geht ueber die echten Befehle weapons.widescan und helm.jump
   const konsole = async (name) => {
     let platz = null;
     for (const t of [].concat(World.CONSOLE_TILES[name])) for (const [dx, dy, dir] of [[0, 1, 'up'], [0, -1, 'down'], [-1, 0, 'right'], [1, 0, 'left']]) { const q = { x: t.x + dx, y: t.y + dy, dir }; if (!platz && !World.ship.solid(q.x, q.y)) platz = q; }
     const mitte = Physics.tileCenter(platz.x, platz.y), me = g.players[0];
+    k('spieler-setzen');   // Platz an der Konsole wird gesetzt, nicht gelaufen
     const station = () => require('../server/sim/station.js').stationOf(me);
     if (!me.console) { me.x = mitte.x; me.y = mitte.y; me.dir = platz.dir; cl[0].send({ t: 'act', down: true }); cl[0].send({ t: 'act', down: false }); await sleep(250); }
     for (let i = 0; i < 4 && station() !== name; i++) { cl[0].send({ t: 'cmd', c: 'station.tab', dir: 1 }); await sleep(150); }   // schon an einer Konsole: Tab schaltet das Interface (Steuer, Ops, ...)
@@ -130,6 +141,7 @@ function client(port, hello, name) {
     if (!weg) { zeile('Sprung: kein Weg ueber offene Sprungpunkte nach ' + ziel); return false; }
     for (const h of weg) {
       const p = Sprung.sprungpunkt(g, h), s = g.ship;
+      k('ort-setzen');   // das Schiff wird an den Sprungpunkt gesetzt (der Sprung selbst laeuft ueber die echten Befehle)
       s.docked = false; s.dockedAt = null; s.x = p.x - 80; s.y = p.y; s.vx = 0; s.vy = 0; s.speed = 0;
       await konsole('weapons'); cl[0].send({ t: 'cmd', c: 'weapons.widescan' }); await sleep(400);
       await konsole('helm');
@@ -152,6 +164,7 @@ function client(port, hello, name) {
   let angenommen = 0;
   async function abenteuer(name, plan, parameter) {
     void parameter;   // das Wiedersehen waehlt der Server selbst (juengster Kandidat)
+    k('mock-plan');   // das Angebot kommt vom Mock-Plan, nicht vom Komponisten
     let a = Faden.abenteuerAnbieten(g, plan, { hex: hierHex() });
     for (let i = 0; i < 4 && !a.ok && /ABENTEUER_ANGEBOTE/.test(a.grund); i++) {   // das Brett ist voll (Komponist, Rueckfall): die Crew lehnt ein Angebot ab (kostet nichts)
       const alt = angebote(cl[1])[0]; if (!alt) break;
@@ -223,7 +236,7 @@ function client(port, hello, name) {
       zeile('Spur ' + g.spur.id + ' läuft, Marke im Sektorplan; Funk: ' + funkSeit(n0));
       await konsole('weapons');   // die Ops sitzt an ihrer Konsole (nach dem Sprung des Geruechts war die Crew am Steuer)
       const lese = async () => {
-        const k = Spur.kern(g.spur.id, hierHex()); g.ship.x = k.x + 40; g.ship.y = k.y;
+        const kern = Spur.kern(g.spur.id, hierHex()); k('ort-setzen'); g.ship.x = kern.x + 40; g.ship.y = kern.y;
         cl[0].send({ t: 'cmd', c: 'weapons.spur.lesen', on: true });
         for (let i = 0; i < 200 && !(g.spur.gelesen || g.spur.fertig || g.spur.wartet); i++) await sleep(100);
         if (g.spur.wartet) {   // Teilung: die Ops stimmt das Signal ab (Qualität 3)
@@ -270,7 +283,7 @@ function client(port, hello, name) {
   const Besitz = require('../server/sim/besitz.js');
   const Locations = require('../shared/locations.js');
   const ergB2 = [];
-  const alleGegner = () => { for (const e of g.space.enemies.slice()) Testhilfe.toeten(g, e); };
+  const alleGegner = () => { k('testhelfer-kill'); for (const e of g.space.enemies.slice()) Testhilfe.toeten(g, e); };
   const szeneDa = (f) => g.fadenSzene && g.fadenSzene.fadenId === f.id;
   async function bisKampf(f, ms) { for (let i = 0; i < (ms || 300); i++) { if (szeneDa(f) && g.fadenSzene.phase === 'kampf') return true; if (f.phase !== 'laeuft') return false; await sleep(100); } return false; }
   async function bisEnde(f, jeSchritt, ms) { for (let i = 0; i < (ms || 600) && f.phase === 'laeuft'; i++) { if (jeSchritt) jeSchritt(); await sleep(100); } return f.phase !== 'laeuft'; }
@@ -286,7 +299,7 @@ function client(port, hello, name) {
       zeile('Konvoi: Beat läuft, Vorwarnung per Funk: ' + funkSeit(n0));
       const kampf = await bisKampf(f);
       zeile('Konvoi: Kampf ' + kampf + ', ' + Konvoi.transporter(g).length + ' Transporter, Eskorte ' + Konvoi.mitglieder(g, 'e').map((e) => e.kind).join('+') + ' (drei Spieler verbunden)');
-      await sleep(1500); for (const e of Konvoi.transporter(g)) Testhilfe.toeten(g, e);
+      await sleep(1500); k('testhelfer-kill'); for (const e of Konvoi.transporter(g)) Testhilfe.toeten(g, e);
       const ende1 = await bisEnde(f, null, 100); await sleep(300);
       zeile('Konvoi nach dem Zerstören der Transporter: Phase ' + f.phase + ', NSC ' + f.nsc.status + ', Gedächtnis ' + beatEnde(f, 'konvoi') + '; Funk: ' + funkSeit(n0).slice(-160));
       ergB2.push(['Konvoi aufhalten', kampf && ende1 && f.nsc.gedaechtnis.some((x) => x.ereignis === 'konvoi_gelungen') && !g.space.konvoi && g.space.enemies.length === 0]);
@@ -305,9 +318,9 @@ function client(port, hello, name) {
       zeile('Geleit ' + modus + ': Kampf ' + kampf + ', Schützling ' + (es() ? es().name + ' (' + es().kind + ', ' + es().verhalten + ')' : '-') + ', Angreifer ' + g.space.enemies.filter((e) => g.fadenSzene && e.tag === g.fadenSzene.tag).length + '; Funk: ' + funkSeit(n0).slice(0, 220));
       await sleep(1500);
       let ende2 = false;
-      if (modus === 'geleit') { alleGegner(); await sleep(500); const q = es(); if (q && q.ziel) { q.x = q.ziel.x; q.y = q.ziel.y; q.vx = 0; q.vy = 0; } ende2 = await bisEnde(f, null, 100); }
+      if (modus === 'geleit') { alleGegner(); await sleep(500); const q = es(); if (q && q.ziel) { k('schuetzling-versetzt'); q.x = q.ziel.x; q.y = q.ziel.y; q.vx = 0; q.vy = 0; } ende2 = await bisEnde(f, null, 100); }
       else if (modus === 'havarist') { alleGegner(); ende2 = await bisEnde(f, null, 100); }
-      else { alleGegner(); ende2 = await bisEnde(f, () => { const q = es(); if (q) { g.ship.x = q.x + 90; g.ship.y = q.y; g.ship.vx = 0; g.ship.vy = 0; g.ship.speed = 0; } }, 600); }
+      else { alleGegner(); ende2 = await bisEnde(f, () => { const q = es(); if (q) { k('ort-setzen'); g.ship.x = q.x + 90; g.ship.y = q.y; g.ship.vx = 0; g.ship.vy = 0; g.ship.speed = 0; } }, 600); }
       await sleep(300);
       zeile('Geleit ' + modus + ' am Ende: Phase ' + f.phase + ', NSC ' + f.nsc.status + ', Gedächtnis ' + beatEnde(f, 'geleit') + ', Schützling weg ' + !es());
       ergB2.push(['Geleit ' + modus, kampf && ende2 && f.nsc.gedaechtnis.some((x) => x.ereignis === 'geleit_gelungen') && !es() && g.space.enemies.length === 0]);
@@ -320,7 +333,7 @@ function client(port, hello, name) {
     flieg('0305'); await sleep(300);
     const z = g.weltsim.zustand, pflanzOrt = '0505';   // 0505 ist nur die Garantie, dass es ein Ziel gibt; WELCHES Ziel der Beat waehlt (ziele(game), z. B. 0703 mit 6 Spruengen), entscheidet er: danach gilt f.parameter.ort
     let ziel = pflanzOrt;
-    const pflanze = () => { Object.assign(z.hexe[pflanzOrt], { besitzer: 'ger', posten: true, garnison: 4, anspruch: {} }); if (g.weltBesitz && g.weltBesitz.hexe[pflanzOrt]) g.weltBesitz.hexe[pflanzOrt] = { besitzer: 'ger', posten: true }; z.flotten = z.flotten.filter((x) => x.ort !== pflanzOrt); g.weltsim.ruf.rom = Math.max(g.weltsim.ruf.rom, 1); };
+    const pflanze = () => { k('posten-gepflanzt'); Object.assign(z.hexe[pflanzOrt], { besitzer: 'ger', posten: true, garnison: 4, anspruch: {} }); if (g.weltBesitz && g.weltBesitz.hexe[pflanzOrt]) g.weltBesitz.hexe[pflanzOrt] = { besitzer: 'ger', posten: true }; z.flotten = z.flotten.filter((x) => x.ort !== pflanzOrt); g.weltsim.ruf.rom = Math.max(g.weltsim.ruf.rom, 1); };
     pflanze();
     const B2 = require('../server/sim/faden-b2.js');
     zeile('Sabotage: Lage vor dem Plan: Ziele ' + JSON.stringify(B2.ziele(g)) + ', Kontext faeden.lage.sabotage_ziel ' + B2.lage('sabotage_ziel').zahl(g));
@@ -338,7 +351,7 @@ function client(port, hello, name) {
       if (da && f.phase === 'laeuft') {
         await konsole('weapons');
         const p = Besitz.postenLage(Locations.get(Sektoren.ortVonHex(ziel)).scene);
-        const halte = () => Object.assign(g.ship, { x: p.x, y: p.y, vx: 0, vy: 0, speed: 0 });
+        const halte = () => k('ort-setzen') || Object.assign(g.ship, { x: p.x, y: p.y, vx: 0, vy: 0, speed: 0 });
         // Liegt am Ziel eine germanische Flotte, startet die Sim bei der Ankunft selbst eine Szene (phase vorwarnung): sie ist NICHT die Angriffsszene. Erst abwarten (Gegner per Testhelfer), dann angreifen.
         const szeneAbwarten = async () => { for (let i = 0; i < 1800 && g.simSzene; i++) { alleGegner(); await sleep(100); } await sleep(300); };
         const ankunftsSzene = g.simSzene ? g.simSzene.modus : null;
@@ -387,5 +400,6 @@ function client(port, hello, name) {
   fs.writeFileSync(outDatei, protokoll.join('\n') + '\n');
   zeile(`Protokoll geschrieben: ${outDatei}`);
   for (const x of cl) x.ws.close();
+  MitLauf.beenden(g);   // MIT-01 C: Mitschnitt schreiben, Ordner nennen (ohne Schalter: nichts)
   process.exit(fertig && alleB1 && alleB2 && alleC && g.errors === 0 ? 0 : 1);
-})().catch((e) => { console.log('FEHLER: ' + (e && e.stack)); process.exit(1); });
+})().catch((e) => { console.log('FEHLER: ' + (e && e.stack)); MitLauf.beenden(spielG); process.exit(1); });   // MIT-01 N3/7a: auch im Fehlerfall schreiben und den Ordner nennen

@@ -24,6 +24,12 @@ function ohneNamen(text, namen) {
   for (const n of namen) if (n.length >= 2) t = t.replace(new RegExp('(?<![\\wäöüÄÖÜß])' + n.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '[\\wäöüÄÖÜß]*', 'gi'), 'Crew');
   return t;
 }
+// MIT-01 A: wie ohneNamen, aber nur GANZE Wörter (ohneNamen ersetzt auch Präfixe: aus „Bordintelligenz“ wird bei einem Spieler „Bo“ „Crew“). Für den Mitschnitt, der Spieltexte lesbar halten muss. Groß/klein egal, Umlaute zählen als Wortzeichen.
+function ohneNamenGanzwort(text, namen) {
+  let t = String(text == null ? '' : text);
+  for (const n of namen || []) if (typeof n === 'string' && n.length >= 2) t = t.replace(new RegExp('(?<![\\wäöüÄÖÜß])' + n.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '(?![\\wäöüÄÖÜß])', 'gi'), 'Crew');
+  return t;
+}
 function spielerNamen(game) {
   return (game.players || []).map((p) => (p && typeof p.name === 'string' ? p.name.trim() : '')).filter((n) => n.length >= 2).sort((a, b) => b.length - a.length);
 }
@@ -115,4 +121,4 @@ function ausschnittPassend(game, { maxZeichen = A.max_zeichen } = {}) {
   return Object.assign(letzter || { stufe: 0, zeichen: 0, text: '' }, { passt: false });
 }
 
-module.exports = { ausschnitt, ausschnittPassend, ohneNamen, spielerNamen, STUFEN: A.stufen, MAX_ZEICHEN: A.max_zeichen };
+module.exports = { ausschnitt, ausschnittPassend, ohneNamen, ohneNamenGanzwort, spielerNamen, STUFEN: A.stufen, MAX_ZEICHEN: A.max_zeichen };
