@@ -897,6 +897,7 @@ function apply(game, data) {
   }
   game.asteroidsDirty = true;
   Kriegslage.nachLaden(game);   // SUND-01 B: nur im Modus; keine Kampagnen-Angebote, dockOk der Szene neu
+  try { require('./sim/abenteuer-orte.js').abgleichen(game); } catch (e) { countError(game, 'weltstand-abenteuer-orte', e); }   // DYN-01 A: Orte lebender Abenteuer kommen aus dem Faden zurück, Reste beendeter (Scan-Markierung im Stand) weg
   // S2 (BAUSTEINE): Außenkarten aus den Fakten herrichten (Tafel weg vom Kesh-Sockel, zerstörter Wächter bleibt zerstört)
   try {
     const away = require('./sim/away.js');

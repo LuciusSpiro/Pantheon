@@ -243,6 +243,8 @@
     "test:finale-ui-mutation": "node tools/mutation-finale-ui.js",
     "test:finale-boden": "node tools/test-finale-boden.js",
     "test:finale-boden-mutation": "node tools/mutation-finale-boden.js",
+    "test:abenteuer-orte": "node tools/test-abenteuer-orte.js",
+    "test:abenteuer-orte-mutation": "node tools/mutation-abenteuer-orte.js",
     "test:finale-orbit": "node tools/test-finale-orbit.js",
     "test:finale-orbit-mutation": "node tools/mutation-finale-orbit.js",
     "sim:finale-orbit": "node tools/sim-finale-orbit.js",

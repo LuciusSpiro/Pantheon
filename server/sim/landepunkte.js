@@ -411,6 +411,8 @@ function cacheLeeren(art) {
   for (const k of Array.from(KARTEN_CACHE.keys())) if (!art || k.split('|')[2] === art) { KARTEN_CACHE.delete(k); n++; }
   return n;
 }
+// DYN-01 A: liegt noch eine Karte dieses Landepunkts im Cache? (Tests und Diagnose des Abraeumens: verwerfen leert die Schluessel mit lpId|)
+function cacheHat(lpId) { for (const k of KARTEN_CACHE.keys()) if (k.startsWith(lpId + '|')) return true; return false; }
 function cacheSetzen(key, roh) {
   if (KARTEN_CACHE.has(key)) KARTEN_CACHE.delete(key);
   while (KARTEN_CACHE.size >= CACHE_MAX) KARTEN_CACHE.delete(KARTEN_CACHE.keys().next().value);
@@ -451,12 +453,15 @@ function vorbauen(game, lpIds, fertig) {
     if (game.landepunkte !== S0) return;   // Partie zurückgesetzt bzw. Weltstand neu geladen: nichts mehr bauen
     if (i >= ids.length) { if (fertig) fertig(null); return; }
     const id = ids[i++];
+    if (!def(game, id)) { setImmediate(schritt); return; }   // DYN-01 A: der Landepunkt ist inzwischen abgeraeumt (verwerfen), nichts mehr zu bauen und kein Fehler
     try { gebauteKarte(game, id, true); } catch (x) { countError(game, 'landepunkte-vorbau', x); }
     setImmediate(schritt);
   };
   if (ids.length) setImmediate(schritt); else if (fertig) setImmediate(() => fertig(null));
   return ids.length;
 }
+// DYN-01 A: Haltemarke der Mission und offene Schritt-Aktionen eines Landepunkts loesen (beides macht belegt() wahr, ausstehend sogar fuer immer, wenn niemand get() ruft). Aufrufer: abenteuer-orte.js vor verwerfen
+function halteLoesen(game, lpId) { const S = st(game); delete S.halten[lpId]; delete S.ausstehend[lpId]; }
 // Alle freien Landepunkte eines Orts vorbauen (Ankunft am Ort)
 function vorbauenOrt(game, ort) { return vorbauen(game, liste(game, ort).filter((x) => x.frei && x.art !== 'hand').map((x) => x.id)); }
 // verwerfen(game, id): nie gebrauchten neu-Landepunkt entfernen (Wunsch SPIELLEITER). Nur Laufzeit-Landepunkte (neu/prise),
@@ -833,8 +838,8 @@ function debug(game, cmd, args, p) {
 }
 
 module.exports = {
-  MAX_GEBAUT, bauweiseFuerBesitz, vorwaermen, defs, neuLaden, get, karte, bauen, vorbauen, vorbauenOrt, verwerfen, liste, waehlen, sperrgrund, beamSpot, betreten, freigeben, neu, prise, priseVerlassen,
+  MAX_GEBAUT, bauweiseFuerBesitz, vorwaermen, defs, neuLaden, get, karte, bauen, vorbauen, vorbauenOrt, halteLoesen, verwerfen, liste, waehlen, sperrgrund, beamSpot, betreten, freigeben, neu, prise, priseVerlassen,
   biomVonOrt, hoehleVonOrt, kachelDef, kachelListe, kachelZustaendeGelten, info, nutztGenerator, priseSeed, hatAdern, ABBAU_RUNDE_MAX,   // GEL-01 B; GEL-03 Nacharbeit
   toSave, restore, ankerZahlen, debug, sichern, eintrag, festkarte,   // BOD-01: feste Karten
-  bereit, sobaldGeladen, zuruecksetzen, testgelaende, cacheLeeren, wildnisErzeugerSetzen,   // F1, F6, F9b
+  bereit, sobaldGeladen, zuruecksetzen, testgelaende, cacheLeeren, cacheHat, wildnisErzeugerSetzen,   // F1, F6, F9b
 };

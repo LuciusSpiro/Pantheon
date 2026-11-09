@@ -32,6 +32,15 @@ function markieren(game, lpId) {
   return true;
 }
 
+// DYN-01 A: Scan-Markierung eines abgeraeumten Laufzeit-Landepunkts loeschen (sie steht sonst im Weltstand, und neu() vergibt eine ID wieder: der neue Ort gaelte als gescannt) samt Sendemarke je Spieler. true = war markiert
+function vergessen(game, lpId) {
+  const ex = game.explore; if (!ex || !lpId) return false;
+  for (const p of game.players || []) if (p.planSent) delete p.planSent[lpId];
+  if (!ex.lpScan.has(lpId)) return false;
+  ex.lpScan.delete(lpId); ex.version++;
+  return true;
+}
+
 // scannbare Landepunkte in Reichweite: Landepunkte.liste liefert beam + inReichweite (Transferreichweite); hier die größere Scanreichweite
 function ziele(game) {
   const sh = game.ship; const out = [];
@@ -87,4 +96,4 @@ function snapshot(game) {
   return out;
 }
 
-module.exports = { gescannt, markieren, ziele, starten, abbrechen, update, snapshot };
+module.exports = { gescannt, markieren, vergessen, ziele, starten, abbrechen, update, snapshot };

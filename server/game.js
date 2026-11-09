@@ -53,6 +53,7 @@ const AbenteuerBrett = require('./sim/abenteuer-brett.js');   // SUND-04b C: Auf
 const FadenBitte = require('./sim/faden-bitte.js');   // SUND-04a-2 P2: Bitten der Geschichtsfäden (nur mit FAEDEN=1, Freie Fahrt Sund)
 const Info = require('./sim/handel-info.js');   // SUND-03b I: Informationshandel des Konkordats (Gerücht, Beleg; nur Freie Fahrt Sund, nur an Konkordat-Häfen)
 const FinaleBoden = require('./sim/finale-boden.js');   // SUND-04a-3 Boden: Treiber des Boden-Teils (Schrein von Asgard)
+const AbenteuerOrte = require('./sim/abenteuer-orte.js');   // DYN-01 A: Orte für die Dauer eines Abenteuers (Landepunkt-Lebenszyklus)
 const Finale = require('./sim/finale.js');   // SUND-04a-3: Finale-Kern (Entscheidungsschlacht um Hrafnheim, nur Freie Fahrt Sund)
 const Absicht = require('./sim/absicht.js');   // SUND-02b D: Strategische Optionen ab Tribun (nur Freie Fahrt Sund)
 const Kriegslage = require('./sim/kriegslage.js');   // SUND-01 B: Weltsimulation im Modus Freie Fahrt Sund (game.weltsim, game.weltBesitz)
@@ -1937,6 +1938,7 @@ class Game {
       this.safe('fallen', () => Fallen.update(this, dt));   // ITM-01 C: Fallen auslösen (nur die fertige Fallenliste der Außenkarte), Zeitwirkungen
       if (this.weltsim && this.weltsim.finale && this.weltsim.finale.anfrage) this.safe('finale-verfall', () => Finale.verfall(this));   // K5: der Verfall der Anfrage kommt rechtzeitig, nicht erst im naechsten Sim-Tick
       if (this.finaleBoden) this.safe('finale-boden', () => FinaleBoden.update(this));   // SUND-04a-3 Boden: Landung, Freigabe, Sieg, Abbruch (nur solange ein Boden-Teil läuft)
+      if (this.weltsim) this.safe('abenteuer-orte', () => AbenteuerOrte.update(this));   // DYN-01 A: Orte beendeter Abenteuer abräumen (Retry, solange jemand unten ist), fehlende Orte lebender Abenteuer neu
       this.safe('betreten', () => this.trackBetreten());
       this.safe('personen', () => weltBausteine().personenNachruecken(this));   // B1: wartende Personen auf gebauten Karten   // B1 §6.1: erstes Hinunterbeamen zählt den Besuch
       this.safe('explore', () => this.explore.update(dt));

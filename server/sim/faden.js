@@ -437,6 +437,7 @@ function beatAusgang(game, fadenId, ausgang) {
     f.phase = 'abgeschlossen';
     f.ausgang = { art: ausgang, status: f.nsc.status, tick: ws.tickZahl };
     require('./abenteuer-kanon.js').beendet(game, f, ausgang);   // SUND-04b E1: der Ausgang steht im Kanon (genau einmal)
+    try { require('./abenteuer-orte.js').abraeumen(game, f.id); } catch (e) { fehlerZaehlen(game, 'abenteuer-orte-ende', e); }   // DYN-01 A: die Orte des Abenteuers weg (belegt: der Takt versucht es wieder)
   } else {
     const ziel = o.weiter !== undefined ? v.beats.findIndex((x) => x.id === o.weiter) : f.beat + 1;
     f.beat = ziel > f.beat && ziel < v.beats.length ? ziel : v.beats.length - 1;   // nur nach vorn; ein kaputtes Ziel springt zum Abschluss (der Pruefer laesst es nie zu)
@@ -603,6 +604,7 @@ function leseFaden(x, F) {
     const fr = FrachtDaten.leseFracht(x.fracht);
     if (fr) f.fracht = fr;
   }
+  if (x.orte !== undefined && phase !== 'abgeschlossen') { const o = require('./abenteuer-orte.js').lese(x.orte); if (o.length) f.orte = o; }   // DYN-01 A: die Bestellung der Orte eines laufenden Abenteuers (muellfest; der Ort selbst steht nie im Stand)
   const e = P.pruefeFaden(f);
   return e.length ? { fehler: `${x.id}: ${e[0]}` } : { faden: f };
 }

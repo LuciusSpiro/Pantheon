@@ -1,0 +1,29 @@
+{
+  "format": "abenteuer-orte/1",
+  "_hinweis": "DYN-01 A (server/sim/abenteuer-orte.js): Orte (Landepunkte) fuer die Dauer eines Abenteuers (Fadens) in der Freien Fahrt. Alle Werte des Moduls stehen hier, keine im Code. Der Ort ist nie im Weltstand (fluechtig); gespeichert wird nur die Bestellung am Faden (welt.sim.faeden.liste[].orte), der Ort entsteht beim Laden daraus neu.",
+  "arten": ["wildnis", "hoehle", "schiff", "aussenposten", "station"],
+  "orte_max": 2,
+  "name_max": 40,
+  "platz_muster": "[a-z0-9_]{1,16}",
+  "besitz_muster": "[a-z_]{1,16}",
+  "zustand_muster": "[a-z_]{1,16}",
+  "ort_muster": "[a-z0-9_-]{1,40}",
+  "seed": { "salz": "abenteuer-ort", "modul": 100000 },
+  "koerper": {
+    "beam_zuschlag": 200,
+    "_hinweis": "Transferreichweite am Planeten = Radius + beam_zuschlag (gemessen an Skjaldborg, Planet wueste r 153: Reichweite 353)."
+  },
+  "punkt": {
+    "beam_reichweite": 300,
+    "zustand_nach_art": { "schiff": "verfallen" },
+    "_hinweis": "Ort an einem Raumpunkt (Wrack im Raum): Reichweite wie die Prise (entern.transferRange); ein Schiff ist dort ein treibendes Wrack (verfallen)."
+  },
+  "beam": { "x_max": 20000, "y_max": 20000, "range_max": 2000 },
+  "standardname": {
+    "wildnis": "Absturzstelle",
+    "hoehle": "Höhle",
+    "schiff": "Wrack",
+    "aussenposten": "Außenposten",
+    "station": "Station"
+  }
+}
