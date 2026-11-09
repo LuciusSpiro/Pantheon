@@ -641,10 +641,10 @@
         if (DEBUG && Client.serverDebug) send({ t: 'debug', cmd: 'tune', path: 'debug.snapKiRolle', value: 'on' });
         Client.self.init = false;
         Client.karten = Object.assign({}, msg.karten || {});   // CHA-01 B1: leeren und aus welcome füllen
-        Net.guard('Client.sektorkarte', () => setzeSektorkarte(msg.sektorkarte));   // B3 §6
+        Net.guard('Client.sektorkarte', () => setzeSektorkarte(msg.sektorkarte, msg.sektortypen));   // B3 §6; KAC-01 C: Katalog nur bei Karten mit typ-Hexen
         Client.arenaSent = false; Client.awayMapAsk = {};
         break;
-      case 'sektorkarte': Net.guard('Client.sektorkarte', () => setzeSektorkarte(msg.sektorkarte)); break;   // SL1: Karte wechselt beim Spielstart (Limes, Sund)
+      case 'sektorkarte': Net.guard('Client.sektorkarte', () => setzeSektorkarte(msg.sektorkarte, msg.sektortypen)); break;   // SL1: Karte wechselt beim Spielstart (Limes, Sund)
       case 'snap': onSnap(msg); break;
       case 'event': onEvent(msg); break;
       case 'error':
@@ -762,9 +762,11 @@
   }
 
   // B3 §6: Sektorkarte aus dem welcome an Shared_Sektoren (setzt dort auch die Ort-Links) und an StarMap
-  function setzeSektorkarte(k) {
+  function setzeSektorkarte(k, katalog) {
     if (!k || typeof k !== 'object' || !k.hexe) return;
     const SS = window.Shared_Sektoren;
+    // KAC-01 C: der Katalog der Sektortypen vor der Karte (gen-sektor baut typ-Hexe nur mit Katalog); ohne typ-Hexe sendet der Server ihn nicht
+    if (katalog && window.Shared_GenSektor && typeof window.Shared_GenSektor.setzeKatalog === 'function') window.Shared_GenSektor.setzeKatalog(katalog);
     if (SS && typeof SS.setzeKarte === 'function' && SS.KARTE !== k) SS.setzeKarte(k);
     if (window.StarMap && typeof window.StarMap.setKarte === 'function') window.StarMap.setKarte(k);
   }
