@@ -14,6 +14,7 @@
 const LLM = require('../mission/llm.js');
 const Haken = require('../telemetrie/haken.js');   // TEL-01 B2: Wartezeit auf den Spielleiter ins Protokoll (liest nur)
 const Regie = require('./regie-befehle.js');
+const Kontingent = require('./kontingent.js');   // LIV-01: Schwelle des Token-Zählers
 const Prompt = require('./abenteuer-prompt.js');
 const { WERTE } = require('./abenteuer-daten.js');
 
@@ -98,7 +99,7 @@ class AbenteuerSpielleiter {
     if (!ort) return this.ueberspringen('kein_ort', art);
     // Budget: nur eine Stufe bei Claude zaehlt gegen den Token-Zaehler (CLAUDE_TOKEN_BUDGET)
     const llm = this.lage.getLlm();
-    if (llm.mode === 'live' && llm.anbieterFuer('abenteuer', STUFE) !== 'ollama' && LLM.budget().remaining < this.W.min_budget) return this.ueberspringen('budget', art);
+    if (llm.mode === 'live' && llm.anbieterFuer('abenteuer', STUFE) !== 'ollama' && Kontingent.sperrt(this.game, this.W.min_budget)) return this.ueberspringen('budget', art);
     this.letzterSprung = null;
     this.aufrufe++;
     this.grenzenSeit = 0;

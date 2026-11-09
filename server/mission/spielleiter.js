@@ -22,6 +22,7 @@
 
 const path = require('path');
 const LLM = require('./llm.js');
+const Kontingent = require('../sim/kontingent.js');   // LIV-01: Schwelle des Token-Zählers (das Gate vor jeder Anfrage)
 const Haken = require('../telemetrie/haken.js');   // TEL-01 B2: Wartezeit auf den Spielleiter ins Protokoll (liest nur)
 const Szenenbau = require('./szenenbau.js');
 const Archiv = require('./archiv.js');
@@ -453,7 +454,7 @@ class Spielleiter {
     if (!this.transportUsable()) return fail('OFF', this.transportOff || 'LLM aus');
     const b = LLM.budget();
     // der Claude-Deckel gilt nur für Claude-Läufe (Ollama-Läufe zählt der Zähler nicht)
-    if ((job.type === 'szene-eskalation' || this.anbieterFuer(kind) !== 'ollama') && b.remaining < this.C.minBudget) return fail('BUDGET', `Token-Budget fast leer (${b.used} von ${b.limit}, Rest < ${this.C.minBudget})`);
+    if ((job.type === 'szene-eskalation' || this.anbieterFuer(kind) !== 'ollama') && Kontingent.sperrt(this.game, this.C.minBudget)) return fail('BUDGET', Kontingent.erreicht() ? `Kontingent erreicht (${b.used} von ${b.limit}, Schwelle ${Kontingent.schwelle()})` : `Token-Budget fast leer (${b.used} von ${b.limit}, Rest < ${Kontingent.mindestRest(this.C.minBudget)})`);
     let input;
     try { input = kind === 'grobplan' ? this.grobplanInput(job) : this.sceneInput(job); } catch (e) { this.countError('prompt', e); return fail('EXIT', 'Prompt nicht baubar: ' + e.message); }
     this.job = job;

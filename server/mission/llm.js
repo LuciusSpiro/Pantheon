@@ -55,15 +55,18 @@ function systemPromptFile(kind) {
 const SYSTEM_PROMPTS = { get grobplan() { return systemPromptFile('grobplan'); }, get szene() { return systemPromptFile('szene'); }, get lage() { return systemPromptFile('lage'); }, get abenteuer() { return systemPromptFile('abenteuer'); } };
 
 // ---------- EIN Token-Zähler je Prozess (CONTRACT-S2 Entscheidung 13; Cache-Treffer zählen voll) ----------
-const BUDGET = { used: 0, calls: 0, limit: null };
+const BUDGET = { used: 0, calls: 0, limit: null, plus: 0 };   // plus (LIV-01): Summe der Freigaben (raiseBudget), nur für die Schwelle in server/sim/kontingent.js
 function envLimit() { const n = Number(process.env.CLAUDE_TOKEN_BUDGET); return n > 0 ? n : DEFAULT_BUDGET; }
 function budget() {
   const limit = BUDGET.limit != null ? BUDGET.limit : envLimit();
   return { used: BUDGET.used, limit, remaining: Math.max(0, limit - BUDGET.used), calls: BUDGET.calls };
 }
 function addUsage(n) { const v = Math.max(0, Number(n) || 0); BUDGET.used += v; BUDGET.calls++; return budget(); }
-function setBudgetLimit(n) { BUDGET.limit = n == null ? null : Math.max(0, Number(n) || 0); }
-function resetBudget() { BUDGET.used = 0; BUDGET.calls = 0; BUDGET.limit = null; }
+function setBudgetLimit(n) { BUDGET.limit = n == null ? null : Math.max(0, Number(n) || 0); BUDGET.plus = 0; }
+function resetBudget() { BUDGET.used = 0; BUDGET.calls = 0; BUDGET.limit = null; BUDGET.plus = 0; }
+// LIV-01: Freigabe hebt das Limit um n (der Zähler selbst bleibt); budgetPlus() = Summe aller Freigaben dieses Laufs
+function raiseBudget(n) { const v = Math.max(0, Number(n) || 0); BUDGET.limit = budget().limit + v; BUDGET.plus += v; return budget(); }
+function budgetPlus() { return BUDGET.plus; }
 
 // ---------- kanonische Form und Schlüssel ----------
 // Sortierte Schlüssel, undefined fällt weg (wie JSON), Zahlen/Strings unverändert.
@@ -493,6 +496,6 @@ function create(opts) {
 
 module.exports = {
   create, key, canonical, canonicalize, record, recordingPath, renderPrompt, buildPrompt, mockGrobplan, mockSzene,
-  claudeFinden, baumBeenden, TASKKILL, budget, addUsage, MOCK_TEXT, resetBudget, setBudgetLimit, systemPromptFile, llmError,
+  claudeFinden, baumBeenden, TASKKILL, budget, addUsage, MOCK_TEXT, resetBudget, setBudgetLimit, raiseBudget, budgetPlus, systemPromptFile, llmError,
   KINDS, MODES, TRANSPORTS, SYSTEM_PROMPTS, DEFAULT_FIXTURES, PROMPT_DIR,
 };
