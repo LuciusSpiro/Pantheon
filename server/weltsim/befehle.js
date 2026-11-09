@@ -15,6 +15,11 @@
 //   nachschub         { an: rom|ger, gut: T|U, menge, hafen? }  abstrakter Konvoi des Konkordats (Vorrat des Konkordats gegen Marken, Ereignis konvoi), kein Objekt auf der Karte.
 //   embargo           { von: 'kon', gegen: rom|ger, waren: [M|T|E], dauer }  das Konkordat sperrt den Kauf; zustand.embargo[gegen] = { waren, von, bis, ... }, endet von selbst.
 //   soeldner          { von: 'kon', an: rom|ger, flotten: [ids], dauer }  Flotten des Konkordats dienen für die Dauer unter einem Reich (flotte.miete), Marken an das Konkordat.
+//   invasion          { fraktion: ger, flotte: id, ziel: Hex }   NUR aus einem Faden (regie-befehle fadenInvasion, nie im Katalog des Spielleiters, nie im Plan, nie aus einer Datei): EIN atomarer Befehl aus Hochstufen und Angriff.
+//                     Die Stärke der germanischen Flotte steigt EINMAL je Partie um invasion.staerke_zuwachs (Anteil der aktuellen Stärke, darf über kap gehen, Flottenfeld hochgestuft: true, nie Mietflotten, Krieg muss laufen),
+//                     die Waffenlieferung hebt den Vorrat der Fraktion auf die Angriffs-Voraussetzungen (T auf mindestens angreifen.min_treibstoff, U auf min_munition; nur nach oben), dann greift die Flotte das römische Ziel an
+//                     (Regeln und Wirkung von angreifen mit flotten [flotte]). Die Prüfung läuft auf einer Kopie (Hochstufen, dann Angriff) und ändert den Zustand nie; anwenden prüft erneut gegen den echten Zustand und
+//                     macht beides oder nichts: nie ein Hochstufen ohne Angriff. Kein eigenes Ereignis für das Hochstufen; ohne den Befehl ändert sich nichts (Bit-Parität).
 //   piratenueberfall  { ort: Hex }                     bereite Piratenflotte im Piratennetz greift einen Ort mit Besitzer an (pirat_raid ohne Würfel).
 //   fokus             { fraktion: rom|ger, hex, radius, dauer }  Überlagerung zustand.regie[fraktion].fokus: Angriffsziele der Standard-KI nur im Umkreis.
 //   regler            { fraktion: rom|ger|kon, p_act?, aggr?, max_active?, dauer }  die drei Regler der Standard-KI als Überlagerung zustand.regie[fraktion].
@@ -22,6 +27,7 @@
 //   zustand.embargo { fraktion: { waren, von, from, bis } }                              Embargo je Ziel-Fraktion (handel() liest es), endet bei bis von selbst
 //   zustand.regie { fraktion: { p_act?, aggr?, max_active?, regler_bis?, fokus?: { hex, radius, bis }, ruhe_bis? } }   Überlagerung der Regie, eigener Namensraum neben zustand.absichten (Strategische Optionen, absicht.js)
 //   flotte.miete { von, an, bis, preis }                                                 Söldner: die Flotte dient bis bis einer anderen Fraktion
+//   flotte.hochgestuft: true                                                             Flotte wurde per Befehl invasion verstärkt (einmalig, additiv: ohne den Befehl erscheint das Feld nie)
 //   angriff.befohlen: true                                                               Feldzug auf Befehl (Kennzahlen)
 // Schichtung: zustand.absichten (Wahl der Crew) gilt für ihre Felder vor zustand.regie vor den Werten (wirksam()); ruhe_bis setzt aggr der Standard-KI auf 0 (der Befehl ersetzt einen Angriff der KI,
 // content/welt/befehle-werte.json ruhe, gemessen). Keine Quelle schreibt in den Namensraum der anderen: der Rückbau der einen lässt die andere stehen.
@@ -75,7 +81,7 @@ const embargoAktiv = (z, f) => !!(z.embargo && z.embargo[f] && z.tick < z.embarg
 // erlaubte Felder je Typ (Fremdfelder lehnt der Prüfer ab: ein Tippfehler im Plan darf nie still etwas anderes bedeuten)
 const FELDER = {
   angreifen: ['typ', 'fraktion', 'ziel', 'flotten', 'flotte', 'von'], beanspruchen: ['typ', 'fraktion', 'sektor'], verstaerken: ['typ', 'fraktion', 'flotte', 'hafen'], rueckzug: ['typ', 'fraktion', 'flotte'],
-  nachschub: ['typ', 'an', 'gut', 'menge', 'hafen'], embargo: ['typ', 'von', 'gegen', 'waren', 'dauer'], soeldner: ['typ', 'von', 'an', 'flotten', 'dauer'], piratenueberfall: ['typ', 'ort'], sabotage: ['typ', 'ort'],
+  nachschub: ['typ', 'an', 'gut', 'menge', 'hafen'], embargo: ['typ', 'von', 'gegen', 'waren', 'dauer'], soeldner: ['typ', 'von', 'an', 'flotten', 'dauer'], piratenueberfall: ['typ', 'ort'], sabotage: ['typ', 'ort'], invasion: ['typ', 'fraktion', 'flotte', 'ziel'],
   fokus: ['typ', 'fraktion', 'hex', 'radius', 'dauer'], regler: ['typ', 'fraktion', 'p_act', 'aggr', 'max_active', 'dauer'],
 };
 function felderFehler(b) {
@@ -131,6 +137,32 @@ function nachschubMengeMax(z, w, an, gut) {
 }
 // eine freie, vermietbare Flotte des Konkordats (zu Hause, nicht vermietet)
 const mietbar = (fl) => fl.fraktion === 'kon' && !fl.miete && fl.befehl === 'heim' && fl.ort === fl.heimat;
+
+// ---------- Hilfsregeln der Invasion (kein eigener Befehl: nur der atomare Befehl invasion nutzt sie)
+const angriffVon = (b) => ({ typ: 'angreifen', fraktion: b.fraktion, ziel: b.ziel, flotten: [b.flotte] });
+function hochstufenFehler(c, b) {
+  const fl = istId(b.flotte) ? flotteMit(c, b.flotte) : null;   // Krieg, Fraktion der Flotte, Bereitschaft und Ziel prüft danach der Angriff (angreifen) auf der Kopie
+  if (!fl) return 'unbekannte Flotte';
+  if (fl.miete) return 'Mietflotten werden nicht hochgestuft';
+  if (fl.hochgestuft === true) return 'Flotte ist schon hochgestuft';
+  return null;
+}
+// Stärke +staerke_zuwachs (darf über kap gehen, sonst wirkungslos bei voller Flotte), Feld hochgestuft, Vorrat der Fraktion mindestens auf die Angriffs-Voraussetzungen (nie absenken)
+function hochstufen(c, fl) {
+  const A = W.angreifen.wert, st = c.z.vorrat[fl.fraktion];
+  fl.staerke += fl.staerke * W.invasion.wert.staerke_zuwachs;
+  fl.hochgestuft = true;
+  if (st.T < A.min_treibstoff) st.T = A.min_treibstoff;
+  if (st.U < A.min_munition) st.U = A.min_munition;
+}
+// Kopie für die Prüfung: teilt alles mit dem echten Zustand ausser der Flotte und dem Vorrat der Fraktion, die das Hochstufen ändert (der echte Zustand bleibt unberührt)
+function invasionProbe(c, b) {
+  const fl = flotteMit(c, b.flotte), f = fl.fraktion;
+  const z2 = Object.assign({}, c.z, { flotten: c.z.flotten.map((x) => (x === fl ? Object.assign({}, x) : x)), vorrat: Object.assign({}, c.z.vorrat, { [f]: Object.assign({}, c.z.vorrat[f]) }) });
+  const c2 = Object.assign({}, c, { z: z2 });
+  hochstufen(c2, flotteMit(c2, b.flotte));
+  return c2;
+}
 
 // ---------- Katalog
 const KATALOG = {
@@ -322,6 +354,23 @@ const KATALOG = {
     },
   },
 
+  // FAD-01 B: die Invasion des Falschen-Händler-Fadens (regie-befehle fadenInvasion): Hochstufen und Angriff als EIN Befehl. Nur aus Fäden, nicht im Katalog des Spielleiters.
+  invasion: {
+    pruefe(c, b) {
+      const I = W.invasion.wert;
+      if (!I.fraktionen.includes(b.fraktion)) return `fraktion muss ${I.fraktionen.join(' oder ')} sein`;
+      const g = hochstufenFehler(c, b);
+      if (g) return g;
+      if (istHex(c.z, b.ziel) && c.z.hexe[b.ziel].besitzer !== 'rom') return 'Ziel gehört nicht Rom';
+      return KATALOG.angreifen.pruefe(invasionProbe(c, b), angriffVon(b));   // der Angriff gegen den Stand NACH dem Hochstufen, auf einer Kopie
+    },
+    anwenden(c, b) {
+      if (KATALOG.invasion.pruefe(c, b)) return;   // gegen den echten Zustand erneut: nie ein Hochstufen ohne Angriff
+      hochstufen(c, flotteMit(c, b.flotte));
+      KATALOG.angreifen.anwenden(c, angriffVon(b));
+    },
+  },
+
   piratenueberfall: {
     pruefe(c, b) {
       const { z } = c;
@@ -399,6 +448,14 @@ function piratFuer(c, ziel) {
   const { z, d } = c, P = W.piratenueberfall.wert;
   return z.flotten.filter((fl) => fl.fraktion === 'pirat' && fl.befehl === 'heim' && fl.staerke >= P.bereit_anteil * fl.kap && d.distP[fl.heimat][ziel] !== undefined && d.distP[fl.heimat][ziel] <= P.netz_sprunge)
     .sort((x, y) => y.staerke - x.staerke)[0] || null;
+}
+
+// FAD-01 B: bereite Flotten von f in Reichweite von ziel (ohne Mietflotten), stärkste zuerst (Gleichstand: Reihenfolge der Sim). Für die Wahl der Invasionsflotte (regie-befehle fadenInvasion);
+// dieselben Regeln wie angriffswahl (bereit, Reichweite aus befehle-werte.json). Nur eine Auswahl: das Prüfen bleibt beim Katalog. -> [Flotte-Id]
+function angriffsflotten(zustand, f, ziel) {
+  const c = kontext(zustand);
+  if (!istHex(zustand, ziel)) return [];
+  return bereit(c, f).filter((fl) => !fl.miete && H.dd(c, fl.ort, ziel) <= W.angreifen.wert.reichweite).sort((x, y) => y.staerke - x.staerke).map((fl) => fl.id);
 }
 
 // ---------- Schnittstelle
@@ -517,6 +574,9 @@ function bereinige(z) {
     if (Object.keys(out).length) z.regie = out; else delete z.regie;
   }
   for (const fl of z.flotten || []) {
+    if (fl.hochgestuft !== undefined && (fl.hochgestuft !== true || !W.invasion.wert.fraktionen.includes(fl.fraktion))) delete fl.hochgestuft;   // FAD-01 B: nur true, nur bei einer erlaubten Fraktion
+  }
+  for (const fl of z.flotten || []) {
     if (fl.miete === undefined) continue;
     const m = fl.miete;
     if (!objekt(m) || m.von !== 'kon' || !REICH.includes(m.an) || fl.fraktion !== m.an || !ganzZahl(m.bis) || !istZahl(m.preis) || m.preis < 0) delete fl.miete;
@@ -529,4 +589,4 @@ function regieRaeumen(z) { delete z.regie; }
 
 function installiere(helfer) { H = helfer; }
 
-module.exports = { angriffVorratFehler, nachschubVorratFehler, nachschubMengeMax, mietbar, KATALOG, FELDER, WERTE: W, REGLER_FELDER, wirksam, pruefe, pruefeIn, filtere, anwenden, ablauf, bereinige, regieRaeumen, installiere, embargoAktiv };
+module.exports = { angriffsflotten, angriffVorratFehler, nachschubVorratFehler, nachschubMengeMax, mietbar, KATALOG, FELDER, WERTE: W, REGLER_FELDER, wirksam, pruefe, pruefeIn, filtere, anwenden, ablauf, bereinige, regieRaeumen, installiere, embargoAktiv };

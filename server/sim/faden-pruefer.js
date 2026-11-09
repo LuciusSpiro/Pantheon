@@ -16,6 +16,7 @@
 //   SABOTAGE_NUR_EINMAL (SUND-04b B2: ein Beat mit nur_einmal steht höchstens einmal im Plan) · LAGE_ZIEL_FEHLT / SABOTAGE_PAUSE / LAGE_UNBEKANNT (SUND-04b B2, pruefeLage: ein Beat mit braucht.lage haengt von der Welt ab; beim Anbieten und Oeffnen, nicht in pruefeVorlage) ·
 //   NAMENLOS (SUND-04b A1: vorlage.nsc.rolle namenlos: der NSC bleibt aktiv, die Ausgaenge brauchen keinen status; die Statuspruefung bleibt, nur der Status faellt weg; Scheitern veraendert dann ueber Weg oder Folge) ·
 //   ERFOLG_FEHLT / ERFOLG_UNGUELTIG (Abschluss: wann gilt der Faden als gelungen, Nacharbeit Welle 3) · VARIANTE_UNERREICHBAR / TON_UNERREICHBAR (Haltung: gibt es in der Vorlage einen Weg dorthin) ·
+//   SIM_BEFEHL_ORT / SIM_BEFEHL_BEAT / SIM_BEFEHL_OHNE_TAT / SIM_BEFEHL_ART / SIM_BEFEHL_FORM (FAD-01 A: der Folgetyp sim_befehl, Daten werte.json sim_befehl: nur in aus.gelungen.folge eines Beats aus beats_erlaubt, nur nach einer Tat der Crew auf JEDEM Weg dorthin) ·
 //   UNERREICHBAR · OPTION_BEI_GEFAHR · GEFAHR_ABGESCHWAECHT · OPTIONEN_NICHT_ERLAUBT · OPTIONEN_ANZAHL · OPTION_UNGUELTIG · SCHEINWAHL · FOLGE_UNGUELTIG · ABSTAND · VOLK · AUSLOESER · NSC.
 const fs = require('fs');
 const path = require('path');
@@ -23,6 +24,7 @@ const D = require('./faden-daten.js');
 const Wirkungen = require('../weltsim/wirkungen.js');
 
 const W = D.WERTE, B = D.BEATS, N = D.NAMEN, H = D.HALTUNG;
+const SB = W.sim_befehl;   // FAD-01 A: Folgetyp sim_befehl (Arten, Standardart, Tat-Beats, erlaubte Beats), alles Daten
 const RUF_QUELLEN = require('../../content/welt/ruf-werte.json').werte.quellen.wert;
 const HEX = /^\d{4}$/;
 const has = (o, k) => Object.prototype.hasOwnProperty.call(o, k);
@@ -47,6 +49,29 @@ const r2 = (x) => Math.round(x * 100) / 100;
 let schemaCache = null;
 const schema = () => schemaCache || (schemaCache = JSON.parse(fs.readFileSync(path.join(D.DIR, '..', 'schema', 'faden-vorlage.schema.json'), 'utf8')));
 
+// ---------- Folgetyp sim_befehl (FAD-01 A)
+// { typ: 'sim_befehl', arten?: [Art, ...] } in aus.gelungen.folge eines Beats aus SB.beats_erlaubt: der Beat loest eine Wirkung auf die Sim aus (Baustein enthuellung). Der Folgetyp ist KEINE Wirkung des
+// Katalogs (folgeWirkung lehnt ihn ab, folge_typen bleibt fuer Optionen unveraendert); folgenAnwenden (faden.js) uebergeht ihn, der Baustein liest ihn aus der Vorlage.
+const istSimBefehl = (f) => istObjekt(f) && f.typ === 'sim_befehl';
+// die Folge sim_befehl im Ausgang gelungen eines Beats der Vorlage (null: keine)
+const simBefehlFolge = (beat) => {
+  const fo = beat && istObjekt(beat.aus) && istObjekt(beat.aus.gelungen) ? beat.aus.gelungen.folge : null;
+  return (Array.isArray(fo) ? fo : []).find(istSimBefehl) || null;
+};
+// erlaubte Arten einer solchen Folge (Namen aus SB.arten): ohne Feld arten alle
+const simBefehlArten = (folge) => (istObjekt(folge) && Array.isArray(folge.arten) ? folge.arten.filter((a) => typeof a === 'string' && has(SB.arten, a)) : Object.keys(SB.arten));
+// Form der Folge: arten eine nichtleere Liste verschiedener bekannter Arten, die Standardart muss darin stehen (ohne Angabe des Spielleiters gilt sie), kein Feld grund
+function simBefehlFormFehler(beat, f) {
+  const out = [];
+  if (f.grund !== undefined) out.push(fehl('SIM_BEFEHL_FORM', `Beat ${beat.id}: sim_befehl hat kein Feld grund`));
+  if (f.arten !== undefined) {
+    const a = f.arten;
+    if (!Array.isArray(a) || !a.length || new Set(a).size !== a.length || !a.every((x) => typeof x === 'string' && has(SB.arten, x))) out.push(fehl('SIM_BEFEHL_ART', `Beat ${beat.id}: arten muss eine nichtleere Liste verschiedener Arten aus ${Object.keys(SB.arten).join(', ')} sein`));
+    else if (!a.includes(SB.standard_art)) out.push(fehl('SIM_BEFEHL_ART', `Beat ${beat.id}: die Standardart ${SB.standard_art} muss in arten stehen (ohne Angabe des Spielleiters gilt sie)`));
+  }
+  return out;
+}
+
 // ---------- Folgen (Wirkungen des Katalogs)
 function folgeWirkung(f, npc) {
   if (!istObjekt(f)) return { fehler: 'Folge ist kein Objekt' };
@@ -69,6 +94,7 @@ function folgeProfil(folge) {
   const s = {};
   const add = (k, d) => { s[k] = (s[k] || 0) + d; };
   for (const f of Array.isArray(folge) ? folge : []) {
+    if (istSimBefehl(f)) continue;   // FAD-01 A (d): sim_befehl ist weder Ruf noch Haltung, er macht aus zwei gleichen Folgen keine verschiedenen
     const r = folgeWirkung(f, 'n1');
     if (!r.wirkung) { add('?' + JSON.stringify(f), 1); continue; }
     if (r.wirkung.typ === 'haltung_aenderung') add('haltung', r.wirkung.delta);
@@ -104,7 +130,10 @@ function optionenFehler(beat, cat) {
     if (typeof o.text !== 'string' || !o.text.trim() || o.text.length > O.text_max) out.push(fehl('OPTION_UNGUELTIG', `Beat ${beat.id}, Option ${o.id}: Text fehlt oder länger als ${O.text_max} Zeichen`));
     if (o.ausgang !== undefined && !W.ausgaenge.includes(o.ausgang)) out.push(fehl('OPTION_UNGUELTIG', `Beat ${beat.id}, Option ${o.id}: unbekannter Ausgang "${o.ausgang}"`));
     let folgeOk = true;
-    for (const f of Array.isArray(o.folge) ? o.folge : []) { const r = folgeWirkung(f, 'n1'); if (r.fehler) { folgeOk = false; out.push(fehl('FOLGE_UNGUELTIG', `Beat ${beat.id}, Option ${o.id}: ${r.fehler}`)); } }
+    for (const f of Array.isArray(o.folge) ? o.folge : []) {
+      if (istSimBefehl(f)) { folgeOk = false; out.push(fehl('SIM_BEFEHL_ORT', `Beat ${beat.id}, Option ${o.id}: sim_befehl steht nur in aus.gelungen.folge, nie in einer Option`)); continue; }   // FAD-01 A (a)
+      const r = folgeWirkung(f, 'n1'); if (r.fehler) { folgeOk = false; out.push(fehl('FOLGE_UNGUELTIG', `Beat ${beat.id}, Option ${o.id}: ${r.fehler}`)); }
+    }
     if (!Array.isArray(o.folge)) { folgeOk = false; out.push(fehl('FOLGE_UNGUELTIG', `Beat ${beat.id}, Option ${o.id}: folge fehlt`)); }
     if (!folgeOk) continue;
     const p = folgeProfil(o.folge) + (o.ausgang ? '>' + o.ausgang : '');
@@ -166,6 +195,7 @@ function varianteAusFehler(b, v, i, idx) {
     else if (!W.variante_status.includes(o.status)) out.push(fehl('VARIANTE_AUSGANG', `Beat ${b.id}, Variante ${ag}: ein Kampf gegen den Feind laesst ihn nie "${o.status}" zurueck (erlaubt: ${W.variante_status.join(', ')})`));
     if (o.text_key !== undefined && !(typeof o.text_key === 'string' && TEXT_KEY.test(o.text_key))) out.push(fehl('TEXT_KEY', `Beat ${b.id}, Variante ${ag}: text_key "${String(o.text_key).slice(0, 40)}" ist ungueltig`));
     for (const f of o.folge || []) {
+      if (istSimBefehl(f)) { out.push(fehl('SIM_BEFEHL_ORT', `Beat ${b.id}, Variante ${ag}: sim_befehl steht nur in aus.gelungen.folge des Beats, nie in der Variante`)); continue; }   // FAD-01 A (a)
       const r = folgeWirkung(f, 'n1');
       if (r.fehler) out.push(fehl('FOLGE_UNGUELTIG', `Beat ${b.id}, Variante ${ag}: ${r.fehler}`));
       else if (r.wirkung.typ === 'haltung_aenderung' && r.wirkung.delta > 0) out.push(fehl('VARIANTE_AUSGANG', `Beat ${b.id}, Variante ${ag}: die Haltung des Feindes steigt nicht (${f.grund}, +${r.wirkung.delta}): kein Dank fuer einen Kampf`));
@@ -325,7 +355,18 @@ function pruefeVorlage(v) {
       if (o.status !== undefined && !W.status.includes(o.status)) fehler.push(fehl('AUSGANG_UNGUELTIG', `Beat ${b.id}, ${ag}: Status "${o.status}" ist unbekannt`));
       if (namenlos && o.status !== undefined && o.status !== 'aktiv') fehler.push(fehl('NAMENLOS', `Beat ${b.id}, ${ag}: ein namenloser NSC bleibt aktiv (status "${o.status}")`));
       if (o.text_key !== undefined && !(typeof o.text_key === 'string' && TEXT_KEY.test(o.text_key))) fehler.push(fehl('TEXT_KEY', `Beat ${b.id}, ${ag}: text_key "${String(o.text_key).slice(0, 40)}" ist ungültig (nur a-z, 0-9, _, 1 bis 40 Zeichen; der Weltstand verlangt es)`));
-      for (const f of o.folge || []) { const r = folgeWirkung(f, 'n1'); if (r.fehler) fehler.push(fehl('FOLGE_UNGUELTIG', `Beat ${b.id}, ${ag}: ${r.fehler}`)); }
+      for (const f of o.folge || []) {
+        if (istSimBefehl(f)) {   // FAD-01 A: (a) nur im Ausgang gelungen, (b) nur in einem Beat aus beats_erlaubt, (e) Form; (c) die Tat auf jedem Weg: unten bei den Wegen
+          if (ag !== 'gelungen') fehler.push(fehl('SIM_BEFEHL_ORT', `Beat ${b.id}, ${ag}: sim_befehl steht nur in aus.gelungen.folge, nie im Ausgang ${ag}`));
+          else {
+            if (!SB.beats_erlaubt.includes(b.typ)) fehler.push(fehl('SIM_BEFEHL_BEAT', `Beat ${b.id} (${b.typ}): sim_befehl ist nur in Beats vom Typ ${SB.beats_erlaubt.join(', ')} erlaubt`));
+            if (o.folge.filter(istSimBefehl).length > 1) fehler.push(fehl('SIM_BEFEHL_FORM', `Beat ${b.id}: höchstens ein sim_befehl je Ausgang`));
+            fehler.push(...simBefehlFormFehler(b, f));
+          }
+          continue;
+        }
+        const r = folgeWirkung(f, 'n1'); if (r.fehler) fehler.push(fehl('FOLGE_UNGUELTIG', `Beat ${b.id}, ${ag}: ${r.fehler}`));
+      }
       if (cat.abschluss) { if (o.weiter !== undefined) fehler.push(fehl('AUSGANG_UNGUELTIG', `Beat ${b.id}: der Abschluss führt nirgends weiter (weiter ${o.weiter})`)); continue; }
       if (o.status === undefined && !namenlos) fehler.push(fehl('AUSGANG_UNGUELTIG', `Beat ${b.id}, ${ag}: der Zustand des NSC (status) fehlt`));
       if (o.weiter !== undefined) {
@@ -353,10 +394,10 @@ function pruefeVorlage(v) {
   // Wege: Zustand des NSC, Hinweise vor der Enthuellung, Erreichbarkeit (nur wenn Ids, Typen und Ziele stimmen, sonst folgen die Fehler oben)
   if (typenOk && !fehler.some((f) => /^(ID_DOPPELT|WEITER_UNGUELTIG|AUSGANG_FEHLT|ABSCHLUSS_NICHT_LETZT)/.test(f))) {
     const gesehen = new Set(), erreicht = new Set(), meld = new Set();
-    const stack = [{ i: 0, s: (v.nsc && v.nsc.status) || 'aktiv', h: false }];
+    const stack = [{ i: 0, s: (v.nsc && v.nsc.status) || 'aktiv', h: false, t: false }];   // t (FAD-01 A): auf diesem Weg gab es schon den Ausgang gelungen eines Beats aus sim_befehl.tat_beats (eine Tat der Crew)
     while (stack.length) {
-      const { i, s, h } = stack.pop();
-      const key = i + '|' + s + '|' + (h ? 1 : 0);
+      const { i, s, h, t } = stack.pop();
+      const key = i + '|' + s + '|' + (h ? 1 : 0) + '|' + (t ? 1 : 0);
       if (gesehen.has(key)) continue;
       gesehen.add(key); erreicht.add(i);
       const b = v.beats[i], cat = B[b.typ];
@@ -368,14 +409,16 @@ function pruefeVorlage(v) {
         if (br.nsc_status && !br.nsc_status.includes(z.s)) m('STATUS_PASST_NICHT', `Beat ${b.id} (${z.typ}) kann nicht laufen, wenn der NSC ${z.s} ist (erlaubt: ${br.nsc_status.join(', ')})`);
         if (br.hinweis_vorher && !h) m('HINWEIS_FEHLT', `Beat ${b.id} (${b.typ}): auf einem Weg dorthin wurde vorher kein Hinweis gestreut (jede Enthüllung braucht mindestens einen Hinweis davor)`);
       }
+      if (!t && simBefehlFolge(b)) m('SIM_BEFEHL_OHNE_TAT', `Beat ${b.id} (${b.typ}): auf einem Weg dorthin gab es keine Tat der Crew (Ausgang gelungen eines Beats vom Typ ${SB.tat_beats.join(', ')}): ein sim_befehl kommt nur nach einer Tat, nie durch Zeitablauf, Scheitern oder vom Anfang an`);   // FAD-01 A (c)
       if (cat.abschluss) continue;
       const h2 = h || (Array.isArray(b.hinweise) && b.hinweise.length > 0);
       for (const ag of W.ausgaenge) {
         for (const o of b.variante && istObjekt(b.variante.aus) && s !== 'tot' && istObjekt(b.variante.aus[ag]) ? [b.aus[ag], b.variante.aus[ag]] : [b.aus[ag]]) {   // Welle 4 (S1): beide Zweige, auch die Ausgaenge der Variante
           let s2 = s;
+          const t2 = t || (ag === 'gelungen' && o === b.aus[ag] && SB.tat_beats.includes(b.typ));   // nur der Ausgang des Beats selbst ist die Tat, nie der einer Variante
           if (o.status !== undefined) { if (s === 'tot' && o.status !== 'tot') m('TOT_BLEIBT_TOT', `Beat ${b.id}, ${ag}: ein toter NSC wird nicht wieder ${o.status}`); else s2 = o.status; }
           const z = zielIndex(v, i, o, idx);
-          if (z !== null) stack.push({ i: z, s: s2, h: h2 });
+          if (z !== null) stack.push({ i: z, s: s2, h: h2, t: t2 });
         }
       }
     }
@@ -411,7 +454,7 @@ function pruefeFaden(f) {
 // ---------- Befehle des Lage-Spielleiters
 const neuerKontext = () => ({ n: 0, oeffnen: 0, benutzt: new Set(), weiter: new Set() });
 const aktive = (F) => F.liste.filter((f) => f.phase !== 'abgeschlossen');
-const BEFEHL_FELDER = { faden_oeffnen: ['typ', 'vorlage', 'parameter'], faden_weiter: ['typ', 'faden', 'beat'] };
+const BEFEHL_FELDER = { faden_oeffnen: ['typ', 'vorlage', 'parameter'], faden_weiter: ['typ', 'faden', 'beat', 'art'] };   // art (FAD-01 A): optional, nur bei einem Beat mit der Folge sim_befehl
 const PARAM_FELDER = ['volk', 'ort', 'name', 'angebot', 'nsc_von'];   // SUND-04b B1: nsc_von = Kennung eines NSC aus einem frueheren, abgeschlossenen Faden (Wiedersehen)
 const nameOk = (name, volk) => {
   const L = N[volk];
@@ -505,6 +548,12 @@ function pruefeWeiter(F, b, ctx) {
   if (br.wahrheit && !f.nsc.wahrheit) return fehl('ENTHUELLUNG_OHNE_WAHRHEIT', `Faden ${f.id} hat keine verborgene Wahrheit`);
   if (br.hinweis_vorher && !(f.hinweise && f.hinweise.length)) return fehl('HINWEIS_FEHLT', `Faden ${f.id}: vor der Enthüllung wurde noch kein Hinweis gestreut`);
   if (br.fluchtziel && !fluchtzielOk((beat.parameter || {}).fluchtziel)) return fehl('FLUCHTZIEL_FEHLT', `Beat ${beat.id}: ohne Fluchtziel keine Verfolgung`);
+  if (b.art !== undefined) {   // FAD-01 A: die Art der Wirkung nach der Enthuellung (sprengung | invasion | beides), nur wenn der anstehende Beat die Folge sim_befehl hat und die Art darin erlaubt ist
+    if (typeof b.art !== 'string' || !has(SB.arten, b.art)) return fehl('ART_UNGUELTIG', `art muss eine von ${Object.keys(SB.arten).join(', ')} sein`);
+    const sf = eff.variante ? null : simBefehlFolge(beat);
+    if (!sf) return fehl('ART_OHNE_FOLGE', `Beat ${beat.id} hat keine Folge sim_befehl: art gibt es dort nicht`);
+    if (!simBefehlArten(sf).includes(b.art)) return fehl('ART_NICHT_ERLAUBT', `Beat ${beat.id}: die Art ${b.art} ist dort nicht erlaubt (${simBefehlArten(sf).join(', ')})`);
+  }
   const og = optionenFehler(beat, cat);
   if (og.length) return og[0];
   ctx.weiter.add(f.id);
@@ -567,4 +616,4 @@ function befehlPruefen(F, b, ctx) {
 }
 const istBefehl = (b) => istObjekt(b) && has(BEFEHL_FELDER, b.typ);
 
-module.exports = { sundSpielbar, nscAlt, wiedersehenNsc, pruefeNscVon, pruefeLage, pruefeAbenteuerAnbieten, pruefeAbenteuerOeffnen, abenteuerLaufend, abschlussGelungen, haltungsWege, tonFuer, effektiv, katalogFehler, TEXT_KEY, pruefeVorlage, pruefeFaden, pruefeOeffnen, pruefeWeiter, befehlPruefen, istBefehl, neuerKontext, folgeWirkung, folgeProfil, optionenFehler, fluchtzielOk, aktive, nameOk, BEFEHL_FELDER, PARAM_FELDER };
+module.exports = { istSimBefehl, simBefehlFolge, simBefehlArten, sundSpielbar, nscAlt, wiedersehenNsc, pruefeNscVon, pruefeLage, pruefeAbenteuerAnbieten, pruefeAbenteuerOeffnen, abenteuerLaufend, abschlussGelungen, haltungsWege, tonFuer, effektiv, katalogFehler, TEXT_KEY, pruefeVorlage, pruefeFaden, pruefeOeffnen, pruefeWeiter, befehlPruefen, istBefehl, neuerKontext, folgeWirkung, folgeProfil, optionenFehler, fluchtzielOk, aktive, nameOk, BEFEHL_FELDER, PARAM_FELDER };

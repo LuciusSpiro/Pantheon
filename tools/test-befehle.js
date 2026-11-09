@@ -60,7 +60,7 @@ section('Daten', () => {
   ok(W.angreifen.wert.hauptwelt_erlaubt === false, 'Angriffsbefehle auf eine Hauptwelt sind ausgeschlossen');
   for (const t of ['embargo_verhaengt', 'embargo_beendet', 'soeldner_vermietet', 'soeldner_zurueck', 'flotte_verlegt', 'konvoi']) ok(Array.isArray(Ereignisse.TYPEN[t]), 'Ereignistyp ' + t + ' ist vereinbart');
   // SUND-04a-2 P3: sabotage ist der Befehl der Faden-Enthüllung (nie im Plan des Spielleiters, regie-befehle fadenSabotage): er gehört zum Katalog des Kerns, nicht zu den zehn Plan-Befehlen
-  ok(Object.keys(B.KATALOG).sort().join() === ['angreifen', 'beanspruchen', 'embargo', 'fokus', 'nachschub', 'piratenueberfall', 'regler', 'rueckzug', 'sabotage', 'soeldner', 'verstaerken'].join(), 'der Katalog hat die zehn Plan-Befehle und sabotage (nur aus Fäden)');
+  ok(Object.keys(B.KATALOG).sort().join() === ['angreifen', 'beanspruchen', 'embargo', 'fokus', 'nachschub', 'piratenueberfall', 'regler', 'rueckzug', 'sabotage', 'soeldner', 'verstaerken'].concat('invasion').sort().join(), 'der Katalog hat die zehn Plan-Befehle, sabotage und invasion (nur aus Fäden)');
 });
 
 section('Bit-Parität: Referenz', () => {

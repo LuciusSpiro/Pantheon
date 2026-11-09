@@ -278,17 +278,8 @@ async function main() {
       ok(f.beat >= 2 && !f.fracht, 'Testlage: die Fracht ist gescheitert, es gab keine Ware');
       ok(!e.includes('fracht_gescheitert') && e.includes('fracht_ohne_ware'), `das Gedaechtnis schreibt fracht_ohne_ware, nicht fracht_gescheitert (${e.join(',')})`);
       ok(P3.notrufText(f.nsc, { parameter: { text_key: 'notruf_standard' } }) === 'notruf_standard', 'ein spaeterer Notruf erinnert sich nicht an eine Ladung, die es nie gab');
-      // die Enthuellung: ein roemischer Posten in Reichweite des Ortes, damit die Sprengung gelingt und der Text mit oder ohne Ladung gesprochen wird
-      const w5 = g.weltsim.zustand, d5 = Dat.datenVon(w5);
-      const z = Object.keys(w5.hexe).filter((c) => w5.hexe[c].besitzer === 'rom' && !w5.hexe[c].posten && d5.hex[c].hafen === '' && Sektoren.hexAbstand('0203', c) !== null && Sektoren.hexAbstand('0203', c) <= 4).sort()[0]
-        || Object.keys(w5.hexe).filter((c) => d5.hex[c].hafen === '' && Sektoren.hexAbstand('0203', c) !== null && Sektoren.hexAbstand('0203', c) <= 3).sort()[0];
-      ok(!!z, 'Testlage: ein Hex ohne Hafen in 4 Spruengen um 0203 traegt einen roemischen Posten (' + z + ')');
-      if (z) { w5.hexe[z].posten = true; w5.hexe[z].besitzer = 'rom'; delete w5.hexe[z].crew; }
-      f.parameter.ort = '0203';
-      ok(P3.ziel(g, '0203') === z, 'Testlage: der Posten ' + z + ' ist das Ziel der Sprengung fuer den Ort 0203 (' + P3.ziel(g, '0203') + ', Beat ' + f.beat + ', Phase ' + f.phase + ')');
-      for (let i = 0; i < 14 && f.beat < 3; i++) { if (z) { w5.hexe[z].posten = true; w5.hexe[z].besitzer = 'rom'; } await runde(g); }   // die Welt tickt mit: der Posten steht bei jeder Runde (die Sim kann ihn sonst verloren haben)
-      ok(f.beat >= 3, 'Testlage: die Enthuellung lief (Beat ' + f.beat + ', ' + (g.lageRegie.log.entries || []).filter((e) => e.key === 'enthuellung').map((e) => e.begruendung + ' ' + JSON.stringify(e.plan)).join(' / ') + ', ort ' + f.parameter.ort + ')');
-      ok(funk.some((x) => /Meine Ladung geht auch ohne euch hoch/.test(String(x.text))) && !funk.some((x) => /Die Ladung ist scharf/.test(String(x.text))), 'die Enthuellung spricht nicht von einer Fracht (mitFracht nur bei echter Ware)');
+      // FAD-01 C: ohne Ablieferung (hier: keine Ware) fuehrt der Faden direkt in den Abschluss, die Enthuellung kommt nie
+      ok(f.beat === 5 && !funk.some((x) => /^Ich bin Germane/.test(String(x.text))) && !g.weltsim.regie.vorgemerkt.some((x) => ['sabotage', 'invasion'].includes(x.b.typ)), 'ohne Ablieferung keine Enthuellung (Beat ' + f.beat + '), keine Funkzeile Ich bin Germane, keine Sim-Befehle vorgemerkt (' + g.weltsim.regie.vorgemerkt.map((x) => x.b.typ).join(',') + ')');
     }
     {   // eine Ware war an Bord und ging verloren (Frist): fracht_gescheitert bleibt
       const g = neu(351); ab(g);
@@ -316,10 +307,10 @@ async function main() {
     ok(Bitte.offen(g) === null, 'die Bitte ist NICHT angeboten');
     ok(f.hinweise.includes('h_gerucht') && funk.some((x) => x.from === 'Hafenfunk'), 'der Gerücht-Hinweis ging trotzdem raus (mit dem Beginn des Beats)');
     X.grenzen(g, BEAT_FRIST + 1);
-    ok(f.phase === 'wartet' && f.beat === 2, `die Frist hat den Beat beendet, der Faden steht vor der Enthuellung (Beat ${f.beat})`);
+    ok(f.phase === 'wartet' && f.beat === 5, `die Frist hat den Beat beendet, der Faden steht vor dem Abschluss, nicht vor der Enthuellung (Beat ${f.beat})`);
     X.grenzen(g, f.abstand);
-    const pr = Pruefer.befehlPruefen(g.weltsim.faeden, { typ: 'faden_weiter', faden: f.id, beat: 'b_enthuell' }, Pruefer.neuerKontext());
-    ok(pr === null, 'faden_weiter zur Enthuellung wird angenommen (kein HINWEIS_FEHLT)' + (pr ? ': ' + pr : ''));
+    const pr = Pruefer.befehlPruefen(g.weltsim.faeden, { typ: 'faden_weiter', faden: f.id, beat: 'b_abschluss' }, Pruefer.neuerKontext());
+    ok(pr === null, 'faden_weiter zum Abschluss wird angenommen (die Enthuellung kommt ohne Ablieferung nie)' + (pr ? ': ' + pr : ''));
   }
 
   // =====================================================================================================================================================================
@@ -372,6 +363,7 @@ async function main() {
       ankunft(g, '0305');   // die Crew fliegt (abgelegt in einem Ort, nicht angedockt: sonst kaeme keine Szene)
       const seq = []; const ziel = new Map(); let geoeffnet = false, szenen = 0;
       for (let r = 0; r < 700; r++) {
+        if (id === 'falscher_haendler') V.bereiteInvasion(g, hex);
         Kriegslage.tick(g, 'test');
         if (!geoeffnet) { if (notrufOhneOrt(g, AUSLOESER[id], hex, 'gelungen')) geoeffnet = true; } else g.lageGrenze('szene_ende');
         await pumpen(g, 3);
@@ -414,6 +406,7 @@ async function main() {
       const erfolge = D.vorlage(id).beats[D.vorlage(id).beats.length - 1].erfolg.ereignis;
       ok(erfolge.some((x) => e.includes(x)), `${id}: das Gedaechtnis kennt die Leistung der Crew (${e.join(',')})`);
       const erwEreignisse = r.seq.slice(0, -1).map((bid, i) => D.vorlage(id).beats.find((b) => b.id === bid).typ + '_' + (pfad[i] || 'gelungen'));
+      // FAD-01 C: die Enthuellung wirkt ueber die Invasion der Standardart; die Welt ist vorbereitet (V.bereiteInvasion), der Kern nimmt sie an: der Sollwert kommt aus den Daten (Pfad), nie aus dem Ergebnis
       ok(JSON.stringify(e.slice(0, erwEreignisse.length)) === JSON.stringify(erwEreignisse), `${id}: jeder Beat hat den Ausgang, den die Crew im Spiel hergestellt hat (${erwEreignisse.join(',')}; war ${e.join(',')})`);
       ok(e.includes('abschluss_gelungen') && g.weltsim.ruf.rom > rom0, `${id}: der gelungene Abschluss ist gebucht, der Ruf stieg (${rom0} -> ${g.weltsim.ruf.rom})`);
       ok(!funk.some((x) => x && /Fehler/.test(String(x.text))) && g.errors === 0, `${id}: keine Fehler (g.errors ${g.errors})`);

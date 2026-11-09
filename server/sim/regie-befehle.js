@@ -11,7 +11,7 @@
 // mindestens ein Tick, vom Code erzwungen): die Gefahr wird angekündigt, es gibt keine Scheinwahl. Ein Embargo gilt nur gegen die siegreiche Seite (lage.sieger, Kennzahl unten).
 //
 // Zustand: game.weltsim.regie = { vorgemerkt: [{ b: Befehl, ab: Tick, w?: 1 }], letzte: { Schlüssel: Tick } } (Zeit = ws.tickZahl). vorgemerkt: angenommene Befehle, die ab Tick `ab` an Kern.tick gehen
-// (w = angekündigt); letzte: Tick der letzten Annahme je Typ und Fraktion (Abkühlzeit). Er gehört NICHT zum Sim-Zustand und wird als welt.sim.regie gespeichert (optional, additiv, Version bleibt 3).
+// (w = angekündigt, immer 1); letzte: Tick der letzten Annahme je Typ und Fraktion (Abkühlzeit). Er gehört NICHT zum Sim-Zustand und wird als welt.sim.regie gespeichert (optional, additiv, Version bleibt 3).
 //
 //   neu() / toSave(ws) / lesen(block, tickZahl)   Weltstand-Block welt.sim.regie (Altstand und Müll = leer)
 //   planAnwenden(game, plan) -> { ok, grund?, angenommen: [{ befehl, ab, vorwarnung }], abgelehnt: [{ befehl, grund }], funk: [{ von, text }] }
@@ -36,6 +36,9 @@ const BW = Kern.BEFEHLE.WERTE;
 const PLAN_FELDER = ['befehle', 'fokus', 'begruendung'];
 const FOKUS_FELDER = ['hex', 'radius', 'dauer', 'fraktionen'];
 const KEY_MAX = 40;
+const FADEN_BEFEHLE = ['sabotage', 'invasion'];   // nur aus einem Faden (fadenSabotage, fadenInvasion), nie im Plan des Spielleiters
+// Obergrenze aller wartenden Befehle: Plan-Befehle (plan.vorgemerkt_max) plus Faden-Befehle (plan.faden_vorgemerkt_max); das Schema des Weltstands (vorgemerkt.maxItems) trägt genau diese Summe (Test)
+const WARTEND_MAX = R.plan.wert.vorgemerkt_max + R.plan.wert.faden_vorgemerkt_max;
 
 let texteCache = null;
 function texte() {
@@ -132,7 +135,7 @@ const schluesselOk = (k) => typeof k === 'string' && k.length <= KEY_MAX;
 function trifftRom(z, b) {
   if (!b || typeof b !== 'object') return null;
   if (b.typ === 'embargo') return b.gegen === 'rom' ? { art: 'embargo' } : null;
-  const ort = b.typ === 'angreifen' ? b.ziel : (b.typ === 'piratenueberfall' || b.typ === 'sabotage') ? b.ort : null;
+  const ort = (b.typ === 'angreifen' || b.typ === 'invasion') ? b.ziel : (b.typ === 'piratenueberfall' || b.typ === 'sabotage') ? b.ort : null;
   if (!ort || typeof ort !== 'string' || !z.hexe[ort] || z.hexe[ort].besitzer !== 'rom') return null;
   return { art: b.typ, ort, stuetzpunkt: z.hexe[ort].crew === true };
 }
@@ -143,6 +146,7 @@ function regelFehler(game, b, kennzahl) {
   if (!istObjekt(b)) return 'kein Befehl';
   if (typeof b.typ !== 'string' || !Object.prototype.hasOwnProperty.call(KATALOG, b.typ)) return `unbekannter Typ "${b.typ}"`;
   if (b.typ === 'sabotage') return 'Sprengung kommt nur aus einer Enthüllung eines Fadens, nicht aus einem Plan';   // SUND-04a-2 P3
+  if (b.typ === 'invasion') return 'Invasion kommt nur aus einem Faden, nicht aus einem Plan';   // FAD-01 B
   const abk = ganz(R.abkuehlung.wert[b.typ], 0), key = abkuehlSchluessel(b);
   if (!schluesselOk(key)) return 'Schlüssel zu lang';
   if (abk > 0 && Number.isFinite(s.letzte[key]) && ws.tickZahl - s.letzte[key] < abk) return `Abkühlzeit: ${b.typ} gilt erst wieder in ${abk - (ws.tickZahl - s.letzte[key])} Sprüngen`;
@@ -160,6 +164,7 @@ function fadenSabotage(game, ort) {
   if (!ws) return { ok: false, grund: 'modus' };
   const s = zustandVon(game), n0 = ws.tickZahl;
   const b = { typ: 'sabotage', ort };
+  if (s.vorgemerkt.length >= WARTEND_MAX) { const grund = `zu viele wartende Befehle (höchstens ${WARTEND_MAX})`; schreibe(game, { art: 'lage_befehl', ausgang: 'abgelehnt', key: 'sabotage', plan: b, fehler: [grund], begruendung: 'Faden: Sprengung abgelehnt' }); return { ok: false, grund }; }
   const { gueltig, verworfen } = Kern.filtereBefehle(ws.zustand, s.vorgemerkt.map((e) => e.b).concat([b]));
   const v = verworfen.find((x) => x.befehl === b);
   if (v) { schreibe(game, { art: 'lage_befehl', ausgang: 'abgelehnt', key: 'sabotage', plan: b, fehler: [v.grund], begruendung: 'Faden: Sprengung abgelehnt' }); return { ok: false, grund: v.grund }; }
@@ -173,6 +178,43 @@ function fadenSabotage(game, ort) {
   if (f) funkSenden(game, f);
   schreibe(game, { art: 'lage_befehl', ausgang: 'vorgemerkt', key: 'sabotage', plan: b, begruendung: 'Faden: Sprengung angekündigt, wirksam ab Tick ' + ab });
   return { ok: true, grund: null, ab };
+}
+
+// FAD-01 B: die Invasion eines Fadens (Falscher Händler): EIN atomarer Kern-Befehl invasion { fraktion ger, flotte, ziel } (server/weltsim/befehle.js): eine germanische Flotte wird einmalig hochgestuft
+// und greift das römische Ziel an, beides oder nichts (der Kern prüft Hochstufen und Angriff zusammen und wendet sie im selben Schritt an; nie ein Hochstufen ohne den Angriff). Genau ein Eintrag in der
+// Warteschlange (Vorlauf `invasion` aus regie-werte.json, mindestens ein Tick, w 1 = angekündigt). Schwester von fadenSabotage: eigene benannte Funktion, nur ein Faden kann diesen Befehl vormerken.
+// Ohne Rate (wie sabotage), aber mit Abkühlzeit abkuehlung.invasion je Fraktion (Schlüssel invasion:ger über abkuehlSchluessel/letzte): bis zu drei Händlerfäden derselben Vorlage können laufen, ohne
+// Pause würde jede Enthüllung eine Invasion auslösen. Zählt nicht gegen plan.vorgemerkt_max, aber gegen die Gesamtgrenze (WARTEND_MAX). Vorankündigung zuerst per Funk (Oberkommando, die Wirkung auf Rom
+// wird immer vorher angekündigt). Ohne flotte wählt sie die stärkste bereite germanische Flotte in Reichweite des Ziels, die der Prüfer annimmt. -> { ok, grund?, ab?, flotte?, ziel? }
+function fadenInvasion(game, opt) {
+  const ws = game.weltsim;
+  if (!ws) return { ok: false, grund: 'modus' };
+  const z = ws.zustand, s = zustandVon(game), n0 = ws.tickZahl;
+  const ziel = opt && opt.ziel, wunsch = opt && opt.flotte;
+  const lehne = (grund, plan) => { schreibe(game, { art: 'lage_befehl', ausgang: 'abgelehnt', key: 'invasion', plan: plan || { typ: 'invasion', ziel: ziel == null ? null : ziel, flotte: wunsch == null ? null : wunsch }, fehler: [grund], begruendung: 'Faden: Invasion abgelehnt' }); return { ok: false, grund }; };
+  if (typeof ziel !== 'string' || !z.hexe[ziel]) return lehne('unbekanntes Ziel');
+  if (s.vorgemerkt.length >= WARTEND_MAX) return lehne(`zu viele wartende Befehle (höchstens ${WARTEND_MAX})`);
+  const abk = ganz(R.abkuehlung.wert.invasion, 0), key = abkuehlSchluessel({ typ: 'invasion', fraktion: 'ger' });
+  if (abk > 0 && Number.isFinite(s.letzte[key]) && n0 - s.letzte[key] < abk) return lehne(`Abkühlzeit: invasion gilt erst wieder in ${abk - (n0 - s.letzte[key])} Sprüngen`);
+  const ids = wunsch !== undefined && wunsch !== null ? [wunsch] : Kern.BEFEHLE.angriffsflotten(z, 'ger', ziel);
+  if (!ids.length) return lehne('keine bereite germanische Flotte in Reichweite des Ziels');
+  const wartend = s.vorgemerkt.map((e) => e.b);
+  let erster = null;
+  for (const id of ids) {
+    const inv = { typ: 'invasion', fraktion: 'ger', flotte: id, ziel };
+    const { gueltig, verworfen } = Kern.filtereBefehle(z, wartend.concat([inv]));
+    const v = verworfen.find((x) => x.befehl === inv);
+    if (v || !gueltig.includes(inv)) { if (!erster) erster = { grund: v ? v.grund : 'abgelehnt', plan: inv }; continue; }
+    const w = trifftRom(z, inv);   // der Kern nimmt nur ein römisches Ziel an: die Ankündigung ist immer fällig
+    const ab = n0 + 1 + vorlaufVon('invasion');
+    s.vorgemerkt.push({ b: inv, ab, w: 1 });
+    s.letzte[key] = n0;
+    const f = w && vorwarnText(w, ab, n0, inv);
+    if (f) funkSenden(game, f);
+    schreibe(game, { art: 'lage_befehl', ausgang: 'vorgemerkt', key: 'invasion', plan: inv, begruendung: 'Faden: Invasion angekündigt, Hochstufen und Angriff wirksam ab Tick ' + ab });
+    return { ok: true, grund: null, ab, flotte: id, ziel };
+  }
+  return lehne(erster.grund, erster.plan);
 }
 
 // ---------- Plan prüfen und anwenden
@@ -303,7 +345,9 @@ function befehleFrei(game) {
   const piraten = z.flotten.filter((fl) => fl.fraktion === 'pirat' && fl.befehl === 'heim' && fl.staerke >= P.bereit_anteil * fl.kap).length;
   const abk = {};
   for (const [key, t] of Object.entries(s.letzte)) {
-    const typ = key.split(':')[0], rest = ganz(R.abkuehlung.wert[typ], 0) - (n0 - t);
+    const typ = key.split(':')[0];
+    if (FADEN_BEFEHLE.includes(typ)) continue;   // Faden-Befehle sind nicht Sache des Spielleiters
+    const rest = ganz(R.abkuehlung.wert[typ], 0) - (n0 - t);
     if (rest > 0) abk[key] = rest;
   }
   // Vorrat und Marken: aus denselben Regeln wie der Kern-Prüfer (Kern.BEFEHLE.angriffVorratFehler, nachschubMengeMax, mietbar), nie eine zweite Regel
@@ -342,10 +386,9 @@ function rueckfall(game, grund) {
 }
 // Entwarnung: ein angekündigter Befehl kommt nicht mehr (im Tick abgelehnt, verworfen, Tick gescheitert). Nur wenn vorher wirklich eine Vorwarnung ausging (Eintrag mit w).
 function entwarnText(b) {
-  const key = b.typ === 'embargo' ? 'embargo' : b.typ;
-  const t = (texte().entwarnung || {})[key];
+  const t = (texte().entwarnung || {})[b.typ];
   if (!t) return null;
-  const ort = b.typ === 'angreifen' ? b.ziel : (b.typ === 'piratenueberfall' || b.typ === 'sabotage') ? b.ort : null;
+  const ort = (b.typ === 'angreifen' || b.typ === 'invasion') ? b.ziel : (b.typ === 'piratenueberfall' || b.typ === 'sabotage') ? b.ort : null;
   return { von: t.sprecher || 'Oberkommando', text: fmt(t.text, { ziel: ort ? (Sektoren.hexName(ort) || ort) : '', waren: b.typ === 'embargo' ? warenText(b.waren) : '' }) };
 }
 // Der Tick ist an den fälligen Befehlen gescheitert (Kriegslage.tickMit, im catch, NACH dem Zurückstellen der Sicherung): sie werden verworfen und nicht im nächsten Tick wiederholt, die Sim läuft ohne
@@ -370,7 +413,7 @@ function vorwarnungenErneut(game) {
   let n = 0;
   for (const e of s.vorgemerkt) {
     if (!e.w) continue;
-    const w = trifftRom(ws.zustand, e.b);
+    const w = trifftRom(ws.zustand, e.b);   // nur ankündigen, wo die Wirkung noch kommt: gehört das Ziel inzwischen nicht mehr Rom, entfällt die erneute Ankündigung (wie vorTick)
     const f = w && vorwarnText(w, Math.max(e.ab, ws.tickZahl + 1), ws.tickZahl, e.b);
     if (f) { funkSenden(game, f); n++; }
   }
@@ -462,10 +505,10 @@ function lesen(b, tickZahl) {
   if (!istObjekt(b)) return out;
   const t = Number.isFinite(tickZahl) ? tickZahl : 0;
   if (Array.isArray(b.vorgemerkt)) {
-    let nSab = 0;   // Nacharbeit L12: die Sprengung eines Fadens zählt nicht in vorgemerkt_max der Plan-Befehle (eigene Zählung, gleiche Obergrenze): sie wird beim Laden nie abgeschnitten
+    let nSab = 0;   // Nacharbeit L12: die Befehle eines Fadens (Sprengung, Invasion) zählen nicht in vorgemerkt_max der Plan-Befehle (eigene Zählung, Obergrenze plan.faden_vorgemerkt_max): beim Laden bleibt die Summe unter dem Schema
     for (const e of b.vorgemerkt) {
-      const sab = istObjekt(e) && istObjekt(e.b) && e.b.typ === 'sabotage';
-      if (sab ? nSab >= R.plan.wert.vorgemerkt_max : out.vorgemerkt.length - nSab >= R.plan.wert.vorgemerkt_max) continue;
+      const sab = istObjekt(e) && istObjekt(e.b) && FADEN_BEFEHLE.includes(e.b.typ);   // FAD-01 B: auch die Invasion
+      if (sab ? nSab >= R.plan.wert.faden_vorgemerkt_max : out.vorgemerkt.length - nSab >= R.plan.wert.vorgemerkt_max) continue;
       if (!istObjekt(e) || !istObjekt(e.b) || typeof e.b.typ !== 'string' || !Object.prototype.hasOwnProperty.call(KATALOG, e.b.typ)) continue;
       const ab = ganz(e.ab, null);
       if (ab == null || ab < 0) continue;
@@ -486,4 +529,4 @@ function lesen(b, tickZahl) {
   return out;
 }
 
-module.exports = { R, befehleFrei, schreibe, vorwarnungenErneut, tickGescheitert, neu, toSave, lesen, planAnwenden, planPruefen, rueckfall, verwerfe, vorTick, nachTick, melde, lage, trifftRom, abkuehlSchluessel, planLesen, fadenSabotage };
+module.exports = { R, befehleFrei, schreibe, vorwarnungenErneut, tickGescheitert, neu, toSave, lesen, planAnwenden, planPruefen, rueckfall, verwerfe, vorTick, nachTick, melde, lage, trifftRom, abkuehlSchluessel, planLesen, fadenSabotage, fadenInvasion };
