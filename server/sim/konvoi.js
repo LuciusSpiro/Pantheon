@@ -15,6 +15,7 @@
 const Flight = require('../../shared/flight.js');
 const Pilot = require('./pilot.js');
 const Fracht = require('./fracht.js');
+const Waren = require('../../shared/waren.js');   // LAD-01 A1
 const Zielsysteme = require('./zielsysteme.js');
 const Gsys = require('./gegnersystem.js');   // GEG-01 A: Antrieb und Reaktor des Transporters für kannSpringen
 const Tel = require('../telemetrie/gefecht.js');   // TEL-01 M: Protokoll-Haken (nur lesen)
@@ -72,7 +73,7 @@ function restStrecke(k, e) {
 function an(game, o) {
   const q = o || {}; const C = cfg(game);
   const nW = clamp(Math.round(Number(q.n != null ? q.n : C.n) || 2), 1, C.nMax || 3);
-  const art = game.C.fracht.arten.includes(q.ladung) ? q.ladung : game.C.fracht.artDefault;
+  const art = Waren.artOk(q.ladung) ? q.ladung : game.C.fracht.artDefault;
   const sieg = SIEGE.includes(q.sieg) ? q.sieg : 'pluendern';
   const eskorte = ESKORTEN.includes(q.eskorte) ? q.eskorte : 'voll';
   const cap = Math.max(1, Fracht.capacity(game));

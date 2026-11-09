@@ -1,0 +1,14 @@
+{
+  "_hinweis": "LAD-01 A1: Warenmodell als Daten. Eine Ware ist ein Baustein mit Eigenschaften; eine neue Ware braucht keine Codeaenderung (server/sim/fracht.js, shared/waren.js). grundpreis = Marken je Einheit (Studiowerte, Kai passt nach dem Spieltest an; nur Deuterium 40 ist alt). gewicht = Abzug auf die Triebwerksleistung je Einheit an Bord. eigenschaften = Flags, die diese Ware tragen darf (Hook fuer LAD-01 B). darstellung = Schluessel des spaeteren Modells (vorerst nur Daten). kategorie 'ware' | 'person'. standard = Art, wenn keine genannt ist.",
+  "standard": "sprengstoff",
+  "waren": [
+    { "id": "fracht", "name": "Fracht", "grundpreis": 25, "gewicht": 0, "eigenschaften": ["illegal", "getarnt", "auftrag"], "darstellung": "kiste", "kategorie": "ware" },
+    { "id": "waffen", "name": "Waffen", "grundpreis": 60, "gewicht": 0, "eigenschaften": ["illegal", "getarnt", "auftrag"], "darstellung": "waffenkiste", "kategorie": "ware" },
+    { "id": "erz", "name": "Erz", "grundpreis": 8, "gewicht": 0, "eigenschaften": ["illegal", "getarnt", "auftrag"], "darstellung": "erzbrocken", "kategorie": "ware" },
+    { "id": "bergungsgut", "name": "Bergungsgut", "grundpreis": 20, "gewicht": 0, "eigenschaften": ["illegal", "getarnt", "auftrag"], "darstellung": "schrott", "kategorie": "ware" },
+    { "id": "deuterium", "name": "Deuterium", "grundpreis": 40, "gewicht": 0.15, "eigenschaften": ["illegal", "getarnt", "auftrag"], "darstellung": "fass", "kategorie": "ware" },
+    { "id": "sprengstoff", "name": "Sprengstoff", "grundpreis": 30, "gewicht": 0, "eigenschaften": ["illegal", "getarnt", "auftrag"], "darstellung": "sprengkiste", "kategorie": "ware" },
+    { "id": "hilfsgueter", "name": "Hilfsgüter", "grundpreis": 35, "gewicht": 0, "eigenschaften": ["illegal", "getarnt", "auftrag"], "darstellung": "kiste_med", "kategorie": "ware" },
+    { "id": "person", "name": "Person", "grundpreis": 0, "gewicht": 0, "eigenschaften": ["illegal", "getarnt", "auftrag"], "darstellung": "bett", "kategorie": "person" }
+  ]
+}

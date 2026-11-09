@@ -2,10 +2,15 @@
 // Der Server ist maßgeblich; der Client liest Werte nur für Anzeige und Vorhersage.
 // Regel: Das Server-Team darf Schlüssel ERGÄNZEN, aber keine umbenennen oder entfernen.
 (function (root, factory) {
-  if (typeof module === 'object' && module.exports) module.exports = factory();
+  if (typeof module === 'object' && module.exports) module.exports = factory(require('./waren.js'));
   else root.Shared_Config = factory();
-})(typeof self !== 'undefined' ? self : this, function () {
+})(typeof self !== 'undefined' ? self : this, function (Waren) {
   'use strict';
+  // LAD-01 A1: Ladungsarten, Preise und Gewicht kommen aus content/waren.json (shared/waren.js). Im Browser (kein Waren-Modul hier) bleiben sie leer, der Client liest nur Namen.
+  const warenListe = Waren ? Waren.liste() : [];
+  const warenArten = Waren ? Waren.arten() : [];
+  const warenPreise = {}, warenGewicht = {};
+  for (const w of warenListe) { if (w.kategorie === 'ware') warenPreise[w.id] = w.grundpreis; if (w.gewicht > 0) warenGewicht[w.id] = w.gewicht; }
   return {
     port: 3300,
     maxPlayers: 4,
@@ -118,10 +123,10 @@
     // EK3 Teil A: Fracht (Ladung) im Raum, Beamen an Bord (Ops), Frachtraum der Lerche (server/sim/fracht.js, CONTRACT-EK3).
     // beamRange = Reichweite des Transfers wie bei den Außenkarten (scene.beam.range 320); Haltezeit wie ship.beamTime (3 s, bei beschädigtem
     // Transfer ship.beamTimeDamaged). Kapazität = 2 Plätze je Modul Frachtraum (Maps.CARGO_PER_RAUM, PAN-01 B).
-    fracht: { beamRange: 320, stationRange: 320, stationKinds: ['station', 'vaelen'], arten: ['sprengstoff', 'fracht', 'deuterium'], artDefault: 'sprengstoff', maxDraussen: 6,
+    fracht: { beamRange: 320, stationRange: 320, stationKinds: ['station', 'vaelen'], arten: warenArten, artDefault: Waren ? Waren.standard() : 'sprengstoff', maxDraussen: 6,
       // SL6: Deuterium (Gasriese schöpfen). preise = Marken je Einheit bei Händlern (scene.kauft überschreibt je Szene; Studiowerte, nach dem Spieleabend
       // nachgestellt), gewicht = Abzug auf die Triebwerksleistung je Einheit an Bord (nur für diese Arten, Sprengstoff/Fracht unverändert).
-      preise: { deuterium: 40 }, gewicht: { deuterium: 0.15 }, abwurfAbstand: 70 },
+      preise: warenPreise, gewicht: warenGewicht, abwurfAbstand: 70 },
     // SL6: Zonen mit Wirkung (shared/zonen.js, server/sim/zonen.js). takt = Sekunden, nach denen angesammelter Zonenschaden als Treffer ankommt
     // (ganze Punkte, kein Dauerfeuer von Treffer-Ereignissen). hitzeSysteme = Energiesysteme, die die Zonenhitze aufnehmen (nur ab hitzeMinEnergie).
     // SYS-03 Dauerdruck (Stufenregel): die Punkte, die der Schild nicht fängt, sammeln sich je Ziel (Lerche je Sektor, Gegner und Verbündete je Schiff) im Zähler; je druckPunkte Punkte

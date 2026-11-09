@@ -165,7 +165,7 @@ const MUTATIONEN = [
   [B2, "if (cat.frist !== undefined && !(Number.isInteger(cat.frist) && cat.frist >= 1 && cat.frist <= 60)) g(", "if (false) g(", 'katalogFehler: frist keine Zahl'],
   [B2, "if (!(K && alleCrew(K.anzahl) && Array.isArray(K.siegen)", "if (false && !(K && alleCrew(K.anzahl) && Array.isArray(K.siegen)", 'katalogFehler: Daten des Konvois unvollstaendig'],
   [B2, "if (K && K.eskorte && !['1', '2', '3'].every((k) => require('./konvoi.js').ESKORTEN.includes(K.eskorte[k]))) g(", "if (false) g(", 'katalogFehler: unbekannte Eskorte'],
-  [B2, "if (K && !require('../../shared/config.js').fracht.arten.includes(K.ladung)) g(", "if (false) g(", 'katalogFehler: Ladung keine Ladungsart'],
+  [B2, "if (K && !require('../../shared/waren.js').artOk(K.ladung)) g(", "if (false) g(", 'katalogFehler: Ladung keine Ladungsart'],
   [B2, "if (!(G && G.modi && has(G.modi, G.modus_standard)", "if (false && !(G && G.modi && has(G.modi, G.modus_standard)", 'katalogFehler: Daten des Geleits unvollstaendig'],
   [B2, "if (!['angekommen', 'angreifer_weg', 'repariert'].includes(M.erfolg)) g(", "if (false) g(", 'katalogFehler: Erfolgsart unbekannt'],
   [B2, "if (!require('./escort.js').KINDS.includes(M.kind) || !require('./escort.js').VERHALTEN.includes(M.verhalten)) g(", "if (false) g(", 'katalogFehler: Schuetzling-Klasse oder Verhalten unbekannt'],

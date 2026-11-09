@@ -4777,7 +4777,7 @@
       for (const f of fr.draussen || []) {
         if (!visible(f.x, f.y)) continue;
         const s = toS(f.x, f.y);
-        const txt = f.art === 'sprengstoff' ? 'SPRENGSTOFF' : 'FRACHT';
+        const txt = (window.Shared_Waren ? window.Shared_Waren.name(f.art) : String(f.art)).toUpperCase();   // LAD-01 A1: Name aus content/waren.json
         if (!inB(s, -6)) { if (!front || cfg.navArrows !== false) arrow(f.x, f.y, PAL.amber, txt); continue; }
         const inR = Math.hypot(f.x - ship.x, f.y - ship.y) <= beamR;
         const holding = fr.halt && fr.halt.kind === 'an' && fr.halt.id === f.id;

@@ -2,12 +2,11 @@
 // gleiche Aufstellung "FRACHTRAUM 2/2: Deuterium, Evert Kroeger". Ops, Captain und Transfer-Terminal lesen dieselbe Funktion (kein eigenes Formatieren).
 // UMD: window.Shared_Frachtliste / require. Reine Darstellung, keine Spielregel (Kapazität: Maps.cargoCapacity, 2 Plätze je Modul Frachtraum).
 (function (root, factory) {
-  if (typeof module === 'object' && module.exports) module.exports = factory();
-  else root.Shared_Frachtliste = factory();
-})(typeof self !== 'undefined' ? self : this, function () {
+  if (typeof module === 'object' && module.exports) module.exports = factory(require('./waren.js'));
+  else root.Shared_Frachtliste = factory(root.Shared_Waren);
+})(typeof self !== 'undefined' ? self : this, function (Waren) {
   'use strict';
-  const ARTEN = { sprengstoff: 'Sprengstoff', deuterium: 'Deuterium', fracht: 'Fracht' };
-  const artName = (a) => ARTEN[a] || String(a);
+  const artName = (a) => (Waren ? Waren.name(a) : String(a));   // LAD-01 A1: Anzeigename aus content/waren.json
 
   // fracht = snapshot.fracht (kann fehlen), cap = Anzahl Frachtplätze.
   // -> { belegt, cap, frei, gesichert, eintraege: [{ art: 'deuterium'|'sprengstoff'|'fracht'|'person', name, text }], titel, text }

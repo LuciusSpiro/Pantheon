@@ -2041,7 +2041,7 @@
       const f = this.fracht(view.state);
       this.stapelH = 0;   // SL7: Platz oben links, den die Leisten (Fracht, Landepunkt-Scan, Zonen-Scan) schon belegen
       if (!f.show) return;
-      const ware = f.lager.filter(a => a === 'deuterium' || a === 'sprengstoff' || a === 'fracht').length > 0;   // SL6: Verkaufen/Abwerfen nur mit Ware
+      const ware = f.lager.length > 0;   // SL6: Verkaufen/Abwerfen nur mit Ware
       const gas = f.gas && f.gas.ertragSzene ? f.gas : null;   // U2: Gasfeld – Schöpfen ist eine Ops-Aktion (C)
       const schoepft = !!(f.halt && f.halt.kind === 'schoepf');
       const postenHalt = !!(f.halt && f.halt.kind === 'posten');   // SUND-02b A1: Posten gründen / Ausbau läuft (Halteprozess wie Beamen)
@@ -2049,7 +2049,7 @@
       this.stapelH = h + 3;
       ctx.fillStyle = 'rgba(11,14,26,0.82)'; ctx.fillRect(x, y, w, h);
       ctx.strokeStyle = PAL.brass; ctx.lineWidth = 1; ctx.strokeRect(x + 0.5, y + 0.5, w - 1, h - 1);
-      const names = f.lager.map(a => (a === 'sprengstoff' ? 'Sprengstoff' : a === 'deuterium' ? 'Deuterium' : 'Fracht'));
+      const names = f.lager.map(a => (window.Shared_Waren ? window.Shared_Waren.name(a) : String(a)));   // LAD-01 A1: Name aus content/waren.json
       // SUND-02b UI2: Kopf mit Fortschritt und kurze Abbruchzeile aus PostenAnzeige.halt (der lange Hinweis lief über den Rand der Leiste); Rot als Text = Hellrot (Protanopie)
       const PH = postenHalt && window.PostenAnzeige ? PostenAnzeige.halt(f.halt) : null;
       const PT = (window.KarteTokens && KarteTokens.PULT) || {};

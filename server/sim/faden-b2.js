@@ -154,7 +154,7 @@ function katalogFehler() {
   const alleCrew = (m) => !!m && ['1', '2', '3'].every((k) => Number.isInteger(m[k]) && m[k] >= 1);
   if (!(K && alleCrew(K.anzahl) && Array.isArray(K.siegen) && K.siegen.includes(K.sieg_standard) && K.siegen.every((s) => require('./konvoi.js').SIEGE.includes(s)) && K.max_s > 0)) g('szenen-werte konvoi: anzahl je Crew, siegen, sieg_standard, max_s');
   if (K && K.eskorte && !['1', '2', '3'].every((k) => require('./konvoi.js').ESKORTEN.includes(K.eskorte[k]))) g('szenen-werte konvoi: eskorte je Crew nennt eine unbekannte Eskorte');
-  if (K && !require('../../shared/config.js').fracht.arten.includes(K.ladung)) g('szenen-werte konvoi: ladung ist keine Ladungsart');
+  if (K && !require('../../shared/waren.js').artOk(K.ladung)) g('szenen-werte konvoi: ladung ist keine Ladungsart');
   if (!(G && G.modi && has(G.modi, G.modus_standard) && Array.isArray(G.ziele) && G.ziele.length && G.max_s > 0 && G.angreifer && G.angreifer.klasse)) g('szenen-werte geleit: modi, modus_standard, ziele, angreifer, max_s');
   else for (const [m, M] of Object.entries(G.modi)) {
     if (!['angekommen', 'angreifer_weg', 'repariert'].includes(M.erfolg)) g(`geleit.modi.${m}: erfolg unbekannt`);

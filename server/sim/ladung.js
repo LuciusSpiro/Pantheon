@@ -11,11 +11,12 @@
 const Fracht = require('./fracht.js');
 const Marken = require('./geld.js');
 const Locations = require('../../shared/locations.js');
+const Waren = require('../../shared/waren.js');
 const { dist } = require('../util.js');
 
 const cfg = (game) => game.C.fracht;
 const r2 = (v) => Math.round(v * 100) / 100;
-const artName = (art) => (art === 'deuterium' ? 'Deuterium' : art === 'sprengstoff' ? 'Sprengstoff' : art === 'fracht' ? 'Fracht' : String(art));
+const artName = (art) => Waren.name(art);
 const istWare = (art) => art !== 'person';
 
 // ---------- Schöpfen ----------
@@ -82,11 +83,11 @@ function schoepft(game) { const s = game.fracht; return !!(s && s.halt && s.halt
 
 // ---------- Gewicht ----------
 function gewichtFaktor(game) {
-  const G = cfg(game).gewicht;
+  const G = cfg(game).gewicht || {};
   const s = game.fracht;
-  if (!G || !s || !s.lager.length) return 1;
+  if (!s || !s.lager.length) return 1;
   let abzug = 0;
-  for (const l of s.lager) if (G[l.art]) abzug += G[l.art];
+  for (const l of s.lager) { const g = G[l.art] != null ? G[l.art] : Waren.gewicht(l.art); if (g) abzug += g; }   // LAD-01 A1: config (tune) vor Daten
   return abzug ? Math.max(0.2, 1 - abzug) : 1;
 }
 
@@ -117,7 +118,7 @@ function abwerfen(game, art) {
 function preisVon(game, sc, art) {
   const k = sc && sc.kauft && sc.kauft[art];
   if (k == null || k === false) return 0;
-  return k === true ? (Number(cfg(game).preise && cfg(game).preise[art]) || 0) : (Number(k) || 0);
+  return k === true ? (Number(cfg(game).preise && cfg(game).preise[art] != null ? cfg(game).preise[art] : Waren.grundpreis(art)) || 0) : (Number(k) || 0);
 }
 // Händler im Umkreis? -> { ok, reason?, name?, n, summe }
 function verkaufOrt(game) {

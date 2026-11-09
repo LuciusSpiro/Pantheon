@@ -22,6 +22,7 @@
 const W = require('../world.js');
 const Station = require('./station.js');   // R1 §4.4
 const Locations = require('../../shared/locations.js');
+const Waren = require('../../shared/waren.js');   // LAD-01 A1: Warenarten, Namen, Preise, Gewicht aus content/waren.json
 const { dist } = require('../util.js');
 
 const cfg = (game) => game.C.fracht;
@@ -34,8 +35,8 @@ function neu() {
 }
 function state(game) { return game.fracht || (game.fracht = neu()); }
 
-const artOk = (game, art) => cfg(game).arten.includes(art);
-const artName = (art) => (art === 'sprengstoff' ? 'Sprengstoff' : art === 'fracht' ? 'Fracht' : art === 'deuterium' ? 'Deuterium' : String(art));
+const artOk = (game, art) => Waren.artOk(art);   // LAD-01 A1: jede Ware der Kategorie 'ware' in content/waren.json, keine feste Liste
+const artName = (art) => Waren.name(art);
 
 // ---------- Abfragen ----------
 function anBord(game, art) { const s = state(game); return art ? s.lager.filter((l) => l.art === art).length : s.lager.length; }
@@ -325,5 +326,5 @@ module.exports = {
   fracht_abwerfen, abwerfen: fracht_abwerfen,
   beamStart, abliefernStart, beamStop, systemTreffer, ablieferOrt, stationOrt,
   anBord, frei, capacity, gesichert, setGesichert, gefaehrdet, huellenTreffer, frachtraumTreffer, lagerArten, draussen, abgeliefert,
-  setAbnehmer, skriptAbliefern, skriptAbliefernBis, anBordLegen, artOk,
+  setAbnehmer, skriptAbliefern, skriptAbliefernBis, anBordLegen, artOk, artName,
 };
