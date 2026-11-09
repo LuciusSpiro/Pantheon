@@ -1490,6 +1490,31 @@ eine Szene ≈ 3 700–4 700 Tokens – eine voll ausgearbeitete Mission mit 4�
 Missionsgrenze plant der Spielleiter 2 Angebote (2 Grobpläne). Mit dem Deckel von 500 000 reicht ein Serverlauf für etwa
 6–8 Missionsgrenzen. (S2 vorher: Szene ≈ 24 000, Mission ≈ 150 000.)
 
+### Live-Messung des Spielleiters (LIV-01 C)
+Zwei Werkzeuge messen den Spielleiter und legen **jeden erzeugten Plan als eigene Markdown-Datei** ab (Lage-Plan wie Abenteuer-Plan), mit Index und Rohdaten. Beide laufen ohne `--live` komplett offline mit dem Mock; echte Aufrufe laufen nur von Hand über das Abo und nur mit `LLM_LIVE=1` (die Werkzeuge setzen es nie selbst).
+```
+# Abenteuer-Komposition (Bauplan), hoechstens 10 Claude-Aufrufe je Lauf (harte Deckelung, mehr nur mit mehreren Laeufen)
+node tools/messe-abenteuer.js --mock --n 20 --out <ordner>
+LLM_LIVE=1 node tools/messe-abenteuer.js --live --n 10 --out <ordner>        # npm run messe:abenteuer -- --live --n 10 --out <ordner>
+
+# Lage-Plaene (und Abenteuer-Plaene mit FAEDEN) in simulierten Bot-Abenden
+node tools/messe-lage.js --mock --abend 1 --out <ordner>                     # npm run messe:lage -- --abend 1 --out <ordner>
+LLM_LIVE=1 CLAUDE_TOKEN_BUDGET=150000 node tools/messe-lage.js --live --abend 1,2 --mit-basis --out <ordner>
+node tools/messe-lage.js --auswerten <lauf-ordner>                           # nur auswerten (neue auswertung-<Zeit>.md)
+```
+- **Ablage** (`--out <ordner>`, relativ zum Aufrufer, **nie im Repo**, Standard von `messe-lage`: `<Temp>/pantheon-messung`): jeder Lauf legt einen neuen Ordner `abenteuer-<modus>-<Zeit>` bzw. `lage-<modus>-<Zeit>` an, nichts wird gelöscht oder überschrieben. Darin `index.md` (Tabelle aller Aufrufe mit Link auf die Einzeldatei; Zusammenfassung: Gültigkeit, Dauer Median/p90, Tokens gegen `CLAUDE_TOKEN_BUDGET`, Kosten, Wiederholungsrate und Duplikate), `messung.json` (Rohdaten), `regie/` (das Regie-Logbuch des Spiels, live mit `aufnahmen/`).
+  - `messe-abenteuer`: `plan-NN.md` (Frontmatter: Aufruf-Nr, Zeit, Dauer, Tokens, Kosten, Gültigkeit, Prüfer-Befunde, Rückfall, Anbieter, Modell; Body: lesbarer Plan, expandierte Vorlage, Rohantwort, Logbuch-Eintrag) und `plan-NN.prompt.txt`.
+  - `messe-lage`: je Abend `abendN/lage-NN.md` und `abendN/abenteuer-NN.md` mit `*.prompt.txt`, dazu `plaene.json`, vollständiges `logbuch.jsonl`, `ticks.jsonl`, `funk.jsonl`; im Lauf-Ordner `auswertung.md` mit den **vier Befunden vom 2026-10-24 als Zahlen** (Anteil Pläne mit Befehlen außer `fokus`, Ablehnquote und Rate-Erschöpfung, Sichtbarkeit der Ablehnungen und von `befehle_frei` im Prompt, Absicht/Vorwarnung gesetzt ja/nein). Ein Mock-Lauf prüft nur die Werkzeuge; die Zahlen über Claude liefert erst `--live`. `--plaene` deckelt die Aufrufe je Abend (nie über die Werte des Spiels hinaus).
+- **Vollständige Umgebung** für einen Live-Lauf des ganzen Spiels (Bot-Abende mit `npm run spiel:faden` oder `node tools/sim-headless.js <modus>` mit `--mitschnitt`):
+```
+SPIELLEITER_LLM=live LLM_LIVE=1 LAGE_SPIELLEITER=1 REISE_EREIGNISSE=1 FAEDEN=1
+CLAUDE_TOKEN_BUDGET=<Deckel>
+REGIE_DIR=<ordner>\regie                 # Logbuch + aufnahmen/ (Prompt und Rohantwort je Aufruf)
+MITSCHNITT=1 MITSCHNITT_DIR=<ordner>\mitschnitt   # lesbare Verläufe je Mission/Abenteuer
+```
+  `messe-lage` und `messe-abenteuer` setzen `SPIELLEITER_LLM`, `LAGE_SPIELLEITER`, `REISE_EREIGNISSE`, `FAEDEN` und (mit `--out`) `REGIE_DIR` selbst im Spiel-`env`; `LLM_LIVE` und `CLAUDE_TOKEN_BUDGET` gehören dem Aufrufer, `MITSCHNITT` und `MITSCHNITT_DIR` werden durchgereicht. Die Test-Fixture setzt `REGIE_DIR` sonst auf einen Temp-Ordner; das Werkzeug gibt es deshalb ausdrücklich vor.
+- Test: `npm run test:messe-ablage` (offline, in `npm test`).
+
 ### Modelle je Anfrageart: Ollama auf Sleipnir, Eskalation auf Claude (SUND-03 B)
 Ohne weitere Einträge bleibt alles wie oben (Claude-CLI für alles). Ein **Router** (`server/mission/transport-router.js`) schickt
 jede Anfrageart (`grobplan`, `szene`, `text`) an einen Anbieter. Er ist nur aktiv, wenn `LLM_ROUTER=1` oder eine `LLM_ANBIETER_*`
