@@ -312,7 +312,7 @@
       scene.koerper = szenenKoerper(lage, scene.station && scene.station.kind === 'station' ? scene.station : null);
     }
 
-    const id = d.ort || ortId(d.name || hex);
+    const id = d.ort || (d.typ !== undefined ? 'k_' + hex : ortId(d.name || hex));   // KAC-01 C: typ-Hex ohne `ort` = k_<hex> (shared/sektoren.js kachelOrt)
     const kind = dock ? 'port' : einfl === 'nebel' ? 'nebula' : einfl === 'asteroiden' || einfl === 'truemmerstrom' ? 'asteroids' : einfl === 'gas' ? 'gasgiant' : station ? 'outpost' : 'void';
     const loc = {
       id, name: d.name || hex, kind, hex, gen: true, fog: einfl === 'nebel',

@@ -1023,6 +1023,8 @@ class Game {
     const pl = this.playerById(pid); if (pl) pl.awayKv = null;   // B1: gebaute Karte nach (Neu-)Verbindung erneut senden
     const k = sektorkarte();
     if (k) m[Protocol.WELCOME_SEKTORKARTE || 'sektorkarte'] = k;
+    const typen = k && Welt.katalogFuerClient();   // KAC-01 C: Katalog nur für Karten mit typ-Hexen (sonst bleibt das welcome byteweise wie vorher)
+    if (typen) m[Protocol.WELCOME_SEKTORTYPEN || 'sektortypen'] = typen;
     const karten = {};   // CHA-01 B1: Karten aller Spieler mit Karte (auch getrennter); ohne Karten fehlt das Feld (Nachricht wie bisher)
     for (const o of this.players) if (o.karte) karten[o.id] = o.karte;
     if (Object.keys(karten).length) m.karten = karten;
