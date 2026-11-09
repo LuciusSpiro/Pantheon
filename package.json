@@ -29,6 +29,7 @@
     "test:abenteuer": "node tools/test-abenteuer.js",
     "test:abenteuer-mutation": "node tools/mutation-abenteuer.js",
     "test:abenteuer-brett": "node tools/test-abenteuer-brett.js",
+    "test:freie-fahrt-szenario": "node tools/test-freie-fahrt-szenario.js",
     "test:abenteuer-brett-mutation": "node tools/mutation-abenteuer-c.js",
     "test:abenteuer-kanon": "node tools/test-abenteuer-kanon.js",
     "test:abenteuer-kanon-mutation": "node tools/mutation-abenteuer-e.js",

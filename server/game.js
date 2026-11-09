@@ -187,6 +187,8 @@ class Game {
     this.C = CONFIG;
     this.debug = !!o.debug;
     this.env = o.env || process.env;
+    this.envBasis = this.env;   // FRE-01 A: Basis-Env des Servers; this.env ist in der Freien Fahrt (nur mit szenarioSchalter) eine Kopie mit den Szenario-Schaltern
+    this.szenarioSchalter = !!o.szenarioSchalter;   // FRE-01 A: nur der echte Server (index.js) schaltet es ein; Tests und Bots laufen ohne
     this.logFn = o.log || ((...a) => console.log('[Pantheon]', ...a));
     this.storeDisabled = !!o.noStore;
     // S1 §5: Weltstände auf der Platte (Standard: an, außer noStore – Tests/Smoke schreiben nichts). worlds: true erzwingt.
@@ -212,7 +214,7 @@ class Game {
     this.telemetrie = new Telemetrie(this);   // TEL-01 A: vor reset() (reset beendet eine offene Session)
     this.mitschnitt = Mitschnitt.an(this) ? new Mitschnitt(this) : null;   // MIT-01 A: reiner Beobachter, ohne MITSCHNITT=1 null (jeder Haken: game.mitschnitt && …)
     this.roomCode = typeof o.roomCode === 'string' && o.roomCode ? o.roomCode.toUpperCase() : null;
-    this.lobbyOpts = { skipDrill: false, startMission: 'm1', world: null, arena: null, wellen: null,   // wellen: Kartenwahl Bodenkampf: Wellen
+    this.lobbyOpts = { skipDrill: false, liveSpielleiter: false, startMission: 'm1', world: null, arena: null, wellen: null,   // wellen: Kartenwahl Bodenkampf: Wellen
       szene: null,   // W2 AP3b: Szenenwahl Wellen All (CONFIG.arena.szenen); null = Altweg Testgelände Raumkampf
       graben: null,   // BOD-01: Variantenwahl Grabenangriff { abschnitt: variante } (null = Standard der Karte)
       labor: { id: null, seed: null, staerke: null, god: false } };   // AP3a: Szenario-Labor (Auswahl und Parameter)
@@ -301,10 +303,15 @@ class Game {
   createLageSpielleiter() {
     if (this.lageSpielleiter || !this.weltsim) return this.lageSpielleiter || null;
     const mod = require('./sim/lage-spielleiter.js');
-    if (this.lageSchalter === undefined) this.lageSchalter = mod.schalterAn(this.env);
+    if (this.lageSchalter === undefined) this.lageSchalter = mod.betriebAn(this.env);   // FRE-01 A: mit Modell oder im Rückfall-Betrieb (ohne Modell)
     if (!this.lageSchalter) return null;
     try { this.lageSpielleiter = mod.create(this); } catch (e) { this.countError('lage-create', e); this.lageSchalter = false; this.lageSpielleiter = null; }
     return this.lageSpielleiter;
+  }
+  // FRE-01 A: wirksames Env der Partie (Kopie; process.env bleibt unberührt). Nur mit Option szenarioSchalter und nur in der Freien Fahrt; sonst das Basis-Env.
+  // Betriebsart live nur aus lobbyOpts.liveSpielleiter (Lobby-Schalter baut Paket B), beim Fortsetzen immer false.
+  szenarioEnvSetzen(modus, live) {
+    this.env = this.szenarioSchalter && modus === Kriegslage.MODUS ? require('./sim/szenario-schalter.js').wirksamesEnv(this.envBasis, modus, { live: live === true }) : this.envBasis;
   }
   // zwischen den Ticks (Game-Step): Antwort abholen, Frist prüfen, vorgemerkte Anfrage starten; legt den Lage-Spielleiter beim ersten Schritt im Modus an
   lageUpdate(dt) {
@@ -362,6 +369,7 @@ class Game {
       this.emit('worldLoadFailed', { id, reason });
       this.log(`Weltstand ${id} nicht geladen: ${reason}`);
       this.lobbyOpts.world = null;
+      this.env = this.envBasis;   // FRE-01 A: kein Szenario-Env in der Lobby
       for (const p of this.players) p.ready = false;
       this.refreshWorldList();
     };
@@ -371,6 +379,7 @@ class Game {
     // reset() spielt den Erstbesuch im Hafen ab (ODA, Logbuch, +20 Marken) – beim Fortsetzen ist das kein Erstbesuch
     this.muteEvents = true;
     try { this.reset(); } finally { this.muteEvents = false; }
+    { const sim = r.data && r.data.welt && r.data.welt.sim; this.szenarioEnvSetzen(sim && typeof sim === 'object' ? sim.modus : null, false); }   // FRE-01 A: Freie-Fahrt-Stand -> Szenario-Env (nach reset(), vor apply und erstem Speichern), Betriebsart beim Fortsetzen immer Rückfall
     const lk = Weltstand.lock(dir, id, { port: this.port });
     if (!lk.ok) return fail(lk.error);
     this.worldLock = { dir, id };
@@ -501,6 +510,7 @@ class Game {
     this.spielleiter = null;
     if (this.lageSpielleiter) { try { this.lageSpielleiter.dispose(); } catch (e) { this.countError('lage-dispose', e); } }   // SUND-03 A2: Anfrage in der Luft verwerfen, späte Antworten kommen nie an
     this.lageSpielleiter = null; this.lageSchalter = undefined;
+    this.env = this.envBasis;   // FRE-01 A: zurück auf das Basis-Env; startGame/continueWorld setzen das Szenario-Env danach neu
     this.phase = 'lobby';
     this.paused = false;
     this.saveDue = null; this.dockSaveT = 0; this.pendingRadio = null;
@@ -1127,6 +1137,7 @@ class Game {
     const freieFahrt = sm === Kriegslage.MODUS;   // SUND-01 B: Weltstand, aber ohne Kette und ohne Spielleiter
     Welt.waehle(this, freieFahrt ? Kriegslage.KARTE : UEBUNG_WELTEN[sm] || (campaign && CAMPAIGN_KETTEN[sm] && CAMPAIGN_KETTEN[sm].welt) || Welt.STANDARD);
     this.reset();
+    this.szenarioEnvSetzen(freieFahrt ? sm : null, this.lobbyOpts.liveSpielleiter === true);   // FRE-01 A: nach reset() (das setzt das Basis-Env), vor dem ersten Schritt und dem Kopf
     this.phase = 'play';
     this.stats.playTimeStart = this.time;
     this.players.forEach((p, i) => { this.resetPlayer(p, i); p.ready = true; });

@@ -41,6 +41,16 @@ function schalterAn(env) {
   return String(e.LAGE_SPIELLEITER || '') === '1' && String(e.SPIELLEITER_LLM || 'off').toLowerCase() !== 'off';
 }
 
+// FRE-01 A: benannter Zustand 'rueckfall': der Lage-Spielleiter ist da (mode 'off'), stellt aber nie eine Modellanfrage und beauftragt keine Lage-Pläne
+// (Standard-KI, Regie.rueckfall bleibt); Faden.spielleiterAktiv gilt dafür als wahr, damit Auftragsbrett, anschluss() und Angebote ohne Modell laufen.
+// Erkannt am wirksamen Env: LAGE_SPIELLEITER=1 + SPIELLEITER_RUECKFALL=1 + kein Modell (SPIELLEITER_LLM unset oder off). Ohne SPIELLEITER_RUECKFALL gilt alles wie bisher.
+function rueckfallAn(env) {
+  const e = env || process.env;
+  return String(e.LAGE_SPIELLEITER || '') === '1' && String(e.SPIELLEITER_RUECKFALL || '') === '1' && String(e.SPIELLEITER_LLM || 'off').toLowerCase() === 'off';
+}
+// Entsteht überhaupt ein Objekt (mit Modell oder im Rückfall)?
+function betriebAn(env) { return schalterAn(env) || rueckfallAn(env); }
+
 const kurzBefehl = (b) => {
   if (!b || typeof b !== 'object') return String(b).slice(0, 40);
   const t = [b.typ];
@@ -78,6 +88,7 @@ class LageSpielleiter {
     this.opts = o;
     this.llm = o.llm || null;
     this.mode = o.llm ? o.llm.mode : (o.mode || modusAusEnv(this.env));
+    this.rueckfallBetrieb = this.mode === 'off' && rueckfallAn(this.env);   // FRE-01 A: Brett und Faeden ohne Modell
     this.zustand = 'idle';
     this.job = null;
     this.seq = 0;
@@ -105,7 +116,7 @@ class LageSpielleiter {
   getLlm() {
     if (!this.llm) {
       try {
-        const create = { mode: this.mode, recordDir: path.join(this.opts.regieDir || require('../mission/regielog.js').dir(this.env), 'aufnahmen') };
+        const create = { mode: this.mode, env: this.env, recordDir: path.join(this.opts.regieDir || require('../mission/regielog.js').dir(this.env), 'aufnahmen') };
         let router = this.opts.transport || null;
         if (!router && this.mode === 'live') router = require('../mission/transport-router.js').routerAusEnv(this.env);
         if (router) create.transport = router;
@@ -163,6 +174,7 @@ class LageSpielleiter {
   // Kern: Modus, Transport, ein Job zugleich, Budget, dann vormerken (ohne Takt-Prüfung)
   anfrageVormerken(art) {
     const ws = this.game.weltsim;
+    if (this.rueckfallBetrieb) return { gestartet: false, grund: 'rueckfall' };   // FRE-01 A: kein Lage-Plan, kein Modell, kein Logbuch-Rauschen
     if (this.mode === 'off' || (this.llm && this.llm.mode === 'off')) {
       if (!this.ausGemeldet) { this.ausGemeldet = true; Regie.rueckfall(this.game, 'Lage-Spielleiter aus (Modus off)'); }
       return { gestartet: false, grund: 'aus' };
@@ -336,4 +348,4 @@ class LageSpielleiter {
 
 function create(game, opts) { return new LageSpielleiter(game, opts); }
 
-module.exports = { create, LageSpielleiter, schalterAn, modusAusEnv, WERTE, kurzBefehl };
+module.exports = { create, LageSpielleiter, schalterAn, rueckfallAn, betriebAn, modusAusEnv, WERTE, kurzBefehl };

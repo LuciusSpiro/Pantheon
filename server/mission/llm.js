@@ -446,7 +446,7 @@ function create(opts) {
   // forced = Anbieter, an den diese Anfrage ausdrücklich geht (Eskalation), sonst wählt der Transport nach kind.
   async function live(kind, input, ao, forced) {
     const k = key(kind, input);
-    if (process.env.LLM_LIVE !== '1') throw llmError('REFUSED', 'Live-Aufruf verweigert: mode \'live\' braucht zusätzlich LLM_LIVE=1 (nur von Hand, nie in npm test).');
+    if (process.env.LLM_LIVE !== '1' && !(opts.env && opts.env.LLM_LIVE === '1')) throw llmError('REFUSED', 'Live-Aufruf verweigert: mode \'live\' braucht zusätzlich LLM_LIVE=1 (nur von Hand, nie in npm test).');
     const vorab = forced || (typeof transport.anbieterFuer === 'function' ? transport.anbieterFuer(kind, ao.stufe) : 'claude');
     const b = budget();
     if (vorab !== 'ollama' && b.used >= b.limit) throw llmError('BUDGET', `Token-Deckel erreicht (${b.used} von ${b.limit}, CLAUDE_TOKEN_BUDGET)`);

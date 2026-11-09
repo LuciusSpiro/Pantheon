@@ -325,7 +325,7 @@ function lageSchluessel(game) {
 // SUND-03 F: Die Blöcke welt.sim.chronik, welt.sim.reise und (F2) welt.sim.regie gehören nur in den Weltstand, wenn der Lage-Spielleiter oder die Reise-Ereignisse an sind. Ohne Schalter bleibt der Weltstand byte-gleich zu
 // dem nach SUND-02 (ältere Spielstände und main lehnen unbekannte Felder ab); Laden bleibt in beide Richtungen offen (fehlt der Block = leer).
 function neueBloeckeAn(game) {
-  return ReiseEreignis.aktiv(game) || require('./lage-spielleiter.js').schalterAn(game.env || process.env);
+  return ReiseEreignis.aktiv(game) || require('./lage-spielleiter.js').betriebAn(game.env || process.env);
 }
 function toSave(game) {
   const ws = game.weltsim;

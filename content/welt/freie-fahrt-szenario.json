@@ -1,0 +1,9 @@
+{
+  "format": "freie-fahrt-szenario/1",
+  "_hinweis": "FRE-01 A: Spielleiter-Schalter der Lobby-Partie 'Freie Fahrt' als Daten statt Umgebungsvariablen (server/sim/szenario-schalter.js, Game-Option szenarioSchalter, nur der echte Server setzt sie). Gesetzte Umgebungsvariablen des Betreibers ueberstimmen jeden Wert hier. Die Betriebsart waehlt die Lobby: 'rueckfall' = Faeden, Reise-Funk und Auftragsbrett laufen ohne Modell (Rueckfall content/faeden/anschluss.json, kein CLI-Prozess, keine Lage-Plaene), 'live' = Lage-Spielleiter und Komponist mit Claude (LLM_LIVE=1 nur in der Kopie des Raums, process.env bleibt unberuehrt). CLAUDE_TOKEN_BUDGET und CLAUDE_CLI bleiben Betreiberwerte.",
+  "werte": {
+    "modus": {"wert": "freie_fahrt", "_hinweis": "Nur dieser Lobby-Modus (Kriegslage.MODUS) bekommt das Szenario; alle anderen Modi laufen mit dem Basis-Env des Servers."},
+    "schalter": {"wert": {"FAEDEN": "1", "REISE_EREIGNISSE": "1", "LAGE_SPIELLEITER": "1"}, "_hinweis": "Gelten in jeder Betriebsart. Namen und Werte wie die Umgebungsvariablen."},
+    "betriebsarten": {"wert": {"rueckfall": {"SPIELLEITER_RUECKFALL": "1"}, "live": {"SPIELLEITER_LLM": "live", "LLM_LIVE": "1"}}, "_hinweis": "Zusaetzliche Werte je Betriebsart. rueckfall: kein SPIELLEITER_LLM (kein Modell), dafuer der benannte Rueckfall-Zustand des Lage-Spielleiters. live: Modell an."}
+  }
+}
