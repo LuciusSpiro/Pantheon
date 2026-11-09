@@ -116,6 +116,7 @@
   {"id":"test-schiff-anbindung","kette":"test","cmd":["tools/test-schiff-anbindung.js"],"stufe":"fast","budget_s":6},
   {"id":"test-schiff-fallen","kette":"test","cmd":["tools/test-schiff-fallen.js"],"stufe":"fast","budget_s":6},
   {"id":"hash-baseline-schiff --compare","kette":"test","cmd":["tools/hash-baseline-schiff.js","--compare"],"stufe":"fast","budget_s":6},
+  {"id":"test-raumszenen-hash","kette":"test","cmd":["tools/test-raumszenen-hash.js"],"stufe":"fast","budget_s":8},
   {"id":"test-schiff-gruppenlauf","kette":"test","cmd":["tools/test-schiff-gruppenlauf.js"],"stufe":"full","budget_s":20},
   {"id":"test-schubs","kette":"test","cmd":["tools/test-schubs.js"],"stufe":"fast","budget_s":6},
   {"id":"test-rennen","kette":"test","cmd":["tools/test-rennen.js"],"stufe":"fast","budget_s":6},
