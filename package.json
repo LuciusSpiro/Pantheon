@@ -188,6 +188,8 @@
     "sim:welt": "node tools/sim-welt.js",
     "test:befehle": "node tools/test-befehle.js",
     "test:regie": "node tools/test-regie.js",
+    "test:sim-befehl-invasion": "node tools/test-sim-befehl-invasion.js",
+    "test:invasion-mutation": "node tools/mutation-invasion.js",
     "test:lage-ausschnitt": "node tools/test-lage-ausschnitt.js",
     "test:lage-spielleiter": "node tools/test-lage-spielleiter.js && node tools/test-llm-cli.js && node tools/test-weltstand-kompat.js && node tools/test-reise-verteilung.js && node tools/test-pult-hover.js && node tools/test-lage-texte.js",
     "test:weltstand-kompat": "node tools/test-weltstand-kompat.js",
