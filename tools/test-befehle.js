@@ -143,8 +143,8 @@ section('angreifen', () => {
     [{ typ: 'angreifen', fraktion: 'ger', ziel: '0403', von: '0105' }, 'keine bereite Flotte'],
   ];
   for (const [bb, teil] of neg) { const g = GRUND(z, bb); ok(typeof g === 'string' && g.includes(teil), `${JSON.stringify(bb)} → „${g}“`); }
-  const arm = klon(z); Object.assign(arm, { werte: z.werte, karte: z.karte }); arm.vorrat.ger.T = 9;
-  ok((GRUND(arm, b) || '').includes('Munition oder Treibstoff'), 'Treibstoff unter 10: abgelehnt');
+  const arm = klon(z); Object.assign(arm, { werte: z.werte, karte: z.karte }); arm.vorrat.ger.T = Kern.BEFEHLE.WERTE.angreifen.wert.min_treibstoff - 1;
+  ok((GRUND(arm, b) || '').includes('Munition oder Treibstoff'), 'Treibstoff unter min_treibstoff (befehle-werte.json): abgelehnt');
   const arm2 = klon(z); Object.assign(arm2, { werte: z.werte, karte: z.karte }); arm2.vorrat.ger.U = 9;
   ok((GRUND(arm2, b) || '').includes('Munition oder Treibstoff'), 'Munition unter 10: abgelehnt');
   const krieg = klon(z); Object.assign(krieg, { werte: Object.assign({}, z.werte, { war: false }), karte: z.karte });

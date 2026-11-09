@@ -105,6 +105,7 @@
     "test:hoehle-lesbar": "node tools/test-hoehle-lesbar.js",
     "test:vox01-kit": "node tools/test-vox01-kit.js",
     "test:vox01-kronen": "node tools/test-vox01-kronen.js",
+    "mess:invasion-baender": "node tools/mess-invasion-baender.js --selbsttest",
     "mess:klumpen": "node tools/mess-klumpen.js --selbsttest",
     "test:grabenangriff-karte": "node tools/test-grabenangriff-karte.js",
     "test:lanze-zielfenster": "node tools/test-lanze-zielfenster.js",

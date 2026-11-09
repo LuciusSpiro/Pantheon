@@ -32,6 +32,7 @@
   {"id":"test-schema-ableiten","kette":"test","cmd":["tools/test-schema-ableiten.js"],"stufe":"fast","budget_s":6},
   {"id":"test-reparaturen-ref","kette":"test","cmd":["tools/test-reparaturen-ref.js"],"stufe":"fast","budget_s":6},
   {"id":"test-transport-router","kette":"test","cmd":["tools/test-transport-router.js"],"stufe":"fast","budget_s":7},
+  {"id":"mess-invasion-baender --selbsttest","kette":"test","cmd":["tools/mess-invasion-baender.js","--selbsttest"],"stufe":"fast","budget_s":6},
   {"id":"messe-szenen-ollama --selbsttest","kette":"test","cmd":["tools/messe-szenen-ollama.js","--selbsttest"],"stufe":"fast","budget_s":7},
   {"id":"test-ablage","kette":"test","cmd":["tools/test-ablage.js"],"stufe":"fast","budget_s":8},
   {"id":"test-mitschnitt-render","kette":"test","cmd":["tools/test-mitschnitt-render.js"],"stufe":"fast","budget_s":14},
