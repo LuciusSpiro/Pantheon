@@ -293,6 +293,8 @@
     "test:kontingent-ui": "node tools/test-kontingent-ui.js",
     "sicht:kontingent": "node tools/sicht-kontingent.js",
     "test:messe-ablage": "node tools/test-messe-ablage.js",
+    "test:live-abend": "node tools/test-live-abend.js",
+    "abend:live": "node tools/live-abend.js --live",
     "test:flight": "node tools/test-flight.js",
     "test:klassen": "node tools/test-klassen.js",
     "test:m3": "node tools/test-m3.js",
