@@ -1,0 +1,16 @@
+{
+  "format": "invasion-messplan/1",
+  "_hinweis": "FAD-01 D: Messplan der Sim-Baender mit der Invasion des Falschen-Haendler-Fadens (tools/mess-invasion-baender.js). Alle Zahlen stehen hier, keine im Werkzeug. Die Baender selbst stehen in absichten.json (baender). Ein Seed-Satz = laeufe Laeufe ab seed0; der Treiber fuehrt je Lauf die Invasion ueber Regie().fadenInvasion (ein atomarer Befehl invasion, mit der Abkuehlzeit abkuehlung.invasion aus regie-werte.json, die er durchsetzt) zu den genannten Ticks aus (Ort = zufaelliges Sim-Hex aus dem eigenen Zufallsstrom des Messers, Ziel = invasionsZiel wie faden-p3.js).",
+  "werte": {
+    "ticks": {"wert": 300, "einheit": "Ticks je Lauf"},
+    "laeufe": {"wert": 100, "einheit": "Laeufe je Seed-Satz"},
+    "seed_saetze": {"wert": [0, 1000, 5000, 20000], "einheit": "erster Seed je Satz (SUND-04b)"},
+    "sabotage_verzug": {"wert": 12, "einheit": "Ticks (hoechstens so lange nach dem Beginn sprengt die Crew; wie sim-crew-sprengen.js --verzug)"},
+    "orte_je_versuch": {"wert": 1, "einheit": "Zufallsorte je Invasionsversuch (ein Faden hat genau einen Ort)"},
+    "szenarien": {"wert": {
+      "realistisch": {"ticks": [150], "einheit": "eine Invasion je Lauf (der Normalfall eines Haendlerfadens je 300 Ticks)"},
+      "drei": {"ticks": [60, 150, 240], "einheit": "drei Invasionen je Lauf (bis zu drei parallele Haendlerfaeden derselben Vorlage sind moeglich: aktiv_max 3; abenteuer laufend_max gilt nur fuer Bauplan-Abenteuer, nicht fuer Vorlagen; deshalb gibt es die Abkuehlzeit der Invasion, die hier bei 90 Ticks Abstand nicht greift)"},
+      "worst": {"ab": 30, "abstand": 10, "orte_je_versuch": 6, "einheit": "Worst Case: ab Tick ab alle abstand Ticks ein Versuch mit bis zu orte_je_versuch Orten, bis der Kern jede Flotte einmal hochgestuft hat (der Befehl invasion gilt einmal je Flotte)"}
+    }}
+  }
+}

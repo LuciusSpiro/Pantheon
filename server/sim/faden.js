@@ -19,7 +19,7 @@
 //   aktiv(game)                          Schalter und Modus
 //   taetigkeit(game, art) -> { t, faellig: [Id] } | null    EINE Taetigkeit zaehlen (Aufrufer: game.lageGrenze fuer szene_ende, andocken, absicht; ausgangMitPerson fuer notruf): Zaehler t, Zaehler je Faden, Fristen
 //   ausgangMitPerson(game, { art: 'notruf', id, hex, sprecher, ausgang }) -> Angebot | null   (Hook in reise-ereignis.js, nur wenn aktiv) macht ein Angebot, wenn Platz ist und eine Vorlage passt
-//   befehlPruefen(game, b, ctx) -> null | Grund / befehlAnwenden(game, b) -> { ok, grund?, faden? }   faden_oeffnen { vorlage, parameter? } und faden_weiter { faden, beat } (Aufrufer: regie-befehle.js)
+//   befehlPruefen(game, b, ctx) -> null | Grund / befehlAnwenden(game, b) -> { ok, grund?, faden? }   faden_oeffnen { vorlage, parameter? } und faden_weiter { faden, beat, art? } (art: FAD-01 A, nur bei einem Beat mit der Folge sim_befehl; Aufrufer: regie-befehle.js)
 //   oeffnen / weiterSetzen / beatAusgang(game, fadenId, 'gelungen'|'gescheitert') / optionWaehlen(game, fadenId, optionId)   die Schritte; Ausgang und Optionen melden die Bausteine
 //   haltungPruefen / haltungBuchen / anwenden   Wirkung haltung_aenderung (Aufsatz-Wirkung, Katalog server/weltsim/wirkungen.js); haltungVon(npc), chanceSpontanhilfe(npc), tonVon(npc)
 //   ausschnittBlock(game) / promptText()   kleiner Faden-Block fuer den Lage-Spielleiter (hoechstens 3 Faeden, nie Spielernamen, die verborgene Wahrheit nur als Kennung)
@@ -196,6 +196,7 @@ function haltungBuchen(game, wirkungen) {
 function folgenAnwenden(game, f, folge, mitDeckel) {
   const ruf = [], halt = [];
   for (const x of folge || []) {
+    if (P.istSimBefehl(x)) continue;   // FAD-01 A: sim_befehl ist keine Wirkung des Katalogs, der Baustein enthuellung liest ihn aus der Vorlage (faden-p3.js)
     const r = P.folgeWirkung(x, f.nsc.id);
     if (!r.wirkung) { logbuch(game, 'faden_pruefung', { ausgang: 'abgelehnt', key: 'folge', fehler: [r.fehler], plan: x }); continue; }
     (r.wirkung.typ === 'ruf_aenderung' ? ruf : halt).push(r.wirkung);
@@ -405,7 +406,11 @@ function weiterSetzen(game, b) {
   melde(game, 'beat_start', f.id, `Beat ${beat.id} (${eff.variante ? beat.variante.typ : beat.typ}) beginnt${eff.variante ? ', NSC feindlich' : ''}`, { faden: f.id, beat: beat.id, typ: eff.variante ? beat.variante.typ : beat.typ });
   const bs = Bausteine.vonId(cat.baustein);
   let r = null;
-  try { r = bs.starten(game, f, { vorlage: v, beat, katalog: cat, parameter: klon(f.parameter), nsc: klon(f.nsc) }); } catch (e) {
+  // FAD-01 A: art = die Art der Wirkung nach einer Enthuellung (faden_weiter.art, geprueft in pruefeWeiter). Sie gilt nur fuer diesen Start (der Baustein enthuellung endet im selben Schritt), darum steht sie
+  // nicht im Faden und nicht im Weltstand; ohne Angabe gilt die Standardart der Daten (faden-p3.js).
+  const ctx = { vorlage: v, beat, katalog: cat, parameter: klon(f.parameter), nsc: klon(f.nsc) };
+  if (typeof b.art === 'string') ctx.art = b.art;
+  try { r = bs.starten(game, f, ctx); } catch (e) {
     fehlerZaehlen(game, 'faden-baustein', e);
     melde(game, 'baustein_fehler', f.id, `Baustein ${cat.baustein} wirft: ${String(e && e.message).slice(0, 120)}`, { faden: f.id, beat: beat.id });
     r = { ausgang: 'gescheitert' };   // ein werfender Baustein blockiert nichts: der Beat gilt als gescheitert, der Faden lebt weiter
@@ -497,6 +502,7 @@ function ausschnittBlock(game) {
     const v = D.vorlage(f.vorlage), beat = v.beats[f.beat];
     const e = { id: f.id, v: v.id, ph: f.phase, beat: beat.id, typ: beat.typ, z: f.zaehler, nsc: { f: f.nsc.fraktion, st: f.nsc.status, h: f.nsc.haltung } };
     if (f.phase === 'wartet') e.faellig = faellig(f) ? 1 : 0;
+    if (f.phase === 'wartet') { const sf = P.simBefehlFolge(beat); if (sf) e.art = P.simBefehlArten(sf); }   // FAD-01 A: der naechste Beat hat die Folge sim_befehl: diese Arten darf faden_weiter.art waehlen
     if (f.nsc.wahrheit) { e.nsc.w = f.nsc.wahrheit.id; if (f.nsc.wahrheit.offenbart) e.nsc.off = 1; e.hw = f.hinweise.length; }
     return e;
   });
@@ -515,7 +521,7 @@ function promptText() {
   const L = [];
   L.push(`Fäden (Geschichten): Ein Faden ist ein wiederkehrender NSC mit einer festen Kette von Beats aus einer Vorlage. Du wählst, OB und WANN, die Beats selbst führen Sim und Bausteine aus; du erfindest weder NSC noch Mechanik (Namen, Schiffe und Folgen kommen aus Daten). Im Ausschnitt steht faeden: { aktiv: [ { id, v: Vorlage, ph: wartet|laeuft, beat: Id des laufenden bzw. nächsten Beats, typ, z: Tätigkeiten seit dem letzten Beat, faellig: 1 = der Abstand ist erreicht, nsc: { f: Volk, st: Zustand, h: Haltung, w: Kennung der verborgenen Wahrheit, off: 1 = enthüllt }, hw: gestreute Hinweise } ], angebote: [ { nr, v: [passende Vorlagen], hex, volk } ], platz: freie Plätze }.`);
   L.push(`- faden_oeffnen { vorlage: Vorlagen-Id, parameter?: { angebot: Nr aus angebote, volk?: ${W.voelker.join('|')}, ort?: Hex-Code, name?: "Vorname Nachname" aus den Namenlisten (besser weglassen) } } – öffnet einen Faden aus einem Angebot (eine Tätigkeit mit Person am Ausgang); ohne Angebot ungültig.`);
-  L.push(`- faden_weiter { faden: Faden-Id, beat: die Id aus aktiv[].beat } – startet den nächsten Beat; nur wenn ph wartet und faellig 1 ist.`);
+  L.push(`- faden_weiter { faden: Faden-Id, beat: die Id aus aktiv[].beat, art?: ${Object.keys(W.sim_befehl.arten).join('|')} } – startet den nächsten Beat; nur wenn ph wartet und faellig 1 ist. art nur, wenn aktiv[].art da ist (der Beat löst nach der Enthüllung eine Wirkung auf die Sim aus) und dann nur aus dieser Liste: ${Object.entries(W.sim_befehl.arten).map(([k, l]) => `${k} = ${l.join(' und ')}`).join(', ')}; du entscheidest, was nach der Enthüllung kommt; ohne art gilt ${W.sim_befehl.standard_art}. Eine solche Wirkung kommt nie von selbst, nur nach einer Tat der Crew (Ausgang gelungen von ${W.sim_befehl.tat_beats.join(', ')})`);
   L.push(`Regeln: höchstens ${W.aktiv_max} aktive Fäden, höchstens ${W.befehle_je_plan_max} Faden-Befehle je Plan (sie zählen nicht gegen die Rate); die Reihenfolge der Beats ist fest, der Abstand zwischen Beats ${W.abstand.min} bis ${W.abstand.max} Tätigkeiten (Zähler z); eine Enthüllung (typ enthuellung) kommt erst, wenn hw mindestens 1 ist; Gefahr wird angekündigt, nie abgefragt. Scheitern verändert einen Faden, es beendet ihn nicht. Läuft ein Beat, wartest du; er endet von selbst (Ausgang oder nach ${W.beat_frist} Tätigkeiten). Ohne Angebot und ohne fälligen Faden brauchst du keinen Faden-Befehl.`);
   L.push('Vorlagen: ' + ids.map((id) => { const v = D.vorlage(id); return `${id} (Völker ${v.volk_erlaubt.join('|')}; Beats ${v.beats.map((b) => `${b.id}:${b.typ}`).join(' > ')})`; }).join('; '));
   return L.join('\n');

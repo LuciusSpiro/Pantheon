@@ -239,8 +239,7 @@
                     "type": "object",
                     "additionalProperties": false,
                     "required": [
-                      "typ",
-                      "grund"
+                      "typ"
                     ],
                     "properties": {
                       "typ": {
@@ -250,6 +249,15 @@
                       "grund": {
                         "type": "string",
                         "maxLength": 40
+                      },
+                      "arten": {
+                        "type": "array",
+                        "maxItems": 3,
+                        "items": {
+                          "type": "string",
+                          "maxLength": 20
+                        },
+                        "description": "FAD-01 A: nur beim Folgetyp sim_befehl (aus.gelungen.folge): Teilmenge der erlaubten Arten (werte.json sim_befehl.arten). Die Regeln prueft faden-pruefer.js (Code SIM_BEFEHL_*)."
                       }
                     }
                   }
@@ -286,8 +294,7 @@
                       "type": "object",
                       "additionalProperties": false,
                       "required": [
-                        "typ",
-                        "grund"
+                        "typ"
                       ],
                       "properties": {
                         "typ": {
@@ -297,6 +304,15 @@
                         "grund": {
                           "type": "string",
                           "maxLength": 40
+                        },
+                        "arten": {
+                          "type": "array",
+                          "maxItems": 3,
+                          "items": {
+                            "type": "string",
+                            "maxLength": 20
+                          },
+                          "description": "FAD-01 A: nur beim Folgetyp sim_befehl (aus.gelungen.folge): Teilmenge der erlaubten Arten (werte.json sim_befehl.arten). Die Regeln prueft faden-pruefer.js (Code SIM_BEFEHL_*)."
                         }
                       }
                     }
@@ -327,8 +343,7 @@
                       "type": "object",
                       "additionalProperties": false,
                       "required": [
-                        "typ",
-                        "grund"
+                        "typ"
                       ],
                       "properties": {
                         "typ": {
@@ -338,6 +353,15 @@
                         "grund": {
                           "type": "string",
                           "maxLength": 40
+                        },
+                        "arten": {
+                          "type": "array",
+                          "maxItems": 3,
+                          "items": {
+                            "type": "string",
+                            "maxLength": 20
+                          },
+                          "description": "FAD-01 A: nur beim Folgetyp sim_befehl (aus.gelungen.folge): Teilmenge der erlaubten Arten (werte.json sim_befehl.arten). Die Regeln prueft faden-pruefer.js (Code SIM_BEFEHL_*)."
                         }
                       }
                     }
@@ -414,8 +438,7 @@
                           "type": "object",
                           "additionalProperties": false,
                           "required": [
-                            "typ",
-                            "grund"
+                            "typ"
                           ],
                           "properties": {
                             "typ": {
@@ -425,6 +448,15 @@
                             "grund": {
                               "type": "string",
                               "maxLength": 40
+                            },
+                            "arten": {
+                              "type": "array",
+                              "maxItems": 3,
+                              "items": {
+                                "type": "string",
+                                "maxLength": 20
+                              },
+                              "description": "FAD-01 A: nur beim Folgetyp sim_befehl (aus.gelungen.folge): Teilmenge der erlaubten Arten (werte.json sim_befehl.arten). Die Regeln prueft faden-pruefer.js (Code SIM_BEFEHL_*)."
                             }
                           }
                         }
@@ -455,8 +487,7 @@
                           "type": "object",
                           "additionalProperties": false,
                           "required": [
-                            "typ",
-                            "grund"
+                            "typ"
                           ],
                           "properties": {
                             "typ": {
@@ -466,6 +497,15 @@
                             "grund": {
                               "type": "string",
                               "maxLength": 40
+                            },
+                            "arten": {
+                              "type": "array",
+                              "maxItems": 3,
+                              "items": {
+                                "type": "string",
+                                "maxLength": 20
+                              },
+                              "description": "FAD-01 A: nur beim Folgetyp sim_befehl (aus.gelungen.folge): Teilmenge der erlaubten Arten (werte.json sim_befehl.arten). Die Regeln prueft faden-pruefer.js (Code SIM_BEFEHL_*)."
                             }
                           }
                         }

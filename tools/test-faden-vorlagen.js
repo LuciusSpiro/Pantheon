@@ -26,6 +26,7 @@ let fails = 0, n = 0;
 const ok = (c, t) => { n++; if (c) console.log('  ok   ' + t); else { fails++; console.log('  FEHLER ' + t); } };
 const frei = () => new Promise((r) => setImmediate(r));
 const NAMEN = ['Mireille_Kas', 'Ouzo_Brandt', 'Tzvi_Lund'];
+const TXT_P3 = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'content', 'faeden', 'p3-texte.json'), 'utf8')).texte;
 const liste = (g) => g.weltsim.faeden.liste;
 const VORLAGEN = ['dankbarer_captain', 'entfuehrter_haendler', 'falscher_haendler'];
 const AUSLOESER = { dankbarer_captain: 'notruf_pirat_frachter', entfuehrter_haendler: 'notruf_pirat_haendler', falscher_haendler: 'notruf_havarie_konvoi' };
@@ -56,6 +57,21 @@ const notrufOhneOrt = (g, id, hex, ausgang) => Faden.ausgangMitPerson(g, { art: 
 // Ort der Sektor-ID zum Hex (die Crew fliegt dorthin): Leerraum-ID, wenn der Hex kein Ort ist
 const scene = (hex) => Sektoren.ortVonHex(hex) || ('leer-' + hex);
 
+// FAD-01 Nacharbeit (Befund 4): die Welt so vorbereiten, dass die Invasion der Enthuellung vom Kern ANGENOMMEN wird (Aufruf vor jedem Takt des Bot-Durchlaufs): das roemische Ziel nahe dem Ort ist
+// schwach verteidigt (keine roemische Flotte dort, kleine Abwehr; nur wenn der Faden vor der Enthuellung steht), alle germanischen Flotten stehen voll im Heimathafen, beide Reiche haben Vorrat. Ohne das haengt der Ausgang vom Zufall der Welt ab
+// (im echten Kern lehnt der Prüfer einen Teil der Invasionen ab, z. B. "zu schwach"), und ein Test, der nur /Flotte/ im Funk verlangt, bestuende auch bei einer Ablehnung.
+function bereiteInvasion(g, ort) {
+  const wartet = (g.weltsim.faeden.liste || []).some((x) => x.vorlage === 'falscher_haendler' && x.phase === 'wartet' && x.beat === 2);   // nur unmittelbar vor der Enthuellung (sonst lockt das schwache Ziel die Standard-KI an)
+  const z = g.weltsim.zustand, ziel = wartet ? P3.invasionsZiel(g, ort || '0203') : null;
+  if (!ziel) return null;
+  z.flotten = z.flotten.filter((f) => !(f.ort === ziel && f.fraktion === 'rom'));
+  z.hexe[ziel].abwehr = 0.1;
+  z.angriffe = z.angriffe.filter((a) => a.von !== 'ger');   // keine Feldzuege der Germanen (kein Feldzug auf das Ziel, max_active frei)
+  for (const fl of z.flotten) if (fl.fraktion === 'ger' && !fl.miete) { fl.ort = fl.heimat; fl.befehl = 'heim'; fl.ziel = null; fl.angriff = null; fl.warte = 0; fl.staerke = fl.kap; fl.versorgung = 1; }
+  z.regie = Object.assign(z.regie || {}, { ger: { p_act: 0, aggr: 0, regler_bis: z.tick + 50 } });   // die Standard-KI der Germanen plant bis zum Befehl nichts Eigenes
+  for (const f of ['rom', 'ger']) { z.vorrat[f].T = Math.max(z.vorrat[f].T, 40); z.vorrat[f].U = Math.max(z.vorrat[f].U, 40); }
+  return ziel;
+}
 // Ein roemischer Hex ohne Hafen (die Sprengung trifft nur einen Posten): der erste nach Code, ohne Posten
 const Dat = require('../server/weltsim/daten.js');
 function freierRomPosten(g) { const w = g.weltsim.zustand; const d = Dat.datenVon(w); return Object.keys(w.hexe).filter((k) => w.hexe[k].besitzer === 'rom' && !w.hexe[k].posten && d.hex[k].hafen === '').sort()[0] || null; }
@@ -160,7 +176,7 @@ async function main() {
     const v = D.vorlage(id);
     const pfad = v.beats.filter((b) => b.typ !== 'abschluss').map(() => 'gelungen');
     const welt = g.weltsim.zustand;
-    const r = await lauf(g, id, pfad, { hex: id === 'falscher_haendler' ? '0203' : '0403' });
+    const r = await lauf(g, id, pfad, { hex: id === 'falscher_haendler' ? '0203' : '0403', vorher: id === 'falscher_haendler' ? (gg) => bereiteInvasion(gg) : undefined });
     const f = r.faeden[0];
     ok(r.faeden.length === 1, `${id}: genau ein Faden geoeffnet (${r.faeden.length})`);
     ok(f && f.phase === 'abgeschlossen' && f.ausgang && f.ausgang.art === 'gelungen', `${id}: der Faden endet im Abschluss (gelungen)`);
@@ -171,15 +187,16 @@ async function main() {
     ok(funk.some((x) => x && x.from), `${id}: die Funkzeilen liefen (${funk.length})`);
     ok(!funk.some((x) => x && /Fehler/.test(String(x.text))), `${id}: kein Fehlertext im Funk`);
     if (id === 'falscher_haendler') {
+      // FAD-01 C: die Enthuellung des falschen Haendlers wirkt ueber die Folge sim_befehl (Standardart invasion, ohne Angabe des Spielleiters), nicht mehr als feste Sprengung. Die Wirkung (Hochstufen, Angriff,
+      // Funk vor der Wirkung) prueft test-faden-haendler-invasion.js; hier zaehlt, dass die Enthuellung im Bot-Durchlauf lief, ohne Sprengung, und der Funk die Flotte nennt
       const lb = ((g.lageRegie && g.lageRegie.log && g.lageRegie.log.entries) || []).filter((e) => e.key === 'sabotage' || e.art === 'faden_baustein').map((e) => e.ausgang + ':' + (e.begruendung || '')).join(' | ');
-      // Ziel: der Posten, den die Enthuellung gewaehlt hat (Logbuch des Bausteins, plan.ziel). Die Sprengung wirkt erst nach dem Vorlauf: die Welt laeuft weiter, bis sie greift (hoechstens 40 Ticks)
       const bs = ((g.lageRegie && g.lageRegie.log && g.lageRegie.log.entries) || []).find((e) => e.art === 'faden_baustein' && e.plan && e.plan.beat === 'b_enthuell');
-      const ziel = bs && bs.plan.ziel;
-      // Der Bot spielt jetzt alle Beats (Nacharbeit Welle 2), die Welt laeuft danach weiter und Rom kann den Posten zurueckholen: gezaehlt wird die Meldung der Sprengung (Posten verloren) und das Logbuch
-      const meldung = 'Posten ' + Sektoren.hexName(ziel) + ' verloren.';
-      const vorwarnung = funk.findIndex((x) => /Sprengladung bei /.test(String(x.text))), wirkung = funk.findIndex((x) => x.text === meldung);
-      const gespieltLb = ((g.lageRegie && g.lageRegie.log && g.lageRegie.log.entries) || []).some((e) => e.key === 'sabotage' && e.ausgang === 'gespielt');
-      ok(!!ziel && vorwarnung >= 0 && wirkung > vorwarnung && gespieltLb && !!stand[meldung] && stand[meldung][ziel].besitzer !== 'rom', `falscher Haendler: die Sprengung hat den roemischen Posten ${ziel} vernichtet (Sim-Befehl sabotage: erst die Vorwarnung, dann die Meldung „${meldung}“, Logbuch gespielt) [Logbuch: ${lb}]`);
+      const funkInv = funk.find((x) => /^Ich bin Germane/.test(String(x.text)));
+      const zielInv = bs && bs.plan && bs.plan.ziele && bs.plan.ziele.invasion;
+      ok(!!bs && bs.ausgang === 'sim_befehl' && !!zielInv, `falscher Haendler: der Kern hat die Invasion ANGENOMMEN (Logbuch ausgang sim_befehl, Ziel ${zielInv}; Welt vorbereitet) [Logbuch: ${lb}]`);
+      ok(!!funkInv && funkInv.text === String(TXT_P3.enthuellung_invasion).replace('{invasion}', Sektoren.hexName(zielInv) || zielInv) && !funk.some((x) => /Sprengladung bei /.test(String(x.text))), `falscher Haendler: der NSC enthuellt die Invasion mit dem Text enthuellung_invasion und dem Ziel, keine Sprengung (${funkInv && funkInv.text})`);
+      const invLb = logEintraege(g).filter((e) => e.key === 'invasion' && e.ausgang === 'vorgemerkt');
+      ok(invLb.length === 1 && invLb[0].plan.typ === 'invasion' && invLb[0].plan.ziel === zielInv, 'falscher Haendler: genau EIN Befehl invasion vorgemerkt (Hochstufen und Angriff in einem), Ziel ' + zielInv);
       ok(f.nsc.wahrheit && f.nsc.wahrheit.offenbart === true, 'falscher Haendler: die Wahrheit ist enthuellt');
     }
   }
@@ -254,10 +271,46 @@ async function main() {
     const f = liste(g).find((x) => x.vorlage === 'falscher_haendler');
     f.hinweise = ['h_gerucht', 'h_papiere'];   // Testwelt: die Hinweise sind schon gestreut (ihr Weg ist eigens geprueft)
     f.beat = 2; f.phase = 'wartet'; f.zaehler = f.abstand;   // b_enthuell
-    const e = Faden.befehlAnwenden(g, { typ: 'faden_weiter', faden: f.id, beat: 'b_enthuell' });
+    const e = Faden.befehlAnwenden(g, { typ: 'faden_weiter', faden: f.id, beat: 'b_enthuell', art: 'sprengung' });   // FAD-01 C: die Sprengung waehlt der Spielleiter mit art
     ok(e.ok === true, 'die Enthuellung startet (faden_weiter angenommen)');
     ok(f.nsc.status === 'geflohen' && f.beat === 3, `ohne roemischen Posten in Reichweite: gescheitert, der NSC ist geflohen, der Faden geht den anderen Weg (${f.nsc.status}, Beat ${f.beat})`);
     ok(require('../server/sim/regie-befehle.js').fadenSabotage(g, '0305').ok === false, 'die Sprengung wird ohne gueltiges Ziel abgelehnt');
+  }
+
+  // FAD-01 Nacharbeit (Befund 3): der ALTWEG der Enthuellung (ohne Folge sim_befehl: feste Sprengung) ist ueber Bauplan-Abenteuer weiter erreichbar (faden-bauplan.js baut Enthuellungs-Beats ohne die Folge).
+  // Seit FAD-01 C hat keine mitgelieferte Vorlage ihn mehr: eine Testvorlage (der falsche Haendler ohne die Folge) belegt die Text-Wahl mit und ohne Fracht im Gedaechtnis des NSC.
+  console.log('\nAltweg der Enthuellung (Abenteuer ohne Folge sim_befehl): feste Sprengung, Text mit und ohne Fracht');
+  {
+    const roh = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'content', 'faeden', 'vorlagen', 'falscher_haendler.json'), 'utf8'));
+    const alt = JSON.parse(JSON.stringify(roh)); alt.id = 'altweg_ohne_folge';
+    delete alt.beats.find((b) => b.id === 'b_enthuell').aus.gelungen.folge;
+    const reg = D.registriere(alt);
+    ok(reg.ok && Pruefer.simBefehlFolge(D.vorlage('altweg_ohne_folge').beats.find((b) => b.id === 'b_enthuell')) === null, 'Testvorlage ohne die Folge sim_befehl ist gueltig (Altweg)' + (reg.ok ? '' : ': ' + reg.fehler.join('; ')));
+    const TXT = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'content', 'faeden', 'p3-texte.json'), 'utf8')).texte;
+    const ORT_ALT = '0305';
+    for (const [mitFracht, key, wort] of [[true, 'enthuellung_sabotage', 'mit Fracht (die Crew hat die Ware abgeliefert)'], [false, 'enthuellung_sabotage_ohne_fracht', 'ohne Fracht (nie eine Ware von ihm geladen)']]) {
+      const g = neu(mitFracht ? 71 : 72);
+      const hx = g.weltsim.zustand.hexe, d = Dat.datenVon(g.weltsim.zustand);
+      for (const k of Object.keys(hx)) if (hx[k].posten) { hx[k].posten = false; delete hx[k].crew; }
+      const p = Object.keys(hx).sort().find((k) => d.hex[k].hafen === '' && (Sektoren.hexAbstand(ORT_ALT, k) || 99) >= 1 && (Sektoren.hexAbstand(ORT_ALT, k) || 99) <= 3);
+      hx[p].besitzer = 'rom'; hx[p].posten = true; delete hx[p].crew;
+      const funk = funkMit(g);
+      const a = notrufOhneOrt(g, 'notruf_havarie_konvoi', ORT_ALT, 'gelungen');
+      const o = Faden.befehlAnwenden(g, { typ: 'faden_oeffnen', vorlage: 'altweg_ohne_folge', parameter: { angebot: a.nr } });
+      ok(o.ok, 'Abenteuer ohne Folge geoeffnet' + (o.ok ? '' : ': ' + o.grund));
+      const fd = liste(g).find((x) => x.vorlage === 'altweg_ohne_folge');
+      fd.hinweise = ['h_gerucht', 'h_papiere']; fd.beat = 2; fd.phase = 'wartet'; fd.zaehler = fd.abstand;
+      if (mitFracht) fd.nsc.gedaechtnis.push({ tick: 0, ereignis: 'fracht_gelungen', text_key: 'b_fracht' });
+      const ziel = P3.ziel(g, ORT_ALT);
+      ok(ziel === p, 'Altweg ' + wort + ': Ziel ist der nahe roemische Posten ' + ziel);
+      ok(Faden.befehlAnwenden(g, { typ: 'faden_weiter', faden: fd.id, beat: 'b_enthuell' }).ok, 'Altweg ' + wort + ': faden_weiter angenommen');
+      const sprueche = funk.filter((x) => x.from === fd.nsc.name && /^Ich bin Germane/.test(String(x.text)));
+      const soll = String(TXT[key]).replace('{ziel}', Sektoren.hexName(ziel) || ziel);
+      ok(sprueche.length === 1 && sprueche[0].text === soll, 'Altweg ' + wort + ': Text ' + key + ' (' + (sprueche[0] && sprueche[0].text) + ')');
+      ok(g.weltsim.regie.vorgemerkt.some((e) => e.b.typ === 'sabotage' && e.b.ort === ziel) && !g.weltsim.regie.vorgemerkt.some((e) => e.b.typ === 'invasion'), 'Altweg ' + wort + ': die feste Sprengung ist vorgemerkt, keine Invasion');
+    }
+    D.entferne('altweg_ohne_folge');   // die Testvorlage darf spaetere Abschnitte nicht beeinflussen (der Spielleiter-Mock oeffnet sonst sie statt des falschen Haendlers)
+    ok(TXT.enthuellung_sabotage !== TXT.enthuellung_sabotage_ohne_fracht && /Ladung ist scharf/.test(TXT.enthuellung_sabotage) && /ohne euch hoch/.test(TXT.enthuellung_sabotage_ohne_fracht), 'die beiden Texte unterscheiden sich (scharf / geht auch ohne euch hoch)');
   }
 
   console.log('\nSpeichern und Laden mitten im Faden');
@@ -425,7 +478,7 @@ async function main() {
       Faden.befehlAnwenden(g, { typ: 'faden_oeffnen', vorlage: 'falscher_haendler', parameter: { angebot: a.nr } });
       const f = liste(g).find((x) => x.vorlage === 'falscher_haendler');
       f.hinweise = ['h_gerucht', 'h_papiere']; f.beat = 2; f.phase = 'wartet'; f.zaehler = f.abstand;
-      ok(Faden.befehlAnwenden(g, { typ: 'faden_weiter', faden: f.id, beat: 'b_enthuell' }).ok && f.nsc.status === 'geflohen' && f.beat === 3, 'nur Posten der Crew: die Enthuellung scheitert (der NSC flieht, der Faden geht den anderen Weg)');
+      ok(Faden.befehlAnwenden(g, { typ: 'faden_weiter', faden: f.id, beat: 'b_enthuell', art: 'sprengung' }).ok && f.nsc.status === 'geflohen' && f.beat === 3, 'nur Posten der Crew: die Enthuellung scheitert (der NSC flieht, der Faden geht den anderen Weg)');
       ok(funk.some((x) => /zündet nicht/.test(String(x.text))) && g.weltsim.regie.vorgemerkt.length === 0, 'Funk: die Sprengladung zuendet nicht; nichts vorgemerkt');
     }
     // Entwarnung: die angekuendigte Sprengung kommt nicht
@@ -459,14 +512,14 @@ async function main() {
       ok(g.weltsim.regie.vorgemerkt.length === 0, 'nichts vorgemerkt, keine Rate verbraucht (' + g.weltsim.regie.rate.length + ')');
       ok(!/sabotage/i.test(LP.katalogText()), 'der Katalogtext des Spielleiters kennt die Sprengung nicht');
     }
-    {   // Leser: die Sprengung wird nie ueber vorgemerkt_max abgeschnitten
-      const max = Regie.R.plan.wert.vorgemerkt_max;
+    {   // Leser: die Sprengung wird nie ueber vorgemerkt_max abgeschnitten (eigene Zaehlung bis faden_vorgemerkt_max)
+      const max = Regie.R.plan.wert.vorgemerkt_max, fmax = Regie.R.plan.wert.faden_vorgemerkt_max;
       const eins = (typ, i) => Object.assign({ b: typ === 'sabotage' ? { typ, ort: '0603' } : { typ: 'verstaerken', fraktion: 'rom', ort: '0302', menge: i }, ab: 5 + i }, typ === 'sabotage' ? { w: 1 } : {});
       const normal = Array.from({ length: max + 3 }, (_, i) => eins('verstaerken', i));
       const L1 = Regie.lesen({ vorgemerkt: normal.concat([eins('sabotage', 0)]) }, 4).vorgemerkt;
       ok(L1.filter((e) => e.b.typ !== 'sabotage').length === max && L1.filter((e) => e.b.typ === 'sabotage').length === 1, 'Leser: ' + max + ' normale Befehle und die Sprengung dahinter bleiben (' + L1.length + ' Eintraege)');
-      const L2 = Regie.lesen({ vorgemerkt: Array.from({ length: max + 4 }, (_, i) => eins('sabotage', i)) }, 4).vorgemerkt;
-      ok(L2.length === max && L2.every((e) => e.b.typ === 'sabotage'), 'Leser: auch die Sprengungen haben eine Obergrenze (' + L2.length + ')');
+      const L2 = Regie.lesen({ vorgemerkt: Array.from({ length: fmax + 4 }, (_, i) => eins('sabotage', i)) }, 4).vorgemerkt;
+      ok(L2.length === fmax && L2.every((e) => e.b.typ === 'sabotage'), 'Leser: auch die Sprengungen haben eine Obergrenze (faden_vorgemerkt_max ' + fmax + ': ' + L2.length + ')');
     }
   }
 
@@ -578,18 +631,18 @@ async function main() {
     const hinweisText = (id, name) => v.hinweise[id].text.split('{name}').join(name);
     const wege = [
       ['Annehmen, Fracht, Enthuellung', ['gelungen', 'gelungen', 'gelungen', 'gelungen', 'gelungen'], true],
-      ['Ablehnen', ['gescheitert', 'gelungen', 'gelungen', 'gelungen', 'gelungen'], false],
+      ['Ablehnen', ['gescheitert', 'gelungen', 'gelungen', 'gelungen', 'gelungen'], false],   // FAD-01 C: ohne Ablieferung keine Enthuellung (der Faden endet im Abschluss gescheitert)
     ];
-    ok(v.hinweise.h_gerucht.text && v.hinweise.h_papiere.text && v.hinweise.h_gerucht.text !== v.hinweise.h_papiere.text, 'beide Hinweise der Vorlage tragen einen eigenen Text (Daten)');
+    ok(v.hinweise.h_gerucht.text && v.hinweise.h_papiere.text && v.hinweise.h_schmuggel.text && new Set(Object.values(v.hinweise).map((h) => h.text)).size === 3, 'alle drei Hinweise der Vorlage tragen einen eigenen Text (Daten)');
     for (const [titel, pfad, mitWare] of wege) {
       const g = neu(21);
       const funk = funkMit(g);
       { const z = freierRomPosten(g); if (z) g.weltsim.zustand.hexe[z].posten = true; }   // ein roemischer Posten, den die Sprengung treffen kann (sonst „zuendet nicht“)
-      const r = await lauf(g, 'falscher_haendler', pfad, { hex: '0203' });
+      const r = await lauf(g, 'falscher_haendler', pfad, { hex: '0203', vorher: mitWare ? (gg) => bereiteInvasion(gg) : undefined });
       const f = r.faeden[0];
       const iEnth = funk.findIndex((x) => /^Ich bin Germane/.test(String(x.text)));
-      ok(!!f && iEnth > 0, `${titel}: die Enthuellung kam per Funk (${iEnth})`);
-      const vor = funk.slice(0, iEnth);
+      ok(!!f && (mitWare ? iEnth > 0 : iEnth === -1), `${titel}: die Enthuellung ${mitWare ? 'kam per Funk' : 'kam nicht (keine Ablieferung)'} (${iEnth})`);
+      const vor = mitWare ? funk.slice(0, iEnth) : funk;
       const gerucht = vor.find((x) => x.text === hinweisText('h_gerucht', f.nsc.name));
       ok(!!gerucht && gerucht.from === 'Hafenfunk' && gerucht.lage === 1 && gerucht.fd === 1, `${titel}: VOR der Enthuellung ging der Gerüchte-Hinweis als Funkzeile an alle (from ${gerucht && gerucht.from})`);
       const papiere = vor.find((x) => x.text === hinweisText('h_papiere', f.nsc.name));
@@ -603,9 +656,14 @@ async function main() {
       ok(mitWare ? ware.length === 1 && /Versiegelte Frachtkiste für Campania/.test(ware[0].text) && abl.length === 1 && /Campania/.test(abl[0].text) : ware.length === 0 && abl.length === 0, `${titel}: ${mitWare ? 'die Crew hoert „Ware an Bord“ mit Hafenname und „abgeliefert“' : 'keine Ware an Bord, nichts abgeliefert'} (${ware.map((x) => x.text).join(' | ')})`);
       ok(mitWare ? f.nsc.gedaechtnis.some((x) => x.ereignis === 'fracht_gelungen') : !f.nsc.gedaechtnis.some((x) => /^fracht_/.test(x.ereignis)), `${titel}: Gedaechtnis des NSC ${mitWare ? 'kennt die Fracht' : 'kennt keine Fracht'}`);
       const seq = (r.seqs.get(f.id) || []).join(' > ');
-      ok(mitWare ? seq.startsWith('b_bitte > b_fracht > b_enthuell') : seq.startsWith('b_bitte > b_enthuell') && !seq.includes('b_fracht'), `${titel}: Beat-Pfad ${seq}`);
-      const sab = funk[iEnth];
-      ok(mitWare ? /Die Ladung ist scharf/.test(sab.text) : /Meine Ladung geht auch ohne euch hoch/.test(sab.text), `${titel}: der Enthuellungstext passt zum Weg (${sab.text})`);
+      ok(mitWare ? seq.startsWith('b_bitte > b_fracht > b_enthuell') : seq === 'b_bitte > b_abschluss', `${titel}: Beat-Pfad ${seq}`);
+      if (mitWare) {
+        const sab = funk[iEnth];
+        const zInv = (logEintraege(g).find((e) => e.art === 'faden_baustein' && e.plan && e.plan.beat === 'b_enthuell') || { plan: { ziele: {} } }).plan.ziele.invasion;
+        ok(!!zInv && sab.text === String(TXT_P3.enthuellung_invasion).replace('{invasion}', Sektoren.hexName(zInv) || zInv), `${titel}: der Enthuellungstext ist enthuellung_invasion mit dem Ziel (die Invasion wurde angenommen), nicht die Sprengung (${sab.text})`);
+        const schmuggel = vor.find((x) => x.text === hinweisText('h_schmuggel', f.nsc.name));
+        ok(!!schmuggel && schmuggel.from === 'Hafenfunk' && f.hinweise.includes('h_schmuggel'), `${titel}: VOR der Enthuellung ging der Schmuggel-Hinweis raus`);
+      } else ok(!funk.some((x) => /^Ich bin Germane/.test(String(x.text))) && f.ausgang && f.ausgang.art === 'gescheitert', `${titel}: der Faden endet gescheitert, ohne Enthuellungstext`);
     }
     // Ablehnen direkt: keine Ware, Haltung sinkt, der Faden steht vor der Enthuellung
     {
@@ -617,7 +675,7 @@ async function main() {
       ok(!!off && off.optionen.some((o) => o.id === 'ablehnen'), 'die Bitte ist offen');
       const h0 = f.nsc.haltung;
       Bitte.beantworten(g, 'ablehnen', off.nr);
-      ok(!f.fracht && f.beat === 2 && f.nsc.haltung < h0, `Ablehnen: der Faden steht vor der Enthuellung (Beat ${f.beat}), keine Ware (${!!f.fracht}), Haltung ${h0} -> ${f.nsc.haltung}`);
+      ok(!f.fracht && f.beat === 5 && f.nsc.haltung < h0, `Ablehnen: der Faden steht vor dem Abschluss, nie vor der Enthuellung (Beat ${f.beat}), keine Ware (${!!f.fracht}), Haltung ${h0} -> ${f.nsc.haltung}`);
     }
     // unbeantwortet verfaellt die Bitte: gleiche Folge wie Ablehnen (kein Laden), der Hinweis ging vorher raus
     {
@@ -628,7 +686,7 @@ async function main() {
       for (let i = 0; i < 8 && !Bitte.offen(g); i++) await runde(g);
       const f = liste(g).find((x) => x.vorlage === 'falscher_haendler');
       for (let i = 0; i < 12 && f.beat === 0; i++) await runde(g);
-      ok(f.beat === 2 && !f.fracht, `unbeantwortet verfaellt die Bitte: der Faden steht vor der Enthuellung (Beat ${f.beat}), keine Ware`);
+      ok(f.beat === 5 && !f.fracht, `unbeantwortet verfaellt die Bitte: der Faden steht vor dem Abschluss (Beat ${f.beat}), keine Ware`);
       ok(f.hinweise.includes('h_gerucht') && funk.some((x) => x.from === 'Hafenfunk'), 'der Hinweis wurde vorher gesendet');
     }
   }
@@ -718,4 +776,4 @@ async function main() {
 }
 
 if (require.main === module) main().catch((e) => { console.log('ABSTURZ Ausnahme: ' + (e && e.stack)); process.exit(1); });
-else module.exports = { lauf, neu, funkMit, liste, runde, pumpen, notrufOhneOrt };   // Hilfen fuer Diagnose-Skripte
+else module.exports = { lauf, neu, funkMit, liste, runde, pumpen, notrufOhneOrt, bereiteInvasion };   // Hilfen fuer Diagnose-Skripte

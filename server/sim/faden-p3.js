@@ -6,7 +6,8 @@
 //               Ausgang gelungen, wenn das Schiff den Ort erreicht (update, Takt aus reise-ereignis), gescheitert, wenn die Frist des Beats abläuft (Faden-Takt).
 //               Der Text erinnert sich: hat der NSC im Gedaechtnis ein Ereignis aus p3-texte.json (erinnert), spricht er es an.
 //   enthuellung (Beat „enthuellung“) Die verborgene Wahrheit kommt heraus (Funk, nsc.wahrheit.offenbart setzt faden.js). Die Folge ist eine germanische Sprengung eines
-//               römischen Postens in der Nähe des Ortes (Sim-Befehl sabotage, regie-befehle fadenSabotage). Was für die Sprengung gilt (Nacharbeit L12, so im Code):
+//               römischen Postens in der Nähe des Ortes (Sim-Befehl sabotage, regie-befehle fadenSabotage). ALTWEG: diese feste Sprengung ohne Folge sim_befehl gilt nur noch für Abenteuer (Bauplan, faden-bauplan.js),
+//               deren Enthüllungs-Beat keine Folge sim_befehl trägt (keine der mitgelieferten Vorlagen); die Vorlagen kennen sie nicht mehr. Was für die Sprengung gilt (Nacharbeit L12, so im Code):
 //                 Ziel     der nächste römische Posten (nie ein Hafen, NIE ein Posten der Crew) innerhalb von sprengung_reichweite Sprüngen (Daten p3-texte.json, Hex-Abstand
 //                          über shared/sektoren.js hexAbstand), bei Gleichstand der kleinere Code. Der Vorwarntext `sabotage_stuetzpunkt` entfällt: ein Posten der Crew ist kein Ziel.
 //                 Prüfung  der Kern-Prüfer (server/weltsim/befehle.js sabotage) und Vorwarnung mit Vorlauf (regie-werte.json vorwarnung.sabotage, Text in lage-befehle.json), wie bei den
@@ -14,6 +15,10 @@
 //                 Rate     KEINE: ein Faden-Befehl zählt nie gegen die Rate der Plan-Befehle und hat keine Abkühlzeit (regie-werte.json abkuehlung.sabotage = 0).
 //                 Obergrenze wartender Befehle: vorgemerkt_max gilt nicht beim Vormerken der Sprengung; der Leser (regie-befehle lesen) schneidet sie nie über vorgemerkt_max ab.
 //               Gelungen, wenn die Sprengung angekündigt ist; gescheitert, wenn es kein gültiges Ziel gibt oder der Kern die Sprengung ablehnt (Fallback: der Faden ändert sich, Funk und Chronik).
+//               FAD-01 A: hat der Beat in der Vorlage die Folge sim_befehl (aus.gelungen.folge, Prüfer faden-pruefer.js simBefehlFolge), bestimmt die Art (faden_weiter.art des Spielleiters, sonst die Standardart,
+//                 Daten werte.json sim_befehl) die Wirkung: sprengung = wie oben, invasion = invasionsZiel + regie-befehle fadenInvasion (eine germanische Flotte wird hochgestuft und greift das römische Ziel an),
+//                 beides = beide in der Reihenfolge der Daten. Die Invasion ist EIN atomarer Kern-Befehl (Hochstufen und Angriff, beides oder nichts), mit Abkühlzeit je Fraktion (regie-werte.json abkuehlung.invasion). Gelungen, wenn mindestens eine Wirkung angekündigt ist (die Ankündigung per Funk kommt aus dem Kern vor jeder Wirkung). Ohne diese Folge
+//                 bleibt der Baustein unverändert (andere Vorlagen). Eine solche Folge steht nur hinter einer Tat der Crew (Prüfer SIM_BEFEHL_OHNE_TAT), nie bei bloßem Zeitablauf.
 //   abschluss   (letzter Beat) Der Faden endet. Welle 3: gelungen nur, wenn die Crew etwas geleistet hat (Daten: beat.erfolg.ereignis, Gedächtnis des NSC), sonst gescheitert. Nur der gelungene Abschluss
 //               zahlt Haltung und Ruf seines Ausgangs (Wirkungen aus den Daten, faden.js beatAusgang); ein gescheiterter Faden endet ohne Belohnung (Text abschluss_gescheitert, ein Toter: abschluss_tot).
 //
@@ -31,6 +36,7 @@ const Hinweis = () => require('./faden-hinweis.js');
 const Faden = () => require('./faden.js');
 const Bitte = () => require('./faden-bitte.js');
 const Regie = () => require('./regie-befehle.js');
+const SB = D.WERTE.sim_befehl;   // FAD-01 A: Arten, Standardart (Daten werte.json)
 const fmt = (t, v) => String(t == null ? '' : t).replace(/\{(\w+)\}/g, (m, k) => (v && v[k] != null ? v[k] : m));
 const hexName = (hex) => { try { return Sektoren.hexName(hex) || hex; } catch (e) { return hex; } };
 const fehlerZaehlen = (game, wo, e) => { if (game && game.countError) game.countError(wo, e); };
@@ -113,9 +119,58 @@ function ziel(game, ort) {
   }
   return best;
 }
+// FAD-01 A: das nächste römische Sim-Ziel einer Invasion: Posten oder Hafen Roms (nie ein Posten der Crew, nie eine Hauptwelt) innerhalb von invasion_reichweite Sprüngen vom Ort (Hex-Abstand);
+// bei Gleichstand der kleinere Code. Keines: null. Eigene Funktion neben ziel() (die Sprengung trifft nur Posten, nie einen Hafen).
+function invasionsZiel(game, ort) {
+  const ws = game.weltsim && game.weltsim.zustand;
+  if (!ws || !HEX.test(ort || '')) return null;
+  const d = require('../weltsim/daten.js').datenVon(ws);
+  const haupt = Object.values(d.hauptwelten || {});
+  const reichweite = W.invasion_reichweite.wert;
+  let best = null, bd = Infinity;
+  for (const code of Object.keys(ws.hexe).sort()) {
+    const nd = ws.hexe[code];
+    if (nd.besitzer !== 'rom' || nd.crew === true || haupt.includes(code)) continue;
+    if (!(nd.posten || (d.hex[code] && d.hex[code].hafen))) continue;   // ein Stützknoten: Posten oder Hafen
+    const dist = Sektoren.hexAbstand(ort, code);
+    if (dist === null || dist > reichweite) continue;
+    if (dist < bd) { best = code; bd = dist; }
+  }
+  return best;
+}
+// FAD-01 A: die Wirkungen einer Enthüllung mit der Folge sim_befehl. Die Namen der Befehle je Art stehen in den Daten (SB.arten), hier steht nur, wie ein Name ausgeführt wird.
+const SIM_BEFEHLE = {
+  sabotage(game, faden) {
+    const z = ziel(game, faden.parameter && faden.parameter.ort);
+    return { ziel: z, r: z ? Regie().fadenSabotage(game, z) : { ok: false, grund: 'kein römischer Posten in der Nähe' } };
+  },
+  invasion(game, faden) {
+    const z = invasionsZiel(game, faden.parameter && faden.parameter.ort);   // der Ort des Fadens (das Lieferziel wird nicht aufbewahrt: faden.fracht wird am Ende jedes Beats gelöscht, faden.js)
+    return { ziel: z, r: z ? Regie().fadenInvasion(game, { ziel: z }) : { ok: false, grund: 'kein römisches Ziel in Reichweite' } };
+  },
+};
+function simBefehl(game, faden, ctx, folge) {
+  const nsc = nscVon(game, faden.nsc.id) || faden.nsc;
+  const art = Pruefer.simBefehlArten(folge).includes(ctx.art) ? ctx.art : SB.standard_art;   // der Spielleiter wählt, ohne Angabe die Standardart
+  const namen = SB.arten[art] || [];
+  const erg = {};   // Befehl -> { ziel, r }
+  for (const n of namen) if (SIM_BEFEHLE[n]) erg[n] = SIM_BEFEHLE[n](game, faden);
+  const ok = namen.filter((n) => erg[n] && erg[n].r.ok);
+  const mitFracht = (nsc.gedaechtnis || []).some((g) => g.ereignis === 'fracht_gelungen' || g.ereignis === 'fracht_gescheitert');
+  const keys = W.sim_texte.wert[ok.join('+')];
+  const key = ok.length && keys ? keys[mitFracht ? 0 : 1] : W.sim_texte_keines.wert[art];
+  const ort = hexName((faden.parameter && faden.parameter.ort) || '');
+  sagen(game, nsc, fmt(T[key], { name: nsc.name, ort, ziel: erg.sabotage && erg.sabotage.ziel ? hexName(erg.sabotage.ziel) : '', invasion: erg.invasion && erg.invasion.ziel ? hexName(erg.invasion.ziel) : '' }));
+  const ziele = {}; for (const n of namen) if (erg[n]) ziele[n] = erg[n].ziel || null;
+  const grund = namen.filter((n) => erg[n] && !erg[n].r.ok).map((n) => `${n}: ${erg[n].r.grund}`).join('; ');
+  logbuch(game, 'faden_baustein', { ausgang: ok.length ? 'sim_befehl' : 'sim_befehl_abgelehnt', key: 'enthuellung', begruendung: ok.length ? `Wirkung ${art} angekündigt: ${ok.join(', ')}${grund ? ' (abgelehnt: ' + grund + ')' : ''}` : `Keine Wirkung (${art}): ${grund}`, plan: { faden: faden.id, beat: ctx.beat.id, art, ziele } });
+  return { ausgang: ok.length ? 'gelungen' : 'gescheitert' };
+}
 const enthuellung = {
   id: 'enthuellung',
   starten(game, faden, ctx) {
+    const folge = Pruefer.simBefehlFolge(ctx.beat);   // FAD-01 A: die Folge sim_befehl der Vorlage; ohne sie das bisherige Verhalten (feste Sprengung)
+    if (folge) return simBefehl(game, faden, ctx, folge);
     const nsc = nscVon(game, faden.nsc.id) || faden.nsc;
     const z = ziel(game, faden.parameter && faden.parameter.ort);
     const r = z ? Regie().fadenSabotage(game, z) : { ok: false, grund: 'kein römischer Posten in der Nähe' };
@@ -145,4 +200,4 @@ const abschluss = {
   },
 };
 
-module.exports = { notruf, enthuellung, abschluss, update, ziel, notrufText };
+module.exports = { notruf, enthuellung, abschluss, update, ziel, invasionsZiel, notrufText };
