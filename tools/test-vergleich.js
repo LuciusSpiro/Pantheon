@@ -427,7 +427,11 @@ async function main() {
     gleich([echt.a.n, echt.b.n], [4, 4], 'je 4 Laeufe (m3/3)');
     ok(echt.a.gruppe.id === 'm3/3' && echt.ergebnis.verglichen > 80, 'Gruppe m3/3, ' + echt.ergebnis.verglichen + ' Kennzahlen verglichen');
     console.log('       gleiche Konfiguration, andere Seeds: ' + echt.wesentlich + ' von ' + echt.ergebnis.verglichen + ' wesentlich');
-    ok(echt.wesentlich <= Math.max(3, Math.round(0.05 * echt.ergebnis.verglichen)), 'gleiche Konfiguration: hoechstens 5 % wesentlich (Fehlalarme)');
+    // Schranke 7,5 % statt 5 %: Die Kennzahlen sind korreliert (z. B. Treffer auf Spieler am Boden, deren Deckungsanteil und die Marken-Belohnung bewegen sich gemeinsam),
+    // und 4 gegen 4 Seeds sind wenig. Gemessen (2026-11-09, main 67f82e5): alle 35 Teilungen der Seeds 1-8 in 4 gegen 4 ergaben 0 bis 8 wesentliche von 124 (Median 3,
+    // 3 von 35 ueber 6); beide Vierergruppen gegen die Basis (12 Seeds) 0 wesentlich. 9 von 124 liegt knapp ueber dem beobachteten Maximum; echte Aenderungen faengt der
+    // manipulierte Lauf unten (x2, x1,5, x0,5) ohnehin ab.
+    ok(echt.wesentlich <= Math.max(3, Math.round(0.075 * echt.ergebnis.verglichen)), 'gleiche Konfiguration: hoechstens 7,5 % wesentlich (Fehlalarme)');
     const laeufeB = Lesen.ordnerSessions(MB).map((e) => V.laufLesen(e.kennung, [e.dir]));
     const MANIP = { 'f2.schaden.boden.aus.roh': 2, 'f1.dauer.session': 1.5, 'f2.kills.boden.gesamt': 0.5 };
     for (const l of laeufeB) for (const k of Object.keys(MANIP)) { const v = flach(l.kz)[k]; if (typeof v === 'number') setze(l.kz, k, v * MANIP[k]); }

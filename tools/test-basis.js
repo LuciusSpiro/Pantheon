@@ -169,7 +169,7 @@ else {
     const gk = b.gruppen['m3/3'];
     gleich(Object.keys(b.gruppen), ['m3/3'], 'Datei: genau die angeforderte Gruppe');
     ok(gk && gk.laeufe === 3 && JSON.stringify(gk.seeds) === '[1,2,3]', 'Gruppe m3/3: 3 Laeufe, Seeds 1,2,3');
-    ok(b.kopf.plattform === process.platform + '-' + process.arch && b.kopf.spielstand_wie === '9cf0397' && b.kopf.kennzahl_version === KENNZAHL_VERSION && /^[0-9a-f]{7,}$/.test(b.kopf.commit) && b.kopf.tuning_hash && b.kopf.node && b.kopf.datum && b.kopf.laufzeit_s >= 0 && b.kopf.seeds === 3, 'Kopf: Plattform, spielstand_wie, Kennzahl-Version, Commit, Tuning-Hash, Node, Datum, Laufzeit, Seeds');
+    ok(b.kopf.plattform === process.platform + '-' + process.arch && b.kopf.spielstand_wie === '67f82e5' && b.kopf.kennzahl_version === KENNZAHL_VERSION && /^[0-9a-f]{7,}$/.test(b.kopf.commit) && b.kopf.tuning_hash && b.kopf.node && b.kopf.datum && b.kopf.laufzeit_s >= 0 && b.kopf.seeds === 3, 'Kopf: Plattform, spielstand_wie, Kennzahl-Version, Commit, Tuning-Hash, Node, Datum, Laufzeit, Seeds');
     const s = gk && gk.kz['f1.dauer.session'];
     ok(Array.isArray(s) && s[0] === 3 && s[1] <= s[3] && s[3] <= s[5] && s[3] > 60, 'Dauer: Statistik ueber 3 Seeds, Median plausibel (' + JSON.stringify(s) + ')');
     gleich(Basis.pruefen(b), [], 'Gueltigkeit der Kleinlauf-Basis');
@@ -372,7 +372,7 @@ else {
   ok(probleme.length === 0, 'Basis gueltig' + (probleme.length ? ' – `npm run basis` neu fahren: ' + probleme.join('; ') : ' (Kennzahl-Version ' + eb.kopf.kennzahl_version + ', jede Kennzahl hat einen Info-Eintrag)'));
   ok(eb.kopf.kennzahl_version === KENNZAHL_VERSION, 'Kennzahl-Version der Basis (' + eb.kopf.kennzahl_version + ') = aktuelle (' + KENNZAHL_VERSION + ') – sonst `npm run basis` neu fahren');
   ok(Object.keys(eb.gruppen).every((id) => Object.keys(eb.gruppen[id].kz).every((k) => infoZu(k))), 'jede Kennzahl jeder Gruppe hat einen Info-Eintrag (KENNZAHL_INFO) – sonst `npm run basis` neu fahren');
-  ok(eb.kopf.plattform === 'win32-x64' && eb.kopf.spielstand_wie === '9cf0397', 'Kopf: Plattform win32-x64, Spielstand wie 9cf0397');
+  ok(eb.kopf.plattform === 'win32-x64' && eb.kopf.spielstand_wie === '67f82e5', 'Kopf: Plattform win32-x64, Spielstand wie 67f82e5');
   ok(roh.length < 300 * 1024, 'Groesse unter 300 KB (' + Math.round(roh.length / 1024) + ' KB)');
   ok(Object.keys(eb.gruppen).length >= 5 && Object.keys(eb.gruppen).every((id) => eb.gruppen[id].laeufe >= 6), 'mindestens 5 Gruppen, je mindestens 6 Laeufe');
   ok(!/"listen"|"reihen"/.test(roh), 'keine listen.reihen, keine Rohprotokolle');
