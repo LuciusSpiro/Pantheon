@@ -1,0 +1,260 @@
+{
+ "format": "sektorkarte/1",
+ "id": "kac01_testkarte",
+ "name": "KAC-01 Testkarte (alle Sektortypen)",
+ "spalten": 5,
+ "zeilen": 4,
+ "quelle": "Von Hand gelegt, nur fuer tools/test-check-kacheln.js und Anzeige-Proben; liegt bewusst ausserhalb von content/ und wird nie vom Spiel geladen.",
+ "start": {
+  "ort": "kt_0101",
+  "bekannt": [
+   "kt_0101"
+  ]
+ },
+ "hexe": {
+  "0101": {
+   "name": "Planetfeld",
+   "fraktion": "frei",
+   "art": "Testsektor",
+   "region": "test",
+   "spielbar": true,
+   "ort": "kt_0101",
+   "gen": true,
+   "typ": "planet"
+  },
+  "0102": {
+   "name": "Gasriese Gar",
+   "fraktion": "frei",
+   "art": "Testsektor",
+   "region": "test",
+   "spielbar": true,
+   "ort": "kt_0102",
+   "gen": true,
+   "typ": "gasriese"
+  },
+  "0103": {
+   "name": "Station Sol",
+   "fraktion": "frei",
+   "art": "Testsektor",
+   "region": "test",
+   "spielbar": true,
+   "ort": "kt_0103",
+   "gen": true,
+   "typ": "station"
+  },
+  "0104": {
+   "name": "Brockenmeer",
+   "fraktion": "frei",
+   "art": "Testsektor",
+   "region": "test",
+   "spielbar": true,
+   "ort": "kt_0104",
+   "gen": true,
+   "typ": "asteroidenfeld"
+  },
+  "0201": {
+   "name": "Felsbrocken",
+   "fraktion": "frei",
+   "art": "Testsektor",
+   "region": "test",
+   "spielbar": true,
+   "ort": "kt_0201",
+   "gen": true,
+   "typ": "grosser_asteroid"
+  },
+  "0202": {
+   "name": "Nebelwand",
+   "fraktion": "frei",
+   "art": "Testsektor",
+   "region": "test",
+   "spielbar": true,
+   "ort": "kt_0202",
+   "gen": true,
+   "typ": "nebel"
+  },
+  "0203": {
+   "name": "Wrackgrund",
+   "fraktion": "frei",
+   "art": "Testsektor",
+   "region": "test",
+   "spielbar": true,
+   "ort": "kt_0203",
+   "gen": true,
+   "typ": "wrackfeld"
+  },
+  "0204": {
+   "name": "Stille",
+   "fraktion": "frei",
+   "art": "Testsektor",
+   "region": "test",
+   "spielbar": true,
+   "ort": "kt_0204",
+   "gen": true,
+   "typ": "leerraum"
+  },
+  "0301": {
+   "name": "Rattennest",
+   "fraktion": "frei",
+   "art": "Testsektor",
+   "region": "test",
+   "spielbar": true,
+   "ort": "kt_0301",
+   "gen": true,
+   "typ": "piratenlager"
+  },
+  "0302": {
+   "name": "Flimmern",
+   "fraktion": "frei",
+   "art": "Testsektor",
+   "region": "test",
+   "spielbar": true,
+   "ort": "kt_0302",
+   "gen": true,
+   "typ": "instabil"
+  },
+  "0303": {
+   "name": "Dreiklang",
+   "fraktion": "frei",
+   "art": "Testsektor",
+   "region": "test",
+   "spielbar": true,
+   "ort": "kt_0303",
+   "gen": true,
+   "typ": [
+    "planet",
+    "planet",
+    "station"
+   ]
+  },
+  "0304": {
+   "name": "Namenlos",
+   "fraktion": "frei",
+   "art": "Testsektor",
+   "region": "test",
+   "spielbar": true,
+   "typ": "planet"
+  },
+  "0401": {
+   "name": "Altbestand",
+   "fraktion": "frei",
+   "art": "Gasriese, alt",
+   "region": "test",
+   "spielbar": true,
+   "ort": "kt_0401",
+   "gen": true,
+   "einfluss": "gas"
+  },
+  "0402": {
+   "name": "Zweitwelt",
+   "fraktion": "frei",
+   "art": "Testsektor",
+   "region": "test",
+   "spielbar": true,
+   "ort": "kt_0402",
+   "gen": true,
+   "typ": "planet"
+  },
+  "0403": {
+   "name": "Hohlraum",
+   "fraktion": "frei",
+   "art": "Testsektor",
+   "region": "test",
+   "spielbar": true,
+   "ort": "kt_0403",
+   "gen": true,
+   "typ": [
+    "grosser_asteroid",
+    "planet"
+   ]
+  }
+ },
+ "kanten": [
+  {
+   "a": "0101",
+   "b": "0102",
+   "art": "open"
+  },
+  {
+   "a": "0102",
+   "b": "0103",
+   "art": "open"
+  },
+  {
+   "a": "0103",
+   "b": "0104",
+   "art": "open"
+  },
+  {
+   "a": "0104",
+   "b": "0204",
+   "art": "open"
+  },
+  {
+   "a": "0204",
+   "b": "0203",
+   "art": "open"
+  },
+  {
+   "a": "0203",
+   "b": "0202",
+   "art": "open"
+  },
+  {
+   "a": "0202",
+   "b": "0201",
+   "art": "open"
+  },
+  {
+   "a": "0201",
+   "b": "0301",
+   "art": "open"
+  },
+  {
+   "a": "0301",
+   "b": "0302",
+   "art": "open"
+  },
+  {
+   "a": "0302",
+   "b": "0303",
+   "art": "open"
+  },
+  {
+   "a": "0303",
+   "b": "0403",
+   "art": "open"
+  },
+  {
+   "a": "0403",
+   "b": "0402",
+   "art": "open"
+  },
+  {
+   "a": "0402",
+   "b": "0401",
+   "art": "open"
+  },
+  {
+   "a": "0102",
+   "b": "0202",
+   "art": "open"
+  },
+  {
+   "a": "0303",
+   "b": "0304",
+   "art": "open"
+  }
+ ],
+ "regionen": {
+  "test": {
+   "name": "Testraum",
+   "sperrtext": null
+  }
+ },
+ "fraktionen": {
+  "frei": {
+   "name": "herrenlos",
+   "farbe": "#3f4f63"
+  }
+ }
+}

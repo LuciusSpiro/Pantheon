@@ -135,7 +135,7 @@ function lpAdapter(game) {
   const ad = {
     game: g,
     liste(ort) { try { return L.liste(g, ort); } catch (e) { return []; } },
-    info(id) { return (L.defs().byId[id]) || st().dyn[id] || null; },
+    info(id) { return L.info(g, id); },   // W2: schließt die Kachel-Landepunkte ein
     eintrag(id) { return st().eintraege[id] || null; },
     sperrgrund(id) { try { return L.sperrgrund(g, id); } catch (e) { return 'Landepunkt unbekannt.'; } },
     karte(id) { try { return L.karte(g, id); } catch (e) { return null; } },

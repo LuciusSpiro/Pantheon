@@ -103,7 +103,13 @@
       const e = Object.assign({}, k, { id: kanteId(k.a, k.b) });
       P.kanten.push(e); P.kanteById[e.id] = e;
     }
-    for (const h in K.hexe) { const o = K.hexe[h] && K.hexe[h].ort; if (o) { P.hexVonOrt[o] = h; P.ortVonHex[h] = o; } }
+    // KAC-01 W3: typ-Hex ohne eigenes `ort` heißt k_<hex> (Ableitung im Shared-Modul, shared/sektoren.js kachelOrt); der Client liest sie nur
+    const SS = window.Shared_Sektoren;
+    for (const h in K.hexe) {
+      const d = K.hexe[h];
+      const o = d && (d.ort || (d.typ !== undefined && SS && typeof SS.kachelOrt === 'function' ? SS.kachelOrt(h) : null));
+      if (o) { P.hexVonOrt[o] = h; P.ortVonHex[h] = o; }
+    }
     store.kartePrep = P;
     return P;
   }
@@ -619,6 +625,8 @@
       const f = FRAKTION[s.fraktion];
       const kopf = [f ? f.name : s.fraktion, s.hafen ? 'Hafen ' + s.hafen : null].filter(Boolean).join(' · ');
       if (kopf) out.push({ t: kopf, c: COL.text });
+      const typTxt = KZ.typName(s);   // KAC-01 D: Typname des Hex-Felds typ (null ohne typ), vor der Freitext-Art
+      if (typTxt && (hs.art !== 'unerkundet' || hs.nameBekannt)) out.push({ t: typTxt, c: COL.text, max: 2 });
       if (s.art && (hs.art !== 'unerkundet' || hs.nameBekannt)) out.push({ t: s.art, c: COL.grau, max: 2 });
       const extra = [];
       if (s.einfluss) extra.push('Einfluss: ' + (EINFLUSS[s.einfluss] || s.einfluss));

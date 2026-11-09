@@ -26,6 +26,8 @@
   let genCache = {};      // hex -> Orts-Objekt (Szene aus Daten, EK7)
   const hooks = [];       // Rückrufe bei neuer Karte (locations.js leitet links neu ab)
 
+  const KACHEL_PREFIX = 'k_';
+  const kachelOrt = (hex) => KACHEL_PREFIX + hex;   // KAC-01 C: Ort-ID eines typ-Hexes ohne eigenes `ort`
   const pad2 = (n) => (n < 10 ? '0' : '') + n;
   function code(c, r) { return pad2(c) + pad2(r); }
   function teile(hex) {
@@ -49,7 +51,7 @@
         (vonIdx[e.a] = vonIdx[e.a] || []).push(e);
         (vonIdx[e.b] = vonIdx[e.b] || []).push(e);
       }
-      for (const [hex, h] of Object.entries(K.hexe || {})) if (h && h.ort) ortIdx[h.ort] = hex;
+      for (const [hex, h] of Object.entries(K.hexe || {})) { if (h && h.ort) ortIdx[h.ort] = hex; else if (h && h.typ !== undefined) ortIdx[kachelOrt(hex)] = hex; }   // KAC-01 C: typ-Hex ohne eigenes `ort` heißt k_<hex>
     }
     api.version++;
     for (const f of hooks) { try { f(api.KARTE); } catch (e) { /* Anzeige-Hook: nie werfen */ } }
@@ -145,7 +147,7 @@
   // Ort-ID eines Hexes: Orts-ID aus locations.js, Leerraum 'leer-<hex>', sonst null (System ohne Raumszene)
   function ortVonHex(hex) {
     const h = hexDaten(hex);
-    if (h) return h.ort || null;
+    if (h) return h.ort || (h.typ !== undefined ? kachelOrt(hex) : null);
     return istLeerraum(hex) ? LEER_PREFIX + hex : null;
   }
   // Leere Szene aus Daten (E30): ein Orts-Objekt wie in locations.js
@@ -169,21 +171,44 @@
 
   // EK7: Szene aus Daten. Hexe mit `gen: true` (und `ort`) haben keine fest codierte Szene in locations.js; der Generator
   // (shared/gen-sektor.js) baut sie deterministisch aus dem Hex-Eintrag. Argument: Ort-ID. Sonst null.
+  // KAC-01 C: auch Hexe mit `typ` (ohne `ort`: Ort-ID k_<hex>). Für sie wirft ein unplatzierbarer Typ nicht in die Aufrufer (Snapshot, Explore),
+  // sondern wird einmal je Hex in die Konsole gemeldet; der Hex hat dann keine Szene (null). Anfliegbar ist er nur, wo die Aufrufer `hatSzene(hex)` statt
+  // `ortVonHex` als Filter nutzen (sprung.js, reise.js, reise-ereignis.js). Hexe ohne `typ` unverändert (werfen wie bisher).
+  // K4: EINE Regel, wann ein Hex seine Szene aus der Kachel (typ) bekommt: `typ` UND (`gen: true` oder kein eigenes `ort`). Ein typ-Hex mit `ort` ohne `gen` bleibt
+  // ein Hex mit fest codierter Szene (wie ohne typ); Laufzeit (datenOrt/datenOrte) und Prüfer lesen dieselbe Regel.
+  function istKachelHex(h) { return !!h && h.typ !== undefined && !!(h.gen || !h.ort); }
+  // W1: hat das Hex eine baubare Szene? Ohne typ exakt das bisherige `ortVonHex(hex)` (truthy); ein Kachel-Hex nur, wenn der Generator die Szene baut (nicht null).
+  // Alle Sprung-/Reise-Kandidatenfilter nutzen das statt `ortVonHex`, damit nie in ein unplatzierbares typ-Hex gesprungen wird.
+  function hatSzene(hex) {
+    const ort = ortVonHex(hex); if (!ort) return false;
+    const h = hexDaten(hex);
+    return istKachelHex(h) ? !!datenOrt(ort) : true;
+  }
   function datenOrt(id) {
     const hex = ortIdx[id]; const h = hex ? hexDaten(hex) : null;
-    if (!h || !h.gen || !GEN) return null;
-    if (genCache[hex]) return genCache[hex];
+    if (!h || !(h.typ === undefined ? h.gen : istKachelHex(h)) || !GEN) return null;   // K4: eine Regel (istKachelHex) für typ-Hexe
+    if (genCache[hex] !== undefined) return genCache[hex];
     const p = hexZuPixel(hex, 1);
-    const o = GEN.erzeuge(hex, h, CONFIG && CONFIG.sektoren && CONFIG.sektoren.datenSzene);
+    const cfg = CONFIG && CONFIG.sektoren && CONFIG.sektoren.datenSzene;
+    let o;
+    if (h.typ === undefined) o = GEN.erzeuge(hex, h, cfg);
+    else {
+      try { o = GEN.erzeuge(hex, h, cfg); } catch (e) {
+        console.error(`[Sektoren] Hex ${hex} (typ ${JSON.stringify(h.typ)}): keine Szene, nicht anfliegbar: ${e.message}`);
+        genCache[hex] = null; return null;
+      }
+    }
     o.x = Math.round(p.x * 100); o.y = Math.round(p.y * 100);
     genCache[hex] = o;
     return o;
   }
-  // Orts-IDs aller Hexe mit Szene aus Daten (nach Hex sortiert)
+  // Orts-IDs aller Hexe mit Szene aus Daten (nach Hex sortiert); typ-Hexe ohne `ort` mit ihrer Ort-ID k_<hex>
   function datenOrte() {
     const K = api.KARTE; if (!K) return [];
-    return Object.keys(K.hexe).filter((hx) => K.hexe[hx].gen && K.hexe[hx].ort).sort().map((hx) => K.hexe[hx].ort);
+    return Object.keys(K.hexe).filter((hx) => { const h = K.hexe[hx]; return h.typ === undefined ? !!(h.gen && h.ort) : istKachelHex(h); }).sort().map((hx) => K.hexe[hx].ort || kachelOrt(hx));
   }
+  // KAC-01 C: trägt die geladene Karte mindestens ein Hex mit `typ`? (Nur dann braucht der Client den Sektortypen-Katalog)
+  function hatTyp() { const K = api.KARTE; return !!K && Object.values(K.hexe || {}).some((h) => h && h.typ !== undefined); }
 
   // SL1: Start der Partie laut Karte. Feld `start` der Karte: { ort, bekannt?: [Orte], boden?: bool, erkundet?: [Hexe], bojen?: [Kanten-Ids] }. Ohne Feld (Limes): Hafen Lichtkordon.
   // erkundet/bojen (SUND-01 E): Hexe und Bojen, die die Crew beim Start schon kennt (nur die Karte sund_frei, Modus Freie Fahrt Sund).
@@ -207,7 +232,7 @@
   Object.assign(api, {
     LEER_PREFIX, setzeKarte, beiKarte, nachbarn, sindNachbarn, hexAbstand, kanteId, kanteAusId, kante, kantenVon, anderes,
     hexZuPixel, pixelZuHex, richtung, winkel, sprungpunktLage, imRaster, hexDaten, istLeerraum, spielbar, region, sperrtext,
-    hexName, istLeerId, hexVonOrt, ortVonHex, leerraumOrt, datenOrt, datenOrte, fuerClient,
+    hexName, istLeerId, hexVonOrt, ortVonHex, leerraumOrt, datenOrt, datenOrte, fuerClient, hatTyp, kachelOrt, istKachelHex, hatSzene,
     startOrt, bekanntBeiStart, bodenStart, vorerkundetBeiStart, istVerborgen, kartenId,
   });
   if (startKarte) setzeKarte(startKarte);

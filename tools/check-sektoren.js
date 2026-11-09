@@ -173,6 +173,23 @@ function check(cond, text) {
   if (i > 0 && process.argv[i + 1]) { require('fs').writeFileSync(process.argv[i + 1], svg(S, K), 'utf8'); console.log('  SVG: ' + process.argv[i + 1]); }
 }
 
+// ---------- KAC-01 D: Hexe mit Feld typ (Sektortypen-Katalog) auf allen Karten in content/welt ----------
+// Katalog (Schema, Guetercodes), je Hex mit typ: Typ-IDs, Gasriese nur als Haupttyp, instabil nur allein, hoechstens eine Station, Layout-Probe
+// (GenSektor.erzeuge wirft nicht), Koerper-IDs eindeutig und in der Szene, Beam-Bereiche gesetzt und ohne Ueberlappung. Hexe ohne typ: nichts davon.
+{
+  const Welt = require('../server/sim/welt.js');
+  const P = require('./kacheln-pruefer.js');
+  console.log('\n[kacheln]');
+  const kat = P.pruefeKatalog();
+  check(kat.fehler.length === 0, 'Sektortypen-Katalog gueltig (Schema, Guetercodes T/M/U/E/N/R)' + kat.fehler.map((f) => ' ' + f.msg).join(''));
+  for (const id of Welt.ids()) {
+    const doc = Welt.karte(id);
+    const r = P.pruefeKarte(doc);
+    const mitTyp = Object.values(doc.hexe).filter(P.hatTyp).length;
+    check(r.fehler.length === 0, `Karte ${id}: ${mitTyp} Hexe mit typ, ${r.pruefungen} Teilprüfungen` + r.fehler.map((f) => `\n         ${f.code} ${f.wo}: ${f.msg}`).join(''));
+  }
+}
+
 // SVG wie karte_limes.py (Farben aus limes.json `fraktionen`)
 function svg(S, K) {
   const s = 62, h3 = Math.sqrt(3) * s, mx = 40, my = 70;

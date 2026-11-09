@@ -36,6 +36,9 @@ function ids() {
 }
 function kartenId() { return Sektoren.kartenId(); }
 
+// KAC-01 C: Sektortypen-Katalog für den Client, nur wenn die aktive Karte ein Hex mit `typ` trägt (sonst null: kein Feld, kein Byte mehr im Protokoll)
+function katalogFuerClient() { return Sektoren.hatTyp() ? require('../../shared/sektortypen.js').katalog() : null; }
+
 // Aktive Karte setzen. Gleiche Karte: nichts tun. Unbekannte Id: Standard (Limes). -> Id der aktiven Karte
 function waehle(game, id) {
   const wunsch = karte(id) ? id : STANDARD;
@@ -44,7 +47,8 @@ function waehle(game, id) {
     Sektoren.setzeKarte(doc);
     if (game && typeof game.broadcast === 'function') {
       const k = Sektoren.fuerClient();
-      if (k) { try { game.broadcast({ t: 'sektorkarte', sektorkarte: k }); } catch (e) { if (game.countError) game.countError('welt-broadcast', e); } }
+      const katalog = katalogFuerClient();   // K5: einmal je Broadcast
+      if (k) { try { game.broadcast(Object.assign({ t: 'sektorkarte', sektorkarte: k }, katalog ? { sektortypen: katalog } : {})); } catch (e) { if (game.countError) game.countError('welt-broadcast', e); } }
     }
   }
   if (game) game.weltId = Sektoren.kartenId();
@@ -121,4 +125,4 @@ function bodenStarten(game) {
   return lp;
 }
 
-module.exports = { STANDARD, karte, ids, kartenId, kartenIdAusStand, alleDatenOrte, waehle, startOrt, bekanntBeiStart, bodenStart, heimathafen, startLandepunkt, bodenStarten };
+module.exports = { STANDARD, karte, ids, kartenId, kartenIdAusStand, alleDatenOrte, katalogFuerClient, waehle, startOrt, bekanntBeiStart, bodenStart, heimathafen, startLandepunkt, bodenStarten };

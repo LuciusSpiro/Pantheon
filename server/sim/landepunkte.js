@@ -16,6 +16,9 @@ const GenGelaende = require('../../shared/gen-gelaende.js');
 const GenHoehle = require('../../shared/gen-hoehle.js');
 const GenSchiff = require('../../shared/gen-schiff.js');
 const Locations = require('../../shared/locations.js');
+const Sektoren = require('../../shared/sektoren.js');
+const GenSektor = require('../../shared/gen-sektor.js');
+const Sektortypen = require('../../shared/sektortypen.js');
 const W = require('../world.js');
 
 // Vorwärmen (Daten laden, Lagen, ein Probebau je Kartenart ≈ 0,4 s) außerhalb des laufenden Aufrufs: setImmediate, damit es
@@ -38,7 +41,7 @@ function defs() {
   }
   return DEF;
 }
-function neuLaden() { DEF = null; return defs(); }
+function neuLaden() { DEF = null; kachelCache = { version: -1, defs: new Map() }; return defs(); }   // K3: auch die abgeleiteten Kachel-Defs neu
 
 // ---------- Laufzeitzustand: game.landepunkte = { eintraege: { lpId: Eintrag }, lru: [lpId], dyn: { lpId: Def } } ----------
 // halten: { lpId: missionId } – Karte der laufenden Mission (Besetzung/Setup), wird nicht verdrängt (F1)
@@ -51,7 +54,9 @@ function st(game) {
   return S;
 }
 function istHand(id) { return W.istHand(id); }
-function def(game, lpId) { return defs().byId[lpId] || st(game).dyn[lpId] || null; }
+function def(game, lpId) { return defs().byId[lpId] || st(game).dyn[lpId] || kachelDef(lpId); }
+// W2: Definition eines Landepunkts nur lesend (Datei, Laufzeit-dyn, Kachel); legt game.landepunkte nie an. Die einzige Lookup-Regel für Leser außerhalb dieses Moduls (explore.lpScanVon, Kontext-Adapter).
+function info(game, lpId) { const S = game && game.landepunkte; return defs().byId[lpId] || (S && S.dyn && S.dyn[lpId]) || kachelDef(lpId) || null; }
 function eintrag(game, lpId) {
   const S = st(game);
   if (S.eintraege[lpId]) return S.eintraege[lpId];
@@ -402,6 +407,7 @@ function cacheKey(lpId, e) { return [lpId, e.seed, e.art, e.schablone, e.bauweis
 // cacheLeeren(art?): Karten-Cache dieser Kartenart (ohne art: ganz) leeren (Werkstatt nach dem Speichern eines Moduls). -> Zahl
 function cacheLeeren(art) {
   let n = 0; FEST.clear();   // BOD-01: Definitionen fester Karten neu lesen
+  kachelCache = { version: -1, defs: new Map() };   // K3: die abgeleiteten Kachel-Defs lesen Buehne-Achsen (Zustand), nach einem Cache-Leeren neu ableiten
   for (const k of Array.from(KARTEN_CACHE.keys())) if (!art || k.split('|')[2] === art) { KARTEN_CACHE.delete(k); n++; }
   return n;
 }
@@ -487,7 +493,7 @@ function sperrgrund(game, lpId) {
 function liste(game, ort) {
   const o = ort || (game.ship && game.ship.scene);
   const out = [];
-  const all = (defs().orte[o] || []).concat(Object.values(st(game).dyn).filter((d) => d.ort === o));
+  const all = (defs().orte[o] || []).concat(Object.values(st(game).dyn).filter((d) => d.ort === o), kachelListe(game, o));   // KAC-01 C: dazu die Landepunkte der Kachel (nur typ-Hexe)
   for (const d of all) {
     if (d.frei === 'labor' && !game.labor) continue;   // Labor-Landepunkte erscheinen nur im Labor (Transfer-Konsole, Vorbau)
     if (d.frei === 'finale' && sperrgrund(game, d.id)) continue;   // SUND-04a-3: der Schrein erscheint nur im Boden-Teil des Finales
@@ -534,6 +540,50 @@ function freigeben(game, lpId) {
   if (!e) return false;
   e.frei = true;
   return true;
+}
+
+// ---------- KAC-01 C: Landepunkte aus der Kachel ----------
+// Ein Hex mit `typ` (shared/sektoren.js, Katalog content/welt/sektortypen.json) hat je landbarem Körper der Szene (scene.koerper) einen Landepunkt
+// `<ort>.k<index>` (Ort = eigenes `ort` des Hexes oder k_<hex>). Die Def ist reine Ableitung aus ID -> Hex -> Hex-Daten -> Körper: nichts davon steht
+// im Weltstand (toSave schreibt nur die Zustände), nichts in landepunkte.json/locations.js. Kein game-Zustand, gemerkt je Kartenversion.
+const KACHEL_ID = /^(.+)\.(k\d+)$/;
+const KACHEL_BESITZ = { rom: 'rom', ger: 'ger', pirat: 'raubzug', vorl: 'kustoden' };   // Hex-Fraktion -> Besitz; alles andere herrenlos (Annahme, KAC-01 C)
+const KACHEL_NAME = { planet: 'Planet', station: 'Station', siedlung: 'Lager', asteroid: 'Asteroid' };
+let kachelCache = { version: -1, defs: new Map() };
+function kachelAbleiten(ort, kid) {
+  const hex = Sektoren.hexVonOrt(ort);
+  const h = hex && Sektoren.hexDaten(hex);
+  if (!h || h.typ === undefined) return null;
+  const loc = Locations.get(ort);   // die Szene, in der das Schiff wirklich fliegt (ein festes Ort-Objekt aus locations.js hat keine koerper)
+  const kz = loc && loc.scene && loc.scene.koerper && loc.scene.koerper.find((k) => k.id === kid);
+  if (!kz || !kz.landbar) return null;   // Kulisse (fels/eis/ozean) und Gasriese haben keinen Landepunkt
+  const kv = GenSektor.koerperVon(hex, h).find((k) => k.id === kid);
+  const art = Sektortypen.typ(kv.vorlage.split('.')[0]).boden.kartenart;
+  if (!art) return null;
+  const besitz = KACHEL_BESITZ[h.fraktion] || 'herrenlos';
+  const ach = Buehne.daten().achsen || { kartenarten: {} };
+  const d = { id: ort + '.' + kid, ort, art, bauweise: bauweiseFuerBesitz(art, besitz), besitz, zustand: (ach.kartenarten[art] || {}).zustand || 'intakt',
+    seed: (Buehne.fnv('kachel:' + hex + ':' + kid) % 100000) + 1, schablone: null, beam: { x: kz.x, y: kz.y, range: kz.beam.range },
+    name: KACHEL_NAME[kz.art] + ' ' + (kz.index + 1) + (kz.biom ? ' (' + kz.biom + ')' : ''), frei: 'immer', gesperrt: false, neu: true, kachel: true };
+  if (art === 'wildnis') d.gen = { biom: GenSektor.biomVon(hex, kz.index, h) };   // Biom je Körper aus (Hex, Index), nie aus der Welt-Tabelle biome
+  return d;
+}
+// kachelDef(lpId) -> Def im Format der Laufzeit-Landepunkte (s. neu()) + kachel: true | null (keine Kachel-ID, unbekannter Hex/Körper, nicht landbar)
+function kachelDef(lpId) {
+  if (typeof lpId !== 'string') return null;
+  const m = KACHEL_ID.exec(lpId);
+  if (!m) return null;
+  if (kachelCache.version !== Sektoren.version) kachelCache = { version: Sektoren.version, defs: new Map() };
+  if (!kachelCache.defs.has(lpId)) kachelCache.defs.set(lpId, kachelAbleiten(m[1], m[2]));
+  return kachelCache.defs.get(lpId);
+}
+// Kachel-Landepunkte eines Orts (leer, wenn der Ort kein typ-Hex ist)
+function kachelListe(game, ort) {
+  const hex = ort && Sektoren.hexVonOrt(ort);
+  const h = hex && Sektoren.hexDaten(hex);
+  if (!h || h.typ === undefined) return [];
+  const loc = Locations.get(ort);
+  return ((loc && loc.scene && loc.scene.koerper) || []).filter((k) => k.landbar).map((k) => kachelDef(ort + '.' + k.id)).filter(Boolean);
 }
 
 // ---------- neue Landepunkte ----------
@@ -651,6 +701,19 @@ function hatAdern(game, lpId) {
   return e.art === 'hoehle' || (e.art === 'wildnis' && !!wildnisVorgaben(lpId, e).hoehle);
 }
 const FELDER = ['seed', 'bauversion', 'schablone', 'art', 'bauweise', 'besitz', 'zustand', 'zustaende', 'alarm', 'besuche', 'letzte_mission', 'neu', 'gesperrt', 'abbau_runde'];   // abbau_runde: GEL-03 C (additiv, Standard 0, VERSION bleibt 3)
+// KAC-01 C: Weltstand-Eintrag eines Kachel-Landepunkts: nur Zustände/Besuche (Seed, Art, Besitz, Lage leitet kachelDef aus dem Hex ab; bauversion erkennt einen neuen Erzeugerstand)
+const KACHEL_FELDER = ['bauversion', 'zustaende', 'alarm', 'besuche', 'letzte_mission', 'neu', 'abbau_runde'];
+// K1: Die Körper-Indizes eines typ-Hexes hängen an EINEM Zufallsstrom über alle Vorlagen; ein Katalogwechsel kann die Art eines Körpers ändern (wildnis -> station), seine
+// Anker-IDs sind dann andere. Gespeicherte Zustände gelten nur, wenn die abgeleitete Kartenart noch die gespeicherte ist (Altstände ohne `kartenart` gelten, die bauversion prüft mitZustaenden).
+function kachelZustaendeGelten(block, def) { return !(block && typeof block.kartenart === 'string' && def && def.art !== block.kartenart); }
+function kachelZustand(e, kartenart) {
+  const o = {};
+  for (const f of KACHEL_FELDER) o[f] = e[f] === undefined ? null : JSON.parse(JSON.stringify(e[f]));
+  if (!o.zustaende) o.zustaende = {};
+  o.alarm = !!o.alarm; o.besuche = o.besuche | 0; o.abbau_runde = abbauRundeKlemmen(o.abbau_runde); o.neu = !!o.neu;
+  if (kartenart) o.kartenart = kartenart;   // K1: additiv, Weltstand-Version bleibt 3
+  return o;
+}
 function toSave(game) {
   const S = st(game);
   for (const id of Object.keys(game.aways || {})) if (S.eintraege[id] && !istHand(id)) sichern(game, id);
@@ -658,6 +721,7 @@ function toSave(game) {
   for (const id of Object.keys(S.eintraege).sort()) {
     if (S.dyn[id] && (S.dyn[id].test || S.dyn[id].fluechtig)) continue;   // Testgelände-Landepunkte nie in den Weltstand (F6); fluechtig: Schrein des Finales (SUND-04a-3), das nicht speicherbar ist
     const e = S.eintraege[id];
+    if (!defs().byId[id] && !S.dyn[id] && kachelDef(id)) { out[id] = kachelZustand(e, kachelDef(id).art); continue; }   // KAC-01 C: nur Zustände, keine Definition
     const o = {};
     for (const f of FELDER) o[f] = e[f] === undefined ? null : JSON.parse(JSON.stringify(e[f]));
     if (!o.zustaende) o.zustaende = {};
@@ -678,14 +742,19 @@ function restore(block, game) {
   S.eintraege = {}; S.lru = []; S.dyn = {}; S.halten = {}; S.ausstehend = {};
   for (const id of Object.keys(block || {}).sort()) {
     const b = block[id] || {};
-    if (!defs().byId[id]) {
+    const kachel = !defs().byId[id] && !!kachelDef(id);   // KAC-01 C: Zustände zu einer ableitbaren Kachel-ID bleiben (die Def kommt aus dem Hex, nicht aus dem Block)
+    if (!defs().byId[id] && !kachel) {
       if (!b.ort || !b.art) continue;   // unbekannt und ohne Ort: verwerfen
       S.dyn[id] = { id, ort: b.ort, art: b.art, bauweise: b.bauweise, besitz: b.besitz, zustand: b.zustand, seed: b.seed, schablone: b.schablone || null,
         beam: b.beam || ortBeam(b.ort), name: b.name || null, frei: 'immer', gesperrt: !!b.gesperrt, neu: !!b.neu };
     }
     const e = eintrag(game, id);
     if (!e) continue;
-    for (const f of FELDER) if (b[f] !== undefined && b[f] !== null) e[f] = JSON.parse(JSON.stringify(b[f]));
+    for (const f of kachel ? KACHEL_FELDER : FELDER) if (b[f] !== undefined && b[f] !== null) e[f] = JSON.parse(JSON.stringify(b[f]));
+    if (kachel && !kachelZustaendeGelten(b, kachelDef(id))) {   // K1: Katalog hat die Kartenart dieses Körpers geändert -> alte Zustände gehören zu einer anderen Karte
+      log(game, `${id}: Kartenart ${b.kartenart} -> ${kachelDef(id).art}, ${Object.keys(e.zustaende || {}).length} Zustände verworfen`);
+      e.zustaende = {}; e.bauversion = null;
+    }
     if (!e.zustaende || typeof e.zustaende !== 'object') e.zustaende = {};
     e.abbau_runde = abbauRundeKlemmen(e.abbau_runde);   // Altstand ohne Feld: 0; Obergrenze ABBAU_RUNDE_MAX (K3)
     if (defs().byId[id] && defs().byId[id].gesperrt) e.gesperrt = true;   // Datei gewinnt (E33)
@@ -765,7 +834,7 @@ function debug(game, cmd, args, p) {
 
 module.exports = {
   MAX_GEBAUT, bauweiseFuerBesitz, vorwaermen, defs, neuLaden, get, karte, bauen, vorbauen, vorbauenOrt, verwerfen, liste, waehlen, sperrgrund, beamSpot, betreten, freigeben, neu, prise, priseVerlassen,
-  biomVonOrt, hoehleVonOrt, nutztGenerator, priseSeed, hatAdern, ABBAU_RUNDE_MAX,   // GEL-01 B; GEL-03 Nacharbeit
+  biomVonOrt, hoehleVonOrt, kachelDef, kachelListe, kachelZustaendeGelten, info, nutztGenerator, priseSeed, hatAdern, ABBAU_RUNDE_MAX,   // GEL-01 B; GEL-03 Nacharbeit
   toSave, restore, ankerZahlen, debug, sichern, eintrag, festkarte,   // BOD-01: feste Karten
   bereit, sobaldGeladen, zuruecksetzen, testgelaende, cacheLeeren, wildnisErzeugerSetzen,   // F1, F6, F9b
 };

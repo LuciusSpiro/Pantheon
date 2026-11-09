@@ -110,7 +110,7 @@ function umkreis(hex, von, bis) {
     for (const h of rand) for (const nb of Sektoren.nachbarn(h)) {
       if (nb in gesehen) continue;
       gesehen[nb] = d; next.push(nb);
-      if (d >= von && Sektoren.spielbar(nb) && !Sektoren.istLeerraum(nb) && Sektoren.ortVonHex(nb)) out.push(nb);
+      if (d >= von && Sektoren.spielbar(nb) && !Sektoren.istLeerraum(nb) && Sektoren.hatSzene(nb)) out.push(nb);
     }
     rand = next;
   }

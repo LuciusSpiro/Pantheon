@@ -1,0 +1,116 @@
+{
+  "format": "sektortypen/1",
+  "version": 1,
+  "beschreibung": "KAC-01 A: Katalog der Sektortypen. Ein Hex bekommt (Paket B) ein Feld `typ`; dieser Katalog legt je Typ fest, was im Sektor liegt (Kachel = Daten, kein Code). Reine Daten, gelesen von shared/sektortypen.js (Schema-Pruefung dort). Bestehende Karten tragen kein `typ` und bleiben unberuehrt. Spannen sind [min,max] (ganze Zahlen, beide inklusive); sie bilden die Werte aus shared/gen-sektor.js nach (planeten 0..2, bojen 2..4, Brocken 24 bzw. 14, Gasriese Radius 240-320, mit Zonen 480-640 auf 5000x3800). `quelle` (Gueter T/M/U/E/N/R) und `szenen` (Szenentyp-IDs aus content/katalog/szenentypen) sind nur Daten, noch ohne Leser. Alle Wahrscheinlichkeiten und Radien ausser den aus gen-sektor.js uebernommenen sind Annahmen.",
+  "gueter": ["T", "M", "U", "E", "N", "R"],
+  "kartenarten": ["wildnis", "hoehle", "station", "aussenposten"],
+  "koerperarten": {
+    "planet": { "landbar": true },
+    "gasriese": { "landbar": false },
+    "station": { "landbar": true },
+    "siedlung": { "landbar": true, "verarbeitet": [{ "von": "R", "zu": ["U", "E"] }] },
+    "asteroid": { "landbar": true }
+  },
+  "planetenarten": {
+    "wueste": { "biom": "wueste", "landbar": true, "quelle": [{ "gut": "M" }, { "gut": "R", "menge": "wenig", "p": 0.3 }] },
+    "wiesenwald": { "biom": "wiesenwald", "landbar": true, "quelle": [{ "gut": "N" }, { "gut": "M", "p": 0.4 }] },
+    "vulkan": { "biom": "vulkan", "landbar": true, "quelle": [{ "gut": "R" }] },
+    "fels": { "biom": null, "landbar": false, "quelle": [] },
+    "eis": { "biom": null, "landbar": false, "quelle": [] },
+    "ozean": { "biom": null, "landbar": false, "quelle": [] }
+  },
+  "typen": [
+    {
+      "id": "planet", "name": "Planet", "icon": "planet",
+      "szene": { "sterne": [1, 1], "bojen": [2, 4], "brocken": [0, 0], "nebel": false, "zonen": null },
+      "koerper": [
+        { "id": "hauptplanet", "art": "planet", "anzahl": [1, 1], "radius": [110, 230], "arten": ["wueste", "wiesenwald", "vulkan"], "landbar": true, "beam": { "extra": 200 } },
+        { "id": "kulisse", "art": "planet", "anzahl": [0, 1], "radius": [110, 230], "arten": ["fels", "eis", "ozean"], "landbar": false }
+      ],
+      "boden": { "kartenart": "wildnis", "biom": "aus_planetenart" },
+      "quelle": [],
+      "szenen": ["erkundung", "gefecht", "bergung_vor_ort", "begegnung"]
+    },
+    {
+      "id": "gasriese", "name": "Gasriese", "icon": "gasriese",
+      "szene": { "sterne": [1, 1], "bojen": [2, 4], "brocken": [0, 0], "nebel": false, "zonen": "gasriese", "w": [5000, 5000], "h": [3800, 3800] },
+      "koerper": [
+        { "id": "gasriese", "art": "gasriese", "anzahl": [1, 1], "radius": [480, 640], "landbar": false }
+      ],
+      "boden": { "kartenart": null, "biom": null },
+      "quelle": [{ "gut": "T" }],
+      "szenen": ["gefahrennavigation", "erkundung"]
+    },
+    {
+      "id": "station", "name": "Station", "icon": "station",
+      "szene": { "sterne": [1, 1], "bojen": [2, 4], "brocken": [0, 0], "nebel": false, "zonen": null },
+      "koerper": [
+        { "id": "station", "art": "station", "anzahl": [1, 1], "radius": [60, 60], "landbar": true, "beam": { "extra": 260 } },
+        { "id": "kulisse", "art": "planet", "anzahl": [0, 1], "radius": [110, 230], "arten": ["fels", "eis", "ozean"], "landbar": false }
+      ],
+      "boden": { "kartenart": "station", "biom": null },
+      "quelle": [],
+      "szenen": ["hafen", "ablieferung", "begegnung"]
+    },
+    {
+      "id": "asteroidenfeld", "name": "Asteroidenfeld", "icon": "asteroiden",
+      "szene": { "sterne": [1, 1], "bojen": [2, 4], "brocken": [24, 24], "nebel": false, "zonen": null },
+      "koerper": [],
+      "boden": { "kartenart": null, "biom": null },
+      "quelle": [{ "gut": "R" }],
+      "szenen": ["gefahrennavigation", "bergung_im_all", "verfolgung"]
+    },
+    {
+      "id": "grosser_asteroid", "name": "Grosser Asteroid", "icon": "asteroid",
+      "szene": { "sterne": [1, 1], "bojen": [2, 4], "brocken": [8, 14], "nebel": false, "zonen": null },
+      "koerper": [
+        { "id": "asteroid", "art": "asteroid", "anzahl": [1, 1], "radius": [140, 220], "landbar": true, "beam": { "extra": 200 } }
+      ],
+      "boden": { "kartenart": "hoehle", "biom": null, "zugang": "transportpunkt" },
+      "quelle": [{ "gut": "R", "menge": "viel" }],
+      "szenen": ["erkundung", "infiltration", "bergung_vor_ort"]
+    },
+    {
+      "id": "nebel", "name": "Nebel", "icon": "nebel",
+      "szene": { "sterne": [1, 1], "bojen": [2, 4], "brocken": [0, 0], "nebel": true, "zonen": null },
+      "koerper": [],
+      "boden": { "kartenart": null, "biom": null },
+      "quelle": [],
+      "szenen": ["schleichfahrt", "gefahrennavigation", "verfolgung"]
+    },
+    {
+      "id": "wrackfeld", "name": "Wrackfeld", "icon": "wrack",
+      "szene": { "sterne": [1, 1], "bojen": [2, 4], "brocken": [14, 14], "nebel": false, "zonen": null },
+      "koerper": [],
+      "boden": { "kartenart": null, "biom": null },
+      "quelle": [],
+      "szenen": ["bergung_im_all", "andocken_und_entern", "schleichfahrt"]
+    },
+    {
+      "id": "leerraum", "name": "Leerraum", "icon": "leer",
+      "szene": { "sterne": [1, 1], "bojen": [2, 4], "brocken": [0, 0], "nebel": false, "zonen": null },
+      "koerper": [],
+      "boden": { "kartenart": null, "biom": null },
+      "quelle": [],
+      "szenen": ["begegnung", "raumgefecht"]
+    },
+    {
+      "id": "piratenlager", "name": "Piratenlager", "icon": "lager",
+      "szene": { "sterne": [1, 1], "bojen": [2, 4], "brocken": [14, 14], "nebel": false, "zonen": null },
+      "koerper": [
+        { "id": "lager", "art": "siedlung", "anzahl": [1, 1], "radius": [60, 60], "landbar": true, "beam": { "extra": 260 } }
+      ],
+      "boden": { "kartenart": "aussenposten", "biom": null },
+      "quelle": [],
+      "szenen": ["raumgefecht", "belagerung", "infiltration", "andocken_und_entern"]
+    },
+    {
+      "id": "instabil", "name": "Instabil", "icon": "unbekannt", "anzeige": "?", "platzhalter": true,
+      "szene": { "sterne": [1, 1], "bojen": [2, 4], "brocken": [0, 0], "nebel": false, "zonen": null },
+      "koerper": [],
+      "boden": { "kartenart": null, "biom": null },
+      "quelle": [],
+      "szenen": []
+    }
+  ]
+}

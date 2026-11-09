@@ -444,13 +444,13 @@ class Explore {
     }
     return out;
   }
-  // SL7b: gescannte Landepunkte eines Orts [{ id, name, x?, y? }] (lpId = <ort>.<art>-<n>); Namen aus server/sim/landepunkte.js
+  // SL7b: gescannte Landepunkte eines Orts [{ id, name, x?, y? }] (lpId = <ort>.<art>-<n>); Namen aus server/sim/landepunkte.js (info schließt die Kachel-Landepunkte ein, KAC-01 W2)
   lpScanVon(ortId) {
     const out = [];
     for (const id of this.lpScan) {
       if (id.split('.')[0] !== ortId) continue;
       let name = id, beam = null;
-      try { const d = require('./landepunkte.js').defs().byId[id] || (this.game.landepunkte && this.game.landepunkte.dyn && this.game.landepunkte.dyn[id]); if (d && d.name) name = d.name; if (d && d.beam) beam = d.beam; } catch (e) { /* Name = ID */ }
+      try { const d = require('./landepunkte.js').info(this.game, id); if (d && d.name) name = d.name; if (d && d.beam) beam = d.beam; } catch (e) { /* Name = ID */ }
       out.push(beam ? { id, name, x: Math.round(beam.x), y: Math.round(beam.y) } : { id, name });   // OPS-01 D: x, y = Beam-Punkt (Verknüpfung Ziel ↔ Landepunkt im Zielkasten, Consoles.beamInfo)
     }
     return out.sort((a, b) => (a.id < b.id ? -1 : 1));

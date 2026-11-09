@@ -172,6 +172,9 @@
     //   zusätzlich { hex } erlaubt.
     // Debug: hex <SSZZ> | boje <kante> | notsprung | erkunde alle.
     WELCOME_SEKTORKARTE: 'sektorkarte',
+    // KAC-01 C: Sektortypen-Katalog (content/welt/sektortypen.json) im welcome und im Ereignis sektorkarte, NUR wenn die Karte mindestens ein Hex mit `typ` hat
+    //   (Limes/Sund: Feld fehlt, die Nachricht bleibt byteweise wie vorher). Der Client ruft Shared_GenSektor.setzeKatalog(katalog) vor Shared_Sektoren.setzeKarte.
+    WELCOME_SEKTORTYPEN: 'sektortypen',
     WORLD_SEKTOREN_FIELDS: ['e', 'b', 't', 'o', 'v'],
     SPACE_JP_FIELDS: ['k', 'x', 'y', 'z', 'n'],
     JP_STATES: ['aktiv', 'gesperrt', 'temporaer', 'ohne_strom'],

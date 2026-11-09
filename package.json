@@ -158,6 +158,8 @@
     "check:rollen": "node tools/check-assets.mjs --nur-rollen",
     "hash:baseline": "node tools/hash-baseline.js --compare",
     "hash:karten": "node tools/hash-baseline.js --compare --karten --ohne-zeichen s,a,v",
+    "hash:raumszenen": "node tools/hash-raumszenen.js --compare",
+    "test:raumszenen-hash": "node tools/test-raumszenen-hash.js",
     "test:schubs": "node tools/test-schubs.js && node tools/test-schnellsprung.js",
     "test:zonen": "node tools/test-zonen.js",
     "test:systemmodell": "node tools/test-systemmodell.js",
