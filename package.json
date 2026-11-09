@@ -252,6 +252,8 @@
     "test:finale-boden-mutation": "node tools/mutation-finale-boden.js",
     "test:abenteuer-orte": "node tools/test-abenteuer-orte.js",
     "test:abenteuer-orte-mutation": "node tools/mutation-abenteuer-orte.js",
+    "test:planeten-eignung": "node tools/test-planeten-eignung.js",
+    "test:planeten-eignung-mutation": "node tools/mutation-planeten-eignung.js",
     "test:finale-orbit": "node tools/test-finale-orbit.js",
     "test:finale-orbit-mutation": "node tools/mutation-finale-orbit.js",
     "sim:finale-orbit": "node tools/sim-finale-orbit.js",

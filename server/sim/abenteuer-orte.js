@@ -6,6 +6,7 @@
 //
 //   bestellenAmKoerper(game, fadenId, { ort | hex, koerper, art, besitz?, name?, platz? }) -> lpId | null   Ort an einem Planeten (koerper = Index in scene.planeten; Transferpunkt am Planeten).
 //                                                                     Hat der Hex eine Kachel (typ), ist koerper die Kachel-Id (k0) und der Landepunkt der Kachel wird verwendet (kein neuer Ort)
+//                                                                     Die Kartenart muss zur Planetenart passen (content/welt/planeten-eignung.json, server/sim/planeten-eignung.js), sonst null; grundAmKoerper(o) -> Klartext | null nennt den Grund
 //   bestellenAmPunkt(game, fadenId, { ort | hex, x, y, art, besitz?, name?, platz? }) -> lpId | null   Ort an einem Raumpunkt (z. B. Wrack); Schiff = verfallen (Daten)
 //   landeplatzVon(game, fadenId, platz?) -> lpId | null     der Landepunkt dieses Platzes (auch Kachel-Landepunkt), solange er da ist
 //   abraeumen(game, fadenId) -> bool                        alle Orte dieses Fadens weg (true) bzw. noch belegt (false, der Takt versucht es wieder); idempotent
@@ -18,6 +19,7 @@ const D = require('../../content/welt/abenteuer-orte.json');
 const Locations = require('../../shared/locations.js');
 const Sektoren = require('../../shared/sektoren.js');
 const Buehne = require('../../shared/buehne.js');
+const Eignung = require('./planeten-eignung.js');
 
 const lazy = (f) => { let m = null; return () => m || (m = require(f)); };
 const LP = lazy('./landepunkte.js');
@@ -79,7 +81,17 @@ function szene(o) {
 function koerperVon(sc, k) {
   if (Array.isArray(sc.koerper)) { const kz = sc.koerper.find((x) => x.id === k); return kz ? { kachel: kz.id } : null; }
   const p = Number.isInteger(k) && Array.isArray(sc.planeten) ? sc.planeten[k] : null;
-  return p && Number.isFinite(p.x) && Number.isFinite(p.y) && Number.isFinite(p.r) ? { beam: { x: Math.round(p.x), y: Math.round(p.y), range: Math.round(p.r + D.koerper.beam_zuschlag) } } : null;
+  return p && Number.isFinite(p.x) && Number.isFinite(p.y) && Number.isFinite(p.r) ? { planetenart: p.art, beam: { x: Math.round(p.x), y: Math.round(p.y), range: Math.round(p.r + D.koerper.beam_zuschlag) } } : null;
+}
+// Warum bestellenAmKoerper diese Angaben ablehnt (Klartext), null = nichts dagegen. Fuer den Plan-Pruefer (DYN-01 B) und BEA-02; prueft nur Ort, Koerper und Eignung (Muster der uebrigen Felder: bestellung()).
+function grundAmKoerper(o) {
+  o = istObjekt(o) ? o : {};
+  const s = szene(o);
+  if (!s) return 'Ort oder Hex unbekannt (kein Hex der Karte mit Szene)';
+  const k = koerperVon(s.sc, o.koerper);
+  if (!k) return `Koerper '${o.koerper}' gibt es in ${s.ort} nicht`;
+  if (k.kachel) return null;   // typ-Hex: der Landepunkt der Kachel gilt (kachelDef), keine Eignungsliste
+  return Eignung.grundGegen(k.planetenart, o.art);
 }
 function bestellung(o, ort, beam) {   // gemeinsame Pruefung der Angaben -> Bestellung | null
   const platz = o.platz === undefined ? '' : o.platz;
@@ -118,6 +130,7 @@ function bestellenAmKoerper(game, fadenId, o) {
     if (!d || typeof platz !== 'string' || (platz !== '' && !MUSTER.platz.test(platz))) return null;
     return eintragen(game, fadenId, { platz, ort: s.ort, kachel: kid }, () => kid);
   }
+  if (!Eignung.artPasstAmKoerper(k.planetenart, o.art)) return null;   // Kartenart passt nicht zur Planetenart (planeten-eignung.json); Klartext: grundAmKoerper
   const b = bestellung(o, s.ort, k.beam);
   return b && eintragen(game, fadenId, b, (f) => anlegen(game, f, b));
 }
@@ -211,4 +224,4 @@ function abgleichen(game) {
 }
 const update = (game) => { if (game.landepunkte || fadenZustand(game)) abgleichen(game); };   // jeder Tick (game.js): Retry, solange jemand unten ist
 
-module.exports = { bestellenAmKoerper, bestellenAmPunkt, landeplatzVon, abraeumen, abgleichen, update, lese, parse, idVon, DATEN: D };
+module.exports = { grundAmKoerper, bestellenAmKoerper,bestellenAmPunkt, landeplatzVon, abraeumen, abgleichen, update, lese, parse, idVon, DATEN: D };

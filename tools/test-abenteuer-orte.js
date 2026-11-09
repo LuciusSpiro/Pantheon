@@ -94,7 +94,9 @@ const runter = (T, id) => { const g = T.g; stehen(T, beamVon(g, id).x + 20, beam
 const hoch = (T, spieler) => { away.executeBeam(T.g, (spieler || T.g.players).map((p) => p.id), 'up'); T.run(0.5); };
 
 // Karte: sund_frei, Planeten ohne Standard-Landeplatz (skjaldborg: ozean, wueste; carrara: zwei ozean)
-const PLANET_ORT = 'skjaldborg', PLANET = 1;   // wueste (x 1034, y 1497, r 153)
+const PLANET_ORT = 'skjaldborg', PLANET = 1;   // wueste (x 1034, y 1497, r 153): wildnis, aussenposten
+// DYN-01 C: die Hoehle gibt es laut content/welt/planeten-eignung.json nicht an einer Wueste, sondern an Fels/Eis (hier kaupangr, Planet 0 fels, r 201)
+const HOEHLE_ORT = 'kaupangr', HOEHLE = 0;
 
 (async () => {
   const sund = JSON.parse(fs.readFileSync(path.join(ROOT, 'content', 'welt', 'sund_frei.json'), 'utf8'));
@@ -145,14 +147,15 @@ const PLANET_ORT = 'skjaldborg', PLANET = 1;   // wueste (x 1034, y 1497, r 153)
     hierHin(T, PLANET_ORT);
     const bau = async (id, art, zustand) => {
       assert.ok(id, art + ' bestellt'); await tick(5);
+      hierHin(T, AO.parse(id).ort);   // waehlen verlangt das Schiff in der Szene des Ortes
       assert.strictEqual(LP.waehlen(g, id, null), null, art + ' waehlen');
       assert.strictEqual(W.AWAY_MAPS[id].karte.art, art, 'Kartenart ' + art);
       if (zustand) assert.strictEqual(LP.eintrag(g, id).zustand, zustand, 'Zustand ' + art);
       assert.ok(W.AWAY_MAPS[id].karte.rows && W.AWAY_MAPS[id].karte.rows.length, art + ' hat Gelaende');
     };
     const a1 = AO.bestellenAmKoerper(g, f.id, { ort: PLANET_ORT, koerper: PLANET, art: 'wildnis' });
-    const a2 = AO.bestellenAmKoerper(g, f.id, { ort: PLANET_ORT, koerper: PLANET, art: 'hoehle', platz: 'tief', name: 'Schacht' });
-    assert.strictEqual(a2, `${PLANET_ORT}.${f.id}-ort-tief`);
+    const a2 = AO.bestellenAmKoerper(g, f.id, { ort: HOEHLE_ORT, koerper: HOEHLE, art: 'hoehle', platz: 'tief', name: 'Schacht' });
+    assert.strictEqual(a2, `${HOEHLE_ORT}.${f.id}-ort-tief`);
     assert.strictEqual(AO.bestellenAmKoerper(g, f.id, { ort: PLANET_ORT, koerper: PLANET, art: 'aussenposten', platz: 'drei' }), null, 'Obergrenze orte_max ' + AO.DATEN.orte_max);
     assert.strictEqual(AO.bestellenAmKoerper(g, f.id, { ort: PLANET_ORT, koerper: PLANET, art: 'wildnis' }), a1, 'gleicher Platz: idempotent');
     assert.strictEqual(g.landepunkte.dyn[a1].name, 'Absturzstelle', 'Standardname aus den Daten');
@@ -186,7 +189,7 @@ const PLANET_ORT = 'skjaldborg', PLANET = 1;   // wueste (x 1034, y 1497, r 153)
     const T = spiel(), g = T.g; const f = laufendesAbenteuer(g);
     hierHin(T, PLANET_ORT);
     const w = AO.bestellenAmKoerper(g, f.id, { ort: PLANET_ORT, koerper: PLANET, art: 'wildnis', name: 'Absturzstelle' });
-    const h = AO.bestellenAmKoerper(g, f.id, { ort: PLANET_ORT, koerper: PLANET, art: 'hoehle', platz: 'tief', besitz: 'kustoden' });
+    const h = AO.bestellenAmKoerper(g, f.id, { ort: HOEHLE_ORT, koerper: HOEHLE, art: 'hoehle', platz: 'tief', besitz: 'kustoden' });
     await tick(6); Lpscan.markieren(g, w);
     const hash = { [w]: kartenHash(g, w), [h]: kartenHash(g, h) };
     const stand = LP.toSave(g); assert.ok(!(w in stand) && !(h in stand), 'welt.landepunkte (toSave) kennt die Orte nicht');
@@ -328,13 +331,13 @@ const PLANET_ORT = 'skjaldborg', PLANET = 1;   // wueste (x 1034, y 1497, r 153)
       const arten = [['wildnis', 'k'], ['hoehle', 'k'], ['aussenposten', 'k'], ['schiff', 'p'], ['station', 'p']];
       for (const [art, wo] of arten) {
         LP.cacheLeeren(); zeiten.length = 0;
-        const o = { ort: PLANET_ORT, art };
-        const id = wo === 'k' ? AO.bestellenAmKoerper(g, f.id, Object.assign({ koerper: PLANET }, o)) : AO.bestellenAmPunkt(g, f.id, Object.assign({ x: 1400, y: 1000 }, o));
+        const o = { ort: art === 'hoehle' ? HOEHLE_ORT : PLANET_ORT, art };
+        const id = wo === 'k' ? AO.bestellenAmKoerper(g, f.id, Object.assign({ koerper: art === 'hoehle' ? HOEHLE : PLANET }, o)) : AO.bestellenAmPunkt(g, f.id, Object.assign({ x: 1400, y: 1000 }, o));
         assert.strictEqual(zeiten.length, 0, 'baut nicht auf dem Stack des Aufrufers');
         assert.ok(!LP.cacheHat(id), 'noch nicht gebaut (laeuft ausserhalb des Ticks)');
         await tick(5);
         assert.strictEqual(zeiten.length, 1, art + ': Vorbau abgeschlossen'); assert.ok(LP.cacheHat(id), art + ': Karte im Cache');
-        const t0 = process.hrtime.bigint(); assert.strictEqual(LP.waehlen(g, id, null), null); const warm = Number(process.hrtime.bigint() - t0) / 1e6;
+        hierHin(T, AO.parse(id).ort); const t0 = process.hrtime.bigint(); assert.strictEqual(LP.waehlen(g, id, null), null); const warm = Number(process.hrtime.bigint() - t0) / 1e6;
         ausgabe.push(`${art} Vorbau ${zeiten[0].toFixed(1)} ms, Wahl danach ${warm.toFixed(1)} ms`);
         assert.ok(warm < 1000 / CONFIG.tickHz, `${art}: Wahl nach Vorbau ${warm.toFixed(1)} ms liegt im Tickbudget (${(1000 / CONFIG.tickHz).toFixed(1)} ms)`);
         assert.strictEqual(AO.abraeumen(g, f.id), true);
