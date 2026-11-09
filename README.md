@@ -1469,6 +1469,14 @@ mit `mission.md` (lesbare Fassung) und `mission.json` (spielbar). Details: `cont
 4. **Angenommene Missionen vergrößern den Vorrat** der Standard-Missionen (wie das Archiv), ab dem nächsten Serverstart.
    Offene und abgelehnte werden nie angeboten. Anmerkungen gehören unter `## Notizen`.
 
+### Mitschnitt simulierter Läufe (MIT-01)
+Bei `MITSCHNITT=1` schreiben simulierte Läufe jede vollständig gespielte Mission mit ihrem **Verlauf** heraus (Funk, ODA, Entscheidungen mit gewählter Option, Ausgang, Folgen, Modellweg), ohne den Spielverlauf zu ändern (Golden Trace byte-gleich). Ohne den Schalter entsteht nichts.
+- Ablage: `data/mitschnitt/<datum>_<werkzeug>-s<seed>-c<crew>-<modus>/` (nicht im Git), umlenkbar mit `MITSCHNITT_DIR`. Je Lauf `index.md` und `verlauf.json`, je Mission ein Ordner mit `mission.md`.
+- Einschalten in den Läufern: `--mitschnitt` (und `--mitschnitt-dir <ordner>`) bei `npm run spiel:faden` und `node tools/sim-headless.js <modus>`; andere Werkzeuge lesen `MITSCHNITT=1` aus der Umgebung. `sim-freie-fahrt` spielt keine Mission und ist nicht angebunden.
+- Review: `npm run mitschnitt` (`liste`, `zeigen <lauf|mission>`, `bewerten <mission> gut|schwach|verwerfen|offen`). Die Bewertung steht im Frontmatter `bewertung` (nie `status`), Anmerkungen unter `## Notizen`; beides bleibt beim Neuschreiben erhalten.
+- Die Dokumente nennen die **Wahlregel des Bots** und alle **künstlich gesetzten Schritte** (Teleport, Testhelfer-Kills, Skips): Sie zeigen Bot-Verhalten, nicht Spielerverhalten. Die Zuordnung von Funk zu einem Abenteuer ist heuristisch (laufender Faden).
+- Vertrag und Datenmodell: `CONTRACT-MIT01.md`. Der Mitschnitt führt keine Spielernamen.
+
 ### Live-Spielleiter einschalten
 Ohne Schalter spielt nur das Archiv (kostet nichts). Live braucht **beide** Einträge in der `.env` und die Claude-CLI (Abo):
 ```
@@ -2369,6 +2377,7 @@ gehen mit `tune` auch andere Konfig-Pfade wie `combat.raiderOrbit` oder `crewSca
 | `npm run golden` | Golden Trace: `--all` zeichnet m1–m3 × Crew 1/3 × Seeds auf, `--compare <A> <B> --allow <json>` vergleicht |
 | `npm run test:llm` | **nur von Hand** und nur mit `LLM_LIVE=1`: 1 Grobplan + 1 Szene live, `--record` legt Aufzeichnungen an; `-- --pipeline --welt ohne-tutorial --auftraggeber sela` fährt den echten Spielleiter (Grobplan + alle Szenen) und legt die Mission in `content/spielleiter/erzeugt/` ab (≈ 26 000 Tokens je Grobplan-Versuch, ≈ 24 000 je Szene) |
 | `npm run missionen` | (S2) erzeugte Missionen: `liste`, `zeigen`, `annehmen`, `ablehnen`, `md` |
+| `npm run mitschnitt` | (MIT-01) Mitschnitte simulierter Läufe: `liste`, `zeigen`, `bewerten` (Aufnahme mit `MITSCHNITT=1` bzw. `--mitschnitt`) |
 | `npm run regie -- <weltId>` | (S2) Regie-Logbuch als Markdown-Bericht |
 | `npm run test:escort` | (S2) Schützling: Bewegung, Befehle, Schaden, Breitseite, Ausgänge |
 
