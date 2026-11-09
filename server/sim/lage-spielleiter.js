@@ -101,6 +101,7 @@ class LageSpielleiter {
     this.failNext = false;
     this.aus = null;             // Grund, wenn der Transport für diese Sitzung aus ist (CLI fehlt)
     this.ausGemeldet = false;
+    this.notbetriebFunkIn = null;      // FRE-01 Nacharbeit 2: Funk vorgemerkt, Restzeit in Spielsekunden (null = nichts vorgemerkt); Objekt-Zustand, nie im Weltstand
     this.notbetriebGemeldet = false;   // FRE-01 C: Hinweis "Notbetrieb" einmal je Sitzung (Objekt-Zustand, nie im Weltstand)
     this.startGeprueft = false;
     this.disposed = false;
@@ -142,14 +143,25 @@ class LageSpielleiter {
   // FRE-01 C: faellt das Modell im Live-Betrieb aus, merkt die Crew es EINMAL je Sitzung (Funk lage:1 + Zeile im Server-Log mit Grund). Nur im Betrieb live: im Rueckfall-Betrieb (absichtlich ohne
   // Modell) und bei mode off/mock kein Hinweis. Welche Gruende zaehlen, steht in den Daten (notbetrieb_gruende). Nichts blockiert, nichts wirft; das Regie-Logbuch schreiben die Ausfallstellen selbst.
   notbetriebMelden(grund, detail) {
-    if (this.disposed || this.mode !== 'live' || this.rueckfallBetrieb || this.notbetriebGemeldet) return false;
+    if (this.disposed || this.mode !== 'live' || this.rueckfallBetrieb || this.notbetriebGemeldet || this.notbetriebFunkIn !== null) return false;
     if (!this.W.notbetrieb_gruende.includes(grund)) return false;
-    this.notbetriebGemeldet = true;
     const T = this.W.notbetrieb_funk;
     const d = detail ? ': ' + String(detail).replace(/\s+/g, ' ').slice(0, 160) : '';
     try { this.game.log(T.log.replace('{grund}', grund).replace('{detail}', d)); } catch (e) { this.fehlerZaehlen('lage-notbetrieb-log', e); }
-    try { this.game.emit('radio', { from: T.sprecher, text: T.text, lage: 1, r: 1 }); } catch (e) { this.fehlerZaehlen('lage-notbetrieb', e); }
+    // Der Funk folgt erst nach notbetrieb_verzoegerung_s Spielzeit (aus update): sonst ersetzt die Brett-Zeile "Neuer Auftrag" im selben Tick die Lagemeldung auf dem Schirm.
+    // Vorgemerkt ist sofort (weitere Ausfaelle melden nicht erneut), gemeldet erst beim Senden.
+    const v = Number(this.W.notbetrieb_verzoegerung_s);
+    this.notbetriebFunkIn = Number.isFinite(v) && v > 0 ? v : 0;
     return true;
+  }
+  // Funk "Notbetrieb" nach Ablauf der Verzoegerung senden (aus update); nach dispose nicht mehr
+  notbetriebFunkTakt(dt) {
+    if (this.notbetriebFunkIn === null || this.disposed) return;
+    this.notbetriebFunkIn -= Number(dt) > 0 ? Number(dt) : 0;
+    if (this.notbetriebFunkIn > 0) return;
+    this.notbetriebFunkIn = null; this.notbetriebGemeldet = true;
+    const T = this.W.notbetrieb_funk;
+    try { this.game.emit('radio', { from: T.sprecher, text: T.text, lage: 1, r: 1 }); } catch (e) { this.fehlerZaehlen('lage-notbetrieb', e); }
   }
   // aus einem Fehlerobjekt des Transports: eigene Fehler (lokal) und Codes ausserhalb der Liste melden nicht
   notbetriebBeiFehler(e) { return this.notbetriebMelden(e && e.lokal ? 'lokal' : ((e && e.code) || 'EXIT'), e && e.message); }
@@ -235,6 +247,7 @@ class LageSpielleiter {
   // ---------- Tick-Pfad (zwischen den Ticks): abholen, Frist prüfen, vorgemerkte Anfrage starten
   update(dt) {
     if (!this.bereit()) return;
+    this.notbetriebFunkTakt(dt);
     this.startPruefen();
     this.abholen();
     this.fristPruefen();
@@ -354,6 +367,7 @@ class LageSpielleiter {
   // ---------- Ende (Raumende, Neustart, Schalter aus): Anfrage in der Luft wird verworfen, späte Antworten kommen nie an
   dispose() {
     if (this.disposed) return;
+    this.notbetriebFunkIn = null;   // vorgemerkter Notbetrieb-Funk verfaellt mit der Sitzung
     const inDerLuft = !!this.job;
     this.anfrageAbbrechen(this.job);
     try { this.abenteuer.dispose(); } catch (e) { this.fehlerZaehlen('abenteuer-dispose', e); }

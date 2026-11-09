@@ -71,6 +71,9 @@ function startLive(env, stub) {
 }
 const stubFehler = (code, msg) => ({ name: 'stub', call: async () => { const e = new Error(msg || code); e.code = code; throw e; } });
 const stubText = (text) => ({ name: 'stub', call: async () => ({ text, usage: { input: 1, output: 1 } }) });
+// FRE-01 Nacharbeit 2: der Funk folgt erst nach notbetrieb_verzoegerung_s Spielzeit (Spielschritte zu 1/30 s)
+const VERZ = DATEN.notbetrieb_verzoegerung_s.wert;
+function warten(g, extra) { for (let i = 0, n = Math.ceil((VERZ + (extra || 0)) * 30) + 3; i < n; i++) g.step(); }
 const pause = () => new Promise((r) => setImmediate(r));
 async function laufen(g, schritte) { for (let i = 0; i < schritte; i++) { await pause(); g.step(); } }
 // ein Lage-Plan und ein Abenteuer-Aufruf, beide ueber die Debug-Wege (ohne Mindestabstand/Deckel), danach abholen
@@ -118,7 +121,7 @@ section('(a) live + CLI fehlt: Hinweis genau einmal, nichts blockiert', async ()
   const g = startLive(ENV_OHNE_CLI);
   const l = g.lageSpielleiter;
   ok(l && l.mode === 'live' && !l.rueckfallBetrieb, 'Lage-Spielleiter im Betrieb live');
-  ok(hinweise(g).length === 1 && hinweise(g)[0].lage === 1 && hinweise(g)[0].from === T.sprecher, 'sofort beim Start: ein Funkhinweis (lage:1, Sprecher aus den Daten), noch vor dem ersten Plan');
+  warten(g); ok(hinweise(g).length === 1 && hinweise(g)[0].lage === 1 && hinweise(g)[0].from === T.sprecher, 'sofort beim Start: ein Funkhinweis (lage:1, Sprecher aus den Daten), noch vor dem ersten Plan');
   ok(logZeilen(g).length === 1 && /cli_fehlt/.test(logZeilen(g)[0]), 'Server-Log: eine Zeile mit Grund cli_fehlt (' + (logZeilen(g)[0] || '').slice(0, 90) + ')');
   ok(l.aufrufe === 0 && !l.job, 'kein Aufruf noetig fuer den Hinweis');
   l.opts.transport = stubFehler('ENOENT', 'claude nicht gefunden'); l.llm = null;
@@ -126,7 +129,7 @@ section('(a) live + CLI fehlt: Hinweis genau einmal, nichts blockiert', async ()
   ok(l.zaehler.fehler >= 1 || l.aus, 'Plaene scheitern (Zaehler ' + l.zaehler.fehler + ', aus: ' + l.aus + ')');
   ok(springe(g, 5) === 5, '5 echte Spruenge (Grenzen laufen)');
   g.lageGrenze('andocken'); g.lageGrenze('szene_ende'); await laufen(g, 4);
-  ok(hinweise(g).length === 1 && logZeilen(g).length === 1, 'nach mehreren Ausfaellen und Spruengen weiter genau EIN Hinweis und EINE Logzeile (' + hinweise(g).length + '/' + logZeilen(g).length + ')');
+  warten(g); ok(hinweise(g).length === 1 && logZeilen(g).length === 1, 'nach mehreren Ausfaellen und Spruengen weiter genau EIN Hinweis und EINE Logzeile (' + hinweise(g).length + '/' + logZeilen(g).length + ')');
   ok(angebote(g) >= 1 || (Brett.snapshot(g) || { angebote: [] }).angebote.length >= 1, 'Brett liefert ein Angebot aus dem Rueckfall (' + angebote(g) + ')');
   const bs = Brett.snapshot(g);
   ok(bs && bs.ok === 1 && bs.angebote.length >= 1, 'Brett-Snapshot ok:1 mit Angebot');
@@ -140,7 +143,7 @@ section('(b) je Ausfallgrund genau ein Hinweis; Einzelfehler melden nicht', asyn
     const g = startLive(ENV_MIT_CLI, stubFehler(code, msg));
     ok(hinweise(g).length === 0, code + ': vor dem Ausfall kein Hinweis (CLI da)');
     await aufrufe(g); await aufrufe(g);
-    ok(hinweise(g).length === 1 && logZeilen(g).length === 1 && logZeilen(g)[0].includes(code), code + ': genau ein Hinweis, Logzeile mit Grund');
+    warten(g); ok(hinweise(g).length === 1 && logZeilen(g).length === 1 && logZeilen(g)[0].includes(code), code + ': genau ein Hinweis, Logzeile mit Grund');
     ok(g.fehler.length === 0, code + ': keine Serverfehler ' + g.fehler.join('|'));
     g.zurLobby();
   }
@@ -149,21 +152,21 @@ section('(b) je Ausfallgrund genau ein Hinweis; Einzelfehler melden nicht', asyn
   const lt = gt.lageSpielleiter; lt.planErzwingen(); await laufen(gt, 2);
   ok(lt.zustand === 'laeuft', 'Frist: Anfrage in der Luft');
   gt.time += lt.W.timeout_s + 5; await laufen(gt, 2);
-  ok(hinweise(gt).length === 1 && /ETIMEDOUT/.test(logZeilen(gt)[0] || ''), 'Frist (Timeout): ein Hinweis, Grund ETIMEDOUT');
+  warten(gt); ok(hinweise(gt).length === 1 && /ETIMEDOUT/.test(logZeilen(gt)[0] || ''), 'Frist (Timeout): ein Hinweis, Grund ETIMEDOUT');
   gt.zurLobby();
   // Budget: Token-Deckel leer (min_budget), Plan und Abenteuer-Komposition
   LLM.setBudgetLimit(10);
   try {
     const gb = startLive(ENV_MIT_CLI, stubText('{"befehle":[]}'));
     const lb = gb.lageSpielleiter; lb.letzterStartTick = null; const r = lb.planErzwingen();
-    ok(r.grund === 'budget' && hinweise(gb).length === 1 && /BUDGET/.test(logZeilen(gb)[0] || ''), 'BUDGET (Lage-Gate): ein Hinweis, Grund BUDGET (' + r.grund + ')');
+    warten(gb); ok(r.grund === 'budget' && hinweise(gb).length === 1 && /BUDGET/.test(logZeilen(gb)[0] || ''), 'BUDGET (Lage-Gate): ein Hinweis, Grund BUDGET (' + r.grund + ')');
     lb.planErzwingen(); lb.planErzwingen();
-    ok(hinweise(gb).length === 1, 'BUDGET: weitere Grenzen melden nicht erneut');
+    warten(gb); ok(hinweise(gb).length === 1, 'BUDGET: weitere Grenzen melden nicht erneut');
     gb.zurLobby();
     const ga = startLive(ENV_MIT_CLI, stubText('{"befehle":[]}'));
     const la = ga.lageSpielleiter; const F = ga.weltsim.faeden; if (F && F.abenteuerAngebote) F.abenteuerAngebote.length = 0;
     la.abenteuer.erzwingen();
-    ok(hinweise(ga).length === 1 && /BUDGET/.test(logZeilen(ga)[0] || ''), 'BUDGET (Abenteuer-Gate): ein Hinweis');
+    warten(ga); ok(hinweise(ga).length === 1 && /BUDGET/.test(logZeilen(ga)[0] || ''), 'BUDGET (Abenteuer-Gate): ein Hinweis');
     ga.zurLobby();
   } finally { LLM.resetBudget(); }
   // Einzelfehler: unbrauchbare Antwort, ungueltiger Plan, Pruefer-Ablehnung: Hinweis bleibt aus
@@ -226,7 +229,7 @@ section('(e) zweite Sitzung, Weltstand unveraendert', async () => {
   g.handleMessage(g.conn, { t: 'lobbyOpt', startMission: 'freie_fahrt' });
   g.handleMessage(g.conn, { t: 'ready', ready: true });
   g.step();
-  ok(hinweise(g).length === 1, 'Sitzung 1: ein Hinweis');
+  warten(g); ok(hinweise(g).length === 1, 'Sitzung 1: ein Hinweis');
   const l1 = g.lageSpielleiter;
   l1.opts.transport = stubFehler('RATE_LIMIT'); l1.llm = null;
   await aufrufe(g);
@@ -245,11 +248,11 @@ section('(e) zweite Sitzung, Weltstand unveraendert', async () => {
   g.lobbyOpts.liveSpielleiter = true; g.lobbyOpts.world = null;   // neue Welt (die Lobby merkt sich sonst den gerade gespeicherten Stand: Fortsetzen ist nie live)
   g.handleMessage(g.conn, { t: 'lobbyOpt', startMission: 'freie_fahrt' });
   g.handleMessage(g.conn, { t: 'ready', ready: true });
-  g.step();
+  g.step(); warten(g);
   ok(g.lageSpielleiter && g.lageSpielleiter !== l1 && g.lageSpielleiter.notbetriebGemeldet === true && hinweise(g).length === 1 && logZeilen(g).length === 1, 'Sitzung 2 (neue Welt): meldet wieder genau einmal');
   g.lageSpielleiter.opts.transport = stubFehler('ETIMEDOUT'); g.lageSpielleiter.llm = null;
   await aufrufe(g); await aufrufe(g);
-  ok(hinweise(g).length === 1, 'Sitzung 2: weiter genau einer');
+  warten(g); ok(hinweise(g).length === 1, 'Sitzung 2: weiter genau einer');
   g.zurLobby();
   // Fortsetzen des Standes ist nie live: kein Hinweis, Stand laedt heil, Bloecke unveraendert
   const h = bauGame({ dir, env: ENV_OHNE_CLI });
@@ -268,14 +271,51 @@ section('(f) Funktext aus den Daten', async () => {
   const g = startLive(ENV_MIT_CLI, stubText('{}'));
   const l = LS.create(g, { mode: 'live', env: g.env, transport: stubText('{}'), cliFinden: () => ({ cmd: null, versucht: ['/x'] }), werte: { notbetrieb_funk: { sprecher: 'Testsprecher', text: 'Testtext Notbetrieb.', log: 'Log {grund}{detail}' } } });
   const vor = g.funk.length;
-  l.update(0);
+  l.update(0); l.update(VERZ + 1);
   const neu = g.funk.slice(vor);
   ok(neu.length === 1 && neu[0].text === 'Testtext Notbetrieb.' && neu[0].from === 'Testsprecher' && neu[0].lage === 1 && neu[0].r === 1, 'Text und Sprecher kommen aus den Daten (ueberschrieben per werte)');
   ok(logZeilen(g).length === 0 && g.logs.some((z) => /Log cli_fehlt: versucht: \/x/.test(z)), 'Logzeile aus der Daten-Vorlage mit Grund und Detail');
   l.dispose();
   const g2 = startLive(ENV_OHNE_CLI);
-  ok(hinweise(g2)[0] && hinweise(g2)[0].text === T.text && hinweise(g2)[0].from === T.sprecher && !g2.funk.some((f) => /\bBot\b/.test(f.text || '')), 'Standardtext aus content/welt/notbetrieb-hinweis.json, ohne Spielername');
+  warten(g2); ok(hinweise(g2)[0] && hinweise(g2)[0].text === T.text && hinweise(g2)[0].from === T.sprecher && !g2.funk.some((f) => /\bBot\b/.test(f.text || '')), 'Standardtext aus content/welt/notbetrieb-hinweis.json, ohne Spielername');
   g.zurLobby(); g2.zurLobby();
+});
+
+section('(h) Verzoegerung: Hinweis erst nach notbetrieb_verzoegerung_s, genau einmal, nie nach dispose', async () => {
+  ok(typeof VERZ === 'number' && VERZ >= 7 && DATEN.notbetrieb_verzoegerung_s.einheit && DATEN.notbetrieb_verzoegerung_s._hinweis, 'Daten: Verzoegerung mindestens 7 s (Client zeigt Lagefunk hoechstens 6 s, Folgemeldungen 7 s), mit einheit und _hinweis');
+  const g = startLive(ENV_OHNE_CLI);
+  const l = g.lageSpielleiter;
+  ok(logZeilen(g).length === 1 && hinweise(g).length === 0 && l.notbetriebFunkIn !== null && l.notbetriebGemeldet === false, 'sofort: Logzeile da, Funk nur vorgemerkt, noch nicht gemeldet');
+  ok(l.notbetriebMelden('ENOENT') === false && l.notbetriebMelden('BUDGET') === false && logZeilen(g).length === 1, 'weiterer Ausfall waehrend der Wartezeit: nichts doppelt');
+  for (let i = 0; i < Math.floor((VERZ - 1) * 30); i++) g.step();
+  ok(hinweise(g).length === 0, 'kurz vor Ablauf noch kein Funk');
+  warten(g);
+  ok(hinweise(g).length === 1 && l.notbetriebGemeldet === true && l.notbetriebFunkIn === null, 'nach Ablauf genau ein Funk, gemeldet');
+  // der Brett-Hinweis (lage:1) liegt vor dem Notbetrieb-Funk und kommt nicht doppelt
+  const idx = g.funk.findIndex((f) => f.text === T.text);
+  warten(g, 10); l.notbetriebMelden('ENOENT');
+  ok(hinweise(g).length === 1 && idx >= 0, 'danach weiter genau einer (auch bei neuem Ausfall und mehr Zeit)');
+  g.zurLobby();
+  // dispose in der Wartezeit: nichts mehr
+  const d = startLive(ENV_OHNE_CLI);
+  const ld = d.lageSpielleiter;
+  ld.dispose();
+  ok(ld.notbetriebFunkIn === null, 'dispose verwirft den vorgemerkten Funk');
+  ld.update(VERZ + 5); warten(d);
+  ok(hinweise(d).length === 0, 'nach dispose kommt kein Hinweis');
+  d.zurLobby();
+  // Moduswechsel (zurLobby) in der Wartezeit
+  const m = startLive(ENV_OHNE_CLI);
+  m.zurLobby(); m.funk.length = 0;
+  for (let i = 0; i < Math.ceil((VERZ + 2) * 30); i++) m.step();
+  ok(hinweise(m).length === 0 && m.lageSpielleiter === null, 'zurLobby in der Wartezeit: kein Hinweis');
+  // Rueckfall-Betrieb: nie vorgemerkt
+  const r = bauGame({ env: ENV_OHNE_CLI });
+  r.handleMessage(r.conn, { t: 'lobbyOpt', startMission: 'freie_fahrt' }); r.handleMessage(r.conn, { t: 'ready', ready: true }); r.step();
+  warten(r);
+  ok(r.lageSpielleiter.notbetriebFunkIn === null && hinweise(r).length === 0, 'Rueckfall-Betrieb: nichts vorgemerkt, kein Hinweis');
+  r.zurLobby();
+  ok(prozesse.length === 0, 'kein CLI-Prozess');
 });
 
 section('(g) Rueckfall liefert weiter das Angebot', async () => {
@@ -283,7 +323,7 @@ section('(g) Rueckfall liefert weiter das Angebot', async () => {
   springe(g, 8);
   await aufrufe(g);
   const l = g.lageSpielleiter;
-  ok(hinweise(g).length === 1, 'Hinweis einmal');
+  warten(g); ok(hinweise(g).length === 1, 'Hinweis einmal');
   ok(!!l && Faden.spielleiterAktiv(g), 'spielleiterAktiv trotz Ausfall');
   // aufrufe() raeumt die Angebote leer (Platz fuer den Abenteuer-Aufruf): der Rueckfall (Anschluss-Garantie, anschluss.json) legt eines nach
   g.weltsim.faeden.abenteuerAngebote.length = 0;
