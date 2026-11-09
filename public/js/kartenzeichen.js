@@ -4,6 +4,7 @@
 //   Kartenzeichen.MARKEN                      Marken-Typen { ziel, notruf, spur, fund, kontakt } -> { farbe, name, kurz }
 //   Kartenzeichen.symbol(ctx, id, x, y, o)    Hex-/Sektor-Symbol (IconsB, sonst Ersatz); o: { farbe }
 //   Kartenzeichen.hauptIcon(system)           Symbol-ID aus einem Karteneintrag (art, symbole, hafen, einfluss)
+//   Kartenzeichen.typIcon(system) / typName(system)   KAC-01 D: Icon-Name bzw. Anzeigename des Hex-Felds `typ` (null ohne typ); Tabellen TYP_ICON / TYP_NAME
 //   Kartenzeichen.einfluss(ctx, id, x, y)     Einflusszeichen (Gas, Nebel, Asteroiden …)
 //   Kartenzeichen.boje(ctx, zustand, x, y, s) Sprungpunkt-Perle (aktiv | gesperrt | temporaer | ohne_strom)
 //   Kartenzeichen.marke(ctx, typ, x, y, t, o) Marken-Plakette (Missionsziel, Notruf, Spur, Fund, Kontakt); o: { r, rest, gesamt, hier }
@@ -39,6 +40,13 @@
   const SYMBOL_NAME = { home: 'Heimathafen', heimat: 'Heimathafen', pantheon: 'Schrein', schrein: 'Schrein', ruin: 'Ruine',
     ruine: 'Ruine', pirate: 'Piraten', piraten: 'Piraten', fort: 'Festung', festung: 'Festung', ally: 'Verbündete',
     target: 'Ziel', bomb: 'Sprengziel', wrack: 'Wrack', boje: 'Boje' };
+  // KAC-01 D: Sektortypen (Hex-Feld `typ`, Katalog content/welt/sektortypen.json). Fest verdrahtet, weil der Katalog im Browser nicht da ist:
+  // TYP_ICON = Typ-ID -> Icon-Name des Katalogs (Feld icon) = IconsB.hex-ID oder Alias; TYP_NAME = Typ-ID -> Anzeigename (Feld name).
+  // tools/test-check-kacheln.js gleicht beide Tabellen mit dem Katalog ab.
+  const TYP_ICON = { planet: 'planet', gasriese: 'gasriese', station: 'station', asteroidenfeld: 'asteroiden', grosser_asteroid: 'asteroid',
+    nebel: 'nebel', wrackfeld: 'wrack', leerraum: 'leer', piratenlager: 'lager', instabil: 'unbekannt' };
+  const TYP_NAME = { planet: 'Planet', gasriese: 'Gasriese', station: 'Station', asteroidenfeld: 'Asteroidenfeld', grosser_asteroid: 'Grosser Asteroid',
+    nebel: 'Nebel', wrackfeld: 'Wrackfeld', leerraum: 'Leerraum', piratenlager: 'Piratenlager', instabil: 'Instabil' };
   const ZUSTAND_NAME = { aktiv: 'aktiv', gesperrt: 'gesperrt', temporaer: 'temporär', ohne_strom: 'ohne Strom' };
   const ZUSTAND_FARBE = { aktiv: COL.aktiv, gesperrt: COL.gesperrt, temporaer: COL.temporaer, ohne_strom: COL.ohneStrom };
   // Marken (Server: server/sim/marken.js): Farbe der Plakette, Name, Kurzbuchstabe für die Legende
@@ -143,7 +151,18 @@
     }
     ctx.restore();
   }
+  // KAC-01 D: Typ-IDs eines Karteneintrags (typ: ID oder Liste), nur bekannte; leer ohne Feld typ
+  function typIds(daten) {
+    if (!daten || daten.typ === undefined) return [];
+    return (Array.isArray(daten.typ) ? daten.typ : [daten.typ]).filter((t) => Object.prototype.hasOwnProperty.call(TYP_ICON, t));
+  }
+  // Icon-Name des Haupttyps (erster Eintrag) eines Karteneintrags; null ohne typ (dann gilt hauptIcon wie bisher)
+  function typIcon(daten) { const t = typIds(daten)[0]; return t ? TYP_ICON[t] : null; }
+  // Anzeigename der Typen („Planet + Planet + Station“); null ohne typ
+  function typName(daten) { const t = typIds(daten); return t.length ? t.map((id) => TYP_NAME[id]).join(' + ') : null; }
   function hauptIcon(s) {
+    const ti = typIcon(s);   // KAC-01 D: Hex mit typ zeigt das Zeichen seines Haupttyps; ohne typ bleibt alles unten wie bisher
+    if (ti) return ti;
     for (const sym of s.symbole || []) if (SYMBOL_ICON[sym] === 'heimat') return 'heimat';
     const art = String(s.art || '').toLowerCase();
     if (/wrack/.test(art)) return 'wrack';
@@ -201,6 +220,6 @@
   }
   function markeText(typ, name) { const M = MARKEN[typ] || MARKEN.fund; return M.name + (name ? ': ' + name : ''); }
 
-  return { COL, FRAKTION, EINFLUSS, SYMBOL_ICON, SYMBOL_NAME, ZUSTAND_NAME, ZUSTAND_FARBE, MARKEN,
-    symbol, hauptIcon, einfluss, boje, bojeErsatz, fraktionFarbe, hexPfad, marke, markeText };
+  return { COL, FRAKTION, EINFLUSS, SYMBOL_ICON, SYMBOL_NAME, ZUSTAND_NAME, ZUSTAND_FARBE, MARKEN, TYP_ICON, TYP_NAME,
+    symbol, hauptIcon, typIcon, typName, einfluss, boje, bojeErsatz, fraktionFarbe, hexPfad, marke, markeText };
 });

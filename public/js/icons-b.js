@@ -52,6 +52,12 @@
     schrein: ['....##....', '....##....', '...#ww#...', '...#ww#...', '###wwww###', '###wwww###', '...#ww#...', '...#ww#...', '....##....', '....##....'],
     festung: ['##..##..##', '##..##..##', '##########', '#++++++++#', '#+##++##+#', '#+##++##+#', '#++++++++#', '#+++oo+++#', '#+++oo+++#', '##########'],
     wrack: ['..........', '.###......', '#+++##....', '#++++#.#..', '.##++#.##.', '.....##++#', '.....#+++#', '......###.', '..#.......', '#...#.....'],
+    // KAC-01 D: Zeichen der Sektortypen (Katalog content/welt/sektortypen.json, Feld icon); gasriese, asteroiden, nebel, wrack und station (= hafen) gibt es oben schon
+    planet: ['...####...', '..##++##..', '.#++++++#.', '#++++++++#', '#+++++++o#', '#++++++oo#', '#+++++ooo#', '.#+ooooo#.', '..##oo##..', '...####...'],
+    asteroid: ['..........', '...###....', '..#+++##..', '.#++++++#.', '#+++o++++#', '#++ooo+++#', '.#+++o++#.', '.##+++++#.', '..#######.', '..........'],
+    leer: ['...#..#...', '.#......#.', '..........', '#........#', '..........', '..........', '#........#', '..........', '.#......#.', '...#..#...'],
+    lager: ['....####..', '....#ww#..', '....####..', '....#.....', '....#.....', '....#.....', '...###....', '..#####...', '.#######..', '##########'],
+    unbekannt: ['..######..', '.##....##.', '.#......#.', '.......##.', '.....###..', '....##....', '....#.....', '....#.....', '..........', '....#.....'],
   };
 
   // ---------------------------------------------------------------------------------------------
@@ -109,6 +115,8 @@
       piraten: { haupt: PAL.rostsand }, asteroiden: { haupt: PAL.gedaempft }, nebel: { haupt: PAL.lavendel, akzent: PAL.hell },
       boje: { haupt: PAL.gold }, heimat: { haupt: PAL.hell, hell: '#4A4466', akzent: PAL.gold }, schrein: { haupt: PAL.gold, akzent: PAL.weissgold },
       festung: { haupt: PAL.stahlhell }, wrack: { haupt: PAL.bronze },
+      planet: { haupt: PAL.fern }, asteroid: { haupt: PAL.gedaempft }, leer: { haupt: PAL.stahlhell },
+      lager: { haupt: PAL.rostsand, akzent: PAL.glut }, unbekannt: { haupt: PAL.vorlaeufer },
     },
     einfluss: {
       gas: { haupt: PAL.gift }, asteroiden: { haupt: PAL.gedaempft }, truemmerstrom: { haupt: PAL.bronze },

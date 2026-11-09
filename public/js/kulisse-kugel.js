@@ -17,7 +17,7 @@
     radiusStufe: 4, cacheMax: 24, lichtStufen: 24,   // Zwischenspeicher: Radius in Stufen von 4 px, höchstens 24 Kugeln, 24 Lichtwinkel je Vollkreis
     randLicht: { tiefe: 70, alpha: 0.5 },            // Randglühen am Bildrand (T beschreibt nur den Stern selbst)
   };
-  const ARTEN = ['fels', 'eis', 'wueste', 'ozean', 'gasriese'];
+  const ARTEN = ['fels', 'eis', 'wueste', 'ozean', 'gasriese', 'wiesenwald', 'vulkan'];   // KAC-01 D: wiesenwald, vulkan (Planetenarten der Sektortypen) hinten angehängt
   const KLASSEN = ['gelb', 'orange', 'weiss', 'rot'];
 
   function tokens() {
@@ -85,6 +85,8 @@
           if (art === 'ozean') { if (h > 0.56 && land) { pal = land; tone = (h - 0.56) * 3.2; } else tone = 0.35 + h * 0.6; }
           else if (art === 'eis') tone = 0.45 + h * 0.7 + (Math.abs(yy) > 0.7 ? 0.3 : 0);
           else if (art === 'wueste') tone = 0.3 + h * 0.6 + Math.sin(yy * 14 + h * 5) * 0.06;
+          else if (art === 'wiesenwald') tone = 0.3 + h * 0.7 + (fbm(xx * 6, yy * 6, z2 * 6, seed + 5, 3) > 0.55 ? 0.14 : 0);   // Wälder als helle Flecken auf Grasland
+          else if (art === 'vulkan') tone = 0.12 + h * 0.6 + (fbm(xx * 7, yy * 7, z2 * 7, seed + 9, 3) > 0.62 ? 0.55 : 0);   // Glutadern auf dunklem Basalt
           else tone = 0.2 + h * 0.85 + (fbm(xx * 9, yy * 9, z2 * 9, seed + 3, 2) > 0.62 ? -0.25 : 0);
         }
         const light = Math.max(0, Math.min(1, dif * T.licht.diffus + T.licht.versatz));

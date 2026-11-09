@@ -79,6 +79,9 @@
     wueste: { rampe: ['#2A1A0E', '#5A3418', '#8E5428', '#C07C40', '#E8B272'], atm: '#F2C08A', atmAlpha: 0.35 },
     ozean: { rampe: ['#08142A', '#0F3256', '#1C5784', '#3A86B2', '#86C2DA'], land: ['#1C2E1A', '#2E4A26', '#4E6A36', '#7A8A50'], atm: '#8FD0EC', atmAlpha: 0.6 },
     gasriese: { rampe: ['#2A1A12', '#58361F', '#8A5530', '#B87E48', '#DDB27A', '#F2DCB0'], atm: '#F0C88E', atmAlpha: 0.55 },
+    // KAC-01 D: Planetenarten der Sektortypen (Katalog content/welt/sektortypen.json), kommen in scene.planeten[].art der Typ-Hexe vor
+    wiesenwald: { rampe: ['#0E1A12', '#1E3A22', '#386A34', '#6A9A4A', '#B2C877'], atm: '#A8E0B0', atmAlpha: 0.45 },
+    vulkan: { rampe: ['#140806', '#3A1408', '#7A2A0C', '#D05A18', '#FFB347'], atm: '#FF8A4C', atmAlpha: 0.4 },
   };
 
   // ------------------------------------------------------------------ Farben nach Rolle (Funktionsfarben, Brückenpulte)

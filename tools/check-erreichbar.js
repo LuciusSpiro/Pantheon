@@ -306,15 +306,30 @@ function lade() {
   try { for (const f of fs.readdirSync(path.join(__dirname, '..', 'content', 'spuren'))) if (f.endsWith('.json')) { const s = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'content', 'spuren', f), 'utf8')); spuren[s.id || f.slice(0, -5)] = s; } } catch (e) { /* keine Spuren */ }
   return { books, doc, spuren, notrufe: Notrufe.alleIds().map((id) => Notrufe.datei(id)) };
 }
+// KAC-01 D: Hexe mit Feld typ (Sektortypen-Katalog) einer Karte: Zusammenhang, Beam-Bereich je landbarem Körper anfliegbar, Sprungpunkte frei und anfliegbar.
+// Rein rechnerisch (tools/kacheln-pruefer.js); Landepunkt-IDs nach dem Schema k_<hex>.k<index>. Fehler im Format { code, p, msg } wie oben.
+function pruefeKachelnKarte(karte) {
+  const r = require('./kacheln-pruefer.js').pruefeKarteErreichbar(karte);
+  return { pruefungen: r.pruefungen, errors: r.fehler.map((f) => ({ code: f.code, p: f.wo, msg: f.msg })) };
+}
+function pruefeKachelnKarten() {
+  const errors = [];
+  let pruefungen = 0;
+  for (const id of Welt.ids()) { const r = pruefeKachelnKarte(Welt.karte(id)); pruefungen += r.pruefungen; for (const e of r.errors) errors.push(Object.assign({}, e, { p: id + '/' + e.p })); }
+  return { pruefungen, errors };
+}
 function pruefe(opts) {
   const o = opts || {};
   const L = Object.assign(lade(), o.ueberschreibe || {});
   const res = statisch(L);
+  const kacheln = pruefeKachelnKarten();
+  res.errors.push(...kacheln.errors);
+  res.info.push(`${kacheln.pruefungen} Teilprüfungen für Hexe mit typ (Karten limes/sund/sund_frei)`);
   if (o.dynamisch !== false && !res.errors.some((e) => e.code === 'ERR-KANTE' && /keine Nachbarhexe/.test(e.msg))) dynamisch(res, L);
   return res;
 }
 
-module.exports = { pruefe, statisch, lade, KAMPAGNE, KARTE };
+module.exports = { pruefe, statisch, lade, pruefeKachelnKarte, KAMPAGNE, KARTE };
 
 if (require.main === module) {
   const args = process.argv.slice(2);
