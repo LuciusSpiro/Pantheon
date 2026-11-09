@@ -164,7 +164,12 @@ function pruefe(api, laut) {
     p(tasten('arena_graben', { grabenListe: [{ name: 'Wiese', varianten: [{}, {}] }, { name: 'Wald', varianten: [{}, {}] }, { name: 'Hang', varianten: [{}] }] }) === 'K N W', 'Grabenangriff: K/N für Abschnitte mit zwei Varianten, W Waffe');
     p(tasten('labor') === '↑↓ ←→ R G W', 'Labor: ↑↓ Umsetzung, ←→ Stärke, R Seed, G god, W Waffe');
     p(tasten('eisenwald') === 'U' && tasten('eisenwald_ohne') === 'U' && tasten('m1') === 'U', 'U: Tutorial bei Eisenwald, Hafen-Übung bei Kampagne (Debug)');
-    p(tasten('freie_fahrt') === '' && tasten('arena_away', {}, { id: 'w' }) === '', 'Freie Fahrt ohne Optionen; mit gewähltem Weltstand entfällt die Startauswahl');
+    p(tasten('freie_fahrt') === 'V' && tasten('freie_fahrt', {}, { id: 'w' }) === '' && tasten('arena_away', {}, { id: 'w' }) === '', 'FRE-01: Freie Fahrt hat genau V (Live-Spielleiter); mit gewähltem Weltstand entfällt die Startauswahl');
+    { const o = F.optionenFuer('freie_fahrt', {}, null)[0], T = F.TEXT.opt, alle = Protocol.LOBBY_MODI.flatMap((m) => F.optionenFuer(m, { grabenListe: [], laborListe: [] }, null)).filter((x) => x.taste === 'V');
+      p(o.aktion === 'toggleLiveSpielleiter' && o.code === 'KeyV' && o.label === 'Live-Spielleiter' && alle.length === 1, 'FRE-01: V gehört nur der Freien Fahrt (keine Tastenkollision mit den anderen Modi)');
+      p(/Claude/.test(T.liveAn) && /Abo/.test(T.liveAn) && /Claude/.test(T.liveHinweis) && /Abo/.test(T.liveHinweis) && /CLAUDE_TOKEN_BUDGET/.test(T.liveHinweis) && !/[0-9]/.test(T.liveHinweis), 'FRE-01: Wert und Hinweis nennen „Claude“, „Abo“ und den Zähler CLAUDE_TOKEN_BUDGET, ohne Zahl im Text');
+      const ch = F.lobbyChips('freie_fahrt', {}, null, (x) => x.aktion), v = ch.find((c) => c.taste === 'V');
+      p(ch.length === 2 && v && v.name === 'Live-Spielleiter' && v.aktion === 'toggleLiveSpielleiter', 'FRE-01: Chips der Freien Fahrt: „M Modus ändern“ und „V Live-Spielleiter“'); }
     p(F.optionFuerTaste('ArrowDown', 'labor', {}).arg === 1 && F.optionFuerTaste('KeyZ', 'labor', {}) === null, 'Taste → Option (auch die versteckten Pfeile)'); }
   // ---- 9 Nacharbeit: Tutorial-Schalter U (S1)
   { const lobE = { startMission: 'eisenwald', worlds: [] };
@@ -243,7 +248,7 @@ function pruefe(api, laut) {
     const lade = (api2) => {
       const t = neu(api2, { debug: false }), win = { Render: {}, Pult: {}, Menue: TOKENS, MenueFluss: t.F, Hud: {}, Net: { serverRoomCode: 'AB' }, Tasten: { passt: (e, id) => id === 'allgemein.hilfe' && e.key === '?' } };
       new Function('window', 'Net', 'Tasten', quelleUi)(win, win.Net, win.Tasten);
-      const log = [], A = { sfx: () => {} }; for (const n of ['openOptions', 'openHilfe', 'openKammer', 'openWorlds', 'toggleReady', 'setColor', 'toggleWellenKarte', 'copyInvite', 'laborWahl', 'lobbyWaffe', 'toggleSkipDrill']) A[n] = (x) => { log.push(n + (x !== undefined ? ':' + x : '')); };
+      const log = [], A = { sfx: () => {} }; for (const n of ['openOptions', 'openHilfe', 'openKammer', 'openWorlds', 'toggleReady', 'setColor', 'toggleWellenKarte', 'copyInvite', 'laborWahl', 'lobbyWaffe', 'toggleSkipDrill', 'toggleLiveSpielleiter']) A[n] = (x) => { log.push(n + (x !== undefined ? ':' + x : '')); };
       const lob = { startMission: 'm1', worlds: [], laborAn: true }, view = { actions: A, pid: 'p1', state: { lobby: lob, players: [{ id: 'p1', name: 'A', ready: true, connected: true, color: 0 }] } };
       const druecke = (code, extra) => win.MenueUi.taste(Object.assign({ code, key: code, repeat: false }, extra || {}), view);
       return Object.assign(t, { win, log, view, lob, druecke, F: t.F });
@@ -264,7 +269,10 @@ function pruefe(api, laut) {
       d('KeyU'); const lobbyU = u.gesendet.length === 1 && u.gesendet[0].startMission === 'eisenwald' && !u.log.length;
       d('Enter'); d('Digit2'); d('KeyL'); d('KeyF'); d('KeyH'); d('Slash', { key: '?' });
       const lobby = lobbyU && gleich(u.log, ['toggleReady', 'setColor:1', 'copyInvite', 'openWorlds:list', 'openHilfe', 'openHilfe']);
-      u.log.length = 0; u.lob.startMission = 'arena_away'; d('KeyK'); d('KeyW'); const optionen = gleich(u.log, ['toggleWellenKarte', 'lobbyWaffe']);
+      u.log.length = 0; u.lob.startMission = 'arena_away'; d('KeyK'); d('KeyW'); const optionen0 = gleich(u.log, ['toggleWellenKarte', 'lobbyWaffe']);
+      u.log.length = 0; u.lob.startMission = 'freie_fahrt'; d('KeyV'); const liveFF = gleich(u.log, ['toggleLiveSpielleiter']);   // FRE-01: V in der Lobby der Freien Fahrt
+      u.log.length = 0; u.lob.startMission = 'm1'; d('KeyV'); u.lob.startMission = 'arena_away'; d('KeyV'); const liveSonst = u.log.length === 0;   // in anderen Modi tut V nichts
+      const optionen = optionen0 && liveFF && liveSonst;
       d('KeyM'); const modus = F.lies().modusOffen; d('Escape'); const modusZu = !F.lies().modusOffen && F.lies().schirm === 'lobby';
       u.gesendet.length = 0; d('Escape'); const esc = F.lies().schirm === 'menue' && gleich(u.gesendet, [{ t: 'ready', ready: false }]);   // Esc: Hauptmenü, „bereit“ zurückgenommen
       d('Escape'); const escTitel = F.lies().schirm === 'titel';

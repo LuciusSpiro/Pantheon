@@ -309,7 +309,7 @@ class Game {
     return this.lageSpielleiter;
   }
   // FRE-01 A: wirksames Env der Partie (Kopie; process.env bleibt unberührt). Nur mit Option szenarioSchalter und nur in der Freien Fahrt; sonst das Basis-Env.
-  // Betriebsart live nur aus lobbyOpts.liveSpielleiter (Lobby-Schalter baut Paket B), beim Fortsetzen immer false.
+  // Betriebsart live nur aus lobbyOpts.liveSpielleiter (Lobby-Schalter, FRE-01 B), beim Fortsetzen immer false.
   szenarioEnvSetzen(modus, live) {
     this.env = this.szenarioSchalter && modus === Kriegslage.MODUS ? require('./sim/szenario-schalter.js').wirksamesEnv(this.envBasis, modus, { live: live === true }) : this.envBasis;
   }
@@ -453,6 +453,7 @@ class Game {
     try { this.reset(); } finally { this.muteEvents = false; }
     // QA-Abnahme S1: den gerade gespielten Stand in der Lobby vorauswählen (statt „Neu: Kampagne“), sofern er in der Liste ok ist
     this.lobbyOpts.world = prevWorld && this.worldList.some((w) => w.id === prevWorld && w.state === 'ok') ? prevWorld : null;
+    this.lobbyOpts.liveSpielleiter = false;   // FRE-01 B: live gilt für eine Partie, nicht für die nächste
     for (const q of this.players) q.ready = false;
   }
 
@@ -722,6 +723,7 @@ class Game {
           // M2: Direktstart der Planetenmission (CONTRACT-M2 §3.3)
           if (this.phase === 'lobby' && this.startModi().includes(msg.startMission) && msg.startMission !== this.lobbyOpts.startMission) {
             this.lobbyOpts.startMission = msg.startMission;
+            if (msg.startMission !== Kriegslage.MODUS) this.lobbyOpts.liveSpielleiter = false;   // FRE-01 B: Wechsel weg von der Freien Fahrt setzt die Kostenentscheidung zurück
             this.log(`${p.name}: Start ${(Protocol.START_LABELS && Protocol.START_LABELS[msg.startMission]) || msg.startMission}.`);
           } else if (this.phase === 'lobby' && msg.startMission === 'labor' && !Labor.an(this.C)) this.notice(p, 'Das Szenario-Labor ist auf diesem Server aus.');
           // AP3a: Szenario-Labor – Auswahl und Parameter (Felder werden zusammengeführt; jeder darf umschalten)
@@ -764,8 +766,14 @@ class Game {
               const w = this.worldList.find((o) => o.id === id);
               if (!w) this.notice(p, 'Diesen Weltstand gibt es nicht (mehr).');
               else if (w.state !== 'ok') this.notice(p, w.grund || 'Dieser Weltstand lässt sich nicht fortsetzen.');
-              else if (this.lobbyOpts.world !== id) { this.lobbyOpts.world = id; this.log(`${p.name}: Fortsetzen „${w.name}“ (${id}).`); }
+              else if (this.lobbyOpts.world !== id) { this.lobbyOpts.world = id; this.lobbyOpts.liveSpielleiter = false; this.log(`${p.name}: Fortsetzen „${w.name}“ (${id}).`); }   // FRE-01 B: Fortsetzen läuft nie live
             }
+          }
+          // FRE-01 B: Live-Spielleiter (echter Claude auf dem Abo, Kostenentscheidung) – nur Freie Fahrt mit neuer Welt, nur in der Lobby, jeder darf umschalten; nach Modus und Weltstand verarbeitet, damit eine Sammelnachricht stimmt
+          if (this.phase === 'lobby' && typeof msg.liveSpielleiter === 'boolean' && msg.liveSpielleiter !== this.lobbyOpts.liveSpielleiter
+            && this.lobbyOpts.startMission === Kriegslage.MODUS && !this.lobbyOpts.world) {
+            this.lobbyOpts.liveSpielleiter = msg.liveSpielleiter;
+            this.log(`${p.name}: Live-Spielleiter ${msg.liveSpielleiter ? 'an (echter Claude)' : 'aus'}.`);
           }
           break;
         case C.WORLD: this.onWorldMsg(conn, p, msg); break;   // S1 §6
@@ -2311,6 +2319,7 @@ class Game {
       t: 'snap', tick: this.tick, time: r2(this.time), phase: this.phase,
       lobby: this.phase === 'lobby'
         ? { skipDrill: this.lobbyOpts.skipDrill, startMission: this.lobbyOpts.startMission,   // S1 §6: Weltstände nur in der Lobby
+          ...(this.lobbyOpts.startMission === Kriegslage.MODUS ? { liveSpielleiter: this.lobbyOpts.liveSpielleiter === true } : {}),   // FRE-01 B: nur in der Freien Fahrt
           worlds: this.worldList, world: this.lobbyOpts.world || null, worldsFull: this.worldsEnabled && this.worldList.length >= this.worldMax(),
           ...(this.lobbyOpts.arena ? { arena: this.lobbyOpts.arena } : {}),   // B1 §4: gewählte Testgelände-Karte
           ...(this.lobbyOpts.wellen ? { wellen: this.lobbyOpts.wellen } : {}),   // Bodenkampf: Wellen – Kartenwahl

@@ -237,6 +237,7 @@
   {"id":"test-abenteuer","kette":"test","cmd":["tools/test-abenteuer.js"],"stufe":"fast","seriell":true,"budget_s":14},
   {"id":"test-abenteuer-brett","kette":"test","cmd":["tools/test-abenteuer-brett.js"],"stufe":"full","budget_s":26},
   {"id":"test-freie-fahrt-szenario","kette":"test","cmd":["tools/test-freie-fahrt-szenario.js"],"stufe":"full","budget_s":10},
+  {"id":"test-lobby-livespielleiter","kette":"test","cmd":["tools/test-lobby-livespielleiter.js"],"stufe":"full","budget_s":10},
   {"id":"test-abenteuer-kanon","kette":"test","cmd":["tools/test-abenteuer-kanon.js"],"stufe":"full","seriell":true,"budget_s":51},
   {"id":"test-abspann","kette":"test","cmd":["tools/test-abspann.js"],"stufe":"fast","budget_s":7},
   {"id":"test-grabenangriff-karte","kette":"test","cmd":["tools/test-grabenangriff-karte.js"],"stufe":"full","budget_s":24},
