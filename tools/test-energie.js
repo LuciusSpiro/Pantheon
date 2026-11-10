@@ -240,13 +240,13 @@ section('Frachtraum ungesichert: sichtbare Folge', () => {
   const T = arena();
   const g = T.g;
   technik(T);
-  Fracht.anBordLegen(g, 'sprengstoff'); Fracht.anBordLegen(g, 'fracht');
+  Fracht.anBordLegen(g, 'sprengstoff'); Fracht.anBordLegen(g, 'sprengstoff');   // LAD-01 A2: ein Frachtraum, eine Art
   T.run(0.1);
   ok(Fracht.gesichert(g) && snapShip(T) && T.g.snapshot().fracht.lager.length === 2 && T.g.snapshot().fracht.g === undefined, 'Frachtraum läuft: gesichert, kein Feld g');
   T.cmd(0, 'technik.module', { id: 'frachtraum', on: false }); T.run(0.1);
   ok(!Fracht.gesichert(g) && g.snapshot().fracht.g === false, 'Modul aus: Fracht.gesichert = false, Snapshot fracht.g = false (Taktik: UNGESICHERT)');
   ok(T.ev('frachtGesichert').some((e) => e.an === false) && T.odas().some((t) => /ungesichert/i.test(t)), 'Ereignis frachtGesichert und ODA-Meldung');
-  const FL = require('../shared/frachtliste.js').frachtListe(g.snapshot().fracht, 2);
+  const FL = require('../shared/frachtliste.js').frachtListe(g.snapshot().fracht, 4);
   ok(FL.gesichert === false && /UNGESICHERT/.test(FL.text), 'Frachtliste der Taktik zeigt UNGESICHERT: ' + FL.text);
   // Wirkung: Hüllentreffer löst Ladung (die älteste Ware), sie treibt hinter dem Schiff und lässt sich neu beamen
   g.ship.shields.current = [0, 0, 0, 0]; g.ship.shields.allocIntent = [0, 0, 0, 0];
@@ -267,7 +267,7 @@ section('Frachtraum ungesichert: sichtbare Folge', () => {
   ok(Fracht.anBord(g) === 1, 'gesichert: Hüllentreffer verliert nichts');
   // Schnittstelle für Personen (AP14): gefaehrdet liefert alles an Bord, wenn ungesichert
   Fracht.setGesichert(g, false);
-  ok(Fracht.gefaehrdet(g).length === 1 && Fracht.gefaehrdet(g)[0].art === 'fracht', 'Fracht.gefaehrdet: Liste der Ladung im ungesicherten Lager (Personen hängen sich in AP14 hier an)');
+  ok(Fracht.gefaehrdet(g).length === 1 && Fracht.gefaehrdet(g)[0].art === 'sprengstoff', 'Fracht.gefaehrdet: Liste der Ladung im ungesicherten Lager (Personen hängen sich in AP14 hier an)');
   Fracht.setGesichert(g, true);
   // Personen werden vom Hüllentreffer nicht angetastet (nur Ware)
   Fracht.state(g).lager = [{ art: 'person', p: 'evert', n: 'Evert' }];

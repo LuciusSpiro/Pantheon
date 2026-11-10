@@ -268,18 +268,19 @@ section('Gasriese: Deuterium schöpfen per Ops-Aktion, Gewicht, Abwerfen', () =>
   ok(g.fracht.halt && g.fracht.halt.kind === 'schoepf' && g.snapshot().fracht.halt.kind === 'schoepf', 'Schöpfen läuft weiter (Snapshot halt.kind schoepf)');
   const ab1 = T.cmd('weapons.abwerfen');
   ok(!ab1.length && Fracht.anBord(g) === 0 && g.fracht.halt && g.fracht.halt.kind === 'schoepf', 'Abwerfen (X) ist beim Schöpfen erlaubt und beendet es nicht ' + JSON.stringify(ab1));
-  lauf(60, FOERDER, () => Fracht.anBord(g, 'deuterium') >= 2);
-  ok(Fracht.anBord(g, 'deuterium') === 2 && Fracht.frei(g) === 0, 'zweite Einheit: Frachtraum voll (2 Plätze)');
+  Fracht.anBordLegen(g, 'deuterium'); Fracht.anBordLegen(g, 'deuterium');   // LAD-01 A2: 4 Plätze statt 2: zwei Einheiten liegen schon (der Dauerdruck der Zone würde sonst vor dem vollen Lager das Transfer-Modul zerstören)
+  lauf(60, FOERDER, () => Fracht.anBord(g, 'deuterium') >= 4);
+  ok(Fracht.anBord(g, 'deuterium') === 4 && Fracht.frei(g) === 0, 'vierte Einheit: Frachtraum voll (4 Plätze, LAD-01 A2)');
   T.run(0.3);
   ok(!g.fracht.halt && T.odas.some((t) => /Frachtraum voll – Schöpfen beendet/.test(t)), 'Frachtraum voll: Schöpfen endet von selbst, Meldung');
   ok(T.cmd('weapons.schoepfen').length === 1, 'voll: neuer Start abgelehnt');
   const sf = space.engineSpeedFactor(g);
   const ohne = basis(g);
-  ok(Math.abs(sf - ohne * 0.7) < 1e-9, 'Gewicht: 2 Einheiten Deuterium senken die Triebwerksleistung auf 70 % (' + sf.toFixed(3) + ' vs ' + ohne + ')');
+  ok(Math.abs(sf - ohne * 0.4) < 1e-9, 'Gewicht: 4 Einheiten Deuterium senken die Triebwerksleistung auf 40 % (' + sf.toFixed(3) + ' vs ' + ohne + ')');
   T.taktik();
   const e1 = T.cmd('weapons.abwerfen');
-  ok(!e1.length && Fracht.anBord(g, 'deuterium') === 1 && Fracht.draussen(g).length === 2 && Fracht.draussen(g)[1].art === 'deuterium', 'Abwerfen: eine Einheit als Pod im All ' + JSON.stringify(e1));
-  ok(Math.abs(space.engineSpeedFactor(g) - ohne * 0.85) < 1e-9, 'Gewicht sinkt nach dem Abwurf (85 %)');
+  ok(!e1.length && Fracht.anBord(g, 'deuterium') === 3 && Fracht.draussen(g).length === 2 && Fracht.draussen(g)[1].art === 'deuterium', 'Abwerfen: eine Einheit als Pod im All ' + JSON.stringify(e1));
+  ok(Math.abs(space.engineSpeedFactor(g) - ohne * 0.55) < 1e-9, 'Gewicht sinkt nach dem Abwurf (55 %)');
   const e2 = T.cmd('weapons.abwerfen', { art: 'sprengstoff' });
   ok(e2.length === 1, 'Abwerfen einer Art, die nicht an Bord ist: Fehlermeldung ' + JSON.stringify(e2));
   // Abbrechen durch die Ops, Ring verlassen, Ops unbesetzt, Transfer ausgefallen

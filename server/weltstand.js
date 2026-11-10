@@ -7,7 +7,8 @@ const Vorrat = require('./sim/vorrat.js');   // TEL-01 G: Verbrauchsgüter nur �
 const fs = require('fs');
 const path = require('path');
 const Locations = require('../shared/locations.js');
-const Fracht = require('./sim/fracht.js');   // EK3 Teil A: mitgeführte Ladung (schiff.fracht)
+const Fracht = require('./sim/fracht.js');
+// EK3 Teil A: mitgeführte Ladung (schiff.fracht)
 const Modul = require('./sim/module.js');   // PAN-01 A: Bestückung der Modulräume (schiff.module)
 const Ausbau = require('./sim/ausbau.js');   // PAN-01 B: Ausbaustufe (schiff.stufe)
 const Waffen = require('./sim/schiffswaffen.js');   // PAN-01 C: Bestückung der neun Waffenplätze (schiff.waffen)
@@ -211,8 +212,13 @@ function checker() {
   }
   return checkerMod;
 }
+// LAD-01 A1/Nacharbeit 1: Ladungsarten stehen nicht im Schema (content/waren.json). Eine gespeicherte Art, die es nicht mehr gibt (Ware umbenannt oder entfernt), lehnt den Stand NICHT ab:
+// fracht.restore verwirft sie mit Logzeile, der Rest wird geladen (Waren sind reine Datenpflege, ein Spielstand darf daran nicht scheitern). Personen sind Objekte (Schema).
 // -> Liste von Fehlertexten (leer = gültig). Nutzt Checker.validate (ENGINE), sonst den eigenen Prüfer. Wirft nie.
 function validate(data, game) {
+  return validateSchema(data, game);
+}
+function validateSchema(data, game) {
   const C = checker();
   if (C) {
     try {
@@ -732,7 +738,7 @@ function capture(game) {
   };
   if (Array.isArray(ws.data.faeden) && ws.data.faeden.length) data.welt.faeden = ws.data.faeden.slice();
   // EK3 Teil A: mitgeführte Ladung (nur wenn vorhanden; Ladung im Raum und Abnehmer sind Laufzeit und verfallen mit dem System)
-  { const fr = Fracht.toSave(game); if (fr.length) data.schiff.fracht = fr; }
+  { const fr = Fracht.toSave(game); if (fr.length) data.schiff.fracht = fr; const fe = Fracht.toSaveEig(game); if (fe) data.schiff.frachtEig = fe; }   // LAD-01 B: Eigenschaften parallel (gleicher Index), additiv
   { const zo = Zonen.toSave(game); if (zo) data.schiff.zonen = zo; }   // SL6: erkundete Zonen und Zähler (nur wenn vorhanden)
   // B1–B3 (§8): Blöcke der Teams (explore.toSave darf sektoren selbst liefern, sonst sprung.js bzw. der geladene Block)
   { const nr = Notrufe.toSave(game); if (nr) data.welt.notrufe = nr; }   // SL8: nur wenn Rufe freigeschaltet wurden
@@ -827,7 +833,7 @@ function apply(game, data) {
     Modul.verteilungSetzen(game);
   }
   Werft.restore(game, s.freigeschaltet);   // PAN-01 D: Start + gespeichert + alles, was Stufe, Waffenplätze und Modulräume tragen (Altstände: nichts geht verloren, keine Erstattung)
-  Fracht.restore(game, s.fracht);   // EK3 Teil A: Frachtraum (fehlt im Altstand = leer); PAN-01 B: Kapazität hängt an den Frachträumen, also nach den Modulen
+  Fracht.restore(game, s.fracht, s.frachtEig);   // LAD-01 B: + Eigenschaften; EK3 Teil A: Frachtraum (fehlt im Altstand = leer); PAN-01 B: Kapazität hängt an den Frachträumen, also nach den Modulen
   require('./sim/bots.js').ensureBotCount(game);
   if (s.dekoPlaetze) for (const [k, v] of Object.entries(s.dekoPlaetze)) if (k in game.deco) game.deco[k] = v;
   if (s.quartiere) for (const [k, v] of Object.entries(s.quartiere)) game.quarters[k] = Object.assign({}, game.quarters[k] || {}, v);

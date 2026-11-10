@@ -38,18 +38,17 @@ const FURN_ID = {
   sideboard: 'lerche/furn/sideboard', trophy_niche: 'lerche/furn/trophy_niche', shrine: 'lerche/furn/shrine', med_bed: 'lerche/furn/med_bed',
   bath: 'lerche/furn/bath', bench: 'lerche/furn/bench', light_shaft: 'lerche/kit/light_shaft', plant: 'lerche/deco/pflanze',
   cargo_bay: 'lerche/furn/cargo_bay',   // EK3 Teil A: Frachtbucht im Frachtraum (Deck II), Ladung aus snapshot.fracht.lager
-  cargo_bed: 'lerche/furn/bed',   // SL0: Frachtbett für Personen an Bord (Figur liegt als ship.npcs-Actor darauf)
   cargo_cot: 'lerche/furn/bed', tool_wall: 'lerche/furn/workbench',   // R0: Ivos Schlafecke (Pritsche = Bett in Farbe 3), ohne Bewohner Stauware (crate)
   locker: 'lerche/furn/sideboard',   // PAN-01 B: Spind im Quartier (Platzhalter Anrichte, Modellliste CONTRACT-PAN01-B-MODELLE.md)
 };
-// PAN-01 B: Modulplätze (mod_a/b/c) nach Modul im Raum (Code f Frachtraum, k Krankenstation, w Werkstatt, ohne Modul Stauware): [Modell, Parameterart]
-// Voxelwerk-Lieferung (Tabelle des Voxel-Entwicklers): A Frachtbucht / Liege / Werkbank, B Bett / Medizinschrank / Werkzeugwand, C Containerstapel / Scanner / Drehbank.
+// PAN-01 B / LAD-01 A2: Modulplätze (mod_a/c) nach Modul im Raum (Code f Frachtraum, k Krankenstation, w Werkstatt, ohne Modul Stauware): [Modell, Parameterart]
+// Voxelwerk-Lieferung (Tabelle des Voxel-Entwicklers): A Frachtplatz (Bett im Personen-Modul, sonst Ware; BED_ID) / Liege / Werkbank, C Containerstapel / Scanner / Drehbank.
+const LADEPLATZ_ID = 'lerche/furn/ladeplatz';   // LAD-01 F2: ein Platz im Frachtraum, Form nach String-Parameter darstellung (Teilmodelle ladeplatz_<darstellung>)
 const MODUL_ID = {
-  mod_a: { f: ['lerche/furn/cargo_bay', 'bay'], k: ['lerche/furn/med_bed', null], w: ['lerche/furn/workbench', null] },
-  mod_b: { f: ['lerche/furn/bed', 'bett'], k: ['lerche/furn/med_cabinet', 'schrank'], w: ['lerche/furn/tool_wall', 'werkzeug'] },
+  mod_a: { f: [LADEPLATZ_ID, 'bay'], k: ['lerche/furn/med_bed', null], w: ['lerche/furn/workbench', null] },
   mod_c: { f: ['lerche/furn/container_stack', 'container'], k: ['lerche/furn/scanner', 'scanner'], w: ['lerche/furn/lathe', 'drehbank'] },
 };
-const CRATE_ID = 'lerche/furn/crate', STOWAGE_ID = 'lerche/furn/stowage', LAFETTE_ID = 'lerche/station/lafette', SEALED_ID = 'lerche/kit/door_sealed';
+const BED_ID = 'lerche/furn/bed', CRATE_ID = 'lerche/furn/crate', STOWAGE_ID = 'lerche/furn/stowage', LAFETTE_ID = 'lerche/station/lafette', SEALED_ID = 'lerche/kit/door_sealed';
 const SHOW_PLAQUES = false;   // Nachrunde M4 (Kai): Seitenplaketten BUG/STB/HECK/BB/MITTE aus
 const MULTI = { Y: 1, m: 1, '^': 1 };    // 2×2-Objekte (Lift 2×3): einmal in die Blockmitte
 const ID = {
@@ -226,7 +225,7 @@ const layer = {
     for (const v of Object.values(FURN_ID)) ids.add(v);
     for (const d of CFG().deko || []) ids.add('lerche/deco/' + d);
     for (const v of Object.values(MODUL_ID)) for (const m of Object.values(v)) ids.add(m[0]);
-    for (const v of [STOWAGE_ID, LAFETTE_ID, SEALED_ID, CRATE_ID]) ids.add(v);
+    for (const v of [STOWAGE_ID, LAFETTE_ID, SEALED_ID, CRATE_ID, BED_ID]) ids.add(v);
     await Promise.race([ctx.loader.loadMany([...ids]), new Promise((r) => setTimeout(r, 8000))]);
     if (ctx._disposed) return;
     buildDynamic(ctx, S);
@@ -410,11 +409,13 @@ function buildDynamic(ctx, S) {
     }
     if (MODUL_ID[kind]) {   // PAN-01 B: Modulplatz nach Modul im Raum
       const r = A.roomOf(o.tx, o.ty);
-      const bays = (st) => M.frachtPlaetze(M.frachtRaeumeAusMod(st.ship && st.ship.mod));
       add(o, STOWAGE_ID, PH_COL.furn, (st) => {
         const code = r && r.modul && st.ship ? M.modulCodeImRaum(st.ship.mod, r.modul) : null;
         const p = { code: code || '-' };
-        if (code === 'f' && kind === 'mod_a') { const bi = bays(st).bays.findIndex((b) => b.x === o.tx && b.y === o.ty); const f = st.fracht || {}; const c = bi >= 0 && f.lager ? f.lager[bi] : null; p.art = c ? (c === 'sprengstoff' ? 1 : c === 'deuterium' ? 3 : 2) : 0; p.gesichert = f.g === false ? 0 : 1; }
+        if (code === 'f' && kind === 'mod_a') {   // LAD-01 A2: Platz aus der Belegung (Typ-Regel): Personen-Modul zeigt Betten, sonst Ware oder leer
+          const info = M.frachtPlatzAn(M.frachtBelegungAusSnapshot(st), o.tx, o.ty); const f = st.fracht || {};
+          p.darstellung = window.Shared_Waren ? window.Shared_Waren.platzDarstellung(info) : (info && info.modulArt === 'person' ? 'bett' : info && info.art ? 'kiste' : 'leer'); p.gesichert = f.g === false ? 0 : 1;   // LAD-01 F2: Schlüssel aus waren.json (unbekannt/noch nicht geladen: kiste), leer, bett
+        }
         return p;
       }, { modul: kind });
       continue;
@@ -506,8 +507,7 @@ function buildDynamic(ctx, S) {
         const bed = (M.BEDS || []).find((b) => b.x === o.tx && b.y === o.ty);
         const color = bed ? bed.color : 0;
         fn = () => ({ color });
-      } else if (kind === 'cargo_bed') fn = () => ({ color: 3 });   // SL0
-      else if (kind === 'crate') fn = () => ({ seed: Math.floor(hash(o.tx, o.ty, 5) * 16) });
+      } else if (kind === 'crate') fn = () => ({ seed: Math.floor(hash(o.tx, o.ty, 5) * 16) });
       else if (kind === 'cargo_cot' || kind === 'tool_wall') {   // R0: Schlafecke nur mit Bewohner (Ivo an Bord, nicht beim Abschied), sonst Stauware
         const nook = (st) => ((M.nutzungAt && M.nutzungAt(o.tx, o.ty)) || []).includes('quartier') && ((st.ship && st.ship.npcs) || []).some((n) => n.id === 'ivo' && !n.ab) ? 1 : 0;
         add(o, id, PH_COL.furn, (st) => ({ bewohnt: nook(st), color: 3 }), { nook: kind });
@@ -516,8 +516,7 @@ function buildDynamic(ctx, S) {
       else if (kind === 'light_shaft') { const w = (x, y) => A.map.at(x, y) === ch; const conn = (w(o.tx, o.ty - 1) ? 1 : 0) | (w(o.tx + 1, o.ty) ? 2 : 0) | (w(o.tx, o.ty + 1) ? 4 : 0) | (w(o.tx - 1, o.ty) ? 8 : 0); fn = (st) => { const p = reactorPower(st); return { glow: p === 2 ? 0 : p === 3 ? 1 : 2, conn }; }; }
       else if (kind === 'bath') { const first = A.map.at(o.tx - 1, o.ty) !== ch && A.map.at(o.tx, o.ty - 1) !== ch ? 1 : 0; fn = () => ({ spout: first }); }   // ART-D: nur ein Löwenkopf
       else if (kind === 'cargo_bay') {   // EK3 Teil A: art 0 leer, 1 Sprengstoff, 2 sonstige Fracht; gesichert 0 = ungesichert (AP9)
-        const bi = (M.CARGO_BAYS || []).findIndex((b) => b.x === o.tx && b.y === o.ty);
-        fn = (st) => { const f = st.fracht || {}; const c = bi >= 0 && f.lager ? f.lager[bi] : null; return { art: c ? (c === 'sprengstoff' ? 1 : c === 'deuterium' ? 3 : 2) : 0, gesichert: f.g === false ? 0 : 1 }; };
+        fn = (st) => { const f = st.fracht || {}; const info = M.frachtPlatzAn(M.frachtBelegungAusSnapshot(st), o.tx, o.ty); const c = info ? info.art : null; return { art: c && c !== 'person' ? (c === 'sprengstoff' ? 1 : c === 'deuterium' ? 3 : 2) : 0, gesichert: f.g === false ? 0 : 1 }; };
       }
       else if (kind === 'trophy_niche') fn = (st) => ({ filled: (st.inventory && (+st.inventory.tafel || 0) > 0) || ((st.mission && st.mission.discoveries) || []).length > 0 ? 1 : 0 });
       add(o, id, kind === 'light_shaft' ? '#A9D6E5' : PH_COL.furn, fn);
@@ -574,7 +573,8 @@ function placeObj(ctx, S, e, params) {
     if (!mm) { id = STOWAGE_ID; params = { v: vv }; }
     else {
       id = mm[0];
-      params = mm[1] === 'bay' ? { art: params.art || 0, gesichert: params.gesichert == null ? 1 : params.gesichert } : mm[1] === 'bett' ? { color: 3 }
+      // LAD-01 F2: Platzmodell nach Darstellung (bett im Personen-Modul, die liegende Person kommt als ship.npcs-Figur)
+      params = mm[1] === 'bay' ? { darstellung: params.darstellung || 'leer', gesichert: params.gesichert == null ? 1 : params.gesichert }
         : mm[1] === 'container' ? { farbe: vv } : mm[1] === 'scanner' ? { aktiv: 0 } : mm[1] === 'drehbank' ? { lauf: 0 } : mm[1] === 'schrank' ? { open: 0 } : mm[1] === 'werkzeug' ? { voll: 1, lampe: 0 } : {};
     }
   }

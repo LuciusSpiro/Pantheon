@@ -29,7 +29,7 @@ function plan(it, crew, nachCrew, game) {
     let sieg = wahl(it, 'sieg', K.siegen, K.sieg_standard);
     // Plündern braucht Platz für die Beute (Konvoi.an: beuteMin = Zahl der Transporter, höchstens die Kapazität): ist der Frachtraum zu voll oder fehlt er, wäre die Szene nicht zu gewinnen (beamStart lehnt ab),
     // also gilt der Beat als aufhalten. Kein Fehler, kein Funktext darüber: die Szene bleibt gewinnbar.
-    if (sieg === 'pluendern' && game && Fracht.frei(game) < Math.min(n, Math.max(1, Fracht.capacity(game)))) sieg = 'aufhalten';
+    if (sieg === 'pluendern' && game && Fracht.freiFuer(game, K.ladung) < Math.min(n, Math.max(1, Fracht.kapazitaetFuer(game, K.ladung)))) sieg = 'aufhalten';
     return { textKey: sieg === 'pluendern' ? 'konvoi_pluendern' : 'konvoi', n, sieg, eskorte: has(K.eskorte, k) ? K.eskorte[k] : 'voll' };
   }
   const G = W.geleit, modus = wahl(it, 'modus', Object.keys(G.modi), G.modus_standard);
@@ -41,7 +41,7 @@ function beginn(game, fs) {
   if (fs.art === 'konvoi') {
     const K = W.konvoi, p = fs.plan;
     const k = Konvoi.an(game, { n: fs.n, eskorte: p.eskorte, sieg: p.sieg, ladung: K.ladung, wiederholung: false, volk: K.volk });
-    if (k) Fracht.state(game).szenenBeute = { art: K.ladung, vor: Fracht.anBord(game, K.ladung) };   // was schon an Bord liegt, gehoert nicht zur Beute dieser Szene (fracht.js nimmt die Beute auch aus dem Speicherstand)
+    if (k) { k.beuteTag = 'beute:' + fs.tag; Fracht.state(game).szenenBeute = { art: K.ladung, tag: k.beuteTag }; }   // LAD-01 B: die Beute traegt ihren eigenen Tag (eigenschaft auftrag): was schon an Bord liegt (auch Faden-Ware derselben Art), gehoert nicht dazu; fracht.js nimmt sie auch aus dem Speicherstand
     if (k) for (const e of game.space.enemies) if (e.kv) e.tag = fs.tag;   // Transporter und Eskorte tragen den Tag der Szene: auch ohne Konvoi-Zustand raeumt faden-szene.js sie ab
     return !!k;
   }
@@ -89,9 +89,7 @@ function beuteUebergeben(game) {
   const st = Fracht.state(game), b = st.szenenBeute;
   if (!b) return;
   st.szenenBeute = null;
-  const lager = st.lager;
-  let zuviel = Math.max(0, Fracht.anBord(game, b.art) - b.vor), weg = 0;
-  for (let i = lager.length - 1; i >= 0 && zuviel > 0; i--) if (lager[i].art === b.art) { lager.splice(i, 1); zuviel--; weg++; }
+  const weg = Fracht.auftragEntnehmen(game, b.tag);   // LAD-01 B: gezielt die Ladung mit dem Beute-Tag dieser Szene, nie Faden-Ware oder fremde Fracht derselben Art
   if (weg && DATEN.texte.beute_uebernommen) game.emit('radio', { from: DATEN.texte.sprecher, text: DATEN.texte.beute_uebernommen, lage: 1 });
 }
 function aufraeumen(game, fs) {

@@ -1,0 +1,48 @@
+{
+  "id": "lerche/furn/ladeplatz_kiste",
+  "name": "Ladeplatz kiste (Lerche; Teil von ladeplatz, nutzt cargo_bay art 2)",
+  "tier": "detail",
+  "palette": "lerche_rom",
+  "tags": [
+    "lerche",
+    "furn",
+    "lager",
+    "fracht",
+    "ladeplatz",
+    "lad01"
+  ],
+  "footprint": [
+    1,
+    1
+  ],
+  "params": {
+    "gesichert": {
+      "default": 1,
+      "min": 0,
+      "max": 1,
+      "step": 1,
+      "label": "Sicherung"
+    }
+  },
+  "ops": [
+    {
+      "op": "use",
+      "name": "Frachtbucht art 2",
+      "model": "lerche/furn/cargo_bay",
+      "params": {
+        "art": 2,
+        "gesichert": "gesichert"
+      },
+      "at": [
+        8,
+        0,
+        8
+      ]
+    }
+  ],
+  "anchor": [
+    8,
+    0,
+    8
+  ]
+}

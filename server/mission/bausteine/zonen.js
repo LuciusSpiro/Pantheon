@@ -10,7 +10,8 @@
 // Marken: credit_marks / marks_at_least in server/mission/registry.js (server/sim/geld.js).
 const Z = () => require('../../sim/zonen.js');
 const L = () => require('../../sim/ladung.js');
-const ARTEN = ['sprengstoff', 'fracht', 'deuterium'];
+const Waren = require('../../../shared/waren.js');
+const ARTEN = Waren.arten();   // LAD-01 Nacharbeit 1: alle Waren aus content/waren.json
 
 module.exports = (Registry) => {
   Registry.define({ id: 'in_zone', art: 'pruefung', beschreibung: 'Die Lerche liegt in der Zone (Zonen-ID der Szene, SL6)',

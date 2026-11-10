@@ -29,7 +29,7 @@
     {
       "team": "art-e",
       "file": "art-e.json",
-      "count": 11
+      "count": 12
     },
     {
       "team": "art-f",
@@ -8006,6 +8006,70 @@
         "walkable"
       ],
       "source": "lerche/furn/floor_decal",
+      "team": "art-e"
+    },
+    "lerche/furn/ladeplatz": {
+      "id": "lerche/furn/ladeplatz",
+      "kind": "model",
+      "tier": "detail",
+      "palette": "lerche_rom",
+      "footprint": [
+        1,
+        1
+      ],
+      "height": 1.2,
+      "facing": "+z",
+      "params": {
+        "gesichert": [
+          0,
+          1
+        ]
+      },
+      "states": {
+        "leer": {
+          "darstellung": "leer"
+        },
+        "kiste": {
+          "darstellung": "kiste"
+        },
+        "waffenkiste": {
+          "darstellung": "waffenkiste"
+        },
+        "erzbrocken": {
+          "darstellung": "erzbrocken"
+        },
+        "schrott": {
+          "darstellung": "schrott"
+        },
+        "fass": {
+          "darstellung": "fass"
+        },
+        "sprengkiste": {
+          "darstellung": "sprengkiste"
+        },
+        "kiste_med": {
+          "darstellung": "kiste_med"
+        },
+        "bett": {
+          "darstellung": "bett"
+        }
+      },
+      "sockets": {
+        "use": [
+          0,
+          0,
+          0.55
+        ]
+      },
+      "tint": [],
+      "budgetTris": 6000,
+      "tags": [
+        "lerche",
+        "furn",
+        "storage",
+        "fracht"
+      ],
+      "source": "lerche/furn/ladeplatz",
       "team": "art-e"
     },
     "lerche/furn/lathe": {

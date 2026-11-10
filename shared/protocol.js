@@ -223,7 +223,7 @@
     // erst am Ende des Anlaufs wird die Szene umgeschaltet (Verbündete -> Gegner) und der Ruf bei Rom sinkt. Snapshot space.po { k: 'v', ok, t? } nur in solchen Szenen; flotte.sz + { w?: [Restsekunden, Dauer] (Halteprozess läuft, Warnung für alle), vt?: 1 (Verrat läuft/Ergebnis) }.
     CMD_FRACHT: ['weapons.fracht', 'weapons.posten.gruenden', 'weapons.posten.ausbauen', 'weapons.posten.angreifen', 'weapons.verrat.beginnen', 'weapons.abliefern', 'weapons.abwerfen', 'weapons.verkaufen', 'weapons.schoepfen', 'weapons.person', 'weapons.person_ab'],
     FRACHT_EVENTS: ['frachtBeamen', 'frachtAbgeworfen', 'frachtVerloren', 'frachtGesichert'],   // PAN-01 A: frachtVerloren { art } (ungesichert + Hüllentreffer), frachtGesichert { an }
-    FRACHT_ARTEN: ['sprengstoff', 'fracht', 'deuterium'],
+    // LAD-01 Nacharbeit 1: keine feste Artenliste mehr – die Warenarten stehen in content/waren.json (Shared_Waren.arten())
     // EK3 Teil B (CONTRACT-EK3B §4): Konvoi. Transporter sind Gegner (space.enemies[].kind 'frachter'); beim Sprung trägt der Eintrag sj (Aufladung 0..1).
     // Ereignis konvoiSprung { x, y } (Transporter gesprungen), konvoiAusgang { was: 'gepluendert'|'aufgehalten'|'entkommen' }.
     KONVOI_EVENTS: ['konvoiSprung', 'konvoiAusgang'],

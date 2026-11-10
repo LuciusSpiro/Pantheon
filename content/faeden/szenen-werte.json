@@ -61,7 +61,8 @@
       "laden": "Ware an Bord: {ware} für {hafen}. Bei der Ankunft im Hafen andocken.",
       "abgeliefert": "{ware} in {hafen} abgeliefert.",
       "verloren": "Die Ware ist verloren: {ware} erreicht {hafen} nicht mehr.",
-      "kein_ziel": "Kein Hafen für euch in Reichweite von {ort}: die Ware bleibt, wo sie ist."
+      "kein_ziel": "Kein Hafen für euch in Reichweite von {ort}: die Ware bleibt, wo sie ist.",
+      "kein_platz": "Kein Platz im Frachtraum für die Ware bei {ort}: erst entladen."
     },
     "beute_uebernommen": "Der Auftraggeber übernimmt die Beute vom Frachtdeck. Der Frachtraum ist wieder frei.",
  "befreiung_ort": "{name} sitzt bei {ort} fest. Fliegt hin und vertreibt die Wachen.",

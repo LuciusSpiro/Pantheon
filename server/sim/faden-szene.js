@@ -309,7 +309,7 @@ Bausteine.registriere('fracht', {
     const ort = faden.parameter && faden.parameter.ort;
     const nach = p.nach === '$ort' ? Fracht.zielFuer(game, ort) : p.nach;
     const r = nach ? Fracht.laden(game, { fadenId: faden.id, ware: p.ware, nachHafen: nach }) : { ok: false };
-    if (!r.ok) { Fracht.funk(game, 'kein_ziel', { ort: ort ? Sektoren.hexName(ort) : 'hier' }); return { ausgang: 'gescheitert' }; }
+    if (!r.ok) { Fracht.funk(game, r.platz ? 'kein_platz' : 'kein_ziel', { ort: ort ? Sektoren.hexName(ort) : 'hier' }); return { ausgang: 'gescheitert' }; }
     for (const h of ctx.beat.hinweise || []) Hinweis.senden(game, faden.id, h);   // Nacharbeit F2: der Hinweis (Papiere) wird gesendet, erst dann gilt er
     return { laeuft: true };
   },

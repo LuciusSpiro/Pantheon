@@ -112,6 +112,18 @@ function falleBericht(g) {
 function worstCaseFalle(S, seed) { return worstCaseLauf(S, seed, { aufbauen: falleAufbauen, halten: scanHalten, bericht: falleBericht }); }
 
 // MON-01 P4: der Worst Case oben PLUS 6 Kreaturen (Typ probe, in Teamsicht, alle gescannt Stufe 3 -> 6 Einträge monster in away.sc); Bytes von away.kr je Kreatur und Summe
+// LAD-01 B: Worst Case der Fracht: der Worst Case oben PLUS ein voller Frachtraum (4 Module = 16 Plätze) mit getarnter, illegaler Ware, Auftragsware und aufgedeckten Flags (fracht.lager, fracht.le)
+function frachtVollAufbauen(g) {
+  const Ausbau = require('../server/sim/ausbau.js'), Modul = require('../server/sim/module.js'), Fracht = require('../server/sim/fracht.js');
+  Ausbau.setStufe(g, 3);
+  g.ship.module = [1, 2, 3, 4].map((raum) => ({ id: 'frachtraum', raum, an: true, lauf: true }));
+  Modul.verteilungSetzen(g);
+  const reihe = [['waffen', { getarnt: 'hilfsgueter', illegal: true }], ['erz', { illegal: true }], ['fracht', { auftrag: 'f12' }], ['deuterium', { getarnt: 'sprengstoff' }]];
+  for (const [art, eig] of reihe) for (let i = 0; i < 4; i++) { const e = Fracht.lagerAufnehmen(g, { art, quelle: 'debug', eigenschaften: eig }); if (!e.ok) throw new Error('Frachtaufbau: ' + e.text); }
+  Fracht.frachtDurchsuchen(g, { wer: 'mess', tiefe: 'scan' });   // erz aufgedeckt, die getarnte Ware bleibt verdeckt (beide Flag-Arten im Snapshot)
+}
+function frachtVollBericht(g) { return { fracht: g.fracht ? g.fracht.lager.length : 0 }; }
+function worstCaseFrachtVoll(S, seed) { return worstCaseLauf(S, seed, { aufbauen: frachtVollAufbauen, bericht: frachtVollBericht }); }
 function worstCaseKreaturen(S, seed) {
   const K = { krMax: 0, krSumme: 0, krN: 0, anzMax: 0, scMax: 0 };
   return worstCaseLauf(S, seed, {
@@ -737,11 +749,12 @@ function worstCaseRudel(S, seed, anzahl) {
 }
 // ---------- Lauf ----------
 const t0 = Date.now();
-const W = sammler('worst'), WS = sammler('worst_scan'), WF = sammler('worst_falle'), WK = sammler('worst_kreaturen'), WR8 = sammler('worst_rudel_8'), WR12 = sammler('worst_rudel_12'), WL = sammler('wellen'), RA = sammler('raum-alarm'), WM = sammler('methalle'), WE = sammler('endkampf'), WB = sammler('boden'), KV = sammler('konvoi'), FL = sammler('flotte'), OB = sammler('orbit'), FF = sammler('freie_fahrt'), VF = sammler('verfolgung'), FO = sammler('finale_orbit'), FD = sammler('faden'), BR = sammler('abenteuer_brett');
-const laeufe = { worst: [], worstScan: [], worstFalle: [], worstKreaturen: [], worstRudel8: [], worstRudel12: [], wellen: [], raum: [], methalle: [], endkampf: [], boden: [], konvoi: [], flotte: [], orbit: [], freieFahrt: [], verfolgung: [], finaleOrbit: [], faden: [], brett: [] };
+const W = sammler('worst'), WS = sammler('worst_scan'), WF = sammler('worst_falle'), WK = sammler('worst_kreaturen'), WR8 = sammler('worst_rudel_8'), WR12 = sammler('worst_rudel_12'), WL = sammler('wellen'), RA = sammler('raum-alarm'), WM = sammler('methalle'), WE = sammler('endkampf'), WB = sammler('boden'), KV = sammler('konvoi'), FL = sammler('flotte'), OB = sammler('orbit'), FF = sammler('freie_fahrt'), VF = sammler('verfolgung'), FO = sammler('finale_orbit'), FD = sammler('faden'), BR = sammler('abenteuer_brett'), FV = sammler('fracht_voll');
+const laeufe = { worst: [], worstScan: [], worstFalle: [], worstKreaturen: [], worstRudel8: [], worstRudel12: [], wellen: [], raum: [], methalle: [], endkampf: [], boden: [], konvoi: [], flotte: [], orbit: [], freieFahrt: [], verfolgung: [], finaleOrbit: [], faden: [], brett: [], frachtVoll: [] };
 for (let s = 1; s <= SEEDS; s++) laeufe.worst.push(Object.assign({ seed: s }, worstCase(W, s)));
 for (let s = 1; s <= SEEDS; s++) laeufe.worstScan.push(Object.assign({ seed: s }, worstCaseScan(WS, s)));   // SCA-01 NS
 for (let s = 1; s <= SEEDS; s++) laeufe.worstFalle.push(Object.assign({ seed: s }, worstCaseFalle(WF, s)));   // ITM-01 C
+for (let s = 1; s <= SEEDS; s++) laeufe.frachtVoll.push(Object.assign({ seed: s }, worstCaseFrachtVoll(FV, s)));   // LAD-01 B
 for (let s = 1; s <= SEEDS; s++) laeufe.worstKreaturen.push(Object.assign({ seed: s }, worstCaseKreaturen(WK, s)));   // MON-01 P4
 for (let s = 1; s <= SEEDS; s++) laeufe.worstRudel8.push(Object.assign({ seed: s }, worstCaseRudel(WR8, s, 8)));   // MON-02 P1
 for (let s = 1; s <= SEEDS; s++) laeufe.worstRudel12.push(Object.assign({ seed: s }, worstCaseRudel(WR12, s, 12)));   // MON-02 P1
@@ -758,7 +771,7 @@ for (let s = 1; s <= SEEDS; s++) laeufe.verfolgung.push(Object.assign({ seed: s 
 for (let s = 1; s <= SEEDS; s++) laeufe.finaleOrbit.push(Object.assign({ seed: s }, finaleOrbit(FO, 100 + s)));
 for (let s = 1; s <= SEEDS; s++) laeufe.faden.push(Object.assign({ seed: s }, fadenLauf(FD, 110 + s)));   // SUND-04b B2
 for (let s = 1; s <= SEEDS; s++) laeufe.brett.push(Object.assign({ seed: s }, brettLauf(BR, 120 + s)));   // SUND-04b C
-const res = { ziel: ZIEL, grenze: MAX, luft: LUFT, seeds: SEEDS, sek: SEK, worst: auswerten(W), worstScan: auswerten(WS), worstFalle: auswerten(WF), worstKreaturen: auswerten(WK), worstRudel8: auswerten(WR8), worstRudel12: auswerten(WR12), wellen: auswerten(WL), raum: auswerten(RA), methalle: auswerten(WM), endkampf: auswerten(WE), boden: auswerten(WB), konvoi: auswerten(KV), flotte: auswerten(FL), orbit: auswerten(OB), freieFahrt: auswerten(FF), verfolgung: auswerten(VF), finaleOrbit: auswerten(FO), faden: auswerten(FD), brett: auswerten(BR), laeufe, ms: Date.now() - t0 };
+const res = { ziel: ZIEL, grenze: MAX, luft: LUFT, seeds: SEEDS, sek: SEK, worst: auswerten(W), worstScan: auswerten(WS), worstFalle: auswerten(WF), worstKreaturen: auswerten(WK), worstRudel8: auswerten(WR8), worstRudel12: auswerten(WR12), wellen: auswerten(WL), raum: auswerten(RA), methalle: auswerten(WM), endkampf: auswerten(WE), boden: auswerten(WB), konvoi: auswerten(KV), flotte: auswerten(FL), orbit: auswerten(OB), freieFahrt: auswerten(FF), verfolgung: auswerten(VF), finaleOrbit: auswerten(FO), faden: auswerten(FD), brett: auswerten(BR), frachtVoll: auswerten(FV), laeufe, ms: Date.now() - t0 };
 
 if (JSON_OUT) { console.log(JSON.stringify(res, null, 1)); process.exit(0); }
 
@@ -776,6 +789,8 @@ zeigen(res.worstScan);
 console.log('  Läufe: ' + laeufe.worstScan.map((l) => `s${l.seed} ${l.scannende} Scannende, ${l.scEintraege} Einträge in away.sc${l.fehler ? ' Fehler ' + l.fehler : ''}`).join(', '));
 zeigen(res.worstFalle);
 console.log('  Läufe: ' + laeufe.worstFalle.map((l) => `s${l.seed} ${l.scannende} Scannende, ${l.scEintraege} Einträge in away.sc (${l.falle ? l.falle.fallen + ' Fallen, ' + l.falle.erkannt + ' erkannt, ' + l.falle.nachgereicht + ' nachgereicht, ' + l.falle.ausgeloest + ' ausgelöst' : '-'})${l.fehler ? ' Fehler ' + l.fehler : ''}`).join(', '));
+zeigen(res.frachtVoll);
+console.log('  Läufe: ' + laeufe.frachtVoll.map((l) => `s${l.seed} ${l.falle ? l.falle.fracht : '-'} Ladungen im Frachtraum${l.fehler ? ' Fehler ' + l.fehler : ''}`).join(', '));
 zeigen(res.worstKreaturen);
 const kmax = Math.max(...laeufe.worstKreaturen.map((l) => l.kreaturen.anzMax)), kn = laeufe.worstKreaturen.reduce((a, l) => a + l.kreaturen.krN, 0), ksum = laeufe.worstKreaturen.reduce((a, l) => a + l.kreaturen.krSumme, 0), kbmax = Math.max(...laeufe.worstKreaturen.map((l) => l.kreaturen.krMax));
 const krJe = kn ? Math.round(ksum / kn / Math.max(1, kmax) * 10) / 10 : 0;
@@ -816,7 +831,7 @@ zeigen(res.brett);
 console.log('  Läufe: ' + laeufe.brett.map((l) => `s${l.seed} Block max ${l.blockMax} B in ${l.mitBlock} Snapshots${l.total ? ' Fehler ' + l.total : ''}`).join(', '));
 const phasenOk = laeufe.freieFahrt.every((l) => 'vkfsn'.split('').every((p) => l.szenePhasen.includes(p)));   // H7: alle fünf Phasen der Szenenzeile (inkl. n) wurden gemessen
 if (!phasenOk) console.log('  VERFEHLT: nicht alle Phasen v k f s n der Szenenzeile gemessen');
-const alleOk = phasenOk && res.brett.ok && laeufe.brett.every((l) => !l.total) && res.faden.ok && laeufe.faden.every((l) => !l.fehler && l.szenen === 5 && l.verbuendete === 1) && res.orbit.ok && res.freieFahrt.ok && res.verfolgung.ok && res.finaleOrbit.ok && laeufe.finaleOrbit.every((l) => !l.fehler) && res.worst.ok && res.worstScan.ok && res.worstKreaturen.ok && laeufe.worstKreaturen.every((l) => !l.fehler && l.kreaturen.anzMax >= 6) && res.worstRudel8.ok && res.worstRudel12.ok && laeufe.worstRudel8.every((l) => !l.fehler && l.kreaturen.angelegt === 8) && laeufe.worstRudel12.every((l) => !l.fehler && l.kreaturen.angelegt === 12) && laeufe.worstScan.every((l) => !l.fehler && l.scannende === 4 && l.scEintraege === 16) && res.wellen.ok && res.raum.ok && res.methalle.ok && res.endkampf.ok && res.boden.ok && res.konvoi.ok && res.flotte.ok && laeufe.endkampf.every((l) => l.boss && l.gegner >= 11) && laeufe.boden.every((l) => l.boss && l.gegner >= 11 && l.unten === 4);
+const alleOk = phasenOk && res.frachtVoll.ok && laeufe.frachtVoll.every((l) => !l.fehler && l.falle && l.falle.fracht === 16) && res.brett.ok && laeufe.brett.every((l) => !l.total) && res.faden.ok && laeufe.faden.every((l) => !l.fehler && l.szenen === 5 && l.verbuendete === 1) && res.orbit.ok && res.freieFahrt.ok && res.verfolgung.ok && res.finaleOrbit.ok && laeufe.finaleOrbit.every((l) => !l.fehler) && res.worst.ok && res.worstScan.ok && res.worstKreaturen.ok && laeufe.worstKreaturen.every((l) => !l.fehler && l.kreaturen.anzMax >= 6) && res.worstRudel8.ok && res.worstRudel12.ok && laeufe.worstRudel8.every((l) => !l.fehler && l.kreaturen.angelegt === 8) && laeufe.worstRudel12.every((l) => !l.fehler && l.kreaturen.angelegt === 12) && laeufe.worstScan.every((l) => !l.fehler && l.scannende === 4 && l.scEintraege === 16) && res.wellen.ok && res.raum.ok && res.methalle.ok && res.endkampf.ok && res.boden.ok && res.konvoi.ok && res.flotte.ok && laeufe.endkampf.every((l) => l.boss && l.gegner >= 11) && laeufe.boden.every((l) => l.boss && l.gegner >= 11 && l.unten === 4);
 console.log(`
-${alleOk ? 'ok' : 'VERFEHLT'}: Worst Case max ${res.worst.max} B, Worst Case mit 4 Scannenden und 16 Scan-Einträgen max ${res.worstScan.max} B, Worst Case mit 6 Kreaturen max ${res.worstKreaturen.max} B, Worst Case mit Rudel 8 / 12 max ${res.worstRudel8.max} / ${res.worstRudel12.max} B, Wellenlauf max ${res.wellen.max} B, Raum-Alarm max ${res.raum.max} B, Methalle max ${res.methalle.max} B, Endkampf (10 Gegner + Anführer, 4 Spieler) max ${res.endkampf.max} B, Boden Schrein (10 Wachen + Wächter, 4 Spieler) max ${res.boden.max} B, Konvoi max ${res.konvoi.max} B, Flotte max ${res.flotte.max} B, Orbitschlacht max ${res.orbit.max} B, Freie Fahrt Sund max ${res.freieFahrt.max} B, Faden-Szenen (Konvoi, Geleit, Havarist, Panne, Geleit mit Verbündetem der Spontanhilfe, 3 Spieler) max ${res.faden.max} B, Auftragsbrett (3 Angebote und 1 laufendes, 3 Spieler) max ${res.brett.max} B (Block max ${Math.max(...laeufe.brett.map((l) => l.blockMax))} B), Orbit des Finales max ${res.finaleOrbit.max} B (Ziel ≤ ${ZIEL} B) – ${res.ms} ms`);
+${alleOk ? 'ok' : 'VERFEHLT'}: Worst Case max ${res.worst.max} B, Worst Case mit 4 Scannenden und 16 Scan-Einträgen max ${res.worstScan.max} B, Worst Case mit vollem Frachtraum (16 Ladungen, Flags) max ${res.frachtVoll.max} B, Worst Case mit 6 Kreaturen max ${res.worstKreaturen.max} B, Worst Case mit Rudel 8 / 12 max ${res.worstRudel8.max} / ${res.worstRudel12.max} B, Wellenlauf max ${res.wellen.max} B, Raum-Alarm max ${res.raum.max} B, Methalle max ${res.methalle.max} B, Endkampf (10 Gegner + Anführer, 4 Spieler) max ${res.endkampf.max} B, Boden Schrein (10 Wachen + Wächter, 4 Spieler) max ${res.boden.max} B, Konvoi max ${res.konvoi.max} B, Flotte max ${res.flotte.max} B, Orbitschlacht max ${res.orbit.max} B, Freie Fahrt Sund max ${res.freieFahrt.max} B, Faden-Szenen (Konvoi, Geleit, Havarist, Panne, Geleit mit Verbündetem der Spontanhilfe, 3 Spieler) max ${res.faden.max} B, Auftragsbrett (3 Angebote und 1 laufendes, 3 Spieler) max ${res.brett.max} B (Block max ${Math.max(...laeufe.brett.map((l) => l.blockMax))} B), Orbit des Finales max ${res.finaleOrbit.max} B (Ziel ≤ ${ZIEL} B) – ${res.ms} ms`);
 process.exit(alleOk ? 0 : 1);

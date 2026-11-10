@@ -1,0 +1,25 @@
+{
+  "id": "lerche/furn/ladeplatz_kiste_med",
+  "name": "Ladeplatz Hilfsgüter (Lerche; weiße Kisten mit rotem Kreuz, grüner Sockelstreifen)",
+  "tier": "detail",
+  "palette": "lerche_rom",
+  "tags": ["lerche", "furn", "lager", "fracht", "ladeplatz", "hilfsgueter", "lad01"],
+  "footprint": [1, 1],
+  "params": {
+    "gesichert": { "default": 1, "min": 0, "max": 1, "step": 1, "label": "Sicherung" }
+  },
+  "ops": [
+    { "op": "use", "name": "Plattform", "model": "lerche/furn/cargo_bay", "params": { "art": 0, "gesichert": "gesichert" }, "at": [8, 0, 8] },
+    { "op": "box", "name": "Kiste gross", "at": [2, 1, 2], "size": [12, 7, 11], "color": "#EDEEEA" },
+    { "op": "box", "name": "Kiste klein", "at": [4, 8, 3], "size": [8, 4, 8], "color": "#F4F5F1" },
+    { "op": "box", "name": "Deckel klein", "at": [4, 12, 3], "size": [8, 1, 8], "color": "#C9CCC8" },
+    { "op": "box", "name": "Sockelstreifen grün", "at": [2, 1, 2], "size": [12, 1, 11], "color": "#3E9B5A", "mode": "paint", "jitter": false },
+    { "op": "box", "name": "Kreuz senkrecht", "at": [7, 2, 13], "size": [2, 5, 1], "color": "#D8322B", "jitter": false },
+    { "op": "box", "name": "Kreuz waagerecht", "at": [5, 4, 13], "size": [6, 2, 1], "color": "#D8322B", "jitter": false },
+    { "op": "box", "name": "Kreuz klein senkrecht", "at": [7, 9, 11], "size": [2, 3, 1], "color": "#D8322B", "jitter": false },
+    { "op": "box", "name": "Kreuz klein waagerecht", "at": [6, 10, 11], "size": [4, 1, 1], "color": "#D8322B", "jitter": false },
+    { "op": "box", "name": "Griff links", "at": [1, 5, 5], "size": [1, 1, 5], "color": "metal_light" },
+    { "op": "box", "name": "Griff rechts", "at": [14, 5, 5], "size": [1, 1, 5], "color": "metal_light" }
+  ],
+  "anchor": [8, 0, 8]
+}

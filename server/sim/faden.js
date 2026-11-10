@@ -444,6 +444,7 @@ function beatAusgang(game, fadenId, ausgang) {
   gedaechtnisEintragen(f.nsc, ws.tickZahl, ereignis, o.text_key || beat.id);
   f.laufend = null; f.zaehler = 0;
   if (f.fracht && ausgang === 'gescheitert') { try { require('./faden-fracht.js').verlustMelden(game, f); } catch (e) { fehlerZaehlen(game, 'faden-fracht-funk', e); } }   // Nacharbeit F6: die Crew hoert, dass die Ware weg ist
+  FrachtDaten.entladen(game, f);   // LAD-01 C: die Ladung verlaesst den Frachtraum (abgeliefert oder verloren)
   delete f.fracht;   // SUND-04a-2 P1: der Beat ist zu Ende (Ausgang, Frist): eine Ware an Bord ist weg
   if (cat.abschluss) {
     f.phase = 'abgeschlossen';
@@ -468,6 +469,7 @@ function beatZurueck(game, fadenId) {
   if (!f || f.phase !== 'laeuft') return { ok: false, grund: 'kein laufender Beat' };
   const beat = D.vorlage(f.vorlage).beats[f.beat];
   f.phase = 'wartet'; f.laufend = null; f.zaehler = f.abstand;
+  FrachtDaten.entladen(game, f);
   delete f.fracht;
   melde(game, 'beat_zurueck', f.id, `Beat ${beat.id} steht wieder aus (Szene aufgelöst, ohne Ausgang)`, { faden: f.id, beat: beat.id });
   return { ok: true, faden: f };

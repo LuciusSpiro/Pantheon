@@ -277,22 +277,28 @@ section('Plündern: zerstörter Transporter lässt Fracht fallen, Taktik beamt s
   ok(g.snapshot().fracht.lager.length === 2, 'Snapshot: fracht.lager 2 Ladungen');
 });
 
-section('Plündern: Lager voll (dritte Ladung), Ladungsart', () => {
+section('Plündern: Typ-Regel (ein Modul, eine Art), Ladungsart', () => {
+  // LAD-01 A2: 4 Plätze je Frachtraum, aber nur für EINE Art. Das einzige Modul trägt Sprengstoff: für die Beute der Art fracht ist kein Platz (beuteMin zählt nur den Platz dieser Art).
+  const T0 = raum(); fern(T0.g);
+  Konvoi.an(T0.g, { n: 3, sieg: 'pluendern', eskorte: 'keine', ladung: 'fracht' });
+  ok(T0.g.space.konvoi.beuteMin === 3, 'leeres Lager (4 Plätze): beute_min 3 bei drei Transportern');
   const T = raum(); const g = T.g; fern(g);
+  Fracht.anBordLegen(g, 'sprengstoff'); Fracht.anBordLegen(g, 'sprengstoff');
   Konvoi.an(g, { n: 3, sieg: 'pluendern', eskorte: 'keine', ladung: 'fracht' });
   const k = g.space.konvoi;
-  ok(k.beuteMin === 2 && k.art === 'fracht', 'beute_min höchstens die Kapazität des Frachtraums (2), Ladungsart fracht');
+  ok(k.beuteMin === 1 && k.art === 'fracht', 'beute_min: nur der Platz für DIESE Art zählt (das Modul trägt Sprengstoff: Minimum 1), Ladungsart fracht');
   for (const e of alleT(g)) kill(g, e);
   T.run(0.2);
   ok(Fracht.draussen(g).length === 3 && Fracht.draussen(g).every((d) => d.art === 'fracht'), 'drei Ladungen der Art fracht im Raum');
   T.taktik();
   const ds = Fracht.draussen(g);
   platz(g, ds[0].x - 100, ds[0].y, 0);
-  for (let i = 0; i < 2; i++) { const d = Fracht.draussen(g)[0]; platz(g, d.x - 100, d.y, 0); T.cmd('weapons.fracht'); T.run(3.2); }
-  ok(Fracht.anBord(g) === 2 && Fracht.draussen(g).length === 1, 'zwei Ladungen an Bord, eine bleibt draußen');
   const err = T.cmd('weapons.fracht');
-  ok(err.length === 1 && /voll/i.test(err[0]), 'dritte Ladung wird abgelehnt: ' + err[0]);
-  ok(Konvoi.ausgang(g) === 'gepluendert', 'Ausgang gepluendert');
+  ok(err.length === 1 && /nur eine Art/.test(err[0]) && !g.fracht.halt, 'Fracht wird abgelehnt, solange das Modul Sprengstoff trägt: ' + err[0]);
+  ok(Konvoi.ausgang(g) !== 'gepluendert', 'noch kein Ausgang gepluendert');
+  Fracht.skriptAbliefern(g, 'sprengstoff', null);   // Modul leer: es kann eine andere Art aufnehmen
+  platz(g, ds[0].x - 100, ds[0].y, 0); T.cmd('weapons.fracht'); T.run(3.2);
+  ok(Fracht.anBord(g, 'fracht') === 1 && Konvoi.ausgang(g) === 'gepluendert', 'leeres Modul: Fracht kommt an Bord, Ausgang gepluendert');
 });
 
 section('Plündern: entkommen (Fracht fehlt), Wiederholung mit kleinerem Konvoi', () => {
@@ -350,7 +356,7 @@ section('Ablieferung und Speichern/Laden mit Fracht', () => {
   ok(!JSON.stringify(data).includes('konvoi'), 'der Konvoi (Laufzeit) steht nicht im Weltstand');
   const L = setup('free', { dir, world: id });
   L.run(0.3);
-  ok(Fracht.anBord(L.g, 'sprengstoff') === 2 && Fracht.frei(L.g) === 0, 'nach dem Laden: 2 × Sprengstoff an Bord, Frachtraum voll');
+  ok(Fracht.anBord(L.g, 'sprengstoff') === 2 && Fracht.frei(L.g) === 2, 'nach dem Laden: 2 × Sprengstoff an Bord (2 von 4 Plätzen)');
   // Ablieferung am Hafen (jede Station)
   L.g.debugGoto('hafen', false); L.run(0.3);
   L.taktik();

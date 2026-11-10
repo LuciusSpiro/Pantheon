@@ -15,6 +15,7 @@
 const Flight = require('../../shared/flight.js');
 const Pilot = require('./pilot.js');
 const Fracht = require('./fracht.js');
+const Waren = require('../../shared/waren.js');   // LAD-01 A1
 const Zielsysteme = require('./zielsysteme.js');
 const Gsys = require('./gegnersystem.js');   // GEG-01 A: Antrieb und Reaktor des Transporters für kannSpringen
 const Tel = require('../telemetrie/gefecht.js');   // TEL-01 M: Protokoll-Haken (nur lesen)
@@ -69,13 +70,15 @@ function restStrecke(k, e) {
 // ---------- Einrichten ----------
 // o: { n (1–3), eskorte ('voll'|'jaeger'|'korvette'|'keine'), sieg ('aufhalten'|'pluendern'), ladung ('sprengstoff'|'fracht'), tempo?, beute_min?, wiederholung?,
 //      volk? (Kennung aller Konvoi-Schiffe; sonst space.volkFuer: Fraktion des Sektors bzw. Standard) }
+// Beute-Tag: der der Faden-Szene (faden-szene-b2.js) oder der Kampagnen-Tag
+const beuteTag = (k) => k.beuteTag || Fracht.KAMPAGNE;
 function an(game, o) {
   const q = o || {}; const C = cfg(game);
   const nW = clamp(Math.round(Number(q.n != null ? q.n : C.n) || 2), 1, C.nMax || 3);
-  const art = game.C.fracht.arten.includes(q.ladung) ? q.ladung : game.C.fracht.artDefault;
+  const art = Waren.artOk(q.ladung) ? q.ladung : game.C.fracht.artDefault;
   const sieg = SIEGE.includes(q.sieg) ? q.sieg : 'pluendern';
   const eskorte = ESKORTEN.includes(q.eskorte) ? q.eskorte : 'voll';
-  const cap = Math.max(1, Fracht.capacity(game));
+  const cap = Math.max(1, Fracht.kapazitaetFuer(game, art));   // LAD-01 A2: Platz für DIESE Art (ein Modul, eine Art)
   const beuteMin = clamp(Math.round(Number(q.beute_min) || Math.min(nW, cap)), 1, Math.min(nW, cap));
   game.space.konvoi = {
     sieg, art, nWunsch: nW, beuteMin, eskorte, wiederholung: q.wiederholung !== false, volk: q.volk || null, tempo: q.tempo != null ? Number(q.tempo) : null,
@@ -87,9 +90,9 @@ function an(game, o) {
 function spawnen(game) {
   const k = st(game); const C = cfg(game); const S = space();
   // Plündern: schon an Bord liegende Ladung dieser Art zählt (eine Ladung bleibt bis zum Systemwechsel an Bord), der Rest des Konvois ist kleiner
-  const schonDa = k.sieg === 'pluendern' ? Math.min(Fracht.anBord(game, k.art), k.beuteMin - 1) : 0;
+  const schonDa = k.sieg === 'pluendern' ? Math.min(Fracht.anBordFuerBeute(game, k.art, beuteTag(k)), k.beuteMin - 1) : 0;
   const nT = Math.max(1, k.nWunsch - schonDa);
-  k.beuteMin = Math.min(k.beuteMin, Math.max(1, Fracht.capacity(game)));
+  k.beuteMin = Math.min(k.beuteMin, Math.max(1, Fracht.kapazitaetFuer(game, k.art)));
   const a = k.route[0], b = k.route[1];
   const head = Math.atan2(b.y - a.y, b.x - a.x);
   const ux = Math.cos(head), uy = Math.sin(head);
@@ -300,6 +303,9 @@ function verloren(game, k, id) {
   const pod = Fracht.fracht_abwerfen(game, p.x, p.y, k.art);
   if (pod) {
     k.pods.push(pod.id);
+    const ke = Fracht.kampagnenEig(k.art);
+    if (k.beuteTag) pod.eig = { auftrag: k.beuteTag };   // LAD-01 B: die Beute der Faden-Szene traegt ihren eigenen Tag (faden-szene-b2.js)
+    else if (ke) pod.eig = ke;   // LAD-01 Nacharbeit 1: die Beute des Konvois der Kette (Kette k2) traegt den Kampagnen-Tag: nicht verkaufbar (kein Softlock der Abgabe), die Kampagnen-Abgabe nimmt sie an
     if (k.sieg === 'pluendern') game.oda('Fracht in Reichweite. Ops, beamen!', null);
   }
   game.missionEvent('konvoiTransporterZerstoert', { id, art: k.art, x: p.x, y: p.y, pod: pod ? pod.id : null });
@@ -315,7 +321,7 @@ function bewerten(game, k) {
     if (k.ids.some((id) => k.fertig[id] === 'gesprungen')) neuer = 'entkommen';
     else if (k.ids.length && alive === 0) neuer = 'aufgehalten';
   } else {
-    const an = Fracht.anBord(game, k.art);
+    const an = Fracht.anBordFuerBeute(game, k.art, beuteTag(k));   // LAD-01 B: Faden-Ware (Auftrag) derselben Art zaehlt nicht als Beute
     if (an >= k.beuteMin && podsGeholt(game, k) >= 1) neuer = 'gepluendert';
     else if (an + podsDa(game, k) + alive < k.beuteMin) neuer = 'entkommen';
   }

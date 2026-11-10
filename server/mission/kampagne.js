@@ -348,7 +348,7 @@ class Kette {
     for (const [k, v] of Object.entries(ei.flags || {})) m.flags[k] = v;
     for (const [k, v] of Object.entries(ei.fakten || {})) this.fakt(k, v);
     if (Number.isFinite(ei.marken) && o.marken !== false) Geld.standSetzen(g, ei.marken, 'kampagne');
-    for (const art of ei.fracht || []) Fracht.anBordLegen(g, art);
+    for (const art of ei.fracht || []) Fracht.anBordLegen(g, art, 'kampagne');
     for (const key of ei.oeffnet || []) {
       try { if (key === 'sperrriegel') g.explore.sperrriegelOeffnen(); else g.explore.openLink(key); } catch (e) { g.countError('kette-einstieg', e); }
     }

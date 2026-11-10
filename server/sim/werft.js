@@ -176,11 +176,10 @@ function modulPruefen(game, raum, id, strikt) {
   // ein Frachtraum geht nur, wenn die Ladung danach noch Platz hat (sonst hinge Fracht in einem leeren Raum)
   if (cur && cur.id === 'frachtraum' && (leer || String(id) !== 'frachtraum')) {
     const Fracht = require('./fracht.js');
-    // Personen liegen in Betten ihres Frachtraums (Bettschlüssel (Raum − 1) × 2 + 0/1, personen-bord.js): ein Raum mit liegender Person bleibt
-    const imRaum = Fracht.state(game).lager.some((l) => l.art === 'person' && Number.isInteger(l.bett) && l.bett >= (raum - 1) * 2 && l.bett <= (raum - 1) * 2 + 1);
-    if (imRaum) return fehler('person_im_raum', `Im Frachtraum (Modulraum ${raum}) liegt eine Person: erst abgeben.`);
+    // Personen liegen auf den Plätzen der Personen-Module (LAD-01 A2, Fracht.personImRaum): ein Raum mit liegender Person bleibt
+    if (Fracht.personImRaum(game, raum)) return fehler('person_im_raum', `Im Frachtraum (Modulraum ${raum}) liegt eine Person: erst abgeben.`);
     const rest = Modul.frachtRaeume(game).filter((q) => q !== raum);
-    if (Fracht.anBord(game) > Maps.cargoCapacity(rest)) return fehler('fracht_belegt', `Im Frachtraum liegt noch Ladung (${Fracht.anBord(game)} Plätze belegt, danach nur ${Maps.cargoCapacity(rest)}): erst abliefern oder abwerfen.`);
+    if (!Fracht.passtOhneRaum(game, raum)) return fehler('fracht_belegt', `Im Frachtraum liegt noch Ladung (${Fracht.anBord(game)} Plätze belegt, danach fassen die übrigen Frachträume ${Maps.cargoCapacity(rest)}, jeder nur eine Art): erst abliefern oder abwerfen.`);
   }
   return null;
 }

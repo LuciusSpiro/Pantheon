@@ -20,6 +20,16 @@
     spieler0: '#56B4E9', spieler1: '#E69F00', spieler2: '#CC79A7', spieler3: '#7FE0C2',
     outline: '#1B2230', outlineWarm: '#2B1D1A', outlineRust: '#1E1612',
   };
+  // LAD-01 F2: Darstellung (content/waren.json) -> [Kante hell, Fläche, Kante dunkel, Zeichen, Zeichenfarbe] für die 2D-Frachtplätze. kiste, sprengkiste, fass haben eigene Bilder; unbekannte Schlüssel = kiste
+  var CARGO_DARSTELLUNG = {
+    kiste: ['#B08A52', '#8A6A3A', '#5A4426', 'streifen', '#C9A25A'],
+    waffenkiste: ['#6F7F4E', '#4F5E36', '#323C22', 'x', '#C9473A'],
+    erzbrocken: ['#B07A4C', '#7A5636', '#4A3220', 'raute', '#E6C27A'],
+    schrott: ['#9AA0A8', '#6E6A66', '#403C3A', 'streifen', '#B4573E'],
+    sprengkiste: ['#D96C58', '#9E3B2E', '#6A241B', 'streifen', '#F2C94C'],
+    fass: ['#A9B8CC', '#7C8AA0', '#4A5568', 'streifen', '#4FB6E8'],
+    kiste_med: ['#F4EEDC', '#D8D2C2', '#8E8878', 'kreuz', '#C9473A']
+  };
   var PLAYER = ['#56B4E9', '#E69F00', '#CC79A7', '#7FE0C2'];   // R0: vier Spielerfarben (0–3)
   var PLAYER_SHAPES = ['circle', 'triangle', 'diamond', 'square'];
 
@@ -2004,8 +2014,10 @@
         R(g, 3, 12, 26, 9, '#8A5A36'); R(g, 3, 12, 26, 2, '#B07A4C'); R(g, 5, 21, 3, 6, '#5A3824'); R(g, 24, 21, 3, 6, '#5A3824');
       }); break;
       case 'cargo_bay': {   // EK3 Teil A: Frachtbucht im Frachtraum – Ladeplattform mit Warnrand, darauf die Ladung (o.cargo = { art } | null), Sicherungslicht
-        var ca = o.cargo ? (o.cargo.art === 'sprengstoff' ? 1 : o.cargo.art === 'deuterium' ? 3 : 2) : 0, sec = o.secure === false ? 0 : 1;
-        spr = cached('m4|cargo|' + ca + '|' + sec, 32, 32, function (g) {
+        // LAD-01 F2: Darstellung (waren.json) -> Farbe/Zeichen aus CARGO_DARSTELLUNG, unbekannt = kiste; kiste/sprengkiste/fass behalten ihre Bilder (ca 2/1/3), die übrigen ca 4
+        var cd = o.cargo ? (o.cargo.darstellung || (o.cargo.art === 'sprengstoff' ? 'sprengkiste' : o.cargo.art === 'deuterium' ? 'fass' : 'kiste')) : null;
+        var ci = cd ? CARGO_DARSTELLUNG[cd] : null, ca = !cd ? 0 : cd === 'sprengkiste' ? 1 : cd === 'fass' ? 3 : !ci || cd === 'kiste' ? 2 : 4, sec = o.secure === false ? 0 : 1;
+        spr = cached('m4|cargo|' + (ca === 4 ? cd : ca) + '|' + sec, 32, 32, function (g) {
           R(g, 1, 1, 30, 30, '#2C333F'); R(g, 2, 2, 28, 28, '#3A4352');
           for (var i = 0; i < 28; i += 4) { R(g, 2 + i, 2, 2, 2, '#F2C94C'); R(g, 4 + i, 2, 2, 2, '#1A1E26'); R(g, 2 + i, 28, 2, 2, '#F2C94C'); R(g, 4 + i, 28, 2, 2, '#1A1E26'); }
           R(g, 1, 1, 30, 1, '#6A7488'); R(g, 1, 1, 1, 30, '#6A7488'); R(g, 30, 1, 1, 30, '#1A1E26'); R(g, 1, 30, 30, 1, '#1A1E26');
@@ -2018,6 +2030,12 @@
             R(g, 5, 7, 10, 17, '#7C8AA0'); R(g, 17, 7, 10, 17, '#7C8AA0'); R(g, 5, 7, 3, 17, '#A9B8CC'); R(g, 17, 7, 3, 17, '#A9B8CC');
             R(g, 5, 13, 10, 3, '#4FB6E8'); R(g, 17, 13, 10, 3, '#4FB6E8'); R(g, 8, 4, 4, 4, '#4A5568'); R(g, 20, 4, 4, 4, '#4A5568');
             R(g, 5, 22, 10, 2, '#4A5568'); R(g, 17, 22, 10, 2, '#4A5568');
+          } else if (ca === 4) {   // weitere Waren: Kiste in der Farbe der Darstellung mit Zeichen (x Waffen, raute Erz, streifen Bergungsgut, kreuz Hilfsgüter)
+            R(g, 6, 7, 20, 18, ci[1]); R(g, 6, 7, 20, 3, ci[0]); R(g, 6, 22, 20, 3, ci[2]);
+            if (ci[3] === 'x') { for (var xi = 0; xi < 12; xi++) { R(g, 10 + xi, 11 + xi, 2, 2, ci[4]); R(g, 20 - xi, 11 + xi, 2, 2, ci[4]); } }
+            else if (ci[3] === 'kreuz') { R(g, 14, 11, 4, 11, ci[4]); R(g, 11, 14, 10, 4, ci[4]); }
+            else if (ci[3] === 'raute') { for (var ri = 0; ri < 3; ri++) { R(g, 9 + ri * 6, 13, 3, 3, ci[4]); R(g, 12 + ri * 6 - 3, 18, 3, 3, ci[4]); } }
+            else { R(g, 8, 12, 16, 2, ci[4]); R(g, 8, 16, 16, 2, ci[4]); R(g, 8, 20, 16, 2, ci[4]); }
           } else if (ca === 2) {   // sonstige Fracht: graubraune Kiste mit Spanngurt
             R(g, 6, 7, 20, 18, '#8A6A3A'); R(g, 6, 7, 20, 3, '#B08A52'); R(g, 6, 22, 20, 3, '#5A4426'); R(g, 14, 7, 4, 18, '#C9A25A');
             R(g, 20, 4, 8, 6, '#6B7F96'); R(g, 20, 4, 8, 2, '#92A6BC');

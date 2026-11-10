@@ -1147,9 +1147,9 @@
     return ((st.ship && st.ship.npcs) || []).some(n => n.id === 'ivo' && !n.ab);
   }
   function bedAt(tx, ty) { return (Maps.BEDS || []).find(b => b.x === tx && b.y === ty); }
-  // PAN-01 B: Modulplätze (mod_a/b/c in den vier Modulräumen) zeigen, welches Modul im Raum steht (st.ship.mod, Codes f k w); ohne Modul Stauware.
-  // Frachtraum: Bucht, Bett, Stapel · Krankenstation: Liege, Liege, Scanner · Werkstatt: Werkbank, Werkbank, Maschine (Platzhalter, bis das Voxelwerk eigene Modelle liefert)
-  const MODUL_KIND = { mod_a: { f: 'cargo_bay', k: 'med_bed', w: 'workbench' }, mod_b: { f: 'cargo_bed', k: 'med_bed', w: 'workbench' }, mod_c: { f: 'crate', k: 'control_desk', w: 'pipes' } };
+  // PAN-01 B / LAD-01 A2: Modulplätze (mod_a/c in den vier Modulräumen) zeigen, welches Modul im Raum steht (st.ship.mod, Codes f k w); ohne Modul Stauware.
+  // Frachtraum: Platz (Bett im Personen-Modul, sonst Ware), Stapel · Krankenstation: Liege, Scanner · Werkstatt: Werkbank, Maschine (Platzhalter, bis das Voxelwerk eigene Modelle liefert)
+  const MODUL_KIND = { mod_a: { f: 'cargo_bay', k: 'med_bed', w: 'workbench' }, mod_c: { f: 'crate', k: 'control_desk', w: 'pipes' } };
   function modulKind(kind, tx, ty, st) {
     const tab = MODUL_KIND[kind];
     if (!tab) return kind;
@@ -1157,8 +1157,6 @@
     const code = r && r.modul && st && st.ship ? Maps.modulCodeImRaum(st.ship.mod, r.modul) : null;
     return (code && tab[code]) || 'crate';
   }
-  // belegbare Buchten: die der Modulräume mit Frachtraum (2 je Raum), Ware n liegt in Bucht n
-  function aktiveBuchten(st) { return Maps.frachtPlaetze(Maps.frachtRaeumeAusMod(st && st.ship && st.ship.mod)).bays; }
   const stufeOf = (st) => (st && st.ship && st.ship.st) || 0;
   // Pforte (verschaltes Schott) und Lafette: ohne Art-Modell, einfache lesbare Darstellung (Modellliste: CONTRACT-PAN01-B-MODELLE.md)
   function fbDoorSealed(ctx, px, py, opts) {
@@ -2566,8 +2564,11 @@
           else if (kind === 'shelf') { opts.item = shelfItemAt(d.tx, d.ty); opts.count = shelfStock(inv, opts.item); opts.empty = opts.count <= 0; opts.fill = shelfFill(inv, opts.item); }
           if (kind === 'bed') { const bed = bedAt(d.tx, d.ty); opts.color = bed ? bed.color : 0; }
           if ((kind === 'cargo_cot' || kind === 'tool_wall') && !ivoWohntImFrachtraum(st, d.tx, d.ty)) kind = 'crate';   // R0: ohne Bewohner Stauware statt Schlafecke
-          if (kind === 'cargo_bed') kind = 'cargo_cot';   // SL0: Frachtbett zeichnet die Pritsche (die liegende Person kommt als ship.npcs-Figur, lie: 1)
-          if (kind === 'cargo_bay') { const bi = aktiveBuchten(st).findIndex(b => b.x === d.tx && b.y === d.ty); const fl = (st.fracht && st.fracht.lager) || []; opts.cargo = bi >= 0 && fl[bi] ? { art: fl[bi] } : null; opts.secure = !(st.fracht && st.fracht.g === false); }   // EK3 Teil A: Ladung dieser Bucht (Art oder null)
+          if (kind === 'cargo_bay') {   // EK3 Teil A / LAD-01 A2: Ladung dieses Platzes aus der Belegung (Typ-Regel); Personen-Modul = Pritsche (die liegende Person kommt als ship.npcs-Figur, lie: 1)
+            const info = Maps.frachtPlatzAn(Maps.frachtBelegungAusSnapshot(st), d.tx, d.ty);
+            if (info && info.modulArt === 'person') kind = 'cargo_cot';
+            else { opts.cargo = info && info.art ? { art: info.art, darstellung: window.Shared_Waren ? window.Shared_Waren.darstellung(info.art) : 'kiste' } : null; opts.secure = !(st.fracht && st.fracht.g === false); }
+          }
           if (kind === 'sonde') opts.disabled = sondeDisabled;
           if (kind === 'barrel' || kind === 'pipes' || kind === 'control_desk') opts.variant = (d.tx * 7 + d.ty * 3) % 2;   // M0: Fass/Kabeltrommel, Rohr-Varianten
           // Mehrkachel-Objekte: Lage explizit übergeben (Art kennt die Nachbarn sonst nicht,
@@ -4777,7 +4778,7 @@
       for (const f of fr.draussen || []) {
         if (!visible(f.x, f.y)) continue;
         const s = toS(f.x, f.y);
-        const txt = f.art === 'sprengstoff' ? 'SPRENGSTOFF' : 'FRACHT';
+        const txt = (window.Shared_Waren ? window.Shared_Waren.name(f.art) : String(f.art)).toUpperCase();   // LAD-01 A1: Name aus content/waren.json
         if (!inB(s, -6)) { if (!front || cfg.navArrows !== false) arrow(f.x, f.y, PAL.amber, txt); continue; }
         const inR = Math.hypot(f.x - ship.x, f.y - ship.y) <= beamR;
         const holding = fr.halt && fr.halt.kind === 'an' && fr.halt.id === f.id;

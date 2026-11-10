@@ -18,18 +18,23 @@ ok(Math.abs(Phys.radAusKompass(0) + P / 2) < 1e-9, 'radAusKompass(0) = −π/2 (
 
 console.log('Frachtraum-Liste');
 {
-  const cap = Maps.cargoCapacity([1]);   // PAN-01 B: 2 Plätze je Modul Frachtraum (Start-Lerche: ein Frachtraum)
+  const cap = Maps.cargoCapacity([1]);   // PAN-01 B / LAD-01 A2: 4 Plätze je Modul Frachtraum (Start-Lerche: ein Frachtraum)
   const leer = FL.frachtListe(null, cap);
   ok(leer.belegt === 0 && leer.frei === cap && leer.text === 'FRACHTRAUM 0/' + cap + ': leer', 'leer: ' + leer.text);
   const eins = FL.frachtListe({ lager: ['deuterium'] }, cap);
-  ok(eins.belegt === 1 && eins.frei === cap - 1 && /^FRACHTRAUM 1\/2: Deuterium · 1 frei$/.test(eins.text), 'eine Ware: ' + eins.text);
+  ok(eins.belegt === 1 && eins.frei === cap - 1 && /^FRACHTRAUM 1\/4: Deuterium · 3 frei$/.test(eins.text), 'eine Ware: ' + eins.text);
   const voll = FL.frachtListe({ lager: ['deuterium'], pers: [{ id: 'evert', n: 'Evert Kroeger', b: 0 }] }, cap);
-  ok(voll.belegt === 2 && voll.frei === 0 && voll.text === 'FRACHTRAUM 2/2: Deuterium, Evert Kroeger', 'Ware und Person: ' + voll.text);
+  ok(voll.belegt === 2 && voll.frei === 2 && voll.text === 'FRACHTRAUM 2/4: Deuterium, Evert Kroeger · 2 frei', 'Ware und Person: ' + voll.text);
   ok(voll.eintraege[1].art === 'person' && voll.eintraege[0].art === 'deuterium', 'Einträge nach Art');
-  ok(FL.frachtListe({ lager: ['sprengstoff', 'fracht'] }, cap).text === 'FRACHTRAUM 2/2: Sprengstoff, Fracht', 'Sprengstoff und Fracht');
-  const drei = FL.frachtListe({ lager: ['deuterium', 'fracht', 'sprengstoff'], pers: [{ id: 'evert', n: 'Evert', b: 0 }] }, Maps.cargoCapacity([1, 2]));
-  ok(drei.cap === 4 && drei.belegt === 4 && drei.frei === 0 && drei.titel === 'FRACHTRAUM 4/4', 'zwei Frachträume: 4 Plätze (' + drei.titel + ')');
-  ok(Maps.cargoCapacity(Maps.frachtRaeumeAusMod([['f', 1, 1, 1], ['k', 2, 1, 1], ['f', 4, 1, 1]])) === 4, 'Kapazität aus dem Snapshot-Feld ship.mod (Code f): zwei Frachträume = 4');
+  ok(FL.frachtListe({ lager: ['sprengstoff', 'fracht'] }, cap).text === 'FRACHTRAUM 2/4: Sprengstoff, Fracht · 2 frei', 'Sprengstoff und Fracht');
+  const drei = FL.frachtListe({ lager: ['deuterium', 'fracht', 'sprengstoff', 'sprengstoff', 'sprengstoff'], pers: [{ id: 'evert', n: 'Evert', b: 0 }, { id: 'a', n: 'A', b: 1 }, { id: 'b', n: 'B', b: 2 }] }, Maps.cargoCapacity([1, 2]));
+  ok(drei.cap === 8 && drei.belegt === 8 && drei.frei === 0 && drei.titel === 'FRACHTRAUM 8/8', 'zwei Frachträume: 8 Plätze (' + drei.titel + ')');
+  ok(Maps.cargoCapacity(Maps.frachtRaeumeAusMod([['f', 1, 1, 1], ['k', 2, 1, 1], ['f', 4, 1, 1]])) === 8, 'Kapazität aus dem Snapshot-Feld ship.mod (Code f): zwei Frachträume = 8');
+  // LAD-01 A2: Füllstand 25/50/75/100 % je Modul aus der gemeinsamen Belegungsfunktion
+  const B = Maps.frachtBelegungAusSnapshot({ ship: { mod: [['f', 1, 1, 1]] }, fracht: { lager: ['deuterium', 'deuterium'] } });
+  ok(B.module.length === 1 && B.module[0].art === 'deuterium' && B.module[0].anzahl === 2 && B.module[0].plaetze.filter((p) => p.art).length === 2, 'Snapshot -> Belegung: ein Modul, Deuterium 2/4 (50 %)');
+  const info = Maps.frachtPlatzAn(B, B.module[0].plaetze[0].x, B.module[0].plaetze[0].y);
+  ok(info && info.art === 'deuterium' && info.modulArt === 'deuterium' && Maps.frachtPlatzAn(B, 0, 0) === null, 'Platz an einer Kachel: Ladung und Modultyp, sonst null');
 }
 
 console.log(`\n${n - fails}/${n} Prüfungen bestanden.`);

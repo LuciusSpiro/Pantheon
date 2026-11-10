@@ -164,8 +164,8 @@ section('Vier gleiche Modulräume: jedes Modul in jedem Raum, auch mehrfach', ()
   ok(T.debug('modul', 'bau krankenstation 2').length === 0 && Modul.finde(g, 'krankenstation', 2), 'Stufe 0: Modulraum 2 offen, Raumwahl per Debug');
   T.debug('ausbau', '1');
   ok(T.debug('modul', 'bau frachtraum 3').length === 0 && T.debug('modul', 'bau frachtraum 4').length === 1, 'Stufe 1: Modulraum 3 offen, 4 noch zu');
-  // der Raum hat denselben Platz: die Kacheln q, r, h sind in allen vier Räumen identisch angeordnet (check-maps), die Plätze gehören zum Raum
-  ok(Maps.CARGO_BAYS.filter((b) => b.raum === 3).length === 2 && Maps.CARGO_BEDS.filter((b) => b.raum === 4).length === 2, 'je Raum zwei Buchten und zwei Betten');
+  // der Raum hat denselben Platz: die Kacheln q, h sind in allen vier Räumen identisch angeordnet (check-maps), die Plätze gehören zum Raum
+  ok(Maps.CARGO_PLAETZE.filter((b) => b.raum === 3).length === 4 && Maps.CARGO_PLAETZE.filter((b) => b.raum === 4).length === 4, 'je Raum vier Frachtplätze (Variante B, keine eigenen Betten)');
 });
 
 section('Mehrere Frachträume: Kapazität, Laden und Abgeben', () => {
@@ -174,22 +174,24 @@ section('Mehrere Frachträume: Kapazität, Laden und Abgeben', () => {
   T.debug('ausbau', '3');
   const setze = (liste) => { g.ship.module = liste.map(([id, raum]) => ({ id, raum, an: true, lauf: true })); Modul.verteilungSetzen(g); T.run(0.1); };
   setze([['frachtraum', 1], ['krankenstation', 2]]);
-  ok(Fracht.capacity(g) === 2, 'ein Frachtraum: 2 Plätze');
+  ok(Fracht.capacity(g) === 4, 'ein Frachtraum: 4 Plätze');
   setze([['frachtraum', 1], ['frachtraum', 2]]);
-  ok(Fracht.capacity(g) === 4 && Fracht.frei(g) === 4, 'zwei Frachträume: 4 Plätze');
-  // Beamen aus dem Raum: drei Ladungen nacheinander (Halteprozess 3 s), die vierte füllt
+  ok(Fracht.capacity(g) === 8 && Fracht.frei(g) === 8, 'zwei Frachträume: 8 Plätze');
+  // Beamen aus dem Raum: vier Ladungen nacheinander (Halteprozess 3 s), zwei Arten in zwei Modulen
   for (let i = 0; i < 4; i++) Fracht.fracht_abwerfen(g, g.ship.x + 100 + i * 10, g.ship.y, i % 2 ? 'fracht' : 'sprengstoff');
   let geladen = 0;
   for (let i = 0; i < 4; i++) { const err = T.cmd('weapons.fracht'); if (!err.length) { T.run(3.2); geladen++; } }
-  ok(geladen === 4 && Fracht.anBord(g) === 4 && Fracht.frei(g) === 0, `vier Ladungen per Beamen an Bord (${Fracht.anBord(g)}/${Fracht.capacity(g)})`);
-  Fracht.fracht_abwerfen(g, g.ship.x + 100, g.ship.y, 'fracht');
+  ok(geladen === 4 && Fracht.anBord(g) === 4 && Fracht.frei(g) === 4, `vier Ladungen per Beamen an Bord (${Fracht.anBord(g)}/${Fracht.capacity(g)})`);
+  Fracht.fracht_abwerfen(g, g.ship.x + 100, g.ship.y, 'deuterium');
   const voll = T.cmd('weapons.fracht');
-  ok(voll.length === 1 && /Frachtraum voll \(4\/4\)/.test(voll[0]), 'fünfte Ladung: ' + voll[0]);
-  // Snapshot: Buchten nach Raum; Ware n liegt in Bucht n der Frachträume
+  ok(voll.length === 1 && /nur eine Art/.test(voll[0]), 'dritte Art ohne freies Modul (Typ-Regel): ' + voll[0]);
+  // Snapshot: die Belegung (Maps.frachtBelegung) legt die Module fest: Sprengstoff in Raum 1, Fracht in Raum 2
   const snap = g.snapshot();
   ok(snap.fracht.lager.length === 4 && snap.ship.mod.filter((m) => m[0] === 'f').length === 2, 'Snapshot: vier Waren, zwei Frachträume (ship.mod)');
-  const bays = Maps.frachtPlaetze(Maps.frachtRaeumeAusMod(snap.ship.mod)).bays;
-  ok(bays.length === 4 && bays.map((b) => b.raum).join() === '1,1,2,2', 'Client-Helfer: vier Buchten in Raum 1 und 2');
+  const plaetze = Maps.frachtPlaetze(Maps.frachtRaeumeAusMod(snap.ship.mod));
+  ok(plaetze.length === 8 && plaetze.map((b) => b.raum).join() === '1,1,1,1,2,2,2,2', 'Client-Helfer: vier Plätze in Raum 1 und 2');
+  const bel = Maps.frachtBelegungAusSnapshot(snap);
+  ok(bel.ueber === 0 && bel.module.map((m) => m.art + ':' + m.anzahl).join() === 'sprengstoff:2,fracht:2', 'Belegung aus dem Snapshot: Raum 1 Sprengstoff 2/4, Raum 2 Fracht 2/4');
   // Abliefern an einer Station (Kampagne, am Hafen)
   {
     const H = setup('free', { dir: freshDir() });
@@ -197,7 +199,7 @@ section('Mehrere Frachträume: Kapazität, Laden und Abgeben', () => {
     H.debug('ausbau', '3');
     H.g.ship.module = [{ id: 'frachtraum', raum: 1, an: true, lauf: true }, { id: 'frachtraum', raum: 2, an: true, lauf: true }];
     Modul.verteilungSetzen(H.g);
-    for (const a of ['sprengstoff', 'fracht', 'deuterium', 'sprengstoff']) Fracht.anBordLegen(H.g, a);
+    for (const a of ['sprengstoff', 'fracht', 'sprengstoff', 'fracht']) Fracht.anBordLegen(H.g, a);
     H.g.ship.x = 620; H.g.ship.y = 700;
     const ab = H.cmd('weapons.abliefern');
     ok(!ab.length && H.g.fracht.halt && H.g.fracht.halt.kind === 'ab', 'Abliefern beim Hafen startet ' + JSON.stringify(ab));
@@ -211,9 +213,9 @@ section('Mehrere Frachträume: Kapazität, Laden und Abgeben', () => {
   ok(!Fracht.gesichert(g) && g.snapshot().fracht && g.snapshot().fracht.g === false, 'ein Frachtraum aus: ungesichert (alle müssen laufen), Snapshot fracht.g false');
   // Ladung bleibt beim Ausbau eines Frachtraums über der Kapazität liegen, nimmt aber nichts Neues an
   setze([['frachtraum', 1], ['frachtraum', 2]]);
-  for (let i = 0; i < 4; i++) Fracht.anBordLegen(g, 'deuterium');
+  for (const a of ['sprengstoff', 'sprengstoff', 'fracht', 'fracht']) Fracht.anBordLegen(g, a);   // zusammen mit den vier Ladungen von oben: 8 von 8
   setze([['frachtraum', 1]]);
-  ok(Fracht.capacity(g) === 2 && Fracht.frei(g) === -2 && !Fracht.anBordLegen(g, 'fracht'), 'Frachtraum entfernt: Überhang bleibt, nichts Neues');
+  ok(Fracht.capacity(g) === 4 && Fracht.frei(g) === -4 && !Fracht.anBordLegen(g, 'sprengstoff'), 'Frachtraum entfernt: Überhang bleibt, nichts Neues');
 });
 
 section('Mehrere Frachträume: Personen und Betten', () => {
@@ -222,15 +224,15 @@ section('Mehrere Frachträume: Personen und Betten', () => {
   T.debug('ausbau', '3');
   g.ship.module = [{ id: 'frachtraum', raum: 4, an: true, lauf: true }, { id: 'frachtraum', raum: 1, an: true, lauf: true }, { id: 'frachtraum', raum: 2, an: true, lauf: true }];
   Modul.verteilungSetzen(g);
-  ok(Fracht.capacity(g) === 6 && PB.bettFrei(g) === 0, 'drei Frachträume: 6 Plätze, 6 Betten');
+  ok(Fracht.capacity(g) === 12 && PB.bettFrei(g) === 0, 'drei Frachträume: 12 Plätze, 12 Betten (je Modul 4)');
   for (let i = 0; i < 4; i++) ok(PB.personAnBordLegen(g, 'p' + i, 'Person ' + i), `Person ${i} an Bord`);
   Fracht.anBordLegen(g, 'deuterium'); Fracht.anBordLegen(g, 'fracht');
-  ok(Fracht.frei(g) === 0 && !PB.personAnBordLegen(g, 'zuviel', 'Zuviel'), 'Frachträume voll: keine weitere Person');
-  const betten = Maps.frachtPlaetze([1, 2, 4]).beds;
+  ok(Fracht.frei(g) === 6 && !PB.personAnBordLegen(g, 'zuviel', 'Zuviel'), 'alle drei Module tragen eine Art: keine fünfte Person (Typ-Regel), obwohl Plätze frei sind');
+  const betten = Maps.frachtPlaetze([1, 2, 4]).filter((b) => b.raum === 1);
   const figs = g.snapshot().ship.npcs.filter((q) => q.lie === 1);
-  ok(figs.length === 4 && figs.every((f) => betten.some((b) => Math.floor(f.x / 32) === b.x && Math.floor(f.y / 32) === b.y)), 'vier liegende Figuren auf den Betten der drei Frachträume (Raum 1, 2, 4)');
-  ok(Math.max(...g.snapshot().fracht.pers.map((p) => p.b)) <= 7, 'Bettnummern 0–7 (an die Raumnummer gebunden)');
-  ok(PB.personAbgeben(g, 'p1') && PB.bettFrei(g) === 1, 'Person abgegeben: ihr Bett ist frei');
+  ok(figs.length === 4 && figs.every((f) => betten.some((b) => Math.floor(f.x / 32) === b.x && Math.floor(f.y / 32) === b.y)), 'vier liegende Figuren auf den vier Betten des Personen-Moduls (Raum 1)');
+  ok(Math.max(...g.snapshot().fracht.pers.map((p) => p.b)) <= 3, 'Bettnummern 0–3 (Raum 1: (Raum − 1) × 4 + Platz)');
+  ok(PB.personAbgeben(g, 'p1') && PB.bettFrei(g) === 3, 'Person abgegeben: ein Bett im Personen-Modul ist frei');
 });
 
 section('ausbau 0: Spieler im gesperrten Raum und auf der Fahrt dorthin werden herausgesetzt', () => {
@@ -253,7 +255,7 @@ section('ausbau 0: Spieler im gesperrten Raum und auf der Fahrt dorthin werden h
   ok(g.players[0].zone === 'ship' && !g.players[0].lift, 'Spieler danach frei beweglich');
 });
 
-section('Personen bleiben in ihrem Bett (an die Raumnummer gebunden)', () => {
+section('Personen liegen im ersten Personen-Modul (LAD-01 A2: Bett abgeleitet aus der Belegung)', () => {
   const T = arena();
   const g = T.g;
   T.debug('ausbau', '3');
@@ -266,7 +268,7 @@ section('Personen bleiben in ihrem Bett (an die Raumnummer gebunden)', () => {
   g.ship.module = [{ id: 'frachtraum', raum: 1, an: true, lauf: true }, { id: 'frachtraum', raum: 2, an: true, lauf: true }];   // Frachtraum in einem niedrigeren Raum kommt dazu
   Modul.verteilungSetzen(g);
   const pos1 = g.snapshot().ship.npcs.find((q) => q.lie === 1);
-  ok(pos1.x === pos0.x && pos1.y === pos0.y, 'neuer Frachtraum in Raum 1: Evert bleibt in seinem Bett');
+  ok(raum2(pos1) === 'modul1', 'neuer Frachtraum in Raum 1: das Personen-Modul ist der erste Frachtraum, Evert liegt dort (Anzeigesprung bewusst hingenommen)');
   g.ship.module = [];   // Frachtraum ausgebaut: Person verschwindet nicht aus der Darstellung
   Modul.verteilungSetzen(g);
   ok(g.snapshot().ship.npcs.some((q) => q.lie === 1), 'ohne Frachtraum: Person bleibt sichtbar (Ersatzbett)');
@@ -281,7 +283,7 @@ section('Weltstand: schiff.stufe und Module im Roundtrip', () => {
   T.debug('ausbau', '2');
   g.ship.module = [{ id: 'frachtraum', raum: 1, an: true, lauf: true }, { id: 'werkstatt', raum: 2, an: true, lauf: true }, { id: 'frachtraum', raum: 3, an: true, lauf: true }, { id: 'krankenstation', raum: 4, an: false, lauf: false }];
   Modul.verteilungSetzen(g);
-  for (const a of ['sprengstoff', 'fracht', 'deuterium']) Fracht.anBordLegen(g, a);
+  for (const a of ['sprengstoff', 'sprengstoff']) Fracht.anBordLegen(g, a);   // zwei Frachträume = zwei Arten: Sprengstoff und Personen
   PB.personAnBordLegen(g, 'evert', 'Evert');
   const vorher = { module: JSON.stringify(Modul.toSave(g)), lager: JSON.stringify(Fracht.lagerArten(g)), mod: JSON.stringify(g.snapshot().ship.mod) };   // vor dem Beenden (danach setzt sich die Partie zurück)
   T.send({ t: 'menu', op: 'end' });
@@ -289,13 +291,13 @@ section('Weltstand: schiff.stufe und Module im Roundtrip', () => {
   ok(data.version === 3 && data.schiff.stufe === 2, `Stand: schiff.stufe ${data.schiff.stufe}, Version ${data.version}`);
   ok(data.schiff.module.length === 4 && data.schiff.module.filter((m) => m.id === 'frachtraum').map((m) => m.raum).join() === '1,3', 'Stand: vier Module, zwei Frachträume (Raum 1 und 3)');
   ok(Weltstand.validate(data).length === 0, 'Stand ist schema-gültig ' + (Weltstand.validate(data)[0] || ''));
-  ok(data.schiff.fracht.length === 4, 'Stand: vier Ladungen/Personen bei Kapazität 4 ' + JSON.stringify(data.schiff.fracht));
+  ok(data.schiff.fracht.length === 3, 'Stand: drei Ladungen/Personen (2 × Sprengstoff, Person) bei Kapazität 8 ' + JSON.stringify(data.schiff.fracht));
   const L = setup('free', { dir, world: id });
   L.run(0.3);
   const h = L.g;
   ok(h.ship.stufe === 2 && h.snapshot().ship.st === 2, 'nach dem Laden: Stufe 2');
   ok(JSON.stringify(Modul.toSave(h)) === vorher.module, 'nach dem Laden: dieselben Module in denselben Räumen (aus/an eingeschlossen)');
-  ok(Fracht.capacity(h) === 4 && JSON.stringify(Fracht.lagerArten(h)) === vorher.lager && PB.personAnBord(h, 'evert'), 'nach dem Laden: Kapazität 4, dieselbe Fracht, Evert an Bord');
+  ok(Fracht.capacity(h) === 8 && JSON.stringify(Fracht.lagerArten(h)) === vorher.lager && PB.personAnBord(h, 'evert'), 'nach dem Laden: Kapazität 8, dieselbe Fracht, Evert an Bord');
   ok(h.snapshot().ship.mod.length === 4 && JSON.stringify(h.snapshot().ship.mod.map((m) => m.slice(0, 3))) === JSON.stringify(JSON.parse(vorher.mod).map((m) => m.slice(0, 3))), 'Snapshot ship.mod nach dem Laden gleich (Code, Raum, an)');
   // Altstand ohne Feld: Stufe 0, Start-Bestückung
   const alt = JSON.parse(JSON.stringify(data)); delete alt.schiff.stufe; delete alt.schiff.module; alt.schiff.fracht = ['sprengstoff'];

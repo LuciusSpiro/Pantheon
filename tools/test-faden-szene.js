@@ -295,7 +295,7 @@ section('Spontanhilfe in einer Raumschlacht: erscheint, kämpft mit, verschwinde
   info('Verbündeter in diesem Lauf: ' + (erschienen ? 'ja' : 'nein'));
 });
 
-section('Fracht: laden, abliefern am Zielhafen, Ware nicht im Handel, Speichern/Laden', () => {
+section('Fracht: laden, abliefern am Zielhafen, Ware im Frachtraum, Speichern/Laden', () => {
   vorlage('sz_fracht', 'fracht', { parameter: { nach: '0305' } });
   const { g } = bereit({ crew: 1, seed: 22 });
   const f = oeffne(g, 'sz_fracht'); grenzen(g, 5);
@@ -303,7 +303,7 @@ section('Fracht: laden, abliefern am Zielhafen, Ware nicht im Handel, Speichern/
   ok(weiter(g, f).ok && f.phase === 'laeuft' && f.fracht && f.fracht.ware === 'fracht_kiste', 'Beat fracht: die Ware ist an Bord');
   const inv = Fracht.inventar(g);
   ok(inv.length === 1 && inv[0].gewicht === 0 && inv[0].name === W.waren.fracht_kiste.name, 'Inventar: Name aus den Daten, Gewicht 0');
-  ok((g.fracht ? g.fracht.lager.length : 0) === lager0, 'die Ware ist nicht im Frachtraum (Handel unberührt)');
+  ok((g.fracht ? g.fracht.lager.length : 0) === lager0 + 1 && g.fracht.lager[g.fracht.lager.length - 1].art === 'fracht', 'LAD-01 C: die Ware liegt als Art fracht im Frachtraum (ein Platz)');
   // speichern und laden: die Ware bleibt
   const ws = Weltstand.capture(g);
   ok(Weltstand.validate(ws, g).length === 0, 'Weltstand mit Ware besteht das Schema');
@@ -314,6 +314,7 @@ section('Fracht: laden, abliefern am Zielhafen, Ware nicht im Handel, Speichern/
   ankunft(g, '0305');
   g.missionEvent('docked', {});
   ok(f.phase === 'wartet' && !f.fracht && f.nsc.status === 'verbuendet', 'am Zielhafen angedockt: abgeliefert (gelungen), Ware weg');
+  ok(g.fracht.lager.length === lager0, 'LAD-01 C: die Ladung hat den Frachtraum verlassen');
 });
 
 section('Fracht: Frist läuft ab = gescheitert, Notsprung = verloren', () => {

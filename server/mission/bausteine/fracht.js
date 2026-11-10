@@ -10,7 +10,9 @@
 // Der Abnehmer ist Laufzeit (nicht im Weltstand); das Regiebuch setzt ihn mit der Szene neu.
 let frachtMod = null;
 const fracht = () => frachtMod || (frachtMod = require('../../sim/fracht.js'));
-const ARTEN = ['sprengstoff', 'fracht', 'deuterium'];   // SL6: Deuterium (Gasriese)
+const Waren = require('../../../shared/waren.js');
+// LAD-01 Nacharbeit 1: alle Waren aus content/waren.json (Kategorie ware), keine feste Liste
+const ARTEN = Waren.arten();
 
 module.exports = (Registry) => {
   Registry.define({ id: 'fracht_abwerfen', art: 'aktion', ereignisse: ['frachtAbgeworfen'],
