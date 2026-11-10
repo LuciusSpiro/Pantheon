@@ -191,6 +191,7 @@ async function abend(o) {
   for (let i = 0; i < 3; i++) cl.push(await Bot.client(WebSocket, port, CODE, { clientId: 'ABC'[i], name: NAMEN[i], color: i }, NAMEN[i], NAMEN));
   await sleep(300);
   cl[0].send({ t: 'lobbyOpt', startMission: 'freie_fahrt' });
+  if (modus === 'live') cl[0].send({ t: 'lobbyOpt', liveSpielleiter: true });   // FRE-01 B: live in der Freien Fahrt nur ueber die Lobby-Option (sonst Rueckfall-Betrieb, Modus off)
   for (const x of cl) x.send({ t: 'ready', ready: true });
   await sleep(1200);
   const w = Bot.werkzeug({ g, cl, zeile, k });
