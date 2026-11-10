@@ -153,6 +153,9 @@ async function main() {
 
   neuerOrdner(modus);
   const spielEnv = { FAEDEN: '1', LAGE_SPIELLEITER: '1', SPIELLEITER_LLM: modus === 'live' ? 'mock' : 'mock' };
+  // SPL-02: der Schalter Modus Absichten kommt aus der Umgebung des Aufrufers (das Spiel liest game.env, nicht process.env); ohne Wert bleibt der Beat-Plan-Weg.
+  // Die Zeilen "gelesen"/Wiederholungen der Auswertung unten kennen nur Beat-Plaene (bauplanAusText): im Modus Absichten zaehlen Gueltigkeit, Tokens, Dauer und Kosten aus dem Logbuch, Folgen bleiben leer.
+  if (process.env.ABENTEUER_ABSICHTEN !== undefined && process.env.ABENTEUER_ABSICHTEN !== '') { spielEnv.ABENTEUER_ABSICHTEN = process.env.ABENTEUER_ABSICHTEN; bezeichnung += ', ABENTEUER_ABSICHTEN=' + process.env.ABENTEUER_ABSICHTEN; }
   if (ordner) {
     // --out: Logbuch und Mitschnitt in den Lauf-Ordner (die Fixture wuerde REGIE_DIR sonst auf einen Temp-Ordner setzen); ausdruecklich gesetzte Umgebung gilt
     spielEnv.REGIE_DIR = process.env.REGIE_DIR || path.join(ordner, 'regie');
@@ -184,23 +187,24 @@ async function main() {
   for (let i = 0; i < N; i++) {
     const z = Faden.zustandVon(g); z.abenteuerAngebote.length = 0;
     const r = ab.erzwingen();
+    const nrJob = ab.aufrufe;   // Nr dieses Jobs; eine Verhandlung (Modus Absichten) zaehlt ab.aufrufe weiter, traegt aber dieselbe Nr im Logbuch
     if (!r.gestartet) { abbruch = `Aufruf ${i + 1}: nicht gestartet (${r.grund})`; console.log(abbruch); break; }
     const grenze = Date.now() + (modus === 'live' ? 6 * 60 * 1000 : 5 * 1000);
     while (ab.zustand !== 'idle' && Date.now() < grenze) { g.step(); await frei(); if (modus === 'live') await new Promise((s) => setTimeout(s, 25)); }
     if (ab.zustand !== 'idle') { abbruch = `Aufruf ${i + 1}: haengt (nach ${modus === 'live' ? 6 * 60 : 5} s kein Ergebnis), die Messung bricht ab`; console.log(abbruch); zaehl.ausfall.HAENGT = 1; break; }
-    const e = (g.lageRegie ? g.lageRegie.log.entries : []).filter((x) => x.art === 'abenteuer_bauplan' && ['gueltig', 'abgelehnt', 'ausfall'].includes(x.ausgang) && x.plan && x.plan.nr === ab.aufrufe).pop();   // das Logbuch im Speicher haelt nur die letzten 200 Eintraege: ueber die Nummer des Aufrufs suchen
-    if (!e) { zaehl.ausfall.KEIN_ERGEBNIS = (zaehl.ausfall.KEIN_ERGEBNIS || 0) + 1; plaene.push({ nr: ab.aufrufe, eintrag: null, aufrufe: aufrufeNr.get(ab.aufrufe) || [], angebot: null }); continue; }
+    const e = (g.lageRegie ? g.lageRegie.log.entries : []).filter((x) => x.art === 'abenteuer_bauplan' && ['gueltig', 'abgelehnt', 'ausfall'].includes(x.ausgang) && x.plan && x.plan.nr === nrJob).pop();   // das Logbuch im Speicher haelt nur die letzten 200 Eintraege: ueber die Nummer des Aufrufs suchen
+    if (!e) { zaehl.ausfall.KEIN_ERGEBNIS = (zaehl.ausfall.KEIN_ERGEBNIS || 0) + 1; plaene.push({ nr: nrJob, eintrag: null, aufrufe: aufrufeNr.get(nrJob) || [], angebot: null }); continue; }
     if (e.ausgang === 'gueltig') zaehl.gueltig++;
     else if (e.ausgang === 'abgelehnt') zaehl.abgelehnt[e.grund] = (zaehl.abgelehnt[e.grund] || 0) + 1;
     else zaehl.ausfall[e.grund] = (zaehl.ausfall[e.grund] || 0) + 1;
     zaehl.tokens += e.tokens || 0;
     if (Number.isFinite(e.dauer_s)) zaehl.dauer.push(e.dauer_s);
     if (Number.isFinite(e.geld)) { zaehl.geld += e.geld; zaehl.geldBekannt++; }
-    const aufn = (aufrufeNr.get(ab.aufrufe) || []);
+    const aufn = (aufrufeNr.get(nrJob) || []);
     const letzteAufn = aufn[aufn.length - 1];
     const gelesen = letzteAufn && letzteAufn.antwort ? AP.bauplanAusText(letzteAufn.antwort.text) : null;   // die Antwort DIESES Aufrufs (bei einem Fehlaufruf keine, statt der vorigen)
     const angebot = e.ausgang === 'gueltig' ? ((Faden.zustandVon(g).abenteuerAngebote || []).find((a) => a.ref === (e.plan && e.plan.vorlage)) || null) : null;
-    plaene.push({ nr: ab.aufrufe, eintrag: e, aufrufe: aufn, gelesen, angebot });
+    plaene.push({ nr: nrJob, eintrag: e, aufrufe: aufn, gelesen, angebot });
     if (gelesen && gelesen.plan && Array.isArray(gelesen.plan.beats)) folgen.push(gelesen.plan.beats.map((x) => x && x.typ).join('>'));
   }
   if (alteLive === undefined) delete process.env.LLM_LIVE; else process.env.LLM_LIVE = alteLive;

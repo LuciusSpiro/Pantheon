@@ -20,7 +20,7 @@ const results = [];
 const check = (name, cond, detail) => { results.push({ name, ok: !!cond, detail }); };
 const TMP = fs.mkdtempSync(path.join(os.tmpdir(), 'pantheon-live-abend-'));
 const env = { ...process.env };
-for (const k of ['LLM_LIVE', 'REGIE_DIR', 'MITSCHNITT', 'MITSCHNITT_DIR', 'CLAUDE_TOKEN_BUDGET', 'SPIELLEITER_LLM', 'CLAUDE_CLI', 'FAKE_FAIL_ERSTER', 'FAKE_PLAN_MIT', 'FAKE_INPUT_TOKENS', 'FAKE_ZAEHLER_DIR', 'LAGE_SPIELLEITER', 'FAEDEN', 'REISE_EREIGNISSE']) delete env[k];
+for (const k of ['LLM_LIVE', 'REGIE_DIR', 'MITSCHNITT', 'MITSCHNITT_DIR', 'CLAUDE_TOKEN_BUDGET', 'SPIELLEITER_LLM', 'CLAUDE_CLI', 'FAKE_FAIL_ERSTER', 'FAKE_PLAN_MIT', 'FAKE_INPUT_TOKENS', 'FAKE_ZAEHLER_DIR', 'LAGE_SPIELLEITER', 'FAEDEN', 'REISE_EREIGNISSE', 'ABENTEUER_ABSICHTEN', 'TEXTE_POOL']) delete env[k];   // die Umgebung des Aufrufers darf den Test nicht färben
 
 function lauf(args, extraEnv, cwd) {
   return new Promise((resolve) => {
@@ -174,12 +174,14 @@ const kurz = ['--dauer', '240', '--grenzabstand', '0.3', '--geduld', '5', '--rue
   // ---------- A, B, C parallel (jeder Lauf hat seinen eigenen Server auf freiem Port)
   const outA = path.join(TMP, 'ablage-a'); fs.mkdirSync(outA); fs.writeFileSync(path.join(outA, 'FREMD.txt'), 'darf nie verschwinden');
   const outL = path.join(TMP, 'ablage-live'); fs.mkdirSync(outL); fs.writeFileSync(path.join(outL, 'FREMD.txt'), 'darf nie verschwinden');
+  const outP = path.join(TMP, 'ablage-absichten'); fs.mkdirSync(outP);
   const mitDir = path.join(TMP, 'mitschnitte');
-  const [rA, rB, rC1, rC2] = await Promise.all([
+  const [rA, rB, rC1, rC2, rP] = await Promise.all([
     lauf(['--mock', '--seed', '7,8', '--abenteuer', '1', ...kurz, '--out', 'ablage-a', '--mitschnitt-dir', mitDir]),   // relatives --out: gegen das Verzeichnis des Aufrufers (TMP)
     lauf(['--live', '--seed', '7', '--abenteuer', '2', ...kurz, '--out', outL], fakeEnv({ FAKE_PLAN_MIT: 'geruecht,spur' })),
     lauf(['--live', '--seed', '5', '--abenteuer', '1', ...kurz, '--out', outL], fakeEnv({ CLAUDE_TOKEN_BUDGET: '40000', FAKE_INPUT_TOKENS: '20000', FAKE_PLAN_MIT: 'geruecht,spur' })),
     lauf(['--live', '--seed', '6', '--abenteuer', '1', ...kurz, '--freigeben', '--out', outL], fakeEnv({ CLAUDE_TOKEN_BUDGET: '40000', FAKE_INPUT_TOKENS: '20000', FAKE_PLAN_MIT: 'geruecht,spur' })),
+    lauf(['--live', '--seed', '7', '--abenteuer', '1', ...kurz, '--out', outP], fakeEnv({ ABENTEUER_ABSICHTEN: '1' })),   // SPL-02: Schalter aus der Umgebung des Aufrufers, der Fake antwortet im Modus an mit absicht/1
   ]);
 
   // ----- A
@@ -236,6 +238,13 @@ const kurz = ['--dauer', '240', '--grenzabstand', '0.3', '--geduld', '5', '--rue
   check('C ohne --freigeben bleibt das Limit unveraendert', !!eC1 && eC1.kontingent.freigabe === null && eC1.budget.limit === 40000);
   check('C --freigeben: Bot-Captain sendet kontingent.freigeben, Antwort ok, Limit +500 000 (540 000), Index nennt es', rC2.code === 0 && !!eC2 && !!eC2.kontingent.freigabe && eC2.kontingent.freigabe.antwort && eC2.kontingent.freigabe.antwort.ok === true && eC2.kontingent.freigabe.limit_danach === 540000 && eC2.budget.limit === 540000 && /Freigabe \(--freigeben\): gesendet, ok nach/.test(lies(path.join(dirC2 || oA, 'index.md'))), eC2 && JSON.stringify(eC2.kontingent) + rC2.text.slice(-600));
   check('C Logbuch nennt Erreichen und Freigabe (art kontingent)', dirC2 && dateien(path.join(dirC2, 'abend-6', 'regie')).filter((f) => /\.jsonl$/.test(f)).some((f) => /"art":"kontingent"[^\n]*"ausgang":"erreicht"/.test(lies(f)) || (/"ausgang":"erreicht"/.test(lies(f)) && /"art":"kontingent"/.test(lies(f)))) && dateien(path.join(dirC2, 'abend-6', 'regie')).filter((f) => /\.jsonl$/.test(f)).some((f) => /"ausgang":"freigabe"/.test(lies(f))));
+
+  // ----- P: Modus Absichten ist Opt-in ueber die Umgebung (die Lobby-Betriebsart live setzt ihn nicht)
+  const logbuch = (dir) => dateien(path.join(dir, 'abend-7', 'regie')).filter((f) => /\.jsonl$/.test(f)).map(lies).join('\n');
+  const dirP = lauford(outP)[0], eP = dirP ? (json(path.join(dirP, 'messung.json')) || { abende: [{}] }).abende[0].ergebnis : null;
+  check('P ABENTEUER_ABSICHTEN=1 aus der Umgebung gelangt ins Spiel: Exit 0, Logbuch des Abenteuer-Spielleiters mit modus "absicht", Rohantwort absicht/1', rP.code === 0 && !!dirP && !!eP && /"modus":"absicht"/.test(logbuch(dirP)) && dateien(path.join(dirP, 'abend-7', 'regie', 'aufnahmen')).some((f) => /absicht\/1/.test(lies(f))), rP.text.slice(-800));
+  check('P Modus absicht liefert mindestens ein gueltiges Angebot (Logbuch ausgang gueltig mit modus absicht)', !!dirP && logbuch(dirP).split('\n').some((z) => /"modus":"absicht"/.test(z) && /"ausgang":"gueltig"/.test(z)));
+  check('P ohne den Schalter (Lauf B, Lobby-Betriebsart live): kein Eintrag im Modus absicht, die Plaene sind Beat-Plaene', !!dirB && !/"modus":"absicht"/.test(logbuch(dirB)) && /geruecht/.test(dateien(path.join(dirB, 'abend-7', 'regie', 'aufnahmen')).map(lies).join('')));
 
   // ---------- F: nichts im Repo, nichts geloescht
   check('F Fremddateien in beiden --out-Ordnern unberuehrt, drei Lauf-Ordner nebeneinander (nichts ueberschrieben)', lies(path.join(outL, 'FREMD.txt')) === 'darf nie verschwinden' && ordL.length === 3 && new Set(ordL).size === 3, ordL.join(','));

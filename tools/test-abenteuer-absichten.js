@@ -113,7 +113,7 @@ section('Schalter: Umgebung, Datenwert, Lobby-Betriebsart', () => {
     kat.werte.betrieb_standard_an.wert = true;
     ok(Absicht.aktiv(env({})) && !Absicht.aktiv(env({ ABENTEUER_ABSICHTEN: '0' })) && !Absicht.aktiv(env({ ABENTEUER_ABSICHTEN: 'off' })), 'Datenwert true: ohne Variable an, 0 und off schalten trotzdem aus');
   } finally { kat.werte.betrieb_standard_an.wert = alt; }
-  ok(SZ.betriebsarten.wert.live.ABENTEUER_ABSICHTEN === '1' && !('ABENTEUER_ABSICHTEN' in SZ.betriebsarten.wert.rueckfall) && !('ABENTEUER_ABSICHTEN' in SZ.schalter.wert), 'Lobby: Betriebsart live setzt ABENTEUER_ABSICHTEN mit, der Rueckfall und die Basis-Schalter nicht');
+  ok(!('ABENTEUER_ABSICHTEN' in SZ.betriebsarten.wert.live) && !('ABENTEUER_ABSICHTEN' in SZ.betriebsarten.wert.rueckfall) && !('ABENTEUER_ABSICHTEN' in SZ.schalter.wert), 'Lobby: weder Betriebsart live noch Rueckfall noch die Basis-Schalter setzen ABENTEUER_ABSICHTEN (Opt-in nur ueber die Umgebung)');
   ok(require('../server/telemetrie/kopf.js').SCHALTER.includes('ABENTEUER_ABSICHTEN'), 'der Schalter steht in der Positivliste des Protokollkopfs');
 });
 
