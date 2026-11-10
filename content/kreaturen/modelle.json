@@ -1,7 +1,7 @@
 {
   "_hinweis": "MON-02 O3a: Zuordnung Kreatur-Typ -> Voxelmodell, nur Client (public/js/voxel/actors.js, geladen von /content/kreaturen/modelle.json). `reihenfolge` = die Typ-IDs in der Reihenfolge von content/kampf/kreaturen.json (der Snapshot sendet den Index als typCode; die Reihenfolge ist Protokoll, tools/test-kreatur-optik.js prueft die Gleichheit). `typen.<id>` = { modell, marken, varianten }: Koerper-Modell (Parameter pose, fell, beinphase), Marken-Modell (Parameter ladung, pose) und Zahl der Fellfarben (fell = Tier-Nummer % varianten). Typen ohne Eintrag zeigen den grauen Platzhalter (MON-01), ebenso ein fehlendes Asset oder ?render=2d. `ohne` = Typen, die bewusst keinen Eintrag haben (Test: jeder Typ steht in typen oder ohne).",
-  "reihenfolge": ["probe", "rudeltier"],
-  "ohne": ["probe"],
+  "reihenfolge": ["probe", "rudeltier", "schwarmling", "koenigin"],
+  "ohne": ["probe", "schwarmling", "koenigin"],
   "typen": {
     "rudeltier": { "modell": "kreatur/rudeltier", "marken": "kreatur/rudeltier_marken", "varianten": 6 }
   }

@@ -27,7 +27,8 @@
 //   erzeugen(game, typ, x, y) / debugKreatur(game, p, typ)   Anlegen; Debug `kreatur <typ>` (nur Server --debug)
 //   erzeugenAuf(game, aw, typ, { x, y, gruppe? })            Anlegen auf einer gegebenen Außenkarte (Missionsaktionen laufen vor der Landung; MON-02 P1)
 //   rudelSetzen(game, { map, bereich?, typ, anzahl, gruppe }) Rudel mit Kennung K.gruppe anlegen (Aktion kreatur_besetzen), Buchführung aw.kreaturGruppen[gruppe] = { erschienen, typ }
-//   ausgefallenMelden(game, K)               Ereignis kreaturAusgefallen {id, typ, gruppe, x, y} bei endgültigem Ausfall (aus combat.faellt; bewusstlos meldet nichts; einmal je Kreatur; MON-02 P2)
+//   nestSetzen(game, { map, typ, gruppe, x, y }) eine Quelle (Königin) an der Kachel (x, y) anlegen, Buchführung wie rudelSetzen (MON-03 A); Baustein `brut` {typ, anfang, max, takt, radius}: die Quelle bringt ihr gebundenes Gefolge hervor
+//   ausgefallenMelden(game, K)             Ereignis kreaturAusgefallen {id, typ, gruppe, x, y} bei endgültigem Ausfall (aus combat.faellt; bewusstlos meldet nichts; einmal je Kreatur; MON-02 P2)
 //   rudelErledigt(game, map, { gruppe | typ })  Prüfung des Bausteins kreaturen_erledigt; nichtEndgueltigErledigt(K) ist die gemeinsame Regel (lebend oder erholbar liegend, nicht aufgelöst)
 //   Baustein `aufgeben` { anlaeufe }: Auslöser `aufgegeben` nach n erfolglosen Rammen in Folge (Hook beiWechsel)
 //
@@ -395,6 +396,71 @@ kreaturBausteinAnmelden('bindung', {
   },
 });
 
+// ---------- Baustein brut (MON-03 A): die Quelle bringt ihr Gefolge selbst hervor ----------
+// Eingeschaltet nur am Typ der Quelle (z. B. der Königin), Parameter nennen den Typ des Nachwuchses; der Server kennt keinen Typnamen. Der Nachwuchs hat in seinem eigenen Typ eine `bindung` an die Quelle
+// (Folge `aufloesen`): ohne Quelle löst er sich auf und kehrt nicht wieder, weil eine endgültig erledigte Quelle nicht mehr abgeglichen wird (nichtEndgueltigErledigt). Läuft in beiAbgleich, also auch bei
+// betäubter oder bewusstloser Quelle, aber nur mit Außenteam (wie alles in update, sonst stünde die Karte still).
+//   typ     Kreaturen-Typ des Nachwuchses (muss in kreaturen.json stehen, eine `bindung` tragen und selbst keine `brut`)
+//   anfang  Startbesatz beim ersten Abgleich mit Außenteam (0 bis max)
+//   max     höchstens so viele nicht endgültig erledigte Nachkommen gleichzeitig (1 bis BRUT_MAX); NUR dieser Baustein legt Nachwuchs an, kein Lärm, keine Wiederkehr-Folge
+//   takt    Sekunden zwischen zwei Neuzugängen, solange unter max (ab dem Fall eines Nachkommen; bei max steht die Uhr)
+//   radius  Kacheln um die Quelle, in denen der Nachwuchs erscheint (freie Ankerpunkte der Maske des Nachwuchses, Zufall nur aw.rng)
+// Tote Nachkommen (endgültig erledigt) werden still aus aw.kreaturen entfernt (K.weg ohne Ereignis; sie wären sonst nie mehr weg: die Liste wüchse mit jeder Wiederkehr). Bewusstlose zählen als lebend.
+// Zähler: K.brut = { t, rest } entsteht lazy nur an der Quelle (die Instanz anderer Kreaturen bleibt unverändert). Nachkommen = gleicher Typ und gleiche Gruppe wie die Quelle (ohne Gruppe: nur der Typ).
+const BRUT_FELDER = ['typ', 'anfang', 'max', 'takt', 'radius'];
+const BRUT_MAX = 30;           // Deckel im Validator (gemessen MON-03 Erkundung: Tick und Snapshot sind bei 30 kein Problem, Optik ungemessen)
+const BRUT_ABSTAND = 1.5;      // Kacheln, Mindestabstand des Nachwuchses zur Mitte der Quelle (er erscheint nicht in ihr)
+const BRUT_VERSUCHE = 12;
+const brutNachkomme = (K, O, par) => O !== K && O.kreatur && O.typ === par.typ && (K.gruppe == null || O.gruppe === K.gruppe);
+function brutAnlegen(game, aw, K, par, typ, m) {
+  const base = Mon.ankerVonPosition(K.x, K.y, typVon(K.typ).groesse);
+  for (let i = 0; i < BRUT_VERSUCHE; i++) {
+    const cx = base.cx + Math.round((aw.rng() * 2 - 1) * par.radius), cy = base.cy + Math.round((aw.rng() * 2 - 1) * par.radius);
+    if (!m.geht(cx, cy)) continue;
+    const pos = Mon.mitteVon({ cx, cy }, typ.groesse);
+    if (Math.hypot(pos.x - K.x, pos.y - K.y) < BRUT_ABSTAND * TILE) continue;
+    try { const N = anlegen(game, aw, par.typ, pos.x, pos.y, K.gruppe != null ? K.gruppe : null); N.facing = aw.rng() * Math.PI * 2; return true; }
+    catch (e) { if (game.countError) game.countError('kreatur-brut', e); return false; }
+  }
+  return false;
+}
+kreaturBausteinAnmelden('brut', {
+  beiAbgleich(game, K, dt, par) {
+    const aw = game.away; if (!aw || !aw.kreaturen || K.weg) return;
+    let lebend = 0;
+    for (const O of aw.kreaturen) {
+      if (O.weg || !brutNachkomme(K, O, par)) continue;
+      if (nichtEndgueltigErledigt(O)) lebend++; else O.weg = true;   // still: update entfernt nach der Schleife
+    }
+    if (!game.players.some((p) => p.zone === 'away')) return;
+    const k = game.karteOf ? game.karteOf(aw.map) : null; if (!k || typeof aw.rng !== 'function') return;
+    const B = K.brut || (K.brut = { t: 0, rest: par.anfang });
+    const typ = typVon(par.typ), m = Monster.maskeVonGroesse(k, typ.groesse);
+    while (B.rest > 0 && lebend < par.max) { if (!brutAnlegen(game, aw, K, par, typ, m)) return; B.rest--; lebend++; }   // Startbesatz; findet sich kein Platz, im nächsten Abgleich weiter
+    if (lebend >= par.max) { B.rest = 0; B.t = 0; return; }
+    if (B.rest > 0) return;
+    B.t += dt;
+    if (B.t < par.takt) return;
+    if (brutAnlegen(game, aw, K, par, typ, m)) B.t -= par.takt; else B.t = par.takt;   // kein Platz: beim nächsten Abgleich wieder versuchen
+  },
+  pruefen(par) {
+    const F = [];
+    if (!par || typeof par !== 'object' || Array.isArray(par)) return ['Objekt { typ, anfang, max, takt, radius } erwartet'];
+    for (const k of Object.keys(par)) if (!BRUT_FELDER.includes(k)) F.push(k + ': unbekanntes Feld');
+    const t = hat(KREATUREN.typen, par.typ) ? KREATUREN.typen[par.typ] : null;
+    if (!t) F.push('typ: unbekannter Kreaturentyp "' + par.typ + '"');
+    else {
+      if (!t.bausteine || !t.bausteine.bindung) F.push('typ: "' + par.typ + '" hat keine bindung (der Nachwuchs muss an die Quelle gebunden sein, sonst zerfällt er nie)');
+      if (t.bausteine && t.bausteine.brut) F.push('typ: "' + par.typ + '" hat selbst eine brut (Nachwuchs, der Nachwuchs bringt, ist nicht begrenzt)');
+    }
+    if (!Number.isInteger(par.max) || par.max < 1 || par.max > BRUT_MAX) F.push('max muss eine ganze Zahl 1 bis ' + BRUT_MAX + ' sein (gleichzeitig lebende Nachkommen)');
+    if (!Number.isInteger(par.anfang) || par.anfang < 0 || (Number.isInteger(par.max) && par.anfang > par.max)) F.push('anfang muss eine ganze Zahl 0 bis max sein (Startbesatz)');
+    if (!zahl(par.takt, 0.5)) F.push('takt muss eine Zahl >= 0,5 sein (s je Neuzugang)');
+    if (!zahl(par.radius, 1, 12)) F.push('radius muss eine Zahl 1 bis 12 sein (Kacheln um die Quelle)');
+    return F;
+  },
+});
+
 // MON-02 P2: Kreatur fällt endgültig aus (verwundet/aus, nicht bewusstlos): Ereignis `kreaturAusgefallen {id, typ, gruppe, x, y}` (Spiel- und Missionsereignis), höchstens einmal je Kreatur.
 // Aufrufer: combat.faellt nach knockOut. Bewusstlose Kreaturen melden nichts (sie stehen wieder auf); fällt eine aufgewachte später verwundet, meldet sie dann. Der Merker K.ausgefallenGemeldet entsteht erst bei der Meldung (nicht in anlegen).
 function ausgefallenMelden(game, K) {
@@ -715,6 +781,37 @@ function rudelSetzen(game, o) {
   return { n, ids, fehler: null };
 }
 
+// ---------- Nest (MON-03 A) ----------
+// nestSetzen(game, { map, typ, gruppe, x, y }) -> { n, ids, fehler }: legt EINE Quelle (z. B. die Königin eines Schwarms) an der Maskenposition nächst der Kachel (x, y) an (Kacheln, wie ein Anker; Suchradius NEST_SUCHE)
+// und führt die Buchführung aw.kreaturGruppen[gruppe] wie rudelSetzen, damit `kreaturen_erledigt { typ }` stimmt. Der Nachwuchs entsteht danach über den Baustein `brut` des Typs, nicht hier.
+// Eigene Funktion statt Parameter an rudelSetzen (Rudel: viele, gestreut, mit Abholpunkt-Abstand; Nest: eines, an einem festen Ort). Der Anker `nest` kommt mit MON-03 B und ruft diese Funktion mit seiner Kachel.
+// Fehler als Text, dann entsteht nichts. Die Karte muss die aktive sein, wenn der Typ eine bindung trägt (die Quelle selbst hat keine; sie darf vor der Landung angelegt werden, ihr Nachwuchs erst im Spiel).
+const NEST_SUCHE = 3;
+function nestSetzen(game, o) {
+  const fehl = (t) => ({ n: 0, ids: [], fehler: 'nest_setzen: ' + t });
+  const p = o || {};
+  let typ = null;
+  try { typ = hat(daten().typen, p.typ) ? typVon(p.typ) : null; } catch (e) { return fehl(e.message.split('\n')[0]); }
+  if (!typ) return fehl('unbekannter Typ "' + p.typ + '"');
+  if (typeof p.gruppe !== 'string' || !GRUPPE_FORM.test(p.gruppe)) return fehl('gruppe muss ein Text der Form ' + GRUPPE_FORM + ' sein (' + p.gruppe + ')');
+  if (!Number.isFinite(p.x) || !Number.isFinite(p.y)) return fehl('x und y (Kacheln, Zahlen) fehlen');
+  const aw = karteRegistriert(game, p.map);
+  if (!aw) return fehl('Karte ' + p.map + ' unbekannt');
+  const k = game.karteOf ? game.karteOf(p.map) : null;
+  if (!k) return fehl('Karte ' + p.map + ' hat keine Kartendaten');
+  const alt = hat(aw.kreaturGruppen, p.gruppe) ? aw.kreaturGruppen[p.gruppe] : null;
+  if (alt && alt.typ !== p.typ) return fehl('Gruppe "' + p.gruppe + '" besteht schon mit dem Typ ' + alt.typ);
+  combat().ensureV2(game, aw, p.map);   // aw.rng
+  const a = Mon.naechster(Monster.maskeVonGroesse(k, typ.groesse), Math.floor(p.x), Math.floor(p.y), NEST_SUCHE);
+  if (!a) return fehl('kein freier Platz für Größe ' + typ.groesse + ' innerhalb von ' + NEST_SUCHE + ' Kacheln um (' + p.x + ',' + p.y + ') auf Karte ' + p.map);
+  const pos = Mon.mitteVon(a, typ.groesse);
+  let K;
+  try { K = anlegen(game, aw, p.typ, pos.x, pos.y, p.gruppe); } catch (e) { return fehl(e.message); }
+  const G = aw.kreaturGruppen || (aw.kreaturGruppen = {});
+  G[p.gruppe] = { erschienen: (alt ? alt.erschienen : 0) + 1, typ: p.typ };
+  return { n: 1, ids: [K.id], fehler: null };
+}
+
 // ---------- Tick ----------
 function wahrnehmung(game, E, K, typ) { return Monster.ziel(game, E, K, { sicht: typ.sicht }); }
 
@@ -850,7 +947,7 @@ function debugKreatur(game, p, typId) {
 
 // GEL-03 Nacharbeit W1: Kantenlänge der Kollisionsbox einer Kreatur in px (für die Überlappungsprüfung des Ader-Wechsels, anker.js)
 const koerperBox = (K) => { const t = typVon(K.typ); return t ? hbVon(t).w : 14; };
-module.exports = { koerperBox, update, kreaturBausteinAnmelden, bausteinTreffer, bausteinLaerm, daten, pruefen, typVon, erzeugen, erzeugenAuf, rudelSetzen, zustandSetzen, debugKreatur, kreaturen, ziele, ausruesten, raeumen, nichtEndgueltigErledigt, ausgefallenMelden, rudelErledigt, erledigtOptionenFehler };
+module.exports = { koerperBox, update, kreaturBausteinAnmelden, bausteinTreffer, bausteinLaerm, daten, pruefen, typVon, erzeugen, erzeugenAuf, rudelSetzen, nestSetzen, zustandSetzen, debugKreatur, kreaturen, ziele, ausruesten, raeumen, nichtEndgueltigErledigt, ausgefallenMelden, rudelErledigt, erledigtOptionenFehler };
 
 // ---------- Anzeige und Scanner (MON-01 P4) ----------
 // Scanner: Art `monster`, billig (nur die lebenden Kreaturen mit aktueller Position, keine Karte). Typ-ID aus kreaturen.json; der Name steht im Client-Content (datenblaetter.json).

@@ -64,6 +64,53 @@
         "rammschaden": { "radius": 22 },
         "aufgeben": { "anlaeufe": 3 }
       }
+    },
+    "schwarmling": {
+      "name": "kreatur.schwarmling",
+      "groesse": 1,
+      "kollision": { "box": 10 },
+      "sicht": 6,
+      "verlustZeit": 3,
+      "replan": 0.5,
+      "hitRadius": 7,
+      "schild": { "seg": 1, "max": 1 },
+      "wunden": 1,
+      "frontArc": 0,
+      "tuerenAufbrechen": false,
+      "rammZeit": 1.2,
+      "start": "schwaermen",
+      "zustaende": {
+        "schwaermen": { "modus": "streife", "tempo": 40, "radius": 5, "uebergang": [ { "auf": "sieht", "nach": "jagd" } ] },
+        "jagd": { "modus": "verfolge", "tempo": 75, "uebergang": [ { "auf": "nah", "abstand": 1, "nach": "biss" }, { "auf": "verloren", "nach": "schwaermen" } ] },
+        "biss": { "modus": "ramme", "tempo": 160, "dauer": 0.4, "uebergang": [ { "auf": "getroffen", "nach": "pause" }, { "auf": "blockiert", "nach": "pause" }, { "auf": "ablauf", "nach": "pause" } ] },
+        "pause": { "modus": "steht", "tempo": 0, "dauer": 2.5, "uebergang": [ { "auf": "ablauf", "nach": "jagd" } ] }
+      },
+      "bausteine": {
+        "zyklus": { "hindernisAb": 0.3 },
+        "rammschaden": { "radius": 14 },
+        "bindung": { "quelle": { "art": "kreatur", "typ": "koenigin" }, "folge": { "art": "aufloesen" } }
+      }
+    },
+    "koenigin": {
+      "name": "kreatur.koenigin",
+      "groesse": 2,
+      "kollision": { "box": 44 },
+      "sicht": 7,
+      "verlustZeit": 3,
+      "replan": 0.5,
+      "hitRadius": 24,
+      "schild": { "seg": 4, "max": 4 },
+      "wunden": 3,
+      "frontArc": 0,
+      "tuerenAufbrechen": false,
+      "rammZeit": 1.2,
+      "start": "wurzel",
+      "zustaende": {
+        "wurzel": { "modus": "steht", "tempo": 0, "uebergang": [] }
+      },
+      "bausteine": {
+        "brut": { "typ": "schwarmling", "anfang": 12, "max": 20, "takt": 4, "radius": 3 }
+      }
     }
   }
 }

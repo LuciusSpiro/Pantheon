@@ -97,9 +97,9 @@ const MUTATIONEN = [
   [RD, 'toS(hf.x, hf.ymin), rect, measure(hf.name, 1))', 'toS(hf.x, hf.ymax), rect, measure(hf.name, 1))', 'M5: Kommandokarte übergibt die untere statt der oberen Haufenkante', [T2]],
   [RD, 'ymax = Math.max(...H.map((e) => e.y)), ymin = Math.min(...H.map((e) => e.y));', 'ymax = Math.max(...H.map((e) => e.y)), ymin = Math.max(...H.map((e) => e.y));', 'M5: Haufen liefert als ymin die untere Kante', [T2]],
   // ---- Content, Auslieferung
-  [MO, '"reihenfolge": ["probe", "rudeltier"]', '"reihenfolge": ["rudeltier", "probe"]', 'Client-Content: Typ-Reihenfolge vertauscht (falsches Modell für typCode)', [T1]],
+  [MO, '"reihenfolge": ["probe", "rudeltier", "schwarmling", "koenigin"]', '"reihenfolge": ["rudeltier", "probe", "schwarmling", "koenigin"]', 'Client-Content: Typ-Reihenfolge vertauscht (falsches Modell für typCode)', [T1]],
   [MO, '"varianten": 6', '"varianten": 7', 'Client-Content: sieben statt sechs Fellvarianten', [T1]],
-  [MO, '"ohne": ["probe"],', '"ohne": [],', 'Client-Content: probe weder Eintrag noch ohne', [T1]],
+  [MO, '"ohne": ["probe", "schwarmling", "koenigin"],', '"ohne": ["schwarmling", "koenigin"],', 'Client-Content: probe weder Eintrag noch ohne', [T1]],
   [MO, '"marken": "kreatur/rudeltier_marken"', '"marken": "kreatur/rudeltier_markn"', 'Client-Content: Marken-Modell unbekannt', [T1]],
   [IX, "  { prefix: '/content/kreaturen/', dir: path.join(ROOT, 'content', 'kreaturen'), nur: ['modelle.json'] },", '', 'Server liefert modelle.json nicht aus', [T1]],
   [IX, "dir: path.join(ROOT, 'content', 'kreaturen'), nur: ['modelle.json'] }", "dir: path.join(ROOT, 'content', 'kreaturen') }", 'Server liefert den ganzen Ordner content/kreaturen aus', [T1]],
