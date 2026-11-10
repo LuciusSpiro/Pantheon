@@ -49,6 +49,7 @@ const Notrufe = require('./sim/notrufe.js');   // SL8: Notrufe (game.notrufe, Sn
 const Abspann = require('./sim/abspann.js');   // SUND-04a-3: Abspänne der Freien Fahrt Sund (Debug abspann)
 const Ruf = require('./sim/ruf.js');   // SUND-02b B: Ruf je Fraktion und Dienstgrade von Rom (nur Freie Fahrt Sund)
 const FunkAntwort = require('./sim/funk-antwort.js');   // SUND-03b A: Funk-Antworten mit Folgen (nur Freie Fahrt Sund, folgt dem Reise-Ereignis-Schalter)
+const Kontingent = require('./sim/kontingent.js');   // LIV-01: Schwelle des Token-Zählers, Befehl kontingent.freigeben, world.kontingent (nur live)
 const AbenteuerBrett = require('./sim/abenteuer-brett.js');   // SUND-04b C: Auftragsbrett (nur mit FAEDEN=1, Freie Fahrt Sund)
 const FadenBitte = require('./sim/faden-bitte.js');   // SUND-04a-2 P2: Bitten der Geschichtsfäden (nur mit FAEDEN=1, Freie Fahrt Sund)
 const Info = require('./sim/handel-info.js');   // SUND-03b I: Informationshandel des Konkordats (Gerücht, Beleg; nur Freie Fahrt Sund, nur an Konkordat-Häfen)
@@ -88,7 +89,7 @@ const CAMPAIGN_KETTEN = Protocol.CAMPAIGN_KETTEN || { eisenwald: { kampagne: 'ei
 const UEBUNG_WELTEN = { arena_forschung: 'sund' };
 
 const SERVER_VERSION = '0.2.0';
-const CMD_CONSOLE = { helm: 'helm', captain: 'captain', weapons: 'weapons', technik: 'technik', transfer: 'transfer', shop: 'shop', werft: 'shop', absicht: 'shop', info: 'shop', deco: 'quartier', quartier: 'quartier', kustodenpult: 'kustodenpult', plan: 'plan', ausruestung: 'ausruestung', finale: 'shop' };   // AUS-01 B: ausruestung.* an der Ausrüstungsstation (AUS-01 C: der alte Waffenbefehl an der Transfer-Konsole ist entfallen)
+const CMD_CONSOLE = { helm: 'helm', captain: 'captain', weapons: 'weapons', technik: 'technik', transfer: 'transfer', shop: 'shop', werft: 'shop', absicht: 'shop', info: 'shop', kontingent: 'captain', deco: 'quartier', quartier: 'quartier', kustodenpult: 'kustodenpult', plan: 'plan', ausruestung: 'ausruestung', finale: 'shop' };   // AUS-01 B: ausruestung.* an der Ausrüstungsstation (AUS-01 C: der alte Waffenbefehl an der Transfer-Konsole ist entfallen)
 
 // ---------- M3a: Naht zu SERVER-COMBAT (space.js, CONTRACT-M3 §9.4) ----------
 // Alle neuen space.js-Funktionen werden defensiv aufgerufen; fehlt eine, greift ein schlichter Ersatz, damit der
@@ -593,7 +594,7 @@ class Game {
     this.bots = [];
     bots.ensureBotCount(this);
     this.asteroidsDirty = true;
-    this.sentFinaleKey = null; this.sentExploreVersion = -1; this.sentLogVersion = -1; this.sentBookVersion = -1; this.sentSektorenVersion = -1; this.sentTransferKey = null; this.sentLageKey = null; this.sentRufKey = null; this.sentAbsichtKey = null; this.sentFunkKey = null; this.sentBittenKey = null; this.sentAbenteuerKey = null; this.sentInfoKey = null;
+    this.sentFinaleKey = null; this.sentExploreVersion = -1; this.sentLogVersion = -1; this.sentBookVersion = -1; this.sentSektorenVersion = -1; this.sentTransferKey = null; this.sentLageKey = null; this.sentRufKey = null; this.sentAbsichtKey = null; this.sentFunkKey = null; this.sentBittenKey = null; this.sentAbenteuerKey = null; this.sentKontingentKey = null; this.sentInfoKey = null;
     this.runId = null;
     for (const p of this.players) this.resetPlayer(p, this.players.indexOf(p));
     this.refreshWorldList();
@@ -839,7 +840,7 @@ class Game {
       this.helloKarte(p, msg);
       this.sendTo(conn, this.welcomeMsg(p.id));
       this.sendeKarte(p);
-      this.sentFinaleKey = null; this.sentExploreVersion = -1; this.sentLogVersion = -1; this.sentBookVersion = -1; this.sentSektorenVersion = -1; this.sentTransferKey = null; this.sentLageKey = null; this.sentRufKey = null; this.sentAbsichtKey = null; this.sentFunkKey = null; this.sentBittenKey = null; this.sentAbenteuerKey = null; this.sentInfoKey = null;
+      this.sentFinaleKey = null; this.sentExploreVersion = -1; this.sentLogVersion = -1; this.sentBookVersion = -1; this.sentSektorenVersion = -1; this.sentTransferKey = null; this.sentLageKey = null; this.sentRufKey = null; this.sentAbsichtKey = null; this.sentFunkKey = null; this.sentBittenKey = null; this.sentAbenteuerKey = null; this.sentKontingentKey = null; this.sentInfoKey = null;
       this.telemetrie.spielerBei(p.id, 'wieder', false);   // TEL-01 A
       this.log(`Spieler ${p.name} wieder verbunden.`);
       if (p.zone === 'away') Loadout.standSenden(this, p);   // AUS-01 E: Wiederverbinden am Boden: das HUD braucht den Stand erneut
@@ -859,7 +860,7 @@ class Game {
       this.telemetrie.spielerBei(free.id, 'uebernahme', this.phase !== 'lobby');   // TEL-01 A
       try { Loadout.waffeAbgleichen(this, free); } catch (e) { this.countError('loadout', e); }   // AUS-01: Waffe des Vorbesitzers weicht evtl. vom Loadout des Neuen ab
       if (free.zone === 'away') Loadout.standSenden(this, free);   // AUS-01 E: wie beim Wiederverbinden: das Boden-HUD braucht den Stand
-      this.sentFinaleKey = null; this.sentExploreVersion = -1; this.sentLogVersion = -1; this.sentBookVersion = -1; this.sentSektorenVersion = -1; this.sentTransferKey = null; this.sentLageKey = null; this.sentRufKey = null; this.sentAbsichtKey = null; this.sentFunkKey = null; this.sentBittenKey = null; this.sentAbenteuerKey = null; this.sentInfoKey = null;
+      this.sentFinaleKey = null; this.sentExploreVersion = -1; this.sentLogVersion = -1; this.sentBookVersion = -1; this.sentSektorenVersion = -1; this.sentTransferKey = null; this.sentLageKey = null; this.sentRufKey = null; this.sentAbsichtKey = null; this.sentFunkKey = null; this.sentBittenKey = null; this.sentAbenteuerKey = null; this.sentKontingentKey = null; this.sentInfoKey = null;
       return;
     }
     const used = new Set(this.players.map((o) => o.id));
@@ -876,7 +877,7 @@ class Game {
     }
     this.sendTo(conn, this.welcomeMsg(p.id));
     this.sendeKarte(p);
-    this.sentFinaleKey = null; this.sentExploreVersion = -1; this.sentLogVersion = -1; this.sentBookVersion = -1; this.sentSektorenVersion = -1; this.sentTransferKey = null; this.sentLageKey = null; this.sentRufKey = null; this.sentAbsichtKey = null; this.sentFunkKey = null; this.sentBittenKey = null; this.sentAbenteuerKey = null; this.sentInfoKey = null;
+    this.sentFinaleKey = null; this.sentExploreVersion = -1; this.sentLogVersion = -1; this.sentBookVersion = -1; this.sentSektorenVersion = -1; this.sentTransferKey = null; this.sentLageKey = null; this.sentRufKey = null; this.sentAbsichtKey = null; this.sentFunkKey = null; this.sentBittenKey = null; this.sentAbenteuerKey = null; this.sentKontingentKey = null; this.sentInfoKey = null;
     this.telemetrie.spielerBei(p.id, 'neu', this.phase !== 'lobby');   // TEL-01 A: Nachzügler = Beitritt während der Partie
     this.log(`Spieler ${p.name} (${p.id}) beigetreten.`);
   }
@@ -1319,6 +1320,13 @@ class Game {
       }
       case 'technik.repair': err = bots.queueRepair(this, msg.system, msg.mode == null ? null : String(msg.mode)); break;
       case 'technik.botAuto': err = bots.setBotAuto(this, !!msg.on); break;
+      // LIV-01 A1: Kontingent freigeben (nur Captain-Konsole, Prüfung oben): Limit und Schwelle +500 000, nur wenn erreicht (Einmal-Sperre). Antwort an den Absender: kontingentAntwort { pid, ok, code?, text? }
+      case Protocol.CMD_KONTINGENT_FREIGEBEN: {
+        let r;
+        try { r = Kontingent.freigeben(this); } catch (e) { this.countError('kontingent-freigeben', e); r = Kontingent.weigerung('fehler'); }
+        if (p.conn) this.sendTo(p.conn, Object.assign({ t: 'event', kind: 'kontingentAntwort', pid: p.id, ok: !r }, r ? { code: r.code, text: r.text } : {}));
+        break;
+      }
       case 'captain.burst': err = 'Den Schildstoß gibt es nicht mehr.'; break;   // M3b §0.4: entfallen (Altname)
       case 'weapons.alloc': {
         const mount = MOUNT_ALIAS[msg.mount] || String(msg.mount);
@@ -1944,6 +1952,7 @@ class Game {
       this.safe('explore', () => this.explore.update(dt));
       this.safe('onboard', () => onboard.updateIvo(this, dt));
       this.safe('spielleiter', () => this.spielleiter && this.spielleiter.update(dt));   // S2 §3.1: vor mission.update
+      this.safe('kontingent', () => Kontingent.pruefen(this));   // LIV-01: Erreichen der Schwelle melden (einmal je Schwelle), auch wenn gerade kein Spielleiter fragt
       if (this.weltsim) this.safe('lage', () => this.lageUpdate(dt));   // SUND-03 A2: Lage-Spielleiter (nur mit Schalter), zwischen den Ticks
       if (this.weltsim) this.safe('texte', () => this.texteUpdate(dt));   // SUND-03b T: Text-Pool (nur mit Schalter TEXTE_POOL)
       this.safe('mission', () => this.mission.update(dt));
@@ -2292,6 +2301,11 @@ class Game {
       if (bk && bk !== this.sentBittenKey && !includeAsteroids && !includeWorld && !includeLog && !includeBook) { world.bitte = FadenBitte.snapshot(this); this.sentBittenKey = bk; }
       else if (!bk && this.sentBittenKey) { world.bitte = null; this.sentBittenKey = null; }
     } catch (e) { this.countError('snapshot-bitte', e); }
+    // LIV-01 A1: world.kontingent { used, limit, schwelle, erreicht } nur im Live-Modus (SPIELLEITER_LLM=live und LLM_LIVE=1), nur bei Änderung (Stufe, Erreichen, Freigabe), für alle gleich; sonst bleibt der Snapshot unverändert
+    try {
+      const kk = Kontingent.schluessel(this);
+      if (kk && kk !== this.sentKontingentKey && !includeAsteroids && !includeWorld && !includeLog && !includeBook) { world.kontingent = Kontingent.snapshotFeld(this); this.sentKontingentKey = kk; }
+    } catch (e) { this.countError('snapshot-kontingent', e); }
     // SUND-04b C: world.abenteuer (Auftragsbrett: offene Abenteuer-Angebote mit Vorschau und das laufende Abenteuer, nur Freie Fahrt Sund mit FAEDEN=1) nur bei Änderung, für alle gleich; null = Löschsignal
     try {
       const ak = AbenteuerBrett.schluessel(this);

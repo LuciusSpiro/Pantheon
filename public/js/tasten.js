@@ -61,6 +61,8 @@
     // SUND-03b A: Funk-Antwort (Freie Fahrt Sund): eine freie Taste (Punkt, auf der deutschen Tastatur Umschalt+Punkt = Doppelpunkt): markiert die nächste Antwort bzw. sendet die markierte; gilt nur, solange ein Angebot offen ist
     A('allgemein.funkWaehlen', 'allgemein', 'Funkantwort: nächste Option markieren', ['Period']),
     A('allgemein.funkSenden', 'allgemein', 'Funkantwort: markierte Option senden', ['Shift+Period']),
+    // LIV-01 A2: Kontingent aufgebraucht (Live-Modus): „500 000 Tokens freigeben“, wirkt nur an der Captain-Konsole und nur, solange die Meldung offen ist (Umschalt+K: bewusst keine freie Buchstabentaste, kein Versehen)
+    A('allgemein.kontingentFreigeben', 'allgemein', 'Kontingent aufgebraucht: 500 000 Tokens freigeben (nur Captain-Konsole)', ['Shift+KeyK']),
 
     // ------------------------------------------------------------ Steuer (helm)
     A('steuer.ruderBb', 'steuer', 'Ruder Backbord (halten)', ['KeyA', 'ArrowLeft']),

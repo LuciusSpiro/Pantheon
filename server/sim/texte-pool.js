@@ -31,6 +31,7 @@
 const LLM = require('../mission/llm.js');
 const Pruefer = require('./texte-pruefer.js');
 const Stufen = require('../mission/stufen.js');   // SUND-04b A2
+const Kontingent = require('./kontingent.js');   // LIV-01: Schwelle des Token-Zählers, das Gate vor jedem Weg zu Claude
 const Ausschnitt = { spielerNamen: (...a) => require('./lage-ausschnitt.js').spielerNamen(...a), ohneNamen: (...a) => require('./lage-ausschnitt.js').ohneNamen(...a) };   // lazy: kein Ladezyklus mit regie-befehle.js
 
 const W = Pruefer.WERTE;
@@ -188,10 +189,15 @@ async function versuch(llm, spec, o) {
   const stufe = stufeVon(spec.slot, opt.env);   // SUND-04b A2: Anbieter und Modell nach der Stufe des Slots (ohne Zuordnung wie bisher nach der Art text)
   const ao = Object.assign({ timeoutMs: W.job_timeout_s * 1000, schema: Pruefer.schemaFuer(spec.slot) }, stufe ? { stufe } : {});
   const esk = () => !!(stufe && typeof llm.eskalationMoeglich === 'function' && llm.eskalationMoeglich('text', stufe));
+  // LIV-01: ab der Schwelle geht nichts mehr an Claude (nur mit game: das Messwerkzeug fragt ohne Spiel und bleibt unberührt). Ollama bleibt frei; der Aufrufer fällt auf den Katalogtext zurück.
+  const budgetFehler = () => LLM.llmError('BUDGET', 'Kontingent erreicht: kein Weg zu Claude');
+  const claudeGesperrt = () => !!opt.game && Kontingent.sperrtClaude(opt.game, llm, 'text', stufe);
+  const eskGesperrt = () => !!opt.game && Kontingent.sperrtEskalation(opt.game);
   let r;
-  if (opt.eskalieren) r = await llm.eskaliere('text', input, ao);   // Eskalation nach einer ungueltigen Antwort (nur Stufen mit eskalation: true)
+  if (opt.eskalieren) { if (eskGesperrt()) throw budgetFehler(); r = await llm.eskaliere('text', input, ao); }   // Eskalation nach einer ungueltigen Antwort (nur Stufen mit eskalation: true)
   else {
-    try { r = await llm.ask('text', input, ao); } catch (e) { if (e && e.code !== 'ABORTED' && esk()) r = await llm.eskaliere('text', input, ao); else throw e; }   // Ausfall: einmal an Claude, wenn die Stufe es erlaubt
+    if (claudeGesperrt()) throw budgetFehler();
+    try { r = await llm.ask('text', input, ao); } catch (e) { if (e && e.code !== 'ABORTED' && esk() && !eskGesperrt()) r = await llm.eskaliere('text', input, ao); else throw e; }   // Ausfall: einmal an Claude, wenn die Stufe es erlaubt
   }
   // Duplikate: nicht nur der Pool, auch die Stilvorlagen (der Katalogtext darf nicht abgeschrieben werden)
   const p = Pruefer.pruefe(Pruefer.textAusAntwort(r.text), { slot: spec.slot, platzhalter: spec.platzhalter, pflicht: spec.pflicht, stimme: spec.stimme, namen: opt.namen, vorhanden: (opt.vorhanden || []).concat(spec.beispiele || []), muss: spec.muss, nicht: spec.nicht });
@@ -204,7 +210,7 @@ async function erzeuge(sp, key, llm, game) {
   for (let v = 1; v <= Math.max(1, W.versuche); v++) {
     const vorhanden = (S.pool.get(key) || []).slice();
     let r, p;
-    try { ({ r, p } = await versuch(llm, sp, { vorhanden, vorher, namen, env: game && game.env })); } catch (e) { return { ausgang: 'fehler', versuch: v, fehler: e }; }
+    try { ({ r, p } = await versuch(llm, sp, { vorhanden, vorher, namen, env: game && game.env, game })); } catch (e) { return { ausgang: 'fehler', versuch: v, fehler: e }; }
     const mess = Object.assign({ versuch: v, dauer_s: r.sec == null ? null : r.sec, tokens: r.tokens || 0, anbieter: r.anbieter || null, modell: r.modell || r.modelId || null }, r.eskaliert ? { eskaliert: true } : {});
     if (p.ok) {
       if (!S.pool.has(key)) S.pool.set(key, []);
@@ -215,9 +221,9 @@ async function erzeuge(sp, key, llm, game) {
     if (v >= W.versuche) {
       // SUND-04b A2: eine Stufe bei Ollama mit eskalation: true schickt die letzte ungueltige Antwort einmal an Claude (Standard aus: der Katalogtext bleibt)
       const stufe = stufeVon(sp.slot, game && game.env);
-      if (stufe && !r.eskaliert && typeof llm.eskalationMoeglich === 'function' && llm.eskalationMoeglich('text', stufe)) {
+      if (stufe && !r.eskaliert && typeof llm.eskalationMoeglich === 'function' && llm.eskalationMoeglich('text', stufe) && !Kontingent.sperrtEskalation(game)) {
         let r2, p2;
-        try { ({ r: r2, p: p2 } = await versuch(llm, sp, { vorhanden, vorher, namen, eskalieren: true, env: game && game.env })); } catch (e) { return { ausgang: 'fehler', versuch: v, fehler: e }; }
+        try { ({ r: r2, p: p2 } = await versuch(llm, sp, { vorhanden, vorher, namen, eskalieren: true, env: game && game.env, game })); } catch (e) { return { ausgang: 'fehler', versuch: v, fehler: e }; }
         if (p2.ok) {
           if (!S.pool.has(key)) S.pool.set(key, []);
           S.pool.get(key).push(p2.text);

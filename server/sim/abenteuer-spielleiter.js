@@ -14,6 +14,7 @@
 const LLM = require('../mission/llm.js');
 const Haken = require('../telemetrie/haken.js');   // TEL-01 B2: Wartezeit auf den Spielleiter ins Protokoll (liest nur)
 const Regie = require('./regie-befehle.js');
+const Kontingent = require('./kontingent.js');   // LIV-01: Schwelle des Token-Zählers
 const Prompt = require('./abenteuer-prompt.js');
 const { WERTE } = require('./abenteuer-daten.js');
 
@@ -98,7 +99,7 @@ class AbenteuerSpielleiter {
     if (!ort) return this.ueberspringen('kein_ort', art);
     // Budget: nur eine Stufe bei Claude zaehlt gegen den Token-Zaehler (CLAUDE_TOKEN_BUDGET)
     const llm = this.lage.getLlm();
-    if (llm.mode === 'live' && llm.anbieterFuer('abenteuer', STUFE) !== 'ollama' && LLM.budget().remaining < this.W.min_budget) { this.lage.notbetriebMelden('BUDGET', 'Token-Budget fast leer (Abenteuer-Komposition)'); return this.ueberspringen('budget', art); }
+    if (llm.mode === 'live' && llm.anbieterFuer('abenteuer', STUFE) !== 'ollama' && Kontingent.sperrt(this.game, this.W.min_budget)) { this.lage.notbetriebMelden('BUDGET', 'Token-Budget fast leer (Abenteuer-Komposition)'); return this.ueberspringen('budget', art); }   // LIV-01: Schwelle als Gate (kontingent.js); FRE-01: Notbetrieb-Hinweis
     this.letzterSprung = null;
     this.aufrufe++;
     this.grenzenSeit = 0;
@@ -179,6 +180,7 @@ class AbenteuerSpielleiter {
   eskalieren(job, grund) {
     const llm = this.lage.llm;
     if (this.job !== job || this.eskalationAus || job.eskaliert || !job.input || !llm || typeof llm.eskalationMoeglich !== 'function' || !llm.eskalationMoeglich('abenteuer', STUFE)) return false;
+    if (Kontingent.sperrtEskalation(this.game, this.W.min_budget)) return false;   // LIV-01: die Eskalation geht an Claude und zaehlt gegen den Zaehler: ab der Schwelle nie (kein Ausweg am Gate in vormerken vorbei)
     this.zaehler.eskaliert++;
     this.schreibe(Object.assign({ ausgang: 'eskaliert', grund, begruendung: 'Anfrage geht einmal an Claude (Stufe bauplan, eskalation: true)', plan: this.planInfo(job) }));
     this.losschicken(job, true);

@@ -19,6 +19,7 @@ const path = require('path');
 const LLM = require('../mission/llm.js');
 const Haken = require('../telemetrie/haken.js');   // TEL-01 B2: Wartezeit auf den Spielleiter ins Protokoll (liest nur)
 const Regie = require('./regie-befehle.js');
+const Kontingent = require('./kontingent.js');   // LIV-01: Schwelle des Token-Zählers (das Gate vor jeder Anfrage)
 const Prompt = require('./lage-prompt.js');
 const Wiederholung = require('./lage-wiederholung.js');   // SUND-03 D: Wiederholungsregeln der Pläne
 const Chronik = require('./chronik.js');   // SUND-03 D: angewandte Pläne stehen in der Chronik
@@ -226,11 +227,11 @@ class LageSpielleiter {
     // SUND-03 F2: Rate erschöpft: jeder Befehl scheiterte an der Rate, der Aufruf wäre zwecklos (kein Claude-Aufruf, zählt nicht gegen den Deckel)
     if (Regie.befehleFrei(this.game).rate === 0) return this.ueberspringen('rate', art);
     const b = LLM.budget();
-    if (b.remaining < this.W.min_budget) {
+    if (Kontingent.sperrt(this.game, this.W.min_budget)) {   // LIV-01: die Schwelle ist das Gate (kontingent.js), min_budget nur gedeckelt
       // Rückfall und Logbuch nur EINMAL je Zustand „Budget leer“; jede weitere Grenze wird nur übersprungen und rührt die Regie nicht neu an
       if (this.budgetGemeldet) return this.ueberspringen('budget', art);
       this.budgetGemeldet = true;
-      Regie.rueckfall(this.game, `Token-Budget fast leer (${b.used} von ${b.limit}, Rest < ${this.W.min_budget})`);
+      Regie.rueckfall(this.game, Kontingent.erreicht() ? `Kontingent erreicht (${b.used} von ${b.limit}, Schwelle ${Kontingent.schwelle()})` : `Token-Budget fast leer (${b.used} von ${b.limit}, Rest < ${Kontingent.mindestRest(this.W.min_budget)})`);
       this.schreibe({ ausgang: 'fehler', grund: 'budget', fehler: ['BUDGET'], budget: { used: b.used, limit: b.limit }, begruendung: 'Grenze ' + art + ': Budget leer', plan: { grenze: art, tick: ws.tickZahl, sitzung: this.sitzung } });
       this.zaehler.fehler++;
       this.notbetriebMelden('BUDGET', `Token-Budget fast leer (${b.used} von ${b.limit})`);
