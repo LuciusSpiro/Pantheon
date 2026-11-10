@@ -960,7 +960,7 @@ function laermLesen(aw, K) {
 // ---------- Lärm als Push (MON-03 B) ----------
 // laermHoeren(game, { x, y, radius, stufe? }) -> Zahl der erreichten Kreaturen: ein Lärm an (x, y) (px) mit radius (px) geht an die Kreaturen der aktiven Außenkarte (lebend, handlungsfähig),
 // über dieselben Hooks (bausteinLaerm, Baustein koeder) wie der Leser in update. Eigene Quelle ohne Lärmpuffer: schreibt NICHT in aw.laerm (sonst weckte squad.js alle Drohnentrupps im Radius) und braucht
-// keinen Cursor und kein Instanzfeld. Aufrufer: Abbau (anker.abbauLaerm, Reichweite aus CONFIG.anker.abbauLaermStufe). Wer das Ereignis hört, entscheidet der Typ über koeder { faktor } und die Zustandstabelle.
+// keinen Cursor und kein Instanzfeld. Aufrufer: Abbau (anker.abbauLaerm, Reichweite aus rollen.abbau.laermStufe (content/buehnen/anker.json)). Wer das Ereignis hört, entscheidet der Typ über koeder { faktor } und die Zustandstabelle.
 function laermHoeren(game, o) {
   const aw = game.away; if (!aw || !aw.kreaturen || !aw.kreaturen.length) return 0;
   if (!o || !Number.isFinite(o.x) || !Number.isFinite(o.y) || !Number.isFinite(o.radius) || o.radius <= 0) return 0;

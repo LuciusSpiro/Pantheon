@@ -362,10 +362,10 @@ function abbauLaerm(game, map, a, pid) {
   abbauLaermKreaturen(game, map, c);
 }
 // MON-03 B: der Abbau-Lärm geht als eigene Quelle an die Kreaturen der Karte (Kreatur.laermHoeren), NICHT in aw.laerm: dort läse ihn squad.js und weckte alle Drohnentrupps. Reichweite = Lärmstufe
-// CONFIG.anker.abbauLaermStufe (Tabelle awayCombat.laerm, Kacheln); wer sie hört, bestimmt der Typ (koeder.faktor). Erzeugt nie Kreaturen, es lockt nur die vorhandenen.
+// content/buehnen/anker.json rollen.abbau.laermStufe (Daten, nicht CONFIG: Tuning-Hash; Tabelle awayCombat.laerm, Kacheln); wer sie hört, bestimmt der Typ (koeder.faktor). Erzeugt nie Kreaturen, es lockt nur die vorhandenen.
 function abbauLaermKreaturen(game, map, c) {
   const aw = awVon(game, map); if (!aw || aw !== game.away || !aw.kreaturen || !aw.kreaturen.length) return;
-  const stufe = kfg(game).abbauLaermStufe;
+  const stufe = (rollen().abbau || {}).laermStufe;
   const kacheln = Number(((game.C && game.C.awayCombat && game.C.awayCombat.laerm) || {})[stufe]) || 0;
   if (!(kacheln > 0)) return;
   safe(game, 'abbau-laerm-kreaturen', () => require('./kreatur.js').laermHoeren(game, { x: c.x, y: c.y, radius: kacheln * TILE, stufe }));

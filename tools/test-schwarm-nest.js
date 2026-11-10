@@ -37,7 +37,8 @@ const kopie = (o) => JSON.parse(JSON.stringify(o));
 const BRUT = KREATUREN.typen.koenigin.bausteine.brut;
 const KOEDER = KREATUREN.typen.schwarmling.bausteine.koeder;
 const TAKT = CONFIG.anker.abbauLaermTakt, DAUER = CONFIG.anker.halten.abbau;
-const REICHWEITE = CONFIG.awayCombat.laerm[CONFIG.anker.abbauLaermStufe] * KOEDER.faktor;   // Kacheln, die ein Schwarmling den Abbau hört
+const STUFE = Buehne.daten().anker.rollen.abbau.laermStufe;   // Daten (content/buehnen/anker.json), nicht CONFIG: Tuning-Hash
+const REICHWEITE = CONFIG.awayCombat.laerm[STUFE] * KOEDER.faktor;   // Kacheln, die ein Schwarmling den Abbau hört
 
 // ---------- Szene: echte Höhle, Spieler unverwundbar, Königin am Nest ----------
 function szene(seed, o) {
@@ -149,7 +150,7 @@ section('(a) Nest: Rolle, Anker, verdeckt, ohne Kollision', () => {
 section('(b) abbauLaerm lockt innerhalb der Reichweite (zwei Entfernungen), nicht außerhalb', () => {
   const S = szene(5);
   const Q = mitKoenigin(S);
-  ok(REICHWEITE === 15, 'Reichweite aus den Daten: Stufe ' + CONFIG.anker.abbauLaermStufe + ' (' + CONFIG.awayCombat.laerm[CONFIG.anker.abbauLaermStufe] + ') x koeder.faktor ' + KOEDER.faktor + ' = ' + REICHWEITE + ' Kacheln');
+  ok(REICHWEITE === 15, 'Reichweite aus den Daten: Stufe ' + STUFE + ' (' + CONFIG.awayCombat.laerm[STUFE] + ') x koeder.faktor ' + KOEDER.faktor + ' = ' + REICHWEITE + ' Kacheln');
   const W0 = S.schwarm();
   const ader = aderDa(S)[0];
   const m = zuAder(S, ader); const a = { x: m.x / TILE - 0.5, y: m.y / TILE - 0.5 };
