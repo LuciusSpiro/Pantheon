@@ -357,6 +357,20 @@ function abgelehnt(g, hex, p, code, muster, was) {
     assert.deepStrictEqual({ ok, fehlt }, { ok: 15, fehlt: 0 });
   });
 
+  await pruefe('5b) Vorlage-Dateien tragen keine Landeplaetze (kein Hex, kein Plan): registriere lehnt landeplaetze und Beat-Parameter landeplatz mit VORLAGE_LANDEPLATZ ab; eine Datei ohne sie geht', async () => {
+    const T = spiel(), g = T.g;
+    const mit = JSON.parse(JSON.stringify(FD.vorlage(oeffnen(g, SK_HEX, plan([WILD])).vorlage)));
+    assert.deepStrictEqual(mit.landeplaetze, [WILD]); mit.id = 'datei_lp_probe';
+    const r = FD.registriere(mit); assert.strictEqual(r.ok, false); assert.ok(/^VORLAGE_LANDEPLATZ: .*Beat .* nutzt Landeplaetze.*nur in Plaenen/.test(r.fehler[0]), r.fehler[0]); assert.strictEqual(FD.vorlage('datei_lp_probe'), null);
+    const nurFeld = JSON.parse(JSON.stringify(mit)); for (const b of nurFeld.beats) if (b.parameter) delete b.parameter.landeplatz;
+    const r2 = FD.registriere(nurFeld); assert.strictEqual(r2.ok, false); assert.ok(/^VORLAGE_LANDEPLATZ: .*sie nennt Landeplaetze/.test(r2.fehler[0]), r2.fehler[0]);
+    const ohne = JSON.parse(JSON.stringify(mit)); delete ohne.landeplaetze; for (const b of ohne.beats) if (b.parameter) delete b.parameter.landeplatz;
+    const r3 = FD.registriere(ohne); assert.strictEqual(r3.ok, true, JSON.stringify(r3.fehler)); assert.ok(FD.vorlage('datei_lp_probe')); FD.entferne('datei_lp_probe');
+    assert.strictEqual(P.dateiLandeplatzFehler(null), null); assert.strictEqual(P.dateiLandeplatzFehler({ beats: [{ parameter: { landeplatz: 'x' }, id: 'a' }] }).startsWith('VORLAGE_LANDEPLATZ:'), true);
+    const dateien = FD.vorlagenIds().filter((id) => !FD.istAbenteuer(id)); assert.ok(dateien.length >= 3, 'die Vorlage-Dateien sind geladen: ' + dateien.length);
+    for (const id of dateien) assert.ok(!FD.vorlage(id).landeplaetze && !FD.vorlage(id).beats.some((b) => b.parameter && 'landeplatz' in b.parameter), 'keine Datei-Vorlage traegt Landeplaetze: ' + id);
+  });
+
   // ---------------- 6) Prompt, Kontext, Mock ----------------
   await pruefe('6) Prompt: Katalog nennt Landeplaetze und den Beat-Parameter, Kontext nennt die Kartenarten des Hex; unter prompt_max_zeichen auch mit voller Chronik; der Mock liefert weiter gueltige Plaene ohne Landeplaetze', async () => {
     const T = spiel(), g = T.g; for (let i = 0; i < 6; i++) g.step();

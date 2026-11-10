@@ -49,6 +49,10 @@ const MUTATIONEN = [
   [PR, "if (c.verlegt_ort !== undefined && c.verlegt_ort !== true)", "if (false)", 'Katalogcheck verlegt_ort (nur true) entfernt'],
   [BE, "\"baustein\": \"geruecht\",\n      \"verlegt_ort\": true,", "\"baustein\": \"geruecht\",", 'Daten: geruecht verlegt den Ort nicht (verlegt_ort fehlt)'],
   [AP, " genutzt: nur ${liste(require", " genutzt: ${liste(require", 'Prompt: der Satz zum Ortswechsel nennt die Raumpunkt-Arten nicht'],
+  // Vorlage-Dateien (Review klein 2)
+  [PR, "if (v.landeplaetze === undefined && !beat) return null;", "if (!beat) return null;", 'Vorlage-Datei: das Plan-Feld landeplaetze wird nicht abgelehnt'],
+  [PR, "const beat = Array.isArray(v.beats) ? v.beats.find(", "const beat = false ? v.beats.find(", 'Vorlage-Datei: der Beat-Parameter landeplatz wird nicht abgelehnt'],
+  ["server/sim/faden-daten.js", "  if (lp) return { ok: false, fehler: [lp] };", "", 'Vorlage-Datei: registriere ruft die Pruefung nicht aus'],
   // Haken
   [FA, "const lpg = P.pruefeLandeplaetze(game, r.vorlage, o.hex);", "const lpg = null;", 'Haken: anbietenMit prueft die Landeplaetze nicht'],
   [FA, "const lpg = P.pruefeLandeplaetze(game, a.vorlage, a.hex);", "const lpg = null;", 'Haken: abenteuerOeffnen prueft die Landeplaetze nicht'],

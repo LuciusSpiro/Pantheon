@@ -317,7 +317,7 @@ const HOEHLE_ORT = 'kaupangr', HOEHLE = 0;
     assert.strictEqual(AO.abraeumen(g, f.id), true); assert.ok(!Lpscan.gescannt(g, id), 'Scan vergessen'); assert.ok(g.explore.version > v0, 'Anzeige wird neu berechnet');
     const id2 = AO.bestellenAmKoerper(g, f.id, { ort: PLANET_ORT, koerper: PLANET, art: 'wildnis' });
     assert.strictEqual(id2, id, 'gleiche ID (Faden-ID wiederholt sich nicht, der Platz schon)'); assert.ok(!Lpscan.gescannt(g, id2), 'neuer Ort ist nicht vorgescannt');
-    assert.ok(!LP.cacheHat(id2) || true); assert.strictEqual(AO.abraeumen(g, f.id), true); assert.strictEqual(AO.abraeumen(g, f.id), true, 'idempotent');
+    assert.ok(!LP.cacheHat(id2), 'die alte Karte ist weg (Cache geleert), die neue wird erst vorgebaut'); await tick(5); assert.ok(LP.cacheHat(id2), 'Karte neu gebaut'); assert.strictEqual(AO.abraeumen(g, f.id), true); assert.strictEqual(AO.abraeumen(g, f.id), true, 'idempotent');
     assert.strictEqual(AO.abraeumen(g, 'f99'), true, 'unbekannter Faden: nichts zu tun');
   });
 
@@ -353,13 +353,46 @@ const HOEHLE_ORT = 'kaupangr', HOEHLE = 0;
     Sektoren.setzeKarte(karte);
     try {
       space.enterScene(g, 'k_0103', {}); T.run(0.3);
-      const id = AO.bestellenAmKoerper(g, f.id, { ort: 'k_0103', koerper: 'k0', art: 'wildnis' });
+      // Vertrag am Kachel-Hex (Review klein 1): die Art der Kachel gilt, eine andere bestellte Art wird mit Klartext abgelehnt, Besitz und Name werden wie sonst geprueft; nichts davon bestellt etwas
+      assert.strictEqual(LP.kachelDef('k_0103.k0').art, 'wildnis');
+      for (const art of ['ruine', 'station', 'hoehle']) {
+        assert.strictEqual(AO.bestellenAmKoerper(g, f.id, { ort: 'k_0103', koerper: 'k0', art }), null, 'Art ' + art + ' passt nicht zur Kachel (wildnis)');
+        assert.ok(new RegExp(`Kartenart '${art}' passt nicht zur Kachel k0 .*die Kachel ist 'wildnis'`).test(AO.grundAmKoerper({ ort: 'k_0103', koerper: 'k0', art })), 'Klartext: ' + AO.grundAmKoerper({ ort: 'k_0103', koerper: 'k0', art }));
+      }
+      assert.strictEqual(AO.grundAmKoerper({ ort: 'k_0103', koerper: 'k0', art: 'wildnis' }), null); assert.strictEqual(AO.grundAmKoerper({ ort: 'k_0103', koerper: 'k0' }), null, 'ohne Art gilt die der Kachel');
+      assert.ok(/die Kachel ist 'station'/.test(AO.grundAmKoerper({ ort: 'k_0103', koerper: 'k2', art: 'wildnis' })) && AO.grundAmKoerper({ ort: 'k_0103', koerper: 'k2', art: 'station' }) === null, 'k2 ist eine Station-Kachel: die Art der Kachel gilt je Kachel');
+      for (const [was, o] of [['besitz mit Leerzeichen', { besitz: 'X Y' }], ['besitz zu lang', { besitz: 'a'.repeat(17) }], ['leerer Name', { name: '   ' }], ['Name keine Zeichenkette', { name: 5 }], ['platz ungueltig', { platz: 'A B' }]]) {
+        assert.strictEqual(AO.bestellenAmKoerper(g, f.id, Object.assign({ ort: 'k_0103', koerper: 'k0', art: 'wildnis' }, o)), null, was);
+      }
+      assert.ok(!f.orte, 'abgelehnte Bestellungen hinterlassen nichts am Faden');
+      const id =AO.bestellenAmKoerper(g, f.id, { ort: 'k_0103', koerper: 'k0', art: 'wildnis' });
       assert.strictEqual(id, 'k_0103.k0'); assert.strictEqual(AO.landeplatzVon(g, f.id), 'k_0103.k0'); assert.deepStrictEqual(dyn(g), [], 'kein dyn-Ort');
       assert.ok(LP.liste(g).some((l) => l.id === id), 'es ist der Kachel-Landepunkt');
       assert.strictEqual(AO.bestellenAmKoerper(g, f.id, { ort: 'k_0103', koerper: 'k9', art: 'wildnis' }), null, 'Koerper gibt es nicht');
       assert.strictEqual(AO.abraeumen(g, f.id), true); assert.ok(LP.liste(g).some((l) => l.id === id), 'der staendige Landepunkt bleibt');
       assert.strictEqual(AO.landeplatzVon(g, f.id), null, 'ohne Bestellung kein Landeplatz des Fadens');
     } finally { Sektoren.setzeKarte(JSON.parse(JSON.stringify(sund))); }
+  });
+
+  // ---------------- i) Schema und Daten (Review klein 3) ----------------
+  await pruefe('i) Weltstand-Schema haelt die Daten aus abenteuer-orte.json nach: orte_max Bestellungen mit den groessten erlaubten Werten (Muster, Namenslaenge, Kartenart, Kachel-Id) bleiben schemagueltig; Standardbesitz und Kachel-Laenge stehen in den Daten', async () => {
+    const D = AO.DATEN, T = spiel(), g = T.g; const f = laufendesAbenteuer(g);
+    const obere = (muster) => +/\{\d+,(\d+)\}/.exec(muster)[1];   // Obergrenze aus dem Muster der Daten, z. B. [a-z_]{1,16}
+    assert.strictEqual(D.besitz_standard, 'herrenlos'); assert.ok(new RegExp('^' + D.besitz_muster + '$').test(D.besitz_standard)); assert.ok(Number.isInteger(D.kachel_id_max) && D.kachel_id_max > 0);
+    const ort = 'x'.repeat(obere(D.ort_muster));
+    const grosse = (art, i) => ({ platz: String.fromCharCode(97 + i).repeat(obere(D.platz_muster)), ort, art, besitz: 'b'.repeat(obere(D.besitz_muster)), name: 'N'.repeat(D.name_max), zustand: 'z'.repeat(obere(D.zustand_muster)), beam: { x: D.beam.x_max, y: D.beam.y_max, range: D.beam.range_max } });
+    const langeArt = D.arten.slice().sort((a, b) => b.length - a.length)[0];
+    for (const n of [1, D.orte_max]) {   // die Obergrenze der Daten selbst: ein hoeherer Wert in den Daten darf keinen schema-ungueltigen Stand ergeben
+      f.orte = Array.from({ length: n }, (_, i) => grosse(langeArt, i));
+      assert.strictEqual(AO.lese(f.orte).length, n, 'der Leser nimmt die groessten Werte an');
+      assert.deepStrictEqual(Weltstand.validate(JSON.parse(JSON.stringify(Weltstand.capture(g))), g), [], `${n} Bestellungen mit den groessten Werten: schemagueltig`);
+    }
+    f.orte = [{ platz: 'k', ort: 'k_0103', kachel: 'k_0103.' + 'k'.repeat(D.kachel_id_max - 7) }];
+    assert.strictEqual(AO.lese(f.orte).length, 1); assert.deepStrictEqual(Weltstand.validate(JSON.parse(JSON.stringify(Weltstand.capture(g))), g), [], 'laengste Kachel-Id: schemagueltig');
+    f.orte = [{ platz: 'k', ort: 'k_0103', kachel: 'k_0103.' + 'k'.repeat(D.kachel_id_max - 6) }]; assert.deepStrictEqual(AO.lese(f.orte), [], 'eine Kachel-Id ueber kachel_id_max faellt im Leser weg');
+    delete f.orte;
+    // der Standardbesitz kommt aus den Daten
+    const id = AO.bestellenAmKoerper(g, f.id, { ort: 'skjaldborg', koerper: 1, art: 'wildnis' }); assert.ok(id); assert.strictEqual(LP.eintrag(g, id).besitz, D.besitz_standard);
   });
 
   console.log(`\n${n - fehler}/${n} Pruefungen gruen`);

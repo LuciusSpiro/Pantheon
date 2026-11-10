@@ -5,7 +5,7 @@
 // Keine Verbraucher in A: Plan-Feld, Beat und Besetzung kommen mit DYN-01 B und BEA-02; abgenommen wird ueber diese Server-Schnittstelle (tools/test-abenteuer-orte.js).
 //
 //   bestellenAmKoerper(game, fadenId, { ort | hex, koerper, art, besitz?, name?, platz? }) -> lpId | null   Ort an einem Planeten (koerper = Index in scene.planeten; Transferpunkt am Planeten).
-//                                                                     Hat der Hex eine Kachel (typ), ist koerper die Kachel-Id (k0) und der Landepunkt der Kachel wird verwendet (kein neuer Ort)
+//                                                                     Hat der Hex eine Kachel (typ), ist koerper die Kachel-Id (k0) und der Landepunkt der Kachel wird verwendet (kein neuer Ort; art muss die der Kachel sein oder fehlt, Platz/Besitz/Name werden wie sonst geprueft)
 //                                                                     Die Kartenart muss zur Planetenart passen (content/welt/planeten-eignung.json, server/sim/planeten-eignung.js), sonst null; grundAmKoerper(o) -> Klartext | null nennt den Grund
 //   bestellenAmPunkt(game, fadenId, { ort | hex, x, y, art, besitz?, name?, platz? }) -> lpId | null   Ort an einem Raumpunkt (z. B. Wrack); Schiff = verfallen (Daten)
 //   landeplatzVon(game, fadenId, platz?) -> lpId | null     der Landepunkt dieses Platzes (auch Kachel-Landepunkt), solange er da ist
@@ -53,7 +53,7 @@ const seedVon = (game, id) => (Buehne.fnv(D.seed.salz + ':' + id + ':' + (((game
 // Bestellung aus Weltstand pruefen (Muell faellt weg). Kachel-Bestellung: nur platz, ort, kachel.
 function pruefeBestellung(e) {
   if (!istObjekt(e) || typeof e.platz !== 'string' || (e.platz !== '' && !MUSTER.platz.test(e.platz)) || typeof e.ort !== 'string' || !MUSTER.ort.test(e.ort)) return null;
-  if (e.kachel !== undefined) return typeof e.kachel === 'string' && e.kachel.length <= 60 && e.kachel.startsWith(e.ort + '.') ? { platz: e.platz, ort: e.ort, kachel: e.kachel } : null;
+  if (e.kachel !== undefined) return typeof e.kachel === 'string' && e.kachel.length <= D.kachel_id_max && e.kachel.startsWith(e.ort + '.') ? { platz: e.platz, ort: e.ort, kachel: e.kachel } : null;
   const b = e.beam;
   if (!D.arten.includes(e.art) || typeof e.besitz !== 'string' || !MUSTER.besitz.test(e.besitz) || !istObjekt(b) || !zahl(b.x, D.beam.x_max) || !zahl(b.y, D.beam.y_max) || !zahl(b.range, D.beam.range_max) || b.range < 1) return null;
   if (e.name !== undefined && !(typeof e.name === 'string' && e.name.length >= 1 && e.name.length <= D.name_max)) return null;
@@ -92,12 +92,17 @@ function grundAmKoerper(o) {
   if (!s) return 'Ort oder Hex unbekannt (kein Hex der Karte mit Szene)';
   const k = koerperVon(s.sc, o.koerper);
   if (!k) return `Koerper '${o.koerper}' gibt es in ${s.ort} nicht`;
-  if (k.kachel) return null;   // typ-Hex: der Landepunkt der Kachel gilt (kachelDef), keine Eignungsliste
+  if (k.kachel) return grundAnKachel(s.ort, k.kachel, o.art);   // typ-Hex: der Landepunkt der Kachel gilt (kachelDef), keine Eignungsliste
   return Eignung.grundGegen(k.planetenart, o.art);
+}
+function grundAnKachel(ort, kachel, art) {   // an einer Kachel gilt die Art der Kachel; eine andere bestellte Art (art fehlt = die der Kachel) geht nicht
+  const d = LP().kachelDef(ort + '.' + kachel);
+  if (!d) return `Kachel ${kachel} in ${ort} ist kein Landepunkt`;
+  return art === undefined || art === d.art ? null : `Kartenart '${art}' passt nicht zur Kachel ${kachel} in ${ort} (die Kachel ist '${d.art}')`;
 }
 function bestellung(o, ort, beam) {   // gemeinsame Pruefung der Angaben -> Bestellung | null
   const platz = o.platz === undefined ? '' : o.platz;
-  const besitz = o.besitz === undefined ? 'herrenlos' : o.besitz;
+  const besitz = o.besitz === undefined ? D.besitz_standard : o.besitz;
   if (typeof platz !== 'string' || (platz !== '' && !MUSTER.platz.test(platz)) || !D.arten.includes(o.art) || typeof besitz !== 'string' || !MUSTER.besitz.test(besitz)) return null;
   const name = o.name === undefined ? D.standardname[o.art] : o.name;
   if (typeof name !== 'string' || !name.trim().length) return null;
@@ -127,10 +132,9 @@ function bestellenAmKoerper(game, fadenId, o) {
   if (!k) return null;
   if (k.kachel) {   // typ-Hex: der Landepunkt der Kachel ist ein staendiger Ort (kachelDef), hier entsteht nichts
     const kid = s.ort + '.' + k.kachel;
-    const d = LP().kachelDef(kid);
-    const platz = o.platz === undefined ? '' : o.platz;
-    if (!d || typeof platz !== 'string' || (platz !== '' && !MUSTER.platz.test(platz))) return null;
-    return eintragen(game, fadenId, { platz, ort: s.ort, kachel: kid }, () => kid);
+    const d = grundAnKachel(s.ort, k.kachel, o.art) ? null : LP().kachelDef(kid);   // Klartext: grundAmKoerper
+    const b = d && bestellung(Object.assign({}, o, { art: d.art }), s.ort, null);   // Platz, Besitz und Name wie bei jedem Ort (der Besitz der Kachel selbst gilt, hier entsteht kein Ort)
+    return b ? eintragen(game, fadenId, { platz: b.platz, ort: s.ort, kachel: kid }, () => kid) : null;
   }
   if (!Eignung.artPasstAmKoerper(k.planetenart, o.art)) return null;   // Kartenart passt nicht zur Planetenart (planeten-eignung.json); Klartext: grundAmKoerper
   const b = bestellung(o, s.ort, k.beam);

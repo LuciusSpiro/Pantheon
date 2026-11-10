@@ -3,6 +3,8 @@
   "_hinweis": "DYN-01 A (server/sim/abenteuer-orte.js): Orte (Landepunkte) fuer die Dauer eines Abenteuers (Fadens) in der Freien Fahrt. Alle Werte des Moduls stehen hier, keine im Code. Der Ort ist nie im Weltstand (fluechtig); gespeichert wird nur die Bestellung am Faden (welt.sim.faeden.liste[].orte), der Ort entsteht beim Laden daraus neu.",
   "arten": ["wildnis", "hoehle", "schiff", "aussenposten", "station"],
   "orte_max": 2,
+  "besitz_standard": "herrenlos",
+  "kachel_id_max": 60,
   "name_max": 40,
   "platz_muster": "[a-z0-9_]{1,16}",
   "besitz_muster": "[a-z_]{1,16}",

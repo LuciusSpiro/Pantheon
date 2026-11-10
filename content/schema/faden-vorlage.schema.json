@@ -123,7 +123,7 @@
     "landeplaetze": {
       "type": "array",
       "maxItems": 8,
-      "description": "DYN-01 B: Orte, die ein Abenteuer bestellt (aus dem Bauplan, Form wie faden-bauplan.schema.json). Ein Beat nutzt einen Platz mit parameter landeplatz = id. Regeln: faden-pruefer.pruefeLandeplaetze (beim Anbieten und Oeffnen, weltabhaengig).",
+      "description": "DYN-01 B: Orte, die ein Abenteuer bestellt (aus dem Bauplan, Form wie faden-bauplan.schema.json). Ein Beat nutzt einen Platz mit parameter landeplatz = id. Regeln: faden-pruefer.pruefeLandeplaetze (beim Anbieten und Oeffnen, weltabhaengig). Nur in Plaenen: eine Vorlage-DATEI darf weder landeplaetze noch den Beat-Parameter landeplatz tragen (faden-daten.registriere, VORLAGE_LANDEPLATZ).",
       "items": {
         "type": "object",
         "additionalProperties": false,

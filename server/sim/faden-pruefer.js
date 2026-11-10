@@ -608,6 +608,14 @@ function pruefeLandeplaetze(game, v, hex) {
   for (const p of liste) if (verlegt.has(p.id) && !punkt.includes(p.art)) return fehl('LANDEPLATZ_VERLEGT', `Landeplatz ${p.id}: vor seinem Beat verlegt ein Beat (${Array.from(verlegt.get(p.id)).join(', ')}) den Ort in einen anderen Sektor; dort geht nur ${punkt.join('/')}, nicht ${p.art}`);
   return null;
 }
+// DYN-01 Nacharbeit (Review klein 2): Vorlage-DATEIEN (content/faeden/vorlagen) kennen keinen Hex und keinen Plan (f.plan): pruefeLandeplaetze laeuft fuer sie nicht (faden.oeffnen) und beatStarten liest nur f.plan.
+// Landeplaetze gibt es darum nur in Plaenen (Abenteuer). Eine Datei mit landeplaetze oder Beat-Parameter landeplatz wird beim Laden abgelehnt, statt erst zur Laufzeit zu scheitern. -> null | 'VORLAGE_LANDEPLATZ: Text'
+function dateiLandeplatzFehler(v) {
+  if (!istObjekt(v)) return null;
+  const beat = Array.isArray(v.beats) ? v.beats.find((b) => istObjekt(b) && istObjekt(b.parameter) && has(b.parameter, 'landeplatz')) : null;
+  if (v.landeplaetze === undefined && !beat) return null;
+  return fehl('VORLAGE_LANDEPLATZ', `Vorlage ${String(v.id).slice(0, 32)}: ${beat ? `Beat ${beat.id} nutzt` : 'sie nennt'} Landeplaetze; die gibt es nur in Plaenen (Abenteuer), nicht in Vorlage-Dateien`);
+}
 // DYN-01 Nacharbeit (Review W1): Landeplaetze, die auf einem Weg der Beats erst NACH einem Beat mit verlegt_ort (beats.json) bestellt werden: id -> Typen der verlegenden Beats. Der Platz wird beim Start des ersten Beats bestellt, der ihn
 // nutzt, am dann gueltigen Ort der Geschichte; ein Platz, den ein Beat davor auf demselben Weg schon bestellt hat, bleibt dort. Der Beat selbst verlegt erst nach seiner eigenen Bestellung. Wege wie die Pruefung der Vorlage (nur vorwaerts).
 function platzNachOrtswechsel(v) {
@@ -675,4 +683,4 @@ function befehlPruefen(F, b, ctx) {
 }
 const istBefehl = (b) => istObjekt(b) && has(BEFEHL_FELDER, b.typ);
 
-module.exports = { istSimBefehl, simBefehlFolge, simBefehlArten, sundSpielbar, nscAlt, wiedersehenNsc, pruefeNscVon, pruefeLage, pruefeLandeplaetze, pruefeAbenteuerAnbieten, pruefeAbenteuerOeffnen, abenteuerLaufend, abschlussGelungen, haltungsWege, tonFuer, effektiv, katalogFehler, TEXT_KEY, pruefeVorlage, pruefeFaden, pruefeOeffnen, pruefeWeiter, befehlPruefen, istBefehl, neuerKontext, folgeWirkung, folgeProfil, optionenFehler, fluchtzielOk, aktive, nameOk, BEFEHL_FELDER, PARAM_FELDER };
+module.exports = { istSimBefehl, simBefehlFolge, simBefehlArten, sundSpielbar, nscAlt, wiedersehenNsc, pruefeNscVon, pruefeLage, pruefeLandeplaetze, dateiLandeplatzFehler, pruefeAbenteuerAnbieten, pruefeAbenteuerOeffnen, abenteuerLaufend, abschlussGelungen, haltungsWege, tonFuer, effektiv, katalogFehler, TEXT_KEY, pruefeVorlage, pruefeFaden, pruefeOeffnen, pruefeWeiter, befehlPruefen, istBefehl, neuerKontext, folgeWirkung, folgeProfil, optionenFehler, fluchtzielOk, aktive, nameOk, BEFEHL_FELDER, PARAM_FELDER };

@@ -47,6 +47,11 @@ const MUTATIONEN = [
   [AO, "try { anlegen(game, f, b); out.neu++; }", "try { out.neu++; }", 'Laden: der Ort kommt nicht aus dem Faden zurueck'],
   [AO, "!D.arten.includes(e.art) || typeof e.besitz", "typeof e.besitz", 'Leser: Kartenart aus dem Stand ungeprueft'],
   [AO, "  if (alt) return alt.kachel || idVon(alt.ort, f.id, alt.platz);", "", 'Bestellen: gleicher Platz nicht idempotent'],
+  ["content/schema/weltstand.schema.json", "\"orte\":{\"type\":\"array\",\"maxItems\":8,", "\"orte\":{\"type\":\"array\",\"maxItems\":1,", 'Schema: orte hat eine Obergrenze unter orte_max'],
+  ["content/welt/abenteuer-orte.json", "\"orte_max\": 2,", "\"orte_max\": 9,", 'Daten: orte_max ueber der Formgrenze des Schemas (Stand wuerde schema-ungueltig)'],
+  ["content/welt/abenteuer-orte.json", "\"besitz_standard\": \"herrenlos\",", "\"besitz_standard\": \"rom\",", 'Daten: anderer Standardbesitz (der Code liest ihn aus den Daten)'],
+  [AO, "  return art === undefined || art === d.art ? null :", "  return null; void 0 ||", 'Kachel-Hex: eine andere bestellte Kartenart wird nicht abgelehnt'],
+  [AO, "const b = d && bestellung(Object.assign({}, o, { art: d.art }), s.ort, null);", "const b = d && { platz: o.platz === undefined ? '' : o.platz };", 'Kachel-Hex: Besitz, Name und Platz werden nicht geprueft'],
   [AO, "  const z = D.punkt.zustand_nach_art[b.art];\n  if (z) b.zustand = z;", "", 'Wrack im Raum: Zustand verfallen fehlt'],
   [AO, "    if (m && m.faden === fadenId && !ortAbraeumen(game, id)) alle = false;", "    if (m && m.faden === fadenId) ortAbraeumen(game, id);", 'abraeumen meldet immer true (auch wenn noch belegt)'],
 ];
