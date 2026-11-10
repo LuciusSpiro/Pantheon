@@ -11,7 +11,7 @@
 //   --plaene <n>          deckelt die Aufrufe des Lage- und des Abenteuer-Spielleiters je Abend (Kostenbremse, nie ueber die Werte des Spiels hinaus)
 //   --out <ordner>        Wurzel der Ablage (relativ zum Aufrufer, NIE im Repo, Standard <Temp>/pantheon-messung); jeder Lauf legt einen neuen Ordner abend-<modus>-<Zeit> an, nichts wird geloescht
 //   --mitschnitt-dir <o>  Wurzel der Mitschnitte (Standard <lauf>/abend-<seed>/mitschnitt); der Mitschnitt ist immer an (MITSCHNITT=1)
-//   --freigeben           der Bot-Captain sendet kontingent.freigeben, wenn die Kontingent-Meldung kommt (Test des Knopfwegs ohne Browser)
+//   --freigeben           der Bot-Captain sendet kontingent.freigeben, wenn die Frage "Limit erhoehen?" (Ereignis kontingentFrage) kommt (Test des Popup-Wegs ohne Browser; ohne --freigeben antwortet der Bot nicht)
 //   --ohne-testhelfer     Szenen-Beats (konvoi, geleit, raumschlacht, verfolgung, befreiung) NICHT per Testhelfer spielen: sie laufen in die Frist     --ohne-nachhilfe   der Bot bringt wartende Beats nie selbst weiter
 //   --rueckfall-nach <s>  Angebote des Rueckfalls (Anschluss-Garantie, kein Claude-Plan) nimmt der Bot erst, wenn der Spielleiter nichts mehr anbietet (Deckel erschoepft, Kontingent erreicht) oder so lange nichts Neues kam (Standard 180)
 //   --geduld <s>          so lange wartet der Bot auf den Spielleiter, bevor er einen faelligen Beat selbst startet (kuenstlich, Standard 45)
@@ -190,7 +190,7 @@ async function abend(o) {
   const cl = [];
   for (let i = 0; i < 3; i++) cl.push(await Bot.client(WebSocket, port, CODE, { clientId: 'ABC'[i], name: NAMEN[i], color: i }, NAMEN[i], NAMEN));
   await sleep(300);
-  cl[0].send({ t: 'lobbyOpt', startMission: 'freie_fahrt' });
+  cl[0].send({ t: 'lobbyOpt', startMission: 'freie_fahrt', liveSpielleiter: modus === 'live' });   // LIV-02 P3: seit FRE-01 gehoert der Live-Schalter der Lobby (die Env-Schluessel SPIELLEITER_LLM/LLM_LIVE werden in der Freien Fahrt aus dem Basis-Env entfernt); ohne diese Option liefe der Abend im Rueckfall und fragte nie den Spielleiter
   for (const x of cl) x.send({ t: 'ready', ready: true });
   await sleep(1200);
   const w = Bot.werkzeug({ g, cl, zeile, k });
@@ -248,7 +248,7 @@ async function abend(o) {
   const brett = (c) => (c.abenteuer && c.abenteuer.angebote) || [];
   const angebote = new Map();   // nr -> { nr, id, titel, typen, von, sichtbar: { spielzeit, wall }, angenommen, ... }
   const notrufe = new Map();
-  const kont = { erreicht: false, spielzeit: null, wall: null, used: null, limit: null, schwelle: null, funk: null, freigabe: null };
+  const kont = { erreicht: false, spielzeit: null, wall: null, used: null, limit: null, schwelle: null, frage: null, freigabe: null };
   const beobachte = () => {
     wrap();
     const F = g.weltsim && g.weltsim.faeden;
@@ -275,14 +275,13 @@ async function abend(o) {
       Object.assign(kont, { erreicht: true, spielzeit: g.time, wall: Date.now(), used: b.used, limit: b.limit, schwelle: Kontingent.schwelle() });
       zeile(`KONTINGENT erreicht: ${b.used} von ${b.limit} (Schwelle ${kont.schwelle}); der Spielleiter antwortet ab jetzt aus der Konserve`);
     }
-    if (kont.erreicht && !kont.funk) { const m = cl[0].radioAlle.find((x) => /Kontingent/.test(x.text)); if (m) kont.funk = { von: m.von, text: m.text, wall: m.wall }; }
+    if (kont.erreicht && !kont.frage && cl[0].kontFrage.length) kont.frage = { wall: cl[0].kontFrage[0].wall, anzahl: cl[0].kontFrage.length };   // LIV-02: die Frage kommt als Ereignis nur an den Client mit color 0 (der erste Bot)
   };
   let freigabeLaeuft = false;
   const freigeben = async () => {
-    if (!o.freigeben || !kont.erreicht || kont.freigabe || freigabeLaeuft || !kont.funk) return;
+    if (!o.freigeben || !kont.erreicht || kont.freigabe || freigabeLaeuft || !kont.frage) return;
     freigabeLaeuft = true;
-    zeile('Bot-Captain sendet kontingent.freigeben (Captain-Konsole)');
-    await w.konsole('captain');
+    zeile('Bot (color 0) sendet kontingent.freigeben (Antwort Ja auf die Frage)');
     const n = cl[0].kontAntw.length, t1 = Date.now();
     cl[0].send({ t: 'cmd', c: 'kontingent.freigeben' });
     await w.wartenAuf(() => cl[0].kontAntw.length > n, 50);
@@ -506,7 +505,7 @@ async function abend(o) {
       budget: { limit: budget1.limit, vorher: budget0.used, nachher: budget1.used, delta: budget1.used - budget0.used, calls: budget1.calls },
       kosten_usd: modus === 'live' ? (calls.every((c) => c.antwort && Number.isFinite(Number(c.antwort.cost))) ? calls.reduce((s, c) => s + Number(c.antwort.cost), 0) : (calls.some((c) => c.antwort && Number.isFinite(Number(c.antwort.cost))) ? calls.reduce((s, c) => s + (c.antwort && Number.isFinite(Number(c.antwort.cost)) ? Number(c.antwort.cost) : 0), 0) : null)) : 0,
       anfragen: { lage: calls.filter((c) => c.kind === 'lage').length, abenteuer: calls.filter((c) => c.kind === 'abenteuer').length, andere: calls.filter((c) => c.kind !== 'lage' && c.kind !== 'abenteuer').length, mit_fehler: calls.filter((c) => c.fehler).length },
-      kontingent: kont.erreicht ? Object.assign({}, kont, { funk: kont.funk ? { von: kont.funk.von, text: kont.funk.text } : null, wall_s_ab_start: (kont.wall - t0) / 1000 }) : { erreicht: false, limit: budget1.limit, used: budget1.used, freigabe: null },
+      kontingent: kont.erreicht ? Object.assign({}, kont, { frage_zugestellt: !!kont.frage, wall_s_ab_start: (kont.wall - t0) / 1000 }) : { erreicht: false, limit: budget1.limit, used: budget1.used, freigabe: null },
       angebote: [...angebote.values()].map((a) => {
         const pl = plaene.find((p) => p.art === 'abenteuer' && p.angebot === a.nr);
         const ende = angebotAusgang(a, logbuch, jetzt), ab = abenteuerListe.find((x) => x.angebot === a.nr);
@@ -544,7 +543,7 @@ function indexSchreiben(lauf, o, modus, ergebnisse, hinweise) {
   L.push(`# Live-Abend (${modus === 'live' ? 'echter Claude' : 'Mock-Spielleiter'}) – ${ergebnisse.length} Abend${ergebnisse.length === 1 ? '' : 'e'}`, '');
   L.push(`Bot-Crew: drei Spieler (Spieler 1 bis 3), Freie Fahrt Sund mit echten Sprüngen, Mitschnitt an. Je Abend ein eigener Prozess mit eigenem Token-Zähler${modus === 'live' ? ' (CLAUDE_TOKEN_BUDGET gilt je Abend)' : ''}. Aufruf: \`${ohneNamen(hinweise.aufruf)}\``, '');
   L.push(`**Bot-Takt (--grenzabstand): ${o.grenzabstand} s** (Standard 4). Jede vom Bot gesetzte Grenze ist eine Tätigkeit des Spiels und treibt die Verfallsuhr (Angebote ${ANGEBOT_GILT} Tätigkeiten, Beat-Fristen ${BEAT_FRIST}); kleine Werte verzerren die Messung.`, '');
-  if (o.freigeben) L.push('> [!warning] --freigeben benutzt\n> Der Bot-Captain sendet `kontingent.freigeben`, sobald das Kontingent erreicht ist: das Token-Limit wird je Abend um 500 000 angehoben (Opt-in). Die Kosten sind dann nicht mehr durch CLAUDE_TOKEN_BUDGET allein gedeckelt.', '');
+  if (o.freigeben) L.push('> [!warning] --freigeben benutzt\n> Der Bot (color 0) antwortet auf die Frage „Limit erhöhen?“ mit `kontingent.freigeben`, sobald das Kontingent erreicht ist: das Token-Limit wird je Abend um 500 000 angehoben (Opt-in). Die Kosten sind dann nicht mehr durch CLAUDE_TOKEN_BUDGET allein gedeckelt.', '');
   if (modus === 'live') L.push(`Token-Deckel: je Abend ${f(ergebnisse.reduce((m, E) => Math.max(m, E.ergebnis ? E.ergebnis.budget.limit : 0), 0))} (CLAUDE_TOKEN_BUDGET, Pflicht im Live-Modus)${o.gesamtdeckel ? ', Gesamtdeckel über alle Seeds ' + f(o.gesamtdeckel) + ' Tokens (verbraucht ' + f(hinweise.verbraucht || 0) + ')' : ', kein Gesamtdeckel über die Seeds (--gesamtdeckel)'}.`, '');
   L.push('| Seed | Dauer | Sprünge | Tokens | Kosten | Angebote | angenommen | gespielt | Notrufe (Reise) | Bitten | Kontingent | Serverfehler | angenommen, nicht gespielt |', '|---|---|---|---|---|---|---|---|---|---|---|---|---|');
   for (const E of ergebnisse) {
@@ -576,7 +575,7 @@ function indexSchreiben(lauf, o, modus, ergebnisse, hinweise) {
     if (e.kontingent.erreicht) {
       const kk = e.kontingent;
       L.push(`- **Kontingent erreicht** nach ${sek(kk.wall_s_ab_start)} (Spielzeit ${f(kk.spielzeit, 10)} s): ${f(kk.used)} von ${f(kk.limit)} Tokens, Schwelle ${f(kk.schwelle)}. Der Abend lief im Rückfall weiter (${e.abenteuer.length} Abenteuer, Serverfehler ${e.server_fehler}).`);
-      L.push(`- Funkmeldung: ${kk.funk ? '„' + ohneNamen(kk.funk.von + ': ' + kk.funk.text) + '“' : '**keine Funkmeldung gesehen**'}`);
+      L.push(`- Frage „Limit erhöhen?“ (Ereignis kontingentFrage an den Spieler mit color 0, kein Funk): ${kk.frage_zugestellt ? 'zugestellt' : '**nicht zugestellt**'}`);
       L.push(`- Freigabe (--freigeben): ${kk.freigabe ? (kk.freigabe.antwort ? (kk.freigabe.antwort.ok ? 'gesendet, ok nach ' + sek(kk.freigabe.nach_s) + ', Limit danach ' + f(kk.freigabe.limit_danach) : 'gesendet, abgelehnt: ' + (kk.freigabe.antwort.code || '?')) : 'gesendet, keine Antwort') : 'nicht gesendet'}`, '');
     } else L.push(`- Nicht erreicht (${f(e.kontingent.used)} von ${f(e.kontingent.limit)} Tokens).`, '');
     // Angebote

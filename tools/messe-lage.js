@@ -295,7 +295,9 @@ async function abend(cfg, o, dir, modus) {
   const sum = {
     nr: cfg.nr, modus, seed: cfg.seed, stil: cfg.stil, spruenge: sprueng, tickEnde: ws.tickZahl, wall_s: (Date.now() - t0) / 1000, abbruch, grenzen,
     aufrufe: sl ? sl.aufrufe : 0, abenteuer_aufrufe: sl && sl.abenteuer ? sl.abenteuer.aufrufe : 0, status: sl ? sl.status() : null, zaehler: sl ? sl.zaehler : null,
-    budget: { limit: budget1.limit, vorher_used: budget0.used, nachher_used: budget1.used, zaehler_delta: budget1.used - budget0.used, calls: budget1.calls }, kontingent: g.world && g.world.kontingent !== undefined ? g.world.kontingent : undefined,
+    budget: { limit: budget1.limit, vorher_used: budget0.used, nachher_used: budget1.used, zaehler_delta: budget1.used - budget0.used, calls: budget1.calls },
+    // LIV-02: kein Snapshot-Feld, kein Funk; der Stand kommt vom Server (Zaehler, Schwelle) und aus dem Regie-Logbuch (art kontingent)
+    kontingent: { erreicht: require('../server/sim/kontingent.js').erreicht(), schwelle: require('../server/sim/kontingent.js').schwelle(), used: budget1.used },
     // LIV-01: der Zaehler (BUDGET) gilt prozessweit, nicht je Abend: war die Schwelle erreicht, fragte der Spielleiter dieses Abends (und aller spaeteren) nicht mehr; index.md weist das aus
     kontingent_gesperrt: logbuch.some((e) => e.art === 'kontingent' && e.ausgang === 'erreicht') || require('../server/sim/kontingent.js').erreicht(),
     fehlerServer: g.errors, angriffe_gesamt: z.angriffe.length, eroberungen: (ws.ereignisse || []).filter((e) => e.typ === 'hafen_gefallen').length, ereignisTypen: zaehle(ws.ereignisse || [], 'typ'), reise: ws.reise,

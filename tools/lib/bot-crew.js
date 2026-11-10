@@ -1,6 +1,6 @@
 'use strict';
 // LIV-01 D: gemeinsame Teile der Bot-Crew (drei WebSocket-Clients am echten Server), aus tools/spiel-faden.js herausgeloest. Verwendet von tools/spiel-faden.js und tools/live-abend.js.
-//   client(WebSocket, port, code, hello, name, namen)   ein Client: sammelt Snapshot-Bloecke (bitte, abenteuer, kontingent), Funk (nur der erste Client, mit Zeit), Antworten (Bitte, Abenteuer, Kontingent)
+//   client(WebSocket, port, code, hello, name, namen)   ein Client: sammelt Snapshot-Bloecke (bitte, abenteuer), Funk (nur der erste Client, mit Zeit), die Kontingent-Frage (Ereignis kontingentFrage, LIV-02, mit Zeit; der Server stellt sie nur dem Client mit color 0 zu) und Antworten (Bitte, Abenteuer, Kontingent)
 //   werkzeug({ g, cl, zeile, k })                         { sleep, hierHex, flieg, konsole, wegNach, springe, wartenAuf, spruenge } : Ort setzen, an eine Konsole setzen, Weg ueber offene Kanten,
 //                                                         ECHTE Spruenge (Weitscan weapons.widescan, helm.jump). k(...arten) meldet kuenstlich gesetzte Schritte (Mitschnitt, Verlauf).
 // Das Verhalten ist das von spiel-faden (Zeile fuer Zeile uebernommen); neu ist nur der Zaehler `spruenge` (gelungene Hops) und die Zeitmarke im Funk.
@@ -14,13 +14,12 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 function client(WebSocket, port, code, hello, name, namen) {
   return new Promise((resolve) => {
     const ws = new WebSocket(`ws://127.0.0.1:${port}/ws`);
-    const c = { ws, name, funk: [], funkZeit: [], antw: 0, bitte: null, abenteuer: undefined, abAntw: [], kontingent: null, kontAntw: [], radioAlle: [] };
+    const c = { ws, name, funk: [], funkZeit: [], antw: 0, bitte: null, abenteuer: undefined, abAntw: [], kontFrage: [], kontAntw: [], radioAlle: [] };
     ws.on('message', (data) => {
       const m = JSON.parse(data.toString());
       if (m.t === 'snap') {
         if (m.world && 'bitte' in m.world) c.bitte = m.world.bitte;
         if (m.world && 'abenteuer' in m.world) c.abenteuer = m.world.abenteuer;
-        if (m.world && 'kontingent' in m.world) c.kontingent = m.world.kontingent;
         return;
       }
       if (m.t === 'event' && m.kind === 'radio') {
@@ -29,6 +28,7 @@ function client(WebSocket, port, code, hello, name, namen) {
       }
       if (m.t === 'event' && m.kind === 'fadenBitteAntwort') c.antw++;
       if (m.t === 'event' && m.kind === 'abenteuerAntwort') c.abAntw.push({ op: m.op, ok: m.ok, code: m.code });
+      if (m.t === 'event' && m.kind === 'kontingentFrage') c.kontFrage.push({ pid: m.pid, wall: Date.now() });
       if (m.t === 'event' && m.kind === 'kontingentAntwort') c.kontAntw.push({ ok: m.ok, code: m.code, text: m.text, wall: Date.now() });
     });
     c.send = (o) => ws.send(JSON.stringify(o));
