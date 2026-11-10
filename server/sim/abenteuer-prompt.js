@@ -139,10 +139,66 @@ function baue(game, { nr, grenze, hex, letzte, werte, geschichte }) {
   return { fehler: `Prompt zu gross (Katalog ${katalogText().length} Zeichen, Obergrenze ${w.prompt_max_zeichen})` };
 }
 
+// ---------- SPL-02 E1: Betriebsmodus Absichten (Schalter ABENTEUER_ABSICHTEN, abenteuer-absicht.js). Eigene Funktionen statt eines Schalters in baue/katalogText: Katalog aus den prompt_zeile der Absichten
+// (nie zugleich die Beat-Zeilen), schlanker Kontext (nur was fuer die Wahl einer Absicht zaehlt, keine Typenfolgen), immer mit der Crew-Geschichte. Der Katalog der Absichten kommt vom Aufrufer
+// (abenteuer-absicht.js laedt den Pruefer): dieses Modul liest ihn nicht selbst.
+function katalogTextAbsicht(katalog) {
+  const T = BW.titel, A = BW.anlass, w = katalog.werte, K = Object.entries(katalog.absichten);
+  const L = [];
+  L.push(`Absicht (dein Antwortobjekt, Format absicht/1): { "format": "absicht/1", "absicht": Name aus der Liste, "titel": Text mit ${T.min} bis ${T.max} Zeichen, "parameter"?: { nur die Parameter der Absicht }, "bezug"?: { "nsc"?: Kennung aus crew_geschichte, "ort"?: Hex-Code }, "bogen": { "einsatz": Text mit ${A.min} bis ${A.max} Zeichen, "wendung": Symbol der Absicht oder keine, "preis": Text mit ${A.min} bis ${A.max} Zeichen }, "ton": ${liste(w.toene.wert)} }`);
+  L.push('titel, einsatz und preis: ohne geschweifte Klammern und ohne Eigennamen (Personen, Orte, Schiffe); den NSC nennst du nie mit Namen, nur mit seiner Kennung im Bezug.');
+  L.push('Absichten (nur diese; die Welt macht daraus das Abenteuer und sagt Nein, wenn es nicht geht):');
+  for (const [, e] of K) if (typeof e.prompt_zeile === 'string') L.push(e.prompt_zeile);
+  L.push('Bezug nsc: nur eine Kennung aus crew_geschichte (K1, K2, ...), nie ein Name. Fehlt der passende NSC, waehle eine Absicht ohne Pflicht-Bezug. Wendung nur aus der Zeile der Absicht. Wiederhole nicht die Absichten aus letzte_absichten.');
+  return L.join('\n');
+}
+// Kontext der Absichten: Crew, Ruf, Lage, Chronik ohne Namen, was gerade laeuft (Zahlen), die Crew-Geschichte (Zeilen mit Kennung) und die zuletzt angebotenen Absichten
+function kontextAbsichtVon(game, werte, letzteAbsichten, stufe, geschichte) {
+  const a = JSON.parse(Ausschnitt.ausschnitt(game, { stufe }).text);
+  const f = a.flotten || {};
+  const wende = [].concat((f.gefallen || []).map((x) => Object.assign({ art: 'gefallen' }, x)), (f.belagert || []).map((x) => Object.assign({ art: 'belagert' }, x)), (f.unterwegs || []).map((x) => Object.assign({ art: 'marsch' }, x))).slice(-werte.wendepunkte_max);
+  const crew = a.crew || {};
+  const F = require('./faden.js').zustandVon(game);
+  const lage = {};
+  for (const c of Object.values(B)) { const k = c.braucht && c.braucht.lage; const l = typeof k === 'string' ? require('./faden-b2.js').lage(k) : null; if (l) lage[k] = l.zahl(game); }
+  return {
+    tick: a.tick,
+    crew: { rang: crew.rang, stufe: crew.stufe, ort: crew.ort, hex: crew.hex },
+    ruf: a.ruf, lage: a.lage,
+    wendepunkte: wende,
+    chronik: (a.chronik || []).slice(-werte.chronik_zeilen),
+    laufend: { abenteuer: F.liste.filter((x) => x.phase !== 'abgeschlossen' && x.plan).length, angebote: F.abenteuerAngebote.length, notrufe: F.angebote.length, lage },
+    letzte_absichten: (letzteAbsichten || []).slice(-werte.letzte_abenteuer),
+    crew_geschichte: geschichte.zeilen,
+  };
+}
+// -> { prompt, zeichen, kontextZeichen, katalogZeichen, kennungen } | { fehler }. kennungen: die Kennungen DIESES Prompts (K1 -> Vollname), vom Aufrufer am Job gehalten: nur sie gelten fuer die Antwort
+function baueAbsicht(game, { nr, grenze, hex, letzteAbsichten, werte, katalog }) {
+  const w = werte || WERTE;
+  const schluss = 'Gib jetzt die Absicht aus. Nur das JSON-Objekt.';
+  const aufruf = { art: String(grenze || 'unbekannt'), nr: Number.isInteger(nr) ? nr : 1, hex: hex || null, modus: 'absicht' };
+  const stufen = Ausschnitt.STUFEN.length;
+  const geschichte = Geschichte().geschichteZeilen(game);
+  const kat = katalogTextAbsicht(katalog);
+  for (let s = 0; s < stufen + 2; s++) {
+    const ww = Object.assign({}, w);
+    if (s >= stufen) { ww.chronik_zeilen = Math.max(1, Math.floor(w.chronik_zeilen / (s - stufen + 2))); ww.wendepunkte_max = Math.max(1, Math.floor(w.wendepunkte_max / (s - stufen + 2))); }
+    const kontext = JSON.stringify(sortiert(kontextAbsichtVon(game, ww, letzteAbsichten, Math.min(s, stufen - 1), geschichte)));
+    const prompt = LLM.buildPrompt({ katalog: kat, variabel: [['kontext', kontext], ['aufruf', JSON.stringify(aufruf)]], schluss });
+    if (prompt.length <= w.prompt_max_zeichen) return { prompt, zeichen: prompt.length, kontextZeichen: kontext.length, katalogZeichen: kat.length, kennungen: geschichte.kennungen };
+  }
+  return { fehler: `Prompt zu gross (Katalog ${kat.length} Zeichen, Obergrenze ${w.prompt_max_zeichen})` };
+}
+
 // ---------- Antwort lesen
 function bauplanAusText(text) {
   const r = LagePrompt.objektAusText(text, ['beats', 'titel', 'format']);
   return r.plan ? { plan: r.plan } : r;
 }
+// SPL-02 E1: derselbe Weg (Zaeune, Text davor und danach, Komma vor }/]) fuer die Antwort des Modells im Modus Absichten: eine Absicht (absicht/1) oder eine Verhandlungsantwort ({ patch })
+function absichtAusText(text) {
+  const r = LagePrompt.objektAusText(text, ['absicht', 'patch', 'format']);
+  return r.plan ? { absicht: r.plan } : r;
+}
 
-module.exports = { katalogText, katalogNeuLesen, baue, bauplanAusText, typenVon, kontextVon, SYSTEM_DATEI, WERTE };
+module.exports = { katalogText, katalogNeuLesen, baue, bauplanAusText, typenVon, kontextVon, SYSTEM_DATEI, WERTE, katalogTextAbsicht, baueAbsicht, absichtAusText };

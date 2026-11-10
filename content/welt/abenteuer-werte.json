@@ -15,6 +15,7 @@
     "mock": {
       "wert": {
         "ungueltig_anteil": 0.2,
+        "absicht_unmoeglich_anteil": 0.25,
         "beats": {"min": 2, "max": 5},
         "titel": ["Die stille Fracht", "Ein Funkspruch im Nebel", "Schatten am Sprungpunkt", "Das Versprechen der Haendlerin", "Rauch ueber dem Hafen", "Der letzte Konvoi", "Unter falscher Flagge", "Ein Gefallen fuer den Saum", "Nacht auf dem Frachtdeck", "Die Spur des Kapitaens"],
         "anlass": ["Ein Haendler braucht Hilfe, die er nicht offen erbitten kann.", "Im Sektor haeufen sich Geruechte ueber ein fremdes Schiff.", "Eine Lieferung ist verschwunden und niemand will es gewesen sein.", "Ein Funkspruch kam, aber der Absender gibt es nicht zu."],
