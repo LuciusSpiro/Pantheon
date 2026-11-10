@@ -345,7 +345,7 @@ section('(i) Keine Kollision: Planeten, Sterne und Bojen sind Kulisse');
   const treffer = [];
   const walk = (d) => { for (const e of fs.readdirSync(d, { withFileTypes: true })) { const p = path.join(d, e.name); if (e.isDirectory()) walk(p); else if (/\.js$/.test(e.name)) { const t = fs.readFileSync(p, 'utf8'); if (/\.planeten\b|scene\.stern\b|sc\.stern\b|scene\.bojen\b|sc\.bojen\b/.test(t)) treffer.push(path.relative(ROOT, p).replace(/\\/g, '/')); } } };
   walk(path.join(ROOT, 'server'));
-  ok(treffer.length === 1 && treffer[0] === 'server/sim/besitz.js', 'im Server liest nur server/sim/besitz.js Planeten (Standortwahl der Posten, keine Kollision): ' + treffer.join(', '));
+  ok(treffer.length === 3 && treffer[0] === 'server/sim/abenteuer-orte.js' && treffer[1] === 'server/sim/besitz.js' && treffer[2] === 'server/sim/planeten-eignung.js', 'im Server lesen nur server/sim/besitz.js (Standortwahl der Posten), server/sim/abenteuer-orte.js (DYN-01 A: Transferpunkt eines Ortes am Planeten) und server/sim/planeten-eignung.js (DYN-01 C: Auskunft, welche Kartenart an welcher Planetenart geht) Planeten, keine Kollision: ' + treffer.join(', '));
   // dynamisch: Flug durch Planet, Stern, Boje
   const { Game } = require('../server/game.js');
   const Physics = require('../shared/physics.js');

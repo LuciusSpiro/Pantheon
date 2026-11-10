@@ -13,6 +13,7 @@
 //   ENTHUELLUNG_OHNE_WAHRHEIT · HINWEIS_UNBEKANNT · HINWEIS_FEHLT (auf JEDEM Weg vor der Enthuellung mindestens ein Hinweis) · AUSGANG_FEHLT · AUSGANG_UNGUELTIG · WEITER_UNGUELTIG (nur nach vorn) ·
 //   SCHEITERN_FOLGENLOS (Scheitern veraendert den Faden: anderer Zustand oder anderer Weg als Gelingen, beide Ausgaenge fuehren zu einem Beat oder zum Abschluss) · STATUS_PASST_NICHT · TOT_BLEIBT_TOT ·
 //   NSC_ALT_NICHT_ERSTER / NSC_VON_FEHLT / NSC_VON (SUND-04b B1: ein Beat mit braucht.nsc_alt, das Wiedersehen, gehoert einem NSC aus einem frueheren, abgeschlossenen Faden: nur als erster Beat, geoeffnet mit parameter nsc_von) ·
+//   LANDEPLATZ_ANZAHL / LANDEPLATZ_FORM / LANDEPLATZ_ID_DOPPELT / LANDEPLATZ_ART_UNBEKANNT / LANDEPLATZ_UNBEKANNT / LANDEPLATZ_UNBENUTZT / LANDEPLATZ_ART / LANDEPLATZ_VERLEGT (DYN-01 B, pruefeLandeplaetze: Plan-Feld landeplaetze und Beat-Parameter landeplatz, weltabhaengig wie pruefeLage) ·
 //   SABOTAGE_NUR_EINMAL (SUND-04b B2: ein Beat mit nur_einmal steht höchstens einmal im Plan) · LAGE_ZIEL_FEHLT / SABOTAGE_PAUSE / LAGE_UNBEKANNT (SUND-04b B2, pruefeLage: ein Beat mit braucht.lage haengt von der Welt ab; beim Anbieten und Oeffnen, nicht in pruefeVorlage) ·
 //   NAMENLOS (SUND-04b A1: vorlage.nsc.rolle namenlos: der NSC bleibt aktiv, die Ausgaenge brauchen keinen status; die Statuspruefung bleibt, nur der Status faellt weg; Scheitern veraendert dann ueber Weg oder Folge) ·
 //   ERFOLG_FEHLT / ERFOLG_UNGUELTIG (Abschluss: wann gilt der Faden als gelungen, Nacharbeit Welle 3) · VARIANTE_UNERREICHBAR / TON_UNERREICHBAR (Haltung: gibt es in der Vorlage einen Weg dorthin) ·
@@ -277,6 +278,7 @@ function katalogFehler() {
   const out = [];
   for (const typ of Object.keys(B)) for (const ag of W.ausgaenge) { const e = typ + '_' + ag; if (!EREIGNIS.test(e)) out.push(fehl('KATALOG_EREIGNIS', `Beat-Typ "${typ}": das Ereignis "${e}" passt nicht zu ${EREIGNIS} (Gedächtnis des NSC)`)); }
   for (const [typ, c] of Object.entries(B)) if (c.ereignis_ohne_ware !== undefined && !(typeof c.ereignis_ohne_ware === 'string' && EREIGNIS.test(c.ereignis_ohne_ware))) out.push(fehl('KATALOG_EREIGNIS', `Beat-Typ "${typ}": ereignis_ohne_ware passt nicht zu ${EREIGNIS} (Gedächtnis des NSC)`));
+  for (const [typ, c] of Object.entries(B)) if (c.verlegt_ort !== undefined && c.verlegt_ort !== true) out.push(fehl('KATALOG_VERLEGT_ORT', `Beat-Typ "${typ}": verlegt_ort ist true oder fehlt`));   // DYN-01 Nacharbeit: Wahrheitswert, nur true
   return out;
 }
 
@@ -578,6 +580,71 @@ function pruefeLage(game, v) {
   }
   return null;
 }
+// DYN-01 B: die Landeplaetze eines Plans (Vorlage.landeplaetze, Beat-Parameter landeplatz) -> null | 'CODE: Text'. Wie pruefeLage weltabhaengig (die Art muss am Hex der Crew gehen) und darum beim Anbieten und Oeffnen,
+// nicht in pruefeVorlage. Muster, Arten und Obergrenze stehen in content/welt/abenteuer-orte.json (kein Wert hier), die Eignung der Hex in planeten-eignung.json (ueber abenteuer-orte.grundAmHex).
+// Codes: LANDEPLATZ_ANZAHL · LANDEPLATZ_FORM (id, besitz, name) · LANDEPLATZ_ID_DOPPELT · LANDEPLATZ_ART_UNBEKANNT · LANDEPLATZ_UNBEKANNT (ein Beat nennt eine id, die der Plan nicht hat) · LANDEPLATZ_UNBENUTZT · LANDEPLATZ_ART (geht am Hex nicht) · LANDEPLATZ_VERLEGT (ein Beat mit verlegt_ort steht davor: nur Raumpunkt-Arten).
+function pruefeLandeplaetze(game, v, hex) {
+  if (!v || !Array.isArray(v.beats)) return null;
+  const AO = require('./abenteuer-orte.js'), OD = AO.DATEN;
+  const liste = Array.isArray(v.landeplaetze) ? v.landeplaetze : [];
+  const nutzer = v.beats.filter((b) => istObjekt(b) && istObjekt(b.parameter) && has(b.parameter, 'landeplatz'));
+  if (!liste.length && !nutzer.length) return null;
+  if (liste.length > OD.orte_max) return fehl('LANDEPLATZ_ANZAHL', `${liste.length} Landeplätze, erlaubt sind höchstens ${OD.orte_max}`);
+  const muster = (m) => new RegExp('^' + m + '$');
+  const ids = new Set();
+  for (const p of liste) {
+    if (!istObjekt(p) || typeof p.id !== 'string' || !muster(OD.platz_muster).test(p.id)) return fehl('LANDEPLATZ_FORM', `Landeplatz-Id "${istObjekt(p) ? String(p.id).slice(0, 20) : '?'}" ungültig (${OD.platz_muster})`);
+    if (ids.has(p.id)) return fehl('LANDEPLATZ_ID_DOPPELT', `Landeplatz-Id ${p.id} kommt doppelt vor`);
+    ids.add(p.id);
+    if (!OD.arten.includes(p.art)) return fehl('LANDEPLATZ_ART_UNBEKANNT', `Landeplatz ${p.id}: Kartenart "${String(p.art).slice(0, 20)}" gibt es nicht (erlaubt: ${OD.arten.join(', ')})`);
+    if (p.besitz !== undefined && !(typeof p.besitz === 'string' && muster(OD.besitz_muster).test(p.besitz))) return fehl('LANDEPLATZ_FORM', `Landeplatz ${p.id}: besitz muss ${OD.besitz_muster} sein`);
+    if (p.name !== undefined && !(typeof p.name === 'string' && p.name.trim().length >= 1 && p.name.length <= OD.name_max && !/[{}]/.test(p.name))) return fehl('LANDEPLATZ_FORM', `Landeplatz ${p.id}: name braucht 1 bis ${OD.name_max} Zeichen ohne Platzhalter`);
+  }
+  for (const b of nutzer) if (!ids.has(b.parameter.landeplatz)) return fehl('LANDEPLATZ_UNBEKANNT', `Beat ${b.id}: der Landeplatz "${String(b.parameter.landeplatz).slice(0, 20)}" steht nicht in landeplaetze`);
+  for (const p of liste) if (!nutzer.some((b) => b.parameter.landeplatz === p.id)) return fehl('LANDEPLATZ_UNBENUTZT', `Landeplatz ${p.id}: kein Beat nutzt ihn (Parameter landeplatz)`);
+  for (const p of liste) { const g = AO.grundAmHex(hex, p.art); if (g) return fehl('LANDEPLATZ_ART', `Landeplatz ${p.id}: ${g}`); }
+  const punkt = require('./planeten-eignung.js').DATEN.punkt;
+  const verlegt = platzNachOrtswechsel(v);
+  for (const p of liste) if (verlegt.has(p.id) && !punkt.includes(p.art)) return fehl('LANDEPLATZ_VERLEGT', `Landeplatz ${p.id}: vor seinem Beat verlegt ein Beat (${Array.from(verlegt.get(p.id)).join(', ')}) den Ort in einen anderen Sektor; dort geht nur ${punkt.join('/')}, nicht ${p.art}`);
+  return null;
+}
+// DYN-01 Nacharbeit (Review klein 2): Vorlage-DATEIEN (content/faeden/vorlagen) kennen keinen Hex und keinen Plan (f.plan): pruefeLandeplaetze laeuft fuer sie nicht (faden.oeffnen) und beatStarten liest nur f.plan.
+// Landeplaetze gibt es darum nur in Plaenen (Abenteuer). Eine Datei mit landeplaetze oder Beat-Parameter landeplatz wird beim Laden abgelehnt, statt erst zur Laufzeit zu scheitern. -> null | 'VORLAGE_LANDEPLATZ: Text'
+function dateiLandeplatzFehler(v) {
+  if (!istObjekt(v)) return null;
+  const beat = Array.isArray(v.beats) ? v.beats.find((b) => istObjekt(b) && istObjekt(b.parameter) && has(b.parameter, 'landeplatz')) : null;
+  if (v.landeplaetze === undefined && !beat) return null;
+  return fehl('VORLAGE_LANDEPLATZ', `Vorlage ${String(v.id).slice(0, 32)}: ${beat ? `Beat ${beat.id} nutzt` : 'sie nennt'} Landeplaetze; die gibt es nur in Plaenen (Abenteuer), nicht in Vorlage-Dateien`);
+}
+// DYN-01 Nacharbeit (Review W1): Landeplaetze, die auf einem Weg der Beats erst NACH einem Beat mit verlegt_ort (beats.json) bestellt werden: id -> Typen der verlegenden Beats. Der Platz wird beim Start des ersten Beats bestellt, der ihn
+// nutzt, am dann gueltigen Ort der Geschichte; ein Platz, den ein Beat davor auf demselben Weg schon bestellt hat, bleibt dort. Der Beat selbst verlegt erst nach seiner eigenen Bestellung. Wege wie die Pruefung der Vorlage (nur vorwaerts).
+function platzNachOrtswechsel(v) {
+  const out = new Map(), idx = new Map(), gesehen = new Set();
+  v.beats.forEach((b, i) => { if (istObjekt(b) && !idx.has(b.id)) idx.set(b.id, i); });
+  const stack = [{ i: 0, bestellt: [], verlegt: [] }];
+  while (stack.length) {
+    const { i, bestellt, verlegt } = stack.pop();
+    const b = v.beats[i];
+    if (!istObjekt(b) || !has(B, b.typ)) continue;
+    const key = i + '|' + bestellt.join(',') + '|' + verlegt.join(',');
+    if (gesehen.has(key)) continue;
+    gesehen.add(key);
+    const id = istObjekt(b.parameter) ? b.parameter.landeplatz : undefined;
+    let best = bestellt;
+    if (typeof id === 'string' && !bestellt.includes(id)) {
+      best = bestellt.concat(id).sort();
+      if (verlegt.length) { const m = out.get(id) || new Set(); verlegt.forEach((t) => m.add(t)); out.set(id, m); }
+    }
+    const typen = [b.typ].concat(istObjekt(b.variante) && has(B, b.variante.typ) ? [b.variante.typ] : []).filter((t) => B[t].verlegt_ort === true);
+    const verl = Array.from(new Set(verlegt.concat(typen))).sort();
+    if (B[b.typ].abschluss || !istObjekt(b.aus)) continue;
+    for (const ag of W.ausgaenge) for (const o of [b.aus[ag]].concat(istObjekt(b.variante) && istObjekt(b.variante.aus) ? [b.variante.aus[ag]] : [])) {
+      const z = istObjekt(o) ? zielIndex(v, i, o, idx) : null;
+      if (z !== null) stack.push({ i: z, bestellt: best, verlegt: verl });
+    }
+  }
+  return out;
+}
 
 // ---------- Abenteuer (SUND-04b A1): der zweite, benannte Weg, einen Faden zu oeffnen (nicht ueber ein Notruf-Angebot, sondern ueber einen geprueften Bauplan)
 // Obergrenze aktiv_max und Abstand gelten weiter (der Abstand wird beim Oeffnen gezogen, faden.js); dazu hoechstens laufend_max laufende Abenteuer und hoechstens angebote_max offene Abenteuer-Angebote.
@@ -616,4 +683,4 @@ function befehlPruefen(F, b, ctx) {
 }
 const istBefehl = (b) => istObjekt(b) && has(BEFEHL_FELDER, b.typ);
 
-module.exports = { istSimBefehl, simBefehlFolge, simBefehlArten, sundSpielbar, nscAlt, wiedersehenNsc, pruefeNscVon, pruefeLage, pruefeAbenteuerAnbieten, pruefeAbenteuerOeffnen, abenteuerLaufend, abschlussGelungen, haltungsWege, tonFuer, effektiv, katalogFehler, TEXT_KEY, pruefeVorlage, pruefeFaden, pruefeOeffnen, pruefeWeiter, befehlPruefen, istBefehl, neuerKontext, folgeWirkung, folgeProfil, optionenFehler, fluchtzielOk, aktive, nameOk, BEFEHL_FELDER, PARAM_FELDER };
+module.exports = { istSimBefehl, simBefehlFolge, simBefehlArten, sundSpielbar, nscAlt, wiedersehenNsc, pruefeNscVon, pruefeLage, pruefeLandeplaetze, dateiLandeplatzFehler, pruefeAbenteuerAnbieten, pruefeAbenteuerOeffnen, abenteuerLaufend, abschlussGelungen, haltungsWege, tonFuer, effektiv, katalogFehler, TEXT_KEY, pruefeVorlage, pruefeFaden, pruefeOeffnen, pruefeWeiter, befehlPruefen, istBefehl, neuerKontext, folgeWirkung, folgeProfil, optionenFehler, fluchtzielOk, aktive, nameOk, BEFEHL_FELDER, PARAM_FELDER };

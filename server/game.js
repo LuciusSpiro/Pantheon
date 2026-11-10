@@ -53,6 +53,7 @@ const AbenteuerBrett = require('./sim/abenteuer-brett.js');   // SUND-04b C: Auf
 const FadenBitte = require('./sim/faden-bitte.js');   // SUND-04a-2 P2: Bitten der Geschichtsfäden (nur mit FAEDEN=1, Freie Fahrt Sund)
 const Info = require('./sim/handel-info.js');   // SUND-03b I: Informationshandel des Konkordats (Gerücht, Beleg; nur Freie Fahrt Sund, nur an Konkordat-Häfen)
 const FinaleBoden = require('./sim/finale-boden.js');   // SUND-04a-3 Boden: Treiber des Boden-Teils (Schrein von Asgard)
+const AbenteuerOrte = require('./sim/abenteuer-orte.js');   // DYN-01 A: Orte für die Dauer eines Abenteuers (Landepunkt-Lebenszyklus)
 const Finale = require('./sim/finale.js');   // SUND-04a-3: Finale-Kern (Entscheidungsschlacht um Hrafnheim, nur Freie Fahrt Sund)
 const Absicht = require('./sim/absicht.js');   // SUND-02b D: Strategische Optionen ab Tribun (nur Freie Fahrt Sund)
 const Kriegslage = require('./sim/kriegslage.js');   // SUND-01 B: Weltsimulation im Modus Freie Fahrt Sund (game.weltsim, game.weltBesitz)
@@ -1937,6 +1938,7 @@ class Game {
       this.safe('fallen', () => Fallen.update(this, dt));   // ITM-01 C: Fallen auslösen (nur die fertige Fallenliste der Außenkarte), Zeitwirkungen
       if (this.weltsim && this.weltsim.finale && this.weltsim.finale.anfrage) this.safe('finale-verfall', () => Finale.verfall(this));   // K5: der Verfall der Anfrage kommt rechtzeitig, nicht erst im naechsten Sim-Tick
       if (this.finaleBoden) this.safe('finale-boden', () => FinaleBoden.update(this));   // SUND-04a-3 Boden: Landung, Freigabe, Sieg, Abbruch (nur solange ein Boden-Teil läuft)
+      if (this.weltsim) this.safe('abenteuer-orte', () => AbenteuerOrte.update(this));   // DYN-01 A: Orte beendeter Abenteuer abräumen (Retry, solange jemand unten ist), fehlende Orte lebender Abenteuer neu
       this.safe('betreten', () => this.trackBetreten());
       this.safe('personen', () => weltBausteine().personenNachruecken(this));   // B1: wartende Personen auf gebauten Karten   // B1 §6.1: erstes Hinunterbeamen zählt den Besuch
       this.safe('explore', () => this.explore.update(dt));
@@ -2144,13 +2146,17 @@ class Game {
   }
 
   // B1 Nachtrag (Transfer-Konsole): { lp: [[lpId, name, art, frei, grund, inReichweite]], ziel } aus landepunkte.liste;
-  // nur mit Landepunkten am Ort, nur bei Änderung bzw. alle 15 Snapshots (wie world.locations). -> Objekt | null
+  // nur mit Landepunkten am Ort, nur bei Änderung bzw. alle 15 Snapshots (wie world.locations); verliert der Ort seine Landepunkte, einmal die Leerform { lp: [], ziel: null }. -> Objekt | null
   transferSnap() {
     const fn = fnOf(landepunkteMod(), 'liste');
     if (!fn || this.phase === 'lobby') return null;
     let list;
     try { list = fn(this, this.ship.scene); } catch (e) { this.countError('snapshot-transfer', e); return null; }
-    if (!Array.isArray(list) || !list.length) { this.sentTransferKey = null; return null; }
+    if (!Array.isArray(list) || !list.length) {   // keine Landepunkte (mehr): hat der Client schon eine Liste, bekommt er EINMAL die Leerform (sonst behielte er den alten Eintrag, z. B. nach dem Ende eines Abenteuer-Ortes); danach fehlt das Feld wie bisher
+      const hatte = this.sentTransferKey !== null;
+      this.sentTransferKey = null;
+      return hatte ? { lp: [], ziel: null } : null;
+    }
     const o = { lp: list.map((r) => [r.id, r.name || r.id, r.art, r.frei ? 1 : 0, r.grund || null, r.inReichweite ? 1 : 0]), ziel: (this.transferZiel && this.transferZiel.lp) || null };
     const key = JSON.stringify(o);
     if (key === this.sentTransferKey && this.snapCount % 15 !== 0) return null;

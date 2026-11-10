@@ -48,6 +48,8 @@ function registriere(v) {
   const P = require('./faden-pruefer.js');
   const r = P.pruefeVorlage(v);
   if (!r.ok) return { ok: false, fehler: r.fehler };
+  const lp = P.dateiLandeplatzFehler(v);   // DYN-01 Nacharbeit: Landeplaetze nur in Plaenen, nicht in Dateien
+  if (lp) return { ok: false, fehler: [lp] };
   registry.set(v.id, tief(JSON.parse(JSON.stringify(v))));
   return { ok: true, fehler: [] };
 }

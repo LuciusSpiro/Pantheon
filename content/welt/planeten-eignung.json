@@ -1,0 +1,14 @@
+{
+  "format": "planeten-eignung/1",
+  "_hinweis": "DYN-01 C (server/sim/planeten-eignung.js): welche Kartenart ein Abenteuer-Ort an einem Koerper dieser Planetenart haben darf (bestellenAmKoerper, Plan-Pruefer, BEA-02). Alle Werte stehen hier, keine im Code. Die Kartenarten sind eine Teilmenge von content/welt/abenteuer-orte.json `arten`; die Planetenarten sind die Schluessel von content/welt/sektortypen.json `planetenarten` plus `gasriese` (so steht er in scene.planeten). Leere Liste = keine Landung am Koerper (der Spielleiter nimmt dann station oder schiff am Raumpunkt = `punkt`). Das Feld `landbar` der Sektortypen (KAC-01, Kachel-Landepunkte) bleibt davon unberuehrt. Eine Planetenart, die hier fehlt, gilt zur Laufzeit als nicht landbar.",
+  "planetenarten": {
+    "wueste": ["wildnis", "aussenposten"],
+    "wiesenwald": ["wildnis", "hoehle", "aussenposten"],
+    "vulkan": ["wildnis", "hoehle", "aussenposten"],
+    "fels": ["wildnis", "hoehle"],
+    "eis": ["wildnis", "hoehle"],
+    "ozean": [],
+    "gasriese": []
+  },
+  "punkt": ["schiff", "station"]
+}

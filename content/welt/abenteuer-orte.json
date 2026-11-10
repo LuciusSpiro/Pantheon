@@ -1,0 +1,34 @@
+{
+  "format": "abenteuer-orte/1",
+  "_hinweis": "DYN-01 A (server/sim/abenteuer-orte.js): Orte (Landepunkte) fuer die Dauer eines Abenteuers (Fadens) in der Freien Fahrt. Alle Werte des Moduls stehen hier, keine im Code. Der Ort ist nie im Weltstand (fluechtig); gespeichert wird nur die Bestellung am Faden (welt.sim.faeden.liste[].orte), der Ort entsteht beim Laden daraus neu.",
+  "arten": ["wildnis", "hoehle", "schiff", "aussenposten", "station"],
+  "orte_max": 2,
+  "besitz_standard": "herrenlos",
+  "kachel_id_max": 60,
+  "karte_ruhe": "platform",
+  "_karte_ruhe": "Aussenkarte des Spiels ohne Landung und ohne Abholpunkt am Ort (game.js: this.away = this.aways.platform). Nach dem Abraeumen eines Ortes im leeren Raum geht away.map dorthin zurueck, damit die Pad-Gruppe der Transfer-Konsole nicht 'KESH-PADS' heisst (Pruefung DYN-01, Befund 3).",
+  "name_max": 40,
+  "platz_muster": "[a-z0-9_]{1,16}",
+  "besitz_muster": "[a-z_]{1,16}",
+  "zustand_muster": "[a-z_]{1,16}",
+  "ort_muster": "[a-z0-9_-]{1,40}",
+  "seed": { "salz": "abenteuer-ort", "modul": 100000 },
+  "koerper": {
+    "beam_zuschlag": 200,
+    "_hinweis": "Transferreichweite am Planeten = Radius + beam_zuschlag (gemessen an Skjaldborg, Planet wueste r 153: Reichweite 353)."
+  },
+  "punkt": {
+    "beam_reichweite": 300,
+    "zustand_nach_art": { "schiff": "verfallen" },
+    "lage": { "kandidaten": [[0.5, 0.5], [0.4, 0.5], [0.6, 0.5], [0.5, 0.35], [0.5, 0.65], [0.3, 0.4], [0.7, 0.6]], "abstand_min": 200, "_hinweis": "DYN-01 B (platzBestellen): Wo ein Landeplatz am Raumpunkt (schiff, station) entsteht, wenn der Plan ihn bestellt. kandidaten = Anteile (x, y) an Breite und Hoehe der Szene, der erste mit mindestens abstand_min Einheiten Abstand zum Rand jedes Planeten, Sterns und der Station gilt (Szenenmitte zuerst); bleibt keiner frei, gilt der mit dem groessten Abstand. Gemessen an den 30 Szenen der Karte sund_frei: 7 nehmen die Mitte, die uebrigen einen der folgenden (die Mitte von gasfeld liegt im Gasriesen). Stabil: nur Massen der Szene, kein Zufall." },
+    "_hinweis": "Ort an einem Raumpunkt (Wrack im Raum): Reichweite wie die Prise (entern.transferRange); ein Schiff ist dort ein treibendes Wrack (verfallen)."
+  },
+  "beam": { "x_max": 20000, "y_max": 20000, "range_max": 2000 },
+  "standardname": {
+    "wildnis": "Absturzstelle",
+    "hoehle": "Höhle",
+    "schiff": "Wrack",
+    "aussenposten": "Außenposten",
+    "station": "Station"
+  }
+}

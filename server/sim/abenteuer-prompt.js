@@ -14,6 +14,7 @@ const D = require('./faden-daten.js');
 const Ausschnitt = require('./lage-ausschnitt.js');
 const LagePrompt = require('./lage-prompt.js');
 const { WERTE } = require('./abenteuer-daten.js');
+const Orte = require('./abenteuer-orte.js');
 
 const SYSTEM_DATEI = path.join(LLM.PROMPT_DIR, 'abenteuer.system.md');
 const W = D.WERTE, B = D.BEATS, BP = D.BAUPLAN, BW = BP.werte, RW = D.BRETT.werte.wiederholung;
@@ -28,6 +29,7 @@ function parameterText(bp) {
   return ps.map(([k, s]) => {
     const erlaubt = Array.isArray(s.erlaubt) ? (s.erlaubt.length === 1 && s.erlaubt[0] === '$ort' ? 'der Ort des Abenteuers' : liste(s.erlaubt))
       : s.erlaubt === 'fluchtziel' ? `Hex-Code oder ${liste(W.fluchtziele)}` : s.erlaubt === 'waren' ? liste(waren()) : '?';
+    if (s.erlaubt === 'landeplatz') return `${k} (id)`;   // DYN-01 B: ohne Standard
     return `${k} (Standard ${s.standard === '$ort' ? 'der Ort des Abenteuers' : s.standard}; erlaubt ${erlaubt})`;
   }).join(', ');
 }
@@ -35,7 +37,8 @@ function katalogText() {
   if (katalogCache) return katalogCache;
   const T = BW.titel, A = BW.anlass;
   const L = [];
-  L.push(`Bauplan (dein Antwortobjekt, Format faden-bauplan/1): { "format": "faden-bauplan/1", "titel": Text mit ${T.min} bis ${T.max} Zeichen, "anlass"?: Text mit ${A.min} bis ${A.max} Zeichen (warum es dieses Abenteuer gibt; ohne geschweifte Klammern, ohne Namen), "namenlos"?: true, "volk_erlaubt"?: [${liste(W.voelker)}] (Standard ${BW.volk_erlaubt_standard.join(' | ')}), "wahrheit"?: Kennung, "beats": [Beat, ...] }`);
+  L.push(`Bauplan (dein Antwortobjekt, Format faden-bauplan/1): { "format": "faden-bauplan/1", "titel": Text mit ${T.min} bis ${T.max} Zeichen, "anlass"?: Text mit ${A.min} bis ${A.max} Zeichen (warum es dieses Abenteuer gibt; ohne geschweifte Klammern, ohne Namen), "namenlos"?: true, "volk_erlaubt"?: [${liste(W.voelker)}] (Standard ${BW.volk_erlaubt_standard.join(' | ')}), "wahrheit"?: Kennung, "landeplaetze"?: [Landeplatz, ...], "beats": [Beat, ...] }`);
+  L.push(`Landeplatz (Ort fuer die Dauer des Abenteuers, hoechstens ${Orte.DATEN.orte_max}): { "id": a-z0-9_ (bis 16 Zeichen), "art": ${liste(Orte.DATEN.arten)}, "besitz"?: a-z_, "name"?: Text }, nie Seed, Biom oder Besetzung. Beat-Parameter landeplatz (id) landet dort; Beats duerfen einen Platz teilen, jeder Platz braucht einen Beat. Art nur aus Kontext landeplatz_arten. Platz erst nach ${liste(Object.keys(B).filter((t) => B[t].verlegt_ort === true))} genutzt: nur ${liste(require('./planeten-eignung.js').DATEN.punkt)}.`);
   L.push('Beat: { "typ": Beat-Typ, "id"?: Text a-z0-9_ (nur als Ziel einer Verzweigung noetig), "parameter"?: { nur die Parameter des Typs }, "optionen"?: true, "verzweigung"?: { "gelungen"?: id eines SPAETEREN Beats, "gescheitert"?: id eines SPAETEREN Beats }, "erfolg"?: [Beat-Typen] (nur am Abschluss) }');
   L.push(`Laenge: 2 bis ${W.beats_max} Beats; hoechstens ${W.abenteuer.plan_max_zeichen} Zeichen serialisiert. Der letzte Beat ist der Abschluss (und nur der letzte). Die Beats laufen der Reihe nach, eine Verzweigung springt nur nach vorn. Zustaende, Ausgaenge, Folgen, Optionstexte und Hinweise schreibst du NIE: sie kommen aus den Daten.`);
   L.push('Beat-Typen (nur diese; Zustaende des NSC: ' + liste(W.status) + '):');
@@ -105,6 +108,7 @@ function kontextVon(game, werte, letzte, stufe, hex) {
     wendepunkte: wende,
     chronik: (a.chronik || []).slice(-werte.chronik_zeilen),
     faeden: fadenKontext(game),
+    landeplatz_arten: Orte.moeglicheArten(hex),   // DYN-01 B: Kartenarten, die am Hex der Crew gehen (sonst lehnt der Pruefer den Plan ab)
     letzte_abenteuer: letzteAbenteuer(game, letzte, werte),
     sperre_beginn: sperreBeginn(game, hex),
   };

@@ -28,7 +28,8 @@
     //   al (Alarm 0/1), cd { i, t } (laufender Countdown, sonst fehlt das Feld). Handkarten: map = platform|wreck|kesh wie bisher.
     // Snapshot transfer (Nachtrag, Transfer-Konsole): { lp: [[lpId, name, art, frei 0|1, grund|null, inReichweite 0|1]], ziel: lpId|null }
     //   aus landepunkte.liste(game, ort); nur wenn der Ort Landepunkte hat (Handkarten zählen mit), nur bei Änderung bzw. alle
-    //   15 Snapshots (wie world.locations); ziel = per transfer.ziel gewählter Landepunkt.
+    //   15 Snapshots (wie world.locations); ziel = per transfer.ziel gewählter Landepunkt. Verliert der Ort seine Landepunkte (Ende eines
+    //   Abenteuers mit Ort), kommt einmal die Leerform { lp: [], ziel: null }: der Client ersetzt damit die behaltene Liste (fehlt das Feld, behält er sie).
     // Snapshot space.enemies[].st: 'treibt' (kampfunfähiges Feindschiff, CONTRACT-B1 §7; sonst fehlt das Feld).
     // Ereignisse: ankerZustand { map, anker, zustand, rolle?, pid? }, downloadAbbruch { anker }, ladungScharf { anker, t },
     //   ladungExplodiert { anker }, landepunktAlarm { map, an } (Entscheidung Studioleitung: `alarm` bleibt der Schiffsalarm
