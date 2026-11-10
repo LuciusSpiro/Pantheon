@@ -6,6 +6,7 @@
 //   baue(game, { nr, grenze, hex, letzte, werte }) -> { prompt, zeichen, kontextZeichen } | { fehler }
 //                                 Reihenfolge fuer das Caching: Katalog (statisch) -> Kontext -> Aufruf -> Schluss. KEINE Spielernamen: der Kontext nennt die Crew nur als Crew (Rang, Stufe, Ort); Freitext (Chronik) ist vom Ausschnitt
 //                                 der Lage schon gefiltert; Titel und Anlass frueherer Abenteuer (freier Text des Modells) stehen nie im Kontext, nur ihre Typenfolge.
+//                                 SPL-02 D: baue(..., { geschichte }) / Datenwert geschichte.json im_prompt (Standard aus): haengt die Crew-Geschichte als Kontext-Feld crew_geschichte an (4 bis 6 Zeilen mit Kennung K1.., abenteuer-geschichte.js; nie ein Spielername) und gibt `kennungen` mit zurueck
 //   bauplanAusText(text)          -> { plan } | { fehler }   das erste lesbare JSON-Objekt (Zaeune, Text davor/danach, Komma vor }/] wie beim Plan der Lage)
 //   typenVon(vorlage)             Typenfolge einer expandierten Vorlage (ohne Abschluss)
 const path = require('path');
@@ -15,6 +16,7 @@ const Ausschnitt = require('./lage-ausschnitt.js');
 const LagePrompt = require('./lage-prompt.js');
 const { WERTE } = require('./abenteuer-daten.js');
 const Orte = require('./abenteuer-orte.js');
+const Geschichte = () => require('./abenteuer-geschichte.js');   // SPL-02 D
 
 const SYSTEM_DATEI = path.join(LLM.PROMPT_DIR, 'abenteuer.system.md');
 const W = D.WERTE, B = D.BEATS, BP = D.BAUPLAN, BW = BP.werte, RW = D.BRETT.werte.wiederholung;
@@ -97,12 +99,12 @@ function sperreBeginn(game, hex) {
   return typen.filter((t, i) => typen.indexOf(t) === i);
 }
 // Der verdichtete Kontext: nur was der Ausschnitt der Lage schon gefiltert liefert (Chronik ohne Namen, Crew ohne Namen) und der Faden-Zustand ohne NSC-Namen.
-function kontextVon(game, werte, letzte, stufe, hex) {
+function kontextVon(game, werte, letzte, stufe, hex, mitGeschichte) {
   const a = JSON.parse(Ausschnitt.ausschnitt(game, { stufe }).text);
   const f = a.flotten || {};
   const wende = [].concat((f.gefallen || []).map((x) => Object.assign({ art: 'gefallen' }, x)), (f.belagert || []).map((x) => Object.assign({ art: 'belagert' }, x)), (f.unterwegs || []).map((x) => Object.assign({ art: 'marsch' }, x))).slice(-werte.wendepunkte_max);
   const crew = a.crew || {};
-  return {
+  const k = {
     tick: a.tick,
     crew: { rang: crew.rang, stufe: crew.stufe, ort: crew.ort, hex: crew.hex },
     ruf: a.ruf, lage: a.lage,
@@ -113,21 +115,26 @@ function kontextVon(game, werte, letzte, stufe, hex) {
     letzte_abenteuer: letzteAbenteuer(game, letzte, werte),
     sperre_beginn: sperreBeginn(game, hex),
   };
+  // SPL-02 D: die Crew-Geschichte (4 bis 6 Zeilen mit Kennung, abenteuer-geschichte.js), nur bei gesetztem Schalter (Datenwert im_prompt oder baue({ geschichte })); sonst bleibt der Kontext byte-gleich
+  if (mitGeschichte) k.crew_geschichte = Geschichte().geschichteZeilen(game).zeilen;
+  return k;
 }
 const sortiert = (x) => require('../mission/context.js').sortKeys(x);
 
-function baue(game, { nr, grenze, hex, letzte, werte }) {
+function baue(game, { nr, grenze, hex, letzte, werte, geschichte }) {
   const w = werte || WERTE;
   const schluss = 'Gib jetzt den Bauplan aus. Nur das JSON-Objekt.';
   const aufruf = { art: String(grenze || 'unbekannt'), nr: Number.isInteger(nr) ? nr : 1, hex: hex || null };
   const stufen = Ausschnitt.STUFEN.length;
+  const mitGeschichte = geschichte === undefined ? Geschichte().imPromptStandard() : geschichte === true;
   // erst der volle Kontext, dann gekuerzt (kleinere Stufe des Ausschnitts, weniger Chronik und Wendepunkte), bis die Obergrenze haelt
   for (let s = 0; s < stufen + 2; s++) {
     const ww = Object.assign({}, w);
     if (s >= stufen) { ww.chronik_zeilen = Math.max(1, Math.floor(w.chronik_zeilen / (s - stufen + 2))); ww.wendepunkte_max = Math.max(1, Math.floor(w.wendepunkte_max / (s - stufen + 2))); }
-    const kontext = JSON.stringify(sortiert(kontextVon(game, ww, letzte, Math.min(s, stufen - 1), hex)));
+    const kontext = JSON.stringify(sortiert(kontextVon(game, ww, letzte, Math.min(s, stufen - 1), hex, mitGeschichte)));
     const prompt = LLM.buildPrompt({ katalog: katalogText(), variabel: [['kontext', kontext], ['aufruf', JSON.stringify(aufruf)]], schluss });
-    if (prompt.length <= w.prompt_max_zeichen) return { prompt, zeichen: prompt.length, kontextZeichen: kontext.length };
+    // kennungen: damit Prompt und Aufloesung (pruefeAbsicht) zum selben Zustand gehoeren
+    if (prompt.length <= w.prompt_max_zeichen) return Object.assign({ prompt, zeichen: prompt.length, kontextZeichen: kontext.length }, mitGeschichte ? { kennungen: Geschichte().geschichteZeilen(game).kennungen } : {});
   }
   return { fehler: `Prompt zu gross (Katalog ${katalogText().length} Zeichen, Obergrenze ${w.prompt_max_zeichen})` };
 }

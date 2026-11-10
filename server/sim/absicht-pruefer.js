@@ -29,6 +29,7 @@ const P = require('./faden-pruefer.js');
 const Faden = () => require('./faden.js');
 const Kanon = () => require('./abenteuer-kanon.js');
 const Ausschnitt = () => require('./lage-ausschnitt.js');
+const Geschichte = () => require('./abenteuer-geschichte.js');   // SPL-02 D: Kennungen (K1, ...) im Bezug
 const Sektoren = () => require('../../shared/sektoren.js');
 
 const DATEI = path.join(D.DIR, 'absichten.json');
@@ -165,10 +166,18 @@ function kandidatenNamen(game, frisch, kandidat) {
     if (frische && !frische.includes(id)) continue; const n = Faden().nscVon(game, id); if (n) out.push(n.name); }
   return out;
 }
+// SPL-02 D: Namen der NSC, die fuer mindestens eine Absicht mit Kandidaten-Bezug (Katalogfeld kandidat) in Frage kommen (nicht nur frisch: die Fortsetzung darf locker sein); Quelle der Auswahl der Crew-Geschichte (abenteuer-geschichte.js)
+function fortsetzungsNamen(game, katalog) {
+  katalog = katalog || katalogStandard();
+  const s = new Set();
+  for (const e of Object.values(katalog.absichten)) for (const b of Array.isArray(e.bezug) ? e.bezug : []) if (b.name === 'nsc' && b.kandidat) for (const n of kandidatenNamen(game, false, b.kandidat)) s.add(n);
+  return s;
+}
 const kommandantenNamen = () => [].concat(...Object.values(KOMMANDANTEN())).map((k) => k.name);
 const teile = (n) => String(n).trim().split(/\s+/);
 function nscFehler(game, name, b, auswahlMax) {
   const feld = 'bezug.nsc';
+  if (Geschichte().istKennung(name)) { const k = Geschichte().bezugImSpiel(game, { nsc: name }); if (!k.ok) return k.fehler[0]; }   // SPL-02 D: eine Kennung, die es im Zustand nicht gibt
   const kanon = kanonNamen(game), kand = b.kandidat ? kandidatenNamen(game, false, b.kandidat) : null;
   const mitVorschlag = (liste) => (liste.length ? vorschlag(`Bezug ${liste[0]}`, setze(feld, liste[0])) : undefined);
   const bester = () => { const fr = b.kandidat ? kandidatenNamen(game, true, b.kandidat) : []; return fr.length ? fr : (kand || kanon); };
@@ -285,6 +294,7 @@ function pruefeAbsicht(game, absicht, katalog) {
   if (form.length) return { ok: false, absicht: null, fehler: form };
   const a = klon(absicht);
   a.parameter = a.parameter || {}; a.bezug = a.bezug || {};
+  if (typeof a.bezug.nsc === 'string' && Geschichte().istKennung(a.bezug.nsc)) { const k = Geschichte().bezugImSpiel(game, a.bezug); if (k.ok) a.bezug = k.bezug; }   // SPL-02 D: { nsc: 'K2' } -> Vollname (eine unbekannte Kennung bleibt stehen: nscFehler meldet sie)
   if (!has(katalog.absichten, a.absicht)) {
     const namen = Object.keys(katalog.absichten);
     const nah = naechster(a.absicht, namen);
@@ -466,4 +476,4 @@ function katalogFehler(katalog) {
   return out;
 }
 
-module.exports = { CODES, pruefeAbsicht, istFortsetzung, wendePatchAn, gegenvorschlagPatch, fehlerText, verhandlungStart, verhandlungAntwort, verhandlungStartMit, verhandlungAntwortMit, katalogFehler, katalogStandard, katalogNeuLesen };
+module.exports = { CODES, pruefeAbsicht, fortsetzungsNamen, istFortsetzung, wendePatchAn, gegenvorschlagPatch, fehlerText, verhandlungStart, verhandlungAntwort, verhandlungStartMit, verhandlungAntwortMit, katalogFehler, katalogStandard, katalogNeuLesen };

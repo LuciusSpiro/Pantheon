@@ -38,6 +38,7 @@
     "test:absicht-pruefer": "node tools/test-absicht-pruefer.js",
     "test:inszenierer": "node tools/test-inszenierer.js",
     "test:absichten-katalog": "node tools/test-absichten-katalog.js",
+    "test:abenteuer-geschichte": "node tools/test-abenteuer-geschichte.js",
     "messe:abenteuer": "node tools/messe-abenteuer.js",
     "messe:abenteuer-plaene": "node tools/messe-abenteuer-plaene.js",
     "messe:lage": "node tools/messe-lage.js",

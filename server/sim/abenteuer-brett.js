@@ -369,4 +369,7 @@ function lesen(b, F) {   // muellfest: Unbrauchbares faellt weg (Meldung in F.la
   return F;
 }
 
-module.exports = { snapshot, schluessel, annehmen, ablehnen, vorschau, marken, kuerzen, beiEnde, hinweisAnbieten, beiTaetigkeit, beiUpdate, anschluss, neuAnbieten, toSave, lesen, weigerung, schrittText };
+// SPL-02 D: die NSC, die eine Fortsetzung tragen (Katalog der Absichten, absicht-pruefer.js): die Verbindung fuer abenteuer-geschichte.js, das den Pruefer nicht selbst laedt
+const fortsetzungsNamen = (game, katalog) => Absicht().fortsetzungsNamen(game, katalog);
+
+module.exports = { snapshot, schluessel, annehmen, ablehnen, vorschau, marken, kuerzen, beiEnde, hinweisAnbieten, beiTaetigkeit, beiUpdate, anschluss, neuAnbieten, toSave, lesen, weigerung, schrittText, fortsetzungsNamen };

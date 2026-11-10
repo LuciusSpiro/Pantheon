@@ -1,0 +1,62 @@
+{
+  "format": "crew-geschichte/1",
+  "_hinweis": "SPL-02 D: Daten der Crew-Geschichte als Prompt-Eingabe (server/sim/abenteuer-geschichte.js). Eine Zeile je ausgewaehltem NSC der Crew-Geschichte (Kanon, abenteuer-kanon.js), mit Kennung (K1, K2, ...): das Modell nennt spaeter im Bezug die Kennung, der Pruefer loest sie zum Vollnamen auf. Namen kommen aus den Daten des Spiels (namen.json), nie vom Spieler; faellt ein Name mit einem Spielernamen zusammen, nennt die Zeile nur Kennung, Volk und Rolle. Reine Zahlen und Texte, kein Zustand.",
+  "werte": {
+    "im_prompt": {
+      "wert": false,
+      "einheit": "Schalter",
+      "_hinweis": "true: abenteuer-prompt.js haengt die Zeilen als Kontext-Feld crew_geschichte an (Paket E schaltet das mit der Umstellung des Katalogs). Standard aus: Kontext, Fixtures und Tests bleiben unveraendert. baue(game, { geschichte }) uebersteuert den Wert je Aufruf."
+    },
+    "zeilen_min": {
+      "wert": 4,
+      "einheit": "Zeilen",
+      "_hinweis": "So viele Eintraege stehen mindestens in der Geschichte (gibt es weniger Personen, entsprechend weniger), auch wenn das Zeichenziel dafuer ueberschritten wird."
+    },
+    "zeilen_max": {
+      "wert": 6,
+      "einheit": "Zeilen",
+      "_hinweis": "Hoechstens so viele Eintraege (Erkundung: 6 Zeilen rund 723 Zeichen bei 1 327 Zeichen Luft im Prompt)."
+    },
+    "zeichen_ziel": {
+      "wert": 720,
+      "einheit": "Zeichen",
+      "_hinweis": "Zielgroesse aller Zeilen zusammen (mit Zeilenumbruechen). Ueber dem Ziel faellt der Eintrag mit dem geringsten Rang weg, bis zeilen_min erreicht ist."
+    },
+    "zeile_max": {
+      "wert": 120,
+      "einheit": "Zeichen",
+      "_hinweis": "Hoechste Laenge einer Zeile. Zu lange Zeilen verlieren stufenweise erst die Ware, dann Taten, dann die Haltung; was dann noch zu lang ist, wird gekuerzt."
+    },
+    "taten_je_zeile": {
+      "wert": 2,
+      "einheit": "Taten",
+      "_hinweis": "So viele Taten nennt eine Zeile hoechstens (die juengsten); der Kanon haelt bis kanon_taten_max (abenteuer-brett.json)."
+    },
+    "kennung_praefix": {
+      "wert": "K",
+      "einheit": "Text",
+      "_hinweis": "Kennungen der Zeilen: Praefix plus Laufnummer ab 1 (K1, K2, ...), in der Reihenfolge der Zeilen. Sie gelten nur fuer den Zustand, aus dem sie entstanden (derselbe Zustand ergibt dieselben Kennungen)."
+    },
+    "ausschliessen_status": {
+      "wert": ["tot"],
+      "einheit": "Zustaende",
+      "_hinweis": "Zustaende des NSC, die ihn aus der Geschichte nehmen (ein Toter ist kein Bezug)."
+    },
+    "folgen_status": {
+      "wert": ["feindlich", "verbuendet", "gefangen"],
+      "einheit": "Zustaende",
+      "_hinweis": "Zustaende, die eine Fortsetzung tragen: ein NSC in einem dieser Zustaende steht in der Rangfolge vor einem gewoehnlichen."
+    },
+    "platzhalter_rolle": {
+      "wert": "Schiffsfuehrer",
+      "einheit": "Text",
+      "_hinweis": "Rolle in der Zeile eines NSC, dessen Name mit einem Spielernamen zusammenfaellt, wenn der NSC aus der Liste der Faeden nicht mehr bekannt ist (sonst die Schiffsklasse)."
+    }
+  },
+  "texte": {
+    "jetzt": "jetzt",
+    "haltung": "Haltung",
+    "taten": "Taten",
+    "ware": "Ware"
+  }
+}
