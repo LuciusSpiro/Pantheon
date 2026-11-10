@@ -3,7 +3,8 @@
 // Geprüft: (a) Datenblätter Schwarmling/Königin (Längen, Wahrheit, Gefahr); (b) Königsposition erst ab Scan-Qualität 3 in aw.sc, im Snapshot (sc und kr) UND in der Anzeige (ScanAnzeige), der Nest-Anker steht in keinem Payload;
 //   (c) Scan-Filter: 20 Schwarmlinge verdrängen die Königin nicht aus den 16 Plätzen (auch wenn die Schwarmlinge zuerst erfasst wurden), Gefolge nachrangig und begrenzt, andere Kreaturen vorrangig, kein Typname im Servercode;
 //   (d) Sichtregel Größe 2: eine Königin, von der ein Körperteil zu sehen ist, steht in kr (Höhle), Größe 1 unverändert, ohne Sichtlinie kein kr-Eintrag; (e) Zerfall am Ereignis (nur für gesehene Tiere, einmal, Eintrag aus dem Content, Skala);
-//   (f) Bodenspur (deterministisch, nur aus der Wegstrecke gesehener Tiere, kein Anker, begrenzt, nur Typen mit `spur`), Einhängestellen im Quelltext.
+//   (f) Bodenspur (deterministisch, nur aus der Wegstrecke gesehener Tiere, kein Anker, begrenzt, nur Typen mit `spur`), Einhängestellen im Quelltext; (g) Nacharbeit: Spurdeckel je Tier und insgesamt, Lebensdauer bei mehreren Tieren,
+//   Übernahme statt Neubau, Vorrat und Dispose; Zerfallsfleck nur für Tiere, die im selben Moment noch in kr waren (nicht bis 3 s danach).
 //   node tools/test-schwarm-scan.js   (npm run test:schwarm-scan)
 const fs = require('fs');
 const path = require('path');
@@ -210,30 +211,30 @@ const ac = read('public/js/voxel/actors.js');
 const a0 = ac.indexOf('const KR_SCHRITT'), a1 = ac.indexOf('// KREATUR-OPTIK-ENDE'), a2 = ac.indexOf('function kreaturInhaltLaden'), a3 = ac.indexOf('function updateEnemy(');
 if (a0 < 0 || a1 < a0 || a2 < a1 || a3 < a2) { console.log('  FEHLER Quelltext-Blöcke in actors.js nicht gefunden'); process.exit(1); }
 const REIN = ac.slice(a0, a1), ANZEIGE = ac.slice(a2, a3);
-const NAMEN = 'kreaturEintrag, kreaturZerfallEintrag, kreaturZerfallZeigen, kreaturSkala, kreaturSpurEintrag, kreaturSpurAnzahl, kreaturSpurDrehung, kreaturSpurVersatz, kreaturSpur, kreaturZerfallEreignis, KR_ZERFALL_ZEIT, KR_ZERFALL_SCHWUND, KR_BEKANNT_FENSTER, KR_SPUR_ABSTAND, KR_SPUR_LEBEN, KR_SPUR_SCHWUND, KR_SPUR_VERSATZ, KR_SPUR_DREH';
+const NAMEN = 'KR_BODEN_VORRAT, KR_SPUR_MAX, KR_SPUR_JE_TIER, kreaturEintrag, kreaturZerfallEintrag, kreaturZerfallZeigen, kreaturSkala, kreaturSpurEintrag, kreaturSpurAnzahl, kreaturSpurDrehung, kreaturSpurVersatz, kreaturSpur, kreaturZerfallEreignis, KR_ZERFALL_ZEIT, KR_ZERFALL_SCHWUND, KR_BEKANNT_FENSTER, KR_SPUR_ABSTAND, KR_SPUR_LEBEN, KR_SPUR_SCHWUND, KR_SPUR_VERSATZ, KR_SPUR_DREH';
 const baue = (L) => new Function('L', 'yawOf', 'window', REIN + ANZEIGE + '\nreturn { ' + NAMEN + ' };')(L, (dx, dy) => Math.atan2(dx, dy), {});
 const IDS = Object.keys(require('../content/kampf/kreaturen.json').typen);
 
 section('(e) Zerfall am Ereignis', () => {
   const abgelegt = [];
-  const L = { kreaturInhalt: MODELLE, frame: 100, kreaturZuletzt: new Map(), bodenAblegen: (o) => abgelegt.push(o) };
+  const L = { kreaturInhalt: MODELLE, frame: 100, time: 100, kreaturZuletzt: new Map(), bodenAblegen: (o) => abgelegt.push(o) };
   const F = baue(L);
   const wz = F.kreaturZerfallEintrag(MODELLE, 'schwarmling'), qz = F.kreaturZerfallEintrag(MODELLE, 'koenigin');
   ok(wz && wz.modell === 'kreatur/schwarm_fleck' && wz.params.gross === 0 && qz && qz.params.gross === 1, 'Zerfalls-Eintrag aus dem Content: Schwarmling gross 0, Königin gross 1, Modell schwarm_fleck');
   ok(F.kreaturZerfallEintrag(MODELLE, 'rudeltier') === null && F.kreaturZerfallEintrag(MODELLE, 'probe') === null && F.kreaturZerfallEintrag(MODELLE, 'constructor') === null && F.kreaturZerfallEintrag(null, 'x') === null && F.kreaturZerfallEintrag(MODELLE, undefined) === null, 'ohne zerfall-Eintrag (rudeltier, probe, unbekannt, kaputter Content) kein Zerfall');
   const ev = (o) => Object.assign({ kind: 'kreaturAufgeloest', id: 'K7', typ: 'schwarmling', x: 480, y: 352 }, o || {});
-  L.kreaturZuletzt.set('K7', 98);
-  ok(F.kreaturZerfallZeigen(L.kreaturZuletzt, 100, ev(), F.KR_BEKANNT_FENSTER || 90), 'bekanntes Tier (vor 2 Frames in kr gesehen): zeigen');
-  ok(!F.kreaturZerfallZeigen(L.kreaturZuletzt, 100, ev({ id: 'K9' }), 90) && !F.kreaturZerfallZeigen(L.kreaturZuletzt, 400, ev(), 90), 'unbekanntes oder lange nicht gesehenes Tier: nicht zeigen (kein Ort, kein Dasein verraten)');
-  ok(!F.kreaturZerfallZeigen(L.kreaturZuletzt, 100, ev({ kind: 'enemyDown' }), 90) && !F.kreaturZerfallZeigen(L.kreaturZuletzt, 100, ev({ x: null }), 90) && !F.kreaturZerfallZeigen(L.kreaturZuletzt, 100, ev({ id: 7 }), 90) && !F.kreaturZerfallZeigen(L.kreaturZuletzt, 100, null, 90), 'falsche Art, fehlender Ort, falsche Id, kein Ereignis: nicht zeigen');
+  L.kreaturZuletzt.set('K7', 99.97);
+  ok(F.kreaturZerfallZeigen(L.kreaturZuletzt, 100, ev(), F.KR_BEKANNT_FENSTER), 'bekanntes Tier (vor 0,03 s, einem Frame, in kr gesehen): zeigen');
+  ok(!F.kreaturZerfallZeigen(L.kreaturZuletzt, 100, ev({ id: 'K9' }), 90) && !F.kreaturZerfallZeigen(L.kreaturZuletzt, 400, ev(), F.KR_BEKANNT_FENSTER), 'unbekanntes oder lange nicht gesehenes Tier: nicht zeigen (kein Ort, kein Dasein verraten)');
+  ok(!F.kreaturZerfallZeigen(L.kreaturZuletzt, 100, ev({ kind: 'enemyDown' }), 0.25) && !F.kreaturZerfallZeigen(L.kreaturZuletzt, 100, ev({ x: null }), 0.25) && !F.kreaturZerfallZeigen(L.kreaturZuletzt, 100, ev({ id: 7 }), 0.25) && !F.kreaturZerfallZeigen(L.kreaturZuletzt, 100, null, 0.25), 'falsche Art, fehlender Ort, falsche Id, kein Ereignis: nicht zeigen');
   ok(F.kreaturZerfallEreignis(ev()) === true && abgelegt.length === 1, 'kreaturAufgeloest eines gesehenen Schwarmlings legt genau einen Fleck ab');
   const o = abgelegt[0];
   ok(o.art === 'zerfall' && o.key === 'zerfall:K7' && o.modell === 'kreatur/schwarm_fleck' && o.params.gross === 0 && o.x === 480 && o.y === 352 && o.leben === F.KR_ZERFALL_ZEIT && o.leben >= 3 && o.leben <= 5, 'Fleck: am Ort des Ereignisses, Modell und Größe aus dem Content, ' + o.leben + ' s');
   ok(F.kreaturZerfallEreignis(ev()) === false && abgelegt.length === 1, 'dasselbe Tier zerfällt nur einmal (kein zweiter Fleck)');
-  L.kreaturZuletzt.set('K8', 99);
+  L.kreaturZuletzt.set('K8', 99.95);
   ok(F.kreaturZerfallEreignis(ev({ kind: 'kreaturAusgefallen', id: 'K8', typ: 'koenigin' })) && abgelegt[1].params.gross === 1, 'kreaturAusgefallen der Königin: Fleck gross 1');
   ok(F.kreaturZerfallEreignis(ev({ id: 'K99' })) === false && abgelegt.length === 2, 'unbekanntes Tier: kein Fleck');
-  const L2 = { frame: 1, kreaturZuletzt: new Map([['K7', 1]]) }, F2 = baue(L2);
+  const L2 = { frame: 1, time: 1, kreaturZuletzt: new Map([['K7', 1]]) }, F2 = baue(L2);
   ok(F2.kreaturZerfallEreignis(ev()) === false, 'ohne geladenen Content oder Bodenkulisse: kein Fleck, kein Wurf (Rückfall)');
   ok(F.kreaturSkala(0, 4, 1) === 1 && F.kreaturSkala(2.9, 4, 1) === 1 && F.kreaturSkala(3.5, 4, 1) === 0.5 && F.kreaturSkala(4, 4, 1) === 0 && F.kreaturSkala(9, 4, 1) === 0, 'Skala: 3 s voll, die letzte Sekunde schrumpft, ab 4 s weg');
   ok(F.kreaturSkala(1, 4, 9) <= 1 && F.kreaturSkala(1, 4, 9) > 0 && F.kreaturSkala(0, 4, 0) === 1, 'Skala: Schwund größer als die Lebensdauer wird begrenzt');
@@ -251,7 +252,7 @@ section('(f) Bodenspur: deterministisch, nur aus gesehenen Tieren, begrenzt', ()
   ok(S1.length === Math.floor(12 / sp.abstand), 'ein Stück je ' + sp.abstand + ' m Wegstrecke (12 m: ' + S1.length + ')');
   ok(JSON.stringify(S1) === JSON.stringify(S2), 'deterministisch: derselbe Lauf, dieselben Stücke');
   ok(JSON.stringify(S1.map((o) => o.yaw)) !== JSON.stringify(S3.map((o) => o.yaw)), 'anderes Tier, andere Streuung');
-  ok(S1.every((o) => o.art === 'spur' && o.modell === 'kreatur/myzel_faden' && o.max === sp.max && o.leben === sp.leben && o.schwund < o.leben) && new Set(S1.map((o) => o.key)).size === S1.length, 'Stücke: Modell, Höchstzahl und Lebensdauer aus dem Content, eindeutige Schlüssel');
+  ok(S1.every((o) => o.art === 'spur' && o.modell === 'kreatur/myzel_faden' && o.max === sp.max && o.jeTier === sp.jeTier && o.tier === 5 && o.leben === sp.leben && o.schwund < o.leben) && new Set(S1.map((o) => o.key)).size === S1.length, 'Stücke: Modell, Höchstzahl und Lebensdauer aus dem Content, eindeutige Schlüssel');
   const F0 = baue({ bodenAblegen: () => {} });
   ok(S1.every((o) => o.x >= 100 && o.x <= 100 + 12 * 32 + 1e-6) && S1.every((o) => Math.abs(o.y - 200) <= F0.KR_SPUR_VERSATZ + 1e-9), 'Stücke liegen auf dem Weg des Tieres (x entlang der Strecke, Versatz quer höchstens ' + F0.KR_SPUR_VERSATZ + ' px)');
   ok(S1.every((o) => Math.abs(o.yaw - Math.atan2(1, 0)) <= F0.KR_SPUR_DREH + 1e-9), 'Drehung folgt der Laufrichtung mit kleiner Streuung');
@@ -261,10 +262,119 @@ section('(f) Bodenspur: deterministisch, nur aus gesehenen Tieren, begrenzt', ()
   ok(keine.length === 0 && MODELLE.typen.koenigin.spur === undefined && MODELLE.typen.rudeltier.spur === undefined, 'nur Typen mit Eintrag `spur` legen eine Spur (Königin, Rudeltier nicht)');
   ok(Fk.kreaturSpurAnzahl(0, 100, 1.2) <= 2 && Fk.kreaturSpurAnzahl(5, 4, 1.2) === 0 && Fk.kreaturSpurAnzahl(0, 5, 0) === 0, 'höchstens 2 Stücke je Frame, nie negativ, Abstand 0 sicher');
   const kaputt = Fk.kreaturSpurEintrag({ spur: { modell: 'm', max: 9999, abstand: -1, leben: 'x' } });
-  ok(kaputt.max === 24 && kaputt.abstand === Fk.KR_SPUR_ABSTAND && kaputt.leben === Fk.KR_SPUR_LEBEN, 'kaputte Werte im Content fallen auf Standardwerte zurück');
+  ok(kaputt.max === Fk.KR_SPUR_MAX && kaputt.jeTier <= kaputt.max && kaputt.abstand === Fk.KR_SPUR_ABSTAND && kaputt.leben === Fk.KR_SPUR_LEBEN, 'kaputte Werte im Content fallen auf Standardwerte zurück (jeTier nie über max)');
+  ok(Fk.kreaturSpurEintrag({ spur: { modell: 'm', max: 10, jeTier: 50 } }).jeTier === 10, 'jeTier wird auf max begrenzt');
+  const leer = Fk.kreaturSpurEintrag({ spur: { modell: 'm' } });
+  ok(leer.max === Fk.KR_SPUR_MAX && leer.jeTier === Fk.KR_SPUR_JE_TIER && Fk.KR_SPUR_JE_TIER < Fk.KR_SPUR_MAX, 'ohne Angaben: Standard-Deckel insgesamt ' + Fk.KR_SPUR_MAX + ' und je Tier ' + Fk.KR_SPUR_JE_TIER);
   ok(Fk.kreaturSpurEintrag({}) === null && Fk.kreaturSpurEintrag({ spur: { modell: '' } }) === null && Fk.kreaturSpurEintrag(null) === null, 'ohne gültigen Eintrag keine Spur');
   const man = JSON.parse(read('assets/manifest/mon03.json')).assets.find((x) => x.id === 'kreatur/myzel_faden');
   ok(man && man.tags.includes('boden') && man.height <= 0.3 && /kreatur\/myzel_faden/.test(read('public/voxel/index.json')), 'Fadenstück: Bodenoptik (höchstens 0,3 m, keine Kollision nötig), in public/voxel synchronisiert');
+});
+
+// ---------- (g) Bodenkulisse: Deckel je Tier und insgesamt, Übernahme, Vorrat, Dispose; Zerfall nur im selben Moment ----------
+const BODEN = ac.slice(ac.indexOf('L.boden = new Map();'), ac.indexOf('const layer = {'));
+if (BODEN.length < 500) { console.log('  FEHLER Quelltext der Bodenkulisse nicht gefunden'); process.exit(1); }
+// Mock-Akteur: zählt Neubauten und Entsorgungen (dispose); alles andere ist die echte Bodenkulisse aus actors.js
+function bodenWelt() {
+  const W = { neu: 0, weg: 0 };
+  class Actor {
+    constructor(key) { W.neu++; this.key = key; this.entsorgt = false; this.container = { visible: true, rotation: { y: 0 } }; this.body = { scale: { v: 1, setScalar(v) { this.v = v; } }, add() {} }; }
+    dispose() { if (!this.entsorgt) { this.entsorgt = true; W.weg++; } }
+  }
+  const L = { boden: null, group: {}, frame: 1, time: 0, kreaturInhalt: MODELLE, kreaturZuletzt: new Map() };
+  const kreaturSkala = (alter, leben, schwund) => { if (!(alter < leben)) return 0; const ab = leben - Math.min(schwund, leben); return alter <= ab ? 1 : (leben - alter) / (leben - ab); };
+  const F0 = baue(L);
+  const B = new Function('L', 'Actor', 'kreaturTeil', 'place', 'refreshSlot', 'kreaturSkala', 'KR_BODEN_VORRAT', BODEN + '\nreturn { bodenAblegen, bodenAufraeumen, bodenLeeren };')(L, Actor, () => ({ userData: {} }), () => {}, () => {}, kreaturSkala, F0.KR_BODEN_VORRAT);
+  return { W, L, F: F0, B };
+}
+// Lauf: np Tiere laufen je mit v m/s (gleiches Alter der Strecke), 60 Bilder/s, sek Sekunden; liefert Messwerte
+function spurWelt(np, v, sek) {
+  const w = bodenWelt(), { L, F, B, W } = w, sp = MODELLE.typen.schwarmling.spur, eintrag = MODELLE.typen.schwarmling;
+  const tiere = []; for (let i = 0; i < np; i++) tiere.push({ id: 'K' + (10 + i), a: { dist: 0 }, x: 100 + i * 40, facing: 0 });
+  const dt = 1 / 60; let maxGesamt = 0, maxJeTier = 0, maxAlter = 0, maxAlterBeiTod = 0, bisherWeg = 0;
+  const gesamt = () => [...L.boden.values()].filter((b) => b.art === 'spur');
+  for (let f = 0; f < sek * 60; f++) {
+    L.frame++; L.time += dt;
+    for (const t of tiere) { t.a.dist += v * dt; F.kreaturSpur(t.a, { id: t.id, x: t.x + t.a.dist * 32, y: 200, facing: 0 }, eintrag); }
+    B.bodenAufraeumen(dt);
+    const g = gesamt(); maxGesamt = Math.max(maxGesamt, g.length);
+    const je = {}; for (const b of g) je[b.tier] = (je[b.tier] || 0) + 1;
+    maxJeTier = Math.max(maxJeTier, ...Object.values(je), 0);
+    for (const b of g) maxAlter = Math.max(maxAlter, b.alter);
+  }
+  return { w, sp, maxGesamt, maxJeTier, maxAlter, tiere };
+}
+section('(g1) Bodenspur: Deckel je Tier und insgesamt, Lebensdauer bei mehreren Tieren, Übernahme statt Neubau', () => {
+  const sp = MODELLE.typen.schwarmling.spur;
+  ok(sp.max >= 48 && sp.max <= 96 && sp.jeTier >= 8 && sp.jeTier < sp.max && sp.leben >= 10, 'Content: Gesamtdeckel ' + sp.max + ', je Tier ' + sp.jeTier + ', Lebensdauer ' + sp.leben + ' s');
+  // Gruppe von 3 Tieren im Heimlauf (1,7 m/s): kein Stück wird vor Ablauf verdrängt, die Lebensdauer wird erreicht
+  const R3 = spurWelt(3, 1.7, 45);
+  ok(R3.maxAlter >= sp.leben - 0.1 && R3.w.W.neu === R3.w.W.weg + [...R3.w.L.boden.values()].length + R3.w.L.bodenVorrat.length, '3 Tiere: ein Stück lebt die vollen ' + sp.leben + ' s (ältestes erreichte ' + R3.maxAlter.toFixed(1) + ' s), nichts geht verloren');
+  ok(R3.maxGesamt <= sp.max && R3.maxJeTier <= sp.jeTier, '3 Tiere: Deckel nie überschritten (gesamt ' + R3.maxGesamt + ', je Tier ' + R3.maxJeTier + ')');
+  // 10 Tiere (Rückkehr vieler Schwarmlinge): Deckel hält, ein Stück lebt deutlich länger als die 1,2 bis 2,4 s des Gesamtdeckels 24
+  const R10 = spurWelt(10, 1.7, 60);
+  ok(R10.maxGesamt <= sp.max && R10.maxGesamt >= sp.max - 2 && R10.maxJeTier <= sp.jeTier, '10 Tiere: Gesamtdeckel ' + sp.max + ' gilt und wird genutzt (' + R10.maxGesamt + '), je Tier höchstens ' + R10.maxJeTier);
+  ok(R10.maxAlter >= 5, '10 Tiere: ein Stück lebt mindestens 5 s (ältestes ' + R10.maxAlter.toFixed(1) + ' s; mit Gesamtdeckel 24 und je Tier 2 bis 4 Stücken/s wären es 1,2 bis 2,4 s)');
+  // kein ständiges Neuerzeugen: nach 60 s Dauerlauf wurden höchstens so viele Akteure gebaut wie Stücke gleichzeitig da sein dürfen (plus Vorrat)
+  ok(R10.w.W.neu <= sp.max + R10.w.F.KR_BODEN_VORRAT, '10 Tiere, 60 s: ' + R10.w.W.neu + ' Akteure gebaut (höchstens ' + (sp.max + R10.w.F.KR_BODEN_VORRAT) + '), das Verdrängen und Ablaufen baut nicht neu');
+  // ein extrem schnelles einzelnes Tier erreicht den Deckel je Tier, nicht den Gesamtdeckel
+  const R1 = spurWelt(1, 4.5, 30);
+  ok(R1.maxJeTier === sp.jeTier && R1.maxGesamt === sp.jeTier, '1 sehr schnelles Tier: Deckel je Tier (' + sp.jeTier + ') greift vor dem Gesamtdeckel (gesamt ' + R1.maxGesamt + ')');
+  // zwei Tiere teilen sich den Gesamtdeckel fair: das langsame wird vom schnellen nicht verdrängt, solange der Gesamtdeckel nicht erreicht ist
+  const w = bodenWelt();
+  const ablegen = (key, tier) => w.L.bodenAblegen({ art: 'spur', key, tier, modell: 'kreatur/myzel_faden', params: {}, x: 0, y: 0, yaw: 0, leben: 16, schwund: 4, max: 6, jeTier: 3 });
+  for (let i = 0; i < 3; i++) ablegen('a' + i, 1);
+  for (let i = 0; i < 3; i++) ablegen('b' + i, 2);
+  ok(w.L.boden.size === 6 && w.W.neu === 6, 'zwei Tiere à 3 Stücke füllen den Gesamtdeckel 6 ohne Verdrängung');
+  ablegen('b3', 2);
+  ok(w.L.boden.size === 6 && !w.L.boden.has('b0') && w.L.boden.has('a0') && w.L.boden.has('b3') && w.W.neu === 6 && w.W.weg === 0, 'Tier 2 verdrängt nur sein eigenes ältestes Stück (b0), Tier 1 bleibt, der Akteur wird übernommen (kein Neubau, kein Dispose)');
+  ablegen('c0', 3);
+  ok(w.L.boden.size === 6 && !w.L.boden.has('a0') && w.L.boden.has('c0') && w.W.neu === 6, 'ein drittes Tier bei vollem Gesamtdeckel verdrängt das insgesamt älteste Stück (a0)');
+  ablegen('c0', 3);
+  ok(w.L.boden.size === 6 && w.W.neu === 6, 'gleicher Schlüssel: kein zweites Stück');
+});
+
+section('(g2) Bodenkulisse: Vorrat, Dispose, andere Arten unberührt', () => {
+  const w = bodenWelt();
+  const ab = (art, key, extra) => w.L.bodenAblegen(Object.assign({ art, key, tier: null, modell: 'kreatur/myzel_faden', params: {}, x: 0, y: 0, yaw: 0, leben: 2, schwund: 1, max: 10 }, extra || {}));
+  for (let i = 0; i < 5; i++) ab('spur', 's' + i, { tier: 1, jeTier: 9 });
+  for (let i = 0; i < 3; i++) ab('zerfall', 'z' + i, { max: 3 });
+  ok(w.W.neu === 8 && w.L.boden.size === 8, 'fünf Spurstücke und drei Zerfallsflecken (eigene Deckel je Art)');
+  ab('zerfall', 'z3', { max: 3 });
+  ok(w.L.boden.size === 8 && !w.L.boden.has('z0') && w.L.boden.has('s0') && w.W.neu === 8, 'der Deckel einer Art verdrängt nur Stücke derselben Art');
+  for (let f = 0; f < 150; f++) w.B.bodenAufraeumen(1 / 60);   // 2,5 s: alles abgelaufen
+  ok(w.L.boden.size === 0 && w.L.bodenVorrat.length === 8 && w.W.weg === 0 && w.L.bodenVorrat.every((b) => b.a.container.visible === false), 'abgelaufene Stücke: nicht mehr in der Kulisse, versteckt im Vorrat (' + w.L.bodenVorrat.length + ' von höchstens ' + w.F.KR_BODEN_VORRAT + '), nicht entsorgt');
+  ab('spur', 'n0', { tier: 2, jeTier: 9 });
+  ok(w.W.neu === 8 && w.L.bodenVorrat.length === 7 && w.L.boden.get('n0').a.container.visible === true && w.L.boden.get('n0').a.body.scale.v === 1, 'ein neues Stück nimmt einen Akteur aus dem Vorrat (kein Neubau), sichtbar und in voller Größe');
+  ab('spur', 'n1', { tier: 2, jeTier: 9, modell: 'kreatur/anderes' });
+  ok(w.W.neu === 9, 'anderes Modell: der Vorrat passt nicht, ein neuer Akteur wird gebaut');
+  // Vorrat ist begrenzt: mehr abgelaufene Stücke als KR_BODEN_VORRAT werden entsorgt
+  const w2 = bodenWelt();
+  const N = w2.F.KR_BODEN_VORRAT + 10;
+  for (let i = 0; i < N; i++) w2.L.bodenAblegen({ art: 'zerfall', key: 'q' + i, tier: null, modell: 'kreatur/schwarm_fleck', params: {}, x: 0, y: 0, yaw: 0, leben: 1, schwund: 0.5, max: 200 });
+  for (let f = 0; f < 90; f++) w2.B.bodenAufraeumen(1 / 60);
+  ok(w2.L.bodenVorrat.length === w2.F.KR_BODEN_VORRAT && w2.W.weg === 10, 'Vorrat höchstens ' + w2.F.KR_BODEN_VORRAT + ', der Rest wird entsorgt (' + w2.W.weg + ')');
+  // Zonenwechsel/Dispose: alles weg, auch der Vorrat
+  w2.L.bodenAblegen({ art: 'zerfall', key: 'r0', tier: null, modell: 'kreatur/schwarm_fleck', params: {}, x: 0, y: 0, yaw: 0, leben: 5, schwund: 1, max: 200 });
+  w2.B.bodenLeeren();
+  ok(w2.L.boden.size === 0 && w2.L.bodenVorrat.length === 0 && w2.W.neu === w2.W.weg, 'bodenLeeren: Kulisse und Vorrat leer, jeder gebaute Akteur entsorgt (' + w2.W.neu + ' gebaut, ' + w2.W.weg + ' entsorgt)');
+});
+
+section('(g3) Zerfallsfleck nur, wenn das Tier im selben Moment noch in kr war', () => {
+  const abgelegt = [];
+  const L = { kreaturInhalt: MODELLE, frame: 1, time: 50, kreaturZuletzt: new Map(), bodenAblegen: (o) => abgelegt.push(o) };
+  const F = baue(L);
+  const ev = (id) => ({ kind: 'kreaturAufgeloest', id, typ: 'schwarmling', x: 300, y: 300 });
+  L.kreaturZuletzt.set('K1', 49.98);   // vor einem Frame noch sichtbar
+  L.kreaturZuletzt.set('K2', 49.0);    // vor 1 s aus der Sicht
+  L.kreaturZuletzt.set('K3', 47.5);    // vor 2,5 s aus der Sicht (bisher: gezeigt)
+  ok(F.KR_BEKANNT_FENSTER <= 0.5, 'Fenster höchstens eine halbe Sekunde (' + F.KR_BEKANNT_FENSTER + ' s), nicht 3 s');
+  ok(F.kreaturZerfallEreignis(ev('K1')) === true && abgelegt.length === 1, 'Tier im selben Moment noch sichtbar: Fleck');
+  ok(F.kreaturZerfallEreignis(ev('K2')) === false && F.kreaturZerfallEreignis(ev('K3')) === false && abgelegt.length === 1, 'Tier, das 1 s bzw. 2,5 s zuvor aus der Sicht geriet: kein Fleck (der Fleck verriete seine Position)');
+  L.time = 50.2; L.kreaturZuletzt.set('K4', 50.0);
+  ok(F.kreaturZerfallEreignis(ev('K4')) === true, 'Ereignis 0,2 s nach der letzten Sicht (Netzverzug, wenige Frames): noch gezeigt');
+  L.time = 50.4; L.kreaturZuletzt.set('K5', 50.0);
+  ok(F.kreaturZerfallEreignis(ev('K5')) === false, 'Ereignis 0,4 s nach der letzten Sicht: nicht mehr gezeigt');
 });
 
 section('(f2) Quelltext: Spur ohne Nest, Zerfall ohne Typnamen, Einhängestellen', () => {
@@ -274,7 +384,7 @@ section('(f2) Quelltext: Spur ohne Nest, Zerfall ohne Typnamen, Einhängestellen
   ok(spurCode.length > 200 && !/nest|anker|koenigin|schwarm/i.test(spurCode) && !/Math\.random/.test(rein.slice(rein.indexOf('const KR_ZERFALL_ZEIT'))), 'Spur-Code: keine Nest-, Anker- oder Königsdaten, kein Math.random');
   ok(!/schwarm|koenigin|myzel|rudeltier/i.test(kern.slice(kern.indexOf('const KR_ZERFALL_ZEIT'))), 'Client-Kern: kein Typname und keine feste Modell-ID (alles aus dem Content)');
   ok(/onEvent\('\*', \(msg\) => \{ try \{ kreaturZerfallEreignis\(msg\)/.test(ac) && /bodenAufraeumen\(dt\)/.test(ac) && /bodenLeeren\(\); L\.lastZone = zone/.test(ac) && /kreaturSpur\(a, e, eintrag\);/.test(ac), 'Einhängestellen: Ereignis-Hörer, Altern je Frame, Leeren beim Zonenwechsel, Spur in updateKreatur');
-  ok(/L\.kreaturZuletzt \|\| \(L\.kreaturZuletzt = new Map\(\)\)\)\.set\(e\.id, L\.frame\)/.test(ac), 'jedes Tier in kr wird als gesehen vermerkt (Quelle der Spur und des Zerfalls ist nur kr)');
+  ok(/L\.kreaturZuletzt \|\| \(L\.kreaturZuletzt = new Map\(\)\)\)\.set\(e\.id, L\.time\)/.test(ac), 'jedes Tier in kr wird als gesehen vermerkt (Quelle der Spur und des Zerfalls ist nur kr)');
   ok(IDS.indexOf('schwarmling') > 0 && JSON.stringify(MODELLE.reihenfolge) === JSON.stringify(IDS), 'Reihenfolge des Client-Contents unverändert gleich kreaturen.json');
 });
 

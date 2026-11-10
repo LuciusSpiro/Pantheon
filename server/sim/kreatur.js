@@ -28,7 +28,7 @@
 //   erzeugenAuf(game, aw, typ, { x, y, gruppe? })            Anlegen auf einer gegebenen Außenkarte (Missionsaktionen laufen vor der Landung; MON-02 P1)
 //   rudelSetzen(game, { map, bereich?, typ, anzahl, gruppe }) Rudel mit Kennung K.gruppe anlegen (Aktion kreatur_besetzen), Buchführung aw.kreaturGruppen[gruppe] = { erschienen, typ }
 //   nestSetzen(game, { map, typ, gruppe, x, y }) eine Quelle (Königin) an der Kachel (x, y) anlegen, Buchführung wie rudelSetzen (MON-03 A); Baustein `brut` {typ, anfang, max, takt, radius}: die Quelle bringt ihr gebundenes Gefolge hervor
-//   nestBesetzen(game, { map, typ, gruppe })  die Quelle an den (verdeckten) Anker der Rolle nest der Karte setzen (MON-03 B); laermHoeren(game, { x, y, radius })  Lärm als Push an die Kreaturen, ohne aw.laerm; Baustein `gefolge` {hort, fern, daheim}: Modi umkreise, zumHort, Auslöser fern, daheim
+//   nestBesetzen(game, { map, typ, gruppe })  die Quelle an den (verdeckten) Anker der Rolle nest der Karte setzen (MON-03 B); laermHoeren(game, { x, y, radius })  Lärm als Push an die Kreaturen, ohne aw.laerm; Baustein `gefolge` {hort, fern, daheim}: Modi umkreise, zumHort, Auslöser fern, daheim; Baustein `streuung` {abstand, tempo}: Träger weichen einander aus (Nacharbeit A)
 //   ausgefallenMelden(game, K)             Ereignis kreaturAusgefallen {id, typ, gruppe, x, y} bei endgültigem Ausfall (aus combat.faellt; bewusstlos meldet nichts; einmal je Kreatur; MON-02 P2)
 //   rudelErledigt(game, map, { gruppe | typ })  Prüfung des Bausteins kreaturen_erledigt; nichtEndgueltigErledigt(K) ist die gemeinsame Regel (lebend oder erholbar liegend, nicht aufgelöst)
 //   Baustein `aufgeben` { anlaeufe }: Auslöser `aufgegeben` nach n erfolglosen Rammen in Folge (Hook beiWechsel)
@@ -107,7 +107,25 @@ const tempoVon = (K, z) => z.tempo * (K.tempoF || 1);
 function gehe(game, K, dt, ctx, tempo) {
   const r = ctx.typ.tuerenAufbrechen ? Monster.gehenMitAufbrechen(game, ctx.E, K, dt, tempo, hbVon(ctx.typ), ctx.typ.rammZeit) : Monster.gehenOhneAufbrechen(game, ctx.E, K, dt, tempo, hbVon(ctx.typ));
   if (r === 'tuer') { K.pfad = []; K.replan = Math.max(K.replan, 1); K.tuerGesperrt = true; }   // Tür bleibt zu: Pfad verwerfen, später neu planen
+  else if (r === 'blockiert') sperreMerken(game, K, ctx);
   return r;
+}
+// MON-03 Nacharbeit B: Die Maske der Kreaturen kennt nur das Raster. Ein Hindernis, das nur die Physik kennt (z. B. eine Ader, fest bis zum Abbau), liegt für sie mitten im Weg: der Pfad führt hindurch,
+// die Kollision hält die Kreatur davor, und sie bliebe für immer dort (ein Spieler dahinter hätte einen sicheren Standplatz). Hält die Physik die Kreatur am nächsten Pfadpunkt auf und ist dessen Fußabdruck fest,
+// merkt sie sich diesen Ankerpunkt für SPERRE_ZEIT s (lazy K.sperre, nur nach so einem Vorfall) und plant ohne ihn neu (sperrMaske). Kein Typname, für alle Typen gleich.
+const SPERRE_ZEIT = 20;   // s, danach darf der Weg wieder versucht werden (die Ader kann inzwischen abgebaut sein)
+function sperreMerken(game, K, ctx) {
+  const n = K.pfad[0]; if (!n) return;
+  if (!Mon.fussKacheln(n, ctx.typ.groesse).some((t) => ctx.E.solid(t.x, t.y))) return;
+  (K.sperre || (K.sperre = {}))[n.cx + ',' + n.cy] = game.time + SPERRE_ZEIT;
+  K.pfad = []; K.replan = 0;
+}
+function sperrMaske(m, K, zeit) {
+  let rest = 0;
+  for (const key of Object.keys(K.sperre)) { if (K.sperre[key] <= zeit) delete K.sperre[key]; else rest++; }
+  if (!rest) { delete K.sperre; return m; }
+  const S = K.sperre;
+  return { w: m.w, h: m.h, fuss: m.fuss, geht: (cx, cy) => m.geht(cx, cy) && !(S[cx + ',' + cy] > zeit) };
 }
 const KERN_AUSLOESER = {
   sieht: (game, K, ctx) => !!ctx.ziel,
@@ -411,6 +429,7 @@ kreaturBausteinAnmelden('bindung', {
 const BRUT_FELDER = ['typ', 'anfang', 'max', 'takt', 'radius'];
 const BRUT_MAX = 30;           // Deckel im Validator (gemessen MON-03 Erkundung: Tick und Snapshot sind bei 30 kein Problem, Optik ungemessen)
 const BRUT_ABSTAND = 1.5;      // Kacheln, Mindestabstand des Nachwuchses zur Mitte der Quelle (er erscheint nicht in ihr)
+const BRUT_NACHBAR = 1;        // Kacheln, Mindestabstand des Nachwuchses zu jeder anderen lebenden Kreatur (gemessen ohne: 8 Paare exakt übereinander in 8 Seeds)
 const BRUT_VERSUCHE = 12;
 const brutNachkomme = (K, O, par) => O !== K && O.kreatur && O.typ === par.typ && (K.gruppe == null || O.gruppe === K.gruppe);
 function brutAnlegen(game, aw, K, par, typ, m) {
@@ -420,6 +439,7 @@ function brutAnlegen(game, aw, K, par, typ, m) {
     if (!m.geht(cx, cy)) continue;
     const pos = Mon.mitteVon({ cx, cy }, typ.groesse);
     if (Math.hypot(pos.x - K.x, pos.y - K.y) < BRUT_ABSTAND * TILE) continue;
+    if (aw.kreaturen.some((O) => !O.weg && O.alive && Math.hypot(pos.x - O.x, pos.y - O.y) < BRUT_NACHBAR * TILE)) continue;
     try { const N = anlegen(game, aw, par.typ, pos.x, pos.y, K.gruppe != null ? K.gruppe : null); N.facing = aw.rng() * Math.PI * 2; return true; }
     catch (e) { if (game.countError) game.countError('kreatur-brut', e); return false; }
   }
@@ -469,8 +489,11 @@ kreaturBausteinAnmelden('brut', {
 //   fern    Kacheln: weiter vom Hort entfernt gilt der Auslöser `fern`
 //   daheim  Kacheln: höchstens so weit vom Hort entfernt gilt der Auslöser `daheim` (auch ohne Hort: nichts zum Heimlaufen)
 // Modi:  `umkreise`  wie `streife` (zustand.radius Kacheln, aw.rng), Mitte = Position des Horts statt der eigenen;  `zumHort`  Pfad zum Hort (Neuplan über typ.replan), bei Ankunft läuft der Auslöser `daheim`.
-// `daheim` muss größer sein als der Abstand, den der Pfad zum Hort auf der Maske des Gefolges hergibt (Hort Größe 2: Rand etwa 2 bis 3 Kacheln), sonst bliebe es am Hort hängen; der Validator verlangt fern > daheim >= 3.
+// `daheim` muss größer sein als der weiteste Abstand, den der Pfad zum Hort hergeben kann, sonst bliebe das Tier am Hort hängen (Auslöser daheim nie wahr, Neuplan in jedem Tick). Der Suchradius um den Hort (Mon.naechster)
+// ist deshalb an daheim gekoppelt (gefolgeSuchradius: weiteste Kachelmitte im Ring liegt höchstens sqrt(2) * (Radius + 0,5) Kacheln vom Hort, das bleibt unter daheim), der Validator verlangt fern > daheim >= 3.
 const GEFOLGE_FELDER = ['hort', 'fern', 'daheim'];
+const GEFOLGE_SUCHE_MAX = 4;   // Kacheln, Ring um den Hort höchstens (bei großem daheim)
+const gefolgeSuchradius = (par) => Math.max(1, Math.min(GEFOLGE_SUCHE_MAX, Math.ceil(par.daheim / Math.SQRT2 - 0.5) - 1));
 function hortVon(aw, K, par) {
   let best = null, bd = Infinity;
   for (const O of aw.kreaturen) {
@@ -501,7 +524,7 @@ kreaturBausteinAnmelden('gefolge', {
       tick(game, K, dt, ctx, par, z) {
         if (K.replan <= 0 || !K.pfad.length) {
           const H = hortVon(game.away, K, par);
-          if (H) { const a = Mon.naechster(ctx.m, Math.floor(H.x / TILE), Math.floor(H.y / TILE), 4); if (a) Monster.setzePfad(K, ctx.m, a); }
+          if (H) { const a = Mon.naechster(ctx.m, Math.floor(H.x / TILE), Math.floor(H.y / TILE), gefolgeSuchradius(par)); if (a) Monster.setzePfad(K, ctx.m, a); }
           K.replan = ctx.typ.replan;
         }
         gehe(game, K, dt, ctx, tempoVon(K, z));
@@ -518,7 +541,48 @@ kreaturBausteinAnmelden('gefolge', {
     for (const k of Object.keys(par)) if (!GEFOLGE_FELDER.includes(k)) F.push(k + ': unbekanntes Feld');
     if (typeof par.hort !== 'string' || !hat(KREATUREN.typen, par.hort)) F.push('hort: unbekannter Kreaturentyp "' + par.hort + '"');
     if (!zahl(par.daheim, 3, 20)) F.push('daheim muss eine Zahl 3 bis 20 sein (Kacheln, Ankunft am Hort)');
+    else if (!(Math.SQRT2 * (gefolgeSuchradius(par) + 0.5) < par.daheim)) F.push('daheim muss größer sein als der Suchradius um den Hort (Pfadziel höchstens ' + (Math.SQRT2 * (gefolgeSuchradius(par) + 0.5)).toFixed(1) + ' Kacheln vom Hort)');
     if (!zahl(par.fern, 4, 40) || (zahl(par.daheim, 3, 20) && par.fern <= par.daheim)) F.push('fern muss eine Zahl 4 bis 40 und größer als daheim sein (Kacheln)');
+    return F;
+  },
+});
+
+// ---------- Baustein streuung (MON-03 Nacharbeit A): Kreaturen, die ihn tragen, stapeln sich nicht ----------
+// Ohne Abstoßung laufen viele Tiere desselben Typs auf denselben Pfadendpunkt und stehen dort auf einem Punkt (gemessen: 18 von 20 in einer 6-px-Zelle, im Bild 2 bis 3). Jede Kreatur mit diesem Baustein weicht
+// den anderen Kreaturen MIT diesem Baustein aus, die näher als `abstand` stehen (Mittelpunktabstand): Weg nach außen mit `tempo` bei Abstand 0, linear abnehmend bis `abstand`, über dieselbe Kollision wie die
+// Bewegung (nie in eine Wand). Tiere ohne den Baustein (Rudeltier, Station) bleiben unberührt und sehen die Träger nicht als Hindernis. Keine Instanzfelder, kein Zufall (bei gleichem Ort entscheidet die
+// Nummer der Instanz über die Richtung, die beiden Partner weichen entgegengesetzt aus), Wirkung nur auf die eigene Position. Während des Rammens (Modus ramme) steht der Baustein still: der Biss bleibt exakt.
+//   abstand  px, Mindestabstand der Mitten (etwa Kollisionsbox + Luft)
+//   tempo    px/s, Ausweichtempo bei Abstand 0
+const STREUUNG_FELDER = ['abstand', 'tempo'];
+const STREUUNG_GOLD = 2.399963;   // Goldener Winkel (rad): gleichmäßig verteilte Richtungen aus den Nummern
+const nummerVon = (K) => Number(String(K.id).slice(1)) || 0;
+kreaturBausteinAnmelden('streuung', {
+  beiTick(game, K, dt, par, ctx) {
+    if (ctx.typ.zustaende[K.z].modus === 'ramme') return;
+    const L = game.away.kreaturen; let vx = 0, vy = 0;
+    const nK = nummerVon(K);
+    for (const O of L) {
+      if (O === K || O.weg || !O.alive) continue;
+      const dx = K.x - O.x, dy = K.y - O.y;
+      if (dx > par.abstand || dx < -par.abstand || dy > par.abstand || dy < -par.abstand) continue;
+      const d = Math.hypot(dx, dy); if (d >= par.abstand) continue;
+      const tO = typVon(O.typ); if (!tO || !tO.bausteine.streuung) continue;
+      const w = 1 - d / par.abstand;
+      if (d > 1e-6) { vx += dx / d * w; vy += dy / d * w; }
+      else { const nO = nummerVon(O); const a = (Math.min(nK, nO) * 7 + Math.max(nK, nO) * 13) * STREUUNG_GOLD, s = nK > nO ? 1 : -1; vx += Math.cos(a) * s * w; vy += Math.sin(a) * s * w; }
+    }
+    const v = Math.hypot(vx, vy); if (v < 1e-9) return;
+    const f = Math.min(v, 1) * par.tempo * dt / v;
+    const res = Physics.moveWithCollision(ctx.E.solid, K.x, K.y, vx * f, vy * f, hbVon(ctx.typ));
+    K.x = res.x; K.y = res.y;
+  },
+  pruefen(par) {
+    const F = [];
+    if (!par || typeof par !== 'object' || Array.isArray(par)) return ['Objekt { abstand, tempo } erwartet'];
+    for (const k of Object.keys(par)) if (!STREUUNG_FELDER.includes(k)) F.push(k + ': unbekanntes Feld');
+    if (!zahl(par.abstand, 4, 32)) F.push('abstand muss eine Zahl 4 bis 32 sein (px, Mittelpunktabstand)');
+    if (!zahl(par.tempo, 1, 200)) F.push('tempo muss eine Zahl 1 bis 200 sein (px/s)');
     return F;
   },
 });
@@ -891,7 +955,8 @@ function wahrnehmung(game, E, K, typ) { return Monster.ziel(game, E, K, { sicht:
 
 function tickEine(game, E, k, K, dt) {
   const typ = typVon(K.typ);
-  const m = Monster.maskeVonGroesse(k, typ.groesse);
+  const m0 = Monster.maskeVonGroesse(k, typ.groesse);
+  const m = K.sperre ? sperrMaske(m0, K, game.time) : m0;
   K.zt += dt; if (K.t != null) K.t -= dt; K.replan -= dt;
   const ziel = wahrnehmung(game, E, K, typ);
   if (ziel) { K.verlust = 0; K.letzte = { x: ziel.x, y: ziel.y }; K.zielId = ziel.id; }
@@ -961,11 +1026,27 @@ function laermLesen(aw, K) {
 // laermHoeren(game, { x, y, radius, stufe? }) -> Zahl der erreichten Kreaturen: ein Lärm an (x, y) (px) mit radius (px) geht an die Kreaturen der aktiven Außenkarte (lebend, handlungsfähig),
 // über dieselben Hooks (bausteinLaerm, Baustein koeder) wie der Leser in update. Eigene Quelle ohne Lärmpuffer: schreibt NICHT in aw.laerm (sonst weckte squad.js alle Drohnentrupps im Radius) und braucht
 // keinen Cursor und kein Instanzfeld. Aufrufer: Abbau (anker.abbauLaerm, Reichweite aus rollen.abbau.laermStufe (content/buehnen/anker.json)). Wer das Ereignis hört, entscheidet der Typ über koeder { faktor } und die Zustandstabelle.
+// MON-03 Nacharbeit B: Der Lärm kommt oft von einem festen Feld (die Ader ist bis zum Abbau fest): der Köder läge dann in einer Wand, die Kreaturen stünden an ihrem Rand. Er rückt auf die nächste Kachel,
+// die die Physik betreten lässt (innerhalb KOEDER_SUCHE Kacheln, Kachelmitte; Gleichstand: die erste in Zeilenfolge, deterministisch); liegt keine in der Nähe, bleibt der Ort.
+const KOEDER_SUCHE = 2;
+function koederOrt(E, x, y) {
+  const tx = Math.floor(x / TILE), ty = Math.floor(y / TILE);
+  if (!E.solid(tx, ty)) return { x, y };
+  let best = null, bd = Infinity;
+  for (let dy = -KOEDER_SUCHE; dy <= KOEDER_SUCHE; dy++) for (let dx = -KOEDER_SUCHE; dx <= KOEDER_SUCHE; dx++) {
+    if (E.solid(tx + dx, ty + dy)) continue;
+    const c = { x: (tx + dx + 0.5) * TILE, y: (ty + dy + 0.5) * TILE }, d = Math.hypot(c.x - x, c.y - y);
+    if (d < bd) { bd = d; best = c; }
+  }
+  return best || { x, y };
+}
 function laermHoeren(game, o) {
   const aw = game.away; if (!aw || !aw.kreaturen || !aw.kreaturen.length) return 0;
   if (!o || !Number.isFinite(o.x) || !Number.isFinite(o.y) || !Number.isFinite(o.radius) || o.radius <= 0) return 0;
   const Wf = waffen();
-  const ev = { x: o.x, y: o.y, stufe: o.stufe || null, kacheln: o.radius / TILE, radius: o.radius, t: game.time };
+  const E = game.karteOf && game.karteOf(aw.map) ? combat().env(game) : null;
+  const ort = E ? koederOrt(E, o.x, o.y) : { x: o.x, y: o.y };
+  const ev = { x: ort.x, y: ort.y, stufe: o.stufe || null, kacheln: o.radius / TILE, radius: o.radius, t: game.time };
   let n = 0;
   for (const K of aw.kreaturen) {
     if (K.weg || !K.alive || !nichtEndgueltigErledigt(K)) continue;
@@ -1039,7 +1120,7 @@ function debugKreatur(game, p, typId) {
 
 // GEL-03 Nacharbeit W1: Kantenlänge der Kollisionsbox einer Kreatur in px (für die Überlappungsprüfung des Ader-Wechsels, anker.js)
 const koerperBox = (K) => { const t = typVon(K.typ); return t ? hbVon(t).w : 14; };
-module.exports = { koerperBox, update, kreaturBausteinAnmelden, bausteinTreffer, bausteinLaerm, daten, pruefen, typVon, erzeugen, erzeugenAuf, rudelSetzen, nestSetzen, nestBesetzen, laermHoeren, zustandSetzen, debugKreatur, kreaturen, ziele, ausruesten, raeumen, nichtEndgueltigErledigt, ausgefallenMelden, rudelErledigt, erledigtOptionenFehler };
+module.exports = { koerperBox, gefolgeSuchradius, update, kreaturBausteinAnmelden, bausteinTreffer, bausteinLaerm, daten, pruefen, typVon, erzeugen, erzeugenAuf, rudelSetzen, nestSetzen, nestBesetzen, laermHoeren, zustandSetzen, debugKreatur, kreaturen, ziele, ausruesten, raeumen, nichtEndgueltigErledigt, ausgefallenMelden, rudelErledigt, erledigtOptionenFehler };
 
 // ---------- Anzeige und Scanner (MON-01 P4) ----------
 // Scanner: Art `monster`, billig (nur die lebenden Kreaturen mit aktueller Position, keine Karte). Typ-ID aus kreaturen.json; der Name steht im Client-Content (datenblaetter.json).

@@ -92,6 +92,7 @@
         "rammschaden": { "radius": 12 },
         "koeder": { "faktor": 1.5, "dauer": 5 },
         "gefolge": { "hort": "koenigin", "fern": 12, "daheim": 5 },
+        "streuung": { "abstand": 12, "tempo": 60 },
         "bindung": { "quelle": { "art": "kreatur", "typ": "koenigin" }, "folge": { "art": "aufloesen" } }
       }
     },

@@ -164,7 +164,8 @@ section('(b) abbauLaerm lockt innerhalb der Reichweite (zwei Entfernungen), nich
   S.p.hold = null; act(S, true);
   S.lauf(0.1);
   ok(S.me_('abbauLaerm').length === 1, 'Abbau gestartet: ein abbauLaerm beim Start');
-  ok(!!PI.koeder && PI.koeder.x === Math.round(m.x) && PI.koeder.y === Math.round(m.y) && PI.z === 'laerm', 'innerhalb der Reichweite: Schwarmling hat den Köder (Ort der Ader), Zustand laerm (' + PI.z + ')');
+  const solidK = interior.awaySolid(S.g);
+  ok(!!PI.koeder && Math.hypot(PI.koeder.x - m.x, PI.koeder.y - m.y) <= 1.5 * TILE && !solidK(Math.floor(PI.koeder.x / TILE), Math.floor(PI.koeder.y / TILE)) && PI.z === 'laerm', 'innerhalb der Reichweite: Schwarmling hat den Köder (begehbare Kachel an der Ader, MON-03 Nacharbeit B: die Ader selbst ist fest), Zustand laerm (' + PI.z + ')');
   ok(!PA.koeder && PA.z !== 'laerm', 'außerhalb der Reichweite: kein Köder, nicht im Zustand laerm (' + PA.z + ')');
   const d0 = luft(PI, m);
   S.lauf(2.0);

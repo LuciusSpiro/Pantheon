@@ -1160,12 +1160,14 @@ function kreaturWippFaktor(eintrag) { return eintrag && eintrag.wippen > 0 ? +ei
 function kreaturSterneErlaubt(eintrag) { return !eintrag || eintrag.sterne !== false; }
 // MON-03 C: Zerfall und Bodenspur, reine Kulisse des Clients (kein Serverzustand, keine Kollision, flach).
 // Zerfall: Ereignis kreaturAufgeloest/kreaturAusgefallen { id, typ, x, y } -> am Ort bleibt das Modell `zerfall` (Eintrag im Client-Content) KR_ZERFALL_ZEIT s liegen, die letzte Sekunde schrumpft es. Gezeigt nur für Tiere, die der Client
-//   kurz zuvor in away.kr hatte (Sicht ist Sicht: das Ereignis geht an alle, ein unbekanntes Tier soll weder Ort noch Dasein verraten).
+//   im selben Moment in away.kr hatte (höchstens KR_BEKANNT_FENSTER s zuvor; Sicht ist Sicht: das Ereignis geht an alle, ein Tier, das schon aus der Sicht war, soll weder Ort noch Dasein verraten).
 // Spur: ein Eintrag `spur` { modell, abstand, max, leben } am Typ lässt jedes laufende, SICHTBARE Tier alle `abstand` m ein Bodenstück ablegen (deterministische Drehung/Versatz aus Tier-Nummer und Stückzahl). Quelle ist nur die
-//   Wegstrecke des gesehenen Tieres, nie ein Ankerpunkt oder eine Serverposition; höchstens `max` Stücke, jedes vergeht nach `leben` s (die letzten KR_SPUR_SCHWUND s schrumpft es).
+//   Wegstrecke des gesehenen Tieres, nie ein Ankerpunkt oder eine Serverposition; höchstens `jeTier` Stücke je Tier und `max` Stücke insgesamt, jedes vergeht nach `leben` s (die letzten KR_SPUR_SCHWUND s schrumpft es).
+//   Ist ein Deckel erreicht, übernimmt das älteste Stück (des Tieres bzw. insgesamt) den neuen Platz (kein Abbau und Neubau); abgelaufene Stücke gehen in einen kleinen Vorrat statt in den Müll (bodenAblegen).
 const KR_ZERFALL_ZEIT = 4, KR_ZERFALL_SCHWUND = 1;   // s liegen / davon die letzte Sekunde schrumpfend
-const KR_BEKANNT_FENSTER = 90;                       // Frames (3 s), in denen ein zuletzt gesehenes Tier noch als „gesehen“ gilt
-const KR_SPUR_ABSTAND = 1.2, KR_SPUR_MAX = 24, KR_SPUR_LEBEN = 16, KR_SPUR_SCHWUND = 4, KR_SPUR_JE_FRAME = 2;   // m, Stück, s, s, Stück
+const KR_BEKANNT_FENSTER = 0.25;                     // s (L.time): so kurz darf die letzte Sicht auf ein Tier zurückliegen, damit sein Zerfall gezeigt wird (zwischen Snapshot und Ereignis liegen höchstens ein, zwei Frames)
+const KR_SPUR_ABSTAND = 2, KR_SPUR_MAX = 64, KR_SPUR_JE_TIER = 16, KR_SPUR_LEBEN = 16, KR_SPUR_SCHWUND = 4, KR_SPUR_JE_FRAME = 2;   // m, Stück gesamt, Stück je Tier, s, s, Stück
+const KR_BODEN_VORRAT = 24;                          // abgelaufene Bodenstücke, die zur Wiederverwendung versteckt bleiben (Stück)
 const KR_SPUR_DREH = 0.4, KR_SPUR_VERSATZ = 5;       // rad, px (Streuung quer zur Laufrichtung)
 /** Zerfalls-Eintrag { modell, params } des Typs (Typ-ID aus dem Ereignis), sonst null. */
 function kreaturZerfallEintrag(inhalt, typId) {
@@ -1173,12 +1175,12 @@ function kreaturZerfallEintrag(inhalt, typId) {
   const z = e && e.zerfall;
   return z && typeof z.modell === 'string' && z.modell ? { modell: z.modell, params: z.params && typeof z.params === 'object' ? z.params : {} } : null;
 }
-/** Ereignis zeigen? Nur Zerfall-Ereignisse mit Ort, und nur für ein Tier, das `zuletzt` (Map id -> Frame) innerhalb des Fensters kannte. */
-function kreaturZerfallZeigen(zuletzt, frame, ev, fenster) {
+/** Ereignis zeigen? Nur Zerfall-Ereignisse mit Ort, und nur für ein Tier, das `zuletzt` (Map id -> Zeit in s) höchstens `fenster` s vor `jetzt` in kr hatte, also im selben Moment noch sichtbar war. */
+function kreaturZerfallZeigen(zuletzt, jetzt, ev, fenster) {
   if (!ev || (ev.kind !== 'kreaturAufgeloest' && ev.kind !== 'kreaturAusgefallen') || typeof ev.id !== 'string') return false;
   if (!Number.isFinite(+ev.x) || !Number.isFinite(+ev.y) || ev.x == null || ev.y == null) return false;
   const f = zuletzt && typeof zuletzt.get === 'function' ? zuletzt.get(ev.id) : undefined;
-  return f != null && frame - f <= fenster;
+  return f != null && jetzt - f <= fenster;
 }
 /** Skala eines Bodenstücks nach `alter` s: 1 bis `leben - schwund`, dann linear auf 0; ab `leben` 0 (Stück weg). */
 function kreaturSkala(alter, leben, schwund) {
@@ -1191,7 +1193,8 @@ function kreaturSpurEintrag(eintrag) {
   const s = eintrag && eintrag.spur;
   if (!s || typeof s.modell !== 'string' || !s.modell) return null;
   const z = (v, d, lo, hi) => { const n = Number(v); return Number.isFinite(n) && n >= lo && n <= hi ? n : d; };
-  return { modell: s.modell, params: s.params && typeof s.params === 'object' ? s.params : {}, abstand: z(s.abstand, KR_SPUR_ABSTAND, 0.3, 6), max: Math.round(z(s.max, KR_SPUR_MAX, 1, 60)), leben: z(s.leben, KR_SPUR_LEBEN, 2, 120) };
+  const max = Math.round(z(s.max, KR_SPUR_MAX, 1, 128));
+  return { modell: s.modell, params: s.params && typeof s.params === 'object' ? s.params : {}, abstand: z(s.abstand, KR_SPUR_ABSTAND, 0.3, 6), max, jeTier: Math.min(max, Math.round(z(s.jeTier, KR_SPUR_JE_TIER, 1, 128))), leben: z(s.leben, KR_SPUR_LEBEN, 2, 120) };
 }
 /** Wie viele Spurstücke zwischen zwei Wegstrecken (m) fällig sind (höchstens KR_SPUR_JE_FRAME je Frame, nie negativ). */
 function kreaturSpurAnzahl(vorher, jetzt, abstand) {
@@ -1288,13 +1291,13 @@ function kreaturSpur(a, e, eintrag) {
   const f = +e.facing || 0;
   for (let k = 1; k <= n; k++) {
     const i = i0 + k, q = kreaturSpurVersatz(nr, i);
-    L.bodenAblegen({ art: 'spur', key: 'spur:' + nr + ':' + i, modell: sp.modell, params: sp.params, x: e.x - Math.sin(f) * q, y: e.y + Math.cos(f) * q, yaw: yawOf(Math.cos(f), Math.sin(f)) + kreaturSpurDrehung(nr, i), leben: sp.leben, schwund: KR_SPUR_SCHWUND, max: sp.max });
+    L.bodenAblegen({ art: 'spur', key: 'spur:' + nr + ':' + i, modell: sp.modell, params: sp.params, x: e.x - Math.sin(f) * q, y: e.y + Math.cos(f) * q, yaw: yawOf(Math.cos(f), Math.sin(f)) + kreaturSpurDrehung(nr, i), leben: sp.leben, schwund: KR_SPUR_SCHWUND, max: sp.max, tier: nr, jeTier: sp.jeTier });
   }
 }
 /** MON-03 C: Server-Ereignis kreaturAufgeloest/kreaturAusgefallen -> Zerfallsfleck am Ort (true, wenn einer abgelegt wurde). */
 function kreaturZerfallEreignis(ev) {
   if (!L.kreaturInhalt || !L.bodenAblegen || !L.kreaturZuletzt) return false;
-  if (!kreaturZerfallZeigen(L.kreaturZuletzt, L.frame, ev, KR_BEKANNT_FENSTER)) return false;
+  if (!kreaturZerfallZeigen(L.kreaturZuletzt, L.time, ev, KR_BEKANNT_FENSTER)) return false;
   const z = kreaturZerfallEintrag(L.kreaturInhalt, ev.typ);
   L.kreaturZuletzt.delete(ev.id);   // einmal je Tier
   if (!z) return false;
@@ -1323,7 +1326,7 @@ function updateKreatur(a, e, dt, t) {
   const f = +e.facing || 0;
   locomote(a, pos.x, pos.z, dt, yawOf(Math.cos(f), Math.sin(f)), false);   // Blick = Snapshot-Blick (nicht auf 45 Grad gerastet), a.dist zählt die Strecke
   const eintrag = kreaturEintrag(L.kreaturInhalt, e.kr && e.kr.t);
-  (L.kreaturZuletzt || (L.kreaturZuletzt = new Map())).set(e.id, L.frame);   // MON-03 C: dieses Tier ist im Team sichtbar (kr), sein Zerfall darf gezeigt werden
+  (L.kreaturZuletzt || (L.kreaturZuletzt = new Map())).set(e.id, L.time);   // MON-03 C: dieses Tier ist im Team sichtbar (kr), sein Zerfall darf (kurz) gezeigt werden
   if (eintrag && kreaturModellAnwenden(a, e, eintrag, b, t)) {
     a.labelH = kreaturLabelHoehe(eintrag);
     kreaturEffekte(a, e, b, dt, t, eintrag);
@@ -1718,30 +1721,46 @@ function countDrawCalls(root) {
 
 // MON-03 C: Bodenkulisse der Kreaturen (Zerfallsfleck, Spurstücke): eigene Akteure außerhalb von L.actors (kein Aufräumen nach Sicht, kein Instancing), flach, ohne Kollision, jedes mit Lebensdauer.
 // o = { art, key, modell, params, x, y (px), yaw, leben, schwund (s), max (Stück je art) }; gleicher key = schon da. Reine Darstellung, nichts davon geht zurück an den Server.
+// Deckel: o.max = Stück je art insgesamt, o.jeTier (mit o.tier) = Stück je Tier; ist einer erreicht, wird das älteste Stück (des Tieres, sonst der art) auf den neuen Platz gesetzt statt neu gebaut (Map-Reihenfolge = Alter, ein
+// übernommenes Stück rückt ans Ende). Gleiches Modell vorausgesetzt (modell + params), sonst wird das alte entsorgt. Abgelaufene Stücke bleiben bis KR_BODEN_VORRAT versteckt im Vorrat (L.bodenVorrat) und werden zuerst genommen.
 L.boden = new Map();
+L.bodenVorrat = [];
+const bodenSorte = (o) => o.modell + '|' + JSON.stringify(o.params || {});
+function bodenEntsorgen(b) { if (L.bodenVorrat.length < KR_BODEN_VORRAT) { b.a.container.visible = false; L.bodenVorrat.push(b); } else b.a.dispose(); }
 function bodenAblegen(o) {
   if (L.boden.has(o.key) || !L.group) return;
-  let n = 0; for (const b of L.boden.values()) if (b.art === o.art) n++;
-  for (const [k, b] of L.boden) { if (n < o.max) break; if (b.art === o.art) { b.a.dispose(); L.boden.delete(k); n--; } }   // älteste zuerst (Map-Reihenfolge)
-  const a = new Actor('boden:' + o.key);
-  const slot = kreaturTeil(a, o.modell, o.params);
-  a.body.add(slot);
+  const sorte = bodenSorte(o);
+  let n = 0, nTier = 0, aeltestes = null, aeltestesTier = null;
+  for (const [k, b] of L.boden) {
+    if (b.art !== o.art) continue;
+    n++; if (aeltestes == null) aeltestes = k;
+    if (o.tier != null && b.tier === o.tier) { nTier++; if (aeltestesTier == null) aeltestesTier = k; }
+  }
+  let alt = null;   // verdrängtes Stück, dessen Akteur übernommen wird
+  const verdraengt = nTier >= (o.jeTier || Infinity) ? aeltestesTier : n >= o.max ? aeltestes : null;
+  if (verdraengt != null) { alt = L.boden.get(verdraengt); L.boden.delete(verdraengt); }
+  if (alt && alt.sorte !== sorte) { alt.a.dispose(); alt = null; }
+  if (!alt) { const i = L.bodenVorrat.findIndex((b) => b.sorte === sorte); if (i >= 0) { alt = L.bodenVorrat.splice(i, 1)[0]; alt.a.container.visible = true; } }
+  let a, slot;
+  if (alt) { a = alt.a; slot = alt.slot; }
+  else { a = new Actor('boden:' + o.key); slot = kreaturTeil(a, o.modell, o.params); a.body.add(slot); }
+  a.body.scale.setScalar(1);
   place(a, o.x, o.y, 0.01);
   a.container.rotation.y = o.yaw || 0;
-  L.boden.set(o.key, { a, slot, art: o.art, alter: 0, leben: o.leben, schwund: o.schwund });
+  L.boden.set(o.key, { a, slot, sorte, art: o.art, tier: o.tier != null ? o.tier : null, alter: 0, leben: o.leben, schwund: o.schwund });
 }
 L.bodenAblegen = bodenAblegen;
 function bodenAufraeumen(dt) {
   for (const [k, b] of L.boden) {
     b.alter += dt;
     const s = kreaturSkala(b.alter, b.leben, b.schwund);
-    if (s <= 0) { b.a.dispose(); L.boden.delete(k); continue; }
+    if (s <= 0) { L.boden.delete(k); bodenEntsorgen(b); continue; }
     refreshSlot(b.slot);
     b.a.body.scale.setScalar(s);
   }
-  if (L.kreaturZuletzt && L.frame % 120 === 0) for (const [k, f] of L.kreaturZuletzt) if (L.frame - f > 3 * KR_BEKANNT_FENSTER) L.kreaturZuletzt.delete(k);
+  if (L.kreaturZuletzt && L.frame % 120 === 0) for (const [k, f] of L.kreaturZuletzt) if (L.time - f > 3) L.kreaturZuletzt.delete(k);
 }
-function bodenLeeren() { for (const b of L.boden.values()) b.a.dispose(); L.boden.clear(); if (L.kreaturZuletzt) L.kreaturZuletzt.clear(); }
+function bodenLeeren() { for (const b of L.boden.values()) b.a.dispose(); L.boden.clear(); for (const b of L.bodenVorrat) b.a.dispose(); L.bodenVorrat.length = 0; if (L.kreaturZuletzt) L.kreaturZuletzt.clear(); }
 
 const layer = {
   id: 'actors',

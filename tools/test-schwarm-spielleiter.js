@@ -4,7 +4,8 @@
 //   bleibt unverändert (Gegenprobe: Handvergleich); (b) Spielleiter-Prüfer: Plan mit typ schwarm und mit rudeltier besteht (aufloesen, Szenenantwort, vollständiges Buch), Gegenproben
 //   (ungültiger typ, Kartenart wildnis/station, fehlender typ); (c) Prompt-Text nennt beide Werte und beide Beschreibungen gleichwertig, Pflichtsatz der Höhle führt nest, kein Spielername;
 //   (d) Headless: die Szene baut in einer echten Höhle am Nest die Königin (schwarm) bzw. ein Rudel (rudeltier), Bedingung „erledigt“ erst mit endgültig erledigter Königin;
-//   (e) kein Typname im Servercode (server/, shared/), die Datentypen stehen in kreaturen.json.
+//   (e) kein Typname im Servercode (server/, shared/), die Datentypen stehen in kreaturen.json; (g) Nacharbeit E4: `abgeleitet` überschreibt id, weiter, rueckzug und echte Parameter nie, der Lader prüft die Tabelle und
+//   JEDEN Wert (nicht nur den Testwert), Mod-Umsetzungen mit kaputter Tabelle werden als fehlerhaft gemeldet.
 //   node tools/test-schwarm-spielleiter.js   (npm run test:schwarm-spielleiter)
 const fs = require('fs');
 const path = require('path');
@@ -209,6 +210,52 @@ section('Headless: beide Typen mehrere Seeds, kein Fehler', () => {
     S.g.mission.act(sz.aktion); schritte(S, 3);
     ok(S.fehler.length === 0 && S.aw.kreaturen.length > 0, typ + ' Seed ' + seed + ': Szene baut ihre Kreaturen (' + S.aw.kreaturen.length + ', Fehler ' + S.fehler.join('|') + ')');
   }
+});
+
+// ---------- (g) abgeleitet: nicht überschreiben, alle Werte prüfen ----------
+section('abgeleitet: Schlüssel überschreiben nichts, der Lader prüft Tabelle und jeden Wert', () => {
+  const os = require('os');
+  // Laufzeit: ein Schlüssel id / weiter / rueckzug / echter Parameter in der Tabelle gewinnt NICHT gegen den Aufrufer
+  const U1 = kopie(U);
+  for (const w of ['rudeltier', 'schwarm']) Object.assign(U1.abgeleitet.typ[w], { id: 'FREMD', weiter: 'FREMD', rueckzug: 'FREMD', map: 'FREMD.karte', loc: 'fremd' });
+  for (const typ of ['rudeltier', 'schwarm']) {
+    const f1 = Katalog.instantiate(U1, { loc: 'kesh', map: 'kesh.hoehle-1', typ }, 's7', 'danach', 'weg');
+    const text = JSON.stringify(f1.frag);
+    ok(!f1.errs.length && !/FREMD|fremd/.test(text) && f1.frag.steps[0].id === 's7' && f1.frag.steps[0].next[0].goto === 'danach' && /kesh\.hoehle-1/.test(text), typ + ': id, weiter, map und loc des Aufrufers bleiben, die Tabelle überschreibt sie nicht');
+  }
+  // Lader: Mod-Umsetzungen mit kaputten Tabellen
+  const wurzel = fs.mkdtempSync(path.join(os.tmpdir(), 'pantheon-abgeleitet-'));
+  const laden = (aend) => {
+    const dir = path.join(wurzel, 'm' + Math.random().toString(36).slice(2), 'katalog', 'molekuele'); fs.mkdirSync(dir, { recursive: true });
+    const u = kopie(U); u.id = 'kreaturen_probe';
+    for (const k of ['pruefung', 'status', 'quelle_datei', 'herkunft', 'fehlende_mechaniken', 'fehlende_bausteine']) delete u[k];   // vom Lader ergänzte Felder, nicht Teil der Datei
+    aend(u);
+    const basis = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'content', 'katalog', 'molekuele', MOL + '.json'), 'utf8'));
+    const mol = Object.assign({}, basis, { erweitert: true, umsetzungen: [u] });
+    fs.writeFileSync(path.join(dir, 'probe.json'), JSON.stringify(mol));
+    const kat = Katalog.load({ mods: [path.dirname(path.dirname(dir))] });
+    const dazu = kat.fehler.filter((f) => /kreaturen_probe/.test(f.msg));
+    return { kat, dazu, u: kat.molekuele[MOL].umsetzungen.find((x) => x.id === 'kreaturen_probe') };
+  };
+  try {
+    const g0 = laden(() => {});
+    ok(g0.dazu.length === 0 && g0.u.status === 'verfuegbar' && KAT.fehler.length === 0, 'Gegenprobe: die unveränderte Kopie der Umsetzung lädt ohne Fehler (' + g0.dazu.map((f) => f.msg).join(' | ') + ')');
+    const a = laden((u) => { u.abgeleitet.typ.rudeltier.weiter = 'x'; u.abgeleitet.typ.schwarm.weiter = 'x'; });
+    ok(a.dazu.some((f) => /reserviert/.test(f.msg) && /weiter/.test(f.msg)) && a.u.status === 'fehlerhaft', 'Schlüssel weiter in der Tabelle: abgelehnt (reserviert), Umsetzung fehlerhaft');
+    const b = laden((u) => { u.abgeleitet.typ.rudeltier.map = 'x'; u.abgeleitet.typ.schwarm.map = 'x'; });
+    ok(b.dazu.some((f) => /Parameter der Umsetzung/.test(f.msg) && /map/.test(f.msg)) && b.u.status === 'fehlerhaft', 'Schlüssel map (ein echter Parameter): abgelehnt');
+    const c = laden((u) => { u.params.typ.werte.push('kolonie'); });
+    ok(c.dazu.some((f) => /kolonie/.test(f.msg) && /keine Zeile/.test(f.msg)) && c.u.status === 'fehlerhaft', 'dritter Wert ohne Zeile in abgeleitet: abgelehnt (sonst liefen {{besetzen}} u. a. offen bis in den Spielleiter)');
+    const d = laden((u) => { u.abgeleitet.typ.zwillinge = {}; });
+    ok(d.dazu.some((f) => /zwillinge/.test(f.msg) && /kein erlaubter Wert/.test(f.msg)), 'Zeile für einen Wert, den der Parameter nicht kennt: abgelehnt');
+    const e = laden((u) => { delete u.abgeleitet.typ.schwarm.hinweis; });
+    ok(e.dazu.some((f) => /schwarm/.test(f.msg) && /hinweis/.test(f.msg) && /fehlt/.test(f.msg)), 'Zeile, der ein Schlüssel der anderen fehlt: abgelehnt (offener Platzhalter)');
+    const f = laden((u) => { u.abgeleitet.nirgends = { a: { x: 1 } }; });
+    ok(f.dazu.some((x) => /nirgends/.test(x.msg) && /kein Parameter/.test(x.msg)), 'Tabelle für einen Parameter, den es nicht gibt: abgelehnt');
+    // Der Wert, der NICHT der Testwert ist (Test: rudeltier), wird durch den Prüfer geschickt
+    const h = laden((u) => { u.abgeleitet.typ.schwarm.erledigt.typ = 'koenigsmutter'; });
+    ok(h.u.test.params.typ === 'rudeltier' && h.dazu.some((x) => /Wert 'schwarm' von 'typ' besteht den Prüfer nicht/.test(x.msg) && /koenigsmutter/.test(x.msg)) && h.u.status === 'fehlerhaft', 'Fehler nur im Wert schwarm (Testwert rudeltier): der Lader findet ihn und meldet die Umsetzung fehlerhaft');
+  } finally { fs.rmSync(wurzel, { recursive: true, force: true }); }
 });
 
 // ---------- (e) kein Typname im Servercode ----------
