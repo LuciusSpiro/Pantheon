@@ -1,0 +1,23 @@
+{
+  "format": "absichten-katalog/1",
+  "_hinweis": "SPL-02 A: Katalog der Absichten (Daten) und Strukturregeln des Absichts-Formats absicht/1. Eine Absicht sagt, WAS geschehen soll (Name, Parameter, Bezuege, Bogen, Ton); wie, baut der Inszenierer (Paket B). Der Pruefer (server/sim/absicht-pruefer.js) kennt KEINEN Absichtsnamen: er liest diesen Katalog. Neue Absicht = neuer Eintrag unter `absichten`, kein Code. Dieser Katalog ist beim Start LEER, die Eintraege kommen mit Paket C; die Tests nutzen eine eigene Fixture (tools/fixtures/absichten/test-katalog.json). Zahlen und Listen stehen unter `werte` (Konvention wie werte.json: wert, einheit, _hinweis); Laengen von Titel und Texten gelten wie in bauplan.json (titel, anlass).",
+  "werte": {
+    "runden_max": {"wert": 1, "einheit": "Verhandlungsrunden", "_hinweis": "Bei einem Nein darf das Modell einmal antworten (Patch oder korrigierte Absicht); danach gilt die Ablehnung endgueltig. Messung in Paket G entscheidet, ob mehr sinnvoll ist (Offener Punkt 4 des Auftrags)."},
+    "fehler_text_max": {"wert": 600, "einheit": "Zeichen", "_hinweis": "Laenge des Klartexts, der nach einem Nein an das Modell geht (Grund und Gegenvorschlag aller Fehler zusammen, danach abgeschnitten)."},
+    "fehler_max": {"wert": 6, "einheit": "Fehler", "_hinweis": "Hoechstens so viele Fehler stehen im Klartext fuer das Modell."},
+    "absicht_max_zeichen": {"wert": 1500, "einheit": "Zeichen", "_hinweis": "Obergrenze der serialisierten Absicht (FORM), damit kein Modell-Erzeugnis beliebig gross wird."},
+    "name_muster": {"wert": "^[a-z][a-z0-9_]{1,23}$", "einheit": "Muster", "_hinweis": "Form des Absichtsnamens (Katalogschluessel) und des Wendungs-Symbols."},
+    "toene": {"wert": ["nuechtern", "bitter", "dringlich", "hoffnungsvoll", "heiter"], "einheit": "Toene", "_hinweis": "Erlaubte Toene des Bogens, wenn die Absicht keine eigene Liste (`toene`) nennt."},
+    "bogen_felder": {"wert": ["einsatz", "wendung", "preis"], "einheit": "Felder", "_hinweis": "Felder des Bogens (Dramaturgie). einsatz und preis sind freie Kurztexte (Laenge wie anlass in bauplan.json), wendung ist ein Symbol aus `wendungen` der Absicht."},
+    "bezug_arten": {"wert": ["nsc", "ort"], "einheit": "Arten", "_hinweis": "Arten von Bezuegen. nsc = Vollname eines NSC aus dem Kanon (abenteuer-kanon.js), nie die Kennung n<nr>, nie der Vorname allein; ort = Hex-Code (vier Ziffern) eines spielbaren Sektors."},
+    "parameter_arten": {"wert": ["zahl", "liste"], "einheit": "Arten", "_hinweis": "Arten von Parametern: zahl (ganz, min bis max) oder liste (ein Wert aus erlaubt)."},
+    "vorschlag_namen_max": {"wert": 4, "einheit": "Namen", "_hinweis": "Hoechstens so viele Namen nennt der Text eines Fehlers als Auswahl (BEZUG_UNEINDEUTIG, ABSICHT_UNBEKANNT)."}
+  },
+  "_absicht": {
+    "format": "absicht/1 (Eingabe des Modells): { format, absicht, titel, parameter: {name: wert}, bezug: { nsc?: Vollname, ort?: Hex }, bogen: { einsatz, wendung, preis }, ton }. Keine weiteren Felder.",
+    "eintrag": "Eintrag unter `absichten.<name>`: { zweck: Text, parameter?: { <name>: { art: 'zahl', min, max, standard? } | { art: 'liste', erlaubt: [...], standard? } }, bezug?: [ { name: 'nsc'|'ort', pflicht: bool, kandidat?: bool } ], fortsetzung?: bool, wendungen?: [Symbol], toene?: [Ton], bogen_pflicht?: [Feld], ton_standard?: Ton }",
+    "kandidat": "bezug.kandidat = true: der NSC muss ein Kandidat der Fadenmaschine sein (faden.wiedersehenKandidaten), nicht nur im Kanon stehen.",
+    "fortsetzung": "fortsetzung = true: die Absicht darf einen NSC aufnehmen, der in einem der letzten Abenteuer die Hauptfigur war; der Aufrufer setzt dann `locker` am Angebot (abenteuer-brett.js neuAnbieten). Der Pruefer liefert nur die Eigenschaft (istFortsetzung)."
+  },
+  "absichten": {}
+}

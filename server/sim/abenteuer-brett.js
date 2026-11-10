@@ -11,7 +11,9 @@
 //   beiEnde(game, faden, ausgang)       (Aufrufer: faden.beatAusgang) Ende eines Abenteuers: Chronik-Zeile aus Daten, Logbuch ohne Titel, Anschluss-Garantie
 //   beiTaetigkeit(game) / beiUpdate(game) / anschluss(game) -> Angebot | null   Anschluss-Garantie: kein Angebot und kein laufendes Abenteuer -> ein deterministischer Rueckfall aus anschluss.json (ohne Modell)
 //   hinweisAnbieten(game, angebot)      SUND-04b F: Funkzeile "Neuer Auftrag am Brett" (Text aus den Daten, Titel gekuerzt ohne Spielernamen), einmal je Angebot-Id, hoechstens eine je Taetigkeitszaehler F.t; nie beim Laden (lesen) und ohne Spielleiter nicht
-//   toSave(F) / lesen(block, F)         Weltstand welt.sim.faeden.abenteuer { zuletzt?, angebote?: [{ hex, alter, plan, volk? }] } (additiv, muellfest; die Plaene laufen erneut durch den Pruefer)
+//   toSave(F) / lesen(block, F)         Weltstand welt.sim.faeden.abenteuer { zuletzt?, angebote?: [{ hex, alter, plan, volk?, bezug?, locker? }] } (additiv, muellfest; die Plaene laufen erneut durch den Pruefer)
+//   SPL-02 A: neuAnbieten(game, plan, { hex, bezug?: { nsc: Vollname }, locker?: bool }) -> wie faden.abenteuerNeuAnbieten; das Angebot traegt `bezug` (der Wiedersehen-NSC, den das Annehmen nimmt, nicht den juengsten frischen) und `locker` (die Fortsetzung darf die Hauptfigur
+//   des letzten Abenteuers aufnehmen: Wiederholungsregel nsc_zuletzt). Ist der NSC beim Annehmen kein Kandidat mehr, ist das Angebot veraltet (Grund BEZUG_VERALTET im Logbuch). Absichten (absicht-pruefer.js) setzen locker aus dem Katalogfeld fortsetzung (istFortsetzung).
 // SUND-04b E1/E3: der Kanon (abenteuer-kanon.js) haelt fest, was ein Abenteuer erfindet; die Wiederholungsregeln (abenteuer-wiederholung.js) gelten fuer jeden Plan des Spielleiters (faden.js abenteuerNeuAnbieten) und fuer den Rueckfall (passt: stufenweise gelockert, Ort, Folge, NSC).
 // Ohne Schalter FAEDEN=1 oder ohne aktiven Lage-Spielleiter tut der Rueckfall nichts (die Angebote bleiben bis zum Verfall, begonnene Abenteuer stehen).
 const D = require('./faden-daten.js');
@@ -23,6 +25,7 @@ const Faden = () => require('./faden.js');
 const regie = () => require('./regie-befehle.js');
 const Bauplan = () => require('./faden-bauplan.js');
 const Wdh = () => require('./abenteuer-wiederholung.js');
+const Absicht = () => require('./absicht-pruefer.js');
 const Chronik = () => require('./chronik.js');
 const Ausschnitt = () => require('./lage-ausschnitt.js');
 const has = (o, k) => Object.prototype.hasOwnProperty.call(o, k);
@@ -206,7 +209,13 @@ function annehmen(game, id) {
   let r;
   if (P.nscAlt(a.vorlage)) {   // Wiedersehen: der juengste Kandidat (wiedersehenKandidaten liefert ihn zuerst; nur NSC, die der Pruefer als nsc_von annimmt); kein Kandidat mehr (verdraengt, Zustand): das Angebot ist veraltet
     const alle = Faden().wiedersehenKandidaten(game, a.vorlage), frisch = Wdh().kandidatenFrisch(game, a.vorlage);   // SUND-04b E3: bevorzugt ein NSC, der nicht die Hauptfigur der letzten Abenteuer war
-    const kand = frisch.length ? frisch : a.locker ? alle : [];
+    let kand;
+    if (a.bezug && a.bezug.nsc) {   // SPL-02 A: der gewaehlte NSC (Vollname), nie der juengste: ist er kein Kandidat mehr (verdraengt, tot, Zustand), ist das Angebot veraltet; die Hauptfigur des letzten Abenteuers nur mit locker
+      const id = alle.find((x) => { const n = Faden().nscVon(game, x); return n && n.name === a.bezug.nsc; });
+      if (!id) return veraltet(game, F, a, `${Absicht().CODES.BEZUG_VERALTET}: der NSC des Bezugs steht nicht mehr zur Verfuegung`);
+      kand = frisch.includes(id) || a.locker ? [id] : [];
+      if (!kand.length) return veraltet(game, F, a, 'WIEDERHOLUNG_NSC');
+    } else kand = frisch.length ? frisch : a.locker ? alle : [];
     if (!kand.length) return veraltet(game, F, a, alle.length ? 'WIEDERHOLUNG_NSC' : 'WIEDERSEHEN_KEIN_NSC');
     r = Faden().abenteuerOeffnen(game, a.nr, { nsc_von: kand[0] });
   } else r = Faden().abenteuerOeffnen(game, a.nr, {});
@@ -302,12 +311,43 @@ function beiUpdate(game) {   // Takt (zwischen den Ticks): auch ohne Taetigkeit 
   return anschluss(game);
 }
 
+// ---------- SPL-02 A: Angebot mit Bezug und Lockerung. faden.abenteuerNeuAnbieten kennt weder bezug noch locker (die Fadenmaschine bleibt unveraendert): dieser Weg prueft die Wiederholungsregeln selbst (ohne die NSC-Sperre, die hier
+// dem Bezug und der Lockerung gehoert), bietet ueber abenteuerAnbieten an und setzt die Felder am Angebot. Ohne bezug und locker ist es genau abenteuerNeuAnbieten.
+function bezugVon(b) {
+  if (!istObjekt(b)) return null;
+  const k = Object.keys(b);
+  return k.length === 1 && k[0] === 'nsc' && typeof b.nsc === 'string' && b.nsc.trim().length >= 3 && b.nsc.length <= 40 ? { nsc: b.nsc } : null;
+}
+function neuAnbieten(game, plan, o) {
+  o = istObjekt(o) ? o : {};
+  const bz = bezugVon(o.bezug), locker = o.locker === true;
+  if (o.bezug !== undefined && !bz) return { ok: false, grund: 'PARAMETER: bezug ist { nsc: Vollname }', fehler: ['PARAMETER: bezug ist { nsc: Vollname }'] };
+  if (!bz && !locker) return Faden().abenteuerNeuAnbieten(game, plan, { hex: o.hex });
+  if (!Faden().aktiv(game)) return { ok: false, grund: 'INAKTIV: Faeden sind nicht eingeschaltet', fehler: ['INAKTIV: Faeden sind nicht eingeschaltet'] };
+  const r = Bauplan().pruefe(plan);
+  if (!r.ok) return Faden().abenteuerAnbieten(game, plan, { hex: o.hex });   // dieselbe Ablehnung samt Logbuch wie sonst
+  const v = r.vorlage, wd = Wdh().pruefe(game, v, o.hex);
+  const abgelehnt = (grund) => { logbuch(game, 'faden_pruefung', { ausgang: 'abgelehnt', key: 'abenteuer_anbieten', plan: { titel_zeichen: typeof plan.titel === 'string' ? plan.titel.length : null }, fehler: [grund] }); return { ok: false, grund, fehler: [grund] }; };
+  if (wd && !/^WIEDERHOLUNG_NSC/.test(wd)) return abgelehnt(wd);   // Ort und Folge gelten weiter
+  if (bz && P.nscAlt(v)) {
+    const alle = Faden().wiedersehenKandidaten(game, v);
+    const id = alle.find((x) => { const n = Faden().nscVon(game, x); return n && n.name === bz.nsc; });
+    if (!id) return abgelehnt(`${Absicht().CODES.BEZUG_UNBEKANNT}: der NSC des Bezugs ist kein Kandidat fuer ein Wiedersehen`);
+    if (!locker && !Wdh().kandidatenFrisch(game, v).includes(id)) return abgelehnt('WIEDERHOLUNG_NSC: der NSC des Bezugs war die Hauptfigur eines der letzten Abenteuer');
+  }
+  const res = Faden().abenteuerAnbieten(game, plan, { hex: o.hex });
+  if (!res.ok) return res;
+  if (bz) res.angebot.bezug = bz;
+  if (locker) res.angebot.locker = true;
+  return res;
+}
+
 // ---------- Weltstand welt.sim.faeden.abenteuer: der zuletzt gespielte Plan (Rueckfall wiederholt ihn nicht) und die offenen Angebote (Plan, Ort, Alter); die Plaene laufen beim Laden erneut durch den Pruefer
 function toSave(F) {
   if (!F) return null;
   const b = {};
   if (typeof F.abenteuerZuletzt === 'string' && VORLAGE_ID.test(F.abenteuerZuletzt)) b.zuletzt = F.abenteuerZuletzt;
-  if (F.abenteuerAngebote && F.abenteuerAngebote.length) b.angebote = F.abenteuerAngebote.slice(0, W.abenteuer.angebote_max).map((a) => Object.assign({ hex: a.hex, alter: a.alter, plan: klon(a.vorlage) }, a.volk ? { volk: a.volk } : {}));
+  if (F.abenteuerAngebote && F.abenteuerAngebote.length) b.angebote = F.abenteuerAngebote.slice(0, W.abenteuer.angebote_max).map((a) => Object.assign({ hex: a.hex, alter: a.alter, plan: klon(a.vorlage) }, a.volk ? { volk: a.volk } : {}, bezugVon(a.bezug) ? { bezug: { nsc: a.bezug.nsc } } : {}, a.locker === true ? { locker: true } : {}));
   return Object.keys(b).length ? b : null;
 }
 function lesen(b, F) {   // muellfest: Unbrauchbares faellt weg (Meldung in F.ladeFehler), Prototyp-Schluessel und ungueltige Plaene weist registriereAbenteuer ab
@@ -321,9 +361,12 @@ function lesen(b, F) {   // muellfest: Unbrauchbares faellt weg (Meldung in F.la
     const v = klon(D.vorlage(reg.id));
     if (F.abenteuerAngebote.some((a) => a.ref === v.id && a.hex === x.hex)) continue;
     const alter = Number.isInteger(x.alter) && x.alter >= 0 ? Math.min(x.alter, W.abenteuer.angebot_gilt_taetigkeiten) : 0;
-    F.abenteuerAngebote.push({ nr: ++F.angNr, art: 'abenteuer', ref: v.id, hex: x.hex, volk: typeof x.volk === 'string' && v.volk_erlaubt.includes(x.volk) ? x.volk : '', vorlage: v, alter });
+    const ang = { nr: ++F.angNr, art: 'abenteuer', ref: v.id, hex: x.hex, volk: typeof x.volk === 'string' && v.volk_erlaubt.includes(x.volk) ? x.volk : '', vorlage: v, alter };
+    if (bezugVon(x.bezug)) ang.bezug = { nsc: x.bezug.nsc };   // SPL-02 A: additiv, Altstand ohne
+    if (x.locker === true) ang.locker = true;
+    F.abenteuerAngebote.push(ang);
   }
   return F;
 }
 
-module.exports = { snapshot, schluessel, annehmen, ablehnen, vorschau, marken, kuerzen, beiEnde, hinweisAnbieten, beiTaetigkeit, beiUpdate, anschluss, toSave, lesen, weigerung, schrittText };
+module.exports = { snapshot, schluessel, annehmen, ablehnen, vorschau, marken, kuerzen, beiEnde, hinweisAnbieten, beiTaetigkeit, beiUpdate, anschluss, neuAnbieten, toSave, lesen, weigerung, schrittText };
