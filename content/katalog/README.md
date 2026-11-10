@@ -99,6 +99,9 @@ Tag = Szenen-ID), `rueckfall.params` (Rohfassung ohne LLM), `dauer_quelle`, `dau
 - **Vorlage:** ein Regiebuch-Fragment mit Platzhaltern. `{{id}}` = Präfix der Szene (für Schritt-, Text- und
   Flag-Namen), `{{weiter}}` = Folgeschritt, `{{param}}` = Parameter. Ein String, der nur aus einem Platzhalter
   besteht, wird durch den Wert ersetzt (auch Zahlen und Aktionslisten).
+- **Wert bestimmt die Szene (`abgeleitet`, MON-03 D):** `abgeleitet: { <param>: { <wert>: { <var>: … } } }` liefert zum gewählten Parameterwert weitere Platzhalter-Werte
+  (Aktionen, Bedingungen, Texte), die die Vorlage als `{{var}}` einsetzt; die Werte dürfen `{{id}}`, `{{map}}` und Parameter enthalten. Beispiel: `stellung_nehmen/kreaturen_in_hoehle`,
+  `typ` = `rudeltier` oder `schwarm`. Ein neuer Wert ist eine Datenzeile, kein Code.
 - **Prüfen:** `node tools/katalog.js`. Eine Umsetzung, die den Prüfer nicht besteht, ist `fehlerhaft` und für den
   Spielleiter unsichtbar.
 

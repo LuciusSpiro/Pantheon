@@ -1689,6 +1689,25 @@
             "schauplatz": "aussen"
           },
           {
+            "beschreibung": "Höhle mit Kreaturen statt Drohnen, Typ als Parameter. rudeltier: drei starke Tiere mit Panzerung vorn, einzeln bekämpfbar. schwarm: viele kleine Wesen um eine Königin am Nest; Abbaulärm lockt sie, die Königin beseitigen löst den Schwarm auf. Erledigt, wenn alle Tiere bzw. die Königin endgültig erledigt sind. Beide Typen gleichwertig anbieten und abwechseln.",
+            "braucht_anker": {
+              "anker": [
+                "abholpunkt",
+                "nest"
+              ],
+              "kartenarten": [
+                "hoehle"
+              ]
+            },
+            "dauer_min": [
+              4,
+              8
+            ],
+            "id": "kreaturen_in_hoehle",
+            "name": "Kreaturen in der Höhle erledigen",
+            "schauplatz": "aussen"
+          },
+          {
             "beschreibung": "Die Fraktion besetzt den Gefechtsbereich (Trupps aus ihren Rezepten an den Wachposten). Deckung suchen, Schilde laden lassen, zusammen vorrücken; der Captain gibt von oben Befehle und sieht Gegner. Erledigt, wenn jemand in den Zielbereich durchbricht.",
             "braucht_anker": {
               "anker": [

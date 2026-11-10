@@ -387,6 +387,7 @@
     "test:schwarm": "node tools/test-schwarm.js",
     "test:schwarm-nest": "node tools/test-schwarm-nest.js",
     "test:schwarm-scan": "node tools/test-schwarm-scan.js",
+    "test:schwarm-spielleiter": "node tools/test-schwarm-spielleiter.js",
     "test:scanner-anzeige": "node tools/test-scanner-anzeige.js",
     "mess:scanner-tick": "node tools/mess-scanner-tick.js",
     "test:fallen": "node tools/test-fallen.js",
