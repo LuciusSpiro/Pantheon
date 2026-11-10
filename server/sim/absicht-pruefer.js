@@ -8,14 +8,16 @@
 //        absicht = Tiefenkopie mit ergaenzten Standard-Parametern (null bei FORM); katalog = Standard: content/faeden/absichten.json
 //   Codes (CODES): FORM · ABSICHT_UNBEKANNT · PARAMETER (unbekannt, fehlt, ausserhalb; Vorschlag = naechster gueltiger Wert) · BEZUG_FEHLT · BEZUG_UNBEKANNT (gibt es in der Welt nicht, oder kein Kandidat) ·
 //        BEZUG_UNEINDEUTIG (Vorname allein, mehrere Treffer) · BEZUG_VERALTET (nur das Brett: der NSC steht beim Annehmen nicht mehr zur Verfuegung, abenteuer-brett.js) · BOGEN_UNVOLLSTAENDIG · TON_UNBEKANNT ·
-//        TEXT_UNZULAESSIG (Laenge wie faden-bauplan.js, keine {}, keine Eigennamen ausser dem Bezug, kein Spielername)
-//   Bezug nsc: Vollname eines NSC im Kanon (abenteuer-kanon.js), nie die wechselnde Kennung n<nr>, nie der Vorname allein; mit `kandidat` im Katalog zusaetzlich einer der Kandidaten von faden.wiedersehenKandidaten.
+//        TEXT_UNZULAESSIG (Laenge wie faden-bauplan.js, keine {}, keine Eigennamen ausser dem Bezug, kein Spielername; Eigenname = Wort aus namen.json, gross geschrieben, nicht in `gewoehnliche_woerter`, am Satzanfang nur als Vorname oder voller Name)
+//   Bezug nsc: Vollname eines NSC im Kanon (abenteuer-kanon.js), nie die wechselnde Kennung n<nr>, nie der Vorname allein; mit `kandidat` im Katalog zusaetzlich einer der Kandidaten von faden.wiedersehenKandidaten
+//        (kandidat: true = nach dem ersten Beat-Typ mit nsc_alt, kandidat: "<Beat-Typ>" = nach den Zustaenden genau dieses Typs, beats.json braucht.nsc_status).
 //   Bezug ort: Hex-Code eines spielbaren Sektors.
 //   istFortsetzung(absicht, katalog?) -> bool            die Absicht darf die Hauptfigur des letzten Abenteuers aufnehmen (Katalogfeld fortsetzung): der Aufrufer setzt dann `locker` am Angebot
 //   wendePatchAn(absicht, patch) -> { ok, absicht, grund }   ein Patch (Liste { feld: 'parameter.reichweite', wert } | { feld, entfernen: true }) auf eine Kopie der Absicht
 //   gegenvorschlagPatch(ergebnis) -> patch | null        alle Gegenvorschlaege eines Ergebnisses zusammen (null, wenn ein Fehler keinen hat)
 //   fehlerText(ergebnis, katalog?) -> Text               Klartext fuer das Modell: Grund und Gegenvorschlag je Fehler, hoechstens fehler_text_max Zeichen
-//   Verhandlung (eine Runde, runden_max aus den Daten): verhandlungStart(game, absicht, katalog?) -> v; verhandlungAntwort(game, v, antwort, katalog?) -> v'
+//   Verhandlung (eine Runde, runden_max aus den Daten): verhandlungStart(game, absicht, katalog?) -> v; verhandlungAntwort(game, v, antwort, katalog?) -> v'   (nur dieser Pruefer; mit Inszenierer: absicht-verhandlung.js;
+//        verhandlungStartMit/-AntwortMit nehmen einen beliebigen Pruefer im Format von pruefeAbsicht)
 //        v = { stand: 'offen' | 'angenommen' | 'abgelehnt', runde, runden_max, absicht (letzte geprueft), ergebnis, text }; antwort = Patch (Liste oder { patch }) oder eine korrigierte Absicht.
 //        Offen heisst: das Nein ist raus, das Modell darf antworten. Nach runden_max Antworten ohne Erfolg: abgelehnt mit Grund (text), endgueltig. Der Aufrufer ruft das Modell; hier gibt es keinen Aufruf.
 //   katalogFehler(katalog?) -> [Text]                    der Katalog ist in sich stimmig (Strukturregeln, Test)
@@ -78,6 +80,17 @@ function protoSchluessel(x, tiefe) {
   return false;
 }
 const woerter = (t) => String(t).match(/[\p{L}][\p{L}'-]*/gu) || [];
+// Woerter mit Lage im Satz: { w, anfang (erstes Wort des Textes oder nach . ! ? : oder Zeilenende), naechstes (das folgende Wort oder null) }
+function woerterImSatz(t) {
+  const out = [];
+  let ende = 0;
+  for (const m of String(t).matchAll(/[\p{L}][\p{L}'-]*/gu)) {
+    out.push({ w: m[0], anfang: !out.length || /[.!?:\u2026\r\n]/.test(String(t).slice(ende, m.index)), naechstes: null });
+    if (out.length > 1) out[out.length - 2].naechstes = m[0];
+    ende = m.index + m[0].length;
+  }
+  return out;
+}
 const esc = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 const alsPhrase = (t, p) => new RegExp('(^|[^\\p{L}])' + esc(p) + '(?![\\p{L}])', 'iu').test(t);
 
@@ -148,10 +161,13 @@ const kanonNamen = (game) => {   // Namen im Kanon, ohne Doppelte
   if (F) for (const e of Kanon().liste(F)) { const i = s.indexOf(e.name); if (i >= 0) s.splice(i, 1); s.push(e.name); }
   return s.reverse();   // neueste zuerst
 };
-// Kandidaten der Fadenmaschine (wie das Brett sie kennt): Namen, juengster zuerst. Eine Probe-Vorlage mit dem Beat-Typ, der nsc_alt braucht (aus den Daten), alle Voelker.
+// Kandidaten der Fadenmaschine (wie das Brett sie kennt): Namen, juengster zuerst. Eine Probe-Vorlage mit einem Beat-Typ, der nsc_alt braucht, alle Voelker. Welcher Typ, sagt der Katalogeintrag (SPL-02 C0):
+// `kandidat: true` = der erste nsc_alt-Typ der Beat-Daten, `kandidat: "<Beat-Typ>"` = genau dieser Typ; die Zustaende des NSC (braucht.nsc_status) und die Erinnerung an eine Tat prueft die Fadenmaschine nach DEM Typ.
 // frisch: ohne die Hauptfiguren der letzten Abenteuer (Wiederholungsregel, abenteuer-wiederholung.js); so waehlen die Vorschlaege einen NSC, den das Brett auch nimmt.
-function kandidatenNamen(game, frisch) {
-  const typ = Object.keys(D.BEATS).find((t) => D.BEATS[t].braucht && D.BEATS[t].braucht.nsc_alt === true);
+const nscAltTyp = (t) => typeof t === 'string' && Object.prototype.hasOwnProperty.call(D.BEATS, t) && !!D.BEATS[t].braucht && D.BEATS[t].braucht.nsc_alt === true;
+const kandidatTyp = (kandidat) => (typeof kandidat === 'string' ? (nscAltTyp(kandidat) ? kandidat : null) : Object.keys(D.BEATS).find(nscAltTyp) || null);   // kandidat: true oder Beat-Typ
+function kandidatenNamen(game, frisch, kandidat) {
+  const typ = kandidatTyp(kandidat === undefined ? true : kandidat);
   if (!typ || !faedenZustand(game)) return [];
   const v = { beats: [{ typ }], volk_erlaubt: D.WERTE.voelker.slice() };
   const out = [];
@@ -164,9 +180,9 @@ const kommandantenNamen = () => [].concat(...Object.values(KOMMANDANTEN())).map(
 const teile = (n) => String(n).trim().split(/\s+/);
 function nscFehler(game, name, b, auswahlMax) {
   const feld = 'bezug.nsc';
-  const kanon = kanonNamen(game), kand = b.kandidat ? kandidatenNamen(game) : null;
+  const kanon = kanonNamen(game), kand = b.kandidat ? kandidatenNamen(game, false, b.kandidat) : null;
   const mitVorschlag = (liste) => (liste.length ? vorschlag(`Bezug ${liste[0]}`, setze(feld, liste[0])) : undefined);
-  const bester = () => { const fr = b.kandidat ? kandidatenNamen(game, true) : []; return fr.length ? fr : (kand || kanon); };
+  const bester = () => { const fr = b.kandidat ? kandidatenNamen(game, true, b.kandidat) : []; return fr.length ? fr : (kand || kanon); };
   if (/^n\d{1,6}$/.test(name)) return fehl(CODES.BEZUG_UNBEKANNT, feld, 'Kennungen (n<Zahl>) wechseln und gelten nicht: nenne den Vollname des NSC', mitVorschlag(bester()));
   if (teile(name).length === 1) {   // Vorname oder Nachname allein: nie eindeutig
     const t = name.toLowerCase();
@@ -191,7 +207,7 @@ function bezugFehler(game, entry, bezug, katalog) {
     if (v === undefined || v === '') {
       if (!b.pflicht) continue;
       let w = [];
-      if (b.name === 'nsc') { w = b.kandidat ? kandidatenNamen(game, true) : []; if (!w.length) w = b.kandidat ? kandidatenNamen(game) : kanonNamen(game); }
+      if (b.name === 'nsc') { w = b.kandidat ? kandidatenNamen(game, true, b.kandidat) : []; if (!w.length) w = b.kandidat ? kandidatenNamen(game, false, b.kandidat) : kanonNamen(game); }
       out.push(fehl(CODES.BEZUG_FEHLT, feld, `diese Absicht braucht den Bezug "${b.name}"`, w.length ? vorschlag(`Bezug ${w[0]}`, setze(feld, w[0])) : undefined));
     } else if (b.name === 'nsc') {
       const e = nscFehler(game, v, b, auswahlMax);
@@ -217,18 +233,30 @@ function namenMengen() {
     if (t.length === 1) { if (n.length >= 4) tokens.add(n); } else { phrasen.add(n); const l = t[t.length - 1]; if (l.length >= 4) tokens.add(l); }
   }
   try { for (const h of Object.values(Sektoren().KARTE.hexe)) if (h && typeof h.name === 'string' && h.name.length >= 4 && h.name !== '?') phrasen.add(h.name); } catch (e) { /* ohne Karte: keine Ortsnamen */ }
-  namenCache = { tokens, phrasen: Array.from(phrasen) };
+  // starke Namen: Vornamen (namen.json) und Kommandanten mit nur einem Wort; sie sind selten ein gewoehnliches Wort und gelten auch am Satzanfang allein
+  const starke = new Set();
+  for (const L of Object.values(D.NAMEN)) for (const n of L.vornamen) starke.add(n);
+  for (const n of kommandantenNamen()) if (teile(n).length === 1) starke.add(n);
+  namenCache = { tokens, phrasen: Array.from(phrasen), starke };
   return namenCache;
 }
-function textFehler(game, feld, t, min, max, erlaubt) {
+// Gilt dieses Wort als Eigenname (SPL-02 C0)? Nein, wenn es der Bezug ist (frei) oder in der Datenliste gewoehnliche_woerter steht (Dorn, Rabe: auch ein deutsches Wort). Am Satzanfang sagt die Grossschreibung
+// nichts: dort gilt ein Wort nur, wenn es ein starker Name ist (Vorname) oder zusammen mit dem naechsten Wort einen vollen Namen ergibt (zwei Namensbestandteile hintereinander).
+function istEigenname(N, gewoehnlich, frei, x) {
+  if (!N.tokens.has(x.w) || frei.has(x.w) || gewoehnlich.has(x.w.toLowerCase())) return false;
+  if (x.anfang && !N.starke.has(x.w)) return typeof x.naechstes === 'string' && N.tokens.has(x.naechstes);
+  return true;
+}
+function textFehler(game, feld, t, min, max, erlaubt, katalog) {
   const gv = (neu) => (typeof neu === 'string' && neu.trim().length >= min && neu.length <= max ? vorschlag('Text korrigieren', setze(feld, neu)) : undefined);
   if (t.trim().length < min || t.length > max) return fehl(CODES.TEXT_UNZULAESSIG, feld, `${feld} braucht ${min} bis ${max} Zeichen (hat ${t.trim().length})`, t.length > max ? gv(t.slice(0, max).replace(/\s+\S*$/, '')) : undefined);
   if (/[{}]/.test(t)) return fehl(CODES.TEXT_UNZULAESSIG, feld, `${feld} darf keine Platzhalter ({}) enthalten`, gv(t.replace(/[{}]/g, '')));
   if (/[\u0000-\u001f\u007f]/.test(t)) return fehl(CODES.TEXT_UNZULAESSIG, feld, `${feld} darf keine Steuerzeichen enthalten`, gv(t.replace(/[\u0000-\u001f\u007f]+/g, ' ')));
   const N = namenMengen();
   const frei = erlaubt.tokens, freiePhrasen = erlaubt.phrasen.map((p) => p.toLowerCase());
-  for (const w of woerter(t)) if (N.tokens.has(w) && !frei.has(w)) return fehl(CODES.TEXT_UNZULAESSIG, feld, `${feld} nennt den Eigennamen "${kurz(w, 24)}", der nicht der Bezug ist: Namen kommen nur ueber den Bezug`);
-  for (const p of N.phrasen) if (!freiePhrasen.includes(p.toLowerCase()) && alsPhrase(t, p)) return fehl(CODES.TEXT_UNZULAESSIG, feld, `${feld} nennt den Eigennamen "${kurz(p, 30)}", der nicht der Bezug ist: Namen kommen nur ueber den Bezug`);
+  const gewoehnlich = new Set(wert(katalog, 'gewoehnliche_woerter').map((x) => String(x).toLowerCase()));
+  for (const x of woerterImSatz(t)) if (istEigenname(N, gewoehnlich, frei, x)) return fehl(CODES.TEXT_UNZULAESSIG, feld, `${feld} nennt den Eigennamen "${kurz(x.w, 24)}", der nicht der Bezug ist: Namen kommen nur ueber den Bezug`);
+  for (const p of N.phrasen) if (!freiePhrasen.includes(p.toLowerCase()) && !(teile(p).length === 1 && gewoehnlich.has(p.toLowerCase())) && alsPhrase(t, p)) return fehl(CODES.TEXT_UNZULAESSIG, feld, `${feld} nennt den Eigennamen "${kurz(p, 30)}", der nicht der Bezug ist: Namen kommen nur ueber den Bezug`);
   const spieler = Ausschnitt().spielerNamen(game || {});
   for (const s of spieler) if (!frei.has(s) && alsPhrase(t, s)) return fehl(CODES.TEXT_UNZULAESSIG, feld, `${feld} nennt einen Spielernamen: die Texte sind Crew-neutral`);
   return null;
@@ -295,7 +323,7 @@ function pruefeAbsicht(game, absicht, katalog) {
   const texte = [['titel', a.titel, T], ['bogen.einsatz', bogen.einsatz, A], ['bogen.preis', bogen.preis, A]];
   for (const [feld, v, g] of texte) {
     if (typeof v !== 'string' || (feld !== 'titel' && !v.trim().length)) continue;   // fehlende Bogentexte meldet der Bogen
-    const e = textFehler(game, feld, v, g.min, g.max, er);
+    const e = textFehler(game, feld, v, g.min, g.max, er, katalog);
     if (e) fehler.push(e);
   }
   return { ok: fehler.length === 0, absicht: a, fehler };
@@ -352,9 +380,11 @@ function fehlerText(ergebnis, katalog) {
 }
 
 // ---------- Verhandlung (der Aufrufer ruft das Modell und haelt v)
-function verhandlungStart(game, absicht, katalog) {
+// Der Ablauf ist fuer jeden Pruefer derselbe: `pruefer(game, absicht, katalog) -> { ok, absicht, fehler }` (Format von pruefeAbsicht). verhandlungStart/-Antwort pruefen nur mit pruefeAbsicht (Stufe 1, ohne Welt-Inszenierung);
+// mit dem Inszenierer als Pruefer (Ort, Welt, Staerke, nicht ausdrueckbar) verhandelt server/sim/absicht-verhandlung.js ueber dieselbe Runde (SPL-02 C0): dieses Modul darf inszenierer.js nicht laden (Zyklus).
+function verhandlungStartMit(pruefer, game, absicht, katalog) {
   katalog = katalog || katalogStandard();
-  const e = pruefeAbsicht(game, absicht, katalog), max = wert(katalog, 'runden_max');
+  const e = pruefer(game, absicht, katalog), max = wert(katalog, 'runden_max');
   if (e.ok) return { stand: 'angenommen', runde: 0, runden_max: max, absicht: e.absicht, ergebnis: e, text: '' };
   const text = fehlerText(e, katalog);
   if (max < 1) return { stand: 'abgelehnt', runde: 0, runden_max: max, absicht: e.absicht, ergebnis: e, text: abgelehntText(e, katalog) };
@@ -365,7 +395,7 @@ function abgelehntText(e, katalog) {
   const max = wert(katalog, 'fehler_text_max');
   return t.length > max ? t.slice(0, max - 3) + '...' : t;
 }
-function verhandlungAntwort(game, v, antwort, katalog) {
+function verhandlungAntwortMit(pruefer, game, v, antwort, katalog) {
   katalog = katalog || katalogStandard();
   if (!istObjekt(v) || v.stand !== 'offen') return v;   // angenommen oder abgelehnt ist endgueltig
   const max = v.runden_max, runde = v.runde + 1;
@@ -378,11 +408,14 @@ function verhandlungAntwort(game, v, antwort, katalog) {
     neu = r.absicht;
   } else if (istObjekt(antwort) && antwort.format === FORMAT) neu = antwort;
   else return ab(null, 'Endgueltig abgelehnt: keine Antwort mit Patch oder korrigierter Absicht. Davor: ' + abgelehntText(v.ergebnis, katalog).replace('Endgueltig abgelehnt: ', ''));
-  const e = pruefeAbsicht(game, neu, katalog);
+  const e = pruefer(game, neu, katalog);
   if (e.ok) return { stand: 'angenommen', runde, runden_max: max, absicht: e.absicht, ergebnis: e, text: '' };
   if (runde >= max) return ab(e, abgelehntText(e, katalog));
   return { stand: 'offen', runde, runden_max: max, absicht: e.absicht || neu, ergebnis: e, text: fehlerText(e, katalog) };
 }
+
+const verhandlungStart = (game, absicht, katalog) => verhandlungStartMit(pruefeAbsicht, game, absicht, katalog);   // nur Stufe 1 (Absichts-Pruefer); mit Inszenierer: absicht-verhandlung.js
+const verhandlungAntwort = (game, v, antwort, katalog) => verhandlungAntwortMit(pruefeAbsicht, game, v, antwort, katalog);
 
 // ---------- Katalog in sich stimmig (Strukturregeln)
 function katalogFehler(katalog) {
@@ -397,7 +430,7 @@ function katalogFehler(katalog) {
   w('runden_max', ganz, 'ganze Zahl >= 0'); w('fehler_text_max', (n) => Number.isInteger(n) && n >= 100, 'ganze Zahl >= 100'); w('fehler_max', (n) => Number.isInteger(n) && n >= 1, 'ganze Zahl >= 1');
   w('absicht_max_zeichen', (n) => Number.isInteger(n) && n >= 200, 'ganze Zahl >= 200'); w('vorschlag_namen_max', (n) => Number.isInteger(n) && n >= 1, 'ganze Zahl >= 1');
   w('name_muster', (m) => { try { return typeof m === 'string' && !!new RegExp(m); } catch (e) { return false; } }, 'gueltiges Muster');
-  w('toene', texte, 'Liste von Texten'); w('bogen_felder', texte, 'Liste von Texten'); w('bezug_arten', (l) => texte(l) && l.every((x) => ['nsc', 'ort'].includes(x)), 'Liste aus nsc, ort'); w('parameter_arten', (l) => texte(l) && l.every((x) => ['zahl', 'liste'].includes(x)), 'Liste aus zahl, liste');
+  w('gewoehnliche_woerter', (l) => Array.isArray(l) && l.every((x) => typeof x === 'string' && x.length > 0), 'Liste von Texten'); w('toene', texte, 'Liste von Texten'); w('bogen_felder', texte, 'Liste von Texten'); w('bezug_arten', (l) => texte(l) && l.every((x) => ['nsc', 'ort'].includes(x)), 'Liste aus nsc, ort'); w('parameter_arten', (l) => texte(l) && l.every((x) => ['zahl', 'liste'].includes(x)), 'Liste aus zahl, liste');
   if (out.length) return out;
   if (!istObjekt(katalog.absichten)) { f('absichten fehlt'); return out; }
   const muster = new RegExp(wert(katalog, 'name_muster'));
@@ -425,7 +458,7 @@ function katalogFehler(katalog) {
       else {
         const namen = new Set();
         for (const b of e.bezug) {
-          if (!istObjekt(b) || !wert(katalog, 'bezug_arten').includes(b.name) || typeof b.pflicht !== 'boolean' || (b.kandidat !== undefined && (typeof b.kandidat !== 'boolean' || b.name !== 'nsc'))) { g('bezug: Eintrag { name, pflicht, kandidat? (nur nsc) }'); continue; }
+          if (!istObjekt(b) || !wert(katalog, 'bezug_arten').includes(b.name) || typeof b.pflicht !== 'boolean' || (b.kandidat !== undefined && (!(typeof b.kandidat === 'boolean' || nscAltTyp(b.kandidat)) || b.name !== 'nsc'))) { g('bezug: Eintrag { name, pflicht, kandidat? (nur nsc; true oder ein Beat-Typ mit braucht.nsc_alt) }'); continue; }
           if (namen.has(b.name)) g(`bezug ${b.name} doppelt`);
           namen.add(b.name);
         }
@@ -438,4 +471,4 @@ function katalogFehler(katalog) {
   return out;
 }
 
-module.exports = { CODES, pruefeAbsicht, istFortsetzung, wendePatchAn, gegenvorschlagPatch, fehlerText, verhandlungStart, verhandlungAntwort, katalogFehler, katalogStandard, katalogNeuLesen };
+module.exports = { CODES, pruefeAbsicht, istFortsetzung, wendePatchAn, gegenvorschlagPatch, fehlerText, verhandlungStart, verhandlungAntwort, verhandlungStartMit, verhandlungAntwortMit, katalogFehler, katalogStandard, katalogNeuLesen };

@@ -169,6 +169,27 @@ section('Bezuege: fehlt, existiert nicht, uneindeutig, Kandidat, Ort', () => {
   ok(codes(tot).join() === C.BEZUG_UNBEKANNT && /nicht zur Verfuegung/.test(tot.fehler[0].grund) && tot.fehler[0].gegenvorschlag.patch[0].wert !== 'Quintus Varro', 'BEZUG_UNBEKANNT: im Kanon, aber tot, kein Kandidat der Fadenmaschine; der Vorschlag ist ein anderer');
   const ka = gut({ absicht: 'probe_kanon', parameter: {}, bezug: { nsc: 'Quintus Varro' }, bogen: { einsatz: TEXT.einsatz, preis: TEXT.preis }, ton: 'nuechtern' });
   ok(f(ka).ok, 'probe_kanon (ohne kandidat): der tote NSC steht im Kanon, das genuegt');
+  // SPL-02 C0: der Pruef-Typ des Kandidaten ist im Katalog waehlbar (kandidat: "<Beat-Typ>"): ein feindlicher oder geflohener NSC ist fuer den Typ rache ein Kandidat, fuer den ersten nsc_alt-Typ (kandidat: true) nicht
+  const ra = (name) => gut({ absicht: 'probe_rache', parameter: {}, bezug: { nsc: name }, bogen: { einsatz: TEXT.einsatz, preis: TEXT.preis }, ton: 'nuechtern' });
+  t.f[0].nsc.status = 'feindlich';
+  const feind = f(gutNsc('Quintus Varro'));
+  ok(codes(feind).join() === C.BEZUG_UNBEKANNT && /nicht zur Verfuegung/.test(feind.fehler[0].grund), 'kandidat: true: ein feindlicher NSC ist kein Kandidat (BEZUG_UNBEKANNT)');
+  ok(f(ra('Quintus Varro')).ok, 'kandidat: "rache": derselbe feindliche NSC ist ein gueltiger Bezug');
+  t.f[0].nsc.status = 'geflohen';
+  ok(f(ra('Quintus Varro')).ok && !f(gutNsc('Quintus Varro')).ok, 'kandidat: "rache": auch ein geflohener NSC gilt, mit kandidat: true nicht');
+  t.f[0].nsc.status = 'tot';
+  const rt = f(ra('Quintus Varro'));
+  ok(codes(rt).join() === C.BEZUG_UNBEKANNT && /nicht zur Verfuegung/.test(rt.fehler[0].grund), 'kandidat: "rache": ein toter NSC ist auch hier kein Kandidat');
+  t.f[0].nsc.status = 'verbuendet';
+  ok(f(gutNsc('Quintus Varro')).ok && codes(f(ra('Quintus Varro'))).join() === C.BEZUG_UNBEKANNT, 'umgekehrt: ein verbuendeter NSC taugt fuer kandidat: true, nicht fuer rache (Zustaende nach dem Typ)');
+  const fl = f(gut({ absicht: 'probe_rache', parameter: {}, bezug: {}, bogen: { einsatz: TEXT.einsatz, preis: TEXT.preis }, ton: 'nuechtern' }));
+  ok(codes(fl).join() === C.BEZUG_FEHLT, 'BEZUG_FEHLT bei kandidat "rache": der Vorschlag kommt aus den Kandidaten dieses Typs (' + (fl.fehler[0].gegenvorschlag ? fl.fehler[0].gegenvorschlag.text : 'keiner') + ')');
+  t.f[0].nsc.status = 'feindlich';
+  ok(fe(f(gut({ absicht: 'probe_rache', parameter: {}, bezug: {}, bogen: { einsatz: TEXT.einsatz, preis: TEXT.preis }, ton: 'nuechtern' })), C.BEZUG_FEHLT).gegenvorschlag.patch[0].wert === 'Quintus Varro', 'der Vorschlag bei BEZUG_FEHLT ist der feindliche NSC (nach dem Typ rache)');
+  const kt = (mut) => { const k = klon(KAT); mut(k.absichten); return AP.katalogFehler(k); };
+  ok(kt((a) => { a.probe_rache.bezug[0].kandidat = 'nirgendwo'; }).some((x) => /bezug: Eintrag/.test(x)), 'Strukturregel: kandidat nennt einen Beat-Typ, den es nicht gibt: Fehler');
+  ok(kt((a) => { a.probe_rache.bezug[0].kandidat = 'abschluss'; }).some((x) => /bezug: Eintrag/.test(x)), 'Strukturregel: kandidat nennt einen Beat-Typ ohne braucht.nsc_alt: Fehler');
+  ok(kt(() => {}).length === 0, 'Strukturregel: kandidat: "rache" und kandidat: true sind gueltig');
   t.f[0].nsc.status = 'aktiv';
   // Ort
   ok(f(gut({ bezug: { ort: '0305' } })).ok, 'Ort: ein spielbarer Sektor');
@@ -235,6 +256,24 @@ section('TEXT_UNZULAESSIG: Laenge, Platzhalter, Eigennamen, Spielernamen', () =>
   ok(AP.pruefeAbsicht(g, mit, KAT).ok, 'auch ein Teil des Vollnamens des Bezugs (Varro)');
   mit.bogen.einsatz = 'Quintus Varro und Titus Calder kehren mit dem Geschwader zurueck und wollen Rache.';
   ok(text('bogen.einsatz', AP.pruefeAbsicht(g, mit, KAT)), 'ein zweiter NSC im Text, der nicht der Bezug ist: unzulaessig');
+  // SPL-02 C0: gewoehnliche deutsche Woerter (Dorn, Rabe, Halbmond) sind keine Eigennamen; am Satzanfang zaehlen nur Vornamen und volle Namen
+  const einsatzFehler = (txt, k) => { const x = AP.pruefeAbsicht(g, eins({ einsatz: txt }), k || KAT); return x.fehler.find((y) => y.code === C.TEXT_UNZULAESSIG && y.feld === 'bogen.einsatz'); };
+  ok(!einsatzFehler('Der Dorn im Fleisch der Crew sitzt tief und schmerzt noch.'), 'Dorn in der Satzmitte (Datenliste gewoehnliche_woerter): kein Eigenname');
+  ok(!einsatzFehler('Dorn und Stachel sitzen tief im Fleisch der Crew, sagt man.'), 'Dorn am Satzanfang: kein Eigenname');
+  ok(!einsatzFehler('Ein Rabe sitzt auf der Reling und wartet schon lange auf Beute.'), 'Rabe (auch Nachname einer Kommandantin): kein Eigenname');
+  ok(!einsatzFehler('Der Halbmond steht hoch ueber dem Sprungpunkt der Crew heute.'), 'Halbmond (Schiffsname, aber auch ein Wort): kein Eigenname');
+  ok(!einsatzFehler('Am Strand der Station sammeln sich die Schatten der Nacht.'), 'Strand (Nachname eines Kommandanten): kein Eigenname');
+  ok(einsatzFehler('Quintus Dorn griff an und will die Schuld jetzt eintreiben.') && /Quintus/.test(einsatzFehler('Quintus Dorn griff an und will die Schuld jetzt eintreiben.').grund), '"Quintus Dorn griff an." ohne Bezug: abgelehnt (Vorname am Satzanfang)');
+  ok(!!einsatzFehler('Titus meldet sich mit einem Geschwader zurueck zur Abrechnung.'), 'ein Vorname am Satzanfang bleibt ein Eigenname');
+  ok(!!einsatzFehler('Die Crew trifft Varro am Sprungpunkt und will die Schuld.'), 'ein Nachname in der Satzmitte (nicht in der Liste): Eigenname');
+  ok(!!einsatzFehler('Varro Calder kommt mit Geschwader und will die Schuld jetzt.'), 'zwei Namensteile am Satzanfang (voller Name): Eigenname');
+  ok(!!einsatzFehler('Er sagte nichts. Quintus Dorn griff an und will die Schuld.'), 'auch nach einem Punkt mitten im Text: Vorname am Satzanfang');
+  ok(!einsatzFehler('Varro kam mit Geschwader zurueck und will die Schuld jetzt.'), 'ein Nachname ALLEIN am Satzanfang (nicht in der Liste, kein zweiter Namensteil) gilt nicht (Grossschreibung am Anfang sagt nichts)');
+  const leer = mitWert('gewoehnliche_woerter', []);
+  ok(!!einsatzFehler('Der Dorn im Fleisch der Crew sitzt tief und schmerzt noch.', leer) && !!einsatzFehler('Der Halbmond steht hoch ueber dem Sprungpunkt der Crew heute.', leer), 'die Liste ist Datenwert: ohne sie gilt Dorn und Halbmond wieder als Name');
+  ok(!!einsatzFehler('Die Crew trifft Quintus Dorn am Sprungpunkt und will die Schuld.'), 'Quintus Dorn in der Satzmitte: Eigenname (Quintus)');
+  ok(!AP.pruefeAbsicht(g, gutNsc('Quintus Varro', { bogen: { einsatz: 'Quintus Varro kehrt mit Geschwader zurueck und will die Schuld.', wendung: 'verfolgung', preis: TEXT.preis }, ton: 'nuechtern' }), KAT).fehler.some((y) => y.code === C.TEXT_UNZULAESSIG), 'der Bezug darf am Satzanfang genannt werden');
+  ok(AP.katalogFehler(mitWert('gewoehnliche_woerter', 'Dorn')).some((x) => /gewoehnliche_woerter/.test(x)), 'Strukturregel: gewoehnliche_woerter ist eine Liste von Texten');
   // Spielernamen: Crew-neutral
   const sp = f(eins({ einsatz: 'Mireille_Kas hat die Schuld nie beglichen und wird gesucht.' }));
   ok(text('bogen.einsatz', sp) && /Spielernamen/.test(text('bogen.einsatz', sp).grund), 'ein Spielername im Text: unzulaessig (Crew-neutral)');

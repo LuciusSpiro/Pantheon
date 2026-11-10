@@ -392,9 +392,11 @@ function rezeptFehler(katalog, name, e) {
     }
   };
   sk.beats.forEach((b, i) => pruefeBeat(b, `skelett.beats[${i}]`));
-  if (hatBezug('nsc') && bezug.find((b) => b.name === 'nsc').kandidat === true) {
+  if (hatBezug('nsc') && bezug.find((b) => b.name === 'nsc').kandidat) {   // true oder ein Beat-Typ (absicht-pruefer.js)
     const erster = istObjekt(sk.beats[0]) ? sk.beats[0].typ : null;
-    if (!(erster && has(D.BEATS, erster) && D.BEATS[erster].braucht && D.BEATS[erster].braucht.nsc_alt === true)) g('der Bezug nsc (kandidat) braucht einen ersten Beat mit braucht.nsc_alt im Skelett');
+    const kt = bezug.find((b) => b.name === 'nsc').kandidat;
+    if (typeof kt === 'string' && erster !== kt) g(`der Bezug nsc (kandidat ${kt}) braucht diesen Typ als ersten Beat im Skelett`);
+    else if (!(erster && has(D.BEATS, erster) && D.BEATS[erster].braucht && D.BEATS[erster].braucht.nsc_alt === true)) g('der Bezug nsc (kandidat) braucht einen ersten Beat mit braucht.nsc_alt im Skelett');
   }
   // Wendungen: die Symbole des Katalogs und die Rezepte stimmen ueberein
   const syms = Array.isArray(e.wendungen) ? e.wendungen.filter((s) => s !== KEINE_WENDUNG) : [];

@@ -2,7 +2,7 @@
 // SPL-02 B: der Inszenierer (server/sim/inszenierer.js; Zahlen in content/faeden/inszenierer-werte.json, Rezepte im Katalog der Absichten, Feld `inszenierung`) und die Anbindung ans Brett (anbietenAusAbsicht).
 // Die Erwartungen stehen hier selbst (von Hand gerechnet an einer eigenen Welt: Crew bei Ostia Nova 0305, Hoehlen bei Vulcania 0205 und Porta Australis 0405 je einen Sprung entfernt, drei NSC), nie aus dem Produktivcode abgeleitet.
 // Die Absichten kommen aus der Fixture tools/fixtures/absichten/inszenierer-katalog.json (der Katalog des Spiels ist beim Start leer: die Eintraege kommen mit Paket C). Die Zeile `rache` des Beat-Katalogs
-// (tools/fixtures/absichten/beat-rache.json) steht NICHT in content/faeden/beats.json; der Test traegt sie fuer die Proben des feindlichen Starts in D.BEATS ein und nimmt sie danach wieder heraus.
+// steht seit SPL-02 C0 in content/faeden/beats.json (Datenfeld nur_inszenierer); `ohneRache` nimmt sie fuer die Gegenprobe voruebergehend heraus.
 // Geprueft wird: Daten und Katalog stimmig · Erfolg bis zum gueltigen Plan (Expander und Pruefer) · Wendung aus dem Bogen · Ort fern: Nein mit Gegenvorschlag, der angenommene Patch geht durch · Bezug unbekannt ·
 // Weltbedingungen (Haltung, Rang, Lage) · Staerke und Stufe nach Rang und Schiff · nicht ausdrueckbar als ehrliches Nein · Rache mit feindlichem Start (Daten, durch das Spiel) · Anbieten ueber das Brett ·
 // Determinismus · kein Absichtsname und kein Beat-Typ im Code.
@@ -36,12 +36,12 @@ const NAMEN = ['Mireille_Kas', 'Ouzo_Brandt', 'Tzvi_Lund'];
 const ECHT = lies('content/faeden/absichten.json');
 const FIX = lies('tools/fixtures/absichten/inszenierer-katalog.json');
 const KAT = Object.assign({}, klon(ECHT), { absichten: klon(FIX.absichten) });
-const RACHE = lies('tools/fixtures/absichten/beat-rache.json').rache;
 const mitKatalog = (mut) => { const k = klon(KAT); mut(k.absichten); return k; };
-// die Zeile rache fuer die Dauer der Probe im Beat-Katalog (und danach wieder heraus)
-function mitRache(fn) {
-  D.BEATS.rache = klon(RACHE); Bauplan.katalogNeuLesen();
-  try { return fn(); } finally { delete D.BEATS.rache; Bauplan.katalogNeuLesen(); }
+// die Zeile rache steht im echten Beat-Katalog: mitRache laeuft einfach; ohneRache nimmt sie fuer die Gegenprobe voruebergehend heraus
+const mitRache = (fn) => fn();
+function ohneRache(fn) {
+  const zeile = D.BEATS.rache; delete D.BEATS.rache; Bauplan.katalogNeuLesen();
+  try { return fn(); } finally { D.BEATS.rache = zeile; Bauplan.katalogNeuLesen(); }
 }
 
 // ---------------------------------------------------------------- Welt
@@ -99,7 +99,7 @@ section('Daten und Katalog stimmig', () => {
   ok(w.werte.stufe_max.wert === 2 && w.werte.reichweite_max.wert === 8 && w.werte.stufe_nach_rang.wert.centurio === 1 && w.werte.stufe_zuschlag_schiff.wert['2'] === 1, 'die Zahlen stehen in den Daten (Stufe nach Rang und Schiff, Reichweite)');
   ok(INS.katalogFehler(ECHT).length === 0 && Object.keys(ECHT.absichten).length === 0, 'der Katalog des Spiels ist beim Start leer und damit stimmig');
   ok(AP.katalogFehler(KAT).length === 0, 'die Fixture besteht die Strukturregeln von Paket A (' + AP.katalogFehler(KAT).join(' | ') + ')');
-  const ohne = INS.katalogFehler(KAT);
+  const ohne = ohneRache(() => INS.katalogFehler(KAT));
   ok(ohne.length > 0 && ohne.every((t) => /probe_stellung/.test(t)) && ohne.some((t) => /braucht.nsc_alt/.test(t)), 'ohne die Zeile rache im Beat-Katalog: nur probe_stellung ist unstimmig (erster Beat mit nsc_alt fehlt): ' + ohne.length);
   mitRache(() => {
     const f = INS.katalogFehler(KAT);
@@ -184,6 +184,45 @@ section('Ort fern: Nein mit Gegenvorschlag, der angenommene Patch geht durch', (
   const k2 = mitKatalog((a) => { a.probe_erz.inszenierung.ort.kartenart = 'aussenposten'; a.probe_erz.parameter.reichweite.max = 3; });
   const e4 = ins(g, ab('probe_erz', { parameter: { reichweite: 2 } }), k2);
   ok(!e4.ok && e4.fehler[0].code === C.ORT_KEIN_ZIEL && !e4.fehler[0].gegenvorschlag, 'Aussenposten gibt es erst bei vier Spruengen (0705): bei Reichweite 2 Nein, und vier ist ausserhalb des Parameters: kein Patch');
+});
+
+section('Verhandlung mit dem Inszenierer als Pruefer (absicht-verhandlung.js, SPL-02 C0)', () => {
+  const g = welt(11).g;
+  const V = require('../server/sim/absicht-verhandlung.js');
+  const nein0 = ab('probe_erz', { parameter: { reichweite: 0 } });
+  const v = V.verhandlungStart(g, nein0, KAT);
+  ok(v.stand === 'offen' && v.runde === 0 && v.runden_max === ECHT.werte.runden_max.wert && v.runden_max === 1, 'ORT_KEIN_ZIEL: offen, runden_max aus den Daten (1)');
+  ok(/ORT_KEIN_ZIEL/.test(v.text) && /Vulcania/.test(v.text) && /Vorschlag/.test(v.text) && /Patch:/.test(v.text) && /Antworte einmal/.test(v.text), 'der Klartext nennt Code, Grund, Gegenvorschlag und den Patch');
+  ok(v.ergebnis.fehler[0].code === C.ORT_KEIN_ZIEL && !v.inszenierung, 'das Nein ist das des Inszenierers (Absichts-Pruefer als erste Stufe war ok)');
+  const patch = AP.gegenvorschlagPatch(v.ergebnis);
+  const v2 = V.verhandlungAntwort(g, v, patch, KAT);
+  ok(v2.stand === 'angenommen' && v2.runde === 1 && v2.inszenierung && v2.inszenierung.ok && v2.inszenierung.hex === '0205', 'Antwort-Patch: angenommen, `inszeniere` ist ok (Ort 0205)');
+  ok(JSON.stringify(v2.inszenierung.plan) === JSON.stringify(ins(g, v2.absicht).plan), 'der Plan der Verhandlung ist der Plan von inszeniere');
+  ok(V.verhandlungAntwort(g, v2, [{ feld: 'parameter.reichweite', wert: 0 }], KAT) === v2, 'angenommen ist endgueltig');
+  const v3 = V.verhandlungAntwort(g, v, [{ feld: 'parameter.reichweite', wert: 0 }], KAT);
+  ok(v3.stand === 'abgelehnt' && v3.runde === 1 && /^Endgueltig abgelehnt/.test(v3.text) && /ORT_KEIN_ZIEL/.test(v3.text) && /Vulcania/.test(v3.text), 'zweite Ablehnung: endgueltig, mit Grund');
+  ok(V.verhandlungAntwort(g, v3, patch, KAT) === v3, 'abgelehnt ist endgueltig, auch eine spaetere Antwort aendert nichts');
+  const v4 = V.verhandlungAntwort(g, v, { format: 'absicht/1', absicht: 'probe_erz', titel: TEXT.titel, parameter: { reichweite: 1 }, bezug: {}, bogen: { einsatz: TEXT.einsatz, wendung: 'keine', preis: TEXT.preis }, ton: 'nuechtern' }, KAT);
+  ok(v4.stand === 'angenommen' && v4.inszenierung.hex === '0205', 'auch eine korrigierte Absicht statt des Patches gilt');
+  ok(V.verhandlungAntwort(g, v, 'ja', KAT).stand === 'abgelehnt', 'eine Antwort ohne Patch und ohne Absicht: abgelehnt');
+  // erste Stufe (Pruefer aus A) und zweite Stufe laufen in EINER Runde: ein Parameterfehler wird geflickt, dann sagt die Welt nein -> endgueltig (eine Runde)
+  const doppelt = V.verhandlungStart(g, ab('probe_erz', { parameter: { reichweite: 9 } }), KAT);
+  ok(doppelt.stand === 'offen' && doppelt.ergebnis.fehler[0].code === C.PARAMETER, 'Stufe 1: Parameter ausserhalb: offen');
+  const d2 = V.verhandlungAntwort(g, doppelt, [{ feld: 'parameter.reichweite', wert: 0 }], KAT);
+  ok(d2.stand === 'abgelehnt' && /ORT_KEIN_ZIEL/.test(d2.text), 'der Patch heilt Stufe 1, Stufe 2 sagt nein: die eine Runde ist verbraucht, endgueltig abgelehnt');
+  const k0 = klon(KAT); k0.werte.runden_max.wert = 0;
+  const n0 = V.verhandlungStart(g, nein0, k0);
+  ok(n0.stand === 'abgelehnt' && /^Endgueltig abgelehnt/.test(n0.text) && /ORT_KEIN_ZIEL/.test(n0.text), 'runden_max 0 (Datenwert): sofort endgueltig abgelehnt mit Grund');
+  const k2 = klon(KAT); k2.werte.runden_max.wert = 2;
+  const m1 = V.verhandlungStart(g, nein0, k2);
+  const m2 = V.verhandlungAntwort(g, m1, [{ feld: 'parameter.reichweite', wert: 0 }], k2);
+  ok(m2.stand === 'offen' && m2.runde === 1 && /ORT_KEIN_ZIEL/.test(m2.text) && V.verhandlungAntwort(g, m2, patch, k2).stand === 'angenommen', 'runden_max 2 (Datenwert): die zweite Antwort darf noch heilen');
+  const gut1 = V.verhandlungStart(g, ab('probe_erz', { parameter: { reichweite: 1 } }), KAT);
+  ok(gut1.stand === 'angenommen' && gut1.runde === 0 && gut1.inszenierung.ok, 'eine gute Absicht ist ohne Runde angenommen');
+  const unb = V.verhandlungStart(g, ab('probe_nirgendwo'), KAT);
+  ok(unb.stand === 'offen' && unb.ergebnis.fehler[0].code === C.ABSICHT_UNBEKANNT, 'ein Nein des Absichts-Pruefers geht durch dieselbe Verhandlung (ABSICHT_UNBEKANNT)');
+  const ap = AP.verhandlungStart(g, nein0, KAT);
+  ok(ap.stand === 'angenommen', 'die Verhandlung aus A (nur Stufe 1) bleibt unveraendert: sie sieht das Nein der Welt nicht');
 });
 
 section('Bezug unbekannt und Bezug, den der Plan nicht tragen kann', () => {
@@ -298,7 +337,7 @@ section('Rache: ein feindlicher NSC als Start (Daten, durch das ganze Spiel)', (
   const t = welt(11), g = t.g;
   const [q, ti, ga] = t.f;
   verstimmt(q); verstimmt(ga);
-  const ohne = ins(g, ab('probe_stellung', { bezug: { nsc: 'Quintus Varro' } }));
+  const ohne = ohneRache(() => ins(g, ab('probe_stellung', { bezug: { nsc: 'Quintus Varro' } })));
   ok(!ohne.ok && codes(ohne).join() === C.PLAN_ABGELEHNT && /TYP_UNBEKANNT/.test(ohne.fehler[0].grund), 'ohne die Zeile rache im Beat-Katalog: PLAN_ABGELEHNT (TYP_UNBEKANNT), kein kaputter Plan');
   mitRache(() => {
     const r = ins(g, ab('probe_stellung', { bezug: { nsc: 'Quintus Varro' } }));
@@ -365,12 +404,12 @@ section('Determinismus', () => {
 });
 
 section('Quelltext: kein Absichtsname, kein Beat-Typ, keine Zahl', () => {
-  const src = fs.readFileSync(path.join(__dirname, '..', 'server', 'sim', 'inszenierer.js'), 'utf8');
+  const src = ['inszenierer.js', 'absicht-verhandlung.js'].map((f) => fs.readFileSync(path.join(__dirname, '..', 'server', 'sim', f), 'utf8')).join('\n');   // auch die Verhandlung (SPL-02 C0)
   const namen = new Set([].concat(Object.keys(FIX.absichten), Object.keys(ECHT.absichten), ['bergbau', 'rache', 'rettung', 'forderung', 'hinterhalt', 'schmuggel', 'handel']));
   const quoted = (w) => new RegExp('[\'"`]' + w + '[\'"`]').test(src);
   const treffer = Array.from(namen).filter(quoted);
   ok(treffer.length === 0, 'kein Absichtsname als Zeichenkette im Code (geprueft: ' + namen.size + ' Namen' + (treffer.length ? '; Treffer: ' + treffer.join(', ') : '') + ')');
-  const beatTypen = Object.keys(D.BEATS).concat(['rache']);
+  const beatTypen = Object.keys(D.BEATS);
   const bt = beatTypen.filter(quoted);
   ok(bt.length === 0, 'kein Beat-Typ als Zeichenkette im Code (geprueft: ' + beatTypen.length + (bt.length ? '; Treffer: ' + bt.join(', ') : '') + ')');
   const kartenarten = require('../server/sim/abenteuer-orte.js').DATEN.arten.filter(quoted);

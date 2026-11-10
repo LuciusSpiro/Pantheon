@@ -22,7 +22,7 @@ function rngVon(text) {
 }
 const wahl = (rng, liste) => liste[Math.floor(rng() * liste.length) % liste.length];
 
-const planbar = () => Object.keys(D.BEATS).filter((t) => D.BEATS[t].bauplan && typeof D.BEATS[t].bauplan === 'object' && !D.BEATS[t].abschluss);
+const planbar = () => Object.keys(D.BEATS).filter((t) => D.BEATS[t].bauplan && typeof D.BEATS[t].bauplan === 'object' && !D.BEATS[t].abschluss && D.BEATS[t].nur_inszenierer !== true);   // nur_inszenierer: kein Zufallsplan (SPL-02 C0)
 const nscAlt = (t) => !!(D.BEATS[t].braucht && D.BEATS[t].braucht.nsc_alt === true);   // SUND-04b B1: Wiedersehen braucht einen NSC aus einem frueheren Faden
 const lageKey = (t) => (D.BEATS[t].braucht && D.BEATS[t].braucht.lage) || null;   // SUND-04b B2: ein Beat, der von der Lage abhaengt (Sabotage), steht nur im Plan, wenn der Kontext (faeden.lage) ein Ziel nennt
 const abschlussTyp = () => Object.keys(D.BEATS).find((t) => D.BEATS[t].abschluss);

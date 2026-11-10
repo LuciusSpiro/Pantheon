@@ -45,6 +45,7 @@ function katalogText() {
   for (const [typ, c] of Object.entries(B)) {
     const bp = c.bauplan;
     if (!bp || typeof bp !== 'object') continue;   // ein Typ ohne Standards kann in keinem Plan stehen
+    if (c.nur_inszenierer === true) continue;   // SPL-02 C0: nur ueber den Inszenierer planbar, nicht im Katalog des Modells (Datenfeld in beats.json)
     const br = c.braucht || {};
     const flags = [c.gefahr ? 'Gefahr' : null, c.szene ? 'Szene' : null].filter(Boolean);
     const opt = c.optionen === 'erlaubt' ? (bp.optionen_pflicht ? 'Optionen Pflicht ("optionen": true)' : 'Optionen erlaubt ("optionen": true)') : 'keine Optionen';

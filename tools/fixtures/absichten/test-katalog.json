@@ -20,6 +20,11 @@
       "fortsetzung": true,
       "wendungen": ["verfolgung"]
     },
+    "probe_rache": {
+      "zweck": "Absicht mit Pflichtbezug auf einen Kandidaten nach dem Beat-Typ rache (feindlich, aktiv oder geflohen), nicht nach dem ersten nsc_alt-Typ.",
+      "bezug": [{"name": "nsc", "pflicht": true, "kandidat": "rache"}],
+      "bogen_pflicht": ["einsatz", "preis"]
+    },
     "probe_kanon": {
       "zweck": "Absicht mit Pflichtbezug auf einen NSC des Kanons (kein Kandidat noetig), ohne Wendungsliste.",
       "bezug": [{"name": "nsc", "pflicht": true}],

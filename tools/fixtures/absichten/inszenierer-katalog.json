@@ -1,6 +1,6 @@
 {
   "format": "absichten-katalog/1",
-  "_hinweis": "Fixture fuer tools/test-inszenierer.js (SPL-02 B): Eintraege mit Rezept (`inszenierung`); `werte` kommt aus content/faeden/absichten.json. Die Namen sind Testnamen, keine Katalogeintraege des Spiels (der echte Katalog kommt mit Paket C). probe_stellung braucht die Zeile rache aus beat-rache.json (der Test traegt sie in D.BEATS ein, im Spiel steht sie nicht in beats.json: Bericht SPL-02 B).",
+  "_hinweis": "Fixture fuer tools/test-inszenierer.js (SPL-02 B): Eintraege mit Rezept (`inszenierung`); `werte` kommt aus content/faeden/absichten.json. Die Namen sind Testnamen, keine Katalogeintraege des Spiels (der echte Katalog kommt mit Paket C). probe_stellung braucht die Zeile rache in content/faeden/beats.json (seit SPL-02 C0 dort, nur_inszenierer).",
   "absichten": {
     "probe_erz": {
       "zweck": "Ein Auftraggeber schickt die Crew in eine Hoehle, Ware zu holen (Fixture: Ort mit Kartenart, Landeplatz, Ware aus den Daten).",
