@@ -17,6 +17,7 @@
   const POWER_SYS = PROTO.POWER_SYSTEMS || ['engines', 'shields', 'weapons'];   // PAN-01 A: Hauptsysteme; Bordmodule stehen in ship.mod
   const SYSTEMS = PROTO.SYSTEMS || ['reactor', 'engines', 'shields', 'weapons', 'transfer'];
   // PAN-01 B / LAD-01 A2: Frachtkapazität = 4 Plätze je Modul Frachtraum (Snapshot ship.mod, Code f)
+  const frachtRaeume = (st) => ((window.Shared_Maps && window.Shared_Maps.frachtRaeumeAusMod) ? window.Shared_Maps.frachtRaeumeAusMod(st && st.ship && st.ship.mod) : []);
   const frachtCap = (st) => ((window.Shared_Maps && window.Shared_Maps.cargoCapacity) ? window.Shared_Maps.cargoCapacity(window.Shared_Maps.frachtRaeumeAusMod(st && st.ship && st.ship.mod)) : 4);
   const CODE_COLORS = PROTO.CODE_COLORS || ['mint', 'bernstein', 'rot', 'blau', 'pink', 'weiss'];
   const CODE_HEX = PROTO.CODE_COLOR_HEX || {};
@@ -254,7 +255,7 @@
       const FL = window.Shared_Frachtliste;
       if (!FL) return;
       const cap = frachtCap(view.state);   // PAN-01 B / LAD-01 A2: 4 Plätze je Modul Frachtraum
-      const l = FL.frachtListe(view.state && view.state.fracht, cap);
+      const l = FL.frachtListe(view.state && view.state.fracht, cap, frachtRaeume(view.state));   // LAD-01 E: Kennzeichen je Posten, Füllstand je Modul
       const bx = box ? box.x : 8, bw = box ? box.w : VW - 16, y = box ? box.y : VH - 30, h = 12;   // Pult: Lage aus box (unten in der Anzeige)
       ctx.fillStyle = 'rgba(11,14,26,0.9)'; ctx.fillRect(bx, y, bw, h);
       ctx.strokeStyle = l.belegt ? PAL.brass : '#3A4250'; ctx.lineWidth = 1; ctx.strokeRect(bx + 0.5, y + 0.5, bw - 1, h - 1);
@@ -268,10 +269,12 @@
       for (const e of l.eintraege) {
         const col = e.art === 'person' ? PAL.mint : e.art === 'sprengstoff' ? PAL.red : e.art === 'deuterium' ? '#4FB6E8' : PAL.amber;
         ctx.fillStyle = col; ctx.fillRect(x, y + 3, 5, 5);
-        R.text(ctx, e.text, x + 8, y + 2, { color: PAL.star, shadow: false });
+        if (e.illegal) { ctx.strokeStyle = PAL.red; ctx.strokeRect(x - 0.5, y + 2.5, 6, 6); }   // LAD-01 E: Illegal = roter Rahmen um die Marke und roter Text (Text ist nicht nur Farbe: „ILLEGAL“ steht dabei)
+        R.text(ctx, e.text, x + 8, y + 2, { color: e.illegal ? PAL.red : e.auftrag ? PAL.mint : PAL.star, shadow: false });
         x += 8 + R.measure(e.text, 1) + 10;
       }
       if (l.frei) { R.text(ctx, l.frei + ' frei', x, y + 2, { color: PAL.panelLight, shadow: false }); x += R.measure(l.frei + ' frei', 1); }
+      if (l.modulText && x + 10 + R.measure(l.modulText, 1) < bx + bw - 4) { x += 8; R.text(ctx, '[' + l.modulText + ']', x, y + 2, { color: PAL.panelLight, shadow: false }); x += R.measure('[' + l.modulText + ']', 1); }   // LAD-01 E: Füllstand je Modul, nur wenn Platz ist
       return { y, ende: x, rechts: bx + bw };
     },
 
@@ -1928,6 +1931,7 @@
       else if (lager.length + (fr.pers || []).length >= cap) beam = 'Frachtraum voll (' + (lager.length + (fr.pers || []).length) + '/' + cap + ') – erst abliefern';   // SL0: Personen belegen Plätze
       else if (!draus.length) beam = 'Keine Fracht in diesem Gebiet';
       else if (!near.length) beam = 'Keine Fracht in Reichweite (' + beamR + ')';
+      else if (window.Shared_Frachtliste) { const nah = near.slice().sort((p, q) => Math.hypot(p.x - n(ship.x), p.y - n(ship.y)) - Math.hypot(q.x - n(ship.x), q.y - n(ship.y)))[0]; beam = window.Shared_Frachtliste.platzGrund(fr, frachtRaeume(st), nah.art); }   // LAD-01 E: Typ-Regel (ein Modul, eine Art) schon am Knopf sichtbar
       let ab = null;
       if (sysDown(ship, 'transfer')) ab = 'Transfer ausgefallen – reparieren';
       else if (!lager.length) ab = 'Keine Fracht an Bord';
@@ -1954,7 +1958,7 @@
         R.bar(ctx, x + 134, by + 3, w - 138, 6, n(halt.p), PAL.mint);
       } else {
         const frei = (view.state.fracht && ((fr.lager || []).length + pers.length) < frachtCap(view.state));
-        const whyUp = !pq.length ? 'Niemand am Landepunkt in Reichweite (Landepunkt gescannt?)' : !frei ? 'Frachtraum voll – erst abgeben' : null;
+        const whyUp = !pq.length ? 'Niemand am Landepunkt in Reichweite (Landepunkt gescannt?)' : !frei ? 'Frachtraum voll – erst abgeben' : (window.Shared_Frachtliste ? window.Shared_Frachtliste.platzGrund(fr, frachtRaeume(view.state), 'person') : null);
         R.button(ctx, x + 4, by, 126, 12, 'Person beamen', { hotkey: 'U', disabled: !!whyUp, reason: whyUp, onClick: () => this.cmd(view, 'weapons.person', {}) });
         R.button(ctx, x + 134, by, w - 138, 12, 'Person abgeben', { hotkey: 'B', disabled: !pers.length, reason: 'Keine Person an Bord', onClick: () => this.cmd(view, 'weapons.person_ab') });
       }
@@ -2049,13 +2053,16 @@
       this.stapelH = h + 3;
       ctx.fillStyle = 'rgba(11,14,26,0.82)'; ctx.fillRect(x, y, w, h);
       ctx.strokeStyle = PAL.brass; ctx.lineWidth = 1; ctx.strokeRect(x + 0.5, y + 0.5, w - 1, h - 1);
-      const names = f.lager.map(a => (window.Shared_Waren ? window.Shared_Waren.name(a) : String(a)));   // LAD-01 A1: Name aus content/waren.json
+      const FLs = window.Shared_Frachtliste;
+      const fl = FLs ? FLs.frachtListe({ lager: f.lager, le: f.fr.le }, f.cap) : null;   // LAD-01 E: Name aus content/waren.json mit Kennzeichen (Illegal, Auftragsware, enttarnt)
+      const names = fl ? fl.eintraege.map(e => e.text) : f.lager.map(a => String(a));
+      const illegalDa = !!(fl && fl.eintraege.some(e => e.illegal));
       // SUND-02b UI2: Kopf mit Fortschritt und kurze Abbruchzeile aus PostenAnzeige.halt (der lange Hinweis lief über den Rand der Leiste); Rot als Text = Hellrot (Protanopie)
       const PH = postenHalt && window.PostenAnzeige ? PostenAnzeige.halt(f.halt) : null;
       const PT = (window.KarteTokens && KarteTokens.PULT) || {};
       const phFarbe = (k) => (k === 'gefahr' ? PT.notruf || PAL.red : k === 'hinweis' ? PAL.star : PAL.mint);
       if (PH) R.text(ctx, PH.kopf, x + 4, y + 3, { color: phFarbe(PH.kopfFarbe) }); else
-      R.text(ctx, 'FRACHT ' + f.lager.length + '/' + f.cap + (names.length ? ' · ' + names.join(', ') : '') + (f.fr.fuell ? (schoepft ? ' · schöpft ' : ' · Füllstand ') + Math.round(n(f.fr.fuell) * 100) + ' %' : ''), x + 4, y + 3, { color: f.lager.length ? PAL.amber : PAL.panelLight });
+      R.text(ctx, 'FRACHT ' + f.lager.length + '/' + f.cap + (names.length ? ' · ' + names.join(', ') : '') + (f.fr.fuell ? (schoepft ? ' · schöpft ' : ' · Füllstand ') + Math.round(n(f.fr.fuell) * 100) + ' %' : ''), x + 4, y + 3, { color: illegalDa ? PAL.red : f.lager.length ? PAL.amber : PAL.panelLight });
       if (f.fr.g === false) R.text(ctx, 'UNGESICHERT', x + w - 4, y + 3, { color: PAL.red, align: 'right' });
       else if (f.fr.abn) R.text(ctx, 'an ' + f.fr.abn, x + w - 4, y + 3, { color: PAL.panelLight, align: 'right' });
       const by = y + 13;
@@ -2078,7 +2085,7 @@
           R.button(ctx, x + 4, by + 14, 126, 12, 'Gas schöpfen', { hotkey: 'C', disabled: !!why, reason: why, active: !why, onClick: () => this.cmd(view, 'weapons.schoepfen') });
           R.button(ctx, x + 134, by + 14, w - 138, 12, 'Ladung abwerfen', { hotkey: 'X', disabled: !ware, reason: 'Keine Ware an Bord', onClick: () => this.cmd(view, 'weapons.abwerfen') });
         } else if (ware) {   // SL6: Deuterium verkaufen (Händler in Reichweite) / eine Einheit abwerfen (schneller steigen)
-          R.button(ctx, x + 4, by + 14, 126, 12, 'Verkaufen', { hotkey: 'V', disabled: !f.fr.vk, reason: !f.fr.vk ? 'Kein Händler in Reichweite' : null, onClick: () => this.cmd(view, 'weapons.verkaufen') });
+          R.button(ctx, x + 4, by + 14, 126, 12, 'Verkaufen', { hotkey: 'V', disabled: !f.fr.vk, reason: !f.fr.vk ? (FLs ? FLs.verkaufGrund(f.fr) : 'Kein Händler in Reichweite') : null, onClick: () => this.cmd(view, 'weapons.verkaufen') });
           R.button(ctx, x + 134, by + 14, w - 138, 12, 'Ladung abwerfen', { hotkey: 'X', onClick: () => this.cmd(view, 'weapons.abwerfen') });
         }
       }

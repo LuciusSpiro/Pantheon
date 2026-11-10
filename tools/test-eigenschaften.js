@@ -276,5 +276,29 @@ section('Snapshot-Kosten: gefüllter Frachtraum mit Flags', () => {
   ok(Buffer.byteLength(JSON.stringify(g.snapshot().fracht.le)) <= 40, 'le kompakt (' + JSON.stringify(g.snapshot().fracht.le) + ')');
 });
 
+section('LAD-01 E: der Quartiermeister (fracht_zuteilen) räumt nie Auftragsware aus', () => {
+  const g = bereit(47);
+  const odas = []; const o0 = g.oda.bind(g); g.oda = (t, k) => { odas.push(String(t)); return o0(t, k); };
+  raeume(g, [1, 2]); leer(g);
+  for (let i = 0; i < 4; i++) aufn(g, 'erz', { auftrag: 'f1' });
+  for (let i = 0; i < 2; i++) aufn(g, 'waffen', {});
+  ok(Fracht.zuteilen(g, 'sprengstoff') === true, 'normale Ware im zweiten Modul: ausgeräumt, Sprengstoff passt');
+  ok(g.fracht.lager.filter((l) => l.art === 'erz' && l.eig && l.eig.auftrag).length === 4 && !g.fracht.lager.some((l) => l.art === 'waffen') && g.fracht.lager.some((l) => l.art === 'sprengstoff'), 'Auftrags-Erz bleibt (4), Waffen weg, Sprengstoff an Bord');
+  // beide Module nur Auftragsware: Zuteilung schlägt fehl, nichts wird ausgeräumt, Meldung
+  leer(g);
+  for (let i = 0; i < 4; i++) aufn(g, 'erz', { auftrag: 'f1' });
+  for (let i = 0; i < 2; i++) aufn(g, 'waffen', { auftrag: 'f2' });
+  odas.length = 0;
+  ok(Fracht.zuteilen(g, 'sprengstoff') === false, 'nur Auftragsware in den Modulen: Zuteilung schlägt fehl');
+  ok(g.fracht.lager.length === 6 && g.fracht.lager.every((l) => l.eig && l.eig.auftrag), 'Auftragsware vollständig erhalten (6)');
+  ok(odas.some((t) => /Kein Frachtraum frei/.test(t)) && !odas.some((t) => /Quartiermeister/.test(t)), 'Meldung „Kein Frachtraum frei“, kein Quartiermeister-Text');
+  // gemischt: eine Art mit auch nur einem Auftragsposten wird als Ganzes nicht angerührt
+  leer(g);
+  for (let i = 0; i < 3; i++) aufn(g, 'erz', { auftrag: 'f1' });
+  aufn(g, 'erz', {});
+  for (let i = 0; i < 2; i++) aufn(g, 'waffen', { auftrag: 'f2' });
+  ok(Fracht.zuteilen(g, 'sprengstoff') === false && g.fracht.lager.length === 6, 'Art mit Auftragsposten bleibt unangetastet');
+});
+
 console.log(`\n${n - fails}/${n} Prüfungen ok${fails ? ' – ' + fails + ' FEHLER' : ''}`);
 process.exit(fails ? 1 : 0);

@@ -169,7 +169,9 @@ function fremdesModulRaeumen(game, art) {
   const s = state(game);
   const b = belegung(game);
   if (b.module.some((m) => !m.art)) return false;
-  const kand = b.module.filter((m) => m.art && m.art !== 'person' && m.art !== art).sort((x, y) => x.anzahl - y.anzahl)[0];
+  // LAD-01 E: Auftragsware (Eigenschaft auftrag) gehört dem Auftraggeber und wird nie ausgeräumt; ein Modul, in dem solche Ware liegt, kommt nicht in Frage
+  const ausraeumbar = (a) => !s.lager.some((l) => l.art === a && hatAuftrag(l));
+  const kand = b.module.filter((m) => m.art && m.art !== 'person' && m.art !== art && ausraeumbar(m.art)).sort((x, y) => x.anzahl - y.anzahl)[0];
   if (!kand) return false;
   const n = s.lager.filter((l) => l.art === kand.art).length;
   s.lager = s.lager.filter((l) => l.art !== kand.art);
@@ -398,7 +400,7 @@ function update(game, dt) {
 
 // ---------- Snapshot / Weltstand ----------
 // Kompakt (Budget): fehlt = Standard. lager ['art'], draussen [{ id, x, y, art }] (nur diese Szene), halt { kind, id?, p 0..1 },
-// ab 1 = jetzt abgebbar, abn = Name des Abnehmers (nur wenn gesetzt), g false = ungesichert.
+// ab 1 = jetzt abgebbar, vk 1 = Händler in Reichweite, vg = Code, warum nicht verkaufbar (ladung.verkaufOrt, nur mit Ware an Bord), abn = Name des Abnehmers (nur wenn gesetzt), g false = ungesichert.
 function snapshot(game) {
   const s = game.fracht;
   if (!s) return null;
@@ -417,7 +419,7 @@ function snapshot(game) {
   if (s.abnehmer && s.abnehmer.name) out.abn = s.abnehmer.name;
   if (s.gesichert === false) out.g = false;
   { const fu = require('./ladung.js').fuellStand(game); if (fu) out.fuell = fu; }   // SL6: Füllstand der nächsten Deuterium-Einheit
-  { const vk = require('./ladung.js').verkaufOrt(game); if (vk.ok) out.vk = 1; }   // SL6: Händler in Reichweite (Verkaufen möglich)
+  { const vk = require('./ladung.js').verkaufOrt(game); if (vk.ok) out.vk = 1; else if (vk.code && ware.length) out.vg = vk.code; }   // SL6: Händler in Reichweite (Verkaufen möglich); LAD-01 E: vg = Verkaufsgrund (1-Byte-Code, Texte im Client)
   return Object.keys(out).length ? out : null;
 }
 // SUND-04b B2 (Nacharbeit M1): die Beute einer laufenden Faden-Szene Konvoi (state.szenenBeute { art, tag }, nur Laufzeit) gehoert nicht in den Stand: die Szene ist nicht speicherbar, nach dem Laden gaebe es sie nicht mehr abzuliefern.
