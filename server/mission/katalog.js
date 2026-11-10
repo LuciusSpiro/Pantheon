@@ -86,13 +86,18 @@ function resolveParams(u, given) {
     vars[n] = v;
   }
   for (const n of Object.keys(given)) if (!(n in u.params)) errs.push(`unbekannter Parameter '${n}'`);
-  return { vars, errs };
+  // MON-03 D: abgeleitet { <param>: { <wert>: { <var>: Wert } } }: Der gewählte Wert eines Parameters bringt weitere Platzhalter-Werte mit (z. B. die Art einer Begegnung -> Aktion und Bedingung der Szene).
+  // Reine Daten, kein Name im Code; die Werte dürfen {{map}}, {{id}} u. a. enthalten (Auflösung in instantiate).
+  const abg = {};
+  for (const [n, tab] of Object.entries(u.abgeleitet || {})) if (n in vars && tab && Object.prototype.hasOwnProperty.call(tab, vars[n])) Object.assign(abg, tab[vars[n]]);
+  return { vars, errs, abgeleitet: abg };
 }
 // Umsetzung -> Regiebuch-Fragment (für eine Szene). id = Instanz-Präfix, weiter = Folgeschritt.
 // EK2: rueckzug = Ziel des Ausgangs „Rückzug“ (Notfallsprung, Platzhalter {{rueckzug}}); ohne Angabe wie weiter.
 function instantiate(u, given, id, weiter, rueckzug) {
-  const { vars, errs } = resolveParams(u, given);
-  const frag = expand(u.vorlage, Object.assign({}, vars, { id, weiter, rueckzug: rueckzug !== undefined ? rueckzug : weiter }));
+  const { vars, errs, abgeleitet } = resolveParams(u, given);
+  const alle = Object.assign({}, vars, { id, weiter, rueckzug: rueckzug !== undefined ? rueckzug : weiter });
+  const frag = expand(u.vorlage, Object.assign({}, alle, expand(abgeleitet, alle)));
   return { frag, errs };
 }
 // Testregiebuch um ein Fragment herum (für die Prüfung beim Laden)

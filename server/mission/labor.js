@@ -143,6 +143,13 @@ function ueberschreibungen(u, params) {
   return o;
 }
 
+// Hat die Umsetzung einen festen Test-Landepunkt (Handkarte oder Eintrag in landepunkte.json)? Sonst entsteht ihre Karte zur Laufzeit (buehne).
+function festerLandepunkt(u) {
+  const map = u.test && u.test.params && u.test.params.map;
+  if (!map || !kartenarten(u).length) return true;
+  const W = require('../world.js'); const L = require('../sim/landepunkte.js');
+  return !!(W.istHand(map) || L.defs().byId[map]);
+}
 // Startet die Umsetzung in einer laufenden Partie (game.phase 'play', Spieler an Bord; Aufruf aus game.startGame bzw. Tests).
 function laborStart(game, id, params) {
   const q = params || {};
@@ -152,8 +159,10 @@ function laborStart(game, id, params) {
   if (!e) return laborFail(game, `Umsetzung „${id}“ ist im Labor nicht verfügbar.`);
   const u = umsetzungVon(kat, id);
   const ov = ueberschreibungen(u, q);
-  if (q.buehne) {
-    const err = buehneAnlegen(game, u, q, ov);
+  // Gelände entsteht erst zur Laufzeit (Höhle, Wildnis: kein fester Landepunkt): ohne ausdrückliche buehne die erste Kartenart der Umsetzung neu anlegen (MON-03 D)
+  const buehne = q.buehne || (u.params.map && !festerLandepunkt(u) ? { kartenart: kartenarten(u)[0] } : null);
+  if (buehne) {
+    const err = buehneAnlegen(game, u, Object.assign({}, q, { buehne }), ov);
     if (err) return laborFail(game, err);
   }
   return starte(game, kat, [{ key: id, u, override: ov, loc: ov.loc }], { id, name: e.name, eintrag: e, ov }, q);
