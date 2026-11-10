@@ -43,8 +43,9 @@ const FURN_ID = {
 };
 // PAN-01 B / LAD-01 A2: Modulplätze (mod_a/c) nach Modul im Raum (Code f Frachtraum, k Krankenstation, w Werkstatt, ohne Modul Stauware): [Modell, Parameterart]
 // Voxelwerk-Lieferung (Tabelle des Voxel-Entwicklers): A Frachtplatz (Bett im Personen-Modul, sonst Ware; BED_ID) / Liege / Werkbank, C Containerstapel / Scanner / Drehbank.
+const LADEPLATZ_ID = 'lerche/furn/ladeplatz';   // LAD-01 F2: ein Platz im Frachtraum, Form nach String-Parameter darstellung (Teilmodelle ladeplatz_<darstellung>)
 const MODUL_ID = {
-  mod_a: { f: ['lerche/furn/cargo_bay', 'bay'], k: ['lerche/furn/med_bed', null], w: ['lerche/furn/workbench', null] },
+  mod_a: { f: [LADEPLATZ_ID, 'bay'], k: ['lerche/furn/med_bed', null], w: ['lerche/furn/workbench', null] },
   mod_c: { f: ['lerche/furn/container_stack', 'container'], k: ['lerche/furn/scanner', 'scanner'], w: ['lerche/furn/lathe', 'drehbank'] },
 };
 const BED_ID = 'lerche/furn/bed', CRATE_ID = 'lerche/furn/crate', STOWAGE_ID = 'lerche/furn/stowage', LAFETTE_ID = 'lerche/station/lafette', SEALED_ID = 'lerche/kit/door_sealed';
@@ -412,8 +413,8 @@ function buildDynamic(ctx, S) {
         const code = r && r.modul && st.ship ? M.modulCodeImRaum(st.ship.mod, r.modul) : null;
         const p = { code: code || '-' };
         if (code === 'f' && kind === 'mod_a') {   // LAD-01 A2: Platz aus der Belegung (Typ-Regel): Personen-Modul zeigt Betten, sonst Ware oder leer
-          const info = M.frachtPlatzAn(M.frachtBelegungAusSnapshot(st), o.tx, o.ty); const f = st.fracht || {}; const c = info ? info.art : null;
-          p.art = c && c !== 'person' ? (c === 'sprengstoff' ? 1 : c === 'deuterium' ? 3 : 2) : 0; p.person = info && info.modulArt === 'person' ? 1 : 0; p.gesichert = f.g === false ? 0 : 1;
+          const info = M.frachtPlatzAn(M.frachtBelegungAusSnapshot(st), o.tx, o.ty); const f = st.fracht || {};
+          p.darstellung = window.Shared_Waren ? window.Shared_Waren.platzDarstellung(info) : (info && info.modulArt === 'person' ? 'bett' : info && info.art ? 'kiste' : 'leer'); p.gesichert = f.g === false ? 0 : 1;   // LAD-01 F2: Schlüssel aus waren.json (unbekannt/noch nicht geladen: kiste), leer, bett
         }
         return p;
       }, { modul: kind });
@@ -572,8 +573,8 @@ function placeObj(ctx, S, e, params) {
     if (!mm) { id = STOWAGE_ID; params = { v: vv }; }
     else {
       id = mm[0];
-      if (mm[1] === 'bay' && params.person) id = BED_ID;   // LAD-01 A2: Personen-Modul, jeder Platz ein Bett (die liegende Person kommt als ship.npcs-Figur)
-      params = mm[1] === 'bay' ? (params.person ? { color: 3 } : { art: params.art || 0, gesichert: params.gesichert == null ? 1 : params.gesichert })
+      // LAD-01 F2: Platzmodell nach Darstellung (bett im Personen-Modul, die liegende Person kommt als ship.npcs-Figur)
+      params = mm[1] === 'bay' ? { darstellung: params.darstellung || 'leer', gesichert: params.gesichert == null ? 1 : params.gesichert }
         : mm[1] === 'container' ? { farbe: vv } : mm[1] === 'scanner' ? { aktiv: 0 } : mm[1] === 'drehbank' ? { lauf: 0 } : mm[1] === 'schrank' ? { open: 0 } : mm[1] === 'werkzeug' ? { voll: 1, lampe: 0 } : {};
     }
   }

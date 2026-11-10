@@ -1,0 +1,33 @@
+{
+  "id": "lerche/furn/ladeplatz",
+  "name": "Ladeplatz (Lerche, Frachtraum): ein Platz, Darstellung je Ware per Schlüssel",
+  "tier": "detail",
+  "palette": "lerche_rom",
+  "tags": ["lerche", "furn", "lager", "fracht", "ladung", "ladeplatz", "lad01"],
+  "footprint": [1, 1],
+  "params": {
+    "darstellung": {
+      "default": "kiste",
+      "options": ["leer", "kiste", "waffenkiste", "erzbrocken", "schrott", "fass", "sprengkiste", "kiste_med", "bett"],
+      "label": "Darstellung (= Feld darstellung in content/waren.json)"
+    },
+    "gesichert": { "default": 1, "min": 0, "max": 1, "step": 1, "label": "Sicherung (1 gesichert, 0 ungesichert; ohne Wirkung beim Bett)" }
+  },
+  "variants": {
+    "leer": { "darstellung": "leer" },
+    "kiste": { "darstellung": "kiste" },
+    "waffenkiste": { "darstellung": "waffenkiste" },
+    "erzbrocken": { "darstellung": "erzbrocken" },
+    "schrott": { "darstellung": "schrott" },
+    "fass": { "darstellung": "fass" },
+    "sprengkiste": { "darstellung": "sprengkiste" },
+    "kiste_med": { "darstellung": "kiste_med" },
+    "bett": { "darstellung": "bett" }
+  },
+  "ops": [
+    { "op": "use", "name": "Darstellung nach Schlüssel", "model": "lerche/furn/ladeplatz_{darstellung}",
+      "fallback": ["lerche/furn/ladeplatz_kiste"],
+      "params": { "gesichert": "gesichert" }, "at": [8, 0, 8] }
+  ],
+  "anchor": [8, 0, 8]
+}

@@ -8,6 +8,7 @@
   'use strict';
   const FELDER = ['id', 'name', 'grundpreis', 'gewicht', 'eigenschaften', 'darstellung', 'kategorie'];
   const KATEGORIEN = ['ware', 'person'];
+  const DARSTELLUNG_STANDARD = 'kiste';
   let standard = 'sprengstoff';
   const index = new Map();
 
@@ -46,11 +47,19 @@
   const name = (id) => { const w = index.get(id); return w ? w.name : String(id); };
   const grundpreis = (id) => { const w = index.get(id); return w ? w.grundpreis : 0; };
   const gewicht = (id) => { const w = index.get(id); return w ? w.gewicht : 0; };
+  // LAD-01 F2: Schlüssel des Frachtraum-Modells (Voxelwerk lerche/furn/ladeplatz, Parameter darstellung). Unbekannte Ware oder Katalog noch nicht geladen: Kiste.
+  const darstellung = (id) => { const w = index.get(id); return w && w.darstellung ? w.darstellung : DARSTELLUNG_STANDARD; };
+  // Darstellung eines Frachtplatzes aus Maps.frachtPlatzAn(...): kein Platz oder leer = 'leer', Personen-Modul = 'bett', sonst die Darstellung der Ware auf dem Platz
+  function platzDarstellung(info) {
+    if (!info) return 'leer';
+    if (info.modulArt === 'person') return 'bett';
+    return info.art ? darstellung(info.art) : 'leer';
+  }
 
   if (daten) setze(daten);
   else if (root && typeof root.fetch === 'function') {
     root.fetch('/content/waren.json').then((r) => (r.ok ? r.json() : null)).then(setze).catch(() => { /* ohne Daten: Anzeigename = Kennung */ });
   }
 
-  return { FELDER, KATEGORIEN, pruefe, registrieren, entfernen, setze, get, liste, artOk, arten, name, grundpreis, gewicht, standard: () => standard };
+  return { FELDER, KATEGORIEN, pruefe, registrieren, entfernen, setze, get, liste, artOk, arten, name, grundpreis, gewicht, darstellung, platzDarstellung, DARSTELLUNG_STANDARD, standard: () => standard };
 });

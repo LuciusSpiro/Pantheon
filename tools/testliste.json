@@ -79,6 +79,7 @@
   {"id":"test-alarm","kette":"test","cmd":["tools/test-alarm.js"],"stufe":"fast","budget_s":9},
   {"id":"test-lager","kette":"test","cmd":["tools/test-lager.js"],"stufe":"fast","budget_s":8},
   {"id":"test-waren","kette":"test","cmd":["tools/test-waren.js"],"stufe":"fast","budget_s":8},
+  {"id":"test-frachtdarstellung","kette":"test","cmd":["tools/test-frachtdarstellung.js"],"stufe":"full","budget_s":8},
   {"id":"test-typregel","kette":"test","cmd":["tools/test-typregel.js"],"stufe":"full","budget_s":40},
   {"id":"test-lager-zusammen","kette":"test","cmd":["tools/test-lager-zusammen.js"],"stufe":"full","budget_s":20},
   {"id":"test-handel","kette":"test","cmd":["tools/test-handel.js"],"stufe":"full","budget_s":10},

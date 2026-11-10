@@ -1,0 +1,29 @@
+{
+  "id": "lerche/furn/ladeplatz_schrott",
+  "name": "Ladeplatz Bergungsgut (Lerche; zusammengewürfelte Teile: Platte, Fass, Rad, Rohr, Paneel)",
+  "tier": "detail",
+  "palette": "lerche_rom",
+  "tags": ["lerche", "furn", "lager", "fracht", "ladeplatz", "bergungsgut", "lad01"],
+  "footprint": [1, 1],
+  "params": {
+    "gesichert": { "default": 1, "min": 0, "max": 1, "step": 1, "label": "Sicherung" }
+  },
+  "ops": [
+    { "op": "use", "name": "Plattform", "model": "lerche/furn/cargo_bay", "params": { "art": 0, "gesichert": "gesichert" }, "at": [8, 0, 8] },
+    { "op": "box", "name": "Netzboden", "at": [2, 1, 2], "size": [12, 1, 12], "color": { "checker": ["#6B4A33", "#4E3626"], "period": 1 } },
+    { "op": "wedge", "name": "Rumpfplatte schräg", "at": [2, 2, 2], "size": [8, 7, 2], "slope": "+x", "color": { "noise": ["metal", "metal_light"], "weights": [3, 1], "cell": 1 } },
+    { "op": "box", "name": "Rumpfplatte Nietenband", "at": [2, 2, 4], "size": [4, 1, 1], "color": "trim", "jitter": false },
+    { "op": "cyl", "name": "Rostfass", "at": [11, 2, 5], "r": 2.5, "h": 6, "color": { "noise": ["#8A4B2B", "#6E3A22"], "weights": [2, 1], "cell": 1 } },
+    { "op": "cyl", "name": "Rostfass Band", "at": [11, 4, 5], "r": 2.7, "h": 1, "color": "metal", "jitter": false },
+    { "op": "cyl", "name": "Rad", "at": [5, 4, 9], "r": 3, "h": 2, "axis": "z", "color": "rubber" },
+    { "op": "cyl", "name": "Radnabe", "at": [5, 4, 11], "r": 1.2, "h": 1, "axis": "z", "color": "trim", "jitter": false },
+    { "op": "box", "name": "Roter Paneelrest", "at": [8, 2, 8], "size": [4, 4, 4], "color": "primary" },
+    { "op": "box", "name": "Gelbes Warnteil", "at": [9, 6, 9], "size": [3, 1, 3], "color": { "checker": ["#E8C21A", "black"] }, "jitter": false },
+    { "op": "box", "name": "Solarglas", "at": [10, 7, 4], "size": [3, 1, 4], "color": "#3A7CA5", "jitter": false },
+    { "op": "line", "name": "Rohr", "from": [3, 5, 11], "to": [13, 8, 12], "r": 1.2, "color": "metal_light" },
+    { "op": "line", "name": "Kabel", "from": [6, 6, 8], "to": [12, 3, 12], "r": 0.5, "color": "glow2", "jitter": false },
+    { "op": "box", "name": "Plane Stoff", "at": [2, 2, 9], "size": [3, 3, 4], "color": "cloth2" },
+    { "op": "box", "name": "Stützstrebe", "at": [8, 6, 6], "size": [1, 3, 1], "color": "wood" }
+  ],
+  "anchor": [8, 0, 8]
+}

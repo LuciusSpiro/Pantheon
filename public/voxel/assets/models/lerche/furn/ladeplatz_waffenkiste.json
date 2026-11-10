@@ -1,0 +1,28 @@
+{
+  "id": "lerche/furn/ladeplatz_waffenkiste",
+  "name": "Ladeplatz Waffenkiste (Lerche; lange flache olivgrüne Kisten, Warnband, rote Stirnseiten)",
+  "tier": "detail",
+  "palette": "lerche_rom",
+  "tags": ["lerche", "furn", "lager", "fracht", "ladeplatz", "waffen", "lad01"],
+  "footprint": [1, 1],
+  "params": {
+    "gesichert": { "default": 1, "min": 0, "max": 1, "step": 1, "label": "Sicherung" }
+  },
+  "ops": [
+    { "op": "use", "name": "Plattform", "model": "lerche/furn/cargo_bay", "params": { "art": 0, "gesichert": "gesichert" }, "at": [8, 0, 8] },
+    { "op": "box", "name": "Kiste hinten", "at": [2, 1, 2], "size": [12, 4, 5], "color": { "noise": ["#4B5538", "#424B32"], "weights": [3, 1], "cell": 2 } },
+    { "op": "box", "name": "Kiste vorn", "at": [2, 1, 8], "size": [12, 4, 5], "color": { "noise": ["#4B5538", "#424B32"], "weights": [3, 1], "cell": 2 } },
+    { "op": "box", "name": "Kiste oben quer", "at": [2, 5, 4], "size": [12, 4, 7], "color": { "noise": ["#4B5538", "#424B32"], "weights": [3, 1], "cell": 2 } },
+    { "op": "box", "name": "Deckel oben", "at": [3, 9, 5], "size": [10, 1, 5], "color": "metal_dark" },
+    { "op": "box", "name": "Stirn rot hinten links", "at": [1, 1, 2], "size": [1, 4, 5], "color": "primary", "jitter": false },
+    { "op": "box", "name": "Stirn rot hinten rechts", "at": [14, 1, 2], "size": [1, 4, 5], "color": "primary", "jitter": false },
+    { "op": "box", "name": "Stirn rot vorn links", "at": [1, 1, 8], "size": [1, 4, 5], "color": "primary", "jitter": false },
+    { "op": "box", "name": "Stirn rot vorn rechts", "at": [14, 1, 8], "size": [1, 4, 5], "color": "primary", "jitter": false },
+    { "op": "box", "name": "Warnband quer oben", "at": [3, 6, 11], "size": [10, 2, 1], "color": { "checker": ["#E8C21A", "black"] }, "jitter": false },
+    { "op": "box", "name": "Warnband vorn", "at": [3, 2, 13], "size": [10, 2, 1], "color": { "checker": ["#E8C21A", "black"] }, "jitter": false },
+    { "op": "box", "name": "Verschluss vorn", "at": [4, 4, 13], "size": [1, 1, 1], "color": "metal_light", "mirror": "x", "mirrorAt": 8 },
+    { "op": "box", "name": "Verschluss oben", "at": [4, 8, 11], "size": [1, 1, 1], "color": "metal_light", "mirror": "x", "mirrorAt": 8 },
+    { "op": "box", "name": "Spanngurt", "at": [7, 9, 4], "size": [2, 1, 7], "color": "trim", "jitter": false }
+  ],
+  "anchor": [8, 0, 8]
+}

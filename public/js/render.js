@@ -2567,7 +2567,7 @@
           if (kind === 'cargo_bay') {   // EK3 Teil A / LAD-01 A2: Ladung dieses Platzes aus der Belegung (Typ-Regel); Personen-Modul = Pritsche (die liegende Person kommt als ship.npcs-Figur, lie: 1)
             const info = Maps.frachtPlatzAn(Maps.frachtBelegungAusSnapshot(st), d.tx, d.ty);
             if (info && info.modulArt === 'person') kind = 'cargo_cot';
-            else { opts.cargo = info && info.art ? { art: info.art } : null; opts.secure = !(st.fracht && st.fracht.g === false); }
+            else { opts.cargo = info && info.art ? { art: info.art, darstellung: window.Shared_Waren ? window.Shared_Waren.darstellung(info.art) : 'kiste' } : null; opts.secure = !(st.fracht && st.fracht.g === false); }
           }
           if (kind === 'sonde') opts.disabled = sondeDisabled;
           if (kind === 'barrel' || kind === 'pipes' || kind === 'control_desk') opts.variant = (d.tx * 7 + d.ty * 3) % 2;   // M0: Fass/Kabeltrommel, Rohr-Varianten

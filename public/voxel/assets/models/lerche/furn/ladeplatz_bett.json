@@ -1,0 +1,48 @@
+{
+  "id": "lerche/furn/ladeplatz_bett",
+  "name": "Ladeplatz Bett (Lerche; Teil von ladeplatz, Person: nutzt lerche/furn/bed, Decke 3 Gast)",
+  "tier": "detail",
+  "palette": "lerche_rom",
+  "tags": [
+    "lerche",
+    "furn",
+    "lager",
+    "fracht",
+    "ladeplatz",
+    "bett",
+    "lad01"
+  ],
+  "footprint": [
+    1,
+    1
+  ],
+  "params": {
+    "gesichert": {
+      "default": 1,
+      "min": 0,
+      "max": 1,
+      "step": 1,
+      "label": "ohne Wirkung (gleiche Schnittstelle wie die anderen Ladeplätze)"
+    }
+  },
+  "ops": [
+    {
+      "op": "use",
+      "name": "Bett Gast",
+      "model": "lerche/furn/bed",
+      "params": {
+        "color": 3
+      },
+      "at": [
+        8,
+        0,
+        8
+      ]
+    }
+  ],
+  "anchor": [
+    8,
+    0,
+    8
+  ]
+}
