@@ -256,7 +256,7 @@ section('TEXT_UNZULAESSIG: Laenge, Platzhalter, Eigennamen, Spielernamen', () =>
   ok(AP.pruefeAbsicht(g, mit, KAT).ok, 'auch ein Teil des Vollnamens des Bezugs (Varro)');
   mit.bogen.einsatz = 'Quintus Varro und Titus Calder kehren mit dem Geschwader zurueck und wollen Rache.';
   ok(text('bogen.einsatz', AP.pruefeAbsicht(g, mit, KAT)), 'ein zweiter NSC im Text, der nicht der Bezug ist: unzulaessig');
-  // SPL-02 C0: gewoehnliche deutsche Woerter (Dorn, Rabe, Halbmond) sind keine Eigennamen; am Satzanfang zaehlen nur Vornamen und volle Namen
+  // SPL-02 C0: gewoehnliche deutsche Woerter (Dorn, Rabe, Halbmond) sind keine Eigennamen; Namen aus den Listen gelten auch am Satzanfang
   const einsatzFehler = (txt, k) => { const x = AP.pruefeAbsicht(g, eins({ einsatz: txt }), k || KAT); return x.fehler.find((y) => y.code === C.TEXT_UNZULAESSIG && y.feld === 'bogen.einsatz'); };
   ok(!einsatzFehler('Der Dorn im Fleisch der Crew sitzt tief und schmerzt noch.'), 'Dorn in der Satzmitte (Datenliste gewoehnliche_woerter): kein Eigenname');
   ok(!einsatzFehler('Dorn und Stachel sitzen tief im Fleisch der Crew, sagt man.'), 'Dorn am Satzanfang: kein Eigenname');
@@ -268,7 +268,10 @@ section('TEXT_UNZULAESSIG: Laenge, Platzhalter, Eigennamen, Spielernamen', () =>
   ok(!!einsatzFehler('Die Crew trifft Varro am Sprungpunkt und will die Schuld.'), 'ein Nachname in der Satzmitte (nicht in der Liste): Eigenname');
   ok(!!einsatzFehler('Varro Calder kommt mit Geschwader und will die Schuld jetzt.'), 'zwei Namensteile am Satzanfang (voller Name): Eigenname');
   ok(!!einsatzFehler('Er sagte nichts. Quintus Dorn griff an und will die Schuld.'), 'auch nach einem Punkt mitten im Text: Vorname am Satzanfang');
-  ok(!einsatzFehler('Varro kam mit Geschwader zurueck und will die Schuld jetzt.'), 'ein Nachname ALLEIN am Satzanfang (nicht in der Liste, kein zweiter Namensteil) gilt nicht (Grossschreibung am Anfang sagt nichts)');
+  ok(!!einsatzFehler('Varro kam mit Geschwader zurueck und will die Schuld jetzt.'), 'ein Nachname ALLEIN am Satzanfang (Namensliste, nicht Bezug, nicht in gewoehnliche_woerter): Eigenname');
+  ok(!!einsatzFehler('Varro kam zurueck.') && /Varro/.test(einsatzFehler('Varro kam zurueck.').grund), '"Varro kam zurueck." ohne Bezug: TEXT_UNZULAESSIG');
+  ok(!AP.pruefeAbsicht(g, gutNsc('Quintus Varro', { bogen: { einsatz: 'Varro kam mit Geschwader zurueck und will die Schuld jetzt.', wendung: 'verfolgung', preis: TEXT.preis }, ton: 'nuechtern' }), KAT).fehler.some((y) => y.code === C.TEXT_UNZULAESSIG), 'Varro am Satzanfang ist ok, wenn Varro der Bezug ist');
+  ok(!einsatzFehler('Dort liegt Erz im Fels und wartet auf die Crew der Station.'), 'ein Satzanfangswort ausserhalb der Namenslisten ist kein Eigenname');
   const leer = mitWert('gewoehnliche_woerter', []);
   ok(!!einsatzFehler('Der Dorn im Fleisch der Crew sitzt tief und schmerzt noch.', leer) && !!einsatzFehler('Der Halbmond steht hoch ueber dem Sprungpunkt der Crew heute.', leer), 'die Liste ist Datenwert: ohne sie gilt Dorn und Halbmond wieder als Name');
   ok(!!einsatzFehler('Die Crew trifft Quintus Dorn am Sprungpunkt und will die Schuld.'), 'Quintus Dorn in der Satzmitte: Eigenname (Quintus)');

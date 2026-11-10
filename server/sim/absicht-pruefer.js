@@ -8,7 +8,7 @@
 //        absicht = Tiefenkopie mit ergaenzten Standard-Parametern (null bei FORM); katalog = Standard: content/faeden/absichten.json
 //   Codes (CODES): FORM · ABSICHT_UNBEKANNT · PARAMETER (unbekannt, fehlt, ausserhalb; Vorschlag = naechster gueltiger Wert) · BEZUG_FEHLT · BEZUG_UNBEKANNT (gibt es in der Welt nicht, oder kein Kandidat) ·
 //        BEZUG_UNEINDEUTIG (Vorname allein, mehrere Treffer) · BEZUG_VERALTET (nur das Brett: der NSC steht beim Annehmen nicht mehr zur Verfuegung, abenteuer-brett.js) · BOGEN_UNVOLLSTAENDIG · TON_UNBEKANNT ·
-//        TEXT_UNZULAESSIG (Laenge wie faden-bauplan.js, keine {}, keine Eigennamen ausser dem Bezug, kein Spielername; Eigenname = Wort aus namen.json, gross geschrieben, nicht in `gewoehnliche_woerter`, am Satzanfang nur als Vorname oder voller Name)
+//        TEXT_UNZULAESSIG (Laenge wie faden-bauplan.js, keine {}, keine Eigennamen ausser dem Bezug, kein Spielername; Eigenname = Wort aus namen.json, gross geschrieben, nicht in `gewoehnliche_woerter`, auch am Satzanfang)
 //   Bezug nsc: Vollname eines NSC im Kanon (abenteuer-kanon.js), nie die wechselnde Kennung n<nr>, nie der Vorname allein; mit `kandidat` im Katalog zusaetzlich einer der Kandidaten von faden.wiedersehenKandidaten
 //        (kandidat: true = nach dem ersten Beat-Typ mit nsc_alt, kandidat: "<Beat-Typ>" = nach den Zustaenden genau dieses Typs, beats.json braucht.nsc_status).
 //   Bezug ort: Hex-Code eines spielbaren Sektors.
@@ -80,17 +80,6 @@ function protoSchluessel(x, tiefe) {
   return false;
 }
 const woerter = (t) => String(t).match(/[\p{L}][\p{L}'-]*/gu) || [];
-// Woerter mit Lage im Satz: { w, anfang (erstes Wort des Textes oder nach . ! ? : oder Zeilenende), naechstes (das folgende Wort oder null) }
-function woerterImSatz(t) {
-  const out = [];
-  let ende = 0;
-  for (const m of String(t).matchAll(/[\p{L}][\p{L}'-]*/gu)) {
-    out.push({ w: m[0], anfang: !out.length || /[.!?:\u2026\r\n]/.test(String(t).slice(ende, m.index)), naechstes: null });
-    if (out.length > 1) out[out.length - 2].naechstes = m[0];
-    ende = m.index + m[0].length;
-  }
-  return out;
-}
 const esc = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 const alsPhrase = (t, p) => new RegExp('(^|[^\\p{L}])' + esc(p) + '(?![\\p{L}])', 'iu').test(t);
 
@@ -233,20 +222,13 @@ function namenMengen() {
     if (t.length === 1) { if (n.length >= 4) tokens.add(n); } else { phrasen.add(n); const l = t[t.length - 1]; if (l.length >= 4) tokens.add(l); }
   }
   try { for (const h of Object.values(Sektoren().KARTE.hexe)) if (h && typeof h.name === 'string' && h.name.length >= 4 && h.name !== '?') phrasen.add(h.name); } catch (e) { /* ohne Karte: keine Ortsnamen */ }
-  // starke Namen: Vornamen (namen.json) und Kommandanten mit nur einem Wort; sie sind selten ein gewoehnliches Wort und gelten auch am Satzanfang allein
-  const starke = new Set();
-  for (const L of Object.values(D.NAMEN)) for (const n of L.vornamen) starke.add(n);
-  for (const n of kommandantenNamen()) if (teile(n).length === 1) starke.add(n);
-  namenCache = { tokens, phrasen: Array.from(phrasen), starke };
+  namenCache = { tokens, phrasen: Array.from(phrasen) };
   return namenCache;
 }
-// Gilt dieses Wort als Eigenname (SPL-02 C0)? Nein, wenn es der Bezug ist (frei) oder in der Datenliste gewoehnliche_woerter steht (Dorn, Rabe: auch ein deutsches Wort). Am Satzanfang sagt die Grossschreibung
-// nichts: dort gilt ein Wort nur, wenn es ein starker Name ist (Vorname) oder zusammen mit dem naechsten Wort einen vollen Namen ergibt (zwei Namensbestandteile hintereinander).
-function istEigenname(N, gewoehnlich, frei, x) {
-  if (!N.tokens.has(x.w) || frei.has(x.w) || gewoehnlich.has(x.w.toLowerCase())) return false;
-  if (x.anfang && !N.starke.has(x.w)) return typeof x.naechstes === 'string' && N.tokens.has(x.naechstes);
-  return true;
-}
+// Gilt dieses Wort als Eigenname (SPL-02 C0)? Ja, wenn es gross geschrieben in den Namenslisten steht (Vorname, Nachname, Kommandant) und weder der Bezug (frei) noch in der Datenliste gewoehnliche_woerter steht (Dorn, Rabe:
+// auch ein deutsches Wort). Auch am Satzanfang: dort sagt die Grossschreibung nichts, aber ein Wort ausserhalb der Listen ist ohnehin kein Name; ein Listenwort bleibt einer.
+const istEigenname = (N, gewoehnlich, frei, w) => N.tokens.has(w) && !frei.has(w) && !gewoehnlich.has(w.toLowerCase());
+
 function textFehler(game, feld, t, min, max, erlaubt, katalog) {
   const gv = (neu) => (typeof neu === 'string' && neu.trim().length >= min && neu.length <= max ? vorschlag('Text korrigieren', setze(feld, neu)) : undefined);
   if (t.trim().length < min || t.length > max) return fehl(CODES.TEXT_UNZULAESSIG, feld, `${feld} braucht ${min} bis ${max} Zeichen (hat ${t.trim().length})`, t.length > max ? gv(t.slice(0, max).replace(/\s+\S*$/, '')) : undefined);
@@ -255,7 +237,7 @@ function textFehler(game, feld, t, min, max, erlaubt, katalog) {
   const N = namenMengen();
   const frei = erlaubt.tokens, freiePhrasen = erlaubt.phrasen.map((p) => p.toLowerCase());
   const gewoehnlich = new Set(wert(katalog, 'gewoehnliche_woerter').map((x) => String(x).toLowerCase()));
-  for (const x of woerterImSatz(t)) if (istEigenname(N, gewoehnlich, frei, x)) return fehl(CODES.TEXT_UNZULAESSIG, feld, `${feld} nennt den Eigennamen "${kurz(x.w, 24)}", der nicht der Bezug ist: Namen kommen nur ueber den Bezug`);
+  for (const w of woerter(t)) if (istEigenname(N, gewoehnlich, frei, w)) return fehl(CODES.TEXT_UNZULAESSIG, feld, `${feld} nennt den Eigennamen "${kurz(w, 24)}", der nicht der Bezug ist: Namen kommen nur ueber den Bezug`);
   for (const p of N.phrasen) if (!freiePhrasen.includes(p.toLowerCase()) && !(teile(p).length === 1 && gewoehnlich.has(p.toLowerCase())) && alsPhrase(t, p)) return fehl(CODES.TEXT_UNZULAESSIG, feld, `${feld} nennt den Eigennamen "${kurz(p, 30)}", der nicht der Bezug ist: Namen kommen nur ueber den Bezug`);
   const spieler = Ausschnitt().spielerNamen(game || {});
   for (const s of spieler) if (!frei.has(s) && alsPhrase(t, s)) return fehl(CODES.TEXT_UNZULAESSIG, feld, `${feld} nennt einen Spielernamen: die Texte sind Crew-neutral`);
