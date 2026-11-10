@@ -385,6 +385,7 @@
     "test:kreatur-erledigt": "node tools/test-kreatur-erledigt.js",
     "test:kreatur-erledigt-mutation": "node tools/mutation-kreatur-erledigt.js",
     "test:schwarm": "node tools/test-schwarm.js",
+    "test:schwarm-nest": "node tools/test-schwarm-nest.js",
     "test:scanner-anzeige": "node tools/test-scanner-anzeige.js",
     "mess:scanner-tick": "node tools/mess-scanner-tick.js",
     "test:fallen": "node tools/test-fallen.js",

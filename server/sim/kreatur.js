@@ -28,6 +28,7 @@
 //   erzeugenAuf(game, aw, typ, { x, y, gruppe? })            Anlegen auf einer gegebenen Außenkarte (Missionsaktionen laufen vor der Landung; MON-02 P1)
 //   rudelSetzen(game, { map, bereich?, typ, anzahl, gruppe }) Rudel mit Kennung K.gruppe anlegen (Aktion kreatur_besetzen), Buchführung aw.kreaturGruppen[gruppe] = { erschienen, typ }
 //   nestSetzen(game, { map, typ, gruppe, x, y }) eine Quelle (Königin) an der Kachel (x, y) anlegen, Buchführung wie rudelSetzen (MON-03 A); Baustein `brut` {typ, anfang, max, takt, radius}: die Quelle bringt ihr gebundenes Gefolge hervor
+//   nestBesetzen(game, { map, typ, gruppe })  die Quelle an den (verdeckten) Anker der Rolle nest der Karte setzen (MON-03 B); laermHoeren(game, { x, y, radius })  Lärm als Push an die Kreaturen, ohne aw.laerm; Baustein `gefolge` {hort, fern, daheim}: Modi umkreise, zumHort, Auslöser fern, daheim
 //   ausgefallenMelden(game, K)             Ereignis kreaturAusgefallen {id, typ, gruppe, x, y} bei endgültigem Ausfall (aus combat.faellt; bewusstlos meldet nichts; einmal je Kreatur; MON-02 P2)
 //   rudelErledigt(game, map, { gruppe | typ })  Prüfung des Bausteins kreaturen_erledigt; nichtEndgueltigErledigt(K) ist die gemeinsame Regel (lebend oder erholbar liegend, nicht aufgelöst)
 //   Baustein `aufgeben` { anlaeufe }: Auslöser `aufgegeben` nach n erfolglosen Rammen in Folge (Hook beiWechsel)
@@ -461,6 +462,67 @@ kreaturBausteinAnmelden('brut', {
   },
 });
 
+// ---------- Baustein gefolge (MON-03 B): Heimweg zum Hort und Umkreisen des Horts ----------
+// Das Gefolge hängt räumlich an einer Quelle (dem Hort): ohne Ziel (nach Lockung oder Jagd) läuft es zurück, das ist die "Spur zum Nest". Rein datengetrieben: der Typ des Horts steht in par.hort
+// (Datenwert, kein Typname im Server), keine Instanzfelder (der Hort wird je Aufruf aus aw.kreaturen gesucht: nächste nicht endgültig erledigte Kreatur des Typs, bevorzugt gleiche Gruppe).
+//   hort    Kreaturen-Typ des Horts (muss in kreaturen.json stehen)
+//   fern    Kacheln: weiter vom Hort entfernt gilt der Auslöser `fern`
+//   daheim  Kacheln: höchstens so weit vom Hort entfernt gilt der Auslöser `daheim` (auch ohne Hort: nichts zum Heimlaufen)
+// Modi:  `umkreise`  wie `streife` (zustand.radius Kacheln, aw.rng), Mitte = Position des Horts statt der eigenen;  `zumHort`  Pfad zum Hort (Neuplan über typ.replan), bei Ankunft läuft der Auslöser `daheim`.
+// `daheim` muss größer sein als der Abstand, den der Pfad zum Hort auf der Maske des Gefolges hergibt (Hort Größe 2: Rand etwa 2 bis 3 Kacheln), sonst bliebe es am Hort hängen; der Validator verlangt fern > daheim >= 3.
+const GEFOLGE_FELDER = ['hort', 'fern', 'daheim'];
+function hortVon(aw, K, par) {
+  let best = null, bd = Infinity;
+  for (const O of aw.kreaturen) {
+    if (O === K || O.typ !== par.hort || !nichtEndgueltigErledigt(O)) continue;
+    const d = Math.hypot(O.x - K.x, O.y - K.y) + (K.gruppe != null && O.gruppe !== K.gruppe ? 1e6 : 0);
+    if (d < bd) { bd = d; best = O; }
+  }
+  return best;
+}
+kreaturBausteinAnmelden('gefolge', {
+  modi: {
+    umkreise: {
+      tick(game, K, dt, ctx, par, z) {
+        if (!K.pfad.length && K.replan <= 0) {
+          const aw = game.away; const r = z.radius || 5;
+          const H = hortVon(aw, K, par);
+          const base = Mon.ankerVonPosition(H ? H.x : K.x, H ? H.y : K.y, ctx.m.fuss);
+          for (let i = 0; i < 12; i++) {
+            const cx = base.cx + Math.round((aw.rng() * 2 - 1) * r), cy = base.cy + Math.round((aw.rng() * 2 - 1) * r);
+            if (ctx.m.geht(cx, cy)) { Monster.setzePfad(K, ctx.m, { cx, cy }); break; }
+          }
+          K.replan = 1.2;
+        }
+        gehe(game, K, dt, ctx, tempoVon(K, z));
+      },
+    },
+    zumHort: {
+      tick(game, K, dt, ctx, par, z) {
+        if (K.replan <= 0 || !K.pfad.length) {
+          const H = hortVon(game.away, K, par);
+          if (H) { const a = Mon.naechster(ctx.m, Math.floor(H.x / TILE), Math.floor(H.y / TILE), 4); if (a) Monster.setzePfad(K, ctx.m, a); }
+          K.replan = ctx.typ.replan;
+        }
+        gehe(game, K, dt, ctx, tempoVon(K, z));
+      },
+    },
+  },
+  ausloeser: {
+    fern(game, K, ctx, par) { const H = hortVon(game.away, K, par); return !!H && Math.hypot(H.x - K.x, H.y - K.y) > par.fern * TILE; },
+    daheim(game, K, ctx, par) { const H = hortVon(game.away, K, par); return !H || Math.hypot(H.x - K.x, H.y - K.y) <= par.daheim * TILE; },
+  },
+  pruefen(par) {
+    const F = [];
+    if (!par || typeof par !== 'object' || Array.isArray(par)) return ['Objekt { hort, fern, daheim } erwartet'];
+    for (const k of Object.keys(par)) if (!GEFOLGE_FELDER.includes(k)) F.push(k + ': unbekanntes Feld');
+    if (typeof par.hort !== 'string' || !hat(KREATUREN.typen, par.hort)) F.push('hort: unbekannter Kreaturentyp "' + par.hort + '"');
+    if (!zahl(par.daheim, 3, 20)) F.push('daheim muss eine Zahl 3 bis 20 sein (Kacheln, Ankunft am Hort)');
+    if (!zahl(par.fern, 4, 40) || (zahl(par.daheim, 3, 20) && par.fern <= par.daheim)) F.push('fern muss eine Zahl 4 bis 40 und größer als daheim sein (Kacheln)');
+    return F;
+  },
+});
+
 // MON-02 P2: Kreatur fällt endgültig aus (verwundet/aus, nicht bewusstlos): Ereignis `kreaturAusgefallen {id, typ, gruppe, x, y}` (Spiel- und Missionsereignis), höchstens einmal je Kreatur.
 // Aufrufer: combat.faellt nach knockOut. Bewusstlose Kreaturen melden nichts (sie stehen wieder auf); fällt eine aufgewachte später verwundet, meldet sie dann. Der Merker K.ausgefallenGemeldet entsteht erst bei der Meldung (nicht in anlegen).
 function ausgefallenMelden(game, K) {
@@ -812,6 +874,18 @@ function nestSetzen(game, o) {
   return { n: 1, ids: [K.id], fehler: null };
 }
 
+// nestBesetzen(game, { map, typ, gruppe }) -> { n, ids, fehler }: setzt die Quelle (Königin) an den Anker der Rolle `nest` der Karte (verdeckt, steht nicht im Payload; die Position kennt nur der Server) und ruft nestSetzen.
+// Hat die Karte keinen Anker der Rolle: Fehler als Text, es entsteht nichts. Mehrere Anker: der erste der Karte (Reihenfolge der Anker, deterministisch). Eigene Funktion statt Parameter an nestSetzen.
+const NEST_ROLLE = 'nest';
+function nestBesetzen(game, o) {
+  const p = o || {};
+  const k = game.karteOf && p.map ? game.karteOf(p.map) : null;
+  if (!k) return { n: 0, ids: [], fehler: 'nest_setzen: Karte ' + p.map + ' hat keine Kartendaten' };
+  const a = (k.anker || []).find((x) => x.rolle === NEST_ROLLE);
+  if (!a) return { n: 0, ids: [], fehler: 'nest_setzen: Karte ' + p.map + ' hat keinen Anker der Rolle ' + NEST_ROLLE };
+  return nestSetzen(game, { map: p.map, typ: p.typ, gruppe: p.gruppe, x: a.x, y: a.y });
+}
+
 // ---------- Tick ----------
 function wahrnehmung(game, E, K, typ) { return Monster.ziel(game, E, K, { sicht: typ.sicht }); }
 
@@ -883,6 +957,24 @@ function laermLesen(aw, K) {
   return out || KEINE_EREIGNISSE;
 }
 
+// ---------- Lärm als Push (MON-03 B) ----------
+// laermHoeren(game, { x, y, radius, stufe? }) -> Zahl der erreichten Kreaturen: ein Lärm an (x, y) (px) mit radius (px) geht an die Kreaturen der aktiven Außenkarte (lebend, handlungsfähig),
+// über dieselben Hooks (bausteinLaerm, Baustein koeder) wie der Leser in update. Eigene Quelle ohne Lärmpuffer: schreibt NICHT in aw.laerm (sonst weckte squad.js alle Drohnentrupps im Radius) und braucht
+// keinen Cursor und kein Instanzfeld. Aufrufer: Abbau (anker.abbauLaerm, Reichweite aus CONFIG.anker.abbauLaermStufe). Wer das Ereignis hört, entscheidet der Typ über koeder { faktor } und die Zustandstabelle.
+function laermHoeren(game, o) {
+  const aw = game.away; if (!aw || !aw.kreaturen || !aw.kreaturen.length) return 0;
+  if (!o || !Number.isFinite(o.x) || !Number.isFinite(o.y) || !Number.isFinite(o.radius) || o.radius <= 0) return 0;
+  const Wf = waffen();
+  const ev = { x: o.x, y: o.y, stufe: o.stufe || null, kacheln: o.radius / TILE, radius: o.radius, t: game.time };
+  let n = 0;
+  for (const K of aw.kreaturen) {
+    if (K.weg || !K.alive || !nichtEndgueltigErledigt(K)) continue;
+    if (Wf && !Wf.handlungsfaehig(game, K)) continue;
+    bausteinLaerm(game, K, ev); n++;
+  }
+  return n;
+}
+
 // ---------- Kampf-Anbindung (P2a) ----------
 // Treffer-Schleifen (Projektil, Orbitalschlag, Folgen, Waffen-Update): Drohnen und Kreaturen. Ohne Kreaturen dieselbe Referenz wie aw.drones (kein neues Array, gleiche Reihenfolge).
 function ziele(aw) { return aw.kreaturen && aw.kreaturen.length ? aw.drones.concat(aw.kreaturen) : aw.drones; }
@@ -947,7 +1039,7 @@ function debugKreatur(game, p, typId) {
 
 // GEL-03 Nacharbeit W1: Kantenlänge der Kollisionsbox einer Kreatur in px (für die Überlappungsprüfung des Ader-Wechsels, anker.js)
 const koerperBox = (K) => { const t = typVon(K.typ); return t ? hbVon(t).w : 14; };
-module.exports = { koerperBox, update, kreaturBausteinAnmelden, bausteinTreffer, bausteinLaerm, daten, pruefen, typVon, erzeugen, erzeugenAuf, rudelSetzen, nestSetzen, zustandSetzen, debugKreatur, kreaturen, ziele, ausruesten, raeumen, nichtEndgueltigErledigt, ausgefallenMelden, rudelErledigt, erledigtOptionenFehler };
+module.exports = { koerperBox, update, kreaturBausteinAnmelden, bausteinTreffer, bausteinLaerm, daten, pruefen, typVon, erzeugen, erzeugenAuf, rudelSetzen, nestSetzen, nestBesetzen, laermHoeren, zustandSetzen, debugKreatur, kreaturen, ziele, ausruesten, raeumen, nichtEndgueltigErledigt, ausgefallenMelden, rudelErledigt, erledigtOptionenFehler };
 
 // ---------- Anzeige und Scanner (MON-01 P4) ----------
 // Scanner: Art `monster`, billig (nur die lebenden Kreaturen mit aktueller Position, keine Karte). Typ-ID aus kreaturen.json; der Name steht im Client-Content (datenblaetter.json).

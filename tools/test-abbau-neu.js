@@ -164,7 +164,7 @@ section('3. Generator: Höhle (klein, mittel, gross) und Wildnis mit Höhle (kle
     ok(payMax > 0 && payMax <= MAXB, `${name}: awayMap-Payload höchstens ${MAXB} B (Maximum ${payMax} B)`);
   }
   console.log('   Payload-Maximum über alle Gruppen: ' + gesamtMax + ' B (' + gesamtName + ')');
-  ok(GenHoehle.PFLICHT.abbau === 4 && GenHoehle.PFLICHT_DECK.abbau === 4 && GenHoehle.VERSION === 2, 'PFLICHT/PFLICHT_DECK abbau: 4, Höhle-VERSION 2');
+  ok(GenHoehle.PFLICHT.abbau === 4 && GenHoehle.PFLICHT_DECK.abbau === 4 && GenHoehle.VERSION === 3, 'PFLICHT/PFLICHT_DECK abbau: 4, Höhle-VERSION 3 (MON-03 B: Nest)');
   ok(GenHoehle.ADERN_ZIEL(2240) === 4 && GenHoehle.ADERN_ZIEL(4480) === 5 && GenHoehle.ADERN_ZIEL(7488) === 6, 'Ziel je Fläche: klein 4, mittel 5, gross 6');
   // Deck: Pflicht PFLICHT_DECK.abbau in der Wildnis-Karte erfüllt (die Wildnis-Pflicht selbst bleibt unverändert)
   ok(JSON.stringify(GenGelaende.PFLICHT) === JSON.stringify({ abholpunkt: 1, fund: 2, deckung: 4 }), 'Wildnis-Pflichtsatz unverändert (die Oberfläche trägt keine Ader)');
