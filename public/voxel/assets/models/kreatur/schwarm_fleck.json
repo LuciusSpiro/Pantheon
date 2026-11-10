@@ -1,0 +1,212 @@
+{
+ "id": "kreatur/schwarm_fleck",
+ "name": "Schwarm, Zerfall (MON-03 E): flacher dunkler Sporenfleck am Boden, 1 Voxel hoch, kein Leuchten, keine Kollision (reine Bodenoptik). gross 0 = zerfallener Schwarmling (8 Voxel), gross 1 = zerfallene Koenigin (Kappenrest, Stielstumpf, dunkle Wurzelreste). Der Client zeigt ihn am Ort des Ereignisses kreaturAufgeloest/kreaturAusgefallen",
+ "tier": "detail",
+ "palette": "kreatur",
+ "jitter": 0,
+ "tags": [
+  "kreatur",
+  "schwarm",
+  "monster",
+  "mon03"
+ ],
+ "anchor": [
+  0,
+  0,
+  0
+ ],
+ "footprint": [
+  2,
+  2
+ ],
+ "budgetTris": 900,
+ "params": {
+  "gross": {
+   "default": 0,
+   "min": 0,
+   "max": 1,
+   "step": 1,
+   "label": "0 Schwarmling, 1 Koenigin"
+  }
+ },
+ "variants": {
+  "klein": {
+   "gross": 0
+  },
+  "gross": {
+   "gross": 1
+  }
+ },
+ "ops": [
+  {
+   "op": "cyl",
+   "name": "Fleck klein",
+   "at": [
+    0,
+    0,
+    0
+   ],
+   "r": 4,
+   "h": 1,
+   "color": "fleck",
+   "if": "gross == 0"
+  },
+  {
+   "op": "box",
+   "name": "Rest klein",
+   "at": [
+    -1,
+    1,
+    -1
+   ],
+   "size": [
+    2,
+    1,
+    2
+   ],
+   "color": "fleck_rand",
+   "if": "gross == 0"
+  },
+  {
+   "op": "cyl",
+   "name": "Fleck gross",
+   "at": [
+    0,
+    0,
+    0
+   ],
+   "r": 14,
+   "h": 1,
+   "color": "fleck",
+   "if": "gross == 1"
+  },
+  {
+   "op": "cyl",
+   "name": "Kappenrest",
+   "at": [
+    0,
+    1,
+    0
+   ],
+   "r": 9,
+   "h": 1,
+   "color": "fleck_rand",
+   "if": "gross == 1"
+  },
+  {
+   "op": "cyl",
+   "name": "Stielstumpf",
+   "at": [
+    0,
+    2,
+    0
+   ],
+   "r": 3,
+   "h": 2,
+   "color": "fleck",
+   "if": "gross == 1"
+  },
+  {
+   "op": "line",
+   "name": "Wurzelrest Wurzel 1",
+   "from": [
+    0,
+    0.5,
+    0
+   ],
+   "to": [
+    13.2,
+    0.5,
+    4.8
+   ],
+   "r": 0.8,
+   "color": "fleck_rand",
+   "if": "gross == 1"
+  },
+  {
+   "op": "line",
+   "name": "Wurzelrest Gabel 2",
+   "from": [
+    3,
+    0.5,
+    5.2
+   ],
+   "to": [
+    2.9,
+    0.5,
+    9.4
+   ],
+   "r": 0.8,
+   "color": "fleck_rand",
+   "if": "gross == 1"
+  },
+  {
+   "op": "line",
+   "name": "Wurzelrest Wurzel 4",
+   "from": [
+    0,
+    0.5,
+    0
+   ],
+   "to": [
+    -6.9,
+    0.5,
+    5.8
+   ],
+   "r": 0.8,
+   "color": "fleck_rand",
+   "if": "gross == 1"
+  },
+  {
+   "op": "line",
+   "name": "Wurzelrest Gabel 5",
+   "from": [
+    -8.7,
+    0.5,
+    0
+   ],
+   "to": [
+    -13.9,
+    0.5,
+    3.2
+   ],
+   "r": 0.8,
+   "color": "fleck_rand",
+   "if": "gross == 1"
+  },
+  {
+   "op": "line",
+   "name": "Wurzelrest Wurzel 7",
+   "from": [
+    0,
+    0.5,
+    0
+   ],
+   "to": [
+    -2.2,
+    0.5,
+    -12.3
+   ],
+   "r": 0.8,
+   "color": "fleck_rand",
+   "if": "gross == 1"
+  },
+  {
+   "op": "line",
+   "name": "Wurzelrest Gabel 8",
+   "from": [
+    2.9,
+    0.5,
+    -4.9
+   ],
+   "to": [
+    6.4,
+    0.5,
+    -6.8
+   ],
+   "r": 0.8,
+   "color": "fleck_rand",
+   "if": "gross == 1"
+  }
+ ]
+}
