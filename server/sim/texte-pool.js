@@ -14,7 +14,7 @@
 //        Platzhalter {ort} und {n} stehen noch im Text: der Aufrufer setzt sie ein, mit einsetzen(text, { ort, n }). Ist der Pool leer, nimmt der Aufrufer seinen Katalogtext.
 //   poolBefuellenAnfordern(spec) -> { ok, key?, vorhanden?, ziel?, grund? }
 //        Meldet einen Schlüssel zum Nachfüllen an. spec: { art, id, slot, optionId?, fakt (alles, was der Text als Wahrheit nehmen darf; {ort}/{n} nur, wenn erlaubt), sprecher?, stimme? (rom|ger|kon|zivil),
-//        beispiele? [Katalogtexte als Stilvorlage, werden nicht abgeschrieben], platzhalter? [erlaubte, Standard keine], pflicht? [Pflicht-Platzhalter], muss? / nicht? [Regex-Texte: Wörter, die vorkommen müssen bzw. nicht], antwort? (Text der Spieler-Antwort, nur Slot reaktion), option? (Absicht der Option,
+//        beispiele? [Katalogtexte als Stilvorlage, werden nicht abgeschrieben], platzhalter? [erlaubte, Standard keine], pflicht? [Pflicht-Platzhalter], muss? / nicht? [Regex-Texte: Wörter, die vorkommen müssen bzw. nicht], bezug? (true: Zeile mit Bezug, SPL-02 E2), ausnahmen? [gewoehnliche Woerter, kein Eigenname], anrede? (ihr), antwort? (Text der Spieler-Antwort, nur Slot reaktion), option? (Absicht der Option,
 //        nur Slot antwort), ziel? (Texte vorrätig, 1..5, Standard `ziel` aus den Daten) }. slot ∈ ankuendigung | eintreffen | dank | soeldner | verlust | reaktion | antwort (Längen: texte-werte.json slots;
 //        antwort höchstens 40 Zeichen). Freitext (fakt, antwort, option, beispiele) läuft vor dem Prompt durch den Namensfilter (Spielernamen des zuletzt aktiven Spiels). Gefüllt wird im Hintergrund
 //        (höchstens ein Job zugleich), der Aufruf kehrt sofort zurück. Die Katalogeinträge der Reise (16) und die Zusatz-Einträge (soeldner_an_rom/_ger, posten_verloren, hafen_gefallen) sind ab Werk angemeldet.
@@ -137,6 +137,9 @@ function poolBefuellenAnfordern(spec) {
   };
   if (str(sp.antwort)) norm.antwort = sp.antwort;
   if (str(sp.option)) norm.option = sp.option;
+  if (sp.bezug === true) norm.bezug = true;   // SPL-02 E2: Zeile mit Bezug (Pruefer: keine Klartext-Eigennamen, keine Erfindungen)
+  if (Array.isArray(sp.ausnahmen)) norm.ausnahmen = liste(sp.ausnahmen);   // SPL-02 E2: gewoehnliche Woerter, die bei bezug kein Eigenname sind
+  if (str(sp.anrede)) norm.anrede = sp.anrede;   // SPL-02 E2: Schluessel aus texte-werte.json anreden (ihr: keine Sie-Form)
   const key = keyVon(norm.art, norm.id, norm.slot, norm.optionId);
   S.angefordert.set(key, norm);
   return { ok: true, key, vorhanden: (S.pool.get(key) || []).length, ziel: norm.ziel };
@@ -200,7 +203,7 @@ async function versuch(llm, spec, o) {
     try { r = await llm.ask('text', input, ao); } catch (e) { if (e && e.code !== 'ABORTED' && esk() && !eskGesperrt()) r = await llm.eskaliere('text', input, ao); else throw e; }   // Ausfall: einmal an Claude, wenn die Stufe es erlaubt
   }
   // Duplikate: nicht nur der Pool, auch die Stilvorlagen (der Katalogtext darf nicht abgeschrieben werden)
-  const p = Pruefer.pruefe(Pruefer.textAusAntwort(r.text), { slot: spec.slot, platzhalter: spec.platzhalter, pflicht: spec.pflicht, stimme: spec.stimme, namen: opt.namen, vorhanden: (opt.vorhanden || []).concat(spec.beispiele || []), muss: spec.muss, nicht: spec.nicht });
+  const p = Pruefer.pruefe(Pruefer.textAusAntwort(r.text), { slot: spec.slot, platzhalter: spec.platzhalter, pflicht: spec.pflicht, stimme: spec.stimme, namen: opt.namen, vorhanden: (opt.vorhanden || []).concat(spec.beispiele || []), muss: spec.muss, nicht: spec.nicht, fakt: spec.fakt, bezug: spec.bezug, ausnahmen: spec.ausnahmen, anrede: spec.anrede });   // SPL-02 E2: bezug und anrede nur bei Zeilen der Abenteuer
   return { r, p, prompt };
 }
 // Ein Text für einen Schlüssel: Versuch 1, bei ungültig ein Wiederholungsversuch (mit den Fehlern des Prüfers), danach bleibt der Katalogtext.

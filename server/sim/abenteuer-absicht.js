@@ -24,6 +24,7 @@ const AP = () => require('./absicht-pruefer.js');
 const AV = () => require('./absicht-verhandlung.js');
 const INS = () => require('./inszenierer.js');
 const Geschichte = () => require('./abenteuer-geschichte.js');
+const Texte = () => require('./abenteuer-texte.js');
 const Ausschnitt = () => require('./lage-ausschnitt.js');
 
 const SYSTEM_DATEI = path.join(LLM.PROMPT_DIR, 'abenteuer-absicht.system.md');
@@ -70,10 +71,14 @@ function pruefer(kennungen) {
     return { ok: true, absicht: e.absicht, fehler: [], inszenierung: an.inszenierung, angebot: an.angebot };
   };
 }
+// SPL-02 E2: der angenommene Plan meldet seine Zeilen an (abenteuer-texte.js: Bogen und Bezug im fakt, Pool nur mit TEXTE_POOL); ein Fehler dort kostet nie das Angebot
+function texteAnmelden(game, absicht, inszenierung, angebot) {
+  try { return Texte().anmelden(game, absicht, inszenierung, angebot, katalog()); } catch (e) { if (game && game.countError) game.countError('abenteuer-texte', e); return null; }
+}
 function ersterVersuch(game, absicht, kennungen) {
   const kat = katalog();
   const v = AP().verhandlungStartMit(pruefer(kennungen), game, absicht, kat);
-  if (v.stand === 'angenommen') return { stand: 'angenommen', angebot: v.ergebnis.angebot, absicht: v.absicht, inszenierung: v.ergebnis.inszenierung };
+  if (v.stand === 'angenommen') { texteAnmelden(game, v.absicht, v.ergebnis.inszenierung, v.ergebnis.angebot); return { stand: 'angenommen', angebot: v.ergebnis.angebot, absicht: v.absicht, inszenierung: v.ergebnis.inszenierung }; }
   return { stand: v.stand, v };
 }
 function verhandelbar(v, nichtModell) {
@@ -101,7 +106,9 @@ function folgeInput(game, v, absicht, kennungen, nr) {
 }
 function folgeAntwort(game, v, text, kennungen) {
   const g = Prompt.absichtAusText(text);
-  return AP().verhandlungAntwortMit(pruefer(kennungen), game, v, g.absicht || null, katalog());
+  const r = AP().verhandlungAntwortMit(pruefer(kennungen), game, v, g.absicht || null, katalog());
+  if (r.stand === 'angenommen' && r.ergebnis) texteAnmelden(game, r.absicht, r.ergebnis.inszenierung, r.ergebnis.angebot);
+  return r;
 }
 
 // ---------- Logbuch

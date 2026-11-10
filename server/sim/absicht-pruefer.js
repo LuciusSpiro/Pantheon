@@ -25,6 +25,7 @@ const fs = require('fs');
 const path = require('path');
 const D = require('./faden-daten.js');
 const P = require('./faden-pruefer.js');
+const Namen = require('./namen-liste.js');   // SPL-02 E2: Namenslisten der Welt
 
 const Faden = () => require('./faden.js');
 const Kanon = () => require('./abenteuer-kanon.js');
@@ -33,7 +34,6 @@ const Geschichte = () => require('./abenteuer-geschichte.js');   // SPL-02 D: Ke
 const Sektoren = () => require('../../shared/sektoren.js');
 
 const DATEI = path.join(D.DIR, 'absichten.json');
-const KOMMANDANTEN = () => require('../../content/welt/kommandanten.json').kommandanten;
 const has = (o, k) => Object.prototype.hasOwnProperty.call(o, k);
 const istObjekt = (x) => !!x && typeof x === 'object' && !Array.isArray(x);
 const klon = (x) => JSON.parse(JSON.stringify(x));
@@ -80,9 +80,8 @@ function protoSchluessel(x, tiefe) {
   for (const k of Object.keys(x)) if (PROTO.includes(k) || protoSchluessel(x[k], tiefe + 1)) return true;
   return false;
 }
-const woerter = (t) => String(t).match(/[\p{L}][\p{L}'-]*/gu) || [];
-const esc = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-const alsPhrase = (t, p) => new RegExp('(^|[^\\p{L}])' + esc(p) + '(?![\\p{L}])', 'iu').test(t);
+const woerter = Namen.woerter;
+const alsPhrase = Namen.alsPhrase;
 
 // ---------- Form
 function formFehler(absicht, katalog) {
@@ -173,7 +172,7 @@ function fortsetzungsNamen(game, katalog) {
   for (const e of Object.values(katalog.absichten)) for (const b of Array.isArray(e.bezug) ? e.bezug : []) if (b.name === 'nsc' && b.kandidat) for (const n of kandidatenNamen(game, false, b.kandidat)) s.add(n);
   return s;
 }
-const kommandantenNamen = () => [].concat(...Object.values(KOMMANDANTEN())).map((k) => k.name);
+const kommandantenNamen = Namen.kommandantenNamen;
 const teile = (n) => String(n).trim().split(/\s+/);
 function nscFehler(game, name, b, auswahlMax) {
   const feld = 'bezug.nsc';
@@ -218,25 +217,10 @@ function bezugFehler(game, entry, bezug, katalog) {
 }
 
 // ---------- Texte
-let namenCache = null;
-function namenMengen() {
-  if (namenCache) return namenCache;
-  const tokens = new Set(), phrasen = new Set();
-  for (const L of Object.values(D.NAMEN)) {
-    for (const n of L.vornamen.concat(L.nachnamen)) tokens.add(n);
-    for (const s of L.schiffe) phrasen.add(s);
-  }
-  for (const n of kommandantenNamen()) {
-    const t = teile(n);
-    if (t.length === 1) { if (n.length >= 4) tokens.add(n); } else { phrasen.add(n); const l = t[t.length - 1]; if (l.length >= 4) tokens.add(l); }
-  }
-  try { for (const h of Object.values(Sektoren().KARTE.hexe)) if (h && typeof h.name === 'string' && h.name.length >= 4 && h.name !== '?') phrasen.add(h.name); } catch (e) { /* ohne Karte: keine Ortsnamen */ }
-  namenCache = { tokens, phrasen: Array.from(phrasen) };
-  return namenCache;
-}
+const namenMengen = Namen.namenMengen;   // SPL-02 E2: die Namenslisten stehen in namen-liste.js (auch fuer den Pruefer der Zeilen mit Bezug), je Karte zwischengespeichert
 // Gilt dieses Wort als Eigenname (SPL-02 C0)? Ja, wenn es gross geschrieben in den Namenslisten steht (Vorname, Nachname, Kommandant) und weder der Bezug (frei) noch in der Datenliste gewoehnliche_woerter steht (Dorn, Rabe:
 // auch ein deutsches Wort). Auch am Satzanfang: dort sagt die Grossschreibung nichts, aber ein Wort ausserhalb der Listen ist ohnehin kein Name; ein Listenwort bleibt einer.
-const istEigenname = (N, gewoehnlich, frei, w) => N.tokens.has(w) && !frei.has(w) && !gewoehnlich.has(w.toLowerCase());
+const istEigenname = Namen.istEigenname;
 
 function textFehler(game, feld, t, min, max, erlaubt, katalog) {
   const gv = (neu) => (typeof neu === 'string' && neu.trim().length >= min && neu.length <= max ? vorschlag('Text korrigieren', setze(feld, neu)) : undefined);
@@ -426,7 +410,7 @@ function katalogFehler(katalog) {
   if (out.length) return out;
   if (!istObjekt(katalog.absichten)) { f('absichten fehlt'); return out; }
   const muster = new RegExp(wert(katalog, 'name_muster'));
-  const EINTRAG = ['zweck', 'parameter', 'bezug', 'fortsetzung', 'wendungen', 'toene', 'bogen_pflicht', 'ton_standard', 'inszenierung', 'prompt_zeile', 'standard', '_hinweis'];   // _hinweis: Anmerkung der Entwicklung (Text, ohne Wirkung); inszenierung: Rezept des Inszenierers (inszenierer.js prueft den Inhalt); hier nur: ein Objekt. prompt_zeile und standard: SPL-02 C (siehe unten)
+  const EINTRAG = ['zweck', 'parameter', 'bezug', 'fortsetzung', 'wendungen', 'toene', 'bogen_pflicht', 'ton_standard', 'inszenierung', 'prompt_zeile', 'standard', 'texte', '_hinweis'];   // _hinweis: Anmerkung der Entwicklung (Text, ohne Wirkung); inszenierung: Rezept des Inszenierers (inszenierer.js prueft den Inhalt); hier nur: ein Objekt. prompt_zeile und standard: SPL-02 C (siehe unten)
   for (const [name, e] of Object.entries(katalog.absichten)) {
     const g = (t) => f(`${name}: ${t}`);
     if (!muster.test(name)) { g('Name passt nicht zu name_muster'); continue; }
@@ -436,6 +420,7 @@ function katalogFehler(katalog) {
     if (e.fortsetzung !== undefined && typeof e.fortsetzung !== 'boolean') g('fortsetzung ist wahr oder falsch');
     if (e.inszenierung !== undefined && !istObjekt(e.inszenierung)) g('inszenierung ist kein Objekt');
     if (e._hinweis !== undefined && typeof e._hinweis !== 'string') g('_hinweis ist ein Text');
+    if (e.texte !== undefined) for (const t of require('./abenteuer-texte.js').texteFehler(katalog, name, e)) f(t);   // SPL-02 E2: Zeilen mit Bogen und Bezug (Slots, Fakten, Rueckfall)
     if (e.parameter !== undefined) {
       if (!istObjekt(e.parameter)) g('parameter ist kein Objekt');
       else for (const [k, d] of Object.entries(e.parameter)) {
