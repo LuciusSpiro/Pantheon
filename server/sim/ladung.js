@@ -108,8 +108,9 @@ function abwerfen(game, art) {
   const l = s.lager.splice(idx, 1)[0];
   const sh = game.ship; const d = cfg(game).abwurfAbstand || 70;
   const px = sh.x - Math.cos(sh.angle) * d, py = sh.y - Math.sin(sh.angle) * d;
-  Fracht.fracht_abwerfen(game, px, py, l.art);
-  game.oda(`${artName(l.art)} abgeworfen (${s.lager.length}/${Fracht.capacity(game)}).`, null);
+  const pod = Fracht.fracht_abwerfen(game, px, py, l.art);
+  if (pod && l.eig) pod.eig = l.eig;   // LAD-01 B: Eigenschaften bleiben an der Ladung, auch im All
+  game.oda(`${artName(Fracht.anzeigeArt(l))} abgeworfen (${s.lager.length}/${Fracht.capacity(game)}).`, null);
   game.missionEvent('frachtAbgeworfenVonBord', { art: l.art, n: s.lager.length });
   return null;
 }
@@ -176,10 +177,12 @@ function handelsOrt(game) {
 function verkaufOrt(game) {
   const s = Fracht.state(game);
   if (!s.lager.length) return { ok: false, reason: 'Keine Fracht an Bord.' };
+  const frei = s.lager.filter((l) => !(l.eig && l.eig.auftrag));   // LAD-01 B: Auftragsware gehört dem Auftraggeber, nie verkäuflich
+  if (!frei.length) return { ok: false, reason: 'Auftragsware lässt sich nicht verkaufen – sie gehört dem Auftraggeber.' };
   const h = handelsOrt(game);
   if (!h.ok) return { ok: false, reason: h.reason };
-  const preise = s.lager.map((l) => preisFuer(game, h.hafen, l.art)).filter((p) => p > 0);
-  if (!preise.length) return { ok: false, reason: s.lager.every((l) => !istWare(l.art)) ? 'Personen lassen sich nicht verkaufen.' : 'Der Händler kauft diese Ware nicht.' };
+  const preise = frei.map((l) => preisFuer(game, h.hafen, l.art)).filter((p) => p > 0);   // echte Art (getarnte Ware wird nach ihrem wahren Wert bezahlt)
+  if (!preise.length) return { ok: false, reason: frei.every((l) => !istWare(l.art)) ? 'Personen lassen sich nicht verkaufen.' : 'Der Händler kauft diese Ware nicht.' };
   return { ok: true, name: h.name, n: preise.length, summe: preise.reduce((a, b) => a + b, 0) };
 }
 // Halteprozess starten (Ops). Rückgabe: Fehlertext | null
@@ -201,6 +204,7 @@ function verkaufFertig(game) {
   if (!o.ok) { game.emit('frachtBeamen', { phase: 'abbruch', was: 'verk', grund: 'ort' }); return 0; }
   let summe = 0; const arten = {};
   for (let i = s.lager.length - 1; i >= 0; i--) {
+    if (s.lager[i].eig && s.lager[i].eig.auftrag) continue;   // LAD-01 B
     const pr = preisFuer(game, hafen, s.lager[i].art);
     if (pr <= 0) continue;
     const l = s.lager.splice(i, 1)[0];

@@ -16,6 +16,10 @@
 //  - Eine Ladung im Raum bleibt, wo sie ist, bis die Lerche die Szene (das System) verlässt. Dann ist sie weg.
 //  - Abliefern: beim Abnehmer (game.fracht.abnehmer.ort, vom Regiebuch gesetzt), sonst bei jeder Station (scene.station.kind in
 //    fracht.stationKinds) im Umkreis fracht.stationRange.
+//  - LAD-01 B: Eigenschaften je Ladung (Baustein, kein Spezialfall je Geschichte): illegal (Schmuggel), getarnt (angezeigte Art ≠ echte Art), auftrag (gehört einem Auftraggeber/Faden, nicht verkaufbar,
+//    nicht an beliebiger Station abgebbar). Sie reisen als Objekt in lagerAufnehmen(game, { art, quelle, eigenschaften }) und stehen im Server-Lagereintrag als l.eig ({ illegal, getarnt, auftrag, aufgedeckt }).
+//    Erlaubt ist, was waren.json je Ware unter eigenschaften führt. Server rechnet Typ-Regel, Preis, Gewicht mit der ECHTEN Art (l.art); der Snapshot zeigt dem Spieler die angezeigte Art (anzeigeArt).
+//    frachtDurchsuchen(game, { wer, tiefe }) deckt getarnte/illegale Ladung auf (Hook für BEA-01, Ereignis frachtDurchsucht).
 //  - Mitgeführte Ladung steht im Weltstand (schiff.fracht = ['sprengstoff', …]); Ladungen im Raum nicht.
 //  - Schnittstelle gesichert/ungesichert („Lager ohne Strom“, PAN-01 A): gesichert(game) / setGesichert(game, bool). Das Lager ist kein
 //    Schiffssystem, aber das Modul Frachtraum (module.js): läuft es nicht (abgeschaltet oder ohne Strom), setzt module.update die Flagge auf false.
@@ -62,6 +66,10 @@ function personPlaetze(game) {
   for (const m of belegung(game).module) if (m.art === 'person') for (let i = 0; i < m.anzahl; i++) out.push(m.plaetze[i]);
   return out;
 }
+// LAD-01 B: die Art, die der Spieler sieht (getarnte, noch nicht aufgedeckte Ware zeigt die Tarnbezeichnung)
+const anzeigeArt = (l) => (l.eig && l.eig.getarnt && !l.eig.aufgedeckt ? l.eig.getarnt : l.art);
+const anzeigeName = (l) => (l.art === 'person' ? 'Person' : artName(anzeigeArt(l)));
+const hatAuftrag = (l) => !!(l.eig && l.eig.auftrag);
 const artLabel = (art) => (art === 'person' ? 'Personen' : artName(art));
 function moduleText(b) { return b.module.filter((m) => m.art).map((m) => `${artLabel(m.art)} ${m.anzahl}/${W.Maps.CARGO_PER_RAUM}`).join(', '); }
 // Prüfung, ob eine Ladung dieser Art ins Lager passt. -> { ok: true, raum, platz (Platz im Raum 0–3), nr } | { ok: false, grund, text }
@@ -94,8 +102,27 @@ function passtOhneRaum(game, raum) { const e = belegungsEingabe(game, null); ret
 function personImRaum(game, raum) { return belegung(game).module.some((m) => m.raum === raum && m.art === 'person'); }
 // Wie viele Ladungen dieser Art das Schiff in seinem jetzigen Zustand insgesamt tragen kann (schon an Bord plus noch frei)
 function kapazitaetFuer(game, art) { return anBord(game, art) + freiFuer(game, art); }
+const EIGENSCHAFTEN = ['illegal', 'getarnt', 'auftrag'];
+// LAD-01 B: die Eigenschaften einer Ladung prüfen. -> { ok: true, eig: { illegal?, getarnt?, auftrag? } | null } | { ok: false, grund: 'eigenschaft', text }
+// Unbekannte Schlüssel und Eigenschaften, die die Ware laut waren.json nicht tragen darf, werden abgelehnt.
+function eigenschaftenPruefen(art, e) {
+  const nein = (text) => ({ ok: false, grund: 'eigenschaft', text });
+  if (e == null) return { ok: true, eig: null };
+  if (typeof e !== 'object' || Array.isArray(e)) return nein('Eigenschaften müssen ein Objekt sein.');
+  const w = Waren.get(art);
+  const eig = {};
+  for (const [k, v] of Object.entries(e)) {
+    if (v == null || v === false) continue;
+    if (!EIGENSCHAFTEN.includes(k)) return nein(`Unbekannte Eigenschaft „${k}“ (erlaubt: ${EIGENSCHAFTEN.join(', ')}).`);
+    if (!w || w.kategorie !== 'ware' || !w.eigenschaften.includes(k)) return nein(`${artName(art)} kann die Eigenschaft „${k}“ nicht tragen.`);
+    if (k === 'illegal') eig.illegal = true;
+    else if (k === 'getarnt') { if (typeof v !== 'string' || v === art || !Waren.artOk(v)) return nein('Getarnt braucht die Art, als die die Ware erscheint (eine andere Ware aus waren.json).'); eig.getarnt = v; }
+    else if (k === 'auftrag') { if (typeof v !== 'string' || !v) return nein('Auftrag braucht die Kennung des Auftraggebers.'); eig.auftrag = v; }
+  }
+  return { ok: true, eig: Object.keys(eig).length ? eig : null };
+}
 const QUELLEN = ['beamen', 'schoepfen', 'debug', 'skript', 'kampagne', 'zuteilung', 'beute', 'person', 'abbau', 'laden', 'faden'];
-// Die EINE Einlagerung. o: { art, quelle, person?, name? } (Personen tragen person und name). -> { ok: true, eintrag, raum, platz, nr } | { ok: false, grund, text }
+// Die EINE Einlagerung. o: { art, quelle, person?, name?, eigenschaften?: { illegal, getarnt: '<anzeigeArt>', auftrag: '<id>' } } (Personen tragen person und name, keine Eigenschaften). -> { ok: true, eintrag, raum, platz, nr } | { ok: false, grund, text }
 // Kein Ereignis und keine ODA-Meldung hier: das tut der Aufrufer (der Weg kennt seinen Text). quelle wird gezählt (state.zugang, nur Laufzeit, nicht im Stand).
 function lagerAufnehmen(game, o) {
   const s = state(game);
@@ -103,17 +130,24 @@ function lagerAufnehmen(game, o) {
   if (!o || !QUELLEN.includes(o.quelle)) return { ok: false, grund: 'quelle', text: 'Unbekannte Quelle der Ladung.' };
   const pf = platzFuer(game, a);
   if (!pf.ok) return pf;
+  const ep = a === 'person' ? (o.eigenschaften != null ? { ok: false, grund: 'eigenschaft', text: 'Personen tragen keine Eigenschaften.' } : { ok: true, eig: null }) : eigenschaftenPruefen(a, o.eigenschaften);
+  if (!ep.ok) return ep;
   const eintrag = a === 'person' ? { art: 'person', person: String(o.person), name: String(o.name != null ? o.name : o.person), bett: pf.nr } : { art: a };
+  if (ep.eig) eintrag.eig = ep.eig;
   s.lager.push(eintrag);
   s.zugang[o.quelle] = (s.zugang[o.quelle] || 0) + 1;
   return { ok: true, eintrag, raum: pf.raum, platz: pf.platz, nr: pf.nr };
 }
-// LAD-01 C: eine Ladung dieser Art aus dem Lager nehmen (die jüngste), ohne Abgabe-Zählung (die Faden-Ware: abgeliefert, verloren, Beat zu Ende). -> true, wenn eine da war
-function lagerEntnehmen(game, art) {
-  const s = state(game);
-  for (let i = s.lager.length - 1; i >= 0; i--) if (s.lager[i].art === art) { s.lager.splice(i, 1); return true; }
-  return false;
+// LAD-01 B: die Ladung eines Auftrags (Tag = Faden-ID oder Beute-Tag der Szene) aus dem Lager nehmen, ohne Abgabe-Zählung (die Faden-Ware: abgeliefert, verloren, Beat zu Ende; die Konvoi-Beute am Szenenende).
+// Gezielt nach Tag, nie "irgendeine Ladung dieser Art". -> Zahl der entnommenen Ladungen
+function auftragEntnehmen(game, tag) {
+  const s = state(game); let n = 0;
+  for (let i = s.lager.length - 1; i >= 0; i--) if (s.lager[i].eig && s.lager[i].eig.auftrag === tag) { s.lager.splice(i, 1); n++; }
+  return n;
 }
+const auftragAnBord = (game, tag) => state(game).lager.filter((l) => l.eig && l.eig.auftrag === tag).length;
+// Konvoi-Beute: Ladungen dieser Art, die dem Beute-Tag gehören oder keinem fremden Auftrag (Faden-Ware zählt nicht als Beute)
+const anBordFuerBeute = (game, art, tag) => state(game).lager.filter((l) => l.art === art && (!l.eig || !l.eig.auftrag || l.eig.auftrag === tag)).length;
 // LAD-01 C: Schnittstelle für Abbau (AST-01) und Wrack-Bergung (WRK-01): n Stapel einer Ware (1 Platz = 1 Stapel) so weit einlagern, wie die Typ-Regel es zulässt.
 // -> { ok (alles passte), eingelagert, rest (passt nicht, bleibt beim Aufrufer), text (Hinweis des ersten Ablehnungsgrundes) }. Kein Ereignis, keine ODA-Meldung: das tut der Aufrufer.
 // Das bestehende GEL-03-Abbauerz (inventory.erz, vorrat.einlagern(…, 'abbau')) bleibt davon unberührt: Erz belegt erst mit WRK-01/AST-01 Plätze.
@@ -196,9 +230,9 @@ function huellenTreffer(game) {
     const l = s.lager.splice(i, 1)[0];
     n++;
     game.emit('frachtVerloren', { art: l.art });
-    if (!sh.docked) { const pod = fracht_abwerfen(game, sh.x - Math.cos(sh.angle) * cfg(game).abwurfAbstand, sh.y - Math.sin(sh.angle) * cfg(game).abwurfAbstand, l.art); if (pod) pod.eigene = true; }
+    if (!sh.docked) { const pod = fracht_abwerfen(game, sh.x - Math.cos(sh.angle) * cfg(game).abwurfAbstand, sh.y - Math.sin(sh.angle) * cfg(game).abwurfAbstand, l.art); if (pod) { pod.eigene = true; if (l.eig) pod.eig = l.eig; } }
     const ortName = (Locations.get(sh.scene) || {}).name;
-    game.oda(`${artName(l.art)} hat sich gelöst – der Frachtraum ist ungesichert!${!sh.docked && ortName ? ` Sie treibt in ${ortName}, dort wieder an Bord beamen.` : ''}`, null);
+    game.oda(`${anzeigeName(l)} hat sich gelöst – der Frachtraum ist ungesichert!${!sh.docked && ortName ? ` Sie treibt in ${ortName}, dort wieder an Bord beamen.` : ''}`, null);
     game.missionEvent('frachtVerloren', { art: l.art, n: s.lager.length });
   }
   return n;
@@ -234,7 +268,7 @@ function beamStart(game, p, id) {
 }
 // Abliefern: Ort prüfen. Rückgabe { ok, reason?, name? }
 function ablieferOrt(game) {
-  if (!state(game).lager.some((l) => l.art !== 'person')) return { ok: false, reason: 'Keine Fracht an Bord.' };   // SL0: Personen sind keine Ware (abgeben: personen-bord.js)
+  if (!state(game).lager.some((l) => l.art !== 'person' && !hatAuftrag(l))) return { ok: false, reason: state(game).lager.some(hatAuftrag) ? 'Auftragsware gibt es nur beim Auftraggeber ab.' : 'Keine Fracht an Bord.' };   // LAD-01 B: Auftragsware nie an irgendeiner Station   // SL0: Personen sind keine Ware (abgeben: personen-bord.js)
   return stationOrt(game);
 }
 // SL0: Abnehmer/Station in Reichweite, ohne Rücksicht darauf, was an Bord ist (auch für Personen)
@@ -278,11 +312,11 @@ function beamFertig(game) {
     const i = s.draussen.findIndex((d) => d.id === h.id);
     if (i < 0) return;
     const pod = s.draussen[i];
-    const r = lagerAufnehmen(game, { art: pod.art, quelle: 'beamen' });
+    const r = lagerAufnehmen(game, { art: pod.art, quelle: 'beamen', eigenschaften: pod.eig });   // LAD-01 B: Eigenschaften reisen mit der Ladung
     if (!r.ok) { game.emit('frachtBeamen', { phase: 'abbruch', was: 'an', grund: 'voll' }); game.oda(`${r.text}${r.grund === 'voll' ? ' – erst abliefern.' : ''}`, null); return; }
     s.draussen.splice(i, 1);
     game.emit('frachtBeamen', { phase: 'fertig', was: 'an', art: pod.art });
-    game.oda(`${artName(pod.art)} an Bord (${s.lager.length}/${capacity(game)}).`, null);
+    game.oda(`${anzeigeName(r.eintrag)} an Bord (${s.lager.length}/${capacity(game)}).`, null);
     game.missionEvent('frachtAnBord', { art: pod.art, n: s.lager.length, id: pod.id });
   } else if (h.kind === 'person_an' || h.kind === 'person_ab') {   // SL0: Person beamen (server/sim/personen-bord.js)
     require('./personen-bord.js').haltFertig(game, h);
@@ -293,13 +327,42 @@ function beamFertig(game) {
   } else {
     const o = ablieferOrt(game);
     if (!o.ok) { game.emit('frachtBeamen', { phase: 'abbruch', was: 'ab', grund: 'ort' }); return; }
-    const weg = s.lager.filter((l) => l.art !== 'person');   // SL0: Personen bleiben an Bord (eigener Halteprozess)
-    s.lager = s.lager.filter((l) => l.art === 'person');
+    const weg = s.lager.filter((l) => l.art !== 'person' && !hatAuftrag(l));   // SL0: Personen bleiben an Bord (eigener Halteprozess); LAD-01 B: Auftragsware ebenso
+    s.lager = s.lager.filter((l) => l.art === 'person' || hatAuftrag(l));
     for (const l of weg) s.abgeliefert[l.art] = (s.abgeliefert[l.art] || 0) + 1;
     game.emit('frachtBeamen', { phase: 'fertig', was: 'ab', n: weg.length });
-    game.oda(`Fracht übergeben: ${weg.map((l) => artName(l.art)).join(', ')} – ${o.name}.`, null);
+    game.oda(`Fracht übergeben: ${weg.map(anzeigeName).join(', ')} – ${o.name}.`, null);
     game.missionEvent('frachtAbgeliefert', { n: weg.length, arten: weg.map((l) => l.art), ort: game.ship.scene, name: o.name });
   }
+}
+
+// ---------- LAD-01 B: Durchsuchung (Hook für BEA-01) ----------
+// Eine Durchsuchung/ein Scan der Ladung deckt getarnte und illegale Ware auf: die Tarnung fällt (der Snapshot zeigt die echte Art), das illegal-Flag wird sichtbar.
+// tiefe: 'voll' (Standard, gründliche Durchsuchung: deckt Tarnung und illegal auf) | 'scan' (Schnellscan: sieht nur ungetarnte illegale Ware, Tarnung hält).
+// wer: frei benannter Durchsucher (z. B. 'patrouille', 'zoll', 'debug'); nur im Ereignis. Die eigentliche Durchsuchung durch Gegner/Patrouillen gehört zu BEA-01, hier nur der Hook.
+// -> { ok: true, wer, tiefe, geprueft, neu: [{ art, angezeigt, illegal, getarnt }], arten (echte Arten der neu aufgedeckten), illegal (liegt jetzt aufgedeckte illegale Ware an Bord), getarnt (eine Tarnung fiel) } | { ok: false, grund, text }
+const TIEFEN = ['voll', 'scan'];
+function frachtDurchsuchen(game, o) {
+  const q = o || {};
+  const tiefe = q.tiefe == null ? 'voll' : String(q.tiefe);
+  if (!TIEFEN.includes(tiefe)) return { ok: false, grund: 'tiefe', text: `Unbekannte Tiefe „${tiefe}“ (${TIEFEN.join(' | ')}).` };
+  const wer = q.wer != null ? String(q.wer) : 'unbekannt';
+  const s = state(game);
+  const neu = [];
+  for (const l of s.lager) {
+    const e = l.eig;
+    if (!e || e.aufgedeckt || !(e.illegal || e.getarnt)) continue;
+    if (tiefe === 'scan' && e.getarnt) continue;
+    e.aufgedeckt = true;
+    neu.push({ art: l.art, angezeigt: e.getarnt || l.art, illegal: !!e.illegal, getarnt: !!e.getarnt });
+  }
+  const befund = {
+    ok: true, wer, tiefe, geprueft: s.lager.length, neu, arten: Array.from(new Set(neu.map((x) => x.art))),
+    illegal: s.lager.some((l) => l.eig && l.eig.illegal && l.eig.aufgedeckt), getarnt: neu.some((x) => x.getarnt),
+  };
+  if (neu.length) game.oda(`Durchsuchung (${wer}): ${neu.map((x) => (x.getarnt ? `${artName(x.angezeigt)} war ${artName(x.art)}` : artName(x.art)) + (x.illegal ? ' (illegal)' : '')).join(', ')}.`, null);
+  game.missionEvent('frachtDurchsucht', { wer, tiefe, arten: befund.arten, illegal: befund.illegal, getarnt: befund.getarnt, n: neu.length });
+  return befund;
 }
 
 // ---------- Tick ----------
@@ -342,9 +405,14 @@ function snapshot(game) {
   const draus = s.draussen.filter((d) => d.szene === game.ship.scene);
   const out = {};
   const ware = s.lager.filter((l) => l.art !== 'person');   // SL0: lager = nur Ware (Buchten), Personen stehen in pers
-  if (ware.length) { out.lager = ware.map((l) => l.art); if (ablieferOrt(game).ok) out.ab = 1; }
+  if (ware.length) {
+    out.lager = ware.map(anzeigeArt);   // LAD-01 B: der Spieler sieht die angezeigte Art (Tarnung), der Server rechnet mit l.art
+    const le = ware.map((l) => (l.eig ? (l.eig.illegal && l.eig.aufgedeckt ? 1 : 0) | (l.eig.getarnt && l.eig.aufgedeckt ? 2 : 0) | (l.eig.auftrag ? 4 : 0) : 0));   // le[i]: Bit 1 illegal, 2 war getarnt, 4 Auftrag (nur aufgedeckte Flags)
+    if (le.some(Boolean)) out.le = le;
+    if (ablieferOrt(game).ok) out.ab = 1;
+  }
   Object.assign(out, require('./personen-bord.js').snapshotZusatz(game));   // SL0: pers, pq
-  if (draus.length) out.draussen = draus.map((d) => ({ id: d.id, x: d.x, y: d.y, art: d.art }));
+  if (draus.length) out.draussen = draus.map((d) => ({ id: d.id, x: d.x, y: d.y, art: anzeigeArt(d) }));
   if (s.halt) { out.halt = { kind: s.halt.kind, p: s.halt.kind === 'schoepf' ? require('./ladung.js').fuellStand(game) : Math.round(Math.min(1, s.halt.t / s.halt.dur) * 100) / 100 }; if (s.halt.id) out.halt.id = s.halt.id; }
   if (s.abnehmer && s.abnehmer.name) out.abn = s.abnehmer.name;
   if (s.gesichert === false) out.g = false;
@@ -352,28 +420,35 @@ function snapshot(game) {
   { const vk = require('./ladung.js').verkaufOrt(game); if (vk.ok) out.vk = 1; }   // SL6: Händler in Reichweite (Verkaufen möglich)
   return Object.keys(out).length ? out : null;
 }
-// SUND-04b B2 (Nacharbeit M1): die Beute einer laufenden Faden-Szene Konvoi (state.szenenBeute { art, vor }, nur Laufzeit) gehoert nicht in den Stand: die Szene ist nicht speicherbar, nach dem Laden gaebe es sie nicht mehr abzuliefern
+// SUND-04b B2 (Nacharbeit M1): die Beute einer laufenden Faden-Szene Konvoi (state.szenenBeute { art, tag }, nur Laufzeit) gehoert nicht in den Stand: die Szene ist nicht speicherbar, nach dem Laden gaebe es sie nicht mehr abzuliefern.
+// LAD-01 B: die Beute ist durch ihren Tag (eig.auftrag) gekennzeichnet, nicht mehr durch Zaehlen: Faden-Ware und fremde Fracht derselben Art bleiben im Stand.
 function lagerOhneSzenenBeute(game) {
-  const s = state(game), b = s.szenenBeute, lager = s.lager.slice();
-  if (!b) return lager;
-  let zuviel = Math.max(0, lager.filter((l) => l.art === b.art).length - b.vor);
-  for (let i = lager.length - 1; i >= 0 && zuviel > 0; i--) if (lager[i].art === b.art) { lager.splice(i, 1); zuviel--; }
-  return lager;
+  const s = state(game), b = s.szenenBeute;
+  return b ? s.lager.filter((l) => !(l.eig && l.eig.auftrag === b.tag)) : s.lager.slice();
 }
 function toSave(game) { const P = require('./personen-bord.js'); const plaetze = personPlaetze(game); let pi = 0; return lagerOhneSzenenBeute(game).map((l) => (l.art === 'person' ? P.toSaveEntry(l, plaetze[pi++]) : l.art)); }   // SL0: Personen als { p, n, b }; b = Bettnummer (Platz der Personen-Module, abgeleitet)
-function restore(game, arten) {
+// LAD-01 B: Eigenschaften parallel zu toSave (gleicher Index; null = keine), nur wenn mindestens eine Ladung welche traegt (additiv im Weltstand: schiff.frachtEig, kein Versionssprung)
+function toSaveEig(game) {
+  const l = lagerOhneSzenenBeute(game).map((x) => (x.eig ? Object.assign({}, x.eig) : null));
+  return l.some(Boolean) ? l : null;
+}
+function restore(game, arten, eigs) {
   const s = state(game);
   const P = require('./personen-bord.js');
   s.lager = [];
   // LAD-01 A2: auch das Laden geht durch lagerAufnehmen: was über Kapazität oder Typ-Regel hinausgeht (alte Stände, ausgebauter Frachtraum), wird gekappt und gemeldet
   let gekappt = 0;
-  for (const a of Array.isArray(arten) ? arten : []) {
+  const liste = Array.isArray(arten) ? arten : [];
+  for (let i = 0; i < liste.length; i++) {
+    const a = liste[i];
     const ok = typeof a === 'string' ? artOk(game, a) : !!(a && typeof a === 'object' && a.p);
     if (!ok) { gekappt++; continue; }
-    const r = typeof a === 'string' ? lagerAufnehmen(game, { art: a, quelle: 'laden' }) : lagerAufnehmen(game, { art: P.ART, person: a.p, name: a.n, quelle: 'laden' });   // SL0: Personen { p, n, b }
-    if (!r.ok) gekappt++;
+    const e = Array.isArray(eigs) && eigs[i] && typeof eigs[i] === 'object' ? eigs[i] : null;   // LAD-01 B: Eigenschaften derselben Stelle
+    const r = typeof a === 'string' ? lagerAufnehmen(game, { art: a, quelle: 'laden', eigenschaften: e ? Object.assign({}, e, { aufgedeckt: undefined }) : null }) : lagerAufnehmen(game, { art: P.ART, person: a.p, name: a.n, quelle: 'laden' });   // SL0: Personen { p, n, b }
+    if (!r.ok) { gekappt++; continue; }
+    if (e && e.aufgedeckt && r.eintrag.eig) r.eintrag.eig.aufgedeckt = true;
   }
-  if (gekappt && game.log) game.log(`Fracht: ${gekappt} Ladung(en) beim Laden verworfen (unbekannte Art, Kapazität oder Typ-Regel)`);
+  if (gekappt && game.log) game.log(`Fracht: ${gekappt} Ladung(en) beim Laden verworfen (unbekannte Art oder Eigenschaft, Kapazität oder Typ-Regel)`);
   s.halt = null;
 }
 
@@ -386,6 +461,7 @@ function skriptAbliefern(game, art, n) {
   for (let i = s.lager.length - 1; i >= 0 && k < lim; i--) {
     if (art && s.lager[i].art !== art) continue;
     if (!art && s.lager[i].art === 'person') continue;   // SL0: Personen nie per Warenabgabe
+    if (hatAuftrag(s.lager[i])) continue;   // LAD-01 B: Auftragsware gibt nur der Faden beim Abnehmer ab (faden-fracht.andocken)
     const l = s.lager.splice(i, 1)[0]; s.abgeliefert[l.art] = (s.abgeliefert[l.art] || 0) + 1; k++;
   }
   if (k) game.missionEvent('frachtAbgeliefert', { n: k, arten: art ? [art] : [], ort: game.ship.scene, name: null, skript: true });
@@ -420,7 +496,7 @@ function zuteilen(game, art) {
   return anBordLegen(game, a, 'zuteilung');
 }
 
-// ---------- Debug: fracht <abwerfen [art] [dx dy] | an [art] | leer | gesichert an|aus | abnehmer [ort] | status> ----------
+// ---------- Debug: fracht <abwerfen [art] [dx dy] | an [art] [illegal] [getarnt=art] [auftrag=id] | durchsuchen [wer] [voll|scan] | leer | gesichert an|aus | abnehmer [ort] | status> ----------
 function debug(game, args) {
   const s = state(game); const sh = game.ship;
   const sub = args[0] || 'status';
@@ -432,7 +508,19 @@ function debug(game, args) {
     return fracht_abwerfen(game, sh.x + dx, sh.y + dy, art) ? null : 'Unbekannte Art (sprengstoff | fracht).';
   }
   if (sub === 'person') return require('./personen-bord.js').personAnBordLegen(game, args[1] || 'evert', args[2] || null) ? null : 'Frachtraum voll.';   // SL0: fracht person [id] [name]
-  if (sub === 'an') return anBordLegen(game, args[1]) ? null : 'Frachtraum voll oder unbekannte Art.';
+  if (sub === 'an') {   // LAD-01 B: fracht an <art> [illegal] [getarnt=<anzeigeArt>] [auftrag=<id>]
+    const eig = {};
+    for (const x of args.slice(2)) { const [k, v] = x.split('='); eig[k] = v === undefined ? true : v; }
+    if (Object.keys(eig).length) {
+      const a = args[1] || cfg(game).artDefault;
+      const r = lagerAufnehmen(game, { art: a, quelle: 'debug', eigenschaften: eig });
+      if (!r.ok) return r.text;
+      game.missionEvent('frachtAnBord', { art: a, n: s.lager.length });
+      return null;
+    }
+    return anBordLegen(game, args[1]) ? null : 'Frachtraum voll oder unbekannte Art.';
+  }
+  if (sub === 'durchsuchen') { const b = frachtDurchsuchen(game, { wer: args[1] || 'debug', tiefe: args[2] }); if (!b.ok) return b.text; game.log(`Durchsuchung: ${JSON.stringify(b)}`); return null; }   // LAD-01 B: fracht durchsuchen [wer] [voll|scan]
   if (sub === 'leer') { s.lager = []; s.draussen = []; s.halt = null; return null; }   // SL0: leert auch Personen
   if (sub === 'gesichert') { setGesichert(game, args[1] !== 'aus'); return null; }
   if (sub === 'abnehmer') { setAbnehmer(game, args[1] || null, args[2] || null); return null; }
@@ -441,9 +529,9 @@ function debug(game, args) {
 }
 
 module.exports = {
-  neu, state, update, snapshot, toSave, restore, debug,
+  neu, state, update, snapshot, toSave, toSaveEig, restore, debug, frachtDurchsuchen, anzeigeArt, eigenschaftenPruefen,
   fracht_abwerfen, abwerfen: fracht_abwerfen,
   beamStart, abliefernStart, beamStop, systemTreffer, ablieferOrt, stationOrt,
-  anBord, frei, capacity, platzFuer, freiFuer, kapazitaetFuer, passtOhneRaum, personImRaum, lagerAufnehmen, lagerEntnehmen, erzEinlagern, beuteEinlagern, zuteilen, belegung, personPlaetze, gesichert, setGesichert, gefaehrdet, huellenTreffer, frachtraumTreffer, lagerArten, draussen, abgeliefert,
+  anBord, frei, capacity, platzFuer, freiFuer, kapazitaetFuer, passtOhneRaum, personImRaum, lagerAufnehmen, auftragEntnehmen, auftragAnBord, anBordFuerBeute, erzEinlagern, beuteEinlagern, zuteilen, belegung, personPlaetze, gesichert, setGesichert, gefaehrdet, huellenTreffer, frachtraumTreffer, lagerArten, draussen, abgeliefert,
   setAbnehmer, skriptAbliefern, skriptAbliefernBis, anBordLegen, artOk, artName,
 };

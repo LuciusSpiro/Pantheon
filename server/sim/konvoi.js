@@ -88,7 +88,7 @@ function an(game, o) {
 function spawnen(game) {
   const k = st(game); const C = cfg(game); const S = space();
   // Plündern: schon an Bord liegende Ladung dieser Art zählt (eine Ladung bleibt bis zum Systemwechsel an Bord), der Rest des Konvois ist kleiner
-  const schonDa = k.sieg === 'pluendern' ? Math.min(Fracht.anBord(game, k.art), k.beuteMin - 1) : 0;
+  const schonDa = k.sieg === 'pluendern' ? Math.min(Fracht.anBordFuerBeute(game, k.art, k.beuteTag), k.beuteMin - 1) : 0;
   const nT = Math.max(1, k.nWunsch - schonDa);
   k.beuteMin = Math.min(k.beuteMin, Math.max(1, Fracht.kapazitaetFuer(game, k.art)));
   const a = k.route[0], b = k.route[1];
@@ -301,6 +301,7 @@ function verloren(game, k, id) {
   const pod = Fracht.fracht_abwerfen(game, p.x, p.y, k.art);
   if (pod) {
     k.pods.push(pod.id);
+    if (k.beuteTag) pod.eig = { auftrag: k.beuteTag };   // LAD-01 B: die Beute der Faden-Szene traegt ihren eigenen Tag (faden-szene-b2.js)
     if (k.sieg === 'pluendern') game.oda('Fracht in Reichweite. Ops, beamen!', null);
   }
   game.missionEvent('konvoiTransporterZerstoert', { id, art: k.art, x: p.x, y: p.y, pod: pod ? pod.id : null });
@@ -316,7 +317,7 @@ function bewerten(game, k) {
     if (k.ids.some((id) => k.fertig[id] === 'gesprungen')) neuer = 'entkommen';
     else if (k.ids.length && alive === 0) neuer = 'aufgehalten';
   } else {
-    const an = Fracht.anBord(game, k.art);
+    const an = Fracht.anBordFuerBeute(game, k.art, k.beuteTag);   // LAD-01 B: Faden-Ware (Auftrag) derselben Art zaehlt nicht als Beute
     if (an >= k.beuteMin && podsGeholt(game, k) >= 1) neuer = 'gepluendert';
     else if (an + podsDa(game, k) + alive < k.beuteMin) neuer = 'entkommen';
   }
