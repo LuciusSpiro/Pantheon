@@ -170,7 +170,7 @@ function getLlm(game) {
     const eskAn = Stufen.STUFEN.some((s) => St.stufen[s].eskalation);
     const transport = Router.routeTransport(arten, { eskalation: eskAn ? Router.eskalationAusEnv(env) : null, env });   // Standard: nur Ollama, nie Claude, keine Eskalation; sonst wie der Router der Umgebung (LLM_ESKALATION=aus, LLM_ESKALATION_MODELL)
     if (St.fehler.length) logge(game, { ausgang: 'fehler', key: 'stufen', fehler: St.fehler.slice(0, 6) });
-    S.llm = LLM.create({ mode: 'live', transport });
+    S.llm = LLM.create({ mode: 'live', transport, env });   // SPL-02 K2: LLM_LIVE steht bei der Lobby-Option nur im game.env
   } catch (e) { S.llmFehler = e.message; if (game.countError) game.countError('texte-llm', e); return null; }
   return S.llm;
 }
