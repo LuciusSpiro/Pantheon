@@ -156,33 +156,35 @@ function preisFuer(game, hafen, art) {
 function handelsOrt(game) {
   const sh = game.ship; const loc = Locations.get(sh.scene); const sc = loc && loc.scene;
   const hafen = hafenVon(game);
-  if (!sc) return { ok: false, reason: 'Hier kauft niemand Ware.', hafen };
+  if (!sc) return { ok: false, reason: 'Hier kauft niemand Ware.', code: 3, hafen };
   const name = (loc && loc.name) || sh.scene;
   let ref = null;
   if (sc.kauft && sc.station) ref = sc.station;   // alter Weg: Szene mit eigener Preisliste
   else {
     const dl = Besitz.dockLage(game, sc, hafen.hex);
-    if (!dl) return { ok: false, reason: 'Hier kauft niemand Ware (kein Hafen zum Andocken).', hafen };
-    if (hafen.hex && !Besitz.darfAndocken(game, hafen.hex)) return { ok: false, reason: Besitz.verbotText(game, hafen.hex) || 'Andocken verweigert – kein Handel.', hafen };
-    const sperre = Besitz.handelSperre(game, hafen.hex); if (sperre) return { ok: false, reason: sperre, hafen };
+    if (!dl) return { ok: false, reason: 'Hier kauft niemand Ware (kein Hafen zum Andocken).', code: 3, hafen };
+    if (hafen.hex && !Besitz.darfAndocken(game, hafen.hex)) return { ok: false, reason: Besitz.verbotText(game, hafen.hex) || 'Andocken verweigert – kein Handel.', code: 4, hafen };
+    const sperre = Besitz.handelSperre(game, hafen.hex); if (sperre) return { ok: false, reason: sperre, code: 8, hafen };
     ref = sc.station || dl;
   }
   if (!(sh.docked && sh.dockedAt === sh.scene)) {
     const far = dist(sh.x, sh.y, ref.x, ref.y);
-    if (far > cfg(game).stationRange) return { ok: false, reason: `Zu weit vom Händler (${Math.round(far)}, max. ${cfg(game).stationRange}).`, hafen, name };
+    if (far > cfg(game).stationRange) return { ok: false, reason: `Zu weit vom Händler (${Math.round(far)}, max. ${cfg(game).stationRange}).`, code: 5, hafen, name };
   }
   return { ok: true, hafen, name };
 }
-// Händler im Umkreis? -> { ok, reason?, name?, n, summe }
+// Händler im Umkreis? -> { ok, reason?, code?, name?, n, summe }
+// code = Verkaufsgrund als 1-Byte-Code für den Snapshot (fracht.vg, Texte stehen im Client: shared/frachtliste.js verkaufGrund): 2 nur Auftragsware, 3 kein Markt/Hafen, 4 Andocken
+// nicht erlaubt, 5 zu weit, 6 der Händler kauft die Ware nicht, 7 nur Personen, 8 Handel gesperrt
 function verkaufOrt(game) {
   const s = Fracht.state(game);
   if (!s.lager.length) return { ok: false, reason: 'Keine Fracht an Bord.' };
   const frei = s.lager.filter((l) => !(l.eig && l.eig.auftrag));   // LAD-01 B: Auftragsware gehört dem Auftraggeber, nie verkäuflich
-  if (!frei.length) return { ok: false, reason: 'Auftragsware lässt sich nicht verkaufen – sie gehört dem Auftraggeber.' };
+  if (!frei.length) return { ok: false, reason: 'Auftragsware lässt sich nicht verkaufen – sie gehört dem Auftraggeber.', code: 2 };
   const h = handelsOrt(game);
-  if (!h.ok) return { ok: false, reason: h.reason };
+  if (!h.ok) return { ok: false, reason: h.reason, code: h.code };
   const preise = frei.map((l) => preisFuer(game, h.hafen, l.art)).filter((p) => p > 0);   // echte Art (getarnte Ware wird nach ihrem wahren Wert bezahlt)
-  if (!preise.length) return { ok: false, reason: frei.every((l) => !istWare(l.art)) ? 'Personen lassen sich nicht verkaufen.' : 'Der Händler kauft diese Ware nicht.' };
+  if (!preise.length) return { ok: false, reason: frei.every((l) => !istWare(l.art)) ? 'Personen lassen sich nicht verkaufen.' : 'Der Händler kauft diese Ware nicht.', code: frei.every((l) => !istWare(l.art)) ? 7 : 6 };
   return { ok: true, name: h.name, n: preise.length, summe: preise.reduce((a, b) => a + b, 0) };
 }
 // Halteprozess starten (Ops). Rückgabe: Fehlertext | null
