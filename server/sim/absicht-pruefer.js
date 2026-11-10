@@ -401,7 +401,7 @@ function katalogFehler(katalog) {
   if (out.length) return out;
   if (!istObjekt(katalog.absichten)) { f('absichten fehlt'); return out; }
   const muster = new RegExp(wert(katalog, 'name_muster'));
-  const EINTRAG = ['zweck', 'parameter', 'bezug', 'fortsetzung', 'wendungen', 'toene', 'bogen_pflicht', 'ton_standard'];
+  const EINTRAG = ['zweck', 'parameter', 'bezug', 'fortsetzung', 'wendungen', 'toene', 'bogen_pflicht', 'ton_standard', 'inszenierung'];   // inszenierung: Rezept des Inszenierers (inszenierer.js prueft den Inhalt); hier nur: ein Objekt
   for (const [name, e] of Object.entries(katalog.absichten)) {
     const g = (t) => f(`${name}: ${t}`);
     if (!muster.test(name)) { g('Name passt nicht zu name_muster'); continue; }
@@ -409,6 +409,7 @@ function katalogFehler(katalog) {
     for (const k of Object.keys(e)) if (!EINTRAG.includes(k)) g(`unbekanntes Feld ${k}`);
     if (typeof e.zweck !== 'string' || e.zweck.length < 8) g('zweck fehlt');
     if (e.fortsetzung !== undefined && typeof e.fortsetzung !== 'boolean') g('fortsetzung ist wahr oder falsch');
+    if (e.inszenierung !== undefined && !istObjekt(e.inszenierung)) g('inszenierung ist kein Objekt');
     if (e.parameter !== undefined) {
       if (!istObjekt(e.parameter)) g('parameter ist kein Objekt');
       else for (const [k, d] of Object.entries(e.parameter)) {

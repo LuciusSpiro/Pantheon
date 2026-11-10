@@ -1,0 +1,15 @@
+{
+  "format": "inszenierer-werte/1",
+  "_hinweis": "SPL-02 B: Zahlen und Tabellen des Inszenierers (server/sim/inszenierer.js), kein Wert im Code. Zusammen mit dem Katalog der Absichten (absichten.json, je Eintrag das Rezept `inszenierung`) bestimmt das, wie aus einer Absicht ein Beat-Plan wird. Konvention wie werte.json: je Eintrag wert, einheit, _hinweis. Die Zahlen der Stufen sind eine ANNAHME der Entwicklung (Balance: Kai); der Beat-Katalog kennt heute keine Staerke ausser der Crewgroesse (szenen-werte.json), die Stufe waehlt darum nur, welche Beats ein Rezept einbaut (ab_stufe, bis_stufe, nach_stufe).",
+  "werte": {
+    "reichweite_max": {"wert": 8, "einheit": "Spruenge", "_hinweis": "Tiefe der Suche nach einem Ort ab dem Sektor der Crew (Wege ueber offene Sprungpunkte, faden-b1.js erreichbar). Weiter weg gibt es keinen Ort, auch wenn ein Rezept mehr verlangt."},
+    "reichweite_standard": {"wert": 2, "einheit": "Spruenge", "_hinweis": "Reichweite einer Ortsregel, wenn die Absicht keinen Reichweite-Parameter hat oder ihn nicht setzt."},
+    "stufe_nach_rang": {"wert": {"miles": 0, "optio": 0, "centurio": 1, "tribun": 1, "legat": 2}, "einheit": "Stufe je Rang", "_hinweis": "Grundstufe der Welt nach dem Rang der Crew bei Rom (ruf-werte.json raenge). Ein unbekannter Rang (oder kein Modus) zaehlt als 0."},
+    "stufe_zuschlag_schiff": {"wert": {"0": 0, "1": 0, "2": 1, "3": 1}, "einheit": "Stufe je Ausbaustufe der Lerche", "_hinweis": "Zuschlag zur Grundstufe nach der Ausbaustufe des Schiffs (game.ship.stufe, 0 bis 3)."},
+    "stufe_max": {"wert": 2, "einheit": "Stufe", "_hinweis": "Hoechste Stufe der Welt (Grundstufe plus Zuschlag wird darauf begrenzt). Ein Rezept darf mit stufe_max eine niedrigere Grenze setzen (hoehere Stufen gelten dann als seine hoechste)."},
+    "staerke_spielraum": {"wert": 1, "einheit": "Stufen", "_hinweis": "Wuenscht eine Absicht ueber ihren Staerke-Parameter (Rezept staerke_parameter) eine Stufe, darf sie hoechstens so viel ueber der Stufe der Welt liegen; mehr ist ein Nein (STAERKE_UNMOEGLICH) mit der hoechsten erlaubten Stufe als Gegenvorschlag."},
+    "text_ausschnitt_max": {"wert": 40, "einheit": "Zeichen", "_hinweis": "Fremdtext (Name, Wert aus der Absicht), der in einer Meldung des Inszenierers steht, wird auf so viele Zeichen gekuerzt."},
+    "plan_fehler_max": {"wert": 3, "einheit": "Fehler", "_hinweis": "Hoechstens so viele Fehler des Expanders stehen im Grund von PLAN_ABGELEHNT."},
+    "notizen_max": {"wert": 12, "einheit": "Notizen", "_hinweis": "Hoechstens so viele Notizen (Entscheidungen des Inszenierers, fuer Logbuch und Bericht) stehen im Ergebnis."}
+  }
+}

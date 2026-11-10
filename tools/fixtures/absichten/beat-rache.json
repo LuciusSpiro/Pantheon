@@ -1,0 +1,14 @@
+{
+  "_hinweis": "SPL-02 B: der VORSCHLAG fuer eine Zeile in content/faeden/beats.json (unter beats), mit der die Fadenmaschine ohne Codeaenderung einen feindlichen NSC aus einem frueheren Abenteuer als Start tragen kann. Im Spiel steht die Zeile NICHT (sie liesse drei bestehende Tests rot werden, Bericht SPL-02 B); tools/test-inszenierer.js traegt sie fuer die Dauer der Proben in D.BEATS ein. Der Baustein ist der der Raumschlacht (Szene: ein Beat waehlt seinen Baustein ueber das Feld baustein, nicht ueber den Namen).",
+  "rache": {
+    "zweck": "Ein NSC aus einem frueheren, abgeschlossenen Abenteuer, dem die Crew etwas schuldig blieb, stellt die Crew mit Schiffen (Szene in der Freien Fahrt); er ist von Anfang an feindlich. Nur als erster Beat; ohne einen solchen NSC gibt es kein Angebot.",
+    "baustein": "raumschlacht",
+    "gefahr": true,
+    "optionen": "keine",
+    "szene": true,
+    "sund_frei_erlaubt": true,
+    "braucht": {"nsc_status": ["feindlich", "aktiv", "geflohen"], "nsc_alt": true},
+    "parameter": {"pflicht": [], "optional": []},
+    "bauplan": {"start_status": "feindlich", "hinweis_traeger": false, "parameter": {}, "aus": {"gelungen": {"status": ["tot", "feindlich", "aktiv"], "folge": []}, "gescheitert": {"status": ["geflohen", "feindlich", "aktiv"], "folge": []}}}
+  }
+}

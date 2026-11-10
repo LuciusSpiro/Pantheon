@@ -36,6 +36,7 @@
     "test:abenteuer-kanon": "node tools/test-abenteuer-kanon.js",
     "test:abenteuer-kanon-mutation": "node tools/mutation-abenteuer-e.js",
     "test:absicht-pruefer": "node tools/test-absicht-pruefer.js",
+    "test:inszenierer": "node tools/test-inszenierer.js",
     "messe:abenteuer": "node tools/messe-abenteuer.js",
     "messe:abenteuer-plaene": "node tools/messe-abenteuer-plaene.js",
     "messe:lage": "node tools/messe-lage.js",
