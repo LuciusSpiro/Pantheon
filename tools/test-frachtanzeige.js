@@ -73,12 +73,15 @@ section('Verkaufsgrund-Texte (fracht.vg)', () => {
 
 section('Typ-Regel-Hinweis vor dem Beamen (platzGrund)', () => {
   const R = [1];
-  ok(FL.platzGrund({ lager: ['erz'] }, R, 'erz') === null, 'gleiche Art passt');
-  const t = FL.platzGrund({ lager: ['erz'] }, R, 'waffen');
-  ok(/Kein Frachtraum frei für /.test(t) && t.includes(Waren.name('waffen')) && /nur eine Art/.test(t), 'andere Art im einzigen Modul: ' + t);
-  ok(FL.platzGrund({ lager: ['erz'] }, [1, 2], 'waffen') === null, 'zweites Modul frei: passt');
-  ok(/Personen/.test(FL.platzGrund({ lager: ['erz'] }, R, 'person')), 'Person neben Ware im einzigen Modul: abgelehnt');
-  ok(FL.platzGrund({ lager: ['erz', 'erz', 'erz', 'erz'] }, R, 'waffen') === null, 'voll: eigener Hinweis Frachtraum voll, kein Typ-Text');
+  // LAD-01 Nacharbeit 2: die Belegung kommt vom Server (mb), eine Ware wird nur auf die Meldung des Servers hin abgelehnt (Pod nz), Personen mit der Belegung
+  ok(FL.platzGrund({ lager: ['erz'], mb: [['erz', 1]] }, R, 'erz', {}) === null, 'gleiche Art passt');
+  const t = FL.platzGrund({ lager: ['erz'], mb: [['erz', 1]] }, R, 'waffen', { nz: 1 });
+  ok(/Kein Frachtraum frei für /.test(t) && t.includes(Waren.name('waffen')) && /nur eine Art/.test(t), 'andere Art im einzigen Modul (Server meldet nz): ' + t);
+  ok(FL.platzGrund({ lager: ['erz'], mb: [['erz', 1]] }, R, 'waffen', {}) === null && FL.platzGrund({ lager: ['erz'] }, R, 'waffen') === null, 'ohne nz keine Aussage über eine Ware (der Client kennt die echte Art nicht)');
+  ok(FL.platzGrund({ lager: ['erz'], mb: [['erz', 1], 0] }, [1, 2], 'waffen', {}) === null, 'zweites Modul frei: passt');
+  ok(/Personen/.test(FL.platzGrund({ lager: ['erz'], mb: [['erz', 1]] }, R, 'person')), 'Person neben Ware im einzigen Modul: abgelehnt');
+  ok(FL.platzGrund({ lager: ['erz'], mb: [['erz', 1], 0] }, [1, 2], 'person') === null, 'Person: ein leeres Modul ist frei');
+  ok(FL.platzGrund({ lager: ['erz', 'erz', 'erz', 'erz'], mb: [['erz', 4]] }, R, 'waffen', { nz: 1 }) === null, 'voll: eigener Hinweis Frachtraum voll, kein Typ-Text');
   ok(FL.platzGrund({}, [], 'erz') === null && FL.platzGrund({}, R, null) === null, 'ohne Räume oder Art: keine Aussage');
 });
 
@@ -105,7 +108,8 @@ section('Server: Snapshot fracht.vg und Ablehnungstexte', () => {
   const pod = Fracht.fracht_abwerfen(g, g.ship.x + 40, g.ship.y, 'waffen');
   const err = Fracht.beamStart(g, null, pod.id);
   ok(typeof err === 'string' && /Kein Frachtraum frei/.test(err) && /nur eine Art/.test(err), 'Beamen: Ablehnungstext vom Server (kommt als Hinweis beim Spieler an): ' + err);
-  ok(FL.platzGrund(g.snapshot().fracht, [1], 'waffen') !== null, 'Client erkennt denselben Fall vorab');
+  const spod = g.snapshot().fracht.draussen.find((d) => d.id === pod.id);
+  ok(!!spod && spod.nz === 1 && FL.platzGrund(g.snapshot().fracht, [1], spod.art, spod) !== null, 'Client erkennt denselben Fall vorab (Server meldet nz im Pod)');
 });
 
 console.log(`\n${n - fails}/${n} Prüfungen ok${fails ? ' – ' + fails + ' FEHLER' : ''}`);

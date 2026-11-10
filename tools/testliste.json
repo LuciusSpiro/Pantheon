@@ -86,6 +86,7 @@
   {"id":"test-kampagne-handel","kette":"test","cmd":["tools/test-kampagne-handel.js"],"stufe":"full","budget_s":12},
   {"id":"test-eigenschaften","kette":"test","cmd":["tools/test-eigenschaften.js"],"stufe":"full","budget_s":8},
   {"id":"test-frachtanzeige","kette":"test","cmd":["tools/test-frachtanzeige.js"],"stufe":"full","budget_s":30},
+  {"id":"test-tarnung","kette":"test","cmd":["tools/test-tarnung.js"],"stufe":"full","budget_s":8},
   {"id":"test-lerche","kette":"test","cmd":["tools/test-lerche.js"],"stufe":"fast","budget_s":7},
   {"id":"test-energie","kette":"test","cmd":["tools/test-energie.js"],"stufe":"fast","budget_s":8},
   {"id":"test-waffen-schiff","kette":"test","cmd":["tools/test-waffen-schiff.js"],"stufe":"fast","budget_s":16},

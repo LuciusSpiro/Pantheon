@@ -69,6 +69,8 @@ function personPlaetze(game) {
 // LAD-01 B: die Art, die der Spieler sieht (getarnte, noch nicht aufgedeckte Ware zeigt die Tarnbezeichnung)
 const anzeigeArt = (l) => (l.eig && l.eig.getarnt && !l.eig.aufgedeckt ? l.eig.getarnt : l.art);
 const anzeigeName = (l) => (l.art === 'person' ? 'Person' : artName(anzeigeArt(l)));
+// LAD-01 Nacharbeit 2: die EINE Stelle fuer alles, was der Spieler (Text, Ereignis, Snapshot) ueber eine Ladung erfaehrt: anzeigeArt(l) / anzeigeName(l) (l = Lagereintrag oder Pod, beide tragen art und eig).
+// Die echte Art (l.art) bleibt dem Server (Typ-Regel, Preis, Gewicht, missionEvent fuers Regiebuch). Ist die Tarnung aufgedeckt (Durchsuchung), ist die Anzeigeart die echte.
 // LAD-01 Nacharbeit 1: Auftragsware (eig.auftrag) ist nie verkaeuflich. Der Kampagnen-Tag KAMPAGNE (Zuteilung der Kette, Konvoi-Beute der Kette) kennzeichnet Ware der Geschichte selbst:
 // sie ist wie jede Auftragsware unverkaeuflich (keine Beute-Spirale, kein Softlock der Abgabe), wird aber von der Kampagnen-Abgabe (Ops, fracht_abliefern, fracht_abliefern_bis) angenommen.
 // Ware mit dem Tag eines Fadens oder einer Faden-Szene (fremder Auftrag) gibt weiter nur der Faden beim Abnehmer ab.
@@ -78,17 +80,39 @@ const hatAuftrag = (l) => !!(l.eig && l.eig.auftrag);
 const kampagnenEig = (art) => { const w = Waren.get(art); return w && w.kategorie === 'ware' && w.eigenschaften.includes('auftrag') ? { auftrag: KAMPAGNE } : null; };
 const fremderAuftrag = (l) => hatAuftrag(l) && l.eig.auftrag !== KAMPAGNE;
 const artLabel = (art) => (art === 'person' ? 'Personen' : artName(art));
-function moduleText(b) { return b.module.filter((m) => m.art).map((m) => `${artLabel(m.art)} ${m.anzahl}/${W.Maps.CARGO_PER_RAUM}`).join(', '); }
+// Die Belegung je Modul, wie der Spieler sie sieht: [{ raum, art (Anzeigeart | 'person' | null), anzahl, getarnt (ein Eintrag im Modul ist noch nicht aufgedeckt getarnt) }].
+// Gerechnet wird mit der ECHTEN Art (Typ-Regel, Maps.frachtBelegung), gezeigt wird die Anzeigeart des ersten Eintrags im Modul. Der Snapshot (fracht.mb) liefert genau das an den Client.
+function modulAnzeige(game) {
+  const s = state(game); const b = belegung(game); const proArt = {}; const benutzt = {};
+  for (const l of s.lager) if (!istPerson(l)) (proArt[l.art] = proArt[l.art] || []).push(l);
+  return b.module.map((m) => {
+    if (!m.art) return { raum: m.raum, art: null, anzahl: 0, getarnt: false };
+    if (m.art === 'person') return { raum: m.raum, art: 'person', anzahl: m.anzahl, getarnt: false };
+    const j = benutzt[m.art] || 0; benutzt[m.art] = j + 1;
+    const sl = (proArt[m.art] || []).slice(j * W.Maps.CARGO_PER_RAUM, j * W.Maps.CARGO_PER_RAUM + m.anzahl);
+    return { raum: m.raum, art: sl.length ? anzeigeArt(sl[0]) : m.art, anzahl: m.anzahl, getarnt: sl.some((l) => l.eig && l.eig.getarnt && !l.eig.aufgedeckt) };
+  });
+}
+function moduleText(mods) { return mods.filter((m) => m.art).map((m) => `${artLabel(m.art)} ${m.anzahl}/${W.Maps.CARGO_PER_RAUM}`).join(', '); }
 // Prüfung, ob eine Ladung dieser Art ins Lager passt. -> { ok: true, raum, platz (Platz im Raum 0–3), nr } | { ok: false, grund, text }
 // grund: 'unbekannt' (keine Ware) · 'kein_frachtraum' · 'voll' (alle Plätze belegt) · 'art_belegt' (Plätze frei, aber nur in Modulen mit anderer Art, oder das Modul dieser Art ist voll)
-function platzFuer(game, art) {
+function platzFuer(game, art) { return platzPruefen(game, art, null); }
+// Wie platzFuer, aber fuer eine Ladung mit Eigenschaften (Pod, Beamen, Einlagern): der Ablehnungstext nennt nur die Anzeigeart der ankommenden Ladung, nie die echte.
+function platzFuerLadung(game, l) { return platzPruefen(game, l && l.art, l); }
+function platzPruefen(game, art, l) {
   const a = art == null ? cfg(game).artDefault : String(art);
   if (a !== 'person' && !artOk(game, a)) return { ok: false, grund: 'unbekannt', text: 'Diese Ware lässt sich nicht laden.' };
   if (capacity(game) <= 0) return { ok: false, grund: 'kein_frachtraum', text: 'Kein Frachtraum eingebaut.' };
   const n = state(game).lager.length;
   if (n >= capacity(game)) return { ok: false, grund: 'voll', text: `Frachtraum voll (${n}/${capacity(game)})` };
   const b = belegung(game, a);
-  if (b.ueber > 0) return { ok: false, grund: 'art_belegt', text: `Kein Frachtraum frei für ${artLabel(a)}: jedes Modul fasst nur eine Art Ladung (belegt: ${moduleText(belegung(game))}). Erst ein Modul leeren (abliefern, abgeben, abwerfen) oder einen weiteren Frachtraum einbauen.` };
+  if (b.ueber > 0) {
+    // LAD-01 Nacharbeit 2: nie die echte Art nennen: die ankommende Ladung heisst, wie sie angezeigt wird; ist im Frachtraum oder bei der Ladung eine Tarnung im Spiel, steht keine Aufstellung der Module im Text
+    const zeige = l ? anzeigeArt({ art: a, eig: l.eig && l.eig.getarnt && typeof l.eig.getarnt === 'string' ? l.eig : null }) : a;
+    const mods = modulAnzeige(game);
+    const heimlich = zeige !== a || mods.some((m) => m.getarnt);
+    return { ok: false, grund: 'art_belegt', text: `Kein Frachtraum frei für ${artLabel(zeige)}: ${heimlich ? 'ein Modul ist mit anderer Ladung belegt' : `jedes Modul fasst nur eine Art Ladung (belegt: ${moduleText(mods)})`}. Erst ein Modul leeren (abliefern, abgeben, abwerfen) oder einen weiteren Frachtraum einbauen.` };
+  }
   const mods = b.module.filter((m) => m.art === a);
   const m = mods[mods.length - 1];
   return { ok: true, raum: m.raum, platz: m.anzahl - 1, nr: m.plaetze[m.anzahl - 1].nr };
@@ -135,8 +159,10 @@ function lagerAufnehmen(game, o) {
   const s = state(game);
   const a = o && o.art != null ? String(o.art) : cfg(game).artDefault;
   if (!o || !QUELLEN.includes(o.quelle)) return { ok: false, grund: 'quelle', text: 'Unbekannte Quelle der Ladung.' };
-  const pf = platzFuer(game, a);
+  const pf = platzFuerLadung(game, { art: a, eig: o.eigenschaften });
   if (!pf.ok) return pf;
+  // LAD-01 Nacharbeit 2: Ware mit dem Tag eines erloschenen Fadens (Pod, der nach dem Beat noch treibt) kommt nicht mehr an Bord (sie waere unverkaeuflich, nicht abgebbar und blockierte ein Modul). Zuteilung durch den Faden selbst und Laden aus dem Stand sind ausgenommen.
+  if (o.quelle !== 'faden' && o.quelle !== 'laden' && o.eigenschaften && typeof o.eigenschaften.auftrag === 'string' && require('./faden-fracht.js').tagErloschen(game, o.eigenschaften.auftrag)) return { ok: false, grund: 'erloschen', text: 'Diese Ladung gehört zu einem erloschenen Auftrag und wird nicht mehr angenommen.' };
   const ep = a === 'person' ? (o.eigenschaften != null ? { ok: false, grund: 'eigenschaft', text: 'Personen tragen keine Eigenschaften.' } : { ok: true, eig: null }) : eigenschaftenPruefen(a, o.eigenschaften);
   if (!ep.ok) return ep;
   const eintrag = a === 'person' ? { art: 'person', person: String(o.person), name: String(o.name != null ? o.name : o.person), bett: pf.nr } : { art: a };
@@ -150,6 +176,20 @@ function lagerAufnehmen(game, o) {
 function auftragEntnehmen(game, tag) {
   const s = state(game); let n = 0;
   for (let i = s.lager.length - 1; i >= 0; i--) if (s.lager[i].eig && s.lager[i].eig.auftrag === tag) { s.lager.splice(i, 1); n++; }
+  return n;
+}
+// Pods im All mit diesem Auftrags-Tag (alle Szenen) entfernen. -> Zahl
+function podsEntnehmen(game, tag) {
+  const s = state(game); const vorher = s.draussen.length;
+  s.draussen = s.draussen.filter((d) => !(d.eig && d.eig.auftrag === tag));
+  return vorher - s.draussen.length;
+}
+// Ladung und Pods, deren Auftrags-Tag zu 'muster' passt und den 'erloschen(tag)' als erloschen meldet, entfernen (je Tick). -> Zahl der entfernten Eintraege
+function erloschenesAufraeumen(game, muster, erloschen) {
+  const s = state(game); let n = 0; const tags = new Set();
+  for (const l of s.lager) if (l.eig && muster.test(String(l.eig.auftrag))) tags.add(l.eig.auftrag);
+  for (const d of s.draussen) if (d.eig && muster.test(String(d.eig.auftrag))) tags.add(d.eig.auftrag);
+  for (const t of tags) if (erloschen(t)) n += auftragEntnehmen(game, t) + podsEntnehmen(game, t);
   return n;
 }
 const auftragAnBord = (game, tag) => state(game).lager.filter((l) => l.eig && l.eig.auftrag === tag).length;
@@ -172,18 +212,36 @@ const erzEinlagern = (game, n) => stapelEinlagern(game, 'erz', n == null ? 1 : n
 const beuteEinlagern = (game, art, n) => stapelEinlagern(game, art == null ? 'bergungsgut' : art, n == null ? 1 : n, 'beute');
 // Skript-Zuteilung ohne Softlock (Eisenwald k3/k4: Ersatz-Sprengstoff): passt die Art nur wegen einer fremden Art nicht hinein, räumt der Quartiermeister das kleinste Modul mit
 // fremder Ware (nie Personen) aus. Gibt true zurück, wenn ausgeladen wurde.
-function fremdesModulRaeumen(game, art) {
-  const s = state(game);
+// LAD-01 Nacharbeit 2: es geht NUR das eine kleinste Modul mit gewöhnlicher Fremdware (nie Personen, nie Ware mit auftrag: Faden, Beute, Kampagne). Die Ladung geht nicht verloren: im All legt der
+// Quartiermeister sie als Pod hinter das Schiff (wieder an Bord beamen, wie nach einem Hüllentreffer), angedockt bleibt sie im Hafen zurück. Es gibt ein Ereignis (frachtVerloren je Ladung, Anzeigeart)
+// und eine Meldung, beide mit der Anzeigeart. l = die ankommende Ladung ({ art, eig }).
+function fremdesModulRaeumen(game, l) {
+  const s = state(game); const sh = game.ship;
+  const art = l.art;
   const b = belegung(game);
   if (b.module.some((m) => !m.art)) return false;
-  // LAD-01 E: Ware eines fremden Auftrags (Faden) gehört dem Auftraggeber und wird nie ausgeräumt; ein Modul, in dem solche Ware liegt, kommt nicht in Frage.
-  // Kampagnen-Ware (KAMPAGNE) kann weichen: die Kette teilt den Ersatz selbst zu.
-  const ausraeumbar = (a) => !s.lager.some((l) => l.art === a && fremderAuftrag(l));
-  const kand = b.module.filter((m) => m.art && m.art !== 'person' && m.art !== art && ausraeumbar(m.art)).sort((x, y) => x.anzahl - y.anzahl)[0];
+  const proArt = {}; const benutzt = {};
+  for (const x of s.lager) if (!istPerson(x)) (proArt[x.art] = proArt[x.art] || []).push(x);
+  const mods = b.module.map((m) => {
+    if (!m.art || m.art === 'person') return { m, eintraege: [] };
+    const j = benutzt[m.art] || 0; benutzt[m.art] = j + 1;
+    return { m, eintraege: (proArt[m.art] || []).slice(j * W.Maps.CARGO_PER_RAUM, j * W.Maps.CARGO_PER_RAUM + m.anzahl) };
+  });
+  const kand = mods.filter((k) => k.m.art && k.m.art !== 'person' && k.m.art !== art && k.eintraege.length && !k.eintraege.some(hatAuftrag)).sort((x, y) => x.m.anzahl - y.m.anzahl)[0];
   if (!kand) return false;
-  const n = s.lager.filter((l) => l.art === kand.art).length;
-  s.lager = s.lager.filter((l) => l.art !== kand.art);
-  game.oda(`Der Quartiermeister hat ${n}× ${artName(kand.art)} ausgeladen, damit der Frachtraum ${artLabel(art)} fassen kann.`, null);
+  const weg = kand.eintraege;
+  s.lager = s.lager.filter((x) => !weg.includes(x));
+  const imAll = !sh.docked;
+  const zaehl = {};
+  weg.forEach((x, i) => {
+    zaehl[anzeigeName(x)] = (zaehl[anzeigeName(x)] || 0) + 1;
+    game.emit('frachtVerloren', { art: anzeigeArt(x) });
+    if (imAll) { const d = cfg(game).abwurfAbstand; const pod = podAblegen(game, sh.x - Math.cos(sh.angle) * d - Math.sin(sh.angle) * 18 * i, sh.y - Math.sin(sh.angle) * d + Math.cos(sh.angle) * 18 * i, x.art, x.eig); if (pod) pod.eigene = true; }
+  });
+  const was = Object.entries(zaehl).map(([nm, n]) => `${n}× ${nm}`).join(', ');
+  const zeige = anzeigeName({ art, eig: l.eig && typeof l.eig.getarnt === 'string' ? l.eig : null });
+  game.oda(`Der Quartiermeister hat ${was} ausgeladen, damit der Frachtraum ${zeige} fassen kann. ${imAll ? 'Die Ladung treibt hinter dem Schiff, dort wieder an Bord beamen.' : 'Die Ladung bleibt im Hafen zurück.'}`, null);
+  game.missionEvent('frachtAusgeraeumt', { art: weg[0].art, n: weg.length, pod: imAll });
   return true;
 }
 function gesichert(game) { return state(game).gesichert !== false; }
@@ -201,16 +259,19 @@ const taktikBesetzt = (game) => game.players.some((p) => p.connected && Station.
 
 // ---------- Fracht im Raum ----------
 // Schnittstelle (Konvoi-Szene, Teil B): Fracht an Weltposition (x, y) der aktuellen Szene ablegen. Gibt das Objekt oder null zurück.
-function fracht_abwerfen(game, x, y, art) {
+function fracht_abwerfen(game, x, y, art) { return podAblegen(game, x, y, art, null); }
+// Der Pod trägt die Eigenschaften der Ladung mit (eig); das Ereignis an alle Clients nennt nur die Anzeigeart (LAD-01 Nacharbeit 2), missionEvent (Regiebuch, serverintern) die echte.
+function podAblegen(game, x, y, art, eig) {
   const s = state(game);
   const a = art == null ? cfg(game).artDefault : String(art);
   if (!artOk(game, a) || !Number.isFinite(x) || !Number.isFinite(y)) return null;
   const pod = { id: 'fr' + (++s.seq), x: r1(x), y: r1(y), art: a, szene: game.ship.scene };
+  if (eig) pod.eig = eig;
   s.draussen.push(pod);
   // Höchstens maxDraussen je Szene (Netzbudget): die älteste fällt weg
   const hier = s.draussen.filter((d) => d.szene === pod.szene);
   if (hier.length > cfg(game).maxDraussen) s.draussen.splice(s.draussen.indexOf(hier[0]), 1);
-  game.emit('frachtAbgeworfen', { id: pod.id, x: pod.x, y: pod.y, art: a });
+  game.emit('frachtAbgeworfen', { id: pod.id, x: pod.x, y: pod.y, art: anzeigeArt(pod) });
   game.missionEvent('frachtAbgeworfen', { id: pod.id, art: a, x: pod.x, y: pod.y });
   return pod;
 }
@@ -239,8 +300,8 @@ function huellenTreffer(game) {
     if (i < 0) break;
     const l = s.lager.splice(i, 1)[0];
     n++;
-    game.emit('frachtVerloren', { art: l.art });
-    if (!sh.docked) { const pod = fracht_abwerfen(game, sh.x - Math.cos(sh.angle) * cfg(game).abwurfAbstand, sh.y - Math.sin(sh.angle) * cfg(game).abwurfAbstand, l.art); if (pod) { pod.eigene = true; if (l.eig) pod.eig = l.eig; } }
+    game.emit('frachtVerloren', { art: anzeigeArt(l) });
+    if (!sh.docked) { const pod = podAblegen(game, sh.x - Math.cos(sh.angle) * cfg(game).abwurfAbstand, sh.y - Math.sin(sh.angle) * cfg(game).abwurfAbstand, l.art, l.eig); if (pod) pod.eigene = true; }
     const ortName = (Locations.get(sh.scene) || {}).name;
     game.oda(`${anzeigeName(l)} hat sich gelöst – der Frachtraum ist ungesichert!${!sh.docked && ortName ? ` Sie treibt in ${ortName}, dort wieder an Bord beamen.` : ''}`, null);
     game.missionEvent('frachtVerloren', { art: l.art, n: s.lager.length });
@@ -271,7 +332,7 @@ function beamStart(game, p, id) {
   if (!pod) return id != null ? 'Diese Fracht gibt es nicht mehr.' : `Keine Fracht in Reichweite (max. ${cfg(game).beamRange}).`;
   const far = dist(game.ship.x, game.ship.y, pod.x, pod.y);
   if (far > cfg(game).beamRange) return `Fracht zu weit (${Math.round(far)}, max. ${cfg(game).beamRange}).`;
-  const pf = platzFuer(game, pod.art); if (!pf.ok) return pf.text;   // LAD-01 A2: Typ-Regel (ein Modul, eine Art)
+  const pf = platzFuerLadung(game, pod); if (!pf.ok) return pf.text;   // LAD-01 A2: Typ-Regel (ein Modul, eine Art)
   s.halt = { kind: 'an', id: pod.id, t: 0, dur: haltDauer(game) };
   game.emit('frachtBeamen', { phase: 'start', was: 'an', id: pod.id, dur: s.halt.dur });
   return null;
@@ -325,7 +386,7 @@ function beamFertig(game) {
     const r = lagerAufnehmen(game, { art: pod.art, quelle: 'beamen', eigenschaften: pod.eig });   // LAD-01 B: Eigenschaften reisen mit der Ladung
     if (!r.ok) { game.emit('frachtBeamen', { phase: 'abbruch', was: 'an', grund: 'voll' }); game.oda(`${r.text}${r.grund === 'voll' ? ' – erst abliefern.' : ''}`, null); return; }
     s.draussen.splice(i, 1);
-    game.emit('frachtBeamen', { phase: 'fertig', was: 'an', art: pod.art });
+    game.emit('frachtBeamen', { phase: 'fertig', was: 'an', art: anzeigeArt(pod) });
     game.oda(`${anzeigeName(r.eintrag)} an Bord (${s.lager.length}/${capacity(game)}).`, null);
     game.missionEvent('frachtAnBord', { art: pod.art, n: s.lager.length, id: pod.id });
   } else if (h.kind === 'person_an' || h.kind === 'person_ab') {   // SL0: Person beamen (server/sim/personen-bord.js)
@@ -385,6 +446,7 @@ function update(game, dt) {
     if (s.halt) beamStop(game, 'szene');
     s.draussen = s.draussen.filter((d) => d.eigene);   // PAN-01 A: Ware, die sich im ungesicherten Frachtraum gelöst hat, bleibt für die Rückkehr im Sektor liegen
   }
+  if (s.lager.length || s.draussen.length) require('./faden-fracht.js').aufraeumen(game);   // LAD-01 Nacharbeit 2: Ladung/Pods eines erloschenen Faden-Auftrags weg
   const h = s.halt;
   if (!h) return;
   if (transferDown(game)) return void beamStop(game, 'transfer', 'Transfer ausgefallen – Beamen abgebrochen.');
@@ -421,8 +483,10 @@ function snapshot(game) {
     if (le.some(Boolean)) out.le = le;
     if (ablieferOrt(game).ok) out.ab = 1;
   }
+  // LAD-01 Nacharbeit 2: die Belegung je Modul liefert der SERVER (er rechnet die Typ-Regel mit der echten Art, gezeigt wird die Anzeigeart): mb[i] = [Anzeigeart | 'person', Anzahl] oder 0 (leer), i = Frachtraum-Module aufsteigend nach Raum
+  if (s.lager.length) out.mb = modulAnzeige(game).map((m) => (m.art ? [m.art, m.anzahl] : 0));
   Object.assign(out, require('./personen-bord.js').snapshotZusatz(game));   // SL0: pers, pq
-  if (draus.length) out.draussen = draus.map((d) => ({ id: d.id, x: d.x, y: d.y, art: anzeigeArt(d) }));
+  if (draus.length) out.draussen = draus.map((d) => { const o = { id: d.id, x: d.x, y: d.y, art: anzeigeArt(d) }; if (platzFuerLadung(game, d).grund === 'art_belegt') o.nz = 1; return o; });   // nz 1 = kein Modul nimmt diesen Pod (Typ-Regel, vom Server gerechnet: der Client kennt die echte Art nicht)
   if (s.halt) { out.halt = { kind: s.halt.kind, p: s.halt.kind === 'schoepf' ? require('./ladung.js').fuellStand(game) : Math.round(Math.min(1, s.halt.t / s.halt.dur) * 100) / 100 }; if (s.halt.id) out.halt.id = s.halt.id; }
   if (s.abnehmer && s.abnehmer.name) out.abn = s.abnehmer.name;
   if (s.gesichert === false) out.g = false;
@@ -502,11 +566,11 @@ function anBordLegen(game, art, quelle) {
 // eigenschaften (optional): { illegal, getarnt: '<anzeigeArt>', auftrag: '<id>' } wie bei lagerAufnehmen (Regiebuch/Spielleiter).
 function zuteilen(game, art, eigenschaften) {
   const a = art == null ? cfg(game).artDefault : String(art);
-  let pf = platzFuer(game, a);
-  if (!pf.ok && pf.grund === 'art_belegt' && fremdesModulRaeumen(game, a)) pf = platzFuer(game, a);
-  if (!pf.ok) { game.oda(pf.text, null); return false; }
   const eig = Object.assign({}, kampagnenEig(a), eigenschaften || {});
   if (!eig.auftrag && kampagnenEig(a)) eig.auftrag = KAMPAGNE;
+  let pf = platzFuerLadung(game, { art: a, eig });
+  if (!pf.ok && pf.grund === 'art_belegt' && fremdesModulRaeumen(game, { art: a, eig })) pf = platzFuerLadung(game, { art: a, eig });
+  if (!pf.ok) { game.oda(pf.text, null); return false; }
   const r = lagerAufnehmen(game, { art: a, quelle: 'zuteilung', eigenschaften: eig });
   if (!r.ok) { game.oda(r.text, null); return false; }
   game.missionEvent('frachtAnBord', { art: a, n: state(game).lager.length });
@@ -548,7 +612,7 @@ function debug(game, args) {
 module.exports = {
   neu, state, update, snapshot, toSave, toSaveEig, restore, debug, frachtDurchsuchen, anzeigeArt, eigenschaftenPruefen,
   fracht_abwerfen, abwerfen: fracht_abwerfen,
-  beamStart, abliefernStart, beamStop, systemTreffer, ablieferOrt, stationOrt,
-  anBord, frei, capacity, platzFuer, freiFuer, kapazitaetFuer, passtOhneRaum, personImRaum, lagerAufnehmen, auftragEntnehmen, auftragAnBord, anBordFuerBeute, erzEinlagern, beuteEinlagern, zuteilen, belegung, personPlaetze, gesichert, setGesichert, gefaehrdet, huellenTreffer, frachtraumTreffer, lagerArten, draussen, abgeliefert,
+  anzeigeName, platzFuerLadung, fremdesModulRaeumen, podAblegen, modulAnzeige, beamStart, abliefernStart, beamStop, systemTreffer, ablieferOrt, stationOrt,
+  anBord, frei, capacity, platzFuer, freiFuer, kapazitaetFuer, passtOhneRaum, personImRaum, lagerAufnehmen, auftragEntnehmen, podsEntnehmen, erloschenesAufraeumen, auftragAnBord, anBordFuerBeute, erzEinlagern, beuteEinlagern, zuteilen, belegung, personPlaetze, gesichert, setGesichert, gefaehrdet, huellenTreffer, frachtraumTreffer, lagerArten, draussen, abgeliefert,
   setAbnehmer, skriptAbliefern, skriptAbliefernBis, anBordLegen, artOk, artName, KAMPAGNE, kampagnenEig,
 };

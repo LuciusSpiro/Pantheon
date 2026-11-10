@@ -62,7 +62,7 @@ const MUTATIONEN = [
   [FR, "    funk(game, 'abgeliefert', frachtVars(f.fracht));", '', 'Fracht: kein Funk beim Abliefern'],
   [FR, "  if (f && f.fracht) funk(game, 'verloren', frachtVars(f.fracht));", '', 'Fracht: kein Funk bei Verlust'],
   [FD, "  if (f.fracht && ausgang === 'gescheitert') { try { require('./faden-fracht.js').verlustMelden(game, f); } catch (e) { fehlerZaehlen(game, 'faden-fracht-funk', e); } }", '', 'Fracht: der Verlust beim Scheitern des Beats wird nicht gemeldet'],
-  [SZ, "    if (!r.ok) { Fracht.funk(game, 'kein_ziel', { ort: ort ? Sektoren.hexName(ort) : 'hier' }); return { ausgang: 'gescheitert' }; }", "    if (!r.ok) return { ausgang: 'gescheitert' };", 'Fracht: ohne Ziel kein Funk'],
+  [SZ, "    if (!r.ok) { Fracht.funk(game, r.platz ? 'kein_platz' : 'kein_ziel', { ort: ort ? Sektoren.hexName(ort) : 'hier' }); return { ausgang: 'gescheitert' }; }", "    if (!r.ok) return { ausgang: 'gescheitert' };", 'Fracht: ohne Ziel kein Funk'],
   [BI, '    if (z) { try { ziel = RE().hexName(z) || z; } catch (e) { ziel = z; } }', '    if (false) { try { ziel = RE().hexName(z) || z; } catch (e) { ziel = z; } }', 'Bitte: der Zielhafen kommt nie in den Text'],
   [BI, "    else { t = roh(beat.parameter && beat.parameter.text_key_kein_ziel); if (typeof t !== 'string') return null; }", "    else { t = roh('bitte_mission'); }", 'Bitte ohne Ziel verspricht trotzdem einen Transport'],
   [SW, '"fracht_reichweite": {"wert": 3,', '"fracht_reichweite": {"wert": 1,', 'Daten: Reichweite 1 statt 3'],

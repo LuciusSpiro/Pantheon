@@ -1931,7 +1931,7 @@
       else if (lager.length + (fr.pers || []).length >= cap) beam = 'Frachtraum voll (' + (lager.length + (fr.pers || []).length) + '/' + cap + ') – erst abliefern';   // SL0: Personen belegen Plätze
       else if (!draus.length) beam = 'Keine Fracht in diesem Gebiet';
       else if (!near.length) beam = 'Keine Fracht in Reichweite (' + beamR + ')';
-      else if (window.Shared_Frachtliste) { const nah = near.slice().sort((p, q) => Math.hypot(p.x - n(ship.x), p.y - n(ship.y)) - Math.hypot(q.x - n(ship.x), q.y - n(ship.y)))[0]; beam = window.Shared_Frachtliste.platzGrund(fr, frachtRaeume(st), nah.art); }   // LAD-01 E: Typ-Regel (ein Modul, eine Art) schon am Knopf sichtbar
+      else if (window.Shared_Frachtliste) { const nah = near.slice().sort((p, q) => Math.hypot(p.x - n(ship.x), p.y - n(ship.y)) - Math.hypot(q.x - n(ship.x), q.y - n(ship.y)))[0]; beam = window.Shared_Frachtliste.platzGrund(fr, frachtRaeume(st), nah.art, nah); }   // LAD-01 E: Typ-Regel (ein Modul, eine Art) schon am Knopf sichtbar
       let ab = null;
       if (sysDown(ship, 'transfer')) ab = 'Transfer ausgefallen – reparieren';
       else if (!lager.length) ab = 'Keine Fracht an Bord';

@@ -42,8 +42,7 @@
   // raeume = Nummern der Räume mit Frachtraum (Maps.frachtRaeumeAusMod(ship.mod)).
   function modulFuellung(fracht, raeume) {
     if (!Maps || !Maps.frachtBelegung || !(raeume || []).length) return [];
-    const fr = fracht || {};
-    const b = Maps.frachtBelegung(raeume, fr.lager || [], (fr.pers || []).length);
+    const b = Maps.frachtBelegungAusFracht(raeume, fracht);   // LAD-01 Nacharbeit 2: die Belegung kommt vom Server (fracht.mb), nicht aus der Anzeigeart gerechnet
     return b.module.map((m) => {
       const kap = m.plaetze.length;
       const name = m.art === 'person' ? 'Personen' : m.art ? artName(m.art) : 'leer';
@@ -51,16 +50,21 @@
     });
   }
 
-  // Typ-Regel im Client (Knopf-Hinweis vor dem Beamen): passt eine Ladung dieser Art (art = 'person' für eine Person) noch in ein Modul? -> null (passt / keine Aussage) | Text
-  // Gleiche Rechnung wie der Server (Maps.frachtBelegung); die Tarnung kennt der Client nicht (er rechnet mit der angezeigten Art), der Server entscheidet endgültig.
-  function platzGrund(fracht, raeume, art) {
+  // Typ-Regel im Client (Knopf-Hinweis vor dem Beamen): passt eine Person (art = 'person') bzw. der Pod (art = Anzeigeart, pod = Eintrag fracht.draussen) noch in ein Modul? -> null (passt / keine Aussage) | Text
+  // LAD-01 Nacharbeit 2: Der Client sagt nur, was er sicher weiss. Personen sind nie getarnt: die Belegung (fracht.mb vom Server) reicht. Bei einer Ware kennt der Client die echte Art des Pods und der Module nicht
+  // (Tarnung); er sagt „kein Platz“ nur, wenn der Server es im Pod meldet (draussen[].nz, Typ-Regel mit echten Arten gerechnet), und nennt dann nur die Anzeigeart.
+  function platzGrund(fracht, raeume, art, pod) {
     if (!Maps || !Maps.frachtBelegung || !(raeume || []).length || !art) return null;
     const fr = fracht || {};
     const lager = fr.lager || [], pers = (fr.pers || []).length;
-    const b = art === 'person' ? Maps.frachtBelegung(raeume, lager, pers + 1) : Maps.frachtBelegung(raeume, lager.concat([art]), pers);
-    if (b.ueber <= 0) return null;
     if (lager.length + pers >= raeume.length * 4) return null;   // voll: eigener Hinweis „Frachtraum voll“
-    return 'Kein Frachtraum frei für ' + (art === 'person' ? 'Personen' : artName(art)) + ': jedes Modul fasst nur eine Art Ladung';
+    if (art === 'person') {
+      const b = Maps.frachtBelegungAusFracht(raeume, fr);
+      if (b.module.some((m) => !m.art || (m.art === 'person' && m.anzahl < m.plaetze.length))) return null;
+      return 'Kein Frachtraum frei für Personen: jedes Modul fasst nur eine Art Ladung';
+    }
+    if (pod && pod.nz) return 'Kein Frachtraum frei für ' + artName(art) + ': jedes Modul fasst nur eine Art Ladung';
+    return null;
   }
 
   // fracht = snapshot.fracht (kann fehlen), cap = Anzahl Frachtplätze, raeume (optional) = Räume mit Frachtraum für den Füllstand je Modul.

@@ -102,15 +102,14 @@ function abwerfen(game, art) {
   for (let i = s.lager.length - 1; i >= 0; i--) {
     const l = s.lager[i];
     if (!istWare(l.art)) continue;
-    if (art ? l.art === art : true) { idx = i; break; }
+    if (art ? Fracht.anzeigeArt(l) === art : true) { idx = i; break; }   // LAD-01 Nacharbeit 2: der Spieler nennt die Art, die er sieht (Anzeigeart), nicht die echte
   }
   if (idx < 0) return art ? `Kein ${artName(art)} an Bord.` : 'Keine Ware an Bord.';
   const l = s.lager.splice(idx, 1)[0];
   const sh = game.ship; const d = cfg(game).abwurfAbstand || 70;
   const px = sh.x - Math.cos(sh.angle) * d, py = sh.y - Math.sin(sh.angle) * d;
-  const pod = Fracht.fracht_abwerfen(game, px, py, l.art);
-  if (pod && l.eig) pod.eig = l.eig;   // LAD-01 B: Eigenschaften bleiben an der Ladung, auch im All
-  game.oda(`${artName(Fracht.anzeigeArt(l))} abgeworfen (${s.lager.length}/${Fracht.capacity(game)}).`, null);
+  Fracht.podAblegen(game, px, py, l.art, l.eig);   // LAD-01 B: Eigenschaften bleiben an der Ladung, auch im All (Ereignis: Anzeigeart)
+  game.oda(`${Fracht.anzeigeName(l)} abgeworfen (${s.lager.length}/${Fracht.capacity(game)}).`, null);
   game.missionEvent('frachtAbgeworfenVonBord', { art: l.art, n: s.lager.length });
   return null;
 }
@@ -207,19 +206,20 @@ function verkaufFertig(game) {
   const o = verkaufOrt(game);
   const hafen = hafenVon(game);
   if (!o.ok) { game.emit('frachtBeamen', { phase: 'abbruch', was: 'verk', grund: 'ort' }); return 0; }
-  let summe = 0; const arten = {};
+  let summe = 0; const arten = {}; const namen = {};   // arten: echte Art (Statistik, Regiebuch), namen: wie der Spieler die Ware sieht (Meldung)
   for (let i = s.lager.length - 1; i >= 0; i--) {
     if (s.lager[i].eig && s.lager[i].eig.auftrag) continue;   // LAD-01 B
     const pr = preisFuer(game, hafen, s.lager[i].art);
     if (pr <= 0) continue;
     const l = s.lager.splice(i, 1)[0];
     summe += pr; arten[l.art] = (arten[l.art] || 0) + 1;
+    namen[Fracht.anzeigeName(l)] = (namen[Fracht.anzeigeName(l)] || 0) + 1;   // LAD-01 Nacharbeit 2: bezahlt wird nach echter Art (der Preis ist ein Hinweis, gewollt), genannt wird die Anzeigeart
   }
   s.verkauft = s.verkauft || {};
   for (const [a, k] of Object.entries(arten)) s.verkauft[a] = (s.verkauft[a] || 0) + k;
   Marken.gutschreiben(game, summe, 'verkauf');
   game.emit('frachtBeamen', { phase: 'fertig', was: 'verk', n: Object.values(arten).reduce((a, b) => a + b, 0), marks: summe });
-  game.oda(`Verkauft: ${Object.entries(arten).map(([a, n]) => `${n} × ${artName(a)}`).join(', ')} – ${summe} Marken (${o.name}).`, null);
+  game.oda(`Verkauft: ${Object.entries(namen).map(([nm, n]) => `${n} × ${nm}`).join(', ')} – ${summe} Marken (${o.name}).`, null);
   game.missionEvent('frachtVerkauft', { arten, marks: summe, ort: game.ship.scene, name: o.name });
   if (arten.deuterium) game.missionEvent('deuteriumVerkauft', { n: arten.deuterium, marks: summe, ort: game.ship.scene });   // Kette (SL11): Flag gasVerkauft
   return summe;

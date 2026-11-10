@@ -84,11 +84,21 @@ section('Typ-Regel gilt für die Faden-Ware', () => {
   const g = bereit(33);
   raeume(g, [1]);
   Fracht.debug(g, ['leer']);
+  // LAD-01 Nacharbeit 2: gewoehnliche Fremdware im einzigen Modul raeumt der Quartiermeister (Pod im All, nicht verloren), die Faden-Ware wird geladen (M6)
   ok(Fracht.anBordLegen(g, 'sprengstoff'), 'Sprengstoff legt den Typ des einzigen Moduls fest');
+  const f0 = oeffne(g, 'lz_c'); grenzen(g, 5);
+  weiter(g, f0);
+  ok(!!f0.fracht && lager(g).join() === 'fracht' && g.fracht.draussen.some((d) => d.art === 'sprengstoff'), 'gewöhnliche Fremdware: der Quartiermeister räumt (Pod im All), die Faden-Ware kommt an Bord');
+  Faden.beatAusgang(g, f0.id, 'gescheitert');
+  // Fremdware, die nie weicht (Auftragsware eines anderen Auftrags): der Beat scheitert sauber, der Funk nennt den Platz, nicht den Hafen
+  Fracht.debug(g, ['leer']);
+  ok(Fracht.lagerAufnehmen(g, { art: 'sprengstoff', quelle: 'debug', eigenschaften: { auftrag: 'fremd' } }).ok, 'Auftrags-Sprengstoff eines anderen Auftrags im einzigen Modul');
   const f = oeffne(g, 'lz_c'); grenzen(g, 5);
   weiter(g, f);
   ok(!f.fracht && lager(g).join() === 'sprengstoff', 'Faden-Ware wird abgelehnt (ein Modul, eine Art): kein Auftrag, nichts im Lager');
   ok(f.phase === 'wartet' && f.nsc.status === 'geflohen', 'der Beat scheitert sauber, der Faden lebt');
+  Fracht.debug(g, ['leer']);
+  Fracht.anBordLegen(g, 'sprengstoff');
   raeume(g, [1, 3]); Fracht.debug(g, ['leer']);
   Fracht.anBordLegen(g, 'sprengstoff');
   const h = oeffne(g, 'lz_c'); grenzen(g, 5); weiter(g, h);

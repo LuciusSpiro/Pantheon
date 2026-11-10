@@ -151,10 +151,10 @@ section('Quartiermeister und Kampagnen-Zuteilung: kein neuer Softlock', () => {
   // ein Frachtraum, gewöhnliche Fremdware (Deuterium aus dem Gasriesen): der Quartiermeister räumt, der Ersatz kommt
   nur(['deuterium', 'deuterium']);
   ok(Fracht.zuteilen(g, 'sprengstoff') && Fracht.anBord(g, 'sprengstoff') === 1 && Fracht.anBord(g, 'deuterium') === 0, 'gewöhnliche Fremdware im einzigen Modul: wird ausgeräumt, Ersatz-Sprengstoff kommt');
-  // Fremdware der Kampagne selbst (Tag kampagne, z. B. Konvoi-Beute einer anderen Art): weicht ebenfalls
+  // Fremdware der Kampagne selbst (Tag kampagne, z. B. Konvoi-Beute einer anderen Art): LAD-01 Nacharbeit 2: Auftragsware (auch mit Kampagnen-Tag) bleibt unberuehrt, die Zuteilung scheitert mit Hinweis
   Fracht.restore(g, []);
   Fracht.zuteilen(g, 'fracht');
-  ok(Fracht.zuteilen(g, 'sprengstoff') && Fracht.anBord(g, 'sprengstoff') === 1 && Fracht.anBord(g, 'fracht') === 0, 'Kampagnen-Ware anderer Art weicht dem Ersatz (die Kette teilt selbst zu)');
+  ok(!Fracht.zuteilen(g, 'sprengstoff') && Fracht.anBord(g, 'sprengstoff') === 0 && Fracht.anBord(g, 'fracht') === 1, 'Kampagnen-Ware anderer Art bleibt (Auftragsware wird nie ausgeräumt)');
   // Ware eines Fadens (fremder Auftrag) wird nie ausgeräumt; die Zuteilung scheitert mit Hinweis, nichts geht verloren, nichts stürzt ab
   Fracht.restore(g, []);
   Fracht.lagerAufnehmen(g, { art: 'waffen', quelle: 'faden', eigenschaften: { auftrag: 'faden_x' } });

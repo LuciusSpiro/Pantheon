@@ -516,10 +516,24 @@
     }
     return { module, ueber };
   }
-  // Client (Darstellung, LAD-01 F2): die Belegung aus dem Snapshot (ship.mod, fracht.lager, fracht.pers) und der Platz an einer Kachel
+  // Client (Darstellung, LAD-01 F2): die Belegung aus dem Snapshot (ship.mod, fracht) und der Platz an einer Kachel.
+  // LAD-01 Nacharbeit 2: Die Belegung je Modul rechnet der SERVER (fracht.mb, Typ-Regel nach der echten Art, gezeigt wird die Anzeigeart); der Client rechnet sie bei getarnter Ware NICHT selbst nach,
+  // sonst wuerden Client und Server verschiedene Module sehen. Ohne mb (leeres Lager, Tests, alter Server) bleibt die Rechnung aus lager/pers (dann ohne Tarnung: Anzeigeart = Art).
+  function frachtBelegungAusFracht(raeume, fracht) {
+    const f = fracht || {};
+    if (!Array.isArray(f.mb)) return frachtBelegung(raeume, f.lager || [], (f.pers || []).length);
+    const b = frachtBelegung(raeume, [], 0);
+    b.module.forEach((m, i) => {
+      const e = f.mb[i];
+      if (!Array.isArray(e) || !e[0]) return;
+      const k = Math.max(0, Math.min(m.plaetze.length, e[1] | 0));
+      m.art = String(e[0]); m.anzahl = k;
+      for (let j = 0; j < k; j++) m.plaetze[j].art = m.art;
+    });
+    return b;
+  }
   function frachtBelegungAusSnapshot(st) {
-    const f = (st && st.fracht) || {};
-    return frachtBelegung(frachtRaeumeAusMod(st && st.ship && st.ship.mod), f.lager || [], (f.pers || []).length);
+    return frachtBelegungAusFracht(frachtRaeumeAusMod(st && st.ship && st.ship.mod), st && st.fracht);
   }
   // -> { raum, nr, modulArt (Typ des Moduls, null = leer), art (Ladung auf diesem Platz, null = leer) } | null (kein belegbarer Platz)
   function frachtPlatzAn(belegung, tx, ty) {
@@ -696,7 +710,7 @@
     SHIP_ROWS, PLATFORM_ROWS, LEGEND, PLATFORM_LEGEND,
     SHELVES, BEDS, REACTOR_SWITCHES, SHIP_SPAWNS, BOT_SPAWNS, HAUPTSCHIRM, KONSOLEN_FRONT, PLATFORM_PADS, SECTOR_REGIONS,
     // M3a Schritt 0: Schiffslayout als Daten (CONTRACT-M3 §3)
-    SHIP_ROOMS, SHELF_TILES, SHIP_DRILL, roomAt, nutzungAt, shelfAt, CARGO_PLAETZE, CARGO_PER_RAUM, cargoPlatzAt, frachtPlaetze, frachtBelegung, frachtBelegungAusSnapshot, frachtPlatzAn, cargoCapacity, frachtRaeumeAusMod, modulCodeImRaum, MODUL_CODE_FRACHT,
+    SHIP_ROOMS, SHELF_TILES, SHIP_DRILL, roomAt, nutzungAt, shelfAt, CARGO_PLAETZE, CARGO_PER_RAUM, cargoPlatzAt, frachtPlaetze, frachtBelegung, frachtBelegungAusFracht, frachtBelegungAusSnapshot, frachtPlatzAn, cargoCapacity, frachtRaeumeAusMod, modulCodeImRaum, MODUL_CODE_FRACHT,
     // M3a: Schiffslegende mit Stationen, Ivo-Wegpunkte, Sektornamen
     SHIP_LEGEND, IVO_SPOTS, IVO_AUSSTIEG, SECTOR_NAMES,
     // M4 „Zwei Decks“ (CONTRACT-M4 §2.3), PAN-01 B „Drei Decks“: Decks, Lifts, Notleiter, Ausbaustufen, Waffenplätze, Modulräume

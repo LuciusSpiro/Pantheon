@@ -86,8 +86,11 @@ function laden(game, o) {
   const fr = leseFracht({ ware, von, nach: q.nachHafen, tick: game.weltsim.tickZahl });
   if (!fr) return { ok: false, grund: 'Zielhafen ungültig' };
   if (!andockbar(game, fr.nach)) return { ok: false, grund: 'Zielhafen nicht andockbar' };   // nie eine Scheinfracht: die Crew koennte dort nicht abliefern
-  const pf = Lager.platzFuer(game, 'fracht');
-  if (!pf.ok) return { ok: false, grund: pf.text };   // LAD-01 C: Typ-Regel/Kapazitaet gelten auch fuer die Faden-Ware (nie eine Scheinfracht)
+  // LAD-01 Nacharbeit 2: liegt nur gewoehnliche Fremdware im Weg (Typ-Regel), raeumt der Quartiermeister das kleinste Fremd-Modul (Pod/Hafen, Meldung, Ereignis); Personen, Auftragsware und ein volles Lager nie.
+  // Bleibt dann kein Platz, scheitert der Beat mit dem richtigen Grund (platz: true -> Funk „kein_platz“, nicht „kein Hafen“).
+  let pf = Lager.platzFuerLadung(game, { art: 'fracht', eig: { auftrag: f.id } });
+  if (!pf.ok && pf.grund === 'art_belegt' && Lager.fremdesModulRaeumen(game, { art: 'fracht', eig: { auftrag: f.id } })) pf = Lager.platzFuerLadung(game, { art: 'fracht', eig: { auftrag: f.id } });
+  if (!pf.ok) return { ok: false, grund: pf.text, platz: true };   // LAD-01 C: Typ-Regel/Kapazitaet gelten auch fuer die Faden-Ware (nie eine Scheinfracht)
   const r = Lager.lagerAufnehmen(game, { art: 'fracht', quelle: 'faden', eigenschaften: { auftrag: f.id } });   // LAD-01 B: die Ladung gehoert diesem Faden (Tag = Faden-ID): nicht verkaufbar, nicht an irgendeiner Station abgebbar
   if (!r.ok) return { ok: false, grund: r.text };
   f.fracht = fr;
@@ -111,8 +114,23 @@ function andocken(game) {
 }
 
 // Die Ladung des Auftrags verlassen den Frachtraum (abgeliefert, verloren, Beat zu Ende, Szene aufgeloest)
+// LAD-01 Nacharbeit 2: auch die Pods dieses Fadens im All (alle Szenen; ein Huellentreffer legt Faden-Ware als Pod ab) verschwinden mit dem Ende des Beats
 function entladen(game, f) {
-  if (f && f.fracht && game && game.fracht) Lager.auftragEntnehmen(game, f.id);   // LAD-01 B: gezielt die Ladung dieses Fadens, nie irgendeine Ladung der Art fracht
+  if (f && f.fracht && game && game.fracht) { Lager.auftragEntnehmen(game, f.id); Lager.podsEntnehmen(game, f.id); }   // LAD-01 B: gezielt die Ladung dieses Fadens, nie irgendeine Ladung der Art fracht
+}
+// Ein Faden-Tag (f<Nr>) ist erloschen, wenn der Faden in der Liste steht, aber seinen Beat „fracht“ nicht mehr mit Ware fuehrt (Beat zu Ende, Frist, Notsprung). Ein Tag, den kein Faden kennt, bleibt unbeanstandet
+// (Tests, Skript, andere Quellen); das Faden-System aus heisst: nichts zu beurteilen.
+const FADEN_TAG = /^f\d+$/;
+function tagErloschen(game, tag) {
+  if (typeof tag !== 'string' || !FADEN_TAG.test(tag) || !F().aktiv(game)) return false;
+  const f = F().zustandVon(game).liste.find((x) => x.id === tag);
+  return !!f && !(f.fracht && f.phase === 'laeuft');
+}
+// Je Tick (fracht.update): Ladung und Pods mit einem erloschenen Faden-Tag aufraeumen (kein toter Auftrag blockiert ein Modul). -> Zahl der entfernten Eintraege
+function aufraeumen(game) {
+  const n = Lager.erloschenesAufraeumen(game, FADEN_TAG, (t) => tagErloschen(game, t));
+  if (n && game.log) game.log('Fracht: ' + n + ' Ladung(en) eines erloschenen Auftrags entfernt');
+  return n;
 }
 
 function verloren(game, fadenId) {
@@ -136,4 +154,4 @@ function inventar(game) {
   return liste.filter((f) => f.fracht).map((f) => ({ faden: f.id, id: f.fracht.ware, name: WAREN[f.fracht.ware].name, gewicht: WAREN[f.fracht.ware].gewicht, nach: f.fracht.nach }));
 }
 
-module.exports = { laden, entladen, andocken, verloren, notsprung, inventar, leseFracht, zielFuer, andockbar, verlustMelden, funk, WAREN };
+module.exports = { aufraeumen, tagErloschen, laden, entladen, andocken, verloren, notsprung, inventar, leseFracht, zielFuer, andockbar, verlustMelden, funk, WAREN };
