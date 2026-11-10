@@ -5,6 +5,7 @@
 //   schoepfStart/-Abbrechen/-Weiter  Ops-Aktion Schöpfen (Halteprozess 'schoepf'), nur in der Ertragszone; ruft schoepfen() je Tick
 //   schoepfen(game, art, rate, dt)   Füllstand wächst; ist 1 erreicht und Platz frei, kommt eine Einheit ins Lager (nie von selbst, nur über schoepfWeiter)
 //   abwerfen(game, art?)             Ops: eine Einheit als Pod ins All (nicht Personen); sofort, wie ein Notabwurf
+//   preisFuer(game, hafen, art)      LAD-01 D: Preis je Einheit an einem Hafen (content/handel.json), 0 = kauft nicht; verkaufOrt/handelsOrt: Hafen, an dem man andocken kann
 //   verkaufStart(game, p)            Ops: Halteprozess „verkaufen“ (Händler im Umkreis), Marken beim Abschluss (verkaufFertig)
 //   gewichtFaktor(game)              Faktor auf die Triebwerksleistung (1 ohne schwere Ladung): space.engineSpeedFactor
 // Kein Ertragslimit, kein fallender Preis (Kai 2026-10-14); Kapazität bleibt die des Frachtraums.
@@ -113,26 +114,73 @@ function abwerfen(game, art) {
   return null;
 }
 
-// ---------- Verkaufen ----------
-// Preis je Einheit: nur Szenen mit `scene.kauft` kaufen (Daten, z. B. Concordia). Wert true = Preis aus config fracht.preise, Zahl = fester Preis dort.
+// ---------- Verkaufen (LAD-01 D) ----------
+// Verkauf an jedem Hafen, an dem die Lerche andocken kann (Kai 2026-11-09: „Exakt dort, wo ich andocke, kann ich auch handeln“). Preise: content/handel.json
+// (Volk des Hafens, Override je Hafen und Ware), scene.kauft bleibt ein Override der Szene. Personen sind nie verkäuflich.
+const Besitz = require('./besitz.js');
+const Sektoren = require('../../shared/sektoren.js');
+const HANDEL = require('../../content/handel.json');
+const rund = (v) => Math.max(1, Math.round(v));
+
+// scene.kauft als Override: Preis je Ware (true = Preis aus config/Daten, Zahl = fester Preis, false = kauft nicht), 0 = kein Override
 function preisVon(game, sc, art) {
   const k = sc && sc.kauft && sc.kauft[art];
   if (k == null || k === false) return 0;
   return k === true ? (Number(cfg(game).preise && cfg(game).preise[art] != null ? cfg(game).preise[art] : Waren.grundpreis(art)) || 0) : (Number(k) || 0);
 }
+// Der Hafen am Ort der Lerche (Szene) als Beschreibung für preisFuer: { ort, hex, fraktion, sc }
+function hafenVon(game) {
+  const sh = game.ship; const loc = Locations.get(sh.scene);
+  const hex = loc ? (loc.hex || Sektoren.hexVonOrt(loc.id)) : null;
+  return { ort: sh.scene, hex: hex || null, fraktion: hex ? Besitz.besitzer(game, hex) : null, sc: (loc && loc.scene) || null };
+}
+// Preis (Marken je Einheit) der Ware an diesem Hafen; 0 = kauft der Hafen nicht (Person, unbekannte Art, ausgeschlossen, scene.kauft sagt nein)
+function preisFuer(game, hafen, art) {
+  if (!Waren.artOk(art)) return 0;
+  const h = hafen || {};
+  if (h.sc && h.sc.kauft && h.sc.kauft[art] === false) return 0;
+  const ov = preisVon(game, h.sc, art);
+  if (ov > 0) return ov;
+  const hex = h.hex || null, fr = h.fraktion !== undefined ? h.fraktion : (hex ? Besitz.besitzer(game, hex) : null);
+  const volk = (fr && HANDEL.voelker && HANDEL.voelker[fr]) || HANDEL.standard || {};
+  const hd = (HANDEL.haefen && ((hex && HANDEL.haefen[hex]) || (h.ort && HANDEL.haefen[h.ort]))) || {};
+  if ((volk.nicht || []).includes(art) || (hd.nicht || []).includes(art)) return 0;
+  if (hd.preise && hd.preise[art] != null) return rund(Number(hd.preise[art]) || 0);
+  const grund = Number(cfg(game).preise && cfg(game).preise[art] != null ? cfg(game).preise[art] : Waren.grundpreis(art)) || 0;
+  if (grund <= 0) return 0;
+  const f = (volk.faktor != null ? volk.faktor : 1) * ((volk.waren && volk.waren[art]) != null ? volk.waren[art] : 1) * (hd.faktor != null ? hd.faktor : 1) * ((hd.waren && hd.waren[art]) != null ? hd.waren[art] : 1);
+  return rund(grund * f);
+}
+// Handelsort: Hafen mit Liegeplatz, den die Lerche anlaufen darf (oder Szene mit scene.kauft wie früher), angedockt oder in Stationsreichweite. -> { ok, reason?, hafen, name }
+function handelsOrt(game) {
+  const sh = game.ship; const loc = Locations.get(sh.scene); const sc = loc && loc.scene;
+  const hafen = hafenVon(game);
+  if (!sc) return { ok: false, reason: 'Hier kauft niemand Ware.', hafen };
+  const name = (loc && loc.name) || sh.scene;
+  let ref = null;
+  if (sc.kauft && sc.station) ref = sc.station;   // alter Weg: Szene mit eigener Preisliste
+  else {
+    const dl = Besitz.dockLage(game, sc, hafen.hex);
+    if (!dl) return { ok: false, reason: 'Hier kauft niemand Ware (kein Hafen zum Andocken).', hafen };
+    if (hafen.hex && !Besitz.darfAndocken(game, hafen.hex)) return { ok: false, reason: Besitz.verbotText(game, hafen.hex) || 'Andocken verweigert – kein Handel.', hafen };
+    const sperre = Besitz.handelSperre(game, hafen.hex); if (sperre) return { ok: false, reason: sperre, hafen };
+    ref = sc.station || dl;
+  }
+  if (!(sh.docked && sh.dockedAt === sh.scene)) {
+    const far = dist(sh.x, sh.y, ref.x, ref.y);
+    if (far > cfg(game).stationRange) return { ok: false, reason: `Zu weit vom Händler (${Math.round(far)}, max. ${cfg(game).stationRange}).`, hafen, name };
+  }
+  return { ok: true, hafen, name };
+}
 // Händler im Umkreis? -> { ok, reason?, name?, n, summe }
 function verkaufOrt(game) {
-  const s = Fracht.state(game); const sh = game.ship;
-  const loc = Locations.get(sh.scene); const sc = loc && loc.scene;
-  const ware = s.lager.filter((l) => preisVon(game, sc, l.art) > 0);
+  const s = Fracht.state(game);
   if (!s.lager.length) return { ok: false, reason: 'Keine Fracht an Bord.' };
-  const st = sc && sc.station;
-  if (!st || !sc.kauft) return { ok: false, reason: 'Hier kauft niemand Ware.' };
-  if (!ware.length) return { ok: false, reason: 'Der Händler kauft diese Ware nicht.' };
-  const far = dist(sh.x, sh.y, st.x, st.y);
-  if (far > cfg(game).stationRange) return { ok: false, reason: `Zu weit vom Händler (${Math.round(far)}, max. ${cfg(game).stationRange}).` };
-  const summe = ware.reduce((a, l) => a + preisVon(game, sc, l.art), 0);
-  return { ok: true, name: (loc && loc.name) || sh.scene, n: ware.length, summe };
+  const h = handelsOrt(game);
+  if (!h.ok) return { ok: false, reason: h.reason };
+  const preise = s.lager.map((l) => preisFuer(game, h.hafen, l.art)).filter((p) => p > 0);
+  if (!preise.length) return { ok: false, reason: s.lager.every((l) => !istWare(l.art)) ? 'Personen lassen sich nicht verkaufen.' : 'Der Händler kauft diese Ware nicht.' };
+  return { ok: true, name: h.name, n: preise.length, summe: preise.reduce((a, b) => a + b, 0) };
 }
 // Halteprozess starten (Ops). Rückgabe: Fehlertext | null
 function verkaufStart(game, p) {
@@ -148,12 +196,12 @@ function verkaufStart(game, p) {
 // Abschluss des Halteprozesses (aus fracht.beamFertig): verkauft alle Waren, die der Händler kauft
 function verkaufFertig(game) {
   const s = Fracht.state(game);
-  const sc = (Locations.get(game.ship.scene) || {}).scene;
   const o = verkaufOrt(game);
+  const hafen = hafenVon(game);
   if (!o.ok) { game.emit('frachtBeamen', { phase: 'abbruch', was: 'verk', grund: 'ort' }); return 0; }
   let summe = 0; const arten = {};
   for (let i = s.lager.length - 1; i >= 0; i--) {
-    const pr = preisVon(game, sc, s.lager[i].art);
+    const pr = preisFuer(game, hafen, s.lager[i].art);
     if (pr <= 0) continue;
     const l = s.lager.splice(i, 1)[0];
     summe += pr; arten[l.art] = (arten[l.art] || 0) + 1;
@@ -178,4 +226,4 @@ function verkaufWeiter(game) { return verkaufOrt(game).ok; }
 // Snapshot-Zusatz für fracht.snapshot: Füllstand der nächsten Einheit (0..1), nur wenn sie sich füllt
 function fuellStand(game) { const s = game.fracht; return s && s.fuell > 0.005 ? r2(Math.min(1, s.fuell)) : 0; }
 
-module.exports = { schoepfen, schoepfOrt, schoepfStart, schoepfAbbrechen, schoepfWeiter, schoepft, gewichtFaktor, abwerfen, verkaufOrt, verkaufStart, verkaufFertig, verkaufWeiter, verkauft, fuellStand, preisVon };
+module.exports = { schoepfen, schoepfOrt, schoepfStart, schoepfAbbrechen, schoepfWeiter, schoepft, gewichtFaktor, abwerfen, verkaufOrt, handelsOrt, hafenVon, preisFuer, verkaufStart, verkaufFertig, verkaufWeiter, verkauft, fuellStand, preisVon };

@@ -139,6 +139,7 @@
     "test:lager": "node tools/test-lager.js",
     "test:waren": "node tools/test-waren.js",
     "test:typregel": "node tools/test-typregel.js",
+    "test:handel": "node tools/test-handel.js",
     "test:lerche": "node tools/test-lerche.js",
     "test:energie": "node tools/test-energie.js",
     "test:waffen-schiff": "node tools/test-waffen-schiff.js",
