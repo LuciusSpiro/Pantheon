@@ -103,7 +103,7 @@ async function abend(cfg, o, dir, modus) {
   const env = basis ? { REISE_EREIGNISSE: '1' } : { LAGE_SPIELLEITER: '1', SPIELLEITER_LLM: live ? 'live' : 'mock', REISE_EREIGNISSE: '1' };
   if (!basis && o.faeden) env.FAEDEN = '1';
   // Live: der Lage-Spielleiter liest den Schalter aus dem env des Spiels (modusAusEnv: live nur mit LLM_LIVE=1 dort); das Werkzeug reicht die Umgebung des Aufrufers durch, setzt sie aber nie selbst (LLM_LIVE, Router LLM_*, OLLAMA_*)
-  if (live) for (const k of Object.keys(process.env)) if (/^(LLM_|OLLAMA_)/.test(k)) env[k] = process.env[k];
+  if (live) for (const k of Object.keys(process.env)) if (/^(LLM_|OLLAMA_|CLAUDE_CLI$|FAKE_)/.test(k)) env[k] = process.env[k];
   Object.assign(env, { REGIE_DIR: regieDir, MISSION_SOURCE: 'fallback' });
   for (const k of ['MITSCHNITT', 'MITSCHNITT_DIR']) if (process.env[k] !== undefined) env[k] = process.env[k];
   const budget0 = LLM.budget();
