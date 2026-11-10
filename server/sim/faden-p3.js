@@ -40,6 +40,7 @@ const SB = D.WERTE.sim_befehl;   // FAD-01 A: Arten, Standardart (Daten werte.js
 const fmt = (t, v) => String(t == null ? '' : t).replace(/\{(\w+)\}/g, (m, k) => (v && v[k] != null ? v[k] : m));
 const hexName = (hex) => { try { return Sektoren.hexName(hex) || hex; } catch (e) { return hex; } };
 const fehlerZaehlen = (game, wo, e) => { if (game && game.countError) game.countError(wo, e); };
+const poolText = (game, faden, beatId, slots) => { try { return require('./abenteuer-texte.js').haken(game, faden, beatId, slots); } catch (e) { fehlerZaehlen(game, 'faden-p3-pool', e); return null; } };   // SPL-02 E3: Zeile der Absicht, sonst null
 const logbuch = (game, art, e) => { try { Regie().schreibe(game, Object.assign({ art }, e)); } catch (err) { fehlerZaehlen(game, 'faden-p3-logbuch', err); } };
 const nscVon = (game, id) => Faden().nscVon(game, id);
 
@@ -193,7 +194,7 @@ const abschluss = {
     const nsc = nscVon(game, faden.nsc.id) || faden.nsc;
     const gelungen = Pruefer.abschlussGelungen(ctx.beat, nsc);
     const key = nsc.status === 'tot' ? 'abschluss_tot' : !gelungen ? 'abschluss_gescheitert' : (ctx.beat.parameter && ctx.beat.parameter.text_key && T[ctx.beat.parameter.text_key] ? ctx.beat.parameter.text_key : 'abschluss_gelungen');
-    const text = fmt(T[key], { name: nsc.name });
+    const text = (nsc.status !== 'tot' && poolText(game, faden, ctx.beat.id, [key])) || fmt(T[key], { name: nsc.name });   // SPL-02 E3: Haken (Slot = Textschluessel), ohne angemeldeten Plan und bei einem Toten null
     if (nsc.status === 'tot') Bitte().funkSprecher(game, W.tot_sprecher.wert, text);   // Nacharbeit F3d: ein Toter spricht nie selbst (kein eigener Name, kein Porträt)
     else sagen(game, nsc, text);
     return { ausgang: gelungen ? 'gelungen' : 'gescheitert' };

@@ -43,7 +43,7 @@
     "bogen_fakten": {
       "wert": {
         "einsatz": "Anlass des Abenteuers (nur Hintergrund, in eigenen Worten): {text}",
-        "preis": "Der Preis, den dieses Abenteuer fordert (nenne ihn nur, wenn er zum Ausgang passt, nie gegen den Ausgang): {text}"
+        "preis": "Was dieses Abenteuer die Crew gekostet hat oder was offen blieb, weil es nicht gelungen ist (nur Hintergrund, in eigenen Worten, nie als Sieg der Crew): {text}"
       },
       "einheit": "Satz je Feld des Bogens",
       "_hinweis": "Felder des Bogens (einsatz, preis; die Wendung kommt als Symbol ueber den Eintrag wendungen der Absicht): {text} ist der Freitext der Absicht, mit Namen schon durch Platzhalter ersetzt. Enthaelt er danach noch einen Klartext-Eigennamen oder einen Spielernamen, bleibt das Feld weg (nie Klartextnamen im fakt)."

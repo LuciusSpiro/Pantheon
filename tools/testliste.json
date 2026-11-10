@@ -265,6 +265,7 @@
   {"id":"test-absichten-katalog","kette":"test","cmd":["tools/test-absichten-katalog.js"],"stufe":"fast","budget_s":10},
   {"id":"test-abenteuer-geschichte","kette":"test","cmd":["tools/test-abenteuer-geschichte.js"],"stufe":"fast","budget_s":10},
   {"id":"test-abenteuer-absichten","kette":"test","cmd":["tools/test-abenteuer-absichten.js"],"stufe":"fast","budget_s":20},
+  {"id":"test-abenteuer-haken","kette":"test","cmd":["tools/test-abenteuer-haken.js"],"stufe":"fast","budget_s":10},
   {"id":"test-abenteuer-texte","kette":"test","cmd":["tools/test-abenteuer-texte.js"],"stufe":"fast","budget_s":20},
   {"id":"test-abenteuer-rueckfall","kette":"test","cmd":["tools/test-abenteuer-rueckfall.js"],"stufe":"fast","budget_s":40},
   {"id":"test-abenteuer-vorrat","kette":"test","cmd":["tools/test-abenteuer-vorrat.js"],"stufe":"fast","budget_s":20},

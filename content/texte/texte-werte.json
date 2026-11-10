@@ -29,10 +29,10 @@
     },
     "slots_abenteuer": {
       "wert": {
-        "bitte": {"min": 40, "max": 230, "aufgabe": "Der erste Funkspruch eines Abenteuers: Die Figur meldet sich bei der Lerche und sagt, worum es ihr geht (Bitte, Forderung oder Drohung, je nach Lage und Ton). Sie bleibt bei den Fakten der Lage."},
-        "wendung": {"min": 25, "max": 200, "aufgabe": "Der Funkspruch bei der Wendung des Abenteuers: Die Lage kippt, und die Figur sagt in knappen Worten, was sich geaendert hat. Nur das, was in der Lage steht."},
-        "abschluss_gelungen": {"min": 20, "max": 200, "aufgabe": "Der Schlussfunk, wenn die Crew das Abenteuer geschafft hat: Die Figur sagt, wie es zwischen ihr und der Crew jetzt steht, in der Haltung der Lage (Dank nur, wenn die Lage Dank hergibt). Sie nennt, was es gekostet hat, wenn die Lage einen Preis nennt."},
-        "abschluss_gescheitert": {"min": 20, "max": 200, "aufgabe": "Der Schlussfunk, wenn das Abenteuer gescheitert ist: Die Figur sagt, was verloren oder offen geblieben ist, in der Haltung der Lage. Kein Dank. Sie nennt den Preis, wenn die Lage einen nennt."}
+        "bitte": {"min": 40, "max": 150, "aufgabe": "Der erste Funkspruch eines Abenteuers: Die Figur meldet sich bei der Lerche und sagt, worum es ihr geht (Bitte, Forderung oder Drohung, je nach Lage und Ton). Sie bleibt bei den Fakten der Lage."},
+        "wendung": {"min": 25, "max": 140, "aufgabe": "Der Funkspruch bei der Wendung des Abenteuers: Die Lage kippt, und die Figur sagt in knappen Worten, was sich geaendert hat. Nur das, was in der Lage steht."},
+        "abschluss_gelungen": {"min": 20, "max": 140, "aufgabe": "Der Schlussfunk, wenn die Crew das Abenteuer geschafft hat: Die Figur sagt, wie es zwischen ihr und der Crew jetzt steht, in der Haltung der Lage (Dank nur, wenn die Lage Dank hergibt). Der Ausgang ist gelungen: kein Verlust, kein Scheitern, kein Preis."},
+        "abschluss_gescheitert": {"min": 20, "max": 140, "aufgabe": "Der Schlussfunk, wenn das Abenteuer gescheitert ist: Die Figur sagt, was verloren oder offen geblieben ist, in der Haltung der Lage. Kein Dank. Sie nennt, was es gekostet hat, wenn die Lage es nennt."}
       },
       "einheit": "Zeichen je Slot",
       "_hinweis": "SPL-02 E2: Slots der Zeilen eines Abenteuers (server/sim/abenteuer-texte.js), eine eigene Gruppe neben slots (der Pool vereint beide, texte-pruefer.js WERTE.slots): ein Test fixiert die sieben Slots des Reise-Funks. Laenge (min bis max) und Aufgabe wie bei slots. Welche Absicht welchen Slot anmeldet und mit welchen Fakten, steht je Absicht unter `texte` in content/faeden/absichten.json."

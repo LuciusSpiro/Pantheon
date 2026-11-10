@@ -43,6 +43,9 @@ const J = (x) => JSON.stringify(x);
   const w = Bot.werkzeug({ g, cl, zeile, k });
   const grenze = () => { k('grenze-gesetzt'); Kriegslage.tick(g, 'spiel'); g.lageGrenze('szene_ende'); if (g.lageSpielleiter && g.lageSpielleiter.aufrufe > 4) g.lageSpielleiter.aufrufe = 0; return true; };
   const B = Beats.neu({ g, cl, w, zeile, k, kz, opts: { testhelfer: true }, grenze, ereignis: () => {} });
+  // SPL-02 E3: der Funk der Faeden (Haken der Fadenmaschine) steht im Protokoll; der Abschluss einer Rache darf nie der Dank der Fadenmaschine sein
+  const funkZeilen = [];
+  { const orig = g.emit.bind(g); g.emit = (k, d) => { if (k === 'radio' && d && d.text && d.lage) { funkZeilen.push(String(d.text)); zeile(`Funk ${d.from}: ${d.text}`); } return orig(k, d); }; }
   const F0 = () => g.weltsim.faeden;
   const SL = () => g.lageSpielleiter.abenteuer;
   const ergebnis = [];
@@ -104,6 +107,7 @@ const J = (x) => JSON.stringify(x);
       await sleep(500);
       zeile(`Ende ${f.id}: Phase ${f.phase}, Ausgang ${f.ausgang && f.ausgang.art}, NSC ${f.nsc.status}, Haltung ${f.nsc.haltung}, Gedaechtnis ${f.nsc.gedaechtnis.map((x) => x.ereignis).join(',')}`);
       ergebnis.push(['Abenteuer zu Ende gespielt', f.phase === 'abgeschlossen']);
+      ergebnis.push(['Abschluss ohne Dank (nicht der Text der Fadenmaschine)', !funkZeilen.some((t) => /Danke, dass ihr mit mir gegangen seid/.test(t))]);
     }
   }
   zeile('Ergebnisse: ' + ergebnis.map(([n, ok]) => n + ' ' + (ok ? 'ok' : 'FEHLT')).join('; ') + '; Serverfehler ' + g.errors);

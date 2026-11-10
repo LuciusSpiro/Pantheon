@@ -39,6 +39,8 @@ const space = () => spaceMod || (spaceMod = require('./space.js'));
 const flotte = () => flotteMod || (flotteMod = require('./flotte.js'));
 
 const fmt = (t, v) => String(t == null ? '' : t).replace(/\{(\w+)\}/g, (m, k) => (v && v[k] != null ? v[k] : m));
+// SPL-02 E3: die Zeile der Absicht (Bitte beim ersten Beat, Wendung beim ersten Beat danach) spricht der NSC vor der Vorwarnung der Aufklaerung; die Vorwarnung (Zahl, Sekunden) bleibt immer
+const poolSagen = (game, it) => { try { const t = it.nsc && require('./abenteuer-texte.js').haken(game, it.fadenId, it.beatId, ['bitte', 'wendung']); if (t) require('./faden-bitte.js').funkVon(game, it.nsc, t); } catch (e) { if (game.countError) game.countError('faden-szene-pool', e); } };
 const funk = (game, text) => { if (text) game.emit('radio', { from: SPRECHER, text: String(text), lage: 1 }); };
 // Gate: FAEDEN=1 und Freie Fahrt. Gestartet werden Szenen nur durch einen Beat, und einen Beat startet nur der Spielleiter (faden_weiter); fällt er aus,
 // laufen die Fristen nicht ab (faden.js B-S3), eine begonnene Szene endet wie jede Szene, wenn der Beat schon weg ist.
@@ -94,6 +96,7 @@ function beginnen(game, it) {
   game.fadenSzene = fs;
   const klasse = (it.art === 'raumschlacht' || it.art === 'befreiung') ? W[it.art].klasse : '';
   const vars = { name: it.nsc ? it.nsc.name : '', schiff: it.nsc ? it.nsc.schiff : '', klasse, n, sek: Math.round(sek) };
+  poolSagen(game, it);   // SPL-02 E3: Haken, ohne angemeldeten Plan nichts
   funk(game, fmt(T.vorwarnung[fs.textKey], vars));   // Fairness: die Gefahr wird vorher angekündigt, nie abgefragt
   return fs;
 }

@@ -2,7 +2,7 @@
 // SPL-02 E2: der Bogen und die Bezuege einer Absicht wirken auf den TEXT der Beats. Action-Layer: reine Regeln auf Absicht, Inszenierung und Weltstand, kein Modellaufruf, kein Zufall. Alle Texte, Zahlen und Wortlisten stehen
 // in Daten: je Absicht `texte` in content/faeden/absichten.json (Slots mit Szene, Bezug-Fakten, Bogen-Feldern, Ton, Rueckfall; Wendungen mit eigenem Fakt), die uebrigen Bausteine in content/faeden/abenteuer-texte.json, Slots,
 // Laengen und Pruefregeln in content/texte/texte-werte.json (slots_abenteuer, bezug_pruefung, anreden). Dieses Modul kennt keinen Absichtsnamen, keinen Beat-Typ und keinen Slotnamen.
-// Die Fadenmaschine (faden*.js) bleibt unveraendert und ruft diese Schicht noch NICHT: der Haken `zeile` ist die benannte Stelle, die sie spaeter aufruft (Vorschlag im Bericht von SPL-02 E2).
+// Die Fadenmaschine (faden-bitte.js, faden-szene.js, faden-p3.js) ruft diese Schicht seit E3 an drei Stellen ueber den Haken `haken` (-> `zeile`); ohne angemeldeten Plan liefert er null und alles bleibt wie vorher.
 //
 // Ablauf: die Absicht wird angenommen (abenteuer-absicht.js) > anmelden() merkt sich den Plan (Vorlage-Id) und meldet je Slot, der zu ihrem Rezept passt, eine Spec beim Text-Pool an (nur mit TEXTE_POOL) >
 // der Pool erzeugt im Hintergrund Zeilen mit Platzhaltern (Pruefer: Namen nur als {nsc}, {ort}, {ware}, keine Erfindungen, Anrede) > ein Beat fragt zeile() nach dem Text: Pool-Zeile, sonst der Rueckfall der Absicht (Daten,
@@ -14,6 +14,7 @@
 //   anmelden(game, absicht, inszenierung, angebot, katalog?) -> { ref, eintraege: [{ slot, beat, key, angemeldet }], fehler } | null     merkt den Plan (immer) und meldet beim Pool an (nur mit Schalter TEXTE_POOL)
 //   zeile(game, faden, beatId, slot, werte?) -> { text, quelle: 'pool' | 'rueckfall', key } | null       DER HAKEN: Text fuer diesen Slot dieses Beats; null = kein Eintrag, der Aufrufer nimmt seinen Text
 //        werte { nsc, ort, ware }: Standard Vollname des NSC des Plans, Ortsname des Fadens, Name der Ware aus dem Parameter der Absicht
+//   haken(game, faden | fadenId, beatId, [slot, ...], werte?) -> Text | null     der Haken in einer Zeile fuer faden-bitte.js, faden-szene.js, faden-p3.js (SPL-02 E3): erster Slot mit Text, wirft nie, null = Text der Fadenmaschine
 //   pruefeZeile(text, spec, namen?) -> { ok, text, fehler[] }     dieselbe Pruefung wie im Pool (texte-pruefer.js pruefe, mit bezug und anrede der Spec)
 //   texteFehler(katalog, name, eintrag) -> [Text]      `texte` einer Absicht ist stimmig (Slots, Beats, Platzhalter, Wendungen, Rueckfalltexte bestehen den Pruefer)
 //   werteFehler() -> [Text]     die Daten abenteuer-texte.json sind stimmig        werteNeuLesen() / zuruecksetzen()
@@ -247,6 +248,18 @@ function zeile(game, faden, beatId, slot, w) {
   return null;
 }
 
+// Der Haken fuer die Fadenmaschine in EINER Zeile: der erste Slot der Liste, der fuer diesen Beat einen Text hat (Pool oder Rueckfall der Absicht); sonst null = es gilt der Text der Fadenmaschine wie heute.
+// faden: der Faden oder seine Id. Wirft nie (ein Fehler zaehlt als Serverfehler, das Spiel laeuft mit dem Text der Fadenmaschine weiter).
+function haken(game, faden, beatId, slots, w) {
+  try {
+    const F = typeof faden === 'string' ? faedenZustand(game) : null;
+    const f = typeof faden === 'string' ? (F && (F.liste || []).find((x) => x.id === faden)) : faden;
+    if (!f) return null;
+    for (const s of slots || []) { const z = zeile(game, f, beatId, s, w); if (z && text(z.text)) return z.text; }
+  } catch (e) { if (game && game.countError) game.countError('abenteuer-haken', e); }
+  return null;
+}
+
 function pruefeZeile(t, spec, namen) {
   return Pruefer().pruefe(t, { slot: spec.slot, platzhalter: spec.platzhalter, pflicht: spec.pflicht, stimme: spec.stimme, namen: namen || [], vorhanden: spec.beispiele || [], muss: spec.muss, nicht: spec.nicht, fakt: spec.fakt, bezug: spec.bezug, ausnahmen: spec.ausnahmen, anrede: spec.anrede });
 }
@@ -351,4 +364,4 @@ function werteFehler() {
   return out;
 }
 
-module.exports = { specsFuer, anmelden, zeile, pruefeZeile, texteFehler, werteFehler, werteNeuLesen, zuruecksetzen, werte, platzhalterSetzen, nscZustand };
+module.exports = { specsFuer, anmelden, zeile, haken, pruefeZeile, texteFehler, werteFehler, werteNeuLesen, zuruecksetzen, werte, platzhalterSetzen, nscZustand };

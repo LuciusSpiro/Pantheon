@@ -40,6 +40,7 @@
     "test:absichten-katalog": "node tools/test-absichten-katalog.js",
     "test:abenteuer-geschichte": "node tools/test-abenteuer-geschichte.js",
     "test:abenteuer-absichten": "node tools/test-abenteuer-absichten.js",
+    "test:abenteuer-haken": "node tools/test-abenteuer-haken.js",
     "test:abenteuer-texte": "node tools/test-abenteuer-texte.js",
     "test:abenteuer-rueckfall": "node tools/test-abenteuer-rueckfall.js",
     "test:abenteuer-vorrat": "node tools/test-abenteuer-vorrat.js",
