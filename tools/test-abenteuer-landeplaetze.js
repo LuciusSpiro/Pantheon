@@ -265,7 +265,7 @@ function abgelehnt(g, hex, p, code, muster, was) {
     const ps = plan([WILD]); ps.beats.splice(1, 0, { typ: 'spontanhilfe', parameter: { landeplatz: 'absturz' } });
     const r2 = anbieten(g, SK_HEX, ps); assert.ok(!r2.ok && /^PARAMETER:/.test(r2.grund) && /landeplatz/.test(r2.grund), 'ein Beat, der landeplatz nicht deklariert, darf ihn nicht setzen: ' + r2.grund);
     assert.strictEqual(P.pruefeLandeplaetze(g, null, SK_HEX), null); assert.strictEqual(P.pruefeLandeplaetze(g, { beats: [] }, SK_HEX), null);
-    assert.deepStrictEqual(Faden.zustandVon(g).abenteuerAngebote.length >= 0, true);
+    assert.strictEqual(anbieten(g, SK_HEX, plan([WILD])).ok, true, 'nach den Ablehnungen geht ein gueltiger Plan weiter durch');
   });
 
   // ---------------- 4) Platz teilen ----------------
@@ -314,6 +314,49 @@ function abgelehnt(g, hex, p, code, muster, was) {
     assert.strictEqual(AO.platzBestellen(g3, f3.id, { id: 'dritt', art: 'wildnis' }), null, 'dritter Ort: Obergrenze orte_max'); assert.strictEqual(f3.orte.length, AO.DATEN.orte_max); assert.deepStrictEqual(T3.fehler, []);
   });
 
+  // ---------------- 5a) Ortswechsel (Review W1) ----------------
+  // Plan aus Beats in der gegebenen Reihenfolge; ls = Landeplaetze, ein Beat ist { typ, platz?, id?, verzweigung? }
+  const planFolge = (ls, beats) => ({ format: 'faden-bauplan/1', titel: 'Geruecht vom Lager', anlass: 'Jemand hat ein altes Lager gesehen und redet darueber.', landeplaetze: ls,
+    beats: beats.map((b) => Object.assign({ typ: b.typ }, b.id ? { id: b.id } : {}, b.platz ? { parameter: { landeplatz: b.platz } } : {}, b.verzweigung ? { verzweigung: b.verzweigung } : {})) });
+  const LAGER = (art) => [{ id: 'lager', art }];
+  await pruefe('5a) verlegt_ort (Daten): geruecht, wiedersehen, sabotage; Katalogcheck verlangt true oder fehlt; ein Platz NACH einem solchen Beat darf nur Raumpunkt-Art sein (LANDEPLATZ_VERLEGT), davor oder auf anderem Weg gilt es nicht', async () => {
+    const B = FD.BEATS;
+    assert.deepStrictEqual(Object.keys(B).filter((t) => B[t].verlegt_ort !== undefined).sort(), ['geruecht', 'sabotage', 'wiedersehen']);
+    for (const t of ['geruecht', 'sabotage', 'wiedersehen']) assert.strictEqual(B[t].verlegt_ort, true, t);
+    assert.deepStrictEqual(P.katalogFehler(), []);
+    for (const falsch of ['ja', false, 1]) { B.geruecht.verlegt_ort = falsch; try { assert.ok(P.katalogFehler().some((e) => /^KATALOG_VERLEGT_ORT/.test(e) && /geruecht/.test(e)), 'verlegt_ort=' + JSON.stringify(falsch)); } finally { B.geruecht.verlegt_ort = true; } }
+    const T = spiel(), g = T.g;
+    const nach = [{ typ: 'geruecht' }, { typ: 'notruf', platz: 'lager' }, { typ: 'abschluss' }];
+    for (const art of ['wildnis', 'aussenposten']) abgelehnt(g, SK_HEX, planFolge(LAGER(art), nach), 'LANDEPLATZ_VERLEGT', new RegExp('lager.*geruecht.*schiff/station.*nicht ' + art), `${art} nach geruecht`);
+    for (const art of ['schiff', 'station']) assert.ok(anbieten(g, SK_HEX, planFolge(LAGER(art), nach)).ok, art + ' nach geruecht geht');
+    abgelehnt(g, KA_HEX, planFolge(LAGER('hoehle'), nach), 'LANDEPLATZ_VERLEGT', /hoehle/, 'hoehle nach geruecht');
+    // auch ein spaeterer Beat (nicht der naechste) und jedes verlegende Beat-Typ
+    abgelehnt(g, SK_HEX, planFolge(LAGER('wildnis'), [{ typ: 'geruecht' }, { typ: 'spur' }, { typ: 'notruf', platz: 'lager' }, { typ: 'abschluss' }]), 'LANDEPLATZ_VERLEGT', /geruecht/, 'geruecht, spur, notruf');
+    // davor: der Platz wird bestellt, bevor der Ort wandert -> zugelassen; auf dem Weg dahinter derselbe Platz bleibt am alten Ort
+    assert.ok(anbieten(g, SK_HEX, planFolge(LAGER('wildnis'), [{ typ: 'notruf', platz: 'lager' }, { typ: 'geruecht' }, { typ: 'abschluss' }])).ok, 'Beat vor dem geruecht gilt als nicht verlegt');
+    assert.ok(anbieten(g, SK_HEX, planFolge(LAGER('wildnis'), [{ typ: 'notruf', platz: 'lager' }, { typ: 'geruecht' }, { typ: 'notruf', platz: 'lager' }, { typ: 'abschluss' }])).ok, 'ein davor schon bestellter Platz bleibt am alten Ort');
+    // zwei Plaetze: der eine davor, der andere danach -> nur der danach zaehlt
+    const zwei = [{ id: 'lager', art: 'wildnis' }, { id: 'zweit', art: 'aussenposten' }];
+    abgelehnt(g, SK_HEX, planFolge(zwei, [{ typ: 'notruf', platz: 'lager' }, { typ: 'geruecht' }, { typ: 'notruf', platz: 'zweit' }, { typ: 'abschluss' }]), 'LANDEPLATZ_VERLEGT', /zweit/, 'der Platz danach');
+    // Verzweigung: ein Weg ueber das geruecht genuegt (jeder moegliche Pfad)
+    const verz = [{ typ: 'bitte', optionen: true, verzweigung: { gelungen: 'spaet' } }, { typ: 'geruecht' }, { typ: 'notruf', id: 'spaet', platz: 'lager' }, { typ: 'abschluss' }];
+    abgelehnt(g, SK_HEX, planFolge(LAGER('wildnis'), verz), 'LANDEPLATZ_VERLEGT', /geruecht/, 'ein Weg ueber geruecht');
+  });
+  await pruefe('5a) Lauf: [geruecht, notruf mit schiff-Platz] gelingt in 15 Laeufen ohne landeplatz_fehlt (der Raumpunkt geht an jedem Zielhex); der Plan mit wildnis wird vorher abgelehnt', async () => {
+    let fehlt = 0, ok = 0;
+    for (let s = 1; s <= 15; s++) {
+      const T = F.neuesSpiel({ crew: 1, seed: s, env: ENV }), g = T.g; T.fehler = []; g.countError = (wo, e) => { T.fehler.push(wo + ': ' + (e && e.message)); };
+      if (g.explore && g.explore.kanteOffen) g.explore.kanteOffen = () => true;
+      space.enterScene(g, SK, { docked: false }); for (let i = 0; i < 10; i++) g.step();
+      const f = oeffnen(g, SK_HEX, planFolge(LAGER('schiff'), [{ typ: 'geruecht' }, { typ: 'notruf', platz: 'lager' }, { typ: 'abschluss' }]));
+      assert.ok(beatStarten(g, f), 'geruecht startet'); const ziel = f.parameter.ort;
+      Faden.beatAusgang(g, f.id, 'gelungen'); assert.ok(beatStarten(g, f), 'notruf startet');
+      if (logbuch(g).some((e) => e.ausgang === 'landeplatz_fehlt')) { fehlt++; continue; }
+      assert.strictEqual(FD.vorlage(f.vorlage).beats[f.beat].typ, 'notruf'); assert.deepStrictEqual(dyn(g), [idVon(Sektoren.ortVonHex(ziel), f, 'lager')], `Ort am Zielhex ${ziel}`); assert.deepStrictEqual(T.fehler, []); ok++;
+    }
+    assert.deepStrictEqual({ ok, fehlt }, { ok: 15, fehlt: 0 });
+  });
+
   // ---------------- 6) Prompt, Kontext, Mock ----------------
   await pruefe('6) Prompt: Katalog nennt Landeplaetze und den Beat-Parameter, Kontext nennt die Kartenarten des Hex; unter prompt_max_zeichen auch mit voller Chronik; der Mock liefert weiter gueltige Plaene ohne Landeplaetze', async () => {
     const T = spiel(), g = T.g; for (let i = 0; i < 6; i++) g.step();
@@ -321,6 +364,7 @@ function abgelehnt(g, hex, p, code, muster, was) {
     const kat = AP.katalogText();
     assert.ok(/"landeplaetze"\?: \[Landeplatz/.test(kat) && /Landeplatz \(Ort fuer die Dauer des Abenteuers, hoechstens 2\)/.test(kat) && /nie Seed, Biom oder Besetzung/.test(kat) && /jeder Platz braucht einen Beat/.test(kat), 'Passage im Katalog');
     assert.ok(/- bitte[^\n]*landeplatz \(id\)/.test(kat) && /- notruf[^\n]*landeplatz \(id\)/.test(kat) && !/- spontanhilfe[^\n]*landeplatz/.test(kat), 'nur die deklarierenden Beats nennen den Parameter');
+    const satz = /Platz erst nach geruecht \| wiedersehen \| sabotage genutzt: nur schiff \| station\./.exec(kat); assert.ok(satz && satz[0].length <= 150, 'ein Satz zum Ortswechsel im Katalog (hoechstens 150 Zeichen): ' + (satz && satz[0].length));
     const kontextVon = (pr) => JSON.parse(pr.split('<kontext>\n')[1].split('\n</kontext>')[0]);
     assert.deepStrictEqual(kontextVon(AP.baue(g, { nr: 1, grenze: 'andocken', hex: SK_HEX, letzte: [], werte: AW }).prompt).landeplatz_arten, ['wildnis', 'schiff', 'aussenposten', 'station']);
     assert.deepStrictEqual(kontextVon(AP.baue(g, { nr: 1, grenze: 'andocken', hex: OSTIA_HEX, letzte: [], werte: AW }).prompt).landeplatz_arten, ['schiff', 'station']);

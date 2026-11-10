@@ -40,6 +40,15 @@ const MUTATIONEN = [
   [AO, "  if (!am.punkt.includes(def.art)) return null;", "", 'Beat-Start: jede Art darf an den Raumpunkt'],
   [AO, "  const hex = f.parameter && f.parameter.ort;", "  const hex = '0904';", 'Beat-Start: nicht der Hex der Geschichte'],
   [AO, "    if (a >= L.abstand_min) return p;", "    return p;", 'Raumpunkt: Abstand zu den Massen der Szene ignoriert'],
+  // Ortswechsel (Review W1)
+  [PR, "if (verlegt.has(p.id) && !punkt.includes(p.art)) return fehl('LANDEPLATZ_VERLEGT'", "if (false) return fehl('LANDEPLATZ_VERLEGT'", 'Ortswechsel: Pruefregel LANDEPLATZ_VERLEGT entfernt'],
+  [PR, "if (verlegt.has(p.id) && !punkt.includes(p.art))", "if (verlegt.has(p.id))", 'Ortswechsel: auch Raumpunkt-Arten nach dem Ortswechsel abgelehnt'],
+  [PR, "if (typeof id === 'string' && !bestellt.includes(id)) {", "if (typeof id === 'string') {", 'Ortswechsel: ein davor schon bestellter Platz zaehlt als verlegt'],
+  [PR, "const verl = Array.from(new Set(verlegt.concat(typen))).sort();", "const verl = verlegt;", 'Ortswechsel: der verlegende Beat verlegt nie'],
+  [PR, "for (const ag of W.ausgaenge) for (const o of [b.aus[ag]].concat(", "for (const ag of ['gelungen']) for (const o of [b.aus[ag]].concat(", 'Ortswechsel: nur der Weg des Gelingens wird verfolgt'],
+  [PR, "if (c.verlegt_ort !== undefined && c.verlegt_ort !== true)", "if (false)", 'Katalogcheck verlegt_ort (nur true) entfernt'],
+  [BE, "\"baustein\": \"geruecht\",\n      \"verlegt_ort\": true,", "\"baustein\": \"geruecht\",", 'Daten: geruecht verlegt den Ort nicht (verlegt_ort fehlt)'],
+  [AP, " genutzt: nur ${liste(require", " genutzt: ${liste(require", 'Prompt: der Satz zum Ortswechsel nennt die Raumpunkt-Arten nicht'],
   // Haken
   [FA, "const lpg = P.pruefeLandeplaetze(game, r.vorlage, o.hex);", "const lpg = null;", 'Haken: anbietenMit prueft die Landeplaetze nicht'],
   [FA, "const lpg = P.pruefeLandeplaetze(game, a.vorlage, a.hex);", "const lpg = null;", 'Haken: abenteuerOeffnen prueft die Landeplaetze nicht'],
