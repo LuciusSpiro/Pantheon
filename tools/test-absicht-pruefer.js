@@ -87,7 +87,7 @@ const gutNsc = (name, o) => gut(Object.assign({ absicht: 'probe_nsc', parameter:
 // ======================================================================
 section('Katalog: Daten des Spiels, Strukturregeln', () => {
   ok(AP.katalogFehler().length === 0, 'der Katalog des Spiels ist in sich stimmig (' + AP.katalogFehler().join(' | ') + ')');
-  ok(ECHT.format === 'absichten-katalog/1' && ECHT._hinweis && Object.keys(ECHT.absichten).length === 0, 'der Katalog des Spiels ist beim Start leer (die Eintraege kommen mit Paket C), mit _hinweis');
+  ok(ECHT.format === 'absichten-katalog/1' && ECHT._hinweis && AP.katalogFehler(ECHT).length === 0, 'der Katalog des Spiels (seit Paket C mit Eintraegen, geprueft in test-absichten-katalog.js) besteht die Strukturregeln, mit _hinweis');
   ok(Object.values(ECHT.werte).every((w) => 'wert' in w && typeof w.einheit === 'string' && typeof w._hinweis === 'string'), 'werte-Konvention wie die anderen Dateien: je Eintrag wert, einheit, _hinweis');
   ok(ECHT.werte.runden_max.wert === 1, 'Verhandlungsrunden: Standard 1 aus den Daten');
   ok(AP.katalogFehler(KAT).length === 0, 'die Fixture ist ein gueltiger Katalog (' + AP.katalogFehler(KAT).join(' | ') + ')');

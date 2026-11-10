@@ -1,6 +1,6 @@
 {
   "format": "absichten-katalog/1",
-  "_hinweis": "SPL-02 A: Katalog der Absichten (Daten) und Strukturregeln des Absichts-Formats absicht/1. Eine Absicht sagt, WAS geschehen soll (Name, Parameter, Bezuege, Bogen, Ton); wie, baut der Inszenierer (Paket B). Der Pruefer (server/sim/absicht-pruefer.js) kennt KEINEN Absichtsnamen: er liest diesen Katalog. Neue Absicht = neuer Eintrag unter `absichten`, kein Code. Dieser Katalog ist beim Start LEER, die Eintraege kommen mit Paket C; die Tests nutzen eine eigene Fixture (tools/fixtures/absichten/test-katalog.json). Zahlen und Listen stehen unter `werte` (Konvention wie werte.json: wert, einheit, _hinweis); Laengen von Titel und Texten gelten wie in bauplan.json (titel, anlass).",
+  "_hinweis": "SPL-02 A: Katalog der Absichten (Daten) und Strukturregeln des Absichts-Formats absicht/1. Eine Absicht sagt, WAS geschehen soll (Name, Parameter, Bezuege, Bogen, Ton); wie, baut der Inszenierer (Paket B). Der Pruefer (server/sim/absicht-pruefer.js) kennt KEINEN Absichtsnamen: er liest diesen Katalog. Neue Absicht = neuer Eintrag unter `absichten`, kein Code. SPL-02 C: der Katalog hat seine Eintraege (14 Absichten: der Pilot rache, die Huelle bergbau und je eine Absicht je Beat-Familie, dazu die Standard-Parametrierung der sechs Rueckfall-Plaene aus anschluss.json im Feld standard); die Tests von Paket A und B nutzen weiter eigene Fixtures (tools/fixtures/absichten/), tools/test-absichten-katalog.js prueft diesen Katalog. Der Prompt des Spielleiters baut seinen Katalog bis Paket E weiter aus beats.json: die Eintraege hier aendern am Spielleiter nichts. Zahlen und Listen stehen unter `werte` (Konvention wie werte.json: wert, einheit, _hinweis); Laengen von Titel und Texten gelten wie in bauplan.json (titel, anlass).",
   "werte": {
     "runden_max": {"wert": 1, "einheit": "Verhandlungsrunden", "_hinweis": "Bei einem Nein darf das Modell einmal antworten (Patch oder korrigierte Absicht); danach gilt die Ablehnung endgueltig. Messung in Paket G entscheidet, ob mehr sinnvoll ist (Offener Punkt 4 des Auftrags)."},
     "fehler_text_max": {"wert": 600, "einheit": "Zeichen", "_hinweis": "Laenge des Klartexts, der nach einem Nein an das Modell geht (Grund und Gegenvorschlag aller Fehler zusammen, danach abgeschnitten)."},
@@ -12,14 +12,335 @@
     "bezug_arten": {"wert": ["nsc", "ort"], "einheit": "Arten", "_hinweis": "Arten von Bezuegen. nsc = Vollname eines NSC aus dem Kanon (abenteuer-kanon.js), nie die Kennung n<nr>, nie der Vorname allein; ort = Hex-Code (vier Ziffern) eines spielbaren Sektors."},
     "parameter_arten": {"wert": ["zahl", "liste"], "einheit": "Arten", "_hinweis": "Arten von Parametern: zahl (ganz, min bis max) oder liste (ein Wert aus erlaubt)."},
     "vorschlag_namen_max": {"wert": 4, "einheit": "Namen", "_hinweis": "Hoechstens so viele Namen nennt der Text eines Fehlers als Auswahl (BEZUG_UNEINDEUTIG, ABSICHT_UNBEKANNT)."},
+    "prompt_zeile_max": {"wert": 400, "einheit": "Zeichen", "_hinweis": "SPL-02 C: hoechste Laenge der prompt_zeile eines Eintrags (die Zeile im Prompt des Spielleiters, Paket E)."},
+    "prompt_summe_ziel": {"wert": 4500, "einheit": "Zeichen", "_hinweis": "SPL-02 C: Zielgroesse aller prompt_zeile zusammen (Hochrechnung der Erkundung: 4000 bis 4500; der Beat-Katalog im Prompt hat heute rund 9440 Zeichen, die Grenze des Prompts liegt bei 12000). Der Test meldet die Summe; wird sie groesser, steht es im Bericht."},
     "gewoehnliche_woerter": {"wert": ["Dorn", "Rabe", "Kranich", "Tarn", "Strand", "Holm", "Eisenhand", "Eisbrecher", "Halbmond", "Nordwind", "Taubenpost", "Saumpfad", "Silberfisch", "Kupferkahn", "Glücksgroschen", "Vorfeld", "Kreuzweg"], "einheit": "Woerter", "_hinweis": "SPL-02 C0: Woerter aus namen.json, kommandanten.json, Schiffs- und Ortsnamen, die auch gewoehnliche deutsche Woerter sind (Dorn, Rabe, Strand, Halbmond): sie gelten im Text einer Absicht nie als Eigenname (Namensfilter in TEXT_UNZULAESSIG; Gross- und Kleinschreibung egal). Alle anderen Woerter der Namenslisten (Vorname, Nachname, Kommandant) gelten auch am Satzanfang als Eigenname. Liste aus der Messung an den Mitschnitten erweitern, ohne Code."}
   },
   "_absicht": {
     "format": "absicht/1 (Eingabe des Modells): { format, absicht, titel, parameter: {name: wert}, bezug: { nsc?: Vollname, ort?: Hex }, bogen: { einsatz, wendung, preis }, ton }. Keine weiteren Felder.",
-    "eintrag": "Eintrag unter `absichten.<name>`: { zweck: Text, parameter?: { <name>: { art: 'zahl', min, max, standard? } | { art: 'liste', erlaubt: [...], standard? } }, bezug?: [ { name: 'nsc'|'ort', pflicht: bool, kandidat?: true | Beat-Typ } ], fortsetzung?: bool, wendungen?: [Symbol], toene?: [Ton], bogen_pflicht?: [Feld], ton_standard?: Ton, inszenierung?: Rezept des Inszenierers (siehe `inszenierung`) }",
+    "eintrag": "Eintrag unter `absichten.<name>`: { zweck: Text, parameter?: { <name>: { art: 'zahl', min, max, standard? } | { art: 'liste', erlaubt: [...], standard? } }, bezug?: [ { name: 'nsc'|'ort', pflicht: bool, kandidat?: true | Beat-Typ } ], fortsetzung?: bool, wendungen?: [Symbol], toene?: [Ton], bogen_pflicht?: [Feld], ton_standard?: Ton, inszenierung?: Rezept des Inszenierers (siehe `inszenierung`), prompt_zeile?: Text, standard?: { titel, bogen, ton? }, _hinweis?: Text }",
     "kandidat": "bezug.kandidat = true: der NSC muss ein Kandidat der Fadenmaschine sein (faden.wiedersehenKandidaten, nach dem ersten Beat-Typ mit braucht.nsc_alt), nicht nur im Kanon stehen. bezug.kandidat = \"<Beat-Typ aus beats.json>\" (SPL-02 C0): dasselbe, aber nach den Zustaenden (braucht.nsc_status) genau dieses Typs, z. B. ein feindlicher oder geflohener NSC fuer einen Beat, der ihn so verlangt; der Typ muss braucht.nsc_alt tragen, und bei einem Rezept muss er der erste Beat des Skeletts sein.",
     "inszenierung": "SPL-02 B: das Rezept, nach dem der Inszenierer (server/sim/inszenierer.js) aus der Absicht einen Beat-Plan baut: { ort: { regel: crew_hex | naechster_mit_kartenart (kartenart, reichweite_parameter?) | bezug_ort }, bedingungen?: [ { art: nsc_haltung (bezug, hoechstens?, mindestens?) | rang_mindestens (rang) } ], nicht_ausdrueckbar?: [ { wenn: { parameter | bogen | ton: Name, ist: Wert } | { immer: true }, grund: Text, gegenvorschlag?: { feld, wert, text } } ], staerke_parameter?: Name, stufe_max?: Zahl, skelett: { landeplaetze?, volk_erlaubt?, namenlos?, wahrheit?, beats: [ Beat des Bauplans, dazu ab_stufe?, bis_stufe?; ein Parameter darf { aus: 'parameter.<name>' } oder { nach_stufe: [Werte] } sein ] }, wendungen?: { <Symbol>: { nach: Beat-Id oder -Typ des Skeletts, beats: [...] } }, anlass_vorlage?: Text }. Zahlen und Tabellen (Stufen nach Rang und Schiff, Reichweiten) stehen in content/faeden/inszenierer-werte.json.",
+    "prompt_zeile": "SPL-02 C: die Zeile dieser Absicht im Prompt des Spielleiters (Paket E baut den Katalog daraus), beginnt mit \"<name>:\", hoechstens werte.prompt_zeile_max Zeichen, nennt jeden Parameter, Bezug und jede Wendung des Eintrags (Test). Alle Zeilen zusammen sollen werte.prompt_summe_ziel nicht uebersteigen.",
+    "standard": "SPL-02 C: die Standard-Parametrierung = die Absicht, die ohne Modell entsteht (Rueckfall des Bretts, Paket F): { titel, bogen: { einsatz, wendung, preis }, ton }, ohne Parameter und Bezug. Der Inszenierer baut daraus denselben Plan wie der Bauplan in anschluss.json (Test).",
     "fortsetzung": "fortsetzung = true: die Absicht darf einen NSC aufnehmen, der in einem der letzten Abenteuer die Hauptfigur war; der Aufrufer setzt dann `locker` am Angebot (abenteuer-brett.js neuAnbieten). Der Pruefer liefert nur die Eigenschaft (istFortsetzung)."
   },
-  "absichten": {}
+  "absichten": {
+    "rache": {
+      "zweck": "Ein NSC aus einem frueheren Abenteuer, dem die Crew etwas schuldig blieb, stellt sie mit Schiffen (Pilot: persoenlich und mit Fortsetzung). Der NSC ist von Anfang an feindlich.",
+      "parameter": {},
+      "bezug": [{"name":"nsc","pflicht":true,"kandidat":"rache"}],
+      "fortsetzung": true,
+      "wendungen": ["keine","verfolgung","zweite_welle"],
+      "ton_standard": "bitter",
+      "prompt_zeile": "rache: Ein alter Feind aus einem früheren Abenteuer stellt die Crew mit Schiffen. Bezug nsc (Pflicht, Vollname, nur ein grollender NSC). Wendung: verfolgung (er flieht), zweite_welle (Verstärkung). Fortsetzung erlaubt.",
+      "inszenierung": {
+        "ort": {"regel":"crew_hex"},
+        "bedingungen": [{"art":"nsc_haltung","bezug":"nsc","hoechstens":-1,"grund":"wer der Crew wohlgesinnt ist, stellt sie nicht"}],
+        "skelett": {
+          "beats": [
+            {"typ":"rache"},
+            {"typ":"raumschlacht","ab_stufe":1},
+            {"typ":"abschluss"}
+          ]
+        },
+        "wendungen": {
+          "verfolgung": {"nach":"rache","beats":[{"typ":"verfolgung"}]},
+          "zweite_welle": {"nach":"rache","beats":[{"typ":"raumschlacht"},{"typ":"raumschlacht","ab_stufe":2}]}
+        },
+        "anlass_vorlage": "Jemand aus einem frueheren Auftrag will die Rechnung begleichen."
+      }
+    },
+    "bergbau": {
+      "_hinweis": "HUELLE (Entscheidung Kai/Leiter 2026-11-10): der Beat-Katalog hat keinen Abbau-Beat, nichts verlangt, prueft oder belohnt den Abbau am Boden. ziel abbau (Standard) ist darum ein ehrliches Nein (NICHT_AUSDRUECKBAR) mit dem Gegenvorschlag ziel lieferung: Erz von einer Erzader (Hoehle) holen und zum Hafen bringen, ohne Abbau. Titel und Anlass duerfen keinen Abbau und keine Foerderung versprechen. Spielbar als Bergbau erst mit BEA-02 (landung), AST-01 (Asteroid, Abbau, Monster), SPL-01 d (Abbau-Anker im Faden) und LAD-01 (Erz als Ware im Handel): dann kommt der Abbau-Beat ins Skelett, und die Zeile nicht_ausdrueckbar faellt weg.",
+      "zweck": "Ein Auftraggeber schickt die Crew zu einer Erzader in einer Hoehle (Huelle: das Ziel Abbau ist noch nicht ausdrueckbar, spielbar ist nur die Lieferung von Erz).",
+      "parameter": {"ziel":{"art":"liste","erlaubt":["abbau","lieferung"],"standard":"abbau"},"reichweite":{"art":"zahl","min":0,"max":3,"standard":2},"ware":{"art":"liste","erlaubt":["erz","fracht_kiste"],"standard":"erz"}},
+      "bezug": [],
+      "wendungen": ["keine","hinterhalt"],
+      "ton_standard": "nuechtern",
+      "prompt_zeile": "bergbau: Erz von einer Erzader in einer Höhle in der Nähe. Parameter ziel: lieferung (Erz zum Hafen bringen) oder abbau (noch nicht möglich: Nein); reichweite 0-3 Sprünge; ware erz|fracht_kiste. Wendung: hinterhalt. Titel und Einsatz versprechen nie Abbau oder Förderung.",
+      "inszenierung": {
+        "ort": {"regel":"naechster_mit_kartenart","kartenart":"hoehle","reichweite_parameter":"reichweite"},
+        "nicht_ausdrueckbar": [{"wenn":{"parameter":"ziel","ist":"abbau"},"grund":"kein Abbau-Beat im Katalog: nichts verlangt, prueft oder belohnt den Abbau am Boden","gegenvorschlag":{"feld":"parameter.ziel","wert":"lieferung","text":"ziel = lieferung: Erz von der Erzader zum Hafen bringen, ohne Abbau (die Crew foerdert nichts)"}}],
+        "skelett": {
+          "landeplaetze": [{"id":"ader","art":"$ort_kartenart","name":"Erzader"}],
+          "beats": [
+            {"typ":"bitte","parameter":{"landeplatz":"ader"},"verzweigung":{"gescheitert":"ende"}},
+            {"typ":"fracht","parameter":{"ware":{"aus":"parameter.ware"}}},
+            {"id":"ende","typ":"abschluss"}
+          ]
+        },
+        "wendungen": {
+          "hinterhalt": {"nach":"bitte","beats":[{"typ":"raumschlacht","verzweigung":{"gescheitert":"ende"}}]}
+        },
+        "anlass_vorlage": "Ein Auftraggeber braucht Erz von einer Erzader und zahlt fuer die Lieferung; gefoerdert wird nicht."
+      }
+    },
+    "geruecht": {
+      "zweck": "Ein Geruecht nennt einen Sektor in der Naehe, in dem jemand gesehen wurde; die Crew fliegt hin (kein Kampf).",
+      "parameter": {"text_key":{"art":"liste","erlaubt":["geruecht_standard","geruecht_handel"],"standard":"geruecht_standard"}},
+      "bezug": [],
+      "wendungen": ["keine","falle"],
+      "ton_standard": "nuechtern",
+      "prompt_zeile": "geruecht: Ein Gerücht weist in einen Nachbarsektor, kein Kampf. Parameter text_key: geruecht_standard|geruecht_handel. Wendung: falle (am Ziel wartet ein Hinterhalt).",
+      "standard": {"titel":"Ein Gerücht am Hafen","bogen":{"einsatz":"Im Hafen wird über ein fremdes Schiff getuschelt; jemand zahlt für Hinweise.","wendung":"keine","preis":"Wer dem Gerücht nicht nachgeht, erfährt nie, was dahintersteckt."},"ton":"nuechtern"},
+      "inszenierung": {
+        "ort": {"regel":"crew_hex"},
+        "skelett": {
+          "beats": [
+            {"typ":"geruecht","parameter":{"text_key":{"aus":"parameter.text_key"}}},
+            {"typ":"abschluss"}
+          ]
+        },
+        "wendungen": {
+          "falle": {"nach":"geruecht","beats":[{"typ":"raumschlacht"},{"typ":"raumschlacht","ab_stufe":2}]}
+        },
+        "anlass_vorlage": "Im Hafen wird ueber ein fremdes Schiff getuschelt; jemand zahlt fuer Hinweise."
+      }
+    },
+    "spur": {
+      "zweck": "Eine Ionenspur fuehrt ueber mehrere Sektoren zu einer verborgenen Sprungboje (Raetsel, kein Kampf; ein falscher Ast kostet nur Zeit).",
+      "parameter": {"spur":{"art":"liste","erlaubt":["kantenpfad","fundort"],"standard":"kantenpfad"}},
+      "bezug": [],
+      "wendungen": ["keine","ueberfall","flucht"],
+      "ton_standard": "nuechtern",
+      "prompt_zeile": "spur: Eine Spur über mehrere Sektoren, ein Rätsel ohne Kampf. Parameter spur: kantenpfad|fundort. Wendung: ueberfall (Kampf am Ende), flucht (der Gesuchte setzt sich ab).",
+      "standard": {"titel":"Spuren im Sektor","bogen":{"einsatz":"Ein Funkprotokoll und eine Kartenmarke ergeben zusammen eine Spur.","wendung":"keine","preis":"Wer die Spur kalt werden lässt, findet nichts mehr."},"ton":"nuechtern"},
+      "inszenierung": {
+        "ort": {"regel":"crew_hex"},
+        "skelett": {
+          "beats": [
+            {"typ":"spur","parameter":{"spur":{"aus":"parameter.spur"}}},
+            {"typ":"abschluss"}
+          ]
+        },
+        "wendungen": {
+          "ueberfall": {"nach":"spur","beats":[{"typ":"raumschlacht"},{"typ":"raumschlacht","ab_stufe":2}]},
+          "flucht": {"nach":"spur","beats":[{"typ":"verfolgung"}]}
+        },
+        "anlass_vorlage": "Ein Funkprotokoll und eine Kartenmarke ergeben zusammen eine Spur."
+      }
+    },
+    "wiedersehen": {
+      "zweck": "Ein NSC aus einem frueheren, abgeschlossenen Abenteuer meldet sich wieder und erinnert an eine Tat der Crew (keine Gefahr). Ohne Bezug waehlt das Brett den juengsten frischen Kandidaten.",
+      "parameter": {},
+      "bezug": [{"name":"nsc","pflicht":false,"kandidat":"wiedersehen"}],
+      "fortsetzung": false,
+      "wendungen": ["keine","ueberfall","neue_spur"],
+      "ton_standard": "hoffnungsvoll",
+      "prompt_zeile": "wiedersehen: Ein NSC aus einem früheren Abenteuer meldet sich wieder. Bezug nsc (optional, Vollname; ohne Bezug wählt das Brett). Wendung: ueberfall (Kampf), neue_spur (er hat einen Hinweis).",
+      "standard": {"titel":"Ein altes Gesicht","bogen":{"einsatz":"Jemand aus einem früheren Auftrag meldet sich und braucht noch einmal Hilfe.","wendung":"keine","preis":"Wer jetzt nicht kommt, wird vergessen."},"ton":"hoffnungsvoll"},
+      "inszenierung": {
+        "ort": {"regel":"crew_hex"},
+        "skelett": {
+          "beats": [
+            {"typ":"wiedersehen"},
+            {"typ":"abschluss"}
+          ]
+        },
+        "wendungen": {
+          "ueberfall": {"nach":"wiedersehen","beats":[{"typ":"raumschlacht"},{"typ":"raumschlacht","ab_stufe":2}]},
+          "neue_spur": {"nach":"wiedersehen","beats":[{"typ":"spur"}]}
+        },
+        "anlass_vorlage": "Jemand aus einem frueheren Auftrag meldet sich und braucht noch einmal Hilfe."
+      }
+    },
+    "konvoi": {
+      "zweck": "Ein germanischer Konvoi mit Eskorte zieht durch den Sektor der Crew (Szene mit Vorwarnung): aufhalten oder pluendern.",
+      "parameter": {"sieg":{"art":"liste","erlaubt":["aufhalten","pluendern"],"standard":"aufhalten"}},
+      "bezug": [],
+      "wendungen": ["keine","nachschub"],
+      "ton_standard": "dringlich",
+      "prompt_zeile": "konvoi: Ein germanischer Konvoi mit Eskorte zieht durch den Sektor. Parameter sieg: aufhalten|pluendern. Wendung: nachschub (Gegenwehr kommt nach, ab höherem Rang eine zweite Welle).",
+      "standard": {"titel":"Der Nachzügler-Konvoi","bogen":{"einsatz":"Germanische Transporter nutzen den Sektor als Abkürzung; die Eskorte ist dünn.","wendung":"keine","preis":"Entkommt der Konvoi, bleibt die Ladung in germanischer Hand."},"ton":"dringlich"},
+      "inszenierung": {
+        "ort": {"regel":"crew_hex"},
+        "skelett": {
+          "beats": [
+            {"typ":"konvoi","parameter":{"sieg":{"aus":"parameter.sieg"}}},
+            {"typ":"abschluss"}
+          ]
+        },
+        "wendungen": {
+          "nachschub": {"nach":"konvoi","beats":[{"typ":"raumschlacht"},{"typ":"raumschlacht","ab_stufe":2}]}
+        },
+        "anlass_vorlage": "Germanische Transporter nutzen den Sektor als Abkuerzung; die Eskorte ist duenn."
+      }
+    },
+    "geleit": {
+      "zweck": "Das Schiff eines NSC braucht Schutz vor germanischen Jaegern (Szene mit Vorwarnung): Geleit zu einem Ziel, ein Havarist im Notruf oder eine Panne, die die Crew laengsseits flickt.",
+      "parameter": {"modus":{"art":"liste","erlaubt":["geleit","havarist","panne"],"standard":"geleit"}},
+      "bezug": [],
+      "wendungen": ["keine","angriff"],
+      "ton_standard": "dringlich",
+      "prompt_zeile": "geleit: Ein Schiff braucht Schutz vor Jägern. Parameter modus: geleit|havarist|panne. Wendung: angriff (zusätzlicher Überfall, ab höherem Rang eine zweite Welle).",
+      "standard": {"titel":"Geleit durch die Dunkelzone","bogen":{"einsatz":"Ein Schiff will durch einen unsicheren Sektor und sucht Begleitschutz.","wendung":"keine","preis":"Wird der Schützling getroffen, bleibt er liegen."},"ton":"dringlich"},
+      "inszenierung": {
+        "ort": {"regel":"crew_hex"},
+        "skelett": {
+          "beats": [
+            {"typ":"geleit","parameter":{"modus":{"aus":"parameter.modus"}}},
+            {"typ":"abschluss"}
+          ]
+        },
+        "wendungen": {
+          "angriff": {"nach":"geleit","beats":[{"typ":"raumschlacht"},{"typ":"raumschlacht","ab_stufe":2}]}
+        },
+        "anlass_vorlage": "Ein Schiff will durch einen unsicheren Sektor und sucht Begleitschutz."
+      }
+    },
+    "sabotage": {
+      "zweck": "Ein germanischer Versorgungsposten soll fallen: ein stiller Auftrag, die Crew sprengt den Posten (Lage der Welt: ohne Posten in Reichweite kein Angebot).",
+      "parameter": {},
+      "bezug": [],
+      "wendungen": ["keine","entdeckt"],
+      "ton_standard": "nuechtern",
+      "prompt_zeile": "sabotage: Ein germanischer Posten soll fallen (nur wenn einer in Reichweite liegt, sonst Nein). Wendung: entdeckt (Gegner stellen die Crew, ab höherem Rang eine zweite Welle).",
+      "standard": {"titel":"Ein stiller Auftrag","bogen":{"einsatz":"Ein Auftraggeber will, dass ein germanischer Posten verschwindet.","wendung":"keine","preis":"Ein Posten, der fällt, bleibt nicht lange unbemerkt."},"ton":"nuechtern"},
+      "inszenierung": {
+        "ort": {"regel":"crew_hex"},
+        "skelett": {
+          "beats": [
+            {"typ":"sabotage"},
+            {"typ":"abschluss"}
+          ]
+        },
+        "wendungen": {
+          "entdeckt": {"nach":"sabotage","beats":[{"typ":"raumschlacht"},{"typ":"raumschlacht","ab_stufe":2}]}
+        },
+        "anlass_vorlage": "Ein Auftraggeber will, dass ein germanischer Posten verschwindet."
+      }
+    },
+    "rettung": {
+      "zweck": "Ein NSC wurde entfuehrt und wird von Wachschiffen festgehalten: Notruf, dann befreit die Crew ihn (Scheitern: der NSC bleibt gefangen).",
+      "parameter": {},
+      "bezug": [],
+      "wendungen": ["keine"],
+      "ton_standard": "dringlich",
+      "prompt_zeile": "rettung: Ein entführter NSC wird von Wachschiffen festgehalten, die Crew befreit ihn. Keine Parameter, keine Wendung.",
+      "inszenierung": {
+        "ort": {"regel":"crew_hex"},
+        "skelett": {
+          "beats": [
+            {"typ":"notruf","parameter":{"text_key":"notruf_entfuehrt"},"verzweigung":{"gescheitert":"ende"}},
+            {"typ":"befreiung"},
+            {"id":"ende","typ":"abschluss"}
+          ]
+        },
+        "anlass_vorlage": "Ein Haendler wurde verschleppt und wird von Wachschiffen festgehalten."
+      }
+    },
+    "jagd": {
+      "zweck": "Ein Schiff flieht und die Crew jagt es (Szene Verfolgung); bei hoeherer Stufe sichern Begleitschiffe die Flucht.",
+      "parameter": {"fluchtziel":{"art":"liste","erlaubt":["naechster_sprungpunkt","nachbar_ort","heimat"],"standard":"naechster_sprungpunkt"}},
+      "bezug": [],
+      "wendungen": ["keine","stellung"],
+      "ton_standard": "dringlich",
+      "prompt_zeile": "jagd: Ein Schiff flieht, die Crew jagt es. Parameter fluchtziel: naechster_sprungpunkt|nachbar_ort|heimat. Wendung: stellung (es dreht bei und kämpft). Ab höherem Rang sichern Begleitschiffe die Flucht.",
+      "inszenierung": {
+        "ort": {"regel":"crew_hex"},
+        "skelett": {
+          "beats": [
+            {"typ":"raumschlacht","ab_stufe":1},
+            {"typ":"verfolgung","parameter":{"fluchtziel":{"aus":"parameter.fluchtziel"}}},
+            {"typ":"abschluss"}
+          ]
+        },
+        "wendungen": {
+          "stellung": {"nach":"verfolgung","beats":[{"typ":"raumschlacht"}]}
+        },
+        "anlass_vorlage": "Ein Schiff setzt sich ab und die Crew soll es stellen."
+      }
+    },
+    "hinterhalt": {
+      "zweck": "Ein NSC bittet um Hilfe auf einem Flug; unterwegs wartet ein Ueberfall (bitte, Schlacht; Verstaerkung der Gegner nach Stufe).",
+      "parameter": {"text_key":{"art":"liste","erlaubt":["hilfe_rom","hilfe_kon"],"standard":"hilfe_rom"}},
+      "bezug": [],
+      "wendungen": ["keine","beistand"],
+      "ton_standard": "dringlich",
+      "prompt_zeile": "hinterhalt: Ein NSC bittet um Hilfe, unterwegs wartet ein Überfall. Parameter text_key: hilfe_rom|hilfe_kon. Wendung: beistand (der NSC greift in die Schlacht ein). Ab höherem Rang eine zweite Welle.",
+      "inszenierung": {
+        "ort": {"regel":"crew_hex"},
+        "skelett": {
+          "beats": [
+            {"typ":"bitte","parameter":{"text_key":{"aus":"parameter.text_key"}},"verzweigung":{"gescheitert":"ende"}},
+            {"typ":"raumschlacht","id":"schlacht","verzweigung":{"gescheitert":"ende"}},
+            {"typ":"raumschlacht","id":"nachhut","ab_stufe":1,"verzweigung":{"gescheitert":"ende"}},
+            {"id":"ende","typ":"abschluss"}
+          ]
+        },
+        "wendungen": {
+          "beistand": {"nach":"schlacht","beats":[{"typ":"spontanhilfe"}]}
+        },
+        "anlass_vorlage": "Ein Schiff bittet um Begleitung; auf dem Weg lauern Angreifer."
+      }
+    },
+    "lieferung": {
+      "zweck": "Ein Haendler bittet die Crew, eine Fracht zum Hafen zu bringen (nur Fracht: die Ware geht nicht in den Handel, Handel mit eigenen Beats kommt spaeter).",
+      "parameter": {"ware":{"art":"liste","erlaubt":["fracht_kiste","erz"],"standard":"fracht_kiste"}},
+      "bezug": [],
+      "wendungen": ["keine","ueberfall"],
+      "ton_standard": "nuechtern",
+      "prompt_zeile": "lieferung: Ein Händler bittet um eine Fracht zum Hafen. Parameter ware: fracht_kiste|erz. Wendung: ueberfall (Piraten auf dem Weg, ab höherem Rang eine zweite Welle). Nur Fracht, kein Handel.",
+      "inszenierung": {
+        "ort": {"regel":"crew_hex"},
+        "skelett": {
+          "beats": [
+            {"typ":"bitte","verzweigung":{"gescheitert":"ende"}},
+            {"typ":"fracht","parameter":{"ware":{"aus":"parameter.ware"}}},
+            {"id":"ende","typ":"abschluss"}
+          ]
+        },
+        "wendungen": {
+          "ueberfall": {"nach":"bitte","beats":[{"typ":"raumschlacht","verzweigung":{"gescheitert":"ende"}},{"typ":"raumschlacht","ab_stufe":2,"verzweigung":{"gescheitert":"ende"}}]}
+        },
+        "anlass_vorlage": "Ein Haendler braucht Hilfe, eine Fracht sicher zum Hafen zu bringen."
+      }
+    },
+    "falscher_haendler": {
+      "zweck": "Ein Haendler bittet um eine Fracht und ist in Wahrheit Germane: Hinweise, Enthuellung, Flucht und Schlacht.",
+      "parameter": {"ware":{"art":"liste","erlaubt":["fracht_kiste","erz"],"standard":"fracht_kiste"}},
+      "bezug": [],
+      "wendungen": ["keine"],
+      "ton_standard": "bitter",
+      "prompt_zeile": "falscher_haendler: Ein Händler bittet um Fracht und ist in Wahrheit Germane: Enthüllung, Flucht, Schlacht. Parameter ware: fracht_kiste|erz. Keine Wendung. Ab höherem Rang eine zweite Schlacht.",
+      "inszenierung": {
+        "ort": {"regel":"crew_hex"},
+        "skelett": {
+          "wahrheit": "ist_germane",
+          "beats": [
+            {"typ":"bitte","verzweigung":{"gescheitert":"ende"}},
+            {"typ":"fracht","parameter":{"ware":{"aus":"parameter.ware"}},"verzweigung":{"gescheitert":"ende"}},
+            {"typ":"enthuellung"},
+            {"typ":"verfolgung"},
+            {"typ":"raumschlacht"},
+            {"typ":"raumschlacht","ab_stufe":1},
+            {"id":"ende","typ":"abschluss"}
+          ]
+        },
+        "anlass_vorlage": "Ein Haendler bittet um eine Fracht; mit seinen Papieren stimmt etwas nicht."
+      }
+    },
+    "notruf": {
+      "zweck": "Ein Schiff ruft um Hilfe (Havarie oder Entfuehrung); die Crew antwortet, wenn Angreifer schon da sind, mit Kampf.",
+      "parameter": {"text_key":{"art":"liste","erlaubt":["notruf_standard","notruf_entfuehrt"],"standard":"notruf_standard"}},
+      "bezug": [],
+      "wendungen": ["keine","piraten"],
+      "ton_standard": "dringlich",
+      "prompt_zeile": "notruf: Ein Schiff ruft um Hilfe. Parameter text_key: notruf_standard|notruf_entfuehrt. Wendung: piraten (die Angreifer sind noch da, ab höherem Rang eine zweite Welle).",
+      "inszenierung": {
+        "ort": {"regel":"crew_hex"},
+        "skelett": {
+          "beats": [
+            {"typ":"notruf","parameter":{"text_key":{"aus":"parameter.text_key"}}},
+            {"typ":"abschluss"}
+          ]
+        },
+        "wendungen": {
+          "piraten": {"nach":"notruf","beats":[{"typ":"raumschlacht"},{"typ":"raumschlacht","ab_stufe":2}]}
+        },
+        "anlass_vorlage": "Ein Schiff funkt um Hilfe und wartet auf Antwort."
+      }
+    }
+  }
 }

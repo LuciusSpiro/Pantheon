@@ -97,7 +97,7 @@ section('Daten und Katalog stimmig', () => {
   const w = lies('content/faeden/inszenierer-werte.json');
   ok(w.format === 'inszenierer-werte/1' && w._hinweis && Object.values(w.werte).every((x) => 'wert' in x && typeof x.einheit === 'string' && typeof x._hinweis === 'string'), 'werte-Konvention: je Eintrag wert, einheit, _hinweis');
   ok(w.werte.stufe_max.wert === 2 && w.werte.reichweite_max.wert === 8 && w.werte.stufe_nach_rang.wert.centurio === 1 && w.werte.stufe_zuschlag_schiff.wert['2'] === 1, 'die Zahlen stehen in den Daten (Stufe nach Rang und Schiff, Reichweite)');
-  ok(INS.katalogFehler(ECHT).length === 0 && Object.keys(ECHT.absichten).length === 0, 'der Katalog des Spiels ist beim Start leer und damit stimmig');
+  ok(INS.katalogFehler(ECHT).length === 0, 'der Katalog des Spiels (seit Paket C mit Eintraegen, geprueft in test-absichten-katalog.js) ist stimmig');
   ok(AP.katalogFehler(KAT).length === 0, 'die Fixture besteht die Strukturregeln von Paket A (' + AP.katalogFehler(KAT).join(' | ') + ')');
   const ohne = ohneRache(() => INS.katalogFehler(KAT));
   ok(ohne.length > 0 && ohne.every((t) => /probe_stellung/.test(t)) && ohne.some((t) => /braucht.nsc_alt/.test(t)), 'ohne die Zeile rache im Beat-Katalog: nur probe_stellung ist unstimmig (erster Beat mit nsc_alt fehlt): ' + ohne.length);

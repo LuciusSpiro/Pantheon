@@ -416,7 +416,7 @@ function katalogFehler(katalog) {
   if (out.length) return out;
   if (!istObjekt(katalog.absichten)) { f('absichten fehlt'); return out; }
   const muster = new RegExp(wert(katalog, 'name_muster'));
-  const EINTRAG = ['zweck', 'parameter', 'bezug', 'fortsetzung', 'wendungen', 'toene', 'bogen_pflicht', 'ton_standard', 'inszenierung'];   // inszenierung: Rezept des Inszenierers (inszenierer.js prueft den Inhalt); hier nur: ein Objekt
+  const EINTRAG = ['zweck', 'parameter', 'bezug', 'fortsetzung', 'wendungen', 'toene', 'bogen_pflicht', 'ton_standard', 'inszenierung', 'prompt_zeile', 'standard', '_hinweis'];   // _hinweis: Anmerkung der Entwicklung (Text, ohne Wirkung); inszenierung: Rezept des Inszenierers (inszenierer.js prueft den Inhalt); hier nur: ein Objekt. prompt_zeile und standard: SPL-02 C (siehe unten)
   for (const [name, e] of Object.entries(katalog.absichten)) {
     const g = (t) => f(`${name}: ${t}`);
     if (!muster.test(name)) { g('Name passt nicht zu name_muster'); continue; }
@@ -425,6 +425,7 @@ function katalogFehler(katalog) {
     if (typeof e.zweck !== 'string' || e.zweck.length < 8) g('zweck fehlt');
     if (e.fortsetzung !== undefined && typeof e.fortsetzung !== 'boolean') g('fortsetzung ist wahr oder falsch');
     if (e.inszenierung !== undefined && !istObjekt(e.inszenierung)) g('inszenierung ist kein Objekt');
+    if (e._hinweis !== undefined && typeof e._hinweis !== 'string') g('_hinweis ist ein Text');
     if (e.parameter !== undefined) {
       if (!istObjekt(e.parameter)) g('parameter ist kein Objekt');
       else for (const [k, d] of Object.entries(e.parameter)) {
@@ -449,6 +450,18 @@ function katalogFehler(katalog) {
     const liste = (k, erlaubt) => { if (e[k] !== undefined && !(texte(e[k]) && e[k].every((x) => erlaubt(x)))) g(`${k}: Liste gueltiger Werte`); };
     liste('wendungen', (x) => muster.test(x)); liste('toene', (x) => wert(katalog, 'toene').includes(x)); liste('bogen_pflicht', (x) => wert(katalog, 'bogen_felder').includes(x));
     if (e.ton_standard !== undefined && !(Array.isArray(e.toene) ? e.toene : wert(katalog, 'toene')).includes(e.ton_standard)) g('ton_standard ist kein erlaubter Ton');
+    // SPL-02 C: prompt_zeile = die Zeile des Katalogs im Prompt des Spielleiters (Paket E baut ihn daraus), hoechstens werte.prompt_zeile_max Zeichen, beginnt mit dem Namen der Absicht;
+    // standard = die Standard-Parametrierung (titel, bogen, ton): daraus entsteht ohne Modell eine gueltige Absicht (Rueckfall des Bretts, Paket F)
+    if (e.prompt_zeile !== undefined) {
+      const max = katalog.werte.prompt_zeile_max ? wert(katalog, 'prompt_zeile_max') : null;
+      if (typeof e.prompt_zeile !== 'string' || !e.prompt_zeile.startsWith(name + ':')) g(`prompt_zeile ist ein Text, der mit "${name}:" beginnt`);
+      else if (!Number.isInteger(max) || max < 40) g('prompt_zeile braucht werte.prompt_zeile_max (ganze Zahl >= 40)');
+      else if (e.prompt_zeile.length > max) g(`prompt_zeile hat ${e.prompt_zeile.length} Zeichen, hoechstens ${max} (werte.prompt_zeile_max)`);
+    }
+    if (e.standard !== undefined) {
+      const s = e.standard, tl = Array.isArray(e.toene) ? e.toene : wert(katalog, 'toene');
+      if (!istObjekt(s) || typeof s.titel !== 'string' || !istObjekt(s.bogen) || !Object.values(s.bogen).every((x) => typeof x === 'string') || (s.ton !== undefined && !tl.includes(s.ton)) || Object.keys(s).some((k) => !['titel', 'bogen', 'ton'].includes(k))) g('standard ist { titel: Text, bogen: { Feld: Text }, ton? }');
+    }
   }
   return out;
 }

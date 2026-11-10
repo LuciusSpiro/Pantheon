@@ -262,6 +262,7 @@
   {"id":"test-abenteuer-kanon","kette":"test","cmd":["tools/test-abenteuer-kanon.js"],"stufe":"full","seriell":true,"budget_s":51},
   {"id":"test-absicht-pruefer","kette":"test","cmd":["tools/test-absicht-pruefer.js"],"stufe":"fast","budget_s":8},
   {"id":"test-inszenierer","kette":"test","cmd":["tools/test-inszenierer.js"],"stufe":"fast","budget_s":8},
+  {"id":"test-absichten-katalog","kette":"test","cmd":["tools/test-absichten-katalog.js"],"stufe":"fast","budget_s":10},
   {"id":"test-abspann","kette":"test","cmd":["tools/test-abspann.js"],"stufe":"fast","budget_s":7},
   {"id":"test-grabenangriff-karte","kette":"test","cmd":["tools/test-grabenangriff-karte.js"],"stufe":"full","budget_s":24},
   {"id":"test-grabenangriff-szenario","kette":"test","cmd":["tools/test-grabenangriff-szenario.js"],"stufe":"fast","budget_s":13},
