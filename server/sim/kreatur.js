@@ -1046,7 +1046,7 @@ module.exports = { koerperBox, update, kreaturBausteinAnmelden, bausteinTreffer,
 require('./scanbar.js').scanbarAnmelden('monster', {
   ziele(game, aw) {
     const out = [];
-    for (const K of (aw && aw.kreaturen) || []) if (K.alive) out.push({ id: K.id, x: K.x, y: K.y, typ: K.typ });
+    for (const K of (aw && aw.kreaturen) || []) if (K.alive) out.push({ id: K.id, x: K.x, y: K.y, typ: K.typ, nachrang: !!(K.bindung && K.bindung.art === 'kreatur') });   // Gefolge (an eine Kreatur gebunden) rückt nach: der Schwarm verdrängt die Königin nicht aus den Scan-Plätzen (MON-03 C)
     return out;
   },
   tiefen: { position: 3 },
@@ -1059,6 +1059,18 @@ require('./scanbar.js').scanbarAnmelden('monster', {
 //   bits     0-1 Ladung 0..3 (Baustein aufladung), 2 Pause/steht (Modus `steht`), 3 rammt (Modus `ramme`), 4-5 Größe-1 (Kacheln, 0..3), 6 zielt (Modus `zielen`, Aufladen; MON-02 O3a)
 // Nur lebende Kreaturen, die jemand im Team sieht (gemeinsame Regel combat.sichtbarFuerTeam wie updateVisibility: Sichtradius, Lanzenkegel, Sensor, Captain-Fokus; Kreaturen sind kein Fokusziel, focusUntil bleibt 0). Tote werden nicht gesendet.
 const BIT_PAUSE = 4, BIT_RAMMT = 8, BIT_ZIELT = 64;
+// MON-03 C: Eine Kreatur der Größe >= 2 hat ihre Mitte auf einer Kachelecke; die Sichtlinie zu genau diesem Punkt streift an Wandecken (die Zielkachel ist nur eine der vier Körperkacheln) und wurde in engen Höhlen oft
+// grundlos blockiert, obwohl ein Teil des Körpers frei zu sehen war. Sicht ist Sicht: gesehen, sobald die Mitte oder eine Körperkachel (Kachelmitte der g x g Kacheln) im Team gesehen wird. Größe 1: unverändert nur die Mitte.
+function koerperSichtbar(game, C, E, team, R, K, sensor) {
+  if (C.sichtbarFuerTeam(game, E, team, R, K, sensor)) return true;
+  const g = typVon(K.typ).groesse;
+  if (!(g >= 2)) return false;
+  for (let i = 0; i < g; i++) for (let j = 0; j < g; j++) {
+    const p = { x: K.x + (i - (g - 1) / 2) * TILE, y: K.y + (j - (g - 1) / 2) * TILE, focusUntil: K.focusUntil };
+    if (C.sichtbarFuerTeam(game, E, team, R, p, false)) return true;
+  }
+  return false;
+}
 function snap(game) {
   const aw = game.away; const L = aw && aw.kreaturen;
   if (!L || !L.length || !L.some((K) => K.alive)) return null;
@@ -1072,7 +1084,7 @@ function snap(game) {
   const out = [];
   for (const K of L) {
     if (!K.alive) continue;
-    if (!C.sichtbarFuerTeam(game, E, team, R, K, sensor)) continue;   // dieselbe Regel wie combat.updateVisibility (Radius, Lanzenkegel, Sensor, Fokus)
+    if (!koerperSichtbar(game, C, E, team, R, K, sensor)) continue;   // dieselbe Regel wie combat.updateVisibility (Radius, Lanzenkegel, Sensor, Fokus), bei Größe >= 2 für jede Körperkachel
     const typ = typVon(K.typ); const modus = typ.zustaende[K.z].modus;
     const ladung = K.aufladung ? Math.min(3, K.aufladung.stufe) : 0;
     const bits = ladung | (modus === 'steht' ? BIT_PAUSE : 0) | (modus === 'ramme' ? BIT_RAMMT : 0) | (modus === 'zielen' ? BIT_ZIELT : 0) | ((typ.groesse - 1) << 4);

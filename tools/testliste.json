@@ -65,6 +65,7 @@
   {"id":"test-kreatur-erledigt","kette":"test","cmd":["tools/test-kreatur-erledigt.js"],"stufe":"full","budget_s":8},
   {"id":"test-schwarm","kette":"test","cmd":["tools/test-schwarm.js"],"stufe":"full","budget_s":10},
   {"id":"test-schwarm-nest","kette":"test","cmd":["tools/test-schwarm-nest.js"],"stufe":"full","budget_s":20},
+  {"id":"test-schwarm-scan","kette":"test","cmd":["tools/test-schwarm-scan.js"],"stufe":"full","budget_s":20},
   {"id":"test-kreatur-optik","kette":"test","cmd":["tools/test-kreatur-optik.js"],"stufe":"full","budget_s":8},
   {"id":"test-station-monster-optik","kette":"test","cmd":["tools/test-station-monster-optik.js"],"stufe":"full","budget_s":8},
   {"id":"test-scanner-anzeige","kette":"test","cmd":["tools/test-scanner-anzeige.js"],"stufe":"fast","budget_s":8},
