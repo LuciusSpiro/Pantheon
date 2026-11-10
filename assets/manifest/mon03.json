@@ -1,0 +1,43 @@
+{
+  "team": "mon03",
+  "assets": [
+    {
+      "id": "kreatur/schwarmling", "kind": "model", "tier": "detail", "palette": "kreatur",
+      "footprint": [1, 1], "height": 0.4, "facing": "+z",
+      "params": { "pose": [0, 3], "fell": [0, 0], "beinphase": [0, 1] },
+      "states": { "steh": { "pose": 0 }, "hocke": { "pose": 2 }, "biss": { "pose": 3 } },
+      "sockets": {}, "tint": [], "budgetTris": 400, "tags": ["kreatur", "schwarm", "monster"]
+    },
+    {
+      "id": "kreatur/schwarmling_sporen", "kind": "model", "tier": "detail", "palette": "kreatur",
+      "footprint": [1, 1], "height": 0.5, "facing": "+z",
+      "params": { "ladung": [0, 3], "pose": [0, 3] },
+      "sockets": {}, "tint": [], "budgetTris": 160, "tags": ["kreatur", "schwarm", "marken"]
+    },
+    {
+      "id": "kreatur/koenigin", "kind": "model", "tier": "detail", "palette": "kreatur",
+      "footprint": [2, 2], "height": 1.95, "facing": "+z",
+      "params": { "pose": [0, 3], "fell": [0, 0], "beinphase": [0, 1] },
+      "sockets": {}, "tint": [], "budgetTris": 4800, "tags": ["kreatur", "schwarm", "monster"]
+    },
+    {
+      "id": "kreatur/koenigin_sporen", "kind": "model", "tier": "detail", "palette": "kreatur",
+      "footprint": [2, 2], "height": 2.0, "facing": "+z",
+      "params": { "ladung": [0, 3], "pose": [0, 3] },
+      "sockets": {}, "tint": [], "budgetTris": 800, "tags": ["kreatur", "schwarm", "marken"]
+    },
+    {
+      "id": "kreatur/schwarm_fleck", "kind": "model", "tier": "detail", "palette": "kreatur",
+      "footprint": [2, 2], "height": 0.25, "facing": "+z",
+      "params": { "gross": [0, 1] },
+      "states": { "klein": { "gross": 0 }, "gross": { "gross": 1 } },
+      "sockets": {}, "tint": [], "budgetTris": 1000, "tags": ["kreatur", "schwarm", "zerfall", "boden"]
+    },
+    {
+      "id": "kreatur/myzel_faden", "kind": "model", "tier": "detail", "palette": "kreatur",
+      "footprint": [1, 1], "height": 0.07, "facing": "+z",
+      "params": {},
+      "sockets": {}, "tint": [], "budgetTris": 200, "tags": ["kreatur", "schwarm", "boden", "kulisse"]
+    }
+  ]
+}

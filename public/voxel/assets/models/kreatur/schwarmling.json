@@ -1,0 +1,158 @@
+{
+ "id": "kreatur/schwarmling",
+ "name": "Schwarmling (MON-03 E, Richtung C Myzel): laufende Pilzkappe auf vier Stummelbeinen, 8 Voxel breit, hell-beige Kappe, dunklere Lamellen darunter. Starres Modell, Blick +z (Kappe leicht nach vorn). Sporenpunkte sind ein eigenes Teilmodell (kreatur/schwarmling_sporen) mit gleichem Anker",
+ "tier": "detail",
+ "palette": "kreatur",
+ "jitter": 0,
+ "tags": [
+  "kreatur",
+  "schwarm",
+  "monster",
+  "mon03"
+ ],
+ "anchor": [
+  0,
+  0,
+  0
+ ],
+ "footprint": [
+  1,
+  1
+ ],
+ "budgetTris": 400,
+ "params": {
+  "pose": {
+   "default": 0,
+   "min": 0,
+   "max": 3,
+   "step": 1,
+   "label": "Pose: 0 steh, 1 aufladen (wie steh, nur klein geduckt), 2 pause (Hocke), 3 biss (vorgereckt)"
+  },
+  "fell": {
+   "default": 0,
+   "min": 0,
+   "max": 0,
+   "step": 1,
+   "label": "Variante (nur 0, ein Ton)"
+  },
+  "beinphase": {
+   "default": 0,
+   "min": 0,
+   "max": 1,
+   "step": 1,
+   "label": "Beinphase (zwei Phasen im Wechsel)"
+  }
+ },
+ "variants": {
+  "steh": {
+   "pose": 0
+  },
+  "hocke": {
+   "pose": 2
+  },
+  "biss": {
+   "pose": 3
+  }
+ },
+ "let": {
+  "duck": "pose == 2 ? -2 : (pose == 3 ? -1 : (pose == 1 ? -1 : 0))",
+  "hl": "3 + duck",
+  "lean": "pose == 3 ? 1 : 0",
+  "dzv": "pose == 3 ? 1 : ((0 + beinphase) % 2 == 0 ? 1 : -1)",
+  "dzh": "pose == 3 ? 1 : ((1 + beinphase) % 2 == 0 ? 1 : -1)"
+ },
+ "ops": [
+  {
+   "op": "box",
+   "name": "Bein vorn links",
+   "at": [
+    -3,
+    0,
+    "1 + dzv"
+   ],
+   "size": [
+    1,
+    "hl",
+    1
+   ],
+   "color": "stiel"
+  },
+  {
+   "op": "box",
+   "name": "Bein vorn rechts",
+   "at": [
+    2,
+    0,
+    "1 + dzh"
+   ],
+   "size": [
+    1,
+    "hl",
+    1
+   ],
+   "color": "stiel"
+  },
+  {
+   "op": "box",
+   "name": "Bein hinten links",
+   "at": [
+    -3,
+    0,
+    "-2 + dzh"
+   ],
+   "size": [
+    1,
+    "hl",
+    1
+   ],
+   "color": "stiel"
+  },
+  {
+   "op": "box",
+   "name": "Bein hinten rechts",
+   "at": [
+    2,
+    0,
+    "-2 + dzv"
+   ],
+   "size": [
+    1,
+    "hl",
+    1
+   ],
+   "color": "stiel"
+  },
+  {
+   "op": "ellipsoid",
+   "name": "Kappe",
+   "at": [
+    0,
+    "hl",
+    "lean"
+   ],
+   "r": [
+    4,
+    3.2,
+    4
+   ],
+   "half": "+y",
+   "color": "kappe"
+  },
+  {
+   "op": "box",
+   "name": "Lamellen (unterste Lage der Kappe)",
+   "at": [
+    -4,
+    "hl",
+    "-4 + lean"
+   ],
+   "size": [
+    8,
+    1,
+    8
+   ],
+   "mode": "paint",
+   "color": "lamelle"
+  }
+ ]
+}

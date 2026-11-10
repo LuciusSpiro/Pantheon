@@ -1,0 +1,121 @@
+{
+ "id": "kreatur/schwarmling_sporen",
+ "name": "Schwarmling, Sporenpunkte (MON-03 E): fuenf leuchtende Einzelvoxel auf der Kappe (eins oben, je zwei vorn und hinten), Rolle spore_an. Immer mitzeichnen; Pose wie am Koerper, gleicher Anker. Parameter ladung ohne Wirkung (der Client reicht ihn aus den Snapshot-Bits durch)",
+ "tier": "detail",
+ "palette": "kreatur",
+ "jitter": 0,
+ "tags": [
+  "kreatur",
+  "schwarm",
+  "monster",
+  "mon03"
+ ],
+ "anchor": [
+  0,
+  0,
+  0
+ ],
+ "footprint": [
+  1,
+  1
+ ],
+ "budgetTris": 160,
+ "params": {
+  "ladung": {
+   "default": 0,
+   "min": 0,
+   "max": 3,
+   "step": 1,
+   "label": "ohne Wirkung (Schnittstelle des Clients)"
+  },
+  "pose": {
+   "default": 0,
+   "min": 0,
+   "max": 3,
+   "step": 1,
+   "label": "Pose: 0 steh, 1 aufladen (wie steh, nur klein geduckt), 2 pause (Hocke), 3 biss (vorgereckt)"
+  }
+ },
+ "let": {
+  "duck": "pose == 2 ? -2 : (pose == 3 ? -1 : (pose == 1 ? -1 : 0))",
+  "hl": "3 + duck",
+  "lean": "pose == 3 ? 1 : 0"
+ },
+ "ops": [
+  {
+   "op": "box",
+   "name": "Spore oben",
+   "at": [
+    0,
+    "hl + 3",
+    "lean"
+   ],
+   "size": [
+    1,
+    1,
+    1
+   ],
+   "color": "spore_an"
+  },
+  {
+   "op": "box",
+   "name": "Spore vorn links",
+   "at": [
+    -2,
+    "hl + 2",
+    "2 + lean"
+   ],
+   "size": [
+    1,
+    1,
+    1
+   ],
+   "color": "spore_an"
+  },
+  {
+   "op": "box",
+   "name": "Spore vorn rechts",
+   "at": [
+    1,
+    "hl + 2",
+    "2 + lean"
+   ],
+   "size": [
+    1,
+    1,
+    1
+   ],
+   "color": "spore_an"
+  },
+  {
+   "op": "box",
+   "name": "Spore hinten links",
+   "at": [
+    -2,
+    "hl + 2",
+    "-3 + lean"
+   ],
+   "size": [
+    1,
+    1,
+    1
+   ],
+   "color": "spore_an"
+  },
+  {
+   "op": "box",
+   "name": "Spore hinten rechts",
+   "at": [
+    1,
+    "hl + 2",
+    "-3 + lean"
+   ],
+   "size": [
+    1,
+    1,
+    1
+   ],
+   "color": "spore_an"
+  }
+ ]
+}

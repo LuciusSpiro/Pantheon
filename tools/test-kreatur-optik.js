@@ -3,7 +3,7 @@
 // (der Block bis KREATUR-OPTIK-ENDE ist rein und wird als Funktion ausgeführt; die Anzeige-Funktionen laufen gegen Attrappen von THREE, Lader und Akteur).
 // Geprüft: Client-Content (Zuordnung Typ -> Modell, Reihenfolge = kreaturen.json, Manifest, Auslieferung), Fell aus der Tier-Nummer, Pose aus den Bits
 // (inkl. Bit 6 zielt), Beinphase aus der Strecke, Marken mit Ladung und derselben Pose, Cache-Schlüssel (Anzahl), Rückfall ohne Eintrag/Asset/Marken,
-// Zittern/Staub/Sterne/Pulsieren nur im richtigen Zustand, Wippen nur in Bewegung, keine Typnamen im Client-Kern, Staub-Effekt in fx.js.
+// Zittern/Staub/Sterne/Pulsieren nur im richtigen Zustand, Schwarm (MON-03 E: Schwarmling und Königin, Eintragsfelder label/wippen/sterne/zerfall), Wippen nur in Bewegung, keine Typnamen im Client-Kern, Staub-Effekt in fx.js.
 //   node tools/test-kreatur-optik.js   (npm run test:kreatur-optik)
 const fs = require('fs');
 const path = require('path');
@@ -20,11 +20,11 @@ const ac = read('public/js/voxel/actors.js');
 const a0 = ac.indexOf('const KR_SCHRITT'), a1 = ac.indexOf('// KREATUR-OPTIK-ENDE'), a2 = ac.indexOf('function kreaturInhaltLaden'), a3 = ac.indexOf('function updateEnemy(');
 if (a0 < 0 || a1 < a0 || a2 < a1 || a3 < a2) { console.log('  FEHLER Quelltext-Blöcke in actors.js nicht gefunden'); process.exit(1); }
 const REIN = ac.slice(a0, a1), ANZEIGE = ac.slice(a2, a3);
-const P = new Function(REIN + '\nreturn { KR_SCHRITT, kreaturEintrag, kreaturFell, kreaturPose, kreaturLadung, kreaturBeinphase, kreaturParameter, kreaturSchluessel, kreaturZitterAmp, kreaturStaubAn, kreaturSterneAn, kreaturPuls, kreaturWippen, kreaturMarkenPivot };')();
+const P = new Function(REIN + '\nreturn { KR_SCHRITT, kreaturEintrag, kreaturFell, kreaturPose, kreaturLadung, kreaturBeinphase, kreaturParameter, kreaturSchluessel, kreaturZitterAmp, kreaturStaubAn, kreaturSterneAn, kreaturPuls, kreaturWippen, kreaturMarkenPivot, kreaturLabelHoehe, kreaturWippFaktor, kreaturSterneErlaubt };')();
 
 const KREATUREN = require('../content/kampf/kreaturen.json');
 const MODELLE = JSON.parse(read('content/kreaturen/modelle.json'));
-const MANIFEST = JSON.parse(read('assets/manifest/mon02.json'));
+const MANIFEST = { assets: JSON.parse(read('assets/manifest/mon02.json')).assets.concat(JSON.parse(read('assets/manifest/mon03.json')).assets) };   // Rudeltier (mon02) + Schwarm (mon03)
 const IDS = Object.keys(KREATUREN.typen);
 const BITS = { ladung: 3, pause: 4, rammt: 8, zielt: 64 };
 // gültige Zustände des Servers (Modus steht = Pause, ramme, zielen) mit Ladung 0..3 und Größe 1
@@ -214,6 +214,53 @@ section('Anzeige: Zittern, Staubspur, Sterne, Pulsieren', () => {
   ok(st.a.body.position.y === 0 && st.a.body.position.x === 0, 'im Stand (Tempo 0, kein Zustand mit Effekt): body ruhig');
   const rf = (() => { const w = welt({ bereit: true, inhalt: null }), a = w.akteur(); a.speed = 5; w.fn.updateKreatur(a, tier(3, 8), 0.05, 1); return { fx: w.fx.length, y: a.body.position.y, rz: a.body.rotation.z }; })();
   ok(rf.fx === 0 && rf.y === 0 && rf.rz === 0, 'Rückfall (Platzhalter): keine Effekte des Modells, body ruhig');
+});
+
+section('Schwarm (MON-03 E): Client-Content, Eintragsfelder, Anzeige', () => {
+  const idx = JSON.parse(read('public/voxel/index.json')), ids = new Set(MANIFEST.assets.map((a) => a.id)), mod = idx.models || [];
+  for (const id of ['schwarmling', 'koenigin']) {
+    const e = MODELLE.typen[id];
+    ok(!!e && ids.has(e.modell) && ids.has(e.marken) && mod.includes(e.modell) && mod.includes(e.marken), id + ': Körper ' + (e && e.modell) + ' und Sporen ' + (e && e.marken) + ' stehen im Manifest mon03 und in public/voxel (npm run assets gelaufen)');
+    const z = e && e.zerfall, zm = z && MANIFEST.assets.find((a) => a.id === z.modell);
+    ok(!!zm && mod.includes(z.modell) && z.params && Number.isInteger(z.params.gross) && z.params.gross >= zm.params.gross[0] && z.params.gross <= zm.params.gross[1], id + ': Zerfallsmodell ' + (z && z.modell) + ' mit gültigem Parameter gross ' + (z && z.params && z.params.gross));
+    ok(e.sterne === false && e.label > 0 && e.label < 4, id + ': keine Pause-Sterne, Namenshöhe ' + e.label + ' m');
+  }
+  ok(MODELLE.typen.schwarmling.label < MODELLE.typen.koenigin.label && MODELLE.typen.koenigin.label > 2 && MODELLE.typen.schwarmling.wippen > 1, 'Namenshöhen passen zum Maßstab (Schwarmling klein, Königin über 2 m), Schwarmling wippt stärker');
+  ok(['kreatur/myzel_faden', 'kreatur/schwarm_fleck'].every((i) => ids.has(i) && mod.includes(i)) && MANIFEST.assets.filter((a) => a.tags.includes('boden')).every((a) => a.height <= 0.3), 'Bodenoptik (Fleck, Faden) ist synchronisiert und höchstens 0,3 m hoch (keine Kollision nötig)');
+  const pal = JSON.parse(read('public/voxel/assets/palettes/kreatur.json'));
+  ok(['kappe', 'lamelle', 'stiel', 'myzel', 'spore_an', 'fleck'].every((r) => r in pal.roles) && pal.roles.spore_an.emit > 0, 'Palette kreatur enthält die Schwarm-Rollen (Sporen leuchten)');
+  ok(P.kreaturLabelHoehe(null) === 1.45 && P.kreaturLabelHoehe({}) === 1.45 && P.kreaturLabelHoehe({ label: 0.8 }) === 0.8 && P.kreaturLabelHoehe({ label: -1 }) === 1.45 && P.kreaturLabelHoehe({ label: 'x' }) === 1.45, 'kreaturLabelHoehe: Standard 1,45, Eintrag gilt, Unsinn fällt auf den Standard zurück');
+  ok(P.kreaturWippFaktor(null) === 1 && P.kreaturWippFaktor({}) === 1 && P.kreaturWippFaktor({ wippen: 2 }) === 2 && P.kreaturWippFaktor({ wippen: 0 }) === 1, 'kreaturWippFaktor: Standard 1, Eintrag gilt');
+  ok(P.kreaturSterneErlaubt(null) === true && P.kreaturSterneErlaubt({}) === true && P.kreaturSterneErlaubt({ sterne: false }) === false && P.kreaturSterneErlaubt({ sterne: true }) === true, 'kreaturSterneErlaubt: nur sterne:false schaltet ab');
+  const TYP = { schwarmling: IDS.indexOf('schwarmling'), koenigin: IDS.indexOf('koenigin'), rudeltier: IDS.indexOf('rudeltier') };
+  ok(TYP.schwarmling > 0 && TYP.koenigin > 0, 'Typcodes aus kreaturen.json: schwarmling ' + TYP.schwarmling + ', koenigin ' + TYP.koenigin);
+  // Schwarmling: Modell, Sporen, Maßstab
+  let w = welt({ bereit: true }), a = w.akteur();
+  w.fn.updateKreatur(a, tier(5, 16, TYP.schwarmling), 0.05, 1);
+  const k = w.loads.find((l) => l.id === 'kreatur/schwarmling'), m = w.loads.find((l) => l.id === 'kreatur/schwarmling_sporen');
+  ok(k && m && JSON.stringify(k.params) === JSON.stringify({ pose: 0, fell: 0, beinphase: 0 }) && JSON.stringify(m.params) === JSON.stringify({ ladung: 0, pose: 0 }) && w.fallbacks.length === 0, 'Schwarmling: Körper {pose 0, fell 0, beinphase 0} und Sporen {ladung 0, pose 0}, kein Platzhalter');
+  ok(a.labelH === 0.8, 'Schwarmling: Namenszug auf 0,8 m (Modell 0,4 m hoch)');
+  for (const [b, pose] of [[4 | 16, 2], [8 | 16, 3], [16, 0]]) { w = welt({ bereit: true }); a = w.akteur(); w.fn.updateKreatur(a, tier(5, b, TYP.schwarmling), 0.05, 1); ok(w.loads.every((l) => l.params.pose === pose) && w.loads.length === 2, 'Schwarmling Bits ' + b + ': Körper und Sporen in Pose ' + pose + ' (hocke / biss / steh)'); }
+  // Pause: keine Sterne (Schwarmling, Königin), das Rudeltier behält sie
+  for (const [typ, nm] of [[TYP.schwarmling, 'Schwarmling'], [TYP.koenigin, 'Königin'], [TYP.rudeltier, 'Rudeltier']]) {
+    w = welt({ bereit: true }); a = w.akteur(); a.speed = 0;
+    for (let i = 0; i < 10; i++) w.fn.updateKreatur(a, tier(7, 4 | 16, typ), 0.025, 1 + i * 0.025);
+    ok(!!(a.sterne && a.sterne.visible) === (nm === 'Rudeltier'), nm + ' in Pause (Modus steht): Sterne ' + (a.sterne && a.sterne.visible ? 'sichtbar' : 'aus'));
+  }
+  // Königin: feste Pose 2 (Modus steht), Namenshöhe, kein Versatz
+  w = welt({ bereit: true }); a = w.akteur(); a.speed = 0;
+  w.fn.updateKreatur(a, tier(9, 4 | 16, TYP.koenigin), 0.05, 1);
+  const kk = w.loads.find((l) => l.id === 'kreatur/koenigin');
+  ok(kk && kk.params.pose === 2 && w.loads.some((l) => l.id === 'kreatur/koenigin_sporen') && a.labelH === 2.3 && a.body.position.y === 0 && w.fallbacks.length === 0, 'Königin: Körper und Sporen, Pose 2 (Dauerzustand steht), Namenszug auf 2,3 m, ruhig');
+  const cache = w.loads.length; for (let i = 0; i < 30; i++) w.fn.updateKreatur(a, tier(9, 4 | 16, TYP.koenigin), 0.05, 2 + i * 0.1);
+  ok(w.loads.length === cache, 'Königin im Dauerzustand: nach dem ersten Bild kein weiterer Aufbau (' + cache + ' Teilmodelle)');
+  // Wippen: Schwarmling stärker als das Rudeltier bei gleichem Tempo
+  const wipp = (typ) => { let mx = 0; const w2 = welt({ bereit: true }), a2 = w2.akteur(); a2.speed = 2.8; for (let i = 0; i < 80; i++) { a2.dist = i * 0.05; w2.fn.updateKreatur(a2, tier(3, 16, typ), 0.025, 1 + i * 0.025); mx = Math.max(mx, a2.body.position.y); } return mx; };
+  const ws = wipp(TYP.schwarmling), wr = wipp(TYP.rudeltier);
+  ok(wr > 0 && Math.abs(ws / wr - 2) < 0.15 && ws < 0.08, 'Wippen: Schwarmling ' + ws.toFixed(3) + ' m gegen Rudeltier ' + wr.toFixed(3) + ' m (Faktor 2), klein gegen das Modell');
+  // Rückfall bleibt
+  w = welt({ bereit: false }); a = w.akteur(); w.fn.updateKreatur(a, tier(5, 16, TYP.schwarmling), 0.05, 1);
+  ok(w.fallbacks.length === 1 && a.model && a.model.userData.placeholder, 'Schwarmling ohne gebautes Asset: grauer Platzhalter (Rückfall)');
 });
 
 section('Pause-Sterne: Material, Form, Größe, Höhe (MON-02 Nacharbeit H1)', () => {

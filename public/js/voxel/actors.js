@@ -1153,6 +1153,11 @@ function kreaturWippen(b, speed, strecke) {
 }
 /** Pivot der Marken (m, vor der Rückenlinie der Pose): Pulsieren um die eigene Mitte statt um den Anker. */
 function kreaturMarkenPivot(pose) { return [0, (13.5 + [0, -1, -2, -1][pose & 3]) / 16, -3 / 16]; }
+/** MON-03 E: optionale Felder des Client-Content-Eintrags für Typen mit anderem Maßstab als das Rudeltier (Schwarmling klein, Königin fest und groß):
+ *  label = Höhe des Namenszugs in m (Standard 1,45), wippen = Faktor auf das Wippen (Standard 1), sterne:false = keine Pause-Sterne (der Modus steht ist bei der festen Königin der Dauerzustand). */
+function kreaturLabelHoehe(eintrag) { return eintrag && eintrag.label > 0 ? +eintrag.label : 1.45; }
+function kreaturWippFaktor(eintrag) { return eintrag && eintrag.wippen > 0 ? +eintrag.wippen : 1; }
+function kreaturSterneErlaubt(eintrag) { return !eintrag || eintrag.sterne !== false; }
 // KREATUR-OPTIK-ENDE
 
 // MON-02 O3a (Fortsetzung): Teilmodelle, Anzeige, Effekte. Eigene Funktionen, der Platzhalter bleibt als Rückfall.
@@ -1199,12 +1204,12 @@ function kreaturModellAnwenden(a, e, eintrag, b, t) {
   return true;
 }
 /** Zittern, Wippen, Sterne, Staubspur: nur Darstellung (Math.random/Zeit erlaubt, nie Serverzustand). */
-function kreaturEffekte(a, e, b, dt, t) {
+function kreaturEffekte(a, e, b, dt, t, eintrag) {
   const nr = +String(e.id).slice(1) || 0, ph = nr * 1.7;
   const z = kreaturZitterAmp(b);
-  a.body.position.set(z ? Math.sin(t * 83 + ph) * z : 0, kreaturWippen(b, a.speed, a.dist || 0) + (z ? Math.abs(Math.sin(t * 71 + ph)) * z * 0.5 : 0), z ? Math.sin(t * 97 + ph * 2) * z : 0);
+  a.body.position.set(z ? Math.sin(t * 83 + ph) * z : 0, kreaturWippen(b, a.speed, a.dist || 0) * kreaturWippFaktor(eintrag) + (z ? Math.abs(Math.sin(t * 71 + ph)) * z * 0.5 : 0), z ? Math.sin(t * 97 + ph * 2) * z : 0);
   a.body.rotation.set((b & 8) && a.speed > 0.25 ? 0.05 : 0, 0, z ? Math.sin(t * 79 + ph) * z * 2 : 0);   // Rammen: leicht vorgebeugt
-  const stern = kreaturSterneAn(b);
+  const stern = kreaturSterneAn(b) && kreaturSterneErlaubt(eintrag);
   if (stern || a.sterne) {
     const s = kreaturSterne(a);
     s.visible = stern;
@@ -1246,8 +1251,8 @@ function updateKreatur(a, e, dt, t) {
   locomote(a, pos.x, pos.z, dt, yawOf(Math.cos(f), Math.sin(f)), false);   // Blick = Snapshot-Blick (nicht auf 45 Grad gerastet), a.dist zählt die Strecke
   const eintrag = kreaturEintrag(L.kreaturInhalt, e.kr && e.kr.t);
   if (eintrag && kreaturModellAnwenden(a, e, eintrag, b, t)) {
-    a.labelH = 1.45;
-    kreaturEffekte(a, e, b, dt, t);
+    a.labelH = kreaturLabelHoehe(eintrag);
+    kreaturEffekte(a, e, b, dt, t, eintrag);
   } else {
     kreaturPlatzhalter(a, b, t);
     a.body.position.set(0, 0, 0); a.body.rotation.set(0, 0, 0);
