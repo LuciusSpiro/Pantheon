@@ -381,7 +381,7 @@ section('Der Spielleiter-Prompt liest den Katalog der Absichten nicht (Umstellun
   const code = (f) => fs.readFileSync(f, 'utf8').split('\n').filter((z) => !/^\s*\/\//.test(z)).join('\n').replace(/\/\/.*$/gm, '');
   const lesen = alle.filter((f) => /require\([^)]*(absicht-pruefer|inszenierer|absicht-verhandlung)/.test(code(f)));
   const rel = lesen.map((f) => path.relative(srcDir, f).replace(/\\/g, '/'));
-  ok(rel.every((f) => ['sim/abenteuer-absicht.js', 'sim/abenteuer-brett.js', 'sim/absicht-verhandlung.js', 'sim/inszenierer.js'].includes(f)), 'nur das Brett (nur CODES), die Verhandlung, der Inszenierer und die Anbindung des Betriebsmodus Absichten (abenteuer-absicht.js, SPL-02 E1) laden Pruefer, Inszenierer oder Verhandlung; Prompt, Mock, Spielleiter und Lage nicht: ' + rel.join(', '));
+  ok(rel.every((f) => ['sim/abenteuer-absicht.js', 'sim/abenteuer-brett.js', 'sim/abenteuer-rueckfall.js', 'sim/abenteuer-vorrat.js', 'sim/absicht-verhandlung.js', 'sim/inszenierer.js'].includes(f)), 'nur das Brett (nur CODES), die Verhandlung, der Inszenierer, die Anbindung des Betriebsmodus Absichten (abenteuer-absicht.js, SPL-02 E1) und der Rueckfall und der Vorrat (abenteuer-rueckfall.js, abenteuer-vorrat.js, SPL-02 F) laden Pruefer, Inszenierer oder Verhandlung; Prompt, Mock, Spielleiter und Lage nicht: ' + rel.join(', '));
   const liest = alle.filter((f) => /(D\.DIR|faeden)[^\n]*absichten\.json/.test(code(f))).map((f) => path.relative(srcDir, f).replace(/\\/g, '/'));
   ok(liest.join() === 'sim/absicht-pruefer.js', 'nur server/sim/absicht-pruefer.js liest content/faeden/absichten.json (gefunden: ' + liest.join(', ') + ')');
   const text = Prompt.katalogText();

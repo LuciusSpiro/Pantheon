@@ -323,7 +323,7 @@ section('Rueckfall des Bretts greift nach einem Nein wie heute', () => {
     for (let i = 0; i < 6; i++) { g.step(); await frei(); }
     ok(abLog(g, 'abgelehnt').length === 1 && abLog(g, 'abgelehnt')[0].grund === 'ANTWORT_UNLESBAR', 'nach dem Nein: Eintrag abgelehnt, kein Angebot aus der Absicht');
     const anschluss = logbuch(g).filter((e) => e.art === 'abenteuer_anschluss' && e.ausgang === 'angeboten');
-    ok(anschluss.length >= 1 && angebote(g).length >= 1 && angebote(g).every((a) => !a.bezug), 'die Anschluss-Garantie des Bretts bietet ein Abenteuer an (Logbuch abenteuer_anschluss, Angebote ' + angebote(g).length + ')');
+    ok(anschluss.length >= 1 && angebote(g).length >= 1 && angebote(g).every((a) => anschluss.some((e) => e.plan && e.plan.angebot === a.nr)), 'die Anschluss-Garantie des Bretts bietet ein Abenteuer an (Logbuch abenteuer_anschluss, Angebote ' + angebote(g).length + '); jedes Angebot stammt aus ihr, keines aus der gescheiterten Absicht (SPL-02 F: im Modus Absichten waehlt der Rueckfall selbst eine Absicht, auch mit Bezug)');
     void M;
   })();
 });

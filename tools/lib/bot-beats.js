@@ -15,7 +15,7 @@
 //
 // Was der Bot kann: geruecht, wiedersehen, notruf (hinfliegen, echte Spruenge), spur (lesen, Teilung abstimmen), bitte (annehmen), sabotage (echte Spruenge, Posten sprengen), fracht (hinfliegen,
 // Andocken wird gesetzt), enthuellung und abschluss (laufen von selbst). Er hat KEINE Bordkanone: Szenen-Beats (konvoi, geleit, raumschlacht, verfolgung, befreiung) spielt er mit dem Testhelfer
-// (Gegner zerstoeren, im Verlauf als kuenstlich ausgewiesen) oder, mit opts.testhelfer false, gar nicht (Frist). spontanhilfe wartet auf ein Gefecht, das der Bot nicht ausloest: Frist.
+// (Gegner zerstoeren, im Verlauf als kuenstlich ausgewiesen) oder, mit opts.testhelfer false, gar nicht (Frist). Ein Beat, den nur der Inszenierer kennt (rache, beats.json nur_inszenierer), wird nach seinem Baustein gespielt (SPL-02 F: rache wie raumschlacht). spontanhilfe wartet auf ein Gefecht, das der Bot nicht ausloest: Frist.
 const Sektoren = require('../../shared/sektoren.js');
 const Faden = require('../../server/sim/faden.js');
 const FD = require('../../server/sim/faden-daten.js');
@@ -24,6 +24,7 @@ const Spur = require('../../server/sim/spur.js');
 const Testhilfe = require('../gegner-testhilfe.js');
 
 const SZENEN = ['konvoi', 'geleit', 'raumschlacht', 'verfolgung', 'befreiung', 'spontanhilfe'];
+const KENNT = ['geruecht', 'wiedersehen', 'notruf', 'spur', 'sabotage', 'fracht', 'bitte', 'enthuellung', 'abschluss'].concat(SZENEN);   // Typen mit eigener Bot-Logik
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 function neu(ctx) {
@@ -161,13 +162,14 @@ function neu(ctx) {
     const b = beatVon(f), typ = typVon(f), t0 = Date.now(), vor = Object.assign({}, kz), gedVor = f.nsc.gedaechtnis.length;
     let notiz = null, versucht = true;
     try {
+      const art = KENNT.includes(typ) ? typ : ((FD.BEATS[typ] && FD.BEATS[typ].baustein) || typ);   // SPL-02 F: ein Beat mit eigenem Typ (zum Beispiel nur_inszenierer in beats.json) wird nach seinem Baustein gespielt (Daten, kein Typname hier)
       if (typ === 'geruecht' || typ === 'wiedersehen' || typ === 'notruf') await ankunft(f, b);
       else if (typ === 'spur') await spur(f, b);
       else if (typ === 'sabotage') await sabotage(f, b);
       else if (typ === 'fracht') await fracht(f, b);
       else if (typ === 'bitte') { await warteBeatEnde(f, b.id, 60000); }
       else if (typ === 'enthuellung' || typ === 'abschluss') { await warteBeatEnde(f, b.id, 5000); }
-      else if (SZENEN.includes(typ)) { await szene(f, b, typ); versucht = typ !== 'spontanhilfe' && !!opts.testhelfer; if (typ !== 'spontanhilfe' && !opts.testhelfer) notiz = 'ohne Testhelfer: nicht gespielt'; if (typ === 'spontanhilfe') notiz = 'wartet auf ein Gefecht: nicht spielbar'; }
+      else if (SZENEN.includes(art)) { await szene(f, b, art); versucht = art !== 'spontanhilfe' && !!opts.testhelfer; if (art !== 'spontanhilfe' && !opts.testhelfer) notiz = 'ohne Testhelfer: nicht gespielt'; if (art === 'spontanhilfe') notiz = 'wartet auf ein Gefecht: nicht spielbar'; }
       else { versucht = false; notiz = 'keine Bot-Logik fuer diesen Beat'; }
       // laeuft er noch (Szene ohne Testhelfer, spontanhilfe, unbekannter Typ, Ort nicht erreicht): die Frist beendet ihn ueber Taetigkeiten
       if (laeuft(f, b.id)) { for (let i = 0; i < 800 && laeuft(f, b.id); i++) await leerlauf(150); if (laeuft(f, b.id)) notiz = (notiz ? notiz + '; ' : '') + 'Beat laeuft nach 2 Minuten noch'; else if (versucht) notiz = (notiz ? notiz + '; ' : '') + 'Frist ablief'; else notiz = (notiz ? notiz + '; ' : '') + 'Frist lief ab'; }
