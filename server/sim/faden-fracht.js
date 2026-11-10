@@ -1,8 +1,9 @@
 'use strict';
 // SUND-04a-2 P1: Frachtauftrag light, NUR Faden-intern (kein allgemeines Auftragssystem, das kommt in 04b).
 // Ein Beat „fracht“ (Baustein fracht) laedt eine Ware des NSC (Daten: content/faeden/szenen-werte.json, waren) und liefert sie am Zielhafen ab.
-// Die Ware steht als eigenes Feld im Fadenzustand (faden.fracht = { ware, von, nach, tick }), NICHT im Frachtraum (fracht.js) und NICHT im Handel:
-// ein Frachtraum hat Plaetze, Beamen und Verlust bei Gefahr, das passt nicht zu einem Gegenstand ohne Gewicht. Gewicht 0 steht in den Daten.
+// LAD-01 C: die Ware ist ECHTE Fracht im Frachtraum (Art 'fracht', ein Platz, Typ-Regel, Verlust durch Huellentreffer wie jede Ladung): laden() legt sie ueber fracht.lagerAufnehmen
+// (quelle 'faden') ein, abgeliefert oder verloren wird sie ueber fracht.lagerEntnehmen. faden.fracht = { ware, von, nach, tick } ist nur noch der AUFTRAG (Ziel, Frist, Weltstand), kein Lager.
+// Fehlt die Ladung beim Andocken (Huellentreffer, am Ops abgeliefert, Frachtraum ausgebaut), gilt die Ware als verloren: Ausgang gescheitert.
 //
 //   laden(game, { fadenId, ware, vonHafen?, nachHafen })  -> { ok, grund? }   der laufende Beat „fracht“ bekommt die Ware (Hex-Codes; ware aus den Daten). Nacharbeit SUND-04a-2 (F6): der Zielhafen muss
 //                                                         ANDOCKBAR sein (sonst ok false, nie eine Scheinfracht), die Crew hoert „Ware an Bord: <Ware> fuer <Hafenname>“ (Funk, Daten szenen-werte texte.fracht)
@@ -13,12 +14,14 @@
 //   andocken(game)                                        Hook am Andock-Ereignis (game.js, missionEvent docked): liegt die Ware im Ziel-Hex, wird sie abgeliefert -> Ausgang gelungen
 //   verloren(game, fadenId)                               die Ware geht verloren -> Ausgang gescheitert (Hook: Notsprung, game.js, über notsprung)
 //   notsprung(game)                                       alle Waren an Bord gehen verloren (Hook in game.js, nach einem gelungenen Notfallsprung)
-//   inventar(game)                                        die Waren an Bord, Name und Gewicht aus den Daten (nur Anzeige und Tests; kein Handel)
+//   inventar(game)                                        die Waren an Bord (Auftraege), Name und Gewicht aus den Daten (nur Anzeige und Tests)
+//   entladen(game, f)                                     die Ladung des Auftrags aus dem Frachtraum nehmen (Hook an jedem Ende eines Beats mit Ware, faden.js)
 //   leseFracht(x)                                         Lesen aus dem Weltstand (muellfest): null bei unbrauchbaren Feldern
 // Frist und Scheitern kommen aus dem Beat-Takt (beat_frist Taetigkeiten, faden.js): die Ware wird beim Ende des Beats ohnehin aus dem Faden entfernt (faden.beatAusgang).
 const Sektoren = require('../../shared/sektoren.js');
 const Besitz = require('./besitz.js');
 const Locations = require('../../shared/locations.js');
+const Lager = require('./fracht.js');   // LAD-01 C: die Ladung liegt im Frachtraum
 const DATEN = require('../../content/faeden/szenen-werte.json');
 const W = DATEN.werte, TX = DATEN.texte;
 
@@ -83,6 +86,10 @@ function laden(game, o) {
   const fr = leseFracht({ ware, von, nach: q.nachHafen, tick: game.weltsim.tickZahl });
   if (!fr) return { ok: false, grund: 'Zielhafen ungültig' };
   if (!andockbar(game, fr.nach)) return { ok: false, grund: 'Zielhafen nicht andockbar' };   // nie eine Scheinfracht: die Crew koennte dort nicht abliefern
+  const pf = Lager.platzFuer(game, 'fracht');
+  if (!pf.ok) return { ok: false, grund: pf.text };   // LAD-01 C: Typ-Regel/Kapazitaet gelten auch fuer die Faden-Ware (nie eine Scheinfracht)
+  const r = Lager.lagerAufnehmen(game, { art: 'fracht', quelle: 'faden' });
+  if (!r.ok) return { ok: false, grund: r.text };
   f.fracht = fr;
   funk(game, 'laden', frachtVars(fr));
   return { ok: true, grund: null };
@@ -96,10 +103,16 @@ function andocken(game) {
   for (const f of F().zustandVon(game).liste.slice()) {
     if (!f.fracht || f.phase !== 'laeuft' || f.fracht.nach !== hex) continue;
     out.push(f.id);
+    if (!Lager.anBord(game, 'fracht')) { F().beatAusgang(game, f.id, 'gescheitert'); continue; }   // LAD-01 C: die Ladung ist unterwegs verloren gegangen (Huellentreffer, abgegeben): der Auftrag scheitert
     funk(game, 'abgeliefert', frachtVars(f.fracht));
-    F().beatAusgang(game, f.id, 'gelungen');
+    F().beatAusgang(game, f.id, 'gelungen');   // entfernt die Ladung aus dem Frachtraum (entladen)
   }
   return out;
+}
+
+// Die Ladung des Auftrags verlassen den Frachtraum (abgeliefert, verloren, Beat zu Ende, Szene aufgeloest)
+function entladen(game, f) {
+  if (f && f.fracht && game && game.fracht) Lager.lagerEntnehmen(game, 'fracht');
 }
 
 function verloren(game, fadenId) {
@@ -123,4 +136,4 @@ function inventar(game) {
   return liste.filter((f) => f.fracht).map((f) => ({ faden: f.id, id: f.fracht.ware, name: WAREN[f.fracht.ware].name, gewicht: WAREN[f.fracht.ware].gewicht, nach: f.fracht.nach }));
 }
 
-module.exports = { laden, andocken, verloren, notsprung, inventar, leseFracht, zielFuer, andockbar, verlustMelden, funk, WAREN };
+module.exports = { laden, entladen, andocken, verloren, notsprung, inventar, leseFracht, zielFuer, andockbar, verlustMelden, funk, WAREN };

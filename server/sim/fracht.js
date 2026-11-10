@@ -94,7 +94,7 @@ function passtOhneRaum(game, raum) { const e = belegungsEingabe(game, null); ret
 function personImRaum(game, raum) { return belegung(game).module.some((m) => m.raum === raum && m.art === 'person'); }
 // Wie viele Ladungen dieser Art das Schiff in seinem jetzigen Zustand insgesamt tragen kann (schon an Bord plus noch frei)
 function kapazitaetFuer(game, art) { return anBord(game, art) + freiFuer(game, art); }
-const QUELLEN = ['beamen', 'schoepfen', 'debug', 'skript', 'kampagne', 'zuteilung', 'beute', 'person', 'abbau', 'laden'];
+const QUELLEN = ['beamen', 'schoepfen', 'debug', 'skript', 'kampagne', 'zuteilung', 'beute', 'person', 'abbau', 'laden', 'faden'];
 // Die EINE Einlagerung. o: { art, quelle, person?, name? } (Personen tragen person und name). -> { ok: true, eintrag, raum, platz, nr } | { ok: false, grund, text }
 // Kein Ereignis und keine ODA-Meldung hier: das tut der Aufrufer (der Weg kennt seinen Text). quelle wird gezählt (state.zugang, nur Laufzeit, nicht im Stand).
 function lagerAufnehmen(game, o) {
@@ -108,6 +108,27 @@ function lagerAufnehmen(game, o) {
   s.zugang[o.quelle] = (s.zugang[o.quelle] || 0) + 1;
   return { ok: true, eintrag, raum: pf.raum, platz: pf.platz, nr: pf.nr };
 }
+// LAD-01 C: eine Ladung dieser Art aus dem Lager nehmen (die jüngste), ohne Abgabe-Zählung (die Faden-Ware: abgeliefert, verloren, Beat zu Ende). -> true, wenn eine da war
+function lagerEntnehmen(game, art) {
+  const s = state(game);
+  for (let i = s.lager.length - 1; i >= 0; i--) if (s.lager[i].art === art) { s.lager.splice(i, 1); return true; }
+  return false;
+}
+// LAD-01 C: Schnittstelle für Abbau (AST-01) und Wrack-Bergung (WRK-01): n Stapel einer Ware (1 Platz = 1 Stapel) so weit einlagern, wie die Typ-Regel es zulässt.
+// -> { ok (alles passte), eingelagert, rest (passt nicht, bleibt beim Aufrufer), text (Hinweis des ersten Ablehnungsgrundes) }. Kein Ereignis, keine ODA-Meldung: das tut der Aufrufer.
+// Das bestehende GEL-03-Abbauerz (inventory.erz, vorrat.einlagern(…, 'abbau')) bleibt davon unberührt: Erz belegt erst mit WRK-01/AST-01 Plätze.
+function stapelEinlagern(game, art, n, quelle) {
+  const lim = Number.isFinite(n) && n > 0 ? Math.floor(n) : 0;
+  let k = 0, text = null;
+  while (k < lim) {
+    const r = lagerAufnehmen(game, { art, quelle });
+    if (!r.ok) { text = r.text; break; }
+    k++;
+  }
+  return { ok: k === lim && lim > 0, eingelagert: k, rest: lim - k, text };
+}
+const erzEinlagern = (game, n) => stapelEinlagern(game, 'erz', n == null ? 1 : n, 'abbau');
+const beuteEinlagern = (game, art, n) => stapelEinlagern(game, art == null ? 'bergungsgut' : art, n == null ? 1 : n, 'beute');
 // Skript-Zuteilung ohne Softlock (Eisenwald k3/k4: Ersatz-Sprengstoff): passt die Art nur wegen einer fremden Art nicht hinein, räumt der Quartiermeister das kleinste Modul mit
 // fremder Ware (nie Personen) aus. Gibt true zurück, wenn ausgeladen wurde.
 function fremdesModulRaeumen(game, art) {
@@ -423,6 +444,6 @@ module.exports = {
   neu, state, update, snapshot, toSave, restore, debug,
   fracht_abwerfen, abwerfen: fracht_abwerfen,
   beamStart, abliefernStart, beamStop, systemTreffer, ablieferOrt, stationOrt,
-  anBord, frei, capacity, platzFuer, freiFuer, kapazitaetFuer, passtOhneRaum, personImRaum, lagerAufnehmen, zuteilen, belegung, personPlaetze, gesichert, setGesichert, gefaehrdet, huellenTreffer, frachtraumTreffer, lagerArten, draussen, abgeliefert,
+  anBord, frei, capacity, platzFuer, freiFuer, kapazitaetFuer, passtOhneRaum, personImRaum, lagerAufnehmen, lagerEntnehmen, erzEinlagern, beuteEinlagern, zuteilen, belegung, personPlaetze, gesichert, setGesichert, gefaehrdet, huellenTreffer, frachtraumTreffer, lagerArten, draussen, abgeliefert,
   setAbnehmer, skriptAbliefern, skriptAbliefernBis, anBordLegen, artOk, artName,
 };
