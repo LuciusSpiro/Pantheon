@@ -1,9 +1,10 @@
 'use strict';
 // EK8 (CONTRACT-EK8): Bausteine für die Kampagnenkette (Registry-Plugin).
-//   fracht_zuteilen { art, n? }   Aktion: n Ladungen (Standard 1) der Art direkt in den Frachtraum legen, soweit Platz ist
+//   fracht_zuteilen { art, n?, illegal?, getarnt?, auftrag? }   Aktion: n Ladungen (Standard 1) der Art direkt in den Frachtraum legen, soweit Platz ist (Kampagnen-Ware: nicht verkaufbar)
 //                                 (Belohnung „Behaltet einen Teil“, Ersatz einer verlorenen Sprengladung). Ereignis frachtAnBord.
 // Die übrigen Wege der Kette laufen über vorhandene Bausteine (fracht_*, sperrriegel_oeffnen, welt_fakt, npc_gedaechtnis, chronik).
-const ARTEN = ['sprengstoff', 'fracht', 'deuterium'];   // SL6: Deuterium
+const Waren = require('../../../shared/waren.js');
+const ARTEN = Waren.arten();   // LAD-01 Nacharbeit 1: alle Waren aus content/waren.json
 const fracht = () => require('../../sim/fracht.js');
 
 module.exports = (Registry) => {
@@ -43,9 +44,11 @@ module.exports = (Registry) => {
     run(m, a) { const err = m.kette ? m.kette.szeneStarten(a.buch) : 'keine Kette'; if (err) m.game.countError('mission-hook', new Error('buch_starten: ' + err)); } });
   Registry.define({ id: 'fracht_zuteilen', art: 'aktion', ereignisse: ['frachtAnBord'],
     beschreibung: 'n Ladungen (Standard 1) der Art direkt in den Frachtraum der Lerche legen (Belohnung, Ersatz einer verlorenen Sprengladung); ohne freien Platz wird nur gelegt, was hineinpasst',
-    params: { art: { typ: 'string', pflicht: true, werte: ARTEN }, n: { typ: 'number', min: 1, max: 4 } },
+    params: { art: { typ: 'string', pflicht: true, werte: ARTEN }, n: { typ: 'number', min: 1, max: 4 },
+      illegal: { typ: 'bool' }, getarnt: { typ: 'string', werte: ARTEN }, auftrag: { typ: 'string' } },   // LAD-01 Nacharbeit 1: optionale Eigenschaften der Ladung (Regiebuch/Spielleiter); ohne auftrag gilt der Kampagnen-Tag
     run(m, a) {
       const g = m.game; const F = fracht();
-      for (let i = 0; i < (a.n != null ? a.n : 1); i++) if (!F.zuteilen(g, a.art)) break;   // LAD-01 A2: Typ-Regel; ein Typkonflikt mit fremder Ware wird aufgelöst (Fracht.zuteilen), die Kette hängt nie fest
+      const eig = {}; if (a.illegal) eig.illegal = true; if (a.getarnt) eig.getarnt = a.getarnt; if (a.auftrag) eig.auftrag = a.auftrag;
+      for (let i = 0; i < (a.n != null ? a.n : 1); i++) if (!F.zuteilen(g, a.art, Object.keys(eig).length ? eig : null)) break;   // LAD-01 A2: Typ-Regel; ein Typkonflikt mit fremder Ware wird aufgelöst (Fracht.zuteilen), die Kette hängt nie fest
     } });
 };

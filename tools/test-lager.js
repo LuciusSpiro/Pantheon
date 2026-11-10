@@ -366,7 +366,8 @@ section('Weltstand: Speichern und Laden mit Fracht', () => {
   ok(Fracht.anBord(L2.g) === 0, 'Altstand ohne Feld lädt mit leerem Frachtraum');
   // Schema lehnt Unfug ab, Laden fängt Unfug ab
   const bad = JSON.parse(JSON.stringify(data)); bad.schiff.fracht = ['kaviar'];
-  ok(Weltstand.validate(bad).length > 0, 'Schema lehnt unbekannte Art ab');
+  ok(Weltstand.validate(bad).length === 0, 'LAD-01 Nacharbeit 1: eine unbekannte Art lehnt den Stand nicht ab (Rest lädt, restore verwirft die Art mit Logzeile)');
+  { const logs = []; const R0 = new Game({ noStore: true, seed: 3, log: (m) => logs.push(String(m)) }); Fracht.restore(R0, ['kaviar', 'sprengstoff']); ok(Fracht.anBord(R0) === 1 && logs.some((m) => /verworfen/.test(m)), 'restore: unbekannte Art verworfen, Rest geladen, Logzeile'); }
   const R = new Game({ noStore: true, seed: 3, log: () => {} });
   Fracht.restore(R, ['sprengstoff', 'kaviar', 'fracht', 'fracht', 'sprengstoff']);
   ok(Fracht.anBord(R) === 2 && JSON.stringify(Fracht.lagerArten(R)) === '["sprengstoff","sprengstoff"]', 'restore filtert unbekannte Arten und die fremde Art (Typ-Regel: ein Frachtraum, eine Art)');

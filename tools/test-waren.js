@@ -90,7 +90,7 @@ section('TESTWARE ohne Codeänderung', () => {
   const T = setup({ dir });
   T.run(0.3);
   ok(!Fracht.artOk(T.g, 'testware'), 'vorher unbekannt');
-  ok(Weltstand.validate({ schiff: { fracht: ['testware'] } }).some((f) => /testware/.test(f)), 'vorher lehnt die Prüfung die Art ab');
+  ok(!Weltstand.validate({ schiff: { fracht: ['testware'] } }).some((f) => /testware/.test(f)), 'vorher lehnt die Prüfung den Stand NICHT ab (tolerant: restore verwirft die Art)');
   Waren.registrieren(tw);
   try {
     ok(Fracht.artOk(T.g, 'testware'), 'artOk nach dem Einspielen');

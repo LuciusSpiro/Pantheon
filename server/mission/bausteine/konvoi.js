@@ -10,7 +10,8 @@
 function konvoi() { return require('../../sim/konvoi.js'); }
 const atLoc = (m) => !(m.step && m.step.loc && m.game.ship.scene !== m.step.loc);
 const ESKORTEN = ['voll', 'jaeger', 'korvette', 'keine'];
-const ARTEN = ['sprengstoff', 'fracht'];
+const Waren = require('../../../shared/waren.js');
+const ARTEN = Waren.arten();   // LAD-01 Nacharbeit 1: alle Waren aus content/waren.json (die Szene prueft die Art selbst)
 
 module.exports = (Registry) => {
   Registry.define({ id: 'konvoi_an', art: 'aktion', effekt: 'gegner',

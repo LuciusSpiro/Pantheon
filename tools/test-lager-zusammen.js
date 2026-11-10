@@ -139,8 +139,20 @@ section('GEL-03-Abbau-Erz bleibt unverändert (inventory.erz, nicht im Frachtrau
 });
 
 section('Kein Weg am lagerAufnehmen vorbei (statischer Scan)', () => {
+  // LAD-01 Nacharbeit 1: jede Schreibart, die Ladung INS Lager bringt: push/unshift/concat/fill/copyWithin, splice mit Einfuegen (3+ Argumente), Index-Zuweisung,
+  // length-Zuweisung und eine Zuweisung an .lager, die nicht [] oder ein Filter/Slice des eigenen Lagers ist. Erlaubt bleiben lesen, splice(i, 1) (Entnahme), [] und .lager.filter(...).
+  const SCHREIB = (z) => {
+    z = z.replace(/\/\/.*$/, '');
+    if (/\blager\.(?:push|unshift|concat|fill|copyWithin)\(/.test(z)) return true;
+    if (/\blager\.splice\([^)]*,[^)]*,/.test(z)) return true;
+    if (/\.lager\[[^\]]+\]\s*=(?!=)/.test(z) || /\.lager\.length\s*=(?!=)/.test(z)) return true;
+    const m = /(?<!\bout)\.lager\s*=(?!=)\s*(.*)$/.exec(z);   // out.lager = … ist der Snapshot (Anzeigeart), kein Lager
+    return !!m && !/^(\[\]|[\w.]+\.lager\.(?:filter|slice)\()/.test(m[1]);
+  };
+  ok(['s.lager.push(x)', 'lager.unshift(x)', 's.lager = s.lager.concat(x)', 's.lager.splice(i, 0, x)', 's.lager[2] = x', 's.lager = [...s.lager, x]', 'lager.concat(x)', 's.lager = x'].every(SCHREIB), 'der Scan erkennt push, unshift, concat, splice mit Einfügen, Index-Zuweisung, Spread und fremde Zuweisung');
+  ok(!['s.lager.splice(i, 1)', 's.lager = []', 's.lager = s.lager.filter((l) => l.art)', 'const lager = {}', 'lager[k] = v', 'x.lager == y', 'out.lager = ware.map(f)', '// s.lager.push(x)'].some(SCHREIB), 'der Scan lässt Entnahme, Leeren, Filtern, lokale Objekte und Vergleiche durch');
   const treffer = [];
-  const scan = (d) => { for (const f of fs.readdirSync(d, { withFileTypes: true })) { const p = path.join(d, f.name); if (f.isDirectory()) scan(p); else if (/\.js$/.test(f.name)) fs.readFileSync(p, 'utf8').split(/\r?\n/).forEach((l, i) => { if (/\blager\.(?:push|unshift)\(/.test(l)) treffer.push(path.basename(p) + ':' + (i + 1)); }); } };
+  const scan = (d) => { for (const f of fs.readdirSync(d, { withFileTypes: true })) { const p = path.join(d, f.name); if (f.isDirectory()) scan(p); else if (/\.js$/.test(f.name)) fs.readFileSync(p, 'utf8').split(/\r?\n/).forEach((l, i) => { if (SCHREIB(l)) treffer.push(path.basename(p) + ':' + (i + 1)); }); } };
   scan(path.join(__dirname, '..', 'server'));
   ok(treffer.length === 1 && /^fracht\.js:/.test(treffer[0]), 'nur eine Schreibstelle ins Lager, in fracht.js (' + treffer.join(', ') + ')');
   const ff = fs.readFileSync(path.join(__dirname, '..', 'server', 'sim', 'faden-fracht.js'), 'utf8');

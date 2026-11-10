@@ -133,7 +133,7 @@ function preisVon(game, sc, art) {
 function hafenVon(game) {
   const sh = game.ship; const loc = Locations.get(sh.scene);
   const hex = loc ? (loc.hex || Sektoren.hexVonOrt(loc.id)) : null;
-  return { ort: sh.scene, hex: hex || null, fraktion: hex ? Besitz.besitzer(game, hex) : null, sc: (loc && loc.scene) || null };
+  return { ort: sh.scene, karte: Sektoren.kartenId(), hex: hex || null, fraktion: hex ? Besitz.besitzer(game, hex) : null, sc: (loc && loc.scene) || null };
 }
 // Preis (Marken je Einheit) der Ware an diesem Hafen; 0 = kauft der Hafen nicht (Person, unbekannte Art, ausgeschlossen, scene.kauft sagt nein)
 function preisFuer(game, hafen, art) {
@@ -144,7 +144,9 @@ function preisFuer(game, hafen, art) {
   if (ov > 0) return ov;
   const hex = h.hex || null, fr = h.fraktion !== undefined ? h.fraktion : (hex ? Besitz.besitzer(game, hex) : null);
   const volk = (fr && HANDEL.voelker && HANDEL.voelker[fr]) || HANDEL.standard || {};
-  const hd = (HANDEL.haefen && ((hex && HANDEL.haefen[hex]) || (h.ort && HANDEL.haefen[h.ort]))) || {};
+  // LAD-01 Nacharbeit 1: Hafen-Override je Karte und Hex ('<karte>:<hex>', z. B. 'sund_frei:0605': dieselbe Hex-Kennung ist im Limes ein anderer Ort) oder je Orts-Id
+  const karte = h.karte || Sektoren.kartenId();
+  const hd = (HANDEL.haefen && ((hex && HANDEL.haefen[karte + ':' + hex]) || (h.ort && HANDEL.haefen[h.ort]))) || {};
   if ((volk.nicht || []).includes(art) || (hd.nicht || []).includes(art)) return 0;
   if (hd.preise && hd.preise[art] != null) return rund(Number(hd.preise[art]) || 0);
   const grund = Number(cfg(game).preise && cfg(game).preise[art] != null ? cfg(game).preise[art] : Waren.grundpreis(art)) || 0;
@@ -159,14 +161,15 @@ function handelsOrt(game) {
   if (!sc) return { ok: false, reason: 'Hier kauft niemand Ware.', code: 3, hafen };
   const name = (loc && loc.name) || sh.scene;
   let ref = null;
-  if (sc.kauft && sc.station) ref = sc.station;   // alter Weg: Szene mit eigener Preisliste
+  if (sc.kauft && sc.station) ref = sc.station;   // alter Weg: Szene mit eigener Preisliste (Concordia)
   else {
     const dl = Besitz.dockLage(game, sc, hafen.hex);
     if (!dl) return { ok: false, reason: 'Hier kauft niemand Ware (kein Hafen zum Andocken).', code: 3, hafen };
-    if (hafen.hex && !Besitz.darfAndocken(game, hafen.hex)) return { ok: false, reason: Besitz.verbotText(game, hafen.hex) || 'Andocken verweigert – kein Handel.', code: 4, hafen };
-    const sperre = Besitz.handelSperre(game, hafen.hex); if (sperre) return { ok: false, reason: sperre, code: 8, hafen };
     ref = sc.station || dl;
   }
+  // LAD-01 Nacharbeit 1: auch der alte Weg prueft Andockrecht und Handelssperre (wechselt der Hafen den Besitzer, gilt dasselbe wie an jedem Hafen); ohne Hex (keine Besitzkarte) entfaellt die Pruefung
+  if (hafen.hex && !Besitz.darfAndocken(game, hafen.hex)) return { ok: false, reason: Besitz.verbotText(game, hafen.hex) || 'Andocken verweigert – kein Handel.', code: 4, hafen };
+  { const sperre = Besitz.handelSperre(game, hafen.hex); if (sperre) return { ok: false, reason: sperre, code: 8, hafen }; }
   if (!(sh.docked && sh.dockedAt === sh.scene)) {
     const far = dist(sh.x, sh.y, ref.x, ref.y);
     if (far > cfg(game).stationRange) return { ok: false, reason: `Zu weit vom Händler (${Math.round(far)}, max. ${cfg(game).stationRange}).`, code: 5, hafen, name };

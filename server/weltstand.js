@@ -8,7 +8,7 @@ const fs = require('fs');
 const path = require('path');
 const Locations = require('../shared/locations.js');
 const Fracht = require('./sim/fracht.js');
-const Waren = require('../shared/waren.js');   // LAD-01 A1   // EK3 Teil A: mitgeführte Ladung (schiff.fracht)
+// EK3 Teil A: mitgeführte Ladung (schiff.fracht)
 const Modul = require('./sim/module.js');   // PAN-01 A: Bestückung der Modulräume (schiff.module)
 const Ausbau = require('./sim/ausbau.js');   // PAN-01 B: Ausbaustufe (schiff.stufe)
 const Waffen = require('./sim/schiffswaffen.js');   // PAN-01 C: Bestückung der neun Waffenplätze (schiff.waffen)
@@ -212,16 +212,11 @@ function checker() {
   }
   return checkerMod;
 }
-// LAD-01 A1: Ladungsarten stehen nicht mehr fest im Schema (content/waren.json), sondern werden hier gegen die Warendaten geprüft. Personen sind Objekte (Schema).
-function frachtArtFehler(data) {
-  const fr = data && data.schiff && data.schiff.fracht;
-  if (!Array.isArray(fr)) return [];
-  return fr.filter((a) => typeof a === 'string' && !Waren.artOk(a)).map((a) => `schiff.fracht: unbekannte Ladungsart „${a}“ (content/waren.json)`);
-}
+// LAD-01 A1/Nacharbeit 1: Ladungsarten stehen nicht im Schema (content/waren.json). Eine gespeicherte Art, die es nicht mehr gibt (Ware umbenannt oder entfernt), lehnt den Stand NICHT ab:
+// fracht.restore verwirft sie mit Logzeile, der Rest wird geladen (Waren sind reine Datenpflege, ein Spielstand darf daran nicht scheitern). Personen sind Objekte (Schema).
 // -> Liste von Fehlertexten (leer = gültig). Nutzt Checker.validate (ENGINE), sonst den eigenen Prüfer. Wirft nie.
 function validate(data, game) {
-  const f = validateSchema(data, game);
-  return f.concat(frachtArtFehler(data));
+  return validateSchema(data, game);
 }
 function validateSchema(data, game) {
   const C = checker();

@@ -48,7 +48,7 @@ function hinein(g, hex, docked) {
 }
 const lade = (g, ...arten) => { g.fracht.lager = arten.map((a) => (a === 'person' ? { art: 'person', person: 'p1', name: 'Pia', bett: 0 } : { art: a })); g.fracht.halt = null; };
 const erwartet = (art, volk, hex) => {   // unabhängig aus den Daten
-  const v = HANDEL.voelker[volk] || HANDEL.standard, h = (HANDEL.haefen && HANDEL.haefen[hex]) || {};
+  const v = HANDEL.voelker[volk] || HANDEL.standard, h = (HANDEL.haefen && HANDEL.haefen['sund_frei:' + hex]) || {};
   if ((v.nicht || []).includes(art) || (h.nicht || []).includes(art)) return 0;
   const grund = CONFIG.fracht.preise[art] != null ? CONFIG.fracht.preise[art] : Waren.grundpreis(art);
   const f = (v.faktor != null ? v.faktor : 1) * ((v.waren || {})[art] != null ? v.waren[art] : 1) * (h.faktor != null ? h.faktor : 1) * ((h.waren || {})[art] != null ? h.waren[art] : 1);
@@ -60,7 +60,7 @@ section('Daten (content/handel.json)', () => {
   const frakt = Object.keys(FREI.fraktionen), frakt2 = Object.keys(SUND.fraktionen);
   ok(Object.keys(HANDEL.voelker).every((k) => frakt.includes(k) && frakt2.includes(k)), 'jedes Volk in handel.json ist eine Fraktion der Karten sund und sund_frei');
   ok(['rom', 'ger', 'frei', 'saum'].every((k) => HANDEL.voelker[k]), 'Rom, Germanen, Freie, Konkordat haben einen Eintrag');
-  ok(Object.keys(HANDEL.haefen).every((h) => FREI.hexe[h] && FREI.hexe[h].hafen), 'jeder Hafen-Override ist ein Hafen der Karte');
+  ok(Object.keys(HANDEL.haefen).every((k) => /^sund_frei:\d{4}$/.test(k) && FREI.hexe[k.slice(10)] && FREI.hexe[k.slice(10)].hafen), "jeder Hafen-Override ist '<karte>:<hex>' und ein Hafen der Karte");
   const warenIds = Waren.liste().map((w) => w.id);
   const alleWaren = [].concat(...Object.values(HANDEL.voelker), ...Object.values(HANDEL.haefen)).flatMap((e) => Object.keys(e.waren || {}).concat(e.nicht || [], Object.keys(e.preise || {})));
   ok(alleWaren.every((w) => warenIds.includes(w)), 'jede Ware in handel.json gibt es in waren.json');
@@ -90,6 +90,23 @@ section('Preis je Ware und Volk aus den Daten', () => {
   ok(Ladung.preisFuer(g, { hex: '0305', fraktion: 'rom' }, 'person') === 0, 'Person hat keinen Preis');
   ok(Ladung.preisFuer(g, { hex: '0305', fraktion: 'rom' }, 'gibtsnicht') === 0, 'unbekannte Art hat keinen Preis');
   ok(Ladung.preisFuer(g, { hex: null, fraktion: null }, 'erz') === Waren.grundpreis('erz'), 'Hafen ohne Volk: Grundpreis');
+});
+
+// LAD-01 Nacharbeit 1 (Testluecke): Volk-faktor UND Hafen-faktor ungleich 1, mit festen Zahlen (nicht mit der Formel nachgerechnet) – eine Mutation 'hd.faktor ignorieren' faellt auf
+section('Preisformel mit Volk- und Hafenfaktor ungleich 1, Hafen je Karte', () => {
+  const { g } = neuesSpiel();
+  const e = HANDEL.haefen['sund_frei:0603'];
+  const vorher = e.faktor; e.faktor = 1.5;   // Freie: Volk-faktor 0.9, Fracht ohne Warenfaktor des Volkes; Hafen-faktor 1.5
+  try {
+    const P = (art) => Ladung.preisFuer(g, { hex: '0603', karte: 'sund_frei', fraktion: 'frei' }, art);
+    ok(P('fracht') === 34, 'Fracht 25 x 0.9 x 1.5 = 33.75 -> 34 (' + P('fracht') + ')');
+    ok(P('hilfsgueter') === 65, 'Hilfsgüter 35 x 0.9 x 1.25 x 1.5 x 1.1 = 64.97 -> 65 (' + P('hilfsgueter') + ')');
+    e.faktor = 1;
+    ok(P('fracht') === 23, 'Hafen-faktor 1: Fracht 25 x 0.9 = 22.5 -> 23 (' + P('fracht') + ')');
+  } finally { e.faktor = vorher; }
+  // N13: dieselbe Hex-Kennung 0704 ist im Sund Raffinerie Lumen (Deuterium-Abschlag 0.9), im Limes Eisenwald (kein Override)
+  const D = (karte) => Ladung.preisFuer(g, { hex: '0704', karte, fraktion: 'neutral' }, 'deuterium');
+  ok(D('sund_frei') === 36 && D('limes') === 40, 'Hafen-Override gilt nur auf seiner Karte (sund_frei ' + D('sund_frei') + ', limes ' + D('limes') + ')');
 });
 
 section('Verkauf je Ware an einem Hafen ohne scene.kauft', () => {

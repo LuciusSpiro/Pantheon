@@ -69,7 +69,14 @@ function personPlaetze(game) {
 // LAD-01 B: die Art, die der Spieler sieht (getarnte, noch nicht aufgedeckte Ware zeigt die Tarnbezeichnung)
 const anzeigeArt = (l) => (l.eig && l.eig.getarnt && !l.eig.aufgedeckt ? l.eig.getarnt : l.art);
 const anzeigeName = (l) => (l.art === 'person' ? 'Person' : artName(anzeigeArt(l)));
+// LAD-01 Nacharbeit 1: Auftragsware (eig.auftrag) ist nie verkaeuflich. Der Kampagnen-Tag KAMPAGNE (Zuteilung der Kette, Konvoi-Beute der Kette) kennzeichnet Ware der Geschichte selbst:
+// sie ist wie jede Auftragsware unverkaeuflich (keine Beute-Spirale, kein Softlock der Abgabe), wird aber von der Kampagnen-Abgabe (Ops, fracht_abliefern, fracht_abliefern_bis) angenommen.
+// Ware mit dem Tag eines Fadens oder einer Faden-Szene (fremder Auftrag) gibt weiter nur der Faden beim Abnehmer ab.
+const KAMPAGNE = 'kampagne';
 const hatAuftrag = (l) => !!(l.eig && l.eig.auftrag);
+// Die Eigenschaften der Kampagnen-Ware dieser Art ({ auftrag: KAMPAGNE}); null, wenn die Ware laut waren.json keinen auftrag tragen darf (dann bleibt sie gewoehnliche Ware)
+const kampagnenEig = (art) => { const w = Waren.get(art); return w && w.kategorie === 'ware' && w.eigenschaften.includes('auftrag') ? { auftrag: KAMPAGNE } : null; };
+const fremderAuftrag = (l) => hatAuftrag(l) && l.eig.auftrag !== KAMPAGNE;
 const artLabel = (art) => (art === 'person' ? 'Personen' : artName(art));
 function moduleText(b) { return b.module.filter((m) => m.art).map((m) => `${artLabel(m.art)} ${m.anzahl}/${W.Maps.CARGO_PER_RAUM}`).join(', '); }
 // Prüfung, ob eine Ladung dieser Art ins Lager passt. -> { ok: true, raum, platz (Platz im Raum 0–3), nr } | { ok: false, grund, text }
@@ -169,8 +176,9 @@ function fremdesModulRaeumen(game, art) {
   const s = state(game);
   const b = belegung(game);
   if (b.module.some((m) => !m.art)) return false;
-  // LAD-01 E: Auftragsware (Eigenschaft auftrag) gehört dem Auftraggeber und wird nie ausgeräumt; ein Modul, in dem solche Ware liegt, kommt nicht in Frage
-  const ausraeumbar = (a) => !s.lager.some((l) => l.art === a && hatAuftrag(l));
+  // LAD-01 E: Ware eines fremden Auftrags (Faden) gehört dem Auftraggeber und wird nie ausgeräumt; ein Modul, in dem solche Ware liegt, kommt nicht in Frage.
+  // Kampagnen-Ware (KAMPAGNE) kann weichen: die Kette teilt den Ersatz selbst zu.
+  const ausraeumbar = (a) => !s.lager.some((l) => l.art === a && fremderAuftrag(l));
   const kand = b.module.filter((m) => m.art && m.art !== 'person' && m.art !== art && ausraeumbar(m.art)).sort((x, y) => x.anzahl - y.anzahl)[0];
   if (!kand) return false;
   const n = s.lager.filter((l) => l.art === kand.art).length;
@@ -270,7 +278,7 @@ function beamStart(game, p, id) {
 }
 // Abliefern: Ort prüfen. Rückgabe { ok, reason?, name? }
 function ablieferOrt(game) {
-  if (!state(game).lager.some((l) => l.art !== 'person' && !hatAuftrag(l))) return { ok: false, reason: state(game).lager.some(hatAuftrag) ? 'Auftragsware gibt es nur beim Auftraggeber ab.' : 'Keine Fracht an Bord.' };   // LAD-01 B: Auftragsware nie an irgendeiner Station   // SL0: Personen sind keine Ware (abgeben: personen-bord.js)
+  if (!state(game).lager.some((l) => l.art !== 'person' && !fremderAuftrag(l))) return { ok: false, reason: state(game).lager.some(fremderAuftrag) ? 'Auftragsware gibt es nur beim Auftraggeber ab.' : 'Keine Fracht an Bord.' };   // LAD-01 B: fremde Auftragsware nie an irgendeiner Station (Kampagnen-Ware ja, siehe KAMPAGNE)   // SL0: Personen sind keine Ware (abgeben: personen-bord.js)
   return stationOrt(game);
 }
 // SL0: Abnehmer/Station in Reichweite, ohne Rücksicht darauf, was an Bord ist (auch für Personen)
@@ -329,8 +337,8 @@ function beamFertig(game) {
   } else {
     const o = ablieferOrt(game);
     if (!o.ok) { game.emit('frachtBeamen', { phase: 'abbruch', was: 'ab', grund: 'ort' }); return; }
-    const weg = s.lager.filter((l) => l.art !== 'person' && !hatAuftrag(l));   // SL0: Personen bleiben an Bord (eigener Halteprozess); LAD-01 B: Auftragsware ebenso
-    s.lager = s.lager.filter((l) => l.art === 'person' || hatAuftrag(l));
+    const weg = s.lager.filter((l) => l.art !== 'person' && !fremderAuftrag(l));   // SL0: Personen bleiben an Bord (eigener Halteprozess); LAD-01 B: fremde Auftragsware ebenso
+    s.lager = s.lager.filter((l) => l.art === 'person' || fremderAuftrag(l));
     for (const l of weg) s.abgeliefert[l.art] = (s.abgeliefert[l.art] || 0) + 1;
     game.emit('frachtBeamen', { phase: 'fertig', was: 'ab', n: weg.length });
     game.oda(`Fracht übergeben: ${weg.map(anzeigeName).join(', ')} – ${o.name}.`, null);
@@ -463,7 +471,7 @@ function skriptAbliefern(game, art, n) {
   for (let i = s.lager.length - 1; i >= 0 && k < lim; i--) {
     if (art && s.lager[i].art !== art) continue;
     if (!art && s.lager[i].art === 'person') continue;   // SL0: Personen nie per Warenabgabe
-    if (hatAuftrag(s.lager[i])) continue;   // LAD-01 B: Auftragsware gibt nur der Faden beim Abnehmer ab (faden-fracht.andocken)
+    if (fremderAuftrag(s.lager[i])) continue;   // LAD-01 B: Ware eines Fadens gibt nur der Faden beim Abnehmer ab (faden-fracht.andocken); Kampagnen-Ware nimmt die Abgabe der Kette an
     const l = s.lager.splice(i, 1)[0]; s.abgeliefert[l.art] = (s.abgeliefert[l.art] || 0) + 1; k++;
   }
   if (k) game.missionEvent('frachtAbgeliefert', { n: k, arten: art ? [art] : [], ort: game.ship.scene, name: null, skript: true });
@@ -490,12 +498,19 @@ function anBordLegen(game, art, quelle) {
   return true;
 }
 // fracht_zuteilen (Regiebuch): wie anBordLegen, aber ein Typkonflikt mit fremder Ware wird vom Quartiermeister aufgelöst (kein Softlock in der Kette)
-function zuteilen(game, art) {
+// LAD-01 Nacharbeit 1: eine Zuteilung gehört der Geschichte (Belohnung, Ersatz): ohne eigenen auftrag trägt sie den Kampagnen-Tag (nicht verkaufbar, Kampagnen-Abgabe nimmt sie an).
+// eigenschaften (optional): { illegal, getarnt: '<anzeigeArt>', auftrag: '<id>' } wie bei lagerAufnehmen (Regiebuch/Spielleiter).
+function zuteilen(game, art, eigenschaften) {
   const a = art == null ? cfg(game).artDefault : String(art);
   let pf = platzFuer(game, a);
   if (!pf.ok && pf.grund === 'art_belegt' && fremdesModulRaeumen(game, a)) pf = platzFuer(game, a);
   if (!pf.ok) { game.oda(pf.text, null); return false; }
-  return anBordLegen(game, a, 'zuteilung');
+  const eig = Object.assign({}, kampagnenEig(a), eigenschaften || {});
+  if (!eig.auftrag && kampagnenEig(a)) eig.auftrag = KAMPAGNE;
+  const r = lagerAufnehmen(game, { art: a, quelle: 'zuteilung', eigenschaften: eig });
+  if (!r.ok) { game.oda(r.text, null); return false; }
+  game.missionEvent('frachtAnBord', { art: a, n: state(game).lager.length });
+  return true;
 }
 
 // ---------- Debug: fracht <abwerfen [art] [dx dy] | an [art] [illegal] [getarnt=art] [auftrag=id] | durchsuchen [wer] [voll|scan] | leer | gesichert an|aus | abnehmer [ort] | status> ----------
@@ -535,5 +550,5 @@ module.exports = {
   fracht_abwerfen, abwerfen: fracht_abwerfen,
   beamStart, abliefernStart, beamStop, systemTreffer, ablieferOrt, stationOrt,
   anBord, frei, capacity, platzFuer, freiFuer, kapazitaetFuer, passtOhneRaum, personImRaum, lagerAufnehmen, auftragEntnehmen, auftragAnBord, anBordFuerBeute, erzEinlagern, beuteEinlagern, zuteilen, belegung, personPlaetze, gesichert, setGesichert, gefaehrdet, huellenTreffer, frachtraumTreffer, lagerArten, draussen, abgeliefert,
-  setAbnehmer, skriptAbliefern, skriptAbliefernBis, anBordLegen, artOk, artName,
+  setAbnehmer, skriptAbliefern, skriptAbliefernBis, anBordLegen, artOk, artName, KAMPAGNE, kampagnenEig,
 };

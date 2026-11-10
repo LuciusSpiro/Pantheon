@@ -83,6 +83,7 @@
   {"id":"test-typregel","kette":"test","cmd":["tools/test-typregel.js"],"stufe":"full","budget_s":40},
   {"id":"test-lager-zusammen","kette":"test","cmd":["tools/test-lager-zusammen.js"],"stufe":"full","budget_s":20},
   {"id":"test-handel","kette":"test","cmd":["tools/test-handel.js"],"stufe":"full","budget_s":10},
+  {"id":"test-kampagne-handel","kette":"test","cmd":["tools/test-kampagne-handel.js"],"stufe":"full","budget_s":12},
   {"id":"test-eigenschaften","kette":"test","cmd":["tools/test-eigenschaften.js"],"stufe":"full","budget_s":8},
   {"id":"test-frachtanzeige","kette":"test","cmd":["tools/test-frachtanzeige.js"],"stufe":"full","budget_s":30},
   {"id":"test-lerche","kette":"test","cmd":["tools/test-lerche.js"],"stufe":"fast","budget_s":7},

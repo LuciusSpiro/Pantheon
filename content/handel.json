@@ -1,5 +1,5 @@
 {
-  "_hinweis": "LAD-01 D: Handel als Daten. Verkauf geht an jedem Hafen, an dem die Lerche andocken kann (server/sim/ladung.js preisFuer). Preis = Grundpreis der Ware (config fracht.preise, sonst content/waren.json) x faktor des Volkes x waren[art] des Volkes x faktor des Hafens x waren[art] des Hafens, gerundet, mindestens 1. 'preise' je Hafen setzt den Preis einer Ware fest (Marken). 'nicht' = Waren, die dieses Volk bzw. dieser Hafen nicht kauft. Volk = Fraktion des Hafens (content/welt/sund*.json, aktueller Besitzer). Hafen = Hex-Kennung der Karte (oder Orts-Id). Personen (Kategorie person) sind nie verkaeuflich. Studiowerte, Kai passt nach dem Spieltest an. Eine Ware ohne Eintrag hier bekommt den Grundpreis (faktor 1) – neue Waren brauchen keine Codeaenderung. scene.kauft in den Szenendaten bleibt ein Override (Preis je Ware, false = nicht).",
+  "_hinweis": "LAD-01 D: Handel als Daten. Verkauf geht an jedem Hafen, an dem die Lerche andocken kann (server/sim/ladung.js preisFuer). Preis = Grundpreis der Ware (config fracht.preise, sonst content/waren.json) x faktor des Volkes x waren[art] des Volkes x faktor des Hafens x waren[art] des Hafens, gerundet, mindestens 1. 'preise' je Hafen setzt den Preis einer Ware fest (Marken). 'nicht' = Waren, die dieses Volk bzw. dieser Hafen nicht kauft. Volk = Fraktion des Hafens (content/welt/sund*.json, aktueller Besitzer). Hafen = '<karteId>:<hex>' (z. B. 'sund_frei:0605'; dieselbe Hex-Kennung ist auf einer anderen Karte ein anderer Ort) oder Orts-Id. Personen (Kategorie person) sind nie verkaeuflich. Studiowerte, Kai passt nach dem Spieltest an. Eine Ware ohne Eintrag hier bekommt den Grundpreis (faktor 1) – neue Waren brauchen keine Codeaenderung. scene.kauft in den Szenendaten bleibt ein Override (Preis je Ware, false = nicht).",
   "standard": { "faktor": 1, "waren": {}, "nicht": [] },
   "voelker": {
     "rom":   { "faktor": 1,    "waren": { "waffen": 1.3, "hilfsgueter": 1.15, "bergungsgut": 1.1, "erz": 0.9 }, "nicht": [] },
@@ -10,9 +10,9 @@
     "neutral": { "faktor": 1,  "waren": {}, "nicht": [] }
   },
   "haefen": {
-    "0605": { "faktor": 1, "waren": { "waffen": 1.2, "sprengstoff": 1.3 }, "nicht": [] },
-    "0603": { "faktor": 1, "waren": { "hilfsgueter": 1.1 }, "nicht": [] },
-    "0504": { "faktor": 1, "waren": { "erz": 1.3 }, "nicht": [] },
-    "0704": { "faktor": 1, "waren": { "deuterium": 0.9 }, "nicht": [] }
+    "sund_frei:0605": { "faktor": 1, "waren": { "waffen": 1.2, "sprengstoff": 1.3 }, "nicht": [] },
+    "sund_frei:0603": { "faktor": 1, "waren": { "hilfsgueter": 1.1 }, "nicht": [] },
+    "sund_frei:0504": { "faktor": 1, "waren": { "erz": 1.3 }, "nicht": [] },
+    "sund_frei:0704": { "faktor": 1, "waren": { "deuterium": 0.9 }, "nicht": [] }
   }
 }
