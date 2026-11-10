@@ -99,7 +99,7 @@ class AbenteuerSpielleiter {
     if (!ort) return this.ueberspringen('kein_ort', art);
     // Budget: nur eine Stufe bei Claude zaehlt gegen den Token-Zaehler (CLAUDE_TOKEN_BUDGET)
     const llm = this.lage.getLlm();
-    if (llm.mode === 'live' && llm.anbieterFuer('abenteuer', STUFE) !== 'ollama' && Kontingent.sperrt(this.game, this.W.min_budget)) { this.lage.notbetriebMelden('BUDGET', 'Token-Budget fast leer (Abenteuer-Komposition)'); return this.ueberspringen('budget', art); }   // LIV-01: Schwelle als Gate (kontingent.js); FRE-01: Notbetrieb-Hinweis
+    if (llm.mode === 'live' && llm.anbieterFuer('abenteuer', STUFE) !== 'ollama' && Kontingent.sperrt(this.game, this.W.min_budget)) return this.ueberspringen('budget', art);   // LIV-01: Schwelle als Gate (kontingent.js); LIV-02: Kontingent-Ende meldet keinen Notbetrieb
     this.letzterSprung = null;
     this.aufrufe++;
     this.grenzenSeit = 0;

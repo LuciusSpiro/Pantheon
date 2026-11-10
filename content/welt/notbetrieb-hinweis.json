@@ -23,14 +23,13 @@
         "RATE_LIMIT",
         "ETIMEDOUT",
         "REFUSED",
-        "BUDGET",
         "OFF",
         "EXIT",
         "OFFLINE",
         "EMPTY"
       ],
       "einheit": "Fehlercodes",
-      "_hinweis": "FRE-01 C: Diese Gruende heissen Notbetrieb, weil das Modell nicht erreichbar, gesperrt oder das Kontingent leer ist: cli_fehlt (beim Start gesucht, keine CLI), ENOENT (CLI nicht startbar), RATE_LIMIT (429), ETIMEDOUT (Frist), REFUSED (Live-Aufruf verweigert), BUDGET (Token-Deckel oder min_budget), OFF (Modell-Objekt im Live-Betrieb nicht entstanden), EXIT (CLI-Prozess scheitert), OFFLINE (lokaler Ollama-Dienst nicht erreichbar) und EMPTY (leere Modellantwort), beide aus server/mission/transport-ollama.js. Nur Einzelfehler stehen NICHT hier und melden nie: eigener Fehler 'lokal' (Prompt nicht baubar, Plan ungueltig oder nicht anwendbar, unbrauchbare Antwort) und Ablehnungen des Pruefers (ANTWORT_*, ABENTEUER_*): das Modell lief, ein Plan taugt nicht, der naechste ersetzt ihn. Fehlt ein Code hier, bleibt es still (im Regie-Logbuch steht er immer)."
+      "_hinweis": "FRE-01 C: Diese Gruende heissen Notbetrieb, weil das Modell nicht erreichbar oder gesperrt ist (LIV-02: das Kontingent gehoert NICHT dazu, sein Ende ist eine Systeminfo und kein spielinterner Notbetrieb, siehe server/sim/kontingent.js): cli_fehlt (beim Start gesucht, keine CLI), ENOENT (CLI nicht startbar), RATE_LIMIT (429), ETIMEDOUT (Frist), REFUSED (Live-Aufruf verweigert), OFF (Modell-Objekt im Live-Betrieb nicht entstanden), EXIT (CLI-Prozess scheitert), OFFLINE (lokaler Ollama-Dienst nicht erreichbar) und EMPTY (leere Modellantwort), beide aus server/mission/transport-ollama.js. Nur Einzelfehler stehen NICHT hier und melden nie: eigener Fehler 'lokal' (Prompt nicht baubar, Plan ungueltig oder nicht anwendbar, unbrauchbare Antwort) und Ablehnungen des Pruefers (ANTWORT_*, ABENTEUER_*): das Modell lief, ein Plan taugt nicht, der naechste ersetzt ihn. Fehlt ein Code hier, bleibt es still (im Regie-Logbuch steht er immer); so auch BUDGET: Token-Deckel und min_budget melden keinen Notbetrieb, der Rueckfall und das Logbuch laufen unveraendert."
     }
   }
 }

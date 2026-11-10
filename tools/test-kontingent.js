@@ -1,7 +1,8 @@
 'use strict';
-// LIV-01 A1: Kontingent-Schranke (server/sim/kontingent.js, Gate in Lage-, Abenteuer- und Missions-Spielleiter, Befehl kontingent.freigeben, world.kontingent). Offline: Fake-Transport, Spion auf child_process.
-//   (1) Schwelle: 449 999 fragt, 450 000 fragt nicht (kein CLI-Prozess, Meldung genau einmal)   (2) Freigabe +500 000, fragt wieder, Meldung erneut bei 950 000
-//   (3) nur Captain, Doppeldruck   (4) spielbar mit erreichtem Kontingent   (5) kleines Limit 60 000   (6) ohne Live-Schalter: kein Feld, Snapshot unveraendert   (7) Live-Snapshot, Mitschnitt
+// LIV-01 A1 / LIV-02 P1: Kontingent-Schranke (server/sim/kontingent.js, Gate in Lage-, Abenteuer- und Missions-Spielleiter, Befehle kontingent.freigeben und kontingent.ablehnen). Offline: Fake-Transport, Spion auf child_process.
+//   (1) Schwelle: 449 999 fragt, 450 000 fragt nicht (kein CLI-Prozess), Systemzeile und Logbuch genau einmal, KEIN Funk, KEIN world.kontingent   (2) Freigabe +500 000, fragt wieder, naechste Schwelle erneut genau einmal
+//   (3) nur der Spieler mit color 0, Doppeldruck   (4) spielbar mit erreichtem Kontingent   (5) kleines Limit 60 000   (6) ohne Live-Schalter: keine Frage, Snapshot unveraendert
+//   (7) Frage: nur an color 0, einmal je Schwelle, offen bis zur Antwort (erneut bei Beitritt/Wiederverbinden), Ja/Nein, Nein ist Nein, neue Frage bei neuer Schwelle
 //   node tools/test-kontingent.js   (npm run test:kontingent)
 const fs = require('fs');
 const os = require('os');
@@ -39,7 +40,8 @@ const abschnitte = [];
 const section = (name, fn) => abschnitte.push([name, fn]);
 const frei = () => new Promise((r) => setImmediate(r));
 const LIVE = { LAGE_SPIELLEITER: '1', SPIELLEITER_LLM: 'live', LLM_LIVE: '1', FAEDEN: '1', ABENTEUER_ANSCHLUSS: '0' };
-const MELDUNG = 'Kontingent aufgebraucht';
+const MELDUNG = /Kontingent/i;   // LIV-02: es darf KEIN Funk mit Kontingent-Text mehr entstehen
+const PRAEFIX = '[Kontingent] ';
 
 process.env.LLM_LIVE = '1';
 
@@ -51,8 +53,15 @@ function fakeTransport() {
 function neuesSpiel(env) {
   const t = X.spiel({ names: ['ZEBRAKAI'], env: Object.assign({}, LIVE, env || {}) });
   const p = t.g.players[0]; p.console = 'captain'; p.zone = 'ship';
-  return t;
+  return mitLog(t);
 }
+// game.log sammeln (das Fixture legt logFn fest und die Systemzeile kann schon im Fixture-Lauf entstehen): Game.prototype.log merkt sich jede Zeile je Spiel
+require('../server/game.js').Game.prototype.log = function (...a) { (this.zeilen || (this.zeilen = [])).push(a.join(' ')); };
+function mitLog(t) { return t; }
+const sys = (t) => (t.g.zeilen || []).filter((z) => z.startsWith(PRAEFIX));
+const fragen = (c) => c.inbox.filter((m) => m.t === 'event' && m.kind === 'kontingentFrage');
+const erledigt = (c) => c.inbox.filter((m) => m.t === 'event' && m.kind === 'kontingentErledigt');
+const snapMitFeld = (g, n) => { for (let i = 0; i < (n || 40); i++) { const s = g.snapshot(); if ('kontingent' in s.world || JSON.stringify(s).includes('"kontingent"')) return true; } return false; };
 function mitLage(t) {
   const tr = fakeTransport();
   const llm = LLM.create({ mode: 'live', transport: tr });
@@ -61,7 +70,7 @@ function mitLage(t) {
   return { sl, ab: sl.abenteuer, tr, llm };
 }
 async function pumpen(g, k) { for (let i = 0; i < k; i++) { g.step(); await frei(); } }
-const funk = (t) => t.cs[0].inbox.filter((m) => m.t === 'event' && m.kind === 'radio' && typeof m.text === 'string' && m.text.startsWith(MELDUNG));
+const funk = (t) => t.cs.reduce((a, c) => a.concat(c.inbox.filter((m) => m.t === 'event' && m.kind === 'radio' && typeof m.text === 'string' && MELDUNG.test(m.text))), []);
 const logs = (g, ausgang) => (g.lageRegie ? g.lageRegie.log.entries : []).filter((e) => e.art === 'kontingent' && (ausgang === undefined || e.ausgang === ausgang));
 const antworten = (t) => t.cs[0].inbox.filter((m) => m.t === 'event' && m.kind === 'kontingentAntwort');
 const cmd = (t, c) => t.g.handleMessage(t.cs[0], { t: 'cmd', c: c || 'kontingent.freigeben' });
@@ -70,15 +79,14 @@ const gesetzt = (used, limit) => { LLM.resetBudget(); if (limit != null) LLM.set
 async function lageFragt(t, m) { const r = m.sl.planErzwingen(); await pumpen(t.g, 4); return r; }
 async function abenteuerFragt(t, m) { const r = m.ab.erzwingen(); await pumpen(t.g, 4); return r; }
 const gefragt = (m, kind) => m.tr.gefragt.filter((k) => k === kind).length;
-const blockNach = (g) => { for (let i = 0; i < 40; i++) { const s = g.snapshot(); if ('kontingent' in s.world) return s.world.kontingent; } return undefined; };
 
 // ---------- Missions-Spielleiter (Kampagne), wie test-spielleiter.js (Pipeline, Rueckfaelle) ----------
 function fakeGame() {
-  const events = [], errors = [];
+  const events = [], errors = [], zeilen = [];
   const g = {
     time: 0, C: CONFIG, env: Object.assign({}, LIVE, { REGIE_DIR: REGIE }), players: [{ connected: true }],
     ship: { scene: 'hafen' },
-    emit(k, d) { events.push({ k, d }); }, oda() {}, notice() {}, countError(w, e) { errors.push(w + ': ' + (e && e.message)); }, log() {},
+    emit(k, d) { events.push({ k, d }); }, oda() {}, notice() {}, countError(w, e) { errors.push(w + ': ' + (e && e.message)); }, log(...a) { zeilen.push(a.join(' ')); },
     weltstand: { id: 'w-kontingent', persistent: true, data: null, npcMemory() { return true; } },
   };
   const m = {
@@ -90,7 +98,7 @@ function fakeGame() {
   };
   for (const id of m.order) m.missions[id] = { state: 'done' };
   g.mission = m;
-  return { g, events, errors };
+  return { g, events, errors, zeilen };
 }
 async function missionLauf(katalog, ctx, archiv) {
   const F = fakeGame();
@@ -100,9 +108,10 @@ async function missionLauf(katalog, ctx, archiv) {
   for (let t = 0; t < 12; t += 0.5) { F.g.time += 0.5; sl.update(0.5); await frei(); if (sl.offers().length >= 2) break; }
   return { sl, tr, F };
 }
-const missionFunk = (ml) => ml.F.events.filter((e) => e.k === 'radio' && String(e.d.text).startsWith(MELDUNG)).length;
+const missionFunk = (ml) => ml.F.events.filter((e) => e.k === 'radio' && MELDUNG.test(String(e.d.text))).length;
+const missionSys = (ml) => ml.F.zeilen.filter((z) => z.startsWith(PRAEFIX)).length;
 
-section('Schwelle: 449 999 fragt, 450 000 fragt nicht (alle drei Spielleiter), Meldung genau einmal', async () => {
+section('Schwelle: 449 999 fragt, 450 000 fragt nicht (alle drei Spielleiter), Systemzeile und Logbuch genau einmal, kein Funk', async () => {
   gesetzt(0);
   ok(LLM.budget().limit === 500000 && Kontingent.schwelle() === 450000, 'Standard: Limit 500 000, Schwelle 450 000');
   const katalog = Katalog.load({}), ctx = Context.build({}, {}, katalog), archiv = Archiv.load().entries;
@@ -115,7 +124,7 @@ section('Schwelle: 449 999 fragt, 450 000 fragt nicht (alle drei Spielleiter), M
   ok(r.gestartet && gefragt(m, 'lage') === 1, 'Lage-Spielleiter fragt bei 449 999');
   r = await abenteuerFragt(t, m);
   ok(r.gestartet && gefragt(m, 'abenteuer') === 1, 'Abenteuer-Spielleiter fragt bei 449 999');
-  ok(funk(t).length === 0 && logs(t.g).length === 0, 'noch keine Meldung');
+  ok(sys(t).length === 0 && logs(t.g).length === 0, 'noch keine Meldung');
   LLM.addUsage(1);   // genau 450 000
   ok(LLM.budget().used === 450000 && Kontingent.erreicht(), '450 000: erreicht');
   const vor = prozesse.length;
@@ -131,10 +140,10 @@ section('Schwelle: 449 999 fragt, 450 000 fragt nicht (alle drei Spielleiter), M
   r = await lageFragt(t2, m2); const r2 = await abenteuerFragt(t2, m2);
   ok(!r.gestartet && !r2.gestartet && echtAsks === 0 && prozesse.length === vor, `echter CLI-Transport: keine Anfrage (${echtAsks}), kein Prozess gestartet (Spion: ${prozesse.length - vor})`);
   await pumpen(t.g, 30);
-  ok(funk(t).length === 1 && funk(t2).length === 1, 'Funk „Kontingent aufgebraucht“ genau einmal je Spiel trotz vieler Pruefungen und Schritte');
+  ok(sys(t).length === 1 && sys(t2).length === 1, 'Systemzeile „[Kontingent] ...“ genau einmal je Spiel trotz vieler Pruefungen und Schritte');
+  ok(funk(t).length === 0 && funk(t2).length === 0, 'KEIN Funk mit Kontingent-Text');
   ok(logs(t.g, 'erreicht').length === 1, 'Regie-Logbuch: ein Eintrag „erreicht“');
-  const fk = blockNach(t.g);
-  ok(fk && fk.used === 450000 && fk.limit === 500000 && fk.schwelle === 450000 && fk.erreicht === true, 'world.kontingent { used, limit, schwelle, erreicht } mit erreicht wahr');
+  ok(!snapMitFeld(t.g) && !snapMitFeld(t2.g), 'Snapshot enthaelt world.kontingent nie, auch live und erreicht');
   // ---- Missions-Spielleiter
   gesetzt(449999);
   let ml = await missionLauf(katalog, ctx, archiv);
@@ -145,15 +154,15 @@ section('Schwelle: 449 999 fragt, 450 000 fragt nicht (alle drei Spielleiter), M
   const rueck = ml.sl.regie ? ml.sl.regie.entries.filter((e) => e.art === 'rueckfall') : [];
   ok(ml.tr.gefragt.length === 0 && prozesse.length === vor3, 'Missions-Spielleiter bei 450 000: keine Anfrage, kein Prozess');
   ok(rueck.length >= 1 && ml.sl.offers().some((o) => o.origin === 'archiv') && ml.F.errors.filter((e) => !/fallback|mock/.test(e)).length === 0, `Missions-Spielleiter: Rueckfall aufs Archiv, Angebote ${ml.sl.offers().map((o) => o.id + '[' + o.origin + ']').join(',')}, Rueckfall ${rueck.length}, keine fremden Fehler (${ml.F.errors.join('|').slice(0, 120)})`);
-  ok(missionFunk(ml) === 1, 'Missions-Spielleiter-Spiel: Funk genau einmal');
+  ok(missionSys(ml) === 1 && missionFunk(ml) === 0, 'Missions-Spielleiter-Spiel: Systemzeile genau einmal, kein Funk');
   LLM.resetBudget();
 });
 
-section('Freigabe: Limit und Schwelle +500 000, Spielleiter fragen wieder, Meldung erneut bei 950 000', async () => {
+section('Freigabe: Limit und Schwelle +500 000, Spielleiter fragen wieder, neue Schwelle meldet erneut genau einmal', async () => {
   gesetzt(450000);
   const t = neuesSpiel(), m = mitLage(t);
   await pumpen(t.g, 3);
-  ok(Kontingent.erreicht() && funk(t).length === 1, 'Ausgangslage: erreicht, eine Meldung');
+  ok(Kontingent.erreicht() && sys(t).length === 1, 'Ausgangslage: erreicht, eine Systemzeile');
   cmd(t);
   const b = LLM.budget();
   ok(b.limit === 1000000 && Kontingent.schwelle() === 950000 && b.used === 450000, `Limit ${b.limit}, Schwelle ${Kontingent.schwelle()}, Zaehler unveraendert`);
@@ -169,44 +178,45 @@ section('Freigabe: Limit und Schwelle +500 000, Spielleiter fragen wieder, Meldu
   ok(ml.tr.gefragt.includes('grobplan'), 'Missions-Spielleiter fragt wieder');
   LLM.addUsage(499999);   // 949 999
   await pumpen(t.g, 5);
-  ok(!Kontingent.erreicht() && funk(t).length === 1, '949 999: nicht erreicht, keine neue Meldung');
+  ok(!Kontingent.erreicht() && sys(t).length === 1, '949 999: nicht erreicht, keine neue Systemzeile');
   ok((await lageFragt(t, m)).gestartet, '949 999: Lage fragt');
   LLM.addUsage(1);   // 950 000
   await pumpen(t.g, 5);
-  ok(Kontingent.erreicht() && funk(t).length === 2 && logs(t.g, 'erreicht').length === 2, '950 000: Meldung erneut (zwei insgesamt), zweiter Logbuch-Eintrag');
+  ok(Kontingent.erreicht() && sys(t).length === 2 && logs(t.g, 'erreicht').length === 2 && funk(t).length === 0, '950 000: Systemzeile erneut (zwei insgesamt), zweiter Logbuch-Eintrag, kein Funk');
   const vor = gefragt(m, 'lage');
   const r2 = await lageFragt(t, m);
   ok(!r2.gestartet && gefragt(m, 'lage') === vor, '950 000: Lage-Spielleiter fragt nicht mehr');
   await pumpen(t.g, 30);
-  ok(funk(t).length === 2, 'weitere Schritte melden nicht noch einmal');
+  ok(sys(t).length === 2, 'weitere Schritte melden nicht noch einmal');
   LLM.resetBudget();
 });
 
-section('Rechte: nur Captain, Doppeldruck erhoeht nicht doppelt', async () => {
+section('Rechte: nur der Spieler mit color 0, Doppeldruck erhoeht nicht doppelt', async () => {
   gesetzt(450000);
-  const t = X.spiel({ names: ['ZEBRAKAI', 'Mireille_Kas', 'Ouzo_Brandt'], crew: 3, env: LIVE });
-  const rollen = ['helm', 'weapons', 'technik'];
+  const t = mitLog(X.spiel({ names: ['ZEBRAKAI', 'Mireille_Kas', 'Ouzo_Brandt'], crew: 3, env: LIVE }));
+  const rollen = ['captain', 'weapons', 'technik'];
   t.g.players.forEach((p, i) => { p.zone = 'ship'; p.console = rollen[i]; });
+  ok(t.g.players.map((p) => p.color).join() === '0,1,2', 'Farben der drei Spieler: 0, 1, 2');
   await pumpen(t.g, 3);
-  t.cs.forEach((c) => t.g.handleMessage(c, { t: 'cmd', c: 'kontingent.freigeben' }));
-  ok(LLM.budget().limit === 500000 && Kontingent.schwelle() === 450000, 'Helm, Ops, Technik: keine Freigabe (Limit und Schwelle unveraendert)');
-  ok(t.cs.every((c) => c.inbox.some((m) => m.t === 'event' && m.kind === 'notice' && /passenden Konsole/.test(m.text))), 'jede andere Rolle bekommt die bestehende Absage');
-  ok(logs(t.g, 'freigabe').length === 0, 'keine Freigabe im Logbuch');
+  for (const c of ['kontingent.freigeben', 'kontingent.ablehnen']) { t.g.handleMessage(t.cs[1], { t: 'cmd', c }); t.g.handleMessage(t.cs[2], { t: 'cmd', c }); }
+  ok(LLM.budget().limit === 500000 && Kontingent.schwelle() === 450000, 'Spieler mit color 1 und 2: keine Freigabe (Limit und Schwelle unveraendert)');
+  ok([t.cs[1], t.cs[2]].every((c) => c.inbox.filter((m) => m.t === 'event' && m.kind === 'notice').length >= 2 && !c.inbox.some((m) => m.kind === 'kontingentAntwort' || m.kind === 'kontingentErledigt')), 'andere Spieler bekommen die Absage (notice), keine kontingentAntwort');
+  ok(logs(t.g, 'freigabe').length === 0 && logs(t.g, 'abgelehnt').length === 0 && t.g.kontingent.frage.offen === true, 'keine Freigabe/Ablehnung im Logbuch, Frage bleibt offen');
+  // color 0 genuegt, die Konsole zaehlt nicht mehr
   t.g.players[0].console = null;
   t.g.handleMessage(t.cs[0], { t: 'cmd', c: 'kontingent.freigeben' });
-  ok(LLM.budget().limit === 500000, 'ohne Konsole: nichts');
-  t.g.players[0].console = 'captain';
   t.g.handleMessage(t.cs[0], { t: 'cmd', c: 'kontingent.freigeben' });
-  t.g.handleMessage(t.cs[0], { t: 'cmd', c: 'kontingent.freigeben' });
-  const a = t.cs[0].inbox.filter((m) => m.t === 'event' && m.kind === 'kontingentAntwort');
-  ok(LLM.budget().limit === 1000000 && Kontingent.schwelle() === 950000, 'Captain, zweimal gedrueckt: genau +500 000');
-  ok(a.length === 2 && a[0].ok === true && a[1].ok === false && a[1].code === 'nicht_erreicht' && typeof a[1].text === 'string', 'erste Antwort ok, zweite nicht_erreicht mit Text');
+  const a = antworten(t);
+  ok(LLM.budget().limit === 1000000 && Kontingent.schwelle() === 950000, 'color 0 (ohne Konsole), zweimal gedrueckt: genau +500 000');
+  ok(a.length === 2 && a[0].ok === true && a[0].op === 'freigeben' && a[1].ok === false && a[1].code === 'nicht_erreicht' && typeof a[1].text === 'string', 'erste Antwort ok, zweite nicht_erreicht mit Text');
   ok(logs(t.g, 'freigabe').length === 1, 'genau eine Freigabe im Logbuch');
-  // nicht erreicht: auch der Captain bewirkt nichts
+  // nicht erreicht: auch color 0 bewirkt nichts
   gesetzt(1000);
   const t2 = neuesSpiel();
   t2.g.handleMessage(t2.cs[0], { t: 'cmd', c: 'kontingent.freigeben' });
   ok(LLM.budget().limit === 500000 && antworten(t2)[0].code === 'nicht_erreicht', 'vor dem Erreichen: nicht_erreicht, Limit bleibt');
+  t2.g.handleMessage(t2.cs[0], { t: 'cmd', c: 'kontingent.ablehnen' });
+  ok(antworten(t2)[1].ok === false && antworten(t2)[1].code === 'keine_frage', 'vor dem Erreichen: ablehnen -> keine_frage');
   LLM.resetBudget();
 });
 
@@ -234,11 +244,11 @@ section('Kleines Limit 60 000: Schwelle 54 000, min_budget-Deckel greift', async
   ok(r.gestartet, 'bei 40 000 (Rest 20 000 < min_budget 30 000) fragt der Spielleiter noch');
   LLM.addUsage(13999);   // 53 999
   r = await lageFragt(t, m);
-  ok(r.gestartet && funk(t).length === 0, '53 999: fragt, keine Meldung');
+  ok(r.gestartet && sys(t).length === 0, '53 999: fragt, keine Meldung');
   LLM.addUsage(1);   // 54 000
   await pumpen(t.g, 3);
   r = await lageFragt(t, m);
-  ok(!r.gestartet && funk(t).length === 1, '54 000: gesperrt, Meldung kommt');
+  ok(!r.gestartet && sys(t).length === 1, '54 000: gesperrt, Systemzeile kommt');
   cmd(t);
   ok(LLM.budget().limit === 560000 && Kontingent.schwelle() === 554000, 'Freigabe: Limit 560 000, Schwelle 554 000');
   ok((await lageFragt(t, m)).gestartet, 'danach fragt der Spielleiter wieder');
@@ -309,59 +319,123 @@ section('M2: Text-Pool fragt das Gate vor jedem Claude-Weg (Stufe bei Claude, Es
   LLM.resetBudget();
 });
 
-// ---------- M4: neue Verbindung, Wiederverbinden, Uebernahme, Neustart bei erreichtem Kontingent: der Block kommt (erneut) an ----------
-section('Verbindungen: erreicht, dann Wiederverbinden / Beitritt / Uebernahme / Neustart -> Block kommt erneut', async () => {
-  const bloecke = (c) => c.inbox.filter((m) => m.t === 'snap' && m.world && m.world.kontingent).map((m) => m.world.kontingent);
-  const neu = () => ({ inbox: [], send(m) { if (this.inbox.length < 2000) this.inbox.push(m); }, sendRaw(s) { this.send(JSON.parse(s)); } });
-  const pump = async (g, k) => { for (let i = 0; i < k; i++) { g.step(); if (g.wantsSnapshot()) g.broadcast(g.snapshot()); await frei(); } };   // wie server/index.js: Schritt, dann alle snapEvery Ticks ein Snapshot an alle Verbindungen
-  gesetzt(450000);
-  const t = X.spiel({ names: ['ZEBRAKAI', 'Mireille_Kas', 'Ouzo_Brandt'], crew: 3, env: LIVE });
-  const g = t.g;
-  g.players.forEach((p) => { p.zone = 'ship'; });
-  await pump(g, 40);
-  ok(t.cs.every((c) => bloecke(c).length >= 1 && bloecke(c).every((b) => b.erreicht === true)), 'Ausgangslage: alle drei Verbindungen bekamen den Block (erreicht)');
-  // (1) Wiederverbinden: gleiche clientId, neue Verbindung
-  const c0 = neu(); g.addConnection(c0); g.handleMessage(c0, { t: 'hello', clientId: 'A0', name: 'ZEBRAKAI', color: 0 });
-  await pump(g, 40);
-  ok(bloecke(c0).length === 1 && bloecke(c0)[0].erreicht === true && bloecke(c0)[0].used === 450000, `Wiederverbinden: die neue Verbindung bekommt den Block erneut (${bloecke(c0).length})`);
-  // (2) Beitritt eines neuen Spielers (vierter Platz, Spiel laeuft)
-  const c3 = neu(); g.addConnection(c3); g.handleMessage(c3, { t: 'hello', clientId: 'NEU1', name: 'Tzvi_Lund', color: 3 });
-  await pump(g, 40);
-  ok(g.players.length === 4 && bloecke(c3).length === 1 && bloecke(c3)[0].erreicht === true, `Beitritt: der neue Spieler bekommt den Block (${bloecke(c3).length})`);
-  // (3) Uebernahme: Server voll, ein Platz getrennt, ein Fremder nimmt ihn
-  const weg = t.cs[1]; g.removeConnection(weg);
-  await pump(g, 10);
-  const c4 = neu(); g.addConnection(c4); g.handleMessage(c4, { t: 'hello', clientId: 'NEU2', name: 'Fremder', color: 2 });
-  await pump(g, 40);
-  ok(g.players.length === 4 && g.players.some((p) => p.clientId === 'NEU2' && p.connected) && bloecke(c4).length === 1, `Uebernahme eines freien Platzes: der Uebernehmer bekommt den Block (${bloecke(c4).length})`);
-  // (4) Neustart der Partie (reset in startGame): der Block wird allen erneut geschickt
-  t.cs.forEach((c) => { c.inbox.length = 0; }); c0.inbox.length = 0; c3.inbox.length = 0; c4.inbox.length = 0;
-  g.reset();
-  g.handleMessage(c0, { t: 'lobbyOpt', startMission: 'freie_fahrt' });
-  for (const p of g.players) if (p.conn) g.handleMessage(p.conn, { t: 'ready', ready: true });
-  await pump(g, 60);
-  ok(g.phase === 'play' && bloecke(c0).length >= 1 && bloecke(c0).every((b) => b.erreicht === true), `Neustart: die Verbindung bekommt den Block nach dem Neustart erneut (${bloecke(c0).length})`);
+// ---------- LIV-02: die Frage „Limit erhoehen?“ ----------
+const neuC = () => ({ inbox: [], send(m) { if (this.inbox.length < 2000) this.inbox.push(m); }, sendRaw(s) { this.send(JSON.parse(s)); } });
+const pumpS = async (g, k) => { for (let i = 0; i < k; i++) { g.step(); if (g.wantsSnapshot()) g.broadcast(g.snapshot()); await frei(); } };   // wie server/index.js
+const crew3 = () => { const t = mitLog(X.spiel({ names: ['ZEBRAKAI', 'Mireille_Kas', 'Ouzo_Brandt'], crew: 3, env: LIVE })); t.g.players.forEach((p) => { p.zone = 'ship'; }); return t; };
+const sende = (t, i, c) => t.g.handleMessage(t.cs[i], { t: 'cmd', c });
+
+section('Frage: nur an color 0, einmal je Schwelle, kein Zaehlerstand im Payload', async () => {
+  gesetzt(449999);
+  const t = crew3();
+  await pumpS(t.g, 10);
+  ok(t.cs.every((c) => fragen(c).length === 0), '449 999: keine Frage');
+  LLM.addUsage(1);
+  await pumpS(t.g, 40);
+  ok(fragen(t.cs[0]).length === 1 && fragen(t.cs[1]).length === 0 && fragen(t.cs[2]).length === 0, '450 000: genau eine Frage, nur an den Spieler mit color 0');
+  const f = fragen(t.cs[0])[0];
+  ok(Object.keys(f).sort().join() === 'kind,pid,t' && f.pid === t.g.players[0].id, 'Payload exakt { t:event, kind:kontingentFrage, pid } ohne Zahlen: ' + JSON.stringify(f));
+  ok(sys(t).length === 1 && logs(t.g, 'erreicht').length === 1 && funk(t).length === 0, 'eine Systemzeile, ein Logbuch-Eintrag, kein Funk');
+  ok(t.cs.every((c) => !c.inbox.some((m) => m.t === 'snap' && m.world && 'kontingent' in m.world)), 'kein Snapshot mit world.kontingent bei irgendeiner Verbindung');
+  await pumpS(t.g, 60);
+  ok(fragen(t.cs[0]).length === 1 && sys(t).length === 1, 'viele weitere Schritte: keine zweite Frage, keine zweite Zeile');
   LLM.resetBudget();
 });
 
-// ---------- N8: Snapshot-Budget des Feldes world.kontingent im echten Delta-Snapshot (Vertrag: CONTRACT-LIV01.md "Snapshot-Budget")
-section('Snapshot-Budget: world.kontingent im echten Delta-Snapshot', async () => {
-  const bytes = (o) => Buffer.byteLength(JSON.stringify(o));
-  const ORBIT_MAX = 13327, ZIEL = CONFIG.net.snapMax - CONFIG.net.snapLuft;   // Worst Case von npm run snap:mess (Orbitschlacht) und das Ziel
-  ok(ZIEL === 18944, 'Ziel snapMax - snapLuft = 18 944 B (' + ZIEL + ')');
-  let groesst = 0;
-  for (const [used, limit] of [[0, 500000], [450000, 500000], [9999999, 9999999]]) {   // kurz, typisch, die breitesten Zahlen
+section('Frage: Ja schliesst sie, neue Schwelle fragt genau einmal neu', async () => {
+  gesetzt(450000);
+  const t = crew3();
+  await pumpS(t.g, 10);
+  ok(fragen(t.cs[0]).length === 1, 'Ausgangslage: Frage offen');
+  sende(t, 0, 'kontingent.freigeben');
+  ok(LLM.budget().limit === 1000000 && Kontingent.schwelle() === 950000, 'Ja: Limit 1 000 000, Schwelle 950 000');
+  const a = t.cs[0].inbox.filter((m) => m.kind === 'kontingentAntwort');
+  ok(a.length === 1 && a[0].ok === true && erledigt(t.cs[0]).length === 1 && erledigt(t.cs[0])[0].pid === t.g.players[0].id, 'kontingentAntwort ok und kontingentErledigt an den Absender');
+  ok(t.cs[1].inbox.every((m) => m.kind !== 'kontingentErledigt') && t.g.kontingent.frage.offen === false, 'Erledigt nur an den Absender, Frage zu');
+  sende(t, 0, 'kontingent.freigeben'); sende(t, 0, 'kontingent.ablehnen');
+  ok(LLM.budget().limit === 1000000, 'Doppelklick/Nachzuegler wirkungslos (kein zweites +500 000)');
+  const c0 = neuC(); t.g.addConnection(c0); t.g.handleMessage(c0, { t: 'hello', clientId: 'A0', name: 'ZEBRAKAI', color: 0 });
+  await pumpS(t.g, 10);
+  ok(fragen(c0).length === 0, 'Wiederverbinden nach Ja: keine erneute Frage');
+  LLM.addUsage(499999); await pumpS(t.g, 10);
+  ok(fragen(c0).length === 0 && sys(t).length === 1, '949 999: noch keine neue Frage');
+  LLM.addUsage(1); await pumpS(t.g, 10);
+  ok(fragen(c0).length === 1 && fragen(t.cs[0]).length === 1 && sys(t).length === 2, '950 000: genau eine neue Frage (an die aktuelle Verbindung von color 0)');
+  LLM.resetBudget();
+});
+
+section('Frage: Nein ist Nein (keine Wiederholung, keine Freigabe, kein anderer Kanal)', async () => {
+  gesetzt(450000);
+  const t = crew3();
+  await pumpS(t.g, 10);
+  sende(t, 0, 'kontingent.ablehnen');
+  const a = t.cs[0].inbox.filter((m) => m.kind === 'kontingentAntwort');
+  ok(a.length === 1 && a[0].ok === true && a[0].op === 'ablehnen' && erledigt(t.cs[0]).length === 1, 'Nein: Antwort ok (op ablehnen) und kontingentErledigt');
+  ok(LLM.budget().limit === 500000 && Kontingent.erreicht() && logs(t.g, 'abgelehnt').length === 1, 'Limit bleibt, Kontingent bleibt erreicht, Logbuch „abgelehnt“');
+  sende(t, 0, 'kontingent.freigeben');
+  const b = t.cs[0].inbox.filter((m) => m.kind === 'kontingentAntwort');
+  ok(b.length === 2 && b[1].ok === false && b[1].code === 'abgelehnt' && LLM.budget().limit === 500000 && logs(t.g, 'freigabe').length === 0, 'danach kontingent.freigeben: abgewiesen (abgelehnt), Limit unveraendert');
+  ok(Kontingent.freigeben(t.g) && LLM.budget().limit === 500000, 'auch Kontingent.freigeben(game) direkt: abgewiesen');
+  sende(t, 0, 'kontingent.ablehnen');
+  ok(t.cs[0].inbox.filter((m) => m.kind === 'kontingentAntwort').pop().code === 'keine_frage' && logs(t.g, 'abgelehnt').length === 1, 'zweites Nein: keine_frage, kein zweiter Logbuch-Eintrag');
+  await pumpS(t.g, 80);
+  const c0 = neuC(); t.g.addConnection(c0); t.g.handleMessage(c0, { t: 'hello', clientId: 'A0', name: 'ZEBRAKAI', color: 0 });
+  await pumpS(t.g, 20);
+  ok(fragen(t.cs[0]).length === 1 && fragen(c0).length === 0 && sys(t).length === 1, 'keine neue Frage fuer dieselbe Schwelle (auch nicht beim Wiederverbinden), keine zweite Zeile');
+  ok((await lageFragt(t, mitLage(t))).gestartet === false, 'Spielleiter bleiben gesperrt');
+  LLM.resetBudget();
+});
+
+section('Frage: offen bis zur Antwort (Wiederverbinden, Beitritt, Uebernahme)', async () => {
+  gesetzt(450000);
+  const t = crew3();
+  await pumpS(t.g, 10);
+  const c0 = neuC(); t.g.addConnection(c0); t.g.handleMessage(c0, { t: 'hello', clientId: 'A0', name: 'ZEBRAKAI', color: 0 });
+  await pumpS(t.g, 10);
+  const iw = c0.inbox.findIndex((m) => m.t === 'welcome'), iq = c0.inbox.findIndex((m) => m.kind === 'kontingentFrage');
+  ok(fragen(c0).length === 1 && iw >= 0 && iq > iw, 'Wiederverbinden: Frage erneut, nach welcome (' + iw + ' < ' + iq + ')');
+  const c1 = neuC(); t.g.addConnection(c1); t.g.handleMessage(c1, { t: 'hello', clientId: 'A1', name: 'Mireille_Kas', color: 1 });
+  await pumpS(t.g, 10);
+  ok(fragen(c1).length === 0, 'Wiederverbinden eines Spielers mit color 1: keine Frage');
+  t.g.removeConnection(c0);
+  await pumpS(t.g, 20);
+  ok(t.g.kontingent.frage.offen === true && fragen(c1).length === 0 && fragen(t.cs[2]).length === 0, 'color 0 weg: Frage bleibt offen, kein anderer bekommt sie');
+  const c3 = neuC(); t.g.addConnection(c3); t.g.handleMessage(c3, { t: 'hello', clientId: 'NEU3', name: 'Tzvi_Lund', color: 3 });
+  await pumpS(t.g, 10);
+  ok(t.g.players.length === 4 && fragen(c3).length === 0, 'Beitritt eines vierten Spielers (color 3): keine Frage');
+  t.g.removeConnection(c3); t.g.removeConnection(c1);
+  const c4 = neuC(); t.g.addConnection(c4); t.g.handleMessage(c4, { t: 'hello', clientId: 'NEU4', name: 'Fremder', color: 0 });
+  await pumpS(t.g, 10);
+  const uebernommen = t.g.players.find((p) => p.clientId === 'NEU4');
+  ok(uebernommen && uebernommen.color === 0 && fragen(c4).length === 1, 'Uebernahme eines freien Platzes mit Wunschfarbe 0: der Uebernehmer (jetzt color 0) bekommt die Frage');
+  LLM.resetBudget();
+});
+
+section('Frage: kein Spieler mit color 0 beim Erreichen, spaeterer Beitritt mit color 0', async () => {
+  gesetzt(0);
+  const t = mitLog(X.spiel({ names: ['ZEBRAKAI', 'Mireille_Kas'], crew: 2, env: LIVE }));
+  t.g.players[0].color = 2; t.g.players[1].color = 1;   // niemand mit color 0
+  await pumpS(t.g, 5);
+  LLM.addUsage(450000);
+  await pumpS(t.g, 20);
+  ok(t.g.kontingent.frage.offen === true && t.cs.every((c) => fragen(c).length === 0) && sys(t).length === 1, 'niemand mit color 0: Frage offen, niemand bekommt sie, Systemzeile steht');
+  sende(t, 0, 'kontingent.freigeben');
+  ok(LLM.budget().limit === 500000, 'die Spieler ohne color 0 koennen nicht freigeben');
+  const c = neuC(); t.g.addConnection(c); t.g.handleMessage(c, { t: 'hello', clientId: 'A0', name: 'ZEBRAKAI', color: 0 });   // gleiche clientId: Platz 1 wechselt auf color 0
+  await pumpS(t.g, 10);
+  ok(t.g.players[0].color === 0 && fragen(c).length === 1, 'Spieler wechselt (Wunsch) auf color 0 und verbindet: bekommt die offene Frage (' + t.g.players[0].color + ')');
+  LLM.resetBudget();
+});
+
+// ---------- Snapshot: world.kontingent gibt es nicht mehr ----------
+section('Snapshot: nie world.kontingent, auch live', async () => {
+  for (const [used, limit] of [[0, 500000], [450000, 500000], [9999999, 9999999]]) {
     gesetzt(used, limit);
     const t = neuesSpiel();
-    let s = null; for (let i = 0; i < 30 && !s; i++) { const x = t.g.snapshot(); if ('kontingent' in x.world) s = x; }
-    ok(!!s, 'Block im Delta-Snapshot (' + used + ' von ' + limit + ')');
-    if (!s) continue;
-    const mit = bytes(s); const feld = s.world.kontingent; delete s.world.kontingent;
-    const diff = mit - bytes(s);
-    groesst = Math.max(groesst, diff);
-    ok(diff <= 100, 'Feld kostet ' + diff + ' B im echten Snapshot (JSON ' + bytes(feld) + ' B plus Schluessel), hoechstens 100 B');
+    ok(!snapMitFeld(t.g, 60), 'live, ' + used + ' von ' + limit + ': kein world.kontingent in 60 Snapshots');
   }
-  ok(ORBIT_MAX + groesst <= ZIEL, 'Worst Case Orbitschlacht ' + ORBIT_MAX + ' B + Feld ' + groesst + ' B = ' + (ORBIT_MAX + groesst) + ' B <= ' + ZIEL + ' B');
+  const code = fs.readFileSync(path.join(__dirname, '..', 'server', 'sim', 'kontingent.js'), 'utf8').replace(/\/\/.*$/gm, '');
+  ok(!/snapshotFeld|schluessel/.test(code), 'kontingent.js hat keinen Snapshot-Code mehr');
   LLM.resetBudget();
 });
 
@@ -373,8 +447,8 @@ section('Ohne Live-Schalter: kein world.kontingent, Snapshot unveraendert', asyn
     await pumpen(t.g, 5);
     let gesehen = false;
     for (let i = 0; i < 60; i++) { const s = t.g.snapshot(); if ('kontingent' in s.world || JSON.stringify(s).includes('"kontingent"')) gesehen = true; }
-    ok(!gesehen && Kontingent.snapshotFeld(t.g) === null && Kontingent.schluessel(t.g) === null, `${JSON.stringify(env)}: kein world.kontingent in 60 Snapshots, obwohl der Zaehler ueber der Schwelle liegt`);
-    ok(funk(t).length === 0, `${JSON.stringify(env)}: keine Funk-Meldung`);
+    ok(!gesehen, `${JSON.stringify(env)}: kein world.kontingent in 60 Snapshots, obwohl der Zaehler ueber der Schwelle liegt`);
+    ok(funk(t).length === 0 && fragen(t.cs[0]).length === 0, `${JSON.stringify(env)}: kein Funk, keine Frage (kein Modell zaehlt)`);
   }
   // Feldsatz von world mit und ohne erreichten Zaehler gleich
   gesetzt(0);
@@ -387,21 +461,16 @@ section('Ohne Live-Schalter: kein world.kontingent, Snapshot unveraendert', asyn
   LLM.resetBudget();
 });
 
-section('Live-Snapshot: nur bei Aenderung, Funk im Mitschnitt', async () => {
+section('Live: kein Snapshot-Feld bei Aenderung, kein Funk im Mitschnitt', async () => {
   gesetzt(100);
   const t = neuesSpiel(), g = t.g;
-  const felder = () => { const l = []; for (let i = 0; i < 30; i++) { const s = g.snapshot(); if ('kontingent' in s.world) l.push(s.world.kontingent); } return l; };
-  const l1 = felder();
-  ok(l1.length === 1 && l1[0].erreicht === false && l1[0].limit === 500000 && l1[0].schwelle === 450000, 'Live: ein Block bei der ersten Aenderung, erreicht falsch');
-  ok(felder().length === 0, 'unveraendert: nicht erneut gesendet');
+  ok(!snapMitFeld(g, 30), 'Live: kein Block bei der ersten Aenderung');
   LLM.addUsage(450000);
-  const l2 = felder();
-  ok(l2.length === 1 && l2[0].erreicht === true, 'nach dem Erreichen: Block mit erreicht wahr');
-  // Mitschnitt (MIT-01): die Meldung geht ueber Game.emit('radio') an den Beobachter (Art funk)
+  ok(!snapMitFeld(g, 30), 'nach dem Erreichen: kein Block');
   const gesehen = [];
   g.mitschnitt = { vonEmit: (k, d) => { if (k === 'radio') gesehen.push(d); }, taetigkeit() {} };
   gesetzt(0); await pumpen(g, 2); LLM.addUsage(450000); await pumpen(g, 3);
-  ok(gesehen.filter((d) => String(d.text).startsWith(MELDUNG)).length === 1, 'Mitschnitt-Beobachter (vonEmit radio) sieht die Meldung einmal');
+  ok(gesehen.filter((d) => MELDUNG.test(String(d.text))).length === 0, 'Mitschnitt-Beobachter (vonEmit radio) sieht keine Kontingent-Meldung');
   LLM.resetBudget();
 });
 

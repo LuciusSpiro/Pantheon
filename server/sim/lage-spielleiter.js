@@ -234,7 +234,6 @@ class LageSpielleiter {
       Regie.rueckfall(this.game, Kontingent.erreicht() ? `Kontingent erreicht (${b.used} von ${b.limit}, Schwelle ${Kontingent.schwelle()})` : `Token-Budget fast leer (${b.used} von ${b.limit}, Rest < ${Kontingent.mindestRest(this.W.min_budget)})`);
       this.schreibe({ ausgang: 'fehler', grund: 'budget', fehler: ['BUDGET'], budget: { used: b.used, limit: b.limit }, begruendung: 'Grenze ' + art + ': Budget leer', plan: { grenze: art, tick: ws.tickZahl, sitzung: this.sitzung } });
       this.zaehler.fehler++;
-      this.notbetriebMelden('BUDGET', `Token-Budget fast leer (${b.used} von ${b.limit})`);
       return { gestartet: false, grund: 'budget' };
     }
     this.budgetGemeldet = false;

@@ -113,7 +113,7 @@ const angebote = (g) => (g.weltsim && g.weltsim.faeden ? g.weltsim.faeden.abente
 section('Daten', () => {
   ok(typeof T.text === 'string' && /Notbetrieb/.test(T.text) && typeof T.sprecher === 'string' && T.sprecher.length > 0, 'notbetrieb_funk: Text mit Notbetrieb und Sprecher');
   ok(typeof DATEN.notbetrieb_funk._hinweis === 'string' && DATEN.notbetrieb_funk.einheit && DATEN.notbetrieb_gruende._hinweis && DATEN.notbetrieb_gruende.einheit, 'Format der Nachbarwerte: einheit und _hinweis');
-  ok(Array.isArray(GRUENDE) && ['cli_fehlt', 'ENOENT', 'RATE_LIMIT', 'ETIMEDOUT', 'REFUSED', 'BUDGET', 'OFFLINE', 'EMPTY'].every((g) => GRUENDE.includes(g)) && !GRUENDE.includes('lokal') && !GRUENDE.includes('ANTWORT_UNLESBAR'), 'Gruende-Liste: Modell-Ausfaelle ja, Einzelfehler (lokal, Pruefer-Ablehnung) nein');
+  ok(Array.isArray(GRUENDE) && ['cli_fehlt', 'ENOENT', 'RATE_LIMIT', 'ETIMEDOUT', 'REFUSED', 'OFF', 'EXIT', 'OFFLINE', 'EMPTY'].every((g) => GRUENDE.includes(g)) && !GRUENDE.includes('BUDGET') && !GRUENDE.includes('lokal') && !GRUENDE.includes('ANTWORT_UNLESBAR'), 'Gruende-Liste (LIV-02: BUDGET nicht mehr): Modell-Ausfaelle ja, Einzelfehler (lokal, Pruefer-Ablehnung) nein');
   ok(!/\bBot\b/.test(T.text) && !/\{/.test(T.text), 'kein Spielername, keine Platzhalter im Funktext');
 });
 
@@ -159,14 +159,15 @@ section('(b) je Ausfallgrund genau ein Hinweis; Einzelfehler melden nicht', asyn
   try {
     const gb = startLive(ENV_MIT_CLI, stubText('{"befehle":[]}'));
     const lb = gb.lageSpielleiter; lb.letzterStartTick = null; const r = lb.planErzwingen();
-    warten(gb); ok(r.grund === 'budget' && hinweise(gb).length === 1 && /BUDGET/.test(logZeilen(gb)[0] || ''), 'BUDGET (Lage-Gate): ein Hinweis, Grund BUDGET (' + r.grund + ')');
+    warten(gb); ok(r.grund === 'budget' && hinweise(gb).length === 0 && logZeilen(gb).length === 0, 'BUDGET (Lage-Gate, LIV-02): Rueckfall (grund budget), aber KEIN Notbetrieb-Hinweis und keine Notbetrieb-Zeile (' + r.grund + ')');
     lb.planErzwingen(); lb.planErzwingen();
-    warten(gb); ok(hinweise(gb).length === 1, 'BUDGET: weitere Grenzen melden nicht erneut');
+    warten(gb); ok(hinweise(gb).length === 0, 'BUDGET: weitere Grenzen melden weiterhin nichts');
+    ok(gb.lageSpielleiter.notbetriebMelden('BUDGET', 'x') === false && hinweise(gb).length === 0, 'notbetriebMelden(BUDGET) meldet nicht (Grund nicht in der Liste)');
     gb.zurLobby();
     const ga = startLive(ENV_MIT_CLI, stubText('{"befehle":[]}'));
     const la = ga.lageSpielleiter; const F = ga.weltsim.faeden; if (F && F.abenteuerAngebote) F.abenteuerAngebote.length = 0;
     la.abenteuer.erzwingen();
-    warten(ga); ok(hinweise(ga).length === 1 && /BUDGET/.test(logZeilen(ga)[0] || ''), 'BUDGET (Abenteuer-Gate): ein Hinweis');
+    warten(ga); ok(hinweise(ga).length === 0 && logZeilen(ga).length === 0, 'BUDGET (Abenteuer-Gate, LIV-02): kein Notbetrieb-Hinweis');
     ga.zurLobby();
   } finally { LLM.resetBudget(); }
   // Einzelfehler: unbrauchbare Antwort, ungueltiger Plan, Pruefer-Ablehnung: Hinweis bleibt aus
