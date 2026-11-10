@@ -57,7 +57,7 @@ function pruefen(game) {
   const z = game ? zustand(game) : null;
   if (z && z.gemeldetBei !== s) {
     z.gemeldetBei = s;   // zuerst merken: auch ein Fehler in der Systemzeile meldet nicht zweimal
-    z.frage = { schwelle: s, offen: live(game), abgelehnt: false };   // die Frage nur im Live-Modus (sonst zaehlt kein Modell gegen das Limit)
+    z.frage = { schwelle: s, offen: true, abgelehnt: false };   // die Frage nur im Live-Modus (sonst zaehlt kein Modell gegen das Limit)
     const b = LLM.budget();
     try { if (typeof game.log === 'function') game.log(`${LOG_PRAEFIX}Limit erreicht (${b.used} von ${b.limit}, Schwelle ${s}): die Spielleiter fragen das Modell nicht mehr.`); } catch (e) { if (game.countError) game.countError('kontingent-log', e); }
     logbuch(game, { ausgang: 'erreicht', begruendung: `Kontingent erreicht (${b.used} von ${b.limit}, Schwelle ${s}): Spielleiter fragen nicht mehr`, budget: { used: b.used, limit: b.limit } });
@@ -90,7 +90,7 @@ function freigeben(game) {
   if (!erreicht()) return weigerung('nicht_erreicht');   // Einmal-Sperre: nach der Freigabe liegt used unter der neuen Schwelle, ein zweiter Druck erhoeht nichts
   const z = game ? zustand(game) : null;
   if (z && z.frage && z.frage.schwelle === schwelle() && z.frage.abgelehnt) return weigerung('abgelehnt');   // Nein ist Nein: keine Freigabe fuer diese Schwelle
-  if (!(z && z.frage && z.frage.offen && z.frage.schwelle === schwelle())) return weigerung('keine_frage');   // LIV-02 Nacharbeit: wie ablehnen nur auf eine OFFENE Frage der aktuellen Schwelle (nie ohne pruefen(), nie im Nicht-Live-Betrieb: dort ist offen false)
+  if (!(z && z.frage && z.frage.offen && z.frage.schwelle === schwelle() && live(game))) return weigerung('keine_frage');   // LIV-02 Nacharbeit: wie ablehnen nur auf eine OFFENE Frage der aktuellen Schwelle (nie ohne pruefen(), nie im Nicht-Live-Betrieb: die Frage bleibt dann offen, wird aber nicht zugestellt und nicht beantwortet, bis der Live-Spielleiter laeuft)
   const vor = LLM.budget();
   const b = LLM.raiseBudget(FREIGABE);
   if (z && z.frage) z.frage.offen = false;
@@ -99,7 +99,7 @@ function freigeben(game) {
 }
 function ablehnen(game) {
   const z = game ? zustand(game) : null;
-  if (!z || !z.frage || !z.frage.offen || z.frage.schwelle !== schwelle()) return weigerung('keine_frage');   // ohne offene Frage (auch nach Antwort) wirkungslos
+  if (!z || !z.frage || !z.frage.offen || z.frage.schwelle !== schwelle() || !live(game)) return weigerung('keine_frage');   // ohne offene Frage (auch nach Antwort) wirkungslos
   z.frage.offen = false; z.frage.abgelehnt = true;
   const b = LLM.budget();
   logbuch(game, { ausgang: 'abgelehnt', begruendung: `Kontingent abgelehnt (${b.used} von ${b.limit}, Schwelle ${z.frage.schwelle}): keine weitere Frage fuer diese Schwelle`, budget: { used: b.used, limit: b.limit } });

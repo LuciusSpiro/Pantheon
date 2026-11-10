@@ -449,11 +449,16 @@ section('Freigabe nur bei offener Frage (ohne pruefen, Nicht-Live, kein Weg dara
     gesetzt(450000);
     const n = neuesSpiel(env);
     await pumpen(n.g, 3);
-    ok(n.g.kontingent && n.g.kontingent.frage && n.g.kontingent.frage.offen === false, `${JSON.stringify(env)}: Frage nie offen`);
+    ok(n.g.kontingent && n.g.kontingent.frage && n.g.kontingent.frage.offen === true, `${JSON.stringify(env)}: Frage bleibt offen (wird nur im Live-Betrieb zugestellt und beantwortet)`);
     cmd(n);
     const a = antworten(n);
     ok(LLM.budget().limit === 500000 && a.length === 1 && a[0].ok === false && a[0].code === 'keine_frage' && logs(n.g, 'freigabe').length === 0, `${JSON.stringify(env)}: color 0 kann das Limit nicht per Befehl heben (keine_frage, Limit ${LLM.budget().limit})`);
     ok(fragen(n.cs[0]).length === 0, `${JSON.stringify(env)}: keine Frage zugestellt`);
+    // Live-Spielleiter wird spaeter in derselben Partie eingeschaltet (Lobby-Option): die offene Frage kommt jetzt, Ja wirkt, genau einmal
+    n.g.env = Object.assign({}, n.g.env, LIVE);
+    ok(Kontingent.frageZustellen(n.g) === true && fragen(n.cs[0]).length === 1, `${JSON.stringify(env)}: spaeter live: die offene Frage wird gestellt`);
+    cmd(n);
+    ok(LLM.budget().limit === 1000000 && logs(n.g, 'freigabe').length === 1 && Kontingent.frageZustellen(n.g) === false, `${JSON.stringify(env)}: Ja hebt das Limit (+500 000), danach keine weitere Frage`);
   }
   // offene Frage einer alten Schwelle zaehlt nicht fuer die aktuelle
   gesetzt(450000);
