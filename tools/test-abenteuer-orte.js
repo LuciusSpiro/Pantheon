@@ -381,6 +381,37 @@ const HOEHLE_ORT = 'kaupangr', HOEHLE = 0;
     } finally { Sektoren.setzeKarte(JSON.parse(JSON.stringify(sund))); }
   });
 
+  // ---------------- j) Biom der Wildnis (Pruefung 4) ----------------
+  await pruefe('j) Biom der Wildnis folgt der Planetenart (sektortypen.json): Wueste -> Biom wueste in jedem Seed, Fels und Eis bleiben auto (kein gen); nach Speichern/Laden gleicher Karten-Hash und Biom; der Plan bestellt kein Biom', async () => {
+    const E = require('../server/sim/planeten-eignung.js');
+    assert.deepStrictEqual(['wueste', 'wiesenwald', 'vulkan'].map(E.biomFuerPlanet), ['wueste', 'wiesenwald', 'vulkan']);
+    for (const a of ['fels', 'eis', 'ozean', 'gasriese', 'unbekannt', 'constructor', undefined, 7]) assert.strictEqual(E.biomFuerPlanet(a), null, 'kein Biom fuer ' + a);
+    const kat = require('../shared/sektortypen.js').katalog().planetenarten, alt = kat.wueste.biom;
+    try { kat.wueste.biom = 'lava'; assert.strictEqual(E.biomFuerPlanet('wueste'), null, 'ein Biom, das der Erzeuger nicht kennt, gilt nicht (auto)'); } finally { kat.wueste.biom = alt; }
+    assert.strictEqual(E.biomFuerPlanet('wueste'), 'wueste');
+    const koerper = (hex, art) => { const ort = Sektoren.ortVonHex(hex), i = Locations.get(ort).scene.planeten.findIndex((p) => p.art === art); assert.ok(i >= 0, `${art} in ${ort}`); return { ort, i }; };
+    const wue = koerper('0904', 'wueste'), fels = koerper('0905', 'fels'), eis = koerper('0703', 'eis');
+    const bestellen = (T, k) => { const f = laufendesAbenteuer(T.g); return AO.bestellenAmKoerper(T.g, f.id, { ort: k.ort, koerper: k.i, art: 'wildnis' }); };
+    let ersterHash = null;
+    for (const seed of [1, 2, 3, 4, 5, 6, 7, 8]) {   // vorher entschied der Zufall aus dem Seed: Lava auf dem Wuestenplaneten
+      const T = F.neuesSpiel({ crew: 1, seed, env: ENV }), g = T.g; const id = bestellen(T, wue);
+      assert.deepStrictEqual(g.landepunkte.dyn[id].gen, { biom: 'wueste' }, 'Seed ' + seed); assert.strictEqual(LP.karte(g, id).meta.biom, 'wueste', 'Seed ' + seed + ': die Karte ist eine Wueste');
+      if (seed === 7) ersterHash = { id, hash: kartenHash(g, id), data: JSON.parse(JSON.stringify(Weltstand.capture(g))) };
+    }
+    for (const [was, k] of [['Fels', fels], ['Eis', eis]]) {
+      const T = F.neuesSpiel({ crew: 1, seed: 7, env: ENV }), g = T.g, id = bestellen(T, k);
+      assert.ok(id, was + ' bestellt'); assert.ok(!('gen' in g.landepunkte.dyn[id]) && LP.eintrag(g, id).gen === undefined, was + ': kein gen, Biom bleibt auto (wie vor der Aenderung)');
+      assert.ok(['wueste', 'wiesenwald', 'vulkan'].includes(LP.karte(g, id).meta.biom), was + ': Biom aus dem Seed');
+    }
+    { const T = F.neuesSpiel({ crew: 1, seed: 7, env: ENV }), g = T.g, f = laufendesAbenteuer(g), i = Locations.get(HOEHLE_ORT).scene.planeten.findIndex((p) => p.art === 'wueste' || p.art === 'wiesenwald' || p.art === 'vulkan' || p.art === 'fels');
+      const id = AO.bestellenAmKoerper(g, f.id, { ort: HOEHLE_ORT, koerper: i, art: 'hoehle' }); assert.ok(id, 'Hoehle bestellt'); assert.ok(!('gen' in g.landepunkte.dyn[id]), 'eine Hoehle bekommt kein Biom (sie hat eine Stimmung, Erdboden)'); }
+    // der Plan bestellt kein Biom (Schema), und die Bestellung am Faden traegt es nicht: es leitet sich nach dem Laden aus Ort und Transferpunkt ab
+    assert.ok(!JSON.stringify(ersterHash.data.welt.sim.faeden).includes('biom'), 'nichts davon im Weltstand');
+    const T2 = F.neuesSpiel({ crew: 1, seed: 3, env: ENV }); Weltstand.apply(T2.g, JSON.parse(JSON.stringify(ersterHash.data)));
+    assert.deepStrictEqual(dyn(T2.g), [ersterHash.id]); assert.deepStrictEqual(T2.g.landepunkte.dyn[ersterHash.id].gen, { biom: 'wueste' }, 'gen aus der Planetenart wiederhergestellt');
+    await tick(6); assert.strictEqual(kartenHash(T2.g, ersterHash.id), ersterHash.hash, 'gleicher Karten-Hash nach dem Laden (anderer Sim-Seed im neuen Spiel, der Stand setzt ihn zurueck)');
+  });
+
   // ---------------- i) Schema und Daten (Review klein 3) ----------------
   await pruefe('i) Weltstand-Schema haelt die Daten aus abenteuer-orte.json nach: orte_max Bestellungen mit den groessten erlaubten Werten (Muster, Namenslaenge, Kartenart, Kachel-Id) bleiben schemagueltig; Standardbesitz und Kachel-Laenge stehen in den Daten', async () => {
     const D = AO.DATEN, T = spiel(), g = T.g; const f = laufendesAbenteuer(g);

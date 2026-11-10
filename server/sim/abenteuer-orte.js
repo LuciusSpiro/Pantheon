@@ -108,9 +108,17 @@ function bestellung(o, ort, beam) {   // gemeinsame Pruefung der Angaben -> Best
   if (typeof name !== 'string' || !name.trim().length) return null;
   return { platz, ort, art: o.art, besitz, name: name.trim().slice(0, D.name_max), beam };
 }
+// Biom der Wildnis: das der Planetenart des Koerpers am Transferpunkt (planeten-eignung.biomFuerPlanet), sonst null (auto, Zufall aus dem Seed). Nur aus der Bestellung (Ort, Transferpunkt) und den Daten abgeleitet, darum
+// nach dem Laden dieselbe Karte, obwohl gen nicht im Weltstand steht. Der Plan bestellt kein Biom.
+function biomVon(b) {
+  if (b.art !== 'wildnis') return null;
+  const s = szene({ ort: b.ort }), p = s && Array.isArray(s.sc.planeten) ? s.sc.planeten.find((x) => Math.round(x.x) === b.beam.x && Math.round(x.y) === b.beam.y) : null;
+  return p ? Eignung.biomFuerPlanet(p.art) : null;
+}
 function anlegen(game, f, b) {   // legt den Ort an (fluechtig) und baut ihn vor; die Bestellung steht schon (oder wird vom Aufrufer eingetragen)
   const id = idVon(b.ort, f.id, b.platz);
-  LP().neu(game, b.ort, { id, art: b.art, besitz: b.besitz, name: b.name, beam: Object.assign({}, b.beam), seed: seedVon(game, id), zustand: b.zustand, frei: 'immer', fluechtig: true });
+  const biom = biomVon(b);
+  LP().neu(game, b.ort, Object.assign({ id, art: b.art, besitz: b.besitz, name: b.name, beam: Object.assign({}, b.beam), seed: seedVon(game, id), zustand: b.zustand, frei: 'immer', fluechtig: true }, biom ? { gen: { biom } } : {}));
   LP().vorbauen(game, [id]);   // sofort, nicht erst bei der ersten Wahl: sonst baut get() im Tick (Median 5 bis 24 ms, Maximum 75 ms bei 33 ms Budget)
   return id;
 }

@@ -4,6 +4,7 @@
 //   artenFuerPlanet(planetenart) -> [art]              erlaubte Kartenarten am Koerper (unbekannte Planetenart: [] = nicht landbar, kein Absturz)
 //   artPasstAmKoerper(planetenart, art) -> bool
 //   grundGegen(planetenart, art) -> string | null      Klartext, warum die Art dort nicht geht (null = passt)
+//   biomFuerPlanet(planetenart) -> biom | null          Biom der Wildnis-Karte an diesem Planeten (aus sektortypen.json), null = auto
 //   artenAmHex(hex) -> { koerper: [{ id, planetenart, arten }], punkt: [art] }   die Szene des Hex (auch Leerraum: koerper leer, nur Punkt-Arten; Hex ohne Szene: beides leer)
 //   pruefe(daten) -> [Fehlertext]                      Schema-/Konsistenzpruefung der Datei (laedt beim Start und wirft bei Fehlern)
 // id eines Koerpers: Index in scene.planeten (Hex ohne typ) bzw. Kachel-Id (typ-Hex, dort gilt die Kachel: arten = [Kartenart der Kachel], leer wenn nicht landbar).
@@ -12,6 +13,7 @@ const ORTE = require('../../content/welt/abenteuer-orte.json');
 const Sektortypen = require('../../shared/sektortypen.js');
 const Sektoren = require('../../shared/sektoren.js');
 const Locations = require('../../shared/locations.js');
+const GenGelaende = require('../../shared/gen-gelaende.js');
 
 const istObjekt = (x) => x !== null && typeof x === 'object' && !Array.isArray(x);
 const planetenartenBekannt = () => Object.keys(Sektortypen.katalog().planetenarten).concat('gasriese');
@@ -50,6 +52,13 @@ function grundGegen(planetenart, art) {
   return `Kartenart '${art}' passt nicht zur Planetenart '${planetenart}'` + (erlaubt.length ? ` (erlaubt: ${erlaubt.join('/')})` : ' (keine Landung am Koerper; station oder schiff gehoeren an einen Raumpunkt)');
 }
 
+// DYN-01 Nacharbeit (Pruefung 4): das Biom einer Wildnis-Karte folgt der Planetenart (content/welt/sektortypen.json planetenarten[art].biom, dieselbe Quelle wie die Kachel-Landung); null = kein Biom (fels, eis, ozean, gasriese: 'auto')
+function biomFuerPlanet(planetenart) {
+  const k = Sektortypen.katalog().planetenarten;
+  const b = typeof planetenart === 'string' && Object.prototype.hasOwnProperty.call(k, planetenart) ? k[planetenart].biom : null;
+  return typeof b === 'string' && GenGelaende.BIOME.includes(b) ? b : null;
+}
+
 function artenAmHex(hex) {
   const out = { koerper: [], punkt: [] };
   const ort = typeof hex === 'string' ? Sektoren.ortVonHex(hex) : null;
@@ -70,4 +79,4 @@ function artenAmHex(hex) {
   return out;
 }
 
-module.exports = { artenFuerPlanet, artPasstAmKoerper, grundGegen, artenAmHex, pruefe, DATEN };
+module.exports = { artenFuerPlanet, artPasstAmKoerper, grundGegen, biomFuerPlanet, artenAmHex, pruefe, DATEN };
