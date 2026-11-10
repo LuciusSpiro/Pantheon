@@ -190,7 +190,8 @@ async function abend(o) {
   const cl = [];
   for (let i = 0; i < 3; i++) cl.push(await Bot.client(WebSocket, port, CODE, { clientId: 'ABC'[i], name: NAMEN[i], color: i }, NAMEN[i], NAMEN));
   await sleep(300);
-  cl[0].send({ t: 'lobbyOpt', startMission: 'freie_fahrt', liveSpielleiter: modus === 'live' });   // LIV-02 P3: seit FRE-01 gehoert der Live-Schalter der Lobby (die Env-Schluessel SPIELLEITER_LLM/LLM_LIVE werden in der Freien Fahrt aus dem Basis-Env entfernt); ohne diese Option liefe der Abend im Rueckfall und fragte nie den Spielleiter
+  cl[0].send({ t: 'lobbyOpt', startMission: 'freie_fahrt' });
+  if (modus === 'live') cl[0].send({ t: 'lobbyOpt', liveSpielleiter: true });   // FRE-01 B: live in der Freien Fahrt nur ueber die Lobby-Option (sonst Rueckfall-Betrieb, Modus off)
   for (const x of cl) x.send({ t: 'ready', ready: true });
   await sleep(1200);
   const w = Bot.werkzeug({ g, cl, zeile, k });
