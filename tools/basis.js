@@ -27,7 +27,7 @@ const FIXTURES = path.join(__dirname, 'fixtures', 'telemetrie');
 // Der Spielcode auf tel01 ist bit-gleich zu main 9cf0397 (TEL-01 M2: main mit KUL-02 und UEB-01 integriert; Bot-Laeufe und Golden Trace mit Protokoll gegen 9cf0397 bit-gleich).
 // Die Laeufe der Basis selbst entstanden auf 75ab5a7 (TEL-01 M); 75ab5a7 und 9cf0397 liefern dieselben Bot-Ausgaben und denselben Golden Trace (M2), die Basis gilt unveraendert.
 // Vor Paket M stand hier f2daff7 (Stand vor GEG-01/OPS-01); die Basis dieses Stands ist ueberholt.
-const SPIELSTAND_WIE = '91052671';   // Basis neu gefahren auf lad01 91052671 (2026-11-10, LAD-01: Tuning-Hash durch waren.json/handel.json/Frachtraum 4 Plaetze geaendert)
+const SPIELSTAND_WIE = 'f8cb5b11';   // Basis neu gefahren auf main f8cb5b11 (2026-11-10, Merge LAD-01 mit DYN-01: Tuning-Hash geaendert)
 const LAUF_TIMEOUT_MS = 20 * 60 * 1000;
 const WELLEN_KARTEN = ['aussenposten', 'station', 'ruine', 'schiff', 'kesh'];
 
