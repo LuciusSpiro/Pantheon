@@ -220,7 +220,7 @@ const unten = (game, id) => (game.players || []).some((p) => p.zone === 'away' &
 function andereKarte(game, id) {   // die Karte nicht mehr als Aussenkarte halten, sonst gilt sie als belegt (Muster finale-boden.aufraeumen)
   try {
     const sp = Away().beamSpot(game);
-    const ziel = sp && sp.map !== id ? sp.map : Object.keys(game.aways).sort().find((m) => m !== id);
+    const ziel = sp && sp.map !== id ? sp.map : game.aways[D.karte_ruhe] ? D.karte_ruhe : Object.keys(game.aways).sort().find((m) => m !== id);   // ohne Abholpunkt am Ort: die Ruhekarte des Spiels (nicht die alphabetisch erste: Beschriftung der Pads)
     if (ziel) game.setAwayMap(ziel);
   } catch (e) { fehler(game, 'abenteuer-orte-aufraeumen', e); }
 }

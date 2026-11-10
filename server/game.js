@@ -2146,13 +2146,17 @@ class Game {
   }
 
   // B1 Nachtrag (Transfer-Konsole): { lp: [[lpId, name, art, frei, grund, inReichweite]], ziel } aus landepunkte.liste;
-  // nur mit Landepunkten am Ort, nur bei Änderung bzw. alle 15 Snapshots (wie world.locations). -> Objekt | null
+  // nur mit Landepunkten am Ort, nur bei Änderung bzw. alle 15 Snapshots (wie world.locations); verliert der Ort seine Landepunkte, einmal die Leerform { lp: [], ziel: null }. -> Objekt | null
   transferSnap() {
     const fn = fnOf(landepunkteMod(), 'liste');
     if (!fn || this.phase === 'lobby') return null;
     let list;
     try { list = fn(this, this.ship.scene); } catch (e) { this.countError('snapshot-transfer', e); return null; }
-    if (!Array.isArray(list) || !list.length) { this.sentTransferKey = null; return null; }
+    if (!Array.isArray(list) || !list.length) {   // keine Landepunkte (mehr): hat der Client schon eine Liste, bekommt er EINMAL die Leerform (sonst behielte er den alten Eintrag, z. B. nach dem Ende eines Abenteuer-Ortes); danach fehlt das Feld wie bisher
+      const hatte = this.sentTransferKey !== null;
+      this.sentTransferKey = null;
+      return hatte ? { lp: [], ziel: null } : null;
+    }
     const o = { lp: list.map((r) => [r.id, r.name || r.id, r.art, r.frei ? 1 : 0, r.grund || null, r.inReichweite ? 1 : 0]), ziel: (this.transferZiel && this.transferZiel.lp) || null };
     const key = JSON.stringify(o);
     if (key === this.sentTransferKey && this.snapCount % 15 !== 0) return null;

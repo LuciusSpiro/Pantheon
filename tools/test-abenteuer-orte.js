@@ -113,6 +113,7 @@ const HOEHLE_ORT = 'kaupangr', HOEHLE = 0;
   await pruefe('a) Ort am Planeten ohne Standardplatz: bestellen, Crew waehlt, beamt runter (Away-Karte), beamt hoch, Abschluss -> restlos weg (Weltstand, Scan, Cache, away, transferZiel)', async () => {
     const T = spiel(), g = T.g; const f = laufendesAbenteuer(g);
     hierHin(T, PLANET_ORT);
+    const karteVorher = g.away.map; assert.strictEqual(karteVorher, AO.DATEN.karte_ruhe, 'ohne Abholpunkt am Ort steht die Ruhekarte (Spielstart: platform)');
     const id = AO.bestellenAmKoerper(g, f.id, { ort: PLANET_ORT, koerper: PLANET, art: 'wildnis', besitz: 'herrenlos', name: 'Absturzstelle' });
     assert.strictEqual(id, `${PLANET_ORT}.${f.id}-ort`);
     assert.deepStrictEqual(AO.parse(id), { ort: PLANET_ORT, faden: f.id, platz: '' });
@@ -133,8 +134,14 @@ const HOEHLE_ORT = 'kaupangr', HOEHLE = 0;
     assert.strictEqual(LP.verwerfen(g, id), false, 'ohne Aufraeumen blockiert transferZiel/away.map (belegt = Momentzustand): genau das loest abraeumen');
     assert.ok(g.transferZiel && g.transferZiel.lp === id && g.away.map === id);
     g.landepunkte.halten[id] = 'm1';
+    const snapVor = g.snapshot(); assert.ok(snapVor.transfer && snapVor.transfer.lp.some((r) => r[0] === id) && snapVor.transfer.ziel === id, 'Snapshot vor dem Ende: der Ort steht in transfer, er ist das Ziel');
     beenden(g, f);   // beatAusgang -> Haken
+    // Befund 1 der Pruefung: war der Ort der einzige Landepunkt, laesst der Server das Feld nicht mehr einfach weg (der Client behielte den alten Eintrag), sondern sendet EINMAL die Leerform
+    const snapNach = g.snapshot(); assert.deepStrictEqual(snapNach.transfer, { lp: [], ziel: null }, 'Snapshot nach dem Ende: Leerform statt altem Eintrag');
+    assert.ok(!JSON.stringify(snapNach).includes(id), 'nirgends im Snapshot steht noch der Ort');
+    assert.strictEqual(g.snapshot().transfer, undefined, 'danach fehlt das Feld wieder (nur einmal gesendet, keine neue Zeile im Snapshot)');
     assert.deepStrictEqual(reste(g, id, T), [], 'restlos weg direkt nach dem Abschluss (ohne Tick)');
+    assert.strictEqual(g.away.map, karteVorher, 'die Aussenkarte ist wieder die von vor der Landung (Pad-Beschriftung der Konsole: PLATTFORM-PADS, nicht KESH-PADS)');
     assert.strictEqual(AO.landeplatzVon(g, f.id), null);
     T.run(0.5); assert.deepStrictEqual(reste(g, id, T), []);
     assert.ok(away.canBeam(g, 'down').ok === false, 'nichts mehr zum Hinbeamen am Ort');

@@ -5,6 +5,8 @@
   "orte_max": 2,
   "besitz_standard": "herrenlos",
   "kachel_id_max": 60,
+  "karte_ruhe": "platform",
+  "_karte_ruhe": "Aussenkarte des Spiels ohne Landung und ohne Abholpunkt am Ort (game.js: this.away = this.aways.platform). Nach dem Abraeumen eines Ortes im leeren Raum geht away.map dorthin zurueck, damit die Pad-Gruppe der Transfer-Konsole nicht 'KESH-PADS' heisst (Pruefung DYN-01, Befund 3).",
   "name_max": 40,
   "platz_muster": "[a-z0-9_]{1,16}",
   "besitz_muster": "[a-z_]{1,16}",
