@@ -2453,6 +2453,7 @@
     // S1: Pause-Hinweis, Siegel „Weltstand gesichert“, Menüseiten obenauf
     Net.guard('Hud.drawPause', () => H.drawPause(ctx, v, !!uiTop()));
     Net.guard('Hud.drawSaveSeal', () => H.drawSaveSeal(ctx, v));
+    if (window.KontingentFrage && KontingentFrage.offen()) Net.guard('Hud.kontingentLeiste', () => { Client.kontingentLeiste = H.kontingentLeiste(v); });   // LIV-02: Lage der DOM-Leiste „Limit erhöhen?“ (Canvas-Einheiten); kontingent-frage-ui.js liest sie
     if (zerstoertOffen(Client.state)) Net.guard('Hud.drawSchiffZerstoert', () => H.drawSchiffZerstoert(ctx, v));   // SYS-01 A2b: über allen Stationen, unter den Menüseiten
     if (uiTop() === 'kammer') Net.guard('KammerUi.zeichne', () => KammerUi.zeichne(ctx, v));   // CHA-01 C: Charakterliste/Erstellung
     else if (uiTop()) Net.guard('Hud.drawUi', () => H.drawUi(ctx, v, Client.ui));

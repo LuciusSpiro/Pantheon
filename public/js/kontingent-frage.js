@@ -14,14 +14,17 @@
   const WARTE_MS = 4000;   // länger als eine Antwort braucht; bleibt sie aus (Verbindung weg), sind die Knöpfe wieder frei
   const TEXT = {
     titel: 'Limit erhöhen?',
-    text: 'Das Token-Kontingent des Spielleiters ist erreicht.',
+    text: 'Spielleiter-Limit erreicht · erhöhen?',
+    kurz: 'Limit erhöhen?',   // Kurzform, wenn die Leiste bei kleiner Skala zu schmal für den langen Text ist
     ja: 'Ja',
     nein: 'Nein',
-    fehler: 'Das hat nicht geklappt. Noch einmal versuchen.',
+    fehler: 'Hat nicht geklappt · noch einmal?',   // ersetzt den Fragetext (die Leiste bleibt einzeilig)
+    fehlerKurz: 'Noch einmal?',
   };
   const PROTO = () => (root && root.Shared_Protocol) || {};
   const eigen = (msg) => msg.pid != null && msg.pid === store.pid;
   const frei = () => { store.wartet = false; };
+  const ABSAGE = /blauen Markierung/;   // die einzige notice, mit der der Server den Befehl ablehnt (game.js onCmd: Spieler ohne color 0)
 
   function lesen(msg) {
     if (!msg || typeof msg !== 'object') return;
@@ -34,15 +37,15 @@
       if (eigen(msg) && store.offen && msg.code === 'fehler') { frei(); store.fehler = true; }
       return;
     }
-    // der Server lehnt den Befehl mit einem notice ab (kein kontingentAntwort): Frage bleibt, Knöpfe wieder frei
-    if (msg.kind === 'notice' && store.offen && store.wartet && eigen(msg)) { frei(); store.fehler = true; }
+    // der Server lehnt den Befehl mit dieser notice ab (kein kontingentAntwort): Frage bleibt, Knöpfe wieder frei; andere notices (fremde Hinweise) lassen die Wartezeit unberührt
+    if (msg.kind === 'notice' && store.offen && store.wartet && eigen(msg) && ABSAGE.test(String(msg.text || ''))) { frei(); store.fehler = true; }
   }
 
   // null: keine Frage. jetzt = Millisekunden (nur für den Ablauf der Wartezeit)
   function modell(jetzt) {
     if (!store.offen) return null;
     if (store.wartet && typeof jetzt === 'number' && jetzt - store.wartetT > WARTE_MS) frei();
-    return { titel: TEXT.titel, text: TEXT.text, ja: TEXT.ja, nein: TEXT.nein, aktiv: !store.wartet, wartet: store.wartet, fehler: store.fehler ? TEXT.fehler : '' };
+    return { titel: TEXT.titel, text: TEXT.text, kurz: TEXT.kurz, fehlerKurz: TEXT.fehlerKurz, ja: TEXT.ja, nein: TEXT.nein, aktiv: !store.wartet, wartet: store.wartet, fehler: store.fehler ? TEXT.fehler : '' };
   }
   function senden(send, cmd, jetzt) {
     const m = modell(jetzt);

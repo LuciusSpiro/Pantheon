@@ -1,38 +1,61 @@
-// LIV-02 P2: Anzeige der Frage „Limit erhöhen?“ (Modell: kontingent-frage.js). Kleines System-Popup oben über dem Spiel, nur solange der Server die Frage stellt;
-// ohne Frage wird nie ein Element angelegt. Look der Systemanzeigen (Verbindungs-Overlay, Panel „screen“): Grund #0E1A1F, Messingrand, feine Minzlinie innen, Bernstein-Titel.
-// Nicht modal: kein Backdrop, kein Fokusfang, keine Taste, keine Pause. Das Element ist klein und fängt nur auf sich selbst Mausklicks; Bedienung nur per Knopf „Ja“ / „Nein“.
+// LIV-02 P2 / Nacharbeit: Anzeige der Frage „Limit erhöhen?“ (Modell: kontingent-frage.js). Eine einzeilige, flache Leiste am unteren Rand des Spiels (Canvas-Einheiten x 356..630, y 343..359; zu Fuß weiter oben, wenn dort
+// das Boden-Panel, die ODA-Zeile oder die Funkwahl steht, siehe Hud.kontingentLeiste), nur solange der Server die Frage stellt; ohne Frage wird nie ein Element angelegt.
+// Das Element ist DOM (kein Canvas-Neubau), wird aber wie #lobbyCode mit Client.scale auf die Canvas-Fläche umgerechnet: Position und Größe folgen Skalenwechsel und Resize.
+// Look wie das Siegel „Weltstand gesichert“: flacher dunkler Grund, 1 px Messingrand, kein Schatten, keine Innenlinie. Ja und Nein sind gleich gestaltet.
+// Nicht modal: kein Backdrop, kein Fokusfang, keine Taste, keine Pause; Bedienung nur per Mausklick auf „Ja“ / „Nein“ (Knöpfe tabindex -1, Kontextmenü unterdrückt).
 (function () {
   'use strict';
   const K = window.KontingentFrage;
   if (!K) return;
-  let el = null, teile = null, wartetTimer = 0;
+  const VW = 640;
+  const STANDARD = { x: 356, y: 343, w: 274, h: 16 };   // Canvas-Einheiten (wie Hud.KONT_LEISTE); Hud.kontingentLeiste liefert zu Fuß eine höhere Lage über Client.kontingentLeiste
+  let el = null, teile = null, wartetTimer = 0, schleife = false, lageKey = '', textKey = '';
 
   const senden = (msg) => { try { return window.Net && Net.send(msg); } catch (e) { return false; } };
 
   function bauen() {
     const css = document.createElement('style');
     css.textContent = [
-      '#kontingentFrage{position:fixed;left:50%;top:10px;transform:translateX(-50%);z-index:20;box-sizing:border-box;max-width:min(420px,calc(100vw - 32px));padding:9px 14px 10px;',
-      'background:#0E1A1F;color:#F4EEDC;font:13px/1.35 monospace;border:2px solid #C9974A;box-shadow:inset 0 0 0 2px #0E1A1F,inset 0 0 0 3px rgba(127,224,194,.25),0 4px 18px rgba(0,0,0,.55)}',
-      '#kontingentFrage .kf-titel{color:#FFC66B;font-weight:bold;letter-spacing:.08em}',
-      '#kontingentFrage .kf-text{margin:4px 0 8px}',
-      '#kontingentFrage .kf-zeile{display:flex;align-items:center;gap:10px;flex-wrap:wrap}',
-      '#kontingentFrage button{cursor:pointer;font:bold 13px monospace;min-width:56px;padding:5px 14px;border-radius:0;color:#F4EEDC;background:transparent;border:2px solid #8EA3B5}',
-      '#kontingentFrage button.kf-ja{color:#1A1204;background:#FFC66B;border-color:#C9974A}',
-      '#kontingentFrage button:hover:not(:disabled){filter:brightness(1.15)}',
-      '#kontingentFrage button:focus-visible{outline:2px solid #F4EEDC;outline-offset:2px}',
+      '#kontingentFrage{position:fixed;z-index:20;box-sizing:border-box;display:flex;align-items:center;gap:8px;padding:0 6px;overflow:hidden;white-space:nowrap;',
+      'background:rgba(11,14,26,.85);color:#F4EEDC;font-family:monospace;line-height:1;border:1px solid #FFC66B;box-shadow:none}',
+      '#kontingentFrage.kf-fehler{color:#F2C94C;border-color:#F2C94C}',
+      '#kontingentFrage .kf-text{flex:1 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis}',
+      '#kontingentFrage button{flex:none;cursor:pointer;font:inherit;box-sizing:border-box;border-radius:0;padding:0 10px;color:#F4EEDC;background:transparent;border:1px solid #8EA3B5}',
+      '#kontingentFrage button:hover:not(:disabled){color:#FFC66B;border-color:#FFC66B}',
       '#kontingentFrage button:disabled{cursor:default;opacity:.55}',
-      '#kontingentFrage .kf-fehler{color:#F2C94C}',
     ].join('');
     document.head.appendChild(css);
     el = document.createElement('div');
-    el.id = 'kontingentFrage'; el.setAttribute('role', 'dialog'); el.setAttribute('aria-labelledby', 'kf-titel'); el.setAttribute('aria-describedby', 'kf-text');
-    el.innerHTML = '<div class="kf-titel" id="kf-titel"></div><div class="kf-text" id="kf-text"></div>' +
-      '<div class="kf-zeile"><button type="button" class="kf-ja"></button><button type="button" class="kf-nein"></button><span class="kf-fehler" role="status"></span></div>';
-    teile = { titel: el.querySelector('.kf-titel'), text: el.querySelector('.kf-text'), ja: el.querySelector('.kf-ja'), nein: el.querySelector('.kf-nein'), fehler: el.querySelector('.kf-fehler') };
+    el.id = 'kontingentFrage'; el.setAttribute('role', 'dialog'); el.setAttribute('aria-label', K.TEXT.titel);
+    el.innerHTML = '<span class="kf-text" role="status"></span><button type="button" class="kf-ja" tabindex="-1"></button><button type="button" class="kf-nein" tabindex="-1"></button>';
+    teile = { text: el.querySelector('.kf-text'), ja: el.querySelector('.kf-ja'), nein: el.querySelector('.kf-nein') };
+    el.addEventListener('contextmenu', (e) => { if (e && e.preventDefault) e.preventDefault(); });
     teile.ja.addEventListener('click', (e) => { e.preventDefault(); if (K.freigeben(senden, Date.now())) zeichnen(); teile.ja.blur(); });
     teile.nein.addEventListener('click', (e) => { e.preventDefault(); if (K.ablehnen(senden, Date.now())) zeichnen(); teile.nein.blur(); });
     document.body.appendChild(el);
+  }
+
+  // Lage und Größe aus der Canvas-Fläche und Client.scale (wie #lobbyCode in client.js layout()); die Unterkante bleibt fest, bei kleiner Skala wächst die Leiste nach oben (Knopfhöhe mindestens 24 px)
+  function plazieren() {
+    if (!el) return;
+    try {
+      const cv = document.getElementById && document.getElementById('game');
+      const r = cv ? cv.getBoundingClientRect() : { left: 0, top: 0, width: VW };
+      const sc = (window.Client && Client.scale) || (r.width / VW) || 1;
+      const l = (window.Client && Client.kontingentLeiste) || STANDARD;
+      const font = Math.max(13, Math.round(8 * sc));
+      const knopf = Math.max(24, Math.round(14 * sc));
+      const hoch = Math.max(Math.round(l.h * sc), knopf + 2);
+      const rechts = r.left + (l.x + l.w) * sc, unten = r.top + (l.y + l.h) * sc;
+      const key = [Math.round(rechts), Math.round(unten), Math.round(l.w * sc), hoch, font, knopf].join(',');
+      if (key === lageKey) return;
+      lageKey = key; textKey = '';   // andere Größe: Kurzform neu prüfen
+      const s = el.style;
+      s.width = Math.round(l.w * sc) + 'px'; s.height = hoch + 'px';
+      s.left = Math.round(rechts - l.w * sc) + 'px'; s.top = Math.round(unten - hoch) + 'px';
+      s.fontSize = font + 'px';
+      teile.ja.style.height = teile.nein.style.height = knopf + 'px';
+    } catch (e) { /* nie in den Spielablauf */ }
   }
 
   function zeichnen() {
@@ -40,13 +63,35 @@
     if (!m) { if (el) el.style.display = 'none'; return; }
     if (!el) bauen();
     el.style.display = '';
-    teile.titel.textContent = m.titel; teile.text.textContent = m.text;
+    el.className = m.fehler ? 'kf-fehler' : '';
     teile.ja.textContent = m.ja; teile.nein.textContent = m.nein;
     teile.ja.disabled = teile.nein.disabled = !m.aktiv;
-    teile.fehler.textContent = m.fehler;
+    plazieren();
+    // Eine Zeile, die Box wächst nie: passt der lange Text nicht in die Breite (kleine Skala), kommt die Kurzform
+    const voll = m.fehler || m.text, kurz = m.fehler ? m.fehlerKurz : m.kurz;
+    const key = lageKey + '|' + voll;
+    if (key !== textKey) {
+      textKey = key;
+      teile.text.textContent = voll;
+      if (typeof teile.text.scrollWidth === 'number' && teile.text.scrollWidth > teile.text.clientWidth + 1) teile.text.textContent = kurz;
+    }
     // fehlt die Antwort, geben die Knöpfe nach der Wartezeit von selbst wieder frei
     clearTimeout(wartetTimer);
     if (m.wartet) wartetTimer = setTimeout(zeichnen, K.WARTE_MS + 50);
+    nachfuehren();
+  }
+
+  // Solange die Leiste steht, folgt sie Skalenwechsel, Resize und der Lage, die das HUD je Frame meldet (zu Fuß ändert sie sich mit Panels)
+  function nachfuehren() {
+    if (schleife || typeof window.requestAnimationFrame !== 'function') return;
+    schleife = true;
+    const lauf = () => {
+      if (!el || el.style.display === 'none') { schleife = false; return; }
+      const alt = lageKey; plazieren();
+      if (lageKey !== alt) zeichnen();
+      window.requestAnimationFrame(lauf);
+    };
+    window.requestAnimationFrame(lauf);
   }
 
   if (window.Net && typeof Net.on === 'function') Net.on(() => zeichnen());   // nach kontingent-frage.js (Skriptreihenfolge): erst lesen, dann zeichnen

@@ -14,8 +14,9 @@
 //   sperrt(game, minBudget)  das Gate der drei Spielleiter: pruefen(game) oder Rest < mindestRest(minBudget)
 //   sperrtClaude(game, llm, kind, stufe, minBudget)  wie sperrt, aber nur fuer Anfragen, die an Claude gehen (Ollama-Stufe: false); sperrtEskalation(game, minBudget): jede Eskalation geht an Claude
 //   mindestRest(minBudget)   min(minBudget, Limit - Schwelle); ist das Limit hoechstens minBudget, bleibt minBudget (Anfragen waeren ohnehin unmoeglich)
-//   frageZustellen(game, p)  offene Frage an p, wenn p.color === 0 und verbunden (ohne p: an den Spieler mit color 0); sonst nichts
-//   freigeben(game)          Befehl kontingent.freigeben: Limit UND Schwelle +500 000, nur wenn erreicht und nicht abgelehnt (Einmal-Sperre) -> null | { code, text }; schliesst die Frage; Logbuch
+//   frageZustellen(game, p)  offene Frage an p, wenn p.color === 0 und verbunden (ohne p: an den Spieler mit color 0); nur in der Spielphase (nicht in der Lobby) und im Live-Spielleiter dieser Partie (nicht im Rueckfall); sonst nichts.
+//                            startGame stellt eine noch offene Frage beim Start nach. Frage und "Nein" gehoeren wie der Zaehler zum Prozess, nicht zur Partie (bewusst: Nein ist Nein)
+//   freigeben(game)          Befehl kontingent.freigeben: Limit UND Schwelle +500 000, nur wenn erreicht, nicht abgelehnt (Einmal-Sperre) und eine OFFENE Frage der aktuellen Schwelle steht -> null | { code, text }; schliesst die Frage; Logbuch
 //   ablehnen(game)           Befehl kontingent.ablehnen: schliesst die offene Frage fuer diese Schwelle endgueltig -> null | { code, text }; Logbuch
 //   weigerung(code)          { code, text }  (codes: nicht_erreicht, abgelehnt, keine_frage, fehler)
 const LLM = require('../mission/llm.js');
@@ -69,6 +70,7 @@ function frageZustellen(game, p) {
   try {
     const z = game && game.kontingent;
     if (!z || !z.frage || !z.frage.offen) return false;
+    if (game.phase === 'lobby' || !live(game)) return false;   // LIV-02 Nacharbeit: nur in der Spielphase und nur im Live-Spielleiter dieser Partie (in der Lobby werden Befehle verworfen); startGame stellt beim Start nach
     const ziel = p || (Array.isArray(game.players) ? game.players.find((o) => o && o.color === FRAGE_FARBE && o.connected && o.conn) : null);
     if (!ziel || ziel.color !== FRAGE_FARBE || !ziel.conn || typeof game.sendTo !== 'function') return false;
     game.sendTo(ziel.conn, { t: 'event', kind: 'kontingentFrage', pid: ziel.id });
@@ -88,6 +90,7 @@ function freigeben(game) {
   if (!erreicht()) return weigerung('nicht_erreicht');   // Einmal-Sperre: nach der Freigabe liegt used unter der neuen Schwelle, ein zweiter Druck erhoeht nichts
   const z = game ? zustand(game) : null;
   if (z && z.frage && z.frage.schwelle === schwelle() && z.frage.abgelehnt) return weigerung('abgelehnt');   // Nein ist Nein: keine Freigabe fuer diese Schwelle
+  if (!(z && z.frage && z.frage.offen && z.frage.schwelle === schwelle())) return weigerung('keine_frage');   // LIV-02 Nacharbeit: wie ablehnen nur auf eine OFFENE Frage der aktuellen Schwelle (nie ohne pruefen(), nie im Nicht-Live-Betrieb: dort ist offen false)
   const vor = LLM.budget();
   const b = LLM.raiseBudget(FREIGABE);
   if (z && z.frage) z.frage.offen = false;

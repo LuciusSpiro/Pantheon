@@ -427,6 +427,83 @@ section('Frage: kein Spieler mit color 0 beim Erreichen, spaeterer Beitritt mit 
   LLM.resetBudget();
 });
 
+// LIV-02 Nacharbeit B1: freigeben wirkt nur auf eine OFFENE Frage der aktuellen Schwelle
+section('Freigabe nur bei offener Frage (ohne pruefen, Nicht-Live, kein Weg daran vorbei)', async () => {
+  // ohne vorheriges pruefen(): Zaehler ueber der Schwelle, aber das Spiel hat die Schwelle noch nie gesehen (kein game.kontingent)
+  gesetzt(0);
+  const t = neuesSpiel();
+  LLM.addUsage(450000);
+  ok(!t.g.kontingent || !t.g.kontingent.frage, 'Ausgangslage: Zaehler ueber der Schwelle, aber keine Frage (pruefen lief noch nicht)');
+  cmd(t);
+  ok(LLM.budget().limit === 500000 && antworten(t).length === 1 && antworten(t)[0].ok === false && antworten(t)[0].code === 'keine_frage', 'cmd kontingent.freigeben ohne offene Frage: keine_frage, Limit unveraendert');
+  const r = Kontingent.freigeben(t.g);
+  ok(r && r.code === 'keine_frage' && LLM.budget().limit === 500000 && logs(t.g, 'freigabe').length === 0, 'Kontingent.freigeben(game) direkt: keine_frage, kein Logbuch-Eintrag');
+  const r0 = Kontingent.freigeben(null);
+  ok(r0 && r0.code === 'keine_frage' && LLM.budget().limit === 500000, 'Kontingent.freigeben(null): keine_frage');
+  // nach pruefen() steht die Frage: jetzt geht es (Kontrolle)
+  Kontingent.pruefen(t.g);
+  cmd(t);
+  ok(LLM.budget().limit === 1000000 && logs(t.g, 'freigabe').length === 1, 'Kontrolle: mit offener Frage wirkt kontingent.freigeben (+500 000)');
+  // Nicht-Live-Betrieb: Frage {offen:false}
+  for (const env of [{ SPIELLEITER_LLM: 'off' }, { SPIELLEITER_LLM: 'mock' }, { LLM_LIVE: '0' }]) {
+    gesetzt(450000);
+    const n = neuesSpiel(env);
+    await pumpen(n.g, 3);
+    ok(n.g.kontingent && n.g.kontingent.frage && n.g.kontingent.frage.offen === false, `${JSON.stringify(env)}: Frage nie offen`);
+    cmd(n);
+    const a = antworten(n);
+    ok(LLM.budget().limit === 500000 && a.length === 1 && a[0].ok === false && a[0].code === 'keine_frage' && logs(n.g, 'freigabe').length === 0, `${JSON.stringify(env)}: color 0 kann das Limit nicht per Befehl heben (keine_frage, Limit ${LLM.budget().limit})`);
+    ok(fragen(n.cs[0]).length === 0, `${JSON.stringify(env)}: keine Frage zugestellt`);
+  }
+  // offene Frage einer alten Schwelle zaehlt nicht fuer die aktuelle
+  gesetzt(450000);
+  const a2 = crew3(); await pumpS(a2.g, 5);
+  a2.g.kontingent.frage.schwelle = 1;   // Zustand einer fremden Schwelle
+  sende(a2, 0, 'kontingent.freigeben');
+  ok(LLM.budget().limit === 500000, 'offene Frage fuer eine andere Schwelle: keine Freigabe');
+  LLM.resetBudget();
+});
+
+// LIV-02 Nacharbeit B2: die Frage gibt es nur in der Spielphase und im Live-Spielleiter dieser Partie
+section('Frage nur in Spielphase und Live: nicht in der Lobby, nicht im Rueckfall, beim Start nachgestellt', async () => {
+  const { Game } = require('../server/game.js');
+  const neuGame = (env) => new Game({ noStore: true, worlds: true, worldSaveSync: true, worldDir: X.F.freshDir(), seed: 7, debug: true, env: Object.assign({ MISSION_SOURCE: 'fallback', REGIE_DIR: REGIE }, LIVE, env || {}), log: () => {} });
+  gesetzt(450000);
+  const g = neuGame();
+  const c0 = neuC(); g.addConnection(c0); g.handleMessage(c0, { t: 'hello', clientId: 'L0', name: 'ZEBRAKAI', color: 0 });
+  g.kontingent = { gemeldetBei: Kontingent.schwelle(), frage: { schwelle: Kontingent.schwelle(), offen: true, abgelehnt: false } };   // offene Frage aus einer frueheren Partie (prozessweit)
+  const c1 = neuC(); g.addConnection(c1); g.handleMessage(c1, { t: 'hello', clientId: 'L1', name: 'Mireille_Kas', color: 1 });
+  ok(g.phase === 'lobby', 'Ausgangslage: Lobby');
+  ok(fragen(c0).length === 0 && fragen(c1).length === 0, 'Lobby, hello: keine Frage zugestellt');
+  ok(Kontingent.frageZustellen(g, g.players[0]) === false && Kontingent.frageZustellen(g) === false && fragen(c0).length === 0, 'Lobby: frageZustellen stellt nichts zu');
+  g.handleMessage(c0, { t: 'cmd', c: 'kontingent.freigeben' }); g.handleMessage(c0, { t: 'cmd', c: 'kontingent.ablehnen' });
+  ok(LLM.budget().limit === 500000 && g.kontingent.frage.offen === true && !c0.inbox.some((m) => m.kind === 'kontingentAntwort' || m.kind === 'kontingentErledigt'), 'Befehle in der Lobby: wirkungslos (Limit gleich, Frage offen, keine Antwort)');
+  g.handleMessage(c0, { t: 'lobbyOpt', startMission: 'freie_fahrt' });
+  for (const c of [c0, c1]) g.handleMessage(c, { t: 'ready', ready: true });
+  await pumpS(g, 3);
+  ok(g.phase !== 'lobby' && fragen(c0).length === 1 && fragen(c1).length === 0, 'nach dem Start der Live-Partie: die offene Frage kommt an color 0 (genau einmal, nicht an color 1)');
+  const iq = c0.inbox.findIndex((m) => m.kind === 'kontingentFrage'), ip = c0.inbox.findIndex((m) => m.t === 'snap');
+  ok(iq >= 0 && c0.inbox.slice(0, iq).some((m) => m.t === 'welcome'), 'Zustellung nach welcome');
+  await pumpS(g, 30);
+  ok(fragen(c0).length === 1, 'weitere Schritte: keine zweite Zustellung');
+  // Rueckfall-Betrieb derselben Partie (z. B. andere Betriebsart): keine Zustellung, auch nicht beim Wiederverbinden
+  g.env = Object.assign({}, g.env, { SPIELLEITER_LLM: 'off' });
+  const c0b = neuC(); g.addConnection(c0b); g.handleMessage(c0b, { t: 'hello', clientId: 'L0', name: 'ZEBRAKAI', color: 0 });
+  ok(fragen(c0b).length === 0 && Kontingent.frageZustellen(g) === false, 'Rueckfall-Betrieb: Wiederverbinden von color 0 stellt keine Frage zu');
+  g.env = Object.assign({}, g.env, { SPIELLEITER_LLM: 'live' });
+  const c0c = neuC(); g.addConnection(c0c); g.handleMessage(c0c, { t: 'hello', clientId: 'L0', name: 'ZEBRAKAI', color: 0 });
+  ok(fragen(c0c).length === 1, 'wieder live: Wiederverbinden stellt die offene Frage zu');
+  // Start im Rueckfall: eine offene Frage wird nicht zugestellt
+  gesetzt(450000);
+  const h = neuGame({ SPIELLEITER_LLM: 'off' });
+  const d0 = neuC(); h.addConnection(d0); h.handleMessage(d0, { t: 'hello', clientId: 'R0', name: 'ZEBRAKAI', color: 0 });
+  h.kontingent = { gemeldetBei: Kontingent.schwelle(), frage: { schwelle: Kontingent.schwelle(), offen: true, abgelehnt: false } };
+  h.handleMessage(d0, { t: 'lobbyOpt', startMission: 'freie_fahrt' }); h.handleMessage(d0, { t: 'ready', ready: true });
+  await pumpS(h, 5);
+  ok(h.phase !== 'lobby' && fragen(d0).length === 0, 'Start im Rueckfall-Betrieb: keine Frage');
+  LLM.resetBudget();
+});
+
 // ---------- Snapshot: world.kontingent gibt es nicht mehr ----------
 section('Snapshot: nie world.kontingent, auch live', async () => {
   for (const [used, limit] of [[0, 500000], [450000, 500000], [9999999, 9999999]]) {

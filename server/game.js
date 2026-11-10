@@ -1155,6 +1155,7 @@ class Game {
     this.phase = 'play';
     this.stats.playTimeStart = this.time;
     this.players.forEach((p, i) => { this.resetPlayer(p, i); p.ready = true; });
+    Kontingent.frageZustellen(this);   // LIV-02: eine noch offene Limit-Frage (prozessweit) kommt beim Start der Live-Partie an den Spieler mit color 0; in der Lobby wurde nichts zugestellt
     this.runId = 'run-' + Date.now() + '-' + (++this.runCounter);
     this.telemetrie.sessionBeginnen();   // TEL-01 A: Kopfzeile reserviert, Ereignisse des Starts landen schon im Protokoll
     if (campaign) {

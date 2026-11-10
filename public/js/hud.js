@@ -18,6 +18,7 @@
     R.text(ctx, txt, x + bw + 3, y, { color: col });
   }
   const TILE = 32, VW = 640, VH = 360;
+  const KONT_LEISTE = { x: 356, y: 343, w: 274, h: 16 };   // LIV-02 Nacharbeit: Grundlage der Leiste „Limit erhöhen?“ (Canvas-Einheiten)
   // SYS-03 E: Anker des Schiffs-HUD oben rechts (Kopfzeile Marken + Schildmini, darunter Raumname, Sprungzeile, Reaktorhinweis); eine Lücke von 2 px zwischen den Blöcken
   // AUS-01 E: welches Feld der Slot-Leiste leuchtet: Index der getragenen Waffe (Snapshot wf) in den wirksamen Slots, -1 = keins
   // (Faust bei leerem Loadout, Gefangene, Debug-Waffe, Spieler ohne Kennung: wf steht dann nicht im Loadout, es wird nie ersatzweise Slot 1 markiert).
@@ -2020,10 +2021,12 @@
       if (inGame) {
         // QA-INTEGRATION S2: läuft unten eine ODA-Zeile (nicht an der Konsole), darf das Siegel nicht hineinragen
         const odaBottom = this.oda && this.oda.cur && !(me && me.console);
-        const room = odaBottom ? Math.max(80, Math.round(VW / 2 - 142) - 4 - 34 - 6) : 300;
+        let room = odaBottom ? Math.max(80, Math.round(VW / 2 - 142) - 4 - 34 - 6) : 300;
         const parts = s.text.split(' · ');
         const short = parts[0].split(' – ')[0];
         const cands = [s.text, parts.length > 1 ? 'Gesichert · ' + parts.slice(1).join(' · ') : null, short];
+        // LIV-02 Nacharbeit: steht die Frage „Limit erhöhen?“ (DOM-Leiste x 356..630, y 343..359), endet das kompakte Siegel (x 270, Breite Text + 24) spätestens bei x 352: Kurzform „Gesichert“, Raum höchstens 58
+        if (kons && window.KontingentFrage && KontingentFrage.offen()) { room = Math.min(room, KONT_LEISTE.x - 4 - 270 - 24); cands.push('Gesichert'); }
         text = cands.find(c => c && R.measure(c, 1) <= room) || this.fit(short, room, 1);
       } else {
         y = VH - h - 26;
@@ -2043,6 +2046,20 @@
       Net.guard('Hud.drawSeal', () => this.drawSeal(ctx, x + (kons ? 9 : 12), y + h / 2, Math.round((kons ? 10 : 16) * stamp), s.ok ? 'ok' : 'warn'));
       R.text(ctx, text, x + (kons ? 18 : 24), y + h / 2 - 4, { color: col });
       ctx.globalAlpha = 1;
+    },
+    // LIV-02 Nacharbeit: Lage der Leiste „Limit erhöhen?“ in Canvas-Einheiten (das Element ist DOM, kontingent-frage-ui.js rechnet mit Client.scale um). Unten rechts im Streifen y 343..359 (an den Konsolen frei);
+    // zu Fuß (ohne Konsole) darüber, wenn unten das Boden-Panel, die ODA-Zeile oder die Funkwahl steht (wie drawSaveSeal). Der Client ruft das je Frame auf, solange die Frage offen ist.
+    kontingentLeiste(view) {
+      const st = (view && view.state) || {}, me = view && view.me;
+      const inGame = !!(st.phase && st.phase !== 'lobby' && me);
+      let y = KONT_LEISTE.y;
+      if (inGame && !me.console) {
+        if (this.bodenOben != null) y = Math.min(y, this.bodenOben - KONT_LEISTE.h - 4);
+        const o = this.odaHoehe(view);
+        if (o > 0) y = Math.min(y, VH - o - 6 - KONT_LEISTE.h - 4);
+        if (window.Funkwahl && Funkwahl.offen()) y = Math.min(y, Funkwahl.rechteck(null, null, undefined, view).y - KONT_LEISTE.h - 4);
+      }
+      return { x: KONT_LEISTE.x, y, w: KONT_LEISTE.w, h: KONT_LEISTE.h };
     },
     drawPause(ctx, view, menuOpen) {
       const st = view.state;

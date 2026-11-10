@@ -45,7 +45,8 @@ let m = K.modell(0);
 ok(m && K.offen(), 'Frage für die eigene pid: Popup');
 ok(m.titel === 'Limit erhöhen?' && m.ja === 'Ja' && m.nein === 'Nein' && m.aktiv && m.fehler === '', 'Titel, Ja/Nein, Knöpfe aktiv, kein Fehler');
 ok(!/\d/.test(m.titel + m.text + m.ja + m.nein + K.TEXT.fehler), 'keine Zahlen in den Texten');
-ok(/Spielleiter/.test(m.text) && /erreicht/.test(m.text), 'Text nennt Spielleiter und erreicht');
+ok(/Spielleiter/.test(m.text) && /erreicht/.test(m.text) && m.text.length < 40, 'Text nennt Spielleiter und erreicht, eine kurze Zeile');
+  ok(m.kurz === 'Limit erhöhen?' && m.fehlerKurz.length < 20 && !/d/.test(m.kurz + m.fehlerKurz), 'Kurzformen für schmale Leisten (ohne Zahlen)');
 
 section('Befehle, Doppelklick');
 {
@@ -87,12 +88,14 @@ section('Fehlerpfad');
   ok(!/\d/.test(m.fehler), 'Fehlertext ohne Zahlen (der Servertext wird nicht angezeigt)');
   ok(K.ablehnen(l.send, 6) === true && K.modell(7).fehler === '', 'neuer Versuch löscht den Fehlertext');
   ev('notice', { text: 'Nur die Captain-Konsole.' });
+  ok(K.modell(7).wartet && K.modell(7).fehler === '', 'fremde notice (anderer Text) während der Wartezeit: Knöpfe bleiben gesperrt, kein Fehler');
+  ev('notice', { text: 'Über das Limit entscheidet der Spieler mit der blauen Markierung.' });
   m = K.modell(8);
-  ok(m && m.aktiv && m.fehler === K.TEXT.fehler, 'notice als Antwort auf den Befehl: Popup bleibt, Fehlertext, Knöpfe frei');
-  ev('notice', { text: 'irgendwas', pid: 5 });
+  ok(m && m.aktiv && m.fehler === K.TEXT.fehler, 'die Absage des Servers (notice) als Antwort auf den Befehl: Popup bleibt, Fehlertext, Knöpfe frei');
+  ev('notice', { text: 'Über das Limit entscheidet der Spieler mit der blauen Markierung.', pid: 5 });
   ok(K.modell(9).fehler === K.TEXT.fehler, 'notice an andere pid wird ignoriert (Zustand unverändert)');
   welcome(0); ev('kontingentFrage', { pid: 0 });
-  ev('notice', { text: 'ohne Befehl' });
+  ev('notice', { text: 'Über das Limit entscheidet der Spieler mit der blauen Markierung.' });
   ok(K.modell(0).fehler === '' && K.modell(0).aktiv, 'notice ohne laufenden Befehl ändert nichts');
 }
 
@@ -127,7 +130,9 @@ function dom() {
 {
   const doc = dom();
   const handler = [], sends = [];
-  const sb = { document: doc, Date, setTimeout: () => 0, clearTimeout: () => {}, console, Net: { on: (f) => handler.push(f), send: (m) => { sends.push(m); return true; } }, Shared_Protocol: Protocol };
+  const canvas = { getBoundingClientRect: () => ({ left: 160, top: 90, width: 640 * sb.Client.scale, height: 360 * sb.Client.scale }) };
+  doc.getElementById = (id) => (id === 'game' ? canvas : null);
+  const sb = { document: doc, Date, setTimeout: () => 0, clearTimeout: () => {}, console, Client: { scale: 2 }, Net: { on: (f) => handler.push(f), send: (m) => { sends.push(m); return true; } }, Shared_Protocol: Protocol };
   sb.window = sb;
   vm.createContext(sb);
   vm.runInContext(fs.readFileSync('public/js/kontingent-frage.js', 'utf8'), sb);
@@ -141,31 +146,47 @@ function dom() {
   ok(doc.elems.length === 2 && !sb.KontingentFrageUi.element(), 'kein Elementbau ohne Frage (auch nicht für fremde pid)');
   feed({ t: 'event', kind: 'kontingentFrage', pid: 0 });
   const el = sb.KontingentFrageUi.element();
-  ok(!!el && el.style.display === '', 'Frage für die eigene pid: Popup gebaut und sichtbar');
+  ok(!!el && el.style.display === '', 'Frage für die eigene pid: Leiste gebaut und sichtbar');
   ok(el.attrs.role === 'dialog' && !('aria-modal' in el.attrs), 'role dialog, aria-modal nicht gesetzt (nicht modal)');
-  ok(/<button type="button" class="kf-ja">/.test(el.innerHTML) && /class="kf-nein"/.test(el.innerHTML) && !/tabindex/i.test(el.innerHTML), 'zwei Knöpfe, kein tabindex (fokussierbar, kein Fokusfang)');
+  ok(/<button type="button" class="kf-ja" tabindex="-1">/.test(el.innerHTML) && /class="kf-nein" tabindex="-1"/.test(el.innerHTML), 'zwei Knöpfe Ja / Nein, beide tabindex -1 (kein Fokusfang)');
+  ok(typeof el.handlers.contextmenu === 'function', 'contextmenu auf dem Element behandelt');
+  { let pd = 0; el.handlers.contextmenu({ preventDefault: () => { pd++; } }); ok(pd === 1, 'contextmenu: preventDefault'); }
   const css = doc.head.children[0].textContent;
-  ok(/position:fixed/.test(css) && !/backdrop|100vh|inset:0|pointer-events:none/.test(css), 'feste kleine Box, kein Backdrop, kein Vollflächen-Element');
-  ok(/max-width:min\(420px/.test(css), 'schmal (max 420 px)');
+  ok(/position:fixed/.test(css) && !/backdrop|100vh|inset:0|pointer-events:none/.test(css), 'feste kleine Leiste, kein Backdrop, kein Vollflächen-Element');
+  ok(/background:rgba\(11,14,26,\.85\)/.test(css) && /border:1px solid #FFC66B/.test(css) && /box-shadow:none/.test(css) && !/inset/.test(css) && !/box-shadow:[^n]/.test(css), 'flach wie das Siegel: Grund rgba(11,14,26,.85), 1 px #FFC66B, kein Schatten, keine Innenlinie');
+  ok(/button\{[^}]*background:transparent;border:1px solid #8EA3B5/.test(css) && /button:hover[^{]*\{color:#FFC66B;border-color:#FFC66B/.test(css) && !/kf-ja\{/.test(css), 'Ja und Nein gleich gestaltet (transparent, Rand #8EA3B5, Hover #FFC66B), Ja nicht hervorgehoben');
   ok(!el.handlers.keydown && !doc.listeners.length && !/keydown|keyup|focus\(\)/.test(fs.readFileSync('public/js/kontingent-frage-ui.js', 'utf8')), 'keine Tastenbehandlung, kein Fokus-Aufruf');
+  // Lage: Canvas-Einheiten x 356..630, y 343..359, mal Client.scale, plus Canvas-Versatz (160, 90)
+  ok(el.style.left === 160 + 356 * 2 + 'px' && el.style.width === 274 * 2 + 'px' && el.style.top === 90 + 343 * 2 + 'px' && el.style.height === 32 + 'px', 'Skala 2: Lage left/top/width/height = Canvas 356/343/274/16 mal 2 plus Canvas-Versatz (' + [el.style.left, el.style.top, el.style.width, el.style.height].join(' ') + ')');
+  ok(el.style.fontSize === '16px', 'Skala 2: Schrift 8 x Skala = 16 px (' + el.style.fontSize + ')');
   const ja = el.sub['.kf-ja'], nein = el.sub['.kf-nein'];
-  ok(ja.textContent === 'Ja' && nein.textContent === 'Nein' && !ja.disabled && !nein.disabled, 'Knöpfe „Ja“ / „Nein“ aktiv');
+  ok(ja.style.height === '28px' && nein.style.height === '28px', 'Skala 2: Knopfhöhe max(24, 14 x Skala) = 28 px');
+  sb.Client.scale = 3; sb.KontingentFrageUi.zeichnen();
+  ok(el.style.left === 160 + 356 * 3 + 'px' && el.style.top === 90 + 343 * 3 + 'px' && el.style.height === 48 + 'px' && el.style.fontSize === '24px' && ja.style.height === '42px', 'Skalenwechsel auf 3: Lage, Höhe 48, Schrift 24, Knopfhöhe 42');
+  sb.Client.scale = 1; sb.KontingentFrageUi.zeichnen();
+  ok(el.style.fontSize === '13px' && ja.style.height === '24px' && el.style.height === '26px' && el.style.top === 90 + 359 - 26 + 'px', 'Skala 1: Schrift mindestens 13 px, Knopf mindestens 24 px, Leiste wächst nach oben (Unterkante bleibt bei Canvas-y 359)');
+  sb.Client.scale = 2; sb.Client.kontingentLeiste = { x: 356, y: 200, w: 274, h: 16 }; sb.KontingentFrageUi.zeichnen();
+  ok(el.style.top === 90 + 200 * 2 + 'px', 'zu Fuß: die vom HUD gemeldete Lage (Client.kontingentLeiste) gilt'); delete sb.Client.kontingentLeiste; sb.KontingentFrageUi.zeichnen();
+  const text = el.sub['.kf-text'];
+  ok(text.textContent === Kf.TEXT.text && ja.textContent === 'Ja' && nein.textContent === 'Nein' && !ja.disabled && !nein.disabled, 'eine Zeile „Spielleiter-Limit erreicht · erhöhen?“, Knöpfe „Ja“ / „Nein“ aktiv');
   let pd = 0; const klick = (k) => k.handlers.click({ preventDefault: () => { pd++; } });
   klick(ja); klick(ja); klick(nein);
   ok(sends.length === 1 && sends[0].c === 'kontingent.freigeben', 'Doppelklick: ein Befehl, Ja = kontingent.freigeben');
   ok(ja.disabled && nein.disabled, 'nach dem Senden: beide Knöpfe gesperrt');
   feed({ t: 'event', kind: 'kontingentAntwort', pid: 0, op: 'freigeben', ok: false, code: 'fehler', text: 'x' });
-  ok(!ja.disabled && !nein.disabled && el.sub['.kf-fehler'].textContent === Kf.TEXT.fehler && el.style.display === '', 'Fehler: Popup bleibt, Fehlertext, Knöpfe frei');
+  ok(!ja.disabled && !nein.disabled && el.style.display === '' && text.textContent === Kf.TEXT.fehler && el.className === 'kf-fehler', 'Fehler: Leiste bleibt einzeilig, der Fragetext ist durch „Hat nicht geklappt · noch einmal?“ ersetzt, Fehler-Klasse, Knöpfe frei');
+  ok(el.children.length === 0 && el.innerHTML.split('<button').length === 3 && !/kf-fehler"/.test(el.innerHTML), 'keine Zusatzzeile für den Fehler');
   klick(nein);
   ok(sends.length === 2 && sends[1].c === 'kontingent.ablehnen', 'Nein = kontingent.ablehnen');
   feed({ t: 'event', kind: 'kontingentAntwort', pid: 0, op: 'ablehnen', ok: true });
   feed({ t: 'event', kind: 'kontingentErledigt', pid: 0 });
-  ok(el.style.display === 'none', 'kontingentErledigt: Popup zu');
+  ok(el.style.display === 'none', 'kontingentErledigt: Leiste zu');
   feed({ t: 'event', kind: 'kontingentFrage', pid: 0 });
   feed({ t: 'welcome', pid: 0 });
-  ok(el.style.display === 'none', 'welcome: Popup zu');
-  ok(!/\d/.test(el.sub['.kf-titel'].textContent + el.sub['.kf-text'].textContent + ja.textContent + nein.textContent), 'sichtbare Texte ohne Zahlen');
+  ok(el.style.display === 'none', 'welcome: Leiste zu');
+  ok(!/\d/.test(text.textContent + ja.textContent + nein.textContent), 'sichtbare Texte ohne Zahlen');
 }
+
 
 section('Reste');
 {
