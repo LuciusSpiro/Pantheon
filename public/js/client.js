@@ -2087,8 +2087,6 @@
     // PAN-01 D2: Terminal – F1–F4 gehören dem Gerät (Browser-Hilfe und Suche nicht öffnen); als Zuschauer nur Esc (zurück), sonst steht die Figur still
     if (/^F[1-4]$/.test(code) && (m.console === 'shop' || (window.TerminalUI && TerminalUI.zusehend))) e.preventDefault();
     if (window.TerminalUI && TerminalUI.zusehend && !m.console) { if (code === 'Escape') { TerminalUI.zusehen(Client.view, false); Client.keys = {}; } return; }
-    // LIV-01 A2: Kontingent aufgebraucht (Live-Modus): Taste „500 000 Tokens freigeben“ (umbelegbar, nur an der Captain-Konsole wirksam); nur solange die Meldung offen ist
-    if (window.KontingentUi && Net.guard('KontingentUi.taste', () => KontingentUi.taste(e), false)) return;
     // SUND-03b A: Funk-Antwort (Freie Fahrt Sund): eine freie Taste, Punkt markiert die nächste Option, Umschalt+Punkt sendet die markierte (die Maus geht über die Knöpfe der Leiste)
     if (window.Funkwahl && window.Tasten && Funkwahl.offen()) {
       if (code === 'Escape' && Funkwahl.zuklappen()) { e.preventDefault(); return; }   // UI2: eine selbst aufgeklappte Leiste an einer Konsole mit Bedienflächen klappt zuerst wieder zu (Esc verlässt die Konsole erst beim nächsten Druck)

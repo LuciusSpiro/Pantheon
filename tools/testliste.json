@@ -225,7 +225,7 @@
   {"id":"sim-regie --pruefen","kette":"test","cmd":["tools/sim-regie.js","--pruefen"],"stufe":"slow","budget_s":61},
   {"id":"test-lage-spielleiter","kette":"test","cmd":["tools/test-lage-spielleiter.js"],"stufe":"fast","budget_s":10},
   {"id":"test-kontingent","kette":"test","cmd":["tools/test-kontingent.js"],"stufe":"fast","budget_s":12},
-  {"id":"test-kontingent-ui","kette":"test","cmd":["tools/test-kontingent-ui.js"],"stufe":"fast","budget_s":10},
+  {"id":"test-kontingent-frage","kette":"test","cmd":["tools/test-kontingent-frage.js"],"stufe":"fast","budget_s":10},
   {"id":"test-reise-ereignis","kette":"test","cmd":["tools/test-reise-ereignis.js"],"stufe":"fast","budget_s":10},
   {"id":"test-chronik","kette":"test","cmd":["tools/test-chronik.js"],"stufe":"fast","budget_s":7},
   {"id":"test-lage-wiederholung","kette":"test","cmd":["tools/test-lage-wiederholung.js"],"stufe":"fast","budget_s":10},
