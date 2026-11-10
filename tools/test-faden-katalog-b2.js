@@ -377,17 +377,20 @@ section('(c4b) Konvoi pluendern: ohne Platz fuer die Beute gilt aufhalten (gewin
   // voller Frachtraum (fremde Ladung): die Vorwarnung nennt aufhalten, kein Fehler, die Szene ist zu gewinnen
   { const t = neu(60, 3), g = t.g; let cap = 0;
     const f = pluendernStart(t, 1, (gg) => { cap = Fracht.capacity(gg); for (let i = 0; i < cap; i++) Fracht.anBordLegen(gg, 'sprengstoff'); });
-    ok(cap === 2 && Fracht.frei(g) === 0, 'Ausgangslage: Frachtraum voll (fremder Sprengstoff)');
+    ok(cap === 4 && Fracht.frei(g) === 0, 'Ausgangslage: Frachtraum voll (fremder Sprengstoff, 4 von 4)');
     ok(szene(g).plan.sieg === 'aufhalten' && szene(g).textKey === 'konvoi' && g.space.konvoi.sieg === 'aufhalten' && !t.funk.some((x) => x.includes('Beute beamen')), 'voller Frachtraum: Plan und Konvoi gelten als aufhalten, die Vorwarnung kuendigt keine Beute an');
     for (const e of Konvoi.transporter(g)) Testhilfe.toeten(g, e);
     t.run(1.5);
     ok(!szene(g) && f.phase === 'wartet' && f.beat === 1 && f.nsc.status === 'verbuendet' && t.funk.includes(SZ.texte.gelungen.konvoi), 'die Szene ist gewinnbar: Transporter zerstoert, gelungen, der NSC ist verbuendet');
     ok(Fracht.anBord(g, 'sprengstoff') === cap && Fracht.anBord(g) === cap && Fracht.draussen(g).length === 0 && !t.funk.includes(SZ.texte.beute_uebernommen) && g.errors === 0, 'fremde Fracht unangetastet, keine Beute am Boden, kein Uebernahme-Funk ohne Beute'); }
-  // teilweise voll: ein freier Platz, aber zwei Transporter (Crew 3) verlangen zwei: aufhalten; mit zwei freien Plaetzen bleibt es pluendern
+  // LAD-01 A2 (Typ-Regel): Plaetze nur fuer die Art der Beute zaehlen. Das einzige Modul traegt fremden Sprengstoff (3 Plaetze frei, aber fuer die falsche Art): aufhalten;
+  // mit einem zweiten, freien Frachtraum bleibt es pluendern
   { const t = neu(61, 3), g = t.g; pluendernStart(t, 1, (gg) => { Fracht.anBordLegen(gg, 'sprengstoff'); });
-    ok(Fracht.frei(g) === 1 && szene(g).plan.sieg === 'aufhalten', 'ein Platz frei, zwei Transporter: aufhalten');
-    const t2 = neu(62, 3), g2 = t2.g; pluendernStart(t2, 1);
-    ok(Fracht.frei(g2) === 2 && szene(g2).plan.sieg === 'pluendern' && szene(g2).textKey === 'konvoi_pluendern' && g2.space.konvoi.sieg === 'pluendern', 'zwei Plaetze frei: es bleibt pluendern'); }
+    ok(Fracht.frei(g) === 3 && szene(g).plan.sieg === 'aufhalten', 'drei Plaetze frei, aber im Modul mit fremder Art: aufhalten');
+    const t2 = neu(62, 3), g2 = t2.g; pluendernStart(t2, 1, (gg) => { zweiRaeume(gg); Fracht.anBordLegen(gg, 'sprengstoff'); });
+    const t3 = neu(64, 3), g3 = t3.g; pluendernStart(t3, 1, (gg) => { for (let i = 0; i < 3; i++) Fracht.anBordLegen(gg, 'fracht'); });
+    ok(Fracht.frei(g3) === 1 && szene(g3).plan.sieg === 'aufhalten', 'drei Fracht im Modul (derselben Art), ein Platz frei, zwei Transporter: aufhalten (der freie Platz zaehlt, nicht die Kapazitaet)');
+    ok(Fracht.freiFuer(g2, 'fracht') === 4 && szene(g2).plan.sieg === 'pluendern' && szene(g2).textKey === 'konvoi_pluendern' && g2.space.konvoi.sieg === 'pluendern', 'zwei Plaetze frei: es bleibt pluendern'); }
   // Kapazitaet 0 (kein Frachtraum eingebaut), eine Crew: aufhalten, gewinnbar
   { const t = neu(63, 1), g = t.g;
     const f = pluendernStart(t, 1, (gg) => { gg.ship.module = []; });
@@ -416,7 +419,7 @@ section('(c4b) Konvoi pluendern: ohne Platz fuer die Beute gilt aufhalten (gewin
   for (const [name, ende] of Object.entries(enden)) {
     const t = neu(nr++, 3), g = t.g;
     pluendernStart(t, 1, (gg) => { zweiRaeume(gg); Fracht.anBordLegen(gg, 'sprengstoff'); });   // fremd: ein Sprengstoff
-    ok(szene(g).plan.sieg === 'pluendern' && Fracht.capacity(g) === 4, name + ': Ausgangslage (vier Plaetze, ein fremder Sprengstoff, Sieg pluendern)');
+    ok(szene(g).plan.sieg === 'pluendern' && Fracht.capacity(g) === 8, name + ': Ausgangslage (acht Plaetze in zwei Modulen, ein fremder Sprengstoff, Sieg pluendern)');
     beuteBeamen(t, 1);   // nur EIN Transporter faellt: eine Beute an Bord, der Konvoi ist noch nicht durch
     ok(!!szene(g) && Fracht.anBord(g, 'fracht') === 1 && Fracht.anBord(g) === 2, name + ': eine Beute ist an Bord, die Szene laeuft');
     Fracht.anBordLegen(g, 'sprengstoff');   // nach der Beute zugestiegen: liegt hinter ihr im Frachtraum und darf nicht statt ihrer gehen

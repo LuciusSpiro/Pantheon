@@ -54,13 +54,13 @@
     '      ##################################', // 32
     '      #.q.h.q.#=====#.q.h.q.#==========#', // 33
     '      #.......#=1=7=#.......#========K=#', // 34
-    '      #.r...r.#=====#.r...r.#==========#', // 35
+    '      #.q...q.#=====#.q...q.#==========#', // 35
     '      ####+####=====####D#####=========#', // 36
     '      #^^.....#=====#.......^^=========#', // 37
     '      #^^.....D==!==+.......^^=========#', // 38
     '      #^^.....#=====#.......^^=========#', // 39
     '      ####+####=====####D#####=========#', // 40
-    '      #.r...r.#=====#.r...r.#==========#', // 41
+    '      #.q...q.#=====#.q...q.#==========#', // 41
     '      #.......#=3=9=#.......#========5=#', // 42
     '      #.q.h.q.#=====#.q.h.q.#======I===#', // 43
     '      ##################################', // 44
@@ -262,11 +262,10 @@
     'e': { kind: 'cargo_cot', solid: true },              // Pritsche (Kulisse)
     'z': { kind: 'tool_wall', solid: true },              // Werkzeugwand (Kulisse)
     '0': { kind: 'locker', solid: true },                 // PAN-01 B: Spind im Quartier (Kulisse; Optik-Einstellungen später)
-    // ---- PAN-01 B: Modulräume (vier gleich große Räume, jedes Modul in jedem Raum). Die Kacheln q/r/h stehen in jedem Raum an denselben Stellen und sind
-    // immer solide; was sie darstellen, hängt vom Modul im Raum ab (Frachtraum: Bucht, Bett, Stapel · Krankenstation: Liege, Liege, Scanner · Werkstatt: Werkbank,
+    // ---- PAN-01 B: Modulräume (vier gleich große Räume, jedes Modul in jedem Raum). Die Kacheln q/h stehen in jedem Raum an denselben Stellen und sind
+    // immer solide; was sie darstellen, hängt vom Modul im Raum ab (Frachtraum: Platz (Bett bei Personen, sonst Ware), Stapel · Krankenstation: Liege, Scanner · Werkstatt: Werkbank,
     // Werkzeugwand, Maschine · ohne Modul: Stauware). Zustand (Ware, Person) kommt aus snapshot.fracht, das Modul aus snapshot.ship.mod.
-    'q': { kind: 'mod_a', solid: true },                  // Modulplatz A (2 je Raum): Frachtbucht (CARGO_BAYS)
-    'r': { kind: 'mod_b', solid: true },                  // Modulplatz B (2 je Raum): Frachtbett (CARGO_BEDS)
+    'q': { kind: 'mod_a', solid: true },                  // Modulplatz A (4 je Raum, LAD-01 A2): Frachtplatz (CARGO_PLAETZE); Betten und Buchten sind keine getrennten Kacheln mehr, die Belegung bestimmt die Darstellung
     'h': { kind: 'mod_c', solid: true },                  // Modulplatz C (1 je Raum): Zierstück des Moduls
     '+': { kind: 'door_sealed', solid: true },            // verschalte Pforte (SHIP_SEALS): solide, bis die Ausbaustufe sie öffnet
     // Lafetten der Waffenplätze (WAFFENPLAETZE); 8, 4 und 6 sind die Stationen K, M und J
@@ -463,8 +462,8 @@
     { id: 'lafetten_stb', name: 'Lafetten Steuerbord', kind: 'lafetten', sector: 1, deck: 2, x0: 15, y0: 39, x1: 19, y1: 43, stufe: 1 },
     { id: 'bugraum', name: 'Bugraum', kind: 'room', sector: 0, deck: 2, x0: 29, y0: 33, x1: 38, y1: 43 },
   ];
-  // PAN-01 B: Modulplätze je Modulraum aus der Karte (Kacheln q = Bucht, r = Bett) – eine Quelle mit der Karte, keine zweite Koordinatenliste.
-  // Der Zugang liegt in der mittleren Reihe des Raums (dort ist immer Boden). Reihenfolge: Raum, dann x.
+  // PAN-01 B / LAD-01 A2: Modulplätze je Modulraum aus der Karte (Kachel q = Frachtplatz, 4 je Raum) – eine Quelle mit der Karte, keine zweite Koordinatenliste.
+  // Der Zugang liegt in der mittleren Reihe des Raums (dort ist immer Boden). Reihenfolge: Raum, dann x, dann y. nr = (Raum − 1) × 4 + Platz im Raum (0–15).
   function modulPlaetze(ch, prefix) {
     const out = [];
     for (const m of MODUL_RAEUME) {
@@ -472,26 +471,61 @@
       const midY = (r.y0 + r.y1) >> 1;
       const list = [];
       for (let y = r.y0; y <= r.y1; y++) for (let x = r.x0; x <= r.x1; x++) if (SHIP_ROWS[y][x] === ch) list.push({ x, y });
-      list.sort((a, b) => a.x - b.x);
-      list.forEach((t, i) => out.push({ id: prefix + ((m.raum - 1) * 2 + i), raum: m.raum, x: t.x, y: t.y, access: { x: t.x, y: midY } }));
+      list.sort((a, b) => a.x - b.x || a.y - b.y);
+      list.forEach((t, i) => out.push({ id: prefix + ((m.raum - 1) * 4 + i), nr: (m.raum - 1) * 4 + i, raum: m.raum, x: t.x, y: t.y, access: { x: t.x, y: midY } }));
     }
     return out;
   }
-  // EK3 Teil A / PAN-01 B: Frachtbuchten in den Modulräumen (4 Räume × 2). Eine Bucht fasst genau eine Ladung. Belegt sind nur die Buchten der Räume, in denen das Modul
-  // Frachtraum steht (frachtPlaetze), je Frachtraum 2 Plätze. Kein Schiffssystem (keine Treffer-Wirkung, nur die Energie des Moduls).
-  const CARGO_BAYS = modulPlaetze('q', 'bay');
-  const CARGO_PER_RAUM = 2;
-  function cargoBayAt(tx, ty) { return CARGO_BAYS.find((b) => b.x === tx && b.y === ty) || null; }
-  // SL0 / PAN-01 B: Betten für Personen (2 je Modulraum). Eine Person an Bord belegt einen Frachtplatz (gemeinsam mit den Buchten) und liegt auf einem Bett eines Frachtraums.
-  const CARGO_BEDS = modulPlaetze('r', 'bett');
-  function cargoBedAt(tx, ty) { return CARGO_BEDS.find((b) => b.x === tx && b.y === ty) || null; }
-  // Aktive Buchten und Betten für die Modulräume `raeume` (Nummern der Räume, in denen ein Frachtraum steht): { bays, beds }, Reihenfolge nach Raum und x.
+  // EK3 Teil A / PAN-01 B / LAD-01 A2: Frachtplätze in den Modulräumen (4 Räume × 4). Ein Platz fasst genau eine Ladung (Ware oder Person); Personen liegen auf einem Platz als Bett.
+  // Belegbar sind nur die Plätze der Räume, in denen das Modul Frachtraum steht (frachtPlaetze), je Frachtraum 4. Ein Frachtraum fasst nur eine ART Ladung (frachtBelegung).
+  // Kein Schiffssystem (keine Treffer-Wirkung, nur die Energie des Moduls).
+  const CARGO_PLAETZE = modulPlaetze('q', 'platz');
+  const CARGO_PER_RAUM = 4;
+  function cargoPlatzAt(tx, ty) { return CARGO_PLAETZE.find((b) => b.x === tx && b.y === ty) || null; }
+  // Aktive Plätze für die Modulräume `raeume` (Nummern der Räume, in denen ein Frachtraum steht), Reihenfolge nach Raum und Platz.
   function frachtPlaetze(raeume) {
     const set = new Set(raeume || []);
-    return { bays: CARGO_BAYS.filter((b) => set.has(b.raum)), beds: CARGO_BEDS.filter((b) => set.has(b.raum)) };
+    return CARGO_PLAETZE.filter((b) => set.has(b.raum));
   }
-  // Frachtkapazität (Plätze für Waren und Personen) bei diesen Frachträumen: 2 je Raum
+  // Frachtkapazität (Plätze für Waren und Personen) bei diesen Frachträumen: 4 je Raum
   function cargoCapacity(raeume) { return new Set(raeume || []).size * CARGO_PER_RAUM; }
+  // LAD-01 A2: die EINE Belegungsregel, Server (Typ-Regel, fracht.platzFuer) und Client (Darstellung) rechnen dieselbe Funktion. Rein und deterministisch: sie hängt nur von den
+  // Frachträumen, den Arten der Waren (Reihenfolge des Lagers) und der Zahl der Personen ab, nicht von einem gespeicherten Raumfeld.
+  // Typ-Regel: Ein Frachtraum fasst nur EINE Art (Personen sind eine Art wie jede andere, 4 Personen = 4 Betten), höchstens CARGO_PER_RAUM Stück. Arten werden in der Reihenfolge ihres
+  // ersten Auftretens gruppiert (Personen zuerst, ihre Zahl steht im Snapshot getrennt von lager), eine Gruppe belegt ceil(n / 4) Module in Raumreihenfolge. Wird eine Gruppe aufgelöst,
+  // rücken die späteren nach (Anzeigesprung, bewusst hingenommen). -> { module: [{ raum, art | null, anzahl, plaetze: [{ ...Platz, art | null }] }], ueber }
+  // ueber = Zahl der Ladungen ohne Modul (0 = alles hat Platz); art eines Platzes = Art der Ladung darauf (null = leer), art des Moduls = sein Typ (null = leer, kann alles aufnehmen).
+  function frachtBelegung(raeume, lager, persAnzahl) {
+    const rs = Array.from(new Set(raeume || [])).sort((a, b) => a - b);
+    const module = rs.map((raum) => ({ raum, art: null, anzahl: 0, plaetze: CARGO_PLAETZE.filter((p) => p.raum === raum).map((p) => Object.assign({}, p, { art: null })) }));
+    const gruppen = [];
+    const p = Math.max(0, persAnzahl | 0);
+    if (p) gruppen.push({ art: 'person', n: p });
+    for (const a of lager || []) { let g = gruppen.find((q) => q.art === a); if (!g) gruppen.push(g = { art: a, n: 0 }); g.n++; }
+    let ueber = 0;
+    for (const g of gruppen) {
+      let rest = g.n;
+      while (rest > 0) {
+        const m = module.find((q) => q.art === null);
+        if (!m) { ueber += rest; break; }
+        const k = Math.min(CARGO_PER_RAUM, rest);
+        m.art = g.art; m.anzahl = k;
+        for (let i = 0; i < k; i++) m.plaetze[i].art = g.art;
+        rest -= k;
+      }
+    }
+    return { module, ueber };
+  }
+  // Client (Darstellung, LAD-01 F2): die Belegung aus dem Snapshot (ship.mod, fracht.lager, fracht.pers) und der Platz an einer Kachel
+  function frachtBelegungAusSnapshot(st) {
+    const f = (st && st.fracht) || {};
+    return frachtBelegung(frachtRaeumeAusMod(st && st.ship && st.ship.mod), f.lager || [], (f.pers || []).length);
+  }
+  // -> { raum, nr, modulArt (Typ des Moduls, null = leer), art (Ladung auf diesem Platz, null = leer) } | null (kein belegbarer Platz)
+  function frachtPlatzAn(belegung, tx, ty) {
+    for (const m of belegung.module) for (const p of m.plaetze) if (p.x === tx && p.y === ty) return { raum: m.raum, nr: p.nr, modulArt: m.art, art: p.art };
+    return null;
+  }
   // Client: Module aus dem Snapshot-Feld ship.mod ([[code, raum, an, läuft]]; Codes CONFIG.module.codes: f Frachtraum, k Krankenstation, w Werkstatt)
   const MODUL_CODE_FRACHT = 'f';
   function frachtRaeumeAusMod(mod) { return (mod || []).filter((m) => m && m[0] === MODUL_CODE_FRACHT).map((m) => m[1]); }
@@ -662,7 +696,7 @@
     SHIP_ROWS, PLATFORM_ROWS, LEGEND, PLATFORM_LEGEND,
     SHELVES, BEDS, REACTOR_SWITCHES, SHIP_SPAWNS, BOT_SPAWNS, HAUPTSCHIRM, KONSOLEN_FRONT, PLATFORM_PADS, SECTOR_REGIONS,
     // M3a Schritt 0: Schiffslayout als Daten (CONTRACT-M3 §3)
-    SHIP_ROOMS, SHELF_TILES, SHIP_DRILL, roomAt, nutzungAt, shelfAt, CARGO_BAYS, CARGO_PER_RAUM, cargoBayAt, CARGO_BEDS, cargoBedAt, frachtPlaetze, cargoCapacity, frachtRaeumeAusMod, modulCodeImRaum, MODUL_CODE_FRACHT,
+    SHIP_ROOMS, SHELF_TILES, SHIP_DRILL, roomAt, nutzungAt, shelfAt, CARGO_PLAETZE, CARGO_PER_RAUM, cargoPlatzAt, frachtPlaetze, frachtBelegung, frachtBelegungAusSnapshot, frachtPlatzAn, cargoCapacity, frachtRaeumeAusMod, modulCodeImRaum, MODUL_CODE_FRACHT,
     // M3a: Schiffslegende mit Stationen, Ivo-Wegpunkte, Sektornamen
     SHIP_LEGEND, IVO_SPOTS, IVO_AUSSTIEG, SECTOR_NAMES,
     // M4 „Zwei Decks“ (CONTRACT-M4 §2.3), PAN-01 B „Drei Decks“: Decks, Lifts, Notleiter, Ausbaustufen, Waffenplätze, Modulräume

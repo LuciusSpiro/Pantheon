@@ -46,6 +46,6 @@ module.exports = (Registry) => {
     params: { art: { typ: 'string', pflicht: true, werte: ARTEN }, n: { typ: 'number', min: 1, max: 4 } },
     run(m, a) {
       const g = m.game; const F = fracht();
-      for (let i = 0; i < (a.n != null ? a.n : 1); i++) if (!F.anBordLegen(g, a.art)) break;
+      for (let i = 0; i < (a.n != null ? a.n : 1); i++) if (!F.zuteilen(g, a.art)) break;   // LAD-01 A2: Typ-Regel; ein Typkonflikt mit fremder Ware wird aufgelöst (Fracht.zuteilen), die Kette hängt nie fest
     } });
 };

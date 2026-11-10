@@ -65,7 +65,7 @@ section('Altverhalten unverändert', () => {
   ok(CONFIG.fracht.preise.deuterium === 40 && CONFIG.fracht.gewicht.deuterium === 0.15, 'Config: Deuterium 40 Marken, Gewicht 0,15');
   ok(Object.keys(CONFIG.fracht.gewicht).length === 1, 'nur Deuterium hat Gewicht');
   ok(Fracht.artName('sprengstoff') === 'Sprengstoff' && Fracht.artName('fracht') === 'Fracht' && Frachtliste.artName('deuterium') === 'Deuterium', 'Namen wie vorher');
-  ok(CONFIG.fracht.beamRange === 320 && require('../shared/maps.js').CARGO_PER_RAUM === 2, 'Beamreichweite und 2 Plätze je Frachtraum (A1 ändert nichts)');
+  ok(CONFIG.fracht.beamRange === 320 && require('../shared/maps.js').CARGO_PER_RAUM === 4, 'Beamreichweite 320 und 4 Plätze je Frachtraum (LAD-01 A2)');
   const h = new Game({ noStore: true, seed: 3, log: () => {} });
   ok(Fracht.anBordLegen(h, null) === true && Fracht.lagerArten(h)[0] === 'sprengstoff', 'anBordLegen ohne Art legt die Standardart');
   ok(Fracht.anBordLegen(h, 'kaviar') === false, 'unbekannte Art wird abgelehnt');

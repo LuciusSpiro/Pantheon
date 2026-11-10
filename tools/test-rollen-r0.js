@@ -28,7 +28,7 @@ function neuesSpiel(spieler) {
   return { g, conns, run, notices, tap };
 }
 const tileOf = (o) => Physics.toTile(o.x, o.y);
-const bayKachel = new Set(Maps.CARGO_BAYS.flatMap((b) => [b.x + ',' + b.y, b.access.x + ',' + b.access.y]));
+const bayKachel = new Set(Maps.CARGO_PLAETZE.flatMap((b) => [b.x + ',' + b.y, b.access.x + ',' + b.access.y]));
 
 console.log('\n[R0: vier Spieler, Farben, Spawns]');
 {
@@ -96,7 +96,7 @@ console.log('\n[R0: Ivo im Frachtraum]');
   for (let y = 17; y <= 27; y++) for (let x = 29; x <= 38; x++) { const k = Maps.ship.info(x, y).kind; if (k === 'cargo_cot' || k === 'tool_wall') ecke.push({ x, y, k }); }
   ok(ecke.some((e) => e.k === 'cargo_cot') && ecke.some((e) => e.k === 'tool_wall'), 'Schlafecke (Pritsche, Werkzeugwand) in der Messe');
   ok(ecke.every((e) => !bayKachel.has(e.x + ',' + e.y)), 'Schlafecke belegt keine Bucht und keine Zugangskachel');
-  ok(Maps.CARGO_BAYS.length === 8 && Maps.CARGO_BAYS.every((b) => Maps.ship.at(b.x, b.y) === 'q' && !Maps.ship.solid(b.access.x, b.access.y)), 'acht Frachtbuchten (2 je Modulraum) mit freien Zugängen');
+  ok(Maps.CARGO_PLAETZE.length === 16 && Maps.CARGO_PLAETZE.every((b) => Maps.ship.at(b.x, b.y) === 'q' && Maps.ship.solid(b.x, b.y) && !Maps.ship.solid(b.access.x, b.access.y)), 'sechzehn Frachtplätze (4 je Modulraum), solide, mit freien Zugängen');
   ok(g.odaSeen.has('ivoMovedIn'), 'ODA-Hinweis beim Einzug');
   // er schlendert: nach einer Weile an anderer Kachel, bleibt auf Deck II
   run(30);
@@ -175,7 +175,7 @@ console.log('\n[R0: Ivo abgeben (nur angedockt)]');
 console.log('\n[R0: Fracht-Mechanik unberührt]');
 {
   const { g } = neuesSpiel(2);
-  ok(Fracht.capacity(g) === 2 && typeof Fracht.toSave === 'function', 'Kapazität 2 (ein Frachtraum), Fracht-Modul vorhanden');
+  ok(Fracht.capacity(g) === 4 && typeof Fracht.toSave === 'function', 'Kapazität 4 (ein Frachtraum), Fracht-Modul vorhanden');
   // Erreichbarkeit der Zugangskacheln vom Spawn (BFS über alle Decks, Lift) bei voll ausgebauter Lerche
   const solid = Maps.shipSolidFn(Maps.STUFE_MAX);
   const seen = new Set(); const q = [[Maps.SHIP_SPAWNS[0].x, Maps.SHIP_SPAWNS[0].y]]; seen.add(q[0].join(','));
@@ -184,7 +184,7 @@ console.log('\n[R0: Fracht-Mechanik unberührt]');
     const next = [[1, 0], [-1, 0], [0, 1], [0, -1]].map(([dx, dy]) => [x + dx, y + dy]).concat(Maps.deckLinks(x, y).map((l) => [l.x, l.y]));
     for (const [nx, ny] of next) { const key = nx + ',' + ny; if (!seen.has(key) && ny >= 0 && ny <= 44 && nx >= 0 && nx <= 39 && !solid(nx, ny)) { seen.add(key); q.push([nx, ny]); } }
   }
-  ok(Maps.CARGO_BAYS.every((b) => seen.has(b.access.x + ',' + b.access.y)), 'Zugangskacheln aller acht Buchten erreichbar (voll ausgebaut)');
+  ok(Maps.CARGO_PLAETZE.every((b) => seen.has(b.access.x + ',' + b.access.y)), 'Zugangskacheln aller sechzehn Plätze erreichbar (voll ausgebaut)');
   void g;
 }
 

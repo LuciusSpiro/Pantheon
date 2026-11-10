@@ -70,18 +70,18 @@ function arena() {
 }
 const pod = (T, dx, art) => Fracht.fracht_abwerfen(T.g, T.g.ship.x + (dx == null ? 150 : dx), T.g.ship.y, art || 'sprengstoff');
 
-section('Grundriss: Frachtbuchten in den Modulräumen (PAN-01 B: kein fester Frachtraum mehr)', () => {
+section('Grundriss: Frachtplätze in den Modulräumen (PAN-01 B, LAD-01 A2: 4 Plätze je Raum)', () => {
   const ids = Maps.SHIP_ROOMS.map((r) => r.id);
   ok(!ids.includes('bad') && !ids.includes('aussicht') && !ids.includes('frachtraum') && ['modul1', 'modul2', 'modul3', 'modul4'].every((id) => ids.includes(id)), 'Räume bad, aussicht und frachtraum entfallen, vier Modulräume neu (' + ids.length + ' Räume)');
   const m1 = Maps.SHIP_ROOMS.find((r) => r.id === 'modul1');
   ok(m1.deck === 2 && m1.kind === 'modul' && m1.modul === 1 && m1.x0 === 21 && m1.x1 === 27 && m1.y0 === 33 && m1.y1 === 35, 'Modulraum 1 auf dem Unterdeck, 21–27 × 33–35');
-  ok(Maps.CARGO_BAYS.length === 8 && Maps.CARGO_PER_RAUM === 2, 'acht Frachtbuchten (zwei je Modulraum), Kapazität 2 je Frachtraum');
-  for (const b of Maps.CARGO_BAYS) {
+  ok(Maps.CARGO_PLAETZE.length === 16 && Maps.CARGO_PER_RAUM === 4, 'sechzehn Frachtplätze (vier je Modulraum), Kapazität 4 je Frachtraum');
+  for (const b of Maps.CARGO_PLAETZE) {
     ok(Maps.ship.at(b.x, b.y) === 'q' && Maps.ship.info(b.x, b.y).kind === 'mod_a' && Maps.ship.solid(b.x, b.y), `Bucht ${b.id} (${b.x},${b.y}): Modulplatz A, solide (Kollision)`);
     ok(Maps.ship.at(b.access.x, b.access.y) === '.' && !Maps.ship.solid(b.access.x, b.access.y), `Bucht ${b.id}: Zugangskachel begehbar`);
     ok(Maps.roomAt(b.x, b.y) && Maps.roomAt(b.x, b.y).modul === b.raum, `Bucht ${b.id} liegt in Modulraum ${b.raum}`);
   }
-  ok(Maps.cargoBayAt(22, 33) && !Maps.cargoBayAt(23, 33), 'cargoBayAt');
+  ok(Maps.cargoPlatzAt(22, 33) && !Maps.cargoPlatzAt(23, 33), 'cargoPlatzAt');
   // keine alten Kacheln mehr
   const rows = Maps.SHIP_ROWS.join('');
   ok(!rows.includes('%') && !rows.includes('g') && !rows.includes('l'), 'Frachtbucht g, Frachtbett l und Panoramafenster (%) stehen nicht mehr auf der Karte');
@@ -113,18 +113,18 @@ section('Grundriss: Frachtbuchten in den Modulräumen (PAN-01 B: kein fester Fra
   ok(Maps.hazardAllowed(22, 34, 3) && !Maps.hazardAllowed(22, 19, 3), 'in den Modulräumen kann es brennen (Unterdeck), auf dem Oberdeck nie');
 });
 
-section('Frachträume: Kapazität folgt den Modulen (2 je Frachtraum, auch mehrfach)', () => {
+section('Frachträume: Kapazität folgt den Modulen (4 je Frachtraum, auch mehrfach)', () => {
   const T = arena();
   const Modul = require('../server/sim/module.js');
   const Ausbau = require('../server/sim/ausbau.js');
   const cap = () => Fracht.capacity(T.g);
-  ok(cap() === 2 && Modul.frachtRaeume(T.g).join() === '1', 'Start-Lerche: ein Frachtraum (Raum 1), Kapazität 2');
+  ok(cap() === 4 && Modul.frachtRaeume(T.g).join() === '1', 'Start-Lerche: ein Frachtraum (Raum 1), Kapazität 4');
   Ausbau.setStufe(T.g, 3);
   T.g.ship.module = [{ id: 'frachtraum', raum: 1, an: true, lauf: true }, { id: 'frachtraum', raum: 2, an: true, lauf: true }, { id: 'frachtraum', raum: 4, an: true, lauf: true }];
   Modul.verteilungSetzen(T.g);
-  ok(cap() === 6 && Fracht.frei(T.g) === 6, 'drei Frachträume: Kapazität 6');
-  for (let i = 0; i < 6; i++) ok(Fracht.anBordLegen(T.g, 'deuterium'), `Ware ${i + 1} von 6 an Bord`);
-  ok(!Fracht.anBordLegen(T.g, 'deuterium') && Fracht.frei(T.g) === 0, 'siebte Ware abgelehnt (voll)');
+  ok(cap() === 12 && Fracht.frei(T.g) === 12, 'drei Frachträume: Kapazität 12');
+  for (let i = 0; i < 12; i++) ok(Fracht.anBordLegen(T.g, 'deuterium'), `Ware ${i + 1} von 12 an Bord`);
+  ok(!Fracht.anBordLegen(T.g, 'deuterium') && Fracht.frei(T.g) === 0, 'dreizehnte Ware abgelehnt (voll)');
   const err = Fracht.beamStart(T.g, T.p, null);
   ok(/voll/.test(err), 'Beamen bei vollem Frachtraum: ' + err);
   Fracht.debug(T.g, ['leer']);
@@ -251,18 +251,17 @@ section('Beamen: weitere Abbruchgründe und Ablehnungen', () => {
   ok(!T.g.ship.beaming && !T.g.transfer.isBeaming(T.g), 'Fracht-Beamen senkt die Schilde nicht (kein ship.beaming)');
 });
 
-section('Frachtraum voll: dritte Ladung wird abgelehnt', () => {
+section('Frachtraum voll: fünfte Ladung wird abgelehnt (4 Plätze je Frachtraum)', () => {
   const T = arena(); T.taktik();
-  pod(T, 100); pod(T, 140); pod(T, 180);
-  T.cmd('weapons.fracht'); T.run(3.1);
-  T.cmd('weapons.fracht'); T.run(3.1);
-  ok(Fracht.anBord(T.g) === 2 && Fracht.frei(T.g) === 0, 'zwei Ladungen an Bord (2/2)');
-  ok(JSON.stringify(T.g.snapshot().fracht.lager) === '["sprengstoff","sprengstoff"]', 'Snapshot: zwei Ladungen');
+  pod(T, 100); pod(T, 120); pod(T, 140); pod(T, 160); pod(T, 180);
+  for (let i = 0; i < 4; i++) { T.cmd('weapons.fracht'); T.run(3.1); }
+  ok(Fracht.anBord(T.g) === 4 && Fracht.frei(T.g) === 0, 'vier Ladungen an Bord (4/4)');
+  ok(JSON.stringify(T.g.snapshot().fracht.lager) === '["sprengstoff","sprengstoff","sprengstoff","sprengstoff"]', 'Snapshot: vier Ladungen');
   const err = T.cmd('weapons.fracht');
-  ok(err.length === 1 && /voll \(2\/2\)/.test(err[0]) && !T.g.fracht.halt, 'dritte abgelehnt: ' + err[0]);
-  ok(Fracht.draussen(T.g).length === 1, 'dritte Fracht bleibt draußen liegen');
+  ok(err.length === 1 && /voll \(4\/4\)/.test(err[0]) && !T.g.fracht.halt, 'fünfte abgelehnt: ' + err[0]);
+  ok(Fracht.draussen(T.g).length === 1, 'fünfte Fracht bleibt draußen liegen');
   ok(!Fracht.anBordLegen(T.g, 'sprengstoff'), 'auch direktes Ablegen (Skript) lehnt ab');
-  // mischen: zweite Art
+  // zweite Art: ohne freies Modul wird abgelehnt (Typ-Regel), mit Hinweis; die Fracht bleibt draußen
   const U = arena(); U.taktik();
   pod(U, 100, 'fracht'); pod(U, 140, 'sprengstoff');
   U.cmd('weapons.fracht', { id: Fracht.draussen(U.g)[1].id }); U.run(3.1);
@@ -341,19 +340,19 @@ section('Weltstand: Speichern und Laden mit Fracht', () => {
   const T = setup('free', { dir });
   T.run(0.3);
   const id = T.g.weltstand.id;
-  Fracht.anBordLegen(T.g, 'sprengstoff'); Fracht.anBordLegen(T.g, 'fracht');
+  Fracht.anBordLegen(T.g, 'sprengstoff'); Fracht.anBordLegen(T.g, 'sprengstoff');   // LAD-01 A2: ein Frachtraum fasst nur eine Art
   T.g.fracht.draussen.push({ id: 'frX', x: 5, y: 5, art: 'fracht', szene: T.g.ship.scene });   // Laufzeit: darf nicht gespeichert werden
   T.send({ t: 'menu', op: 'end' });
   const file = path.join(dir, id + '.json');
   const data = JSON.parse(fs.readFileSync(file, 'utf8'));
-  ok(JSON.stringify(data.schiff.fracht) === '["sprengstoff","fracht"]', 'Stand enthält schiff.fracht ' + JSON.stringify(data.schiff.fracht));
+  ok(JSON.stringify(data.schiff.fracht) === '["sprengstoff","sprengstoff"]', 'Stand enthält schiff.fracht ' + JSON.stringify(data.schiff.fracht));
   ok(Weltstand.validate(data).length === 0, 'Stand ist schema-gültig ' + (Weltstand.validate(data)[0] || ''));
   ok(!JSON.stringify(data).includes('frX'), 'Fracht im Raum steht nicht im Stand');
   const L = setup('free', { dir, world: id });
   L.run(0.3);
-  ok(JSON.stringify(Fracht.lagerArten(L.g)) === '["sprengstoff","fracht"]', 'nach dem Laden: beide Ladungen an Bord ' + JSON.stringify(Fracht.lagerArten(L.g)));
+  ok(JSON.stringify(Fracht.lagerArten(L.g)) === '["sprengstoff","sprengstoff"]', 'nach dem Laden: beide Ladungen an Bord ' + JSON.stringify(Fracht.lagerArten(L.g)));
   ok(L.g.snapshot().fracht.lager.length === 2 && Fracht.draussen(L.g).length === 0, 'Snapshot nach dem Laden');
-  ok(Fracht.frei(L.g) === 0, 'Frachtraum nach dem Laden voll');
+  ok(Fracht.frei(L.g) === 2, 'Frachtraum nach dem Laden halb voll (2 von 4)');
   // ohne Fracht: kein Feld
   const dir2 = freshDir();
   const E = setup('free', { dir: dir2 });
@@ -370,7 +369,9 @@ section('Weltstand: Speichern und Laden mit Fracht', () => {
   ok(Weltstand.validate(bad).length > 0, 'Schema lehnt unbekannte Art ab');
   const R = new Game({ noStore: true, seed: 3, log: () => {} });
   Fracht.restore(R, ['sprengstoff', 'kaviar', 'fracht', 'fracht', 'sprengstoff']);
-  ok(Fracht.anBord(R) === 2 && JSON.stringify(Fracht.lagerArten(R)) === '["sprengstoff","fracht"]', 'restore filtert unbekannte Arten und kappt auf die Kapazität');
+  ok(Fracht.anBord(R) === 2 && JSON.stringify(Fracht.lagerArten(R)) === '["sprengstoff","sprengstoff"]', 'restore filtert unbekannte Arten und die fremde Art (Typ-Regel: ein Frachtraum, eine Art)');
+  Fracht.restore(R, ['fracht', 'fracht', 'fracht', 'fracht', 'fracht', 'fracht']);
+  ok(Fracht.anBord(R) === 4, 'restore kappt auf die Kapazität (4 je Frachtraum)');
 });
 
 section('Snapshot kompakt', () => {

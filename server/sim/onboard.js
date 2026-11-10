@@ -67,7 +67,7 @@ function roomFloor(match, nth) {
 function deriveIvoSpots() {
   if (Array.isArray(W.Maps.IVO_SPOTS) && W.Maps.IVO_SPOTS.length) return W.Maps.IVO_SPOTS.map((s) => ({ x: s.x, y: s.y }));
   // R0: Wohnort ist der Raum mit nutzung 'quartier' (PAN-01 B: die Messe); Frachtbuchten und ihre Zugangskacheln bleiben frei
-  const frei = (t) => t && !(W.Maps.CARGO_BAYS || []).some((b) => (b.x === t.x && b.y === t.y) || (b.access && b.access.x === t.x && b.access.y === t.y));
+  const frei = (t) => t && !(W.Maps.CARGO_PLAETZE || []).some((b) => (b.x === t.x && b.y === t.y) || (b.access && b.access.x === t.x && b.access.y === t.y));
   const heim = (nth) => { const r = (W.Maps.SHIP_ROOMS || []).find((q) => (q.nutzung || []).includes('quartier')); return r ? roomFloor((q) => q === r, nth) : null; };
   const heimat = [0, 1, 2, 3, 4, 5].map(heim).find(frei) || null;
   const plan = (W.CONSOLE_TILES.plan || [])[0];

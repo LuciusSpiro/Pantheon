@@ -158,7 +158,7 @@ for (const s of systems) for (const t of stationsOf(s)) {
   }
 }
 
-// ---------- PAN-01 B: Modulräume (Unterdeck), Frachtbuchten und -betten ----------
+// ---------- PAN-01 B / LAD-01 A2: Modulräume (Unterdeck), Frachtplätze (4 je Raum, Variante B: Betten und Buchten sind dieselben Plätze) ----------
 {
   console.log('\n[PAN-01 B Modulräume]');
   const rooms = Maps.MODUL_RAEUME.map((m) => Maps.SHIP_ROOMS.find((r) => r.id === m.room));
@@ -168,27 +168,26 @@ for (const s of systems) for (const t of stationsOf(s)) {
   check(area.every((a) => a === area[0]) && area[0] >= 20, `alle vier Modulräume gleich groß: ${area.join(' = ')} Kacheln (Raster ${rooms[0].x1 - rooms[0].x0 + 1} × ${rooms[0].y1 - rooms[0].y0 + 1})`);
   const count = (r, ch) => tilesOf(r).filter((t) => t.ch === ch).length;
   const floors = rooms.map((r) => tilesOf(r).filter((t) => !ship.solid(t.x, t.y)).length);
-  check(floors.every((f) => f === floors[0]) && rooms.every((r) => count(r, 'q') === 2 && count(r, 'r') === 2 && count(r, 'h') === 1), `gleiche Ausstattung je Raum: ${floors[0]} Bodenkacheln, je 2 Plätze A (q), 2 Plätze B (r), 1 Platz C (h)`);
+  check(floors.every((f) => f === floors[0]) && rooms.every((r) => count(r, 'q') === 4 && count(r, 'r') === 0 && count(r, 'h') === 1), `gleiche Ausstattung je Raum: ${floors[0]} Bodenkacheln, je 4 Frachtplätze (q), 1 Platz C (h), keine eigenen Bettkacheln`);
   // gleiche Lage der Plätze im Raum (relativ, Backbordräume gegen Steuerbordräume gespiegelt)
-  const rel = (r) => tilesOf(r).filter((t) => 'qrh'.includes(t.ch)).map((t) => `${t.ch}${t.x - r.x0},${rooms[0].y1 - rooms[0].y0 - (t.y - r.y0)}`).sort().join(' ');
-  const relFlip = (r) => tilesOf(r).filter((t) => 'qrh'.includes(t.ch)).map((t) => `${t.ch}${t.x - r.x0},${t.y - r.y0}`).sort().join(' ');
+  const rel = (r) => tilesOf(r).filter((t) => 'qh'.includes(t.ch)).map((t) => `${t.ch}${t.x - r.x0},${rooms[0].y1 - rooms[0].y0 - (t.y - r.y0)}`).sort().join(' ');
+  const relFlip = (r) => tilesOf(r).filter((t) => 'qh'.includes(t.ch)).map((t) => `${t.ch}${t.x - r.x0},${t.y - r.y0}`).sort().join(' ');
   const bb = rooms.filter((r) => r.sector === 3), stb = rooms.filter((r) => r.sector === 1);
   check(bb.length === 2 && stb.length === 2 && bb.every((r) => relFlip(r) === relFlip(bb[0])) && stb.every((r) => rel(r) === relFlip(bb[0])), 'Plätze liegen in allen vier Räumen an derselben Stelle (Steuerbord gespiegelt)');
   Maps.MODUL_RAEUME.forEach((m, i) => check(m.raum === i + 1, `Modulraum ${m.raum} = ${m.room}`));
-  check(Maps.CARGO_BAYS.length === 8 && Maps.CARGO_BEDS.length === 8, '8 Frachtbuchten und 8 Frachtbetten (2 je Raum)');
+  check(Maps.CARGO_PLAETZE.length === 16 && Maps.CARGO_PER_RAUM === 4 && !Maps.CARGO_BEDS && !Maps.CARGO_BAYS, '16 Frachtplätze (4 je Raum), keine getrennten Betten und Buchten mehr');
   for (const m of Maps.MODUL_RAEUME) {
     const r = Maps.SHIP_ROOMS.find((q) => q.id === m.room);
-    for (const [list, ch, what] of [[Maps.CARGO_BAYS, 'q', 'Bucht'], [Maps.CARGO_BEDS, 'r', 'Bett']]) {
-      const mine = list.filter((b) => b.raum === m.raum);
-      check(mine.length === 2 && mine.every((b) => ship.at(b.x, b.y) === ch && Maps.roomAt(b.x, b.y) === r && !ship.solid(b.access.x, b.access.y) && Math.abs(b.access.x - b.x) + Math.abs(b.access.y - b.y) <= 1 && Maps.roomAt(b.access.x, b.access.y) === r), `Raum ${m.raum}: zwei ${what}en mit freiem Zugang im Raum`);
-      for (const b of mine) check(hasAccess(ship, shipSet, b), `Raum ${m.raum}: ${what} ${b.id} erreichbar (voll ausgebaut)`);
-    }
+    const mine = Maps.CARGO_PLAETZE.filter((b) => b.raum === m.raum);
+    check(mine.length === 4 && mine.every((b, i) => ship.at(b.x, b.y) === 'q' && b.nr === (m.raum - 1) * 4 + i && Maps.roomAt(b.x, b.y) === r && !ship.solid(b.access.x, b.access.y) && Math.abs(b.access.x - b.x) + Math.abs(b.access.y - b.y) <= 1 && Maps.roomAt(b.access.x, b.access.y) === r), `Raum ${m.raum}: vier Plätze (Nummer (Raum − 1) × 4 + i) mit freiem Zugang im Raum`);
+    for (const b of mine) check(hasAccess(ship, shipSet, b), `Raum ${m.raum}: Platz ${b.id} erreichbar (voll ausgebaut)`);
+    check(mine.every((b) => ship.solid(b.x, b.y)), `Raum ${m.raum}: alle vier Platzkacheln sind solide (Kollisionsbox für alles Gegenständliche)`);
   }
-  check(Maps.cargoBayAt(22, 33) && !Maps.cargoBayAt(23, 33) && Maps.cargoBedAt(22, 35), 'cargoBayAt / cargoBedAt');
-  // Kapazität je Frachtraum: 2 Plätze, mehrfach möglich
-  check(Maps.cargoCapacity([]) === 0 && Maps.cargoCapacity([1]) === 2 && Maps.cargoCapacity([1, 3]) === 4 && Maps.cargoCapacity([1, 2, 4]) === 6 && Maps.cargoCapacity([1, 2, 3, 4]) === 8, 'cargoCapacity = 2 je Frachtraum (0, 2, 4, 6, 8)');
+  check(Maps.cargoPlatzAt(22, 33) && !Maps.cargoPlatzAt(23, 33) && Maps.cargoPlatzAt(22, 35), 'cargoPlatzAt');
+  // Kapazität je Frachtraum: 4 Plätze, mehrfach möglich
+  check(Maps.cargoCapacity([]) === 0 && Maps.cargoCapacity([1]) === 4 && Maps.cargoCapacity([1, 3]) === 8 && Maps.cargoCapacity([1, 2, 4]) === 12 && Maps.cargoCapacity([1, 2, 3, 4]) === 16, 'cargoCapacity = 4 je Frachtraum (0, 4, 8, 12, 16)');
   const fp = Maps.frachtPlaetze([3, 1]);
-  check(fp.bays.length === 4 && fp.beds.length === 4 && fp.bays.map((b) => b.raum).join() === '1,1,3,3', 'frachtPlaetze: Buchten und Betten der Frachträume, nach Raum sortiert');
+  check(fp.length === 8 && fp.map((b) => b.raum).join() === '1,1,1,1,3,3,3,3', 'frachtPlaetze: Plätze der Frachträume, nach Raum sortiert');
   check(window_codeFracht() === 'f', "Modulcode des Frachtraums 'f' (CONFIG.module.codes)");
 }
 function window_codeFracht() { return CONFIG.module.codes.frachtraum; }
@@ -356,7 +355,7 @@ for (const sp of Maps.SHIP_SPAWNS) check(shipSet.has(sp.y * ship.w + sp.x), `Spi
   const mr = Maps.roomAt(17, 6);
   check(17 === (mr.x0 + mr.x1) / 2 && Maps.SHIP_LADDERS[0].y === 6, 'Notleiter liegt in der Mitte des Maschinenraums (x, Mittelachse y 6)');
   for (const ch of ['^', '!', ':']) check(!!shipLegend[ch] && !shipLegend[ch].solid, `Legende '${ch}' (${shipLegend[ch] && shipLegend[ch].kind}) begehbar`);
-  for (const ch of ['w', '%', 't', 'a', 'v', 'o', 's', 'j', 'q', 'r', 'h', '0', '+', '1', '2', '3', '5', '7', '9']) check(!!shipLegend[ch] && shipLegend[ch].solid, `Legende '${ch}' (${shipLegend[ch] && shipLegend[ch].kind}) solid`);
+  for (const ch of ['w', '%', 't', 'a', 'v', 'o', 's', 'j', 'q', 'h', '0', '+', '1', '2', '3', '5', '7', '9']) check(!!shipLegend[ch] && shipLegend[ch].solid, `Legende '${ch}' (${shipLegend[ch] && shipLegend[ch].kind}) solid`);
   // Fahrziele: Lift und Notleiter fahren je ein Deck, mit Ausbau-Sperre
   const t1 = Maps.SHIP_LIFTS[0].tiles[0], t2 = Maps.SHIP_LIFTS[1].tiles[0], L = Maps.SHIP_LADDERS[0];
   const z = (x, y, dir, st) => Maps.fahrtZiel(x, y, dir, st);

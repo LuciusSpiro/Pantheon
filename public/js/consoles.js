@@ -16,8 +16,8 @@
 
   const POWER_SYS = PROTO.POWER_SYSTEMS || ['engines', 'shields', 'weapons'];   // PAN-01 A: Hauptsysteme; Bordmodule stehen in ship.mod
   const SYSTEMS = PROTO.SYSTEMS || ['reactor', 'engines', 'shields', 'weapons', 'transfer'];
-  // PAN-01 B: Frachtkapazität = 2 Plätze je Modul Frachtraum (Snapshot ship.mod, Code f)
-  const frachtCap = (st) => ((window.Shared_Maps && window.Shared_Maps.cargoCapacity) ? window.Shared_Maps.cargoCapacity(window.Shared_Maps.frachtRaeumeAusMod(st && st.ship && st.ship.mod)) : 2);
+  // PAN-01 B / LAD-01 A2: Frachtkapazität = 4 Plätze je Modul Frachtraum (Snapshot ship.mod, Code f)
+  const frachtCap = (st) => ((window.Shared_Maps && window.Shared_Maps.cargoCapacity) ? window.Shared_Maps.cargoCapacity(window.Shared_Maps.frachtRaeumeAusMod(st && st.ship && st.ship.mod)) : 4);
   const CODE_COLORS = PROTO.CODE_COLORS || ['mint', 'bernstein', 'rot', 'blau', 'pink', 'weiss'];
   const CODE_HEX = PROTO.CODE_COLOR_HEX || {};
   const COLOR_NAMES = { mint: 'Mint', bernstein: 'Bernstein', rot: 'Rot', blau: 'Blau', pink: 'Pink', weiss: 'Weiß' };
@@ -253,7 +253,7 @@
     frachtLeiste(ctx, view, box) {
       const FL = window.Shared_Frachtliste;
       if (!FL) return;
-      const cap = frachtCap(view.state);   // PAN-01 B: 2 Plätze je Modul Frachtraum
+      const cap = frachtCap(view.state);   // PAN-01 B / LAD-01 A2: 4 Plätze je Modul Frachtraum
       const l = FL.frachtListe(view.state && view.state.fracht, cap);
       const bx = box ? box.x : 8, bw = box ? box.w : VW - 16, y = box ? box.y : VH - 30, h = 12;   // Pult: Lage aus box (unten in der Anzeige)
       ctx.fillStyle = 'rgba(11,14,26,0.9)'; ctx.fillRect(bx, y, bw, h);

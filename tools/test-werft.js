@@ -224,7 +224,7 @@ section('Module: Modulräume, mehrfach, Energie, Fracht', () => {
   r = T.cmd(0, 'werft.modul', { raum: 3, id: 'werkstatt' }); ok(!r.ok && r.code === 'nicht_freigeschaltet', 'Werkstatt vor dem Kauf: abgelehnt');
   r = T.cmd(0, 'werft.modul', { raum: 3, id: 'frachtraum' });
   ok(r.ok && Modul.liste(g).map((q) => q.id + q.raum).join() === 'frachtraum1,krankenstation2,frachtraum3', 'zweiter Frachtraum in Raum 3 (gleiche Module mehrfach, gratis)');
-  ok(g.ship.power.engines + g.ship.power.shields + g.ship.power.weapons === 5 && Fracht.capacity(g) === 4, 'Energie: 3 Module -> 5 für die Hauptsysteme, Frachtkapazität 4');
+  ok(g.ship.power.engines + g.ship.power.shields + g.ship.power.weapons === 5 && Fracht.capacity(g) === 8, 'Energie: 3 Module -> 5 für die Hauptsysteme, Frachtkapazität 8 (zwei Frachträume)');
   T.cmd(0, 'werft.freischalten', { art: 'modul', id: 'werkstatt' }); const m = g.inventory.marks;
   r = T.cmd(0, 'werft.modul', { raum: 3, id: 'werkstatt' });
   require('../server/sim/bots.js').ensureBotCount(g);   // sonst im nächsten Tick (der Test dockt künstlich, der Flug läuft nicht)

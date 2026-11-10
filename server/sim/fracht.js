@@ -6,8 +6,10 @@
 //   weapons.abliefern                  Ops: Fracht beim Abnehmer abgeben (derselbe Halteprozess, Beamen nach draußen)
 //
 // Regeln (Briefing EK3, Planung E6):
-//  - Jedes Modul Frachtraum (PAN-01 B: in jedem der vier Modulräume möglich, auch mehrfach) hat Maps.CARGO_PER_RAUM (2) Buchten: Kapazität = 2 × Frachträume.
-//    Ohne Frachtraum nimmt das Schiff nichts an. Die n-te Ware liegt in der n-ten Bucht der Frachträume (Maps.frachtPlaetze). Ein Platz mehr wird abgelehnt.
+//  - Jedes Modul Frachtraum (PAN-01 B: in jedem der vier Modulräume möglich, auch mehrfach) hat Maps.CARGO_PER_RAUM (4) Plätze: Kapazität = 4 × Frachträume.
+//    Ohne Frachtraum nimmt das Schiff nichts an. LAD-01 A2 Typ-Regel: Ein Frachtraum fasst nur EINE Art Ladung (Personen sind eine Art wie jede andere). Die Belegung rechnet
+//    Maps.frachtBelegung (Server und Client dieselbe Funktion), platzFuer(game, art) prüft sie, lagerAufnehmen(game, { art, quelle }) ist der EINZIGE Weg ins Lager (Beamen,
+//    Debug/Skript, Beute, Zuteilung, Personen, Laden): nichts schreibt an ihm vorbei in s.lager. Ein Platz mehr oder eine fremde Art ohne freies Modul wird abgelehnt (mit Hinweistext).
 //  - Beamen: Haltezeit ship.beamTime (3 s; bei beschädigtem Transfer ship.beamTimeDamaged), Reichweite fracht.beamRange (320, wie scene.beam.range
 //    der Außenkarten). Ein Systemtreffer (interior.damageSystem) bricht ab, ein Schildtreffer nicht. Auch Transfer ausgefallen, Fracht
 //    außer Reichweite oder niemand mehr an der Ops bricht ab. Der Halteprozess belegt nicht ship.beaming (Schilde bleiben oben).
@@ -27,11 +29,12 @@ const { dist } = require('../util.js');
 
 const cfg = (game) => game.C.fracht;
 // Kapazität (Waren und Personen) = 2 je Modul Frachtraum (module.js, lazy wegen Zirkelbezug)
-const capacity = (game) => W.Maps.cargoCapacity(require('./module.js').frachtRaeume(game));
+const frachtRaeume = (game) => require('./module.js').frachtRaeume(game);
+const capacity = (game) => W.Maps.cargoCapacity(frachtRaeume(game));
 const r1 = (v) => Math.round(v * 10) / 10;
 
 function neu() {
-  return { lager: [], draussen: [], halt: null, gesichert: true, abnehmer: null, abgeliefert: {}, szene: null, seq: 0 };
+  return { lager: [], draussen: [], halt: null, gesichert: true, abnehmer: null, abgeliefert: {}, szene: null, seq: 0, zugang: {} };
 }
 function state(game) { return game.fracht || (game.fracht = neu()); }
 
@@ -41,6 +44,83 @@ const artName = (art) => Waren.name(art);
 // ---------- Abfragen ----------
 function anBord(game, art) { const s = state(game); return art ? s.lager.filter((l) => l.art === art).length : s.lager.length; }
 function frei(game) { return capacity(game) - state(game).lager.length; }
+
+// ---------- LAD-01 A2: Belegung, Typ-Regel, die eine Einlagerung ----------
+const istPerson = (l) => l.art === 'person';
+// Arten der Waren in Lagerreihenfolge und Zahl der Personen (die Eingabe von Maps.frachtBelegung); extra = eine Art, die probeweise dazukommt
+function belegungsEingabe(game, extra) {
+  const lager = state(game).lager;
+  const waren = lager.filter((l) => !istPerson(l)).map((l) => l.art);
+  let pers = lager.filter(istPerson).length;
+  if (extra === 'person') pers++; else if (extra) waren.push(extra);
+  return { waren, pers };
+}
+function belegung(game, extra) { const e = belegungsEingabe(game, extra); return W.Maps.frachtBelegung(frachtRaeume(game), e.waren, e.pers); }
+// Die Plätze der Personen (Betten) in Lagerreihenfolge: [{ x, y, nr, raum, id }]; Person i liegt auf dem i-ten Platz der Personen-Module (personen-bord.js)
+function personPlaetze(game) {
+  const out = [];
+  for (const m of belegung(game).module) if (m.art === 'person') for (let i = 0; i < m.anzahl; i++) out.push(m.plaetze[i]);
+  return out;
+}
+const artLabel = (art) => (art === 'person' ? 'Personen' : artName(art));
+function moduleText(b) { return b.module.filter((m) => m.art).map((m) => `${artLabel(m.art)} ${m.anzahl}/${W.Maps.CARGO_PER_RAUM}`).join(', '); }
+// Prüfung, ob eine Ladung dieser Art ins Lager passt. -> { ok: true, raum, platz (Platz im Raum 0–3), nr } | { ok: false, grund, text }
+// grund: 'unbekannt' (keine Ware) · 'kein_frachtraum' · 'voll' (alle Plätze belegt) · 'art_belegt' (Plätze frei, aber nur in Modulen mit anderer Art, oder das Modul dieser Art ist voll)
+function platzFuer(game, art) {
+  const a = art == null ? cfg(game).artDefault : String(art);
+  if (a !== 'person' && !artOk(game, a)) return { ok: false, grund: 'unbekannt', text: 'Diese Ware lässt sich nicht laden.' };
+  if (capacity(game) <= 0) return { ok: false, grund: 'kein_frachtraum', text: 'Kein Frachtraum eingebaut.' };
+  const n = state(game).lager.length;
+  if (n >= capacity(game)) return { ok: false, grund: 'voll', text: `Frachtraum voll (${n}/${capacity(game)})` };
+  const b = belegung(game, a);
+  if (b.ueber > 0) return { ok: false, grund: 'art_belegt', text: `Kein Frachtraum frei für ${artLabel(a)}: jedes Modul fasst nur eine Art Ladung (belegt: ${moduleText(belegung(game))}). Erst ein Modul leeren (abliefern, abgeben, abwerfen) oder einen weiteren Frachtraum einbauen.` };
+  const mods = b.module.filter((m) => m.art === a);
+  const m = mods[mods.length - 1];
+  return { ok: true, raum: m.raum, platz: m.anzahl - 1, nr: m.plaetze[m.anzahl - 1].nr };
+}
+// Wie viele Ladungen dieser Art noch hineinpassen (Konvoi-Planung: reicht der Platz für die Beute?)
+function freiFuer(game, art) {
+  const e = belegungsEingabe(game, null); const R = frachtRaeume(game);
+  let k = 0;
+  while (k < capacity(game)) {
+    const b = art === 'person' ? W.Maps.frachtBelegung(R, e.waren, e.pers + k + 1) : W.Maps.frachtBelegung(R, e.waren.concat(Array(k + 1).fill(art)), e.pers);
+    if (b.ueber > 0) break;
+    k++;
+  }
+  return k;
+}
+// Werft: Hat die Ladung nach dem Ausbau dieses Frachtraums noch Platz (Typ-Regel)? / liegt eine Person in diesem Raum?
+function passtOhneRaum(game, raum) { const e = belegungsEingabe(game, null); return W.Maps.frachtBelegung(frachtRaeume(game).filter((q) => q !== raum), e.waren, e.pers).ueber === 0; }
+function personImRaum(game, raum) { return belegung(game).module.some((m) => m.raum === raum && m.art === 'person'); }
+// Wie viele Ladungen dieser Art das Schiff in seinem jetzigen Zustand insgesamt tragen kann (schon an Bord plus noch frei)
+function kapazitaetFuer(game, art) { return anBord(game, art) + freiFuer(game, art); }
+const QUELLEN = ['beamen', 'schoepfen', 'debug', 'skript', 'kampagne', 'zuteilung', 'beute', 'person', 'abbau', 'laden'];
+// Die EINE Einlagerung. o: { art, quelle, person?, name? } (Personen tragen person und name). -> { ok: true, eintrag, raum, platz, nr } | { ok: false, grund, text }
+// Kein Ereignis und keine ODA-Meldung hier: das tut der Aufrufer (der Weg kennt seinen Text). quelle wird gezählt (state.zugang, nur Laufzeit, nicht im Stand).
+function lagerAufnehmen(game, o) {
+  const s = state(game);
+  const a = o && o.art != null ? String(o.art) : cfg(game).artDefault;
+  if (!o || !QUELLEN.includes(o.quelle)) return { ok: false, grund: 'quelle', text: 'Unbekannte Quelle der Ladung.' };
+  const pf = platzFuer(game, a);
+  if (!pf.ok) return pf;
+  const eintrag = a === 'person' ? { art: 'person', person: String(o.person), name: String(o.name != null ? o.name : o.person), bett: pf.nr } : { art: a };
+  s.lager.push(eintrag);
+  s.zugang[o.quelle] = (s.zugang[o.quelle] || 0) + 1;
+  return { ok: true, eintrag, raum: pf.raum, platz: pf.platz, nr: pf.nr };
+}
+// Skript-Zuteilung ohne Softlock (Eisenwald k3/k4: Ersatz-Sprengstoff): passt die Art nur wegen einer fremden Art nicht hinein, räumt der Quartiermeister das kleinste Modul mit
+// fremder Ware (nie Personen) aus. Gibt true zurück, wenn ausgeladen wurde.
+function fremdesModulRaeumen(game, art) {
+  const s = state(game);
+  const b = belegung(game);
+  if (b.module.some((m) => !m.art)) return false;
+  const kand = b.module.filter((m) => m.art && m.art !== 'person' && m.art !== art).sort((x, y) => x.anzahl - y.anzahl)[0];
+  if (!kand) return false;
+  const n = s.lager.filter((l) => l.art === kand.art).length;
+  s.lager = s.lager.filter((l) => l.art !== kand.art);
+  game.oda(`Der Quartiermeister hat ${n}× ${artName(kand.art)} ausgeladen, damit der Frachtraum ${artLabel(art)} fassen kann.`, null);
+  return true;
+}
 function gesichert(game) { return state(game).gesichert !== false; }
 function setGesichert(game, on) { state(game).gesichert = !!on; }
 // Was bei einem ungesicherten Lager gefährdet ist (Waren und Personen); AP14 (Personen als Fracht) wertet das später aus
@@ -126,6 +206,7 @@ function beamStart(game, p, id) {
   if (!pod) return id != null ? 'Diese Fracht gibt es nicht mehr.' : `Keine Fracht in Reichweite (max. ${cfg(game).beamRange}).`;
   const far = dist(game.ship.x, game.ship.y, pod.x, pod.y);
   if (far > cfg(game).beamRange) return `Fracht zu weit (${Math.round(far)}, max. ${cfg(game).beamRange}).`;
+  const pf = platzFuer(game, pod.art); if (!pf.ok) return pf.text;   // LAD-01 A2: Typ-Regel (ein Modul, eine Art)
   s.halt = { kind: 'an', id: pod.id, t: 0, dur: haltDauer(game) };
   game.emit('frachtBeamen', { phase: 'start', was: 'an', id: pod.id, dur: s.halt.dur });
   return null;
@@ -175,9 +256,10 @@ function beamFertig(game) {
   if (h.kind === 'an') {
     const i = s.draussen.findIndex((d) => d.id === h.id);
     if (i < 0) return;
-    if (frei(game) <= 0) { game.emit('frachtBeamen', { phase: 'abbruch', was: 'an', grund: 'voll' }); return; }
-    const pod = s.draussen.splice(i, 1)[0];
-    s.lager.push({ art: pod.art });
+    const pod = s.draussen[i];
+    const r = lagerAufnehmen(game, { art: pod.art, quelle: 'beamen' });
+    if (!r.ok) { game.emit('frachtBeamen', { phase: 'abbruch', was: 'an', grund: 'voll' }); game.oda(`${r.text}${r.grund === 'voll' ? ' – erst abliefern.' : ''}`, null); return; }
+    s.draussen.splice(i, 1);
     game.emit('frachtBeamen', { phase: 'fertig', was: 'an', art: pod.art });
     game.oda(`${artName(pod.art)} an Bord (${s.lager.length}/${capacity(game)}).`, null);
     game.missionEvent('frachtAnBord', { art: pod.art, n: s.lager.length, id: pod.id });
@@ -257,12 +339,20 @@ function lagerOhneSzenenBeute(game) {
   for (let i = lager.length - 1; i >= 0 && zuviel > 0; i--) if (lager[i].art === b.art) { lager.splice(i, 1); zuviel--; }
   return lager;
 }
-function toSave(game) { const P = require('./personen-bord.js'); return lagerOhneSzenenBeute(game).map((l) => (l.art === 'person' ? P.toSaveEntry(l) : l.art)); }   // SL0: Personen als { p, n, b }
+function toSave(game) { const P = require('./personen-bord.js'); const plaetze = personPlaetze(game); let pi = 0; return lagerOhneSzenenBeute(game).map((l) => (l.art === 'person' ? P.toSaveEntry(l, plaetze[pi++]) : l.art)); }   // SL0: Personen als { p, n, b }; b = Bettnummer (Platz der Personen-Module, abgeleitet)
 function restore(game, arten) {
   const s = state(game);
   const P = require('./personen-bord.js');
-  s.lager = (Array.isArray(arten) ? arten : []).filter((a) => (typeof a === 'string' && artOk(game, a)) || (a && typeof a === 'object' && a.p)).slice(0, Math.max(capacity(game), 0))
-    .map((a) => (typeof a === 'string' ? { art: a } : P.restoreEntry(a)));   // SL0: Personen { p, n, b }
+  s.lager = [];
+  // LAD-01 A2: auch das Laden geht durch lagerAufnehmen: was über Kapazität oder Typ-Regel hinausgeht (alte Stände, ausgebauter Frachtraum), wird gekappt und gemeldet
+  let gekappt = 0;
+  for (const a of Array.isArray(arten) ? arten : []) {
+    const ok = typeof a === 'string' ? artOk(game, a) : !!(a && typeof a === 'object' && a.p);
+    if (!ok) { gekappt++; continue; }
+    const r = typeof a === 'string' ? lagerAufnehmen(game, { art: a, quelle: 'laden' }) : lagerAufnehmen(game, { art: P.ART, person: a.p, name: a.n, quelle: 'laden' });   // SL0: Personen { p, n, b }
+    if (!r.ok) gekappt++;
+  }
+  if (gekappt && game.log) game.log(`Fracht: ${gekappt} Ladung(en) beim Laden verworfen (unbekannte Art, Kapazität oder Typ-Regel)`);
   s.halt = null;
 }
 
@@ -292,13 +382,21 @@ function skriptAbliefernBis(game, art, min) {
   }
   return fehlt;
 }
-// Ladung direkt an Bord legen (Debug, Tests, Skript); false = Frachtraum voll bzw. unbekannte Art
-function anBordLegen(game, art) {
-  const s = state(game); const a = art == null ? cfg(game).artDefault : String(art);
-  if (!artOk(game, a) || frei(game) <= 0) return false;
-  s.lager.push({ art: a });
-  game.missionEvent('frachtAnBord', { art: a, n: s.lager.length });
+// Ladung direkt an Bord legen (Debug, Tests, Skript, Schöpfen); false = kein Platz (Typ-Regel, voll) bzw. unbekannte Art. quelle: eine aus QUELLEN (Standard 'skript')
+function anBordLegen(game, art, quelle) {
+  const a = art == null ? cfg(game).artDefault : String(art);
+  const r = lagerAufnehmen(game, { art: a, quelle: quelle || 'skript' });
+  if (!r.ok) return false;
+  game.missionEvent('frachtAnBord', { art: a, n: state(game).lager.length });
   return true;
+}
+// fracht_zuteilen (Regiebuch): wie anBordLegen, aber ein Typkonflikt mit fremder Ware wird vom Quartiermeister aufgelöst (kein Softlock in der Kette)
+function zuteilen(game, art) {
+  const a = art == null ? cfg(game).artDefault : String(art);
+  let pf = platzFuer(game, a);
+  if (!pf.ok && pf.grund === 'art_belegt' && fremdesModulRaeumen(game, a)) pf = platzFuer(game, a);
+  if (!pf.ok) { game.oda(pf.text, null); return false; }
+  return anBordLegen(game, a, 'zuteilung');
 }
 
 // ---------- Debug: fracht <abwerfen [art] [dx dy] | an [art] | leer | gesichert an|aus | abnehmer [ort] | status> ----------
@@ -325,6 +423,6 @@ module.exports = {
   neu, state, update, snapshot, toSave, restore, debug,
   fracht_abwerfen, abwerfen: fracht_abwerfen,
   beamStart, abliefernStart, beamStop, systemTreffer, ablieferOrt, stationOrt,
-  anBord, frei, capacity, gesichert, setGesichert, gefaehrdet, huellenTreffer, frachtraumTreffer, lagerArten, draussen, abgeliefert,
+  anBord, frei, capacity, platzFuer, freiFuer, kapazitaetFuer, passtOhneRaum, personImRaum, lagerAufnehmen, zuteilen, belegung, personPlaetze, gesichert, setGesichert, gefaehrdet, huellenTreffer, frachtraumTreffer, lagerArten, draussen, abgeliefert,
   setAbnehmer, skriptAbliefern, skriptAbliefernBis, anBordLegen, artOk, artName,
 };

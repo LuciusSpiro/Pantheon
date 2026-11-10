@@ -26,18 +26,18 @@ function schoepfen(game, art, rate, dt) {
   if (!Fracht.artOk(game, art)) return 0;
   const T = game.ship.systems.transfer;
   if (T === 'broken' || T === 'offline') return 0;   // ohne Transfer kein Lager
-  const frei = Fracht.frei(game);
-  if (frei <= 0) { s.fuell = 1; if (!s.vollGemeldet) { s.vollGemeldet = true; game.oda('Frachtraum voll – Deuterium-Ladung abwerfen oder zum Händler.', 'ladung_voll'); } return 0; }
+  const pf = Fracht.platzFuer(game, art);   // LAD-01 A2: Typ-Regel (ein Modul, eine Art)
+  if (!pf.ok) { s.fuell = 1; if (!s.vollGemeldet) { s.vollGemeldet = true; game.oda(pf.grund === 'voll' ? 'Frachtraum voll – Deuterium-Ladung abwerfen oder zum Händler.' : pf.text, 'ladung_voll'); } return 0; }
   s.vollGemeldet = false;
   s.fuell = (s.fuell || 0) + rate * dt;
   let n = 0;
-  while (s.fuell >= 1 && Fracht.frei(game) > 0) {
+  while (s.fuell >= 1 && Fracht.platzFuer(game, art).ok) {
     s.fuell -= 1;
-    if (Fracht.anBordLegen(game, art)) { n++; game.emit('frachtBeamen', { phase: 'fertig', was: 'schoepfen', art }); }
+    if (Fracht.anBordLegen(game, art, 'schoepfen')) { n++; game.emit('frachtBeamen', { phase: 'fertig', was: 'schoepfen', art }); }
     else break;
   }
   if (n) game.oda(`${artName(art)} geschöpft (${Fracht.anBord(game)}/${Fracht.capacity(game)}).`, 'ladung_' + art);
-  if (Fracht.frei(game) <= 0 && s.fuell > 1) s.fuell = 1;
+  if (!Fracht.platzFuer(game, art).ok && s.fuell > 1) s.fuell = 1;
   return n;
 }
 
@@ -64,7 +64,7 @@ function schoepfStart(game, p) {
   if (T === 'broken' || T === 'offline') return 'Transfer ausgefallen – erst reparieren.';
   const o = schoepfOrt(game); if (!o.ok) return o.reason;
   if (!Fracht.artOk(game, o.art)) return 'Diese Ware lässt sich nicht laden.';
-  if (Fracht.frei(game) <= 0) return `Frachtraum voll (${Fracht.anBord(game)}/${Fracht.capacity(game)}) – abwerfen oder verkaufen.`;
+  { const pf = Fracht.platzFuer(game, o.art); if (!pf.ok) return pf.grund === 'voll' ? `${pf.text} – abwerfen oder verkaufen.` : pf.text; }
   s.halt = { kind: 'schoepf', id: null, t: 0, dur: 1, art: o.art };
   game.emit('frachtBeamen', { phase: 'start', was: 'schoepf', dur: 0 });
   game.missionEvent('schoepfenStart', { art: o.art, zone: o.zone });
@@ -76,7 +76,7 @@ function schoepfWeiter(game, dt) {
   const o = schoepfOrt(game);
   if (!o.ok) return { stop: 'ort', text: 'Förderschicht verlassen – Schöpfen beendet.' };
   schoepfen(game, o.art, o.rate, dt);
-  if (Fracht.frei(game) <= 0) return { stop: 'voll', text: 'Frachtraum voll – Schöpfen beendet. Abwerfen (X) oder zum Händler.' };
+  { const pf = Fracht.platzFuer(game, o.art); if (!pf.ok) return { stop: 'voll', text: pf.grund === 'voll' ? 'Frachtraum voll – Schöpfen beendet. Abwerfen (X) oder zum Händler.' : `Schöpfen beendet. ${pf.text}` }; }
   return null;
 }
 function schoepft(game) { const s = game.fracht; return !!(s && s.halt && s.halt.kind === 'schoepf'); }

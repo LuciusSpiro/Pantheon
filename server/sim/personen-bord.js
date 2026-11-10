@@ -1,6 +1,6 @@
 'use strict';
 // SL0 (CONCEPT-SL0, CONTRACT-SL): Personen als Fracht. Eine Person (NSC wie Evert) an Bord belegt einen Frachtplatz, liegt auf einem
-// Frachtbett (Maps.CARGO_BEDS), die Ops beamt sie hoch und wieder ab (Halteprozess wie Waren, auch vom Boden eines Landepunkts).
+// Frachtplatz als Bett (LAD-01 A2: Typ-Regel, ein Frachtraum fasst nur eine Art, 4 Personen = 4 Betten), die Ops beamt sie hoch und wieder ab (Halteprozess wie Waren, auch vom Boden eines Landepunkts).
 // Baut auf server/sim/fracht.js auf (Lager, Halteprozess, Weltstand), ohne dessen Funktionen mit Flags zu erweitern: eigene, benannte Funktionen.
 //
 //   personAnBord(game, id)            Abfrage: Person ist im Frachtraum
@@ -24,21 +24,15 @@ let awayMod = null; const away = () => awayMod || (awayMod = require('./away.js'
 let lpMod; const lp = () => { if (lpMod === undefined) { try { lpMod = require('./landepunkte.js'); } catch (e) { lpMod = null; } } return lpMod; };
 const cfg = (game) => game.C.fracht;
 const r1 = (v) => Math.round(v * 10) / 10;
-// PAN-01 B: Betten der Modulräume, in denen ein Frachtraum steht (2 je Frachtraum, Reihenfolge nach Raum und x)
-const beds = (game) => W.Maps.frachtPlaetze(require('./module.js').frachtRaeume(game)).beds;
-// Betten sind an die Raumnummer gebunden: Schlüssel = (Raum − 1) × 2 + Platz im Raum (0–7, = Zahl in CARGO_BEDS[].id). Kommt ein Frachtraum in einem niedrigeren Raum dazu,
-// bleibt die Person in ihrem Bett. Gehört ihr Bett zu keinem Frachtraum (mehr), liegt sie auf dem ersten Bett eines Frachtraums, ohne Frachtraum auf dem ersten Bett des Schiffs
-// (sie verschwindet nie aus der Darstellung).
-const bedKey = (b) => Number(String(b.id).replace(/[^0-9]/g, ''));
+// LAD-01 A2: Betten gibt es nicht mehr als eigene Kacheln. Die Personen liegen auf den Plätzen der Personen-Module (Fracht.personPlaetze, abgeleitet aus Maps.frachtBelegung):
+// Person i (Lagerreihenfolge) auf dem i-ten Platz, Bettnummer = Platznummer (Raum − 1) × 4 + Platz im Raum (0–15). Zieht eine Person aus, rücken die übrigen nach.
+const platzVon = (game, i) => Fracht.personPlaetze(game)[i] || null;
 
 // ---------- Abfragen ----------
-function personenAnBord(game) { return Fracht.state(game).lager.filter((l) => l.art === ART).map((l) => ({ id: l.person, name: l.name || l.person, bett: l.bett })); }
+function personenAnBord(game) { return Fracht.state(game).lager.filter((l) => l.art === ART).map((l, i) => { const p = platzVon(game, i); return { id: l.person, name: l.name || l.person, bett: p ? p.nr : l.bett }; }); }
 function personAnBord(game, id) { return Fracht.state(game).lager.some((l) => l.art === ART && (id == null || l.person === String(id))); }
-function bettFrei(game) {
-  const belegt = new Set(Fracht.state(game).lager.filter((l) => l.art === ART).map((l) => l.bett));
-  for (const b of beds(game)) if (!belegt.has(bedKey(b))) return bedKey(b);
-  return -1;
-}
+// Nummer des Bettes, auf das die nächste Person käme (-1 = kein Platz für eine Person: voll, kein Frachtraum oder jedes Modul trägt eine andere Art)
+function bettFrei(game) { const pf = Fracht.platzFuer(game, ART); return pf.ok ? pf.nr : -1; }
 const transferDown = (game) => { const t = game.ship.systems.transfer; return t === 'broken' || t === 'offline'; };
 const haltDauer = (game) => (game.ship.systems.transfer === 'damaged' ? game.C.ship.beamTimeDamaged : game.C.ship.beamTime);
 
@@ -88,8 +82,7 @@ function aufnehmbare(game) {
 function aufnehmenGrund(game, id) {
   if (transferDown(game)) return game.ship.systems.transfer === 'offline' ? 'Transfer offline (EMP) – kurz warten.' : 'Transfer zerstört – erst reparieren.';
   if (Fracht.state(game).halt) return 'Transfer läuft bereits.';
-  if (Fracht.frei(game) <= 0) return `Frachtraum voll (${Fracht.anBord(game)}/${Fracht.capacity(game)}) – erst abgeben.`;
-  if (bettFrei(game) < 0) return 'Kein freies Bett im Frachtraum.';
+  { const pf = Fracht.platzFuer(game, ART); if (!pf.ok) return pf.grund === 'voll' ? `${pf.text} – erst abgeben.` : pf.grund === 'art_belegt' ? `Kein Bett frei: ${pf.text}` : pf.text; }   // LAD-01 A2: Typ-Regel
   const k = bodenKontakt(game); if (!k.ok) return k.reason;
   const offen = away().offenePersonen(k.aw).filter((n) => n.person);
   if (!offen.length) return 'Am Landepunkt wartet niemand.';
@@ -137,7 +130,7 @@ function haltWeiter(game, h) {
 }
 function aufnehmenGrundLaufend(game, id) {
   // wie aufnehmenGrund, aber ohne „Transfer läuft bereits“ (der Halteprozess ist ja der eigene)
-  if (Fracht.frei(game) <= 0 || bettFrei(game) < 0) return 'voll';
+  if (!Fracht.platzFuer(game, ART).ok) return 'voll';
   if (!bodenKontakt(game).ok) return 'ort';
   const n = away().offenePersonen(bodenKontakt(game).aw).find((q) => q.person === String(id));
   return n && !n.injured ? null : 'weg';
@@ -152,7 +145,7 @@ function haltFertig(game, h) {
     away().setzePersonZustand(n, 'rescued');   // von der Karte weg; Baustein person_rescued/Ereignis npcRescued wie bei der Rettung
     away().markRescued(game, map, n.person);
     game.missionEvent('npcRescued', { person: n.person, name: n.name, map });
-    einlagern(game, n.person, n.name || n.person);
+    einlagern(game, n.person, n.name || n.person, 'person');
     game.emit('frachtBeamen', { phase: 'fertig', was: 'person_an', art: ART });
   } else {
     const o = abgabeOrt(game);
@@ -162,13 +155,15 @@ function haltFertig(game, h) {
     if (pers && o.art === 'boden' && game.away) away().personAbsetzen && away().personAbsetzen(game, game.away, pers);
   }
 }
-function einlagern(game, id, name) {
+// quelle: 'person' (Beamen vom Boden) oder 'skript' (Debug, Skript); beide laufen durch Fracht.lagerAufnehmen
+function einlagern(game, id, name, quelle) {
   const s = Fracht.state(game);
-  const bett = bettFrei(game);
-  s.lager.push({ art: ART, person: String(id), name: String(name), bett: bett < 0 ? 0 : bett });
-  game.oda(`${name} an Bord (Frachtraum, Bett ${(bett < 0 ? 0 : bett) + 1}) – ${Fracht.anBord(game)}/${Fracht.capacity(game)} Plätze belegt.`, null);
+  const r = Fracht.lagerAufnehmen(game, { art: ART, person: id, name, quelle: quelle || 'skript' });
+  if (!r.ok) return false;
+  game.oda(`${name} an Bord (Frachtraum ${r.raum}, Bett ${r.platz + 1}) – ${Fracht.anBord(game)}/${Fracht.capacity(game)} Plätze belegt.`, null);
   game.missionEvent('personAnBord', { person: String(id), name: String(name), n: s.lager.length });
   if (game.markSaveDue) game.markSaveDue('personAnBord');
+  return true;
 }
 function auslagern(game, id, ortName) {
   const s = Fracht.state(game);
@@ -184,9 +179,7 @@ function auslagern(game, id, ortName) {
 // ---------- Skript / Debug ----------
 function personAnBordLegen(game, id, name) {
   if (!id || personAnBord(game, id)) return personAnBord(game, id);
-  if (Fracht.frei(game) <= 0 || bettFrei(game) < 0) return false;
-  einlagern(game, id, name || id);
-  return true;
+  return einlagern(game, id, name || id, 'skript');
 }
 function personAbgeben(game, id) { return !!auslagern(game, id, null); }
 
@@ -194,9 +187,10 @@ function personAbgeben(game, id) { return !!auslagern(game, id, null); }
 // Figuren im Frachtraum: liegend auf dem Bett (ship.npcs, Darstellung wie Ivo, Pose „liegt“)
 function bordNpcs(game) {
   const out = [];
+  let i = 0;
   for (const l of Fracht.state(game).lager) {
     if (l.art !== ART) continue;
-    const bl = beds(game); const b = bl.find((q) => bedKey(q) === l.bett) || bl[0] || W.Maps.CARGO_BEDS[0]; if (!b) continue;
+    const b = platzVon(game, i++) || W.Maps.CARGO_PLAETZE[0]; if (!b) continue;   // ohne Platz (Altlast, direkt gelegt) liegt sie auf dem ersten Platz des Schiffs: sie verschwindet nie aus der Darstellung
     const c = W.tileCenter(b.x, b.y);
     out.push({ id: l.person, name: l.name, x: r1(c.x), y: r1(c.y), dir: 'down', lie: 1 });
   }
@@ -211,7 +205,7 @@ function snapshotZusatz(game) {
   if (pq.length) out.pq = pq.map((p) => ({ id: p.id, n: p.name }));
   return out;
 }
-const toSaveEntry = (l) => ({ p: l.person, n: l.name, b: l.bett });
+const toSaveEntry = (l, platz) => ({ p: l.person, n: l.name, b: platz ? platz.nr : (Number.isInteger(l.bett) ? l.bett : 0) });
 const restoreEntry = (o) => ({ art: ART, person: String(o.p), name: String(o.n || o.p), bett: Number.isInteger(o.b) ? o.b : 0 });
 
 module.exports = {

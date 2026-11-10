@@ -29,7 +29,7 @@ function plan(it, crew, nachCrew, game) {
     let sieg = wahl(it, 'sieg', K.siegen, K.sieg_standard);
     // Plündern braucht Platz für die Beute (Konvoi.an: beuteMin = Zahl der Transporter, höchstens die Kapazität): ist der Frachtraum zu voll oder fehlt er, wäre die Szene nicht zu gewinnen (beamStart lehnt ab),
     // also gilt der Beat als aufhalten. Kein Fehler, kein Funktext darüber: die Szene bleibt gewinnbar.
-    if (sieg === 'pluendern' && game && Fracht.frei(game) < Math.min(n, Math.max(1, Fracht.capacity(game)))) sieg = 'aufhalten';
+    if (sieg === 'pluendern' && game && Fracht.freiFuer(game, K.ladung) < Math.min(n, Math.max(1, Fracht.kapazitaetFuer(game, K.ladung)))) sieg = 'aufhalten';
     return { textKey: sieg === 'pluendern' ? 'konvoi_pluendern' : 'konvoi', n, sieg, eskorte: has(K.eskorte, k) ? K.eskorte[k] : 'voll' };
   }
   const G = W.geleit, modus = wahl(it, 'modus', Object.keys(G.modi), G.modus_standard);
