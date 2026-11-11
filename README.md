@@ -1527,6 +1527,18 @@ MITSCHNITT=1 MITSCHNITT_DIR=<ordner>\mitschnitt   # lesbare Verläufe je Mission
   `messe-lage` und `messe-abenteuer` setzen `SPIELLEITER_LLM`, `LAGE_SPIELLEITER`, `REISE_EREIGNISSE`, `FAEDEN` und (mit `--out`) `REGIE_DIR` selbst im Spiel-`env`; `LLM_LIVE` und `CLAUDE_TOKEN_BUDGET` gehören dem Aufrufer, `MITSCHNITT` und `MITSCHNITT_DIR` werden durchgereicht. Die Test-Fixture setzt `REGIE_DIR` sonst auf einen Temp-Ordner; das Werkzeug gibt es deshalb ausdrücklich vor.
 - Test: `npm run test:messe-ablage` (offline, in `npm test`).
 
+### Messwerkzeuge Geländekarten im Spielleiter (SPL-01 a3)
+Sechs Werkzeuge messen, was der Spielleiter über Wildnis und Höhle wissen und tun kann. Sie laufen im Repo ohne Pfadargument, lesen nur (im Speicher, nichts wird geschrieben), liefern Text oder mit `--json` nur JSON und enden mit Exit 0 (gemessen), 1 (Fehler beim Messen) oder 2 (falscher Aufruf). Es sind **Messwerkzeuge ohne Erwartung**, keine Tests: Sie hängen nicht in `npm test` (Ausnahmen in `tools/testliste.json`). Der Selbsttest `npm run test:messe-spl` prüft die Werkzeuge mit kleinen Seed-Sätzen (wenige Sekunden). Gemeinsame Hilfen: `tools/lib/messe-spl.js`.
+
+```
+node tools/messe-spl-matrix.js [--seeds n] [--kartenart art] [--json]   # npm run messe:spl-matrix        Umsetzung x Kartenart durch szenenbau.aufloesen (ca. 1 Minute für alle Arten, 5 s je Art)
+node tools/messe-spl-kontext.js [--json]                               # npm run messe:spl-kontext        T13-Formel (Kontext-Zuwachs, Grenze 2200) je Feld und Weltstand
+node tools/messe-spl-kontext-wachstum.js [--art wildnis|hoehle]        # npm run messe:spl-kontext-wachstum   Tokens je gespeichertem Gelände-Landepunkt (5/10/20/40)
+node tools/messe-spl-rueckfall.js [--seeds n]                          # npm run messe:spl-rueckfall      wählt Archiv/Mock-Rückfall je Gelände? (Standard 50 Seeds)
+node tools/messe-spl-anker.js [--seeds n]                              # npm run messe:spl-anker          Anker je Rolle über Seeds, Pflichtsatz des Kontexts gegen Minimum
+node tools/messe-spl-rudel.js [--seeds n]                              # npm run messe:spl-rudel          Rudel-Platzierung je Kartenart und Deck (Standard 20 Seeds)
+```
+
 ### Live-Abend: Bot-Crew spielt mit dem echten Spielleiter (LIV-01 D)
 `tools/live-abend.js` fährt einen simulierten Abend der Freien Fahrt Sund mit drei WebSocket-Clients (wie `spiel-faden`, gemeinsame Teile in `tools/lib/bot-crew.js` und `tools/lib/bot-beats.js`) gegen den echten Server. Die Abenteuer-Angebote im Brett kommen vom Spielleiter (Claude, oder der Rückfall ohne Modell), die Crew nimmt sie an (`abenteuer.annehmen`) und spielt jedes Abenteuer so weit der Bot kann. `messe-lage` fährt echte Abende, nimmt aber keine Angebote an; `spiel-faden` spielt, setzt die Pläne aber selbst per Mock.
 ```
