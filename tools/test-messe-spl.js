@@ -61,10 +61,11 @@ function json(r) { try { return JSON.parse(r.out); } catch (e) { return null; } 
 
   console.log('Kontext-Wachstum');
   const w = json(wachstum);
-  const z = w ? w.zeilen : [];
-  ok(wachstum.code === 0 && z.map((x) => x.n).join() === '0,5,10,20,40' && z.every((x) => x.eintraege === x.n), 'Exit 0, n = 0/5/10/20/40, jeder angelegte Landepunkt steht im Kontext');
-  ok(z.length === 5 && z.every((x, i) => i === 0 || x.tokens > z[i - 1].tokens), 'Tokens wachsen streng mit n');
-  ok(z.length === 5 && z[4].plus > 0 && Math.abs(z[4].plus / 40 - z[1].plus / 5) / (z[1].plus / 5) < 0.1, 'Wachstum linear (je Landepunkt bei n=40 und n=5 auf 10 % gleich)');
+  const z = w ? w.zeilen.map((x) => Object.assign({}, x.ohneDeckel, { n: x.n, mit: x.mitDeckel })) : [];   // SPL-01 a2: ohne Deckel (Stand vor a2) und mit Deckel je n
+  ok(wachstum.code === 0 && z.map((x) => x.n).join() === '0,5,10,20,40' && z.every((x) => x.eintraege === x.n), 'Exit 0, n = 0/5/10/20/40, jeder angelegte Landepunkt steht ohne Deckel im Kontext');
+  ok(z.length === 5 && z.every((x, i) => i === 0 || x.tokens > z[i - 1].tokens), 'Tokens wachsen ohne Deckel streng mit n');
+  ok(z.length === 5 && z[4].plus > 0 && Math.abs(z[4].plus / 40 - z[1].plus / 5) / (z[1].plus / 5) < 0.1, 'Wachstum ohne Deckel linear (je Landepunkt bei n=40 und n=5 auf 10 % gleich)');
+  ok(z.length === 5 && z.every((x) => x.mit.eintraege === Math.min(x.n, w.gelaendeEinzeln)) && z[4].mit.plus < z[1].mit.plus * 1.2 && z[4].mit.plus < 400, 'Mit Deckel: hoechstens gelaendeEinzeln Eintraege, Zuwachs waechst nicht mehr mit n');
 
   console.log('Rueckfall-Zaehler');
   const r = json(rueck); const r2 = json(rueck2);
