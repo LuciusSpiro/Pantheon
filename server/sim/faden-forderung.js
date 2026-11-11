@@ -11,7 +11,7 @@
 //   optionPruefen(game, f, beat, opt) -> null | { code, text }       VOR der Wahl: geht die Option? (kostet sie Marken, muss das Guthaben reichen; sonst Funk der Lerche, die Wahl bleibt offen)
 //   optionGewaehlt(game, f, beat, opt)              NACH der Antwort der Crew, vor dem Ausgang: bucht die Kosten (Geld.bestechungZahlen), der Forderer antwortet per Funk, Regie-Logbuch
 //   verfall(game, f, beat)                          BEA-01 B: Schweigen (die Bitte verfaellt): die Option mit bei_verfall im Katalog gilt als gewaehlt (Durchsuchung); sonst nichts. Der Ausgang bleibt gescheitert
-//   starten(game, faden, ctx)                       wie der Baustein der Bitten (Angebot, Hinweise, die Antwort kommt spaeter)
+//   starten(game, faden, ctx)                       wie der Baustein der Bitten (Angebot, Hinweise, die Antwort kommt spaeter); BEA-01 C2: braucht_ware des Modus (Katalog art_modi) und keine Ware am Faden: der Beat endet sofort gescheitert
 //   datenFehler() -> [Text]                         Konsistenz der Daten (Tests): Texte, Forderer, Kosten, Katalogfelder
 // Die Ware verlieren (Ausliefern) oder behalten (Verweigern) regelt NICHT dieser Baustein, sondern der Ausgang des Beats (faden-fracht.js behaeltWare, Katalogfeld ware_bei_scheitern).
 // BEA-01 B: Der Beat nennt mit dem Parameter art, was der Forderer will (Katalog beats.json art_modi): ware (Standard, wie oben) oder durchsuchung. In der Art durchsuchung heissen die Optionen dulden (der Frachtraum wird ueber
@@ -81,6 +81,20 @@ function text(game, f, beat) {
   return fmt(e.text, { forderer: fo.name, ware, ort: f.parameter && f.parameter.ort ? hexName(f.parameter.ort) : 'hier', marken: preis ? preis + ' ' + WERTE.marken_einheit.wert : '' });
 }
 
+// BEA-01 C2: Die Forderung der Ware (Modus mit braucht_ware im Katalog art_modi) braucht eine Ware: haengt keine am Faden (nie geladen, in der Wartezeit nach dem Lade-Beat verloren: Notsprung) oder liegt ihre Ladung nicht mehr im
+// Frachtraum (Huellentreffer), gaebe es nichts zu fordern. Der Modus ohne das Feld (Durchsuchung) braucht keine Ware des Fadens.
+function wareFehlt(game, f, beat) {
+  const m = D.artModus(beat);
+  if (!m || m.braucht_ware !== true) return false;
+  return !f.fracht || !Lager().auftragAnBord(game, f.id);
+}
+// BEA-01 C2: der Forderer sagt per Funk, dass es nichts zu holen gibt (forderung-texte.json ware_fehlt), Regie-Logbuch; der Ausgang gescheitert kommt von starten
+function wareFehltMelden(game, f, beat) {
+  const fo = fordererVon(beat);
+  if (fo && typeof TEXTE.ware_fehlt === 'string') Bitte().funkSprecher(game, fo.name, fmt(TEXTE.ware_fehlt, { forderer: fo.name }));
+  logbuch(game, { ausgang: 'ware_fehlt', key: f.id, begruendung: `Forderung ${beat.id}: keine Ware am Faden, der Beat endet sofort gescheitert`, plan: { faden: f.id, beat: beat.id } });
+}
+
 function optionPruefen(game, f, beat, opt) {
   const n = kostenVon(beat, opt.id);
   if (n > 0 && !Geld.mindestens(game, n)) {
@@ -130,6 +144,28 @@ function optionGewaehlt(game, f, beat, opt) {
   logbuch(game, { ausgang: w.ereignis || 'gewaehlt', key: f.id, begruendung: `Forderung ${beat.id}: Option ${opt.id}${bezahlt ? ', ' + bezahlt + ' Marken bezahlt' : ''}${fund ? ', Durchsuchung: ' + fund.n + ' beschlagnahmt' + (fund.bussgeld ? ', ' + fund.bussgeld + ' Marken Bussgeld' : '') : ''}`, plan: Object.assign({ faden: f.id, beat: beat.id, option: opt.id, marken: bezahlt }, fund ? { beschlagnahmt: fund.n, bussgeld: fund.bussgeld } : {}) });
 }
 
+// BEA-01 C2: der bauplan-Abschnitt eines Beats mit diesem Baustein passt zu den Daten dieses Bausteins: text_key-Werte stehen in forderung-texte.json (und gehoeren zum Modus: derselbe Forderer in forderung und schmiergeld
+// ist Sache des Rezepts), art nur aus den Modi, tiefe aus den Tiefen des Modus, staerke aus den Stufen der Preise, die Optionen des Plans gehoeren zum Modus (Standardart des Plans), Texte des Forderers hoechstens 90 Zeichen nach dem Einsetzen
+function bauplanFehler(typ, k) {
+  const out = [], bp = k.bauplan;
+  if (!bp) return out;
+  const g = (t) => out.push(`Beat ${typ}, bauplan: ${t}`);
+  const ps = bp.parameter || {}, am = k.art_modi;
+  for (const key of (ps.text_key && Array.isArray(ps.text_key.erlaubt) ? ps.text_key.erlaubt : [])) if (!has(TEXTE.texte, key)) g(`text_key ${key} steht nicht in forderung-texte.json`);
+  if (ps.staerke) for (const s of ps.staerke.erlaubt || []) if (!has(WERTE.bestechung_marken.wert, s)) g(`staerke ${s} steht nicht in forderung-werte.json bestechung_marken`);
+  let modus = null;
+  if (am) {
+    const art = ps[am.parameter];
+    for (const a of art ? art.erlaubt || [] : []) if (!has(am.modi, a)) g(`${am.parameter} ${a} ist keine Art des Beat-Typs (art_modi)`);
+    modus = art && has(am.modi, art.standard) ? Object.assign({}, am.modi[art.standard]) : null;
+    if (modus && modus.tiefen) { for (const v of ps[modus.tiefen.parameter] ? ps[modus.tiefen.parameter].erlaubt || [] : []) if (!modus.tiefen.werte.includes(v)) g(`${modus.tiefen.parameter} ${v} gibt es in der Standardart nicht`); }
+    else if (modus && ps.tiefe) g('tiefe gehoert zu einer Art mit tiefen: die Standardart des Plans hat keine');
+  }
+  const wirk = (modus && modus.optionen_wirkung) || k.optionen_wirkung || {};
+  for (const o of bp.optionen || []) if (!has(wirk, o.id)) g(`Option ${o.id} gehoert nicht zur Standardart des Plans (${Object.keys(wirk).join(', ')})`);
+  return out;
+}
+
 // Daten-Konsistenz fuer die Tests: jeder Beat mit diesem Baustein hat Texte, Forderer, Kosten-Schluessel
 function datenFehler() {
   const out = [];
@@ -149,9 +185,11 @@ function datenFehler() {
         if (w.durchsuchen !== undefined && !(w.durchsuchen === true && m.tiefen)) out.push(`Beat ${typ}, Art ${mid}, Option ${oid}: durchsuchen ist true und braucht tiefen im Modus`);
       }
       if (m.ware_bei_scheitern !== undefined && m.ware_bei_scheitern !== 'bleibt') out.push(`Beat ${typ}, Art ${mid}: ware_bei_scheitern ist "bleibt" oder fehlt`);
+      if (m.braucht_ware !== undefined && m.braucht_ware !== true) out.push(`Beat ${typ}, Art ${mid}: braucht_ware ist true oder fehlt`);   // BEA-01 C2
     }
     if (k.ware_bei_scheitern !== undefined && k.ware_bei_scheitern !== 'bleibt') out.push(`Beat ${typ}: ware_bei_scheitern ist "bleibt" oder fehlt`);
     if (k.gefahr === true) out.push(`Beat ${typ}: ein Beat mit Optionen hat keine Gefahr`);
+    out.push(...bauplanFehler(typ, k));   // BEA-01 C2
   }
   // BEA-01 B: Daten der Durchsuchung: Ruf-Gruende gibt es, Staerken wie bei der Bestechung, Texte da
   const RUF = require('../../content/welt/ruf-werte.json').werte.quellen.wert;
@@ -170,7 +208,11 @@ const baustein = {
   optionPruefen,
   optionGewaehlt,
   verfall,
-  starten(game, faden, ctx) { return Bitte().baustein.starten(game, faden, ctx); },
+  starten(game, faden, ctx) {
+    const beat = ctx && ctx.beat;
+    if (beat && wareFehlt(game, faden, beat)) { wareFehltMelden(game, faden, beat); return { ausgang: 'gescheitert' }; }   // BEA-01 C2: nichts zu fordern
+    return Bitte().baustein.starten(game, faden, ctx);
+  },
 };
 
 module.exports = { baustein, kostenVon, bussgeldVon, preisDesBeats, datenFehler, TEXTE, WERTE };

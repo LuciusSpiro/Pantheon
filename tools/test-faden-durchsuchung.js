@@ -130,6 +130,11 @@ function bereit(seed, k) {
   return { g, radio, odas, evts, mevts, texte: () => radio.map((r) => r.text), sichtbar: () => odas.concat(evts.map((e) => JSON.stringify(e))).join(' | ') };
 }
 const starteBeat = (x) => { grenzen(x.g, 5); return weiter(x.g, x.f); };
+// BEA-01 C2: die Forderung der WARE (art ware) braucht eine Faden-Ware (Katalog braucht_ware, sonst endet sie sofort): eine Ware am Faden und im Frachtraum, ohne Lade-Beat
+const mitWare = (x) => {
+  const r = Lager.lagerAufnehmen(x.g, { art: 'fracht', quelle: 'faden', eigenschaften: { auftrag: x.f.id } }); if (!r.ok) throw new Error('Einlagern: ' + r.text);
+  x.f.fracht = Fracht.leseFracht({ ware: 'fracht_kiste', von: ZIEL, nach: ZIEL, tick: x.g.weltsim.tickZahl });
+};
 const angebot = (g) => Bitte.offen(g);
 const antwort = (g, id) => Bitte.beantworten(g, id, angebot(g) ? angebot(g).nr : null);
 const gesehen = (x, name) => x.mevts.filter((e) => e.k === name);
@@ -466,7 +471,7 @@ const ECHT = /waffen/i;   // die echte Art der getarnten Ware (TARN); die Tarnar
     // Standard byte-gleich: art ware ausdruecklich = ohne Parameter (Paket A): gleicher Lauf, gleiche Spuren
     zoll('du_k30', { art: null }); zoll('du_k31', { art: 'ware' });
     const lauf = (id, seed) => {
-      const x = bereit(seed); x.f = oeffne(x.g, id); starteBeat(x);
+      const x = bereit(seed); x.f = oeffne(x.g, id); mitWare(x); starteBeat(x);
       const spur = [];
       spur.push(angebot(x.g).text, angebot(x.g).optionen.map((o) => o.id).join());
       antwort(x.g, 'nicht_ausliefern'); starteBeat(x); antwort(x.g, 'bestechen');
@@ -475,8 +480,8 @@ const ECHT = /waffen/i;   // die echte Art der getarnten Ware (TARN); die Tarnar
       return JSON.stringify(spur);
     };
     ok(lauf('du_k30', 101) === lauf('du_k31', 101), 'art ware ausdruecklich und ohne Parameter: gleicher Lauf (Texte, Optionen, Marken, Ereignisse, Funk)');
-    const l0 = bereit(102); l0.f = oeffne(l0.g, 'du_k30'); starteBeat(l0);
-    ok(angebot(l0.g).text === fmt(TEXTE.texte.forderung_zollschiff.text, { ware: TEXTE.ware_ohne, ort: Sektoren.hexName(l0.f.parameter.ort) || 'hier' }) && angebot(l0.g).optionen.map((o) => o.id).join() === 'ausliefern,nicht_ausliefern', 'ohne art: Text und Optionen wie in Paket A (ausliefern, nicht_ausliefern)');
+    const l0 = bereit(102); l0.f = oeffne(l0.g, 'du_k30'); mitWare(l0); starteBeat(l0);
+    ok(angebot(l0.g).text === fmt(TEXTE.texte.forderung_zollschiff.text, { ware: require('../content/faeden/szenen-werte.json').werte.waren.wert.fracht_kiste.name, ort: Sektoren.hexName(l0.f.parameter.ort) || 'hier' }) && angebot(l0.g).optionen.map((o) => o.id).join() === 'ausliefern,nicht_ausliefern', 'ohne art: Text und Optionen wie in Paket A (ausliefern, nicht_ausliefern)');
     // Standard des Beats fracht: ohne Parameter Art fracht, nur der Auftrag
     ok(JSON.stringify(Fracht.ladungVon({ typ: 'fracht', parameter: { nach: ZIEL } })) === '{"art":"fracht","eigenschaften":{}}' && JSON.stringify(Fracht.ladungVon({ typ: 'fracht', parameter: { nach: ZIEL, ware: 'erz' } })) === '{"art":"fracht","eigenschaften":{}}', 'ladungVon ohne Parameter: Art fracht, keine Eigenschaften (der Parameter ware aendert die Ladung nie)');
   });

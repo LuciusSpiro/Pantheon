@@ -79,13 +79,14 @@ function schmuggel(id, o) {
   }));
   if (!r.ok) throw new Error('Vorlage ' + id + ' ungueltig: ' + r.fehler.join('; '));
 }
-// Zollschiff: ohne Haendler, ohne Ware, ohne Enthuellung: forderung -> schmiergeld -> (raumschlacht) -> Abschluss
+// Zollschiff: ohne Haendler, ohne Ware, ohne Enthuellung: forderung (art durchsuchung) -> schmiergeld -> (raumschlacht) -> Abschluss
+// BEA-01 C2: die Forderung der WARE (art ware) braucht eine Faden-Ware (Katalog braucht_ware): ohne Haendler und ohne Lade-Beat endet sie sofort. Das Zollschiff ohne Ware fordert deshalb die Durchsuchung (dulden / nicht_dulden).
 function zoll(id) {
   const r = registriere(alsVorlage(id, (v) => {
     v.nsc.status = 'aktiv'; v.volk_erlaubt = ['rom', 'kon', 'ger']; delete v.wahrheit; delete v.hinweise;
     v.beats = [
-      { id: 'b_forderung', typ: 'forderung', parameter: { text_key: 'forderung_zollschiff', staerke: 'gering' }, optionen: optionen('forderung'), aus: { gelungen: WEG('aktiv', 'b_schmier'), gescheitert: WEG('aktiv', 'b_ende') } },
-      { id: 'b_schmier', typ: 'schmiergeld', parameter: { text_key: 'schmiergeld_zollschiff', staerke: 'gering' }, optionen: optionen('schmiergeld'), aus: { gelungen: WEG('aktiv', 'b_ende'), gescheitert: WEG('aktiv', 'b_kampf') } },
+      { id: 'b_forderung', typ: 'forderung', parameter: { text_key: 'durchsuchung_zollschiff', art: 'durchsuchung', staerke: 'gering' }, optionen: [{ id: 'dulden', text: 'Dulden', ausgang: 'gescheitert', folge: [] }, { id: 'nicht_dulden', text: 'Nicht dulden', ausgang: 'gelungen', folge: [] }], aus: { gelungen: WEG('aktiv', 'b_schmier'), gescheitert: WEG('aktiv', 'b_ende') } },
+      { id: 'b_schmier', typ: 'schmiergeld', parameter: { text_key: 'schmiergeld_durchsuchung_zollschiff', staerke: 'gering' }, optionen: optionen('schmiergeld'), aus: { gelungen: WEG('aktiv', 'b_ende'), gescheitert: WEG('aktiv', 'b_kampf') } },
       { id: 'b_kampf', typ: 'raumschlacht', aus: { gelungen: WEG('aktiv', 'b_ende'), gescheitert: WEG('geflohen', 'b_ende') } },
       { id: 'b_ende', typ: 'abschluss', erfolg: { ereignis: ['schmiergeld_gelungen', 'raumschlacht_gelungen'] }, aus: { gelungen: {}, gescheitert: { text_key: 'ende_verpasst' } } },
     ];
@@ -131,7 +132,7 @@ const antwort = (g, id) => Bitte.beantworten(g, id, angebot(g) ? angebot(g).nr :
   await section('(a) Daten: Katalog, Texte, Werte, Baustein; kein Beat-Name im Servercode', async () => {
     const f = D.BEATS.forderung, s = D.BEATS.schmiergeld;
     ok(f && s && f.gefahr === false && s.gefahr === false && f.optionen === 'erlaubt' && s.optionen === 'erlaubt', 'forderung und schmiergeld: gefahr false, optionen erlaubt');
-    ok(f.bauplan === undefined && s.bauplan === undefined, 'beide ohne bauplan-Abschnitt: nicht planbar (Paket C)');
+    ok(typeof f.bauplan === 'object' && typeof s.bauplan === 'object', 'beide mit bauplan-Abschnitt: planbar (BEA-01 C2, Tests: tools/test-forderung-plan.js)');
     ok(f.ware_bei_scheitern === undefined && s.ware_bei_scheitern === 'bleibt', 'Katalogfeld ware_bei_scheitern: forderung nicht gesetzt (Ware weg), schmiergeld "bleibt"');
     ok(s.optionen_wirkung.bestechen.kosten === 'bestechung_marken' && f.optionen_wirkung.ausliefern.kosten === undefined, 'Kosten stehen am Katalog: nur Bestechen kostet');
     ok(Pruefer.katalogFehler().length === 0, 'katalogFehler leer');
@@ -171,10 +172,10 @@ const antwort = (g, id) => Bitte.beantworten(g, id, angebot(g) ? angebot(g).nr :
     ok(codes(Pruefer.pruefeVorlage(g2)).includes('OPTION_BEI_GEFAHR'), 'Gegenprobe: der Kampf-Beat (raumschlacht) mit Optionen -> weiter OPTION_BEI_GEFAHR');
     ok(Pruefer.optionenFehler({ id: 'x', typ: 'forderung', gefahr: true, optionen: optionen('forderung') }, D.BEATS.forderung).some((e) => /OPTION_BEI_GEFAHR/.test(e)), 'optionenFehler: gefahr + Optionen am Beat forderung -> OPTION_BEI_GEFAHR');
     ok(Pruefer.optionenFehler({ id: 'x', typ: 'forderung', optionen: optionen('forderung') }, D.BEATS.forderung).length === 0 && Pruefer.optionenFehler({ id: 'x', typ: 'schmiergeld', optionen: optionen('schmiergeld') }, D.BEATS.schmiergeld).length === 0, 'ohne gefahr: die Optionen sind gueltig');
-    // Planbarkeit: kein Expander-Typ (Paket C)
+    // Planbarkeit (BEA-01 C2): im Plan nur die Art durchsuchung; die Forderung der Ware kann ein Plan nicht stellen (er laedt keine Faden-Ware)
     const BP = require('../server/sim/faden-bauplan.js');
-    const e = BP.pruefe({ format: 'faden-bauplan/1', titel: 'Probe Abenteuer', beats: [{ typ: 'bitte', verzweigung: { gescheitert: 'e' } }, { typ: 'forderung' }, { typ: 'abschluss', id: 'e' }] });
-    ok(!e.ok && e.codes.includes('BAUPLAN_TYP_NICHT_PLANBAR'), 'Expander: forderung ist (noch) nicht planbar (BAUPLAN_TYP_NICHT_PLANBAR)');
+    const e = BP.pruefe({ format: 'faden-bauplan/1', titel: 'Probe Abenteuer', beats: [{ typ: 'bitte', verzweigung: { gescheitert: 'e' } }, { typ: 'forderung', parameter: { art: 'ware' }, verzweigung: { gescheitert: 'e' } }, { typ: 'abschluss', id: 'e' }] });
+    ok(!e.ok && e.codes.includes('PARAMETER'), 'Expander: forderung mit art ware ist im Plan nicht erlaubt (PARAMETER, ' + e.codes.join(',') + ')');
     // sim_befehl nur nach einer echten Ablieferung (Haendler-Vorlage mit den neuen Beats)
     const haendler = (id, aendern) => Pruefer.pruefeVorlage(haendlerVorlage(id, aendern));
     const haendlerVorlage = (id, aendern) => {
@@ -290,7 +291,7 @@ const antwort = (g, id) => Bitte.beantworten(g, id, angebot(g) ? angebot(g).nr :
     { // Staerke aus dem Beat: Zoll mit staerke gering kostet den geringen Preis
       zoll('fo_e2');
       const x = bereit(125, 500); x.f = oeffne(x.g, 'fo_e2'); starteBeat(x);
-      antwort(x.g, 'nicht_ausliefern'); starteBeat(x);
+      antwort(x.g, 'nicht_dulden'); starteBeat(x);
       const v = marken(x.g); antwort(x.g, 'bestechen');
       ok(marken(x.g) === v - PREIS_GERING, 'staerke gering aus dem Beat: ' + PREIS_GERING + ' Marken');
     }
@@ -368,10 +369,10 @@ const antwort = (g, id) => Bitte.beantworten(g, id, angebot(g) ? angebot(g).nr :
       const l0 = lager(g);
       starteBeat(x);
       const a = angebot(g);
-      ok(!!a && a.von === TEXTE.forderer.zollschiff.name && a.kopf === 'ZOLL' && a.text === fmt(TEXTE.texte.forderung_zollschiff.text, { ware: TEXTE.ware_ohne, ort: Sektoren.hexName(f.parameter.ort) || 'hier' }), 'Zollschiff fordert (andere Texte, anderer Kopf), ohne Ware heisst es „' + TEXTE.ware_ohne + '“: ' + (a && a.text));
+      ok(!!a && a.von === TEXTE.forderer.zollschiff.name && a.kopf === 'ZOLL' && a.text === fmt(TEXTE.texte.durchsuchung_zollschiff.text, { ort: Sektoren.hexName(f.parameter.ort) || 'hier' }), 'Zollschiff fordert die Durchsuchung (andere Texte, anderer Kopf, keine Ware im Text): ' + (a && a.text));
       ok(!f.fracht && f.nsc.wahrheit === undefined || !f.nsc.wahrheit, 'kein Haendler: keine Ware am Faden, keine verborgene Wahrheit');
-      antwort(g, 'nicht_ausliefern'); starteBeat(x);
-      ok(angebot(g).text === fmt(TEXTE.texte.schmiergeld_zollschiff.text, { marken: PREIS_GERING + ' ' + WERTE.marken_einheit.wert }), 'Schmiergeld des Zollschiffs nennt den geringen Preis (' + PREIS_GERING + ')');
+      antwort(g, 'nicht_dulden'); starteBeat(x);
+      ok(angebot(g).text === fmt(TEXTE.texte.schmiergeld_durchsuchung_zollschiff.text, { marken: PREIS_GERING + ' ' + WERTE.marken_einheit.wert }), 'Schmiergeld des Zollschiffs nennt den geringen Preis (' + PREIS_GERING + ')');
       const v = marken(g);
       antwort(g, 'bestechen');
       ok(marken(g) === v - PREIS_GERING && f.beat === 3 && f.phase === 'wartet', 'Bestechen: ' + PREIS_GERING + ' Marken, der Faden steht vor dem Abschluss');
@@ -379,15 +380,15 @@ const antwort = (g, id) => Bitte.beantworten(g, id, angebot(g) ? angebot(g).nr :
       ok(f.phase === 'abgeschlossen' && f.ausgang.art === 'gelungen' && ereignisse(f).slice(0, 2).join() === 'forderung_gelungen,schmiergeld_gelungen', 'Abschluss gelungen ohne Haendler und ohne Enthuellung (' + ereignisse(f).join() + ')');
       ok(lager(g) === l0, 'der Frachtraum blieb unberuehrt');
     }
-    { // Forderung -> Ausliefern (nichts zu liefern)
+    { // Forderung -> Dulden (der Frachtraum ist leer: nichts zu finden)
       const x = bereit(172, 300); x.f = oeffne(x.g, 'fo_j'); starteBeat(x);
-      antwort(x.g, 'ausliefern');
+      antwort(x.g, 'dulden');
       grenzen(x.g, 5); weiter(x.g, x.f);
-      ok(x.f.phase === 'abgeschlossen' && x.f.ausgang.art === 'gescheitert' && marken(x.g) === 300, 'Ausliefern: Abschluss gescheitert, keine Marken');
+      ok(x.f.phase === 'abgeschlossen' && x.f.ausgang.art === 'gescheitert' && marken(x.g) === 300, 'Dulden: Abschluss gescheitert, keine Marken');
     }
     { // Verweigern -> raumschlacht
       const x = bereit(173, 300); x.f = oeffne(x.g, 'fo_j'); starteBeat(x);
-      antwort(x.g, 'nicht_ausliefern'); starteBeat(x); antwort(x.g, 'verweigern'); starteBeat(x);
+      antwort(x.g, 'nicht_dulden'); starteBeat(x); antwort(x.g, 'verweigern'); starteBeat(x);
       ok(x.f.phase === 'laeuft' && D.vorlage(x.f.vorlage).beats[x.f.beat].typ === 'raumschlacht', 'Verweigern: der Beat raumschlacht laeuft');
       Faden.beatAusgang(x.g, x.f.id, 'gelungen'); grenzen(x.g, 5); weiter(x.g, x.f);
       ok(x.f.phase === 'abgeschlossen' && x.f.ausgang.art === 'gelungen', 'nach gewonnenem Kampf: Abschluss gelungen');

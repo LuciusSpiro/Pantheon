@@ -1,6 +1,6 @@
 {
   "format": "faden-forderung-texte/1",
-  "_hinweis": "BEA-01 A: Absender und Texte der Forderung (server/sim/faden-forderung.js). forderer: wer fordert (Name, Fraktion, Porträt-Variante, Kopf der Antwortleiste, hoechstens 12 Zeichen). texte: Schluessel = text_key des Beats (Vorlage), je Eintrag forderer und text (nach dem Einsetzen hoechstens 90 Zeichen: die Leiste zeigt zwei Zeilen). Platzhalter: {forderer} (Name), {ware} (Name der Ware des Fadens, sonst ware_ohne), {ort} (Name des Sektors), {marken} (Preis der Bestechung). reaktionen: Funk des Forderers nach der Wahl, Schluessel = Id der Option. ablehnung: Funk der Lerche, wenn eine Option nicht geht. Keine Zahlen hier (forderung-werte.json).",
+  "_hinweis": "BEA-01 A: Absender und Texte der Forderung (server/sim/faden-forderung.js). forderer: wer fordert (Name, Fraktion, Porträt-Variante, Kopf der Antwortleiste, hoechstens 12 Zeichen). texte: Schluessel = text_key des Beats (Vorlage), je Eintrag forderer und text (nach dem Einsetzen hoechstens 90 Zeichen: die Leiste zeigt zwei Zeilen). Platzhalter: {forderer} (Name), {ware} (Name der Ware des Fadens, sonst ware_ohne), {ort} (Name des Sektors), {marken} (Preis der Bestechung). reaktionen: Funk des Forderers nach der Wahl, Schluessel = Id der Option. ablehnung: Funk der Lerche, wenn eine Option nicht geht. BEA-01 C2: ware_fehlt = Funk des Forderers, wenn eine Forderung der Ware (art ware, Katalog braucht_ware) startet und keine Ware am Faden haengt; durchsuchung_freibeuter und schmiergeld_durchsuchung_freibeuter = der Freibeuter als Forderer der Durchsuchung (Stufe der Absicht). Keine Zahlen hier (forderung-werte.json).",
   "ware_ohne": "Ladung",
   "forderer": {
     "freibeuter": { "name": "Freibeuter", "fraktion": "ger", "portrait": 1, "kopf": "FORDERUNG" },
@@ -12,7 +12,9 @@
     "forderung_zollschiff": { "forderer": "zollschiff", "text": "Zoll bei {ort}: Die {ware} wird beschlagnahmt." },
     "schmiergeld_zollschiff": { "forderer": "zollschiff", "text": "Man könnte die Papiere vergessen: {marken}." },
     "durchsuchung_zollschiff": { "forderer": "zollschiff", "text": "Zoll bei {ort}: Frachtraum zur Prüfung öffnen." },
-    "schmiergeld_durchsuchung_zollschiff": { "forderer": "zollschiff", "text": "Die Prüfung ließe sich vergessen: {marken}." }
+    "schmiergeld_durchsuchung_zollschiff": { "forderer": "zollschiff", "text": "Die Prüfung ließe sich vergessen: {marken}." },
+    "durchsuchung_freibeuter": { "forderer": "freibeuter", "text": "Halt! Wir sehen uns euren Frachtraum an." },
+    "schmiergeld_durchsuchung_freibeuter": { "forderer": "freibeuter", "text": "Wir können auch blind sein: {marken}." }
   },
   "reaktionen": {
     "ausliefern": "Vernünftig. Die {ware} gehört jetzt uns.",
@@ -27,6 +29,7 @@
     "bussgeld": "Bußgeld: {marken}.",
     "sauber": "Frachtraum geprüft. Weiterfliegen."
   },
+  "ware_fehlt": "Ihr habt nichts, was wir wollen. Weiterfliegen.",
   "ablehnung": {
     "zu_wenig_marken": "Dafür fehlen uns die Marken."
   }
