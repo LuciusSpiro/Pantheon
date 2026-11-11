@@ -168,12 +168,12 @@ section('Modus AUS: byte-gleich zum Beat-Plan', () => {
     void erwartet;
     // frische Welt: Prompt des Spielleiters == Baseline-Funktion, byte fuer byte
     const t2 = welt8(81), g2 = t2.g, M2 = mitSL(t2);
-    const hex2 = M2.ab.crewHex();
+    const hafen2 = M2.ab.crewHex(), hex2 = require('../server/sim/abenteuer-ziel.js').zielImUmkreis(g2, hafen2, { belegt: [] });   // FRE-02 A1: der Ort des Prompts ist das Ziel in der Umgebung des Hafens (nicht mehr der Crew-Hex)
     const r = M2.ab.erzwingen();
     await pumpen(g2, 1);
     const p2 = M2.asks()[0] && M2.asks()[0].prompt;
     const basis = Prompt.baue(g2, { nr: 1, grenze: 'debug', hex: hex2, letzte: [], werte: M2.ab.W });
-    ok(r.gestartet && p2 === basis.prompt, 'AUS: der Prompt des Spielleiters ist byte-gleich zu Prompt.baue (' + (p2 ? p2.length : 0) + ' Zeichen)');
+    ok(r.gestartet && !!hex2 && hex2 !== hafen2 && p2 === basis.prompt, 'AUS: der Prompt des Spielleiters ist byte-gleich zu Prompt.baue (' + (p2 ? p2.length : 0) + ' Zeichen)');
     ok(!/"modus":"absicht"/.test(basis.prompt) && basis.kennungen === undefined, 'Prompt.baue kennt keinen Modus und gibt keine Kennungen');
     // Katalog des Beat-Plans unveraendert: dieselben Zeilen wie die Funktion der Baseline
     ok(Prompt.katalogText().length >= KATALOG_HEUTE - 10 && Prompt.katalogText().length <= 9500, 'der Beat-Katalog hat weiter ' + Prompt.katalogText().length + ' Zeichen');

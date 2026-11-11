@@ -30,6 +30,7 @@
     "test:abenteuer-mutation": "node tools/mutation-abenteuer.js",
     "test:abenteuer-brett": "node tools/test-abenteuer-brett.js",
     "test:abenteuer-titel": "node tools/test-abenteuer-titel.js",
+    "test:abenteuer-ziel": "node tools/test-abenteuer-ziel.js",
     "test:freie-fahrt-szenario": "node tools/test-freie-fahrt-szenario.js",
     "test:lobby-livespielleiter": "node tools/test-lobby-livespielleiter.js",
     "test:notbetrieb-hinweis": "node tools/test-notbetrieb-hinweis.js",

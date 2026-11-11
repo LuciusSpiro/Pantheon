@@ -20,6 +20,7 @@ const Haken = require('../telemetrie/haken.js');   // TEL-01 B2: Wartezeit auf d
 const Regie = require('./regie-befehle.js');
 const Kontingent = require('./kontingent.js');   // LIV-01: Schwelle des Token-Zählers
 const Prompt = require('./abenteuer-prompt.js');
+const Ziel = require('./abenteuer-ziel.js');   // FRE-02 A1: Zielwahl im Umkreis des Hafens
 const Absicht = require('./abenteuer-absicht.js');   // SPL-02 E1: Betriebsmodus Absichten (Schalter ABENTEUER_ABSICHTEN)
 const { WERTE } = require('./abenteuer-daten.js');
 
@@ -36,7 +37,7 @@ class AbenteuerSpielleiter {
     this.game = lage.game;
     this.W = Object.assign({}, WERTE, o.werte || {});
     this.zustand = 'idle';       // 'idle' | 'angefragt' (Prompt wird im naechsten update gebaut) | 'laeuft'
-    this.job = null;             // { token, art, nr, hex, start (Spielzeit), wall, bau, eskaliert, input }
+    this.job = null;             // { token, art, nr, hex (Ort der Geschichte), herkunftHex (Hafen/Crew, FRE-02 A1), start (Spielzeit), wall, bau, eskaliert, input }
     this.seq = 0;
     this.inbox = [];
     this.aufrufe = 0;            // gestartete Aufrufe dieser Sitzung (Deckel)
@@ -105,14 +106,15 @@ class AbenteuerSpielleiter {
     return llm.mode === 'live' && llm.anbieterFuer('abenteuer', STUFE) !== 'ollama' && Kontingent.sperrt(this.game, this.W.min_budget);
   }
   vormerken(art) {
-    const ort = this.crewHex();
+    const hafen = this.crewHex();   // FRE-02 A1: Herkunft (beim Andocken der Hafen); der Ort der Geschichte ist ein Ziel in der Umgebung (abenteuer-ziel.js), im Modus Absichten bis A2 weiter der Ort der Crew
+    const ort = hafen && !Absicht.aktiv(this.game) ? Ziel.zielImUmkreis(this.game, hafen, { belegt: Ziel.belegt(this.game) }) : hafen;
     if (!ort) return this.ueberspringen('kein_ort', art);
     if (this.budgetGesperrt()) return this.ueberspringen('budget', art);   // LIV-01: Schwelle als Gate (kontingent.js); LIV-02: Kontingent-Ende meldet keinen Notbetrieb
     this.letzterSprung = null;
     this.aufrufe++;
     this.grenzenSeit = 0;
     this.zustand = 'angefragt';
-    this.job = { token: 0, art, nr: this.aufrufe, hex: ort, start: this.game.time, wall: null, bau: null, eskaliert: false, input: null };
+    this.job = { token: 0, art, nr: this.aufrufe, hex: ort, herkunftHex: hafen, start: this.game.time, wall: null, bau: null, eskaliert: false, input: null };
     return { gestartet: true, grund: null };
   }
 

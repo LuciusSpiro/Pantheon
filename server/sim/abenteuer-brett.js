@@ -30,6 +30,7 @@ const Wdh = () => require('./abenteuer-wiederholung.js');
 const Absicht = () => require('./absicht-pruefer.js');
 const Rueckfall = () => require('./abenteuer-rueckfall.js');
 const Vorrat = () => require('./abenteuer-vorrat.js');
+const Ziel = () => require('./abenteuer-ziel.js');
 const Chronik = () => require('./chronik.js');
 const Ausschnitt = () => require('./lage-ausschnitt.js');
 const has = (o, k) => Object.prototype.hasOwnProperty.call(o, k);
@@ -299,17 +300,27 @@ function anschluss(game) {
       return r.angebot;
     }
   }
-  let plaene = [], stufe = 0;
-  for (; !plaene.length && stufe <= Math.max(brett(F).abgelehnt.length + 1, Wdh().STUFEN_MAX); stufe++) plaene = D.ANSCHLUSS.plaene.filter((bp) => passt(game, F, bp, stufe, hex));   // Sperren stufenweise lockern: zuerst die aelteste Ablehnung, zuletzt der zuletzt gespielte Plan
-  if (!plaene.length) return null;
+  // FRE-02 A1: der Ort des Standardplans ist ein ZIEL in der Umgebung des Hafens (abenteuer-ziel.js, Strom der Faeden), nicht der Hafen. Gibt es keines (Karte veraendert, Radius 0, alles belegt) oder geht dort kein Plan,
+  // gilt wie vorher der Hafen: die Anschluss-Garantie bleibt unbedingt (Logbuch: Feld ziel = false). Die Sperren werden zuerst ueber alle Ziele gelockert, erst danach faellt die Wahl auf den Hafen zurueck.
+  const planeAn = (o, st) => D.ANSCHLUSS.plaene.filter((bp) => passt(game, F, bp, st, o));
+  const stufeFuer = (orte) => { for (let st = 0; st <= Math.max(brett(F).abgelehnt.length + 1, Wdh().STUFEN_MAX); st++) if (orte.some((o) => planeAn(o, st).length)) return st; return -1; };   // Sperren stufenweise lockern: zuerst die aelteste Ablehnung, zuletzt der zuletzt gespielte Plan
+  const ziele = Ziel().zielFolge(game, hex, { belegt: Ziel().belegt(game) });
+  let orte = ziele, stufe = stufeFuer(orte);
+  if (stufe < 0) { orte = [hex]; stufe = stufeFuer(orte); }
+  if (stufe < 0) return null;
   const n = F.angNr + 1;
-  const start = Math.floor(Faden().strom(game, n, 'anschluss')() * plaene.length) % plaene.length;
-  for (let k = 0; k < plaene.length; k++) {
-    const res = Faden().abenteuerAnbieten(game, klon(plaene[(start + k) % plaene.length]), { hex });
-    if (res.ok) {
-      res.angebot.locker = stufe - 1 >= Wdh().STUFEN_MAX;   // der NSC-Sperre entkommen: das Wiedersehen darf auch die Hauptfigur des letzten Abenteuers nehmen
-      logbuch(game, 'abenteuer_anschluss', { ausgang: 'angeboten', key: res.angebot.ref, begruendung: `Anschluss-Garantie: Standardplan ${res.angebot.ref} als Angebot ${res.angebot.nr} bei ${hex}`, plan: { angebot: res.angebot.nr, vorlage: res.angebot.ref, hex, wahl: (start + k) % plaene.length } });
-      return res.angebot;
+  const z = Faden().strom(game, n, 'anschluss')();
+  for (const o of orte) {
+    const plaene = planeAn(o, stufe);
+    if (!plaene.length) continue;
+    const s0 = Math.floor(z * plaene.length) % plaene.length;
+    for (let k = 0; k < plaene.length; k++) {
+      const res = Faden().abenteuerAnbieten(game, klon(plaene[(s0 + k) % plaene.length]), { hex: o });
+      if (res.ok) {
+        res.angebot.locker = stufe >= Wdh().STUFEN_MAX;   // der NSC-Sperre entkommen: das Wiedersehen darf auch die Hauptfigur des letzten Abenteuers nehmen
+        logbuch(game, 'abenteuer_anschluss', { ausgang: 'angeboten', key: res.angebot.ref, begruendung: `Anschluss-Garantie: Standardplan ${res.angebot.ref} als Angebot ${res.angebot.nr} bei ${o}`, plan: { angebot: res.angebot.nr, vorlage: res.angebot.ref, hex: o, wahl: (s0 + k) % plaene.length, ziel: o !== hex } });
+        return res.angebot;
+      }
     }
   }
   return null;
