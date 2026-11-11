@@ -121,6 +121,10 @@ function nscUebernehmen(alt, v, nscNr) {
 }
 const wiedersehenKandidaten = (game, v) => (v && P.nscAlt(v) ? P.wiedersehenNsc(zustandVon(game), v).map((n) => n.id) : []);
 const portraetVon = (npc) => (npc && Number.isFinite(npc.portrait) ? npc.portrait % W.portrait.varianten : 0);   // V1: eine von wenigen Varianten, der Baukasten folgt
+// BEA-01 C1: der NSC eines Fadens erinnert sich an ein Ereignis ausserhalb eines Beat-Endes (Ware zwischen den Beats verloren, faden-fracht.js verloren)
+function erinnern(game, f, ereignis, textKey) {
+  if (f && f.nsc && game && game.weltsim) gedaechtnisEintragen(f.nsc, game.weltsim.tickZahl, ereignis, textKey);
+}
 function gedaechtnisEintragen(nsc, tick, ereignis, textKey) {
   nsc.gedaechtnis.push({ tick, ereignis, text_key: textKey });
   while (nsc.gedaechtnis.length > W.gedaechtnis_max) nsc.gedaechtnis.shift();
@@ -442,6 +446,8 @@ function beatAusgang(game, fadenId, ausgang) {
   // Welle 3: ein Beat mit Ware (Katalog ereignis_ohne_ware), der scheitert, OHNE dass je eine Ware an Bord war (kein Hafen in Reichweite), hinterlaesst nicht „fracht_gescheitert“: der NSC erinnert sich nur an eine Ladung, die es gab
   const bleibt = !cat.abschluss && FrachtDaten.behaeltWare(f, beat, ausgang);   // BEA-01 C0: die Ware bleibt am Faden (Lade-Beat gelungen, Zwischen-Beat nicht gescheitert), sonst gilt das Ende wie bisher
   const ereignis = vb ? W.variante_ereignis + vb.typ + '_' + ausgang : ausgang === 'gescheitert' && cat.ereignis_ohne_ware && !f.fracht && !FrachtDaten.ladeBeatDavor(v, f.beat) ? cat.ereignis_ohne_ware : FrachtDaten.endeEreignis(beat, ausgang) || beat.typ + '_' + ausgang;   // BEA-01 C0: endeEreignis (Lade-Beat: fracht_geladen)
+  const verlust = ausgang === 'gescheitert' && f.fracht && !bleibt && !cat.abschluss && !D.endeModus(beat) ? FrachtDaten.verlustEreignis(v, f.beat) : null;   // BEA-01 C1: die Ware geht in einem Zwischen-Beat verloren (nach einem Lade-Beat): der NSC erinnert sich an die verlorene Ladung (vor dem Ereignis des Beats, das bleibt das letzte)
+  if (verlust) gedaechtnisEintragen(f.nsc, ws.tickZahl, verlust, beat.id);
   gedaechtnisEintragen(f.nsc, ws.tickZahl, ereignis, o.text_key || beat.id);
   f.laufend = null; f.zaehler = 0;
   if (f.fracht && !bleibt && (ausgang === 'gescheitert' || cat.abschluss)) { try { require('./faden-fracht.js').verlustMelden(game, f); } catch (e) { fehlerZaehlen(game, 'faden-fracht-funk', e); } }   // Nacharbeit F6: die Crew hoert, dass die Ware weg ist
@@ -659,4 +665,4 @@ function lesen(b) {
   return F;
 }
 
-module.exports = { aktiv, neu, zustandVon, taetigkeit, abenteuerRegisterAufraeumen, ausgangMitPerson, abenteuerAnbieten, abenteuerNeuAnbieten, abenteuerOeffnen, istBefehl, befehlPruefen, befehlAnwenden, oeffnen, weiterSetzen, beatAusgang, beatZurueck, optionWaehlen, hinweisGezeigt, spielleiterAktiv, haltungPruefen, haltungSortieren, haltungBuchen, anwenden, haltungVon, chanceSpontanhilfe, tonVon, portraetVon, nscVon, ausschnittBlock, promptText, toSave, lesen, aktive, faellig, folgenAnwenden, strom, idNr, wiedersehenKandidaten, fristVon };
+module.exports = { erinnern, aktiv, neu, zustandVon, taetigkeit, abenteuerRegisterAufraeumen, ausgangMitPerson, abenteuerAnbieten, abenteuerNeuAnbieten, abenteuerOeffnen, istBefehl, befehlPruefen, befehlAnwenden, oeffnen, weiterSetzen, beatAusgang, beatZurueck, optionWaehlen, hinweisGezeigt, spielleiterAktiv, haltungPruefen, haltungSortieren, haltungBuchen, anwenden, haltungVon, chanceSpontanhilfe, tonVon, portraetVon, nscVon, ausschnittBlock, promptText, toSave, lesen, aktive, faellig, folgenAnwenden, strom, idNr, wiedersehenKandidaten, fristVon };

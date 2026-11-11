@@ -151,7 +151,12 @@ function verloren(game, fadenId) {
   if (!F().aktiv(game)) return { ok: false, grund: 'INAKTIV' };
   const f = F().zustandVon(game).liste.find((x) => x.id === fadenId);
   if (!f || !f.fracht || f.phase === 'abgeschlossen') return { ok: false, grund: 'keine Ware an Bord' };
-  if (f.phase === 'wartet') { wareAbgeben(game, f); return { ok: true, grund: null }; }   // BEA-01 C0: zwischen den Beats laeuft kein Beat, der scheitern koennte: die Ware ist weg, der Faden wartet auf seinen naechsten Beat
+  if (f.phase === 'wartet') {   // BEA-01 C1: der NSC erinnert sich an die verlorene Ladung (Ereignis des Lade-Modus, Katalog ende_modi ereignis_verloren), sonst kennt sein Gedaechtnis nur das Laden
+    const ev = verlustEreignis(D.vorlage(f.vorlage), f.beat);
+    if (ev) F().erinnern(game, f, ev, 'ware_verloren');
+    wareAbgeben(game, f);
+    return { ok: true, grund: null };
+  }   // BEA-01 C0: zwischen den Beats laeuft kein Beat, der scheitern koennte: die Ware ist weg, der Faden wartet auf seinen naechsten Beat
   F().beatAusgang(game, f.id, 'gescheitert');   // der Ausgang entfernt die Ware (faden.beatAusgang)
   if (f.fracht) wareAbgeben(game, f);   // BEA-01 A: ein Beat mit ware_bei_scheitern "bleibt" laesst die Ware beim Scheitern am Faden; ein VERLUST (Notsprung, Huellentreffer) nimmt sie trotzdem
   return { ok: true, grund: null };
@@ -210,4 +215,10 @@ function ladeBeatDavor(v, beatIndex) {
   return false;
 }
 
-module.exports = { ladungVon, ladeBeatDavor, liefertBeat, anBord, behaeltWare, endeEreignis, wareMoeglich, aufraeumen, tagErloschen, laden, entladen, andocken, verloren, notsprung, inventar, leseFracht, zielFuer, andockbar, verlustMelden, funk, WAREN };
+// BEA-01 C1: Gedaechtnis-Ereignis fuer eine Ware, die ein Zwischen-Beat nach einem Lade-Beat verliert (Katalog ende_modi, ereignis_verloren des Lade-Modus); null, wenn kein Lade-Beat davor liegt oder der Katalog keines nennt
+function verlustEreignis(v, beatIndex) {
+  for (let j = 0; j < beatIndex; j++) { const m = D.endeModus(v.beats[j]); if (m && m.haelt) return typeof m.ereignis_verloren === 'string' ? m.ereignis_verloren : null; }
+  return null;
+}
+
+module.exports = { ladungVon, ladeBeatDavor, verlustEreignis, liefertBeat, anBord, behaeltWare, endeEreignis, wareMoeglich, aufraeumen, tagErloschen, laden, entladen, andocken, verloren, notsprung, inventar, leseFracht, zielFuer, andockbar, verlustMelden, funk, WAREN };
