@@ -94,5 +94,6 @@ console.log('\nGenitiv-s, Flexion und gekuerzte Namen (Schutz vor Spielernamen)'
   ok(![r, r2, r3, r4, r5].some((x) => x.fehler), 'keine Serverfehler');
 }
 
+ok(require('../server/sim/lage-ausschnitt.js').NAME_GEKUERZT === require('../shared/charakter.js').NAME_MAX, 'NAME_GEKUERZT gleich Charakter.NAME_MAX (Kürzung der Spielernamen, kein Import im Servercode wegen test-trefferbox)');
 console.log(`\n${n - fails} von ${n} ok${fails ? ', ' + fails + ' FEHLER' : ''}`);
 process.exit(fails ? 1 : 0);

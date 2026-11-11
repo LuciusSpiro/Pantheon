@@ -12,7 +12,6 @@ const Context = require('../mission/context.js');
 const Ruf = require('./ruf.js');
 const Marken = require('./marken.js');
 const Regie = require('./regie-befehle.js');
-const Charakter = require('../../shared/charakter.js');
 
 const A = require('../../content/welt/regie-werte.json').werte.ausschnitt.wert;
 const WICHTIG = ['hafen_gefallen', 'posten_verloren', 'hauptwelt_gefallen'];   // stehen unter flotten.gefallen, nicht noch einmal bei den Ereignissen
@@ -35,7 +34,7 @@ function ohneNamenGanzwort(text, namen) {
 // Wie ohneNamenGanzwort, dazu: (1) Flexion direkt hinter dem Namen (Genitiv-s „Bos“, „Bo’s“, „Bo's“, es, n, en) fällt mit dem Namen weg: „Bos Schiff“ wird „Crew Schiff“ (nicht „Crews“).
 // (2) Ein Name ab NAME_GEKUERZT Zeichen kann gekürzt gespeichert sein (server/game.js: msg.name ... .slice(0, 12); shared/charakter.js: NAME_MAX): steht im Text der längere volle Name, verschwindet er über den Wortschwanz ganz.
 // Kürzere Namen sind vollständig gespeichert: kein Präfix-Verhalten („Einsatz“ bei „Ein“, „Haltung“ bei „Ha“ bleiben).
-const NAME_GEKUERZT = Charakter.NAME_MAX;   // 12: ab dieser Länge ist der gespeicherte Name möglicherweise abgeschnitten
+const NAME_GEKUERZT = 12;   // ab dieser Länge ist der gespeicherte Name möglicherweise abgeschnitten (Spielername auf 12 Zeichen gekürzt: server/game.js slice(0, 12), shared/charakter.js NAME_MAX). Kein Import von shared/charakter.js hier: test-trefferbox erlaubt Charakter-Zugriffe nur in game.js. Gleichheit sichert test-abenteuer-titel.
 function ohneNamenImTitel(text, namen) {
   let t = String(text == null ? '' : text);
   for (const n of namen || []) {
@@ -137,4 +136,4 @@ function ausschnittPassend(game, { maxZeichen = A.max_zeichen } = {}) {
   return Object.assign(letzter || { stufe: 0, zeichen: 0, text: '' }, { passt: false });
 }
 
-module.exports = { ausschnitt, ausschnittPassend, ohneNamen, ohneNamenGanzwort, ohneNamenImTitel, spielerNamen, STUFEN: A.stufen, MAX_ZEICHEN: A.max_zeichen };
+module.exports = { ausschnitt, ausschnittPassend, ohneNamen, ohneNamenGanzwort, ohneNamenImTitel, NAME_GEKUERZT, spielerNamen, STUFEN: A.stufen, MAX_ZEICHEN: A.max_zeichen };
