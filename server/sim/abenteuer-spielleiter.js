@@ -106,7 +106,7 @@ class AbenteuerSpielleiter {
     return llm.mode === 'live' && llm.anbieterFuer('abenteuer', STUFE) !== 'ollama' && Kontingent.sperrt(this.game, this.W.min_budget);
   }
   vormerken(art) {
-    const hafen = this.crewHex();   // FRE-02 A1: Herkunft (beim Andocken der Hafen); der Ort der Geschichte ist ein Ziel in der Umgebung (abenteuer-ziel.js), im Modus Absichten bis A2 weiter der Ort der Crew
+    const hafen = this.crewHex();   // FRE-02 A1: Herkunft (beim Andocken der Hafen); der Ort der Geschichte ist ein Ziel in der Umgebung (abenteuer-ziel.js); im Modus Absichten bleibt job.hex der Ort der Crew (FRE-02 A2: das Ziel waehlt der Inszenierer nach der Ortsregel des Rezepts, das Modell nennt keinen Ort; der Ort des Angebots steht in angebot.hex)
     const ort = hafen && !Absicht.aktiv(this.game) ? Ziel.zielImUmkreis(this.game, hafen, { belegt: Ziel.belegt(this.game) }) : hafen;
     if (!ort) return this.ueberspringen('kein_ort', art);
     if (this.budgetGesperrt()) return this.ueberspringen('budget', art);   // LIV-01: Schwelle als Gate (kontingent.js); LIV-02: Kontingent-Ende meldet keinen Notbetrieb
@@ -244,7 +244,7 @@ class AbenteuerSpielleiter {
     this.zaehler.gueltig++;
     this.letzte.push(job.absichtName ? { nr: job.nr, typen, absicht: job.absichtName } : { nr: job.nr, typen });
     while (this.letzte.length > Math.max(1, this.W.letzte_abenteuer)) this.letzte.shift();
-    this.schreibe(Object.assign({ ausgang: 'gueltig', begruendung: `Abenteuer ${angebot.ref} als Angebot ${angebot.nr} bei ${job.hex}`, plan: this.planInfo(job, { angebot: angebot.nr, vorlage: angebot.ref, typen, beats: angebot.vorlage.beats.length }) }, this.absichtFelder(job), this.messung(job, r)));
+    this.schreibe(Object.assign({ ausgang: 'gueltig', begruendung: `Abenteuer ${angebot.ref} als Angebot ${angebot.nr} bei ${angebot.hex}`, plan: this.planInfo(job, Object.assign({ hex: angebot.hex }, angebot.hex !== job.hex ? { herkunft: job.hex } : {}, { angebot: angebot.nr, vorlage: angebot.ref, typen, beats: angebot.vorlage.beats.length })) }, this.absichtFelder(job), this.messung(job, r)));
   }
 
   // ---------- SPL-02 E1: Betriebsmodus Absichten

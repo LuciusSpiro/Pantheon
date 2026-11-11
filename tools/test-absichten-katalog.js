@@ -22,6 +22,7 @@ const Bauplan = require('../server/sim/faden-bauplan.js');
 const Prompt = require('../server/sim/abenteuer-prompt.js');
 const AP = require('../server/sim/absicht-pruefer.js');
 const INS = require('../server/sim/inszenierer.js');
+const Ziel = require('../server/sim/abenteuer-ziel.js');
 const V = require('../server/sim/absicht-verhandlung.js');
 
 const { D, Faden, F } = X;
@@ -133,6 +134,7 @@ section('prompt_zeile: die Katalogzeile fuer den Prompt (Vorbereitung Paket E)',
 
 section('Standardparametrierung: jede Absicht ergibt einen gueltigen Plan oder ein dokumentiertes Nein', () => {
   // Erwartetes Nein je Absicht (Welt ohne Vorgeschichte, ohne Posten): der Grund steht in den Daten oder in der Welt
+  const ZIEL_IM_UMKREIS = ['rettung', 'lieferung', 'falscher_haendler', 'notruf'];   // FRE-02 A2: Ortsregel ziel_im_umkreis (Beschluss der Daten, nicht des Codes)
   const NEIN = {
     rache: [C.BEZUG_FEHLT, 'Pflichtbezug: ohne grollenden NSC keine Rache'],
     bergbau: [C.NICHT_AUSDRUECKBAR, 'Abbau-Huelle (Standardziel abbau)'],
@@ -146,7 +148,9 @@ section('Standardparametrierung: jede Absicht ergibt einen gueltigen Plan oder e
     if (NEIN[name]) {
       ok(!r.ok && r.fehler.some((f) => f.code === NEIN[name][0]), name + ': Nein ' + NEIN[name][0] + ' (' + NEIN[name][1] + ')' + (r.ok ? ' [kam aber ok]' : ' [' + codes(r).join() + ']'));
     } else {
-      ok(r.ok === true && r.hex === '0305' && r.plan.format === 'faden-bauplan/1' && Bauplan.pruefe(r.plan).ok && Bauplan.expandiere(r.plan).ok, name + ': gueltiger Plan (' + (r.ok ? folge(r) : codes(r).join() + ' ' + r.fehler[0].grund.slice(0, 80)) + ')');
+      // FRE-02 A2: vier Rezepte spielen an einem Ziel im Umkreis (1 bis Radius Spruenge, nie der Hafen), die uebrigen im Sektor der Crew
+      const ortOk = ZIEL_IM_UMKREIS.includes(name) ? r.ok === true && r.hex !== '0305' && Ziel.kandidaten(g, '0305').includes(r.hex) : r.ok === true && r.hex === '0305';
+      ok(ortOk && r.plan.format === 'faden-bauplan/1' && Bauplan.pruefe(r.plan).ok && Bauplan.expandiere(r.plan).ok, name + ': gueltiger Plan (' + (r.ok ? folge(r) : codes(r).join() + ' ' + r.fehler[0].grund.slice(0, 80)) + ')');
     }
   }
   // Die Nein-Faelle gehen bei erfuellter Welt durch (ausser der Huelle)

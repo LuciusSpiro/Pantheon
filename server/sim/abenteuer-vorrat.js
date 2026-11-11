@@ -6,7 +6,7 @@
 //
 //   Eintrag: { absicht: absicht/1 (Bezug als Vollname, nie eine Kennung), plan?: faden-bauplan/1, hex: Ort bei der Aufnahme, bezug?: { nsc: Vollname } (wie am Angebot), art: Name, erstellt: Tick (weltsim.tickZahl), ablauf?: Tick }
 //   eintrag(game, { absicht, art, ablauf? }) -> { ok, eintrag } | { ok: false, grund, text, fehler }   baut den Eintrag aus einer Absicht ueber den Inszenierer (hex, plan, bezug, erstellt); Kennungen (K1) werden zu Vollnamen
-//   gueltig(game, eintrag) -> { ok: true, hex } | { ok: false, grund, text, fehler? }   prueft den Eintrag erneut gegen die Welt: Form, Alter (ABGELAUFEN), Absicht und Parameter, Ort, Weltbedingungen, Wiederholungsregeln und
+//   gueltig(game, eintrag) -> { ok: true, hex } | { ok: false, grund, text, fehler?, wartet?: true }   prueft den Eintrag erneut gegen die Welt: Form, Alter (ABGELAUFEN), Absicht und Parameter, Ort, Weltbedingungen, Wiederholungsregeln und
 //        den Bezug (kein Kandidat mehr, tot, verdraengt, ersetzt: BEZUG_VERALTET). hex ist der Ort JETZT (der Inszenierer waehlt ihn aus der Lage, nicht der gespeicherte). grund ist ein Code, text ein Klartext ohne Namen
 //   anbieten(game, eintrag) -> { ok: true, angebot, inszenierung } | { ok: false, grund, text, fehler? }   nur wenn gueltig; ueber anbietenAusAbsicht (Brett.neuAnbieten mit hex, bezug, locker); ein Eintrag des Vorrats wird dabei entnommen
 //   hinzufuegen(game, eintrag) -> { ok: true, vorrat: Zahl } | { ok: false, grund, text }   nur gueltige Eintraege; ueber vorrat_max verdraengt der aelteste; derselbe Eintrag (art, Absicht) nicht doppelt
@@ -98,6 +98,8 @@ function abgelehnt(fehler) {
   const grund = veraltet ? codes.BEZUG_VERALTET : f.code;
   return nein(grund, veraltet ? 'der NSC des Bezugs steht nicht mehr zur Verfuegung (die Welt hat sich veraendert)' : `die Welt nimmt den Eintrag nicht mehr (${f.code}, Feld ${f.feld})`, fehler.map((x) => ({ code: x.code, feld: x.feld })));
 }
+// FRE-02 A2: das Nein ist nur, dass gerade jedes Ziel im Umkreis vergeben ist (ORT_KEIN_ZIEL mit FELD_ZIELE_VERGEBEN): der Eintrag bleibt im Vorrat und kommt wieder dran, sobald ein Ziel frei ist
+const zeitweilig = (fehler) => fehler.length > 0 && fehler.every((x) => x.code === INS().CODES.ORT_KEIN_ZIEL && x.feld === INS().FELD_ZIELE_VERGEBEN);
 function gueltig(game, e) {
   const katalog = AP().katalogStandard();
   const fo = formFehler(e, katalog);
@@ -106,7 +108,7 @@ function gueltig(game, e) {
   const t = jetzt(game);
   if ((e.ablauf !== undefined && t > e.ablauf) || t - e.erstellt > wert(katalog, 'vorrat_alter_max')) return nein(CODES.ABGELAUFEN, 'der Eintrag ist zu alt');
   const r = INS().inszeniere(game, e.absicht, katalog);
-  if (!r.ok) return abgelehnt(r.fehler);
+  if (!r.ok) { const n = abgelehnt(r.fehler); return zeitweilig(r.fehler) ? Object.assign(n, { wartet: true }) : n; }   // FRE-02 A2: alle Ziele vergeben ist kein Mangel des Eintrags (wartet: true)
   return { ok: true, hex: r.hex };
 }
 
@@ -133,7 +135,7 @@ function hinzufuegen(game, e) {
   const F = zustand(game);
   if (!F) return nein(CODES.INAKTIV, 'die Faeden sind nicht eingeschaltet');
   const g = gueltig(game, e);
-  if (!g.ok) return g;
+  if (!g.ok && !g.wartet) return g;   // wartet: alle Ziele vergeben, der Eintrag selbst ist in Ordnung
   if (!Array.isArray(F.vorrat)) F.vorrat = [];
   const schluessel = (x) => x.art + '|' + JSON.stringify(x.absicht);
   if (!F.vorrat.some((x) => schluessel(x) === schluessel(e))) F.vorrat.push(klon(e));
@@ -145,18 +147,21 @@ const liste = (game) => { const F = zustand(game); return F && Array.isArray(F.v
 function verwirfUngueltige(game) {
   const F = zustand(game), out = [];
   if (!F || !Array.isArray(F.vorrat)) return out;
-  for (const e of F.vorrat.slice()) { const g = gueltig(game, e); if (!g.ok) { entnehmen(game, e); out.push({ art: typeof e.art === 'string' ? e.art : '?', grund: g.grund }); } }
+  for (const e of F.vorrat.slice()) { const g = gueltig(game, e); if (!g.ok && !g.wartet) { entnehmen(game, e); out.push({ art: typeof e.art === 'string' ? e.art : '?', grund: g.grund }); } }
   return out;
 }
 function ausVorrat(game, art) {
   const F = zustand(game);
   if (!F || !Array.isArray(F.vorrat)) return nein(CODES.VORRAT_LEER, 'der Vorrat ist leer');
+  let wartet = null;
   for (const e of F.vorrat.slice()) {
     if (e.art !== art) continue;
     const g = gueltig(game, e);
+    if (g.wartet) { wartet = wartet || g; continue; }   // FRE-02 A2: kein freies Ziel: der Eintrag bleibt, der naechste wird probiert
     if (!g.ok) { entnehmen(game, e); continue; }   // ein veralteter Eintrag wird verworfen, der naechste probiert
     return anbieten(game, e);   // nimmt das Brett es gerade nicht (voll, Wiederholung), bleibt der Eintrag im Vorrat
   }
+  if (wartet) return wartet;   // ehrliches Nein (ORT_KEIN_ZIEL): es gibt Eintraege, nur gerade kein freies Ziel
   return nein(CODES.VORRAT_LEER, 'kein gueltiger Eintrag dieser Art');
 }
 

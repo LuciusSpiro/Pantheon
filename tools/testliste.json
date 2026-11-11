@@ -265,6 +265,7 @@
   {"id":"test-abenteuer-brett","kette":"test","cmd":["tools/test-abenteuer-brett.js"],"stufe":"full","budget_s":26},
   {"id":"test-abenteuer-titel","kette":"test","cmd":["tools/test-abenteuer-titel.js"],"stufe":"fast","budget_s":6},
   {"id":"test-abenteuer-ziel","kette":"test","cmd":["tools/test-abenteuer-ziel.js"],"stufe":"fast","budget_s":20},
+  {"id":"test-abenteuer-ziel-absichten","kette":"test","cmd":["tools/test-abenteuer-ziel-absichten.js"],"stufe":"fast","budget_s":20},
   {"id":"test-freie-fahrt-szenario","kette":"test","cmd":["tools/test-freie-fahrt-szenario.js"],"stufe":"full","budget_s":10},
   {"id":"test-lobby-livespielleiter","kette":"test","cmd":["tools/test-lobby-livespielleiter.js"],"stufe":"full","budget_s":10},
   {"id":"test-notbetrieb-hinweis","kette":"test","cmd":["tools/test-notbetrieb-hinweis.js"],"stufe":"full","budget_s":30},
