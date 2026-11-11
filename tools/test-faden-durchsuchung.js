@@ -156,7 +156,6 @@ function amSchmuggel(id, seed, items, k) {
   starteBeat(x);   // b_forderung
   return x;
 }
-const Geld_ = Geld;
 const ECHT = /waffen/i;   // die echte Art der getarnten Ware (TARN); die Tarnart heisst Fracht
 
 (async () => {
