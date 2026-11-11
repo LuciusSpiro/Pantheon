@@ -92,6 +92,21 @@
       "einheit": "Text",
       "_hinweis": "Sprecher der Funkzeile des Bretts."
     },
+    "sammel_text": {
+      "wert": "{n} Aufträge am Brett",
+      "einheit": "Text",
+      "_hinweis": "FRE-02 B2: Sammelfunk beim Andocken, wenn das Brett danach zwei oder mehr Angebote traegt (abenteuer-brett.js beiAndocken). Platzhalter nur {n} (Zahl der Angebote am Brett). Gleicher Sprecher und gleiche Funkfelder wie hinweis_text."
+    },
+    "sammel_text_eins": {
+      "wert": "1 Auftrag am Brett",
+      "einheit": "Text",
+      "_hinweis": "FRE-02 B2: derselbe Sammelfunk bei genau einem Angebot (Einzahl, kein Platzhalter)."
+    },
+    "vorrat_art": {
+      "wert": "angebot",
+      "einheit": "Name",
+      "_hinweis": "FRE-02 C: Art (Name nach name_muster, absichten.json) der Vorrat-Eintraege des Auftragsbretts (abenteuer-vorrat.js): verfallene und abgelehnte Angebote mit Absicht werden unter dieser Art eingelegt, das Brett nimmt unter ihr wieder heraus. Notrufe (FRE-03) nehmen eine eigene Art. Gilt nur im Modus Absichten (ABENTEUER_ABSICHTEN)."
+    },
     "kanon_max": {
       "wert": 40,
       "einheit": "Eintraege",

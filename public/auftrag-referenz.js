@@ -3,7 +3,7 @@
 // Terminal selbst (terminal-ui.js, pult-terminal-tokens.js). Globales `AuftragReferenz`. Hängt an: Render, Pult, PultTerminal, KarteTokens, PultAuftrag.
 //
 // Modell m (Entwurf aus Paket C + Felder, die die Anzeige zusätzlich braucht, siehe Notiz „Auftrag SUND-04b – Tokens“):
-//   { angebote: [{ id, titel, anlass, ort, von ('rom'|'ger'|'kon'), typen: [..], aus_geruecht: bool,
+//   { angebote: [{ id, titel, anlass, ort, hafen? (Herkunft, FRE-02 B1), ort_offen? (kein Ziel: der Beat wählt den Ort), von ('rom'|'ger'|'kon'), typen: [..], aus_geruecht: bool,
 //                  vorschau: { schritte: [text | { text, gefahr }], gelingt: [Folge], scheitert: [Folge], gefahr: text | null }, rest }],
 //     gewaehlt: id, laufend: { id, titel, schritt, schritte_gesamt, schritt_text, gefahr, rest } | null,
 //     geruechte: [{ von, text, angebot (Id des Angebots, auf das es verweist) }], info: { angenommen: titel } | { grund: text } | null, amGeraet, zusehen }
@@ -104,7 +104,7 @@
     anl.forEach((z, i) => txt(c, z, D.anlass.x, D.anlass.y + i * M.zeile, FA.dim));
     // Typ-Marken, Ort, rechts Verfall
     let x = D.ort.x; (a.typen || []).forEach((t) => { x = tag(c, x, D.ort.y, A.typText([t])) + M.tag.luft; });
-    txt(c, a.ort || '', x + 4, D.ort.y + 2, FA.text);
+    txt(c, a.ort_offen ? A.text('ortOffen') : (a.hafen && a.hafen !== a.ort ? A.text('herkunft', { hafen: a.hafen }) + ' → ' : '') + (a.ort || ''), x + 4, D.ort.y + 2, FA.text);   // FRE-02 B1: Herkunft (Hafen); ort_offen: der Beat wählt den Ort selbst
     const v = A.verfall(a.rest); txt(c, v.bald ? '! ' + v.lang : v.lang, D.ort.x + D.ort.w, D.ort.y + 2, v.bald ? FA.bald : FA.dim, { align: 'right' });
     rect(c, D.trenner.x, D.trenner.y, D.trenner.w, 1, FA.trenner);
     // Schritte

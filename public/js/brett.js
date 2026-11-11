@@ -1,7 +1,7 @@
 // SUND-04b D: Auftragsbrett in der Anzeige (nur Freie Fahrt Sund mit FAEDEN=1). Globales `Brett`, in Node als Modul (Tests).
 // Storage: store.abenteuer = letzter Block world.abenteuer (README „SUND-04b C“; kommt nur bei Änderung; world.abenteuer = null ist das Löschsignal; welcome und die Lobby leeren ebenfalls).
 //   Gleich für alle Spieler (nur der Server schreibt). Ohne Block (kein FAEDEN=1) gibt es keinen Bereich, keine Hinweise, keine Fehler.
-// Action: modell() -> null | { ok, kopf, ablehnen, scheitern, angebote: [{ id, titel, anlass, ort, ortname, rest, von, aus_geruecht, typen, vorschau }], geruechte, laufend },
+// Action: modell() -> null | { ok, kopf, ablehnen, scheitern, angebote: [{ id, titel, anlass, ort, ortname, ort_offen, hafen, rest, von, aus_geruecht, typen, vorschau }], geruechte, laufend },
 //   müllfest (jedes Feld wird auf Typ und Länge geprüft; Titel, Anlass und Gerücht sind Modelltext: nur als Text gezeichnet, nie als HTML). Dazu die Kurztexte der Antwortcodes und die
 //   Befehle abenteuer.annehmen / abenteuer.ablehnen (der Server entscheidet alles; die erste Antwort der Crew gilt).
 // Das Terminal (terminal-ui.js, Bereich „Brett“) und der Flug-HUD (hud.js, Streifen) lesen nur hierüber; gezeichnet wird in pult-terminal-brett.js.
@@ -75,6 +75,8 @@
     if (!a || typeof a !== 'object' || typeof a.id !== 'string' || !ID_FORM.test(a.id) || !str(a.titel, GRENZE.titel)) return null;
     return {
       id: a.id, titel: kurz(a.titel, GRENZE.titel), anlass: str(a.anlass, GRENZE.anlass), ort: str(a.ort, GRENZE.ort), ortname: str(a.ortname, GRENZE.ort), rest: zahl(a.rest),
+      ort_offen: a.ort_offen === true || a.ort_offen === 1,   // FRE-02 B1: der Beat wählt seinen Ort selbst, ort/ortname sind leer (Server): kein Ziel zeigen
+      hafen: str(a.hafen, GRENZE.ort),   // FRE-02 B1: Herkunft = Name des Hafens (fehlt bei einem Altstand); der Auftraggeber ist `von`
       von: str(a.von, 8), aus_geruecht: a.aus_geruecht === true || a.aus_geruecht === 1,
       typen: liste(a.typen, GRENZE.typen * 4).filter((t) => typeof t === 'string' && t.trim()).slice(0, GRENZE.typen).map((t) => str(t.trim(), GRENZE.typ)),   // Beat-Typen ohne Abschluss (Server, höchstens 4)
       vorschau: vorschauAus(a.vorschau),

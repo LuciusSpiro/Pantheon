@@ -14,12 +14,14 @@
 //   weltStufe(game) -> Zahl                      die Stufe der Welt (Rang und Schiff der Crew, Tabellen in den Daten), 0 bis stufe_max
 //   katalogFehler(katalog?) -> [Text]            die Rezepte sind in sich stimmig: Struktur, Bezuege, und jede Kombination aus Stufe und Wendung ergibt einen Plan, den der Expander annimmt
 //   werteFehler() -> [Text]                      die Daten inszenierer-werte.json sind stimmig
+//   FELD_ZIELE_VERGEBEN                           Feld des Neins ORT_KEIN_ZIEL bei ziel_im_umkreis, wenn alle Ziele im Umkreis vergeben sind (zeitweilig, FRE-02 A2)
 //   CODES                                         die Codes aus absicht-pruefer.js plus: ORT_KEIN_ZIEL · ORT_LANDEPLATZ · WELT_BEDINGUNG · STAERKE_UNMOEGLICH · NICHT_AUSDRUECKBAR · WENDUNG_UNMOEGLICH ·
 //                                                BEZUG_ZU_FRISCH · PLAN_ABGELEHNT · REZEPT_FEHLT · ANGEBOT_ABGELEHNT
 //
 // Rezept (`inszenierung` im Katalogeintrag; Schema in absichten.json `_absicht.inszenierung`):
 //   ort           Ortsregel: crew_hex (der Sektor der Crew) · naechster_mit_kartenart (der naechste Sektor mit landbarer Kartenart, ab reichweite_parameter der Absicht, sonst reichweite_standard) ·
-//                 bezug_ort (der Sektor des Bezugs ort). Die Kartenart der Regel ersetzt `$ort_kartenart` in den Landeplaetzen des Skeletts.
+//                 bezug_ort (der Sektor des Bezugs ort) · ziel_im_umkreis (FRE-02 A2: ein freies Ziel 1 bis angebot_radius_spruenge Spruenge vom Sektor der Crew, gewaehlt von abenteuer-ziel.js: Strom der Faeden, ohne
+//                 Sperrtext-Filter, nie ein belegtes Ziel; keines = ORT_KEIN_ZIEL; ohne kartenart und reichweite_parameter, der Radius ist ein Datenwert). Die Kartenart der Regel ersetzt `$ort_kartenart` in den Landeplaetzen des Skeletts.
 //   bedingungen   Weltbedingungen: nsc_haltung (der Bezug nsc hat Haltung hoechstens/mindestens x) · rang_mindestens (Rang der Crew bei Rom). Lage, Landeplaetze und Wiederholung prueft der Plan selbst (Vorab-Pruefung).
 //   nicht_ausdrueckbar   was der Beat-Katalog (noch) nicht kann: wenn (parameter | bogen | ton == Wert, oder immer) -> Nein NICHT_AUSDRUECKBAR mit dem Grund; optional ein Gegenvorschlag { feld, wert, text }
 //   staerke_parameter, stufe_max   Staerke: Name des Absichts-Parameters (Zahl, mit Standard), mit dem die Absicht eine Stufe wuenscht; der Standard heisst: kein Wunsch, es gilt die Stufe der Welt.
@@ -37,6 +39,7 @@ const Faden = () => require('./faden.js');
 const Brett = () => require('./abenteuer-brett.js');
 const Bauplan = () => require('./faden-bauplan.js');
 const Orte = () => require('./abenteuer-orte.js');
+const Ziel = () => require('./abenteuer-ziel.js');   // FRE-02 A2: Wegfindung und Zielwahl gehoeren abenteuer-ziel.js (kein zweites Modul)
 const Ruf = () => require('./ruf.js');
 const B1 = () => require('./faden-b1.js');
 const Wdh = () => require('./abenteuer-wiederholung.js');
@@ -52,10 +55,11 @@ const CODES = Object.freeze(Object.assign({}, AP.CODES, {
   WENDUNG_UNMOEGLICH: 'WENDUNG_UNMOEGLICH', BEZUG_ZU_FRISCH: 'BEZUG_ZU_FRISCH', PLAN_ABGELEHNT: 'PLAN_ABGELEHNT', REZEPT_FEHLT: 'REZEPT_FEHLT', ANGEBOT_ABGELEHNT: 'ANGEBOT_ABGELEHNT',
 }));
 // Das Vokabular des Inszenierers (Arten von Regeln, nicht Namen von Absichten oder Beats)
-const ORT = Object.freeze({ CREW_HEX: 'crew_hex', NAECHSTER_MIT_KARTENART: 'naechster_mit_kartenart', BEZUG_ORT: 'bezug_ort' });
+const ORT = Object.freeze({ CREW_HEX: 'crew_hex', NAECHSTER_MIT_KARTENART: 'naechster_mit_kartenart', BEZUG_ORT: 'bezug_ort', ZIEL_IM_UMKREIS: 'ziel_im_umkreis' });
 const BEDINGUNG = Object.freeze({ NSC_HALTUNG: 'nsc_haltung', RANG_MINDESTENS: 'rang_mindestens' });
 const WENN = Object.freeze({ PARAMETER: 'parameter', BOGEN: 'bogen', TON: 'ton', IMMER: 'immer' });
 const KEINE_WENDUNG = 'keine';
+const FELD_ZIELE_VERGEBEN = 'ort.ziele_vergeben';   // FRE-02 A2: Feld des Neins ORT_KEIN_ZIEL, wenn es Ziele gibt, aber alle vergeben sind (zeitweilig; der Vorrat verwirft solche Eintraege nicht)
 const ORT_KARTENART = '$ort_kartenart';
 const AUS_PARAMETER = /^parameter\.([a-z][a-z0-9_]*)$/;
 const KOPF = ['landeplaetze', 'volk_erlaubt', 'namenlos', 'wahrheit'];
@@ -178,6 +182,17 @@ function stufeBestimmen(game, rez, a, eintrag) {
 }
 
 // ---------- Ort
+// FRE-02 A2: Ortsregel ziel_im_umkreis. Die Wahl ist die von Ziel.zielImUmkreis (deterministisch aus dem Strom der Faeden, Zaehler = naechste Angebotsnummer); belegt sind die Ziele offener Angebote und des laufenden
+// Abenteuers. Das Nein sagt, ob es im Umkreis nie ein Ziel gibt oder gerade alle vergeben sind; einen Gegenvorschlag als Patch gibt es nicht (die Regel hat keinen Parameter, den man aendern koennte).
+function zielBestimmen(game, hier) {
+  if (!hier) return { fehler: fehl(CODES.ORT_KEIN_ZIEL, 'absicht', 'die Crew steht in keinem Sektor der Karte') };
+  const Z = Ziel(), r = Z.radius(), wo = Sektoren().hexName(hier);
+  const alle = Z.kandidaten(game, hier);
+  if (!alle.length) return { fehler: fehl(CODES.ORT_KEIN_ZIEL, 'absicht', `im Umkreis von ${r} Spruengen ueber offene Sprungpunkte gibt es keinen Sektor, in dem ein Abenteuer spielen kann (Crew bei ${wo})`) };
+  const hex = Z.zielImUmkreis(game, hier, { belegt: Z.belegt(game) });
+  if (!hex) return { fehler: fehl(CODES.ORT_KEIN_ZIEL, FELD_ZIELE_VERGEBEN, `alle ${alle.length} Ziele im Umkreis von ${r} Spruengen sind vergeben (offene Angebote, laufendes Abenteuer): erst wenn eines erledigt oder abgelaufen ist, gibt es ein neues (Crew bei ${wo})`) };
+  return { hex, sprung: B1().erreichbar(game, hier, r).get(hex) };
+}
 function ortBestimmen(game, rez, a, eintrag) {
   const W = werte(), def = rez.ort, feldReichweite = def.reichweite_parameter;
   const hier = crewHex(game);
@@ -185,6 +200,7 @@ function ortBestimmen(game, rez, a, eintrag) {
     if (!hier) return { fehler: fehl(CODES.ORT_KEIN_ZIEL, 'absicht', 'die Crew steht in keinem Sektor der Karte') };
     return { hex: hier, sprung: 0, kartenart: def.kartenart };
   }
+  if (def.regel === ORT.ZIEL_IM_UMKREIS) return zielBestimmen(game, hier);
   const er = hier ? B1().erreichbar(game, hier, W.reichweite_max) : new Map();
   if (def.regel === ORT.BEZUG_ORT) {
     const hex = a.bezug.ort;
@@ -310,7 +326,9 @@ function inszeniere(game, absicht, katalog) {
 function anbietenAusAbsicht(game, absicht, katalog) {
   const r = inszeniere(game, absicht, katalog);
   if (!r.ok) return r;
-  const o = { hex: r.hex };
+  const o = { hex: r.hex, absicht, erstellt: game && game.weltsim && Number.isFinite(game.weltsim.tickZahl) ? game.weltsim.tickZahl : 0 };   // FRE-02 C: erstellt = Tick des ersten Erzeugens (der Vorrat behaelt es)   // FRE-02 B1: das Angebot behaelt seine Absicht (Weltstand, Vorrat) und den Hafen, von dem aus das Ziel gewaehlt wurde (derselbe Hex wie in ortBestimmen)
+  const hafen = crewHex(game);
+  if (hafen) o.herkunft = hafen;
   if (r.bezug) o.bezug = r.bezug;
   if (r.locker) o.locker = true;
   const res = Brett().neuAnbieten(game, r.plan, o);
@@ -363,6 +381,7 @@ function rezeptFehler(katalog, name, e) {
       if (o.reichweite_parameter !== undefined && !(has(params, o.reichweite_parameter) && params[o.reichweite_parameter].art === 'zahl')) g('ort.reichweite_parameter nennt keinen Zahl-Parameter der Absicht');
     }
     if (o.regel === ORT.BEZUG_ORT && !bezug.some((b) => b.name === 'ort' && b.pflicht === true)) g('ort.regel bezug_ort braucht den Pflicht-Bezug ort');
+    if (o.regel === ORT.ZIEL_IM_UMKREIS && (o.kartenart !== undefined || o.reichweite_parameter !== undefined)) g('ort.regel ziel_im_umkreis kennt weder kartenart noch reichweite_parameter (Landeplaetze mit $ort_kartenart gehen dort nicht)');
     if (o.regel === ORT.CREW_HEX && o.kartenart !== undefined && !Orte().DATEN.arten.includes(o.kartenart)) g('ort.kartenart ist keine Kartenart der Landeplaetze');
   }
   // Bedingungen
@@ -450,4 +469,4 @@ function katalogFehler(katalog) {
   return out;
 }
 
-module.exports = { CODES, inszeniere, anbietenAusAbsicht, bezugPassend, weltStufe, katalogFehler, werteFehler, werteNeuLesen };
+module.exports = { CODES, FELD_ZIELE_VERGEBEN, inszeniere, anbietenAusAbsicht, bezugPassend, weltStufe, katalogFehler, werteFehler, werteNeuLesen };

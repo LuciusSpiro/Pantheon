@@ -30,7 +30,7 @@
     "format": "absicht/1 (Eingabe des Modells): { format, absicht, titel, parameter: {name: wert}, bezug: { nsc?: Vollname, ort?: Hex }, bogen: { einsatz, wendung, preis }, ton }. Keine weiteren Felder.",
     "eintrag": "Eintrag unter `absichten.<name>`: { zweck: Text, parameter?: { <name>: { art: 'zahl', min, max, standard? } | { art: 'liste', erlaubt: [...], standard? } }, bezug?: [ { name: 'nsc'|'ort', pflicht: bool, kandidat?: true | Beat-Typ } ], fortsetzung?: bool, wendungen?: [Symbol], toene?: [Ton], bogen_pflicht?: [Feld], ton_standard?: Ton, inszenierung?: Rezept des Inszenierers (siehe `inszenierung`), prompt_zeile?: Text, standard?: { titel, bogen, ton? }, _hinweis?: Text }",
     "kandidat": "bezug.kandidat = true: der NSC muss ein Kandidat der Fadenmaschine sein (faden.wiedersehenKandidaten, nach dem ersten Beat-Typ mit braucht.nsc_alt), nicht nur im Kanon stehen. bezug.kandidat = \"<Beat-Typ aus beats.json>\" (SPL-02 C0): dasselbe, aber nach den Zustaenden (braucht.nsc_status) genau dieses Typs, z. B. ein feindlicher oder geflohener NSC fuer einen Beat, der ihn so verlangt; der Typ muss braucht.nsc_alt tragen, und bei einem Rezept muss er der erste Beat des Skeletts sein.",
-    "inszenierung": "SPL-02 B: das Rezept, nach dem der Inszenierer (server/sim/inszenierer.js) aus der Absicht einen Beat-Plan baut: { ort: { regel: crew_hex | naechster_mit_kartenart (kartenart, reichweite_parameter?) | bezug_ort }, bedingungen?: [ { art: nsc_haltung (bezug, hoechstens?, mindestens?) | rang_mindestens (rang) } ], nicht_ausdrueckbar?: [ { wenn: { parameter | bogen | ton: Name, ist: Wert } | { immer: true }, grund: Text, gegenvorschlag?: { feld, wert, text } } ], staerke_parameter?: Name, stufe_max?: Zahl, skelett: { landeplaetze?, volk_erlaubt?, namenlos?, wahrheit?, beats: [ Beat des Bauplans, dazu ab_stufe?, bis_stufe?; ein Parameter darf { aus: 'parameter.<name>' } oder { nach_stufe: [Werte] } sein ] }, wendungen?: { <Symbol>: { nach: Beat-Id oder -Typ des Skeletts, beats: [...] } }, anlass_vorlage?: Text }. Zahlen und Tabellen (Stufen nach Rang und Schiff, Reichweiten) stehen in content/faeden/inszenierer-werte.json.",
+    "inszenierung": "SPL-02 B: das Rezept, nach dem der Inszenierer (server/sim/inszenierer.js) aus der Absicht einen Beat-Plan baut: { ort: { regel: crew_hex | naechster_mit_kartenart (kartenart, reichweite_parameter?) | bezug_ort | ziel_im_umkreis (FRE-02 A2: ein freies Ziel im Umkreis des Hafens, Radius angebot_radius_spruenge in werte.json; ohne kartenart und reichweite_parameter; Rezepte, deren Skelett einen Beat mit verlegt_ort hat oder bei denen die Crew selbst der Schauplatz ist, bleiben crew_hex) }, bedingungen?: [ { art: nsc_haltung (bezug, hoechstens?, mindestens?) | rang_mindestens (rang) } ], nicht_ausdrueckbar?: [ { wenn: { parameter | bogen | ton: Name, ist: Wert } | { immer: true }, grund: Text, gegenvorschlag?: { feld, wert, text } } ], staerke_parameter?: Name, stufe_max?: Zahl, skelett: { landeplaetze?, volk_erlaubt?, namenlos?, wahrheit?, beats: [ Beat des Bauplans, dazu ab_stufe?, bis_stufe?; ein Parameter darf { aus: 'parameter.<name>' } oder { nach_stufe: [Werte] } sein ] }, wendungen?: { <Symbol>: { nach: Beat-Id oder -Typ des Skeletts, beats: [...] } }, anlass_vorlage?: Text }. Zahlen und Tabellen (Stufen nach Rang und Schiff, Reichweiten) stehen in content/faeden/inszenierer-werte.json.",
     "prompt_zeile": "SPL-02 C: die Zeile dieser Absicht im Prompt des Spielleiters (Paket E baut den Katalog daraus), beginnt mit \"<name>:\", hoechstens werte.prompt_zeile_max Zeichen, nennt jeden Parameter, Bezug und jede Wendung des Eintrags (Test). Alle Zeilen zusammen sollen werte.prompt_summe_ziel nicht uebersteigen.",
     "standard": "SPL-02 C: die Standard-Parametrierung = die Absicht, die ohne Modell entsteht (Rueckfall des Bretts, Paket F): { titel, bogen: { einsatz, wendung, preis }, ton }, ohne Parameter und Bezug. Der Inszenierer baut daraus denselben Plan wie der Bauplan in anschluss.json (Test).",
     "fortsetzung": "fortsetzung = true: die Absicht darf einen NSC aufnehmen, der in einem der letzten Abenteuer die Hauptfigur war; der Aufrufer setzt dann `locker` am Angebot (abenteuer-brett.js neuAnbieten). Der Pruefer liefert nur die Eigenschaft (istFortsetzung)."
@@ -231,7 +231,7 @@
       "ton_standard": "dringlich",
       "prompt_zeile": "rettung: Ein entführter NSC wird von Wachschiffen festgehalten, die Crew befreit ihn. Keine Parameter, keine Wendung.",
       "inszenierung": {
-        "ort": {"regel":"crew_hex"},
+        "ort": {"regel":"ziel_im_umkreis"},
         "skelett": {
           "beats": [
             {"typ":"notruf","parameter":{"text_key":"notruf_entfuehrt"},"verzweigung":{"gescheitert":"ende"}},
@@ -296,7 +296,7 @@
       "prompt_zeile": "lieferung: Ein Händler bittet um eine Fracht zum Hafen. Parameter ware: fracht_kiste|erz. Wendung: ueberfall (Piraten auf dem Weg, ab höherem Rang eine zweite Welle). Nur Fracht, kein Handel.",
       "texte": {"sprecher":"ein Haendler, der eine Fracht zum Hafen gebracht haben will","stimme":"kon","anrede":"ihr","slots":{"bitte":{"beat":"erster","szene":"Ein Haendler funkt die Lerche an und bittet sie, seine Fracht ({ware}) sicher zum Hafen zu bringen. Er zahlt dafuer.","bogen":["einsatz"],"ton":true,"platzhalter":["ort","ware"],"pflicht":[]},"abschluss_gescheitert":{"beat":"letzter","szene":"Die Lieferung ({ware}) ist nicht angekommen. Der Haendler bleibt auf seinem Verlust sitzen und zahlt nichts.","bogen":["preis"],"ton":true,"platzhalter":["ort","ware"],"pflicht":[],"nicht":["dank"],"rueckfall":[{"text":"Keine Lieferung, kein Lohn. Das war ein schlechtes Geschaeft fuer uns beide."}]}},"wendungen":{"ueberfall":{"fakt":"Die Wendung: Auf dem Weg zum Hafen lauern Piraten der Fracht auf."}}},
       "inszenierung": {
-        "ort": {"regel":"crew_hex"},
+        "ort": {"regel":"ziel_im_umkreis"},
         "skelett": {
           "beats": [
             {"typ":"bitte","verzweigung":{"gescheitert":"ende"}},
@@ -318,7 +318,7 @@
       "ton_standard": "bitter",
       "prompt_zeile": "falscher_haendler: Ein Händler bittet um Fracht und ist in Wahrheit Germane: Enthüllung, Flucht, Schlacht. Parameter ware: fracht_kiste|erz. Keine Wendung. Ab höherem Rang eine zweite Schlacht.",
       "inszenierung": {
-        "ort": {"regel":"crew_hex"},
+        "ort": {"regel":"ziel_im_umkreis"},
         "skelett": {
           "wahrheit": "ist_germane",
           "beats": [
@@ -342,7 +342,7 @@
       "ton_standard": "dringlich",
       "prompt_zeile": "notruf: Ein Schiff ruft um Hilfe. Parameter text_key: notruf_standard|notruf_entfuehrt. Wendung: piraten (die Angreifer sind noch da, ab höherem Rang eine zweite Welle).",
       "inszenierung": {
-        "ort": {"regel":"crew_hex"},
+        "ort": {"regel":"ziel_im_umkreis"},
         "skelett": {
           "beats": [
             {"typ":"notruf","parameter":{"text_key":{"aus":"parameter.text_key"}}},

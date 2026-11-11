@@ -20,6 +20,7 @@ const Haken = require('../telemetrie/haken.js');   // TEL-01 B2: Wartezeit auf d
 const Regie = require('./regie-befehle.js');
 const Kontingent = require('./kontingent.js');   // LIV-01: Schwelle des Token-Zählers
 const Prompt = require('./abenteuer-prompt.js');
+const Ziel = require('./abenteuer-ziel.js');   // FRE-02 A1: Zielwahl im Umkreis des Hafens
 const Absicht = require('./abenteuer-absicht.js');   // SPL-02 E1: Betriebsmodus Absichten (Schalter ABENTEUER_ABSICHTEN)
 const { WERTE } = require('./abenteuer-daten.js');
 
@@ -36,7 +37,7 @@ class AbenteuerSpielleiter {
     this.game = lage.game;
     this.W = Object.assign({}, WERTE, o.werte || {});
     this.zustand = 'idle';       // 'idle' | 'angefragt' (Prompt wird im naechsten update gebaut) | 'laeuft'
-    this.job = null;             // { token, art, nr, hex, start (Spielzeit), wall, bau, eskaliert, input }
+    this.job = null;             // { token, art, nr, hex (Ort der Geschichte), herkunftHex (Hafen/Crew, FRE-02 A1), start (Spielzeit), wall, bau, eskaliert, input }
     this.seq = 0;
     this.inbox = [];
     this.aufrufe = 0;            // gestartete Aufrufe dieser Sitzung (Deckel)
@@ -60,6 +61,15 @@ class AbenteuerSpielleiter {
       const hex = g.ship && g.ship.scene ? require('./marken.js').hexVon(g.ship.scene) : null;
       return hex && require('../../shared/sektoren.js').spielbar(hex) ? hex : null;
     } catch (e) { return null; }
+  }
+  anfrageOffen() { return !this.disposed && this.zustand !== 'idle'; }   // FRE-02 B2 Nacharbeit: der Komponist hat eine Anfrage in Arbeit (angefragt oder unterwegs); das Brett fragt es, um dem Komponisten Plaetze zu lassen (liest nur)
+  // FRE-02 Korrektur: kann der Komponist ueberhaupt noch komponieren? Dann bleiben dem Brett Plaetze fuer ihn frei (der Rueckfall legt nur die Anschluss-Garantie). Gilt auch bei einer Anfrage in Arbeit; kurzzeitige Gruende (Lage beschaeftigt, Cooldown, Brett voll) zaehlen nicht, sonst fuellt der Rueckfall genau dann auf, wenn der Komponist nur kurz blockiert ist. Liest nur.
+  platzFuerKomponist() {
+    if (this.disposed) return false;
+    if (this.anfrageOffen()) return true;
+    if (this.aus || this.modusAus()) return false;
+    if (this.aufrufe >= this.W.deckel_je_sitzung) return false;
+    try { return !this.budgetGesperrt(); } catch (e) { return false; }
   }
   offeneAngebote() { const F = faden().zustandVon(this.game); return F ? F.abenteuerAngebote.length : 0; }
   // Uebersprungen: gezaehlt immer, im Logbuch nur beim Wechsel des Grundes (keine Flut)
@@ -105,14 +115,15 @@ class AbenteuerSpielleiter {
     return llm.mode === 'live' && llm.anbieterFuer('abenteuer', STUFE) !== 'ollama' && Kontingent.sperrt(this.game, this.W.min_budget);
   }
   vormerken(art) {
-    const ort = this.crewHex();
+    const hafen = this.crewHex();   // FRE-02 A1: Herkunft (beim Andocken der Hafen); der Ort der Geschichte ist ein Ziel in der Umgebung (abenteuer-ziel.js); im Modus Absichten bleibt job.hex der Ort der Crew (FRE-02 A2: das Ziel waehlt der Inszenierer nach der Ortsregel des Rezepts, das Modell nennt keinen Ort; der Ort des Angebots steht in angebot.hex)
+    const ort = hafen && !Absicht.aktiv(this.game) ? Ziel.zielImUmkreis(this.game, hafen, { belegt: Ziel.belegt(this.game) }) : hafen;
     if (!ort) return this.ueberspringen('kein_ort', art);
     if (this.budgetGesperrt()) return this.ueberspringen('budget', art);   // LIV-01: Schwelle als Gate (kontingent.js); LIV-02: Kontingent-Ende meldet keinen Notbetrieb
     this.letzterSprung = null;
     this.aufrufe++;
     this.grenzenSeit = 0;
     this.zustand = 'angefragt';
-    this.job = { token: 0, art, nr: this.aufrufe, hex: ort, start: this.game.time, wall: null, bau: null, eskaliert: false, input: null };
+    this.job = { token: 0, art, nr: this.aufrufe, hex: ort, herkunftHex: hafen, start: this.game.time, wall: null, bau: null, eskaliert: false, input: null };
     return { gestartet: true, grund: null };
   }
 
@@ -232,7 +243,7 @@ class AbenteuerSpielleiter {
     if (job.modus === 'absicht') return job.phase === 'verhandlung' ? this.verhandlungAntwort(job, r) : this.absichtAntwort(job, r);
     const gelesen = Prompt.bauplanAusText(text);
     if (gelesen.fehler) return this.abgelehnt(job, 'ANTWORT_UNLESBAR', [gelesen.fehler], r);
-    const res = faden().abenteuerNeuAnbieten(this.game, gelesen.plan, { hex: job.hex });   // SUND-04b E3: mit den Wiederholungsregeln des Bretts
+    const res = require('./abenteuer-brett.js').neuAnbieten(this.game, gelesen.plan, { hex: job.hex, herkunft: job.herkunftHex });   // SUND-04b E3: mit den Wiederholungsregeln des Bretts (ohne bezug und locker genau faden.abenteuerNeuAnbieten); FRE-02 B1: dazu die Herkunft (Hafen)
     if (!res.ok) return this.abgelehnt(job, codeVon(res.grund), res.fehler, r);
     this.angeboten(job, r, res.angebot);
   }
@@ -242,7 +253,7 @@ class AbenteuerSpielleiter {
     this.zaehler.gueltig++;
     this.letzte.push(job.absichtName ? { nr: job.nr, typen, absicht: job.absichtName } : { nr: job.nr, typen });
     while (this.letzte.length > Math.max(1, this.W.letzte_abenteuer)) this.letzte.shift();
-    this.schreibe(Object.assign({ ausgang: 'gueltig', begruendung: `Abenteuer ${angebot.ref} als Angebot ${angebot.nr} bei ${job.hex}`, plan: this.planInfo(job, { angebot: angebot.nr, vorlage: angebot.ref, typen, beats: angebot.vorlage.beats.length }) }, this.absichtFelder(job), this.messung(job, r)));
+    this.schreibe(Object.assign({ ausgang: 'gueltig', begruendung: `Abenteuer ${angebot.ref} als Angebot ${angebot.nr} bei ${angebot.hex}`, plan: this.planInfo(job, Object.assign({ hex: angebot.hex }, angebot.hex !== job.hex ? { herkunft: job.hex } : {}, { angebot: angebot.nr, vorlage: angebot.ref, typen, beats: angebot.vorlage.beats.length })) }, this.absichtFelder(job), this.messung(job, r)));
   }
 
   // ---------- SPL-02 E1: Betriebsmodus Absichten

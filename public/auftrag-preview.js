@@ -6,7 +6,7 @@
 
   // ---------------------------------------------------------------- Beispiel-Angebote
   const KONVOI = {
-    id: 'a1', titel: 'Der Bernsteinkonvoi', von: 'kon', ort: 'Kantenstein', typen: ['geruecht', 'konvoi'], aus_geruecht: true, rest: 9,
+    id: 'a1', titel: 'Der Bernsteinkonvoi', von: 'kon', ort: 'Kantenstein', hafen: 'Concordia', ort_offen: true, typen: ['geruecht', 'konvoi'], aus_geruecht: true, rest: 9,
     anlass: 'Ein Händler des Konkordats will wissen, warum germanische Frachter neuerdings Kantenstein anlaufen. Er zahlt für Gewissheit und mehr für die Ladung.',
     vorschau: {
       schritte: ['In Concordia das Gerücht prüfen', 'Nach Kantenstein springen', { text: 'Konvoi stellen und aufhalten', gefahr: true }, 'Ladung nach Concordia bringen'],
@@ -16,7 +16,7 @@
     },
   };
   const HEIMWEG = {
-    id: 'a2', titel: 'Sigrids Heimweg', von: 'ger', ort: 'Gullfjord', typen: ['wiedersehen', 'geleit'], aus_geruecht: true, rest: 2,
+    id: 'a2', titel: 'Sigrids Heimweg', von: 'ger', ort: 'Gullfjord', hafen: 'Ostia Nova', ort_offen: true, typen: ['wiedersehen', 'geleit'], aus_geruecht: true, rest: 2,
     anlass: 'Sigrid Wolfsang, die Ihr vor Ymirs Zahn aus dem Wrack gezogen habt, bittet um Geleit nach Hause. Rom sieht so etwas nicht gern.',
     vorschau: {
       schritte: ['In Ostia Nova an Bord nehmen', { text: 'Durch die Front bei Gullfjord', gefahr: true }, 'In Gullfjord absetzen'],
@@ -26,7 +26,7 @@
     },
   };
   const SABOTAGE = {
-    id: 'a3', titel: 'Feuer über Skjaldborg', von: 'rom', ort: 'Skjaldborg', typen: ['sabotage'], rest: 6,
+    id: 'a3', titel: 'Feuer über Skjaldborg', von: 'rom', ort: 'Skjaldborg', hafen: 'Castra Gradivi', ort_offen: true, typen: ['sabotage'], rest: 6,
     anlass: 'Der Legat in Castra Gradivi will den germanischen Posten bei Skjaldborg ausgeschaltet sehen, bevor die Legion vorrückt.',
     vorschau: {
       schritte: ['Nach Skjaldborg springen', { text: 'Posten sprengen', gefahr: true }, 'In Castra Gradivi melden'],
@@ -36,7 +36,7 @@
     },
   };
   const BOJE = {
-    id: 'a4', titel: 'Die stumme Boje', von: 'rom', ort: 'Bojenfeld', typen: ['spur'], rest: 11,
+    id: 'a4', titel: 'Die stumme Boje', von: 'rom', ort: 'Bojenfeld', hafen: 'Ostia Nova', typen: ['spur'], rest: 11,
     anlass: 'Eine Boje im Bojenfeld sendet seit drei Tagen nichts mehr. Die Flottenbasis will wissen, wer sie zum Schweigen gebracht hat.',
     vorschau: {
       schritte: ['Im Bojenfeld scannen', 'Der Spur folgen', 'Fundort melden'],

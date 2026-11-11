@@ -133,7 +133,8 @@ section('Snapshot world.abenteuer: Block, Vorschau aus den Daten, Loeschsignal, 
   ok(s && s.ok === 1 && s.kopf === BRETT.werte.kopf.wert && s.ablehnen === BRETT.werte.ablehnen_text.wert && s.scheitern === BRETT.werte.scheitern_text.wert, 'Block: ok 1 (Spielleiter da), Kopf, Hinweis zum Ablehnen und zum Scheitern aus den Daten');
   ok(s && s.angebote.length === 3 && s.angebote.map((x) => x.id).join() === ['a' + a1.angebot.nr, 'a' + a2.angebot.nr, 'a' + a3.angebot.nr].join(), 'drei Angebote mit den Ids a<Nummer> in der Reihenfolge des Anbietens');
   const e1 = s.angebote[0], e2 = s.angebote[1], e3 = s.angebote[2], V = (e) => e.vorschau, hs = HW.quellen.wert;
-  ok(e1.ort === '0305' && e1.ortname === hexname('0305') && e1.rest === GILT && V(e1).schritte.length === 3, 'Ort (Hex und Name), Verfall in Taetigkeiten (' + GILT + '), drei Schritte (Bitte, Gerücht, Abschluss)');
+  // FRE-02 B1: e1 und e2 haben einen Geruecht-Beat (verlegt_ort): das Ziel steht nicht fest, ort/ortname leer mit ort_offen; e3 (Konvoi, Geleit) behaelt sein Ziel
+  ok(e1.ort === '' && e1.ortname === '' && e1.ort_offen === true && e3.ort === '0305' && e3.ortname === hexname('0305') && e3.ort_offen === undefined && e1.rest === GILT && V(e1).schritte.length === 3, 'Ort (Hex und Name; bei einem Beat mit verlegt_ort leer mit ort_offen), Verfall in Taetigkeiten (' + GILT + '), drei Schritte (Bitte, Gerücht, Abschluss)');
   ok(e1.titel.includes('Crew') && !NAMEN.some((x) => e1.titel.includes(x)), 'Titel ohne Spielername (der Name ist durch Crew ersetzt)');
   ok(!NAMEN.some((x) => JSON.stringify(s).includes(x)) && !/Mireille|Ouzo|Tzvi/.test(JSON.stringify(s)), 'der Block nennt keinen Spielernamen (auch nicht im Anlass)');
   ok(s.angebote.every((e) => e.von === 'rom') && e1.aus_geruecht === true && e2.aus_geruecht === true && e3.aus_geruecht === false, 'von: Fraktion des Auftraggebers (Ostia Nova: rom); aus_geruecht: nur Plaene mit einem Geruecht-Beat');
@@ -199,11 +200,17 @@ section('Snapshot: Kuerzung im Server (Titel 40, Anlass 110), Geruechte aus den 
   const s = block(g), e = s.angebote[0];
   const TM = BRETT.werte.titel_max.wert;
   ok(TM === 40 && e.titel.length <= TM && e.titel.length >= TM - 1 && e.titel.endsWith('…') && lang.startsWith(e.titel.slice(0, -1).trimEnd()) && e.anlass.length <= 110 && e.anlass.endsWith('…'), 'Titel auf 40 (Daten titel_max, = Brett.GRENZE.titel der Anzeige), Anlass auf 110 Zeichen gekuerzt (mit …): ' + JSON.stringify(e.titel));
-  ok(s.geruechte && s.geruechte.length === 1 && s.geruechte[0].angebot === e.id && s.geruechte[0].von === 'Sensoren Lerche' && s.geruechte[0].text === 'Scan bei ' + hexname('0305') + ': Der Transponder des Schiffs passt nicht zu seinen Papieren.', 'Geruecht: Hinweistext der Vorlage ohne Namen, {ort} eingesetzt, Sprecher des Kanals, Verweis auf das Angebot');
-  ok(!/[{}]|Lieferung gesehen|Siegel/.test(s.geruechte.map((x) => x.text).join(' ')), 'kein Hinweis mit {name} (der NSC steht erst nach der Annahme fest)');
+  // FRE-02 B2: ein Beat mit verlegt_ort (geruecht) ueberschreibt das Ziel beim Start: seine Geruechtzeile nennt keinen vorlaeufigen Ort (kein {ort}-Hinweis)
+  ok(e.ort_offen === true && !s.geruechte, 'Geruecht bei ort_offen: keine Zeile mit vorlaeufigem Ort');
+  const HINWEISE = JSON.parse(JSON.stringify(offen(g)[0].vorlage.hinweise));   // Hinweise der Vorlage mit Beat verlegt_ort; unten in Vorlagen mit festem Ort kopiert (die Geruechtzeile liest nur vorlage.hinweise)
+  const festAnbieten = (gg, p, hex) => { const r = anbieten(gg, p, hex); if (r.ok) r.angebot.vorlage.hinweise = JSON.parse(JSON.stringify(HINWEISE)); return r; };
+  const fest = festAnbieten(g, plan([b('notruf'), b('spur'), b('enthuellung'), b('abschluss')], { titel: 'Ein fester Ort', anlass: 'Ein Anlass ohne Namen im Test' }), '0305');
+  const sf = block(g);
+  ok(fest.ok && sf.geruechte && sf.geruechte.length === 1 && sf.geruechte[0].angebot === 'a' + fest.angebot.nr && sf.geruechte[0].von === 'Sensoren Lerche' && sf.geruechte[0].text === 'Scan bei ' + hexname('0305') + ': Der Transponder des Schiffs passt nicht zu seinen Papieren.', 'Geruecht (Ort fest): Hinweistext der Vorlage ohne Namen, {ort} eingesetzt, Sprecher des Kanals, Verweis auf das Angebot');
+  ok(!/[{}]|Lieferung gesehen|Siegel/.test(sf.geruechte.map((x) => x.text).join(' ')), 'kein Hinweis mit {name} (der NSC steht erst nach der Annahme fest)');
   const g2 = neu(24, { env: { ABENTEUER_ANSCHLUSS: '0' } }).g;
-  for (let i = 0; i < 5; i++) anbieten(g2, plan([b('notruf'), b('geruecht'), b('spur'), b('enthuellung'), b('abschluss')], { titel: 'Geruechte ' + i, anlass: 'Anlass Nummer ' + i + ' ohne Namen' }), '0305');
-  ok(block(g2).geruechte.length <= 3 && offen(g2).length === 3, 'hoechstens drei Angebote, hoechstens drei Geruechte');
+  for (let i = 0; i < 5; i++) festAnbieten(g2, plan([b('notruf'), b('spur'), b('enthuellung'), b('abschluss')], { titel: 'Geruechte ' + i, anlass: 'Anlass Nummer ' + i + ' ohne Namen' }), '0305');
+  ok((block(g2).geruechte || []).length === 3 && offen(g2).length === 3, 'hoechstens drei Angebote, hoechstens drei Geruechte');
   // von: das Volk des Angebots (Ostia Nova: rom), auch wenn die Vorlage ein anderes Volk zuerst nennt; sonst das erste erlaubte Volk
   const g3 = neu(25, { env: { ABENTEUER_ANSCHLUSS: '0' } }).g;
   anbieten(g3, plan([b('geruecht'), b('abschluss')], { titel: 'Erst Konkordat', anlass: 'Ein Anlass ohne Namen im Test', volk_erlaubt: ['kon', 'rom'] }));

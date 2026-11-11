@@ -30,6 +30,21 @@ function ohneNamenGanzwort(text, namen) {
   for (const n of namen || []) if (typeof n === 'string' && n.length >= 2) t = t.replace(new RegExp('(?<![\\wäöüÄÖÜß])' + n.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '(?![\\wäöüÄÖÜß])', 'gi'), 'Crew');
   return t;
 }
+// FRE-02 T Nacharbeit: Namensfilter für Titel (Brett, Funk), die Wörter wie „Boje“ bei einem Spieler „Bo“ lesbar lassen müssen, aber nie einen Spielernamen durchlassen.
+// Wie ohneNamenGanzwort, dazu: (1) Flexion direkt hinter dem Namen (Genitiv-s „Bos“, „Bo’s“, „Bo's“, es, n, en) fällt mit dem Namen weg: „Bos Schiff“ wird „Crew Schiff“ (nicht „Crews“).
+// (2) Ein Name ab NAME_GEKUERZT Zeichen kann gekürzt gespeichert sein (server/game.js: msg.name ... .slice(0, 12); NAME_MAX im Charakter-Modul): steht im Text der längere volle Name, verschwindet er über den Wortschwanz ganz.
+// Kürzere Namen sind vollständig gespeichert: kein Präfix-Verhalten („Einsatz“ bei „Ein“, „Haltung“ bei „Ha“ bleiben).
+const NAME_GEKUERZT = 12;   // ab dieser Länge ist der gespeicherte Name möglicherweise abgeschnitten (Spielername auf 12 Zeichen gekürzt: server/game.js slice(0, 12), NAME_MAX im Charakter-Modul). Kein Import des Charakter-Moduls hier: test-trefferbox erlaubt Zugriffe darauf nur in game.js. Gleichheit sichert test-abenteuer-titel.
+function ohneNamenImTitel(text, namen) {
+  let t = String(text == null ? '' : text);
+  for (const n of namen || []) {
+    if (typeof n !== 'string' || n.length < 2) continue;
+    const esc = n.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const ende = n.length >= NAME_GEKUERZT ? '[\\wäöüÄÖÜß]*' : "(?:['’]?s|es|en|n)?(?![\\wäöüÄÖÜß])";
+    t = t.replace(new RegExp('(?<![\\wäöüÄÖÜß])' + esc + ende, 'gi'), 'Crew');
+  }
+  return t;
+}
 function spielerNamen(game) {
   return (game.players || []).map((p) => (p && typeof p.name === 'string' ? p.name.trim() : '')).filter((n) => n.length >= 2).sort((a, b) => b.length - a.length);
 }
@@ -121,4 +136,4 @@ function ausschnittPassend(game, { maxZeichen = A.max_zeichen } = {}) {
   return Object.assign(letzter || { stufe: 0, zeichen: 0, text: '' }, { passt: false });
 }
 
-module.exports = { ausschnitt, ausschnittPassend, ohneNamen, ohneNamenGanzwort, spielerNamen, STUFEN: A.stufen, MAX_ZEICHEN: A.max_zeichen };
+module.exports = { ausschnitt, ausschnittPassend, ohneNamen, ohneNamenGanzwort, ohneNamenImTitel, NAME_GEKUERZT, spielerNamen, STUFEN: A.stufen, MAX_ZEICHEN: A.max_zeichen };

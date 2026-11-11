@@ -117,7 +117,7 @@
     bereich: 'Auftragsbrett', knopf: 'Brett',
     hilfe: '{wahl} wählen · {an} annehmen · {ab} ablehnen', hilfeGesperrt: '{wahl} wählen · {ab} ablehnen kostet nichts',
     gelingt: 'Gelingt', scheitert: 'Scheitert', schritte: 'Schritte', gefahr: 'Gefahr', keineGefahr: 'kein Kampf angekündigt',
-    ort: 'Ort', von: 'Auftrag von',
+    ort: 'Ort', von: 'Auftrag von', herkunft: 'ab {hafen}', ortOffen: 'Ort wird im Funk genannt', herkunftTip: 'Herkunft: {hafen}', zielTip: 'Ziel: {ort}', vonTip: 'Auftraggeber: {name}',
     laeuft: 'Läuft', schritt: 'Schritt {i} von {n}', frist: 'Frist noch {n}', fristBald: 'Frist läuft ab',
     beginnt: 'beginnt in {n} Tätigkeiten', beginntEins: 'beginnt in 1 Tätigkeit', beginntGleich: 'beginnt gleich', hudBeginnt: 'in {n}',
     ruf: 'Ruf', haltung: 'Haltung', wahl: 'Wahl', wahlTip: 'Wahl: {optionen}',

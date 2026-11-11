@@ -11,9 +11,12 @@
 //   beiEnde(game, faden, ausgang)       (Aufrufer: faden.beatAusgang) Ende eines Abenteuers: Chronik-Zeile aus Daten, Logbuch ohne Titel, Anschluss-Garantie
 //   beiTaetigkeit(game) / beiUpdate(game) / anschluss(game) -> Angebot | null   Anschluss-Garantie: kein Angebot und kein laufendes Abenteuer -> ein deterministischer Rueckfall aus anschluss.json (ohne Modell)
 //   hinweisAnbieten(game, angebot)      SUND-04b F: Funkzeile "Neuer Auftrag am Brett" (Text aus den Daten, Titel gekuerzt ohne Spielernamen), einmal je Angebot-Id, hoechstens eine je Taetigkeitszaehler F.t; nie beim Laden (lesen) und ohne Spielleiter nicht
-//   toSave(F) / lesen(block, F)         Weltstand welt.sim.faeden.abenteuer { zuletzt?, angebote?: [{ hex, alter, plan, volk?, bezug?, locker? }], vorrat?: [Eintrag] } (additiv, muellfest; die Plaene laufen erneut durch den Pruefer)
+//   FRE-02 B1: neuAnbieten nimmt zusaetzlich herkunft (Hafen-Hex) und absicht (absicht/1); das Angebot traegt herkunft { hex } und absicht (nur Weltstand, nie Snapshot); Snapshot: hafen (Name), ort_offen (Beat mit verlegt_ort: ort/ortname leer)
+//   toSave(F) / lesen(block, F)         Weltstand welt.sim.faeden.abenteuer { zuletzt?, angebote?: [{ hex, alter, plan, volk?, bezug?, locker?, herkunft?: { hex }, absicht? }], vorrat?: [Eintrag] } (additiv, muellfest; die Plaene laufen erneut durch den Pruefer)
 //   SPL-02 F: im Modus Absichten (ABENTEUER_ABSICHTEN) waehlt anschluss() zuerst eine Absicht nach Lage (abenteuer-rueckfall.js, derselbe Inszenierer, kein Modell) und faellt auf anschluss.json zurueck, wenn nichts gueltig ist; passtZuLage(game, plan, hex) -> bool
 //   sind die Sperren des Rueckfalls (zuletzt gespielt, abgelehnt, Wiederholung) fuer einen Plan des Inszenierers; der Vorrat (abenteuer-vorrat.js) haengt am selben Weltstand-Block.
+//   FRE-02 C: der Vorrat ist verdrahtet (nur Absichten, Opt-in ABENTEUER_ABSICHTEN): beiTaetigkeit legt Angebote mit Absicht ein, die vom Brett verschwanden und nicht beantwortet wurden (Verfall; Merker brett(F).gesehen, Laufzeit),
+//   ablehnen legt das abgelehnte Angebot ein (die Sperre abgelehnt haelt es vom sofortigen Wiederanbieten ab: abenteuer-vorrat.js ausVorratOhneSperre), ausVorratEinsAnbieten/ausVorratFuellen nehmen aus dem Vorrat (NUR beiAndocken, VOR der Grenze; an den anderen Grenzen nie: dort komponiert der Komponist wie ohne Vorrat). Das Angebot traegt additiv erstellt (Tick des ersten Erzeugens, nur Weltstand): das Alter bleibt beim Einlegen erhalten.
 //   SPL-02 A: neuAnbieten(game, plan, { hex, bezug?: { nsc: Vollname }, locker?: bool }) -> wie faden.abenteuerNeuAnbieten; das Angebot traegt `bezug` (der Wiedersehen-NSC, den das Annehmen nimmt, nicht den juengsten frischen) und `locker` (die Fortsetzung darf die Hauptfigur
 //   des letzten Abenteuers aufnehmen: Wiederholungsregel nsc_zuletzt). Ist der NSC beim Annehmen kein Kandidat mehr, ist das Angebot veraltet (Grund BEZUG_VERALTET im Logbuch). Absichten (absicht-pruefer.js) setzen locker aus dem Katalogfeld fortsetzung (istFortsetzung).
 // SUND-04b E1/E3: der Kanon (abenteuer-kanon.js) haelt fest, was ein Abenteuer erfindet; die Wiederholungsregeln (abenteuer-wiederholung.js) gelten fuer jeden Plan des Spielleiters (faden.js abenteuerNeuAnbieten) und fuer den Rueckfall (passt: stufenweise gelockert, Ort, Folge, NSC).
@@ -30,6 +33,8 @@ const Wdh = () => require('./abenteuer-wiederholung.js');
 const Absicht = () => require('./absicht-pruefer.js');
 const Rueckfall = () => require('./abenteuer-rueckfall.js');
 const Vorrat = () => require('./abenteuer-vorrat.js');
+const Ziel = () => require('./abenteuer-ziel.js');
+const Absicht2 = () => require('./abenteuer-absicht.js');
 const Chronik = () => require('./chronik.js');
 const Ausschnitt = () => require('./lage-ausschnitt.js');
 const has = (o, k) => Object.prototype.hasOwnProperty.call(o, k);
@@ -58,7 +63,7 @@ const crewHex = (game) => {
     return hex && HEX.test(hex) && Sektoren.spielbar(hex) ? hex : null;
   } catch (e) { return null; }
 };
-const ohneNamen = (game, t) => Ausschnitt().ohneNamen(t, Ausschnitt().spielerNamen(game || {}));
+const ohneNamen = (game, t) => Ausschnitt().ohneNamenImTitel(t, Ausschnitt().spielerNamen(game || {}));
 function anschlussAus(game) {   // Test- und Betriebsknopf: ABENTEUER_ANSCHLUSS=0|off|aus schaltet den Rueckfall ab (Standard: an, wirkt nur mit FAEDEN=1 und Spielleiter)
   const env = (game && game.env) || process.env;
   return ['0', 'off', 'aus', 'false'].includes(String((env && env.ABENTEUER_ANSCHLUSS) || '').toLowerCase());
@@ -128,6 +133,8 @@ function typenVon(v) {
   }
   return out.slice(0, BW.typen_max);
 }
+// FRE-02 B1: hat ein Beat der Vorlage (oder seine Variante) das Datenflag verlegt_ort (beats.json), steht das Ziel nicht fest (Beat-Typen nie im Code)
+const ortOffen = (v) => !!v && Array.isArray(v.beats) && v.beats.some((b) => [b.typ].concat(istObjekt(b.variante) ? [b.variante.typ] : []).some((t) => has(B, t) && B[t].verlegt_ort === true));
 const laufendVon = (F) => F.liste.find((f) => f.plan && f.phase !== 'abgeschlossen') || null;
 const restAngebot = (a) => Math.max(0, W.abenteuer.angebot_gilt_taetigkeiten - a.alter);
 function restLaufend(f) {
@@ -152,7 +159,8 @@ function geruechte(angebote) {
   const out = [];
   for (const a of angebote) {
     const hs = a.vorlage.hinweise || {};
-    const k = Object.keys(hs).find((x) => typeof hs[x].text === 'string' && !hs[x].text.includes('{name}'));
+    const offen = ortOffen(a.vorlage);   // FRE-02 B2: bei ort_offen steht das Ziel nicht fest (der Beat ueberschreibt es beim Start): nur ein Hinweis ohne {ort}, sonst keine Geruechtzeile
+    const k = Object.keys(hs).find((x) => typeof hs[x].text === 'string' && !hs[x].text.includes('{name}') && !(offen && hs[x].text.includes('{ort}')));
     if (!k || out.length >= BW.geruechte_max) continue;
     const sp = has(W.hinweis_sprecher, hs[k].kanal) ? W.hinweis_sprecher[hs[k].kanal] : null;
     out.push({ von: sp || BW.geruecht_sprecher, text: kuerzen(hs[k].text.split('{ort}').join(hexName(a.hex)), BW.geruecht_text_max), angebot: 'a' + a.nr });
@@ -169,7 +177,10 @@ function snapshot(game) {
   const alle = F.abenteuerAngebote.slice(0, W.abenteuer.angebote_max);
   for (const a of alle) {
     const von = vonAngebot(game, a);
-    const e = { id: 'a' + a.nr, titel: text(a.vorlage.titel, BW.titel_max), ort: a.hex, ortname: hexName(a.hex).slice(0, BW.ort_max), rest: restAngebot(a), von, aus_geruecht: a.vorlage.beats.some((b) => b.typ === 'geruecht'), vorschau: vorschau(a.vorlage, von), typen: typenVon(a.vorlage) };
+    const offen = ortOffen(a.vorlage);   // FRE-02 B1: ein Beat, der seinen Ort selbst waehlt, ueberschreibt das Ziel beim Start: kein Ziel anzeigen (ort/ortname leer, ort_offen), der Client nennt dann nur den Hafen
+    const e = { id: 'a' + a.nr, titel: text(a.vorlage.titel, BW.titel_max), ort: offen ? '' : a.hex, ortname: offen ? '' : hexName(a.hex).slice(0, BW.ort_max), rest: restAngebot(a), von, aus_geruecht: a.vorlage.beats.some((b) => b.typ === 'geruecht'), vorschau: vorschau(a.vorlage, von), typen: typenVon(a.vorlage) };
+    if (offen) e.ort_offen = true;
+    if (a.herkunft) e.hafen = hexName(a.herkunft.hex).slice(0, BW.ort_max);   // der Auftraggeber ist `von` (Fraktion); NSC-Namen und Spielernamen stehen nie im Block
     if (typeof a.vorlage.anlass === 'string') e.anlass = text(a.vorlage.anlass, BW.anlass_max);
     s.angebote.push(e);
   }
@@ -241,6 +252,7 @@ function ablehnen(game, id) {   // kostet nichts: keine Ruf- oder Haltungsfolge,
   gemerkt(b.antworten, a.nr, BW.antworten_gemerkt);
   gemerkt(b.abgelehnt, a.ref, 3);   // der Rueckfall bietet nicht sofort denselben Plan wieder an
   logbuch(game, 'faden_ereignis', { ausgang: 'abenteuer_abgelehnt', key: a.ref, begruendung: `Angebot ${a.nr} abgelehnt (keine Folge)`, plan: { angebot: a.nr, vorlage: a.ref } });
+  if (a.absicht) { try { Vorrat().einlegenAus(game, a, BW.vorrat_art); } catch (e) { fehlerZaehlen(game, 'abenteuer-brett-vorrat', e); } }   // FRE-02 C: nicht gespielt, aber noch gut: in den Vorrat (die Sperre oben haelt es vom sofortigen Wiederanbieten ab)
   return null;
 }
 
@@ -260,6 +272,7 @@ function hinweisAnbieten(game, angebot) {
   const F = game && game.weltsim && game.weltsim.faeden;
   if (!F || !angebot || !Faden().aktiv(game) || !Faden().spielleiterAktiv(game)) return false;
   const b = brett(F);
+  if (b.hinweisStumm) return false;   // FRE-02 B2: beiAndocken fuellt das Brett, danach meldet genau ein Sammelfunk (kein Einzelhinweis, auch nicht der des Rueckfalls an der Grenze)
   if (!Array.isArray(b.hinweise)) { b.hinweise = []; b.hinweisT = -1; b.hinweisNr = -1; }
   if (b.hinweise.includes(angebot.nr)) return false;   // einmal je Id
   if (b.hinweisT === F.t && F.abenteuerAngebote.some((x) => x.nr === b.hinweisNr)) return false;   // hoechstens einer je Taetigkeitszaehler (Grenze), solange das gemeldete Angebot noch am Brett steht; ist es beantwortet oder verfallen, darf das naechste melden
@@ -290,6 +303,11 @@ function anschluss(game) {
   if (F.abenteuerAngebote.length || P.abenteuerLaufend(F)) return null;
   const hex = crewHex(game);
   if (!hex) return null;
+  return rueckfallWahl(game, F, hex, true);
+}
+// Ein Angebot des Rueckfalls fuer den Hafen hex (Absichten-Modus zuerst, sonst anschluss.json), ohne die Bedingungen der Garantie (die prueft der Aufrufer). garantie = true: Sperren stufenweise lockern und im
+// Notfall der Hafen als Ort (anschluss, leeres Brett); false: nur Stufe 0 und nur Ziele (anschlussFuellen: ehrlich weniger Angebote statt Wiederholung oder Hafen-Ort). Zielwahl, Planwahl und Strom sind dieselben.
+function rueckfallWahl(game, F, hex, garantie) {
   if (Rueckfall().aktiv(game)) {   // SPL-02 F: im Modus Absichten waehlt der Rueckfall zuerst eine Absicht nach Lage (derselbe Inszenierer, kein Modell); gelingt nichts, gilt anschluss.json (die Garantie bleibt unbedingt)
     const r = Rueckfall().anbieten(game, { hex, n: F.angNr + 1, letzte: brett(F).rueckfallAbsicht });
     if (r) {
@@ -299,27 +317,135 @@ function anschluss(game) {
       return r.angebot;
     }
   }
-  let plaene = [], stufe = 0;
-  for (; !plaene.length && stufe <= Math.max(brett(F).abgelehnt.length + 1, Wdh().STUFEN_MAX); stufe++) plaene = D.ANSCHLUSS.plaene.filter((bp) => passt(game, F, bp, stufe, hex));   // Sperren stufenweise lockern: zuerst die aelteste Ablehnung, zuletzt der zuletzt gespielte Plan
-  if (!plaene.length) return null;
+  // FRE-02 A1: der Ort des Standardplans ist ein ZIEL in der Umgebung des Hafens (abenteuer-ziel.js, Strom der Faeden), nicht der Hafen. Gibt es keines (Karte veraendert, Radius 0, alles belegt) oder geht dort kein Plan,
+  // gilt wie vorher der Hafen: die Anschluss-Garantie bleibt unbedingt (Logbuch: Feld ziel = false). Die Sperren werden zuerst ueber alle Ziele gelockert, erst danach faellt die Wahl auf den Hafen zurueck.
+  const planeAn = (o, st) => D.ANSCHLUSS.plaene.filter((bp) => passt(game, F, bp, st, o));
+  const stufeFuer = (orte) => { for (let st = 0; st <= Math.max(brett(F).abgelehnt.length + 1, Wdh().STUFEN_MAX); st++) if (orte.some((o) => planeAn(o, st).length)) return st; return -1; };   // Sperren stufenweise lockern: zuerst die aelteste Ablehnung, zuletzt der zuletzt gespielte Plan
+  const ziele = Ziel().zielFolge(game, hex, { belegt: Ziel().belegt(game) });
+  let orte = ziele, stufe = garantie ? stufeFuer(orte) : (orte.some((o) => planeAn(o, 0).length) ? 0 : -1);
+  if (stufe < 0 && garantie) { orte = [hex]; stufe = stufeFuer(orte); }
+  if (stufe < 0) return null;
   const n = F.angNr + 1;
-  const start = Math.floor(Faden().strom(game, n, 'anschluss')() * plaene.length) % plaene.length;
-  for (let k = 0; k < plaene.length; k++) {
-    const res = Faden().abenteuerAnbieten(game, klon(plaene[(start + k) % plaene.length]), { hex });
-    if (res.ok) {
-      res.angebot.locker = stufe - 1 >= Wdh().STUFEN_MAX;   // der NSC-Sperre entkommen: das Wiedersehen darf auch die Hauptfigur des letzten Abenteuers nehmen
-      logbuch(game, 'abenteuer_anschluss', { ausgang: 'angeboten', key: res.angebot.ref, begruendung: `Anschluss-Garantie: Standardplan ${res.angebot.ref} als Angebot ${res.angebot.nr} bei ${hex}`, plan: { angebot: res.angebot.nr, vorlage: res.angebot.ref, hex, wahl: (start + k) % plaene.length } });
-      return res.angebot;
+  const z = Faden().strom(game, n, 'anschluss')();
+  for (const o of orte) {
+    const plaene = planeAn(o, stufe);
+    if (!plaene.length) continue;
+    const s0 = Math.floor(z * plaene.length) % plaene.length;
+    for (let k = 0; k < plaene.length; k++) {
+      const res = Faden().abenteuerAnbieten(game, klon(plaene[(s0 + k) % plaene.length]), { hex: o });
+      if (res.ok) {
+        angebotAusstatten(res.angebot, { herkunft: hex });   // FRE-02 B1: die Herkunft ist der Hafen, das Ziel steht in hex
+        res.angebot.locker = stufe >= Wdh().STUFEN_MAX;   // der NSC-Sperre entkommen: das Wiedersehen darf auch die Hauptfigur des letzten Abenteuers nehmen
+        logbuch(game, 'abenteuer_anschluss', { ausgang: 'angeboten', key: res.angebot.ref, begruendung: `Anschluss-Garantie: Standardplan ${res.angebot.ref} als Angebot ${res.angebot.nr} bei ${o}`, plan: { angebot: res.angebot.nr, vorlage: res.angebot.ref, hex: o, wahl: (s0 + k) % plaene.length, ziel: o !== hex } });
+        return res.angebot;
+      }
     }
   }
   return null;
 }
+// ---------- FRE-02 B2: das Brett beim Andocken fuellen. Aufrufer: game.js missionEvent('docked') hinter if (this.weltsim) (der Spielstart angedockt ist kein docked-Ereignis: dort fuellt weiter der Takt ein leeres Brett).
+// Ablauf: (a) der Einzelhinweis ist stumm (Laufzeit im Brett, nicht im Weltstand), (b) die bestehende Grenze game.lageGrenze('andocken') genau einmal und unveraendert (Zaehler, Verfall, Garantie, Komponist, Telemetrie),
+// (c) das Brett bis angebote_max fuellen: zuerst aus dem Vorrat (Paket C, VOR der Grenze: ist das Brett danach voll, startet der Komponist nicht, kein Aufruf), dann der Rueckfall, ein Angebot je Schritt mit verschiedenen Zielen (hat der Komponist nach der Grenze eine Anfrage offen: nur die Anschluss-Garantie, siehe anschlussFuellen), (d) Stumm aufheben und genau ein Sammelfunk, wenn jetzt mindestens
+// ein Angebot am Brett steht (nicht bei 0). Je Andocken ein Funk, auch wenn das Brett schon voll war (die Zahl nennt, was dort liegt). Wirft nie in den Aufrufer.
+function beiAndocken(game) {
+  const F = game && game.weltsim && game.weltsim.faeden;
+  if (!F || !Faden().aktiv(game)) { game.lageGrenze('andocken'); return null; }
+  const b = brett(F);
+  b.hinweisStumm = true;
+  let gefuellt = [];
+  try { gefuellt = ausVorratFuellen(game); } catch (e) { fehlerZaehlen(game, 'abenteuer-brett-vorrat', e); }   // FRE-02 C: vor der Grenze, eigener Schutz: die Grenze laeuft in jedem Fall genau einmal
+  try {
+    game.lageGrenze('andocken');
+    gefuellt = gefuellt.concat(anschlussFuellen(game));
+  } catch (e) { fehlerZaehlen(game, 'abenteuer-brett-andocken', e); } finally { b.hinweisStumm = false; }
+  try { sammelHinweis(game); } catch (e) { fehlerZaehlen(game, 'abenteuer-brett-funk', e); }
+  return gefuellt;
+}
+// FRE-02 C: EIN Angebot aus dem Vorrat auf das Brett (nur Absichten, Opt-in; Vorbedingungen wie anschlussFuellen: Spielleiter, Hafen, kein laufendes Abenteuer, Platz am Brett; nicht der Schalter ABENTEUER_ANSCHLUSS, der
+// gehoert dem Rueckfall). Ziel = Ziel-Belegung wie A2 (der Inszenierer waehlt ein freies Ziel), Herkunft = Hafen (anbietenAusAbsicht). Ohne Modus Absichten oder ohne gueltigen, nicht gesperrten Eintrag: null, nichts aendert sich. -> Angebot | null
+function ausVorratEinsAnbieten(game) {
+  if (!Faden().aktiv(game) || !Absicht2().aktiv(game) || !Faden().spielleiterAktiv(game)) return null;
+  const F = Faden().zustandVon(game);
+  if (!F || !Array.isArray(F.vorrat) || !F.vorrat.length) return null;
+  if (F.abenteuerAngebote.length >= W.abenteuer.angebote_max || P.abenteuerLaufend(F)) return null;
+  const hex = crewHex(game);
+  if (!hex) return null;
+  const r = Vorrat().ausVorratOhneSperre(game, BW.vorrat_art);
+  if (!r.ok) return null;
+  const lf = Absicht2().logFelder({ absicht: r.angebot.absicht }, r.angebot.bezug ? { nsc: r.angebot.bezug.nsc } : {});
+  logbuch(game, 'abenteuer_anschluss', { ausgang: 'angeboten', key: r.angebot.ref, modus: 'vorrat', absicht: lf.absicht, bezug_art: lf.bezug_art, begruendung: `Aus dem Vorrat: Plan ${r.angebot.ref} als Angebot ${r.angebot.nr} bei ${r.angebot.hex}`, plan: { angebot: r.angebot.nr, vorlage: r.angebot.ref, hex: r.angebot.hex } });
+  return r.angebot;
+}
+// das Brett bis angebote_max aus dem Vorrat fuellen (ein Angebot je Schritt, verschiedene Ziele); der einzige Aufrufer ist beiAndocken, VOR der Grenze (ein verfallenes Angebot kommt so erst beim naechsten Andocken zurueck). -> [neue Angebote]
+function ausVorratFuellen(game) {
+  const out = [];
+  while (out.length < W.abenteuer.angebote_max) {
+    const a = ausVorratEinsAnbieten(game);
+    if (!a) break;
+    out.push(a);
+  }
+  return out;
+}
+// Kann der Komponist (Claude oder Mock) noch komponieren (Anfrage offen, oder Modus an, Deckel und Budget frei)? Dann gehoeren die uebrigen Plaetze ihm, auch wenn er an dieser Grenze nur kurz blockiert war (Lage beschaeftigt, Cooldown): seine Antwort kaeme sonst auf ein volles Brett (angebote_max) und ginge verloren.
+function komponistOffen(game) {
+  try { const l = game && game.lageSpielleiter, a = l && l.abenteuer; return !!a && typeof a.platzFuerKomponist === 'function' && a.platzFuerKomponist(); } catch (e) { return false; }
+}
+// Rueckfall fuellen: ein Angebot je Schritt, jedes Ziel ein anderes (die belegten Ziele der offenen Angebote sind gesperrt), bis angebote_max; keine Garantie-Lockerung (siehe rueckfallWahl). Gleiche Vorbedingungen wie
+// anschluss (Schalter, Spielleiter, Hafen); laeuft ein Abenteuer, fuellt der Rueckfall nicht (wie anschluss). FRE-02 B2 Nacharbeit: hat der Komponist eine Anfrage offen (nach der Grenze), gilt wie vor B2 nur die
+// Anschluss-Garantie (EIN Angebot, nur bei leerem Brett, mit den Lockerungen); die uebrigen Plaetze bleiben dem Komponisten. Ohne Komponist (Rueckfall-Betrieb, Deckel, Kontingent): bis angebote_max. -> [neue Angebote]
+function anschlussFuellen(game) {
+  const out = [];
+  if (!Faden().aktiv(game) || anschlussAus(game) || !Faden().spielleiterAktiv(game)) return out;
+  const F = Faden().zustandVon(game);
+  if (P.abenteuerLaufend(F)) return out;
+  const hex = crewHex(game);
+  if (!hex) return out;
+  const nurGarantie = komponistOffen(game);
+  while (F.abenteuerAngebote.length < W.abenteuer.angebote_max) {
+    if (nurGarantie && F.abenteuerAngebote.length > 0) break;
+    const a = rueckfallWahl(game, F, hex, F.abenteuerAngebote.length === 0);
+    if (!a) break;
+    out.push(a);
+  }
+  return out;
+}
+// Sammelfunk: eine Funkzeile "N Auftraege am Brett" (Text aus den Daten), nicht bei 0. Setzt den Zaehler des Einzelhinweises: eine spaetere Komposition im selben Taetigkeitszaehler bleibt stumm.
+function sammelHinweis(game) {
+  const F = game && game.weltsim && game.weltsim.faeden;
+  if (!F || !Faden().aktiv(game) || !Faden().spielleiterAktiv(game)) return false;
+  const n = Math.min(F.abenteuerAngebote.length, W.abenteuer.angebote_max);
+  if (n < 1) return false;
+  const b = brett(F);
+  if (!Array.isArray(b.hinweise)) { b.hinweise = []; b.hinweisT = -1; b.hinweisNr = -1; }
+  b.hinweisT = F.t; b.hinweisNr = F.abenteuerAngebote[F.abenteuerAngebote.length - 1].nr;
+  const text = n === 1 ? BW.sammel_text_eins : fmt(BW.sammel_text, { n });
+  try { game.emit('radio', { from: BW.hinweis_funk_sprecher, text, lage: 1, fd: 1, r: 1 }); } catch (e) { fehlerZaehlen(game, 'abenteuer-brett-funk', e); return false; }
+  return true;
+}
+
 // SPL-02 F: dieselben Sperren wie der Rueckfall aus anschluss.json auf Stufe 0 (zuletzt gespielter Plan, abgelehnte Plaene, Lage, Wiedersehen-Kandidat, Wiederholungsregeln) fuer einen Plan, den der Inszenierer gebaut hat
 function passtZuLage(game, plan, hex) {
   const F = Faden().zustandVon(game);
   return !!F && passt(game, F, plan, 0, hex) !== null;
 }
-const beiTaetigkeit = (game) => anschluss(game);
+// FRE-02 C: Verfall legt ein. faden.js taetigkeit filtert verfallene Angebote still VOR beiTaetigkeit; das Brett merkt sich darum die Angebote, die es beim letzten Mal sah (Laufzeit brett(F).gesehen, nach dem Laden aus
+// lesen), und legt jedes ein, das jetzt fehlt, eine Absicht traegt und nicht beantwortet wurde (angenommen, abgelehnt, veraltet stehen in brett(F).antworten). Beat-Plaene und Standardplaene (ohne Absicht) nie.
+function verfallenEinlegen(game, F) {
+  const b = brett(F);
+  if (!Array.isArray(b.gesehen)) return;
+  for (const a of b.gesehen) {
+    if (!a.absicht || F.abenteuerAngebote.includes(a) || b.antworten.includes(a.nr)) continue;
+    try { Vorrat().einlegenAus(game, a, BW.vorrat_art); } catch (e) { fehlerZaehlen(game, 'abenteuer-brett-vorrat', e); }
+  }
+}
+function beiTaetigkeit(game) {
+  const F = game && game.weltsim && game.weltsim.faeden;
+  const modus = !!F && Faden().aktiv(game) && Absicht2().aktiv(game);   // ohne Modus Absichten: genau wie vorher (anschluss), kein Merker
+  if (modus) verfallenEinlegen(game, F);
+  const r = anschluss(game);
+  if (modus) brett(F).gesehen = F.abenteuerAngebote.slice();
+  return r;
+}
 function beiUpdate(game) {   // Takt (zwischen den Ticks): auch ohne Taetigkeit gibt es beim Spielstart und nach dem Laden ein Angebot
   const F = game && game.weltsim && game.weltsim.faeden;
   if (!F || !Faden().aktiv(game) || !Number.isFinite(game.time)) return null;
@@ -336,11 +462,15 @@ function bezugVon(b) {
   const k = Object.keys(b);
   return k.length === 1 && k[0] === 'nsc' && typeof b.nsc === 'string' && b.nsc.trim().length >= 3 && b.nsc.length <= 40 ? { nsc: b.nsc } : null;
 }
-function neuAnbieten(game, plan, o) {
+function neuAnbieten(game, plan, o) {   // FRE-02 B1: ein Weg fuer alle Felder des Angebots (bezug, locker, herkunft, absicht): angebotAusstatten setzt sie nach jedem erfolgreichen Anbieten
   o = istObjekt(o) ? o : {};
   const bz = bezugVon(o.bezug), locker = o.locker === true;
   if (o.bezug !== undefined && !bz) return { ok: false, grund: 'PARAMETER: bezug ist { nsc: Vollname }', fehler: ['PARAMETER: bezug ist { nsc: Vollname }'] };
-  if (!bz && !locker) return Faden().abenteuerNeuAnbieten(game, plan, { hex: o.hex });
+  const res = !bz && !locker ? Faden().abenteuerNeuAnbieten(game, plan, { hex: o.hex }) : anbietenMitBezug(game, plan, o, bz, locker);
+  if (res.ok) angebotAusstatten(res.angebot, { bezug: bz, locker, herkunft: o.herkunft, absicht: o.absicht, erstellt: o.erstellt });
+  return res;
+}
+function anbietenMitBezug(game, plan, o, bz, locker) {
   if (!Faden().aktiv(game)) return { ok: false, grund: 'INAKTIV: Faeden sind nicht eingeschaltet', fehler: ['INAKTIV: Faeden sind nicht eingeschaltet'] };
   const r = Bauplan().pruefe(plan);
   if (!r.ok) return Faden().abenteuerAnbieten(game, plan, { hex: o.hex });   // dieselbe Ablehnung samt Logbuch wie sonst
@@ -353,11 +483,23 @@ function neuAnbieten(game, plan, o) {
     if (!id) return abgelehnt(`${Absicht().CODES.BEZUG_UNBEKANNT}: der NSC des Bezugs ist kein Kandidat fuer ein Wiedersehen`);
     if (!locker && !Wdh().kandidatenFrisch(game, v).includes(id)) return abgelehnt('WIEDERHOLUNG_NSC: der NSC des Bezugs war die Hauptfigur eines der letzten Abenteuer');
   }
-  const res = Faden().abenteuerAnbieten(game, plan, { hex: o.hex });
-  if (!res.ok) return res;
-  if (bz) res.angebot.bezug = bz;
-  if (locker) res.angebot.locker = true;
-  return res;
+  return Faden().abenteuerAnbieten(game, plan, { hex: o.hex });
+}
+// FRE-02 B1: Herkunft (der Hafen, an dem die Crew das Angebot bekam; nur der Hex, der Name entsteht im Snapshot) und die Absicht (absicht/1, nur im Weltstand, nie im Snapshot: Voraussetzung fuer den Vorrat, Paket C)
+// bleiben am Angebot (FRE-02 C: dazu erstellt, der Tick des ersten Erzeugens, nur mit Absicht). Beides ist freiwillig: ein Angebot ohne bekannte Herkunft oder ohne Absicht (Altstand, Beat-Plan ohne Absicht) bleibt gueltig.
+const herkunftVon = (h) => { const hex = istObjekt(h) ? h.hex : h; return typeof hex === 'string' && HEX.test(hex) && Sektoren.spielbar(hex) ? { hex } : null; };
+function absichtVon(a) {   // die Absicht in der Form des Pruefers (absicht/1, Obergrenze absicht_max_zeichen aus den Daten, keine Prototyp-Schluessel); sonst null
+  if (!istObjekt(a)) return null;
+  try { return Absicht().absichtFormFehler(a).length ? null : klon(a); } catch (e) { return null; }
+}
+function angebotAusstatten(angebot, f) {
+  if (f.bezug) angebot.bezug = f.bezug;
+  if (f.locker) angebot.locker = true;
+  const h = herkunftVon(f.herkunft), ab = absichtVon(f.absicht);
+  if (h) angebot.herkunft = h;
+  if (ab) angebot.absicht = ab;
+  if (ab && Number.isInteger(f.erstellt) && f.erstellt >= 0) angebot.erstellt = f.erstellt;   // FRE-02 C: das erste Alter, das der Vorrat beim Einlegen behaelt
+  return angebot;
 }
 
 // ---------- Weltstand welt.sim.faeden.abenteuer: der zuletzt gespielte Plan (Rueckfall wiederholt ihn nicht) und die offenen Angebote (Plan, Ort, Alter); die Plaene laufen beim Laden erneut durch den Pruefer
@@ -365,7 +507,7 @@ function toSave(F) {
   if (!F) return null;
   const b = {};
   if (typeof F.abenteuerZuletzt === 'string' && VORLAGE_ID.test(F.abenteuerZuletzt)) b.zuletzt = F.abenteuerZuletzt;
-  if (F.abenteuerAngebote && F.abenteuerAngebote.length) b.angebote = F.abenteuerAngebote.slice(0, W.abenteuer.angebote_max).map((a) => Object.assign({ hex: a.hex, alter: a.alter, plan: klon(a.vorlage) }, a.volk ? { volk: a.volk } : {}, bezugVon(a.bezug) ? { bezug: { nsc: a.bezug.nsc } } : {}, a.locker === true ? { locker: true } : {}));
+  if (F.abenteuerAngebote && F.abenteuerAngebote.length) b.angebote = F.abenteuerAngebote.slice(0, W.abenteuer.angebote_max).map((a) => Object.assign({ hex: a.hex, alter: a.alter, plan: klon(a.vorlage) }, a.volk ? { volk: a.volk } : {}, bezugVon(a.bezug) ? { bezug: { nsc: a.bezug.nsc } } : {}, a.locker === true ? { locker: true } : {}, herkunftVon(a.herkunft) ? { herkunft: herkunftVon(a.herkunft) } : {}, absichtVon(a.absicht) ? { absicht: absichtVon(a.absicht) } : {}, absichtVon(a.absicht) && Number.isInteger(a.erstellt) && a.erstellt >= 0 ? { erstellt: a.erstellt } : {}));
   const vo = Vorrat().toSave(F);   // SPL-02 F: der Vorrat (abenteuer-vorrat.js) steht im selben Block, additiv
   if (vo) b.vorrat = vo;
   return Object.keys(b).length ? b : null;
@@ -384,8 +526,12 @@ function lesen(b, F) {   // muellfest: Unbrauchbares faellt weg (Meldung in F.la
     const ang = { nr: ++F.angNr, art: 'abenteuer', ref: v.id, hex: x.hex, volk: typeof x.volk === 'string' && v.volk_erlaubt.includes(x.volk) ? x.volk : '', vorlage: v, alter };
     if (bezugVon(x.bezug)) ang.bezug = { nsc: x.bezug.nsc };   // SPL-02 A: additiv, Altstand ohne
     if (x.locker === true) ang.locker = true;
+    if (x.herkunft !== undefined) { const h = herkunftVon(x.herkunft); if (h) ang.herkunft = h; else F.ladeFehler.push('abenteuer.angebote: herkunft verworfen'); }   // FRE-02 B1: additiv, Altstand ohne; Muell faellt weg, das Angebot bleibt
+    if (x.absicht !== undefined) { const ab = absichtVon(x.absicht); if (ab) ang.absicht = ab; else F.ladeFehler.push('abenteuer.angebote: absicht verworfen'); }
+    if (ang.absicht && Number.isInteger(x.erstellt) && x.erstellt >= 0) ang.erstellt = x.erstellt;   // FRE-02 C: additiv, Altstand ohne
     F.abenteuerAngebote.push(ang);
   }
+  if (F.abenteuerAngebote.some((a) => a.absicht)) brett(F).gesehen = F.abenteuerAngebote.slice();   // FRE-02 C: die geladenen Angebote gelten als gesehen: verfallen sie beim ersten Zaehlen, kommen sie in den Vorrat
   if (b.vorrat !== undefined) Vorrat().lesen(b.vorrat, F);   // SPL-02 F: muellfest, ungueltige Eintraege fallen weg (Altstand ohne Block: leer)
   return F;
 }
@@ -393,4 +539,4 @@ function lesen(b, F) {   // muellfest: Unbrauchbares faellt weg (Meldung in F.la
 // SPL-02 D: die NSC, die eine Fortsetzung tragen (Katalog der Absichten, absicht-pruefer.js): die Verbindung fuer abenteuer-geschichte.js, das den Pruefer nicht selbst laedt
 const fortsetzungsNamen = (game, katalog) => Absicht().fortsetzungsNamen(game, katalog);
 
-module.exports = { snapshot, schluessel, annehmen, ablehnen, vorschau, marken, kuerzen, beiEnde, hinweisAnbieten, beiTaetigkeit, beiUpdate, anschluss, passtZuLage, neuAnbieten, toSave, lesen, weigerung, schrittText, fortsetzungsNamen };
+module.exports = { snapshot, schluessel, annehmen, ablehnen, vorschau, marken, kuerzen, beiEnde, hinweisAnbieten, beiTaetigkeit, beiUpdate, anschluss, beiAndocken, anschlussFuellen, ausVorratFuellen, ausVorratEinsAnbieten, sammelHinweis, passtZuLage, neuAnbieten, toSave, lesen, weigerung, schrittText, fortsetzungsNamen };

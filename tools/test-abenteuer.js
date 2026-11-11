@@ -194,7 +194,7 @@ section('Takt: Cooldown, Deckel, 3 Angebote, 1 laufendes, 3 Faeden', async () =>
   // Obergrenze 3 offene Angebote
   const t3 = spiel(), m3 = mitAbenteuer(t3, { mode: 'script', script: { abenteuer: [1, 2, 3, 4, 5, 6].map((i) => ({ json: planV(i) })) } }, { deckel_je_sitzung: 99, cooldown_grenzen: 1 });
   for (let k = 0; k < 9; k++) await lauf(t3.g);
-  ok(F(t3.g).abenteuerAngebote.every((a) => a.hex === '0305'), 'das Angebot liegt am Ort der Crew (Hex 0305)');
+  ok(F(t3.g).abenteuerAngebote.length > 0 && F(t3.g).abenteuerAngebote.every((a) => a.hex !== '0305' && require('../server/sim/abenteuer-ziel.js').kandidaten(t3.g, '0305').includes(a.hex)), 'FRE-02 A1: das Angebot liegt im Umkreis des Hafens (Ziel), nicht am Hafen-Hex 0305');
   ok(F(t3.g).abenteuerAngebote.length === FW.abenteuer.angebote_max && m3.asks().length === FW.abenteuer.angebote_max, `hoechstens ${FW.abenteuer.angebote_max} offene Angebote: drei Aufrufe, danach keiner mehr (${m3.asks().length})`);
   ok(m3.ab.zaehler.uebersprungen.angebote_voll === 9 - 3, 'die uebrigen Grenzen sind als angebote_voll uebersprungen');
   ok(!m3.ab.erzwingen().gestartet && m3.ab.erzwingen().grund === 'angebote_voll', 'auch das Debug-Kommando (erzwingen) beachtet die Obergrenze der Angebote');
@@ -735,7 +735,7 @@ section('Nacharbeit A2: Router nur wegen der Stufen, Takt neben dem Lage-Plan, E
     // ---- (5) Eskalation nur bei Fehlern, die am Modell liegen
     { const r = rig([{ text: JSON.stringify(P) }]);
       grenze(r.t.g); r.t.g.step();
-      Faden.abenteuerAnbieten(r.t.g, P, { hex: '0305' });   // dasselbe Abenteuer liegt schon aus, waehrend die Antwort unterwegs ist
+      Faden.abenteuerAnbieten(r.t.g, P, { hex: r.m.ab.job.hex });   // dasselbe Abenteuer liegt am selben Ort (FRE-02 A1: dem Ziel des Jobs) schon aus, waehrend die Antwort unterwegs ist
       await frei(); r.t.g.step(); await pumpen(r.t.g, 2);
       ok(abLog(r.t.g, 'abgelehnt').length === 1 && abLog(r.t.g, 'abgelehnt')[0].grund === 'ABENTEUER_DOPPELT' && abLog(r.t.g, 'eskaliert').length === 0 && r.lc.length === 0, 'ABENTEUER_DOPPELT: abgelehnt, nicht an Claude eskaliert'); }
     { const r = rig([{ text: JSON.stringify(P) }]);

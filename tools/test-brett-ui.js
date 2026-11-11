@@ -485,6 +485,40 @@ section('H3: Typen aus dem Server auf der Karte (Zeile 2) und im Detail');
   geometrie('Typen');
 }
 
+section('FRE-02 B1: Herkunft (Hafen) und Ziel, ort_offen zeigt kein Ziel, Auftraggeber = von');
+{
+  const B = BrettClient;
+  const lang = 'x'.repeat(100);
+  const mm = sicher(() => { B.lesen({ t: 'snap', world: { abenteuer: { angebote: [{ id: 'a1', titel: 'T', hafen: 'Ostia Nova', ort_offen: true }, { id: 'a2', titel: 'U', hafen: lang, ort_offen: 'ja' }, { id: 'a3', titel: 'V', hafen: 5, ort_offen: 1 }] } } }); return B.modell(); }, 'hafen') || { angebote: [{}, {}, {}] };
+  const aa = mm.angebote.concat(sicher(() => { B.lesen({ t: 'snap', world: { abenteuer: { angebote: [{ id: 'a4', titel: 'W', hafen: {} }, { id: 'a5', titel: 'X' }] } } }); return B.modell().angebote; }, 'hafen2') || [{}, {}]);
+  ok(aa[0].hafen === 'Ostia Nova' && aa[0].ort_offen === true && aa[1].hafen.length === B.GRENZE.ort && aa[1].ort_offen === false, 'brett.js: hafen als Text mit Grenze (40), ort_offen nur bei true oder 1');
+  ok(aa[2].hafen === '' && aa[2].ort_offen === true && aa[3].hafen === '' && aa[4].hafen === '' && aa[4].ort_offen === false, 'brett.js: hafen kein Text -> leer, ohne die Felder (Altstand): kein Hafen, Ort nicht offen');
+  const k = Object.assign(klon(KONVOI), { hafen: 'Ostia Nova', typen: ['konvoi'] }), o = Object.assign(klon(HEIMWEG), { hafen: 'Castra Gradivi', ort: '', ortname: '', ort_offen: true, typen: ['geruecht'] }), a0 = Object.assign(klon(BOJE), { typen: ['spur'] });
+  const m = modellAus({ angebote: [k, o, a0] });
+  zeichne(baustein(m));
+  ok(hat('ab Ostia Nova → Kantenstein') || hat('Kantenstein'), 'Detail (Angebot 1): Herkunft und Ziel in einer Zeile oder wenigstens das Ziel');
+  ok(!rec.texte.some((t) => /Gullfjord/.test(t.s)), 'Angebot 2 mit ort_offen: kein Zielname irgendwo');
+  ok(hat('Konvoi · Kantenstein') && (hat('Gerücht · ab Castra Gradivi') || hat('ab Castra Gradivi')) && hat('Spur · Bojenfeld'), 'Karte, Zeile 2: Ziel, bei ort_offen der Hafen (passt der Typ nicht daneben, entfällt er), ohne Hafen nur das Ziel');
+  geometrie('B1 Detail 1');
+  zeichne(Object.assign(baustein(m), { gewaehlt: 'a2' }));
+  ok(rec.texte.some((t) => t.s === 'ab Castra Gradivi · Ort wird im Funk genannt' || t.s === 'Ort wird im Funk genannt' || /^Ort wird im Fu/.test(t.s) || t.s === 'ab Castra Gradivi'), 'Detail (ort_offen): „Ort wird im Funk genannt“ (oder gekürzt), nie ein Ort');
+  ok(!hat('Gullfjord') && !rec.texte.some((t) => t.s === 'Gullfjord'), 'ort_offen: auch im Detail kein Ziel');
+  geometrie('B1 Detail ort_offen');
+  const tip = R2.ui.buttons.filter((b) => b.label && /Herkunft: Castra Gradivi/.test(b.label));
+  ok(tip.length === 1 && /Ort wird im Funk genannt/.test(tip[0].label) && /Auftraggeber: Germanen/.test(tip[0].label) && !/Ziel:/.test(tip[0].label), 'Tooltip der Ortszeile: Herkunft, „Ort wird im Funk genannt“, Auftraggeber (kein Ziel)');
+  // Hafen = Ziel (crew_hex): „ab X → X“ wäre Unsinn, nur das Ziel
+  zeichne(Object.assign(baustein(modellAus({ angebote: [Object.assign(klon(KONVOI), { hafen: 'Kantenstein' })] })), { gewaehlt: 'a1' }));
+  ok(!rec.texte.some((t) => /→/.test(t.s)), 'Hafen gleich Ziel: kein Pfeil');
+  // lange Namen: nichts läuft über (Hafen und Ziel je 40 Zeichen, vier Typ-Marken, Verfall)
+  const ll = Object.assign(klon(KONVOI), { hafen: 'H'.repeat(40), ortname: 'Z'.repeat(40), typen: ['geruecht', 'konvoi', 'spur', 'bitte'] }), lo = Object.assign(klon(HEIMWEG), { hafen: 'H'.repeat(40), ort: '', ortname: '', ort_offen: true, typen: ['wiedersehen', 'geleit', 'spur', 'bitte'] });
+  zeichne(baustein(modellAus({ angebote: [ll, lo, klon(BOJE)] })));
+  geometrie('B1 lange Namen');
+  zeichne(Object.assign(baustein(modellAus({ angebote: [ll, lo, klon(BOJE)] })), { gewaehlt: 'a2' }));
+  geometrie('B1 lange Namen, ort_offen');
+  zeichne(baustein(modellAus({ angebote: [ll, lo, klon(BOJE)], laufend: LAUFEND })));
+  geometrie('B1 lange Namen, laufendes Abenteuer');
+}
+
 section('H1, H4 bis H9: Ersetzungsmuster, Hilfe, Aufrufer, Tokens');
 {
   ok(PA.text('gesperrtGrund', { titel: "a$'b" }) === "Erst „a$'b“ abschließen" && PA.text('gesperrtGrund', { titel: '$& $1 $$' }) === 'Erst „$& $1 $$“ abschließen', 'H1: Titel mit $-Mustern bleiben unverändert im Grund (kein String.replace-Muster)');

@@ -692,7 +692,8 @@ function brettLauf(S, seed) {
   const a0 = Faden.abenteuerAnbieten(g, lang(0), { hex: '0305' });
   const r0 = a0.ok ? g.handleMessage(cs[0], { t: 'cmd', c: 'abenteuer.annehmen', id: 'a' + a0.angebot.nr }) : null;
   void r0;
-  for (let i = 1; i <= 3; i++) if (!Faden.abenteuerAnbieten(g, lang(i), { hex: '0305' }).ok) fehler++;
+  // FRE-02 B1: jedes Angebot traegt seine Herkunft (Hafen; hier einer der laengsten Namen der Karte, 15 Zeichen): der Block nennt sie als hafen
+  for (let i = 1; i <= 3; i++) { const r = Faden.abenteuerAnbieten(g, lang(i), { hex: '0305' }); if (!r.ok) fehler++; else r.angebot.herkunft = { hex: '0207' }; }
   const bm = require('../server/sim/faden-daten.js').WERTE.beats_max;   // der ungünstigste Fall: jedes Angebot mit beats_max Beats (Daten werte.json)
   if (!Faden.zustandVon(g).abenteuerAngebote.every((x) => x.vorlage.beats.length === bm)) fehler++;
   if (!(Faden.zustandVon(g).abenteuerAngebote.length === 3 && Faden.zustandVon(g).liste.some((f) => f.plan && f.phase !== 'abgeschlossen'))) fehler++;
