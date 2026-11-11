@@ -37,6 +37,7 @@ const SZ = lies('content/welt/freie-fahrt-szenario.json').werte;
 const NAMEN = ['Mireille_Kas', 'Ouzo_Brandt', 'Tzvi_Lund'];
 const ENV = { FAEDEN: '1', LAGE_SPIELLEITER: '1', SPIELLEITER_LLM: 'mock', ABENTEUER_ANSCHLUSS: '0' };
 const AN = { ABENTEUER_ABSICHTEN: '1' };
+const KATALOG_MAX = 10500;   // BEA-01 C2: Obergrenze des Beat-Katalogs im Prompt (vorher 9500): 9443 Zeichen vor BEA-01 plus die Beats forderung und schmiergeld (gemessen 10244) plus Reserve; siehe content/welt/abenteuer-werte.json prompt_max_zeichen
 const KATALOG_HEUTE = 9443;   // Zeichen des Beat-Katalogs im Prompt vor Paket E (Messung der Erkundung und des Auftrags)
 const PROMPT_ZIEL = 8000;     // Auftrag: Prompt mit Geschichte hoechstens so gross
 
@@ -176,7 +177,7 @@ section('Modus AUS: byte-gleich zum Beat-Plan', () => {
     ok(r.gestartet && !!hex2 && hex2 !== hafen2 && p2 === basis.prompt, 'AUS: der Prompt des Spielleiters ist byte-gleich zu Prompt.baue (' + (p2 ? p2.length : 0) + ' Zeichen)');
     ok(!/"modus":"absicht"/.test(basis.prompt) && basis.kennungen === undefined, 'Prompt.baue kennt keinen Modus und gibt keine Kennungen');
     // Katalog des Beat-Plans unveraendert: dieselben Zeilen wie die Funktion der Baseline
-    ok(Prompt.katalogText().length >= KATALOG_HEUTE - 10 && Prompt.katalogText().length <= 9500, 'der Beat-Katalog hat weiter ' + Prompt.katalogText().length + ' Zeichen');
+    ok(Prompt.katalogText().length >= KATALOG_HEUTE - 10 && Prompt.katalogText().length <= KATALOG_MAX, 'der Beat-Katalog hat weiter ' + Prompt.katalogText().length + ' Zeichen');
   })();
 });
 

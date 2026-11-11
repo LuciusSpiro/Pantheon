@@ -55,4 +55,5 @@ registriere('spur', B1.spur);
 registriere('wiedersehen', B1.wiedersehen);
 const B2 = require('./faden-b2.js');   // SUND-04b B2: Sabotage-Auftrag (die Szenen konvoi und geleit registriert faden-szene.js)
 registriere('sabotage', B2.sabotage);
+registriere('forderung', require('./faden-forderung.js').baustein);   // BEA-01 A: Forderung und Schmiergeld (Beats ohne Kampf, Wahl ueber die Antwortleiste); Name = baustein in beats.json
 module.exports = { registriere, vonId, idVon, platzhalter, istPlatzhalter };

@@ -92,12 +92,14 @@ function beginnen(game, it) {
   const sek = Math.max(W.vorlauf_min_s, W.vorlauf_s);   // nie unter der Untergrenze der Vorwarnung
   const b2 = SZB2.istArt(it.art) ? SZB2.plan(it, crewN(game), nachCrew, game) : null;   // SUND-04b B2: die Wahl des Beats und die angekündigte Zahl
   const n = b2 ? b2.n : (it.art === 'raumschlacht' || it.art === 'befreiung') ? nachCrew(W[it.art].anzahl, crewN(game)) : 1;
-  const fs = { id: game.fadenSzeneN, fadenId: it.fadenId, beatId: it.beatId, art: it.art, nsc: it.nsc, phase: 'vorlauf', ab: game.time + sek, start: null, szene: game.ship.scene, tag: 'fs' + game.fadenSzeneN, sek, n, textKey: b2 ? b2.textKey : it.art, plan: b2 };   // n: die angekündigte Zahl (K2)
+  const bv = it.parameter && it.parameter.beat && typeof it.parameter.beat.volk === 'string' ? it.parameter.beat.volk : '';   // BEA-01 Nacharbeit: der Beat darf das Volk der Gegner nennen (Parameter volk), sonst gilt szenen-werte.json
+  const fs = { id: game.fadenSzeneN, fadenId: it.fadenId, beatId: it.beatId, art: it.art, nsc: it.nsc, volk: bv, phase: 'vorlauf', ab: game.time + sek, start: null, szene: game.ship.scene, tag: 'fs' + game.fadenSzeneN, sek, n, textKey: b2 ? b2.textKey : it.art, plan: b2 };   // n: die angekündigte Zahl (K2)
   game.fadenSzene = fs;
   const klasse = (it.art === 'raumschlacht' || it.art === 'befreiung') ? W[it.art].klasse : '';
   const vars = { name: it.nsc ? it.nsc.name : '', schiff: it.nsc ? it.nsc.schiff : '', klasse, n, sek: Math.round(sek) };
   poolSagen(game, it);   // SPL-02 E3: Haken, ohne angemeldeten Plan nichts
-  funk(game, fmt(T.vorwarnung[fs.textKey], vars));   // Fairness: die Gefahr wird vorher angekündigt, nie abgefragt
+  const wk = bv && Object.prototype.hasOwnProperty.call(T.vorwarnung, fs.textKey + '_' + bv) ? fs.textKey + '_' + bv : fs.textKey;   // Vorwarnung des Volks, wenn die Daten eine kennen
+  funk(game, fmt(T.vorwarnung[wk], vars));   // Fairness: die Gefahr wird vorher angekündigt, nie abgefragt
   return fs;
 }
 
@@ -119,7 +121,7 @@ function kampfBeginn(game, fs) {
   const C = W[fs.art]; const n = fs.n;   // K2: genau die Zahl, die im Funk stand (die Crewgröße beim Ankündigen), nie mehr
   for (let i = 0; i < n; i++) {
     const a = (i / n) * Math.PI * 2 + W.ring_winkel_start;
-    if (!space().spawnEnemy(game, C.klasse, { x: L.x + Math.cos(a) * C.ring, y: L.y + Math.sin(a) * C.ring, tag: fs.tag, volk: C.volk })) break;
+    if (!space().spawnEnemy(game, C.klasse, { x: L.x + Math.cos(a) * C.ring, y: L.y + Math.sin(a) * C.ring, tag: fs.tag, volk: fs.volk || C.volk })) break;
   }
   return null;
 }
@@ -253,7 +255,7 @@ function update(game) {
 
 // ---------- Bausteine (faden-bausteine.registriere): jeder Beat mit Szene ruft starten() mit seiner Art ----------
 function beatStarten(game, art, faden, ctx) {
-  const r = starten(game, { art, fadenId: faden.id, beatId: ctx.beat.id, nsc: ctx.nsc, parameter: ctx.parameter });
+  const r = starten(game, { art, fadenId: faden.id, beatId: ctx.beat.id, nsc: ctx.nsc, parameter: Object.assign({}, ctx.parameter, { beat: Object.assign({}, ctx.beat.parameter) }) });   // BEA-01 Nacharbeit: die Parameter des Beats (volk) liegen als parameter.beat in der Warteschlange
   return r.ok ? { laeuft: true } : { ausgang: 'gescheitert' };
 }
 for (const art of ARTEN) Bausteine.registriere(art, { starten(game, faden, ctx) { return beatStarten(game, art, faden, ctx); } });
@@ -310,10 +312,18 @@ Bausteine.registriere('fracht', {
     // P3: „$ort“ ist der Ort des Fadens (der Zielhafen ist der Ort, an dem die Crew den NSC traf); die Hinweise des Beats gelten mit der Beladung (B-S1)
     // Nacharbeit F6: „$ort“ = der naechste ANDOCKBARE roemische/Konkordat-Hafen in Reichweite des Ortes (Fracht.zielFuer); gibt es keinen, wird nie eine Scheinfracht geladen
     const ort = faden.parameter && faden.parameter.ort;
-    const nach = p.nach === '$ort' ? Fracht.zielFuer(game, ort) : p.nach;
-    const r = nach ? Fracht.laden(game, { fadenId: faden.id, ware: p.ware, nachHafen: nach }) : { ok: false };
-    if (!r.ok) { Fracht.funk(game, r.platz ? 'kein_platz' : 'kein_ziel', { ort: ort ? Sektoren.hexName(ort) : 'hier' }); return { ausgang: 'gescheitert' }; }
+    if (faden.fracht) {   // BEA-01 C0: ein frueherer Beat hat die Ware schon geladen (Ende-Modus haelt): nicht noch einmal laden, das Lieferziel bleibt faden.fracht.nach; ist die Ladung unterwegs verloren gegangen, scheitert der Beat
+      if (!Fracht.anBord(game, faden.id)) return { ausgang: 'gescheitert' };
+    } else if (Fracht.ladeBeatDavor(ctx.vorlage, faden.beat)) {   // BEA-01 C0: ein Lade-Beat lag davor, die Ware ging unterwegs verloren: nie noch einmal laden (sonst reichte ein Notsprung, um die Lieferung zu erneuern)
+      return { ausgang: 'gescheitert' };
+    } else {
+      const nach = p.nach === '$ort' ? Fracht.zielFuer(game, ort) : p.nach;
+      const r = nach ? Fracht.laden(game, { fadenId: faden.id, ware: p.ware, nachHafen: nach, ladung: Fracht.ladungVon(ctx.beat) }) : { ok: false };   // BEA-01 B: Art und Eigenschaften (illegal, getarnt) der Ladung aus den Parametern des Beats (Katalog ladung_parameter)
+      if (!r.ok) { Fracht.funk(game, r.platz ? 'kein_platz' : 'kein_ziel', { ort: ort ? Sektoren.hexName(ort) : 'hier' }); return { ausgang: 'gescheitert' }; }
+    }
     for (const h of ctx.beat.hinweise || []) Hinweis.senden(game, faden.id, h);   // Nacharbeit F2: der Hinweis (Papiere) wird gesendet, erst dann gilt er
+    const modus = D.endeModus(ctx.beat);   // BEA-01 C0: Ende-Modus haelt: der Beat endet gelungen, sobald die Ware geladen ist (die Ware bleibt am Faden)
+    if (modus && modus.haelt) return { ausgang: 'gelungen' };
     return { laeuft: true };
   },
 });

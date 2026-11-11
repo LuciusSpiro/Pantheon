@@ -166,7 +166,8 @@ section('Kein Weg am lagerAufnehmen vorbei (statischer Scan)', () => {
   scan(path.join(__dirname, '..', 'server'));
   ok(treffer.length === 1 && /^fracht\.js:/.test(treffer[0]), 'nur eine Schreibstelle ins Lager, in fracht.js (' + treffer.join(', ') + ')');
   const ff = fs.readFileSync(path.join(__dirname, '..', 'server', 'sim', 'faden-fracht.js'), 'utf8');
-  ok(/lagerAufnehmen\(game, \{ art: 'fracht', quelle: 'faden', eigenschaften: \{ auftrag: f\.id \} \}\)/.test(ff) && !/\.lager\b/.test(ff.replace(/\/\/.*$/gm, '')), 'faden-fracht.js schreibt nie selbst ins Lager');
+  // BEA-01 B: Art und Eigenschaften der Faden-Ware kommen aus den Parametern des Beats (lad.art, eig), der Auftrag (Tag = Faden-ID) ist immer dabei
+  ok(/lagerAufnehmen\(game, \{ art: (?:'fracht'|lad\.art), quelle: 'faden', eigenschaften: (?:\{ auftrag: f\.id \}|eig) \}\)/.test(ff) && /const eig = Object\.assign\(\{\}, lad\.eigenschaften, \{ auftrag: f\.id \}\);/.test(ff) && !/\.lager\b/.test(ff.replace(/\/\/.*$/gm, '')), 'faden-fracht.js schreibt nie selbst ins Lager');
 });
 
 console.log('\n' + (n - fails) + '/' + n + ' Prüfungen ok' + (fails ? ' – ' + fails + ' FEHLER' : ''));

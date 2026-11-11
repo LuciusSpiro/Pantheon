@@ -6,7 +6,7 @@
 //     g, cl, w   Game, drei Clients (tools/lib/bot-crew.js client), w = bot-crew.werkzeug(...)
 //     k(...arten)  meldet kuenstlich gesetzte Schritte; kz = Zaehler je Art (der Aufrufer fuehrt ihn in k)
 //     grenze()     EINE Taetigkeitsgrenze (Aufrufer: gebremst, nie schneller als der Spielleiter antworten kann) -> true, wenn sie ausgeloest wurde
-//     opts         { testhelfer: true|false (Gegner per Testhelfer zerstoeren; false: Szenen-Beats laufen in die Frist) }
+//     opts         { testhelfer: true|false (Gegner per Testhelfer zerstoeren; false: Szenen-Beats laufen in die Frist), wahl: [Option-Id, ...] (BEA-01 D: Rangfolge der Antwort auf eine Bitte oder Forderung; die erste Id, die das Angebot kennt, gilt; ohne wahl oder ohne Treffer wie bisher annehmen, sonst die erste Option) }
 //     ereignis(art, daten)  Protokoll (Bitte-Antwort usw.)
 //   B.typVon(f)            Typ des LAUFENDEN Beats (Variante eines feindlichen NSC zaehlt)
 //   B.leerlauf(ms)         warten: beantwortet Bitten, loest gebremst Grenzen aus (Fristen laufen nur ueber Taetigkeiten)
@@ -39,7 +39,8 @@ function neu(ctx) {
     const off = Bitte.offen(g);
     if (!off || off.gemeldet || off.nr === bitteNr) return false;
     bitteNr = off.nr; off.gemeldet = true;
-    const antwort = off.optionen.find((o) => o.id === 'annehmen') || off.optionen[0];
+    const gewuenscht = (opts.wahl || []).map((id) => off.optionen.find((o) => o.id === id)).find(Boolean);   // BEA-01 D: --wahl (Daten: Option-Ids, kein Beat- oder Absichtsname)
+    const antwort = gewuenscht || off.optionen.find((o) => o.id === 'annehmen') || off.optionen[0];
     cl[0].send({ t: 'cmd', c: 'faden.bitte', id: antwort.id, nr: off.nr });
     cl[1].send({ t: 'cmd', c: 'faden.bitte', id: 'ablehnen', nr: off.nr });
     ereignis('bitte', { nr: off.nr, beat: off.beatId, gewaehlt: antwort.id, text: antwort.text });
@@ -167,7 +168,7 @@ function neu(ctx) {
       else if (typ === 'spur') await spur(f, b);
       else if (typ === 'sabotage') await sabotage(f, b);
       else if (typ === 'fracht') await fracht(f, b);
-      else if (typ === 'bitte') { await warteBeatEnde(f, b.id, 60000); }
+      else if (typ === 'bitte' || art === 'forderung') { await warteBeatEnde(f, b.id, 60000); }   // BEA-01 D: Forderung und Schmiergeld sind Bausteine der Antwortleiste wie die Bitte (Baustein forderung): die Crew antwortet ueber bitteSpielen (leerlauf)
       else if (typ === 'enthuellung' || typ === 'abschluss') { await warteBeatEnde(f, b.id, 5000); }
       else if (SZENEN.includes(art)) { await szene(f, b, art); versucht = art !== 'spontanhilfe' && !!opts.testhelfer; if (art !== 'spontanhilfe' && !opts.testhelfer) notiz = 'ohne Testhelfer: nicht gespielt'; if (art === 'spontanhilfe') notiz = 'wartet auf ein Gefecht: nicht spielbar'; }
       else { versucht = false; notiz = 'keine Bot-Logik fuer diesen Beat'; }

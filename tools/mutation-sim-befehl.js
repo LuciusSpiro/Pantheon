@@ -25,10 +25,10 @@ const PR = 'server/sim/faden-pruefer.js', P3 = 'server/sim/faden-p3.js', FA = 's
 const MUTATIONEN = [
   // Regel (c): jeder Weg über eine Tat
   [PR, "if (!t && simBefehlFolge(b)) m('SIM_BEFEHL_OHNE_TAT'", "if (false && simBefehlFolge(b)) m('SIM_BEFEHL_OHNE_TAT'", 'Regel c entfernt: die Tat auf dem Weg wird nicht geprüft'],
-  [PR, "const t2 = t || (ag === 'gelungen' && o === b.aus[ag] && SB.tat_beats.includes(b.typ));", "const t2 = true;", 'Regel c: jeder Weg gilt als Tat'],
-  [PR, "const t2 = t || (ag === 'gelungen' && o === b.aus[ag] && SB.tat_beats.includes(b.typ));", "const t2 = t || (o === b.aus[ag] && SB.tat_beats.includes(b.typ));", 'Regel c: auch der Ausgang gescheitert (Frist, Zeitablauf) zählt als Tat'],
-  [PR, "const t2 = t || (ag === 'gelungen' && o === b.aus[ag] && SB.tat_beats.includes(b.typ));", "const t2 = t || (ag === 'gelungen' && o === b.aus[ag]);", 'Regel c: das Gelingen jedes Beat-Typs zählt als Tat (tat_beats ignoriert)'],
-  [PR, "const key = i + '|' + s + '|' + (h ? 1 : 0) + '|' + (t ? 1 : 0);", "const key = i + '|' + s + '|' + (h ? 1 : 0);", 'Regel c: die Wegesuche unterscheidet Zustände mit und ohne Tat nicht'],
+  [PR, "const t2 = t || (ag === 'gelungen' && o === b.aus[ag] && istTat(b));", "const t2 = true;", 'Regel c: jeder Weg gilt als Tat'],
+  [PR, "const t2 = t || (ag === 'gelungen' && o === b.aus[ag] && istTat(b));", "const t2 = t || (o === b.aus[ag] && istTat(b));", 'Regel c: auch der Ausgang gescheitert (Frist, Zeitablauf) zählt als Tat'],
+  [PR, "const t2 = t || (ag === 'gelungen' && o === b.aus[ag] && istTat(b));", "const t2 = t || (ag === 'gelungen' && o === b.aus[ag]);", 'Regel c: das Gelingen jedes Beat-Typs zählt als Tat (tat_beats und Ende-Modus ignoriert)'],
+  [PR, "const key = i + '|' + s + '|' + (h ? 1 : 0) + '|' + (t ? 1 : 0) + '|' + (l ? 1 : 0);", "const key = i + '|' + s + '|' + (h ? 1 : 0) + '|' + (l ? 1 : 0);", 'Regel c: die Wegesuche unterscheidet Zustände mit und ohne Tat nicht'],
   // Regel (a), (b), (d), (e)
   [PR, "if (istSimBefehl(f)) { folgeOk = false;", "if (false) { folgeOk = false;", 'Regel a: sim_befehl in einer Option wird nicht als Ort-Fehler erkannt'],
   [PR, "if (ag !== 'gelungen') fehler.push(fehl('SIM_BEFEHL_ORT'", "if (false) fehler.push(fehl('SIM_BEFEHL_ORT'", 'Regel a: sim_befehl in aus.gescheitert wird nicht erkannt'],

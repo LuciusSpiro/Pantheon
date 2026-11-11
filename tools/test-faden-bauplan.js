@@ -32,7 +32,7 @@ const ST = (r, id, ag) => beatVon(r.vorlage, id).aus[ag].status;
 section('(a) Die drei Vorlagen aus 04a laufen unveraendert durch denselben Pruefer', () => {
   const dir = path.join(D.DIR, 'vorlagen');
   // die Dateien selbst sind unveraendert (Hashes hier fest, nicht aus dem Produktivcode: dankbarer_captain und entfuehrter_haendler aus main 6e7b34c, falscher_haendler aus FAD-01 C, Commit 4a80b74)
-  const SOLL = { 'dankbarer_captain.json': 'c2a50af791f560267972aadca05c09eb3ba30b9d', 'entfuehrter_haendler.json': '417172987f65d7e9f4342b20f088805c77bddfbf', 'falscher_haendler.json': 'e4e91545021891041740a2b7d2d6e961e892b313' };   // SHA-1 des Inhalts mit LF-Zeilenenden (dankbarer_captain, entfuehrter_haendler: git show 6e7b34c:<Datei>; falscher_haendler: git show 4a80b74:content/faeden/vorlagen/falscher_haendler.json); FAD-01 C: falscher_haendler.json bewusst umgebaut (Ablieferung, Hinweis h_schmuggel, Folge sim_befehl), die anderen beiden unveraendert
+  const SOLL = { 'dankbarer_captain.json': 'c2a50af791f560267972aadca05c09eb3ba30b9d', 'entfuehrter_haendler.json': '417172987f65d7e9f4342b20f088805c77bddfbf', 'falscher_haendler.json': '6a60900645a8c14d35f4ba0da0860c53d6233856' };   // BEA-01 C1: falscher_haendler.json bewusst geaendert (neuer Hash, vorher e4e91545021891041740a2b7d2d6e961e892b313 aus FAD-01 C): Beispiel 1 mit Lade-Beat (b_fracht ende geladen), forderung, schmiergeld, kampf, abgabe (zehn Beats)   // SHA-1 des Inhalts mit LF-Zeilenenden (dankbarer_captain, entfuehrter_haendler: git show 6e7b34c:<Datei>; falscher_haendler: git show 4a80b74:content/faeden/vorlagen/falscher_haendler.json); FAD-01 C: falscher_haendler.json bewusst umgebaut (Ablieferung, Hinweis h_schmuggel, Folge sim_befehl), die anderen beiden unveraendert
   for (const [datei, soll] of Object.entries(SOLL)) {
     const roh = fs.readFileSync(path.join(dir, datei));
     const h = crypto.createHash('sha1').update(roh).digest('hex'), h2 = crypto.createHash('sha1').update(Buffer.from(roh.toString('utf8').replace(/\r\n/g, '\n'))).digest('hex');
@@ -41,7 +41,7 @@ section('(a) Die drei Vorlagen aus 04a laufen unveraendert durch denselben Pruef
     const r = Pruefer.pruefeVorlage(v);
     ok(r.ok && r.fehler.length === 0, `${v.id}: der Pruefer laesst sie durch (${r.fehler.join('; ')})`);
   }
-  ok(JSON.stringify(D.vorlagenIds()) === JSON.stringify(['dankbarer_captain', 'entfuehrter_haendler', 'falscher_haendler']) && D.ladefehler().length === 0, 'das Register der Dateien hat genau diese drei, ohne Ladefehler');
+  ok(JSON.stringify(D.vorlagenIds()) === JSON.stringify(['dankbarer_captain', 'entfuehrter_haendler', 'falscher_haendler', 'zollkontrolle']) && D.ladefehler().length === 0, 'das Register der Dateien hat genau diese vier (die drei aus 04a und die Zollkontrolle aus BEA-01 C2), ohne Ladefehler');
   ok(!D.vorlagenIds().some((id) => D.istAbenteuer(id)), 'ein Abenteuer taucht nie in vorlagenIds() auf (nie ein Angebot ueber Ausloeser)');
   ok(BP.katalogFehler().length === 0, 'die Daten des Expanders sind in sich stimmig (katalogFehler leer)');
 });
@@ -455,11 +455,12 @@ section('(e) Speichern und Laden mitten im Abenteuer; ungueltiger gespeicherter 
 // ---------------------------------------------------------------- (f) Altstand
 section('(f) Altstand aus main (ohne Plan-Feld) laedt und laeuft 40 Ticks weiter', () => {
   const alt = JSON.parse(fs.readFileSync(path.join(__dirname, 'fixtures', 'faeden', 'main-sim-altstand.json'), 'utf8'));
+  alt.faeden.liste[0].beat = 7;   // BEA-01 C1: die Vorlage hat vier Beats mehr vor b_jagd (Index 3 -> 7); alte Staende werden nicht migriert (Vor-Alpha), der Test prueft den Mechanismus Stand ohne plan-Feld mit dem Faden am selben Beat (b_jagd)
   ok(alt.faeden.liste.length === 1 && alt.faeden.liste[0].vorlage === 'falscher_haendler' && !('plan' in alt.faeden.liste[0]), 'die Vorlage-Datei stammt aus main: ein Faden falscher_haendler ohne Plan-Feld');
   const g = spiel({ seed: 11 });
   Kriegslage.restore(g, alt);
   const f = g.weltsim.faeden.liste[0];
-  ok(f && f.vorlage === 'falscher_haendler' && !f.plan && f.beat === 3 && f.phase === 'wartet' && g.weltsim.faeden.ladeFehler.length === 0, 'der Altstand ist da, Beat 3 (b_jagd), keine Ladefehler');
+  ok(f && f.vorlage === 'falscher_haendler' && !f.plan && f.beat === 7 && f.phase === 'wartet' && g.weltsim.faeden.ladeFehler.length === 0, 'der Altstand ist da, Beat 7 (b_jagd, vor BEA-01 C1 Beat 3), keine Ladefehler');
   ok(JSON.stringify(Faden.toSave(g.weltsim)) === JSON.stringify(alt.faeden), 'speichern ergibt denselben Block wie der Altstand (kein plan-Feld, nichts hinzugefuegt)');
   let weiter = 0, ausgaenge = 0;
   const t0 = g.weltsim.tickZahl;
@@ -685,7 +686,7 @@ section('Register: zuruecksetzen leert auch die Abenteuer', () => {
   const v = BP.expandiere(plan([b('spontanhilfe'), b('abschluss')], { titel: 'Registerprobe' })).vorlage;
   ok(D.registriereAbenteuer(klon(v)).ok && D.vorlage(v.id) !== null, 'eingetragen');
   D.zuruecksetzen();
-  ok(D.vorlage(v.id) === null && D.vorlagenIds().length === 3, 'nach zuruecksetzen: weg, die drei Vorlagen der Dateien sind wieder geladen');
+  ok(D.vorlage(v.id) === null && D.vorlagenIds().length === 4, 'nach zuruecksetzen: weg, die vier Vorlagen der Dateien sind wieder geladen');
 });
 
 console.log(`\n${n - fails}/${n} Pruefungen ok`);

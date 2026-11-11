@@ -146,7 +146,7 @@ const SIM_BEFEHLE = {
     return { ziel: z, r: z ? Regie().fadenSabotage(game, z) : { ok: false, grund: 'kein römischer Posten in der Nähe' } };
   },
   invasion(game, faden) {
-    const z = invasionsZiel(game, faden.parameter && faden.parameter.ort);   // der Ort des Fadens (das Lieferziel wird nicht aufbewahrt: faden.fracht wird am Ende jedes Beats gelöscht, faden.js)
+    const z = invasionsZiel(game, faden.parameter && faden.parameter.ort);   // der Ort des Fadens (das Lieferziel wird nicht aufbewahrt: nach der Ablieferung ist faden.fracht weg: faden.js beatAusgang löscht es, sobald kein Lade-Beat die Ware mehr hält, BEA-01 C1)
     return { ziel: z, r: z ? Regie().fadenInvasion(game, { ziel: z }) : { ok: false, grund: 'kein römisches Ziel in Reichweite' } };
   },
 };

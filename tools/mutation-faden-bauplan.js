@@ -187,7 +187,7 @@ const MUTATIONEN = [
   [DB, '"gelungen":{"status":["tot","feindlich","aktiv"]', '"gelungen":{"status":["feindlich","tot","aktiv"]', 'Daten: Raumschlacht gelungen zuerst feindlich'],
   [DB, '"gelungen":{"status":["verbuendet","gefangen","aktiv"]', '"gelungen":{"status":["aktiv","verbuendet","gefangen"]', 'Daten: Notruf gelungen zuerst aktiv'],
   [DB, '"hinweis_traeger":true,"optionen_pflicht"', '"hinweis_traeger":false,"optionen_pflicht"', 'Daten: Bitte ist kein Hinweis-Traeger'],
-  [DB, '"optionen_pflicht":true', '"optionen_pflicht":false', 'Daten: Bitte braucht keine Optionen'],
+  [DB, '"hinweis_traeger":true,"optionen_pflicht":true', '"hinweis_traeger":true,"optionen_pflicht":false', 'Daten: Bitte braucht keine Optionen'],
   [DB, '"hinweis_traeger":true,"parameter":{"text_key":{"standard":"notruf_standard"', '"hinweis_traeger":false,"parameter":{"text_key":{"standard":"notruf_standard"', 'Daten: Notruf ist kein Hinweis-Traeger'],
   [DB, '"standard":"hilfe_rom"', '"standard":"hilfe_kon"', 'Daten: Standardtext der Bitte hilfe_kon'],
   [DB, '"standard":"naechster_sprungpunkt"', '"standard":"heimat"', 'Daten: Standard-Fluchtziel heimat'],

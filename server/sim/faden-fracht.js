@@ -22,6 +22,7 @@ const Sektoren = require('../../shared/sektoren.js');
 const Besitz = require('./besitz.js');
 const Locations = require('../../shared/locations.js');
 const Lager = require('./fracht.js');   // LAD-01 C: die Ladung liegt im Frachtraum
+const D = require('./faden-daten.js');   // BEA-01 C0: Ende-Modus der Beats (D.endeModus, Katalog beats.json ende_modi)
 const DATEN = require('../../content/faeden/szenen-werte.json');
 const W = DATEN.werte, TX = DATEN.texte;
 
@@ -73,6 +74,17 @@ function verlustMelden(game, f) {
   if (f && f.fracht) funk(game, 'verloren', frachtVars(f.fracht));
 }
 
+// BEA-01 B: die Ladung, die ein Beat in den Frachtraum legt (Katalog beats.json ladung_parameter, Parameter des Beats) -> { art, eigenschaften } ohne den Auftrag (den setzt laden). Ohne Parameter: Art fracht, keine Eigenschaften (wie vor BEA-01 B)
+function ladungVon(beat) {
+  const c = beat && Object.prototype.hasOwnProperty.call(D.BEATS, beat.typ) ? D.BEATS[beat.typ] : null, lp = c && c.ladung_parameter;
+  const p = (beat && beat.parameter) || {};
+  if (!lp) return { art: 'fracht', eigenschaften: {} };
+  const art = typeof p[lp.art] === 'string' && p[lp.art] ? p[lp.art] : lp.art_standard;
+  const eigenschaften = {};
+  for (const [param, eig] of Object.entries(lp.eigenschaften || {})) { const v = p[param]; if (v === true || (typeof v === 'string' && v)) eigenschaften[eig] = v; }
+  return { art, eigenschaften };
+}
+
 function laden(game, o) {
   const q = o || {};
   if (!F().aktiv(game)) return { ok: false, grund: 'INAKTIV' };
@@ -88,10 +100,12 @@ function laden(game, o) {
   if (!andockbar(game, fr.nach)) return { ok: false, grund: 'Zielhafen nicht andockbar' };   // nie eine Scheinfracht: die Crew koennte dort nicht abliefern
   // LAD-01 Nacharbeit 2: liegt nur gewoehnliche Fremdware im Weg (Typ-Regel), raeumt der Quartiermeister das kleinste Fremd-Modul (Pod/Hafen, Meldung, Ereignis); Personen, Auftragsware und ein volles Lager nie.
   // Bleibt dann kein Platz, scheitert der Beat mit dem richtigen Grund (platz: true -> Funk „kein_platz“, nicht „kein Hafen“).
-  let pf = Lager.platzFuerLadung(game, { art: 'fracht', eig: { auftrag: f.id } });
-  if (!pf.ok && pf.grund === 'art_belegt' && Lager.fremdesModulRaeumen(game, { art: 'fracht', eig: { auftrag: f.id } })) pf = Lager.platzFuerLadung(game, { art: 'fracht', eig: { auftrag: f.id } });
+  const lad = q.ladung && typeof q.ladung.art === 'string' ? q.ladung : { art: 'fracht', eigenschaften: {} };   // BEA-01 B: Art und Eigenschaften (illegal, getarnt) aus den Parametern des Beats (ladungVon); der Auftrag des Fadens kommt immer dazu
+  const eig = Object.assign({}, lad.eigenschaften, { auftrag: f.id });
+  let pf = Lager.platzFuerLadung(game, { art: lad.art, eig });
+  if (!pf.ok && pf.grund === 'art_belegt' && Lager.fremdesModulRaeumen(game, { art: lad.art, eig })) pf = Lager.platzFuerLadung(game, { art: lad.art, eig });
   if (!pf.ok) return { ok: false, grund: pf.text, platz: true };   // LAD-01 C: Typ-Regel/Kapazitaet gelten auch fuer die Faden-Ware (nie eine Scheinfracht)
-  const r = Lager.lagerAufnehmen(game, { art: 'fracht', quelle: 'faden', eigenschaften: { auftrag: f.id } });   // LAD-01 B: die Ladung gehoert diesem Faden (Tag = Faden-ID): nicht verkaufbar, nicht an irgendeiner Station abgebbar
+  const r = Lager.lagerAufnehmen(game, { art: lad.art, quelle: 'faden', eigenschaften: eig });   // LAD-01 B: die Ladung gehoert diesem Faden (Tag = Faden-ID): nicht verkaufbar, nicht an irgendeiner Station abgebbar
   if (!r.ok) return { ok: false, grund: r.text };
   f.fracht = fr;
   funk(game, 'laden', frachtVars(fr));
@@ -104,7 +118,7 @@ function andocken(game) {
   const hex = Sektoren.hexVonOrt(game.ship.scene);
   const out = [];
   for (const f of F().zustandVon(game).liste.slice()) {
-    if (!f.fracht || f.phase !== 'laeuft' || f.fracht.nach !== hex) continue;
+    if (!f.fracht || f.phase !== 'laeuft' || f.fracht.nach !== hex || !liefertBeat(f)) continue;   // BEA-01 C0: nur der laufende Beat, der abliefert (Ende-Modus liefert), nimmt die Ware an; ein Zwischen-Beat mit Ware am Faden nie
     out.push(f.id);
     if (!Lager.auftragAnBord(game, f.id)) { F().beatAusgang(game, f.id, 'gescheitert'); continue; }   // LAD-01 C: die Ladung ist unterwegs verloren gegangen (Huellentreffer, abgegeben): der Auftrag scheitert
     funk(game, 'abgeliefert', frachtVars(f.fracht));
@@ -124,7 +138,7 @@ const FADEN_TAG = /^f\d+$/;
 function tagErloschen(game, tag) {
   if (typeof tag !== 'string' || !FADEN_TAG.test(tag) || !F().aktiv(game)) return false;
   const f = F().zustandVon(game).liste.find((x) => x.id === tag);
-  return !!f && !(f.fracht && f.phase === 'laeuft');
+  return !!f && !(f.fracht && f.phase !== 'abgeschlossen');   // BEA-01 C0: die Ware lebt auch zwischen den Beats (phase wartet), solange sie am Faden haengt
 }
 // Je Tick (fracht.update): Ladung und Pods mit einem erloschenen Faden-Tag aufraeumen (kein toter Auftrag blockiert ein Modul). -> Zahl der entfernten Eintraege
 function aufraeumen(game) {
@@ -136,8 +150,19 @@ function aufraeumen(game) {
 function verloren(game, fadenId) {
   if (!F().aktiv(game)) return { ok: false, grund: 'INAKTIV' };
   const f = F().zustandVon(game).liste.find((x) => x.id === fadenId);
-  if (!f || !f.fracht || f.phase !== 'laeuft') return { ok: false, grund: 'keine Ware an Bord' };
+  if (!f || !f.fracht || f.phase === 'abgeschlossen') return { ok: false, grund: 'keine Ware an Bord' };
+  if (f.phase === 'wartet') {   // BEA-01 C1: der NSC erinnert sich an die verlorene Ladung (Ereignis des Lade-Modus, Katalog ende_modi ereignis_verloren), sonst kennt sein Gedaechtnis nur das Laden
+    const ev = verlustEreignis(D.vorlage(f.vorlage), f.beat);
+    if (ev) F().erinnern(game, f, ev, 'ware_verloren');
+    wareAbgeben(game, f);
+    return { ok: true, grund: null };
+  }   // BEA-01 C0: zwischen den Beats laeuft kein Beat, der scheitern koennte: die Ware ist weg, der Faden wartet auf seinen naechsten Beat
   F().beatAusgang(game, f.id, 'gescheitert');   // der Ausgang entfernt die Ware (faden.beatAusgang)
+  if (f.fracht) {   // BEA-01 Nacharbeit: wie in der Wartezeit erinnert sich der NSC an die verlorene Ladung (Ereignis des Lade-Modus), auch wenn ein Beat mit ware_bei_scheitern bleibt sie bis hierher hielt
+    const ev = verlustEreignis(D.vorlage(f.vorlage), f.beat);
+    if (ev) F().erinnern(game, f, ev, 'ware_verloren');
+    wareAbgeben(game, f);
+  }   // BEA-01 A: ein Beat mit ware_bei_scheitern "bleibt" laesst die Ware beim Scheitern am Faden; ein VERLUST (Notsprung, Huellentreffer) nimmt sie trotzdem
   return { ok: true, grund: null };
 }
 
@@ -145,7 +170,7 @@ function verloren(game, fadenId) {
 function notsprung(game) {
   if (!F().aktiv(game)) return [];
   const out = [];
-  for (const f of F().zustandVon(game).liste.slice()) if (f.fracht && f.phase === 'laeuft') { out.push(f.id); verloren(game, f.id); }
+  for (const f of F().zustandVon(game).liste.slice()) if (f.fracht && f.phase !== 'abgeschlossen') { out.push(f.id); verloren(game, f.id); }   // BEA-01 C0: auch die Ware zwischen den Beats
   return out;
 }
 
@@ -154,4 +179,50 @@ function inventar(game) {
   return liste.filter((f) => f.fracht).map((f) => ({ faden: f.id, id: f.fracht.ware, name: WAREN[f.fracht.ware].name, gewicht: WAREN[f.fracht.ware].gewicht, nach: f.fracht.nach }));
 }
 
-module.exports = { aufraeumen, tagErloschen, laden, entladen, andocken, verloren, notsprung, inventar, leseFracht, zielFuer, andockbar, verlustMelden, funk, WAREN };
+// ---------- BEA-01 C0: Ware ueber mehrere Beats (Ende-Modi der Daten, beats.json ende_modi)
+const beatVon = (f) => { const v = f && D.vorlage(f.vorlage); return v ? v.beats[f.beat] : null; };
+// Der laufende Beat liefert beim Andocken im Ziel ab (Ende-Modus liefert); jeder andere Beat mit Ware am Faden nie
+const liefertBeat = (f) => { const m = D.endeModus(beatVon(f)); return !!(m && m.liefert); };
+// Die Ladung des Auftrags liegt noch im Frachtraum (ein spaeter Beat prueft das beim Start: Huellentreffer, abgegeben)
+const anBord = (game, fadenId) => !!Lager.auftragAnBord(game, fadenId);
+// Bleibt die Ware am Faden, wenn der Beat mit diesem Ausgang endet (Aufrufer: faden.beatAusgang; ausgang null = Beat steht wieder aus, faden.beatZurueck)?
+//   Beat mit Ende-Modus: nur ein Lade-Beat (haelt), der gelungen endet; der Abliefer-Beat nie (abgeliefert oder verloren)
+//   Beat ohne Ende-Modus (Zwischen-Beat): die Ware reist mit, ausser der Beat scheitert (Frist, Notsprung, Niederlage: Ware verloren)
+function behaeltWare(f, beat, ausgang) {
+  if (!f || !f.fracht) return false;
+  const m = D.endeModus(beat);
+  if (m) return ausgang === 'gelungen' && m.haelt === true;
+  if (ausgang === 'gescheitert' && (wareBleibtBeiScheitern(beat) || artBleibtBeiScheitern(beat))) return true;   // BEA-01 B: auch der Modus (art) des Beats kann es verlangen (Durchsuchung nimmt die Ware des Fadens nie). BEA-01 A: Katalogfeld ware_bei_scheitern "bleibt" (beats.json): das Scheitern dieses Beats (Verweigern, Frist) nimmt die Ware nicht; der Verlust kommt aus dem Beat danach
+  return ausgang !== 'gescheitert';
+}
+// BEA-01 A: der Katalog nimmt das Scheitern dieses Beat-Typs von der Regel „Zwischen-Beat scheitert = Ware verloren“ aus (ware_bei_scheitern: "bleibt"); kein Beat-Name im Code
+const wareBleibtBeiScheitern = (beat) => !!(beat && Object.prototype.hasOwnProperty.call(D.BEATS, beat.typ) && D.BEATS[beat.typ].ware_bei_scheitern === 'bleibt');
+// BEA-01 B: dasselbe fuer den Modus (Parameter art, Katalog art_modi) des Beats: ware_bei_scheitern des Modus gilt zusaetzlich zu dem des Beat-Typs; kein Beat-Name im Code
+const artBleibtBeiScheitern = (beat) => { const m = D.artModus(beat); return !!(m && m.ware_bei_scheitern === 'bleibt'); };
+// Gedaechtnis-Ereignis eines gelungenen Beats mit besonderem Ende (Lade-Beat: fracht_geladen statt fracht_gelungen, damit das Laden allein nie als Lieferung zaehlt); sonst null
+const endeEreignis = (beat, ausgang) => { const m = ausgang === 'gelungen' ? D.endeModus(beat) : null; return m && typeof m.ereignis === 'string' ? m.ereignis : null; };
+// Die Ware zwischen den Beats geht verloren (Notsprung in der Wartezeit): Funk, Frachtraum leer, Ware vom Faden
+function wareAbgeben(game, f) {
+  verlustMelden(game, f);
+  entladen(game, f);
+  delete f.fracht;
+}
+// Weltstand: darf der Faden in dieser Lage eine Ware tragen (leseFaden)? Ein laufender Beat mit Ende-Modus (heute: Laden/Abliefern) oder ein Beat NACH einem Lade-Beat (die Ware reist mit).
+function wareMoeglich(v, beatIndex, phase) {
+  if (phase === 'abgeschlossen') return false;
+  if (phase === 'laeuft' && D.endeModus(v.beats[beatIndex])) return true;
+  return ladeBeatDavor(v, beatIndex);
+}
+// Gibt es vor diesem Beat einen Lade-Beat (Ende-Modus haelt), der die Ware hier haette tragen lassen? Dann wird eine verlorene Ware nie noch einmal geladen (faden-szene.js) und ihr Verlust gilt als fracht_gescheitert, nicht als fracht_ohne_ware (faden.js)
+function ladeBeatDavor(v, beatIndex) {
+  for (let j = 0; j < beatIndex; j++) { const m = D.endeModus(v.beats[j]); if (m && m.haelt) return true; }
+  return false;
+}
+
+// BEA-01 C1: Gedaechtnis-Ereignis fuer eine Ware, die ein Zwischen-Beat nach einem Lade-Beat verliert (Katalog ende_modi, ereignis_verloren des Lade-Modus); null, wenn kein Lade-Beat davor liegt oder der Katalog keines nennt
+function verlustEreignis(v, beatIndex) {
+  for (let j = 0; j < beatIndex; j++) { const m = D.endeModus(v.beats[j]); if (m && m.haelt) return typeof m.ereignis_verloren === 'string' ? m.ereignis_verloren : null; }
+  return null;
+}
+
+module.exports = { ladungVon, ladeBeatDavor, verlustEreignis, liefertBeat, anBord, behaeltWare, endeEreignis, wareMoeglich, aufraeumen, tagErloschen, laden, entladen, andocken, verloren, notsprung, inventar, leseFracht, zielFuer, andockbar, verlustMelden, funk, WAREN };

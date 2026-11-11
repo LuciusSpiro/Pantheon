@@ -450,13 +450,14 @@ section('Aufrufstellen mit echtem Spiel: Betrag und Ereignisse wie bisher');
 
 section('Aufrufstellen von geld.js (Tabelle): jede Änderung an Stellen mit Ereignis ist eine bewusste Entscheidung');
 {
-  // Stellen MIT Ereignis (sfx/missionEvent; das Regiebuch reagiert darauf): gutschreiben, gutschreibenSkript, abbuchen. Alles andere ist still. Neue Stelle oder anderer Typ = hier eintragen.
+  // Stellen MIT Ereignis (sfx/missionEvent; das Regiebuch reagiert darauf): gutschreiben, gutschreibenSkript, abbuchen, bestechungZahlen (BEA-01 A). Alles andere ist still (auch bussgeldZahlen, BEA-01 B). Neue Stelle oder anderer Typ = hier eintragen.
   const SOLL = {
     'server/mission/registry.js': { gutschreibenSkript: 1, abziehenHoechstens: 1, mindestens: 1 },
     'server/mission/kampagne.js': { standSetzen: 1 },
     'server/game.js': { standSetzen: 4 },
     'server/sim/entern.js': { einnehmen: 1 },
     'server/sim/explore.js': { einnehmen: 2 },
+    'server/sim/faden-forderung.js': { mindestens: 1, bestechungZahlen: 1, bussgeldZahlen: 1 },   // BEA-01 A: Bestechung im Geschichtsfaden (mit Ereignis marksPaid, Grund bestechungsgeld); BEA-01 B: Bussgeld nach einem Fund (still, Grund bussgeld)
     'server/sim/handel-info.js': { abziehenGeprueft: 1 },
     'server/sim/kampagnegeld.js': { mindestens: 1, abbuchen: 1 },
     'server/sim/ladung.js': { gutschreiben: 1 },
@@ -469,7 +470,7 @@ section('Aufrufstellen von geld.js (Tabelle): jede Änderung an Stellen mit Erei
     'server/sim/werft.js': { mindestens: 1, abbuchen: 1 },
     'server/weltstand.js': { erstatten: 4, standSetzen: 1 },
   };
-  const FN = ['stand', 'mindestens', 'gutschreiben', 'gutschreibenSkript', 'abbuchen', 'einnehmen', 'erstatten', 'bezahlen', 'abziehenGeprueft', 'abziehenHoechstens', 'standSetzen'];
+  const FN = ['stand', 'mindestens', 'gutschreiben', 'gutschreibenSkript', 'abbuchen', 'bestechungZahlen', 'bussgeldZahlen', 'einnehmen', 'erstatten', 'bezahlen', 'abziehenGeprueft', 'abziehenHoechstens', 'standSetzen'];
   const ist = {};
   for (const wurzel of ['server', 'shared']) for (const f of dateien(path.join(ROOT, wurzel))) {
     const rel = path.relative(ROOT, f).split(path.sep).join('/');

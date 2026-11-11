@@ -26,6 +26,7 @@ const Bericht = require('./regie-bericht.js');
 const Regielog = require('../server/mission/regielog.js');
 
 const { D, Faden } = X;
+const KATALOG_MAX = 10500;   // BEA-01 C2: Obergrenze des Beat-Katalogs im Prompt (vorher 9500): 9443 Zeichen vor BEA-01 plus die Beats forderung und schmiergeld (gemessen 10244) plus Reserve; siehe content/welt/abenteuer-werte.json prompt_max_zeichen
 const FILTER = process.argv.slice(2).filter((a) => !a.startsWith('--')).map((s) => s.toLowerCase());
 let n = 0, fails = 0;
 const ok = (c, t) => { n++; if (c) console.log('  ok   ' + t); else { fails++; console.log('  FEHLER ' + t); } };
@@ -100,8 +101,10 @@ section('Daten: Takt, Stufen-Datei, Katalog aus den Daten abgeleitet', () => {
   for (const t of planbar) {
     const bp = beats[t].bauplan;
     const zeile = text.split('\n').find((l) => l.startsWith('- ' + t));
-    const erlaubtAlle = Object.values(bp.parameter || {}).flatMap((s) => (Array.isArray(s.erlaubt) ? s.erlaubt.filter((x) => x !== '$ort') : []));
-    ok(erlaubtAlle.every((v) => zeile.includes(v)) && zeile.includes(beats[t].zweck) && zeile.includes('Start-Zustand ' + bp.start_status) && Object.keys(bp.parameter || {}).every((p) => zeile.includes(p + (bp.parameter[p].standard === undefined ? ' (id)' : ' (Standard'))), `${t}: Zweck, Parameter mit Standards und erlaubten Werten, Start-Zustand stehen im Katalog`);
+    const sichtbar = Object.fromEntries(Object.entries(bp.parameter || {}).filter(([, s]) => s.verborgen !== true));   // BEA-01 C2: ein Parameter mit verborgen: true steht nicht im Katalog (spart Zeichen), er gilt trotzdem
+    const erlaubtAlle = Object.values(sichtbar).flatMap((s) => (Array.isArray(s.erlaubt) ? s.erlaubt.filter((x) => x !== '$ort') : []));
+    ok(erlaubtAlle.every((v) => zeile.includes(v)) && zeile.includes(beats[t].zweck) && zeile.includes('Start-Zustand ' + bp.start_status) && Object.keys(sichtbar).every((p) => zeile.includes(p + (bp.parameter[p].standard === undefined ? ' (id)' : ' (Standard'))), `${t}: Zweck, Parameter mit Standards und erlaubten Werten, Start-Zustand stehen im Katalog`);
+    ok(Object.keys(bp.parameter || {}).filter((p) => bp.parameter[p].verborgen === true).every((p) => !zeile.includes(p + ' (')), `${t}: ein verborgener Parameter steht nicht im Katalog`);
     if (bp.aus && bp.aus.gelungen && bp.aus.gelungen.status) ok(bp.aus.gelungen.status.every((s) => zeile.includes(s)) && bp.aus.gescheitert.status.every((s) => zeile.includes(s)), `${t}: die Kandidaten-Zustaende der Ausgaenge stehen im Katalog`);
   }
   ok(Object.keys(bauplan.wahrheiten).every((k) => text.includes(k)) && werte.fluchtziele.wert.every((f) => text.includes(f)) && Object.keys(szenen.waren.wert).every((w) => text.includes(w)), 'Wahrheiten, Fluchtziele und Waren der Daten stehen im Katalog');
@@ -111,7 +114,7 @@ section('Daten: Takt, Stufen-Datei, Katalog aus den Daten abgeleitet', () => {
   const mitProbe = AP.katalogText();
   delete D.BEATS.nur_test_ohne_standards; AP.katalogNeuLesen();
   ok(!mitProbe.includes('nur_test_ohne_standards') && AP.katalogText() === text, 'ein Beat-Typ ohne Standards (bauplan) steht nie im Katalog');
-  ok(AP.katalogText() === text && text.length < 9500, `der Katalog ist statisch und kurz (${text.length} Zeichen)`);
+  ok(AP.katalogText() === text && text.length < KATALOG_MAX, `der Katalog ist statisch und kurz (${text.length} Zeichen)`);
 });
 
 section('Prompt: echter Bau, keine Spielernamen, nie Titel oder Anlass', async () => {

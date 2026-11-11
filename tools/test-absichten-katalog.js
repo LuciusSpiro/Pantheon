@@ -24,6 +24,9 @@ const AP = require('../server/sim/absicht-pruefer.js');
 const INS = require('../server/sim/inszenierer.js');
 const Ziel = require('../server/sim/abenteuer-ziel.js');
 const V = require('../server/sim/absicht-verhandlung.js');
+const Lager = require('../server/sim/fracht.js');   // BEA-01 C2: Ladung im Frachtraum (Bedingung ladung_mindestens)
+const Modul = require('../server/sim/module.js');
+const Ausbau = require('../server/sim/ausbau.js');
 
 const { D, Faden, F } = X;
 const C = INS.CODES;
@@ -83,6 +86,12 @@ const posten = (g, hex) => {
   if (g.weltBesitz && g.weltBesitz.hexe[hex]) g.weltBesitz.hexe[hex] = { besitzer: 'ger', posten: true };
 };
 
+// BEA-01 C2: ein Frachtraum mit einem Platz Ladung (Fracht, nicht verkaufbar zu pruefen: nur der Stand des Frachtraums zaehlt)
+const beladen = (g) => {
+  Ausbau.setStufe(g, 3); g.ship.module = [{ id: 'frachtraum', raum: 1, an: true, lauf: true }]; Modul.verteilungSetzen(g);
+  g.fracht.lager = []; g.fracht.draussen = []; g.fracht.halt = null;
+  const r = Lager.lagerAufnehmen(g, { art: 'fracht', quelle: 'debug' }); if (!r.ok) throw new Error('Einlagern: ' + r.text);
+};
 const TEXT = { titel: 'Eine Probe Absicht', einsatz: 'Ein Probeanlass ohne Namen fuer den Test.', preis: 'Ein Preis ohne Namen fuer den Test.' };
 const ab = (name, o) => Object.assign({ format: 'absicht/1', absicht: name, titel: TEXT.titel, parameter: {}, bezug: {}, bogen: { einsatz: TEXT.einsatz, wendung: 'keine', preis: TEXT.preis }, ton: 'nuechtern' }, o || {});
 const mitW = (w) => ({ bogen: { einsatz: TEXT.einsatz, wendung: w, preis: TEXT.preis } });
@@ -140,6 +149,7 @@ section('Standardparametrierung: jede Absicht ergibt einen gueltigen Plan oder e
     bergbau: [C.NICHT_AUSDRUECKBAR, 'Abbau-Huelle (Standardziel abbau)'],
     wiedersehen: [C.WELT_BEDINGUNG, 'kein Kandidat (WIEDERHOLUNG_NSC): ohne frueheren NSC kein Wiedersehen'],
     sabotage: [C.WELT_BEDINGUNG, 'kein germanischer Posten in Reichweite (LAGE_ZIEL_FEHLT)'],
+    forderung: [C.WELT_BEDINGUNG, 'leerer Frachtraum und Rang Miles (BEA-01 C2: Bedingungen ladung_mindestens und rang_mindestens)'],
   };
   for (const [name, e] of EINTRAEGE) {
     const g = neu(11).g;
@@ -310,10 +320,12 @@ section('Skalierung nach Stufe (Rang und Schiff der Crew, Daten in inszenierer-w
   // alle Plaene aller Stufen bestehen Expander und Pruefer
   let alle = 0, gut = 0;
   const frisch = neu(11).g;   // ohne Vorgeschichte: keine Wiederholungsregel im Weg
+  beladen(frisch);   // BEA-01 C2: die Absicht forderung braucht Ladung an Bord
   for (const [rw, sh] of [[0, 0], [35, 0], [200, 3]]) {
     stufe(frisch, rw, sh);
     for (const [name, e] of EINTRAEGE) {
       if (['rache', 'bergbau', 'sabotage', 'wiedersehen'].includes(name)) continue;
+      if (name === 'forderung' && rw < 8) continue;   // BEA-01 C2: ab Rang Optio (Ruf 8) und mit Ladung an Bord (unten beladen); unter Optio ist es ein Nein (siehe NEIN)
       for (const w of e.wendungen) { alle++; const r = ins(frisch, ab(name, mitW(w))); if (r.ok && Bauplan.pruefe(r.plan).ok) gut++; else console.log('    kein Plan: ' + name + ' ' + w + ' Stufe ' + rw + '/' + sh + ' ' + (r.ok ? '' : codes(r).join() + ' ' + r.fehler[0].grund.slice(0, 80))); }
     }
   }

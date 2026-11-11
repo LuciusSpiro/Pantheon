@@ -1,0 +1,49 @@
+{
+  "format": "faden-vorlage/1",
+  "id": "zollkontrolle",
+  "titel": "Zollkontrolle",
+  "ausloeser": [{ "art": "notruf", "ausgang": "gelungen", "ereignis": ["notruf_zollkontrolle"] }],
+  "volk_erlaubt": ["rom"],
+  "nsc": { "status": "aktiv", "haltung": 0, "klassen": ["korvette"] },
+  "hinweise": {},
+  "beats": [
+    {
+      "id": "b_forderung", "typ": "forderung",
+      "parameter": { "art": "durchsuchung", "tiefe": "voll", "staerke": "mittel", "text_key": "durchsuchung_zollschiff" },
+      "optionen": [
+        { "id": "dulden", "text": "Wir dulden die Durchsuchung.", "ausgang": "gescheitert", "folge": [] },
+        { "id": "nicht_dulden", "text": "Keine Durchsuchung.", "ausgang": "gelungen", "folge": [] }
+      ],
+      "aus": {
+        "gelungen": { "status": "aktiv", "weiter": "b_schmier" },
+        "gescheitert": { "status": "aktiv", "weiter": "b_abschluss" }
+      }
+    },
+    {
+      "id": "b_schmier", "typ": "schmiergeld",
+      "parameter": { "staerke": "mittel", "text_key": "schmiergeld_durchsuchung_zollschiff" },
+      "optionen": [
+        { "id": "bestechen", "text": "Wir zahlen.", "ausgang": "gelungen", "folge": [] },
+        { "id": "verweigern", "text": "Wir zahlen nichts.", "ausgang": "gescheitert", "folge": [] }
+      ],
+      "aus": {
+        "gelungen": { "status": "aktiv", "weiter": "b_abschluss" },
+        "gescheitert": { "status": "aktiv", "weiter": "b_kampf" }
+      }
+    },
+    {
+      "id": "b_kampf", "typ": "raumschlacht", "parameter": { "volk": "rom" },
+      "aus": {
+        "gelungen": { "status": "aktiv", "weiter": "b_abschluss" },
+        "gescheitert": { "status": "geflohen", "weiter": "b_abschluss" }
+      }
+    },
+    {
+      "id": "b_abschluss", "typ": "abschluss", "erfolg": { "ereignis": ["schmiergeld_gelungen", "raumschlacht_gelungen"] },
+      "aus": {
+        "gelungen": { "folge": [] },
+        "gescheitert": { "folge": [], "text_key": "ende_verpasst" }
+      }
+    }
+  ]
+}

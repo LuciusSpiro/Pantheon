@@ -31,7 +31,8 @@ const WERTE = lies('content/faeden/werte.json').werte;
 const SB = WERTE.sim_befehl.wert;
 const TX = lies('content/faeden/p3-texte.json');
 const LB = lies('content/flotte/lage-befehle.json');
-const FH = lies('content/faeden/vorlagen/falscher_haendler.json');
+const FH_ECHT = lies('content/faeden/vorlagen/falscher_haendler.json');   // BEA-01 C1: die echte Vorlage hat jetzt zehn Beats (Referenzabenteuer Beispiel 1)
+const FH = lies('tools/fixtures/faeden/falscher_haendler-fad01.json');   // BEA-01 C1: die Grundlage der Varianten ist die Vorlage wie in FAD-01 (sechs Beats, Fixture aus acf7795c), damit die Pfade dieses Tests unveraendert gelten
 const ORT = '0403';   // Speculum, römisch (wie test-sim-befehl-invasion.js)
 const VID = 'sim_test';
 // FAD-01 C: die echte Vorlage fuehrt die Folge sim_befehl jetzt selbst; fuer die Gegenproben „Beat ohne die Folge“ dient dieselbe Vorlage ohne sie (eigene Id, gueltig: die Enthuellung bleibt ueber gelungen erreichbar)
@@ -79,8 +80,8 @@ section('Prüfer: korrekter Aufbau', () => {
   { const w = gut(); b(w, 'b_enthuell').aus.gelungen.folge = [{ typ: 'sim_befehl' }, { typ: 'haltung_aenderung', grund: 'gedankt' }]; ok(Pruefer.pruefeVorlage(w).ok, 'neben einer Haltungs-Folge: gültig'); }
   ok(Pruefer.simBefehlFolge(b(v, 'b_enthuell')).typ === 'sim_befehl' && Pruefer.simBefehlFolge(b(v, 'b_fracht')) === null, 'simBefehlFolge liest die Folge des Beats');
   ok(Pruefer.simBefehlArten({ typ: 'sim_befehl' }).join() === Object.keys(SB.arten).join(), 'ohne arten gelten alle Arten');
-  ok(Pruefer.pruefeVorlage(klon(FH)).ok, 'die echte Vorlage falscher_haendler (mit der Folge, Paket C) ist gültig');
-  ok(JSON.stringify(b(FH, 'b_enthuell').aus.gelungen.folge) === '[{"typ":"sim_befehl"}]' && (JSON.stringify(FH).match(/sim_befehl/g) || []).length === 1, 'die echte Vorlage falscher_haendler hat genau eine Folge sim_befehl (Standard-Arten) im Ausgang gelungen der Enthüllung');
+  ok(Pruefer.pruefeVorlage(klon(FH)).ok && Pruefer.pruefeVorlage(klon(FH_ECHT)).ok, 'die echte Vorlage falscher_haendler (mit der Folge, Paket C) ist gültig, ebenso die Vorlage wie in FAD-01 (Fixture)');
+  ok(JSON.stringify(b(FH_ECHT, 'b_enthuell').aus.gelungen.folge) === '[{"typ":"sim_befehl"}]' && (JSON.stringify(FH_ECHT).match(/sim_befehl/g) || []).length === 1, 'die echte Vorlage falscher_haendler hat genau eine Folge sim_befehl (Standard-Arten) im Ausgang gelungen der Enthüllung');
   ok(Pruefer.pruefeVorlage(klon(FH_OHNE)).ok, 'dieselbe Vorlage ohne die Folge bleibt gültig (Gegenprobe)');
 });
 

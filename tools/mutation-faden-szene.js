@@ -32,14 +32,14 @@ const MUTATIONEN = [
   [SZ, '  if (game.space.escorts) game.space.escorts = game.space.escorts.filter((q) => q.tag !== h.ally.tag);', '  if (false) game.space.escorts = game.space.escorts.filter((q) => q.tag !== h.ally.tag);', 'Verbündeter bleibt nach dem Gefecht im Raum'],
   [SZ, '  const p = npc ? Faden.chanceSpontanhilfe(npc) : 0;', '  const p = npc ? 0.5 : 0;', 'Chance der Spontanhilfe ignoriert die Haltung'],
   [SZ, '  if (!(wuerfel(game, h) < p)) return false;', '  if (!(game.rng.chance(p))) return false;', 'Wurf der Spontanhilfe zieht game.rng statt des eigenen Stroms'],
-  [SZ, '  funk(game, fmt(T.vorwarnung[fs.textKey], vars));', '  void vars;', 'Gefahr ohne Vorwarnung per Funk'],
+  [SZ, '  funk(game, fmt(T.vorwarnung[wk], vars));', '  void vars;', 'Gefahr ohne Vorwarnung per Funk'],
   [SZ, '  const sek = Math.max(W.vorlauf_min_s, W.vorlauf_s);', '  const sek = 2;', 'Vorwarnung unter 8 s'],
   [SZ, "  const n = b2 ? b2.n : (it.art === 'raumschlacht' || it.art === 'befreiung') ? nachCrew(W[it.art].anzahl, crewN(game)) : 1;", "  const n = b2 ? b2.n : (it.art === 'raumschlacht' || it.art === 'befreiung') ? nachCrew(W[it.art].anzahl, 1) : 1;", 'Gegner nicht nach Crewgroesse skaliert'],
   [SZ, '  if (weg.length) sp.enemies = sp.enemies.filter((e) => !weg.includes(e));', '  if (false) sp.enemies = sp.enemies.filter((e) => !weg.includes(e));', 'Szenenwechsel räumt die Gegner der Szene nicht ab'],
   [SZ, '  andockenEnde(game);\n  Fracht.andocken(game);', '  Fracht.andocken(game);', 'Andocken beendet die laufende Szene nicht'],
   [FR, "  F().beatAusgang(game, f.id, 'gescheitert');   // der Ausgang entfernt die Ware", "  F().beatAusgang(game, f.id, 'gelungen');   // der Ausgang entfernt die Ware", 'verlorene Ware gilt als gelungen'],
   [FA, '  delete f.fracht;   // SUND-04a-2 P1: der Beat ist zu Ende', '  void 0;   // SUND-04a-2 P1: der Beat ist zu Ende', 'Ware bleibt nach dem Ende des Beats an Bord'],
-  [FA, "  if (x.fracht !== undefined && x.fracht !== null && phase === 'laeuft' && D.BEATS[v.beats[f.beat].typ].baustein === 'fracht') {", '  if (false) {', 'Ware geht beim Speichern verloren (Leser)'],
+  [FA, "  if (x.fracht !== undefined && x.fracht !== null && FrachtDaten.wareMoeglich(v, f.beat, phase)) {", '  if (false) {', 'Ware geht beim Speichern verloren (Leser)'],
   [FA, "  for (const f of F.liste) if (f.phase === 'laeuft' && D.BEATS[D.vorlage(f.vorlage).beats[f.beat].typ].szene) {", "  for (const f of F.liste) if (false && f.phase === 'laeuft' && D.BEATS[D.vorlage(f.vorlage).beats[f.beat].typ].szene) {", 'Szenen-Beat steht nach dem Laden nicht wieder aus'],
   // ---- Nacharbeit Welle 1 (L1 bis L6, K1, K2, K5, L13): Lebenszyklus, Persistenz ----
   [SZ, 'const aktiv = (game) => Faden.aktiv(game);', 'const aktiv = () => true;', 'Faden-Szenen starten auch ohne Schalter (Gate)'],
@@ -64,7 +64,7 @@ const MUTATIONEN = [
   [GM, "if (this.fadenSzene || this.fadenHilfe || (this.fadenWarte && this.fadenWarte.length)) this.safe('fadenszene',", "if (false) this.safe('fadenszene',", 'Takt der Faden-Szenen fehlt (game.step)'],
   // ---- Nacharbeit L7: kaputte Fracht im Weltstand
   [FA, '    if (fr) f.fracht = fr;\n  }', '    if (!fr) return { fehler: `${x.id}: Fracht unbrauchbar` };\n    f.fracht = fr;\n  }', 'Leser: eine kaputte Fracht verwirft den ganzen Faden'],
-  [FA, "x.fracht !== null && phase === 'laeuft' && D.BEATS", "x.fracht !== null && D.BEATS", 'Leser: Fracht ohne laufenden Beat bleibt im Faden'],
+  [FA, "x.fracht !== null && FrachtDaten.wareMoeglich(v, f.beat, phase)", "x.fracht !== null", 'Leser: Fracht ohne laufenden Beat bleibt im Faden'],
 ];
 
 const FILTER = process.argv.slice(2).filter((a) => !a.startsWith('--')).map((s) => s.toLowerCase());

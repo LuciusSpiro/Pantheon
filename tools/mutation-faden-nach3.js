@@ -54,7 +54,7 @@ const MUTATIONEN = [
   [SZ, "    if (!ort || !HEX.test(ort)) return { ausgang: 'gescheitert' };", '', 'Befreiung: ein Faden ohne Ort wartet weiter'],
   [SW, '    "befreiung_ort": "{name} sitzt bei {ort} fest. Fliegt hin und vertreibt die Wachen.",\n', '', 'Befreiung: kein Funk zur Anreise'],
   // ---- 5. Gedaechtnis
-  [FD, "  const ereignis = vb ? W.variante_ereignis + vb.typ + '_' + ausgang : ausgang === 'gescheitert' && cat.ereignis_ohne_ware && !f.fracht ? cat.ereignis_ohne_ware : beat.typ + '_' + ausgang;", "  const ereignis = vb ? W.variante_ereignis + vb.typ + '_' + ausgang : beat.typ + '_' + ausgang;", 'Gedaechtnis: fracht_gescheitert auch ohne Ware'],
+  [FD, "ausgang === 'gescheitert' && cat.ereignis_ohne_ware && !f.fracht && !FrachtDaten.ladeBeatDavor(v, f.beat) ? cat.ereignis_ohne_ware : ", "", 'Gedaechtnis: fracht_gescheitert auch ohne Ware'],
   [BT, '      "ereignis_ohne_ware": "fracht_ohne_ware",\n', '', 'Katalog: kein Ereignis fuer „ohne Ware“'],
   [P3, "some((g) => g.ereignis === 'fracht_gelungen' || g.ereignis === 'fracht_gescheitert');", 'some((g) => /^fracht_/.test(g.ereignis));', 'Enthuellung: auch fracht_ohne_ware gilt als Fracht'],
   // ---- 6. Vorlauf-Fall

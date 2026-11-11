@@ -17,7 +17,7 @@
 //   SABOTAGE_NUR_EINMAL (SUND-04b B2: ein Beat mit nur_einmal steht höchstens einmal im Plan) · LAGE_ZIEL_FEHLT / SABOTAGE_PAUSE / LAGE_UNBEKANNT (SUND-04b B2, pruefeLage: ein Beat mit braucht.lage haengt von der Welt ab; beim Anbieten und Oeffnen, nicht in pruefeVorlage) ·
 //   NAMENLOS (SUND-04b A1: vorlage.nsc.rolle namenlos: der NSC bleibt aktiv, die Ausgaenge brauchen keinen status; die Statuspruefung bleibt, nur der Status faellt weg; Scheitern veraendert dann ueber Weg oder Folge) ·
 //   ERFOLG_FEHLT / ERFOLG_UNGUELTIG (Abschluss: wann gilt der Faden als gelungen, Nacharbeit Welle 3) · VARIANTE_UNERREICHBAR / TON_UNERREICHBAR (Haltung: gibt es in der Vorlage einen Weg dorthin) ·
-//   SIM_BEFEHL_ORT / SIM_BEFEHL_BEAT / SIM_BEFEHL_OHNE_TAT / SIM_BEFEHL_ART / SIM_BEFEHL_FORM (FAD-01 A: der Folgetyp sim_befehl, Daten werte.json sim_befehl: nur in aus.gelungen.folge eines Beats aus beats_erlaubt, nur nach einer Tat der Crew auf JEDEM Weg dorthin) ·
+//   LADE_BEAT_DOPPELT / LADUNG_NICHT_ABGELIEFERT (BEA-01 C1: hoechstens ein Lade-Beat; jeder Weg ab einem Lade-Beat liefert ab oder verliert die Ware, bevor der Abschluss kommt) · SIM_BEFEHL_ORT / SIM_BEFEHL_BEAT / SIM_BEFEHL_OHNE_TAT / SIM_BEFEHL_ART / SIM_BEFEHL_FORM (FAD-01 A: der Folgetyp sim_befehl, Daten werte.json sim_befehl: nur in aus.gelungen.folge eines Beats aus beats_erlaubt, nur nach einer Tat der Crew auf JEDEM Weg dorthin) ·
 //   UNERREICHBAR · OPTION_BEI_GEFAHR · GEFAHR_ABGESCHWAECHT · OPTIONEN_NICHT_ERLAUBT · OPTIONEN_ANZAHL · OPTION_UNGUELTIG · SCHEINWAHL · FOLGE_UNGUELTIG · ABSTAND · VOLK · AUSLOESER · NSC.
 const fs = require('fs');
 const path = require('path');
@@ -145,6 +145,44 @@ function optionenFehler(beat, cat) {
   for (let a = 0; a < profile.length; a++) for (let b = a + 1; b < profile.length; b++) if (profile[a].p && profile[a].p === profile[b].p) out.push(fehl('SCHEINWAHL', `Beat ${beat.id}: die Optionen ${profile[a].id} und ${profile[b].id} haben dieselbe Folge (${profile[a].p}), das ist keine Wahl`));
   return out;
 }
+// BEA-01 B: die Parameter, die der Katalog mit Enum oder Warenarten bindet. Alles aus den Daten: art_modi (Modus art, Tiefe tiefe je Modus, Optionen-Wirkung je Modus) und ladung_parameter (Art und Eigenschaften der Ladung gegen content/waren.json).
+// Unbekannte Werte sind PARAMETER (wie ende), eine Option, die der Modus nicht kennt, OPTION_UNGUELTIG (sonst wirkte sie stumm nichts).
+function artFehler(beat, cat, p) {
+  const out = [];
+  const am = cat.art_modi;
+  if (am) {
+    if (has(p, am.parameter) && !has(am.modi, p[am.parameter])) out.push(fehl('PARAMETER', `Beat ${beat.id} (${beat.typ}): ${am.parameter} "${String(p[am.parameter]).slice(0, 40)}" ist unbekannt (erlaubt: ${Object.keys(am.modi).join(', ')})`));
+    const modus = D.artModus(beat);
+    for (const m of Object.values(am.modi)) {
+      const t = m.tiefen;
+      if (!t || !has(p, t.parameter)) continue;
+      if (!modus || !modus.tiefen || modus.tiefen.parameter !== t.parameter) out.push(fehl('PARAMETER', `Beat ${beat.id} (${beat.typ}): ${t.parameter} gibt es nur mit ${am.parameter} ${Object.keys(am.modi).filter((k) => am.modi[k].tiefen).join(', ')}`));
+      else if (!t.werte.includes(p[t.parameter])) out.push(fehl('PARAMETER', `Beat ${beat.id} (${beat.typ}): ${t.parameter} "${String(p[t.parameter]).slice(0, 40)}" ist unbekannt (erlaubt: ${t.werte.join(', ')})`));
+    }
+  }
+  const wirk = (am && D.artModus(beat) && D.artModus(beat).optionen_wirkung) || cat.optionen_wirkung;
+  if (wirk && Array.isArray(beat.optionen)) for (const o of beat.optionen) if (o && typeof o.id === 'string' && !has(wirk, o.id)) out.push(fehl('OPTION_UNGUELTIG', `Beat ${beat.id} (${beat.typ}): die Option ${o.id} gehoert nicht zu dieser Art (erlaubt: ${Object.keys(wirk).join(', ')})`));
+  const lp = cat.ladung_parameter;
+  if (lp) {
+    const Waren = require('../../shared/waren.js');
+    const art = has(p, lp.art) ? p[lp.art] : lp.art_standard;
+    if (has(p, lp.art) && !(typeof p[lp.art] === 'string' && Waren.artOk(p[lp.art]))) out.push(fehl('PARAMETER', `Beat ${beat.id} (${beat.typ}): ${lp.art} "${String(p[lp.art]).slice(0, 40)}" ist keine Ware aus waren.json (erlaubt: ${Waren.arten().join(', ')})`));
+    const w = Waren.artOk(art) ? Waren.get(art) : null;
+    if (w) {
+      if (!w.eigenschaften.includes('auftrag')) out.push(fehl('PARAMETER', `Beat ${beat.id} (${beat.typ}): die Ware ${art} kann keinen Auftrag tragen (waren.json eigenschaften), der Faden kann sie nicht laden`));
+      for (const [param, eig] of Object.entries(lp.eigenschaften || {})) {
+        const v = p[param];
+        if (v === undefined || v === false) continue;
+        if (!w.eigenschaften.includes(eig)) out.push(fehl('PARAMETER', `Beat ${beat.id} (${beat.typ}): die Ware ${art} kann die Eigenschaft ${eig} nicht tragen (waren.json eigenschaften)`));
+        if (typeof v === 'string' && (!Waren.artOk(v) || v === art)) out.push(fehl('PARAMETER', `Beat ${beat.id} (${beat.typ}): ${param} "${v.slice(0, 40)}" muss eine andere Ware aus waren.json sein als die Ladung (${art}); erlaubt: ${Waren.arten().filter((k) => k !== art).join(', ')}`));
+        if (v === true && eig !== 'illegal') out.push(fehl('PARAMETER', `Beat ${beat.id} (${beat.typ}): ${param} braucht eine Art (Text), keinen Wahrheitswert`));
+        if (typeof v === 'string' && eig === 'illegal') out.push(fehl('PARAMETER', `Beat ${beat.id} (${beat.typ}): ${param} ist ein Wahrheitswert`));
+      }
+    }
+    for (const [param, eig] of Object.entries(lp.eigenschaften || {})) if (has(p, param) && typeof p[param] !== 'boolean' && typeof p[param] !== 'string') out.push(fehl('PARAMETER', `Beat ${beat.id} (${beat.typ}): ${param} (${eig}) ist ein Wahrheitswert oder eine Art`));
+  }
+  return out;
+}
 function parameterFehler(beat, cat) {
   const out = [];
   const spec = cat.parameter || { pflicht: [], optional: [] };
@@ -156,6 +194,8 @@ function parameterFehler(beat, cat) {
     else if (!(typeof p[k] === 'boolean' || (typeof p[k] === 'number' && Number.isFinite(p[k])) || (typeof p[k] === 'string' && p[k].length > 0 && p[k].length <= 40))) out.push(fehl('PARAMETER', `Beat ${beat.id}: Parameter "${k}" muss ein kurzer Text, eine Zahl oder ein Wahrheitswert sein`));
     else if (k === 'text_key' && !(typeof p[k] === 'string' && TEXT_KEY.test(p[k]))) out.push(fehl('TEXT_KEY', `Beat ${beat.id}: parameter text_key "${String(p[k]).slice(0, 40)}" ist ungültig (nur a-z, 0-9, _, 1 bis 40 Zeichen; der Weltstand verlangt es)`));
   }
+  if (cat.ende_modi && has(p, cat.ende_modi.parameter) && !has(cat.ende_modi.modi, p[cat.ende_modi.parameter])) out.push(fehl('PARAMETER', `Beat ${beat.id} (${beat.typ}): ${cat.ende_modi.parameter} "${String(p[cat.ende_modi.parameter]).slice(0, 40)}" ist unbekannt (erlaubt: ${Object.keys(cat.ende_modi.modi).join(', ')})`));   // BEA-01 C0: der Ende-Modus kommt aus dem Katalog (beats.json ende_modi)
+  out.push(...artFehler(beat, cat, p));   // BEA-01 B: Parameter art/tiefe (Katalog art_modi), Optionen des Modus, Ladung (Katalog ladung_parameter)
   if (erlaubt.includes('hex') && has(p, 'hex') && !(typeof p.hex === 'string' && HEX.test(p.hex) && sundSpielbar(p.hex))) out.push(fehl('PARAMETER', `Beat ${beat.id} (${beat.typ}): der Parameter hex ist kein spielbarer Sektor der Karte`));   // SUND-04b B1: Ankunftsort der Beats geruecht, wiedersehen, notruf
   const braucht = cat.braucht || {};
   for (const k of spec.pflicht || []) if (!(k in p) && !(k === 'fluchtziel' && braucht.fluchtziel)) out.push(fehl('PARAMETER', `Beat ${beat.id} (${beat.typ}): Pflichtparameter "${k}" fehlt`));
@@ -290,7 +330,8 @@ function pruefeVorlage(v) {
   const Bausteine = require('./faden-bausteine.js');
 
   // Kopf
-  if (v.beats.length < 2 || v.beats.length > W.beats_max) fehler.push(fehl('BEATS_ANZAHL', `${v.beats.length} Beats, erlaubt sind 2 bis ${W.beats_max}`));
+  if (v.beats.length < 2 || v.beats.length > W.vorlage_beats_max) fehler.push(fehl('BEATS_ANZAHL', `${v.beats.length} Beats, erlaubt sind 2 bis ${W.vorlage_beats_max}`));   // BEA-01 C1: Vorlagen als Datei haben ihre eigene Obergrenze (werte.json vorlage_beats_max), beats_max gilt fuer Plaene
+  if (v.beats.filter((b) => istObjekt(b) && (D.endeModus(b) || {}).haelt === true).length > 1) fehler.push(fehl('LADE_BEAT_DOPPELT', 'mehr als ein Lade-Beat (Ende-Modus haelt, fracht ende geladen): die Ware des Fadens liegt nur einmal im Frachtraum'));   // BEA-01 C1
   for (const a of v.ausloeser) if (!W.ausloeser.includes(a.art) || !W.ausgaenge.includes(a.ausgang)) fehler.push(fehl('AUSLOESER', `Auslöser ${a.art}/${a.ausgang} ist nicht erlaubt (Arten ${W.ausloeser.join(', ')}, Ausgänge ${W.ausgaenge.join(', ')})`));
   for (const vk of v.volk_erlaubt) if (!W.voelker.includes(vk) || !N[vk]) fehler.push(fehl('VOLK', `Volk "${vk}" ist unbekannt`));
   if (v.nsc) {
@@ -396,10 +437,10 @@ function pruefeVorlage(v) {
   // Wege: Zustand des NSC, Hinweise vor der Enthuellung, Erreichbarkeit (nur wenn Ids, Typen und Ziele stimmen, sonst folgen die Fehler oben)
   if (typenOk && !fehler.some((f) => /^(ID_DOPPELT|WEITER_UNGUELTIG|AUSGANG_FEHLT|ABSCHLUSS_NICHT_LETZT)/.test(f))) {
     const gesehen = new Set(), erreicht = new Set(), meld = new Set();
-    const stack = [{ i: 0, s: (v.nsc && v.nsc.status) || 'aktiv', h: false, t: false }];   // t (FAD-01 A): auf diesem Weg gab es schon den Ausgang gelungen eines Beats aus sim_befehl.tat_beats (eine Tat der Crew)
+    const stack = [{ i: 0, s: (v.nsc && v.nsc.status) || 'aktiv', h: false, t: false, l: false }];   // t (FAD-01 A): auf diesem Weg gab es schon den Ausgang gelungen eines Beats aus sim_befehl.tat_beats (eine Tat der Crew)
     while (stack.length) {
-      const { i, s, h, t } = stack.pop();
-      const key = i + '|' + s + '|' + (h ? 1 : 0) + '|' + (t ? 1 : 0);
+      const { i, s, h, t, l } = stack.pop();
+      const key = i + '|' + s + '|' + (h ? 1 : 0) + '|' + (t ? 1 : 0) + '|' + (l ? 1 : 0);
       if (gesehen.has(key)) continue;
       gesehen.add(key); erreicht.add(i);
       const b = v.beats[i], cat = B[b.typ];
@@ -411,16 +452,17 @@ function pruefeVorlage(v) {
         if (br.nsc_status && !br.nsc_status.includes(z.s)) m('STATUS_PASST_NICHT', `Beat ${b.id} (${z.typ}) kann nicht laufen, wenn der NSC ${z.s} ist (erlaubt: ${br.nsc_status.join(', ')})`);
         if (br.hinweis_vorher && !h) m('HINWEIS_FEHLT', `Beat ${b.id} (${b.typ}): auf einem Weg dorthin wurde vorher kein Hinweis gestreut (jede Enthüllung braucht mindestens einen Hinweis davor)`);
       }
-      if (!t && simBefehlFolge(b)) m('SIM_BEFEHL_OHNE_TAT', `Beat ${b.id} (${b.typ}): auf einem Weg dorthin gab es keine Tat der Crew (Ausgang gelungen eines Beats vom Typ ${SB.tat_beats.join(', ')}): ein sim_befehl kommt nur nach einer Tat, nie durch Zeitablauf, Scheitern oder vom Anfang an`);   // FAD-01 A (c)
-      if (cat.abschluss) continue;
+      if (!t && simBefehlFolge(b)) m('SIM_BEFEHL_OHNE_TAT', `Beat ${b.id} (${b.typ}): auf einem Weg dorthin gab es keine Tat der Crew (Ausgang gelungen eines Beats vom Typ ${SB.tat_beats.join(', ')}, dessen Ende-Modus eine Tat ist, also kein bloßes Laden): ein sim_befehl kommt nur nach einer Tat, nie durch Zeitablauf, Scheitern oder vom Anfang an`);   // FAD-01 A (c)
+      if (cat.abschluss) { if (l) m('LADUNG_NICHT_ABGELIEFERT', `Beat ${b.id} (${b.typ}): auf einem Weg dorthin liegt die geladene Ware noch am Faden (kein Beat, der abliefert, und kein Zwischen-Beat, der sie verliert): die Ware bleibt hängen`); continue; }   // BEA-01 C1
       const h2 = h || (Array.isArray(b.hinweise) && b.hinweise.length > 0);
       for (const ag of W.ausgaenge) {
         for (const o of b.variante && istObjekt(b.variante.aus) && s !== 'tot' && istObjekt(b.variante.aus[ag]) ? [b.aus[ag], b.variante.aus[ag]] : [b.aus[ag]]) {   // Welle 4 (S1): beide Zweige, auch die Ausgaenge der Variante
           let s2 = s;
-          const t2 = t || (ag === 'gelungen' && o === b.aus[ag] && SB.tat_beats.includes(b.typ));   // nur der Ausgang des Beats selbst ist die Tat, nie der einer Variante
+          const t2 = t || (ag === 'gelungen' && o === b.aus[ag] && istTat(b));   // nur der Ausgang des Beats selbst ist die Tat, nie der einer Variante
           if (o.status !== undefined) { if (s === 'tot' && o.status !== 'tot') m('TOT_BLEIBT_TOT', `Beat ${b.id}, ${ag}: ein toter NSC wird nicht wieder ${o.status}`); else s2 = o.status; }
           const z = zielIndex(v, i, o, idx);
-          if (z !== null) stack.push({ i: z, s: s2, h: h2, t: t2 });
+          const l2 = wareAmFaden(b, ag, l, o === b.aus[ag]);   // BEA-01 C1
+          if (z !== null) stack.push({ i: z, s: s2, h: h2, t: t2, l: l2 });
         }
       }
     }
@@ -429,6 +471,18 @@ function pruefeVorlage(v) {
   }
   return { ok: fehler.length === 0, fehler };
 }
+
+// BEA-01 C1: liegt die Ware nach diesem Ausgang noch am Faden (Weg-Pruefung LADUNG_NICHT_ABGELIEFERT)? Spiegel der Laufzeit: Lade-Beat gelungen = ja; Beat, der abliefert (Ende-Modus liefert) = nein, ob geliefert oder verloren;
+// Zwischen-Beat (ohne Ende-Modus) = wie faden-fracht.js behaeltWare (Scheitern nimmt die Ware, ausser der Katalog sagt ware_bei_scheitern bleibt). Ausgang einer Variante: die Ware bleibt, wie sie war.
+function wareAmFaden(b, ag, davor, eigener) {
+  if (!eigener) return davor;
+  const m = D.endeModus(b);
+  if (m && m.haelt) return ag === 'gelungen' ? true : davor;
+  if (m && m.liefert) return false;
+  return davor ? require('./faden-fracht.js').behaeltWare({ fracht: true }, b, ag) : false;
+}
+// BEA-01 C0: eine Tat der Crew ist der Ausgang gelungen eines Beats aus sim_befehl.tat_beats, ausser sein Ende-Modus nimmt ihn aus (beats.json ende_modi, tat: false: ein Beat, der nur LAEDT, ist noch keine Lieferung)
+const istTat = (b) => SB.tat_beats.includes(b.typ) && (D.endeModus(b) || {}).tat !== false;
 
 // ---------- Faden im Zustand
 function pruefeFaden(f) {

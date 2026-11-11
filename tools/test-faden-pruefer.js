@@ -19,7 +19,7 @@ const beat = (v, id) => v.beats.find((b) => b.id === id);
 
 section('Daten und Beat-Katalog', () => {
   // SUND-04a-2 P1: der Katalog wächst um raumschlacht, befreiung, fracht (neun Typen); bitte, enthuellung, notruf, abschluss bleiben Platzhalter bis P3; SUND-04b B1: geruecht, spur, wiedersehen (zwölf Typen); SUND-04b B2: konvoi, geleit, sabotage (15 Typen)
-  ok(JSON.stringify(Object.keys(D.BEATS).filter((t) => D.BEATS[t].nur_inszenierer !== true).sort()) === JSON.stringify(['abschluss', 'befreiung', 'bitte', 'enthuellung', 'fracht', 'geleit', 'geruecht', 'konvoi', 'notruf', 'raumschlacht', 'sabotage', 'spontanhilfe', 'spur', 'verfolgung', 'wiedersehen']), '15 Beat-Typen im Katalog (Daten, nicht im Code; SUND-04b B1: geruecht, spur, wiedersehen; B2: konvoi, geleit, sabotage): ' + Object.keys(D.BEATS).join(', '));
+  ok(JSON.stringify(Object.keys(D.BEATS).filter((t) => D.BEATS[t].nur_inszenierer !== true).sort()) === JSON.stringify(['abschluss', 'befreiung', 'bitte', 'enthuellung', 'forderung', 'fracht', 'geleit', 'geruecht', 'konvoi', 'notruf', 'raumschlacht', 'sabotage', 'schmiergeld', 'spontanhilfe', 'spur', 'verfolgung', 'wiedersehen']), '17 Beat-Typen im Katalog (Daten, nicht im Code; SUND-04b B1: geruecht, spur, wiedersehen; B2: konvoi, geleit, sabotage; BEA-01 A: forderung, schmiergeld): ' + Object.keys(D.BEATS).join(', '));
   const Bs = require('../server/sim/faden-bausteine.js');
   require('../server/sim/faden-szene.js');   // registriert die Bausteine der P1-Szenen
   // SUND-04a-2 P3: alle Katalog-Bausteine sind echt (P1: Szenen und Fracht, P2: bitte, P3: notruf, enthuellung, abschluss); kein Platzhalter bleibt
@@ -128,8 +128,10 @@ section('Ein neuer Beat ist nur ein Katalogeintrag (kein Umbau)', () => {
     ok(hat(v2, 'BAUSTEIN_FEHLT'), 'ein Eintrag mit unbekanntem Baustein wird abgelehnt (BAUSTEIN_FEHLT)');
   } finally { delete D.BEATS.gespraech; }
   ok(hat(Object.assign(vorlageTest(), { beats: vorlageTest().beats.map((b) => (b.id === 'b_spontan' ? Object.assign(b, { typ: 'gespraech' }) : b)) }), 'TYP_UNBEKANNT'), 'ohne den Eintrag ist der Typ wieder unbekannt');
-  const alt = D.WERTE.beats_max; D.WERTE.beats_max = 5;
-  try { ok(hat(vorlageTest(), 'BEATS_ANZAHL'), 'mehr Beats als beats_max (Daten) -> BEATS_ANZAHL'); } finally { D.WERTE.beats_max = alt; }
+  const alt = D.WERTE.vorlage_beats_max; D.WERTE.vorlage_beats_max = 5;   // BEA-01 C1: die Obergrenze der Vorlagen als Datei heisst vorlage_beats_max (beats_max gilt fuer Plaene)
+  try { ok(hat(vorlageTest(), 'BEATS_ANZAHL'), 'mehr Beats als vorlage_beats_max (Daten) -> BEATS_ANZAHL'); } finally { D.WERTE.vorlage_beats_max = alt; }
+  const altP = D.WERTE.beats_max; D.WERTE.beats_max = 2;
+  try { ok(!hat(vorlageTest(), 'BEATS_ANZAHL'), 'beats_max (Plaene) gilt nicht fuer Vorlagen als Datei: mit beats_max 2 bleibt die Testvorlage gueltig'); } finally { D.WERTE.beats_max = altP; }
 });
 
 section('Faden im Zustand (pruefeFaden)', () => {

@@ -26,7 +26,7 @@ const liste = (a) => a.join(' | ');
 // ---------- Katalog aus den Daten
 let katalogCache = null;
 function parameterText(bp) {
-  const ps = Object.entries(bp.parameter || {});
+  const ps = Object.entries(bp.parameter || {}).filter(([, s]) => !(s && s.verborgen === true));   // BEA-01 C2: ein Parameter mit verborgen: true (Datenfeld in beats.json bauplan.parameter) steht nicht im Katalog des Modells (spart Zeichen; er gilt weiter, der Standard und der Inszenierer setzen ihn)
   if (!ps.length) return 'keine Parameter';
   return ps.map(([k, s]) => {
     const erlaubt = Array.isArray(s.erlaubt) ? (s.erlaubt.length === 1 && s.erlaubt[0] === '$ort' ? 'der Ort des Abenteuers' : liste(s.erlaubt))

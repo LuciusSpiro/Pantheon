@@ -29,7 +29,46 @@
     {
       "id": "b_fracht", "typ": "fracht",
       "hinweise": ["h_papiere", "h_schmuggel"],
-      "parameter": { "nach": "$ort", "ware": "fracht_kiste" },
+      "parameter": { "nach": "$ort", "ware": "fracht_kiste", "ende": "geladen" },
+      "aus": {
+        "gelungen": { "status": "verbuendet", "weiter": "b_forderung" },
+        "gescheitert": { "status": "aktiv", "weiter": "b_abschluss" }
+      }
+    },
+    {
+      "id": "b_forderung", "typ": "forderung",
+      "parameter": { "staerke": "mittel" },
+      "optionen": [
+        { "id": "ausliefern", "text": "Nehmt die Ware.", "ausgang": "gescheitert", "folge": [{ "typ": "haltung_aenderung", "grund": "im_stich_gelassen" }] },
+        { "id": "nicht_ausliefern", "text": "Die Ware bleibt bei uns.", "ausgang": "gelungen", "folge": [] }
+      ],
+      "aus": {
+        "gelungen": { "status": "verbuendet", "weiter": "b_schmier" },
+        "gescheitert": { "status": "aktiv", "weiter": "b_abschluss" }
+      }
+    },
+    {
+      "id": "b_schmier", "typ": "schmiergeld",
+      "parameter": { "staerke": "mittel" },
+      "optionen": [
+        { "id": "bestechen", "text": "Wir zahlen.", "ausgang": "gelungen", "folge": [] },
+        { "id": "verweigern", "text": "Wir zahlen nichts.", "ausgang": "gescheitert", "folge": [] }
+      ],
+      "aus": {
+        "gelungen": { "status": "verbuendet", "weiter": "b_abgabe" },
+        "gescheitert": { "status": "aktiv", "weiter": "b_kampf" }
+      }
+    },
+    {
+      "id": "b_kampf", "typ": "raumschlacht",
+      "aus": {
+        "gelungen": { "status": "aktiv", "weiter": "b_abgabe" },
+        "gescheitert": { "status": "aktiv", "weiter": "b_abschluss" }
+      }
+    },
+    {
+      "id": "b_abgabe", "typ": "fracht",
+      "parameter": { "nach": "$ort", "ware": "fracht_kiste", "ende": "abgeliefert" },
       "aus": {
         "gelungen": { "status": "verbuendet", "weiter": "b_enthuell" },
         "gescheitert": { "status": "aktiv", "weiter": "b_abschluss" }

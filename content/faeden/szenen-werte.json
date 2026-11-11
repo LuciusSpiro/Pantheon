@@ -24,6 +24,7 @@
     "sprecher": "Aufklärung",
     "vorwarnung": {
       "raumschlacht": "Achtung: {n} germanische Schiffe ({klasse}) fallen in {sek} Sekunden in unseren Sektor ein!",
+      "raumschlacht_rom": "Achtung: {n} römische Schiffe ({klasse}) stellen uns in {sek} Sekunden. Der Zoll lässt nicht mit sich reden!",
       "befreiung": "Wachschiffe sichern {name}. Eintreffen in {sek} Sekunden – gefährlich! Wer davor andockt oder springt, lässt {name} im Stich: verloren.",
       "verfolgung": "{name} ({schiff}) will sich absetzen. In {sek} Sekunden beginnt die Verfolgung.",
       "spontanhilfe": "Der Verbündete {name} ist im Sektor. Er greift in die Schlacht ein, sobald sie beginnt.",

@@ -60,7 +60,7 @@ async function captainFeindlich(g) {
 async function main() {
   // Alle drei Vorlagen muessen den Pruefer bestehen (sonst gaebe es nichts zu spielen: ein klarer Fehler statt eines Absturzes)
   const lf = D.ladefehler();
-  ok(lf.length === 0 && D.vorlagenIds().length === 3, 'alle drei Vorlagen bestehen den Pruefer beim Laden' + (lf.length ? ' (' + lf[0].datei + ': ' + lf[0].fehler[0] + ')' : ''));
+  ok(lf.length === 0 && D.vorlagenIds().length === 4, 'alle vier Vorlagen bestehen den Pruefer beim Laden' + (lf.length ? ' (' + lf[0].datei + ': ' + lf[0].fehler[0] + ')' : ''));
   if (lf.length) { console.log(`
 ${n - fails}/${n} Pruefungen ok
 ${fails} FEHLER`); process.exit(1); }
@@ -216,7 +216,7 @@ ${fails} FEHLER`); process.exit(1); }
   {
     const Q = HW.quellen.wert;
     ok(Q.hingehalten.delta === -1 && Q.hingehalten.delta === Q.bitte_abgelehnt.delta, `hingehalten ${Q.hingehalten.delta} = bitte_abgelehnt ${Q.bitte_abgelehnt.delta} (Daten)`);
-    ok(D.vorlagenIds().length === 3 && D.ladefehler().length === 0, 'alle drei Vorlagen bestehen den Pruefer (TON_UNERREICHBAR und VARIANTE_UNERREICHBAR gerechnet)');
+    ok(D.vorlagenIds().length === 4 && D.ladefehler().length === 0, 'alle vier Vorlagen bestehen den Pruefer (TON_UNERREICHBAR und VARIANTE_UNERREICHBAR gerechnet)');
     const v = vor('dankbarer_captain'); v.id = 'x_nach4s3';
     ok(Pruefer.pruefeVorlage(v).ok, 'dankbarer_captain besteht mit den Zahlen der Daten');
     // der Grund fuer feindlich_unter -3: mit der alten Grenze -6 waere die Variante unerreichbar
