@@ -59,6 +59,16 @@ section('Bauweise folgt dem Besitzer', () => {
   ok(payloadB(lob) <= Protocol.AWAY_MAP_MAX_BYTES, 'Lobby-Bunker Payload im Rahmen');
   // Bauweise im Cache-Schluessel: gen.bauweise darf nicht die Lobby-Karte treffen
   ok(L.karte(g, id).bauweise === 'rom_feld', 'nach den Kampagnen-Bau trifft die Lobby nicht die germanische Karte');
+  // gleiche lpId, gleiche Welt-Parameter, nur gen.bauweise verschieden (zwei Spiele, ein Prozess-Cache): verschiedene Karte, verschiedener Hash, in beiden Bau-Reihenfolgen
+  const gleicheId = (gen) => { const gg = mk(); const i = L.testgelaende(gg, { ort: 'kesh', id: 'test.bunker.schluessel', art: 'aussenposten', seed: 5, besitz: 'rom', gen }); return L.karte(gg, i); };
+  const hash = (k) => require('crypto').createHash('sha256').update(JSON.stringify(k)).digest('hex');
+  for (const reihe of [['germanen', 'rom_feld'], ['rom_feld', 'germanen']]) {
+    L.cacheLeeren();
+    const ks = {};
+    for (const b of reihe) ks[b] = gleicheId(b === 'germanen' ? { fest: 'grabenangriff', bauweise: 'germanen' } : { fest: 'grabenangriff' });
+    ok(ks.germanen.bauweise === 'germanen' && ks.rom_feld.bauweise === 'rom_feld', `Cache-Schluessel, gleiche lpId, Bau ${reihe.join(' dann ')}: jede Karte behaelt ihre Bauweise`);
+    ok(hash(ks.germanen) !== hash(ks.rom_feld), `Cache-Schluessel, gleiche lpId, Bau ${reihe.join(' dann ')}: verschiedene Karte (verschiedener Hash)`);
+  }
 });
 
 section('Labor: splitter.methalle bleibt die Variante', () => {

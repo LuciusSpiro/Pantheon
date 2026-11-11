@@ -3,6 +3,8 @@
 // GOD: Der Bot gewinnt das Bunker-Gefecht ohne god nicht (Erkundung EIS-01 Frage 3, Bot-Schwaeche). Darum ist game.god im Bunker-Schritt (und NUR dort) an und das Ergebnis weist es aus
 // (Spalte "god" der Kette-Tabelle, res.god, Mitschnitt kuenstlich 'god'). Dieser Test prueft die Kennzeichnung ebenso wie den Sieg: Sieg, Fehler 0, skip x0, god nur im Schritt,
 // genommener Zugang (tor = Lift, rohr = Leiter), Flag methalle_gesprengt, Kapitel 5 erreicht. Kleine Seeds, Crew 1 und 3 (je beide Zugaenge) + ein CLI-Lauf fuer die Tabelle.
+// TAKT: Dieser Bot treibt den Bunker-Takt selbst (der Lauf tickt das Spiel, Bunker-Pruefungen laufen im Regiebuch-Schritt jeden Tick). Er belegt also NICHT, dass das Regiebuch den Takt traegt:
+// das sichern checker.js (TAKT-BUNKER, test-bunker-bausteine) und test-kette (Takt im Schritt methalle) ab.
 // Die ganze Kette (Crew 1/3, K4 bis Abspann) ist nur manueller Beleg: node tools/sim-headless.js kette --von k4_methalle --crew 1 --bunker tor
 //   node tools/test-bunker-kette-bot.js
 const path = require('path');
