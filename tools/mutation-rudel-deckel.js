@@ -15,10 +15,12 @@ process.on('exit', () => { try { fs.rmSync(TMP, { recursive: true, force: true }
 for (const rel of ['server', 'shared', 'content']) fs.cpSync(path.join(ROOT, rel), path.join(TMP, rel), { recursive: true });
 fs.mkdirSync(path.join(TMP, 'tools'), { recursive: true });
 const T = 'tools/test-rudel-deckel.js';
-for (const rel of [T, 'package.json']) fs.copyFileSync(path.join(ROOT, rel), path.join(TMP, rel));
+for (const rel of ['tools/lib', 'tools/fixtures/context']) fs.cpSync(path.join(ROOT, rel), path.join(TMP, rel), { recursive: true });
+for (const rel of [T, 'tools/katalog.js', 'package.json']) fs.copyFileSync(path.join(ROOT, rel), path.join(TMP, rel));
 for (const rel of ['public', 'node_modules']) { if (fs.existsSync(path.join(ROOT, rel))) { try { fs.symlinkSync(path.join(ROOT, rel), path.join(TMP, rel), 'junction'); } catch (e) { /* kein Modul nötig */ } } }
 
 const KR = 'server/sim/kreatur.js', PL = 'server/mission/bausteine/kreaturen.js', CK = 'server/mission/checker.js', DA = 'content/kampf/kreaturen.json';
+const SZ = 'server/mission/szenenbau.js';
 // [Datei, alter Text (genau einmal), neuer Text, Beschreibung, gleichwertig (Begründung) oder fehlt]
 const MUTATIONEN = [
   // ---- (b) Rudelgröße
@@ -57,6 +59,15 @@ const MUTATIONEN = [
   [KR, "if (!Number.isInteger(R.jeKarte) || R.jeKarte < 1) f(", 'if (false) f(', 'Feldprüfung: jeKarte ungeprüft'],
   [KR, 'T.min < 1 || T.max > RUDEL_MAX || T.min > T.max) f(', 'T.max > RUDEL_MAX) f(', 'Feldprüfung: min < 1 und min > max ungeprüft'],
   [KR, "for (const k of Object.keys(R)) if (!RUDEL_FELDER.includes(k)) f(", 'for (const k of []) if (!RUDEL_FELDER.includes(k)) f(', 'Feldprüfung: unbekannte Felder in rudel erlaubt'],
+  // ---- (g) Grobplan (SPL-01 Nacharbeit W1)
+  [SZ, "  errors.push(...require('../sim/kreatur.js').rudelDeckelPlanFehler(g.szenen, (s) => sceneUmsetzungen(s, env)));", '', 'Grobplan: aufloesen ruft die Rudel-Prüfung nicht'],
+  [KR, 'if (bisher.n > R.jeKarte) out.push("BUEHNE-RUDEL', 'if (bisher.n > R.jeKarte + 2) out.push("BUEHNE-RUDEL', 'Grobplan: Grenze zu hoch (zwei Rudel-Szenen gültig)'],
+  [KR, 'if (bisher.n > R.jeKarte) out.push("BUEHNE-RUDEL', 'if (bisher.n >= R.jeKarte) out.push("BUEHNE-RUDEL', 'Grobplan: Grenze zu niedrig (eine Rudel-Szene abgelehnt)'],
+  [KR, 'const key = JSON.stringify([s.landepunkt, t]);', 'const key = t;', 'Grobplan: Zählung über alle Karten statt je Landepunkt (verschiedene Karten abgelehnt)'],
+  [KR, 'if (Array.isArray(x)) { x.forEach(lauf); return; }', 'if (Array.isArray(x)) return;', 'Grobplan: Listen in der Umsetzung werden nicht durchsucht'],
+  [KR, 'for (const tab of Object.values((u && u.abgeleitet) || {})) {', 'for (const tab of []) {', 'Grobplan: abgeleitet (Rudel 1/2) wird ignoriert'],
+  [KR, "x.do === 'kreatur_besetzen' && typeof x.typ === 'string' && rudelRegel(x.typ)", "x.do === 'kreatur_besetzen' && typeof x.typ === 'string'", 'Grobplan: Typ ohne rudel-Feld zählt auch (Dateneinfluss)'],
+  [KR, 'for (const u of umsetzungenVon(s)) { const r = rudelMaxJeUmsetzung(u);', 'for (const u of umsetzungenVon(s).slice(0, 0)) { const r = rudelMaxJeUmsetzung(u);', 'Grobplan: Umsetzungen der Szene werden nicht gelesen'],
   // ---- Laufzeit bleibt ohne Deckel
   [KR, "if (!Number.isInteger(n) || n < 1 || n > RUDEL_MAX) return fehl(", "if (!Number.isInteger(n) || n < 1 || n > RUDEL_MAX || rudelGroesseFehler({ typ: p.typ, anzahl: n }).length) return fehl(", 'Laufzeit: rudelSetzen wendet den Deckel an (Debug und Rudel-Tests brächen)'],
 ];

@@ -70,7 +70,7 @@ function buildEnv(katalog) {
 //   sceneMap(s)                                   -> Landepunkt der Szene (landepunkt | Altname karte) | null
 //   aufloesen(g, env, kontext, { lp, kartenNeu }) -> { errors, warnings, neu: [{ sid, ort, art, besitz, seed, id }] }
 //        setzt s.landepunkt jeder Bodenszene (gewählt am Ort, geprüft gegen buehne_braucht der gebauten Karte).
-//        Codes: LANDEPUNKT, LANDEPUNKT-GESPERRT, KOORDINATE, BUEHNE-ART, BUEHNE-ANKER (Fehler), BESITZ-REGION (Warnung),
+//        Codes: BUEHNE-RUDEL, LANDEPUNKT, LANDEPUNKT-GESPERRT, KOORDINATE, BUEHNE-ART, BUEHNE-ANKER (Fehler), BESITZ-REGION (Warnung),
 //        FRAKTION, GEGNER-TYP, BESETZUNG-NEU (Fehler), BESETZUNG-SOLO, BESETZUNG-ENTERER (Warnung)
 //   checkGrobplanB1(g, env, kontext, { boden, langImAngebot, landepunkteImAngebot }) -> { errors, warnings }
 //        BODEN-QUOTE (Fehler; mit ohne_boden_grund Warnung), BODEN-LANG (Fehler), LANG-RUNDE (Fehler: schon eine lange
@@ -313,6 +313,7 @@ function aufloesen(g, env, kontext, opts) {
       }
     }
   }
+  errors.push(...require('../sim/kreatur.js').rudelDeckelPlanFehler(g.szenen, (s) => sceneUmsetzungen(s, env)));   // SPL-01 W1: Rudel-Deckel je Karte über alle Szenen (Daten: kreaturen.json)
   if (besetzungNeu.size > 1) errors.push(`BESETZUNG-NEU: ${besetzungNeu.size} neue Gegnerrollen in einer Mission (${[...besetzungNeu].join(', ')}) – höchstens eine neue Rolle je Gefecht`);
   return { errors: [...new Set(errors)], warnings: [...new Set(warnings)], neu };
 }

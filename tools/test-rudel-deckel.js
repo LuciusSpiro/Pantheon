@@ -3,7 +3,8 @@
 // je Rudel 3 bis 4 Tiere, höchstens 2 Rudel je Karte, Rudel nie im Höhlen-Deck unter einer Wildnis. Die Zahlen stehen als Daten je Typ in content/kampf/kreaturen.json (Feld rudel), der Prüfer liest sie.
 // Geprüft: (a) mehr als 2 Rudel je Karte abgelehnt, 1 und 2 gültig, Zählung je Karte und je gruppe; (b) Rudelgröße außerhalb 3 bis 4 abgelehnt, 3 und 4 gültig; (c) bereich im Höhlen-Deck unter einer Wildnis
 // abgelehnt (hoehle, hoehle_lager_n), Oberfläche und eigene Höhlenkarte gültig; (d) andere Typen (probe, schwarmling) und nest_besetzen unberührt; (e) die Zahlen kommen aus den Daten (Werte ändern, Typ ohne Feld,
-// Feldprüfung der Daten); (f) der Spielleiter-Pfad (Katalog-Fragment) lehnt ab, die Laufzeit rudelSetzen bleibt ohne Deckel.
+// Feldprüfung der Daten); (f) der Spielleiter-Pfad (Katalog-Fragment) lehnt ab, die Laufzeit rudelSetzen bleibt ohne Deckel;
+// (g) Grobplan (SPL-01 Nacharbeit W1): szenenbau.aufloesen meldet BUEHNE-RUDEL, wenn zwei Szenen auf demselben Landepunkt zusammen mehr Rudel setzen könnten als jeKarte (Daten, kein Umsetzungsname).
 //   node tools/test-rudel-deckel.js   (npm run test:rudel-deckel; Mutationsprobe: tools/mutation-rudel-deckel.js)
 const fs = require('fs');
 const path = require('path');
@@ -124,6 +125,50 @@ section('(f) Spielleiter-Pfad: Katalog-Fragment; Laufzeit ohne Deckel', () => {
   const quelle = fs.readFileSync(path.join(__dirname, '..', 'server', 'sim', 'kreatur.js'), 'utf8');
   const rumpf = quelle.split('function rudelSetzen')[1].split('// ---------- Nest')[0];
   ok(/RUDEL_MAX = 12/.test(quelle) && !/rudelGroesseFehler|rudelJeKarteFehler|.tiere|.jeKarte/.test(rumpf), 'Laufzeit rudelSetzen liest den Deckel (Tiere, Rudel je Karte) nicht; rudel.abstand (SPL-01 c) ist kein Deckel (Debug, Labor, Rudel-Tests mit bis zu 12 Tieren bleiben möglich)');
+});
+
+section('(g) Grobplan: Rudel je Karte schon in aufloesen (SPL-01 Nacharbeit W1)', () => {
+  const M = require('./lib/messe-spl.js');
+  const SB = require('../server/mission/szenenbau.js');
+  const C = require('../server/mission/context.js');
+  const K = require('./katalog.js').load({});
+  const env = SB.buildEnv(K);
+  const welt = M.weltstand('nach-tutorial');
+  const ctx = C.build(welt, M.anlass(), K); ctx.bodenbilanz = { letzte: [], pflicht_jetzt: false, lang_ab_min: 25 };
+  const st = Object.values(K.szenentypen).find((t) => t.bereich === 'aussen' && t.status === 'verfuegbar' && (t.verfuegbare_molekuele || []).includes('stellung_nehmen'));
+  const RUDEL = 'stellung_nehmen/rudeltiere_im_gelaende';
+  const mol = (m) => ({ id: m.split('/')[0], umsetzung: m.split('/')[1] });
+  const plan = (szenen) => {   // szenen: [{ buehne, mols }] -> Grobplan mit Hafen + Szenen s2, s3, ...
+    const g = M.testplan({ szenentyp: st.id, ort: 'kesh', buehne: szenen[0].buehne, mols: szenen[0].mols });
+    szenen.slice(1).forEach((x, i) => {
+      const vor = g.szenen[g.szenen.length - 1];
+      vor.weiter = [{ wenn: 'immer', nach: 's' + (i + 3) }];
+      g.szenen.push(Object.assign(JSON.parse(JSON.stringify(vor)), { id: 's' + (i + 3), buehne: x.buehne, molekuele: x.mols.map(mol), weiter: [{ wenn: 'gut', nach: 'ausgang:erfolg' }, { wenn: 'sonst', nach: 'ausgang:teil' }] }));
+    });
+    return g;
+  };
+  const lauf = (g) => SB.aufloesen(g, env, ctx, { lp: C.lpAdapterAusWelt(welt) });
+  const rudelFehler = (r) => r.errors.filter((e) => /^BUEHNE-RUDEL/.test(e));
+  const wild = { kartenart: 'wildnis', neu: true };
+  const eine = lauf(plan([{ buehne: wild, mols: [RUDEL] }]));
+  ok(rudelFehler(eine).length === 0 && eine.errors.length === 0, 'eine Rudel-Szene auf neuer Wildnis: gültig (' + eine.errors.join(' | ') + ')');
+  const zwei = lauf(plan([{ buehne: wild, mols: [RUDEL] }, { buehne: wild, mols: [RUDEL] }]));
+  const fe = rudelFehler(zwei);
+  ok(fe.length === 1 && /^BUEHNE-RUDEL: Szene 's3': Landepunkt '[^']+' trägt schon Rudel des Typs 'rudeltier' aus Szene 's2' \(bis zu 2\), diese Szene setzt bis zu 2 Rudel des Typs 'rudeltier' – höchstens 2 Rudel je Karte/.test(fe[0]), 'zwei Rudel-Szenen auf derselben neuen Karte: genau ein BUEHNE-RUDEL-Fehler mit sprechendem Text (' + fe.join(' | ') + ')');
+  const verschieden = lauf(plan([{ buehne: wild, mols: [RUDEL] }, { buehne: { kartenart: 'hoehle', neu: true }, mols: [RUDEL] }]));
+  ok(verschieden.errors.length === 0, 'zwei Rudel-Szenen auf verschiedenen neuen Karten (Wildnis, Höhle): gültig (' + verschieden.errors.join(' | ') + ')');
+  const mitAndere = lauf(plan([{ buehne: wild, mols: [RUDEL] }, { buehne: wild, mols: ['personen_bergen/ueberlebende_suchen'] }]));
+  ok(rudelFehler(mitAndere).length === 0, 'Rudel-Szene und Szene ohne Rudel auf derselben Karte: kein Rudel-Fehler');
+  // Datengetrieben: die Zahl der möglichen Rudel kommt aus der Umsetzung (abgeleitet) und dem Typ (kreaturen.json), kein Umsetzungsname im Prüfer
+  const u = env.katalog.molekuele.stellung_nehmen.umsetzungen.find((x) => x.id === 'rudeltiere_im_gelaende');
+  const andere = env.katalog.molekuele.personen_bergen.umsetzungen.find((x) => x.id === 'ueberlebende_suchen');
+  ok(Kreatur.rudelMaxJeUmsetzung(u).rudeltier === 2 && Object.keys(Kreatur.rudelMaxJeUmsetzung(andere)).length === 0, 'rudelMaxJeUmsetzung: rudeltiere_im_gelaende bis zu 2 Rudel, andere Umsetzung keine');
+  const ka = (g, typ) => ({ do: 'kreatur_besetzen', map: 'm', typ: typ || 'rudeltier', anzahl: 3, gruppe: g });
+  const synth = { vorlage: { steps: [{ enter: [ka('a'), ka('a'), ka('b'), ka('c', 'probe')] }] }, abgeleitet: { x: { '1': { v: ka('d') }, '2': { v: ka('e'), w: ka('f') } } } };
+  ok(Kreatur.rudelMaxJeUmsetzung(synth).rudeltier === 4 && !('probe' in Kreatur.rudelMaxJeUmsetzung(synth)), 'rudelMaxJeUmsetzung (synthetisch): Vorlage zählt verschiedene Gruppen in Listen (a, b = 2, probe ohne rudel-Feld nicht) plus stärkste abgeleitet-Zeile (2) = 4');
+  const T = KREATUREN.typen.rudeltier; const alt = JSON.stringify(T.rudel);
+  try { delete T.rudel; ok(rudelFehler(lauf(plan([{ buehne: wild, mols: [RUDEL] }, { buehne: wild, mols: [RUDEL] }]))).length === 0, 'Typ ohne rudel-Feld in den Daten: kein Rudel-Fehler im Grobplan'); }
+  finally { T.rudel = JSON.parse(alt); }
 });
 
 console.log('\n' + (fails ? 'FEHLER: ' + fails + ' von ' + n : 'alle ' + n + ' Prüfungen ok'));
