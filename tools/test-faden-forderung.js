@@ -156,7 +156,7 @@ const antwort = (g, id) => Bitte.beantworten(g, id, angebot(g) ? angebot(g).nr :
     for (const d of dateien) { const t = ohneKommentar(fs.readFileSync(d, 'utf8')); for (const name of Object.keys(D.BEATS).filter((k) => D.BEATS[k].baustein === f.baustein || k === 'schmiergeld')) if (new RegExp('[\'"`]' + name + '[\'"`]').test(t) && path.basename(d) !== 'faden-bausteine.js' && !/^(geld|kampagnegeld).js$/.test(path.basename(d))) treffer.push(path.basename(d) + ':' + name); }
     ok(treffer.length === 0, 'kein Beat-Name (forderung, schmiergeld) als Zeichenkette im Servercode ausser der Registrierung in faden-bausteine.js (und dem Geld-Grund der Kampagne in geld.js/kampagnegeld.js, anderer Namensraum): ' + treffer.join(', '));
     ok(/registriere\('[a-z]+', require\('\.\/faden-forderung\.js'\)\.baustein\)/.test(fs.readFileSync(path.join(__dirname, '..', 'server', 'sim', 'faden-bausteine.js'), 'utf8')), 'die Registrierung steht in faden-bausteine.js');
-    ok(Geld.GRUENDE.includes('bestechung') && Geld.GRUENDE.includes('forderung'), 'Geld: eigener Grund bestechung, der Kampagnen-Grund forderung bleibt');
+    ok(Geld.GRUENDE.includes('bestechungsgeld') && Geld.GRUENDE.includes('forderung'), 'Geld: eigener Grund bestechungsgeld, der Kampagnen-Grund forderung bleibt');
   });
 
   await section('(b) Pruefer: Test-Vorlagen gueltig, Gegenproben', async () => {
@@ -258,7 +258,7 @@ const antwort = (g, id) => Bitte.beantworten(g, id, angebot(g) ? angebot(g).nr :
       const vorher = marken(g); let gezahlt = null; const orig = g.missionEvent.bind(g);
       g.missionEvent = (k, d) => { if (k === 'marksPaid') gezahlt = d; return orig(k, d); };
       ok(antwort(g, 'bestechen') === null, 'Bestechen wird angenommen');
-      ok(marken(g) === vorher - PREIS && gezahlt && gezahlt.n === PREIS && gezahlt.grund === 'bestechung', 'Marken abgebucht: ' + PREIS + ' (Betrag aus forderung-werte.json, Grund bestechung, Ereignis marksPaid)');
+      ok(marken(g) === vorher - PREIS && gezahlt && gezahlt.n === PREIS && gezahlt.grund === 'bestechungsgeld', 'Marken abgebucht: ' + PREIS + ' (Betrag aus forderung-werte.json, Grund bestechungsgeld, Ereignis marksPaid)');
       ok(!!f.fracht && lager(g) === x.lager0 + 1 && !radio.some((q) => q.text === T_VERLOREN), 'die Ware bleibt (Faden und Frachtraum), kein „verloren“');
       ok(f.phase === 'wartet' && f.beat === 4 && D.vorlage(f.vorlage).beats[f.beat].typ === 'fracht', 'der Faden geht weiter zum Abliefer-Beat, der Kampf-Beat wird uebersprungen');
       ok(radio.some((q) => q.text === TEXTE.reaktionen.bestechen) && ereignisse(f).slice(-1)[0] === 'schmiergeld_gelungen', 'Funk des Forderers, Gedaechtnis schmiergeld_gelungen');

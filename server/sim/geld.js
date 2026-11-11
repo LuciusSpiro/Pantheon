@@ -15,7 +15,7 @@
 const GRUENDE = Object.freeze([
   'start', 'testmarken', 'debug', 'laden', 'kampagne', 'migration',   // Stand setzen
   'abschuss', 'bergung', 'entern', 'erkundung', 'belohnung', 'notruf', 'verkauf', 'ueberhang', 'skript',   // Einnahmen
-  'kauf', 'info', 'werft', 'notfall', 'mission', 'forderung', 'geldziel', 'soeldner', 'loesegeld', 'bestechung',   // Ausgaben (bestechung: BEA-01 A, Geschichtsfaden; 'forderung' gehoert der Kampagne)
+  'kauf', 'info', 'werft', 'notfall', 'mission', 'forderung', 'geldziel', 'soeldner', 'loesegeld', 'bestechungsgeld',   // Ausgaben (bestechungsgeld: BEA-01 A, Geschichtsfaden; 'forderung' gehoert der Kampagne)
 ]);
 const ARTEN = Object.freeze(['buchung', 'stand']);
 const Pruefung = require('./buchungspruefung.js');
@@ -63,8 +63,8 @@ function abbuchen(game, n, grund) {
   return true;
 }
 
-// BEA-01 A: Bestechung im Geschichtsfaden (faden-forderung.js): zahlt n Marken, nur wenn genug da sind. true = bezahlt, false = nichts gebucht. Mit Ereignis marksPaid (grund bestechung).
-function bestechungZahlen(game, n) { return abbuchen(game, n, 'bestechung'); }
+// BEA-01 A: Bestechung im Geschichtsfaden (faden-forderung.js): zahlt n Marken, nur wenn genug da sind. true = bezahlt, false = nichts gebucht. Mit Ereignis marksPaid (grund bestechungsgeld).
+function bestechungZahlen(game, n) { return abbuchen(game, n, 'bestechungsgeld'); }
 
 // ---- stille Varianten: exakt die Rechnung der Stellen vor dem Umbau, KEIN sfx/missionEvent (nie eins ergänzen) ----
 

@@ -29,6 +29,9 @@
 //   offen(game) -> Angebot | null ; snapshot(game) / schluessel(game)   Anzeigeblock world.bitte { nr, von, pid, text, optionen: [{ id, text }], kopf, spaeter, rest } | null (Löschsignal)
 //   toSaveBitte(F) -> Block | null ; lesenBitte(block, F) -> Angebot | null   Weltstand (müllfest, Folgen aus der Vorlage)
 //   weigerung(code) -> { code, text }
+//
+// BEA-01 A: Die Antwortleiste gehoert jedem Baustein mit angebot: true (heute `bitte` und die Forderung, faden-forderung.js), nie einem Namen. Ein Baustein darf Absender, Text und Kopf aus eigenen Daten liefern
+// (absender(beat, f), text(game, f, beat)), eine Wahl vor dem Ausgang ablehnen (optionPruefen -> { code, text }: das Angebot bleibt offen) und nach der Antwort etwas tun (optionGewaehlt: Kosten buchen, Funk).
 const D = require('./faden-daten.js');
 const P = require('./faden-pruefer.js');
 
