@@ -645,7 +645,7 @@ function rudelAktionen(baum, jeTyp) {
   (function lauf(x) {
     if (Array.isArray(x)) { x.forEach(lauf); return; }
     if (!x || typeof x !== 'object') return;
-    if (x.do === 'kreatur_besetzen' && typeof x.typ === 'string' && rudelRegel(x.typ)) {
+    if (x.do === 'kreatur_besetzen' && 'string' === typeof x.typ && rudelRegel(x.typ)) {
       const S = gruppen[x.typ] || (gruppen[x.typ] = new Set());
       S.add(typeof x.gruppe === 'string' ? x.gruppe : '#' + S.size);
     }
