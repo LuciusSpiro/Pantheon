@@ -28,7 +28,7 @@ const MUTATIONEN = [
   [PR, "const t2 = t || (ag === 'gelungen' && o === b.aus[ag] && istTat(b));", "const t2 = true;", 'Regel c: jeder Weg gilt als Tat'],
   [PR, "const t2 = t || (ag === 'gelungen' && o === b.aus[ag] && istTat(b));", "const t2 = t || (o === b.aus[ag] && istTat(b));", 'Regel c: auch der Ausgang gescheitert (Frist, Zeitablauf) zählt als Tat'],
   [PR, "const t2 = t || (ag === 'gelungen' && o === b.aus[ag] && istTat(b));", "const t2 = t || (ag === 'gelungen' && o === b.aus[ag]);", 'Regel c: das Gelingen jedes Beat-Typs zählt als Tat (tat_beats und Ende-Modus ignoriert)'],
-  [PR, "const key = i + '|' + s + '|' + (h ? 1 : 0) + '|' + (t ? 1 : 0);", "const key = i + '|' + s + '|' + (h ? 1 : 0);", 'Regel c: die Wegesuche unterscheidet Zustände mit und ohne Tat nicht'],
+  [PR, "const key = i + '|' + s + '|' + (h ? 1 : 0) + '|' + (t ? 1 : 0) + '|' + (l ? 1 : 0);", "const key = i + '|' + s + '|' + (h ? 1 : 0) + '|' + (l ? 1 : 0);", 'Regel c: die Wegesuche unterscheidet Zustände mit und ohne Tat nicht'],
   // Regel (a), (b), (d), (e)
   [PR, "if (istSimBefehl(f)) { folgeOk = false;", "if (false) { folgeOk = false;", 'Regel a: sim_befehl in einer Option wird nicht als Ort-Fehler erkannt'],
   [PR, "if (ag !== 'gelungen') fehler.push(fehl('SIM_BEFEHL_ORT'", "if (false) fehler.push(fehl('SIM_BEFEHL_ORT'", 'Regel a: sim_befehl in aus.gescheitert wird nicht erkannt'],
