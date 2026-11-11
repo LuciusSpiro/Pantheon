@@ -2,7 +2,9 @@
 // SPL-01 a3: Rudel-Erreichbarkeit. Setzt ein Rudeltier (Kreatur.rudelSetzen, typ rudeltier, 6 Tiere) auf frisch erzeugte Gelaende-Karten und zaehlt,
 // auf wie vielen Seeds die Platzierung klappt und auf welchen Decks die Tiere stehen. Liest nur, im Speicher (Spiel ohne Store, wie tools/gel02-hilfen.js).
 // Erkundungswert SPL-01: Oberflaeche (wildnis) 20/20; Hoehle-Deck unter Wildnis (bereich 'hoehle') 0/20.
-// Aufruf:  node tools/messe-spl-rudel.js [--seeds n] [--json]      (npm run messe:spl-rudel)
+// Aufruf:  node tools/messe-spl-rudel.js [--seeds n] [--platz] [--json]      (npm run messe:spl-rudel)
+//   --platz    (SPL-01 c) Platzierungs-Sweep fuer die Umsetzung rudeltiere_im_gelaende: ein und zwei Rudel (3 und 4 Tiere), Wildnis 3 Biome x 3 Groessen,
+//              Wildnis+Hoehle (klein, mittel), Hoehle (3 Groessen); prueft Erreichbarkeit, Abholpunkt-Abstand, Tierabstand, Rudel verteilt (tools/lib/rudel-platz.js)
 //   --seeds n  Seeds je Fall (1..n), Standard 20
 // Faelle: wildnis (wueste/mittel), hoehle (mittel, ohne Bereich), wildnis+hoehle (vulkan/mittel, ohne Bereich = Oberflaeche),
 //         wildnis+hoehle mit bereich 'hoehle' (zweites Deck), hoehle mit bereich 'lager_1' (Seed 3, Einzelprobe).
@@ -13,10 +15,18 @@ process.chdir(M.WURZEL);
 const H = require('./gel02-hilfen.js');
 const Kreatur = require('../server/sim/kreatur.js');
 
-const flags = M.args(process.argv.slice(2), { seeds: 'zahl', json: 'flag' }, 'Aufruf: node tools/messe-spl-rudel.js [--seeds n] [--json]');
+const flags = M.args(process.argv.slice(2), { seeds: 'zahl', platz: 'flag', json: 'flag' }, 'Aufruf: node tools/messe-spl-rudel.js [--seeds n] [--platz] [--json]');
 const N = flags.seeds || 20;
 
 M.laufen('messe-spl-rudel', flags, () => {
+  if (flags.platz) {
+    const P = require('./lib/rudel-platz.js');
+    const faelle = P.sweep(N);
+    const karten = faelle.reduce((a, f) => a + f.karten, 0), probleme = faelle.reduce((a, f) => a + f.probleme, 0);
+    const text = faelle.map((f) => `${f.name}: ${f.karten - f.probleme}/${f.karten} ok${f.zwischenMin !== null ? ', kleinster Abstand der Rudel ' + f.zwischenMin.toFixed(1) + ' Kacheln' : ''}${f.probleme ? ' ' + JSON.stringify(f.meldungen) : ''}`);
+    text.push('', `${karten} Faelle, ${probleme} mit Problem (Mindestabstand Rudel ${P.ZWISCHEN}, Abholpunkt ${P.ABHOLPUNKT}, Tiere ${P.TIERABSTAND} Kacheln)`);
+    return { text, daten: { seeds: N, karten, probleme, faelle } };
+  }
   const seeds = [...Array(N)].map((_, i) => i + 1);
   const faelle = [];
   function lauf(name, spiel, setzen, seedsFall) {

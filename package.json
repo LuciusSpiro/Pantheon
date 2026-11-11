@@ -409,6 +409,8 @@
     "test:kreatur-erledigt-mutation": "node tools/mutation-kreatur-erledigt.js",
     "test:rudel-deckel": "node tools/test-rudel-deckel.js",
     "test:rudel-deckel-mutation": "node tools/mutation-rudel-deckel.js",
+    "test:rudel-gelaende": "node tools/test-rudel-gelaende.js",
+    "test:rudel-gelaende-mutation": "node tools/mutation-rudel-gelaende.js",
     "test:schwarm": "node tools/test-schwarm.js",
     "test:schwarm-nest": "node tools/test-schwarm-nest.js",
     "test:schwarm-scan": "node tools/test-schwarm-scan.js",
