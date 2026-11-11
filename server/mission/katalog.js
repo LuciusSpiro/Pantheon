@@ -86,14 +86,49 @@ function resolveParams(u, given) {
     vars[n] = v;
   }
   for (const n of Object.keys(given)) if (!(n in u.params)) errs.push(`unbekannter Parameter '${n}'`);
-  return { vars, errs };
+  // MON-03 D: abgeleitet { <param>: { <wert>: { <var>: Wert } } }: Der gewählte Wert eines Parameters bringt weitere Platzhalter-Werte mit (z. B. die Art einer Begegnung -> Aktion und Bedingung der Szene).
+  // Reine Daten, kein Name im Code; die Werte dürfen {{map}}, {{id}} u. a. enthalten (Auflösung in instantiate).
+  const abg = {};
+  for (const [n, tab] of Object.entries(u.abgeleitet || {})) if (n in vars && tab && Object.prototype.hasOwnProperty.call(tab, vars[n])) Object.assign(abg, tab[vars[n]]);
+  return { vars, errs, abgeleitet: abg };
 }
 // Umsetzung -> Regiebuch-Fragment (für eine Szene). id = Instanz-Präfix, weiter = Folgeschritt.
 // EK2: rueckzug = Ziel des Ausgangs „Rückzug“ (Notfallsprung, Platzhalter {{rueckzug}}); ohne Angabe wie weiter.
 function instantiate(u, given, id, weiter, rueckzug) {
-  const { vars, errs } = resolveParams(u, given);
-  const frag = expand(u.vorlage, Object.assign({}, vars, { id, weiter, rueckzug: rueckzug !== undefined ? rueckzug : weiter }));
+  const { vars, errs, abgeleitet } = resolveParams(u, given);
+  const alle = Object.assign({}, vars, { id, weiter, rueckzug: rueckzug !== undefined ? rueckzug : weiter });
+  const frag = expand(u.vorlage, Object.assign({}, expand(abgeleitet, alle), alle));   // MON-03 Nacharbeit E4: Parameter, id, weiter, rueckzug gewinnen immer (abgeleitet darf sie nicht überschreiben)
   return { frag, errs };
+}
+// MON-03 Nacharbeit E4: Prüfung von `abgeleitet` für ALLE Werte (nicht nur den Testwert). Regeln: jeder Schlüssel der Tabelle ist ein Parameter mit Werteliste; jeder erlaubte Wert hat eine Zeile und jede Zeile gehört zu einem erlaubten Wert;
+// alle Zeilen einer Tabelle haben dieselben Schlüssel (sonst bliebe für einen Wert ein Platzhalter offen); kein Schlüssel heißt wie ein Parameter, id, weiter oder rueckzug; zwei Tabellen teilen sich keinen Schlüssel. -> [Text]
+const ABGELEITET_RESERVIERT = ['id', 'weiter', 'rueckzug'];
+function abgeleitetFehler(u) {
+  const out = []; const ab = u.abgeleitet; if (ab === undefined) return out;
+  if (!ab || typeof ab !== 'object' || Array.isArray(ab)) return ['abgeleitet: Objekt { parameter: { wert: { variable: Wert } } } erwartet'];
+  const has = (o, k) => Object.prototype.hasOwnProperty.call(o, k);
+  const vergeben = new Map();
+  for (const [n, tab] of Object.entries(ab)) {
+    const p = has(u.params, n) ? u.params[n] : null;
+    if (!p) { out.push(`abgeleitet.${n}: kein Parameter dieser Umsetzung`); continue; }
+    if (!Array.isArray(p.werte) || !p.werte.length) { out.push(`abgeleitet.${n}: der Parameter braucht eine Werteliste (werte), sonst bliebe ein Wert ohne Zeile`); continue; }
+    if (!tab || typeof tab !== 'object' || Array.isArray(tab)) { out.push(`abgeleitet.${n}: Objekt { wert: { variable: Wert } } erwartet`); continue; }
+    for (const w of p.werte) if (!has(tab, w)) out.push(`abgeleitet.${n}: der erlaubte Wert '${w}' hat keine Zeile`);
+    for (const w of Object.keys(tab)) if (!p.werte.includes(w)) out.push(`abgeleitet.${n}.${w}: kein erlaubter Wert des Parameters (${p.werte.join(', ')})`);
+    const schluessel = new Set();
+    for (const [w, zeile] of Object.entries(tab)) {
+      if (!zeile || typeof zeile !== 'object' || Array.isArray(zeile)) { out.push(`abgeleitet.${n}.${w}: Objekt { variable: Wert } erwartet`); continue; }
+      for (const k of Object.keys(zeile)) schluessel.add(k);
+    }
+    for (const k of schluessel) {
+      if (ABGELEITET_RESERVIERT.includes(k)) out.push(`abgeleitet.${n}: der Schlüssel '${k}' ist reserviert (id, weiter, rueckzug)`);
+      else if (has(u.params, k)) out.push(`abgeleitet.${n}: der Schlüssel '${k}' ist ein Parameter der Umsetzung und darf nicht überschrieben werden`);
+      if (vergeben.has(k) && vergeben.get(k) !== n) out.push(`abgeleitet.${n}: der Schlüssel '${k}' steht auch in abgeleitet.${vergeben.get(k)}`);
+      vergeben.set(k, n);
+      for (const [w, zeile] of Object.entries(tab)) if (zeile && typeof zeile === 'object' && !Array.isArray(zeile) && !has(zeile, k)) out.push(`abgeleitet.${n}.${w}: der Schlüssel '${k}' fehlt (andere Werte haben ihn, der Platzhalter bliebe offen)`);
+    }
+  }
+  return out;
 }
 // Testregiebuch um ein Fragment herum (für die Prüfung beim Laden)
 function testRegiebuch(frag, molId, u) {
@@ -181,6 +216,17 @@ function load(opts) {
       if (u.sund_frei) for (const t of sundFreiFehler(u)) fehler.push({ datei: u.quelle_datei, msg: `Umsetzung '${u.id}': sund_frei: ${t}` });   // SUND-04b B2
       for (const n of u.nach || []) { const [mm, uu] = n.split('/'); if (!molekuele[mm] || !molekuele[mm].umsetzungen.some((x) => x.id === uu)) fehler.push({ datei: u.quelle_datei, msg: `Umsetzung '${u.id}': 'nach' verweist auf unbekannte Umsetzung '${n}'` }); }
       const fehlend = mechOk(u.braucht);
+      const abgFehler = abgeleitetFehler(u);   // MON-03 Nacharbeit E4
+      for (const t of abgFehler) fehler.push({ datei: u.quelle_datei, msg: `Umsetzung '${u.id}': ${t}` });
+      if (!abgFehler.length && u.abgeleitet) {   // jeder Wert jedes Parameters mit Tabelle besteht den Prüfer, nicht nur der Testwert
+        for (const [pn, tab] of Object.entries(u.abgeleitet)) for (const w of Object.keys(tab)) {
+          if (u.test.params && u.test.params[pn] === w) continue;   // der Testwert läuft unten
+          const r = instantiate(u, Object.assign({}, u.test.params, { [pn]: w }), 's1', 'test_ende');
+          const e = r.errs.map((x) => ({ code: 'PARAM', p: 'test.params', msg: x }));
+          if (!e.length) e.push(...Checker.check(testRegiebuch(r.frag, m.id, u)).errors);
+          for (const x of e) { abgFehler.push(x.msg); fehler.push({ datei: u.quelle_datei, msg: `Umsetzung '${u.id}': Wert '${w}' von '${pn}' besteht den Prüfer nicht: ${x.code} ${x.p} – ${x.msg}` }); }
+        }
+      }
       const { frag, errs } = instantiate(u, u.test.params, 's1', 'test_ende');
       let pruefung = { errors: errs.map((e) => ({ code: 'PARAM', p: 'test.params', msg: e })), warnings: [] };
       if (!errs.length) pruefung = Checker.check(testRegiebuch(frag, m.id, u));
@@ -197,7 +243,7 @@ function load(opts) {
         u.status = 'geplant';
         continue;
       }
-      u.status = pruefung.errors.length ? 'fehlerhaft' : fehlend.length ? 'geplant' : 'verfuegbar';
+      u.status = pruefung.errors.length || abgFehler.length ? 'fehlerhaft' : fehlend.length ? 'geplant' : 'verfuegbar';
       if (pruefung.errors.length) fehler.push(...pruefung.errors.map((e) => ({ datei: u.quelle_datei, msg: `Umsetzung '${u.id}' besteht den Prüfer nicht: ${e.code} ${e.p} – ${e.msg}` })));
     }
     m.status = m.umsetzungen.some((u) => u.status === 'verfuegbar') ? 'verfuegbar' : 'geplant';

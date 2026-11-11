@@ -241,7 +241,8 @@
         "abbau": 4,
         "abholpunkt": 1,
         "deckung": 4,
-        "fund": 2
+        "fund": 2,
+        "nest": 1
       }
     }
   ],
@@ -1671,6 +1672,25 @@
             ],
             "id": "flagge_hissen",
             "name": "Flagge hissen und Siedlung halten",
+            "schauplatz": "aussen"
+          },
+          {
+            "beschreibung": "Höhle mit Kreaturen statt Drohnen, Typ als Parameter. rudeltier: drei starke Tiere mit Panzerung vorn, einzeln bekämpfbar. schwarm: viele kleine Wesen um eine Königin am Nest; Abbaulärm lockt sie, die Königin beseitigen löst den Schwarm auf. Erledigt, wenn alle Tiere bzw. die Königin endgültig erledigt sind. Beide Typen gleichwertig anbieten und abwechseln.",
+            "braucht_anker": {
+              "anker": [
+                "abholpunkt",
+                "nest"
+              ],
+              "kartenarten": [
+                "hoehle"
+              ]
+            },
+            "dauer_min": [
+              4,
+              8
+            ],
+            "id": "kreaturen_in_hoehle",
+            "name": "Kreaturen in der Höhle erledigen",
             "schauplatz": "aussen"
           },
           {

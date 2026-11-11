@@ -33,6 +33,22 @@
       "hinweisAb": 1,
       "symbol": "MO"
     },
+    "schwarmling": {
+      "name": "Schwarmling",
+      "gefahr": 1,
+      "zeile": "Beißt im Schwarm, kehrt wieder.",
+      "hinweis": "Fällt einer, kommt Ersatz. Lärm lockt an. Fällt die Königin, zerfällt der Schwarm.",
+      "hinweisAb": 1,
+      "symbol": "MO"
+    },
+    "koenigin": {
+      "name": "Königin",
+      "gefahr": 3,
+      "zeile": "Sitzt fest, bringt Nachwuchs.",
+      "hinweis": "Bringt Schwarmlinge nach, solange sie lebt. Königin beseitigen: Der Schwarm zerfällt.",
+      "hinweisAb": 1,
+      "symbol": "MO"
+    },
     "testmonster": {
       "name": "Testmonster",
       "gefahr": 2,

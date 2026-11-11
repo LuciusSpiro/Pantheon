@@ -5,6 +5,8 @@
 //   scanbarAnmelden(art, def)    def = { ziele(game, aw) -> [{ id, x, y, typ }], tiefen?: { position } } (Mindest-scanStufe für x,y, Standard 3); doppelte Art = Ausnahme. -> Abmelder
 //                                Hinweisstufe steht im Client-Content (`hinweisAb`), nicht hier; tiefen.hinweis wird abgelehnt.
 //                                def.beiPosition(game, aw, ziel, p) (optional, ITM-01 C): nach jedem Scan, der das Ziel mit Stufe >= tiefen.position erfasst (Ort enthüllt); darf Zustand ändern (Falle: verborgen -> erkannt), muss wiederholbar sein.
+//                                Ein Ziel darf `nachrang: true` tragen (MON-03 C: Gefolge wie Schwarmlinge): es wird nach allen anderen erfasst und darf aw.sc nur bis max - NACHRANG_RESERVE füllen,
+//                                damit ein Schwarm den Anführer (Königin) nicht aus den Plätzen verdrängt. Die Art entscheidet aus ihren Daten, hier steht kein Typname.
 //                                ziele() MUSS billig sein (Liste vorhandener Objekte, kein Neuaufbau aus der Karte): update ruft es bei nicht leerem aw.sc höchstens alle 0,5 s je Art,
 //                                jeder Scan ruft es einmal. Die Liste darf bewegte Ziele mit aktueller Position liefern (der nächste Scan zieht x,y nach).
 //   update(game)                 Ziele, die nicht mehr geliefert werden, fallen aus aw.sc (nur wenn aw.sc nicht leer, höchstens alle 0,5 s: Zeit über game.time)
@@ -19,6 +21,7 @@
 const Scanner = require('./scanner.js');
 
 const STANDARD = { position: 3 };
+const NACHRANG_RESERVE = 4;      // Plätze in aw.sc, die nachrangigen Zielen (Gefolge) verschlossen bleiben (MON-03 C)
 const AUFRAEUMEN = 0.5;          // s: so selten prüft update, ob erfasste Ziele noch geliefert werden
 const pruefBis = new WeakMap();  // Außenkarte -> game.time der nächsten Aufräumprüfung (fällt mit der Karte weg)
 const arten = new Map();         // art -> { ziele, tiefen }
@@ -44,7 +47,7 @@ function alleZiele(game, aw) {
   for (const [art, a] of arten) {
     let liste;
     try { liste = a.ziele(game, aw); } catch (e) { if (game.countError) game.countError('scanbar-' + art, e); continue; }
-    for (const z of liste || []) out.push({ art, id: z.id, x: z.x, y: z.y, typ: z.typ, tiefen: a.tiefen, bei: a.beiPosition });
+    for (const z of liste || []) out.push({ art, id: z.id, x: z.x, y: z.y, typ: z.typ, nachrang: z.nachrang === true, tiefen: a.tiefen, bei: a.beiPosition });
   }
   return out;
 }
@@ -75,17 +78,22 @@ function scanWirkung(game, p, stufe, ort) {
   const aw = game.away;
   if (!aw) return;
   const R = game.C.scanner.reichweite, max = game.C.scanner.maxEintraege;
-  const imKreis = [];
-  for (const z of alleZiele(game, aw)) { const d = Math.hypot(z.x - ort.x, z.y - ort.y); if (d <= R) imKreis.push({ z, d }); }
-  imKreis.sort((a, b) => a.d - b.d);   // nächste zuerst: bei voller aw.sc rücken nur freie Plätze nach
+  const imKreis = [], nachrangig = new Set();
+  for (const z of alleZiele(game, aw)) {
+    if (z.nachrang) nachrangig.add(schluessel(z.art, z.id));
+    const d = Math.hypot(z.x - ort.x, z.y - ort.y); if (d <= R) imKreis.push({ z, d });
+  }
+  imKreis.sort((a, b) => (a.z.nachrang - b.z.nachrang) || (a.d - b.d));   // Vorrangige zuerst, dann nächste zuerst: bei voller aw.sc rücken nur freie Plätze nach
   let belegt = aw.sc ? Object.keys(aw.sc).length : 0;
+  let belegtNach = aw.sc ? Object.keys(aw.sc).filter((k) => nachrangig.has(k)).length : 0;
+  const nachMax = Math.max(0, max - NACHRANG_RESERVE);
   let neu = 0, bewegt = 0, voll = 0;
   for (const { z } of imKreis) {
     const bekannt = !!(aw.sc && aw.sc[schluessel(z.art, z.id)]);
-    if (!bekannt && belegt >= max) { voll++; continue; }
+    if (!bekannt && (belegt >= max || (z.nachrang && belegtNach >= nachMax))) { voll++; continue; }
     const r = erfassen(aw, z, stufe);
     if (z.bei && stufe >= z.tiefen.position) { try { z.bei(game, aw, z, p); } catch (e) { if (game.countError) game.countError('scanbar-position-' + z.art, e); } }   // Ort enthüllt (ITM-01 C: Falle wird erkannt)
-    if (r === 'neu') { neu++; if (!bekannt) belegt++; } else if (r === 'bewegt') bewegt++;
+    if (r === 'neu') { neu++; if (!bekannt) { belegt++; if (z.nachrang) belegtNach++; } } else if (r === 'bewegt') bewegt++;
   }
   meldung(game, p, scanText(imKreis.length, neu, bewegt, voll));
 }

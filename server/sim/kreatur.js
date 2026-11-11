@@ -27,7 +27,9 @@
 //   erzeugen(game, typ, x, y) / debugKreatur(game, p, typ)   Anlegen; Debug `kreatur <typ>` (nur Server --debug)
 //   erzeugenAuf(game, aw, typ, { x, y, gruppe? })            Anlegen auf einer gegebenen Außenkarte (Missionsaktionen laufen vor der Landung; MON-02 P1)
 //   rudelSetzen(game, { map, bereich?, typ, anzahl, gruppe }) Rudel mit Kennung K.gruppe anlegen (Aktion kreatur_besetzen), Buchführung aw.kreaturGruppen[gruppe] = { erschienen, typ }
-//   ausgefallenMelden(game, K)               Ereignis kreaturAusgefallen {id, typ, gruppe, x, y} bei endgültigem Ausfall (aus combat.faellt; bewusstlos meldet nichts; einmal je Kreatur; MON-02 P2)
+//   nestSetzen(game, { map, typ, gruppe, x, y }) eine Quelle (Königin) an der Kachel (x, y) anlegen, Buchführung wie rudelSetzen (MON-03 A); Baustein `brut` {typ, anfang, max, takt, radius}: die Quelle bringt ihr gebundenes Gefolge hervor
+//   nestBesetzen(game, { map, typ, gruppe })  die Quelle an den (verdeckten) Anker der Rolle nest der Karte setzen (MON-03 B); laermHoeren(game, { x, y, radius })  Lärm als Push an die Kreaturen, ohne aw.laerm; Baustein `gefolge` {hort, fern, daheim}: Modi umkreise, zumHort, Auslöser fern, daheim; Baustein `streuung` {abstand, tempo}: Träger weichen einander aus (Nacharbeit A)
+//   ausgefallenMelden(game, K)             Ereignis kreaturAusgefallen {id, typ, gruppe, x, y} bei endgültigem Ausfall (aus combat.faellt; bewusstlos meldet nichts; einmal je Kreatur; MON-02 P2)
 //   rudelErledigt(game, map, { gruppe | typ })  Prüfung des Bausteins kreaturen_erledigt; nichtEndgueltigErledigt(K) ist die gemeinsame Regel (lebend oder erholbar liegend, nicht aufgelöst)
 //   Baustein `aufgeben` { anlaeufe }: Auslöser `aufgegeben` nach n erfolglosen Rammen in Folge (Hook beiWechsel)
 //
@@ -105,7 +107,25 @@ const tempoVon = (K, z) => z.tempo * (K.tempoF || 1);
 function gehe(game, K, dt, ctx, tempo) {
   const r = ctx.typ.tuerenAufbrechen ? Monster.gehenMitAufbrechen(game, ctx.E, K, dt, tempo, hbVon(ctx.typ), ctx.typ.rammZeit) : Monster.gehenOhneAufbrechen(game, ctx.E, K, dt, tempo, hbVon(ctx.typ));
   if (r === 'tuer') { K.pfad = []; K.replan = Math.max(K.replan, 1); K.tuerGesperrt = true; }   // Tür bleibt zu: Pfad verwerfen, später neu planen
+  else if (r === 'blockiert') sperreMerken(game, K, ctx);
   return r;
+}
+// MON-03 Nacharbeit B: Die Maske der Kreaturen kennt nur das Raster. Ein Hindernis, das nur die Physik kennt (z. B. eine Ader, fest bis zum Abbau), liegt für sie mitten im Weg: der Pfad führt hindurch,
+// die Kollision hält die Kreatur davor, und sie bliebe für immer dort (ein Spieler dahinter hätte einen sicheren Standplatz). Hält die Physik die Kreatur am nächsten Pfadpunkt auf und ist dessen Fußabdruck fest,
+// merkt sie sich diesen Ankerpunkt für SPERRE_ZEIT s (lazy K.sperre, nur nach so einem Vorfall) und plant ohne ihn neu (sperrMaske). Kein Typname, für alle Typen gleich.
+const SPERRE_ZEIT = 20;   // s, danach darf der Weg wieder versucht werden (die Ader kann inzwischen abgebaut sein)
+function sperreMerken(game, K, ctx) {
+  const n = K.pfad[0]; if (!n) return;
+  if (!Mon.fussKacheln(n, ctx.typ.groesse).some((t) => ctx.E.solid(t.x, t.y))) return;
+  (K.sperre || (K.sperre = {}))[n.cx + ',' + n.cy] = game.time + SPERRE_ZEIT;
+  K.pfad = []; K.replan = 0;
+}
+function sperrMaske(m, K, zeit) {
+  let rest = 0;
+  for (const key of Object.keys(K.sperre)) { if (K.sperre[key] <= zeit) delete K.sperre[key]; else rest++; }
+  if (!rest) { delete K.sperre; return m; }
+  const S = K.sperre;
+  return { w: m.w, h: m.h, fuss: m.fuss, geht: (cx, cy) => m.geht(cx, cy) && !(S[cx + ',' + cy] > zeit) };
 }
 const KERN_AUSLOESER = {
   sieht: (game, K, ctx) => !!ctx.ziel,
@@ -391,6 +411,178 @@ kreaturBausteinAnmelden('bindung', {
       if (f.art !== 'aufloesen') F.push('folge.art: nur "aufloesen"');
       if (f.verzoegerung !== undefined && !zahl(f.verzoegerung, 0)) F.push('folge.verzoegerung: Zahl >= 0 (s)');
     }
+    return F;
+  },
+});
+
+// ---------- Baustein brut (MON-03 A): die Quelle bringt ihr Gefolge selbst hervor ----------
+// Eingeschaltet nur am Typ der Quelle (z. B. der Königin), Parameter nennen den Typ des Nachwuchses; der Server kennt keinen Typnamen. Der Nachwuchs hat in seinem eigenen Typ eine `bindung` an die Quelle
+// (Folge `aufloesen`): ohne Quelle löst er sich auf und kehrt nicht wieder, weil eine endgültig erledigte Quelle nicht mehr abgeglichen wird (nichtEndgueltigErledigt). Läuft in beiAbgleich, also auch bei
+// betäubter oder bewusstloser Quelle, aber nur mit Außenteam (wie alles in update, sonst stünde die Karte still).
+//   typ     Kreaturen-Typ des Nachwuchses (muss in kreaturen.json stehen, eine `bindung` tragen und selbst keine `brut`)
+//   anfang  Startbesatz beim ersten Abgleich mit Außenteam (0 bis max)
+//   max     höchstens so viele nicht endgültig erledigte Nachkommen gleichzeitig (1 bis BRUT_MAX); NUR dieser Baustein legt Nachwuchs an, kein Lärm, keine Wiederkehr-Folge
+//   takt    Sekunden zwischen zwei Neuzugängen, solange unter max (ab dem Fall eines Nachkommen; bei max steht die Uhr)
+//   radius  Kacheln um die Quelle, in denen der Nachwuchs erscheint (freie Ankerpunkte der Maske des Nachwuchses, Zufall nur aw.rng)
+// Tote Nachkommen (endgültig erledigt) werden still aus aw.kreaturen entfernt (K.weg ohne Ereignis; sie wären sonst nie mehr weg: die Liste wüchse mit jeder Wiederkehr). Bewusstlose zählen als lebend.
+// Zähler: K.brut = { t, rest } entsteht lazy nur an der Quelle (die Instanz anderer Kreaturen bleibt unverändert). Nachkommen = gleicher Typ und gleiche Gruppe wie die Quelle (ohne Gruppe: nur der Typ).
+const BRUT_FELDER = ['typ', 'anfang', 'max', 'takt', 'radius'];
+const BRUT_MAX = 30;           // Deckel im Validator (gemessen MON-03 Erkundung: Tick und Snapshot sind bei 30 kein Problem, Optik ungemessen)
+const BRUT_ABSTAND = 1.5;      // Kacheln, Mindestabstand des Nachwuchses zur Mitte der Quelle (er erscheint nicht in ihr)
+const BRUT_NACHBAR = 1;        // Kacheln, Mindestabstand des Nachwuchses zu jeder anderen lebenden Kreatur (gemessen ohne: 8 Paare exakt übereinander in 8 Seeds)
+const BRUT_VERSUCHE = 12;
+const brutNachkomme = (K, O, par) => O !== K && O.kreatur && O.typ === par.typ && (K.gruppe == null || O.gruppe === K.gruppe);
+function brutAnlegen(game, aw, K, par, typ, m) {
+  const base = Mon.ankerVonPosition(K.x, K.y, typVon(K.typ).groesse);
+  for (let i = 0; i < BRUT_VERSUCHE; i++) {
+    const cx = base.cx + Math.round((aw.rng() * 2 - 1) * par.radius), cy = base.cy + Math.round((aw.rng() * 2 - 1) * par.radius);
+    if (!m.geht(cx, cy)) continue;
+    const pos = Mon.mitteVon({ cx, cy }, typ.groesse);
+    if (Math.hypot(pos.x - K.x, pos.y - K.y) < BRUT_ABSTAND * TILE) continue;
+    if (aw.kreaturen.some((O) => !O.weg && O.alive && Math.hypot(pos.x - O.x, pos.y - O.y) < BRUT_NACHBAR * TILE)) continue;
+    try { const N = anlegen(game, aw, par.typ, pos.x, pos.y, K.gruppe != null ? K.gruppe : null); N.facing = aw.rng() * Math.PI * 2; return true; }
+    catch (e) { if (game.countError) game.countError('kreatur-brut', e); return false; }
+  }
+  return false;
+}
+kreaturBausteinAnmelden('brut', {
+  beiAbgleich(game, K, dt, par) {
+    const aw = game.away; if (!aw || !aw.kreaturen || K.weg) return;
+    let lebend = 0;
+    for (const O of aw.kreaturen) {
+      if (O.weg || !brutNachkomme(K, O, par)) continue;
+      if (nichtEndgueltigErledigt(O)) lebend++; else O.weg = true;   // still: update entfernt nach der Schleife
+    }
+    if (!game.players.some((p) => p.zone === 'away')) return;
+    const k = game.karteOf ? game.karteOf(aw.map) : null; if (!k || typeof aw.rng !== 'function') return;
+    const B = K.brut || (K.brut = { t: 0, rest: par.anfang });
+    const typ = typVon(par.typ), m = Monster.maskeVonGroesse(k, typ.groesse);
+    while (B.rest > 0 && lebend < par.max) { if (!brutAnlegen(game, aw, K, par, typ, m)) return; B.rest--; lebend++; }   // Startbesatz; findet sich kein Platz, im nächsten Abgleich weiter
+    if (lebend >= par.max) { B.rest = 0; B.t = 0; return; }
+    if (B.rest > 0) return;
+    B.t += dt;
+    if (B.t < par.takt) return;
+    if (brutAnlegen(game, aw, K, par, typ, m)) B.t -= par.takt; else B.t = par.takt;   // kein Platz: beim nächsten Abgleich wieder versuchen
+  },
+  pruefen(par) {
+    const F = [];
+    if (!par || typeof par !== 'object' || Array.isArray(par)) return ['Objekt { typ, anfang, max, takt, radius } erwartet'];
+    for (const k of Object.keys(par)) if (!BRUT_FELDER.includes(k)) F.push(k + ': unbekanntes Feld');
+    const t = hat(KREATUREN.typen, par.typ) ? KREATUREN.typen[par.typ] : null;
+    if (!t) F.push('typ: unbekannter Kreaturentyp "' + par.typ + '"');
+    else {
+      if (!t.bausteine || !t.bausteine.bindung) F.push('typ: "' + par.typ + '" hat keine bindung (der Nachwuchs muss an die Quelle gebunden sein, sonst zerfällt er nie)');
+      if (t.bausteine && t.bausteine.brut) F.push('typ: "' + par.typ + '" hat selbst eine brut (Nachwuchs, der Nachwuchs bringt, ist nicht begrenzt)');
+    }
+    if (!Number.isInteger(par.max) || par.max < 1 || par.max > BRUT_MAX) F.push('max muss eine ganze Zahl 1 bis ' + BRUT_MAX + ' sein (gleichzeitig lebende Nachkommen)');
+    if (!Number.isInteger(par.anfang) || par.anfang < 0 || (Number.isInteger(par.max) && par.anfang > par.max)) F.push('anfang muss eine ganze Zahl 0 bis max sein (Startbesatz)');
+    if (!zahl(par.takt, 0.5)) F.push('takt muss eine Zahl >= 0,5 sein (s je Neuzugang)');
+    if (!zahl(par.radius, 1, 12)) F.push('radius muss eine Zahl 1 bis 12 sein (Kacheln um die Quelle)');
+    return F;
+  },
+});
+
+// ---------- Baustein gefolge (MON-03 B): Heimweg zum Hort und Umkreisen des Horts ----------
+// Das Gefolge hängt räumlich an einer Quelle (dem Hort): ohne Ziel (nach Lockung oder Jagd) läuft es zurück, das ist die "Spur zum Nest". Rein datengetrieben: der Typ des Horts steht in par.hort
+// (Datenwert, kein Typname im Server), keine Instanzfelder (der Hort wird je Aufruf aus aw.kreaturen gesucht: nächste nicht endgültig erledigte Kreatur des Typs, bevorzugt gleiche Gruppe).
+//   hort    Kreaturen-Typ des Horts (muss in kreaturen.json stehen)
+//   fern    Kacheln: weiter vom Hort entfernt gilt der Auslöser `fern`
+//   daheim  Kacheln: höchstens so weit vom Hort entfernt gilt der Auslöser `daheim` (auch ohne Hort: nichts zum Heimlaufen)
+// Modi:  `umkreise`  wie `streife` (zustand.radius Kacheln, aw.rng), Mitte = Position des Horts statt der eigenen;  `zumHort`  Pfad zum Hort (Neuplan über typ.replan), bei Ankunft läuft der Auslöser `daheim`.
+// `daheim` muss größer sein als der weiteste Abstand, den der Pfad zum Hort hergeben kann, sonst bliebe das Tier am Hort hängen (Auslöser daheim nie wahr, Neuplan in jedem Tick). Der Suchradius um den Hort (Mon.naechster)
+// ist deshalb an daheim gekoppelt (gefolgeSuchradius: weiteste Kachelmitte im Ring liegt höchstens sqrt(2) * (Radius + 0,5) Kacheln vom Hort, das bleibt unter daheim), der Validator verlangt fern > daheim >= 3.
+const GEFOLGE_FELDER = ['hort', 'fern', 'daheim'];
+const GEFOLGE_SUCHE_MAX = 4;   // Kacheln, Ring um den Hort höchstens (bei großem daheim)
+const gefolgeSuchradius = (par) => Math.max(1, Math.min(GEFOLGE_SUCHE_MAX, Math.ceil(par.daheim / Math.SQRT2 - 0.5) - 1));
+function hortVon(aw, K, par) {
+  let best = null, bd = Infinity;
+  for (const O of aw.kreaturen) {
+    if (O === K || O.typ !== par.hort || !nichtEndgueltigErledigt(O)) continue;
+    const d = Math.hypot(O.x - K.x, O.y - K.y) + (K.gruppe != null && O.gruppe !== K.gruppe ? 1e6 : 0);
+    if (d < bd) { bd = d; best = O; }
+  }
+  return best;
+}
+kreaturBausteinAnmelden('gefolge', {
+  modi: {
+    umkreise: {
+      tick(game, K, dt, ctx, par, z) {
+        if (!K.pfad.length && K.replan <= 0) {
+          const aw = game.away; const r = z.radius || 5;
+          const H = hortVon(aw, K, par);
+          const base = Mon.ankerVonPosition(H ? H.x : K.x, H ? H.y : K.y, ctx.m.fuss);
+          for (let i = 0; i < 12; i++) {
+            const cx = base.cx + Math.round((aw.rng() * 2 - 1) * r), cy = base.cy + Math.round((aw.rng() * 2 - 1) * r);
+            if (ctx.m.geht(cx, cy)) { Monster.setzePfad(K, ctx.m, { cx, cy }); break; }
+          }
+          K.replan = 1.2;
+        }
+        gehe(game, K, dt, ctx, tempoVon(K, z));
+      },
+    },
+    zumHort: {
+      tick(game, K, dt, ctx, par, z) {
+        if (K.replan <= 0 || !K.pfad.length) {
+          const H = hortVon(game.away, K, par);
+          if (H) { const a = Mon.naechster(ctx.m, Math.floor(H.x / TILE), Math.floor(H.y / TILE), gefolgeSuchradius(par)); if (a) Monster.setzePfad(K, ctx.m, a); }
+          K.replan = ctx.typ.replan;
+        }
+        gehe(game, K, dt, ctx, tempoVon(K, z));
+      },
+    },
+  },
+  ausloeser: {
+    fern(game, K, ctx, par) { const H = hortVon(game.away, K, par); return !!H && Math.hypot(H.x - K.x, H.y - K.y) > par.fern * TILE; },
+    daheim(game, K, ctx, par) { const H = hortVon(game.away, K, par); return !H || Math.hypot(H.x - K.x, H.y - K.y) <= par.daheim * TILE; },
+  },
+  pruefen(par) {
+    const F = [];
+    if (!par || typeof par !== 'object' || Array.isArray(par)) return ['Objekt { hort, fern, daheim } erwartet'];
+    for (const k of Object.keys(par)) if (!GEFOLGE_FELDER.includes(k)) F.push(k + ': unbekanntes Feld');
+    if (typeof par.hort !== 'string' || !hat(KREATUREN.typen, par.hort)) F.push('hort: unbekannter Kreaturentyp "' + par.hort + '"');
+    if (!zahl(par.daheim, 3, 20)) F.push('daheim muss eine Zahl 3 bis 20 sein (Kacheln, Ankunft am Hort)');
+    else if (!(Math.SQRT2 * (gefolgeSuchradius(par) + 0.5) < par.daheim)) F.push('daheim muss größer sein als der Suchradius um den Hort (Pfadziel höchstens ' + (Math.SQRT2 * (gefolgeSuchradius(par) + 0.5)).toFixed(1) + ' Kacheln vom Hort)');
+    if (!zahl(par.fern, 4, 40) || (zahl(par.daheim, 3, 20) && par.fern <= par.daheim)) F.push('fern muss eine Zahl 4 bis 40 und größer als daheim sein (Kacheln)');
+    return F;
+  },
+});
+
+// ---------- Baustein streuung (MON-03 Nacharbeit A): Kreaturen, die ihn tragen, stapeln sich nicht ----------
+// Ohne Abstoßung laufen viele Tiere desselben Typs auf denselben Pfadendpunkt und stehen dort auf einem Punkt (gemessen: 18 von 20 in einer 6-px-Zelle, im Bild 2 bis 3). Jede Kreatur mit diesem Baustein weicht
+// den anderen Kreaturen MIT diesem Baustein aus, die näher als `abstand` stehen (Mittelpunktabstand): Weg nach außen mit `tempo` bei Abstand 0, linear abnehmend bis `abstand`, über dieselbe Kollision wie die
+// Bewegung (nie in eine Wand). Tiere ohne den Baustein (Rudeltier, Station) bleiben unberührt und sehen die Träger nicht als Hindernis. Keine Instanzfelder, kein Zufall (bei gleichem Ort entscheidet die
+// Nummer der Instanz über die Richtung, die beiden Partner weichen entgegengesetzt aus), Wirkung nur auf die eigene Position. Während des Rammens (Modus ramme) steht der Baustein still: der Biss bleibt exakt.
+//   abstand  px, Mindestabstand der Mitten (etwa Kollisionsbox + Luft)
+//   tempo    px/s, Ausweichtempo bei Abstand 0
+const STREUUNG_FELDER = ['abstand', 'tempo'];
+const STREUUNG_GOLD = 2.399963;   // Goldener Winkel (rad): gleichmäßig verteilte Richtungen aus den Nummern
+const nummerVon = (K) => Number(String(K.id).slice(1)) || 0;
+kreaturBausteinAnmelden('streuung', {
+  beiTick(game, K, dt, par, ctx) {
+    if (ctx.typ.zustaende[K.z].modus === 'ramme') return;
+    const L = game.away.kreaturen; let vx = 0, vy = 0;
+    const nK = nummerVon(K);
+    for (const O of L) {
+      if (O === K || O.weg || !O.alive) continue;
+      const dx = K.x - O.x, dy = K.y - O.y;
+      if (dx > par.abstand || dx < -par.abstand || dy > par.abstand || dy < -par.abstand) continue;
+      const d = Math.hypot(dx, dy); if (d >= par.abstand) continue;
+      const tO = typVon(O.typ); if (!tO || !tO.bausteine.streuung) continue;
+      const w = 1 - d / par.abstand;
+      if (d > 1e-6) { vx += dx / d * w; vy += dy / d * w; }
+      else { const nO = nummerVon(O); const a = (Math.min(nK, nO) * 7 + Math.max(nK, nO) * 13) * STREUUNG_GOLD, s = nK > nO ? 1 : -1; vx += Math.cos(a) * s * w; vy += Math.sin(a) * s * w; }
+    }
+    const v = Math.hypot(vx, vy); if (v < 1e-9) return;
+    const f = Math.min(v, 1) * par.tempo * dt / v;
+    const res = Physics.moveWithCollision(ctx.E.solid, K.x, K.y, vx * f, vy * f, hbVon(ctx.typ));
+    K.x = res.x; K.y = res.y;
+  },
+  pruefen(par) {
+    const F = [];
+    if (!par || typeof par !== 'object' || Array.isArray(par)) return ['Objekt { abstand, tempo } erwartet'];
+    for (const k of Object.keys(par)) if (!STREUUNG_FELDER.includes(k)) F.push(k + ': unbekanntes Feld');
+    if (!zahl(par.abstand, 4, 32)) F.push('abstand muss eine Zahl 4 bis 32 sein (px, Mittelpunktabstand)');
+    if (!zahl(par.tempo, 1, 200)) F.push('tempo muss eine Zahl 1 bis 200 sein (px/s)');
     return F;
   },
 });
@@ -715,12 +907,56 @@ function rudelSetzen(game, o) {
   return { n, ids, fehler: null };
 }
 
+// ---------- Nest (MON-03 A) ----------
+// nestSetzen(game, { map, typ, gruppe, x, y }) -> { n, ids, fehler }: legt EINE Quelle (z. B. die Königin eines Schwarms) an der Maskenposition nächst der Kachel (x, y) an (Kacheln, wie ein Anker; Suchradius NEST_SUCHE)
+// und führt die Buchführung aw.kreaturGruppen[gruppe] wie rudelSetzen, damit `kreaturen_erledigt { typ }` stimmt. Der Nachwuchs entsteht danach über den Baustein `brut` des Typs, nicht hier.
+// Eigene Funktion statt Parameter an rudelSetzen (Rudel: viele, gestreut, mit Abholpunkt-Abstand; Nest: eines, an einem festen Ort). Der Anker `nest` kommt mit MON-03 B und ruft diese Funktion mit seiner Kachel.
+// Fehler als Text, dann entsteht nichts. Die Karte muss die aktive sein, wenn der Typ eine bindung trägt (die Quelle selbst hat keine; sie darf vor der Landung angelegt werden, ihr Nachwuchs erst im Spiel).
+const NEST_SUCHE = 3;
+function nestSetzen(game, o) {
+  const fehl = (t) => ({ n: 0, ids: [], fehler: 'nest_setzen: ' + t });
+  const p = o || {};
+  let typ = null;
+  try { typ = hat(daten().typen, p.typ) ? typVon(p.typ) : null; } catch (e) { return fehl(e.message.split('\n')[0]); }
+  if (!typ) return fehl('unbekannter Typ "' + p.typ + '"');
+  if (typeof p.gruppe !== 'string' || !GRUPPE_FORM.test(p.gruppe)) return fehl('gruppe muss ein Text der Form ' + GRUPPE_FORM + ' sein (' + p.gruppe + ')');
+  if (!Number.isFinite(p.x) || !Number.isFinite(p.y)) return fehl('x und y (Kacheln, Zahlen) fehlen');
+  const aw = karteRegistriert(game, p.map);
+  if (!aw) return fehl('Karte ' + p.map + ' unbekannt');
+  const k = game.karteOf ? game.karteOf(p.map) : null;
+  if (!k) return fehl('Karte ' + p.map + ' hat keine Kartendaten');
+  const alt = hat(aw.kreaturGruppen, p.gruppe) ? aw.kreaturGruppen[p.gruppe] : null;
+  if (alt && alt.typ !== p.typ) return fehl('Gruppe "' + p.gruppe + '" besteht schon mit dem Typ ' + alt.typ);
+  combat().ensureV2(game, aw, p.map);   // aw.rng
+  const a = Mon.naechster(Monster.maskeVonGroesse(k, typ.groesse), Math.floor(p.x), Math.floor(p.y), NEST_SUCHE);
+  if (!a) return fehl('kein freier Platz für Größe ' + typ.groesse + ' innerhalb von ' + NEST_SUCHE + ' Kacheln um (' + p.x + ',' + p.y + ') auf Karte ' + p.map);
+  const pos = Mon.mitteVon(a, typ.groesse);
+  let K;
+  try { K = anlegen(game, aw, p.typ, pos.x, pos.y, p.gruppe); } catch (e) { return fehl(e.message); }
+  const G = aw.kreaturGruppen || (aw.kreaturGruppen = {});
+  G[p.gruppe] = { erschienen: (alt ? alt.erschienen : 0) + 1, typ: p.typ };
+  return { n: 1, ids: [K.id], fehler: null };
+}
+
+// nestBesetzen(game, { map, typ, gruppe }) -> { n, ids, fehler }: setzt die Quelle (Königin) an den Anker der Rolle `nest` der Karte (verdeckt, steht nicht im Payload; die Position kennt nur der Server) und ruft nestSetzen.
+// Hat die Karte keinen Anker der Rolle: Fehler als Text, es entsteht nichts. Mehrere Anker: der erste der Karte (Reihenfolge der Anker, deterministisch). Eigene Funktion statt Parameter an nestSetzen.
+const NEST_ROLLE = 'nest';
+function nestBesetzen(game, o) {
+  const p = o || {};
+  const k = game.karteOf && p.map ? game.karteOf(p.map) : null;
+  if (!k) return { n: 0, ids: [], fehler: 'nest_setzen: Karte ' + p.map + ' hat keine Kartendaten' };
+  const a = (k.anker || []).find((x) => x.rolle === NEST_ROLLE);
+  if (!a) return { n: 0, ids: [], fehler: 'nest_setzen: Karte ' + p.map + ' hat keinen Anker der Rolle ' + NEST_ROLLE };
+  return nestSetzen(game, { map: p.map, typ: p.typ, gruppe: p.gruppe, x: a.x, y: a.y });
+}
+
 // ---------- Tick ----------
 function wahrnehmung(game, E, K, typ) { return Monster.ziel(game, E, K, { sicht: typ.sicht }); }
 
 function tickEine(game, E, k, K, dt) {
   const typ = typVon(K.typ);
-  const m = Monster.maskeVonGroesse(k, typ.groesse);
+  const m0 = Monster.maskeVonGroesse(k, typ.groesse);
+  const m = K.sperre ? sperrMaske(m0, K, game.time) : m0;
   K.zt += dt; if (K.t != null) K.t -= dt; K.replan -= dt;
   const ziel = wahrnehmung(game, E, K, typ);
   if (ziel) { K.verlust = 0; K.letzte = { x: ziel.x, y: ziel.y }; K.zielId = ziel.id; }
@@ -784,6 +1020,40 @@ function laermLesen(aw, K) {
     (out || (out = [])).push(ev);
   }
   return out || KEINE_EREIGNISSE;
+}
+
+// ---------- Lärm als Push (MON-03 B) ----------
+// laermHoeren(game, { x, y, radius, stufe? }) -> Zahl der erreichten Kreaturen: ein Lärm an (x, y) (px) mit radius (px) geht an die Kreaturen der aktiven Außenkarte (lebend, handlungsfähig),
+// über dieselben Hooks (bausteinLaerm, Baustein koeder) wie der Leser in update. Eigene Quelle ohne Lärmpuffer: schreibt NICHT in aw.laerm (sonst weckte squad.js alle Drohnentrupps im Radius) und braucht
+// keinen Cursor und kein Instanzfeld. Aufrufer: Abbau (anker.abbauLaerm, Reichweite aus rollen.abbau.laermStufe (content/buehnen/anker.json)). Wer das Ereignis hört, entscheidet der Typ über koeder { faktor } und die Zustandstabelle.
+// MON-03 Nacharbeit B: Der Lärm kommt oft von einem festen Feld (die Ader ist bis zum Abbau fest): der Köder läge dann in einer Wand, die Kreaturen stünden an ihrem Rand. Er rückt auf die nächste Kachel,
+// die die Physik betreten lässt (innerhalb KOEDER_SUCHE Kacheln, Kachelmitte; Gleichstand: die erste in Zeilenfolge, deterministisch); liegt keine in der Nähe, bleibt der Ort.
+const KOEDER_SUCHE = 2;
+function koederOrt(E, x, y) {
+  const tx = Math.floor(x / TILE), ty = Math.floor(y / TILE);
+  if (!E.solid(tx, ty)) return { x, y };
+  let best = null, bd = Infinity;
+  for (let dy = -KOEDER_SUCHE; dy <= KOEDER_SUCHE; dy++) for (let dx = -KOEDER_SUCHE; dx <= KOEDER_SUCHE; dx++) {
+    if (E.solid(tx + dx, ty + dy)) continue;
+    const c = { x: (tx + dx + 0.5) * TILE, y: (ty + dy + 0.5) * TILE }, d = Math.hypot(c.x - x, c.y - y);
+    if (d < bd) { bd = d; best = c; }
+  }
+  return best || { x, y };
+}
+function laermHoeren(game, o) {
+  const aw = game.away; if (!aw || !aw.kreaturen || !aw.kreaturen.length) return 0;
+  if (!o || !Number.isFinite(o.x) || !Number.isFinite(o.y) || !Number.isFinite(o.radius) || o.radius <= 0) return 0;
+  const Wf = waffen();
+  const E = game.karteOf && game.karteOf(aw.map) ? combat().env(game) : null;
+  const ort = E ? koederOrt(E, o.x, o.y) : { x: o.x, y: o.y };
+  const ev = { x: ort.x, y: ort.y, stufe: o.stufe || null, kacheln: o.radius / TILE, radius: o.radius, t: game.time };
+  let n = 0;
+  for (const K of aw.kreaturen) {
+    if (K.weg || !K.alive || !nichtEndgueltigErledigt(K)) continue;
+    if (Wf && !Wf.handlungsfaehig(game, K)) continue;
+    bausteinLaerm(game, K, ev); n++;
+  }
+  return n;
 }
 
 // ---------- Kampf-Anbindung (P2a) ----------
@@ -850,14 +1120,14 @@ function debugKreatur(game, p, typId) {
 
 // GEL-03 Nacharbeit W1: Kantenlänge der Kollisionsbox einer Kreatur in px (für die Überlappungsprüfung des Ader-Wechsels, anker.js)
 const koerperBox = (K) => { const t = typVon(K.typ); return t ? hbVon(t).w : 14; };
-module.exports = { koerperBox, update, kreaturBausteinAnmelden, bausteinTreffer, bausteinLaerm, daten, pruefen, typVon, erzeugen, erzeugenAuf, rudelSetzen, zustandSetzen, debugKreatur, kreaturen, ziele, ausruesten, raeumen, nichtEndgueltigErledigt, ausgefallenMelden, rudelErledigt, erledigtOptionenFehler };
+module.exports = { koerperBox, gefolgeSuchradius, update, kreaturBausteinAnmelden, bausteinTreffer, bausteinLaerm, daten, pruefen, typVon, erzeugen, erzeugenAuf, rudelSetzen, nestSetzen, nestBesetzen, laermHoeren, zustandSetzen, debugKreatur, kreaturen, ziele, ausruesten, raeumen, nichtEndgueltigErledigt, ausgefallenMelden, rudelErledigt, erledigtOptionenFehler };
 
 // ---------- Anzeige und Scanner (MON-01 P4) ----------
 // Scanner: Art `monster`, billig (nur die lebenden Kreaturen mit aktueller Position, keine Karte). Typ-ID aus kreaturen.json; der Name steht im Client-Content (datenblaetter.json).
 require('./scanbar.js').scanbarAnmelden('monster', {
   ziele(game, aw) {
     const out = [];
-    for (const K of (aw && aw.kreaturen) || []) if (K.alive) out.push({ id: K.id, x: K.x, y: K.y, typ: K.typ });
+    for (const K of (aw && aw.kreaturen) || []) if (K.alive) out.push({ id: K.id, x: K.x, y: K.y, typ: K.typ, nachrang: !!(K.bindung && K.bindung.art === 'kreatur') });   // Gefolge (an eine Kreatur gebunden) rückt nach: der Schwarm verdrängt die Königin nicht aus den Scan-Plätzen (MON-03 C)
     return out;
   },
   tiefen: { position: 3 },
@@ -870,6 +1140,18 @@ require('./scanbar.js').scanbarAnmelden('monster', {
 //   bits     0-1 Ladung 0..3 (Baustein aufladung), 2 Pause/steht (Modus `steht`), 3 rammt (Modus `ramme`), 4-5 Größe-1 (Kacheln, 0..3), 6 zielt (Modus `zielen`, Aufladen; MON-02 O3a)
 // Nur lebende Kreaturen, die jemand im Team sieht (gemeinsame Regel combat.sichtbarFuerTeam wie updateVisibility: Sichtradius, Lanzenkegel, Sensor, Captain-Fokus; Kreaturen sind kein Fokusziel, focusUntil bleibt 0). Tote werden nicht gesendet.
 const BIT_PAUSE = 4, BIT_RAMMT = 8, BIT_ZIELT = 64;
+// MON-03 C: Eine Kreatur der Größe >= 2 hat ihre Mitte auf einer Kachelecke; die Sichtlinie zu genau diesem Punkt streift an Wandecken (die Zielkachel ist nur eine der vier Körperkacheln) und wurde in engen Höhlen oft
+// grundlos blockiert, obwohl ein Teil des Körpers frei zu sehen war. Sicht ist Sicht: gesehen, sobald die Mitte oder eine Körperkachel (Kachelmitte der g x g Kacheln) im Team gesehen wird. Größe 1: unverändert nur die Mitte.
+function koerperSichtbar(game, C, E, team, R, K, sensor) {
+  if (C.sichtbarFuerTeam(game, E, team, R, K, sensor)) return true;
+  const g = typVon(K.typ).groesse;
+  if (!(g >= 2)) return false;
+  for (let i = 0; i < g; i++) for (let j = 0; j < g; j++) {
+    const p = { x: K.x + (i - (g - 1) / 2) * TILE, y: K.y + (j - (g - 1) / 2) * TILE, focusUntil: K.focusUntil };
+    if (C.sichtbarFuerTeam(game, E, team, R, p, false)) return true;
+  }
+  return false;
+}
 function snap(game) {
   const aw = game.away; const L = aw && aw.kreaturen;
   if (!L || !L.length || !L.some((K) => K.alive)) return null;
@@ -883,7 +1165,7 @@ function snap(game) {
   const out = [];
   for (const K of L) {
     if (!K.alive) continue;
-    if (!C.sichtbarFuerTeam(game, E, team, R, K, sensor)) continue;   // dieselbe Regel wie combat.updateVisibility (Radius, Lanzenkegel, Sensor, Fokus)
+    if (!koerperSichtbar(game, C, E, team, R, K, sensor)) continue;   // dieselbe Regel wie combat.updateVisibility (Radius, Lanzenkegel, Sensor, Fokus), bei Größe >= 2 für jede Körperkachel
     const typ = typVon(K.typ); const modus = typ.zustaende[K.z].modus;
     const ladung = K.aufladung ? Math.min(3, K.aufladung.stufe) : 0;
     const bits = ladung | (modus === 'steht' ? BIT_PAUSE : 0) | (modus === 'ramme' ? BIT_RAMMT : 0) | (modus === 'zielen' ? BIT_ZIELT : 0) | ((typ.groesse - 1) << 4);

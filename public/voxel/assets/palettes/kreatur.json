@@ -1,6 +1,6 @@
 {
  "id": "kreatur",
- "name": "Kreaturen (MON-02): Rudeltier Helmhyaene. Knochen hell (Panzer vorn), Fell dunkel in sechs Toenen gleicher Helligkeit, Marken leuchten hell. Funktionsfarben (Mint, Eisblau, Bernstein, Rot) kommen nicht vor",
+ "name": "Kreaturen (MON-02 Rudeltier, MON-03 Schwarm Richtung C Myzel). Rudeltier: Knochen hell (Panzer vorn), Fell dunkel in sechs Toenen gleicher Helligkeit, Marken leuchten hell. Schwarm: hell-beige Pilzkappe, dunklere Lamellen und Stiel, Sporenpunkte leuchten gelbgruen (Lime, weder Bernstein noch das Orange der Rudeltier-Marken), Zerfall dunkler Fleck. Funktionsfarben (Mint, Eisblau, Bernstein, Rot) kommen nicht vor",
  "extends": "base",
  "roles": {
   "knochen": "#E0D4B8",
@@ -17,8 +17,18 @@
   "fell_5": "#6C5012",
   "marke_an": {
    "color": "#FF9A78",
-   "emit": 2.0
+   "emit": 2
   },
-  "marke_aus": "#422C26"
+  "marke_aus": "#422C26",
+  "kappe": "#B8A47C",
+  "lamelle": "#6E5E44",
+  "stiel": "#948460",
+  "myzel": "#9C8E6E",
+  "spore_an": {
+   "color": "#D8F060",
+   "emit": 1.6
+  },
+  "fleck": "#2A2622",
+  "fleck_rand": "#3C362C"
  }
 }

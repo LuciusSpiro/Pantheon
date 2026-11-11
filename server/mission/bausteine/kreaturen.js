@@ -5,6 +5,7 @@
 //     bereich  Bereichs-Kennung der Karte (lager_N, gelaende); ohne Angabe die ganze Karte. Ein unbekannter Bereich scheitert laut (kein stiller Rückfall auf die Karte)
 //     typ      Kreaturentyp aus content/kampf/kreaturen.json (Text, kein Typname im Servercode: die Prüfung gegen die Daten läuft zur Laufzeit in Kreatur.rudelSetzen)
 //     gruppe   Rudel-Kennung (Text, nicht squad: squad verlangt einen Eintrag in besetzung.gruppen des Regiebuchs); Buchführung aw.kreaturGruppen[gruppe]
+//   nest_besetzen { map*, typ*, gruppe* }   Aktion (MON-03 B): die Quelle einer Gruppe (Königin) am verdeckten Anker nest der Karte anlegen (Kreatur.nestBesetzen); Fehler wie bei kreatur_besetzen (countError 'mission-kreatur')
 //   kreaturen_erledigt { map*, gruppe | typ }   Prüfung (MON-02 P2): erfüllt, wenn mindestens ein Tier der Gruppe (bzw. des Typs) erschien und kein Tier mehr nicht endgültig erledigt ist.
 //     Aufgelöste Tiere (Bindung) zählen als erledigt; bewusstlose und liegende (erholbare) Tiere zählen als NICHT erledigt (anders als squad_cleared, das liegende Drohnen mitzählt).
 //     Genau eines von gruppe/typ ist Pflicht (der Prüfer lehnt beides/keines und einen unbekannten typ ab; zur Laufzeit einmal countError 'mission-kreatur'). Unbekannte Karte oder Gruppe (nie erschienen): nicht erfüllt, kein Fehler. Kreaturen zählen in squad_cleared, Wellen, Graben, Bodenkampf nicht mit.
@@ -22,6 +23,18 @@ module.exports = (Registry) => {
       const g = m.game;
       let r;
       try { r = Kreatur().rudelSetzen(g, { map: a.map, bereich: a.bereich != null ? a.bereich : null, typ: a.typ, anzahl: a.anzahl, gruppe: a.gruppe }); }
+      catch (e) { g.countError('mission-kreatur', e); return; }
+      if (r.fehler) g.countError('mission-kreatur', new Error(r.fehler));
+    } });
+  // MON-03 B: Quelle (Königin) an den verdeckten Anker der Rolle nest der Karte setzen; Logik in Kreatur.nestBesetzen. Der Nachwuchs entsteht über den Baustein brut des Typs, nicht hier.
+  Registry.define({ id: 'nest_besetzen', art: 'aktion', effekt: 'gegner',
+    ereignisse: ['kreaturAusgefallen', 'kreaturAufgeloest'],
+    beschreibung: 'Quelle einer Kreatur-Gruppe (z. B. Königin eines Schwarms, Typ aus kreaturen.json, Kennung gruppe) am Nistplatz (Anker nest) einer Außenkarte anlegen; ihr Gefolge entsteht über die Daten des Typs. Karte ohne Nest: Fehler, kein Tier',
+    params: { map: { typ: 'map', pflicht: true }, typ: { typ: 'string', pflicht: true }, gruppe: { typ: 'string', pflicht: true } },
+    run(m, a) {
+      const g = m.game;
+      let r;
+      try { r = Kreatur().nestBesetzen(g, { map: a.map, typ: a.typ, gruppe: a.gruppe }); }
       catch (e) { g.countError('mission-kreatur', e); return; }
       if (r.fehler) g.countError('mission-kreatur', new Error(r.fehler));
     } });

@@ -40,7 +40,7 @@ function startFuer(a) { return a.rolle === 'falle' && a.sicht === 'passiv' ? 'er
 function fallenMod() { return require('./fallen.js'); }   // lazy: fallen.js lädt anker.js
 // ITM-01 C: verdeckte Anker (verborgene Fallen) stehen nicht im awayMap-Payload. EINE Quelle der Wahrheit für die Reihenfolge, die Payload und Snapshot-Indizes
 // (ao, sp, cd) teilen: payloadAnker(k) = Anker im Payload (Karte ohne Fallen: k.anker selbst), ankerListe = payloadAnker + später enthüllte (in Enthüllungsreihenfolge).
-const verdeckt = (a) => a.rolle === 'falle' && a.sicht !== 'passiv';
+const verdeckt = (a) => (a.rolle === 'falle' && a.sicht !== 'passiv') || a.rolle === 'nest';   // MON-03 B: auch der Nistplatz (verriete sonst die Position der Königin in den Kartendaten)
 const payloadCache = new WeakMap();   // Karte -> { quelle, n, liste }
 function payloadAnker(k) {
   const alle = k.anker || [];
@@ -359,6 +359,16 @@ function abbauLaerm(game, map, a, pid) {
   const c = mitte(a);
   const d = { map, anker: a.id, pid, x: c.x, y: c.y };
   game.emit('abbauLaerm', d); game.missionEvent('abbauLaerm', d);
+  abbauLaermKreaturen(game, map, c);
+}
+// MON-03 B: der Abbau-Lärm geht als eigene Quelle an die Kreaturen der Karte (Kreatur.laermHoeren), NICHT in aw.laerm: dort läse ihn squad.js und weckte alle Drohnentrupps. Reichweite = Lärmstufe
+// content/buehnen/anker.json rollen.abbau.laermStufe (Daten, nicht CONFIG: Tuning-Hash; Tabelle awayCombat.laerm, Kacheln); wer sie hört, bestimmt der Typ (koeder.faktor). Erzeugt nie Kreaturen, es lockt nur die vorhandenen.
+function abbauLaermKreaturen(game, map, c) {
+  const aw = awVon(game, map); if (!aw || aw !== game.away || !aw.kreaturen || !aw.kreaturen.length) return;
+  const stufe = (rollen().abbau || {}).laermStufe;
+  const kacheln = Number(((game.C && game.C.awayCombat && game.C.awayCombat.laerm) || {})[stufe]) || 0;
+  if (!(kacheln > 0)) return;
+  safe(game, 'abbau-laerm-kreaturen', () => require('./kreatur.js').laermHoeren(game, { x: c.x, y: c.y, radius: kacheln * TILE, stufe }));
 }
 // Halten beginnt (aus holdStart): übernimmt die Ader, setzt laeuft, meldet abbauStart und den ersten Lärm. Hält schon ein anderer: Hold verwerfen (gleicher Tick).
 function abbauStarten(game, p, h) {

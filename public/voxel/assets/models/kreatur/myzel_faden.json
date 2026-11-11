@@ -1,0 +1,74 @@
+{
+ "id": "kreatur/myzel_faden",
+ "name": "Myzelfaden (MON-03 E): flaches Bodenstueck, 1 Voxel hoch, 16 Voxel lang (z), mit zwei kurzen Abzweigen. Reine Bodenkulisse ohne Kollision; der Client kann es als Spur streuen oder drehen",
+ "tier": "detail",
+ "palette": "kreatur",
+ "jitter": 0,
+ "tags": [
+  "kreatur",
+  "schwarm",
+  "monster",
+  "mon03"
+ ],
+ "anchor": [
+  0,
+  0,
+  0
+ ],
+ "footprint": [
+  1,
+  1
+ ],
+ "budgetTris": 200,
+ "params": {},
+ "ops": [
+  {
+   "op": "line",
+   "name": "Faden",
+   "from": [
+    0,
+    0.5,
+    -7.5
+   ],
+   "to": [
+    0.5,
+    0.5,
+    7.5
+   ],
+   "r": 0.5,
+   "color": "myzel"
+  },
+  {
+   "op": "line",
+   "name": "Abzweig links",
+   "from": [
+    0,
+    0.5,
+    -1
+   ],
+   "to": [
+    -3.5,
+    0.5,
+    2.5
+   ],
+   "r": 0.5,
+   "color": "myzel"
+  },
+  {
+   "op": "line",
+   "name": "Abzweig rechts",
+   "from": [
+    0.5,
+    0.5,
+    3
+   ],
+   "to": [
+    4,
+    0.5,
+    6
+   ],
+   "r": 0.5,
+   "color": "myzel"
+  }
+ ]
+}

@@ -634,6 +634,266 @@
           "fraktion": "raubzug"
         }
       }
+    },
+    {
+      "id": "kreaturen_in_hoehle",
+      "name": "Kreaturen in der Höhle erledigen",
+      "schauplatz": "aussen",
+      "beschreibung": "Höhle mit Kreaturen statt Drohnen, Typ als Parameter. rudeltier: drei starke Tiere mit Panzerung vorn, einzeln bekämpfbar. schwarm: viele kleine Wesen um eine Königin am Nest; Abbaulärm lockt sie, die Königin beseitigen löst den Schwarm auf. Erledigt, wenn alle Tiere bzw. die Königin endgültig erledigt sind. Beide Typen gleichwertig anbieten und abwechseln.",
+      "braucht": [
+        "transfer",
+        "aussen_kampf"
+      ],
+      "buehne_braucht": {
+        "kartenarten": [
+          "hoehle"
+        ],
+        "anker": [
+          "abholpunkt",
+          "nest"
+        ]
+      },
+      "dauer_min": [
+        4,
+        8
+      ],
+      "dauer_quelle": "schaetzung",
+      "dauer_je_crew": {
+        "1": [
+          5,
+          9
+        ],
+        "2": [
+          4,
+          8
+        ],
+        "3": [
+          4,
+          7
+        ]
+      },
+      "liefert_flags": [
+        "{{id}}_geraeumt"
+      ],
+      "ereignisse": [
+        "kreaturAusgefallen",
+        "kreaturAufgeloest",
+        "abbauLaerm"
+      ],
+      "params": {
+        "loc": {
+          "typ": "loc",
+          "pflicht": true
+        },
+        "map": {
+          "typ": "map",
+          "pflicht": true,
+          "beschreibung": "Landepunkt (setzt der Szenenbau nach buehne_braucht, nie das LLM)"
+        },
+        "typ": {
+          "typ": "text",
+          "pflicht": true,
+          "werte": [
+            "rudeltier",
+            "schwarm"
+          ],
+          "beschreibung": "Art der Begegnung: rudeltier (3 starke Tiere) oder schwarm (Königin am Nest mit vielen kleinen Wesen; Abbaulärm lockt sie)"
+        }
+      },
+      "abgeleitet": {
+        "typ": {
+          "rudeltier": {
+            "besetzen": {
+              "if": {
+                "not": {
+                  "v": "{{id}}_besetzt"
+                }
+              },
+              "do": "kreatur_besetzen",
+              "map": "{{map}}",
+              "typ": "rudeltier",
+              "anzahl": 3,
+              "gruppe": "{{id}}_k"
+            },
+            "erledigt": {
+              "name": "kreaturen_erledigt",
+              "map": "{{map}}",
+              "gruppe": "{{id}}_k"
+            },
+            "lage": "Tiere in der Höhle. Die Panzerung sitzt vorn, also flankieren und zusammen vorgehen.",
+            "hinweis": "Captain: Die Tiere stehen verteilt, einzeln bekämpfen. Von hinten treffen.",
+            "ziel": "Alle Tiere der Höhle erledigen",
+            "geschafft": "Die Höhle ist frei von Tieren."
+          },
+          "schwarm": {
+            "besetzen": {
+              "if": {
+                "not": {
+                  "v": "{{id}}_besetzt"
+                }
+              },
+              "do": "nest_besetzen",
+              "map": "{{map}}",
+              "typ": "koenigin",
+              "gruppe": "{{id}}_k"
+            },
+            "erledigt": {
+              "name": "kreaturen_erledigt",
+              "map": "{{map}}",
+              "typ": "koenigin"
+            },
+            "lage": "Ein Schwarm in der Höhle. Lärm lockt ihn an, die Königin sitzt {{lex.nest:am}}.",
+            "hinweis": "Captain: Die Spur der Schwarmlinge führt {{lex.nest:zum}}. Königin beseitigen, dann zerfällt der Schwarm.",
+            "ziel": "Die Königin {{lex.nest:am}} beseitigen",
+            "geschafft": "Die Königin ist erledigt, der Schwarm zerfällt."
+          }
+        }
+      },
+      "vorlage": {
+        "buehne": {
+          "orte": [
+            "{{loc}}"
+          ],
+          "aussenkarten": [
+            "{{map}}"
+          ]
+        },
+        "steps": [
+          {
+            "id": "{{id}}",
+            "loc": "{{loc}}",
+            "allowBeam": [
+              "{{map}}"
+            ],
+            "enter": [
+              "{{besetzen}}",
+              {
+                "set": {
+                  "{{id}}_besetzt": true
+                }
+              }
+            ],
+            "timers": [
+              {
+                "at": 2,
+                "oda": "@{{id}}.start"
+              },
+              {
+                "at": 4,
+                "oda": "@{{id}}.lage"
+              },
+              {
+                "at": 45,
+                "if": {
+                  "not": {
+                    "v": "{{id}}_ende"
+                  }
+                },
+                "oda": "@{{id}}.hinweis",
+                "garantie": "hinweis"
+              }
+            ],
+            "rules": [
+              {
+                "if": {
+                  "all": [
+                    {
+                      "check": "{{erledigt}}"
+                    },
+                    {
+                      "not": {
+                        "v": "{{id}}_ende"
+                      }
+                    }
+                  ]
+                },
+                "do": [
+                  {
+                    "set": {
+                      "{{id}}_ende": true
+                    }
+                  },
+                  {
+                    "setFlag": {
+                      "{{id}}_geraeumt": true
+                    }
+                  },
+                  {
+                    "oda": "@{{id}}.geschafft"
+                  }
+                ]
+              }
+            ],
+            "objectives": [
+              {
+                "id": "runter",
+                "text": "@{{id}}.ziel_runter",
+                "done": {
+                  "any": [
+                    {
+                      "check": {
+                        "name": "away_active",
+                        "map": "{{map}}"
+                      }
+                    },
+                    {
+                      "v": "{{id}}_ende"
+                    }
+                  ]
+                }
+              },
+              {
+                "id": "ziel",
+                "text": "@{{id}}.ziel",
+                "done": {
+                  "v": "{{id}}_ende"
+                }
+              }
+            ],
+            "next": [
+              {
+                "if": {
+                  "v": "{{id}}_ende"
+                },
+                "goto": "{{weiter}}"
+              }
+            ],
+            "skip": [
+              {
+                "set": {
+                  "{{id}}_ende": true
+                }
+              },
+              {
+                "setFlag": {
+                  "{{id}}_geraeumt": true
+                }
+              }
+            ]
+          }
+        ],
+        "texte": {
+          "{{id}}.ziel_runter": "Außenteam runterbeamen",
+          "{{id}}.ziel_hoch": "Zurück an Bord beamen",
+          "{{id}}.start": "Außenteam unten. Captain: Reiter „Außenteam“ – Befehle setzen, Sensor und Kuppel.",
+          "{{id}}.lage": "{{lage}}",
+          "{{id}}.hinweis": "{{hinweis}}",
+          "{{id}}.geschafft": "{{geschafft}}",
+          "{{id}}.ziel": "{{ziel}}"
+        }
+      },
+      "rueckfall": {
+        "params": {
+          "typ": "rudeltier"
+        }
+      },
+      "test": {
+        "params": {
+          "loc": "kesh",
+          "map": "kesh.hoehle-1",
+          "typ": "rudeltier"
+        }
+      }
     }
   ],
   "quelle": "vault: Bausteine/Ziel-Moleküle.md"

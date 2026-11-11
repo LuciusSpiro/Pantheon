@@ -12,11 +12,11 @@
   // Ablauf: Anfangsrauschen -> 5 Glättungsschritte (4-5-Regel) -> Kammern für Eingang, Fundorte, Lager freiräumen -> Öffnung mit 2x2-Element
   // (alles, was nicht in einem 2x2-Bodenblock liegt, wird Fels: keine Engstellen unter 2 Kacheln) -> Reste verbinden (2 breite, gewundene Tunnel) oder
   // zu Fels -> Diagonal-Engpässe öffnen -> Steinhaufen (nur wo 5x5 frei ist) und Pfützen -> Anker -> Erreichbarkeit prüfen, nachbessern (Tunnel), sonst werfen.
-  const VERSION = 2;   // 2 (GEL-03 C): Ader-Kandidaten (Rolle abbau) additiv, eigener Zufallsstrom; Raster und alle übrigen Anker bleiben wie in 1
+  const VERSION = 3;   // 2 (GEL-03 C): Ader-Kandidaten (Rolle abbau) additiv, eigener Zufallsstrom; Raster und alle übrigen Anker bleiben wie in 1. 3 (MON-03 B): genau ein verdeckter Anker nest (Nistplatz), additiv, eigener Zufallsstrom; Raster und alle übrigen Anker bleiben wie in 2
   const GROESSEN = { klein: { w: 56, h: 40 }, mittel: { w: 80, h: 56 }, gross: { w: 104, h: 72 } };
   // Pflichtsätze: gelten auf jedem Seed jeder Größe, unabhängig von opts. Das Deck hat statt abholpunkt einen leiter (Deck-Link, den zählt der Prüfer selbst).
-  const PFLICHT = { abholpunkt: 1, fund: 2, deckung: 4, abbau: 4 };   // abbau (GEL-03 C): Ader-Kandidaten, mindestens 4 (Ziel je Größe: ADERN_ZIEL)
-  const PFLICHT_DECK = { fund: 2, deckung: 4, abbau: 4 };
+  const PFLICHT = { abholpunkt: 1, fund: 2, deckung: 4, abbau: 4, nest: 1 };   // abbau (GEL-03 C): Ader-Kandidaten, mindestens 4 (Ziel je Größe: ADERN_ZIEL)
+  const PFLICHT_DECK = { fund: 2, deckung: 4, abbau: 4, nest: 1 };
   // Ader-Kandidaten (GEL-03 C): feste Orte für Erzadern (Anker rolle abbau, id `hoehle.abbau[.n]`); je Mission sind nur 2 bis 3 davon aktiv (adernWahl), alle stehen in der Karte.
   // Ziel je Fläche: unter 2400 Kacheln (klein 56x40 = 2240, flaches Deck 56x30) 4, bis 5000 (mittel 80x56 = 4480, Deck 80x42) 5, darüber (gross) 6. Mindestens PFLICHT.abbau (4): Mit
   // 2 bis 3 aktiven bleibt so jede Runde eine echte Auswahl (bei 4 Kandidaten 2 aus 4, sonst 2 bis 3 aus 5/6), und der Payload wächst nur um 4 bis 6 Anker (ca. 70 B je Anker).
@@ -391,6 +391,37 @@
       }
       if (gew.length < PFLICHT.abbau) throw new Error(`Höhle: nur ${gew.length} Ader-Kandidaten (Seed ${seed}, ${kand.length} Plätze, Abstand ${abst0})`);
       for (const p of gew) ank('abbau', p);
+    }
+    // ---- Nistplatz (MON-03 B): genau ein Anker `nest` (verdeckt, kein Objekt, keine Kollision, ändert das Raster nicht). Eigener Zufallsstrom RN (R, RA und das Raster bleiben unberührt). Ort: eine freie
+    // Fläche (Fenster nur aus Boden `,`: keine Steine, keine Pfützen; zuerst 5x5 wie die Steinhaufen-Regel, sonst 3x3), nicht auf einem anderen Anker (Abstand >= 3 Kacheln, Chebyshev), fern von Eingang und
+    // Funden (Farthest-Point über eine Stichprobe: der größere Abstand zum Eingang oder zum nächsten Fund gewinnt), Abstand zu Lagern gelockert, wenn nötig. Die Kammer ist schon Teil der erreichbaren Fläche.
+    {
+      const RN = rng(fnv('hoehle-nest', seed >>> 0) ^ (deck ? 0x2545F491 : 0x4F6CDD1D));
+      const bodenB = (x, y) => x >= 0 && y >= 0 && x < W && y < H && at(x, y) === BODEN;
+      const fensterFrei = (cx, cy, r) => { for (let y = cy - r; y <= cy + r; y++) for (let x = cx - r; x <= cx + r; x++) if (!bodenB(x, y)) return false; return true; };
+      const andere = roh.map((a) => [a.x, a.y]);
+      const objekte = [E].concat(funde);
+      const lz = lager.map((l) => l.c);
+      const mittelmass = (W + H) / 2;
+      let wahl = null;
+      for (const r of [2, 1]) {
+        const kand = [];
+        for (let y = 4; y < H - 4; y++) for (let x = 4; x < W - 4; x++) if (fensterFrei(x, y, r) && !andere.some((q) => Math.max(Math.abs(q[0] - x), Math.abs(q[1] - y)) < 3)) kand.push([x, y]);
+        RN.shuffle(kand);
+        const pool = kand.slice(0, 300);
+        for (const f of [1, 0.6, 0.3, 0]) {
+          let best = null;
+          for (const p of pool) {
+            if (dist(p, E) < 0.35 * mittelmass * f || lz.some((q) => dist(p, q) < 6 * f)) continue;
+            const dm = Math.min(dist(p, E), ...funde.map((q) => dist(p, q)));
+            if (!best || dm > best.dm) best = { p, dm };
+          }
+          if (best) { wahl = best.p; break; }
+        }
+        if (wahl) break;
+      }
+      if (!wahl) throw new Error(`Höhle: kein Platz für das Nest (Seed ${seed})`);
+      ank('nest', wahl);
     }
     const rows = []; for (let y = 0; y < H; y++) rows.push(g.slice(y * W, (y + 1) * W).join(''));
     return { rows, anker: roh, lager, W, H };

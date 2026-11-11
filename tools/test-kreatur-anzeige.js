@@ -233,7 +233,7 @@ section('Datenblatt-Eintrag rudeltier', () => {
 
 section('typCode: Reihenfolge der Typen in kreaturen.json ist Protokoll', () => {
   // Neue Typen nur ans ENDE von kreaturen.json, nie umsortieren oder einfügen (der Client kennt den Index als Wiedererkennung). Beim Anhängen eines Typs diese Liste ergänzen.
-  const PROTOKOLL = ['probe', 'rudeltier'];
+  const PROTOKOLL = ['probe', 'rudeltier', 'schwarmling', 'koenigin'];
   const ids = Object.keys(KREATUREN.typen);
   ok(PROTOKOLL.every((t, i) => ids[i] === t), 'die ersten Typen in kreaturen.json sind unverändert und in dieser Reihenfolge: ' + PROTOKOLL.join(', '));
   const kr = g.snapshot().away.kr || [];

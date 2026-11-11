@@ -1,0 +1,10 @@
+{
+  "id": "hoehle_dunkel",
+  "name": "Hoehle dunkel (MON-03 E, Pruefbilder Schwarm): fast schwarzer Grund, schwaches neutrales Licht ohne Lampenkegel, kein Nebel; Leuchtpunkte tragen das Bild. Das Spiel beleuchtet die Hoehle teilweise, diese Stimmung ist der unguenstige Fall",
+  "background": "#0B0A0C",
+  "fog": { "color": "#0B0A0C", "near": 30, "far": 60 },
+  "hemi": { "sky": "#8A8C98", "ground": "#2A2622", "intensity": 1.5 },
+  "sun": { "color": "#D8D4C8", "intensity": 2.6, "dir": [-0.4, 1, 0.5], "softness": 4 },
+  "exposure": 1.0,
+  "bloom": { "strength": 0.25, "radius": 0.4, "threshold": 0.9 }
+}
