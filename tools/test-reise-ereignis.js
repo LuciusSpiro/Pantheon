@@ -56,7 +56,7 @@ section('Katalog: Schema und Vollständigkeit', () => {
   ok(E.filter((e) => e.art === 'notruf').every((e) => W.ort_typen[e.parameter.ort_typ] && (e.gefahr ? ['piratenueberfall', 'belagerung'].includes(e.parameter.variante) : true)), 'Notrufe: Ortstyp gültig, Gefahr nur bei Überfall und Belagerung');
   const bk = ['besitzer', 'rang_min', 'rang_max', 'lage', 'min_abstand'];
   ok(E.every((e) => Object.keys(e.bedingungen || {}).every((k) => bk.includes(k))), 'Bedingungen: nur bekannte Schlüssel');
-  ok(E.every((e) => (!e.bedingungen.besitzer || e.bedingungen.besitzer.every((b) => ['rom', 'ger', 'saum', 'pirat', 'frei'].includes(b))) && (!e.bedingungen.lage || e.bedingungen.lage.every((l) => ['rom', 'ger', 'offen'].includes(l))) && [e.bedingungen.rang_min, e.bedingungen.rang_max].filter(Boolean).every((r) => raenge.includes(r))), 'Bedingungen: Besitzer, Lage und Ränge gibt es');
+  ok(E.every((e) => (!e.bedingungen.besitzer || e.bedingungen.besitzer.every((b) => ['rom', 'ger', 'saum', 'pirat', 'frei', 'vorl'].includes(b))) && (!e.bedingungen.lage || e.bedingungen.lage.every((l) => ['rom', 'ger', 'offen'].includes(l))) && [e.bedingungen.rang_min, e.bedingungen.rang_max].filter(Boolean).every((r) => raenge.includes(r))), 'Bedingungen: Besitzer, Lage und Ränge gibt es');
   ok(E.every((e) => !e.bedingungen.rang_min || !e.bedingungen.rang_max || raenge.indexOf(e.bedingungen.rang_min) <= raenge.indexOf(e.bedingungen.rang_max)), 'Rangfenster nicht leer');
   // Fairness: Gefahr wird angekündigt, keine Scheinwahl
   const gef = E.filter((e) => e.gefahr);
@@ -89,7 +89,8 @@ section('Katalog: Schema und Vollständigkeit', () => {
 // Rate über viele Sprünge: nur die Entscheidung (zaehleSprung + entscheiden), keine Szene; 20 Seeds × 5000 Sprünge über alle Besitzer des Sundes
 section('Rate: höchstens 1 Ereignis je 3 Sprünge, viele Sprünge', () => {
   const t = spiel(); const g = t.g;
-  const hexe = Object.keys(ws(g).zustand.hexe).filter((h) => Sektoren.ortVonHex(h) && Sektoren.spielbar(h)).sort();
+  const vorl = Object.keys(Sektoren.KARTE.hexe).filter((h) => Besitz.besitzer(g, h) === 'vorl' && Sektoren.spielbar(h) && Sektoren.hatSzene(h));   // FRE-03 C: die Vorläufer-Sektoren stehen nicht in der Sim, haben aber eigene Notrufe
+  const hexe = Object.keys(ws(g).zustand.hexe).filter((h) => Sektoren.ortVonHex(h) && Sektoren.spielbar(h)).concat(vorl).sort();
   ok(hexe.length >= 20, `Ankunftssektoren der Messung: ${hexe.length} Hexe mit allen Besitzern (${[...new Set(hexe.map((h) => Besitz.besitzer(g, h) || 'frei'))].sort().join(', ')})`);
   const SEEDS = 20, SPRUENGE = 5000;
   const lageEcht = Regie.lage;
@@ -128,7 +129,7 @@ section('Rate: höchstens 1 Ereignis je 3 Sprünge, viele Sprünge', () => {
   ok(zuDicht === 0 && Math.min(...gaps) >= 3, `nie mehr als 1 Ereignis je 3 aufeinanderfolgende Sprünge (${gaps.length} Abstände, kleinster ${Math.min(...gaps)})`);
   ok(rate >= 1 / 10 && rate <= 1 / 6, `mittlere Rate 1 je ${(1 / rate).toFixed(1)} Sprünge, im Bereich 6 bis 10`);
   ok(RE.ARTEN.every((a) => arten[a] > ereignisse * 0.03), `alle vier Arten kommen vor, keine verhungert (${JSON.stringify(arten)})`);
-  ok(Object.keys(ids).length === RE.KATALOG.length, `jeder Katalogeintrag kam vor (${Object.keys(ids).length} von ${RE.KATALOG.length})`);
+  ok(Object.keys(ids).length === RE.KATALOG.length, `jeder Katalogeintrag kam vor (${Object.keys(ids).length} von ${RE.KATALOG.length}; fehlt: ${RE.KATALOG.filter((e) => !ids[e.id]).map((e) => e.id).join(', ')})`);
   ok(gleicheId === 0, 'nie dieselbe Katalog-Id zweimal in Folge (' + ereignisse + ' Ereignisse)');
   ok(gleicherSatz === 0, `nie derselbe Parametersatz wie eines der letzten ${RE.WERTE.wiederholung.fenster} Ereignisse`);
   ok(abstandId === 0, 'Mindestabstand je Id (bedingungen.min_abstand) eingehalten');

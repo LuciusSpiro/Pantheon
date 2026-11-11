@@ -69,11 +69,24 @@ function ziele(game) {
   return out;
 }
 
+// Über MAX weichen zuerst die ältesten Marken des Typs, der am wenigsten zählt (WEICHT_ZUERST: Notruf vor Kontakt vor Spur vor Fund), in Einfügereihenfolge; Ziele bleiben, solange es geht.
+// So verdrängen Notruf-Marken (Takt, FRE-03) keinen Fund, und ein frischer Fund bleibt sichtbar (früher schnitt slice(0, MAX) die jüngste Marke ab).
+const WEICHT_ZUERST = ['notruf', 'kontakt', 'spur', 'fund'];
+function aufMaxKuerzen(alle) {
+  const out = alle.slice();
+  while (out.length > MAX) {
+    let i = -1;
+    for (const t of WEICHT_ZUERST) { i = out.findIndex((x) => x.t === t); if (i >= 0) break; }
+    out.splice(i >= 0 ? i : out.length - 1, 1);   // nur Ziele übrig: die jüngste weicht
+  }
+  return out;
+}
+
 // abgelaufene Marken entfernen, dann Liste
 function liste(game) {
   const L = zustand(game);
   for (let i = L.length - 1; i >= 0; i--) if (L[i].bis != null && game.time >= L[i].bis) L.splice(i, 1);
-  return ziele(game).concat(L).slice(0, MAX);
+  return aufMaxKuerzen(ziele(game).concat(L));
 }
 function snapshot(game) {
   return liste(game).map((x) => {

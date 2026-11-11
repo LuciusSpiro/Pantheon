@@ -179,14 +179,19 @@ const GER = '1003';
   });
 
   await section('Sektor ohne Kandidaten: der Takt tut still nichts, versucht es erneut, kein Reset', () => {
-    const g = spiel().g;
-    setzeHex(g, GER);
-    ok(RE.taktNotruf(g) === null, `im Germanengebiet ${GER} gibt es keinen Katalog-Notruf (Daten, Paket C): taktNotruf gibt null`);
-    lauf(g, W.takt_s + 60);
-    ok(g.errors === 0 && R(g).taktNr === 0 && R(g).offen.length === 0 && R(g).takt === SCHWELLE, `kein Absturz, kein Notruf, der Zähler bleibt auf der Schwelle (${R(g).takt} von ${SCHWELLE})`);
-    setzeHex(g, '0305');
-    lauf(g, W.takt_neuversuch_s + 1);
-    ok(R(g).taktNr === 1 && R(g).takt < (W.takt_neuversuch_s + 1) * HZ && R(g).offen.length === 1, 'zurück in einem Sektor mit Kandidaten: höchstens nach takt_neuversuch_s kommt der Notruf');
+    // FRE-03 C: seit dem erweiterten Katalog hat jeder Sektor Kandidaten (test-reise-katalog.js). Den Fall ohne Kandidaten stellt der Test her: für diesen Lauf stehen keine Einträge für Germanengebiet im Katalog.
+    const kopie = RE.KATALOG.slice();
+    RE.KATALOG.splice(0, RE.KATALOG.length, ...kopie.filter((e) => !(e.bedingungen.besitzer || []).includes('ger')));
+    try {
+      const g = spiel().g;
+      setzeHex(g, GER);
+      ok(RE.taktNotruf(g) === null, `im Germanengebiet ${GER} gibt es ohne Katalogeinträge für ger keinen Notruf: taktNotruf gibt null`);
+      lauf(g, W.takt_s + 60);
+      ok(g.errors === 0 && R(g).taktNr === 0 && R(g).offen.length === 0 && R(g).takt === SCHWELLE, `kein Absturz, kein Notruf, der Zähler bleibt auf der Schwelle (${R(g).takt} von ${SCHWELLE})`);
+      setzeHex(g, '0305');
+      lauf(g, W.takt_neuversuch_s + 1);
+      ok(R(g).taktNr === 1 && R(g).takt < (W.takt_neuversuch_s + 1) * HZ && R(g).offen.length === 1, 'zurück in einem Sektor mit Kandidaten: höchstens nach takt_neuversuch_s kommt der Notruf');
+    } finally { RE.KATALOG.splice(0, RE.KATALOG.length, ...kopie); }
   });
 
   await section('Marken-Grenze: Notruf-Marken verdrängen keine Fund-Marken (Marken.MAX)', () => {

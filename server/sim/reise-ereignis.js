@@ -299,10 +299,23 @@ function notrufBeantworten(game, R, o) {
   else { folgeBuchen(game, e); funk(game, textFuer(o.ev, 'dank', game)); FA().anbieten(game, o.ev); }
   if (!e.gefahr) notrufMitPerson(game, e, o.ev);   // SUND-04a-1 B: bewältigt (ohne Gefahr: gleich beim Eintreffen)
 }
+// FRE-03 C: die Folge beim Ignorieren (Daten: folge.ignoriert je Notruf-Eintrag) bleibt in der Welt der Crew: eine Fund-Marke am Ort des Notrufs (Typ fund, Zeichen und Ticks aus den Daten) und eine Chronik-Zeile.
+// Kein Ruf, kein rufLog, nichts in der Sim (game.weltsim.zustand). Gilt für Verfall UND Ablehnen: beides lässt den Ruf unbeantwortet, der Unterschied wäre nur eine Ausflucht vor der Folge.
+function ignoriertBuchen(game, o) {
+  const f = (eintrag(o.id) || {}).folge;
+  const ig = f && f.ignoriert;
+  if (!ig) return;
+  try {
+    const m = Marken.setze(game, { id: 'fund:' + o.marke, typ: 'fund', hex: o.hex, sym: ig.fund.sym, ticks: ig.fund.ticks });
+    if (m && game.countError) game.countError('reise-fund', new Error(m));
+    Chronik.eintragen(game, { art: 'reise', ref: o.id, kurz: fmt(ig.chronik, { ort: hexName(o.hex) }).slice(0, WERTE.chronik_kurz_max), param: { art: 'notruf', hex: o.hex } });
+  } catch (err) { if (game.countError) game.countError('reise-fund', err); }
+}
 function notrufVerfaellt(game, R, o, text) {
   Marken.entferne(game, o.marke);
   R.offen.splice(R.offen.indexOf(o), 1);
   Chronik.eintragen(game, { art: 'reise', ref: o.id, kurz: `Notruf bei ${hexName(o.hex)} ${text}`, param: { art: 'notruf', hex: o.hex } });
+  ignoriertBuchen(game, o);
 }
 function ablehnen(game, nr) {
   const R = zustandVon(game);
