@@ -334,6 +334,7 @@
 
   // FRE-04b B6: Auswahl der Sternkarte folgt der Lerche, bis der Spieler etwas anklickt. zs = { sel, manuell, anker }; anker = Ort bzw. Sprungziel der Lerche;
   // gueltig(id) = Auswahl existiert noch (Leerraum zählt immer). Ändert sich der Anker, endet die manuelle Auswahl. -> true, wenn sich sel geändert hat.
+  // Verhalten (Kai entscheidet): Anker = Sprungziel, sonst Ort; eine manuelle Auswahl gilt, bis sich der Anker ändert, und überlebt daher die Ankunft am Sprungziel (Anker bleibt gleich).
   function auswahlFolgen(zs, anker, gueltig) {
     if (zs.anker !== anker) { zs.anker = anker; zs.manuell = false; }
     if (zs.manuell && zs.sel && gueltig(zs.sel)) return false;
@@ -344,14 +345,14 @@
 
   // ------------------------------------------------------------------ rechte Spalte
   const WISSEN_FARBE = F.ortsinfo;
-  // o: { rx, y, rw, sel, hier (Hex der Lerche: steht sel woanders, heißt die Zeile AUSWAHL statt ORT), name(h), art(h), hafen(h), karteFraktion(h), dist(h) -> Sprünge zum nächsten römischen Knoten | undefined, maxZeilen }
+  // o: { rx, y, rw, sel, hier (Hex der Lerche) + ausgewaehlt (sel ist die Auswahl, nicht der überfahrene Hex): steht sie woanders als hier, heißt die Zeile AUSWAHL statt ORT, name(h), art(h), hafen(h), karteFraktion(h), dist(h) -> Sprünge zum nächsten römischen Knoten | undefined, maxZeilen }
   // -> y unter der Spalte
   function ortsinfo(ctx, A, o) {
     const h = o.sel, MS = M.spalte;
     let y = o.y;
     if (!h) { txt(ctx, 'ORT', o.rx, y, { color: P.messing }); y += MS.kopf; txt(ctx, 'Sektor überfahren oder anklicken.', o.rx, y, { color: P.grau }); return y + MS.zeile; }
     const kh = A.hex[h] || {}, fr = fraktion(kh.f || o.karteFraktion(h));
-    txt(ctx, (o.hier && h !== o.hier ? 'AUSWAHL' : 'ORT') + ' · SEKTOR ' + h, o.rx, y, { color: P.messing }); y += MS.kopf;
+    txt(ctx, (o.ausgewaehlt && o.hier && h !== o.hier ? 'AUSWAHL' : 'ORT') + ' · SEKTOR ' + h, o.rx, y, { color: P.messing }); y += MS.kopf;
     if (o.verborgen && o.verborgen(h)) {   // SUND-01 F: verborgenes, unerkundetes Hex: wie auf der Karte „?“, weder Name noch Besitzer noch Art (Wissensleck)
       txt(ctx, '?', o.rx, y, { color: P.gold }); y += MS.zeile;
       txt(ctx, T.TEXT.ortsinfo.verborgen, o.rx, y, { color: P.hell }); y += MS.zeile;
