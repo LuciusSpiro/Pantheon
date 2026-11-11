@@ -12,6 +12,24 @@
 //     Ereignis kreaturAusgefallen { id, typ, gruppe, x, y } (Missions- und Spielereignis, Kreatur.ausgefallenMelden) kommt je Tier einmal beim endgültigen Ausfall durch Beschuss.
 // Fehler (unbekannter Typ, Bereich oder Karte, Anzahl außerhalb 1 bis 12, kein erreichbarer Platz) zählen als game.countError('mission-kreatur') mit der Meldung von Kreatur.rudelSetzen; es entsteht dann kein Tier.
 const Kreatur = () => require('../../sim/kreatur.js');
+// SPL-01 a4: Rudel-Deckel im Prüfer. Zahlen stehen je Typ in kreaturen.json (Feld rudel, Kreatur.rudelRegel), hier nur die Anwendung:
+//   argsPruefen (je Aufruf): Rudelgröße gegen rudel.tiere; Bereich im Höhlen-Deck unter einer Wildnis (dort scheitert die Platzierung, Kreatur kennt keine Decks)
+//   dokPruefen (je Buch, der Prüfer sammelt alle Aufrufe): Rudel je Karte gegen rudel.jeKarte
+const Objekte = () => require('../objects.js');
+const GenHoehle = () => require('../../../shared/gen-hoehle.js');
+// Kartenart, die ein Höhlen-Deck unter der Oberfläche tragen kann (landepunkte.js hoehleKannAdern, gen-gelaende): nur die Wildnis
+const MIT_DECK = 'wildnis';
+// Liegt der Bereich im Höhlen-Deck unter einer Wildnis? Der Prüfer kennt nur die Landepunkt-Kennung (gebaute Karten gibt es erst zur Laufzeit), also die Kartenart aus den Landepunkt-Daten
+// und die Bereichs-Namen aus dem Erzeuger selbst: alle Bereiche des Decks tragen den Platznamen des Erzeugers (GenHoehle.PLATZ) als Namen oder Präfix (hoehle, hoehle_lager_n).
+function bereichImDeckFehler(args) {
+  const o = args || {};
+  if (typeof o.bereich !== 'string' || typeof o.map !== 'string') return [];
+  const lp = Objekte().landepunkt(o.map);
+  if (!lp || lp.art !== MIT_DECK) return [];
+  const P = GenHoehle().PLATZ;
+  if (o.bereich !== P && !o.bereich.startsWith(P + '_')) return [];
+  return ["'bereich' = \"" + o.bereich + "\" liegt im Höhlen-Deck unter der Wildnis '" + o.map + "' (Rudel dort scheitern: die Platzierung kennt keine Decks); Rudel nur auf der Oberfläche oder auf einer eigenen Höhlenkarte"];
+}
 
 module.exports = (Registry) => {
   Registry.define({ id: 'kreatur_besetzen', art: 'aktion', effekt: 'gegner',
@@ -19,6 +37,8 @@ module.exports = (Registry) => {
     beschreibung: 'Rudel von Kreaturen (Typ aus kreaturen.json, 1 bis 12 Tiere, Kennung gruppe) in einem Bereich einer Außenkarte anlegen: nur erreichbare Plätze, mit Abstand, weit vom Abholpunkt. Unbekannter Bereich oder kein Platz: Fehler, kein Tier',
     params: { map: { typ: 'map', pflicht: true }, bereich: { typ: 'area' }, typ: { typ: 'string', pflicht: true },
       anzahl: { typ: 'number', pflicht: true, min: 1, max: 12 }, gruppe: { typ: 'string', pflicht: true } },
+    argsPruefen: (args) => Kreatur().rudelGroesseFehler(args).concat(bereichImDeckFehler(args)).map((t) => ({ code: 'PARAM-WERT', text: t })),
+    dokPruefen: (liste) => Kreatur().rudelJeKarteFehler(liste.map((x) => x.args)).map((f) => ({ code: 'PARAM-WERT', p: liste[f.index].p, text: f.text })),
     run(m, a) {
       const g = m.game;
       let r;

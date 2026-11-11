@@ -494,5 +494,5 @@
     const s = new Set(da);
     return { da: liste.filter((id) => s.has(id)), leer: liste.filter((id) => !s.has(id)) };
   }
-  return { erzeuger, PFLICHT, PFLICHT_DECK, GROESSEN, VERSION, ADERN_ZIEL, istAderKandidat, adernWahl, ADERN_RUNDE_MAX };
+  return { erzeuger, PLATZ, PFLICHT, PFLICHT_DECK, GROESSEN, VERSION, ADERN_ZIEL, istAderKandidat, adernWahl, ADERN_RUNDE_MAX };
 });

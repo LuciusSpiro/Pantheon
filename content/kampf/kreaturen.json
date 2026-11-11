@@ -34,6 +34,7 @@
     },
     "rudeltier": {
       "name": "kreatur.rudeltier",
+      "rudel": { "tiere": { "min": 3, "max": 4 }, "jeKarte": 2 },
       "groesse": 1,
       "kollision": { "box": 24 },
       "sicht": 8,
