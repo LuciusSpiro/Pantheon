@@ -28,7 +28,7 @@ const verlauf = (game) => { const F = faden(game); return F ? Kanon().liste(F).f
 function folgeFehler(game, v) {
   const f = folgeText(typenVon(v));
   const F = faden(game);
-  const e = verlauf(game).slice(0, R.folge_zuletzt).find((x) => folgeText(x.folge) === f) || ((F && F.abenteuerAngebote) || []).find((a) => folgeText(typenVon(a.vorlage)) === f);   // auch ein offenes Angebot gleicher Folge zaehlt: nie dreimal dasselbe auf dem Brett
+  const e = verlauf(game).slice(0, R.folge_zuletzt).find((x) => folgeText(x.folge) === f) || ((F && F.abenteuerAngebote) || []).filter((a) => !a.notruf).find((a) => folgeText(typenVon(a.vorlage)) === f);   // auch ein offenes Angebot gleicher Folge zaehlt: nie dreimal dasselbe auf dem Brett
   return e ? fehl('WIEDERHOLUNG_FOLGE', `dieselbe Typenfolge (${f}) wie eines der letzten ${R.folge_zuletzt} Abenteuer`) : null;
 }
 function ortFehler(game, v, hex) {

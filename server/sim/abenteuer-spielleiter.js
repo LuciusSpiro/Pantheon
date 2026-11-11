@@ -71,7 +71,7 @@ class AbenteuerSpielleiter {
     if (this.aufrufe >= this.W.deckel_je_sitzung) return false;
     try { return !this.budgetGesperrt(); } catch (e) { return false; }
   }
-  offeneAngebote() { const F = faden().zustandVon(this.game); return F ? F.abenteuerAngebote.length : 0; }
+  offeneAngebote() { const F = faden().zustandVon(this.game); return F ? require('./faden-pruefer.js').regulaereAngebote(F).length : 0; }   // FRE-03 D: Notruf-Angebote zaehlen nicht (eigene Obergrenze)
   // Uebersprungen: gezaehlt immer, im Logbuch nur beim Wechsel des Grundes (keine Flut)
   ueberspringen(grund, art) {
     this.zaehler.uebersprungen[grund] = (this.zaehler.uebersprungen[grund] || 0) + 1;

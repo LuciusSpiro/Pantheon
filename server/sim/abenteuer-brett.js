@@ -19,6 +19,9 @@
 //   ablehnen legt das abgelehnte Angebot ein (die Sperre abgelehnt haelt es vom sofortigen Wiederanbieten ab: abenteuer-vorrat.js ausVorratOhneSperre), ausVorratEinsAnbieten/ausVorratFuellen nehmen aus dem Vorrat (NUR beiAndocken, VOR der Grenze; an den anderen Grenzen nie: dort komponiert der Komponist wie ohne Vorrat). Das Angebot traegt additiv erstellt (Tick des ersten Erzeugens, nur Weltstand): das Alter bleibt beim Einlegen erhalten.
 //   SPL-02 A: neuAnbieten(game, plan, { hex, bezug?: { nsc: Vollname }, locker?: bool }) -> wie faden.abenteuerNeuAnbieten; das Angebot traegt `bezug` (der Wiedersehen-NSC, den das Annehmen nimmt, nicht den juengsten frischen) und `locker` (die Fortsetzung darf die Hauptfigur
 //   des letzten Abenteuers aufnehmen: Wiederholungsregel nsc_zuletzt). Ist der NSC beim Annehmen kein Kandidat mehr, ist das Angebot veraltet (Grund BEZUG_VERALTET im Logbuch). Absichten (absicht-pruefer.js) setzen locker aus dem Katalogfeld fortsetzung (istFortsetzung).
+//   FRE-03 D: notrufAnbieten(game, { nr, id, hex, variante, sprecher, marke, ankunft }) -> Angebot | null   beim Entstehen eines Takt-Notrufs (reise-ereignis.js) ein Angebot mit Feld notruf { nr, id, marke }, variante, bezug { sprecher }, herkunft (Crew-Hex) und Absicht; der Plan steht in content/faeden/notruf-brett.json
+//   (kein Inszenierer, kein Modell, auch im Rueckfall-Betrieb); zaehlt getrennt von angebote_max (notruf_angebote_max), altert nie in Taetigkeiten, steht nie im Weltstand und nie im Vorrat; zurueckziehenFuerNotruf(game, marke) -> bool
+//   nimmt es weg, wenn der Eintrag verfaellt, abgelehnt oder beantwortet wird; Annehmen startet den Beat notruf sofort (notrufBeatStarten). regulaere und Notruf-Angebote trennt faden-pruefer.js (regulaereAngebote, notrufAngebote).
 // SUND-04b E1/E3: der Kanon (abenteuer-kanon.js) haelt fest, was ein Abenteuer erfindet; die Wiederholungsregeln (abenteuer-wiederholung.js) gelten fuer jeden Plan des Spielleiters (faden.js abenteuerNeuAnbieten) und fuer den Rueckfall (passt: stufenweise gelockert, Ort, Folge, NSC).
 // Ohne Schalter FAEDEN=1 oder ohne aktiven Lage-Spielleiter tut der Rueckfall nichts (die Angebote bleiben bis zum Verfall, begonnene Abenteuer stehen).
 const D = require('./faden-daten.js');
@@ -26,6 +29,8 @@ const P = require('./faden-pruefer.js');
 const Sektoren = require('../../shared/sektoren.js');
 
 const BR = D.BRETT, BW = BR.werte, W = D.WERTE, B = D.BEATS;
+const NB_DATEI = JSON.parse(require('fs').readFileSync(require('path').join(D.DIR, 'notruf-brett.json'), 'utf8'));   // FRE-03 D: Angebot zu einem Takt-Notruf (Zahlen, Texte, Plan als Daten)
+const NB = Object.fromEntries(Object.entries(NB_DATEI.werte).map(([k, v]) => [k, v.wert]));
 const Faden = () => require('./faden.js');
 const regie = () => require('./regie-befehle.js');
 const Bauplan = () => require('./faden-bauplan.js');
@@ -167,6 +172,14 @@ function geruechte(angebote) {
   }
   return out;
 }
+// FRE-03 D: was das Brett zeigt (und was in den Snapshot kommt): hoechstens angebote_max regulaere und notruf_angebote_max Notruf-Angebote, in der Reihenfolge der Angebote (zaehlen getrennt, verdraengen sich nie)
+function sichtbareAngebote(F) {
+  const n = { regulaer: 0, notruf: 0 };
+  return F.abenteuerAngebote.filter((a) => {
+    const k = a.notruf ? 'notruf' : 'regulaer';
+    return n[k]++ < (a.notruf ? NB.notruf_angebote_max : W.abenteuer.angebote_max);
+  });
+}
 function snapshot(game) {
   const F = game && game.weltsim && game.weltsim.faeden;
   if (!F || !Faden().aktiv(game)) return null;
@@ -174,12 +187,13 @@ function snapshot(game) {
   if (!F.abenteuerAngebote.length && !l) return null;
   const text = (t, max) => kuerzen(ohneNamen(game, String(t)), max);
   const s = { ok: Faden().spielleiterAktiv(game) ? 1 : 0, kopf: BW.kopf, ablehnen: BW.ablehnen_text, scheitern: BW.scheitern_text, angebote: [] };
-  const alle = F.abenteuerAngebote.slice(0, W.abenteuer.angebote_max);
+  const alle = sichtbareAngebote(F);
   for (const a of alle) {
     const von = vonAngebot(game, a);
     const offen = ortOffen(a.vorlage);   // FRE-02 B1: ein Beat, der seinen Ort selbst waehlt, ueberschreibt das Ziel beim Start: kein Ziel anzeigen (ort/ortname leer, ort_offen), der Client nennt dann nur den Hafen
     const e = { id: 'a' + a.nr, titel: text(a.vorlage.titel, BW.titel_max), ort: offen ? '' : a.hex, ortname: offen ? '' : hexName(a.hex).slice(0, BW.ort_max), rest: restAngebot(a), von, aus_geruecht: a.vorlage.beats.some((b) => b.typ === 'geruecht'), vorschau: vorschau(a.vorlage, von), typen: typenVon(a.vorlage) };
     if (offen) e.ort_offen = true;
+    if (a.notruf) e.notruf = 1;   // FRE-03 D: das einzige neue Feld: ein Notruf-Angebot (gleiche Karte, keine Tätigkeits-Frist; die Anzeige darf es absetzen)
     if (a.herkunft) e.hafen = hexName(a.herkunft.hex).slice(0, BW.ort_max);   // der Auftraggeber ist `von` (Fraktion); NSC-Namen und Spielernamen stehen nie im Block
     if (typeof a.vorlage.anlass === 'string') e.anlass = text(a.vorlage.anlass, BW.anlass_max);
     s.angebote.push(e);
@@ -239,6 +253,7 @@ function annehmen(game, id) {
     return veraltet(game, F, a, r.grund);   // NSC_VON, NAME, NSC_ZAHL, Lage: das Angebot ist so nicht mehr zu spielen
   }
   gemerkt(brett(F).antworten, a.nr, BW.antworten_gemerkt);
+  if (a.notruf) notrufBeatStarten(game, r.faden);   // FRE-03 D: ein Notruf wartet nicht auf einen Spielleiter-Befehl (im Rueckfall-Betrieb gaebe es keinen)
   F.abenteuerZuletzt = r.faden.vorlage;
   logbuch(game, 'faden_ereignis', { ausgang: 'abenteuer_angenommen', key: r.faden.id, begruendung: `Abenteuer ${r.faden.vorlage} angenommen (Angebot ${a.nr})`, plan: { faden: r.faden.id, vorlage: r.faden.vorlage, angebot: a.nr } });
   return null;
@@ -250,9 +265,9 @@ function ablehnen(game, id) {   // kostet nichts: keine Ruf- oder Haltungsfolge,
   entfernen(F, a);
   const b = brett(F);
   gemerkt(b.antworten, a.nr, BW.antworten_gemerkt);
-  gemerkt(b.abgelehnt, a.ref, 3);   // der Rueckfall bietet nicht sofort denselben Plan wieder an
+  if (!a.notruf) gemerkt(b.abgelehnt, a.ref, 3);   // der Rueckfall bietet nicht sofort denselben Plan wieder an (FRE-03 D: ein Notruf-Angebot ist kein Rueckfall-Plan, der Notruf-Eintrag bleibt offen)
   logbuch(game, 'faden_ereignis', { ausgang: 'abenteuer_abgelehnt', key: a.ref, begruendung: `Angebot ${a.nr} abgelehnt (keine Folge)`, plan: { angebot: a.nr, vorlage: a.ref } });
-  if (a.absicht) { try { Vorrat().einlegenAus(game, a, BW.vorrat_art); } catch (e) { fehlerZaehlen(game, 'abenteuer-brett-vorrat', e); } }   // FRE-02 C: nicht gespielt, aber noch gut: in den Vorrat (die Sperre oben haelt es vom sofortigen Wiederanbieten ab)
+  if (a.absicht && !a.notruf) { try { Vorrat().einlegenAus(game, a, BW.vorrat_art); } catch (e) { fehlerZaehlen(game, 'abenteuer-brett-vorrat', e); } }   // FRE-02 C: nicht gespielt, aber noch gut: in den Vorrat (die Sperre oben haelt es vom sofortigen Wiederanbieten ab)
   return null;
 }
 
@@ -300,7 +315,7 @@ function passt(game, F, bp, stufe, hex) {
 function anschluss(game) {
   if (!Faden().aktiv(game) || anschlussAus(game) || !Faden().spielleiterAktiv(game)) return null;
   const F = Faden().zustandVon(game);
-  if (F.abenteuerAngebote.length || P.abenteuerLaufend(F)) return null;
+  if (P.regulaereAngebote(F).length || P.abenteuerLaufend(F)) return null;   // FRE-03 D: ein Notruf-Angebot ersetzt die Anschluss-Garantie nicht
   const hex = crewHex(game);
   if (!hex) return null;
   return rueckfallWahl(game, F, hex, true);
@@ -367,7 +382,7 @@ function ausVorratEinsAnbieten(game) {
   if (!Faden().aktiv(game) || !Absicht2().aktiv(game) || !Faden().spielleiterAktiv(game)) return null;
   const F = Faden().zustandVon(game);
   if (!F || !Array.isArray(F.vorrat) || !F.vorrat.length) return null;
-  if (F.abenteuerAngebote.length >= W.abenteuer.angebote_max || P.abenteuerLaufend(F)) return null;
+  if (P.regulaereAngebote(F).length >= W.abenteuer.angebote_max || P.abenteuerLaufend(F)) return null;
   const hex = crewHex(game);
   if (!hex) return null;
   const r = Vorrat().ausVorratOhneSperre(game, BW.vorrat_art);
@@ -401,9 +416,9 @@ function anschlussFuellen(game) {
   const hex = crewHex(game);
   if (!hex) return out;
   const nurGarantie = komponistOffen(game);
-  while (F.abenteuerAngebote.length < W.abenteuer.angebote_max) {
-    if (nurGarantie && F.abenteuerAngebote.length > 0) break;
-    const a = rueckfallWahl(game, F, hex, F.abenteuerAngebote.length === 0);
+  while (P.regulaereAngebote(F).length < W.abenteuer.angebote_max) {
+    if (nurGarantie && P.regulaereAngebote(F).length > 0) break;
+    const a = rueckfallWahl(game, F, hex, P.regulaereAngebote(F).length === 0);
     if (!a) break;
     out.push(a);
   }
@@ -413,11 +428,12 @@ function anschlussFuellen(game) {
 function sammelHinweis(game) {
   const F = game && game.weltsim && game.weltsim.faeden;
   if (!F || !Faden().aktiv(game) || !Faden().spielleiterAktiv(game)) return false;
-  const n = Math.min(F.abenteuerAngebote.length, W.abenteuer.angebote_max);
+  const reg = P.regulaereAngebote(F);   // FRE-03 D: der Sammelfunk zaehlt, was Andocken und Rueckfall legten (ein Notruf meldet sich selbst per Funk)
+  const n = Math.min(reg.length, W.abenteuer.angebote_max);
   if (n < 1) return false;
   const b = brett(F);
   if (!Array.isArray(b.hinweise)) { b.hinweise = []; b.hinweisT = -1; b.hinweisNr = -1; }
-  b.hinweisT = F.t; b.hinweisNr = F.abenteuerAngebote[F.abenteuerAngebote.length - 1].nr;
+  b.hinweisT = F.t; b.hinweisNr = reg[reg.length - 1].nr;
   const text = n === 1 ? BW.sammel_text_eins : fmt(BW.sammel_text, { n });
   try { game.emit('radio', { from: BW.hinweis_funk_sprecher, text, lage: 1, fd: 1, r: 1 }); } catch (e) { fehlerZaehlen(game, 'abenteuer-brett-funk', e); return false; }
   return true;
@@ -434,7 +450,7 @@ function verfallenEinlegen(game, F) {
   const b = brett(F);
   if (!Array.isArray(b.gesehen)) return;
   for (const a of b.gesehen) {
-    if (!a.absicht || F.abenteuerAngebote.includes(a) || b.antworten.includes(a.nr)) continue;
+    if (!a.absicht || a.notruf || F.abenteuerAngebote.includes(a) || b.antworten.includes(a.nr)) continue;   // FRE-03 D: ein Notruf-Angebot kommt nie in den Vorrat (sein Eintrag bestimmt die Lebensdauer; Notruf-Vorrat ist Paket E)
     try { Vorrat().einlegenAus(game, a, BW.vorrat_art); } catch (e) { fehlerZaehlen(game, 'abenteuer-brett-vorrat', e); }
   }
 }
@@ -502,12 +518,57 @@ function angebotAusstatten(angebot, f) {
   return angebot;
 }
 
+// ---------- FRE-03 D: Notruf-Angebot. Beim Entstehen eines Takt-Notrufs (Aufrufer: reise-ereignis.js ausloesenTaktNotruf) liegt ein Angebot am Brett: Ort = Notruf-Hex, Bezug = Sprecher des Katalog-Eintrags (Text; der NSC entsteht
+// erst beim Annehmen, faden.js abenteuerOeffnen), Absicht je Variante (notruf-brett.json), Herkunft = der Hex der Crew beim Entstehen. Der Plan steht als Daten (notruf-brett.json plan), kein Modell, kein Komponisten-Aufruf, kein
+// Inszenierer: der Weg traegt auch im Rueckfall-Betrieb (ohne ABENTEUER_ABSICHTEN). Das Angebot traegt `notruf` { nr, id, marke } (Verknuepfung zum Eintrag in game.weltsim.reise.offen), `variante` und `bezug` { sprecher } (Schnittstelle BEA-02).
+// Der Eintrag ist Herr der Lebensdauer: zurueckziehenFuerNotruf nimmt das Angebot weg, wenn der Eintrag verfaellt, abgelehnt oder beantwortet wird. Angebote stehen nicht im Weltstand (wie alle Angebote), und zaehlen getrennt von angebote_max.
+// o = { nr, id, hex, variante, sprecher, marke, ankunft } -> Angebot | null (Faeden oder Spielleiter aus, voll, schon eines zu dieser Marke, Plan nicht annehmbar: dann bleibt der Notruf ein reiner Katalog-Notruf)
+function notrufAnbieten(game, o) {
+  const F = game && game.weltsim && game.weltsim.faeden;
+  if (!F || !istObjekt(o) || !Faden().aktiv(game) || !Faden().spielleiterAktiv(game)) return null;
+  if (typeof o.hex !== 'string' || !HEX.test(o.hex) || typeof o.marke !== 'string' || !o.marke) return null;
+  const da = P.notrufAngebote(F);
+  if (da.length >= NB.notruf_angebote_max || da.some((a) => a.notruf.marke === o.marke)) return null;
+  const sprecher = String(o.sprecher || '').slice(0, 40);
+  const plan = klon(NB_DATEI.plan);
+  plan.titel = fmt(NB.titel, { sprecher });
+  plan.anlass = has(NB.anlass_je_variante, o.variante) ? NB.anlass_je_variante[o.variante] : NB.anlass_standard;
+  const absicht = { format: 'absicht/1', absicht: has(NB.absicht_je_variante, o.variante) ? NB.absicht_je_variante[o.variante] : NB.absicht_standard, titel: plan.titel, ton: NB.ton, parameter: { text_key: plan.beats[0].parameter.text_key } };
+  const b = brett(F), stumm = b.hinweisStumm;
+  b.hinweisStumm = true;   // der Notruf meldet sich selbst per Funk: kein zweiter Hinweis "Neuer Auftrag am Brett"
+  let res;
+  try { res = Faden().abenteuerNotrufAnbieten(game, plan, { hex: o.hex }); } finally { b.hinweisStumm = stumm; }
+  if (!res.ok) return null;
+  const a = res.angebot;
+  angebotAusstatten(a, { herkunft: o.ankunft, absicht, bezug: { sprecher } });
+  a.variante = typeof o.variante === 'string' ? o.variante : '';
+  a.notruf = { nr: o.nr, id: String(o.id || ''), marke: o.marke };
+  logbuch(game, 'abenteuer_anschluss', { ausgang: 'angeboten', key: a.ref, modus: 'notruf', absicht: absicht.absicht, begruendung: `Notruf ${a.notruf.id} bei ${o.hex}: Angebot ${a.nr} (Plan ${a.ref})`, plan: { angebot: a.nr, vorlage: a.ref, hex: o.hex } });
+  return a;
+}
+// Annehmen eines Notruf-Angebots: der erste Beat (notruf) beginnt sofort, ueber den Befehl faden_weiter wie sonst der Spielleiter (Abstand ueberspringen: die Crew hat gerade geantwortet). Ein Fehler blockiert nichts (Faden bleibt wartend, Zaehler).
+function notrufBeatStarten(game, faden) {
+  try {
+    faden.zaehler = Math.max(faden.zaehler, faden.abstand);
+    const r = Faden().befehlAnwenden(game, { typ: 'faden_weiter', faden: faden.id, beat: D.vorlage(faden.vorlage).beats[faden.beat].id });
+    if (!r.ok) fehlerZaehlen(game, 'abenteuer-brett-notruf', new Error(String(r.grund)));
+  } catch (e) { fehlerZaehlen(game, 'abenteuer-brett-notruf', e); }
+}
+// Der Eintrag des Notrufs (Marke) ist verfallen, abgelehnt oder beantwortet: sein Angebot geht vom Brett (nichts im Vorrat, keine Antwort-Marke: ein spaeterer Druck auf das Angebot meldet kein_angebot). -> true, wenn eines wegging
+function zurueckziehenFuerNotruf(game, marke) {
+  const F = game && game.weltsim && game.weltsim.faeden;
+  const a = F ? P.notrufAngebote(F).find((x) => x.notruf.marke === marke) : null;
+  if (!a) return false;
+  entfernen(F, a);
+  return true;
+}
+
 // ---------- Weltstand welt.sim.faeden.abenteuer: der zuletzt gespielte Plan (Rueckfall wiederholt ihn nicht) und die offenen Angebote (Plan, Ort, Alter); die Plaene laufen beim Laden erneut durch den Pruefer
 function toSave(F) {
   if (!F) return null;
   const b = {};
   if (typeof F.abenteuerZuletzt === 'string' && VORLAGE_ID.test(F.abenteuerZuletzt)) b.zuletzt = F.abenteuerZuletzt;
-  if (F.abenteuerAngebote && F.abenteuerAngebote.length) b.angebote = F.abenteuerAngebote.slice(0, W.abenteuer.angebote_max).map((a) => Object.assign({ hex: a.hex, alter: a.alter, plan: klon(a.vorlage) }, a.volk ? { volk: a.volk } : {}, bezugVon(a.bezug) ? { bezug: { nsc: a.bezug.nsc } } : {}, a.locker === true ? { locker: true } : {}, herkunftVon(a.herkunft) ? { herkunft: herkunftVon(a.herkunft) } : {}, absichtVon(a.absicht) ? { absicht: absichtVon(a.absicht) } : {}, absichtVon(a.absicht) && Number.isInteger(a.erstellt) && a.erstellt >= 0 ? { erstellt: a.erstellt } : {}));
+  if (P.regulaereAngebote(F).length) b.angebote = P.regulaereAngebote(F).slice(0, W.abenteuer.angebote_max).map((a) => Object.assign({ hex: a.hex, alter: a.alter, plan: klon(a.vorlage) }, a.volk ? { volk: a.volk } : {}, bezugVon(a.bezug) ? { bezug: { nsc: a.bezug.nsc } } : {}, a.locker === true ? { locker: true } : {}, herkunftVon(a.herkunft) ? { herkunft: herkunftVon(a.herkunft) } : {}, absichtVon(a.absicht) ? { absicht: absichtVon(a.absicht) } : {}, absichtVon(a.absicht) && Number.isInteger(a.erstellt) && a.erstellt >= 0 ? { erstellt: a.erstellt } : {}));
   const vo = Vorrat().toSave(F);   // SPL-02 F: der Vorrat (abenteuer-vorrat.js) steht im selben Block, additiv
   if (vo) b.vorrat = vo;
   return Object.keys(b).length ? b : null;
@@ -539,4 +600,4 @@ function lesen(b, F) {   // muellfest: Unbrauchbares faellt weg (Meldung in F.la
 // SPL-02 D: die NSC, die eine Fortsetzung tragen (Katalog der Absichten, absicht-pruefer.js): die Verbindung fuer abenteuer-geschichte.js, das den Pruefer nicht selbst laedt
 const fortsetzungsNamen = (game, katalog) => Absicht().fortsetzungsNamen(game, katalog);
 
-module.exports = { snapshot, schluessel, annehmen, ablehnen, vorschau, marken, kuerzen, beiEnde, hinweisAnbieten, beiTaetigkeit, beiUpdate, anschluss, beiAndocken, anschlussFuellen, ausVorratFuellen, ausVorratEinsAnbieten, sammelHinweis, passtZuLage, neuAnbieten, toSave, lesen, weigerung, schrittText, fortsetzungsNamen };
+module.exports = { snapshot, schluessel, annehmen, ablehnen, vorschau, marken, kuerzen, beiEnde, hinweisAnbieten, beiTaetigkeit, beiUpdate, anschluss, beiAndocken, anschlussFuellen, ausVorratFuellen, ausVorratEinsAnbieten, sammelHinweis, passtZuLage, neuAnbieten, notrufAnbieten, zurueckziehenFuerNotruf, toSave, lesen, weigerung, schrittText, fortsetzungsNamen };

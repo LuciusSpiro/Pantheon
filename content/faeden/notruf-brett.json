@@ -1,0 +1,69 @@
+{
+  "format": "notruf-brett/1",
+  "_hinweis": "FRE-03 D: Daten des Brett-Angebots zu einem Takt-Notruf (server/sim/abenteuer-brett.js notrufAnbieten). Beim Entstehen eines Notrufs legt das Brett ein Angebot an (kein Modell, kein Komponisten-Aufruf, auch im Rückfall-Betrieb): der Plan steht hier als Daten (faden-bauplan/1, Beat notruf plus Abschluss), nicht im Code. Der Inszenierer (inszenierer.js) taugt dafür nicht: seine Ortsregel wählt das Ziel selbst, der Notruf-Ort steht aber fest, und ohne ABENTEUER_ABSICHTEN ist er gesperrt. Titel und Anlass sind Katalogtexte (Sprecher des Notruf-Eintrags, nie ein Spielername). Platzhalter nur {sprecher} (Titel). plan.volk_erlaubt: Völker des NSC, den das Annehmen erzeugt: das Volk des Ortes gilt, wenn es hier steht (rom, ger, Konkordat), sonst das erste (Piraten- und Vorläufer-Sektoren haben kein Volk); ohne ger bekäme ein Notruf im Germanengebiet einen römischen NSC. plan.beats[0].parameter.text_key: Funktext des Beats notruf (p3-texte.json) beim Annehmen.",
+  "werte": {
+    "notruf_angebote_max": {
+      "wert": 3,
+      "einheit": "Angebote",
+      "_hinweis": "Höchstens so viele Notruf-Angebote zugleich am Brett. Sie zählen GETRENNT von angebote_max (content/faeden/werte.json abenteuer): Andock-Angebote und Notruf-Angebote verdrängen sich nie. Gleich takt_offen_max (content/reise/werte.json): zu jedem offenen Takt-Notruf gehört höchstens ein Angebot."
+    },
+    "absicht_je_variante": {
+      "wert": {
+        "havarie": "notruf",
+        "piratenueberfall": "notruf",
+        "belagerung": "notruf"
+      },
+      "einheit": "Absicht je Variante des Katalog-Notrufs",
+      "_hinweis": "Welche Absicht (absichten.json) das Angebot trägt. Alle drei Varianten des Katalogs sind ein Hilferuf an ein Schiff oder einen Posten, kein Katalog-Text nennt eine Entführung oder Überlebende: die Absicht rettung (Beat befreiung, entführter NSC) passt auf keine. Rettungsfälle mit Überlebenden kommen mit BEA-02: dann steht hier für die passende Variante rettung."
+    },
+    "absicht_standard": {
+      "wert": "notruf",
+      "einheit": "Absicht",
+      "_hinweis": "Gilt für eine Variante ohne Eintrag in absicht_je_variante."
+    },
+    "ton": {
+      "wert": "dringlich",
+      "einheit": "Ton",
+      "_hinweis": "Ton der Absicht am Angebot (absicht/1)."
+    },
+    "titel": {
+      "wert": "Notruf: {sprecher}",
+      "einheit": "Text",
+      "_hinweis": "Titel des Angebots (3 bis 60 Zeichen nach bauplan.json). {sprecher} ist der Sprecher des Katalog-Eintrags (Text, kein NSC: der NSC entsteht erst beim Annehmen)."
+    },
+    "anlass_je_variante": {
+      "wert": {
+        "havarie": "Ein Schiff treibt havariert im All und ruft um Hilfe, niemand sonst antwortet.",
+        "piratenueberfall": "Ein Schiff wird überfallen und funkt um Hilfe, die Angreifer sind noch in der Nähe.",
+        "belagerung": "Ein Posten wird belagert und ruft um Hilfe, die Angreifer sind noch in der Nähe."
+      },
+      "einheit": "Text je Variante",
+      "_hinweis": "Anlass des Angebots (8 bis 160 Zeichen, ohne Platzhalter und Namen: Crew-neutral). Die Gefahr steht in Katalog-Notrufen im Funktext (Fairness-Regel), der Anlass nennt sie hier nur für die Karte am Brett."
+    },
+    "anlass_standard": {
+      "wert": "Ein Schiff ruft um Hilfe und wartet auf Antwort.",
+      "einheit": "Text",
+      "_hinweis": "Anlass für eine Variante ohne Eintrag in anlass_je_variante."
+    }
+  },
+  "plan": {
+    "format": "faden-bauplan/1",
+    "titel": "Notruf",
+    "beats": [
+      {
+        "typ": "notruf",
+        "parameter": {
+          "text_key": "notruf_standard"
+        }
+      },
+      {
+        "typ": "abschluss"
+      }
+    ],
+    "volk_erlaubt": [
+      "rom",
+      "kon",
+      "ger"
+    ]
+  }
+}

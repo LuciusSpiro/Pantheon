@@ -1,0 +1,335 @@
+'use strict';
+// FRE-03 D: der Einstieg eines Takt-Notrufs als Brett-Angebot (server/sim/abenteuer-brett.js notrufAnbieten, zurueckziehenFuerNotruf; Haken in reise-ereignis.js ausloesenTaktNotruf, notrufVerfaellt, notrufBeantworten; Daten
+// content/faeden/notruf-brett.json). Geprueft, in-process mit g.step():
+//   (Nr. 5) JEDER der 15 Katalog-Notrufe, einzeln erzwungen (Sektor des passenden Besitzers): beim Entstehen liegt ein Angebot am Brett mit Ort = Notruf-Hex, Absicht notruf oder rettung (aus den Daten), variante, herkunft und
+//   bezug.sprecher, es steht im Snapshot, Annehmen startet den Faden (Beat notruf), die Ankunft beendet den Beat wie bisher; im Rueckfall-Betrieb ohne Modell 0 Komponisten-Aufrufe; Germanengebiet bekommt ein Angebot (ger-NSC) ·
+//   Standard-Env des echten Servers (szenarioSchalter, ohne ABENTEUER_ABSICHTEN) · (Nr. 6) Schnittstelle BEA-02: hex, herkunft, bezug.sprecher, variante, notruf (Eintrag), und der Beat notruf ist unveraendert (Pruefsumme gegen main accd1e54) ·
+//   Lebensdauer: Verfall, Ablehnen des Eintrags und Beantworten (ohne Annehmen) ziehen das Angebot zurueck, Ablehnen des Angebots laesst den Eintrag offen, kein Doppelangebot, Laden = beides weg, Andock-Angebote bleiben unberuehrt,
+//   notruf_angebote_max wird eingehalten, 3 Notruf- und 3 Andock-Angebote zugleich · Annehmen bei laufendem Abenteuer: laeuft_schon · alter Hook: fuer Takt-Notrufe kein zweites Angebot, fuer Notrufe je Sprung unveraendert · Snapshot-Groesse.
+//   node tools/test-reise-notruf-brett.js        (npm run test:reise-notruf-brett)
+const fs = require('fs');
+const os = require('os');
+const path = require('path');
+const crypto = require('crypto');
+process.chdir(path.join(__dirname, '..'));
+const F = require('./regie-fixture.js');
+const CONFIG = require('../shared/config.js');
+const Sektoren = require('../shared/sektoren.js');
+const Besitz = require('../server/sim/besitz.js');
+const Ruf = require('../server/sim/ruf.js');
+const RE = require('../server/sim/reise-ereignis.js');
+const Sprung = require('../server/sim/sprung.js');
+const B1 = require('../server/sim/faden-b1.js');
+const Marken = require('../server/sim/marken.js');
+const Faden = require('../server/sim/faden.js');
+const D = require('../server/sim/faden-daten.js');
+const P = require('../server/sim/faden-pruefer.js');
+const Brett = require('../server/sim/abenteuer-brett.js');
+const Bauplan = require('../server/sim/faden-bauplan.js');
+const Absicht = require('../server/sim/absicht-pruefer.js');
+const Absicht2 = require('../server/sim/abenteuer-absicht.js');
+const Weltstand = require('../server/weltstand.js');
+const Sz = require('../server/sim/szenario-schalter.js');
+const { Game } = require('../server/game.js');
+
+let fails = 0, n = 0;
+const ok = (c, t) => { n++; if (c) console.log('  ok   ' + t); else { fails++; console.log('  FEHLER ' + t); } };
+const section = async (t, f) => { console.log('\n' + t); await f(); };
+const HZ = CONFIG.tickHz;
+const W = RE.WERTE;
+const SCHWELLE = Math.round(W.takt_s * HZ);
+const lies = (rel) => JSON.parse(fs.readFileSync(path.join(__dirname, '..', rel), 'utf8'));
+const NBD = lies('content/faeden/notruf-brett.json');
+const NB = Object.fromEntries(Object.entries(NBD.werte).map(([k, v]) => [k, v.wert]));
+const NOTRUFE = RE.KATALOG.filter((e) => e.art === 'notruf');
+const ENV = { FAEDEN: '1', REISE_EREIGNISSE: '1', LAGE_SPIELLEITER: '1', SPIELLEITER_RUECKFALL: '1' };   // wie der echte Server im Rueckfall (ohne ABENTEUER_ABSICHTEN)
+const spiel = (o) => F.neuesSpiel(Object.assign({ crew: 1, seed: 7, env: ENV }, o || {}));
+const R = (g) => g.weltsim.reise;
+const Fz = (g) => Faden.zustandVon(g);
+const lauf = (g, sek) => { for (let i = 0; i < Math.round(sek * HZ); i++) g.step(); };
+const setzeHex = (g, h) => { g.ship.scene = Sektoren.ortVonHex(h); };
+const ohneFlotten = (g) => { g.weltsim.zustand.flotten = []; };
+const notrufAng = (g) => P.notrufAngebote(Fz(g));
+const regAng = (g) => P.regulaereAngebote(Fz(g));
+const klon = (x) => JSON.parse(JSON.stringify(x));
+const KAT = RE.KATALOG;
+function nur(ids, fn) { const kopie = KAT.slice(); KAT.length = 0; for (const e of kopie) if (ids.includes(e.id)) KAT.push(e); try { return fn(); } finally { KAT.length = 0; KAT.push(...kopie); } }
+function sicher(fn, p) { const alt = W.wahrscheinlichkeit; W.wahrscheinlichkeit = p == null ? 1 : p; try { return fn(); } finally { W.wahrscheinlichkeit = alt; } }
+const sha = (s) => crypto.createHash('sha1').update(s).digest('hex');
+const sektorenVon = (g, besitzer) => Object.keys(Sektoren.KARTE.hexe).filter((h) => Sektoren.spielbar(h) && !Sektoren.istLeerraum(h) && Sektoren.hatSzene(h) && (Besitz.besitzer(g, h) || 'frei') === besitzer).sort();
+const sl = (g) => g.lageSpielleiter;
+// Einen Takt-Notruf dieses Eintrags erzwingen (nur dieser Eintrag im Katalog, Zaehler auf der Schwelle, ein Tick) in einem Sektor des passenden Besitzers -> { t, g, hex, o } | null
+function erzwingen(e, spielOpt) {
+  const t = spiel(spielOpt), g = t.g;
+  ohneFlotten(g);
+  Ruf.debug(g, ['rom', '30']);   // Centurio: Eintraege mit rang_min stehen offen
+  const b = (e.bedingungen.besitzer || ['rom'])[0];
+  for (const h of sektorenVon(g, b)) {
+    setzeHex(g, h);
+    R(g).offen = []; R(g).taktIds = []; R(g).takt = SCHWELLE - 1;
+    B1.erreichbar = erreichbarGroesszuegig;
+    try { nur([e.id], () => g.step()); } finally { B1.erreichbar = ERREICHBAR_ECHT; }
+    if (R(g).offen.length === 1 && R(g).offen[0].id === e.id) return { t, g, hex: h, o: R(g).offen[0] };
+  }
+  return null;
+}
+// Die Sektoren 0602, 0606 (Piraten) und 0706, 0806 (Vorlaeufer) haben auf der Karte keine anfliegbare Nachbarschaft (faden-b1 erreichbar: nur der Sektor selbst): der Takt findet dort keinen Ort (Befund, im Bericht).
+// Damit das Angebot der sechs Eintraege fuer diese Sektoren trotzdem geprueft wird, gilt fuer sie in dieser Probe jeder Ort im Umkreis als anfliegbar (nur diese Probe, der Test stellt die Funktion danach zurueck).
+const ERREICHBAR_ECHT = B1.erreichbar;
+function erreichbarGroesszuegig(g, hex, tiefe) {
+  const echt = ERREICHBAR_ECHT(g, hex, tiefe);
+  if (echt.size > 1) return echt;
+  const m = new Map(echt);
+  for (const h of RE.umkreis(hex, 1, W.takt_ort.max)) m.set(h, 1);
+  return m;
+}
+const angebotZu = (g, o) => notrufAng(g).find((a) => a.notruf.marke === o.marke) || null;
+const faden = (g, a) => Fz(g).liste.find((f) => f.vorlage === a.ref) || null;
+const springe = (g, hex) => Sprung.springeNach(g, Sektoren.ortVonHex(hex));
+
+(async () => {
+  await section('Daten: notruf-brett.json, Absichten, Plan', () => {
+    ok(NB.notruf_angebote_max === 3 && NB.notruf_angebote_max === W.takt_offen_max, 'notruf_angebote_max 3 (= takt_offen_max), getrennt von angebote_max ' + D.WERTE.abenteuer.angebote_max);
+    const katalog = Absicht.katalogStandard();
+    const varianten = Array.from(new Set(NOTRUFE.map((e) => (e.parameter || {}).variante)));
+    ok(varianten.length === 3 && varianten.every((v) => Object.prototype.hasOwnProperty.call(NB.absicht_je_variante, v) && Object.prototype.hasOwnProperty.call(NB.anlass_je_variante, v)), 'jede Variante des Katalogs (' + varianten.join(', ') + ') hat Absicht und Anlass in den Daten');
+    ok(Object.values(NB.absicht_je_variante).concat([NB.absicht_standard]).every((a) => ['notruf', 'rettung'].includes(a) && Object.prototype.hasOwnProperty.call(katalog.absichten, a)), 'die Absichten in den Daten sind notruf oder rettung und stehen im Katalog der Absichten');
+    const plan = klon(NBD.plan); plan.titel = NB.titel.replace('{sprecher}', 'Kutter Fortuna'); plan.anlass = NB.anlass_standard;
+    const r = Bauplan.pruefe(plan);
+    ok(r.ok && r.vorlage.beats[0].typ === 'notruf' && r.vorlage.volk_erlaubt.includes('ger'), 'der Plan aus den Daten ist ein gueltiger Bauplan: Beat notruf, Volk ger erlaubt' + (r.ok ? '' : ' – ' + r.fehler[0]));
+    ok(NOTRUFE.length === 15, '15 Katalog-Notrufe (' + NOTRUFE.length + ')');
+    ok(typeof Brett.notrufAnbieten === 'function' && typeof Brett.zurueckziehenFuerNotruf === 'function', 'benannte Funktionen: notrufAnbieten, zurueckziehenFuerNotruf');
+  });
+
+  await section('Nr. 6: der Beat notruf ist unveraendert (Pruefsumme gegen main accd1e54)', () => {
+    ok(sha(JSON.stringify(D.BEATS.notruf)) === '1fd2edeb84ad4278c4d21b93aec4e10d9dab98df', 'beats.json: der Eintrag notruf ist wie auf main accd1e54');
+    const p3 = fs.readFileSync(path.join(__dirname, '..', 'server', 'sim', 'faden-p3.js'), 'utf8').replace(/\r\n/g, '\n');
+    ok(sha(p3) === '4f7b82120d4e80f8288932e0d7a8385ba9529b6f', 'faden-p3.js (Baustein notruf, Ankunft am Hex) ist wie auf main accd1e54');
+  });
+
+  await section('Nr. 5 und 6: jeder der 15 Katalog-Notrufe einzeln (Rueckfall-Betrieb, ohne Modell, ohne ABENTEUER_ABSICHTEN)', () => {
+    let gerAng = 0, gerNsc = 0;
+    for (const e of NOTRUFE) {
+      const m = erzwingen(e);
+      if (!m) { ok(false, e.id + ': nicht erzwingbar (kein Sektor)'); continue; }
+      const { g, hex, o } = m;
+      const a = angebotZu(g, o);
+      const tag = `${e.id} (${(e.bedingungen.besitzer || []).join('/')}, ${hex} -> ${o.hex})`;
+      ok(!!a && notrufAng(g).length === 1, tag + ': beim Entstehen liegt ein Angebot am Brett');
+      if (!a) continue;
+      const absichtSoll = NB.absicht_je_variante[e.parameter.variante];
+      ok(a.hex === o.hex && ['notruf', 'rettung'].includes(a.absicht.absicht) && a.absicht.absicht === absichtSoll, `${tag}: Ort = Notruf-Hex, Absicht ${a.absicht && a.absicht.absicht}`);
+      ok(a.variante === e.parameter.variante && a.herkunft && a.herkunft.hex === hex && a.bezug && a.bezug.sprecher === e.sprecher && !a.bezug.nsc, `${tag}: variante ${a.variante}, herkunft ${a.herkunft && a.herkunft.hex}, bezug.sprecher "${a.bezug && a.bezug.sprecher}" (Text, kein NSC)`);
+      ok(a.notruf.marke === o.marke && a.notruf.nr === o.nr && a.notruf.id === e.id, tag + ': Verknuepfung zum Eintrag (notruf nr, id, Marke)');
+      const s = Brett.snapshot(g), se = s && s.angebote.find((x) => x.id === 'a' + a.nr);
+      ok(!!se && se.ort === o.hex && se.notruf === 1 && se.titel.includes(e.sprecher) && se.hafen === Sektoren.hexName(hex).slice(0, 40), tag + ': im Snapshot (Ort, Titel mit Sprecher, Hafen, notruf 1)');
+      ok(sl(g).aufrufe === 0 && sl(g).abenteuer.aufrufe === 0 && (sl(g).llm == null || sl(g).llm.mode === 'off'), tag + ': 0 Komponisten-Aufrufe, kein Modell (aufrufe ' + sl(g).abenteuer.aufrufe + ')');
+      ok(Fz(g).angebote.length === 0, tag + ': der alte Hook legt kein zweites Angebot an');
+      // Annehmen startet den Faden: Beat notruf laeuft
+      const zeitAng = a.alter;
+      lauf(g, 1);
+      ok(a.alter === zeitAng, tag + ': das Angebot altert nicht');
+      const r = Brett.annehmen(g, 'a' + a.nr);
+      const f = faden(g, a);
+      const beat0 = f && D.vorlage(f.vorlage).beats[0];
+      ok(r === null && !!f && f.phase === 'laeuft' && beat0.typ === 'notruf' && f.laufend && f.laufend.beat === beat0.id, tag + ': Annehmen startet den Faden, der Beat notruf laeuft');
+      ok(notrufAng(g).length === 0 && R(g).offen.length === 1 && Marken.da(g, o.marke), tag + ': das Angebot ist weg, der Eintrag bleibt offen (Herr der Lebensdauer), seine Marke steht');
+      if (a.volk === 'ger') { gerAng++; if (f && f.parameter.volk === 'ger') gerNsc++; }
+      // Ankunft am Hex beendet den Beat wie bisher
+      springe(g, o.hex); lauf(g, 3);
+      ok(f && f.beat === 1 && f.phase !== 'laeuft' && g.errors === 0, tag + ': die Ankunft beendet den Beat (Beat ' + (f && f.beat) + ', Phase ' + (f && f.phase) + '), keine Fehler');
+      ok(R(g).offen.every((x) => x.marke !== o.marke) && notrufAng(g).length === 0, tag + ': der Eintrag ist beantwortet, kein Angebot uebrig');
+      ok(sl(g).abenteuer.aufrufe === 0, tag + ': auch nach Annehmen und Ankunft 0 Komponisten-Aufrufe');
+    }
+    ok(gerAng >= 3 && gerNsc === gerAng, `Germanengebiet: ${gerAng} Angebote im ger-Gebiet, alle mit ger-NSC beim Annehmen (${gerNsc})`);
+  });
+
+  await section('Standard-Env des echten Servers (szenarioSchalter, ohne ABENTEUER_ABSICHTEN): 5 Minuten Fahrt, ein Angebot, 0 Aufrufe', () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'pantheon-notruf-brett-'));
+    const g = new Game({ szenarioSchalter: true, noStore: true, worlds: true, worldSaveSync: true, worldDir: dir, seed: 7, debug: true, env: { MISSION_SOURCE: 'fallback', REGIE_DIR: path.join(dir, 'regie') }, log: () => {} });
+    const conn = { inbox: [], send(m) { if (this.inbox.length < 800) this.inbox.push(m); }, sendRaw() {} };
+    g.addConnection(conn);
+    g.handleMessage(conn, { t: 'hello', clientId: 'FF0', name: 'Bot', color: 0 });
+    g.handleMessage(conn, { t: 'lobbyOpt', startMission: 'freie_fahrt' });
+    g.handleMessage(conn, { t: 'ready', ready: true });
+    for (let i = 0; i < HZ; i++) g.step();
+    ok(g.env.ABENTEUER_ABSICHTEN === undefined && Absicht2.aktiv(g) === false && sl(g).rueckfallBetrieb === true && Faden.spielleiterAktiv(g), 'Standard: ABENTEUER_ABSICHTEN nicht gesetzt, Modus Absichten aus, Rueckfall-Betrieb');
+    g.space.enemies = [];
+    lauf(g, W.takt_s + 2);
+    const a = notrufAng(g)[0];
+    ok(R(g).taktNr === 1 && !!a && a.hex === R(g).offen[0].hex, 'nach 5 Minuten ruhiger Lage: ein Takt-Notruf und sein Brett-Angebot (' + (a && a.vorlage.titel) + ')');
+    ok(sl(g).abenteuer.aufrufe === 0 && sl(g).aufrufe === 0 && g.errors === 0, 'Zaehler aufrufe 0, keine Fehler');
+    const s = Brett.snapshot(g);
+    ok(!!s && s.angebote.some((x) => x.notruf === 1 && x.id === 'a' + a.nr), 'das Angebot steht im Snapshot');
+    ok(Brett.annehmen(g, 'a' + a.nr) === null && !!faden(g, a) && faden(g, a).phase === 'laeuft', 'Annehmen startet den Faden auch im Standard');
+  });
+
+  await section('Lebensdauer: der Eintrag ist Herr, Verfall / Ablehnen / Beantworten ziehen das Angebot zurueck', () => {
+    // Verfall
+    const m = erzwingen(NOTRUFE[4]);
+    const { g, o } = m;
+    const a = angebotZu(g, o);
+    const regVor = regAng(g).map((x) => x.nr).join(',');
+    lauf(g, W.takt_leben_s + 1);
+    ok(R(g).offen.every((x) => x.marke !== o.marke) && !notrufAng(g).some((x) => x.notruf.marke === o.marke) && !Fz(g).abenteuerAngebote.includes(a), 'Verfall: der Eintrag und sein Angebot sind weg (nach takt_leben_s)');
+    ok((g.marken || []).some((x) => x.id === 'fund:' + o.marke), 'Verfall: die Fund-Marke liegt (Folge beim Ignorieren, wie in C)');
+    ok(Brett.annehmen(g, 'a' + a.nr).code === 'kein_angebot', 'ein spaeterer Druck auf das Angebot meldet kein_angebot');
+    ok(regAng(g).map((x) => x.nr).join(',') === regVor, 'Andock-/Rueckfall-Angebote unberuehrt');
+    ok(Fz(g).vorrat === undefined || Fz(g).vorrat.length === 0, 'nichts im Vorrat');
+    // Ablehnen des Eintrags
+    const m2 = erzwingen(NOTRUFE[5]);
+    const a2 = angebotZu(m2.g, m2.o);
+    ok(RE.ablehnen(m2.g, m2.o.nr) === true && !notrufAng(m2.g).includes(a2) && (m2.g.marken || []).some((x) => x.id === 'fund:' + m2.o.marke), 'Ablehnen des Eintrags: Angebot zurueckgezogen, Fund-Marke gebucht');
+    // Beantworten ohne Annehmen
+    const m3 = erzwingen(NOTRUFE[4]);
+    const a3 = angebotZu(m3.g, m3.o);
+    springe(m3.g, m3.o.hex); lauf(m3.g, 2);
+    ok(R(m3.g).offen.every((x) => x.marke !== m3.o.marke) && !Fz(m3.g).abenteuerAngebote.includes(a3), 'Beantworten (Ankunft ohne Annehmen): das Angebot ist weg');
+    // Angebot ablehnen: der Eintrag bleibt offen, nichts im Vorrat, keine Sperre des Rueckfalls
+    const m4 = erzwingen(NOTRUFE[4]);
+    const a4 = angebotZu(m4.g, m4.o);
+    const abg = Fz(m4.g).brett && Fz(m4.g).brett.abgelehnt.length;
+    ok(Brett.ablehnen(m4.g, 'a' + a4.nr) === null && !notrufAng(m4.g).length && R(m4.g).offen.length === 1 && Marken.da(m4.g, m4.o.marke), 'Angebot ablehnen: es geht vom Brett, der Notruf-Eintrag und seine Marke bleiben');
+    ok((Fz(m4.g).brett ? Fz(m4.g).brett.abgelehnt.length : 0) === (abg || 0) && (Fz(m4.g).vorrat || []).length === 0, 'Angebot ablehnen: keine Rueckfall-Sperre, nichts im Vorrat');
+    ok(Fz(m4.g).abenteuerAngebote.every((x) => x.notruf ? false : true) && P.notrufAngebote(Fz(m4.g)).length === 0, 'kein neues Angebot zum selben Eintrag');
+  });
+
+  await section('Kein Doppelangebot, Obergrenze notruf_angebote_max, Notruf und Andock-Angebote nebeneinander', () => {
+    const t = spiel(), g = t.g;
+    ohneFlotten(g);
+    setzeHex(g, '0305');
+    g.missionEvent('docked', {});   // das Brett fuellt sich beim Andocken (FRE-02): angebote_max regulaere Angebote
+    const reg0 = regAng(g).map((x) => x.nr);
+    ok(reg0.length === D.WERTE.abenteuer.angebote_max, 'Ausgangslage: ' + reg0.length + ' regulaere Angebote am Brett');
+    // direkt: dieselbe Marke zweimal -> ein Angebot
+    const ev = { nr: -91, id: 'notruf_havarie_reaktor', hex: '0603', variante: 'havarie', sprecher: 'Kutter Fortuna', marke: 'reise:n-91', ankunft: '0305' };
+    const a1 = Brett.notrufAnbieten(g, ev);
+    ok(!!a1 && Brett.notrufAnbieten(g, ev) === null && notrufAng(g).length === 1, 'dieselbe Marke zweimal: genau ein Angebot');
+    ok(Brett.notrufAnbieten(g, Object.assign({}, ev, { sprecher: 'Anderes Schiff' })) === null && notrufAng(g).length === 1, 'dieselbe Marke mit anderem Sprecher (anderer Plan): auch kein zweites Angebot');
+    ok(Brett.notrufAnbieten(g, { nr: -92, id: 'x', hex: 'xxxx', variante: 'havarie', sprecher: 'S', marke: 'reise:n-92', ankunft: '0305' }) === null, 'ein ungueltiger Ort gibt kein Angebot');
+    ok(Brett.notrufAnbieten(g, null) === null && Brett.notrufAnbieten(null, ev) === null, 'ungueltige Eingaben tun nichts');
+    // Obergrenze
+    const orte = ['0603', '0504', '0503', '0405', '0304'];
+    let angelegt = 1;
+    orte.slice(1).forEach((h, i) => { if (Brett.notrufAnbieten(g, { nr: -100 - i, id: 'notruf_havarie_reaktor', hex: h, variante: 'havarie', sprecher: 'S' + i, marke: 'reise:n-' + (100 + i), ankunft: '0305' })) angelegt++; });
+    ok(angelegt === NB.notruf_angebote_max && notrufAng(g).length === NB.notruf_angebote_max, `Obergrenze: ${orte.length} Versuche, ${notrufAng(g).length} Angebote (notruf_angebote_max ${NB.notruf_angebote_max})`);
+    ok(regAng(g).map((x) => x.nr).join(',') === reg0.join(','), 'Andock-Angebote unberuehrt: keines verdraengt (nr ' + reg0.join(',') + ')');
+    const s = Brett.snapshot(g);
+    ok(s.angebote.length === D.WERTE.abenteuer.angebote_max + NB.notruf_angebote_max && s.angebote.filter((x) => x.notruf === 1).length === NB.notruf_angebote_max, 'Snapshot: 3 Andock- und 3 Notruf-Angebote zugleich (' + s.angebote.length + ')');
+    // Andock-Angebot wird beantwortet: der Rueckfall fuellt nach, die Notruf-Angebote bleiben
+    Brett.ablehnen(g, 'a' + reg0[0]);
+    g.missionEvent('docked', {});
+    ok(notrufAng(g).length === NB.notruf_angebote_max && regAng(g).length === D.WERTE.abenteuer.angebote_max, 'nach Ablehnen und Andocken: wieder 3 Andock-Angebote, die 3 Notruf-Angebote bleiben');
+    // Altern: Taetigkeiten lassen Andock-Angebote altern, Notruf-Angebote nie
+    for (let i = 0; i < D.WERTE.abenteuer.angebot_gilt_taetigkeiten + 2; i++) g.lageGrenze('andocken');
+    ok(notrufAng(g).length === NB.notruf_angebote_max && notrufAng(g).every((x) => x.alter === 0), 'nach ' + (D.WERTE.abenteuer.angebot_gilt_taetigkeiten + 2) + ' Taetigkeiten: Notruf-Angebote alter 0, alle noch da');
+    // Anschluss-Garantie: ein Notruf-Angebot ersetzt sie nicht (ohne regulaeres Angebot legt der Rueckfall weiter eines)
+    for (const x of regAng(g).slice()) Brett.ablehnen(g, 'a' + x.nr);
+    ok(regAng(g).length === 0 && notrufAng(g).length === NB.notruf_angebote_max, 'alle Andock-Angebote abgelehnt: nur noch die Notruf-Angebote am Brett');
+    const neuA = Brett.anschluss(g);
+    ok(!!neuA && !neuA.notruf && regAng(g).length === 1 && notrufAng(g).length === NB.notruf_angebote_max, 'Anschluss-Garantie legt trotz der Notruf-Angebote ein regulaeres Angebot');
+    ok(g.errors === 0, 'keine Fehler');
+  });
+
+  await section('Absichten-Modus (Opt-in ABENTEUER_ABSICHTEN=1): ein Notruf-Angebot kommt nie in den Vorrat', () => {
+    const env2 = Object.assign({}, ENV, { ABENTEUER_ABSICHTEN: '1' });
+    const m = erzwingen(NOTRUFE[4], { env: env2 });
+    const g = m.g;
+    ok(Absicht2.aktiv(g) === true, 'Modus Absichten an');
+    const a = angebotZu(g, m.o);
+    ok(!!a && a.absicht.absicht === 'notruf', 'das Notruf-Angebot traegt seine Absicht (auch hier)');
+    g.lageGrenze('andocken');   // das Brett merkt sich die Angebote, die es sieht (Verfall legt sonst ein)
+    const v0 = (Fz(g).vorrat || []).length;
+    ok(Brett.ablehnen(g, 'a' + a.nr) === null && (Fz(g).vorrat || []).length === v0, 'Angebot ablehnen: nichts im Vorrat');
+    const m2 = erzwingen(NOTRUFE[4], { env: env2 });
+    const a2 = angebotZu(m2.g, m2.o);
+    m2.g.lageGrenze('andocken');
+    const v1 = (Fz(m2.g).vorrat || []).length;
+    lauf(m2.g, W.takt_leben_s + 1);
+    ok(!Fz(m2.g).abenteuerAngebote.includes(a2), 'Verfall: das Angebot ist weg');
+    m2.g.lageGrenze('andocken');
+    ok((Fz(m2.g).vorrat || []).length === v1 && m2.g.errors === 0, 'Verfall, danach eine Taetigkeit: nichts im Vorrat (der Notruf-Vorrat ist Paket E)');
+  });
+
+  await section('Takt-Lauf: 3 Notruf-Angebote zeitgleich, nie mehr, Andock-Angebote bleiben', () => {
+    const t = spiel(), g = t.g;
+    ohneFlotten(g);
+    setzeHex(g, '0305');
+    g.missionEvent('docked', {});
+    const reg0 = regAng(g).map((x) => x.nr).join(',');
+    let max = 0, gesehen = new Set(), regGleich = true;
+    for (let i = 0; i < (30 * 60 + 1) * HZ; i++) {
+      g.step();
+      const k = notrufAng(g).length;
+      if (k > max) max = k;
+      for (const a of notrufAng(g)) gesehen.add(a.notruf.marke);
+      if (i % HZ === 0) { if (regAng(g).map((x) => x.nr).join(',') !== reg0) regGleich = false; }
+      // Angebot und Eintrag gehoeren zusammen: nie ein Angebot ohne offenen Eintrag
+      for (const a of notrufAng(g)) if (!R(g).offen.some((o) => o.marke === a.notruf.marke)) { ok(false, 'Angebot ohne Eintrag: ' + a.notruf.marke); i = Infinity; }
+    }
+    ok(R(g).taktNr === 6 && gesehen.size === 6, `6 Takt-Notrufe in 30 Minuten, 6 Angebote entstanden (${gesehen.size})`);
+    ok(max === 3, `nie mehr als ${NB.notruf_angebote_max} zugleich, Hoechstwert ${max}`);
+    ok(regGleich, 'die Andock-Angebote blieben die ganze Zeit dieselben (keine Verdraengung, kein Alter durch den Takt)');
+    ok(notrufAng(g).length === R(g).offen.length && notrufAng(g).length === 3, 'am Ende: 3 offene Eintraege, 3 Angebote');
+    // Snapshot-Groesse: 3 Notruf- plus 3 Andock-Angebote
+    const s6 = Buffer.byteLength(JSON.stringify(Brett.snapshot(g)));
+    const alle = Fz(g).abenteuerAngebote.slice();
+    Fz(g).abenteuerAngebote = alle.filter((a) => !a.notruf);
+    const s3 = Buffer.byteLength(JSON.stringify(Brett.snapshot(g)));
+    Fz(g).abenteuerAngebote = alle;
+    const gesamt = Buffer.byteLength(JSON.stringify(g.snapshot()));
+    console.log(`  Messung: Brett-Block mit 3 Andock-Angeboten ${s3} B, mit 3 Notruf- plus 3 Andock-Angeboten ${s6} B (Zuwachs ${s6 - s3} B, ${Math.round((s6 - s3) / 3)} B je Notruf-Angebot); g.snapshot() gesamt ${gesamt} B (Grenze ${CONFIG.net.snapMax - CONFIG.net.snapLuft} B)`);
+    ok(s6 - s3 < 2000 && gesamt <= CONFIG.net.snapMax - CONFIG.net.snapLuft, 'der Zuwachs ist klein (< 2000 B) und der Snapshot bleibt unter der Grenze');
+    // Laden: Eintrag und Angebot sind gemeinsam weg
+    const d1 = JSON.parse(JSON.stringify(Weltstand.capture(g)));
+    ok(Weltstand.validate(d1).length === 0 && !JSON.stringify(d1).includes('"notruf":{"nr"'), 'Weltstand schemagueltig, kein Notruf-Angebot darin');
+    const dir = F.freshDir(); d1.id = 'w-notruf-brett'; fs.writeFileSync(path.join(dir, 'w-notruf-brett.json'), JSON.stringify(d1));
+    const g2 = spiel({ dir, world: 'w-notruf-brett' }).g;
+    ok(g2.phase === 'play' && g2.errors === 0 && R(g2).offen.length === 0 && notrufAng(g2).length === 0, `Laden: Eintraege ${R(g2).offen.length} und Notruf-Angebote ${notrufAng(g2).length} gemeinsam weg (konsistent)`);
+    ok(R(g2).taktNr === R(g).taktNr, 'der Takt-Zaehler bleibt (taktNr ' + R(g2).taktNr + ')');
+    g2.space.enemies = [];
+    lauf(g2, 3 * W.takt_s + 5);
+    ok(notrufAng(g2).every((a) => R(g2).offen.some((o) => o.marke === a.notruf.marke)) && notrufAng(g2).length === R(g2).offen.length, 'nach dem Laden entstehen neue Notrufe wieder mit Angebot (' + notrufAng(g2).length + ')');
+  });
+
+  await section('Annehmen bei laufendem Abenteuer meldet klar (laeuft_schon), Angebot und Eintrag bleiben', () => {
+    const t = spiel(), g = t.g;
+    ohneFlotten(g);
+    setzeHex(g, '0305');
+    g.missionEvent('docked', {});
+    const r0 = Brett.annehmen(g, 'a' + regAng(g)[0].nr);
+    ok(r0 === null && P.abenteuerLaufend(Fz(g)) === 1, 'ein Andock-Angebot ist angenommen: ein Abenteuer laeuft');
+    nur([NOTRUFE[4].id], () => { R(g).takt = SCHWELLE - 1; g.step(); });
+    const a = notrufAng(g)[0];
+    const r = a && Brett.annehmen(g, 'a' + a.nr);
+    ok(!!a && r && r.code === 'laeuft_schon' && typeof r.text === 'string' && r.text.length > 3, 'Notruf-Angebot annehmen: ' + (r && r.code) + ' ("' + (r && r.text) + '")');
+    ok(notrufAng(g).includes(a) && R(g).offen.length === 1 && P.abenteuerLaufend(Fz(g)) === 1, 'das Angebot und der Eintrag bleiben, es laeuft weiter genau ein Abenteuer');
+  });
+
+  await section('Alter Hook (faden.ausgangMitPerson): fuer Takt-Notrufe entfallen, fuer Notrufe je Sprung unveraendert (Lage-Spielleiter)', () => {
+    // Takt-Notruf ohne Gefahr: Ankunft, kein F.angebote
+    const m = erzwingen(NOTRUFE[4]);
+    springe(m.g, m.o.hex); lauf(m.g, 2);
+    ok(Fz(m.g).angebote.length === 0, 'Takt-Notruf ohne Gefahr, beantwortet: kein Eintrag in F.angebote (kein zweiter Einstieg)');
+    // Takt-Notruf mit Gefahr, bewaeltigt: auch keiner
+    const m2 = erzwingen(NOTRUFE[0]);
+    springe(m2.g, m2.o.hex); lauf(m2.g, 30);
+    m2.g.space.enemies = []; lauf(m2.g, 3);
+    ok(Fz(m2.g).angebote.length === 0 && R(m2.g).laufend.length === 0, 'Takt-Notruf mit Gefahr, bewaeltigt: kein Eintrag in F.angebote');
+    // Notruf je Sprung (kein Takt): der Hook legt sein Angebot weiter an
+    const t = spiel(), g = t.g; ohneFlotten(g); Ruf.debug(g, ['rom', '30']);
+    sicher(() => nur(['notruf_havarie_reaktor'], () => springe(g, '0305')));
+    const o = R(g).offen.find((x) => x.id === 'notruf_havarie_reaktor');
+    ok(!!o && !o.takt && notrufAng(g).length === 0, 'Notruf je Sprung: Eintrag ohne takt, kein Brett-Angebot (Paket D gilt dem Takt)');
+    sicher(() => springe(g, o.hex), 0); lauf(g, 2);
+    ok(Fz(g).angebote.length === 1, 'Notruf je Sprung, beantwortet: der Hook legt sein Angebot in F.angebote an (Lage-Spielleiter bleibt bedient)');
+    // ohne Faeden und ohne Spielleiter: kein Angebot, kein Fehler, der Notruf bleibt ein Katalog-Notruf
+    const h = F.neuesSpiel({ crew: 1, seed: 7, env: { REISE_EREIGNISSE: '1' } }).g;
+    ohneFlotten(h);
+    nur([NOTRUFE[4].id], () => { setzeHex(h, '0305'); R(h).takt = SCHWELLE - 1; h.step(); });
+    ok(R(h).offen.length === 1 && h.errors === 0 && Brett.notrufAnbieten(h, { nr: -1, id: 'x', hex: '0603', variante: 'havarie', sprecher: 'S', marke: 'reise:n-1', ankunft: '0305' }) === null, 'ohne FAEDEN: der Notruf entsteht, kein Angebot, keine Fehler');
+  });
+
+  console.log(`\n${n - fails}/${n} Prüfungen bestanden.`);
+  process.exit(fails ? 1 : 0);
+})();

@@ -703,8 +703,16 @@ function platzNachOrtswechsel(v) {
 // ---------- Abenteuer (SUND-04b A1): der zweite, benannte Weg, einen Faden zu oeffnen (nicht ueber ein Notruf-Angebot, sondern ueber einen geprueften Bauplan)
 // Obergrenze aktiv_max und Abstand gelten weiter (der Abstand wird beim Oeffnen gezogen, faden.js); dazu hoechstens laufend_max laufende Abenteuer und hoechstens angebote_max offene Abenteuer-Angebote.
 const abenteuerLaufend = (F) => aktive(F).filter((f) => f.plan).length;
+// FRE-03 D: Notruf-Angebote (Feld notruf am Angebot) liegen im selben Brett, zaehlen aber getrennt: angebote_max gilt nur fuer die uebrigen (Andock-, Rueckfall-, Komponisten-Angebote)
+const regulaereAngebote = (F) => ((F && F.abenteuerAngebote) || []).filter((a) => !a.notruf);
+const notrufAngebote = (F) => ((F && F.abenteuerAngebote) || []).filter((a) => !!a.notruf);
 function pruefeAbenteuerAnbieten(F, o) {
-  if ((F.abenteuerAngebote || []).length >= W.abenteuer.angebote_max) return fehl('ABENTEUER_ANGEBOTE', `hoechstens ${W.abenteuer.angebote_max} offene Abenteuer-Angebote`);
+  if (regulaereAngebote(F).length >= W.abenteuer.angebote_max) return fehl('ABENTEUER_ANGEBOTE', `hoechstens ${W.abenteuer.angebote_max} offene Abenteuer-Angebote`);
+  return pruefeAbenteuerOrt(o);
+}
+// FRE-03 D: ein Notruf-Angebot hat seine eigene Obergrenze (abenteuer-brett.js notrufAnbieten, content/faeden/notruf-brett.json): hier gilt nur der Ort
+function pruefeNotrufAnbieten(F, o) { return pruefeAbenteuerOrt(o); }
+function pruefeAbenteuerOrt(o) {
   if (!(istObjekt(o) && typeof o.hex === 'string' && HEX.test(o.hex) && sundSpielbar(o.hex))) return fehl('PARAMETER', 'hex (Ort des Abenteuers) ist kein spielbarer Sektor');
   return null;
 }
@@ -737,4 +745,4 @@ function befehlPruefen(F, b, ctx) {
 }
 const istBefehl = (b) => istObjekt(b) && has(BEFEHL_FELDER, b.typ);
 
-module.exports = { istSimBefehl, simBefehlFolge, simBefehlArten, sundSpielbar, nscAlt, wiedersehenNsc, pruefeNscVon, pruefeLage, pruefeLandeplaetze, dateiLandeplatzFehler, pruefeAbenteuerAnbieten, pruefeAbenteuerOeffnen, abenteuerLaufend, abschlussGelungen, haltungsWege, tonFuer, effektiv, katalogFehler, TEXT_KEY, pruefeVorlage, pruefeFaden, pruefeOeffnen, pruefeWeiter, befehlPruefen, istBefehl, neuerKontext, folgeWirkung, folgeProfil, optionenFehler, fluchtzielOk, aktive, nameOk, BEFEHL_FELDER, PARAM_FELDER };
+module.exports = { istSimBefehl, simBefehlFolge, simBefehlArten, sundSpielbar, nscAlt, wiedersehenNsc, pruefeNscVon, pruefeLage, pruefeLandeplaetze, dateiLandeplatzFehler, pruefeAbenteuerAnbieten, pruefeNotrufAnbieten, pruefeAbenteuerOeffnen, abenteuerLaufend, regulaereAngebote, notrufAngebote, abschlussGelungen, haltungsWege, tonFuer, effektiv, katalogFehler, TEXT_KEY, pruefeVorlage, pruefeFaden, pruefeOeffnen, pruefeWeiter, befehlPruefen, istBefehl, neuerKontext, folgeWirkung, folgeProfil, optionenFehler, fluchtzielOk, aktive, nameOk, BEFEHL_FELDER, PARAM_FELDER };

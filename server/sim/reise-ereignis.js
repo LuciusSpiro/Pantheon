@@ -25,6 +25,7 @@
 //   gruendeBuchen(game, gruende, nurFraktion?) -> n  Folgen buchen (ruf_aenderung unter dem Reise-Ruf-Deckel; rufRaum(game) = Raum darin); folgeBuchen(game, e) = die Folge des Katalogeintrags. SUND-03b A: funk-antwort.js hängt an ausloesenFunkmeldung, ausloesenKontakt (ohne Gefahr), notrufBeantworten (ohne Gefahr), nachSprung und update
 //   ablehnen(game, nr) -> bool        ein offener Notruf wird ausdrücklich abgelehnt (keine Folge)
 //   taktNotruf(game) -> Ereignis | null   FRE-03 B: der nächste Notruf des Takts (ein Notruf je takt_s Sekunden ruhiger Lage, Hex-Umkreis um den Crew-Hex, anfliegbar); update zählt und löst aus (Abschnitt Takt)
+//               FRE-03 D: ausloesenTaktNotruf legt beim Entstehen ein Brett-Angebot an (abenteuer-brett.js notrufAnbieten); Verfall, Ablehnen und Beantworten des Eintrags ziehen es zurück (brettZurueckziehen); notrufMitPerson (alter Hook) gilt nur noch für Notrufe je Sprung
 //   neu() / toSave(ws) / lesen(block) Weltstand welt.sim.reise: { n, letzter?, letzte?, takt?, taktNr? } (optional, Altstand = leer); Notruf-Marken und laufende Ereignisse stehen nicht im Weltstand
 const Sektoren = require('../../shared/sektoren.js');
 const Besitz = require('./besitz.js');
@@ -280,8 +281,16 @@ function ausloesen(game, ev) {
 }
 
 // SUND-04a-1 B: ein bewältigter Notruf hat eine Person am Ausgang: Hook für die Geschichtsfäden (faden.ausgangMitPerson; ohne Schalter FAEDEN=1 tut er nichts, additiv, wirft nie)
+// FRE-03 D: ein Takt-Notruf hat seinen Einstieg schon beim Entstehen (Brett-Angebot, abenteuer-brett.js notrufAnbieten): der Hook legte nach der Hilfe ein zweites, unsichtbares Angebot in F.angebote an, das ist für Takt-Notrufe entfallen
+// (kein zweiter Einstieg, kein Doppelangebot). Für Notrufe je Sprung bleibt er (Lage-Spielleiter: faden_oeffnen, faden.js ausschnittBlock).
 function notrufMitPerson(game, e, ev) {
+  if (ev && ev.takt === true) return;
   try { require('./faden.js').ausgangMitPerson(game, { art: 'notruf', id: ev.id, hex: ev.hex, sprecher: (e && e.sprecher) || '', ausgang: 'gelungen' }); } catch (err) { if (game.countError) game.countError('reise-faden', err); }
+}
+
+// FRE-03 D: der Eintrag ist Herr der Lebensdauer seines Brett-Angebots: Verfall, Ablehnen und Beantworten nehmen es vom Brett (ohne Faeden oder Spielleiter gibt es keines, dann tut es nichts)
+function brettZurueckziehen(game, o) {
+  try { require('./abenteuer-brett.js').zurueckziehenFuerNotruf(game, o.marke); } catch (err) { if (game.countError) game.countError('reise-brett', err); }
 }
 
 // Die Lerche trifft beim offenen Notruf ein: Funk, bei Gefahr der Vorlauf (Ankündigung zuerst), sonst sofort Folge und Dank
@@ -293,6 +302,7 @@ function notrufBeantworten(game, R, o) {
   }
   Marken.entferne(game, o.marke);
   R.offen.splice(R.offen.indexOf(o), 1);
+  brettZurueckziehen(game, o);
   funk(game, textFuer(o.ev, 'eintreffen', game));
   Chronik.eintragen(game, { art: 'reise', ref: o.id, kurz: `Notruf bei ${hexName(o.hex)} beantwortet`, param: { art: 'notruf', hex: o.hex } });
   if (e.gefahr) notrufGefahrPlanen(game, R, o.ev);
@@ -314,6 +324,7 @@ function ignoriertBuchen(game, o) {
 function notrufVerfaellt(game, R, o, text) {
   Marken.entferne(game, o.marke);
   R.offen.splice(R.offen.indexOf(o), 1);
+  brettZurueckziehen(game, o);
   Chronik.eintragen(game, { art: 'reise', ref: o.id, kurz: `Notruf bei ${hexName(o.hex)} ${text}`, param: { art: 'notruf', hex: o.hex } });
   ignoriertBuchen(game, o);
 }
@@ -392,6 +403,7 @@ function ausloesenTaktNotruf(game, R, ev) {
   const marke = 'reise:n' + ev.nr;
   R.offen.push({ nr: ev.nr, id: ev.id, hex: ev.hex, bis: Number.MAX_SAFE_INTEGER, bisUhr: R.taktUhr + taktTicks(game, WERTE.takt_leben_s), marke, ev, takt: true });   // bis: nie per Sprung verfallen
   try { const f = Marken.setze(game, { id: marke, typ: 'notruf', hex: ev.hex, ticks: Number(WERTE.takt_leben_s) / taktMarkeS(game) }); if (f && game.countError) game.countError('reise-marke', new Error(f)); } catch (err) { if (game.countError) game.countError('reise-marke', err); }
+  try { require('./abenteuer-brett.js').notrufAnbieten(game, { nr: ev.nr, id: ev.id, hex: ev.hex, variante: ev.variante, sprecher: (eintrag(ev.id) || {}).sprecher || '', marke, ankunft: ev.ankunft }); } catch (e) { if (game.countError) game.countError('reise-brett', e); }   // FRE-03 D: der Einstieg als Brett-Angebot, beim Entstehen
   R.taktIds.push(ev.id);
   while (R.taktIds.length > WERTE.takt_wiederholung) R.taktIds.shift();
 }
