@@ -638,6 +638,51 @@ function rudelJeKarteFehler(liste) {
   });
   return out;
 }
+// SPL-01 Nacharbeit W1: Rudel-Deckel schon im Grobplan. Höchstzahl Rudel, die eine Umsetzung je Typ setzen kann, aus ihren Daten (vorlage + jede Zeile von abgeleitet; Zahl der verschiedenen gruppe-Kennungen
+// der kreatur_besetzen-Aktionen, deren Typ in kreaturen.json ein rudel-Feld hat). Obergrenze: Vorlage plus je abgeleitet-Parameter die stärkste Zeile. Gibt { typ: n } zurück (leer = setzt keine Rudel).
+function rudelAktionen(baum, jeTyp) {
+  const gruppen = {};
+  (function lauf(x) {
+    if (Array.isArray(x)) { x.forEach(lauf); return; }
+    if (!x || typeof x !== 'object') return;
+    if (x.do === 'kreatur_besetzen' && typeof x.typ === 'string' && rudelRegel(x.typ)) {
+      const S = gruppen[x.typ] || (gruppen[x.typ] = new Set());
+      S.add(typeof x.gruppe === 'string' ? x.gruppe : '#' + S.size);
+    }
+    Object.values(x).forEach(lauf);
+  })(baum);
+  for (const t of Object.keys(gruppen)) jeTyp[t] = (jeTyp[t] || 0) + gruppen[t].size;
+  return jeTyp;
+}
+function rudelMaxJeUmsetzung(u) {
+  const out = rudelAktionen(u && u.vorlage, {});
+  for (const tab of Object.values((u && u.abgeleitet) || {})) {
+    const stark = {};
+    for (const zeile of Object.values(tab || {})) {
+      const z = rudelAktionen(zeile, {});
+      for (const t of Object.keys(z)) stark[t] = Math.max(stark[t] || 0, z[t]);
+    }
+    for (const t of Object.keys(stark)) out[t] = (out[t] || 0) + stark[t];
+  }
+  return out;
+}
+// Grobplan: Szenen mit gesetztem Landepunkt (s.landepunkt) + umsetzungenVon(szene) -> Fehlertexte, wenn die möglichen Rudel eines Typs auf einem Landepunkt jeKarte überschreiten.
+function rudelDeckelPlanFehler(szenen, umsetzungenVon) {
+  const out = []; const je = new Map();
+  for (const s of szenen || []) {
+    if (!s || typeof s.landepunkt !== 'string' || !s.landepunkt) continue;
+    const m = {};
+    for (const u of umsetzungenVon(s)) { const r = rudelMaxJeUmsetzung(u); for (const t of Object.keys(r)) m[t] = (m[t] || 0) + r[t]; }
+    for (const t of Object.keys(m)) {
+      const R = rudelRegel(t); const key = JSON.stringify([s.landepunkt, t]);
+      const bisher = je.get(key) || { n: 0, sz: [] };
+      bisher.n += m[t]; if (!bisher.sz.includes(s.id)) bisher.sz.push(s.id); je.set(key, bisher);
+      const frueher = bisher.sz.filter((id) => id !== s.id);
+      if (bisher.n > R.jeKarte) out.push("BUEHNE-RUDEL: Szene '" + s.id + "': Landepunkt '" + s.landepunkt + "'" + (frueher.length ? " trägt schon Rudel des Typs '" + t + "' aus Szene '" + frueher.join("', '") + "' (bis zu " + (bisher.n - m[t]) + '), diese Szene' : ' – diese Szene') + " setzt bis zu " + m[t] + " Rudel des Typs '" + t + "' – höchstens " + R.jeKarte + " Rudel je Karte (content/kampf/kreaturen.json typen." + t + '.rudel.jeKarte): nur eine Szene mit Rudeln je Karte, die andere auf einer anderen Karte spielen (buehne: { kartenart, neu: true } mit anderer Kartenart bzw. anderem Landepunkt)');
+    }
+  }
+  return out;
+}
 const erledigtFehlerGemeldet = new WeakSet();   // je Spiel höchstens eine Laufzeitmeldung (die Prüfung läuft jeden Tick)
 function rudelErledigt(game, map, opts) {
   const o = opts || {};
@@ -1174,7 +1219,7 @@ function debugKreatur(game, p, typId) {
 
 // GEL-03 Nacharbeit W1: Kantenlänge der Kollisionsbox einer Kreatur in px (für die Überlappungsprüfung des Ader-Wechsels, anker.js)
 const koerperBox = (K) => { const t = typVon(K.typ); return t ? hbVon(t).w : 14; };
-module.exports = { koerperBox, gefolgeSuchradius, update, kreaturBausteinAnmelden, bausteinTreffer, bausteinLaerm, daten, pruefen, typVon, erzeugen, erzeugenAuf, rudelSetzen, nestSetzen, nestBesetzen, laermHoeren, zustandSetzen, debugKreatur, kreaturen, ziele, ausruesten, raeumen, nichtEndgueltigErledigt, ausgefallenMelden, rudelErledigt, erledigtOptionenFehler, rudelRegel, rudelGroesseFehler, rudelJeKarteFehler };
+module.exports = { koerperBox, gefolgeSuchradius, update, kreaturBausteinAnmelden, bausteinTreffer, bausteinLaerm, daten, pruefen, typVon, erzeugen, erzeugenAuf, rudelSetzen, nestSetzen, nestBesetzen, laermHoeren, zustandSetzen, debugKreatur, kreaturen, ziele, ausruesten, raeumen, nichtEndgueltigErledigt, ausgefallenMelden, rudelErledigt, erledigtOptionenFehler, rudelRegel, rudelGroesseFehler, rudelJeKarteFehler, rudelMaxJeUmsetzung, rudelDeckelPlanFehler };
 
 // ---------- Anzeige und Scanner (MON-01 P4) ----------
 // Scanner: Art `monster`, billig (nur die lebenden Kreaturen mit aktueller Position, keine Karte). Typ-ID aus kreaturen.json; der Name steht im Client-Content (datenblaetter.json).
