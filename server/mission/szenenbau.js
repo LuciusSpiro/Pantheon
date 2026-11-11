@@ -98,6 +98,22 @@ function sceneMap(s) {
   return null;
 }
 function sceneUmsetzungen(s, env) { return ((s && s.molekuele) || []).map((m) => umsetzungOf(env, m)).filter(Boolean); }
+// SPL-01 d: Wiederkehr (Katalogdatum Umsetzung.wiederkehr.max): { landepunkt: max } für Landepunkte, auf denen jede Kartenszene eine Umsetzung mit Wiederkehr hat (kleinstes max)
+function wiederkehrGrenzen(g, env) {
+  const out = {};
+  for (const s of (g && g.szenen) || []) {
+    const id = sceneMap(s); const us = sceneUmsetzungen(s, env).filter(brauchtKarte);
+    if (!id || !us.length) continue;
+    out[id] = Math.min(id in out ? out[id] : Infinity, ...us.map((u) => (isObj(u.wiederkehr) && u.wiederkehr.max > 0 ? u.wiederkehr.max : 0)));   // 0 = keine Wiederkehr
+  }
+  return out;
+}
+// Missionen in Folge (jüngste zuerst), in denen der Landepunkt lief
+function wiederkehrFolge(fenster, id) {
+  let n = 0;
+  for (let i = fenster.length - 1; i >= 0 && (fenster[i].landepunkte || []).includes(id); i--) n++;
+  return n;
+}
 // Karte entsteht erst zur Laufzeit (buehne_braucht.landepunkt 'laufzeit', z. B. kapern/prise_entern -> <loc>.prise):
 // kein Landepunkt im Grobplan, keine Auflösung; die Szene zählt trotzdem als Bodenszene (schauplatz aussen)
 const laufzeitKarte = (u) => !!(u && isObj(u.buehne_braucht) && u.buehne_braucht.landepunkt === 'laufzeit');
@@ -324,9 +340,16 @@ function checkGrobplanB1(g, env, kontext, opts) {
   // F14: Landepunkt (+ Seed, wenn bekannt) einer der letzten Missionen; Spielleiter stellt die Warnung im Regielog nach vorn
   const fenster = (bil.letzte || []).slice(-(C.wiederholtFenster || 3));
   let lp = null; try { lp = o.lp !== undefined ? o.lp : (env.lp ? env.lp() : null); } catch (e) { lp = null; }
+  const wk = wiederkehrGrenzen(g, env);
   for (const id of info.landepunkte) {
     const wo = fenster.filter((x) => (x.landepunkte || []).includes(id));
     if (!wo.length) continue;
+    if (wk[id]) {   // SPL-01 d: Wiederkehr erlaubt, solange nicht mehr als max (höchstens Fenster - 1) Missionen in Folge auf dem Landepunkt liefen
+      const folge = wiederkehrFolge(fenster, id); const max = Math.min(wk[id], Math.max(1, (C.wiederholtFenster || 3) - 1));
+      if (folge <= max) continue;
+      errors.push(`KARTE-WIEDERKEHR-MAX: Landepunkt '${id}' lief schon ${folge} Missionen in Folge (Wiederkehr höchstens ${max}×) – neuer Seed (buehne: { kartenart, neu: true })`);
+      continue;
+    }
     let seed = null; try { const e = lp && lp.eintrag(id); seed = e && Number.isFinite(e.seed) ? e.seed : null; } catch (e) { seed = null; }
     warnings.push(`KARTE-WIEDERHOLT: Landepunkt '${id}'${seed != null ? ` (Seed ${seed})` : ''} lief in den letzten ${C.wiederholtFenster || 3} Missionen (${wo.map((x) => `„${shortText(x.titel, 40)}“`).join(', ')}) – neuer Seed (buehne: { kartenart, neu: true }) oder Wiederkehr begründen`);
   }
@@ -444,7 +467,7 @@ function grobplanVorgaben(env, kontext, opts) {
   L.push('Bodenszenen – passende Kartenarten je Umsetzung: `landepunkt` = ein freier Landepunkt dieser Art am Ort der Szene, oder `buehne: { kartenart, neu: true }`. Handkarten nur, wo sie genannt sind:');
   for (const mol of Object.values((env.katalog && env.katalog.molekuele) || {}).filter((m) => m.status === 'verfuegbar').sort((a, b) => (a.id < b.id ? -1 : 1))) {
     for (const u of mol.umsetzungen.filter((x) => x.status === 'verfuegbar' && x.schauplatz === 'aussen' && brauchtKarte(x))) {
-      L.push(`- ${mol.id}/${u.id}: ${umsetzungKurz(passendeLandepunkte(u, env, k, { lp: o.lp }), frei)}`);
+      L.push(`- ${mol.id}/${u.id}: ${umsetzungKurz(passendeLandepunkte(u, env, k, { lp: o.lp }), frei)}${isObj(u.wiederkehr) ? ` · Wiederkehr: ↺-Landepunkt erlaubt, höchstens ${u.wiederkehr.max}× in Folge, Ressourcen erneuert` : ''}`);
     }
     for (const u of mol.umsetzungen.filter((x) => x.status === 'verfuegbar' && laufzeitKarte(x))) {
       L.push(`- ${mol.id}/${u.id}: ${u.name || u.id} (nach Raumgefecht) – ohne landepunkt/buehne: die Karte (<ort>.prise) entsteht, wenn die Crew am Ort der Szene ein Feindschiff kampfunfähig schießt; zählt als Bodenszene`);

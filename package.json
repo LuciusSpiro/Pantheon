@@ -332,6 +332,8 @@
     "test:spl-gelaende-szenen": "node tools/test-spl-gelaende-szenen.js",
     "test:spl-posten-gelaende": "node tools/test-spl-posten-gelaende.js",
     "test:spl-rueckfall-gelaende": "node tools/test-spl-rueckfall-gelaende.js",
+    "test:spl-wiederkehr": "node tools/test-spl-wiederkehr.js",
+    "test:spl-wiederkehr-mutation": "node tools/mutation-spl-wiederkehr.js",
     "sim:archiv-eintraege": "node tools/sim-archiv-eintraege.js",
     "messe:spl-matrix": "node tools/messe-spl-matrix.js",
     "messe:spl-kontext": "node tools/messe-spl-kontext.js",

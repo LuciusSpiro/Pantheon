@@ -648,6 +648,41 @@
         "ansaetze": [
           "technik"
         ],
+        "id": "abbauen",
+        "kern": "Rohstoff am Boden gewinnen: Vorkommen abbauen, solange der Lärm die Wachen nicht ruft",
+        "name": "Abbauen",
+        "szenentypen": [
+          "C9"
+        ],
+        "umsetzungen": [
+          {
+            "beschreibung": "Höhle mit Erzadern (Außenteam-Karte): an den Vorkommen E halten, das Erz wandert ins Lager der Lerche. Abbau ist laut und lockt, was in der Höhle lebt. anzahl = wie viele Adern (1 oder 2). Der Ort darf wiederkehren: die Adern tragen dann frisches Erz. Nach einer Weile lässt man den Rest stehen.",
+            "braucht_anker": {
+              "anker": [
+                "abholpunkt",
+                "abbau"
+              ],
+              "kartenarten": [
+                "hoehle"
+              ],
+              "min": {
+                "abbau": 4
+              }
+            },
+            "dauer_min": [
+              3,
+              6
+            ],
+            "id": "adern_in_der_hoehle",
+            "name": "Erz in der Höhle abbauen",
+            "schauplatz": "aussen"
+          }
+        ]
+      },
+      {
+        "ansaetze": [
+          "technik"
+        ],
         "id": "artefakt_freilegen",
         "kern": "Fund ausgraben, stabilisieren, sicher transportieren",
         "name": "Artefakt freilegen",
@@ -2295,6 +2330,7 @@
           "halten"
         ],
         "molekuele": [
+          "abbauen",
           "artefakt_freilegen",
           "ausschlachten",
           "datenkern_bergen",
