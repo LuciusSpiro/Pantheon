@@ -540,10 +540,13 @@ function check(doc, ctxIn) {
     {
       let baut = false;
       for (const [lp, list] of stepActionLists(s)) { if (lp === 'skip' || lp === 'wiederaufnahme.prep') continue; eachAction(list, {}, (a) => { if (isObj(a) && a.do === 'bunker_aufbauen') baut = true; }); }
-      if (baut) {
+      // auch ein Schritt, der nur Bunker-Prüfungen nutzt (Bunker aus einem früheren Schritt, Sprung hinein per goto), braucht den Takt: sonst steht die Mechanik dort still
+      let nutzt = false;
+      for (const [, c] of stepConditions(s)) eachAtom(c, '', (k, v) => { if (k === 'check' && isObj(v) && BUNKER_PRUEFUNGEN.includes(v.name)) nutzt = true; });
+      if (baut || nutzt) {
         const erste = (s.next || [])[0]; const atom = erste ? ersteBedingung(erste.if) : null;
         if (!atom || atom.k !== 'check' || !isObj(atom.v) || !BUNKER_PRUEFUNGEN.includes(atom.v.name)) {
-          E('TAKT-BUNKER', `${sp}.next[0]`, `Schritt baut den Bunker (bunker_aufbauen), aber die erste Bedingung der ersten next-Zeile ist keine Bunker-Prüfung (${BUNKER_PRUEFUNGEN.join(', ')}): die Bunker-Mechanik (Abschüsse, Sperre, Knall, Nachschub) tickt dann nicht in jedem Spieltick. `
+          E('TAKT-BUNKER', `${sp}.next[0]`, `Schritt baut den Bunker (bunker_aufbauen) oder nutzt Bunker-Prüfungen, aber die erste Bedingung der ersten next-Zeile ist keine Bunker-Prüfung (${BUNKER_PRUEFUNGEN.join(', ')}): die Bunker-Mechanik (Abschüsse, Sperre, Knall, Nachschub) tickt dann nicht in jedem Spieltick. `
             + 'bunker_sieg_bereit allein oder zuerst in das if von next[0] setzen (CONTRACT-EK8.md, Abschnitt 4a, Takt)');
         }
       }

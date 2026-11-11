@@ -139,8 +139,11 @@ section('1. Katalog, Registry und Prüfer', () => {
   ok(takt((b) => { b.steps[0].next = []; }).length === 1, 'TAKT-BUNKER negativ: Schritt ohne next: Fehler');
   const tm = takt((b) => { b.steps[0].next[0].if = { elapsed: 30 }; })[0];
   ok(tm && /bunker_sieg_bereit/.test(tm.msg) && /CONTRACT-EK8/.test(tm.msg) && /next\[0\]/.test(tm.p), 'TAKT-BUNKER: Meldung nennt Prüfung, Fundort und Vertrag');
-  ok(takt((b) => { b.steps[0].enter = []; b.steps[0].next[0].if = { elapsed: 30 }; }).length === 0, 'TAKT-BUNKER: Schritt ohne bunker_aufbauen wird nicht geprüft');
-  ok(takt((b) => { b.steps[0].enter = []; b.steps[0].skip = [e0(b)]; b.steps[0].next[0].if = { elapsed: 30 }; }).length === 0, 'TAKT-BUNKER: bunker_aufbauen nur im skip zählt nicht');
+  ok(takt((b) => { b.steps[0].enter = []; b.steps[0].objectives = []; b.steps[0].rules = []; b.steps[0].next[0].if = { elapsed: 30 }; }).length === 0, 'TAKT-BUNKER: Schritt weder mit bunker_aufbauen noch mit Bunker-Prüfung wird nicht geprüft');
+  // Nacharbeit: auch ein Schritt, der nur Bunker-Prüfungen nutzt (Bunker aus einem früheren Schritt, goto hinein), braucht den Takt
+  ok(takt((b) => { b.steps[0].enter = []; b.steps[0].next[0].if = { elapsed: 30 }; }).length === 1, 'TAKT-BUNKER negativ: Schritt ohne bunker_aufbauen, aber mit Bunker-Prüfung im Ziel, ohne Takt in next[0]: Fehler');
+  ok(takt((b) => { b.steps[0].enter = []; }).length === 0, 'TAKT-BUNKER positiv: Schritt ohne bunker_aufbauen, Bunker-Prüfung im Ziel, Takt in next[0]: kein Fehler');
+  ok(takt((b) => { b.steps[0].enter = []; b.steps[0].objectives = []; b.steps[0].rules = []; b.steps[0].skip = [e0(b)]; b.steps[0].next[0].if = { elapsed: 30 }; }).length === 0, 'TAKT-BUNKER: bunker_aufbauen nur im skip zählt nicht');
 });
 
 section('2. Germanen (raubzug), Sperre aus: sofort zündbar; game.arena null; Ladung unberührt (0 und 2)', () => {
