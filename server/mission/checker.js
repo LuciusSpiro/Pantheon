@@ -175,6 +175,17 @@ function eachAtom(c, p, cb) {
     else cb(k, v, `${p}.${k}`);
   }
 }
+// EIS-01 P4: erste Bedingung, die eine Bedingung auswertet: bei all/any das erste Glied (rekursiv), bei not der Inhalt -> { k, v } | null
+const BUNKER_PRUEFUNGEN = ['bunker_sieg_bereit', 'bunker_gesprengt', 'bunker_offen', 'bunker_welle_tot'];
+function ersteBedingung(c) {
+  if (!isObj(c)) return null;
+  const keys = Object.keys(c);
+  if (!keys.length) return null;
+  const k = keys[0];
+  if (k === 'all' || k === 'any') return Array.isArray(c[k]) && c[k].length ? ersteBedingung(c[k][0]) : null;
+  if (k === 'not') return null;   // eine Verneinung wertet zwar aus, gilt hier aber nicht als Takt-Zeile (klare Form verlangen)
+  return { k, v: c[k] };
+}
 function stepConditions(step) {
   const C = [];
   const fromActions = (list, p) => eachAction(list, {}, (a) => { if (a.if !== undefined) C.push([`${p}.if`, a.if]); });
@@ -526,6 +537,22 @@ function check(doc, ctxIn) {
     }
     if (s.scan) { textRef(s.scan.label, `${sp}.scan.label`); if (s.scan.blocked) textRef(s.scan.blocked, `${sp}.scan.blocked`); }
     for (const b of (s.jumpBlock || []).concat(s.destBlock || [])) textRef(b.reason, `${sp}.jumpBlock.reason`);
+    // EIS-01 P4 (TAKT-BUNKER): Die Bunker-Mechanik tickt nur, wenn jeden Spieltick eine Bunker-Prüfung ausgewertet wird (CONTRACT-EK8 4a, bausteine/bunker.js). Ein Schritt, der den Bunker aufbaut,
+    // muss die Takt-Prüfung deshalb als erste Bedingung der ersten next-Zeile tragen (Regeln feuern nur einmal, eine Prüfung hinter einem kurzschließenden all läuft nicht).
+    {
+      let baut = false;
+      for (const [lp, list] of stepActionLists(s)) { if (lp === 'skip' || lp === 'wiederaufnahme.prep') continue; eachAction(list, {}, (a) => { if (isObj(a) && a.do === 'bunker_aufbauen') baut = true; }); }
+      // auch ein Schritt, der nur Bunker-Prüfungen nutzt (Bunker aus einem früheren Schritt, Sprung hinein per goto), braucht den Takt: sonst steht die Mechanik dort still
+      let nutzt = false;
+      for (const [, c] of stepConditions(s)) eachAtom(c, '', (k, v) => { if (k === 'check' && isObj(v) && BUNKER_PRUEFUNGEN.includes(v.name)) nutzt = true; });
+      if (baut || nutzt) {
+        const erste = (s.next || [])[0]; const atom = erste ? ersteBedingung(erste.if) : null;
+        if (!atom || atom.k !== 'check' || !isObj(atom.v) || !BUNKER_PRUEFUNGEN.includes(atom.v.name)) {
+          E('TAKT-BUNKER', `${sp}.next[0]`, `Schritt baut den Bunker (bunker_aufbauen) oder nutzt Bunker-Prüfungen, aber die erste Bedingung der ersten next-Zeile ist keine Bunker-Prüfung (${BUNKER_PRUEFUNGEN.join(', ')}): die Bunker-Mechanik (Abschüsse, Sperre, Knall, Nachschub) tickt dann nicht in jedem Spieltick. `
+            + 'bunker_sieg_bereit allein oder zuerst in das if von next[0] setzen (CONTRACT-EK8.md, Abschnitt 4a, Takt)');
+        }
+      }
+    }
     if (isSide) return;
     if (s.platzhalter) W('PLATZHALTER', sp, `Stand-in-Szene für '${s.platzhalter}' (EK8) – wird durch die echte Umsetzung ersetzt`);
     // Garantien

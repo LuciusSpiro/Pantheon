@@ -30,13 +30,13 @@
     },
     {
       "id": "k3_nebelheim", "nr": 3, "titel": "Nebelheim: Schleichfahrt", "ort": "nebelheim",
-      "karte": { "titel": "Kapitel 3: Nebelheim", "text": "Der Sprengstoff ist an Bord. Die Methalle liegt hinter Nebelheim, im Nebel, bewacht und vermint." },
+      "karte": { "titel": "Kapitel 3: Nebelheim", "text": "Der Sprengstoff ist an Bord. Die Methalle liegt hinter Nebelheim, im Nebel: ein germanischer Stützpunkt mit Bunker unter dem Wald." },
       "ausgaenge": { "erfolg": { "weiter": "k4_methalle" }, "rueckzug": { "wiederholen": true } },
       "einstieg": { "ort": "statio_limitis", "angedockt": true, "flags": { "konvoi_gepluendert": true }, "fakten": { "rom_angeworben": "ja", "sprengstoff": "erbeutet" }, "fracht": ["sprengstoff"] }
     },
     {
-      "id": "k4_methalle", "nr": 4, "titel": "Methalle: Sprengstoff platzieren", "ort": "methalle",
-      "karte": { "titel": "Kapitel 4: Die Methalle", "text": "Ein Militärlager hinter einer Mauer, ein Rohr im Hang. Wenn die Methalle fällt, steht Wolfstor offen." },
+      "id": "k4_methalle", "nr": 4, "titel": "Methalle: Bunker sprengen", "ort": "methalle",
+      "karte": { "titel": "Kapitel 4: Die Methalle", "text": "Ein germanischer Stützpunkt, darunter ein Bunker mit Reaktor. Wenn er fällt, steht Wolfstor ohne Nachschub." },
       "ausgaenge": { "erfolg": { "weiter": "k5_legat" }, "rueckzug": { "wiederholen": true } },
       "einstieg": { "ort": "nebelheim", "angedockt": false, "flags": { "konvoi_gepluendert": true }, "fakten": { "rom_angeworben": "ja", "sprengstoff": "erbeutet", "nebelheim": "durchquert" }, "fracht": ["sprengstoff"] }
     },
@@ -71,7 +71,7 @@
     "text": "Der Riegel der Germanen ist gebrochen. Die Lerche hat die Methalle gesprengt, die Sperrflotte geschlagen und das Feldzeichen Roms gehisst.",
     "abspann": [
       { "kopf": "FELDZUG EISENWALD", "zeilen": ["Eine Koop-Kampagne in der Welt von Pantheon"] },
-      { "kopf": "DIE KETTE", "zeilen": ["1  Statio Limitis: Anwerbung", "2  Rabenpass: der Konvoi", "3  Nebelheim: Schleichfahrt", "4  Methalle: der Sprengstoff", "5  Castra Martis: der Legat", "6  Eisenwald: Orbitschlacht", "7  Eisenwald: die Siedlung", "8  Der Sieg"] },
+      { "kopf": "DIE KETTE", "zeilen": ["1  Statio Limitis: Anwerbung", "2  Rabenpass: der Konvoi", "3  Nebelheim: Schleichfahrt", "4  Methalle: der Bunker", "5  Castra Martis: der Legat", "6  Eisenwald: Orbitschlacht", "7  Eisenwald: die Siedlung", "8  Der Sieg"] },
       { "kopf": "BESATZUNG DER LERCHE", "zeilen": ["Captain, Steuer, Ops:", "ihr, an Bord."] },
       { "kopf": "ROM", "zeilen": [
         "Legat Marcus Severus",

@@ -1,15 +1,15 @@
 {
   "$schema": "../regiebuch/regiebuch.schema.json",
-  "_kommentar": "EK8 Kapitel 4 „Methalle“. Schritt 'methalle' ist die echte Bodenmission (EK5, CONTRACT-EK5-6, Molekül sabotieren/sprengstoff_platzieren): Landepunkt methalle.siedlung (Mauer, Rohr, Wachen in Zweiergruppen, zweite Welle an den Baracken). Der erbeutete Sprengstoff (Frachtraum) wird beim Eintritt in den Schritt ins Gepäck des Außenteams umgeladen (Inventar ladung); wer sie im Hafen gekauft hat, hat sie schon. Die Szene setzt die Flag methalle_gesprengt, sobald der Sprengstoff liegt UND das Team wieder an Bord ist; Fällt das Team (Notrückholung), wird die Karte zurückgesetzt und das Kapitel wiederholt (rueckzug). Der Schritt 'meldung' (Meldung von Mars, Sperrriegel öffnen) bleibt unverändert. Verdrahtung Boden: CONTRACT-EK8.md, Abschnitt 4a.",
+  "_kommentar": "EK8 Kapitel 4 „Methalle“ (EIS-01 P4). Schritt 'methalle' spielt auf der Festkarte grabenangriff (Landepunkt methalle.siedlung, gen.fest): germanischer Stützpunkt, Wald mit Wiese und Graben, darunter ein Bunker mit Reaktorraum. Es gibt keinen Schleichweg: Kampf ist der Normalfall, zwei Zugänge (Bunkertor mit Lift, Rohr in der Waldmitte), Sperre aus. Der Schritt baut die Szene über den Baustein bunker_aufbauen (Fraktion raubzug, Sperre aus) und liest ihren Stand über die Bunker-Prüfungen (CONTRACT-EK8.md 4a). TAKT: bunker_sieg_bereit steht allein als erste Bedingung der ersten next-Zeile, damit die Bunker-Mechanik jeden Tick läuft (der Prüfer verlangt das, TAKT-BUNKER). Der erbeutete Sprengstoff (Frachtraum) wird beim Eintritt ins Teaminventar umgeladen (Inventar ladung); wer sie im Hafen gekauft hat, hat sie schon: das Regiebuch besitzt die Ladung, bunker_aufbauen fasst sie nie an. Sieg des Schritts: der Reaktor ist gesprengt (der Knall, danach einmal Nachschub oben) UND die ganze verbundene Crew ist wieder an Bord; dann setzt der Schritt meldung die Flag methalle_gesprengt. Fällt die Crew vor dem Knall (Notrückholung) oder springt das Schiff vor dem Knall weg (Notfallsprung, auch mit Crew an Bord), wird die Karte zurückgesetzt (map_reset) und das Kapitel wiederholt (rueckzug); der nächste Eintritt baut den Bunker frisch auf. Nach dem Knall bleibt der Zustand (Sprengpunkt zerstört) erhalten: kein Reset, der Fortschritt zählt. Der Schritt 'meldung' (Meldung von Mars, Sperrriegel öffnen) bleibt unverändert. Die Lobby-Texte der Arena (Rom besiegen) gelten hier nicht: die Kampagnentexte stehen unten (bunker.*).",
   "format": "regiebuch/1",
   "id": "k4_methalle",
 
   "kopf": {
-    "titel": "Methalle: Sprengstoff platzieren",
+    "titel": "Methalle: Bunker sprengen",
     "art": "kapitel",
     "auftraggeber": "mars",
     "zielspieldauer_min": 15,
-    "crew": { "min": 1, "max": 3, "empfohlen": 3 },
+    "crew": { "min": 1, "max": 4, "empfohlen": 3 },
     "feldzug": "eisenwald"
   },
 
@@ -53,56 +53,46 @@
 
     {
       "id": "methalle", "loc": "methalle",
-      "umsetzung": "sabotieren/sprengstoff_platzieren",
+      "umsetzung": "kette/bunker",
       "allowBeam": ["methalle.siedlung"],
       "enter": [
         { "if": { "all": [{ "not": { "check": { "name": "item_count", "item": "ladung", "min": 1 } } }, { "check": { "name": "fracht_an_bord", "art": "sprengstoff", "min": 1 } }] },
           "do": "fracht_abliefern", "art": "sprengstoff", "n": 1 },
         { "if": { "not": { "check": { "name": "item_count", "item": "ladung", "min": 1 } } }, "do": "ladung_geben", "anzahl": 1 },
-        { "if": { "not": { "v": "besetzt" } }, "do": "besetzen_paare", "map": "methalle.siedlung", "fraktion": "raubzug", "tag": "methalle_w1", "gruppen": 3 },
-        { "set": { "besetzt": true } }
+        { "do": "bunker_aufbauen", "map": "methalle.siedlung", "fraktion": "raubzug", "sperre": "aus",
+          "ziel_still": "@bunker.ziel_still", "sperre_text": "@bunker.sperre", "ziel_offen": "@bunker.ziel_offen", "ziel_erreicht": "@bunker.ziel_erreicht", "nachschub": "@bunker.nachschub" }
       ],
       "timers": [
         { "at": 2, "oda": "@methalle.start" },
-        { "at": 90, "if": { "not": { "v": "ende" } }, "oda": "@methalle.hinweis", "garantie": "hinweis" }
+        { "at": 90, "if": { "not": { "check": { "name": "bunker_gesprengt", "map": "methalle.siedlung" } } }, "oda": "@methalle.hinweis", "garantie": "hinweis" }
       ],
       "rules": [
-        { "if": { "all": [{ "check": { "name": "anker_state", "map": "methalle.siedlung", "anker": "sprengpunkt", "state": "platziert", "min": 1 } }, { "not": { "v": "gelegt" } }] },
-          "do": [
-            { "set": { "gelegt": true } },
-            { "wendung": "nachschub_baracken",
-              "ankuendigung": { "oda": "@methalle.gelegt", "art": "gleichzeitig", "grund": "Die zweite Welle (ruhig, an den Baracken) wird mit dem Funkspruch zum Sprengstoff angekündigt." },
-              "wirkung": [{ "do": "nachschub_baracken", "map": "methalle.siedlung", "fraktion": "raubzug", "tag": "methalle_w2", "gruppen": 2 }] }
-          ] },
-        { "if": { "all": [{ "check": { "name": "alarm", "map": "methalle.siedlung" } }, { "not": { "v": "alarm" } }, { "not": { "v": "ende" } }] },
+        { "if": { "all": [{ "check": { "name": "alarm", "map": "methalle.siedlung" } }, { "not": { "v": "alarm" } }, { "not": { "check": { "name": "bunker_gesprengt", "map": "methalle.siedlung" } } }] },
           "do": [{ "set": { "alarm": true } }, { "oda": "@methalle.alarm" }] },
-        { "if": { "all": [{ "v": "gelegt" }, { "not": { "check": { "name": "team_down", "map": "methalle.siedlung" } } }, { "not": { "v": "ende" } }] },
-          "do": [
-            { "set": { "ende": true } },
-            { "setFlag": { "methalle_gesprengt": true } },
-            { "oda": "@methalle.fertig" }
-          ] },
-        { "if": { "all": [{ "event": "squadRecall" }, { "not": { "v": "ende" } }, { "not": { "v": "zurueck" } }] },
+        { "if": { "all": [{ "event": "squadRecall" }, { "not": { "check": { "name": "bunker_gesprengt", "map": "methalle.siedlung" } } }, { "not": { "v": "zurueck" } }] },
           "do": [
             { "set": { "zurueck": true } },
             { "do": "map_reset", "map": "methalle.siedlung", "grund": "@methalle.nottransport" }
+          ] },
+        { "if": { "all": [{ "check": { "name": "rueckzug", "loc": "methalle" } }, { "not": { "check": { "name": "bunker_gesprengt", "map": "methalle.siedlung" } } }, { "not": { "v": "zurueck" } }] },
+          "do": [
+            { "set": { "zurueck": true } },
+            { "do": "map_reset", "map": "methalle.siedlung", "grund": "@methalle.notsprung" }
           ] }
       ],
       "objectives": [
         { "id": "runter", "text": "@ziel.runter",
-          "done": { "any": [{ "check": { "name": "away_active", "map": "methalle.siedlung" } }, { "v": "ende" }] } },
-        { "id": "setzen", "text": "@ziel.setzen", "done": { "v": "gelegt" } },
-        { "id": "hoch", "text": "@ziel.hoch", "show": { "v": "gelegt" }, "done": { "v": "ende" } }
+          "done": { "any": [{ "check": { "name": "away_active", "map": "methalle.siedlung" } }, { "check": { "name": "bunker_gesprengt", "map": "methalle.siedlung" } }] } },
+        { "id": "sprengen", "text": "@ziel.sprengen", "done": { "check": { "name": "bunker_gesprengt", "map": "methalle.siedlung" } } },
+        { "id": "hoch", "text": "@ziel.hoch", "show": { "check": { "name": "bunker_gesprengt", "map": "methalle.siedlung" } }, "done": { "check": { "name": "bunker_sieg_bereit", "map": "methalle.siedlung" } } }
       ],
       "next": [
-        { "if": { "v": "ende" }, "goto": "meldung" },
+        { "if": { "check": { "name": "bunker_sieg_bereit", "map": "methalle.siedlung" } }, "goto": "meldung" },
         { "if": { "v": "zurueck" }, "complete": "rueckzug" },
         { "if": { "check": { "name": "rueckzug", "loc": "methalle" } }, "complete": "rueckzug" }
       ],
       "skip": [
-        { "do": "anker_zustand", "map": "methalle.siedlung", "anker": "sprengpunkt", "zustand": "platziert" },
-        { "set": { "gelegt": true, "ende": true } },
-        { "setFlag": { "methalle_gesprengt": true } },
+        { "do": "set_object_state", "map": "methalle.siedlung", "anker": "bk.reaktor.sprengpunkt", "state": "zerstoert" },
         { "do": "debug_recall_all", "map": "methalle.siedlung" }
       ]
     },
@@ -111,6 +101,7 @@
       "id": "meldung",
       "umsetzung": "kette/wartet",
       "enter": [
+        { "setFlag": { "methalle_gesprengt": true } },
         { "oda": "@meldung.zerstoert" },
         { "do": "sperrriegel_oeffnen" },
         { "after": { "sec": 4, "do": [{ "radio": { "from": "mars", "text": "@meldung.mars" } }] } }
@@ -132,7 +123,7 @@
 
   "ausgaenge": {
     "erfolg": {
-      "beschreibung": "Sprengladung gesetzt, Team an Bord, Methalle zerstört gemeldet, Sperrriegel um Wolfstor offen.",
+      "beschreibung": "Reaktor des Bunkers gesprengt, Team an Bord, Methalle zerstört gemeldet, Sperrriegel um Wolfstor offen.",
       "folgen": [
         { "do": "welt_fakt", "key": "methalle", "value": "zerstoert", "quelle": "Sprengstoff" },
         { "do": "welt_fakt", "key": "sprengstoff", "value": "verbraucht", "quelle": "Methalle" },
@@ -140,42 +131,47 @@
       ]
     },
     "rueckzug": {
-      "beschreibung": "Notfallsprung von der Methalle: Die Szene wird wiederholt, der Feldzug geht weiter.",
+      "beschreibung": "Notrückholung oder Notfallsprung an der Methalle: Die Szene wird zurückgesetzt und wiederholt (Bunker baut frisch auf, solange der Reaktor noch nicht gesprengt war), der Feldzug geht weiter.",
       "folgen": [],
       "danach": [{ "oda": "@rueckzug.ansage" }]
     }
   },
 
   "texte": {
-    "buch.briefing": "Die Methalle ist ein Militärlager hinter einer Mauer. Ein einziger Teleportpunkt liegt außerhalb. Ein Rohr im Hang führt unter der Mauer hindurch. Ihr braucht eine Sprengladung: den erbeuteten Sprengstoff aus dem Frachtraum (er geht mit nach unten) oder eine gekaufte aus dem Hafen (Stationen, 150 Marken). Keine Explosion, kein Zeitdruck: Wer entdeckt wird, bekommt Alarm.",
+    "buch.briefing": "Die Methalle ist ein germanischer Stützpunkt, unter dem Wald liegt ein Bunker mit Reaktor. Zwei Wege hinein: Bunkertor mit Lift oder Rohr in der Waldmitte. Kampf ist nicht zu vermeiden. Im Reaktorraum die Sprengladung zünden (E halten), dann zurück zum Pad und hochbeamen. Nach dem Knall kommt Nachschub. Ladung: Sprengstoff aus dem Frachtraum oder gekauft im Hafen.",
     "buch.belohnung": "Der Sperrriegel um Wolfstor öffnet sich",
 
     "auftrag.aufgedeckt": "Die Methalle ist auf der Sternkarte, hinter Nebelheim.",
-    "auftrag.hinweis": "Methalle: Militärlager hinter einer Mauer. Ihr braucht Sprengstoff: Frachtraum prüfen, Ersatz gibt es im Hafen.",
+    "auftrag.hinweis": "Methalle: Germanenstützpunkt, Bunker unter dem Wald. Sprengstoff nötig: Frachtraum prüfen, Ersatz im Hafen.",
 
     "anflug.tipp": "Methalle: Sprungpunkt unbekannt? Weitscan (Ops, S) zeigt Bojen. Ziel wählen, anfliegen, springen.",
 
 
-    "methalle.start": "Methalle: Lager hinter einer Mauer, Wachen in Paaren. Das Rohr im Hang führt hinein. Leise. Sprengstoff ist im Gepäck.",
-    "methalle.hinweis": "Captain: Patrouillen beobachten, Lücken ansagen. Sprengstoff ans Sprengziel im Depot (E halten).",
-    "methalle.gelegt": "Sprengstoff liegt. Neue Patrouillen auf dem Gelände, sie wissen nichts von uns. Zurück zum Teleportpunkt, unauffällig.",
-    "methalle.alarm": "Alarm! Wachen sammeln sich. Weiter, wenn es geht, oder zurück durchs Rohr.",
-    "methalle.fertig": "Sprengstoff gelegt, alle an Bord. Jetzt wartet die Meldung.",
-    "methalle.nottransport": "Notrückholung. Die Wachen suchen noch. Ihr versucht es noch einmal, mit frischem Sprengstoff.",
+    "methalle.start": "Methalle: Germanenstützpunkt, Bunker unter dem Wald. Tor mit Lift oder Rohr. Posten sehen weit: Kampf.",
+    "methalle.hinweis": "Captain: Tor mit Lift oder Rohr in der Waldmitte. Im Reaktorraum Sprengladung zünden (E halten).",
+    "methalle.alarm": "Alarm! Die Germanen sammeln sich. Weiter zum Bunker, der Reaktor wartet.",
+    "methalle.nottransport": "Notrückholung. Transfer reparieren, dann neuer Versuch. Der Bunker beginnt von vorn.",
+    "methalle.notsprung": "Notfallsprung von der Methalle. Beim nächsten Anflug beginnt der Bunker von vorn.",
+
+    "bunker.ziel_still": "Der Bunkereingang ist nicht das Ziel: im Reaktorraum unten die Sprengladung zünden.",
+    "bunker.sperre": "Die Germanen halten den Zugang: erst die Verteidiger oben besiegen.",
+    "bunker.ziel_offen": "Der Weg ist frei: per Lift oder Rohr hinunter, im Reaktorraum die Sprengladung zünden!",
+    "bunker.ziel_erreicht": "Der Reaktor ist gesprengt! Zurück zum Pad am Bunkereingang, dann hochbeamen.",
+    "bunker.nachschub": "ALARM: Nachschub der Germanen, vier Mann mit Sturmgewehren am Bunkereingang!",
 
     "meldung.zerstoert": "Meldung von Mars: Außenposten Methalle zerstört.",
     "meldung.mars": "Die Methalle ist gefallen. Wolfstor steht ohne Nachschub. Kommt heim nach Castra Martis.",
 
     "ereignis.ersatz": "Die Sprengladung ist weg? Der Quartiermeister legt euch eine Ersatzladung in den Frachtraum. Mars hat gesprochen.",
 
-    "rueckzug.ansage": "Rückzug von der Methalle. Die Wachen suchen noch, ihr versucht es noch einmal.",
+    "rueckzug.ansage": "Rückzug von der Methalle. Die Germanen halten den Bunker, ihr versucht es noch einmal.",
 
     "ziel.zur_methalle": "Zur Methalle fliegen",
     "ziel.runter": "Außenteam runterbeamen (Transfer, Landepunkt Methalle)",
-    "ziel.setzen": "Den Sprengstoff am Sprengziel platzieren",
-    "ziel.hoch": "Unbemerkt zurück zum Teleportpunkt und hochbeamen",
+    "ziel.sprengen": "Im Bunker den Reaktor sprengen (Sprengladung am Sprengpunkt zünden)",
+    "ziel.hoch": "Zum Pad am Bunkereingang oder Abholpunkt, hochbeamen",
     "ziel.meldung": "Die Meldung abwarten",
 
-    "chronik.erfolg": "Die Methalle fällt: Die Crew setzt den Sprengstoff, Mars meldet den Außenposten zerstört. Der Sperrriegel um Wolfstor ist offen."
+    "chronik.erfolg": "Die Methalle fällt: Die Crew kämpft sich in den Bunker, sprengt den Reaktor und kehrt an Bord zurück. Mars meldet den Stützpunkt zerstört, der Sperrriegel um Wolfstor ist offen."
   }
 }

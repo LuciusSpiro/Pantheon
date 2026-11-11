@@ -41,8 +41,8 @@
     ],
     "methalle": [
       { "id": "methalle.siedlung", "art": "aussenposten", "bauweise": "germanen", "besitz": "raubzug", "zustand": "intakt", "seed": 5101, "schablone": null,
-        "gen": { "variante": "methalle", "typ": "militaer", "haeuser": 10 },
-        "beam": { "x": 1349, "y": 928, "range": 360 }, "name": "Methalle (Militärlager)", "frei": "immer", "gesperrt": false }
+        "gen": { "fest": "grabenangriff", "bauweise": "germanen" },
+        "beam": { "x": 1349, "y": 928, "range": 360 }, "name": "Methalle (Bunker)", "frei": "immer", "gesperrt": false }
     ],
     "eisenwald": [
       { "id": "eisenwald.siedlung", "art": "aussenposten", "bauweise": "germanen", "besitz": "raubzug", "zustand": "intakt", "seed": 6101, "schablone": null,

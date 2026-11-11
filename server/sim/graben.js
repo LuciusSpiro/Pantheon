@@ -31,7 +31,8 @@ function M() {
 }
 const cfg = (game) => game.C.graben;
 const team = (game) => game.players.filter((p) => p.connected);
-const text = (game, key, ...a) => String((cfg(game).texte || {})[key] || '').replace(/\{(\d)\}/g, (m, i) => (a[i] == null ? '' : a[i]));
+// EIS-01: Textquelle ist S.texte (Kampagne, je Schluessel; fehlt einer, gilt der aus CONFIG.graben.texte), sonst CONFIG.graben.texte (Lobby)
+const text = (game, S, key, ...a) => String((S && S.texte && S.texte[key]) || (cfg(game).texte || {})[key] || '').replace(/\{(\d)\}/g, (m, i) => (a[i] == null ? '' : a[i]));
 const fehler = (game, wo, e) => { if (game.countError) game.countError(wo, e); };
 const Vorrat = require('./vorrat.js');
 const Physics = require('../../shared/physics.js');
@@ -154,12 +155,16 @@ function aufstellen(game, S) {
 function stillLegen(game, S) {
   const aw = game.aways[S.lp];
   if (!aw || !S.stillId) return;
-  aw.ankerSperre = Object.assign(aw.ankerSperre || {}, { [S.stillId]: text(game, 'ziel_still') });
+  aw.ankerSperre = Object.assign(aw.ankerSperre || {}, { [S.stillId]: text(game, S, 'ziel_still') });
 }
 // Der Sprengpunkt (S.zielId): gesperrt (E zeigt den Hinweis 'sperre', kein Zünden) bzw. freigegeben. Die Stufe S.ziel führt der Aufrufer.
 function zielSperren(game, S) {
   const aw = game.aways[S.lp];
-  if (aw) aw.ankerSperre = Object.assign(aw.ankerSperre || {}, { [S.zielId]: text(game, 'sperre') });
+  if (aw) aw.ankerSperre = Object.assign(aw.ankerSperre || {}, { [S.zielId]: text(game, S, 'sperre') });
+}
+// Anfangsstufe des Ziels nach Variante: sperreAktiv -> gesperrt (E zeigt 'sperre'), sonst offen und ohne Sperre
+function zielAnfang(game, S) {
+  if (S.sperreAktiv) { S.ziel = 'gesperrt'; zielSperren(game, S); } else { S.ziel = 'offen'; zielFreigeben(game, S); }
 }
 function zielFreigeben(game, S) {
   const aw = game.aways[S.lp];
@@ -168,12 +173,12 @@ function zielFreigeben(game, S) {
 // Das Ziel (Sprengpunkt) zurück auf Anfang: Zustand intakt (aw.zustaende ist schon leer), Halter lösen, Stufe gesperrt, Nachschub-Auslöser zurück
 function zielZurueck(game, S) {
   for (const p of game.players) if (p.hold && p.hold.anker === S.zielId) p.hold = null;
-  S.ziel = 'gesperrt'; zielSperren(game, S);
+  zielAnfang(game, S);
   S.nachschub = null; S.nachschubIds = [];
   stillLegen(game, S);
 }
-// Die Crew startet mit EINER Ladung im Teaminventar (Start und Neubeginn gleich: auf genau 1 gesetzt, nicht addiert)
-function ladungBereitstellen(game) { Vorrat.standSetzen(game, 'ladung', 1, 'mission'); }
+// Die Crew startet mit EINER Ladung im Teaminventar (Start und Neubeginn gleich: auf genau 1 gesetzt, nicht addiert). S.ladung 'unberuehrt': das Regiebuch besitzt die Ladung
+function ladungBereitstellen(game, S) { if (S.ladung === 'setzen') Vorrat.standSetzen(game, 'ladung', 1, 'mission'); }
 // Der Sprengpunkt der Karte: genau einer (BOD-03: Reaktorraum des Bunkers)
 function sprengpunktVon(k) { const l = (k ? k.anker : []).filter((a) => a.rolle === 'sprengpunkt'); return l.length === 1 ? l[0].id : null; }
 
@@ -207,7 +212,7 @@ function nachschubSenden(game, S) {
   if (S.nachschub) return 0;
   S.nachschub = 'gesendet';
   const aw = game.aways[S.lp]; const info = M().interior.awayInfoOf(S.lp);
-  game.oda(text(game, 'nachschub'), null);
+  game.oda(text(game, S, 'nachschub'), null);
   game.emit('sfx', { name: 'alarm_yellow', zone: 'away' });
   game.emit('nachschub', { map: S.lp, versuch: S.versuch });
   const rollen = cfg(game).nachschub || [];
@@ -229,8 +234,18 @@ function nachschubSenden(game, S) {
   return n;
 }
 
-// start(game, { karte, seed, lp, auswahl, name }) – Karte steht (arena.js), das Team ist noch an Bord bzw. unten
-function start(game, o) {
+// ---------- Kampagnen-Einstieg (EIS-01): Mechanik ohne game.arena, endSession, hinunter() und Rüstphase ----------
+// Varianten des Aufbaus. Standard = heutiges Lobby-Verhalten. fraktion: Gegner-Fraktion (Standard CONFIG.graben.fraktion); sperreAktiv: Sprengpunkt gesperrt, bis die Gegner der
+// Oberfläche besiegt sind (false: nie gesperrt, S.ziel startet 'offen'); ladung: 'setzen' (genau 1 im Teaminventar) | 'unberuehrt' (das Regiebuch besitzt sie); texte: Textquelle statt CONFIG.graben.texte.
+function optionen(game, opt) {
+  const o = Object.assign({ fraktion: cfg(game).fraktion, sperreAktiv: true, ladung: 'setzen', texte: null }, opt || {});
+  if (o.ladung !== 'setzen' && o.ladung !== 'unberuehrt') throw new Error("Grabenangriff: ladung '" + o.ladung + "' unbekannt (setzen | unberuehrt)");
+  return o;
+}
+// Kampagnen-Einstieg (EIS-01): baut den Zustand S auf (Karte steht, game.aways[o.lp] existiert) und gibt ihn zurück. Setzt NICHT game.arena.wellen, beamt nicht, keine Rüstphase, keine Telemetrie, kein ODA.
+// aufbauen(game, { karte, seed, lp, auswahl }, opt) -> S
+function aufbauen(game, o, opt) {
+  const x = optionen(game, opt);
   const aw = game.aways[o.lp];
   M().combat.ensureV2(game, aw, o.lp);
   aw.drones = []; aw.squads = {}; aw.projectiles = [];
@@ -239,21 +254,28 @@ function start(game, o) {
   aw.ohneZaehler = true;   // BOD-03: das HUD zeigt keine Zähler für Terminal, Kiste, Sprengpunkt, Zelle der Bunker-Anker (das Szenario hat ein eigenes Ziel)
   const k = karteVon(game, o.lp);
   const S = {
-    buehne: 'graben', karte: o.karte, seed: o.seed, lp: o.lp, fraktion: cfg(game).fraktion, n: 1, ph: 'kampf', bis: null, queue: [], gesamt: 0, start: game.time,
+    buehne: 'graben', karte: o.karte, seed: o.seed, lp: o.lp, fraktion: x.fraktion, n: 1, ph: 'kampf', bis: null, queue: [], gesamt: 0, start: game.time,
     kills: {}, abschuesse: 0, lebt: new Set(), proj: [], ids: {}, ziel: 'gesperrt', zielId: sprengpunktVon(k), stillId: (k && k.meta.ziel) || null, nachschub: null, nachschubIds: [], versuch: 1, recalls: (aw.stats && aw.stats.squadRecalls) || 0,
     untenSeit: null, ergebnis: null, maxLebend: 0, auswahl: o.auswahl || null,
+    sperreAktiv: x.sperreAktiv, ladung: x.ladung, texte: x.texte,
   };
   if (!S.zielId) throw new Error('Grabenangriff: Karte ohne (genau einen) Sprengpunkt');
+  stillLegen(game, S); zielAnfang(game, S);
+  ladungBereitstellen(game, S);
+  S.maxLebend = aufstellen(game, S);
+  return S;
+}
+
+// start(game, { karte, seed, lp, auswahl, name }) – Karte steht (arena.js), das Team ist noch an Bord bzw. unten
+function start(game, o) {
+  const S = aufbauen(game, o);
   game.arena.wellen = S;
   Tel.szeneStart(game, 'graben', o.karte, { seed: o.seed });   // TEL-01 B1
-  stillLegen(game, S); zielSperren(game, S);
-  ladungBereitstellen(game);
-  const n = aufstellen(game, S);
-  S.maxLebend = n;
+  const n = S.maxLebend;
   if (game.ruestphase) S.ph = 'vorbereitung';
-  game.oda(S.ph === 'vorbereitung' ? text(game, 'start_ruest', o.name, n) : text(game, 'start', o.name, n), null);
+  game.oda(S.ph === 'vorbereitung' ? text(game, S, 'start_ruest', o.name, n) : text(game, S, 'start', o.name, n), null);
   game.log(`Grabenangriff gestartet: ${o.karte} (${o.lp}), ${n} Gegner, Auswahl ${JSON.stringify(o.auswahl)}.`);
-  if (S.ph === 'kampf') { hinunter(game); game.oda(text(game, 'los'), null); }   // ohne Rüstphase beamt die Crew gleich hinunter (Tests, Bots)
+  if (S.ph === 'kampf') { hinunter(game); game.oda(text(game, S, 'los'), null); }   // ohne Rüstphase beamt die Crew gleich hinunter (Tests, Bots)
   return S;
 }
 
@@ -268,7 +290,7 @@ function vorbereitungEnde(game, S) {
   if (S.ph !== 'vorbereitung') return false;
   hinunter(game);
   S.ph = 'kampf';
-  game.oda(text(game, 'los'), null);
+  game.oda(text(game, S, 'los'), null);
   return true;
 }
 
@@ -288,11 +310,11 @@ function neuBeginnen(game, S) {
   aw.recallLockUntil = 0;
   if (game.ship.systems.transfer !== 'ok') M().interior.damageSystem(game, 'transfer', 'ok', { quiet: true });
   zielZurueck(game, S);
-  ladungBereitstellen(game);
+  ladungBereitstellen(game, S);
   S.maxLebend = aufstellen(game, S);
   game.emit('szeneZurueck', { map: S.lp, versuch: S.versuch });
   Tel.szeneNeustart(game, 'graben', S.karte, S.versuch);   // TEL-01 B1: die Crew war unten, Niederlage
-  game.oda(text(game, 'neustart'), null);
+  game.oda(text(game, S, 'neustart'), null);
   game.log(`Grabenangriff: Neubeginn (Versuch ${S.versuch}).`);
   if (game.ruestphase) S.ph = 'vorbereitung';   // Rüstphase wie am Anfang: ausrüsten, „Szene starten“, am Abholpunkt hinunter
   else hinunter(game);
@@ -305,8 +327,46 @@ function sieg(game, S) {
   S.ergebnis = { karte: S.karte, seed: S.seed, welle: S.n, geschafft: wellenNummern(karteVon(game, S.lp)).length, zeit, kills, sieg: true, versuche: S.versuch };
   game.emit('wellenEnde', S.ergebnis);
   Tel.szeneEnde(game, 'graben', S.karte, 'sieg', { versuche: S.versuch });   // TEL-01 B1
-  game.oda(text(game, 'sieg'), null);
+  game.oda(text(game, S, 'sieg'), null);
   game.log(`Grabenangriff gewonnen: ${zeit} s, Versuch ${S.versuch}, Abschüsse ${kills.map((q) => q[1] + ' ' + q[2]).join(', ')}.`);
+}
+
+// Kampagnen-Einstieg (EIS-01): Abschüsse der Szene zählen (Kills, S.lebt, Telemetrie)
+function abschuesseZaehlen(game, S) {
+  const aw = game.aways[S.lp];
+  if (aw) M().wellen.zaehleAbschuesse(game, S, aw);
+}
+// Kampagnen-Einstieg (EIS-01): Ziel-Mechanik eines Ticks: S.maxLebend, S.n, Sperre öffnen (zielOeffnet), Knall erkennen (S.ziel 'erreicht', Nachschub genau einmal).
+// -> { ziel: S.ziel, geoeffnet: Sperre ging in diesem Tick auf, knall: Knall wurde in diesem Tick erkannt }
+function zielTick(game, S) {
+  const aw = game.aways[S.lp]; const r = { ziel: S.ziel, geoeffnet: false, knall: false };
+  if (!aw) return r;
+  S.maxLebend = Math.max(S.maxLebend, lebende(aw).length);
+  S.n = aktiveWelle(aw, S, wellenNummern(karteVon(game, S.lp)));
+  if (S.ziel === 'gesperrt' && zielOeffnet(game, S, aw)) {
+    S.ziel = 'offen'; zielFreigeben(game, S); r.geoeffnet = true;
+    game.oda(text(game, S, 'ziel_offen'), null);
+    game.emit('sfx', { name: 'repair_done', zone: 'away' });
+  }
+  // Ziel: die Sprengung ist erfolgt (der Knall, nicht das Zünden). Dann Warnsignal und Nachschub, genau einmal
+  if (S.ziel !== 'erreicht' && M().anker.zustand(game, S.lp, S.zielId) === 'zerstoert') {
+    S.ziel = 'erreicht'; r.knall = true;
+    game.oda(text(game, S, 'ziel_erreicht'), null);
+    nachschubSenden(game, S);
+  }
+  r.ziel = S.ziel;
+  return r;
+}
+// Kampagnen-Einstieg (EIS-01): Siegprüfung, rein lesend: Sprengung erfolgt und die ganze verbundene Crew wieder an Bord (Hochbeamen am Pad des Bunkereingangs oder am Abholpunkt)
+function siegBereit(game, S) {
+  const t = team(game);
+  return S.ziel === 'erreicht' && t.length > 0 && !t.some((p) => p.zone === 'away');
+}
+// Kampagnen-Einstieg (EIS-01): Abschüsse zählen + Ziel-Mechanik, ohne sieg(), endSession, Notrückholung, Rüstphase -> { ziel, siegBereit }
+function mechanikTick(game, S) {
+  abschuesseZaehlen(game, S);
+  const r = zielTick(game, S);
+  return { ziel: r.ziel, siegBereit: siegBereit(game, S) };
 }
 
 // Tick (wellen.update, solange game.phase === 'play')
@@ -315,7 +375,7 @@ function update(game, S) {
   if (S.ph === 'ende') { if (game.time >= S.bis && typeof game.endSession === 'function') game.endSession(null, { grund: 'wellen' }); return; }
   const aw = game.aways[S.lp];
   if (!aw) return;
-  M().wellen.zaehleAbschuesse(game, S, aw);
+  abschuesseZaehlen(game, S);
   // Niederlage: die Notrückholung (combat.squadRecall) zählt aw.stats.squadRecalls hoch. Sie holt nur die Spieler UNTEN zurück: Ein Neubeginn ist es nur,
   // wenn sie die ganze verbundene Crew betraf (kein Spieler war gesund an Bord). Sonst sind die Zurückgeholten schlicht an Bord, das Szenario läuft weiter
   // (und ist das Ziel erreicht, entscheidet gleich unten die Siegprüfung: alle an Bord = Sieg).
@@ -325,34 +385,20 @@ function update(game, S) {
     const pids = (aw.letzteRueckholung && aw.letzteRueckholung.pids) || null;
     if (!pids || team(game).every((p) => pids.includes(p.id))) { neuBeginnen(game, S); return; }
   }
-  S.maxLebend = Math.max(S.maxLebend, lebende(aw).length);
-  S.n = aktiveWelle(aw, S, wellenNummern(karteVon(game, S.lp)));
-  if (S.ziel === 'gesperrt' && zielOeffnet(game, S, aw)) {
-    S.ziel = 'offen'; zielFreigeben(game, S);
-    game.oda(text(game, 'ziel_offen'), null);
-    game.emit('sfx', { name: 'repair_done', zone: 'away' });
-  }
-  // Ziel: die Sprengung ist erfolgt (der Knall, nicht das Zünden). Dann Warnsignal und Nachschub, genau einmal
-  if (S.ziel !== 'erreicht' && M().anker.zustand(game, S.lp, S.zielId) === 'zerstoert') {
-    S.ziel = 'erreicht';
-    game.oda(text(game, 'ziel_erreicht'), null);
-    nachschubSenden(game, S);
-  }
-  // Sieg: Sprengung erfolgt und die ganze Crew wieder an Bord (Hochbeamen am Pad des Bunkereingangs oder am Abholpunkt)
-  const t = team(game);
-  if (S.ziel === 'erreicht' && t.length && !t.some((p) => p.zone === 'away')) sieg(game, S);
+  zielTick(game, S);
+  if (siegBereit(game, S)) sieg(game, S);
 }
 
 // Zeile für Zielanzeige/HUD (arena.wellenText)
 function zeile(game, S) {
-  if (S.ph === 'vorbereitung') return text(game, 'zeile_ruest');
-  if (S.ph === 'ende') return text(game, 'zeile_sieg');
+  if (S.ph === 'vorbereitung') return text(game, S, 'zeile_ruest');
+  if (S.ph === 'ende') return text(game, S, 'zeile_sieg');
   const aw = game.aways[S.lp];
-  if (S.ziel === 'erreicht') return text(game, 'zeile_hoch');
-  if (M().anker.zustand(game, S.lp, S.zielId) === 'scharf') return text(game, 'zeile_scharf');
-  if (S.ziel === 'offen') return text(game, 'zeile_ziel');
-  if (S.deckVon && S.deckVon[3] != null) return text(game, 'zeile_kampf3', welleLebt(aw, S, 1), welleLebt(aw, S, 2), welleLebt(aw, S, 3));   // mit Welle 3 (Bunker)
-  return text(game, 'zeile_kampf', welleLebt(aw, S, 1), welleLebt(aw, S, 2));
+  if (S.ziel === 'erreicht') return text(game, S, 'zeile_hoch');
+  if (M().anker.zustand(game, S.lp, S.zielId) === 'scharf') return text(game, S, 'zeile_scharf');
+  if (S.ziel === 'offen') return text(game, S, 'zeile_ziel');
+  if (S.deckVon && S.deckVon[3] != null) return text(game, S, 'zeile_kampf3', welleLebt(aw, S, 1), welleLebt(aw, S, 2), welleLebt(aw, S, 3));   // mit Welle 3 (Bunker)
+  return text(game, S, 'zeile_kampf', welleLebt(aw, S, 1), welleLebt(aw, S, 2));
 }
 
 // ---------- Hooks der Bühne (wellen.js BUEHNEN.graben): nur, was Snapshot-Block und Ablauf brauchen ----------
@@ -376,4 +422,4 @@ function debug(game, arg) {
   return 'graben: welle2 | reset | status';
 }
 
-module.exports = { BUEHNE, liste, auswahl, auswahlSetzen, start, update, vorbereitungEnde, neuBeginnen, zeile, debug, besetzungFuer, plaetzeFuer, _nachschubPlaetze: nachschubPlaetze };   // _nachschubPlaetze: nur Tests
+module.exports = { aufbauen, optionen, abschuesseZaehlen, zielTick, siegBereit, mechanikTick, nachschubSenden, BUEHNE, liste, auswahl, auswahlSetzen, start, update, vorbereitungEnde, neuBeginnen, zeile, debug, besetzungFuer, plaetzeFuer, _nachschubPlaetze: nachschubPlaetze };   // _nachschubPlaetze: nur Tests

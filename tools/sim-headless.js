@@ -130,7 +130,7 @@ class Agent {
     }
     this.game.handleMessage(this.conn, msg);
   }
-  hello() { this.send({ t: 'hello', clientId: 'sim-' + this.idx, name: ['Ada', 'Bo', 'Cem'][this.idx], color: this.idx }); this.send({ t: 'ready', ready: true }); }
+  hello() { this.send({ t: 'hello', clientId: 'sim-' + this.idx, name: ['Ada', 'Bo', 'Cem', 'Dan'][this.idx], color: this.idx }); this.send({ t: 'ready', ready: true }); }
   input(mx, my) {
     if (mx === this.lastInput.mx && my === this.lastInput.my && mx === 0 && my === 0) return;
     this.lastInput = { mx, my };
@@ -3211,6 +3211,7 @@ class GenericAgent extends KeshAgent {
   buehneAway(S, p, step, M) {
     if (p.downed) { this.ix = null; if (this.actDown) this.act(false); this.input(0, 0); const f = this.enemiesInSight(S, p)[0]; if (f) this.fire(S, p, f); return; }
     if (this.gefangenLogik(S, p)) return;   // W1 AP4: Zellentür, Ausrüstung
+    if (step.umsetzung === 'kette/bunker' && this.bunkerKette(S, p, M)) return;   // EIS-01 P5: Bunker der Kampagne (Tor oder Rohr), Stufe aus den Bunker-Prüfungen
     const schleich = this.schleicht(S, step, M);   // W1 AP4: ruhig bleiben, solange kein Alarm
     this.ducken(S, p, schleich);
     if (!schleich && this.combatAway(S, p, null)) return;
@@ -3251,6 +3252,32 @@ class GenericAgent extends KeshAgent {
     if (t.kind === 'bereich') { if (schleich) this.schleichInBereich(S, p, M, t.bereich); else this.inBereich(S, p, M, t.bereich); return; }
     if (t.kind === 'trupp') { this.jagen(S, p, t.tag); return; }
     this.input(0, 0);
+  }
+  // EIS-01 P5: Schritt kette/bunker (Kapitel 4 auf der Festkarte grabenangriff). Die Szene baut buehneScene (allowBeam auf den Landepunkt); unten spielt der Bot die Etappen des GrabenAgent
+  // (bunkerEtappe): zuenden -> flucht -> pad. Stufe aus den Bunker-Prüfungen des Regiebuchs (bunker_gesprengt) und dem Zustand des Sprengpunkts, nicht aus anker_zustand im skip. Route: opts.bunker 'tor' (Lift) | 'rohr'.
+  // Gegner in Sicht: Gefecht (combatAway), nie hochbeamen. true = Tick verbraucht.
+  umsetzung_kette_bunker(S, p, step) { this.buehneScene(S, p, step); }
+  bunkerKette(S, p, M) {
+    if (!this.builtInfo(S)) return false;
+    const R = require('../server/mission/registry.js').get;
+    const gesprengt = !!R('bunker_gesprengt').test({ game: this.game }, { map: M });
+    const sp = W.AWAY_MAPS[M].karte.anker.find((a) => a.rolle === 'sprengpunkt');
+    const stufe = gesprengt ? 'pad' : (sp && this.ankerZ(M, sp.id) === 'scharf') ? 'flucht' : 'zuenden';
+    this.bunkerWegMerken(S, p, M);
+    if (this.enemiesInSight(S, p).length) { if (!this.combatAway(S, p, null)) this.input(0, 0); return true; }
+    return bunkerEtappe(this, S, p, stufe, (this.opts && this.opts.bunker) || 'tor');
+  }
+  // Belegt den genommenen Zugang: beim ersten Wechsel auf Deck 1 (hinein) und danach auf Deck 0 (hinaus) der nächste Anker rohr.* bzw. bunker.lift.* -> simStats.bunkerWeg { hinein, hinaus } = 'rohr' | 'lift' (für den ersten Bot)
+  bunkerWegMerken(S, p, M) {
+    const m = this.memo; const deck = bunkerDeck(this, S, p.y);
+    if (m.bunkerDeck === deck) return;
+    const alt = m.bunkerDeck; m.bunkerDeck = deck;
+    if (alt == null) return;
+    const pt = this.tile(p);
+    const nah = W.AWAY_MAPS[M].karte.anker.filter((a) => /^(rohr|bunker[.]lift)[.]/.test(a.id)).sort((a, b) => Math.hypot(a.x - pt.x, a.y - pt.y) - Math.hypot(b.x - pt.x, b.y - pt.y))[0];
+    const weg = nah ? (nah.id.startsWith('rohr') ? 'rohr' : 'lift') : null;
+    const bw = this.game.simStats.bunkerWeg || (this.game.simStats.bunkerWeg = {});
+    if (deck === 1 && !bw.hinein) bw.hinein = weg; else if (deck === 0 && bw.hinein && !bw.hinaus) bw.hinaus = weg;
   }
   ankerHalten(S, p, M, a, z) {
     const r = this.interactBuilt(S, a.x, a.y, { hold: true, max: 30, floor: true,
@@ -3678,7 +3705,8 @@ async function runGeneric(opts) {
   const origCount = game.countError.bind(game);
   game.countError = (where, err) => { if (errList.length < 40) errList.push(`${where}: ${err && err.message ? err.message : err}`); origCount(where, err); };
   game.simStats = { reactorRestarts: 0, widescans: 0, wreckDone: false, orders: 0, coverShots: 0, keyTries: 0, accepts: 0, choices: [], unknownUms: {}, escortOrders: 0 };
-  const roles = crew === 1 ? ['solo'] : ['captain', 'helm', 'weapons'].slice(0, crew);
+  const rollen = opts.mode === 'kette' ? ['captain', 'helm', 'weapons', 'captain'] : ['captain', 'helm', 'weapons'];   // EIS-01 P5: nur der Kette-Lauf hat bei Crew 4 vier Bot-Spieler (der vierte als zweiter Captain wie im GrabenAgent); alle anderen Modi bleiben bei drei Bots, bitgleich zu main
+  const roles = crew === 1 ? ['solo'] : rollen.slice(0, crew);
   const agents = roles.map((r, i) => new GenericAgent(game, i, r, opts));
   game.simAgents = agents;
   const res = { seed, crew, missions: [], errors: 0, errList, aborted: null, snapMax: 0 };
@@ -3746,6 +3774,14 @@ async function runGeneric(opts) {
   while (game.time < maxSec) {
     game.step(); ticks++;
     if (game.wantsSnapshot()) { S = game.snapshot(); if (ticks % 30 === 0) res.snapMax = Math.max(res.snapMax, Buffer.byteLength(JSON.stringify(S))); }
+    {   // EIS-01 P5: god NUR im Bunker-Schritt der Kette (kette/bunker), gekennzeichnet: res.god, MitLauf.kuenstlich('god'); davor und danach ist die Crew verwundbar
+      const mi = game.mission; const imBunker = opts.mode === 'kette' && opts.bunkerGod !== false && !!(mi.activeId && mi.step && mi.step.umsetzung === 'kette/bunker');
+      if (imBunker !== !!game.god) {
+        game.god = imBunker;
+        if (imBunker) { (res.god || (res.god = [])).push({ mission: mi.activeId, step: mi.step.id, route: opts.bunker || 'tor', von: r1(game.time), bis: null }); MitLauf.kuenstlich(game, 'god'); }
+        else if (res.god && res.god.length) res.god[res.god.length - 1].bis = r1(game.time);
+      }
+    }
     if (opts.tickHook) opts.tickHook(game, res);   // SL11: Speichern/Laden an Kapitelübergängen (tools/sim-sund.js)
     // W2 AP6: Beobachtung Personen (gleichzeitig offen) und Enterer an Engstellen (aw.engStats)
     if (S.away && S.away.npcs) res.personenMax = Math.max(res.personenMax || 0, S.away.npcs.filter((n) => !n.rescued).length);
@@ -3837,6 +3873,7 @@ async function runGeneric(opts) {
     if (ticks % 3000 === 0) await new Promise((r) => setImmediate(r));
   }
   if (cur) { closeStep(); cur.success = false; cur.dur = r1(game.time - cur.t0); cur.errors = game.errors - cur.err0; res.missions.push(cur); }
+  if (res.god && res.god.length && res.god[res.god.length - 1].bis == null) res.god[res.god.length - 1].bis = r1(game.time);   // EIS-01 P5
   if (!res.aborted && game.time >= maxSec) res.aborted = `Spielzeit über ${maxSec} s`;
   res.eng = { sammeln: 0, sturm: 0, flanke: 0 };   // W2 AP6
   for (const aw of Object.values(game.aways || {})) if (aw && aw.engStats) for (const k of Object.keys(res.eng)) res.eng[k] += aw.engStats[k] || 0;
@@ -4060,31 +4097,40 @@ async function umsetzungMain() {
   return samples;
 }
 // EK8: die feste Kampagnenkette per Bot. Ganze Kette ab Lichtkordon (ohne Tutorial) oder Labor-Einstiege je Kapitel.
-//   node tools/sim-headless.js kette [--seeds N] [--crew 1|3] [--seed S] [--kapitel k4_methalle|alle] [--von k4_methalle] [--tutorial] [--mindest N]
+//   node tools/sim-headless.js kette [--seeds N] [--crew 1|2|3|4] [--seed S] [--kapitel k4_methalle|alle] [--von k4_methalle] [--tutorial] [--mindest N] [--bunker tor|rohr]
+// EIS-01 P5, GOD: Kapitel 4 spielt im Bunker (Schritt kette/bunker, Festkarte grabenangriff). Der Bot gewinnt das Bunker-Gefecht ohne god nicht (0 von 6, Erkundung EIS-01 Frage 3, Bot-Schwäche): im Bunker-Schritt
+// und NUR dort ist game.god an (Crew unverwundbar, wie graben --god, BOD-03 C7). Davor und danach (K1 bis K3, K5 bis K8) spielt die Crew verwundbar. Ausgewiesen wird es in der Spalte "god" der Ergebnistabelle,
+// im Mitschnitt (kuenstlich 'god') und im Kopf des Laufs. Der Bunker-Schritt darf NIE per Skip enden (Lauf FEHL). --bunker: Zugang tor (Lift, Standard) oder rohr (Leiter in der Waldmitte, Kriechgang).
 async function ketteMain() {
   const Kampagne = require('../server/mission/kampagne.js');
   const doc = Kampagne.laden('eisenwald');
   const nSeeds = Number(argVal('--seeds', 1)); const base = seedArg != null ? seedArg : 1;
   const crews = argVal('--crew', null) ? [Number(argVal('--crew'))] : [1, 3];
   const kap = argVal('--kapitel', null); const von = argVal('--von', null);
+  const bunker = argVal('--bunker', 'tor');
+  if (!['tor', 'rohr'].includes(bunker)) { log('--bunker: tor oder rohr (nicht ' + bunker + ')'); return 1; }
   const rows = []; let bad = 0;
+  log(`Bunker-Zugang in Kapitel 4: ${bunker}. Im Bunker-Schritt ist god an (Crew unverwundbar, gekennzeichnet), sonst nicht; der Bunker-Schritt darf nicht per Skip enden.`);
   const jobs = [];
   if (kap) for (const c of doc.kapitel) { if (kap === 'alle' || kap === c.id) jobs.push({ label: 'Einstieg ' + c.id, einstieg: c.id, stopNach: Kampagne.buecherVon(c).slice(-1)[0] }); }
   else jobs.push({ label: von ? 'Kette ab ' + von : 'Kette komplett', einstieg: von || null, stopNach: null });
   for (const crew of crews) for (let i = 0; i < nSeeds; i++) for (const j of jobs) {
     const seed = base + i;
-    const r = await runGeneric({ seed, crew, mode: 'kette', start: args.includes('--tutorial') ? 'eisenwald' : 'eisenwald_ohne', einstieg: j.einstieg, stopNach: j.stopNach, pilot: 'maneuver', maxSec: j.stopNach ? 5000 : 14000, missionMax: 3600, funk: seed % 2 ? 'b' : 'a' });
+    const r = await runGeneric({ seed, crew, mode: 'kette', start: args.includes('--tutorial') ? 'eisenwald' : 'eisenwald_ohne', einstieg: j.einstieg, stopNach: j.stopNach, pilot: 'maneuver', maxSec: j.stopNach ? 5000 : 14000, missionMax: 3600, funk: seed % 2 ? 'b' : 'a', bunker });
+    const bunkerSkip = r.missions.some((m) => (m.skips || []).some((x) => x.ums === 'kette/bunker'));   // EIS-01 P5: ein Sieg über Skip beweist nichts
+    if (bunkerSkip && !r.aborted) r.aborted = 'Bunker-Schritt per Skip beendet';
     const gut = !r.aborted && !r.errors && (j.stopNach ? (r.stopNach === j.stopNach || r.ende) : r.ende);
     if (!gut) bad++;
     rows.push({ j, crew, seed, r, gut });
     if (VERBOSE || !gut || r.missions.some((m) => m.skips)) printGenericRun(r, j.label + ' Crew ' + crew + ' Seed ' + seed);
   }
-  log('\n| Lauf | Crew | Seed | Ergebnis | Spielzeit (min) | Kapitel (Dauer min, Ausgang, Skips) | Fehler | Snapshot max (B) |');
-  log('|---|---|---|---|---|---|---|---|');
+  log('\n| Lauf | Crew | Seed | Ergebnis | Spielzeit (min) | Kapitel (Dauer min, Ausgang, Skips) | Fehler | Snapshot max (B) | god |');
+  log('|---|---|---|---|---|---|---|---|---|');
   for (const x of rows) {
     if (args.includes('--marken')) log('Marken ' + x.j.label + ' Crew ' + x.crew + ' Seed ' + x.seed + ': ' + x.r.missions.map((m) => m.id.replace(/^k(\d)_.*/, 'K$1') + ' ' + (m.marken ? `${m.marken.start}->${m.marken.ende}` : '?')).join(' | '));
-    const kapitel = x.r.missions.map((m) => m.id.replace(/^k(\d)_.*/, 'K$1') + ' ' + fmtMin(m.dur) + (m.ausgang && m.ausgang !== 'erfolg' ? ' ' + m.ausgang : '') + (m.skips ? ' skip×' + m.skips.length : '') + (m.success ? '' : ' offen')).join(', ');
-    log(`| ${x.j.label} | ${x.crew} | ${x.seed} | ${x.gut ? 'ok' : 'FEHL' + (x.r.aborted ? ' (' + x.r.aborted + ')' : '')} | ${fmtMin(x.r.gameTime)} | ${kapitel} | ${x.r.errors} | ${x.r.snapMax} |`);
+    const kapitel = x.r.missions.map((m) => m.id.replace(/^k(\d)_.*/, 'K$1') + ' ' + fmtMin(m.dur) + (m.ausgang && m.ausgang !== 'erfolg' ? ' ' + m.ausgang : '') + (m.skips ? ' skip×' + m.skips.length : m.steps.some((q) => q.ums === 'kette/bunker') ? ' skip×0' : '') + (m.success ? '' : ' offen')).join(', ');
+    const godZelle = x.r.god && x.r.god.length ? x.r.god.map((q) => 'god im Bunker (' + q.route + ', ' + q.mission.replace(/^k(\d)_.*/, 'K$1') + ', ' + r1((q.bis != null ? q.bis : x.r.gameTime) - q.von) + ' s)').join('; ') : '–';
+    log(`| ${x.j.label} | ${x.crew} | ${x.seed} | ${x.gut ? 'ok' : 'FEHL' + (x.r.aborted ? ' (' + x.r.aborted + ')' : '')} | ${fmtMin(x.r.gameTime)} | ${kapitel} | ${x.r.errors} | ${x.r.snapMax} | ${godZelle} |`);
   }
   // SYS-03 C-Nacharbeit: --mindest N = Quote statt Einzellauf (die Bot-Kette ist am Zeitlimit flatterhaft): je Crew müssen mindestens N Läufe die Kette beenden. Softlock und Fehler zählen NIE in die Quote:
   // jeder Lauf mit Softlock (Skip hilft nicht), Spiel-Fehler oder anderem Abbruch als dem Zeitlimit lässt den Test fehlschlagen.
@@ -4329,6 +4375,49 @@ async function runWellen(opts) {
 // ---------- BOD-01 P4: Grabenangriff (Lobby-Start arena_graben, server/sim/graben.js) ----------
 //   node tools/sim-headless.js graben [--players 1|3|beide|Liste wie 1,2,4] [--seed n] [--seeds n] [--max 1500] [--god]   (--god: game.god, Treffer wirken nicht – prüft den Ablauf bis zum Sieg)
 //   BOD-03 C7: die Bots spielen auch den Bunker (Lift, Welle 3, Zünden, Flucht, Pad); je Lauf eine Zeile Abschnitte. Kurzer Test mit festem Seed: tools/test-bunker-bots.js. Ohne god überleben die Bots Welle 1 nicht (Stand 2026-11-04).
+// EIS-01 P5: Etappen des Bunkerlaufs, gemeinsam fuer GrabenAgent (Lobby, Stufe aus der Zielzeile) und GenericAgent (Kette, Schritt kette/bunker, Stufe aus den Bunker-Pruefungen).
+// stufe: 'zuenden' | 'flucht' | 'pad'. route: 'tor' (Lift, Bunkertor) | 'rohr' (Leiter rohr.oben in der Waldmitte, Kriechgang, Leiter rohr.unten). Die Lobby spielt immer 'tor'.
+function bunkerDeck(agent, S, y) { const bi = agent.builtInfo(S); const st = bi && bi.karte.decks && bi.karte.decks.stride; return st ? Math.floor(y / TILE / st) : 0; }
+// true = Tick verbraucht (false nur, wenn der Karte die noetigen Anker fehlen)
+function bunkerEtappe(agent, S, p, stufe, route) {
+  const bi = agent.builtInfo(S);
+  const k = bi.karte; const map = S.away.map; const anker = (id) => k.anker.find((a) => a.id === id);
+  const sp = k.anker.find((a) => a.rolle === 'sprengpunkt'); const lu = anker('bunker.lift.unten');
+  if (!sp || !lu) return false;
+  const deck = bunkerDeck(agent, S, p.y); const m = agent.memo;
+  if (m.bunkerStufe !== stufe) { m.bunkerStufe = stufe; agent.ix = null; if (agent.actDown) agent.act(false); }   // Etappenwechsel: keine halbe Interaktion mitnehmen
+  if (route === 'rohr') {
+    const ro = anker('rohr.oben'), ru = anker('rohr.unten');
+    if (!ro || !ru) return false;
+    const pt = agent.tile(p); const nahe = (a) => Math.max(Math.abs(pt.x - a.x), Math.abs(pt.y - a.y)) <= 1;
+    const leiter = (a, ziel) => agent.interactBuilt(S, a.x, a.y, { hold: true, max: 6, floor: true, until: (S2) => bunkerDeck(agent, S2, agent.me(S2).y) === ziel });   // E halten, bis das Deck wechselt
+    const gehe = (a) => { if (agent.gotoNear(S, p, a.x, a.y, 0) === 'fail') agent.input(0, 0); };
+    if (stufe === 'zuenden') {
+      if (deck === 0) { if (nahe(ro)) leiter(ro, 1); else gehe(ro); return true; }
+      agent.ankerHalten(S, p, map, sp, 'scharf'); return true;
+    }
+    if (stufe === 'flucht') {
+      if (deck === 0) { agent.input(0, 0); return true; }   // oben: nicht hinunter, auf den Knall warten
+      if (Math.max(Math.abs(pt.x - sp.x), Math.abs(pt.y - sp.y)) <= 4) { agent.awayFrom(S, p, sp, 4); return true; }
+      if (!nahe(ru)) gehe(ru); else agent.input(0, 0);   // am Rohr unten auf den Knall warten
+      return true;
+    }
+    if (deck === 1) { if (nahe(ru)) leiter(ru, 0); else gehe(ru); return true; }   // pad: nach dem Knall durch das Rohr hinauf
+    agent.buehneHoch(S, p); return true;
+  }
+  if (stufe === 'zuenden') {
+    if (deck === 0) { if (agent.gotoBuilt(S, [lu]) === 'fail') agent.input(0, 0); return true; }   // der Weg führt über den Lift (via lift in pathLinks)
+    agent.ankerHalten(S, p, map, sp, 'scharf'); return true;
+  }
+  if (stufe === 'flucht') {
+    if (deck === 0) { agent.input(0, 0); return true; }   // oben: nicht hinunter, auf den Knall warten
+    const pt = agent.tile(p);
+    if (Math.max(Math.abs(pt.x - sp.x), Math.abs(pt.y - sp.y)) <= 4) { agent.awayFrom(S, p, sp, 4); return true; }   // raus aus dem Radius (2 Kacheln + Reserve)
+    if (agent.gotoBuilt(S, [lu]) === 'fail') agent.input(0, 0);
+    return true;
+  }
+  agent.buehneHoch(S, p); return true;   // pad: nach dem Knall zum Pad oben (Weg über den Lift), E halten
+}
 // Crew-Bots (ohne Debug-Befehle) spielen das Szenario durch: kämpfen wie in den Wellen (WellenAgent), dann (BOD-03 C7) per Lift in den Bunker, Sprengung zünden, fliehen und am
 // Pad oben hochbeamen. Ausgabe je Lauf: Sieg, Zeit, Versuche (Neubeginn nach Notrückholung), Gegnerschüsse und Treffer auf Spieler, Fehler, Snapshot-Max.
 // BOD-03 C7: nach Welle 1/2 (Zielzeile „Sprengladung im Reaktorraum zünden“) geht die Crew per Lift in den Bunker (Welle 3 wird im Gefecht
@@ -4344,29 +4433,13 @@ class GrabenAgent extends WellenAgent {
     if (/Sprengladung im Reaktorraum zünden/.test(txt)) return 'zuenden';
     return null;
   }
-  deckVon(S, y) { const bi = this.builtInfo(S); const st = bi && bi.karte.decks && bi.karte.decks.stride; return st ? Math.floor(y / TILE / st) : 0; }
-  // true = Tick verbraucht. Gegner in Sicht: false (der Gefechtsteil der Wellen kämpft), sonst die Etappe laufen.
+  deckVon(S, y) { return bunkerDeck(this, S, y); }
+  // true = Tick verbraucht. Gegner in Sicht: false (der Gefechtsteil der Wellen kämpft), sonst die Etappe laufen (EIS-01 P5: bunkerEtappe, gemeinsam mit dem Kette-Bot).
   bunkerLauf(S, p) {
     const stufe = this.bunkerStufe(S); const bi = this.builtInfo(S);
     if (!stufe || !bi) return false;
     if (this.enemiesInSight(S, p).length) return false;
-    const k = bi.karte; const map = S.away.map; const anker = (id) => k.anker.find((a) => a.id === id);
-    const sp = k.anker.find((a) => a.rolle === 'sprengpunkt'); const lu = anker('bunker.lift.unten');
-    if (!sp || !lu) return false;
-    const deck = this.deckVon(S, p.y); const m = this.memo;
-    if (m.bunkerStufe !== stufe) { m.bunkerStufe = stufe; this.ix = null; if (this.actDown) this.act(false); }   // Etappenwechsel: keine halbe Interaktion mitnehmen
-    if (stufe === 'zuenden') {
-      if (deck === 0) { if (this.gotoBuilt(S, [lu]) === 'fail') this.input(0, 0); return true; }   // der Weg führt über den Lift (via lift in pathLinks)
-      this.ankerHalten(S, p, map, sp, 'scharf'); return true;
-    }
-    if (stufe === 'flucht') {
-      if (deck === 0) { this.input(0, 0); return true; }   // oben: nicht hinunter, auf den Knall warten
-      const pt = this.tile(p);
-      if (Math.max(Math.abs(pt.x - sp.x), Math.abs(pt.y - sp.y)) <= 4) { this.awayFrom(S, p, sp, 4); return true; }   // raus aus dem Radius (2 Kacheln + Reserve)
-      if (this.gotoBuilt(S, [lu]) === 'fail') this.input(0, 0);
-      return true;
-    }
-    this.buehneHoch(S, p); return true;   // pad: nach dem Knall zum Pad oben (Weg über den Lift), E halten
+    return bunkerEtappe(this, S, p, stufe, 'tor');
   }
   update(S) {
     const p = this.me(S);
