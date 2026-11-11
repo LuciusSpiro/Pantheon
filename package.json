@@ -302,6 +302,7 @@
     "sim:absichten": "node tools/sim-absichten.js",
     "sicht:absichten": "node tools/sicht-absichten.js",
     "sim:freie-fahrt": "node tools/sim-freie-fahrt.js",
+    "pruefe:krieg": "node tools/pruefe-krieg.js",
     "test:erreichbar": "node tools/test-erreichbar.js",
     "test:notrufe": "node tools/test-notrufe.js",
     "test:wellen": "node tools/test-wellen.js",
