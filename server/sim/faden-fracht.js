@@ -158,7 +158,11 @@ function verloren(game, fadenId) {
     return { ok: true, grund: null };
   }   // BEA-01 C0: zwischen den Beats laeuft kein Beat, der scheitern koennte: die Ware ist weg, der Faden wartet auf seinen naechsten Beat
   F().beatAusgang(game, f.id, 'gescheitert');   // der Ausgang entfernt die Ware (faden.beatAusgang)
-  if (f.fracht) wareAbgeben(game, f);   // BEA-01 A: ein Beat mit ware_bei_scheitern "bleibt" laesst die Ware beim Scheitern am Faden; ein VERLUST (Notsprung, Huellentreffer) nimmt sie trotzdem
+  if (f.fracht) {   // BEA-01 Nacharbeit: wie in der Wartezeit erinnert sich der NSC an die verlorene Ladung (Ereignis des Lade-Modus), auch wenn ein Beat mit ware_bei_scheitern bleibt sie bis hierher hielt
+    const ev = verlustEreignis(D.vorlage(f.vorlage), f.beat);
+    if (ev) F().erinnern(game, f, ev, 'ware_verloren');
+    wareAbgeben(game, f);
+  }   // BEA-01 A: ein Beat mit ware_bei_scheitern "bleibt" laesst die Ware beim Scheitern am Faden; ein VERLUST (Notsprung, Huellentreffer) nimmt sie trotzdem
   return { ok: true, grund: null };
 }
 

@@ -32,7 +32,7 @@
       }
     },
     {
-      "id": "b_kampf", "typ": "raumschlacht",
+      "id": "b_kampf", "typ": "raumschlacht", "parameter": { "volk": "rom" },
       "aus": {
         "gelungen": { "status": "aktiv", "weiter": "b_abschluss" },
         "gescheitert": { "status": "geflohen", "weiter": "b_abschluss" }

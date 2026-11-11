@@ -157,7 +157,7 @@ function bedingungsFehler(game, rez, a, katalog) {
       if (!da) out.push(fehl(CODES.WELT_BEDINGUNG, 'absicht', `der Rang der Crew reicht nicht (gebraucht: ${b.rang})${b.grund ? ': ' + b.grund : ''}`));
     } else if (b.art === BEDINGUNG.LADUNG_MINDESTENS) {   // BEA-01 C2: der Frachtraum traegt mindestens `plaetze` Plaetze Ladung (Zahl aus den Daten des Rezepts); ohne Gegenvorschlag: kein Feld der Absicht kann eine Ladung herbeiholen
       let n = 0;
-      try { n = Lager().anBord(game); } catch (e) { n = 0; }
+      try { n = Lager().ladungAnBord(game); } catch (e) { n = 0; }
       if (!(n >= b.plaetze)) out.push(fehl(CODES.WELT_BEDINGUNG, 'absicht', `der Frachtraum der Lerche ${n ? 'ist zu schwach beladen' : 'ist leer'} (Ladung an Bord: ${n}, gebraucht: mindestens ${b.plaetze})${b.grund ? ': ' + b.grund : ''}`));
     }
   }

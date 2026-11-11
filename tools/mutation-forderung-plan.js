@@ -33,6 +33,8 @@ const MUTATIONEN = [
   [BT, ZWECK_SCHMIER, '"zweck": "' + 'Zweite Stufe der Forderung mit einer viel zu langen Beschreibung. '.repeat(14) + '",', 'Prompt-Grenze nicht eingehalten: der Beat-Katalog ueberschreitet die Test-Grenze'],
   [PR, '.filter(([, s]) => !(s && s.verborgen === true));', '.filter(() => true);', 'verborgen wirkungslos: art und text_key stehen im Prompt-Katalog'],
   [VL, '"gescheitert": { "status": "aktiv", "weiter": "b_kampf" }', '"gescheitert": { "status": "aktiv", "weiter": "b_abschluss" }', 'Vorlage zollkontrolle: Verweigern fuehrt nicht in den Kampf (Daten der Vorlage)'],
+  [INS, 'n = Lager().ladungAnBord(game);', 'n = Lager().anBord(game);', 'Personen zaehlen als Ladung (ladung_mindestens liest anBord statt ladungAnBord)'],
+  [AB, '"parameter":{"volk":{"nach_stufe":["rom","rom","ger"]}},', '', 'Absicht ohne Volk der Gegner (Zollkontrolle: Gegner immer germanisch)'],
   [BT, '{"id":"dulden","text":"Wir dulden die Durchsuchung.","ausgang":"gescheitert","folge":[]}', '{"id":"dulden","text":"Wir dulden die Durchsuchung.","ausgang":"gelungen","folge":[]}', 'bauplan forderung: Dulden hat den falschen Ausgang (Daten des Expanders)'],
 ];
 

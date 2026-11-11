@@ -19,14 +19,19 @@ for (const f of ['tools/test-faden-durchsuchung.js', 'tools/test-faden-vorlagen.
 fs.copyFileSync(path.join(ROOT, 'package.json'), path.join(TMP, 'package.json'));
 if (fs.existsSync(path.join(ROOT, 'node_modules'))) { try { fs.symlinkSync(path.join(ROOT, 'node_modules'), path.join(TMP, 'node_modules'), 'junction'); } catch (e) { /* kein Modul noetig */ } }
 
-const FR = 'server/sim/faden-fracht.js', FF = 'server/sim/faden-forderung.js', BI = 'server/sim/faden-bitte.js', BT = 'content/faeden/beats.json', LA = 'server/sim/fracht.js', PR = 'server/sim/faden-pruefer.js';
+const FR = 'server/sim/faden-fracht.js', FF = 'server/sim/faden-forderung.js', BI = 'server/sim/faden-bitte.js', BT = 'content/faeden/beats.json', LA = 'server/sim/fracht.js', PR = 'server/sim/faden-pruefer.js', FD = 'server/sim/faden.js', GE = 'server/sim/geld.js', SZ = 'server/sim/faden-szene.js';
 // [Datei, alter Text (genau einmal), neuer Text, Beschreibung]
 const MUTATIONEN = [
+  [FD, "      try { require('./faden-bitte.js').beatFristAbgelaufen(game, f); } catch (e) { fehlerZaehlen(game, 'faden-bitte', e); }", '', 'Frist des Beats vor dem Verfall der Bitte: kein Verfall-Pfad (Durchsuchung faellt aus)'],
+  [GE, 'Math.min(vorher, Math.max(0, vorher - n))', 'Math.max(0, vorher - n)', 'Abzug bei negativem Stand schreibt gut'],
+  [FR, "    if (ev) F().erinnern(game, f, ev, 'ware_verloren');\n    wareAbgeben(game, f);\n  }   // BEA-01 A:", "    wareAbgeben(game, f);\n  }   // BEA-01 A:", 'Notsprung im Beat mit Ware: kein Gedaechtnis fuer die verlorene Ladung'],
+  [FF, 'const funde = weg.n + weg.bleibt;', 'const funde = weg.n;', 'aufgedeckte Auftragsware zaehlt nicht als Fund (Meldung sauber, keine Strafe)'],
+  [SZ, 'tag: fs.tag, volk: fs.volk || C.volk })', 'tag: fs.tag, volk: C.volk })', 'Volk des Beats wird ignoriert (Gegner immer nach szenen-werte.json)'],
   [LA, "    if (tiefe === 'scan' && e.getarnt) continue;", '    if (false) continue;', 'Durchsuchung findet getarnte Ware schon bei Tiefe scan'],
   [LA, 'const anzeigeArt = (l) => (l.eig && l.eig.getarnt && !l.eig.aufgedeckt ? l.eig.getarnt : l.art);', 'const anzeigeArt = (l) => l.art;', 'Bezeichnung verraet die echte Art (Anzeige nennt immer die echte Art)'],
   [FF, 'fmt(T.fund, { n: weg.n })', "fmt(T.fund, { n: weg.n + ' ' + weg.arten.join() })", 'Funk nach dem Fund nennt die echte Art'],
   [LA, '    s.lager.splice(i, 1);\n    plaetze.unshift({ art: l.art','    plaetze.unshift({ art: l.art', 'Beschlagnahme laesst die Ware im Lager'],
-  [LA, '    if (!e || !e.illegal || !e.aufgedeckt || e.auftrag) continue;', '    if (!e || !e.illegal || !e.aufgedeckt) continue;', 'Auftragsware des Fadens wird mitgenommen'],
+  [LA, '    if (e.auftrag) { bleibt++; continue; }', '    if (e.auftrag) { bleibt++; }', 'Auftragsware des Fadens wird mitgenommen'],
   [FF, "  if (grund) Faden().folgenAnwenden(game, f, [{ typ: 'ruf_aenderung', grund }], false);", '  // keine Ruf-Folge', 'Fund ohne Ruf-Folge'],
   [FF, "const bussgeld = soll > 0 ? Geld.bussgeldZahlen(game, soll) : 0;", 'const bussgeld = 0;', 'Fund ohne Bussgeld'],
   [FF, "const fund = w.durchsuchen === true ? durchsuchen(game, f, beat, fo) : null;", "const fund = (w.durchsuchen === true || opt.id === 'bestechen') ? durchsuchen(game, f, beat, fo) : null;", 'Bestechen durchsucht trotzdem'],

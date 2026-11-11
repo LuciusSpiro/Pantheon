@@ -372,7 +372,7 @@
           "beats": [
             {"typ":"forderung","parameter":{"art":"durchsuchung","tiefe":{"aus":"parameter.tiefe"},"staerke":{"nach_stufe":["gering","mittel","stark"]},"text_key":{"nach_stufe":["durchsuchung_zollschiff","durchsuchung_zollschiff","durchsuchung_freibeuter"]}},"verzweigung":{"gescheitert":"ende"}},
             {"typ":"schmiergeld","parameter":{"staerke":{"nach_stufe":["gering","mittel","stark"]},"text_key":{"nach_stufe":["schmiergeld_durchsuchung_zollschiff","schmiergeld_durchsuchung_zollschiff","schmiergeld_durchsuchung_freibeuter"]}},"verzweigung":{"gelungen":"ende"}},
-            {"typ":"raumschlacht","verzweigung":{"gescheitert":"ende"}},
+            {"typ":"raumschlacht","parameter":{"volk":{"nach_stufe":["rom","rom","ger"]}},"verzweigung":{"gescheitert":"ende"}},
             {"id":"ende","typ":"abschluss","erfolg":["schmiergeld","raumschlacht"]}
           ]
         },

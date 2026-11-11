@@ -48,6 +48,8 @@ const artName = (art) => Waren.name(art);
 
 // ---------- Abfragen ----------
 function anBord(game, art) { const s = state(game); return art ? s.lager.filter((l) => l.art === art).length : s.lager.length; }
+// BEA-01 Nacharbeit: Ladung im Frachtraum ohne Personen (Betten sind keine Ladung); anBord zaehlt alles und bleibt wie es ist
+function ladungAnBord(game) { return state(game).lager.filter((l) => l.art !== 'person').length; }
 function frei(game) { return capacity(game) - state(game).lager.length; }
 
 // ---------- LAD-01 A2: Belegung, Typ-Regel, die eine Einlagerung ----------
@@ -441,22 +443,24 @@ function frachtDurchsuchen(game, o) {
 // Nimmt die durch frachtDurchsuchen AUFGEDECKTEN illegalen Plaetze aus dem Frachtraum: die Ware ist weg (kein Rueckkauf, Entscheid Kai/Leitung), der Platz wird frei. Eine Ladung mit Auftrag (Faden-Ware, Kampagne)
 // nimmt sie nie mit: sie gehoert einem Auftraggeber, nicht der Crew. Eine getarnte Ladung, die ein Scan nicht aufgedeckt hat (aufgedeckt fehlt), bleibt, ebenso jede nicht illegale Ladung. Die Entnahme ist splice(i, 1) wie bei
 // auftragEntnehmen: kein anderer Weg aus dem Lager. Ereignis frachtBeschlagnahmt wie frachtDurchsucht (auch bei n 0); die ODA-Zeile nennt die echte Art, weil der Fund sie ohnehin aufgedeckt hat.
-// wer: frei benannter Durchsucher (nur Meldung/Ereignis). -> { ok: true, wer, n, plaetze: [{ art, illegal, getarnt }], arten (echte Arten, ohne Doppelte) }
+// wer: frei benannter Durchsucher (nur Meldung/Ereignis). -> { ok: true, wer, n, bleibt (aufgedeckte illegale Plaetze mit Auftrag, die bleiben), plaetze: [{ art, illegal, getarnt }], arten (echte Arten, ohne Doppelte) }
 function lagerBeschlagnahmen(game, o) {
   const q = o || {};
   const wer = q.wer != null ? String(q.wer) : 'unbekannt';
   const s = state(game);
   const plaetze = [];
+  let bleibt = 0;
   for (let i = s.lager.length - 1; i >= 0; i--) {
     const l = s.lager[i], e = l.eig;
-    if (!e || !e.illegal || !e.aufgedeckt || e.auftrag) continue;
+    if (!e || !e.illegal || !e.aufgedeckt) continue;
+    if (e.auftrag) { bleibt++; continue; }   // BEA-01 Nacharbeit: ein Fund ist ein Fund (zaehlt fuer Strafe und Meldung), die Auftragsware bleibt aber da
     s.lager.splice(i, 1);
     plaetze.unshift({ art: l.art, illegal: true, getarnt: !!e.getarnt });
   }
   const arten = Array.from(new Set(plaetze.map((x) => x.art)));
   if (plaetze.length) game.oda(`Beschlagnahmt (${wer}): ${plaetze.map((x) => artName(x.art)).join(', ')}.`, null);
   game.missionEvent('frachtBeschlagnahmt', { wer, arten, n: plaetze.length });
-  return { ok: true, wer, n: plaetze.length, plaetze, arten };
+  return { ok: true, wer, n: plaetze.length, bleibt, plaetze, arten };
 }
 
 // ---------- Tick ----------
@@ -636,6 +640,6 @@ module.exports = {
   neu, state, update, snapshot, toSave, toSaveEig, restore, debug, frachtDurchsuchen, lagerBeschlagnahmen, anzeigeArt, eigenschaftenPruefen,
   fracht_abwerfen, abwerfen: fracht_abwerfen,
   anzeigeName, platzFuerLadung, fremdesModulRaeumen, podAblegen, modulAnzeige, beamStart, abliefernStart, beamStop, systemTreffer, ablieferOrt, stationOrt,
-  anBord, frei, capacity, platzFuer, freiFuer, kapazitaetFuer, passtOhneRaum, personImRaum, lagerAufnehmen, auftragEntnehmen, podsEntnehmen, erloschenesAufraeumen, auftragAnBord, anBordFuerBeute, erzEinlagern, beuteEinlagern, zuteilen, belegung, personPlaetze, gesichert, setGesichert, gefaehrdet, huellenTreffer, frachtraumTreffer, lagerArten, draussen, abgeliefert,
+  anBord, ladungAnBord, frei, capacity, platzFuer, freiFuer, kapazitaetFuer, passtOhneRaum, personImRaum, lagerAufnehmen, auftragEntnehmen, podsEntnehmen, erloschenesAufraeumen, auftragAnBord, anBordFuerBeute, erzEinlagern, beuteEinlagern, zuteilen, belegung, personPlaetze, gesichert, setGesichert, gefaehrdet, huellenTreffer, frachtraumTreffer, lagerArten, draussen, abgeliefert,
   setAbnehmer, skriptAbliefern, skriptAbliefernBis, anBordLegen, artOk, artName, KAMPAGNE, kampagnenEig,
 };

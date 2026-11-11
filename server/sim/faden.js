@@ -241,6 +241,7 @@ function taetigkeit(game, art) {
   for (const f of F.liste.slice()) {   // Frist: ein Beat ohne Ausgang gilt als gescheitert, nichts blockiert. Ohne aktiven Lage-Spielleiter laeuft die Frist NICHT ab (B-S3): der Zaehler zaehlt weiter, gescheitert wird nichts
     if (spielleiterAktiv(game) && f.phase === 'laeuft' && f.laufend && f.laufend.n >= fristVon(f)) {
       melde(game, 'frist', f.id, `Beat ${f.laufend.beat} ohne Ausgang nach ${fristVon(f)} Tätigkeiten: gescheitert`, { faden: f.id, beat: f.laufend.beat });
+      try { require('./faden-bitte.js').beatFristAbgelaufen(game, f); } catch (e) { fehlerZaehlen(game, 'faden-bitte', e); }   // BEA-01 Nacharbeit: eine offene Bitte des Beats verfaellt mit der Frist (Schweigen gilt, Durchsuchung)
       beatAusgang(game, f.id, 'gescheitert');
     }
   }

@@ -107,20 +107,22 @@ function optionPruefen(game, f, beat, opt) {
 
 // BEA-01 B: die Durchsuchung (Option mit durchsuchen: true im Katalog): der Frachtraum wird mit der Tiefe des Beats durchsucht (frachtDurchsuchen), aufgedeckte illegale Ware ohne Auftrag wird beschlagnahmt
 // (lagerBeschlagnahmen; Auftragsware des Fadens nie). Ein Fund (mindestens ein Platz) hat die Folgen der Daten: Bussgeld je Platz (Geld.bussgeldZahlen), Ruf-Grund der Fraktion des Forderers (fund_ruf, ueber faden.folgenAnwenden).
-// Funk und Texte nennen die Art der Ware nie, nur die Zahl der Plaetze. -> { n, bussgeld, ruf }
+// Funk und Texte nennen die Art der Ware nie, nur die Zahl der Plaetze. Auftragsware (aufgedeckt) bleibt an Bord, zaehlt aber als Fund (Strafe, Ruf, Meldung fund_auftrag). -> { n (beschlagnahmt), funde, bussgeld, ruf }
 function durchsuchen(game, f, beat, fo) {
   const wer = fo ? fo.name : 'Zoll', tiefe = D.tiefeVon(beat);
   Lager().frachtDurchsuchen(game, { wer, tiefe: tiefe || undefined });
   const weg = Lager().lagerBeschlagnahmen(game, { wer });
   const T = TEXTE.durchsuchung || {};
-  if (!weg.n) { if (T.sauber) Bitte().funkSprecher(game, wer, T.sauber); return { n: 0, bussgeld: 0, ruf: null }; }
-  if (T.fund) Bitte().funkSprecher(game, wer, fmt(T.fund, { n: weg.n }));
-  const soll = bussgeldVon(beat) * weg.n;
+  const funde = weg.n + weg.bleibt;   // BEA-01 Nacharbeit: auch aufgedeckte Auftragsware (bleibt an Bord) ist ein Fund fuer Strafe, Ruf und Meldung
+  if (!funde) { if (T.sauber) Bitte().funkSprecher(game, wer, T.sauber); return { n: 0, funde: 0, bussgeld: 0, ruf: null }; }
+  if (weg.n && T.fund) Bitte().funkSprecher(game, wer, fmt(T.fund, { n: weg.n }));
+  if (weg.bleibt && T.fund_auftrag) Bitte().funkSprecher(game, wer, fmt(T.fund_auftrag, { n: weg.bleibt }));
+  const soll = bussgeldVon(beat) * funde;
   const bussgeld = soll > 0 ? Geld.bussgeldZahlen(game, soll) : 0;
   if (bussgeld > 0 && T.bussgeld) Bitte().funkSprecher(game, wer, fmt(T.bussgeld, { marken: bussgeld + ' ' + WERTE.marken_einheit.wert }));
   const grund = fo && has(WERTE, 'fund_ruf') && has(WERTE.fund_ruf.wert, fo.fraktion) ? WERTE.fund_ruf.wert[fo.fraktion] : null;
   if (grund) Faden().folgenAnwenden(game, f, [{ typ: 'ruf_aenderung', grund }], false);   // kein Deckel der Bitten: der Deckel begrenzt Ruf-Gewinn, die Strafe soll voll wirken
-  return { n: weg.n, bussgeld, ruf: grund };
+  return { n: weg.n, funde, bussgeld, ruf: grund };
 }
 
 // BEA-01 B: Schweigen (die Bitte verfaellt ohne Antwort, faden-bitte.js nachTaetigkeit): die Option des Katalogs mit bei_verfall: true gilt als gewaehlt (Durchsuchung: der Zoll oeffnet den Frachtraum auch ohne Antwort);
@@ -195,7 +197,7 @@ function datenFehler() {
   const RUF = require('../../content/welt/ruf-werte.json').werte.quellen.wert;
   if (has(WERTE, 'fund_ruf')) for (const [fr, grund] of Object.entries(WERTE.fund_ruf.wert)) if (!has(RUF, grund) || RUF[grund].fraktion !== fr) out.push(`fund_ruf ${fr}: Ruf-Grund ${grund} steht nicht in ruf-werte.json quellen (oder gehoert einer anderen Fraktion)`);
   if (has(WERTE, 'bussgeld_marken') && Object.keys(WERTE.bussgeld_marken.wert).sort().join() !== Object.keys(WERTE.bestechung_marken.wert).sort().join()) out.push('bussgeld_marken: dieselben Staerken wie bestechung_marken');
-  for (const k of ['fund', 'bussgeld', 'sauber']) if (!(TEXTE.durchsuchung && typeof TEXTE.durchsuchung[k] === 'string')) out.push(`forderung-texte.json durchsuchung.${k} fehlt`);
+  for (const k of ['fund', 'fund_auftrag', 'bussgeld', 'sauber']) if (!(TEXTE.durchsuchung && typeof TEXTE.durchsuchung[k] === 'string')) out.push(`forderung-texte.json durchsuchung.${k} fehlt`);
   for (const [key, e] of Object.entries(TEXTE.texte)) if (!has(TEXTE.forderer, e.forderer)) out.push(`Text ${key}: Forderer ${e.forderer} fehlt`);
   for (const [id, fo] of Object.entries(TEXTE.forderer)) if (typeof fo.kopf !== 'string' || fo.kopf.length > 12) out.push(`Forderer ${id}: kopf hoechstens 12 Zeichen`);
   return out;

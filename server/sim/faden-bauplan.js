@@ -84,7 +84,8 @@ function katalogFehler() {
     for (const [k, s] of Object.entries(ps)) {
       if (!erl.includes(k)) g(`Parameter ${k} steht nicht in parameter (pflicht/optional)`);
       if (istObjekt(s) && s.verborgen !== undefined && s.verborgen !== true) g(`Parameter ${k}: verborgen ist true oder fehlt`);   // BEA-01 C2: nicht im Prompt-Katalog
-      if (istObjekt(s) && s.erlaubt === 'landeplatz' && s.standard === undefined) { /* DYN-01 B: ein Landeplatz hat keinen Standard, ohne Angabe gibt es keinen */ }
+      if (istObjekt(s) && s.ohne_standard === true && s.standard === undefined && Array.isArray(s.erlaubt) && s.erlaubt.length) { /* BEA-01 Nacharbeit: ohne Angabe gilt der Standard der Szene (szenen-werte.json), der Plan bleibt unveraendert */ }
+      else if (istObjekt(s) && s.erlaubt === 'landeplatz' && s.standard === undefined) { /* DYN-01 B: ein Landeplatz hat keinen Standard, ohne Angabe gibt es keinen */ }
       else if (!istObjekt(s) || s.standard === undefined || !parameterErlaubt(s.erlaubt, s.standard)) g(`Parameter ${k}: standard fehlt oder steht nicht in erlaubt`);
       if (k === 'text_key' && istObjekt(s) && Array.isArray(s.erlaubt)) {
         for (const t of s.erlaubt) {

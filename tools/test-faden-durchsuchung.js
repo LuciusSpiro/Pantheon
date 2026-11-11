@@ -18,6 +18,7 @@ const Weltstand = require('../server/weltstand.js');
 const Faden = require('../server/sim/faden.js');
 const Lager = require('../server/sim/fracht.js');
 const Fracht = require('../server/sim/faden-fracht.js');
+const FS = require('../server/sim/faden-szene.js');
 const Pruefer = require('../server/sim/faden-pruefer.js');
 const Bitte = require('../server/sim/faden-bitte.js');
 const Baustein = require('../server/sim/faden-forderung.js');
@@ -155,6 +156,7 @@ function amSchmuggel(id, seed, items, k) {
   starteBeat(x);   // b_forderung
   return x;
 }
+const Geld_ = Geld;
 const ECHT = /waffen/i;   // die echte Art der getarnten Ware (TARN); die Tarnart heisst Fracht
 
 (async () => {
@@ -292,17 +294,20 @@ const ECHT = /waffen/i;   // die echte Art der getarnten Ware (TARN); die Tarnar
       starteBeat(x); andocken(g, ZIEL);
       ok(!f.fracht && lager(g) === 0 && ereignisse(f).slice(-1)[0] === 'fracht_gelungen', 'die Auftragsware wird danach abgeliefert (fracht_gelungen)');
     }
-    { // nur Auftragsware, kein Schmuggel: kein Fund
+    { // nur Auftragsware (illegal, aufgedeckt): ein Fund ist ein Fund (Bussgeld, Ruf, Meldung), genommen wird sie nicht (BEA-01 Nacharbeit)
       const x = amSchmuggel('du_e', 42, []); const { g, f } = x;
       antwort(g, 'dulden');
-      ok(lager(g) === 1 && !!f.fracht && gesehen(x, 'frachtBeschlagnahmt')[0].d.n === 0 && x.texte().includes(TEXTE.durchsuchung.sauber), 'nur Auftragsware: nichts beschlagnahmt, keine Fund-Folge (Text sauber)');
-      ok(marken(g) === x.vorher && Ruf.ruf(g, 'rom') === x.ruf0, 'keine Marken und kein Ruf weg');
+      ok(lager(g) === 1 && !!f.fracht && gesehen(x, 'frachtBeschlagnahmt')[0].d.n === 0, 'nur Auftragsware: nichts beschlagnahmt, sie bleibt am Faden und im Frachtraum');
+      ok(!x.texte().includes(TEXTE.durchsuchung.sauber) && x.radio.some((q) => q.text === fmt(TEXTE.durchsuchung.fund_auftrag, { n: 1 }) && q.von === ZOLL.name), 'der Zoll meldet den Fund (nicht "sauber"), ohne zu sagen, was es ist');
+      ok(!/waffen|Waffen|sprengstoff/i.test(x.texte().join(' | ')), 'Funk nennt die echte Art nie');
+      ok(marken(g) === x.vorher - BUSSE('gering') && Ruf.ruf(g, 'rom') === x.ruf0 + FUND_DELTA, 'Bussgeld (ein Platz) und Ruf-Abzug wie bei anderer Schmuggelware: Marken ' + marken(g) + ', Ruf ' + Ruf.ruf(g, 'rom'));
     }
     { // scan: die getarnte Auftragsware bleibt auch verdeckt
       const x = amSchmuggel('du_e2', 43, []); const { g, f } = x;
       antwort(g, 'dulden');
       const ware = g.fracht.lager.find((l) => l.eig && l.eig.auftrag === f.id);
       ok(!!f.fracht && !ware.eig.aufgedeckt && g.snapshot().fracht.lager.join() === 'fracht', 'scan: die getarnte Auftragsware haelt die Tarnung (Anzeige Fracht)');
+      ok(marken(g) === x.vorher && Ruf.ruf(g, 'rom') === x.ruf0 && x.texte().includes(TEXTE.durchsuchung.sauber), 'scan: nichts aufgedeckt, also kein Fund (sauber, keine Strafe)');
     }
   });
 
@@ -413,7 +418,7 @@ const ECHT = /waffen/i;   // die echte Art der getarnten Ware (TARN); die Tarnar
       y.g.lageSpielleiter = { disposed: false, mode: 'mock', beiGrenze() {} };
       Ruf.aendern(y.g, 'rom', 20 - Ruf.ruf(y.g, 'rom'));
       const m0 = marken(y.g), r0 = Ruf.ruf(y.g, 'rom');
-      ok(Bitte.beantworten(y.g, 'dulden', a2.nr) === null && arten(y.g) === 'waffen' && marken(y.g) === m0 - BUSSE('gering') && Ruf.ruf(y.g, 'rom') === r0 + FUND_DELTA, 'im geladenen Stand wirkt dulden: Fund, Bussgeld, Ruf wie im ungeladenen');
+      ok(Bitte.beantworten(y.g, 'dulden', a2.nr) === null && arten(y.g) === 'waffen' && marken(y.g) === m0 - 2 * BUSSE('gering') && Ruf.ruf(y.g, 'rom') === r0 + FUND_DELTA, 'im geladenen Stand wirkt dulden: Fund (Sprengstoff genommen, Auftragsware zaehlt mit), Bussgeld, Ruf wie im ungeladenen');
     }
     { // nach der Durchsuchung (Fund, Folge gebucht): speichern, laden, weiterspielen
       const x = amSchmuggel('du_j', 93, [OFFEN]); const { g, f } = x;
@@ -573,6 +578,63 @@ const ECHT = /waffen/i;   // die echte Art der getarnten Ware (TARN); die Tarnar
       const y = bereit(136); raeume(y.g, [1]); einlagern(y.g, [{ art: 'erz', eig: { auftrag: 'f999' } }]);
       y.f = oeffne(y.g, 'du_n3'); starteBeat(y);
       ok(lager(y.g) === 1 && y.g.fracht.lager[0].art === 'erz' && !y.f.fracht && y.f.phase === 'wartet' && D.vorlage(y.f.vorlage).beats[y.f.beat].id === 'b_ende', 'fremde Auftragsware im einzigen Modul: keine Scheinfracht, der Lade-Beat scheitert (Faden zum Ende)');
+    }
+  });
+
+  await section('(o) BEA-01 Nacharbeit: Beat-Frist vor dem Verfall der Bitte, Notsprung im Schmiergeld, negative Marken, Volk der Gegner', async () => {
+    { // die Durchsuchung wird erst nach einer unruhigen Phase angeboten: die Frist des Beats (6) greift vor dem Verfall der Bitte (Angebot + Frist): das Schweigen gilt trotzdem als Dulden
+      zoll('du_o1');
+      const x = bereit(151); x.f = oeffne(x.g, 'du_o1'); const { g, f } = x;
+      einlagern(g, [OFFEN]); x.vorher = marken(g);
+      grenzen(g, 5);
+      g.simSzene = { probe: 1 };   // unruhig: kein Angebot
+      weiter(g, f);
+      ok(f.phase === 'laeuft' && !angebot(g), 'der Beat laeuft, die Bitte wird wegen der unruhigen Lage nicht angeboten');
+      grenzen(g, 2); delete g.simSzene; grenzen(g, 1);
+      const BEAT_FRIST = lies('content', 'faeden', 'werte.json').werte.beat_frist.wert;
+      ok(!!angebot(g) && f.laufend.n < BEAT_FRIST && angebot(g).bis - g.weltsim.faeden.t > BEAT_FRIST - f.laufend.n, 'danach steht die Bitte offen, ihr Verfall liegt NACH der Frist des Beats (n ' + f.laufend.n + ', Frist ' + BEAT_FRIST + ', Verfall in ' + (angebot(g) && angebot(g).bis - g.weltsim.faeden.t) + ')');
+      for (let i = 0; i < 8 && f.phase === 'laeuft'; i++) grenzen(g, 1);
+      ok(f.phase !== 'laeuft' && ereignisse(f).slice(-1)[0] === 'forderung_gescheitert', 'die Frist beendet den Beat als gescheitert');
+      ok(arten(g) === '' && gesehen(x, 'frachtBeschlagnahmt').length === 1 && marken(g) === x.vorher - BUSSE('gering'), 'die Durchsuchung fand trotzdem statt: Sprengstoff weg, Bussgeld gebucht (' + arten(g) + ', Marken ' + marken(g) + ')');
+      ok(!angebot(g), 'keine Bitte bleibt offen');
+    }
+    { // Notsprung waehrend des Schmiergelds (Ware am Faden, Beat bleibt): der NSC erinnert sich an die verlorene Ladung wie in der Wartezeit
+      const lade = { ladung: 'waffen', tarnung: 'fracht', illegal: true };
+      schmuggel('du_o2', { lade });
+      const x = bereit(152); x.f = oeffne(x.g, 'du_o2'); const { g, f } = x;
+      starteBeat(x);   // b_lade
+      starteBeat(x);   // b_forderung
+      antwort(g, 'nicht_dulden');
+      starteBeat(x);   // b_schmier
+      ok(D.vorlage(f.vorlage).beats[f.beat].id === 'b_schmier' && f.phase === 'laeuft' && !!f.fracht, 'das Schmiergeld laeuft mit Ware am Faden');
+      Fracht.notsprung(g);
+      ok(!f.fracht && lager(g) === 0 && ereignisse(f).includes('fracht_gescheitert'), 'Notsprung: die Ware ist weg und das Gedaechtnis kennt fracht_gescheitert (' + ereignisse(f).join() + ')');
+    }
+    { // Bussgeld bei negativem Stand schreibt nie gut
+      zoll('du_o3');
+      const x = amZoll('du_o3', 153, [OFFEN]); const { g } = x;
+      g.inventory.marks = -20;
+      antwort(g, 'dulden');
+      ok(marken(g) === -20, 'Stand -20: das Bussgeld nimmt nichts und schreibt nichts gut (Stand ' + marken(g) + ')');
+      g.inventory.marks = -7; ok(Geld.abziehenHoechstens(g, 10, 'notfall') === 0 && marken(g) === -7, 'abziehenHoechstens: bei negativem Stand 0 abgezogen, kein Gewinn');
+      g.inventory.marks = 5; ok(Geld.abziehenHoechstens(g, 10, 'notfall') === 5 && marken(g) === 0, 'abziehenHoechstens: ab 0 unveraendert (Untergrenze 0)');
+    }
+    { // das Volk der Gegner: Parameter volk des Beats raumschlacht (Zoll roemisch), ohne Parameter wie bisher germanisch
+      for (const [id, volk, wort] of [['du_o4', 'rom', 'römische'], ['du_o5', undefined, 'germanische']]) {
+        const r = registriere(alsVorlage(id, (v) => {
+          v.nsc.status = 'aktiv'; v.volk_erlaubt = ['rom', 'kon', 'ger']; delete v.wahrheit; delete v.hinweise;
+          v.beats = [
+            { id: 'b_kampf', typ: 'raumschlacht', parameter: volk ? { volk } : {}, aus: { gelungen: WEG('aktiv', 'b_ende'), gescheitert: WEG('geflohen', 'b_ende') } },
+            { id: 'b_ende', typ: 'abschluss', erfolg: { ereignis: ['raumschlacht_gelungen'] }, aus: { gelungen: {}, gescheitert: { text_key: 'ende_verpasst' } } },
+          ];
+        }));
+        if (!r.ok) throw new Error('Vorlage ' + id + ': ' + r.fehler.join('; '));
+        const x = bereit(154); x.f = oeffne(x.g, id); starteBeat(x);
+        ok(x.texte().some((t) => t.includes(wort + ' Schiffe')), 'Vorwarnung nennt ' + wort + ' Schiffe: ' + x.texte().join(' | '));
+        for (let i = 0; i < 40 * 60 && !x.g.space.enemies.length; i++) x.g.step();
+        const es = x.g.space.enemies;
+        ok(es.length > 0 && es.every((e) => e.volk === (volk || 'ger')), 'die Gegner sind ' + (volk || 'ger') + ': ' + es.map((e) => e.volk).join());
+      }
     }
   });
 

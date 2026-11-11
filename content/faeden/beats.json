@@ -58,8 +58,8 @@
       "szene": true,
       "sund_frei_erlaubt": true,
       "braucht": {"nsc_status": ["aktiv", "feindlich", "geflohen"]},
-      "parameter": {"pflicht": [], "optional": ["text_key"]},
-      "bauplan": {"start_status":"aktiv","hinweis_traeger":false,"parameter":{},"aus":{"gelungen":{"status":["tot","feindlich","aktiv"],"folge":[{"typ":"ruf_aenderung","grund":"funk_rom_gruss"}]},"gescheitert":{"status":["geflohen","feindlich","aktiv"],"folge":[]}}}
+      "parameter": {"pflicht": [], "optional": ["text_key", "volk"]},
+      "bauplan": {"start_status":"aktiv","hinweis_traeger":false,"parameter":{"volk":{"erlaubt":["ger","rom","kon"],"ohne_standard":true,"verborgen":true}},"aus":{"gelungen":{"status":["tot","feindlich","aktiv"],"folge":[{"typ":"ruf_aenderung","grund":"funk_rom_gruss"}]},"gescheitert":{"status":["geflohen","feindlich","aktiv"],"folge":[]}}}
     },
     "befreiung": {
       "zweck": "Der NSC wird an einem Ort festgehalten, Wachschiffe sichern ihn; die Crew vertreibt die Wachen, der NSC ist frei (Ersatz fuer geiseln_befreien am Boden).",

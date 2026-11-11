@@ -66,7 +66,7 @@ function abbuchen(game, n, grund) {
 // BEA-01 A: Bestechung im Geschichtsfaden (faden-forderung.js): zahlt n Marken, nur wenn genug da sind. true = bezahlt, false = nichts gebucht. Mit Ereignis marksPaid (grund bestechungsgeld).
 function bestechungZahlen(game, n) { return abbuchen(game, n, 'bestechungsgeld'); }
 
-// BEA-01 B: Bussgeld nach einem Fund bei der Durchsuchung (faden-forderung.js): zieht n Marken ab, hoechstens den Stand (kein Minus, die Strafe ist keine Bedingung der Wahl). Still (kein Ereignis, wie abziehenHoechstens). -> tatsaechlich abgezogener Betrag
+// BEA-01 B: Bussgeld nach einem Fund bei der Durchsuchung (faden-forderung.js): zieht n Marken ab, hoechstens den Stand (kein Minus, bei negativem Stand 0 und keine Gutschrift, die Strafe ist keine Bedingung der Wahl). Still (kein Ereignis, wie abziehenHoechstens). -> tatsaechlich abgezogener Betrag
 function bussgeldZahlen(game, n) { return abziehenHoechstens(game, Math.max(0, Math.floor(Number(n) || 0)), 'bussgeld'); }
 
 // ---- stille Varianten: exakt die Rechnung der Stellen vor dem Umbau, KEIN sfx/missionEvent (nie eins ergänzen) ----
@@ -90,7 +90,7 @@ function abziehenGeprueft(game, n, grund) { return schreiben(game, 'buchung', gr
 // Abzug mit Untergrenze 0 (Notfallprotokoll, Regiebuch pay_marks). -> tatsächlich abgezogener Betrag
 function abziehenHoechstens(game, n, grund) {
   const vorher = game.inventory.marks;
-  schreiben(game, 'buchung', grund, Math.max(0, vorher - n));
+  schreiben(game, 'buchung', grund, Math.min(vorher, Math.max(0, vorher - n)));   // BEA-01 Nacharbeit: bei negativem Stand nie gutschreiben (min mit dem Stand; ab 0 unveraendert)
   return vorher - game.inventory.marks;
 }
 

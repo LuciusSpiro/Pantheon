@@ -26,6 +26,7 @@
   },
   "durchsuchung": {
     "fund": "Schmuggelware an Bord. Beschlagnahmt: {n}.",
+    "fund_auftrag": "Schmuggelware an Bord, nicht abgeholt: {n}. Das wird vermerkt.",
     "bussgeld": "Bußgeld: {marken}.",
     "sauber": "Frachtraum geprüft. Weiterfliegen."
   },

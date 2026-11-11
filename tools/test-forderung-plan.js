@@ -306,6 +306,16 @@ const folge = (r) => r.plan.beats.map((b) => b.typ).join();
     ok(stuf(20, 0) === 'gering/durchsuchung_zollschiff/schmiergeld_durchsuchung_zollschiff', 'Optio, Schiff 0 (Stufe 0): ' + stuf(20, 0));
     ok(stuf(35, 0) === 'mittel/durchsuchung_zollschiff/schmiergeld_durchsuchung_zollschiff', 'Centurio (Stufe 1): ' + stuf(35, 0));
     ok(stuf(200, 3) === 'stark/durchsuchung_freibeuter/schmiergeld_durchsuchung_freibeuter', 'Legat mit Schiff 3 (Stufe 2): Freibeuter, Staerke stark: ' + stuf(200, 3));
+    // BEA-01 Nacharbeit: das Volk der Gegner passt zum Forderer (Zoll = roemisch, Freibeuter = germanisch), als Parameter volk des Beats raumschlacht
+    const volk = (rw, sh) => { stufe(g, rw, sh); const x = ins(absicht()); return x.ok ? JSON.stringify(x.plan.beats[2].parameter || null) : 'nein'; };
+    ok(volk(20, 0) === '{"volk":"rom"}' && volk(35, 0) === '{"volk":"rom"}' && volk(200, 3) === '{"volk":"ger"}', 'Gegner nach Stufe: Zollschiff roemisch, Freibeuter germanisch: ' + volk(20, 0) + ' ' + volk(35, 0) + ' ' + volk(200, 3));
+    // BEA-01 Nacharbeit: Personen (Betten) sind keine Ladung; anBord zaehlt wie bisher alles
+    stufe(g, 20, 0); raeume(g); g.fracht.lager.push({ art: 'person' });
+    r = ins(absicht());
+    ok(!r.ok && r.fehler[0].code === INS.CODES.WELT_BEDINGUNG && /leer/.test(r.fehler[0].grund) && Lager.anBord(g) === 1 && Lager.ladungAnBord(g) === 0, 'nur eine Person an Bord: Nein (Frachtraum leer), anBord zaehlt sie weiter (' + Lager.anBord(g) + '), ladungAnBord nicht (' + Lager.ladungAnBord(g) + ')');
+    einlagern(g, 'fracht');
+    r = ins(absicht());
+    ok(r.ok === true && Lager.anBord(g) === 2 && Lager.ladungAnBord(g) === 1, 'Person plus eine Kiste: Plan moeglich');
     // der Katalog-Pruefer der Rezepte lehnt eine kaputte Bedingung ab
     const k = klon(KAT); k.absichten.forderung.inszenierung.bedingungen[1].plaetze = 0;
     ok(INS.katalogFehler(k).some((x) => /ladung_mindestens braucht plaetze/.test(x)), 'katalogFehler: ladung_mindestens ohne gueltige plaetze wird gemeldet');

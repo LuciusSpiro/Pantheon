@@ -239,6 +239,19 @@ function beantworten(game, id, nr) {
   return null;
 }
 
+// Verfall einer offenen Bitte (Schweigen): Angebot zu, Logbuch, der Baustein darf Schweigen als Option werten. Der Aufrufer setzt den Ausgang gescheitert.
+// BEA-01 Nacharbeit: auch die Frist des Beats (faden.js taetigkeit) geht diesen Weg, wenn sie vor dem Verfall der Bitte greift (sonst faellt die Durchsuchung aus)
+function verfallBitte(game, F, off, f) {
+  F.bitte = null;
+  logbuch(game, 'faden_ereignis', { ausgang: 'verfall', key: off.fadenId, begruendung: `Bitte ${off.beatId} verfallen nach ${BW.frist_taetigkeiten} Tätigkeiten: gescheitert`, plan: { faden: off.fadenId, beat: off.beatId } });
+  const bsV = bausteinVon(D.vorlage(f.vorlage).beats[f.beat].typ);   // BEA-01 B: ein Baustein darf Schweigen als eine Option werten (Katalog bei_verfall: die Durchsuchung laeuft auch ohne Antwort); der Ausgang bleibt gescheitert
+  if (bsV && typeof bsV.verfall === 'function') { try { bsV.verfall(game, f, D.vorlage(f.vorlage).beats[f.beat]); } catch (e) { fehlerZaehlen(game, 'faden-bitte-baustein', e); } }
+}
+function beatFristAbgelaufen(game, f) {
+  const F = game && game.weltsim && game.weltsim.faeden, off = F && F.bitte;
+  if (off && off.fadenId === f.id && f.laufend && f.laufend.beat === off.beatId) verfallBitte(game, F, off, f);
+}
+
 // ---------- Takt: Verfall, verwaiste Angebote, Wiederholung
 function nachTaetigkeit(game) {
   const F = game && game.weltsim && game.weltsim.faeden;
@@ -248,10 +261,7 @@ function nachTaetigkeit(game) {
     const f = F.liste.find((x) => x.id === off.fadenId);
     if (!f || f.phase !== 'laeuft' || !f.laufend || f.laufend.beat !== off.beatId) F.bitte = null;   // der Beat ist nicht mehr da
     else if (F.t >= off.bis && Faden().spielleiterAktiv(game)) {   // Verfall in Taetigkeiten: der Beat gilt als gescheitert (der Faden verändert sich, endet nicht). Nacharbeit L9: nur mit aktivem Spielleiter (B-S3 „begonnene Fäden stehen“, wie die Frist des Beats in faden.js)
-      F.bitte = null;
-      logbuch(game, 'faden_ereignis', { ausgang: 'verfall', key: off.fadenId, begruendung: `Bitte ${off.beatId} verfallen nach ${BW.frist_taetigkeiten} Tätigkeiten: gescheitert`, plan: { faden: off.fadenId, beat: off.beatId } });
-      const bsV = bausteinVon(D.vorlage(f.vorlage).beats[f.beat].typ);   // BEA-01 B: ein Baustein darf Schweigen als eine Option werten (Katalog bei_verfall: die Durchsuchung laeuft auch ohne Antwort); der Ausgang bleibt gescheitert
-      if (bsV && typeof bsV.verfall === 'function') { try { bsV.verfall(game, f, D.vorlage(f.vorlage).beats[f.beat]); } catch (e) { fehlerZaehlen(game, 'faden-bitte-baustein', e); } }
+      verfallBitte(game, F, off, f);
       Faden().beatAusgang(game, off.fadenId, 'gescheitert');
       return;
     }
@@ -330,4 +340,4 @@ const baustein = {
   },
 };
 
-module.exports = { toSaveDeckel, lesenDeckel, baustein, anbieten, angebotAusVorlage, beantworten, nachTaetigkeit, update, funkVon, funkGefahrVon, funkSprecher, portraetPid, pidGueltig, offen, snapshot, schluessel, toSaveBitte, lesenBitte, weigerung, rufBetrag, deckelRaum };
+module.exports = { beatFristAbgelaufen, toSaveDeckel, lesenDeckel, baustein, anbieten, angebotAusVorlage, beantworten, nachTaetigkeit, update, funkVon, funkGefahrVon, funkSprecher, portraetPid, pidGueltig, offen, snapshot, schluessel, toSaveBitte, lesenBitte, weigerung, rufBetrag, deckelRaum };

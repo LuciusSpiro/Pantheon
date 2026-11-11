@@ -92,12 +92,14 @@ function beginnen(game, it) {
   const sek = Math.max(W.vorlauf_min_s, W.vorlauf_s);   // nie unter der Untergrenze der Vorwarnung
   const b2 = SZB2.istArt(it.art) ? SZB2.plan(it, crewN(game), nachCrew, game) : null;   // SUND-04b B2: die Wahl des Beats und die angekündigte Zahl
   const n = b2 ? b2.n : (it.art === 'raumschlacht' || it.art === 'befreiung') ? nachCrew(W[it.art].anzahl, crewN(game)) : 1;
-  const fs = { id: game.fadenSzeneN, fadenId: it.fadenId, beatId: it.beatId, art: it.art, nsc: it.nsc, phase: 'vorlauf', ab: game.time + sek, start: null, szene: game.ship.scene, tag: 'fs' + game.fadenSzeneN, sek, n, textKey: b2 ? b2.textKey : it.art, plan: b2 };   // n: die angekündigte Zahl (K2)
+  const bv = it.parameter && it.parameter.beat && typeof it.parameter.beat.volk === 'string' ? it.parameter.beat.volk : '';   // BEA-01 Nacharbeit: der Beat darf das Volk der Gegner nennen (Parameter volk), sonst gilt szenen-werte.json
+  const fs = { id: game.fadenSzeneN, fadenId: it.fadenId, beatId: it.beatId, art: it.art, nsc: it.nsc, volk: bv, phase: 'vorlauf', ab: game.time + sek, start: null, szene: game.ship.scene, tag: 'fs' + game.fadenSzeneN, sek, n, textKey: b2 ? b2.textKey : it.art, plan: b2 };   // n: die angekündigte Zahl (K2)
   game.fadenSzene = fs;
   const klasse = (it.art === 'raumschlacht' || it.art === 'befreiung') ? W[it.art].klasse : '';
   const vars = { name: it.nsc ? it.nsc.name : '', schiff: it.nsc ? it.nsc.schiff : '', klasse, n, sek: Math.round(sek) };
   poolSagen(game, it);   // SPL-02 E3: Haken, ohne angemeldeten Plan nichts
-  funk(game, fmt(T.vorwarnung[fs.textKey], vars));   // Fairness: die Gefahr wird vorher angekündigt, nie abgefragt
+  const wk = bv && Object.prototype.hasOwnProperty.call(T.vorwarnung, fs.textKey + '_' + bv) ? fs.textKey + '_' + bv : fs.textKey;   // Vorwarnung des Volks, wenn die Daten eine kennen
+  funk(game, fmt(T.vorwarnung[wk], vars));   // Fairness: die Gefahr wird vorher angekündigt, nie abgefragt
   return fs;
 }
 
@@ -119,7 +121,7 @@ function kampfBeginn(game, fs) {
   const C = W[fs.art]; const n = fs.n;   // K2: genau die Zahl, die im Funk stand (die Crewgröße beim Ankündigen), nie mehr
   for (let i = 0; i < n; i++) {
     const a = (i / n) * Math.PI * 2 + W.ring_winkel_start;
-    if (!space().spawnEnemy(game, C.klasse, { x: L.x + Math.cos(a) * C.ring, y: L.y + Math.sin(a) * C.ring, tag: fs.tag, volk: C.volk })) break;
+    if (!space().spawnEnemy(game, C.klasse, { x: L.x + Math.cos(a) * C.ring, y: L.y + Math.sin(a) * C.ring, tag: fs.tag, volk: fs.volk || C.volk })) break;
   }
   return null;
 }
@@ -253,7 +255,7 @@ function update(game) {
 
 // ---------- Bausteine (faden-bausteine.registriere): jeder Beat mit Szene ruft starten() mit seiner Art ----------
 function beatStarten(game, art, faden, ctx) {
-  const r = starten(game, { art, fadenId: faden.id, beatId: ctx.beat.id, nsc: ctx.nsc, parameter: ctx.parameter });
+  const r = starten(game, { art, fadenId: faden.id, beatId: ctx.beat.id, nsc: ctx.nsc, parameter: Object.assign({}, ctx.parameter, { beat: Object.assign({}, ctx.beat.parameter) }) });   // BEA-01 Nacharbeit: die Parameter des Beats (volk) liegen als parameter.beat in der Warteschlange
   return r.ok ? { laeuft: true } : { ausgang: 'gescheitert' };
 }
 for (const art of ARTEN) Bausteine.registriere(art, { starten(game, faden, ctx) { return beatStarten(game, art, faden, ctx); } });
