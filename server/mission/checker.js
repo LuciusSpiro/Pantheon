@@ -350,6 +350,7 @@ function check(doc, ctxIn) {
   if (dsf !== undefined) { flagForm(dsf, 'angebot.direktstart.setFlag', 'setFlag'); if (isObj(dsf)) for (const k of Object.keys(dsf)) flagsSet.add(k); }
 
   // --- Parameter eines Bausteins
+  const dokListen = new Map();   // Baustein -> { def, liste: [{ args, p }] } für Bausteine mit dokPruefen
   const paramCheck = (kind, name, args, p, actx) => {
     const def = Reg.get(name);
     if (!def || def.art !== kind) { E(kind === 'aktion' ? 'REF-BAUSTEIN' : 'REF-PRUEFUNG', p, `${kind === 'aktion' ? 'Baustein' : 'Prüfung'} '${name}' ist nicht registriert`); return null; }
@@ -357,6 +358,7 @@ function check(doc, ctxIn) {
     for (const [pn, pd] of Object.entries(def.params)) if (pd.pflicht && !(pn in args)) E('PARAM-FEHLT', p, `'${name}' braucht Parameter '${pn}'`);
     if (def.params.object && def.params.anker && !('object' in args) && !('anker' in args)) E('PARAM-FEHLT', p, `'${name}' braucht 'object' (Handkarte, Altform) oder 'anker'`);
     if (typeof def.argsPruefen === 'function') for (const f of def.argsPruefen(args)) E(f.code, p, `'${name}' ${f.text}`);
+    if (typeof def.dokPruefen === 'function') { const D = dokListen.get(name) || { def, liste: [] }; dokListen.set(name, D); D.liste.push({ args, p }); }   // SPL-01 a4: Regeln über alle Aufrufe des Buchs (nach dem Ablauf)
     for (const [pn, val] of Object.entries(args)) {
       const pd = def.params[pn];
       if (!pd) { E('PARAM-UNBEKANNT', p, `'${name}' kennt keinen Parameter '${pn}'`); continue; }
@@ -602,6 +604,9 @@ function check(doc, ctxIn) {
       condCheck(o.done, `buch.ziele[${k}].done`, { choiceIds });
     });
   }
+
+  // --- Regeln über alle Aufrufe eines Bausteins im Buch (def.dokPruefen(liste) -> [{ code, p, text }])
+  for (const [name, D] of dokListen) for (const f of D.def.dokPruefen(D.liste)) E(f.code, f.p, `'${name}' ${f.text}`);
 
   // --- Zahlen aus config.js überall
   const walkCfg = (node, p) => {

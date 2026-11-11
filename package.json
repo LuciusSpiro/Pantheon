@@ -404,6 +404,8 @@
     "mess:station-monster": "node tools/mess-station-monster.js",
     "test:kreatur-erledigt": "node tools/test-kreatur-erledigt.js",
     "test:kreatur-erledigt-mutation": "node tools/mutation-kreatur-erledigt.js",
+    "test:rudel-deckel": "node tools/test-rudel-deckel.js",
+    "test:rudel-deckel-mutation": "node tools/mutation-rudel-deckel.js",
     "test:schwarm": "node tools/test-schwarm.js",
     "test:schwarm-nest": "node tools/test-schwarm-nest.js",
     "test:schwarm-scan": "node tools/test-schwarm-scan.js",
