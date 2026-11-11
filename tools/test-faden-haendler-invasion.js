@@ -18,6 +18,7 @@ const Fracht = require('../server/sim/faden-fracht.js');
 const Pruefer = require('../server/sim/faden-pruefer.js');
 const P3 = require('../server/sim/faden-p3.js');
 const Faden = require('../server/sim/faden.js');
+const Geld = require('../server/sim/geld.js');   // BEA-01 C1: Marken fuer das Bestechen
 const Dat = require('../server/weltsim/daten.js');
 const { D } = X;
 const { neu, liste, runde, notrufOhneOrt } = V;
@@ -39,7 +40,8 @@ const BEAT_FRIST = WERTE.beat_frist.wert;
 const klon = (x) => JSON.parse(JSON.stringify(x));
 const beat = (v, id) => v.beats.find((x) => x.id === id);
 const ORT = '0203';   // Ort des Notrufs, wie test-faden-nach3.js (Zielhafen Campania)
-const ZIEL_BEAT = 5;  // Index von b_abschluss
+const ZIEL_BEAT = 9;  // Index von b_abschluss (BEA-01 C1: zehn Beats, vorher 5)
+const ENTH_BEAT = 6;  // Index von b_enthuell (vorher 2)
 const FEIND = ['sabotage', 'invasion'];   // die Sim-Befehle, die aus einer Enthüllung entstehen
 
 const ab = (g) => { const s = g.ship; s.docked = false; s.dockedAt = null; s.helm.stage = 1; s.vx = 0; s.vy = 0; s.speed = 0; s.helm.thrust = 0; s.helm.turn = 0; };
@@ -63,11 +65,13 @@ function stille(g) {
   for (const f of ['rom', 'ger']) { zz.vorrat[f].T = 40; zz.vorrat[f].U = 40; zz.marken[f] = 500; }
   zz.vorrat.kon.T = 31; zz.vorrat.kon.U = 10;
   zz.regie = { rom: { p_act: 0, regler_bis: 1e9 }, ger: { p_act: 0, regler_bis: 1e9 } };
+  if (g.weltsim.regie) g.weltsim.regie.rate = [];   // BEA-01 C1: auch die Befehlsrate der Regie (max 8 je 100 Ticks) frei, sonst nimmt der Mock-Spielleiter bei den laengeren Wegen den Faden nicht mehr
 }
 // ein römischer Posten (ohne Hafen) im Hex-Abstand 1 bis 3 vom Ort: Ziel der Sprengung
 function postenNah(g) {
   const d = Dat.datenVon(g.weltsim.zustand);
-  const c = Object.keys(hexe(g)).sort().find((k) => d.hex[k].hafen === '' && !hexe(g)[k].posten && (Sektoren.hexAbstand(ORT, k) || 99) <= 3 && Sektoren.hexAbstand(ORT, k) >= 1);
+  const nah = (k) => d.hex[k].hafen === '' && (Sektoren.hexAbstand(ORT, k) || 99) <= 3 && Sektoren.hexAbstand(ORT, k) >= 1;
+  const c = Object.keys(hexe(g)).sort().find((k) => nah(k) && !hexe(g)[k].posten) || Object.keys(hexe(g)).sort().find(nah);   // BEA-01 C1: nach den laengeren Wegen kann der Welt der freie Hex fehlen: dann ein Hex mit Posten (wird roemisch gesetzt)
   hexe(g)[c].besitzer = 'rom'; hexe(g)[c].posten = true; delete hexe(g)[c].crew;
   return c;
 }
@@ -93,8 +97,20 @@ async function annehmenBisWare(p, f) {
   Bitte.beantworten(p.g, 'annehmen', Bitte.offen(p.g).nr);
   for (let i = 0; i < 12 && !f.fracht; i++) await runde(p.g);
 }
-// die Crew liefert ab: am Zielhafen andocken; danach steht der Faden vor der Enthüllung
-function abliefern(p, f) { ankunft(p.g, f.fracht.nach); p.g.missionEvent('docked', {}); ab(p.g); }
+// BEA-01 C1: die Crew antwortet auf die Forderung des Fadens (die Leiste zeigt zuerst die Forderung, dann das Schmiergeld)
+async function waehle(p, f, optionId) {
+  for (let i = 0; i < 12 && !(Bitte.offen(p.g) && Bitte.offen(p.g).fadenId === f.id && Bitte.offen(p.g).optionen.some((o) => o.id === optionId)); i++) await runde(p.g);
+  const a = Bitte.offen(p.g);
+  if (!a || Bitte.beantworten(p.g, optionId, a.nr) !== null) throw new Error('Option ' + optionId + ' nicht angenommen');
+}
+// die Crew liefert ab (BEA-01 C1: nach dem Laden kommen die Forderung der Piraten und das Schmiergeld; hier: Nicht ausliefern, Bestechen, dann am Zielhafen andocken); danach steht der Faden vor der Enthüllung
+async function abliefern(p, f) {
+  Geld.standSetzen(p.g, 500, 'testmarken');
+  await waehle(p, f, 'nicht_ausliefern'); await waehle(p, f, 'bestechen');
+  for (let i = 0; i < 12 && !(f.phase === 'laeuft' && f.laufend && f.laufend.beat === 'b_abgabe'); i++) await runde(p.g);
+  if (!f.fracht) throw new Error('keine Ware vor der Ablieferung');
+  ankunft(p.g, f.fracht.nach); p.g.missionEvent('docked', {}); ab(p.g);
+}
 // der Faden ist bis zum Abschluss gelaufen (Mock-Spielleiter, Takte der Welt)
 async function bisEnde(p, f, runden) { for (let i = 0; i < (runden || 30) && f.phase !== 'abgeschlossen'; i++) await runde(p.g); }
 // bis kurz vor die Enthüllung (abgeliefert); der Test setzt die ruhige Welt und löst die Enthüllung selbst aus
@@ -104,7 +120,7 @@ async function vorEnthuellung(seed, o) {
   const f = await bisBitte(p);
   await annehmenBisWare(p, f);
   if (!f.fracht) throw new Error('keine Ware an Bord (Seed ' + seed + ')');
-  abliefern(p, f);
+  await abliefern(p, f);
   stille(p.g);
   f.zaehler = f.abstand;
   return { p, g: p.g, f };
@@ -113,10 +129,11 @@ const weiter = (g, f, art) => Faden.befehlAnwenden(g, Object.assign({ typ: 'fade
 // Gegenprobe jedes Nicht-Abliefern-Wegs: der Faden endet im Abschluss gescheitert, ohne Enthüllung, ohne Sim-Befehl
 async function keineWirkung(p, f, titel) {
   const g = p.g;
+  for (let i = 0; i < 14 && f.beat !== ZIEL_BEAT && f.phase !== 'abgeschlossen'; i++) { stille(g); await runde(g); }   // BEA-01 C1: unbeantwortete oder gescheiterte Beats (Forderung: Frist) laufen bis vor den Abschluss
   ok(f.beat === ZIEL_BEAT && f.nsc.status !== 'feindlich' && f.nsc.status !== 'geflohen', `${titel}: der Faden steht direkt vor dem Abschluss (Beat ${f.beat}, NSC ${f.nsc.status}), die Enthüllung wird übersprungen`);
   stille(g);
   for (let i = 0; i < 6; i++) p.tick();
-  await bisEnde(p, f);
+  for (let i = 0; i < 30 && f.phase !== 'abgeschlossen'; i++) { stille(g); await runde(g); }   // BEA-01 C1: die Welt bleibt ruhig (stille), sonst fuellt der Mock-Spielleiter die Rate der Befehle und nimmt den Faden nicht mehr
   const sprueche = p.funk().filter((x) => /^Ich bin Germane/.test(String(x.text)));
   ok(f.phase === 'abgeschlossen' && f.ausgang && f.ausgang.art === 'gescheitert', `${titel}: der Faden endet im Abschluss gescheitert (${f.phase}, ${f.ausgang && f.ausgang.art})`);
   ok(sprueche.length === 0 && !p.funk().some((x) => x.from === f.nsc.name && /Flotte|Ladung ist scharf/.test(String(x.text))), `${titel}: keine Enthüllung per Funk`);
@@ -132,12 +149,13 @@ async function keineWirkung(p, f, titel) {
     ok(r.ok, 'die Vorlage besteht den Prüfer (' + r.fehler.join('; ') + ')');
     const w = (id, ag) => beat(FH, id).aus[ag].weiter;
     ok(w('b_bitte', 'gelungen') === 'b_fracht' && w('b_bitte', 'gescheitert') === 'b_abschluss', 'b_bitte: gelungen -> b_fracht, gescheitert -> b_abschluss');
-    ok(w('b_fracht', 'gelungen') === 'b_enthuell' && w('b_fracht', 'gescheitert') === 'b_abschluss', 'b_fracht: gelungen -> b_enthuell, gescheitert -> b_abschluss');
+    ok(w('b_fracht', 'gelungen') === 'b_forderung' && w('b_fracht', 'gescheitert') === 'b_abschluss' && beat(FH, 'b_fracht').parameter.ende === 'geladen', 'b_fracht (BEA-01 C1: Lade-Beat, ende geladen): gelungen -> b_forderung, gescheitert -> b_abschluss');
+    ok(w('b_abgabe', 'gelungen') === 'b_enthuell' && w('b_abgabe', 'gescheitert') === 'b_abschluss' && beat(FH, 'b_abgabe').parameter.ende === 'abgeliefert', 'b_abgabe (Abliefer-Beat, ende abgeliefert): gelungen -> b_enthuell, gescheitert -> b_abschluss: nur die Ablieferung fuehrt zur Enthuellung');
     ok(w('b_enthuell', 'gelungen') === 'b_jagd' && w('b_enthuell', 'gescheitert') === 'b_jagd' && w('b_jagd', 'gelungen') === 'b_schlacht' && w('b_schlacht', 'gelungen') === 'b_abschluss', 'ab der Enthüllung wie bisher: b_jagd -> b_schlacht -> b_abschluss (der Händler bleibt Feind)');
     const hits = [];
     for (const b of FH.beats) for (const [ag, a] of Object.entries(b.aus || {})) for (const fo of (a.folge || [])) if (fo.typ === 'sim_befehl') hits.push(b.id + '.' + ag + ' ' + JSON.stringify(fo));
     ok(hits.length === 1 && hits[0] === 'b_enthuell.gelungen {"typ":"sim_befehl"}', 'genau eine Folge sim_befehl, im Ausgang gelungen der Enthüllung, ohne arten (alle Standard-Arten): ' + hits.join(' | '));
-    ok(beat(FH, 'b_bitte').aus.gescheitert.status === 'aktiv' && beat(FH, 'b_fracht').aus.gescheitert.status === 'aktiv', 'nicht abgeliefert: der NSC bleibt aktiv (kein Verbündeter, kein Feind: er hat nichts enthüllt)');
+    ok(beat(FH, 'b_bitte').aus.gescheitert.status === 'aktiv' && beat(FH, 'b_fracht').aus.gescheitert.status === 'aktiv' && beat(FH, 'b_abgabe').aus.gescheitert.status === 'aktiv' && beat(FH, 'b_forderung').aus.gescheitert.status === 'aktiv', 'nicht abgeliefert: der NSC bleibt aktiv (kein Verbündeter, kein Feind: er hat nichts enthüllt)');
     ok(JSON.stringify(beat(FH, 'b_abschluss').erfolg) === '{"ereignis":["raumschlacht_gelungen"]}', 'der Abschluss zählt weiter nur raumschlacht_gelungen als Erfolg');
     const h = FH.hinweise.h_schmuggel;
     ok(h && ['geruecht', 'funk'].includes(h.kanal) && /\{name\}/.test(h.text) && /Schmuggelware/.test(h.text), 'Hinweis h_schmuggel: Kanal ' + (h && h.kanal) + ', Text nennt Schmuggelware und {name}');
@@ -152,7 +170,7 @@ async function keineWirkung(p, f, titel) {
   // ---------------------------------------------------------------------------------------------------------------------------------
   await section('(1) Abliefern: Invasion, Ankündigung vor der Wirkung, Stärke, Angriff', async () => {
     const { p, g, f } = await vorEnthuellung(501);
-    ok(f.phase === 'wartet' && f.beat === 2 && f.nsc.status === 'verbuendet' && !f.fracht, `abgeliefert: der Faden wartet vor der Enthüllung (Beat ${f.beat}), Ware weg, NSC verbündet`);
+    ok(f.phase === 'wartet' && f.beat === ENTH_BEAT && f.nsc.status === 'verbuendet' && !f.fracht, `abgeliefert: der Faden wartet vor der Enthüllung (Beat ${f.beat}), Ware weg, NSC verbündet`);
     ok(f.nsc.gedaechtnis.some((x) => x.ereignis === 'fracht_gelungen'), 'das Gedächtnis kennt die gelungene Fracht');
     const ziel = P3.invasionsZiel(g, ORT);
     ok(!!ziel, 'Testwelt: ein römisches Ziel in Reichweite (' + ziel + ')');
@@ -178,7 +196,7 @@ async function keineWirkung(p, f, titel) {
     ok(!!alt && hs[0].staerke > alt.s * 1.0001, 'die Flotte ist stärker geworden (' + (alt && alt.s) + ' -> ' + hs[0].staerke + ')');
     ok(!!alt && hs[0].staerke <= alt.s * 1.3 + 1e-6, 'höchstens +30 % (' + (alt && alt.s) + ' -> ' + hs[0].staerke + ', Grenze ' + (alt && alt.s * 1.3) + ')');
     ok(!!ersterTick && ersterTick.angriff.includes(ziel), 'der Angriff auf das Ziel läuft (Feldzug gegen ' + ziel + ')');
-    ok(f.nsc.status === 'feindlich' && f.beat >= 3, `der Händler bleibt als Feind im Faden (Status ${f.nsc.status}, Beat ${f.beat})`);
+    ok(f.nsc.status === 'feindlich' && f.beat >= ENTH_BEAT + 1, `der Händler bleibt als Feind im Faden (Status ${f.nsc.status}, Beat ${f.beat})`);
     const lb = logbuch(g).filter((e) => e.art === 'faden_baustein').pop();
     ok(lb && lb.ausgang === 'sim_befehl' && lb.plan.art === 'invasion' && lb.plan.ziele.invasion === ziel, 'Logbuch: sim_befehl, Art invasion, Ziel ' + ziel);
   });
@@ -209,16 +227,26 @@ async function keineWirkung(p, f, titel) {
   });
 
   // ---------------------------------------------------------------------------------------------------------------------------------
-  await section('(2) Piraten (simuliert): Ware geladen, dann verloren (BEA-01 meldet den Fracht-Beat gescheitert)', async () => {
+  await section('(2) Piraten (simuliert): Ware geladen, die Crew liefert sie den Piraten aus (BEA-01 C1: Beat forderung, Ausliefern)', async () => {
     const p = partie(511);
     const f = await bisBitte(p);
     await annehmenBisWare(p, f);
-    ok(!!f.fracht && f.beat === 1, 'Testlage: die Ware ist an Bord (Beat b_fracht)');
+    ok(!!f.fracht && f.beat === 2 && f.phase === 'wartet' && f.nsc.gedaechtnis.slice(-1)[0].ereignis === 'fracht_geladen', 'Testlage: die Ware ist an Bord, der Lade-Beat ist zu Ende (Beat b_forderung wartet), Gedaechtnis fracht_geladen');
     stille(p.g);
-    const r = Fracht.verloren(p.g, f.id);   // dieselbe Funktion, über die später die Piraten (BEA-01) die Ware nehmen
-    ok(r.ok && !f.fracht, 'die Ware ist verloren (Fracht-Beat gescheitert)');
-    ok(f.nsc.gedaechtnis.some((x) => x.ereignis === 'fracht_gescheitert'), 'das Gedächtnis schreibt fracht_gescheitert');
-    await keineWirkung(p, f, 'Piraten');
+    await waehle(p, f, 'ausliefern');
+    ok(!f.fracht && f.nsc.gedaechtnis.some((x) => x.ereignis === 'fracht_gescheitert') && f.nsc.gedaechtnis.slice(-1)[0].ereignis === 'forderung_gescheitert', 'die Ware ist weg, das Gedaechtnis schreibt fracht_gescheitert (verlorene Ladung) und danach forderung_gescheitert');
+    await keineWirkung(p, f, 'Piraten (Ausliefern)');
+  });
+
+  await section('(2b) Ware zwischen den Beats verloren (Notsprung nach dem Laden): Gedaechtnis kennt die verlorene Ladung', async () => {
+    const p = partie(512);
+    const f = await bisBitte(p);
+    await annehmenBisWare(p, f);
+    stille(p.g);
+    const r = Fracht.verloren(p.g, f.id);   // zwischen den Beats (phase wartet): kein Beat, der scheitern koennte
+    ok(r.ok && !f.fracht, 'die Ware ist verloren (Faden wartet)');
+    ok(f.nsc.gedaechtnis.map((x) => x.ereignis).join() === 'bitte_gelungen,fracht_geladen,fracht_gescheitert', 'das Gedaechtnis schreibt fracht_gescheitert (BEA-01 C1: nicht nur das Laden): ' + f.nsc.gedaechtnis.map((x) => x.ereignis).join());
+    ok(P3.notrufText(f.nsc, { parameter: { text_key: 'notruf_standard' } }) === 'notruf_erinnert_fracht', 'ein spaeterer Notruf erinnert sich an die verlorene Ladung');
   });
 
   await section('(3) Verweigern, Notsprung, Frist', async () => {
@@ -253,6 +281,8 @@ async function keineWirkung(p, f, titel) {
       await annehmenBisWare(p, f);
       ok(!!f.fracht, 'Testlage: Ware an Bord');
       stille(p.g);
+      for (let i = 0; i < 12 && !(f.phase === 'laeuft' && f.laufend && f.laufend.beat === 'b_forderung'); i++) await runde(p.g);   // BEA-01 C1: die Ware geht erst im Beat danach verloren: die Forderung laeuft, niemand antwortet
+      ok(f.phase === 'laeuft' && !!f.fracht, 'Testlage: die Forderung laeuft, die Ware ist noch an Bord');
       X.grenzen(p.g, BEAT_FRIST + 1);
       ok(!f.fracht && f.nsc.gedaechtnis.some((x) => x.ereignis === 'fracht_gescheitert'), 'Frist abgelaufen: Ware weg, fracht_gescheitert');
       await keineWirkung(p, f, 'Frist');
@@ -297,7 +327,7 @@ async function keineWirkung(p, f, titel) {
       for (let i = 0; i < 8 && !Bitte.offen(g); i++) await runde(g);
       await annehmenBisWare(p, h);
       if (!h.fracht) throw new Error('keine Ware an Bord');
-      abliefern(p, h);
+      await abliefern(p, h);
       stille(g);
       h.zaehler = h.abstand;
       return h;
@@ -329,7 +359,7 @@ async function keineWirkung(p, f, titel) {
     const t3 = nscFunk(e3.p, e3.f, /Ich bin Germane/).pop();
     ok(feindBefehle(e3.g).length === 0 && e3.f.nsc.status === 'geflohen' && lb3 && lb3.ausgang === 'sim_befehl_abgelehnt' && /hochgestuft|keine bereite/.test(lb3.begruendung), 'alle Flotten schon hochgestuft: nichts vorgemerkt, NSC geflohen, Logbuch sim_befehl_abgelehnt (' + (lb3 && lb3.begruendung) + ')');
     ok(!!t3 && t3.text === String(TX.texte.enthuellung_invasion_ohne).replace('{ort}', nameVon(ORT)), 'Fallback-Text enthuellung_invasion_ohne (' + (t3 && t3.text) + ')');
-    ok(e3.f.beat === 3, 'der Faden geht weiter (b_jagd)');
+    ok(e3.f.beat === ENTH_BEAT + 1, 'der Faden geht weiter (b_jagd)');
   });
 
   console.log(`\n${n - fails}/${n} Prüfungen ok`);

@@ -32,7 +32,7 @@ const lies = (...p) => JSON.parse(fs.readFileSync(path.join(__dirname, '..', ...
 const TEXTE = lies('content', 'faeden', 'forderung-texte.json');
 const WERTE = lies('content', 'faeden', 'forderung-werte.json').werte;
 const SZ = lies('content', 'faeden', 'szenen-werte.json');
-const FH = lies('content', 'faeden', 'vorlagen', 'falscher_haendler.json');
+const FH = lies('tools', 'fixtures', 'faeden', 'falscher_haendler-fad01.json');   // BEA-01 C1: Grundlage der Test-Variante ist die Vorlage wie in FAD-01 (sechs Beats, Fixture aus acf7795c); die echte Vorlage (zehn Beats, Beispiel 1) prueft test-faden-beispiel1.js
 const BEAT_FRIST = 6, BITTE_FRIST = 4;   // werte.json beat_frist, bitte-werte.json frist_taetigkeiten (eigene Zahlen: stimmen sie nicht mehr, scheitert der Frist-Test sichtbar)
 const ZIEL = '0305';
 const PREIS = WERTE.bestechung_marken.wert.mittel;   // Standard-Staerke der Daten (staerke_standard mittel)
@@ -186,7 +186,7 @@ const antwort = (g, id) => Bitte.beantworten(g, id, angebot(g) ? angebot(g).nr :
         { id: 'b_schmier', typ: 'schmiergeld', optionen: optionen('schmiergeld'), aus: { gelungen: WEG('verbuendet', 'b_abgabe'), gescheitert: WEG('aktiv', 'b_kampf') } },
         { id: 'b_kampf', typ: 'raumschlacht', aus: { gelungen: WEG('aktiv', 'b_abgabe'), gescheitert: WEG('aktiv', 'b_abschluss') } },
         { id: 'b_abgabe', typ: 'fracht', parameter: { nach: '$ort', ende: 'abgeliefert' }, aus: { gelungen: WEG('verbuendet', 'b_enthuell'), gescheitert: WEG('aktiv', 'b_abschluss') } });
-      v.beats = v.beats.filter((b) => b.id !== 'b_jagd' && b.id !== 'b_schlacht');   // beats_max 8: ohne Verfolgung und Schlussschlacht (Beispiel 1 mit beiden neuen Beats hat 10 Beats: Befund fuer Paket C)
+      v.beats = v.beats.filter((b) => b.id !== 'b_jagd' && b.id !== 'b_schlacht');   // beats_max 8: ohne Verfolgung und Schlussschlacht (Beispiel 1 mit beiden neuen Beats hat 10 Beats: seit BEA-01 C1 echt in der Vorlage, vorlage_beats_max 10; diese Test-Variante bleibt bei acht)
       v.beats.find((b) => b.id === 'b_enthuell').aus = { gelungen: { status: 'feindlich', weiter: 'b_abschluss', folge: [{ typ: 'sim_befehl' }] }, gescheitert: { status: 'geflohen', weiter: 'b_abschluss' } };
       if (aendern) aendern(v);
       return v;

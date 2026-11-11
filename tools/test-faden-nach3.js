@@ -17,6 +17,7 @@ const P3 = require('../server/sim/faden-p3.js');
 const Faden = require('../server/sim/faden.js');
 const Abspann = require('../server/sim/abspann.js');
 const Dat = require('../server/weltsim/daten.js');
+const Geld = require('../server/sim/geld.js');   // BEA-01 C1: Marken fuer das Bestechen im Bot-Durchlauf
 const { D } = X;
 const { neu, funkMit, liste, pumpen, runde, notrufOhneOrt } = V;
 
@@ -279,7 +280,7 @@ async function main() {
       ok(!e.includes('fracht_gescheitert') && e.includes('fracht_ohne_ware'), `das Gedaechtnis schreibt fracht_ohne_ware, nicht fracht_gescheitert (${e.join(',')})`);
       ok(P3.notrufText(f.nsc, { parameter: { text_key: 'notruf_standard' } }) === 'notruf_standard', 'ein spaeterer Notruf erinnert sich nicht an eine Ladung, die es nie gab');
       // FAD-01 C: ohne Ablieferung (hier: keine Ware) fuehrt der Faden direkt in den Abschluss, die Enthuellung kommt nie
-      ok(f.beat === 5 && !funk.some((x) => /^Ich bin Germane/.test(String(x.text))) && !g.weltsim.regie.vorgemerkt.some((x) => ['sabotage', 'invasion'].includes(x.b.typ)), 'ohne Ablieferung keine Enthuellung (Beat ' + f.beat + '), keine Funkzeile Ich bin Germane, keine Sim-Befehle vorgemerkt (' + g.weltsim.regie.vorgemerkt.map((x) => x.b.typ).join(',') + ')');
+      ok(f.beat === 9 && !funk.some((x) => /^Ich bin Germane/.test(String(x.text))) && !g.weltsim.regie.vorgemerkt.some((x) => ['sabotage', 'invasion'].includes(x.b.typ)), 'ohne Ablieferung keine Enthuellung (Beat ' + f.beat + '), keine Funkzeile Ich bin Germane, keine Sim-Befehle vorgemerkt (' + g.weltsim.regie.vorgemerkt.map((x) => x.b.typ).join(',') + ')');
     }
     {   // eine Ware war an Bord und ging verloren (Frist): fracht_gescheitert bleibt
       const g = neu(351); ab(g);
@@ -288,9 +289,12 @@ async function main() {
       Bitte.beantworten(g, 'annehmen', Bitte.offen(g).nr);
       for (let i = 0; i < 12 && !f.fracht; i++) await runde(g);
       ok(!!f.fracht, 'Testlage: die Ware ist an Bord');
+      // BEA-01 C1: der Lade-Beat endet sofort, die Ware geht erst im Beat danach (forderung, Schweigen = Frist) verloren: der NSC erinnert sich trotzdem an die verlorene Ladung (fracht_gescheitert)
+      X.grenzen(g, f.abstand); weiter(g, f);
+      ok(f.laufend && f.laufend.beat === 'b_forderung' && !!f.fracht, 'Testlage: die Forderung laeuft, die Ware ist noch an Bord');
       X.grenzen(g, BEAT_FRIST + 1);
       const e = f.nsc.gedaechtnis.map((x) => x.ereignis);
-      ok(e.includes('fracht_gescheitert') && !e.includes('fracht_ohne_ware'), `Ware verloren (Frist): fracht_gescheitert (${e.join(',')})`);
+      ok(!f.fracht && e.includes('fracht_gescheitert') && !e.includes('fracht_ohne_ware') && e.slice(-1)[0] === 'forderung_gescheitert', `Ware verloren (Frist der Forderung): fracht_gescheitert, danach das Ereignis des Beats (${e.join(',')})`);
       ok(P3.notrufText(f.nsc, { parameter: { text_key: 'notruf_standard' } }) === 'notruf_erinnert_fracht', 'ein spaeterer Notruf erinnert sich an die verlorene Ladung');
     }
   }
@@ -307,7 +311,7 @@ async function main() {
     ok(Bitte.offen(g) === null, 'die Bitte ist NICHT angeboten');
     ok(f.hinweise.includes('h_gerucht') && funk.some((x) => x.from === 'Hafenfunk'), 'der Gerücht-Hinweis ging trotzdem raus (mit dem Beginn des Beats)');
     X.grenzen(g, BEAT_FRIST + 1);
-    ok(f.phase === 'wartet' && f.beat === 5, `die Frist hat den Beat beendet, der Faden steht vor dem Abschluss, nicht vor der Enthuellung (Beat ${f.beat})`);
+    ok(f.phase === 'wartet' && f.beat === 9, `die Frist hat den Beat beendet, der Faden steht vor dem Abschluss, nicht vor der Enthuellung (Beat ${f.beat})`);
     X.grenzen(g, f.abstand);
     const pr = Pruefer.befehlPruefen(g.weltsim.faeden, { typ: 'faden_weiter', faden: f.id, beat: 'b_abschluss' }, Pruefer.neuerKontext());
     ok(pr === null, 'faden_weiter zum Abschluss wird angenommen (die Enthuellung kommt ohne Ablieferung nie)' + (pr ? ': ' + pr : ''));
@@ -377,6 +381,7 @@ async function main() {
         const typ = v.beats.find((b) => b.id === bid).typ;
         if (typ === 'bitte') { const off = Bitte.offen(g); if (off && off.fadenId === f.id) { Bitte.beantworten(g, 'annehmen', off.nr); ziel.set(bid, 'erledigt'); } }
         else if (typ === 'notruf') { ankunft(g, f.parameter.ort); ziel.set(bid, 'erledigt'); }
+        else if (typ === 'forderung' || typ === 'schmiergeld') { const off = Bitte.offen(g), opt = (v.beats.find((b) => b.id === bid).optionen || []).find((o) => o.ausgang === 'gelungen'); if (off && off.fadenId === f.id && opt) { Geld.standSetzen(g, 500, 'testmarken'); Bitte.beantworten(g, opt.id, off.nr); ziel.set(bid, 'erledigt'); } }   // BEA-01 C1: die Wahl der Forderung (Bestechen kostet Marken)
         else if (typ === 'fracht') { if (f.fracht) { ankunft(g, f.fracht.nach); g.missionEvent('docked', {}); ab(g); ziel.set(bid, 'erledigt'); } }
         else if (['raumschlacht', 'befreiung', 'verfolgung'].includes(typ)) { if (await toeten(g, typ)) { szenen++; ziel.set(bid, 'erledigt'); } }
       }
@@ -405,7 +410,8 @@ async function main() {
       const e = f ? f.nsc.gedaechtnis.map((x) => x.ereignis) : [];
       const erfolge = D.vorlage(id).beats[D.vorlage(id).beats.length - 1].erfolg.ereignis;
       ok(erfolge.some((x) => e.includes(x)), `${id}: das Gedaechtnis kennt die Leistung der Crew (${e.join(',')})`);
-      const erwEreignisse = r.seq.slice(0, -1).map((bid, i) => D.vorlage(id).beats.find((b) => b.id === bid).typ + '_' + (pfad[i] || 'gelungen'));
+      const ladeEreignis = D.BEATS.fracht.ende_modi.modi.geladen.ereignis;   // BEA-01 C1: ein Lade-Beat (ende geladen) hinterlaesst fracht_geladen statt fracht_gelungen
+      const erwEreignisse = r.seq.slice(0, -1).map((bid, i) => { const b = D.vorlage(id).beats.find((x) => x.id === bid); return b.typ === 'fracht' && b.parameter && b.parameter.ende === 'geladen' ? ladeEreignis : b.typ + '_' + (pfad[i] || 'gelungen'); });
       // FAD-01 C: die Enthuellung wirkt ueber die Invasion der Standardart; die Welt ist vorbereitet (V.bereiteInvasion), der Kern nimmt sie an: der Sollwert kommt aus den Daten (Pfad), nie aus dem Ergebnis
       ok(JSON.stringify(e.slice(0, erwEreignisse.length)) === JSON.stringify(erwEreignisse), `${id}: jeder Beat hat den Ausgang, den die Crew im Spiel hergestellt hat (${erwEreignisse.join(',')}; war ${e.join(',')})`);
       ok(e.includes('abschluss_gelungen') && g.weltsim.ruf.rom > rom0, `${id}: der gelungene Abschluss ist gebucht, der Ruf stieg (${rom0} -> ${g.weltsim.ruf.rom})`);

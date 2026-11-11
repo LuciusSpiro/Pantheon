@@ -26,7 +26,7 @@ const X = require('./faden-fixture.js');
 const { D, spiel, oeffne, grenzen, alsVorlage, registriere } = X;
 
 const TXT = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'content', 'faeden', 'szenen-werte.json'), 'utf8')).texte.fracht;
-const FH = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'content', 'faeden', 'vorlagen', 'falscher_haendler.json'), 'utf8'));
+const FH = JSON.parse(fs.readFileSync(path.join(__dirname, 'fixtures', 'faeden', 'falscher_haendler-fad01.json'), 'utf8'));   // BEA-01 C1: Grundlage der Varianten ist die Vorlage wie in FAD-01 (sechs Beats, Fixture aus acf7795c); die echte Vorlage hat jetzt zehn Beats und prueft test-faden-beispiel1.js
 const BEAT_FRIST = 6;   // content/faeden/werte.json beat_frist (eigene Zahl: der Test setzt sie fest; stimmt sie nicht mehr, scheitert der Frist-Test sichtbar)
 let fails = 0, n = 0;
 const ok = (c, t) => { n++; if (c) console.log('  ok   ' + t); else { fails++; console.log('  FEHLER ' + t); } };
@@ -168,7 +168,8 @@ const ZWISCHEN = (x) => { grenzen(x.g, 5); return weiter(x.g, x.f); };   // b_mi
     { // Lade-Beat selbst ohne Platz/Ziel: gescheitert wie bisher, nichts am Faden
       const x = bereit(37); x.lager0 = lager(x.g);
       const r = registriere(alsVorlage('wb_b_ziel', (v) => { v.nsc.status = 'aktiv'; v.volk_erlaubt = ['rom', 'kon', 'ger']; delete v.wahrheit; delete v.hinweise; v.beats = [
-        { id: 'b_lade', typ: 'fracht', parameter: { nach: '0406', ende: 'geladen' }, aus: { gelungen: { status: 'verbuendet', weiter: 'b_ende' }, gescheitert: { status: 'geflohen', weiter: 'b_ende' } } },
+        { id: 'b_lade', typ: 'fracht', parameter: { nach: '0406', ende: 'geladen' }, aus: { gelungen: { status: 'verbuendet', weiter: 'b_abgabe' }, gescheitert: { status: 'geflohen', weiter: 'b_ende' } } },
+        { id: 'b_abgabe', typ: 'fracht', parameter: { nach: '0406', ende: 'abgeliefert' }, aus: { gelungen: { status: 'verbuendet', weiter: 'b_ende' }, gescheitert: { status: 'geflohen', weiter: 'b_ende' } } },   // BEA-01 C1: nach einem Lade-Beat muss jeder Weg abliefern (LADUNG_NICHT_ABGELIEFERT); der Test prueft nur den Lade-Beat
         { id: 'b_ende', typ: 'abschluss', erfolg: { ereignis: ['fracht_gelungen'] }, aus: { gelungen: {}, gescheitert: { text_key: 'ende_verpasst' } } }]; }));
       ok(r.ok, 'Vorlage mit nicht andockbarem Ziel (0406)');
       const f = oeffne(x.g, 'wb_b_ziel'); grenzen(x.g, 5); weiter(x.g, f);

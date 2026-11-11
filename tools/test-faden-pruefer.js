@@ -128,8 +128,10 @@ section('Ein neuer Beat ist nur ein Katalogeintrag (kein Umbau)', () => {
     ok(hat(v2, 'BAUSTEIN_FEHLT'), 'ein Eintrag mit unbekanntem Baustein wird abgelehnt (BAUSTEIN_FEHLT)');
   } finally { delete D.BEATS.gespraech; }
   ok(hat(Object.assign(vorlageTest(), { beats: vorlageTest().beats.map((b) => (b.id === 'b_spontan' ? Object.assign(b, { typ: 'gespraech' }) : b)) }), 'TYP_UNBEKANNT'), 'ohne den Eintrag ist der Typ wieder unbekannt');
-  const alt = D.WERTE.beats_max; D.WERTE.beats_max = 5;
-  try { ok(hat(vorlageTest(), 'BEATS_ANZAHL'), 'mehr Beats als beats_max (Daten) -> BEATS_ANZAHL'); } finally { D.WERTE.beats_max = alt; }
+  const alt = D.WERTE.vorlage_beats_max; D.WERTE.vorlage_beats_max = 5;   // BEA-01 C1: die Obergrenze der Vorlagen als Datei heisst vorlage_beats_max (beats_max gilt fuer Plaene)
+  try { ok(hat(vorlageTest(), 'BEATS_ANZAHL'), 'mehr Beats als vorlage_beats_max (Daten) -> BEATS_ANZAHL'); } finally { D.WERTE.vorlage_beats_max = alt; }
+  const altP = D.WERTE.beats_max; D.WERTE.beats_max = 2;
+  try { ok(!hat(vorlageTest(), 'BEATS_ANZAHL'), 'beats_max (Plaene) gilt nicht fuer Vorlagen als Datei: mit beats_max 2 bleibt die Testvorlage gueltig'); } finally { D.WERTE.beats_max = altP; }
 });
 
 section('Faden im Zustand (pruefeFaden)', () => {
