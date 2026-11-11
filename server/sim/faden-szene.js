@@ -316,7 +316,7 @@ Bausteine.registriere('fracht', {
       return { ausgang: 'gescheitert' };
     } else {
       const nach = p.nach === '$ort' ? Fracht.zielFuer(game, ort) : p.nach;
-      const r = nach ? Fracht.laden(game, { fadenId: faden.id, ware: p.ware, nachHafen: nach }) : { ok: false };
+      const r = nach ? Fracht.laden(game, { fadenId: faden.id, ware: p.ware, nachHafen: nach, ladung: Fracht.ladungVon(ctx.beat) }) : { ok: false };   // BEA-01 B: Art und Eigenschaften (illegal, getarnt) der Ladung aus den Parametern des Beats (Katalog ladung_parameter)
       if (!r.ok) { Fracht.funk(game, r.platz ? 'kein_platz' : 'kein_ziel', { ort: ort ? Sektoren.hexName(ort) : 'hier' }); return { ausgang: 'gescheitert' }; }
     }
     for (const h of ctx.beat.hinweise || []) Hinweis.senden(game, faden.id, h);   // Nacharbeit F2: der Hinweis (Papiere) wird gesendet, erst dann gilt er

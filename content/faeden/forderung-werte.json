@@ -12,6 +12,16 @@
       "einheit": "Staerke",
       "_hinweis": "Staerke des Forderers, wenn der Beat keine nennt oder eine unbekannte (muss ein Schluessel von bestechung_marken sein)."
     },
+    "fund_ruf": {
+      "wert": { "rom": "schmuggel_entdeckt_rom" },
+      "einheit": "Ruf-Grund (ruf-werte.json quellen) je Fraktion des Forderers",
+      "_hinweis": "BEA-01 B: Folge eines Funds bei der Durchsuchung (es wurde mindestens ein Platz beschlagnahmt): der Ruf-Grund der Fraktion, der der Forderer angehoert (forderung-texte.json forderer.fraktion). Eine Fraktion ohne Eintrag hat keine Ruf-Folge. Einmal je Durchsuchung, nicht je Platz; gebucht ueber faden.folgenAnwenden (Katalog der Wirkungen, kein Deckel der Bitten). Platzhalter-Annahme: nur Rom straft Schmuggel."
+    },
+    "bussgeld_marken": {
+      "wert": { "gering": 15, "mittel": 30, "stark": 60 },
+      "einheit": "Marken je beschlagnahmtem Platz, nach Staerke des Forderers",
+      "_hinweis": "BEA-01 B: Strafe nach einem Fund, je beschlagnahmtem Platz (Geld.bussgeldZahlen, Grund bussgeld, hoechstens der Stand der Crew). Platzhalter-Annahme: deutlich unter der Bestechung (bestechung_marken), damit sich die Bestechung fuer jemanden mit Schmuggelware lohnt, aber die Strafe zaehlt. Die Staerke kommt aus dem Beat-Parameter staerke (wie die Bestechung)."
+    },
     "marken_einheit": {
       "wert": "Marken",
       "einheit": "Text",

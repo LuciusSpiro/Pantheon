@@ -74,6 +74,17 @@ function verlustMelden(game, f) {
   if (f && f.fracht) funk(game, 'verloren', frachtVars(f.fracht));
 }
 
+// BEA-01 B: die Ladung, die ein Beat in den Frachtraum legt (Katalog beats.json ladung_parameter, Parameter des Beats) -> { art, eigenschaften } ohne den Auftrag (den setzt laden). Ohne Parameter: Art fracht, keine Eigenschaften (wie vor BEA-01 B)
+function ladungVon(beat) {
+  const c = beat && Object.prototype.hasOwnProperty.call(D.BEATS, beat.typ) ? D.BEATS[beat.typ] : null, lp = c && c.ladung_parameter;
+  const p = (beat && beat.parameter) || {};
+  if (!lp) return { art: 'fracht', eigenschaften: {} };
+  const art = typeof p[lp.art] === 'string' && p[lp.art] ? p[lp.art] : lp.art_standard;
+  const eigenschaften = {};
+  for (const [param, eig] of Object.entries(lp.eigenschaften || {})) { const v = p[param]; if (v === true || (typeof v === 'string' && v)) eigenschaften[eig] = v; }
+  return { art, eigenschaften };
+}
+
 function laden(game, o) {
   const q = o || {};
   if (!F().aktiv(game)) return { ok: false, grund: 'INAKTIV' };
@@ -89,10 +100,12 @@ function laden(game, o) {
   if (!andockbar(game, fr.nach)) return { ok: false, grund: 'Zielhafen nicht andockbar' };   // nie eine Scheinfracht: die Crew koennte dort nicht abliefern
   // LAD-01 Nacharbeit 2: liegt nur gewoehnliche Fremdware im Weg (Typ-Regel), raeumt der Quartiermeister das kleinste Fremd-Modul (Pod/Hafen, Meldung, Ereignis); Personen, Auftragsware und ein volles Lager nie.
   // Bleibt dann kein Platz, scheitert der Beat mit dem richtigen Grund (platz: true -> Funk „kein_platz“, nicht „kein Hafen“).
-  let pf = Lager.platzFuerLadung(game, { art: 'fracht', eig: { auftrag: f.id } });
-  if (!pf.ok && pf.grund === 'art_belegt' && Lager.fremdesModulRaeumen(game, { art: 'fracht', eig: { auftrag: f.id } })) pf = Lager.platzFuerLadung(game, { art: 'fracht', eig: { auftrag: f.id } });
+  const lad = q.ladung && typeof q.ladung.art === 'string' ? q.ladung : { art: 'fracht', eigenschaften: {} };   // BEA-01 B: Art und Eigenschaften (illegal, getarnt) aus den Parametern des Beats (ladungVon); der Auftrag des Fadens kommt immer dazu
+  const eig = Object.assign({}, lad.eigenschaften, { auftrag: f.id });
+  let pf = Lager.platzFuerLadung(game, { art: lad.art, eig });
+  if (!pf.ok && pf.grund === 'art_belegt' && Lager.fremdesModulRaeumen(game, { art: lad.art, eig })) pf = Lager.platzFuerLadung(game, { art: lad.art, eig });
   if (!pf.ok) return { ok: false, grund: pf.text, platz: true };   // LAD-01 C: Typ-Regel/Kapazitaet gelten auch fuer die Faden-Ware (nie eine Scheinfracht)
-  const r = Lager.lagerAufnehmen(game, { art: 'fracht', quelle: 'faden', eigenschaften: { auftrag: f.id } });   // LAD-01 B: die Ladung gehoert diesem Faden (Tag = Faden-ID): nicht verkaufbar, nicht an irgendeiner Station abgebbar
+  const r = Lager.lagerAufnehmen(game, { art: lad.art, quelle: 'faden', eigenschaften: eig });   // LAD-01 B: die Ladung gehoert diesem Faden (Tag = Faden-ID): nicht verkaufbar, nicht an irgendeiner Station abgebbar
   if (!r.ok) return { ok: false, grund: r.text };
   f.fracht = fr;
   funk(game, 'laden', frachtVars(fr));
@@ -170,11 +183,13 @@ function behaeltWare(f, beat, ausgang) {
   if (!f || !f.fracht) return false;
   const m = D.endeModus(beat);
   if (m) return ausgang === 'gelungen' && m.haelt === true;
-  if (ausgang === 'gescheitert' && wareBleibtBeiScheitern(beat)) return true;   // BEA-01 A: Katalogfeld ware_bei_scheitern "bleibt" (beats.json): das Scheitern dieses Beats (Verweigern, Frist) nimmt die Ware nicht; der Verlust kommt aus dem Beat danach
+  if (ausgang === 'gescheitert' && (wareBleibtBeiScheitern(beat) || artBleibtBeiScheitern(beat))) return true;   // BEA-01 B: auch der Modus (art) des Beats kann es verlangen (Durchsuchung nimmt die Ware des Fadens nie). BEA-01 A: Katalogfeld ware_bei_scheitern "bleibt" (beats.json): das Scheitern dieses Beats (Verweigern, Frist) nimmt die Ware nicht; der Verlust kommt aus dem Beat danach
   return ausgang !== 'gescheitert';
 }
 // BEA-01 A: der Katalog nimmt das Scheitern dieses Beat-Typs von der Regel „Zwischen-Beat scheitert = Ware verloren“ aus (ware_bei_scheitern: "bleibt"); kein Beat-Name im Code
 const wareBleibtBeiScheitern = (beat) => !!(beat && Object.prototype.hasOwnProperty.call(D.BEATS, beat.typ) && D.BEATS[beat.typ].ware_bei_scheitern === 'bleibt');
+// BEA-01 B: dasselbe fuer den Modus (Parameter art, Katalog art_modi) des Beats: ware_bei_scheitern des Modus gilt zusaetzlich zu dem des Beat-Typs; kein Beat-Name im Code
+const artBleibtBeiScheitern = (beat) => { const m = D.artModus(beat); return !!(m && m.ware_bei_scheitern === 'bleibt'); };
 // Gedaechtnis-Ereignis eines gelungenen Beats mit besonderem Ende (Lade-Beat: fracht_geladen statt fracht_gelungen, damit das Laden allein nie als Lieferung zaehlt); sonst null
 const endeEreignis = (beat, ausgang) => { const m = ausgang === 'gelungen' ? D.endeModus(beat) : null; return m && typeof m.ereignis === 'string' ? m.ereignis : null; };
 // Die Ware zwischen den Beats geht verloren (Notsprung in der Wartezeit): Funk, Frachtraum leer, Ware vom Faden
@@ -195,4 +210,4 @@ function ladeBeatDavor(v, beatIndex) {
   return false;
 }
 
-module.exports = { ladeBeatDavor, liefertBeat, anBord, behaeltWare, endeEreignis, wareMoeglich, aufraeumen, tagErloschen, laden, entladen, andocken, verloren, notsprung, inventar, leseFracht, zielFuer, andockbar, verlustMelden, funk, WAREN };
+module.exports = { ladungVon, ladeBeatDavor, liefertBeat, anBord, behaeltWare, endeEreignis, wareMoeglich, aufraeumen, tagErloschen, laden, entladen, andocken, verloren, notsprung, inventar, leseFracht, zielFuer, andockbar, verlustMelden, funk, WAREN };

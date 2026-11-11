@@ -163,4 +163,23 @@ function endeModus(beat) {
   return typeof k === 'string' && Object.prototype.hasOwnProperty.call(e.modi, k) ? e.modi[k] : null;
 }
 
-module.exports = { endeModus, WERTE, BEATS, NAMEN, HALTUNG, HALTUNG_DATEI, BITTE, BAUPLAN, B1, B2, BRETT, ANSCHLUSS, DIR, registriereAbenteuer, raeumeAbenteuerAuf, abenteuerAnzahl, abenteuerId, istAbenteuer, vorlage, vorlagenIds, registriere, entferne, ladeVerzeichnis, ladefehler, zuruecksetzen };
+// BEA-01 B: die Art eines Beats (Katalog beats.json art_modi, Parameter art des Beats oder Standard) -> { id, ...Felder des Modus } | null (Beat-Typ ohne art_modi). Ohne Parameter gilt der Standard (heute das Verhalten aus Paket A, Modus ohne Felder).
+// Felder eines Modus ersetzen die des Beat-Typs: optionen_wirkung, text_key_standard, ware_bei_scheitern; tiefen = erlaubte Werte des Parameters tiefe (nur dieser Modus kennt ihn).
+function artModus(beat) {
+  const c = beat && Object.prototype.hasOwnProperty.call(BEATS, beat.typ) ? BEATS[beat.typ] : null;
+  const a = c && c.art_modi;
+  if (!a) return null;
+  const p = (beat && beat.parameter) || {};
+  const k = Object.prototype.hasOwnProperty.call(p, a.parameter) ? p[a.parameter] : a.standard;
+  return typeof k === 'string' && Object.prototype.hasOwnProperty.call(a.modi, k) ? Object.assign({ id: k }, a.modi[k]) : null;
+}
+// BEA-01 B: die Tiefe der Durchsuchung (Parameter tiefe, sonst Standard der Daten) des Beats; null, wenn sein Modus keine Tiefe kennt
+function tiefeVon(beat) {
+  const m = artModus(beat), t = m && m.tiefen;
+  if (!t) return null;
+  const p = (beat && beat.parameter) || {};
+  const k = Object.prototype.hasOwnProperty.call(p, t.parameter) ? p[t.parameter] : t.standard;
+  return t.werte.includes(k) ? k : t.standard;
+}
+
+module.exports = { endeModus, artModus, tiefeVon, WERTE, BEATS, NAMEN, HALTUNG, HALTUNG_DATEI, BITTE, BAUPLAN, B1, B2, BRETT, ANSCHLUSS, DIR, registriereAbenteuer, raeumeAbenteuerAuf, abenteuerAnzahl, abenteuerId, istAbenteuer, vorlage, vorlagenIds, registriere, entferne, ladeVerzeichnis, ladefehler, zuruecksetzen };

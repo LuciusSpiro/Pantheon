@@ -250,6 +250,8 @@ function nachTaetigkeit(game) {
     else if (F.t >= off.bis && Faden().spielleiterAktiv(game)) {   // Verfall in Taetigkeiten: der Beat gilt als gescheitert (der Faden verändert sich, endet nicht). Nacharbeit L9: nur mit aktivem Spielleiter (B-S3 „begonnene Fäden stehen“, wie die Frist des Beats in faden.js)
       F.bitte = null;
       logbuch(game, 'faden_ereignis', { ausgang: 'verfall', key: off.fadenId, begruendung: `Bitte ${off.beatId} verfallen nach ${BW.frist_taetigkeiten} Tätigkeiten: gescheitert`, plan: { faden: off.fadenId, beat: off.beatId } });
+      const bsV = bausteinVon(D.vorlage(f.vorlage).beats[f.beat].typ);   // BEA-01 B: ein Baustein darf Schweigen als eine Option werten (Katalog bei_verfall: die Durchsuchung laeuft auch ohne Antwort); der Ausgang bleibt gescheitert
+      if (bsV && typeof bsV.verfall === 'function') { try { bsV.verfall(game, f, D.vorlage(f.vorlage).beats[f.beat]); } catch (e) { fehlerZaehlen(game, 'faden-bitte-baustein', e); } }
       Faden().beatAusgang(game, off.fadenId, 'gescheitert');
       return;
     }

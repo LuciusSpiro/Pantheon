@@ -10,13 +10,22 @@
     "forderung_freibeuter": { "forderer": "freibeuter", "text": "Halt! Gebt uns die {ware}, dann dürft ihr ziehen." },
     "schmiergeld_freibeuter": { "forderer": "freibeuter", "text": "Vielleicht regeln wir das anders: {marken}, und wir sehen weg." },
     "forderung_zollschiff": { "forderer": "zollschiff", "text": "Zoll bei {ort}: Die {ware} wird beschlagnahmt." },
-    "schmiergeld_zollschiff": { "forderer": "zollschiff", "text": "Man könnte die Papiere vergessen: {marken}." }
+    "schmiergeld_zollschiff": { "forderer": "zollschiff", "text": "Man könnte die Papiere vergessen: {marken}." },
+    "durchsuchung_zollschiff": { "forderer": "zollschiff", "text": "Zoll bei {ort}: Frachtraum zur Prüfung öffnen." },
+    "schmiergeld_durchsuchung_zollschiff": { "forderer": "zollschiff", "text": "Die Prüfung ließe sich vergessen: {marken}." }
   },
   "reaktionen": {
     "ausliefern": "Vernünftig. Die {ware} gehört jetzt uns.",
     "nicht_ausliefern": "Ihr wollt sie behalten? Dann reden wir.",
     "bestechen": "Zahlung erhalten. Weiterfliegen, wir haben nichts gesehen.",
-    "verweigern": "Kein Geld, keine Ware? Dann holen wir sie uns."
+    "verweigern": "Kein Geld, keine Ware? Dann holen wir sie uns.",
+    "dulden": "Wir sehen uns den Frachtraum an.",
+    "nicht_dulden": "Keine Prüfung? Dann reden wir anders."
+  },
+  "durchsuchung": {
+    "fund": "Schmuggelware an Bord. Beschlagnahmt: {n}.",
+    "bussgeld": "Bußgeld: {marken}.",
+    "sauber": "Frachtraum geprüft. Weiterfliegen."
   },
   "ablehnung": {
     "zu_wenig_marken": "Dafür fehlen uns die Marken."

@@ -145,6 +145,44 @@ function optionenFehler(beat, cat) {
   for (let a = 0; a < profile.length; a++) for (let b = a + 1; b < profile.length; b++) if (profile[a].p && profile[a].p === profile[b].p) out.push(fehl('SCHEINWAHL', `Beat ${beat.id}: die Optionen ${profile[a].id} und ${profile[b].id} haben dieselbe Folge (${profile[a].p}), das ist keine Wahl`));
   return out;
 }
+// BEA-01 B: die Parameter, die der Katalog mit Enum oder Warenarten bindet. Alles aus den Daten: art_modi (Modus art, Tiefe tiefe je Modus, Optionen-Wirkung je Modus) und ladung_parameter (Art und Eigenschaften der Ladung gegen content/waren.json).
+// Unbekannte Werte sind PARAMETER (wie ende), eine Option, die der Modus nicht kennt, OPTION_UNGUELTIG (sonst wirkte sie stumm nichts).
+function artFehler(beat, cat, p) {
+  const out = [];
+  const am = cat.art_modi;
+  if (am) {
+    if (has(p, am.parameter) && !has(am.modi, p[am.parameter])) out.push(fehl('PARAMETER', `Beat ${beat.id} (${beat.typ}): ${am.parameter} "${String(p[am.parameter]).slice(0, 40)}" ist unbekannt (erlaubt: ${Object.keys(am.modi).join(', ')})`));
+    const modus = D.artModus(beat);
+    for (const m of Object.values(am.modi)) {
+      const t = m.tiefen;
+      if (!t || !has(p, t.parameter)) continue;
+      if (!modus || !modus.tiefen || modus.tiefen.parameter !== t.parameter) out.push(fehl('PARAMETER', `Beat ${beat.id} (${beat.typ}): ${t.parameter} gibt es nur mit ${am.parameter} ${Object.keys(am.modi).filter((k) => am.modi[k].tiefen).join(', ')}`));
+      else if (!t.werte.includes(p[t.parameter])) out.push(fehl('PARAMETER', `Beat ${beat.id} (${beat.typ}): ${t.parameter} "${String(p[t.parameter]).slice(0, 40)}" ist unbekannt (erlaubt: ${t.werte.join(', ')})`));
+    }
+  }
+  const wirk = (am && D.artModus(beat) && D.artModus(beat).optionen_wirkung) || cat.optionen_wirkung;
+  if (wirk && Array.isArray(beat.optionen)) for (const o of beat.optionen) if (o && typeof o.id === 'string' && !has(wirk, o.id)) out.push(fehl('OPTION_UNGUELTIG', `Beat ${beat.id} (${beat.typ}): die Option ${o.id} gehoert nicht zu dieser Art (erlaubt: ${Object.keys(wirk).join(', ')})`));
+  const lp = cat.ladung_parameter;
+  if (lp) {
+    const Waren = require('../../shared/waren.js');
+    const art = has(p, lp.art) ? p[lp.art] : lp.art_standard;
+    if (has(p, lp.art) && !(typeof p[lp.art] === 'string' && Waren.artOk(p[lp.art]))) out.push(fehl('PARAMETER', `Beat ${beat.id} (${beat.typ}): ${lp.art} "${String(p[lp.art]).slice(0, 40)}" ist keine Ware aus waren.json (erlaubt: ${Waren.arten().join(', ')})`));
+    const w = Waren.artOk(art) ? Waren.get(art) : null;
+    if (w) {
+      if (!w.eigenschaften.includes('auftrag')) out.push(fehl('PARAMETER', `Beat ${beat.id} (${beat.typ}): die Ware ${art} kann keinen Auftrag tragen (waren.json eigenschaften), der Faden kann sie nicht laden`));
+      for (const [param, eig] of Object.entries(lp.eigenschaften || {})) {
+        const v = p[param];
+        if (v === undefined || v === false) continue;
+        if (!w.eigenschaften.includes(eig)) out.push(fehl('PARAMETER', `Beat ${beat.id} (${beat.typ}): die Ware ${art} kann die Eigenschaft ${eig} nicht tragen (waren.json eigenschaften)`));
+        if (typeof v === 'string' && (!Waren.artOk(v) || v === art)) out.push(fehl('PARAMETER', `Beat ${beat.id} (${beat.typ}): ${param} "${v.slice(0, 40)}" muss eine andere Ware aus waren.json sein als die Ladung (${art}); erlaubt: ${Waren.arten().filter((k) => k !== art).join(', ')}`));
+        if (v === true && eig !== 'illegal') out.push(fehl('PARAMETER', `Beat ${beat.id} (${beat.typ}): ${param} braucht eine Art (Text), keinen Wahrheitswert`));
+        if (typeof v === 'string' && eig === 'illegal') out.push(fehl('PARAMETER', `Beat ${beat.id} (${beat.typ}): ${param} ist ein Wahrheitswert`));
+      }
+    }
+    for (const [param, eig] of Object.entries(lp.eigenschaften || {})) if (has(p, param) && typeof p[param] !== 'boolean' && typeof p[param] !== 'string') out.push(fehl('PARAMETER', `Beat ${beat.id} (${beat.typ}): ${param} (${eig}) ist ein Wahrheitswert oder eine Art`));
+  }
+  return out;
+}
 function parameterFehler(beat, cat) {
   const out = [];
   const spec = cat.parameter || { pflicht: [], optional: [] };
@@ -157,6 +195,7 @@ function parameterFehler(beat, cat) {
     else if (k === 'text_key' && !(typeof p[k] === 'string' && TEXT_KEY.test(p[k]))) out.push(fehl('TEXT_KEY', `Beat ${beat.id}: parameter text_key "${String(p[k]).slice(0, 40)}" ist ungültig (nur a-z, 0-9, _, 1 bis 40 Zeichen; der Weltstand verlangt es)`));
   }
   if (cat.ende_modi && has(p, cat.ende_modi.parameter) && !has(cat.ende_modi.modi, p[cat.ende_modi.parameter])) out.push(fehl('PARAMETER', `Beat ${beat.id} (${beat.typ}): ${cat.ende_modi.parameter} "${String(p[cat.ende_modi.parameter]).slice(0, 40)}" ist unbekannt (erlaubt: ${Object.keys(cat.ende_modi.modi).join(', ')})`));   // BEA-01 C0: der Ende-Modus kommt aus dem Katalog (beats.json ende_modi)
+  out.push(...artFehler(beat, cat, p));   // BEA-01 B: Parameter art/tiefe (Katalog art_modi), Optionen des Modus, Ladung (Katalog ladung_parameter)
   if (erlaubt.includes('hex') && has(p, 'hex') && !(typeof p.hex === 'string' && HEX.test(p.hex) && sundSpielbar(p.hex))) out.push(fehl('PARAMETER', `Beat ${beat.id} (${beat.typ}): der Parameter hex ist kein spielbarer Sektor der Karte`));   // SUND-04b B1: Ankunftsort der Beats geruecht, wiedersehen, notruf
   const braucht = cat.braucht || {};
   for (const k of spec.pflicht || []) if (!(k in p) && !(k === 'fluchtziel' && braucht.fluchtziel)) out.push(fehl('PARAMETER', `Beat ${beat.id} (${beat.typ}): Pflichtparameter "${k}" fehlt`));
