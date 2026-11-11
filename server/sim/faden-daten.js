@@ -153,4 +153,14 @@ const entferne = (id) => { init(); registry.delete(id); };
 const ladefehler = () => { init(); return fehlerListe.slice(); };
 function zuruecksetzen() { registry.clear(); abenteuer.clear(); abenteuerBesitzer.clear(); fehlerListe = []; geladen = false; }
 
-module.exports = { WERTE, BEATS, NAMEN, HALTUNG, HALTUNG_DATEI, BITTE, BAUPLAN, B1, B2, BRETT, ANSCHLUSS, DIR, registriereAbenteuer, raeumeAbenteuerAuf, abenteuerAnzahl, abenteuerId, istAbenteuer, vorlage, vorlagenIds, registriere, entferne, ladeVerzeichnis, ladefehler, zuruecksetzen };
+// BEA-01 C0: der Ende-Modus eines Beats (Katalog beats.json ende_modi, Parameter des Beats oder Standard) -> { liefert, haelt, tat, ereignis? } | null (Beat ohne Ware-Ende)
+function endeModus(beat) {
+  const c = beat && Object.prototype.hasOwnProperty.call(BEATS, beat.typ) ? BEATS[beat.typ] : null;
+  const e = c && c.ende_modi;
+  if (!e) return null;
+  const p = (beat && beat.parameter) || {};
+  const k = Object.prototype.hasOwnProperty.call(p, e.parameter) ? p[e.parameter] : e.standard;
+  return typeof k === 'string' && Object.prototype.hasOwnProperty.call(e.modi, k) ? e.modi[k] : null;
+}
+
+module.exports = { endeModus, WERTE, BEATS, NAMEN, HALTUNG, HALTUNG_DATEI, BITTE, BAUPLAN, B1, B2, BRETT, ANSCHLUSS, DIR, registriereAbenteuer, raeumeAbenteuerAuf, abenteuerAnzahl, abenteuerId, istAbenteuer, vorlage, vorlagenIds, registriere, entferne, ladeVerzeichnis, ladefehler, zuruecksetzen };

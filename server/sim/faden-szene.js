@@ -310,10 +310,18 @@ Bausteine.registriere('fracht', {
     // P3: „$ort“ ist der Ort des Fadens (der Zielhafen ist der Ort, an dem die Crew den NSC traf); die Hinweise des Beats gelten mit der Beladung (B-S1)
     // Nacharbeit F6: „$ort“ = der naechste ANDOCKBARE roemische/Konkordat-Hafen in Reichweite des Ortes (Fracht.zielFuer); gibt es keinen, wird nie eine Scheinfracht geladen
     const ort = faden.parameter && faden.parameter.ort;
-    const nach = p.nach === '$ort' ? Fracht.zielFuer(game, ort) : p.nach;
-    const r = nach ? Fracht.laden(game, { fadenId: faden.id, ware: p.ware, nachHafen: nach }) : { ok: false };
-    if (!r.ok) { Fracht.funk(game, r.platz ? 'kein_platz' : 'kein_ziel', { ort: ort ? Sektoren.hexName(ort) : 'hier' }); return { ausgang: 'gescheitert' }; }
+    if (faden.fracht) {   // BEA-01 C0: ein frueherer Beat hat die Ware schon geladen (Ende-Modus haelt): nicht noch einmal laden, das Lieferziel bleibt faden.fracht.nach; ist die Ladung unterwegs verloren gegangen, scheitert der Beat
+      if (!Fracht.anBord(game, faden.id)) return { ausgang: 'gescheitert' };
+    } else if (Fracht.ladeBeatDavor(ctx.vorlage, faden.beat)) {   // BEA-01 C0: ein Lade-Beat lag davor, die Ware ging unterwegs verloren: nie noch einmal laden (sonst reichte ein Notsprung, um die Lieferung zu erneuern)
+      return { ausgang: 'gescheitert' };
+    } else {
+      const nach = p.nach === '$ort' ? Fracht.zielFuer(game, ort) : p.nach;
+      const r = nach ? Fracht.laden(game, { fadenId: faden.id, ware: p.ware, nachHafen: nach }) : { ok: false };
+      if (!r.ok) { Fracht.funk(game, r.platz ? 'kein_platz' : 'kein_ziel', { ort: ort ? Sektoren.hexName(ort) : 'hier' }); return { ausgang: 'gescheitert' }; }
+    }
     for (const h of ctx.beat.hinweise || []) Hinweis.senden(game, faden.id, h);   // Nacharbeit F2: der Hinweis (Papiere) wird gesendet, erst dann gilt er
+    const modus = D.endeModus(ctx.beat);   // BEA-01 C0: Ende-Modus haelt: der Beat endet gelungen, sobald die Ware geladen ist (die Ware bleibt am Faden)
+    if (modus && modus.haelt) return { ausgang: 'gelungen' };
     return { laeuft: true };
   },
 });

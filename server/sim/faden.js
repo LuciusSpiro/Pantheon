@@ -440,12 +440,15 @@ function beatAusgang(game, fadenId, ausgang) {
   if (o.status && f.nsc.status !== 'tot') f.nsc.status = o.status;   // ein toter NSC bleibt tot
   folgenAnwenden(game, f, o.folge, true);
   // Welle 3: ein Beat mit Ware (Katalog ereignis_ohne_ware), der scheitert, OHNE dass je eine Ware an Bord war (kein Hafen in Reichweite), hinterlaesst nicht „fracht_gescheitert“: der NSC erinnert sich nur an eine Ladung, die es gab
-  const ereignis = vb ? W.variante_ereignis + vb.typ + '_' + ausgang : ausgang === 'gescheitert' && cat.ereignis_ohne_ware && !f.fracht ? cat.ereignis_ohne_ware : beat.typ + '_' + ausgang;
+  const bleibt = !cat.abschluss && FrachtDaten.behaeltWare(f, beat, ausgang);   // BEA-01 C0: die Ware bleibt am Faden (Lade-Beat gelungen, Zwischen-Beat nicht gescheitert), sonst gilt das Ende wie bisher
+  const ereignis = vb ? W.variante_ereignis + vb.typ + '_' + ausgang : ausgang === 'gescheitert' && cat.ereignis_ohne_ware && !f.fracht && !FrachtDaten.ladeBeatDavor(v, f.beat) ? cat.ereignis_ohne_ware : FrachtDaten.endeEreignis(beat, ausgang) || beat.typ + '_' + ausgang;   // BEA-01 C0: endeEreignis (Lade-Beat: fracht_geladen)
   gedaechtnisEintragen(f.nsc, ws.tickZahl, ereignis, o.text_key || beat.id);
   f.laufend = null; f.zaehler = 0;
-  if (f.fracht && ausgang === 'gescheitert') { try { require('./faden-fracht.js').verlustMelden(game, f); } catch (e) { fehlerZaehlen(game, 'faden-fracht-funk', e); } }   // Nacharbeit F6: die Crew hoert, dass die Ware weg ist
-  FrachtDaten.entladen(game, f);   // LAD-01 C: die Ladung verlaesst den Frachtraum (abgeliefert oder verloren)
-  delete f.fracht;   // SUND-04a-2 P1: der Beat ist zu Ende (Ausgang, Frist): eine Ware an Bord ist weg
+  if (f.fracht && !bleibt && (ausgang === 'gescheitert' || cat.abschluss)) { try { require('./faden-fracht.js').verlustMelden(game, f); } catch (e) { fehlerZaehlen(game, 'faden-fracht-funk', e); } }   // Nacharbeit F6: die Crew hoert, dass die Ware weg ist
+  if (!bleibt) {   // BEA-01 C0: nur noch, wenn der Faden die Ware nicht mehr braucht (vorher: bei jedem Beat-Ende)
+    FrachtDaten.entladen(game, f);   // LAD-01 C: die Ladung verlaesst den Frachtraum (abgeliefert oder verloren)
+    delete f.fracht;   // SUND-04a-2 P1: der Beat ist zu Ende (Ausgang, Frist): eine Ware an Bord ist weg
+  }
   if (cat.abschluss) {
     f.phase = 'abgeschlossen';
     f.ausgang = { art: ausgang, status: f.nsc.status, tick: ws.tickZahl };
@@ -469,8 +472,10 @@ function beatZurueck(game, fadenId) {
   if (!f || f.phase !== 'laeuft') return { ok: false, grund: 'kein laufender Beat' };
   const beat = D.vorlage(f.vorlage).beats[f.beat];
   f.phase = 'wartet'; f.laufend = null; f.zaehler = f.abstand;
-  FrachtDaten.entladen(game, f);
-  delete f.fracht;
+  if (!FrachtDaten.behaeltWare(f, beat, null)) {   // BEA-01 C0: eine Ware, die ein frueherer Beat geladen hat, ueberlebt, dass die Szene des Zwischen-Beats aufgeloest wird
+    FrachtDaten.entladen(game, f);
+    delete f.fracht;
+  }
   melde(game, 'beat_zurueck', f.id, `Beat ${beat.id} steht wieder aus (Szene aufgelöst, ohne Ausgang)`, { faden: f.id, beat: beat.id });
   return { ok: true, faden: f };
 }
@@ -615,7 +620,7 @@ function leseFaden(x, F) {
   }
   // SUND-04a-2 P1: Ware an Bord (nur mit laufendem Beat „fracht“). Nacharbeit L7: Unbrauchbares (Müll, null, umbenannte Ware, Ware ohne laufenden Fracht-Beat) lässt nur DAS FELD fallen,
   // der Faden bleibt (die Ware ist dann weg, wie nach einer abgelaufenen Frist); der Weltstand-Schema erlaubt fracht: null
-  if (x.fracht !== undefined && x.fracht !== null && phase === 'laeuft' && D.BEATS[v.beats[f.beat].typ].baustein === 'fracht') {
+  if (x.fracht !== undefined && x.fracht !== null && FrachtDaten.wareMoeglich(v, f.beat, phase)) {   // BEA-01 C0: auch zwischen den Beats und in Beats NACH einem Lade-Beat (Ware ueber mehrere Beats)
     const fr = FrachtDaten.leseFracht(x.fracht);
     if (fr) f.fracht = fr;
   }
@@ -643,7 +648,7 @@ function lesen(b) {
   while (F.liste.length > W.faeden_gesamt_max) { const i = F.liste.findIndex((x) => x.phase === 'abgeschlossen'); F.liste.splice(i < 0 ? 0 : i, 1); }
   for (const f of F.liste) { nr = Math.max(nr, idNr(f.id)); nscNr = Math.max(nscNr, idNr(f.nsc.id)); }
   // SUND-04a-2 P1: ein Szenen-Beat, der beim Speichern noch lief, steht nach dem Laden wieder aus (die Szene ist nicht speicherbar)
-  for (const f of F.liste) if (f.phase === 'laeuft' && D.BEATS[D.vorlage(f.vorlage).beats[f.beat].typ].szene) { f.phase = 'wartet'; f.laufend = null; f.zaehler = f.abstand; delete f.fracht; }
+  for (const f of F.liste) if (f.phase === 'laeuft' && D.BEATS[D.vorlage(f.vorlage).beats[f.beat].typ].szene) { f.phase = 'wartet'; f.laufend = null; f.zaehler = f.abstand; /* BEA-01 C0: kein delete f.fracht mehr: leseFaden laesst eine Ware nur zu, wo sie leben darf (ein Szenen-Beat hat nie eine eigene, nur die eines frueheren Lade-Beats) */ }
   F.nr = nr; F.nsc = nscNr;
   require('./abenteuer-kanon.js').lesen(b.kanon, F);   // SUND-04b E1: muellfest, gleicht sich mit der Liste ab (Altstand ohne Kanon: aus der Liste abgeleitet)
   const sb = require('./faden-b2.js').lesen(b.sabotage);   // SUND-04b B2: muellfest, fehlt = keine Pause

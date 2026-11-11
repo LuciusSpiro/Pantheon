@@ -79,7 +79,8 @@
       "gefahr": false,
       "optionen": "keine",
       "braucht": {"nsc_status": ["aktiv", "verbuendet"]},
-      "parameter": {"pflicht": ["nach"], "optional": ["ware", "text_key"]},
+      "parameter": {"pflicht": ["nach"], "optional": ["ware", "text_key", "ende"]},
+      "ende_modi": {"parameter": "ende", "standard": "abgeliefert", "modi": {"abgeliefert": {"liefert": true, "haelt": false, "tat": true}, "geladen": {"liefert": false, "haelt": true, "tat": false, "ereignis": "fracht_geladen"}}, "_hinweis": "BEA-01 C0: wie der Beat endet. abgeliefert (Standard, ohne Parameter): der Beat laedt die Ware, falls noch keine am Faden haengt, und endet gelungen erst bei der Ablieferung am Zielhafen (die Ware kann auch ein frueherer Beat geladen haben). geladen: der Beat endet gelungen, sobald die Ware geladen ist; die Ware bleibt am Faden (faden.fracht) ueber die Folge-Beats, bis ein Beat abliefert oder der Faden sie verliert. liefert = der Beat liefert beim Andocken im Ziel ab, haelt = die Ware bleibt nach dem gelungenen Ende am Faden, tat = der Ausgang gelungen ist eine Tat der Crew (werte.json sim_befehl.tat_beats), ereignis = Gedaechtnis-Ereignis statt typ_gelungen."},
       "bauplan": {"start_status":"aktiv","hinweis_traeger":true,"parameter":{"nach":{"standard":"$ort","erlaubt":["$ort"]},"ware":{"standard":"fracht_kiste","erlaubt":"waren"}},"aus":{"gelungen":{"status":["verbuendet","aktiv"],"folge":[{"typ":"haltung_aenderung","grund":"geholfen"}]},"gescheitert":{"status":["aktiv","geflohen"],"folge":[{"typ":"haltung_aenderung","grund":"im_stich_gelassen"}]}}}
     },
     "geruecht": {

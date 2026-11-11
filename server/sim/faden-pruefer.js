@@ -156,6 +156,7 @@ function parameterFehler(beat, cat) {
     else if (!(typeof p[k] === 'boolean' || (typeof p[k] === 'number' && Number.isFinite(p[k])) || (typeof p[k] === 'string' && p[k].length > 0 && p[k].length <= 40))) out.push(fehl('PARAMETER', `Beat ${beat.id}: Parameter "${k}" muss ein kurzer Text, eine Zahl oder ein Wahrheitswert sein`));
     else if (k === 'text_key' && !(typeof p[k] === 'string' && TEXT_KEY.test(p[k]))) out.push(fehl('TEXT_KEY', `Beat ${beat.id}: parameter text_key "${String(p[k]).slice(0, 40)}" ist ungültig (nur a-z, 0-9, _, 1 bis 40 Zeichen; der Weltstand verlangt es)`));
   }
+  if (cat.ende_modi && has(p, cat.ende_modi.parameter) && !has(cat.ende_modi.modi, p[cat.ende_modi.parameter])) out.push(fehl('PARAMETER', `Beat ${beat.id} (${beat.typ}): ${cat.ende_modi.parameter} "${String(p[cat.ende_modi.parameter]).slice(0, 40)}" ist unbekannt (erlaubt: ${Object.keys(cat.ende_modi.modi).join(', ')})`));   // BEA-01 C0: der Ende-Modus kommt aus dem Katalog (beats.json ende_modi)
   if (erlaubt.includes('hex') && has(p, 'hex') && !(typeof p.hex === 'string' && HEX.test(p.hex) && sundSpielbar(p.hex))) out.push(fehl('PARAMETER', `Beat ${beat.id} (${beat.typ}): der Parameter hex ist kein spielbarer Sektor der Karte`));   // SUND-04b B1: Ankunftsort der Beats geruecht, wiedersehen, notruf
   const braucht = cat.braucht || {};
   for (const k of spec.pflicht || []) if (!(k in p) && !(k === 'fluchtziel' && braucht.fluchtziel)) out.push(fehl('PARAMETER', `Beat ${beat.id} (${beat.typ}): Pflichtparameter "${k}" fehlt`));
@@ -411,13 +412,13 @@ function pruefeVorlage(v) {
         if (br.nsc_status && !br.nsc_status.includes(z.s)) m('STATUS_PASST_NICHT', `Beat ${b.id} (${z.typ}) kann nicht laufen, wenn der NSC ${z.s} ist (erlaubt: ${br.nsc_status.join(', ')})`);
         if (br.hinweis_vorher && !h) m('HINWEIS_FEHLT', `Beat ${b.id} (${b.typ}): auf einem Weg dorthin wurde vorher kein Hinweis gestreut (jede Enthüllung braucht mindestens einen Hinweis davor)`);
       }
-      if (!t && simBefehlFolge(b)) m('SIM_BEFEHL_OHNE_TAT', `Beat ${b.id} (${b.typ}): auf einem Weg dorthin gab es keine Tat der Crew (Ausgang gelungen eines Beats vom Typ ${SB.tat_beats.join(', ')}): ein sim_befehl kommt nur nach einer Tat, nie durch Zeitablauf, Scheitern oder vom Anfang an`);   // FAD-01 A (c)
+      if (!t && simBefehlFolge(b)) m('SIM_BEFEHL_OHNE_TAT', `Beat ${b.id} (${b.typ}): auf einem Weg dorthin gab es keine Tat der Crew (Ausgang gelungen eines Beats vom Typ ${SB.tat_beats.join(', ')}, dessen Ende-Modus eine Tat ist, also kein bloßes Laden): ein sim_befehl kommt nur nach einer Tat, nie durch Zeitablauf, Scheitern oder vom Anfang an`);   // FAD-01 A (c)
       if (cat.abschluss) continue;
       const h2 = h || (Array.isArray(b.hinweise) && b.hinweise.length > 0);
       for (const ag of W.ausgaenge) {
         for (const o of b.variante && istObjekt(b.variante.aus) && s !== 'tot' && istObjekt(b.variante.aus[ag]) ? [b.aus[ag], b.variante.aus[ag]] : [b.aus[ag]]) {   // Welle 4 (S1): beide Zweige, auch die Ausgaenge der Variante
           let s2 = s;
-          const t2 = t || (ag === 'gelungen' && o === b.aus[ag] && SB.tat_beats.includes(b.typ));   // nur der Ausgang des Beats selbst ist die Tat, nie der einer Variante
+          const t2 = t || (ag === 'gelungen' && o === b.aus[ag] && istTat(b));   // nur der Ausgang des Beats selbst ist die Tat, nie der einer Variante
           if (o.status !== undefined) { if (s === 'tot' && o.status !== 'tot') m('TOT_BLEIBT_TOT', `Beat ${b.id}, ${ag}: ein toter NSC wird nicht wieder ${o.status}`); else s2 = o.status; }
           const z = zielIndex(v, i, o, idx);
           if (z !== null) stack.push({ i: z, s: s2, h: h2, t: t2 });
@@ -429,6 +430,9 @@ function pruefeVorlage(v) {
   }
   return { ok: fehler.length === 0, fehler };
 }
+
+// BEA-01 C0: eine Tat der Crew ist der Ausgang gelungen eines Beats aus sim_befehl.tat_beats, ausser sein Ende-Modus nimmt ihn aus (beats.json ende_modi, tat: false: ein Beat, der nur LAEDT, ist noch keine Lieferung)
+const istTat = (b) => SB.tat_beats.includes(b.typ) && (D.endeModus(b) || {}).tat !== false;
 
 // ---------- Faden im Zustand
 function pruefeFaden(f) {
