@@ -3,6 +3,8 @@
 //   args(argv, erlaubt) -> { flags, rest }     einfache Aufrufauswertung: --name wert / --name=wert / --flag; unbekannte Optionen -> Exit 2
 //   weltstand(name)     -> Weltstand-Fixture aus tools/fixtures/context (Standard nach-tutorial)
 //   anlass()            -> Anlass wie in den Spielleiter-Tests (missionsgrenze, crew 3)
+//   lpMitGen(lp, biom, hoehle) -> Landepunkt-Adapter, dessen neue Gelaende-Karten ein festes Biom bzw. ein Hoehlen-Deck bekommen (gen, nie im Weltstand)
+//   testplan(s)         -> Mini-Grobplan (Hafen + Szene s2 aus s) fuer szenenbau.aufloesen (matrix, test-spl-gelaende-szenen)
 //   tabelle(zeilen)     -> ausgerichtete Textspalten
 //   kontextZuwachs(c)   -> { vorher, nachher, plus }  Formel von T13 (tools/test-spielleiter.js, SPL-01 a2: dort und in test-kontext-gelaende gemeinsam genutzt):
 //                          Grobplan-Kontext ohne 'verfuegbar'; vorher = ohne die Felder von S2b/GEL-02 (FELDER, Landepunkte je Ort samt Zaehlzeile, Bewaffnung);
@@ -52,6 +54,29 @@ function kontextZuwachs(c) {
   return { vorher: Math.round(a / 2.5), nachher: Math.round(b / 2.5), plus: Math.round((b - a) / 2.5) };
 }
 
+// SPL-01 b1: Adapter mit festem Biom bzw. Hoehlen-Deck: der Seed der Karte bleibt der des Weltstands, nur gen (nie im Weltstand) wird gesetzt
+function lpMitGen(lp, biom, hoehle) {
+  if (!biom && !hoehle) return lp;
+  return Object.assign(Object.create(lp), { vorschau(ort, o) {
+    const gen = {};
+    if (biom && (o.art === 'wildnis' || o.art === 'hoehle')) gen.biom = biom;
+    if (hoehle && o.art === 'wildnis') gen.hoehle = true;
+    return lp.vorschau(ort, Object.assign({}, o, Object.keys(gen).length ? { gen } : {}));
+  } });
+}
+
+// SPL-01 b1: Mini-Grobplan (Hafen + eine Bodenszene s2) fuer den Pruefer szenenbau.aufloesen; s: Felder der Szene s2, mols: ['molekuel/umsetzung']
+function testplan(s) {
+  const o = Object.assign({ karte: null, sachverhalt: 't', wendung: null, dauer_min: 4 }, s);
+  o.molekuele = (s.mols || []).map((x) => ({ id: x.split('/')[0], umsetzung: x.split('/')[1] })); delete o.mols;
+  o.weiter = [{ wenn: 'gut', nach: 'ausgang:erfolg' }, { wenn: 'sonst', nach: 'ausgang:teil' }];
+  return {
+    format: 'grobplan/2', id: 'x', titel: 'x', auftraggeber: 'melk', zielspieldauer_min: 12, aufhaenger: 't', erinnerung: { npc: 'melk', ereignis: 'm3_erinnerung' }, erinnerung_text: 't', belohnung_marken: 100,
+    szenen: [{ id: 's1_hafen', szenentyp: 'hafen', ort: 'hafen', karte: null, molekuele: [], sachverhalt: 'a', wendung: null, dauer_min: 2, weiter: [{ wenn: 'immer', nach: 's2' }] }, Object.assign(o, { id: 's2' })],
+    entscheidungen: [], ausgaenge: { erfolg: { wann: 'g', folgen: ['chronik: x.'] }, teil: { wann: 'h', folgen: ['chronik: y.'] } },
+  };
+}
+
 function tabelle(zeilen) {
   const breite = [];
   for (const z of zeilen) z.forEach((c, i) => { breite[i] = Math.max(breite[i] || 0, String(c).length); });
@@ -71,4 +96,4 @@ function laufen(name, flags, fn) {
   }
 }
 
-module.exports = { KONTEXT_FELDER, kontextZuwachs, WURZEL, CTX_DIR, args, weltstand, weltstaende, anlass, clone, tok, tabelle, laufen };
+module.exports = { KONTEXT_FELDER, kontextZuwachs, WURZEL, CTX_DIR, args, weltstand, weltstaende, anlass, clone, tok, testplan, lpMitGen, tabelle, laufen };

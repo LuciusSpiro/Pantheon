@@ -329,6 +329,7 @@
     "test:messe-ablage": "node tools/test-messe-ablage.js",
     "test:messe-absichten": "node tools/test-messe-absichten.js",
     "test:messe-spl": "node tools/test-messe-spl.js",
+    "test:spl-gelaende-szenen": "node tools/test-spl-gelaende-szenen.js",
     "messe:spl-matrix": "node tools/messe-spl-matrix.js",
     "messe:spl-kontext": "node tools/messe-spl-kontext.js",
     "messe:spl-kontext-wachstum": "node tools/messe-spl-kontext-wachstum.js",

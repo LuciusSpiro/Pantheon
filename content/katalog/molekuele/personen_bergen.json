@@ -339,6 +339,316 @@
           "abholpunkt"
         ]
       }
+    },
+    {
+      "id": "ueberlebende_suchen",
+      "name": "Überlebende im Gelände suchen und bergen",
+      "schauplatz": "aussen",
+      "beschreibung": "Gelände (Wildnis, Höhle) nach Absturz oder Überfall: Eine verletzte Person hat sich abseits in Deckung versteckt und ist auf der Außenteam-Karte markiert. Das Außenteam nimmt ein Medipack mit, geht hin, versorgt sie (E), sie folgt zu den Pads und wird mit hochgebeamt. Eine Person je Karte. Gegner (Verfolger, Plünderer) kommen aus der Besetzung der Szene.",
+      "braucht": [
+        "transfer",
+        "aussen_objekte"
+      ],
+      "dauer_min": [
+        2,
+        4
+      ],
+      "dauer_quelle": "schaetzung",
+      "dauer_je_crew": {
+        "1": [
+          3,
+          5
+        ],
+        "2": [
+          2,
+          4
+        ],
+        "3": [
+          2,
+          3
+        ]
+      },
+      "liefert_flags": [
+        "{{id}}_gerettet",
+        "{{id}}_selbst"
+      ],
+      "ereignisse": [
+        "npcRescued",
+        "beamedUp"
+      ],
+      "params": {
+        "loc": {
+          "typ": "loc",
+          "pflicht": true
+        },
+        "map": {
+          "typ": "map",
+          "pflicht": true,
+          "beschreibung": "Landepunkt (setzt der Szenenbau nach buehne_braucht, nie das LLM)"
+        },
+        "name": {
+          "typ": "text",
+          "default": "Maat Brann",
+          "beschreibung": "Name der Person (höchstens 24 Zeichen)"
+        },
+        "verletzt": {
+          "typ": "bool",
+          "default": true
+        },
+        "funk_person": {
+          "typ": "text",
+          "default": "Hier drüben, in der Deckung! Mein Bein … ich komme allein nicht weg."
+        },
+        "aufgeben_nach": {
+          "typ": "zahl",
+          "default": 300,
+          "min": 120,
+          "max": 480
+        }
+      },
+      "vorlage": {
+        "buehne": {
+          "orte": [
+            "{{loc}}"
+          ],
+          "aussenkarten": [
+            "{{map}}"
+          ]
+        },
+        "besetzung": {
+          "stimmen": {
+            "{{id}}_person": {
+              "name": "{{name}}"
+            }
+          }
+        },
+        "steps": [
+          {
+            "id": "{{id}}",
+            "loc": "{{loc}}",
+            "allowBeam": [
+              "{{map}}"
+            ],
+            "enter": [
+              {
+                "do": "spawn_person",
+                "map": "{{map}}",
+                "person": "{{id}}_person",
+                "name": "{{name}}",
+                "verletzt": "{{verletzt}}",
+                "anker": "deckung"
+              }
+            ],
+            "timers": [
+              {
+                "at": 2,
+                "oda": "@{{id}}.start"
+              },
+              {
+                "at": 6,
+                "do": [
+                  {
+                    "radio": {
+                      "from": "{{id}}_person",
+                      "text": "@{{id}}.funk_person"
+                    }
+                  }
+                ]
+              },
+              {
+                "at": 70,
+                "if": {
+                  "not": {
+                    "check": {
+                      "name": "person_rescued",
+                      "map": "{{map}}",
+                      "person": "{{id}}_person"
+                    }
+                  }
+                },
+                "oda": "@{{id}}.hinweis",
+                "garantie": "hinweis"
+              }
+            ],
+            "rules": [
+              {
+                "if": {
+                  "all": [
+                    {
+                      "check": {
+                        "name": "person_rescued",
+                        "map": "{{map}}",
+                        "person": "{{id}}_person"
+                      }
+                    },
+                    {
+                      "not": {
+                        "v": "{{id}}_ende"
+                      }
+                    }
+                  ]
+                },
+                "do": [
+                  {
+                    "set": {
+                      "{{id}}_ende": true
+                    }
+                  },
+                  {
+                    "setFlag": {
+                      "{{id}}_gerettet": true
+                    }
+                  },
+                  {
+                    "oda": "@{{id}}.an_bord"
+                  }
+                ]
+              },
+              {
+                "if": {
+                  "all": [
+                    {
+                      "elapsed": "{{aufgeben_nach}}"
+                    },
+                    {
+                      "not": {
+                        "v": "{{id}}_ende"
+                      }
+                    }
+                  ]
+                },
+                "do": [
+                  {
+                    "set": {
+                      "{{id}}_ende": true
+                    }
+                  },
+                  {
+                    "setFlag": {
+                      "{{id}}_selbst": true
+                    }
+                  },
+                  {
+                    "oda": "@{{id}}.selbst"
+                  }
+                ],
+                "garantie": "zeitlimit"
+              }
+            ],
+            "objectives": [
+              {
+                "id": "runter",
+                "text": "@{{id}}.ziel_runter",
+                "done": {
+                  "any": [
+                    {
+                      "check": {
+                        "name": "away_active",
+                        "map": "{{map}}"
+                      }
+                    },
+                    {
+                      "v": "{{id}}_ende"
+                    }
+                  ]
+                }
+              },
+              {
+                "id": "person",
+                "text": "@{{id}}.ziel_person",
+                "done": {
+                  "v": "{{id}}_ende"
+                }
+              },
+              {
+                "id": "hoch",
+                "text": "@{{id}}.ziel_hoch",
+                "show": {
+                  "v": "{{id}}_ende"
+                },
+                "done": {
+                  "not": {
+                    "check": {
+                      "name": "team_down",
+                      "map": "{{map}}"
+                    }
+                  }
+                }
+              }
+            ],
+            "next": [
+              {
+                "if": {
+                  "all": [
+                    {
+                      "v": "{{id}}_ende"
+                    },
+                    {
+                      "not": {
+                        "check": {
+                          "name": "team_down",
+                          "map": "{{map}}"
+                        }
+                      }
+                    }
+                  ]
+                },
+                "goto": "{{weiter}}"
+              }
+            ],
+            "skip": [
+              {
+                "do": "debug_rescue_person",
+                "map": "{{map}}",
+                "person": "{{id}}_person"
+              },
+              {
+                "do": "debug_skip_away",
+                "map": "{{map}}"
+              },
+              {
+                "set": {
+                  "{{id}}_ende": true
+                }
+              },
+              {
+                "setFlag": {
+                  "{{id}}_gerettet": true
+                }
+              }
+            ]
+          }
+        ],
+        "texte": {
+          "{{id}}.funk_person": "{{funk_person}}",
+          "{{id}}.start": "Medipack mitnehmen, dann auf die Pads. Unten hat sich {{name}} versteckt – die Außenteam-Karte zeigt, wo.",
+          "{{id}}.hinweis": "Captain: {{name}} ist auf der Außenteam-Karte markiert. Medipack, hin, E, dann gemeinsam zu den Pads.",
+          "{{id}}.an_bord": "{{name}} ist an Bord und lebt. Mehr kann der Bordarzt – also wir – im Moment nicht tun.",
+          "{{id}}.selbst": "{{name}} hat sich allein zu den Pads geschleppt. Wir holen alle hoch.",
+          "{{id}}.ziel_runter": "Außenteam runterbeamen (Medipack!)",
+          "{{id}}.ziel_person": "{{name}} versorgen und an Bord bringen",
+          "{{id}}.ziel_hoch": "Zurück an Bord beamen"
+        }
+      },
+      "rueckfall": {
+        "params": {}
+      },
+      "test": {
+        "params": {
+          "loc": "kesh",
+          "map": "kesh.wildnis-1"
+        }
+      },
+      "buehne_braucht": {
+        "kartenarten": [
+          "wildnis",
+          "hoehle"
+        ],
+        "anker": [
+          "abholpunkt",
+          "deckung"
+        ]
+      }
     }
   ],
   "quelle": "vault: Bausteine/Ziel-Moleküle.md; Umsetzung S2 (CONTRACT-S2 §6), Verallgemeinerung von Ivo (m1)"

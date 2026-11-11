@@ -6,6 +6,9 @@
 // Aufruf:  node tools/messe-spl-matrix.js [--seeds n] [--kartenart art] [--json]      (npm run messe:spl-matrix)
 //   --seeds n        n Seeds (Weltstand meta.seed 1..n, bestimmt den neuen Landepunkt); Standard 1
 //   --kartenart art  nur diese Kartenart (aussenposten, station, ruine, schiff, wildnis, hoehle); Standard alle
+//   --biom b         wildnis/hoehle mit festem Biom (wueste, wiesenwald, vulkan) statt 'auto' (SPL-01 b1; sonst bestimmt der Seed das Biom)
+//   --hoehle         wildnis MIT Hoehlen-Deck darunter (Wildnis+Hoehle; der Spielleiter kann das nicht anlegen, die Matrix prueft nur die Karte)
+//   --umsetzung s    nur Umsetzungen, deren Kennung (molekuel/umsetzung) s enthaelt
 //   --json           nur JSON: { seeds, arten, zeilen: [{ umsetzung, szenentyp, ergebnis: { art: { ok, fehler: { code: n } } } }] }
 // Ausgabe: eine Tabellenzeile je Umsetzung; je Kartenart "ok" oder die Fehlercodes ("ok 3/5 ANKER" bei gemischten Seeds).
 // Exit: 0 gemessen, 1 Fehler beim Messen, 2 falscher Aufruf. Keine Erwartung, kein Test (Selbsttest: tools/test-messe-spl.js).
@@ -16,20 +19,11 @@ const SB = require('../server/mission/szenenbau.js');
 const Context = require('../server/mission/context.js');
 
 const ALLE_ARTEN = ['aussenposten', 'station', 'ruine', 'schiff', 'wildnis', 'hoehle'];
-const HILFE = 'Aufruf: node tools/messe-spl-matrix.js [--seeds n] [--kartenart art] [--json]';
-const flags = M.args(process.argv.slice(2), { seeds: 'zahl', kartenart: 'text', json: 'flag' }, HILFE);
+const BIOME = ['wueste', 'wiesenwald', 'vulkan'];
+const HILFE = 'Aufruf: node tools/messe-spl-matrix.js [--seeds n] [--kartenart art] [--biom b] [--hoehle] [--umsetzung s] [--json]';
+const flags = M.args(process.argv.slice(2), { seeds: 'zahl', kartenart: 'text', biom: 'text', hoehle: 'flag', umsetzung: 'text', json: 'flag' }, HILFE);
+if (flags.biom && !BIOME.includes(flags.biom)) { console.error(`Unbekanntes Biom "${flags.biom}" (${BIOME.join(', ')})`); process.exit(2); }
 if (flags.kartenart && !ALLE_ARTEN.includes(flags.kartenart)) { console.error(`Unbekannte Kartenart "${flags.kartenart}" (${ALLE_ARTEN.join(', ')})`); process.exit(2); }
-
-function plan(s) {
-  const o = Object.assign({ karte: null, sachverhalt: 't', wendung: null, dauer_min: 4 }, s);
-  o.molekuele = (s.mols || []).map((x) => ({ id: x.split('/')[0], umsetzung: x.split('/')[1] })); delete o.mols;
-  o.weiter = [{ wenn: 'gut', nach: 'ausgang:erfolg' }, { wenn: 'sonst', nach: 'ausgang:teil' }];
-  return {
-    format: 'grobplan/2', id: 'x', titel: 'x', auftraggeber: 'melk', zielspieldauer_min: 12, aufhaenger: 't', erinnerung: { npc: 'melk', ereignis: 'm3_erinnerung' }, erinnerung_text: 't', belohnung_marken: 100,
-    szenen: [{ id: 's1_hafen', szenentyp: 'hafen', ort: 'hafen', karte: null, molekuele: [], sachverhalt: 'a', wendung: null, dauer_min: 2, weiter: [{ wenn: 'immer', nach: 's2' }] }, Object.assign(o, { id: 's2' })],
-    entscheidungen: [], ausgaenge: { erfolg: { wann: 'g', folgen: ['chronik: x.'] }, teil: { wann: 'h', folgen: ['chronik: y.'] } },
-  };
-}
 
 M.laufen('messe-spl-matrix', flags, () => {
   const katalog = Katalog.load({});
@@ -40,18 +34,19 @@ M.laufen('messe-spl-matrix', flags, () => {
   const arten = flags.kartenart ? [flags.kartenart] : ALLE_ARTEN;
   const seeds = flags.seeds || 1;
   const lps = [];
-  for (let s = 1; s <= seeds; s++) { const w = M.clone(w0); w.meta = Object.assign({}, w.meta, { seed: s }); lps.push(Context.lpAdapterAusWelt(w)); }
+  for (let s = 1; s <= seeds; s++) { const w = M.clone(w0); w.meta = Object.assign({}, w.meta, { seed: s }); lps.push(M.lpMitGen(Context.lpAdapterAusWelt(w), flags.biom, flags.hoehle)); }
   const zeilen = [];
   for (const m of Object.values(katalog.molekuele)) for (const u of m.umsetzungen) {
     if (u.schauplatz !== 'aussen') continue;
     const id = `${m.id}/${u.id}`;
+    if (flags.umsetzung && !id.includes(flags.umsetzung)) continue;
     const st = Object.values(katalog.szenentypen).find((t) => t.bereich === 'aussen' && t.status === 'verfuegbar' && (t.verfuegbare_molekuele || []).includes(m.id));
     if (!st) { zeilen.push({ umsetzung: id, szenentyp: null, ergebnis: null }); continue; }
     const ergebnis = {};
     for (const art of arten) {
       let ok = 0; const fehler = {};
       for (const lp of lps) {
-        const g = plan({ szenentyp: st.id, ort: 'kesh', buehne: { kartenart: art, neu: true }, mols: [id] });
+        const g = M.testplan({ szenentyp: st.id, ort: 'kesh', buehne: { kartenart: art, neu: true }, mols: [id] });
         const r = SB.aufloesen(g, env, M.clone(ctx), { lp });
         if (!r.errors.length) ok++;
         else for (const c of new Set(r.errors.map((e) => String(e).split(':')[0]))) fehler[c] = (fehler[c] || 0) + 1;
