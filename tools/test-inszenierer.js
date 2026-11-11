@@ -257,6 +257,19 @@ section('Weltbedingungen: Haltung, Rang, Lage', () => {
     const r2 = ins(g, ab('probe_stellung', { bezug: { nsc: 'Quintus Varro' } }));
     ok(r2.ok, 'Haltung -2: die Bedingung ist erfuellt');
   });
+  // SPL-02 G: ein Nein wegen der Haltung des Bezugs nennt den passenden Kandidaten (Katalog des Spiels, rache), ohne Kandidat nur den Grund
+  {
+    const tg = welt(12), gg = tg.g, [q2, ti2, ga2] = tg.f;
+    verstimmt(q2, 0); verstimmt(ga2, -2); ti2.nsc.status = 'tot';
+    const rr = INS.inszeniere(gg, ab('rache', { bezug: { nsc: 'Quintus Varro' } }), ECHT);
+    ok(!rr.ok && codes(rr).join() === C.WELT_BEDINGUNG && /Haltung 0/.test(rr.fehler[0].grund) && rr.fehler[0].gegenvorschlag && rr.fehler[0].gegenvorschlag.patch[0].feld === 'bezug.nsc' && rr.fehler[0].gegenvorschlag.patch[0].wert === 'Gaius Fabrin', 'rache mit aktivem NSC (Haltung 0): WELT_BEDINGUNG mit Gegenvorschlag Bezug auf den grollenden Kandidaten: ' + JSON.stringify(rr.fehler && rr.fehler[0] && rr.fehler[0].gegenvorschlag));
+    const pa = AP.wendePatchAn(ab('rache', { bezug: { nsc: 'Quintus Varro' } }), AP.gegenvorschlagPatch(rr));
+    ok(pa.ok && INS.inszeniere(gg, pa.absicht, ECHT).ok, 'der Patch angewendet: die Absicht wird inszeniert (ok)');
+    ok(INS.bezugPassend(gg, ab('rache'), ECHT).join() === 'Gaius Fabrin', 'bezugPassend: nur Kandidaten mit passender Haltung');
+    verstimmt(ga2, 0);
+    const rn = INS.inszeniere(gg, ab('rache', { bezug: { nsc: 'Quintus Varro' } }), ECHT);
+    ok(!rn.ok && /Haltung 0/.test(rn.fehler[0].grund) && !rn.fehler[0].gegenvorschlag && AP.gegenvorschlagPatch(rn) === null && !/Patch: /.test(AP.fehlerText(rn, ECHT)), 'ohne passenden Kandidaten: Nein mit Grund, ohne Gegenvorschlag und ohne Patch-Zeile (kein kaputter Plan)');
+  }
   const rang = ins(g, ab('probe_rang'));
   ok(!rang.ok && codes(rang).join() === C.WELT_BEDINGUNG && /centurio/.test(rang.fehler[0].grund), 'Rang miles: ein Auftrag fuer centurio ist WELT_BEDINGUNG');
   ruf(g, 35);

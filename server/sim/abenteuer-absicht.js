@@ -56,7 +56,26 @@ function veraltet(game, name, e) {
   if (!e.fehler.some((f) => f.feld === 'bezug.nsc') || Object.values(Geschichte().geschichteZeilen(game).kennungen).includes(name)) return e;
   return { ok: false, absicht: e.absicht, veraltet: true, fehler: [{ code: A.CODES.BEZUG_VERALTET, feld: 'bezug.nsc', grund: 'der NSC dieser Kennung steht nicht mehr zur Verfuegung (die Welt hat sich seit der Anfrage veraendert)' }] };
 }
+// SPL-02 G: Gegenvorschlaege fuer den Bezug nsc nennen die Kennung des Prompts statt des Vollnamens; hat der vorgeschlagene NSC keine Kennung (steht nicht in der Geschichte des Prompts), gibt es keinen Gegenvorschlag
+// (das Modell kennt ihn nicht, und ein Vollname im Text waere gegen die Regel). Ohne Kennungen (Geschichte nicht im Prompt) bleibt der Vollname.
+function mitKennungen(kennungen, e) {
+  const von = new Map(Object.entries(istObjekt(kennungen) ? kennungen : {}).filter(([, n]) => typeof n === 'string').map(([k, n]) => [n, k]));
+  if (!von.size || !e || !Array.isArray(e.fehler)) return e;
+  const fehler = e.fehler.map((f) => {
+    const g = f.gegenvorschlag;
+    if (!g || !Array.isArray(g.patch) || !g.patch.some((p) => p.feld === 'bezug.nsc' && typeof p.wert === 'string')) return f;
+    const p = g.patch.find((x) => x.feld === 'bezug.nsc' && typeof x.wert === 'string');
+    const k = von.get(p.wert);
+    if (!k) { const { gegenvorschlag, ...rest } = f; return rest; }
+    return Object.assign({}, f, { gegenvorschlag: { patch: g.patch.map((x) => (x === p ? { feld: x.feld, wert: k } : x)), text: `Bezug ${k}` } });
+  });
+  return Object.assign({}, e, { fehler });
+}
 function pruefer(kennungen) {
+  const kette = pruefeKette(kennungen);
+  return (game, absicht, kat) => mitKennungen(kennungen, kette(game, absicht, kat));
+}
+function pruefeKette(kennungen) {
   return function (game, absicht, kat) {
     let a = absicht, mitKennung = false;
     if (istObjekt(a) && istObjekt(a.bezug) && Geschichte().istKennung(a.bezug.nsc)) {
@@ -97,11 +116,21 @@ function ohneNamen(game, kennungen, text) {
   const A = Ausschnitt();
   return A.ohneNamenGanzwort(t, A.spielerNamen(game || {}));
 }
+// SPL-02 G: die NSC, die fuer den Bezug dieser Absicht in Frage kommen (Kandidaten, Haltung nach dem Rezept), als Zeilen mit Kennung (folge_kandidaten_max Zeilen, Daten)
+function kandidatenZeilen(game, absicht, kennungen) {
+  const max = katalog().werte.folge_kandidaten_max.wert;
+  if (!(max > 0) || !istObjekt(kennungen) || !Object.keys(kennungen).length) return [];
+  return Geschichte().kandidatenZeilen(game, INS().bezugPassend(game, absicht, katalog()), kennungen, max);
+}
 function folgeInput(game, v, absicht, kennungen, nr) {
   const max = AP().katalogStandard().werte.absicht_max_zeichen.wert;
   let a = '{}';
   try { a = JSON.stringify(absicht); } catch (e) { a = '{}'; }
-  const prompt = LLM.buildPrompt({ variabel: [['absicht', ohneNamen(game, kennungen, a.slice(0, max))], ['pruefer', ohneNamen(game, kennungen, v.text)]], schluss: 'Nur das JSON-Objekt.' });
+  const variabel = [['absicht', ohneNamen(game, kennungen, a.slice(0, max))]];
+  const zeilen = kandidatenZeilen(game, absicht, kennungen);
+  if (zeilen.length) variabel.push(['kandidaten', zeilen.join('\n')]);
+  variabel.push(['pruefer', ohneNamen(game, kennungen, v.text)]);
+  const prompt = LLM.buildPrompt({ variabel, schluss: 'Nur das JSON-Objekt.' });
   return { system: VERHANDLUNG_SYSTEM_DATEI, prompt, art: 'abenteuer', nr };
 }
 function folgeAntwort(game, v, text, kennungen) {

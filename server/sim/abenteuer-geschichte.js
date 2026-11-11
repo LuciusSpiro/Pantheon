@@ -10,6 +10,7 @@
 //        opts: { werte?, katalog? }  (Tests)
 //   bezugAufloesen(kennungen, bezug) -> { ok: true, bezug } | { ok: false, fehler: [{ code: BEZUG_UNBEKANNT, feld, grund, gegenvorschlag? }] }
 //        ein Bezug { nsc: 'K2' } wird zu { nsc: <Vollname> }; ein Vollname bleibt (der Pruefer prueft ihn gegen den Kanon); eine Kennung, die es nicht gibt, ist BEZUG_UNBEKANNT (Format absicht-pruefer.js)
+//   kandidatenZeilen(game, namen, kennungen, max) -> [Text]   SPL-02 G: Zeilen "K2 (volk), jetzt zustand, Haltung h" der genannten NSC, die eine eingefrorene Kennung haben (Folgeprompt der Verhandlung), hoechstens max
 //   istKennung(text) -> bool     bezugImSpiel(game, bezug) -> wie bezugAufloesen, die Kennungen aus dem Zustand des Spiels (so gehoeren Prompt und Aufloesung zum selben Zustand)
 //   imPromptStandard() -> bool   Datenwert im_prompt (Standard aus); werte() / werteNeuLesen() / werteFehler()
 //   Anbindung: absicht-pruefer.js pruefeAbsicht loest Kennungen im Bezug auf (jeder Aufrufer: Verhandlung, Inszenierer); abenteuer-prompt.js haengt die Zeilen nur bei gesetztem Schalter an den Kontext.
@@ -134,6 +135,25 @@ function geschichteZeilen(game, opts) {
   return { zeilen, kennungen, zeichen };
 }
 
+// SPL-02 G: Kandidatenzeilen fuer den Folgeprompt der Verhandlung: nur NSC, die die eingefrorenen Kennungen kennen (nie ein Vollname), "K2 (volk), jetzt zustand, Haltung h"; hoechstens max Zeilen in der Reihenfolge von namen
+function kandidatenZeilen(game, namen, kennungen, max) {
+  const F = faedenZustand(game), T = lesen().texte, A = Ausschnitt();
+  const ks = istObjekt(kennungen) ? kennungen : {};
+  const von = new Map(Object.entries(ks).filter(([, n]) => typeof n === 'string').map(([k, n]) => [n, k]));
+  const leute = F ? personen(F) : [];
+  const out = [];
+  for (const name of Array.isArray(namen) ? namen : []) {
+    if (out.length >= max) break;
+    const k = von.get(name), p = leute.find((x) => x.e.name === name);
+    if (!k || !p) continue;
+    const teile = [`${k} (${p.e.volk})`];
+    if (p.status) teile.push(`${T.jetzt} ${p.status}`);
+    if (p.nsc && Number.isFinite(p.nsc.haltung)) teile.push(`${T.haltung} ${zahl(p.nsc.haltung)}`);
+    out.push(A.ohneNamenGanzwort(teile.join(', '), A.spielerNamen(game || {})));
+  }
+  return out;
+}
+
 // ---------- Aufloesen
 function bezugAufloesen(kennungen, bezug) {
   if (!istObjekt(bezug) || typeof bezug.nsc !== 'string' || !istKennung(bezug.nsc)) return { ok: true, bezug };
@@ -152,4 +172,4 @@ function bezugImSpiel(game, bezug, opts) {
   return bezugAufloesen(geschichteZeilen(game, opts).kennungen, bezug);
 }
 
-module.exports = { geschichteZeilen, bezugAufloesen, bezugImSpiel, istKennung, imPromptStandard, werte, werteNeuLesen, werteFehler };
+module.exports = { geschichteZeilen, kandidatenZeilen, bezugAufloesen, bezugImSpiel, istKennung, imPromptStandard, werte, werteNeuLesen, werteFehler };

@@ -174,6 +174,19 @@ function fortsetzungsNamen(game, katalog) {
 }
 const kommandantenNamen = Namen.kommandantenNamen;
 const teile = (n) => String(n).trim().split(/\s+/);
+const nscBezugDecl = (absicht, katalog) => {
+  const e = istObjekt(absicht) && typeof absicht.absicht === 'string' && has(katalog.absichten, absicht.absicht) ? katalog.absichten[absicht.absicht] : null;
+  const b = e && Array.isArray(e.bezug) ? e.bezug.find((x) => x.name === 'nsc') : null;
+  return b ? { e, b } : null;
+};
+// SPL-02 G: Kandidaten fuer den NSC-Bezug dieser Absicht (Namen): zuerst die frischen (juengster zuerst), dann die uebrigen; leer ohne Kandidaten-Bezug im Katalog
+function bezugKandidaten(game, absicht, katalog) {
+  katalog = katalog || katalogStandard();
+  const d = nscBezugDecl(absicht, katalog);
+  if (!d || !d.b.kandidat) return [];
+  const fr = kandidatenNamen(game, true, d.b.kandidat);
+  return fr.concat(kandidatenNamen(game, false, d.b.kandidat).filter((n) => !fr.includes(n)));
+}
 function nscFehler(game, name, b, auswahlMax) {
   const feld = 'bezug.nsc';
   if (Geschichte().istKennung(name)) { const k = Geschichte().bezugImSpiel(game, { nsc: name }); if (!k.ok) return k.fehler[0]; }   // SPL-02 D: eine Kennung, die es im Zustand nicht gibt
@@ -404,7 +417,7 @@ function katalogFehler(katalog) {
   const ganz = (n) => Number.isInteger(n) && n >= 0;
   const texte = (l) => Array.isArray(l) && l.length > 0 && l.every((x) => typeof x === 'string' && x.length > 0);
   w('runden_max', ganz, 'ganze Zahl >= 0'); w('fehler_text_max', (n) => Number.isInteger(n) && n >= 100, 'ganze Zahl >= 100'); w('fehler_max', (n) => Number.isInteger(n) && n >= 1, 'ganze Zahl >= 1');
-  w('absicht_max_zeichen', (n) => Number.isInteger(n) && n >= 200, 'ganze Zahl >= 200'); w('vorschlag_namen_max', (n) => Number.isInteger(n) && n >= 1, 'ganze Zahl >= 1');
+  w('absicht_max_zeichen', (n) => Number.isInteger(n) && n >= 200, 'ganze Zahl >= 200'); w('vorschlag_namen_max', (n) => Number.isInteger(n) && n >= 1, 'ganze Zahl >= 1'); w('folge_kandidaten_max', ganz, 'ganze Zahl >= 0');
   w('name_muster', (m) => { try { return typeof m === 'string' && !!new RegExp(m); } catch (e) { return false; } }, 'gueltiges Muster');
   w('gewoehnliche_woerter', (l) => Array.isArray(l) && l.every((x) => typeof x === 'string' && x.length > 0), 'Liste von Texten'); w('toene', texte, 'Liste von Texten'); w('bogen_felder', texte, 'Liste von Texten'); w('bezug_arten', (l) => texte(l) && l.every((x) => ['nsc', 'ort'].includes(x)), 'Liste aus nsc, ort'); w('parameter_arten', (l) => texte(l) && l.every((x) => ['zahl', 'liste'].includes(x)), 'Liste aus zahl, liste');
   if (out.length) return out;
@@ -461,4 +474,4 @@ function katalogFehler(katalog) {
   return out;
 }
 
-module.exports = { CODES, pruefeAbsicht, fortsetzungsNamen, istFortsetzung, wendePatchAn, gegenvorschlagPatch, fehlerText, verhandlungStart, verhandlungAntwort, verhandlungStartMit, verhandlungAntwortMit, katalogFehler, katalogStandard, katalogNeuLesen };
+module.exports = { CODES, pruefeAbsicht, fortsetzungsNamen, bezugKandidaten, istFortsetzung, wendePatchAn, gegenvorschlagPatch, fehlerText, verhandlungStart, verhandlungAntwort, verhandlungStartMit, verhandlungAntwortMit, katalogFehler, katalogStandard, katalogNeuLesen };

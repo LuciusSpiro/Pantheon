@@ -126,15 +126,30 @@ function nichtAusdrueckbar(rez, a) {
 }
 
 // ---------- Weltbedingungen
-function bedingungsFehler(game, rez, a) {
+const haltungOk = (b, n) => !(has(b, 'hoechstens') && !(n.haltung <= b.hoechstens)) && !(has(b, 'mindestens') && !(n.haltung >= b.mindestens));
+// SPL-02 G: Kandidaten fuer den NSC-Bezug dieser Absicht (frische zuerst), die die Haltungsbedingungen des Rezepts auf den Bezug nsc erfuellen (Namen); der Gegenvorschlag eines Neins und der Folgeprompt der Verhandlung nehmen sie
+function bezugPassend(game, absicht, katalog) {
+  katalog = katalog || AP.katalogStandard();
+  const rez = istObjekt(absicht) && typeof absicht.absicht === 'string' ? rezeptVon(katalog, absicht.absicht) : null;
+  const bed = rez && Array.isArray(rez.bedingungen) ? rez.bedingungen.filter((b) => b.art === BEDINGUNG.NSC_HALTUNG && b.bezug === 'nsc') : [];
+  return AP.bezugKandidaten(game, absicht, katalog).filter((name) => { const n = nscMitName(game, name); return !!n && bed.every((b) => haltungOk(b, n)); });
+}
+function bedingungsFehler(game, rez, a, katalog) {
   const out = [];
   for (const b of Array.isArray(rez.bedingungen) ? rez.bedingungen : []) {
     if (b.art === BEDINGUNG.NSC_HALTUNG) {
       const name = a.bezug[b.bezug];
       const n = typeof name === 'string' ? nscMitName(game, name) : null;
-      if (!n) { out.push(fehl(CODES.WELT_BEDINGUNG, `bezug.${b.bezug}`, `${kurz(name)}: die Welt kennt den NSC nicht (Haltung nicht pruefbar)`)); continue; }
-      if (has(b, 'hoechstens') && !(n.haltung <= b.hoechstens)) out.push(fehl(CODES.WELT_BEDINGUNG, `bezug.${b.bezug}`, `${n.name} hat Haltung ${n.haltung}, gebraucht ist hoechstens ${b.hoechstens}${b.grund ? ': ' + b.grund : ''}`));
-      if (has(b, 'mindestens') && !(n.haltung >= b.mindestens)) out.push(fehl(CODES.WELT_BEDINGUNG, `bezug.${b.bezug}`, `${n.name} hat Haltung ${n.haltung}, gebraucht ist mindestens ${b.mindestens}${b.grund ? ': ' + b.grund : ''}`));
+      let gv;   // Gegenvorschlag: der passende Kandidat (nur beim Bezug nsc), sonst keiner (kein kaputter Plan)
+      const vorschlagBezug = () => {
+        if (gv !== undefined) return gv;
+        const alt = b.bezug === 'nsc' ? bezugPassend(game, a, katalog).filter((x) => x !== name) : [];
+        gv = alt.length ? vorschlag(`Bezug ${alt[0]}`, setze('bezug.nsc', alt[0])) : null;
+        return gv || undefined;
+      };
+      if (!n) { out.push(fehl(CODES.WELT_BEDINGUNG, `bezug.${b.bezug}`, `${kurz(name)}: die Welt kennt den NSC nicht (Haltung nicht pruefbar)`, vorschlagBezug())); continue; }
+      if (has(b, 'hoechstens') && !(n.haltung <= b.hoechstens)) out.push(fehl(CODES.WELT_BEDINGUNG, `bezug.${b.bezug}`, `${n.name} hat Haltung ${n.haltung}, gebraucht ist hoechstens ${b.hoechstens}${b.grund ? ': ' + b.grund : ''}`, vorschlagBezug()));
+      if (has(b, 'mindestens') && !(n.haltung >= b.mindestens)) out.push(fehl(CODES.WELT_BEDINGUNG, `bezug.${b.bezug}`, `${n.name} hat Haltung ${n.haltung}, gebraucht ist mindestens ${b.mindestens}${b.grund ? ': ' + b.grund : ''}`, vorschlagBezug()));
     } else if (b.art === BEDINGUNG.RANG_MINDESTENS) {
       let da = false;
       try { da = Ruf().rufErreicht(game, b.rang) === true; } catch (e) { da = false; }
@@ -266,7 +281,7 @@ function inszeniere(game, absicht, katalog) {
   const notizen = [];
   const na = nichtAusdrueckbar(rez, a);
   if (na.length) return { ok: false, fehler: na };
-  const bd = bedingungsFehler(game, rez, a);
+  const bd = bedingungsFehler(game, rez, a, katalog);
   if (bd.length) return { ok: false, fehler: bd };
   const st = stufeBestimmen(game, rez, a, katalog.absichten[a.absicht]);
   if (st.fehler) return nein(st.fehler);
@@ -435,4 +450,4 @@ function katalogFehler(katalog) {
   return out;
 }
 
-module.exports = { CODES, inszeniere, anbietenAusAbsicht, weltStufe, katalogFehler, werteFehler, werteNeuLesen };
+module.exports = { CODES, inszeniere, anbietenAusAbsicht, bezugPassend, weltStufe, katalogFehler, werteFehler, werteNeuLesen };

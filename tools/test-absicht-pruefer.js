@@ -104,6 +104,7 @@ section('Katalog: Daten des Spiels, Strukturregeln', () => {
   schlecht((a) => { a.probe_ort.fortsetzung = 'ja'; }, /fortsetzung/, 'fortsetzung ist wahr oder falsch');
   const kw = klon(KAT); delete kw.werte.toene;
   ok(AP.katalogFehler(kw).some((x) => /werte.toene/.test(x)), 'fehlt ein Wert: Meldung');
+  ok(AP.katalogFehler(mitWert('folge_kandidaten_max', -1)).some((x) => /folge_kandidaten_max/.test(x)) && AP.katalogFehler(mitWert('folge_kandidaten_max', 0)).length === 0, 'SPL-02 G: folge_kandidaten_max ist eine ganze Zahl ab 0 (Daten)');
   ok(AP.istFortsetzung(gutNsc('X'), KAT) === true && AP.istFortsetzung(gut(), KAT) === false && AP.istFortsetzung({ absicht: 'gibt_es_nicht' }, KAT) === false && AP.istFortsetzung(null, KAT) === false, 'istFortsetzung liest nur das Katalogfeld');
 });
 
@@ -180,6 +181,8 @@ section('Bezuege: fehlt, existiert nicht, uneindeutig, Kandidat, Ort', () => {
   t.f[0].nsc.status = 'tot';
   const rt = f(ra('Quintus Varro'));
   ok(codes(rt).join() === C.BEZUG_UNBEKANNT && /nicht zur Verfuegung/.test(rt.fehler[0].grund), 'kandidat: "rache": ein toter NSC ist auch hier kein Kandidat');
+  t.f[0].nsc.status = 'feindlich';
+  ok(AP.bezugKandidaten(g, ra('Quintus Varro'), KAT).includes('Quintus Varro') && AP.bezugKandidaten(g, gut(), KAT).length === 0 && AP.bezugKandidaten(g, null, KAT).length === 0, 'SPL-02 G: bezugKandidaten nennt die Kandidaten des Typs der Absicht (ohne Kandidaten-Bezug: keine)');
   t.f[0].nsc.status = 'verbuendet';
   ok(f(gutNsc('Quintus Varro')).ok && codes(f(ra('Quintus Varro'))).join() === C.BEZUG_UNBEKANNT, 'umgekehrt: ein verbuendeter NSC taugt fuer kandidat: true, nicht fuer rache (Zustaende nach dem Typ)');
   const fl = f(gut({ absicht: 'probe_rache', parameter: {}, bezug: {}, bogen: { einsatz: TEXT.einsatz, preis: TEXT.preis }, ton: 'nuechtern' }));

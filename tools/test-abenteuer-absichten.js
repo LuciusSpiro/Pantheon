@@ -375,6 +375,48 @@ section('Folgeprompt: Namen nur als Kennung, nie ein Spielername', () => {
   })();
 });
 
+// SPL-02 G: ein Nein wegen des NSC-Bezugs hat einen Gegenvorschlag (der passende Kandidat), der Folgeprompt nennt die Kandidaten; ohne Kandidat nur der Grund, nie ein kaputter Plan
+section('Bezug-Nein: Gegenvorschlag, Kandidatenzeile, Verhandlung (SPL-02 G)', () => {
+  return (async () => {
+    const t = welt8(171, ENV_AN(), ['Quintus', 'Ouzo_Brandt']), g = t.g;
+    const kennungen = G.geschichteZeilen(g).kennungen;
+    const kA = kennungVon(g, 'Aurelia Vex'), kQ = kennungVon(g, 'Quintus Varro');
+    ok(!!kA && !!kQ, 'Vorbedingung: Aurelia Vex (aktiv, Haltung 0) und Quintus Varro (feindlich) stehen mit Kennung in der Geschichte (' + kA + ', ' + kQ + ')');
+    // Rache mit aktivem NSC: Nein mit Patch auf den feindlichen Kandidaten, in Kennung
+    const st = Absicht.ersterVersuch(g, ab('rache', { bezug: { nsc: kA } }), kennungen);
+    const f0 = st.v && st.v.ergebnis && st.v.ergebnis.fehler[0];
+    ok(st.stand === 'offen' && f0 && f0.feld === 'bezug.nsc' && /Haltung 0/.test(f0.grund), 'Rache mit aktivem NSC: Nein wegen der Haltung (' + (f0 && f0.grund) + ')');
+    ok(f0 && f0.gegenvorschlag && f0.gegenvorschlag.patch.length === 1 && f0.gegenvorschlag.patch[0].feld === 'bezug.nsc' && f0.gegenvorschlag.patch[0].wert === kQ, 'der Gegenvorschlag nennt den feindlichen Kandidaten mit seiner Kennung ' + kQ + ': ' + JSON.stringify(f0 && f0.gegenvorschlag));
+    ok(/Patch: \[\{"feld":"bezug\.nsc","wert":"K[0-9]"\}\]/.test(st.v.text), 'der Klartext traegt die Patch-Zeile mit der Kennung, ohne Vollnamen');
+    const r = Absicht.folgeAntwort(g, st.v, JSON.stringify({ patch: f0.gegenvorschlag.patch }), kennungen);
+    ok(r.stand === 'angenommen' && r.ergebnis.angebot.bezug && r.ergebnis.angebot.bezug.nsc === 'Quintus Varro', 'der Patch angewendet: ok, Angebot mit Bezug Quintus Varro');
+    // Folgeprompt: Kandidatenzeile mit Kennung, kein Vollname, kein Spielername; Groesse gemessen
+    const fi = Absicht.folgeInput(g, st.v, ab('rache', { bezug: { nsc: kA } }), kennungen, 1);
+    const zeilen = (/<kandidaten>\n([^]*?)\n<\/kandidaten>/.exec(fi.prompt) || [])[1];
+    ok(zeilen && zeilen.split('\n').length <= KAT.werte.folge_kandidaten_max.wert && new RegExp('^' + kQ + ' \\(rom\\), jetzt feindlich, Haltung -2$').test(zeilen.split('\n')[0]), 'Folgeprompt: Kandidatenzeile "' + kQ + ' (rom), jetzt feindlich, Haltung -2" (hoechstens folge_kandidaten_max Zeilen): ' + JSON.stringify(zeilen));
+    ok(!/Quintus/.test(fi.prompt) && !PERSONEN.some(([nm]) => fi.prompt.includes(nm)), 'Folgeprompt ohne Vollnamen und ohne den Spielernamen Quintus');
+    process.stdout.write('  Folgeprompt: ' + fi.prompt.length + ' Zeichen (Kandidatenzeile: ' + (zeilen ? zeilen.length : 0) + ' Zeichen)\n');
+    // ohne feindlichen Kandidaten: Nein ohne Patch, keine Kandidatenzeile, kein kaputter Plan
+    const t2 = welt8(172, ENV_AN()), g2 = t2.g;
+    setze(g2, t2.f[0], 'Quintus Varro', 'aktiv', 0);
+    const k2 = G.geschichteZeilen(g2).kennungen, kA2 = kennungVon(g2, 'Aurelia Vex');
+    const st2 = Absicht.ersterVersuch(g2, ab('rache', { bezug: { nsc: kA2 } }), k2);
+    const g0 = st2.v && st2.v.ergebnis && st2.v.ergebnis.fehler[0];
+    ok(st2.stand === 'offen' && g0 && /Haltung 0/.test(g0.grund) && !g0.gegenvorschlag && !/Patch: /.test(st2.v.text), 'ohne Kandidat: Nein mit Grund, ohne Gegenvorschlag, ohne Patch-Zeile');
+    ok(!/<kandidaten>/.test(Absicht.folgeInput(g2, st2.v, ab('rache', { bezug: { nsc: kA2 } }), k2, 1).prompt), 'ohne Kandidat: keine Kandidatenzeile im Folgeprompt');
+    const r2 = Absicht.folgeAntwort(g2, st2.v, JSON.stringify({ patch: [] }), k2);
+    ok(r2.stand !== 'angenommen', 'ohne Patch bleibt das Nein: kein Angebot, kein kaputter Plan (' + r2.stand + ')');
+    // Verhandlungsweg im Spielleiter (Mock-LLM im Skript): Bezug-Nein, Folgeaufruf, Patch, Angebot
+    const t3 = welt8(173, ENV_AN(), ['Quintus', 'Ouzo_Brandt']), g3 = t3.g;
+    const kA3 = kennungVon(g3, 'Aurelia Vex'), kQ3 = kennungVon(g3, 'Quintus Varro');
+    const M3 = mitSL(t3, scriptLLM([{ json: ab('rache', { bezug: { nsc: kA3 } }), tokens: 100 }, { json: { patch: [{ feld: 'bezug.nsc', wert: kQ3 }] }, tokens: 40 }]));
+    await lauf(g3, 8);
+    const asks = M3.asks(), e = abLog(g3, 'gueltig');
+    ok(asks.length === 2 && asks[1].prompt.includes('<kandidaten>\n' + kQ3 + ' (rom)') && !/Quintus/.test(asks[1].prompt), 'Spielleiter: zweiter Aufruf mit Kandidatenzeile ' + kQ3 + ', ohne den Namen Quintus');
+    ok(angebote(g3).length === 1 && angebote(g3)[0].bezug && angebote(g3)[0].bezug.nsc === 'Quintus Varro' && e.length === 1 && e[0].verhandlung === 1 && e[0].absicht === 'rache', 'Spielleiter: nach dem Patch ein Angebot mit Bezug Quintus Varro, Logbuch verhandlung 1');
+  })();
+});
+
 section('Mock: gueltige Absichten, gelegentlich unmoeglich, Verhandlung offline', () => {
   const t = welt8(161, ENV_AN()), g = t.g;
   let gueltig = 0, unmoeglich = 0, nein = 0, geheilt = 0, ungelesen = 0, ohneBezugArt = new Set();
