@@ -102,6 +102,8 @@ Tag = Szenen-ID), `rueckfall.params` (Rohfassung ohne LLM), `dauer_quelle`, `dau
 - **Wert bestimmt die Szene (`abgeleitet`, MON-03 D):** `abgeleitet: { <param>: { <wert>: { <var>: … } } }` liefert zum gewählten Parameterwert weitere Platzhalter-Werte
   (Aktionen, Bedingungen, Texte), die die Vorlage als `{{var}}` einsetzt; die Werte dürfen `{{id}}`, `{{map}}` und Parameter enthalten. Beispiel: `stellung_nehmen/kreaturen_in_hoehle`,
   `typ` = `rudeltier` oder `schwarm`. Ein neuer Wert ist eine Datenzeile, kein Code.
+- **Wiederkehr (`wiederkehr: { max }`, SPL-01 d):** Landepunkte dieser Umsetzung dürfen in den nächsten Missionen erneut gewählt werden (kein `KARTE-WIEDERHOLT`), höchstens `max` Missionen in Folge
+  nach dem ersten Besuch (`KARTE-WIEDERKEHR-MAX`, Fehler); `max` wirkt höchstens bis `spielleiter.boden.wiederholtFenster - 1`. Die Szene setzt ihre Ressourcen selbst zurück (Beispiel `abbauen/adern_in_der_hoehle`: `abbau_neu` im `enter`).
 - **Prüfen:** `node tools/katalog.js`. Eine Umsetzung, die den Prüfer nicht besteht, ist `fehlerhaft` und für den
   Spielleiter unsichtbar.
 

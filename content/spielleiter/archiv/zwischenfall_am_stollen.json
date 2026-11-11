@@ -1,0 +1,220 @@
+{
+  "format": "llm-aufzeichnung/1",
+  "kind": "grobplan",
+  "key": "archiv-zwischenfall_am_stollen-1",
+  "name": "zwischenfall_am_stollen",
+  "quelle": "archiv",
+  "modell": "hand",
+  "_kommentar": "Archiv-Mission SPL-01 b2 (von Hand, Gelaende-Eintrag 2 fuer den Rueckfall). Tesk als Auftraggeberin: Die Rostmeute hat in einem Schuerfstollen auf dem Splitterguertel einen Kontrollposten eingerichtet. Zwei Bodenszenen auf einer NEUEN Hoehle (Besitz rostmeute): Kontrollposten ausschalten (stellung_nehmen/kontrollposten_im_gelaende), dann beschlagnahmte Fracht bergen.",
+  "input": {
+    "auftrag": "Archiv: Tesk - Rostmeute-Kontrollposten im Schuerfstollen auf dem Splitterguertel, Posten ausschalten, beschlagnahmte Fracht bergen. 15 min zu dritt, ohne Tutorial-Voraussetzung."
+  },
+  "erinnerung_varianten": [
+    {
+      "erinnerung": {
+        "npc": "tesk",
+        "ereignis": "m3_erinnerung"
+      },
+      "text": "Tesk erinnert sich, dass die Lerche ihr eine Vertragstafel aus Plünderhänden geholt hat. Nun soll sie den Plünderern den nächsten Zugriff nehmen."
+    },
+    {
+      "erinnerung": {
+        "npc": "grauzahn",
+        "ereignis": "geblufft"
+      },
+      "text": "Grauzahn hat die Lerche im Nebel auf dem Kieker. Tesk glaubt, dass seine Leute deshalb im Stollen besonders dreist auftreten."
+    }
+  ],
+  "erinnerung_neutral": "Tesk führt ein Buch über jede Route im Saumraum. Seit Tagen stimmen die Zahlen für den Splitter nicht mehr.",
+  "grobplan": {
+    "format": "grobplan/2",
+    "id": "zwischenfall_am_stollen",
+    "titel": "Zwischenfall am Stollen",
+    "auftraggeber": "tesk",
+    "zielspieldauer_min": 15,
+    "aufhaenger": "Lerche, hier Tesk. Auf dem Splitter haben Rostmeute-Leute einen Schürfstollen besetzt und halten jeden Frachter an, der vorbeikommt. Kontrollposten nennen sie das. Räumt ihn aus, und holt die Fracht, die sie bereits einkassiert haben.",
+    "erinnerung": {
+      "neutral": true
+    },
+    "erinnerung_text": "Tesk führt ein Buch über jede Route im Saumraum. Seit Tagen stimmen die Zahlen für den Splitter nicht mehr.",
+    "szenen": [
+      {
+        "id": "zs_hafen",
+        "szenentyp": "hafen",
+        "ort": "hafen",
+        "karte": null,
+        "molekuele": [],
+        "sachverhalt": "Tesk zeigt der Lerche eine Liste ausgebliebener Frachter vom Splitter. Alle wurden zuletzt an einem Schürfstollen gesehen, wo die Rostmeute einen Posten hält.",
+        "wendung": null,
+        "dauer_min": 2,
+        "weiter": [
+          {
+            "wenn": "Auftrag angenommen",
+            "nach": "zs_posten"
+          }
+        ]
+      },
+      {
+        "id": "zs_posten",
+        "szenentyp": "gefecht",
+        "ort": "splitter",
+        "buehne": {
+          "kartenart": "hoehle",
+          "neu": true,
+          "besitz": "rostmeute"
+        },
+        "karte": null,
+        "besetzung": [
+          {
+            "fraktion": "rostmeute",
+            "staerke": "mittel",
+            "haltung": "ruhig"
+          }
+        ],
+        "molekuele": [
+          {
+            "id": "stellung_nehmen",
+            "umsetzung": "kontrollposten_im_gelaende"
+          }
+        ],
+        "sachverhalt": "Tief im Stollen sitzt der Kontrollposten der Rostmeute: Wachen an den Lagern, dazwischen Streifen. Sie rechnen mit Frachtern, nicht mit einem Außenteam.",
+        "wendung": null,
+        "dauer_min": 5,
+        "weiter": [
+          {
+            "wenn": "Posten ausgeschaltet",
+            "nach": "zs_beute"
+          }
+        ]
+      },
+      {
+        "id": "zs_beute",
+        "szenentyp": "bergung_vor_ort",
+        "ort": "splitter",
+        "buehne": {
+          "kartenart": "hoehle",
+          "neu": true,
+          "besitz": "rostmeute"
+        },
+        "karte": null,
+        "molekuele": [
+          {
+            "id": "ladung_bergen",
+            "umsetzung": "ladung_am_boden"
+          }
+        ],
+        "sachverhalt": "Der Posten ist stumm. Im Stollen stapeln sich die beschlagnahmten Kisten der angehaltenen Frachter. Das Außenteam sammelt ein, was sich tragen lässt.",
+        "wendung": null,
+        "dauer_min": 4,
+        "weiter": [
+          {
+            "wenn": "Fracht geborgen",
+            "nach": "zs_abgabe_voll"
+          },
+          {
+            "wenn": "Rest liegen gelassen",
+            "nach": "zs_abgabe_teil"
+          }
+        ]
+      },
+      {
+        "id": "zs_abgabe_voll",
+        "szenentyp": "hafen",
+        "ort": "hafen",
+        "karte": null,
+        "molekuele": [],
+        "sachverhalt": "Tesk gleicht die Kisten mit ihrer Liste ab. Alles ist da, und die Frachter vom Splitter fliegen wieder.",
+        "wendung": null,
+        "dauer_min": 2,
+        "weiter": [
+          {
+            "wenn": "Abgegeben",
+            "nach": "ausgang:voll"
+          }
+        ]
+      },
+      {
+        "id": "zs_abgabe_teil",
+        "szenentyp": "hafen",
+        "ort": "hafen",
+        "karte": null,
+        "molekuele": [],
+        "sachverhalt": "Tesk bekommt einen Teil der Fracht zurück. Der Posten ist weg, der Rest der Beute liegt noch im Stollen, und die Rostmeute wird zurückkommen.",
+        "wendung": null,
+        "dauer_min": 2,
+        "weiter": [
+          {
+            "wenn": "Abgegeben",
+            "nach": "ausgang:teil"
+          }
+        ]
+      }
+    ],
+    "entscheidungen": [],
+    "ausgaenge": {
+      "voll": {
+        "wann": "Der Kontrollposten ist ausgeschaltet und die ganze Fracht geborgen.",
+        "folgen": [
+          "npc_haltung tesk +1",
+          "npc_haltung grauzahn -1",
+          "npc_gedaechtnis tesk: Die Lerche hat den Rostmeute-Posten im Splitterstollen geräumt und die einkassierte Fracht zurückgebracht.",
+          "npc_gedaechtnis grauzahn: Die Lerche hat meinen Posten im Splitterstollen ausgeräumt. Das war mein Zoll.",
+          "chronik: Zwischenfall am Stollen: Die Lerche schaltete den Kontrollposten der Rostmeute im Splitterstollen aus und barg die beschlagnahmte Fracht."
+        ]
+      },
+      "teil": {
+        "wann": "Der Kontrollposten ist ausgeschaltet, aber ein Teil der Fracht blieb im Stollen.",
+        "folgen": [
+          "npc_haltung tesk +1",
+          "npc_gedaechtnis tesk: Der Posten im Splitterstollen ist weg, die Lerche hat aber nicht alles mitgebracht.",
+          "chronik: Zwischenfall am Stollen: Die Lerche schaltete den Kontrollposten der Rostmeute aus, ein Teil der Fracht blieb im Stollen.",
+          "welt_fakt stollen_fracht_splitter (faden): Ein Teil der beschlagnahmten Fracht liegt noch im Stollen auf dem Splitter."
+        ]
+      }
+    }
+  },
+  "szenen": {
+    "zs_posten": {
+      "molekuele": [
+        {
+          "id": "stellung_nehmen",
+          "umsetzung": "kontrollposten_im_gelaende",
+          "params": {
+            "loc": "splitter",
+            "fraktion": "rostmeute",
+            "staerke": "mittel",
+            "haltung": "ruhig",
+            "lage": "Ein Kontrollposten der Rostmeute sperrt den Stollen. Deckung suchen, die Streifen abpassen, dann zusammen zuschlagen."
+          }
+        }
+      ],
+      "verzweigung": [],
+      "wendung": null
+    },
+    "zs_beute": {
+      "molekuele": [
+        {
+          "id": "ladung_bergen",
+          "umsetzung": "ladung_am_boden",
+          "params": {
+            "loc": "splitter",
+            "anzahl": 2,
+            "aufgeben_nach": 300
+          }
+        }
+      ],
+      "verzweigung": [
+        {
+          "nach": "zs_abgabe_voll",
+          "if": {
+            "flag": "zs_beute_geborgen"
+          }
+        },
+        {
+          "nach": "zs_abgabe_teil"
+        }
+      ],
+      "wendung": null
+    }
+  }
+}

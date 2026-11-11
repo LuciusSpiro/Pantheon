@@ -161,6 +161,564 @@
           "loc": "splitter"
         }
       }
+    },
+    {
+      "id": "ladung_am_boden",
+      "name": "Liegengebliebene Ladung im Gelände bergen",
+      "schauplatz": "aussen",
+      "beschreibung": "Fracht liegt verstreut im Gelände (Wildnis, Höhle), etwa nach einem Überfall oder einer Notlandung der Transporter. An den Fundorten (Außenteam-Karte) E halten, bis die Ladung geborgen ist, dann zurück zu den Pads. anzahl = wie viele Fundorte (1 oder 2). Gegner aus der Besetzung der Szene. Nach einer Weile lässt man den Rest liegen.",
+      "braucht": [
+        "transfer",
+        "aussen_objekte"
+      ],
+      "buehne_braucht": {
+        "kartenarten": [
+          "wildnis",
+          "hoehle"
+        ],
+        "anker": [
+          "abholpunkt",
+          "fund"
+        ],
+        "min": {
+          "fund": 2
+        }
+      },
+      "dauer_min": [
+        3,
+        6
+      ],
+      "dauer_quelle": "schaetzung",
+      "dauer_je_crew": {
+        "1": [
+          4,
+          7
+        ],
+        "2": [
+          3,
+          6
+        ],
+        "3": [
+          3,
+          5
+        ]
+      },
+      "liefert_flags": [
+        "{{id}}_geborgen",
+        "{{id}}_genug"
+      ],
+      "ereignisse": [
+        "fundGeborgen",
+        "beamedUp"
+      ],
+      "params": {
+        "loc": {
+          "typ": "loc",
+          "pflicht": true
+        },
+        "map": {
+          "typ": "map",
+          "pflicht": true,
+          "beschreibung": "Landepunkt (setzt der Szenenbau nach buehne_braucht, nie das LLM)"
+        },
+        "anzahl": {
+          "typ": "zahl",
+          "default": 2,
+          "min": 1,
+          "max": 2,
+          "beschreibung": "Wie viele Fundorte geborgen werden müssen (E halten je Fundort)"
+        },
+        "fund_name": {
+          "typ": "text",
+          "default": "{{lex.ladung:der}}",
+          "beschreibung": "Name der Ladung im Nominativ Einzahl mit Artikel (z. B. „die Frachtkiste“); Standard aus dem Lexikon"
+        },
+        "aufgeben_nach": {
+          "typ": "zahl",
+          "default": 300,
+          "min": 120,
+          "max": 480
+        }
+      },
+      "vorlage": {
+        "buehne": {
+          "orte": [
+            "{{loc}}"
+          ],
+          "aussenkarten": [
+            "{{map}}"
+          ]
+        },
+        "steps": [
+          {
+            "id": "{{id}}",
+            "loc": "{{loc}}",
+            "allowBeam": [
+              "{{map}}"
+            ],
+            "timers": [
+              {
+                "at": 2,
+                "oda": "@{{id}}.start"
+              },
+              {
+                "at": 70,
+                "if": {
+                  "not": {
+                    "v": "{{id}}_ende"
+                  }
+                },
+                "oda": "@{{id}}.hinweis",
+                "garantie": "hinweis"
+              }
+            ],
+            "rules": [
+              {
+                "if": {
+                  "all": [
+                    {
+                      "check": {
+                        "name": "anker_state",
+                        "map": "{{map}}",
+                        "anker": "fund",
+                        "state": "genommen",
+                        "min": "{{anzahl}}"
+                      }
+                    },
+                    {
+                      "not": {
+                        "v": "{{id}}_ende"
+                      }
+                    }
+                  ]
+                },
+                "do": [
+                  {
+                    "set": {
+                      "{{id}}_ende": true
+                    }
+                  },
+                  {
+                    "setFlag": {
+                      "{{id}}_geborgen": true
+                    }
+                  },
+                  {
+                    "oda": "@{{id}}.geschafft",
+                    "fund": "{{fund_name}}"
+                  }
+                ]
+              },
+              {
+                "if": {
+                  "all": [
+                    {
+                      "elapsed": "{{aufgeben_nach}}"
+                    },
+                    {
+                      "not": {
+                        "v": "{{id}}_ende"
+                      }
+                    }
+                  ]
+                },
+                "do": [
+                  {
+                    "set": {
+                      "{{id}}_ende": true
+                    }
+                  },
+                  {
+                    "setFlag": {
+                      "{{id}}_genug": true
+                    }
+                  },
+                  {
+                    "oda": "@{{id}}.genug"
+                  }
+                ],
+                "garantie": "zeitlimit"
+              }
+            ],
+            "objectives": [
+              {
+                "id": "runter",
+                "text": "@{{id}}.ziel_runter",
+                "done": {
+                  "any": [
+                    {
+                      "check": {
+                        "name": "away_active",
+                        "map": "{{map}}"
+                      }
+                    },
+                    {
+                      "v": "{{id}}_ende"
+                    }
+                  ]
+                }
+              },
+              {
+                "id": "ziel",
+                "text": "@{{id}}.ziel",
+                "done": {
+                  "v": "{{id}}_ende"
+                }
+              },
+              {
+                "id": "hoch",
+                "text": "@{{id}}.ziel_hoch",
+                "show": {
+                  "v": "{{id}}_ende"
+                },
+                "done": {
+                  "not": {
+                    "check": {
+                      "name": "team_down",
+                      "map": "{{map}}"
+                    }
+                  }
+                }
+              }
+            ],
+            "next": [
+              {
+                "if": {
+                  "all": [
+                    {
+                      "v": "{{id}}_ende"
+                    },
+                    {
+                      "not": {
+                        "check": {
+                          "name": "team_down",
+                          "map": "{{map}}"
+                        }
+                      }
+                    }
+                  ]
+                },
+                "goto": "{{weiter}}"
+              }
+            ],
+            "skip": [
+              {
+                "do": "anker_zustand",
+                "map": "{{map}}",
+                "anker": "fund",
+                "zustand": "genommen"
+              },
+              {
+                "set": {
+                  "{{id}}_ende": true
+                }
+              },
+              {
+                "setFlag": {
+                  "{{id}}_geborgen": true
+                }
+              }
+            ]
+          }
+        ],
+        "texte": {
+          "{{id}}.ziel_runter": "Außenteam runterbeamen",
+          "{{id}}.ziel_hoch": "Zurück an Bord beamen",
+          "{{id}}.start": "Fracht im Gelände: {{anzahl}} Fundorte auf der Außenteam-Karte. Hingehen, E halten – dann ist sie geborgen.",
+          "{{id}}.hinweis": "Captain: Fundorte auf der Karte markiert, dort liegt {{fund_name}}. Hin, E halten, dann zu den Pads.",
+          "{{id}}.geschafft": "Die Ladung ist geborgen! Zurück zu den Pads, dann holen wir euch hoch.",
+          "{{id}}.genug": "Genug gesucht – den Rest lassen wir liegen. Zurück zu den Pads.",
+          "{{id}}.ziel": "Ladung bergen (E halten, {{anzahl}} Fundorte): {{fund_name}}"
+        }
+      },
+      "rueckfall": {
+        "params": {}
+      },
+      "test": {
+        "params": {
+          "loc": "kesh",
+          "map": "kesh.wildnis-1"
+        }
+      }
+    },
+    {
+      "id": "absturzstelle",
+      "name": "Absturzstelle: Wrackteile und Vorräte bergen",
+      "schauplatz": "aussen",
+      "beschreibung": "Absturzstelle im Gelände (Wildnis, Höhle): Ein Schiff oder eine Kapsel ist notgelandet bzw. abgestürzt. Das Außenteam sucht Wrackteile und Vorräte an den Fundorten (E halten) und kommt zurück zu den Pads. Rahmen für Rettung, Plünderer und Verfolger aus der Besetzung. anzahl = wie viele Fundorte (1 oder 2).",
+      "braucht": [
+        "transfer",
+        "aussen_objekte"
+      ],
+      "buehne_braucht": {
+        "kartenarten": [
+          "wildnis",
+          "hoehle"
+        ],
+        "anker": [
+          "abholpunkt",
+          "fund"
+        ],
+        "min": {
+          "fund": 2
+        }
+      },
+      "dauer_min": [
+        3,
+        6
+      ],
+      "dauer_quelle": "schaetzung",
+      "dauer_je_crew": {
+        "1": [
+          4,
+          7
+        ],
+        "2": [
+          3,
+          6
+        ],
+        "3": [
+          3,
+          5
+        ]
+      },
+      "liefert_flags": [
+        "{{id}}_geborgen",
+        "{{id}}_genug"
+      ],
+      "ereignisse": [
+        "fundGeborgen",
+        "beamedUp"
+      ],
+      "params": {
+        "loc": {
+          "typ": "loc",
+          "pflicht": true
+        },
+        "map": {
+          "typ": "map",
+          "pflicht": true,
+          "beschreibung": "Landepunkt (setzt der Szenenbau nach buehne_braucht, nie das LLM)"
+        },
+        "anzahl": {
+          "typ": "zahl",
+          "default": 2,
+          "min": 1,
+          "max": 2,
+          "beschreibung": "Wie viele Fundorte geborgen werden müssen (E halten je Fundort)"
+        },
+        "fund_name": {
+          "typ": "text",
+          "default": "{{lex.wrackteil:der}}",
+          "beschreibung": "Name der Ladung im Nominativ Einzahl mit Artikel (z. B. „die Frachtkiste“); Standard aus dem Lexikon"
+        },
+        "aufgeben_nach": {
+          "typ": "zahl",
+          "default": 300,
+          "min": 120,
+          "max": 480
+        }
+      },
+      "vorlage": {
+        "buehne": {
+          "orte": [
+            "{{loc}}"
+          ],
+          "aussenkarten": [
+            "{{map}}"
+          ]
+        },
+        "steps": [
+          {
+            "id": "{{id}}",
+            "loc": "{{loc}}",
+            "allowBeam": [
+              "{{map}}"
+            ],
+            "timers": [
+              {
+                "at": 2,
+                "oda": "@{{id}}.start"
+              },
+              {
+                "at": 70,
+                "if": {
+                  "not": {
+                    "v": "{{id}}_ende"
+                  }
+                },
+                "oda": "@{{id}}.hinweis",
+                "garantie": "hinweis"
+              }
+            ],
+            "rules": [
+              {
+                "if": {
+                  "all": [
+                    {
+                      "check": {
+                        "name": "anker_state",
+                        "map": "{{map}}",
+                        "anker": "fund",
+                        "state": "genommen",
+                        "min": "{{anzahl}}"
+                      }
+                    },
+                    {
+                      "not": {
+                        "v": "{{id}}_ende"
+                      }
+                    }
+                  ]
+                },
+                "do": [
+                  {
+                    "set": {
+                      "{{id}}_ende": true
+                    }
+                  },
+                  {
+                    "setFlag": {
+                      "{{id}}_geborgen": true
+                    }
+                  },
+                  {
+                    "oda": "@{{id}}.geschafft",
+                    "fund": "{{fund_name}}"
+                  }
+                ]
+              },
+              {
+                "if": {
+                  "all": [
+                    {
+                      "elapsed": "{{aufgeben_nach}}"
+                    },
+                    {
+                      "not": {
+                        "v": "{{id}}_ende"
+                      }
+                    }
+                  ]
+                },
+                "do": [
+                  {
+                    "set": {
+                      "{{id}}_ende": true
+                    }
+                  },
+                  {
+                    "setFlag": {
+                      "{{id}}_genug": true
+                    }
+                  },
+                  {
+                    "oda": "@{{id}}.genug"
+                  }
+                ],
+                "garantie": "zeitlimit"
+              }
+            ],
+            "objectives": [
+              {
+                "id": "runter",
+                "text": "@{{id}}.ziel_runter",
+                "done": {
+                  "any": [
+                    {
+                      "check": {
+                        "name": "away_active",
+                        "map": "{{map}}"
+                      }
+                    },
+                    {
+                      "v": "{{id}}_ende"
+                    }
+                  ]
+                }
+              },
+              {
+                "id": "ziel",
+                "text": "@{{id}}.ziel",
+                "done": {
+                  "v": "{{id}}_ende"
+                }
+              },
+              {
+                "id": "hoch",
+                "text": "@{{id}}.ziel_hoch",
+                "show": {
+                  "v": "{{id}}_ende"
+                },
+                "done": {
+                  "not": {
+                    "check": {
+                      "name": "team_down",
+                      "map": "{{map}}"
+                    }
+                  }
+                }
+              }
+            ],
+            "next": [
+              {
+                "if": {
+                  "all": [
+                    {
+                      "v": "{{id}}_ende"
+                    },
+                    {
+                      "not": {
+                        "check": {
+                          "name": "team_down",
+                          "map": "{{map}}"
+                        }
+                      }
+                    }
+                  ]
+                },
+                "goto": "{{weiter}}"
+              }
+            ],
+            "skip": [
+              {
+                "do": "anker_zustand",
+                "map": "{{map}}",
+                "anker": "fund",
+                "zustand": "genommen"
+              },
+              {
+                "set": {
+                  "{{id}}_ende": true
+                }
+              },
+              {
+                "setFlag": {
+                  "{{id}}_geborgen": true
+                }
+              }
+            ]
+          }
+        ],
+        "texte": {
+          "{{id}}.ziel_runter": "Außenteam runterbeamen",
+          "{{id}}.ziel_hoch": "Zurück an Bord beamen",
+          "{{id}}.start": "Absturzstelle unter euch: {{anzahl}} Fundorte mit Wrackteilen und Vorräten (Außenteam-Karte). Hin, E halten.",
+          "{{id}}.hinweis": "Captain: Fundorte auf der Karte markiert, dort liegt {{fund_name}} aus dem Wrack. Hin, E halten, dann zu den Pads.",
+          "{{id}}.geschafft": "Das Wichtigste aus dem Wrack ist geborgen! Zurück zu den Pads.",
+          "{{id}}.genug": "Genug im Wrack gewühlt – der Rest bleibt liegen. Zurück zu den Pads.",
+          "{{id}}.ziel": "Aus dem Wrack bergen (E halten, {{anzahl}} Fundorte): {{fund_name}}"
+        }
+      },
+      "rueckfall": {
+        "params": {}
+      },
+      "test": {
+        "params": {
+          "loc": "kesh",
+          "map": "kesh.wildnis-1"
+        }
+      }
     }
   ],
   "quelle": "vault: Bausteine/Ziel-Moleküle.md"

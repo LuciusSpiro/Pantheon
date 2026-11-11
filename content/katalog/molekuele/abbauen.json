@@ -1,0 +1,296 @@
+{
+  "format": "molekuel/1",
+  "id": "abbauen",
+  "name": "Abbauen",
+  "familie": "bergen_und_sichern",
+  "kern": "Rohstoff am Boden gewinnen: Vorkommen abbauen, solange der Lärm die Wachen nicht ruft",
+  "ansaetze": [
+    "technik"
+  ],
+  "szenentypen": [
+    "C9"
+  ],
+  "quelle": "vault: Pantheon/Auftrag SPL-01 – Spielleiter-Szenen Gelände.md (Paket d), GEL-03",
+  "umsetzungen": [
+    {
+      "id": "adern_in_der_hoehle",
+      "name": "Erz in der Höhle abbauen",
+      "schauplatz": "aussen",
+      "beschreibung": "Höhle mit Erzadern (Außenteam-Karte): an den Vorkommen E halten, das Erz wandert ins Lager der Lerche. Abbau ist laut und lockt, was in der Höhle lebt. anzahl = wie viele Adern (1 oder 2). Der Ort darf wiederkehren: die Adern tragen dann frisches Erz. Nach einer Weile lässt man den Rest stehen.",
+      "braucht": [
+        "transfer",
+        "aussen_objekte"
+      ],
+      "buehne_braucht": {
+        "kartenarten": [
+          "hoehle"
+        ],
+        "anker": [
+          "abholpunkt",
+          "abbau"
+        ],
+        "min": {
+          "abbau": 4
+        }
+      },
+      "wiederkehr": {
+        "max": 2
+      },
+      "dauer_min": [
+        3,
+        6
+      ],
+      "dauer_quelle": "schaetzung",
+      "dauer_je_crew": {
+        "1": [
+          4,
+          7
+        ],
+        "2": [
+          3,
+          6
+        ],
+        "3": [
+          3,
+          5
+        ]
+      },
+      "liefert_flags": [
+        "{{id}}_abgebaut",
+        "{{id}}_genug"
+      ],
+      "ereignisse": [
+        "abbauStart",
+        "abbauFertig",
+        "abbauNeu",
+        "abbauLaerm"
+      ],
+      "params": {
+        "loc": {
+          "typ": "loc",
+          "pflicht": true
+        },
+        "map": {
+          "typ": "map",
+          "pflicht": true,
+          "beschreibung": "Landepunkt (setzt der Szenenbau nach buehne_braucht, nie das LLM)"
+        },
+        "anzahl": {
+          "typ": "zahl",
+          "default": 2,
+          "min": 1,
+          "max": 2,
+          "beschreibung": "Wie viele Adern abgebaut werden müssen (jede Höhle trägt je Mission 2 bis 3 Vorkommen)"
+        },
+        "ader_name": {
+          "typ": "text",
+          "default": "{{lex.abbau:pl}}",
+          "beschreibung": "Name der Vorkommen im Plural (Standard aus dem Lexikon)"
+        },
+        "aufgeben_nach": {
+          "typ": "zahl",
+          "default": 420,
+          "min": 180,
+          "max": 600
+        }
+      },
+      "vorlage": {
+        "buehne": {
+          "orte": [
+            "{{loc}}"
+          ],
+          "aussenkarten": [
+            "{{map}}"
+          ]
+        },
+        "steps": [
+          {
+            "id": "{{id}}",
+            "loc": "{{loc}}",
+            "allowBeam": [
+              "{{map}}"
+            ],
+            "enter": [
+              {
+                "do": "abbau_neu",
+                "map": "{{map}}"
+              }
+            ],
+            "timers": [
+              {
+                "at": 2,
+                "oda": "@{{id}}.start"
+              },
+              {
+                "at": 70,
+                "if": {
+                  "not": {
+                    "v": "{{id}}_ende"
+                  }
+                },
+                "oda": "@{{id}}.hinweis",
+                "garantie": "hinweis"
+              }
+            ],
+            "rules": [
+              {
+                "if": {
+                  "all": [
+                    {
+                      "check": {
+                        "name": "abbau_fertig",
+                        "map": "{{map}}",
+                        "min": "{{anzahl}}"
+                      }
+                    },
+                    {
+                      "not": {
+                        "v": "{{id}}_ende"
+                      }
+                    }
+                  ]
+                },
+                "do": [
+                  {
+                    "set": {
+                      "{{id}}_ende": true
+                    }
+                  },
+                  {
+                    "setFlag": {
+                      "{{id}}_abgebaut": true
+                    }
+                  },
+                  {
+                    "oda": "@{{id}}.geschafft"
+                  }
+                ]
+              },
+              {
+                "if": {
+                  "all": [
+                    {
+                      "elapsed": "{{aufgeben_nach}}"
+                    },
+                    {
+                      "not": {
+                        "v": "{{id}}_ende"
+                      }
+                    }
+                  ]
+                },
+                "do": [
+                  {
+                    "set": {
+                      "{{id}}_ende": true
+                    }
+                  },
+                  {
+                    "setFlag": {
+                      "{{id}}_genug": true
+                    }
+                  },
+                  {
+                    "oda": "@{{id}}.genug"
+                  }
+                ],
+                "garantie": "zeitlimit"
+              }
+            ],
+            "objectives": [
+              {
+                "id": "runter",
+                "text": "@{{id}}.ziel_runter",
+                "done": {
+                  "any": [
+                    {
+                      "check": {
+                        "name": "away_active",
+                        "map": "{{map}}"
+                      }
+                    },
+                    {
+                      "v": "{{id}}_ende"
+                    }
+                  ]
+                }
+              },
+              {
+                "id": "ziel",
+                "text": "@{{id}}.ziel",
+                "done": {
+                  "v": "{{id}}_ende"
+                }
+              },
+              {
+                "id": "hoch",
+                "text": "@{{id}}.ziel_hoch",
+                "show": {
+                  "v": "{{id}}_ende"
+                },
+                "done": {
+                  "not": {
+                    "check": {
+                      "name": "team_down",
+                      "map": "{{map}}"
+                    }
+                  }
+                }
+              }
+            ],
+            "next": [
+              {
+                "if": {
+                  "all": [
+                    {
+                      "v": "{{id}}_ende"
+                    },
+                    {
+                      "not": {
+                        "check": {
+                          "name": "team_down",
+                          "map": "{{map}}"
+                        }
+                      }
+                    }
+                  ]
+                },
+                "goto": "{{weiter}}"
+              }
+            ],
+            "skip": [
+              {
+                "set": {
+                  "{{id}}_ende": true
+                }
+              },
+              {
+                "setFlag": {
+                  "{{id}}_abgebaut": true
+                }
+              }
+            ]
+          }
+        ],
+        "texte": {
+          "{{id}}.ziel_runter": "Außenteam runterbeamen",
+          "{{id}}.ziel_hoch": "Zurück an Bord beamen",
+          "{{id}}.start": "Höhle mit Vorkommen: {{anzahl}} Adern auf der Außenteam-Karte. Hingehen, E halten – das Erz geht ins Lager. Abbau ist laut.",
+          "{{id}}.hinweis": "Captain: {{ader_name}} sind auf der Karte markiert. Hin, E halten, bis die Ader leer ist – und die Ohren offen halten.",
+          "{{id}}.geschafft": "Genug Erz im Lager! Zurück zu den Pads, dann holen wir euch hoch.",
+          "{{id}}.genug": "Genug geschürft – den Rest lassen wir stehen. Zurück zu den Pads.",
+          "{{id}}.ziel": "Erz abbauen (E halten, {{anzahl}} Adern): {{ader_name}}"
+        }
+      },
+      "rueckfall": {
+        "params": {}
+      },
+      "test": {
+        "params": {
+          "loc": "kesh",
+          "map": "kesh.hoehle-1"
+        }
+      }
+    }
+  ]
+}

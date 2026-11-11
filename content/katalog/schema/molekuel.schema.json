@@ -130,6 +130,13 @@
             "landepunkt": { "enum": ["laufzeit"], "description": "B1-FIX: Die Karte entsteht erst zur Laufzeit (z. B. kapern/prise_entern: <loc>.prise nach dem Raumgefecht) – der Szenenbau verlangt und wählt keinen Landepunkt; die Szene zählt trotzdem als Bodenszene. kartenarten/anker beschreiben die entstehende Karte." }
           }
         },
+        "wiederkehr": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["max"],
+          "description": "SPL-01 d: Landepunkte dieser Umsetzung sind wiederbesuchbar. Der Spielleiter darf einen Landepunkt der letzten Missionen erneut wählen (ohne KARTE-WIEDERHOLT), höchstens max Missionen in Folge nach dem ersten Besuch; danach gilt die Regel wieder (neuer Seed). Die Szene setzt ihre Ressourcen selbst zurück (z. B. abbau_neu). max darf höchstens wiederholtFenster - 1 sein (spielleiter.boden), sonst wirkt der Deckel nur bis dort.",
+          "properties": { "max": { "type": "integer", "minimum": 1, "maximum": 5 } }
+        },
         "params": {
           "type": "object",
           "additionalProperties": {

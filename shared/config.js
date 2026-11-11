@@ -713,7 +713,10 @@
       sceneWaitMax: 20, prefetch: 'start', maxConcurrent: 1, rateLimitPause: 60, regieRotateBytes: 5 * 1024 * 1024,
       minPlanMinutes: 10, targetMinutes: 15, maxOpenThreads: 1,
       // B1 (CONTRACT-B1 §11, Welle 0): Bodenquote und lange Missionen (SPIELLEITER/ENGINE lesen)
-      boden: { langAbMin: 25, langMaxMin: 35, langeJeRunde: 1, wiederholtFenster: 3 } },
+      boden: { langAbMin: 25, langMaxMin: 35, langeJeRunde: 1, wiederholtFenster: 3 },
+      // SPL-01 a2: Kontext-Politik Gelände: nur die letzten gelaendeEinzeln besuchten, vom Spielleiter angelegten Landepunkte dieser Kartenarten stehen einzeln im Kontext,
+      // der Rest nur als Zählzeile je Ort (ohne Anker). Feste und Kachel-Landepunkte nie betroffen. Ohne Deckel +93 Tokens je Landepunkt (T13-Grenze 2200).
+      kontext: { gelaendeEinzeln: 1, gelaendeArten: ['wildnis', 'hoehle'] } },
     // ---- S2b (CONTRACT-S2B §2): Sperrfeuer der Korvette – oft, langsam, ausweichbar. Startwerte, KAMPF stimmt ab ----
     // KAMPF: maxProjectiles = Obergrenze gleichzeitiger Sperrfeuer-Geschosse (Snapshot-Budget, ältestes fällt weg);
     // escortFactor = Schaden auf Schützlinge OHNE Systemmodell (× escorts.hullPerDamage × crewDamage); bei Verbündeten mit Modell wirkt er seit SYS-03 B nur noch auf den Schild

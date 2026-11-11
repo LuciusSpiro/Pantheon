@@ -137,7 +137,7 @@ async function pipeline() {
   const regieDir = path.resolve(ROOT, opt('--regie', path.join('data', 'regie-s2b')));
   if (opt('--budget')) LLM.setBudgetLimit(Number(opt('--budget')));
   const minBudget = Number(opt('--min-budget', 12000));
-  const live = TROCKEN ? Object.assign(LLM.create({ mode: 'mock', katalog: kat }), { mode: 'live' }) : LLM.create({ mode: 'live', model: MODEL, recordDir: path.join(regieDir, 'aufnahmen') });
+  const live = TROCKEN ? Object.assign(LLM.create({ mode: 'mock', katalog: kat }), { mode: 'live' }) : LLM.create({ mode: 'live', model: MODEL, recordDir: path.join(regieDir, 'aufnahmen'), transport: require('../server/mission/transport-router.js').routerAusEnv(process.env) });
   if (TROCKEN) { const a0 = live.ask; live.ask = (k, i, o) => a0(k, i, o).then((r) => Object.assign(r, { sec: 0.1, usage: { input: 0, output: 0 }, source: 'live' })); }
   // S2b: jeder Aufruf mit Tokens/Dauer mitschreiben; --grobplan: Grobplan aus Datei statt live
   const calls = [];

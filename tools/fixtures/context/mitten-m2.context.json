@@ -237,7 +237,8 @@
       "pflichtsatz": {
         "abholpunkt": 1,
         "deckung": 4,
-        "fund": 2
+        "fund": 2,
+        "wache": 3
       }
     },
     {
@@ -248,7 +249,8 @@
         "abholpunkt": 1,
         "deckung": 4,
         "fund": 2,
-        "nest": 1
+        "nest": 1,
+        "wache": 3
       }
     }
   ],
@@ -700,6 +702,41 @@
   "tutorial": "laeuft",
   "verfuegbar": {
     "molekuele": [
+      {
+        "ansaetze": [
+          "technik"
+        ],
+        "id": "abbauen",
+        "kern": "Rohstoff am Boden gewinnen: Vorkommen abbauen, solange der Lärm die Wachen nicht ruft",
+        "name": "Abbauen",
+        "szenentypen": [
+          "C9"
+        ],
+        "umsetzungen": [
+          {
+            "beschreibung": "Höhle mit Erzadern (Außenteam-Karte): an den Vorkommen E halten, das Erz wandert ins Lager der Lerche. Abbau ist laut und lockt, was in der Höhle lebt. anzahl = wie viele Adern (1 oder 2). Der Ort darf wiederkehren: die Adern tragen dann frisches Erz. Nach einer Weile lässt man den Rest stehen.",
+            "braucht_anker": {
+              "anker": [
+                "abholpunkt",
+                "abbau"
+              ],
+              "kartenarten": [
+                "hoehle"
+              ],
+              "min": {
+                "abbau": 4
+              }
+            },
+            "dauer_min": [
+              3,
+              6
+            ],
+            "id": "adern_in_der_hoehle",
+            "name": "Erz in der Höhle abbauen",
+            "schauplatz": "aussen"
+          }
+        ]
+      },
       {
         "ansaetze": [
           "technik"
@@ -1320,6 +1357,29 @@
         ],
         "umsetzungen": [
           {
+            "beschreibung": "Absturzstelle im Gelände (Wildnis, Höhle): Ein Schiff oder eine Kapsel ist notgelandet bzw. abgestürzt. Das Außenteam sucht Wrackteile und Vorräte an den Fundorten (E halten) und kommt zurück zu den Pads. Rahmen für Rettung, Plünderer und Verfolger aus der Besetzung. anzahl = wie viele Fundorte (1 oder 2).",
+            "braucht_anker": {
+              "anker": [
+                "abholpunkt",
+                "fund"
+              ],
+              "kartenarten": [
+                "wildnis",
+                "hoehle"
+              ],
+              "min": {
+                "fund": 2
+              }
+            },
+            "dauer_min": [
+              3,
+              6
+            ],
+            "id": "absturzstelle",
+            "name": "Absturzstelle: Wrackteile und Vorräte bergen",
+            "schauplatz": "aussen"
+          },
+          {
             "beschreibung": "Treibende Kisten im Feld, auf der Ops-Karte grün. Der Pilot sieht nur nach vorn, die Ops lotst mit Markern, drüberfliegen sammelt ein. Im Asteroidenfeld kostet jeder Rempler Schild. Garantie: Nach einer Weile lässt man den Rest treiben.",
             "dauer_min": [
               2,
@@ -1328,6 +1388,29 @@
             "id": "bergungskisten",
             "name": "Bergungsgut im Feld einsammeln",
             "schauplatz": "weltraum"
+          },
+          {
+            "beschreibung": "Fracht liegt verstreut im Gelände (Wildnis, Höhle), etwa nach einem Überfall oder einer Notlandung der Transporter. An den Fundorten (Außenteam-Karte) E halten, bis die Ladung geborgen ist, dann zurück zu den Pads. anzahl = wie viele Fundorte (1 oder 2). Gegner aus der Besetzung der Szene. Nach einer Weile lässt man den Rest liegen.",
+            "braucht_anker": {
+              "anker": [
+                "abholpunkt",
+                "fund"
+              ],
+              "kartenarten": [
+                "wildnis",
+                "hoehle"
+              ],
+              "min": {
+                "fund": 2
+              }
+            },
+            "dauer_min": [
+              3,
+              6
+            ],
+            "id": "ladung_am_boden",
+            "name": "Liegengebliebene Ladung im Gelände bergen",
+            "schauplatz": "aussen"
           }
         ]
       },
@@ -1416,6 +1499,26 @@
             ],
             "id": "techniker_retten",
             "name": "Verletzte Person von einer Außenkarte holen",
+            "schauplatz": "aussen"
+          },
+          {
+            "beschreibung": "Gelände (Wildnis, Höhle) nach Absturz oder Überfall: Eine verletzte Person hat sich abseits in Deckung versteckt und ist auf der Außenteam-Karte markiert. Das Außenteam nimmt ein Medipack mit, geht hin, versorgt sie (E), sie folgt zu den Pads und wird mit hochgebeamt. Eine Person je Karte. Gegner (Verfolger, Plünderer) kommen aus der Besetzung der Szene.",
+            "braucht_anker": {
+              "anker": [
+                "abholpunkt",
+                "deckung"
+              ],
+              "kartenarten": [
+                "wildnis",
+                "hoehle"
+              ]
+            },
+            "dauer_min": [
+              2,
+              4
+            ],
+            "id": "ueberlebende_suchen",
+            "name": "Überlebende im Gelände suchen und bergen",
             "schauplatz": "aussen"
           }
         ]
@@ -1689,6 +1792,29 @@
             "schauplatz": "aussen"
           },
           {
+            "beschreibung": "Ein Kontrollposten der Fraktion im Gelände: Wachen an den Lagern, dazwischen Streifen (Trupps aus ihren Rezepten an den Wachposten und Patrouillenwegen). Deckung suchen, Streifen abpassen, zusammen zuschlagen; der Captain gibt von oben Befehle und sieht Gegner. Erledigt, wenn alle Gegner aus dem Gefecht sind (Haltung ruhig erlaubt leises Vorgehen). Für Wildnis und Höhle.",
+            "braucht_anker": {
+              "anker": [
+                "wache"
+              ],
+              "gefecht": true,
+              "kartenarten": [
+                "wildnis",
+                "hoehle"
+              ],
+              "min": {
+                "wache": 3
+              }
+            },
+            "dauer_min": [
+              3,
+              6
+            ],
+            "id": "kontrollposten_im_gelaende",
+            "name": "Kontrollposten im Gelände ausschalten",
+            "schauplatz": "aussen"
+          },
+          {
             "beschreibung": "Höhle mit Kreaturen statt Drohnen, Typ als Parameter. rudeltier: drei starke Tiere mit Panzerung vorn, einzeln bekämpfbar. schwarm: viele kleine Wesen um eine Königin am Nest; Abbaulärm lockt sie, die Königin beseitigen löst den Schwarm auf. Erledigt, wenn alle Tiere bzw. die Königin endgültig erledigt sind. Beide Typen gleichwertig anbieten und abwechseln.",
             "braucht_anker": {
               "anker": [
@@ -1705,6 +1831,25 @@
             ],
             "id": "kreaturen_in_hoehle",
             "name": "Kreaturen in der Höhle erledigen",
+            "schauplatz": "aussen"
+          },
+          {
+            "beschreibung": "Gepanzerte Rudeltiere (3 oder 4 je Rudel, Panzerung vorn) auf einer Wildnis- oder Höhlenkarte, einzeln bekämpfbar. rudel 1 oder 2: bei zwei Rudeln stehen sie weit auseinander. Erledigt, wenn alle Tiere aller Rudel endgültig erledigt sind. Für Wildnis und Höhle. Standard: ein Rudel mit 3 Tieren.",
+            "braucht_anker": {
+              "anker": [
+                "abholpunkt"
+              ],
+              "kartenarten": [
+                "wildnis",
+                "hoehle"
+              ]
+            },
+            "dauer_min": [
+              4,
+              10
+            ],
+            "id": "rudeltiere_im_gelaende",
+            "name": "Rudeltiere im Gelände erledigen",
             "schauplatz": "aussen"
           },
           {
@@ -2243,11 +2388,13 @@
           "halten"
         ],
         "molekuele": [
+          "abbauen",
           "artefakt_freilegen",
           "ausschlachten",
           "datenkern_bergen",
           "evakuieren",
           "geiseln_befreien",
+          "ladung_bergen",
           "personen_bergen"
         ],
         "name": "Bergung vor Ort",

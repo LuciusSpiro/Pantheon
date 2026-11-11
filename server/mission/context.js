@@ -51,6 +51,12 @@ function bodenConfig() {
   try { return Object.assign({}, BODEN_DEFAULT, (require('../../shared/config.js').spielleiter || {}).boden || {}); } catch (e) { return Object.assign({}, BODEN_DEFAULT); }
 }
 
+// SPL-01 a2: Kontext-Politik für vom Spielleiter angelegte, besuchte Gelände-Landepunkte (shared/config.js spielleiter.kontext)
+const KONTEXT_DEFAULT = { gelaendeEinzeln: 1, gelaendeArten: ['wildnis', 'hoehle'] };
+function kontextConfig() {
+  try { return Object.assign({}, KONTEXT_DEFAULT, (require('../../shared/config.js').spielleiter || {}).kontext || {}); } catch (e) { return Object.assign({}, KONTEXT_DEFAULT); }
+}
+
 function sortKeys(x) {
   if (Array.isArray(x)) return x.map(sortKeys);
   if (x && typeof x === 'object') {
@@ -92,6 +98,9 @@ function orteOf(w, lp) {
   const aufgedeckt = new Set(arr(o.aufgedeckt)); const gefunden = new Set(arr(o.gefunden));
   const offen = new Set(arr(obj(w.welt).verbindungen_offen));
   const locked = (a, b) => { const k = Locations.lockedKey(a, b); return k && !offen.has(k); };
+  const lpOrte = {};   // ort -> Landepunkt-Einträge (vor der Kontext-Politik)
+  for (const l of Locations.LOCATIONS) lpOrte[l.id] = landepunkteOf(lp, l.id);
+  const weitere = gelaendeDeckeln(lp, lpOrte);
   return Locations.LOCATIONS.map((l) => {
     const links = l.links.slice().sort();
     const e = {
@@ -104,8 +113,9 @@ function orteOf(w, lp) {
     const gesperrt = links.filter((x) => locked(l.id, x));
     if (gesperrt.length) e.gesperrt = gesperrt;
     if (l.scene && l.scene.beam) e.aussenkarte = l.scene.beam.map;
-    const lps = landepunkteOf(lp, l.id);
+    const lps = lpOrte[l.id];
     if (lps.length) e.landepunkte = lps;
+    if (weitere[l.id]) e.landepunkte_mehr = `+${weitere[l.id]} weitere Gelände-Karten besucht`;
     return e;
   }).sort(byId);
 }
@@ -137,6 +147,13 @@ function lpAdapter(game) {
     liste(ort) { try { return L.liste(g, ort); } catch (e) { return []; } },
     info(id) { return L.info(g, id); },   // W2: schließt die Kachel-Landepunkte ein
     eintrag(id) { return st().eintraege[id] || null; },
+    // SPL-01 a2: vom Spielleiter angelegter (Laufzeit-Definition, keine Kachel), bereits betretener Gelände-Landepunkt?
+    gelaendeBesucht(id) {
+      const d = st().dyn[id]; const e = st().eintraege[id];
+      return !!d && !d.kachel && kontextConfig().gelaendeArten.includes(d.art) && !!e && (e.besuche | 0) > 0;
+    },
+    // Besuchsfolge (Weltstand-Feld `zuletzt`, wächst mit jedem Betreten; 0 = Altstand ohne Angabe)
+    zuletzt(id) { const e = st().eintraege[id]; return e ? e.zuletzt | 0 : 0; },
     sperrgrund(id) { try { return L.sperrgrund(g, id); } catch (e) { return 'Landepunkt unbekannt.'; } },
     karte(id) { try { return L.karte(g, id); } catch (e) { return null; } },
     bekannt(id) {
@@ -180,6 +197,23 @@ function landepunkteOf(lp, ort) {
     else if (!x.frei) { const d = lp.info(x.id) || {}; r.frei = d.frei || 'nein'; }
     return r;
   }).sort(byId);
+}
+
+// SPL-01 a2: nur die letzten `gelaendeEinzeln` besuchten Gelände-Landepunkte (über alle Orte) bleiben einzeln im Kontext, der Rest fällt aus lpOrte
+// heraus und wird je Ort gezählt. Reihenfolge: Besuchsfolge `zuletzt` (neueste zuerst); Altstände ohne Angabe: höhere Nummer im Landepunkt-Namen zuerst
+// (Nummern werden nach Verwerfen wiederverwendet, das ist nur die beste Näherung). Feste und Kachel-Landepunkte und nie betretene sind nie betroffen.
+function gelaendeDeckeln(lp, lpOrte) {
+  const weitere = {};
+  if (!lp || typeof lp.gelaendeBesucht !== 'function') return weitere;
+  const nr = (id) => { const m = /(\d+)$/.exec(id); return m ? +m[1] : 0; };
+  const gel = [];
+  for (const [ort, list] of Object.entries(lpOrte)) for (const x of list) if (lp.gelaendeBesucht(x.id)) gel.push({ ort, id: x.id, z: lp.zuletzt(x.id) });
+  gel.sort((a, b) => (b.z - a.z) || (nr(b.id) - nr(a.id)) || (a.id < b.id ? -1 : 1));
+  for (const g of gel.slice(Math.max(0, kontextConfig().gelaendeEinzeln | 0))) {
+    lpOrte[g.ort] = lpOrte[g.ort].filter((x) => x.id !== g.id);
+    weitere[g.ort] = (weitere[g.ort] || 0) + 1;
+  }
+  return weitere;
 }
 
 // Pflichtsatz je Kartenart: Minimum über alle Schablonen der Art (jede Karte der Art hat ihn auf jedem Seed)

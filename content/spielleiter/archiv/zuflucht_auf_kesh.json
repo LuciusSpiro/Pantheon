@@ -1,0 +1,215 @@
+{
+  "format": "llm-aufzeichnung/1",
+  "kind": "grobplan",
+  "key": "archiv-zuflucht_auf_kesh-1",
+  "name": "zuflucht_auf_kesh",
+  "quelle": "archiv",
+  "modell": "hand",
+  "_kommentar": "Archiv-Mission SPL-01 b2 (von Hand, Gelaende-Eintrag 1 fuer den Rueckfall). Sela als Auftraggeberin: Ein Vaelen-Frachter ist auf Kesh notgelandet. Zwei Bodenszenen auf einer NEUEN Wildnis (buehne neu, kein fester Landepunkt): Ueberlebende suchen, dann Ladung bergen unter Germanen-Verfolgern. Der Landepunkt wird beim Angebot angelegt (planFromArchive -> aufloesen -> neueLandepunkteAnlegen).",
+  "input": {
+    "auftrag": "Archiv: Sela - notgelandeter Vaelen-Frachter auf Kesh, Ueberlebende suchen, Ladung bergen, Germanen-Trupp in der Naehe. 15 min zu dritt, ohne Tutorial-Voraussetzung."
+  },
+  "erinnerung_varianten": [
+    {
+      "erinnerung": {
+        "npc": "sela",
+        "ereignis": "sela_erinnerung"
+      },
+      "text": "Sela vergisst nicht, dass die Lerche ihr schon einmal geholfen hat. Jetzt ruft sie wieder, und diesmal geht es um Menschen."
+    },
+    {
+      "erinnerung": {
+        "npc": "sela",
+        "ereignis": "m2_erinnerung"
+      },
+      "text": "Die Lerche hat Selas verlorene Messsonde gefunden. Nun ist ein ganzer Frachter verloren."
+    }
+  ],
+  "erinnerung_neutral": "Sela handelt mit allem, was im Saumraum fliegt. Ein Frachter der Vaelen, der nicht mehr antwortet, ist selbst für sie ein schlechtes Zeichen.",
+  "grobplan": {
+    "format": "grobplan/2",
+    "id": "zuflucht_auf_kesh",
+    "titel": "Zuflucht auf Kesh",
+    "auftraggeber": "sela",
+    "zielspieldauer_min": 15,
+    "aufhaenger": "Lerche, hier Sela. Mein Frachter Dornfink ist über Kesh verschwunden, zuletzt ein Notsignal, dann nichts mehr. Ich glaube, er ist unten im Gelände gelandet. Findet meine Leute und holt, was ihr von der Ladung retten könnt.",
+    "erinnerung": {
+      "neutral": true
+    },
+    "erinnerung_text": "Sela handelt mit allem, was im Saumraum fliegt. Ein Frachter der Vaelen, der nicht mehr antwortet, ist selbst für sie ein schlechtes Zeichen.",
+    "szenen": [
+      {
+        "id": "zk_hafen",
+        "szenentyp": "hafen",
+        "ort": "hafen",
+        "karte": null,
+        "molekuele": [],
+        "sachverhalt": "Sela funkt in den Hafen: Ihr Frachter Dornfink ist über dem Mond Kesh abgestürzt oder notgelandet. Sie bittet die Lerche, nach Überlebenden zu suchen und die Ladung zu sichern.",
+        "wendung": null,
+        "dauer_min": 2,
+        "weiter": [
+          {
+            "wenn": "Auftrag angenommen",
+            "nach": "zk_suche"
+          }
+        ]
+      },
+      {
+        "id": "zk_suche",
+        "szenentyp": "bergung_vor_ort",
+        "ort": "kesh",
+        "buehne": {
+          "kartenart": "wildnis",
+          "neu": true
+        },
+        "karte": null,
+        "molekuele": [
+          {
+            "id": "personen_bergen",
+            "umsetzung": "ueberlebende_suchen"
+          }
+        ],
+        "sachverhalt": "Unten im Gelände liegt die Absturzspur der Dornfink. Ein Verletzter aus der Besatzung hat sich in einer Deckung versteckt. Das Außenteam nimmt ein Medipack mit, findet ihn und bringt ihn zu den Pads.",
+        "wendung": null,
+        "dauer_min": 4,
+        "weiter": [
+          {
+            "wenn": "Verletzter versorgt oder Suche beendet",
+            "nach": "zk_fracht"
+          }
+        ]
+      },
+      {
+        "id": "zk_fracht",
+        "szenentyp": "bergung_vor_ort",
+        "ort": "kesh",
+        "buehne": {
+          "kartenart": "wildnis",
+          "neu": true
+        },
+        "karte": null,
+        "besetzung": [
+          {
+            "fraktion": "ger",
+            "staerke": "klein",
+            "haltung": "wach"
+          }
+        ],
+        "molekuele": [
+          {
+            "id": "ladung_bergen",
+            "umsetzung": "ladung_am_boden"
+          }
+        ],
+        "sachverhalt": "Die Ladung der Dornfink liegt verstreut im Gelände, und ein Trupp eines Germanenclans hat die Spur ebenfalls gefunden. Das Außenteam sichert die Kisten, bevor sie weg sind.",
+        "wendung": null,
+        "dauer_min": 5,
+        "weiter": [
+          {
+            "wenn": "Ladung geborgen",
+            "nach": "zk_abgabe_voll"
+          },
+          {
+            "wenn": "Rest liegen gelassen",
+            "nach": "zk_abgabe_knapp"
+          }
+        ]
+      },
+      {
+        "id": "zk_abgabe_voll",
+        "szenentyp": "hafen",
+        "ort": "hafen",
+        "karte": null,
+        "molekuele": [],
+        "sachverhalt": "Sela nimmt die Kisten der Dornfink in Empfang und sorgt sich um ihre Besatzung. Dank ihr steht die Lerche im Vaelen-Handel in gutem Licht.",
+        "wendung": null,
+        "dauer_min": 2,
+        "weiter": [
+          {
+            "wenn": "Abgegeben",
+            "nach": "ausgang:voll"
+          }
+        ]
+      },
+      {
+        "id": "zk_abgabe_knapp",
+        "szenentyp": "hafen",
+        "ort": "hafen",
+        "karte": null,
+        "molekuele": [],
+        "sachverhalt": "Sela bekommt die Überlebenden zurück, aber nur einen Teil der Ladung. Der Rest liegt noch auf Kesh, und die Clans haben ihn sicher längst gefunden.",
+        "wendung": null,
+        "dauer_min": 2,
+        "weiter": [
+          {
+            "wenn": "Abgegeben",
+            "nach": "ausgang:knapp"
+          }
+        ]
+      }
+    ],
+    "entscheidungen": [],
+    "ausgaenge": {
+      "voll": {
+        "wann": "Die Überlebenden und die Ladung der Dornfink sind geborgen.",
+        "folgen": [
+          "npc_haltung sela +1",
+          "npc_gedaechtnis sela: Die Lerche hat meine Leute von Kesh geholt und die Ladung der Dornfink gerettet. Das vergesse ich nicht.",
+          "chronik: Zuflucht auf Kesh: Die Lerche fand einen Verletzten der Dornfink im Gelände und barg die verstreute Ladung vor einem Germanentrupp."
+        ]
+      },
+      "knapp": {
+        "wann": "Die Überlebenden sind gerettet, aber ein Teil der Ladung blieb auf Kesh.",
+        "folgen": [
+          "npc_haltung sela +1",
+          "npc_gedaechtnis sela: Die Lerche hat meine Leute von Kesh geholt. Die Ladung ist zum Teil verloren, aber Menschen sind mir wichtiger.",
+          "chronik: Zuflucht auf Kesh: Die Lerche rettete die Besatzung der Dornfink, ein Teil der Ladung blieb auf Kesh liegen.",
+          "welt_fakt dornfink_ladung_kesh (faden): Ein Teil der Ladung der Dornfink liegt noch auf Kesh, ein Germanentrupp streift dort umher."
+        ]
+      }
+    }
+  },
+  "szenen": {
+    "zk_suche": {
+      "molekuele": [
+        {
+          "id": "personen_bergen",
+          "umsetzung": "ueberlebende_suchen",
+          "params": {
+            "loc": "kesh",
+            "name": "Maat Rilke",
+            "funk_person": "Hier drüben, in der Deckung! Mein Bein ist hin, aber ich lebe. Bringt mich zu euren Pads.",
+            "aufgeben_nach": 300
+          }
+        }
+      ],
+      "verzweigung": [],
+      "wendung": null
+    },
+    "zk_fracht": {
+      "molekuele": [
+        {
+          "id": "ladung_bergen",
+          "umsetzung": "ladung_am_boden",
+          "params": {
+            "loc": "kesh",
+            "anzahl": 2,
+            "aufgeben_nach": 300
+          }
+        }
+      ],
+      "verzweigung": [
+        {
+          "nach": "zk_abgabe_voll",
+          "if": {
+            "flag": "zk_fracht_geborgen"
+          }
+        },
+        {
+          "nach": "zk_abgabe_knapp"
+        }
+      ],
+      "wendung": null
+    }
+  }
+}

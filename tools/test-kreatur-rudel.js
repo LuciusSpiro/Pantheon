@@ -473,8 +473,14 @@ section('Scan: ein Rudel von 8 und 12 wird vollständig erfasst, Obergrenze aw.s
   const scan = (anzahlen, st) => {
     const S = szene('wueste', 101);
     const notes = []; S.g.notice = (pp, t) => { notes.push(t); };
-    const A = aktionRudel(S, 'a', anzahlen[0]);
-    for (let i = 1; i < anzahlen.length; i++) aktionRudel(S, 'r' + i, anzahlen[i]);
+    // SPL-01 c: rudel.abstand (Daten) stellt zwei Rudel weit auseinander; dieser Scan-Test will 20 Tiere dicht beieinander, also ohne den Abstand setzen
+    const abstand = RT0.rudel && RT0.rudel.abstand;
+    if (RT0.rudel) delete RT0.rudel.abstand;
+    let A;
+    try {
+      A = aktionRudel(S, 'a', anzahlen[0]);
+      for (let i = 1; i < anzahlen.length; i++) aktionRudel(S, 'r' + i, anzahlen[i]);
+    } finally { if (RT0.rudel && abstand !== undefined) RT0.rudel.abstand = abstand; }
     const mx = A.reduce((a, K) => a + K.x, 0) / A.length, my = A.reduce((a, K) => a + K.y, 0) / A.length;
     S.p.x = mx; S.p.y = my;
     const err = Scanbar.debugScanfertig(S.g, S.p, st);

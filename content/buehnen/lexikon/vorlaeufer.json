@@ -5,6 +5,8 @@
   "hinweis": "Bauweise der Kustoden-Stätte (Handkarte kesh). Ohne Tutorial ist das Wort 'Tafel' verboten (INHALT §9.4), deshalb fund = 'Steintafel'. Platzhalter {{lex.<schluessel>}}; Listen: erster Eintrag. Fehlt ein Schlüssel, gilt 'neutral'. Einträge: Zeichenkette (nur artikellos) oder { wort, genus m|f|n, plural?, gen?, dat? }. Formen im Text: {{lex.x}} Wort, {{lex.x:der|den|dem|des|ein|einen|einem}} mit Artikel, {{lex.x:pl}} Plural (server/mission/lexikon.js).",
   "eintraege": {
     "fund": { "wort": "Steintafel", "genus": "f", "plural": "Steintafeln" },
+    "ladung": { "wort": "Frachtkapsel", "genus": "f", "plural": "Frachtkapseln" },
+    "wrackteil": { "wort": "Wrackteil", "genus": "n", "plural": "Wrackteile", "gen": "Wrackteils" },
     "abbau": { "wort": "Erzader", "genus": "f", "plural": "Erzadern" },
     "nest": { "wort": "Nest", "genus": "n", "plural": "Nester", "gen": "Nests" },
     "fund_alt": [
@@ -35,6 +37,8 @@
   },
   "neutral": {
     "fund": { "wort": "Fundstück", "genus": "n", "plural": "Fundstücke", "gen": "Fundstücks" },
+    "ladung": { "wort": "Frachtkiste", "genus": "f", "plural": "Frachtkisten" },
+    "wrackteil": { "wort": "Wrackteil", "genus": "n", "plural": "Wrackteile", "gen": "Wrackteils" },
     "abbau": { "wort": "Erzader", "genus": "f", "plural": "Erzadern" },
     "nest": { "wort": "Nest", "genus": "n", "plural": "Nester", "gen": "Nests" },
     "tor": { "wort": "Tor", "genus": "n", "plural": "Tore", "gen": "Tors" },

@@ -607,6 +607,82 @@ function erledigtOptionenFehler(opts) {
   if (o.typ != null && !hat(daten().typen, o.typ)) return ["Typ '" + o.typ + "' gibt es in content/kampf/kreaturen.json nicht (" + Object.keys(daten().typen).join(', ') + ")"];
   return [];
 }
+// SPL-01 a4: Rudel-Deckel der Typen (Feld rudel in kreaturen.json; der Prüfer des Spielleiters liest ihn, die Laufzeit rudelSetzen bleibt bei 1 bis RUDEL_MAX). Typen ohne Feld: kein Deckel.
+function rudelRegel(typId) {
+  const t = hat(daten().typen, typId) ? daten().typen[typId] : null;
+  return t && t.rudel ? t.rudel : null;
+}
+// Rudelgröße eines kreatur_besetzen-Aufrufs gegen den Deckel des Typs (Texte, [] = in Ordnung). Nicht-Zahlen (config-Verweis) prüft hier niemand.
+function rudelGroesseFehler(args) {
+  const o = args || {};
+  const R = rudelRegel(o.typ);
+  if (!R || typeof o.anzahl !== 'number') return [];
+  if (o.anzahl >= R.tiere.min && o.anzahl <= R.tiere.max) return [];
+  return ["'anzahl' = " + o.anzahl + " außerhalb der Rudelgröße " + R.tiere.min + '–' + R.tiere.max + " des Typs '" + o.typ + "' (content/kampf/kreaturen.json typen." + o.typ + '.rudel.tiere)'];
+}
+// Rudel je Karte: Liste von kreatur_besetzen-Aufrufen (Argumente) -> [{ index, text }] für jeden Aufruf, der das Maximum des Typs auf seiner Karte überschreitet.
+// Gezählt werden verschiedene Gruppen-Kennungen je Karte und Typ (derselbe Aufruf in zwei Zweigen mit derselben gruppe ist ein Rudel); ohne Textkennung zählt jeder Aufruf einzeln.
+function rudelJeKarteFehler(liste) {
+  const out = [];
+  const je = new Map();
+  (liste || []).forEach((o, index) => {
+    const R = o && rudelRegel(o.typ);
+    if (!R || typeof o.map !== 'string') return;
+    const key = JSON.stringify([o.map, o.typ]);
+    const S = je.get(key) || new Set();
+    je.set(key, S);
+    const kennung = typeof o.gruppe === 'string' ? o.gruppe : '#' + index;
+    const neu = !S.has(kennung);
+    S.add(kennung);
+    if (neu && S.size > R.jeKarte) out.push({ index, text: "setzt mehr als " + R.jeKarte + " Rudel des Typs '" + o.typ + "' auf Karte '" + o.map + "' (Rudel '" + o.gruppe + "' ist das " + S.size + '., content/kampf/kreaturen.json typen.' + o.typ + '.rudel.jeKarte)' });
+  });
+  return out;
+}
+// SPL-01 Nacharbeit W1: Rudel-Deckel schon im Grobplan. Höchstzahl Rudel, die eine Umsetzung je Typ setzen kann, aus ihren Daten (vorlage + jede Zeile von abgeleitet; Zahl der verschiedenen gruppe-Kennungen
+// der kreatur_besetzen-Aktionen, deren Typ in kreaturen.json ein rudel-Feld hat). Obergrenze: Vorlage plus je abgeleitet-Parameter die stärkste Zeile. Gibt { typ: n } zurück (leer = setzt keine Rudel).
+function rudelAktionen(baum, jeTyp) {
+  const gruppen = {};
+  (function lauf(x) {
+    if (Array.isArray(x)) { x.forEach(lauf); return; }
+    if (!x || typeof x !== 'object') return;
+    if (x.do === 'kreatur_besetzen' && 'string' === typeof x.typ && rudelRegel(x.typ)) {
+      const S = gruppen[x.typ] || (gruppen[x.typ] = new Set());
+      S.add(typeof x.gruppe === 'string' ? x.gruppe : '#' + S.size);
+    }
+    Object.values(x).forEach(lauf);
+  })(baum);
+  for (const t of Object.keys(gruppen)) jeTyp[t] = (jeTyp[t] || 0) + gruppen[t].size;
+  return jeTyp;
+}
+function rudelMaxJeUmsetzung(u) {
+  const out = rudelAktionen(u && u.vorlage, {});
+  for (const tab of Object.values((u && u.abgeleitet) || {})) {
+    const stark = {};
+    for (const zeile of Object.values(tab || {})) {
+      const z = rudelAktionen(zeile, {});
+      for (const t of Object.keys(z)) stark[t] = Math.max(stark[t] || 0, z[t]);
+    }
+    for (const t of Object.keys(stark)) out[t] = (out[t] || 0) + stark[t];
+  }
+  return out;
+}
+// Grobplan: Szenen mit gesetztem Landepunkt (s.landepunkt) + umsetzungenVon(szene) -> Fehlertexte, wenn die möglichen Rudel eines Typs auf einem Landepunkt jeKarte überschreiten.
+function rudelDeckelPlanFehler(szenen, umsetzungenVon) {
+  const out = []; const je = new Map();
+  for (const s of szenen || []) {
+    if (!s || typeof s.landepunkt !== 'string' || !s.landepunkt) continue;
+    const m = {};
+    for (const u of umsetzungenVon(s)) { const r = rudelMaxJeUmsetzung(u); for (const t of Object.keys(r)) m[t] = (m[t] || 0) + r[t]; }
+    for (const t of Object.keys(m)) {
+      const R = rudelRegel(t); const key = JSON.stringify([s.landepunkt, t]);
+      const bisher = je.get(key) || { n: 0, sz: [] };
+      bisher.n += m[t]; if (!bisher.sz.includes(s.id)) bisher.sz.push(s.id); je.set(key, bisher);
+      const frueher = bisher.sz.filter((id) => id !== s.id);
+      if (bisher.n > R.jeKarte) out.push("BUEHNE-RUDEL: Szene '" + s.id + "': Landepunkt '" + s.landepunkt + "'" + (frueher.length ? " trägt schon Rudel des Typs '" + t + "' aus Szene '" + frueher.join("', '") + "' (bis zu " + (bisher.n - m[t]) + '), diese Szene' : ' – diese Szene') + " setzt bis zu " + m[t] + " Rudel des Typs '" + t + "' – höchstens " + R.jeKarte + " Rudel je Karte (content/kampf/kreaturen.json typen." + t + '.rudel.jeKarte): nur eine Szene mit Rudeln je Karte, die andere auf einer anderen Karte spielen (buehne: { kartenart, neu: true } mit anderer Kartenart bzw. anderem Landepunkt)');
+    }
+  }
+  return out;
+}
 const erledigtFehlerGemeldet = new WeakSet();   // je Spiel höchstens eine Laufzeitmeldung (die Prüfung läuft jeden Tick)
 function rudelErledigt(game, map, opts) {
   const o = opts || {};
@@ -636,10 +712,12 @@ function aufloesen(game, K) {
 }
 
 // ---------- Daten laden und prüfen ----------
-const TYP_FELDER = ['name', 'groesse', 'kollision', 'sicht', 'verlustZeit', 'replan', 'hitRadius', 'schild', 'schildRegen', 'wunden', 'frontArc', 'tuerenAufbrechen', 'rammZeit', 'start', 'zustaende', 'bausteine'];
+const TYP_FELDER = ['name', 'groesse', 'rudel', 'kollision', 'sicht', 'verlustZeit', 'replan', 'hitRadius', 'schild', 'schildRegen', 'wunden', 'frontArc', 'tuerenAufbrechen', 'rammZeit', 'start', 'zustaende', 'bausteine'];
 const ZUSTAND_FELDER = ['modus', 'tempo', 'dauer', 'radius', 'uebergang'];
 const UEBERGANG_FELDER = ['auf', 'nach', 'abstand'];
 const KOLLISION_FELDER = ['box'];
+const RUDEL_FELDER = ['tiere', 'jeKarte', 'abstand'];
+const RUDEL_TIERE_FELDER = ['min', 'max'];
 const SCHILD_FELDER = ['seg', 'max'];
 const SCHILDREGEN_FELDER = ['verzoegerung', 'schritt'];
 const zahl = (v, min, max) => typeof v === 'number' && Number.isFinite(v) && v >= min && (max === undefined || v <= max);
@@ -662,6 +740,22 @@ function pruefen(d) {
       else {
         for (const k of Object.keys(t.kollision)) if (!KOLLISION_FELDER.includes(k)) f(P + '.kollision.' + k, 'unbekanntes Feld');
         if (!zahl(t.kollision.box, 4, GROESSEN.includes(t.groesse) ? t.groesse * TILE - 8 : undefined)) f(P + '.kollision.box', 'Zahl 4 bis ' + (GROESSEN.includes(t.groesse) ? t.groesse * TILE - 8 : 'Größe × 32 − 8') + ' (px Kantenlänge der Kollisionsbox)');
+      }
+    }
+    // rudel (SPL-01 a4): Deckel für den Prüfer des Spielleiters, optional je Typ: { tiere: { min, max }, jeKarte }. Ohne Feld gibt es keinen Deckel (kreatur_besetzen darf dann 1 bis RUDEL_MAX Tiere beliebig oft setzen).
+    if (t.rudel !== undefined) {   // abstand (SPL-01 c, optional): Mindestabstand in Kacheln zwischen Tieren verschiedener Rudel desselben Typs beim Setzen (rudelSetzen), damit zwei Rudel verteilt stehen und einzeln bekämpfbar sind
+      const R = t.rudel;
+      if (!R || typeof R !== 'object' || Array.isArray(R)) f(P + '.rudel', 'optional: { tiere: { min, max }, jeKarte } (Objekt)');
+      else {
+        for (const k of Object.keys(R)) if (!RUDEL_FELDER.includes(k)) f(P + '.rudel.' + k, 'unbekanntes Feld');
+        const T = R.tiere;
+        if (!T || typeof T !== 'object' || Array.isArray(T)) f(P + '.rudel.tiere', '{ min, max } (Objekt)');
+        else {
+          for (const k of Object.keys(T)) if (!RUDEL_TIERE_FELDER.includes(k)) f(P + '.rudel.tiere.' + k, 'unbekanntes Feld');
+          if (!Number.isInteger(T.min) || !Number.isInteger(T.max) || T.min < 1 || T.max > RUDEL_MAX || T.min > T.max) f(P + '.rudel.tiere', '{ min, max } ganze Zahlen, 1 <= min <= max <= ' + RUDEL_MAX + ' (Tiere je Rudel)');
+        }
+        if (!Number.isInteger(R.jeKarte) || R.jeKarte < 1) f(P + '.rudel.jeKarte', 'ganze Zahl >= 1 (Rudel dieses Typs je Karte)');
+        if (R.abstand !== undefined && !zahl(R.abstand, 0)) f(P + '.rudel.abstand', 'optional: Zahl >= 0 (Kacheln Mindestabstand zwischen Tieren verschiedener Rudel desselben Typs beim Setzen)');
       }
     }
     if (!zahl(t.sicht, 0.1)) f(P + '.sicht', 'Zahl > 0 (Kacheln)');
@@ -860,6 +954,10 @@ function rudelSetzen(game, o) {
   const start = Mon.naechster(m, ref.x, ref.y, 4);
   if (!start) return fehl('kein erreichbarer Platz: am Abholpunkt hat ein Tier der Größe ' + typ.groesse + ' keinen Platz');
   const dist = Mon.bfs(m, [start]);
+  // SPL-01 c: Rudel dieses Typs stehen verteilt: Tiere anderer Rudel desselben Typs mindestens rudel.abstand Kacheln entfernt (Daten, ohne Wert kein Abstand über RUDEL_ABSTAND hinaus)
+  const RG = rudelRegel(p.typ);
+  const G2 = RG && RG.abstand ? Math.pow(RG.abstand * TILE, 2) : 0;
+  const andere = G2 ? (aw.kreaturen || []).filter((K) => K.alive && K.typ === p.typ && K.gruppe !== p.gruppe) : [];
   const kand = [];
   for (let cy = 0; cy < m.h; cy++) for (let cx = 0; cx < m.w; cx++) {
     if (!m.geht(cx, cy) || dist[cy * m.w + cx] < 0) continue;
@@ -867,6 +965,7 @@ function rudelSetzen(game, o) {
     const tx = Math.floor(pos.x / TILE), ty = Math.floor(pos.y / TILE);
     if (rects && !rects.some((r) => tx >= r[0] && tx < r[0] + r[2] && ty >= r[1] && ty < r[1] + r[3])) continue;
     if (abhol.some((a) => Math.hypot(tx - a.x, ty - a.y) < RUDEL_ABHOLPUNKT)) continue;
+    if (andere.some((K) => (K.x - pos.x) * (K.x - pos.x) + (K.y - pos.y) * (K.y - pos.y) < G2)) continue;
     kand.push(pos);
   }
   const R2 = Math.pow(Math.max(4, Math.ceil(Math.sqrt(n) * 2)) * TILE, 2), D2 = Math.pow(RUDEL_ABSTAND * TILE, 2);
@@ -1120,7 +1219,7 @@ function debugKreatur(game, p, typId) {
 
 // GEL-03 Nacharbeit W1: Kantenlänge der Kollisionsbox einer Kreatur in px (für die Überlappungsprüfung des Ader-Wechsels, anker.js)
 const koerperBox = (K) => { const t = typVon(K.typ); return t ? hbVon(t).w : 14; };
-module.exports = { koerperBox, gefolgeSuchradius, update, kreaturBausteinAnmelden, bausteinTreffer, bausteinLaerm, daten, pruefen, typVon, erzeugen, erzeugenAuf, rudelSetzen, nestSetzen, nestBesetzen, laermHoeren, zustandSetzen, debugKreatur, kreaturen, ziele, ausruesten, raeumen, nichtEndgueltigErledigt, ausgefallenMelden, rudelErledigt, erledigtOptionenFehler };
+module.exports = { koerperBox, gefolgeSuchradius, update, kreaturBausteinAnmelden, bausteinTreffer, bausteinLaerm, daten, pruefen, typVon, erzeugen, erzeugenAuf, rudelSetzen, nestSetzen, nestBesetzen, laermHoeren, zustandSetzen, debugKreatur, kreaturen, ziele, ausruesten, raeumen, nichtEndgueltigErledigt, ausgefallenMelden, rudelErledigt, erledigtOptionenFehler, rudelRegel, rudelGroesseFehler, rudelJeKarteFehler, rudelMaxJeUmsetzung, rudelDeckelPlanFehler };
 
 // ---------- Anzeige und Scanner (MON-01 P4) ----------
 // Scanner: Art `monster`, billig (nur die lebenden Kreaturen mit aktueller Position, keine Karte). Typ-ID aus kreaturen.json; der Name steht im Client-Content (datenblaetter.json).

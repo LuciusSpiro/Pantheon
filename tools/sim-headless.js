@@ -3101,6 +3101,7 @@ class GenericAgent extends KeshAgent {
     for (const c of checks) if (c.name === 'anker_state' && c.map === M) want.push({ ref: c.anker, z: c.state, min: c.min || null, all: !!c.all });
     for (const sk of step.skip || []) if (sk && sk.do === 'anker_zustand' && sk.map === M && !want.some((w) => w.ref === sk.anker)) want.push({ ref: sk.anker, z: sk.zustand });
     if (checks.some((c) => c.name === 'download_fertig') && !want.some((w) => w.ref === 'terminal')) want.push({ ref: 'terminal', z: 'geladen' });
+    for (const c of checks) if (c.name === 'abbau_fertig' && !want.some((w) => w.ref === 'abbau')) want.push({ ref: 'abbau', z: 'abgebaut', min: c.min || 1 });   // SPL-01 d: Adern mit Vorkommen abbauen (leere zählen nie)
     if (checks.some((c) => c.name === 'ladung_gezuendet') && !want.some((w) => w.ref === 'sprengpunkt')) want.push({ ref: 'sprengpunkt', z: 'zerstoert' });
     const near = checks.find((c) => c.name === 'near_object' && c.map === M);
     const order = ['versteck', 'zelle', 'tor', 'fund', 'beute', 'ziel', 'terminal', 'sprengpunkt'];
@@ -3109,6 +3110,7 @@ class GenericAgent extends KeshAgent {
     for (const w of want) {
       let as = k.anker.filter((a) => a.id === w.ref || a.rolle === w.ref);
       if (w.ref === 'terminal') { const kern = as.filter((a) => a.kern); if (kern.length) as = kern; }   // Kern-Terminal (der Captain sieht es)
+      if (w.ref === 'abbau') as = as.filter((a) => ['da', 'laeuft', 'abgebaut'].includes(this.ankerZ(M, a.id)));   // SPL-01 d: nur Adern mit Vorkommen (leer ist nichts zu holen)
       if (w.ref === 'sprengpunkt' && near) continue;   // ziel_markieren: die Aussicht genügt
       if (w.ref === 'sprengpunkt' && !((this.game.inventory.ladung || 0) > 0) && !as.some((a) => this.ankerZ(M, a.id) === 'scharf')) continue;
       const open = as.filter((a) => this.ankerZ(M, a.id) !== w.z);
