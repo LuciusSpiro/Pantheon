@@ -28,6 +28,7 @@
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
+const MesseSpl = require('./lib/messe-spl.js');   // SPL-01 a2: Kontext-Zuwachs-Formel gemeinsam mit den Messwerkzeugen
 const crypto = require('crypto');
 
 const ROOT = path.join(__dirname, '..');
@@ -1427,14 +1428,8 @@ async function b1Tests(T) {
     const rows = []; let max = 0;
     for (const [name, w] of Object.entries(worldData)) {
       const c = Context.build(w, {}, katalog);
-      const nachher = Object.assign({}, c); delete nachher.verfuegbar;
-      const vorher = clone(nachher);
-      for (const k of ['bodenbilanz', 'kartenarten', 'fraktionen', 'gegner', 'rollen_gesehen']) delete vorher[k];
-      for (const o of vorher.orte) delete o.landepunkte;
-      if (vorher.crew) delete vorher.crew.bewaffnung;
-      const a = JSON.stringify(vorher).length; const b = JSON.stringify(nachher).length;
-      const plus = Math.round((b - a) / 2.5); max = Math.max(max, plus);
-      rows.push(`${name} ${Math.round(a / 2.5)}→${Math.round(b / 2.5)} (+${plus})`);
+      const { vorher: a, nachher: b, plus } = MesseSpl.kontextZuwachs(c); max = Math.max(max, plus);
+      rows.push(`${name} ${a}→${b} (+${plus})`);
     }
     check(T13, 'Kontext wächst um höchstens 2,2k Tokens (Schätzung 2,5 Zeichen je Token)', max <= 2200, `Grobplan-Kontext in Tokens: ${rows.join(', ')}`);
   });

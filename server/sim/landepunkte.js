@@ -538,6 +538,8 @@ function betreten(game, lpId) {
   e.besuche = (e.besuche || 0) + 1;
   if (game.mission && game.mission.id) e.letzte_mission = game.mission.id;
   e.neu = false;
+  // SPL-01 a2: Besuchsfolge über alle Einträge (Kontext zeigt nur die zuletzt besuchten Gelände-Karten einzeln); steht im Weltstand additiv (Version bleibt 3)
+  e.zuletzt = 1 + Math.max(0, ...Object.values(st(game).eintraege).map((x) => x.zuletzt | 0));
 }
 // Raumgefecht: Landepunkte mit frei 'nach_raumgefecht' am Ort freischalten (ENTERN/SEKTOR rufen das)
 function freigeben(game, lpId) {
@@ -735,6 +737,7 @@ function toSave(game) {
     const d = S.dyn[id];
     if (d) { o.ort = d.ort; o.beam = d.beam; if (d.name) o.name = d.name; }
     if (e.frei) o.frei = true;
+    if (e.zuletzt > 0) o.zuletzt = e.zuletzt | 0;   // SPL-01 a2: nur wenn betreten (bestehende Stände bleiben byte-gleich)
     out[id] = o;
   }
   return out;
@@ -764,6 +767,7 @@ function restore(block, game) {
     e.abbau_runde = abbauRundeKlemmen(e.abbau_runde);   // Altstand ohne Feld: 0; Obergrenze ABBAU_RUNDE_MAX (K3)
     if (defs().byId[id] && defs().byId[id].gesperrt) e.gesperrt = true;   // Datei gewinnt (E33)
     if (b.frei) e.frei = true;
+    if (b.zuletzt > 0) e.zuletzt = b.zuletzt | 0;   // SPL-01 a2: Altstände ohne Feld: 0
   }
 }
 

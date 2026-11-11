@@ -4,6 +4,9 @@
 //   weltstand(name)     -> Weltstand-Fixture aus tools/fixtures/context (Standard nach-tutorial)
 //   anlass()            -> Anlass wie in den Spielleiter-Tests (missionsgrenze, crew 3)
 //   tabelle(zeilen)     -> ausgerichtete Textspalten
+//   kontextZuwachs(c)   -> { vorher, nachher, plus }  Formel von T13 (tools/test-spielleiter.js, SPL-01 a2: dort und in test-kontext-gelaende gemeinsam genutzt):
+//                          Grobplan-Kontext ohne 'verfuegbar'; vorher = ohne die Felder von S2b/GEL-02 (FELDER, Landepunkte je Ort samt Zaehlzeile, Bewaffnung);
+//                          Tokens = Zeichen / 2,5; plus = Zuwachs in Tokens
 // Exit-Codes aller Werkzeuge: 0 = Messung gelaufen, 1 = Fehler beim Messen (Ausnahme, Modul fehlt), 2 = falscher Aufruf.
 const fs = require('fs');
 const path = require('path');
@@ -38,6 +41,17 @@ const anlass = () => ({ art: 'missionsgrenze', crew: 3, nach: 'm3', zielspieldau
 const clone = (o) => JSON.parse(JSON.stringify(o));
 const tok = (o, faktor) => Math.round(JSON.stringify(o).length / (faktor || 2.5));
 
+const KONTEXT_FELDER = ['bodenbilanz', 'kartenarten', 'fraktionen', 'gegner', 'rollen_gesehen'];
+function kontextZuwachs(c) {
+  const nachher = Object.assign({}, c); delete nachher.verfuegbar;
+  const vorher = clone(nachher);
+  for (const k of KONTEXT_FELDER) delete vorher[k];
+  for (const o of vorher.orte) { delete o.landepunkte; delete o.landepunkte_mehr; }
+  if (vorher.crew) delete vorher.crew.bewaffnung;
+  const a = JSON.stringify(vorher).length; const b = JSON.stringify(nachher).length;
+  return { vorher: Math.round(a / 2.5), nachher: Math.round(b / 2.5), plus: Math.round((b - a) / 2.5) };
+}
+
 function tabelle(zeilen) {
   const breite = [];
   for (const z of zeilen) z.forEach((c, i) => { breite[i] = Math.max(breite[i] || 0, String(c).length); });
@@ -57,4 +71,4 @@ function laufen(name, flags, fn) {
   }
 }
 
-module.exports = { WURZEL, CTX_DIR, args, weltstand, weltstaende, anlass, clone, tok, tabelle, laufen };
+module.exports = { KONTEXT_FELDER, kontextZuwachs, WURZEL, CTX_DIR, args, weltstand, weltstaende, anlass, clone, tok, tabelle, laufen };

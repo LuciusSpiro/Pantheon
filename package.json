@@ -332,6 +332,8 @@
     "messe:spl-matrix": "node tools/messe-spl-matrix.js",
     "messe:spl-kontext": "node tools/messe-spl-kontext.js",
     "messe:spl-kontext-wachstum": "node tools/messe-spl-kontext-wachstum.js",
+    "test:kontext-gelaende": "node tools/test-kontext-gelaende.js",
+    "test:kontext-gelaende-mutation": "node tools/mutation-kontext-gelaende.js",
     "messe:spl-rueckfall": "node tools/messe-spl-rueckfall.js",
     "messe:spl-anker": "node tools/messe-spl-anker.js",
     "messe:spl-rudel": "node tools/messe-spl-rudel.js",

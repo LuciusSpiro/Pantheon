@@ -1539,6 +1539,8 @@ node tools/messe-spl-anker.js [--seeds n]                              # npm run
 node tools/messe-spl-rudel.js [--seeds n]                              # npm run messe:spl-rudel          Rudel-Platzierung je Kartenart und Deck (Standard 20 Seeds)
 ```
 
+**Kontext-Politik Gelände (SPL-01 a2):** Vom Spielleiter angelegte (`buehne.neu`), schon betretene Gelände-Landepunkte (Kartenarten `spielleiter.kontext.gelaendeArten`, Standard wildnis/hoehle) kosten ohne Deckel ca. 93 Tokens je Stück im Grobplan-Kontext. Darum stehen nur die letzten `spielleiter.kontext.gelaendeEinzeln` (shared/config.js, Standard 1) einzeln in `orte[].landepunkte`, der Rest als Zählzeile `orte[].landepunkte_mehr` ("+N weitere Gelände-Karten besucht"). Reihenfolge: Weltstand-Feld `landepunkte.<id>.zuletzt` (Besuchsfolge, nur bei betretenen Einträgen, additiv, Weltstand-Version bleibt 3; Altstände ohne Feld: höhere Nummer im Namen zuerst). Feste, Kachel- und nie betretene Landepunkte sind nie betroffen. Test `npm run test:kontext-gelaende` bzw. `node tools/test-kontext-gelaende.js` (Mutationsprobe `tools/mutation-kontext-gelaende.js`); Grenze 2200 unverändert.
+
 ### Live-Abend: Bot-Crew spielt mit dem echten Spielleiter (LIV-01 D)
 `tools/live-abend.js` fährt einen simulierten Abend der Freien Fahrt Sund mit drei WebSocket-Clients (wie `spiel-faden`, gemeinsame Teile in `tools/lib/bot-crew.js` und `tools/lib/bot-beats.js`) gegen den echten Server. Die Abenteuer-Angebote im Brett kommen vom Spielleiter (Claude, oder der Rückfall ohne Modell), die Crew nimmt sie an (`abenteuer.annehmen`) und spielt jedes Abenteuer so weit der Bot kann. `messe-lage` fährt echte Abende, nimmt aber keine Angebote an; `spiel-faden` spielt, setzt die Pläne aber selbst per Mock.
 ```
