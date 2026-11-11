@@ -32,9 +32,9 @@ function ohneNamenGanzwort(text, namen) {
 }
 // FRE-02 T Nacharbeit: Namensfilter für Titel (Brett, Funk), die Wörter wie „Boje“ bei einem Spieler „Bo“ lesbar lassen müssen, aber nie einen Spielernamen durchlassen.
 // Wie ohneNamenGanzwort, dazu: (1) Flexion direkt hinter dem Namen (Genitiv-s „Bos“, „Bo’s“, „Bo's“, es, n, en) fällt mit dem Namen weg: „Bos Schiff“ wird „Crew Schiff“ (nicht „Crews“).
-// (2) Ein Name ab NAME_GEKUERZT Zeichen kann gekürzt gespeichert sein (server/game.js: msg.name ... .slice(0, 12); shared/charakter.js: NAME_MAX): steht im Text der längere volle Name, verschwindet er über den Wortschwanz ganz.
+// (2) Ein Name ab NAME_GEKUERZT Zeichen kann gekürzt gespeichert sein (server/game.js: msg.name ... .slice(0, 12); NAME_MAX im Charakter-Modul): steht im Text der längere volle Name, verschwindet er über den Wortschwanz ganz.
 // Kürzere Namen sind vollständig gespeichert: kein Präfix-Verhalten („Einsatz“ bei „Ein“, „Haltung“ bei „Ha“ bleiben).
-const NAME_GEKUERZT = 12;   // ab dieser Länge ist der gespeicherte Name möglicherweise abgeschnitten (Spielername auf 12 Zeichen gekürzt: server/game.js slice(0, 12), shared/charakter.js NAME_MAX). Kein Import von shared/charakter.js hier: test-trefferbox erlaubt Charakter-Zugriffe nur in game.js. Gleichheit sichert test-abenteuer-titel.
+const NAME_GEKUERZT = 12;   // ab dieser Länge ist der gespeicherte Name möglicherweise abgeschnitten (Spielername auf 12 Zeichen gekürzt: server/game.js slice(0, 12), NAME_MAX im Charakter-Modul). Kein Import des Charakter-Moduls hier: test-trefferbox erlaubt Zugriffe darauf nur in game.js. Gleichheit sichert test-abenteuer-titel.
 function ohneNamenImTitel(text, namen) {
   let t = String(text == null ? '' : text);
   for (const n of namen || []) {
