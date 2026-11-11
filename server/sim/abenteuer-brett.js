@@ -16,8 +16,7 @@
 //   SPL-02 F: im Modus Absichten (ABENTEUER_ABSICHTEN) waehlt anschluss() zuerst eine Absicht nach Lage (abenteuer-rueckfall.js, derselbe Inszenierer, kein Modell) und faellt auf anschluss.json zurueck, wenn nichts gueltig ist; passtZuLage(game, plan, hex) -> bool
 //   sind die Sperren des Rueckfalls (zuletzt gespielt, abgelehnt, Wiederholung) fuer einen Plan des Inszenierers; der Vorrat (abenteuer-vorrat.js) haengt am selben Weltstand-Block.
 //   FRE-02 C: der Vorrat ist verdrahtet (nur Absichten, Opt-in ABENTEUER_ABSICHTEN): beiTaetigkeit legt Angebote mit Absicht ein, die vom Brett verschwanden und nicht beantwortet wurden (Verfall; Merker brett(F).gesehen, Laufzeit),
-//   ablehnen legt das abgelehnte Angebot ein (die Sperre abgelehnt haelt es vom sofortigen Wiederanbieten ab: abenteuer-vorrat.js ausVorratOhneSperre), ausVorratEinsAnbieten/ausVorratFuellen nehmen aus dem Vorrat (beiAndocken VOR der Grenze,
-//   AbenteuerSpielleiter.beiGrenze vor dem Komponisten). Das Angebot traegt additiv erstellt (Tick des ersten Erzeugens, nur Weltstand): das Alter bleibt beim Einlegen erhalten.
+//   ablehnen legt das abgelehnte Angebot ein (die Sperre abgelehnt haelt es vom sofortigen Wiederanbieten ab: abenteuer-vorrat.js ausVorratOhneSperre), ausVorratEinsAnbieten/ausVorratFuellen nehmen aus dem Vorrat (NUR beiAndocken, VOR der Grenze; an den anderen Grenzen nie: dort komponiert der Komponist wie ohne Vorrat). Das Angebot traegt additiv erstellt (Tick des ersten Erzeugens, nur Weltstand): das Alter bleibt beim Einlegen erhalten.
 //   SPL-02 A: neuAnbieten(game, plan, { hex, bezug?: { nsc: Vollname }, locker?: bool }) -> wie faden.abenteuerNeuAnbieten; das Angebot traegt `bezug` (der Wiedersehen-NSC, den das Annehmen nimmt, nicht den juengsten frischen) und `locker` (die Fortsetzung darf die Hauptfigur
 //   des letzten Abenteuers aufnehmen: Wiederholungsregel nsc_zuletzt). Ist der NSC beim Annehmen kein Kandidat mehr, ist das Angebot veraltet (Grund BEZUG_VERALTET im Logbuch). Absichten (absicht-pruefer.js) setzen locker aus dem Katalogfeld fortsetzung (istFortsetzung).
 // SUND-04b E1/E3: der Kanon (abenteuer-kanon.js) haelt fest, was ein Abenteuer erfindet; die Wiederholungsregeln (abenteuer-wiederholung.js) gelten fuer jeden Plan des Spielleiters (faden.js abenteuerNeuAnbieten) und fuer den Rueckfall (passt: stufenweise gelockert, Ort, Folge, NSC).
@@ -356,10 +355,9 @@ function beiAndocken(game) {
   let gefuellt = [];
   try { gefuellt = ausVorratFuellen(game); } catch (e) { fehlerZaehlen(game, 'abenteuer-brett-vorrat', e); }   // FRE-02 C: vor der Grenze, eigener Schutz: die Grenze laeuft in jedem Fall genau einmal
   try {
-    b.andockenLaeuft = true;   // FRE-02 C: die Grenze dieses Andockens nimmt nicht noch einmal aus dem Vorrat (das tat beiAndocken schon, davor): ein volles Brett haelt den Komponisten ab, ein nicht volles laesst ihn starten
     game.lageGrenze('andocken');
     gefuellt = gefuellt.concat(anschlussFuellen(game));
-  } catch (e) { fehlerZaehlen(game, 'abenteuer-brett-andocken', e); } finally { b.hinweisStumm = false; b.andockenLaeuft = false; }
+  } catch (e) { fehlerZaehlen(game, 'abenteuer-brett-andocken', e); } finally { b.hinweisStumm = false; }
   try { sammelHinweis(game); } catch (e) { fehlerZaehlen(game, 'abenteuer-brett-funk', e); }
   return gefuellt;
 }
@@ -378,13 +376,7 @@ function ausVorratEinsAnbieten(game) {
   logbuch(game, 'abenteuer_anschluss', { ausgang: 'angeboten', key: r.angebot.ref, modus: 'vorrat', absicht: lf.absicht, bezug_art: lf.bezug_art, begruendung: `Aus dem Vorrat: Plan ${r.angebot.ref} als Angebot ${r.angebot.nr} bei ${r.angebot.hex}`, plan: { angebot: r.angebot.nr, vorlage: r.angebot.ref, hex: r.angebot.hex } });
   return r.angebot;
 }
-// FRE-02 C: die Entnahme an einer Grenze des Spielleiters (AbenteuerSpielleiter.beiGrenze): ein Angebot je Grenze; nicht waehrend beiAndocken (dort fuellt ausVorratFuellen VOR der Grenze). -> Angebot | null
-function ausVorratAnGrenze(game) {
-  const F = game && game.weltsim && game.weltsim.faeden;
-  if (!F || (F.brett && F.brett.andockenLaeuft)) return null;
-  return ausVorratEinsAnbieten(game);
-}
-// das Brett bis angebote_max aus dem Vorrat fuellen (ein Angebot je Schritt, verschiedene Ziele); der Aufrufer ist beiAndocken, VOR der Grenze. -> [neue Angebote]
+// das Brett bis angebote_max aus dem Vorrat fuellen (ein Angebot je Schritt, verschiedene Ziele); der einzige Aufrufer ist beiAndocken, VOR der Grenze (ein verfallenes Angebot kommt so erst beim naechsten Andocken zurueck). -> [neue Angebote]
 function ausVorratFuellen(game) {
   const out = [];
   while (out.length < W.abenteuer.angebote_max) {
@@ -540,4 +532,4 @@ function lesen(b, F) {   // muellfest: Unbrauchbares faellt weg (Meldung in F.la
 // SPL-02 D: die NSC, die eine Fortsetzung tragen (Katalog der Absichten, absicht-pruefer.js): die Verbindung fuer abenteuer-geschichte.js, das den Pruefer nicht selbst laedt
 const fortsetzungsNamen = (game, katalog) => Absicht().fortsetzungsNamen(game, katalog);
 
-module.exports = { snapshot, schluessel, annehmen, ablehnen, vorschau, marken, kuerzen, beiEnde, hinweisAnbieten, beiTaetigkeit, beiUpdate, anschluss, beiAndocken, anschlussFuellen, ausVorratFuellen, ausVorratEinsAnbieten, ausVorratAnGrenze, sammelHinweis, passtZuLage, neuAnbieten, toSave, lesen, weigerung, schrittText, fortsetzungsNamen };
+module.exports = { snapshot, schluessel, annehmen, ablehnen, vorschau, marken, kuerzen, beiEnde, hinweisAnbieten, beiTaetigkeit, beiUpdate, anschluss, beiAndocken, anschlussFuellen, ausVorratFuellen, ausVorratEinsAnbieten, sammelHinweis, passtZuLage, neuAnbieten, toSave, lesen, weigerung, schrittText, fortsetzungsNamen };

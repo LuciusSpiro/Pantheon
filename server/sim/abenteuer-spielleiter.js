@@ -79,14 +79,8 @@ class AbenteuerSpielleiter {
     if (!this.W.grenzen.includes(art)) return null;
     if (this.modusAus()) return null;                                      // Modus off: der Lage-Spielleiter meldet das selbst, hier bleibt es still
     this.grenzenSeit++;
-    const vorrat = this.ausVorrat();   // FRE-02 C: ein Angebot aus dem Vorrat ersetzt den Aufruf (kein Zaehler, kein Cooldown, kein Deckel: es kostet nichts)
-    if (vorrat) return vorrat;
     const regel = this.taktErlaubt(art);
     return regel || this.vormerken(art);
-  }
-  // FRE-02 C: EIN Angebot je Grenze aus dem Vorrat (Absichten, Opt-in), vor dem Komponisten: ein Angebot je Aufruf waere dessen Ertrag. Ohne Modus oder Eintrag: null, alles wie bisher.
-  ausVorrat() {
-    try { return require('./abenteuer-brett.js').ausVorratAnGrenze(this.game) ? { gestartet: false, grund: 'vorrat' } : null; } catch (e) { this.fehlerZaehlen('abenteuer-vorrat', e); return null; }
   }
   taktErlaubt(art) {
     if (this.aus) return this.ueberspringen('transport_aus', art);

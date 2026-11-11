@@ -1,8 +1,8 @@
 'use strict';
 // FRE-02 C: der Vorrat der Absichten ist verdrahtet (server/sim/abenteuer-vorrat.js einlegenAus und ausVorratOhneSperre, abenteuer-brett.js beiTaetigkeit/ablehnen/beiAndocken/ausVorratEinsAnbieten,
-// abenteuer-spielleiter.js beiGrenze, weltstand.js verwirfUngueltige nach dem Laden). Alles nur im Modus Absichten (ABENTEUER_ABSICHTEN=1, Opt-in); ohne ihn bleibt alles wie vorher.
+// abenteuer-spielleiter.js beiGrenze (entnimmt nichts), weltstand.js verwirfUngueltige nach dem Laden). Alles nur im Modus Absichten (ABENTEUER_ABSICHTEN=1, Opt-in); ohne ihn bleibt alles wie vorher.
 // Geprueft (an eigenen Welten, Erwartungen aus den Daten und dem Test selbst):
-//  Einlegen: Verfall nach angebot_gilt_taetigkeiten und Ablehnen legen ein, ein veraltetes Angebot und eines ohne Absicht nie · Entnehmen vor dem Komponisten (Zaehler aufrufe) beim Andocken und an den anderen Grenzen ·
+//  Einlegen: Verfall nach angebot_gilt_taetigkeiten und Ablehnen legen ein, ein veraltetes Angebot und eines ohne Absicht nie · Entnehmen vor dem Komponisten (Zaehler aufrufe) NUR beim Andocken, an den anderen Grenzen bleibt der Vorrat unberuehrt ·
 //  Sperre: das abgelehnte Angebot kommt nicht sofort wieder, die anderen schon · Gueltigkeit mit echten Ereignissen (NSC tot, Posten gefallen) · vorrat_max · Speichern und Laden (verwirfUngueltige) ·
 //  das Alter bleibt beim Einlegen (kreist nicht ewig) · ohne Modus Absichten: Vorrat leer, Verlauf wie mit dem alten Ablauf des Andockens · Obergrenzen · verschiedene Ziele, Herkunft Hafen · Telemetrie sieht andocken einmal.
 // Aufruf: node tools/test-abenteuer-vorrat-verdrahtet.js        (npm run test:abenteuer-vorrat-verdrahtet)
@@ -174,18 +174,38 @@ console.log('\nBeim naechsten Andocken aus dem Vorrat, ohne Komponistenaufruf; v
   ok(sl(g2).aufrufe === 1, 'Gegentest: ohne Vorrat startet der Komponist (aufrufe ' + sl(g2).aufrufe + ')');
 }
 
-console.log('\nAn den anderen Grenzen: ein Angebot je Grenze aus dem Vorrat, vor dem Komponisten');
+console.log('\nAn den anderen Grenzen (szene_ende, absicht): der Vorrat bleibt unberuehrt, der Komponist startet wie ohne Vorrat');
 {
   const t = neu(7, { deckel: 4 }), g = t.g;
   V.hinzufuegen(g, V.eintrag(g, { absicht: ab('rettung'), art: ART }).eintrag);
   V.hinzufuegen(g, V.eintrag(g, { absicht: ab('lieferung'), art: ART }).eintrag);
   ok(vorrat(g).length === 2, 'zwei Eintraege');
   g.lageGrenze('szene_ende');
-  ok(brett(g).length === 1 && vorrat(g).length === 1 && sl(g).aufrufe === 0, 'erste Grenze (szene_ende): ein Angebot aus dem Vorrat, kein Aufruf (aufrufe ' + sl(g).aufrufe + ')');
-  g.lageGrenze('szene_ende');
-  ok(brett(g).length === 2 && vorrat(g).length === 0 && sl(g).aufrufe === 0, 'zweite Grenze: das zweite, kein Aufruf');
-  g.lageGrenze('szene_ende');
-  ok(sl(g).aufrufe === 1, 'dritte Grenze: der Vorrat ist leer, jetzt startet der Komponist (aufrufe ' + sl(g).aufrufe + ')');
+  ok(brett(g).length === 0 && vorrat(g).length === 2 && sl(g).aufrufe === 1, 'szene_ende: nichts aus dem Vorrat, der Komponist startet (aufrufe ' + sl(g).aufrufe + ')');
+  g.lageGrenze('absicht');
+  ok(brett(g).length === 0 && vorrat(g).length === 2, 'absicht: der Vorrat bleibt unberuehrt');
+  for (let i = 0; i < 6; i++) g.lageGrenze('szene_ende');
+  ok(brett(g).length === 0 && vorrat(g).length === 2, 'auch nach weiteren Grenzen liegt alles im Vorrat (' + arten(g) + ')');
+  // Gegentest: ohne Vorrat startet der Komponist an derselben Grenze genauso (gleicher Aufrufzaehler)
+  const t2 = neu(7, { deckel: 4 }); t2.g.lageGrenze('szene_ende');
+  ok(sl(t2.g).aufrufe === 1 && vorrat(t2.g).length === 0, 'Gegentest: ohne Vorrat startet der Komponist an szene_ende ebenso (aufrufe ' + sl(t2.g).aufrufe + ')');
+  // erst beim Andocken kommt der Vorrat
+  andocken(t);
+  ok(brett(g).length === 2 && vorrat(g).length === 0, 'erst beim Andocken kommen die Eintraege auf das Brett');
+  ok(g.errors === 0, 'keine Serverfehler');
+}
+
+console.log('\nBEFUND: ein verfallenes Angebot kommt nicht an der naechsten Nicht-Andock-Grenze zurueck, erst beim Andocken');
+{
+  const t = neu(7, { deckel: 4 }), g = t.g;
+  biete(g, ab('rettung'));
+  ok(brett(g).length === 1, 'ein Angebot am Brett');
+  verfallen(g);
+  ok(brett(g).length === 0 && arten(g) === 'rettung', 'verfallen: es liegt im Vorrat, das Brett ist leer');
+  for (const art of ['szene_ende', 'absicht', 'szene_ende']) g.lageGrenze(art);
+  ok(brett(g).length === 0 && arten(g) === 'rettung', 'drei Grenzen mit freiem Platz: das Brett bleibt leer, der Eintrag im Vorrat (der Verfall wirkt)');
+  andocken(t);
+  ok(brett(g).some((x) => x.absicht.absicht === 'rettung') && arten(g) === '', 'erst beim naechsten Andocken kommt es zurueck');
   ok(g.errors === 0, 'keine Serverfehler');
 }
 
@@ -208,8 +228,8 @@ console.log('\nSperre: das abgelehnte Angebot kommt nicht sofort wieder, die and
   Brett.ablehnen(g, 'a' + brett(g)[0].nr);
   const frei = brett(g).length;
   sperreLoesen(g);
-  g.lageGrenze('szene_ende');
-  ok(brett(g).some((x) => x.absicht.absicht === 'rettung') && brett(g).length === frei + 1, 'ohne Sperre darf es wieder angeboten werden');
+  andocken(t);
+  ok(brett(g).some((x) => x.absicht.absicht === 'rettung') && brett(g).length > frei, 'ohne Sperre darf es beim Andocken wieder angeboten werden');
   ok(g.errors === 0, 'keine Serverfehler');
 }
 
