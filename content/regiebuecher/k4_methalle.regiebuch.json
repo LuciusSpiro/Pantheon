@@ -1,6 +1,6 @@
 {
   "$schema": "../regiebuch/regiebuch.schema.json",
-  "_kommentar": "EK8 Kapitel 4 „Methalle“ (EIS-01 P4). Schritt 'methalle' spielt auf der Festkarte grabenangriff (Landepunkt methalle.siedlung, gen.fest): germanischer Stützpunkt, Wald mit Wiese und Graben, darunter ein Bunker mit Reaktorraum. Es gibt keinen Schleichweg: Kampf ist der Normalfall, zwei Zugänge (Bunkertor mit Lift, Rohr in der Waldmitte), Sperre aus. Der Schritt baut die Szene über den Baustein bunker_aufbauen (Fraktion raubzug, Sperre aus) und liest ihren Stand über die Bunker-Prüfungen (CONTRACT-EK8.md 4a). TAKT: bunker_sieg_bereit steht allein als erste Bedingung der ersten next-Zeile, damit die Bunker-Mechanik jeden Tick läuft (der Prüfer verlangt das, TAKT-BUNKER). Der erbeutete Sprengstoff (Frachtraum) wird beim Eintritt ins Teaminventar umgeladen (Inventar ladung); wer sie im Hafen gekauft hat, hat sie schon: das Regiebuch besitzt die Ladung, bunker_aufbauen fasst sie nie an. Sieg des Schritts: der Reaktor ist gesprengt (der Knall, danach einmal Nachschub oben) UND die ganze verbundene Crew ist wieder an Bord; dann setzt der Schritt meldung die Flag methalle_gesprengt. Fällt die Crew vor dem Knall (Notrückholung), wird die Karte zurückgesetzt und das Kapitel wiederholt (rueckzug); der nächste Eintritt baut den Bunker frisch auf. Der Schritt 'meldung' (Meldung von Mars, Sperrriegel öffnen) bleibt unverändert. Die Lobby-Texte der Arena (Rom besiegen) gelten hier nicht: die Kampagnentexte stehen unten (bunker.*).",
+  "_kommentar": "EK8 Kapitel 4 „Methalle“ (EIS-01 P4). Schritt 'methalle' spielt auf der Festkarte grabenangriff (Landepunkt methalle.siedlung, gen.fest): germanischer Stützpunkt, Wald mit Wiese und Graben, darunter ein Bunker mit Reaktorraum. Es gibt keinen Schleichweg: Kampf ist der Normalfall, zwei Zugänge (Bunkertor mit Lift, Rohr in der Waldmitte), Sperre aus. Der Schritt baut die Szene über den Baustein bunker_aufbauen (Fraktion raubzug, Sperre aus) und liest ihren Stand über die Bunker-Prüfungen (CONTRACT-EK8.md 4a). TAKT: bunker_sieg_bereit steht allein als erste Bedingung der ersten next-Zeile, damit die Bunker-Mechanik jeden Tick läuft (der Prüfer verlangt das, TAKT-BUNKER). Der erbeutete Sprengstoff (Frachtraum) wird beim Eintritt ins Teaminventar umgeladen (Inventar ladung); wer sie im Hafen gekauft hat, hat sie schon: das Regiebuch besitzt die Ladung, bunker_aufbauen fasst sie nie an. Sieg des Schritts: der Reaktor ist gesprengt (der Knall, danach einmal Nachschub oben) UND die ganze verbundene Crew ist wieder an Bord; dann setzt der Schritt meldung die Flag methalle_gesprengt. Fällt die Crew vor dem Knall (Notrückholung) oder springt das Schiff vor dem Knall weg (Notfallsprung, auch mit Crew an Bord), wird die Karte zurückgesetzt (map_reset) und das Kapitel wiederholt (rueckzug); der nächste Eintritt baut den Bunker frisch auf. Nach dem Knall bleibt der Zustand (Sprengpunkt zerstört) erhalten: kein Reset, der Fortschritt zählt. Der Schritt 'meldung' (Meldung von Mars, Sperrriegel öffnen) bleibt unverändert. Die Lobby-Texte der Arena (Rom besiegen) gelten hier nicht: die Kampagnentexte stehen unten (bunker.*).",
   "format": "regiebuch/1",
   "id": "k4_methalle",
 
@@ -73,6 +73,11 @@
           "do": [
             { "set": { "zurueck": true } },
             { "do": "map_reset", "map": "methalle.siedlung", "grund": "@methalle.nottransport" }
+          ] },
+        { "if": { "all": [{ "check": { "name": "rueckzug", "loc": "methalle" } }, { "not": { "check": { "name": "bunker_gesprengt", "map": "methalle.siedlung" } } }, { "not": { "v": "zurueck" } }] },
+          "do": [
+            { "set": { "zurueck": true } },
+            { "do": "map_reset", "map": "methalle.siedlung", "grund": "@methalle.notsprung" }
           ] }
       ],
       "objectives": [
@@ -126,7 +131,7 @@
       ]
     },
     "rueckzug": {
-      "beschreibung": "Notrückholung oder Notfallsprung an der Methalle: Die Szene wird wiederholt (Bunker baut frisch auf), der Feldzug geht weiter.",
+      "beschreibung": "Notrückholung oder Notfallsprung an der Methalle: Die Szene wird zurückgesetzt und wiederholt (Bunker baut frisch auf, solange der Reaktor noch nicht gesprengt war), der Feldzug geht weiter.",
       "folgen": [],
       "danach": [{ "oda": "@rueckzug.ansage" }]
     }
@@ -146,6 +151,7 @@
     "methalle.hinweis": "Captain: Tor mit Lift oder Rohr in der Waldmitte. Im Reaktorraum Sprengladung zünden (E halten).",
     "methalle.alarm": "Alarm! Die Germanen sammeln sich. Weiter zum Bunker, der Reaktor wartet.",
     "methalle.nottransport": "Notrückholung. Transfer reparieren, dann neuer Versuch. Der Bunker beginnt von vorn.",
+    "methalle.notsprung": "Notfallsprung von der Methalle. Beim nächsten Anflug beginnt der Bunker von vorn.",
 
     "bunker.ziel_still": "Der Bunkereingang ist nicht das Ziel: im Reaktorraum unten die Sprengladung zünden.",
     "bunker.sperre": "Die Germanen halten den Zugang: erst die Verteidiger oben besiegen.",

@@ -413,6 +413,25 @@ function main() {
       ok(m.state.stage === 'meldung' && m.flags.methalle_gesprengt === true, 'Wiederholung bis zum Sieg: Flag methalle_gesprengt, Schritt meldung');
       g.releaseWorldLock();
     }
+    {   // Notfallsprung mit Crew an Bord (EIS-01 Nacharbeit): Karte zurück, beim nächsten Anflug frischer Bunker (Verteidiger lebendig, Sprengpunkt intakt)
+      const t = k4(1); const g = t.g; const m = g.mission;
+      const aw0 = g.aways[LP4]; const S0 = aw0.graben;
+      const resets0 = (g.landepunkte.eintraege[LP4] || {}).resets || 0;
+      amSteg(g); runterK4(t);
+      for (const e of aw0.drones.filter((x) => x.alive).slice(0, 8)) for (let i = 0; i < 12 && e.alive; i++) Combat.hitEnemy(g, e, 99, { x: e.x - 40, y: e.y });
+      t.run(0.5); hochK4(t);
+      ok(g.players.every((p) => p.zone !== 'away') && aw0.drones.filter((e) => e.alive).length < sollK4(1), 'Notsprung: Crew oben, Verteidiger teils tot');
+      const Sprung = require('../server/sim/sprung.js');
+      const r = Sprung.notsprung(g); t.run(1);
+      ok(((g.landepunkte.eintraege[LP4] || {}).resets || 0) === resets0 + 1, 'Notfallsprung mit Crew an Bord: Karte zurückgesetzt (map_reset)');
+      ok(aktiv(g) === 'k4_methalle' && !m.flags.methalle_gesprengt, 'Notfallsprung: Kapitel 4 beginnt von vorn (' + m.state.stage + ')');
+      t.run(6); g.debugGoto('methalle', false); t.run(3); Landepunkte.get(g, LP4); t.run(2);
+      const aw1 = g.aways[LP4]; const S1 = aw1 && aw1.graben;
+      ok(m.state.stage === 'methalle' && aw1 !== aw0 && !!S1 && S1 !== S0 && S1.versuch === 1, 'nächster Anflug: frischer Bunker (neuer Zustand)');
+      ok(aw1.drones.filter((e) => e.alive).length === sollK4(1), 'nächster Anflug: alle ' + sollK4(1) + ' Verteidiger lebendig');
+      ok(Anker.zustand(g, LP4, SP4) !== 'zerstoert', 'nächster Anflug: Sprengpunkt intakt');
+      g.releaseWorldLock();
+    }
     {   // Notrückholung NACH dem Knall (Nachschub überrennt die Crew): die Sprengung zählt, alle an Bord = Sieg, kein Rückzug
       const t = k4(1); const g = t.g; const m = g.mission;
       runterK4(t);
