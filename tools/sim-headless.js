@@ -3703,7 +3703,8 @@ async function runGeneric(opts) {
   const origCount = game.countError.bind(game);
   game.countError = (where, err) => { if (errList.length < 40) errList.push(`${where}: ${err && err.message ? err.message : err}`); origCount(where, err); };
   game.simStats = { reactorRestarts: 0, widescans: 0, wreckDone: false, orders: 0, coverShots: 0, keyTries: 0, accepts: 0, choices: [], unknownUms: {}, escortOrders: 0 };
-  const roles = crew === 1 ? ['solo'] : ['captain', 'helm', 'weapons', 'captain'].slice(0, crew);   // EIS-01 P5: Crew 4 hat vier Bot-Spieler (der vierte als zweiter Captain wie im GrabenAgent), vorher liefen nur drei
+  const rollen = opts.mode === 'kette' ? ['captain', 'helm', 'weapons', 'captain'] : ['captain', 'helm', 'weapons'];   // EIS-01 P5: nur der Kette-Lauf hat bei Crew 4 vier Bot-Spieler (der vierte als zweiter Captain wie im GrabenAgent); alle anderen Modi bleiben bei drei Bots, bitgleich zu main
+  const roles = crew === 1 ? ['solo'] : rollen.slice(0, crew);
   const agents = roles.map((r, i) => new GenericAgent(game, i, r, opts));
   game.simAgents = agents;
   const res = { seed, crew, missions: [], errors: 0, errList, aborted: null, snapMax: 0 };
