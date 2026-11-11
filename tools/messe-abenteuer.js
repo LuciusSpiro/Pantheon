@@ -6,6 +6,9 @@
 //   node tools/messe-abenteuer.js --anbieter ollama --modell <m> [--n 10]    anderer Anbieter (Ollama auf Sleipnir ueber den ssh-Tunnel, OLLAMA_URL, Standard http://127.0.0.1:11435); nur wenn erreichbar, sonst uebersprungen
 //   node tools/messe-abenteuer.js --anbieter claude --modell <m>             Claude mit anderem Modell (wie --live, braucht LLM_LIVE=1)
 //   node tools/messe-abenteuer.js --mock                                     ausdruecklich Mock (Standard; nicht mit --live/--anbieter)
+//   node tools/messe-abenteuer.js ... --seed <n>                             Seed der Welt (Standard 7); mit --vorgeschichte: Welt mit abgeschlossenen Faeden samt NSC (tools/fixtures/messe/vorgeschichte.json), damit Bezug und Fortsetzung moeglich sind
+//   node tools/messe-abenteuer.js ... --json <datei>                         SPL-02 G: die Kennzahlen (Block "kennzahlen") als JSON in diese Datei (relativ zum Aufrufer, nie im Repo), zusaetzlich zur Konsole
+//   ABENTEUER_ABSICHTEN=1 node tools/messe-abenteuer.js ...                  Modus Absichten (SPL-02): Kennzahlen siehe kennzahlen(); ohne den Schalter Beat-Plan (Baseline)
 //   node tools/messe-abenteuer.js ... --out <ordner>                         LIV-01 C: Ablage jedes Plans (siehe unten); ohne --out bleibt alles wie bisher (nur Konsole)
 // --out <ordner>: legt unter <ordner> (relativ zum Aufrufer, NIE im Repo, nie geloescht) einen neuen Lauf-Ordner abenteuer-<Zeit>-<modus> an mit
 //   plan-NN.md (je Aufruf: Frontmatter Aufruf-Nr, Zeit, Dauer, Tokens, Kosten, Gueltigkeit, Pruefer-Befunde, Rueckfall, Modell/Anbieter; Body: lesbarer Plan, Rohantwort, Logbuch-Eintrag),
@@ -25,6 +28,10 @@ const LS = require('../server/sim/lage-spielleiter.js');
 const AP = require('../server/sim/abenteuer-prompt.js');
 const Faden = require('../server/sim/faden.js');
 const Ablage = require('./messe-ablage.js');
+const fs = require('fs');
+const D = require('../server/sim/faden-daten.js');
+const Absicht = require('../server/sim/abenteuer-absicht.js');
+const MA = require('./messe-absichten.js');
 
 const args = process.argv.slice(2);
 const flag = (n) => args.includes('--' + n);
@@ -39,6 +46,10 @@ const outArg = wert('out');
 const anbieter = wert('anbieter');
 const modell = wert('modell');
 const nArg = wert('n') !== undefined ? Number(wert('n')) : null;
+const SEED_STANDARD = 7;
+const seedArg = wert('seed') !== undefined ? Number(wert('seed')) : SEED_STANDARD;
+const vorgeschichteFlag = flag('vorgeschichte');
+const jsonArg = wert('json');
 let ausgabeWurzel = null;
 function aufrufPruefen() {
   if (mockFlag && (live || anbieter !== undefined)) { console.error('--mock gilt nicht zusammen mit --live oder --anbieter'); process.exit(2); }
@@ -47,6 +58,8 @@ function aufrufPruefen() {
   }
   if (anbieter !== undefined && !['claude', 'ollama'].includes(anbieter)) { console.error(`unbekannter Anbieter "${anbieter}" (erlaubt: claude, ollama)`); process.exit(2); }
   if (nArg !== null && !(Number.isInteger(nArg) && nArg >= 1 && nArg <= 5000)) { console.error('--n: ganze Zahl 1 bis 5000'); process.exit(2); }
+  if (!(Number.isInteger(seedArg) && seedArg >= 1 && seedArg <= 2147483647)) { console.error('--seed: ganze Zahl 1 bis 2147483647'); process.exit(2); }
+  if (args.includes('--json') && (!jsonArg || jsonArg.startsWith('--'))) { console.error('--json braucht eine Datei'); process.exit(2); }
 }
 
 // Anzahl der Aufrufe: Mock beliebig (Standard 200), Claude hoechstens 10 (kostet Geld), Ollama hoechstens 50
@@ -55,6 +68,14 @@ function dauerText(dauer) { return `Median ${fmt(Ablage.median(dauer), 100)} s, 
 function aufrufZahl(modus, n) { return modus === 'claude' ? Math.min(n || 10, 10) : modus === 'ollama' ? Math.min(n || 10, 50) : (n || 200); }
 // gleiche Typenfolge wie die vorige: Anzahl der Wiederholungen hintereinander
 function wiederholungen(folgen) { let n = 0; for (let i = 1; i < folgen.length; i++) if (folgen[i] === folgen[i - 1]) n++; return n; }
+
+// SPL-02 G: eine Zeile der Kennzahlen aus Logbuch-Eintrag, Aufnahmen und Angebot (Beat-Plan: kein Bezug, Katalog = fester Katalog)
+function kennzahlZeile(e, aufn, angebot, katalogBeat) {
+  const p = e.plan || {};
+  const fortBeat = !!(angebot && angebot.vorlage && (angebot.vorlage.beats || []).some((b) => D.BEATS[b.typ] && D.BEATS[b.typ].braucht && D.BEATS[b.typ].braucht.nsc_alt === true));
+  return { ausgang: e.ausgang, grund: e.grund || null, verhandlung: e.verhandlung ? 1 : 0, absicht: e.absicht || null, bezug_art: e.bezug_art || null, typen: e.ausgang === 'gueltig' && Array.isArray(p.typen) ? p.typen : [], fortsetzungBeat: fortBeat, tokens: e.tokens || 0, geld: e.geld,
+    prompt_zeichen: p.prompt_zeichen, kontext_zeichen: p.kontext_zeichen, katalog_zeichen: Number.isFinite(p.katalog_zeichen) ? p.katalog_zeichen : katalogBeat, folge_zeichen: aufn && aufn[1] && typeof aufn[1].prompt === 'string' ? aufn[1].prompt.length : undefined };
+}
 
 // ---------- LIV-01 C: Ablage (nur mit --out)
 const nn = (n) => String(n).padStart(2, '0');
@@ -83,7 +104,7 @@ function planMarkdown(p, ctx) {
   return L.join('\n');
 }
 function ablegen(ctx) {
-  const { ordner, plaene, zaehl, folgen, gesamt, wiederholt, dauer, budget0, budget1, bezeichnung, modus, t0, abbruch, argv } = ctx;
+  const { kz, ordner, plaene, zaehl, folgen, gesamt, wiederholt, dauer, budget0, budget1, bezeichnung, modus, t0, abbruch, argv } = ctx;
   const zeilen = [];
   for (const p of plaene) {
     Ablage.schreibe(ordner, planDatei(p.nr), planMarkdown(p, ctx));
@@ -115,11 +136,12 @@ function ablegen(ctx) {
   I.push(`- Kosten: ${geldBekannt ? f(zaehl.geld, 10000) + ' USD (CLI-Wert total_cost_usd)' : 'nicht gemeldet'}`);
   I.push(`- Wiederholungsrate (gleiche Typenfolge wie die vorige lesbare Antwort): ${wiederholt} von ${zf.wiederholungen_von} (${pz(wiederholt, zf.wiederholungen_von)}); ${zf.verschiedene_typenfolgen} verschiedene Typenfolgen in ${folgen.length} lesbaren Antworten; doppelte Titel ${titelDup}, völlig gleiche Pläne ${planDup}`, '');
   if (modus === 'mock') I.push('> [!info] Mock-Werte prüfen die Kette und das Werkzeug; sie sagen nichts über die Qualität eines echten Modells.', '');
+  I.push('## Kennzahlen (SPL-02 G)', '', ...MA.kennzahlenZeilen(kz).slice(1), '');
   I.push('## Aufrufe', '', '| Nr | Plan | Titel | Ausgang | Grund | Dauer s | Tokens | Kosten USD | Typenfolge |', '|---|---|---|---|---|---|---|---|---|');
   for (const z of zeilen) I.push(`| ${z.nr} | [${z.datei}](${z.datei}) | ${Ablage.zelle(z.titel)} | ${z.ausgang} | ${Ablage.zelle(z.grund)} | ${f(z.dauer_s, 100)} | ${f(z.tokens)} | ${z.geld != null && modus === 'live' ? f(z.geld, 10000) : '–'} | ${Ablage.zelle(z.typen)} |`);
   I.push('', 'Rohdaten: [messung.json](messung.json). Logbuch des Spiels: `regie/`' + (modus === 'live' ? ', Aufnahmen von Prompt und Rohantwort je Aufruf: `regie/aufnahmen/abenteuer/`.' : '.'), '');
   Ablage.schreibe(ordner, 'index.md', I.join('\n'));
-  Ablage.schreibe(ordner, 'messung.json', JSON.stringify({ format: 'messung-abenteuer/1', werkzeug: 'tools/messe-abenteuer.js', aufruf: argv, modus, bezeichnung, erstellt: new Date().toISOString(), abbruch, zusammenfassung: zf, aufrufe: zeilen.map((z) => Object.assign({}, z, { rohantwort: ((plaene.find((p) => p.nr === z.nr) || {}).aufrufe || []).map((a) => (a.antwort ? a.antwort.text : null)) })) }, null, 1));
+  Ablage.schreibe(ordner, 'messung.json', JSON.stringify({ format: 'messung-abenteuer/1', werkzeug: 'tools/messe-abenteuer.js', aufruf: argv, modus, bezeichnung, erstellt: new Date().toISOString(), abbruch, zusammenfassung: zf, kennzahlen: kz, aufrufe: zeilen.map((z) => Object.assign({}, z, { rohantwort: ((plaene.find((p) => p.nr === z.nr) || {}).aufrufe || []).map((a) => (a.antwort ? a.antwort.text : null)) })) }, null, 1));
 }
 
 async function main() {
@@ -153,17 +175,25 @@ async function main() {
 
   neuerOrdner(modus);
   const spielEnv = { FAEDEN: '1', LAGE_SPIELLEITER: '1', SPIELLEITER_LLM: modus === 'live' ? 'mock' : 'mock' };
+  // SPL-02: der Schalter Modus Absichten kommt aus der Umgebung des Aufrufers (das Spiel liest game.env, nicht process.env); ohne Wert bleibt der Beat-Plan-Weg.
+  // Die Zeilen "gelesen"/Wiederholungen der Auswertung unten kennen nur Beat-Plaene (bauplanAusText): im Modus Absichten zaehlen Gueltigkeit, Tokens, Dauer und Kosten aus dem Logbuch, Folgen bleiben leer.
+  if (process.env.ABENTEUER_ABSICHTEN !== undefined && process.env.ABENTEUER_ABSICHTEN !== '') { spielEnv.ABENTEUER_ABSICHTEN = process.env.ABENTEUER_ABSICHTEN; bezeichnung += ', ABENTEUER_ABSICHTEN=' + process.env.ABENTEUER_ABSICHTEN; }
   if (ordner) {
     // --out: Logbuch und Mitschnitt in den Lauf-Ordner (die Fixture wuerde REGIE_DIR sonst auf einen Temp-Ordner setzen); ausdruecklich gesetzte Umgebung gilt
     spielEnv.REGIE_DIR = process.env.REGIE_DIR || path.join(ordner, 'regie');
     for (const k of ['MITSCHNITT', 'MITSCHNITT_DIR']) if (process.env[k] !== undefined) spielEnv[k] = process.env[k];
   }
-  const t = F.neuesSpiel({ crew: 1, seed: 7, names: ['Messung'], env: spielEnv });
+  const t = F.neuesSpiel({ crew: 1, seed: seedArg, names: ['Messung'], env: spielEnv });
   const g = t.g;
   for (let i = 0; i < 6; i++) g.step();
+  let vorgeschichteN = 0;
+  if (vorgeschichteFlag) { try { vorgeschichteN = MA.vorgeschichteAufbauen(g, Faden, D, JSON.parse(fs.readFileSync(path.join(__dirname, 'fixtures', 'messe', 'vorgeschichte.json'), 'utf8'))); } catch (err) { console.error('Vorgeschichte nicht aufbaubar: ' + err.message); process.exit(1); } }
+  const modusAbsicht = Absicht.aktiv(g);
+  const kzZeilen = [];   // SPL-02 G: eine Zeile je Aufruf fuer die Kennzahlen
   const sl = LS.create(g, { llm, abenteuerWerte: { deckel_je_sitzung: 1e9, cooldown_grenzen: 0, timeout_s: modus === 'live' ? 300 : 120 } });
   g.lageSpielleiter = sl; g.lageSchalter = true;
   const ab = sl.abenteuer;
+  ab.aufrufe = Math.abs(seedArg - SEED_STANDARD) * 1000;   // SPL-02 G: der Mock leitet seinen Zufall aus der Nummer des Aufrufs und dem Tick ab, nicht aus dem Seed der Welt: ein anderer Seed verschiebt die Nummer (Standardseed: wie bisher ab 1), damit die Stichproben verschieden sind
   const roh = [];
   const aufrufeNr = new Map();   // LIV-01 C: je Aufruf-Nr (input.nr) die Aufnahme von Prompt und Antwort/Fehler (kein Index: ein Fehlaufruf hat keine Antwort)
   const ask0 = llm.ask.bind(llm);
@@ -175,6 +205,7 @@ async function main() {
     catch (e) { rec.wall_s = (Date.now() - rec.wall0) / 1000; rec.fehler = (e && e.code ? e.code + ': ' : '') + String((e && e.message) || e).slice(0, 300); throw e; }
   };
   const budget0 = LLM.budget();
+  const katalogBeat = AP.katalogText().length;   // im Beat-Plan der feste Katalog, im Modus Absichten steht katalog_zeichen im Logbuch
   const plaene = [];   // je Aufruf eine Zeile fuer Ablage und messung.json
 
   const zaehl = { gueltig: 0, abgelehnt: {}, ausfall: {}, tokens: 0, dauer: [], geld: 0, geldBekannt: 0 };
@@ -184,24 +215,27 @@ async function main() {
   for (let i = 0; i < N; i++) {
     const z = Faden.zustandVon(g); z.abenteuerAngebote.length = 0;
     const r = ab.erzwingen();
+    const nrJob = ab.aufrufe;   // Nr dieses Jobs; eine Verhandlung (Modus Absichten) zaehlt ab.aufrufe weiter, traegt aber dieselbe Nr im Logbuch
     if (!r.gestartet) { abbruch = `Aufruf ${i + 1}: nicht gestartet (${r.grund})`; console.log(abbruch); break; }
     const grenze = Date.now() + (modus === 'live' ? 6 * 60 * 1000 : 5 * 1000);
     while (ab.zustand !== 'idle' && Date.now() < grenze) { g.step(); await frei(); if (modus === 'live') await new Promise((s) => setTimeout(s, 25)); }
     if (ab.zustand !== 'idle') { abbruch = `Aufruf ${i + 1}: haengt (nach ${modus === 'live' ? 6 * 60 : 5} s kein Ergebnis), die Messung bricht ab`; console.log(abbruch); zaehl.ausfall.HAENGT = 1; break; }
-    const e = (g.lageRegie ? g.lageRegie.log.entries : []).filter((x) => x.art === 'abenteuer_bauplan' && ['gueltig', 'abgelehnt', 'ausfall'].includes(x.ausgang) && x.plan && x.plan.nr === ab.aufrufe).pop();   // das Logbuch im Speicher haelt nur die letzten 200 Eintraege: ueber die Nummer des Aufrufs suchen
-    if (!e) { zaehl.ausfall.KEIN_ERGEBNIS = (zaehl.ausfall.KEIN_ERGEBNIS || 0) + 1; plaene.push({ nr: ab.aufrufe, eintrag: null, aufrufe: aufrufeNr.get(ab.aufrufe) || [], angebot: null }); continue; }
+    const e = (g.lageRegie ? g.lageRegie.log.entries : []).filter((x) => x.art === 'abenteuer_bauplan' && ['gueltig', 'abgelehnt', 'ausfall'].includes(x.ausgang) && x.plan && x.plan.nr === nrJob).pop();   // das Logbuch im Speicher haelt nur die letzten 200 Eintraege: ueber die Nummer des Aufrufs suchen
+    if (!e) { zaehl.ausfall.KEIN_ERGEBNIS = (zaehl.ausfall.KEIN_ERGEBNIS || 0) + 1; plaene.push({ nr: nrJob, eintrag: null, aufrufe: aufrufeNr.get(nrJob) || [], angebot: null }); kzZeilen.push({ ausgang: 'kein_ergebnis', grund: 'KEIN_ERGEBNIS', verhandlung: 0 }); continue; }
     if (e.ausgang === 'gueltig') zaehl.gueltig++;
     else if (e.ausgang === 'abgelehnt') zaehl.abgelehnt[e.grund] = (zaehl.abgelehnt[e.grund] || 0) + 1;
     else zaehl.ausfall[e.grund] = (zaehl.ausfall[e.grund] || 0) + 1;
     zaehl.tokens += e.tokens || 0;
     if (Number.isFinite(e.dauer_s)) zaehl.dauer.push(e.dauer_s);
     if (Number.isFinite(e.geld)) { zaehl.geld += e.geld; zaehl.geldBekannt++; }
-    const aufn = (aufrufeNr.get(ab.aufrufe) || []);
+    const aufn = (aufrufeNr.get(nrJob) || []);
     const letzteAufn = aufn[aufn.length - 1];
     const gelesen = letzteAufn && letzteAufn.antwort ? AP.bauplanAusText(letzteAufn.antwort.text) : null;   // die Antwort DIESES Aufrufs (bei einem Fehlaufruf keine, statt der vorigen)
     const angebot = e.ausgang === 'gueltig' ? ((Faden.zustandVon(g).abenteuerAngebote || []).find((a) => a.ref === (e.plan && e.plan.vorlage)) || null) : null;
-    plaene.push({ nr: ab.aufrufe, eintrag: e, aufrufe: aufn, gelesen, angebot });
+    plaene.push({ nr: nrJob, eintrag: e, aufrufe: aufn, gelesen, angebot });
+    kzZeilen.push(kennzahlZeile(e, aufn, angebot, katalogBeat));
     if (gelesen && gelesen.plan && Array.isArray(gelesen.plan.beats)) folgen.push(gelesen.plan.beats.map((x) => x && x.typ).join('>'));
+    else if (modusAbsicht && e.ausgang === 'gueltig' && e.plan && Array.isArray(e.plan.typen)) folgen.push(e.plan.typen.join('>'));   // SPL-02 G: im Modus Absichten ist die Antwort keine Beat-Folge; gezaehlt wird die Folge des gueltigen Plans (Inszenierer)
   }
   if (alteLive === undefined) delete process.env.LLM_LIVE; else process.env.LLM_LIVE = alteLive;
 
@@ -215,17 +249,22 @@ async function main() {
   console.log(`Gültigkeit: gültig ${zaehl.gueltig} (${prozent(zaehl.gueltig, gesamt)}), abgelehnt ${abgelehnt} (${prozent(abgelehnt, gesamt)}), Ausfall ${ausfall} (${prozent(ausfall, gesamt)})`);
   console.log(`Ablehnquote je Code (Anteil an allen Aufrufen): ${sortiert(zaehl.abgelehnt)}`);
   if (ausfall) console.log(`Ausfälle je Code: ${sortiert(zaehl.ausfall)}`);
-  console.log(`Wiederholungsrate (gleiche Typenfolge wie die vorige lesbare Antwort): ${wiederholt} von ${Math.max(0, folgen.length - 1)} (${prozent(wiederholt, Math.max(0, folgen.length - 1))}); ${new Set(folgen).size} verschiedene Typenfolgen in ${folgen.length} lesbaren Antworten`);
+  console.log(`Wiederholungsrate (gleiche Typenfolge wie die vorige lesbare Antwort${modusAbsicht ? "; im Modus Absichten: Folge der gültigen Pläne" : ""}): ${wiederholt} von ${Math.max(0, folgen.length - 1)} (${prozent(wiederholt, Math.max(0, folgen.length - 1))}); ${new Set(folgen).size} verschiedene Typenfolgen in ${folgen.length} lesbaren Antworten`);
   console.log(`Tokens: ${fmt(zaehl.tokens)} (je Aufruf ${gesamt ? fmt(zaehl.tokens / gesamt) : '–'}); Dauer je Aufruf: ${dauerText(dauer)}; Geld: ${zaehl.geldBekannt ? (Math.round(zaehl.geld * 10000) / 10000).toLocaleString('de-DE', { maximumFractionDigits: 4 }) + ' USD' : 'nicht gemeldet'}; Laufzeit ${fmt((Date.now() - t0) / 1000, 10)} s`);
   if (modus === 'mock') console.log('Hinweis: Mock-Werte pruefen die Kette und das Werkzeug; sie sagen nichts ueber die Qualitaet eines echten Modells (dafuer --live bzw. --anbieter).');
+  const kz = MA.kennzahlen(kzZeilen, { modusAbsicht, live: modus === 'live', lesbarePlaene: folgen.length, systemZeichen: fs.statSync(modusAbsicht ? Absicht.SYSTEM_DATEI : AP.SYSTEM_DATEI).size });
+  kz.welt = { seed: seedArg, vorgeschichte_faeden: vorgeschichteN };
+  console.log(MA.kennzahlenZeilen(kz).join(String.fromCharCode(10)));
+  if (vorgeschichteFlag) console.log(`Welt: Seed ${seedArg}, Vorgeschichte ${vorgeschichteN} abgeschlossene Faeden`);
+  if (jsonArg) { try { const d = path.resolve(START_CWD, jsonArg); fs.mkdirSync(path.dirname(d), { recursive: true }); fs.writeFileSync(d, JSON.stringify({ format: 'messung-abenteuer-kennzahlen/1', aufruf: args, bezeichnung, kennzahlen: kz }, null, 1)); console.log(`Kennzahlen als JSON: ${d}`); } catch (err) { console.error('JSON nicht geschrieben: ' + err.message); process.exitCode = 1; } }
   g.errors && console.log(`Serverfehler im Lauf: ${g.errors}`);
   if (ordner) {
     try {
-      ablegen({ ordner, plaene, zaehl, folgen, gesamt, wiederholt, dauer, budget0, budget1: LLM.budget(), bezeichnung, modus, t0, abbruch, argv: args });
+      ablegen({ kz, ordner, plaene, zaehl, folgen, gesamt, wiederholt, dauer, budget0, budget1: LLM.budget(), bezeichnung, modus, t0, abbruch, argv: args });
       console.log(`Ablage: ${ordner} (index.md, ${plaene.length} Plan-Dateien, messung.json)`);
     } catch (err) { console.error('Ablage fehlgeschlagen: ' + err.message); process.exitCode = 1; }
   }
   sl.dispose();
 }
 if (require.main === module) main().then(() => process.exit(process.exitCode || 0), (e) => { console.error('Abbruch: ' + (e && e.stack)); process.exit(1); });
-module.exports = { wiederholungen, prozent, aufrufZahl, dauerText };
+module.exports = { kennzahlZeile, wiederholungen, prozent, aufrufZahl, dauerText };

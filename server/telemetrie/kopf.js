@@ -11,7 +11,7 @@ const crypto = require('crypto');
 const ROOT = path.join(__dirname, '..', '..');
 const CONTENT = path.join(ROOT, 'content');
 // Positivliste der Schalter, die in den Kopf dürfen (keine Schlüssel, Token, URLs)
-const SCHALTER = ['FAEDEN', 'WAFFEN', 'REISE_EREIGNISSE', 'LAGE_SPIELLEITER', 'SPIELLEITER_LLM', 'TEXTE_POOL', 'RUESTPHASE', 'MISSION_SOURCE', 'DEBUG', 'LLM_ROUTER', 'LLM_LIVE', 'SPIELLEITER_RUECKFALL'];
+const SCHALTER = ['FAEDEN', 'WAFFEN', 'REISE_EREIGNISSE', 'LAGE_SPIELLEITER', 'SPIELLEITER_LLM', 'TEXTE_POOL', 'ABENTEUER_ABSICHTEN', 'RUESTPHASE', 'MISSION_SOURCE', 'DEBUG', 'LLM_ROUTER', 'LLM_LIVE', 'SPIELLEITER_RUECKFALL'];
 
 const hash = (s) => crypto.createHash('sha256').update(s).digest('hex').slice(0, 16);
 

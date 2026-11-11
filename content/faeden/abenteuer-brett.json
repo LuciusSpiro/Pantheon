@@ -97,6 +97,11 @@
       "einheit": "Eintraege",
       "_hinweis": "SUND-04b E1: so viele Faeden (Abenteuer und Vorlagen) stehen im Kanon des Weltstands (welt.sim.faeden.kanon, server/sim/abenteuer-kanon.js): Name und Volk des NSC, Titel, Ort, Ausgang. Der Kanon ueberlebt die Verdraengung eines abgeschlossenen Fadens aus der Liste (faeden_gesamt_max 9); die aeltesten abgeschlossenen Eintraege ohne Faden in der Liste fallen zuerst heraus (ein laufender nie). Der Kanon geht nie in einen Prompt (er traegt NSC-Namen)."
     },
+    "kanon_taten_max": {
+      "wert": 4,
+      "einheit": "Taten",
+      "_hinweis": "SPL-02 D: so viele Taten der Crew (Schluessel aus dem Gedaechtnis des NSC, <beat-typ>_<gelungen|gescheitert>) traegt ein Kanon-Eintrag hoechstens (taten[], die juengsten; Weltstand additiv, optional)."
+    },
     "wiederholung": {
       "wert": {
         "folge_zuletzt": 3,
@@ -164,6 +169,9 @@
     },
     "wiedersehen": {
       "text": "Wiedersehen"
+    },
+    "rache": {
+      "text": "Rechnung begleichen"
     },
     "konvoi": {
       "text": "Konvoi aufhalten",

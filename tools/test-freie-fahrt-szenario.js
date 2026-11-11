@@ -119,6 +119,8 @@ section('Daten und reine Funktion wirksamesEnv', () => {
   ok(x4.SPIELLEITER_LLM === undefined && LS.rueckfallAn(x4), 'W3: Basis live ohne LLM_LIVE, Option aus => Rueckfall funktioniert');
   const x5 = e({ LLM_LIVE: '0' }, true);
   ok(x5.LLM_LIVE === '1' && x5.SPIELLEITER_LLM === 'live', 'W3: Basis LLM_LIVE=0, Option an => live');
+  const ab0 = e({}, true), ab1 = e({ ABENTEUER_ABSICHTEN: '1' }, true), ab2 = e({ ABENTEUER_ABSICHTEN: '1' }, false);
+  ok(ab0.ABENTEUER_ABSICHTEN === undefined && ab0.TEXTE_POOL === '1' && ab1.ABENTEUER_ABSICHTEN === '1' && ab2.ABENTEUER_ABSICHTEN === '1', 'SPL-02: live setzt ABENTEUER_ABSICHTEN nicht (Opt-in), TEXTE_POOL schon; der Schalter aus der Basis-Umgebung gelangt in live und Rueckfall');
   const x6 = e({ SPIELLEITER_LLM: 'mock', LLM_LIVE: '1' }, false), x7 = e({ SPIELLEITER_LLM: 'mock' }, true);
   ok(x6.SPIELLEITER_LLM === 'mock' && x6.SPIELLEITER_RUECKFALL === undefined && x6.LLM_LIVE === undefined && x7.SPIELLEITER_LLM === 'mock' && x7.LLM_LIVE === undefined, 'mock im Basis-Env bleibt (Option ohne Wirkung), kein LLM_LIVE, kein Rueckfall-Marker');
   const a = Sz.wirksamesEnv({ B: '1' }, 'm1', { live: true });

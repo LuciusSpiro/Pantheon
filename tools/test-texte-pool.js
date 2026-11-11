@@ -288,7 +288,7 @@ const pruefe = (text, c) => Pruefer.pruefe(text, Object.assign({ slot: 'ankuendi
   await section('Toter Transport blockiert nichts', async () => {
     Pool.zuruecksetzen();
     const tot = await H.toterPort();
-    const altLive = process.env.LLM_LIVE; process.env.LLM_LIVE = '1';
+    delete process.env.LLM_LIVE;   // SPL-02 K2: LLM_LIVE steht nur im game.env (wie bei der Lobby-Option), nie in process.env; das maskierte früher REFUSED
     try {
       const t = spiel({ env: Object.assign({}, ENV, { LLM_LIVE: '1', OLLAMA_URL: 'http://127.0.0.1:' + tot, OLLAMA_MODEL: 'fake:1b' }) }); const g = t.g;
       const t0 = Date.now();
@@ -309,7 +309,7 @@ const pruefe = (text, c) => Pruefer.pruefe(text, Object.assign({ slot: 'ankuendi
       const st2 = Pool.stand();
       ok(st2.zaehler.jobs === 2 && st2.fehlerFolge === 2 && Math.abs((st2.pauseBis - st2.zeit) - 2 * W.fehler_pause_s.start) < 0.01, `nach der Pause ein neuer Versuch, die Pause verdoppelt sich (Rest ${(st2.pauseBis - st2.zeit).toFixed(1)} s = 2 × ${W.fehler_pause_s.start})`);
       lauf(g, 1);
-    } finally { if (altLive === undefined) delete process.env.LLM_LIVE; else process.env.LLM_LIVE = altLive; }
+    } finally { /* process.env.LLM_LIVE bleibt ungesetzt */ }
     // Fehlerarten: Zeitlimit, EXIT, OFF: alle nur Fehler, nie ein Wurf nach außen
     for (const code of ['ETIMEDOUT', 'EXIT', 'OFFLINE', 'EMPTY', 'RATE_LIMIT']) {
       Pool.zuruecksetzen(); const g2 = spiel().g; Pool.setLlm(fakeLlm({ fehler: code }));
@@ -333,13 +333,14 @@ const pruefe = (text, c) => Pruefer.pruefe(text, Object.assign({ slot: 'ankuendi
       const text = nr === 1 ? 'Das ist leider Müll {{lex.x}} 12' : gueltigerText(user, nr);
       H.antwort(res, 200, { model: body.model, message: { role: 'assistant', content: JSON.stringify({ text }) }, done: true, prompt_eval_count: 800, eval_count: 30 });
     });
-    const altLive = process.env.LLM_LIVE; process.env.LLM_LIVE = '1';
+    delete process.env.LLM_LIVE;   // SPL-02 K2: nur game.env trägt LLM_LIVE
     try {
       const b0 = LLM.budget();
       const g = spiel({ crew: 3, names: ['Mireille_Kas', 'Ouzo_Brandt', 'Tzvi_Lund'], env: Object.assign({}, ENV, { LLM_LIVE: '1', OLLAMA_URL: srv.url, OLLAMA_MODEL: 'fake:1b', LLM_MODELL_TEXT: 'fake:2b' }) }).g;
       const llm = Pool.getLlm(g);
       ok(llm && llm.mode === 'live' && llm.anbieterFuer('text') === 'ollama' && llm.eskalationMoeglich('text') === false, 'der Pool nutzt Ollama für kind text und hat KEINE Eskalation (kein Claude)');
       Pool.beiGrenze(g); Pool.update(g, 0.1); await Pool.jobFertig();
+      ok(process.env.LLM_LIVE !== '1' && Pool.stand().zaehler.fehler === 0 && !/REFUSED/.test(JSON.stringify(Pool.stand())) && Pool.stand().gesamt === 1, 'LLM_LIVE nur im game.env: kein REFUSED, der Job läuft durch');
       const posts = srv.requests.filter((q) => q.method === 'POST');
       ok(posts.length === 2 && posts.every((q) => q.url === '/api/chat' && q.body.think === false && q.body.stream === false && q.body.model === 'fake:2b'), 'zwei Anfragen an /api/chat (Versuch und Wiederholung), think:false, Modell aus LLM_MODELL_TEXT');
       ok(posts.every((q) => q.body.format && q.body.format.type === 'object' && q.body.format.required[0] === 'text'), 'format = kleines JSON-Schema { text }');
@@ -348,7 +349,7 @@ const pruefe = (text, c) => Pruefer.pruefe(text, Object.assign({ slot: 'ankuendi
       ok(/<deine_antwort>/.test(posts[1].body.messages[1].content) && Pool.stand().zaehler.gueltig_2 === 1 && Pool.stand().gesamt === 1, 'Wiederholung bei Gemma (nicht Claude): zweite Anfrage mit den Prüferfehlern, ein Text im Pool');
       const b1 = LLM.budget();
       ok(b1.used === b0.used && b1.calls === b0.calls, 'der Claude-Token-Zähler wurde nicht belastet (lokale Läufe zählen nicht)');
-    } finally { if (altLive === undefined) delete process.env.LLM_LIVE; else process.env.LLM_LIVE = altLive; await srv.close(); }
+    } finally { await srv.close(); }
     const r = Router.routeTransport({ text: { anbieter: 'ollama' } }, { eskalation: null });
     ok(r.anbieterFuer('text') === 'ollama' && r.eskalationFuer('text') === null, 'Router: text → ollama, Eskalation null');
   });

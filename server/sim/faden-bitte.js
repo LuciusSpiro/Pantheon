@@ -47,6 +47,7 @@ const weigerung = fehl;
 const PID_RE = new RegExp('^f:[0-' + (W.portrait.varianten - 1) + ']:(' + W.voelker.join('|') + ')$');
 const logbuch = (game, art, e) => { try { regie().schreibe(game, Object.assign({ art }, e)); } catch (err) { if (game && game.countError) game.countError('faden-bitte-logbuch', err); } };
 const fehlerZaehlen = (game, wo, e) => { if (game && game.countError) game.countError(wo, e); };
+const poolText = (game, f, beatId, slots) => { try { return require('./abenteuer-texte.js').haken(game, f, beatId, slots); } catch (e) { fehlerZaehlen(game, 'faden-bitte-pool', e); return null; } };   // SPL-02 E3: Zeile der Absicht, sonst null
 
 // ---------- Porträt (einfach: Variante und Fraktion, Rückfall = kein Porträt)
 function portraetPid(npc) {
@@ -188,7 +189,7 @@ function angebotAusVorlage(game, fadenId) {
   const v = D.vorlage(f.vorlage);
   const beat = v && v.beats[f.beat];
   if (!beat) return { ok: false, code: 'kein_beat' };
-  const text = textVon(game, beat, f);
+  const text = poolText(game, f, beat.id, ['bitte']) || textVon(game, beat, f);   // SPL-02 E3: Haken, ohne angemeldeten Plan null
   if (text === null) return { ok: false, code: 'text' };
   return anbieten(game, {
     fadenId: f.id, beatId: beat.id,

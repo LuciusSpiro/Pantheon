@@ -1,0 +1,118 @@
+{
+  "format": "absichten-katalog/1",
+  "_hinweis": "Fixture fuer tools/test-inszenierer.js (SPL-02 B): Eintraege mit Rezept (`inszenierung`); `werte` kommt aus content/faeden/absichten.json. Die Namen sind Testnamen, keine Katalogeintraege des Spiels (der echte Katalog kommt mit Paket C). probe_stellung braucht die Zeile rache in content/faeden/beats.json (seit SPL-02 C0 dort, nur_inszenierer).",
+  "absichten": {
+    "probe_erz": {
+      "zweck": "Ein Auftraggeber schickt die Crew in eine Hoehle, Ware zu holen (Fixture: Ort mit Kartenart, Landeplatz, Ware aus den Daten).",
+      "parameter": {
+        "reichweite": {"art": "zahl", "min": 0, "max": 3, "standard": 2},
+        "ziel": {"art": "liste", "erlaubt": ["kulisse", "abbau"], "standard": "kulisse"},
+        "ware": {"art": "liste", "erlaubt": ["fracht_kiste", "erz"], "standard": "erz"}
+      },
+      "bezug": [],
+      "wendungen": ["keine", "hinterhalt"],
+      "inszenierung": {
+        "ort": {"regel": "naechster_mit_kartenart", "kartenart": "hoehle", "reichweite_parameter": "reichweite"},
+        "nicht_ausdrueckbar": [
+          {"wenn": {"parameter": "ziel", "ist": "abbau"}, "grund": "kein Abbau-Beat im Katalog: nichts verlangt, prueft oder belohnt den Abbau am Boden", "gegenvorschlag": {"feld": "parameter.ziel", "wert": "kulisse", "text": "Ziel kulisse: nur der Ort und die Fracht, ohne Abbau"}}
+        ],
+        "skelett": {
+          "landeplaetze": [{"id": "ader", "art": "$ort_kartenart", "name": "Erzader"}],
+          "beats": [
+            {"typ": "bitte", "parameter": {"landeplatz": "ader"}, "verzweigung": {"gescheitert": "ende"}},
+            {"typ": "fracht", "parameter": {"ware": {"aus": "parameter.ware"}}},
+            {"id": "ende", "typ": "abschluss"}
+          ]
+        },
+        "wendungen": {
+          "hinterhalt": {"nach": "bitte", "beats": [{"typ": "raumschlacht", "verzweigung": {"gescheitert": "ende"}}]}
+        },
+        "anlass_vorlage": "Ein Auftraggeber braucht Ware aus einer Hoehle und zahlt fuer den Weg."
+      }
+    },
+    "probe_stufe": {
+      "zweck": "Ein Konvoi am Ort der Crew, bei hoeherer Stufe mit Gegenwehr dahinter (Fixture: Skalierung nach Rang und Schiff).",
+      "parameter": {
+        "staerke": {"art": "zahl", "min": -1, "max": 3, "standard": -1}
+      },
+      "bezug": [],
+      "wendungen": ["keine", "verfolgung"],
+      "inszenierung": {
+        "ort": {"regel": "crew_hex"},
+        "staerke_parameter": "staerke",
+        "stufe_max": 2,
+        "skelett": {
+          "beats": [
+            {"typ": "konvoi", "parameter": {"sieg": {"nach_stufe": ["aufhalten", "aufhalten", "pluendern"]}}},
+            {"typ": "raumschlacht", "ab_stufe": 1, "verzweigung": {"gescheitert": "ende"}},
+            {"typ": "raumschlacht", "ab_stufe": 2, "verzweigung": {"gescheitert": "ende"}},
+            {"id": "ende", "typ": "abschluss"}
+          ]
+        },
+        "wendungen": {
+          "verfolgung": {"nach": "konvoi", "beats": [{"typ": "verfolgung"}]}
+        }
+      }
+    },
+    "probe_stellung": {
+      "zweck": "Ein NSC aus einem frueheren Abenteuer, der der Crew grollt, stellt sie (Fixture: Bezug, Fortsetzung, Weltbedingung Haltung; braucht die Zeile rache).",
+      "parameter": {},
+      "bezug": [{"name": "nsc", "pflicht": true, "kandidat": true}],
+      "fortsetzung": true,
+      "wendungen": ["keine", "verfolgung"],
+      "inszenierung": {
+        "ort": {"regel": "crew_hex"},
+        "bedingungen": [{"art": "nsc_haltung", "bezug": "nsc", "hoechstens": -1, "grund": "wer der Crew wohlgesinnt ist, stellt sie nicht"}],
+        "skelett": {"beats": [{"typ": "rache"}, {"id": "ende", "typ": "abschluss"}]},
+        "wendungen": {
+          "verfolgung": {"nach": "rache", "beats": [{"typ": "verfolgung"}]}
+        },
+        "anlass_vorlage": "Jemand aus einem frueheren Auftrag will die Rechnung begleichen."
+      }
+    },
+    "probe_ziel": {
+      "zweck": "Ein Rätsel an einem bestimmten Sektor (Fixture: Ort aus dem Bezug).",
+      "parameter": {},
+      "bezug": [{"name": "ort", "pflicht": true}],
+      "inszenierung": {
+        "ort": {"regel": "bezug_ort"},
+        "skelett": {"beats": [{"typ": "spur"}, {"id": "ende", "typ": "abschluss"}]}
+      }
+    },
+    "probe_tor": {
+      "zweck": "Ein Landeplatz mit fester Kartenart am Ort der Crew (Fixture: Nein, wenn die Art dort nicht geht).",
+      "parameter": {},
+      "bezug": [],
+      "inszenierung": {
+        "ort": {"regel": "crew_hex"},
+        "skelett": {
+          "landeplaetze": [{"id": "tor", "art": "hoehle", "name": "Felsentor"}],
+          "beats": [
+            {"typ": "bitte", "parameter": {"landeplatz": "tor"}, "verzweigung": {"gescheitert": "ende"}},
+            {"typ": "spur"},
+            {"id": "ende", "typ": "abschluss"}
+          ]
+        }
+      }
+    },
+    "probe_rang": {
+      "zweck": "Ein Auftrag nur fuer Crews mit Rang (Fixture: Weltbedingung Rang).",
+      "parameter": {},
+      "bezug": [],
+      "inszenierung": {
+        "ort": {"regel": "crew_hex"},
+        "bedingungen": [{"art": "rang_mindestens", "rang": "centurio", "grund": "der Auftrag ist fuer Crews mit Namen"}],
+        "skelett": {"beats": [{"typ": "spur"}, {"id": "ende", "typ": "abschluss"}]}
+      }
+    },
+    "probe_posten": {
+      "zweck": "Ein Posten soll fallen (Fixture: die Lage des Katalogs, die der Plan selbst pruefen laesst).",
+      "parameter": {},
+      "bezug": [],
+      "inszenierung": {
+        "ort": {"regel": "crew_hex"},
+        "skelett": {"beats": [{"typ": "sabotage"}, {"id": "ende", "typ": "abschluss"}]}
+      }
+    }
+  }
+}

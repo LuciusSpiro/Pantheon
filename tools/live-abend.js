@@ -181,6 +181,31 @@ async function abend(o) {
   const wDir = fs.mkdtempSync(path.join(os.tmpdir(), 'live-abend-welt-'));   // Spielstand (enthaelt die Namen der Bots) im Temp-Ordner, nicht in der Ablage und nie im Repo
   const srv = await startServer({ port: 0, quiet: true, noStore: true, worlds: true, worldDir: wDir, debug: true, roomCode: CODE });
   const g = srv.game, port = srv.port;
+  // SPL-02 G: Modus Absichten (Umgebung ABENTEUER_ABSICHTEN): der Abend merkt sich, was der Inszenierer je Angebot entschieden hat und welche Zeilen (Pool oder Rueckfall der Absicht) im Spiel gesprochen wurden, damit die Plan-Dateien
+  // die Persoenlichkeit zeigen koennen. Nur Beobachtung: die Funktionen werden durchgereicht, das Spiel merkt nichts (nur in diesem Abend-Prozess, nie im Spielcode).
+  const AbsichtMod = require('../server/sim/abenteuer-absicht.js');
+  const TexteMod = require('../server/sim/abenteuer-texte.js');
+  const FadenMod = require('../server/sim/faden.js');
+  const absichtModus = AbsichtMod.aktiv(g);
+  const inszenierungen = new Map();   // Angebotsnummer -> { inszenierung, absicht, runde }
+  const zeilenImSpiel = [];           // { faden, beat, slot, quelle, text, spielzeit }
+  if (absichtModus) {
+    const ev0 = AbsichtMod.ersterVersuch;
+    AbsichtMod.ersterVersuch = function () { const r = ev0.apply(this, arguments); try { if (r && r.stand === 'angenommen' && r.angebot) inszenierungen.set(r.angebot.nr, { inszenierung: r.inszenierung, absicht: r.absicht, runde: 0 }); } catch (e) { /* Beobachtung */ } return r; };
+    const fa0 = AbsichtMod.folgeAntwort;
+    AbsichtMod.folgeAntwort = function () { const r = fa0.apply(this, arguments); try { const e = r && r.ergebnis; if (r && r.stand === 'angenommen' && e && e.angebot) inszenierungen.set(e.angebot.nr, { inszenierung: e.inszenierung, absicht: r.absicht, runde: 1 }); } catch (x) { /* Beobachtung */ } return r; };
+    const hk0 = TexteMod.haken;
+    TexteMod.haken = function (game, faden, beatId, slots, w) {
+      const t = hk0.apply(this, arguments);
+      try {
+        const F = FadenMod.zustandVon(game), fd = typeof faden === 'string' ? (F.liste || []).find((x) => x.id === faden) : faden;
+        let z = null, slot = null;
+        if (t) for (const sl of slots || []) { const y = fd && TexteMod.zeile(game, fd, beatId, sl, w); if (y && y.text) { z = y; slot = sl; break; } }
+        if (fd) zeilenImSpiel.push({ faden: fd.id, beat: beatId, slot: slot || (slots || []).join('/'), quelle: z ? z.quelle : 'fadenmaschine', text: z ? z.text : null, spielzeit: game.time });   // ohne Zeile der Absicht gilt der Text der Fadenmaschine (der Haken wurde gefragt, hatte aber nichts)
+      } catch (e) { /* Beobachtung */ }
+      return t;
+    };
+  }
   g.fixedSeed = o.seed; g.reset();   // der Seed des Abends (Weltstand und Sim); vor dem Beitritt der Clients
   const kz = {};
   const k = (...arten) => { for (const a of arten) kz[a] = (kz[a] || 0) + 1; MitLauf.kuenstlich(g, ...arten); };
@@ -422,6 +447,48 @@ async function abend(o) {
 
   // ---------- Ablage, fortlaufend (M4): ablage(false) schreibt Plaene, Protokoll (je Zeile angehaengt) und ein als "unvollstaendig" markiertes ergebnis.json alle 5 s und vor/nach jedem Plan-Aufruf;
   // ablage(true) ist der Abschluss (Mitschnitt beenden, ergebnis.json ohne Markierung). Ein harter Abbruch oder Absturz laesst den letzten Zwischenstand stehen.
+  // SPL-02 G: Plan-Datei im Modus Absichten: Absicht (mit Namen aus der Geschichte des Prompts), Bogen, Entscheidungen des Inszenierers, Beats der Vorlage und die im Spiel gesprochenen Zeilen (Pool oder Rueckfall)
+  function absichtAbschnitte({ absichtErste, aufn, a0, eintrag, angNr }) {
+    const L = [];
+    const kn = {};
+    for (const m of String(a0.prompt || '').matchAll(/\b(K\d{1,2}) ([^()"\\]+?) \(/g)) kn[m[1]] = m[2];
+    const ab = absichtErste && absichtErste.absicht;
+    if (!ab) { L.push('_Keine lesbare Absicht' + (absichtErste && absichtErste.fehler ? ' (' + absichtErste.fehler + ')' : '') + '._', ''); return L; }
+    const bz = ab.bezug && typeof ab.bezug === 'object' ? ab.bezug : {};
+    const bezugText = Object.keys(bz).length ? Object.entries(bz).map(([k2, v2]) => k2 + ': ' + v2 + (kn[v2] ? ' = ' + kn[v2] : '')).join('; ') : 'keiner';
+    L.push('### Absicht (erste Antwort)', '', '- **Absicht:** `' + ab.absicht + '` · **Ton:** ' + (ab.ton != null ? ab.ton : '–'), '- **Titel:** ' + (ab.titel != null ? ab.titel : '–'), '- **Parameter:** ' + JSON.stringify(ab.parameter || {}), '- **Bezug:** ' + bezugText);
+    const bg = ab.bogen && typeof ab.bogen === 'object' ? ab.bogen : {};
+    L.push('- **Bogen:** Einsatz: ' + (bg.einsatz != null ? bg.einsatz : '–') + ' · Wendung: ' + (bg.wendung != null ? bg.wendung : '–') + ' · Preis: ' + (bg.preis != null ? bg.preis : '–'), '');
+    if (aufn.length > 1) L.push('**Verhandlung:** ' + (aufn.length - 1) + ' Folgeaufruf nach einem Nein der Welt (Rohantwort unten, Versuch 2); das Ergebnis steht in der Inszenierung.', '');
+    if (angNr == null) { L.push('### Inszenierung', '', 'Kein Angebot: ' + (eintrag ? eintrag.ausgang + (eintrag.grund ? ' (' + eintrag.grund + ')' : '') : 'kein Logbuch-Eintrag') + '. Die Welt hat Nein gesagt.', ''); return L; }
+    const ins = inszenierungen.get(angNr);
+    L.push('### Inszenierung (Entscheidungen des Inszenierers)', '');
+    if (ins && ins.inszenierung) {
+      const iz = ins.inszenierung;
+      L.push('- Angebot a' + angNr + (ins.runde ? ' (nach Verhandlung)' : '') + ', Ort ' + (iz.hex || '–') + (iz.bezug && iz.bezug.nsc ? ', Bezug-NSC: ' + iz.bezug.nsc : '') + (iz.locker ? ', Fortsetzung (locker)' : ''));
+      for (const nz of Array.isArray(iz.notizen) ? iz.notizen : []) L.push('- ' + nz);
+    } else L.push('_Keine Inszenierung aufgenommen._');
+    L.push('');
+    const a = angebote.get(angNr), v = a && a.ref ? FD.vorlage(a.ref) : null;
+    if (v) {
+      L.push('### Beats der Vorlage', '');
+      v.beats.forEach((b, i) => { const rest = Object.assign({}, b); for (const k2 of ['id', 'typ', 'aus']) delete rest[k2]; L.push((i + 1) + '. `' + b.typ + '`' + (Object.keys(rest).length ? ' – ' + Object.entries(rest).map(([k2, v2]) => k2 + ': ' + (typeof v2 === 'object' ? JSON.stringify(v2) : v2)).join('; ') : '')); });
+      L.push('');
+      const fid = (abenteuerListe.find((r) => r.angebot === angNr) || {}).faden;
+      L.push(...zeilenTabelle(fid, v));
+    }
+    return L;
+  }
+  function zeilenTabelle(fid, v) {
+    const L = ['### Zeilen im Spiel (Bitte, Wendung, Abschluss: Pool oder Rückfall der Absicht)', ''];
+    if (!fid) { L.push('_Das Angebot wurde nicht angenommen oder nicht gespielt: keine Zeilen gesprochen._', ''); return L; }
+    const z = zeilenImSpiel.filter((x) => x.faden === fid);
+    if (!z.length) { L.push('_Der Haken der Absicht wurde in diesem Abenteuer nie gefragt (kein Beat mit Bitte, Wendung oder Abschluss der Absicht); es galt der Text der Fadenmaschine._', ''); return L; }
+    L.push('| Beat | Slot | Quelle | Zeile |', '|---|---|---|---|');
+    for (const x of z) { const b = v && v.beats.find((y) => y.id === x.beat); L.push('| ' + (b ? b.typ : x.beat) + ' | ' + x.slot + ' | ' + x.quelle + ' | ' + (x.text == null ? '_keine Zeile der Absicht, es gilt der Text der Fadenmaschine_' : Ablage.zelle(x.text)) + ' |'); }
+    L.push('');
+    return L;
+  }
   function ablageLeise() { try { ablage(false); } catch (e) { /* ein Zwischenstand darf den Abend nie stoeren */ } }
   function ablage(final) {
     const dauer_s = (Date.now() - t0) / 1000;
@@ -451,7 +518,9 @@ async function abend(o) {
         const art = kind === 'lage' ? 'lage_grobplan' : 'abenteuer_bauplan';
         const endAus = kind === 'lage' ? ['angewandt', 'plan_wirkungslos', 'fehler', 'veraltet'] : ['gueltig', 'abgelehnt', 'ausfall'];
         const eintrag = logbuch.filter((e) => e.art === art && e.plan && e.plan.nr === nr && endAus.includes(e.ausgang)).pop() || null;
-        const gelesen = a1.antwort ? (kind === 'lage' ? LagePrompt.planAusText(a1.antwort.text) : AP.bauplanAusText(a1.antwort.text)) : null;
+        const absichtPlan = kind === 'abenteuer' && absichtModus;   // SPL-02 G: die Antwort ist eine Absicht, kein Bauplan
+        const gelesen = a1.antwort ? (kind === 'lage' ? LagePrompt.planAusText(a1.antwort.text) : absichtPlan ? null : AP.bauplanAusText(a1.antwort.text)) : null;
+        const absichtErste = absichtPlan && a0.antwort ? AbsichtMod.lesen(a0.antwort.text) : null;   // die erste Antwort (nach einer Verhandlung ist die letzte ein Patch)
         const angNr = eintrag && eintrag.plan && Number.isInteger(eintrag.plan.angebot) ? eintrag.plan.angebot : null;
         const ang = angNr != null ? angebote.get(angNr) : null;
         const gr = angNr != null ? gruppen.find((x) => x.angebot === angNr) : null;
@@ -463,7 +532,7 @@ async function abend(o) {
           kosten_usd: modus === 'live' && a1.antwort && Number.isFinite(Number(a1.antwort.cost)) ? Number(a1.antwort.cost) : (modus === 'live' ? null : 0),
           ausgang: eintrag ? eintrag.ausgang : (a1.fehler ? 'fehler' : 'kein_logeintrag'), grund: (eintrag && eintrag.grund) || null, anbieter: (eintrag && eintrag.anbieter) || (a1.antwort && a1.antwort.anbieter) || (modus === 'live' ? 'claude' : 'mock'), modell: (eintrag && eintrag.modell) || (a1.antwort && a1.antwort.modell) || (modus === 'live' ? null : 'mock'),
           key: a1.antwort ? a1.antwort.key : null, aufnahme: modus === 'live' && a1.antwort && a1.antwort.key ? `regie/aufnahmen/${kind === 'lage' ? 'lage' : 'abenteuer'}/${a1.antwort.key}.json` : null,
-          titel: gelesen && gelesen.plan ? gelesen.plan.titel || null : null, typen: gelesen && gelesen.plan && Array.isArray(gelesen.plan.beats) ? gelesen.plan.beats.map((b) => b && b.typ) : null,
+          titel: absichtPlan ? (absichtErste && absichtErste.absicht && absichtErste.absicht.titel) || null : gelesen && gelesen.plan ? gelesen.plan.titel || null : null, typen: absichtPlan ? (eintrag && eintrag.plan && Array.isArray(eintrag.plan.typen) ? eintrag.plan.typen : null) : gelesen && gelesen.plan && Array.isArray(gelesen.plan.beats) ? gelesen.plan.beats.map((b) => b && b.typ) : null,
           angebot: angNr, angenommen: !!(ang && ang.angenommen), gruppe: gr ? gr.id : null, mission: mission ? path.relative(dir, mission).split(path.sep).join('/') : null,
           zuordnung: kind === 'lage' ? 'Lage-Plan (kein Abenteuer)' : angNr == null ? (eintrag && eintrag.ausgang !== 'gueltig' ? 'kein Angebot (' + eintrag.ausgang + (eintrag.grund ? ': ' + eintrag.grund : '') + ')' : 'nicht eindeutig: kein gueltiger Logbuch-Eintrag') : !ang ? 'Angebot ' + angNr + ' nie im Brett gesehen' : !ang.angenommen ? 'Angebot a' + angNr + ' nicht angenommen' : !gr ? 'Angebot a' + angNr + ' angenommen, aber keine Gruppe im Mitschnitt (Mitschnitt ' + (mitOrdner ? 'ohne diese Gruppe' : 'nicht geschrieben') + ')' : 'eindeutig ueber Logbuch plan.nr ' + nr + ' > Angebot a' + angNr + ' > Gruppe ' + gr.id,
         };
@@ -472,12 +541,24 @@ async function abend(o) {
         const fm = { abend_seed: o.seed, art: kind, aufruf: nr, grenze: rec.grenze, zeit: rec.zeit, spielzeit: rec.spielzeit, dauer_s: rec.dauer_s, tokens: rec.tokens, kosten_usd: rec.kosten_usd, gueltigkeit: rec.ausgang, grund: rec.grund, anbieter: rec.anbieter, modell: rec.modell, key: rec.key, versuche: rec.versuche, eskaliert: rec.eskaliert, aufnahme: rec.aufnahme, angebot: angNr, mission: rec.mission, zuordnung: rec.zuordnung };
         const L = [Ablage.frontmatter(fm), `# ${kind === 'lage' ? 'Lage-Plan' : 'Abenteuer-Plan'} ${nr} (Seed ${o.seed})`, '', `[Index des Laufs](../../index.md) · [Prompt](${promptDatei})${rec.aufnahme ? ` · [Aufnahme (Prompt und Rohantwort)](../${rec.aufnahme})` : ''}${mission ? ` · [Mission](../${rec.mission})` : ''}`, '', `**Zuordnung:** ${rec.zuordnung}`, ''];
         L.push('## Plan', '');
-        if (kind === 'lage') { const p = gelesen && gelesen.plan; L.push(p ? `**Begründung:** ${p.begruendung != null ? p.begruendung : '–'}\n\n**Befehle:** ${JSON.stringify(p.befehle || [])}\n` : '_Kein lesbarer Plan._\n'); } else L.push(Ablage.planLesbar(gelesen));
+        if (kind === 'lage') { const p = gelesen && gelesen.plan; L.push(p ? `**Begründung:** ${p.begruendung != null ? p.begruendung : '–'}\n\n**Befehle:** ${JSON.stringify(p.befehle || [])}\n` : '_Kein lesbarer Plan._\n'); } else if (absichtPlan) L.push(...absichtAbschnitte({ absichtErste, aufn, a0, eintrag, angNr })); else L.push(Ablage.planLesbar(gelesen));
         aufn.forEach((a, i) => { L.push(`## Rohantwort${aufn.length > 1 ? ' (Versuch ' + (i + 1) + ')' : ''}`, ''); if (a.antwort) L.push(Ablage.zaun(a.antwort.text, 'json')); else L.push(`_Keine Antwort: ${a.fehler || 'Anfrage noch offen oder Fehler'}_`, ''); });
         if (eintrag) L.push('## Logbuch-Eintrag', '', Ablage.zaun(JSON.stringify(eintrag, null, 2), 'json'));
         fs.writeFileSync(path.join(plaeneDir, datei), on(L.join('\n')), 'utf8');
         plaene.push(rec);
       }
+    }
+    // SPL-02 G: alle gespielten Abenteuer mit ihren Zeilen (auch die des Rueckfalls, die keine eigene Plan-Datei haben): Absicht, Quelle, Bezug-Art, gesprochene Zeilen
+    if (absichtModus) {
+      const Z = ['# Zeilen im Spiel (Modus Absichten)', '', 'Je angenommenem Abenteuer die Zeilen der Absicht (Bitte, Wendung, Abschluss), die im Spiel gesprochen wurden: Quelle Pool (Text-Pool mit Modell) oder Rückfall (Daten der Absicht, nach Zustand des NSC). Zeilen ohne Eintrag: es galt der Text der Fadenmaschine.', ''];
+      for (const r of abenteuerListe) {
+        const a2 = angebote.get(r.angebot), v2 = a2 && a2.ref ? FD.vorlage(a2.ref) : null;
+        const lg = logbuch.find((e) => (e.art === 'abenteuer_bauplan' && e.ausgang === 'gueltig' && e.plan && e.plan.angebot === r.angebot) || (e.art === 'abenteuer_anschluss' && e.ausgang === 'angeboten' && a2 && e.key === a2.ref));
+        const pl2 = plaene.find((x) => x.art === 'abenteuer' && x.angebot === r.angebot);
+        Z.push('## ' + (r.titel || r.faden) + ' (Angebot a' + r.angebot + ')', '', '- Absicht: ' + (lg && lg.absicht ? '`' + lg.absicht + '`' : '–') + ', Bezug: ' + (lg && lg.bezug_art ? lg.bezug_art : '–') + ', Quelle: ' + (pl2 ? (modus === 'live' ? 'Claude' : 'Mock-Spielleiter') + ' ([Plan](' + path.basename(pl2.datei) + '))' : 'Rückfall ohne Modell (Absicht nach Lage)') + ', Ausgang: ' + (r.ausgang || '–'), '');
+        Z.push(...zeilenTabelle(r.faden, v2));
+      }
+      fs.writeFileSync(path.join(plaeneDir, 'zeilen.md'), on(Z.join(String.fromCharCode(10))), 'utf8');
     }
     // Abenteuer: Verknuepfung mit Gruppe und Mission, Beats vollstaendig (auch die, die der Bau ohne Zutun der Crew abgewickelt hat), Bot-Grenzen und Fristen je Beat, gespielt oder nicht
     const fristen = (fadenId) => new Set(logbuch.filter((e) => e.art === 'faden_ereignis' && e.ausgang === 'frist' && e.plan && e.plan.faden === fadenId).map((e) => e.plan.beat));

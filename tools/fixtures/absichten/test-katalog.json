@@ -1,0 +1,34 @@
+{
+  "format": "absichten-katalog/1",
+  "_hinweis": "Fixture fuer tools/test-absicht-pruefer.js: nur die Eintraege (absichten); `werte` kommt aus content/faeden/absichten.json. Die Namen sind Testnamen, keine Katalogeintraege des Spiels.",
+  "absichten": {
+    "probe_ort": {
+      "zweck": "Absicht ohne Bezug, mit Zahl- und Listenparameter.",
+      "parameter": {
+        "reichweite": {"art": "zahl", "min": 0, "max": 3, "standard": 2},
+        "stufe": {"art": "liste", "erlaubt": ["leicht", "schwer"], "standard": "leicht"},
+        "menge": {"art": "zahl", "min": 1, "max": 5}
+      },
+      "bezug": [{"name": "ort", "pflicht": false}],
+      "wendungen": ["hinterhalt", "keine"],
+      "toene": ["nuechtern", "dringlich"]
+    },
+    "probe_nsc": {
+      "zweck": "Absicht mit Pflichtbezug auf einen Kandidaten der Fadenmaschine, als Fortsetzung erlaubt.",
+      "parameter": {},
+      "bezug": [{"name": "nsc", "pflicht": true, "kandidat": true}],
+      "fortsetzung": true,
+      "wendungen": ["verfolgung"]
+    },
+    "probe_rache": {
+      "zweck": "Absicht mit Pflichtbezug auf einen Kandidaten nach dem Beat-Typ rache (feindlich, aktiv oder geflohen), nicht nach dem ersten nsc_alt-Typ.",
+      "bezug": [{"name": "nsc", "pflicht": true, "kandidat": "rache"}],
+      "bogen_pflicht": ["einsatz", "preis"]
+    },
+    "probe_kanon": {
+      "zweck": "Absicht mit Pflichtbezug auf einen NSC des Kanons (kein Kandidat noetig), ohne Wendungsliste.",
+      "bezug": [{"name": "nsc", "pflicht": true}],
+      "bogen_pflicht": ["einsatz", "preis"]
+    }
+  }
+}

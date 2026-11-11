@@ -1,0 +1,52 @@
+{
+  "format": "abenteuer-texte/1",
+  "_hinweis": "SPL-02 E2: Daten der Zeilen eines Abenteuers (server/sim/abenteuer-texte.js). Eine Absicht (content/faeden/absichten.json, Feld `texte`) meldet dem Text-Pool je Slot eine Spec an; der fakt dieser Spec (alles, was der Text als Wahrheit nehmen darf) setzt sich aus Bausteinen zusammen: der Szene der Absicht, den Bezug-Fakten (Zustand und Haltung des NSC, frueherer Ausgang), dem Ton, den Feldern des Bogens und, beim Slot wendung, dem Fakt der Wendung. Die Bausteine, die nicht von der Absicht kommen, stehen hier. Namen stehen nie im Klartext: {nsc} (Vollname), {ort} (Ortsname), {ware}; der Aufrufer setzt sie beim Lesen ein. Zahlen und Texte nur hier und in den Daten der Absichten, nichts davon im Code.",
+  "werte": {
+    "pool_art": {"wert": "abenteuer", "einheit": "Text", "_hinweis": "Art der Pool-Schluessel dieser Zeilen (texte-pool.js: art, id, slot, optionId); id ist der Name der Absicht, optionId die Variante (Stimme, Zustand, Ausgang, Wendung, Ton)."},
+    "ziel": {"wert": 2, "einheit": "Texte je Schluessel", "_hinweis": "So viele Zeilen haelt der Pool je Schluessel (Absicht, Slot, Variante) vor. Die Texte tragen nur Platzhalter, daher gelten sie fuer jeden NSC dieser Variante."},
+    "sprecher_fakt": {"wert": "Der Sprecher ist {nsc} und spricht von sich in der ersten Person, nie in der dritten.", "einheit": "Satz", "_hinweis": "Kommt in den fakt jeder Spec, deren Platzhalter {nsc} enthalten: das Modell weiss sonst nicht, dass der Sprecher die Figur des Platzhalters ist (Kurzversuch: es sprach ueber sie wie ein Dritter oder wie die Gegenseite)."},
+    "fakt_max": {"wert": 900, "einheit": "Zeichen", "_hinweis": "Hoechste Laenge des fakt einer Spec (danach wird der letzte Baustein weggelassen, nie mitten im Satz gekuerzt)."},
+    "eintraege_max": {"wert": 40, "einheit": "Plaene", "_hinweis": "So viele angemeldete Plaene (Vorlage-Ids) haelt die Laufzeit-Zuordnung hoechstens; der aelteste faellt weg (der Pool und die Zuordnung liegen im Prozessspeicher, nicht im Weltstand)."},
+    "bezug_fakten": {
+      "wert": {
+        "nsc_status": {
+          "feindlich": "{nsc} ist der Crew feindlich gesinnt und grollt ihr.",
+          "verbuendet": "{nsc} ist der Crew verbuendet und ihr gewogen.",
+          "aktiv": "{nsc} steht der Crew neutral gegenueber.",
+          "geflohen": "{nsc} ist der Crew frueher entkommen und taucht nun wieder auf."
+        },
+        "ausgang": {
+          "gelungen": "Der fruehere gemeinsame Auftrag mit {nsc} ist gelungen.",
+          "gescheitert": "Beim frueheren Auftrag ist die Crew {nsc} etwas schuldig geblieben: er ist gescheitert."
+        },
+        "haltung": [
+          {"bis": -1.5, "text": "Der Groll sitzt tief."},
+          {"bis": -0.5, "text": "Der Groll ist deutlich zu spueren."},
+          {"bis": 0.5, "text": ""},
+          {"bis": 99, "text": "Die Sympathie fuer die Crew ist gross."}
+        ]
+      },
+      "einheit": "Saetze je Zustand",
+      "_hinweis": "Bezug-Fakten (Bezug nsc): je Zustand des NSC (status), frueherem Ausgang (Kanon) und Haltung (erste Zeile, deren bis nicht unterschritten wird) ein Satz mit Platzhaltern. Ein Zustand ohne Satz bleibt weg. Welche Fakten ein Slot nimmt, sagt die Absicht (`bezug`)."
+    },
+    "ton_fakten": {
+      "wert": {
+        "nuechtern": "Ton: sachlich und knapp.",
+        "bitter": "Ton: bitter und kalt, ohne Beschimpfung.",
+        "dringlich": "Ton: dringlich, es eilt.",
+        "hoffnungsvoll": "Ton: warm und hoffnungsvoll.",
+        "heiter": "Ton: heiter und leicht."
+      },
+      "einheit": "Satz je Ton des Bogens",
+      "_hinweis": "Der Ton der Absicht als Satz im fakt (Toene: absichten.json werte.toene). Fehlt ein Ton, gibt es keinen Satz."
+    },
+    "bogen_fakten": {
+      "wert": {
+        "einsatz": "Anlass des Abenteuers (nur Hintergrund, in eigenen Worten): {text}",
+        "preis": "Was dieses Abenteuer die Crew gekostet hat oder was offen blieb, weil es nicht gelungen ist (nur Hintergrund, in eigenen Worten, nie als Sieg der Crew): {text}"
+      },
+      "einheit": "Satz je Feld des Bogens",
+      "_hinweis": "Felder des Bogens (einsatz, preis; die Wendung kommt als Symbol ueber den Eintrag wendungen der Absicht): {text} ist der Freitext der Absicht, mit Namen schon durch Platzhalter ersetzt. Enthaelt er danach noch einen Klartext-Eigennamen oder einen Spielernamen, bleibt das Feld weg (nie Klartextnamen im fakt)."
+    }
+  }
+}

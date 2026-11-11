@@ -94,7 +94,7 @@ section('Daten: Takt, Stufen-Datei, Katalog aus den Daten abgeleitet', () => {
   const werte = JSON.parse(fs.readFileSync('content/faeden/werte.json', 'utf8')).werte;
   const szenen = JSON.parse(fs.readFileSync('content/faeden/szenen-werte.json', 'utf8')).werte;
   const text = AP.katalogText();
-  const planbar = Object.keys(beats).filter((t) => beats[t].bauplan && typeof beats[t].bauplan === 'object');
+  const planbar = Object.keys(beats).filter((t) => beats[t].bauplan && typeof beats[t].bauplan === 'object' && beats[t].nur_inszenierer !== true);   // SPL-02 C0: nur_inszenierer steht nie im Katalog des Modells
   const imText = text.split('\n').filter((l) => l.startsWith('- ')).map((l) => l.slice(2).split(/[ :]/)[0]);
   ok(planbar.length >= 9 && JSON.stringify(imText.sort()) === JSON.stringify(planbar.slice().sort()), `genau die ${planbar.length} planbaren Beat-Typen stehen im Katalog`);
   for (const t of planbar) {

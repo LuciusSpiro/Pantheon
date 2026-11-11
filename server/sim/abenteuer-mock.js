@@ -2,6 +2,8 @@
 // SUND-04b A2: Mock-Komponist fuer kind 'abenteuer' (llm.js: Modi mock und script ohne eigenen Eintrag). Deterministisch aus Seed und Kontext (Prompt: die Tags <kontext> und <aufruf>, wie abenteuer-prompt.js sie baut):
 // erzeugt gueltige Bauplaene und mit dem Anteil `mock.ungueltig_anteil` (content/welt/abenteuer-werte.json) absichtlich ungueltige, je eine der benannten Korruptionen. Fuer Tests und tools/messe-abenteuer.js (Gueltigkeit,
 // Ablehnquote je Code, Wiederholung) ohne Netz. Was der Mock liefert, prueft trotzdem die echte Kette: expandiere -> Pruefer -> abenteuerAnbieten.
+// SPL-02 E1: Betriebsmodus Absichten (aufruf.modus absicht): der Mock waehlt eine Absicht aus dem Katalog (Daten) nach Geschichte und Lage, mit gueltigen Parametern und Bezuegen, manchmal mit einem absichtlich unmoeglichen Wert
+// (Anteil mock.absicht_unmoeglich_anteil), damit der Verhandlungsweg offline laeuft; der zweite Aufruf (Tag pruefer) antwortet mit dem Patch des Klartexts oder, ohne Patch, ohne Ausweg.
 //   erzeuge(input) -> { text, korruption: null | Name }     planText(input) -> Text      gueltigerPlan(rng, opt?) -> Bauplan-Objekt
 const crypto = require('crypto');
 const D = require('./faden-daten.js');
@@ -22,7 +24,7 @@ function rngVon(text) {
 }
 const wahl = (rng, liste) => liste[Math.floor(rng() * liste.length) % liste.length];
 
-const planbar = () => Object.keys(D.BEATS).filter((t) => D.BEATS[t].bauplan && typeof D.BEATS[t].bauplan === 'object' && !D.BEATS[t].abschluss);
+const planbar = () => Object.keys(D.BEATS).filter((t) => D.BEATS[t].bauplan && typeof D.BEATS[t].bauplan === 'object' && !D.BEATS[t].abschluss && D.BEATS[t].nur_inszenierer !== true);   // nur_inszenierer: kein Zufallsplan (SPL-02 C0)
 const nscAlt = (t) => !!(D.BEATS[t].braucht && D.BEATS[t].braucht.nsc_alt === true);   // SUND-04b B1: Wiedersehen braucht einen NSC aus einem frueheren Faden
 const lageKey = (t) => (D.BEATS[t].braucht && D.BEATS[t].braucht.lage) || null;   // SUND-04b B2: ein Beat, der von der Lage abhaengt (Sabotage), steht nur im Plan, wenn der Kontext (faeden.lage) ein Ziel nennt
 const abschlussTyp = () => Object.keys(D.BEATS).find((t) => D.BEATS[t].abschluss);
@@ -71,12 +73,57 @@ const KORRUPTION = {
   format_falsch: (p) => { p.format = 'faden-bauplan/2'; return p; },
 };
 
+// ---------- SPL-02 E1: Absichten
+const katalogAbsichten = () => require('./abenteuer-absicht.js').katalog();   // lazy: der Mock laedt den Pruefer nicht beim Start
+const pflichtNsc = (e) => (e.bezug || []).some((b) => b.name === 'nsc' && b.pflicht);
+const hatNsc = (e) => (e.bezug || []).some((b) => b.name === 'nsc');
+function absichtErzeugen(k, a) {
+  const rng = rngVon(['absicht', a.nr, a.art, a.hex, k.tick, (k.ruf && JSON.stringify(k.ruf)) || '', (k.chronik || []).length, (k.letzte_absichten || []).join(',')].join('|'));
+  const kat = katalogAbsichten();
+  const kennungen = (k.crew_geschichte || []).map((z) => (String(z).match(/^([A-Z]{1,3}\d{1,2})\b/) || [])[1]).filter(Boolean);
+  const letzte = k.letzte_absichten || [];
+  let namen = Object.keys(kat.absichten).filter((n) => !letzte.includes(n) && (kennungen.length || !pflichtNsc(kat.absichten[n])));
+  if (!namen.length) namen = Object.keys(kat.absichten).filter((n) => kennungen.length || !pflichtNsc(kat.absichten[n]));
+  const mitNsc = namen.filter((n) => hatNsc(kat.absichten[n]));
+  if (kennungen.length && mitNsc.length && rng() < 0.5) namen = mitNsc;   // nach Lage: die Geschichte der Crew traegt eine Absicht mit Person
+  const name = wahl(rng, namen), e = kat.absichten[name], st = e.standard || {};
+  const parameter = {};
+  for (const [p, d] of Object.entries(e.parameter || {})) parameter[p] = d.art === 'zahl' ? d.min + Math.floor(rng() * (d.max - d.min + 1)) : wahl(rng, d.erlaubt);
+  const bezug = {};
+  for (const b of e.bezug || []) {
+    if (b.name === 'nsc' && kennungen.length && (b.pflicht || rng() < 0.5)) bezug.nsc = wahl(rng, kennungen);
+    else if (b.name === 'ort' && (b.pflicht || rng() < 0.5)) bezug.ort = a.hex || (k.crew && k.crew.hex);
+  }
+  const toene = Array.isArray(e.toene) ? e.toene : kat.werte.toene.wert;
+  const wendungen = Array.isArray(e.wendungen) && e.wendungen.length ? e.wendungen : ['keine'];
+  const bogen = Object.assign({ einsatz: wahl(rng, M.anlass), wendung: wahl(rng, wendungen), preis: wahl(rng, M.anlass) }, st.bogen && rng() < 0.5 ? st.bogen : {});
+  const absicht = { format: 'absicht/1', absicht: name, titel: st.titel || wahl(rng, M.titel), parameter, bezug, bogen, ton: toene.includes(e.ton_standard) ? e.ton_standard : wahl(rng, toene) };
+  const unmoeglich = rng() < M.absicht_unmoeglich_anteil;
+  if (unmoeglich) {   // ein Wert ausserhalb: der Pruefer sagt Nein mit Gegenvorschlag (Zahl: ueber dem Hoechstwert, Liste: Tippfehler, sonst ein unbekannter Ton)
+    const ps = Object.entries(e.parameter || {});
+    if (ps.length) { const [p, d] = ps[Math.floor(rng() * ps.length) % ps.length]; absicht.parameter[p] = d.art === 'zahl' ? d.max + 1 : String(d.erlaubt[0]) + 'x'; }
+    else absicht.ton = 'wuetend';
+  }
+  let text = JSON.stringify(absicht);
+  if (rng() < 0.3) text = 'Hier ist die Absicht:\n```json\n' + JSON.stringify(absicht, null, 1) + '\n```';
+  return { text, korruption: unmoeglich ? 'absicht_unmoeglich' : null };
+}
+// zweiter Aufruf: der Klartext des Neins nennt am Ende einen Patch ("Patch: [...]"), wenn jeder Fehler einen Gegenvorschlag hat: der Mock uebernimmt ihn; sonst weiss er keinen Ausweg
+function verhandlungText(pruefer) {
+  const m = String(pruefer).match(/^Patch: (.*)$/m);
+  let patch = null;
+  try { patch = m ? JSON.parse(m[1]) : null; } catch (e) { patch = null; }
+  return Array.isArray(patch) ? JSON.stringify({ patch }) : 'Dafuer weiss ich keinen Ausweg.';
+}
+
 // Kontext faeden.wiedersehen_nsc ist eine Zahl je Volk: der Mock-Plan hat das Standard-Volk-Set, ein Wiedersehen braucht dort mindestens einen NSC
 const wiedersehenDa = (z) => !!z && typeof z === 'object' && D.BAUPLAN.werte.volk_erlaubt_standard.some((v) => Number(z[v]) > 0);
 function erzeuge(input) {
   const prompt = input && input.prompt;
   const k = lesen(tag(prompt, 'kontext'), {});
   const a = lesen(tag(prompt, 'aufruf'), {});
+  if (tag(prompt, 'pruefer') !== null) return { text: verhandlungText(tag(prompt, 'pruefer')), korruption: null };   // SPL-02 E1: zweiter Aufruf (Verhandlung)
+  if (a.modus === 'absicht') return absichtErzeugen(k, a);   // SPL-02 E1
   const rng = rngVon(['abenteuer', a.nr, a.art, a.hex, k.tick, (k.ruf && JSON.stringify(k.ruf)) || '', (k.chronik || []).length].join('|'));
   const kaputt = rng() < M.ungueltig_anteil;
   const name = kaputt ? wahl(rng, M.korruptionen.filter((n) => KORRUPTION[n])) : null;

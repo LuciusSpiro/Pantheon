@@ -18,7 +18,7 @@
     "ring_winkel_start": {"wert": 0.4, "einheit": "Bogenmaß", "_hinweis": "Startwinkel der Gegner auf dem Ring um die Lerche (Raumschlacht, Befreiung): danach gleichmäßig verteilt."},
     "fracht_reichweite": {"wert": 3, "einheit": "Hex-Schritte", "_hinweis": "Nacharbeit SUND-04a-2 (F6): Das Ziel einer Fracht ist der naechste ANDOCKBARE Hafen in dieser Reichweite (Hex-Abstand im Raster, shared/sektoren.js nachbarn) um den Ort des Fadens. Nicht jeder Ort hat einen Liegeplatz (Andocken setzt eine Szene mit dock voraus), die Crew soll nie eine Ware zu einem Hex tragen, an dem sie nicht abliefern kann."},
     "fracht_ziel_fraktionen": {"wert": ["rom", "saum"], "einheit": "Fraktionen", "_hinweis": "Besitzer des Zielhafens: roemische und Konkordat-Haefen (germanische und Piratenhaefen verweigern das Andocken; die Karte nennt das Konkordat saum). Die Liste der andockbaren Orte wird aus Karte, Szenen (dock) und Besitz abgeleitet, nie hartkodiert."},
-    "waren": {"wert": {"fracht_kiste": {"name": "Versiegelte Frachtkiste", "gewicht": 0}}, "einheit": "Waren", "_hinweis": "Frachtauftrag light (nur Faden-intern): eine Ware als Gegenstand, Gewicht 0, geht NICHT in den Handel."}
+    "waren": {"wert": {"fracht_kiste": {"name": "Versiegelte Frachtkiste", "gewicht": 0}, "erz": {"name": "Erz", "gewicht": 0}}, "einheit": "Waren", "_hinweis": "Frachtauftrag light (nur Faden-intern): eine Ware als Gegenstand, Gewicht 0, geht NICHT in den Handel. SPL-02 B: erz (Anzeigename aus content/waren.json) fuer die Absicht Bergbau; der Frachtraum fuehrt die Ladung weiter als Auftragsware der Art fracht (faden-fracht.js), nur der Name im Funk ist Erz."}
   },
   "texte": {
     "sprecher": "Aufklärung",

@@ -8,6 +8,10 @@
 // Antwort ungueltig oder Anbieter ausgefallen: kein Angebot, Eintrag im Regie-Logbuch, nichts blockiert, nie ein Absturz. Ist die Stufe bauplan bei Ollama und hat eskalation: true (stufen.json), geht eine
 // ausgefallene oder abgelehnte Anfrage EINMAL an Claude.
 //
+// SPL-02 E1: Betriebsmodus Absichten (abenteuer-absicht.js, Schalter ABENTEUER_ABSICHTEN, Standard aus: dann bleibt alles wie oben, byte-gleich). Prompt: Absichten statt Beat-Typen (abenteuer-prompt.js baueAbsicht), Antwort: eine
+// Absicht (absicht/1) > Kennungen des Prompts (am Job eingefroren) > Pruefer > Inszenierer > Brett.neuAnbieten. Ein Nein der Welt geht in EINE Verhandlungsrunde (zweiter kleiner Aufruf, zaehlt als Aufruf des Deckels und geht
+// durch das Budget-Gate); danach: kein Angebot (ausgang abgelehnt, grund = Code), der Rueckfall des Bretts greift wie sonst. Logbuch: zusaetzlich modus, absicht, bezug_art, verhandlung (nie Titel, Texte oder NSC-Namen);
+// tokens, geld und dauer_s summieren beide Aufrufe.
 // Logbuch (art abenteuer_bauplan, tools/regie-bericht.js): je Aufruf ausgang gueltig | abgelehnt (grund = Code des Pruefers, ANTWORT_LEER | ANTWORT_ZU_GROSS | ANTWORT_UNLESBAR) | ausfall (grund = Fehlercode des
 // Transports) | verspaetet | uebersprungen; dazu anbieter, modell, tokens, dauer_s, geld (USD, 0 bei Mock und Ollama), eskaliert, plan { grenze, nr, sitzung, hex, typen, ... }. Titel und Anlass stehen nie im Eintrag.
 //   const sl = create(lage)    sl.beiGrenze(art) -> { gestartet, grund } | null    sl.update(dt)    sl.dispose()    sl.status()    sl.erzwingen()  (Debug: ohne Cooldown und Deckel)
@@ -16,6 +20,7 @@ const Haken = require('../telemetrie/haken.js');   // TEL-01 B2: Wartezeit auf d
 const Regie = require('./regie-befehle.js');
 const Kontingent = require('./kontingent.js');   // LIV-01: Schwelle des Token-Zählers
 const Prompt = require('./abenteuer-prompt.js');
+const Absicht = require('./abenteuer-absicht.js');   // SPL-02 E1: Betriebsmodus Absichten (Schalter ABENTEUER_ABSICHTEN)
 const { WERTE } = require('./abenteuer-daten.js');
 
 const faden = () => require('./faden.js');   // lazy: faden.js laedt das Regie-Modul
@@ -94,12 +99,15 @@ class AbenteuerSpielleiter {
     if (this.offeneAngebote() >= angeboteMax()) return this.ueberspringen('angebote_voll', 'debug');
     return this.vormerken('debug');
   }
+  // Budget: nur eine Stufe bei Claude zaehlt gegen den Token-Zaehler (CLAUDE_TOKEN_BUDGET); LIV-01: Schwelle als Gate (kontingent.js)
+  budgetGesperrt() {
+    const llm = this.lage.getLlm();
+    return llm.mode === 'live' && llm.anbieterFuer('abenteuer', STUFE) !== 'ollama' && Kontingent.sperrt(this.game, this.W.min_budget);
+  }
   vormerken(art) {
     const ort = this.crewHex();
     if (!ort) return this.ueberspringen('kein_ort', art);
-    // Budget: nur eine Stufe bei Claude zaehlt gegen den Token-Zaehler (CLAUDE_TOKEN_BUDGET)
-    const llm = this.lage.getLlm();
-    if (llm.mode === 'live' && llm.anbieterFuer('abenteuer', STUFE) !== 'ollama' && Kontingent.sperrt(this.game, this.W.min_budget)) return this.ueberspringen('budget', art);   // LIV-01: Schwelle als Gate (kontingent.js); LIV-02: Kontingent-Ende meldet keinen Notbetrieb
+    if (this.budgetGesperrt()) return this.ueberspringen('budget', art);   // LIV-01: Schwelle als Gate (kontingent.js); LIV-02: Kontingent-Ende meldet keinen Notbetrieb
     this.letzterSprung = null;
     this.aufrufe++;
     this.grenzenSeit = 0;
@@ -120,10 +128,12 @@ class AbenteuerSpielleiter {
     const job = this.job;
     if (!job) { this.zustand = 'idle'; return; }
     let bau;
-    try { bau = Prompt.baue(this.game, { nr: job.nr, grenze: job.art, hex: job.hex, letzte: this.letzte, werte: this.W }); } catch (e) { this.fehlerZaehlen('abenteuer-prompt', e); return this.ausfall(job, this.lage.lokalFehler('Prompt nicht baubar: ' + e.message), null); }
+    const modus = Absicht.aktiv(this.game);   // SPL-02 E1
+    try { bau = modus ? Absicht.baue(this.game, { nr: job.nr, grenze: job.art, hex: job.hex, letzteAbsichten: this.letzte.map((x) => x.absicht).filter(Boolean), werte: this.W }) : Prompt.baue(this.game, { nr: job.nr, grenze: job.art, hex: job.hex, letzte: this.letzte, werte: this.W }); } catch (e) { this.fehlerZaehlen('abenteuer-prompt', e); return this.ausfall(job, this.lage.lokalFehler('Prompt nicht baubar: ' + e.message), null); }
     if (bau.fehler) return this.ausfall(job, this.lage.lokalFehler(bau.fehler), null);
     job.bau = { prompt_zeichen: bau.zeichen, kontext_zeichen: bau.kontextZeichen };
-    job.input = { system: Prompt.SYSTEM_DATEI, prompt: bau.prompt, art: 'abenteuer', nr: job.nr };
+    job.input = { system: modus ? Absicht.SYSTEM_DATEI : Prompt.SYSTEM_DATEI, prompt: bau.prompt, art: 'abenteuer', nr: job.nr };
+    if (modus) { job.modus = 'absicht'; job.kennungen = bau.kennungen; job.bau.katalog_zeichen = bau.katalogZeichen; }   // kennungen: die DIESES Prompts, nicht die des Zustands zur Antwortzeit
     this.losschicken(job, false);
   }
   // ein Aufruf in der Luft: normal oder (eskaliert) an den Eskalations-Anbieter
@@ -173,8 +183,12 @@ class AbenteuerSpielleiter {
     m.modell = (r && (r.modell || r.modelId)) || (e && e.modell) || (live ? null : 'mock');
     m.geld = r && Number.isFinite(Number(r.cost)) ? Number(r.cost) : (m.anbieter === 'ollama' || !live ? 0 : null);
     if (r && r.eskaliert) m.eskaliert = true; else if (job && job.eskaliert) m.eskaliert = true;
+    const v = job && job.vorkosten;   // SPL-02 E1: der erste Aufruf einer Verhandlung zaehlt mit
+    if (v) { m.tokens += v.tokens || 0; m.geld = Number.isFinite(m.geld) && Number.isFinite(v.geld) ? m.geld + v.geld : null; if (Number.isFinite(m.dauer_s) && Number.isFinite(v.dauer_s)) m.dauer_s += v.dauer_s; if (v.eskaliert) m.eskaliert = true; }
     return m;
   }
+  // SPL-02 E1: zusaetzliche Felder der Eintraege im Modus Absichten (leer im Standard: Eintraege bleiben byte-gleich)
+  absichtFelder(job) { return job && job.modus ? { modus: job.modus, absicht: job.absichtName || null, bezug_art: job.bezugArt || null, verhandlung: job.runde ? 1 : 0 } : {}; }
   planInfo(job, extra) { return Object.assign({ grenze: job.art, nr: job.nr, hex: job.hex, sitzung: this.lage.sitzung }, job.bau || {}, extra || {}); }
   // Eskalation: nur wenn der Router sie fuer diese Stufe erlaubt (Stufe bei Ollama, eskalation: true), nie fuer einen eigenen Abbruch, nur einmal je Aufruf
   eskalieren(job, grund) {
@@ -182,7 +196,7 @@ class AbenteuerSpielleiter {
     if (this.job !== job || this.eskalationAus || job.eskaliert || !job.input || !llm || typeof llm.eskalationMoeglich !== 'function' || !llm.eskalationMoeglich('abenteuer', STUFE)) return false;
     if (Kontingent.sperrtEskalation(this.game, this.W.min_budget)) return false;   // LIV-01: die Eskalation geht an Claude und zaehlt gegen den Zaehler: ab der Schwelle nie (kein Ausweg am Gate in vormerken vorbei)
     this.zaehler.eskaliert++;
-    this.schreibe(Object.assign({ ausgang: 'eskaliert', grund, begruendung: 'Anfrage geht einmal an Claude (Stufe bauplan, eskalation: true)', plan: this.planInfo(job) }));
+    this.schreibe(Object.assign({ ausgang: 'eskaliert', grund, begruendung: 'Anfrage geht einmal an Claude (Stufe bauplan, eskalation: true)', plan: this.planInfo(job) }, this.absichtFelder(job)));
     this.losschicken(job, true);
     return true;
   }
@@ -200,7 +214,7 @@ class AbenteuerSpielleiter {
       const llm = this.lage.llm;
       if (job.eskaliert && llm && typeof llm.anbieterFuer === 'function' && llm.anbieterFuer('abenteuer', STUFE) === 'ollama') { this.eskalationAus = grund; nurEskalation = true; } else this.aus = grund;
     }
-    this.schreibe(Object.assign({ ausgang: 'ausfall', grund: code, fehler: [code + ': ' + String((e && e.message) || e).slice(0, 250)], begruendung: `Grenze ${job.art}: kein Abenteuer (Anbieter ausgefallen), das Spiel laeuft weiter`, plan: this.planInfo(job) }, this.messung(job, r, e)));
+    this.schreibe(Object.assign({ ausgang: 'ausfall', grund: code, fehler: [code + ': ' + String((e && e.message) || e).slice(0, 250)], begruendung: `Grenze ${job.art}: kein Abenteuer (Anbieter ausgefallen), das Spiel laeuft weiter`, plan: this.planInfo(job) }, this.absichtFelder(job), this.messung(job, r, e)));
     if (!nurEskalation) this.lage.notbetriebBeiFehler(e);   // FRE-01 C: Hinweis einmal je Sitzung (die Lage meldet; nur Modell-Ausfaelle, Daten notbetrieb_gruende)
   }
   abgelehnt(job, code, fehler, r) {
@@ -208,23 +222,62 @@ class AbenteuerSpielleiter {
     if (!NICHT_MODELL.includes(code) && this.eskalieren(job, code)) return;
     this.job = null; this.zustand = 'idle';
     this.zaehler.abgelehnt[code] = (this.zaehler.abgelehnt[code] || 0) + 1;
-    this.schreibe(Object.assign({ ausgang: 'abgelehnt', grund: code, fehler: (fehler || [code]).slice(0, 6).map((f) => String(f).slice(0, 200)), begruendung: `Grenze ${job.art}: Bauplan abgelehnt (${code}), kein Abenteuer`, plan: this.planInfo(job, { antwort_zeichen: r && typeof r.text === 'string' ? r.text.length : null }) }, this.messung(job, r)));
+    this.schreibe(Object.assign({ ausgang: 'abgelehnt', grund: code, fehler: (fehler || [code]).slice(0, 6).map((f) => String(f).slice(0, 200)), begruendung: `Grenze ${job.art}: Bauplan abgelehnt (${code}), kein Abenteuer`, plan: this.planInfo(job, { antwort_zeichen: r && typeof r.text === 'string' ? r.text.length : null }) }, this.absichtFelder(job), this.messung(job, r)));
   }
   antwort(job, r) {
     if (r && r.cli) this.lage.cli = r.cli;
     const text = r && r.text;
     if (typeof text !== 'string' || !text.trim()) return this.abgelehnt(job, 'ANTWORT_LEER', ['leere Antwort'], r);
     if (text.length > this.W.antwort_max_zeichen) return this.abgelehnt(job, 'ANTWORT_ZU_GROSS', [`Antwort mit ${text.length} Zeichen (hoechstens ${this.W.antwort_max_zeichen})`], r);
+    if (job.modus === 'absicht') return job.phase === 'verhandlung' ? this.verhandlungAntwort(job, r) : this.absichtAntwort(job, r);
     const gelesen = Prompt.bauplanAusText(text);
     if (gelesen.fehler) return this.abgelehnt(job, 'ANTWORT_UNLESBAR', [gelesen.fehler], r);
     const res = faden().abenteuerNeuAnbieten(this.game, gelesen.plan, { hex: job.hex });   // SUND-04b E3: mit den Wiederholungsregeln des Bretts
     if (!res.ok) return this.abgelehnt(job, codeVon(res.grund), res.fehler, r);
+    this.angeboten(job, r, res.angebot);
+  }
+  angeboten(job, r, angebot) {
     this.job = null; this.zustand = 'idle';
-    const typen = Prompt.typenVon(res.angebot.vorlage);
+    const typen = Prompt.typenVon(angebot.vorlage);
     this.zaehler.gueltig++;
-    this.letzte.push({ nr: job.nr, typen });
+    this.letzte.push(job.absichtName ? { nr: job.nr, typen, absicht: job.absichtName } : { nr: job.nr, typen });
     while (this.letzte.length > Math.max(1, this.W.letzte_abenteuer)) this.letzte.shift();
-    this.schreibe(Object.assign({ ausgang: 'gueltig', begruendung: `Abenteuer ${res.angebot.ref} als Angebot ${res.angebot.nr} bei ${job.hex}`, plan: this.planInfo(job, { angebot: res.angebot.nr, vorlage: res.angebot.ref, typen, beats: res.angebot.vorlage.beats.length }) }, this.messung(job, r)));
+    this.schreibe(Object.assign({ ausgang: 'gueltig', begruendung: `Abenteuer ${angebot.ref} als Angebot ${angebot.nr} bei ${job.hex}`, plan: this.planInfo(job, { angebot: angebot.nr, vorlage: angebot.ref, typen, beats: angebot.vorlage.beats.length }) }, this.absichtFelder(job), this.messung(job, r)));
+  }
+
+  // ---------- SPL-02 E1: Betriebsmodus Absichten
+  // Antwort auf den Prompt der Absichten: lesen > Kette (Kennungen des Prompts, Pruefer, Inszenierer, Brett). Unlesbar oder leer: wie im Beat-Plan (kein Angebot, ggf. Eskalation, kein zweiter Aufruf).
+  absichtAntwort(job, r) {
+    const gelesen = Absicht.lesen(r.text);
+    if (gelesen.fehler) return this.abgelehnt(job, 'ANTWORT_UNLESBAR', [gelesen.fehler], r);
+    job.absicht = gelesen.absicht;
+    const f = Absicht.logFelder(gelesen.absicht);
+    job.absichtName = f.absicht; job.bezugArt = f.bezug_art;
+    const st = Absicht.ersterVersuch(this.game, gelesen.absicht, job.kennungen);
+    if (st.stand === 'angenommen') return this.angeboten(job, r, st.angebot);
+    if (st.stand === 'offen' && Absicht.verhandelbar(st.v, NICHT_MODELL) && !this.budgetGesperrt()) return this.verhandeln(job, r, st.v);
+    return this.absichtAbgelehnt(job, r, st.v);
+  }
+  // ein Nein der Welt: der zweite, kleine Aufruf (Klartext des Neins + Absicht, kein Katalog). Zaehlt als Aufruf des Deckels und geht durch das Budget-Gate; die Kosten des ersten Aufrufs laufen im Eintrag mit.
+  verhandeln(job, r, v) {
+    job.vorkosten = this.messung(job, r);
+    job.runde = 1; job.phase = 'verhandlung'; job.v = v;
+    this.aufrufe++;
+    job.input = Absicht.folgeInput(this.game, v, job.absicht, job.kennungen, job.nr);
+    this.losschicken(job, false);
+  }
+  verhandlungAntwort(job, r) {
+    const v = Absicht.folgeAntwort(this.game, job.v, r.text, job.kennungen);
+    if (v.stand === 'angenommen') return this.angeboten(job, r, v.ergebnis.angebot);
+    return this.absichtAbgelehnt(job, r, v);
+  }
+  // endgueltig kein Angebot: nie eine Eskalation (das Nein liegt an der Welt, nicht am Modell); grund = Code des Neins, die Grundtexte (koennen Namen tragen) stehen nicht im Logbuch
+  absichtAbgelehnt(job, r, v) {
+    if (this.job !== job) return;
+    const code = Absicht.codeVon(v);
+    this.job = null; this.zustand = 'idle';
+    this.zaehler.abgelehnt[code] = (this.zaehler.abgelehnt[code] || 0) + 1;
+    this.schreibe(Object.assign({ ausgang: 'abgelehnt', grund: code, fehler: Absicht.fehlerCodes(v), begruendung: `Grenze ${job.art}: Absicht abgelehnt (${code}), kein Abenteuer`, plan: this.planInfo(job, { antwort_zeichen: r && typeof r.text === 'string' ? r.text.length : null }) }, this.absichtFelder(job), this.messung(job, r)));
   }
 
   // ---------- Ende (Raumende, Neustart, Schalter aus): ein Aufruf in der Luft wird verworfen, spaete Antworten kommen nie an
