@@ -199,6 +199,8 @@
               "description": "SUND-03 D: Reise-Ereignisse (server/sim/reise-ereignis.js, Daten content/reise/): n = Zahl der Spruenge seit Beginn (Zaehler des eigenen Zufallsstroms, er hat sonst keinen Zustand), letzter = Sprung des letzten Ereignisses (oder Abfangens), letzte = die letzten Ereignisse { id, k = Parametersatz, n = Sprung } fuer die Wiederholungsregeln. Offene Notrufe und laufende Gefahren stehen nicht im Weltstand. Fehlt im Altstand (Anfang). Nur der Server schreibt.",
               "properties": {
                 "n": { "type": "integer", "minimum": 0, "maximum": 1000000000 },
+                "takt": { "type": "integer", "minimum": 1, "maximum": 1000000000, "description": "FRE-03 B: Ticks ruhiger Lage seit dem letzten Takt-Notruf (nur gespeichert, wenn > 0). Fehlt im Altstand (0)." },
+                "taktNr": { "type": "integer", "minimum": 1, "maximum": 1000000000, "description": "FRE-03 B: Zahl der Takt-Notrufe (Salz ihres Zufallsstroms; nur gespeichert, wenn > 0). Fehlt im Altstand (0)." },
                 "r": { "type": "array", "maxItems": 20, "description": "SUND-03 D-Fix2: Ruf aus Reise-Ereignissen der letzten 100 Spruenge [Sprung, Betrag] (Deckel ruf_max_je_100).", "items": { "type": "array", "minItems": 2, "maxItems": 2, "items": { "type": "number" } } },
                 "letzter": { "type": "integer", "minimum": 0 },
                 "letzte": { "type": "array", "maxItems": 32, "items": { "type": "object", "required": ["id", "k", "n"], "additionalProperties": false, "properties": { "id": { "type": "string" }, "k": { "type": "string", "maxLength": 80 }, "n": { "type": "integer", "minimum": 0 } } } }

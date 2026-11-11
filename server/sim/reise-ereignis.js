@@ -24,7 +24,8 @@
 //   textFuer(ereignis, slot, game?) -> { von, text } | null   BENANNTE STELLE für den Text (synchron): ein vorab von Gemma erzeugter Text aus dem Pool (texte-pool.js, nur mit TEXTE_POOL=1), sonst der feste Katalogtext
 //   gruendeBuchen(game, gruende, nurFraktion?) -> n  Folgen buchen (ruf_aenderung unter dem Reise-Ruf-Deckel; rufRaum(game) = Raum darin); folgeBuchen(game, e) = die Folge des Katalogeintrags. SUND-03b A: funk-antwort.js hängt an ausloesenFunkmeldung, ausloesenKontakt (ohne Gefahr), notrufBeantworten (ohne Gefahr), nachSprung und update
 //   ablehnen(game, nr) -> bool        ein offener Notruf wird ausdrücklich abgelehnt (keine Folge)
-//   neu() / toSave(ws) / lesen(block) Weltstand welt.sim.reise: { n, letzter?, letzte? } (optional, Altstand = leer); Notruf-Marken und laufende Ereignisse stehen nicht im Weltstand
+//   taktNotruf(game) -> Ereignis | null   FRE-03 B: der nächste Notruf des Takts (ein Notruf je takt_s Sekunden ruhiger Lage, Hex-Umkreis um den Crew-Hex, anfliegbar); update zählt und löst aus (Abschnitt Takt)
+//   neu() / toSave(ws) / lesen(block) Weltstand welt.sim.reise: { n, letzter?, letzte?, takt?, taktNr? } (optional, Altstand = leer); Notruf-Marken und laufende Ereignisse stehen nicht im Weltstand
 const Sektoren = require('../../shared/sektoren.js');
 const Besitz = require('./besitz.js');
 const Chronik = require('./chronik.js');
@@ -49,7 +50,8 @@ const hexName = (hex) => Sektoren.hexName(hex) || String(hex);
 const abstandSpruenge = () => Math.max(ABSTAND_HART, Math.floor(Number(WERTE.min_abstand_spruenge)) || 0);
 
 // ---------- Zustand (Weltstand welt.sim.reise). Laufzeit (nicht gespeichert): offen = offene Notrufe des Katalogs, laufend = angekündigte/laufende Gefahren
-const neu = () => ({ n: 0, letzter: null, letzte: [], rufLog: [], offen: [], laufend: [] });
+// FRE-03 B Takt: takt = Ticks ruhiger Lage seit dem letzten Takt-Notruf (ganzzahlig, gespeichert), taktNr = Zahl der Takt-Notrufe (Salz des Zufallsstroms, gespeichert); taktUhr (Ticks der laufenden Partie) und taktIds (zuletzt gewählte Ids) nur im Speicher
+const neu = () => ({ n: 0, letzter: null, letzte: [], rufLog: [], offen: [], laufend: [], takt: 0, taktNr: 0, taktUhr: 0, taktIds: [] });
 function zustandVon(game) {
   const ws = game.weltsim;
   if (!ws) return null;
@@ -156,8 +158,9 @@ function zaehleSprung(game) {
   R.n++;
   return R.n;
 }
+const ctxVon = (game, hex) => ({ besitzer: besitzerVon(game, hex), rang: Ruf.rangInfo(game).index, lage: (() => { let l = null; return () => l || (l = Regie.lage(game).sieger); })() });
 function kandidaten(game, R, hex) {
-  const ctx = { besitzer: besitzerVon(game, hex), rang: Ruf.rangInfo(game).index, lage: (() => { let l = null; return () => l || (l = Regie.lage(game).sieger); })() };
+  const ctx = ctxVon(game, hex);
   const letzterId = R.letzte.length ? R.letzte[R.letzte.length - 1].id : null;
   const verboten = new Set(R.letzte.slice(-WERTE.wiederholung.fenster).map((x) => x.k));   // Parametersätze der letzten Ereignisse
   const out = [];
@@ -331,6 +334,72 @@ function nachSprung(game, dest) {
   return { id: ev.id, art: ev.art, kurz: kurzVon(ev) };
 }
 
+// ---------- Takt (FRE-03 B): ein Notruf je takt_s Sekunden ruhiger Lage, unabhängig von Sprüngen. Haken: update (jeder Tick der Partie). Eigene Funktion statt Parameter an entscheiden: dessen Zufall, Rate und Fristen zählen Sprünge.
+// Alle Zahlen stehen in content/reise/werte.json (takt_*). Zähler ganzzahlig in Ticks (kein Float-Aufsummieren). Die Lebensdauer eines Takt-Notrufs läuft in Ticks der Partie (taktUhr, steht mit der Solo-Pause) und die Marke
+// bekommt dieselbe Dauer: eine Uhr statt Sprung-Einheiten. Verfall vor Entstehen im selben Tick. Findet sich kein Ort oder Eintrag, bleibt der Zähler auf der Schwelle und der Versuch kehrt alle takt_neuversuch_s wieder.
+const B1 = () => require('./faden-b1.js');   // lazy wie FA
+const taktTicks = (game, s) => Math.max(1, Math.round(Number(s) * game.C.tickHz));
+const taktMarkeS = (game) => Number(game.C && game.C.marken && game.C.marken.tickSekunden) || 30;
+// Ruhige Lage für den Takt: die Funk-Antwort-Regel plus kein Außenteam, Phase play, mindestens ein Spieler verbunden, kein Boden-Finale
+function taktRuhig(game) {
+  if (game.phase !== 'play' || game.finaleBoden) return false;
+  const ps = game.players || [];
+  if (!ps.some((p) => p.connected) || ps.some((p) => p.zone === 'away')) return false;
+  return FA().ruhig(game);
+}
+// freie, anfliegbare Orte im Umkreis (Hex-Abstand takt_ort) um den Crew-Hex: nicht belegt, über offene Kanten in höchstens takt_tiefe Sprüngen erreichbar (mindestens einen Sprung weit)
+function taktOrte(game, R, hex) {
+  const belegt = new Set(R.offen.map((o) => o.hex));
+  const weg = B1().erreichbar(game, hex, WERTE.takt_tiefe);
+  return umkreis(hex, WERTE.takt_ort.min, WERTE.takt_ort.max).filter((h) => !belegt.has(h) && weg.get(h) >= 1);
+}
+// Der nächste Takt-Notruf (Salz: taktNr) oder null (kein Platz, kein Ort, kein Katalogeintrag für diese Lage). Verbraucht nichts: der Aufrufer löst aus und zählt.
+function taktNotruf(game) {
+  const R = zustandVon(game);
+  const hex = R && game.ship && Marken.hexVon(game.ship.scene);
+  if (!hex || R.offen.length >= WERTE.takt_offen_max) return null;
+  const orte = taktOrte(game, R, hex);
+  if (!orte.length) return null;
+  const ctx = ctxVon(game, hex);
+  const alle = KATALOG.filter((e) => e.art === 'notruf' && passt(e, ctx));
+  const neuere = alle.filter((e) => !R.taktIds.includes(e.id));   // nicht dieselbe Id wie die letzten takt_wiederholung Takt-Notrufe, solange es Auswahl gibt
+  const kand = neuere.length ? neuere : alle;
+  if (!kand.length) return null;
+  const rng = strom(seedVon(game), R.taktNr, 'takt');
+  const ziel = orte[Math.floor(rng() * orte.length) % orte.length];
+  const summe = kand.reduce((s, e) => s + e.gewicht, 0);
+  let r = rng() * summe, wahl = kand[kand.length - 1];
+  for (const e of kand) { r -= e.gewicht; if (r < 0) { wahl = e; break; } }
+  const p = wahl.parameter || {};
+  return { nr: -(R.taktNr + 1), id: wahl.id, art: 'notruf', variante: p.variante || '', ort_typ: p.ort_typ || '', hex: ziel, ankunft: hex, sim: null, schluessel: ['notruf', p.variante || '', p.ort_typ || '', ziel].join('|'), textIdx: Math.floor(rng() * 1000), takt: true };
+}
+function ausloesenTaktNotruf(game, R, ev) {
+  funk(game, textFuer(ev, 'ankuendigung', game));
+  chronik(game, ev);
+  const marke = 'reise:n' + ev.nr;
+  R.offen.push({ nr: ev.nr, id: ev.id, hex: ev.hex, bis: Number.MAX_SAFE_INTEGER, bisUhr: R.taktUhr + taktTicks(game, WERTE.takt_leben_s), marke, ev, takt: true });   // bis: nie per Sprung verfallen
+  try { const f = Marken.setze(game, { id: marke, typ: 'notruf', hex: ev.hex, ticks: Number(WERTE.takt_leben_s) / taktMarkeS(game) }); if (f && game.countError) game.countError('reise-marke', new Error(f)); } catch (err) { if (game.countError) game.countError('reise-marke', err); }
+  R.taktIds.push(ev.id);
+  while (R.taktIds.length > WERTE.takt_wiederholung) R.taktIds.shift();
+}
+function taktUpdate(game) {
+  if (!aktiv(game)) return;
+  const R = zustandVon(game);
+  R.taktUhr++;
+  for (const o of R.offen.slice()) if (o.takt && R.taktUhr >= o.bisUhr) notrufVerfaellt(game, R, o, 'unbeantwortet');   // Verfall zuerst, dann erst das Entstehen im selben Tick
+  if (!taktRuhig(game)) return;
+  const schwelle = taktTicks(game, WERTE.takt_s);
+  let versuch;
+  if (R.takt < schwelle) { R.takt++; versuch = R.takt >= schwelle; }
+  else versuch = R.taktUhr % taktTicks(game, WERTE.takt_neuversuch_s) === 0;
+  if (!versuch) return;
+  const ev = taktNotruf(game);
+  if (!ev) return;
+  ausloesenTaktNotruf(game, R, ev);
+  R.takt = 0;
+  R.taktNr++;
+}
+
 // ---------- Laufende Gefahren (Vorlauf, Eintreffen, Bewältigung)
 function eintreffen(game, L) {
   const e = eintrag(L.id), sc = e.parameter.schiffe, ship = game.ship;
@@ -352,6 +421,7 @@ function update(game, dt) {   // eslint-disable-line no-unused-vars
   try { require('./faden-b1.js').update(game); } catch (e) { if (game.countError) game.countError('faden-b1-update', e); }   // SUND-04b B1: Ankunft bei Gerücht und Wiedersehen, Fortgang der Rätsel-Spur
   try { require('./faden-b2.js').update(game); } catch (e) { if (game.countError) game.countError('faden-b2-update', e); }   // SUND-04b B2: Erfolg oder Verlust des Ziels eines Sabotage-Auftrags
   try { require('./faden-bitte.js').update(game); } catch (e) { if (game.countError) game.countError('faden-bitte-update', e); }   // SUND-04a-2 P2: Bitte in unruhiger Lage zurückziehen (ohne Folge)
+  try { taktUpdate(game); } catch (e) { if (game.countError) game.countError('reise-takt', e); }   // FRE-03 B: Notruf-Takt (nur mit REISE_EREIGNISSE)
   const R = game.weltsim && game.weltsim.reise;
   if (!R || !R.laufend.length) return;
   for (const L of R.laufend.slice()) {
@@ -378,8 +448,10 @@ const gefahrKampf = (game) => gefahrAktuell(game).find((L) => L.phase === 'kampf
 // ---------- Weltstand welt.sim.reise
 function toSave(ws) {
   const R = ws && ws.reise;
-  if (!R || !R.n) return null;
+  if (!R || (!R.n && !R.takt && !R.taktNr)) return null;
   const b = { n: R.n };
+  if (R.takt > 0) b.takt = R.takt;
+  if (R.taktNr > 0) b.taktNr = R.taktNr;
   if (R.letzter != null) b.letzter = R.letzter;
   if (R.letzte.length) b.letzte = R.letzte.map((x) => ({ id: x.id, k: x.k, n: x.n }));
   const rl = R.rufLog.filter((x) => R.n - x[0] < RUF_FENSTER);
@@ -390,6 +462,8 @@ function lesen(b) {
   const R = neu();
   if (!b || typeof b !== 'object' || Array.isArray(b)) return R;
   if (Number.isFinite(b.n) && b.n >= 0) R.n = Math.min(1e9, Math.floor(b.n));   // klemmen: kein Müllwert, der den Zähler sprengt
+  if (Number.isFinite(b.takt) && b.takt >= 0) R.takt = Math.min(1e9, Math.floor(b.takt));
+  if (Number.isFinite(b.taktNr) && b.taktNr >= 0) R.taktNr = Math.min(1e9, Math.floor(b.taktNr));
   if (Number.isFinite(b.letzter) && b.letzter >= 0) R.letzter = Math.min(Math.floor(b.letzter), R.n);
   if (Array.isArray(b.r)) R.rufLog = b.r.filter((x) => Array.isArray(x) && Number.isInteger(x[0]) && x[0] >= 0 && x[0] <= R.n && R.n - x[0] < RUF_FENSTER && Number.isFinite(x[1]) && x[1] > 0 && x[1] <= 20).map((x) => [x[0], x[1]]).slice(-20);
   if (Array.isArray(b.letzte)) {
@@ -402,4 +476,4 @@ function lesen(b) {
   return R;
 }
 
-module.exports = { gefahrLaeuft, gefahrKampf, gruendeBuchen, rufRaum, eintrag, hexName, folgeBuchen, abstandFrei, voreinstellungAn, KATALOG, WERTE, ARTEN, ABSTAND_HART, neu, aktiv, zaehleSprung, entscheiden, ausloesen, nachSprung, abfangenVermerken, update, textFuer, ablehnen, toSave, lesen, strom, umkreis, parameterFuer, kandidaten };
+module.exports = { gefahrLaeuft, gefahrKampf, gruendeBuchen, rufRaum, eintrag, hexName, folgeBuchen, abstandFrei, voreinstellungAn, KATALOG, WERTE, ARTEN, ABSTAND_HART, neu, aktiv, zaehleSprung, entscheiden, ausloesen, nachSprung, abfangenVermerken, update, taktNotruf, textFuer, ablehnen, toSave, lesen, strom, umkreis, parameterFuer, kandidaten };

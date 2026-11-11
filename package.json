@@ -242,6 +242,7 @@
     "test:llm-cli": "node tools/test-llm-cli.js",
     "test:lage-mutation": "node tools/mutation-lage.js",
     "test:reise-ereignis": "node tools/test-reise-ereignis.js",
+    "test:reise-takt": "node tools/test-reise-takt.js",
     "test:chronik": "node tools/test-chronik.js",
     "test:lage-wiederholung": "node tools/test-lage-wiederholung.js",
     "test:reise-mutation": "node tools/mutation-reise.js",
