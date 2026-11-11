@@ -1,0 +1,17 @@
+{
+  "format": "messe-vorgeschichte/1",
+  "_hinweis": "Daten fuer tools/messe-abenteuer.js --vorgeschichte: abgeschlossene Faeden mit NSC, damit im Modus Absichten Bezug und Fortsetzung moeglich sind (sonst gibt es nichts, worauf sich ein Plan beziehen koennte). Jede Zeile wird gespielt (Angebot, oeffnen, alle Beats mit dem Ausgang beenden) und danach der NSC auf Namen, Volk, Status und Haltung gesetzt (wie tools/test-abenteuer-absichten.js welt8). Fiktive Namen, kein Spielername.",
+  "hex": "0305",
+  "volk": "rom",
+  "ausgang": "gelungen",
+  "faeden": [
+    { "typ": "notruf", "name": "Quintus Varro", "status": "feindlich", "haltung": -2 },
+    { "typ": "spontanhilfe", "name": "Titus Calder", "status": "tot", "haltung": 0 },
+    { "typ": "fracht", "name": "Gaius Fabrin", "status": "aktiv", "haltung": 1, "parameter": { "ware": "erz" } },
+    { "typ": "notruf", "name": "Livia Serran", "status": "verbuendet", "haltung": 1 },
+    { "typ": "spontanhilfe", "name": "Aurelia Vex", "status": "aktiv", "haltung": 0 },
+    { "typ": "notruf", "name": "Marcus Nerva", "status": "aktiv", "haltung": 0 },
+    { "typ": "spontanhilfe", "name": "Julia Pavo", "status": "aktiv", "haltung": 0 },
+    { "typ": "notruf", "name": "Decimus Rufo", "status": "aktiv", "haltung": 0 }
+  ]
+}

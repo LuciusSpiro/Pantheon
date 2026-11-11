@@ -246,6 +246,14 @@ const kurz = ['--dauer', '240', '--grenzabstand', '0.3', '--geduld', '5', '--rue
   check('P Modus absicht liefert mindestens ein gueltiges Angebot (Logbuch ausgang gueltig mit modus absicht)', !!dirP && logbuch(dirP).split('\n').some((z) => /"modus":"absicht"/.test(z) && /"ausgang":"gueltig"/.test(z)));
   check('P ohne den Schalter (Lauf B, Lobby-Betriebsart live): kein Eintrag im Modus absicht, die Plaene sind Beat-Plaene', !!dirB && !/"modus":"absicht"/.test(logbuch(dirB)) && /geruecht/.test(dateien(path.join(dirB, 'abend-7', 'regie', 'aufnahmen')).map(lies).join('')));
 
+  // SPL-02 G: im Modus Absichten zeigt die Plan-Datei Absicht, Bezug, Bogen, Entscheidungen des Inszenierers und Beats; zeilen.md fasst die gesprochenen Zeilen aller Abenteuer
+  const planDir = dirP ? path.join(dirP, 'abend-7', 'plaene') : null;
+  const planTexte = planDir && fs.existsSync(planDir) ? fs.readdirSync(planDir).filter((n) => /^abenteuer-\d+\.md$/.test(n)).map((n) => lies(path.join(planDir, n))) : [];
+  check('P Plan-Datei im Modus Absichten: Absicht, Bezug, Bogen (Einsatz, Wendung, Preis), Inszenierung, Beats der Vorlage, Zeilen im Spiel', planTexte.length >= 1 && planTexte.some((t) => /### Absicht \(erste Antwort\)/.test(t) && /\*\*Bezug:\*\*/.test(t) && /\*\*Bogen:\*\* Einsatz: .* · Wendung: .* · Preis: /.test(t) && /### Inszenierung \(Entscheidungen des Inszenierers\)/.test(t) && /### Beats der Vorlage/.test(t) && /### Zeilen im Spiel/.test(t)), planTexte[0] ? planTexte[0].slice(0, 600) : 'keine Plan-Datei');
+  check('P Plan-Datei im Modus Absichten zeigt nicht den Beat-Plan-Leerabschnitt ("Anlass: –", leere Beat-Liste)', planTexte.length >= 1 && planTexte.every((t) => !/\*\*Anlass:\*\* –/.test(t)));
+  check('P plaene/zeilen.md listet jedes angenommene Abenteuer mit Absicht und Quelle', !!planDir && fs.existsSync(path.join(planDir, 'zeilen.md')) && /- Absicht: /.test(lies(path.join(planDir, 'zeilen.md'))) && /Quelle: /.test(lies(path.join(planDir, 'zeilen.md'))));
+  check('P ohne den Schalter: keine zeilen.md und kein Abschnitt "Absicht (erste Antwort)" in den Plan-Dateien von Lauf B', !!dirB && !fs.existsSync(path.join(dirB, 'abend-7', 'plaene', 'zeilen.md')) && dateien(path.join(dirB, 'abend-7', 'plaene')).filter((f) => /abenteuer-\d+\.md$/.test(f)).every((f) => !/### Absicht \(erste Antwort\)/.test(lies(f))));
+
   // ---------- F: nichts im Repo, nichts geloescht
   check('F Fremddateien in beiden --out-Ordnern unberuehrt, drei Lauf-Ordner nebeneinander (nichts ueberschrieben)', lies(path.join(outL, 'FREMD.txt')) === 'darf nie verschwinden' && ordL.length === 3 && new Set(ordL).size === 3, ordL.join(','));
   check('F git status unveraendert (keine Datei im Repo angelegt)', repoStatus() === statusVorher, repoStatus());
