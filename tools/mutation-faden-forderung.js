@@ -25,7 +25,7 @@ const BLEIBT = "const wareBleibtBeiScheitern = (beat) => !!(beat && Object.proto
 const MUTATIONEN = [
   [FR, BLEIBT, 'const wareBleibtBeiScheitern = () => true;', 'Ausliefern behaelt die Ware (jedes Scheitern laesst sie am Faden)'],
   [FR, BLEIBT, 'const wareBleibtBeiScheitern = () => false;', 'Verweigern verliert die Ware (das Katalogfeld wirkt nicht)'],
-  [BT, '"ware_bei_scheitern": "bleibt",', '', 'Verweigern verliert die Ware (Katalogfeld fehlt)'],
+  [BT, '"ware_bei_scheitern": "bleibt",\n      "braucht"', '"braucht"', 'Verweigern verliert die Ware (Katalogfeld fehlt)'],   // BEA-01 B: der Anker nennt die folgende Zeile, weil art_modi (Durchsuchung) dasselbe Feld traegt
   [FF, '  if (n > 0 && Geld.bestechungZahlen(game, n)) bezahlt = n;', '  if (n > 0) bezahlt = n;', 'Bestechen bucht nichts'],
   [FF, '  if (n > 0 && !Geld.mindestens(game, n)) {', '  if (false) {', 'Bestechen ohne Pruefung des Guthabens'],
   [BI, 'const r = Faden().optionWaehlen(game, off.fadenId, opt.id);', 'const r = Faden().optionWaehlen(game, off.fadenId, off.optionen[0].id);', 'Die Wahl aendert den Weg nicht (immer die erste Option)'],
