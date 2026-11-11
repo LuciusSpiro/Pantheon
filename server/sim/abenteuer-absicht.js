@@ -114,7 +114,7 @@ function ohneNamen(game, kennungen, text) {
   const paare = Object.entries(istObjekt(kennungen) ? kennungen : {}).filter(([, n]) => typeof n === 'string' && n.length >= 2).sort((a, b) => b[1].length - a[1].length);
   for (const [k, n] of paare) t = t.split(n).join(k);   // Vollnamen aus der Geschichte stehen im Klartext des Neins: das Modell kennt nur die Kennung
   const A = Ausschnitt();
-  return A.ohneNamenGanzwort(t, A.spielerNamen(game || {}));
+  return A.ohneNamenImTitel(t, A.spielerNamen(game || {}));
 }
 // SPL-02 G: die NSC, die fuer den Bezug dieser Absicht in Frage kommen (Kandidaten, Haltung nach dem Rezept), als Zeilen mit Kennung (folge_kandidaten_max Zeilen, Daten)
 function kandidatenZeilen(game, absicht, kennungen) {

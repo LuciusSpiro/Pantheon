@@ -106,7 +106,7 @@ function zeileFuer(W, T, k, p, neutral, game) {
   let z = '';
   for (let stufe = 0; stufe < 4; stufe++) { z = zeileBauen(W, T, k, p, ort, stufe, neutral); if (z.length <= W.zeile_max) break; }
   const A = Ausschnitt();
-  z = A.ohneNamenGanzwort(z, A.spielerNamen(game || {}));   // Sicherung: nie ein Spielername in der Zeile (Ortsname, Schiffsklasse); ganze Woerter, damit "Haltung" bei einem Spieler "Ha" bleibt
+  z = A.ohneNamenImTitel(z,A.spielerNamen(game || {}));   // Sicherung: nie ein Spielername in der Zeile (Ortsname, Schiffsklasse); ganze Woerter, damit "Haltung" bei einem Spieler "Ha" bleibt
   return z.length > W.zeile_max ? z.slice(0, W.zeile_max - 1).trimEnd() + '…' : z;
 }
 
@@ -149,7 +149,7 @@ function kandidatenZeilen(game, namen, kennungen, max) {
     const teile = [`${k} (${p.e.volk})`];
     if (p.status) teile.push(`${T.jetzt} ${p.status}`);
     if (p.nsc && Number.isFinite(p.nsc.haltung)) teile.push(`${T.haltung} ${zahl(p.nsc.haltung)}`);
-    out.push(A.ohneNamenGanzwort(teile.join(', '), A.spielerNamen(game || {})));
+    out.push(A.ohneNamenImTitel(teile.join(', '), A.spielerNamen(game || {})));
   }
   return out;
 }
