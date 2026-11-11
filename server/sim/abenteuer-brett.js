@@ -345,7 +345,7 @@ function rueckfallWahl(game, F, hex, garantie) {
 }
 // ---------- FRE-02 B2: das Brett beim Andocken fuellen. Aufrufer: game.js missionEvent('docked') hinter if (this.weltsim) (der Spielstart angedockt ist kein docked-Ereignis: dort fuellt weiter der Takt ein leeres Brett).
 // Ablauf: (a) der Einzelhinweis ist stumm (Laufzeit im Brett, nicht im Weltstand), (b) die bestehende Grenze game.lageGrenze('andocken') genau einmal und unveraendert (Zaehler, Verfall, Garantie, Komponist, Telemetrie),
-// (c) das Brett bis angebote_max fuellen: zuerst aus dem Vorrat (Paket C, VOR der Grenze: ist das Brett danach voll, startet der Komponist nicht, kein Aufruf), dann der Rueckfall, ein Angebot je Schritt mit verschiedenen Zielen, (d) Stumm aufheben und genau ein Sammelfunk, wenn jetzt mindestens
+// (c) das Brett bis angebote_max fuellen: zuerst aus dem Vorrat (Paket C, VOR der Grenze: ist das Brett danach voll, startet der Komponist nicht, kein Aufruf), dann der Rueckfall, ein Angebot je Schritt mit verschiedenen Zielen (hat der Komponist nach der Grenze eine Anfrage offen: nur die Anschluss-Garantie, siehe anschlussFuellen), (d) Stumm aufheben und genau ein Sammelfunk, wenn jetzt mindestens
 // ein Angebot am Brett steht (nicht bei 0). Je Andocken ein Funk, auch wenn das Brett schon voll war (die Zahl nennt, was dort liegt). Wirft nie in den Aufrufer.
 function beiAndocken(game) {
   const F = game && game.weltsim && game.weltsim.faeden;
@@ -386,8 +386,13 @@ function ausVorratFuellen(game) {
   }
   return out;
 }
+// Hat der Komponist (Claude oder Mock) gerade eine Anfrage offen? Dann gehoeren die uebrigen Plaetze ihm: seine Antwort kaeme sonst auf ein volles Brett (angebote_max) und ginge verloren.
+function komponistOffen(game) {
+  try { const l = game && game.lageSpielleiter, a = l && l.abenteuer; return !!a && typeof a.anfrageOffen === 'function' && a.anfrageOffen(); } catch (e) { return false; }
+}
 // Rueckfall fuellen: ein Angebot je Schritt, jedes Ziel ein anderes (die belegten Ziele der offenen Angebote sind gesperrt), bis angebote_max; keine Garantie-Lockerung (siehe rueckfallWahl). Gleiche Vorbedingungen wie
-// anschluss (Schalter, Spielleiter, Hafen); laeuft ein Abenteuer, fuellt der Rueckfall nicht (wie anschluss). -> [neue Angebote]
+// anschluss (Schalter, Spielleiter, Hafen); laeuft ein Abenteuer, fuellt der Rueckfall nicht (wie anschluss). FRE-02 B2 Nacharbeit: hat der Komponist eine Anfrage offen (nach der Grenze), gilt wie vor B2 nur die
+// Anschluss-Garantie (EIN Angebot, nur bei leerem Brett, mit den Lockerungen); die uebrigen Plaetze bleiben dem Komponisten. Ohne Komponist (Rueckfall-Betrieb, Deckel, Kontingent): bis angebote_max. -> [neue Angebote]
 function anschlussFuellen(game) {
   const out = [];
   if (!Faden().aktiv(game) || anschlussAus(game) || !Faden().spielleiterAktiv(game)) return out;
@@ -395,7 +400,9 @@ function anschlussFuellen(game) {
   if (P.abenteuerLaufend(F)) return out;
   const hex = crewHex(game);
   if (!hex) return out;
+  const nurGarantie = komponistOffen(game);
   while (F.abenteuerAngebote.length < W.abenteuer.angebote_max) {
+    if (nurGarantie && F.abenteuerAngebote.length > 0) break;
     const a = rueckfallWahl(game, F, hex, F.abenteuerAngebote.length === 0);
     if (!a) break;
     out.push(a);

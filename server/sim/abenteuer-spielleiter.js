@@ -62,6 +62,7 @@ class AbenteuerSpielleiter {
       return hex && require('../../shared/sektoren.js').spielbar(hex) ? hex : null;
     } catch (e) { return null; }
   }
+  anfrageOffen() { return !this.disposed && this.zustand !== 'idle'; }   // FRE-02 B2 Nacharbeit: der Komponist hat eine Anfrage in Arbeit (angefragt oder unterwegs); das Brett fragt es, um dem Komponisten Plaetze zu lassen (liest nur)
   offeneAngebote() { const F = faden().zustandVon(this.game); return F ? F.abenteuerAngebote.length : 0; }
   // Uebersprungen: gezaehlt immer, im Logbuch nur beim Wechsel des Grundes (keine Flut)
   ueberspringen(grund, art) {
