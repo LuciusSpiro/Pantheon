@@ -66,7 +66,7 @@ const MUTATIONEN = [
   [KR, 'const key = JSON.stringify([s.landepunkt, t]);', 'const key = t;', 'Grobplan: Zählung über alle Karten statt je Landepunkt (verschiedene Karten abgelehnt)'],
   [KR, 'if (Array.isArray(x)) { x.forEach(lauf); return; }', 'if (Array.isArray(x)) return;', 'Grobplan: Listen in der Umsetzung werden nicht durchsucht'],
   [KR, 'for (const tab of Object.values((u && u.abgeleitet) || {})) {', 'for (const tab of []) {', 'Grobplan: abgeleitet (Rudel 1/2) wird ignoriert'],
-  [KR, "x.do === 'kreatur_besetzen' && typeof x.typ === 'string' && rudelRegel(x.typ)", "x.do === 'kreatur_besetzen' && typeof x.typ === 'string'", 'Grobplan: Typ ohne rudel-Feld zählt auch (Dateneinfluss)'],
+  [KR, "x.do === 'kreatur_besetzen' && 'string' === typeof x.typ && rudelRegel(x.typ)", "x.do === 'kreatur_besetzen' && 'string' === typeof x.typ", 'Grobplan: Typ ohne rudel-Feld zählt auch (Dateneinfluss)'],
   [KR, 'for (const u of umsetzungenVon(s)) { const r = rudelMaxJeUmsetzung(u);', 'for (const u of umsetzungenVon(s).slice(0, 0)) { const r = rudelMaxJeUmsetzung(u);', 'Grobplan: Umsetzungen der Szene werden nicht gelesen'],
   // ---- Laufzeit bleibt ohne Deckel
   [KR, "if (!Number.isInteger(n) || n < 1 || n > RUDEL_MAX) return fehl(", "if (!Number.isInteger(n) || n < 1 || n > RUDEL_MAX || rudelGroesseFehler({ typ: p.typ, anzahl: n }).length) return fehl(", 'Laufzeit: rudelSetzen wendet den Deckel an (Debug und Rudel-Tests brächen)'],
