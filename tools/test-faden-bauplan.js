@@ -41,7 +41,7 @@ section('(a) Die drei Vorlagen aus 04a laufen unveraendert durch denselben Pruef
     const r = Pruefer.pruefeVorlage(v);
     ok(r.ok && r.fehler.length === 0, `${v.id}: der Pruefer laesst sie durch (${r.fehler.join('; ')})`);
   }
-  ok(JSON.stringify(D.vorlagenIds()) === JSON.stringify(['dankbarer_captain', 'entfuehrter_haendler', 'falscher_haendler']) && D.ladefehler().length === 0, 'das Register der Dateien hat genau diese drei, ohne Ladefehler');
+  ok(JSON.stringify(D.vorlagenIds()) === JSON.stringify(['dankbarer_captain', 'entfuehrter_haendler', 'falscher_haendler', 'zollkontrolle']) && D.ladefehler().length === 0, 'das Register der Dateien hat genau diese vier (die drei aus 04a und die Zollkontrolle aus BEA-01 C2), ohne Ladefehler');
   ok(!D.vorlagenIds().some((id) => D.istAbenteuer(id)), 'ein Abenteuer taucht nie in vorlagenIds() auf (nie ein Angebot ueber Ausloeser)');
   ok(BP.katalogFehler().length === 0, 'die Daten des Expanders sind in sich stimmig (katalogFehler leer)');
 });
@@ -686,7 +686,7 @@ section('Register: zuruecksetzen leert auch die Abenteuer', () => {
   const v = BP.expandiere(plan([b('spontanhilfe'), b('abschluss')], { titel: 'Registerprobe' })).vorlage;
   ok(D.registriereAbenteuer(klon(v)).ok && D.vorlage(v.id) !== null, 'eingetragen');
   D.zuruecksetzen();
-  ok(D.vorlage(v.id) === null && D.vorlagenIds().length === 3, 'nach zuruecksetzen: weg, die drei Vorlagen der Dateien sind wieder geladen');
+  ok(D.vorlage(v.id) === null && D.vorlagenIds().length === 4, 'nach zuruecksetzen: weg, die vier Vorlagen der Dateien sind wieder geladen');
 });
 
 console.log(`\n${n - fails}/${n} Pruefungen ok`);
