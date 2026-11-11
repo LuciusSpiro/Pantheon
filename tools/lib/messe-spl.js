@@ -96,4 +96,7 @@ function laufen(name, flags, fn) {
   }
 }
 
-module.exports = { KONTEXT_FELDER, kontextZuwachs, WURZEL, CTX_DIR, args, weltstand, weltstaende, anlass, clone, tok, testplan, lpMitGen, tabelle, laufen };
+// T13-Grenze für das Wachstum des Grobplan-Kontexts (Tokens, Schätzung 2,5 Zeichen je Token). Kai 2026-11-11: 2200 -> 2420 (+10 %). Einzige Quelle: T13, die Messwerkzeuge und die Gelände-Tests lesen sie hier.
+const KONTEXT_GRENZE = 2420;
+
+module.exports = { KONTEXT_GRENZE, KONTEXT_FELDER, kontextZuwachs, WURZEL, CTX_DIR, args, weltstand, weltstaende, anlass, clone, tok, testplan, lpMitGen, tabelle, laufen };

@@ -11,7 +11,7 @@ const M = require('./lib/messe-spl.js');
 const Context = require('../server/mission/context.js');
 const Katalog = require('../server/mission/katalog.js');
 
-const GRENZE = 2200;
+const GRENZE = M.KONTEXT_GRENZE;
 const FELDER = M.KONTEXT_FELDER;
 const flags = M.args(process.argv.slice(2), { json: 'flag' }, 'Aufruf: node tools/messe-spl-kontext.js [--json]');
 
