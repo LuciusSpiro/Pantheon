@@ -332,16 +332,26 @@
     return d;
   }
 
+  // FRE-04b B6: Auswahl der Sternkarte folgt der Lerche, bis der Spieler etwas anklickt. zs = { sel, manuell, anker }; anker = Ort bzw. Sprungziel der Lerche;
+  // gueltig(id) = Auswahl existiert noch (Leerraum zählt immer). Ändert sich der Anker, endet die manuelle Auswahl. -> true, wenn sich sel geändert hat.
+  function auswahlFolgen(zs, anker, gueltig) {
+    if (zs.anker !== anker) { zs.anker = anker; zs.manuell = false; }
+    if (zs.manuell && zs.sel && gueltig(zs.sel)) return false;
+    if (zs.sel === anker && !zs.manuell) return false;
+    zs.sel = anker; zs.manuell = false;
+    return true;
+  }
+
   // ------------------------------------------------------------------ rechte Spalte
   const WISSEN_FARBE = F.ortsinfo;
-  // o: { rx, y, rw, sel, name(h), art(h), hafen(h), karteFraktion(h), dist(h) -> Sprünge zum nächsten römischen Knoten | undefined, maxZeilen }
+  // o: { rx, y, rw, sel, hier (Hex der Lerche: steht sel woanders, heißt die Zeile AUSWAHL statt ORT), name(h), art(h), hafen(h), karteFraktion(h), dist(h) -> Sprünge zum nächsten römischen Knoten | undefined, maxZeilen }
   // -> y unter der Spalte
   function ortsinfo(ctx, A, o) {
     const h = o.sel, MS = M.spalte;
     let y = o.y;
     if (!h) { txt(ctx, 'ORT', o.rx, y, { color: P.messing }); y += MS.kopf; txt(ctx, 'Sektor überfahren oder anklicken.', o.rx, y, { color: P.grau }); return y + MS.zeile; }
     const kh = A.hex[h] || {}, fr = fraktion(kh.f || o.karteFraktion(h));
-    txt(ctx, 'ORT · SEKTOR ' + h, o.rx, y, { color: P.messing }); y += MS.kopf;
+    txt(ctx, (o.hier && h !== o.hier ? 'AUSWAHL' : 'ORT') + ' · SEKTOR ' + h, o.rx, y, { color: P.messing }); y += MS.kopf;
     if (o.verborgen && o.verborgen(h)) {   // SUND-01 F: verborgenes, unerkundetes Hex: wie auf der Karte „?“, weder Name noch Besitzer noch Art (Wissensleck)
       txt(ctx, '?', o.rx, y, { color: P.gold }); y += MS.zeile;
       txt(ctx, T.TEXT.ortsinfo.verborgen, o.rx, y, { color: P.hell }); y += MS.zeile;
@@ -380,7 +390,9 @@
   function zeilenText(z, o, kurz) {
     const nm = (h) => (kurz >= 2 ? T.TEXT.kurzname[o.name(h)] || o.name(h) : o.name(h)), V = (id, w) => T.vorlage('meldeliste.' + id + (kurz ? 'Kurz' : ''), w);
     if (z.ereignis) {
-      const id = { hf: 'hafenGefallen', hh: 'hafenHaelt', pv: 'postenWeg', pg: 'postenNeu' }[z.ereignis.e];
+      let id = { hf: 'hafenGefallen', hh: 'hafenHaelt', pv: 'postenWeg', pg: 'postenNeu' }[z.ereignis.e];
+      if (z.ereignis.e === 'hf' && z.ereignis.f === 'r') id = 'hafenRom';   // FRE-04b B1: Rom hat den Hafen gewonnen
+      else if (z.ereignis.e === 'pv' && z.ereignis.f !== 'r') id = 'postenFremd';   // fremder Posten (f = bisheriger Besitzer)
       return V(id, { ort: nm(z.ereignis.h) });
     }
     const q = z.q, ort = nm(q.h);
@@ -506,5 +518,5 @@
   const funkLeeren = () => { funk.length = 0; };
 
   return { env, T, F, M, hexPfad, mix, lesen, belagert, hatPlakette, rang, rangVergleich, flaeche, seite, sichtgrenze, front, frontSeiten, belagerungKlasse, plakette, kurzplakette, plBreite, posten, flotten,
-    fokusHexe, abstaende, winkelHex, kurzname, kartenFraktion, ortsinfo, listenZeilen, zeilenText, meldeliste, spaltenPlan, sprungHinweis, legende, legendeZeilen, funkMerken, funkListe, funkLeeren, kurzText };
+    fokusHexe, auswahlFolgen, abstaende, winkelHex, kurzname, kartenFraktion, ortsinfo, listenZeilen, zeilenText, meldeliste, spaltenPlan, sprungHinweis, legende, legendeZeilen, funkMerken, funkListe, funkLeeren, kurzText };
 });

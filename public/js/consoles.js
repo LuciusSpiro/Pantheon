@@ -117,6 +117,8 @@
     starHex: null,        // B3: Hex der Sternkarten-Auswahl (StarMap.hit)
     plan: { mapId: 'star', selected: null, label: 'ziel', tab: 'map', bookSel: 0 },
     starSel: null,
+    starManuell: false,   // FRE-04b B6: Klick/Taste setzt eine manuelle Auswahl; sie gilt, bis sich Ort oder Sprungziel der Lerche ändern
+    starAnker: null,
     maps: {},          // zuletzt gezeichnete Karten (Umrechnung Klick -> Welt): weapons, lage, star, plan
     starRects: [],
     planRects: [],
@@ -870,8 +872,11 @@
       const w = R.worldOf(st);
       const locs = this.visibleLocs(st);
       // B3: Auswahl per Hex (StarMap.hit). Leerraum (leer-<hex>) steht nicht in world.locations und bleibt trotzdem gewählt.
-      const leerSel = isLeerId(this.starSel);
-      if (!this.starSel || (!leerSel && !locs.some(l => l.id === this.starSel))) { this.starSel = (ship.jump && ship.jump.dest) || w.location; this.starHex = null; }
+      const anker = (ship.jump && ship.jump.dest) || w.location;
+      const zs = { sel: this.starSel, manuell: this.starManuell, anker: this.starAnker };
+      const folgt = window.KarteLage ? window.KarteLage.auswahlFolgen : (z, an, ok) => { if (z.sel && ok(z.sel)) return false; z.sel = an; return true; };
+      if (folgt(zs, anker, (id) => isLeerId(id) || locs.some(l => l.id === id))) this.starHex = null;   // FRE-04b B6: folgt der Lerche, solange nichts angeklickt ist
+      this.starSel = zs.sel; this.starManuell = zs.manuell; this.starAnker = zs.anker;
       const mapRect = { x: a.x, y: a.y, w: 410, h: a.h - 2 };
       this.maps.star = R.drawStarMap(ctx, view, mapRect, { selected: this.starSel, mouse: view.mouse, rects: this.starRects, ansichtKey: 'captain-stern' });
       const rx = a.x + 420, rw = a.w - 420;
@@ -909,7 +914,7 @@
       const A = mod.A, hd = (h) => K.hexe[h] || {};
       const quellen = A.codes.filter((c) => A.hex[c] && A.hex[c].f === 'r' && (hd(c).hafen || A.hex[c].posten)).concat(A.fl.filter((q) => q.f === 'r' && q.a === 0).map((q) => q.h), mod.hier ? [mod.hier] : []);
       const dist = KL.abstaende(quellen, mod.adj);
-      const o = { rx, rw, y, ohneArt: rw < 190, sel: hex, verborgen: (h) => !!(mod.verborgen && mod.verborgen.has(h)), name: (h) => hd(h).name || h, art: (h) => window.Kartenzeichen.typName(hd(h)) || hd(h).art || '', hafen: (h) => hd(h).hafen || '', karteFraktion: (h) => KL.kartenFraktion(hd(h).fraktion), dist: (h) => dist[h], kurs: (q) => (q.v ? KL.winkelHex(q.v, q.h) : q.n ? KL.winkelHex(q.h, q.n) : 0) };
+      const o = { rx, rw, y, ohneArt: rw < 190, sel: hex, hier: mod.hier, verborgen: (h) => !!(mod.verborgen && mod.verborgen.has(h)), name: (h) => hd(h).name || h, art: (h) => window.Kartenzeichen.typName(hd(h)) || hd(h).art || '', hafen: (h) => hd(h).hafen || '', karteFraktion: (h) => KL.kartenFraktion(hd(h).fraktion), dist: (h) => dist[h], kurs: (q) => (q.v ? KL.winkelHex(q.v, q.h) : q.n ? KL.winkelHex(q.h, q.n) : 0) };
       y = KL.ortsinfo(ctx, A, o) + 4;
       // Client-Runde A3: Im eigenen Hex steht während einer Sim-Szene „Feindkontakt“ (sonst „Keine Flotten gemeldet“ – die Meldeliste ist Wissen von Rom, die Szene die Wahrheit vor Ort)
       // Fixrunde N7: nur solange die Szene läuft (p v/k/f), nicht nach dem Ende (SIEG/NIEDERLAGE); „vor Ort“ grenzt es von der Meldeliste (Wissen von Rom) darunter ab
@@ -997,7 +1002,7 @@
       const locs = this.visibleLocs(st);
       if (!locs.length) return;
       const i = locs.findIndex(l => l.id === this.starSel);
-      this.starSel = locs[(i + dir + locs.length) % locs.length].id;
+      this.starSel = locs[(i + dir + locs.length) % locs.length].id; this.starManuell = true;
       this.starHex = null;   // QA-B3 F2: Hex des letzten Klicks verwerfen – selectDest leitet das Hex aus dem Ort ab
     },
 
@@ -3562,7 +3567,7 @@
         if (hitLoc) {
           // B3: Hex-Auswahl ({ id: ort|leer-<hex>, hex }); Doppelklick wählt das Sprungziel
           const dbl = this.starSel === hitLoc.id && performance.now() - (this.lastStarClick || 0) < 400;
-          this.starSel = hitLoc.id; this.starHex = hitLoc.hex || null; this.lastStarClick = performance.now();
+          this.starSel = hitLoc.id; this.starManuell = true; this.starHex = hitLoc.hex || null; this.lastStarClick = performance.now();
           view.actions.sfx('ui_click');
           if (dbl && this.findButton('Als Sprungziel wählen')) this.tryButton('Als Sprungziel wählen');
           return true;

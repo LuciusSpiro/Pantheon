@@ -287,6 +287,7 @@
     "test:notsprung-frei": "node tools/test-notsprung-frei.js",
     "test:lagefunk": "node tools/test-lagefunk.js",
     "test:lage-wissen": "node tools/test-lage-wissen.js",
+    "test:lagefunk-seite": "node tools/test-lagefunk-seite.js",
     "test:banner-sicht": "node tools/test-banner-sicht.js",
     "test:sitz-projektion": "node tools/test-sitz-projektion.js",
     "test:render-szene": "node tools/test-render-szene.js",

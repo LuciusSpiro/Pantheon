@@ -110,6 +110,28 @@ ok(PK.bilanzBauen(bsp, 0).zaehlung.hafenfall.mitFunk === 0, 'Fenster 0: der Funk
   ok(ff.verlierer === 'r' && ff.gewinner === 'g' && ff.seite === 'verlust' && ff.funkSinnfehler === false && fi.seite === 'verlust' && fi.funkSinnfehler === false, 'M2: Verluste von Rom (Hafen Fjordhafen, Posten Ismark) mit „gefallen/verloren“ sind kein Sinnfehler');
   ok(b2.gesamt.funkSinnfehler === 1 && b2.sinnfehler.length === 1 && b2.sinnfehler[0].hex === 'E' && b2.zaehlung.postenverlust.funkSinnfehler === 1 && b2.zaehlung.hafenfall.funkSinnfehler === 0 && b2.zaehlung.postenverlust.mitFunk === 2, 'M2: eigene Spalte, ein Sinnfehler; er bleibt trotzdem „mit Funk“');
   ok(b2.zaehlung.gruendungEigene.n === 1 && b2.zaehlung.gruendungEigene.mitFunk === 1 && b2.zaehlung.gruendungFremde.n === 1 && b2.zaehlung.gruendungFremde.ohneFunk === 1 && b2.gesamt.lueckenFremd === 1 && b2.gesamt.lueckenRom === 0, 'N6: Gründungen getrennt nach Rom (1, gefunkt) und fremd (1, Lücke)');
+  // FRE-04b B1: die neuen Funktexte (Seite genannt) zählen als Meldung und sind für Rom als Gewinner kein Sinnfehler
+  const b3 = PK.bilanzBauen({
+    seed: 3, radius: null, lauf: { ticks: 120, minuten: 16, besuchteHexe: 5 }, bildticks: [0],
+    namen: { E: 'Eisfeld', F: 'Fjordhafen', I: 'Ismark' },
+    besitzwechsel: [
+      { tick: 91, min: 12, hex: 'E', von: 'gP', nach: 'rP', art: 'eroberung' },
+      { tick: 95, min: 12.6, hex: 'F', von: 'gP', nach: 'rP', art: 'eroberung' },
+      { tick: 100, min: 13, hex: 'I', von: 'rP', nach: 'gP', art: 'eroberung' },
+    ],
+    ereignisse: [
+      { tick: 91, min: 12, typ: 'posten_verloren', ort: 'E', besitzer: 'ger', durch: 'rom' },
+      { tick: 95, min: 12.6, typ: 'hafen_gefallen', ort: 'F', alt: 'ger', neu: 'rom' },
+      { tick: 100, min: 13, typ: 'hafen_gefallen', ort: 'I', alt: 'rom', neu: 'ger' },
+    ],
+    funk: [
+      { tick: 92, min: 12.1, von: 'FLOTTE BEI EISFELD', text: 'Posten Eisfeld (Germanen) durch Rom ausgeschaltet.', lage: true },
+      { tick: 95, min: 12.6, von: 'HAFEN FJORDHAFEN', text: 'Fjordhafen ist in römischer Hand.', lage: true },
+      { tick: 101, min: 13.1, von: 'HAFEN ISMARK', text: 'Ismark ist an die Germanen gefallen.', lage: true },
+    ],
+    chronik: [], ticks: [],
+  });
+  ok(b3.faelle.length === 3 && b3.luecken.length === 0 && b3.gesamt.funkSinnfehler === 0, 'B1: neue Funktexte (Rom gewinnt/verliert) gelten als Meldung, 0 Lücken, 0 Sinnfehler');
   const t2 = PK.textBilanz({ seed: 2, radius: null, lauf: { ticks: 120, minuten: 16 } }, b2);
   ok(/Funk falsch herum/.test(t2) && /Eisfeld \(E\) Verlierer g, Gewinner r/.test(t2) && /Gründung Rom/.test(t2) && /Gründung fremd/.test(t2) && /Gründungen Rom 0, fremd 1/.test(t2), 'bilanz.txt: Spalte und Liste „Funk falsch herum“, Gründungen eigene/fremde');
 }

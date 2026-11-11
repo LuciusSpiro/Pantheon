@@ -521,7 +521,7 @@ const pruefe = (text, c) => Pruefer.pruefe(text, Object.assign({ slot: 'ankuendi
     const pv = { typ: 'posten_verloren', tick: 1, fraktion: 'rom', ort: '0603', ortName: 'Kantenstein', besitzer: 'rom', durch: 'pirat' };
     radio.length = 0;
     tickMit([hf]); tickMit([pv]);
-    ok(radio.length === 2 && /Speculum ist gefallen\./.test(radio[0].text) && /Kantenstein verloren\./.test(radio[1].text), 'echter Weg, Pool leer: die heutigen Vorlagen („… ist gefallen“, „… verloren“)');
+    ok(radio.length === 2 && /Speculum ist an die Germanen gefallen\./.test(radio[0].text) && /Kantenstein an die Piraten verloren\./.test(radio[1].text), 'echter Weg, Pool leer: die Vorlagen mit Seite („… ist an die Germanen gefallen“, „… an die Piraten verloren“)');
     Pool.setLlm(fakeLlm()); await fuellen(g);
     radio.length = 0;
     const hf2 = Object.assign({}, hf, { ort: '0404', ortName: 'x' }), pv2 = Object.assign({}, pv, { ort: '0604' });
