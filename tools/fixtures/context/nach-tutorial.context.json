@@ -1762,6 +1762,25 @@
             "schauplatz": "aussen"
           },
           {
+            "beschreibung": "Gepanzerte Rudeltiere (3 oder 4 je Rudel, Panzerung vorn) auf einer Wildnis- oder Höhlenkarte, einzeln bekämpfbar. rudel 1 oder 2: bei zwei Rudeln stehen sie weit auseinander. Erledigt, wenn alle Tiere aller Rudel endgültig erledigt sind. Für Wildnis und Höhle. Standard: ein Rudel mit 3 Tieren.",
+            "braucht_anker": {
+              "anker": [
+                "abholpunkt"
+              ],
+              "kartenarten": [
+                "wildnis",
+                "hoehle"
+              ]
+            },
+            "dauer_min": [
+              4,
+              10
+            ],
+            "id": "rudeltiere_im_gelaende",
+            "name": "Rudeltiere im Gelände erledigen",
+            "schauplatz": "aussen"
+          },
+          {
             "beschreibung": "Die Fraktion besetzt den Gefechtsbereich (Trupps aus ihren Rezepten an den Wachposten). Deckung suchen, Schilde laden lassen, zusammen vorrücken; der Captain gibt von oben Befehle und sieht Gegner. Erledigt, wenn jemand in den Zielbereich durchbricht.",
             "braucht_anker": {
               "anker": [

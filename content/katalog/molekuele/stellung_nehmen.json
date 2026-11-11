@@ -894,6 +894,305 @@
           "typ": "rudeltier"
         }
       }
+    },
+    {
+      "id": "rudeltiere_im_gelaende",
+      "name": "Rudeltiere im Gelände erledigen",
+      "schauplatz": "aussen",
+      "beschreibung": "Gepanzerte Rudeltiere (3 oder 4 je Rudel, Panzerung vorn) auf einer Wildnis- oder Höhlenkarte, einzeln bekämpfbar. rudel 1 oder 2: bei zwei Rudeln stehen sie weit auseinander. Erledigt, wenn alle Tiere aller Rudel endgültig erledigt sind. Für Wildnis und Höhle. Standard: ein Rudel mit 3 Tieren.",
+      "braucht": [
+        "transfer",
+        "aussen_kampf"
+      ],
+      "buehne_braucht": {
+        "kartenarten": [
+          "wildnis",
+          "hoehle"
+        ],
+        "anker": [
+          "abholpunkt"
+        ]
+      },
+      "dauer_min": [
+        4,
+        10
+      ],
+      "dauer_quelle": "schaetzung",
+      "dauer_je_crew": {
+        "1": [
+          5,
+          11
+        ],
+        "2": [
+          4,
+          10
+        ],
+        "3": [
+          4,
+          9
+        ]
+      },
+      "liefert_flags": [
+        "{{id}}_geraeumt"
+      ],
+      "ereignisse": [
+        "kreaturAusgefallen"
+      ],
+      "params": {
+        "loc": {
+          "typ": "loc",
+          "pflicht": true
+        },
+        "map": {
+          "typ": "map",
+          "pflicht": true,
+          "beschreibung": "Landepunkt (setzt der Szenenbau nach buehne_braucht, nie das LLM)"
+        },
+        "rudel": {
+          "typ": "text",
+          "default": "1",
+          "werte": [
+            "1",
+            "2"
+          ],
+          "beschreibung": "Zahl der Rudel auf der Karte: 1 oder 2 (zwei Rudel stehen weit auseinander und werden einzeln bekämpft)"
+        },
+        "tiere": {
+          "typ": "zahl",
+          "default": 3,
+          "min": 3,
+          "max": 4,
+          "beschreibung": "Tiere je Rudel: 3 oder 4"
+        }
+      },
+      "abgeleitet": {
+        "rudel": {
+          "1": {
+            "besetzen_a": {
+              "if": {
+                "not": {
+                  "v": "{{id}}_besetzt"
+                }
+              },
+              "do": "kreatur_besetzen",
+              "map": "{{map}}",
+              "typ": "rudeltier",
+              "anzahl": "{{tiere}}",
+              "gruppe": "{{id}}_ka"
+            },
+            "besetzen_b": {
+              "set": {
+                "{{id}}_besetzt": true
+              }
+            },
+            "erledigt": {
+              "check": {
+                "name": "kreaturen_erledigt",
+                "map": "{{map}}",
+                "gruppe": "{{id}}_ka"
+              }
+            },
+            "lage": "Ein Rudel Tiere im Gelände. Die Panzerung sitzt vorn, also flankieren und zusammen vorgehen.",
+            "hinweis": "Captain: Die Tiere stehen verteilt, einzeln bekämpfen. Von hinten treffen.",
+            "ziel": "Alle Tiere des Rudels erledigen",
+            "geschafft": "Das Rudel ist erledigt."
+          },
+          "2": {
+            "besetzen_a": {
+              "if": {
+                "not": {
+                  "v": "{{id}}_besetzt"
+                }
+              },
+              "do": "kreatur_besetzen",
+              "map": "{{map}}",
+              "typ": "rudeltier",
+              "anzahl": "{{tiere}}",
+              "gruppe": "{{id}}_ka"
+            },
+            "besetzen_b": {
+              "if": {
+                "not": {
+                  "v": "{{id}}_besetzt"
+                }
+              },
+              "do": "kreatur_besetzen",
+              "map": "{{map}}",
+              "typ": "rudeltier",
+              "anzahl": "{{tiere}}",
+              "gruppe": "{{id}}_kb"
+            },
+            "erledigt": {
+              "all": [
+                {
+                  "check": {
+                    "name": "kreaturen_erledigt",
+                    "map": "{{map}}",
+                    "gruppe": "{{id}}_ka"
+                  }
+                },
+                {
+                  "check": {
+                    "name": "kreaturen_erledigt",
+                    "map": "{{map}}",
+                    "gruppe": "{{id}}_kb"
+                  }
+                }
+              ]
+            },
+            "lage": "Zwei Rudel im Gelände, weit auseinander. Die Panzerung sitzt vorn, also flankieren und zusammen vorgehen.",
+            "hinweis": "Captain: Die Rudel stehen weit auseinander, eins nach dem anderen. Von hinten treffen.",
+            "ziel": "Alle Tiere beider Rudel erledigen",
+            "geschafft": "Beide Rudel sind erledigt, das Gelände ist frei."
+          }
+        }
+      },
+      "vorlage": {
+        "buehne": {
+          "orte": [
+            "{{loc}}"
+          ],
+          "aussenkarten": [
+            "{{map}}"
+          ]
+        },
+        "steps": [
+          {
+            "id": "{{id}}",
+            "loc": "{{loc}}",
+            "allowBeam": [
+              "{{map}}"
+            ],
+            "enter": [
+              "{{besetzen_a}}",
+              "{{besetzen_b}}",
+              {
+                "set": {
+                  "{{id}}_besetzt": true
+                }
+              }
+            ],
+            "timers": [
+              {
+                "at": 2,
+                "oda": "@{{id}}.start"
+              },
+              {
+                "at": 4,
+                "oda": "@{{id}}.lage"
+              },
+              {
+                "at": 45,
+                "if": {
+                  "not": {
+                    "v": "{{id}}_ende"
+                  }
+                },
+                "oda": "@{{id}}.hinweis",
+                "garantie": "hinweis"
+              }
+            ],
+            "rules": [
+              {
+                "if": {
+                  "all": [
+                    "{{erledigt}}",
+                    {
+                      "not": {
+                        "v": "{{id}}_ende"
+                      }
+                    }
+                  ]
+                },
+                "do": [
+                  {
+                    "set": {
+                      "{{id}}_ende": true
+                    }
+                  },
+                  {
+                    "setFlag": {
+                      "{{id}}_geraeumt": true
+                    }
+                  },
+                  {
+                    "oda": "@{{id}}.geschafft"
+                  }
+                ]
+              }
+            ],
+            "objectives": [
+              {
+                "id": "runter",
+                "text": "@{{id}}.ziel_runter",
+                "done": {
+                  "any": [
+                    {
+                      "check": {
+                        "name": "away_active",
+                        "map": "{{map}}"
+                      }
+                    },
+                    {
+                      "v": "{{id}}_ende"
+                    }
+                  ]
+                }
+              },
+              {
+                "id": "ziel",
+                "text": "@{{id}}.ziel",
+                "done": {
+                  "v": "{{id}}_ende"
+                }
+              }
+            ],
+            "next": [
+              {
+                "if": {
+                  "v": "{{id}}_ende"
+                },
+                "goto": "{{weiter}}"
+              }
+            ],
+            "skip": [
+              {
+                "set": {
+                  "{{id}}_ende": true
+                }
+              },
+              {
+                "setFlag": {
+                  "{{id}}_geraeumt": true
+                }
+              }
+            ]
+          }
+        ],
+        "texte": {
+          "{{id}}.ziel_runter": "Außenteam runterbeamen",
+          "{{id}}.ziel_hoch": "Zurück an Bord beamen",
+          "{{id}}.start": "Außenteam unten. Captain: Reiter „Außenteam“ – Befehle setzen, Sensor und Kuppel.",
+          "{{id}}.lage": "{{lage}}",
+          "{{id}}.hinweis": "{{hinweis}}",
+          "{{id}}.geschafft": "{{geschafft}}",
+          "{{id}}.ziel": "{{ziel}}"
+        }
+      },
+      "rueckfall": {
+        "params": {
+          "rudel": "1",
+          "tiere": 3
+        }
+      },
+      "test": {
+        "params": {
+          "loc": "kesh",
+          "map": "kesh.wildnis-1",
+          "rudel": "2",
+          "tiere": 4
+        }
+      }
     }
   ],
   "quelle": "vault: Bausteine/Ziel-Moleküle.md"

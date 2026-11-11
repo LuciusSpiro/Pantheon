@@ -52,7 +52,7 @@ const MUTATIONEN = [
   [DA, '"tiere": { "min": 3, "max": 4 }', '"tiere": { "min": 3, "max": 5 }', 'Daten: max 5 statt 4'],
   [DA, '"tiere": { "min": 3, "max": 4 }', '"tiere": { "min": 2, "max": 4 }', 'Daten: min 2 statt 3'],
   [DA, '"jeKarte": 2', '"jeKarte": 3', 'Daten: 3 Rudel je Karte statt 2'],
-  [DA, '"rudel": { "tiere": { "min": 3, "max": 4 }, "jeKarte": 2 },\n', '', 'Daten: Feld rudel fehlt (kein Deckel)'],
+  [DA, '"rudel": { "tiere": { "min": 3, "max": 4 }, "jeKarte": 2, "abstand": 12 },\n', '', 'Daten: Feld rudel fehlt (kein Deckel)'],
   // ---- Feldprüfung der Daten
   [KR, "if (!Number.isInteger(R.jeKarte) || R.jeKarte < 1) f(", 'if (false) f(', 'Feldprüfung: jeKarte ungeprüft'],
   [KR, 'T.min < 1 || T.max > RUDEL_MAX || T.min > T.max) f(', 'T.max > RUDEL_MAX) f(', 'Feldprüfung: min < 1 und min > max ungeprüft'],

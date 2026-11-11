@@ -123,7 +123,7 @@ section('(f) Spielleiter-Pfad: Katalog-Fragment; Laufzeit ohne Deckel', () => {
   // Die Laufzeit bleibt bei 1 bis 12 (Debug-Befehl, Labor, Kampagnen-Tests): rudelSetzen liest den Deckel nicht
   const quelle = fs.readFileSync(path.join(__dirname, '..', 'server', 'sim', 'kreatur.js'), 'utf8');
   const rumpf = quelle.split('function rudelSetzen')[1].split('// ---------- Nest')[0];
-  ok(/RUDEL_MAX = 12/.test(quelle) && !/rudelRegel|rudelGroesseFehler|rudelJeKarteFehler/.test(rumpf), 'Laufzeit rudelSetzen liest den Deckel nicht (Debug, Labor, Rudel-Tests mit bis zu 12 Tieren bleiben möglich)');
+  ok(/RUDEL_MAX = 12/.test(quelle) && !/rudelGroesseFehler|rudelJeKarteFehler|.tiere|.jeKarte/.test(rumpf), 'Laufzeit rudelSetzen liest den Deckel (Tiere, Rudel je Karte) nicht; rudel.abstand (SPL-01 c) ist kein Deckel (Debug, Labor, Rudel-Tests mit bis zu 12 Tieren bleiben möglich)');
 });
 
 console.log('\n' + (fails ? 'FEHLER: ' + fails + ' von ' + n : 'alle ' + n + ' Prüfungen ok'));

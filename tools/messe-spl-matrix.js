@@ -6,6 +6,8 @@
 // Aufruf:  node tools/messe-spl-matrix.js [--seeds n] [--kartenart art] [--json]      (npm run messe:spl-matrix)
 //   --seeds n        n Seeds (Weltstand meta.seed 1..n, bestimmt den neuen Landepunkt); Standard 1
 //   --kartenart art  nur diese Kartenart (aussenposten, station, ruine, schiff, wildnis, hoehle); Standard alle
+//   --biom b         (SPL-01 c) Wildnis mit festem Biom (wueste, wiesenwald, vulkan) statt Zufall aus dem Seed; setzt gen.biom am neuen Landepunkt
+//   --hoehle         (SPL-01 c) Wildnis mit Hoehlen-Deck (gen.hoehle); wirkt nur auf die Kartenart wildnis
 //   --json           nur JSON: { seeds, arten, zeilen: [{ umsetzung, szenentyp, ergebnis: { art: { ok, fehler: { code: n } } } }] }
 // Ausgabe: eine Tabellenzeile je Umsetzung; je Kartenart "ok" oder die Fehlercodes ("ok 3/5 ANKER" bei gemischten Seeds).
 // Exit: 0 gemessen, 1 Fehler beim Messen, 2 falscher Aufruf. Keine Erwartung, kein Test (Selbsttest: tools/test-messe-spl.js).
@@ -16,9 +18,14 @@ const SB = require('../server/mission/szenenbau.js');
 const Context = require('../server/mission/context.js');
 
 const ALLE_ARTEN = ['aussenposten', 'station', 'ruine', 'schiff', 'wildnis', 'hoehle'];
-const HILFE = 'Aufruf: node tools/messe-spl-matrix.js [--seeds n] [--kartenart art] [--json]';
-const flags = M.args(process.argv.slice(2), { seeds: 'zahl', kartenart: 'text', json: 'flag' }, HILFE);
+const HILFE = 'Aufruf: node tools/messe-spl-matrix.js [--seeds n] [--kartenart art] [--biom b] [--hoehle] [--json]';
+const flags = M.args(process.argv.slice(2), { seeds: 'zahl', kartenart: 'text', biom: 'text', hoehle: 'flag', json: 'flag' }, HILFE);
 if (flags.kartenart && !ALLE_ARTEN.includes(flags.kartenart)) { console.error(`Unbekannte Kartenart "${flags.kartenart}" (${ALLE_ARTEN.join(', ')})`); process.exit(2); }
+
+if (flags.biom && !['wueste', 'wiesenwald', 'vulkan'].includes(flags.biom)) { console.error('Unbekanntes Biom "' + flags.biom + '" (wueste, wiesenwald, vulkan)'); process.exit(2); }
+// SPL-01 c: Vorgaben des Erzeugers (gen) an jeden neuen Wildnis-Landepunkt, damit Biom und Hoehlen-Deck messbar sind (der Spielleiter selbst setzt sie nie)
+const GEN = Object.assign({}, flags.biom ? { biom: flags.biom } : {}, flags.hoehle ? { hoehle: true } : {});
+const mitGen = (lp) => (!lp || !Object.keys(GEN).length ? lp : Object.assign(Object.create(lp), { vorschau: (ort, o) => lp.vorschau(ort, o && o.art === 'wildnis' ? Object.assign({}, o, { gen: GEN }) : o) }));
 
 function plan(s) {
   const o = Object.assign({ karte: null, sachverhalt: 't', wendung: null, dauer_min: 4 }, s);
@@ -40,7 +47,7 @@ M.laufen('messe-spl-matrix', flags, () => {
   const arten = flags.kartenart ? [flags.kartenart] : ALLE_ARTEN;
   const seeds = flags.seeds || 1;
   const lps = [];
-  for (let s = 1; s <= seeds; s++) { const w = M.clone(w0); w.meta = Object.assign({}, w.meta, { seed: s }); lps.push(Context.lpAdapterAusWelt(w)); }
+  for (let s = 1; s <= seeds; s++) { const w = M.clone(w0); w.meta = Object.assign({}, w.meta, { seed: s }); lps.push(mitGen(Context.lpAdapterAusWelt(w))); }
   const zeilen = [];
   for (const m of Object.values(katalog.molekuele)) for (const u of m.umsetzungen) {
     if (u.schauplatz !== 'aussen') continue;

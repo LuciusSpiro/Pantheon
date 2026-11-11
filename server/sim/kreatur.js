@@ -671,7 +671,7 @@ const TYP_FELDER = ['name', 'groesse', 'rudel', 'kollision', 'sicht', 'verlustZe
 const ZUSTAND_FELDER = ['modus', 'tempo', 'dauer', 'radius', 'uebergang'];
 const UEBERGANG_FELDER = ['auf', 'nach', 'abstand'];
 const KOLLISION_FELDER = ['box'];
-const RUDEL_FELDER = ['tiere', 'jeKarte'];
+const RUDEL_FELDER = ['tiere', 'jeKarte', 'abstand'];
 const RUDEL_TIERE_FELDER = ['min', 'max'];
 const SCHILD_FELDER = ['seg', 'max'];
 const SCHILDREGEN_FELDER = ['verzoegerung', 'schritt'];
@@ -698,7 +698,7 @@ function pruefen(d) {
       }
     }
     // rudel (SPL-01 a4): Deckel für den Prüfer des Spielleiters, optional je Typ: { tiere: { min, max }, jeKarte }. Ohne Feld gibt es keinen Deckel (kreatur_besetzen darf dann 1 bis RUDEL_MAX Tiere beliebig oft setzen).
-    if (t.rudel !== undefined) {
+    if (t.rudel !== undefined) {   // abstand (SPL-01 c, optional): Mindestabstand in Kacheln zwischen Tieren verschiedener Rudel desselben Typs beim Setzen (rudelSetzen), damit zwei Rudel verteilt stehen und einzeln bekämpfbar sind
       const R = t.rudel;
       if (!R || typeof R !== 'object' || Array.isArray(R)) f(P + '.rudel', 'optional: { tiere: { min, max }, jeKarte } (Objekt)');
       else {
@@ -710,6 +710,7 @@ function pruefen(d) {
           if (!Number.isInteger(T.min) || !Number.isInteger(T.max) || T.min < 1 || T.max > RUDEL_MAX || T.min > T.max) f(P + '.rudel.tiere', '{ min, max } ganze Zahlen, 1 <= min <= max <= ' + RUDEL_MAX + ' (Tiere je Rudel)');
         }
         if (!Number.isInteger(R.jeKarte) || R.jeKarte < 1) f(P + '.rudel.jeKarte', 'ganze Zahl >= 1 (Rudel dieses Typs je Karte)');
+        if (R.abstand !== undefined && !zahl(R.abstand, 0)) f(P + '.rudel.abstand', 'optional: Zahl >= 0 (Kacheln Mindestabstand zwischen Tieren verschiedener Rudel desselben Typs beim Setzen)');
       }
     }
     if (!zahl(t.sicht, 0.1)) f(P + '.sicht', 'Zahl > 0 (Kacheln)');
@@ -908,6 +909,10 @@ function rudelSetzen(game, o) {
   const start = Mon.naechster(m, ref.x, ref.y, 4);
   if (!start) return fehl('kein erreichbarer Platz: am Abholpunkt hat ein Tier der Größe ' + typ.groesse + ' keinen Platz');
   const dist = Mon.bfs(m, [start]);
+  // SPL-01 c: Rudel dieses Typs stehen verteilt: Tiere anderer Rudel desselben Typs mindestens rudel.abstand Kacheln entfernt (Daten, ohne Wert kein Abstand über RUDEL_ABSTAND hinaus)
+  const RG = rudelRegel(p.typ);
+  const G2 = RG && RG.abstand ? Math.pow(RG.abstand * TILE, 2) : 0;
+  const andere = G2 ? (aw.kreaturen || []).filter((K) => K.alive && K.typ === p.typ && K.gruppe !== p.gruppe) : [];
   const kand = [];
   for (let cy = 0; cy < m.h; cy++) for (let cx = 0; cx < m.w; cx++) {
     if (!m.geht(cx, cy) || dist[cy * m.w + cx] < 0) continue;
@@ -915,6 +920,7 @@ function rudelSetzen(game, o) {
     const tx = Math.floor(pos.x / TILE), ty = Math.floor(pos.y / TILE);
     if (rects && !rects.some((r) => tx >= r[0] && tx < r[0] + r[2] && ty >= r[1] && ty < r[1] + r[3])) continue;
     if (abhol.some((a) => Math.hypot(tx - a.x, ty - a.y) < RUDEL_ABHOLPUNKT)) continue;
+    if (andere.some((K) => (K.x - pos.x) * (K.x - pos.x) + (K.y - pos.y) * (K.y - pos.y) < G2)) continue;
     kand.push(pos);
   }
   const R2 = Math.pow(Math.max(4, Math.ceil(Math.sqrt(n) * 2)) * TILE, 2), D2 = Math.pow(RUDEL_ABSTAND * TILE, 2);
