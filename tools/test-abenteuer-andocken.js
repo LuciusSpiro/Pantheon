@@ -314,6 +314,30 @@ async function pumpen(g, k) { for (let i = 0; i < k; i++) { g.step(); await frei
     ok(leerBeiGrenze === 1 && sl(u.g).aufrufe === 1, 'erstes Andocken: bei der Grenze liegt erst die Garantie der Taetigkeit am Brett (' + leerBeiGrenze + ' von ' + MAXA + '), darum startet der Komponist (aufrufe 1)');
   }
 
+  console.log('\nKomponist nur kurz blockiert (Lage beschaeftigt): der Rueckfall fuellt das Brett nicht auf, Claude behaelt Platz (Befund test-messe-ablage)');
+  {
+    const t = neu(7, { deckel: 4 }), g = t.g, s = sl(g);
+    angebote(g).length = 0;
+    const alt = s.taktErlaubt.bind(s);
+    s.taktErlaubt = (art) => s.ueberspringen('lage_beschaeftigt', art);   // der Lage-Plan laeuft an derselben Grenze: der Komponist startet nicht
+    andocken(t, '0305');
+    s.taktErlaubt = alt;
+    ok(s.aufrufe === 0 && s.zustand === 'idle' && s.zaehler.uebersprungen.lage_beschaeftigt >= 1, 'der Komponist ist an der Andock-Grenze nur kurz blockiert (aufrufe ' + s.aufrufe + ', lage_beschaeftigt ' + s.zaehler.uebersprungen.lage_beschaeftigt + ')');
+    ok(s.platzFuerKomponist() === true, 'er kann trotzdem noch komponieren (Modus an, Deckel und Budget frei)');
+    ok(angebote(g).length === 1, 'Rueckfall: nur die Anschluss-Garantie, nicht ' + MAXA + ' (' + angebote(g).length + ')');
+    ok(brettFunk(t).length === 1 && brettFunk(t)[0].text === sammelText(1), 'ein Sammelfunk mit der Zahl 1');
+    g.lageGrenze('szene_ende');
+    ok(s.aufrufe === 1, 'an der naechsten Grenze komponiert Claude (der Komponist laeuft, aufrufe ' + s.aufrufe + ', Brett nicht voll)');
+    await pumpen(g, 6);
+    ok(s.zustand === 'idle' && !s.zaehler.abgelehnt.ABENTEUER_ANGEBOTE && s.zaehler.gueltig + Object.keys(s.zaehler.abgelehnt).length === 1, 'seine Antwort wurde bearbeitet und NICHT wegen eines vollen Bretts verworfen (gueltig ' + s.zaehler.gueltig + ', abgelehnt ' + JSON.stringify(s.zaehler.abgelehnt) + '; Brett vor dem Aufruf ' + 1 + ' von ' + MAXA + ')');   // ob der Mock-Plan in dieser Lage gueltig ist, ist Sache des Pruefers (hier ABSCHLUSS_FEHLT), nicht der Platzfrage
+    ok(g.errors === 0, 'keine Serverfehler');
+    // Gegenprobe: ist der Komponist wirklich erledigt (Deckel erschoepft), fuellt der Rueckfall bis angebote_max
+    const u = neu(7, { deckel: 4 }); angebote(u.g).length = 0;
+    sl(u.g).aufrufe = 4;
+    andocken(u, '0305');
+    ok(sl(u.g).platzFuerKomponist() === false && angebote(u.g).length === MAXA, 'Deckel erschoepft: kein Platz fuer den Komponisten noetig, der Rueckfall fuellt bis ' + MAXA + ' (' + angebote(u.g).length + ')');
+  }
+
   console.log('\n' + (fails ? 'FEHLER: ' + fails + ' von ' + n : 'ALLE ' + n + ' OK'));
   process.exit(fails ? 1 : 0);
 })().catch((e) => { console.log('FEHLER (Ausnahme) ' + (e && e.stack || e)); process.exit(1); });

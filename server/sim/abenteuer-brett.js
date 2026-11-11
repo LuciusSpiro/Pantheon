@@ -386,9 +386,9 @@ function ausVorratFuellen(game) {
   }
   return out;
 }
-// Hat der Komponist (Claude oder Mock) gerade eine Anfrage offen? Dann gehoeren die uebrigen Plaetze ihm: seine Antwort kaeme sonst auf ein volles Brett (angebote_max) und ginge verloren.
+// Kann der Komponist (Claude oder Mock) noch komponieren (Anfrage offen, oder Modus an, Deckel und Budget frei)? Dann gehoeren die uebrigen Plaetze ihm, auch wenn er an dieser Grenze nur kurz blockiert war (Lage beschaeftigt, Cooldown): seine Antwort kaeme sonst auf ein volles Brett (angebote_max) und ginge verloren.
 function komponistOffen(game) {
-  try { const l = game && game.lageSpielleiter, a = l && l.abenteuer; return !!a && typeof a.anfrageOffen === 'function' && a.anfrageOffen(); } catch (e) { return false; }
+  try { const l = game && game.lageSpielleiter, a = l && l.abenteuer; return !!a && typeof a.platzFuerKomponist === 'function' && a.platzFuerKomponist(); } catch (e) { return false; }
 }
 // Rueckfall fuellen: ein Angebot je Schritt, jedes Ziel ein anderes (die belegten Ziele der offenen Angebote sind gesperrt), bis angebote_max; keine Garantie-Lockerung (siehe rueckfallWahl). Gleiche Vorbedingungen wie
 // anschluss (Schalter, Spielleiter, Hafen); laeuft ein Abenteuer, fuellt der Rueckfall nicht (wie anschluss). FRE-02 B2 Nacharbeit: hat der Komponist eine Anfrage offen (nach der Grenze), gilt wie vor B2 nur die

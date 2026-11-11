@@ -63,6 +63,14 @@ class AbenteuerSpielleiter {
     } catch (e) { return null; }
   }
   anfrageOffen() { return !this.disposed && this.zustand !== 'idle'; }   // FRE-02 B2 Nacharbeit: der Komponist hat eine Anfrage in Arbeit (angefragt oder unterwegs); das Brett fragt es, um dem Komponisten Plaetze zu lassen (liest nur)
+  // FRE-02 Korrektur: kann der Komponist ueberhaupt noch komponieren? Dann bleiben dem Brett Plaetze fuer ihn frei (der Rueckfall legt nur die Anschluss-Garantie). Gilt auch bei einer Anfrage in Arbeit; kurzzeitige Gruende (Lage beschaeftigt, Cooldown, Brett voll) zaehlen nicht, sonst fuellt der Rueckfall genau dann auf, wenn der Komponist nur kurz blockiert ist. Liest nur.
+  platzFuerKomponist() {
+    if (this.disposed) return false;
+    if (this.anfrageOffen()) return true;
+    if (this.aus || this.modusAus()) return false;
+    if (this.aufrufe >= this.W.deckel_je_sitzung) return false;
+    try { return !this.budgetGesperrt(); } catch (e) { return false; }
+  }
   offeneAngebote() { const F = faden().zustandVon(this.game); return F ? F.abenteuerAngebote.length : 0; }
   // Uebersprungen: gezaehlt immer, im Logbuch nur beim Wechsel des Grundes (keine Flut)
   ueberspringen(grund, art) {
