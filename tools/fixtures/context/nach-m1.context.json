@@ -1743,6 +1743,29 @@
             "schauplatz": "aussen"
           },
           {
+            "beschreibung": "Ein Kontrollposten der Fraktion im Gelände: Wachen an den Lagern, dazwischen Streifen (Trupps aus ihren Rezepten an den Wachposten und Patrouillenwegen). Deckung suchen, Streifen abpassen, zusammen zuschlagen; der Captain gibt von oben Befehle und sieht Gegner. Erledigt, wenn alle Gegner aus dem Gefecht sind (Haltung ruhig erlaubt leises Vorgehen). Für Wildnis und Höhle.",
+            "braucht_anker": {
+              "anker": [
+                "wache"
+              ],
+              "gefecht": true,
+              "kartenarten": [
+                "wildnis",
+                "hoehle"
+              ],
+              "min": {
+                "wache": 3
+              }
+            },
+            "dauer_min": [
+              3,
+              6
+            ],
+            "id": "kontrollposten_im_gelaende",
+            "name": "Kontrollposten im Gelände ausschalten",
+            "schauplatz": "aussen"
+          },
+          {
             "beschreibung": "Höhle mit Kreaturen statt Drohnen, Typ als Parameter. rudeltier: drei starke Tiere mit Panzerung vorn, einzeln bekämpfbar. schwarm: viele kleine Wesen um eine Königin am Nest; Abbaulärm lockt sie, die Königin beseitigen löst den Schwarm auf. Erledigt, wenn alle Tiere bzw. die Königin endgültig erledigt sind. Beide Typen gleichwertig anbieten und abwechseln.",
             "braucht_anker": {
               "anker": [
