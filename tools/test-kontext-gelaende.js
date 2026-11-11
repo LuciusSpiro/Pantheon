@@ -17,7 +17,7 @@ const Config = require('../shared/config.js');
 let n = 0, bad = 0;
 const ok = (c, t) => { n++; if (!c) { bad++; console.log('  FEHLER ' + t); } };
 const katalog = Katalog.load({});
-const GRENZE = 2200;   // wie T13, nicht anheben
+const GRENZE = M.KONTEXT_GRENZE;   // wie T13 (Quelle: tools/lib/messe-spl.js)
 const kont = Config.spielleiter.kontext;
 const mitDeckel = (wert, fn) => { const alt = kont.gelaendeEinzeln; kont.gelaendeEinzeln = wert; try { return fn(); } finally { kont.gelaendeEinzeln = alt; } };
 const eintrag = (art, i, extra) => Object.assign({ seed: 1000 + i, bauversion: art === 'wildnis' ? '~gelaende.3' : '~hoehle.1', art, bauweise: 'germanen', besitz: 'rostmeute', zustand: 'intakt',

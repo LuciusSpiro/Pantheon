@@ -223,7 +223,7 @@ section('4. Kontext: 20 Besuche wachsen nicht über den Deckel', () => {
   for (const id of ids) L.betreten(G, id);
   const c = messen();
   console.log(`  Kontext-Zuwachs (T13-Formel): 20 Landepunkte je 1× besucht +${a.plus}, danach 20 Wiederbesuche eines Landepunkts +${b.plus}, danach alle 20 erneut +${c.plus} Tokens (Grenze 2200)`);
-  ok(a.plus <= 2200 && b.plus <= 2200 && c.plus <= 2200, 'alle drei Stände unter der T13-Grenze 2200');
+  ok(a.plus <= M.KONTEXT_GRENZE && b.plus <= M.KONTEXT_GRENZE && c.plus <= M.KONTEXT_GRENZE, 'alle drei Stände unter der T13-Grenze ' + M.KONTEXT_GRENZE);
   ok(b.plus - a.plus <= 10 && c.plus - a.plus <= 10, `Wiederbesuche blähen den Kontext nicht auf (Zuwachs gegenüber 1× je Landepunkt: +${b.plus - a.plus} bzw. +${c.plus - a.plus} Tokens, nur Ziffern des Besuchszählers)`);
   ok(a.kesh === 1 && b.kesh === 1 && c.kesh === 1, `je Stand höchstens ${Math.max(a.kesh, b.kesh, c.kesh)} Höhlen-Landepunkt einzeln im Kontext (Deckel gelaendeEinzeln)`);
   const zuletzt = L.eintrag(G, ids[3]).zuletzt;

@@ -1424,14 +1424,14 @@ async function b1Tests(T) {
   });
 
   // 2. Token-Schätzung: Grobplan-Kontext (ohne verfuegbar, wie im Prompt) vorher (S2b-Felder) / nachher, Ziel + ≤ 2k   // GEL-02 B: 2,1k -> 2,2k (Kartenart hoehle: +74 Tokens, vorher max. 2075)
-  await safe(T13, 'Kontext wächst um höchstens 2,2k Tokens (Schätzung 2,5 Zeichen je Token)', () => {
+  await safe(T13, 'Kontext wächst um höchstens ' + MesseSpl.KONTEXT_GRENZE + ' Tokens (Schätzung 2,5 Zeichen je Token)', () => {
     const rows = []; let max = 0;
     for (const [name, w] of Object.entries(worldData)) {
       const c = Context.build(w, {}, katalog);
       const { vorher: a, nachher: b, plus } = MesseSpl.kontextZuwachs(c); max = Math.max(max, plus);
       rows.push(`${name} ${a}→${b} (+${plus})`);
     }
-    check(T13, 'Kontext wächst um höchstens 2,2k Tokens (Schätzung 2,5 Zeichen je Token)', max <= 2200, `Grobplan-Kontext in Tokens: ${rows.join(', ')}`);
+    check(T13, 'Kontext wächst um höchstens ' + MesseSpl.KONTEXT_GRENZE + ' Tokens (Schätzung 2,5 Zeichen je Token)', max <= MesseSpl.KONTEXT_GRENZE, `Grobplan-Kontext in Tokens: ${rows.join(', ')}`);
   });
 
   // 3. Landepunkt-Auflösung
