@@ -249,6 +249,7 @@
   {"id":"test-faden-spielleiter","kette":"test","cmd":["tools/test-faden-spielleiter.js"],"stufe":"fast","budget_s":7},
   {"id":"test-faden-kompat","kette":"test","cmd":["tools/test-faden-kompat.js"],"stufe":"fast","budget_s":9},
   {"id":"test-faden-szene","kette":"test","cmd":["tools/test-faden-szene.js"],"stufe":"fast","budget_s":9},
+  {"id":"test-faden-ware-ueber-beats","kette":"test","cmd":["tools/test-faden-ware-ueber-beats.js"],"stufe":"full","budget_s":40},
   {"id":"test-faden-bitte","kette":"test","cmd":["tools/test-faden-bitte.js"],"stufe":"fast","budget_s":7},
   {"id":"test-ui-bitte","kette":"test","cmd":["tools/test-ui-bitte.js"],"stufe":"fast","budget_s":6},
   {"id":"test-faden-bitte-ws","kette":"test","cmd":["tools/test-faden-bitte-ws.js"],"stufe":"fast","budget_s":11},
