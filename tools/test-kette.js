@@ -244,7 +244,7 @@ function main() {
     const r1 = t.events('radio').filter((e) => /Wolfstor ist offen/.test(e.text)).pop();
     ok(r1 && r1.from === 'Mars' && r1.pid === 'mars', 'Funk: Mars mit Symbol (pid mars)');
     t.run(9);
-    const r2 = t.events('radio').filter((e) => /Streich bei der Methalle/.test(e.text)).pop();
+    const r2 = t.events('radio').filter((e) => /Sprengung der Methalle/.test(e.text)).pop();
     ok(r2 && /Legat Marcus Severus/.test(r2.from) && r2.pid === 'legat', 'Funk: Legat mit Porträt (pid legat), erster Funkspruch');
     const snap = g.snapshot();
     ok(snap.mission.radio && snap.mission.radio.pid === 'legat' && snap.mission.radio.needsAccept === true, 'Snapshot mission.radio trägt pid und needsAccept (Annahme am Captain)');
@@ -310,46 +310,135 @@ function main() {
       g.releaseWorldLock();
     }
 
-    // ---- Kapitel 4: Methalle
-    {
-      const t = setup(freshDir(), 1, { startMission: 'eisenwald_ohne' });
+    // ---- Kapitel 4: Methalle (EIS-01 P4: Wald mit Bunker, germanische Verteidiger, Reaktor sprengen, entkommen)
+    const LP4 = 'methalle.siedlung'; const SP4 = 'bk.reaktor.sprengpunkt';
+    const Combat = require('../server/sim/combat.js');
+    const Interior = require('../server/sim/interior.js');
+    const CONFIGK = require('../shared/config.js');
+    // Kapitel 4 betreten: Einstieg, am Ort, Landepunkt gebaut (der Bau läuft im Spiel außerhalb des Ticks, hier von Hand), Bunker aufgebaut
+    const k4 = (crew, opts) => {
+      const t = setup(freshDir(), crew, { startMission: 'eisenwald_ohne' });
       t.ready(); t.run(0.5);
       const g = t.g; const m = g.mission;
       m.kette.einstieg('k4_methalle'); t.run(5);
-      ok(Fracht.anBord(g, 'sprengstoff') === 1 && !(g.inventory.ladung > 0), 'Einstieg k4: Sprengstoff im Frachtraum, nicht im Gepäck');
-      g.debugGoto('methalle', false); t.run(3);
+      if (opts && opts.ohneBesuch) return t;
+      g.debugGoto('methalle', false); t.run(1);
+      Landepunkte.get(g, LP4); t.run(2);
+      return t;
+    };
+    const runterK4 = (t) => { const g = t.g; g.transferZiel = { lp: LP4, scene: g.ship.scene }; g.setAwayMap(LP4); Away.executeBeam(g, g.players.map((p) => p.id), 'down'); t.run(1); };
+    const amSteg = (g) => { const st = (Locations.get(g.ship.scene).scene || {}).station; g.ship.x = st.x - 60; g.ship.y = st.y; g.ship.vx = 0; g.ship.vy = 0; g.ship.speed = 0; };   // Schiff am Transferpunkt des Orts (Reichweite 360)
+    const hochK4 = (t) => { Away.executeBeam(t.g, t.g.players.map((p) => p.id), 'up'); t.run(1); };
+    const sollK4 = (crew) => { const b = CONFIGK.graben.besetzung[crew]; return Object.values(b).reduce((s, r) => s + r.length, 0); };
+    {   // Eintritt: Ladung, Aufbau, Verteidiger; Takt; Knall; Nachschub einmal; Hochbeamen -> meldung -> erfolg
+      const t = k4(1);
+      const g = t.g; const m = g.mission;
+      ok(Fracht.anBord(g, 'sprengstoff') === 0 && g.inventory.ladung === 1, 'Eintritt k4: Sprengstoff aus dem Frachtraum ins Gepäck umgeladen (Inventar ladung 1, Fracht 0)');
       ok(m.state.stage === 'methalle', 'Schritt methalle am Ort Methalle (' + m.state.stage + ')');
-      ok(g.inventory.ladung === 1 && Fracht.anBord(g, 'sprengstoff') === 0, 'Sprengstoff aus dem Frachtraum ins Gepäck umgeladen (Inventar ladung 1, Fracht 0)');
-      const lp = Landepunkte.liste(g, 'methalle').find((r) => r.id === 'methalle.siedlung');
+      const lp = Landepunkte.liste(g, 'methalle').find((r) => r.id === LP4);
       ok(lp && lp.frei && lp.art === 'aussenposten' && lp.beam && lp.beam.range === 360, 'Landepunkt methalle.siedlung ist frei (Kampagne, ohne Labor)');
-      Landepunkte.get(g, 'methalle.siedlung'); t.run(1);   // der Bau läuft im Spiel außerhalb des Ticks (setImmediate), hier von Hand
-      ok(W.AWAY_MAPS['methalle.siedlung'] && W.AWAY_MAPS['methalle.siedlung'].karte && g.aways['methalle.siedlung'].drones.length >= 6, 'Karte der Methalle gebaut und besetzt (Welle 1: 3 Zweiergruppen)');
-      // Sprengstoff liegt, Team an Bord: die Szene setzt die Flag; Folgen (Meldung, Sperrriegel) liegen im Schritt meldung
-      const K = W.AWAY_MAPS['methalle.siedlung'].karte; const sp = K.anker.find((a) => a.rolle === 'sprengpunkt');
-      ok(!m.flags.methalle_gesprengt && !g.explore.sperrriegelOffen(), 'vor dem Setzen: keine Flag, Sperrriegel zu');
-      Anker.setzen(g, 'methalle.siedlung', sp.id, 'platziert'); t.run(0.5);
-      ok(m.state.stage === 'meldung' && m.flags.methalle_gesprengt === true, 'Sprengstoff liegt und niemand unten: Flag methalle_gesprengt, Schritt meldung (' + m.state.stage + ')');
-      ok(g.explore.sperrriegelOffen(), 'Schritt meldung öffnet den Sperrriegel (die Szene ruft das nicht selbst)');
+      const aw = g.aways[LP4]; const S = aw && aw.graben;
+      ok(W.AWAY_MAPS[LP4] && W.AWAY_MAPS[LP4].karte && W.AWAY_MAPS[LP4].karte.meta.fest === 'grabenangriff', 'Karte der Methalle ist die Festkarte grabenangriff (Bunker unter dem Wald)');
+      ok(!!S && S.fraktion === 'raubzug' && S.sperreAktiv === false && S.ziel === 'offen' && S.ladung === 'unberuehrt' && g.arena === null, 'bunker_aufbauen im Schritt: Fraktion raubzug, Sperre aus, Ziel sofort zündbar, Ladung unberührt, kein game.arena');
+      const leb = aw.drones.filter((e) => e.alive);
+      ok(leb.length === sollK4(1) && leb.length > 6 && leb.every((e) => e.fraktion === 'raubzug'), `Crew 1: ${leb.length} Verteidiger (Soll ${sollK4(1)}), alle Fraktion raubzug (Germanen)`);
+      ok(g.inventory.ladung === 1, 'Ladung nach dem Aufbau weiter 1 (das Regiebuch besitzt sie)');
+      ok(!m.flags.methalle_gesprengt && !g.explore.sperrriegelOffen(), 'vor dem Knall: keine Flag, Sperrriegel zu');
+      const ziele = () => (g.snapshot().mission.objectives || g.snapshot().mission.ziele || []).map((o) => o.id + (o.done ? '+' : '-')).join(' ');
+      // Takt: ohne Spieler unten tickt die Mechanik trotzdem (next[0] wertet bunker_sieg_bereit jeden Tick aus)
+      const tk = S.taktTick; t.run(0.5);
+      ok(S.taktTick > tk && S.taktTick === g.tick, 'Takt: bunker_sieg_bereit in next[0] hält die Mechanik jeden Tick am Laufen');
+      runterK4(t);
+      ok(g.players.every((p) => p.zone === 'away') && m.state.stage === 'methalle', 'Außenteam unten (Transfer), Schritt läuft');
+      // Zünden/Knall: der Sprengpunkt geht auf zerstört
+      ok(S.ziel === 'offen' && aw.drones.filter((e) => e.squad === 'graben.nachschub').length === 0, 'vor dem Knall: kein Nachschub');
+      Anker.setzen(g, LP4, SP4, 'zerstoert'); t.run(0.5);
+      ok(S.ziel === 'erreicht', 'Knall erkannt (Ziel erreicht)');
+      const nach = () => aw.drones.filter((e) => e.squad === 'graben.nachschub');
+      ok(nach().length === 4 && nach().every((e) => e.fraktion === 'raubzug'), `Nachschub: ${nach().length} Mann (Germanen) oben am Bunkereingang`);
+      t.run(3);
+      ok(nach().length === 4 && aw.drones.length === leb.length + 4, 'Nachschub genau einmal');
+      ok(m.state.stage === 'methalle' && !m.flags.methalle_gesprengt, 'Sprengung ohne Rückkehr ist kein Sieg: Schritt methalle bleibt, Flag noch nicht gesetzt (' + m.state.stage + ')');
+      hochK4(t);
+      ok(m.state.stage === 'meldung' && m.flags.methalle_gesprengt === true, 'alle wieder an Bord: Flag methalle_gesprengt, Schritt meldung (' + m.state.stage + ')');
+      ok(g.explore.sperrriegelOffen(), 'Schritt meldung öffnet den Sperrriegel (die Szene ruft das nicht selbst auf)');
       t.run(10);
       ok(aktiv(g) === 'k5_legat' && fakt(g, 'methalle') === 'zerstoert' && fakt(g, 'sprengstoff') === 'verbraucht', 'Kapitel 4 erfolg: Kapitel 5, Fakten methalle und sprengstoff');
       g.releaseWorldLock();
     }
-    {   // Team gefallen (Notrückholung): Karte zurück, Kapitel wiederholt
-      const t = setup(freshDir(), 1, { startMission: 'eisenwald_ohne' });
-      t.ready(); t.run(0.5);
-      const g = t.g; const m = g.mission;
-      m.kette.einstieg('k4_methalle'); t.run(5);
-      g.debugGoto('methalle', false); t.run(3);
-      const resets0 = (g.landepunkte.eintraege['methalle.siedlung'] || {}).resets || 0;
-      g.missionEvent('squadRecall', { pids: [] }); t.run(0.5);
+    {   // Crewgröße 1 bis 4: Verteidiger je Besetzung (Crew 3 und 4 gleiche Ablaufprüfung)
+      for (const crew of [3, 4]) {
+        const t = k4(crew); const g = t.g; const aw = g.aways[LP4];
+        const leb = aw && aw.drones.filter((e) => e.alive);
+        ok(!!aw.graben && leb.length === sollK4(crew) && leb.every((e) => e.fraktion === 'raubzug'), `Crew ${crew}: ${leb.length} Verteidiger (Soll ${sollK4(crew)}), Fraktion raubzug`);
+        runterK4(t);
+        Anker.setzen(g, LP4, SP4, 'zerstoert'); t.run(0.5);
+        ok(g.mission.state.stage === 'methalle', `Crew ${crew}: nach dem Knall, solange alle unten sind, bleibt der Schritt (${g.mission.state.stage})`);
+        hochK4(t);
+        ok(g.mission.state.stage === 'meldung' && g.mission.flags.methalle_gesprengt === true, `Crew ${crew}: alle an Bord -> meldung, Flag gesetzt`);
+        g.releaseWorldLock();
+      }
+      const kopf = books.k4_methalle.kopf.crew;
+      ok(kopf.min === 1 && kopf.max === 4 && kopf.empfohlen === 3, 'Regiebuch-Kopf: Crew 1 bis 4, empfohlen 3');
+      ok(books.k4_methalle.kopf.titel === 'Methalle: Bunker sprengen' && doc.kapitel.find((c) => c.id === 'k4_methalle').titel === 'Methalle: Bunker sprengen', 'Kurztitel Methalle: Bunker sprengen (Regiebuch und Kette)');
+    }
+    {   // Rückzug: Team gefallen (echte Notrückholung): Karte zurück, Kapitel wiederholt, Bunker baut frisch, Transfer funktioniert wieder
+      const t = k4(1); const g = t.g; const m = g.mission;
+      const aw0 = g.aways[LP4]; const S0 = aw0.graben;
+      const resets0 = (g.landepunkte.eintraege[LP4] || {}).resets || 0;
+      amSteg(g); runterK4(t);
+      ok(Away.canBeam(g, 'up').ok, 'unten: Transfer heil, Hochbeamen möglich');
+      // einen Verteidiger töten, damit der Zustand der ersten Runde sich vom frischen unterscheidet
+      const e1 = aw0.drones.find((e) => e.alive); for (let i = 0; i < 12 && e1.alive; i++) Combat.hitEnemy(g, e1, 99, { x: e1.x - 40, y: e1.y });
+      Combat.squadRecall(g); t.run(0.5);   // die echte Notrückholung (kommt mit dem Transfer-Durchbrennen: module.notrueckholungFolge)
       ok(aktiv(g) === 'k4_methalle' && m.state.stage !== 'meldung' && !m.flags.methalle_gesprengt, 'Notrückholung: kein Fortschritt, Kapitel 4 beginnt von vorn (' + m.state.stage + ')');
-      ok(((g.landepunkte.eintraege['methalle.siedlung'] || {}).resets || 0) === resets0 + 1, 'Notrückholung: Karte zurückgesetzt (map_reset)');
-      t.run(6); g.debugGoto('methalle', false); t.run(3);
-      ok(m.state.stage === 'methalle' && g.inventory.ladung === 1, 'Wiederholung: Sprengstoff im Gepäck (ersetzt, falls verbraucht)');
-      // gekaufter Sprengstoff genügt: kein Ersatz im Hafen, solange einer im Gepäck liegt
+      ok(((g.landepunkte.eintraege[LP4] || {}).resets || 0) === resets0 + 1, 'Notrückholung: Karte zurückgesetzt (map_reset)');
+      ok(g.ship.systems.transfer === 'broken', 'Folge der Notrückholung: der Transfer ist durchgebrannt (' + g.ship.systems.transfer + ')');
+      t.run(6);
+      ok(aktiv(g) === 'k4_methalle', 'Wiederholung läuft (Kapitel 4, Schritt ' + m.state.stage + ')');
+      g.debugGoto('methalle', false); t.run(3);
+      Landepunkte.get(g, LP4); t.run(2);
+      const aw1 = g.aways[LP4]; const S1 = aw1 && aw1.graben;
+      ok(m.state.stage === 'methalle' && g.inventory.ladung === 1, 'Wiederholung: Schritt methalle, Sprengstoff im Gepäck (ersetzt, falls verbraucht)');
+      ok(aw1 !== aw0 && !!S1 && S1 !== S0 && S1.versuch === 1 && aw1.drones.filter((e) => e.alive).length === sollK4(1) && S1.ziel === 'offen', 'Wiederholung: der Bunker baut frisch auf (neuer Zustand, alle ' + sollK4(1) + ' Verteidiger stehen, Ziel offen)');
+      // Transfer nach der Notrückholung: kaputt, bis die Crew ihn flickt; danach geht das Hinunterbeamen (keine Sperre bleibt hängen)
+      ok(!Away.canBeam(g, 'down').ok, 'Transfer zerstört: Hinunterbeamen geht nicht ("' + Away.canBeam(g, 'down').reason + '")');
+      ok(!aw1.recallLockUntil, 'keine Abkühlsperre aus dem ersten Versuch in der neuen Karte (map_reset verwirft aw samt recallLockUntil)');
+      ok(Interior.repairSystem(g, 'transfer', 'player', 'flick') && g.ship.systems.transfer === 'damaged', 'Crew flickt den Transfer (E halten, ohne Ersatzteil): beschädigt');
+      amSteg(g); g.setAwayMap(LP4); g.transferZiel = { lp: LP4, scene: g.ship.scene };
+      ok(Away.canBeam(g, 'down').ok, 'danach geht das Hinunterbeamen im nächsten Versuch (' + (Away.canBeam(g, 'down').reason || 'ok') + ')');
+      Away.executeBeam(g, g.players.map((p) => p.id), 'down'); t.run(1);
+      ok(g.players.every((p) => p.zone === 'away'), 'Wiederholung: Außenteam steht auf dem frischen Bunker');
+      Anker.setzen(g, LP4, SP4, 'zerstoert'); t.run(0.5); hochK4(t);
+      ok(m.state.stage === 'meldung' && m.flags.methalle_gesprengt === true, 'Wiederholung bis zum Sieg: Flag methalle_gesprengt, Schritt meldung');
+      g.releaseWorldLock();
+    }
+    {   // Notrückholung NACH dem Knall (Nachschub überrennt die Crew): die Sprengung zählt, alle an Bord = Sieg, kein Rückzug
+      const t = k4(1); const g = t.g; const m = g.mission;
+      runterK4(t);
+      Anker.setzen(g, LP4, SP4, 'zerstoert'); t.run(0.5);
+      Combat.squadRecall(g); t.run(1);
+      ok(m.state.stage === 'meldung' && m.flags.methalle_gesprengt === true, 'Notrückholung nach dem Knall: kein Rückzug, die Sprengung zählt (' + m.state.stage + ')');
+      g.releaseWorldLock();
+    }
+    {   // Hafen: Ersatzladung; gekaufter Sprengstoff genügt
+      const t = k4(1); const g = t.g;
       Fracht.restore(g, []);
+      g.inventory.ladung = undefined;   // Spielbeginn: undefined, nicht 0
       g.debugGoto('statio_limitis', true); g.missionEvent('docked', { loc: 'statio_limitis' }); t.run(0.1);
+      ok(Fracht.anBord(g, 'sprengstoff') === 1, 'Hafen: Ersatzladung in den Frachtraum, wenn weder Fracht noch Gepäck (ladung undefined) und Methalle nicht gesprengt');
+      Fracht.restore(g, []); g.inventory.ladung = 1;
+      g.missionEvent('docked', { loc: 'statio_limitis' }); t.run(0.1);
       ok(Fracht.anBord(g, 'sprengstoff') === 0, 'Hafen: kein Ersatz in den Frachtraum, solange Sprengstoff im Gepäck liegt (gekauft oder umgeladen)');
+      g.releaseWorldLock();
+    }
+    {   // Skip-Pfad (Debug, Bot-Überspringen): der Schritt endet wirklich über bunker_sieg_bereit (Takt)
+      const t = k4(1); const g = t.g; const m = g.mission;
+      runterK4(t);
+      ok(m.state.stage === 'methalle', 'Skip-Pfad: Außenteam unten, Schritt läuft');
+      m.skip(); t.run(1);
+      ok(m.state.stage === 'meldung' && m.flags.methalle_gesprengt === true, 'Skip: Sprengpunkt zerstört, alle zurück, Schritt endet über bunker_sieg_bereit -> meldung, Flag gesetzt (' + m.state.stage + ')');
+      ok(g.aways[LP4].graben.ziel === 'erreicht', 'Skip: die Mechanik hat den Knall erkannt (Ziel erreicht)');
       g.releaseWorldLock();
     }
 
@@ -364,6 +453,9 @@ function main() {
       t.g.saveWorld('test', { sync: true });
       const u = weiterspielen(t, dir, id);
       ok(aktiv(u.g) === 'k4_methalle' && u.g.mission.state.stage === 'methalle' && u.g.inventory.ladung === 1, 'geladen: Kapitel 4, Schritt methalle, Sprengstoff im Gepäck (' + u.g.mission.state.stage + ', ' + u.g.inventory.ladung + ')');
+      // Geladen steht das Schiff im Hafen, der Schritt wartet; zurück an der Methalle läuft das enter erneut: der Bunker (aw.graben liegt nicht im Weltstand) baut sich über bunker_aufbauen wieder auf, sonst gäbe es nie einen Sieg
+      u.g.debugGoto('methalle', false); u.run(2); Landepunkte.get(u.g, LP4); u.run(2);
+      ok(!!(u.g.aways[LP4] && u.g.aways[LP4].graben) && u.g.aways[LP4].drones.filter((e) => e.alive).length === sollK4(1), 'geladen mitten in der Methalle: Bunker steht wieder (' + sollK4(1) + ' Verteidiger), Sieg bleibt möglich');
       u.g.releaseWorldLock();
     }
 

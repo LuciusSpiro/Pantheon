@@ -120,7 +120,7 @@ Die Flag-Namen des Vertrags bleiben, die Folgen (Sperrriegel, Meldung, Fakten, K
 | Kap. | Schritte | Echte Szene (Molekül / Umsetzung) | Setzt | Ausgänge |
 |---|---|---|---|---|
 | 2 | auftrag › k2_anflug › **konvoi** › rueck_anflug › abgabe | `konvoi_abfangen/pluendern` (Bausteine `konvoi_an`, `konvoi_erfolg`), Rabenpass, 2 Transporter, Eskorte | Flag `konvoi_gepluendert` (im `next` des Kapitelbuchs, nicht in der Szene) | `erfolg` nach der Abgabe, `rueckzug` bei Notfallsprung |
-| 4 | auftrag › k4_anflug › **methalle** › meldung | `sabotieren/sprengstoff_platzieren`, Landepunkt `methalle.siedlung` | Flag `methalle_gesprengt` (Sprengstoff liegt **und** alle an Bord); Sperrriegel und Fakten bleiben im Schritt `meldung` und im Ausgang | `erfolg`, `rueckzug` bei Notrückholung oder Notfallsprung |
+| 4 | auftrag › k4_anflug › **methalle** › meldung | `kette/bunker` (EIS-01): Festkarte `grabenangriff` als Landepunkt `methalle.siedlung`, Bausteine `bunker_*` (4a) | Flag `methalle_gesprengt` (Reaktor gesprengt **und** alle an Bord; gesetzt beim Eintritt in `meldung`); Sperrriegel und Fakten bleiben im Schritt `meldung` und im Ausgang | `erfolg`, `rueckzug` bei Notrückholung (vor dem Knall) oder Notfallsprung |
 | 7 | landung › **siedlung** › **siedlung_kampf** | `stellung_nehmen/flagge_hissen`, Landepunkt `eisenwald.siedlung` | Flags `flagge_gehisst` (Feldzeichen oben, Angriff beginnt) und `boss_besiegt` (Anführer gefallen **und** Team an Bord) | `erfolg` mit beiden Flags, `rueckzug` bei Notrückholung oder Notfallsprung |
 
 **Kapitel 2 (Konvoi).** `konvoi_an { n 2, eskorte voll, sieg pluendern, ladung sprengstoff, beute_min 2, wiederholung an }` im `enter`; Fortschritt, sobald `konvoi_erfolg` gilt (Ausgang `gepluendert`:
@@ -129,15 +129,27 @@ schon geborgene Fracht bleibt (CONTRACT-EK3B D9): die Szene kann nicht scheitern
 (`enemies_retreat`, ODA „Zurück zur Statio, bevor die Eskorte Verstärkung ruft“): die Störsender-Regel (`JAMMERS`) würde sonst den Faltsprung zur Statio Limitis blockieren, solange ein Jäger oder die Korvette lebt
 (wer plündert, ohne die Eskorte zu töten, säße fest). Abgabe in der Statio Limitis und die Ladung für die Methalle (`fracht_zuteilen 1`) sind unverändert.
 
-**Kapitel 4 (Methalle).** Landepunkt `methalle.siedlung` (Kopie von `splitter.methalle`, `frei: immer`, `beam` = Station des Orts (1349, 928), Reichweite 360; `szene.beam.map` am Hex 0705 in `limes.json`).
-Der Schritt `methalle` ist die Vorlage von `sprengstoff_platzieren` mit Kapitelbuch-Eigenheiten:
-- **Sprengstoff:** Beim Eintritt wird eine Ladung `sprengstoff` aus dem **Frachtraum ins Gepäck** (Inventar `ladung`, das Feld, das der Sprengpunkt liest) umgeladen (`fracht_abliefern` + `ladung_geben`). Wer im Hafen **gekauft** hat
-  (Shop `ladung`, 150 Marken, EK5), hat sie schon im Gepäck: kein Umladen, die Szene nimmt sie. Fehlt beides (Notrückholung hat die Ladung verbraucht, Labor-Einstieg ohne Fracht), legt die Szene eine **kostenlose** Ladung
-  ins Gepäck (Softlock-Schutz, wie der Hafen-Ersatz, D13).
-- **Flag `methalle_gesprengt`:** sobald der Sprengpunkt `platziert` ist **und** niemand mehr unten ist (nach dem Hochbeamen). Die zweite Welle (Nachschub an den Baracken) kommt mit der Ansage „Sprengstoff liegt“.
-- **Nottransport:** Die Notrückholung (`squadRecall`) setzt die Karte zurück (`map_reset`) und beendet das Kapitel mit `rueckzug`; die Kette wiederholt es (Kapitel 4 von vorn, kein Fortschritt, kein Kartenwechsel dazwischen).
-- **Ersatz im Hafen** (k3 und k4, Statio Limitis und Castra Martis): jetzt auch nur, wenn **kein** Sprengstoff im Gepäck liegt (sonst doppelt, nach dem Umladen).
-- Briefing und Auftrag nennen jetzt beide Wege: Beute im Frachtraum oder gekaufte Ladung aus dem Hafen.
+**Kapitel 4 (Methalle), seit EIS-01 P4: Bunker statt Mauer.** Der Ort bleibt „Methalle“ (Hex 0705, Ort `methalle`, Landepunkt `methalle.siedlung`, Flag `methalle_gesprengt`, Kapitel `k4_methalle`, Schritt `methalle`).
+Der Landepunkt ist die Festkarte `grabenangriff` (`gen.fest`, `gen.bauweise germanen`, Besitz `raubzug`, `frei: immer`, `beam` = Station des Orts (1349, 928), Reichweite 360; `szene.beam.map` am Hex 0705 in `limes.json`):
+germanischer Stützpunkt, Wald mit Wiese, Graben und Bunkertor oben, darunter ein Bunker (Deck 1) mit Reaktorraum. Die Mission heißt: **in den Bunker kommen, den Reaktor sprengen, entkommen.** Das Labor (`splitter.methalle`, Mauer und Rohr) bleibt unverändert.
+- **Kein Schleichweg.** Posten sehen 22 Kacheln, die Wachen schlagen Alarm, Kampf ist der Normalfall. Zwei Zugänge: **Bunkertor mit Lift** (Wiese, Graben, Wald, Tor) oder das **Rohr in der Waldmitte** (Kampfumgehung: Leiter in den Kriechgang, am Graben vorbei).
+  Der Reaktorraum (Anker `bk.reaktor.sprengpunkt`) wird von Wachen gehalten.
+- **Aufbau:** `enter` ruft `bunker_aufbauen { map methalle.siedlung, fraktion raubzug, sperre aus, ziel_still, sperre_text, ziel_offen, ziel_erreicht, nachschub }` (Texte als `@bunker.*` im Regiebuch, germanisch statt der Rom-Texte von `CONFIG.graben.texte`).
+  Drei Wellen (1 Graben und Posten, 2 Wald und Eingang, 3 Bunker), Größe 6-3 / 9-4 / 12-6 / 16-8 je nach 1/2/3/4 Spielern (`CONFIG.graben.besetzung`). **Sprengpunkt-Sperre aus:** der Reaktor ist ab dem Lift zündbar.
+  Zünden: E halten, Countdown, Knall. Der Knall löst **einmal** Nachschub aus (4 Mann oben am Bunkereingang, ALARM). `besetzen_paare` und `nachschub_baracken` entfallen.
+- **Takt:** `bunker_sieg_bereit` steht allein als erste Bedingung von `next[0]` (nach 4a läuft die Bunker-Mechanik nur, wenn jeden Spieltick eine Bunker-Prüfung ausgewertet wird). **Der Prüfer erzwingt das** (`TAKT-BUNKER`, `server/mission/checker.js`): ein Schritt mit `bunker_aufbauen` ohne Bunker-Prüfung als erste Bedingung der ersten `next`-Zeile ist ein Fehler.
+- **Ziele:** `runter` (Außenteam runterbeamen, erledigt bei `away_active` oder `bunker_gesprengt`), `sprengen` (`bunker_gesprengt`), `hoch` (sichtbar nach dem Knall, erledigt bei `bunker_sieg_bereit`). Garantie: Hinweis-Timer nach 90 s, solange nicht gesprengt.
+- **Sieg des Schritts:** `bunker_sieg_bereit` (gesprengt **und** alle verbundenen Spieler wieder an Bord: Hochbeamen am Pad des Bunkereingangs oder am Abholpunkt) -> `next[0]` geht nach `meldung`. Dort setzt `enter` die **Flag `methalle_gesprengt`** (Alias, k5 bis k8 und die Kette hängen daran), danach wie bisher: Meldung von Mars, `sperrriegel_oeffnen`, Ausgang `erfolg` (Fakten `methalle=zerstoert`, `sprengstoff=verbraucht`).
+- **Sprengstoff:** wie bisher. Beim Eintritt wird eine Ladung `sprengstoff` aus dem **Frachtraum ins Gepäck** (Inventar `ladung`) umgeladen (`fracht_abliefern` + `ladung_geben`); wer im Hafen **gekauft** hat, hat sie schon. Fehlt beides, legt das Regiebuch eine kostenlose Ladung ins Gepäck (Softlock-Schutz, D13).
+  **Das Regiebuch besitzt die Ladung**, `bunker_aufbauen` fasst sie nie an (`ladung: unberuehrt`). `g.inventory.ladung` ist am Spielbeginn `undefined`, nicht 0 (`item_count`-Bedingungen).
+- **Rückzug:** Die Notrückholung (`squadRecall`) vor dem Knall setzt die Karte zurück (`map_reset`) und beendet das Kapitel mit `rueckzug`; die Kette wiederholt es, der nächste Eintritt baut den Bunker über `bunker_aufbauen` frisch auf (neuer Zustand, alle Verteidiger wieder da).
+  **Transfer:** die Notrückholung brennt den Transfer durch (`module.notrueckholungFolge`); `graben.neuBeginnen` (Lobby) repariert ihn, `map_reset` nicht. In der Kampagne bleibt er **zerstört, bis die Crew ihn flickt** (E halten am Transfer, ohne Ersatzteil, danach beschädigt, Hinunterbeamen geht), dasselbe wie bei der Methalle davor; kein Softlock, die Abkühlsperre (`aw.recallLockUntil`) stirbt mit `aw`. Die ODA beim Reset sagt „Transfer reparieren“. Test: `tools/test-kette.js` (Rückzug-Block).
+  Fällt die Crew **nach** dem Knall (Nachschub), gilt die Sprengung: alle an Bord = Sieg (kein Rückzug, der Reset-Zweig ist nach `bunker_gesprengt` abgeschaltet).
+- **Laden mitten im Schritt:** der Bunker (`aw.graben`) liegt nicht im Weltstand. Geladen steht das Schiff im Hafen, der Schritt wartet; zurück an der Methalle läuft `enter` erneut und baut den Bunker neu auf.
+- **Skip (Debug, Bot-Überspringen):** Sprengpunkt per `anker_zustand` auf `zerstoert`, `debug_recall_all`; der Schritt endet dann **über `bunker_sieg_bereit`** (die Mechanik erkennt den Knall im nächsten Takt), nicht über eine Flag-Abkürzung. Die Flag setzt `meldung`.
+- **Ersatz im Hafen** (k3 und k4, Statio Limitis und Castra Martis): nur, wenn weder Sprengstoff im Frachtraum noch im Gepäck liegt und die Methalle nicht gesprengt ist.
+- **Crew 1 bis 4:** `kopf.crew` min 1, max 4, empfohlen 3 (nur deklarativ; die harte Grenze ist `maxPlayers` 4).
+- **Nicht in P4:** Bot (`sim-headless kette` spielt k4 über den Skip, ohne god gewinnt kein Bot den Bunker), Bot-Pfade Tor und Rohr, Prüfer-Screenshots.
 
 **Kapitel 7 (Siedlung).** Landepunkt `eisenwald.siedlung` (Kopie von `splitter.eisenwald`, Station des Orts (1756, 1087)). Zwei Schritte wie in der Vorlage (Engine: Regeln feuern je Schritt nur einmal):
 `siedlung` (Hissen; Ausgang `anker_state flagge gehisst` setzt `flagge_gehisst` und geht in `siedlung_kampf`) und `siedlung_kampf` (10 Gegner und Anführer, Sieg, `gegner_abziehen`, dann `boss_besiegt` erst wenn alle an Bord sind;
@@ -176,6 +188,7 @@ Kapitel 4 soll auf der festen Karte `grabenangriff` (Wald und Bunker, 2 Decks) s
 | D29 | Notrückholung = Ausgang `rueckzug` samt Kartenreset in k4 und k7 | Vertrag (4); die Kette wiederholt; die Flags des Kapitels 7 werden dabei gelöscht, sonst bliebe `flagge_gehisst` stehen |
 | D30 | Solo-Siedlung: Legionär hisst mit, 5 + 1 Gegner | siehe oben |
 | D31 | `scene.beam` an den Hexen 0704 und 0705 plus Landepunkte `*.siedlung` mit `frei: immer`; die Labor-Platzhalter `splitter.methalle` und `splitter.eisenwald` bleiben | Vorgabe EK5/EK6/EK7; das Labor und seine Bots bleiben unverändert |
+| D33 | Kapitel 4 spielt auf der Festkarte `grabenangriff` (EIS-01): Bausteine `bunker_*`, Takt über `bunker_sieg_bereit` in `next[0]` (Prüfer `TAKT-BUNKER`), Sperre aus, Flag `methalle_gesprengt` im Schritt `meldung` | Kampf statt Schleichen (Kai 2026-11-11); Alias der Flag, damit k5 bis k8 und die Kette unverändert bleiben |
 | D32 | `tools/sim-headless.js`: eine Zeile in `buehneTasks` (Aufgabe „Anführer jagen“ nur in der Phase `angriff`) | nach dem Abzug der Gegner liefert `boss_besiegt` false, der Bot jagte ewig; das Kapitelbuch wartet hier (anders als die Vorlage) auf das Hochbeamen |
 
 ### Messwerte (Bot, 2026-10-11)
@@ -185,7 +198,7 @@ Bots über `node tools/sim-headless.js kette …` (ohne Tutorial; „ok“ ohne 
 |---|---|---|---|---|---|
 | Einstieg k2 (Konvoi, Abgabe) | 3 | 1–4 | 4/4 ok | 8,7–10,2 | |
 | Einstieg k2 | 1 | 1–4 | 4/4 ok | 9,3–20,5 | 5–14: 10/10 ok (7,5–26 min) |
-| Einstieg k4 (Methalle) | 3 | 1–4 | 4/4 ok | 1,6 | ohne Alarm, ohne Schuss (Schleichweg) |
+| Einstieg k4 (Methalle, **bis EIS-01: Mauer und Rohr**) | 3 | 1–4 | 4/4 ok | 1,6 | ohne Alarm, ohne Schuss (Schleichweg); seit EIS-01 P4 überholt (Bunker, Kampf, Bot spielt k4 über den Skip) |
 | Einstieg k4 | 1 | 1–4 | 4/4 ok | 2,2 | |
 | Einstieg k7 (Siedlung) | 3 | 1–4 | 4/4 ok | 1,2–16,0 | Versuche 3 / 13 / 1 / 1: die Bots verlieren oft gegen 11 Gegner (EK6-Befund), die Wiederholung greift |
 | Einstieg k7 | 1 | 1–4 | 4/4 ok | 2,7–22,1 | Legionär hisst, 5 + 1 Gegner; Versuche 2 / 30 / 7 / 5 |
@@ -195,7 +208,7 @@ Bots über `node tools/sim-headless.js kette …` (ohne Tutorial; „ok“ ohne 
 **Was nur zu dritt klappt (ehrlich):** Die volle Eskorte (Jäger und Korvette) am Rabenpass schafft kein Solo-Bot; solo ist sie darum auf den Jäger gekürzt, und selbst damit bleibt der Solo-Bot in der Kette bei 2 von 4 Läufen
 am Zeitlimit hängen (im Labor-Einstieg 14 von 14). Ein Mensch kann den Konvoi solo endlos wiederholen (nie gescheitert), aber es ist Mühe. Die Siedlung ist zu dritt nur mit Wiederholungen sicher zu gewinnen (die Bots verlieren
 im Mittel mehrere Anläufe, vor allem durch die 10 + 1 Gegner von allen Seiten); Menschentest EK9. Solo ist die Siedlung durch den Legionär und weniger Gegner machbar, aber keine Entsprechung zum Zwei-Spieler-Hissen.
-Die Methalle klappt in beiden Besetzungen ohne Alarm.
+Die Methalle (Fassung bis EIS-01) klappte in beiden Besetzungen ohne Alarm; der Bunker ist ein Kampf-Kapitel.
 
 Gespeichert und geladen wird weiter an jedem Kapitelübergang (`tools/test-kette.js`, jetzt 162 Prüfungen) und mitten in der Methalle (Sprengstoff im Gepäck bleibt).
 

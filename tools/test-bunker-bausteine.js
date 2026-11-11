@@ -127,6 +127,20 @@ section('1. Katalog, Registry und Prüfer', () => {
   ok(pruefe((b) => { b.steps[0].objectives[0].done.check.welle = 0; }).errors.some((e) => e.code === 'PARAM-WERT'), 'welle 0: PARAM-WERT');
   ok(pruefe((b) => { delete b.steps[0].objectives[0].done.check.welle; }).errors.some((e) => e.code === 'PARAM-FEHLT'), 'bunker_welle_tot ohne welle: PARAM-FEHLT');
   ok(pruefe((b) => { b.steps[0].objectives[0].done.check.map = 'kesh.hof'; }).errors.some((e) => /map|Karte|Landepunkt/i.test(e.msg || '')), 'unbekannte Karte in der Prüfung: Prüferfehler');
+  // EIS-01 P4: TAKT-BUNKER, ein Schritt mit bunker_aufbauen braucht eine Bunker-Prüfung als erste Bedingung der ersten next-Zeile
+  const takt = (aend) => pruefe(aend).errors.filter((e) => e.code === 'TAKT-BUNKER');
+  const sieg = () => ({ check: { name: 'bunker_sieg_bereit', map: t.lp } });
+  ok(takt(() => {}).length === 0, 'TAKT-BUNKER positiv: bunker_sieg_bereit allein in next[0]: kein Fehler');
+  ok(takt((b) => { b.steps[0].next[0].if = { all: [sieg(), { v: 'x' }] }; }).length === 0, 'TAKT-BUNKER positiv: Bunker-Prüfung als erstes Glied eines all: kein Fehler');
+  ok(takt((b) => { b.steps[0].next[0].if = { check: { name: 'bunker_gesprengt', map: t.lp } }; }).length === 0, 'TAKT-BUNKER positiv: eine andere Bunker-Prüfung genügt');
+  ok(takt((b) => { b.steps[0].next[0].if = { elapsed: 30 }; }).length === 1, 'TAKT-BUNKER negativ: next[0] ohne Bunker-Prüfung: Fehler');
+  ok(takt((b) => { b.steps[0].next[0].if = { all: [{ v: 'x' }, sieg()] }; }).length === 1, 'TAKT-BUNKER negativ: Prüfung hinter einem kurzschließenden all (nicht zuerst): Fehler');
+  ok(takt((b) => { b.steps[0].next.unshift({ if: { elapsed: 5 }, goto: 'bunker' }); }).length === 1, 'TAKT-BUNKER negativ: Bunker-Prüfung erst in der zweiten next-Zeile: Fehler');
+  ok(takt((b) => { b.steps[0].next = []; }).length === 1, 'TAKT-BUNKER negativ: Schritt ohne next: Fehler');
+  const tm = takt((b) => { b.steps[0].next[0].if = { elapsed: 30 }; })[0];
+  ok(tm && /bunker_sieg_bereit/.test(tm.msg) && /CONTRACT-EK8/.test(tm.msg) && /next\[0\]/.test(tm.p), 'TAKT-BUNKER: Meldung nennt Prüfung, Fundort und Vertrag');
+  ok(takt((b) => { b.steps[0].enter = []; b.steps[0].next[0].if = { elapsed: 30 }; }).length === 0, 'TAKT-BUNKER: Schritt ohne bunker_aufbauen wird nicht geprüft');
+  ok(takt((b) => { b.steps[0].enter = []; b.steps[0].skip = [e0(b)]; b.steps[0].next[0].if = { elapsed: 30 }; }).length === 0, 'TAKT-BUNKER: bunker_aufbauen nur im skip zählt nicht');
 });
 
 section('2. Germanen (raubzug), Sperre aus: sofort zündbar; game.arena null; Ladung unberührt (0 und 2)', () => {
