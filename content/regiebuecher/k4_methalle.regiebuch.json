@@ -87,7 +87,7 @@
         { "if": { "check": { "name": "rueckzug", "loc": "methalle" } }, "complete": "rueckzug" }
       ],
       "skip": [
-        { "do": "anker_zustand", "map": "methalle.siedlung", "anker": "bk.reaktor.sprengpunkt", "zustand": "zerstoert" },
+        { "do": "set_object_state", "map": "methalle.siedlung", "anker": "bk.reaktor.sprengpunkt", "state": "zerstoert" },
         { "do": "debug_recall_all", "map": "methalle.siedlung" }
       ]
     },
