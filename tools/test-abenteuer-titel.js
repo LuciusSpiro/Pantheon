@@ -76,5 +76,23 @@ console.log('\nGegenprobe: Spielername als ganzes Wort wird ersetzt');
   ok(r.fehler === 0 && r2.fehler === 0, 'keine Serverfehler');
 }
 
+console.log('\nGenitiv-s, Flexion und gekuerzte Namen (Schutz vor Spielernamen)');
+{
+  const r = probe(71, ['Ada', 'Bo', 'Cem'], 'Bos Schiff', 'Bo’s Schiff und Adas Boje');
+  ok(r.titel === 'Crew Schiff' && r.funk === 'Neuer Auftrag am Brett: Crew Schiff', 'Spieler „Bo“, Titel „Bos Schiff“ -> „Crew Schiff“ in Snapshot und Funk: ' + JSON.stringify([r.titel, r.funk]));
+  ok(r.anlass === 'Crew Schiff und Crew Boje', 'Anlass „Bo’s Schiff und Adas Boje“ -> Namen samt Genitiv weg, Boje bleibt: ' + JSON.stringify(r.anlass));
+  const r2 = probe(72, ['Ada', 'Bo', 'Cem'], "Bo's Schiff und Boje");
+  ok(r2.titel === 'Crew Schiff und Boje', 'Titel mit geradem Apostroph „Bo\'s“: ' + JSON.stringify(r2.titel));
+  const r3 = probe(73, ['Ada', 'Bo', 'Cem'], 'Boje und Bordintelligenz', 'Adagio, Bordkante und Cemento');
+  ok(r3.titel === 'Boje und Bordintelligenz' && r3.anlass === 'Adagio, Bordkante und Cemento', 'Boje, Bordintelligenz, Adagio bleiben: ' + JSON.stringify([r3.titel, r3.anlass]));
+  const lang = 'Mireille_Kas';
+  ok(Array.from(lang).length === 12, 'Testname hat genau 12 Zeichen (gekuerzte Speicherung): ' + lang.length);
+  const r4 = probe(74, [lang, 'Bo', 'Cem'], 'Mireille_Kassandra', 'Mireille_Kassandras Schiff');
+  ok(r4.titel === 'Crew' && r4.anlass === 'Crew Schiff' && !/Mireille/.test(r4.funk || ''), 'Langer Name (12 Zeichen): voller Name im Plan wird ganz ersetzt, nicht „Crewsandra“: ' + JSON.stringify([r4.titel, r4.anlass, r4.funk]));
+  const r5 = probe(75, ['Ada', 'Bo', 'Cem'], 'Adagio');
+  ok(r5.titel === 'Adagio', 'Spieler „Ada“, Titel „Adagio“ bleibt: ' + JSON.stringify(r5.titel));
+  ok(![r, r2, r3, r4, r5].some((x) => x.fehler), 'keine Serverfehler');
+}
+
 console.log(`\n${n - fails} von ${n} ok${fails ? ', ' + fails + ' FEHLER' : ''}`);
 process.exit(fails ? 1 : 0);
