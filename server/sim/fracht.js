@@ -20,6 +20,7 @@
 //    nicht an beliebiger Station abgebbar). Sie reisen als Objekt in lagerAufnehmen(game, { art, quelle, eigenschaften }) und stehen im Server-Lagereintrag als l.eig ({ illegal, getarnt, auftrag, aufgedeckt }).
 //    Erlaubt ist, was waren.json je Ware unter eigenschaften führt. Server rechnet Typ-Regel, Preis, Gewicht mit der ECHTEN Art (l.art); der Snapshot zeigt dem Spieler die angezeigte Art (anzeigeArt).
 //    frachtDurchsuchen(game, { wer, tiefe }) deckt getarnte/illegale Ladung auf (Hook für BEA-01, Ereignis frachtDurchsucht).
+//    BEA-01 B: lagerBeschlagnahmen(game, { wer }) nimmt die aufgedeckten illegalen Plätze ohne Auftrag aus dem Frachtraum (Ware weg, Ereignis frachtBeschlagnahmt); der Beat forderung (Art durchsuchung) ruft beide.
 //  - Mitgeführte Ladung steht im Weltstand (schiff.fracht = ['sprengstoff', …]); Ladungen im Raum nicht.
 //  - Schnittstelle gesichert/ungesichert („Lager ohne Strom“, PAN-01 A): gesichert(game) / setGesichert(game, bool). Das Lager ist kein
 //    Schiffssystem, aber das Modul Frachtraum (module.js): läuft es nicht (abgeschaltet oder ohne Strom), setzt module.update die Flagge auf false.
@@ -436,6 +437,28 @@ function frachtDurchsuchen(game, o) {
   return befund;
 }
 
+// ---------- BEA-01 B: Beschlagnahme (Folge einer Durchsuchung) ----------
+// Nimmt die durch frachtDurchsuchen AUFGEDECKTEN illegalen Plaetze aus dem Frachtraum: die Ware ist weg (kein Rueckkauf, Entscheid Kai/Leitung), der Platz wird frei. Eine Ladung mit Auftrag (Faden-Ware, Kampagne)
+// nimmt sie nie mit: sie gehoert einem Auftraggeber, nicht der Crew. Eine getarnte Ladung, die ein Scan nicht aufgedeckt hat (aufgedeckt fehlt), bleibt, ebenso jede nicht illegale Ladung. Die Entnahme ist splice(i, 1) wie bei
+// auftragEntnehmen: kein anderer Weg aus dem Lager. Ereignis frachtBeschlagnahmt wie frachtDurchsucht (auch bei n 0); die ODA-Zeile nennt die echte Art, weil der Fund sie ohnehin aufgedeckt hat.
+// wer: frei benannter Durchsucher (nur Meldung/Ereignis). -> { ok: true, wer, n, plaetze: [{ art, illegal, getarnt }], arten (echte Arten, ohne Doppelte) }
+function lagerBeschlagnahmen(game, o) {
+  const q = o || {};
+  const wer = q.wer != null ? String(q.wer) : 'unbekannt';
+  const s = state(game);
+  const plaetze = [];
+  for (let i = s.lager.length - 1; i >= 0; i--) {
+    const l = s.lager[i], e = l.eig;
+    if (!e || !e.illegal || !e.aufgedeckt || e.auftrag) continue;
+    s.lager.splice(i, 1);
+    plaetze.unshift({ art: l.art, illegal: true, getarnt: !!e.getarnt });
+  }
+  const arten = Array.from(new Set(plaetze.map((x) => x.art)));
+  if (plaetze.length) game.oda(`Beschlagnahmt (${wer}): ${plaetze.map((x) => artName(x.art)).join(', ')}.`, null);
+  game.missionEvent('frachtBeschlagnahmt', { wer, arten, n: plaetze.length });
+  return { ok: true, wer, n: plaetze.length, plaetze, arten };
+}
+
 // ---------- Tick ----------
 function update(game, dt) {
   const s = state(game);
@@ -610,7 +633,7 @@ function debug(game, args) {
 }
 
 module.exports = {
-  neu, state, update, snapshot, toSave, toSaveEig, restore, debug, frachtDurchsuchen, anzeigeArt, eigenschaftenPruefen,
+  neu, state, update, snapshot, toSave, toSaveEig, restore, debug, frachtDurchsuchen, lagerBeschlagnahmen, anzeigeArt, eigenschaftenPruefen,
   fracht_abwerfen, abwerfen: fracht_abwerfen,
   anzeigeName, platzFuerLadung, fremdesModulRaeumen, podAblegen, modulAnzeige, beamStart, abliefernStart, beamStop, systemTreffer, ablieferOrt, stationOrt,
   anBord, frei, capacity, platzFuer, freiFuer, kapazitaetFuer, passtOhneRaum, personImRaum, lagerAufnehmen, auftragEntnehmen, podsEntnehmen, erloschenesAufraeumen, auftragAnBord, anBordFuerBeute, erzEinlagern, beuteEinlagern, zuteilen, belegung, personPlaetze, gesichert, setGesichert, gefaehrdet, huellenTreffer, frachtraumTreffer, lagerArten, draussen, abgeliefert,

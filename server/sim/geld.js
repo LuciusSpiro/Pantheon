@@ -15,7 +15,7 @@
 const GRUENDE = Object.freeze([
   'start', 'testmarken', 'debug', 'laden', 'kampagne', 'migration',   // Stand setzen
   'abschuss', 'bergung', 'entern', 'erkundung', 'belohnung', 'notruf', 'verkauf', 'ueberhang', 'skript',   // Einnahmen
-  'kauf', 'info', 'werft', 'notfall', 'mission', 'forderung', 'geldziel', 'soeldner', 'loesegeld', 'bestechungsgeld',   // Ausgaben (bestechungsgeld: BEA-01 A, Geschichtsfaden; 'forderung' gehoert der Kampagne)
+  'kauf', 'info', 'werft', 'notfall', 'mission', 'forderung', 'geldziel', 'soeldner', 'loesegeld', 'bestechungsgeld', 'bussgeld',   // Ausgaben (bestechungsgeld: BEA-01 A, bussgeld: BEA-01 B, Geschichtsfaden; 'forderung' gehoert der Kampagne)
 ]);
 const ARTEN = Object.freeze(['buchung', 'stand']);
 const Pruefung = require('./buchungspruefung.js');
@@ -66,6 +66,9 @@ function abbuchen(game, n, grund) {
 // BEA-01 A: Bestechung im Geschichtsfaden (faden-forderung.js): zahlt n Marken, nur wenn genug da sind. true = bezahlt, false = nichts gebucht. Mit Ereignis marksPaid (grund bestechungsgeld).
 function bestechungZahlen(game, n) { return abbuchen(game, n, 'bestechungsgeld'); }
 
+// BEA-01 B: Bussgeld nach einem Fund bei der Durchsuchung (faden-forderung.js): zieht n Marken ab, hoechstens den Stand (kein Minus, die Strafe ist keine Bedingung der Wahl). Still (kein Ereignis, wie abziehenHoechstens). -> tatsaechlich abgezogener Betrag
+function bussgeldZahlen(game, n) { return abziehenHoechstens(game, Math.max(0, Math.floor(Number(n) || 0)), 'bussgeld'); }
+
 // ---- stille Varianten: exakt die Rechnung der Stellen vor dem Umbau, KEIN sfx/missionEvent (nie eins ergänzen) ----
 
 // Beute, Fund, Bergung, Erstbesuch, Belohnung: Marken kommen dazu (ungerundet wie bisher). -> neuer Stand
@@ -94,4 +97,4 @@ function abziehenHoechstens(game, n, grund) {
 // Stand setzen (Spielstart, Weltstand laden, Testmarken, Debug, Kampagnen-Einstieg): KEINE Buchung der Wirtschaft (Art 'stand'). n kommt fertig gerechnet vom Aufrufer.
 function standSetzen(game, n, grund) { return schreiben(game, 'stand', grund, n); }
 
-module.exports = { GRUENDE, stand, mindestens, gutschreiben, gutschreibenSkript, abbuchen, bestechungZahlen, einnehmen, erstatten, bezahlen, abziehenGeprueft, abziehenHoechstens, standSetzen, strengPruefen: Pruefung.strengPruefen };
+module.exports = { GRUENDE, stand, mindestens, gutschreiben, gutschreibenSkript, abbuchen, bestechungZahlen, bussgeldZahlen, einnehmen, erstatten, bezahlen, abziehenGeprueft, abziehenHoechstens, standSetzen, strengPruefen: Pruefung.strengPruefen };
