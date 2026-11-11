@@ -30,7 +30,7 @@
     "format": "absicht/1 (Eingabe des Modells): { format, absicht, titel, parameter: {name: wert}, bezug: { nsc?: Vollname, ort?: Hex }, bogen: { einsatz, wendung, preis }, ton }. Keine weiteren Felder.",
     "eintrag": "Eintrag unter `absichten.<name>`: { zweck: Text, parameter?: { <name>: { art: 'zahl', min, max, standard? } | { art: 'liste', erlaubt: [...], standard? } }, bezug?: [ { name: 'nsc'|'ort', pflicht: bool, kandidat?: true | Beat-Typ } ], fortsetzung?: bool, wendungen?: [Symbol], toene?: [Ton], bogen_pflicht?: [Feld], ton_standard?: Ton, inszenierung?: Rezept des Inszenierers (siehe `inszenierung`), prompt_zeile?: Text, standard?: { titel, bogen, ton? }, _hinweis?: Text }",
     "kandidat": "bezug.kandidat = true: der NSC muss ein Kandidat der Fadenmaschine sein (faden.wiedersehenKandidaten, nach dem ersten Beat-Typ mit braucht.nsc_alt), nicht nur im Kanon stehen. bezug.kandidat = \"<Beat-Typ aus beats.json>\" (SPL-02 C0): dasselbe, aber nach den Zustaenden (braucht.nsc_status) genau dieses Typs, z. B. ein feindlicher oder geflohener NSC fuer einen Beat, der ihn so verlangt; der Typ muss braucht.nsc_alt tragen, und bei einem Rezept muss er der erste Beat des Skeletts sein.",
-    "inszenierung": "SPL-02 B: das Rezept, nach dem der Inszenierer (server/sim/inszenierer.js) aus der Absicht einen Beat-Plan baut: { ort: { regel: crew_hex | naechster_mit_kartenart (kartenart, reichweite_parameter?) | bezug_ort }, bedingungen?: [ { art: nsc_haltung (bezug, hoechstens?, mindestens?) | rang_mindestens (rang) } ], nicht_ausdrueckbar?: [ { wenn: { parameter | bogen | ton: Name, ist: Wert } | { immer: true }, grund: Text, gegenvorschlag?: { feld, wert, text } } ], staerke_parameter?: Name, stufe_max?: Zahl, skelett: { landeplaetze?, volk_erlaubt?, namenlos?, wahrheit?, beats: [ Beat des Bauplans, dazu ab_stufe?, bis_stufe?; ein Parameter darf { aus: 'parameter.<name>' } oder { nach_stufe: [Werte] } sein ] }, wendungen?: { <Symbol>: { nach: Beat-Id oder -Typ des Skeletts, beats: [...] } }, anlass_vorlage?: Text }. Zahlen und Tabellen (Stufen nach Rang und Schiff, Reichweiten) stehen in content/faeden/inszenierer-werte.json.",
+    "inszenierung": "SPL-02 B: das Rezept, nach dem der Inszenierer (server/sim/inszenierer.js) aus der Absicht einen Beat-Plan baut: { ort: { regel: crew_hex | naechster_mit_kartenart (kartenart, reichweite_parameter?) | bezug_ort }, bedingungen?: [ { art: nsc_haltung (bezug, hoechstens?, mindestens?) | rang_mindestens (rang) | ladung_mindestens (plaetze; BEA-01 C2: Ladung im Frachtraum der Lerche) } ], nicht_ausdrueckbar?: [ { wenn: { parameter | bogen | ton: Name, ist: Wert } | { immer: true }, grund: Text, gegenvorschlag?: { feld, wert, text } } ], staerke_parameter?: Name, stufe_max?: Zahl, skelett: { landeplaetze?, volk_erlaubt?, namenlos?, wahrheit?, beats: [ Beat des Bauplans, dazu ab_stufe?, bis_stufe?; ein Parameter darf { aus: 'parameter.<name>' } oder { nach_stufe: [Werte] } sein ] }, wendungen?: { <Symbol>: { nach: Beat-Id oder -Typ des Skeletts, beats: [...] } }, anlass_vorlage?: Text }. Zahlen und Tabellen (Stufen nach Rang und Schiff, Reichweiten) stehen in content/faeden/inszenierer-werte.json.",
     "prompt_zeile": "SPL-02 C: die Zeile dieser Absicht im Prompt des Spielleiters (Paket E baut den Katalog daraus), beginnt mit \"<name>:\", hoechstens werte.prompt_zeile_max Zeichen, nennt jeden Parameter, Bezug und jede Wendung des Eintrags (Test). Alle Zeilen zusammen sollen werte.prompt_summe_ziel nicht uebersteigen.",
     "standard": "SPL-02 C: die Standard-Parametrierung = die Absicht, die ohne Modell entsteht (Rueckfall des Bretts, Paket F): { titel, bogen: { einsatz, wendung, preis }, ton }, ohne Parameter und Bezug. Der Inszenierer baut daraus denselben Plan wie der Bauplan in anschluss.json (Test).",
     "fortsetzung": "fortsetzung = true: die Absicht darf einen NSC aufnehmen, der in einem der letzten Abenteuer die Hauptfigur war; der Aufrufer setzt dann `locker` am Angebot (abenteuer-brett.js neuAnbieten). Der Pruefer liefert nur die Eigenschaft (istFortsetzung)."
@@ -353,6 +353,30 @@
           "piraten": {"nach":"notruf","beats":[{"typ":"raumschlacht"},{"typ":"raumschlacht","ab_stufe":2}]}
         },
         "anlass_vorlage": "Ein Schiff funkt um Hilfe und wartet auf Antwort."
+      }
+    },
+    "forderung": {
+      "zweck": "Ein Zollschiff (bei hoher Stufe ein Freibeuter) stellt die Lerche und will den Frachtraum pruefen: dulden, zahlen oder kaempfen. Nein ohne Ladung an Bord und ohne Rang Optio.",
+      "parameter": {"tiefe":{"art":"liste","erlaubt":["voll","scan"],"standard":"voll"}},
+      "bezug": [],
+      "wendungen": ["keine"],
+      "ton_standard": "nuechtern",
+      "prompt_zeile": "forderung: Zollkontrolle: ein Zollschiff hält die Lerche an, die Crew duldet die Prüfung des Frachtraums, zahlt oder kämpft. Parameter tiefe: voll|scan (voll deckt auch getarnte Ware auf). Keine Wendung. Nur mit Ladung an Bord und ab Rang Optio; Gegner und Preis wachsen mit Rang und Schiff.",
+      "inszenierung": {
+        "ort": {"regel":"crew_hex"},
+        "bedingungen": [
+          {"art":"rang_mindestens","rang":"optio","grund":"kein Zollschiff oder Freibeuter haelt eine Crew an, die Rom noch nicht kennt (Platzhalter, Balance: Kai)"},
+          {"art":"ladung_mindestens","plaetze":1,"grund":"ohne Ladung an Bord gibt es nichts zu pruefen"}
+        ],
+        "skelett": {
+          "beats": [
+            {"typ":"forderung","parameter":{"art":"durchsuchung","tiefe":{"aus":"parameter.tiefe"},"staerke":{"nach_stufe":["gering","mittel","stark"]},"text_key":{"nach_stufe":["durchsuchung_zollschiff","durchsuchung_zollschiff","durchsuchung_freibeuter"]}},"verzweigung":{"gescheitert":"ende"}},
+            {"typ":"schmiergeld","parameter":{"staerke":{"nach_stufe":["gering","mittel","stark"]},"text_key":{"nach_stufe":["schmiergeld_durchsuchung_zollschiff","schmiergeld_durchsuchung_zollschiff","schmiergeld_durchsuchung_freibeuter"]}},"verzweigung":{"gelungen":"ende"}},
+            {"typ":"raumschlacht","verzweigung":{"gescheitert":"ende"}},
+            {"id":"ende","typ":"abschluss","erfolg":["schmiergeld","raumschlacht"]}
+          ]
+        },
+        "anlass_vorlage": "Ein Zollschiff stellt die Lerche und will den Frachtraum pruefen."
       }
     }
   }

@@ -20,7 +20,7 @@
 // Rezept (`inszenierung` im Katalogeintrag; Schema in absichten.json `_absicht.inszenierung`):
 //   ort           Ortsregel: crew_hex (der Sektor der Crew) · naechster_mit_kartenart (der naechste Sektor mit landbarer Kartenart, ab reichweite_parameter der Absicht, sonst reichweite_standard) ·
 //                 bezug_ort (der Sektor des Bezugs ort). Die Kartenart der Regel ersetzt `$ort_kartenart` in den Landeplaetzen des Skeletts.
-//   bedingungen   Weltbedingungen: nsc_haltung (der Bezug nsc hat Haltung hoechstens/mindestens x) · rang_mindestens (Rang der Crew bei Rom). Lage, Landeplaetze und Wiederholung prueft der Plan selbst (Vorab-Pruefung).
+//   bedingungen   Weltbedingungen: nsc_haltung (der Bezug nsc hat Haltung hoechstens/mindestens x) · rang_mindestens (Rang der Crew bei Rom) · ladung_mindestens (BEA-01 C2: mindestens `plaetze` Plaetze Ladung im Frachtraum der Lerche, gelesen aus dem Frachtraum). Lage, Landeplaetze und Wiederholung prueft der Plan selbst (Vorab-Pruefung).
 //   nicht_ausdrueckbar   was der Beat-Katalog (noch) nicht kann: wenn (parameter | bogen | ton == Wert, oder immer) -> Nein NICHT_AUSDRUECKBAR mit dem Grund; optional ein Gegenvorschlag { feld, wert, text }
 //   staerke_parameter, stufe_max   Staerke: Name des Absichts-Parameters (Zahl, mit Standard), mit dem die Absicht eine Stufe wuenscht; der Standard heisst: kein Wunsch, es gilt die Stufe der Welt.
 //                 Ein Wunsch darf hoechstens Stufe der Welt plus staerke_spielraum sein, hoechstens stufe_max, sonst STAERKE_UNMOEGLICH mit der hoechsten erlaubten Stufe als Gegenvorschlag
@@ -41,6 +41,7 @@ const Ruf = () => require('./ruf.js');
 const B1 = () => require('./faden-b1.js');
 const Wdh = () => require('./abenteuer-wiederholung.js');
 const Sektoren = () => require('../../shared/sektoren.js');
+const Lager = () => require('./fracht.js');   // BEA-01 C2: Frachtraum der Lerche (Bedingung ladung_mindestens), nur lesend
 
 const DATEI_WERTE = path.join(D.DIR, 'inszenierer-werte.json');
 const has = (o, k) => Object.prototype.hasOwnProperty.call(o, k);
@@ -53,7 +54,7 @@ const CODES = Object.freeze(Object.assign({}, AP.CODES, {
 }));
 // Das Vokabular des Inszenierers (Arten von Regeln, nicht Namen von Absichten oder Beats)
 const ORT = Object.freeze({ CREW_HEX: 'crew_hex', NAECHSTER_MIT_KARTENART: 'naechster_mit_kartenart', BEZUG_ORT: 'bezug_ort' });
-const BEDINGUNG = Object.freeze({ NSC_HALTUNG: 'nsc_haltung', RANG_MINDESTENS: 'rang_mindestens' });
+const BEDINGUNG = Object.freeze({ NSC_HALTUNG: 'nsc_haltung', RANG_MINDESTENS: 'rang_mindestens', LADUNG_MINDESTENS: 'ladung_mindestens' });   // BEA-01 C2: ladung_mindestens
 const WENN = Object.freeze({ PARAMETER: 'parameter', BOGEN: 'bogen', TON: 'ton', IMMER: 'immer' });
 const KEINE_WENDUNG = 'keine';
 const ORT_KARTENART = '$ort_kartenart';
@@ -154,6 +155,10 @@ function bedingungsFehler(game, rez, a, katalog) {
       let da = false;
       try { da = Ruf().rufErreicht(game, b.rang) === true; } catch (e) { da = false; }
       if (!da) out.push(fehl(CODES.WELT_BEDINGUNG, 'absicht', `der Rang der Crew reicht nicht (gebraucht: ${b.rang})${b.grund ? ': ' + b.grund : ''}`));
+    } else if (b.art === BEDINGUNG.LADUNG_MINDESTENS) {   // BEA-01 C2: der Frachtraum traegt mindestens `plaetze` Plaetze Ladung (Zahl aus den Daten des Rezepts); ohne Gegenvorschlag: kein Feld der Absicht kann eine Ladung herbeiholen
+      let n = 0;
+      try { n = Lager().anBord(game); } catch (e) { n = 0; }
+      if (!(n >= b.plaetze)) out.push(fehl(CODES.WELT_BEDINGUNG, 'absicht', `der Frachtraum der Lerche ${n ? 'ist zu schwach beladen' : 'ist leer'} (Ladung an Bord: ${n}, gebraucht: mindestens ${b.plaetze})${b.grund ? ': ' + b.grund : ''}`));
     }
   }
   return out;
@@ -375,6 +380,8 @@ function rezeptFehler(katalog, name, e) {
       let raenge = [];
       try { raenge = require('../../content/welt/ruf-werte.json').werte.raenge.wert.map((r) => r.id); } catch (err) { raenge = []; }
       if (!raenge.includes(b.rang)) g('rang_mindestens nennt einen unbekannten Rang');
+    } else if (b.art === BEDINGUNG.LADUNG_MINDESTENS) {   // BEA-01 C2
+      if (!(Number.isInteger(b.plaetze) && b.plaetze >= 1)) g('ladung_mindestens braucht plaetze (ganze Zahl >= 1)');
     } else g(`bedingung ${kurz(b.art)}: unbekannte Art (${Object.values(BEDINGUNG).join(', ')})`);
   }
   // nicht ausdrueckbar
