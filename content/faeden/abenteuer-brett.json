@@ -134,6 +134,12 @@
     "spontanhilfe": {
       "text": "Schlacht mit Beistand"
     },
+    "forderung": {
+      "text": "Forderung per Funk"
+    },
+    "schmiergeld": {
+      "text": "Schmiergeld oder Kampf"
+    },
     "notruf": {
       "text": "Notruf beantworten",
       "varianten": {

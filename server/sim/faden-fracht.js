@@ -140,6 +140,7 @@ function verloren(game, fadenId) {
   if (!f || !f.fracht || f.phase === 'abgeschlossen') return { ok: false, grund: 'keine Ware an Bord' };
   if (f.phase === 'wartet') { wareAbgeben(game, f); return { ok: true, grund: null }; }   // BEA-01 C0: zwischen den Beats laeuft kein Beat, der scheitern koennte: die Ware ist weg, der Faden wartet auf seinen naechsten Beat
   F().beatAusgang(game, f.id, 'gescheitert');   // der Ausgang entfernt die Ware (faden.beatAusgang)
+  if (f.fracht) wareAbgeben(game, f);   // BEA-01 A: ein Beat mit ware_bei_scheitern "bleibt" laesst die Ware beim Scheitern am Faden; ein VERLUST (Notsprung, Huellentreffer) nimmt sie trotzdem
   return { ok: true, grund: null };
 }
 
@@ -169,8 +170,11 @@ function behaeltWare(f, beat, ausgang) {
   if (!f || !f.fracht) return false;
   const m = D.endeModus(beat);
   if (m) return ausgang === 'gelungen' && m.haelt === true;
+  if (ausgang === 'gescheitert' && wareBleibtBeiScheitern(beat)) return true;   // BEA-01 A: Katalogfeld ware_bei_scheitern "bleibt" (beats.json): das Scheitern dieses Beats (Verweigern, Frist) nimmt die Ware nicht; der Verlust kommt aus dem Beat danach
   return ausgang !== 'gescheitert';
 }
+// BEA-01 A: der Katalog nimmt das Scheitern dieses Beat-Typs von der Regel „Zwischen-Beat scheitert = Ware verloren“ aus (ware_bei_scheitern: "bleibt"); kein Beat-Name im Code
+const wareBleibtBeiScheitern = (beat) => !!(beat && Object.prototype.hasOwnProperty.call(D.BEATS, beat.typ) && D.BEATS[beat.typ].ware_bei_scheitern === 'bleibt');
 // Gedaechtnis-Ereignis eines gelungenen Beats mit besonderem Ende (Lade-Beat: fracht_geladen statt fracht_gelungen, damit das Laden allein nie als Lieferung zaehlt); sonst null
 const endeEreignis = (beat, ausgang) => { const m = ausgang === 'gelungen' ? D.endeModus(beat) : null; return m && typeof m.ereignis === 'string' ? m.ereignis : null; };
 // Die Ware zwischen den Beats geht verloren (Notsprung in der Wartezeit): Funk, Frachtraum leer, Ware vom Faden

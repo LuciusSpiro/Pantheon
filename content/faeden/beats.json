@@ -83,6 +83,29 @@
       "ende_modi": {"parameter": "ende", "standard": "abgeliefert", "modi": {"abgeliefert": {"liefert": true, "haelt": false, "tat": true}, "geladen": {"liefert": false, "haelt": true, "tat": false, "ereignis": "fracht_geladen"}}, "_hinweis": "BEA-01 C0: wie der Beat endet. abgeliefert (Standard, ohne Parameter): der Beat laedt die Ware, falls noch keine am Faden haengt, und endet gelungen erst bei der Ablieferung am Zielhafen (die Ware kann auch ein frueherer Beat geladen haben). geladen: der Beat endet gelungen, sobald die Ware geladen ist; die Ware bleibt am Faden (faden.fracht) ueber die Folge-Beats, bis ein Beat abliefert oder der Faden sie verliert. liefert = der Beat liefert beim Andocken im Ziel ab, haelt = die Ware bleibt nach dem gelungenen Ende am Faden, tat = der Ausgang gelungen ist eine Tat der Crew (werte.json sim_befehl.tat_beats), ereignis = Gedaechtnis-Ereignis statt typ_gelungen."},
       "bauplan": {"start_status":"aktiv","hinweis_traeger":true,"parameter":{"nach":{"standard":"$ort","erlaubt":["$ort"]},"ware":{"standard":"fracht_kiste","erlaubt":"waren"}},"aus":{"gelungen":{"status":["verbuendet","aktiv"],"folge":[{"typ":"haltung_aenderung","grund":"geholfen"}]},"gescheitert":{"status":["aktiv","geflohen"],"folge":[{"typ":"haltung_aenderung","grund":"im_stich_gelassen"}]}}}
     },
+    "forderung": {
+      "zweck": "Ein Gegner (Freibeuter, Zollschiff, Patrouille) stellt die Lerche per Funk-Ultimatum und fordert die Ware; die Crew antwortet ueber die Antwortleiste. Ausliefern (Ausgang gescheitert): die Ware des Fadens ist weg, der Faden scheitert ohne Folgen im Weltgeschehen. Nicht ausliefern (Ausgang gelungen): es geht weiter (heute mit schmiergeld). Im Bild steht noch kein Gegner; die Gefahr beginnt erst im Folge-Beat.",
+      "baustein": "forderung",
+      "gefahr": false,
+      "optionen": "erlaubt",
+      "braucht": {"nsc_status": ["aktiv", "verbuendet", "feindlich"]},
+      "parameter": {"pflicht": [], "optional": ["text_key", "staerke"]},
+      "text_key_standard": "forderung_freibeuter",
+      "optionen_wirkung": {"ausliefern": {"ereignis": "ausgeliefert"}, "nicht_ausliefern": {"ereignis": "forderung_abgelehnt"}},
+      "_hinweis": "BEA-01 A: kein bauplan-Abschnitt = nicht planbar (BAUPLAN_TYP_NICHT_PLANBAR); Planbarkeit, Absicht und Prompt-Katalog sind Paket C. Der Baustein steht in server/sim/faden-forderung.js und bietet die Optionen ueber die Antwortleiste der Bitten (faden-bitte.js). text_key_standard: Text der Forderung (forderung-texte.json), wenn der Beat keinen text_key nennt. optionen_wirkung: je Option-Id was der Baustein tut (ereignis = Name im Regie-Logbuch; kosten = Schluessel in forderung-werte.json, die Option kostet Marken und geht nur mit genug). Ohne ware_bei_scheitern gilt die Regel der Zwischen-Beats: scheitert der Beat, ist die Ware verloren (so wird 'Ausliefern' zu 'Ware weg')."
+    },
+    "schmiergeld": {
+      "zweck": "Zweite Stufe der Forderung: der Forderer laesst mit sich reden. Bestechen (Ausgang gelungen) kostet Marken, die Ware bleibt, der Faden geht weiter ohne Kampf. Verweigern (Ausgang gescheitert) kostet nichts und geht in den Folge-Beat, heute der Kampf; die Ware BLEIBT am Faden und geht erst verloren, wenn die Crew diesen Kampf verliert. Im Bild steht noch kein Gegner.",
+      "baustein": "forderung",
+      "gefahr": false,
+      "optionen": "erlaubt",
+      "ware_bei_scheitern": "bleibt",
+      "braucht": {"nsc_status": ["aktiv", "verbuendet", "feindlich"]},
+      "parameter": {"pflicht": [], "optional": ["text_key", "staerke"]},
+      "text_key_standard": "schmiergeld_freibeuter",
+      "optionen_wirkung": {"bestechen": {"ereignis": "bestochen", "kosten": "bestechung_marken"}, "verweigern": {"ereignis": "verweigert"}},
+      "_hinweis": "BEA-01 A: wie forderung (nicht planbar, Baustein in faden-forderung.js). ware_bei_scheitern bleibt: ein gescheiterter Ausgang (Verweigern, aber auch Frist ohne Antwort) laesst die Ware am Faden (faden-fracht.js behaeltWare); der Verlust kommt erst aus dem Beat danach. Verliert die Crew die Ware ausserhalb der Wahl (Notsprung, Huellentreffer), gilt sie wie ueberall als verloren (faden-fracht.js verloren)."
+    },
     "geruecht": {
       "zweck": "Ein Geruecht nennt einen Sektor in der Naehe, in dem der NSC gesehen wurde; die Crew fliegt hin (keine Gefahr, kein Kampf, der Sektor kommt vom Code).",
       "baustein": "geruecht",

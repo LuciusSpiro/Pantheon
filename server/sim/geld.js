@@ -15,7 +15,7 @@
 const GRUENDE = Object.freeze([
   'start', 'testmarken', 'debug', 'laden', 'kampagne', 'migration',   // Stand setzen
   'abschuss', 'bergung', 'entern', 'erkundung', 'belohnung', 'notruf', 'verkauf', 'ueberhang', 'skript',   // Einnahmen
-  'kauf', 'info', 'werft', 'notfall', 'mission', 'forderung', 'geldziel', 'soeldner', 'loesegeld',   // Ausgaben
+  'kauf', 'info', 'werft', 'notfall', 'mission', 'forderung', 'geldziel', 'soeldner', 'loesegeld', 'bestechung',   // Ausgaben (bestechung: BEA-01 A, Geschichtsfaden; 'forderung' gehoert der Kampagne)
 ]);
 const ARTEN = Object.freeze(['buchung', 'stand']);
 const Pruefung = require('./buchungspruefung.js');
@@ -63,6 +63,9 @@ function abbuchen(game, n, grund) {
   return true;
 }
 
+// BEA-01 A: Bestechung im Geschichtsfaden (faden-forderung.js): zahlt n Marken, nur wenn genug da sind. true = bezahlt, false = nichts gebucht. Mit Ereignis marksPaid (grund bestechung).
+function bestechungZahlen(game, n) { return abbuchen(game, n, 'bestechung'); }
+
 // ---- stille Varianten: exakt die Rechnung der Stellen vor dem Umbau, KEIN sfx/missionEvent (nie eins ergänzen) ----
 
 // Beute, Fund, Bergung, Erstbesuch, Belohnung: Marken kommen dazu (ungerundet wie bisher). -> neuer Stand
@@ -91,4 +94,4 @@ function abziehenHoechstens(game, n, grund) {
 // Stand setzen (Spielstart, Weltstand laden, Testmarken, Debug, Kampagnen-Einstieg): KEINE Buchung der Wirtschaft (Art 'stand'). n kommt fertig gerechnet vom Aufrufer.
 function standSetzen(game, n, grund) { return schreiben(game, 'stand', grund, n); }
 
-module.exports = { GRUENDE, stand, mindestens, gutschreiben, gutschreibenSkript, abbuchen, einnehmen, erstatten, bezahlen, abziehenGeprueft, abziehenHoechstens, standSetzen, strengPruefen: Pruefung.strengPruefen };
+module.exports = { GRUENDE, stand, mindestens, gutschreiben, gutschreibenSkript, abbuchen, bestechungZahlen, einnehmen, erstatten, bezahlen, abziehenGeprueft, abziehenHoechstens, standSetzen, strengPruefen: Pruefung.strengPruefen };

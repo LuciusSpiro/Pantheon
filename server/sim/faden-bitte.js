@@ -39,6 +39,10 @@ const RE = () => require('./reise-ereignis.js');
 const regie = () => require('./regie-befehle.js');
 const Fracht = () => require('./faden-fracht.js');
 const Hinweis = () => require('./faden-hinweis.js');
+const Bausteine = () => require('./faden-bausteine.js');
+// BEA-01 A: der Baustein eines Beat-Typs (Objekt) und ob er seine Optionen ueber die Antwortleiste anbietet (Baustein-Feld angebot, heute die Bitte und die Forderung) statt des Namensvergleichs `baustein === 'bitte'`
+const bausteinVon = (typ) => (B[typ] ? Bausteine().vonId(B[typ].baustein) : null);
+const leiste = (typ) => { const bs = bausteinVon(typ); return !!(bs && bs.angebot === true); };
 const klon = (v) => JSON.parse(JSON.stringify(v));
 const istObjekt = (x) => !!x && typeof x === 'object' && !Array.isArray(x);
 const r2 = (x) => Math.round(x * 100) / 100;
@@ -145,7 +149,7 @@ function anbieten(game, o) {
   if (!f || f.phase !== 'laeuft' || !f.laufend || f.laufend.gewaehlt) return { ok: false, code: 'kein_faden' };
   const v = D.vorlage(f.vorlage);
   const beat = v && v.beats[f.beat];
-  if (!beat || !B[beat.typ] || B[beat.typ].baustein !== 'bitte' || f.laufend.beat !== o.beatId) return { ok: false, code: 'kein_beat' };
+  if (!beat || !leiste(beat.typ) || f.laufend.beat !== o.beatId) return { ok: false, code: 'kein_beat' };   // BEA-01 A: Baustein-Pruefung statt Name
   if (F.bitte) return { ok: false, code: 'schon_offen' };
   if (game.weltsim.funkwahl && game.weltsim.funkwahl.offen) return { ok: false, code: 'funk_offen' };
   if (B[beat.typ].gefahr || beat.gefahr === true) return { ok: false, code: 'gefahr' };
@@ -153,6 +157,7 @@ function anbieten(game, o) {
   if (typeof o.text !== 'string' || !o.text.trim() || o.text.length > BW.text_max) return { ok: false, code: 'text' };
   const ab = istObjekt(o.absender) ? o.absender : {};
   if (typeof ab.name !== 'string' || !ab.name || ab.name.length > 40 || !W.voelker.includes(ab.fraktion)) return { ok: false, code: 'absender' };
+  if (ab.kopf !== undefined && !(typeof ab.kopf === 'string' && ab.kopf.length >= 1 && ab.kopf.length <= 12)) return { ok: false, code: 'absender' };   // BEA-01 A: Kopf der Leiste aus den Daten des Bausteins (die Leiste kuerzt auf 12 Zeichen)
   const opts = Array.isArray(o.optionen) ? o.optionen : [];
   const fehler = P.optionenFehler({ id: beat.id, typ: beat.typ, optionen: opts }, B[beat.typ]);   // Regeln des Fadenkerns: Anzahl, Gefahr, Scheinwahl, Folgen aus den Wirkungen
   if (fehler.length) {
@@ -171,7 +176,7 @@ function anbieten(game, o) {
   F.bitteNr = (F.bitteNr || 0) + 1;
   const pid = portraetPid(ab);
   F.bitte = {
-    nr: F.bitteNr, fadenId: f.id, beatId: beat.id, von: ab.name, volk: ab.fraktion, pid: pid || null, text: o.text.slice(0, BW.text_max),
+    nr: F.bitteNr, fadenId: f.id, beatId: beat.id, von: ab.name, volk: ab.fraktion, pid: pid || null, kopf: ab.kopf || null, text: o.text.slice(0, BW.text_max),   // BEA-01 A: kopf (null = BW.kopf)
     optionen: erlaubt.map((x) => ({ id: x.id, text: String(x.text).slice(0, BW.option_text_max), folge: klon(x.folge), ausgang: x.ausgang })),
     bis: F.t + BW.frist_taetigkeiten,
   };
@@ -189,11 +194,15 @@ function angebotAusVorlage(game, fadenId) {
   const v = D.vorlage(f.vorlage);
   const beat = v && v.beats[f.beat];
   if (!beat) return { ok: false, code: 'kein_beat' };
-  const text = poolText(game, f, beat.id, ['bitte']) || textVon(game, beat, f);   // SPL-02 E3: Haken, ohne angemeldeten Plan null
-  if (text === null) return { ok: false, code: 'text' };
+  const bs = bausteinVon(beat.typ);
+  const eigen = !!(bs && typeof bs.absender === 'function' && typeof bs.text === 'function');   // BEA-01 A: ein Baustein mit eigenem Absender und Text (Forderung): beide aus seinen Daten, nicht der NSC des Fadens
+  const text = eigen ? bs.text(game, f, beat) : (poolText(game, f, beat.id, ['bitte']) || textVon(game, beat, f));   // SPL-02 E3: Haken, ohne angemeldeten Plan null
+  if (typeof text !== 'string') return { ok: false, code: 'text' };
+  const ab = eigen ? bs.absender(beat, f) : { name: f.nsc.name, fraktion: f.nsc.fraktion, portrait: f.nsc.portrait };
+  if (!ab) return { ok: false, code: 'absender' };
   return anbieten(game, {
     fadenId: f.id, beatId: beat.id,
-    absender: { name: f.nsc.name, fraktion: f.nsc.fraktion, portrait: f.nsc.portrait }, text,
+    absender: ab, text,
     optionen: (beat.optionen || []).map((x) => ({ id: x.id, text: x.text, folge: x.folge, ausgang: x.ausgang })),
   });
 }
@@ -210,6 +219,8 @@ function beantworten(game, id, nr) {
   if (!f || f.phase !== 'laeuft' || !f.laufend || f.laufend.beat !== off.beatId || f.laufend.gewaehlt) { F.bitte = null; return fehl('kein_angebot'); }
   const opt = off.optionen.find((x) => x.id === id);
   if (!opt) return fehl('unbekannt');   // nur was im Angebot steht (Später ist nur lokal, kein Befehl)
+  const beatB = D.vorlage(f.vorlage).beats[f.beat], bsB = bausteinVon(beatB.typ);   // BEA-01 A: der Baustein darf die Wahl ablehnen (Kosten, zu wenig Marken); das Angebot bleibt dann offen, die Antwort geht nur an den Absender
+  if (bsB && typeof bsB.optionPruefen === 'function') { const nein = bsB.optionPruefen(game, f, beatB, opt); if (nein) return nein; }
   F.bitte = null;
   game.mitschnitt && game.mitschnitt.bitteGewaehlt(off, opt);   // MIT-01 A H3: Beobachter (gewählte Option), wirft nie
   if (opt.ausgang === undefined) {   // Option ohne Ausgang (Daten: „später“): die Bitte wird zurückgestellt, der Beat bleibt offen; nachTaetigkeit bietet erneut an. Welle 3: eine Haltungs-Folge (hingehalten) gilt, der Ton der nächsten Bitte folgt ihr
@@ -219,6 +230,7 @@ function beantworten(game, id, nr) {
   }
   F.bitteZuletzt = { nr: off.nr };
   funkSenden(game, BW.antwort_von, opt.text);   // die Crew antwortet mit dem angeklickten Text (nie neu gezogen)
+  if (bsB && typeof bsB.optionGewaehlt === 'function') { try { bsB.optionGewaehlt(game, f, beatB, opt); } catch (e) { fehlerZaehlen(game, 'faden-bitte-baustein', e); } }   // BEA-01 A: Kosten buchen, Forderer antwortet; wirft nie
   const r = Faden().optionWaehlen(game, off.fadenId, opt.id);   // Folgen (Ruf, Haltung) und Ausgang des Beats aus der Vorlage
   if (!r.ok) fehlerZaehlen(game, 'faden-bitte', new Error('optionWaehlen: ' + r.grund));
   return null;
@@ -243,7 +255,7 @@ function nachTaetigkeit(game) {
   for (const f of F.liste.slice()) {   // ein laufender Bitten-Beat ohne Angebot (zu unruhig, Deckel voll) bietet erneut an, bis die Frist des Beats greift
     if (f.phase !== 'laeuft' || !f.laufend || f.laufend.gewaehlt) continue;
     const v = D.vorlage(f.vorlage), beat = v && v.beats[f.beat];
-    if (!beat || !B[beat.typ] || B[beat.typ].baustein !== 'bitte') continue;
+    if (!beat || !leiste(beat.typ)) continue;   // BEA-01 A: Baustein-Pruefung statt Name
     if (angebotAusVorlage(game, f.id).ok) return;
   }
 }
@@ -259,7 +271,7 @@ function snapshot(game) {
   const F = game && game.weltsim && game.weltsim.faeden;
   if (!F || !F.bitte || !Faden().aktiv(game)) return null;
   const o = F.bitte;
-  const s = { nr: o.nr, von: o.von, text: o.text, optionen: o.optionen.map((x) => ({ id: x.id, text: x.text })), kopf: BW.kopf, spaeter: BW.spaeter_text, rest: Math.max(0, o.bis - F.t) };
+  const s = { nr: o.nr, von: o.von, text: o.text, optionen: o.optionen.map((x) => ({ id: x.id, text: x.text })), kopf: o.kopf || BW.kopf, spaeter: BW.spaeter_text, rest: Math.max(0, o.bis - F.t) };
   if (BW.kuerzel && BW.kuerzel[o.volk]) s.fk = BW.kuerzel[o.volk];   // Kürzel der Fraktion im Kopf (Design S5: nie nur über die Farbe)
   if (o.pid) s.pid = o.pid;
   return s;
@@ -281,7 +293,7 @@ function lesenBitte(b, F) {
   const f = F.liste.find((x) => x.id === b.faden);
   if (!Number.isInteger(b.nr) || b.nr < 1 || b.nr > 999999 || !f || f.phase !== 'laeuft' || !f.laufend || f.laufend.gewaehlt || f.laufend.beat !== b.beat) return null;
   const v = D.vorlage(f.vorlage), beat = v && v.beats[f.beat];
-  if (!beat || !B[beat.typ] || B[beat.typ].baustein !== 'bitte') return null;
+  if (!beat || !leiste(beat.typ)) return null;   // BEA-01 A: Baustein-Pruefung statt Name
   if (typeof b.text !== 'string' || !b.text.trim() || b.text.length > BW.text_max) return null;
   if (!Number.isInteger(b.rest) || b.rest < 0 || b.rest > BW.frist_taetigkeiten) return null;
   if (!Array.isArray(b.optionen) || b.optionen.length < BW.optionen.min || b.optionen.length > BW.optionen.max) return null;
@@ -293,12 +305,16 @@ function lesenBitte(b, F) {
     ids.add(x.id);
     optionen.push({ id: x.id, text: x.text, folge: klon(quelle.folge), ausgang: quelle.ausgang });
   }
-  return { nr: b.nr, fadenId: f.id, beatId: beat.id, von: f.nsc.name, volk: f.nsc.fraktion, pid: portraetPid(f.nsc), text: b.text, optionen, bis: F.t + b.rest };
+  const bsL = bausteinVon(beat.typ), abL = bsL && typeof bsL.absender === 'function' ? bsL.absender(beat, f) : null;   // BEA-01 A: Absender und Kopf aus den Daten des Bausteins (rein), sonst der NSC des Fadens
+  if (bsL && typeof bsL.absender === 'function' && !abL) return null;
+  const quelleL = abL || f.nsc;
+  return { nr: b.nr, fadenId: f.id, beatId: beat.id, von: quelleL.name, volk: quelleL.fraktion, pid: portraetPid(quelleL), kopf: abL ? abL.kopf : null, text: b.text, optionen, bis: F.t + b.rest };
 }
 
 // ---------- Baustein `bitte` (faden-bausteine.js registriert ihn): starten bietet die Bitte an; „laeuft“ = der Ausgang kommt über die Antwort oder den Verfall
 const baustein = {
   id: 'bitte',
+  angebot: true,   // BEA-01 A: bietet Optionen ueber die Antwortleiste an (leiste statt Namensvergleich)
   starten(game, faden) {
     const r = angebotAusVorlage(game, faden.id);   // kann verweigert sein (unruhig, Angebot schon offen, Funk-Antwort offen): nichts blockiert, nachTaetigkeit wiederholt es
     if (!r.ok) {   // Welle 3 (Vorlauf-Fall): die Hinweise des Beats gelten mit dem BEGINN des Beats, nicht erst mit dem Angebot: bleibt die Bitte bis zur Frist unangeboten, steht die Enthuellung sonst nie an (HINWEIS_FEHLT)

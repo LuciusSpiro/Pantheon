@@ -1,0 +1,24 @@
+{
+  "format": "faden-forderung-texte/1",
+  "_hinweis": "BEA-01 A: Absender und Texte der Forderung (server/sim/faden-forderung.js). forderer: wer fordert (Name, Fraktion, Porträt-Variante, Kopf der Antwortleiste, hoechstens 12 Zeichen). texte: Schluessel = text_key des Beats (Vorlage), je Eintrag forderer und text (nach dem Einsetzen hoechstens 90 Zeichen: die Leiste zeigt zwei Zeilen). Platzhalter: {forderer} (Name), {ware} (Name der Ware des Fadens, sonst ware_ohne), {ort} (Name des Sektors), {marken} (Preis der Bestechung). reaktionen: Funk des Forderers nach der Wahl, Schluessel = Id der Option. ablehnung: Funk der Lerche, wenn eine Option nicht geht. Keine Zahlen hier (forderung-werte.json).",
+  "ware_ohne": "Ladung",
+  "forderer": {
+    "freibeuter": { "name": "Freibeuter", "fraktion": "ger", "portrait": 1, "kopf": "FORDERUNG" },
+    "zollschiff": { "name": "Zollschiff", "fraktion": "rom", "portrait": 2, "kopf": "ZOLL" }
+  },
+  "texte": {
+    "forderung_freibeuter": { "forderer": "freibeuter", "text": "Halt! Gebt uns die {ware}, dann dürft ihr ziehen." },
+    "schmiergeld_freibeuter": { "forderer": "freibeuter", "text": "Vielleicht regeln wir das anders: {marken}, und wir sehen weg." },
+    "forderung_zollschiff": { "forderer": "zollschiff", "text": "Zoll bei {ort}: Die {ware} wird beschlagnahmt." },
+    "schmiergeld_zollschiff": { "forderer": "zollschiff", "text": "Man könnte die Papiere vergessen: {marken}." }
+  },
+  "reaktionen": {
+    "ausliefern": "Vernünftig. Die {ware} gehört jetzt uns.",
+    "nicht_ausliefern": "Ihr wollt sie behalten? Dann reden wir.",
+    "bestechen": "Zahlung erhalten. Weiterfliegen, wir haben nichts gesehen.",
+    "verweigern": "Kein Geld, keine Ware? Dann holen wir sie uns."
+  },
+  "ablehnung": {
+    "zu_wenig_marken": "Dafür fehlen uns die Marken."
+  }
+}

@@ -1,0 +1,21 @@
+{
+  "format": "faden-forderung-werte/1",
+  "_hinweis": "BEA-01 A: Zahlen der Forderung (server/sim/faden-forderung.js, Beats forderung und schmiergeld in beats.json). Texte stehen in forderung-texte.json. Alle Zahlen sind PLATZHALTER-ANNAHMEN der Entwicklung (Balance: Kai, Spieltest). Konvention wie inszenierer-werte.json: je Eintrag wert, einheit, _hinweis.",
+  "werte": {
+    "bestechung_marken": {
+      "wert": { "gering": 40, "mittel": 90, "stark": 160 },
+      "einheit": "Marken je Staerke des Forderers",
+      "_hinweis": "Preis der Bestechung (Option mit kosten bestechung_marken im Beat-Katalog). Annahme: eine versiegelte Frachtkiste ist rund 25 Marken Grundpreis wert (waren.json); die Bestechung kostet etwa das Doppelte bis Sechsfache einer Kiste, je staerker der Forderer (Zollstreife gering, Freibeuter mittel, Kriegsschiff stark), damit sie wehtut, aber kein Stillstand ist. Die Staerke kommt aus dem Beat-Parameter staerke."
+    },
+    "staerke_standard": {
+      "wert": "mittel",
+      "einheit": "Staerke",
+      "_hinweis": "Staerke des Forderers, wenn der Beat keine nennt oder eine unbekannte (muss ein Schluessel von bestechung_marken sein)."
+    },
+    "marken_einheit": {
+      "wert": "Marken",
+      "einheit": "Text",
+      "_hinweis": "Name der Waehrung im Funktext (Platzhalter {marken} wird zu '<Zahl> Marken')."
+    }
+  }
+}

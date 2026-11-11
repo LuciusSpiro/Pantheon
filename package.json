@@ -18,6 +18,7 @@
     "test:faden-nach3": "node tools/test-faden-nach3.js",
     "messe:faden-ruf": "node tools/messe-faden-ruf.js",
     "test:faden-nach3-mutation": "node tools/mutation-faden-nach3.js",
+    "test:faden-forderung-mutation": "node tools/mutation-faden-forderung.js",
     "test:faden-nach4": "node tools/test-faden-nach4.js",
     "test:faden-nach4-mutation": "node tools/mutation-faden-nach4.js",
     "test:faden-bauplan": "node tools/test-faden-bauplan.js",

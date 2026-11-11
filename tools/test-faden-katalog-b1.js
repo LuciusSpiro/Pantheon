@@ -111,7 +111,7 @@ const beatTypen = (v) => v.beats.map((x) => x.typ);
 // ---------------------------------------------------------------- (a) Katalog und Daten
 section('(a) Katalog: 15 Beat-Typen (SUND-04b B2: konvoi, geleit, sabotage kamen dazu), drei neue ohne Gefahr, ohne Szene, ohne Optionen, mit Standards; die Daten sind in sich stimmig', () => {
   const t = neu(3);
-  ok(Object.keys(D.BEATS).filter((t) => D.BEATS[t].nur_inszenierer !== true).length === 15 && NEU.every((k) => D.BEATS[k]), '15 Beat-Typen (12 bis B1, dazu B2: konvoi, geleit, sabotage), darunter ' + NEU.join(', '));
+  ok(Object.keys(D.BEATS).filter((t) => D.BEATS[t].nur_inszenierer !== true).length === 17 && NEU.every((k) => D.BEATS[k]), '17 Beat-Typen (12 bis B1, dazu B2: konvoi, geleit, sabotage, dazu BEA-01 A: forderung, schmiergeld), darunter ' + NEU.join(', '));
   for (const k of NEU) {
     const c = D.BEATS[k];
     ok(c.gefahr === false && c.optionen === 'keine' && !c.szene && !c.abschluss && typeof c.zweck === 'string' && c.zweck.length > 30 && c.baustein === k && Array.isArray(c.braucht.nsc_status), `${k}: Zweck, keine Gefahr, keine Szene, keine Optionen, Zustaende des NSC`);
