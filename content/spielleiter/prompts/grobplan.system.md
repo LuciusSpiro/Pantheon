@@ -33,7 +33,7 @@ lehnt alles andere ab.
       "szenentyp": "szenentyp-id (z. B. raumgefecht)",
       "ort": "orts-kennung",
       "landepunkt": "nur Bodenszenen: Landepunkt am Ort der Szene, passend laut <vorgaben> – oder statt dessen buehne",
-      "buehne": { "kartenart": "aussenposten|station|ruine|schiff", "besitz": "fraktion", "neu": true },
+      "buehne": { "kartenart": "aussenposten|station|ruine|schiff|wildnis|hoehle", "besitz": "fraktion", "neu": true },
       "besetzung": [{ "fraktion": "rostmeute", "staerke": "klein|mittel|gross", "haltung": "ruhig|wach" }],
       "molekuele": [{ "id": "molekül-id", "umsetzung": "umsetzungs-id" }],
       "stimme": "wer in dieser Szene funkt: npc-kennung oder neu:Name (weglassen = Auftraggeber)",

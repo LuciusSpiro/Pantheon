@@ -284,6 +284,8 @@
   {"id":"test-gelaende","kette":"test","cmd":["tools/test-gelaende.js"],"stufe":"fast","seriell":true,"budget_s":40},
   {"id":"test-hoehle","kette":"test","cmd":["tools/test-hoehle.js"],"stufe":"fast","seriell":true,"budget_s":40},
   {"id":"test-hoehle-verdrahtung","kette":"test","cmd":["tools/test-hoehle-verdrahtung.js"],"stufe":"fast","budget_s":10},
+  {"id":"test-pflichtsatz-gelaende","kette":"test","cmd":["tools/test-pflichtsatz-gelaende.js"],"stufe":"full","seriell":true,"budget_s":75,"timeout_s":240},
+  {"id":"mutation-pflichtsatz-gelaende","kette":"test","cmd":["tools/mutation-pflichtsatz-gelaende.js"],"stufe":"full","seriell":true,"budget_s":90,"timeout_s":300},
   {"id":"test-hoehle-shot","kette":"test","cmd":["tools/test-hoehle-shot.js"],"stufe":"full","budget_s":40,"timeout_s":180},
   {"id":"test-wildnis-gruppenlauf","kette":"test","cmd":["tools/test-wildnis-gruppenlauf.js"],"stufe":"full","seriell":true,"budget_s":14},
   {"id":"test-hoehle-gruppenlauf","kette":"test","cmd":["tools/test-hoehle-gruppenlauf.js"],"stufe":"full","budget_s":45},
