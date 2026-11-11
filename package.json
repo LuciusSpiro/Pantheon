@@ -32,6 +32,7 @@
     "test:abenteuer-titel": "node tools/test-abenteuer-titel.js",
     "test:abenteuer-ziel": "node tools/test-abenteuer-ziel.js",
     "test:abenteuer-ziel-absichten": "node tools/test-abenteuer-ziel-absichten.js",
+    "test:abenteuer-herkunft": "node tools/test-abenteuer-herkunft.js",
     "test:freie-fahrt-szenario": "node tools/test-freie-fahrt-szenario.js",
     "test:lobby-livespielleiter": "node tools/test-lobby-livespielleiter.js",
     "test:notbetrieb-hinweis": "node tools/test-notbetrieb-hinweis.js",

@@ -12,6 +12,7 @@
 //   Bezug nsc: Vollname eines NSC im Kanon (abenteuer-kanon.js), nie die wechselnde Kennung n<nr>, nie der Vorname allein; mit `kandidat` im Katalog zusaetzlich einer der Kandidaten von faden.wiedersehenKandidaten
 //        (kandidat: true = nach dem ersten Beat-Typ mit nsc_alt, kandidat: "<Beat-Typ>" = nach den Zustaenden genau dieses Typs, beats.json braucht.nsc_status).
 //   Bezug ort: Hex-Code eines spielbaren Sektors.
+//   absichtFormFehler(absicht, katalog?) -> [Fehler]     nur die Form (absicht/1, Obergrenze, Schluessel), ohne Welt; leer = brauchbar (Aufrufer: abenteuer-brett.js, Absicht am Angebot)
 //   istFortsetzung(absicht, katalog?) -> bool            die Absicht darf die Hauptfigur des letzten Abenteuers aufnehmen (Katalogfeld fortsetzung): der Aufrufer setzt dann `locker` am Angebot
 //   wendePatchAn(absicht, patch) -> { ok, absicht, grund }   ein Patch (Liste { feld: 'parameter.reichweite', wert } | { feld, entfernen: true }) auf eine Kopie der Absicht
 //   gegenvorschlagPatch(ergebnis) -> patch | null        alle Gegenvorschlaege eines Ergebnisses zusammen (null, wenn ein Fehler keinen hat)
@@ -84,6 +85,7 @@ const woerter = Namen.woerter;
 const alsPhrase = Namen.alsPhrase;
 
 // ---------- Form
+const absichtFormFehler = (absicht, katalog) => formFehler(absicht, katalog || katalogStandard());   // FRE-02 B1: das Brett behaelt die Absicht am Angebot und prueft sie beim Laden mit derselben Form (Obergrenze absicht_max_zeichen)
 function formFehler(absicht, katalog) {
   const out = [];
   const f = (feld, grund) => out.push(fehl(CODES.FORM, feld, grund));
@@ -474,4 +476,4 @@ function katalogFehler(katalog) {
   return out;
 }
 
-module.exports = { CODES, pruefeAbsicht, fortsetzungsNamen, bezugKandidaten, istFortsetzung, wendePatchAn, gegenvorschlagPatch, fehlerText, verhandlungStart, verhandlungAntwort, verhandlungStartMit, verhandlungAntwortMit, katalogFehler, katalogStandard, katalogNeuLesen };
+module.exports = { CODES, absichtFormFehler, pruefeAbsicht, fortsetzungsNamen, bezugKandidaten, istFortsetzung, wendePatchAn, gegenvorschlagPatch, fehlerText, verhandlungStart, verhandlungAntwort, verhandlungStartMit, verhandlungAntwortMit, katalogFehler, katalogStandard, katalogNeuLesen };

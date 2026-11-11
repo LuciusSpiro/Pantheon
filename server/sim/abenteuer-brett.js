@@ -11,7 +11,8 @@
 //   beiEnde(game, faden, ausgang)       (Aufrufer: faden.beatAusgang) Ende eines Abenteuers: Chronik-Zeile aus Daten, Logbuch ohne Titel, Anschluss-Garantie
 //   beiTaetigkeit(game) / beiUpdate(game) / anschluss(game) -> Angebot | null   Anschluss-Garantie: kein Angebot und kein laufendes Abenteuer -> ein deterministischer Rueckfall aus anschluss.json (ohne Modell)
 //   hinweisAnbieten(game, angebot)      SUND-04b F: Funkzeile "Neuer Auftrag am Brett" (Text aus den Daten, Titel gekuerzt ohne Spielernamen), einmal je Angebot-Id, hoechstens eine je Taetigkeitszaehler F.t; nie beim Laden (lesen) und ohne Spielleiter nicht
-//   toSave(F) / lesen(block, F)         Weltstand welt.sim.faeden.abenteuer { zuletzt?, angebote?: [{ hex, alter, plan, volk?, bezug?, locker? }], vorrat?: [Eintrag] } (additiv, muellfest; die Plaene laufen erneut durch den Pruefer)
+//   FRE-02 B1: neuAnbieten nimmt zusaetzlich herkunft (Hafen-Hex) und absicht (absicht/1); das Angebot traegt herkunft { hex } und absicht (nur Weltstand, nie Snapshot); Snapshot: hafen (Name), ort_offen (Beat mit verlegt_ort: ort/ortname leer)
+//   toSave(F) / lesen(block, F)         Weltstand welt.sim.faeden.abenteuer { zuletzt?, angebote?: [{ hex, alter, plan, volk?, bezug?, locker?, herkunft?: { hex }, absicht? }], vorrat?: [Eintrag] } (additiv, muellfest; die Plaene laufen erneut durch den Pruefer)
 //   SPL-02 F: im Modus Absichten (ABENTEUER_ABSICHTEN) waehlt anschluss() zuerst eine Absicht nach Lage (abenteuer-rueckfall.js, derselbe Inszenierer, kein Modell) und faellt auf anschluss.json zurueck, wenn nichts gueltig ist; passtZuLage(game, plan, hex) -> bool
 //   sind die Sperren des Rueckfalls (zuletzt gespielt, abgelehnt, Wiederholung) fuer einen Plan des Inszenierers; der Vorrat (abenteuer-vorrat.js) haengt am selben Weltstand-Block.
 //   SPL-02 A: neuAnbieten(game, plan, { hex, bezug?: { nsc: Vollname }, locker?: bool }) -> wie faden.abenteuerNeuAnbieten; das Angebot traegt `bezug` (der Wiedersehen-NSC, den das Annehmen nimmt, nicht den juengsten frischen) und `locker` (die Fortsetzung darf die Hauptfigur
@@ -129,6 +130,8 @@ function typenVon(v) {
   }
   return out.slice(0, BW.typen_max);
 }
+// FRE-02 B1: hat ein Beat der Vorlage (oder seine Variante) das Datenflag verlegt_ort (beats.json), steht das Ziel nicht fest (Beat-Typen nie im Code)
+const ortOffen = (v) => !!v && Array.isArray(v.beats) && v.beats.some((b) => [b.typ].concat(istObjekt(b.variante) ? [b.variante.typ] : []).some((t) => has(B, t) && B[t].verlegt_ort === true));
 const laufendVon = (F) => F.liste.find((f) => f.plan && f.phase !== 'abgeschlossen') || null;
 const restAngebot = (a) => Math.max(0, W.abenteuer.angebot_gilt_taetigkeiten - a.alter);
 function restLaufend(f) {
@@ -170,7 +173,10 @@ function snapshot(game) {
   const alle = F.abenteuerAngebote.slice(0, W.abenteuer.angebote_max);
   for (const a of alle) {
     const von = vonAngebot(game, a);
-    const e = { id: 'a' + a.nr, titel: text(a.vorlage.titel, BW.titel_max), ort: a.hex, ortname: hexName(a.hex).slice(0, BW.ort_max), rest: restAngebot(a), von, aus_geruecht: a.vorlage.beats.some((b) => b.typ === 'geruecht'), vorschau: vorschau(a.vorlage, von), typen: typenVon(a.vorlage) };
+    const offen = ortOffen(a.vorlage);   // FRE-02 B1: ein Beat, der seinen Ort selbst waehlt, ueberschreibt das Ziel beim Start: kein Ziel anzeigen (ort/ortname leer, ort_offen), der Client nennt dann nur den Hafen
+    const e = { id: 'a' + a.nr, titel: text(a.vorlage.titel, BW.titel_max), ort: offen ? '' : a.hex, ortname: offen ? '' : hexName(a.hex).slice(0, BW.ort_max), rest: restAngebot(a), von, aus_geruecht: a.vorlage.beats.some((b) => b.typ === 'geruecht'), vorschau: vorschau(a.vorlage, von), typen: typenVon(a.vorlage) };
+    if (offen) e.ort_offen = true;
+    if (a.herkunft) e.hafen = hexName(a.herkunft.hex).slice(0, BW.ort_max);   // der Auftraggeber ist `von` (Fraktion); NSC-Namen und Spielernamen stehen nie im Block
     if (typeof a.vorlage.anlass === 'string') e.anlass = text(a.vorlage.anlass, BW.anlass_max);
     s.angebote.push(e);
   }
@@ -317,6 +323,7 @@ function anschluss(game) {
     for (let k = 0; k < plaene.length; k++) {
       const res = Faden().abenteuerAnbieten(game, klon(plaene[(s0 + k) % plaene.length]), { hex: o });
       if (res.ok) {
+        angebotAusstatten(res.angebot, { herkunft: hex });   // FRE-02 B1: die Herkunft ist der Hafen, das Ziel steht in hex
         res.angebot.locker = stufe >= Wdh().STUFEN_MAX;   // der NSC-Sperre entkommen: das Wiedersehen darf auch die Hauptfigur des letzten Abenteuers nehmen
         logbuch(game, 'abenteuer_anschluss', { ausgang: 'angeboten', key: res.angebot.ref, begruendung: `Anschluss-Garantie: Standardplan ${res.angebot.ref} als Angebot ${res.angebot.nr} bei ${o}`, plan: { angebot: res.angebot.nr, vorlage: res.angebot.ref, hex: o, wahl: (s0 + k) % plaene.length, ziel: o !== hex } });
         return res.angebot;
@@ -347,11 +354,15 @@ function bezugVon(b) {
   const k = Object.keys(b);
   return k.length === 1 && k[0] === 'nsc' && typeof b.nsc === 'string' && b.nsc.trim().length >= 3 && b.nsc.length <= 40 ? { nsc: b.nsc } : null;
 }
-function neuAnbieten(game, plan, o) {
+function neuAnbieten(game, plan, o) {   // FRE-02 B1: ein Weg fuer alle Felder des Angebots (bezug, locker, herkunft, absicht): angebotAusstatten setzt sie nach jedem erfolgreichen Anbieten
   o = istObjekt(o) ? o : {};
   const bz = bezugVon(o.bezug), locker = o.locker === true;
   if (o.bezug !== undefined && !bz) return { ok: false, grund: 'PARAMETER: bezug ist { nsc: Vollname }', fehler: ['PARAMETER: bezug ist { nsc: Vollname }'] };
-  if (!bz && !locker) return Faden().abenteuerNeuAnbieten(game, plan, { hex: o.hex });
+  const res = !bz && !locker ? Faden().abenteuerNeuAnbieten(game, plan, { hex: o.hex }) : anbietenMitBezug(game, plan, o, bz, locker);
+  if (res.ok) angebotAusstatten(res.angebot, { bezug: bz, locker, herkunft: o.herkunft, absicht: o.absicht });
+  return res;
+}
+function anbietenMitBezug(game, plan, o, bz, locker) {
   if (!Faden().aktiv(game)) return { ok: false, grund: 'INAKTIV: Faeden sind nicht eingeschaltet', fehler: ['INAKTIV: Faeden sind nicht eingeschaltet'] };
   const r = Bauplan().pruefe(plan);
   if (!r.ok) return Faden().abenteuerAnbieten(game, plan, { hex: o.hex });   // dieselbe Ablehnung samt Logbuch wie sonst
@@ -364,11 +375,22 @@ function neuAnbieten(game, plan, o) {
     if (!id) return abgelehnt(`${Absicht().CODES.BEZUG_UNBEKANNT}: der NSC des Bezugs ist kein Kandidat fuer ein Wiedersehen`);
     if (!locker && !Wdh().kandidatenFrisch(game, v).includes(id)) return abgelehnt('WIEDERHOLUNG_NSC: der NSC des Bezugs war die Hauptfigur eines der letzten Abenteuer');
   }
-  const res = Faden().abenteuerAnbieten(game, plan, { hex: o.hex });
-  if (!res.ok) return res;
-  if (bz) res.angebot.bezug = bz;
-  if (locker) res.angebot.locker = true;
-  return res;
+  return Faden().abenteuerAnbieten(game, plan, { hex: o.hex });
+}
+// FRE-02 B1: Herkunft (der Hafen, an dem die Crew das Angebot bekam; nur der Hex, der Name entsteht im Snapshot) und die Absicht (absicht/1, nur im Weltstand, nie im Snapshot: Voraussetzung fuer den Vorrat, Paket C)
+// bleiben am Angebot. Beides ist freiwillig: ein Angebot ohne bekannte Herkunft oder ohne Absicht (Altstand, Beat-Plan ohne Absicht) bleibt gueltig.
+const herkunftVon = (h) => { const hex = istObjekt(h) ? h.hex : h; return typeof hex === 'string' && HEX.test(hex) && Sektoren.spielbar(hex) ? { hex } : null; };
+function absichtVon(a) {   // die Absicht in der Form des Pruefers (absicht/1, Obergrenze absicht_max_zeichen aus den Daten, keine Prototyp-Schluessel); sonst null
+  if (!istObjekt(a)) return null;
+  try { return Absicht().absichtFormFehler(a).length ? null : klon(a); } catch (e) { return null; }
+}
+function angebotAusstatten(angebot, f) {
+  if (f.bezug) angebot.bezug = f.bezug;
+  if (f.locker) angebot.locker = true;
+  const h = herkunftVon(f.herkunft), ab = absichtVon(f.absicht);
+  if (h) angebot.herkunft = h;
+  if (ab) angebot.absicht = ab;
+  return angebot;
 }
 
 // ---------- Weltstand welt.sim.faeden.abenteuer: der zuletzt gespielte Plan (Rueckfall wiederholt ihn nicht) und die offenen Angebote (Plan, Ort, Alter); die Plaene laufen beim Laden erneut durch den Pruefer
@@ -376,7 +398,7 @@ function toSave(F) {
   if (!F) return null;
   const b = {};
   if (typeof F.abenteuerZuletzt === 'string' && VORLAGE_ID.test(F.abenteuerZuletzt)) b.zuletzt = F.abenteuerZuletzt;
-  if (F.abenteuerAngebote && F.abenteuerAngebote.length) b.angebote = F.abenteuerAngebote.slice(0, W.abenteuer.angebote_max).map((a) => Object.assign({ hex: a.hex, alter: a.alter, plan: klon(a.vorlage) }, a.volk ? { volk: a.volk } : {}, bezugVon(a.bezug) ? { bezug: { nsc: a.bezug.nsc } } : {}, a.locker === true ? { locker: true } : {}));
+  if (F.abenteuerAngebote && F.abenteuerAngebote.length) b.angebote = F.abenteuerAngebote.slice(0, W.abenteuer.angebote_max).map((a) => Object.assign({ hex: a.hex, alter: a.alter, plan: klon(a.vorlage) }, a.volk ? { volk: a.volk } : {}, bezugVon(a.bezug) ? { bezug: { nsc: a.bezug.nsc } } : {}, a.locker === true ? { locker: true } : {}, herkunftVon(a.herkunft) ? { herkunft: herkunftVon(a.herkunft) } : {}, absichtVon(a.absicht) ? { absicht: absichtVon(a.absicht) } : {}));
   const vo = Vorrat().toSave(F);   // SPL-02 F: der Vorrat (abenteuer-vorrat.js) steht im selben Block, additiv
   if (vo) b.vorrat = vo;
   return Object.keys(b).length ? b : null;
@@ -395,6 +417,8 @@ function lesen(b, F) {   // muellfest: Unbrauchbares faellt weg (Meldung in F.la
     const ang = { nr: ++F.angNr, art: 'abenteuer', ref: v.id, hex: x.hex, volk: typeof x.volk === 'string' && v.volk_erlaubt.includes(x.volk) ? x.volk : '', vorlage: v, alter };
     if (bezugVon(x.bezug)) ang.bezug = { nsc: x.bezug.nsc };   // SPL-02 A: additiv, Altstand ohne
     if (x.locker === true) ang.locker = true;
+    if (x.herkunft !== undefined) { const h = herkunftVon(x.herkunft); if (h) ang.herkunft = h; else F.ladeFehler.push('abenteuer.angebote: herkunft verworfen'); }   // FRE-02 B1: additiv, Altstand ohne; Muell faellt weg, das Angebot bleibt
+    if (x.absicht !== undefined) { const ab = absichtVon(x.absicht); if (ab) ang.absicht = ab; else F.ladeFehler.push('abenteuer.angebote: absicht verworfen'); }
     F.abenteuerAngebote.push(ang);
   }
   if (b.vorrat !== undefined) Vorrat().lesen(b.vorrat, F);   // SPL-02 F: muellfest, ungueltige Eintraege fallen weg (Altstand ohne Block: leer)

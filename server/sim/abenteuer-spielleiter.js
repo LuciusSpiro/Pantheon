@@ -234,7 +234,7 @@ class AbenteuerSpielleiter {
     if (job.modus === 'absicht') return job.phase === 'verhandlung' ? this.verhandlungAntwort(job, r) : this.absichtAntwort(job, r);
     const gelesen = Prompt.bauplanAusText(text);
     if (gelesen.fehler) return this.abgelehnt(job, 'ANTWORT_UNLESBAR', [gelesen.fehler], r);
-    const res = faden().abenteuerNeuAnbieten(this.game, gelesen.plan, { hex: job.hex });   // SUND-04b E3: mit den Wiederholungsregeln des Bretts
+    const res = require('./abenteuer-brett.js').neuAnbieten(this.game, gelesen.plan, { hex: job.hex, herkunft: job.herkunftHex });   // SUND-04b E3: mit den Wiederholungsregeln des Bretts (ohne bezug und locker genau faden.abenteuerNeuAnbieten); FRE-02 B1: dazu die Herkunft (Hafen)
     if (!res.ok) return this.abgelehnt(job, codeVon(res.grund), res.fehler, r);
     this.angeboten(job, r, res.angebot);
   }

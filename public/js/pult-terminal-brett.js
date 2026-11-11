@@ -71,9 +71,28 @@
     return x + w;
   }
   function geruechtBalken(c, x, y, h, col) { const g = M.geruecht; for (let i = 0; i < h; i += g.strich + g.luecke) rect(c, x, y + i, g.balken, Math.min(g.strich, h - i), col); }
-  // Zeile 2 der Karte: Typen und Ort; passen nicht alle Typen neben den Ort, entfallen die hinteren (der Ort bleibt)
+  // FRE-02 B1: Herkunft (Hafen) und Ziel ehrlich: ein Angebot, dessen Beat den Ort selbst wählt (ort_offen), nennt kein Ziel, nur den Hafen und „Ort wird im Funk genannt“
+  const hafenText = (a) => (a.hafen ? A.text('herkunft', { hafen: a.hafen }) : '');
+  // Zeile des Details: „ab Hafen → Ziel“, passt das nicht, nur das Ziel; offen: „ab Hafen · Ort wird im Funk genannt“, sonst nur Hafen bzw. der Satz
+  function ortKandidaten(a) {
+    const h = hafenText(a), ziel = a.ort_offen ? '' : a.ortname || '', offen = a.ort_offen ? A.text('ortOffen') : '';
+    return ziel ? (h && a.hafen !== ziel ? [h + ' → ' + ziel, ziel] : [ziel]) : [h && offen ? h + ' · ' + offen : '', offen, h].filter(Boolean);
+  }
+  function ortDetail(a, w) {
+    const kand = ortKandidaten(a);
+    return kand.find((s) => tw(s) <= w) || kuerzen(kand[kand.length - 1] || '', w);
+  }
+  // Tooltip der Ortszeile: der volle Wortlaut (Herkunft, Ziel, Auftraggeber), wo die Zeile kürzen musste
+  function ortTip(a) {
+    const t = [];
+    if (a.hafen) t.push(A.text('herkunftTip', { hafen: a.hafen }));
+    if (a.ort_offen) t.push(A.text('ortOffen')); else if (a.ortname) t.push(A.text('zielTip', { ort: a.ortname }));
+    if (a.von) t.push(A.text('vonTip', { name: A.fraktion(a.von).name }));
+    return t.join(' · ');
+  }
+  // Zeile 2 der Karte: Typen und Ort; passen nicht alle Typen neben den Ort, entfallen die hinteren (der Ort bleibt). Ohne Ziel (ort_offen) steht dort der Hafen
   function typOrt(a, w) {
-    const ort = a.ortname || '', typen = Array.isArray(a.typen) ? a.typen : [];
+    const ort = a.ort_offen ? hafenText(a) : a.ortname || '', typen = Array.isArray(a.typen) ? a.typen : [];
     for (let k = typen.length; k > 0; k--) { const s = A.typText(typen.slice(0, k)) + (ort ? ' · ' + ort : ''); if (tw(s) <= w) return s; }
     return kuerzen(ort || A.typText(typen), w);
   }
@@ -138,7 +157,8 @@
     titelZeichnen(c, a.titel, D.titel.x, D.titel.y, vx - Z.titelLuft - D.titel.x, FA.text);
     umbr(a.anlass || '', D.anlass.w, Math.round(D.anlass.h / M.zeile)).forEach((z, i) => txt(c, z, D.anlass.x, D.anlass.y + i * M.zeile, FA.dim));
     // Typ-Marken (die der Server schickt), dann der Ort, rechts der Verfall; die Marken lassen dem Ort mindestens tagMin Platz
-    const v = A.verfall(a.rest), vt = v.bald ? '! ' + v.lang : v.lang, ende = D.ort.x + D.ort.w - tw(vt) - Z.nach;
+    const v = A.verfall(a.rest), vl = v.bald ? '! ' + v.lang : v.lang, ende0 = D.ort.x + D.ort.w - tw(vl) - Z.nach;
+    let ende = ende0, vt = vl;
     let x = D.ort.x;
     (a.typen || []).forEach((t) => {
       const s = A.typText([t]), w = tw(s.toUpperCase(), 1, 1) + 2 * M.tag.innen + 1;
@@ -146,7 +166,11 @@
       rand(c, x, D.ort.y, w, M.tag.h, FA.tagRand); txt(c, s, x + M.tag.innen + 1, D.ort.y + M.tag.textY, FA.dim, titelO); x += w + M.tag.luft;
     });
     const ox = x + (x > D.ort.x ? Z.typLuft : 0);
-    txt(c, kuerzen(a.ortname || '', ende - ox), ox, D.ort.y + M.tag.textY, FA.text);   // ein langer Ortsname (bis 40 Zeichen) weicht dem Verfall
+    // Herkunft und Ziel gehen vor der langen Verfallsangabe: passt „ab Hafen → Ziel“ (bzw. der Hinweis bei ort_offen) nicht neben „verfällt nach n Tätigkeiten“, steht dort die Kurzform („noch n“)
+    const voll = ortKandidaten(a)[0] || '';
+    if (a.hafen && voll && tw(voll) > ende0 - ox) { vt = v.kurz; ende = D.ort.x + D.ort.w - tw(vt) - Z.nach; }
+    txt(c, ortDetail(a, ende - ox), ox, D.ort.y + M.tag.textY, FA.text);   // ein langer Ortsname (bis 40 Zeichen) weicht dem Verfall
+    tip({ x: ox, y: D.ort.y, w: Math.max(0, ende - ox), h: M.tag.h }, ortTip(a));
     txt(c, vt, D.ort.x + D.ort.w, D.ort.y + M.tag.textY, v.bald ? FA.bald : FA.dim, { align: 'right' });
     rect(c, D.trenner.x, D.trenner.y, D.trenner.w, 1, FA.trenner);
     // Schritte (höchstens 4, sonst „+n weitere“), gefährliche mit kleiner Bake, eine Bitte mit „· Wahl“ und ihren Optionen samt Marken im Tooltip

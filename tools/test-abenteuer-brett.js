@@ -133,7 +133,8 @@ section('Snapshot world.abenteuer: Block, Vorschau aus den Daten, Loeschsignal, 
   ok(s && s.ok === 1 && s.kopf === BRETT.werte.kopf.wert && s.ablehnen === BRETT.werte.ablehnen_text.wert && s.scheitern === BRETT.werte.scheitern_text.wert, 'Block: ok 1 (Spielleiter da), Kopf, Hinweis zum Ablehnen und zum Scheitern aus den Daten');
   ok(s && s.angebote.length === 3 && s.angebote.map((x) => x.id).join() === ['a' + a1.angebot.nr, 'a' + a2.angebot.nr, 'a' + a3.angebot.nr].join(), 'drei Angebote mit den Ids a<Nummer> in der Reihenfolge des Anbietens');
   const e1 = s.angebote[0], e2 = s.angebote[1], e3 = s.angebote[2], V = (e) => e.vorschau, hs = HW.quellen.wert;
-  ok(e1.ort === '0305' && e1.ortname === hexname('0305') && e1.rest === GILT && V(e1).schritte.length === 3, 'Ort (Hex und Name), Verfall in Taetigkeiten (' + GILT + '), drei Schritte (Bitte, Gerücht, Abschluss)');
+  // FRE-02 B1: e1 und e2 haben einen Geruecht-Beat (verlegt_ort): das Ziel steht nicht fest, ort/ortname leer mit ort_offen; e3 (Konvoi, Geleit) behaelt sein Ziel
+  ok(e1.ort === '' && e1.ortname === '' && e1.ort_offen === true && e3.ort === '0305' && e3.ortname === hexname('0305') && e3.ort_offen === undefined && e1.rest === GILT && V(e1).schritte.length === 3, 'Ort (Hex und Name; bei einem Beat mit verlegt_ort leer mit ort_offen), Verfall in Taetigkeiten (' + GILT + '), drei Schritte (Bitte, Gerücht, Abschluss)');
   ok(e1.titel.includes('Crew') && !NAMEN.some((x) => e1.titel.includes(x)), 'Titel ohne Spielername (der Name ist durch Crew ersetzt)');
   ok(!NAMEN.some((x) => JSON.stringify(s).includes(x)) && !/Mireille|Ouzo|Tzvi/.test(JSON.stringify(s)), 'der Block nennt keinen Spielernamen (auch nicht im Anlass)');
   ok(s.angebote.every((e) => e.von === 'rom') && e1.aus_geruecht === true && e2.aus_geruecht === true && e3.aus_geruecht === false, 'von: Fraktion des Auftraggebers (Ostia Nova: rom); aus_geruecht: nur Plaene mit einem Geruecht-Beat');
