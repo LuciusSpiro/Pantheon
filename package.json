@@ -132,6 +132,7 @@
     "test:bunker-sprengung": "node tools/test-bunker-sprengung.js",
     "test:graben-mechanik": "node tools/test-graben-mechanik.js",
     "test:bunker-bausteine": "node tools/test-bunker-bausteine.js",
+    "test:methalle-bunker": "node tools/test-methalle-bunker.js",
     "test:bunker-bots": "node tools/test-bunker-bots.js",
     "test:stellungen": "node tools/test-stellungen.js",
     "test:trupp-gehirn": "node tools/test-trupp-gehirn.js",

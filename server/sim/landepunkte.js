@@ -133,10 +133,11 @@ function wildnisVorgaben(lpId, e) {
   const gv = genVorgaben(lpId, e);
   return { biom: gv.biom || biomVonOrt(ortVon(lpId, e)), groesse: gv.groesse || GEN_GROESSE.wildnis.groesse, hoehle: gv.hoehle != null ? !!gv.hoehle : hoehleVonOrt(ortVon(lpId, e)) };
 }
-// Feste Karte: ein Bau, kein Seed-Wechsel (das Raster ist handgebaut); scheitert der Prüfer, ist die Karte falsch
+// Feste Karte: ein Bau, kein Seed-Wechsel (das Raster ist handgebaut); scheitert der Prüfer, ist die Karte falsch.
+// EIS-01 P3: gen.bauweise hat Vorrang vor der Bauweise der Festkarte (Bauweise folgt dem Besitzer, z. B. germanen im Kampagnen-Bunker); ohne gen.bauweise bleibt def.bauweise (Lobby-Arena rom_feld)
 function festBauen(lpId, e, gv) {
   const def = festkarte(gv.fest);
-  const roh = GenFest.karteRoh(def, { id: lpId, bauweise: def.bauweise || e.bauweise || 'germanen', besitz: e.besitz || null, zustand: e.zustand || 'intakt', seed: e.seed | 0, abschnitte: gv.abschnitte });
+  const roh = GenFest.karteRoh(def, { id: lpId, bauweise: gv.bauweise || def.bauweise || e.bauweise || 'germanen', besitz: e.besitz || null, zustand: e.zustand || 'intakt', seed: e.seed | 0, abschnitte: gv.abschnitte });
   const r = Buehne.ausRaster(roh, { spiel: true });
   if (!r.pruefung.ok) {
     const err = new Error(`Feste Karte ${gv.fest} (${lpId}): Prüfer ${r.fehler.slice(0, 3).map((f) => f.code + ' ' + f.msg).join('; ')}`);
@@ -403,7 +404,7 @@ const CACHE_MAX = 64;
 // Frischer Eintrag (bauversion null): die aktuelle Modul-Bauversion der Kartenart steht im Schlüssel, damit neu geladene
 // Module/Schablonen nicht die alte Karte treffen (F9b); cacheLeeren(art) ist zusätzlich die Absicherung der Werkstatt.
 function aktBauversion(art) { if (!art || art === 'hand') return 'hand'; if (art === 'wildnis') return '~gelaende.' + GenGelaende.VERSION; if (art === 'hoehle') return '~hoehle.' + GenHoehle.VERSION; try { return '~' + Buehne.bauversion(art); } catch (x) { return '~'; } }
-function cacheKey(lpId, e) { return [lpId, e.seed, e.art, e.schablone, e.bauweise, e.besitz, e.zustand, e.bauversion != null ? e.bauversion : aktBauversion(e.art), nutztGenerator(lpId, e) ? 'gen' : 'modul'].concat(genVorgaben(lpId, e).fest ? [JSON.stringify([genVorgaben(lpId, e).fest, genVorgaben(lpId, e).abschnitte || null])] : []).concat(e.art === 'wildnis' ? [JSON.stringify(wildnisVorgaben(lpId, e))] : []).concat(e.art === 'hoehle' ? [JSON.stringify(hoehleVorgaben(lpId, e))] : []).join('|'); }
+function cacheKey(lpId, e) { return [lpId, e.seed, e.art, e.schablone, e.bauweise, e.besitz, e.zustand, e.bauversion != null ? e.bauversion : aktBauversion(e.art), nutztGenerator(lpId, e) ? 'gen' : 'modul'].concat(genVorgaben(lpId, e).fest ? [JSON.stringify([genVorgaben(lpId, e).fest, genVorgaben(lpId, e).abschnitte || null, genVorgaben(lpId, e).bauweise || null])] : []).concat(e.art === 'wildnis' ? [JSON.stringify(wildnisVorgaben(lpId, e))] : []).concat(e.art === 'hoehle' ? [JSON.stringify(hoehleVorgaben(lpId, e))] : []).join('|'); }
 // cacheLeeren(art?): Karten-Cache dieser Kartenart (ohne art: ganz) leeren (Werkstatt nach dem Speichern eines Moduls). -> Zahl
 function cacheLeeren(art) {
   let n = 0; FEST.clear();   // BOD-01: Definitionen fester Karten neu lesen

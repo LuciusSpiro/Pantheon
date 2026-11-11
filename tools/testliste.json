@@ -306,6 +306,7 @@
   {"id":"test-bunker-sprengung","kette":"test","cmd":["tools/test-bunker-sprengung.js"],"stufe":"fast","budget_s":10},
   {"id":"test-graben-mechanik","kette":"test","cmd":["tools/test-graben-mechanik.js"],"stufe":"fast","budget_s":30},
   {"id":"test-bunker-bausteine","kette":"test","cmd":["tools/test-bunker-bausteine.js"],"stufe":"fast","budget_s":60},
+  {"id":"test-methalle-bunker","kette":"test","cmd":["tools/test-methalle-bunker.js"],"stufe":"fast","budget_s":20},
   {"id":"test-bunker-bots","kette":"test","cmd":["tools/test-bunker-bots.js"],"stufe":"fast","budget_s":40},
   {"id":"test-stellungen","kette":"test","cmd":["tools/test-stellungen.js"],"stufe":"fast","budget_s":7},
   {"id":"test-trupp-abstand","kette":"test","cmd":["tools/test-trupp-abstand.js"],"stufe":"fast","budget_s":10},
