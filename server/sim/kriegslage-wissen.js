@@ -345,8 +345,8 @@ function berechne(W0, o) {
       }
       meldung(ev.e, ev.h, ev.f);
       if ((ev.e === 'hf' || ev.e === 'pv') && !(o.stumm || []).includes(ev.h)) {   // stumm: das Szenenende meldet den Ausgang dort selbst (keine Doppelmeldung)
-        const posten = ev.e === 'pv';   // SUND-01 F: Posten „verloren“, nur Häfen „gefallen“
-        aus.funk.push({ von: absender(d, knoten, ev.h), text: posten ? KT.vorlage('funk.postenVerloren', { ort: hexName(d, ev.h) }) : KT.vorlage('funk.gefallen', { ziel: hexName(d, ev.h) }), verlust: { id: posten ? 'posten_verloren' : 'hafen_gefallen', ort: hexName(d, ev.h) }, loc: ortId(ev.h), t: T, log: KT.vorlage(posten ? 'funk.log.postenVerloren' : 'funk.log.gefallen', { t: T }) });
+        const v = funkVerlust(d, T, ev);
+        aus.funk.push({ von: absender(d, knoten, ev.h), text: v.text, verlust: v.romVerliert ? { id: ev.e === 'pv' ? 'posten_verloren' : 'hafen_gefallen', ort: hexName(d, ev.h) } : null, loc: ortId(ev.h), t: T, log: v.log });
       }
     };
     for (const ev of geprueft) zeige(ev, false);
@@ -374,11 +374,26 @@ function berechne(W0, o) {
   return { W, aus };
 }
 
+// FRE-04b B1: Text, Logzeile und Seite des Verlust-Funks aus Sicht von Rom. ev: { e: 'hf'|'pv', h, f, d?, eigen }; hf: f = neuer Besitzer, pv: f = bisheriger Besitzer, d = Sieger.
+// Der Pool-Text (TEXTE_POOL) erzählt nur Roms Verlust, deshalb gilt verlust (Pool-Kennung) nur dort.
+function funkVerlust(d, T, ev) {
+  const F = KT.TEXT.funk, V = (id, w) => KT.vorlage('funk.' + id, w);
+  const herr = (c) => (KT.FARBE.fraktion[c] || {}).name || 'Feind', an = (c) => F.an[c] || 'den Feind';
+  const ort = hexName(d, ev.h);
+  if (ev.e === 'hf') {
+    if (ev.f === 'r') return { text: V('hafenRom', { ziel: ort }), log: V('log.hafenRom', { t: T }), romVerliert: false };
+    if (ev.eigen) return { text: V('gefallen', { ziel: ort, an: an(ev.f) }), log: V('log.gefallen', { an: an(ev.f), t: T }), romVerliert: true };
+    return { text: V('hafenFremd', { ziel: ort, herr: herr(ev.f) }), log: V('log.hafenFremd', { herr: herr(ev.f), t: T }), romVerliert: false };
+  }
+  if (ev.f === 'r') return { text: F.an[ev.d] ? V('postenVerloren', { ort, an: an(ev.d) }) : V('postenVerlorenOhne', { ort }), log: V('log.postenVerloren', { t: T }), romVerliert: true };
+  if (ev.d === 'r') return { text: V('postenGenommen', { ort, herr: herr(ev.f) }), log: V('log.postenGenommen', { t: T }), romVerliert: false };
+  return { text: F.an[ev.d] ? V('postenFremd', { ort, herr: herr(ev.f), an: an(ev.d) }) : V('postenFremdOhne', { ort, herr: herr(ev.f) }), log: V('log.postenGenommen', { t: T }), romVerliert: false };
+}
 // Sim-Ereignis -> internes Ereignis { e, h, f, an?, t0, eigen } | null. eigen: Rom ist Beteiligter (sofort bekannt), sonst einen Tick später und nur gesehen.
 function ereignisVon(ev, T) {
   switch (ev.typ) {
     case 'hafen_gefallen': return { e: 'hf', h: ev.ort, f: fk(ev.neu), t0: T, eigen: ev.alt === 'rom' || ev.neu === 'rom' };
-    case 'posten_verloren': return { e: 'pv', h: ev.ort, f: fk(ev.besitzer), t0: T, eigen: ev.besitzer === 'rom' };
+    case 'posten_verloren': return { e: 'pv', h: ev.ort, f: fk(ev.besitzer), d: fk(ev.durch), t0: T, eigen: ev.besitzer === 'rom' };
     case 'posten_gehisst':   // SUND-02b A1: Posten der Crew (Wirkung): für Rom wie ein gegründeter Posten (Meldeliste), immer eigen
     case 'posten_gegruendet': return { e: 'pg', h: ev.ort, f: fk(ev.fraktion), t0: T, eigen: ev.fraktion === 'rom' };
     case 'angriff_abgewehrt': return { e: 'hh', h: ev.ziel, f: fk(ev.besitzer || ev.fraktion), t0: T, eigen: ev.besitzer === 'rom' };
@@ -529,4 +544,4 @@ function markenNeu(game) {
   for (const nr of ws.wissen.notrufe) Marken.setze(game, { id: nr.m, typ: 'notruf', hex: nr.h });
 }
 
-module.exports = { ausgeben, belegHexe, neuLeer, starten, nachTick, sondeGesichtet, zusatzSicht, lage, schluessel, toSave, restore, markenNeu, berechne, sensorKnoten, knotenAbstand, vermutetesZiel, gruppenBilden, karte };
+module.exports = { funkVerlust, ausgeben, belegHexe, neuLeer, starten, nachTick, sondeGesichtet, zusatzSicht, lage, schluessel, toSave, restore, markenNeu, berechne, sensorKnoten, knotenAbstand, vermutetesZiel, gruppenBilden, karte };

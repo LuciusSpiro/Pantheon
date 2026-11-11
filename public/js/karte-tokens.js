@@ -177,10 +177,10 @@
       sammelt: '{ort} · sammelt seit {d}', marsch: '{ort} → {nach} ?', unterwegs: '{ort} → {nach}', kam: '{von} → {ort}',
       belagert: '{ort} · belagert', steht: '{ort}', alt: '{ort} · vor {a} Ticks',
       // Kurzformen für die schmale Pult-Spalte (SUND-01 F): erst Langform, dann Kurzform (mit vollen, dann mit Kurznamen), zuletzt nur der Ort
-      sammeltKurz: '{ort} · seit {d}', kamKurz: '{von}→{ort}', marschKurz: '{ort}→{nach}?', unterwegsKurz: '{ort}→{nach}', altKurz: '{ort} · vor {a}', postenWegKurz: '{ort} verloren', postenNeuKurz: 'Posten {ort}', hafenGefallenKurz: '{ort} gefallen', hafenHaeltKurz: '{ort} hält',
+      sammeltKurz: '{ort} · seit {d}', kamKurz: '{von}→{ort}', marschKurz: '{ort}→{nach}?', unterwegsKurz: '{ort}→{nach}', altKurz: '{ort} · vor {a}', postenWegKurz: '{ort} verloren', postenNeuKurz: 'Posten {ort}', hafenGefallenKurz: '{ort} gefallen', hafenRomKurz: '{ort} römisch', postenFremdKurz: 'Posten {ort} aus', hafenHaeltKurz: '{ort} hält',
       // SUND-01 G: Flotte ohne Ziel und Herkunft: die Phase als Wort statt „nur der Ort“ (die Plakette trägt Stärke und Alter)
       unterwegsOhne: '{ort} · unterwegs', marschOhne: '{ort} · marschiert', rueckzugOhne: '{ort} · Rückzug', unterwegsOhneKurz: '{ort} · unterw.', marschOhneKurz: '{ort} · marsch', rueckzugOhneKurz: '{ort} · Rückz.',
-      hafenGefallen: '{ort} gefallen', hafenHaelt: '{ort} hält', postenNeu: 'Posten {ort}', postenWeg: 'Posten {ort} verloren',
+      hafenGefallen: '{ort} gefallen', hafenRom: '{ort} römisch', postenFremd: 'Posten {ort} ausgeschaltet', hafenHaelt: '{ort} hält', postenNeu: 'Posten {ort}', postenWeg: 'Posten {ort} verloren',
     },
     // Handverlesene Kurznamen der Hexe (höchstens 6 Zeichen plus Punkt), wenn der volle Name nicht in die Hexbreite passt. `kurznameImmer`: auch wenn der
     // volle Name passt (Übersicht und Zoom nennen das Hex gleich). Der volle Name steht in Ortsinfo, Meldeliste und Funk.
@@ -205,11 +205,19 @@
       sammeln: 'Germanische Flotte sammelt sich bei {ort}. Stärke {klasse}, Ziel unbekannt.',
       marsch: 'Germanische Flotte ({klasse}) bricht von {ort} auf, Kurs {nach}. Ziel vermutlich {ziel}.',
       belagerung: '{ziel} wird belagert. Germanische Flotte, Stärke {klasse}.',
-      gefallen: '{ziel} ist gefallen.',   // nur Häfen; Posten: postenVerloren (Liste und Logbuch sagen „verloren“)
-      postenVerloren: 'Posten {ort} verloren.',
+      // FRE-04b B1: der Funk sagt aus Sicht von Rom, wer gewonnen hat. {an} = Akkusativ der Gegenseite („die Germanen“), {herr} = Name der Fraktion
+      gefallen: '{ziel} ist an {an} gefallen.',   // Rom verliert einen Hafen (nur Häfen; Posten: postenVerloren)
+      hafenRom: '{ziel} ist in römischer Hand.',   // Rom gewinnt einen Hafen
+      hafenFremd: '{ziel} hat einen neuen Herrn: {herr}.',   // ohne Rom
+      postenVerloren: 'Posten {ort} an {an} verloren.',   // Rom verliert einen Posten (Gegenseite bekannt)
+      postenVerlorenOhne: 'Posten {ort} verloren.',   // Rom verliert einen Posten, Gegenseite unbekannt
+      postenGenommen: 'Posten {ort} ({herr}) durch Rom ausgeschaltet.',   // Rom schaltet einen fremden Posten aus
+      postenFremd: 'Posten {ort} ({herr}) durch {an} ausgeschaltet.',   // ohne Rom
+      postenFremdOhne: 'Posten {ort} ({herr}) ausgeschaltet.',
+      an: { g: 'die Germanen', k: 'das Konkordat', p: 'die Piraten' },
       gehalten: '{ziel} hat die Belagerung abgewehrt.',
       log: { sammeln: 'Germanische Flotte sammelt sich ({klasse}). Tick {t}.', marsch: 'Germanische Flotte marschiert, Kurs {nach} ({klasse}). Tick {t}.',
-        belagerung: 'Belagert ({klasse}). Tick {t}.', gefallen: 'Gefallen. Tick {t}.', postenVerloren: 'Posten verloren. Tick {t}.', gehalten: 'Belagerung abgewehrt. Tick {t}.' },
+        belagerung: 'Belagert ({klasse}). Tick {t}.', gefallen: 'Gefallen an {an}. Tick {t}.', hafenRom: 'In römischer Hand. Tick {t}.', hafenFremd: 'Neuer Herr: {herr}. Tick {t}.', postenVerloren: 'Posten verloren. Tick {t}.', postenGenommen: 'Fremder Posten ausgeschaltet. Tick {t}.', gehalten: 'Belagerung abgewehrt. Tick {t}.' },
     },
   };
 

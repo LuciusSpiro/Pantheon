@@ -200,6 +200,7 @@
   {"id":"test-notsprung-frei","kette":"test","cmd":["tools/test-notsprung-frei.js"],"stufe":"fast","budget_s":7},
   {"id":"test-lagefunk","kette":"test","cmd":["tools/test-lagefunk.js"],"stufe":"fast","budget_s":6},
   {"id":"test-lage-wissen","kette":"test","cmd":["tools/test-lage-wissen.js"],"stufe":"fast","budget_s":10},
+  {"id":"test-lagefunk-seite","kette":"test","cmd":["tools/test-lagefunk-seite.js"],"stufe":"fast","budget_s":10},
   {"id":"test-lage-karte","kette":"test","cmd":["tools/test-lage-karte.js"],"stufe":"fast","budget_s":6},
   {"id":"test-rang-anzeige","kette":"test","cmd":["tools/test-rang-anzeige.js"],"stufe":"fast","budget_s":7},
   {"id":"test-ui2-anzeige","kette":"test","cmd":["tools/test-ui2-anzeige.js"],"stufe":"fast","budget_s":6},

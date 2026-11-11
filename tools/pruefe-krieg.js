@@ -42,7 +42,8 @@ function besitzwechsel(tick, min, vorher, nachher) {
 }
 
 const MELDET_WECHSEL = /gefallen|verloren|gegründet|gegruendet|gehisst|erobert|besetzt|übernommen/i;   // Funktext, der einen Besitzwechsel meldet
-const MELDET_PLAN = { hafenfall: /gefallen/i, postenverlust: /verloren|gefallen/i, besitzwechsel: MELDET_WECHSEL };
+// FRE-04b B1: der Funk nennt die Seite („… in römischer Hand“, „… neuen Herrn“, „Posten … ausgeschaltet“); „gefallen/verloren“ bleibt für Roms Verluste
+const MELDET_PLAN = { hafenfall: /gefallen|in römischer Hand|neuen Herrn/i, postenverlust: /verloren|gefallen|ausgeschaltet/i, besitzwechsel: MELDET_WECHSEL };
 
 // Fraktion als Buchstabe (r g k p); null = niemand/unbekannt. Nimmt Fraktionsnamen (rom, ger, ...) und Besitzzeichen (rP, g, -)
 const FK_BUCHSTABE = { rom: 'r', ger: 'g', kon: 'k', pirat: 'p' };
