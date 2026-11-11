@@ -15,7 +15,8 @@
   const VERSION = 3;   // 2 (GEL-03 C): Ader-Kandidaten (Rolle abbau) additiv, eigener Zufallsstrom; Raster und alle übrigen Anker bleiben wie in 1. 3 (MON-03 B): genau ein verdeckter Anker nest (Nistplatz), additiv, eigener Zufallsstrom; Raster und alle übrigen Anker bleiben wie in 2
   const GROESSEN = { klein: { w: 56, h: 40 }, mittel: { w: 80, h: 56 }, gross: { w: 104, h: 72 } };
   // Pflichtsätze: gelten auf jedem Seed jeder Größe, unabhängig von opts. Das Deck hat statt abholpunkt einen leiter (Deck-Link, den zählt der Prüfer selbst).
-  const PFLICHT = { abholpunkt: 1, fund: 2, deckung: 4, abbau: 4, nest: 1 };   // abbau (GEL-03 C): Ader-Kandidaten, mindestens 4 (Ziel je Größe: ADERN_ZIEL)
+  const PFLICHT = { abholpunkt: 1, fund: 2, deckung: 4, wache: 3, abbau: 4, nest: 1 };   // wache (SPL-01 a1): drei Posten je Gruppe, nur mit Gegnern (pflichtFuer)
+  const pflichtFuer = (gegner) => { const p = Object.assign({}, PFLICHT); if (!gegner) delete p.wache; return p; };   // abbau (GEL-03 C): Ader-Kandidaten, mindestens 4 (Ziel je Größe: ADERN_ZIEL)
   const PFLICHT_DECK = { fund: 2, deckung: 4, abbau: 4, nest: 1 };
   // Ader-Kandidaten (GEL-03 C): feste Orte für Erzadern (Anker rolle abbau, id `hoehle.abbau[.n]`); je Mission sind nur 2 bis 3 davon aktiv (adernWahl), alle stehen in der Karte.
   // Ziel je Fläche: unter 2400 Kacheln (klein 56x40 = 2240, flaches Deck 56x30) 4, bis 5000 (mittel 80x56 = 4480, Deck 80x42) 5, darüber (gross) 6. Mindestens PFLICHT.abbau (4): Mit
@@ -459,7 +460,7 @@
         bereiche: bereiche(b, false), plaetze: plaetze(b.W, b.H),
         eingaenge: [], abholpunkte: ab.map((a) => a.id), ankunft: (ab.find((a) => a.ankunft) || {}).id || null,
         patrouillen: [], coverSpots: [], decks: null, kanten: {}, zustaende: {}, gelaende: null,
-        meta: { versuche: 1, kennzahlen: null, linear: false, pflicht: Object.assign({}, PFLICHT), zellen: null, schiffDecks: null, torStart: 'offen', huelle: true, typ: 'hoehle', titel: {}, boden2: 'erde' },
+        meta: { versuche: 1, kennzahlen: null, linear: false, pflicht: pflichtFuer(P.gegner), zellen: null, schiffDecks: null, torStart: 'offen', huelle: true, typ: 'hoehle', titel: {}, boden2: 'erde' },
       };
     }
     // Deck unter einer Wildnis: deck-lokale y (ab 0), Anker `hoehle.*`, Bereiche `hoehle_lager_n`. Der Aufrufer addiert den Deck-Versatz (stride).

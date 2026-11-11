@@ -19,8 +19,10 @@
   const ANKUNFT_SEITEN = [0, 1, 2];
   const BIOME = ['wueste', 'wiesenwald', 'vulkan'];
   const GROESSEN = { klein: { w: 56, h: 40 }, mittel: { w: 80, h: 56 }, gross: { w: 104, h: 72 } };
-  // Pflichtsatz: gilt auf JEDEM Seed jeder Größe und jedes Bioms, unabhängig von opts (gegner 'keine' setzt keine wache, darum steht wache nicht hier).
-  const PFLICHT = { abholpunkt: 1, fund: 2, deckung: 4 };
+  // Pflichtsatz: gilt auf JEDEM Seed jeder Größe und jedes Bioms mit Gegnern (SPL-01 a1: wache min 3, jede Gruppe stellt drei Posten; Sweep 800 Karten nie darunter).
+  // Ohne Gegner (opts.gegner 'keine'/0, nur Debug/Proto) setzt der Erzeuger keine wache: dann entfällt sie aus meta.pflicht (pflichtFuer), sonst meldete der Prüfer K-PFLICHT.
+  const PFLICHT = { abholpunkt: 1, fund: 2, deckung: 4, wache: 3 };
+  const pflichtFuer = (gegner) => { const p = Object.assign({}, PFLICHT); if (!gegner) delete p.wache; return p; };
   const BODEN = { wueste: 'wueste', wiesenwald: 'gras', vulkan: 'vulkan' };   // Bodenton des Clients (Bauweise.boden_varianten); wueste und vulkan seit VERSION 2 eigene Töne
   const PLATZ = 'gelaende';
   const KETTEN = 'abcdefgh';
@@ -460,7 +462,7 @@
         bereiche, plaetze: { [PLATZ]: { typ: 'gelaende', modul: 'gen-gelaende', lage: { rot: 0, spiegel: false, aussen: null }, rect: [1, 1, W - 2, H - 2], bereich: PLATZ } },
         eingaenge: [], abholpunkte: ab.map((a) => a.id), ankunft: (ab.find((a) => a.ankunft) || {}).id || null,
         patrouillen: [], coverSpots: [], decks: null, kanten: {}, zustaende: {}, gelaende: null,
-        meta: { versuche: 1, kennzahlen: null, linear: false, pflicht: Object.assign({}, PFLICHT), zellen: null, schiffDecks: null, torStart: 'offen', huelle: true, typ: 'wildnis', titel: {},
+        meta: { versuche: 1, kennzahlen: null, linear: false, pflicht: pflichtFuer(P.gegner), zellen: null, schiffDecks: null, torStart: 'offen', huelle: true, typ: 'wildnis', titel: {},
           biom: P.biom, boden: BODEN[P.biom] },
       };
       return P.hoehle ? hoehleDazu(karte, P) : karte;

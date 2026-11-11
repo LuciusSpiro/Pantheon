@@ -139,7 +139,7 @@ for (const gr of GR) {
   ok(kl.ankunft === 'hoehle.abholpunkt' && kl.anker.some((a) => a.id === 'hoehle.abholpunkt' && a.ankunft === true), 'Ankunft = Anker hoehle.abholpunkt mit ankunft: true');
   const ids = kl.anker.map((a) => a.id);
   ok(new Set(ids).size === ids.length, 'Anker-IDs eindeutig');
-  ok(JSON.stringify(Hoehle.PFLICHT) === JSON.stringify({ abholpunkt: 1, fund: 2, deckung: 4, abbau: 4, nest: 1 }) && JSON.stringify(Hoehle.PFLICHT_DECK) === JSON.stringify({ fund: 2, deckung: 4, abbau: 4, nest: 1 }), 'PFLICHT und PFLICHT_DECK exportiert (mit abbau: 4, GEL-03 C; nest: 1, MON-03 B)');
+  ok(JSON.stringify(Hoehle.PFLICHT) === JSON.stringify({ abholpunkt: 1, fund: 2, deckung: 4, wache: 3, abbau: 4, nest: 1 }) && JSON.stringify(Hoehle.PFLICHT_DECK) === JSON.stringify({ fund: 2, deckung: 4, abbau: 4, nest: 1 }), 'PFLICHT und PFLICHT_DECK exportiert (mit abbau: 4, GEL-03 C; nest: 1, MON-03 B; wache: 3 nur auf der Karte, SPL-01 a1, Deck ohne)');
   ok(!/[^F,oOa]/.test(kl.rows.join('')), 'nur vorhandene Kachelzeichen F , o O a');
   // Stein-Deckung: jedes Deckungsanker liegt neben einem Stein
   const nachbar = (a) => { for (const [dx, dy] of [[0, -1], [1, 0], [0, 1], [-1, 0], [1, 1], [-1, -1], [1, -1], [-1, 1]]) if ('oO'.includes(kl.rows[a.y + dy][a.x + dx])) return true; return false; };

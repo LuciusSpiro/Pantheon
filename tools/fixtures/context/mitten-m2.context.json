@@ -237,7 +237,8 @@
       "pflichtsatz": {
         "abholpunkt": 1,
         "deckung": 4,
-        "fund": 2
+        "fund": 2,
+        "wache": 3
       }
     },
     {
@@ -248,7 +249,8 @@
         "abholpunkt": 1,
         "deckung": 4,
         "fund": 2,
-        "nest": 1
+        "nest": 1,
+        "wache": 3
       }
     }
   ],

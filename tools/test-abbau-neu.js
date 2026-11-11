@@ -167,7 +167,7 @@ section('3. Generator: Höhle (klein, mittel, gross) und Wildnis mit Höhle (kle
   ok(GenHoehle.PFLICHT.abbau === 4 && GenHoehle.PFLICHT_DECK.abbau === 4 && GenHoehle.VERSION === 3, 'PFLICHT/PFLICHT_DECK abbau: 4, Höhle-VERSION 3 (MON-03 B: Nest)');
   ok(GenHoehle.ADERN_ZIEL(2240) === 4 && GenHoehle.ADERN_ZIEL(4480) === 5 && GenHoehle.ADERN_ZIEL(7488) === 6, 'Ziel je Fläche: klein 4, mittel 5, gross 6');
   // Deck: Pflicht PFLICHT_DECK.abbau in der Wildnis-Karte erfüllt (die Wildnis-Pflicht selbst bleibt unverändert)
-  ok(JSON.stringify(GenGelaende.PFLICHT) === JSON.stringify({ abholpunkt: 1, fund: 2, deckung: 4 }), 'Wildnis-Pflichtsatz unverändert (die Oberfläche trägt keine Ader)');
+  ok(JSON.stringify(GenGelaende.PFLICHT) === JSON.stringify({ abholpunkt: 1, fund: 2, deckung: 4, wache: 3 }), 'Wildnis-Pflichtsatz: wache 3 ergänzt (SPL-01 a1), sonst unverändert (die Oberfläche trägt keine Ader)');
 }
 
 section('4. Runde 0: ohne abbauNeu aktiv 2 bis 3 Adern, der Rest leer (Karte unverändert)');
