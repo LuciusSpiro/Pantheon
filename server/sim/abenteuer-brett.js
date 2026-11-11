@@ -156,7 +156,8 @@ function geruechte(angebote) {
   const out = [];
   for (const a of angebote) {
     const hs = a.vorlage.hinweise || {};
-    const k = Object.keys(hs).find((x) => typeof hs[x].text === 'string' && !hs[x].text.includes('{name}'));
+    const offen = ortOffen(a.vorlage);   // FRE-02 B2: bei ort_offen steht das Ziel nicht fest (der Beat ueberschreibt es beim Start): nur ein Hinweis ohne {ort}, sonst keine Geruechtzeile
+    const k = Object.keys(hs).find((x) => typeof hs[x].text === 'string' && !hs[x].text.includes('{name}') && !(offen && hs[x].text.includes('{ort}')));
     if (!k || out.length >= BW.geruechte_max) continue;
     const sp = has(W.hinweis_sprecher, hs[k].kanal) ? W.hinweis_sprecher[hs[k].kanal] : null;
     out.push({ von: sp || BW.geruecht_sprecher, text: kuerzen(hs[k].text.split('{ort}').join(hexName(a.hex)), BW.geruecht_text_max), angebot: 'a' + a.nr });
@@ -267,6 +268,7 @@ function hinweisAnbieten(game, angebot) {
   const F = game && game.weltsim && game.weltsim.faeden;
   if (!F || !angebot || !Faden().aktiv(game) || !Faden().spielleiterAktiv(game)) return false;
   const b = brett(F);
+  if (b.hinweisStumm) return false;   // FRE-02 B2: beiAndocken fuellt das Brett, danach meldet genau ein Sammelfunk (kein Einzelhinweis, auch nicht der des Rueckfalls an der Grenze)
   if (!Array.isArray(b.hinweise)) { b.hinweise = []; b.hinweisT = -1; b.hinweisNr = -1; }
   if (b.hinweise.includes(angebot.nr)) return false;   // einmal je Id
   if (b.hinweisT === F.t && F.abenteuerAngebote.some((x) => x.nr === b.hinweisNr)) return false;   // hoechstens einer je Taetigkeitszaehler (Grenze), solange das gemeldete Angebot noch am Brett steht; ist es beantwortet oder verfallen, darf das naechste melden
@@ -297,6 +299,11 @@ function anschluss(game) {
   if (F.abenteuerAngebote.length || P.abenteuerLaufend(F)) return null;
   const hex = crewHex(game);
   if (!hex) return null;
+  return rueckfallWahl(game, F, hex, true);
+}
+// Ein Angebot des Rueckfalls fuer den Hafen hex (Absichten-Modus zuerst, sonst anschluss.json), ohne die Bedingungen der Garantie (die prueft der Aufrufer). garantie = true: Sperren stufenweise lockern und im
+// Notfall der Hafen als Ort (anschluss, leeres Brett); false: nur Stufe 0 und nur Ziele (anschlussFuellen: ehrlich weniger Angebote statt Wiederholung oder Hafen-Ort). Zielwahl, Planwahl und Strom sind dieselben.
+function rueckfallWahl(game, F, hex, garantie) {
   if (Rueckfall().aktiv(game)) {   // SPL-02 F: im Modus Absichten waehlt der Rueckfall zuerst eine Absicht nach Lage (derselbe Inszenierer, kein Modell); gelingt nichts, gilt anschluss.json (die Garantie bleibt unbedingt)
     const r = Rueckfall().anbieten(game, { hex, n: F.angNr + 1, letzte: brett(F).rueckfallAbsicht });
     if (r) {
@@ -311,8 +318,8 @@ function anschluss(game) {
   const planeAn = (o, st) => D.ANSCHLUSS.plaene.filter((bp) => passt(game, F, bp, st, o));
   const stufeFuer = (orte) => { for (let st = 0; st <= Math.max(brett(F).abgelehnt.length + 1, Wdh().STUFEN_MAX); st++) if (orte.some((o) => planeAn(o, st).length)) return st; return -1; };   // Sperren stufenweise lockern: zuerst die aelteste Ablehnung, zuletzt der zuletzt gespielte Plan
   const ziele = Ziel().zielFolge(game, hex, { belegt: Ziel().belegt(game) });
-  let orte = ziele, stufe = stufeFuer(orte);
-  if (stufe < 0) { orte = [hex]; stufe = stufeFuer(orte); }
+  let orte = ziele, stufe = garantie ? stufeFuer(orte) : (orte.some((o) => planeAn(o, 0).length) ? 0 : -1);
+  if (stufe < 0 && garantie) { orte = [hex]; stufe = stufeFuer(orte); }
   if (stufe < 0) return null;
   const n = F.angNr + 1;
   const z = Faden().strom(game, n, 'anschluss')();
@@ -332,6 +339,62 @@ function anschluss(game) {
   }
   return null;
 }
+// ---------- FRE-02 B2: das Brett beim Andocken fuellen. Aufrufer: game.js missionEvent('docked') hinter if (this.weltsim) (der Spielstart angedockt ist kein docked-Ereignis: dort fuellt weiter der Takt ein leeres Brett).
+// Ablauf: (a) der Einzelhinweis ist stumm (Laufzeit im Brett, nicht im Weltstand), (b) die bestehende Grenze game.lageGrenze('andocken') genau einmal und unveraendert (Zaehler, Verfall, Garantie, Komponist, Telemetrie),
+// (c) das Brett bis angebote_max fuellen: zuerst aus dem Vorrat (Paket C, heute leer), dann der Rueckfall, ein Angebot je Schritt mit verschiedenen Zielen, (d) Stumm aufheben und genau ein Sammelfunk, wenn jetzt mindestens
+// ein Angebot am Brett steht (nicht bei 0). Je Andocken ein Funk, auch wenn das Brett schon voll war (die Zahl nennt, was dort liegt). Wirft nie in den Aufrufer.
+function beiAndocken(game) {
+  const F = game && game.weltsim && game.weltsim.faeden;
+  if (!F || !Faden().aktiv(game)) { game.lageGrenze('andocken'); return null; }
+  const b = brett(F);
+  b.hinweisStumm = true;
+  let gefuellt = [];
+  try {
+    game.lageGrenze('andocken');
+    gefuellt = brettFuellen(game);
+  } catch (e) { fehlerZaehlen(game, 'abenteuer-brett-andocken', e); } finally { b.hinweisStumm = false; }
+  try { sammelHinweis(game); } catch (e) { fehlerZaehlen(game, 'abenteuer-brett-funk', e); }
+  return gefuellt;
+}
+// bis angebote_max fuellen: Vorrat zuerst, dann Rueckfall; -> [neue Angebote]
+function brettFuellen(game) {
+  const out = ausVorratFuellen(game).concat(anschlussFuellen(game));
+  return out;
+}
+// Paket C haengt sich hier ein: Angebote aus dem Vorrat (nur Absichten, Opt-in) vor dem Rueckfall auf das Brett legen. Heute tut es nichts (der Vorrat ist noch nicht verdrahtet). -> [Angebot]
+function ausVorratFuellen(game) { // eslint-disable-line no-unused-vars
+  return [];
+}
+// Rueckfall fuellen: ein Angebot je Schritt, jedes Ziel ein anderes (die belegten Ziele der offenen Angebote sind gesperrt), bis angebote_max; keine Garantie-Lockerung (siehe rueckfallWahl). Gleiche Vorbedingungen wie
+// anschluss (Schalter, Spielleiter, Hafen); laeuft ein Abenteuer, fuellt der Rueckfall nicht (wie anschluss). -> [neue Angebote]
+function anschlussFuellen(game) {
+  const out = [];
+  if (!Faden().aktiv(game) || anschlussAus(game) || !Faden().spielleiterAktiv(game)) return out;
+  const F = Faden().zustandVon(game);
+  if (P.abenteuerLaufend(F)) return out;
+  const hex = crewHex(game);
+  if (!hex) return out;
+  while (F.abenteuerAngebote.length < W.abenteuer.angebote_max) {
+    const a = rueckfallWahl(game, F, hex, F.abenteuerAngebote.length === 0);
+    if (!a) break;
+    out.push(a);
+  }
+  return out;
+}
+// Sammelfunk: eine Funkzeile "N Auftraege am Brett" (Text aus den Daten), nicht bei 0. Setzt den Zaehler des Einzelhinweises: eine spaetere Komposition im selben Taetigkeitszaehler bleibt stumm.
+function sammelHinweis(game) {
+  const F = game && game.weltsim && game.weltsim.faeden;
+  if (!F || !Faden().aktiv(game) || !Faden().spielleiterAktiv(game)) return false;
+  const n = Math.min(F.abenteuerAngebote.length, W.abenteuer.angebote_max);
+  if (n < 1) return false;
+  const b = brett(F);
+  if (!Array.isArray(b.hinweise)) { b.hinweise = []; b.hinweisT = -1; b.hinweisNr = -1; }
+  b.hinweisT = F.t; b.hinweisNr = F.abenteuerAngebote[F.abenteuerAngebote.length - 1].nr;
+  const text = n === 1 ? BW.sammel_text_eins : fmt(BW.sammel_text, { n });
+  try { game.emit('radio', { from: BW.hinweis_funk_sprecher, text, lage: 1, fd: 1, r: 1 }); } catch (e) { fehlerZaehlen(game, 'abenteuer-brett-funk', e); return false; }
+  return true;
+}
+
 // SPL-02 F: dieselben Sperren wie der Rueckfall aus anschluss.json auf Stufe 0 (zuletzt gespielter Plan, abgelehnte Plaene, Lage, Wiedersehen-Kandidat, Wiederholungsregeln) fuer einen Plan, den der Inszenierer gebaut hat
 function passtZuLage(game, plan, hex) {
   const F = Faden().zustandVon(game);
@@ -428,4 +491,4 @@ function lesen(b, F) {   // muellfest: Unbrauchbares faellt weg (Meldung in F.la
 // SPL-02 D: die NSC, die eine Fortsetzung tragen (Katalog der Absichten, absicht-pruefer.js): die Verbindung fuer abenteuer-geschichte.js, das den Pruefer nicht selbst laedt
 const fortsetzungsNamen = (game, katalog) => Absicht().fortsetzungsNamen(game, katalog);
 
-module.exports = { snapshot, schluessel, annehmen, ablehnen, vorschau, marken, kuerzen, beiEnde, hinweisAnbieten, beiTaetigkeit, beiUpdate, anschluss, passtZuLage, neuAnbieten, toSave, lesen, weigerung, schrittText, fortsetzungsNamen };
+module.exports = { snapshot, schluessel, annehmen, ablehnen, vorschau, marken, kuerzen, beiEnde, hinweisAnbieten, beiTaetigkeit, beiUpdate, anschluss, beiAndocken, anschlussFuellen, ausVorratFuellen, sammelHinweis, passtZuLage, neuAnbieten, toSave, lesen, weigerung, schrittText, fortsetzungsNamen };

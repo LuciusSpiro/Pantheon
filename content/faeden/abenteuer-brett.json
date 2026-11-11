@@ -92,6 +92,16 @@
       "einheit": "Text",
       "_hinweis": "Sprecher der Funkzeile des Bretts."
     },
+    "sammel_text": {
+      "wert": "{n} Aufträge am Brett",
+      "einheit": "Text",
+      "_hinweis": "FRE-02 B2: Sammelfunk beim Andocken, wenn das Brett danach zwei oder mehr Angebote traegt (abenteuer-brett.js beiAndocken). Platzhalter nur {n} (Zahl der Angebote am Brett). Gleicher Sprecher und gleiche Funkfelder wie hinweis_text."
+    },
+    "sammel_text_eins": {
+      "wert": "1 Auftrag am Brett",
+      "einheit": "Text",
+      "_hinweis": "FRE-02 B2: derselbe Sammelfunk bei genau einem Angebot (Einzahl, kein Platzhalter)."
+    },
     "kanon_max": {
       "wert": 40,
       "einheit": "Eintraege",
