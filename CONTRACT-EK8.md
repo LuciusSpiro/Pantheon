@@ -148,6 +148,23 @@ Kapitel endet, wenn beide Flags gelten). Fällt die Crew (`crew_gefallen`): beid
   zwei Halter sind der Kern der Szene; (c) Kapitel überspringen: würde die Kette entwerten.
 - Mit zwei Spielern, von denen einer fällt, gilt weiter die EK6-Regel (Hissen erst, wenn der zweite wieder steht). Das ist gewollt (Briefing: „Zwei Spieler sind hart“).
 
+### Bunker-Bausteine (EIS-01 P2, `server/mission/bausteine/bunker.js`)
+Kapitel 4 soll auf der festen Karte `grabenangriff` (Wald und Bunker, 2 Decks) spielen. Die Mechanik (`server/sim/graben.js`: `aufbauen`, `mechanikTick`, `siegBereit`) läuft **ohne `game.arena`**; der Zustand liegt in **`aw.graben`** (wie `endkampf.js`), nie im Snapshot oder Weltstand, und `map_reset` verwirft ihn mit `aw`.
+
+| Baustein | Art | Parameter | Wirkung |
+|---|---|---|---|
+| `bunker_aufbauen` | Aktion | `map*`, `fraktion*`, `sperre*` (`an`|`aus`), `ziel_still?`, `sperre_text?`, `ziel_offen?`, `ziel_erreicht?`, `nachschub?` (Texte als `@bunker.<name>`) | Verteidiger der Fraktion postieren (Welle 1 und 2 oben, Welle 3 im Bunker), Sprengpunkt gesperrt (`an`: bis Welle 1 und 2 tot) oder sofort zündbar (`aus`). Karte und Seed aus dem Landepunkt (`gen.fest`, `seed`). Keine Beamung, keine Rüstphase, **Ladung im Teaminventar unberührt**. Einmal je Karte; nach `map_reset` baut ein neuer Aufruf frisch. |
+| `bunker_welle_tot` | Prüfung | `map*`, `welle*` (1 bis 9) | alle Gegner der Welle tot (1 und 2 oben, 3 im Bunker) |
+| `bunker_offen` | Prüfung | `map*` | Sprengpunkt freigegeben |
+| `bunker_gesprengt` | Prüfung | `map*` | Knall erfolgt; der einmalige Nachschub (4 Mann oben am Bunkereingang) ist gesendet |
+| `bunker_sieg_bereit` | Prüfung | `map*` | gesprengt **und** alle verbundenen Spieler an Bord |
+
+- **Takt:** Es gibt keinen Tick-Aufruf in `game.js`. Jede der vier Prüfungen führt zuerst `graben.mechanikTick` aus, **idempotent je Spieltick** (`S.taktTick === game.tick`): mehrfache Auswertung im selben Tick ändert nichts (Nachschub genau einmal). **Regel für das Regiebuch:** der Takt läuft nur, wenn in jedem Tick eine Bunker-Prüfung ausgewertet wird. Das leisten `objectives[].done` des aktiven Schritts und die **erste** Bedingung der ersten `next`-Zeile (keine Prüfung hinter einem kurzschließenden `all`); `rules` sind einmalig und taugen nicht. Empfohlen: `bunker_sieg_bereit` allein im `if` der ersten `next`-Zeile des Bunker-Schritts.
+- **Texte:** ODA- und Sperrtexte des Szenarios kommen aus den Textparametern (Regiebuch-`texte`, Präfix `bunker.`); fehlt einer, gilt `CONFIG.graben.texte` (Rom-Fassung). Die germanische Fassung schreibt das Regiebuch.
+- **Rückzug:** `map_reset` (Regiebuch, bei `squadRecall`) + Kapitelwiederholung; `neuBeginnen` bleibt der Lobby. Danach baut `bunker_aufbauen` im `enter` neu auf.
+- **`aw.ausbruchErlaubt = false`, `aw.ohneZaehler = true`** gelten in der Kampagne mit: kein Ausbruch aus dem Gefangenenstatus (im Bunker unsinnig, die Notrückholung greift), HUD ohne Zähler für Terminal, Kiste, Sprengpunkt, Zelle (das Ziel steht in den Zielen des Regiebuchs).
+- Test: `tools/test-bunker-bausteine.js`.
+
 ### Entscheidungen (VERK-BODEN, D24–D32)
 | # | Entscheidung | Grund |
 |---|---|---|
