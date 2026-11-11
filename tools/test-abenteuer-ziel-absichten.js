@@ -255,13 +255,21 @@ console.log('\nKomponist im Modus Absichten (Mock): job.hex bleibt der Hafen, da
   {
     // Der Mock waehlt im Modus Absichten je Lage ein Rezept mit crew_hex (hier hinterhalt und andere): sein Angebot liegt am Hafen. Fuer die Verdrahtung (Inszenierer -> Komponist -> Brett -> Logbuch) stehen im Test
     // voruebergehend alle crew_hex-Rezepte auf ziel_im_umkreis (der Katalog wird danach zurueckgesetzt).
-    const t0 = neu(80, { stumm: false }), g0 = t0.g, ab0 = g0.lageSpielleiter.abenteuer;
-    angebote(g0).length = 0; hafenSetzen(g0, '0305');
-    ab0.beiGrenze('andocken');
-    for (let i = 0; i < 10 && angebote(g0).length === 0; i++) { g0.step(); await frei(); }
-    const e0 = logbuch(g0).filter((x) => x.ausgang === 'gueltig' && x.absicht).pop();
-    const wahl = e0 && e0.absicht;
-    ok(!!wahl && KAT.absichten[wahl].inszenierung.ort.regel === 'crew_hex' && angebote(g0)[0].hex === '0305', 'Ausgangslage: der Mock waehlt ein crew_hex-Rezept, das Angebot liegt am Hafen (' + wahl + ')');
+    // Die Wahl des Mocks haengt vom Katalog ab (Rng aus Lage, Hafen, Tick und Katalog; BEA-01: der Katalog ist groesser, im Hafen 0305 faellt die Wahl jetzt auf lieferung):
+    // Haefen und Ticks durchprobieren, bis er ein crew_hex-Rezept waehlt.
+    let wahl = null, g0 = null, hafen0 = null;
+    for (let versuch = 0; versuch < 24 && !wahl; versuch++) {
+      const h = HAEFEN[versuch % HAEFEN.length][0];
+      const t0 = neu(80, { stumm: false }); g0 = t0.g;
+      const ab0 = g0.lageSpielleiter.abenteuer;
+      for (let i = 0; i < versuch; i++) { g0.step(); await frei(); }
+      angebote(g0).length = 0; hafenSetzen(g0, h);
+      ab0.beiGrenze('andocken');
+      for (let i = 0; i < 10 && angebote(g0).length === 0; i++) { g0.step(); await frei(); }
+      const e0 = logbuch(g0).filter((x) => x.ausgang === 'gueltig' && x.absicht).pop();
+      if (e0 && KAT.absichten[e0.absicht].inszenierung.ort.regel === 'crew_hex' && angebote(g0).length) { wahl = e0.absicht; hafen0 = h; }
+    }
+    ok(!!wahl && angebote(g0)[0].hex === hafen0, 'Ausgangslage: der Mock waehlt ein crew_hex-Rezept, das Angebot liegt am Hafen (' + wahl + ')');
     const orig = {};
     for (const [k, e] of Object.entries(KAT.absichten)) if (e.inszenierung.ort.regel === 'crew_hex') { orig[k] = e.inszenierung.ort; e.inszenierung.ort = { regel: 'ziel_im_umkreis' }; }
     try {
