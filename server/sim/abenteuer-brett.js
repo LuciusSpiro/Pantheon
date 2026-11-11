@@ -58,7 +58,7 @@ const crewHex = (game) => {
     return hex && HEX.test(hex) && Sektoren.spielbar(hex) ? hex : null;
   } catch (e) { return null; }
 };
-const ohneNamen = (game, t) => Ausschnitt().ohneNamen(t, Ausschnitt().spielerNamen(game || {}));
+const ohneNamen = (game, t) => Ausschnitt().ohneNamenGanzwort(t, Ausschnitt().spielerNamen(game || {}));
 function anschlussAus(game) {   // Test- und Betriebsknopf: ABENTEUER_ANSCHLUSS=0|off|aus schaltet den Rueckfall ab (Standard: an, wirkt nur mit FAEDEN=1 und Spielleiter)
   const env = (game && game.env) || process.env;
   return ['0', 'off', 'aus', 'false'].includes(String((env && env.ABENTEUER_ANSCHLUSS) || '').toLowerCase());
