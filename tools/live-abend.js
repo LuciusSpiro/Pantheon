@@ -11,6 +11,7 @@
 //   --plaene <n>          deckelt die Aufrufe des Lage- und des Abenteuer-Spielleiters je Abend (Kostenbremse, nie ueber die Werte des Spiels hinaus)
 //   --out <ordner>        Wurzel der Ablage (relativ zum Aufrufer, NIE im Repo, Standard <Temp>/pantheon-messung); jeder Lauf legt einen neuen Ordner abend-<modus>-<Zeit> an, nichts wird geloescht
 //   --mitschnitt-dir <o>  Wurzel der Mitschnitte (Standard <lauf>/abend-<seed>/mitschnitt); der Mitschnitt ist immer an (MITSCHNITT=1)
+//   --wahl <id[,id...]>   Rangfolge der Antwort des Bots auf eine Bitte oder Forderung (Option-Ids, z. B. nicht_ausliefern,verweigern); die erste Id, die das Angebot kennt, gilt, sonst wie bisher (annehmen, sonst die erste). Ohne den Schalter aendert sich nichts
 //   --freigeben           der Bot-Captain sendet kontingent.freigeben, wenn die Frage "Limit erhoehen?" (Ereignis kontingentFrage) kommt (Test des Popup-Wegs ohne Browser; ohne --freigeben antwortet der Bot nicht)
 //   --ohne-testhelfer     Szenen-Beats (konvoi, geleit, raumschlacht, verfolgung, befreiung) NICHT per Testhelfer spielen: sie laufen in die Frist     --ohne-nachhilfe   der Bot bringt wartende Beats nie selbst weiter
 //   --rueckfall-nach <s>  Angebote des Rueckfalls (Anschluss-Garantie, kein Claude-Plan) nimmt der Bot erst, wenn der Spielleiter nichts mehr anbietet (Deckel erschoepft, Kontingent erreicht) oder so lange nichts Neues kam (Standard 180)
@@ -129,6 +130,7 @@ function aufrufLesen() {
   o.abenteuerDauer = zahl('abenteuer-dauer', 5, 3600, 420); o.plaene = zahl('plaene', 1, 12, 0, true);
   o.geduld = zahl('geduld', 0, 3600, 45); o.grenzabstand = zahl('grenzabstand', 0, 600, 4);
   o.gesamtdeckel = zahl('gesamtdeckel', 1, 1e12, 0, true); o.hart = zahl('hart', 5, 86400, 0);
+  o.wahl = args.includes('--wahl') ? String(wert('wahl') || '').split(',').map((x) => x.trim()).filter(Boolean) : []; if (args.includes('--wahl') && (!o.wahl.length || o.wahl.some((x) => !/^[a-z_]+$/.test(x)))) fehler('--wahl: Option-Ids (a-z und _), durch Komma getrennt');
   o.abendDir = wert('abend-dir'); o.seed = Number(wert('seed'));
   if (args.includes('--out')) {
     const a = wert('out');
@@ -268,7 +270,7 @@ async function abend(o) {
   };
   const ereignisse = { bitten: [] };
   const ereignis = (art, d) => { if (art === 'bitte') ereignisse.bitten.push(Object.assign({ spielzeit: g.time, wall: Date.now() }, d)); };
-  const B = Beats.neu({ g, cl, w, zeile, k, kz, opts: { testhelfer: o.testhelfer }, grenze, ereignis });
+  const B = Beats.neu({ g, cl, w, zeile, k, kz, opts: { testhelfer: o.testhelfer, wahl: o.wahl }, grenze, ereignis });
 
   // ---------- Beobachter: Angebote (Zeit des ersten Sehens), Notrufe der Reise, Kontingent
   const brett = (c) => (c.abenteuer && c.abenteuer.angebote) || [];
@@ -731,6 +733,7 @@ async function hauptprogramm() {
     if (o.plaene) kind.push('--plaene', String(o.plaene));
     if (o.freigeben) kind.push('--freigeben');
     kind.push('--rueckfall-nach', String(o.rueckfallNach));
+    if (o.wahl.length) kind.push('--wahl', o.wahl.join(','));
     if (!o.testhelfer) kind.push('--ohne-testhelfer');
     if (!o.nachhilfe) kind.push('--ohne-nachhilfe');
     if (o.mitschnittDir) kind.push('--mitschnitt-dir', o.mitschnittDir);
