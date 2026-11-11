@@ -12,6 +12,10 @@
 //   hinzufuegen(game, eintrag) -> { ok: true, vorrat: Zahl } | { ok: false, grund, text }   nur gueltige Eintraege; ueber vorrat_max verdraengt der aelteste; derselbe Eintrag (art, Absicht) nicht doppelt
 //   verwirfUngueltige(game) -> [{ art, grund }]   prueft jeden Eintrag erneut und entfernt die ungueltigen (nur Art und Code, nie Namen)
 //   ausVorrat(game, art) -> { ok: true, angebot, inszenierung } | { ok: false, grund }   der aelteste GUELTIGE Eintrag dieser Art wird angeboten; ungueltige davor werden verworfen; VORRAT_LEER, wenn nichts passt
+//   FRE-02 C: einlegenAus(game, angebot, art) -> wie hinzufuegen   legt ein Angebot MIT Absicht (verfallen, abgelehnt) wieder ein und BEHAELT sein erstes Alter (angebot.erstellt, additiv am Angebot): kein neues erstellt,
+//        sonst kreiste ein verfallenes Angebot ewig; nur im Modus Absichten (ABENTEUER_ABSICHTEN), sonst INAKTIV. art nennt der Aufrufer (Daten).
+//   FRE-02 C: ausVorratOhneSperre(game, art) -> wie ausVorrat   wie ausVorrat, ueberspringt aber Eintraege, deren Plan gegen die Sperren des Bretts laeuft (abgelehnt, zuletzt gespielt, Wiederholung: Brett.passtZuLage);
+//        sie bleiben im Vorrat. Kein Eintrag dieser Art frei: das Brett bietet nie dasselbe sofort wieder an. Bei einem Nein des Bretts wird der naechste Eintrag probiert.
 //   liste(game) -> [Eintrag] (Kopie)       toSave(F) -> [Eintrag] | null       lesen(block, F)   Weltstand welt.sim.faeden.abenteuer.vorrat (additiv, Altstand ohne Block: leer, muellfest: ohne Welt wird nur die Form geprueft,
 //        Unbrauchbares faellt weg, Meldung in F.ladeFehler; die Gueltigkeit gegen die Welt prueft verwirfUngueltige)       werteFehler(katalog?) -> [Text]       CODES
 // Der Weltstand-Block steht in welt.sim.faeden.abenteuer (abenteuer-brett.js toSave/lesen), weil die Fadenmaschine (faden.js) unveraendert bleibt; faden.js ruft nur toSave/lesen des Bretts.
@@ -19,6 +23,7 @@ const AP = () => require('./absicht-pruefer.js');
 const INS = () => require('./inszenierer.js');
 const Brett = () => require('./abenteuer-brett.js');
 const Faden = () => require('./faden.js');
+const Absicht = () => require('./abenteuer-absicht.js');
 const Bauplan = () => require('./faden-bauplan.js');
 const Geschichte = () => require('./abenteuer-geschichte.js');
 const Texte = () => require('./abenteuer-texte.js');
@@ -127,6 +132,7 @@ function anbieten(game, e) {
   if (!an.ok) { const f = an.fehler[0]; return nein(f.code, `das Brett nimmt den Eintrag nicht (${f.code})`, an.fehler.map((x) => ({ code: x.code, feld: x.feld }))); }
   try { Texte().anmelden(game, e.absicht, an.inszenierung, an.angebot, katalog); } catch (x) { if (game && game.countError) game.countError('abenteuer-texte', x); }
   entnehmen(game, e);
+  an.angebot.erstellt = e.erstellt;   // FRE-02 C: das Angebot traegt das Alter des Eintrags weiter (einlegenAus)
   return { ok: true, angebot: an.angebot, inszenierung: an.inszenierung };
 }
 
@@ -164,6 +170,37 @@ function ausVorrat(game, art) {
   if (wartet) return wartet;   // ehrliches Nein (ORT_KEIN_ZIEL): es gibt Eintraege, nur gerade kein freies Ziel
   return nein(CODES.VORRAT_LEER, 'kein gueltiger Eintrag dieser Art');
 }
+// FRE-02 C: ein Angebot, das nicht gespielt wurde (Verfall, Ablehnen), geht mit seinem ersten Alter zurueck in den Vorrat. Der Eintrag wird wie sonst aus der Absicht gebaut (Ort und Plan JETZT, gueltig oder nichts),
+// nur erstellt bleibt das des Angebots (nie spaeter als jetzt): so verfaellt es nach vorrat_alter_max Ticks seit dem ersten Erzeugen, egal wie oft es kreiste. Die Schnittstelle von eintrag/hinzufuegen bleibt.
+function einlegenAus(game, angebot, art) {
+  if (!Absicht().aktiv(game)) return nein(CODES.INAKTIV, 'der Modus Absichten ist aus');
+  if (!istObjekt(angebot) || !istObjekt(angebot.absicht)) return nein(CODES.VORRAT_FORM, 'das Angebot traegt keine Absicht');
+  const r = eintrag(game, { absicht: angebot.absicht, art });
+  if (!r.ok) return r;
+  const e = r.eintrag;
+  if (Number.isInteger(angebot.erstellt) && angebot.erstellt >= 0) e.erstellt = Math.min(angebot.erstellt, e.erstellt);
+  return hinzufuegen(game, e);
+}
+// FRE-02 C: Entnahme fuer das Brett: wie ausVorrat, aber ein Eintrag, dessen Plan JETZT gegen eine Sperre des Bretts laeuft (zum Beispiel gerade abgelehnt), bleibt liegen. Der Inszenierer ist deterministisch
+// und kennt die Sperre nicht: ohne diese Pruefung bekaeme die Crew das abgelehnte Angebot sofort wieder.
+function ausVorratOhneSperre(game, art) {
+  const F = zustand(game);
+  if (!F || !Array.isArray(F.vorrat)) return nein(CODES.VORRAT_LEER, 'der Vorrat ist leer');
+  const katalog = AP().katalogStandard();
+  let wartet = null;
+  for (const e of F.vorrat.slice()) {
+    if (e.art !== art) continue;
+    const g = gueltig(game, e);
+    if (g.wartet) { wartet = wartet || g; continue; }
+    if (!g.ok) { entnehmen(game, e); continue; }
+    const r = INS().inszeniere(game, e.absicht, katalog);
+    if (!r.ok || !Brett().passtZuLage(game, r.plan, r.hex)) continue;   // gesperrt: bleibt im Vorrat (Alter und Gueltigkeit verwerfen ihn spaeter)
+    const an = anbieten(game, e);
+    if (an.ok) return an;   // sonst nimmt das Brett ihn gerade nicht (zum Beispiel doppelt am Ort): der naechste
+  }
+  if (wartet) return wartet;
+  return nein(CODES.VORRAT_LEER, 'kein freigegebener Eintrag dieser Art');
+}
 
 // ---------- Weltstand
 function toSave(F) {
@@ -191,4 +228,4 @@ function werteFehler(katalog) {
   return o;
 }
 
-module.exports = { CODES, eintrag, gueltig, anbieten, hinzufuegen, verwirfUngueltige, ausVorrat, liste, toSave, lesen, werteFehler };
+module.exports = { CODES, eintrag, gueltig, anbieten, hinzufuegen, verwirfUngueltige, ausVorrat, einlegenAus, ausVorratOhneSperre, liste, toSave, lesen, werteFehler };

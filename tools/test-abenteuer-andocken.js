@@ -1,6 +1,6 @@
 'use strict';
 // FRE-02 B2: das Brett beim Andocken fuellen (server/sim/abenteuer-brett.js beiAndocken, Haken in game.js missionEvent('docked')). Je Andocken (nur mit Weltsim und FAEDEN=1): der Einzelhinweis ist stumm, die Grenze
-// 'andocken' laeuft genau einmal wie bisher, das Brett wird bis angebote_max gefuellt (Vorrat zuerst: heute leer, Paket C; dann der Rueckfall, ein Angebot je Schritt, verschiedene Ziele im Umkreis des Hafens), danach
+// 'andocken' laeuft genau einmal wie bisher, das Brett wird bis angebote_max gefuellt (Vorrat zuerst: Paket C, nur Absichten; dann der Rueckfall, ein Angebot je Schritt, verschiedene Ziele im Umkreis des Hafens), danach
 // genau EIN Sammelfunk "N Auftraege am Brett" (nicht bei 0, nie zusaetzlich ein Einzelhinweis). Geprueft ueber den echten Weg game.missionEvent('docked') mit dem Schiff im Hafen, nicht nur ueber lageGrenze.
 // Die Erwartungen stehen hier selbst: Radius und Obergrenzen aus den Daten, Graph-Abstand per Breitensuche, Texte aus abenteuer-brett.json.
 // Aufruf: node tools/test-abenteuer-andocken.js        (npm run test:abenteuer-andocken)
@@ -63,7 +63,7 @@ console.log('\nDaten');
   ok(Daten.BRETT.werte.sammel_text === BW.sammel_text.wert && Daten.BRETT.werte.sammel_text_eins === BW.sammel_text_eins.wert, 'das Modul liest sie aus den Daten');
   ok(MAXA === 3 && Number.isInteger(RADIUS) && RADIUS >= 1, 'angebote_max ' + MAXA + ' und Radius ' + RADIUS + ' aus content/faeden/werte.json');
   ok(typeof Brett.beiAndocken === 'function' && typeof Brett.anschlussFuellen === 'function' && typeof Brett.ausVorratFuellen === 'function', 'benannte Aufrufe: beiAndocken, anschlussFuellen, ausVorratFuellen');
-  ok(Brett.ausVorratFuellen({}).length === 0, 'ausVorratFuellen (Paket C) tut heute nichts');
+  ok(Brett.ausVorratFuellen({}).length === 0, 'ausVorratFuellen ohne Spiel tut nichts (Paket C: im Spiel nur mit ABENTEUER_ABSICHTEN, getestet in test-abenteuer-vorrat-verdrahtet)');
 }
 
 console.log('\nAndocken fuellt das Brett: drei Haefen, Rueckfall ohne Absichten');

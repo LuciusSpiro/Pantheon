@@ -31,6 +31,7 @@
     "test:abenteuer-brett": "node tools/test-abenteuer-brett.js",
     "test:abenteuer-titel": "node tools/test-abenteuer-titel.js",
     "test:abenteuer-andocken": "node tools/test-abenteuer-andocken.js",
+    "test:abenteuer-vorrat-verdrahtet": "node tools/test-abenteuer-vorrat-verdrahtet.js",
     "test:abenteuer-ziel": "node tools/test-abenteuer-ziel.js",
     "test:abenteuer-ziel-absichten": "node tools/test-abenteuer-ziel-absichten.js",
     "test:abenteuer-herkunft": "node tools/test-abenteuer-herkunft.js",

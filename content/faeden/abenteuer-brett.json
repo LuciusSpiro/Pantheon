@@ -102,6 +102,11 @@
       "einheit": "Text",
       "_hinweis": "FRE-02 B2: derselbe Sammelfunk bei genau einem Angebot (Einzahl, kein Platzhalter)."
     },
+    "vorrat_art": {
+      "wert": "angebot",
+      "einheit": "Name",
+      "_hinweis": "FRE-02 C: Art (Name nach name_muster, absichten.json) der Vorrat-Eintraege des Auftragsbretts (abenteuer-vorrat.js): verfallene und abgelehnte Angebote mit Absicht werden unter dieser Art eingelegt, das Brett nimmt unter ihr wieder heraus. Notrufe (FRE-03) nehmen eine eigene Art. Gilt nur im Modus Absichten (ABENTEUER_ABSICHTEN)."
+    },
     "kanon_max": {
       "wert": 40,
       "einheit": "Eintraege",

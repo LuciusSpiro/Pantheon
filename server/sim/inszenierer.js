@@ -326,7 +326,7 @@ function inszeniere(game, absicht, katalog) {
 function anbietenAusAbsicht(game, absicht, katalog) {
   const r = inszeniere(game, absicht, katalog);
   if (!r.ok) return r;
-  const o = { hex: r.hex, absicht };   // FRE-02 B1: das Angebot behaelt seine Absicht (Weltstand, Vorrat) und den Hafen, von dem aus das Ziel gewaehlt wurde (derselbe Hex wie in ortBestimmen)
+  const o = { hex: r.hex, absicht, erstellt: game && game.weltsim && Number.isFinite(game.weltsim.tickZahl) ? game.weltsim.tickZahl : 0 };   // FRE-02 C: erstellt = Tick des ersten Erzeugens (der Vorrat behaelt es)   // FRE-02 B1: das Angebot behaelt seine Absicht (Weltstand, Vorrat) und den Hafen, von dem aus das Ziel gewaehlt wurde (derselbe Hex wie in ortBestimmen)
   const hafen = crewHex(game);
   if (hafen) o.herkunft = hafen;
   if (r.bezug) o.bezug = r.bezug;
