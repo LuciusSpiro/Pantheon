@@ -281,6 +281,7 @@
   {"id":"test-abenteuer","kette":"test","cmd":["tools/test-abenteuer.js"],"stufe":"fast","seriell":true,"budget_s":14},
   {"id":"test-abenteuer-brett","kette":"test","cmd":["tools/test-abenteuer-brett.js"],"stufe":"full","budget_s":26},
   {"id":"test-abenteuer-titel","kette":"test","cmd":["tools/test-abenteuer-titel.js"],"stufe":"fast","budget_s":6},
+  {"id":"test-namensschutz","kette":"test","cmd":["tools/test-namensschutz.js"],"stufe":"fast","budget_s":8},
   {"id":"test-abenteuer-andocken","kette":"test","cmd":["tools/test-abenteuer-andocken.js"],"stufe":"fast","budget_s":20},
   {"id":"test-abenteuer-vorrat-verdrahtet","kette":"test","cmd":["tools/test-abenteuer-vorrat-verdrahtet.js"],"stufe":"fast","budget_s":40},
   {"id":"test-abenteuer-ziel","kette":"test","cmd":["tools/test-abenteuer-ziel.js"],"stufe":"fast","budget_s":20},
