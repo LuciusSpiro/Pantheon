@@ -706,9 +706,9 @@ const abenteuerLaufend = (F) => aktive(F).filter((f) => f.plan).length;
 // FRE-03 D: Notruf-Angebote (Feld notruf am Angebot) liegen im selben Brett, zaehlen aber getrennt: angebote_max gilt nur fuer die uebrigen (Andock-, Rueckfall-, Komponisten-Angebote)
 const regulaereAngebote = (F) => ((F && F.abenteuerAngebote) || []).filter((a) => !a.notruf);
 const notrufAngebote = (F) => ((F && F.abenteuerAngebote) || []).filter((a) => !!a.notruf);
-// FRE-03 Nacharbeit B1/S1: ein Faden aus einem Notruf-Angebot des Bretts (Plan mit Beat notruf an erster Stelle: Daten-Plan notruf-brett.json oder ein Notruf-Plan aus dem Vorrat). Der Plan steht im Weltstand, die
-// Erkennung ueberlebt Speichern und Laden; ein Faden einer festen Vorlage (kein f.plan) oder eines Plans ohne Notruf-Einstieg ist keiner.
-const notrufBrettFaden = (f) => !!(f && f.plan && Array.isArray(f.plan.beats) && f.plan.beats[0] && f.plan.beats[0].typ === 'notruf');
+// FRE-03 Nacharbeit B1/S1, R2 B1: ein Faden aus einem Notruf-Angebot des Bretts. Die Erkennung haengt an der HERKUNFT (f.notruf { marke }, faden.js abenteuerOeffnen setzt es, wenn das Angebot a.notruf trug), nicht an der Form
+// des Plans: ein regulaeres Angebot der Absicht notruf oder rettung hat einen Plan mit Beat notruf zuerst und ist keiner. Das Feld steht im Weltstand (faden.js leseFaden), die Erkennung ueberlebt Speichern und Laden.
+const notrufBrettFaden = (f) => !!(f && f.plan && f.notruf && typeof f.notruf.marke === 'string');
 function pruefeAbenteuerAnbieten(F, o) {
   if (regulaereAngebote(F).length >= W.abenteuer.angebote_max) return fehl('ABENTEUER_ANGEBOTE', `hoechstens ${W.abenteuer.angebote_max} offene Abenteuer-Angebote`);
   return pruefeAbenteuerOrt(o);

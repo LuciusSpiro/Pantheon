@@ -52,7 +52,17 @@ const MUTATIONEN = [
   [RE, "  try { require('./abenteuer-brett.js').notrufRueckfallWeiter(game); } catch", "  try { } catch", 'B1: nichts fuehrt den Notruf-Faden im Rueckfall-Betrieb weiter (er bleibt in Phase wartet)'],
   [BR, "l.rueckfallBetrieb !== true || ", "", 'B1: auch ausserhalb des Rueckfall-Betriebs (neben dem Spielleiter)'],
   [BR, "      if (laufend.some((x) => x.notruf === true && x.ev && x.ev.hex === ort)) break;\n", "", 'B1: der Abschluss kommt mitten im Kampf (nicht erst nach der Bewaeltigung)'],
-  [PR, "f.plan.beats[0].typ === 'notruf');", "f.plan.beats[0].typ !== 'x');", 'B1: jeder Plan-Faden gilt als Notruf-Faden (Geruecht, Konvoi ... werden mitgefuehrt)'],
+  [PR, "f.plan && f.notruf && typeof f.notruf.marke === 'string');", "f.plan);", 'B1: jeder Plan-Faden gilt als Notruf-Faden (Geruecht, Konvoi ... werden mitgefuehrt)'],
+  // ---- Nacharbeit Runde 2: Erkennung an der Herkunft, Verfall und Wegspringen = gescheitert, Dank belastbar
+  [PR, "f.plan && f.notruf && typeof f.notruf.marke === 'string');", "f.plan && f.plan.beats && f.plan.beats[0] && f.plan.beats[0].typ === 'notruf');", 'R2 B1: Erkennung an der Form des Plans statt an der Herkunft'],
+  [FA, "  if (a.notruf) f.notruf = { marke: a.notruf.marke };", "", 'R2 B1: das Annehmen setzt die Herkunft am Faden nicht'],
+  [FA, "if (plan && istObjekt(x.notruf) &&", "if (false && istObjekt(x.notruf) &&", 'R2 B1: das Laden verliert die Herkunft'],
+  [RE, "    try { require('./faden-p3.js').notrufImStich(game, o.marke); }", "    try { }", 'R2 B2: der Verfall nach dem Annehmen beendet den Faden nicht'],
+  [RE, "if (L.notruf) { try { require('./faden-p3.js').notrufImStich(", "if (false) { try { require('./faden-p3.js').notrufImStich(", 'R2 B3: Wegspringen vor oder im Kampf laesst den Faden gelungen'],
+  [P3, "g[i].ereignis = 'notruf_gescheitert'; break; }", "g[i].ereignis = 'notruf_gelungen'; break; }", 'R2 B3: das Gedaechtnis der Ankunft bleibt gelungen (Abschluss gelungen)'],
+  [P3, "Faden().beatAusgang(game, f.id, 'gescheitert'); return true; }", "Faden().beatAusgang(game, f.id, 'gelungen'); return true; }", 'R2 B2: der laufende Beat endet gelungen statt gescheitert'],
+  [RE, "      if (L.notruf) { folgeBuchen(game, eintrag(L.id)); funk(game, textFuer(L.ev, 'dank', game)); notrufMitPerson", "      if (L.notruf) { folgeBuchen(game, eintrag(L.id)); notrufMitPerson", 'R2 B6: Gefahr-Notruf: nach dem Kampf kein Dank des Katalog-Eintrags'],
+  [RE, "  else { folgeBuchen(game, e); funk(game, textFuer(o.ev, 'dank', game)); FA().anbieten", "  else { folgeBuchen(game, e); FA().anbieten", 'R2 B6: Notruf ohne Gefahr: kein Dank des Katalog-Eintrags'],
   // ---- Nacharbeit S1: Texte je Variante, Akzent, ein Dank
   [P3, "W.gefahr_texte.wert.includes(key) ? sagenGefahr(game, nsc, text) : sagen(game, nsc, text)", "sagenGefahr(game, nsc, text)", 'S1: auch eine Havarie ohne Gefahr ruft rot'],
   [P3, "    if (!P.notrufBrettFaden(f)) sagen(game, nsc, fmt(T.notruf_dank", "    sagen(game, nsc, fmt(T.notruf_dank", 'S1: der Beat dankt bei der Ankunft zusaetzlich zum Katalog-Eintrag (zwei Dank)'],

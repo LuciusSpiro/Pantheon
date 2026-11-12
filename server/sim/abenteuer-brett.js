@@ -576,8 +576,8 @@ function notrufBeatStarten(game, faden) {
 }
 // FRE-03 Nacharbeit B1: im Rueckfall-Betrieb (ohne Modell, Standard des Servers) gibt es keinen Spielleiter, der nach der Ankunft den naechsten Beat startet (lage-mock.js tut es nur im Mock): ein angenommener Notruf-Faden
 // bliebe in Phase wartet, abenteuerLaufend bliebe 1 und sperrte Annehmen, Anschluss und Vorrat fuer immer. Diese Funktion fuehrt NUR Faeden aus einem Notruf-Angebot (P.notrufBrettFaden) und NUR im Rueckfall-Betrieb bis zum
-// Abschluss weiter (faden_weiter wie lage-mock.js, Abstand ueberspringen). Bei einem Notruf mit Gefahr wartet sie, bis der Kampf der Reise-Gefahr vorbei ist (der Eintrag in R.laufend ist weg: bewaeltigt oder fortgesprungen), damit
-// der Abschluss nicht mitten im Kampf kommt. Andere Faeden (Gerücht, Konvoi, Geleit, ...) bleiben unberuehrt (eigener Auftrag). -> Anzahl gestarteter Beats
+// Abschluss weiter (faden_weiter wie lage-mock.js, Abstand ueberspringen). Bei einem Notruf mit Gefahr wartet sie, bis der Kampf der Reise-Gefahr vorbei ist (der Eintrag in R.laufend ist weg: bewaeltigt oder fortgesprungen; fortgesprungen = im Stich gelassen, reise-ereignis.js
+// ruft dann faden-p3.js notrufImStich: der Faden endet gescheitert, nicht gelungen), damit der Abschluss nicht mitten im Kampf kommt. Andere Faeden (Gerücht, Konvoi, Geleit, ...) bleiben unberuehrt (eigener Auftrag). -> Anzahl gestarteter Beats
 function notrufRueckfallWeiter(game) {
   const F = game && game.weltsim && game.weltsim.faeden, l = game && game.lageSpielleiter;
   if (!F || !l || l.rueckfallBetrieb !== true || !Faden().aktiv(game) || !Faden().spielleiterAktiv(game)) return 0;

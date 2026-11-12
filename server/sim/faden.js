@@ -11,7 +11,7 @@
 // Zustand game.weltsim.faeden = { t, nr, nsc, liste: [Faden], angebote, ... }  (nur t, nr, nsc und liste stehen im Weltstand welt.sim.faeden, optional, additiv, Version 3, Altstaende = leer)
 //   t        Taetigkeitszaehler (eigener Zaehler, NIE die Chronik: sie ist ein Ring von 200 und die Funk-Antworten schreiben hinein)     nr / nsc   laufende Nummern von Faeden (f<nr>) und NSC (n<nr>)
 //   Faden    { id, vorlage, parameter: { volk, ort, name }, beat (Index: der laufende bzw. naechste), phase: wartet | laeuft | abgeschlossen, zaehler (Taetigkeiten seit dem letzten Beat), abstand (Ziel 2 bis 4),
-//              laufend: { beat, n, seit, gewaehlt? } | null, hinweise: [Kennungen gestreut], ausgang: { art, status, tick } | null, begonnen: Tick, nsc }
+//              laufend: { beat, n, seit, gewaehlt? } | null, hinweise: [Kennungen gestreut], ausgang: { art, status, tick } | null, begonnen: Tick, nsc, notruf?: { marke } (FRE-03 R2: Herkunft Brett-Notruf) }
 //   NSC      { id, name, fraktion, schiff, schiffsklasse, status, haltung, gedaechtnis: [{ tick, ereignis, text_key }] (hoechstens 12), wahrheit: { id, fraktion?, offenbart } | null, portrait: Seed }
 //   abenteuerAngebote (nur Laufzeit) { nr, art: 'abenteuer', ref: Vorlagen-Id, hex, volk, vorlage: expandierte Vorlage, alter }   Faden.plan (nur Abenteuer, SUND-04b A1) = die expandierte Vorlage, steht im Weltstand
 //   angebote (nur Laufzeit) { nr, art, ref, hex, volk, vorlagen: [Id], alter }: Taetigkeiten mit Person, aus denen der Spielleiter einen Faden oeffnen darf
@@ -337,6 +337,7 @@ function abenteuerOeffnen(game, nr, p) {
   F.abenteuerAngebote.splice(F.abenteuerAngebote.indexOf(a), 1);
   F.nsc = nscNr; F.nr++;
   const f = { id: 'f' + F.nr, vorlage: v.id, plan: klon(v), parameter: { volk, ort: a.hex, name: nsc.name }, beat: 0, phase: 'wartet', zaehler: 0, abstand: 0, laufend: null, hinweise: [], ausgang: null, begonnen: ws.tickZahl, nsc };
+  if (a.notruf) f.notruf = { marke: a.notruf.marke };   // FRE-03 Nacharbeit R2 B1: die HERKUNFT (das Angebot trug a.notruf) macht den Faden zum Brett-Notruf-Faden, nicht die Form seines Plans (P.notrufBrettFaden); die Marke verknuepft ihn mit dem Eintrag des Notrufs
   f.abstand = abstandZiehen(game, f);
   F.liste.push(f);
   while (F.liste.length > W.faeden_gesamt_max) {
@@ -616,6 +617,7 @@ function leseFaden(x, F) {
     abstand: Number.isInteger(x.abstand) ? Math.min(Math.min(a.max, W.abstand.max), Math.max(Math.max(a.min, W.abstand.min), x.abstand)) : Math.max(a.min, W.abstand.min),
     laufend: null, hinweise: [], ausgang: null, begonnen: nat(x.begonnen, 1e9), nsc,
   });
+  if (plan && istObjekt(x.notruf) && typeof x.notruf.marke === 'string' && /^reise:n-?[0-9]{1,6}$/.test(x.notruf.marke)) f.notruf = { marke: x.notruf.marke };   // FRE-03 Nacharbeit R2 B1: Herkunft Brett-Notruf (optional, additiv, Altstand = keine); muellfest
   if (Array.isArray(x.hinweise)) for (const h of x.hinweise) if (typeof h === 'string' && has(v.hinweise || {}, h) && !f.hinweise.includes(h)) f.hinweise.push(h);
   if (phase === 'laeuft') {
     const l = istObjekt(x.laufend) ? x.laufend : {};

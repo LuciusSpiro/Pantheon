@@ -52,6 +52,14 @@ const ohneFlotten = (g) => { g.weltsim.zustand.flotten = []; };
 const notrufAng = (g) => P.notrufAngebote(Fz(g));
 const regAng = (g) => P.regulaereAngebote(Fz(g));
 const klon = (x) => JSON.parse(JSON.stringify(x));
+// R2 B6: Dank belastbar zaehlen, nicht per Wort: die Zeilen des Katalog-Eintrags (Sprecher, Text aus den Daten texte.dank) und des NSC (Text notruf_dank aus p3-texte.json), je fuer sich
+const P3TXT = fs.readFileSync(path.join(__dirname, '..', 'content/faeden/p3-texte.json'), 'utf8');
+const txt = (k) => (P3TXT.match(new RegExp('"' + k + '":\\s*"([^"]+)"')) || [])[1];
+const NSC_DANK = txt('notruf_dank');
+const zeilen = (funk, text) => funk.filter((x) => x.text === text);
+const katDank = (e, o, funk) => funk.filter((x) => x.von === e.sprecher && e.texte.dank.some((d) => x.text === d.replace(/\{ort\}/g, Sektoren.hexName(o.hex)).replace(/\{n\}/g, e.parameter.vorlauf_s)));
+const nscDank = (funk) => zeilen(funk, NSC_DANK);
+const OHNE = NOTRUFE.find((e) => !e.gefahr), MIT = NOTRUFE.find((e) => e.gefahr);
 const KAT = RE.KATALOG;
 function nur(ids, fn) { const kopie = KAT.slice(); KAT.length = 0; for (const e of kopie) if (ids.includes(e.id)) KAT.push(e); try { return fn(); } finally { KAT.length = 0; KAT.push(...kopie); } }
 function sicher(fn, p) { const alt = W.wahrscheinlichkeit; W.wahrscheinlichkeit = p == null ? 1 : p; try { return fn(); } finally { W.wahrscheinlichkeit = alt; } }
@@ -173,13 +181,14 @@ const springe = (g, hex) => Sprung.springeNach(g, Sektoren.ortVonHex(hex));
       // B1: Rueckfall-Betrieb: der Faden endet von selbst
       if (e.gefahr) {
         ok(f.phase === 'wartet' && P.abenteuerLaufend(Fz(g)) === 1, tag + ': Gefahr: der Abschluss wartet, bis der Kampf vorbei ist (Phase ' + f.phase + ')');
-        ok(!funk.some((x) => /Dank/i.test(x.text)), tag + ': Gefahr: vor dem Ende des Kampfes kein Dank');
+        ok(katDank(e, o, funk).length === 0 && nscDank(funk).length === 0, tag + ': Gefahr: vor dem Ende des Kampfes kein Dank (Katalog 0, NSC 0)');
         for (let i = 0; i < e.parameter.vorlauf_s + 10 && !R(g).laufend.some((x) => x.phase === 'kampf'); i++) lauf(g, 1);
         g.space.enemies = []; lauf(g, 3);
       }
       ok(f.phase === 'abgeschlossen' && P.abenteuerLaufend(Fz(g)) === 0, tag + ': Rueckfall-Betrieb: der Faden ist abgeschlossen (Phase ' + f.phase + '), abenteuerLaufend ' + P.abenteuerLaufend(Fz(g)));
-      const dank = funk.filter((x) => /Dank/i.test(x.text));
-      ok(dank.length <= 1 && funk.length >= 2, `${tag}: hoechstens EIN Dank (${dank.length}) in ${funk.length} Funkzeilen`);
+      const kd = katDank(e, o, funk), nd = nscDank(funk);
+      ok(kd.length === 1 && nd.length === 0 && funk.length >= 2, `${tag}: genau EIN Dank, vom Katalog-Eintrag (${kd.length}), keiner vom NSC (${nd.length}), in ${funk.length} Funkzeilen`);
+      ok(zeilen(funk, txt('notruf_abschluss')).length === 1 && zeilen(funk, txt('abschluss_gelungen')).length === 0, tag + ': Abschlusstext des Notruf-Fadens ist notruf_abschluss (einmal), nicht der Dank-Text abschluss_gelungen');
       ok(funk.every((x) => (g.players || []).every((p) => !p.name || p.name.length < 3 || !x.text.includes(p.name))), tag + ': kein Spielername im Funk');
       const nach = Brett.notrufAnbieten(g, { nr: -777, id: e.id, hex: '0603' === o.hex ? '0504' : '0603', variante: e.parameter.variante, sprecher: 'Probeschiff', marke: 'reise:n-777', ankunft: hex });
       ok(!!nach && Brett.annehmen(g, 'a' + nach.nr) === null && P.abenteuerLaufend(Fz(g)) === 1, tag + ': danach ist ein weiteres Annehmen moeglich');
@@ -414,7 +423,7 @@ const springe = (g, hex) => Sprung.springeNach(g, Sektoren.ortVonHex(hex));
     ok(R(g).offen.some((x) => x.marke === o.marke) && Marken.da(g, o.marke), 'die erste Frist ist um, der Eintrag und seine Marke leben weiter (Frist ab Annehmen neu)');
     ok(!(g.marken || []).some((x) => x.id === 'fund:' + o.marke), 'kein Wrack (Fund-Marke) mitten auf dem Weg');
     springe(g, o.hex); lauf(g, 3);
-    ok(funk.some((x) => /Dank/i.test(x.text)) && faden(g, a).phase === 'abgeschlossen', 'Ankunft nach der ersten Frist: der Katalog-Eintrag dankt, der Faden ist abgeschlossen');
+    ok(katDank(NOTRUFE[4], o, funk).length === 1 && nscDank(funk).length === 0 && faden(g, a).phase === 'abgeschlossen', 'Ankunft nach der ersten Frist: der Katalog-Eintrag dankt (genau einmal, der NSC nicht), der Faden ist abgeschlossen');
     ok(!(g.marken || []).some((x) => x.id === 'fund:' + o.marke), 'kein Wrack nach der Ankunft');
     // nie angekommen: nach der neuen Frist weg, aber nicht als ignoriert gebucht
     const m2 = erzwingen(NOTRUFE[4]);
@@ -424,6 +433,7 @@ const springe = (g, hex) => Sprung.springeNach(g, Sektoren.ortVonHex(hex));
     ok(!R(m2.g).offen.some((x) => x.marke === m2.o.marke) && !Marken.da(m2.g, m2.o.marke) && !(m2.g.marken || []).some((x) => x.id === 'fund:' + m2.o.marke), 'nie angekommen: nach der neuen Frist ist der Eintrag weg, KEIN Fund (nicht ignoriert)');
     const ch = require('../server/sim/chronik.js').letzte(m2.g, 80).map((x) => x.kurz).filter((k) => k.includes(Sektoren.hexName(m2.o.hex)));
     ok(!ch.some((k) => /unbeantwortet|verlassene|Wrack/.test(k)) && ch.some((k) => /nicht rechtzeitig erreicht/.test(k)), 'Chronik: "nicht rechtzeitig erreicht", keine Zeile "unbeantwortet" und kein verlassenes Wrack (' + ch.length + ' Zeilen)');
+    ok(faden(m2.g, a2).phase === 'abgeschlossen' && faden(m2.g, a2).ausgang.art === 'gescheitert', 'R2 B2: nach dem Verfall ist der Faden gescheitert abgeschlossen (Phase ' + faden(m2.g, a2).phase + ')');
     ok(m2.g.errors === 0, 'keine Fehler');
   });
 
@@ -491,6 +501,116 @@ const springe = (g, hex) => Sprung.springeNach(g, Sektoren.ortVonHex(hex));
     ok(snap.angebote.length === 6 && snap.angebote.filter((x) => x.notruf === 1).length === 3, 'sechs Karten (3 regulaer, 3 Notruf)');
     ok(s6 < 4200 && s3 < 2500, `Budget: 6 Karten < 4200 Zeichen (${s6}), 3 regulaere < 2500 (${s3}); der Spielstand-Snapshot gesamt bleibt unter ${CONFIG.net.snapMax - CONFIG.net.snapLuft}`);
     ok(Buffer.byteLength(JSON.stringify(g.snapshot())) <= CONFIG.net.snapMax - CONFIG.net.snapLuft, 'g.snapshot() mit 6 Karten unter der Grenze');
+  });
+
+  await section('R2 B1: die Erkennung haengt an der Herkunft: ein regulaeres Angebot mit Notruf-foermigem Plan ist kein Brett-Notruf-Faden', () => {
+    const t = spiel(), g = t.g; ohneFlotten(g);
+    Fz(g).abenteuerAngebote.length = 0;
+    const here = Sektoren.hexVonOrt(g.ship.scene);
+    const ziel = Sektoren.kantenVon(here).map((e) => (e.a === here ? e.b : e.a)).find((h) => Sektoren.spielbar(h) && Sektoren.hatSzene(h));
+    const plan = { format: 'faden-bauplan/1', titel: 'Hilferuf Probe', anlass: 'Ein Schiff ruft um Hilfe und wartet.', beats: [{ typ: 'notruf', parameter: { text_key: 'notruf_standard' } }, { typ: 'abschluss' }], volk_erlaubt: ['rom', 'kon', 'ger'] };
+    const r = Faden.abenteuerAnbieten(g, plan, { hex: ziel });
+    ok(r.ok && !r.angebot.notruf, 'ein regulaeres Angebot mit Plan notruf, abschluss (so sieht ein Plan der Absicht notruf/rettung des Komponisten aus) traegt kein Feld notruf');
+    if (!r.ok) return;
+    ok(Brett.annehmen(g, 'a' + r.angebot.nr) === null, 'angenommen');
+    const f = Fz(g).liste.find((x) => x.vorlage === r.angebot.ref);
+    ok(!!f && f.plan.beats[0].typ === 'notruf' && f.notruf === undefined && P.notrufBrettFaden(f) === false, 'der Faden hat die FORM eines Notruf-Plans, aber keine Herkunft: notrufBrettFaden false, kein Feld notruf');
+    f.zaehler = Math.max(f.zaehler, f.abstand);
+    ok(Faden.befehlAnwenden(g, { typ: 'faden_weiter', faden: f.id, beat: D.vorlage(f.vorlage).beats[0].id }).ok === true, 'Beat notruf gestartet (wie der Spielleiter)');
+    const funk = funkAb(g);
+    springe(g, ziel); lauf(g, 3);
+    ok(f.phase === 'wartet' && f.beat === 1 && Brett.notrufRueckfallWeiter(g) === 0, 'Ankunft: der Rueckfall fuehrt den regulaeren Faden NICHT weiter (Phase ' + f.phase + ', Beat ' + f.beat + ')');
+    ok(nscDank(funk).length === 1, 'der Beat dankt selbst: genau eine NSC-Zeile notruf_dank (' + nscDank(funk).length + ')');
+    f.zaehler = Math.max(f.zaehler, f.abstand);
+    Faden.befehlAnwenden(g, { typ: 'faden_weiter', faden: f.id, beat: D.vorlage(f.vorlage).beats[f.beat].id });
+    ok(f.phase === 'abgeschlossen' && f.ausgang.art === 'gelungen', 'Abschluss gelungen');
+    ok(zeilen(funk, txt('abschluss_gelungen')).length === 1 && zeilen(funk, txt('notruf_abschluss')).length === 0, 'Abschlusstext abschluss_gelungen (nicht der Brett-Text notruf_abschluss, wie in fre03e)');
+    ok((f.nsc.gedaechtnis || []).some((x) => x.ereignis === 'abschluss_gelungen') && g.errors === 0, 'Gedaechtnis abschluss_gelungen, keine Fehler');
+  });
+
+  await section('R2 B1: die Herkunft steht im Weltstand (Speichern und Laden), Altstand ohne Feld bleibt gueltig', () => {
+    const m = erzwingen(MIT), { g, o } = m;
+    const a = angebotZu(g, o);
+    Brett.annehmen(g, 'a' + a.nr);
+    const f = faden(g, a);
+    ok(P.notrufBrettFaden(f) && f.notruf.marke === o.marke, 'Brett-Notruf-Faden traegt notruf { marke } = Marke des Eintrags (' + (f.notruf && f.notruf.marke) + ')');
+    const d1 = JSON.parse(JSON.stringify(Weltstand.capture(g)));
+    ok(Weltstand.validate(d1).length === 0 && d1.welt.sim.faeden.liste[0].notruf.marke === o.marke, 'der Weltstand ist gueltig (Schema) und enthaelt das Feld');
+    const dir = F.freshDir(); d1.id = 'w-r2-b1'; fs.writeFileSync(path.join(dir, 'w-r2-b1.json'), JSON.stringify(d1));
+    const g2 = spiel({ dir, world: 'w-r2-b1' }).g;
+    const f2 = Fz(g2).liste.find((x) => x.vorlage === a.ref);
+    ok(!!f2 && P.notrufBrettFaden(f2) && f2.notruf.marke === o.marke && JSON.stringify(f2.notruf) === JSON.stringify(f.notruf), 'nach dem Laden erkennt notrufBrettFaden den Faden weiter, Feld unveraendert');
+    const d2 = JSON.parse(JSON.stringify(Weltstand.capture(g2)));
+    ok(JSON.stringify(d2.welt.sim.faeden.liste) === JSON.stringify(d1.welt.sim.faeden.liste), 'Speichern, Laden, Speichern ergibt denselben Faeden-Block');
+    const d3 = JSON.parse(JSON.stringify(d1)); delete d3.welt.sim.faeden.liste[0].notruf; d3.id = 'w-r2-b1a';
+    const d4 = JSON.parse(JSON.stringify(d1)); d4.welt.sim.faeden.liste[0].notruf = { marke: 'x' }; d4.id = 'w-r2-b1b';
+    fs.writeFileSync(path.join(dir, 'w-r2-b1a.json'), JSON.stringify(d3));
+    const g3 = spiel({ dir, world: 'w-r2-b1a' }).g;
+    const f3 = Fz(g3).liste.find((x) => x.vorlage === a.ref);
+    ok(!!f3 && f3.notruf === undefined && g3.errors === 0 && Weltstand.validate(d3).length === 0, 'Altstand ohne Feld: Weltstand gueltig, der Faden wird geladen, ohne Herkunft');
+    ok(Weltstand.validate(d4).some((x) => /notruf/.test(x)), 'Schema: eine unbrauchbare Marke wird abgewiesen');
+    const f4 = Faden.lesen(d4.welt.sim.faeden).liste.find((x) => x.vorlage === a.ref);
+    ok(!!f4 && f4.notruf === undefined, 'der muellfeste Leser laesst nur das Feld fallen, der Faden bleibt (ohne Herkunft)');
+  });
+
+  await section('R2 B4 (dokumentiert, nicht behoben): nach Speichern und Laden mit angenommenem Notruf-Faden fehlen Dank und Kampf', () => {
+    const m = erzwingen(MIT), { g, o } = m;
+    const a = angebotZu(g, o);
+    Brett.annehmen(g, 'a' + a.nr);
+    const d1 = JSON.parse(JSON.stringify(Weltstand.capture(g)));
+    const dir = F.freshDir(); d1.id = 'w-r2-b4'; fs.writeFileSync(path.join(dir, 'w-r2-b4.json'), JSON.stringify(d1));
+    const g2 = spiel({ dir, world: 'w-r2-b4' }).g;
+    ohneFlotten(g2); g2.space.enemies = [];
+    const f2 = Fz(g2).liste.find((x) => x.vorlage === a.ref);
+    ok(R(g2).offen.length === 0 && R(g2).laufend.length === 0 && P.notrufBrettFaden(f2) && f2.phase === 'laeuft', 'nach dem Laden: R.offen und R.laufend sind leer (stehen nicht im Weltstand), der Faden laeuft weiter');
+    kantenOeffnen(g2, o.hex);
+    const funk = funkAb(g2);
+    springe(g2, o.hex); lauf(g2, 3);
+    ok(f2.phase === 'abgeschlossen' && f2.ausgang.art === 'gelungen' && katDank(MIT, o, funk).length === 0 && nscDank(funk).length === 0 && R(g2).laufend.length === 0 && (g2.space.enemies || []).length === 0, 'BEKANNTE LUECKE: Ankunft nach dem Laden beendet den Faden gelungen, ohne Katalog-Dank und ohne Kampf (der Eintrag fehlt)');
+  });
+
+  await section('R2 B2: Annehmen, die Frist laeuft ab (nicht rechtzeitig erreicht): der Faden endet gescheitert, auch bei spaeter Ankunft', () => {
+    for (const e of [OHNE, MIT]) {
+      const m = erzwingen(e), { g, o } = m;
+      const a = angebotZu(g, o);
+      Brett.annehmen(g, 'a' + a.nr);
+      const f = faden(g, a);
+      const funk = funkAb(g);
+      lauf(g, W.takt_leben_s + 2);
+      const ged = (f.nsc.gedaechtnis || []).map((x) => x.ereignis);
+      ok(!R(g).offen.some((x) => x.marke === o.marke) && f.phase === 'abgeschlossen' && f.ausgang.art === 'gescheitert', e.id + ': nach dem Verfall ist der Faden abgeschlossen, Ausgang gescheitert (Phase ' + f.phase + ')');
+      ok(ged.includes('notruf_gescheitert') && ged.includes('abschluss_gescheitert') && !ged.includes('notruf_gelungen') && !ged.includes('abschluss_gelungen'), e.id + ': Gedaechtnis ' + ged.join(','));
+      ok(f.nsc.haltung <= 0 && f.nsc.status !== 'verbuendet', e.id + ': keine Haltung gedankt oder geholfen (Haltung ' + f.nsc.haltung + ', Status ' + f.nsc.status + ')');
+      ok(P.abenteuerLaufend(Fz(g)) === 0, e.id + ': das Abenteuer zaehlt nicht mehr als laufend');
+      g.space.enemies = [];
+      springe(g, o.hex); lauf(g, 3);
+      ok(f.ausgang.art === 'gescheitert' && !(f.nsc.gedaechtnis || []).some((x) => /gelungen/.test(x.ereignis)) && katDank(e, o, funk).length === 0 && nscDank(funk).length === 0 && R(g).laufend.length === 0 && (g.space.enemies || []).length === 0, e.id + ': spaete Ankunft: kein Dank, kein Kampf, der Faden bleibt gescheitert');
+      ok(g.errors === 0, e.id + ': keine Fehler');
+    }
+  });
+
+  await section('R2 B3: Gefahr-Notruf angenommen, die Crew springt vor oder waehrend des Kampfs weg: im Stich gelassen, Faden gescheitert', () => {
+    for (const wann of ['vor dem Kampf (Vorlauf)', 'waehrend des Kampfs']) {
+      const m = erzwingen(MIT), { g, o, hex } = m;
+      const a = angebotZu(g, o);
+      Brett.annehmen(g, 'a' + a.nr);
+      const f = faden(g, a);
+      const funk = funkAb(g);
+      springe(g, o.hex); lauf(g, 1);
+      ok(R(g).laufend.length === 1 && f.phase === 'wartet', wann + ': die Crew ist da, die Gefahr laeuft (' + R(g).laufend.map((x) => x.phase).join(',') + '), der Abschluss wartet');
+      if (wann.startsWith('waehrend')) { for (let i = 0; i < MIT.parameter.vorlauf_s + 10 && !R(g).laufend.some((x) => x.phase === 'kampf'); i++) lauf(g, 1); ok(R(g).laufend.some((x) => x.phase === 'kampf') && (g.space.enemies || []).length > 0, 'der Kampf laeuft'); }
+      springe(g, hex); lauf(g, 2);
+      const ged = (f.nsc.gedaechtnis || []).map((x) => x.ereignis);
+      ok(R(g).laufend.length === 0 && f.phase === 'abgeschlossen' && f.ausgang.art === 'gescheitert', wann + ': weggesprungen: der Faden ist abgeschlossen, Ausgang ' + (f.ausgang && f.ausgang.art));
+      ok(ged.includes('abschluss_gescheitert') && !ged.includes('abschluss_gelungen') && !ged.includes('notruf_gelungen'), wann + ': Gedaechtnis ' + ged.join(','));
+      ok(katDank(MIT, o, funk).length === 0 && nscDank(funk).length === 0 && zeilen(funk, txt('notruf_abschluss')).length === 0 && P.abenteuerLaufend(Fz(g)) === 0, wann + ': kein Dank, kein gelungener Abschlusstext, nicht mehr laufend');
+      ok(g.errors === 0, wann + ': keine Fehler');
+    }
+    const m = erzwingen(MIT), { g, o } = m, a = angebotZu(g, o);
+    Brett.annehmen(g, 'a' + a.nr); const f = faden(g, a);
+    springe(g, o.hex); for (let i = 0; i < MIT.parameter.vorlauf_s + 10 && !R(g).laufend.some((x) => x.phase === 'kampf'); i++) lauf(g, 1);
+    g.space.enemies = []; lauf(g, 3);
+    ok(f.phase === 'abgeschlossen' && f.ausgang.art === 'gelungen', 'Gegenprobe: Kampf bestanden = Faden gelungen');
   });
 
   console.log(`\n${n - fails}/${n} Prüfungen bestanden.`);

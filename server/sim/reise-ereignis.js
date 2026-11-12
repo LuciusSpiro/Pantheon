@@ -327,6 +327,7 @@ function notrufVerfaellt(game, R, o, text) {
   brettZurueckziehen(game, o);
   if (o.angenommen === true) {   // FRE-03 Nacharbeit S3: die Crew hat den Notruf angenommen (Faden laeuft): kein Wrack, keine Zeile "unbeantwortet", der Notruf wurde nicht ignoriert, nur nicht rechtzeitig erreicht
     Chronik.eintragen(game, { art: 'reise', ref: o.id, kurz: `Notruf bei ${hexName(o.hex)} nicht rechtzeitig erreicht`, param: { art: 'notruf', hex: o.hex } });
+    try { require('./faden-p3.js').notrufImStich(game, o.marke); } catch (err) { if (game.countError) game.countError('reise-faden', err); }   // FRE-03 Nacharbeit R2 B2: nicht rechtzeitig erreicht = gescheitert, der Faden endet nicht als gelungen, wenn die Crew spaeter doch ankommt
     return;
   }
   Chronik.eintragen(game, { art: 'reise', ref: o.id, kurz: `Notruf bei ${hexName(o.hex)} ${text}`, param: { art: 'notruf', hex: o.hex } });
@@ -472,7 +473,7 @@ function update(game, dt) {   // eslint-disable-line no-unused-vars
   if (!R || !R.laufend.length) return;
   for (const L of R.laufend.slice()) {
     const weg = () => R.laufend.splice(R.laufend.indexOf(L), 1);
-    if (game.ship.scene !== L.szene || R.n !== L.sprung) { weg(); continue; }   // jeder weitere Sprung (in jeder Phase, auch zurück in dieselbe Szene) beendet die Gefahr: weder Gegner noch Ruf noch Dank
+    if (game.ship.scene !== L.szene || R.n !== L.sprung) { weg(); if (L.notruf) { try { require('./faden-p3.js').notrufImStich(game, 'reise:n' + L.nr); } catch (err) { if (game.countError) game.countError('reise-faden', err); } } continue; }   // jeder weitere Sprung (in jeder Phase, auch zurück in dieselbe Szene) beendet die Gefahr: weder Gegner noch Ruf noch Dank; FRE-03 Nacharbeit R2 B3: bei einer Notruf-Gefahr heisst das im Stich gelassen (Faden gescheitert)
     if (L.phase === 'erwartet') { if (game.simSzene || game.fadenSzene) L.ab = Math.max(L.ab, game.time + 1); else if (game.time >= L.ab) eintreffen(game, L); continue; }   // keine zwei Kämpfe übereinander: der Vorlauf wartet auf das Ende der Sim-Szene und einer Faden-Szene (SUND-04a-2 Nacharbeit L1)
     if (!((game.space && game.space.enemies) || []).some((g) => g.tag === L.tag)) {   // bewältigt
       weg();

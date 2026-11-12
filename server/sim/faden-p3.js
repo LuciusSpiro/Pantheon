@@ -202,4 +202,19 @@ const abschluss = {
   },
 };
 
-module.exports = { notruf, enthuellung, abschluss, update, ziel, invasionsZiel, notrufText };
+// FRE-03 Nacharbeit R2 B2/B3: die Crew hat einen angenommenen Brett-Notruf im Stich gelassen (die Frist des Eintrags ist nach dem Annehmen abgelaufen, oder sie sprang vor oder waehrend des Kampfs einer Gefahr weg):
+// der Faden endet als gescheitert, nie als gelungen. Laeuft der Beat notruf noch (Frist), scheitert er (Folgen aus den Daten: im Stich gelassen, kein "geholfen", kein Dank); dann steht der Abschluss aus und der Rueckfall (oder der
+// Spielleiter) fuehrt ihn weiter, ohne Erfolg-Ereignis im Gedaechtnis ist er gescheitert (Text abschluss_gescheitert). Hat die Ankunft den Beat schon gelungen beendet (Gefahr: die Crew kam an und sprang weg), wird das Gedaechtnis
+// berichtigt (notruf_gelungen -> notruf_gescheitert), damit der Abschluss gescheitert ausfaellt; die Haltung aus der Ankunft bleibt (die Ankunft hat es gegeben). Ohne Faden zu dieser Marke tut sie nichts. -> true, wenn ein Faden betroffen war
+function notrufImStich(game, marke) {
+  const F = Faden().aktiv(game) ? Faden().zustandVon(game) : null;
+  const f = F && F.liste.find((x) => x.phase !== 'abgeschlossen' && x.notruf && x.notruf.marke === marke);
+  if (!f) return false;
+  const v = D.vorlage(f.vorlage);
+  if (f.phase === 'laeuft' && v.beats[f.beat].typ === 'notruf') { Faden().beatAusgang(game, f.id, 'gescheitert'); return true; }
+  const g = f.nsc.gedaechtnis || [];
+  for (let i = g.length - 1; i >= 0; i--) if (g[i].ereignis === 'notruf_gelungen') { g[i].ereignis = 'notruf_gescheitert'; break; }
+  return true;
+}
+
+module.exports = { notruf, enthuellung, abschluss, update, ziel, invasionsZiel, notrufText, notrufImStich };
