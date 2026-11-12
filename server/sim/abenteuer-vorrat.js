@@ -2,7 +2,7 @@
 // SPL-02 F: der Vorrat der Absichten, die schmale Schnittstelle fuer FRE-02 (Missionsangebote beim Andocken) und FRE-03 (Notrufe als Einstieg). Action-Layer: ein erzeugtes, aber nicht gespieltes Angebot geht als Absicht
 // MIT Bezug in den Vorrat und wird spaeter wieder angeboten, wenn es noch zur Welt passt (kein neuer Komponisten-Aufruf). Der Eintrag traegt die Absicht (Format absicht/1), nie nur den Plan: die Gueltigkeit prueft die Welt
 // erneut ueber denselben Pruefer und Inszenierer (inszenierer.js), nicht eine Kopie ihrer Regeln. Dieses Modul kennt keinen Absichts-, keinen Beat- und keinen Art-Namen: `art` ist ein Name nach name_muster (die Aufrufer
-// FRE-02/03 vergeben ihn), alle Grenzen stehen in content/faeden/absichten.json unter werte (vorrat_max, vorrat_alter_max). FRE-02/03 selbst sind hier NICHT gebaut.
+// FRE-02/03 vergeben ihn), alle Grenzen stehen in content/faeden/absichten.json unter werte (vorrat_max, vorrat_alter_max; FRE-03 E: vorrat_max_je_art, vorrat_alter_max_s_je_art). FRE-02/03 selbst sind hier NICHT gebaut.
 //
 //   Eintrag: { absicht: absicht/1 (Bezug als Vollname, nie eine Kennung), plan?: faden-bauplan/1, hex: Ort bei der Aufnahme, bezug?: { nsc: Vollname } (wie am Angebot), art: Name, erstellt: Tick (weltsim.tickZahl), ablauf?: Tick }
 //   eintrag(game, { absicht, art, ablauf? }) -> { ok, eintrag } | { ok: false, grund, text, fehler }   baut den Eintrag aus einer Absicht ueber den Inszenierer (hex, plan, bezug, erstellt); Kennungen (K1) werden zu Vollnamen
@@ -18,6 +18,8 @@
 //        sie bleiben im Vorrat. Kein Eintrag dieser Art frei: das Brett bietet nie dasselbe sofort wieder an. Bei einem Nein des Bretts wird der naechste Eintrag probiert.
 //   liste(game) -> [Eintrag] (Kopie)       toSave(F) -> [Eintrag] | null       lesen(block, F)   Weltstand welt.sim.faeden.abenteuer.vorrat (additiv, Altstand ohne Block: leer, muellfest: ohne Welt wird nur die Form geprueft,
 //        Unbrauchbares faellt weg, Meldung in F.ladeFehler; die Gueltigkeit gegen die Welt prueft verwirfUngueltige)       werteFehler(katalog?) -> [Text]       CODES
+// FRE-03 E: Quote je Art (vorrat_max_je_art: ein Eintrag verdraengt den aeltesten SEINER Art, vorrat_max bleibt die Summe) und eine zweite Zeitbasis: Arten in vorrat_alter_max_s_je_art altern in Spielzeit (game.time, Sekunden; erstellt und ablauf
+// des Eintrags sind dann Sekunden), alle anderen in Ticks der Weltsim. ausVorratFuerNotruf nimmt einen Plan fuer ein Notruf-Angebot heraus (der Ort ist der des Notrufs, nicht der gespeicherte).
 // Der Weltstand-Block steht in welt.sim.faeden.abenteuer (abenteuer-brett.js toSave/lesen), weil die Fadenmaschine (faden.js) unveraendert bleibt; faden.js ruft nur toSave/lesen des Bretts.
 const AP = () => require('./absicht-pruefer.js');
 const INS = () => require('./inszenierer.js');
@@ -41,6 +43,18 @@ const nein = (grund, text, fehler) => (fehler ? { ok: false, grund, text, fehler
 
 const zustand = (game) => { try { return Faden().aktiv(game) ? Faden().zustandVon(game) : null; } catch (e) { return null; } };
 const jetzt = (game) => (game && game.weltsim && Number.isFinite(game.weltsim.tickZahl) ? game.weltsim.tickZahl : 0);
+// FRE-03 E: die Uhr einer Art: Spielzeit-Arten (vorrat_alter_max_s_je_art) zaehlen game.time in ganzen Sekunden, alle anderen die Ticks der Weltsim
+const tabelle = (katalog, k) => (has(katalog.werte, k) && istObjekt(katalog.werte[k]) && istObjekt(katalog.werte[k].wert) ? katalog.werte[k].wert : {});   // fehlt der Wert (Altdaten), gilt er als leer
+const zeitArt = (katalog, art) => has(tabelle(katalog, 'vorrat_alter_max_s_je_art'), art);
+const jetztFuer = (game, katalog, art) => (zeitArt(katalog, art) ? (game && Number.isFinite(game.time) && game.time >= 0 ? Math.floor(game.time) : 0) : jetzt(game));
+const alterMaxFuer = (katalog, art) => (zeitArt(katalog, art) ? tabelle(katalog, 'vorrat_alter_max_s_je_art')[art] : wert(katalog, 'vorrat_alter_max'));
+const quoteFuer = (katalog, art) => { const q = tabelle(katalog, 'vorrat_max_je_art'); return has(q, art) ? q[art] : wert(katalog, 'vorrat_max'); };
+// die Eintraege, die Quote je Art und Summe zusammen zulassen: je Art bleiben die neuesten, danach insgesamt die neuesten vorrat_max (Reihenfolge bleibt)
+function begrenzt(liste, katalog) {
+  const zaehl = new Map(), behalten = new Set();
+  for (let i = liste.length - 1; i >= 0; i--) { const a = liste[i].art, k = (zaehl.get(a) || 0) + 1; zaehl.set(a, k); if (k <= quoteFuer(katalog, a)) behalten.add(i); }
+  return liste.filter((x, i) => behalten.has(i)).slice(-wert(katalog, 'vorrat_max'));
+}
 const protoSchluessel = (x, tiefe) => {
   if (!x || typeof x !== 'object') return false;
   if (tiefe > 6) return true;
@@ -84,7 +98,7 @@ function eintrag(game, o) {
   }
   const r = INS().inszeniere(game, absicht, katalog);
   if (!r.ok) return abgelehnt(r.fehler);
-  const e = { absicht, hex: r.hex, art: o.art, erstellt: jetzt(game) };
+  const e = { absicht, hex: r.hex, art: o.art, erstellt: jetztFuer(game, katalog, o.art) };
   if (r.bezug) e.bezug = { nsc: r.bezug.nsc };
   else if (istObjekt(absicht.bezug) && typeof absicht.bezug.nsc === 'string') e.bezug = { nsc: absicht.bezug.nsc };   // ein Bezug, den der Plan nicht nutzt, bleibt bei der Absicht und beim Eintrag
   if (istObjekt(r.plan)) e.plan = klon(r.plan);
@@ -110,8 +124,8 @@ function gueltig(game, e) {
   const fo = formFehler(e, katalog);
   if (fo) return nein(CODES.VORRAT_FORM, fo);
   if (!zustand(game)) return nein(CODES.INAKTIV, 'die Faeden sind nicht eingeschaltet');
-  const t = jetzt(game);
-  if ((e.ablauf !== undefined && t > e.ablauf) || t - e.erstellt > wert(katalog, 'vorrat_alter_max')) return nein(CODES.ABGELAUFEN, 'der Eintrag ist zu alt');
+  const t = jetztFuer(game, katalog, e.art);
+  if ((e.ablauf !== undefined && t > e.ablauf) || t - e.erstellt > alterMaxFuer(katalog, e.art)) return nein(CODES.ABGELAUFEN, 'der Eintrag ist zu alt');
   const r = INS().inszeniere(game, e.absicht, katalog);
   if (!r.ok) { const n = abgelehnt(r.fehler); return zeitweilig(r.fehler) ? Object.assign(n, { wartet: true }) : n; }   // FRE-02 A2: alle Ziele vergeben ist kein Mangel des Eintrags (wartet: true)
   return { ok: true, hex: r.hex };
@@ -145,8 +159,10 @@ function hinzufuegen(game, e) {
   if (!Array.isArray(F.vorrat)) F.vorrat = [];
   const schluessel = (x) => x.art + '|' + JSON.stringify(x.absicht);
   if (!F.vorrat.some((x) => schluessel(x) === schluessel(e))) F.vorrat.push(klon(e));
-  const max = wert(AP().katalogStandard(), 'vorrat_max');
-  while (F.vorrat.length > max) F.vorrat.shift();   // der aelteste weicht
+  const katalog = AP().katalogStandard();
+  const dieseArt = () => F.vorrat.filter((x) => x.art === e.art);
+  while (dieseArt().length > quoteFuer(katalog, e.art)) F.vorrat.splice(F.vorrat.indexOf(dieseArt()[0]), 1);   // FRE-03 E: ueber der Quote der EIGENEN Art weicht der aelteste dieser Art
+  while (F.vorrat.length > wert(katalog, 'vorrat_max')) F.vorrat.shift();   // und insgesamt der aelteste
   return { ok: true, vorrat: F.vorrat.length };
 }
 const liste = (game) => { const F = zustand(game); return F && Array.isArray(F.vorrat) ? klon(F.vorrat) : []; };
@@ -202,10 +218,32 @@ function ausVorratOhneSperre(game, art) {
   return nein(CODES.VORRAT_LEER, 'kein freigegebener Eintrag dieser Art');
 }
 
+// FRE-03 E: ein Plan fuer ein Notruf-Angebot. Ein Takt-Notruf entsteht an SEINEM Ort (hex): der Eintrag muss gueltig sein (Alter in der Uhr der Art, Welt, Absicht; gueltig inszeniert neu) und sein frisch gebauter Plan zur Lage
+// an hex passen (Brett().passtZuLage: Volk, Besitzer, Fraktion). anbieter(plan, absicht, erstellt) legt das Angebot an und liefert { ok }; erst dann verlaesst der Eintrag den Vorrat (sonst bleibt er liegen). Ein Aufruf des
+// Komponisten ist das nicht. -> { ok: true, ergebnis } | { ok: false, grund, text }
+function ausVorratFuerNotruf(game, art, hex, anbieter) {
+  if (!Absicht().aktiv(game)) return nein(CODES.INAKTIV, 'der Modus Absichten ist aus');
+  const F = zustand(game);
+  if (!F || !Array.isArray(F.vorrat)) return nein(CODES.VORRAT_LEER, 'der Vorrat ist leer');
+  if (typeof anbieter !== 'function') return nein(CODES.VORRAT_FORM, 'ausVorratFuerNotruf braucht einen Anbieter');
+  const katalog = AP().katalogStandard();
+  for (const e of F.vorrat.slice()) {
+    if (e.art !== art) continue;
+    const g = gueltig(game, e);
+    if (g.wartet) continue;
+    if (!g.ok) { if (g.grund !== INS().CODES.WELT_BEDINGUNG) entnehmen(game, e); continue; }   // Wiederholungsregel oder Lage ist kein Mangel des Eintrags (die Typenfolge notruf sperrt sich nach jedem Notruf): er bleibt, das Alter verwirft ihn spaeter
+    const r = INS().inszeniere(game, e.absicht, katalog);
+    if (!r.ok || !istObjekt(r.plan) || !Brett().passtZuLage(game, r.plan, hex)) continue;   // passt nicht zu diesem Ort: bleibt fuer einen anderen Notruf
+    const res = anbieter(klon(r.plan), klon(e.absicht), e.erstellt);
+    if (res && res.ok) { entnehmen(game, e); return { ok: true, ergebnis: res }; }
+  }
+  return nein(CODES.VORRAT_LEER, 'kein passender Eintrag dieser Art');
+}
+
 // ---------- Weltstand
 function toSave(F) {
   if (!F || !Array.isArray(F.vorrat) || !F.vorrat.length) return null;
-  return F.vorrat.slice(-wert(AP().katalogStandard(), 'vorrat_max')).map((e) => klon(e));
+  return begrenzt(F.vorrat, AP().katalogStandard()).map((e) => klon(e));
 }
 function lesen(b, F) {
   if (!F) return;
@@ -218,14 +256,26 @@ function lesen(b, F) {
     if (e.plan !== undefined) { let r = { ok: false }; try { r = Bauplan().pruefe(e.plan); } catch (err) { r = { ok: false }; } if (!r.ok) delete e.plan; }   // ein kaputter Plan faellt weg, die Absicht bleibt (sie wird beim Anbieten neu inszeniert)
     out.push(e);
   }
-  if (out.length) F.vorrat = out;
+  if (out.length) F.vorrat = begrenzt(out, katalog);   // FRE-03 E: Quote je Art auch beim Laden (Altstand ohne Quoten: unveraendert, die Quoten greifen nur fuer Arten mit Eintrag)
 }
 
 function werteFehler(katalog) {
   katalog = katalog || AP().katalogStandard();
   const o = [], f = (t) => o.push(`VORRAT_WERTE: ${t}`);
   for (const [k, min] of [['vorrat_max', 1], ['vorrat_alter_max', 1], ['vorrat_name_max', 3], ['vorrat_text_max', 1]]) if (!(has(katalog.werte, k) && istObjekt(katalog.werte[k]) && Number.isInteger(katalog.werte[k].wert) && katalog.werte[k].wert >= min)) f(`${k}: ganze Zahl >= ${min}`);
+  const jeArt = (k, was, pruef) => {   // FRE-03 E: Tabellen je Art
+    if (!has(katalog.werte, k)) return null;   // optional: Altdaten ohne den Wert gelten wie vorher
+    const t = istObjekt(katalog.werte[k]) ? katalog.werte[k].wert : null;
+    if (!istObjekt(t)) { f(`${k}: Tabelle Art -> ${was}`); return null; }
+    let muster = null; try { muster = new RegExp(wert(katalog, 'name_muster')); } catch (x) { muster = null; }
+    for (const [a, v] of Object.entries(t)) { if (!muster || !muster.test(a)) f(`${k}.${a}: Name nach name_muster`); if (!pruef(v)) f(`${k}.${a}: ${was}`); }
+    return t;
+  };
+  const ganzMin1 = (v) => Number.isInteger(v) && v >= 1;
+  const quoten = jeArt('vorrat_max_je_art', 'ganze Zahl >= 1', ganzMin1);
+  if (quoten && istObjekt(katalog.werte.vorrat_max) && Number.isInteger(katalog.werte.vorrat_max.wert) && katalog.werte.vorrat_max.wert >= 1 && Object.values(quoten).filter(ganzMin1).reduce((a, b) => a + b, 0) > katalog.werte.vorrat_max.wert) f('vorrat_max_je_art: die Summe der Quoten liegt ueber vorrat_max');
+  jeArt('vorrat_alter_max_s_je_art', 'ganze Zahl >= 1 (Sekunden)', ganzMin1);
   return o;
 }
 
-module.exports = { CODES, eintrag, gueltig, anbieten, hinzufuegen, verwirfUngueltige, ausVorrat, einlegenAus, ausVorratOhneSperre, liste, toSave, lesen, werteFehler };
+module.exports = { CODES, eintrag, gueltig, anbieten, hinzufuegen, verwirfUngueltige, ausVorrat, einlegenAus, ausVorratOhneSperre, ausVorratFuerNotruf, liste, toSave, lesen, werteFehler };

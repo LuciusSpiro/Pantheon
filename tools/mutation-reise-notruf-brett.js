@@ -41,18 +41,15 @@ const MUTATIONEN = [
   [BR, "const k = a.notruf ? 'notruf' : 'regulaer';", "const k = 'regulaer';", 'Snapshot zählt Notruf- und Andock-Angebote zusammen (3 statt 3 + 3)'],
   [BR, "if (P.regulaereAngebote(F).length || P.abenteuerLaufend(F)) return null;   // FRE-03 D", "if (F.abenteuerAngebote.length || P.abenteuerLaufend(F)) return null;   // FRE-03 D", 'Anschluss-Garantie: ein Notruf-Angebot zählt als Angebot'],
   [BR, "while (P.regulaereAngebote(F).length < W.abenteuer.angebote_max) {", "while (F.abenteuerAngebote.length < W.abenteuer.angebote_max) {", 'Rückfall füllt das Brett: Notruf-Angebote zählen mit (weniger Andock-Angebote)'],
-  [BR, "if (P.regulaereAngebote(F).length >= W.abenteuer.angebote_max || P.abenteuerLaufend(F)) return null;", "if (F.abenteuerAngebote.length >= W.abenteuer.angebote_max || P.abenteuerLaufend(F)) return null;", 'Vorrat füllt das Brett: Notruf-Angebote zählen mit'],
   // ---- Felder und Verhalten des Angebots
   [BR, "angebotAusstatten(a, { herkunft: o.ankunft,", "angebotAusstatten(a, { herkunft: o.hex,", 'herkunft ist der Notruf-Hex statt der Crew-Hex'],
-  [BR, "bezug: { sprecher } });", "bezug: { sprecher: '' } });", 'bezug.sprecher fehlt'],
+  [BR, "bezug: { sprecher }, erstellt });", "bezug: { sprecher: '' }, erstellt });", 'bezug.sprecher fehlt'],
   [BR, "  a.variante = typeof o.variante === 'string' ? o.variante : '';\n", "  a.variante = '';\n", 'variante fehlt am Angebot'],
   [BR, "    if (a.notruf) e.notruf = 1;", "", 'Snapshot: kein Feld notruf'],
   [BR, "  if (a.notruf) notrufBeatStarten(game, r.faden);", "", 'Annehmen startet den Beat notruf nicht'],
   [BR, "    faden.zaehler = Math.max(faden.zaehler, faden.abstand);\n", "", 'Annehmen: der Abstand des Fadens wird nicht übersprungen'],
-  // ---- Angebot ablehnen / Vorrat
+  // ---- Angebot ablehnen / Vorrat (FRE-03 E: Einlegen und Entnehmen der Art notruf, gefuellter Vorrat am Brett: tools/mutation-vorrat-je-art.js)
   [BR, "  if (!a.notruf) gemerkt(b.abgelehnt, a.ref, 3);", "  gemerkt(b.abgelehnt, a.ref, 3);", 'Angebot ablehnen: Rückfall-Sperre für den Notruf-Plan'],
-  [BR, "  if (a.absicht && !a.notruf) { try { Vorrat().einlegenAus(game, a, BW.vorrat_art); }", "  if (a.absicht) { try { Vorrat().einlegenAus(game, a, BW.vorrat_art); }", 'Angebot ablehnen: ein Notruf-Angebot kommt in den Vorrat (Absichten-Modus)'],
-  [BR, "if (!a.absicht || a.notruf || F.abenteuerAngebote.includes(a)", "if (!a.absicht || F.abenteuerAngebote.includes(a)", 'Verfall: ein Notruf-Angebot kommt in den Vorrat (Absichten-Modus)'],
   // ---- Daten
   [DA, '"belagerung": "notruf"', '"belagerung": "kaperung"', 'Daten: eine Variante hat eine unbekannte Absicht'],
   [DA, '"kon",\n      "ger"', '"kon"', 'Daten: ger fehlt in volk_erlaubt (römischer NSC im Germanengebiet)'],

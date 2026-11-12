@@ -107,6 +107,11 @@
       "einheit": "Name",
       "_hinweis": "FRE-02 C: Art (Name nach name_muster, absichten.json) der Vorrat-Eintraege des Auftragsbretts (abenteuer-vorrat.js): verfallene und abgelehnte Angebote mit Absicht werden unter dieser Art eingelegt, das Brett nimmt unter ihr wieder heraus. Notrufe (FRE-03) nehmen eine eigene Art. Gilt nur im Modus Absichten (ABENTEUER_ABSICHTEN)."
     },
+    "vorrat_art_notruf": {
+      "wert": "notruf",
+      "einheit": "Name",
+      "_hinweis": "FRE-03 E: Art (Name nach name_muster, absichten.json) der Vorrat-Eintraege von Notruf-Angeboten (abenteuer-vorrat.js): verfallene und abgelehnte Notruf-Angebote, die einen vollstaendigen Plan mit Absicht tragen (nur im Modus Absichten), werden unter dieser Art eingelegt; ein neu entstehender Takt-Notruf nimmt unter ihr einen Plan heraus (notrufAusVorrat), statt den Daten-Plan (notruf-brett.json) anzubieten. Quote und Alter je Art: absichten.json (vorrat_max_je_art, vorrat_alter_max_s_je_art). Gilt nur im Modus Absichten (ABENTEUER_ABSICHTEN)."
+    },
     "kanon_max": {
       "wert": 40,
       "einheit": "Eintraege",

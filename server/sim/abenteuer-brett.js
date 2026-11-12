@@ -267,7 +267,7 @@ function ablehnen(game, id) {   // kostet nichts: keine Ruf- oder Haltungsfolge,
   gemerkt(b.antworten, a.nr, BW.antworten_gemerkt);
   if (!a.notruf) gemerkt(b.abgelehnt, a.ref, 3);   // der Rueckfall bietet nicht sofort denselben Plan wieder an (FRE-03 D: ein Notruf-Angebot ist kein Rueckfall-Plan, der Notruf-Eintrag bleibt offen)
   logbuch(game, 'faden_ereignis', { ausgang: 'abenteuer_abgelehnt', key: a.ref, begruendung: `Angebot ${a.nr} abgelehnt (keine Folge)`, plan: { angebot: a.nr, vorlage: a.ref } });
-  if (a.absicht && !a.notruf) { try { Vorrat().einlegenAus(game, a, BW.vorrat_art); } catch (e) { fehlerZaehlen(game, 'abenteuer-brett-vorrat', e); } }   // FRE-02 C: nicht gespielt, aber noch gut: in den Vorrat (die Sperre oben haelt es vom sofortigen Wiederanbieten ab)
+  if (a.absicht) { try { Vorrat().einlegenAus(game, a, vorratArtVon(a)); } catch (e) { fehlerZaehlen(game, 'abenteuer-brett-vorrat', e); } }   // FRE-02 C: nicht gespielt, aber noch gut: in den Vorrat (die Sperre oben haelt es vom sofortigen Wiederanbieten ab)
   return null;
 }
 
@@ -376,6 +376,8 @@ function beiAndocken(game) {
   try { sammelHinweis(game); } catch (e) { fehlerZaehlen(game, 'abenteuer-brett-funk', e); }
   return gefuellt;
 }
+// FRE-03 E: die Art des Vorrats, unter der ein Angebot eingelegt wird (Daten: abenteuer-brett.json vorrat_art, vorrat_art_notruf)
+const vorratArtVon = (a) => (a.notruf ? BW.vorrat_art_notruf : BW.vorrat_art);
 // FRE-02 C: EIN Angebot aus dem Vorrat auf das Brett (nur Absichten, Opt-in; Vorbedingungen wie anschlussFuellen: Spielleiter, Hafen, kein laufendes Abenteuer, Platz am Brett; nicht der Schalter ABENTEUER_ANSCHLUSS, der
 // gehoert dem Rueckfall). Ziel = Ziel-Belegung wie A2 (der Inszenierer waehlt ein freies Ziel), Herkunft = Hafen (anbietenAusAbsicht). Ohne Modus Absichten oder ohne gueltigen, nicht gesperrten Eintrag: null, nichts aendert sich. -> Angebot | null
 function ausVorratEinsAnbieten(game) {
@@ -450,8 +452,8 @@ function verfallenEinlegen(game, F) {
   const b = brett(F);
   if (!Array.isArray(b.gesehen)) return;
   for (const a of b.gesehen) {
-    if (!a.absicht || a.notruf || F.abenteuerAngebote.includes(a) || b.antworten.includes(a.nr)) continue;   // FRE-03 D: ein Notruf-Angebot kommt nie in den Vorrat (sein Eintrag bestimmt die Lebensdauer; Notruf-Vorrat ist Paket E)
-    try { Vorrat().einlegenAus(game, a, BW.vorrat_art); } catch (e) { fehlerZaehlen(game, 'abenteuer-brett-vorrat', e); }
+    if (!a.absicht || F.abenteuerAngebote.includes(a) || b.antworten.includes(a.nr)) continue;   // FRE-03 E: ein Notruf-Angebot geht unter seiner eigenen Art ein (der Daten-Plan hat keinen vollstaendigen Bogen: einlegenAus lehnt ihn ab, nur ein Plan aus dem Vorrat bleibt einlegbar)
+    try { Vorrat().einlegenAus(game, a, vorratArtVon(a)); } catch (e) { fehlerZaehlen(game, 'abenteuer-brett-vorrat', e); }
   }
 }
 function beiTaetigkeit(game) {
@@ -530,21 +532,38 @@ function notrufAnbieten(game, o) {
   const da = P.notrufAngebote(F);
   if (da.length >= NB.notruf_angebote_max || da.some((a) => a.notruf.marke === o.marke)) return null;
   const sprecher = String(o.sprecher || '').slice(0, 40);
+  const ausV = notrufAusVorrat(game, F, o, sprecher);   // FRE-03 E: ein gueltiger Plan aus dem Vorrat (nur Absichten-Modus) statt des Daten-Plans
+  if (ausV) return ausV;
   const plan = klon(NB_DATEI.plan);
   plan.titel = fmt(NB.titel, { sprecher });
   plan.anlass = has(NB.anlass_je_variante, o.variante) ? NB.anlass_je_variante[o.variante] : NB.anlass_standard;
   const absicht = { format: 'absicht/1', absicht: has(NB.absicht_je_variante, o.variante) ? NB.absicht_je_variante[o.variante] : NB.absicht_standard, titel: plan.titel, ton: NB.ton, parameter: { text_key: plan.beats[0].parameter.text_key } };
+  return notrufAngebotAnlegen(game, F, o, plan, absicht, sprecher);
+}
+// Das Angebot zu einem Takt-Notruf anlegen (der Daten-Plan oder ein Plan aus dem Vorrat; erstellt = das erste Alter eines Plans aus dem Vorrat, in der Uhr seiner Art) -> Angebot | null
+function notrufAngebotAnlegen(game, F, o, plan, absicht, sprecher, erstellt) {
   const b = brett(F), stumm = b.hinweisStumm;
   b.hinweisStumm = true;   // der Notruf meldet sich selbst per Funk: kein zweiter Hinweis "Neuer Auftrag am Brett"
   let res;
   try { res = Faden().abenteuerNotrufAnbieten(game, plan, { hex: o.hex }); } finally { b.hinweisStumm = stumm; }
   if (!res.ok) return null;
   const a = res.angebot;
-  angebotAusstatten(a, { herkunft: o.ankunft, absicht, bezug: { sprecher } });
+  angebotAusstatten(a, { herkunft: o.ankunft, absicht, bezug: { sprecher }, erstellt });
   a.variante = typeof o.variante === 'string' ? o.variante : '';
   a.notruf = { nr: o.nr, id: String(o.id || ''), marke: o.marke };
   logbuch(game, 'abenteuer_anschluss', { ausgang: 'angeboten', key: a.ref, modus: 'notruf', absicht: absicht.absicht, begruendung: `Notruf ${a.notruf.id} bei ${o.hex}: Angebot ${a.nr} (Plan ${a.ref})`, plan: { angebot: a.nr, vorlage: a.ref, hex: o.hex } });
   return a;
+}
+// FRE-03 E: Entnahme BEIM ENTSTEHEN eines Takt-Notrufs (nicht beim Andocken): ist ein gueltiger Notruf-Plan im Vorrat (Alter in Spielzeit, Welt und Ort an o.hex neu geprueft), wird er statt des Daten-Plans angeboten. Das ist kein
+// Komponisten-Aufruf (aufrufe, Cooldown und Deckel bleiben). Nur im Modus Absichten (ABENTEUER_ABSICHTEN), sonst null und der Daten-Plan gilt wie bei D. Wiederverwendet werden Notruf-PLAENE, nie Katalog-Notrufe. -> Angebot | null
+function notrufAusVorrat(game, F, o, sprecher) {
+  if (!Absicht2().aktiv(game) || !Array.isArray(F.vorrat) || !F.vorrat.length) return null;
+  const r = Vorrat().ausVorratFuerNotruf(game, BW.vorrat_art_notruf, o.hex, (plan, absicht, erstellt) => {
+    if (!plan.beats || !plan.beats[0] || plan.beats[0].typ !== 'notruf') return { ok: false };   // Annehmen startet den Beat notruf (notrufBeatStarten): nur ein Notruf-Plan
+    const a = notrufAngebotAnlegen(game, F, o, plan, absicht, sprecher, erstellt);
+    return a ? { ok: true, angebot: a } : { ok: false };
+  });
+  return r.ok ? r.ergebnis.angebot : null;
 }
 // Annehmen eines Notruf-Angebots: der erste Beat (notruf) beginnt sofort, ueber den Befehl faden_weiter wie sonst der Spielleiter (Abstand ueberspringen: die Crew hat gerade geantwortet). Ein Fehler blockiert nichts (Faden bleibt wartend, Zaehler).
 function notrufBeatStarten(game, faden) {

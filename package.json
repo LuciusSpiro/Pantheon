@@ -59,6 +59,8 @@
     "test:abenteuer-texte": "node tools/test-abenteuer-texte.js",
     "test:abenteuer-rueckfall": "node tools/test-abenteuer-rueckfall.js",
     "test:abenteuer-vorrat": "node tools/test-abenteuer-vorrat.js",
+    "test:vorrat-je-art": "node tools/test-vorrat-je-art.js",
+    "test:vorrat-je-art-mutation": "node tools/mutation-vorrat-je-art.js",
     "spiel:absichten": "node tools/spiel-absichten.js",
     "messe:abenteuer": "node tools/messe-abenteuer.js",
     "messe:abenteuer-plaene": "node tools/messe-abenteuer-plaene.js",
