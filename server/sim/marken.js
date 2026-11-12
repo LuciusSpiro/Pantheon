@@ -69,10 +69,12 @@ function ziele(game) {
   return out;
 }
 
-// Über MAX weichen zuerst die ältesten Marken des Typs, der am wenigsten zählt (WEICHT_ZUERST: Notruf vor Kontakt vor Spur vor Fund), in Einfügereihenfolge; Ziele bleiben, solange es geht.
-// So verdrängen Notruf-Marken (Takt, FRE-03) keinen Fund, und ein frischer Fund bleibt sichtbar (früher schnitt slice(0, MAX) die jüngste Marke ab).
-const WEICHT_ZUERST = ['notruf', 'kontakt', 'spur', 'fund'];
+// Über MAX weichen zuerst die ältesten Marken des Typs, der am wenigsten zählt (WEICHT_ZUERST: Fund vor Kontakt/Spur vor Notruf), in Einfügereihenfolge; Ziele bleiben, solange es geht.
+// Offenes vor Erinnerung (FRE-03, Kai 2026-11-12): ein offener Notruf ist wichtiger als ein Fund, der Fund ist nur die Erinnerung; Funde zeigen sich, wenn Platz ist.
+// Gibt es keine Fund-Marke, bleibt es beim alten slice(0, MAX) (die jüngste weicht): ohne Funde ändert sich nichts gegenüber früher.
+const WEICHT_ZUERST = ['fund', 'kontakt', 'spur', 'notruf'];
 function aufMaxKuerzen(alle) {
+  if (!alle.some((x) => x.t === 'fund')) return alle.slice(0, MAX);
   const out = alle.slice();
   while (out.length > MAX) {
     let i = -1;

@@ -191,9 +191,9 @@ function snapshot(game) {
   for (const a of alle) {
     const von = vonAngebot(game, a);
     const offen = ortOffen(a.vorlage);   // FRE-02 B1: ein Beat, der seinen Ort selbst waehlt, ueberschreibt das Ziel beim Start: kein Ziel anzeigen (ort/ortname leer, ort_offen), der Client nennt dann nur den Hafen
-    const e = { id: 'a' + a.nr, titel: text(a.vorlage.titel, BW.titel_max), ort: offen ? '' : a.hex, ortname: offen ? '' : hexName(a.hex).slice(0, BW.ort_max), rest: restAngebot(a), von, aus_geruecht: a.vorlage.beats.some((b) => b.typ === 'geruecht'), vorschau: vorschau(a.vorlage, von), typen: typenVon(a.vorlage) };
+    const e = { id: 'a' + a.nr, titel: text(a.vorlage.titel, BW.titel_max), ort: offen ? '' : a.hex, ortname: offen ? '' : hexName(a.hex).slice(0, BW.ort_max), ...(a.notruf ? {} : { rest: restAngebot(a) }), von, aus_geruecht: a.vorlage.beats.some((b) => b.typ === 'geruecht'), vorschau: vorschau(a.vorlage, von), typen: typenVon(a.vorlage) };
     if (offen) e.ort_offen = true;
-    if (a.notruf) e.notruf = 1;   // FRE-03 D: das einzige neue Feld: ein Notruf-Angebot (gleiche Karte, keine Tätigkeits-Frist; die Anzeige darf es absetzen)
+    if (a.notruf) e.notruf = 1;   // FRE-03 Nacharbeit S4: ein Notruf-Angebot altert nie in Taetigkeiten (Verfall = Eintrag des Notrufs): kein rest, sonst stuende dauerhaft "noch 12". FRE-03 D: das einzige neue Feld: ein Notruf-Angebot (gleiche Karte, keine Tätigkeits-Frist; die Anzeige darf es absetzen)
     if (a.herkunft) e.hafen = hexName(a.herkunft.hex).slice(0, BW.ort_max);   // der Auftraggeber ist `von` (Fraktion); NSC-Namen und Spielernamen stehen nie im Block
     if (typeof a.vorlage.anlass === 'string') e.anlass = text(a.vorlage.anlass, BW.anlass_max);
     s.angebote.push(e);
@@ -253,7 +253,7 @@ function annehmen(game, id) {
     return veraltet(game, F, a, r.grund);   // NSC_VON, NAME, NSC_ZAHL, Lage: das Angebot ist so nicht mehr zu spielen
   }
   gemerkt(brett(F).antworten, a.nr, BW.antworten_gemerkt);
-  if (a.notruf) notrufBeatStarten(game, r.faden);   // FRE-03 D: ein Notruf wartet nicht auf einen Spielleiter-Befehl (im Rueckfall-Betrieb gaebe es keinen)
+  if (a.notruf) { try { require('./reise-ereignis.js').notrufAngenommen(game, a.notruf.marke); } catch (e) { fehlerZaehlen(game, 'abenteuer-brett-notruf', e); } notrufBeatStarten(game, r.faden); }   // FRE-03 D: ein Notruf wartet nicht auf einen Spielleiter-Befehl (im Rueckfall-Betrieb gaebe es keinen)
   F.abenteuerZuletzt = r.faden.vorlage;
   logbuch(game, 'faden_ereignis', { ausgang: 'abenteuer_angenommen', key: r.faden.id, begruendung: `Abenteuer ${r.faden.vorlage} angenommen (Angebot ${a.nr})`, plan: { faden: r.faden.id, vorlage: r.faden.vorlage, angebot: a.nr } });
   return null;
@@ -536,8 +536,9 @@ function notrufAnbieten(game, o) {
   if (ausV) return ausV;
   const plan = klon(NB_DATEI.plan);
   plan.titel = fmt(NB.titel, { sprecher });
+  if (has(NB.text_key_je_variante, o.variante)) plan.beats[0].parameter.text_key = NB.text_key_je_variante[o.variante];   // FRE-03 Nacharbeit S1: der Funktext des Beats passt zur Variante
   plan.anlass = has(NB.anlass_je_variante, o.variante) ? NB.anlass_je_variante[o.variante] : NB.anlass_standard;
-  const absicht = { format: 'absicht/1', absicht: has(NB.absicht_je_variante, o.variante) ? NB.absicht_je_variante[o.variante] : NB.absicht_standard, titel: plan.titel, ton: NB.ton, parameter: { text_key: plan.beats[0].parameter.text_key } };
+  const absicht = { format: 'absicht/1', absicht: has(NB.absicht_je_variante, o.variante) ? NB.absicht_je_variante[o.variante] : NB.absicht_standard, titel: plan.titel, ton: NB.ton, parameter: { text_key: NB_DATEI.plan.beats[0].parameter.text_key } };   // FRE-03 Nacharbeit S1: die Absicht nennt den Standardtext (absichten.json kennt nur diese zwei Texte, den Katalog sieht das Modell); der Text je Variante steht nur im Beat des Plans
   return notrufAngebotAnlegen(game, F, o, plan, absicht, sprecher);
 }
 // Das Angebot zu einem Takt-Notruf anlegen (der Daten-Plan oder ein Plan aus dem Vorrat; erstellt = das erste Alter eines Plans aus dem Vorrat, in der Uhr seiner Art) -> Angebot | null
@@ -572,6 +573,29 @@ function notrufBeatStarten(game, faden) {
     const r = Faden().befehlAnwenden(game, { typ: 'faden_weiter', faden: faden.id, beat: D.vorlage(faden.vorlage).beats[faden.beat].id });
     if (!r.ok) fehlerZaehlen(game, 'abenteuer-brett-notruf', new Error(String(r.grund)));
   } catch (e) { fehlerZaehlen(game, 'abenteuer-brett-notruf', e); }
+}
+// FRE-03 Nacharbeit B1: im Rueckfall-Betrieb (ohne Modell, Standard des Servers) gibt es keinen Spielleiter, der nach der Ankunft den naechsten Beat startet (lage-mock.js tut es nur im Mock): ein angenommener Notruf-Faden
+// bliebe in Phase wartet, abenteuerLaufend bliebe 1 und sperrte Annehmen, Anschluss und Vorrat fuer immer. Diese Funktion fuehrt NUR Faeden aus einem Notruf-Angebot (P.notrufBrettFaden) und NUR im Rueckfall-Betrieb bis zum
+// Abschluss weiter (faden_weiter wie lage-mock.js, Abstand ueberspringen). Bei einem Notruf mit Gefahr wartet sie, bis der Kampf der Reise-Gefahr vorbei ist (der Eintrag in R.laufend ist weg: bewaeltigt oder fortgesprungen), damit
+// der Abschluss nicht mitten im Kampf kommt. Andere Faeden (Gerücht, Konvoi, Geleit, ...) bleiben unberuehrt (eigener Auftrag). -> Anzahl gestarteter Beats
+function notrufRueckfallWeiter(game) {
+  const F = game && game.weltsim && game.weltsim.faeden, l = game && game.lageSpielleiter;
+  if (!F || !l || l.rueckfallBetrieb !== true || !Faden().aktiv(game) || !Faden().spielleiterAktiv(game)) return 0;
+  const R = game.weltsim.reise, laufend = (R && R.laufend) || [];
+  let n = 0;
+  for (const f of F.liste.slice()) {
+    for (let i = 0; i < 4 && f.phase === 'wartet' && P.notrufBrettFaden(f); i++) {   // Beats hintereinander, hoechstens 4 (Notruf, ggf. Kampf-Beats, Abschluss); eine laufende Szene beendet die Schleife
+      const ort = f.parameter && f.parameter.ort;
+      if (laufend.some((x) => x.notruf === true && x.ev && x.ev.hex === ort)) break;
+      if (f.beat < 1) break;   // der erste Beat (notruf) gehoert dem Annehmen (notrufBeatStarten)
+      f.zaehler = Math.max(f.zaehler, f.abstand);
+      let r;
+      try { r = Faden().befehlAnwenden(game, { typ: 'faden_weiter', faden: f.id, beat: D.vorlage(f.vorlage).beats[f.beat].id }); } catch (e) { fehlerZaehlen(game, 'abenteuer-brett-notruf', e); break; }
+      if (!r.ok) { fehlerZaehlen(game, 'abenteuer-brett-notruf', new Error(String(r.grund))); break; }
+      n++;
+    }
+  }
+  return n;
 }
 // Der Eintrag des Notrufs (Marke) ist verfallen, abgelehnt oder beantwortet: sein Angebot geht vom Brett (nichts im Vorrat, keine Antwort-Marke: ein spaeterer Druck auf das Angebot meldet kein_angebot). -> true, wenn eines wegging
 function zurueckziehenFuerNotruf(game, marke) {
@@ -619,4 +643,4 @@ function lesen(b, F) {   // muellfest: Unbrauchbares faellt weg (Meldung in F.la
 // SPL-02 D: die NSC, die eine Fortsetzung tragen (Katalog der Absichten, absicht-pruefer.js): die Verbindung fuer abenteuer-geschichte.js, das den Pruefer nicht selbst laedt
 const fortsetzungsNamen = (game, katalog) => Absicht().fortsetzungsNamen(game, katalog);
 
-module.exports = { snapshot, schluessel, annehmen, ablehnen, vorschau, marken, kuerzen, beiEnde, hinweisAnbieten, beiTaetigkeit, beiUpdate, anschluss, beiAndocken, anschlussFuellen, ausVorratFuellen, ausVorratEinsAnbieten, sammelHinweis, passtZuLage, neuAnbieten, notrufAnbieten, zurueckziehenFuerNotruf, toSave, lesen, weigerung, schrittText, fortsetzungsNamen };
+module.exports = { snapshot, schluessel, annehmen, ablehnen, vorschau, marken, kuerzen, beiEnde, hinweisAnbieten, beiTaetigkeit, beiUpdate, anschluss, beiAndocken, anschlussFuellen, ausVorratFuellen, ausVorratEinsAnbieten, sammelHinweis, passtZuLage, neuAnbieten, notrufAnbieten, notrufRueckfallWeiter, zurueckziehenFuerNotruf, toSave, lesen, weigerung, schrittText, fortsetzungsNamen };

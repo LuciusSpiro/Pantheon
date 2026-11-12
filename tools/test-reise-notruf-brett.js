@@ -67,22 +67,23 @@ function erzwingen(e, spielOpt) {
   for (const h of sektorenVon(g, b)) {
     setzeHex(g, h);
     R(g).offen = []; R(g).taktIds = []; R(g).takt = SCHWELLE - 1;
-    B1.erreichbar = erreichbarGroesszuegig;
-    try { nur([e.id], () => g.step()); } finally { B1.erreichbar = ERREICHBAR_ECHT; }
+    kantenOeffnen(g, h);
+    nur([e.id], () => g.step());
     if (R(g).offen.length === 1 && R(g).offen[0].id === e.id) return { t, g, hex: h, o: R(g).offen[0] };
   }
   return null;
 }
-// Die Sektoren 0602, 0606 (Piraten) und 0706, 0806 (Vorlaeufer) haben auf der Karte keine anfliegbare Nachbarschaft (faden-b1 erreichbar: nur der Sektor selbst): der Takt findet dort keinen Ort (Befund, im Bericht).
-// Damit das Angebot der sechs Eintraege fuer diese Sektoren trotzdem geprueft wird, gilt fuer sie in dieser Probe jeder Ort im Umkreis als anfliegbar (nur diese Probe, der Test stellt die Funktion danach zurueck).
-const ERREICHBAR_ECHT = B1.erreichbar;
-function erreichbarGroesszuegig(g, hex, tiefe) {
-  const echt = ERREICHBAR_ECHT(g, hex, tiefe);
-  if (echt.size > 1) return echt;
-  const m = new Map(echt);
-  for (const h of RE.umkreis(hex, 1, W.takt_ort.max)) m.set(h, 1);
-  return m;
+// Die Sektoren 0602, 0606 (Piraten) und 0706, 0806 (Vorlaeufer) haben in der Spielkarte nur verborgene (hidden) und verschlossene (locked) Kanten (gemessen in tools/test-reise-notruf-brett.js, Abschnitt S5): ohne geoeffnete Kante
+// kann die Crew dort gar nicht sein, und B1.erreichbar kennt nur den Sektor selbst. Der Test oeffnet die Kanten des Sektors wirklich (explore.linksOpen fuer verborgene, explore.offenExtra fuer verschlossene Kanten) und nutzt das
+// ECHTE erreichbar. Kein Stub: der Zustand, den der Test herstellt, gibt es im Spiel (Schluessel gefunden, Weg offen).
+function kantenOeffnen(g, hex) {
+  for (const e of Sektoren.kantenVon(hex)) {
+    if (e.art === 'locked') g.explore.offenExtra.add(Sektoren.kanteId(e.a, e.b));
+    else if (e.art === 'hidden' && e.key) g.explore.linksOpen.add(e.key);
+  }
 }
+// Funkzeilen mitschreiben (von, text, fd): ab dem Aufruf
+function funkAb(g) { const z = []; const e0 = g.emit.bind(g); g.emit = (ev, d) => { if (ev === 'radio') z.push({ von: d.from, text: d.text, fd: d.fd }); return e0(ev, d); }; return z; }
 const angebotZu = (g, o) => notrufAng(g).find((a) => a.notruf.marke === o.marke) || null;
 const faden = (g, a) => Fz(g).liste.find((f) => f.vorlage === a.ref) || null;
 const springe = (g, hex) => Sprung.springeNach(g, Sektoren.ortVonHex(hex));
@@ -101,10 +102,34 @@ const springe = (g, hex) => Sprung.springeNach(g, Sektoren.ortVonHex(hex));
     ok(typeof Brett.notrufAnbieten === 'function' && typeof Brett.zurueckziehenFuerNotruf === 'function', 'benannte Funktionen: notrufAnbieten, zurueckziehenFuerNotruf');
   });
 
-  await section('Nr. 6: der Beat notruf ist unveraendert (Pruefsumme gegen main accd1e54)', () => {
-    ok(sha(JSON.stringify(D.BEATS.notruf)) === '1fd2edeb84ad4278c4d21b93aec4e10d9dab98df', 'beats.json: der Eintrag notruf ist wie auf main accd1e54');
-    const p3 = fs.readFileSync(path.join(__dirname, '..', 'server', 'sim', 'faden-p3.js'), 'utf8').replace(/\r\n/g, '\n');
-    ok(sha(p3) === '4f7b82120d4e80f8288932e0d7a8385ba9529b6f', 'faden-p3.js (Baustein notruf, Ankunft am Hex) ist wie auf main accd1e54');
+  await section('Nr. 6: das VERHALTEN des Beats notruf ist unveraendert (Kai 2026-11-12: nur Texte je Variante, Akzent, Sprecher und Dank aendern sich)', () => {
+    // Pruefsumme des Katalog-Eintrags notruf (beats.json) gegen main accd1e54, mit einer einzigen erlaubten Abweichung: die Liste erlaubter text_key (Texte je Variante, S1)
+    const eintrag = klon(D.BEATS.notruf);
+    const erl = eintrag.bauplan.parameter.text_key.erlaubt;
+    ok(['notruf_standard', 'notruf_entfuehrt'].every((k) => erl.includes(k)) && ['notruf_havarie', 'notruf_ueberfall', 'notruf_belagerung'].every((k) => erl.includes(k)), 'beats.json: text_key erlaubt die alten und die drei neuen Texte je Variante');
+    eintrag.bauplan.parameter.text_key.erlaubt = ['notruf_standard', 'notruf_entfuehrt'];
+    ok(sha(JSON.stringify(eintrag)) === '1fd2edeb84ad4278c4d21b93aec4e10d9dab98df', 'beats.json: der Eintrag notruf ist ausser der text_key-Liste wie auf main accd1e54 (gefahr false, Parameter text_key/hex/landeplatz, Ausgaenge und Folgen, Status)');
+    // Verhalten: Ankunft = gelungen (keine Landung, keine Rettung), Frist = gescheitert, kein Ort = gescheitert; der Beat laeuft ohne Landeplatz
+    const m = erzwingen(NOTRUFE[4]);
+    const { g, o } = m;
+    const a = angebotZu(g, o);
+    ok(Brett.annehmen(g, 'a' + a.nr) === null, 'Annehmen');
+    const f = faden(g, a);
+    const v = D.vorlage(f.vorlage);
+    ok(v.beats[0].parameter.landeplatz === undefined && f.parameter.ort === o.hex && Object.keys(v.beats[0].parameter).join() === 'text_key', 'Parameter des Beats: nur text_key, kein landeplatz, Ort = Notruf-Hex (Ort am Faden)');
+    ok(Faden.fristVon(f) === D.WERTE.beat_frist, 'keine eigene Frist des Beats: beat_frist ' + D.WERTE.beat_frist + ' gilt');
+    lauf(g, 5);
+    ok(f.phase === 'laeuft' && f.laufend && f.laufend.beat === v.beats[0].id, 'ohne Ankunft laeuft der Beat weiter (Ort zaehlt)');
+    springe(g, o.hex); lauf(g, 1);
+    const ged = f.nsc.gedaechtnis.map((x) => x.ereignis);
+    ok(ged.includes('notruf_gelungen') && !ged.includes('notruf_gescheitert') && !g.fadenSzene, 'Ankunft am Hex = Ausgang gelungen (Gedaechtnis notruf_gelungen), keine Szene, keine Landung, keine Rettung');
+    // Frist: ein zweiter Notruf, nie angekommen: nach beat_frist Taetigkeiten gescheitert
+    const m2 = erzwingen(NOTRUFE[4]);
+    const a2 = angebotZu(m2.g, m2.o);
+    Brett.annehmen(m2.g, 'a' + a2.nr);
+    const f2 = faden(m2.g, a2);
+    for (let i = 0; i < D.WERTE.beat_frist + 1; i++) Faden.taetigkeit(m2.g, 'andocken');
+    ok(f2.nsc.gedaechtnis.some((x) => x.ereignis === 'notruf_gescheitert'), 'Frist (beat_frist ' + D.WERTE.beat_frist + ' Taetigkeiten) ohne Ankunft: Ausgang gescheitert');
   });
 
   await section('Nr. 5 und 6: jeder der 15 Katalog-Notrufe einzeln (Rueckfall-Betrieb, ohne Modell, ohne ABENTEUER_ABSICHTEN)', () => {
@@ -129,6 +154,7 @@ const springe = (g, hex) => Sprung.springeNach(g, Sektoren.ortVonHex(hex));
       const zeitAng = a.alter;
       lauf(g, 1);
       ok(a.alter === zeitAng, tag + ': das Angebot altert nicht');
+      const funk = funkAb(g);
       const r = Brett.annehmen(g, 'a' + a.nr);
       const f = faden(g, a);
       const beat0 = f && D.vorlage(f.vorlage).beats[0];
@@ -140,6 +166,23 @@ const springe = (g, hex) => Sprung.springeNach(g, Sektoren.ortVonHex(hex));
       ok(f && f.beat === 1 && f.phase !== 'laeuft' && g.errors === 0, tag + ': die Ankunft beendet den Beat (Beat ' + (f && f.beat) + ', Phase ' + (f && f.phase) + '), keine Fehler');
       ok(R(g).offen.every((x) => x.marke !== o.marke) && notrufAng(g).length === 0, tag + ': der Eintrag ist beantwortet, kein Angebot uebrig');
       ok(sl(g).abenteuer.aufrufe === 0, tag + ': auch nach Annehmen und Ankunft 0 Komponisten-Aufrufe');
+      // S1: Texte, Akzent, Dank
+      const erste = funk[0];
+      ok(!!erste && erste.von === f.nsc.name && erste.fd === (e.gefahr ? 2 : 1) && !/Wachschiffe/.test(erste.text), `${tag}: Funktext des Beats vom NSC (${erste && erste.von}), Akzent ${erste && erste.fd} (${e.gefahr ? 'Gefahr: rot' : 'ohne Gefahr: Messing'}), kein "Wachschiffe"`);
+      ok(!!erste && erste.text.includes(Sektoren.hexName(o.hex)) && !/Standard|\{/.test(erste.text), tag + ': der Text nennt den Ort, kein Platzhalter bleibt');
+      // B1: Rueckfall-Betrieb: der Faden endet von selbst
+      if (e.gefahr) {
+        ok(f.phase === 'wartet' && P.abenteuerLaufend(Fz(g)) === 1, tag + ': Gefahr: der Abschluss wartet, bis der Kampf vorbei ist (Phase ' + f.phase + ')');
+        ok(!funk.some((x) => /Dank/i.test(x.text)), tag + ': Gefahr: vor dem Ende des Kampfes kein Dank');
+        for (let i = 0; i < e.parameter.vorlauf_s + 10 && !R(g).laufend.some((x) => x.phase === 'kampf'); i++) lauf(g, 1);
+        g.space.enemies = []; lauf(g, 3);
+      }
+      ok(f.phase === 'abgeschlossen' && P.abenteuerLaufend(Fz(g)) === 0, tag + ': Rueckfall-Betrieb: der Faden ist abgeschlossen (Phase ' + f.phase + '), abenteuerLaufend ' + P.abenteuerLaufend(Fz(g)));
+      const dank = funk.filter((x) => /Dank/i.test(x.text));
+      ok(dank.length <= 1 && funk.length >= 2, `${tag}: hoechstens EIN Dank (${dank.length}) in ${funk.length} Funkzeilen`);
+      ok(funk.every((x) => (g.players || []).every((p) => !p.name || p.name.length < 3 || !x.text.includes(p.name))), tag + ': kein Spielername im Funk');
+      const nach = Brett.notrufAnbieten(g, { nr: -777, id: e.id, hex: '0603' === o.hex ? '0504' : '0603', variante: e.parameter.variante, sprecher: 'Probeschiff', marke: 'reise:n-777', ankunft: hex });
+      ok(!!nach && Brett.annehmen(g, 'a' + nach.nr) === null && P.abenteuerLaufend(Fz(g)) === 1, tag + ': danach ist ein weiteres Annehmen moeglich');
     }
     ok(gerAng >= 3 && gerNsc === gerAng, `Germanengebiet: ${gerAng} Angebote im ger-Gebiet, alle mit ger-NSC beim Annehmen (${gerNsc})`);
   });
@@ -223,6 +266,10 @@ const springe = (g, hex) => Sprung.springeNach(g, Sektoren.ortVonHex(hex));
     // Altern: Taetigkeiten lassen Andock-Angebote altern, Notruf-Angebote nie
     for (let i = 0; i < D.WERTE.abenteuer.angebot_gilt_taetigkeiten + 2; i++) g.lageGrenze('andocken');
     ok(notrufAng(g).length === NB.notruf_angebote_max && notrufAng(g).every((x) => x.alter === 0), 'nach ' + (D.WERTE.abenteuer.angebot_gilt_taetigkeiten + 2) + ' Taetigkeiten: Notruf-Angebote alter 0, alle noch da');
+    notrufAng(g).forEach((x) => { x.alter = 999; });
+    g.lageGrenze('andocken');
+    ok(notrufAng(g).length === NB.notruf_angebote_max, 'selbst mit alter 999 verfaellt ein Notruf-Angebot nicht in Taetigkeiten (nur sein Eintrag bestimmt die Lebensdauer)');
+    notrufAng(g).forEach((x) => { x.alter = 0; });
     // Anschluss-Garantie: ein Notruf-Angebot ersetzt sie nicht (ohne regulaeres Angebot legt der Rueckfall weiter eines)
     for (const x of regAng(g).slice()) Brett.ablehnen(g, 'a' + x.nr);
     ok(regAng(g).length === 0 && notrufAng(g).length === NB.notruf_angebote_max, 'alle Andock-Angebote abgelehnt: nur noch die Notruf-Angebote am Brett');
@@ -328,6 +375,122 @@ const springe = (g, hex) => Sprung.springeNach(g, Sektoren.ortVonHex(hex));
     ohneFlotten(h);
     nur([NOTRUFE[4].id], () => { setzeHex(h, '0305'); R(h).takt = SCHWELLE - 1; h.step(); });
     ok(R(h).offen.length === 1 && h.errors === 0 && Brett.notrufAnbieten(h, { nr: -1, id: 'x', hex: '0603', variante: 'havarie', sprecher: 'S', marke: 'reise:n-1', ankunft: '0305' }) === null, 'ohne FAEDEN: der Notruf entsteht, kein Angebot, keine Fehler');
+  });
+
+  await section('B1: nur Notruf-Faeden, nur im Rueckfall-Betrieb', () => {
+    // ein regulaerer Faden (Geruecht, Abschluss) bleibt unberuehrt (der Altfehler der regulaeren Rueckfall-Angebote ist ein eigener Auftrag)
+    const t = spiel(), g = t.g; ohneFlotten(g);
+    Fz(g).abenteuerAngebote.length = 0;
+    const plan = { format: 'faden-bauplan/1', titel: 'Testauftrag Eins', anlass: 'Ein Test ohne Namen fuer das Brett.', beats: [{ typ: 'geruecht' }, { typ: 'abschluss' }], volk_erlaubt: ['rom'] };
+    const r = Faden.abenteuerAnbieten(g, plan, { hex: Sektoren.hexVonOrt(g.ship.scene) });
+    ok(r.ok && Brett.annehmen(g, 'a' + r.angebot.nr) === null, 'ein regulaerer Faden ist angenommen');
+    const f = Fz(g).liste.find((x) => x.vorlage === r.angebot.ref);
+    f.beat = 1; f.zaehler = f.abstand;   // wartet auf den Abschluss
+    ok(P.notrufBrettFaden(f) === false && Brett.notrufRueckfallWeiter(g) === 0 && f.phase === 'wartet' && f.beat === 1, 'notrufRueckfallWeiter fuehrt einen regulaeren Faden nicht weiter (Phase ' + f.phase + ')');
+    // ein Notruf-Faden, aber kein Rueckfall-Betrieb (Modell vorhanden): nichts
+    const m = erzwingen(NOTRUFE[4]);
+    const a = angebotZu(m.g, m.o);
+    Brett.annehmen(m.g, 'a' + a.nr);
+    const fn = faden(m.g, a);
+    const rb = sl(m.g).rueckfallBetrieb, modus = sl(m.g).mode;
+    sl(m.g).rueckfallBetrieb = false; sl(m.g).mode = 'mock';   // ein Modell (hier: Mock) steuert die Faeden selbst: Spielleiter aktiv, aber kein Rueckfall-Betrieb
+    try {
+      springe(m.g, m.o.hex); lauf(m.g, 3);
+      ok(P.notrufBrettFaden(fn) === true && fn.phase === 'wartet' && Brett.notrufRueckfallWeiter(m.g) === 0, 'mit Spielleiter (Modus mock) ohne Rueckfall-Betrieb fuehrt die Funktion einen Notruf-Faden nicht weiter, das ist Sache des Spielleiters (Phase ' + fn.phase + ')');
+    } finally { sl(m.g).rueckfallBetrieb = rb; sl(m.g).mode = modus; }
+    lauf(m.g, 1);
+    ok(fn.phase === 'abgeschlossen', 'mit Rueckfall-Betrieb endet er im naechsten Takt (Phase ' + fn.phase + ')');
+    ok(m.g.errors === 0 && g.errors === 0, 'keine Fehler');
+  });
+
+  await section('S3: ein angenommener Notruf verfaellt nicht als ignoriert', () => {
+    const m = erzwingen(NOTRUFE[4]);
+    const { g, o } = m;
+    const a = angebotZu(g, o);
+    const funk = funkAb(g);
+    lauf(g, W.takt_leben_s - 30);   // fast am Ende der ersten Frist
+    ok(Brett.annehmen(g, 'a' + a.nr) === null && R(g).offen.find((x) => x.marke === o.marke).angenommen === true, 'Annehmen kurz vor Fristende: der Eintrag ist angenommen');
+    lauf(g, 60);   // die erste Frist waere jetzt um
+    ok(R(g).offen.some((x) => x.marke === o.marke) && Marken.da(g, o.marke), 'die erste Frist ist um, der Eintrag und seine Marke leben weiter (Frist ab Annehmen neu)');
+    ok(!(g.marken || []).some((x) => x.id === 'fund:' + o.marke), 'kein Wrack (Fund-Marke) mitten auf dem Weg');
+    springe(g, o.hex); lauf(g, 3);
+    ok(funk.some((x) => /Dank/i.test(x.text)) && faden(g, a).phase === 'abgeschlossen', 'Ankunft nach der ersten Frist: der Katalog-Eintrag dankt, der Faden ist abgeschlossen');
+    ok(!(g.marken || []).some((x) => x.id === 'fund:' + o.marke), 'kein Wrack nach der Ankunft');
+    // nie angekommen: nach der neuen Frist weg, aber nicht als ignoriert gebucht
+    const m2 = erzwingen(NOTRUFE[4]);
+    const a2 = angebotZu(m2.g, m2.o);
+    Brett.annehmen(m2.g, 'a' + a2.nr);
+    lauf(m2.g, W.takt_leben_s + 5);
+    ok(!R(m2.g).offen.some((x) => x.marke === m2.o.marke) && !Marken.da(m2.g, m2.o.marke) && !(m2.g.marken || []).some((x) => x.id === 'fund:' + m2.o.marke), 'nie angekommen: nach der neuen Frist ist der Eintrag weg, KEIN Fund (nicht ignoriert)');
+    const ch = require('../server/sim/chronik.js').letzte(m2.g, 80).map((x) => x.kurz).filter((k) => k.includes(Sektoren.hexName(m2.o.hex)));
+    ok(!ch.some((k) => /unbeantwortet|verlassene|Wrack/.test(k)) && ch.some((k) => /nicht rechtzeitig erreicht/.test(k)), 'Chronik: "nicht rechtzeitig erreicht", keine Zeile "unbeantwortet" und kein verlassenes Wrack (' + ch.length + ' Zeilen)');
+    ok(m2.g.errors === 0, 'keine Fehler');
+  });
+
+  await section('S4: das Brett meldet fuer ein Notruf-Angebot keine Restzeit', () => {
+    const m = erzwingen(NOTRUFE[4]);
+    const g = m.g;
+    g.missionEvent('docked', {});
+    const s = Brett.snapshot(g);
+    const nr = s.angebote.filter((x) => x.notruf === 1), reg = s.angebote.filter((x) => x.notruf !== 1);
+    ok(nr.length === 1 && !Object.prototype.hasOwnProperty.call(nr[0], 'rest'), 'Notruf-Angebot im Snapshot: kein Feld rest (' + JSON.stringify(Object.keys(nr[0] || {})) + ')');
+    ok(reg.length >= 1 && reg.every((x) => Number.isInteger(x.rest) && x.rest >= 0), 'regulaere Angebote tragen weiter rest (' + reg.map((x) => x.rest).join(',') + ')');
+    lauf(g, 60);
+    ok(!Object.prototype.hasOwnProperty.call(Brett.snapshot(g).angebote.find((x) => x.notruf === 1) || {}, 'rest'), 'auch spaeter kein rest');
+  });
+
+  await section('S5: Piraten- und Vorlaeufer-Sektoren (0602, 0606, 0706, 0806): echte Kanten, echtes erreichbar, Takt wie Sprung pruefen den Besitzer', () => {
+    for (const h of ['0602', '0606', '0706', '0806']) {
+      const g = spiel().g; ohneFlotten(g); Ruf.debug(g, ['rom', '30']);
+      setzeHex(g, h);
+      const bes = Besitz.besitzer(g, h);
+      const zu = B1.erreichbar(g, h, W.takt_tiefe).size;
+      ok(['pirat', 'vorl'].includes(bes) && zu === 1 && Sektoren.kantenVon(h).every((e) => e.art !== 'open' || !Sektoren.spielbar(Sektoren.anderes(e, h))), `${h} (${bes}): ohne geoeffnete Kante kennt erreichbar nur den Sektor selbst (${zu}) und der Takt findet keinen Ort (${R(g).offen.length} offen)`);
+      kantenOeffnen(g, h);
+      const offen = B1.erreichbar(g, h, W.takt_tiefe);
+      ok(offen.size > 1, `${h}: mit geoeffneten Kanten findet das ECHTE erreichbar ${offen.size} Orte`);
+      const ids = new Set();
+      for (let nr = 0; nr < 40; nr++) { R(g).taktNr = nr; R(g).offen = []; const ev = RE.taktNotruf(g); if (ev) ids.add(ev.id); }
+      const erlaubt = new Set(NOTRUFE.filter((e) => (e.bedingungen.besitzer || ['rom']).includes(bes)).map((e) => e.id));
+      ok(ids.size >= 1 && [...ids].every((id) => erlaubt.has(id)), `${h}: der Takt waehlt aus den ${erlaubt.size} Eintraegen fuer ${bes} (${ids.size} gezogen)`);
+      R(g).taktNr = 0; R(g).offen = [];
+      const k = RE.kandidaten(g, R(g), h).filter((x) => x.e.art === 'notruf').map((x) => x.e.id);
+      ok(k.every((id) => erlaubt.has(id)), `${h}: der Sprung (kandidaten) prueft denselben Besitzer: ${k.length} Notruf-Kandidaten, alle fuer ${bes}`);
+    }
+  });
+
+  await section('N1: ein Takt-Notruf waehlt keinen Eintrag, der schon offen ist', () => {
+    const g = spiel().g; ohneFlotten(g); setzeHex(g, '0305');
+    const passend = NOTRUFE.filter((e) => nur([e.id], () => { R(g).offen = []; R(g).taktIds = []; return RE.taktNotruf(g) !== null; })).map((e) => e.id);
+    ok(passend.length >= 2, 'mindestens zwei Eintraege passen am Hex 0305 (' + passend.length + ')');
+    const [x, y] = passend;
+    const ziehen = (ids, offenIds) => { const z = new Set(); for (let nr = 0; nr < 30; nr++) { R(g).taktNr = nr; R(g).taktIds = []; R(g).offen = offenIds.map((id, i) => ({ nr: -(i + 1), id, hex: ['0603', '0504'][i], bis: Number.MAX_SAFE_INTEGER, marke: 'reise:n-' + (i + 1) })); const ev = nur(ids, () => RE.taktNotruf(g)); if (ev) z.add(ev.id); } return z; };
+    ok(ziehen([x, y], []).has(x), 'Gegenprobe: ohne offenen Eintrag wird auch ' + x + ' gezogen');
+    const z = ziehen([x, y], [x]);
+    ok(z.size >= 1 && !z.has(x) && z.has(y), 'ist ' + x + ' offen, kommt er nie noch einmal (gezogen: ' + [...z].join(',') + ')');
+    const z2 = ziehen([x], [x]);
+    ok(z2.has(x), 'bleibt keine Auswahl, kommt er trotzdem (der Takt tut nicht still nichts)');
+  });
+
+  await section('N3: Brett-Snapshot-Budget mit 3 regulaeren und 3 Notruf-Angeboten (lange Texte)', () => {
+    const g = spiel().g; ohneFlotten(g);
+    Fz(g).abenteuerAngebote.length = 0;
+    const hex = Sektoren.hexVonOrt(g.ship.scene);
+    const orte = RE.umkreis(hex, 1, 3);
+    const titel = ['Lange Reise durch das Grenzland Eins', 'Zweiter langer Auftrag mit Titel', 'Dritter Auftrag am schwarzen Brett'];
+    const typen = [['geruecht', 'konvoi'], ['geruecht', 'spur'], ['konvoi', 'geleit']];
+    for (let i = 0; i < 3; i++) {
+      const r = Faden.abenteuerAnbieten(g, { format: 'faden-bauplan/1', titel: titel[i], anlass: 'Ein recht langer Anlass mit vielen Worten, damit die Karte am Brett so gross wird wie sie im Spiel werden kann.', beats: typen[i].map((t) => ({ typ: t })).concat([{ typ: 'abschluss' }]) }, { hex: orte[i] });
+      if (!r.ok) console.log('  (regulaer ' + i + ': ' + r.grund + ')');
+    }
+    const s3 = JSON.stringify(Brett.snapshot(g)).length;
+    const sp = ['Vermessungsschiff Cartographa', 'Schrotthaendler Rostnagel', 'Haendler Kupferkranich'];
+    for (let i = 0; i < 3; i++) Brett.notrufAnbieten(g, { nr: -(i + 1), id: 'x', hex: orte[3 + i], variante: 'piratenueberfall', sprecher: sp[i], marke: 'reise:n-' + (i + 1), ankunft: hex });
+    const snap = Brett.snapshot(g), s6 = JSON.stringify(snap).length;
+    console.log(`  Messung: 3 regulaere Karten ${s3} Zeichen, 3 regulaere plus 3 Notruf-Karten ${s6} Zeichen (Reviewer: 3615)`);
+    ok(snap.angebote.length === 6 && snap.angebote.filter((x) => x.notruf === 1).length === 3, 'sechs Karten (3 regulaer, 3 Notruf)');
+    ok(s6 < 4200 && s3 < 2500, `Budget: 6 Karten < 4200 Zeichen (${s6}), 3 regulaere < 2500 (${s3}); der Spielstand-Snapshot gesamt bleibt unter ${CONFIG.net.snapMax - CONFIG.net.snapLuft}`);
+    ok(Buffer.byteLength(JSON.stringify(g.snapshot())) <= CONFIG.net.snapMax - CONFIG.net.snapLuft, 'g.snapshot() mit 6 Karten unter der Grenze');
   });
 
   console.log(`\n${n - fails}/${n} Prüfungen bestanden.`);

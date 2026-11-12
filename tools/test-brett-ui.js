@@ -583,6 +583,24 @@ section('Quellen: Anschluss in hud.js, consoles.js, client.js und werft.js (nich
   ok(ord.every((i) => i > 0) && ord.every((i, k) => k === 0 || i > ord[k - 1]) && idx.indexOf('src="js/brett.js"') > idx.indexOf('src="js/net.js"') && idx.indexOf('src="js/brett.js"') < idx.indexOf('src="js/hud.js"') && idx.indexOf('src="js/pult-auftrag-tokens.js"') > idx.indexOf('src="js/pult.js"') && idx.indexOf('src="js/pult-auftrag-tokens.js"') > idx.indexOf('src="js/karte-tokens.js"'), 'index.html: Ladereihenfolge (Net → brett.js → hud.js; pult.js und karte-tokens.js → pult-auftrag-tokens.js → pult-terminal-brett.js → terminal-ui.js)');
 }
 
+// ================================================================ FRE-03 Nacharbeit S4: ein Notruf-Angebot hat keine Restzeit
+section('Notruf-Angebot ohne rest: keine erfundene Frist (kein "noch 0", kein "verfällt")');
+{
+  const NOTRUF = { id: 'a4', titel: 'Notruf: Kutter Fortuna', ort: '0603', ortname: 'Speculum', von: 'rom', notruf: 1, hafen: 'Kantenstein', anlass: 'Ein Schiff treibt havariert im All und ruft um Hilfe, niemand sonst antwortet.', typen: ['notruf'] };
+  let m = modellAus({ angebote: [NOTRUF] });
+  ok(m.angebote[0].rest === null, 'brett.js: ohne rest im Snapshot bleibt rest null (nicht 0)');
+  zeichne(baustein(m));
+  ok(!hatTeil(/noch d/) && !hatTeil(/verfällt/) && !hatTeil(/Frist/), 'Karte und Detail: weder "noch n" noch "verfällt nach n Tätigkeiten"');
+  ok(hatTeil(/Kutter Fortuna/) && hatTeil(/Speculum/), 'Titel und Ort stehen trotzdem');
+  geometrie('Notruf ohne rest');
+  m = modellAus({ angebote: [NOTRUF, KONVOI] });
+  zeichne(baustein(m, 'a1'));
+  ok(hat('noch 9') && !hatTeil(/noch 0/), 'neben einem regulären Angebot (rest 9) zeigt nur dieses seine Frist');
+  m = modellAus({ angebote: [Object.assign(klon(KONVOI), { rest: 0 })] });
+  zeichne(baustein(m));
+  ok(hatTeil(/noch 0/), 'ein regulares Angebot mit rest 0 zeigt weiter "noch 0" (echte Null, nicht fehlend)');
+}
+
 // ================================================================ 3. terminal-ui.js gegen einen echten Server
 const win = { Shared_Schiffskatalog: Katalog, Shared_Maps: Maps, Shared_Config: CONFIG, Shared_Protocol: Protocol, Shared_Locations: Locations, performance, Net: { reportError(w, e) { throw e; }, on() {} } };
 win.window = win;

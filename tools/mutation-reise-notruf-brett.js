@@ -21,14 +21,14 @@ fs.copyFileSync(path.join(ROOT, 'tools', 'regie-fixture.js'), path.join(TMP, 'to
 fs.copyFileSync(path.join(ROOT, 'package.json'), path.join(TMP, 'package.json'));
 if (fs.existsSync(path.join(ROOT, 'node_modules'))) { try { fs.symlinkSync(path.join(ROOT, 'node_modules'), path.join(TMP, 'node_modules'), 'junction'); } catch (e) { /* kein Modul nötig */ } }
 
-const RE = 'server/sim/reise-ereignis.js', BR = 'server/sim/abenteuer-brett.js', FA = 'server/sim/faden.js', PR = 'server/sim/faden-pruefer.js', DA = 'content/faeden/notruf-brett.json';
+const P3 = 'server/sim/faden-p3.js', RE = 'server/sim/reise-ereignis.js', BR = 'server/sim/abenteuer-brett.js', FA = 'server/sim/faden.js', PR = 'server/sim/faden-pruefer.js', DA = 'content/faeden/notruf-brett.json';
 // [Datei, alter Text (genau einmal, mit fünftem Element true: mindestens einmal, alle werden ersetzt), neuer Text, Beschreibung]
 const MUTATIONEN = [
   // ---- Entstehen und Lebensdauer
   [RE, "notrufAnbieten(game, { nr: ev.nr,", "notrufAnbieten(null, { nr: ev.nr,", 'Entstehen: kein Brett-Angebot'],
   [RE, "  try { require('./abenteuer-brett.js').zurueckziehenFuerNotruf(game, o.marke); }", "  try { /* nichts */ }", 'Lebensdauer: der Eintrag zieht sein Angebot nie zurück (Verfall, Ablehnen, Beantworten)'],
   [RE, "  R.offen.splice(R.offen.indexOf(o), 1);\n  brettZurueckziehen(game, o);\n  funk(game, textFuer(o.ev, 'eintreffen', game));", "  R.offen.splice(R.offen.indexOf(o), 1);\n  funk(game, textFuer(o.ev, 'eintreffen', game));", 'Beantworten: das Angebot bleibt am Brett'],
-  [RE, "  R.offen.splice(R.offen.indexOf(o), 1);\n  brettZurueckziehen(game, o);\n  Chronik.eintragen(game, { art: 'reise', ref: o.id, kurz: `Notruf bei ${hexName(o.hex)} ${text}`", "  R.offen.splice(R.offen.indexOf(o), 1);\n  Chronik.eintragen(game, { art: 'reise', ref: o.id, kurz: `Notruf bei ${hexName(o.hex)} ${text}`", 'Verfall und Ablehnen des Eintrags: das Angebot bleibt am Brett'],
+  [RE, "  R.offen.splice(R.offen.indexOf(o), 1);\n  brettZurueckziehen(game, o);\n  if (o.angenommen === true) {", "  R.offen.splice(R.offen.indexOf(o), 1);\n  if (o.angenommen === true) {", 'Verfall und Ablehnen des Eintrags: das Angebot bleibt am Brett'],
   [BR, "  entfernen(F, a);\n  return true;\n}", "  return true;\n}", 'zurueckziehenFuerNotruf entfernt nichts'],
   [RE, "  if (ev && ev.takt === true) return;\n", "", 'alter Hook: auch Takt-Notrufe legen ein zweites Angebot in F.angebote an'],
   // ---- Altern und Obergrenzen
@@ -46,8 +46,26 @@ const MUTATIONEN = [
   [BR, "bezug: { sprecher }, erstellt });", "bezug: { sprecher: '' }, erstellt });", 'bezug.sprecher fehlt'],
   [BR, "  a.variante = typeof o.variante === 'string' ? o.variante : '';\n", "  a.variante = '';\n", 'variante fehlt am Angebot'],
   [BR, "    if (a.notruf) e.notruf = 1;", "", 'Snapshot: kein Feld notruf'],
-  [BR, "  if (a.notruf) notrufBeatStarten(game, r.faden);", "", 'Annehmen startet den Beat notruf nicht'],
+  [BR, "} notrufBeatStarten(game, r.faden); }", "} }", 'Annehmen startet den Beat notruf nicht'],
   [BR, "    faden.zaehler = Math.max(faden.zaehler, faden.abstand);\n", "", 'Annehmen: der Abstand des Fadens wird nicht übersprungen'],
+  // ---- Nacharbeit B1: Rueckfall-Betrieb, der Notruf-Faden endet
+  [RE, "  try { require('./abenteuer-brett.js').notrufRueckfallWeiter(game); } catch", "  try { } catch", 'B1: nichts fuehrt den Notruf-Faden im Rueckfall-Betrieb weiter (er bleibt in Phase wartet)'],
+  [BR, "l.rueckfallBetrieb !== true || ", "", 'B1: auch ausserhalb des Rueckfall-Betriebs (neben dem Spielleiter)'],
+  [BR, "      if (laufend.some((x) => x.notruf === true && x.ev && x.ev.hex === ort)) break;\n", "", 'B1: der Abschluss kommt mitten im Kampf (nicht erst nach der Bewaeltigung)'],
+  [PR, "f.plan.beats[0].typ === 'notruf');", "f.plan.beats[0].typ !== 'x');", 'B1: jeder Plan-Faden gilt als Notruf-Faden (Geruecht, Konvoi ... werden mitgefuehrt)'],
+  // ---- Nacharbeit S1: Texte je Variante, Akzent, ein Dank
+  [P3, "W.gefahr_texte.wert.includes(key) ? sagenGefahr(game, nsc, text) : sagen(game, nsc, text)", "sagenGefahr(game, nsc, text)", 'S1: auch eine Havarie ohne Gefahr ruft rot'],
+  [P3, "    if (!P.notrufBrettFaden(f)) sagen(game, nsc, fmt(T.notruf_dank", "    sagen(game, nsc, fmt(T.notruf_dank", 'S1: der Beat dankt bei der Ankunft zusaetzlich zum Katalog-Eintrag (zwei Dank)'],
+  [BR, "  if (has(NB.text_key_je_variante, o.variante)) plan.beats[0].parameter.text_key = NB.text_key_je_variante[o.variante];", "", 'S1: kein Text je Variante (immer der Standardtext mit Wachschiffen)'],
+  [DA, '"havarie": "notruf_havarie"', '"havarie": "notruf_standard"', 'S1: die Havarie bekommt den Standardtext mit Wachschiffen'],
+  [P3, "!gelungen ? 'abschluss_gescheitert' : P.notrufBrettFaden(faden) ? W.notruf_abschluss_text.wert : (ctx", "!gelungen ? 'abschluss_gescheitert' : (ctx", 'S1: der Abschluss eines Notruf-Fadens dankt noch einmal (zweiter Dank)'],
+  // ---- Nacharbeit S3: angenommener Notruf verfaellt nicht als ignoriert
+  [RE, "  o.angenommen = true;\n", "", 'S3: das Annehmen merkt sich der Eintrag nicht (Verfall bucht Wrack und Chronik "unbeantwortet")'],
+  [RE, "    o.bisUhr = Math.max(o.bisUhr, R.taktUhr + taktTicks(game, WERTE.takt_leben_s));\n", "", 'S3: die Frist beginnt mit dem Annehmen nicht neu'],
+  [RE, "  if (o.angenommen === true) {", "  if (false) {", 'S3: ein angenommener Notruf verfaellt als ignoriert (Wrack)'],
+  // ---- Nacharbeit S4 und N1
+  [BR, "...(a.notruf ? {} : { rest: restAngebot(a) }),", "rest: restAngebot(a),", 'S4: das Notruf-Angebot meldet rest (dauerhaft "noch 12")'],
+  [RE, "  const frei = alle.filter((e) => !R.offen.some((o) => o.id === e.id));", "  const frei = alle;", 'N1: ein Takt-Notruf waehlt einen Eintrag, der schon offen ist'],
   // ---- Angebot ablehnen / Vorrat (FRE-03 E: Einlegen und Entnehmen der Art notruf, gefuellter Vorrat am Brett: tools/mutation-vorrat-je-art.js)
   [BR, "  if (!a.notruf) gemerkt(b.abgelehnt, a.ref, 3);", "  gemerkt(b.abgelehnt, a.ref, 3);", 'Angebot ablehnen: Rückfall-Sperre für den Notruf-Plan'],
   // ---- Daten

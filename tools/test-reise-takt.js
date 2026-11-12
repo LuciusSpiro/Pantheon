@@ -194,18 +194,18 @@ const GER = '1003';
     } finally { RE.KATALOG.splice(0, RE.KATALOG.length, ...kopie); }
   });
 
-  await section('Marken-Grenze: Notruf-Marken verdrängen keine Fund-Marken (Marken.MAX)', () => {
+  await section('Marken-Grenze: offene Notrufe vor Erinnerung (Marken.MAX, Kai 2026-11-12)', () => {
     const g = spiel().g;
     const funde = [];
     for (let i = 0; i < Marken.MAX; i++) { const id = 'fund:t' + i; funde.push(id); Marken.setze(g, { id, typ: 'fund', hex: HAEFEN[i % 5], ticks: 100 }); }
     const vor = Marken.snapshot(g).filter((m) => m.t === 'fund').length;
     lauf(g, W.takt_s + 2);
     const snap = Marken.snapshot(g);
-    ok(R(g).taktNr === 1 && Marken.da(g, R(g).offen[0].marke), 'Ausgangslage: der Notruf entstand, seine Marke liegt in der Liste (unsichtbar, solange die Karte voll ist)');
-    ok(vor === Marken.MAX && snap.filter((m) => m.t === 'fund').length === Marken.MAX && snap.length === Marken.MAX && !snap.some((m) => m.t === 'notruf'), `bei voller Markenliste (${Marken.MAX}) bleiben alle Fund-Marken, die Notruf-Marke wartet`);
-    // sobald Platz ist, wird sie sichtbar
-    Marken.entferne(g, funde[0]);
-    ok(Marken.snapshot(g).some((m) => m.t === 'notruf'), 'wird ein Fund frei, erscheint die Notruf-Marke');
+    ok(R(g).taktNr === 1 && Marken.da(g, R(g).offen[0].marke), 'Ausgangslage: der Notruf entstand, seine Marke liegt in der Liste');
+    ok(vor === Marken.MAX && snap.length === Marken.MAX && snap.filter((m) => m.t === 'notruf').length === 1 && snap.filter((m) => m.t === 'fund').length === Marken.MAX - 1 && !snap.some((m) => m.id === funde[0]), `bei voller Markenliste (${Marken.MAX}) ist der offene Notruf sichtbar, der älteste Fund weicht (Funde nur, wenn Platz ist)`);
+    // wird der Notruf beantwortet (Marke weg), rückt der Fund wieder nach
+    Marken.entferne(g, R(g).offen[0].marke);
+    ok(Marken.snapshot(g).filter((m) => m.t === 'fund').length === Marken.MAX && !Marken.snapshot(g).some((m) => m.t === 'notruf'), 'ist der Notruf beantwortet, zeigt die Karte wieder alle Funde');
   });
 
   await section('Ohne REISE_EREIGNISSE passiert nichts', () => {

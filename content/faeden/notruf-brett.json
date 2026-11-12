@@ -16,6 +16,15 @@
       "einheit": "Absicht je Variante des Katalog-Notrufs",
       "_hinweis": "Welche Absicht (absichten.json) das Angebot trägt. Alle drei Varianten des Katalogs sind ein Hilferuf an ein Schiff oder einen Posten, kein Katalog-Text nennt eine Entführung oder Überlebende: die Absicht rettung (Beat befreiung, entführter NSC) passt auf keine. Rettungsfälle mit Überlebenden kommen mit BEA-02: dann steht hier für die passende Variante rettung."
     },
+    "text_key_je_variante": {
+      "wert": {
+        "havarie": "notruf_havarie",
+        "piratenueberfall": "notruf_ueberfall",
+        "belagerung": "notruf_belagerung"
+      },
+      "einheit": "text_key des Beats notruf je Variante (p3-texte.json)",
+      "_hinweis": "FRE-03 Nacharbeit S1: der Funktext des Beats beim Annehmen passt zur Variante des Katalog-Notrufs: eine Havarie ohne Gefahr meldet keine Wachschiffe, ein Ueberfall und eine Belagerung nennen die Angreifer. Der NSC bestaetigt den Ruf des Katalog-Sprechers (Kapitaen des Schiffs, Wachhabender), er ruft nicht ein zweites Mal um Hilfe."
+    },
     "absicht_standard": {
       "wert": "notruf",
       "einheit": "Absicht",

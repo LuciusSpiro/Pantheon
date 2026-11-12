@@ -4,7 +4,7 @@
 //   mindestens zwei Einträge je Besitzergruppe ger, pirat, vorl, mindestens eine Absicht mit der Wendung piraten (absichten.json) · Pflichtfeld folge.ignoriert je Notruf (der Prüfer meldet ein fehlendes Feld) ·
 //   (Nr. 2) JEDER Notruf-Eintrag, einzeln: nach Verfall und nach Ablehnen liegt am Ort eine Fund-Marke (Typ fund, Zeichen und Ticks aus den Daten) und die Chronik hat die Zeile, nach der Ankunft ist folge.angenommen gebucht ·
 //   (Nr. 3) Ignorieren kostet keinen Ruf: ruf und rufLog nach dem Verfall unverändert, der Sim-Zustand (weltsim.zustand) gleich · Takt: ein unbeantworteter Takt-Notruf hinterlässt seinen Fund ·
-//   (Nr. 10) Marken-Grenze: Notruf-Marken verdrängen keine Fund-Marken, ein frischer Fund bleibt sichtbar, Marken.MAX gilt.        node tools/test-reise-katalog.js
+//   (Nr. 10, Kai 2026-11-12) Marken-Grenze: Marken.MAX gilt, offene Notrufe sind immer sichtbar, Funde nur, wenn Platz ist (Weichen: Fund, Kontakt/Spur, Notruf; Ziele bleiben); ohne Fund-Marke wie früher slice(0, MAX).        node tools/test-reise-katalog.js
 const fs = require('fs');
 const path = require('path');
 const F = require('./regie-fixture.js');
@@ -162,27 +162,29 @@ const fundVon = (g, o) => (g.marken || []).find((m) => m.id === 'fund:' + o.mark
     ok(Marken.snapshot(g).some((m) => m.t === 'fund') && g.errors === 0, 'die Fund-Marke steht im Snapshot der Karte, keine Fehler');
   });
 
-  await section('(Nr. 10) Marken-Grenze: Notruf-Marken verdrängen keine Fund-Marken', () => {
+  await section('(Nr. 10, Kai 2026-11-12) Marken-Grenze: offene Notrufe vor Erinnerung, Marken.MAX bleibt eingehalten', () => {
     const neuG = () => { const g = spiel().g; g.marken = []; return g; };
     const HEXE = ['0305', '0603', '0105', '0504', '0704', '0204', '0403', '0503'];
     const typen = (g) => Marken.liste(g).map((m) => m.t);
-    // a) 8 Notruf-Marken zuerst, dann ein frischer Fund: er bleibt sichtbar (früher schnitt slice(0, MAX) ihn ab)
+    const zaehl = (l, t) => l.filter((m) => m.t === t).length;
+    // a) 8 Notruf-Marken zuerst, dann ein frischer Fund: offene Notrufe sind immer sichtbar, der Fund (nur Erinnerung) weicht
     {
       const g = neuG();
       for (let i = 0; i < 8; i++) Marken.setze(g, { id: 'reise:n-' + i, typ: 'notruf', hex: HEXE[i], ticks: 100 });
       Marken.setze(g, { id: 'fund:frisch', typ: 'fund', hex: '0605', sym: 'wrack', ticks: 100 });
       const l = Marken.liste(g);
-      ok(l.length === Marken.MAX && l.some((m) => m.id === 'fund:frisch') && !l.some((m) => m.id === 'reise:n-0'), 'volle Liste aus Notruf-Marken: der frische Fund bleibt, die älteste Notruf-Marke weicht');
+      ok(l.length === Marken.MAX && zaehl(l, 'notruf') === 8 && !l.some((m) => m.id === 'fund:frisch'), 'volle Liste aus Notruf-Marken: alle 8 Notrufe bleiben, der Fund weicht (Funde nur, wenn Platz ist)');
     }
-    // b) 3 offene Notrufe und 8 Funde: alle Funde bleiben, die Notruf-Marken warten
+    // b) 3 offene Notrufe und 8 Funde: alle 3 Notrufe sichtbar, die ältesten Funde weichen, MAX gilt
     {
       const g = neuG();
       for (let i = 0; i < 8; i++) Marken.setze(g, { id: 'fund:t' + i, typ: 'fund', hex: HEXE[i], ticks: 100 });
       for (let i = 0; i < 3; i++) Marken.setze(g, { id: 'reise:n-' + (i + 1), typ: 'notruf', hex: HEXE[i], ticks: 100 });
-      const t = typen(g);
-      ok(t.length === Marken.MAX && t.every((x) => x === 'fund'), `3 Notruf-Marken und 8 Funde: ${Marken.MAX} Marken, alle Funde bleiben (${t.join(',')})`);
-      Marken.entferne(g, 'fund:t0');
-      ok(typen(g).filter((x) => x === 'notruf').length === 1, 'wird ein Fund frei, rückt die älteste wartende Notruf-Marke nach');
+      const l = Marken.liste(g);
+      ok(l.length === Marken.MAX && zaehl(l, 'notruf') === 3 && zaehl(l, 'fund') === 5, `3 offene Notrufe und 8 Funde: ${Marken.MAX} Marken, alle 3 Notrufe sichtbar, 5 Funde (${typen(g).join(',')})`);
+      ok(['fund:t3', 'fund:t4', 'fund:t5', 'fund:t6', 'fund:t7'].every((id) => l.some((m) => m.id === id)) && !l.some((m) => m.id === 'fund:t0'), 'es weichen die ältesten Funde (t0 bis t2), die jüngsten bleiben');
+      Marken.entferne(g, 'reise:n-1');
+      ok(zaehl(Marken.liste(g), 'fund') === 6 && zaehl(Marken.liste(g), 'notruf') === 2, 'wird ein Notruf beantwortet, rückt ein Fund nach (6 Funde, 2 Notrufe)');
     }
     // c) 9 Funde: der jüngste bleibt sichtbar, der älteste weicht, MAX gilt
     {
@@ -191,7 +193,7 @@ const fundVon = (g, o) => (g.marken || []).find((m) => m.id === 'fund:' + o.mark
       const l = Marken.liste(g);
       ok(l.length === Marken.MAX && l.some((m) => m.id === 'fund:8') && !l.some((m) => m.id === 'fund:0'), 'neun Funde: der jüngste bleibt, der älteste weicht, höchstens MAX');
     }
-    // d) Kontakt und Spur weichen vor Fund, Ziele bleiben
+    // d) Reihenfolge des Weichens: Funde zuerst, dann Kontakt und Spur, dann Notrufe; Ziele bleiben
     {
       const g = neuG();
       g.mission = { step: { objectives: [{ id: 'a', hex: '0604' }, { id: 'b', hex: '0503' }] }, state: { objectives: [] }, cond: () => true, focusSnapshot: () => ({ focusLoc: null }) };
@@ -199,15 +201,46 @@ const fundVon = (g, o) => (g.marken || []).find((m) => m.id === 'fund:' + o.mark
       Marken.setze(g, { id: 'k1', typ: 'kontakt', hex: '0105', ticks: 100 });
       for (let i = 0; i < 7; i++) Marken.setze(g, { id: 'f' + i, typ: 'fund', hex: HEXE[i], ticks: 100 });
       const l = Marken.liste(g);
-      ok(l.length === Marken.MAX && l.filter((m) => m.t === 'ziel').length === 2 && l.filter((m) => m.t === 'fund').length === 6 && !l.some((m) => m.t === 'kontakt' || m.t === 'spur'), `2 Ziele, 6 Funde, Kontakt und Spur weichen zuerst (${l.map((m) => m.t).join(',')})`);
+      ok(l.length === Marken.MAX && zaehl(l, 'ziel') === 2 && zaehl(l, 'fund') === 4 && zaehl(l, 'spur') === 1 && zaehl(l, 'kontakt') === 1, `2 Ziele, Spur, Kontakt und 7 Funde: erst weichen Funde (4 bleiben), Spur und Kontakt bleiben (${l.map((m) => m.t).join(',')})`);
+      for (let i = 0; i < 3; i++) Marken.setze(g, { id: 'reise:n-' + i, typ: 'notruf', hex: HEXE[i], ticks: 100 });
+      const l2 = Marken.liste(g);
+      ok(l2.length === Marken.MAX && zaehl(l2, 'notruf') === 3 && zaehl(l2, 'ziel') === 2 && zaehl(l2, 'fund') === 1 && zaehl(l2, 'spur') === 1 && zaehl(l2, 'kontakt') === 1, `dazu 3 Notrufe: Funde weichen weiter zuerst (1 bleibt), die 3 Notrufe sind sichtbar (${l2.map((m) => m.t).join(',')})`);
+      for (let i = 0; i < 1; i++) Marken.entferne(g, 'f6');
+      const l3 = Marken.liste(g);
+      ok(l3.length === Marken.MAX && zaehl(l3, 'fund') === 1 && zaehl(l3, 'notruf') === 3 && zaehl(l3, 'spur') === 1 && zaehl(l3, 'kontakt') === 1, 'der letzte sichtbare Fund geht, der nächste (älter) rückt nach: Kontakt, Spur und die 3 Notrufe bleiben');
+      Marken.setze(g, { id: 'fund:neu', typ: 'fund', hex: '0605', ticks: 100 });
+      for (let i = 3; i < 6; i++) Marken.setze(g, { id: 'reise:n-' + i, typ: 'notruf', hex: HEXE[i], ticks: 100 });
+      const l4 = Marken.liste(g);
+      ok(l4.length === Marken.MAX && zaehl(l4, 'ziel') === 2 && zaehl(l4, 'fund') === 0 && zaehl(l4, 'kontakt') + zaehl(l4, 'spur') + zaehl(l4, 'notruf') === 6, `mit Fund: der Fund weicht vor Kontakt, Spur und Notruf (${l4.map((m) => m.t).join(',')})`);
+      Marken.setze(g, { id: 'fund:neu2', typ: 'fund', hex: '0605', ticks: 100 });
+      Marken.setze(g, { id: 'reise:n-9', typ: 'notruf', hex: HEXE[6], ticks: 100 });
+      Marken.setze(g, { id: 'reise:n-10', typ: 'notruf', hex: HEXE[7], ticks: 100 });
+      const l5 = Marken.liste(g);
+      ok(l5.length === Marken.MAX && zaehl(l5, 'fund') === 0 && zaehl(l5, 'ziel') === 2 && zaehl(l5, 'notruf') === 6 && zaehl(l5, 'kontakt') === 0 && zaehl(l5, 'spur') === 0, `zu viele Notrufe: Kontakt und Spur weichen nach den Funden, dann der älteste Notruf, Ziele bleiben (${l5.map((m) => m.t).join(',')})`);
     }
-    // e) End-zu-End mit dem Takt: drei offene Takt-Notrufe, die Karte voll mit Funden
+    // e) End-zu-End mit dem Takt: drei offene Takt-Notrufe, die Karte voll mit Funden: alle 3 Notrufe sichtbar
     {
       const g = spiel().g;
       for (let i = 0; i < 8; i++) Marken.setze(g, { id: 'fund:t' + i, typ: 'fund', hex: HEXE[i], ticks: 1000 });
       lauf(g, RE.WERTE.takt_s * 3 + 5);
-      const R = ws(g).reise; const s = Marken.snapshot(g);
-      ok(R.offen.length === 3 && s.length === Marken.MAX && s.every((m) => m.t === 'fund') && R.offen.every((o) => Marken.da(g, o.marke)), 'Takt: 3 offene Notrufe (Marke gesetzt), die Karte zeigt weiter 8 Funde');
+      const R = ws(g).reise; const sn = Marken.snapshot(g);
+      ok(R.offen.length === 3 && sn.length === Marken.MAX && sn.filter((m) => m.t === 'notruf').length === 3 && sn.filter((m) => m.t === 'fund').length === 5 && R.offen.every((o) => sn.some((m) => m.id === o.marke)), 'Takt: 3 offene Notrufe (alle im Snapshot der Karte), dazu 5 Funde, genau MAX');
+    }
+    // f) 5.11: ohne Fund-Marke ist die Liste byte-gleich zur alten (slice(0, MAX) in Einfügereihenfolge); Zufallslisten aus Notruf, Kontakt und Spur, mit und ohne Ziele
+    {
+      let x = 12345; const zuf = (m) => { x = (x * 1103515245 + 12345) & 0x7fffffff; return x % m; };
+      let gleich = 0, ueber = 0;
+      for (let lauf_ = 0; lauf_ < 60; lauf_++) {
+        const g = neuG();
+        if (lauf_ % 2) g.mission = { step: { objectives: [{ id: 'a', hex: '0604' }, { id: 'b', hex: '0503' }, { id: 'c', hex: '0105' }] }, state: { objectives: [] }, cond: () => true, focusSnapshot: () => ({ focusLoc: null }) };
+        const anzahl = 4 + zuf(11);
+        for (let i = 0; i < anzahl; i++) Marken.setze(g, { id: 'm' + i, typ: ['notruf', 'kontakt', 'spur'][zuf(3)], hex: HEXE[zuf(8)], ticks: 100 });
+        const l = Marken.liste(g);
+        const alt = Marken.ziele(g).concat(g.marken).slice(0, Marken.MAX);
+        if (JSON.stringify(l) === JSON.stringify(alt)) gleich++;
+        if (Marken.ziele(g).length + g.marken.length > Marken.MAX) ueber++;
+      }
+      ok(gleich === 60 && ueber >= 15, `ohne Fund-Marke: 60 von 60 Zufallslisten (davon ${ueber} über MAX) byte-gleich zum alten slice(0, MAX)`);
     }
   });
 

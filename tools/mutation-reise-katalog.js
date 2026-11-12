@@ -36,9 +36,11 @@ const MUTATIONEN = [
   [RE, "const folgeBuchen = (game, e) => gruendeBuchen(game, (e && e.folge && e.folge.angenommen) || []);", "const folgeBuchen = (game, e) => gruendeBuchen(game, []);", 'Ankunft: folge.angenommen wird nicht gebucht'],
   // ---- Marken-Grenze
   [MA, "  return aufMaxKuerzen(ziele(game).concat(L));", "  return ziele(game).concat(L).slice(0, MAX);", 'Marken: wieder slice(0, MAX) (der jüngste Fund verschwindet hinter Notruf-Marken)'],
-  [MA, "const WEICHT_ZUERST = ['notruf', 'kontakt', 'spur', 'fund'];", "const WEICHT_ZUERST = ['fund', 'kontakt', 'spur', 'notruf'];", 'Marken: Funde weichen vor Notruf-Marken'],
-  [MA, "const WEICHT_ZUERST = ['notruf', 'kontakt', 'spur', 'fund'];", "const WEICHT_ZUERST = ['notruf', 'fund', 'kontakt', 'spur'];", 'Marken: Funde weichen vor Kontakt und Spur'],
-  [MA, "const WEICHT_ZUERST = ['notruf', 'kontakt', 'spur', 'fund'];", "const WEICHT_ZUERST = ['ziel', 'notruf', 'kontakt', 'spur', 'fund'];", 'Marken: Ziele weichen zuerst'],
+  [MA, "const WEICHT_ZUERST = ['fund', 'kontakt', 'spur', 'notruf'];", "const WEICHT_ZUERST = ['notruf', 'kontakt', 'spur', 'fund'];", 'Marken: Notrufe weichen vor Funden (Erinnerung vor Offenem)'],
+  [MA, "const WEICHT_ZUERST = ['fund', 'kontakt', 'spur', 'notruf'];", "const WEICHT_ZUERST = ['kontakt', 'spur', 'fund', 'notruf'];", 'Marken: Kontakt und Spur weichen vor den Funden'],
+  [MA, "const WEICHT_ZUERST = ['fund', 'kontakt', 'spur', 'notruf'];", "const WEICHT_ZUERST = ['fund', 'notruf', 'kontakt', 'spur'];", 'Marken: Notrufe weichen vor Kontakt und Spur'],
+  [MA, "const WEICHT_ZUERST = ['fund', 'kontakt', 'spur', 'notruf'];", "const WEICHT_ZUERST = ['ziel', 'fund', 'kontakt', 'spur', 'notruf'];", 'Marken: Ziele weichen zuerst'],
+  [MA, "  if (!alle.some((x) => x.t === 'fund')) return alle.slice(0, MAX);\n", "", 'Marken: ohne Fund-Marke nicht mehr wie das alte slice(0, MAX) (5.11)'],
   [MA, "  while (out.length > MAX) {", "  while (out.length > MAX + 1) {", 'Marken: MAX wird überschritten'],
   // ---- Katalog-Daten
   [DK, '"besitzer": ["vorl"], "min_abstand": 6 }', '"besitzer": ["rom"], "min_abstand": 6 }', 'Katalog: kein Eintrag für Vorläufer-Sektoren (zwei Sektoren ohne Kandidat)', true],

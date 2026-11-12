@@ -98,6 +98,9 @@
   }
   const klick = (b) => { if (b.onClick && R.ui && R.ui.buttons) R.ui.buttons.push(b); };
 
+  // FRE-03 Nacharbeit S4: ein Notruf-Angebot altert nicht in Taetigkeiten, der Server schickt kein rest: dann steht keine Frist (leere Zeichen), nie ein erfundenes "noch 0"
+  const verfallVon = (a) => (typeof a.rest === 'number' ? A.verfall(a.rest) : { n: 0, bald: false, kurz: '', lang: '' });
+
   // ---------------------------------------------------------------- Karte (links)
   function karte(c, r, a, gew, kompakt) {
     const i = LI.innen;
@@ -108,8 +111,8 @@
     const kx = kappeZ(c, r.x + i, y1 - UEBER, a.kappe || String(a.nr), gew);
     plakette(c, r.x + r.w - i - M.plakette, y1 - UEBER, a.von, gew);
     txt(c, kuerzen(a.titel, r.x + r.w - i - M.plakette - LI.titelLuft - (kx + LI.kappeLuft)), kx + LI.kappeLuft, y1, ink);
-    const v = A.verfall(a.rest);
-    txt(c, v.kurz, r.x + r.w - i, y2, gew ? FA.ink : v.bald ? FA.bald : FA.dim, { align: 'right' });
+    const v = verfallVon(a);
+    if (v.kurz) txt(c, v.kurz, r.x + r.w - i, y2, gew ? FA.ink : v.bald ? FA.bald : FA.dim, { align: 'right' });
     txt(c, typOrt(a, r.w - 2 * i - tw(v.kurz) - LI.rechtsLuft), r.x + i, y2, sub);
     // Zeile 3: Marken beim Gelingen, dann rechts die Gefahr-Bake mit Wort
     let x = r.x + i;
@@ -157,7 +160,7 @@
     titelZeichnen(c, a.titel, D.titel.x, D.titel.y, vx - Z.titelLuft - D.titel.x, FA.text);
     umbr(a.anlass || '', D.anlass.w, Math.round(D.anlass.h / M.zeile)).forEach((z, i) => txt(c, z, D.anlass.x, D.anlass.y + i * M.zeile, FA.dim));
     // Typ-Marken (die der Server schickt), dann der Ort, rechts der Verfall; die Marken lassen dem Ort mindestens tagMin Platz
-    const v = A.verfall(a.rest), vl = v.bald ? '! ' + v.lang : v.lang, ende0 = D.ort.x + D.ort.w - tw(vl) - Z.nach;
+    const v = verfallVon(a), vl = v.bald ? '! ' + v.lang : v.lang, ende0 = D.ort.x + D.ort.w - tw(vl) - Z.nach;
     let ende = ende0, vt = vl;
     let x = D.ort.x;
     (a.typen || []).forEach((t) => {
@@ -171,7 +174,7 @@
     if (a.hafen && voll && tw(voll) > ende0 - ox) { vt = v.kurz; ende = D.ort.x + D.ort.w - tw(vt) - Z.nach; }
     txt(c, ortDetail(a, ende - ox), ox, D.ort.y + M.tag.textY, FA.text);   // ein langer Ortsname (bis 40 Zeichen) weicht dem Verfall
     tip({ x: ox, y: D.ort.y, w: Math.max(0, ende - ox), h: M.tag.h }, ortTip(a));
-    txt(c, vt, D.ort.x + D.ort.w, D.ort.y + M.tag.textY, v.bald ? FA.bald : FA.dim, { align: 'right' });
+    if (vt) txt(c, vt, D.ort.x + D.ort.w, D.ort.y + M.tag.textY, v.bald ? FA.bald : FA.dim, { align: 'right' });
     rect(c, D.trenner.x, D.trenner.y, D.trenner.w, 1, FA.trenner);
     // Schritte (höchstens 4, sonst „+n weitere“), gefährliche mit kleiner Bake, eine Bitte mit „· Wahl“ und ihren Optionen samt Marken im Tooltip
     const S = D.schritte, st = ((a.vorschau && a.vorschau.schritte) || []).map(A.schritt), max = Z.schritteMax;

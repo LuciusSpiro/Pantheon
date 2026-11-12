@@ -325,8 +325,26 @@ function notrufVerfaellt(game, R, o, text) {
   Marken.entferne(game, o.marke);
   R.offen.splice(R.offen.indexOf(o), 1);
   brettZurueckziehen(game, o);
+  if (o.angenommen === true) {   // FRE-03 Nacharbeit S3: die Crew hat den Notruf angenommen (Faden laeuft): kein Wrack, keine Zeile "unbeantwortet", der Notruf wurde nicht ignoriert, nur nicht rechtzeitig erreicht
+    Chronik.eintragen(game, { art: 'reise', ref: o.id, kurz: `Notruf bei ${hexName(o.hex)} nicht rechtzeitig erreicht`, param: { art: 'notruf', hex: o.hex } });
+    return;
+  }
   Chronik.eintragen(game, { art: 'reise', ref: o.id, kurz: `Notruf bei ${hexName(o.hex)} ${text}`, param: { art: 'notruf', hex: o.hex } });
   ignoriertBuchen(game, o);
+}
+// FRE-03 Nacharbeit S3: das Brett meldet, dass die Crew das Angebot zu diesem Notruf angenommen hat (abenteuer-brett.js annehmen). Der Eintrag bleibt offen (die Ankunft beantwortet ihn wie sonst), die Frist beginnt aber
+// mit dem Annehmen neu (Takt-Leben ab jetzt, die Marke mit): wer angenommen hat und unterwegs ist, soll nicht mitten auf dem Weg verfallen, und ein Verfall nach dem Annehmen ist nie ein Ignorieren (siehe notrufVerfaellt).
+// Marke und Eintrag leben weiter, bis die Crew ankommt oder die neue Frist ablaeuft. -> true, wenn ein Eintrag zu dieser Marke offen war
+function notrufAngenommen(game, marke) {
+  const R = zustandVon(game);
+  const o = R && R.offen.find((x) => x.marke === marke);
+  if (!o) return false;
+  o.angenommen = true;
+  if (o.takt === true) {
+    o.bisUhr = Math.max(o.bisUhr, R.taktUhr + taktTicks(game, WERTE.takt_leben_s));
+    try { const f = Marken.setze(game, { id: o.marke, typ: 'notruf', hex: o.hex, ticks: Number(WERTE.takt_leben_s) / taktMarkeS(game) }); if (f && game.countError) game.countError('reise-marke', new Error(f)); } catch (err) { if (game.countError) game.countError('reise-marke', err); }
+  }
+  return true;
 }
 function ablehnen(game, nr) {
   const R = zustandVon(game);
@@ -386,8 +404,10 @@ function taktNotruf(game) {
   if (!orte.length) return null;
   const ctx = ctxVon(game, hex);
   const alle = KATALOG.filter((e) => e.art === 'notruf' && passt(e, ctx));
-  const neuere = alle.filter((e) => !R.taktIds.includes(e.id));   // nicht dieselbe Id wie die letzten takt_wiederholung Takt-Notrufe, solange es Auswahl gibt
-  const kand = neuere.length ? neuere : alle;
+  const frei = alle.filter((e) => !R.offen.some((o) => o.id === e.id));   // FRE-03 Nacharbeit N1: nie ein Eintrag, der schon offen ist (Takt und Sprung zugleich: zwei "Kutter Fortuna"), solange es Auswahl gibt
+  const basis = frei.length ? frei : alle;
+  const neuere = basis.filter((e) => !R.taktIds.includes(e.id));   // nicht dieselbe Id wie die letzten takt_wiederholung Takt-Notrufe, solange es Auswahl gibt
+  const kand = neuere.length ? neuere : basis;
   if (!kand.length) return null;
   const rng = strom(seedVon(game), R.taktNr, 'takt');
   const ziel = orte[Math.floor(rng() * orte.length) % orte.length];
@@ -443,6 +463,7 @@ function eintreffen(game, L) {
 function update(game, dt) {   // eslint-disable-line no-unused-vars
   FA().update(game);   // SUND-03b A: Reaktion des Sprechers, Angebot in unruhiger Lage zurückziehen
   try { require('./faden-p3.js').update(game); } catch (e) { if (game.countError) game.countError('faden-p3-update', e); }   // SUND-04a-2 P3: die Ankunft am Ort beendet einen Notruf
+  try { require('./abenteuer-brett.js').notrufRueckfallWeiter(game); } catch (e) { if (game.countError) game.countError('reise-notruf-weiter', e); }   // FRE-03 Nacharbeit B1: Notruf-Faden im Rueckfall-Betrieb bis zum Abschluss fuehren
   try { require('./faden-b1.js').update(game); } catch (e) { if (game.countError) game.countError('faden-b1-update', e); }   // SUND-04b B1: Ankunft bei Gerücht und Wiedersehen, Fortgang der Rätsel-Spur
   try { require('./faden-b2.js').update(game); } catch (e) { if (game.countError) game.countError('faden-b2-update', e); }   // SUND-04b B2: Erfolg oder Verlust des Ziels eines Sabotage-Auftrags
   try { require('./faden-bitte.js').update(game); } catch (e) { if (game.countError) game.countError('faden-bitte-update', e); }   // SUND-04a-2 P2: Bitte in unruhiger Lage zurückziehen (ohne Folge)
@@ -501,4 +522,4 @@ function lesen(b) {
   return R;
 }
 
-module.exports = { gefahrLaeuft, gefahrKampf, gruendeBuchen, rufRaum, eintrag, hexName, folgeBuchen, abstandFrei, voreinstellungAn, KATALOG, WERTE, ARTEN, ABSTAND_HART, neu, aktiv, zaehleSprung, entscheiden, ausloesen, nachSprung, abfangenVermerken, update, taktNotruf, textFuer, ablehnen, toSave, lesen, strom, umkreis, parameterFuer, kandidaten };
+module.exports = { gefahrLaeuft, gefahrKampf, gruendeBuchen, rufRaum, eintrag, hexName, folgeBuchen, abstandFrei, voreinstellungAn, KATALOG, WERTE, ARTEN, ABSTAND_HART, neu, aktiv, zaehleSprung, entscheiden, ausloesen, nachSprung, abfangenVermerken, update, taktNotruf, notrufAngenommen, textFuer, ablehnen, toSave, lesen, strom, umkreis, parameterFuer, kandidaten };
