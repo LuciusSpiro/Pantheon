@@ -11,7 +11,7 @@
 // Zustand game.weltsim.faeden = { t, nr, nsc, liste: [Faden], angebote, ... }  (nur t, nr, nsc und liste stehen im Weltstand welt.sim.faeden, optional, additiv, Version 3, Altstaende = leer)
 //   t        Taetigkeitszaehler (eigener Zaehler, NIE die Chronik: sie ist ein Ring von 200 und die Funk-Antworten schreiben hinein)     nr / nsc   laufende Nummern von Faeden (f<nr>) und NSC (n<nr>)
 //   Faden    { id, vorlage, parameter: { volk, ort, name }, beat (Index: der laufende bzw. naechste), phase: wartet | laeuft | abgeschlossen, zaehler (Taetigkeiten seit dem letzten Beat), abstand (Ziel 2 bis 4),
-//              laufend: { beat, n, seit, gewaehlt? } | null, hinweise: [Kennungen gestreut], ausgang: { art, status, tick } | null, begonnen: Tick, nsc }
+//              laufend: { beat, n, seit, gewaehlt? } | null, hinweise: [Kennungen gestreut], ausgang: { art, status, tick } | null, begonnen: Tick, nsc, notruf?: { marke } (FRE-03 R2: Herkunft Brett-Notruf) }
 //   NSC      { id, name, fraktion, schiff, schiffsklasse, status, haltung, gedaechtnis: [{ tick, ereignis, text_key }] (hoechstens 12), wahrheit: { id, fraktion?, offenbart } | null, portrait: Seed }
 //   abenteuerAngebote (nur Laufzeit) { nr, art: 'abenteuer', ref: Vorlagen-Id, hex, volk, vorlage: expandierte Vorlage, alter }   Faden.plan (nur Abenteuer, SUND-04b A1) = die expandierte Vorlage, steht im Weltstand
 //   angebote (nur Laufzeit) { nr, art, ref, hex, volk, vorlagen: [Id], alter }: Taetigkeiten mit Person, aus denen der Spielleiter einen Faden oeffnen darf
@@ -236,8 +236,8 @@ function taetigkeit(game, art) {
   }
   for (const a of F.angebote) a.alter++;
   F.angebote = F.angebote.filter((a) => a.alter <= W.angebot.gilt_taetigkeiten);
-  for (const a of F.abenteuerAngebote) a.alter++;   // SUND-04b A1: Abenteuer-Angebote verfallen wie die der Notrufe (eigene Frist)
-  F.abenteuerAngebote = F.abenteuerAngebote.filter((a) => a.alter <= W.abenteuer.angebot_gilt_taetigkeiten);
+  for (const a of F.abenteuerAngebote) if (!a.notruf) a.alter++;   // SUND-04b A1: Abenteuer-Angebote verfallen wie die der Notrufe (eigene Frist); FRE-03 D: ein Notruf-Angebot altert nie in Taetigkeiten, sein Notruf-Eintrag ist Herr der Lebensdauer
+  F.abenteuerAngebote = F.abenteuerAngebote.filter((a) => a.notruf || a.alter <= W.abenteuer.angebot_gilt_taetigkeiten);
   for (const f of F.liste.slice()) {   // Frist: ein Beat ohne Ausgang gilt als gescheitert, nichts blockiert. Ohne aktiven Lage-Spielleiter laeuft die Frist NICHT ab (B-S3): der Zaehler zaehlt weiter, gescheitert wird nichts
     if (spielleiterAktiv(game) && f.phase === 'laeuft' && f.laufend && f.laufend.n >= fristVon(f)) {
       melde(game, 'frist', f.id, `Beat ${f.laufend.beat} ohne Ausgang nach ${fristVon(f)} Tätigkeiten: gescheitert`, { faden: f.id, beat: f.laufend.beat });
@@ -282,6 +282,7 @@ function ausgangMitPerson(game, o) {
 
 // ---------- Abenteuer (SUND-04b A1): ein Faden, den ein geprueftes Bauplan beschreibt (faden-bauplan.js), nicht eine Datei unter vorlagen/. Zwei benannte Schritte statt eines Parameters an faden_oeffnen:
 //   abenteuerAnbieten(game, bauplan, { hex }) -> { ok, angebot } | { ok: false, grund, fehler? }   expandiert und prueft den Plan (derselbe Pruefer wie fuer die Dateien), hoechstens angebote_max offene Angebote
+//   abenteuerNotrufAnbieten(game, bauplan, { hex }) wie abenteuerAnbieten, aber ohne die Obergrenze angebote_max (FRE-03 D: das Brett haelt die eigene Obergrenze der Notruf-Angebote, abenteuer-brett.js notrufAnbieten)
 //   abenteuerOeffnen(game, nr, { volk?, name? }) -> { ok, faden } | { ok: false, grund }          macht aus einem Angebot einen Faden (aktiv_max, laufend_max, Abstand wie bei jedem Faden); der Plan steht im Faden (f.plan)
 // Ohne Schalter FAEDEN=1 tun beide nichts. Die Angebote sind Laufzeit (nicht im Weltstand), der Plan eines laufenden Abenteuers steht im Weltstand (welt.sim.faeden.liste[].plan).
 const Bauplan = () => require('./faden-bauplan.js');
@@ -289,12 +290,13 @@ const Bauplan = () => require('./faden-bauplan.js');
 // der Anschluss-Rueckfall prueft die (gelockerten) Wiederholungsregeln selbst, bevor er das erste ruft.
 const abenteuerAnbieten = (game, bauplan, o) => anbietenMit(game, bauplan, o, false);
 const abenteuerNeuAnbieten = (game, bauplan, o) => anbietenMit(game, bauplan, o, true);
-function anbietenMit(game, bauplan, o, wiederholung) {
+const abenteuerNotrufAnbieten = (game, bauplan, o) => anbietenMit(game, bauplan, o, false, P.pruefeNotrufAnbieten);   // FRE-03 D: ein Notruf-Angebot zaehlt nicht gegen angebote_max (eigene Obergrenze im Brett)
+function anbietenMit(game, bauplan, o, wiederholung, pruefeAnbieten) {
   if (!aktiv(game)) return { ok: false, grund: 'INAKTIV: Faeden sind nicht eingeschaltet' };
   const F = zustandVon(game);
   o = istObjekt(o) ? o : {};
   const abgelehnt = (grund, fehler) => { logbuch(game, 'faden_pruefung', { ausgang: 'abgelehnt', key: 'abenteuer_anbieten', plan: { titel_zeichen: istObjekt(bauplan) && typeof bauplan.titel === 'string' ? bauplan.titel.length : null }, fehler: (fehler || [grund]).slice(0, 6) }); return { ok: false, grund, fehler: fehler || [grund] }; };
-  const g = P.pruefeAbenteuerAnbieten(F, o);
+  const g = (pruefeAnbieten || P.pruefeAbenteuerAnbieten)(F, o);
   if (g) return abgelehnt(g);
   const r = Bauplan().pruefe(bauplan);
   if (!r.ok) return abgelehnt(r.fehler[0], r.fehler);
@@ -335,6 +337,7 @@ function abenteuerOeffnen(game, nr, p) {
   F.abenteuerAngebote.splice(F.abenteuerAngebote.indexOf(a), 1);
   F.nsc = nscNr; F.nr++;
   const f = { id: 'f' + F.nr, vorlage: v.id, plan: klon(v), parameter: { volk, ort: a.hex, name: nsc.name }, beat: 0, phase: 'wartet', zaehler: 0, abstand: 0, laufend: null, hinweise: [], ausgang: null, begonnen: ws.tickZahl, nsc };
+  if (a.notruf) f.notruf = { marke: a.notruf.marke };   // FRE-03 Nacharbeit R2 B1: die HERKUNFT (das Angebot trug a.notruf) macht den Faden zum Brett-Notruf-Faden, nicht die Form seines Plans (P.notrufBrettFaden); die Marke verknuepft ihn mit dem Eintrag des Notrufs
   f.abstand = abstandZiehen(game, f);
   F.liste.push(f);
   while (F.liste.length > W.faeden_gesamt_max) {
@@ -559,7 +562,7 @@ function speicherFaden(f) {
 }
 function toSave(ws) {
   const F = ws && ws.faeden;
-  if (!F || (!F.liste.length && !F.t && !F.nr && !F.nsc && !F.sabotage && !(F.abenteuerAngebote && F.abenteuerAngebote.length) && !F.abenteuerZuletzt)) return null;
+  if (!F || (!F.liste.length && !F.t && !F.nr && !F.nsc && !F.sabotage && !P.regulaereAngebote(F).length && !F.abenteuerZuletzt)) return null;
   const b = { t: F.t, nr: F.nr, nsc: F.nsc };
   if (F.liste.length) b.liste = F.liste.map(speicherFaden);
   const bt = require('./faden-bitte.js').toSaveBitte(F);   // SUND-04a-2 P2: offene Bitte (optional, Altstand = keine)
@@ -614,6 +617,7 @@ function leseFaden(x, F) {
     abstand: Number.isInteger(x.abstand) ? Math.min(Math.min(a.max, W.abstand.max), Math.max(Math.max(a.min, W.abstand.min), x.abstand)) : Math.max(a.min, W.abstand.min),
     laufend: null, hinweise: [], ausgang: null, begonnen: nat(x.begonnen, 1e9), nsc,
   });
+  if (plan && istObjekt(x.notruf) && typeof x.notruf.marke === 'string' && /^reise:n-?[0-9]{1,6}$/.test(x.notruf.marke)) f.notruf = { marke: x.notruf.marke };   // FRE-03 Nacharbeit R2 B1: Herkunft Brett-Notruf (optional, additiv, Altstand = keine); muellfest
   if (Array.isArray(x.hinweise)) for (const h of x.hinweise) if (typeof h === 'string' && has(v.hinweise || {}, h) && !f.hinweise.includes(h)) f.hinweise.push(h);
   if (phase === 'laeuft') {
     const l = istObjekt(x.laufend) ? x.laufend : {};
@@ -666,4 +670,4 @@ function lesen(b) {
   return F;
 }
 
-module.exports = { erinnern, aktiv, neu, zustandVon, taetigkeit, abenteuerRegisterAufraeumen, ausgangMitPerson, abenteuerAnbieten, abenteuerNeuAnbieten, abenteuerOeffnen, istBefehl, befehlPruefen, befehlAnwenden, oeffnen, weiterSetzen, beatAusgang, beatZurueck, optionWaehlen, hinweisGezeigt, spielleiterAktiv, haltungPruefen, haltungSortieren, haltungBuchen, anwenden, haltungVon, chanceSpontanhilfe, tonVon, portraetVon, nscVon, ausschnittBlock, promptText, toSave, lesen, aktive, faellig, folgenAnwenden, strom, idNr, wiedersehenKandidaten, fristVon };
+module.exports = { erinnern, aktiv, neu, zustandVon, taetigkeit, abenteuerRegisterAufraeumen, ausgangMitPerson, abenteuerAnbieten, abenteuerNeuAnbieten, abenteuerNotrufAnbieten, abenteuerOeffnen, istBefehl, befehlPruefen, befehlAnwenden, oeffnen, weiterSetzen, beatAusgang, beatZurueck, optionWaehlen, hinweisGezeigt, spielleiterAktiv, haltungPruefen, haltungSortieren, haltungBuchen, anwenden, haltungVon, chanceSpontanhilfe, tonVon, portraetVon, nscVon, ausschnittBlock, promptText, toSave, lesen, aktive, faellig, folgenAnwenden, strom, idNr, wiedersehenKandidaten, fristVon };

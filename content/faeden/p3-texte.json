@@ -26,6 +26,16 @@
       "einheit": "Art -> text_key",
       "_hinweis": "FAD-01 A: der Funktext, wenn die Folge sim_befehl wirken sollte, der Kern aber nichts annahm oder es kein Ziel gab (der Beat gilt als gescheitert). Die Texte der Art invasion und beides sagen nur, dass die Flotte nicht durchkommt: sie stimmen für jeden Ablehnungsgrund (kein Ziel in Reichweite, keine bereite oder zu schwache Flotte, alle schon hochgestuft, Feldzug läuft schon, Abkühlzeit der Invasion)."
     },
+    "notruf_abschluss_text": {
+      "wert": "notruf_abschluss",
+      "einheit": "text_key",
+      "_hinweis": "FRE-03 Nacharbeit S1: der Abschlusstext eines Faden aus einem Notruf-Angebot des Bretts (faden-pruefer.js notrufBrettFaden), wenn der Abschluss gelingt: ohne Dank (der Katalog-Eintrag des Notrufs hat schon gedankt, hoechstens EIN Dank). Gescheitert und tot behalten abschluss_gescheitert und abschluss_tot."
+    },
+    "gefahr_texte": {
+      "wert": ["notruf_standard", "notruf_entfuehrt", "notruf_erinnert_abgelehnt", "notruf_erinnert_fracht", "notruf_ueberfall", "notruf_belagerung"],
+      "einheit": "text_key des Beats notruf",
+      "_hinweis": "FRE-03 Nacharbeit S1: Texte, die Gefahr ankuendigen (Funk mit rotem Akzent, fd 2). Jeder andere Notruf-Text (heute notruf_havarie) kommt in Messing: eine Havarie ohne Gefahr ruft nicht rot. Die Erinnerungstexte stehen hier, weil sie den Ruf nur wiederholen (Standard-Notruf mit Wachschiffen)."
+    },
     "tot_sprecher": {
       "wert": "Lerche",
       "einheit": "Text",
@@ -45,6 +55,10 @@
     "notruf_erinnert_abgelehnt": "Ihr habt mich damals abgewiesen. Jetzt brauche ich euch bei {ort}!",
     "notruf_erinnert_fracht": "Ihr habt meine Ladung nicht abgeliefert. Trotzdem: Hilfe bei {ort}!",
     "notruf_entfuehrt": "Man hat mich in {ort} festgesetzt. Wachschiffe sichern sie. Holt mich raus!",
+    "notruf_havarie": "Ihr antwortet? Wir treiben bei {ort}, der Antrieb ist tot. Wir warten auf euch.",
+    "notruf_ueberfall": "Die Angreifer lauern noch bei {ort}. Kommt gefechtsbereit, wir halten durch!",
+    "notruf_belagerung": "Vom Posten bei {ort}: Sie liegen noch vor uns. Kommt gefechtsbereit!",
+    "notruf_abschluss": "Hier beruhigt sich die Lage. Haltet die Augen offen da draußen.",
     "notruf_dank": "Ihr seid da! Danke, das vergesse ich nicht.",
     "enthuellung_sabotage": "Ich bin Germane, kein Händler. Die Ladung ist scharf. Warnt {ziel}!",
     "enthuellung_sabotage_ohne_fracht": "Ich bin Germane. Meine Ladung geht auch ohne euch hoch: {ziel}. Warnt es!",

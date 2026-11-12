@@ -86,7 +86,7 @@ function fadenKontext(game) {
   // SUND-04b B2: Lagen-Bedingungen der Beats (Sabotage: wie viele Ziele stehen, 0 in der Pause): nur Zahlen
   const lage = {};
   for (const c of Object.values(B)) { const k = c.braucht && c.braucht.lage; const l = typeof k === 'string' ? require('./faden-b2.js').lage(k) : null; if (l) lage[k] = l.zahl(game); }
-  return { aktiv, laufende_abenteuer: abenteuer, abenteuer_angebote: F.abenteuerAngebote.map((a) => typenVon(a.vorlage)), notruf_angebote: F.angebote.length, wiedersehen_nsc: wiedersehen, lage };
+  return { aktiv, laufende_abenteuer: abenteuer, abenteuer_angebote: require('./faden-pruefer.js').regulaereAngebote(F).map((a) => typenVon(a.vorlage)), notruf_angebote: F.angebote.length, wiedersehen_nsc: wiedersehen, lage };
 }
 // SUND-04b E3: die Typenfolgen, gegen die das Brett prueft (die zuletzt BEGONNENEN Abenteuer aus dem Kanon) und die zuletzt angebotenen dieses Spielleiters, ohne Doppelte, aelteste zuerst; nie Titel, Anlass oder Namen
 function letzteAbenteuer(game, letzte, werte) {
@@ -167,7 +167,7 @@ function kontextAbsichtVon(game, werte, letzteAbsichten, stufe, geschichte) {
     ruf: a.ruf, lage: a.lage,
     wendepunkte: wende,
     chronik: (a.chronik || []).slice(-werte.chronik_zeilen),
-    laufend: { abenteuer: F.liste.filter((x) => x.phase !== 'abgeschlossen' && x.plan).length, angebote: F.abenteuerAngebote.length, notrufe: F.angebote.length, lage },
+    laufend: { abenteuer: F.liste.filter((x) => x.phase !== 'abgeschlossen' && x.plan).length, angebote: require('./faden-pruefer.js').regulaereAngebote(F).length, notrufe: F.angebote.length, lage },
     letzte_absichten: (letzteAbsichten || []).slice(-werte.letzte_abenteuer),
     crew_geschichte: geschichte.zeilen,
   };

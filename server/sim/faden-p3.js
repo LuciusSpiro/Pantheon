@@ -32,6 +32,7 @@ const T = TX.texte, W = TX.werte;
 const HEX = /^\d{4}$/;
 const D = require('./faden-daten.js');
 const Pruefer = require('./faden-pruefer.js');
+const P = Pruefer;
 const Hinweis = () => require('./faden-hinweis.js');
 const Faden = () => require('./faden.js');
 const Bitte = () => require('./faden-bitte.js');
@@ -71,7 +72,7 @@ const notruf = {
     const nsc = nscVon(game, faden.nsc.id) || faden.nsc;
     const key = notrufText(nsc, ctx.beat);
     const text = fmt(T[key], { name: nsc.name, ort: hexName(hex) });
-    const f = sagenGefahr(game, nsc, text);
+    const f = W.gefahr_texte.wert.includes(key) ? sagenGefahr(game, nsc, text) : sagen(game, nsc, text);   // FRE-03 Nacharbeit S1: roter Akzent nur, wo der Text Gefahr ankuendigt (Daten gefahr_texte), eine Havarie ohne Gefahr bleibt Messing
     if (!f) return { ausgang: 'gescheitert' };
     for (const h of ctx.beat.hinweise || []) Hinweis().senden(game, faden.id, h);   // der Notruf ist gesendet: die Hinweise des Beats werden gesendet und gelten erst danach
     logbuch(game, 'faden_baustein', { ausgang: 'notruf', key: 'notruf', begruendung: `Notruf von ${nsc.name} bei ${hexName(hex)}`, plan: { faden: faden.id, beat: ctx.beat.id, hex, text: key } });
@@ -99,7 +100,7 @@ function update(game) {
   for (const f of F.liste.slice()) {
     if (notrufOrt(f) !== hier) continue;
     const nsc = nscVon(game, f.nsc.id) || f.nsc;
-    sagen(game, nsc, fmt(T.notruf_dank, { name: nsc.name }));
+    if (!P.notrufBrettFaden(f)) sagen(game, nsc, fmt(T.notruf_dank, { name: nsc.name }));   // FRE-03 Nacharbeit S1: bei einem Brett-Notruf dankt der Katalog-Eintrag (reise-ereignis.js, bei Gefahr erst nach dem Kampf), nie zweimal
     Faden().beatAusgang(game, f.id, 'gelungen');
   }
 }
@@ -193,7 +194,7 @@ const abschluss = {
   starten(game, faden, ctx) {
     const nsc = nscVon(game, faden.nsc.id) || faden.nsc;
     const gelungen = Pruefer.abschlussGelungen(ctx.beat, nsc);
-    const key = nsc.status === 'tot' ? 'abschluss_tot' : !gelungen ? 'abschluss_gescheitert' : (ctx.beat.parameter && ctx.beat.parameter.text_key && T[ctx.beat.parameter.text_key] ? ctx.beat.parameter.text_key : 'abschluss_gelungen');
+    const key = nsc.status === 'tot' ? 'abschluss_tot' : !gelungen ? 'abschluss_gescheitert' : P.notrufBrettFaden(faden) ? W.notruf_abschluss_text.wert : (ctx.beat.parameter && ctx.beat.parameter.text_key && T[ctx.beat.parameter.text_key] ? ctx.beat.parameter.text_key : 'abschluss_gelungen');
     const text = (nsc.status !== 'tot' && poolText(game, faden, ctx.beat.id, [key])) || fmt(T[key], { name: nsc.name });   // SPL-02 E3: Haken (Slot = Textschluessel), ohne angemeldeten Plan und bei einem Toten null
     if (nsc.status === 'tot') Bitte().funkSprecher(game, W.tot_sprecher.wert, text);   // Nacharbeit F3d: ein Toter spricht nie selbst (kein eigener Name, kein Porträt)
     else sagen(game, nsc, text);
@@ -201,4 +202,19 @@ const abschluss = {
   },
 };
 
-module.exports = { notruf, enthuellung, abschluss, update, ziel, invasionsZiel, notrufText };
+// FRE-03 Nacharbeit R2 B2/B3: die Crew hat einen angenommenen Brett-Notruf im Stich gelassen (die Frist des Eintrags ist nach dem Annehmen abgelaufen, oder sie sprang vor oder waehrend des Kampfs einer Gefahr weg):
+// der Faden endet als gescheitert, nie als gelungen. Laeuft der Beat notruf noch (Frist), scheitert er (Folgen aus den Daten: im Stich gelassen, kein "geholfen", kein Dank); dann steht der Abschluss aus und der Rueckfall (oder der
+// Spielleiter) fuehrt ihn weiter, ohne Erfolg-Ereignis im Gedaechtnis ist er gescheitert (Text abschluss_gescheitert). Hat die Ankunft den Beat schon gelungen beendet (Gefahr: die Crew kam an und sprang weg), wird das Gedaechtnis
+// berichtigt (notruf_gelungen -> notruf_gescheitert), damit der Abschluss gescheitert ausfaellt; die Haltung aus der Ankunft bleibt (die Ankunft hat es gegeben). Ohne Faden zu dieser Marke tut sie nichts. -> true, wenn ein Faden betroffen war
+function notrufImStich(game, marke) {
+  const F = Faden().aktiv(game) ? Faden().zustandVon(game) : null;
+  const f = F && F.liste.find((x) => x.phase !== 'abgeschlossen' && x.notruf && x.notruf.marke === marke);
+  if (!f) return false;
+  const v = D.vorlage(f.vorlage);
+  if (f.phase === 'laeuft' && v.beats[f.beat].typ === 'notruf') { Faden().beatAusgang(game, f.id, 'gescheitert'); return true; }
+  const g = f.nsc.gedaechtnis || [];
+  for (let i = g.length - 1; i >= 0; i--) if (g[i].ereignis === 'notruf_gelungen') { g[i].ereignis = 'notruf_gescheitert'; break; }
+  return true;
+}
+
+module.exports = { notruf, enthuellung, abschluss, update, ziel, invasionsZiel, notrufText, notrufImStich };

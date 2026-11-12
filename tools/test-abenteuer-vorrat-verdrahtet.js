@@ -252,18 +252,18 @@ console.log('\nGueltigkeit: gefallener Ort und toter Bezug werden verworfen (ech
   ok(g.errors === 0, 'keine Serverfehler');
 }
 
-console.log('\nVorrat bleibt hoechstens vorrat_max');
+console.log('\nVorrat bleibt hoechstens die Quote der Art (FRE-03 E: vorrat_max_je_art, die Summe bleibt vorrat_max)');
 {
   const t = neu(7), g = t.g;
-  const titel = [];
-  for (let i = 0; i < MAX + 3; i++) {
+  const titel = [], QA = KAT.werte.vorrat_max_je_art.wert[ART];
+  for (let i = 0; i < QA + 3; i++) {
     const a = biete(g, ab('geruecht', { titel: 'Zebrafalke Probe Nummer ' + i }));
     titel.push('Zebrafalke Probe Nummer ' + i);
     ablehnen(g, a);
-    if (vorrat(g).length > MAX) break;
+    if (vorrat(g).length > QA) break;
   }
-  ok(vorrat(g).length === MAX, 'nach ' + (MAX + 3) + ' abgelehnten Angeboten liegen genau vorrat_max Eintraege im Vorrat (' + vorrat(g).length + ')');
-  ok(vorrat(g)[0].absicht.titel === titel[3] && vorrat(g)[MAX - 1].absicht.titel === titel[MAX + 2], 'der aelteste weicht (die letzten ' + MAX + ' bleiben)');
+  ok(vorrat(g).length === QA && QA <= MAX, 'nach ' + (QA + 3) + ' abgelehnten Angeboten liegen genau die Quote der Art (vorrat_max_je_art) Eintraege im Vorrat (' + vorrat(g).length + ')');
+  ok(vorrat(g)[0].absicht.titel === titel[3] && vorrat(g)[QA - 1].absicht.titel === titel[QA + 2], 'der aelteste weicht (die letzten ' + QA + ' bleiben)');
 }
 
 console.log('\nUeberlebt Speichern und Laden; nach dem Laden verwirft verwirfUngueltige Ungueltiges');

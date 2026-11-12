@@ -56,7 +56,7 @@ section('Katalog: Schema und Vollständigkeit', () => {
   ok(E.filter((e) => e.art === 'notruf').every((e) => W.ort_typen[e.parameter.ort_typ] && (e.gefahr ? ['piratenueberfall', 'belagerung'].includes(e.parameter.variante) : true)), 'Notrufe: Ortstyp gültig, Gefahr nur bei Überfall und Belagerung');
   const bk = ['besitzer', 'rang_min', 'rang_max', 'lage', 'min_abstand'];
   ok(E.every((e) => Object.keys(e.bedingungen || {}).every((k) => bk.includes(k))), 'Bedingungen: nur bekannte Schlüssel');
-  ok(E.every((e) => (!e.bedingungen.besitzer || e.bedingungen.besitzer.every((b) => ['rom', 'ger', 'saum', 'pirat', 'frei'].includes(b))) && (!e.bedingungen.lage || e.bedingungen.lage.every((l) => ['rom', 'ger', 'offen'].includes(l))) && [e.bedingungen.rang_min, e.bedingungen.rang_max].filter(Boolean).every((r) => raenge.includes(r))), 'Bedingungen: Besitzer, Lage und Ränge gibt es');
+  ok(E.every((e) => (!e.bedingungen.besitzer || e.bedingungen.besitzer.every((b) => ['rom', 'ger', 'saum', 'pirat', 'frei', 'vorl'].includes(b))) && (!e.bedingungen.lage || e.bedingungen.lage.every((l) => ['rom', 'ger', 'offen'].includes(l))) && [e.bedingungen.rang_min, e.bedingungen.rang_max].filter(Boolean).every((r) => raenge.includes(r))), 'Bedingungen: Besitzer, Lage und Ränge gibt es');
   ok(E.every((e) => !e.bedingungen.rang_min || !e.bedingungen.rang_max || raenge.indexOf(e.bedingungen.rang_min) <= raenge.indexOf(e.bedingungen.rang_max)), 'Rangfenster nicht leer');
   // Fairness: Gefahr wird angekündigt, keine Scheinwahl
   const gef = E.filter((e) => e.gefahr);
@@ -89,7 +89,8 @@ section('Katalog: Schema und Vollständigkeit', () => {
 // Rate über viele Sprünge: nur die Entscheidung (zaehleSprung + entscheiden), keine Szene; 20 Seeds × 5000 Sprünge über alle Besitzer des Sundes
 section('Rate: höchstens 1 Ereignis je 3 Sprünge, viele Sprünge', () => {
   const t = spiel(); const g = t.g;
-  const hexe = Object.keys(ws(g).zustand.hexe).filter((h) => Sektoren.ortVonHex(h) && Sektoren.spielbar(h)).sort();
+  const vorl = Object.keys(Sektoren.KARTE.hexe).filter((h) => Besitz.besitzer(g, h) === 'vorl' && Sektoren.spielbar(h) && Sektoren.hatSzene(h));   // FRE-03 C: die Vorläufer-Sektoren stehen nicht in der Sim, haben aber eigene Notrufe
+  const hexe = Object.keys(ws(g).zustand.hexe).filter((h) => Sektoren.ortVonHex(h) && Sektoren.spielbar(h)).concat(vorl).sort();
   ok(hexe.length >= 20, `Ankunftssektoren der Messung: ${hexe.length} Hexe mit allen Besitzern (${[...new Set(hexe.map((h) => Besitz.besitzer(g, h) || 'frei'))].sort().join(', ')})`);
   const SEEDS = 20, SPRUENGE = 5000;
   const lageEcht = Regie.lage;
@@ -128,7 +129,7 @@ section('Rate: höchstens 1 Ereignis je 3 Sprünge, viele Sprünge', () => {
   ok(zuDicht === 0 && Math.min(...gaps) >= 3, `nie mehr als 1 Ereignis je 3 aufeinanderfolgende Sprünge (${gaps.length} Abstände, kleinster ${Math.min(...gaps)})`);
   ok(rate >= 1 / 10 && rate <= 1 / 6, `mittlere Rate 1 je ${(1 / rate).toFixed(1)} Sprünge, im Bereich 6 bis 10`);
   ok(RE.ARTEN.every((a) => arten[a] > ereignisse * 0.03), `alle vier Arten kommen vor, keine verhungert (${JSON.stringify(arten)})`);
-  ok(Object.keys(ids).length === RE.KATALOG.length, `jeder Katalogeintrag kam vor (${Object.keys(ids).length} von ${RE.KATALOG.length})`);
+  ok(Object.keys(ids).length === RE.KATALOG.length, `jeder Katalogeintrag kam vor (${Object.keys(ids).length} von ${RE.KATALOG.length}; fehlt: ${RE.KATALOG.filter((e) => !ids[e.id]).map((e) => e.id).join(', ')})`);
   ok(gleicheId === 0, 'nie dieselbe Katalog-Id zweimal in Folge (' + ereignisse + ' Ereignisse)');
   ok(gleicherSatz === 0, `nie derselbe Parametersatz wie eines der letzten ${RE.WERTE.wiederholung.fenster} Ereignisse`);
   ok(abstandId === 0, 'Mindestabstand je Id (bedingungen.min_abstand) eingehalten');
@@ -161,7 +162,7 @@ section('Eigener Zufallsstrom: Sim und game.rng bleiben unberührt, Ergebnis ist
   ok(a.rng() === c.rng() && a.rng() === c.rng(), 'game.rng wurde nicht verbraucht (gleiche nächste Zahlen wie in einem Spiel ohne Ereignisse)');
   const d = spiel({ seed: 12 }).g; ws(d).zustand.seed = 4242;
   ok(reihe(d) !== ra, 'anderer Sim-Seed, andere Reihe');
-  ok(JSON.stringify(Object.keys(ws(a).reise).sort()) === JSON.stringify(['laufend', 'letzte', 'letzter', 'n', 'offen', 'rufLog']), 'der Strom hat keinen eigenen Zustand (nur Zähler n, letzter, letzte, rufLog, offen, laufend)');
+  ok(JSON.stringify(Object.keys(ws(a).reise).sort()) === JSON.stringify(['laufend', 'letzte', 'letzter', 'n', 'offen', 'rufLog', 'takt', 'taktIds', 'taktNr', 'taktUhr']), 'der Strom hat keinen eigenen Zustand (nur Zähler n, letzter, letzte, rufLog, offen, laufend und die Takt-Zähler takt, taktNr, taktUhr, taktIds)');
 });
 
 // ------------------------------------------------------------------------------------------------------------------------------------------------------------------
@@ -466,9 +467,10 @@ section('Weltstand: Speichern, Laden, Altstand, Müll', () => {
   const dir = F.freshDir(); d1.id = 'w-reise'; fs.writeFileSync(path.join(dir, 'w-reise.json'), JSON.stringify(d1));
   const g2 = spiel({ dir, world: 'w-reise' }).g;
   ok(g2.phase === 'play' && g2.weltsim && g2.errors === 0, 'Laden: das Spiel läuft');
-  ok(F.gleich(RE.toSave(ws(g2)), RE.toSave(ws(g))) && F.gleich(Chronik.toSave(ws(g2)), Chronik.toSave(ws(g))), 'Zähler, Wiederholungsdaten und Chronik sind nach dem Laden gleich');
+  const ohneTakt = (b) => { const o = Object.assign({}, b); delete o.takt; return o; };   // der Takt-Zähler läuft im neuen Spiel in der Start-Sekunde weiter (eigener Test: test-reise-takt.js)
+  ok(F.gleich(ohneTakt(RE.toSave(ws(g2))), ohneTakt(RE.toSave(ws(g)))) && F.gleich(Chronik.toSave(ws(g2)), Chronik.toSave(ws(g))), 'Zähler, Wiederholungsdaten und Chronik sind nach dem Laden gleich');
   const d2 = klon(Weltstand.capture(g2));
-  ok(F.gleich(d2.welt.sim.reise, d1.welt.sim.reise) && F.gleich(d2.welt.sim.chronik, d1.welt.sim.chronik), 'Runde Speichern, Laden, Speichern: gleich');
+  ok(F.gleich(ohneTakt(d2.welt.sim.reise), ohneTakt(d1.welt.sim.reise)) && F.gleich(d2.welt.sim.chronik, d1.welt.sim.chronik), 'Runde Speichern, Laden, Speichern: gleich');
   // Weiterspielen nach dem Laden = Durchspielen (gleicher Strom)
   const hexe = [HEX.rom, HEX.rom2, '0204', '0105'];
   const weiter = (x, von) => { const out = []; for (let i = von; i < von + 200; i++) { RE.zaehleSprung(x); const e = RE.entscheiden(x, hexe[i % 4]); if (e) out.push(e.id + '@' + e.nr + ':' + e.hex); } return out.join(); };
@@ -480,8 +482,10 @@ section('Weltstand: Speichern, Laden, Altstand, Müll', () => {
   const g3 = spiel({ dir, world: 'w-alt' }).g;
   ok(g3.phase === 'play' && ws(g3).reise.n === 0 && ws(g3).chronik.length === 0 && g3.errors === 0, 'Altstand lädt: Zähler 0, Chronik leer');
   // Ruhezustand: kein Block
-  const frisch = klon(Weltstand.capture(spiel().g));
-  ok(!('reise' in frisch.welt.sim) && !('chronik' in frisch.welt.sim), 'Ruhezustand (nichts geschehen): keine Blöcke, wie im Altstand');
+  const frisch = klon(Weltstand.capture(spiel({ env: { REISE_EREIGNISSE: '0' } }).g));
+  ok(!('reise' in frisch.welt.sim) && !('chronik' in frisch.welt.sim), 'Ruhezustand (nichts geschehen, Reise-Ereignisse aus): keine Blöcke, wie im Altstand');
+  const mitTakt = klon(Weltstand.capture(spiel().g));   // FRE-03 B: mit Reise-Ereignissen zählt der Takt schon in der ersten Sekunde: der Block trägt nur den Zähler takt (additiv)
+  ok(!('chronik' in mitTakt.welt.sim) && F.gleich(Object.keys(mitTakt.welt.sim.reise).sort(), ['n', 'takt']) && mitTakt.welt.sim.reise.n === 0 && mitTakt.welt.sim.reise.takt > 0, 'Ruhezustand mit Takt: nur n und takt im Block, keine Chronik');
   // Müll im Leser
   ok(RE.lesen(null).n === 0 && RE.lesen('x').n === 0 && RE.lesen([]).n === 0 && RE.lesen({ n: 'x', letzte: 5 }).letzte.length === 0, 'Leser: Müll = Anfang');
   const m = RE.lesen({ n: 10, letzter: 99, letzte: [{ id: 'gibt_es_nicht', k: 'x', n: 1 }, { id: 'funk_lage_rom', k: 'k', n: 50 }, null, { id: 'funk_lage_rom' }] });

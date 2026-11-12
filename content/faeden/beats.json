@@ -28,7 +28,7 @@
       "optionen": "keine",
       "braucht": {"nsc_status": ["aktiv", "verbuendet", "gefangen"]},
       "parameter": {"pflicht": [], "optional": ["text_key", "hex", "landeplatz"]},
-      "bauplan": {"start_status":"aktiv","hinweis_traeger":true,"parameter":{"text_key":{"standard":"notruf_standard","erlaubt":["notruf_standard","notruf_entfuehrt"]},"landeplatz":{"erlaubt":"landeplatz"}},"aus":{"gelungen":{"status":["verbuendet","gefangen","aktiv"],"folge":[{"typ":"haltung_aenderung","grund":"geholfen"}]},"gescheitert":{"status":["gefangen","aktiv","geflohen","tot"],"folge":[{"typ":"haltung_aenderung","grund":"im_stich_gelassen"}]}}}
+      "bauplan": {"start_status":"aktiv","hinweis_traeger":true,"parameter":{"text_key":{"standard":"notruf_standard","erlaubt":["notruf_standard","notruf_entfuehrt","notruf_havarie","notruf_ueberfall","notruf_belagerung"]},"landeplatz":{"erlaubt":"landeplatz"}},"aus":{"gelungen":{"status":["verbuendet","gefangen","aktiv"],"folge":[{"typ":"haltung_aenderung","grund":"geholfen"}]},"gescheitert":{"status":["gefangen","aktiv","geflohen","tot"],"folge":[{"typ":"haltung_aenderung","grund":"im_stich_gelassen"}]}}}
     },
     "enthuellung": {
       "zweck": "Die verborgene Wahrheit kommt heraus (Sabotage, falsche Identitaet).",

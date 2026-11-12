@@ -74,7 +74,7 @@
   function angebotAus(a) {
     if (!a || typeof a !== 'object' || typeof a.id !== 'string' || !ID_FORM.test(a.id) || !str(a.titel, GRENZE.titel)) return null;
     return {
-      id: a.id, titel: kurz(a.titel, GRENZE.titel), anlass: str(a.anlass, GRENZE.anlass), ort: str(a.ort, GRENZE.ort), ortname: str(a.ortname, GRENZE.ort), rest: zahl(a.rest),
+      id: a.id, titel: kurz(a.titel, GRENZE.titel), anlass: str(a.anlass, GRENZE.anlass), ort: str(a.ort, GRENZE.ort), ortname: str(a.ortname, GRENZE.ort), rest: isNum(a.rest) ? zahl(a.rest) : null,   // FRE-03 Nacharbeit S4: ohne rest (Notruf-Angebot, altert nicht) null statt 0: keine Frist anzeigen
       ort_offen: a.ort_offen === true || a.ort_offen === 1,   // FRE-02 B1: der Beat wählt seinen Ort selbst, ort/ortname sind leer (Server): kein Ziel zeigen
       hafen: str(a.hafen, GRENZE.ort),   // FRE-02 B1: Herkunft = Name des Hafens (fehlt bei einem Altstand); der Auftraggeber ist `von`
       von: str(a.von, 8), aus_geruecht: a.aus_geruecht === true || a.aus_geruecht === 1,
