@@ -387,7 +387,7 @@ const springe = (g, hex) => Sprung.springeNach(g, Sektoren.ortVonHex(hex));
   });
 
   await section('B1: nur Notruf-Faeden, nur im Rueckfall-Betrieb', () => {
-    // ein regulaerer Faden (Geruecht, Abschluss) bleibt unberuehrt (der Altfehler der regulaeren Rueckfall-Angebote ist ein eigener Auftrag)
+    // ein regulaerer Faden (Geruecht, Abschluss) bleibt von notrufRueckfallWeiter unberuehrt (FRE-05: ihn fuehrt abenteuerRueckfallWeiter, bewiesen in test-reise-rueckfall-regulaer.js)
     const t = spiel(), g = t.g; ohneFlotten(g);
     Fz(g).abenteuerAngebote.length = 0;
     const plan = { format: 'faden-bauplan/1', titel: 'Testauftrag Eins', anlass: 'Ein Test ohne Namen fuer das Brett.', beats: [{ typ: 'geruecht' }, { typ: 'abschluss' }], volk_erlaubt: ['rom'] };

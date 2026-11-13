@@ -577,7 +577,7 @@ function notrufBeatStarten(game, faden) {
 // FRE-03 Nacharbeit B1: im Rueckfall-Betrieb (ohne Modell, Standard des Servers) gibt es keinen Spielleiter, der nach der Ankunft den naechsten Beat startet (lage-mock.js tut es nur im Mock): ein angenommener Notruf-Faden
 // bliebe in Phase wartet, abenteuerLaufend bliebe 1 und sperrte Annehmen, Anschluss und Vorrat fuer immer. Diese Funktion fuehrt NUR Faeden aus einem Notruf-Angebot (P.notrufBrettFaden) und NUR im Rueckfall-Betrieb bis zum
 // Abschluss weiter (faden_weiter wie lage-mock.js, Abstand ueberspringen). Bei einem Notruf mit Gefahr wartet sie, bis der Kampf der Reise-Gefahr vorbei ist (der Eintrag in R.laufend ist weg: bewaeltigt oder fortgesprungen; fortgesprungen = im Stich gelassen, reise-ereignis.js
-// ruft dann faden-p3.js notrufImStich: der Faden endet gescheitert, nicht gelungen), damit der Abschluss nicht mitten im Kampf kommt. Andere Faeden (Gerücht, Konvoi, Geleit, ...) bleiben unberuehrt (eigener Auftrag). -> Anzahl gestarteter Beats
+// ruft dann faden-p3.js notrufImStich: der Faden endet gescheitert, nicht gelungen), damit der Abschluss nicht mitten im Kampf kommt. Andere Faeden (Gerücht, Konvoi, Geleit, ...) bleiben unberuehrt (FRE-05: abenteuerRueckfallWeiter). -> Anzahl gestarteter Beats
 function notrufRueckfallWeiter(game) {
   const F = game && game.weltsim && game.weltsim.faeden, l = game && game.lageSpielleiter;
   if (!F || !l || l.rueckfallBetrieb !== true || !Faden().aktiv(game) || !Faden().spielleiterAktiv(game)) return 0;
@@ -594,6 +594,33 @@ function notrufRueckfallWeiter(game) {
       if (!r.ok) { fehlerZaehlen(game, 'abenteuer-brett-notruf', new Error(String(r.grund))); break; }
       n++;
     }
+  }
+  return n;
+}
+// FRE-05: im Rueckfall-Betrieb fuehrt diese Funktion REGULAERE Brett-Faeden (f.plan, kein f.notruf: Geruecht, Konvoi, Geleit, Spur, Sabotage ...) bis zum Abschluss weiter, wie lage-mock.js es im Mock tut. Sonst bliebe ein
+// angenommenes regulaeres Angebot in Phase wartet, Beat 0, fuer immer und sperrte das Brett (laeuft_schon). Beat 0 startet sofort (Abstand ueberspringen, wie notrufBeatStarten: die Crew hat gerade geantwortet), jeder spaetere Beat
+// nur, wenn er faellig ist (Abstand NICHT ueberspringen), hoechstens ein Beat je Faden und Takt. Ein laufender Beat endet durch Frist und Hooks (faden.js, faden-b1, faden-b2); ein Szenen-Beat steht in der Warteschlange von
+// faden-szene.js. Mit Modell (rueckfallBetrieb nicht true) tut sie nichts: kein Doppeltreiben. Notruf-Faeden fuehrt notrufRueckfallWeiter, alte Faeden ohne Plan bleiben unberuehrt. Lehnt der Pruefer einen Beat ab
+// (nie ABSTAND: der Faden ist faellig), zaehlt das EINMAL je Faden und Beat als Fehler; einen Faden in Phase wartet kann nichts abbrechen, er bliebe dann stehen (bei den Plaenen des Bretts, X > abschluss, kommt das nicht vor). -> Anzahl gestarteter Beats
+const rueckfallAbgelehnt = new WeakMap();   // Faden-Objekt -> Set Beat-Index (nur Laufzeit): eine Ablehnung wird einmal gezaehlt, nicht in jedem Takt; am Faden-Objekt, damit eine neue Welt (neue Faeden, gleiche Ids) nie ein altes Urteil erbt
+function abenteuerRueckfallWeiter(game) {
+  const F = game && game.weltsim && game.weltsim.faeden, l = game && game.lageSpielleiter;
+  if (!F || !l || l.rueckfallBetrieb !== true || !Faden().aktiv(game) || !Faden().spielleiterAktiv(game)) return 0;
+  let n = 0;
+  for (const f of F.liste.slice()) {
+    if (!f.plan || f.notruf || f.phase !== 'wartet') continue;
+    if (f.beat >= 1 && f.zaehler < f.abstand) continue;   // nur der erste Beat uebergeht den Abstand
+    if (f.beat < 1) f.zaehler = Math.max(f.zaehler, f.abstand);
+    if (rueckfallAbgelehnt.has(f) && rueckfallAbgelehnt.get(f).has(f.beat)) continue;
+    let r;
+    try { r = Faden().befehlAnwenden(game, { typ: 'faden_weiter', faden: f.id, beat: D.vorlage(f.vorlage).beats[f.beat].id }); } catch (e) { fehlerZaehlen(game, 'abenteuer-brett-rueckfall', e); continue; }
+    if (!r.ok) {
+      if (!rueckfallAbgelehnt.has(f)) rueckfallAbgelehnt.set(f, new Set());
+      rueckfallAbgelehnt.get(f).add(f.beat);
+      fehlerZaehlen(game, 'abenteuer-brett-rueckfall', new Error(String(r.grund)));
+      continue;
+    }
+    n++;
   }
   return n;
 }
@@ -643,4 +670,4 @@ function lesen(b, F) {   // muellfest: Unbrauchbares faellt weg (Meldung in F.la
 // SPL-02 D: die NSC, die eine Fortsetzung tragen (Katalog der Absichten, absicht-pruefer.js): die Verbindung fuer abenteuer-geschichte.js, das den Pruefer nicht selbst laedt
 const fortsetzungsNamen = (game, katalog) => Absicht().fortsetzungsNamen(game, katalog);
 
-module.exports = { snapshot, schluessel, annehmen, ablehnen, vorschau, marken, kuerzen, beiEnde, hinweisAnbieten, beiTaetigkeit, beiUpdate, anschluss, beiAndocken, anschlussFuellen, ausVorratFuellen, ausVorratEinsAnbieten, sammelHinweis, passtZuLage, neuAnbieten, notrufAnbieten, notrufRueckfallWeiter, zurueckziehenFuerNotruf, toSave, lesen, weigerung, schrittText, fortsetzungsNamen };
+module.exports = { snapshot, schluessel, annehmen, ablehnen, vorschau, marken, kuerzen, beiEnde, hinweisAnbieten, beiTaetigkeit, beiUpdate, anschluss, beiAndocken, anschlussFuellen, ausVorratFuellen, ausVorratEinsAnbieten, sammelHinweis, passtZuLage, neuAnbieten, notrufAnbieten, notrufRueckfallWeiter, abenteuerRueckfallWeiter, zurueckziehenFuerNotruf, toSave, lesen, weigerung, schrittText, fortsetzungsNamen };
