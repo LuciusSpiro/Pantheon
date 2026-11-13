@@ -19,7 +19,8 @@ const beat = (v, id) => v.beats.find((b) => b.id === id);
 
 section('Daten und Beat-Katalog', () => {
   // SUND-04a-2 P1: der Katalog wächst um raumschlacht, befreiung, fracht (neun Typen); bitte, enthuellung, notruf, abschluss bleiben Platzhalter bis P3; SUND-04b B1: geruecht, spur, wiedersehen (zwölf Typen); SUND-04b B2: konvoi, geleit, sabotage (15 Typen)
-  ok(JSON.stringify(Object.keys(D.BEATS).filter((t) => D.BEATS[t].nur_inszenierer !== true).sort()) === JSON.stringify(['abschluss', 'befreiung', 'bitte', 'enthuellung', 'forderung', 'fracht', 'geleit', 'geruecht', 'konvoi', 'notruf', 'raumschlacht', 'sabotage', 'schmiergeld', 'spontanhilfe', 'spur', 'verfolgung', 'wiedersehen']), '17 Beat-Typen im Katalog (Daten, nicht im Code; SUND-04b B1: geruecht, spur, wiedersehen; B2: konvoi, geleit, sabotage; BEA-01 A: forderung, schmiergeld): ' + Object.keys(D.BEATS).join(', '));
+    // PAR-01 B: Zweck ist die Mengenbeziehung, nicht die Zahl. Die bekannten 17 Ids muessen im Katalog stehen und planbar sein; weitere planbare Beats (auch neue Auftraege) duerfen dazukommen, ohne diesen Test zu kippen.
+  ok(['abschluss', 'befreiung', 'bitte', 'enthuellung', 'forderung', 'fracht', 'geleit', 'geruecht', 'konvoi', 'notruf', 'raumschlacht', 'sabotage', 'schmiergeld', 'spontanhilfe', 'spur', 'verfolgung', 'wiedersehen'].every((t) => D.BEATS[t] && D.BEATS[t].nur_inszenierer !== true), '17 Beat-Typen im Katalog (Daten, nicht im Code; SUND-04b B1: geruecht, spur, wiedersehen; B2: konvoi, geleit, sabotage; BEA-01 A: forderung, schmiergeld): ' + Object.keys(D.BEATS).join(', '));
   const Bs = require('../server/sim/faden-bausteine.js');
   require('../server/sim/faden-szene.js');   // registriert die Bausteine der P1-Szenen
   // SUND-04a-2 P3: alle Katalog-Bausteine sind echt (P1: Szenen und Fracht, P2: bitte, P3: notruf, enthuellung, abschluss); kein Platzhalter bleibt
