@@ -41,6 +41,7 @@ const FAELLE = [
   { bes: 'ruhig', crew: 3, seed: 11, beute: true, logbuch: true },
   { bes: 'raeuber', crew: 1, seed: 5, beute: false, logbuch: false },
   { bes: 'raeuber', crew: 3, seed: 7, beute: false, logbuch: false },
+  { bes: 'raeuber', crew: 1, seed: 5, beute: true, logbuch: true },
 ];
 const nameVon = (fl) => `${fl.bes}-${fl.crew}${fl.beute ? 'b' : ''}${fl.logbuch ? 'l' : ''}`;
 const NUR = wert('fall') ? wert('fall').split(',') : null;

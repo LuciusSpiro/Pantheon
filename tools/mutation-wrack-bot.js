@@ -18,7 +18,7 @@ for (const f of ['tools/spiel-wrack.js', 'tools/test-wrack-bot.js']) fs.copyFile
 fs.copyFileSync(path.join(ROOT, 'package.json'), path.join(TMP, 'package.json'));
 if (fs.existsSync(path.join(ROOT, 'node_modules'))) { try { fs.symlinkSync(path.join(ROOT, 'node_modules'), path.join(TMP, 'node_modules'), 'junction'); } catch (e) { /* kein Modul noetig */ } }
 
-const GA = 'server/game.js', FW = 'server/sim/faden-wrack.js', AO = 'server/sim/abenteuer-orte.js', BO = 'server/sim/faden-boden.js';
+const GA = 'server/game.js', FW = 'server/sim/faden-wrack.js', AO = 'server/sim/abenteuer-orte.js', BO = 'server/sim/faden-boden.js', FL = 'server/sim/faden-landung.js';
 // [Datei, alter Text (genau einmal), neuer Text, Beschreibung, Fall des Tests]
 const MUTATIONEN = [
   [GA, 'if (this.weltsim) { try { FadenBoden.ereignis(this, { name, data }); }', 'if (false) { try { FadenBoden.ereignis(this, { name, data }); }', 'Haken in game.missionEvent (Verteiler) aus: der Beat erfaehrt nichts vom Boden', 'ruhig-1'],
@@ -27,7 +27,7 @@ const MUTATIONEN = [
   [FW, "if (ev.name === 'beuteGeborgen')", 'if (false)', 'Beute geborgen wird nicht vermerkt (Funk beim Fund fehlt, Abschlussfunk ohne Beute)', 'ruhig-1b'],
   [FW, "if (ev.name === 'ankerGelesen')", 'if (false)', 'Logbuch gelesen wird nicht vermerkt (Funk beim Logbuch fehlt, Abschlussfunk ohne Logbuch)', 'ruhig-1l'],
   [BO, "notsprung: 'alle', beuteGeborgen: 'karte', ankerGelesen: 'karte' }", "notsprung: 'alle', ankerGelesen: 'karte' }", 'Verteiler kennt beuteGeborgen nicht', 'ruhig-1b'],
-  [FW, '    L.besetzenFuer(game, beat, lp, ART);\n    const schluessel', '    const schluessel', 'Start besetzt den Ort nicht (raeuber ohne Gegner)', 'raeuber-1'],
+  [FL, '  if (!verlangt(e) || besetztAn(game, lp)) return 0;', '  return 0;', 'Besetzung wird nie ausgefuehrt (raeuber ohne Gegner, auch nicht beim Runterbeamen)', 'raeuber-1'],
   [FW, "'abschluss_' + (x.beute ? 'mit' : 'ohne')", "'abschluss_ohne'", 'Abschlussfunk nennt die Beute nie', 'ruhig-1b'],
 ];
 
