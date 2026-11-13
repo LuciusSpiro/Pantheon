@@ -1,5 +1,5 @@
 'use strict';
-// WRK-01 A1: Mutationsprobe zu tools/test-wrack-beute.js (Beute am Wrack: Deckel, Platzpruefung, Wrack-Orte, Einlagern, Haken in anker.js, Meldung nur an die Spielerin, Zustand der Prise im Wrack).
+// WRK-01 A1: Mutationsprobe zu tools/test-wrack-beute.js (Beute am Wrack: Deckel, Platzfall oeffnet trotzdem, Wrack-Orte, Einlagern, Haken in anker.js, Meldung nur an die Spielerin, kein Textliteral im Servercode, Zustand der Prise im Wrack).
 // Kopiert Server, Shared, Content, public und die noetigen Tests in ein Temp-Verzeichnis (das Repo bleibt unberuehrt), aendert dort je Lauf EINE Regel und verlangt, dass der Test rot wird (Exit 1 MIT FEHLER-Zeile).
 // ABSTUERZE (Exit != 0 ohne FEHLER-Zeile) zaehlen NICHT als erkannt. Der Selbstcheck vorab verlangt, dass jeder Anker genau einmal im Quelltext steht (Exit 2, wenn nicht). --trocken prueft nur die Anker.
 //   node tools/mutation-wrack-beute.js [--trocken] [begriff ...]
@@ -23,16 +23,17 @@ const WB = 'server/sim/wrack-beute.js', AK = 'server/sim/anker.js', LPK = 'serve
 const MUTATIONEN = [
   [WB, 'ganzzahl(BEUTE.deckel_je_wrack) - geleert * ganzzahl(BEUTE.je_anker)))', 'ganzzahl(BEUTE.deckel_je_wrack) * 100))', 'Deckel ignoriert (jeder Anker gibt Ware)'],
   [WB, 'Math.min(ganzzahl(BEUTE.je_anker), ganzzahl(BEUTE.deckel_je_wrack) - geleert', 'Math.min(ganzzahl(BEUTE.je_anker), ganzzahl(BEUTE.deckel_je_wrack) - 0 * geleert', 'Deckel zaehlt die geleerten Anker nicht (nie erreicht)'],
-  [WB, 'if (Fracht().freiFuer(game, BEUTE.art) >= n) return null;', 'return null;', 'Platzpruefung fehlt (Anker oeffnet trotz vollem Lager, Beute verbrennt)'],
-  [WB, 'if (Fracht().freiFuer(game, BEUTE.art) >= n) return null;', 'if (Fracht().freiFuer(game, BEUTE.art) >= 0) return null;', 'Platzpruefung prueft nur >= 0'],
+  [WB, 'if (Fracht().freiFuer(game, BEUTE.art) < n) return { ok: true, ware: 0, text: D.texte.kein_platz };', '', 'Platzpruefung fehlt (Einlagern ohne Platz, keine Meldung)'],
+  [WB, 'Fracht().freiFuer(game, BEUTE.art) < n)', 'Fracht().freiFuer(game, BEUTE.art) < 0)', 'Platzpruefung prueft nur < 0'],
   [WB, 'return !!Orte().parse(map) || !!Entern().frei(game, map);', 'return true;', 'jede Karte gilt als Wrack-Ort (Kampagnenkarten bekommen Beute)'],
   [WB, 'return !!Orte().parse(map) || !!Entern().frei(game, map);', 'return !!Orte().parse(map);', 'Prise und Wrack (welt.wracks) gelten nicht als Wrack-Ort'],
   [WB, 'return !!Orte().parse(map) || !!Entern().frei(game, map);', 'return !!Entern().frei(game, map);', 'Faden-Orte gelten nicht als Wrack-Ort'],
   [WB, 'const r = Fracht().beuteEinlagern(game, BEUTE.art, n);', 'const r = { eingelagert: n };', 'beuteBergen lagert nichts ein (Anker leer, keine Ware)'],
   [WB, '{ ok: true, ware: 0, text: D.texte.nichts_mehr }', '{ ok: true, ware: 0 }', 'Deckel erreicht: keine Meldung an die Spielerin'],
-  [WB, 'return pf.ok ? \'Frachtraum voll\' : pf.text;', 'return \'\';', 'Hindernis ohne Text (leere Meldung)'],
-  [AK, 'if (!b.ok) return;', '', 'Haken: Anker wird trotz fehlendem Platz leer (Beute verbrennt)'],
-  [AK, 'else { const h = Wrack.hindernis(game, aw.map); if (h) block(h); else it(); }', 'else it();', 'interactionsAt: kein Hindernis (Halten beginnt am vollen Lager, Meldung erst am Ende)'],
+  [WB, 'text: D.texte.kein_platz', "text: 'Frachtraum voll'", 'Platz-Meldung als Textliteral im Servercode (Quelltext-Scan)'],
+  [WB, 'ware: 0, text: D.texte.kein_platz', 'ware: 0', 'Platzfall: keine Meldung an die Spielerin'],
+  [AK, "game.missionEvent('beuteGeborgen', {", "if (b.ware || !b.text) game.missionEvent('beuteGeborgen', {", 'Platzfall: Ereignis beuteGeborgen fehlt (Missions-Baustein haengt)'],
+  [AK, "setzen(game, map, a.id, 'leer', p.id); game.missionEvent('beuteGeborgen'", "if (!b.ware && b.text === require('../../content/wrack-daten.json').texte.kein_platz) return; setzen(game, map, a.id, 'leer', p.id); game.missionEvent('beuteGeborgen'", 'Platzfall sperrt wieder (Anker bleibt voll, Missions-Baustein haengt)'],
   [AK, 'if (b.text && game.notice) game.notice(p, b.text);', 'if (b.text) game.oda(b.text, null);', 'Meldung geht an alle (ODA) statt nur an die Spielerin'],
   [AK, 'const b = Wrack.beuteBergen(game, map);', 'const b = { ok: true };', 'Haken ruft beuteBergen nicht auf (alter Zustand: nur leer)'],
   [LPK, 'if (game.aways && game.aways[id]) sichern(game, id);', '', 'Prise -> Wrack: geleerte Anker gehen verloren (Deckel zaehlt neu)'],

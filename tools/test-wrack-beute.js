@@ -1,7 +1,8 @@
 'use strict';
 // WRK-01 A1: Beute an Wracks (server/sim/wrack-beute.js, Haken in anker.js case 'beute', Daten content/wrack-daten.json).
-// Prise (Debug 'prise') und Wrack (welt.wracks): jeder beute-Anker legt dem Schiff bis zum Deckel eine Einheit Bergungsgut ins Lager, danach oeffnet er ohne Ware; volles Lager (auch Typ-Regel): Anker bleibt voll,
-// Meldung nur an die Spielerin, kein Endlos-Halten; andere Karten (Eisenwald) unveraendert; zwei Spieler: eine Beute; Speichern/Laden; Verkauf am Hafen; Zahlen nur in den Daten.
+// Prise (Debug 'prise') und Wrack (welt.wracks): jeder beute-Anker legt dem Schiff bis zum Deckel eine Einheit Bergungsgut ins Lager, danach oeffnet er ohne Ware; volles Lager (auch Typ-Regel): der Anker oeffnet TROTZDEM
+// (leer, beuteGeborgen), aber ohne Ware, Meldung nur an die Spielerin, Lager unveraendert (Beute haelt den Verlauf nie auf); andere Karten (Eisenwald) unveraendert; zwei Spieler: eine Beute; Speichern/Laden;
+// Verkauf am Hafen; Zahlen, Namen und Texte nur in den Daten.
 //   node tools/test-wrack-beute.js
 const fs = require('fs');
 const path = require('path');
@@ -66,6 +67,21 @@ function halten(g, p, map, a, sek) {
 }
 const voll = (g) => { for (let i = 0; i < Fracht.capacity(g); i++) Fracht.lagerAufnehmen(g, { art: ART, quelle: 'debug' }); };
 
+// Spiel mit Faden-Ort (bestellenAmPunkt, Karten-ID <ort>.<faden>-ort), Spielerin noch oben; Rueckgabe erst nach dem Beamen
+async function fadenOrt() {
+  const T = F.neuesSpiel({ crew: 1, seed: 7, env: ENV }); const g = T.g; const p = g.players[0];
+  const Fz = Faden.zustandVon(g); Fz.abenteuerAngebote = [];
+  const plan = { format: 'faden-bauplan/1', titel: 'Wrack', anlass: 'Ein Wrack treibt im Sektor.', beats: [{ typ: 'bitte', optionen: true, verzweigung: { gescheitert: 'ende' } }, { typ: 'notruf' }, { id: 'ende', typ: 'abschluss' }] };
+  const a = Faden.abenteuerAnbieten(g, plan, { hex: require('../server/sim/marken.js').hexVon(g.ship.scene) });
+  const r = Faden.abenteuerOeffnen(g, a.angebot.nr, {}); const f = r.faden;
+  space.enterScene(g, 'skjaldborg', { docked: false }); lauf(g, 0.3);
+  const id = AO.bestellenAmPunkt(g, f.id, { ort: 'skjaldborg', x: 1500, y: 900, art: 'schiff', besitz: 'raubzug', name: 'Wrack' });
+  await tick(8);
+  const bm = LP.info(g, id).beam; const s = g.ship; s.docked = false; s.dockedAt = null; s.x = bm.x + 20; s.y = bm.y; s.vx = s.vy = 0; s.speed = 0; lauf(g, 0.2);
+  g.chooseLandepunkt(p, id); away.executeBeam(g, [p.id], 'down'); lauf(g, 0.6);
+  return { g, p, id };
+}
+
 (async () => {
   await section('Prise: bis zum Deckel je Anker eine Einheit, danach ohne Ware', async () => {
     const S = await prise(1); const { g, id } = S; const p = g.players[0]; const L = lausch(g);
@@ -91,36 +107,37 @@ const voll = (g) => { for (let i = 0; i < Fracht.capacity(g); i++) Fracht.lagerA
     const sn = JSON.stringify(g.snapshot()).length; ok(sn <= 18944, 'Snapshot ' + sn + ' B <= 18944');
   });
 
-  await section('Volles Lager: Anker bleibt voll, Meldung nur an die Spielerin, kein Endlos-Halten', async () => {
+  await section('Volles Lager: Anker oeffnet trotzdem ohne Ware, Meldung nur an die Spielerin, kein Endlos-Halten', async () => {
     const S = await prise(2); const { g, id, cs } = S; const p = g.players[0]; const L = lausch(g);
     const bs = beuteAnker(id);
     voll(g);
     ok(Fracht.freiFuer(g, ART) === 0, 'Lager voll (' + lager(g).length + '/' + Fracht.capacity(g) + ')');
     const inbox0 = cs[1].inbox.length;
     const r = halten(g, p, id, bs[0]);
-    ok(!r.begann && zst(g, id, bs[0]) === 'voll', 'Halten beginnt gar nicht, Anker bleibt voll');
+    ok(r.begann && r.fertig && zst(g, id, bs[0]) === 'leer', 'Halten laeuft, der Anker oeffnet sich trotzdem (leer)');
+    ok(!p.hold, 'kein Endlos-Halten');
+    ok(L.ev.filter((e) => e === 'beuteGeborgen').length === 1 && anzahl(g, ART) === Fracht.capacity(g), 'Ereignis beuteGeborgen kommt, Lager unveraendert');
+    ok(L.notice.length === 1 && L.notice[0].pid === p.id && L.notice[0].text === DATEN.texte.kein_platz, 'genau eine Meldung "' + DATEN.texte.kein_platz + '", nur an die Spielerin (' + L.notice.length + ')');
     stellen(p, bs[0]); Interior.onAct(g, p, true); lauf(g, 6); Interior.onAct(g, p, false);
-    ok(zst(g, id, bs[0]) === 'voll' && !p.hold, 'E 6 s gedrueckt: Anker voll, kein Halten');
-    ok(L.notice.length >= 1 && L.notice.length <= 12 && L.notice.every((x) => x.pid === p.id), 'Meldungen nur an die Spielerin (' + L.notice.length + ' Stueck, kein Endlosschleifen-Strom)');
-    ok(L.ev.indexOf('beuteGeborgen') < 0 && anzahl(g, ART) === Fracht.capacity(g), 'kein Ereignis beuteGeborgen, Lager unveraendert');
+    ok(!p.hold && zst(g, id, bs[0]) === 'leer' && L.notice.filter((x) => x.text === DATEN.texte.kein_platz).length === 1 && L.notice.length <= 12 && L.notice.every((x) => x.pid === p.id), 'E 6 s auf dem leeren Anker: kein Halten, keine zweite Platz-Meldung, nur Hinweis an die Spielerin (' + L.notice.length + ')');
     const msgs = cs[1].inbox.slice(inbox0).filter((m) => m.t === 'event' && m.kind === 'notice');
     ok(msgs.length === 0 && L.oda === 0, 'die Mitspielerin bekommt die Meldung nicht, keine ODA (' + msgs.length + ')');
-    Fracht.debug(g, ['leer']);   // Platz schaffen: dann klappt es mit demselben Anker (die Beute war nicht verbrannt)
-    const r2 = halten(g, p, id, bs[0]);
-    ok(r2.fertig && zst(g, id, bs[0]) === 'leer' && anzahl(g, ART) === JE, 'nach Platzschaffen: derselbe Anker gibt seine Beute');
+    Fracht.debug(g, ['leer']);   // Platz schaffen: der naechste Anker gibt seine Beute, der ohne Platz geleerte zaehlt als vergeben
+    halten(g, p, id, bs[1]);
+    ok(zst(g, id, bs[1]) === 'leer' && anzahl(g, ART) === JE, 'nach Platzschaffen: naechster Anker gibt seine Beute');
+    ok(WB.beuteBergen(g, id).ware === JE && !Object.prototype.hasOwnProperty.call(WB, 'hindernis'), 'Deckel zaehlt den ohne Platz geleerten Anker mit, kein Sperr-Hindernis mehr');
   });
 
-  await section('Typ-Regel: anderes Gut im einzigen Modul', async () => {
+  await section('Typ-Regel: anderes Gut im einzigen Modul (Anker oeffnet, keine Ware)', async () => {
     const S = await prise(1); const { g, id } = S; const p = g.players[0]; const L = lausch(g);
     const bs = beuteAnker(id);
     Fracht.lagerAufnehmen(g, { art: 'waffen', quelle: 'debug' });
     ok(Fracht.platzFuer(g, ART).grund === 'art_belegt' && Fracht.frei(g) === 3, 'Plaetze frei (3), aber das Modul gehoert den Waffen');
     const r = halten(g, p, id, bs[0]);
-    ok(!r.begann && zst(g, id, bs[0]) === 'voll', 'Anker bleibt voll (Typ-Regel)');
-    stellen(p, bs[0]); Interior.onAct(g, p, true); lauf(g, 1); Interior.onAct(g, p, false);
-    ok(L.notice.length >= 1 && L.notice.every((x) => x.pid === p.id), 'Meldung an die Spielerin (' + L.notice.length + ')');
+    ok(r.begann && r.fertig && zst(g, id, bs[0]) === 'leer', 'Anker oeffnet trotz Typ-Regel (leer)');
+    ok(L.notice.length === 1 && L.notice[0].pid === p.id && L.notice[0].text === DATEN.texte.kein_platz, 'Meldung an die Spielerin (' + L.notice.length + ')');
     ok(anzahl(g, ART) === 0 && anzahl(g, 'waffen') === 1, 'Lager unveraendert (Waffen bleiben, nichts verbrannt)');
-    // Rennen: der Platz geht zwischen Start und Ende des Haltens verloren -> completeHold meldet, Anker bleibt voll
+    // Rennen: der Platz geht zwischen Start und Ende des Haltens verloren -> completeHold oeffnet trotzdem, ohne Ware
     Fracht.debug(g, ['leer']);
     stellen(p, bs[1]); Interior.onAct(g, p, true); lauf(g, 0.5);
     ok(!!p.hold, 'Halten laeuft (Lager frei)');
@@ -128,8 +145,29 @@ const voll = (g) => { for (let i = 0; i < Fracht.capacity(g); i++) Fracht.lagerA
     Fracht.lagerAufnehmen(g, { art: 'waffen', quelle: 'debug' });
     for (let i = 0; i < 4 * CONFIG.tickHz && p.hold; i++) g.step();
     Interior.onAct(g, p, false);
-    ok(zst(g, id, bs[1]) === 'voll' && anzahl(g, ART) === 0, 'Platz mitten im Halten verloren: Anker bleibt voll, nichts verbrannt');
-    ok(L.notice.length > vorher && L.notice.every((x) => x.pid === p.id), 'die Spielerin wird informiert');
+    ok(zst(g, id, bs[1]) === 'leer' && anzahl(g, ART) === 0 && anzahl(g, 'waffen') === 1, 'Platz mitten im Halten verloren: Anker leer, keine Ware, nichts verbrannt');
+    ok(L.notice.length === vorher + 1 && L.notice.every((x) => x.pid === p.id), 'die Spielerin wird informiert');
+  });
+
+  await section('Missions-Baustein: beute-Anker laesst sich an Prise und Faden-Ort immer vollstaendig oeffnen', async () => {
+    // volles Lager bzw. fremde Ware im einzigen Modul: Anker wird leer, Ereignis beuteGeborgen, Lager bleibt wie es war
+    for (const fall of ['voll', 'fremd']) {
+      const S = await prise(1); const { g, id } = S; const p = g.players[0]; const L = lausch(g); const bs = beuteAnker(id);
+      if (fall === 'voll') voll(g); else Fracht.lagerAufnehmen(g, { art: 'waffen', quelle: 'debug' });
+      const vor = JSON.stringify(g.fracht.lager), art0 = anzahl(g, ART);
+      const r = halten(g, p, id, bs[0]);
+      ok(r.fertig && zst(g, id, bs[0]) === 'leer' && L.ev.filter((e) => e === 'beuteGeborgen').length === 1, 'Prise, ' + fall + ': Anker leer, beuteGeborgen kommt');
+      ok(JSON.stringify(g.fracht.lager) === vor && anzahl(g, ART) === art0, 'Prise, ' + fall + ': Lager unveraendert, keine Ware verbrannt');
+    }
+    for (const fall of ['voll', 'fremd']) {
+      const { g, p, id } = await fadenOrt();
+      const L = lausch(g); const bs = beuteAnker(id);
+      if (fall === 'voll') voll(g); else Fracht.lagerAufnehmen(g, { art: 'waffen', quelle: 'debug' });
+      const vor = JSON.stringify(g.fracht.lager), art0 = anzahl(g, ART);
+      const r = halten(g, p, id, bs[0]);
+      ok(r.fertig && zst(g, id, bs[0]) === 'leer' && L.ev.filter((e) => e === 'beuteGeborgen').length === 1, 'Faden-Ort, ' + fall + ': Anker leer, beuteGeborgen kommt');
+      ok(JSON.stringify(g.fracht.lager) === vor && anzahl(g, ART) === art0, 'Faden-Ort, ' + fall + ': Lager unveraendert, keine Ware verbrannt');
+    }
   });
 
   await section('Zwei Spieler am selben Anker: nur eine Beute', async () => {
@@ -193,21 +231,12 @@ const voll = (g) => { for (let i = 0; i < Fracht.capacity(g); i++) Fracht.lagerA
     const aw2 = LP.get(g2, w); const b2 = W.AWAY_MAPS[w].karte.anker.filter((a) => a.rolle === 'beute');
     ok(b2.filter((a) => aw2.zustaende[a.id] === 'leer').length === 4 && b2.filter((a) => (aw2.zustaende[a.id] || 'voll') === 'voll').length === b2.length - 4, 'nach dem Laden: 4 Anker leer, Rest voll');
     ok(anzahl(g2, ART) === DECKEL * JE, 'Lager nach dem Laden: ' + anzahl(g2, ART));
-    ok(WB.istWrackOrt(g2, w) && WB.hindernis(g2, w) == null, 'nach dem Laden: weiter Wrack, Deckel erreicht (kein Hindernis)');
+    ok(WB.istWrackOrt(g2, w) && WB.beuteBergen(g2, w).ware === 0, 'nach dem Laden: weiter Wrack, Deckel erreicht (keine Ware mehr)');
   });
 
   await section('Faden-Ort (bestellenAmPunkt, Karten-ID <ort>.<faden>-ort): gleiche Regeln', async () => {
-    const T = F.neuesSpiel({ crew: 1, seed: 7, env: ENV }); const g = T.g; const p = g.players[0];
-    const Fz = Faden.zustandVon(g); Fz.abenteuerAngebote = [];
-    const plan = { format: 'faden-bauplan/1', titel: 'Wrack', anlass: 'Ein Wrack treibt im Sektor.', beats: [{ typ: 'bitte', optionen: true, verzweigung: { gescheitert: 'ende' } }, { typ: 'notruf' }, { id: 'ende', typ: 'abschluss' }] };
-    const a = Faden.abenteuerAnbieten(g, plan, { hex: require('../server/sim/marken.js').hexVon(g.ship.scene) });
-    const r = Faden.abenteuerOeffnen(g, a.angebot.nr, {}); const f = r.faden;
-    space.enterScene(g, 'skjaldborg', { docked: false }); lauf(g, 0.3);
-    const id = AO.bestellenAmPunkt(g, f.id, { ort: 'skjaldborg', x: 1500, y: 900, art: 'schiff', besitz: 'raubzug', name: 'Wrack' });
-    await tick(8);
-    const bm = LP.info(g, id).beam; const s = g.ship; s.docked = false; s.dockedAt = null; s.x = bm.x + 20; s.y = bm.y; s.vx = s.vy = 0; s.speed = 0; lauf(g, 0.2);
+    const { g, p, id } = await fadenOrt();
     ok(!!AO.parse(id) && WB.istWrackOrt(g, id) && !Entern.frei(g, id), 'Faden-Ort ' + id + ' zaehlt als Wrack-Ort (nicht ueber Entern)');
-    g.chooseLandepunkt(p, id); away.executeBeam(g, [p.id], 'down'); lauf(g, 0.6);
     const bs = beuteAnker(id);
     for (let i = 0; i < DECKEL + 1; i++) halten(g, p, id, bs[i]);
     ok(anzahl(g, ART) === DECKEL * JE && zst(g, id, bs[DECKEL]) === 'leer', 'Lager bis zum Deckel (' + anzahl(g, ART) + '), der Anker danach ohne Ware leer');
@@ -230,7 +259,11 @@ const voll = (g) => { for (let i = 0; i < Fracht.capacity(g); i++) Fracht.lagerA
     const q = fs.readFileSync(path.join(__dirname, '..', 'server', 'sim', 'wrack-beute.js'), 'utf8').split('\n').map((z) => z.replace(/\/\/.*$/, '')).join('\n');
     ok(!/bergungsgut|waffen|erz\b/.test(q), 'keine Warenart im Servercode');
     ok(!/[^\w.]([1-9]\d*|0\d+)(?![\w])/.test(q), 'kein Zahlenliteral ausser 0 im Servercode');
-    ok(!/Nichts mehr von Wert/.test(q), 'Meldungstext steht in den Daten');
+    ok(!/Nichts mehr von Wert|Frachtraum|kein Platz/i.test(q), 'Meldungstext steht in den Daten');
+    const lit = (q.match(/(['"`])(?:(?!\1)[^\\\n])*\1/g) || []).map((s) => s.slice(1, -1));
+    const fremd = lit.filter((s) => !/^(use strict|\.{1,2}\/[\w./-]+|beute|leer|string)$/.test(s));
+    ok(fremd.length === 0, 'kein Textliteral im Servercode ausser Modulpfaden und Schluesseln' + fremd.slice(0, 2).map((s) => ' - "' + s + '"').join(''));
+    ok(!!DATEN.texte.kein_platz && !!DATEN.texte.nichts_mehr, 'beide Meldungen stehen in content/wrack-daten.json');
     const a = fs.readFileSync(path.join(__dirname, '..', 'server', 'sim', 'anker.js'), 'utf8');
     ok(/Wrack\.beuteBergen\(game, map\)/.test(a) && !/bergungsgut/.test(a), 'anker.js ruft nur beuteBergen (keine Art im Haken)');
   });

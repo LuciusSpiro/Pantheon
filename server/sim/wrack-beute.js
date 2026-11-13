@@ -2,9 +2,11 @@
 // WRK-01 A1: Beute an Wracks. Ein `beute`-Anker auf einer Prise, einem Wrack (welt.wracks) oder einem Faden-Ort (Karten-ID <ort>.<faden>-ort) legt dem SCHIFF eine kleine, gedeckelte Menge Ware ins Lager
 // (Fracht.beuteEinlagern, Typ-Regel gilt). Art, Menge je Anker und Deckel je Wrack stehen NUR in content/wrack-daten.json. Alle anderen Karten (Missions-/Kampagnenkarten) bleiben unberuehrt.
 //   istWrackOrt(game, map) -> bool
-//   hindernis(game, map) -> null | Text      Anker darf sich nicht oeffnen (kein Platz im Frachtraum): der Anker bleibt voll, die Beute verbrennt nicht
-//   beuteBergen(game, map) -> { ok: true, ware, text? } | { ok: false, text }   legt ein (ware = Zahl der Einheiten, 0 = Deckel erreicht, text = Meldung); nur der Aufrufer setzt den Anker auf leer
-// Der Deckel zaehlt die schon geleerten `beute`-Anker der Karte (kein eigener Zaehler, nichts im Weltstand): jeder geleerte Anker unter dem Deckel hat Ware gegeben.
+//   beuteBergen(game, map) -> { ok: true, ware, text? }   legt ein (ware = Zahl der Einheiten; 0 = Deckel erreicht oder kein Platz/Typ-Regel verletzt, text = Meldung aus den Daten); nur der Aufrufer setzt den Anker auf leer
+// Beute ist Beiwerk und haelt den Verlauf nie auf: ohne Platz im Frachtraum oeffnet sich der Anker trotzdem (leer, beuteGeborgen), nur ohne Ware; die Spielerin bekommt die Meldung, das Lager bleibt unveraendert.
+// Der Deckel zaehlt die schon geleerten `beute`-Anker der Karte (kein eigener Zaehler, nichts im Weltstand): jeder geleerte Anker unter dem Deckel hat Ware gegeben (ein ohne Platz geleerter Anker zaehlt als vergeben).
+// Bekannte Grenze: Auf Wrack-Karten mit Zelle setzt combat.js (`ausbruch`) den naechsten beute-Anker einmalig wieder auf voll (Deckel +1), und holt die Gefangene ihre Ausruestung, wird die Truhe leer ohne Ware (Deckel eine Einheit zu frueh).
+// Das ist selten und bewusst hingenommen.
 const W = require('../world.js');
 const D = require('../../content/wrack-daten.json');
 
@@ -27,21 +29,12 @@ function restMenge(game, map) {
   const geleert = beuteAnker(map).filter((a) => Anker().zustand(game, map, a.id) === 'leer').length;
   return Math.max(0, Math.min(ganzzahl(BEUTE.je_anker), ganzzahl(BEUTE.deckel_je_wrack) - geleert * ganzzahl(BEUTE.je_anker)));
 }
-function hindernis(game, map) {
-  if (!istWrackOrt(game, map)) return null;
-  const n = restMenge(game, map);
-  if (n <= 0) return null;
-  if (Fracht().freiFuer(game, BEUTE.art) >= n) return null;
-  const pf = Fracht().platzFuer(game, BEUTE.art);
-  return pf.ok ? 'Frachtraum voll' : pf.text;
-}
 function beuteBergen(game, map) {
   if (!istWrackOrt(game, map)) return { ok: true, ware: 0 };
   const n = restMenge(game, map);
   if (n <= 0) return { ok: true, ware: 0, text: D.texte.nichts_mehr };
-  const h = hindernis(game, map);
-  if (h) return { ok: false, text: h };
+  if (Fracht().freiFuer(game, BEUTE.art) < n) return { ok: true, ware: 0, text: D.texte.kein_platz };
   const r = Fracht().beuteEinlagern(game, BEUTE.art, n);
   return { ok: true, ware: r.eingelagert };
 }
-module.exports = { istWrackOrt, hindernis, beuteBergen };
+module.exports = { istWrackOrt, beuteBergen };

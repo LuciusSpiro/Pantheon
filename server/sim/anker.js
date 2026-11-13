@@ -185,7 +185,7 @@ function interactionsAt(game, p, tx, ty, list) {
         } else block('Das Feldzeichen steht.');
         break;
       case 'zelle': if (z === 'zu') it(); else block('Die Zelle steht offen.'); break;
-      case 'beute': if (z !== 'voll') block('Leer geräumt.'); else { const h = Wrack.hindernis(game, aw.map); if (h) block(h); else it(); } break;
+      case 'beute': if (z !== 'voll') block('Leer geräumt.'); else it(); break;
       case 'ziel': if (z !== 'frei') block('Erledigt.'); else if (aw.ankerSperre && aw.ankerSperre[a.id]) block(aw.ankerSperre[a.id]); else it(); break;   // ankerSperre: { ankerId: Text } zur Laufzeit (Finale-Boden: Schrein gesperrt bis der Wächter fällt)
       case 'fund': if (z === 'da') it(); else block('Der Sockel ist leer.'); break;
       case 'abbau':   // GEL-03 A1: leer bietet nichts an (kein Hinweis); abgebaut ist erschöpft; ein Halter je Ader
@@ -310,10 +310,9 @@ function completeHold(game, p, h) {
     }
     case 'flagge': return;   // wird in update() vollendet (gemeinsamer Fortschritt zweier Halter)
     case 'zelle': setzen(game, map, a.id, 'offen', p.id); return;
-    case 'beute': {   // WRK-01 A1: erst Ware ins Schiffslager (nur Wrack-Orte), dann leer; ohne Platz bleibt der Anker voll
+    case 'beute': {   // WRK-01 A1: erst Ware ins Schiffslager (nur Wrack-Orte), dann leer; ohne Platz geht der Anker trotzdem auf (ohne Ware, Meldung an die Spielerin)
       const b = Wrack.beuteBergen(game, map);
       if (b.text && game.notice) game.notice(p, b.text);
-      if (!b.ok) return;
       setzen(game, map, a.id, 'leer', p.id); game.missionEvent('beuteGeborgen', { map, anker: a.id, pid: p.id }); return;
     }
     case 'ziel': setzen(game, map, a.id, 'aktiviert', p.id); return;
