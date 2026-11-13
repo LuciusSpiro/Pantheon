@@ -586,7 +586,7 @@ function updateWounded(game, p, dt) {
   game.emit('sfx', { name: 'beam' });
   game.explore.addLog(`${ortName(game)}: Notrückholung für ${p.name} – zu lange verwundet. Schild wieder voll.`, logTag(game));
   game.oda(`Notrückholung für ${p.name}! Schild wieder voll – über die Pads geht's zurück nach unten.`, null);
-  game.missionEvent('beamedUp', { players: [p], map });
+  game.missionEvent('beamedUp', { players: [p], map, notrueckholung: true });   // FAB-01 A: Marker fuer faden-boden (Notrückholung, nicht freiwillig)
   Modul().notrueckholungFolge(game);   // PAN-01 A: der Transfer brennt durch
 }
 
@@ -610,7 +610,7 @@ function krankenstationHolt(game, p, dt) {
   game.emit('sfx', { name: 'beam' });
   game.explore.addLog(`${ortName(game)}: Notrückholung für ${p.name} – die Krankenstation hat ihn geholt.`, logTag(game));
   game.oda(`Krankenstation: Notrückholung für ${p.name}! Schild wieder voll – der Transfer ist dabei durchgebrannt: an der Station E halten (Flicken) oder die Technik setzt Schrauber an.`, null);
-  game.missionEvent('beamedUp', { players: [p], map });
+  game.missionEvent('beamedUp', { players: [p], map, notrueckholung: true });   // FAB-01 A
   Modul().notrueckholungFolge(game);
   return true;
 }
@@ -656,7 +656,7 @@ function squadRecall(game) {
   game.explore.addLog(`${ortName(game)}: Notrückholung des ganzen Außenteams. Niemand verloren – nur Stolz.`, logTag(game));
   game.oda(`Notrückholung! Alle an Bord, Schilde voll. Der Transfer kühlt ${Math.round(C.wounded.recallBeamLock)} s ab.`, null);
   game.missionEvent('squadRecall', { pids });
-  game.missionEvent('beamedUp', { players: list, map });
+  game.missionEvent('beamedUp', { players: list, map, notrueckholung: true });   // FAB-01 A
   Modul().notrueckholungFolge(game);   // PAN-01 A: der Transfer brennt durch
 }
 
