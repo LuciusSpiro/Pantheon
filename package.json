@@ -252,6 +252,8 @@
     "test:reise-notruf-brett-mutation": "node tools/mutation-reise-notruf-brett.js",
     "test:reise-notruf-regulaer": "node tools/test-reise-notruf-regulaer.js",
     "test:reise-notruf-regulaer-mutation": "node tools/mutation-reise-notruf-regulaer.js",
+    "test:reise-rueckfall-regulaer": "node tools/test-reise-rueckfall-regulaer.js",
+    "test:reise-rueckfall-regulaer-mutation": "node tools/mutation-reise-rueckfall-regulaer.js",
     "test:chronik": "node tools/test-chronik.js",
     "test:lage-wiederholung": "node tools/test-lage-wiederholung.js",
     "test:reise-mutation": "node tools/mutation-reise.js",
