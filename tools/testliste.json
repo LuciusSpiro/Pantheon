@@ -227,6 +227,7 @@
   {"id":"test-abenteuer-orte","kette":"test","cmd":["tools/test-abenteuer-orte.js"],"stufe":"full","budget_s":10},
   {"id":"test-planeten-eignung","kette":"test","cmd":["tools/test-planeten-eignung.js"],"stufe":"full","budget_s":10},
   {"id":"test-abenteuer-landeplaetze","kette":"test","cmd":["tools/test-abenteuer-landeplaetze.js"],"stufe":"full","budget_s":10},
+  {"id":"test-probe-beats","kette":"test","cmd":["tools/test-probe-beats.js"],"stufe":"full","budget_s":45},
   {"id":"test-finale-orbit","kette":"test","cmd":["tools/test-finale-orbit.js"],"stufe":"full","budget_s":110},
   {"id":"sim-absichten --pruefen","kette":"test","cmd":["tools/sim-absichten.js","--pruefen"],"stufe":"slow","budget_s":88},
   {"id":"test-banner-sicht","kette":"test","cmd":["tools/test-banner-sicht.js"],"stufe":"fast","budget_s":6},

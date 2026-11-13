@@ -308,6 +308,8 @@
     "test:planeten-eignung": "node tools/test-planeten-eignung.js",
     "test:planeten-eignung-mutation": "node tools/mutation-planeten-eignung.js",
     "test:abenteuer-landeplaetze": "node tools/test-abenteuer-landeplaetze.js",
+    "test:probe-beats": "node tools/test-probe-beats.js",
+    "probe:beats": "node tools/probe-kette.js",
     "test:abenteuer-landeplaetze-mutation": "node tools/mutation-abenteuer-landeplaetze.js",
     "test:finale-orbit": "node tools/test-finale-orbit.js",
     "test:finale-orbit-mutation": "node tools/mutation-finale-orbit.js",
