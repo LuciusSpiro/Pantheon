@@ -37,6 +37,8 @@
     "spiel:rettung": "node tools/spiel-rettung.js",
     "test:rettung-bot": "node tools/test-rettung-bot.js",
     "test:rettung-bot-mutation": "node tools/mutation-rettung-bot.js",
+    "test:faden-beispiel2": "node tools/test-faden-beispiel2.js",
+    "test:faden-beispiel2-mutation": "node tools/mutation-faden-beispiel2.js",
     "test:forderung-bot": "node tools/test-forderung-bot.js",
     "test:forderung-bot-mutation": "node tools/mutation-forderung-bot.js",
     "test:forderung-plan-mutation": "node tools/mutation-forderung-plan.js",
