@@ -602,7 +602,7 @@ function notrufRueckfallWeiter(game) {
 // nur, wenn er faellig ist (Abstand NICHT ueberspringen), hoechstens ein Beat je Faden und Takt. Ein laufender Beat endet durch Frist und Hooks (faden.js, faden-b1, faden-b2); ein Szenen-Beat steht in der Warteschlange von
 // faden-szene.js. Mit Modell (rueckfallBetrieb nicht true) tut sie nichts: kein Doppeltreiben. Notruf-Faeden fuehrt notrufRueckfallWeiter, alte Faeden ohne Plan bleiben unberuehrt. Lehnt der Pruefer einen Beat ab
 // (nie ABSTAND: der Faden ist faellig), zaehlt das EINMAL je Faden und Beat als Fehler; einen Faden in Phase wartet kann nichts abbrechen, er bliebe dann stehen (bei den Plaenen des Bretts, X > abschluss, kommt das nicht vor). -> Anzahl gestarteter Beats
-const rueckfallAbgelehnt = new WeakMap();   // game -> Set 'faden:beat' (nur Laufzeit): eine Ablehnung wird einmal gezaehlt, nicht in jedem Takt
+const rueckfallAbgelehnt = new WeakMap();   // Faden-Objekt -> Set Beat-Index (nur Laufzeit): eine Ablehnung wird einmal gezaehlt, nicht in jedem Takt; am Faden-Objekt, damit eine neue Welt (neue Faeden, gleiche Ids) nie ein altes Urteil erbt
 function abenteuerRueckfallWeiter(game) {
   const F = game && game.weltsim && game.weltsim.faeden, l = game && game.lageSpielleiter;
   if (!F || !l || l.rueckfallBetrieb !== true || !Faden().aktiv(game) || !Faden().spielleiterAktiv(game)) return 0;
@@ -611,13 +611,12 @@ function abenteuerRueckfallWeiter(game) {
     if (!f.plan || f.notruf || f.phase !== 'wartet') continue;
     if (f.beat >= 1 && f.zaehler < f.abstand) continue;   // nur der erste Beat uebergeht den Abstand
     if (f.beat < 1) f.zaehler = Math.max(f.zaehler, f.abstand);
-    const schluessel = f.id + ':' + f.beat;
-    if (rueckfallAbgelehnt.has(game) && rueckfallAbgelehnt.get(game).has(schluessel)) continue;
+    if (rueckfallAbgelehnt.has(f) && rueckfallAbgelehnt.get(f).has(f.beat)) continue;
     let r;
     try { r = Faden().befehlAnwenden(game, { typ: 'faden_weiter', faden: f.id, beat: D.vorlage(f.vorlage).beats[f.beat].id }); } catch (e) { fehlerZaehlen(game, 'abenteuer-brett-rueckfall', e); continue; }
     if (!r.ok) {
-      if (!rueckfallAbgelehnt.has(game)) rueckfallAbgelehnt.set(game, new Set());
-      rueckfallAbgelehnt.get(game).add(schluessel);
+      if (!rueckfallAbgelehnt.has(f)) rueckfallAbgelehnt.set(f, new Set());
+      rueckfallAbgelehnt.get(f).add(f.beat);
       fehlerZaehlen(game, 'abenteuer-brett-rueckfall', new Error(String(r.grund)));
       continue;
     }
