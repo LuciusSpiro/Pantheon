@@ -20,7 +20,7 @@ const Haken = require('../telemetrie/haken.js');
 const GUETER = Object.freeze(['bolzen', 'sonde', 'medipack', 'loeschgel', 'loeschgelCharges', 'medipackCharges', 'ersatzteil', 'flickblech', 'tafel', 'ladung', 'erz']);
 
 // Konten, die erst beim ersten Zugang entstehen (kein Eintrag im Anfangsbestand: Golden-Spuren und Weltstände bleiben ohne neuen Schlüssel)
-const SPAET = Object.freeze(['medipackCharges', 'erz']);   // erz: GEL-03 B, Abbau (Erzader); das Konto entsteht beim ersten Abbau
+const SPAET = Object.freeze(['medipackCharges', 'erz']);   // erz: GEL-03 B, Abbau (Erzader); WRK-01 A2: ohne Zugang (das Erz liegt als Fracht im Schiffslager, Fracht.erzEinlagern), der Name bleibt als Gut/Konto-Schlüssel
 
 const GRUENDE = Object.freeze([
   'start', 'laden', 'debug', 'migration',   // Stand setzen / Korrektur

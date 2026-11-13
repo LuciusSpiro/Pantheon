@@ -25,8 +25,8 @@ const AN = 'server/sim/anker.js', LP = 'server/sim/landepunkte.js', GH = 'shared
 // [Datei, alter Text (genau einmal), neuer Text, Beschreibung, gleichwertig?, Generator-Regel (voller Lauf)?]
 const MUTATIONEN = [
   // ---- Menge und Buchung (Paket B)
-  [AN, "  Vorrat.einlagern(game, m.art, m.menge, 'abbau');", "", 'Buchung: der Abbau lagert nichts ein'],
-  [AN, "  Vorrat.einlagern(game, m.art, m.menge, 'abbau');", "  Vorrat.einlagern(game, m.art, m.menge, 'fund');", 'Buchung: falscher Grund (fund statt abbau)'],
+  [AN, "  fracht().erzEinlagern(game, m.menge);", "", 'Frachtraum: der Abbau lagert nichts ein (WRK-01 A2)'],
+  [AN, "  fracht().erzEinlagern(game, m.menge);", "  Vorrat.einlagern(game, m.art, m.menge, 'abbau');", 'Frachtraum: das Erz geht wieder ins alte Konto (WRK-01 A2)'],
   [AN, "  return { menge: 1 + ((h >>> 8) % 3), art };", "  return { menge: 1, art };", 'Menge: immer 1'],
   [AN, "  return { menge: 1 + ((h >>> 8) % 3), art };", "  return { menge: 1 + ((h >>> 8) % 4), art };", 'Menge: bis 4'],
   [AN, "  const h = Buehne.fnv(`abbau:${abbauRunde(game, map)}:${a ? a.id : ''}`) >>> 0;", "  const h = Buehne.fnv(`abbau:0:${a ? a.id : ''}`) >>> 0;", 'Menge: ignoriert die Runde'],

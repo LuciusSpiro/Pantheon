@@ -62,6 +62,8 @@
   const HUD_ROWS = [['engines', 'emitter_aft', 'reactor', 'shields', 'weapon_bow', 'emitter_bow'],
     ['thruster_port', 'battery_port', 'emitter_port', 'thruster_stbd', 'battery_stbd', 'emitter_stbd', 'transfer']];
   const ITEM_NAMES = { ersatzteil: 'Ersatzteil', loeschgel: 'Löschgel', flickblech: 'Flickblech', bolzen: 'Torpedo', medipack: 'Medipack', erz: 'Erz', datenkern: 'Datenkern', tafel: 'Tafel von Kesh' };
+  // WRK-01 A2: Erz ist Fracht (Snapshot fracht.mb = [[Art, Anzahl] | 0, ...] je Frachtraum-Modul); das alte Konto inventory.erz gibt es nicht mehr
+  const erzImLager = (st) => ((st && st.fracht && st.fracht.mb) || []).reduce((s, m) => s + (Array.isArray(m) && m[0] === 'erz' ? (+m[1] || 0) : 0), 0);
   const STATE_NAMES = { ok: 'in Ordnung', damaged: 'beschädigt', broken: 'zerstört' };
   const CONSOLE_NAMES = { helm: 'Steuer', captain: 'Captain', weapons: 'Ops', technik: 'Technik', transfer: 'Transfer', shop: 'Terminal', quartier: 'Quartier', spind: 'Spind', kustodenpult: 'Kustodenpult', plan: 'Planungstisch', ausruestung: 'Ausrüstung' };
   const SECTOR_NAMES = ['Bug', 'Steuerbord', 'Heck', 'Backbord'];
@@ -686,7 +688,8 @@
           if (a[1] === 'terminal' && z === 'laedt') c.laedt = true;
         });
         if (!away.oz) for (const r of Object.keys(cnt)) lines.push([(R.ANKER_NAME[r] || r) + ': ' + cnt[r][0] + '/' + cnt[r][1] + (cnt[r].laedt ? ' · lädt' : ''), cnt[r][0] === cnt[r][1] ? PAL.mint : PAL.star]);
-        if ((st.inventory && st.inventory.erz) > 0) lines.push(['Erz: ' + st.inventory.erz, PAL.star]);   // GEL-03 Nacharbeit HUD: Lager-Erz im Boden-HUD unter dem Zielzähler (Snapshot inventory.erz nur wenn > 0)
+        const erzL = erzImLager(st);
+        if (erzL > 0) lines.push(['Erz: ' + erzL, PAL.star]);   // GEL-03 Nacharbeit HUD, WRK-01 A2: Erz im Frachtraum unter dem Zielzähler (aus fracht.mb)
         if (pins.length) lines.push(['Plan-Pins: ' + pins.length, PAL.panelLight]);
         if (lines.length) {
           hy = VH - map.h * mc - 12 - lines.length * 10;
@@ -1289,10 +1292,10 @@
         ly += 12;
       }
       ly += 6;
-      const inv = st.inventory || {};
+      const inv = Object.assign({}, st.inventory, { erz: erzImLager(st) });   // WRK-01 A2: Erz kommt aus dem Frachtraum (fracht.mb), nicht aus dem Konto
       R.text(ctx, 'LAGER', x + 10, ly, { color: PAL.brass }); ly += 11;
       const items = ['ersatzteil', 'loeschgel', 'flickblech', 'bolzen', 'medipack'];
-      if (inv.erz > 0) items.push('erz');   // GEL-03 N1: Erz aus dem Abbau (Snapshot inventory.erz nur wenn > 0): sechster Platz der Lagerzeile
+      if (inv.erz > 0) items.push('erz');   // GEL-03 N1: Erz aus dem Abbau (WRK-01 A2: Anzahl aus dem Frachtraum, nur wenn > 0): sechster Platz der Lagerzeile
       items.forEach((it, i) => R.text(ctx, ITEM_NAMES[it] + ': ' + (inv[it] || 0), x + 10 + (i % 3) * 130, ly + Math.floor(i / 3) * 11, { color: PAL.star }));
       ly += 26;
       R.text(ctx, 'Marken: ' + (inv.marks || 0), x + 10, ly, { color: PAL.brass });
