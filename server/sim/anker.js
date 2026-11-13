@@ -39,6 +39,7 @@ function rollen() {
 function startZustand(rolle) { const r = rollen()[rolle]; return r && r.zustaende && r.zustaende.length ? r.zustaende[0] : null; }
 // Startzustand eines Ankers: erster Eintrag der Rolle; eine passive Falle (sicht passiv) startet als erkannt (der Client kennt sicht aus dem Payload)
 function startFuer(a) { return a.rolle === 'falle' && a.sicht === 'passiv' ? 'erkannt' : startZustand(a.rolle); }
+function fracht() { return require('./fracht.js'); }   // lazy (WRK-01 A2: Erz aus dem Abbau ist Fracht)
 function fallenMod() { return require('./fallen.js'); }   // lazy: fallen.js lädt anker.js
 // ITM-01 C: verdeckte Anker (verborgene Fallen) stehen nicht im awayMap-Payload. EINE Quelle der Wahrheit für die Reihenfolge, die Payload und Snapshot-Indizes
 // (ao, sp, cd) teilen: payloadAnker(k) = Anker im Payload (Karte ohne Fallen: k.anker selbst), ankerListe = payloadAnker + später enthüllte (in Enthüllungsreihenfolge).
@@ -189,7 +190,10 @@ function interactionsAt(game, p, tx, ty, list) {
       case 'ziel': if (z !== 'frei') block('Erledigt.'); else if (aw.ankerSperre && aw.ankerSperre[a.id]) block(aw.ankerSperre[a.id]); else it(); break;   // ankerSperre: { ankerId: Text } zur Laufzeit (Finale-Boden: Schrein gesperrt bis der Wächter fällt)
       case 'fund': if (z === 'da') it(); else block('Der Sockel ist leer.'); break;
       case 'abbau':   // GEL-03 A1: leer bietet nichts an (kein Hinweis); abgebaut ist erschöpft; ein Halter je Ader
-        if (z === 'da' || z === 'laeuft') { if (abbauHalterAnderer(game, p, a.id)) block('Dort wird schon abgebaut.'); else it({ op: 'abbauen' }); }
+        if (z === 'da' || z === 'laeuft') {
+          if (abbauHalterAnderer(game, p, a.id)) block('Dort wird schon abgebaut.');
+          else { const h = abbauHindernis(game, aw.map, a); if (h) block(h); else it({ op: 'abbauen' }); }   // WRK-01 A2: kein Platz für die Ausbeute im Frachtraum: nichts anbieten, die Ader bleibt da
+        }
         else if (z === 'abgebaut') block('Die Ader ist erschöpft.');
         break;
       case 'falle': if (z === 'erkannt') it({ op: 'entschaerfen', map: aw.map }); break;   // verborgen, entschärft, ausgelöst: nichts anzubieten (verborgen verrät sich nicht durch einen Hinweis)
@@ -400,18 +404,28 @@ function abbauAbbrechen(game, map, id, pid) {
   delete lauf(aw).abbau[id];
   if (zustandIn(aw, k, id) === 'laeuft') setzen(game, map, id, 'da', pid || null);
 }
-// Halten vollendet: nur aus da/laeuft und nur durch den Halter (erster gewinnt); setzt abgebaut, meldet abbauFertig mit Menge und Art.
+// WRK-01 A2: Platz vorab: die ganze Ausbeute (m.menge Stapel Erz) muss in den Frachtraum passen (freiFuer, Typ-Regel), sonst Text für die Spielerin. Teilmengen gibt es nicht: nichts geht verloren.
+function abbauHindernis(game, map, a, m) {
+  const F = fracht(); const n = (m || abbauMenge(game, map, a)).menge;
+  const frei = F.freiFuer(game, 'erz');
+  if (frei >= n) return null;
+  const pf = F.platzFuer(game, 'erz');
+  return pf.ok ? `Frachtraum voll: die Ausbeute braucht ${n} Plätze, frei sind ${frei}.` : pf.text;
+}
+// Halten vollendet: nur aus da/laeuft und nur durch den Halter (erster gewinnt); setzt abgebaut, lagert das Erz ein, meldet abbauFertig mit Menge und Art.
 function abbauFertig(game, p, h) {
   const aw = game.away; const k = aw && karteVon(aw.map); if (!k) return;
   const a = ankerById(k, h.anker); if (!a || a.rolle !== 'abbau') return;
   const z = zustandIn(aw, k, a.id);
   if (z !== 'da' && z !== 'laeuft') return;
   if (abbauHalterAnderer(game, p, a.id)) return;
+  const m = abbauMenge(game, aw.map, a);
+  const kein = abbauHindernis(game, aw.map, a, m);   // WRK-01 A2: Platz hat sich seit dem Start geändert: nichts verbrennt, die Ader bleibt da, nur die Spielerin erfährt es
+  if (kein) { abbauAbbrechen(game, aw.map, a.id, p.id); if (game.notice) game.notice(p, kein); return; }
   const L = lauf(aw);
   delete L.abbau[a.id];
   setzen(game, aw.map, a.id, 'abgebaut', p.id);
-  const m = abbauMenge(game, aw.map, a);
-  Vorrat.einlagern(game, m.art, m.menge, 'abbau');   // GEL-03 B: Ablage im Schiffslager (Buchungsdienst, Grund abbau); nicht Fracht
+  fracht().erzEinlagern(game, m.menge);   // WRK-01 A2: Erz ist Fracht (belegt Plätze, Typ-Regel); das alte Konto inventory.erz bekommt nichts mehr
   const d = { map: aw.map, anker: a.id, pid: p.id, menge: m.menge, art: m.art };
   game.emit('abbauFertig', d); game.missionEvent('abbauFertig', d);
   const c = mitte(a);

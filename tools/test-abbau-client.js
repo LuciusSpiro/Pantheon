@@ -50,7 +50,8 @@ function quelltext() {
   const faktoren = [...ab.matchAll(/F\.get\('ember', ([0-9.]+)\)/g)].map((m) => +m[1]);
   ok(faktoren.length === 3 && Math.max(...faktoren) <= 1.25, `kit.js: die Funken (einzige leuchtende Flaechen der Erzader) liegen nicht ueber Faktor 1,25 (${faktoren.join(', ')})`);
   ok((ab.match(/emit: true/g) || []).length === 3, 'kit.js: nur die drei Funken leuchten (emit), Erz und Fels nicht');
-  ok(/inv\.erz > 0\) items\.push\('erz'\)/.test(hud) && /erz: 'Erz'/.test(hud), 'hud.js: Lagerzeile zeigt Erz (nur wenn inventory.erz > 0)');
+  ok(/inv\.erz > 0\) items\.push\('erz'\)/.test(hud) && /erz: 'Erz'/.test(hud), 'hud.js: Lagerzeile zeigt Erz (nur wenn > 0; WRK-01 A2: Anzahl aus dem Frachtraum)');
+  ok(/erzImLager = \(st\) =>/.test(hud) && /fracht\.mb/.test(hud) && !/st\.inventory\.erz/.test(hud), 'hud.js: Erz-Anzeige liest aus fracht.mb, nicht mehr aus inventory.erz');
   ok(/away\.ab\)/.test(client) && !/Math\.hypot\(q\.x - \(tx/.test(client), 'client.js: fremder Halter aus away.ab, keine Abstandsheuristik mehr');
   ok(/'sechseck'/.test(render) && /m\.art === 'erz'/.test(render), 'render.js: Scan-Marker der Erzader als Sechseck');
   ok(/blk\.abbau/.test(render) && /Shared_Buehne\.ankerBlockiertIn\(/.test(render), 'render.js: Kollisionsspiegel der Erzader aus der einen Quelle Buehne.ankerBlockiertIn');
@@ -249,7 +250,7 @@ async function mitBrowser(k) {
     ok(h2 && h2.label === 'Die Ader ist ersch\u00f6pft' && h2.ok === false, 'abgebaut: "' + (h2 && h2.label) + '"');
     const aufg = path.join(OUT, 'abbau-abgebaut-nach-halten.png'); await page.screenshot({ path: aufg });
     const t3 = await texte();
-    const erzSnap = await page.evaluate(() => (__game.state.inventory || {}).erz || 0);
+    const erzSnap = await page.evaluate(() => (((__game.state.fracht || {}).mb) || []).reduce((s, m) => s + (Array.isArray(m) && m[0] === 'erz' ? m[1] : 0), 0));   // WRK-01 A2: Erz liegt im Frachtraum (fracht.mb)
     ok(erzSnap > 0 && t3.includes('Erz: ' + erzSnap), 'Boden-HUD mit Erz im Lager: "Erz: ' + erzSnap + '" gezeichnet (' + t3.filter((t) => /^Erz/.test(t)).join(' | ') + ')');
     
 

@@ -12,6 +12,7 @@ const { Game } = require('../server/game.js');
 const interior = require('../server/sim/interior.js');
 const combat = require('../server/sim/combat.js');
 const Anker = require('../server/sim/anker.js');
+const Fracht = require('../server/sim/fracht.js');
 const Kreatur = require('../server/sim/kreatur.js');
 const Monster = require('../server/sim/monster.js');
 const L = require('../server/sim/landepunkte.js');
@@ -195,6 +196,7 @@ section('(c) bis zu 3 Lärmereignisse je Halt, Dauerabbau überschreitet max nie
     for (let i = 0; i < 50; i++) Kreatur.laermHoeren(S.g, { x: Q.x, y: Q.y, radius: 18 * TILE, stufe: 'laut' });
     ok(S.aw.kreaturSeq === seq && S.aw.kreaturen.length === len, 'laermHoeren x 50: keine neue Kreatur (kreaturSeq und Liste unverändert)');
     // Dauerabbau: Halte beginnen und abbrechen, abwechselnd an den übrigen Adern, dazu Verluste durch Beschuss
+    Fracht.debug(S.g, ['leer']);   // WRK-01 A2: das Erz des ersten Halts liegt im Frachtraum; ein volles Lager sperrt weitere Halte (dann gaebe es keinen Laerm), hier soll gehalten werden
     const ids = aderDa(S); if (ids.length < 1) throw new Error('keine Ader im Zustand da');
     let max = 0, ueber = 0, runden = 0, aufrufe0 = aufrufe, lebendMin = 99;
     const pro = () => { const l = S.schwarm().length; max = Math.max(max, l); lebendMin = Math.min(lebendMin, l); if (l > BRUT.max) ueber++; };
