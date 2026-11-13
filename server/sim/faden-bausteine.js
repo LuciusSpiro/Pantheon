@@ -57,4 +57,5 @@ const B2 = require('./faden-b2.js');   // SUND-04b B2: Sabotage-Auftrag (die Sze
 registriere('sabotage', B2.sabotage);
 registriere('forderung', require('./faden-forderung.js').baustein);   // BEA-01 A: Forderung und Schmiergeld (Beats ohne Kampf, Wahl ueber die Antwortleiste); Name = baustein in beats.json
 registriere('sondersektor', require('./faden-sondersektor.js').sondersektor);   // SON-01 B: Sondersektor (startet das unveraenderte Regiebuch des Sektors, erkennt dessen Ende); Takt: faden-sondersektor.js update
+registriere('landung', require('./faden-landung.js').baustein);   // FAB-01 B: Landung am Ort des Plans (Besetzung aus Daten, Ausgang ueber den Boden-Verteiler faden-boden.js; meldet dort seinen Handler an)
 module.exports = { registriere, vonId, idVon, platzhalter, istPlatzhalter };

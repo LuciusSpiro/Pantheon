@@ -238,6 +238,7 @@ function taetigkeit(game, art) {
   F.angebote = F.angebote.filter((a) => a.alter <= W.angebot.gilt_taetigkeiten);
   for (const a of F.abenteuerAngebote) if (!a.notruf) a.alter++;   // SUND-04b A1: Abenteuer-Angebote verfallen wie die der Notrufe (eigene Frist); FRE-03 D: ein Notruf-Angebot altert nie in Taetigkeiten, sein Notruf-Eintrag ist Herr der Lebensdauer
   F.abenteuerAngebote = F.abenteuerAngebote.filter((a) => a.notruf || a.alter <= W.abenteuer.angebot_gilt_taetigkeiten);
+  try { require('./faden-landung.js').nachTaetigkeit(game); } catch (e) { fehlerZaehlen(game, 'faden-landung', e); }   // FAB-01 B: Crew wieder oben (viele Wege melden kein beamedUp)? gelungen zaehlt vor der Frist
   for (const f of F.liste.slice()) {   // Frist: ein Beat ohne Ausgang gilt als gescheitert, nichts blockiert. Ohne aktiven Lage-Spielleiter laeuft die Frist NICHT ab (B-S3): der Zaehler zaehlt weiter, gescheitert wird nichts
     if (spielleiterAktiv(game) && f.phase === 'laeuft' && f.laufend && f.laufend.n >= fristVon(f)) {
       melde(game, 'frist', f.id, `Beat ${f.laufend.beat} ohne Ausgang nach ${fristVon(f)} Tätigkeiten: gescheitert`, { faden: f.id, beat: f.laufend.beat });

@@ -1,0 +1,9 @@
+{
+  "format": "faden-boden-texte/1",
+  "_hinweis": "FAB-01 B: Funk des Beats landung beim Start (server/sim/faden-landung.js). Schluessel = landung_ + Schluessel der besetzung (boden-werte.json), Fallback ist die Standardbesetzung. Platzhalter: {platz} (Name des Landeplatzes), {ort} (Name des Sektors). Es spricht der NSC des Fadens (Porträt), der Text beginnt nie mit seinem Namen. Hoechstens 150 Zeichen. PLATZHALTER-TEXTE der Entwicklung, Kai liest gegen. Keine Zahlen hier.",
+  "texte": {
+    "landung_ruhig": "Landeplatz ist {platz}, {ort}. Hier ist es ruhig. Kommt runter, wenn ihr bereit seid.",
+    "landung_raeuber": "Landeplatz ist {platz}, {ort}. Vorsicht: Räuber haben sich am Platz eingenistet, noch sind sie nicht auf der Hut.",
+    "landung_belagerer": "Landeplatz ist {platz}, {ort}. Der Platz wird belagert, die Angreifer halten die Augen offen. Kommt vorsichtig runter."
+  }
+}

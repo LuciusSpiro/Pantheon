@@ -12,7 +12,7 @@
 // DYN-01 B: Plan-Feld landeplaetze ([{ id, art, besitz?, name? }], kommt unveraendert in die Vorlage) und Beat-Parameter landeplatz (id; nur bei Beats, die ihn in beats.json deklarieren); ob die ids stimmen und die Arten am Hex gehen, prueft faden-pruefer.pruefeLandeplaetze.
 // Regeln des Expanders (Code): FORM · BAUPLAN_TEXT · VOLK · BEATS_ANZAHL · ID_DOPPELT · TYP_UNBEKANNT · BAUPLAN_TYP_NICHT_PLANBAR · ABSCHLUSS_NICHT_LETZT · ABSCHLUSS_FEHLT · PARAMETER · FLUCHTZIEL_FEHLT ·
 //   OPTION_BEI_GEFAHR · OPTIONEN_NICHT_ERLAUBT · BAUPLAN_OPTIONEN_PFLICHT · OPTIONEN_GLEICHER_WEG · WEITER_UNGUELTIG · AUSGANG_UNGUELTIG (Verzweigung am Abschluss) · ERFOLG_UNGUELTIG · BAUPLAN_NAMENLOS_TYP ·
-//   BAUPLAN_WAHRHEIT_UNBEKANNT · NSC_ALT_NICHT_ERSTER (SUND-04b B1: Wiedersehen nur als erster Beat, nie namenlos) · WAHRHEIT_OHNE_ENTHUELLUNG · HINWEIS_FEHLT · UNERREICHBAR · STATUS_PASST_NICHT · SCHEITERN_FOLGENLOS · BAUPLAN_KATALOG. Gleiche Codes wie der Pruefer, wo es dieselbe Regel ist.
+//   BAUPLAN_WAHRHEIT_UNBEKANNT · NSC_ALT_NICHT_ERSTER (SUND-04b B1: Wiedersehen nur als erster Beat, nie namenlos) · WAHRHEIT_OHNE_ENTHUELLUNG · HINWEIS_FEHLT · UNERREICHBAR · STATUS_PASST_NICHT · SCHEITERN_FOLGENLOS · LANDEPLATZ_PFLICHT (FAB-01 B) · BAUPLAN_KATALOG. Gleiche Codes wie der Pruefer, wo es dieselbe Regel ist.
 const fs = require('fs');
 const path = require('path');
 const D = require('./faden-daten.js');
@@ -115,6 +115,7 @@ function katalogFehler() {
     } else if (bp.optionen_pflicht) g('optionen_pflicht ohne optionen');
   }
   out.push(...require('./faden-b2.js').katalogFehler().map((t) => fehl('BAUPLAN_KATALOG', t)));   // SUND-04b B2: Daten der Szenen konvoi und geleit, des Beats sabotage, braucht.lage und frist
+  out.push(...require('./faden-landung.js').datenFehler().map((t) => fehl('BAUPLAN_KATALOG', t)));   // FAB-01 B: Besetzung, Texte, Pflicht landeplatz und Frist des Beats landung
   out.push(...require('./faden-b1.js').katalogFehler().map((t) => fehl('BAUPLAN_KATALOG', t)));   // SUND-04b B1: Texte, Spuren und Parameter der Bausteine geruecht, spur, wiedersehen
   return out;
 }
@@ -174,6 +175,7 @@ function expandiere(plan) {
       if (!parameterErlaubt(s.erlaubt, v)) add(k === 'fluchtziel' ? 'FLUCHTZIEL_FEHLT' : 'PARAMETER', `Beat ${id}: ${k} "${String(v).slice(0, 40)}" ist nicht erlaubt${Array.isArray(s.erlaubt) ? ' (' + s.erlaubt.join(', ') + ')' : k === 'fluchtziel' ? ' (Hex-Code oder ' + W.fluchtziele.join(', ') + ')' : ''}`);
       else p[k] = v;
     }
+    if (cat.braucht && cat.braucht.landeplatz === true && !(typeof p.landeplatz === 'string' && p.landeplatz.length)) add('LANDEPLATZ_PFLICHT', `Beat ${id} (${b.typ}): ohne parameter landeplatz (Id eines Landeplatzes des Plans) gibt es keinen Ort zum Landen`);   // FAB-01 B: wie faden-pruefer LANDEPLATZ_PFLICHT, damit Expander und Pruefer nicht auseinanderlaufen
     params.push(p);
     // Optionen
     let opt = null;

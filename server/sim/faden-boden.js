@@ -4,7 +4,7 @@
 // Katalogtyp (beats.json), das Handler-Objekt bringt der Baustein der Art mit (BEA-02, WRK-01).
 //
 //   anmelden(beatArt, handler)   handler = Funktion (game, faden, ev) oder Objekt mit ereignis(game, faden, ev); ev = { name, data }. Ein Handler je Art (spaeteres Anmelden ersetzt)
-//   ereignis(game, ev)           wirft nie; kehrt sofort zurueck (ohne Allokation), wenn kein Handler angemeldet ist, der Name nicht zu den fuenf Ereignissen gehoert, FAEDEN=1 fehlt oder kein Beat laeuft
+//   ereignis(game, ev)           wirft nie; kehrt sofort zurueck (ohne Allokation), wenn kein Handler angemeldet ist, der Name nicht zu den sechs Ereignissen gehoert (dazu notsprung, FAB-01 B), FAEDEN=1 fehlt oder kein Beat laeuft
 //   abmelden(beatArt)            nimmt den Handler weg (Tests)
 //
 // Zuordnung: beamedDown und beamedUp tragen data.map; die Ort-Id enthaelt die Fadenid (abenteuer-orte.parse): nur dieser Faden bekommt das Ereignis (ohne passende Karte: keiner). npcRescued und personAnBord
@@ -16,10 +16,10 @@
 // resetMap, interior.updateDowned u. a.): ein Boden-Beat darf sich nicht allein auf beamedUp verlassen.
 // Laufzeit-Zustand (WeakMap auf das Spiel) steht NICHT im Weltstand: nur ein Zaehler der Zustellungen fuer Tests; keine Snapshot-Felder.
 // Fehler eines Handlers zaehlt game.countError('faden-boden'), nie weiter geworfen.
-const Faden = require('./faden.js');
+const Faden = { aktiv: (game) => require('./faden.js').aktiv(game) };   // lazy: faden-landung.js meldet sich beim Laden an (faden.js -> faden-bausteine.js -> faden-landung.js -> hier), faden.js waere dann noch nicht fertig
 const D = require('./faden-daten.js');
 
-const NAMEN = { beamedDown: 'karte', beamedUp: 'karte', npcRescued: 'karte_oder_alle', personAnBord: 'karte_oder_alle', personAbgegeben: 'alle' };
+const NAMEN = { beamedDown: 'karte', beamedUp: 'karte', npcRescued: 'karte_oder_alle', personAnBord: 'karte_oder_alle', personAbgegeben: 'alle', notsprung: 'alle' };   // FAB-01 B: notsprung geht an alle laufenden Beats angemeldeter Art (der Beat landung scheitert; kein Datum noetig)
 const handler = new Map();   // Beat-Art -> Handler
 const zustaende = new WeakMap();   // game -> { zugestellt, fehler }
 
