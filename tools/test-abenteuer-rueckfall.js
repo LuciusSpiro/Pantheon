@@ -39,6 +39,7 @@ function neu(seed, absichten) {
   const llm = LLM.create({ mode: 'mock' });
   t.g.lageSpielleiter = LS.create(t.g, { llm, werte: { min_abstand_ticks: 1, deckel_je_sitzung: 0 }, abenteuerWerte: { deckel_je_sitzung: 0 } });
   t.g.lageSchalter = true;
+  t.g.mission.missions.sl_forschung = { state: 'done', ausgang: 'erfolg' };   // SON-01 C: Helix (siebter Plan in anschluss.json) ist in dieser Welt schon gelungen und wird nie angeboten: dieser Test zaehlt die sechs aelteren Plaene (Helix: tools/test-sondersektor-angebot.js)
   t.c = t.cs[0];
   t.an = (id) => { t.g.handleMessage(t.c, { t: 'cmd', c: 'abenteuer.annehmen', id }); const a = t.c.inbox.filter((m) => m.t === 'event' && m.kind === 'abenteuerAntwort'); return a[a.length - 1]; };
   t.g.env.ABENTEUER_ABSICHTEN = absichten;
@@ -288,7 +289,7 @@ section('Abnahme 7: Vielfalt, 10 Rueckfaelle nacheinander, mindestens 8 verschie
     const gez = Object.keys(LAGEN).map((name) => [11, 12, 13].map((seed) => verschieden(kette(lage(name, 700 + seed, '1'), 10))).join('/'));
     info('nur gewichtet gezogen (rueckfall_neue_folge_zuerst false): ' + Object.keys(LAGEN).map((name, i) => name.split(' ')[0] + ' ' + gez[i]).join('; '));
   } finally { KAT.werte.rueckfall_neue_folge_zuerst.wert = k0; }
-  ok(ANS.plaene.length === 6, 'die Baseline kann mit sechs Plaenen hoechstens sechs verschiedene Folgen liefern');
+  ok(ANS.plaene.length === 7, 'die Baseline kann mit sieben Plaenen hoechstens sieben verschiedene Folgen liefern (SON-01 C: der siebte ist Helix)');
 });
 
 section('Quelltext: kein Absichts-, Beat- oder Wendungsname im Code, keine Zahl ab zwei Stellen', () => {

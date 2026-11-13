@@ -632,6 +632,18 @@ function pruefeLage(game, v) {
     const g = l ? l.fehler(game) : fehl('LAGE_UNBEKANNT', `Beat ${b.id}: die Lagen-Bedingung "${String(key).slice(0, 30)}" gibt es nicht`);
     if (g) return g;
   }
+  return pruefeBausteinLage(game, v);
+}
+// SON-01 C: ein Baustein, der die Lage seines Beats selbst kennt (Sondersektor: schon gelungen, Pulverhorn zu weit), prueft sie ueber angebotFehler(game, beat) an derselben Stelle wie braucht.lage; anders als braucht.lage steht
+// sie nicht im Prompt-Kontext des Modells (ein Beat nur_inszenierer kostet dort nichts). -> null | 'CODE: Text'
+function pruefeBausteinLage(game, v) {
+  const Bausteine = require('./faden-bausteine.js');
+  for (const b of v.beats) {
+    const c = istObjekt(b) && has(B, b.typ) ? B[b.typ] : null;
+    const bs = c && typeof c.baustein === 'string' ? Bausteine.vonId(c.baustein) : null;
+    const g = bs && typeof bs.angebotFehler === 'function' ? bs.angebotFehler(game, b) : null;
+    if (g) return g;
+  }
   return null;
 }
 // DYN-01 B: die Landeplaetze eines Plans (Vorlage.landeplaetze, Beat-Parameter landeplatz) -> null | 'CODE: Text'. Wie pruefeLage weltabhaengig (die Art muss am Hex der Crew gehen) und darum beim Anbieten und Oeffnen,

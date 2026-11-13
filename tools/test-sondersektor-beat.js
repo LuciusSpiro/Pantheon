@@ -77,12 +77,15 @@ function funkMit(g) {
   g.emit = (...a) => { if (a[0] === 'radio' && a[1]) out.push(a[1]); return orig(...a); };
   return out;
 }
+// SON-01 C: das ANGEBOT prueft die Lage (faden-pruefer.js pruefeLage: schon gelungen, Pulverhorn zu weit, unbekannter Sektor, tools/test-sondersektor-angebot.js). Dieser Test prueft den START des Beats unter genau diesen
+// Bedingungen (der Baustein darf sich nie auf das Angebot verlassen): der Faden wird darum ohne die Lage geoeffnet
+function ohneAngebotsLage(fn) { const P = require('../server/sim/faden-pruefer.js'), o = P.pruefeLage; P.pruefeLage = () => null; try { return fn(); } finally { P.pruefeLage = o; } }
 // Ein Faden mit dem Beat sondersektor, geoeffnet ueber den echten Weg (Angebot, faden_oeffnen); der Beat startet mit weiterSetzen, dem Schritt von faden_weiter
 function faden(g, sektor) {
   const id = 'helix_test_' + (++vNr);
   const r = D.registriere(vorlage(id, sektor || 'helix'));
   if (!r.ok) throw new Error('Testvorlage ungueltig: ' + r.fehler.join('; '));
-  const f = X.oeffne(g, id);
+  const f = ohneAngebotsLage(() => X.oeffne(g, id));
   if (!f) throw new Error('Faden nicht geoeffnet');
   return f;
 }
@@ -206,7 +209,7 @@ async function buchVerlieren(T) {
   const M = g.away.monster; const mpos = Mon.mitte(mp); M.x = mpos.x; M.y = mpos.y; M.pfad = []; M.pause = 0;
   await T.run(15, () => mStand(g).state === 'done' || (m.step && m.step.id !== 'station'));
 }
-const Zahl = (g) => Object.keys(g.errors || {}).length;
+const Zahl = (g) => g.errors || 0;   // g.errors ist eine Zahl (game.js countError)
 
 (async () => {
   // ---------------- A: Katalog
@@ -253,7 +256,7 @@ const Zahl = (g) => Object.keys(g.errors || {}).length;
       await T.run(1);
       const s1 = stand(g, f);
       ok(s1.beat === 1 && s1.phase === 'wartet' && s1.ereignis === 'sondersektor_gelungen', 'der Faden hat den Ausgang gelungen erhalten (Gedaechtnis ' + s1.ereignis + ', naechster Beat ' + s1.beat + ')');
-      ok(!f.parameter.ort || f.parameter.ort === '0305', 'Paket B setzt noch keinen Ortsparameter (faden.parameter.ort unveraendert ' + f.parameter.ort + ')');
+      ok(f.parameter.ort === Sond.sektor('helix').ausgang.hex, 'SON-01 C: der Ortsparameter ist der Ausgangs-Hex der Daten (faden.parameter.ort ' + f.parameter.ort + ', Details: tools/test-sondersektor-angebot.js)');
       ok(Zahl(g) === 0 && (g.mission.pending || []).length === 0, 'Serverfehler 0, keine offenen Angebote (pending 0)');
       ok(funk.some((r) => /Messreihe ist gerettet/.test(r.text)), 'die Station meldet den Erfolg');
       const verbraucht = g.weltsim.faeden.t - t0;

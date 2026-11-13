@@ -204,7 +204,7 @@ console.log('\nRueckfall im Modus Absichten (game.lageGrenze andocken)');
     }
     return { ziel, crew, ohneLog, fehler, gesehen };
   };
-  ok(standard.length === 6 && standard.every((k) => !ZIEL_REZEPTE.includes(k)), 'die sechs Rezepte mit standard haben alle crew_hex: ' + standard.join(', '));
+  ok(standard.length === 7 && standard.every((k) => !ZIEL_REZEPTE.includes(k)), 'die sieben Rezepte mit standard haben alle crew_hex (SON-01 C: dazu forschungsstation): ' + standard.join(', '));
   const r0 = lauf(ZIEL_REZEPTE);
   ok(r0.ohneLog === 0 && r0.fehler === 0 && r0.ziel === 0 && r0.crew === 48, 'Katalog heute: 48 Rueckfaelle, jeder am Hafen (crew_hex), jeder mit modus rueckfall im Logbuch');
   const orig = {};

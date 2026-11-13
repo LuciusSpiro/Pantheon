@@ -333,12 +333,12 @@ section('Skalierung nach Stufe (Rang und Schiff der Crew, Daten in inszenierer-w
   stufe(g, 0, 0);
 });
 
-section('Die sechs Rueckfall-Plaene aus anschluss.json: derselbe Plan ueber den Inszenierer', () => {
+section('Die sieben Rueckfall-Plaene aus anschluss.json: derselbe Plan ueber den Inszenierer', () => {
   const plaene = ANSCHLUSS.plaene;
-  ok(plaene.length === 6, 'anschluss.json hat sechs Plaene');
+  ok(plaene.length === 7, 'anschluss.json hat sieben Plaene (SON-01 C: dazu Helix ruft um Hilfe)');
   const zuordnung = plaene.map((p) => EINTRAEGE.filter(([, e]) => e.standard && e.standard.titel === p.titel).map(([name]) => name));
   ok(zuordnung.every((z) => z.length === 1), 'zu jedem Plan gibt es genau eine Absicht mit gleichem Titel im Feld standard: ' + zuordnung.map((z) => z.join('/')).join(', '));
-  ok(new Set(zuordnung.map((z) => z[0])).size === 6 && EINTRAEGE.filter(([, e]) => e.standard).length === 6, 'sechs verschiedene Absichten, und nur diese sechs haben ein standard');
+  ok(new Set(zuordnung.map((z) => z[0])).size === 7 && EINTRAEGE.filter(([, e]) => e.standard).length === 7, 'sieben verschiedene Absichten, und nur diese sieben haben ein standard');
   const stufen = [[0, 0], [35, 0], [200, 3]];
   plaene.forEach((p, i) => {
     const name = zuordnung[i][0];

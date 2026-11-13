@@ -150,7 +150,7 @@ const folge = (r) => r.plan.beats.map((b) => b.typ).join();
     ok(AW.prompt_max_zeichen.wert === 15350 && /BEA-01 C2/.test(AW.prompt_max_zeichen._hinweis), 'prompt_max_zeichen 15350 in den Daten, Begruendung im Kommentarfeld');
     ok(katalog > 9443 && katalog <= 13550, 'der Beat-Katalog (' + katalog + ' Zeichen) liegt ueber den 9443 von vorher und unter der Test-Grenze 13550');
     const ka = Prompt.katalogTextAbsicht(AP.katalogStandard());
-    ok(ka.length > 3573 && ka.length <= 3573 + 400 && KAT.absichten.forderung.prompt_zeile.length <= KAT.werte.prompt_zeile_max.wert, 'der Absichten-Katalog wachst um eine Zeile (' + ka.length + ' Zeichen, vorher 3573), die Zeile haelt prompt_zeile_max');
+    ok(ka.length > 3573 && ka.length <= 3573 + 400 + KAT.absichten.forschungsstation.prompt_zeile.length + 1 && KAT.absichten.forderung.prompt_zeile.length <= KAT.werte.prompt_zeile_max.wert, 'der Absichten-Katalog wachst um eine Zeile (' + ka.length + ' Zeichen, vorher 3573), die Zeile haelt prompt_zeile_max');
     console.log('  info Beat-Katalog ' + katalog + ' Zeichen, Absichten-Katalog ' + ka.length + ', prompt_max_zeichen ' + AW.prompt_max_zeichen.wert);
   });
 

@@ -47,8 +47,9 @@ function neu(seed, o) {
   const llm = LLM.create(o.llm || { mode: 'mock' });
   t.g.lageSpielleiter = LS.create(t.g, { llm, werte: { min_abstand_ticks: 1, deckel_je_sitzung: 0 }, abenteuerWerte: Object.assign({ deckel_je_sitzung: 0 }, o.ab || {}) });
   t.g.lageSchalter = true;
+  t.g.mission.missions.sl_forschung = { state: 'done', ausgang: 'erfolg' };   // SON-01 C: Helix (siebter Plan in anschluss.json) ist in dieser Welt schon gelungen und wird nie angeboten: die Rueckfall-Regeln dieses Tests gelten fuer die sechs aelteren Plaene (Helix: tools/test-sondersektor-angebot.js)
   t.c = t.cs[0];
-  t.cmd = (k, extra, c) => t.g.handleMessage(c || t.c, Object.assign({ t: 'cmd', c: k }, extra || {}));
+  t.cmd =(k, extra, c) => t.g.handleMessage(c || t.c, Object.assign({ t: 'cmd', c: k }, extra || {}));
   t.antw = (c) => (c || t.c).inbox.filter((m) => m.t === 'event' && m.kind === 'abenteuerAntwort');
   t.letzte = (c) => { const a = t.antw(c); return a[a.length - 1]; };
   t.an = (id, c) => { t.cmd('abenteuer.annehmen', { id }, c); return t.letzte(c); };
@@ -112,7 +113,7 @@ section('Daten: Brett-Texte, Weigerungen, Anschluss-Plaene (3 bis 6, durch dense
   ok(CODES.every((c) => typeof BRETT.weigerungen[c] === 'string' && BRETT.weigerungen[c].length > 5), 'jede Weigerung der Befehle hat einen Text (' + CODES.join(', ') + ')');
   const alle = JSON.stringify([BRETT.schritte, BRETT.weigerungen, BRETT.folgen, BRETT.chronik, BRETT.status_gelingen, BRETT.status_scheitern]);
   ok(!/\{name\}/.test(JSON.stringify(BRETT.chronik)) && (alle.match(/\{\w+\}/g) || []).every((p) => ['{ort}', '{fraktion}', '{delta}'].includes(p)), 'Platzhalter nur {ort} {fraktion} {delta}; die Chronik nennt nie den Namen des NSC (sie geht in den Prompt des Spielleiters)');
-  ok(ANS.plaene.length >= 3 && ANS.plaene.length <= 6, 'Anschluss-Plaene: 3 bis 6 (' + ANS.plaene.length + ')');
+  ok(ANS.plaene.length >= 3 && ANS.plaene.length <= 7, 'Anschluss-Plaene: 3 bis 7 (' + ANS.plaene.length + ', der siebte ist Helix: SON-01 C)');
   const ergebnisse = ANS.plaene.map((p) => BP.pruefe(p));
   ok(ergebnisse.every((r) => r.ok), 'jeder Anschluss-Plan besteht Expander und Pruefer' + ergebnisse.filter((r) => !r.ok).map((r) => ' ' + r.fehler[0]).join(''));
   ok(new Set(ergebnisse.map((r) => r.vorlage && r.vorlage.id)).size === ANS.plaene.length, 'die Plaene sind verschieden (verschiedene Vorlagen-Ids)');
