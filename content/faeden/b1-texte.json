@@ -22,6 +22,8 @@
         "konvoi_gelungen": "wiedersehen_konvoi_gelungen",
         "geleit_gelungen": "wiedersehen_geleit_gelungen",
         "sabotage_gelungen": "wiedersehen_sabotage_gelungen",
+        "rettung_gelungen": "wiedersehen_rettung_gelungen",
+        "rettung_gescheitert": "wiedersehen_rettung_gescheitert",
         "befreiung_gescheitert": "wiedersehen_befreiung_gescheitert",
         "spontanhilfe_gescheitert": "wiedersehen_spontanhilfe_gescheitert",
         "raumschlacht_gescheitert": "wiedersehen_raumschlacht_gescheitert",
@@ -59,7 +61,9 @@
     "wiedersehen_konvoi_gescheitert": "Der Konvoi ist euch entkommen. Bei {ort} habe ich einen neuen Auftrag.",
     "wiedersehen_geleit_gescheitert": "Ihr habt mich nicht durchgebracht. Bei {ort} können wir reden.",
     "wiedersehen_sabotage_gescheitert": "Ihr habt den Posten nicht gesprengt. Bei {ort} geht es trotzdem weiter.",
-    "wiedersehen_dank": "Schön, euch wiederzusehen. Damit hatte ich kaum gerechnet."
+    "wiedersehen_rettung_gelungen": "Ihr habt mich und die anderen vom Boden geholt. Bei {ort} will ich mich bedanken.",
+    "wiedersehen_rettung_gescheitert": "Ihr habt uns unten nicht herausgeholt. Bei {ort} sprechen wir darüber.",
+    "wiedersehen_dank":"Schön, euch wiederzusehen. Damit hatte ich kaum gerechnet."
   },
   "spuren": {
     "kantenpfad": {

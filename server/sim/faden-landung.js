@@ -73,11 +73,12 @@ const niemandUnten = (game, lp) => !(game.players || []).some((p) => p.zone === 
 // ---------- Besetzung (idempotent je Karte)
 // Direkt nach dem Beat-Start ist die Karte meist noch nicht gebaut (landepunkte baut ausserhalb des Ticks): sobaldGeladen fuehrt die Besetzung sofort aus, wenn die Karte registriert werden kann, sonst bei der Registrierung
 // (ein Schluessel je Karte, nie doppelt). Der Merker (besetzt) macht combat.besetzen je Karte idempotent. -> Zahl der Gegner, wenn sie jetzt entstanden sind (0: spaeter, nicht verlangt oder schon besetzt)
-function besetzen(game, beat, lp) {
+// BEA-02 B: dieselbe Besetzung fuer andere Beats am Boden (rettung teilt Tabelle und Funktion, keine Kopie): key = Beat-Art des Aufrufers (ein Schluessel je Karte und Art, nie doppelt)
+function besetzungAnlegen(game, beat, lp, key) {
   const e = besetzungVon(beat), schluessel = besetzungsSchluessel(beat);
   if (!verlangt(e) || besetztAn(game, lp)) return 0;
   let n = 0;
-  const stand = Landepunkte().sobaldGeladen(game, lp, ART, () => {
+  const stand = Landepunkte().sobaldGeladen(game, lp, key, () => {
     if (besetztAn(game, lp)) return;
     n = Combat().besetzen(game, { map: lp, fraktion: e.fraktion, staerke: e.staerke, haltung: e.haltung, tag: WERTE.besetzung_tag.wert });
     if (n <= 0) fehlerZaehlen(game, 'faden-landung', new Error(`Besetzung ${schluessel} an ${lp} ergab keinen Gegner`));
@@ -85,6 +86,7 @@ function besetzen(game, beat, lp) {
   if (stand === 'unbekannt') fehlerZaehlen(game, 'faden-landung', new Error(`Landeplatz ${lp} ist dem Spiel unbekannt, keine Besetzung`));
   return n;
 }
+const besetzen = (game, beat, lp) => besetzungAnlegen(game, beat, lp, ART);
 
 // ---------- Ausgang
 function ausgang(game, f, art) {
@@ -174,4 +176,5 @@ function datenFehler() {
   return out;
 }
 
-module.exports = { baustein, handler, nachTaetigkeit, update, datenFehler, besetzungVon, TEXTE, WERTE };
+// BEA-02 B: gemeinsame Teile fuer Beats am Boden (faden-rettung.js): Besetzung, Ort, Namen, Karte, niemand unten
+module.exports = { baustein, handler, nachTaetigkeit, update, datenFehler, besetzungVon, besetzungAnlegen, besetzungsSchluessel, besetztAn, ortVon, platzName, hexName, fmt, niemandUnten, TEXTE, WERTE };

@@ -184,6 +184,16 @@
       "parameter": {"pflicht": [], "optional": ["landeplatz", "besetzung"]},
       "bauplan": {"start_status":"aktiv","hinweis_traeger":false,"parameter":{"landeplatz":{"erlaubt":"landeplatz"},"besetzung":{"standard":"ruhig","erlaubt":["ruhig","raeuber","belagerer"]}},"aus":{"gelungen":{"status":["verbuendet","aktiv"],"folge":[{"typ":"haltung_aenderung","grund":"geholfen"}]},"gescheitert":{"status":["aktiv","geflohen"],"folge":[{"typ":"haltung_aenderung","grund":"im_stich_gelassen"}]}}}
     },
+    "rettung": {
+      "zweck": "Ueberlebende finden, an Bord beamen, optional abgeben.",
+      "baustein": "rettung",
+      "gefahr": false,
+      "optionen": "keine",
+      "frist": 16,
+      "braucht": {"nsc_status": ["aktiv", "verbuendet", "gefangen"], "landeplatz": true},
+      "parameter": {"pflicht": [], "optional": ["landeplatz", "besetzung", "ende", "anzahl"]},
+      "bauplan": {"start_status":"aktiv","hinweis_traeger":false,"parameter":{"landeplatz":{"erlaubt":"landeplatz"},"besetzung":{"standard":"ruhig","erlaubt":["ruhig","raeuber","belagerer"]},"ende":{"standard":"an_bord","erlaubt":["an_bord","abgegeben"]},"anzahl":{"standard":3,"erlaubt":[1,2,3],"verborgen":true}},"aus":{"gelungen":{"status":["verbuendet","aktiv"],"folge":[{"typ":"haltung_aenderung","grund":"geholfen"}]},"gescheitert":{"status":["aktiv","geflohen"],"folge":[{"typ":"haltung_aenderung","grund":"im_stich_gelassen"}]}}}
+    },
     "abschluss": {
       "zweck": "Der Faden endet; der Ausgang schreibt das Gedaechtnis des NSC (und Folgen).",
       "baustein": "abschluss",

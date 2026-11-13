@@ -1,0 +1,10 @@
+{
+  "format": "faden-rettung-texte/1",
+  "_hinweis": "BEA-02 B: Funk des Beats rettung (server/sim/faden-rettung.js). Schluessel: rettung_start_<ende> (beim Start, je Wert von enden in rettung-werte.json), rettung_frachtraum_belegt (Hinweis beim Start, wenn der Frachtraum keine Person aufnimmt; danach nennt die Bordanzeige den Klartext des Frachtraums), rettung_gelungen (beim Erfolg). Platzhalter nur {platz} (Name des Landeplatzes), {ort} (Name des Sektors), {name} (Name des Fadens-NSC). Es spricht der NSC des Fadens (Porträt), der Text beginnt nie mit seinem Namen. Hoechstens 150 Zeichen. PLATZHALTER-TEXTE der Entwicklung, Kai liest gegen. Keine Zahlen hier.",
+  "texte": {
+    "rettung_start_an_bord": "Wir sitzen am {platz} fest, {ort}. Beamt uns an Bord, die Ops-Konsole muss besetzt sein.",
+    "rettung_start_abgegeben": "Wir sitzen am {platz} fest, {ort}. Nehmt uns an Bord und setzt uns an einer Station ab.",
+    "rettung_frachtraum_belegt": "Bei euch ist kein Bett frei. Macht erst ein Frachtmodul leer, sonst kann uns niemand hochholen.",
+    "rettung_gelungen": "Wir sind raus aus {ort}. Das vergessen wir euch nicht."
+  }
+}
