@@ -46,6 +46,9 @@ const klon = (x) => JSON.parse(JSON.stringify(x));
 const BEATS = lies('content', 'faeden', 'beats.json').beats;
 const WERTE = lies('content', 'faeden', 'boden-werte.json').werte;
 const TEXTE = lies('content', 'faeden', 'boden-texte.json').texte;
+const KAT = require('../server/mission/katalog.js').load().fraktionen;
+const trupps = (aw) => Object.keys((aw && aw.squads) || {}).length;   // Trupps der Karte
+const sollTrupps = (bes) => { const e = WERTE.besetzung.wert[bes]; return Number(KAT[e.fraktion].staerke[e.staerke]); };   // Zahl der Trupps laut Tabelle und Katalog (combat.besetzen: ein Trupp je Staerkestufe)
 
 // ---------------------------------------------------------------- Hilfen
 const ENV = { FAEDEN: '1', LAGE_SPIELLEITER: '1', SPIELLEITER_LLM: 'mock', REISE_EREIGNISSE: '1' };
@@ -128,6 +131,14 @@ function orteReste(g) {
 }
 const restlos = (g) => { const r = orteReste(g); return r.dyn.length === 0 && r.scan.length === 0 && r.aways.length === 0 && !(g.away && AO.parse(g.away.map)); };
 const FRIST = BEATS.landung.frist;
+// wie game.reset() und continueWorld (dasselbe Game-Objekt): Landepunkte zuruecksetzen, Faeden aus dem Weltstand neu lesen (neue Objekte, wie kriegslage.restore), Orte abgleichen
+function neuLaden(T) {
+  const g = T.g, block = klon(Faden.toSave(g.weltsim));
+  LP.zuruecksetzen(g);
+  g.weltsim.faeden = Faden.lesen(block);
+  AO.abgleichen(g);
+  T.f = g.weltsim.faeden.liste.find((x) => x.id === T.f.id) || T.f;
+}
 
 (async () => {
 // ---------------------------------------------------------------- (a)
@@ -207,11 +218,12 @@ await section('(c) Besetzung aus Daten je Variante und Ort-Art', async () => {
     const T = await aufbau({ art, besetzung: bes });
     const d = gegner(T.g, T.id), aw = T.g.aways[T.id];
     const rollen = d.every((e) => e.rolle === 'grundtyp'), fraktion = d.every((e) => e.fraktion === 'raubzug');
-    matrix.push(`${art}/${bes}: ${d.length}`);
+    matrix.push(`${art}/${bes}: ${d.length} Gegner, ${trupps(aw)} Trupps`);
     ok(T.gestartet && T.f.phase === 'laeuft', `${art}/${bes}: Beat laeuft`);
     if (bes === 'ruhig') ok(d.length === 0 && !(aw && aw.besetzt), `${art}/ruhig: keine Gegner, keine Besetzung eingetragen`);
-    if (bes === 'raeuber') ok(d.length >= 1 && fraktion && rollen && aw.besetzt.landung && aw.besetzt.landung.haltung === 'ruhig', `${art}/raeuber: ${d.length} Gegner, alle Raubzug, alle grundtyp (Rollen-Einfuehrung), ruhig`);
-    if (bes === 'belagerer') ok(d.length >= 2 && fraktion && rollen && aw.besetzt.landung && aw.besetzt.landung.haltung === 'wach', `${art}/belagerer: ${d.length} Gegner (mindestens 2), alle Raubzug, alle grundtyp, wach`);
+    if (bes === 'raeuber') ok(d.length >= 1 && fraktion && rollen && aw.besetzt.landung && aw.besetzt.landung.haltung === 'ruhig' && aw.besetzt.landung.staerke === WERTE.besetzung.wert.raeuber.staerke && trupps(aw) === sollTrupps('raeuber'), `${art}/raeuber: ${d.length} Gegner in ${trupps(aw)} Trupps (laut Tabelle ${sollTrupps('raeuber')}), alle Raubzug, alle grundtyp (Rollen-Einfuehrung), ruhig`);
+    if (bes === 'belagerer') ok(d.length >= 1 && fraktion && rollen && aw.besetzt.landung && aw.besetzt.landung.haltung === 'wach' && aw.besetzt.landung.staerke === WERTE.besetzung.wert.belagerer.staerke && trupps(aw) === sollTrupps('belagerer'), `${art}/belagerer: ${d.length} Gegner in ${trupps(aw)} Trupps (laut Tabelle ${sollTrupps('belagerer')}), alle Raubzug, alle grundtyp, wach`);
+    if (bes === 'belagerer') { const R = await aufbau({ art, besetzung: 'raeuber' }); ok(trupps(aw) > trupps(R.g.aways[R.id]) && d.length > gegner(R.g, R.id).length, `${art}: der Belagerer ist staerker als der Raeuber (${trupps(aw)} gegen ${trupps(R.g.aways[R.id])} Trupps, ${d.length} gegen ${gegner(R.g, R.id).length} Gegner)`); }
     ok(T.g.errors === 0, `${art}/${bes}: g.errors 0` + (T.fehler.length ? ' (' + T.fehler[0] + ')' : ''));
   }
   console.log('  Messung Gegner je Ort-Art/Variante: ' + matrix.join(', '));
@@ -253,24 +265,64 @@ await section('(e) Merker: genau eine Besetzung, Nachholen nach Speichern und La
   hoch(T);
   g.missionEvent('beamedDown', { players: [], map: T.id });
   ok(gegner(g, T.id).length === n0, 'ein weiteres beamedDown (zweiter Besuch) besetzt nicht noch einmal');
-  // Speichern und Laden: der Merker ist weg, der Ort kommt leer aus dem Faden zurueck
+  ok(g.errors === 0, 'g.errors 0');
+  // der echte Weg von reset() und continueWorld: Landepunkte zuruecksetzen, Faeden aus dem Weltstand neu lesen (neue Objekte), Orte abgleichen; dasselbe Game-Objekt
   const T2 = await aufbau({ art: 'schiff', besetzung: 'belagerer' });
-  const g2 = T2.g, aw = g2.aways[T2.id];
-  ok(aw.drones.length >= 2, 'Aufbau 2: Besetzung steht (' + aw.drones.length + ')');
-  Landung.vergessen(g2);   // Laufzeit-Zustand weg wie nach dem Laden
-  aw.drones.length = 0; for (const k of Object.keys(aw.squads)) delete aw.squads[k];
-  ok(gegner(g2, T2.id).length === 0, 'Aufbau 2: Ort wieder leer');
+  const g2 = T2.g, soll = gegner(g2, T2.id).length;
+  ok(soll >= 1 && g2.aways[T2.id].besetzt.landung, 'Aufbau 2: Besetzung steht (' + soll + ' Gegner), Marker an der Karte');
+  neuLaden(T2);
+  ok(!require('../server/world.js').AWAY_MAPS[T2.id], 'nach dem Zuruecksetzen ist die Karte nicht mehr registriert (das alte Objekt mit Gegnern und Marker steht noch in game.aways: die Besetzung zaehlt nur an der lebenden Karte)');
+  runter(T2, T2.id);
+  const nach1 = gegner(g2, T2.id).length;
+  ok(nach1 === soll, 'nach reset/Laden holt das erste beamedDown die Besetzung nach, genau einmal (' + nach1 + ' von ' + soll + ')');
   g2.missionEvent('beamedDown', { players: [], map: T2.id });
-  const nachgeholt = gegner(g2, T2.id).length;
-  ok(nachgeholt >= 2, 'erstes beamedDown holt die Besetzung nach (' + nachgeholt + ' Gegner)');
   g2.missionEvent('beamedDown', { players: [], map: T2.id });
-  g2.missionEvent('beamedDown', { players: [], map: T2.id });
-  ok(gegner(g2, T2.id).length === nachgeholt, 'weitere beamedDown: genau eine Besetzung (idempotent je Karte)');
-  ok(g2.errors === 0 && g.errors === 0, 'g.errors 0');
+  ok(gegner(g2, T2.id).length === nach1, 'weitere beamedDown: genau eine Besetzung (der Marker steht an der neuen Karte)');
+  ok(g2.errors === 0, 'g.errors 0 (' + (T2.fehler[0] || '') + ')');
+  // Karte verdraengt (maxGebaut 2: zwei andere Landepunkte gebaut) und Wiederkehr
+  const T4 = await aufbau({ art: 'schiff', besetzung: 'raeuber' });
+  const g4 = T4.g, soll4 = gegner(g4, T4.id).length;
+  for (const id of ['hafen.kontor', 'helix.station', 'nebel.havarist']) LP.get(g4, id);
+  ok(!g4.aways[T4.id] && soll4 >= 1, 'zwei andere Landepunkte gebaut: die Karte des Beats ist verdraengt (' + soll4 + ' Gegner waren da)');
+  LP.get(g4, T4.id);
+  ok(gegner(g4, T4.id).length === 0, 'Wiederkehr: die neu gebaute Karte ist zunaechst leer (die Besetzung geht mit der Karte)');
+  runter(T4, T4.id);
+  ok(gegner(g4, T4.id).length === soll4, 'beamedDown nach der Wiederkehr holt die Besetzung nach, genau einmal (' + gegner(g4, T4.id).length + ' von ' + soll4 + ')');
+  g4.missionEvent('beamedDown', { players: [], map: T4.id });
+  ok(gegner(g4, T4.id).length === soll4 && g4.errors === 0, 'und nicht noch einmal');
   // ruhig: nichts nachzuholen
   const T3 = await aufbau({ art: 'schiff', besetzung: 'ruhig' });
-  Landung.vergessen(T3.g); T3.g.missionEvent('beamedDown', { players: [], map: T3.id });
-  ok(gegner(T3.g, T3.id).length === 0 && T3.g.errors === 0, 'ruhig: auch nach dem Nachholen keine Gegner, kein Fehler');
+  neuLaden(T3); runter(T3, T3.id);
+  ok(gegner(T3.g, T3.id).length === 0 && T3.g.errors === 0, 'ruhig: auch nach reset/Laden und Runterbeamen keine Gegner, kein Fehler');
+});
+
+await section('(e2) "unten gewesen" ueberlebt reset und Laden nicht; Start am besetzten Platz', async () => {
+  // Crew unten, dann reset/Laden (alle an Bord, Faeden neu gelesen): kein falsches gelungen aus der ersten Tick-Pruefung
+  const T = await aufbau({ art: 'schiff', besetzung: 'ruhig' });
+  runter(T, T.id);
+  ok(untenAnzahl(T.g) === 1 && T.f.phase === 'laeuft', 'unten: der Beat laeuft');
+  for (const p of T.g.players) interior.placeOnShipPad(T.g, p);
+  const fAlt = T.f, beatAlt = beatId(fAlt);
+  neuLaden(T);
+  T.run(2); grenzen(T.g, 1); T.run(1);
+  const f2 = T.g.weltsim.faeden.liste.find((x) => x.id === fAlt.id);
+  ok(!!f2 && f2 !== fAlt && f2.phase === 'laeuft' && beatId(f2) === beatAlt && !ereignisse(f2).includes('landung_gelungen'), 'nach reset/Laden und Tick-Pruefung: der Beat laeuft weiter, nicht gelungen, ohne dass jemand gelandet ist');
+  runter(T, T.id); hoch(T);
+  const f3 = T.g.weltsim.faeden.liste.find((x) => x.id === T.f.id);
+  ok(f3.phase === 'wartet' && ereignisse(f3).includes('landung_gelungen'), 'wer danach wirklich runter und wieder hoch geht, gelingt');
+  ok(T.g.errors === 0, 'g.errors 0 (' + (T.fehler[0] || '') + ')');
+  // B5: ein frueherer Beat nutzt den Platz schon, die Crew steht unten, dann startet landung am selben Platz
+  const U = await aufbau({ art: 'schiff', besetzung: 'ruhig' });
+  runter(U, U.id);
+  const f = U.f;
+  Faden.beatAusgang(U.g, f.id, 'gescheitert');   // Beat vorbei (verzweigt zum Abschluss), die Crew bleibt unten
+  ok(untenAnzahl(U.g) === 1, 'Vorbedingung: die Crew steht noch unten');
+  f.phase = 'laeuft'; f.beat = 0; f.laufend = { beat: beatId({ vorlage: f.vorlage, beat: 0 }) };
+  const beat = FD.vorlage(f.vorlage).beats[0];
+  const r = Landung.baustein.starten(U.g, f, { beat });
+  ok(r && r.laeuft === true, 'landung startet am Platz, an dem die Crew steht');
+  hoch(U);
+  ok(U.f.phase === 'wartet' && ereignisse(U.f).includes('landung_gelungen'), 'die Crew steht unten (aus dem echten Zustand abgeleitet): hoch gilt als gelungen, auch ohne neues beamedDown');
 });
 
 // ---------------------------------------------------------------- (f)

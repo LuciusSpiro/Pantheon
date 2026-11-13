@@ -124,7 +124,7 @@ function abgelehnt(g, hex, p, code, muster, was) {
   await pruefe('Vorbedingung: Beats bitte und notruf deklarieren landeplatz (Daten), Skjaldborg hat keinen Standard-Landeplatz, die Eignung am Hex folgt den Daten', () => {
     const B = FD.BEATS;
     for (const t of ['bitte', 'notruf']) assert.ok(B[t].parameter.optional.includes('landeplatz') && B[t].bauplan.parameter.landeplatz.erlaubt === 'landeplatz', t + ' deklariert landeplatz');
-    assert.deepStrictEqual(Object.keys(B).filter((t) => B[t].parameter && B[t].parameter.optional.includes('landeplatz')).sort(), ['bitte', 'notruf']);
+    assert.deepStrictEqual(Object.keys(B).filter((t) => B[t].parameter && B[t].parameter.optional.includes('landeplatz')).sort(), ['bitte', 'landung', 'notruf']);   // landung: landeplatz ist dort Pflicht (FAB-01 B)
     const T = spiel(); assert.strictEqual(Sektoren.hexVonOrt(SK), SK_HEX); assert.strictEqual((LP.defs().orte[SK] || []).length, 0); assert.strictEqual(LP.liste(T.g, SK).length, 0);
     assert.deepStrictEqual(AO.moeglicheArten(SK_HEX), ['wildnis', 'schiff', 'aussenposten', 'station']);
     assert.deepStrictEqual(AO.moeglicheArten(KA_HEX), ['wildnis', 'hoehle', 'schiff', 'station']);

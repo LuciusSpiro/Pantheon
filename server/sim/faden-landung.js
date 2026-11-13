@@ -6,18 +6,21 @@
 //   starten(game, faden, ctx)   Der Ort entsteht schon vorher (faden.js ruft abenteuer-orte.beatStarten fuer den Parameter landeplatz). Hier: die Karte wird registriert (landepunkte.bereit), je nach Parameter besetzung
 //                               besetzt (combat.besetzen), der Funk nennt den Landeplatz. -> { laeuft: true }. Fehlt der Ort, scheitert der Beat.
 //   Handler (faden-boden.js, Art landung), nur fuer den laufenden Beat dieses Fadens:
-//     beamedDown   merkt "unten gewesen"; holt die Besetzung nach, falls fuer die Karte kein Merker steht (Spiel gespeichert und geladen: der Ort kommt aus dem Faden zurueck, aber leer)
+//     beamedDown   merkt "unten gewesen"; holt die Besetzung nach, falls die Karte keine traegt (aw.besetzt fehlt: Spiel gespeichert und geladen, reset, Karte verdraengt und neu gebaut: der Ort kommt aus dem Faden zurueck, aber leer)
 //     beamedUp     gelungen, wenn unten gewesen UND danach niemand mehr unten ist; mit data.notrueckholung (Ausbluten, squadRecall): gescheitert, sobald niemand mehr unten ist (die Crew wurde geholt,
 //                  sie ging nicht freiwillig); kommen dabei Mitspieler nicht mit, wartet der Beat auf sie
 //     notsprung    gescheitert
 //   nachTaetigkeit(game), update(game)   dieselbe Pruefung "niemand mehr unten" beim Takt der Taetigkeiten (faden.taetigkeit) und bei jedem Tick (reise-ereignis.update): viele Wege nach oben melden kein beamedUp
 //                                         (Verbindung getrennt, resetMap, interior.updateDowned u. a., siehe faden-boden.js). Nur fuer Faeden, die "unten gewesen" gemerkt haben: sonst sofort zurueck.
-//   vergessen(game)             Tests: der Laufzeit-Zustand dieses Spiels ist weg (so, wie nach Speichern und Laden)
 // Gescheitert bei: Frist (faden.js, Taetigkeiten, am Boden zaehlt keine), Faden-Ende, Notrueckholung, Notsprung. Den Ort raeumt der vorhandene Faden-Abschluss ab (abenteuer-orte.abraeumen), ist die Crew noch unten, im naechsten Takt.
-// Laufzeit-Zustand (WeakMap auf das Spiel) steht NICHT im Weltstand: { besetzt: Karten mit Merker (combat.besetzen ist je Karte idempotent), unten: Faeden, die "unten gewesen" gemerkt haben }.
+// Laufzeit-Zustand steht NICHT im Weltstand: nur "unten gewesen" (WeakSet auf das Faden-Objekt, faellt mit reset/Laden weg). Die Besetzung traegt die Karte selbst (aw.besetzt, combat.besetzen ist damit je Karte idempotent).
+// Grenzen: (1) Kachel-Landeplaetze (Art kachel) sind fuer diesen Beat derzeit nicht erreichbar (Pruefer und Orte lassen nur die Raumpunkt-Arten zu); kaemen sie dazu, braucht die Besetzung und niemandUnten eine Pruefung. (2) interior.updateDowned holt
+// Bewusstlose OHNE beamedUp hoch, aber nur auf Karten ohne Kampfsystem v2 (damagePlayer leitet dort in combat.hitPlayer -> woundPlayer, Notrueckholung mit Marker); Landepunkt-Karten sind immer v2 (landepunkte.js ensureV2): nicht erreichbar,
+// darum kein Marker dort. Fiele eine Karte doch auf v1 zurueck, wertet der Tick das Hochholen als gelungen (niemand mehr unten).
 const D = require('./faden-daten.js');
 const Boden = require('./faden-boden.js');
 const Sektoren = require('../../shared/sektoren.js');
+const W = require('../world.js');
 const TEXTE = require('../../content/faeden/boden-texte.json').texte;
 const WERTE = require('../../content/faeden/boden-werte.json').werte;
 
@@ -33,13 +36,10 @@ const Landepunkte = () => require('./landepunkte.js');
 const Combat = () => require('./combat.js');
 const logbuch = (game, e) => { try { require('./regie-befehle.js').schreibe(game, Object.assign({ art: 'faden_baustein', quelle: 'regie' }, e)); } catch (err) { fehlerZaehlen(game, 'faden-landung-logbuch', err); } };
 
-const zustaende = new WeakMap();   // game -> { besetzt: Set(Karte), unten: Set(Fadenid) }
-function zustandVon(game) {
-  let z = zustaende.get(game);
-  if (!z) { z = { besetzt: new Set(), unten: new Set() }; zustaende.set(game, z); }
-  return z;
-}
-const vergessen = (game) => { zustaende.delete(game); };
+// "unten gewesen": ein Merker je Faden-OBJEKT (nicht je Spiel und nicht je Fadenid). reset() und continueWorld bauen die Faeden neu (faden.lesen), das alte Objekt faellt mit seinem Merker weg: ein Beat nach dem
+// Laden gilt nie als "unten gewesen". Die Besetzung hat keinen eigenen Merker: sie steht an der lebenden Karte (aw.besetzt[tag], von combat.besetzen gesetzt) und geht mit ihr (Neubau, Laden, Verdraengen).
+const untenGewesen = new WeakSet();   // Faden-Objekt (game.weltsim.faeden.liste[i])
+const besetztAn = (game, lp) => { const aw = game.aways && game.aways[lp]; return !!(aw && W.AWAY_MAPS[lp] && aw.besetzt && aw.besetzt[WERTE.besetzung_tag.wert]); };   // lebende Karte: nach landepunkte.zuruecksetzen steht das alte Objekt noch in game.aways, ist aber nicht mehr registriert
 
 // ---------- Daten
 const besetzungsSchluessel = (beat) => {
@@ -75,14 +75,12 @@ const niemandUnten = (game, lp) => !(game.players || []).some((p) => p.zone === 
 // (ein Schluessel je Karte, nie doppelt). Der Merker (besetzt) macht combat.besetzen je Karte idempotent. -> Zahl der Gegner, wenn sie jetzt entstanden sind (0: spaeter, nicht verlangt oder schon besetzt)
 function besetzen(game, beat, lp) {
   const e = besetzungVon(beat), schluessel = besetzungsSchluessel(beat);
-  if (!verlangt(e) || zustandVon(game).besetzt.has(lp)) return 0;
+  if (!verlangt(e) || besetztAn(game, lp)) return 0;
   let n = 0;
   const stand = Landepunkte().sobaldGeladen(game, lp, ART, () => {
-    const z = zustandVon(game);
-    if (z.besetzt.has(lp)) return;
+    if (besetztAn(game, lp)) return;
     n = Combat().besetzen(game, { map: lp, fraktion: e.fraktion, staerke: e.staerke, haltung: e.haltung, tag: WERTE.besetzung_tag.wert });
-    if (n > 0) z.besetzt.add(lp);
-    else fehlerZaehlen(game, 'faden-landung', new Error(`Besetzung ${schluessel} an ${lp} ergab keinen Gegner`));
+    if (n <= 0) fehlerZaehlen(game, 'faden-landung', new Error(`Besetzung ${schluessel} an ${lp} ergab keinen Gegner`));
   });
   if (stand === 'unbekannt') fehlerZaehlen(game, 'faden-landung', new Error(`Landeplatz ${lp} ist dem Spiel unbekannt, keine Besetzung`));
   return n;
@@ -90,17 +88,16 @@ function besetzen(game, beat, lp) {
 
 // ---------- Ausgang
 function ausgang(game, f, art) {
-  zustandVon(game).unten.delete(f.id);
+  untenGewesen.delete(f);
   return Faden().beatAusgang(game, f.id, art);
 }
 function pruefen(game) {
-  const z = zustaende.get(game);
-  if (!z || !z.unten.size) return;
   const F = game.weltsim && game.weltsim.faeden;
-  if (!F) return;
-  for (const fid of Array.from(z.unten)) {
-    const f = F.liste.find((x) => x.id === fid), beat = laufenderBeat(f), lp = beat && ortVon(game, f, beat);
-    if (!lp) { z.unten.delete(fid); continue; }
+  if (!F || !F.liste.some((x) => untenGewesen.has(x))) return;   // sofort zurueck ohne Allokation, solange kein Faden "unten gewesen" gemerkt hat
+  for (const f of F.liste.slice()) {
+    if (!untenGewesen.has(f)) continue;
+    const beat = laufenderBeat(f), lp = beat && ortVon(game, f, beat);
+    if (!lp) { untenGewesen.delete(f); continue; }
     if (niemandUnten(game, lp)) ausgang(game, f, 'gelungen');
   }
 }
@@ -115,12 +112,12 @@ const handler = {
     const lp = ortVon(game, f, beat), map = ev.data && ev.data.map;
     if (!lp || map !== lp) return;
     if (ev.name === 'beamedDown') {
-      zustandVon(game).unten.add(f.id);
-      besetzen(game, beat, lp);   // nachholen (Merker fehlt), sonst nichts
+      untenGewesen.add(f);
+      besetzen(game, beat, lp);   // nachholen (die Karte traegt keine Besetzung: neu gebaut, geladen, verdraengt), sonst nichts
       return;
     }
     if (ev.name === 'beamedUp') {
-      if (!zustandVon(game).unten.has(f.id) || !niemandUnten(game, lp)) return;
+      if (!untenGewesen.has(f) || !niemandUnten(game, lp)) return;
       ausgang(game, f, ev.data.notrueckholung === true ? 'gescheitert' : 'gelungen');
     }
   },
@@ -134,7 +131,7 @@ const baustein = {
     const beat = ctx && ctx.beat;
     const lp = beat ? ortVon(game, faden, beat) : null;
     if (!lp) { logbuch(game, { ausgang: 'abgelehnt', key: ART, begruendung: 'Landung ohne Ort: der Beat gilt als gescheitert', plan: { faden: faden.id } }); return { ausgang: 'gescheitert' }; }
-    zustandVon(game).unten.delete(faden.id);   // jeder Beat beginnt ohne "unten gewesen"
+    if (niemandUnten(game, lp)) untenGewesen.delete(faden); else untenGewesen.add(faden);   // aus dem echten Zustand: steht die Crew schon auf dieser Karte (frueherer Beat am selben Platz), war sie unten; sonst beginnt der Beat ohne
     besetzen(game, beat, lp);
     const schluessel = besetzungsSchluessel(beat);
     const text = has(TEXTE, ART + '_' + schluessel) ? TEXTE[ART + '_' + schluessel] : TEXTE[ART + '_' + WERTE.besetzung_standard.wert];
@@ -177,4 +174,4 @@ function datenFehler() {
   return out;
 }
 
-module.exports = { baustein, handler, nachTaetigkeit, update, vergessen, datenFehler, besetzungVon, TEXTE, WERTE };
+module.exports = { baustein, handler, nachTaetigkeit, update, datenFehler, besetzungVon, TEXTE, WERTE };
