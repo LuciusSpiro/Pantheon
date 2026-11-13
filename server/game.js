@@ -26,6 +26,7 @@ const Gegnertod = require('./sim/gegnertod.js');   // SYS-01 C1a-2: Tod der Gegn
 const Verfolgung = require('./sim/verfolgung.js');   // SUND-04a-1 A: Szenentyp A6 (Snapshot space.vf, enemies[].sj/nm)
 const FadenSzene = require('./sim/faden-szene.js');   // SUND-04a-2 P1: Faden-Szenen (nur mit FAEDEN=1 und Lage-Spielleiter; ohne Schalter tut der Takt nichts)
 const FadenFracht = require('./sim/faden-fracht.js');   // SUND-04a-2 P1: Frachtauftrag light (Notsprung: die Ware geht verloren)
+const FadenBoden = require('./sim/faden-boden.js');   // FAB-01 A: Boden-Ereignisse an laufende Faden-Beats (nur mit FAEDEN=1)
 const Fracht = require('./sim/fracht.js');   // EK3 Teil A: Fracht im Raum, Beamen an Bord, Frachtraum
 const Modul = require('./sim/module.js');   // PAN-01 A: Bordmodule (Frachtraum, Krankenstation, Werkstatt), je 1 Energie
 const Ausbau = require('./sim/ausbau.js');   // PAN-01 B: Ausbaustufe der Lerche (0–3)
@@ -646,6 +647,7 @@ class Game {
     // Tätigkeit ab und die Ware ist weg, bevor sie abgeliefert wird)
     if (name === 'docked') { this.markSaveDue('docked'); if (this.weltsim) { try { FadenSzene.andockenHook(this); } catch (e) { this.countError('faden-szene-andocken', e); } } if (this.weltsim && require('./sim/faden.js').aktiv(this)) { try { AbenteuerBrett.beiAndocken(this); } catch (e) { this.countError('abenteuer-brett-andocken', e); } } else this.lageGrenze('andocken'); }   // FRE-02 B2: mit Weltsim und FAEDEN=1 fuellt das Brett beim Andocken (beiAndocken ruft selbst genau einmal lageGrenze('andocken')); sonst wie bisher nur die Grenze   // SUND-03 A2: Andocken ist eine Tätigkeitsgrenze des Lage-Spielleiters
     if (name === 'notsprung' && this.weltsim) { try { FadenFracht.notsprung(this); } catch (x) { this.countError('faden-fracht-notsprung', x); } }   // SUND-04a-2 P1, Nacharbeit L5: ein gelungener Notsprung (Ereignis, auch der Debug-Befehl) verliert die Ware an Bord; ohne Fäden: nichts
+    if (this.weltsim) { try { FadenBoden.ereignis(this, { name, data }); } catch (e) { this.countError('faden-boden', e); } }   // FAB-01 A: Boden-Ereignisse (beamedDown, beamedUp, npcRescued, personAnBord, personAbgegeben) an laufende Beats angemeldeter Art; ohne FAEDEN=1 und ohne Handler sofort zurueck
     if (name === 'notsprung') this.notsprungIn = this.mission ? this.mission.activeId || null : null;   // B3: Prüfung notgesprungen   // S1 §5.3: speichern am Tick-Ende, wenn noch angedockt
     if (name === 'enemyKilled' && this.flotte && data && data.enemy) { try { Flotte.onEnemyKilled(this, data.enemy); } catch (e) { this.countError('flotte-kill', e); } }   // EK4: Abschüsse zählen für Befehle
     if (this.simSzene && (name === 'enemyKilled' || name === 'allyLost')) { try { SimSzene.ereignis(this, name, data); } catch (e) { this.countError('sim-szene-ereignis', e); } }   // SUND-02a A2: Verluste der Sim-Szene

@@ -12,6 +12,7 @@
     "check:erreichbar": "node tools/check-erreichbar.js --selftest",
     "sim": "node tools/sim-headless.js",
     "test:faden-szene": "node tools/test-faden-szene.js",
+    "test:faden-boden": "node tools/test-faden-boden.js",
     "test:faden-vorlagen": "node tools/test-faden-vorlagen.js",
     "test:faden-vorlagen-mutation": "node tools/mutation-faden-vorlagen.js",
     "test:faden-nach2-mutation": "node tools/mutation-faden-nach2.js",

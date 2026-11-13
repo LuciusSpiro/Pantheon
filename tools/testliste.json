@@ -263,6 +263,7 @@
   {"id":"test-faden-ware-ueber-beats","kette":"test","cmd":["tools/test-faden-ware-ueber-beats.js"],"stufe":"full","budget_s":40},
   {"id":"test-faden-forderung","kette":"test","cmd":["tools/test-faden-forderung.js"],"stufe":"fast","budget_s":9},
   {"id":"test-faden-durchsuchung","kette":"test","cmd":["tools/test-faden-durchsuchung.js"],"stufe":"fast","budget_s":9},
+  {"id":"test-faden-boden","kette":"test","cmd":["tools/test-faden-boden.js"],"stufe":"fast","budget_s":9},
   {"id":"test-faden-beispiel1","kette":"test","cmd":["tools/test-faden-beispiel1.js"],"stufe":"fast","budget_s":20},
   {"id":"test-forderung-plan","kette":"test","cmd":["tools/test-forderung-plan.js"],"stufe":"fast","budget_s":25},
   {"id":"test-forderung-bot","kette":"test","cmd":["tools/test-forderung-bot.js"],"stufe":"full","budget_s":170},
