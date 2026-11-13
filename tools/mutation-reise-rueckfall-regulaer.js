@@ -36,7 +36,7 @@ const MUTATIONEN = [
   [BR, '    if (f.beat >= 1 && f.zaehler < f.abstand) continue;   // nur der erste Beat uebergeht den Abstand\n    if (f.beat < 1) f.zaehler = Math.max(f.zaehler, f.abstand);\n', '    f.zaehler = Math.max(f.zaehler, f.abstand);\n', 'e: der Abstand wird auch bei Beat >= 1 uebersprungen'],
   [SZ, "if (game.fadenWarte && game.fadenWarte.length) game.fadenWarte = game.fadenWarte.filter((it) => laeuft(game, it.fadenId, it.beatId));", '', 'c2: Szenen-Warteschlange raeumt Eintraege beendeter Beats nicht ab (Zombie-Eintrag)'],
   [SZ, "if (!laeuft(game, fs.fadenId, fs.beatId)) { aufraeumen(game, fs); naechsteStarten(game); return; }", "if (!laeuft(game, fs.fadenId, fs.beatId)) { return; }", 'c3: eine Szene, deren Beat die Frist beendet hat, wird nicht aufgeraeumt (Zombie-Szene)'],
-  [BR, "if (!r.ok) {\n      if (!rueckfallAbgelehnt.has(game)) rueckfallAbgelehnt.set(game, new Set());\n      rueckfallAbgelehnt.get(game).add(schluessel);\n", "if (!r.ok) {\n", 'f: eine Ablehnung wird nicht gemerkt (Fehler in jedem Takt)'],
+  [BR, "if (!r.ok) {\n      if (!rueckfallAbgelehnt.has(f)) rueckfallAbgelehnt.set(f, new Set());\n      rueckfallAbgelehnt.get(f).add(f.beat);\n", "if (!r.ok) {\n", 'f: eine Ablehnung wird nicht gemerkt (Fehler in jedem Takt)'],
 ];
 
 const FILTER = process.argv.slice(2).filter((a) => !a.startsWith('--')).map((s) => s.toLowerCase());
