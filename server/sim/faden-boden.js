@@ -19,7 +19,7 @@
 const Faden = { aktiv: (game) => require('./faden.js').aktiv(game) };   // lazy: faden-landung.js meldet sich beim Laden an (faden.js -> faden-bausteine.js -> faden-landung.js -> hier), faden.js waere dann noch nicht fertig
 const D = require('./faden-daten.js');
 
-const NAMEN = { beamedDown: 'karte', beamedUp: 'karte', npcRescued: 'karte_oder_alle', personAnBord: 'karte_oder_alle', personAbgegeben: 'alle', notsprung: 'alle' };   // FAB-01 B: notsprung geht an alle laufenden Beats angemeldeter Art (der Beat landung scheitert; kein Datum noetig)
+const NAMEN = { beamedDown: 'karte', beamedUp: 'karte', npcRescued: 'karte_oder_alle', personAnBord: 'karte_oder_alle', personAbgegeben: 'alle', notsprung: 'alle', beuteGeborgen: 'karte', ankerGelesen: 'karte' };   // WRK-01 B: beuteGeborgen und ankerGelesen (Logbuch-Terminal) tragen data.map: nur der Faden der Karte   // FAB-01 B: notsprung geht an alle laufenden Beats angemeldeter Art (der Beat landung scheitert; kein Datum noetig)
 const handler = new Map();   // Beat-Art -> Handler
 const zustaende = new WeakMap();   // game -> { zugestellt, fehler }
 

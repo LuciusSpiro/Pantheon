@@ -671,6 +671,7 @@ function pruefeLandeplaetze(game, v, hex) {
   for (const b of nutzer) if (!ids.has(b.parameter.landeplatz)) return fehl('LANDEPLATZ_UNBEKANNT', `Beat ${b.id}: der Landeplatz "${String(b.parameter.landeplatz).slice(0, 20)}" steht nicht in landeplaetze`);
   for (const p of liste) if (!nutzer.some((b) => b.parameter.landeplatz === p.id)) return fehl('LANDEPLATZ_UNBENUTZT', `Landeplatz ${p.id}: kein Beat nutzt ihn (Parameter landeplatz)`);
   for (const p of liste) { const g = AO.grundAmHex(hex, p.art); if (g) return fehl('LANDEPLATZ_ART', `Landeplatz ${p.id}: ${g}`); }
+  for (const b of nutzer) { const cat = D.BEATS[b.typ], pl = liste.find((p) => p.id === b.parameter.landeplatz); if (cat && Array.isArray(cat.landeplatz_art) && pl && !cat.landeplatz_art.includes(pl.art)) return fehl('LANDEPLATZ_ART', `Beat ${b.id} (${b.typ}): sein Landeplatz ${pl.id} hat die Kartenart ${pl.art}, erlaubt: ${cat.landeplatz_art.join('/')}`); }   // WRK-01 B: Katalogfeld landeplatz_art (wrack nur am Schiff)
   const punkt = require('./planeten-eignung.js').DATEN.punkt;
   const verlegt = platzNachOrtswechsel(v);
   for (const p of liste) if (verlegt.has(p.id) && !punkt.includes(p.art)) return fehl('LANDEPLATZ_VERLEGT', `Landeplatz ${p.id}: vor seinem Beat verlegt ein Beat (${Array.from(verlegt.get(p.id)).join(', ')}) den Ort in einen anderen Sektor; dort geht nur ${punkt.join('/')}, nicht ${p.art}`);

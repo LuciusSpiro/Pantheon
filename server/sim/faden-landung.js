@@ -49,13 +49,14 @@ const besetzungsSchluessel = (beat) => {
 const besetzungVon = (beat) => WERTE.besetzung.wert[besetzungsSchluessel(beat)];   // {} = keine Besetzung
 const verlangt = (e) => !!e && typeof e.fraktion === 'string';
 
-// Der laufende Beat dieses Fadens, wenn er ein landung-Beat ist (sonst null)
-function laufenderBeat(f) {
+// Der laufende Beat dieses Fadens, wenn er ein Beat der Art ist (sonst null). WRK-01 B: derselbe Boden-Beat-Rahmen fuer wrack (faden-wrack.js), darum mit der Art als Argument
+function laufenderBeatArt(f, art) {
   if (!f || f.phase !== 'laeuft' || !f.laufend) return null;
   const v = D.vorlage(f.vorlage), beat = v && v.beats[f.beat];
-  if (!beat || beat.id !== f.laufend.beat || beat.typ !== ART || f.laufend.variante) return null;
+  if (!beat || beat.id !== f.laufend.beat || beat.typ !== art || f.laufend.variante) return null;
   return beat;
 }
+const laufenderBeat = (f) => laufenderBeatArt(f, ART);
 // Karten-Id des Landeplatzes dieses Beats (nur solange der Ort da ist), sonst null
 function ortVon(game, f, beat) {
   const id = beat && beat.parameter ? beat.parameter.landeplatz : undefined;
@@ -73,18 +74,20 @@ const niemandUnten = (game, lp) => !(game.players || []).some((p) => p.zone === 
 // ---------- Besetzung (idempotent je Karte)
 // Direkt nach dem Beat-Start ist die Karte meist noch nicht gebaut (landepunkte baut ausserhalb des Ticks): sobaldGeladen fuehrt die Besetzung sofort aus, wenn die Karte registriert werden kann, sonst bei der Registrierung
 // (ein Schluessel je Karte, nie doppelt). Der Merker (besetzt) macht combat.besetzen je Karte idempotent. -> Zahl der Gegner, wenn sie jetzt entstanden sind (0: spaeter, nicht verlangt oder schon besetzt)
-function besetzen(game, beat, lp) {
+// WRK-01 B: art = Katalogtyp des rufenden Beats (Schluessel der Registrierung und Name im Fehlerzaehler); landung ruft mit ihrer eigenen Art, nichts aendert sich
+function besetzenFuer(game, beat, lp, art) {
   const e = besetzungVon(beat), schluessel = besetzungsSchluessel(beat);
   if (!verlangt(e) || besetztAn(game, lp)) return 0;
   let n = 0;
-  const stand = Landepunkte().sobaldGeladen(game, lp, ART, () => {
+  const stand = Landepunkte().sobaldGeladen(game, lp, art, () => {
     if (besetztAn(game, lp)) return;
     n = Combat().besetzen(game, { map: lp, fraktion: e.fraktion, staerke: e.staerke, haltung: e.haltung, tag: WERTE.besetzung_tag.wert });
-    if (n <= 0) fehlerZaehlen(game, 'faden-landung', new Error(`Besetzung ${schluessel} an ${lp} ergab keinen Gegner`));
+    if (n <= 0) fehlerZaehlen(game, 'faden-' + art, new Error(`Besetzung ${schluessel} an ${lp} ergab keinen Gegner`));
   });
-  if (stand === 'unbekannt') fehlerZaehlen(game, 'faden-landung', new Error(`Landeplatz ${lp} ist dem Spiel unbekannt, keine Besetzung`));
+  if (stand === 'unbekannt') fehlerZaehlen(game, 'faden-' + art, new Error(`Landeplatz ${lp} ist dem Spiel unbekannt, keine Besetzung`));
   return n;
 }
+const besetzen = (game, beat, lp) => besetzenFuer(game, beat, lp, ART);
 
 // ---------- Ausgang
 function ausgang(game, f, art) {
@@ -174,4 +177,4 @@ function datenFehler() {
   return out;
 }
 
-module.exports = { baustein, handler, nachTaetigkeit, update, datenFehler, besetzungVon, TEXTE, WERTE };
+module.exports = { baustein, handler, nachTaetigkeit, update, datenFehler, besetzungVon, TEXTE, WERTE, laufenderBeatArt, besetzenFuer, besetzungsSchluessel, ortVon, platzName, niemandUnten, fmt, hexName, logbuch };
