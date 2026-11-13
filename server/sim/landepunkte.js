@@ -683,7 +683,7 @@ function priseVerlassen(game, ort, merken) {
   if (!S.dyn[id]) return null;
   const alt = S.dyn[id]; const altE = S.eintraege[id];
   let priseKarte = null; try { priseKarte = karte(game, id); } catch (e) { priseKarte = null; }   // vor dem Löschen: welche Ids sind Fallen? (ihre Zustände gehören zur Prise)
-  if (game.aways && game.aways[id] && !belegt(game, id)) sichern(game, id);
+  if (game.aways && game.aways[id]) sichern(game, id);   // WRK-01 A1: auch wenn die Karte noch als belegt gilt (game.away zeigt nach dem Hochbeamen weiter auf sie): sonst gingen die geleerten Beute-Anker an das Wrack verloren (Beute-Deckel zaehlt sie)
   if (game.aways && game.aways[id] && !belegt(game, id)) { delete game.aways[id]; W.unregister(id); }
   S.lru = S.lru.filter((x) => x !== id);
   delete S.dyn[id]; delete S.eintraege[id];

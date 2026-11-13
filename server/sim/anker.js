@@ -25,6 +25,8 @@ const Buehne = require('../../shared/buehne.js');
 const GenHoehle = require('../../shared/gen-hoehle.js');   // GEL-03 C: adernWahl, istAderKandidat
 const Vorrat = require('./vorrat.js');   // TEL-01 G: Verbrauchsgüter nur über den Buchungsdienst
 
+const Wrack = require('./wrack-beute.js');   // WRK-01 A1: Beute an Wracks ins Schiffslager (nur Prise/Wrack/Faden-Orte, sonst wirkungslos)
+
 const TILE = Physics.TILE;
 const TUER_ZEIT = Buehne.TUER_ZEIT;   // E (kurz halten): Tür/Luke/Schott/Tor im Zustand 'zu' öffnen (Quelle: shared/buehne.js)
 const EXPLOSION = { radius: 2, segmente: 3 };   // Rückfall; maßgeblich ist CONFIG.anker.explosion
@@ -183,7 +185,7 @@ function interactionsAt(game, p, tx, ty, list) {
         } else block('Das Feldzeichen steht.');
         break;
       case 'zelle': if (z === 'zu') it(); else block('Die Zelle steht offen.'); break;
-      case 'beute': if (z === 'voll') it(); else block('Leer geräumt.'); break;
+      case 'beute': if (z !== 'voll') block('Leer geräumt.'); else { const h = Wrack.hindernis(game, aw.map); if (h) block(h); else it(); } break;
       case 'ziel': if (z !== 'frei') block('Erledigt.'); else if (aw.ankerSperre && aw.ankerSperre[a.id]) block(aw.ankerSperre[a.id]); else it(); break;   // ankerSperre: { ankerId: Text } zur Laufzeit (Finale-Boden: Schrein gesperrt bis der Wächter fällt)
       case 'fund': if (z === 'da') it(); else block('Der Sockel ist leer.'); break;
       case 'abbau':   // GEL-03 A1: leer bietet nichts an (kein Hinweis); abgebaut ist erschöpft; ein Halter je Ader
@@ -308,7 +310,12 @@ function completeHold(game, p, h) {
     }
     case 'flagge': return;   // wird in update() vollendet (gemeinsamer Fortschritt zweier Halter)
     case 'zelle': setzen(game, map, a.id, 'offen', p.id); return;
-    case 'beute': setzen(game, map, a.id, 'leer', p.id); game.missionEvent('beuteGeborgen', { map, anker: a.id, pid: p.id }); return;
+    case 'beute': {   // WRK-01 A1: erst Ware ins Schiffslager (nur Wrack-Orte), dann leer; ohne Platz bleibt der Anker voll
+      const b = Wrack.beuteBergen(game, map);
+      if (b.text && game.notice) game.notice(p, b.text);
+      if (!b.ok) return;
+      setzen(game, map, a.id, 'leer', p.id); game.missionEvent('beuteGeborgen', { map, anker: a.id, pid: p.id }); return;
+    }
     case 'ziel': setzen(game, map, a.id, 'aktiviert', p.id); return;
     case 'fund': setzen(game, map, a.id, 'genommen', p.id); game.missionEvent('fundGeborgen', { map, anker: a.id, pid: p.id }); return;
     case 'abbau': abbauFertig(game, p, h); return;
