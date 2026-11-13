@@ -96,7 +96,7 @@ section('Daten: Takt, Stufen-Datei, Katalog aus den Daten abgeleitet', () => {
   const szenen = JSON.parse(fs.readFileSync('content/faeden/szenen-werte.json', 'utf8')).werte;
   const text = AP.katalogText();
   const planbar = Object.keys(beats).filter((t) => beats[t].bauplan && typeof beats[t].bauplan === 'object' && beats[t].nur_inszenierer !== true);   // SPL-02 C0: nur_inszenierer steht nie im Katalog des Modells
-  const imText = text.split('\n').filter((l) => l.startsWith('- ')).map((l) => l.slice(2).split(/[ :]/)[0]);
+  const imText = text.split('\n').filter((l) => l.startsWith('- ')).map((l) => l.slice(2).split(/[ :]/)[0]).filter((t) => !/^probe_/.test(t));   // PAR-01 B: Probe-Beats (tools/probe-beat.js, nur im Speicher) stehen im Katalog, nicht in beats.json; alles andere muss genau stimmen
   ok(planbar.length >= 9 && JSON.stringify(imText.sort()) === JSON.stringify(planbar.slice().sort()), `genau die ${planbar.length} planbaren Beat-Typen stehen im Katalog`);
   for (const t of planbar) {
     const bp = beats[t].bauplan;

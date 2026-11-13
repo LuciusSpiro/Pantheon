@@ -128,7 +128,9 @@ function sprengen(t, hex) {
 // ---------------------------------------------------------------- (a) Katalog und Daten
 section('(a) Katalog: 15 Beat-Typen, drei neue; konvoi und geleit sind Szenen mit Gefahr ohne Optionen, sabotage hat keine Szene und haengt von der Lage ab; die Daten sind in sich stimmig', () => {
   const t = neu(3);
-  ok(Object.keys(D.BEATS).filter((t) => D.BEATS[t].nur_inszenierer !== true).length === 17 && NEU.every((k) => D.BEATS[k]), '17 Beat-Typen (12 bis B1, dazu BEA-01 A: forderung, schmiergeld; dazu ' + NEU.join(', ') + ')');
+    // PAR-01 B: Zweck ist die Mengenbeziehung, nicht die Zahl. Die bekannten 17 Ids muessen im Katalog stehen und planbar sein; weitere planbare Beats (auch neue Auftraege) duerfen dazukommen, ohne diesen Test zu kippen.
+  const BEKANNT17 = ['abschluss', 'befreiung', 'bitte', 'enthuellung', 'forderung', 'fracht', 'geleit', 'geruecht', 'konvoi', 'notruf', 'raumschlacht', 'sabotage', 'schmiergeld', 'spontanhilfe', 'spur', 'verfolgung', 'wiedersehen'];
+  ok(BEKANNT17.every((t) => D.BEATS[t] && D.BEATS[t].nur_inszenierer !== true) && NEU.every((k) => D.BEATS[k]), '17 Beat-Typen (12 bis B1, dazu BEA-01 A: forderung, schmiergeld; dazu ' + NEU.join(', ') + ')');
   for (const k of ['konvoi', 'geleit']) {
     const c = D.BEATS[k];
     ok(c.gefahr === true && c.optionen === 'keine' && c.szene === true && !c.abschluss && c.zweck.length > 60 && c.baustein === k && c.braucht.nsc_status.join() === 'aktiv,verbuendet', `${k}: Zweck, Gefahr, Szene (nicht speicherbar), keine Optionen, NSC aktiv oder verbuendet`);
