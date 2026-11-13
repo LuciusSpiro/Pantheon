@@ -14,7 +14,7 @@ const kopiere = (rel) => fs.cpSync(path.join(ROOT, rel), path.join(TMP, rel), { 
 ['server', 'shared', 'content', 'public'].forEach(kopiere);
 fs.mkdirSync(path.join(TMP, 'tools'), { recursive: true });
 fs.cpSync(path.join(ROOT, 'tools', 'fixtures'), path.join(TMP, 'tools', 'fixtures'), { recursive: true });
-for (const f of ['tools/test-sondersektor-beat.js', 'tools/regie-fixture.js', 'tools/faden-fixture.js']) fs.copyFileSync(path.join(ROOT, f), path.join(TMP, f));
+for (const f of ['tools/test-sondersektor-beat.js', 'tools/regie-fixture.js', 'tools/faden-fixture.js', 'tools/sprungkette.js']) fs.copyFileSync(path.join(ROOT, f), path.join(TMP, f));
 fs.copyFileSync(path.join(ROOT, 'package.json'), path.join(TMP, 'package.json'));
 
 const SB = 'server/sim/faden-sondersektor.js', BT = 'content/faeden/beats.json', RE = 'server/sim/reise-ereignis.js', AP = 'server/sim/abenteuer-prompt.js';
@@ -35,6 +35,8 @@ const MUTATIONEN = [
   [SB, '      m.abbrechen();', '      /* Zombie-Buch bleibt */', 'Fristablauf raeumt das Buch nicht ab (Zombie)', 'G'],
   [RE, "try { require('./faden-sondersektor.js').update(game); }", 'try { /* kein Takt */ }', 'der Takt ruft den Baustein nie', 'B1'],
   [BT, '"frist": 15, ', '', 'der Beat hat keine eigene Frist', 'A'],
+  [BT, '"frist": 15, ', '"frist": 1, ', 'Frist 1 statt 15: der reale Weg (Spruenge, Andocken) braucht mehr', 'B1'],
+  [BT, '"frist": 15, ', '"frist": 3, ', 'Frist knapp unter dem gemessenen Verbrauch (3 statt 15; gemessen 3 bis 5 Taetigkeiten)', 'B1'],
   [BT, '"nur_inszenierer": true, "baustein": "sondersektor"', '"baustein": "sondersektor"', 'der Beat steht im Prompt-Katalog (nur_inszenierer fehlt)', 'A'],
   [AP, ' && B[t].nur_inszenierer !== true)', ')', 'verlegt_ort eines nur_inszenierer-Beats verlaengert den Prompt-Katalog', 'A'],
 ];

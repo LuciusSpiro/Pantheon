@@ -165,7 +165,7 @@ function tabelle(R) {
   return out.join('\n');
 }
 
-module.exports = { fahreKette, tabelle, neuePartie, springe };
+module.exports = { fahreKette, tabelle, neuePartie, springe, steuere };
 
 if (require.main === module) {
   const R = fahreKette();

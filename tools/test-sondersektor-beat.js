@@ -2,8 +2,8 @@
 // SON-01 B: der Beat sondersektor (server/sim/faden-sondersektor.js, Daten content/welt/sondersektoren.json, Beat in content/faeden/beats.json). Ende zu Ende im ECHTEN Modus Freie Fahrt Sund (FAEDEN=1, Spielleiter
 // im Mock, nur die Schleife der Ereignisse antwortet: je Spielsekunde ein setImmediate): der Beat startet das UNVERAENDERTE Regiebuch sl_forschung, der Bot spielt es (Muster tools/test-forschungsstation.js: Gravimetrie, Landepunkt-Scan,
 // vier Pulte mit Ablenkung, Finale, Concordia) und der Faden erfaehrt den Ausgang. Der Weg ueber das Brett-Angebot ist Paket C: hier startet der Test den Beat wie ein Faden es tut (Faden.weiterSetzen).
-//   A  Katalog: Beat nur_inszenierer, nicht im Prompt-Katalog (Zeichenzahl unveraendert), Bauplan-Katalog gueltig, Daten und Parameter passen zusammen, Baustein registriert
-//   B  Bot-Lauf durch das ganze Buch bis erfolg: Crew 1 und Crew 3 (Beat gelungen, 220 Marken, Flag, Fehler 0, Frist traegt das Buch)
+//   A  Katalog: Beat nur_inszenierer, nicht im Prompt-Katalog (Katalogtext mit und ohne den Eintrag gleich), Bauplan-Katalog gueltig, Daten und Parameter passen zusammen, Baustein registriert
+//   B  Bot-Lauf durch das ganze Buch bis erfolg auf dem REALEN Weg (echte Spruenge Ostia Nova -> Porta Australis -> Brachland -> Pulverhorn -> Helix -> Pulverhorn -> Concordia, echtes Andocken, Reise-Ereignisse): Crew 1 und Crew 3 (Beat gelungen, 220 Marken, Flag, Fehler 0, Frist traegt den gemessenen Verbrauch mit doppelter Reserve)
 //   C  Ausgang verloren: Beat gescheitert, kein Neustart; Neustart nach dem Verlust (neuer Faden) und durch das Buch bis erfolg
 //   D  Einmaligkeit nach Erfolg
 //   E  Voraussetzungen: zu weit, Szene, andere Mission, unbekannter Sektor: Beat gescheitert mit Logbuch, Buch nie gestartet
@@ -61,7 +61,7 @@ const vorlage = (id, sektor) => ({
 });
 let vNr = 0;
 function neuesSpiel(crew, seed, o) {
-  const g = F.neuesSpiel(Object.assign({ crew, seed, names: NAMEN.slice(0, crew), env: { FAEDEN: '1', LAGE_SPIELLEITER: '1', SPIELLEITER_LLM: 'mock' } }, o || {}));
+  const g = F.neuesSpiel(Object.assign({ crew, seed, names: NAMEN.slice(0, crew), env: { FAEDEN: '1', LAGE_SPIELLEITER: '1', SPIELLEITER_LLM: 'mock', REISE_EREIGNISSE: '1' } }, o || {}));
   mitLage(g.g);
   return g;
 }
@@ -123,13 +123,77 @@ function hilfe(g, cs) {
   };
   return T;
 }
-// Vom Schritt anflug_helix (nach dem Auftrag) bis zur Ablieferung in Concordia. pre = Text vor jeder Pruefung
-async function buchSpielen(T, pre) {
+// SON-01 Nacharbeit (Befund 2): der REALE Weg, damit die Frist an echten Taetigkeiten gemessen wird. Spruenge ueber den Server (Sprung.selectDest, Antrieb laden, Sprung.doJump) und echtes Andocken am Dock-Ring (langsam anfliegen)
+// statt debugGoto: Andocken zaehlt eine Taetigkeit (game.lageGrenze), Spruenge ziehen die Reise-Ereignisse (Notrufe, Szenen) nach sich. Steuerung: sprungkette.steuere (Bot wie ein Spieler am Steuer)
+const Sprung = require('../server/sim/sprung.js');
+const Besitz = require('../server/sim/besitz.js');
+const Kette = require('./sprungkette.js');
+// Ein Reise-Ereignis mit Gegnern (Piratenueberfall am Notruf-Ort) wird NICHT gespielt: die Crew gewinnt (Gegner weg wie in tools/test-reise-ereignis.js), der Ereignis-Takt des Spiels laeuft normal weiter und liefert seine Taetigkeiten
+const gegnerWeg = (g) => { if (g.space.enemies && g.space.enemies.length) g.space.enemies = []; };
+async function echterSprung(T, ziel) {
+  const g = T.g, sh = g.ship, S = { g, c: T.cs[0] };
+  T.rolle('helm'); gegnerWeg(g);
+  const err = Sprung.selectDest(g, ziel);
+  if (err) return 'selectDest ' + ziel + ': ' + err;
+  let fertig = false, grund = null;
+  const radius = (g.C.sektoren.sprungpunktRadius || 250) - 40;
+  await T.run(600, () => {
+    const pt = Sprung.sprungpunkt(g, ziel);
+    if (!pt) { grund = 'kein Sprungpunkt'; return true; }
+    gegnerWeg(g);
+    if (sh.jump.ready) { grund = Sprung.doJump(g); fertig = !grund; sh.vx = sh.vy = 0; return true; }
+    if (Math.hypot(sh.x - pt.x, sh.y - pt.y) <= radius) g.handleMessage(S.c, { t: 'cmd', c: 'helm.stop' });
+    else Kette.steuere(S, Math.max(180, Math.min(pt.x, g.space.w - 180)), Math.max(180, Math.min(pt.y, g.space.h - 180)));
+    return false;
+  });
+  return fertig ? null : (grund || 'Zeitueberschreitung beim Sprung nach ' + ziel + ' (' + sh.jump.blockedReason + ', Szene ' + sh.scene + ', Abstand ' + Math.round(Math.hypot(sh.x - ((Sprung.sprungpunkt(g, ziel) || {}).x || 0), sh.y - ((Sprung.sprungpunkt(g, ziel) || {}).y || 0))) + ')');
+}
+async function echtAndocken(T) {
+  const g = T.g, sh = g.ship, S = { g, c: T.cs[0] };
+  T.rolle('helm');
+  const loc = Locations.get(sh.scene), hex = Sektoren.hexVonOrt(loc.id);
+  await T.run(300, () => {
+    gegnerWeg(g);
+    if (sh.docked) return true;
+    const dl = Besitz.dockLage(g, loc.scene, hex);
+    if (!dl) return true;
+    const d = Math.hypot(sh.x - dl.x, sh.y - dl.y);
+    Kette.steuere(S, dl.x, dl.y);
+    if (d < 260) g.handleMessage(S.c, { t: 'cmd', c: 'helm.throttle', set: sh.speed > 20 ? 1 : 2 });   // das letzte Stueck langsam: Andocken verlangt Tempo unter C.travel.dockSpeed
+    return false;
+  });
+  return sh.docked ? null : 'nicht angedockt in ' + loc.id;
+}
+// Hin: Ostia Nova (angedockt) -> Porta Australis (andocken) -> Brachland (kein Hafen) -> Pulverhorn (andocken); Rueckweg: Helix -> Pulverhorn (kein Halt) -> Concordia (andocken)
+async function wegHin(T) {
+  const fehler = [];
+  for (const [ziel, dock] of [['0405', true], ['0505', false], ['0605', true]]) {
+    const e = await echterSprung(T, ziel); if (e) { fehler.push(e); break; }
+    if (dock) { const d = await echtAndocken(T); if (d) { fehler.push(d); break; } }
+    await T.run(2);
+  }
+  return fehler;
+}
+async function wegZurueck(T) {
+  const fehler = [];
+  // Das Haltefeld (Radius 800 um die Station) liegt zwischen Fluchtweg und Sprungpunkt: wie ein Spieler fliegt der Bot darum ueber den oberen Rand (y 150) um das Feld herum
+  await T.fliege([{ x: 1300, y: 150 }, { x: 2500, y: 150 }], 200);
+  await T.run(1);
+  for (const [ziel, dock] of [['0605', false], ['0604', true]]) {
+    const e = await echterSprung(T, ziel); if (e) { fehler.push(e); break; }
+    if (dock) { const d = await echtAndocken(T); if (d) { fehler.push(d); break; } }
+    await T.run(2);
+  }
+  return fehler;
+}
+// Vom Schritt anflug_helix (nach dem Auftrag) bis zur Ablieferung in Concordia. pre = Text vor jeder Pruefung; echt = der reale Weg (Sprung zum Helix, Rueckweg ueber Pulverhorn nach Concordia mit echtem Andocken) statt debugGoto
+async function buchSpielen(T, pre, echt) {
   const g = T.g, m = g.mission, p = pre ? pre + ': ' : '';
   await T.run(5);
   ok(m.step && m.step.id === 'anflug_helix', p + 'Schritt anflug_helix (nach dem Auftrag)');
   ok(!!g.explore.tempKante(Sektoren.kanteId('0605', '0506')), p + 'der temporaere Sprungpunkt Pulverhorn -> Helix ist offen (das Buch oeffnet ihn)');
-  g.debugGoto('helix', false); await T.run(2);
+  if (echt) { const e = await echterSprung(T, '0506'); ok(!e, p + 'echter Sprung Pulverhorn -> Helix ueber den temporaeren Sprungpunkt' + (e ? ': ' + e : '')); await T.run(2); }
+  else { g.debugGoto('helix', false); await T.run(2); }
   ok(m.step && m.step.id === 'gravimetrie', p + 'am Helix: Schritt gravimetrie');
   const gv = Locations.get('helix').scene.gravimetrie;
   g.ship.x = gv.start.x; g.ship.y = gv.start.y; g.ship.vx = 0; g.ship.vy = 0; g.ship.angle = 0; g.ship.turnVel = 0;
@@ -187,7 +251,8 @@ async function buchSpielen(T, pre) {
   await T.run(1);
   ok(m.step && m.step.id === 'abliefern_anflug', p + 'aus dem Haltefeld heraus: Schritt abliefern_anflug');
   const m0 = g.inventory.marks;
-  g.debugGoto('concordia', true); await T.run(3);
+  if (echt) { const f = await wegZurueck(T); ok(f.length === 0, p + 'Rueckweg Helix -> Pulverhorn -> Concordia mit echten Spruengen und echtem Andocken' + (f.length ? ': ' + f.join('; ') : '')); await T.run(3); }
+  else { g.debugGoto('concordia', true); await T.run(3); }
   const ms = mStand(g);
   ok(ms && ms.state === 'done' && ms.ausgang === 'erfolg', p + 'in Concordia angedockt: Buch fertig, Ausgang erfolg');
   ok(g.inventory.marks >= m0 + 220 && m.state.flags && m.state.flags.forschungFertig === true, p + 'Lohn 220 Marken, Flag forschungFertig');
@@ -209,6 +274,19 @@ async function buchVerlieren(T) {
   const M = g.away.monster; const mpos = Mon.mitte(mp); M.x = mpos.x; M.y = mpos.y; M.pfad = []; M.pause = 0;
   await T.run(15, () => mStand(g).state === 'done' || (m.step && m.step.id !== 'station'));
 }
+// PAR-01 Empfehlung 7: kein Test mit fester Zaehlung. "Der Beat kostet den Prompt-Katalog 0 Zeichen" heisst: der Katalogtext ist mit und ohne den Eintrag im Speicher derselbe Text (Mengenbeziehung, unabhaengig von der Zahl der
+// anderen planbaren Beats). Der Eintrag wird nur im Speicher entfernt (Reihenfolge der uebrigen bleibt) und im finally samt Katalog-Cache wiederhergestellt
+function katalogOhneBeat(typ) {
+  const alle = Object.entries(D.BEATS);
+  try {
+    delete D.BEATS[typ]; Prompt.katalogNeuLesen();
+    return Prompt.katalogText();
+  } finally {
+    for (const k of Object.keys(D.BEATS)) delete D.BEATS[k];
+    for (const [k, v] of alle) D.BEATS[k] = v;
+    Prompt.katalogNeuLesen();
+  }
+}
 const Zahl = (g) => g.errors || 0;   // g.errors ist eine Zahl (game.js countError)
 
 (async () => {
@@ -221,12 +299,13 @@ const Zahl = (g) => g.errors || 0;   // g.errors ist eine Zahl (game.js countErr
     ok(Bausteine.vonId('sondersektor') && !Bausteine.istPlatzhalter('sondersektor') && Bausteine.vonId('sondersektor') === SB.sondersektor, 'der Baustein ist registriert (kein Platzhalter)');
     const kat = Prompt.katalogText();
     ok(!/sondersektor/.test(kat) && !/Sondersektor/.test(kat), 'der Beat steht nicht im Prompt-Katalog');
-    ok(kat.length === 10300, 'Katalog-Zeichenzahl unveraendert 10300 (jetzt ' + kat.length + ')');
+    const ohne = katalogOhneBeat('sondersektor');
+    ok(ohne === kat && Prompt.katalogText() === kat, 'der Beat kostet den Prompt-Katalog 0 Zeichen: der Katalogtext ist mit und ohne den Eintrag sondersektor im Speicher derselbe (' + kat.length + ' = ' + ohne.length + ' Zeichen) und nach dem Wiederherstellen unveraendert');
     let mitBeat = 0;
     for (let i = 0; i < 300; i++) { const p = Mock.gueltigerPlan(Mock.rngVon('son01-' + i), {}); if (JSON.stringify(p).includes('sondersektor')) mitBeat++; }
     ok(mitBeat === 0, 'Mock-Plankette: in 300 Zufallsplaenen kein Beat sondersektor');
     const pl = Object.keys(D.BEATS).filter((t) => D.BEATS[t].bauplan && !D.BEATS[t].abschluss && D.BEATS[t].nur_inszenierer !== true);
-    ok(!pl.includes('sondersektor') && pl.length === 16, 'planbare Typen (Katalog des Modells, Mock) ohne sondersektor (' + pl.length + ' Typen)');
+    ok(!pl.includes('sondersektor') && pl.length > 0, 'sondersektor gehoert nicht zu den planbaren Beat-Typen (Katalog des Modells, Mock; ' + pl.length + ' Typen)');
     ok(require('../server/sim/faden-pruefer.js').katalogFehler().length === 0, 'Beat-Katalog besteht den Pruefer (katalogFehler leer)');
     const bp = require('../server/sim/faden-bauplan.js');
     ok(bp.katalogFehler().length === 0, 'Bauplan-Katalog gueltig (katalogFehler leer)');
@@ -252,16 +331,24 @@ const Zahl = (g) => g.errors || 0;   // g.errors ist eine Zahl (game.js countErr
       ok(g.mission.activeId === BUCH && !stg && mStand(g).state === 'active', 'das Buch ' + BUCH + ' laeuft (Mission aktiv)');
       ok(funk.some((r) => /Hier Forschungsstation Helix/.test(r.text) && /0506/.test(r.text) && r.from === 'Forschungsstation Helix'), 'die Station spricht zum Start (Sprecher Station, Koordinate eingesetzt)');
       ok(logbuch(g).some((e) => e.ausgang === 'sondersektor'), 'Regie-Logbuch: Buch gestartet');
-      await buchSpielen(T, 'Crew ' + crew);
+      const arten = {}; const lg0 = g.lageGrenze.bind(g); g.lageGrenze = (art) => { arten[art] = (arten[art] || 0) + 1; return lg0(art); };   // Taetigkeitsgrenzen nach Art (der echte Hook bleibt)
+      const sprung0 = T.mev.filter((e) => e.kind === 'jumped' && !e.debug).length;
+      const hin = await wegHin(T);   // der Beat laeuft schon: drei echte Spruenge von Ostia Nova nach Pulverhorn, Andocken in Porta Australis und Pulverhorn
+      ok(hin.length === 0 && g.ship.scene === 'pulverhorn' && g.ship.docked, 'Crew ' + crew + ': Hinweg Ostia Nova -> Porta Australis -> Brachland -> Pulverhorn (3 echte Spruenge, 2 echte Docks)' + (hin.length ? ': ' + hin.join('; ') : ''));
+      const tHin = g.weltsim.faeden.t - t0;
+      await buchSpielen(T, 'Crew ' + crew, true);
       await T.run(1);
       const s1 = stand(g, f);
       ok(s1.beat === 1 && s1.phase === 'wartet' && s1.ereignis === 'sondersektor_gelungen', 'der Faden hat den Ausgang gelungen erhalten (Gedaechtnis ' + s1.ereignis + ', naechster Beat ' + s1.beat + ')');
       ok(f.parameter.ort === Sond.sektor('helix').ausgang.hex, 'SON-01 C: der Ortsparameter ist der Ausgangs-Hex der Daten (faden.parameter.ort ' + f.parameter.ort + ', Details: tools/test-sondersektor-angebot.js)');
       ok(Zahl(g) === 0 && (g.mission.pending || []).length === 0, 'Serverfehler 0, keine offenen Angebote (pending 0)');
       ok(funk.some((r) => /Messreihe ist gerettet/.test(r.text)), 'die Station meldet den Erfolg');
-      const verbraucht = g.weltsim.faeden.t - t0;
-      console.log('  MESSUNG Crew ' + crew + ': Taetigkeiten im Buch (Faden-Zaehler t): ' + verbraucht + ', Frist ' + D.BEATS.sondersektor.frist + ', Spielzeit ' + Math.round(g.stats.missions[BUCH].end - g.stats.missions[BUCH].start) + ' s');
-      ok(verbraucht * 2 <= D.BEATS.sondersektor.frist, 'die Frist traegt das ganze Buch mit mindestens doppelter Reserve (' + verbraucht + ' von ' + D.BEATS.sondersektor.frist + ')');
+      const verbraucht = g.weltsim.faeden.t - t0, frist = D.BEATS.sondersektor.frist;
+      const sprunge = T.mev.filter((e) => e.kind === 'jumped' && !e.debug).length - sprung0, docks = arten.andocken || 0;
+      console.log('  MESSUNG Crew ' + crew + ' (realer Weg): Taetigkeiten im ganzen Buch (Faden-Zaehler t): ' + verbraucht + ' (davon bis Pulverhorn ' + tHin + '), nach Art ' + JSON.stringify(arten) + ', echte Spruenge ' + sprunge + ', Frist ' + frist + ', Spielzeit ' + Math.round(g.stats.missions[BUCH].end - g.stats.missions[BUCH].start) + ' s');
+      ok(sprunge >= 6 && docks >= 3, 'Crew ' + crew + ': der Weg war echt (' + sprunge + ' Spruenge, ' + docks + ' Docks statt Teleport)');
+      ok(verbraucht >= 1 && verbraucht < frist && s1.ereignis === 'sondersektor_gelungen', 'Crew ' + crew + ': die Frist traegt den realen Weg: nach ' + verbraucht + ' Taetigkeiten von ' + frist + ' lief der Beat noch und endete gelungen (nicht durch Fristablauf)');
+      ok(verbraucht * 2 <= frist, 'Crew ' + crew + ': mindestens doppelte Reserve ueber dem gemessenen Verbrauch (' + verbraucht + ' x 2 <= ' + frist + ')');
     });
   }
 

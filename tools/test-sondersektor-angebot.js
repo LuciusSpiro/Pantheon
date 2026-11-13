@@ -3,7 +3,7 @@
 // Der Weg: anschluss.json hat den siebten Plan "Helix ruft um Hilfe" (Beat sondersektor, nur_inszenierer: nie im Prompt-Katalog des Modells); der Rueckfall des Bretts waehlt ihn wie jeden Plan, aber nur, wo die Lage passt
 // (faden-pruefer.js pruefeLage fragt jeden Baustein, der angebotFehler kennt: Pulverhorn in hoechstens 3 Spruengen vom Hafen, nicht schon gelungen). Im Modus Absichten (ABENTEUER_ABSICHTEN) ist dieselbe Lage die Welt-Bedingung der
 // Absicht forschungsstation (absichten.json, Standard-Parametrierung = derselbe Plan).
-//   A  Daten und Pruefer: Plan und Absicht, Lage am Hafen (nah, weit, nach Erfolg, nach Verlust), Prompt (Katalog 10300 unveraendert, kein Helix im Plan-Katalog, Absichten-Zeile)
+//   A  Daten und Pruefer: Plan und Absicht, Lage am Hafen (nah, weit, nach Erfolg, nach Verlust), Prompt (Katalog mit und ohne den Beat gleich, kein Helix im Plan-Katalog, Absichten-Zeile)
 //   B  Brett im Standard: Helix liegt (Seeds) in Haefen bis 3 Spruenge von Pulverhorn, nie weiter weg; der Ort des Angebots ist nie Helix; Zielwahl anderer Angebote unberuehrt (100 Wuerfe je Hafen)
 //   C  Bot-Lauf Brett -> Annehmen -> Beat -> Buch bis abliefern -> Faden gelungen: Crew 1 und Crew 3 (220 Marken, Flag, errors 0, pending 0, 0 Komponisten-Aufrufe), Ortsangabe, Einmaligkeit nach Erfolg
 //   D  Folgebeat liest den Hex (Plan sondersektor, notruf, abschluss)
@@ -272,7 +272,8 @@ const komponist0 = (g) => sl(g).aufrufe === 0 && sl(g).abenteuer.aufrufe === 0 &
     ok(!a3.ok && a3.fehler.some((f) => /schon gelungen/.test(f.grund)), 'Absicht nach Erfolg: Nein (schon gelungen)');
     // Prompt: der Beat ist nur ueber den Inszenierer erreichbar
     const kat = Prompt.katalogText();
-    ok(kat.length === 10300 && !/sondersektor|Sondersektor|Helix/.test(kat), 'Prompt-Katalog des Modells unveraendert 10300 Zeichen (jetzt ' + kat.length + '), ohne sondersektor und Helix');
+    const katOhne = (() => { const alle = Object.entries(D.BEATS); try { delete D.BEATS.sondersektor; Prompt.katalogNeuLesen(); return Prompt.katalogText(); } finally { for (const k of Object.keys(D.BEATS)) delete D.BEATS[k]; for (const [k, v] of alle) D.BEATS[k] = v; Prompt.katalogNeuLesen(); } })();   // PAR-01 Empfehlung 7: Mengenbeziehung statt fester Zahl
+    ok(kat === katOhne && Prompt.katalogText() === kat && !/sondersektor|Sondersektor|Helix/.test(kat), 'Prompt-Katalog des Modells: mit und ohne den Eintrag sondersektor im Speicher derselbe Text (' + kat.length + ' Zeichen), ohne sondersektor und Helix');
     let mitBeat = 0;
     for (let i = 0; i < 300; i++) { const p = Mock.gueltigerPlan(Mock.rngVon('son01c-' + i), {}); if (JSON.stringify(p).includes('sondersektor')) mitBeat++; }
     ok(mitBeat === 0, 'Mock-Plankette: in 300 Zufallsplaenen kein Beat sondersektor');

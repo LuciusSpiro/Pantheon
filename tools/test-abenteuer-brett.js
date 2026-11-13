@@ -49,7 +49,7 @@ function neu(seed, o) {
   t.g.lageSchalter = true;
   t.g.mission.missions.sl_forschung = { state: 'done', ausgang: 'erfolg' };   // SON-01 C: Helix (siebter Plan in anschluss.json) ist in dieser Welt schon gelungen und wird nie angeboten: die Rueckfall-Regeln dieses Tests gelten fuer die sechs aelteren Plaene (Helix: tools/test-sondersektor-angebot.js)
   t.c = t.cs[0];
-  t.cmd =(k, extra, c) => t.g.handleMessage(c || t.c, Object.assign({ t: 'cmd', c: k }, extra || {}));
+  t.cmd = (k, extra, c) => t.g.handleMessage(c || t.c, Object.assign({ t: 'cmd', c: k }, extra || {}));
   t.antw = (c) => (c || t.c).inbox.filter((m) => m.t === 'event' && m.kind === 'abenteuerAntwort');
   t.letzte = (c) => { const a = t.antw(c); return a[a.length - 1]; };
   t.an = (id, c) => { t.cmd('abenteuer.annehmen', { id }, c); return t.letzte(c); };
