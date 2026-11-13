@@ -22,7 +22,6 @@ const Context = require('../server/mission/context.js');
 const Labor = require('../server/mission/labor.js');
 const Interior = require('../server/sim/interior.js');
 const Anker = require('../server/sim/anker.js');
-const Fracht = require('../server/sim/fracht.js');
 const L = require('../server/sim/landepunkte.js');
 const W = require('../server/world.js');
 const GenHoehle = require('../shared/gen-hoehle.js');
@@ -142,9 +141,7 @@ function mission(S, lpId) {
 const kand = (k) => k.anker.filter((a) => GenHoehle.istAderKandidat(a));
 const zst = (S) => Object.fromEntries(kand(S.k).map((a) => [a.id, Anker.zustand(S.g, S.lp, a.id)]));
 const flagGesetzt = (S) => { const m = S.g.mission; return !!((m.flags && m.flags.labs1_abgebaut) || (m.state && m.state.flags && m.state.flags.labs1_abgebaut)); };
-// WRK-01 A2: Erz ist Fracht und braucht Platz (Regeln: tools/test-abbau-frachtraum.js); dieser Test prueft Bedingung und Weltstand, jeder Abbau bekommt ein leeres Lager
 function abbauen(S, aid) {
-  Fracht.debug(S.g, ['leer']);
   const a = S.k.anker.find((q) => q.id === aid);
   const c = Physics.tileCenter(a.x, a.y);
   const p = S.g.players[0];

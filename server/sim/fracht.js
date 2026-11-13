@@ -200,7 +200,7 @@ const auftragAnBord = (game, tag) => state(game).lager.filter((l) => l.eig && l.
 const anBordFuerBeute = (game, art, tag) => state(game).lager.filter((l) => l.art === art && (!l.eig || !l.eig.auftrag || l.eig.auftrag === tag)).length;
 // LAD-01 C: Schnittstelle für Abbau (AST-01) und Wrack-Bergung (WRK-01): n Stapel einer Ware (1 Platz = 1 Stapel) so weit einlagern, wie die Typ-Regel es zulässt.
 // -> { ok (alles passte), eingelagert, rest (passt nicht, bleibt beim Aufrufer), text (Hinweis des ersten Ablehnungsgrundes) }. Kein Ereignis, keine ODA-Meldung: das tut der Aufrufer.
-// WRK-01 A2: der Abbau (anker.js abbauFertig) nutzt erzEinlagern; das alte Konto inventory.erz bekommt nichts mehr (Platz vorab: anker.js abbauHindernis).
+// WRK-01 A2: der Abbau (anker.js abbauFertig) nutzt erzEinlagern; das alte Konto inventory.erz bekommt nichts mehr (Hinweis bei zu wenig Platz: anker.js abbauPlatzHinweis, eingelagert wird, was passt).
 function stapelEinlagern(game, art, n, quelle) {
   const lim = Number.isFinite(n) && n > 0 ? Math.floor(n) : 0;
   let k = 0, text = null;

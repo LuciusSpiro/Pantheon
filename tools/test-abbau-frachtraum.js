@@ -1,8 +1,9 @@
 'use strict';
 // WRK-01 A2: GEL-03-Erz ist Fracht. Der Abbau (anker.js abbauFertig) lagert ueber Fracht.erzEinlagern ein (belegt Plaetze, Typ-Regel: ein Modul, eine Art), das alte Konto inventory.erz
-// bekommt nichts mehr; vorab prueft anker.js abbauHindernis, ob die ganze Ausbeute passt (sonst bleibt die Ader da, nichts verbrennt, Meldung nur an die Spielerin, kein Endlos-Halten).
-// Geprueft: Einlagern + Konto, Ereignis, voller Frachtraum und Typ-Regel (Angebot gesperrt, Halten bringt nichts), Grenze Platz = Menge, Platz geht waehrend des Haltens verloren,
-// alle Adern nacheinander (nie mehr Erz als Platz, Summe = Ereignisse), zwei Spieler, Verkauf am Hafen, Weltstand (Version 3, Laden, Stand ohne Erz, Altstand mit lager.erz), Snapshot-Budget, Kampagne ohne Abbau.
+// bekommt nichts mehr. Der Abbau gelingt IMMER: eingelagert wird, was passt (min(Menge, freiFuer erz)), der Rest bleibt liegen, die Spielerin bekommt eine Meldung nur an sich; im Angebot steht
+// vor dem Halten ein nicht sperrender Hinweis (anker.js abbauPlatzHinweis).
+// Geprueft: Einlagern + Konto, Ereignis, voller Frachtraum und Typ-Regel (Ader wird abgebaut, nichts eingelagert, Hinweis und Meldung), Grenze Platz = Menge und einer weniger, Platz geht waehrend des Haltens
+// verloren, zweiter Halter/Boden, alle Adern nacheinander, zwei Spieler, Verkauf am Hafen, Weltstand, Snapshot-Budget, Kampagne ohne Abbau, die echte Szene abbauen/adern_in_der_hoehle mit dem Startschiff ohne Leeren (Abschnitt 10).
 //   node tools/test-abbau-frachtraum.js   (npm run test:abbau-frachtraum)
 const fs = require('fs');
 const path = require('path');
@@ -17,6 +18,9 @@ const L = require('../server/sim/landepunkte.js');
 const W = require('../server/world.js');
 const Weltstand = require('../server/weltstand.js');
 const Buehne = require('../shared/buehne.js');
+const GenHoehle = require('../shared/gen-hoehle.js');
+const Katalog = require('./katalog.js');
+const Labor = require('../server/mission/labor.js');
 const Physics = require('../shared/physics.js');
 const CONFIG = require('../shared/config.js');
 const F = require('./regie-fixture.js');
@@ -105,87 +109,99 @@ section('1. Abbau legt das Erz als Fracht ins Lager (Plaetze, Konto, Ereignis)',
   ok(S.notes.length === 0 && S.rundruf().length === 0, 'keine Meldung, wenn alles passt (' + S.notes.map((x) => x.text).concat(S.rundruf()).join(' | ') + ')');
 });
 
-section('2. Voller Frachtraum / Typ-Regel: Ader bleibt da, nichts verbrennt, kein Endlos-Halten', () => {
+section('2. Voller Frachtraum / Typ-Regel: der Abbau gelingt trotzdem, nichts wird eingelagert, Hinweis und Meldung nur an die Spielerin', () => {
   const S = szene(); const g = S.g; const p = S.p;
+  const m1 = S.menge('abbau.1');
   fuellen(g, 'bergungsgut', cap(g));   // alle Plaetze mit fremder Art: voll
   const l = S.angebot(p, 'abbau.1');
-  ok(l.length === 1 && l[0].blocked && /Frachtraum voll/.test(l[0].blocked), 'Angebot gesperrt mit Text: "' + (l[0] && l[0].blocked) + '"');
+  ok(l.length === 1 && !l[0].blocked && l[0].op === 'abbauen' && new RegExp('nur Platz für 0 von ' + m1).test(l[0].hinweis), 'Angebot nicht gesperrt, mit Hinweis: "' + (l[0] && l[0].hinweis) + '"');
   S.halten('abbau.1');
-  ok(S.z('abbau.1') === 'da' && !p.hold && S.fertig().length === 0 && erz(g) === 0 && Fracht.anBord(g) === cap(g), 'Halten bringt nichts: Ader da, kein Hold, kein Abschluss, Lager unveraendert');
-  Fracht.debug(g, ['leer']); fuellen(g, 'bergungsgut', 1);   // Platz da, aber das einzige Modul traegt eine andere Art
-  const l2 = S.angebot(p, 'abbau.1');
-  ok(l2.length === 1 && l2[0].blocked && /nur eine Art/.test(l2[0].blocked), 'Typ-Regel: Angebot gesperrt (' + (l2[0] && l2[0].blocked) + ')');
-  S.halten('abbau.1');
-  ok(S.z('abbau.1') === 'da' && erz(g) === 0 && Fracht.anBord(g, 'bergungsgut') === 1, 'Typ-Regel: Ader da, Lager unveraendert');
-  Fracht.debug(g, ['leer']);
-  const l3 = S.angebot(p, 'abbau.1');
-  ok(l3.length === 1 && !l3[0].blocked, 'Lager leer: Angebot wieder da');
-  S.halten('abbau.1');
-  ok(S.z('abbau.1') === 'abgebaut' && erz(g) === S.menge('abbau.1'), 'danach klappt der Abbau');
+  ok(S.z('abbau.1') === 'abgebaut' && !p.hold && S.fertig().length === 1 && erz(g) === 0 && Fracht.anBord(g) === cap(g), 'Halten gelingt: Ader abgebaut, Ereignis, kein Hold, Lager unveraendert');
+  ok(S.notes.length === 2 && S.notes.every((x) => x.pid === p.id) && /nur Platz für 0/.test(S.notes[0].text) && /bleibt liegen/.test(S.notes[1].text) && S.rundruf().length === 0, 'zwei Meldungen (Hinweis vor dem Halten, Ergebnis danach), nur an die Spielerin, kein Rundruf (' + S.notes.map((x) => x.text).join(' | ') + ')');
+  Fracht.debug(g, ['leer']); fuellen(g, 'bergungsgut', 1);   // Platz da, aber das einzige Modul traegt eine andere Art (Typ-Regel)
+  S.notes.length = 0;
+  const l2 = S.angebot(p, 'abbau.2');
+  ok(l2.length === 1 && !l2[0].blocked && /nur Platz für 0 von/.test(l2[0].hinweis), 'Typ-Regel: Angebot nicht gesperrt, Hinweis (' + (l2[0] && l2[0].hinweis) + ')');
+  S.halten('abbau.2');
+  ok(S.z('abbau.2') === 'abgebaut' && erz(g) === 0 && Fracht.anBord(g, 'bergungsgut') === 1 && S.notes.length === 2 && S.notes.every((x) => x.pid === p.id), 'Typ-Regel: Ader abgebaut, Lager unveraendert, Meldungen nur an die Spielerin');
+  Fracht.debug(g, ['leer']); S.notes.length = 0;
+  const l3 = S.angebot(p, 'abbau.3');
+  ok(l3.length === 1 && !l3[0].blocked && !('hinweis' in l3[0]), 'Lager leer: Angebot ohne Hinweis');
+  S.halten('abbau.3');
+  ok(S.z('abbau.3') === 'abgebaut' && erz(g) === S.menge('abbau.3') && S.notes.length === 0, 'danach klappt der Abbau still');
 });
 
-section('3. Grenze: Platz gleich Menge geht, einer weniger nicht (alles oder nichts)', () => {
+section('3. Grenze: Platz gleich Menge ohne Hinweis, einer weniger nimmt einen Teil mit, der Rest bleibt liegen', () => {
   for (const fid of IDS) {
     const S = szene(); const g = S.g; const m = S.menge(fid);
-    fuellen(g, 'erz', cap(g) - m + 1);   // einer zu wenig
-    const l = S.angebot(S.p, fid);
-    ok(l.length === 1 && l[0].blocked && /Frachtraum voll/.test(l[0].blocked), fid + ' (Menge ' + m + '): ein Platz zu wenig, gesperrt (' + (l[0] && l[0].blocked) + ')');
+    fuellen(g, 'erz', cap(g) - m);   // genau passend
+    ok(!('hinweis' in S.angebot(S.p, fid)[0]), fid + ' (Menge ' + m + '): Platz gleich Menge, kein Hinweis');
     S.halten(fid);
-    ok(S.z(fid) === 'da' && erz(g) === cap(g) - m + 1, fid + ': nichts eingelagert, Ader da');
-    Fracht.debug(g, ['leer']); fuellen(g, 'erz', cap(g) - m);   // genau passend
-    S.halten(fid);
-    ok(S.z(fid) === 'abgebaut' && erz(g) === cap(g) && Fracht.frei(g) === 0, fid + ': Platz genau gleich Menge, Lager danach voll');
+    ok(S.z(fid) === 'abgebaut' && erz(g) === cap(g) && Fracht.frei(g) === 0 && S.notes.length === 0, fid + ': alles mitgenommen, Lager voll, keine Meldung');
+    const T = szene(); const t = T.g; fuellen(t, 'erz', cap(t) - m + 1);   // einer zu wenig
+    const l = T.angebot(T.p, fid);
+    ok(l.length === 1 && !l[0].blocked && new RegExp('nur Platz für ' + (m - 1) + ' von ' + m).test(l[0].hinweis), fid + ': ein Platz zu wenig, Hinweis ohne Sperre (' + (l[0] && l[0].hinweis) + ')');
+    T.halten(fid);
+    ok(T.z(fid) === 'abgebaut' && erz(t) === cap(t) && T.fertig().length === 1 && T.fertig()[0][1].menge === m, fid + ': Ader abgebaut, Lager voll (nur ' + (m - 1) + ' von ' + m + ' mitgenommen), Ereignis traegt die Ausbeute');
+    const fin = T.notes[T.notes.length - 1];
+    ok(T.notes.length === 2 && T.notes.every((x) => x.pid === T.p.id) && (m - 1 > 0 ? new RegExp(String(m - 1) + ' von ' + m + ' Stapeln Erz mitgenommen').test(fin.text) : /bleibt liegen/.test(fin.text)) && T.rundruf().length === 0, fid + ': Meldung nennt die mitgenommene Menge, nur an die Spielerin (' + (fin && fin.text) + ')');
   }
 });
 
-section('4. Platz geht waehrend des Haltens verloren: Ader bleibt da, Meldung nur an die Spielerin', () => {
-  const S = szene(); const g = S.g; const p = S.p;
+section('4. Platz geht waehrend des Haltens verloren: das Halten laeuft weiter, am Ende gilt, was passt', () => {
+  const S = szene(); const g = S.g; const p = S.p; const m = S.menge('abbau.1');
   S.zu(p, 'abbau.1'); S.act(true); S.lauf(DAUER / 2);
-  ok(S.z('abbau.1') === 'laeuft' && !!p.hold, 'Vorbedingung: Ader laeuft');
+  ok(S.z('abbau.1') === 'laeuft' && !!p.hold && S.notes.length === 0, 'Vorbedingung: Ader laeuft, noch keine Meldung');
   fuellen(g, 'bergungsgut', cap(g));
+  S.lauf(0.3);
+  ok(S.z('abbau.1') === 'laeuft' && !!p.hold, 'Platzverlust bricht das Halten nicht ab (kein Abbruch fuer den Platzfall)');
   S.lauf(DAUER);
-  ok(S.z('abbau.1') === 'da' && !p.hold && erz(g) === 0 && S.fertig().length === 0, 'Ende des Haltens: Ader wieder da, Hold weg (kein Endlos-Halten), nichts eingelagert, kein Abschluss');
-  ok(S.notes.length === 1 && S.notes[0].pid === p.id && /Frachtraum|nur eine Art/.test(S.notes[0].text) && S.rundruf().length === 0, 'genau eine Meldung, nur an die Spielerin, kein Rundruf (' + (S.notes[0] && S.notes[0].text) + ')');
+  ok(S.z('abbau.1') === 'abgebaut' && !p.hold && erz(g) === 0 && S.fertig().length === 1 && S.fertig()[0][1].menge === m, 'Ende des Haltens: Ader abgebaut, Ereignis, Hold weg, nichts eingelagert');
+  ok(S.notes.length === 1 && S.notes[0].pid === p.id && /bleibt liegen/.test(S.notes[0].text) && S.rundruf().length === 0, 'genau eine Meldung, nur an die Spielerin, kein Rundruf (' + (S.notes[0] && S.notes[0].text) + ')');
   ok(!g.away.ankerLauf.abbau['abbau.1'], 'Halter-Eintrag der Ader ist weg');
   S.act(false); S.lauf(0.5);
-  ok(S.z('abbau.1') === 'da' && !p.hold, 'auch beim Loslassen bleibt alles ruhig');
-  Fracht.debug(g, ['leer']); S.halten('abbau.1');
-  ok(S.z('abbau.1') === 'abgebaut' && erz(g) === S.menge('abbau.1'), 'mit Platz klappt derselbe Abbau danach');
+  ok(S.z('abbau.1') === 'abgebaut' && !p.hold && S.notes.length === 1, 'auch beim Loslassen bleibt alles ruhig');
 });
 
-section('4b. Abschluss ohne Platz, Zustand sofort (nicht erst im naechsten Tick): laeuft -> da, Halter-Eintrag weg', () => {
+section('4b. Abschluss ohne Platz, Zustand sofort: abgebaut, Halter-Eintrag weg, Ereignis', () => {
   const S = szene(); const g = S.g; const p = S.p;
   S.zu(p, 'abbau.1'); p.hold = { kind: 'anker:abbau', anker: 'abbau.1', dur: DAUER, t: 0 };
   Anker.abbauStarten(g, p, p.hold);
   ok(S.z('abbau.1') === 'laeuft' && !!g.away.ankerLauf.abbau['abbau.1'], 'Vorbedingung: laeuft, Halter eingetragen');
   fuellen(g, 'bergungsgut', cap(g));
   p.hold.t = DAUER; Anker.abbauFertig(g, p, p.hold);
-  ok(S.z('abbau.1') === 'da' && !g.away.ankerLauf.abbau['abbau.1'] && erz(g) === 0 && S.fertig().length === 0, 'sofort nach dem Abschluss: da, kein Halter-Eintrag, nichts eingelagert, kein Ereignis');
+  ok(S.z('abbau.1') === 'abgebaut' && !g.away.ankerLauf.abbau['abbau.1'] && erz(g) === 0 && S.fertig().length === 1, 'sofort nach dem Abschluss: abgebaut, kein Halter-Eintrag, nichts eingelagert, Ereignis da');
 });
 
-section('5. Alle Adern nacheinander: nie mehr Erz als Platz, nichts geht verloren', () => {
+section('4c. Zweiter Halter wird weiter abgewiesen (Spieler am Boden und Kartenwechsel: tools/test-abbau.js)', () => {
+  const S = szene(2); const g = S.g; const [p0, p1] = g.players;
+  S.zu(p0, 'abbau.1'); S.zu(p1, 'abbau.1'); S.act(true, 0); S.lauf(0.2);
+  ok(S.z('abbau.1') === 'laeuft', 'p0 haelt');
+  S.act(true, 1); S.lauf(0.2);
+  ok(g.away.ankerLauf.abbau['abbau.1'].pid === p0.id && !p1.hold, 'zweiter Halter wird abgewiesen, p0 behaelt die Ader');
+});
+
+section('5. Alle Adern nacheinander: jede wird abgebaut, eingelagert wird nie mehr als Platz da ist', () => {
   const S = szene(); const g = S.g;
-  let soll = 0, abgebaut = 0, gesperrt = 0;
+  let soll = 0, ereignisse = 0;
   for (const fid of IDS) {
-    const m = S.menge(fid); const passt = Fracht.freiFuer(g, 'erz') >= m;
-    S.halten(fid);
-    if (passt) { soll += m; abgebaut++; } else gesperrt++;
-    ok((S.z(fid) === 'abgebaut') === passt && erz(g) === soll, fid + ' (Menge ' + m + '): ' + (passt ? 'abgebaut' : 'bleibt da') + ', Lager ' + erz(g) + ' von ' + cap(g));
+    const m = S.menge(fid); const frei = Fracht.freiFuer(g, 'erz');
+    S.halten(fid); soll += Math.min(m, frei); ereignisse += m;
+    ok(S.z(fid) === 'abgebaut' && erz(g) === soll, fid + ' (Menge ' + m + ', frei ' + frei + '): abgebaut, Lager ' + erz(g) + ' von ' + cap(g));
   }
-  const ev = S.fertig().reduce((s, e) => s + e[1].menge, 0);
-  ok(erz(g) <= cap(g) && ev === erz(g) && S.fertig().length === abgebaut, 'Summe der Ereignisse (' + ev + ') = Erz im Lager (' + erz(g) + '), ' + abgebaut + ' abgebaut, ' + gesperrt + ' gesperrt');
+  const ev = S.fertig();
+  ok(erz(g) <= cap(g) && ev.length === IDS.length && ev.reduce((s, e) => s + e[1].menge, 0) === ereignisse, 'Ereignisse: alle ' + IDS.length + ' Adern mit voller Ausbeute (' + ereignisse + '), im Lager ' + erz(g) + ' von ' + cap(g));
 });
 
-section('6. Zwei Spieler: gleichzeitiger Vollzug an zwei Adern, der Platz reicht nur fuer eine', () => {
+section('6. Zwei Spieler: gleichzeitiger Vollzug an zwei Adern, der Platz reicht nur fuer eine Ausbeute', () => {
   const S = szene(2); const g = S.g; const [p0, p1] = g.players;
   const ids = IDS.filter((fid) => S.menge(fid) >= 2).slice(0, 2);
   if (ids.length < 2) { ok(true, 'uebersprungen: keine zwei Adern mit Menge >= 2 in dieser Karte (' + IDS.map((i) => S.menge(i)).join(',') + ')'); return; }
   const m = Math.max(S.menge(ids[0]), S.menge(ids[1]));
   fuellen(g, 'erz', cap(g) - m);   // es passt genau noch eine Ausbeute der groesseren Ader, nie beide
   S.zu(p0, ids[0]); S.zu(p1, ids[1]); S.act(true, 0); S.act(true, 1); S.lauf(DAUER + 1);
-  const z = ids.map((i) => S.z(i)); const sum = ids.reduce((s, i, j) => s + (z[j] === 'abgebaut' ? S.menge(i) : 0), 0);
-  ok(z.filter((x) => x === 'abgebaut').length >= 1 && erz(g) === cap(g) - m + sum && erz(g) <= cap(g), 'Lager = Vorrat + abgebaute Ausbeute, nie ueber dem Platz (' + z.join('/') + ', ' + erz(g) + ' von ' + cap(g) + ')');
-  ok(z.every((x, j) => x === 'abgebaut' || x === 'da') && S.notes.every((x) => g.players.some((q) => q.id === x.pid)) && S.rundruf().length === 0, 'wer nicht passt, bleibt da; Meldungen nur an Spielerinnen, kein Rundruf');
+  ok(ids.every((i) => S.z(i) === 'abgebaut') && erz(g) === cap(g) && S.fertig().length === 2, 'beide Adern abgebaut, Lager genau voll, nie ueber dem Platz (' + erz(g) + ' von ' + cap(g) + ')');
+  ok(S.notes.length >= 1 && S.notes.every((x) => g.players.some((q) => q.id === x.pid)) && S.rundruf().length === 0, 'Meldungen nur an Spielerinnen, kein Rundruf (' + S.notes.length + ')');
 });
 
 section('7. Verkauf am Hafen: Erz aus dem Lager ist Ware', () => {
@@ -229,6 +245,65 @@ section('9. Kampagne und andere Karten: Erz nur aus dem Abbau', () => {
   ok((a.match(/erzEinlagern/g) || []).length === 1 && a.indexOf('fracht().erzEinlagern') > a.indexOf('function abbauFertig'), 'anker.js: erzEinlagern wird nur im Abbau-Pfad aufgerufen');
   const T = F.neuesSpiel({ crew: 1, seed: 7, env: {} });
   ok(erz(T.g) === 0 && !('erz' in T.g.inventory), 'frisches Spiel ohne Abbau: kein Erz im Lager, kein Konto');
+});
+
+// ---------- die echte Szene abbauen/adern_in_der_hoehle, Startschiff, OHNE das Lager zu leeren ----------
+section('10. Szene "abbauen" mit dem Startschiff: beide Adern werden abgebaut, die Szene wird erfuellt (WRK-01 A2 Nacharbeit)', () => {
+  const katalog = Katalog.load({}); const HZ = CONFIG.tickHz;
+  const lauf = (seed, vorbereiten) => {
+    const g = new Game({ noStore: true, seed: 7, env: { MISSION_SOURCE: 'fallback', SPIELLEITER_LLM: 'off', LLM_LIVE: '0' }, log: () => {} });
+    const c = { inbox: [], send() {} }; g.addConnection(c); g.handleMessage(c, { t: 'hello', clientId: 'L0', name: 'L0', color: 0 });
+    g.reset(); g.phase = 'play';
+    const ticks = (s) => { for (let i = 0, N = Math.round(s * HZ); i < N; i++) { if (g.away) g.away.drones.length = 0; g.step(); } };
+    const lp = L.neu(g, 'kesh', { art: 'hoehle', seed }); L.get(g, lp);
+    const st = Labor.laborKette(g, ['abbauen/adern_in_der_hoehle'], { map: lp, loc: 'kesh', god: true, katalog }); ticks(2);
+    const b = g.landepunkte.dyn[lp].beam; g.ship.x = b.x; g.ship.y = b.y; g.ship.vx = 0; g.ship.vy = 0;
+    const p = g.players[0]; interior.placeOnShipPad(g, p, 0); p.console = 'transfer';
+    g.handleMessage(c, { t: 'cmd', c: 'transfer.ziel', landepunkt: lp }); ticks(1); g.handleMessage(c, { t: 'cmd', c: 'transfer.down' }); ticks(7);
+    const k = W.AWAY_MAPS[lp].karte;
+    const da = k.anker.filter((a) => GenHoehle.istAderKandidat(a) && Anker.zustand(g, lp, a.id) === 'da');
+    const R = { g, p, lp, k, da, st, notes: [], odas: [], ev: [] };
+    const n0 = g.notice.bind(g); g.notice = (q, t) => { R.notes.push({ pid: q.id, text: t }); return n0(q, t); };
+    const o0 = g.oda.bind(g); g.oda = (t, kk) => { R.odas.push(String(t)); return o0(t, kk); };
+    const e0 = g.emit.bind(g); g.emit = function (t, d) { R.ev.push([t, d]); return e0(t, d); };
+    if (vorbereiten) vorbereiten(g);
+    const flag = () => { const m = g.mission; return !!((m.flags && m.flags.labs1_abgebaut) || (m.state && m.state.flags && m.state.flags.labs1_abgebaut)); };
+    R.flagVorher = flag();
+    const modell = { erz: 0, meldungen: 0 };
+    for (const a of da.slice(0, 2)) {   // die Szene verlangt zwei Adern (Standard anzahl 2); echtes Halten ueber die Eingabe
+      const m = Anker.abbauMenge(g, lp, a).menge; const frei = Fracht.freiFuer(g, 'erz');
+      const nb = Physics.tileCenter(a.x + 1, a.y);
+      p.x = nb.x; p.y = nb.y; p.input.mx = 0; p.input.my = 0;
+      g.handleMessage(c, { t: 'act', down: true }); ticks(CONFIG.anker.halten.abbau + 1); g.handleMessage(c, { t: 'act', down: false }); ticks(0.3);
+      modell.erz += Math.min(m, frei); if (frei < m) modell.meldungen += 2;
+    }
+    ticks(3);
+    R.flag = flag(); R.modell = modell;
+    return R;
+  };
+  const rund = (R) => R.odas.filter((x) => /Frachtraum|Platz für|mitgenommen|bleibt liegen/.test(x));   // die Szene selbst sagt per ODA "Genug Erz im Lager" (Mission, kein Frachtruf)
+  // a) der gemessene Fall: Mengen 3 und 3 (Seed 24), leeres Startschiff mit 4 Plaetzen
+  const A = lauf(24);
+  const mA = A.da.slice(0, 2).map((a) => Anker.abbauMenge(A.g, A.lp, a).menge);
+  ok(Fracht.capacity(A.g) === 4 && mA.length === 2 && mA[0] === 3 && mA[1] === 3, 'Ausgangslage Seed 24: Startschiff ' + Fracht.capacity(A.g) + ' Plaetze, die zwei Adern der Szene geben ' + mA.join(' und '));
+  ok(!A.flagVorher && A.flag, 'Szene erfuellt: Flag labs1_abgebaut erst nach den zwei Adern (vorher ' + A.flagVorher + ', nachher ' + A.flag + ')');
+  ok(A.da.slice(0, 2).every((a) => Anker.zustand(A.g, A.lp, a.id) === 'abgebaut') && A.g.errors === 0, 'beide Adern abgebaut, g.errors 0');
+  ok(Fracht.anBord(A.g, 'erz') === 4 && Fracht.frei(A.g) === 0, 'Lager nach Typ-Regel: 3 + 1 = 4 Erz (nur was passt), voll');
+  ok(A.notes.length === 2 && A.notes.every((x) => x.pid === A.p.id) && /nur Platz für 1 von 3/.test(A.notes[0].text) && /1 von 3 Stapeln Erz mitgenommen/.test(A.notes[1].text) && rund(A).length === 0, 'Meldungen nur an die Spielerin: Hinweis und Ergebnis der zweiten Ader, kein Rundruf (' + A.notes.map((x) => x.text).join(' | ') + ')');
+  // b) fremde Ware im einzigen Modul: kein Erz passt, die Szene wird trotzdem erfuellt
+  const B = lauf(24, (g) => fuellen(g, 'bergungsgut', 1));
+  ok(Fracht.anBord(B.g, 'bergungsgut') === 1 && B.modell.erz === 0, 'Ausgangslage: Bergungsgut im einzigen Modul, fuer Erz ist nichts frei');
+  ok(B.flag && B.da.slice(0, 2).every((a) => Anker.zustand(B.g, B.lp, a.id) === 'abgebaut'), 'Szene trotzdem erfuellt: beide Adern abgebaut, Flag gesetzt');
+  ok(Fracht.anBord(B.g, 'erz') === 0 && Fracht.anBord(B.g, 'bergungsgut') === 1, 'Lager unveraendert (Typ-Regel: ein Modul, eine Art)');
+  ok(B.notes.length === 4 && B.notes.every((x) => x.pid === B.p.id) && rund(B).length === 0, 'vier Meldungen (je Ader Hinweis und Ergebnis), nur an die Spielerin (' + B.notes.length + ')');
+  // c) mehrere Karten, leeres Startschiff: nie haengen, Lager = Modell
+  const bad = [];
+  for (const seed of [21, 22, 23, 25, 26, 27, 28, 29]) {
+    const C = lauf(seed);
+    const ok1 = C.da.length >= 2 && C.flag && C.da.slice(0, 2).every((a) => Anker.zustand(C.g, C.lp, a.id) === 'abgebaut') && Fracht.anBord(C.g, 'erz') === C.modell.erz && C.notes.length === C.modell.meldungen && C.notes.every((x) => x.pid === C.p.id) && rund(C).length === 0;
+    if (!ok1) bad.push(seed + ':' + C.da.length + '/' + C.flag + '/' + Fracht.anBord(C.g, 'erz') + '!=' + C.modell.erz);
+  }
+  ok(!bad.length, 'Seeds 21-29 (ohne 24): Szene erfuellt, Lager gleich Modell, Meldungen nur an die Spielerin (' + (bad.join(' ') || 'alle ok') + ')');
 });
 
 console.log(`\n${n - fails}/${n} Pruefungen ok${fails ? ' - ' + fails + ' FEHLER' : ''}`);

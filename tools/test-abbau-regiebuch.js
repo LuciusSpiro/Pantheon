@@ -10,7 +10,6 @@ const { Game } = require('../server/game.js');
 const interior = require('../server/sim/interior.js');
 const combat = require('../server/sim/combat.js');
 const Anker = require('../server/sim/anker.js');
-const Fracht = require('../server/sim/fracht.js');
 const L = require('../server/sim/landepunkte.js');
 const W = require('../server/world.js');
 const GenHoehle = require('../shared/gen-hoehle.js');
@@ -49,9 +48,7 @@ function szene(art, opts) {
   S.aktion = (o) => g.mission.act(Object.assign({ do: 'abbau_neu', map: id }, o));
   return S;
 }
-// WRK-01 A2: Erz ist Fracht und braucht Platz (Regeln: tools/test-abbau-frachtraum.js); dieser Test prueft Regiebuch und Bedingungen, jeder Abbau bekommt ein leeres Lager
 function abbauen(S, aid) {
-  Fracht.debug(S.g, ['leer']);
   const a = S.k.anker.find((q) => q.id === aid);
   const c = Physics.tileCenter(a.x, a.y);
   S.p.x = c.x; S.p.y = c.y; S.p.hold = { kind: 'anker:abbau', anker: aid, dur: 5, t: 5 };

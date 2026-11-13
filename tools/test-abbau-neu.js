@@ -58,9 +58,8 @@ function szene(art, opts) {
   return S;
 }
 // einen echten Abbau-Abschluss (Halten vollendet) an einer Ader auslösen
-// WRK-01 A2: Erz ist Fracht (Platz- und Typ-Regeln: tools/test-abbau-frachtraum.js). Dieser Test stellt nur den Ablauf nach: jeder Abbau bekommt ein leeres Lager und liest danach, was ankam.
+// WRK-01 A2: Erz ist Fracht (Platz- und Typ-Regeln: tools/test-abbau-frachtraum.js); das Lager wird nicht geleert, der Abbau gelingt immer und lagert ein, was passt.
 function abbauen(S, aid) {
-  Fracht.debug(S.g, ['leer']);
   const a = S.k.anker.find((q) => q.id === aid);
   const c = Physics.tileCenter(a.x, a.y);
   S.p.x = c.x; S.p.y = c.y; S.p.hold = { kind: 'anker:abbau', anker: aid, dur: 5, t: 5 };
@@ -199,8 +198,8 @@ section('5. Mission 1 baut alles ab, abbauNeu, Mission 2 am selben Landepunkt: f
   const m1 = S.aktiv(); const erz0 = Vorrat.stand(g, 'erz');
   ok(!('erz' in g.inventory) && erz0 === 0, 'vor dem ersten Abbau gibt es das Konto erz nicht (spätes Konto, Golden bleibt)');
   let summe = 0, jeAbbauOk = true;
-  for (const aid of m1) { const soll = Anker.abbauMenge(g, S.id, S.k.anker.find((a) => a.id === aid)).menge; abbauen(S, aid); summe += soll; if (Fracht.anBord(g, 'erz') !== soll) jeAbbauOk = false; }
-  ok(jeAbbauOk && !('erz' in g.inventory) && Vorrat.stand(g, 'erz') === 0, 'WRK-01 A2: jeder Abbau legt genau seine Menge als Erz in den Frachtraum, das alte Konto inventory.erz bleibt unberührt');
+  for (const aid of m1) { const soll = Anker.abbauMenge(g, S.id, S.k.anker.find((a) => a.id === aid)).menge; const vor = Fracht.anBord(g, 'erz'), frei = Fracht.freiFuer(g, 'erz'); abbauen(S, aid); summe += soll; if (Fracht.anBord(g, 'erz') - vor !== Math.min(soll, frei) || S.z(aid) !== 'abgebaut') jeAbbauOk = false; }
+  ok(jeAbbauOk && !('erz' in g.inventory) && Vorrat.stand(g, 'erz') === 0, 'WRK-01 A2: jeder Abbau gelingt und legt min(Menge, freie Plätze) Erz in den Frachtraum, das alte Konto inventory.erz bleibt unberührt');
   ok(m1.every((aid) => S.z(aid) === 'abgebaut') && S.aktiv().length === 0, 'Mission 1: alle aktiven Adern abgebaut');
   ok(Vorrat.GUETER.includes('erz') && Vorrat.GRUENDE.includes('abbau') && g.errors === 0, 'erz ist ein Vorratsgut, abbau ein Buchungsgrund, die Buchungen zählen keinen Fehler (buchung-gut/-grund)');
   ok(summe >= m1.length && summe <= 3 * m1.length, 'Summe der Mengen ' + summe + ' (1 bis 3 je Ader)');
@@ -208,8 +207,8 @@ section('5. Mission 1 baut alles ab, abbauNeu, Mission 2 am selben Landepunkt: f
   ok(fe.length === m1.length && fe.every((x) => x[1].art === 'erz' && x[1].menge >= 1 && x[1].menge <= 3) && fe.reduce((s, x) => s + x[1].menge, 0) === summe, 'Ereignis abbauFertig trägt Menge und Art, Summe stimmt');
   ok(S.buchungen.filter((b) => b.konto === 'erz').length === 0, 'Telemetrie: keine Vorrat-Buchung konto erz mehr (Erz läuft über den Frachtraum)');
   // einmalig je Mission: dieselbe Ader nicht noch einmal
-  abbauen(S, m1[0]);
-  ok(Fracht.anBord(g, 'erz') === 0 && S.z(m1[0]) === 'abgebaut', 'einmalig: derselbe Abbau lagert nichts mehr ein');
+  const erzVor = Fracht.anBord(g, 'erz'); abbauen(S, m1[0]);
+  ok(Fracht.anBord(g, 'erz') === erzVor && S.z(m1[0]) === 'abgebaut', 'einmalig: derselbe Abbau lagert nichts mehr ein');
   // abbauNeu
   const ne0 = S.evn('abbauNeu').length;
   ok(Anker.abbauNeu(g, S.id) === null && e.abbau_runde === 1, 'abbauNeu: Rückgabe null, abbau_runde 1');
@@ -222,7 +221,7 @@ section('5. Mission 1 baut alles ab, abbauNeu, Mission 2 am selben Landepunkt: f
   const ev = S.evn('abbauNeu'), me = S.menN('abbauNeu');
   ok(ev.length === ne0 + 1 && me.length === 1 && ev[ev.length - 1][1].map === S.id && ev[ev.length - 1][1].runde === 1 && JSON.stringify(ev[ev.length - 1][1].adern) === JSON.stringify(m2) && JSON.stringify(me[0][1]) === JSON.stringify(ev[ev.length - 1][1]), 'Ereignis abbauNeu {map, runde, adern} (Spiel und Mission), adern = aktive Adern');
   // Mission 2 abbauen: andere Mengenfolge möglich, Buchung addiert
-  let s2 = 0, ok2 = true; for (const aid of m2) { const soll = Anker.abbauMenge(g, S.id, S.k.anker.find((a) => a.id === aid)).menge; s2 += soll; abbauen(S, aid); if (Fracht.anBord(g, 'erz') !== soll) ok2 = false; }
+  let s2 = 0, ok2 = true; for (const aid of m2) { const soll = Anker.abbauMenge(g, S.id, S.k.anker.find((a) => a.id === aid)).menge; s2 += soll; const vor = Fracht.anBord(g, 'erz'), frei = Fracht.freiFuer(g, 'erz'); abbauen(S, aid); if (Fracht.anBord(g, 'erz') - vor !== Math.min(soll, frei) || S.z(aid) !== 'abgebaut') ok2 = false; }
   ok(ok2 && s2 >= m2.length, 'Mission 2 lagert ihre Mengen ein (' + s2 + ')');
   // Roh-Karte (frisch gebaut, ohne Zustände) ist in jeder Runde gleich
   Anker.abbauNeu(g, S.id); Anker.abbauNeu(g, S.id);

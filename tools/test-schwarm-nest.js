@@ -196,7 +196,6 @@ section('(c) bis zu 3 Lärmereignisse je Halt, Dauerabbau überschreitet max nie
     for (let i = 0; i < 50; i++) Kreatur.laermHoeren(S.g, { x: Q.x, y: Q.y, radius: 18 * TILE, stufe: 'laut' });
     ok(S.aw.kreaturSeq === seq && S.aw.kreaturen.length === len, 'laermHoeren x 50: keine neue Kreatur (kreaturSeq und Liste unverändert)');
     // Dauerabbau: Halte beginnen und abbrechen, abwechselnd an den übrigen Adern, dazu Verluste durch Beschuss
-    Fracht.debug(S.g, ['leer']);   // WRK-01 A2: das Erz des ersten Halts liegt im Frachtraum; ein volles Lager sperrt weitere Halte (dann gaebe es keinen Laerm), hier soll gehalten werden
     const ids = aderDa(S); if (ids.length < 1) throw new Error('keine Ader im Zustand da');
     let max = 0, ueber = 0, runden = 0, aufrufe0 = aufrufe, lebendMin = 99;
     const pro = () => { const l = S.schwarm().length; max = Math.max(max, l); lebendMin = Math.min(lebendMin, l); if (l > BRUT.max) ueber++; };
@@ -216,6 +215,27 @@ section('(c) bis zu 3 Lärmereignisse je Halt, Dauerabbau überschreitet max nie
     ok(S.aw.kreaturen.length <= BRUT.max + 1 + 4, 'die Liste wächst nicht (' + S.aw.kreaturen.length + ' Einträge): tote werden still entfernt');
     ok(S.fehler.length === 0, 'keine Fehler (' + S.fehler.join('|') + ')');
   } finally { Kreatur.laermHoeren = orig; BRUT.takt = takt0; }
+});
+
+// ---------- (c2) voller Frachtraum sperrt den Halt nicht: der Lärm bleibt (WRK-01 A2 Nacharbeit) ----------
+section('(c2) Frachtraum voll: der Halt beginnt trotzdem, die Ader wird abgebaut, der Lärm (3 Ereignisse) bleibt', () => {
+  const S = szene(5);
+  mitKoenigin(S);
+  const g = S.g;
+  while (Fracht.frei(g) > 0) { const r = Fracht.lagerAufnehmen(g, { art: 'bergungsgut', quelle: 'debug' }); if (!r.ok) throw new Error('Lager fuellen: ' + r.text); }
+  ok(Fracht.frei(g) === 0 && Fracht.freiFuer(g, 'erz') === 0, 'Ausgangslage: Frachtraum voll, fuer Erz ist nichts frei');
+  const ader = aderDa(S)[0];
+  const a = S.k.anker.find((q) => q.id === ader); const l = []; Anker.interactionsAt(g, S.p, a.x, a.y, l);
+  ok(l.length === 1 && !l[0].blocked && l[0].op === 'abbauen' && !!l[0].hinweis, 'Angebot ist nicht gesperrt, es traegt einen Hinweis (' + (l[0] && l[0].hinweis) + ')');
+  zuAder(S, ader); act(S, true);
+  S.lauf(0.3);
+  ok(Anker.zustand(g, S.id, ader) === 'laeuft' && !!S.p.hold, 'der Halt beginnt trotz vollem Lager (Ader laeuft)');
+  S.lauf(DAUER + 2 * TAKT);
+  const halt = S.me_('abbauLaerm').length;
+  ok(halt === 3, 'ganzer Halt am vollen Lager: genau 3 Laermereignisse (' + halt + ')');
+  ok(Anker.zustand(g, S.id, ader) === 'abgebaut' && Fracht.anBord(g, 'erz') === 0, 'Ader abgebaut, nichts eingelagert');
+  act(S, false);
+  ok(S.fehler.length === 0, 'keine Fehler (' + S.fehler.join('|') + ')');
 });
 
 // ---------- (d) Heimweg ----------

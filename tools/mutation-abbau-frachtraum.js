@@ -1,5 +1,5 @@
 'use strict';
-// WRK-01 A2: Mutationsprobe zu tools/test-abbau-frachtraum.js (Erz aus dem Abbau ist Fracht: Platzpruefung vorab und beim Abschluss, Typ-Regel, Einlagern, Meldung nur an die Spielerin, altes Konto).
+// WRK-01 A2: Mutationsprobe zu tools/test-abbau-frachtraum.js (Erz aus dem Abbau ist Fracht: der Abbau gelingt immer, eingelagert wird, was passt; Hinweis im Angebot, Meldung nur an die Spielerin, Typ-Regel, altes Konto; die echte Szene).
 // Kopiert Server, Shared, Content, public und die noetigen Tests in ein Temp-Verzeichnis (das Repo bleibt unberuehrt), aendert dort je Lauf EINE Regel und verlangt, dass der Test rot wird (Exit 1 MIT
 // FEHLER-Zeile). ABSTUERZE (Exit != 0 ohne FEHLER-Zeile) zaehlen NICHT als erkannt. Der Selbstcheck vorab verlangt, dass jeder Anker genau einmal im Quelltext steht (Exit 2, wenn nicht). --trocken prueft nur die Anker.
 //   node tools/mutation-abbau-frachtraum.js [--trocken] [begriff ...]
@@ -13,7 +13,7 @@ const TMP = fs.mkdtempSync(path.join(os.tmpdir(), 'pantheon-muta-abbau-frachtrau
 const kopiere = (rel) => fs.cpSync(path.join(ROOT, rel), path.join(TMP, rel), { recursive: true });
 ['server', 'shared', 'content', 'public'].forEach(kopiere);
 fs.mkdirSync(path.join(TMP, 'tools'), { recursive: true });
-for (const f of ['tools/test-abbau-frachtraum.js', 'tools/regie-fixture.js']) fs.copyFileSync(path.join(ROOT, f), path.join(TMP, f));
+for (const f of ['tools/test-abbau-frachtraum.js', 'tools/regie-fixture.js', 'tools/katalog.js']) fs.copyFileSync(path.join(ROOT, f), path.join(TMP, f));
 fs.copyFileSync(path.join(ROOT, 'package.json'), path.join(TMP, 'package.json'));
 // kein node_modules (Junction): rmSync am Ende soll nie in das echte Verzeichnis greifen; test-abbau-frachtraum braucht keine Fremdpakete
 const TESTS = [['tools/test-abbau-frachtraum.js']];
@@ -21,21 +21,27 @@ const TESTS = [['tools/test-abbau-frachtraum.js']];
 const AK = 'server/sim/anker.js';
 // [Datei, alter Text (genau einmal), neuer Text, Beschreibung]
 const MUTATIONEN = [
-  [AK, 'if (frei >= n) return null;', 'return null;', 'Platzpruefung fehlt (Ader wird trotz vollem Lager abgebaut, Erz verbrennt)'],
-  [AK, 'if (frei >= n) return null;', 'if (frei >= 1) return null;', 'Platzpruefung prueft nur einen Platz (Ausbeute passt nicht ganz hinein)'],
-  [AK, 'if (frei >= n) return null;', 'if (frei > n) return null;', 'Grenze: Platz gleich Menge zaehlt als zu wenig (off by one)'],
-  [AK, "const frei = F.freiFuer(game, 'erz');", 'const frei = F.frei(game);', 'Typ-Regel ignoriert (zaehlt nur freie Plaetze, nicht die Art je Modul)'],
-  [AK, "const pf = F.platzFuer(game, 'erz');", "const pf = { ok: true };", 'Ablehnungsgrund der Typ-Regel fehlt (immer nur Platzzahl-Text)'],
-  [AK, "return pf.ok ? `Frachtraum voll: die Ausbeute braucht ${n} Plätze, frei sind ${frei}.` : pf.text;", "return '';", 'Hindernis ohne Text (leere Meldung)'],
-  [AK, "else { const h = abbauHindernis(game, aw.map, a); if (h) block(h); else it({ op: 'abbauen' }); }", "else it({ op: 'abbauen' });", 'interactionsAt: kein Hindernis (Halten beginnt am vollen Lager)'],
-  [AK, "  if (kein) { abbauAbbrechen(game, aw.map, a.id, p.id); if (game.notice) game.notice(p, kein); return; }\n", '', 'abbauFertig: Hindernis ignoriert (Ader abgebaut, Erz verbrennt)'],
-  [AK, "if (kein) { abbauAbbrechen(game, aw.map, a.id, p.id); if (game.notice) game.notice(p, kein); return; }", "if (kein) { if (game.notice) game.notice(p, kein); return; }", 'abbauFertig: Ader bleibt im Zustand laeuft (Halter-Eintrag haengt, Endlos-Halten)'],
-  [AK, "if (kein) { abbauAbbrechen(game, aw.map, a.id, p.id); if (game.notice) game.notice(p, kein); return; }", "if (kein) { abbauAbbrechen(game, aw.map, a.id, p.id); return; }", 'abbauFertig: keine Meldung an die Spielerin'],
-  [AK, "if (game.notice) game.notice(p, kein);", "game.oda(kein, null);", 'Meldung geht an alle (ODA) statt nur an die Spielerin'],
-  [AK, 'fracht().erzEinlagern(game, m.menge);', "Vorrat.einlagern(game, m.art, m.menge, 'abbau');", 'Erz geht wieder ins alte Konto inventory.erz (kein Frachtplatz)'],
-  [AK, 'fracht().erzEinlagern(game, m.menge);', 'fracht().erzEinlagern(game, 1);', 'nur ein Stapel statt der ganzen Menge eingelagert'],
-  [AK, 'fracht().erzEinlagern(game, m.menge);', 'fracht().erzEinlagern(game, 0);', 'nichts eingelagert (Erz verbrennt)'],
-  [AK, 'const kein = abbauHindernis(game, aw.map, a, m);', 'const kein = null;', 'abbauFertig prueft den Platz nicht noch einmal (Platz verloren waehrend des Haltens)'],
+  // Hinweis im Angebot (abbauPlatzHinweis, interactionsAt, abbauStarten)
+  [AK, 'return frei >= n ? null : `Im', 'return null; `Im', 'Hinweis fehlt (kein Text, wenn der Platz kleiner als die Ausbeute ist)'],
+  [AK, 'return frei >= n ? null : `Im', 'return frei > n ? null : `Im', 'Hinweis: Grenze Platz gleich Menge zaehlt als zu wenig (off by one)'],
+  [AK, "const n = abbauMenge(game, map, a).menge; const frei = fracht().freiFuer(game, 'erz');", "const n = abbauMenge(game, map, a).menge; const frei = fracht().frei(game);", 'Hinweis ignoriert die Typ-Regel (zaehlt nur freie Plaetze)'],
+  [AK, "it(hw ? { op: 'abbauen', hinweis: hw } : { op: 'abbauen' });", "{ if (hw) block(hw); else it({ op: 'abbauen' }); }", 'Sperre kommt zurueck (Angebot gesperrt, das Halten startet nicht)'],
+  [AK, "it(hw ? { op: 'abbauen', hinweis: hw } : { op: 'abbauen' });", "it({ op: 'abbauen' });", 'Angebot traegt den Hinweis nicht'],
+  [AK, "    if (h.hinweis && game.notice) game.notice(p, h.hinweis);   // WRK-01 A2: Hinweis nur an die Spielerin, vor dem Halten\n", '', 'abbauStarten meldet den Hinweis nicht'],
+  [AK, 'game.notice(p, h.hinweis);', 'game.oda(h.hinweis, null);', 'Hinweis geht an alle (ODA) statt nur an die Spielerin'],
+  // Abschluss (abbauFertig)
+  [AK, "setzen(game, aw.map, a.id, 'abgebaut', p.id);", "if (fracht().freiFuer(game, 'erz') >= m.menge) setzen(game, aw.map, a.id, 'abgebaut', p.id); else { abbauAbbrechen(game, aw.map, a.id, p.id); return; }", 'Ader wird bei Platzmangel nicht abgebaut (bleibt da)'],
+  [AK, 'const e = fracht().erzEinlagern(game, m.menge);', "const e = fracht().freiFuer(game, 'erz') >= m.menge ? fracht().erzEinlagern(game, m.menge) : { ok: false, eingelagert: 0, rest: m.menge };", 'Alles-oder-nichts: Menge nicht gekappt, bei zu wenig Platz wird nichts mitgenommen'],
+  [AK, 'const e = fracht().erzEinlagern(game, m.menge);', "const e = fracht().erzEinlagern(game, 1);", 'nur ein Stapel statt der ganzen Menge eingelagert'],
+  [AK, 'const e = fracht().erzEinlagern(game, m.menge);', 'const e = { ok: true, eingelagert: 0 };', 'nichts eingelagert (Erz verbrennt, keine Meldung)'],
+  [AK, 'const e = fracht().erzEinlagern(game, m.menge);', "const e = (Vorrat.einlagern(game, m.art, m.menge, 'abbau'), { ok: true, eingelagert: m.menge });", 'Erz geht wieder ins alte Konto inventory.erz (kein Frachtplatz)'],
+  [AK, 'if (!e.ok && game.notice) game.notice(p,', 'if (false && game.notice) game.notice(p,', 'Meldung fehlt (Teilmenge ohne Text an die Spielerin)'],
+  [AK, 'if (!e.ok && game.notice) game.notice(p,', 'if (game.notice) game.notice(p,', 'Meldung auch wenn alles passt'],
+  [AK, 'if (!e.ok && game.notice) game.notice(p, e.eingelagert > 0', 'if (!e.ok) game.oda(e.eingelagert > 0', 'Meldung geht an alle (ODA) statt nur an die Spielerin'],
+  [AK, '`Frachtraum voll: ${e.eingelagert} von ${m.menge} Stapeln', '`Frachtraum voll: ${m.menge} von ${m.menge} Stapeln', 'Meldung nennt die Ausbeute statt der mitgenommenen Menge'],
+  [AK, 'menge: m.menge, art: m.art };', 'menge: e.eingelagert, art: m.art };', 'Ereignis traegt die mitgenommene statt der Ausbeute-Menge'],
+  // Abbruch bei Platzverlust (muss entfallen sein)
+  [AK, 'if (!b || !abbauHaelt(halter, a.id) ||', "if (!b || !abbauHaelt(halter, a.id) || fracht().freiFuer(game, 'erz') < 1 ||", 'Abbruch bei Platzverlust kommt zurueck (Halten bricht ab, sobald nichts mehr passt)'],
 ];
 
 const FILTER = process.argv.slice(2).filter((a) => !a.startsWith('--')).map((s) => s.toLowerCase());

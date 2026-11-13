@@ -192,7 +192,7 @@ function interactionsAt(game, p, tx, ty, list) {
       case 'abbau':   // GEL-03 A1: leer bietet nichts an (kein Hinweis); abgebaut ist erschöpft; ein Halter je Ader
         if (z === 'da' || z === 'laeuft') {
           if (abbauHalterAnderer(game, p, a.id)) block('Dort wird schon abgebaut.');
-          else { const h = abbauHindernis(game, aw.map, a); if (h) block(h); else it({ op: 'abbauen' }); }   // WRK-01 A2: kein Platz für die Ausbeute im Frachtraum: nichts anbieten, die Ader bleibt da
+          else { const hw = abbauPlatzHinweis(game, aw.map, a); it(hw ? { op: 'abbauen', hinweis: hw } : { op: 'abbauen' }); }   // WRK-01 A2: kleiner Frachtraum sperrt nie: Hinweis, der Halt startet trotzdem (abbauStarten meldet ihn)
         }
         else if (z === 'abgebaut') block('Die Ader ist erschöpft.');
         break;
@@ -395,6 +395,7 @@ function abbauStarten(game, p, h) {
   if (neu) {
     game.emit('abbauStart', { map: aw.map, anker: a.id, pid: p.id }); game.missionEvent('abbauStart', { map: aw.map, anker: a.id, pid: p.id });
     abbauLaerm(game, aw.map, a, p.id);
+    if (h.hinweis && game.notice) game.notice(p, h.hinweis);   // WRK-01 A2: Hinweis nur an die Spielerin, vor dem Halten
   }
 }
 // Halten endet ohne Ergebnis (Treffer, Loslassen, Verlassen): Halter-Eintrag weg, laeuft -> da. Kein Fortschritt. pid nur für den Zustandswechsel (Ereignis).
@@ -404,15 +405,12 @@ function abbauAbbrechen(game, map, id, pid) {
   delete lauf(aw).abbau[id];
   if (zustandIn(aw, k, id) === 'laeuft') setzen(game, map, id, 'da', pid || null);
 }
-// WRK-01 A2: Platz vorab: die ganze Ausbeute (m.menge Stapel Erz) muss in den Frachtraum passen (freiFuer, Typ-Regel), sonst Text für die Spielerin. Teilmengen gibt es nicht: nichts geht verloren.
-function abbauHindernis(game, map, a, m) {
-  const F = fracht(); const n = (m || abbauMenge(game, map, a)).menge;
-  const frei = F.freiFuer(game, 'erz');
-  if (frei >= n) return null;
-  const pf = F.platzFuer(game, 'erz');
-  return pf.ok ? `Frachtraum voll: die Ausbeute braucht ${n} Plätze, frei sind ${frei}.` : pf.text;
+// WRK-01 A2: Hinweis (sperrt nie): ist im Frachtraum weniger Platz für Erz (freiFuer, Typ-Regel) als die Ausbeute der Ader, sagt der Text es der Spielerin vor dem Halten. Sonst null.
+function abbauPlatzHinweis(game, map, a) {
+  const n = abbauMenge(game, map, a).menge; const frei = fracht().freiFuer(game, 'erz');
+  return frei >= n ? null : `Im Frachtraum ist nur Platz für ${frei} von ${n} Stapeln Erz – der Rest bleibt liegen.`;
 }
-// Halten vollendet: nur aus da/laeuft und nur durch den Halter (erster gewinnt); setzt abgebaut, lagert das Erz ein, meldet abbauFertig mit Menge und Art.
+// Halten vollendet: nur aus da/laeuft und nur durch den Halter (erster gewinnt); setzt abgebaut, lagert ein, was passt (WRK-01 A2: der Rest der Ausbeute bleibt liegen, Meldung nur an die Spielerin), meldet abbauFertig wie bisher mit der Menge der Ausbeute und Art.
 function abbauFertig(game, p, h) {
   const aw = game.away; const k = aw && karteVon(aw.map); if (!k) return;
   const a = ankerById(k, h.anker); if (!a || a.rolle !== 'abbau') return;
@@ -420,12 +418,11 @@ function abbauFertig(game, p, h) {
   if (z !== 'da' && z !== 'laeuft') return;
   if (abbauHalterAnderer(game, p, a.id)) return;
   const m = abbauMenge(game, aw.map, a);
-  const kein = abbauHindernis(game, aw.map, a, m);   // WRK-01 A2: Platz hat sich seit dem Start geändert: nichts verbrennt, die Ader bleibt da, nur die Spielerin erfährt es
-  if (kein) { abbauAbbrechen(game, aw.map, a.id, p.id); if (game.notice) game.notice(p, kein); return; }
   const L = lauf(aw);
   delete L.abbau[a.id];
   setzen(game, aw.map, a.id, 'abgebaut', p.id);
-  fracht().erzEinlagern(game, m.menge);   // WRK-01 A2: Erz ist Fracht (belegt Plätze, Typ-Regel); das alte Konto inventory.erz bekommt nichts mehr
+  const e = fracht().erzEinlagern(game, m.menge);   // WRK-01 A2: Erz ist Fracht (belegt Plätze, Typ-Regel); das alte Konto inventory.erz bekommt nichts mehr. Der Abbau gelingt immer, eingelagert wird, was passt
+  if (!e.ok && game.notice) game.notice(p, e.eingelagert > 0 ? `Frachtraum voll: ${e.eingelagert} von ${m.menge} Stapeln Erz mitgenommen, der Rest bleibt liegen.` : `${e.text || 'Frachtraum voll.'} Das Erz bleibt liegen.`);
   const d = { map: aw.map, anker: a.id, pid: p.id, menge: m.menge, art: m.art };
   game.emit('abbauFertig', d); game.missionEvent('abbauFertig', d);
   const c = mitte(a);
