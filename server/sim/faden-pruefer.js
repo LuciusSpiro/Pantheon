@@ -321,6 +321,8 @@ function katalogFehler() {
   for (const typ of Object.keys(B)) for (const ag of W.ausgaenge) { const e = typ + '_' + ag; if (!EREIGNIS.test(e)) out.push(fehl('KATALOG_EREIGNIS', `Beat-Typ "${typ}": das Ereignis "${e}" passt nicht zu ${EREIGNIS} (Gedächtnis des NSC)`)); }
   for (const [typ, c] of Object.entries(B)) if (c.ereignis_ohne_ware !== undefined && !(typeof c.ereignis_ohne_ware === 'string' && EREIGNIS.test(c.ereignis_ohne_ware))) out.push(fehl('KATALOG_EREIGNIS', `Beat-Typ "${typ}": ereignis_ohne_ware passt nicht zu ${EREIGNIS} (Gedächtnis des NSC)`));
   for (const [typ, c] of Object.entries(B)) if (c.verlegt_ort !== undefined && c.verlegt_ort !== true) out.push(fehl('KATALOG_VERLEGT_ORT', `Beat-Typ "${typ}": verlegt_ort ist true oder fehlt`));   // DYN-01 Nacharbeit: Wahrheitswert, nur true
+  const arten = require('../../content/welt/abenteuer-orte.json').arten;   // Daten direkt gelesen (kein Zyklus zu abenteuer-orte.js beim Laden des Katalogs)
+  for (const [typ, c] of Object.entries(B)) if (c.landeplatz_art !== undefined && !(Array.isArray(c.landeplatz_art) && c.landeplatz_art.length > 0 && c.landeplatz_art.every((a) => arten.includes(a)))) out.push(fehl('KATALOG_LANDEPLATZ_ART', `Beat-Typ "${typ}": landeplatz_art ist eine nicht leere Liste von Kartenarten aus content/welt/abenteuer-orte.json (${arten.join('/')}), nicht ${JSON.stringify(c.landeplatz_art)}`));   // WRK-01 B Nacharbeit: ein Tippfehler liesse jeden Plan mit dem Beat still an LANDEPLATZ_ART scheitern
   return out;
 }
 

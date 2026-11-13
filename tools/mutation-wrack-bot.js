@@ -18,16 +18,16 @@ for (const f of ['tools/spiel-wrack.js', 'tools/test-wrack-bot.js']) fs.copyFile
 fs.copyFileSync(path.join(ROOT, 'package.json'), path.join(TMP, 'package.json'));
 if (fs.existsSync(path.join(ROOT, 'node_modules'))) { try { fs.symlinkSync(path.join(ROOT, 'node_modules'), path.join(TMP, 'node_modules'), 'junction'); } catch (e) { /* kein Modul noetig */ } }
 
-const GA = 'server/game.js', FW = 'server/sim/faden-wrack.js', AO = 'server/sim/abenteuer-orte.js', BO = 'server/sim/faden-boden.js', FL = 'server/sim/faden-landung.js';
+const GA = 'server/game.js', FW = 'server/sim/faden-wrack.js', AO = 'server/sim/abenteuer-orte.js', BO = 'server/sim/faden-boden.js', RA = 'server/sim/faden-boden-rahmen.js';
 // [Datei, alter Text (genau einmal), neuer Text, Beschreibung, Fall des Tests]
 const MUTATIONEN = [
   [GA, 'if (this.weltsim) { try { FadenBoden.ereignis(this, { name, data }); }', 'if (false) { try { FadenBoden.ereignis(this, { name, data }); }', 'Haken in game.missionEvent (Verteiler) aus: der Beat erfaehrt nichts vom Boden', 'ruhig-1'],
-  [FW, 'if (L.niemandUnten(game, lp)) untenGewesen.delete(faden); else untenGewesen.add(faden);', 'untenGewesen.add(faden);', 'Start: der Beat gilt immer als unten gewesen (Frist-Lauf: gelungen, ohne dass jemand runter war)', 'frist'],
+  [FW, 'if (R.niemandUnten(game, lp)) untenGewesen.delete(faden); else untenGewesen.add(faden);', 'untenGewesen.add(faden);', 'Start: der Beat gilt immer als unten gewesen (Frist-Lauf: gelungen, ohne dass jemand runter war)', 'frist'],
   [AO, 'function ortAbraeumen(game, id) {', 'function ortAbraeumen(game, id) {\n  return false;', 'Abraeumen weg: der Ort bleibt nach dem Faden-Ende stehen', 'ruhig-1'],
   [FW, "if (ev.name === 'beuteGeborgen')", 'if (false)', 'Beute geborgen wird nicht vermerkt (Funk beim Fund fehlt, Abschlussfunk ohne Beute)', 'ruhig-1b'],
   [FW, "if (ev.name === 'ankerGelesen')", 'if (false)', 'Logbuch gelesen wird nicht vermerkt (Funk beim Logbuch fehlt, Abschlussfunk ohne Logbuch)', 'ruhig-1l'],
-  [BO, "notsprung: 'alle', beuteGeborgen: 'karte', ankerGelesen: 'karte' }", "notsprung: 'alle', ankerGelesen: 'karte' }", 'Verteiler kennt beuteGeborgen nicht', 'ruhig-1b'],
-  [FL, '  if (!verlangt(e) || besetztAn(game, lp)) return 0;', '  return 0;', 'Besetzung wird nie ausgefuehrt (raeuber ohne Gegner, auch nicht beim Runterbeamen)', 'raeuber-1'],
+  [BO, "  beuteGeborgen: 'karte',   // WRK-01 B: traegt data.map: nur der Faden der Karte", '', 'Verteiler kennt beuteGeborgen nicht', 'ruhig-1b'],
+  [RA, '  if (!verlangt(e) || besetztAn(game, lp)) return 0;', '  return 0;', 'Besetzung wird nie ausgefuehrt (raeuber ohne Gegner, auch nicht beim Runterbeamen)', 'raeuber-1'],
   [FW, "'abschluss_' + (x.beute ? 'mit' : 'ohne')", "'abschluss_ohne'", 'Abschlussfunk nennt die Beute nie', 'ruhig-1b'],
 ];
 

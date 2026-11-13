@@ -5,7 +5,7 @@
 //   A  ruhig/raeuber, Crew 1 und Crew 3, ohne und mit Beute und Logbuch: Faden abgeschlossen und gelungen, Gedaechtnis wrack_gelungen, Beats Geruecht > wrack > ende, mindestens ein Bot unten (Crew 3: zwei),
 //      beamedDown und beamedUp am Ort ohne Notrueckholung, Beute (beuteGeborgen, Ware im Lager) und Logbuch (ankerGelesen) nur wo verlangt, Startfunk und Abschlussfunk aus wrack-texte.json in der Variante, die
 //      zu Beute und Logbuch passt, Gegner nach der Tabelle boden-werte.json (ruhig 0, raeuber mindestens 1), Ort restlos weg, 0 Komponisten-Aufrufe, g.errors 0
-//   B  Frist-Lauf (die Crew bleibt oben): Beat wrack gescheitert, nie unten, Verzweigung ins Ende, Faden abgeschlossen, Ort weg, Scheitern-Funk, 0 Komponisten-Aufrufe, g.errors 0
+//   B  Frist-Lauf (die Crew bleibt oben): Beat wrack gescheitert, nie unten, Verzweigung ins Ende, Faden abgeschlossen, Ort weg, KEIN Abschlussfunk (das Frist-Scheitern spricht absichtlich nicht), 0 Komponisten-Aufrufe, g.errors 0
 //   C  Aufruf: falsche Werte geben Exit 2
 //   D  das Repo ist unberuehrt (git status wie vorher)
 //   node tools/test-wrack-bot.js [--behalte <ordner>] [--fall name,name]      Mutationsprobe: tools/mutation-wrack-bot.js

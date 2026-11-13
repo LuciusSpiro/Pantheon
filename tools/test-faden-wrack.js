@@ -2,7 +2,7 @@
 // WRK-01 B: Beat wrack (server/sim/faden-wrack.js, Texte content/faeden/wrack-texte.json, Besetzung aus boden-werte.json, Katalog beats.json). Die Erwartungen stehen hier selbst (Daten gelesen, nie aus dem Produktivcode abgeleitet).
 //   (a) Katalog: Felder, Katalogzeile hoechstens 440 Zeichen, Daten stimmig, Baustein und Handler angemeldet, Verteiler kennt beuteGeborgen/ankerGelesen, Mock nimmt den Beat nicht in Zufallsplaene
 //   (b) Pruefer: ohne landeplatz abgelehnt (Plan, Vorlage, Expander), nur Art schiff, Besetzung nur ruhig/raeuber; Plan besteht an allen spielbaren Hexen mit Szene
-//   (c) Besetzung aus Daten (ruhig 0 Gegner, raeuber mindestens 1); Grep-Test: keine Zahl, keine Fraktion, kein Beat-Name ausser dem eigenen im Servercode
+//   (c2) Rahmen (kein Landungs-Modul, eigener Logbuch-Zaehlername); (c) Besetzung aus Daten (ruhig 0 Gegner, raeuber mindestens 1); Grep-Test: keine Zahl, keine Fraktion, kein Beat-Name ausser dem eigenen im Servercode
 //   (d) Funk beim Start (je Besetzung), beim ersten Fund, beim Logbuch, beim Abschluss (vier Varianten), beim Scheitern; kein Spielername; je Ereignis genau einmal
 //   (e) Ausgang gelungen: ohne Beute und Logbuch, mit Beute, mit Logbuch, mit beidem; nur nach "unten gewesen" UND niemand mehr unten (ein Spieler, drei; Wege ohne beamedUp ueber Taetigkeit und Tick); Laden vergisst Merker
 //   (f) Scheitern: Frist (am Boden zaehlt keine), Notsprung, Notrueckholung (alle downed, recall), Faden-Ende; Ort restlos weg
@@ -175,6 +175,15 @@ await section('(a) Katalog, Daten, Baustein, Verteiler, Mock', async () => {
   ok(bp.parameter.besetzung.standard === 'ruhig' && JSON.stringify(bp.parameter.besetzung.erlaubt) === '["ruhig","raeuber"]' && bp.parameter.besetzung.erlaubt.every((e) => Object.prototype.hasOwnProperty.call(WERTE.besetzung.wert, e)), 'bauplan.parameter.besetzung: ruhig (Standard) oder raeuber, Schluessel der Tabelle aus boden-werte.json');
   ok(bp.aus.gelungen.status.includes('verbuendet') && bp.aus.gescheitert.status.includes('geflohen'), 'bauplan.aus: gelungen verbuendet/aktiv, gescheitert aktiv/geflohen');
   ok(Wrack.datenFehler().length === 0, 'Daten stimmig (datenFehler leer)' + (Wrack.datenFehler().length ? ': ' + Wrack.datenFehler().join(' | ') : ''));
+  ok(Pruefer.katalogFehler().length === 0, 'Pruefer.katalogFehler leer (landeplatz_art-Werte stehen in den Kartenarten)');
+  const alt = k.landeplatz_art;
+  try {
+    for (const [bad, was] of [[['schif'], 'Tippfehler schif'], [[], 'leere Liste'], ['schiff', 'Text statt Liste'], [['schiff', 'xx'], 'eine unbekannte Art unter guten']]) {
+      k.landeplatz_art = bad;
+      const f = Pruefer.katalogFehler().filter((t) => /KATALOG_LANDEPLATZ_ART/.test(t) && /"wrack"/.test(t));
+      ok(f.length === 1, 'katalogFehler meldet landeplatz_art mit ' + was + ' (' + f.length + ' Meldung)');
+    }
+  } finally { k.landeplatz_art = alt; }
   const kf = Bauplan.katalogFehler();
   ok(kf.length === 0, 'katalogFehler des Expanders leer' + (kf.length ? ': ' + kf.slice(0, 2).join(' | ') : ''));
   const zeile = Prompt.katalogText().split('\n').find((l) => l.startsWith('- wrack'));
@@ -252,18 +261,32 @@ await section('(c) Besetzung aus Daten, Grep-Test', async () => {
   T2.g.missionEvent('beamedDown', { players: [], map: T2.id });
   ok(soll >= 1 && gegner(T2.g, T2.id).length === soll && T2.g.errors === 0, 'raeuber nach reset/Laden: erstes beamedDown holt die Besetzung nach, genau einmal (' + gegner(T2.g, T2.id).length + ' von ' + soll + ')');
   // Grep-Test
-  const code = fs.readFileSync(path.join(__dirname, '..', 'server', 'sim', 'faden-wrack.js'), 'utf8');
+  const code = fs.readFileSync(path.join(__dirname, '..', 'server', 'sim', 'faden-wrack.js'), 'utf8').split(String.fromCharCode(13)).join('');   // CRLF-Checkout: sonst greift das Abschneiden der Zeilenkommentare (. trifft kein CR) nicht
   const werte = [];
   for (const e of Object.values(WERTE.besetzung.wert)) for (const w of Object.values(e)) werte.push(String(w));
-  const verboten = Array.from(new Set(['raubzug', 'rostmeute', 'herrenlos', 'klein', 'mittel', 'gross', 'bergungsgut'].concat(werte)));
+  const fremdeBeats = Object.keys(FD.BEATS).filter((k) => k !== 'wrack' && k !== 'bitte');   // kein Beat-Name ausser dem eigenen; bitte ausgenommen: faden-bitte.js ist das Funk-Modul (Bitte().funkVon), kein Beat-Bezug
+  const verboten = Array.from(new Set(['raubzug', 'rostmeute', 'herrenlos', 'klein', 'mittel', 'gross', 'bergungsgut'].concat(werte, fremdeBeats)));
   const ohneKommentar = code.split('\n').filter((l) => !/^\s*\/\//.test(l)).map((l) => l.replace(/\s\/\/ .*$/, '')).join('\n');
   const treffer = verboten.filter((w) => new RegExp('\\b' + w + '\\b', 'i').test(ohneKommentar));
-  ok(treffer.length === 0, 'faden-wrack.js enthaelt keinen Fraktions-, Staerke-, Haltungs- oder Warennamen (' + verboten.join(', ') + ')' + (treffer.length ? ': gefunden ' + treffer.join(', ') : ''));
+  ok(treffer.length === 0, 'faden-wrack.js enthaelt keinen Fraktions-, Staerke-, Haltungs-, Waren- oder fremden Beat-Namen (' + verboten.join(', ') + ')' + (treffer.length ? ': gefunden ' + treffer.join(', ') : ''));
   const zahlen = code.split('\n').filter((l) => !/^\s*\/\//.test(l)).map((l) => l.replace(/\/\/.*$/, '')).filter((l) => (l.replace(/'[^']*'|"[^"]*"|`[^`]*`/g, '').match(/(?<![\w.$])\d+(\.\d+)?\b/g) || []).some((z) => z !== '0' && z !== '1'));
   ok(zahlen.length === 0, 'faden-wrack.js enthaelt im Code (ohne Kommentare und Texte) keine Zahlenliterale ausser 0 und 1' + (zahlen.length ? ': ' + zahlen.slice(0, 2).join(' | ') : ''));
   const lang = ohneKommentar.split('function datenFehler')[0].split('\n').flatMap((l) => (l.match(/'(?:[^'\\\n]|\\.)*'|`(?:[^`\\\n]|\\.)*`/g) || []).filter((s) => s.length > 62));
   ok(lang.length === 0, 'faden-wrack.js enthaelt keinen langen Text im Code (Funktexte stehen in wrack-texte.json)' + (lang.length ? ': ' + lang[0].slice(0, 60) : ''));
   ok(Object.values(TEXTE).every((t) => t.length <= WERTE.text_max.wert && (t.match(/\{[^}]*\}/g) || []).every((x) => x === '{platz}' || x === '{ort}')), 'wrack-texte.json: nur {platz} und {ort}, alle hoechstens ' + WERTE.text_max.wert + ' Zeichen');
+});
+
+// ---------------------------------------------------------------- (c2)
+await section('(c2) Rahmen: faden-boden-rahmen.js statt Export aus landung, eigener Logbuch-Zaehlername', async () => {
+  const code = fs.readFileSync(path.join(__dirname, '..', 'server', 'sim', 'faden-wrack.js'), 'utf8');
+  const zeilen = code.split(String.fromCharCode(10)).filter((l) => !l.trim().startsWith('//'));
+  ok(!zeilen.join(' ').includes('faden-landung'), 'faden-wrack.js haengt nicht am Landungs-Modul (nur am Rahmen)');
+  ok(code.includes("require('./faden-boden-rahmen.js')"), 'faden-wrack.js nutzt faden-boden-rahmen.js');
+  const Regie = require('../server/sim/regie-befehle.js'), echt = Regie.schreibe;
+  let T;
+  try { Regie.schreibe = () => { throw new Error('Logbuch kaputt'); }; T = await aufbau({ art: 'schiff' }); } finally { Regie.schreibe = echt; }
+  ok(T.fehler.some((x) => /^faden-wrack-logbuch: Logbuch kaputt/.test(x)), 'Logbuchfehler des Wracks laeuft unter faden-wrack-logbuch: ' + T.fehler.join(' | '));
+  ok(!T.fehler.some((x) => /^faden-landung/.test(x)), 'kein Fehler des Wracks laeuft unter einem landung-Namen');
 });
 
 // ---------------------------------------------------------------- (d)
