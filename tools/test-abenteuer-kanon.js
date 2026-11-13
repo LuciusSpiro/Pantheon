@@ -40,6 +40,7 @@ function neu(seed, o) {
   const t = F.neuesSpiel({ crew: 3, seed: seed || 11, names: NAMEN, env: Object.assign({ FAEDEN: '1', LAGE_SPIELLEITER: '1', SPIELLEITER_LLM: 'mock', ABENTEUER_ANSCHLUSS: '0' }, o.env || {}) });
   t.g.lageSpielleiter = LS.create(t.g, { llm: LLM.create({ mode: 'mock' }), werte: { min_abstand_ticks: 1, deckel_je_sitzung: 0 }, abenteuerWerte: { deckel_je_sitzung: 0 } });
   t.g.lageSchalter = true;
+  t.g.mission.missions.sl_forschung = { state: 'done', ausgang: 'erfolg' };   // SON-01 C: Helix (Plan sondersektor in anschluss.json) ist in dieser Welt schon gelungen und wird nie angeboten: die Plaene dieses Tests sind die sechs aelteren
   t.c = t.cs[0];
   return t;
 }
@@ -609,7 +610,7 @@ section('E3 Eigenschaftstest: 300 Anschluss-Entscheidungen gegen eine eigene Rec
   ok(verstoss === 0, `nie ein Plan, der nicht passt, nie eine gesperrte Folge, solange ein anderer passt (${verstoss} Verstoesse; ${locker} Faelle ohne freien Plan, ${abgelehnt} Faelle mit abgelehnten Plaenen: gelockert)`);
   ok(gleichtyp === 0, 'nie derselbe Typ wie das letzte Abenteuer, solange ein anderer passt (' + gleichtyp + ')');
   ok(Object.keys(verteilung).length >= 4, 'alle vier moeglichen Plaene kommen vor: ' + JSON.stringify(verteilung));
-  ok(ANS_TYP.length === 6, 'sechs Standardplaene in den Daten');
+  ok(ANS_TYP.length === 7 && ANS_TYP[6] === 'sondersektor', 'sieben Standardplaene in den Daten (der siebte: Helix, in dieser Welt schon gelungen)');
 });
 
 // ======================================================================

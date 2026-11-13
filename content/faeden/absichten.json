@@ -357,6 +357,27 @@
         "anlass_vorlage": "Ein Schiff funkt um Hilfe und wartet auf Antwort."
       }
     },
+    "forschungsstation": {
+      "_hinweis": "SON-01 C: Sondersektor Helix (content/welt/sondersektoren.json, Beat sondersektor): die Crew rettet die Messreihe einer Forschungsstation im Gravimetriefeld hinter Pulverhorn und spielt dafuer das unveraenderte Regiebuch sl_forschung. Der Beat steht nicht im Katalog des Modells (nur_inszenierer), nur diese Absicht erreicht ihn. Die Welt entscheidet ueber das Nein (faden-pruefer.js pruefeLage ueber den Baustein): Pulverhorn muss vom Hafen aus in hoechstens 3 Spruengen erreichbar sein, und nach einem Erfolg gibt es die Absicht in derselben Partie nie wieder. Der Ort des Angebots ist der Hafen (der Beat verlegt den Ort selbst).",
+      "zweck": "Eine Forschungsstation im Gravimetriefeld hinter Pulverhorn braucht jemanden, der ihre Messreihe rettet; die Crew fliegt hin und spielt die Station (Gravitation, Monster, vier Pulte, Finale).",
+      "parameter": {},
+      "bezug": [],
+      "wendungen": ["keine"],
+      "ton_standard": "dringlich",
+      "prompt_zeile": "forschungsstation: Die Forschungsstation Helix hinter Pulverhorn bittet um Hilfe (Gravitationsfeld, Monster, vier Pulte). Keine Parameter, keine Wendung. Nur nahe Pulverhorn und nur einmal je Partie, sonst Nein.",
+      "standard": {"titel":"Helix ruft um Hilfe","bogen":{"einsatz":"Eine Forschungsstation im Gravimetriefeld braucht jemanden, der ihre Messreihe rettet.","wendung":"keine","preis":"Ohne Hilfe geht die Messreihe verloren."},"ton":"dringlich"},
+      "inszenierung": {
+        "ort": {"regel":"crew_hex"},
+        "skelett": {
+          "beats": [
+            {"typ":"sondersektor"},
+            {"typ":"abschluss"}
+          ]
+        },
+        "wendungen": {},
+        "anlass_vorlage": "Eine Forschungsstation im Gravimetriefeld braucht jemanden, der ihre Messreihe rettet."
+      }
+    },
     "forderung": {
       "zweck": "Ein Zollschiff (bei hoher Stufe ein Freibeuter) stellt die Lerche und will den Frachtraum pruefen: dulden, zahlen oder kaempfen. Nein ohne Ladung an Bord und ohne Rang Optio.",
       "parameter": {"tiefe":{"art":"liste","erlaubt":["voll","scan"],"standard":"voll"}},
