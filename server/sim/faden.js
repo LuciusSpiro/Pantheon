@@ -45,6 +45,7 @@ const r2 = (x) => Math.round(x * 100) / 100;
 const nat = (x, max) => (Number.isFinite(x) && x >= 0 ? Math.min(Math.floor(x), max) : 0);
 const ZAEHLER_MAX = 9999;
 const HEX = /^\d{4}$/;
+const KENNUNG_MAX = 64;   // Laenge einer Personenkennung in f.laufend (wie das Schema weltstand.schema.json)
 const aktive = P.aktive;
 
 // ---------- Schalter und Zustand
@@ -115,7 +116,6 @@ function ueberlebendeNamen(game, f, n) {
   const L = f && f.nsc ? N[f.nsc.fraktion] : null;
   if (!L || !(n > 0)) return [];
   const vergeben = require('./abenteuer-kanon.js').namenVergeben(zustandVon(game));
-  for (const l of require('./fracht.js').state(game).lager) if (l && l.name) vergeben.add(l.name);
   vergeben.add(f.nsc.name);   // Person 1 des Beats (steht in der Liste der Faeden, hier zur Sicherheit auch fuer einen Faden ausserhalb)
   const rng = strom(game, idNr(f.id), 'ueberlebende:' + f.beat);
   const pick = (arr) => arr[Math.floor(rng() * arr.length) % arr.length];
@@ -647,6 +647,10 @@ function leseFaden(x, F) {
     if (l.beat !== v.beats[f.beat].id) return { fehler: `${x.id}: laufender Beat passt nicht zur Vorlage` };
     f.laufend = { beat: l.beat, n: nat(l.n, ZAEHLER_MAX), seit: nat(l.seit, 1e9) };
     if (typeof l.gewaehlt === 'string' && (v.beats[f.beat].optionen || []).some((o) => o.id === l.gewaehlt)) f.laufend.gewaehlt = l.gewaehlt;
+    for (const k of ['aufgenommen', 'uebergeben']) {   // BEA-02 Nacharbeit: Personen des Beats rettung (faden-rettung.js), nur Kennungen dieses Fadens, hoechstens anzahl_max
+      const s = Array.isArray(l[k]) ? Array.from(new Set(l[k].filter((t) => typeof t === 'string' && t.length <= KENNUNG_MAX && t.startsWith(f.id + '.')))).slice(0, require('./faden-rettung.js').WERTE.anzahl_max.wert) : [];
+      if (s.length) f.laufend[k] = s;
+    }
   }
   if (phase === 'abgeschlossen') {
     const o = istObjekt(x.ausgang) ? x.ausgang : {};

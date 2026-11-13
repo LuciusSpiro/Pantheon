@@ -5,7 +5,8 @@
 // content/faeden/rettung-werte.json, Funktexte in rettung-texte.json, Frist und Pflicht im Katalog beats.json. Im Servercode steht keine Zahl und kein Name davon.
 //
 //   starten(game, faden, ctx)   Besetzung (geteilt mit landung), Ueberlebende setzen, Frachtraum pruefen, Funk. -> { laeuft: true }. Fehlt der Ort, scheitert der Beat.
-//     Ueberlebende: Person 1 ist der NSC des Fadens (Kennung <Fadenid>.u1, Name faden.nsc.name), 2 und 3 sind Lager-Eintraege {person, name} ohne Fadenzustand (Namen: faden.ueberlebendeNamen, namen.json). Die Kennungen
+//     Ueberlebende: Person 1 ist der NSC des Fadens (Kennung <Fadenid>.<Beat-Id>.u1, Name faden.nsc.name), 2 und 3 sind Lager-Eintraege {person, name} ohne Fadenzustand (Namen: faden.ueberlebendeNamen, namen.json, immer aus
+//       demselben Strom in fester Reihenfolge, vom Lagerstand unabhaengig: nach dem Laden dieselben Namen). Die Beat-Id in der Kennung trennt zwei rettung-Beats eines Fadens. Die Kennungen
 //       sind deterministisch: der Beat laeuft nach Speichern und Laden ohne eigenen Weltstand-Block weiter (die Personen im Lager stehen im Weltstand crew.fracht). Sie stehen auf Ankern der Karte (Rolle deckung, sonst
 //       nsc, zelle; away.spawnPersonDazu, injured false), die Karte wird ueber landepunkte.sobaldGeladen registriert (direkt nach dem Beat-Start ist sie nie im Cache). Fehler beim Setzen zaehlen (countError), werfen nie.
 //     Frachtraum: nimmt Fracht.platzFuer('person') keine Person auf (Modul mit anderer Ladung, voll, kein Frachtraum), meldet der Funk es beim Start und die Bordanzeige nennt den Klartext. Der Beat laeuft weiter und
@@ -15,7 +16,8 @@
 //     beamedUp        mit data.notrueckholung (Ausbluten, squadRecall, recall): niemand mehr unten, aber noch Ueberlebende am Boden = gescheitert (die Crew wurde geholt, sie ging nicht freiwillig)
 //     npcRescued      merkt die Person als aufgenommen (kein Nachsetzen); bewertet NICHT (die Person liegt erst nach dem zweiten Ereignis personAnBord im Lager)
 //     personAnBord    bewertet. Eine Aufnahme erzeugt zwei Ereignisse (npcRescued, personAnBord): der Zustand wird aus personen-bord.personAnBord abgeleitet, nie gezaehlt; es zaehlen nur Personen dieses Beats (nach person gefiltert)
-//     personAbgegeben merkt die Person als abgegeben und bewertet; das Ereignis traegt KEINEN Abgabeort (faden-boden.js), darum nach person filtern
+//     personAbgegeben nur data.abgabe station (personen-bord.js) merkt die Person als abgegeben und bewertet, nach person gefiltert (das Ereignis traegt keinen Abgabeort im Sinne von faden-boden.js); abgabe boden
+//                     (am Landepunkt abgesetzt) zaehlt NICHT: die Person steht wieder am Ort (Zeiger aufgenommen zurueck, Datensatz der Karte wieder da), der Beat laeuft weiter
 //     notsprung       gescheitert
 //   nachTaetigkeit(game), update(game)   bewertet bei jedem Takt der Taetigkeiten und bei jedem Tick (nur Faeden mit laufendem rettung-Beat: sonst sofort zurueck) und setzt fehlende Ueberlebende auf der lebenden
 //                                        Karte nach (Verdraengung, Neubau). Viele Wege nach oben melden kein beamedUp (siehe faden-boden.js).
@@ -23,8 +25,9 @@
 // abgegeben ist (ohne Bett gerettete zaehlen als erledigt, sie lassen sich nicht mehr abgeben). Gescheitert bei: Frist (faden.js; am Boden zaehlt keine Taetigkeit, bei abgegeben zaehlen die Taetigkeiten des Fluges zur Station),
 // Notsprung, Notrueckholung ohne dass noch jemand unten ist (und Ueberlebende am Boden), Faden-Ende, und wenn kein Weg mehr zum Ziel fuehrt (niemand mehr am Boden, bei abgegeben auch niemand mehr an Bord).
 // Den Ort raeumt der vorhandene Faden-Abschluss ab (abenteuer-orte.abraeumen). Bei Scheitern bleiben schon aufgenommene Personen im Lager (der Beat fasst sie nicht an, die Crew gibt sie ab oder behaelt sie).
-// Laufzeit-Zustand steht NICHT im Weltstand und nie im WeakMap(game): nur WeakSet/WeakMap auf das Faden-Objekt (aktiv, aufgenommen, abgegeben, Namen). Es faellt mit reset/Laden weg; danach gilt, was Lager und Karte hergeben.
-// Grenzen: (1) Wird nach Speichern und Laden eine schon abgegebene Person gesucht (ende abgegeben, mehrere Personen, Speichern zwischen den Abgaben), kennt der Beat sie nicht mehr: sie steht am Ort wieder da.
+// Weltstand: aufgenommen und uebergeben stehen als Listen von Personenkennungen in f.laufend (nur wenn nicht leer, Schema weltstand.schema.json, faden.js lesen), damit Speichern und Laden zwischen zwei Abgaben nichts verliert.
+// Laufzeit-Zustand sonst nie im Weltstand und nie im WeakMap(game): nur WeakSet/WeakMap auf das Faden-Objekt (aktiv, Namen, Merker fuer schon gemeldete Fehler). Er faellt mit reset/Laden weg; danach gilt, was Lager, Karte und f.laufend hergeben.
+// Grenzen: (1) Nach dem Laden ist die Karte neu gebaut (nicht im Weltstand): eine ohne Bett gerettete Person (Grenze 2) steht dann wieder am Ort, eine aufgenommene oder abgegebene nicht.
 // (2) Eine Person, die einem Spieler folgt und beim Hochbeamen ohne Ops-Beam "gerettet" wird (away.executeBeam), erzeugt nur npcRescued und kein Bett: sie zaehlt als erledigt.
 const D = require('./faden-daten.js');
 const Boden = require('./faden-boden.js');
@@ -47,10 +50,14 @@ const Objekte = () => require('../mission/objects.js');
 const logbuch = (game, e) => { try { require('./regie-befehle.js').schreibe(game, Object.assign({ art: 'faden_baustein', quelle: 'regie' }, e)); } catch (err) { fehlerZaehlen(game, 'faden-rettung-logbuch', err); } };
 
 const aktiv = new WeakSet();       // Faden-Objekte mit laufendem rettung-Beat (Tick-Pruefung)
-const aufgenommen = new WeakMap(); // Faden-Objekt -> Set(Personenkennung): schon von der Karte genommen (Beam oder Gerettet), nie wieder setzen
-const abgegeben = new WeakMap();   // Faden-Objekt -> Set(Personenkennung): an einer Station abgegeben
 const namenVon = new WeakMap();    // Faden-Objekt -> { beat, n, namen }: die Namen der Personen (Person 1 zuerst), je Beat gezogen
-const menge = (m, f) => { let s = m.get(f); if (!s) { s = new Set(); m.set(f, s); } return s; };
+const gemeldet = new WeakMap();    // Faden-Objekt -> Set(Karte|Person): das Scheitern des Setzens ist schon gemeldet (einmal je Person und Karte, nicht je Tick)
+// Aufgenommen (schon von der Karte genommen, Beam oder Gerettet, nie wieder setzen) und uebergeben (an einer Station abgegeben) stehen in f.laufend (Listen von Personenkennungen, nur wenn nicht leer):
+// dieses Feld steht ohnehin im Weltstand und ueberlebt Speichern und Laden (faden.js lesen)
+const hat = (f, k, person) => !!f.laufend && Array.isArray(f.laufend[k]) && f.laufend[k].includes(person);
+const merke = (f, k, person) => { if (f.laufend && !hat(f, k, person)) (f.laufend[k] = f.laufend[k] || []).push(person); };
+const vergiss = (f, k, person) => { if (hat(f, k, person)) { f.laufend[k] = f.laufend[k].filter((p) => p !== person); if (!f.laufend[k].length) delete f.laufend[k]; } };
+const meldeEinmal = (f, schluessel) => { let s = gemeldet.get(f); if (!s) { s = new Set(); gemeldet.set(f, s); } if (s.has(schluessel)) return false; s.add(schluessel); return true; };
 
 // ---------- Daten
 const anzahlVon = (beat) => {
@@ -81,7 +88,7 @@ function personen(game, f, beat) {
   }
   const lager = Fracht().state(game).lager;
   return c.namen.map((name, i) => {
-    const person = `${f.id}.${WERTE.person_praefix.wert}${i + 1}`;
+    const person = `${f.id}.${beat.id}.${WERTE.person_praefix.wert}${i + 1}`;
     const l = lager.find((x) => x.art === Bord().ART && x.person === person);
     return { person, name: l && l.name ? l.name : name };
   });
@@ -96,13 +103,13 @@ function ankerVon(game, lp) {
 }
 function platzieren(game, f, beat, lp, aw) {
   if (!aw) return;
-  const A = Away(), offen = menge(aufgenommen, f), weg = menge(abgegeben, f);
+  const A = Away();
   let anker = null;
   personen(game, f, beat).forEach((p, i) => {
-    if (offen.has(p.person) || weg.has(p.person) || Bord().personAnBord(game, p.person) || A.personMit(aw, p.person)) return;
+    if (hat(f, 'aufgenommen', p.person) || hat(f, 'uebergeben', p.person) || Bord().personAnBord(game, p.person) || A.personMit(aw, p.person)) return;
     anker = anker || ankerVon(game, lp);
     const a = anker.length ? anker[i % anker.length] : null;
-    if (!a || !A.spawnPersonDazu(game, lp, { x: a.x, y: a.y }, { person: p.person, name: p.name, injured: false })) fehlerZaehlen(game, 'faden-rettung', new Error(`Ueberlebende ${p.person} konnte an ${lp} nicht gesetzt werden`));
+    if (!a || !A.spawnPersonDazu(game, lp, { x: a.x, y: a.y }, { person: p.person, name: p.name, injured: false })) { if (meldeEinmal(f, lp + '|' + p.person)) fehlerZaehlen(game, 'faden-rettung', new Error(`Ueberlebende ${p.person} konnte an ${lp} nicht gesetzt werden`)); }   // das Nachsetzen versucht es weiter, gemeldet wird einmal
   });
 }
 function ueberlebendeSetzen(game, f, beat, lp) {
@@ -114,7 +121,7 @@ function ueberlebendeSetzen(game, f, beat, lp) {
 // im_lager | uebergeben | ohne_bett (gerettet ohne Bett, Gerettet-Weg der Karte) | weg (von der Karte genommen, nirgends) | unten (steht dort oder die Karte ist (noch) nicht da)
 function zustand(game, f, aw, p) {
   if (Bord().personAnBord(game, p.person)) return 'im_lager';
-  if (menge(abgegeben, f).has(p.person)) return 'uebergeben';
+  if (hat(f, 'uebergeben', p.person)) return 'uebergeben';
   const n = aw ? Away().personMit(aw, p.person) : null;
   if (n && n.rescued) return 'ohne_bett';
   if (n && !n.present) return 'weg';
@@ -179,9 +186,16 @@ const handler = {
       return;
     }
     if (!meine) return;
-    if (ev.name === 'npcRescued') { menge(aufgenommen, f).add(String(d.person)); return; }
-    if (ev.name === 'personAnBord') { menge(aufgenommen, f).add(String(d.person)); pruefenBeat(game, f, beat, lp); return; }
-    if (ev.name === 'personAbgegeben') { menge(abgegeben, f).add(String(d.person)); pruefenBeat(game, f, beat, lp); }
+    if (ev.name === 'npcRescued') { merke(f, 'aufgenommen', String(d.person)); return; }
+    if (ev.name === 'personAnBord') { merke(f, 'aufgenommen', String(d.person)); pruefenBeat(game, f, beat, lp); return; }
+    if (ev.name === 'personAbgegeben') {
+      if (d.abgabe === 'station') { merke(f, 'uebergeben', String(d.person)); pruefenBeat(game, f, beat, lp); return; }   // nur eine Abgabe an einer Station zaehlt
+      if (d.abgabe === 'boden') {   // am Boden abgesetzt (kein Abgabeort): die Person steht wieder am Ort und ist wieder zu holen
+        vergiss(f, 'aufgenommen', String(d.person));
+        const n = Away().personMit(lebendeKarte(game, lp), String(d.person));
+        if (n) { Away().setzePersonZustand(n, 'ok'); n.present = true; }
+      }
+    }
   },
 };
 Boden.anmelden(ART, handler);
@@ -193,7 +207,8 @@ const baustein = {
     const beat = ctx && ctx.beat;
     const lp = beat ? Landung.ortVon(game, faden, beat) : null;
     if (!lp) { logbuch(game, { ausgang: 'abgelehnt', key: ART, begruendung: 'Rettung ohne Ort: der Beat gilt als gescheitert', plan: { faden: faden.id } }); return { ausgang: 'gescheitert' }; }
-    aktiv.add(faden); aufgenommen.delete(faden); abgegeben.delete(faden); namenVon.delete(faden);   // ein neuer Beat beginnt ohne Vorgeschichte
+    aktiv.add(faden); namenVon.delete(faden); gemeldet.delete(faden);   // ein neuer Beat beginnt ohne Vorgeschichte (f.laufend ist neu: aufgenommen und abgegeben leer)
+    if (faden.laufend) { delete faden.laufend.aufgenommen; delete faden.laufend.uebergeben; }
     Landung.besetzungAnlegen(game, beat, lp, ART);
     ueberlebendeSetzen(game, faden, beat, lp);
     const modus = endeVon(beat), nsc = Faden().nscVon(game, faden.nsc.id) || faden.nsc, v = { platz: Landung.platzName(faden, beat), ort: Landung.hexName(faden.parameter && faden.parameter.ort), name: faden.nsc.name };

@@ -241,7 +241,7 @@ await section('(b) Wrack ohne landung: 1, 2, 3 Ueberlebende, Namen, Funk', async
     ok(T.gestartet && f.phase === 'laeuft' && !!aw, `${k}: Beat laeuft am Wrack (Art schiff), keine landung davor`);
     ok(pers.length === k, `${k}: ${pers.length} Ueberlebende stehen am Ort (Standard 3 ohne Parameter anzahl)`);
     const namen = pers.map((q) => q.name);
-    ok(namen.includes(f.nsc.name) && pers.some((q) => q.person === `${f.id}.u1` && q.name === f.nsc.name), `${k}: Person ${f.id}.u1 ist der Faden-NSC (${f.nsc.name})`);
+    ok(namen.includes(f.nsc.name) && pers.some((q) => q.person === `${f.id}.${f.laufend.beat}.u1` && q.name === f.nsc.name), `${k}: Person ${f.id}.${f.laufend.beat}.u1 ist der Faden-NSC (${f.nsc.name})`);
     ok(new Set(namen).size === k, `${k}: keine Doppelten (${namen.join(', ')})`);
     const frei = volkNamen(volk), vergeben = Kanon.namenVergeben(Faden.zustandVon(g));
     ok(namen.slice().filter((x) => x !== f.nsc.name).every((x) => frei.has(x) && !vergeben.has(x)), `${k}: die anderen Namen stehen in der Namensliste des Volkes ${volk} und nicht im Kanon oder bei einem Faden-NSC`);
@@ -275,13 +275,13 @@ await section('(b) Wrack ohne landung: 1, 2, 3 Ueberlebende, Namen, Funk', async
   }
   ok(dopplt === 0 && leer === 0 && imKanon === 0, 'ueberlebendeNamen: 1500 Faden-Nummern, nie ein Doppelter untereinander oder zu einem vorhandenen Namen, immer zwei (' + dopplt + ' Doppelte, ' + leer + ' zu wenige)');
   ok(Faden.ueberlebendeNamen(Tn.g, { id: 'f1', beat: 0, nsc: { fraktion: 'zzz' } }, 2).length === 0, 'ueberlebendeNamen: unbekanntes Volk liefert keinen Namen (kein Wurf)');
-  // ein Name im Lager wird nicht noch einmal vergeben
+  // Namen sind vom Lagerstand unabhaengig: dieselben Namen vor und nach dem Laden (im Lager liegt dann eine der Personen mit ihrem Namen)
   const C = spiel(); hierHin(C);
   const f0 = oeffnen(C.g, '0904', plan('schiff', { anzahl: 3 }));
   const vorher = Faden.ueberlebendeNamen(C.g, f0, 2);
   Fracht.lagerAufnehmen(C.g, { art: 'person', person: 'x1', name: vorher[0], quelle: 'skript' });
   const nachher = Faden.ueberlebendeNamen(C.g, f0, 2);
-  ok(vorher.length === 2 && nachher.length === 2 && !nachher.includes(vorher[0]) && !nachher.includes(f0.nsc.name), 'ueberlebendeNamen: der Name einer Person im Frachtlager kommt nicht noch einmal (' + vorher.join(', ') + ' -> ' + nachher.join(', ') + ')');
+  ok(vorher.length === 2 && JSON.stringify(vorher) === JSON.stringify(nachher) && !nachher.includes(f0.nsc.name), 'ueberlebendeNamen: dieselben Namen vor und nach dem Lagerstand (' + vorher.join(', ') + ' -> ' + nachher.join(', ') + ')');
   ok(Faden.ueberlebendeNamen(C.g, f0, 0).length === 0, 'ueberlebendeNamen: 0 Namen auf Wunsch');
 });
 
@@ -298,12 +298,12 @@ await section('(c) Ops-Beamen: Betten 0 bis 2, ende an_bord gelungen', async () 
   g.missionEvent('personAnBord', { person: PB.personenAnBord(g)[0].id, name: 'Doppel' });
   g.missionEvent('personAbgegeben', { person: 'fremd', name: 'Fremd' });
   ok(f.phase === 'laeuft', 'eine fremde Person und ein doppeltes Ereignis aendern nichts (nach person gefiltert, Zustand aus dem Lager)');
-  g.missionEvent('npcRescued', { person: `${f.id}.u3`, map: T.id });
+  g.missionEvent('npcRescued', { person: `${f.id}.${f.laufend.beat}.u3`, map: T.id });
   ok(f.phase === 'laeuft', 'npcRescued allein bewertet nicht (die Person liegt noch nicht im Lager)');
   const f3 = aufnehmen(T, T.id, 1);
   ok(f3.length === 0 && PB.personenAnBord(g).length === 3, 'die dritte aufgenommen');
   ok(JSON.stringify(PB.personenAnBord(g).map((q) => q.bett)) === '[0,1,2]', 'Betten 0 bis 2');
-  ok(Fracht.state(g).lager.every((l) => l.art === 'person') && PB.personenAnBord(g).every((q) => /^f\d+\.u[123]$/.test(q.id)), 'im Lager: drei Personen mit den Kennungen des Beats');
+  ok(Fracht.state(g).lager.every((l) => l.art === 'person') && PB.personenAnBord(g).every((q) => /^f\d+\.[a-z0-9_]+\.u[123]$/.test(q.id)), 'im Lager: drei Personen mit den Kennungen des Beats');
   ok(f.phase === 'wartet' && beatId(f) === 'ende' && ereignisse(f).includes('rettung_gelungen') && !ereignisse(f).includes('rettung_gescheitert'), 'ende an_bord: gelungen, Gedaechtnis rettung_gelungen, weiter zum Abschluss');
   ok(T.radio.some((r) => r.text === TEXTE.rettung_gelungen.replace('{ort}', Sektoren.hexName('0904') || '0904')), 'Funk bei Erfolg (rettung_gelungen)');
   ok(offene(g, T.id).length === 0, 'am Ort steht niemand mehr');
@@ -326,13 +326,13 @@ await section('(c) Ops-Beamen: Betten 0 bis 2, ende an_bord gelungen', async () 
   // ein Mensch geht zu Fuss mit hoch (Gerettet-Weg der Karte, kein Bett): zaehlt als erledigt
   const S = await aufbau({ art: 'schiff', parameter: { anzahl: 2 } });
   runter(S, S.id);
-  const mit = away.offenePersonen(S.g.away).find((q) => q.person === `${S.f.id}.u2`);
+  const mit = away.offenePersonen(S.g.away).find((q) => q.person === `${S.f.id}.${S.f.laufend.beat}.u2`);
   mit.following = S.g.players[0].id; mit.x = S.g.players[0].x; mit.y = S.g.players[0].y;
   hoch(S);
   ok(S.f.phase === 'laeuft' && S.ev.includes('npcRescued') && !S.ev.includes('personAnBord'), 'Gerettet-Weg: npcRescued ohne personAnBord, der Beat laeuft (die andere Person wartet)');
   for (const id of ['hafen.kontor', 'helix.station', 'nebel.havarist']) LP.get(S.g, id);
   LP.get(S.g, S.id); S.run(1);
-  ok(S.f.phase === 'laeuft' && offene(S.g, S.id).length === 1 && offene(S.g, S.id)[0].person === `${S.f.id}.u1`, 'nach der Verdraengung der Karte wird die zu Fuss gerettete Person nicht noch einmal gesetzt (nur die andere wartet)');
+  ok(S.f.phase === 'laeuft' && offene(S.g, S.id).length === 1 && offene(S.g, S.id)[0].person === `${S.f.id}.${S.f.laufend.beat}.u1`, 'nach der Verdraengung der Karte wird die zu Fuss gerettete Person nicht noch einmal gesetzt (nur die andere wartet)');
   aufnehmen(S, S.id, 1);
   ok(S.f.phase === 'wartet' && ereignisse(S.f).includes('rettung_gelungen') && PB.personenAnBord(S.g).length === 1, 'die andere aufgenommen: gelungen (die zu Fuss gerettete zaehlt als erledigt)');
 });
@@ -476,9 +476,9 @@ await section('(g) Speichern und Laden, Verdraengung', async () => {
   const vorher = PB.personenAnBord(g).map((q) => [q.id, q.name, q.bett]);
   const data = JSON.parse(JSON.stringify(Weltstand.capture(g)));
   const fr = data.schiff && data.schiff.fracht;
-  ok(Array.isArray(fr) && fr.length === 2 && fr.every((x) => /^f\d+\.u[123]$/.test(x.p) && x.n && Number.isInteger(x.b)), 'Weltstand schiff.fracht traegt zwei Personen {p, n, b}: ' + JSON.stringify(fr));
+  ok(Array.isArray(fr) && fr.length === 2 && fr.every((x) => /^f\d+\.[a-z0-9_]+\.u[123]$/.test(x.p) && x.n && Number.isInteger(x.b)), 'Weltstand schiff.fracht traegt zwei Personen {p, n, b}: ' + JSON.stringify(fr));
   ok(Weltstand.validate(data, g).filter((x) => /fracht|faeden/.test(String(x))).length === 0, 'der Stand ist schemagueltig');
-  ok(!JSON.stringify(data.welt.sim.faeden).includes('.u3') && !JSON.stringify(data.welt.sim.faeden).includes('rettung-personen'), 'kein neuer Weltstand-Block: der Faden traegt nichts Eigenes des Beats im Stand');
+  ok(!JSON.stringify(data.welt.sim.faeden).includes('.u3"') && !JSON.stringify(data.welt.sim.faeden).includes('rettung-personen'), 'kein neuer Weltstand-Block: der Faden traegt nichts Eigenes des Beats im Stand');
   // Laden in ein frisches Spiel (der echte Weg: Weltstand.apply)
   const T2 = spiel();
   Weltstand.apply(T2.g, JSON.parse(JSON.stringify(data)));
@@ -493,7 +493,7 @@ await section('(g) Speichern und Laden, Verdraengung', async () => {
   T2.run(1);
   await tick(4);
   const rest = offene(g2, T.id);
-  ok(rest.length === 1 && rest[0].person === `${f2.id}.u3`, 'am Ort wartet nur noch die dritte Person (die zwei im Lager werden nicht noch einmal gesetzt): ' + rest.map((q) => q.person + ':' + q.name).join(','));
+  ok(rest.length === 1 && rest[0].person === `${f2.id}.${f2.laufend.beat}.u3`, 'am Ort wartet nur noch die dritte Person (die zwei im Lager werden nicht noch einmal gesetzt): ' + rest.map((q) => q.person + ':' + q.name).join(','));
   const name3 = rest.length ? rest[0].name : '';
   ok(!!name3 && !vorher.some((v) => v[1] === name3) && name3 !== f2.nsc.name, 'ihr Name ist keiner der beiden im Lager und nicht der des Faden-NSC (' + name3 + ')');
   const fe = aufnehmen(T2, T.id, 1);
@@ -587,6 +587,67 @@ await section('(i) Gegenprobe: ohne FAEDEN und ohne rettung-Beat nichts anders',
   grenzen(L.g, 2); L.run(3);
   ok(fl.phase === 'laeuft' && JSON.stringify(Fracht.state(L.g).lager) === lager0 && Object.keys(L.g.aways).length === aws && away.offenePersonen(L.g.aways[idL]).length === 0, 'laeuft nur landung: keine Ueberlebenden, Lager und Karten unveraendert');
   ok(L.g.errors === 0, 'g.errors 0');
+});
+
+// ---------------------------------------------------------------- (k) Nacharbeit Review
+await section('(k) Nacharbeit: Abgabe am Boden, zwei rettung-Beats, Laden zwischen Abgaben, Fehlerzahl', async () => {
+  // 1: nur eine Abgabe an einer Station bringt ende abgegeben (am Landepunkt abgesetzt: die Person steht wieder am Ort, der Beat laeuft weiter)
+  const A = await aufbau({ art: 'schiff', parameter: { ende: ABGEGEBEN, anzahl: 1 } });
+  aufnehmen(A, A.id, 1);
+  const orig = Fracht.stationOrt;
+  Fracht.stationOrt = () => ({ ok: false, reason: 'Hier ist keine Station (Test: Sektor ohne Station)' });
+  const aeA = []; const meA = A.g.missionEvent.bind(A.g); A.g.missionEvent = (nm, d) => { if (nm === 'personAbgegeben') aeA.push(d); return meA(nm, d); };
+  let errA; try { errA = abgeben(A, PB.personenAnBord(A.g)[0].id); } finally { Fracht.stationOrt = orig; }
+  A.run(1);
+  ok(errA === null && aeA.length === 1 && aeA[0].abgabe === 'boden', 'Abgabe ohne Station: das Ereignis traegt abgabe boden (' + JSON.stringify(aeA.map((d) => d.abgabe)) + ')');
+  ok(A.f.phase === 'laeuft' && beatId(A.f) === A.f.laufend.beat && !ereignisse(A.f).includes('rettung_gelungen'), 'am Landepunkt abgesetzt: der Beat gilt NICHT als gelungen (laeuft weiter)');
+  ok(offene(A.g, A.id).length === 1 && PB.personenAnBord(A.g).length === 0, 'die abgesetzte Person steht wieder am Ort und ist nicht im Lager');
+  ok(aufnehmen(A, A.id, 1).length === 0 && PB.personenAnBord(A.g).length === 1 && A.f.phase === 'laeuft', 'sie laesst sich wieder aufnehmen (Beat laeuft, ende abgegeben)');
+  zurStation(A);
+  ok(abgeben(A, PB.personenAnBord(A.g)[0].id) === null && A.f.phase === 'wartet' && ereignisse(A.f).includes('rettung_gelungen') && aeA[aeA.length - 1].abgabe === 'station', 'Gegenprobe: Abgabe an der Station gelingt (abgabe station)');
+  ok(A.g.errors === 0, 'g.errors 0 (1)');
+  // 2: zwei rettung-Beats in einem Faden: eigene Kennungen je Beat
+  const p2 = { format: 'faden-bauplan/1', titel: 'Schiffbruch im Sektor', anlass: 'Ein Schiff ist gestrandet und Menschen warten auf Hilfe.',
+    landeplaetze: [{ id: 'absturz', art: 'schiff', besitz: 'herrenlos', name: 'Absturzstelle' }],
+    beats: [{ id: 'r1', typ: 'rettung', parameter: { landeplatz: 'absturz', anzahl: 1 }, verzweigung: { gescheitert: 'ende' } }, { id: 'r2', typ: 'rettung', parameter: { landeplatz: 'absturz', anzahl: 1 }, verzweigung: { gescheitert: 'ende' } }, { id: 'ende', typ: 'abschluss' }] };
+  const B2 = await aufbau({ plan: p2 });
+  aufnehmen(B2, B2.id, 1);
+  ok(B2.f.phase === 'wartet' && beatId(B2.f) === 'r2', 'zwei Beats: r1 gelungen, r2 ist der naechste');
+  ok(beatStarten(B2.g, B2.f), 'r2 gestartet'); B2.run(0.2);
+  ok(B2.f.phase === 'laeuft' && B2.f.laufend.beat === 'r2' && ereignisse(B2.f).filter((e) => e === 'rettung_gelungen').length === 1, 'r2 gelingt nicht sofort (nur ein rettung_gelungen im Gedaechtnis)');
+  const o2 = offene(B2.g, B2.id);
+  ok(o2.length === 1 && o2[0].person === `${B2.f.id}.r2.u1` && PB.personenAnBord(B2.g)[0].id === `${B2.f.id}.r1.u1`, 'r2 hat eine eigene Person ' + (o2[0] && o2[0].person) + ' (im Lager liegt ' + PB.personenAnBord(B2.g).map((q) => q.id).join(',') + ')');
+  aufnehmen(B2, B2.id, 1);
+  ok(B2.f.phase === 'wartet' && beatId(B2.f) === 'ende' && ereignisse(B2.f).filter((e) => e === 'rettung_gelungen').length === 2 && B2.g.errors === 0, 'r2 endet erst mit ihrer eigenen Aufnahme gelungen');
+  // 3: Speichern und Laden zwischen zwei Abgaben (die Abgabe setzt markSaveDue): nichts geht verloren, nichts steht wieder am Wrack
+  const C = await aufbau({ art: 'schiff', parameter: { ende: ABGEGEBEN, anzahl: 2 } });
+  aufnehmen(C, C.id, 2);
+  zurStation(C);
+  const ids = PB.personenAnBord(C.g).map((q) => q.id);
+  ok(abgeben(C, ids[0]) === null && C.f.phase === 'laeuft', 'eine von zwei abgegeben: der Beat laeuft');
+  const data = JSON.parse(JSON.stringify(Weltstand.capture(C.g)));
+  ok(Weltstand.validate(data, C.g).filter((x) => /fracht|faeden/.test(String(x))).length === 0, 'Stand zwischen den Abgaben ist schemagueltig');
+  const sf = data.welt.sim.faeden.liste.find((x) => x.id === C.f.id);
+  ok(sf && sf.laufend && JSON.stringify(sf.laufend.uebergeben) === JSON.stringify([ids[0]]) && sf.laufend.aufgenommen.length === 2, 'f.laufend traegt die abgegebene und die aufgenommenen Kennungen im Weltstand');
+  const C2 = spiel(); Weltstand.apply(C2.g, JSON.parse(JSON.stringify(data)));
+  C2.p = C2.g.players[0]; C2.f = C2.g.weltsim.faeden.liste.find((x) => x.id === C.f.id); C2.id = C.id;
+  ok(C2.f && C2.f !== C.f && JSON.stringify(C2.f.laufend.uebergeben) === JSON.stringify([ids[0]]), 'nach dem Laden (Weltstand.apply) steht die Abgabe im neuen Faden-Objekt');
+  hierHin(C2, STATION); LP.get(C2.g, C.id); C2.run(1); await tick(4);
+  ok(C2.f.phase === 'laeuft' && offene(C2.g, C.id).length === 0, 'die abgegebene Person steht nicht wieder am Wrack, die im Lager auch nicht (' + offene(C2.g, C.id).length + ' am Ort)');
+  C2.p.console = 'weapons'; zurStation(C2);   // die Ops (Waffen-Konsole) gibt ab
+  ok(abgeben(C2, PB.personenAnBord(C2.g)[0].id) === null && C2.f.phase === 'wartet' && ereignisse(C2.f).includes('rettung_gelungen'), 'nach dem Laden die zweite abgegeben: der Beat ist gelungen');
+  ok(C2.g.errors === 0, 'g.errors 0 (3)');
+  // 5: ein volles Personenkontingent der Karte meldet einmal je Person, nicht je Tick; das Nachsetzen versucht es weiter
+  const D5 = await aufbau({ art: 'schiff', parameter: { anzahl: 3 } });
+  const aw5 = D5.g.aways[D5.id], vor5 = D5.fehler.length;
+  aw5.npcs = aw5.npcs.filter((q) => !String(q.person).startsWith(D5.f.id));
+  for (let i = 0; i < CONFIG.personen.maxGleichzeitig; i++) away.spawnPersonDazu(D5.g, D5.id, { x: 5, y: 5 }, { person: 'fremd' + i, name: 'F' + i });
+  D5.run(2);
+  const fehlerN = D5.fehler.length - vor5;
+  ok(fehlerN >= 1 && fehlerN <= 3, 'Karte voll: hoechstens ein Fehler je Person in 2 s (' + fehlerN + ', nicht je Tick)');
+  aw5.npcs = aw5.npcs.filter((q) => !String(q.person).startsWith('fremd'));
+  D5.run(1);
+  ok(offene(D5.g, D5.id).length === 3, 'Platz wieder frei: das Nachsetzen stellt alle drei (' + offene(D5.g, D5.id).length + ')');
 });
 
 // ---------------------------------------------------------------- (j)

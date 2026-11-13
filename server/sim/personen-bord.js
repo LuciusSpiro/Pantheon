@@ -150,7 +150,7 @@ function haltFertig(game, h) {
   } else {
     const o = abgabeOrt(game);
     if (!o.ok || !personAnBord(game, h.id)) { game.emit('frachtBeamen', { phase: 'abbruch', was: 'person_ab', grund: 'ort' }); return; }
-    const pers = auslagern(game, h.id, o.name);
+    const pers = auslagern(game, h.id, o.name, o.art);
     game.emit('frachtBeamen', { phase: 'fertig', was: 'person_ab', art: ART });
     if (pers && o.art === 'boden' && game.away) away().personAbsetzen && away().personAbsetzen(game, game.away, pers);
   }
@@ -165,13 +165,13 @@ function einlagern(game, id, name, quelle) {
   if (game.markSaveDue) game.markSaveDue('personAnBord');
   return true;
 }
-function auslagern(game, id, ortName) {
+function auslagern(game, id, ortName, art) {
   const s = Fracht.state(game);
   const i = s.lager.findIndex((l) => l.art === ART && l.person === String(id));
   if (i < 0) return null;
   const l = s.lager.splice(i, 1)[0];
   game.oda(`${l.name} übergeben${ortName ? ' – ' + ortName : ''}.`, null);
-  game.missionEvent('personAbgegeben', { person: l.person, name: l.name, ort: game.ship.scene, map: game.away ? game.away.map : null, name_ort: ortName || null });
+  game.missionEvent('personAbgegeben', { person: l.person, name: l.name, ort: game.ship.scene, map: game.away ? game.away.map : null, name_ort: ortName || null, abgabe: art || null });   // abgabe: 'station' | 'boden' (abgabeOrt.art), null bei Skript und Debug
   if (game.markSaveDue) game.markSaveDue('personAbgegeben');
   return l;
 }

@@ -26,7 +26,7 @@ const MUTATIONEN = [
   [FR, "if (zs.every((z) => erledigt.includes(z))) return 'gelungen';", "if (zs.some((z) => erledigt.includes(z))) return 'gelungen';", 'Ausgang gelungen: schon eine Person genuegt statt aller'],
   [FR, "const erledigt = uebergabe ? ['uebergeben', 'ohne_bett'] : [", "const erledigt = uebergabe ? ['uebergeben', 'ohne_bett', 'im_lager'] : [", 'Ausgang ende abgegeben: eine Person im Lager zaehlt schon als abgegeben'],
   [FR, "return weiter ? null : 'gescheitert';", 'return null;', 'Scheitern ohne Weg: keine Ueberlebende mehr erreichbar wird nicht erkannt'],
-  [FR, "if (ev.name === 'npcRescued') { menge(aufgenommen, f).add(String(d.person)); return; }", "if (ev.name === 'npcRescued') { menge(aufgenommen, f).add(String(d.person)); pruefenBeat(game, f, beat, lp); return; }", 'Doppelereignis: npcRescued bewertet schon (die Person liegt noch nicht im Lager)'],
+  [FR, "if (ev.name === 'npcRescued') { merke(f, 'aufgenommen', String(d.person)); return; }", "if (ev.name === 'npcRescued') { merke(f, 'aufgenommen', String(d.person)); pruefenBeat(game, f, beat, lp); return; }", 'Doppelereignis: npcRescued bewertet schon (die Person liegt noch nicht im Lager)'],
   [FR, "if (n && n.rescued) return 'ohne_bett';", "if (n && n.rescued) return 'unten';", 'Gerettet-Weg der Karte (ohne Bett) wird nicht als erledigt erkannt'],
   [FR, "if (Bord().personAnBord(game, p.person)) return 'im_lager';", "if (Bord().personAnBord(game)) return 'im_lager';", 'Filter nach person: jede Person im Lager (auch eine fremde) zaehlt als an Bord'],
   // Frachtraum-Hinweis
@@ -52,9 +52,16 @@ const MUTATIONEN = [
   [FR, "{ person: p.person, name: p.name, injured: false }", "{ person: p.person, name: p.name, injured: true }", 'Ueberlebende sind verletzt (injured true statt false)'],
   [FR, "namen: [f.nsc.name].concat(Faden().ueberlebendeNamen(game, f, n - 1))", "namen: [f.nsc.name].concat(Faden().ueberlebendeNamen(game, f, n))", 'Anzahl: eine Person zu viel (Beat hat n + 1 Personen)'],
   [FR, 'return Math.max(WERTE.anzahl_min.wert, Math.min(WERTE.anzahl_max.wert, n));', 'return n;', 'Anzahl wird nicht auf die Grenzen der Daten geklemmt'],
-  [FA, "for (const l of require('./fracht.js').state(game).lager) if (l && l.name) vergeben.add(l.name);", '', 'Namen: ein Name im Frachtlager wird noch einmal vergeben'],
+  [FA, "const rng = strom(game, idNr(f.id), 'ueberlebende:' + f.beat);", "for (const l of require('./fracht.js').state(game).lager) if (l && l.name) vergeben.add(l.name);\n  const rng = strom(game, idNr(f.id), 'ueberlebende:' + f.beat);", 'Namen: die Namen im Frachtlager zaehlen mit (nach dem Laden verschieben sich die Namen der Nebenfiguren)'],
   [FA, 'const frei = (t) => !vergeben.has(t) && !out.includes(t);', 'const frei = (t) => !vergeben.has(t);', 'Namen: Doppelte untereinander moeglich'],
-  [FA, "const vergeben = require('./abenteuer-kanon.js').namenVergeben(zustandVon(game));\n  for (const l of require('./fracht.js')", "const vergeben = new Set();\n  for (const l of require('./fracht.js')", 'Namen: die Namen des Kanons und der Faeden werden nicht ausgeschlossen'],
+  [FA, "const vergeben = require('./abenteuer-kanon.js').namenVergeben(zustandVon(game));\n  vergeben.add(f.nsc.name);", "const vergeben = new Set();\n  vergeben.add(f.nsc.name);", 'Namen: die Namen des Kanons und der Faeden werden nicht ausgeschlossen'],
+  // BEA-02 Nacharbeit (Review): Abgabe am Boden, Kennung je Beat, Laden zwischen Abgaben, Fehlerzahl
+  [FR, "if (d.abgabe === 'station') {", "if (d.abgabe) {", 'Abgabe am Boden (Landepunkt, keine Station) zaehlt als abgegeben'],
+  [FR, "if (d.abgabe === 'boden') {", "if (false) {", 'Am Boden abgesetzt: die Person steht nicht wieder am Ort (Datensatz bleibt gerettet, der Beat gilt als gelungen)'],
+  [FR, '`${f.id}.${beat.id}.${WERTE.person_praefix.wert}${i + 1}`', '`${f.id}.${WERTE.person_praefix.wert}${i + 1}`', 'Kennung ohne Beat-Bezug: zwei rettung-Beats eines Fadens teilen die Personen'],
+  [FA, 'if (s.length) f.laufend[k] = s;', '', 'Laden: aufgenommen und uebergeben aus f.laufend gehen verloren (Laden zwischen zwei Abgaben)'],
+  [FR, "if (hat(f, 'aufgenommen', p.person) || hat(f, 'uebergeben', p.person) ||", "if (", 'Nachsetzen: aufgenommene und abgegebene Personen werden nach dem Laden wieder auf die Karte gesetzt'],
+  [FR, "if (meldeEinmal(f, lp + '|' + p.person)) fehlerZaehlen(", 'if (true) fehlerZaehlen(', 'Fehler beim Setzen: jeder Tick zaehlt einen Fehler statt einmal je Person und Karte'],
   // Daten
   [BT, '"zweck": "Ueberlebende finden, an Bord beamen, optional abgeben.",', '"zweck": "Ueberlebende finden, an Bord beamen, optional abgeben, ' + 'mit einer viel zu langen Beschreibung. '.repeat(4) + '",', 'Katalogzeile laenger als 400 Zeichen'],
   [FR, 'if (hi > CONFIG.personen.maxGleichzeitig) out.push(', 'if (false) out.push(', 'Katalogpruefung: anzahl_max ueber CONFIG.personen.maxGleichzeitig wird nicht gemeldet'],
