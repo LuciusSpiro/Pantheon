@@ -244,6 +244,26 @@
         "anlass_vorlage": "Ein Haendler wurde verschleppt und wird von Wachschiffen festgehalten."
       }
     },
+    "bergung": {
+      "zweck": "Ein Schiff oder Posten ruft um Hilfe: nach dem Notruf landet die Crew am Wrack, birgt die Ueberlebenden und gibt sie an einer Station ab (BEA-02 C; die Absicht rettung bleibt die Befreiung eines entfuehrten NSC). Scheitert die Rettung, endet das Abenteuer ohne Dank.",
+      "parameter": {"text_key":{"art":"liste","erlaubt":["notruf_standard","notruf_havarie"],"standard":"notruf_havarie"}},
+      "bezug": [],
+      "wendungen": ["keine"],
+      "ton_standard": "dringlich",
+      "prompt_zeile": "bergung: Ein Schiff ruft um Hilfe, die Crew birgt die Überlebenden am Wrack und gibt sie an einer Station ab. Parameter text_key: notruf_standard|notruf_havarie. Keine Wendung.",
+      "inszenierung": {
+        "ort": {"regel":"ziel_im_umkreis"},
+        "skelett": {
+          "landeplaetze": [{"id":"ort","art":"schiff"}],
+          "beats": [
+            {"typ":"notruf","parameter":{"text_key":{"aus":"parameter.text_key"}},"verzweigung":{"gescheitert":"ende"}},
+            {"typ":"rettung","parameter":{"landeplatz":"ort","ende":"abgegeben"},"verzweigung":{"gescheitert":"ende"}},
+            {"id":"ende","typ":"abschluss","erfolg":["rettung"]}
+          ]
+        },
+        "anlass_vorlage": "Ein Schiff treibt havariert im All und ruft um Hilfe."
+      }
+    },
     "jagd": {
       "zweck": "Ein Schiff flieht und die Crew jagt es (Szene Verfolgung); bei hoeherer Stufe sichern Begleitschiffe die Flucht.",
       "parameter": {"fluchtziel":{"art":"liste","erlaubt":["naechster_sprungpunkt","nachbar_ort","heimat"],"standard":"naechster_sprungpunkt"}},

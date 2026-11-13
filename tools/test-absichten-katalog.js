@@ -143,7 +143,7 @@ section('prompt_zeile: die Katalogzeile fuer den Prompt (Vorbereitung Paket E)',
 
 section('Standardparametrierung: jede Absicht ergibt einen gueltigen Plan oder ein dokumentiertes Nein', () => {
   // Erwartetes Nein je Absicht (Welt ohne Vorgeschichte, ohne Posten): der Grund steht in den Daten oder in der Welt
-  const ZIEL_IM_UMKREIS = ['rettung', 'lieferung', 'falscher_haendler', 'notruf'];   // FRE-02 A2: Ortsregel ziel_im_umkreis (Beschluss der Daten, nicht des Codes)
+  const ZIEL_IM_UMKREIS = ['rettung', 'lieferung', 'falscher_haendler', 'notruf', 'bergung'];   // BEA-02 C: bergung dazu; FRE-02 A2: Ortsregel ziel_im_umkreis (Beschluss der Daten, nicht des Codes)
   const NEIN = {
     rache: [C.BEZUG_FEHLT, 'Pflichtbezug: ohne grollenden NSC keine Rache'],
     bergbau: [C.NICHT_AUSDRUECKBAR, 'Abbau-Huelle (Standardziel abbau)'],

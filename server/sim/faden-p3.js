@@ -214,6 +214,8 @@ function notrufImStich(game, marke) {
   if (f.phase === 'laeuft' && v.beats[f.beat].typ === 'notruf') { Faden().beatAusgang(game, f.id, 'gescheitert'); return true; }
   const g = f.nsc.gedaechtnis || [];
   for (let i = g.length - 1; i >= 0; i--) if (g[i].ereignis === 'notruf_gelungen') { g[i].ereignis = 'notruf_gescheitert'; break; }
+  const naechster = v.beats[f.beat] && D.BEATS[v.beats[f.beat].typ];
+  if (f.phase === 'wartet' && naechster && !naechster.abschluss) f.beat = v.beats.length - 1;   // BEA-02 C: der Plan hat nach dem Notruf weitere Beats (rettung): im Stich gelassen, sie entfallen, der Abschluss (gescheitert) folgt
   return true;
 }
 

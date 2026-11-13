@@ -524,6 +524,26 @@ function angebotAusstatten(angebot, f) {
 // erst beim Annehmen, faden.js abenteuerOeffnen), Absicht je Variante (notruf-brett.json), Herkunft = der Hex der Crew beim Entstehen. Der Plan steht als Daten (notruf-brett.json plan), kein Modell, kein Komponisten-Aufruf, kein
 // Inszenierer: der Weg traegt auch im Rueckfall-Betrieb (ohne ABENTEUER_ABSICHTEN). Das Angebot traegt `notruf` { nr, id, marke } (Verknuepfung zum Eintrag in game.weltsim.reise.offen), `variante` und `bezug` { sprecher } (Schnittstelle BEA-02).
 // Der Eintrag ist Herr der Lebensdauer: zurueckziehenFuerNotruf nimmt das Angebot weg, wenn der Eintrag verfaellt, abgelehnt oder beantwortet wird. Angebote stehen nicht im Weltstand (wie alle Angebote), und zaehlen getrennt von angebote_max.
+// BEA-02 C: der Plan des Daten-Angebots wird je Angebot zusammengesetzt (notruf-brett.json plan ist die Schablone): der Landeplatz hat die erste Art von werte.landeplatz_arten, die der Hex kennt (Planet, sonst Wrack im Raum), und
+// der Beat der Rettung bekommt Landeplatz und den SCHLUESSEL der Besetzung der Variante (nie Seed oder Besetzung selbst: DYN-01). Kennt der Hex keine der Arten, bleibt der Plan ohne Landeplatz: der Pruefer lehnt ihn ab (Pflicht landeplatz).
+const besetzungFuer = (variante, art) => {
+  const k = has(NB.besetzung_je_variante, variante) ? NB.besetzung_je_variante[variante] : null;
+  if (!k) return null;   // ohne Eintrag gilt der Standard des Beats
+  return has(NB.besetzung_arten, k) && !NB.besetzung_arten[k].includes(art) ? (has(NB.besetzung_ersatz, k) ? NB.besetzung_ersatz[k] : null) : k;
+};
+function notrufPlanBauen(hex, variante) {
+  const plan = klon(NB_DATEI.plan);
+  const am = require('./abenteuer-orte.js').moeglicheArten(hex), art = NB.landeplatz_arten.find((a) => am.includes(a));
+  if (!art) return plan;
+  plan.landeplaetze = [{ id: NB.landeplatz_id, art }];
+  const besetzung = besetzungFuer(variante, art);
+  for (const b of plan.beats) {
+    if (!NB.ort_beats.includes(b.typ)) continue;
+    b.parameter = Object.assign({}, b.parameter, { landeplatz: NB.landeplatz_id });
+    if (besetzung) b.parameter.besetzung = besetzung;
+  }
+  return plan;
+}
 // o = { nr, id, hex, variante, sprecher, marke, ankunft } -> Angebot | null (Faeden oder Spielleiter aus, voll, schon eines zu dieser Marke, Plan nicht annehmbar: dann bleibt der Notruf ein reiner Katalog-Notruf)
 function notrufAnbieten(game, o) {
   const F = game && game.weltsim && game.weltsim.faeden;
@@ -534,7 +554,7 @@ function notrufAnbieten(game, o) {
   const sprecher = String(o.sprecher || '').slice(0, 40);
   const ausV = notrufAusVorrat(game, F, o, sprecher);   // FRE-03 E: ein gueltiger Plan aus dem Vorrat (nur Absichten-Modus) statt des Daten-Plans
   if (ausV) return ausV;
-  const plan = klon(NB_DATEI.plan);
+  const plan = notrufPlanBauen(o.hex, o.variante);
   plan.titel = fmt(NB.titel, { sprecher });
   if (has(NB.text_key_je_variante, o.variante)) plan.beats[0].parameter.text_key = NB.text_key_je_variante[o.variante];   // FRE-03 Nacharbeit S1: der Funktext des Beats passt zur Variante
   plan.anlass = has(NB.anlass_je_variante, o.variante) ? NB.anlass_je_variante[o.variante] : NB.anlass_standard;

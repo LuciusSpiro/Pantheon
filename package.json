@@ -17,6 +17,8 @@
     "test:faden-landung-mutation": "node tools/mutation-faden-landung.js",
     "test:faden-rettung": "node tools/test-faden-rettung.js",
     "test:faden-rettung-mutation": "node tools/mutation-faden-rettung.js",
+    "test:notruf-bergung": "node tools/test-notruf-bergung.js",
+    "test:notruf-bergung-mutation": "node tools/mutation-notruf-bergung.js",
     "test:faden-vorlagen": "node tools/test-faden-vorlagen.js",
     "test:faden-vorlagen-mutation": "node tools/mutation-faden-vorlagen.js",
     "test:faden-nach2-mutation": "node tools/mutation-faden-nach2.js",
