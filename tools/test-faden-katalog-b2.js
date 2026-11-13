@@ -240,7 +240,7 @@ section('(b2) Prompt-Katalog der Komposition (A2) leitet die neuen Typen aus den
   ok(/konvoi \[Gefahr, Szene\]/.test(k) && /geleit \[Gefahr, Szene\]/.test(k) && /braucht die Lage sabotage_ziel \(Kontext faeden\.lage\.sabotage_ziel groesser 0\)/.test(k), 'Gefahr und Szene sind gekennzeichnet, die Lage des Sabotage-Auftrags steht im Katalog');
   ok(/Kontext faeden\.lage: Zahl je Lage \(sabotage_ziel\), nur Zahlen, keine Namen/.test(k), 'der Katalog erklaert faeden.lage (nur Zahlen, keine Namen)');
   ok(/sabotage[^\n]*hoechstens einmal je Plan/.test(k), 'der Katalog nennt: ein Sabotage-Beat steht hoechstens einmal je Plan (aus den Daten nur_einmal)');
-  ok(k.length < 12000, 'Prompt-Katalog unter 12 000 Zeichen (' + k.length + ')');
+  ok(k.length < 13550, 'Prompt-Katalog unter 13 550 Zeichen (PAR-01 A) (' + k.length + ')');
   const r = AP.baue(t.g, { nr: 1, grenze: 'szene_ende', hex: '0305', letzte: [] });
   ok(!r.fehler && r.prompt.length < 16000 && !NAMEN.some((x) => r.prompt.includes(x)), 'der Prompt ist im Budget und ohne Spielernamen (' + r.zeichen + ' Zeichen)');
   const ktx = kontextVon(r.prompt).faeden;

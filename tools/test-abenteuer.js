@@ -26,7 +26,7 @@ const Bericht = require('./regie-bericht.js');
 const Regielog = require('../server/mission/regielog.js');
 
 const { D, Faden } = X;
-const KATALOG_MAX = 10500;   // BEA-01 C2: Obergrenze des Beat-Katalogs im Prompt (vorher 9500): 9443 Zeichen vor BEA-01 plus die Beats forderung und schmiergeld (gemessen 10244) plus Reserve; siehe content/welt/abenteuer-werte.json prompt_max_zeichen
+const KATALOG_MAX = 13550;   // BEA-01 C2: Obergrenze des Beat-Katalogs im Prompt (vorher 10500): PAR-01 A: gemessen 10300 Zeichen heute plus sechs Probe-Beats (FAB-01, BEA-02 landung und rettung, BEA-03, BEA-04, WRK-01; je etwa 400 bis 450 Zeichen, nur im Speicher) = 12935, plus 600 Puffer = 13535, gerundet 13550; siehe content/welt/abenteuer-werte.json prompt_max_zeichen
 const FILTER = process.argv.slice(2).filter((a) => !a.startsWith('--')).map((s) => s.toLowerCase());
 let n = 0, fails = 0;
 const ok = (c, t) => { n++; if (c) console.log('  ok   ' + t); else { fails++; console.log('  FEHLER ' + t); } };
