@@ -3,6 +3,7 @@
  "schritte": [
   {"id":"check-maps","kette":"check","cmd":["tools/check-maps.js"],"stufe":"fast","budget_s":15},
   {"id":"check-sektoren","kette":"check","cmd":["tools/check-sektoren.js"],"stufe":"fast","budget_s":6},
+  {"id":"check-sondersektoren","kette":"check","cmd":["tools/check-sondersektoren.js"],"stufe":"fast","budget_s":6},
   {"id":"check-kette","kette":"check","cmd":["tools/check-kette.js"],"stufe":"fast","budget_s":6},
   {"id":"check-erreichbar","kette":"check","cmd":["tools/check-erreichbar.js"],"stufe":"fast","budget_s":7},
   {"id":"check-tasten","kette":"check","cmd":["tools/check-tasten.js"],"stufe":"fast","budget_s":6},
@@ -15,6 +16,8 @@
   {"id":"test-auftrag-tokens","kette":"test","cmd":["tools/test-auftrag-tokens.js"],"stufe":"fast","budget_s":6},
   {"id":"test-kammer-tokens","kette":"test","cmd":["tools/test-kammer-tokens.js"],"stufe":"fast","budget_s":6},
   {"id":"mutation-kammer-tokens","kette":"test","cmd":["tools/mutation-kammer-tokens.js"],"stufe":"fast","budget_s":14},
+  {"id":"test-sondersektoren","kette":"test","cmd":["tools/test-sondersektoren.js"],"stufe":"fast","budget_s":6},
+  {"id":"mutation-sondersektoren","kette":"test","cmd":["tools/mutation-sondersektoren.js"],"stufe":"fast","budget_s":20},
   {"id":"test-hauptschirm-tokens","kette":"test","cmd":["tools/test-hauptschirm-tokens.js"],"stufe":"fast","budget_s":6},
   {"id":"test-namensmarke-stapel","kette":"test","cmd":["tools/test-namensmarke-stapel.js"],"stufe":"fast","budget_s":6},
   {"id":"mutation-namensmarke-stapel","kette":"test","cmd":["tools/mutation-namensmarke-stapel.js"],"stufe":"fast","budget_s":6},

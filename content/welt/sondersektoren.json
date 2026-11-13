@@ -1,0 +1,24 @@
+{
+  "format": "sondersektoren/1",
+  "quelle": "Auftrag SON-01 A (Vault: Pantheon/Auftrag SON-01). Je Eintrag ein Sondersektor der Freien Fahrt Sund: ein Hex, der nur über einen temporären Sprungpunkt eines Regiebuchs erreichbar ist und Ziel einer Geschichte wird.",
+  "hinweis": "id = Name des Sondersektors. hex = der Sondersektor selbst (spielbar, mit Szene auf sund_frei). von = Hex, von dem aus das Regiebuch den Sprungpunkt öffnet (geometrischer Nachbar von hex; die Kante steht NICHT in der Karte, das Regiebuch öffnet sie zur Laufzeit). buch = Regiebuch aus content/regiebuecher-sund, das unverändert gestartet wird. einmal = bei_erfolg: nach einem Erfolg nie wieder angeboten, nach einem Verlust wieder möglich. ziel.erreichbar_max = höchstens so viele Sprünge vom Angebotsort bis `von`. ausgang.hex = spielbarer Hex mit Szene, an dem die Crew nach der Geschichte wieder herauskommt; ausgang.funk = Funkzeile dazu. funk = Zeilen zu Start, Erfolg und Verlust. Platzhalter nur {hex} (Koordinate des genannten Sektors) und {ort} (Name); jede Zeile höchstens 100 Zeichen mit eingesetzten Platzhaltern, keine Spielernamen.",
+  "sektoren": [
+    {
+      "id": "helix",
+      "hex": "0506",
+      "von": "0605",
+      "buch": "sl_forschung",
+      "einmal": "bei_erfolg",
+      "ziel": { "erreichbar_max": 3 },
+      "ausgang": {
+        "hex": "0505",
+        "funk": "Hier Helix. Die Daten sind raus, euer Weg führt zurück nach {ort} ({hex}). Gute Fahrt."
+      },
+      "funk": {
+        "start": "Hier Forschungsstation Helix. Wir messen im Gravimetriefeld {hex} und brauchen Hilfe.",
+        "erfolg": "Hier Helix. Die Messreihe ist gerettet, das Gravimetriefeld {hex} bleibt euch offen.",
+        "verlust": "Hier Helix. Die Messreihe ist verloren. Meldet euch, wenn ihr es noch einmal versucht."
+      }
+    }
+  ]
+}
