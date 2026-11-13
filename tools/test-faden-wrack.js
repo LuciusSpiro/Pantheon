@@ -387,6 +387,20 @@ await section('(e) Ausgang gelungen', async () => {
   ok(fz.phase === 'wartet' && ereignisse(fz).filter((e) => e === 'wrack_gelungen').length === 2, 'auch der zweite gelungen (Gedaechtnis 2 mal wrack_gelungen)');
   ok(gesprochen(Z, 'abschluss_ohne_beute_ohne_logbuch') === 1, 'der Fund des ersten Beats zaehlt im zweiten nicht: Abschlussfunk "ohne Beute, ohne Logbuch"');
   ok(Z.g.errors === 0 && U.g.errors === 0, 'g.errors 0');
+  // Frist-Scheitern mit Fund (faden.js beendet den Beat ohne den Handler): der Fund bleibt nicht fuer den naechsten wrack-Beat stehen
+  const Y = spiel(); hierHin(Y);
+  const fy = oeffnen(Y.g, '0904', zwei);
+  beatStarten(Y.g, fy);
+  const y1 = AO.idVon('skjaldborg', fy.id, 'absturz'), y2 = AO.idVon('skjaldborg', fy.id, 'zweiter');
+  await tick(8); Lpscan.markieren(Y.g, y1);
+  Y.id = y1; runter(Y, y1); beuteNehmen(Y);
+  grenzen(Y.g, FRIST);
+  ok(fy.phase === 'wartet' && fy.beat === 1 && ereignisse(fy).includes('wrack_gescheitert'), 'Frist mit Beute im Beutel: der erste Beat scheitert (faden.js)');
+  hoch(Y);
+  ok(beatStarten(Y.g, fy) && fy.phase === 'laeuft', 'der zweite wrack-Beat laeuft');
+  await tick(8); Lpscan.markieren(Y.g, y2); Y.id = y2; runter(Y, y2); hoch(Y);
+  ok(fy.phase === 'wartet' && gesprochen(Y, 'abschluss_ohne_beute_ohne_logbuch') === 1 && gesprochen(Y, 'abschluss_mit_beute_ohne_logbuch') === 0, 'der Fund des gescheiterten ersten Beats zaehlt im zweiten nicht (Start loescht ihn)');
+  ok(Y.g.errors === 0, 'g.errors 0');
 });
 
 // ---------------------------------------------------------------- (f)

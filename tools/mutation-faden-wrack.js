@@ -44,7 +44,7 @@ const MUTATIONEN = [
   [FW, 'funk(game, faden, beat, has(TEXTE, \'start_\' + schluessel) ? \'start_\' + schluessel : \'start_\' + L.WERTE.besetzung_standard.wert);', 'funk(game, faden, beat, \'start_\' + L.WERTE.besetzung_standard.wert);', 'Startfunk immer in der Standardvariante'],
   [FW, 'if (!lp || map !== lp) return;', 'if (!lp) return;', 'Handler prueft die Karte nicht (Ereignisse eines anderen Ortes des Fadens zaehlen)'],
   [FW, 'Boden.anmelden(ART, handler);', '', 'Handler nicht am Verteiler angemeldet'],
-  [FW, 'untenGewesen.delete(f); fund.delete(f);', 'untenGewesen.delete(f);', 'Ausgang loescht den Fund nicht (zweiter Lauf am selben Faden erbt ihn)'],
+  [FW, '    fund.delete(faden);\n', '', 'Start loescht den Fund nicht (ein per Frist gescheiterter Beat hinterlaesst ihn dem naechsten wrack-Beat)'],
   [FA, 'try { require(\'./faden-wrack.js\').nachTaetigkeit(game); }', 'try { void 0; }', 'Haken bei der Taetigkeit (faden.taetigkeit) fehlt'],
   [RE, 'try { require(\'./faden-wrack.js\').update(game); }', 'try { void 0; }', 'Haken im Tick (reise-ereignis.update) fehlt'],
   [BO, 'notsprung: \'alle\', beuteGeborgen: \'karte\', ankerGelesen: \'karte\' }', 'notsprung: \'alle\', ankerGelesen: \'karte\' }', 'Verteiler kennt beuteGeborgen nicht'],
