@@ -256,7 +256,7 @@ async function fadenOrt() {
   });
 
   await section('Zahlen und Namen nur in content/wrack-daten.json (Quelltext-Scan)', () => {
-    const q = fs.readFileSync(path.join(__dirname, '..', 'server', 'sim', 'wrack-beute.js'), 'utf8').split('\n').map((z) => z.replace(/\/\/.*$/, '')).join('\n');
+    const q = fs.readFileSync(path.join(__dirname, '..', 'server', 'sim', 'wrack-beute.js'), 'utf8').split(/\r?\n/).map((z) => z.replace(/\/\/.*$/, '')).join('\n');   // \r?\n: im CRLF-Checkout (autocrlf) blieb sonst ein \r am Zeilenende und der Kommentar-Strich griff nicht
     ok(!/bergungsgut|waffen|erz\b/.test(q), 'keine Warenart im Servercode');
     ok(!/[^\w.]([1-9]\d*|0\d+)(?![\w])/.test(q), 'kein Zahlenliteral ausser 0 im Servercode');
     ok(!/Nichts mehr von Wert|Frachtraum|kein Platz/i.test(q), 'Meldungstext steht in den Daten');
