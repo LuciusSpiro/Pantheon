@@ -147,8 +147,8 @@ const folge = (r) => r.plan.beats.map((b) => b.typ).join();
     ok(/Parameter: staerke \(Standard mittel/.test(zeile('schmiergeld')), 'Prompt-Katalog: schmiergeld nennt staerke');
     // Prompt-Grenzen (BEA-01 C2): die Obergrenze des Prompts steht in den Daten, der Katalog haelt, der Luft-Test (test-abenteuer-landeplaetze) bleibt unveraendert
     const katalog = Prompt.katalogText().length;
-    ok(AW.prompt_max_zeichen.wert === 13000 && /BEA-01 C2/.test(AW.prompt_max_zeichen._hinweis), 'prompt_max_zeichen 13000 in den Daten, Begruendung im Kommentarfeld');
-    ok(katalog > 9443 && katalog <= 10500, 'der Beat-Katalog (' + katalog + ' Zeichen) liegt ueber den 9443 von vorher und unter der Test-Grenze 10500');
+    ok(AW.prompt_max_zeichen.wert === 15350 && /BEA-01 C2/.test(AW.prompt_max_zeichen._hinweis), 'prompt_max_zeichen 15350 in den Daten, Begruendung im Kommentarfeld');
+    ok(katalog > 9443 && katalog <= 13550, 'der Beat-Katalog (' + katalog + ' Zeichen) liegt ueber den 9443 von vorher und unter der Test-Grenze 13550');
     const ka = Prompt.katalogTextAbsicht(AP.katalogStandard());
     ok(ka.length > 3573 && ka.length <= 3573 + 400 && KAT.absichten.forderung.prompt_zeile.length <= KAT.werte.prompt_zeile_max.wert, 'der Absichten-Katalog wachst um eine Zeile (' + ka.length + ' Zeichen, vorher 3573), die Zeile haelt prompt_zeile_max');
     console.log('  info Beat-Katalog ' + katalog + ' Zeichen, Absichten-Katalog ' + ka.length + ', prompt_max_zeichen ' + AW.prompt_max_zeichen.wert);

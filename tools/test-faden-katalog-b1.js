@@ -868,11 +868,11 @@ section('(h10) Zielwahl und Sprungregeln: Geruecht und Wiedersehen nennen nie ei
   ok(Sprung.hexGrund(g, '0505', '0605') === null, 'nach dem Weitscan (markBoje) ist der Sprung frei');
 });
 
-section('(h11) Prompt: wiedersehen_nsc ist eine Zahl je Volk (der Plan darf volk_erlaubt setzen); Katalog und Systemprompt erklaeren sie; keine Namen; Katalog unter 12 000 Zeichen', () => {
+section('(h11) Prompt: wiedersehen_nsc ist eine Zahl je Volk (der Plan darf volk_erlaubt setzen); Katalog und Systemprompt erklaeren sie; keine Namen; Katalog unter 13 550 Zeichen (PAR-01 A, gleiche Grenze wie KATALOG_MAX in test-abenteuer.js)', () => {
   const t = neu(170), g = t.g;
   AP.katalogNeuLesen();
   const k = AP.katalogText();
-  ok(k.length < 12000, 'Katalog ' + k.length + ' Zeichen (unter 12 000)');
+  ok(k.length < 13550, 'Katalog ' + k.length + ' Zeichen (unter 13 550)');
   ok(/faeden\.wiedersehen_nsc: Zahl je Volk \(rom \| ger \| kon\)/.test(k) && /Standard rom \| kon/.test(k) && /nur Zahlen, keine Namen/.test(k), 'der Katalog erklaert die Zahl: je Volk, mit dem Standard-Volk-Set, ohne Namen');
   const sys = fs.readFileSync('content/spielleiter/prompts/abenteuer.system.md', 'utf8');
   ok(/faeden\.wiedersehen_nsc/.test(sys) && /je Volk/.test(sys) && /volk_erlaubt/.test(sys), 'der Systemprompt erklaert, was die Zahl bedeutet');
