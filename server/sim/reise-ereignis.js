@@ -468,6 +468,7 @@ function update(game, dt) {   // eslint-disable-line no-unused-vars
   try { require('./abenteuer-brett.js').abenteuerRueckfallWeiter(game); } catch (e) { if (game.countError) game.countError('reise-abenteuer-weiter', e); }   // FRE-05: reguläre Brett-Fäden (Gerücht, Konvoi, Geleit, Spur, Sabotage) im Rückfall-Betrieb weiterführen
   try { require('./faden-b1.js').update(game); } catch (e) { if (game.countError) game.countError('faden-b1-update', e); }   // SUND-04b B1: Ankunft bei Gerücht und Wiedersehen, Fortgang der Rätsel-Spur
   try { require('./faden-b2.js').update(game); } catch (e) { if (game.countError) game.countError('faden-b2-update', e); }   // SUND-04b B2: Erfolg oder Verlust des Ziels eines Sabotage-Auftrags
+  try { require('./faden-sondersektor.js').update(game); } catch (e) { if (game.countError) game.countError('faden-sondersektor-update', e); }   // SON-01 B: Ende des Regiebuchs eines Sondersektors (Ausgang an den Faden), verwaistes Buch nach Fristablauf abraeumen
   try { require('./faden-bitte.js').update(game); } catch (e) { if (game.countError) game.countError('faden-bitte-update', e); }   // SUND-04a-2 P2: Bitte in unruhiger Lage zurückziehen (ohne Folge)
   try { taktUpdate(game); } catch (e) { if (game.countError) game.countError('reise-takt', e); }   // FRE-03 B: Notruf-Takt (nur mit REISE_EREIGNISSE)
   const R = game.weltsim && game.weltsim.reise;

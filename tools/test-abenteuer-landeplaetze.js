@@ -321,8 +321,8 @@ function abgelehnt(g, hex, p, code, muster, was) {
   const LAGER = (art) => [{ id: 'lager', art }];
   await pruefe('5a) verlegt_ort (Daten): geruecht, wiedersehen, sabotage; Katalogcheck verlangt true oder fehlt; ein Platz NACH einem solchen Beat darf nur Raumpunkt-Art sein (LANDEPLATZ_VERLEGT), davor oder auf anderem Weg gilt es nicht', async () => {
     const B = FD.BEATS;
-    assert.deepStrictEqual(Object.keys(B).filter((t) => B[t].verlegt_ort !== undefined).sort(), ['geruecht', 'sabotage', 'wiedersehen']);
-    for (const t of ['geruecht', 'sabotage', 'wiedersehen']) assert.strictEqual(B[t].verlegt_ort, true, t);
+    assert.deepStrictEqual(Object.keys(B).filter((t) => B[t].verlegt_ort !== undefined).sort(), ['geruecht', 'sabotage', 'sondersektor', 'wiedersehen']);   // SON-01 B: sondersektor (nur_inszenierer) setzt den Ort ebenfalls
+    for (const t of ['geruecht', 'sabotage', 'sondersektor', 'wiedersehen']) assert.strictEqual(B[t].verlegt_ort, true, t);
     assert.deepStrictEqual(P.katalogFehler(), []);
     for (const falsch of ['ja', false, 1]) { B.geruecht.verlegt_ort = falsch; try { assert.ok(P.katalogFehler().some((e) => /^KATALOG_VERLEGT_ORT/.test(e) && /geruecht/.test(e)), 'verlegt_ort=' + JSON.stringify(falsch)); } finally { B.geruecht.verlegt_ort = true; } }
     const T = spiel(), g = T.g;

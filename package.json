@@ -299,6 +299,8 @@
     "test:finale-boden-mutation": "node tools/mutation-finale-boden.js",
     "test:sondersektoren": "node tools/test-sondersektoren.js",
     "test:sondersektoren-mutation": "node tools/mutation-sondersektoren.js",
+    "test:sondersektor-beat": "node tools/test-sondersektor-beat.js",
+    "test:sondersektor-beat-mutation": "node tools/mutation-sondersektor-beat.js",
     "test:abenteuer-orte": "node tools/test-abenteuer-orte.js",
     "test:abenteuer-orte-mutation": "node tools/mutation-abenteuer-orte.js",
     "test:planeten-eignung": "node tools/test-planeten-eignung.js",
