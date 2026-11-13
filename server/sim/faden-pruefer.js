@@ -321,6 +321,8 @@ function katalogFehler() {
   for (const typ of Object.keys(B)) for (const ag of W.ausgaenge) { const e = typ + '_' + ag; if (!EREIGNIS.test(e)) out.push(fehl('KATALOG_EREIGNIS', `Beat-Typ "${typ}": das Ereignis "${e}" passt nicht zu ${EREIGNIS} (Gedächtnis des NSC)`)); }
   for (const [typ, c] of Object.entries(B)) if (c.ereignis_ohne_ware !== undefined && !(typeof c.ereignis_ohne_ware === 'string' && EREIGNIS.test(c.ereignis_ohne_ware))) out.push(fehl('KATALOG_EREIGNIS', `Beat-Typ "${typ}": ereignis_ohne_ware passt nicht zu ${EREIGNIS} (Gedächtnis des NSC)`));
   for (const [typ, c] of Object.entries(B)) if (c.verlegt_ort !== undefined && c.verlegt_ort !== true) out.push(fehl('KATALOG_VERLEGT_ORT', `Beat-Typ "${typ}": verlegt_ort ist true oder fehlt`));   // DYN-01 Nacharbeit: Wahrheitswert, nur true
+  const arten = require('../../content/welt/abenteuer-orte.json').arten;   // Daten direkt gelesen (kein Zyklus zu abenteuer-orte.js beim Laden des Katalogs)
+  for (const [typ, c] of Object.entries(B)) if (c.landeplatz_art !== undefined && !(Array.isArray(c.landeplatz_art) && c.landeplatz_art.length > 0 && c.landeplatz_art.every((a) => arten.includes(a)))) out.push(fehl('KATALOG_LANDEPLATZ_ART', `Beat-Typ "${typ}": landeplatz_art ist eine nicht leere Liste von Kartenarten aus content/welt/abenteuer-orte.json (${arten.join('/')}), nicht ${JSON.stringify(c.landeplatz_art)}`));   // WRK-01 B Nacharbeit: ein Tippfehler liesse jeden Plan mit dem Beat still an LANDEPLATZ_ART scheitern
   return out;
 }
 
@@ -671,6 +673,7 @@ function pruefeLandeplaetze(game, v, hex) {
   for (const b of nutzer) if (!ids.has(b.parameter.landeplatz)) return fehl('LANDEPLATZ_UNBEKANNT', `Beat ${b.id}: der Landeplatz "${String(b.parameter.landeplatz).slice(0, 20)}" steht nicht in landeplaetze`);
   for (const p of liste) if (!nutzer.some((b) => b.parameter.landeplatz === p.id)) return fehl('LANDEPLATZ_UNBENUTZT', `Landeplatz ${p.id}: kein Beat nutzt ihn (Parameter landeplatz)`);
   for (const p of liste) { const g = AO.grundAmHex(hex, p.art); if (g) return fehl('LANDEPLATZ_ART', `Landeplatz ${p.id}: ${g}`); }
+  for (const b of nutzer) { const cat = D.BEATS[b.typ], pl = liste.find((p) => p.id === b.parameter.landeplatz); if (cat && Array.isArray(cat.landeplatz_art) && pl && !cat.landeplatz_art.includes(pl.art)) return fehl('LANDEPLATZ_ART', `Beat ${b.id} (${b.typ}): sein Landeplatz ${pl.id} hat die Kartenart ${pl.art}, erlaubt: ${cat.landeplatz_art.join('/')}`); }   // WRK-01 B: Katalogfeld landeplatz_art (wrack nur am Schiff)
   const punkt = require('./planeten-eignung.js').DATEN.punkt;
   const verlegt = platzNachOrtswechsel(v);
   for (const p of liste) if (verlegt.has(p.id) && !punkt.includes(p.art)) return fehl('LANDEPLATZ_VERLEGT', `Landeplatz ${p.id}: vor seinem Beat verlegt ein Beat (${Array.from(verlegt.get(p.id)).join(', ')}) den Ort in einen anderen Sektor; dort geht nur ${punkt.join('/')}, nicht ${p.art}`);

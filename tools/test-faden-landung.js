@@ -243,6 +243,18 @@ await section('(c2) Grep-Test: keine Zahl und kein Fraktionsname im Servercode',
   ok(zahlen.length === 0, 'faden-landung.js enthaelt im Code (ohne Kommentare und Texte) keine Zahlenliterale ausser 0 und 1' + (zahlen.length ? ': ' + zahlen.slice(0, 2).join(' | ') : ''));
 });
 
+// ---------------------------------------------------------------- (c3)
+await section('(c3) Rahmen: Exportliste unveraendert, eigener Logbuch-Zaehlername', async () => {
+  const soll = ['baustein', 'handler', 'nachTaetigkeit', 'update', 'datenFehler', 'besetzungVon', 'TEXTE', 'WERTE'];   // Stand auf main (58d484b5): nichts Internes mehr exportiert
+  const ist = Object.keys(Landung).sort();
+  ok(JSON.stringify(ist) === JSON.stringify(soll.slice().sort()), 'faden-landung.js exportiert genau ' + soll.join(', ') + (JSON.stringify(ist) === JSON.stringify(soll.slice().sort()) ? '' : ' (ist: ' + ist.join(', ') + ')'));
+  const Regie = require('../server/sim/regie-befehle.js'), echt = Regie.schreibe;
+  let T;
+  try { Regie.schreibe = () => { throw new Error('Logbuch kaputt'); }; T = await aufbau({ art: 'schiff' }); } finally { Regie.schreibe = echt; }
+  ok(T.fehler.some((x) => /^faden-landung-logbuch: Logbuch kaputt/.test(x)), 'Logbuchfehler der Landung laeuft unter faden-landung-logbuch: ' + T.fehler.join(' | '));
+  ok(!T.fehler.some((x) => /^faden-wrack/.test(x)), 'kein Fehler der Landung laeuft unter einem wrack-Namen');
+});
+
 // ---------------------------------------------------------------- (d)
 await section('(d) Funk beim Start nennt den Landeplatz', async () => {
   for (const bes of ['ruhig', 'raeuber', 'belagerer']) {
