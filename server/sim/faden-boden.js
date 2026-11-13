@@ -7,15 +7,19 @@
 //   ereignis(game, ev)           wirft nie; kehrt sofort zurueck (ohne Allokation), wenn kein Handler angemeldet ist, der Name nicht zu den fuenf Ereignissen gehoert, FAEDEN=1 fehlt oder kein Beat laeuft
 //   abmelden(beatArt)            nimmt den Handler weg (Tests)
 //
-// Zuordnung: beamedDown und beamedUp tragen data.map; die Ort-Id enthaelt die Fadenid (abenteuer-orte.parse): nur dieser Faden bekommt das Ereignis (ohne passende Karte: keiner). npcRescued, personAnBord und
-// personAbgegeben gehen an den Faden der Karte, wenn data.map ein Faden-Ort ist, sonst an alle laufenden Beats angemeldeter Art. Ein laufender Beat hat phase 'laeuft' (f.laufend); seine Art ist der Katalogtyp,
-// bei einer feindlichen Variante der Typ der Variante (wie faden.beatAusgang).
+// Zuordnung: beamedDown und beamedUp tragen data.map; die Ort-Id enthaelt die Fadenid (abenteuer-orte.parse): nur dieser Faden bekommt das Ereignis (ohne passende Karte: keiner). npcRescued und personAnBord
+// gehen an den Faden der Karte, wenn data.map ein Faden-Ort ist (npcRescued traegt die Karte der Aufnahme, in away.js wie in personen-bord.js), sonst an alle laufenden Beats angemeldeter Art. personAbgegeben
+// wird NIE ueber map zugeordnet: dessen data.map ist die zuletzt gewaehlte Aussenkarte (game.away.map), nicht der Abgabeort; es geht an alle laufenden Beats angemeldeter Art, der Handler filtert nach person.
+// Ein laufender Beat hat phase 'laeuft' (f.laufend); seine Art ist der Katalogtyp, bei einer feindlichen Variante der Typ der Variante (wie faden.beatAusgang).
+// Hinweise fuer Handler: (1) Eine Aufnahme erzeugt zwei Ereignisse (npcRescued aus personen-bord.js:147, danach personAnBord :164): Handler muessen Doppelungen erkennen und nach person filtern.
+// (2) Die feindliche Variante geht nach Laden verloren (f.laufend.variante fehlt, artVon liefert dann den Grundtyp, wie beatAusgang). (3) Viele Wege nach oben melden kein beamedUp (Verbindung getrennt,
+// resetMap, interior.updateDowned u. a.): ein Boden-Beat darf sich nicht allein auf beamedUp verlassen.
 // Laufzeit-Zustand (WeakMap auf das Spiel) steht NICHT im Weltstand: nur ein Zaehler der Zustellungen fuer Tests; keine Snapshot-Felder.
 // Fehler eines Handlers zaehlt game.countError('faden-boden'), nie weiter geworfen.
 const Faden = require('./faden.js');
 const D = require('./faden-daten.js');
 
-const NAMEN = { beamedDown: 'karte', beamedUp: 'karte', npcRescued: 'karte_oder_alle', personAnBord: 'karte_oder_alle', personAbgegeben: 'karte_oder_alle' };
+const NAMEN = { beamedDown: 'karte', beamedUp: 'karte', npcRescued: 'karte_oder_alle', personAnBord: 'karte_oder_alle', personAbgegeben: 'alle' };
 const handler = new Map();   // Beat-Art -> Handler
 const zustaende = new WeakMap();   // game -> { zugestellt, fehler }
 
@@ -69,6 +73,7 @@ function ereignis(game, ev) {
       if (art === null) continue;
       const h = handler.get(art);
       if (!h) continue;
+      if (zuordnung === 'alle') { zustellen(game, f, h, ev); continue; }   // personAbgegeben: map ist nicht der Abgabeort
       if (fid === undefined) fid = fadenIdVon(ev.data && ev.data.map);
       if (zuordnung === 'karte' && fid === null) return;   // beamedDown/-Up ohne Faden-Ort: kein Faden gemeint
       if (fid !== null && f.id !== fid) continue;

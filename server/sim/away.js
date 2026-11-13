@@ -301,7 +301,7 @@ function recall(game, pid) {
   interior.placeOnShipPad(game, p);
   game.emit('beam', { pids: [p.id], dir: 'up' });
   game.emit('sfx', { name: 'beam' });
-  game.missionEvent('beamedUp', { players: [p], map: game.away.map });
+  game.missionEvent('beamedUp', { players: [p], map: game.away.map, notrueckholung: true });   // FAB-01 A: Notrückholung
   if (game.away.map === 'wreck' && !game.players.some((q) => q.zone === 'away')) game.away.active = false;
   require('./module.js').notrueckholungFolge(game);   // PAN-01 A: der Transfer brennt durch (Reparatur nötig)
   return null;

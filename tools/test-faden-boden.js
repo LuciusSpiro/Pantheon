@@ -2,7 +2,8 @@
 // FAB-01 A: Ereignis-Verteiler fuer den Boden (server/sim/faden-boden.js, Haken in game.missionEvent, Marker notrueckholung in combat.js).
 // Geprueft: (a) alle fuenf Ereignisse erreichen den Handler der Beat-Art (ueber den ECHTEN Haken game.missionEvent) · (b) beamedDown/-Up mit der Karte eines anderen Fadens oder ohne Faden-Ort erreichen ihn nicht;
 // Ereignisse ohne Karte gehen an alle laufenden Beats angemeldeter Art, eine fremde Karte schliesst aus · (c) ein werfender Handler erhoeht nur g.errors, bricht nichts ab · (d) ohne FAEDEN=1, ohne laufenden Beat
-// und ohne angemeldete Art wird nie ein Handler gerufen · (e) Notrueckholung (squadRecall, Ausbluten) meldet beamedUp mit notrueckholung: true, die freiwillige Rueckholung (away.js) ohne Marker
+// und ohne angemeldete Art wird nie ein Handler gerufen · (e) Notrueckholung (squadRecall, Ausbluten, recall() in away.js) meldet beamedUp mit notrueckholung: true, das regulaere Hochbeamen (away.js executeBeam up) ohne Marker
+// (b2) personAbgegeben geht nie ueber map, sondern an alle laufenden Beats der Art (zwei Faeden) · (b3) feindliche Variante: Art = beat.variante.typ
 // (f) Haken und Marker stehen im Quelltext. Erwartete Werte: eigene Zaehlung im Test.      node tools/test-faden-boden.js
 const fs = require('fs');
 const path = require('path');
@@ -64,8 +65,10 @@ section('(b) Zuordnung ueber die Karte', () => {
   g.missionEvent('beamedUp', { players: [] });
   ok(p.aufrufe.length === 0, 'beamedDown/-Up mit einer Karte ohne Faden-Ort oder ohne Karte: nicht zugestellt');
   g.missionEvent('npcRescued', { person: 'p', map: ortId(fremd) });
+  ok(p.aufrufe.length === 0, 'npcRescued mit fremder Faden-Karte (Karte der Aufnahme): nicht zugestellt');
   g.missionEvent('personAbgegeben', { person: 'p', map: ortId(fremd) });
-  ok(p.aufrufe.length === 0, 'npcRescued/personAbgegeben mit fremder Faden-Karte: nicht zugestellt');
+  ok(namen(p).join() === 'personAbgegeben', 'personAbgegeben wird NIE ueber map zugeordnet (map ist die zuletzt gewaehlte Aussenkarte): trotz fremder Karte zugestellt');
+  p.aufrufe.length = 0;
   g.missionEvent('personAnBord', { person: 'p', name: 'X', n: 1 });
   g.missionEvent('npcRescued', {});
   g.missionEvent('npcRescued', { person: 'p', map: 'skjaldborg_wildnis' });
@@ -77,6 +80,42 @@ section('(b) Zuordnung ueber die Karte', () => {
   g.missionEvent('beamedDown', { players: [], map: ortId(f.id) }); g.missionEvent('personAnBord', {});
   ok(q.aufrufe.length === 0, 'Handler einer anderen Beat-Art wird nicht gerufen');
   Boden.abmelden('andere_art');
+});
+
+section('(b2) zwei gleichzeitige Faeden: personAbgegeben geht an alle, npcRescued an den Faden der Karte', () => {
+  const z = spiel({ crew: 1, seed: 7 }).g; z.lageSpielleiter = { disposed: false, mode: 'mock', beiGrenze() {} };
+  const z1 = oeffne(z), z2 = oeffne(z); grenzen(z, 6); weiter(z, z1); weiter(z, z2);
+  ok(z1 && z2 && z1.id !== z2.id && z1.phase === 'laeuft' && z2.phase === 'laeuft', 'Aufbau: zwei laufende Faeden');
+  const p = probe(); Boden.anmelden(ART, p);
+  z.missionEvent('personAbgegeben', { person: 'p1', map: ortId(z1.id) });
+  ok(p.aufrufe.map((a) => a.faden).sort().join() === [z1.id, z2.id].sort().join(), 'personAbgegeben mit der Karte des ersten Fadens: beide laufenden Beats bekommen es');
+  p.aufrufe.length = 0;
+  z.missionEvent('personAbgegeben', { person: 'p1', map: ortId(z2.id) });
+  z.missionEvent('personAbgegeben', { person: 'p1', map: null });
+  ok(p.aufrufe.length === 4, 'unabhaengig von map (zweiter Faden, keine Karte): je zwei Zustellungen');
+  p.aufrufe.length = 0;
+  z.missionEvent('npcRescued', { person: 'p1', map: ortId(z2.id) });
+  ok(p.aufrufe.length === 1 && p.aufrufe[0].faden === z2.id, 'npcRescued mit Karte des zweiten Fadens: nur der zweite');
+  Boden.abmelden(ART);
+});
+
+section('(b3) feindliche Variante: Art = beat.variante.typ, sonst beat.typ', () => {
+  const x = laufend(); const gg = x.g, ff = x.f;
+  const echt = D.vorlage;   // die registrierte Vorlage ist eingefroren: D.vorlage liefert im Test eine Kopie mit Variante
+  const p = probe(), q = probe();
+  try {
+    D.vorlage = (id) => { const v = klon(echt(id)); if (v && v.beats[ff.beat]) v.beats[ff.beat].variante = { typ: 'variante_probe' }; return v; };
+    Boden.anmelden(ART, p); Boden.anmelden('variante_probe', q);
+    ff.laufend.variante = 'variante_probe';
+    gg.missionEvent('personAnBord', { person: 'p1' });
+    ok(q.aufrufe.length === 1 && p.aufrufe.length === 0, 'Variante laeuft: Handler der Variantenart, nicht der Grundart');
+    delete ff.laufend.variante;
+    gg.missionEvent('personAnBord', { person: 'p1' });
+    ok(q.aufrufe.length === 1 && p.aufrufe.length === 1, 'ohne laufende Variante (z. B. nach Laden): Grundart');
+  } finally {
+    D.vorlage = echt;
+    Boden.abmelden(ART); Boden.abmelden('variante_probe');
+  }
 });
 
 section('(c) werfender Handler: nur g.errors, nichts bricht', () => {
@@ -157,7 +196,14 @@ section('(e) Marker notrueckholung', () => {
   ok(alle.length === 3 && alle.every((z) => /notrueckholung: true/.test(z)), 'Quelltext: alle drei beamedUp in combat.js tragen den Marker (3 Stellen, darunter die Krankenstation)');
   const away = fs.readFileSync(path.join(__dirname, '..', 'server', 'sim', 'away.js'), 'utf8');
   const af = away.match(/missionEvent\('beamedUp'[^\n]*/g) || [];
-  ok(af.length === 2 && af.every((z) => !/notrueckholung/.test(z)), 'Quelltext: away.js (freiwillig, Beamen) ohne Marker');
+  ok(af.length === 2 && af.filter((z) => /notrueckholung: true/.test(z)).length === 1 && af.some((z) => /players, map/.test(z) && !/notrueckholung/.test(z)), 'Quelltext: away.js recall() mit Marker, das regulaere Hochbeamen (executeBeam up) ohne');
+  // recall() im Ablauf: Captain-Befehl transfer.recall ist eine Notrueckholung (Abklingzeit support.recall, notrueckholungFolge)
+  const r = laufend().g; const evr = []; const orr = r.missionEvent.bind(r);
+  r.missionEvent = (name, data) => { evr.push({ name, data }); return orr(name, data); };
+  const pr = r.players[0]; pr.zone = 'away'; r.away = { map: 'testkarte', stats: {} }; r.support.recall = 0;
+  const fehler = require('../server/sim/away.js').recall(r, pr.id);
+  const hr = evr.filter((e) => e.name === 'beamedUp');
+  ok(fehler === null && hr.length === 1 && hr[0].data.notrueckholung === true, 'recall() im Ablauf: beamedUp mit notrueckholung: true (Ergebnis ' + fehler + ')');
 });
 
 section('(f) Haken im Quelltext', () => {
