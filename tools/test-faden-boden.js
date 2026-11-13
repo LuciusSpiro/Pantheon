@@ -1,6 +1,6 @@
 'use strict';
 // FAB-01 A: Ereignis-Verteiler fuer den Boden (server/sim/faden-boden.js, Haken in game.missionEvent, Marker notrueckholung in combat.js).
-// Geprueft: (a) alle fuenf Ereignisse erreichen den Handler der Beat-Art (ueber den ECHTEN Haken game.missionEvent) · (b) beamedDown/-Up mit der Karte eines anderen Fadens oder ohne Faden-Ort erreichen ihn nicht;
+// Geprueft: (a) alle sechs Ereignisse (FAB-01 B: dazu notsprung) erreichen den Handler der Beat-Art (ueber den ECHTEN Haken game.missionEvent) · (b) beamedDown/-Up mit der Karte eines anderen Fadens oder ohne Faden-Ort erreichen ihn nicht;
 // Ereignisse ohne Karte gehen an alle laufenden Beats angemeldeter Art, eine fremde Karte schliesst aus · (c) ein werfender Handler erhoeht nur g.errors, bricht nichts ab · (d) ohne FAEDEN=1, ohne laufenden Beat
 // und ohne angemeldete Art wird nie ein Handler gerufen · (e) Notrueckholung (squadRecall, Ausbluten, recall() in away.js) meldet beamedUp mit notrueckholung: true, das regulaere Hochbeamen (away.js executeBeam up) ohne Marker
 // (b2) personAbgegeben geht nie ueber map, sondern an alle laufenden Beats der Art (zwei Faeden) · (b3) feindliche Variante: Art = beat.variante.typ
@@ -18,7 +18,7 @@ let fails = 0, n = 0;
 const ok = (c, t) => { n++; if (c) console.log('  ok   ' + t); else { fails++; console.log('  FEHLER ' + t); } };
 const section = (t, f) => { console.log('\n' + t); try { f(); } catch (e) { fails++; n++; console.log('  ABSTURZ Ausnahme: ' + (e && e.stack)); } };
 const klon = (x) => JSON.parse(JSON.stringify(x));
-const EREIGNISSE = ['beamedDown', 'beamedUp', 'npcRescued', 'personAnBord', 'personAbgegeben'];
+const EREIGNISSE = ['beamedDown', 'beamedUp', 'npcRescued', 'personAnBord', 'personAbgegeben', 'notsprung'];   // FAB-01 B: notsprung kommt dazu (Beat landung)
 const ART = 'bitte';   // Katalogtyp des ersten Beats der Testvorlage (ein Beat, der ohne Eingabe laeuft)
 const ortId = (fadenId) => 'testort.' + fadenId + '-ort';
 const weiter = (g, f) => Faden.befehlAnwenden(g, { typ: 'faden_weiter', faden: f.id, beat: D.vorlage(f.vorlage).beats[f.beat].id });
@@ -37,7 +37,7 @@ const namen = (p) => p.aufrufe.map((a) => a.name);
 const { g, f } = laufend();
 const fremd = 'f' + (Number(f.id.slice(1)) + 50);
 
-section('(a) alle fuenf Ereignisse erreichen den Handler (Haken in game.missionEvent)', () => {
+section('(a) alle sechs Ereignisse erreichen den Handler (Haken in game.missionEvent)', () => {
   ok(g.weltsim.faeden.liste[0] === f && f.phase === 'laeuft' && f.laufend && D.vorlage(f.vorlage).beats[f.beat].typ === ART, 'Aufbau: Faden ' + f.id + ' mit laufendem Beat der Art ' + ART);
   const p = probe(); Boden.anmelden(ART, p);
   const e0 = g.errors;
@@ -46,13 +46,14 @@ section('(a) alle fuenf Ereignisse erreichen den Handler (Haken in game.missionE
   g.missionEvent('npcRescued', { person: 'p1', map: ortId(f.id) });
   g.missionEvent('personAnBord', { person: 'p1', name: 'X', n: 1 });
   g.missionEvent('personAbgegeben', { person: 'p1', name: 'X', ort: 'o', map: null });
+  g.missionEvent('notsprung', {});
   ok(JSON.stringify(namen(p)) === JSON.stringify(EREIGNISSE), 'in Reihenfolge: ' + namen(p).join(', '));
   ok(p.aufrufe.every((a) => a.faden === f.id), 'der Handler bekommt den Faden');
   ok(p.aufrufe[0].data.map === ortId(f.id) && p.aufrufe[3].data.person === 'p1', 'ev.data kommt unveraendert an');
   ok(g.errors === e0, 'g.errors unveraendert');
-  g.missionEvent('docked', {}); g.missionEvent('weaponsFired', {}); g.missionEvent('notsprung', {});
-  ok(p.aufrufe.length === 5, 'andere Ereignisse (docked, weaponsFired, notsprung) erreichen den Handler nicht');
-  ok(Boden.zugestellt(g) === 5, 'Zaehler der Zustellungen 5');
+  g.missionEvent('docked', {}); g.missionEvent('weaponsFired', {});
+  ok(p.aufrufe.length === 6, 'andere Ereignisse (docked, weaponsFired) erreichen den Handler nicht');
+  ok(Boden.zugestellt(g) === 6, 'Zaehler der Zustellungen 6 (fuenf Boden-Ereignisse und notsprung)');
   Boden.abmelden(ART);
 });
 

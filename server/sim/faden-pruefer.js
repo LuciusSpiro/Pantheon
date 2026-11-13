@@ -14,6 +14,7 @@
 //   SCHEITERN_FOLGENLOS (Scheitern veraendert den Faden: anderer Zustand oder anderer Weg als Gelingen, beide Ausgaenge fuehren zu einem Beat oder zum Abschluss) · STATUS_PASST_NICHT · TOT_BLEIBT_TOT ·
 //   NSC_ALT_NICHT_ERSTER / NSC_VON_FEHLT / NSC_VON (SUND-04b B1: ein Beat mit braucht.nsc_alt, das Wiedersehen, gehoert einem NSC aus einem frueheren, abgeschlossenen Faden: nur als erster Beat, geoeffnet mit parameter nsc_von) ·
 //   LANDEPLATZ_ANZAHL / LANDEPLATZ_FORM / LANDEPLATZ_ID_DOPPELT / LANDEPLATZ_ART_UNBEKANNT / LANDEPLATZ_UNBEKANNT / LANDEPLATZ_UNBENUTZT / LANDEPLATZ_ART / LANDEPLATZ_VERLEGT (DYN-01 B, pruefeLandeplaetze: Plan-Feld landeplaetze und Beat-Parameter landeplatz, weltabhaengig wie pruefeLage) ·
+//   LANDEPLATZ_PFLICHT (FAB-01 B: ein Beat mit braucht.landeplatz steht nur mit parameter landeplatz, in parameterFehler, also in pruefeVorlage fuer Plaene wie Vorlagen) ·
 //   SABOTAGE_NUR_EINMAL (SUND-04b B2: ein Beat mit nur_einmal steht höchstens einmal im Plan) · LAGE_ZIEL_FEHLT / SABOTAGE_PAUSE / LAGE_UNBEKANNT (SUND-04b B2, pruefeLage: ein Beat mit braucht.lage haengt von der Welt ab; beim Anbieten und Oeffnen, nicht in pruefeVorlage) ·
 //   NAMENLOS (SUND-04b A1: vorlage.nsc.rolle namenlos: der NSC bleibt aktiv, die Ausgaenge brauchen keinen status; die Statuspruefung bleibt, nur der Status faellt weg; Scheitern veraendert dann ueber Weg oder Folge) ·
 //   ERFOLG_FEHLT / ERFOLG_UNGUELTIG (Abschluss: wann gilt der Faden als gelungen, Nacharbeit Welle 3) · VARIANTE_UNERREICHBAR / TON_UNERREICHBAR (Haltung: gibt es in der Vorlage einen Weg dorthin) ·
@@ -199,6 +200,7 @@ function parameterFehler(beat, cat) {
   if (erlaubt.includes('hex') && has(p, 'hex') && !(typeof p.hex === 'string' && HEX.test(p.hex) && sundSpielbar(p.hex))) out.push(fehl('PARAMETER', `Beat ${beat.id} (${beat.typ}): der Parameter hex ist kein spielbarer Sektor der Karte`));   // SUND-04b B1: Ankunftsort der Beats geruecht, wiedersehen, notruf
   const braucht = cat.braucht || {};
   for (const k of spec.pflicht || []) if (!(k in p) && !(k === 'fluchtziel' && braucht.fluchtziel)) out.push(fehl('PARAMETER', `Beat ${beat.id} (${beat.typ}): Pflichtparameter "${k}" fehlt`));
+  if (braucht.landeplatz === true && !(typeof p.landeplatz === 'string' && p.landeplatz.length)) out.push(fehl('LANDEPLATZ_PFLICHT', `Beat ${beat.id} (${beat.typ}): ohne parameter landeplatz (Id eines Landeplatzes des Plans) gibt es keinen Ort zum Landen`));   // FAB-01 B: braucht.landeplatz, Plaene und Vorlagen gleichermassen
   if (braucht.fluchtziel && !fluchtzielOk(p.fluchtziel)) out.push(fehl('FLUCHTZIEL_FEHLT', `Beat ${beat.id} (${beat.typ}): ohne gültiges Fluchtziel (Hex-Code oder ${W.fluchtziele.join(', ')}) gibt es keine Verfolgung`));
   return out;
 }

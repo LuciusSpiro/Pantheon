@@ -1,0 +1,35 @@
+{
+  "format": "faden-boden-werte/1",
+  "_hinweis": "FAB-01 B: Zahlen und Namen des Beats landung (server/sim/faden-landung.js, Katalog beats.json). Texte stehen in boden-texte.json. Alle Werte sind PLATZHALTER-ANNAHMEN der Entwicklung (Balance: Kai, Spieltest). Konvention wie forderung-werte.json: je Eintrag wert, einheit, _hinweis. Im Servercode steht keine Zahl und kein Fraktionsname davon.",
+  "werte": {
+    "besetzung": {
+      "wert": {
+        "ruhig": {},
+        "raeuber": { "fraktion": "raubzug", "staerke": "klein", "haltung": "ruhig" },
+        "belagerer": { "fraktion": "raubzug", "staerke": "mittel", "haltung": "wach" }
+      },
+      "einheit": "Schluessel (Beat-Parameter besetzung) -> { fraktion, staerke, haltung } fuer combat.besetzen; leer = keine Besetzung",
+      "_hinweis": "Wer am Ort der Landung steht. ruhig: niemand (Havarie, Absturzstelle ohne Feind). raeuber: ein kleiner Raubzug-Trupp, ruhig (Piratenueberfall: die Raeuber sind noch am Wrack). belagerer: ein mittlerer Raubzug-Trupp, wach (Belagerung: die Angreifer sind aufmerksam). Platzhalter-Annahme: Fraktion raubzug, weil sie auf jeder Kartenart Rezepte hat (die Rollen-Einfuehrung aus combat.besetzen gilt: unbekannte Rollen werden grundtyp). Die Schluessel muessen mit bauplan.parameter.besetzung.erlaubt in beats.json uebereinstimmen (Katalogpruefung datenFehler)."
+    },
+    "besetzung_standard": {
+      "wert": "ruhig",
+      "einheit": "Schluessel von besetzung",
+      "_hinweis": "Gilt, wenn der Beat keine besetzung nennt oder eine unbekannte (Vorlage-Dateien; im Plan lehnt der Expander einen unbekannten Schluessel ab)."
+    },
+    "text_max": {
+      "wert": 150,
+      "einheit": "Zeichen",
+      "_hinweis": "Obergrenze eines Funktextes in boden-texte.json (Katalogpruefung datenFehler); der Funk des Fadens kuerzt ohnehin auf 160 Zeichen."
+    },
+    "schluessel_max": {
+      "wert": 24,
+      "einheit": "Zeichen",
+      "_hinweis": "Obergrenze der Laenge eines Schluessels der Tabelle besetzung und des Tags (Katalogpruefung datenFehler)."
+    },
+    "besetzung_tag": {
+      "wert": "landung",
+      "einheit": "Tag der Besetzung (combat.besetzen tag)",
+      "_hinweis": "Name der Trupps am Ort (tag.1, tag.2 ...); ein Tag je Karte, der Ort eines Fadens hat nur diese Besetzung."
+    }
+  }
+}

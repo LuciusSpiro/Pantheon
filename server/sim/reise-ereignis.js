@@ -466,6 +466,7 @@ function update(game, dt) {   // eslint-disable-line no-unused-vars
   try { require('./faden-p3.js').update(game); } catch (e) { if (game.countError) game.countError('faden-p3-update', e); }   // SUND-04a-2 P3: die Ankunft am Ort beendet einen Notruf
   try { require('./abenteuer-brett.js').notrufRueckfallWeiter(game); } catch (e) { if (game.countError) game.countError('reise-notruf-weiter', e); }   // FRE-03 Nacharbeit B1: Notruf-Faden im Rueckfall-Betrieb bis zum Abschluss fuehren
   try { require('./faden-b1.js').update(game); } catch (e) { if (game.countError) game.countError('faden-b1-update', e); }   // SUND-04b B1: Ankunft bei Gerücht und Wiedersehen, Fortgang der Rätsel-Spur
+  try { require('./faden-landung.js').update(game); } catch (e) { if (game.countError) game.countError('faden-landung-update', e); }   // FAB-01 B: Crew nach der Landung wieder oben (ohne beamedUp), nur fuer Faeden mit gemerktem "unten gewesen"
   try { require('./faden-b2.js').update(game); } catch (e) { if (game.countError) game.countError('faden-b2-update', e); }   // SUND-04b B2: Erfolg oder Verlust des Ziels eines Sabotage-Auftrags
   try { require('./faden-bitte.js').update(game); } catch (e) { if (game.countError) game.countError('faden-bitte-update', e); }   // SUND-04a-2 P2: Bitte in unruhiger Lage zurückziehen (ohne Folge)
   try { taktUpdate(game); } catch (e) { if (game.countError) game.countError('reise-takt', e); }   // FRE-03 B: Notruf-Takt (nur mit REISE_EREIGNISSE)
