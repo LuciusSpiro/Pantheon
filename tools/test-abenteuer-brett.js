@@ -114,7 +114,7 @@ section('Daten: Brett-Texte, Weigerungen, Anschluss-Plaene (3 bis 6, durch dense
   ok(CODES.every((c) => typeof BRETT.weigerungen[c] === 'string' && BRETT.weigerungen[c].length > 5), 'jede Weigerung der Befehle hat einen Text (' + CODES.join(', ') + ')');
   const alle = JSON.stringify([BRETT.schritte, BRETT.weigerungen, BRETT.folgen, BRETT.chronik, BRETT.status_gelingen, BRETT.status_scheitern]);
   ok(!/\{name\}/.test(JSON.stringify(BRETT.chronik)) && (alle.match(/\{\w+\}/g) || []).every((p) => ['{ort}', '{fraktion}', '{delta}'].includes(p)), 'Platzhalter nur {ort} {fraktion} {delta}; die Chronik nennt nie den Namen des NSC (sie geht in den Prompt des Spielleiters)');
-  ok(ANS.plaene.length >= 3 && ANS.plaene.length <= 7, 'Anschluss-Plaene: 3 bis 7 (' + ANS.plaene.length + ', der siebte ist Helix: SON-01 C)');
+  ok(ANS.plaene.length >= 3 && ANS.plaene.length <= 8, 'Anschluss-Plaene: 3 bis 8 (' + ANS.plaene.length + ', der siebte ist Helix: SON-01 C, der achte der Hinterhalt: BEA-03 C)');
   const ergebnisse = ANS.plaene.map((p) => BP.pruefe(p));
   ok(ergebnisse.every((r) => r.ok), 'jeder Anschluss-Plan besteht Expander und Pruefer' + ergebnisse.filter((r) => !r.ok).map((r) => ' ' + r.fehler[0]).join(''));
   ok(new Set(ergebnisse.map((r) => r.vorlage && r.vorlage.id)).size === ANS.plaene.length, 'die Plaene sind verschieden (verschiedene Vorlagen-Ids)');
@@ -462,7 +462,9 @@ section('Anschluss-Garantie: nach dem Ende ein Angebot ohne Modell, nie der letz
     for (let k = 0; k < 20; k++) { const o = offen(gg)[0]; if (!o) { folgeRefs.push(null); break; } if (folgeRefs.length && folgeRefs[folgeRefs.length - 1] === o.ref) gleich++; folgeRefs.push(o.ref); tt.ab('a' + o.nr); Brett.beiTaetigkeit(gg); }
     ok(folgeRefs.length === 20 && !folgeRefs.includes(null) && gleich === 0 && new Set(folgeRefs).size >= 4, 'zwanzigmal abgelehnt: jedes Mal ein neues Angebot, nie zweimal derselbe Plan hintereinander (' + new Set(folgeRefs).size + ' verschiedene)'); }
   // die Sperren (zuletzt, letzte drei Ablehnungen) duerfen den Rueckfall nie leeren, solange ein Plan passt: ohne Ziel und Kandidat gibt es nur vier passende Plaene (Geruecht, Spur, Konvoi, Geleit)
-  { const idv = (typ) => ids[ANS.plaene.findIndex((p) => p.beats[0].typ === typ)];
+  // BEA-03 C: der achte Plan (hinterhalt) braucht nur einen waehlbaren Sektor und passt in diesen Welten immer: fuer die Sperr-Rechnung mit genau vier Plaenen steht er hier nicht zur Wahl (die Indizes der ersten sieben bleiben)
+  { const origP = D.ANSCHLUSS.plaene; D.ANSCHLUSS.plaene = origP.filter((p) => p.beats[0].typ !== 'hinterhalt');
+    const idv = (typ) => ids[ANS.plaene.findIndex((p) => p.beats[0].typ === typ)];
     const vier = ['geruecht', 'spur', 'konvoi', 'geleit'].map(idv);
     let leer = 0, falsch = 0, n2 = 0;
     for (const zuletzt of vier) for (let k = 0; k < 6; k++) {
@@ -480,7 +482,7 @@ section('Anschluss-Garantie: nach dem Ende ein Angebot ohne Modell, nie der letz
     ok(leer9 === 0 && gesehen.size >= 3, 'zwoelf Ablehnungen hintereinander (zuletzt = Geruecht): jedes Mal ein Angebot (' + gesehen.size + ' verschiedene)');
     // nur zuletzt und drei Ablehnungen waeren uebrig: es bleibt trotzdem ein Plan
     const t10 = neu(412, { env: {} }), g10 = t10.g; const F10 = zust(g10); F10.abenteuerZuletzt = vier[2]; F10.brett = { antworten: [], abgelehnt: [vier[0], vier[1], vier[3]], pruefung: -1e9 }; wipe(g10);
-    ok(!!Brett.anschluss(g10) && g10.errors === 0, 'auch dann ein Angebot, wenn zuletzt und die drei Ablehnungen alle vier passenden Plaene sperren'); }
+    ok(!!Brett.anschluss(g10) && g10.errors === 0, 'auch dann ein Angebot, wenn zuletzt und die drei Ablehnungen alle vier passenden Plaene sperren'); D.ANSCHLUSS.plaene = origP; }
   // passt nur ein einziger Plan und das ist der zuletzt gespielte, bleibt das Brett trotzdem nicht leer (zuletzt wird als Letztes freigegeben)
   { const orig = D.ANSCHLUSS.plaene; D.ANSCHLUSS.plaene = [orig[0]];
     try { const tt = neu(413, { env: {} }), gg = tt.g; const F0 = zust(gg); F0.abenteuerZuletzt = ids[0]; F0.brett = { antworten: [], abgelehnt: [ids[0]], pruefung: -1e9 }; wipe(gg);

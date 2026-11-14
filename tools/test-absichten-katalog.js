@@ -334,8 +334,11 @@ section('Skalierung nach Stufe (Rang und Schiff der Crew, Daten in inszenierer-w
 });
 
 section('Die sieben Rueckfall-Plaene aus anschluss.json: derselbe Plan ueber den Inszenierer', () => {
-  const plaene = ANSCHLUSS.plaene;
-  ok(plaene.length === 7, 'anschluss.json hat sieben Plaene (SON-01 C: dazu Helix ruft um Hilfe)');
+  // BEA-03 C: der achte Plan (Hinterhalt) hat keine Absicht: im Absichten-Modus waehlt der Rueckfall nur unter den Absichten mit standard, der Hinterhalt kommt dort nur ueber anschluss.json (die Garantie)
+  const OHNE_ABSICHT = ['hinterhalt'];
+  ok(ANSCHLUSS.plaene.length === 8 && ANSCHLUSS.plaene.filter((p) => OHNE_ABSICHT.includes(p.beats[0].typ)).length === 1 && !EINTRAEGE.some(([name, e]) => e.standard && OHNE_ABSICHT.includes(name)), 'anschluss.json hat acht Plaene, der achte (Hinterhalt, BEA-03 C) ohne Absicht');
+  const plaene = ANSCHLUSS.plaene.filter((p) => !OHNE_ABSICHT.includes(p.beats[0].typ));
+  ok(plaene.length === 7, 'sieben Plaene mit Absicht (SON-01 C: dazu Helix ruft um Hilfe)');
   const zuordnung = plaene.map((p) => EINTRAEGE.filter(([, e]) => e.standard && e.standard.titel === p.titel).map(([name]) => name));
   ok(zuordnung.every((z) => z.length === 1), 'zu jedem Plan gibt es genau eine Absicht mit gleichem Titel im Feld standard: ' + zuordnung.map((z) => z.join('/')).join(', '));
   ok(new Set(zuordnung.map((z) => z[0])).size === 7 && EINTRAEGE.filter(([, e]) => e.standard).length === 7, 'sieben verschiedene Absichten, und nur diese sieben haben ein standard');

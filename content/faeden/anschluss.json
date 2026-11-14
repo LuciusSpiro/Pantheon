@@ -11,6 +11,7 @@
     {"format": "faden-bauplan/1", "titel": "Geleit durch die Dunkelzone", "anlass": "Ein Schiff will durch einen unsicheren Sektor und sucht Begleitschutz.", "beats": [{"typ": "geleit"}, {"typ": "abschluss"}]},
     {"format": "faden-bauplan/1", "titel": "Ein stiller Auftrag", "anlass": "Ein Auftraggeber will, dass ein germanischer Posten verschwindet.", "beats": [{"typ": "sabotage"}, {"typ": "abschluss"}]},
     {"format": "faden-bauplan/1", "titel": "Ein altes Gesicht", "anlass": "Jemand aus einem früheren Auftrag meldet sich und braucht noch einmal Hilfe.", "beats": [{"typ": "wiedersehen"}, {"typ": "abschluss"}]},
-    {"format": "faden-bauplan/1", "titel": "Helix ruft um Hilfe", "anlass": "Eine Forschungsstation im Gravimetriefeld braucht jemanden, der ihre Messreihe rettet.", "beats": [{"typ": "sondersektor"}, {"typ": "abschluss"}]}
+    {"format": "faden-bauplan/1", "titel": "Helix ruft um Hilfe", "anlass": "Eine Forschungsstation im Gravimetriefeld braucht jemanden, der ihre Messreihe rettet.", "beats": [{"typ": "sondersektor"}, {"typ": "abschluss"}]},
+    {"format": "faden-bauplan/1", "titel": "Ein Hinterhalt an der Strecke", "anlass": "Funkmeldungen häufen sich: In einem Sektor in der Nähe lauern Schiffe auf Durchreisende.", "beats": [{"typ": "hinterhalt"}, {"typ": "abschluss", "erfolg": ["hinterhalt"]}]}
   ]
 }

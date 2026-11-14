@@ -240,13 +240,13 @@ section('(b2) Prompt-Katalog der Komposition (A2) leitet die neuen Typen aus den
   for (const typ of NEU) ok(new RegExp('- ' + typ + '[ :\\[]').test(k) && k.includes(D.BEATS[typ].zweck), `${typ} steht im Katalog mit seinem Zweck`);
   ok(/sieg \(Standard aufhalten; erlaubt aufhalten \| pluendern\)/.test(k) && /modus \(Standard geleit; erlaubt geleit \| havarist \| panne\)/.test(k), 'Parameter sieg und modus mit Standard und erlaubten Werten');
   ok(/konvoi \[Gefahr, Szene\]/.test(k) && /geleit \[Gefahr, Szene\]/.test(k) && /braucht die Lage sabotage_ziel \(Kontext faeden\.lage\.sabotage_ziel groesser 0\)/.test(k), 'Gefahr und Szene sind gekennzeichnet, die Lage des Sabotage-Auftrags steht im Katalog');
-  ok(/Kontext faeden\.lage: Zahl je Lage \(sabotage_ziel\), nur Zahlen, keine Namen/.test(k), 'der Katalog erklaert faeden.lage (nur Zahlen, keine Namen)');
+  ok(/Kontext faeden\.lage: Zahl je Lage \(hinterhalt_ziel \| sabotage_ziel\), nur Zahlen, keine Namen/.test(k), 'der Katalog erklaert faeden.lage (nur Zahlen, keine Namen)');
   ok(/sabotage[^\n]*hoechstens einmal je Plan/.test(k), 'der Katalog nennt: ein Sabotage-Beat steht hoechstens einmal je Plan (aus den Daten nur_einmal)');
   ok(k.length < 13550, 'Prompt-Katalog unter 13 550 Zeichen (PAR-01 A) (' + k.length + ')');
   const r = AP.baue(t.g, { nr: 1, grenze: 'szene_ende', hex: '0305', letzte: [] });
   ok(!r.fehler && r.prompt.length < 16000 && !NAMEN.some((x) => r.prompt.includes(x)), 'der Prompt ist im Budget und ohne Spielernamen (' + r.zeichen + ' Zeichen)');
   const ktx = kontextVon(r.prompt).faeden;
-  ok(ktx.lage && ktx.lage.sabotage_ziel === 0 && Object.keys(ktx.lage).join() === 'sabotage_ziel', 'Kontext faeden.lage.sabotage_ziel ist 0 ohne Ziel');
+  ok(ktx.lage && ktx.lage.sabotage_ziel === 0 && Object.keys(ktx.lage).join() === 'hinterhalt_ziel,sabotage_ziel', 'Kontext faeden.lage.sabotage_ziel ist 0 ohne Ziel');
   const sys = fs.readFileSync(path.join(__dirname, '..', 'content', 'spielleiter', 'prompts', 'abenteuer.system.md'), 'utf8');
   ok(/faeden\.lage/.test(sys) && /Lage:/.test(sys) && /größer 0/.test(sys), 'der Systemprompt erklaert die Lage');
   postenSetzen(t.g, '0703', 'ger'); rang(t.g, 'miles'); flieg(t, '0305');

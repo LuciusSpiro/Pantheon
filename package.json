@@ -54,6 +54,7 @@
     "test:faden-nach4": "node tools/test-faden-nach4.js",
     "test:faden-nach4-mutation": "node tools/mutation-faden-nach4.js",
     "test:hinterhalt-kern": "node tools/test-hinterhalt-kern.js",
+    "test:hinterhalt-plan": "node tools/test-hinterhalt-plan.js",
     "test:faden-bauplan": "node tools/test-faden-bauplan.js",
     "test:faden-bauplan-mutation": "node tools/mutation-faden-bauplan.js",
     "test:faden-katalog-b1": "node tools/test-faden-katalog-b1.js",

@@ -74,7 +74,7 @@ function kette(t, k) {
   let a = Brett.anschluss(g);
   for (let i = 0; i < k && a; i++) {
     out.push({ nr: a.nr, ref: a.ref, folge: folgeVon(a), hex: a.hex, bezug: a.bezug ? a.bezug.nsc : null, quelle: quelleVon(g, a) });
-    const r = t.an('a' + a.nr), f = liste(g).find((x) => x.plan && x.vorlage === a.ref);
+    const r = t.an('a' + a.nr), f = liste(g).filter((x) => x.plan && x.vorlage === a.ref).pop();   // BEA-03 C: der JUENGSTE Faden dieses Plans (derselbe Plan kehrt wieder: find() griff den alten, schon beendeten)
     if (!r || !r.ok || !f) { out.push({ fehler: r && r.code }); break; }
     beende(g, f, 'gelungen');
     a = offen(g)[0] || null;
@@ -289,7 +289,7 @@ section('Abnahme 7: Vielfalt, 10 Rueckfaelle nacheinander, mindestens 8 verschie
     const gez = Object.keys(LAGEN).map((name) => [11, 12, 13].map((seed) => verschieden(kette(lage(name, 700 + seed, '1'), 10))).join('/'));
     info('nur gewichtet gezogen (rueckfall_neue_folge_zuerst false): ' + Object.keys(LAGEN).map((name, i) => name.split(' ')[0] + ' ' + gez[i]).join('; '));
   } finally { KAT.werte.rueckfall_neue_folge_zuerst.wert = k0; }
-  ok(ANS.plaene.length === 7, 'die Baseline kann mit sieben Plaenen hoechstens sieben verschiedene Folgen liefern (SON-01 C: der siebte ist Helix)');
+  ok(ANS.plaene.length === 8, 'die Baseline kann mit acht Plaenen hoechstens acht verschiedene Folgen liefern (SON-01 C: der siebte ist Helix, BEA-03 C: der achte der Hinterhalt)');
 });
 
 section('Quelltext: kein Absichts-, Beat- oder Wendungsname im Code, keine Zahl ab zwei Stellen', () => {

@@ -71,6 +71,11 @@ const LAGEN = {
     },
   },
 };
+// BEA-03 C: der Hinterhalt wird nur angeboten, wenn die Crew von hier aus einen waehlbaren Sektor hat (faden-hinterhalt.kandidaten)
+LAGEN.hinterhalt_ziel = {
+  zahl(game) { return require('./faden-hinterhalt.js').kandidaten(game).length; },
+  fehler(game) { return this.zahl(game) ? null : 'LAGE_ZIEL_FEHLT: im Umkreis der Crew gibt es keinen Sektor, in dem ein Hinterhalt lauern koennte'; },
+};
 const lage = (key) => (has(LAGEN, key) ? LAGEN[key] : null);
 
 // ---------- sabotage

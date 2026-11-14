@@ -564,7 +564,7 @@ section('E3 Wiederholung: der NSC (Wiedersehen) und der Anschluss-Rueckfall (stu
     for (const f of liste(g3)) f.nsc.status = 'tot';
     zust(g3).abenteuerAngebote.length = 0;
     const a = Brett.anschluss(g3);
-    ok(a && ['geruecht', 'spur', 'konvoi', 'geleit'].includes(a.vorlage.beats[0].typ), `Sperre ueber alle passenden Plaene (folge_zuletzt 9): der Rueckfall lockert (Ort, dann Folge) und bietet ${a && a.vorlage.beats[0].typ} an`);
+    ok(a && ['geruecht', 'spur', 'konvoi', 'geleit', 'hinterhalt'].includes(a.vorlage.beats[0].typ), `Sperre ueber alle passenden Plaene (folge_zuletzt 9): der Rueckfall lockert (Ort, dann Folge) und bietet ${a && a.vorlage.beats[0].typ} an`);
     // auf der letzten Stufe ohne jeden Kandidaten: das Wiedersehen kommt gar nicht erst in die Auswahl (kein abgelehnter Plan im Logbuch, in 20 Ziehungen)
     const fp0 = logbuch(g3).filter((e) => e.art === 'faden_pruefung').length; let gezogen = 0;
     for (let k = 1; k <= 20; k++) { zust(g3).angNr = k; zust(g3).abenteuerAngebote.length = 0; if (Brett.anschluss(g3)) gezogen++; }
@@ -582,7 +582,7 @@ section('E3 Wiederholung: der NSC (Wiedersehen) und der Anschluss-Rueckfall (stu
 
 section('E3 Eigenschaftstest: 300 Anschluss-Entscheidungen gegen eine eigene Rechnung', () => {
   const ANS_TYP = ANS.plaene.map((p) => p.beats[0].typ);   // geruecht spur konvoi geleit sabotage wiedersehen
-  const frei = ['geruecht', 'spur', 'konvoi', 'geleit'];    // ohne Ziel und Kandidat
+  const frei = ['geruecht', 'spur', 'konvoi', 'geleit', 'hinterhalt'];    // ohne Ziel und Kandidat (BEA-03 C: der Hinterhalt braucht nur einen waehlbaren Sektor und passt in dieser Welt immer)
   let gewaehlt = 0, leer = 0, verstoss = 0, locker = 0, gleichtyp = 0, abgelehnt = 0;
   const verteilung = {};
   for (let seed = 1; seed <= 300; seed++) {
@@ -610,7 +610,7 @@ section('E3 Eigenschaftstest: 300 Anschluss-Entscheidungen gegen eine eigene Rec
   ok(verstoss === 0, `nie ein Plan, der nicht passt, nie eine gesperrte Folge, solange ein anderer passt (${verstoss} Verstoesse; ${locker} Faelle ohne freien Plan, ${abgelehnt} Faelle mit abgelehnten Plaenen: gelockert)`);
   ok(gleichtyp === 0, 'nie derselbe Typ wie das letzte Abenteuer, solange ein anderer passt (' + gleichtyp + ')');
   ok(Object.keys(verteilung).length >= 4, 'alle vier moeglichen Plaene kommen vor: ' + JSON.stringify(verteilung));
-  ok(ANS_TYP.length === 7 && ANS_TYP[6] === 'sondersektor', 'sieben Standardplaene in den Daten (der siebte: Helix, in dieser Welt schon gelungen)');
+  ok(ANS_TYP.length === 8 && ANS_TYP[6] === 'sondersektor' && ANS_TYP[7] === 'hinterhalt', 'acht Standardplaene in den Daten (der siebte: Helix, in dieser Welt schon gelungen; der achte: Hinterhalt, BEA-03 C)');
 });
 
 // ======================================================================

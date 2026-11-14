@@ -292,6 +292,7 @@
   {"id":"test-faden-nach3","kette":"test","cmd":["tools/test-faden-nach3.js"],"stufe":"fast","budget_s":8},
   {"id":"test-faden-nach4","kette":"test","cmd":["tools/test-faden-nach4.js"],"stufe":"fast","budget_s":7},
   {"id":"test-hinterhalt-kern","kette":"test","cmd":["tools/test-hinterhalt-kern.js"],"stufe":"fast","budget_s":7},
+  {"id":"test-hinterhalt-plan","kette":"test","cmd":["tools/test-hinterhalt-plan.js"],"stufe":"fast","budget_s":7},
   {"id":"test-faden-sim-befehl","kette":"test","cmd":["tools/test-faden-sim-befehl.js"],"stufe":"fast","budget_s":9},
   {"id":"test-faden-haendler-invasion","kette":"test","cmd":["tools/test-faden-haendler-invasion.js"],"stufe":"fast","budget_s":12},
   {"id":"test-faden-bauplan","kette":"test","cmd":["tools/test-faden-bauplan.js"],"stufe":"fast","budget_s":8},
