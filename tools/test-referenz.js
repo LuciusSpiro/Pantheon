@@ -2,7 +2,7 @@
 // Tests des Referenz-Aufrufs (REF-01 A) – npm run test:referenz.
 // Startet KEINE echten Referenztests: referenz.js bekommt eine Tabelle mit Attrappen-Befehlen (node -e). Schreibt nur in ein mkdtemp-Verzeichnis.
 //   a Argumentpruefung   b alle gruen -> 0   c ein roter Test -> 1, die anderen laufen   d strikt nacheinander
-//   e ohne --mitschnitt weder Umgebung noch Laeufer, mit --mitschnitt Tabelle mit Umgebung (+ Nebenfaelle, "braucht")
+//   e ohne --mitschnitt weder Umgebung noch Laeufer, mit --mitschnitt Tabelle mit Umgebung (+ Nebenfaelle)
 //   f echter Kindprozess: node tools/referenz.js ohne Argument -> Exit 2
 
 const fs = require('fs');
@@ -22,7 +22,7 @@ const attrappe = (id, code, ms) => ['-e', `const fs=require('fs');fs.appendFileS
 const laeuferAttrappe = (code) => ['-e', `const fs=require('fs'),p=require('path');const d=process.env.MITSCHNITT_DIR;fs.mkdirSync(p.join(d,'01_x'),{recursive:true});fs.writeFileSync(p.join(d,'01_x','mission.md'),'a\\nb\\nc');fs.writeFileSync(p.join(d,'env.json'),JSON.stringify({m:process.env.MITSCHNITT}));process.exit(${code})`];
 const tabelle = (codes) => ({
   1: { name: 'A1', test: attrappe('t1', codes[0], 150), mutation: 'm1', kennung: 'b1', laeufer: [
-    { id: 'l1', args: laeuferAttrappe(0) }, { id: 'l1n', neben: true, args: laeuferAttrappe(0) }, { id: 'l1x', braucht: '--gibtsnicht', args: ['tools/referenz.js'] } ] },
+    { id: 'l1', args: laeuferAttrappe(0) }, { id: 'l1n', neben: true, args: laeuferAttrappe(0) } ] },
   2: { name: 'A2', test: attrappe('t2', codes[1], 150), mutation: 'm2', kennung: 'b2', laeufer: [ { id: 'l2', args: laeuferAttrappe(codes[3] || 0) } ] },
   3: { name: 'A3', test: attrappe('t3', codes[2], 150), mutation: 'm3', kennung: 'b3', laeufer: [ { id: 'l3', args: laeuferAttrappe(0) } ] },
 });
@@ -65,34 +65,32 @@ const still = { ausgabe: () => {} };
   // e ohne --mitschnitt
   let p = R.plane(R.lies(['alle']), { tabelle: tabelle([0, 0, 0]) });
   check('e ohne --mitschnitt keine Laeufer', p.laeufer.length === 0);
-  check('e ohne --mitschnitt keine Mitschnitt-Umgebung in den Tests', p.tests.every((t) => !t.env));
   fs.writeFileSync(ZEIT, '');
   const probe = { ...tabelle([0, 0, 0]) };
   probe[1] = { ...probe[1], test: ['-e', "process.exit(process.env.MITSCHNITT||process.env.MITSCHNITT_DIR?1:0)"] };
-  const saeuber = { ...process.env }; const alt = { m: process.env.MITSCHNITT, d: process.env.MITSCHNITT_DIR };
-  delete process.env.MITSCHNITT; delete process.env.MITSCHNITT_DIR;
+  const alt = { m: process.env.MITSCHNITT, d: process.env.MITSCHNITT_DIR };
+  process.env.MITSCHNITT = '1'; process.env.MITSCHNITT_DIR = path.join(TMP, 'geerbt');   // in der Shell gesetzt: darf nicht in den Test gelangen
   r = await R.fuehreAus(R.plane(R.lies(['1']), { tabelle: probe }), still);
-  if (alt.m !== undefined) process.env.MITSCHNITT = alt.m; if (alt.d !== undefined) process.env.MITSCHNITT_DIR = alt.d;
-  check('e Kindprozess des Tests sieht keine Mitschnitt-Variablen', r.code === 0);
+  if (alt.m !== undefined) process.env.MITSCHNITT = alt.m; else delete process.env.MITSCHNITT; if (alt.d !== undefined) process.env.MITSCHNITT_DIR = alt.d; else delete process.env.MITSCHNITT_DIR;
+  check('e ein in der Shell gesetztes MITSCHNITT/MITSCHNITT_DIR gelangt nicht in den Test (Kindprozess endet mit 0)', r.code === 0);
 
   // e mit --mitschnitt
   const ms = path.join(TMP, 'ms');
   g = R.lies(['alle', '--mitschnitt', ms]);
   check('e --mitschnitt wird absolut gelesen', g.mitschnitt === path.resolve(ms));
   p = R.plane(g, { tabelle: tabelle([0, 0, 0]) });
-  const ids = p.laeufer.filter((l) => !l.uebersprungen).map((l) => l.id).join(',');
+  const ids = p.laeufer.map((l) => l.id).join(',');
   check('e ohne --nebenfaelle: Hauptlaeufer, kein Nebenfall', ids === 'l1,l2,l3', ids);
-  check('e "braucht" fehlt im Quelltext -> uebersprungen', p.laeufer.some((l) => l.id === 'l1x' && l.uebersprungen));
-  check('e Umgebung je Lauf (MITSCHNITT=1, MITSCHNITT_DIR absolut unter <ordner>/<kennung>)', p.laeufer.filter((l) => !l.uebersprungen).every((l) => l.env.MITSCHNITT === '1' && path.isAbsolute(l.env.MITSCHNITT_DIR) && l.env.MITSCHNITT_DIR.startsWith(path.join(ms, 'b'))));
+  check('e Umgebung je Lauf (MITSCHNITT=1, MITSCHNITT_DIR absolut unter <ordner>/<kennung>)', p.laeufer.every((l) => l.env.MITSCHNITT === '1' && path.isAbsolute(l.env.MITSCHNITT_DIR) && l.env.MITSCHNITT_DIR.startsWith(path.join(ms, 'b'))));
   const pn = R.plane(R.lies(['1', '--mitschnitt', ms, '--nebenfaelle']), { tabelle: tabelle([0, 0, 0]) });
   check('e mit --nebenfaelle auch der Nebenfall', pn.laeufer.some((l) => l.id === 'l1n'));
   fs.writeFileSync(ZEIT, '');
   zeilen = [];
   r = await R.fuehreAus(p, { ausgabe: (z) => zeilen.push(z) });
-  check('e Laeufer liefen, Exit 0, Mission gezaehlt (3 Zeilen)', r.code === 0 && r.laeufer.filter((l) => !l.uebersprungen).every((l) => l.code === 0 && l.missionen === 1 && l.zeilen === 3), JSON.stringify(r.laeufer));
+  check('e Laeufer liefen, Exit 0, Mission gezaehlt (3 Zeilen)', r.code === 0 && r.laeufer.every((l) => l.code === 0 && l.missionen === 1 && l.zeilen === 3), JSON.stringify(r.laeufer));
   check('e Umgebung kam im Laeufer an', JSON.parse(fs.readFileSync(path.join(ms, 'b1', 'l1', 'env.json'), 'utf8')).m === '1');
   check('e Bericht nennt Ordner und Zeilen', zeilen.some((z) => z.includes(path.join(ms, 'b2', 'l2')) && z.includes('3 Zeilen')));
-  const lz = r.laeufer.filter((l) => !l.uebersprungen);
+  const lz = r.laeufer;
   check('e Laeufer nacheinander', lz.every((l, i) => i === 0 || l.start >= lz[i - 1].ende));
   r = await R.fuehreAus(R.plane(R.lies(['alle', '--mitschnitt', path.join(TMP, 'ms2')]), { tabelle: tabelle([0, 0, 0, 1]) }), still);
   check('e roter Laeufer -> Exit 1, der Rest laeuft', r.code === 1 && r.laeufer.some((l) => l.id === 'l3' && l.code === 0));

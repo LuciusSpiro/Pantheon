@@ -20,7 +20,6 @@ const ROOT = path.join(__dirname, '..');
 // test: Befehlszeile (Argumente fuer node) des Referenztests; mutation: npm-Skript der Mutationsprobe; kennung: Unterordner des Mitschnitts.
 // laeufer: Befehlszeile (Argumente fuer node) je Mitschnitt-Lauf; {ordner} = <ordner>/<kennung> (absolut), {tmp} = Wegwerf-Ordner fuer --out.
 //   id: Name des Laufs (Unterordner bei MITSCHNITT_DIR fuer die Laeufer ohne --mitschnitt-dir); neben: nur mit --nebenfaelle;
-//   braucht: Wort, das im Quelltext des Laeufers stehen muss (per Dateilesen geprueft), sonst wird der Lauf uebersprungen.
 const BEISPIELE = {
   1: {
     name: 'Beispiel 1 (Faden Haendler/Piraten)', test: ['tools/test-faden-beispiel1.js'], mutation: 'test:faden-beispiel1-mutation', kennung: 'b1',
@@ -47,8 +46,7 @@ const BEISPIELE = {
       // Belegte Kombinationen aus test-wrack-bot: raeuber mit Beute und Logbuch nur Crew 1 Seed 5, Crew 3 nur ohne Beute (Crew 3 mit Beute scheitert).
       { id: 'raeuber', args: ['tools/spiel-wrack.js', '--besetzung', 'raeuber', '--crew', '1', '--seed', '5', '--beute', '--logbuch'] },
       { id: 'raeuber-crew3-ohne-beute', neben: true, args: ['tools/spiel-wrack.js', '--besetzung', 'raeuber', '--crew', '3', '--seed', '7'] },
-      // kommt mit REF-01 B1: laeuft erst, wenn spiel-wrack.js das Wort kennt
-      { id: 'ruhig-verkauf', braucht: '--verkauf', args: ['tools/spiel-wrack.js', '--besetzung', 'ruhig', '--beute', '--logbuch', '--verkauf', '--crew', '3', '--seed', '7'] },
+      { id: 'ruhig-verkauf', args: ['tools/spiel-wrack.js', '--besetzung', 'ruhig', '--beute', '--logbuch', '--verkauf', '--crew', '3', '--seed', '7'] },
     ],
   },
 };
@@ -83,11 +81,9 @@ function lies(argv) {
 }
 
 // Baut den Ablauf: tests (in Reihenfolge) und, nur mit Mitschnitt, laeufer. opts.tabelle ersetzt BEISPIELE (Test mit Attrappen),
-// opts.wurzel ist der Ordner, in dem der Quelltext der Laeufer fuer "braucht" gelesen wird.
 function plane(gelesen, opts) {
   const o = opts || {};
   const tabelle = o.tabelle || BEISPIELE;
-  const wurzel = o.wurzel || ROOT;
   const tests = []; const laeufer = [];
   for (const nr of gelesen.auswahl) {
     const b = tabelle[nr];
@@ -99,11 +95,6 @@ function plane(gelesen, opts) {
       const ordner = path.join(gelesen.mitschnitt, b.kennung);
       for (const l of b.laeufer) {
         if (l.neben && !gelesen.nebenfaelle) continue;
-        if (l.braucht) {
-          let quelle = '';
-          try { quelle = fs.readFileSync(path.join(wurzel, l.args[0]), 'utf8'); } catch (e) { quelle = ''; }
-          if (!quelle.includes(l.braucht)) { laeufer.push({ nr, id: l.id, uebersprungen: `${l.args[0]} kennt ${l.braucht} noch nicht` }); continue; }
-        }
         const mitDir = l.args.includes('--mitschnitt-dir');
         const dir = mitDir ? ordner : path.join(ordner, l.id);
         laeufer.push({
@@ -119,10 +110,17 @@ function plane(gelesen, opts) {
 }
 
 // Startet einen Kindprozess und wartet; behaelt nur die letzte nichtleere Zeile der Ausgabe. opts.zeige: Ausgabe live durchreichen.
+// Die Umgebung der Kindprozesse: ein in der Shell gesetztes MITSCHNITT/MITSCHNITT_DIR wird NICHT geerbt, der Schalter gilt nur ueber --mitschnitt.
+function basisUmgebung() {
+  const e = { ...process.env };
+  delete e.MITSCHNITT; delete e.MITSCHNITT_DIR;
+  return e;
+}
+
 function starte(cmd, env, opts) {
   return new Promise((resolve) => {
     const start = Date.now();
-    const child = cp.spawn(process.execPath, cmd, { cwd: (opts && opts.cwd) || ROOT, env: { ...process.env, ...(env || {}) }, stdio: ['ignore', 'pipe', 'pipe'] });
+    const child = cp.spawn(process.execPath, cmd, { cwd: (opts && opts.cwd) || ROOT, env: { ...basisUmgebung(), ...(env || {}) }, stdio: ['ignore', 'pipe', 'pipe'] });
     let rest = ''; let letzte = '';
     const nimm = (d, ziel) => {
       if (opts && opts.zeige && ziel) ziel.write(d);
@@ -186,7 +184,6 @@ async function fuehreAus(plan, opts) {
   if (plan.laeufer.length) {
     aus('\n--- Mitschnitt-Laeufer');
     for (const l of plan.laeufer) {
-      if (l.uebersprungen) { aus(`Beispiel ${l.nr}  ${l.id}  uebersprungen: ${l.uebersprungen}`); ergLaeufer.push({ nr: l.nr, id: l.id, uebersprungen: true }); continue; }
       fs.mkdirSync(l.ordner, { recursive: true });
       let tmp = null; let cmd = l.cmd;
       if (l.tmpNoetig) { tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'pantheon-referenz-')); cmd = cmd.map((a) => a.replace('{tmp}', tmp)); }

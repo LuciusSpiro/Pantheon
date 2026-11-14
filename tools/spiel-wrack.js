@@ -217,6 +217,7 @@ const plan = () => ({
   await sleep(500);
 
   // ---- --verkauf: die Crew fliegt an den Hafen Ostia Nova (kuenstlich: Teleport), die Ops verkauft die Beute (weapons.verkaufen). Erwartung (Preis je Einheit) aus den Daten: waren.json, handel.json, Besitzer aus der Karte sund_frei.json
+  const orteNach = orte();   // vor dem Hafenbesuch gemessen: enterScene setzt die Away-Karte neu
   let verkauf = null;
   if (VERKAUF) {
     const HAFEN = 'ostia_nova', ART = 'bergungsgut', HEX = '0305';
@@ -225,7 +226,7 @@ const plan = () => ({
     const rj = (...p) => JSON.parse(fs.readFileSync(path.join('content', ...p), 'utf8'));
     const grund = rj('waren.json').waren.find((x) => x.id === ART).grundpreis;
     const HD = rj('handel.json'), volk = HD.voelker[rj('welt', 'sund_frei.json').hexe[HEX].fraktion] || HD.standard, hd = HD.haefen['sund_frei:' + HEX] || {};
-    const preisJe = Math.max(1, Math.round(grund * (volk.faktor != null ? volk.faktor : 1) * (volk.waren[ART] != null ? volk.waren[ART] : 1) * (hd.faktor != null ? hd.faktor : 1) * ((hd.waren && hd.waren[ART]) != null ? hd.waren[ART] : 1)));
+    const preisJe = Math.max(1, Math.round(grund * (volk.faktor != null ? volk.faktor : 1) * ((volk.waren && volk.waren[ART]) != null ? volk.waren[ART] : 1) * (hd.faktor != null ? hd.faktor : 1) * ((hd.waren && hd.waren[ART]) != null ? hd.waren[ART] : 1)));
     const einheiten = lager(), m0 = marken();
     const st = Locations.get(HAFEN).scene.station;
     k('teleport'); Space.enterScene(g, HAFEN, {}); g.explore.location = HAFEN;
@@ -248,7 +249,6 @@ const plan = () => ({
     verkauf.ok = einheiten >= 1 && da && m1 - m0 === einheiten * preisJe && lager() === 0;
   }
   const ged = f.nsc.gedaechtnis.map((e) => e.ereignis);
-  const orteNach = orte();
   pruef(f.phase === 'abgeschlossen', `Faden abgeschlossen (Phase ${f.phase}, Beat ${f.beat})`);
   // Der Ausgang des Fadens ist der des letzten Beats (abschluss): im Frist-Lauf scheitert nur der Beat wrack, die Verzweigung fuehrt in den Abschluss; ob der Faden dort gelungen endet, bestimmt der Plan (Daten)
   pruef(FRIST_LAUF ? (!!f.ausgang && ['gelungen', 'gescheitert'].includes(f.ausgang.art)) : (!!f.ausgang && f.ausgang.art === 'gelungen'), `Ausgang des Fadens ${FRIST_LAUF ? '(Abschluss nach Verzweigung)' : 'gelungen'}: ${f.ausgang && f.ausgang.art}`);
