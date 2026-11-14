@@ -135,6 +135,7 @@
   {"id":"test-verfolgung-bot","kette":"test","cmd":["tools/test-verfolgung-bot.js"],"stufe":"fast","budget_s":10},
   {"id":"test-flotte","kette":"test","cmd":["tools/test-flotte.js"],"stufe":"fast","budget_s":14},
   {"id":"test-kette","kette":"test","cmd":["tools/test-kette.js"],"stufe":"fast","budget_s":9},
+  {"id":"test-lerchentod","kette":"test","cmd":["tools/test-lerchentod.js"],"stufe":"fast","budget_s":3},
   {"id":"test-orbit","kette":"test","cmd":["tools/test-orbit.js"],"stufe":"fast","budget_s":14},
   {"id":"test-rollen-r0","kette":"test","cmd":["tools/test-rollen-r0.js"],"stufe":"fast","budget_s":6},
   {"id":"test-rollen","kette":"test","cmd":["tools/test-rollen.js"],"stufe":"fast","budget_s":6},

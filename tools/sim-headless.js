@@ -66,6 +66,7 @@ function botEnv(extra) {
 }
 // MIT-01 C: --mitschnitt / --mitschnitt-dir bzw. MITSCHNITT=1 (tools/lib/mitschnitt-lauf.js): die Umgebung wird vor dem ersten Game gesetzt; ohne Schalter ist alles ein Nulleffekt
 const MitLauf = require('./lib/mitschnitt-lauf.js');
+const LerchenTod = require('./lib/lerchentod.js');   // HYG-02 C
 MitLauf.einschalten(args);
 const BOT_MODUS = args.find((a) => /^(kette|labor|umsetzung|wellen|graben|arena|archiv|escort|flotte|sl|dauer|m3)$/.test(a)) || 'szenario';
 const BOT_SPIELE = [];
@@ -3782,6 +3783,10 @@ async function runGeneric(opts) {
         else if (res.god && res.god.length) res.god[res.god.length - 1].bis = r1(game.time);
       }
     }
+    if (opts.mode === 'kette' && LerchenTod.lerchenTod(game, S)) {   // HYG-02 C: Lerche zerstört (Reaktor-Countdown): der Server wartet auf OK, der Bot drückt nie OK; ehrlich beenden statt in die Zeitgrenze zu laufen
+      res.lerchenTod = { t: r1(game.time), mission: game.mission.activeId || null, step: game.mission.step ? game.mission.step.id : null };
+      res.aborted = LerchenTod.lerchenTodGrund(game.time); break;
+    }
     if (opts.tickHook) opts.tickHook(game, res);   // SL11: Speichern/Laden an Kapitelübergängen (tools/sim-sund.js)
     // W2 AP6: Beobachtung Personen (gleichzeitig offen) und Enterer an Engstellen (aw.engStats)
     if (S.away && S.away.npcs) res.personenMax = Math.max(res.personenMax || 0, S.away.npcs.filter((n) => !n.rescued).length);
@@ -4143,7 +4148,7 @@ async function ketteMain() {
       log(`Quote Crew ${crew}: ${n}/${xs.length} (Mindestquote ${mindest})`);
       if (n < Number(mindest)) fehl++;
     }
-    for (const x of hart) log(`HART: Crew ${x.crew} Seed ${x.seed}: ${x.r.aborted || (x.r.errors + ' Fehler')}`);
+    for (const x of hart) log(`HART: Crew ${x.crew} Seed ${x.seed}: ${x.r.aborted || (x.r.errors + ' Fehler')}${x.r.lerchenTod ? ' (Tod der Lerche zählt nie in die Quote)' : ''}`);   // HYG-02 C: der Tod ist wie Softlock/Fehler hart, nie Quote
     log(fehl ? '\nSIM KETTE FEHLGESCHLAGEN (Quote/hart: ' + fehl + ')' : '\nSIM KETTE OK (Quote)');
     return fehl;
   }
