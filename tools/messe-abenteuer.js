@@ -15,8 +15,12 @@
 //   plan-NN.prompt.txt (der Prompt), index.md (Tabelle mit Links, Zusammenfassung: Gueltigkeit, Dauer Median/p90, Tokens gegen CLAUDE_TOKEN_BUDGET, Kosten, Wiederholungen/Duplikate),
 //   messung.json (Rohdaten) und regie/ (REGIE_DIR des Spiels) samt aufnahmen/ (recordDir des LLM, nur live). REGIE_DIR und MITSCHNITT(_DIR) aus der Umgebung gelten, wenn gesetzt.
 //   Die Test-Fixture setzt REGIE_DIR auf einen Temp-Ordner, solange das Werkzeug es nicht im env des Spiels vorgibt: das tut --out (nur im Werkzeug, nicht im Spielcode).
+//   node tools/messe-abenteuer.js ... --profil <datei.json>                  KAT-01 C1: fester Spielzustand (Profil, Daten unter tools/fixtures/messe/profile/): name (Pflicht), crew_hex, ziel_hex (Hex oder Liste, reihum je Aufruf; ohne Angabe wandert das Ziel wie bisher), krieg_ticks, chronik, ruf, vorgeschichte, _gemessen; Pfad relativ zum Aufrufer, unbekannte Felder und kaputte Werte: Exit 2.
+//                                                                            Das Profil laeuft nach dem Aufbau der Welt vor dem ersten Aufruf; sein Name steht als "Profil: <name>" in index.md, messung.json und plan-NN.md. Ohne --profil bleibt jede Ausgabe wie vorher. Das Ziel (nicht der Crew-Hex) bestimmt landeplatz_arten; im Modus Absichten waehlt der Inszenierer das Ziel, ziel_hex gilt dort nicht.
+//   node tools/messe-abenteuer.js --live ... --out <ordner> --gesamtdeckel <Tokens>   KAT-01 C1: Gesamtdeckel ueber alle Laeufe/Prozesse unter derselben --out-Wurzel (<wurzel>/gesamtverbrauch.json: Tokens, Kosten in USD, je Lauf ein Eintrag mit Profil und Zeit; nach jedem Aufruf atomar geschrieben).
+//                                                                            Vor jedem Aufruf: ist die Summe schon >= Deckel oder Summe + Schaetzwert (Mittel der bisherigen Aufrufe dieses Laufs, sonst 11 000) > Deckel, folgt KEIN weiterer Aufruf; der Lauf endet sauber, index.md nennt "Deckel erreicht nach N Aufrufen", Exit 3. Nur mit --out und nur fuer Claude; im Mock nur ein Hinweis.
 // Obergrenze: Claude hoechstens 10 Aufrufe je Lauf (aufrufZahl: Math.min(n || 10, 10), kostet Geld), Ollama 50, Mock 5000. Das ist absichtlich hart; mehr Aufrufe nur mit mehreren Laeufen und Absprache.
-// Exit 0 (auch bei uebersprungenen Messungen: die Meldung steht in der Ausgabe), Exit 2 bei falschem Aufruf. Die Messwerte der echten Anbieter sind nur so gut wie die Zahl der Aufrufe: ab 10 Aufrufen aussagekraeftig, nicht mehr.
+// Exit 0 (auch bei uebersprungenen Messungen: die Meldung steht in der Ausgabe), Exit 2 bei falschem Aufruf (auch kaputtes Profil), Exit 3 wenn der Gesamtdeckel den Lauf beendet hat. Die Messwerte der echten Anbieter sind nur so gut wie die Zahl der Aufrufe: ab 10 Aufrufen aussagekraeftig, nicht mehr.
 const path = require('path');
 const START_CWD = process.cwd();   // --out ist relativ zum Aufrufer, nicht zum Repo
 process.chdir(path.join(__dirname, '..'));
@@ -28,6 +32,7 @@ const LS = require('../server/sim/lage-spielleiter.js');
 const AP = require('../server/sim/abenteuer-prompt.js');
 const Faden = require('../server/sim/faden.js');
 const Ablage = require('./messe-ablage.js');
+const Profil = require('./messe-profil.js');
 const fs = require('fs');
 const D = require('../server/sim/faden-daten.js');
 const Absicht = require('../server/sim/abenteuer-absicht.js');
@@ -50,7 +55,10 @@ const SEED_STANDARD = 7;
 const seedArg = wert('seed') !== undefined ? Number(wert('seed')) : SEED_STANDARD;
 const vorgeschichteFlag = flag('vorgeschichte');
 const jsonArg = wert('json');
+const profilArg = wert('profil');
+const deckelArg = wert('gesamtdeckel') !== undefined ? Number(wert('gesamtdeckel')) : null;
 let ausgabeWurzel = null;
+let profil = null;   // KAT-01 C1: geprueftes Profil (--profil)
 function aufrufPruefen() {
   if (mockFlag && (live || anbieter !== undefined)) { console.error('--mock gilt nicht zusammen mit --live oder --anbieter'); process.exit(2); }
   if (args.includes('--out')) {
@@ -60,6 +68,14 @@ function aufrufPruefen() {
   if (nArg !== null && !(Number.isInteger(nArg) && nArg >= 1 && nArg <= 5000)) { console.error('--n: ganze Zahl 1 bis 5000'); process.exit(2); }
   if (!(Number.isInteger(seedArg) && seedArg >= 1 && seedArg <= 2147483647)) { console.error('--seed: ganze Zahl 1 bis 2147483647'); process.exit(2); }
   if (args.includes('--json') && (!jsonArg || jsonArg.startsWith('--'))) { console.error('--json braucht eine Datei'); process.exit(2); }
+  if (args.includes('--profil')) {
+    if (!profilArg || profilArg.startsWith('--')) { console.error('--profil braucht eine Datei'); process.exit(2); }
+    try { profil = Profil.profilLesen(profilArg, START_CWD); } catch (e) { console.error(e.message); process.exit(2); }
+  }
+  if (args.includes('--gesamtdeckel')) {
+    if (!(Number.isInteger(deckelArg) && deckelArg >= 1)) { console.error('--gesamtdeckel: ganze Zahl (Tokens) ab 1'); process.exit(2); }
+    if (!args.includes('--out')) { console.error('--gesamtdeckel gilt nur zusammen mit --out (der Zaehler liegt in <out-Wurzel>/gesamtverbrauch.json)'); process.exit(2); }
+  }
 }
 
 // Anzahl der Aufrufe: Mock beliebig (Standard 200), Claude hoechstens 10 (kostet Geld), Ollama hoechstens 50
@@ -87,6 +103,7 @@ function planMarkdown(p, ctx) {
     aufruf: p.nr, zeit: a0 ? a0.start : null, dauer_s: e ? e.dauer_s : null, tokens: e ? e.tokens : 0,
     kosten_usd: e && Number.isFinite(e.geld) && ctx.modus === 'live' ? e.geld : null, gueltigkeit: e ? e.ausgang : 'kein_ergebnis', grund: e && e.grund ? e.grund : null,
     pruefer_befunde: e && Array.isArray(e.fehler) ? e.fehler : [], rueckfall: false, anbieter: e ? e.anbieter : null, modell: e ? e.modell : null, quelle: e ? e.quelle : null,
+    ...(ctx.profil ? { profil: ctx.profil } : {}),
     key: antwort && antwort.key ? antwort.key : null, cli: antwort && antwort.cli ? antwort.cli.quelle : null, aufnahme: ctx.modus === 'live' && antwort && antwort.key ? `regie/aufnahmen/abenteuer/${antwort.key}.json` : null, prompt_datei: `plan-${nn(p.nr)}.prompt.txt`, modus: ctx.modus,
   };
   const L = [Ablage.frontmatter(fm), `# Aufruf ${p.nr}: ${titel || (e ? e.ausgang : 'kein Ergebnis')}`, ''];
@@ -104,7 +121,7 @@ function planMarkdown(p, ctx) {
   return L.join('\n');
 }
 function ablegen(ctx) {
-  const { kz, ordner, plaene, zaehl, folgen, gesamt, wiederholt, dauer, budget0, budget1, bezeichnung, modus, t0, abbruch, argv } = ctx;
+  const { kz, ordner, plaene, zaehl, folgen, gesamt, wiederholt, dauer, budget0, budget1, bezeichnung, modus, t0, abbruch, argv, profil } = ctx;
   const zeilen = [];
   for (const p of plaene) {
     Ablage.schreibe(ordner, planDatei(p.nr), planMarkdown(p, ctx));
@@ -127,6 +144,7 @@ function ablegen(ctx) {
   };
   const f = Ablage.fmt, pz = Ablage.prozent;
   const I = [Ablage.frontmatter({ titel: 'Messung Abenteuer-Komposition', werkzeug: 'tools/messe-abenteuer.js', modus, bezeichnung, aufrufe: gesamt, erstellt: new Date().toISOString() }), '# Messung Abenteuer-Komposition', ''];
+  if (profil) I.push(`- Profil: ${profil}`);
   I.push(`- Anbieter: ${bezeichnung}`, `- Aufruf: \`node tools/messe-abenteuer.js ${argv.join(' ')}\``, `- Laufzeit: ${f((Date.now() - t0) / 1000, 10)} s${abbruch ? ' · Abbruch: ' + abbruch : ''}`, '');
   I.push('## Zusammenfassung', '');
   I.push(`- Gültigkeit: gültig ${zaehl.gueltig} (${pz(zaehl.gueltig, gesamt)}), abgelehnt ${abgelehnt} (${pz(abgelehnt, gesamt)}), Ausfall ${ausfall} (${pz(ausfall, gesamt)}) von ${gesamt} Aufrufen`);
@@ -141,7 +159,7 @@ function ablegen(ctx) {
   for (const z of zeilen) I.push(`| ${z.nr} | [${z.datei}](${z.datei}) | ${Ablage.zelle(z.titel)} | ${z.ausgang} | ${Ablage.zelle(z.grund)} | ${f(z.dauer_s, 100)} | ${f(z.tokens)} | ${z.geld != null && modus === 'live' ? f(z.geld, 10000) : '–'} | ${Ablage.zelle(z.typen)} |`);
   I.push('', 'Rohdaten: [messung.json](messung.json). Logbuch des Spiels: `regie/`' + (modus === 'live' ? ', Aufnahmen von Prompt und Rohantwort je Aufruf: `regie/aufnahmen/abenteuer/`.' : '.'), '');
   Ablage.schreibe(ordner, 'index.md', I.join('\n'));
-  Ablage.schreibe(ordner, 'messung.json', JSON.stringify({ format: 'messung-abenteuer/1', werkzeug: 'tools/messe-abenteuer.js', aufruf: argv, modus, bezeichnung, erstellt: new Date().toISOString(), abbruch, zusammenfassung: zf, kennzahlen: kz, aufrufe: zeilen.map((z) => Object.assign({}, z, { rohantwort: ((plaene.find((p) => p.nr === z.nr) || {}).aufrufe || []).map((a) => (a.antwort ? a.antwort.text : null)) })) }, null, 1));
+  Ablage.schreibe(ordner, 'messung.json', JSON.stringify({ format: 'messung-abenteuer/1', werkzeug: 'tools/messe-abenteuer.js', aufruf: argv, modus, bezeichnung, ...(profil ? { profil } : {}), erstellt: new Date().toISOString(), abbruch, zusammenfassung: zf, kennzahlen: kz, aufrufe: zeilen.map((z) => Object.assign({}, z, { rohantwort: ((plaene.find((p) => p.nr === z.nr) || {}).aufrufe || []).map((a) => (a.antwort ? a.antwort.text : null)) })) }, null, 1));
 }
 
 async function main() {
@@ -149,6 +167,7 @@ async function main() {
   let modus = 'mock', llm = null, N = nArg || 200, bezeichnung = 'Mock (deterministisch, ohne Netz)';
   const alteLive = process.env.LLM_LIVE;
   let ordner = null;
+  let deckelAktiv = false, deckelErreicht = false, deckelGrund = null;   // KAT-01 C1: Gesamtdeckel (nur Claude, nur mit --out)
   const neuerOrdner = (m) => { if (ausgabeWurzel && !ordner) { try { ordner = Ablage.laufOrdner(ausgabeWurzel, 'abenteuer-' + m); } catch (e) { console.error(e.message); process.exit(2); } } return ordner; };
   const recordDir = () => (neuerOrdner(modus) ? path.join(ordner, 'regie', 'aufnahmen') : undefined);   // nur live schreibt llm.js Aufnahmen
   if (live || anbieter === 'claude') {
@@ -157,6 +176,7 @@ async function main() {
     if (process.env.LLM_LIVE !== '1') { console.log('Messung Claude: nicht gemessen (LLM_LIVE=1 ist nicht gesetzt; echte Aufrufe kosten Geld und laufen nur von Hand).'); return; }
     if (!cli.cmd) { console.log(`Messung Claude: nicht gemessen (Claude-CLI nicht gefunden; versucht: ${cli.versucht.join(', ') || 'nichts'}; CLAUDE_CLI setzen).`); return; }
     modus = 'live';
+    deckelAktiv = deckelArg !== null;
     const router = Router.routeTransport({ bauplan: { anbieter: 'claude', modell: modell || 'sonnet' } }, { eskalation: null });
     llm = LLM.create({ mode: 'live', transport: router, recordDir: recordDir() });
     bezeichnung = `Claude (${modell || 'sonnet'}), echte Aufrufe, hoechstens 10`;
@@ -173,6 +193,7 @@ async function main() {
     llm = LLM.create({ mode: 'mock' });
   }
 
+  if (deckelArg !== null && !deckelAktiv) console.log('Hinweis: --gesamtdeckel gilt nur fuer Claude-Laeufe (--live); hier ohne Wirkung.');
   neuerOrdner(modus);
   const spielEnv = { FAEDEN: '1', LAGE_SPIELLEITER: '1', SPIELLEITER_LLM: modus === 'live' ? 'mock' : 'mock' };
   // SPL-02: der Schalter Modus Absichten kommt aus der Umgebung des Aufrufers (das Spiel liest game.env, nicht process.env); ohne Wert bleibt der Beat-Plan-Weg.
@@ -187,8 +208,12 @@ async function main() {
   const g = t.g;
   for (let i = 0; i < 6; i++) g.step();
   let vorgeschichteN = 0;
-  if (vorgeschichteFlag) { try { vorgeschichteN = MA.vorgeschichteAufbauen(g, Faden, D, JSON.parse(fs.readFileSync(path.join(__dirname, 'fixtures', 'messe', 'vorgeschichte.json'), 'utf8'))); } catch (err) { console.error('Vorgeschichte nicht aufbaubar: ' + err.message); process.exit(1); } }
+  const mitVorgeschichte = vorgeschichteFlag || !!(profil && profil.vorgeschichte);
+  if (mitVorgeschichte) { try { vorgeschichteN = MA.vorgeschichteAufbauen(g, Faden, D, JSON.parse(fs.readFileSync(path.join(__dirname, 'fixtures', 'messe', 'vorgeschichte.json'), 'utf8'))); } catch (err) { console.error('Vorgeschichte nicht aufbaubar: ' + err.message); process.exit(1); } }
+  let profilMeldung = [];
+  if (profil) { try { profilMeldung = Profil.anwenden(g, profil, { Kriegslage: require('../server/sim/kriegslage.js'), Chronik: require('../server/sim/chronik.js'), Ruf: require('../server/sim/ruf.js'), Sektoren: require('../shared/sektoren.js') }); } catch (err) { console.error(err.message); process.exit(2); } }
   const modusAbsicht = Absicht.aktiv(g);
+  if (profil && Profil.zielListe(profil) && modusAbsicht) console.log('Hinweis: ziel_hex gilt im Modus Absichten nicht (der Inszenierer waehlt das Ziel).');
   const kzZeilen = [];   // SPL-02 G: eine Zeile je Aufruf fuer die Kennzahlen
   const sl = LS.create(g, { llm, abenteuerWerte: { deckel_je_sitzung: 1e9, cooldown_grenzen: 0, timeout_s: modus === 'live' ? 300 : 120 } });
   g.lageSpielleiter = sl; g.lageSchalter = true;
@@ -197,11 +222,26 @@ async function main() {
   const roh = [];
   const aufrufeNr = new Map();   // LIV-01 C: je Aufruf-Nr (input.nr) die Aufnahme von Prompt und Antwort/Fehler (kein Index: ein Fehlaufruf hat keine Antwort)
   const ask0 = llm.ask.bind(llm);
+  // KAT-01 C1: Gesamtdeckel. Zaehler des Laufs (Aufrufe, Tokens) fuer den Schaetzwert; die Datei gilt fuer alle Laeufe unter der Wurzel
+  const lauf = { id: ordner ? path.basename(ordner) : null, profil: profil ? profil.name : null, zeit: new Date().toISOString(), aufrufe: 0, tokens: 0 };
+  const deckelFrei = () => {
+    const stand = Profil.deckelStand(ausgabeWurzel);
+    const schaetz = lauf.aufrufe ? lauf.tokens / lauf.aufrufe : Profil.SCHAETZ_STANDARD;
+    const p = Profil.deckelPruefen(stand.tokens, deckelArg, schaetz);
+    if (!p.ok) { deckelErreicht = true; deckelGrund = p.grund; }
+    return p.ok;
+  };
+  if (deckelAktiv) Profil.deckelVerbuchen(ausgabeWurzel, lauf, { tokens: 0, kosten_usd: 0 });
   llm.ask = async (k, i, o) => {
     if (k !== 'abenteuer') return ask0(k, i, o);
+    if (deckelAktiv && !deckelFrei()) { const e = new Error('Gesamtdeckel erreicht: ' + deckelGrund); e.code = 'DECKEL'; throw e; }
     const rec = { nr: i && i.nr, start: new Date().toISOString(), prompt: i && i.prompt, system: i && i.system, wall0: Date.now() };
     aufrufeNr.set(rec.nr, (aufrufeNr.get(rec.nr) || []).concat(rec));
-    try { const r = await ask0(k, i, o); rec.wall_s = (Date.now() - rec.wall0) / 1000; rec.antwort = r; roh.push(r.text); return r; }
+    try {
+      const r = await ask0(k, i, o); rec.wall_s = (Date.now() - rec.wall0) / 1000; rec.antwort = r; roh.push(r.text);
+      if (deckelAktiv) { lauf.aufrufe++; lauf.tokens += r.tokens || 0; Profil.deckelVerbuchen(ausgabeWurzel, lauf, { tokens: r.tokens, kosten_usd: r.cost, aufruf: true }); }   // sofort, atomar: ein Abbruch verliert nichts
+      return r;
+    }
     catch (e) { rec.wall_s = (Date.now() - rec.wall0) / 1000; rec.fehler = (e && e.code ? e.code + ': ' : '') + String((e && e.message) || e).slice(0, 300); throw e; }
   };
   const budget0 = LLM.budget();
@@ -213,8 +253,10 @@ async function main() {
   const t0 = Date.now();
   let abbruch = null;
   for (let i = 0; i < N; i++) {
+    if (deckelAktiv && !deckelFrei()) { abbruch = `Deckel erreicht nach ${lauf.aufrufe} Aufrufen (${deckelGrund}; Deckel ${fmt(deckelArg)} Tokens)`; console.log(abbruch); break; }
     const z = Faden.zustandVon(g); z.abenteuerAngebote.length = 0;
     const r = ab.erzwingen();
+    if (r.gestartet && profil && !modusAbsicht && Profil.zielFuer(profil, i)) ab.job.hex = Profil.zielFuer(profil, i);   // KAT-01 C1: das Ziel (nicht der Crew-Hex) bestimmt landeplatz_arten
     const nrJob = ab.aufrufe;   // Nr dieses Jobs; eine Verhandlung (Modus Absichten) zaehlt ab.aufrufe weiter, traegt aber dieselbe Nr im Logbuch
     if (!r.gestartet) { abbruch = `Aufruf ${i + 1}: nicht gestartet (${r.grund})`; console.log(abbruch); break; }
     const grenze = Date.now() + (modus === 'live' ? 6 * 60 * 1000 : 5 * 1000);
@@ -254,17 +296,20 @@ async function main() {
   if (modus === 'mock') console.log('Hinweis: Mock-Werte pruefen die Kette und das Werkzeug; sie sagen nichts ueber die Qualitaet eines echten Modells (dafuer --live bzw. --anbieter).');
   const kz = MA.kennzahlen(kzZeilen, { modusAbsicht, live: modus === 'live', lesbarePlaene: folgen.length, systemZeichen: fs.statSync(modusAbsicht ? Absicht.SYSTEM_DATEI : AP.SYSTEM_DATEI).size });
   kz.welt = { seed: seedArg, vorgeschichte_faeden: vorgeschichteN };
+  if (profil) kz.welt.profil = profil.name;
   console.log(MA.kennzahlenZeilen(kz).join(String.fromCharCode(10)));
-  if (vorgeschichteFlag) console.log(`Welt: Seed ${seedArg}, Vorgeschichte ${vorgeschichteN} abgeschlossene Faeden`);
+  if (profil) console.log(`Profil: ${profil.name}${profilMeldung.length ? ' (' + profilMeldung.join(', ') + ')' : ''}`);
+  if (mitVorgeschichte) console.log(`Welt: Seed ${seedArg}, Vorgeschichte ${vorgeschichteN} abgeschlossene Faeden`);
   if (jsonArg) { try { const d = path.resolve(START_CWD, jsonArg); fs.mkdirSync(path.dirname(d), { recursive: true }); fs.writeFileSync(d, JSON.stringify({ format: 'messung-abenteuer-kennzahlen/1', aufruf: args, bezeichnung, kennzahlen: kz }, null, 1)); console.log(`Kennzahlen als JSON: ${d}`); } catch (err) { console.error('JSON nicht geschrieben: ' + err.message); process.exitCode = 1; } }
   g.errors && console.log(`Serverfehler im Lauf: ${g.errors}`);
   if (ordner) {
     try {
-      ablegen({ kz, ordner, plaene, zaehl, folgen, gesamt, wiederholt, dauer, budget0, budget1: LLM.budget(), bezeichnung, modus, t0, abbruch, argv: args });
+      ablegen({ kz, ordner, plaene, zaehl, folgen, gesamt, wiederholt, dauer, budget0, budget1: LLM.budget(), bezeichnung, modus, t0, abbruch, argv: args, profil: profil ? profil.name : null });
       console.log(`Ablage: ${ordner} (index.md, ${plaene.length} Plan-Dateien, messung.json)`);
     } catch (err) { console.error('Ablage fehlgeschlagen: ' + err.message); process.exitCode = 1; }
   }
   sl.dispose();
+  if (deckelErreicht) { console.log('Gesamtdeckel erreicht: Exit 3'); process.exitCode = 3; }
 }
 if (require.main === module) main().then(() => process.exit(process.exitCode || 0), (e) => { console.error('Abbruch: ' + (e && e.stack)); process.exit(1); });
 module.exports = { kennzahlZeile, wiederholungen, prozent, aufrufZahl, dauerText };

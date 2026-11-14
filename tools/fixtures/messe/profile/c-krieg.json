@@ -1,0 +1,27 @@
+{
+ "name": "c-krieg",
+ "crew_hex": "0305",
+ "ziel_hex": ["0304", "0403"],
+ "krieg_ticks": 10,
+ "chronik": [
+  { "art":"plan", "ref":"p1", "kurz":"Flotte sammelt sich im Norden" },
+  { "art":"plan", "ref":"p2", "kurz":"Handelsroute nach Sueden gesperrt" },
+  { "art":"plan", "ref":"p3", "kurz":"Aufklaerer melden Bewegung an der Grenze" },
+  { "art":"plan", "ref":"p4", "kurz":"Hafenwache verstaerkt" },
+  { "art":"plan", "ref":"p5", "kurz":"Versorgungskonvoi ueberfaellig" },
+  { "art":"plan", "ref":"p6", "kurz":"Funkstille am Aussenposten" },
+  { "art":"plan", "ref":"p7", "kurz":"Zoll schliesst den Hafen fuer Fremde" },
+  { "art":"plan", "ref":"p8", "kurz":"Piratenschiff vor der Kueste gesichtet" },
+  { "art":"plan", "ref":"p9", "kurz":"Werft liefert keine Ersatzteile mehr" },
+  { "art":"plan", "ref":"p10", "kurz":"Schmuggler nutzen die Nachtroute" },
+  { "art":"plan", "ref":"p11", "kurz":"Erste Gefechte am Pass" },
+  { "art":"plan", "ref":"p12", "kurz":"Hafen meldet Fluechtlinge" }
+ ],
+ "ruf": { "rom":150, "ger":-40 },
+ "_gemessen": {
+  "stand": "Mock, Seed 7, --n 2, 2026-11-14 (Aufruf 1 und 2)",
+  "kontext_zeichen_mittel": 1238.5,
+  "prompt_zeichen": [13315,13350],
+  "landeplatz_arten": [["schiff", "station"],["wildnis", "hoehle", "schiff", "station"]]
+ }
+}
