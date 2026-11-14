@@ -12,6 +12,7 @@ const Weltstand = require('./weltstand.js');
 const Haken = require('./telemetrie/haken.js');   // TEL-01 B2: Tickschleife meldet Snapshot-Zeit und Kappung ans Protokoll
 
 const ROOT = path.join(__dirname, '..');
+const PKG_VERSION = require('../package.json').version;   // HYG-02 A: beim Start gelesen (GET /version.json)
 const STATIC_DIRS = [
   { prefix: '/shared/', dir: path.join(ROOT, 'shared') },
   // B1 §9 (Wunsch VOXEL): Vokabular und Art-Daten für den Kit-Renderer – nur .json, nur lesen, kein Listing
@@ -102,6 +103,11 @@ function serveStatic(req, res) {
   if (req.method !== 'GET' && req.method !== 'HEAD') { res.writeHead(405); return res.end(); }
   if ((req.url || '').split('?')[0] === '/content/buehnen/index.json') {
     const body = JSON.stringify(buehnenIndex());
+    res.writeHead(200, { 'Content-Type': MIME['.json'], 'Content-Length': Buffer.byteLength(body), 'Cache-Control': 'no-cache' });
+    return res.end(req.method === 'HEAD' ? undefined : body);
+  }
+  if ((req.url || '').split('?')[0] === '/version.json') {   // HYG-02 A: Versionsnummer für das Startmenü, einzige Quelle = package.json
+    const body = JSON.stringify({ version: PKG_VERSION });
     res.writeHead(200, { 'Content-Type': MIME['.json'], 'Content-Length': Buffer.byteLength(body), 'Cache-Control': 'no-cache' });
     return res.end(req.method === 'HEAD' ? undefined : body);
   }

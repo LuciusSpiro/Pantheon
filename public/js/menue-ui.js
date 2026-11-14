@@ -438,6 +438,13 @@
     else if (s === 'einladung') einladung(ctx, view);
     else if (F.lies().modusOffen) modusWahl(ctx, view);   // die Überlagerung ersetzt die Lobby (nichts scheint durch)
     else lobby(ctx, view);
+    if (!ein && (s === 'titel' || s === 'menue')) versionZeile(ctx);
+  }
+  // HYG-02 A: Versionsnummer unten rechts, nur auf Titel und Hauptmenü, Gold, ohne Interaktion; bleibt leer, solange sie nicht geladen ist.
+  // Liegt auf dem Bild (die Zone prüft menue-tokens.js textzonen)
+  function versionZeile(c) {
+    const v = F.lies().version; if (!v) return;
+    txt(c, T.version.praefix + v, VW - MM.statuszeile.innen, MM.statuszeile.y + 8, MF.gold, 'right');
   }
 
   // ---------------------------------------------------------------- Tasten

@@ -89,7 +89,7 @@ const CAMPAIGN_KETTEN = Protocol.CAMPAIGN_KETTEN || { eisenwald: { kampagne: 'ei
 // UEB-01: Übungsplatz-Modi, die eine eigene Karte brauchen, ohne Kampagne (kein Weltstand) zu sein
 const UEBUNG_WELTEN = { arena_forschung: 'sund' };
 
-const SERVER_VERSION = '0.1.0';
+const SERVER_VERSION = require('../package.json').version;   // HYG-02 A: package.json ist die einzige Quelle der Versionsnummer
 const CMD_CONSOLE = { helm: 'helm', captain: 'captain', weapons: 'weapons', technik: 'technik', transfer: 'transfer', shop: 'shop', werft: 'shop', absicht: 'shop', info: 'shop', deco: 'quartier', quartier: 'quartier', kustodenpult: 'kustodenpult', plan: 'plan', ausruestung: 'ausruestung', finale: 'shop' };   // AUS-01 B: ausruestung.* an der Ausrüstungsstation (AUS-01 C: der alte Waffenbefehl an der Transfer-Konsole ist entfallen)
 
 // ---------- M3a: Naht zu SERVER-COMBAT (space.js, CONTRACT-M3 §9.4) ----------
