@@ -50,6 +50,7 @@ const Fracht = require('../server/sim/fracht.js');
 const Wd = require('../server/world.js');
 const Space = require('../server/sim/space.js');
 const Locations = require('../shared/locations.js');
+const MitLauf = require('./lib/mitschnitt-lauf.js');
 
 const CODE = 'WRAK';
 const NAMEN = ['Ada', 'Bo', 'Cem'].slice(0, CREW);
@@ -57,7 +58,8 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const zeilen = [];
 const zeile = (s) => { const t = new Date().toISOString().slice(11, 19); zeilen.push(`${t}  ${s}`); if (hat('verlauf')) console.log(`${t}  ${s}`); };
 const kz = {};
-const k = (...arten) => { for (const a of arten) kz[a] = (kz[a] || 0) + 1; };
+let mitSpiel = null;   // REF-01 A2: das Spiel fuer den Mitschnitt-Kopf (Nulleffekt ohne MITSCHNITT)
+const k = (...arten) => { for (const a of arten) kz[a] = (kz[a] || 0) + 1; MitLauf.kuenstlich(mitSpiel, ...arten); };
 
 const plan = () => ({
   format: 'faden-bauplan/1', titel: 'Absturz im Sektor', anlass: 'Ein Geruecht spricht von einem Wrack, niemand weiss wo.',
@@ -70,6 +72,8 @@ const plan = () => ({
   const srv = await startServer({ port: 0, quiet: true, noStore: true, worlds: true, worldDir: dir, roomCode: CODE });
   const g = srv.game, port = srv.port;
   g.fixedSeed = SEED; g.reset();
+  mitSpiel = g;
+  MitLauf.anmelden(g, { werkzeug: 'spiel-wrack', seed: g.seed, crew: CREW, modus: `wrack ${BES}${BEUTE_NEHMEN ? ', Beute' : ''}${LOGBUCH_LESEN ? ', Logbuch' : ''}${VERKAUF ? ', Verkauf' : ''}${FRIST_LAUF ? ', Frist-Lauf' : ''}`, regel: 'Plan Geruecht > wrack > abschluss eingespeist; Bots scannen, waehlen das Wrack, beamen runter, bergen, lesen, beamen hoch (Rueckfall ohne Modell)' });
   const t0 = Date.now();
   const abw = [];
   const pruef = (c, t) => { zeile(`${c ? 'ok     ' : 'FEHLER '} ${t}`); if (!c) abw.push(t); };
@@ -267,6 +271,7 @@ const plan = () => ({
   const ok = abw.length === 0;
   const kurz = `${ok ? 'ok' : 'FEHLER'} ${BES} crew ${CREW} seed ${SEED}${FRIST_LAUF ? ' frist-lauf' : ''}: Ausgang ${f.ausgang && f.ausgang.art}, Verlauf ${verlauf.join(' > ')}; Gegner ${gegner}; unten ${unten.length}; Komponisten-Aufrufe ${aufrufe()}; g.errors ${g.errors}; Orte ${zahlOrte(orteVor)} vorher, ${zahlOrte(orteWaehrend)} im Lauf, ${zahlOrte(orteNach)} nachher; ${sek} s; kuenstlich ${JSON.stringify(kz)}`;
   if (JSON_DATEI) fs.writeFileSync(JSON_DATEI, JSON.stringify(Object.assign({ besetzung: BES, crew: CREW, seed: g.seed, fristLauf: FRIST_LAUF, ok, abweichungen: abw, faden: { phase: f.phase, ausgang: f.ausgang && f.ausgang.art, gedaechtnis: ged, verlauf }, gegner, gegnerArten, unten: unten.length, komponistenAufrufe: aufrufe(), errors: g.errors, orte: { vor: zahlOrte(orteVor), lauf: zahlOrte(orteWaehrend), nach: zahlOrte(orteNach), nachDetail: orteNach }, boden: boden.filter((e) => e.map === lpId), funk, ortName: Sektoren.hexName(ziel) || ziel, lager: Fracht.lagerArten(g).length, beute: BEUTE_NEHMEN, logbuch: LOGBUCH_LESEN, sekunden: sek, kuenstlich: kz }, VERKAUF ? { verkauf } : {}), null, 1) + '\n', 'utf8');
+  MitLauf.beenden(g);
   for (const x of cl) { try { x.ws.close(); } catch (e) { /* egal */ } }
   if (!ok) for (const z of zeilen.slice(-40)) console.log(z);
   console.log(kurz);
