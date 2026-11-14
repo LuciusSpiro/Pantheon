@@ -581,7 +581,7 @@ function promptText() {
 // sie sich wieder aus Haltung und Status des NSC (effektiv), beide stehen im Stand.
 function speicherFaden(f) {
   const k = klon(f);
-  if (k.laufend) delete k.laufend.variante;
+  if (k.laufend) { delete k.laufend.variante; delete k.laufend.hex; }   // BEA-03: der Sektor des Hinterhalts ist Laufzeit (ein laufender Szenen-Beat steht nach dem Laden wieder aus, der Sektor wird neu gewaehlt)
   return k;
 }
 function toSave(ws) {

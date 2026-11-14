@@ -4,7 +4,7 @@
 // laeuft in der Freien Fahrt nicht (Labor-Start speichert m1–m3, Prüfer lehnt 21 von 27 Orten ab), und eine Faden-Szene ist nicht speicherbar.
 //
 //   starten(game, { art, fadenId, beatId, nsc?, parameter? }) -> { ok, grund? }
-//       art verfolgung | raumschlacht | befreiung | konvoi | geleit (Vorlauf, dann Kampf in der Warteschlange: nie zwei Szenen übereinander, nie bei laufender Sim-Szene)
+//       art verfolgung | raumschlacht | befreiung | hinterhalt (BEA-03: ohne Vorlauf) | konvoi | geleit (Vorlauf, dann Kampf in der Warteschlange: nie zwei Szenen übereinander, nie bei laufender Sim-Szene)
 //       SUND-04b B2: konvoi (Konvoi.an, ohne Mission) und geleit (Escort.spawn: Geleit, Havarist, Panne) in faden-szene-b2.js; die Wahl des Beats (Parameter sieg, modus) steht in parameter.beat
 //       art spontanhilfe: der Beat wartet auf das nächste Gefecht (Sim-Szene oder Raumschlacht); einmal je Gefecht gewürfelt
 //   update(game, dt)   Takt (aus game.step, nur wenn eine Faden-Szene, eine Warteschlange oder ein Beat „spontanhilfe“ da ist)
@@ -23,6 +23,7 @@ const Bausteine = require('./faden-bausteine.js');
 const Fracht = require('./faden-fracht.js');
 const Hinweis = require('./faden-hinweis.js');
 const SZB2 = require('./faden-szene-b2.js');   // SUND-04b B2: Szenenarten konvoi und geleit
+const Hinterhalt = require('./faden-hinterhalt.js');   // BEA-03 A: Beat hinterhalt (Hex, Ankunft, Halt); ruft starten() lazy
 const Sektoren = require('../../shared/sektoren.js');
 const Verfolgung = require('./verfolgung.js');
 const Zielsysteme = require('./zielsysteme.js');
@@ -90,16 +91,18 @@ function naechsteStarten(game) {
 function beginnen(game, it) {
   game.fadenSzeneN = (game.fadenSzeneN || 0) + 1;
   const sek = Math.max(W.vorlauf_min_s, W.vorlauf_s);   // nie unter der Untergrenze der Vorwarnung
+  const sekArt = (W[it.art] && Number.isFinite(W[it.art].vorlauf_s)) ? Math.max(0, W[it.art].vorlauf_s) : sek;   // BEA-03: eine Art mit eigenem vorlauf_s (Daten: hinterhalt 0, kein Vorlauf) ist von der Untergrenze ausgenommen, alle anderen behalten sie
   const b2 = SZB2.istArt(it.art) ? SZB2.plan(it, crewN(game), nachCrew, game) : null;   // SUND-04b B2: die Wahl des Beats und die angekündigte Zahl
-  const n = b2 ? b2.n : (it.art === 'raumschlacht' || it.art === 'befreiung') ? nachCrew(W[it.art].anzahl, crewN(game)) : 1;
+  const n = b2 ? b2.n : (W[it.art] && W[it.art].anzahl) ? nachCrew(W[it.art].anzahl, crewN(game)) : 1;   // BEA-03: jede Art mit Tabelle anzahl (raumschlacht, befreiung, hinterhalt) skaliert nach Crewgroesse
   const bv = it.parameter && it.parameter.beat && typeof it.parameter.beat.volk === 'string' ? it.parameter.beat.volk : '';   // BEA-01 Nacharbeit: der Beat darf das Volk der Gegner nennen (Parameter volk), sonst gilt szenen-werte.json
-  const fs = { id: game.fadenSzeneN, fadenId: it.fadenId, beatId: it.beatId, art: it.art, nsc: it.nsc, volk: bv, phase: 'vorlauf', ab: game.time + sek, start: null, szene: game.ship.scene, tag: 'fs' + game.fadenSzeneN, sek, n, textKey: b2 ? b2.textKey : it.art, plan: b2 };   // n: die angekündigte Zahl (K2)
+  const fs = { id: game.fadenSzeneN, fadenId: it.fadenId, beatId: it.beatId, art: it.art, nsc: it.nsc, volk: bv, phase: 'vorlauf', ab: game.time + sekArt, start: null, szene: game.ship.scene, tag: 'fs' + game.fadenSzeneN, sek: sekArt, n, textKey: b2 ? b2.textKey : it.art, plan: b2 };   // n: die angekündigte Zahl (K2)
   game.fadenSzene = fs;
-  const klasse = (it.art === 'raumschlacht' || it.art === 'befreiung') ? W[it.art].klasse : '';
-  const vars = { name: it.nsc ? it.nsc.name : '', schiff: it.nsc ? it.nsc.schiff : '', klasse, n, sek: Math.round(sek) };
+  const klasse = (W[it.art] && W[it.art].anzahl && W[it.art].klasse) || '';
+  const vars = { name: it.nsc ? it.nsc.name : '', schiff: it.nsc ? it.nsc.schiff : '', klasse, n, sek: Math.round(sekArt), ort: hexName(Sektoren.hexVonOrt(game.ship.scene)) };
   poolSagen(game, it);   // SPL-02 E3: Haken, ohne angemeldeten Plan nichts
   const wk = bv && Object.prototype.hasOwnProperty.call(T.vorwarnung, fs.textKey + '_' + bv) ? fs.textKey + '_' + bv : fs.textKey;   // Vorwarnung des Volks, wenn die Daten eine kennen
   funk(game, fmt(T.vorwarnung[wk], vars));   // Fairness: die Gefahr wird vorher angekündigt, nie abgefragt
+  if (sekArt <= 0) kampfBeginn(game, fs);   // BEA-03: ohne Vorlauf (Daten) stehen die Gegner im selben Takt wie die Meldung
   return fs;
 }
 
@@ -280,6 +283,7 @@ const befreiungBaustein = {
   },
 };
 Bausteine.registriere('befreiung', befreiungBaustein);
+Bausteine.registriere('hinterhalt', Hinterhalt.baustein);   // BEA-03 A: der Hinterhalt wartet an einem Sektor (faden-hinterhalt.js), der Kampf laeuft ueber starten() mit der Art hinterhalt
 // Takt: jeder laufende Befreiungs-Beat, dessen Szene noch nicht eingeplant ist, beginnt, sobald das Schiff am Ort des NSC ist
 // Der laufende Befreiungs-Beat eines Fadens (sonst null)
 function befreiungBeat(f) {

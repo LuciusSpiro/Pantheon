@@ -34,7 +34,7 @@ const MUTATIONEN = [
   [SZ, '  if (!(wuerfel(game, h) < p)) return false;', '  if (!(game.rng.chance(p))) return false;', 'Wurf der Spontanhilfe zieht game.rng statt des eigenen Stroms'],
   [SZ, '  funk(game, fmt(T.vorwarnung[wk], vars));', '  void vars;', 'Gefahr ohne Vorwarnung per Funk'],
   [SZ, '  const sek = Math.max(W.vorlauf_min_s, W.vorlauf_s);', '  const sek = 2;', 'Vorwarnung unter 8 s'],
-  [SZ, "  const n = b2 ? b2.n : (it.art === 'raumschlacht' || it.art === 'befreiung') ? nachCrew(W[it.art].anzahl, crewN(game)) : 1;", "  const n = b2 ? b2.n : (it.art === 'raumschlacht' || it.art === 'befreiung') ? nachCrew(W[it.art].anzahl, 1) : 1;", 'Gegner nicht nach Crewgroesse skaliert'],
+  [SZ, "  const n = b2 ? b2.n : (W[it.art] && W[it.art].anzahl) ? nachCrew(W[it.art].anzahl, crewN(game)) : 1;", "  const n = b2 ? b2.n : (W[it.art] && W[it.art].anzahl) ? nachCrew(W[it.art].anzahl, 1) : 1;", 'Gegner nicht nach Crewgroesse skaliert'],
   [SZ, '  if (weg.length) sp.enemies = sp.enemies.filter((e) => !weg.includes(e));', '  if (false) sp.enemies = sp.enemies.filter((e) => !weg.includes(e));', 'Szenenwechsel räumt die Gegner der Szene nicht ab'],
   [SZ, '  andockenEnde(game);\n  Fracht.andocken(game);', '  Fracht.andocken(game);', 'Andocken beendet die laufende Szene nicht'],
   [FR, "  F().beatAusgang(game, f.id, 'gescheitert');   // der Ausgang entfernt die Ware", "  F().beatAusgang(game, f.id, 'gelungen');   // der Ausgang entfernt die Ware", 'verlorene Ware gilt als gelungen'],

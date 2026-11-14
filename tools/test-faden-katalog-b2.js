@@ -142,7 +142,7 @@ section('(a) Katalog: 15 Beat-Typen, drei neue; konvoi und geleit sind Szenen mi
     ok(c.bauplan && c.bauplan.start_status === 'aktiv' && c.bauplan.aus.gelungen.status.length && c.bauplan.aus.gescheitert.status.length && Bausteine.vonId(k) && !Bausteine.istPlatzhalter(k), `${k}: Standards fuer den Expander (bauplan), der Baustein ist registriert (kein Platzhalter)`);
   }
   ok(D.BEATS.konvoi.bauplan.parameter.sieg.erlaubt.join() === 'aufhalten,pluendern' && D.BEATS.geleit.bauplan.parameter.modus.erlaubt.join() === 'geleit,havarist,panne', 'Parameter sieg (aufhalten, pluendern) und modus (geleit, havarist, panne) mit Standard');
-  ok(['konvoi', 'geleit'].every((k) => SW.arten.includes(k)) && SW.arten.length === 6, 'die Szenenarten der Daten kennen konvoi und geleit (sechs Arten)');
+  ok(['konvoi', 'geleit'].every((k) => SW.arten.includes(k)) && SW.arten.length === 7, 'die Szenenarten der Daten kennen konvoi und geleit (sieben Arten, BEA-03: hinterhalt dazu)');
   const folgen = []; for (const k of NEU) for (const ag of ['gelungen', 'gescheitert']) for (const f of D.BEATS[k].bauplan.aus[ag].folge) folgen.push(f.typ);
   ok(folgen.every((x) => WERTE.folge_typen.wert.includes(x)) && WERTE.folge_typen.wert.join() === 'ruf_aenderung,haltung_aenderung', 'Folgen nur aus dem Katalog; werte.json folge_typen bleibt unveraendert (ruf_aenderung, haltung_aenderung)');
   ok(BP.katalogFehler().length === 0 && B2.katalogFehler().length === 0 && Pruefer.katalogFehler().length === 0, 'katalogFehler (Expander, Bausteine, Pruefer) ist leer');

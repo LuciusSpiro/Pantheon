@@ -118,6 +118,9 @@ function update(game, dt) {
 function befreiungHalt(game, hex) {
   try { return require('./faden-szene.js').befreiungHalt(game, hex); } catch (e) { if (game.countError) game.countError('reise-befreiung', e); return null; }
 }
+function hinterhaltHalt(game, hex) {
+  try { return require('./faden-hinterhalt.js').halt(game, hex); } catch (e) { if (game.countError) game.countError('reise-hinterhalt', e); return null; }
+}
 function hop(game, r) {
   const here = hexOf(game); const next = r.hops[r.i];
   const ort = Sektoren.hatSzene(next) ? Sektoren.ortVonHex(next) : null;
@@ -128,9 +131,9 @@ function hop(game, r) {
   if (game.reisePlan) nachSprung(game, next);
   if (game.simSzene) { game.reisePlan = null; return stop(game, null); }   // SUND-02a A2: Feindkontakt (Sim-Szene) beendet den Schnellsprung wie ein Abfangen
   if (ereignis) return stop(game, `Schnellsprung unterbrochen: ${ereignis.kurz}`);   // SUND-03 D: ein Reise-Ereignis bricht ab; die Rest-Route bleibt gewählt (Faltsprung setzt sie fort), das Abfangen wird in diesem Hop nicht gewürfelt (kein zweites Ereignis)
+  const halt = befreiungHalt(game, next) || hinterhaltHalt(game, next);   // SUND-04a-2 Welle 4 (S4): am Ort eines wartenden Befreiungs-Beats haelt der Schnellsprung an; BEA-03: ebenso am Sektor eines wartenden Hinterhalts (ohne FAEDEN=1 immer null)
+  if (halt) return stop(game, halt);   // BEA-03: der Halt kommt VOR dem Abfangen (kein Zufallswurf, kein Doppelkampf aus Zufalls-Jaegern und Szenen-Gegnern); ohne Halt bleibt der Ablauf unveraendert
   if (abfangen(game, next)) { game.reisePlan = null; return stop(game, null); }
-  const halt = befreiungHalt(game, next);   // SUND-04a-2 Welle 4 (S4): am Ort eines wartenden Befreiungs-Beats haelt der Schnellsprung an (ohne FAEDEN=1 immer null)
-  if (halt) return stop(game, halt);
   if (r.abbruch || r.i >= r.hops.length) {   // (die Rest-Route bleibt bei einem Abbruch gewählt: Faltsprung setzt sie fort)
     return stop(game, r.i >= r.hops.length ? `Schnellsprung abgeschlossen: ${Sektoren.hexName(next)}.` : `Schnellsprung abgebrochen: ${Sektoren.hexName(next)}.`);
   }
