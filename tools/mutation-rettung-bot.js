@@ -19,7 +19,7 @@ fs.copyFileSync(path.join(ROOT, 'package.json'), path.join(TMP, 'package.json'))
 if (fs.existsSync(path.join(ROOT, 'node_modules'))) { try { fs.symlinkSync(path.join(ROOT, 'node_modules'), path.join(TMP, 'node_modules'), 'junction'); } catch (e) { /* kein Modul noetig */ } }
 
 // Hinweis: Der Haken in game.missionEvent (FAB-01) laesst sich im Bot-Lauf nicht abschalten und erkennen: der Beat bewertet bei jedem Tick aus Lager und Karte, der Haken beschleunigt nur (Haken-Wege: test-faden-rettung, test-faden-boden)
-const FR = 'server/sim/faden-rettung.js', FL = 'server/sim/faden-landung.js', AO = 'server/sim/abenteuer-orte.js';
+const FR = 'server/sim/faden-rettung.js', RA = 'server/sim/faden-boden-rahmen.js', AO = 'server/sim/abenteuer-orte.js';
 // [Datei, alter Text (genau einmal), neuer Text, Beschreibung, Fall des Tests]
 const MUTATIONEN = [
   [FR, '{ person: p.person, name: p.name, injured: false }', '{ person: p.person, name: p.name, injured: true }', 'Ueberlebende verletzt gesetzt: die Ops darf sie nicht hochbeamen', 'an_bord-ruhig-1'],
@@ -29,7 +29,7 @@ const MUTATIONEN = [
   [FR, "if (zs.every((z) => erledigt.includes(z))) return 'gelungen';", "if (zs.some((z) => erledigt.includes(z))) return 'gelungen';", 'Bewertung gelungen schon bei der ersten erledigten Person statt bei allen', 'abgegeben-raeuber-3'],
   [FR, '    if (!platz.ok) {   // nichts raeumen', '    if (false) {   // nichts raeumen', 'Frachtraum-Hinweis aus: kein Funk, keine Bordanzeige bei belegtem Modul', 'frachtraum'],
   [FR, '    if (!platz.ok) {   // nichts raeumen, nichts werfen: der Hinweis nennt, warum niemand hochgeholt werden kann; der Beat wartet bis zur Frist', '    if (!platz.ok) { Fracht().state(game).lager.length = 0;   // nichts raeumen, nichts werfen: der Hinweis nennt, warum niemand hochgeholt werden kann; der Beat wartet bis zur Frist', 'Beat raeumt den Frachtraum (Erz wird still vernichtet)', 'frachtraum'],
-  [FL, 'const besetzungVon = (beat) => WERTE.besetzung.wert[besetzungsSchluessel(beat)];', 'const besetzungVon = () => WERTE.besetzung.wert[WERTE.besetzung_standard.wert];', 'Besetzung immer ruhig: der Belagerer-Lauf zeigt zu wenige Gegner', 'an_bord-belagerer-3'],
+  [RA, 'const besetzungVon = (beat) => WERTE.besetzung.wert[besetzungsSchluessel(beat)];', 'const besetzungVon = () => WERTE.besetzung.wert[WERTE.besetzung_standard.wert];', 'Besetzung immer ruhig: der Belagerer-Lauf zeigt zu wenige Gegner', 'an_bord-belagerer-3'],
   [AO, 'function ortAbraeumen(game, id) {', 'function ortAbraeumen(game, id) {\n  return false;', 'Abraeumen weg: der Ort bleibt nach dem Faden-Ende stehen (Rettung gelungen)', 'an_bord-ruhig-1'],
   [AO, 'function ortAbraeumen(game, id) {', 'function ortAbraeumen(game, id) {\n  return false;', 'Abraeumen weg: der Ort bleibt nach dem Faden-Ende stehen (Frist)', 'frist'],
 ];

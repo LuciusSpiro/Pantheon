@@ -19,7 +19,7 @@ for (const f of ['tools/test-faden-rettung.js', 'tools/regie-fixture.js', 'tools
 fs.copyFileSync(path.join(ROOT, 'package.json'), path.join(TMP, 'package.json'));
 if (fs.existsSync(path.join(ROOT, 'node_modules'))) { try { fs.symlinkSync(path.join(ROOT, 'node_modules'), path.join(TMP, 'node_modules'), 'junction'); } catch (e) { /* kein Modul noetig */ } }
 
-const FR = 'server/sim/faden-rettung.js', FL = 'server/sim/faden-landung.js', PR = 'server/sim/faden-pruefer.js', FA = 'server/sim/faden.js', RE = 'server/sim/reise-ereignis.js', BT = 'content/faeden/beats.json', AM = 'server/sim/abenteuer-mock.js', WT = 'content/faeden/rettung-werte.json', B1 = 'content/faeden/b1-texte.json';
+const FR = 'server/sim/faden-rettung.js', RA = 'server/sim/faden-boden-rahmen.js', PR = 'server/sim/faden-pruefer.js', FA = 'server/sim/faden.js', RE = 'server/sim/reise-ereignis.js', BT = 'content/faeden/beats.json', AM = 'server/sim/abenteuer-mock.js', WT = 'content/faeden/rettung-werte.json', B1 = 'content/faeden/b1-texte.json';
 // [Datei, alter Text (genau einmal), neuer Text, Beschreibung]
 const MUTATIONEN = [
   // Ausgangsbedingung
@@ -36,8 +36,8 @@ const MUTATIONEN = [
   [BT, '"frist": 16,\n      "braucht": {"nsc_status": ["aktiv", "verbuendet", "gefangen"], "landeplatz": true},', '"frist": 16,\n      "braucht": {"nsc_status": ["aktiv", "verbuendet", "gefangen"]},', 'Pflicht landeplatz: der Katalog verlangt sie nicht mehr (Pruefer und Expander lassen den Beat ohne Ort zu)'],
   [PR, 'if (braucht.landeplatz === true && !(typeof p.landeplatz', 'if (false && braucht.landeplatz === true && !(typeof p.landeplatz', 'Pflicht landeplatz: Pruefer-Regel aus'],
   // Besetzung nach Variante
-  [FL, 'const besetzungVon = (beat) => WERTE.besetzung.wert[besetzungsSchluessel(beat)];', 'const besetzungVon = () => WERTE.besetzung.wert[WERTE.besetzung_standard.wert];', 'Besetzung nach Variante: immer die Standardbesetzung (ruhig)'],
-  [FR, '    Landung.besetzungAnlegen(game, beat, lp, ART);\n    ueberlebendeSetzen(game, faden, beat, lp);', '    ueberlebendeSetzen(game, faden, beat, lp);', 'Besetzung: der Beat besetzt den Ort beim Start nicht'],
+  [RA, 'const besetzungVon = (beat) => WERTE.besetzung.wert[besetzungsSchluessel(beat)];', 'const besetzungVon = () => WERTE.besetzung.wert[WERTE.besetzung_standard.wert];', 'Besetzung nach Variante: immer die Standardbesetzung (ruhig)'],
+  [FR, '    Landung.besetzenFuer(game, beat, lp, ART);\n    ueberlebendeSetzen(game, faden, beat, lp);', '    ueberlebendeSetzen(game, faden, beat, lp);', 'Besetzung: der Beat besetzt den Ort beim Start nicht'],
   [BT, '"parameter":{"landeplatz":{"erlaubt":"landeplatz"},"besetzung":{"standard":"ruhig","erlaubt":["ruhig","raeuber","belagerer"]},"ende"', '"parameter":{"landeplatz":{"erlaubt":"landeplatz"},"besetzung":{"standard":"ruhig","erlaubt":["ruhig","raeuber"]},"ende"', 'Katalog: erlaubte Besetzungen weichen von der Tabelle ab (rettung nennt belagerer nicht)'],
   // Abraeumen
   [FA, "try { require('./abenteuer-orte.js').abraeumen(game, f.id); } catch (e) { fehlerZaehlen(game, 'abenteuer-orte-ende', e); }", '', 'Abraeumen: der Aufruf im Faden-Abschluss fehlt (nur der Takt raeumt spaeter)'],
