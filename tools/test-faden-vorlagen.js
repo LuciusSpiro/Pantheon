@@ -308,7 +308,7 @@ async function main() {
       ok(o.ok, 'Abenteuer ohne Folge geoeffnet' + (o.ok ? '' : ': ' + o.grund));
       const fd = liste(g).find((x) => x.vorlage === 'altweg_ohne_folge');
       fd.hinweise = ['h_gerucht', 'h_papiere']; fd.beat = 6; fd.phase = 'wartet'; fd.zaehler = fd.abstand;
-      if (mitFracht) fd.nsc.gedaechtnis.push({ tick: 0, ereignis: 'fracht_gelungen', text_key: 'b_fracht' });
+      fd.nsc.gedaechtnis.push({ tick: 0, ereignis: mitFracht ? 'fracht_gelungen' : 'fracht_ohne_ware', text_key: 'b_fracht' });   // HYG-01 A: ohne Fracht steht fracht_ohne_ware im Gedaechtnis (Mutation "auch fracht_ohne_ware gilt als Fracht")
       const ziel = P3.ziel(g, ORT_ALT);
       ok(ziel === p, 'Altweg ' + wort + ': Ziel ist der nahe roemische Posten ' + ziel);
       ok(Faden.befehlAnwenden(g, { typ: 'faden_weiter', faden: fd.id, beat: 'b_enthuell' }).ok, 'Altweg ' + wort + ': faden_weiter angenommen');

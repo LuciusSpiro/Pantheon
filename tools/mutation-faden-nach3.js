@@ -16,7 +16,7 @@ const kopiere = (rel) => fs.cpSync(path.join(ROOT, rel), path.join(TMP, rel), { 
 fs.mkdirSync(path.join(TMP, 'tools'), { recursive: true });
 fs.cpSync(path.join(ROOT, 'tools', 'fixtures'), path.join(TMP, 'tools', 'fixtures'), { recursive: true });
 const TESTS = [['tools/test-faden-nach3.js'], ['tools/test-faden-bitte.js'], ['tools/test-faden-vorlagen.js']];   // die schnellen zuerst (die erste rote Pruefung genuegt)
-for (const f of [...TESTS.map((t) => t[0]), 'tools/test-faden-vorlagen.js', 'tools/regie-fixture.js', 'tools/faden-fixture.js']) fs.copyFileSync(path.join(ROOT, f), path.join(TMP, f));
+for (const f of [...TESTS.map((t) => t[0]), 'tools/test-faden-vorlagen.js', 'tools/regie-fixture.js', 'tools/faden-fixture.js', 'tools/gegner-testhilfe.js']) fs.copyFileSync(path.join(ROOT, f), path.join(TMP, f));
 fs.copyFileSync(path.join(ROOT, 'package.json'), path.join(TMP, 'package.json'));
 if (fs.existsSync(path.join(ROOT, 'node_modules'))) { try { fs.symlinkSync(path.join(ROOT, 'node_modules'), path.join(TMP, 'node_modules'), 'junction'); } catch (e) { /* kein Modul noetig */ } }
 
@@ -52,11 +52,11 @@ const MUTATIONEN = [
   [SZ, '    if (f.parameter.ort !== hier) continue;', '', 'Befreiung: die wartende Szene beginnt an jedem Ort'],
   [P3, "  try { require('./faden-szene.js').befreiungAnkunft(game, hier); } catch (e) { fehlerZaehlen(game, 'faden-befreiung', e); }", '', 'Befreiung: die Ankunft am Ort startet die Szene nie'],
   [SZ, "    if (!ort || !HEX.test(ort)) return { ausgang: 'gescheitert' };", '', 'Befreiung: ein Faden ohne Ort wartet weiter'],
-  [SW, '    "befreiung_ort": "{name} sitzt bei {ort} fest. Fliegt hin und vertreibt die Wachen.",\n', '', 'Befreiung: kein Funk zur Anreise'],
+  [SW, '"befreiung_ort": "{name} sitzt bei {ort} fest. Fliegt hin und vertreibt die Wachen.",\n', '', 'Befreiung: kein Funk zur Anreise'],
   // ---- 5. Gedaechtnis
   [FD, "ausgang === 'gescheitert' && cat.ereignis_ohne_ware && !f.fracht && !FrachtDaten.ladeBeatDavor(v, f.beat) ? cat.ereignis_ohne_ware : ", "", 'Gedaechtnis: fracht_gescheitert auch ohne Ware'],
   [BT, '      "ereignis_ohne_ware": "fracht_ohne_ware",\n', '', 'Katalog: kein Ereignis fuer „ohne Ware“'],
-  [P3, "some((g) => g.ereignis === 'fracht_gelungen' || g.ereignis === 'fracht_gescheitert');", 'some((g) => /^fracht_/.test(g.ereignis));', 'Enthuellung: auch fracht_ohne_ware gilt als Fracht'],
+  [P3, "    const mitFracht = (nsc.gedaechtnis || []).some((g) => g.ereignis === 'fracht_gelungen' || g.ereignis === 'fracht_gescheitert');", "    const mitFracht = (nsc.gedaechtnis || []).some((g) => /^fracht_/.test(g.ereignis));", 'Enthuellung: auch fracht_ohne_ware gilt als Fracht'],
   // ---- 6. Vorlauf-Fall
   [BI, '      for (const h of (beat && beat.hinweise) || []) Hinweis().senden(game, faden.id, h);', '', 'Bitte: die Hinweise kommen nur mit dem Angebot (Vorlauf-Fall)'],
   // ---- 7. Hinweis des Notrufs
@@ -66,7 +66,7 @@ const MUTATIONEN = [
   [SZ, "  if (!game.space.enemies.some((e) => e.tag === fs.tag)) return enden(game, fs, 'gelungen', null);", "  if (!game.space.enemies.some((e) => e.tag === fs.tag)) return enden(game, fs, 'gescheitert', null);", 'Kampf: die vernichteten Gegner gelten als Niederlage'],
   [SZ, '  for (let i = 0; i < n; i++) {\n    const a = (i / n) * Math.PI * 2 + W.ring_winkel_start;', '  for (let i = 0; i < 0; i++) {\n    const a = (i / n) * Math.PI * 2 + W.ring_winkel_start;', 'Kampf: es spawnen keine Gegner'],
   [SZ, "    if (a === 'gestellt' || a === 'zerstoert') return enden(game, fs, 'gelungen', null);", "    if (false) return enden(game, fs, 'gelungen', null);", 'Verfolgung: das zerstoerte Ziel gilt nie als Erfolg'],
-  [FR, "    F().beatAusgang(game, f.id, 'gelungen');\n  }\n  return out;", "    F().beatAusgang(game, f.id, 'gescheitert');\n  }\n  return out;", 'Fracht: die Ablieferung gilt als gescheitert'],
+  [FR, "    F().beatAusgang(game, f.id, 'gelungen');   // entfernt die Ladung aus dem Frachtraum (entladen)\n  }\n  return out;", "    F().beatAusgang(game, f.id, 'gescheitert');   // entfernt die Ladung aus dem Frachtraum (entladen)\n  }\n  return out;", 'Fracht: die Ablieferung gilt als gescheitert'],
   [P3, "    Faden().beatAusgang(game, f.id, 'gelungen');\n  }\n}", "    Faden().beatAusgang(game, f.id, 'gescheitert');\n  }\n}", 'Notruf: die Ankunft gilt als gescheitert'],
 ];
 
