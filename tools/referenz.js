@@ -44,7 +44,9 @@ const BEISPIELE = {
     name: 'Beispiel 3 (Wrack)', test: ['tools/test-wrack-bot.js'], mutation: 'test:wrack-bot-mutation', kennung: 'b3',
     laeufer: [
       { id: 'ruhig', args: ['tools/spiel-wrack.js', '--besetzung', 'ruhig', '--beute', '--logbuch', '--crew', '3', '--seed', '7'] },
-      { id: 'raeuber', args: ['tools/spiel-wrack.js', '--besetzung', 'raeuber', '--beute', '--logbuch', '--crew', '3', '--seed', '7'] },
+      // Belegte Kombinationen aus test-wrack-bot: raeuber mit Beute und Logbuch nur Crew 1 Seed 5, Crew 3 nur ohne Beute (Crew 3 mit Beute scheitert).
+      { id: 'raeuber', args: ['tools/spiel-wrack.js', '--besetzung', 'raeuber', '--crew', '1', '--seed', '5', '--beute', '--logbuch'] },
+      { id: 'raeuber-crew3-ohne-beute', neben: true, args: ['tools/spiel-wrack.js', '--besetzung', 'raeuber', '--crew', '3', '--seed', '7'] },
       // kommt mit REF-01 B1: laeuft erst, wenn spiel-wrack.js das Wort kennt
       { id: 'ruhig-verkauf', braucht: '--verkauf', args: ['tools/spiel-wrack.js', '--besetzung', 'ruhig', '--beute', '--logbuch', '--verkauf', '--crew', '3', '--seed', '7'] },
     ],
@@ -135,19 +137,33 @@ function starte(cmd, env, opts) {
   });
 }
 
-function zaehleMissionen(ordner) {
-  let dateien = 0; let zeilen = 0;
+// Alle mission.md unterhalb von ordner (absolute Pfade).
+function listeMissionen(ordner) {
+  const liste = [];
   const geh = (d) => {
     let eintraege = [];
     try { eintraege = fs.readdirSync(d, { withFileTypes: true }); } catch (e) { return; }
     for (const e of eintraege) {
       const p = path.join(d, e.name);
       if (e.isDirectory()) geh(p);
-      else if (e.name === 'mission.md') { dateien++; zeilen += fs.readFileSync(p, 'utf8').split('\n').length; }
+      else if (e.name === 'mission.md') liste.push(p);
     }
   };
   geh(ordner);
-  return { dateien, zeilen };
+  return liste;
+}
+
+// Zaehlt nur die mission.md, die seit "vorher" (Liste aus listeMissionen) neu sind. Liefert auch ihre Pfade relativ zu ordner und den
+// Ordner des Laufs: der erste Unterordner, den alle neuen Dateien teilen, sonst ordner selbst.
+function zaehleMissionen(ordner, vorher) {
+  const alt = new Set(vorher || []);
+  const neu = listeMissionen(ordner).filter((p) => !alt.has(p));
+  let zeilen = 0;
+  for (const p of neu) zeilen += fs.readFileSync(p, 'utf8').split('\n').length;
+  const dateien = neu.map((p) => path.relative(ordner, p));
+  const erste = new Set(dateien.map((d) => d.split(path.sep)[0]));
+  const laufOrdner = dateien.length && dateien.every((d) => d.split(path.sep).length > 1) && erste.size === 1 ? path.join(ordner, [...erste][0]) : ordner;
+  return { dateien: neu.length, zeilen, pfade: dateien, ordner: laufOrdner };
 }
 
 // Fuehrt den Plan aus: erst alle Tests, dann die Laeufer, strikt nacheinander. Ein Fehler bricht nichts ab.
@@ -174,12 +190,14 @@ async function fuehreAus(plan, opts) {
       fs.mkdirSync(l.ordner, { recursive: true });
       let tmp = null; let cmd = l.cmd;
       if (l.tmpNoetig) { tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'pantheon-referenz-')); cmd = cmd.map((a) => a.replace('{tmp}', tmp)); }
+      const vorher = listeMissionen(l.ordner);
       const r = await starte(cmd, l.env, {});
       if (tmp) { try { fs.rmSync(tmp, { recursive: true, force: true }); } catch (e) { /* Wegwerf-Ordner */ } }
       if (r.code !== 0) code = 1;
-      const z = zaehleMissionen(l.ordner);
-      aus(`Beispiel ${l.nr}  ${l.id}  Exit ${r.code}  ${((r.ende - r.start) / 1000).toFixed(1)} s  ${l.ordner}  mission.md: ${z.dateien} Dateien, ${z.zeilen} Zeilen`);
-      ergLaeufer.push({ nr: l.nr, id: l.id, code: r.code, start: r.start, ende: r.ende, ordner: l.ordner, missionen: z.dateien, zeilen: z.zeilen });
+      const z = zaehleMissionen(l.ordner, vorher);
+      aus(`Beispiel ${l.nr}  ${l.id}  Exit ${r.code}  ${((r.ende - r.start) / 1000).toFixed(1)} s  ${z.ordner}  mission.md: ${z.dateien} Dateien, ${z.zeilen} Zeilen`);
+      for (const pf of z.pfade) aus(`    neu: ${pf}`);
+      ergLaeufer.push({ nr: l.nr, id: l.id, code: r.code, start: r.start, ende: r.ende, ordner: z.ordner, basisordner: l.ordner, missionen: z.dateien, zeilen: z.zeilen, pfade: z.pfade });
     }
   }
   if (plan.tests.length) {
@@ -198,6 +216,6 @@ async function main(argv) {
   return r.code;
 }
 
-module.exports = { lies, plane, fuehreAus, zaehleMissionen, BEISPIELE, HILFE };
+module.exports = { lies, plane, fuehreAus, zaehleMissionen, listeMissionen, BEISPIELE, HILFE };
 
 if (require.main === module) main(process.argv.slice(2)).then((c) => process.exit(c), (e) => { console.error(e); process.exit(1); });

@@ -97,6 +97,18 @@ const still = { ausgabe: () => {} };
   r = await R.fuehreAus(R.plane(R.lies(['alle', '--mitschnitt', path.join(TMP, 'ms2')]), { tabelle: tabelle([0, 0, 0, 1]) }), still);
   check('e roter Laeufer -> Exit 1, der Rest laeuft', r.code === 1 && r.laeufer.some((l) => l.id === 'l3' && l.code === 0));
 
+  // g Zaehlung je Lauf, nicht kumulativ: zwei Laeufer schreiben je eine mission.md in denselben Ordner (wie spiel-forderung unter b1)
+  const gleich = (id) => ['-e', `const fs=require('fs'),p=require('path');const d=p.join(process.env.MITSCHNITT_DIR,'${id}-x');fs.mkdirSync(d,{recursive:true});fs.writeFileSync(p.join(d,'mission.md'),'a\\nb')`];
+  const tg = { 1: { name: 'G', test: ['-e', '0'], mutation: 'mg', kennung: 'b1', laeufer: [
+    { id: 'g1', args: [...gleich('g1'), '--', '--mitschnitt-dir', '{ordner}'] }, { id: 'g2', args: [...gleich('g2'), '--', '--mitschnitt-dir', '{ordner}'] }, { id: 'g3', args: [...gleich('g3'), '--', '--mitschnitt-dir', '{ordner}'] } ] } };
+  zeilen = [];
+  r = await R.fuehreAus(R.plane(R.lies(['1', '--mitschnitt', path.join(TMP, 'ms3')]), { tabelle: tg }), { ausgabe: (z) => zeilen.push(z) });
+  check('g je Lauf genau 1 Datei, 2 Zeilen (nicht kumulativ)', r.laeufer.length === 3 && r.laeufer.every((l) => l.missionen === 1 && l.zeilen === 2), JSON.stringify(r.laeufer));
+  check('g Ordner des Laufs und neue Pfade', r.laeufer.every((l) => l.ordner === path.join(TMP, 'ms3', 'b1', l.id + '-x') && l.pfade.length === 1) && zeilen.some((z) => z.includes('neu: g2-x')));
+  const tabB = R.BEISPIELE[3].laeufer;
+  check('g Beispiel 3: raeuber = Crew 1 Seed 5 mit Beute und Logbuch', tabB.some((l) => l.id === 'raeuber' && !l.neben && ['--crew', '1', '--seed', '5', '--beute', '--logbuch'].every((a) => l.args.includes(a))));
+  check('g Beispiel 3: Nebenfall raeuber-crew3-ohne-beute', tabB.some((l) => l.id === 'raeuber-crew3-ohne-beute' && l.neben && !l.args.includes('--beute') && l.args.includes('3')));
+
   // f echter Aufruf
   const k = cp.spawnSync(process.execPath, [path.join(__dirname, 'referenz.js')], { cwd: ROOT, encoding: 'utf8', timeout: 20000 });
   check('f Aufruf ohne Argument -> Exit 2, Hilfe auf stderr', k.status === 2 && /Aufruf/.test(k.stderr) && !k.stdout);
