@@ -172,6 +172,14 @@ const rM = lauf(['--live', '--n', '6', '--profil', profA, '--out', wmut, '--gesa
 const vM = json(path.join(wmut, 'gesamtverbrauch.json'));
 check('6 Mutation (Deckelpruefung aus): Lauf geht durch (Exit 0, 6 Aufrufe, 28 800 Tokens ueber dem Deckel) – genau das fangen die Pruefungen von 5 (Exit 3, 3 Aufrufe, 14 400)', rM.code === 0 && vM.tokens === 28800 && vM.laeufe[0].aufrufe === 6 && !(rM.code === 3 && vM.tokens === 14400), rM.text + JSON.stringify(vM));
 
+// 6b der Schalter MESSE_DECKEL_TEST_AUS gilt nur mit der Fake-CLI: ohne sie (leer oder eine andere CLI) Exit 2 mit Meldung, kein Aufruf, nichts geschrieben; Mock ebenso
+const wk6 = path.join(TMP, 'schalter');
+const rS1 = lauf(['--live', '--n', '2', '--out', wk6, '--gesamtdeckel', '15000'], { LLM_LIVE: '1', MESSE_DECKEL_TEST_AUS: '1' });
+const rS2 = lauf(['--live', '--n', '2', '--out', wk6, '--gesamtdeckel', '15000'], { LLM_LIVE: '1', CLAUDE_CLI: path.join(TMP, 'claude'), MESSE_DECKEL_TEST_AUS: '1' });
+const rS3 = lauf(['--n', '2'], { MESSE_DECKEL_TEST_AUS: '1' });
+check('6b MESSE_DECKEL_TEST_AUS=1 ohne Fake-CLI (keine CLI, andere CLI, Mock): Exit 2 mit Meldung, nichts geschrieben', [rS1, rS2, rS3].every((r) => r.code === 2 && /nur mit der Fake-CLI/.test(r.text)) && laufOrdner(wk6).length === 0, [rS1, rS2, rS3].map((r) => r.code).join());
+check('6b Modul: deckelTestAus ist nur mit fake-claude true, ohne Fake-CLI wirft es (code DECKEL_TEST), ohne Schalter false', Profil.deckelTestAus({ MESSE_DECKEL_TEST_AUS: '1', CLAUDE_CLI: FAKE }) === true && Profil.deckelTestAus({}) === false && (wirft(() => Profil.deckelTestAus({ MESSE_DECKEL_TEST_AUS: '1' })) || {}).code === 'DECKEL_TEST');
+
 // ---------- 7 Katalogvarianten (tools/messe-katalog.js, --katalog-variante)
 const Katalog = require('./messe-katalog.js');
 const AP7 = require('../server/sim/abenteuer-prompt.js');

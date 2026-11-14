@@ -9,7 +9,7 @@
 //   deckelPruefen(summe, deckel, schaetz) -> { ok, grund }   ok nur wenn summe < deckel UND summe + schaetz <= deckel
 //   deckelVerbuchen(wurzel, lauf, d) -> addiert d = { tokens, kosten_usd } auf Summe und Lauf-Eintrag, schreibt sofort atomar (Temp-Datei + rename)
 //   Rennen zwischen gleichzeitigen Prozessen: gelesen und geschrieben wird synchron in einem Zug; ein Prozess, der genau zwischen Lesen und rename eines anderen schreibt, kann einen Eintrag verlieren (Fenster Millisekunden, Messlaeufe laufen nacheinander).
-//   MESSE_DECKEL_TEST_AUS=1 schaltet die Pruefung ab (nur fuer die Mutationsprobe in tools/test-messe-profil.js).
+//   MESSE_DECKEL_TEST_AUS=1 schaltet die Pruefung ab (nur fuer die Mutationsprobe in tools/test-messe-profil.js) und gilt NUR mit der Fake-CLI (CLAUDE_CLI enthaelt fake-claude); sonst wirft deckelTestAus (code DECKEL_TEST), messe-abenteuer.js beendet sich mit Exit 2.
 const fs = require('fs');
 const path = require('path');
 
@@ -92,8 +92,15 @@ function deckelStand(wurzel) {
   if (!d || !Number.isFinite(d.tokens) || !Number.isFinite(d.kosten_usd) || !Array.isArray(d.laeufe)) throw new Error(`${f}: kein gueltiger Zaehler (tokens, kosten_usd, laeufe)`);
   return d;
 }
+// true nur, wenn MESSE_DECKEL_TEST_AUS=1 UND die Fake-CLI aktiv ist; ohne Fake-CLI ist der Schalter ein Fehler (der Deckel schuetzt echte Aufrufe, er darf nicht per Umgebung abschaltbar sein)
+function deckelTestAus(env) {
+  const e = env || process.env;
+  if (e.MESSE_DECKEL_TEST_AUS !== '1') return false;
+  if (!/fake-claude/.test(e.CLAUDE_CLI || '')) { const x = new Error('MESSE_DECKEL_TEST_AUS=1 gilt nur mit der Fake-CLI (CLAUDE_CLI muss auf fake-claude zeigen); der Gesamtdeckel bleibt fuer echte Aufrufe immer an'); x.code = 'DECKEL_TEST'; throw x; }
+  return true;
+}
 function deckelPruefen(summe, deckel, schaetz) {
-  if (process.env.MESSE_DECKEL_TEST_AUS === '1') return { ok: true, grund: null };
+  if (deckelTestAus()) return { ok: true, grund: null };
   if (summe >= deckel) return { ok: false, grund: `Summe ${summe} >= Deckel ${deckel}` };
   if (summe + schaetz > deckel) return { ok: false, grund: `Summe ${summe} + Schaetzwert ${Math.round(schaetz)} > Deckel ${deckel}` };
   return { ok: true, grund: null };
@@ -118,4 +125,4 @@ function deckelVerbuchen(wurzel, lauf, d) {
   return s;
 }
 
-module.exports = { ERLAUBT, SCHAETZ_STANDARD, DECKEL_DATEI, profilPruefen, profilLesen, zielFuer, zielListe, anwenden, deckelStand, deckelPruefen, deckelVerbuchen };
+module.exports = { ERLAUBT, SCHAETZ_STANDARD, DECKEL_DATEI, profilPruefen, profilLesen, zielFuer, zielListe, anwenden, deckelStand, deckelPruefen, deckelVerbuchen, deckelTestAus };

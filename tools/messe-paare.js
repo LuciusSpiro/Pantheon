@@ -3,14 +3,16 @@
 //   node tools/messe-paare.js [--json <datei>] [--md <datei>]          npm run messe:paare
 // Planbar sind alle Beats mit `bauplan`, ohne `nur_inszenierer`, ohne `abschluss` (Quelle: server/sim/faden-daten.js = content/faeden/beats.json). Je geordnetes Paar (A, B, auch A = B) wird der Plan [A, B, abschluss]
 // ueber denselben Weg geprueft wie Claudes Antwort (faden-bauplan.js pruefe: Expander, dann Pruefer). Dazu die Paare `B direkt vor abschluss` (Plan [B, abschluss]).
-// Je Paar zwei Proben: (1) ohne Verzweigung, (2) mit A.verzweigung.gescheitert -> abschluss (B waere der Standardweg, kein Ziel); bei [B, abschluss] ist jede Verzweigung der Standardweg, also nur Probe 1.
+// Je Paar Proben: (1) ohne Verzweigung, (2) mit A.verzweigung.gescheitert -> abschluss, (2g) mit A.verzweigung.gelungen -> abschluss (B waere der Standardweg, kein Ziel); bei [B, abschluss] ist jede Verzweigung der Standardweg, also nur Probe 1.
+// Welche Art reicht, steht je nurV-Zelle in art: gescheitert (nur .gescheitert), gelungen (nur .gelungen), beide (jede allein), gemischt (nur ungleiche Arten an A und B).
 // Beats B mit Optionen-Pflicht (bauplan.optionen_pflicht, aus den Daten): Annehmen und Ablehnen duerfen nicht in denselben Beat fuehren. Im Dreier-Plan steht B direkt vor dem abschluss, dort ist fuer B kein Ziel moeglich. Deshalb bekommen
-// solche B zusaetzlich den Vierer-Plan [A, B, C, abschluss] mit einem Neutralbeat C: Probe 3 = B.verzweigung.gescheitert -> abschluss (A ohne Verzweigung), Probe 4 = A.verzweigung und B.verzweigung (beide -> abschluss).
+// solche B zusaetzlich den Vierer-Plan [A, B, C, abschluss] mit einem Neutralbeat C: Probe 3 = B.verzweigung.gescheitert bzw. .gelungen -> abschluss (A ohne Verzweigung), Probe 4 = A.verzweigung und B.verzweigung (beide -> abschluss, alle vier Artenpaare).
+// Zusatz als_erster[B]: B an Position 0 (Plan [B, abschluss] und die Paare [B, X, abschluss] dieser Matrix; der NSC steht im start_status), ausgewiesen als direkt, folger, gueltig.
 // Neutralbeat C je B: der erste Beat in Katalogreihenfolge, der planbar ist, ohne Optionen-Pflicht, dessen braucht nur nsc_status kennt (keine Lage, Wahrheit, Hinweis, nsc_alt, Fluchtziel, Landeplatz) und dessen nsc_status ALLE Endzustaende von B
 // (gelungen und gescheitert) zulaesst; gibt es keinen, der erste mit allen Zustaenden von B.gelungen (nur der Weg nach C ist dann der Gelungen-Ausgang). Die Wahl steht je B in der Ausgabe (neutral, neutral_regel).
 // Beats mit Optionen bekommen optionen:true, Beats mit braucht.landeplatz einen Landeplatz im Plan (erste passende Kartenart). Kontext (Lage, Wahrheit-Hinweise, NSC aus frueherem Faden) ist NICHT Teil der Matrix.
 // Kuerzel: ok (ohne Verzweigung gueltig) · nurV (nur mit Verzweigung gueltig, Ort der Verzweigung A, B oder A+B) · nie (in keiner Probe gueltig) · kontext (scheitert an einem Kontext-Code, kein Urteil ueber den Zustand) · hinweis (nur HINWEIS_FEHLT).
-// Kontext-Codes werden aus den Code-Namen von faden-bauplan.js/faden-pruefer.js abgeleitet (Praefixe LAGE_, SABOTAGE_, NSC_ALT_, NSC_VON); SABOTAGE_NUR_EINMAL ist eine Planregel (sabotage zweimal), kein Kontext.
+// Kontext-Codes werden aus den Code-Namen von faden-bauplan.js/faden-pruefer.js abgeleitet (Praefixe LAGE_, SABOTAGE_, NSC_ALT_, NSC_VON); SABOTAGE_NUR_EINMAL (sabotage zweimal) und NSC_ALT_NICHT_ERSTER (wiedersehen nur als erster Beat) sind Planregeln, kein Kontext: solche Paare sind nie.
 // Ausgabe: Konsole; --json/--md relativ zum Aufrufer, nie im Repo (Exit 2). Das Modul exportiert nur reine Funktionen: matrix, kontextCode, planFuer. main() nur beim direkten Start. Exit 0.
 const fs = require('fs');
 const path = require('path');
@@ -23,7 +25,7 @@ const { matrix, kontextCode, planFuer } = require('../server/sim/faden-paare.js'
 const KUERZEL = { ok: 'ok', nurV: 'nurV', nie: 'nie', kontext: 'kontext', hinweis: 'hinweis' };
 function paarListe(M, k) {
   const z = [];
-  for (const a of M.beats) for (const b of M[k][a]) { const c = M.zellen[a][b]; z.push({ a, b, codes: k === 'nie' ? c.letzte : c.ohne, ohne: c.ohne, mit: c.mit, mitB: c.mitB, beide: c.beide, ort: c.ort }); }
+  for (const a of M.beats) for (const b of M[k][a]) { const c = M.zellen[a][b]; z.push({ a, b, codes: k === 'nie' ? c.letzte : c.ohne, ohne: c.ohne, mit: c.mit, mitGel: c.mitGel, mitB: c.mitB, mitBGel: c.mitBGel, beide: c.beide, ort: c.ort, art: c.art }); }
   return z;
 }
 function text(M) {
@@ -40,14 +42,16 @@ function text(M) {
     const l = paarListe(M, k);
     zeilen.push(''); zeilen.push(`${titel} (${l.length})`);
     for (const p of l) {
-      if (k === 'nurV') zeilen.push(`  ${p.a} > ${p.b}: ohne ${p.ohne.join(', ')}; Verzweigung noetig bei ${p.ort}${p.ort === 'A' ? '' : ' (Vierer-Plan mit ' + M.neutral[p.b].beat + ')'}`);
-      else if (k === 'nie') zeilen.push(`  ${p.a} > ${p.b}: ohne ${p.ohne.join(', ')}; mit A.verzweigung: ${p.mit.join(', ')}` + (p.mitB ? `; mit B.verzweigung (Vierer-Plan, C = ${M.neutral[p.b].beat}): ${p.mitB.join(', ')}; beide: ${p.beide.join(', ')}` : ''));
+      if (k === 'nurV') zeilen.push(`  ${p.a} > ${p.b}: ohne ${p.ohne.join(', ')}; Verzweigung noetig bei ${p.ort}${p.ort === 'A' ? '' : ' (Vierer-Plan mit ' + M.neutral[p.b].beat + ')'}; Art: ${M.zellen[p.a][p.b].art}`);
+      else if (k === 'nie') zeilen.push(`  ${p.a} > ${p.b}: ohne ${p.ohne.join(', ')}; mit A.verzweigung.gescheitert: ${p.mit.join(', ')}; mit A.verzweigung.gelungen: ${p.mitGel.join(', ')}` + (p.mitB ? `; mit B.verzweigung (Vierer-Plan, C = ${M.neutral[p.b].beat}): gescheitert ${p.mitB.join(', ')}, gelungen ${p.mitBGel.join(', ')}; beide gescheitert: ${p.beide.join(', ')}` : ''));
       else zeilen.push(`  ${p.a} > ${p.b}: ${p.ohne.join(', ')}`);
     }
   };
   liste('nur mit Verzweigung', 'nurV'); liste('nie gueltig', 'nie'); liste('kontext (kein Urteil)', 'kontext'); liste('hinweis (HINWEIS_FEHLT)', 'hinweis');
   zeilen.push(''); zeilen.push('Verzweigung noetig bei (je A: Ort der Verzweigung, dann die B)');
   for (const a of n) { const v = M.verzweigung_noetig_bei[a]; const t = ['A', 'B', 'A+B'].filter((o) => v[o].length).map((o) => `${o}: ${v[o].join(', ')}`); if (t.length) zeilen.push(`  ${a}: ${t.join(' | ')}`); }
+  zeilen.push(''); zeilen.push('als_erster: B an Position 0 (Plan [B, abschluss] und [B, X, abschluss])');
+  for (const b of n) { const e = M.als_erster[b]; zeilen.push(`  ${b}: ${e.gueltig ? 'gueltig' : 'NIE'} (direkt vor ${M.abschluss_beat}: ${e.direkt}; ${e.folger.length} Folge-Beats gueltig)`); }
   zeilen.push(''); zeilen.push('Neutralbeat C je B mit Optionen-Pflicht (Plan [A, B, C, abschluss])');
   for (const b of Object.keys(M.neutral)) zeilen.push(`  ${b}: C = ${M.neutral[b].beat}  (${M.neutral[b].regel})`);
   zeilen.push(''); zeilen.push(`vor_abschluss: B direkt vor ${M.abschluss_beat} ist nie fuer ${M.vor_abschluss_nie.map((v) => v.beat).join(', ')}; Beats mit Optionen-Pflicht: ${Object.keys(M.neutral).join(', ')}`);
@@ -59,7 +63,7 @@ function text(M) {
 function markdown(M) {
   const n = M.beats, L = [];
   L.push('# Paarmatrix der Beat-Folgen (KAT-01)', '');
-  L.push(`Zeile = A, Spalte = B, Plan [A, B, ${M.abschluss_beat}]. Proben: 1 ohne Verzweigung, 2 A.verzweigung.gescheitert -> ${M.abschluss_beat}; fuer B mit Optionen-Pflicht 3 B.verzweigung (Plan [A, B, C, ${M.abschluss_beat}]), 4 beide. Kontext (Lage, NSC aus frueherem Faden) ist nicht Teil der Matrix.`, '');
+  L.push(`Zeile = A, Spalte = B, Plan [A, B, ${M.abschluss_beat}]. Proben: 1 ohne Verzweigung, 2 A.verzweigung.gescheitert bzw. .gelungen -> ${M.abschluss_beat}; fuer B mit Optionen-Pflicht 3 B.verzweigung (Plan [A, B, C, ${M.abschluss_beat}]), 4 beide. Kontext (Lage, NSC aus frueherem Faden) ist nicht Teil der Matrix.`, '');
   L.push('| A \\ B | ' + n.join(' | ') + ' |', '|---|' + n.map(() => '---').join('|') + '|');
   for (const a of n) L.push(`| **${a}** | ` + n.map((b) => KUERZEL[M.zellen[a][b].klasse]).join(' | ') + ' |');
   L.push('', 'Zaehlung: ' + Object.entries(M.zaehlung).map(([k, v]) => `${k} ${v}`).join(', '), '');
@@ -69,7 +73,7 @@ function markdown(M) {
     if (l.length) { L.push(kopf, '|---|---|---|'); for (const p of l) L.push(zeile(p)); } else L.push('keine');
     L.push('');
   };
-  tab('Nur mit Verzweigung', 'nurV', '| Paar | Codes ohne Verzweigung | Verzweigung noetig bei |', (p) => `| ${p.a} > ${p.b} | ${p.ohne.join(', ')} | ${p.ort} |`);
+  tab('Nur mit Verzweigung', 'nurV', '| Paar | Codes ohne Verzweigung | Verzweigung noetig bei (Art) |', (p) => `| ${p.a} > ${p.b} | ${p.ohne.join(', ')} | ${p.ort} (${p.art}) |`);
   tab('Nie gueltig', 'nie', '| Paar | Codes ohne Verzweigung | Codes mit Verzweigung (letzte Probe) |', (p) => `| ${p.a} > ${p.b} | ${p.ohne.join(', ')} | ${p.codes.join(', ')} |`);
   tab('Kontext (kein Urteil)', 'kontext', '| Paar | Codes | |', (p) => `| ${p.a} > ${p.b} | ${p.ohne.join(', ')} | |`);
   tab('Hinweis (HINWEIS_FEHLT)', 'hinweis', '| Paar | Codes | |', (p) => `| ${p.a} > ${p.b} | ${p.ohne.join(', ')} | |`);

@@ -78,6 +78,7 @@ function aufrufPruefen() {
     try { profil = Profil.profilLesen(profilArg, START_CWD); } catch (e) { console.error(e.message); process.exit(2); }
   }
   if (args.includes('--katalog-variante') && !Katalog.VARIANTEN.includes(katalogArg)) { console.error(`--katalog-variante: unbekannt oder fehlend "${katalogArg || ''}" (erlaubt: ${Katalog.VARIANTEN.join(', ')})`); process.exit(2); }
+  try { Profil.deckelTestAus(); } catch (e) { console.error(e.message); process.exit(2); }   // MESSE_DECKEL_TEST_AUS nur mit der Fake-CLI
   if (args.includes('--gesamtdeckel')) {
     if (!(Number.isInteger(deckelArg) && deckelArg >= 1)) { console.error('--gesamtdeckel: ganze Zahl (Tokens) ab 1'); process.exit(2); }
     if (!args.includes('--out')) { console.error('--gesamtdeckel gilt nur zusammen mit --out (der Zaehler liegt in <out-Wurzel>/gesamtverbrauch.json)'); process.exit(2); }
@@ -240,18 +241,22 @@ async function main() {
     return p.ok;
   };
   if (deckelAktiv) Profil.deckelVerbuchen(ausgabeWurzel, lauf, { tokens: 0, kosten_usd: 0 });
-  llm.ask = async (k, i, o) => {
-    if (k !== 'abenteuer') return ask0(k, i, o);
+  // Der Deckel zaehlt jeden Live-Aufruf der Art abenteuer: ask UND eskaliere (abenteuer-spielleiter.js losschicken ruft bei eskalation eskaliere('abenteuer')). Im Werkzeug ist die Eskalation ohnehin aus (Router mit eskalation: null, eskalationMoeglich false); der Umweg ist trotzdem gesperrt. Andere Arten (kind) laufen hier nicht live.
+  const esk0 = typeof llm.eskaliere === 'function' ? llm.eskaliere.bind(llm) : null;
+  const gezaehlt = (aufruf) => async (k, i, o) => {
+    if (k !== 'abenteuer') return aufruf(k, i, o);
     if (deckelAktiv && !deckelFrei()) { const e = new Error('Gesamtdeckel erreicht: ' + deckelGrund); e.code = 'DECKEL'; throw e; }
     const rec = { nr: i && i.nr, start: new Date().toISOString(), prompt: i && i.prompt, system: i && i.system, wall0: Date.now() };
     aufrufeNr.set(rec.nr, (aufrufeNr.get(rec.nr) || []).concat(rec));
     try {
-      const r = await ask0(k, i, o); rec.wall_s = (Date.now() - rec.wall0) / 1000; rec.antwort = r; roh.push(r.text);
+      const r = await aufruf(k, i, o); rec.wall_s = (Date.now() - rec.wall0) / 1000; rec.antwort = r; roh.push(r.text);
       if (deckelAktiv) { lauf.aufrufe++; lauf.tokens += r.tokens || 0; Profil.deckelVerbuchen(ausgabeWurzel, lauf, { tokens: r.tokens, kosten_usd: r.cost, aufruf: true }); }   // sofort, atomar: ein Abbruch verliert nichts
       return r;
     }
     catch (e) { rec.wall_s = (Date.now() - rec.wall0) / 1000; rec.fehler = (e && e.code ? e.code + ': ' : '') + String((e && e.message) || e).slice(0, 300); throw e; }
   };
+  llm.ask = gezaehlt(ask0);
+  if (esk0) llm.eskaliere = gezaehlt(esk0);
   const budget0 = LLM.budget();
   try { if (katalogArg) katalogVariante = Katalog.anwenden(AP, katalogArg, D.BEATS); } catch (err) { console.error(err.message); process.exit(2); }
   const katalogBeat = AP.katalogText().length;   // im Beat-Plan der feste Katalog, im Modus Absichten steht katalog_zeichen im Logbuch

@@ -235,6 +235,8 @@ function startServer(opts) {
 
 if (require.main === module) {
   startServer().then((s) => {
+    // KAT-01: der Katalog des Abenteuer-Prompts rechnet beim ersten Aufruf die Paarmatrix (rund 0,7 s); einmal hier nach dem Listen vorwaermen statt im ersten Takt (nur der echte Start, nicht die Tests; Fehler stoppen nichts)
+    setImmediate(() => { try { require('./sim/abenteuer-prompt.js').katalogText(); } catch (e) { console.error('[Pantheon] Katalog-Vorwaermen fehlgeschlagen: ' + (e && e.message)); } });
     // S1 §5.2: Sperrdatei des offenen Weltstands beim Beenden lösen (verwaiste Sperren erkennt auch der nächste Start)
     process.on('exit', () => { s.game.releaseWorldLock(); });   // das Protokoll schliesst der Exit-Haken in server/telemetrie/protokoll.js ab
     for (const sig of ['SIGINT', 'SIGTERM', 'SIGHUP']) process.once(sig, () => { s.game.releaseWorldLock(); process.exit(0); });   // process.exit löst den Exit-Haken aus
