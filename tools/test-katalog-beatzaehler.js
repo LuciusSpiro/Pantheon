@@ -70,7 +70,10 @@ check('a-c Zaehlerpruefung: keine Probleme mit dem echten Zaehler', zaehlerProbl
 const text = AP.katalogText();
 const zeile = text.split('\n').find((l) => l.startsWith('Kontext beat_zaehler:'));
 check('e Regelzeile steht im Katalog, genau einmal, mit dem Wortlaut (nur Hinweis, nichts gesperrt)', !!zeile && text.split('beat_zaehler').length === 2 && zeile === 'Kontext beat_zaehler: wie oft jeder Beat-Typ in letzte_abenteuer vorkam (nur Zahlen). Meide Typen mit hohem Zaehler; nimm bevorzugt Typen, die dort fehlen oder selten sind.', zeile);
-check('e die Zeile hat hoechstens 200 Zeichen', !!zeile && zeile.length <= 200, zeile && zeile.length);
+const hinweis = text.split('\n').find((l) => l.startsWith('Landeplatz-Beats ('));
+const lbNamen = (D0) => Object.keys(D0).filter((t) => D0[t].braucht && D0[t].braucht.landeplatz === true);
+check('e Landeplatz-Hinweis steht genau einmal, nennt genau die Beats mit braucht.landeplatz aus den Daten, ist Hinweis ohne Sperre', !!hinweis && text.split('Landeplatz-Beats (').length === 2 && hinweis.includes('(' + lbNamen(D.BEATS).join(' | ') + ')') && lbNamen(D.BEATS).length > 0 && /meist ohne aus/.test(hinweis) && !/nie |verboten|hoechstens|gesperrt/.test(hinweis), hinweis);
+check('e Zaehlerzeile + Landeplatz-Hinweis zusammen hoechstens 400 Zeichen', !!zeile && !!hinweis && zeile.length + hinweis.length <= 400, zeile && hinweis && (zeile.length + hinweis.length));
 check('e Katalog gesamt hoechstens 11 945 + 800 (KAT-01 A + B)', text.length <= BASIS + BUDGET, `${text.length} (Wachstum ${text.length - BASIS})`);
 check('e kein Befehlston gegen einzelne Beats: die Zeile nennt keinen Beat-Typ', !!zeile && !Object.keys(D.BEATS).some((b) => new RegExp('\\b' + b + '\\b').test(zeile.replace('beat_zaehler', ''))));
 
@@ -83,6 +86,20 @@ check('e kein Befehlston gegen einzelne Beats: die Zeile nennt keinen Beat-Typ',
     'unsortiert': (fo) => Object.fromEntries(Object.entries(AP.beatZaehler(fo)).reverse()),
   };
   for (const [n, f] of Object.entries(falsch)) check(`f Mutation "${n}" macht die Zaehlerpruefung rot`, zaehlerProbleme(f).length > 0);
+  // Mutation in Speicher: ein erfundener Beat mit braucht.landeplatz muss im Text auftauchen (Namen kommen aus den Daten, nichts hart codiert)
+  {
+    const AP2 = require('../server/sim/abenteuer-prompt.js');
+    const zusatz = 'erfundener_boden_beat';
+    const orig = D.BEATS[zusatz];
+    const vorlage = D.BEATS[lbNamen(D.BEATS)[0]];
+    D.BEATS[zusatz] = Object.assign({}, vorlage, { braucht: Object.assign({}, vorlage.braucht, { landeplatz: true }) });
+    let neu = '';
+    try { AP2.katalogNeuLesen(); neu = AP2.katalogText() || ''; } catch (e) { neu = 'FEHLER ' + e.message; }
+    if (orig === undefined) delete D.BEATS[zusatz];
+    AP2.katalogNeuLesen();
+    const h2 = neu.split('\n').find((l) => l.startsWith('Landeplatz-Beats ('));
+    check('f Mutation: ein erfundener Beat mit braucht.landeplatz taucht im Hinweis auf (Namen aus den Daten)', !!h2 && h2.includes(zusatz), h2 || neu.slice(0, 80));
+  }
   const ohneZeile = text.split('\n').filter((l) => !l.startsWith('Kontext beat_zaehler:')).join('\n');
   check('f ohne Regelzeile fehlt beat_zaehler im Katalog (die Zeilenpruefung e wuerde rot)', !ohneZeile.includes('beat_zaehler') && text.length - ohneZeile.length > 0);
 }

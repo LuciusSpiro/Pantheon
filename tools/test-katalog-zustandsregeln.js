@@ -108,7 +108,7 @@ check('2 nach den Mutationen: Daten im Speicher, Katalog und Matrix wie vorher',
 // ---------- 3 Laenge: Basiswert aus dem Katalog ohne die Zeile (Stand vor KAT-01 A: 11 945 Zeichen)
 const wachstum = text.length - ohneZeile(text).length;
 check('3 Wachstum des Katalogs durch die Zeile hoechstens 600 Zeichen', wachstum > 0 && wachstum <= 600, wachstum);
-check('3 Katalog insgesamt hoechstens 11 945 + 600 (Stand vor KAT-01 A plus Budget Paket A), ohne die Regelzeile beat_zaehler aus Paket B (die prueft test-katalog-beatzaehler)', text.split('\n').filter((l) => !l.startsWith('Kontext beat_zaehler:')).join('\n').length <= 11945 + 600, text.length);
+check('3 Katalog insgesamt hoechstens 11 945 + 600 (Stand vor KAT-01 A plus Budget Paket A), ohne die Regelzeile beat_zaehler und den Landeplatz-Hinweis aus Paket B (die prueft test-katalog-beatzaehler)', text.split('\n').filter((l) => !l.startsWith('Kontext beat_zaehler:') && !l.startsWith('Landeplatz-Beats (')).join('\n').length <= 11945 + 600, text.length);
 
 // ---------- 4 Matrix-Waechter: ein erfundener Beat (Kopie von verfolgung); die Datenlage bestimmt jede Klassifikation
 const erf = mitDaten((B) => { B.zz_probe = klon(B.verfolgung); }, () => ({ M: PA.matrix(), text: AP.katalogText() }));
