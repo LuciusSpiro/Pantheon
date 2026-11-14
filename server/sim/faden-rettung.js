@@ -31,7 +31,7 @@
 // (2) Eine Person, die einem Spieler folgt und beim Hochbeamen ohne Ops-Beam "gerettet" wird (away.executeBeam), erzeugt nur npcRescued und kein Bett: sie zaehlt als erledigt.
 const D = require('./faden-daten.js');
 const Boden = require('./faden-boden.js');
-const Landung = require('./faden-boden-rahmen.js');   // gemeinsamer Rahmen der Boden-Beats (WRK-01 B): ortVon, platzName, niemandUnten, Besetzung, fmt
+const Landung = require('./faden-boden-rahmen.js');   // gemeinsamer Rahmen der Boden-Beats: Ort, Platzname, niemand unten, Besetzung, Funk-Format
 const CONFIG = require('../../shared/config.js');
 const W = require('../world.js');
 const TEXTE = require('../../content/faeden/rettung-texte.json').texte;
