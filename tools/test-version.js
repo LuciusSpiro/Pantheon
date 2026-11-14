@@ -2,7 +2,7 @@
 // HYG-02 A: Versionsnummer im Startmenü. package.json ist die EINE Quelle.
 //  1. Server: GET /version.json liefert {"version": <package.json>} (application/json, no-cache); SERVER_VERSION (server/game.js) = package.json, kein zweiter Eintrag im Quelltext.
 //  2. Menü (menue.js): ladeVersion() setzt lies().version aus dem Server; Fehler, Unsinn oder fehlende Quelle lassen die Version leer und das Menü unberührt.
-//  3. Menü (menue-ui.js): zeichne() legt die Zeile „v<Version>“ unten rechts an (Messing, rechtsbündig, innerhalb 640×360) auf Titel, Hauptmenü und Lobby; ohne Version nichts.
+//  3. Menü (menue-ui.js): zeichne() legt die Zeile „v<Version>“ unten rechts an (Gold, rechtsbündig, innerhalb 640×360) NUR auf Titel und Hauptmenü; Lobby, Raumcode-Eingang, Einladung und Moduswahl-Überlagerung zeichnen sie nicht; ohne Version nichts.
 //  4. Mutationsprobe: Versionsnummer im Server von Hand gesetzt bzw. Zeile aus dem Menü entfernt → der Test wird rot.
 //   node tools/test-version.js
 const fs = require('fs');
@@ -38,7 +38,7 @@ function ui(F, quelltext) {
   const ctx = new Proxy({}, { get: (t, k) => (k === 'createLinearGradient' ? () => ({ addColorStop: noop }) : noop), set: () => true });
   const win = { Render: R, Pult: { rgba: () => '#000000', cham: noop }, Menue: TOKENS, MenueFluss: F, Hud: { fit: (s) => String(s) }, Net: { status: 'open' }, Tasten: { passt: () => false } };
   new Function('window', 'Net', 'Tasten', quelltext)(win, win.Net, win.Tasten);
-  return { texte, zeichne: (view) => { texte.length = 0; R.ui.buttons.length = 0; win.MenueUi.zeichne(ctx, view); return texte.slice(); } };
+  return { net: win.Net, texte, zeichne: (view) => { texte.length = 0; R.ui.buttons.length = 0; win.MenueUi.zeichne(ctx, view); return texte.slice(); } };
 }
 const VIEW = { actions: {}, pid: 'p1', state: { lobby: { startMission: 'm1', worlds: [] }, players: [{ id: 'p1', name: 'A', ready: false, connected: true, color: 0 }] } };
 
@@ -92,23 +92,29 @@ async function pruefe(q, laut) {
 
   // 3 Menü-Oberfläche
   if (laut) section('3 Menü: die Zeile wird angelegt');
-  const erwartet = TOKENS.TOKENS.FARBE.messing, text = 'v' + PKG.version;
+  const erwartet = TOKENS.TOKENS.FARBE.gold, text = 'v' + PKG.version;
   const zeile = (ts) => ts.find((t) => t.s === text) || null;
-  for (const schirm of ['titel', 'menue', 'lobby']) {
+  for (const schirm of ['titel', 'menue']) {
     const F = bau(); F.setzeVersion(PKG.version);
-    if (schirm === 'menue') F.weiter(); if (schirm === 'lobby') F.imRaum();
+    if (schirm === 'menue') F.weiter();
     const U = ui(F, q.ui);
     const mit = U.zeichne(VIEW), z = zeile(mit);
-    if (schirm === 'lobby' && F.lies().schirm !== 'lobby') { p(false, 'Lobby nicht erreichbar'); continue; }
+    p(F.lies().schirm === schirm, schirm + ': Schirm erreicht');
     p(!!z, schirm + ': Zeile „' + text + '“ wird gezeichnet' + (z ? ' (x ' + z.x + ', y ' + z.y + ')' : ''));
     if (z) {
       p(z.align === 'right' && z.x >= 600 && z.x <= 640, schirm + ': rechtsbündig am rechten Rand (x ' + z.x + ')');
       p(z.y >= 342 && z.y + 7 <= 360, schirm + ': in der unteren Zeile (y ' + z.y + '), innerhalb 640×360');
-      p(z.farbe === erwartet, schirm + ': Messing aus den Tokens (' + z.farbe + ')');
+      p(z.farbe === erwartet, schirm + ': Gold aus den Tokens (' + z.farbe + ')');
       p(z.x - 6 * text.length >= 560, schirm + ': schmal, beginnt rechts von x 560 (Textbreite ' + 6 * text.length + ' px)');
     }
     F.setzeVersion(null); p(!zeile(U.zeichne(VIEW)), schirm + ': ohne Version keine Zeile');
   }
+  // nicht auf den übrigen Schirmen: Lobby, Moduswahl-Überlagerung, Einladung, Raumcode-Eingang (auch mit geladener Version)
+  const ohne = (name, hinfuehren) => { const F = bau(); F.setzeVersion(PKG.version); const U = ui(F, q.ui); const r = hinfuehren(F, U); const ts = U.zeichne(r.view || VIEW); p(r.ok, name + ': Schirm erreicht'); p(!ts.some((t) => /^v\d/.test(t.s)), name + ': keine Versionszeile'); };
+  ohne('Lobby', (F) => { F.imRaum(); return { ok: F.lies().schirm === 'lobby' && !F.lies().modusOffen }; });
+  ohne('Moduswahl-Überlagerung', (F) => { F.imRaum(); F.oeffneModusWahl(VIEW.state.lobby); return { ok: F.lies().modusOffen === true }; });
+  ohne('Einladung', (F) => { F.starte({ link: true }); return { ok: F.lies().schirm === 'einladung' }; });
+  ohne('Raumcode-Eingang', (F, U) => { U.net.badCode = true; return { ok: true, view: { actions: {}, pid: 'x', state: { lobby: { worlds: [] }, players: [] } } }; });
   { const F = bau(); F.setzeVersion(PKG.version); const U = ui(F, q.ui), a = U.zeichne(VIEW).filter((t) => t.s !== text), b = (F.setzeVersion(null), U.zeichne(VIEW));
     p(JSON.stringify(a) === JSON.stringify(b), 'alle übrigen Texte des Titels sind mit und ohne Version gleich (nichts verschoben)'); }
   return schlecht;
@@ -123,7 +129,9 @@ async function pruefe(q, laut) {
   const mut = [
     ['SERVER_VERSION fest eingetragen', 'game', (s) => s.replace(/require\('\.\.\/package\.json'\)\.version;/, "'9.9.9';")],
     ['/version.json liefert fremde Version', 'index', (s) => s.replace('JSON.stringify({ version: PKG_VERSION })', "JSON.stringify({ version: '9.9.9' })")],
-    ['Menü zeichnet die Zeile nicht', 'ui', (s) => s.replace('    versionZeile(ctx, ', '    false && versionZeile(ctx, ')],
+    ['Menü zeichnet die Zeile nicht', 'ui', (s) => s.replace('versionZeile(ctx);', '')],
+    ['Menü zeichnet die Zeile auch in der Lobby', 'ui', (s) => s.replace("if (!ein && (s === 'titel' || s === 'menue')) versionZeile(ctx);", 'versionZeile(ctx);')],
+    ['Zeile nicht in Gold', 'ui', (s) => s.replace("MF.gold, 'right'", "MF.messing, 'right'")],
     ['Menü übernimmt die Version nicht', 'menue', (s) => s.replace('store.version = typeof v', 'store.version = null && typeof v')],
   ];
   for (const [name, wo, f] of mut) {

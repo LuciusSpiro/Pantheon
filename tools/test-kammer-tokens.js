@@ -84,7 +84,7 @@ const menuePaare = [
   ['gold', kachelWeiss, TEXT, 'Raumcode, Auswahl auf Kachel'], ['nichtBereit', kachelWeiss, TEXT, '„wartet auf“ auf Kachel'],
   ['tinte', 'gold', TEXT, 'Schrift auf Hauptknopf'], ['gold', 'tinte', TEXT, 'Taste in der Kappe des Hauptknopfs'], ['tinte', 'messing', TEXT, 'GASTGEBER'], ['tinte', 'bereit', TEXT, 'Knopf BEREIT (Mint)'],
   ['text', 'karte', TEXT, 'Zeile auf Lobby-Karte'], ['dim', 'karte', TEXT, 'FREI, L lädt ein'], ['bereit', 'karte', TEXT, 'Stempel AN BORD'], ['nichtBereit', 'karte', TEXT, 'Stempel NICHT BEREIT'],
-  ['kappeText', 'kappe', TEXT, 'Tastenkappe'], ['text', 'statuszeile', TEXT, 'Statuszeile Wert'], ['dim', 'statuszeile', TEXT, 'Statuszeile Label'], ['nichtBereit', 'statuszeile', TEXT, 'BEREIT 2/3'], ['bereit', 'statuszeile', TEXT, 'BEREIT 3/3'], ['messing', 'statuszeile', TEXT, 'Versionsnummer (Lobby)'],
+  ['kappeText', 'kappe', TEXT, 'Tastenkappe'], ['text', 'statuszeile', TEXT, 'Statuszeile Wert'], ['dim', 'statuszeile', TEXT, 'Statuszeile Label'], ['nichtBereit', 'statuszeile', TEXT, 'BEREIT 2/3'], ['bereit', 'statuszeile', TEXT, 'BEREIT 3/3'],
 ];
 for (const [a, b, min, rolle] of menuePaare) { const hb = MF[b] || b, v = ME.kontrast(MF[a], hb); zeile(v, a, MF[b] ? b : 'Kachel/weiß ' + hb, rolle, min); ok(v >= min, `Menü: ${a} auf ${b} ${fmt(v)}:1 < ${min} (${rolle})`); }
 // Auswahlzeile im Menü: Goldfläche 12 % über dem Verlauf; Text Gold
