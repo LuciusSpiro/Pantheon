@@ -18,7 +18,7 @@ Die Abschnitte „Neu in …“ stehen unten, das Neueste zuerst. Abnahmen: `con
 
 ## Schalter und Fadenvorlagen (Stand HYG-01, Version 0.1.0)
 
-Die Version steht in `package.json` und in `SERVER_VERSION` (`server/game.js`); der Server schickt sie im `welcome` und im Telemetrie-Kopf. Eine Anzeige im Client gibt es nicht. Das Weltstand-Format hat eine eigene Version (3), sie hängt nicht an dieser Zahl.
+Die Version steht nur in `package.json`; `SERVER_VERSION` (`server/game.js`) und die Anzeige im Menü (unten rechts auf Titel und Hauptmenü, `GET /version.json`) lesen sie von dort. Der Server schickt sie außerdem im `welcome` und im Telemetrie-Kopf. Das Weltstand-Format hat eine eigene Version (3), sie hängt nicht an dieser Zahl.
 
 **Freie Fahrt (Lobby-Modus):** Der echte Server setzt die Schalter für diesen Modus selbst aus den Daten `content/welt/freie-fahrt-szenario.json` (Game-Option `szenarioSchalter`, FRE-01): `FAEDEN=1`, `REISE_EREIGNISSE=1` und `LAGE_SPIELLEITER=1` gelten immer, ohne `.env`. Die Betriebsart wählt die Lobby-Option: Rückfall ohne Modell (`SPIELLEITER_RUECKFALL=1`) oder live (`SPIELLEITER_LLM=live`, `LLM_LIVE=1`, `TEXTE_POOL=1`). `SPIELLEITER_LLM`, `LLM_LIVE` und `SPIELLEITER_RUECKFALL` aus der `.env` werden in diesem Modus verworfen; nur `SPIELLEITER_LLM=mock` bleibt als Test- und Debug-Haken erhalten.
 

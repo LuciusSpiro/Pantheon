@@ -8,6 +8,7 @@
 //     endkampf   Eisenwald-Endkampf (splitter.eisenwald, Flagge gehisst, Labor stellung_nehmen/flagge_hissen), wie im Original-Skript.
 //     besetzen   Eisenwald mit regulaeren Trupps (combat.besetzen, Fraktion raubzug, Staerke --staerke, Standard gross), wie im Original.
 //     graben     Szenario Grabenangriff, echter Start ueber den Lobby-Modus arena_graben (server/sim/graben.js): Rom-Verteidiger 6/9/12 je Crew 1/2/3.
+//                Gezaehlt wird nur Deck 0 (Welle 1+2); Welle 3 steht im Bunker auf Deck 1 und zaehlt hier nicht.
 //   Spieler: standardmaessig stehend und unverwundbar (Schild voll, sofort wiederbelebt) am Landepunkt (graben: Abholpunkt x~4).
 //     --alarm     graben: alle Verteidiger ab Tick 0 alarmiert und wach (Standard = echtes Verhalten: ruhig auf den Posten; --alarm nur zum
 //                Vergleich mit den fruehen Fixtures).

@@ -3,11 +3,12 @@
 //  1. Server: GET /version.json liefert {"version": <package.json>} (application/json, no-cache); SERVER_VERSION (server/game.js) = package.json, kein zweiter Eintrag im Quelltext.
 //  2. Menü (menue.js): ladeVersion() setzt lies().version aus dem Server; Fehler, Unsinn oder fehlende Quelle lassen die Version leer und das Menü unberührt.
 //  3. Menü (menue-ui.js): zeichne() legt die Zeile „v<Version>“ unten rechts an (Gold, rechtsbündig, innerhalb 640×360) NUR auf Titel und Hauptmenü; Lobby, Raumcode-Eingang, Einladung und Moduswahl-Überlagerung zeichnen sie nicht; ohne Version nichts.
-//  4. Mutationsprobe: Versionsnummer im Server von Hand gesetzt bzw. Zeile aus dem Menü entfernt → der Test wird rot.
+//  4. Mutationsprobe: Versionsnummer im Server von Hand gesetzt bzw. Zeile aus dem Menü entfernt → der Test wird rot. Der Server wird dafür im Speicher geladen (keine Dateien im Repo).
 //   node tools/test-version.js
 const fs = require('fs');
 const path = require('path');
 const http = require('http');
+const Module = require('module');
 const PKG = require('../package.json');
 const Protocol = require('../shared/protocol.js');
 const TOKENS = require('../public/js/menue-tokens.js');
@@ -22,6 +23,16 @@ const lies = (p) => fs.readFileSync(p, 'utf8');
 function modul(quelltext, extern) {
   const m = { exports: {} };
   new Function('module', 'exports', 'self', 'require', quelltext)(m, m.exports, undefined, extern || require);
+  return m.exports;
+}
+// Quelltext als Modul mit dem echten Pfad kompilieren (ohne Datei im Repo); landet unter dem Pfad im require.cache, damit index.js dasselbe game.js bekommt
+function ladeImSpeicher(datei, quelltext) {
+  const m = new Module(datei, module);
+  m.filename = datei;
+  m.paths = Module._nodeModulePaths(path.dirname(datei));
+  require.cache[datei] = m;
+  m._compile(quelltext, datei);
+  m.loaded = true;
   return m.exports;
 }
 function holen(port, pfad) {
@@ -52,15 +63,16 @@ async function pruefe(q, laut) {
   const gameQ = q.game, indexQ = q.index;
   p(/const SERVER_VERSION = require\('\.\.\/package\.json'\)\.version;/.test(gameQ), 'server/game.js liest SERVER_VERSION aus package.json (kein zweiter Eintrag)');
   p(!/SERVER_VERSION = '\d/.test(gameQ), 'server/game.js hat keine fest eingetragene Versionsnummer');
-  // Der Server wird aus dem Quelltext geladen, damit die Mutationsprobe greift; Ladeort = server/, damit require('./game.js') etc. stimmen
-  const dateiIndex = path.join(ROOT, 'server', '~test-version-index-' + process.pid + '.js'), dateiGame = path.join(ROOT, 'server', '~test-version-game-' + process.pid + '.js');
+  p(/const PKG_VERSION = require\('\.\.\/package\.json'\)\.version;/.test(indexQ), 'server/index.js liest PKG_VERSION aus package.json (kein zweiter Eintrag)');
+  p(!/PKG_VERSION = '\d/.test(indexQ), 'server/index.js hat keine fest eingetragene Versionsnummer');
+  // Der Server wird aus dem (ggf. veränderten) Quelltext IM SPEICHER geladen, damit die Mutationsprobe greift; es wird nichts ins Repo geschrieben.
+  // Echter Pfad als Dateiname, damit relative requires wie im Original auflösen; Cache-Einträge werden danach wieder entfernt.
+  const dateiIndex = Q.index, dateiGame = Q.game;
   let h = null;
   try {
-    fs.writeFileSync(dateiGame, gameQ);
-    fs.writeFileSync(dateiIndex, indexQ.replace("require('./game.js')", "require('./~test-version-game-" + process.pid + ".js')"));
-    const S = require(dateiIndex);
+    const G = ladeImSpeicher(dateiGame, gameQ);
+    const S = ladeImSpeicher(dateiIndex, indexQ);
     h = await S.startServer({ port: 0, quiet: true, noStore: true, roomCode: null });
-    const G = require(dateiGame);
     p(G.SERVER_VERSION === PKG.version, 'SERVER_VERSION = package.json (' + G.SERVER_VERSION + ' = ' + PKG.version + ')');
     const r = await holen(h.port, '/version.json');
     let d = null; try { d = JSON.parse(r.body); } catch (e) { /* bleibt null */ }
@@ -72,7 +84,7 @@ async function pruefe(q, laut) {
     p(w.status === 200, 'die übrige Auslieferung bleibt unberührt (/index.html → 200)');
   } catch (e) { p(false, 'Server-Prüfung abgestürzt: ' + (e && e.message)); } finally {
     if (h) await h.close();
-    for (const f of [dateiIndex, dateiGame]) { try { fs.unlinkSync(f); delete require.cache[f]; } catch (e) { /* weg */ } }
+    for (const f of [dateiIndex, dateiGame]) delete require.cache[f];
   }
 
   // 2 Menü-Zustand
@@ -114,7 +126,7 @@ async function pruefe(q, laut) {
   ohne('Lobby', (F) => { F.imRaum(); return { ok: F.lies().schirm === 'lobby' && !F.lies().modusOffen }; });
   ohne('Moduswahl-Überlagerung', (F) => { F.imRaum(); F.oeffneModusWahl(VIEW.state.lobby); return { ok: F.lies().modusOffen === true }; });
   ohne('Einladung', (F) => { F.starte({ link: true }); return { ok: F.lies().schirm === 'einladung' }; });
-  ohne('Raumcode-Eingang', (F, U) => { U.net.badCode = true; return { ok: true, view: { actions: {}, pid: 'x', state: { lobby: { worlds: [] }, players: [] } } }; });
+  ohne('Raumcode-Eingang', (F, U) => { U.net.badCode = true; return { ok: F.lies().schirm === 'titel' && !!F.raumcodeEingang({ badCode: true, verbunden: true, hatSpieler: false, roomCode: '' }), view: { actions: {}, pid: 'x', state: { lobby: { worlds: [] }, players: [] } } }; });
   { const F = bau(); F.setzeVersion(PKG.version); const U = ui(F, q.ui), a = U.zeichne(VIEW).filter((t) => t.s !== text), b = (F.setzeVersion(null), U.zeichne(VIEW));
     p(JSON.stringify(a) === JSON.stringify(b), 'alle übrigen Texte des Titels sind mit und ohne Version gleich (nichts verschoben)'); }
   return schlecht;
@@ -129,6 +141,7 @@ async function pruefe(q, laut) {
   const mut = [
     ['SERVER_VERSION fest eingetragen', 'game', (s) => s.replace(/require\('\.\.\/package\.json'\)\.version;/, "'9.9.9';")],
     ['/version.json liefert fremde Version', 'index', (s) => s.replace('JSON.stringify({ version: PKG_VERSION })', "JSON.stringify({ version: '9.9.9' })")],
+    ['index.js: PKG_VERSION fest eingetragen', 'index', (s) => s.replace(/const PKG_VERSION = require\('\.\.\/package\.json'\)\.version;/, "const PKG_VERSION = '0.1.0';")],
     ['Menü zeichnet die Zeile nicht', 'ui', (s) => s.replace('versionZeile(ctx);', '')],
     ['Menü zeichnet die Zeile auch in der Lobby', 'ui', (s) => s.replace("if (!ein && (s === 'titel' || s === 'menue')) versionZeile(ctx);", 'versionZeile(ctx);')],
     ['Zeile nicht in Gold', 'ui', (s) => s.replace("MF.gold, 'right'", "MF.messing, 'right'")],
