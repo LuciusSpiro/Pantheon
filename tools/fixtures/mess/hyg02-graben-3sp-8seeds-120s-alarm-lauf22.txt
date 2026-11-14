@@ -1,0 +1,20 @@
+Grabenangriff (feste Karte, Rom), 3 Spieler (Gegner von Beginn an alarmiert, laufen auf x~22 vor, dann stehend, unverwundbar), 120 s, Seeds 1..8
+Gefecht entstanden in 8 von 8 Seeds, 1904 von 1920 Samples im Gefecht; Spieler-x am Ende (Seed 1): 22,22,22
+HAUPTKENNZAHLEN (Gefecht): Anteil Gegner mit Kamerad <= 2 Kacheln 0.23   mittlerer Abstand zum naechsten Kameraden 3.15 Kacheln
+[gesamt] Samples 1920: Gegner 12  mittl. Paarabstand 10.28  mittl. Abstand zum naechsten Kameraden 3.18  Anteil <=2 Kacheln 0.23  max Gegner je Deckungsinsel (Mittel 2.37, Maximum 5)  Inseln mit >=2 Gegnern 1.62  Median Abstand zum naechsten Spieler 8.4
+[Gefecht (>=3 Gegner sehen Spieler)] Samples 1904: Gegner 12  mittl. Paarabstand 10.08  mittl. Abstand zum naechsten Kameraden 3.15  Anteil <=2 Kacheln 0.23  max Gegner je Deckungsinsel (Mittel 2.39, Maximum 5)  Inseln mit >=2 Gegnern 1.64  Median Abstand zum naechsten Spieler 8.1
+freistehende Inseln (ohne Mauern) im Gefecht: Gegner je Insel Maximum 2 (Mittel 1.32), Inseln mit >=2 Gegnern 0.41, Anteil Samples mit >2 Gegnern an einer freistehenden Insel 0
+stehende pin-Gegner (>=2) im Gefecht: Samples 1880, mittl. Abstand zum naechsten pin-Kameraden 3.91, mittl. Anzahl pin 5.88
+Samples mit Flankierer (Anteil, alle Samples): 0.25
+TRUPP-GEHIRN: Anteil Gefechts-Samples mit gueltiger Verteilung (jeder Trupp ab 4 Lebenden >=1 niederhalten und >=1 flanke) 1 (Gefechts-Samples mit Trupp ab 4: 1904 von 1904)
+Verteilung der Aufgaben (Gefecht, Anteil an Gegner-Samples): allround 0.42, scharf 0.25, unterstuetzung 0.17, niederhalten 0.08, flanke 0.08
+HALTEN (Ziel >= 0,80): Anteil der lebenden Welle 1 in Stellungen ab Alarm, solange kein Rueckzug: 1 (Samples 1920, schlechtestes Sample 1); nur Gefechts-Samples: 1 (1904)
+RUECKZUG/GEGENSTOSS: Seeds mit Rueckzug 0 von 8 (Summe Ausloesungen 0), Gegenstoesse gesamt 0, Seeds mit Alarm 8
+seed 1: Gefechtssamples 238, Paarabstand 10.07, nn 3.09, <=2 0.26, maxInsel 5, Tickfehler 0
+seed 2: Gefechtssamples 238, Paarabstand 10.12, nn 3.07, <=2 0.26, maxInsel 5, Tickfehler 0
+seed 3: Gefechtssamples 238, Paarabstand 10.05, nn 3.16, <=2 0.23, maxInsel 5, Tickfehler 0
+seed 4: Gefechtssamples 238, Paarabstand 10.16, nn 3.3, <=2 0.13, maxInsel 3, Tickfehler 0
+seed 5: Gefechtssamples 238, Paarabstand 10.06, nn 3.15, <=2 0.23, maxInsel 5, Tickfehler 0
+seed 6: Gefechtssamples 238, Paarabstand 10.09, nn 3.17, <=2 0.18, maxInsel 4, Tickfehler 0
+seed 7: Gefechtssamples 238, Paarabstand 9.97, nn 3.14, <=2 0.26, maxInsel 4, Tickfehler 0
+seed 8: Gefechtssamples 238, Paarabstand 10.15, nn 3.13, <=2 0.3, maxInsel 4, Tickfehler 0
