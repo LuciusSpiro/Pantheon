@@ -4,10 +4,10 @@
 // Katalogtyp (beats.json), das Handler-Objekt bringt der Baustein der Art mit (BEA-02, WRK-01).
 //
 //   anmelden(beatArt, handler)   handler = Funktion (game, faden, ev) oder Objekt mit ereignis(game, faden, ev); ev = { name, data }. Ein Handler je Art (spaeteres Anmelden ersetzt)
-//   ereignis(game, ev)           wirft nie; kehrt sofort zurueck (ohne Allokation), wenn kein Handler angemeldet ist, der Name nicht zu den sechs Ereignissen gehoert (dazu notsprung, FAB-01 B), FAEDEN=1 fehlt oder kein Beat laeuft
+//   ereignis(game, ev)           wirft nie; kehrt sofort zurueck (ohne Allokation), wenn kein Handler angemeldet ist, der Name nicht in NAMEN steht, FAEDEN=1 fehlt oder kein Beat laeuft
 //   abmelden(beatArt)            nimmt den Handler weg (Tests)
 //
-// Zuordnung: beamedDown und beamedUp tragen data.map; die Ort-Id enthaelt die Fadenid (abenteuer-orte.parse): nur dieser Faden bekommt das Ereignis (ohne passende Karte: keiner). npcRescued und personAnBord
+// Zuordnung (Wert in NAMEN): 'karte' heisst, das Ereignis traegt data.map (beamedDown, beamedUp u. a.); die Ort-Id enthaelt die Fadenid (abenteuer-orte.parse): nur dieser Faden bekommt das Ereignis (ohne passende Karte: keiner). npcRescued und personAnBord
 // gehen an den Faden der Karte, wenn data.map ein Faden-Ort ist (npcRescued traegt die Karte der Aufnahme, in away.js wie in personen-bord.js), sonst an alle laufenden Beats angemeldeter Art. personAbgegeben
 // wird NIE ueber map zugeordnet: dessen data.map ist die zuletzt gewaehlte Aussenkarte (game.away.map), nicht der Abgabeort; es geht an alle laufenden Beats angemeldeter Art, der Handler filtert nach person.
 // Ein laufender Beat hat phase 'laeuft' (f.laufend); seine Art ist der Katalogtyp, bei einer feindlichen Variante der Typ der Variante (wie faden.beatAusgang).
@@ -19,7 +19,17 @@
 const Faden = { aktiv: (game) => require('./faden.js').aktiv(game) };   // lazy: faden-landung.js meldet sich beim Laden an (faden.js -> faden-bausteine.js -> faden-landung.js -> hier), faden.js waere dann noch nicht fertig
 const D = require('./faden-daten.js');
 
-const NAMEN = { beamedDown: 'karte', beamedUp: 'karte', npcRescued: 'karte_oder_alle', personAnBord: 'karte_oder_alle', personAbgegeben: 'alle', notsprung: 'alle' };   // FAB-01 B: notsprung geht an alle laufenden Beats angemeldeter Art (der Beat landung scheitert; kein Datum noetig)
+// Ereignis -> Zuordnung. Jedes Ereignis steht auf einer eigenen Zeile (mit Zeilenkommentar): ein weiterer Beat (BEA-02) fuegt nur Zeilen an, kein Textkonflikt
+const NAMEN = {
+  beamedDown: 'karte',
+  beamedUp: 'karte',
+  npcRescued: 'karte_oder_alle',
+  personAnBord: 'karte_oder_alle',
+  personAbgegeben: 'alle',
+  notsprung: 'alle',   // FAB-01 B: geht an alle laufenden Beats angemeldeter Art (der Beat landung scheitert; kein Datum noetig)
+  beuteGeborgen: 'karte',   // WRK-01 B: traegt data.map: nur der Faden der Karte
+  ankerGelesen: 'karte',   // WRK-01 B: Logbuch-Terminal gelesen, traegt data.map: nur der Faden der Karte
+};
 const handler = new Map();   // Beat-Art -> Handler
 const zustaende = new WeakMap();   // game -> { zugestellt, fehler }
 

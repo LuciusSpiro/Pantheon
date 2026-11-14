@@ -1,0 +1,12 @@
+{
+  "_hinweis": "WRK-01 A1: Beute an Wracks (Prise, Wrack, Faden-Orte). Startwerte, Kai passt an. Kein *-werte.json: Wrack-Beute kommt in den Basis-Laeufen nicht vor (kein Tuning-Hash).",
+  "beute": {
+    "art": "bergungsgut",
+    "je_anker": 1,
+    "deckel_je_wrack": 3
+  },
+  "texte": {
+    "nichts_mehr": "Nichts mehr von Wert.",
+    "kein_platz": "Im Frachtraum ist kein Platz, das Gut bleibt zurück."
+  }
+}

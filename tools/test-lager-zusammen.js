@@ -1,6 +1,6 @@
 'use strict';
 // LAD-01 C: Zusammenführung der Ablagen. Die Faden-Ware (faden-fracht.js) liegt als Art 'fracht' im Frachtraum (nur über fracht.lagerAufnehmen, quelle 'faden'),
-// Ablieferung bleibt der Hook andocken; die Schnittstelle erzEinlagern/beuteEinlagern (fracht.js) ist für WRK-01 und AST-01 da; das GEL-03-Abbauerz (inventory.erz) bleibt unverändert.
+// Ablieferung bleibt der Hook andocken; die Schnittstelle erzEinlagern/beuteEinlagern (fracht.js) ist für WRK-01 und AST-01 da; WRK-01 A2: das GEL-03-Abbauerz läuft über erzEinlagern (kein Konto inventory.erz mehr).
 // Erwartete Werte: eigene Zählung im Test.      node tools/test-lager-zusammen.js
 const fs = require('fs');
 const path = require('path');
@@ -137,15 +137,13 @@ section('Erz- und Beute-Schnittstelle (für WRK-01 und AST-01)', () => {
   ok(Fracht.beuteEinlagern(g).ok && lager(g).join() === 'bergungsgut', 'ohne Art: Bergungsgut, 1 Stapel');
 });
 
-section('GEL-03-Abbau-Erz bleibt unverändert (inventory.erz, nicht im Frachtraum)', () => {
+section('GEL-03-Abbau-Erz ist Fracht (WRK-01 A2: Schnittstelle statt Konto inventory.erz)', () => {
   const g = bereit(35);
   const l0 = lager(g).length;
-  Vorrat.einlagern(g, 'erz', 2, 'abbau');
-  ok(Vorrat.stand(g, 'erz') === 2 && lager(g).length === l0, 'Vorrat.einlagern(erz, abbau): Zähler steigt, Frachtraum unberührt');
-  Fracht.erzEinlagern(g, 1);
-  ok(Vorrat.stand(g, 'erz') === 2, 'die Schnittstelle fasst den Erz-Zähler nicht an');
+  Fracht.erzEinlagern(g, 2);
+  ok(Fracht.anBord(g, 'erz') === 2 && lager(g).length === l0 + 2 && Vorrat.stand(g, 'erz') === 0, 'erzEinlagern: zwei Plätze belegt, das Konto inventory.erz bleibt 0');
   const src = fs.readFileSync(path.join(__dirname, '..', 'server', 'sim', 'anker.js'), 'utf8');
-  ok(/Vorrat\.einlagern\(game, m\.art, m\.menge, 'abbau'\)/.test(src) && !/erzEinlagern|beuteEinlagern|lagerAufnehmen/.test(src), 'anker.js (GEL-03-Abbau) lagert weiter über Vorrat ein und kennt die neue Schnittstelle nicht');
+  ok(/fracht\(\)\.erzEinlagern\(game, m\.menge\)/.test(src) && !/Vorrat\.einlagern/.test(src), 'anker.js (GEL-03-Abbau) lagert über Fracht.erzEinlagern ein, kein Vorrat.einlagern mehr');
 });
 
 section('Kein Weg am lagerAufnehmen vorbei (statischer Scan)', () => {

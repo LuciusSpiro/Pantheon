@@ -184,6 +184,17 @@
       "parameter": {"pflicht": [], "optional": ["landeplatz", "besetzung"]},
       "bauplan": {"start_status":"aktiv","hinweis_traeger":false,"parameter":{"landeplatz":{"erlaubt":"landeplatz"},"besetzung":{"standard":"ruhig","erlaubt":["ruhig","raeuber","belagerer"]}},"aus":{"gelungen":{"status":["verbuendet","aktiv"],"folge":[{"typ":"haltung_aenderung","grund":"geholfen"}]},"gescheitert":{"status":["aktiv","geflohen"],"folge":[{"typ":"haltung_aenderung","grund":"im_stich_gelassen"}]}}}
     },
+    "wrack": {
+      "zweck": "Wrack im Sektor (Landeplatz Art schiff): die Crew beamt hinueber, kann Beute bergen und das Logbuch lesen, beamt hoch. Beute und Logbuch sind kein Muss.",
+      "baustein": "wrack",
+      "gefahr": false,
+      "optionen": "keine",
+      "frist": 12,
+      "braucht": {"nsc_status": ["aktiv", "verbuendet", "gefangen"], "landeplatz": true},
+      "landeplatz_art": ["schiff"],
+      "parameter": {"pflicht": [], "optional": ["landeplatz", "besetzung"]},
+      "bauplan": {"start_status":"aktiv","hinweis_traeger":false,"parameter":{"landeplatz":{"erlaubt":"landeplatz"},"besetzung":{"standard":"ruhig","erlaubt":["ruhig","raeuber"]}},"aus":{"gelungen":{"status":["verbuendet","aktiv"],"folge":[{"typ":"haltung_aenderung","grund":"geholfen"}]},"gescheitert":{"status":["aktiv","geflohen"],"folge":[]}}}
+    },
     "abschluss": {
       "zweck": "Der Faden endet; der Ausgang schreibt das Gedaechtnis des NSC (und Folgen).",
       "baustein": "abschluss",

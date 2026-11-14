@@ -1,0 +1,15 @@
+{
+  "format": "faden-wrack-texte/1",
+  "_hinweis": "WRK-01 B: Funktexte des Beats wrack (server/sim/faden-wrack.js). PLATZHALTERTEXTE, Kai liest gegen. Schluessel: start_<besetzung> (Beat-Parameter besetzung, boden-werte.json), beute (erster Fund), logbuch (Logbuch gelesen), abschluss_<beute|ohne_beute>_<logbuch|ohne_logbuch>, scheitern. Platzhalter nur {platz} und {ort}, nie ein Spielername. Hoechstlaenge: text_max aus boden-werte.json. Kein *-werte.json: Texte gehoeren nicht in den Tuning-Hash.",
+  "texte": {
+    "start_ruhig": "Da treibt ein Wrack, {platz}, {ort}. Keine Lebenszeichen. Beamt hinüber, wenn ihr wollt. Seht euch um, was davon geblieben ist.",
+    "start_raeuber": "Da liegt ein Wrack, {platz}, {ort}. Es sind noch Räuber an Bord, die nehmen mit, was sie finden. Seid vorsichtig.",
+    "beute": "Da liegt noch etwas, aber nicht viel. Es lag lange niemandem im Weg.",
+    "logbuch": "Das Logbuch lässt sich lesen. Die letzten Einträge brechen mitten im Satz ab. Etwas ist hier passiert.",
+    "abschluss_mit_beute_mit_logbuch": "Ihr seid wieder oben. Ein paar Teile an Bord und ein Logbuch, das mehr fragt als erklärt. Das Wrack erzählt noch.",
+    "abschluss_mit_beute_ohne_logbuch": "Ihr seid wieder oben und habt geborgen, was ging. Was dem Schiff zugestoßen ist, bleibt offen.",
+    "abschluss_ohne_beute_mit_logbuch": "Ihr seid wieder oben. Nichts von Wert, aber das Logbuch erzählt, wie es zu Ende ging.",
+    "abschluss_ohne_beute_ohne_logbuch": "Ihr seid wieder oben. Ein stilles Wrack, nichts mitgenommen. Manche Geschichten bleiben dort liegen.",
+    "scheitern": "Das Wrack bleibt zurück. Was dort geschah, wird niemand mehr erfahren."
+  }
+}
