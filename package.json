@@ -403,6 +403,8 @@
     "test:messe-zusammen": "node tools/test-messe-zusammen.js",
     "test:messe-profil": "node tools/test-messe-profil.js",
     "messe:zusammen": "node tools/messe-zusammen.js",
+    "test:messe-paare": "node tools/test-messe-paare.js",
+    "messe:paare": "node tools/messe-paare.js",
     "test:messe-absichten": "node tools/test-messe-absichten.js",
     "test:messe-spl": "node tools/test-messe-spl.js",
     "test:spl-gelaende-szenen": "node tools/test-spl-gelaende-szenen.js",
