@@ -136,6 +136,7 @@ const MUTATIONEN = [
   ["server/sim/abenteuer-brett.js", "kuerzen(ohneNamen(game, String(angebot.vorlage.titel)), BW.hinweis_titel_max)", "kuerzen(String(angebot.vorlage.titel), BW.hinweis_titel_max)", "Hinweis: ein Spielername im Titel bleibt im Funk"],
   ["server/sim/abenteuer-brett.js", "|| !Faden().aktiv(game) || !Faden().spielleiterAktiv(game)) return false;\n  const b = brett(F);", "|| !Faden().aktiv(game)) return false;\n  const b = brett(F);", "Hinweis: auch ohne Spielleiter"],
   ["server/sim/abenteuer-brett.js", "text: fmt(BW.hinweis_text, { titel }), lage: 1, fd: 1, r: 1 }", "text: fmt(BW.hinweis_text, { titel }), lage: 1, r: 1 }", "Hinweis: kein Funk eines Fadens (fd) fuer den Client-Ton"],
+  ["server/sim/abenteuer-brett.js", "{ from: BW.hinweis_funk_sprecher, text, lage: 1, fd: 1, r: 1 }", "{ from: BW.hinweis_funk_sprecher, text, lage: 1, r: 1 }", "Sammelhinweis: kein Funk eines Fadens (fd) fuer den Client-Ton"],
   ["server/sim/faden.js", "try { require('./abenteuer-brett.js').hinweisAnbieten(game, a); }", "try { /* kein Hinweis */ }", "Hinweis: ein neues Angebot meldet sich nicht"],
   ["content/faeden/abenteuer-brett.json", "\"wert\": \"Neuer Auftrag am Brett: {titel}\"", "\"wert\": \"Neuer Auftrag am Brett: {titel} ({name})\"", "Daten: der Hinweis nennt einen Namen"],
   ["content/faeden/abenteuer-brett.json", "\"hinweis_titel_max\": {\n      \"wert\": 36,", "\"hinweis_titel_max\": {\n      \"wert\": 90,", "Daten: der Titel im Hinweis wird nicht gekuerzt"],
