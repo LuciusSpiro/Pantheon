@@ -104,9 +104,9 @@ function reiseGefahr(g) {   // eine echte Reise-Gefahr des Katalogs (Vorlauf, da
   return R.laufend[R.laufend.length - 1];
 }
 
-registriereOk(vorlage('hht_0304', ['0304']));
+registriereOk(vorlage('hht_0705', ['0705']));
 registriereOk(vorlage('hht_0505', ['0505']));
-registriereOk(vorlage('hht_zwei', ['0304', '0505']));
+registriereOk(vorlage('hht_zwei', ['0705', '0505']));
 registriereOk(vorlage('hht_frei', [null]));
 
 function main() {
@@ -117,9 +117,9 @@ function main() {
     for (const crew of [1, 2, 3]) {
       const g = spiel(460 + crew, {}, crew);
       const funk = funkMit(g);
-      const f = startFaden(g, 'hht_0304');
-      ok(weiter(g, f).ok && f.laufend.hex === '0304', `Crew ${crew}: der Beat wartet an 0304`);
-      betritt(g, '0304'); schritte(g, 0.2);
+      const f = startFaden(g, 'hht_0705');
+      ok(weiter(g, f).ok && (f.laufend || {}).hex === '0705', `Crew ${crew}: der Beat wartet an 0705`);
+      betritt(g, '0705'); schritte(g, 0.2);
       const fs = g.fadenSzene;
       ok(!!fs && fs.n === anzahl(crew) && tags(g).filter((t) => t === fs.tag).length === anzahl(crew) && tags(g).length === anzahl(crew), `Crew ${crew}: ${tags(g).length} Gegner (Soll ${anzahl(crew)}, aus den Daten)`);
       ok(funk.some((t) => /Hinterhalt im Sektor/.test(t) && t.includes(String(anzahl(crew)))), `Crew ${crew}: der Funk nennt ${anzahl(crew)} Schiffe`);
@@ -149,7 +149,7 @@ function main() {
     ok(!!f2 && f2.phase === 'wartet' && !f2.laufend && f2.zaehler >= f2.abstand, 'nach dem Laden steht der Szenen-Beat wieder aus (faellig, ohne Sektor)');
     g.weltsim.faeden = rt;   // das geladene Spiel
     const funk = funkMit(g);
-    ok(weiter(g, f2).ok && f2.phase === 'laeuft' && f2.laufend.hex === hexVorher, `der Beat waehlt den Sektor neu: ${f2.laufend && f2.laufend.hex} (wie vor dem Speichern, aus dem eigenen Strom)`);
+    ok(weiter(g, f2).ok && f2.phase === 'laeuft' && (f2.laufend || {}).hex === hexVorher, `der Beat waehlt den Sektor neu: ${f2.laufend && f2.laufend.hex} (wie vor dem Speichern, aus dem eigenen Strom)`);
     betritt(g, f2.laufend.hex); schritte(g, 0.2);
     ok(!!g.fadenSzene && g.fadenSzene.art === 'hinterhalt' && tags(g).length === anzahl(3), 'nach dem Laden loest die Ankunft wieder aus');
     ok(funk.some((t) => /Hinterhalt im Sektor/.test(t)), 'Funk bei der Ankunft nach dem Laden');
@@ -168,7 +168,7 @@ function main() {
     // ausser Reichweite: erreichbar_max
     const g2 = spiel(481, {}, 3);
     const nah = B1.erreichbar(g2, hexNun(g2), HW.ziel.erreichbar_max);
-    const fern = KARTE.filter((h) => P.sundSpielbar(h) && Sektoren.hatSzene(h) && !nah.has(h));
+    const fern = KARTE.filter((h) => HH.zulaessig(h) && !nah.has(h));
     ok(fern.length > 0, `Testlage: ${fern.length} spielbare Sektoren ausserhalb von erreichbar_max (${HW.ziel.erreichbar_max} Spruenge) ab ${hexNun(g2)}${fern.length ? ' (' + fern[0] + ')' : ''}`);
     if (fern.length) {
       registriereOk(vorlage('hht_fern', [fern[0]]));
@@ -177,24 +177,72 @@ function main() {
     }
     // am Rand der Reichweite: der Beat laeuft (erreichbar_max ist erlaubt)
     const g3 = spiel(482, {}, 3);
-    const nah3 = Array.from(B1.erreichbar(g3, hexNun(g3), HW.ziel.erreichbar_max)).filter(([h, s]) => s === HW.ziel.erreichbar_max && P.sundSpielbar(h) && Sektoren.hatSzene(h)).map(([h]) => h).sort();
+    const nah3 = Array.from(B1.erreichbar(g3, hexNun(g3), HW.ziel.erreichbar_max)).filter(([h, s]) => s === HW.ziel.erreichbar_max && HH.zulaessig(h)).map(([h]) => h).sort();
     if (nah3.length) {
       registriereOk(vorlage('hht_rand', [nah3[0]]));
       const f3 = startFaden(g3, 'hht_rand');
-      ok(weiter(g3, f3).ok && f3.phase === 'laeuft' && f3.laufend.hex === nah3[0], `Sektor ${nah3[0]} genau ${HW.ziel.erreichbar_max} Spruenge entfernt: der Beat laeuft`);
+      ok(weiter(g3, f3).ok && f3.phase === 'laeuft' && (f3.laufend || {}).hex === nah3[0], `Sektor ${nah3[0]} genau ${HW.ziel.erreichbar_max} Spruenge entfernt: der Beat laeuft`);
     } else ok(true, `kein Sektor genau ${HW.ziel.erreichbar_max} Spruenge entfernt (uebersprungen)`);
     // der eigene Sektor: sofort
     const g4 = spiel(483, {}, 3);
-    betritt(g4, '0304');
-    const f4 = startFaden(g4, 'hht_0304');
+    betritt(g4, '0705');
+    const f4 = startFaden(g4, 'hht_0705');
     ok(weiter(g4, f4).ok && !!g4.fadenSzene && g4.fadenSzene.art === 'hinterhalt', 'der eigene Sektor: der Hinterhalt beginnt sofort');
+    // BEA-03 Nacharbeit: dieselben Filter wie bei der Code-Wahl (Hafen, Station, Sperrtext): die Testsektoren sind zulaessig, ein Hafen-Sektor als parameter.hex scheitert sauber
+    ok(['0705', '0505', '0503'].every((h) => HH.zulaessig(h)), 'Testlage: die festen Testsektoren 0705, 0505, 0503 sind zulaessig (kein Hafen, keine Station, kein Sperrtext)');
+    const hafenHex = KARTE.find((h) => P.sundSpielbar(h) && Sektoren.hatSzene(h) && !HH.zulaessig(h) && B1.erreichbar(g4, '0305', HW.ziel.erreichbar_max).has(h));
+    ok(!!hafenHex && (!!(Sektoren.hexDaten(hafenHex) || {}).hafen || !!Sektoren.sperrtext(hafenHex)), `Testlage: ${hafenHex} ist spielbar und erreichbar, aber unzulaessig (Hafen/Sperrtext)`);
+    registriereOk(vorlage('hht_hafen', [hafenHex]));
+    const g5 = spiel(484, {}, 3);
+    const f5 = startFaden(g5, 'hht_hafen');
+    ok(weiter(g5, f5).ok && f5.phase === 'wartet' && !f5.laufend && ged(f5).includes('hinterhalt_gescheitert') && nichtsStehen(g5) && HH.halt(g5, hafenHex) === null, `Vorlage mit Hafen-Sektor ${hafenHex}: der Beat scheitert sauber, kein Halt, keine Szene`);
+    const g6 = spiel(485, {}, 3);
+    const f6 = startFaden(g6, 'hht_0705');
+    ok(weiter(g6, f6).ok && f6.phase === 'laeuft' && (f6.laufend || {}).hex === '0705' && HH.halt(g6, '0705') !== null, 'Vorlage mit gueltigem Sektor 0705: der Beat laeuft, der Schnellsprung haelt dort');
+  }
+
+  // =====================================================================================================================================================================
+  console.log('\n3b. Wahl durch den Code nach beatZurueck, Warteschlange beim Szenenwechsel');
+  {
+    // der Sektor wird nach beatZurueck neu gewaehlt, von der neuen Position aus (kein stilles Zufallsergebnis: aus dem eigenen Strom, reproduzierbar)
+    const g = spiel(486, {}, 3);
+    const f = startFaden(g, 'hht_frei', '0403');
+    ok(weiter(g, f).ok, 'der Beat waehlt den Sektor vom Start aus');
+    const h1 = f.laufend.hex;
+    betritt(g, '0503');   // die Crew verlaesst den Startsektor
+    Faden.beatZurueck(g, f.id); faellig(f, 0);
+    const k = HH.kandidaten(g);
+    ok(weiter(g, f).ok && f.phase === 'laeuft' && k.includes(f.laufend.hex) && f.laufend.hex === HH.hexWaehlen(g, f, 'h_0'), `nach beatZurueck neu gewaehlt von 0503 aus: ${f.laufend.hex} (vorher ${h1}), einer der ${k.length} Kandidaten, aus dem Strom reproduzierbar`);
+  }
+  {
+    // zwei Szenen am selben Sektor, die erste wird verlassen: die zweite beginnt nicht im neuen Sektor, der Beat steht wieder aus
+    registriereOk(vorlage('hht_0705b', ['0705']));
+    const g = spiel(487, {}, 3);
+    const fa = startFaden(g, 'hht_0705', '0403'), fb = startFaden(g, 'hht_0705b', '0405');
+    ok(weiter(g, fa).ok && weiter(g, fb).ok && (fa.laufend || {}).hex === '0705' && (fb.laufend || {}).hex === '0705', 'zwei Beats warten an 0705');
+    betritt(g, '0705'); schritte(g, 0.2);
+    ok(!!g.fadenSzene && g.fadenSzene.fadenId === fa.id && g.fadenWarte.length === 1 && g.fadenWarte[0].fadenId === fb.id, 'in 0705: die erste Szene kaempft, die zweite steht in der Warteschlange');
+    const nr = g.fadenSzeneN;
+    betritt(g, '0305'); schritte(g, 2);
+    ok(!g.fadenSzene && g.fadenSzeneN === nr && !(g.fadenWarte || []).length && g.space.enemies.length === 0, 'Flucht: die zweite Szene beginnt nicht im neuen Sektor (keine Szene, keine Gegner, Warteschlange leer)');
+    ok(ged(fa).includes('hinterhalt_gescheitert') && fb.phase === 'wartet' && !fb.laufend && ged(fb).length === 0 && g.errors === 0, 'die erste ist gescheitert, der Beat der zweiten steht wieder aus (kein Ausgang)');
+  }
+  {
+    // andere Arten reihen unveraendert: befreiung und raumschlacht im selben Sektor stehen hintereinander, die erste beginnt (mit Vorlauf), die zweite wartet
+    const g = spiel(488, {}, 3);
+    const fa = startFaden(g, 'hht_0705', '0403'), fb = startFaden(g, 'hht_0705b', '0405');
+    weiter(g, fa); weiter(g, fb);
+    g.simSzene = { id: 992, phase: 'kampf' };
+    const ra = SZ.starten(g, { art: 'befreiung', fadenId: fa.id, beatId: fa.laufend.beat }), rb = SZ.starten(g, { art: 'raumschlacht', fadenId: fb.id, beatId: fb.laufend.beat });
+    ok(ra.ok && rb.ok && !g.fadenSzene && g.fadenWarte.map((i) => i.art).join() === 'befreiung,raumschlacht', 'befreiung und raumschlacht reihen sich in der Warteschlange (Sim-Szene laeuft)');
+    g.simSzene = null; SZ.update(g, DT);
+    ok(!!g.fadenSzene && g.fadenSzene.art === 'befreiung' && g.fadenSzene.phase === 'vorlauf' && g.fadenWarte.length === 1 && g.fadenWarte[0].art === 'raumschlacht', 'danach beginnt die befreiung (mit Vorlauf), die raumschlacht wartet weiter');
   }
 
   // =====================================================================================================================================================================
   console.log('\n4. Beat ohne waehlbaren Sektor');
   {
     let g = spiel(490, {}, 3);
-    const startOrt = g.ship.scene;
     let leer = null, leerOrt = null;
     for (const h of KARTE) { const o = Sektoren.ortVonHex(h); if (!o) continue; Space.enterScene(g, o, {}); ab(g); if (!HH.hexWaehlen(g, { id: 'f1' }, 's')) { leer = hexNun(g); leerOrt = o; break; } }
     ok(!!leer, `Testlage: ein Sektor ohne waehlbares Ziel (${leer})`);
@@ -219,20 +267,20 @@ function main() {
   {
     const g = spiel(500, {}, 3);
     const f = startFaden(g, 'hht_zwei', '0403');
-    ok(weiter(g, f).ok && f.laufend.hex === '0304', 'der erste Beat wartet an 0304');
-    betritt(g, '0304'); schritte(g, 0.2);
+    ok(weiter(g, f).ok && (f.laufend || {}).hex === '0705', 'der erste Beat wartet an 0705');
+    betritt(g, '0705'); schritte(g, 0.2);
     const fs1 = g.fadenSzene;
     ok(!!fs1 && tags(g).length === anzahl(3), `erster Hinterhalt: ${tags(g).length} Gegner`);
     toteSzene(g); schritte(g, 2);
     ok(ged(f).filter((e) => e === 'hinterhalt_gelungen').length === 1 && nichtsStehen(g) && f.beat === 1 && f.phase === 'wartet', 'erster gelungen, nichts bleibt stehen, der zweite Beat ist dran');
     faellig(f, 1);
-    ok(weiter(g, f).ok && f.laufend.hex === '0505' && !g.fadenSzene, 'der zweite Beat wartet an 0505 (die Crew ist noch in 0304: keine neue Szene)');
+    ok(weiter(g, f).ok && (f.laufend || {}).hex === '0505' && !g.fadenSzene, 'der zweite Beat wartet an 0505 (die Crew ist noch in 0705: keine neue Szene)');
     betritt(g, '0505'); schritte(g, 0.2);
     const fs2 = g.fadenSzene;
     ok(!!fs2 && fs2.id !== fs1.id && fs2.art === 'hinterhalt' && tags(g).length === anzahl(3) && tags(g).every((t) => t === fs2.tag), `zweiter Hinterhalt: eigene Szene (${fs2 && fs2.tag}), ${tags(g).length} Gegner, keine Reste des ersten`);
     betritt(g, '0405'); schritte(g, 2);
     ok(ged(f).includes('hinterhalt_gelungen') && ged(f).includes('hinterhalt_gescheitert') && nichtsStehen(g), 'zweiter gescheitert (Flucht): beide Ausgaenge stehen im Gedaechtnis, nichts bleibt stehen');
-    ok(f.phase !== 'laeuft' || (f.laufend && f.laufend.hex === undefined), 'kein Sektor bleibt im Faden');
+    ok(f.phase !== 'laeuft' || (f.laufend && (f.laufend || {}).hex === undefined), 'kein Sektor bleibt im Faden');
     // Schnellsprung durch 0505 haelt nur beim wartenden Beat: nach dem Ende haelt er dort nicht mehr
     betritt(g, '0305'); chance(g, 0);
     const hops = reiseVorbereiten(g, '0503');
@@ -247,9 +295,9 @@ function main() {
   {
     // a) Sim-Szene laeuft, wenn die Crew ankommt: der Hinterhalt wartet in der Schlange, dann beginnt er
     const g = spiel(510, {}, 3);
-    const f = startFaden(g, 'hht_0304');
+    const f = startFaden(g, 'hht_0705');
     weiter(g, f);
-    betritt(g, '0304');
+    betritt(g, '0705');
     g.simSzene = { id: 990, phase: 'kampf' };
     HH.update(g); SZ.update(g, DT);   // (ein Takt von Hand: die Sim-Szene ist ein Platzhalter, g.step wuerde sie als echte behandeln)
     ok(!g.fadenSzene && g.fadenWarte.length === 1 && tags(g).length === 0, 'Sim-Szene laeuft: der Hinterhalt wartet in der Schlange, keine Gegner');
@@ -268,9 +316,9 @@ function main() {
   {
     // d) Reise-Gefahr laeuft, wenn die Crew ankommt: erst die Raeuber der Reise-Gefahr, danach der Hinterhalt, nie beide zugleich
     const g = spiel(511, {}, 3);
-    const f = startFaden(g, 'hht_0304');
+    const f = startFaden(g, 'hht_0705');
     weiter(g, f);
-    Space.enterScene(g, Sektoren.ortVonHex('0304'), {}); ab(g);
+    Space.enterScene(g, Sektoren.ortVonHex('0705'), {}); ab(g);
     const L = reiseGefahr(g);
     ok(!!L && RE.gefahrLaeuft(g), 'eine echte Reise-Gefahr laeuft (angekuendigt)');
     let beide = 0, reiseErst = -1, faErst = -1;
@@ -288,8 +336,8 @@ function main() {
   {
     // e) der Hinterhalt kaempft schon, dann kommt eine Reise-Gefahr: sie wartet
     const g = spiel(512, {}, 3);
-    const f = startFaden(g, 'hht_0304');
-    weiter(g, f); betritt(g, '0304'); schritte(g, 0.3);
+    const f = startFaden(g, 'hht_0705');
+    weiter(g, f); betritt(g, '0705'); schritte(g, 0.3);
     const L = reiseGefahr(g);
     let reiseWaehrend = 0;
     for (let i = 0; i < 20 * CONFIG.tickHz; i++) { g.step(); if (g.space.enemies.some((e) => e.tag === L.tag)) reiseWaehrend++; }
@@ -302,8 +350,8 @@ function main() {
   console.log('\n7. Andocken und Frist beenden den Beat gescheitert');
   {
     const g = spiel(520, {}, 3);
-    const f = startFaden(g, 'hht_0304');
-    weiter(g, f); betritt(g, '0304'); schritte(g, 0.3);
+    const f = startFaden(g, 'hht_0705');
+    weiter(g, f); betritt(g, '0705'); schritte(g, 0.3);
     ok(!!g.fadenSzene && tags(g).length === anzahl(3), 'der Hinterhalt kaempft');
     g.ship.docked = true; g.ship.dockedAt = 'test_station';
     schritte(g, 0.5);
@@ -312,22 +360,22 @@ function main() {
   {
     const g = spiel(521, {}, 3);
     g.lageSpielleiter = stub();
-    const f = startFaden(g, 'hht_0304');
+    const f = startFaden(g, 'hht_0705');
     weiter(g, f);
     ok(f.phase === 'laeuft' && D.BEATS.hinterhalt.frist === 16, `der Beat wartet an ${f.laufend && f.laufend.hex}, Frist ${D.BEATS.hinterhalt.frist} Taetigkeiten`);
     X.grenzen(g, D.BEATS.hinterhalt.frist - 1, 'szene_ende');
     ok(f.phase === 'laeuft', 'eine Taetigkeit vor der Frist laeuft der Beat noch');
     X.grenzen(g, 2, 'szene_ende');
     ok(f.phase !== 'laeuft' && ged(f).filter((e) => e === 'hinterhalt_gescheitert').length === 1 && !(f.laufend && f.laufend.hex), 'Frist: gescheitert, der Sektor ist weg (nie angeflogen)');
-    betritt(g, '0304'); schritte(g, 1);
-    ok(!g.fadenSzene && g.space.enemies.length === 0 && HH.halt(g, '0304') === null, 'nach der Frist loest der Sektor nicht mehr aus, kein Halt');
+    betritt(g, '0705'); schritte(g, 1);
+    ok(!g.fadenSzene && g.space.enemies.length === 0 && HH.halt(g, '0705') === null, 'nach der Frist loest der Sektor nicht mehr aus, kein Halt');
   }
   {
     // Frist laeuft, waehrend die Szene kaempft: die Szene wird weggeraeumt
     const g = spiel(522, {}, 3);
     g.lageSpielleiter = stub();
-    const f = startFaden(g, 'hht_0304');
-    weiter(g, f); betritt(g, '0304'); schritte(g, 0.3);
+    const f = startFaden(g, 'hht_0705');
+    weiter(g, f); betritt(g, '0705'); schritte(g, 0.3);
     ok(!!g.fadenSzene && tags(g).length === anzahl(3), 'der Hinterhalt kaempft');
     X.grenzen(g, D.BEATS.hinterhalt.frist + 2, 'szene_ende'); schritte(g, 1);
     ok(ged(f).includes('hinterhalt_gescheitert') && nichtsStehen(g), 'Frist im Kampf: gescheitert, Szene und Gegner weggeraeumt');
@@ -337,7 +385,7 @@ function main() {
   console.log('\n8. Funktext nennt den Ort');
   {
     ok(/\{ort\}/.test(T.vorwarnung.hinterhalt) && /\{n\}/.test(T.vorwarnung.hinterhalt) && /\{ort\}/.test(T.schnellsprung_hinterhalt), 'die Texte der Daten tragen die Platzhalter {ort} und {n}');
-    for (const hex of ['0304', '0505']) {
+    for (const hex of ['0705', '0505']) {
       const g = spiel(530, {}, 3);
       const funk = funkMit(g), oda = odaMit(g);
       const f = startFaden(g, 'hht_' + hex);
@@ -380,8 +428,8 @@ function main() {
       for (const h of alleHexe) g.explore.erkunde(h);
       chance(g, p);
       if (modus === 'wartet' || modus === 'anderswo') {
-        const f = startFaden(g, modus === 'wartet' ? 'hht_0505' : 'hht_0304');
-        if (modus === 'anderswo') { weiter(g, f); }   // laeuft, wartet aber an 0304: nicht auf der Route 0405 > 0505 > 0504 > 0503
+        const f = startFaden(g, modus === 'wartet' ? 'hht_0505' : 'hht_0705');
+        if (modus === 'anderswo') { weiter(g, f); }   // laeuft, wartet aber an 0705: nicht auf der Route 0405 > 0505 > 0504 > 0503
         else f.zaehler = 0;   // waehlt nie: bleibt wartend
       }
       const log = rngLog(g);

@@ -609,7 +609,7 @@ section('E3 Eigenschaftstest: 300 Anschluss-Entscheidungen gegen eine eigene Rec
   ok(leer === 0 && gewaehlt === 300, `das Brett bleibt nie leer: 300 von 300 Entscheidungen bieten einen Plan an (${leer} leer)`);
   ok(verstoss === 0, `nie ein Plan, der nicht passt, nie eine gesperrte Folge, solange ein anderer passt (${verstoss} Verstoesse; ${locker} Faelle ohne freien Plan, ${abgelehnt} Faelle mit abgelehnten Plaenen: gelockert)`);
   ok(gleichtyp === 0, 'nie derselbe Typ wie das letzte Abenteuer, solange ein anderer passt (' + gleichtyp + ')');
-  ok(Object.keys(verteilung).length >= 4, 'alle vier moeglichen Plaene kommen vor: ' + JSON.stringify(verteilung));
+  ok(Object.keys(verteilung).length === frei.length, `alle ${frei.length} moeglichen Plaene kommen vor: ` + JSON.stringify(verteilung));
   ok(ANS_TYP.length === 8 && ANS_TYP[6] === 'sondersektor' && ANS_TYP[7] === 'hinterhalt', 'acht Standardplaene in den Daten (der siebte: Helix, in dieser Welt schon gelungen; der achte: Hinterhalt, BEA-03 C)');
 });
 

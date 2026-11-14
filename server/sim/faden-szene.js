@@ -10,7 +10,7 @@
 //   update(game, dt)   Takt (aus game.step, nur wenn eine Faden-Szene, eine Warteschlange oder ein Beat „spontanhilfe“ da ist)
 //   andocken(game)     Andocken = Szenenwechsel (Hook: game.js, missionEvent docked): die Szene endet gescheitert, die Warteschlange steht wieder aus
 //   Ausgaenge: gelungen | gescheitert über faden.beatAusgang; Unterbrechung durch eine Sim-Szene und Warteschlange-Abbau über faden.beatZurueck (ohne Ausgang)
-//   Vorwarnung: Funk vor dem Eintreffen, mindestens vorlauf_min_s (8 s). Keine Optionen bei Gefahr (Katalog gefahr, Prüfer).
+//   Vorwarnung: Funk vor dem Eintreffen, mindestens vorlauf_min_s (8 s), außer Arten mit eigenem vorlauf_s (hinterhalt: 0). Keine Optionen bei Gefahr (Katalog gefahr, Prüfer).
 //   Zufall: eigener Strom (reise-ereignis.strom mit Salz aus den Daten), nie game.rng, nie der Strom der Sim.
 //   Verbündeter (spontanhilfe): Flotte.aufstellen (EK4, Verbündete); Crew-Geschosse treffen nur space.enemies, Verbündete sind unverwundbar (SUND-02b E). Er verschwindet am Ende.
 //
@@ -86,6 +86,7 @@ function starten(game, o) {
 function naechsteStarten(game) {
   if (game.fadenWarte && game.fadenWarte.length) game.fadenWarte = game.fadenWarte.filter((it) => laeuft(game, it.fadenId, it.beatId));   // ein Eintrag, dessen Beat schon beendet ist (Frist), wird verworfen
   if (!game.fadenWarte || !game.fadenWarte.length || !frei(game)) return;
+  if (game.fadenWarte[0].szene !== game.ship.scene) return;   // BEA-03 Nacharbeit: ein Eintrag aus einem anderen Sektor beginnt nie hier (nach der Flucht), update gibt ihn per beatZurueck wieder frei
   beginnen(game, game.fadenWarte.shift());
 }
 function beginnen(game, it) {

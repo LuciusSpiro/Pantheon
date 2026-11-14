@@ -464,6 +464,7 @@ section('Anschluss-Garantie: nach dem Ende ein Angebot ohne Modell, nie der letz
   // die Sperren (zuletzt, letzte drei Ablehnungen) duerfen den Rueckfall nie leeren, solange ein Plan passt: ohne Ziel und Kandidat gibt es nur vier passende Plaene (Geruecht, Spur, Konvoi, Geleit)
   // BEA-03 C: der achte Plan (hinterhalt) braucht nur einen waehlbaren Sektor und passt in diesen Welten immer: fuer die Sperr-Rechnung mit genau vier Plaenen steht er hier nicht zur Wahl (die Indizes der ersten sieben bleiben)
   { const origP = D.ANSCHLUSS.plaene; D.ANSCHLUSS.plaene = origP.filter((p) => p.beats[0].typ !== 'hinterhalt');
+    try {
     const idv = (typ) => ids[ANS.plaene.findIndex((p) => p.beats[0].typ === typ)];
     const vier = ['geruecht', 'spur', 'konvoi', 'geleit'].map(idv);
     let leer = 0, falsch = 0, n2 = 0;
@@ -482,7 +483,8 @@ section('Anschluss-Garantie: nach dem Ende ein Angebot ohne Modell, nie der letz
     ok(leer9 === 0 && gesehen.size >= 3, 'zwoelf Ablehnungen hintereinander (zuletzt = Geruecht): jedes Mal ein Angebot (' + gesehen.size + ' verschiedene)');
     // nur zuletzt und drei Ablehnungen waeren uebrig: es bleibt trotzdem ein Plan
     const t10 = neu(412, { env: {} }), g10 = t10.g; const F10 = zust(g10); F10.abenteuerZuletzt = vier[2]; F10.brett = { antworten: [], abgelehnt: [vier[0], vier[1], vier[3]], pruefung: -1e9 }; wipe(g10);
-    ok(!!Brett.anschluss(g10) && g10.errors === 0, 'auch dann ein Angebot, wenn zuletzt und die drei Ablehnungen alle vier passenden Plaene sperren'); D.ANSCHLUSS.plaene = origP; }
+    ok(!!Brett.anschluss(g10) && g10.errors === 0, 'auch dann ein Angebot, wenn zuletzt und die drei Ablehnungen alle vier passenden Plaene sperren');
+    } finally { D.ANSCHLUSS.plaene = origP; } }
   // passt nur ein einziger Plan und das ist der zuletzt gespielte, bleibt das Brett trotzdem nicht leer (zuletzt wird als Letztes freigegeben)
   { const orig = D.ANSCHLUSS.plaene; D.ANSCHLUSS.plaene = [orig[0]];
     try { const tt = neu(413, { env: {} }), gg = tt.g; const F0 = zust(gg); F0.abenteuerZuletzt = ids[0]; F0.brett = { antworten: [], abgelehnt: [ids[0]], pruefung: -1e9 }; wipe(gg);

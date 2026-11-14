@@ -9,6 +9,8 @@
 //                            nur spielbare Sektoren mit Szene; aus dem eigenen Strom der Faeden (nie game.rng). Eine Vorlage darf parameter.hex nennen (erreichbar bis ziel.erreichbar_max).
 //   update(game)             Takt (Aufrufer: reise-ereignis.update): Ankunft am Sektor eines laufenden Hinterhalt-Beats plant die Szene ein
 //   halt(game, hex) -> Text | null   Schnellsprung (reise.js hop, VOR dem Zufalls-Abfangen): am Sektor eines wartenden Hinterhalts haelt er an; ohne Faden und ohne wartenden Beat immer null
+// Wahl durch den Code (kein parameter.hex): der Sektor wird bei JEDEM Start des Beats neu gewaehlt, von der Position der Crew aus; nach einer Unterbrechung (Sim-Szene, beatZurueck) oder nach dem Verlassen
+// des Sektors lauert der Hinterhalt also woanders (Hex wird nach beatZurueck neu gewaehlt). Nur parameter.hex der Vorlage bleibt fest.
 // Der Hinterhalt zaehlt fuer den Abstand der Reise-Ereignisse (reise-ereignis.abfangenVermerken, bei der Ankunft).
 const Sektoren = require('../../shared/sektoren.js');
 const Locations = require('../../shared/locations.js');
@@ -41,13 +43,15 @@ function hatHafen(hex) {
   return !!(sc && (sc.dock || sc.station));
 }
 const spielbar = (hex) => require('./faden-pruefer.js').sundSpielbar(hex) && Sektoren.hatSzene(hex);
+// Ein Sektor, in dem ein Hinterhalt liegen darf (Code-Wahl und parameter.hex der Vorlage gleich): spielbar mit Szene, ohne Sperrtext, kein Hafen, keine Station
+const zulaessig = (hex) => !Sektoren.sperrtext(hex) && spielbar(hex) && !hatHafen(hex);
 
 // Die waehlbaren Sektoren von hier aus (sortiert); auch die Lagen-Bedingung hinterhalt_ziel (faden-b2.js LAGEN) zaehlt sie
 function kandidaten(game) {
   const von = hierHex(game);
   if (!von) return [];
   return Array.from(B1().erreichbar(game, von, H.ziel.max))
-    .filter(([h, s]) => s >= H.ziel.min && s <= H.ziel.max && h !== von && !Sektoren.sperrtext(h) && spielbar(h) && !hatHafen(h))
+    .filter(([h, s]) => s >= H.ziel.min && s <= H.ziel.max && h !== von && zulaessig(h))
     .map(([h]) => h).sort();
 }
 function hexWaehlen(game, faden, salz) {
@@ -56,12 +60,12 @@ function hexWaehlen(game, faden, salz) {
   const z = Faden().strom(game, Faden().idNr(faden.id), H.salz + ':' + salz)();
   return k[Math.floor(z * k.length) % k.length];
 }
-// Sektor des Beats: parameter.hex der Vorlage (spielbar und erreichbar; der eigene Sektor ist erlaubt, dann beginnt der Hinterhalt sofort), sonst vom Code gewaehlt
+// Sektor des Beats: parameter.hex der Vorlage (zulaessig, siehe oben, und erreichbar; der eigene Sektor ist erlaubt, dann beginnt der Hinterhalt sofort), sonst vom Code gewaehlt
 function hexFuer(game, faden, beat) {
   const p = beat.parameter || {};
   if (!has(p, 'hex')) return hexWaehlen(game, faden, beat.id);
   const von = hierHex(game);
-  return typeof p.hex === 'string' && HEX.test(p.hex) && von && spielbar(p.hex) && B1().erreichbar(game, von, H.ziel.erreichbar_max).has(p.hex) ? p.hex : null;
+  return typeof p.hex === 'string' && HEX.test(p.hex) && von && zulaessig(p.hex) && B1().erreichbar(game, von, H.ziel.erreichbar_max).has(p.hex) ? p.hex : null;
 }
 
 // Der laufende Hinterhalt-Beat eines Fadens (sonst null)
@@ -103,4 +107,4 @@ function halt(game, hex) {
   return f ? fmt(T.schnellsprung_hinterhalt, { ort: hexName(hex) }) : null;
 }
 
-module.exports = { baustein, hexWaehlen, kandidaten, update, halt };
+module.exports = { baustein, hexWaehlen, kandidaten, zulaessig, update, halt };

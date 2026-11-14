@@ -80,7 +80,7 @@ function rngLog(g) {
 }
 
 registriere(vorlage('hh_test_0505', '0505'));
-registriere(vorlage('hh_test_0304', '0304'));
+registriere(vorlage('hh_test_0705', '0705'));
 registriere(vorlage('hh_test_frei', null));
 
 function main() {
@@ -138,13 +138,13 @@ function main() {
   console.log('\n3. Einzelsprung loest aus, ein anderer Sektor nicht, Flucht scheitert');
   {
     const g = spiel(452);
-    const f = startFaden(g, 'hh_test_0304', '0403');
+    const f = startFaden(g, 'hh_test_0705', '0403');
     const funk = funkMit(g);
-    ok(weiter(g, f).ok && f.laufend.hex === '0304', 'der Beat wartet an 0304');
+    ok(weiter(g, f).ok && f.laufend.hex === '0705', 'der Beat wartet an 0705');
     betritt(g, '0204');   // ein anderer Sektor (wie ein Einzelsprung dorthin)
     schritte(g, 3);
-    ok(!g.fadenSzene && !(g.fadenWarte || []).length && tags(g).length === 0 && f.phase === 'laeuft' && f.laufend.hex === '0304', 'ein anderer Sektor loest nicht aus (Beat laeuft, keine Szene)');
-    betritt(g, '0304');   // Einzelsprung in den Hinterhalt-Sektor
+    ok(!g.fadenSzene && !(g.fadenWarte || []).length && tags(g).length === 0 && f.phase === 'laeuft' && f.laufend.hex === '0705', 'ein anderer Sektor loest nicht aus (Beat laeuft, keine Szene)');
+    betritt(g, '0705');   // Einzelsprung in den Hinterhalt-Sektor
     schritte(g, 0.1);
     ok(g.fadenSzene && g.fadenSzene.art === 'hinterhalt' && g.fadenSzene.phase === 'kampf' && tags(g).length === Number(HW.anzahl['3']), `der Einzelsprung loest aus: Szene und ${tags(g).length} Gegner im selben Takt`);
     ok(funk.some((t) => /Hinterhalt im Sektor/.test(t)), 'Funk bei der Ankunft');
@@ -161,8 +161,8 @@ function main() {
     const g = spiel(453, { REISE_EREIGNISSE: '1' });
     const R = require('../server/sim/reise-ereignis.js');
     ok(R.aktiv(g) && R.abstandFrei(g) === true, 'Testlage: Reise-Ereignisse an, der Abstand ist frei');
-    const f = startFaden(g, 'hh_test_0304', '0403');
-    betritt(g, '0304');
+    const f = startFaden(g, 'hh_test_0705', '0403');
+    betritt(g, '0705');
     funkMit(g);
     ok(weiter(g, f).ok, 'der Beat beginnt');
     ok(g.fadenSzene && g.fadenSzene.art === 'hinterhalt' && g.fadenSzene.phase === 'kampf' && tags(g).length > 0, 'die Crew war schon dort: Szene und Gegner stehen sofort');
