@@ -513,6 +513,7 @@
     "test:cardo": "node tools/test-cardo.js",
     "test:flotte": "node tools/test-flotte.js",
     "test:kette": "node tools/test-kette.js",
+    "test:lerchentod": "node tools/test-lerchentod.js",
     "check:kette": "node tools/check-kette.js",
     "sim:kette": "node tools/sim-headless.js kette",
     "sim:sund": "node tools/sim-sund.js --weg beide --crew 3",
