@@ -19,9 +19,9 @@
  ],
  "ruf": { "rom":150, "ger":-40 },
  "_gemessen": {
-  "stand": "Mock, Seed 7, --n 2, 2026-11-14 (Aufruf 1 und 2)",
-  "kontext_zeichen_mittel": 1238.5,
-  "prompt_zeichen": [13315,13350],
+  "stand": "Mock, Seed 7, --n 2, 2026-11-14, nach KAT-01 A und B (Aufruf 1 und 2)",
+  "kontext_zeichen_mittel": 1264.5,
+  "prompt_zeichen": [13981,14032],
   "landeplatz_arten": [["schiff", "station"],["wildnis", "hoehle", "schiff", "station"]]
  }
 }

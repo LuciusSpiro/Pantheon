@@ -62,6 +62,7 @@ function katalogText() {
   const lagen = Array.from(new Set(Object.values(B).map((c) => c.braucht && c.braucht.lage).filter(Boolean)));
   if (lagen.length) L.push(`Kontext faeden.lage: Zahl je Lage (${lagen.join(' | ')}), nur Zahlen, keine Namen. Ein Beat, der eine Lage braucht, steht nur im Plan, wenn seine Zahl groesser 0 ist (sonst lehnt der Pruefer den Plan ab); sie haengt von der Welt ab und aendert sich, die Zahl im Kontext gilt jetzt.`);
   L.push(`Regeln, die der Pruefer erzwingt: bei Gefahr nie Optionen; Scheitern muss etwas veraendern (anderer Weg oder anderer Zustand); Annehmen und Ablehnen einer Bitte muessen in verschiedene Beats fuehren (verzweigung); jeder Beat muss erreichbar sein; "namenlos": true nur mit Typen, die einen NSC im Zustand aktiv zulassen. Ein erfolg-Eintrag nennt hoechstens ${BW.erfolg_max} Typen, die im Plan vorkommen. Wiederholung (Daten abenteuer-brett.json werte.wiederholung): nie dieselbe Typenfolge wie eines der letzten ${RW.folge_zuletzt} Abenteuer (Kontext letzte_abenteuer) oder wie ein offenes Angebot; nie derselbe erste Beat wie eines der letzten ${RW.ort_typ_zuletzt} Abenteuer an diesem Ort (Kontext sperre_beginn: erste Beat-Typen, die hier gesperrt sind); ein Wiedersehen nie mit der Hauptfigur der letzten ${RW.nsc_zuletzt} Abenteuer (die Zahl in faeden.wiedersehen_nsc zaehlt sie nicht).`);
+  L.push('Kontext beat_zaehler: wie oft jeder Beat-Typ in letzte_abenteuer vorkam (nur Zahlen). Meide Typen mit hohem Zaehler; nimm bevorzugt Typen, die dort fehlen oder selten sind.');   // KAT-01 B: Hinweis, kein Pruefer-Gesetz; nichts wird gesperrt
   const zr = zustandsregelText(zustandsregeln(Paare().matrix()));
   if (zr) L.push(zr);
   katalogCache = L.join('\n');
@@ -128,6 +129,12 @@ function letzteAbenteuer(game, letzte, werte) {
   const alle = require('./abenteuer-wiederholung.js').letzteFolgen(game).concat((letzte || []).slice(-werte.letzte_abenteuer).map((x) => x.typen));
   return alle.filter((t, i) => alle.findIndex((u) => JSON.stringify(u) === JSON.stringify(t)) === i);
 }
+// KAT-01 B: wie oft jeder Beat-Typ in den Typenfolgen vorkam (nur Typen mit Zahl groesser 0, nie der Abschluss, nur Zahlen, nie Namen); Schluessel sortiert
+function beatZaehler(folgen) {
+  const z = {};
+  for (const f of folgen || []) for (const t of f || []) if (B[t] && !B[t].abschluss) z[t] = (z[t] || 0) + 1;
+  return Object.fromEntries(Object.keys(z).sort().map((t) => [t, z[t]]));
+}
 // erste Beat-Typen, die an diesem Ort gesperrt sind (derselbe Ort UND derselbe erste Beat wie eines der letzten Abenteuer, WIEDERHOLUNG_ORT)
 function sperreBeginn(game, hex) {
   const typen = require('./abenteuer-wiederholung.js').verlauf(game).slice(0, RW.ort_typ_zuletzt).filter((e) => e.ort === hex).map((e) => e.folge[0]);
@@ -139,6 +146,7 @@ function kontextVon(game, werte, letzte, stufe, hex, mitGeschichte) {
   const f = a.flotten || {};
   const wende = [].concat((f.gefallen || []).map((x) => Object.assign({ art: 'gefallen' }, x)), (f.belagert || []).map((x) => Object.assign({ art: 'belagert' }, x)), (f.unterwegs || []).map((x) => Object.assign({ art: 'marsch' }, x))).slice(-werte.wendepunkte_max);
   const crew = a.crew || {};
+  const letzte_abenteuer = letzteAbenteuer(game, letzte, werte);
   const k = {
     tick: a.tick,
     crew: { rang: crew.rang, stufe: crew.stufe, ort: crew.ort, hex: crew.hex },
@@ -147,7 +155,8 @@ function kontextVon(game, werte, letzte, stufe, hex, mitGeschichte) {
     chronik: (a.chronik || []).slice(-werte.chronik_zeilen),
     faeden: fadenKontext(game),
     landeplatz_arten: Orte.moeglicheArten(hex),   // DYN-01 B: Kartenarten, die am Hex der Crew gehen (sonst lehnt der Pruefer den Plan ab)
-    letzte_abenteuer: letzteAbenteuer(game, letzte, werte),
+    letzte_abenteuer: letzte_abenteuer,
+    beat_zaehler: beatZaehler(letzte_abenteuer),   // KAT-01 B: nur Zahlen je Beat-Typ aus genau dieser Liste
     sperre_beginn: sperreBeginn(game, hex),
   };
   // SPL-02 D: die Crew-Geschichte (4 bis 6 Zeilen mit Kennung, abenteuer-geschichte.js), nur bei gesetztem Schalter (Datenwert im_prompt oder baue({ geschichte })); sonst bleibt der Kontext byte-gleich
@@ -236,4 +245,4 @@ function absichtAusText(text) {
   return r.plan ? { absicht: r.plan } : r;
 }
 
-module.exports = { katalogText, katalogNeuLesen, zustandsregeln, zustandsregelText, baue, bauplanAusText, typenVon, kontextVon, SYSTEM_DATEI, WERTE, katalogTextAbsicht, baueAbsicht, absichtAusText };
+module.exports = { beatZaehler, katalogText, katalogNeuLesen, zustandsregeln, zustandsregelText, baue, bauplanAusText, typenVon, kontextVon, SYSTEM_DATEI, WERTE, katalogTextAbsicht, baueAbsicht, absichtAusText };

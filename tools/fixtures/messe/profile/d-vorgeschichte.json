@@ -4,9 +4,9 @@
  "ziel_hex": ["0304", "0403"],
  "vorgeschichte": true,
  "_gemessen": {
-  "stand": "Mock, Seed 7, --n 2, 2026-11-14 (Aufruf 1 und 2)",
-  "kontext_zeichen_mittel": 761.5,
-  "prompt_zeichen": [12846,12865],
+  "stand": "Mock, Seed 7, --n 2, 2026-11-14, nach KAT-01 A und B (Aufruf 1 und 2)",
+  "kontext_zeichen_mittel": 806.5,
+  "prompt_zeichen": [13539,13558],
   "landeplatz_arten": [["schiff", "station"],["wildnis", "hoehle", "schiff", "station"]]
  }
 }

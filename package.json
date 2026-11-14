@@ -405,6 +405,7 @@
     "messe:zusammen": "node tools/messe-zusammen.js",
     "test:messe-paare": "node tools/test-messe-paare.js",
     "test:katalog-zustandsregeln": "node tools/test-katalog-zustandsregeln.js",
+    "test:katalog-beatzaehler": "node tools/test-katalog-beatzaehler.js",
     "messe:paare": "node tools/messe-paare.js",
     "test:messe-absichten": "node tools/test-messe-absichten.js",
     "test:messe-spl": "node tools/test-messe-spl.js",

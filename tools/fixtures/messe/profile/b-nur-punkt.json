@@ -3,9 +3,9 @@
  "crew_hex": "0305",
  "ziel_hex": "0203",
  "_gemessen": {
-  "stand": "Mock, Seed 7, --n 2, 2026-11-14 (Aufruf 1 und 2)",
-  "kontext_zeichen_mittel": 438,
-  "prompt_zeichen": [12532,12532],
+  "stand": "Mock, Seed 7, --n 2, 2026-11-14, nach KAT-01 A und B (Aufruf 1 und 2)",
+  "kontext_zeichen_mittel": 456,
+  "prompt_zeichen": [13198,13198],
   "landeplatz_arten": [["schiff", "station"],["schiff", "station"]]
  }
 }
