@@ -363,7 +363,7 @@
     [[MX.status.modus, fit(m.welt ? String(m.titel) : label(lob.startMission || 'm1'), 200, 1), MF.text], [MX.status.crew, z.an + T.status.crewEinheit, MF.text], [MX.status.bereit, z.bereit + '/' + z.an, z.alleBereit ? MF.bereit : MF.nichtBereit], [MX.status.raum, code() || '–', MF.gold]].forEach(([l, v, col]) => {
       x = txtSp(c, l, x, ty, MF.dim, 1) + 6; x = txt(c, v, x, ty, col) + SZ.feldAbstand;
     });
-    if (gast) { const gx = VW - SZ.innen - breite(gast.name || '?'); txt(c, gast.name || '?', gx, ty, spielerFarbe(gast).farbe); txtSp(c, MX.status.gastgeber, gx - 6, ty, MF.dim, 1, 1, 'right'); }
+    if (gast) { const vb = F.lies().version ? breite(T.version.praefix + F.lies().version) + SZ.feldAbstand : 0, gx = VW - SZ.innen - vb - breite(gast.name || '?'); txt(c, gast.name || '?', gx, ty, spielerFarbe(gast).farbe); txtSp(c, MX.status.gastgeber, gx - 6, ty, MF.dim, 1, 1, 'right'); }   // HYG-02 A: die Versionsnummer steht ganz rechts
     if (!view.audioOn) { const kw = Math.max(MM.kappe.minW, breite(T.ton.kappe) + MM.kappe.innen), w = kw + 4 + breite(T.ton.hinweis); rect(c, L.crew.x - 3, 306, w + 6, 16, P.rgba(MF.kachel, MM.kachelDeckkraft)); txt(c, T.ton.hinweis, kappeM(c, L.crew.x, 307, T.ton.kappe) + 4, 310, MF.dim); }   // der Ton startet erst nach einer Eingabe (deckende Unterlage: liegt auf dem Bild)
   }
 
@@ -438,6 +438,14 @@
     else if (s === 'einladung') einladung(ctx, view);
     else if (F.lies().modusOffen) modusWahl(ctx, view);   // die Überlagerung ersetzt die Lobby (nichts scheint durch)
     else lobby(ctx, view);
+    versionZeile(ctx, !ein && s === 'lobby' && !F.lies().modusOffen);
+  }
+  // HYG-02 A: Versionsnummer unten rechts, Messing, ohne Interaktion, über allen Schirmen; bleibt leer, solange sie nicht geladen ist.
+  // In der Lobby mittig in der Statuszeile (MASS.statuszeile), sonst 3 px tiefer (auf dem Bild; die Zone prüft menue-tokens.js textzonen)
+  function versionZeile(c, inStatuszeile) {
+    const v = F.lies().version; if (!v) return;
+    const SZ = MM.statuszeile;
+    txt(c, T.version.praefix + v, VW - SZ.innen, inStatuszeile ? SZ.y + Math.floor((SZ.h - 7) / 2) : SZ.y + 8, MF.messing, 'right');
   }
 
   // ---------------------------------------------------------------- Tasten

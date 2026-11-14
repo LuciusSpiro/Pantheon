@@ -112,6 +112,7 @@
       ['menue', 32, 54, 252, 250, 'text', 4.5], ['menue', 32, 54, 252, 250, 'dim', 4.5], ['menue', 32, 54, 252, 250, 'messing', 4.5], ['menue', 32, 340, 330, 349, 'dim', 4.5],
       ['lobby', 32, 50, 280, 59, 'messing', 4.5], ['lobby', 32, 63, 330, 84, 'text', 3], ['lobby', 32, 90, 260, 115, 'dim', 4.5], ['lobby', 32, 134, 120, 143, 'messing', 4.5],
       ['lobby', 32, 324, 470, 337, 'dim', 4.5],
+      ['titel', 580, 350, 632, 357, 'messing', 4], ['menue', 580, 350, 632, 357, 'messing', 4.5], ['beitritt', 580, 350, 632, 357, 'messing', 4.5],   // HYG-02 A: Versionsnummer unten rechts
       ['beitritt', 32, 50, 300, 135, 'dim', 4.5], ['beitritt', 32, 63, 330, 84, 'text', 3], ['beitritt', 32, 160, 300, 169, 'messing', 4.5], ['beitritt', 32, 324, 470, 337, 'dim', 4.5],
     ],
   };

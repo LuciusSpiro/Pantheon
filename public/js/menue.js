@@ -18,7 +18,9 @@
       weltstandMax: () => { const c = root.Shared_Config; return (c && c.weltstand && c.weltstand.max) || 5; },
       oeffneKammer: () => { const c = root.Client; if (!(c && c.actions && c.actions.openKammer)) return false; c.actions.openKammer(); return true; },
       verlasseRaum: () => { const c = root.Client; return !!(c && c.actions && c.actions.verlasseRaum && c.actions.verlasseRaum()); },
+      ladeVersion: () => root.fetch('/version.json', { cache: 'no-store' }).then((r) => (r.ok ? r.json() : null)),
     });
+    root.MenueFluss.ladeVersion();
   }
 })(typeof self !== 'undefined' ? self : this, function () {
   'use strict';
@@ -26,6 +28,7 @@
   // Feste Texte der Menü-Oberfläche, die die Tokens nicht kennen (Test: jede Glyphe existiert in art.js)
   const TEXT = {
     titel: { knopf: 'Spielen' },
+    version: { praefix: 'v' },   // HYG-02 A: „v0.1.0“ unten rechts
     detail: { spieler: '1–4 Spieler', neuerWeltstand: 'neuer Weltstand {n}/{max}', weltstandVoll: 'Alle {max} Plätze belegt · F löscht', weltstandVollKurz: 'Alle {max} Plätze belegt', weltstandVollLang: 'Alle {max} Plätze belegt – erst einen löschen (F)', keinWeltstand: 'kein Weltstand', raumOeffnen: 'Raum öffnen', fortsetzen: 'Fortsetzen', tutorial: 'Tutorial', an: 'an', aus: 'aus', optionen: 'OPTIONEN', inLobby: 'In der Lobby', crew: 'Crew' },
     fortsetzen: { keiner: 'Noch kein Weltstand gespeichert', weitere: '+ {n} weitere · F öffnet die Liste', liste: 'F öffnet die Liste', unlesbar: 'nicht ladbar' },
     hinweise: { waehlen: 'wählen', charakter: 'Charakter', optionen: 'Optionen', zurueck: 'Titel', bereit: 'bereit', farbe: 'Farbe', modus: 'Modus', link: 'Link', menue: 'Hauptmenü', hilfe: 'Hilfe' },
@@ -95,8 +98,14 @@
     // ------------------------------------------------------------------ Store
     // schirm: 'titel' | 'menue' | 'lobby' | 'einladung'; auswahl = id des gewählten Eintrags (Hauptmenü und Moduswahl-Überlagerung teilen sie);
     // abgelehnt = die Einladung wurde bewusst abgelehnt (der Raumcode-Eingang zeigt dann keinen Fehlerton); modusOffen = Moduswahl-Überlagerung in der Lobby; tutorial = Eisenwald mit Tutorial (Merker für den nächsten Start); lobbyModus = zuletzt gesehener Modus der Lobby (nur dessen Wechsel setzt den Merker); einladungCursor = Platz in der Charakterliste der Einladung
-    const store = { schirm: 'titel', auswahl: null, modusOffen: false, tutorial: true, lobbyModus: null, modusPruefen: false, einladungCursor: 0, abgelehnt: false, rev: 0 };
+    const store = { schirm: 'titel', auswahl: null, modusOffen: false, tutorial: true, lobbyModus: null, modusPruefen: false, einladungCursor: 0, abgelehnt: false, version: null, rev: 0 };
     const aenderung = () => { store.rev++; };
+    // HYG-02 A: Versionsnummer (Server: GET /version.json = package.json); null = unbekannt, die Zeile bleibt dann leer. Ein Fehler beim Holen ändert nichts am Menü.
+    function setzeVersion(v) { store.version = typeof v === 'string' && /^\d+\.\d+\.\d+[\w.+-]*$/.test(v) ? v : null; aenderung(); return store.version; }
+    function ladeVersion() {
+      if (typeof opt.ladeVersion !== 'function') return Promise.resolve(null);
+      try { return Promise.resolve(opt.ladeVersion()).then((d) => setzeVersion(d && d.version), () => null); } catch (e) { return Promise.resolve(null); }
+    }
     const lies = () => store;
 
     // ------------------------------------------------------------------ Gruppierung (rein, aus Protokoll und Lobby-Snapshot)
@@ -412,7 +421,7 @@
     function optionFuerTaste(code, modus, lob, welt) { return optionenFuer(modus, lob, welt).find((x) => x.code === code) || null; }
 
     return {
-      TEXT, GRUPPEN, ALLE, lies, eintragMitId, eintragZuModus, zugeordneteModi,
+      TEXT, GRUPPEN, ALLE, lies, setzeVersion, ladeVersion, eintragMitId, eintragZuModus, zugeordneteModi,
       sichtbar, gruppen, modusVon, aktuellerEintrag, auswahlEintrag, synchronisiere, snapshotEingang, welten, neuesteWelt,
       bewege, waehleTaste, waehleEintragId, schalteTutorialMerker, schalteTutorialDerRunde, nachrichtFuer, bestaetige, oeffneModusWahl, schliesseModusWahl,
       starte, weiter, zurueck, imRaum, weltstaende, weltstandGewaehlt, neuerWeltstandGewaehlt, sichtbarenModusSichern, einladungAblehnen, einladungNeuerCharakter, laborAuswahl, startOptionen, bewegeEinladung, setzeEinladungCursor, einladungAnnehmen, einladungAufGewaehlten,
