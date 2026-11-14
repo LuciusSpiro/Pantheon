@@ -23,7 +23,7 @@ const Bitte = require('../../server/sim/faden-bitte.js');
 const Spur = require('../../server/sim/spur.js');
 const Testhilfe = require('../gegner-testhilfe.js');
 
-const SZENEN = ['konvoi', 'geleit', 'raumschlacht', 'verfolgung', 'befreiung', 'spontanhilfe'];
+const SZENEN = ['konvoi', 'geleit', 'raumschlacht', 'verfolgung', 'befreiung', 'spontanhilfe', 'hinterhalt'];   // BEA-03 B: hinterhalt (Szene am Sektor, Bot besiegt die Gegner mit dem Testhelfer)
 const KENNT = ['geruecht', 'wiedersehen', 'notruf', 'spur', 'sabotage', 'fracht', 'bitte', 'enthuellung', 'abschluss'].concat(SZENEN);   // Typen mit eigener Bot-Logik
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
@@ -135,8 +135,9 @@ function neu(ctx) {
   async function szene(f, b, typ) {
     const szeneDa = () => g.fadenSzene && g.fadenSzene.fadenId === f.id;
     if (typ === 'befreiung') await hin(f.parameter && f.parameter.ort, 'Befreiung');
+    if (typ === 'hinterhalt') await hin(f.laufend && f.laufend.hex, 'Hinterhalt');   // BEA-03 B: der Sektor steht im laufenden Beat (nie im Ort der Geschichte); die Ankunft loest die Szene aus
     if (g.ship.docked) { w.flieg(w.hierHex()); await sleep(300); }   // eine Szene beginnt nie im Hafen (Andocken beendet sie): das Schiff liegt im Raum, abseits der Route des Konvois (wie neuerOrt in spiel-faden)
-    if (typ !== 'befreiung') { k('ort-setzen'); Object.assign(g.ship, { x: 300, y: 300, vx: 0, vy: 0, speed: 0 }); }
+    if (typ !== 'befreiung' && typ !== 'hinterhalt') { k('ort-setzen'); Object.assign(g.ship, { x: 300, y: 300, vx: 0, vy: 0, speed: 0 }); }
     if (typ === 'spontanhilfe') { zeile('spontanhilfe: der Beat wartet auf ein Gefecht, das der Bot nicht ausloest (Frist)'); return; }
     // Vorlauf (Vorwarnung per Funk, mindestens 8 s Spielzeit), dann Kampf
     let kampf = false;
