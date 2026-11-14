@@ -3,6 +3,7 @@
 // Eigener Aufruf, NICHT der Takt-Prompt der Lage (der hat nur ~2 500 Zeichen Reserve von 16 000: Komposition dort drueckte den Ausschnitt).
 //
 //   katalogText()                 Katalog der Beat-Typen mit Parametern, Standard-Zustaenden und den Regeln, ABGELEITET aus den Daten (content/faeden/beats.json `bauplan`, bauplan.json, werte.json, szenen-werte.json). Statisch.
+//                                 KAT-01 A: die letzte Regelzeile enthaelt eine aus der Paarmatrix (faden-paare.js, gerechnet ueber den Pruefer) abgeleitete Zustandsregel: nach welchen Beats welche Folgebeats eine verzweigung.gescheitert brauchen und welche Optionen-Beats immer eine Verzweigung brauchen. Nur Daten, keine Beat-Namen im Code (zustandsregeln, zustandsregelText)
 //   baue(game, { nr, grenze, hex, letzte, werte }) -> { prompt, zeichen, kontextZeichen } | { fehler }
 //                                 Reihenfolge fuer das Caching: Katalog (statisch) -> Kontext -> Aufruf -> Schluss. KEINE Spielernamen: der Kontext nennt die Crew nur als Crew (Rang, Stufe, Ort); Freitext (Chronik) ist vom Ausschnitt
 //                                 der Lage schon gefiltert; Titel und Anlass frueherer Abenteuer (freier Text des Modells) stehen nie im Kontext, nur ihre Typenfolge.
@@ -61,10 +62,44 @@ function katalogText() {
   const lagen = Array.from(new Set(Object.values(B).map((c) => c.braucht && c.braucht.lage).filter(Boolean)));
   if (lagen.length) L.push(`Kontext faeden.lage: Zahl je Lage (${lagen.join(' | ')}), nur Zahlen, keine Namen. Ein Beat, der eine Lage braucht, steht nur im Plan, wenn seine Zahl groesser 0 ist (sonst lehnt der Pruefer den Plan ab); sie haengt von der Welt ab und aendert sich, die Zahl im Kontext gilt jetzt.`);
   L.push(`Regeln, die der Pruefer erzwingt: bei Gefahr nie Optionen; Scheitern muss etwas veraendern (anderer Weg oder anderer Zustand); Annehmen und Ablehnen einer Bitte muessen in verschiedene Beats fuehren (verzweigung); jeder Beat muss erreichbar sein; "namenlos": true nur mit Typen, die einen NSC im Zustand aktiv zulassen. Ein erfolg-Eintrag nennt hoechstens ${BW.erfolg_max} Typen, die im Plan vorkommen. Wiederholung (Daten abenteuer-brett.json werte.wiederholung): nie dieselbe Typenfolge wie eines der letzten ${RW.folge_zuletzt} Abenteuer (Kontext letzte_abenteuer) oder wie ein offenes Angebot; nie derselbe erste Beat wie eines der letzten ${RW.ort_typ_zuletzt} Abenteuer an diesem Ort (Kontext sperre_beginn: erste Beat-Typen, die hier gesperrt sind); ein Wiedersehen nie mit der Hauptfigur der letzten ${RW.nsc_zuletzt} Abenteuer (die Zahl in faeden.wiedersehen_nsc zaehlt sie nicht).`);
+  const zr = zustandsregelText(zustandsregeln(Paare().matrix()));
+  if (zr) L.push(zr);
   katalogCache = L.join('\n');
   return katalogCache;
 }
-const katalogNeuLesen = () => { katalogCache = null; };
+const katalogNeuLesen = () => { katalogCache = null; Paare().neuLesen(); };
+
+// ---------- KAT-01 A: Zustandsregeln aus der Paarmatrix (nur die Matrix, nichts hart codiert)
+// Struktur: { pflicht: [Beat], abschluss, gruppen: [{ nach: [Beat], vor: [Beat], ausser: [Beat] | null }] }
+//   pflicht  Beats mit Optionen-Pflicht (B direkt vor dem Abschluss nie gueltig): brauchen stets eine Verzweigung; deckt die Paare mit Ort B und A+B (der Optionen-Beat selbst).
+//   gruppen  A ohne Optionen-Pflicht, bei denen die Verzweigung AM VORGAENGER noetig ist (Ort A, und der A-Teil von Ort A+B), gruppiert bei gleicher Liste; ausser = Komplement (statt vor), wenn es kuerzer ist und dieselbe Menge ausdrueckt.
+function zustandsregeln(M) {
+  const pflicht = M.vor_abschluss_nie.filter((v) => v.optionen_pflicht).map((v) => v.beat);
+  const gruppen = [];
+  for (const a of M.beats) {
+    if (pflicht.includes(a)) continue;
+    const vor = M.beats.filter((b) => M.zellen[a][b].klasse === 'nurV' && (M.zellen[a][b].ort === 'A' || M.zellen[a][b].ort === 'A+B'));
+    if (!vor.length) continue;
+    const g = gruppen.find((x) => JSON.stringify(x.vor) === JSON.stringify(vor));
+    if (g) g.nach.push(a); else gruppen.push({ nach: [a], vor, ausser: null });
+  }
+  for (const g of gruppen) {
+    const rest = M.beats.filter((b) => !g.vor.includes(b));
+    // Komplement nur, wenn der Abschluss fuer alle Vorgaenger ohne Verzweigung geht (sonst wuerde "alle ausser" ihn faelschlich einschliessen)
+    if (g.nach.every((a) => M.vor_abschluss[a].klasse === 'ok')) {
+      const ausser = rest.concat(M.abschluss_beat);
+      if (liste(ausser).length < liste(g.vor).length) g.ausser = ausser;
+    }
+  }
+  return { pflicht, abschluss: M.abschluss_beat, gruppen };
+}
+function zustandsregelText(Z) {
+  const t = [];
+  if (Z.pflicht.length) t.push(`${liste(Z.pflicht)}: stets eine verzweigung (gelungen oder gescheitert), nie direkt vor ${Z.abschluss}`);
+  if (Z.gruppen.length) t.push(`verzweigung.gescheitert auf einen spaeteren Beat brauchen: ${Z.gruppen.map((g) => `${liste(g.nach)} direkt vor ${g.ausser ? 'allen ausser ' + liste(g.ausser) : liste(g.vor)}`).join('; ')}`);
+  return t.length ? `Verzweigung Pflicht (sonst lehnt der Pruefer ab): ${t.join('; ')}.` : '';
+}
+const Paare = () => require('./faden-paare.js');
 
 // ---------- Kontext (verdichtet, ohne Spielernamen)
 const typenVon = (v) => (v && Array.isArray(v.beats) ? v.beats.filter((b) => !(B[b.typ] && B[b.typ].abschluss)).map((b) => b.typ) : []);
@@ -201,4 +236,4 @@ function absichtAusText(text) {
   return r.plan ? { absicht: r.plan } : r;
 }
 
-module.exports = { katalogText, katalogNeuLesen, baue, bauplanAusText, typenVon, kontextVon, SYSTEM_DATEI, WERTE, katalogTextAbsicht, baueAbsicht, absichtAusText };
+module.exports = { katalogText, katalogNeuLesen, zustandsregeln, zustandsregelText, baue, bauplanAusText, typenVon, kontextVon, SYSTEM_DATEI, WERTE, katalogTextAbsicht, baueAbsicht, absichtAusText };

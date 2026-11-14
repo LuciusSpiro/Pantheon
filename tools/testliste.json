@@ -55,6 +55,7 @@
   {"id":"test-messe-zusammen","kette":"test","cmd":["tools/test-messe-zusammen.js"],"stufe":"full","seriell":true,"budget_s":60},
   {"id":"test-messe-profil","kette":"test","cmd":["tools/test-messe-profil.js"],"stufe":"full","seriell":true,"budget_s":90},
   {"id":"test-messe-paare","kette":"test","cmd":["tools/test-messe-paare.js"],"stufe":"full","seriell":true,"budget_s":60},
+  {"id":"test-katalog-zustandsregeln","kette":"test","cmd":["tools/test-katalog-zustandsregeln.js"],"stufe":"full","seriell":true,"budget_s":60},
   {"id":"test-live-abend","kette":"test","cmd":["tools/test-live-abend.js"],"stufe":"full","seriell":true,"budget_s":240},
   {"id":"test-buehne","kette":"test","cmd":["tools/test-buehne.js"],"stufe":"fast","seriell":true,"budget_s":14},
   {"id":"test-generatoren","kette":"test","cmd":["tools/test-generatoren.js"],"stufe":"fast","budget_s":10},
