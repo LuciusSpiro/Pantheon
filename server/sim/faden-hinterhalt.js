@@ -42,12 +42,16 @@ function hatHafen(hex) {
 }
 const spielbar = (hex) => require('./faden-pruefer.js').sundSpielbar(hex) && Sektoren.hatSzene(hex);
 
-function hexWaehlen(game, faden, salz) {
+// Die waehlbaren Sektoren von hier aus (sortiert); auch die Lagen-Bedingung hinterhalt_ziel (faden-b2.js LAGEN) zaehlt sie
+function kandidaten(game) {
   const von = hierHex(game);
-  if (!von) return null;
-  const k = Array.from(B1().erreichbar(game, von, H.ziel.max))
+  if (!von) return [];
+  return Array.from(B1().erreichbar(game, von, H.ziel.max))
     .filter(([h, s]) => s >= H.ziel.min && s <= H.ziel.max && h !== von && !Sektoren.sperrtext(h) && spielbar(h) && !hatHafen(h))
     .map(([h]) => h).sort();
+}
+function hexWaehlen(game, faden, salz) {
+  const k = kandidaten(game);
   if (!k.length) return null;
   const z = Faden().strom(game, Faden().idNr(faden.id), H.salz + ':' + salz)();
   return k[Math.floor(z * k.length) % k.length];
@@ -99,4 +103,4 @@ function halt(game, hex) {
   return f ? fmt(T.schnellsprung_hinterhalt, { ort: hexName(hex) }) : null;
 }
 
-module.exports = { baustein, hexWaehlen, update, halt };
+module.exports = { baustein, hexWaehlen, kandidaten, update, halt };

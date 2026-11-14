@@ -73,13 +73,13 @@
       "bauplan": {"start_status":"gefangen","hinweis_traeger":false,"parameter":{},"aus":{"gelungen":{"status":["verbuendet","aktiv"],"folge":[{"typ":"haltung_aenderung","grund":"gerettet"}]},"gescheitert":{"status":["gefangen","aktiv","tot"],"folge":[{"typ":"haltung_aenderung","grund":"im_stich_gelassen"}]}}}
     },
     "hinterhalt": {
-      "zweck": "Gegner lauern an einem Sektor in der Naehe; fliegt die Crew hinein, wird sie ohne Vorwarnung abgefangen (Szene, der NSC ist nur das Gesicht).",
+      "zweck": "Gegner lauern in einem Sektor und greifen an, sobald die Crew dort ankommt.",
       "baustein": "hinterhalt",
       "gefahr": true,
       "optionen": "keine",
       "szene": true,
       "frist": 16,
-      "braucht": {"nsc_status": ["aktiv", "feindlich", "geflohen"]},
+      "braucht": {"nsc_status": ["aktiv", "feindlich", "geflohen"], "lage": "hinterhalt_ziel"},
       "parameter": {"pflicht": [], "optional": ["volk", "hex"]},
       "bauplan": {"start_status":"aktiv","hinweis_traeger":false,"parameter":{"volk":{"erlaubt":["ger","rom","kon"],"ohne_standard":true,"verborgen":true}},"aus":{"gelungen":{"status":["tot","feindlich","aktiv"],"folge":[{"typ":"ruf_aenderung","grund":"funk_rom_gruss"}]},"gescheitert":{"status":["geflohen","feindlich","aktiv"],"folge":[]}}},
       "_hinweis": "BEA-03 A: wie raumschlacht (Gegner, Ausgang), aber der Ausloeser ist die Ankunft der Crew an EINEM Sektor (server/sim/faden-hinterhalt.js, Daten szenen-werte.json hinterhalt), ohne Vorlauf; der Schnellsprung haelt dort an. frist 16 zaehlt Taetigkeiten (nicht Takte oder Sekunden), ungemessen. Der Sektor steht im laufenden Beat, nie in faden.parameter.ort (darum kein verlegt_ort)."

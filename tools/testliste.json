@@ -294,6 +294,7 @@
   {"id":"test-hinterhalt-kern","kette":"test","cmd":["tools/test-hinterhalt-kern.js"],"stufe":"fast","budget_s":7},
   {"id":"test-faden-hinterhalt","kette":"test","cmd":["tools/test-faden-hinterhalt.js"],"stufe":"fast","budget_s":10},
   {"id":"test-hinterhalt-bot","kette":"test","cmd":["tools/test-hinterhalt-bot.js"],"stufe":"full","budget_s":90},
+  {"id":"test-hinterhalt-plan","kette":"test","cmd":["tools/test-hinterhalt-plan.js"],"stufe":"fast","budget_s":7},
   {"id":"test-faden-sim-befehl","kette":"test","cmd":["tools/test-faden-sim-befehl.js"],"stufe":"fast","budget_s":9},
   {"id":"test-faden-haendler-invasion","kette":"test","cmd":["tools/test-faden-haendler-invasion.js"],"stufe":"fast","budget_s":12},
   {"id":"test-faden-bauplan","kette":"test","cmd":["tools/test-faden-bauplan.js"],"stufe":"fast","budget_s":8},
