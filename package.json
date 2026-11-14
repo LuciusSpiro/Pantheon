@@ -1,6 +1,6 @@
 {
   "name": "pantheon",
-  "version": "0.2.0",
+  "version": "0.1.0",
   "private": true,
   "description": "Pantheon – Online-Koop-Raumschiffspiel für 1–4 Spieler (früher Sternenschicht)",
   "main": "server/index.js",

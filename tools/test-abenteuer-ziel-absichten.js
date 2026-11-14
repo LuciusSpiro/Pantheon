@@ -24,8 +24,8 @@ const RADIUS = lies('content/faeden/werte.json').werte.abenteuer.wert.angebot_ra
 const BEATS = lies('content/faeden/beats.json');
 const KAT = AP.katalogStandard();
 const HAEFEN = [['0305', 'Ostia Nova (Start)'], ['0603', 'Kantenstein (Mitte)'], ['0105', 'Carrara (Rand)']];
-// von Hand benannt (Beschluss FRE-02 A2): diese vier Rezepte spielen an einem Ziel, alle anderen im Sektor der Crew (oder wie bisher an einer Kartenart)
-const ZIEL_REZEPTE = ['falscher_haendler', 'lieferung', 'notruf', 'rettung'];
+// von Hand benannt (Beschluss FRE-02 A2): diese fuenf Rezepte spielen an einem Ziel (BEA-02 C: dazu bergung), alle anderen im Sektor der Crew (oder wie bisher an einer Kartenart)
+const ZIEL_REZEPTE = ['bergung', 'falscher_haendler', 'lieferung', 'notruf', 'rettung'];
 const EIGENER_ORT_OHNE_FLAG = ['spur'];
 const TEXT = { titel: 'Zebrafalke Probe Titel', einsatz: 'Ein Probeanlass ohne Namen fuer den Test.', preis: 'Ein Preis ohne Namen fuer den Test.' };
 const ab = (name, o) => Object.assign({ format: 'absicht/1', absicht: name, titel: TEXT.titel, parameter: {}, bezug: {}, bogen: { einsatz: TEXT.einsatz, wendung: 'keine', preis: TEXT.preis }, ton: 'nuechtern' }, o || {});
@@ -66,7 +66,7 @@ console.log('\nKatalog: welche Rezepte ziel_im_umkreis haben');
 {
   const regel = (name) => KAT.absichten[name].inszenierung.ort.regel;
   const mitZiel = Object.keys(KAT.absichten).filter((k) => regel(k) === 'ziel_im_umkreis').sort();
-  ok(JSON.stringify(mitZiel) === JSON.stringify(ZIEL_REZEPTE), 'genau diese vier Rezepte haben ziel_im_umkreis: ' + mitZiel.join(', '));
+  ok(JSON.stringify(mitZiel) === JSON.stringify(ZIEL_REZEPTE), 'genau diese fuenf Rezepte haben ziel_im_umkreis: ' + mitZiel.join(', '));
   const verlegt = Object.keys(BEATS.beats || BEATS).filter((k) => (BEATS.beats || BEATS)[k] && (BEATS.beats || BEATS)[k].verlegt_ort === true);
   ok(['geruecht', 'sabotage', 'wiedersehen'].every((t) => verlegt.includes(t)), 'beats.json: die Beats mit eigener Ortswahl (verlegt_ort): ' + verlegt.join(', '));
   verlegt.push(...EIGENER_ORT_OHNE_FLAG);   // die Spur fliegt ihre feste Route aus den Daten (kein verlegt_ort-Flag in beats.json, aber der Ort der Geschichte ist nicht ihr Schauplatz)

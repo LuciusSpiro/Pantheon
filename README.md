@@ -16,6 +16,30 @@ All, Bodenkampf-Feinschliff; `CONTRACT-W2.md`) · **EK1–EK8** (Eisenwald-Kampa
 Die Abschnitte „Neu in …“ stehen unten, das Neueste zuerst. Abnahmen: `concept/buehnen/ABNAHME-B1.md`,
 `ABNAHME-B2.md`, `ABNAHME-B3.md`, `ABNAHME-WELLEN.md`. Offene Punkte der Studioleitung: `concept/buehnen/OFFEN-STUDIO.md`.
 
+## Schalter und Fadenvorlagen (Stand HYG-01, Version 0.1.0)
+
+Die Version steht in `package.json` und in `SERVER_VERSION` (`server/game.js`); der Server schickt sie im `welcome` und im Telemetrie-Kopf. Eine Anzeige im Client gibt es nicht. Das Weltstand-Format hat eine eigene Version (3), sie hängt nicht an dieser Zahl.
+
+**Freie Fahrt (Lobby-Modus):** Der echte Server setzt die Schalter für diesen Modus selbst aus den Daten `content/welt/freie-fahrt-szenario.json` (Game-Option `szenarioSchalter`, FRE-01): `FAEDEN=1`, `REISE_EREIGNISSE=1` und `LAGE_SPIELLEITER=1` gelten immer, ohne `.env`. Die Betriebsart wählt die Lobby-Option: Rückfall ohne Modell (`SPIELLEITER_RUECKFALL=1`) oder live (`SPIELLEITER_LLM=live`, `LLM_LIVE=1`, `TEXTE_POOL=1`). `SPIELLEITER_LLM`, `LLM_LIVE` und `SPIELLEITER_RUECKFALL` aus der `.env` werden in diesem Modus verworfen; nur `SPIELLEITER_LLM=mock` bleibt als Test- und Debug-Haken erhalten.
+
+**Alle anderen Modi** laufen mit dem Basis-Env des Servers (`.env`, Vorlage `.env.example`, sie nennt nur einen Teil der Schalter). Standard ist dort alles aus:
+
+| Schalter | Wirkung |
+|---|---|
+| `SPIELLEITER_LLM=off\|mock\|live` | Missions-Spielleiter; `live` braucht zusätzlich `LLM_LIVE=1` (echte Claude-CLI-Aufrufe) |
+| `CLAUDE_TOKEN_BUDGET` | Token-Deckel je Serverlauf (Standard 500 000) |
+| `LAGE_SPIELLEITER=1` | Lage-Spielleiter der Freien Fahrt Sund; läuft mit Modell (`SPIELLEITER_LLM=mock\|live`) oder im Rückfall-Betrieb ohne Modell (`SPIELLEITER_RUECKFALL=1`) |
+| `SPIELLEITER_RUECKFALL=1` | Spielleiter ohne Modell (Rückfall-Betrieb) |
+| `REISE_EREIGNISSE=1\|0` | Reise-Ereignisse (Notrufe, Patrouillen, Piraten, Funkmeldungen); ohne Zeile an, wenn der Lage-Spielleiter an ist |
+| `FAEDEN=1` | Geschichtsfäden und Auftragsbrett (Abenteuer) |
+| `ABENTEUER_ABSICHTEN=1\|0` | Abenteuer aus Absichten (SPL-02) statt aus dem Beat-Plan; Standard aus |
+| `ABENTEUER_ANSCHLUSS=0` | Betriebs- und Testknopf: schaltet den Anschluss-Rückfall des Bretts ab (Standard an) |
+| `REGIE_DIR` | Ablage des Regie-Logbuchs (Prompts und Rohantworten) |
+
+**Fadenvorlagen** (`content/faeden/vorlagen/`, handgeschrieben, Auslöser sind Reise-Notrufe aus `content/reise/ereignisse.json`): `dankbarer_captain`, `entfuehrter_haendler`, `falscher_haendler` und `zollkontrolle`. Notrufe auf dem **Takt-Weg** (Standard seit FRE-03) gehen immer als Bergung aufs Auftragsbrett; der Hook zu den Vorlagen kehrt dort sofort zurück. Die Vorlagen entstehen daher nur aus Notrufen auf dem **Sprung-Weg**, und ein Notruf ohne Vorlage bleibt dort ohne Faden (kein Fehler). **`zollkontrolle` ist im Spiel ohne Auslöser:** ihr Auslöser `notruf_zollkontrolle` steht in keinem Katalog, sie läuft nur im Test und im Bot (`tools/spiel-forderung.js`). Der Zoll-Ablauf ist als Absicht `forderung` erreichbar, aber nur mit `ABENTEUER_ABSICHTEN=1`.
+
+**Absichten** (`content/faeden/absichten.json`, mit `ABENTEUER_ABSICHTEN=1`): `rache`, `bergbau`, `geruecht`, `spur`, `wiedersehen`, `konvoi`, `geleit`, `sabotage`, `rettung`, `bergung`, `jagd`, `hinterhalt`, `lieferung`, `falscher_haendler`, `notruf`, `forschungsstation` und `forderung` (Zollkontrolle: ein Zollschiff hält die Lerche an, die Crew duldet die Prüfung des Frachtraums, zahlt oder kämpft).
+
 ## LIV-01 A1 – Kontingent-Schranke: Schwelle am Token-Zähler (Server)
 
 Bei `used >= schwelle` (90 % von `CLAUDE_TOKEN_BUDGET`, Standard 500 000, also 450 000) fragen Lage-, Abenteuer- und Missions-Spielleiter das Modell nicht mehr (kein CLI-Prozess, Rückfall wie bisher, das Spiel läuft weiter). Wie der Server das meldet, steht seit LIV-02 unten (Systemzeile, Regie-Logbuch, Frage „Limit erhöhen?“ an den Spieler mit color 0); den Funk „Kontingent aufgebraucht“, das Snapshot-Feld `world.kontingent` und die Taste gibt es nicht mehr (entfernt mit LIV-02). Befehl `kontingent.freigeben` hebt Limit und Schwelle um 500 000, jede Freigabe steht im Regie-Logbuch. Modul `server/sim/kontingent.js`, Test `tools/test-kontingent.js` (`npm run test:kontingent`), Vertrag `CONTRACT-LIV01.md`. Das `min_budget`-Gate (30 000) ist auf `min(30000, limit - schwelle)` gedeckelt, damit die Schwelle bei kleinem Limit (z. B. 60 000 -> 54 000) zuerst greift.
