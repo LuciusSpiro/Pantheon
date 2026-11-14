@@ -52,6 +52,7 @@ for (const k of ['SPIELLEITER_LLM', 'LLM_LIVE']) delete process.env[k];
 process.env.MISSION_SOURCE = 'fallback'; process.env.LAGE_SPIELLEITER = '1'; process.env.REISE_EREIGNISSE = '1'; process.env.FAEDEN = '1'; process.env.SPIELLEITER_RUECKFALL = '1';
 const WebSocket = require('ws');
 const { startServer } = require('../server/index.js');
+const MitLauf = require('./lib/mitschnitt-lauf.js');
 const Faden = require('../server/sim/faden.js');
 const FD = require('../server/sim/faden-daten.js');
 const AO = require('../server/sim/abenteuer-orte.js');
@@ -77,7 +78,8 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const zeilen = [];
 const zeile = (s) => { const t = new Date().toISOString().slice(11, 19); zeilen.push(`${t}  ${s}`); if (hat('verlauf')) console.log(`${t}  ${s}`); };
 const kz = {};
-const k = (...arten) => { for (const a of arten) kz[a] = (kz[a] || 0) + 1; };
+let mitSpiel = null;   // REF-01 A2: das Spiel fuer den Mitschnitt-Kopf (Nulleffekt ohne MITSCHNITT)
+const k = (...arten) => { for (const a of arten) kz[a] = (kz[a] || 0) + 1; MitLauf.kuenstlich(mitSpiel, ...arten); };
 
 const plan = () => ({
   format: 'faden-bauplan/1', titel: 'Schiffbruch im Sektor', anlass: 'Ein Geruecht spricht von Schiffbruechigen, niemand weiss wo.',
@@ -97,6 +99,8 @@ const planKette = () => ({
   const srv = await startServer({ port: 0, quiet: true, noStore: true, worlds: true, worldDir: dir, roomCode: CODE });
   const g = srv.game, port = srv.port;
   g.fixedSeed = SEED; g.reset();
+  mitSpiel = g;
+  MitLauf.anmelden(g, { werkzeug: 'spiel-rettung', seed: g.seed, crew: CREW, modus: BRETT ? `brett ${VARIANTE} ${ORT_ART}` : `rettung ${BES} ${ENDE}${KETTE ? ' kette' : ''}${FRIST_LAUF ? ' frist-lauf' : ''}${BELEGT ? ' frachtraum-belegt' : ''}`, regel: BRETT ? 'Standardplan des Bretts (Notruf > rettung > abschluss); Bots fliegen hin, scannen, waehlen den Landepunkt, beamen runter, holen Ueberlebende hoch, geben sie ab (Rueckfall ohne Modell)' : 'Plan Geruecht > rettung > abschluss eingespeist; Bots fliegen hin, scannen, waehlen den Landepunkt, beamen runter, holen Ueberlebende hoch (Rueckfall ohne Modell)' });
   const t0 = Date.now();
   const abw = [];
   const pruef = (c, t) => { zeile(`${c ? 'ok     ' : 'FEHLER '} ${t}`); if (!c) abw.push(t); };
@@ -462,6 +466,7 @@ const planKette = () => ({
   const ok = abw.length === 0;
   const kurz = `${ok ? 'ok' : 'FEHLER'} ${BES} ${ENDE} crew ${CREW} seed ${SEED}${FRIST_LAUF ? ' frist-lauf' : ''}${BELEGT ? ' frachtraum-belegt' : ''}: Ausgang ${f.ausgang && f.ausgang.art}, Verlauf ${verlauf.join(' > ')}; Personen ${personenAnBordMax.length}${ENDE === 'abgegeben' ? ' (abgegeben ' + abgegebenIds.length + ')' : ''}; Gegner ${gegner}; unten ${unten.length}; Komponisten-Aufrufe ${aufrufe()}; g.errors ${g.errors}; Orte ${zahlOrte(orteVor)} vorher, ${zahlOrte(orteWaehrend)} im Lauf, ${zahlOrte(orteNach)} nachher; ${sek} s; kuenstlich ${JSON.stringify(kz)}`;
   if (JSON_DATEI) fs.writeFileSync(JSON_DATEI, JSON.stringify({ besetzung: BES, ende: ENDE, crew: CREW, seed: g.seed, anzahl: ANZAHL, fristLauf: FRIST_LAUF, frachtraumBelegt: BELEGT, ok, abweichungen: abw, faden: { phase: f.phase, ausgang: f.ausgang && f.ausgang.art, gedaechtnis: ged, verlauf }, nsc: f.nsc.name, brett: brettInfo, kette: KETTE ? kette : null, ortArt: lpDyn.art || null, gedaechtnisErg, personen: personenAnBordMax, abgegeben: abgegebenIds, amOrtStart, halteSek, lagerPersonenNachher: personNachher, lagerNachher: lager().length,lagerVorherGleich: JSON.stringify(lager()) === lagerVorher, weltFracht, aufnehmenFehler, funk, hinweise, gegner, gegnerArten, unten: unten.length, komponistenAufrufe: aufrufe(), errors: g.errors, orte: { vor: zahlOrte(orteVor), lauf: zahlOrte(orteWaehrend), nach: zahlOrte(orteNach), nachDetail: orteNach }, boden: boden.filter((e) => !e.map || e.map === lpId), sekunden: sek, kuenstlich: kz }, null, 1) + '\n', 'utf8');
+  MitLauf.beenden(g);
   for (const x of cl) { try { x.ws.close(); } catch (e) { /* egal */ } }
   if (!ok) for (const z of zeilen.slice(-40)) console.log(z);
   console.log(kurz);

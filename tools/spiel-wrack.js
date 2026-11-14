@@ -5,11 +5,12 @@
 // Der Bot geht die echten Wege wie bei landung (Flug zum Hex des Geruechts, Ops scannt per weapons.landescan, Transfer-Konsole waehlt das Wrack, E-Halten beamt runter). Unten, je nach Schalter:
 //   --beute    ein Bot haelt E auf einem beute-Anker bis er leer ist (Beute im Schiffslager, Ereignis beuteGeborgen)
 //   --logbuch  ein Bot laedt ein Terminal des Wracks (E halten) und liest es (E halten, Ereignis ankerGelesen)
+//   --verkauf nach Hochbeamen und Faden-Ende fliegt die Crew an den Hafen Ostia Nova (Teleport), die Ops verkauft die Beute (Befehl weapons.verkaufen, Halteprozess verk): Marken + n, Lager leer; nur mit --beute
 // danach beamen alle per E-Halten wieder hoch. Ohne Schalter bleibt die Crew kurz unten (Beute und Logbuch sind kein Muss: gelungen). Kuenstlich (im Mitschnitt von k(...) gezaehlt): Teleport zum Hex, Ort des
 // Schiffs am Beam-Punkt, Spieler an Konsole, Pads und Anker setzen (der Bot laeuft nicht). Die Zeit im Faden zaehlt der Lauf selbst ueber lageGrenze (am Boden zaehlt keine Taetigkeit).
 // Gegner am Boden: Die Bots schiessen nicht. Wer unten bewusstlos wuerde, wird gemeldet (Lauf rot: Notrueckholung waere gescheitert).
 //
-//   node tools/spiel-wrack.js --besetzung ruhig|raeuber [--beute] [--logbuch] [--crew 1|3] [--seed N] [--frist-lauf] [--unten-ms N] [--json datei] [--verlauf]     (npm run spiel:wrack)
+//   node tools/spiel-wrack.js --besetzung ruhig|raeuber [--beute] [--logbuch] [--verkauf] [--crew 1|3] [--seed N] [--frist-lauf] [--unten-ms N] [--json datei] [--verlauf]     (npm run spiel:wrack)
 //   --json        schreibt die gemessenen Werte (Faden, Gedaechtnis, Verlauf, Funk, Lager, Gegner, Orte, Aufrufe, Fehler, Ereignisse am Boden) als Datei: der Test zaehlt selbst nach
 //   --frist-lauf  Die Crew bleibt oben: die Frist laeuft ab, Beat scheitert, Verzweigung -> ende, Abschluss, Ort weg (Gedaechtnis wrack_gescheitert)
 //   Exit 0: Soll erfuellt; Exit 1: Abweichung; Exit 2: falscher Aufruf.
@@ -21,14 +22,15 @@ const args = process.argv.slice(2);
 const wert = (n) => { const i = args.indexOf('--' + n); return i >= 0 && args[i + 1] !== undefined && !String(args[i + 1]).startsWith('--') ? args[i + 1] : undefined; };
 const hat = (n) => args.includes('--' + n);
 const BES = wert('besetzung');
-const BEUTE_NEHMEN = hat('beute'), LOGBUCH_LESEN = hat('logbuch');
+const BEUTE_NEHMEN = hat('beute'), LOGBUCH_LESEN = hat('logbuch'), VERKAUF = hat('verkauf');
 const CREW = Number(wert('crew') || 1);
 const SEED = Number(wert('seed') || 7);
 const UNTEN_MS = Number(wert('unten-ms') || 1500);
 const FRIST_LAUF = hat('frist-lauf');
 const JSON_DATEI = wert('json');
-if (!['ruhig', 'raeuber'].includes(BES) || ![1, 3].includes(CREW) || !Number.isFinite(SEED) || !Number.isFinite(UNTEN_MS)) {
-  console.error('Aufruf: node tools/spiel-wrack.js --besetzung ruhig|raeuber [--beute] [--logbuch] [--crew 1|3] [--seed N] [--frist-lauf] [--unten-ms N] [--verlauf]');
+if (!['ruhig', 'raeuber'].includes(BES) || ![1, 3].includes(CREW) || !Number.isFinite(SEED) || !Number.isFinite(UNTEN_MS) || (VERKAUF && (!BEUTE_NEHMEN || FRIST_LAUF))) {
+  if (VERKAUF && !BEUTE_NEHMEN) console.error('--verkauf verkauft die Beute: nur zusammen mit --beute (und nicht mit --frist-lauf).');
+  console.error('Aufruf: node tools/spiel-wrack.js --besetzung ruhig|raeuber [--beute] [--logbuch] [--verkauf] [--crew 1|3] [--seed N] [--frist-lauf] [--unten-ms N] [--verlauf]');
   process.exit(2);
 }
 for (const k of ['SPIELLEITER_LLM', 'LLM_LIVE']) delete process.env[k];
@@ -46,6 +48,9 @@ const Bot = require('./lib/bot-crew.js');
 const Anker = require('../server/sim/anker.js');
 const Fracht = require('../server/sim/fracht.js');
 const Wd = require('../server/world.js');
+const Space = require('../server/sim/space.js');
+const Locations = require('../shared/locations.js');
+const MitLauf = require('./lib/mitschnitt-lauf.js');
 
 const CODE = 'WRAK';
 const NAMEN = ['Ada', 'Bo', 'Cem'].slice(0, CREW);
@@ -53,7 +58,8 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const zeilen = [];
 const zeile = (s) => { const t = new Date().toISOString().slice(11, 19); zeilen.push(`${t}  ${s}`); if (hat('verlauf')) console.log(`${t}  ${s}`); };
 const kz = {};
-const k = (...arten) => { for (const a of arten) kz[a] = (kz[a] || 0) + 1; };
+let mitSpiel = null;   // REF-01 A2: das Spiel fuer den Mitschnitt-Kopf (Nulleffekt ohne MITSCHNITT)
+const k = (...arten) => { for (const a of arten) kz[a] = (kz[a] || 0) + 1; MitLauf.kuenstlich(mitSpiel, ...arten); };
 
 const plan = () => ({
   format: 'faden-bauplan/1', titel: 'Absturz im Sektor', anlass: 'Ein Geruecht spricht von einem Wrack, niemand weiss wo.',
@@ -66,6 +72,8 @@ const plan = () => ({
   const srv = await startServer({ port: 0, quiet: true, noStore: true, worlds: true, worldDir: dir, roomCode: CODE });
   const g = srv.game, port = srv.port;
   g.fixedSeed = SEED; g.reset();
+  mitSpiel = g;
+  MitLauf.anmelden(g, { werkzeug: 'spiel-wrack', seed: g.seed, crew: CREW, modus: `wrack ${BES}${BEUTE_NEHMEN ? ', Beute' : ''}${LOGBUCH_LESEN ? ', Logbuch' : ''}${VERKAUF ? ', Verkauf' : ''}${FRIST_LAUF ? ', Frist-Lauf' : ''}`, regel: 'Plan Geruecht > wrack > abschluss eingespeist; Bots scannen, waehlen das Wrack, beamen runter, bergen, lesen, beamen hoch (Rueckfall ohne Modell)' });
   const t0 = Date.now();
   const abw = [];
   const pruef = (c, t) => { zeile(`${c ? 'ok     ' : 'FEHLER '} ${t}`); if (!c) abw.push(t); };
@@ -207,8 +215,40 @@ const plan = () => ({
   for (let i = 0; i < 600 && f.phase !== 'abgeschlossen'; i++) { await grenze(); if (i % 100 === 99) zeile(`WARTEN   Faden steht bei Beat ${f.beat} (${f.phase}), Zaehler ${f.zaehler}/${f.abstand}`); }
   for (let i = 0; i < 12; i++) { await grenze(); }
   await sleep(500);
+
+  // ---- --verkauf: die Crew fliegt an den Hafen Ostia Nova (kuenstlich: Teleport), die Ops verkauft die Beute (weapons.verkaufen). Erwartung (Preis je Einheit) aus den Daten: waren.json, handel.json, Besitzer aus der Karte sund_frei.json
+  const orteNach = orte();   // vor dem Hafenbesuch gemessen: enterScene setzt die Away-Karte neu
+  let verkauf = null;
+  if (VERKAUF) {
+    const HAFEN = 'ostia_nova', ART = 'bergungsgut', HEX = '0305';
+    const lager = () => Fracht.state(g).lager.filter((l) => l.art === ART).length;
+    const marken = () => g.inventory.marks;
+    const rj = (...p) => JSON.parse(fs.readFileSync(path.join('content', ...p), 'utf8'));
+    const grund = rj('waren.json').waren.find((x) => x.id === ART).grundpreis;
+    const HD = rj('handel.json'), volk = HD.voelker[rj('welt', 'sund_frei.json').hexe[HEX].fraktion] || HD.standard, hd = HD.haefen['sund_frei:' + HEX] || {};
+    const preisJe = Math.max(1, Math.round(grund * (volk.faktor != null ? volk.faktor : 1) * ((volk.waren && volk.waren[ART]) != null ? volk.waren[ART] : 1) * (hd.faktor != null ? hd.faktor : 1) * ((hd.waren && hd.waren[ART]) != null ? hd.waren[ART] : 1)));
+    const einheiten = lager(), m0 = marken();
+    const st = Locations.get(HAFEN).scene.station;
+    k('teleport'); Space.enterScene(g, HAFEN, {}); g.explore.location = HAFEN;
+    let stehtSchon = false; const stehen = () => { if (!stehtSchon) { stehtSchon = true; k('ort-setzen'); } const s = g.ship; s.docked = false; s.dockedAt = null; s.x = st.x + 40; s.y = st.y; s.vx = 0; s.vy = 0; s.speed = 0; if (s.helm) { s.helm.thrust = 0; s.helm.turn = 0; } };
+    stehen();
+    zeile(`BOT      Flug zum Hafen ${HAFEN} (Teleport), Schiff an der Station; Lager ${einheiten} Beute, Marken ${m0}, erwartet ${preisJe} je Einheit`);
+    await sleep(300); await grenze();
+    await w.konsole('weapons'); stehen();
+    cl[0].send({ t: 'cmd', c: 'weapons.verkaufen' });
+    await sleep(250); stehen();
+    const laeuft = Fracht.state(g).halt && Fracht.state(g).halt.kind;
+    pruef(laeuft === 'verk', `Verkauf: Halteprozess laeuft (${laeuft || 'keiner'}, weapons.verkaufen)`);
+    const da = await wartenAuf(() => { stehen(); return lager() === 0 && !Fracht.state(g).halt; }, 20000);
+    const m1 = marken();
+    zeile(`OPS      Verkauf am Hafen ${HAFEN}: Marken + ${m1 - m0}, Lager ${da && lager() === 0 ? 'leer' : lager() + ' Beute'}`);
+    verkauf = { hafen: HAFEN, marken_vorher: m0, marken_nachher: m1, einheiten, preis_je: preisJe, lager_leer: lager() === 0, ok: false };
+    pruef(einheiten >= 1 && da, `Verkauf: Beute verkauft (${einheiten} Einheiten, Halteprozess beendet ${da})`);
+    pruef(m1 - m0 === einheiten * preisJe, `Verkauf: Marken ${m0} > ${m1} (+ ${m1 - m0}, erwartet ${einheiten} x ${preisJe} = ${einheiten * preisJe} laut waren.json und handel.json)`);
+    pruef(lager() === 0, 'Verkauf: Lager der Beute leer');
+    verkauf.ok = einheiten >= 1 && da && m1 - m0 === einheiten * preisJe && lager() === 0;
+  }
   const ged = f.nsc.gedaechtnis.map((e) => e.ereignis);
-  const orteNach = orte();
   pruef(f.phase === 'abgeschlossen', `Faden abgeschlossen (Phase ${f.phase}, Beat ${f.beat})`);
   // Der Ausgang des Fadens ist der des letzten Beats (abschluss): im Frist-Lauf scheitert nur der Beat wrack, die Verzweigung fuehrt in den Abschluss; ob der Faden dort gelungen endet, bestimmt der Plan (Daten)
   pruef(FRIST_LAUF ? (!!f.ausgang && ['gelungen', 'gescheitert'].includes(f.ausgang.art)) : (!!f.ausgang && f.ausgang.art === 'gelungen'), `Ausgang des Fadens ${FRIST_LAUF ? '(Abschluss nach Verzweigung)' : 'gelungen'}: ${f.ausgang && f.ausgang.art}`);
@@ -230,7 +270,8 @@ const plan = () => ({
   const sek = Math.round((Date.now() - t0) / 100) / 10;
   const ok = abw.length === 0;
   const kurz = `${ok ? 'ok' : 'FEHLER'} ${BES} crew ${CREW} seed ${SEED}${FRIST_LAUF ? ' frist-lauf' : ''}: Ausgang ${f.ausgang && f.ausgang.art}, Verlauf ${verlauf.join(' > ')}; Gegner ${gegner}; unten ${unten.length}; Komponisten-Aufrufe ${aufrufe()}; g.errors ${g.errors}; Orte ${zahlOrte(orteVor)} vorher, ${zahlOrte(orteWaehrend)} im Lauf, ${zahlOrte(orteNach)} nachher; ${sek} s; kuenstlich ${JSON.stringify(kz)}`;
-  if (JSON_DATEI) fs.writeFileSync(JSON_DATEI, JSON.stringify({ besetzung: BES, crew: CREW, seed: g.seed, fristLauf: FRIST_LAUF, ok, abweichungen: abw, faden: { phase: f.phase, ausgang: f.ausgang && f.ausgang.art, gedaechtnis: ged, verlauf }, gegner, gegnerArten, unten: unten.length, komponistenAufrufe: aufrufe(), errors: g.errors, orte: { vor: zahlOrte(orteVor), lauf: zahlOrte(orteWaehrend), nach: zahlOrte(orteNach), nachDetail: orteNach }, boden: boden.filter((e) => e.map === lpId), funk, ortName: Sektoren.hexName(ziel) || ziel, lager: Fracht.lagerArten(g).length, beute: BEUTE_NEHMEN, logbuch: LOGBUCH_LESEN, sekunden: sek, kuenstlich: kz }, null, 1) + '\n', 'utf8');
+  if (JSON_DATEI) fs.writeFileSync(JSON_DATEI, JSON.stringify(Object.assign({ besetzung: BES, crew: CREW, seed: g.seed, fristLauf: FRIST_LAUF, ok, abweichungen: abw, faden: { phase: f.phase, ausgang: f.ausgang && f.ausgang.art, gedaechtnis: ged, verlauf }, gegner, gegnerArten, unten: unten.length, komponistenAufrufe: aufrufe(), errors: g.errors, orte: { vor: zahlOrte(orteVor), lauf: zahlOrte(orteWaehrend), nach: zahlOrte(orteNach), nachDetail: orteNach }, boden: boden.filter((e) => e.map === lpId), funk, ortName: Sektoren.hexName(ziel) || ziel, lager: Fracht.lagerArten(g).length, beute: BEUTE_NEHMEN, logbuch: LOGBUCH_LESEN, sekunden: sek, kuenstlich: kz }, VERKAUF ? { verkauf } : {}), null, 1) + '\n', 'utf8');
+  MitLauf.beenden(g);
   for (const x of cl) { try { x.ws.close(); } catch (e) { /* egal */ } }
   if (!ok) for (const z of zeilen.slice(-40)) console.log(z);
   console.log(kurz);
