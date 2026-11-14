@@ -1,6 +1,6 @@
 {
   "format": "notruf-brett/1",
-  "_hinweis": "FRE-03 D: Daten des Brett-Angebots zu einem Takt-Notruf (server/sim/abenteuer-brett.js notrufAnbieten). Beim Entstehen eines Notrufs legt das Brett ein Angebot an (kein Modell, kein Komponisten-Aufruf, auch im Rückfall-Betrieb): der Plan steht hier als Daten (faden-bauplan/1, Beat notruf plus Abschluss), nicht im Code. Der Inszenierer (inszenierer.js) taugt dafür nicht: seine Ortsregel wählt das Ziel selbst, der Notruf-Ort steht aber fest, und ohne ABENTEUER_ABSICHTEN ist er gesperrt. Titel und Anlass sind Katalogtexte (Sprecher des Notruf-Eintrags, nie ein Spielername). Platzhalter nur {sprecher} (Titel). plan.volk_erlaubt: Völker des NSC, den das Annehmen erzeugt: das Volk des Ortes gilt, wenn es hier steht (rom, ger, Konkordat), sonst das erste (Piraten- und Vorläufer-Sektoren haben kein Volk); ohne ger bekäme ein Notruf im Germanengebiet einen römischen NSC. plan.beats[0].parameter.text_key: Funktext des Beats notruf (p3-texte.json) beim Annehmen.",
+  "_hinweis": "FRE-03 D: Daten des Brett-Angebots zu einem Takt-Notruf (server/sim/abenteuer-brett.js notrufAnbieten). Beim Entstehen eines Notrufs legt das Brett ein Angebot an (kein Modell, kein Komponisten-Aufruf, auch im Rückfall-Betrieb): der Plan steht hier als Daten (faden-bauplan/1, BEA-02 C: Beat notruf, Beat rettung mit Abgabe an einer Station, Abschluss; plan.landeplaetze fehlt hier und entsteht je Angebot aus werte.landeplatz_arten und landeplatz_id, die Besetzung des Beats rettung aus werte.besetzung_je_variante; die Variante steht nie im Faden), nicht im Code. Der Inszenierer (inszenierer.js) taugt dafür nicht: seine Ortsregel wählt das Ziel selbst, der Notruf-Ort steht aber fest, und ohne ABENTEUER_ABSICHTEN ist er gesperrt. Titel und Anlass sind Katalogtexte (Sprecher des Notruf-Eintrags, nie ein Spielername). Platzhalter nur {sprecher} (Titel). plan.volk_erlaubt: Völker des NSC, den das Annehmen erzeugt: das Volk des Ortes gilt, wenn es hier steht (rom, ger, Konkordat), sonst das erste (Piraten- und Vorläufer-Sektoren haben kein Volk); ohne ger bekäme ein Notruf im Germanengebiet einen römischen NSC. plan.beats[0].parameter.text_key: Funktext des Beats notruf (p3-texte.json) beim Annehmen.",
   "werte": {
     "notruf_angebote_max": {
       "wert": 3,
@@ -9,12 +9,46 @@
     },
     "absicht_je_variante": {
       "wert": {
-        "havarie": "notruf",
-        "piratenueberfall": "notruf",
-        "belagerung": "notruf"
+        "havarie": "bergung",
+        "piratenueberfall": "bergung",
+        "belagerung": "bergung"
       },
       "einheit": "Absicht je Variante des Katalog-Notrufs",
-      "_hinweis": "Welche Absicht (absichten.json) das Angebot trägt. Alle drei Varianten des Katalogs sind ein Hilferuf an ein Schiff oder einen Posten, kein Katalog-Text nennt eine Entführung oder Überlebende: die Absicht rettung (Beat befreiung, entführter NSC) passt auf keine. Rettungsfälle mit Überlebenden kommen mit BEA-02: dann steht hier für die passende Variante rettung."
+      "_hinweis": "Welche Absicht (absichten.json) das Angebot trägt. BEA-02 C: alle drei Varianten tragen die Absicht bergung (Notruf, Rettung der Überlebenden am Ort, Abschluss; so ist auch der Plan aus dem Vorrat eine Bergung). Die Absicht rettung (Befreiung eines entführten NSC, Beat befreiung) bleibt unberührt und gehört keiner Variante: kein Katalog-Text nennt eine Entführung."
+    },
+    "landeplatz_arten": {
+      "wert": ["wildnis", "schiff"],
+      "einheit": "Kartenarten in dieser Reihenfolge",
+      "_hinweis": "BEA-02 C: die Ort-Art des Landeplatzes, den das Angebot bestellt: die erste Art dieser Liste, die abenteuer-orte.moeglicheArten(hex) am Hex des Notrufs nennt. wildnis = Absturz auf einem Planeten (geht nur an Hexen mit passendem Planeten, heute 13 von 30), schiff = Wrack im Raum (an jedem spielbaren Hex, baut germanisch, solange Rom für Schiffe gesperrt ist). Nennt der Hex keine der Arten, bekommt der Plan keinen Landeplatz, der Prüfer lehnt ihn ab und der Notruf bleibt ein reiner Katalog-Notruf."
+    },
+    "landeplatz_id": {
+      "wert": "ort",
+      "einheit": "Id des Landeplatzes im Plan",
+      "_hinweis": "BEA-02 C: plan.landeplaetze[0].id und Parameter landeplatz des Beats rettung (Muster platz_muster in abenteuer-orte.json)."
+    },
+    "besetzung_je_variante": {
+      "wert": {
+        "havarie": "ruhig",
+        "piratenueberfall": "raeuber",
+        "belagerung": "belagerer"
+      },
+      "einheit": "Schlüssel der Besetzung (boden-werte.json besetzung) je Variante",
+      "_hinweis": "BEA-02 C: wer am Ort der Rettung steht. havarie: niemand, nur Überlebende. piratenueberfall: die Räuber sind noch am Wrack. belagerung: die Angreifer liegen noch vor dem Posten. Der Plan nennt nur den Schlüssel (DYN-01: keine Besetzung im Plan, kein Seed). Die Schlüssel müssen in boden-werte.json stehen (Test)."
+    },
+    "besetzung_arten": {
+      "wert": { "belagerer": ["station", "aussenposten"] },
+      "einheit": "Schlüssel -> Ort-Arten, an denen er gilt",
+      "_hinweis": "BEA-02 C: ein Schlüssel mit Eintrag hier gilt nur an diesen Ort-Arten (eine Belagerung gibt es an einem Posten oder einer Station, nicht an einem Wrack oder einer Absturzstelle); an jeder anderen Art gilt besetzung_ersatz. Der Standardplan bestellt nur wildnis oder schiff: die Belagerung am Boden ist dort ein Trupp wie beim Überfall."
+    },
+    "besetzung_ersatz": {
+      "wert": { "belagerer": "raeuber" },
+      "einheit": "Schlüssel -> Ersatz-Schlüssel",
+      "_hinweis": "BEA-02 C: der Schlüssel, der an einer Art gilt, die besetzung_arten nicht nennt."
+    },
+    "ort_beats": {
+      "wert": ["rettung"],
+      "einheit": "Beat-Typen des Plans, die am Landeplatz arbeiten",
+      "_hinweis": "BEA-02 C: an diesen Beats setzt das Brett je Angebot die Parameter landeplatz (landeplatz_id) und besetzung (besetzung_je_variante)."
     },
     "text_key_je_variante": {
       "wert": {
@@ -26,7 +60,7 @@
       "_hinweis": "FRE-03 Nacharbeit S1: der Funktext des Beats beim Annehmen passt zur Variante des Katalog-Notrufs: eine Havarie ohne Gefahr meldet keine Wachschiffe, ein Ueberfall und eine Belagerung nennen die Angreifer. Der NSC bestaetigt den Ruf des Katalog-Sprechers (Kapitaen des Schiffs, Wachhabender), er ruft nicht ein zweites Mal um Hilfe."
     },
     "absicht_standard": {
-      "wert": "notruf",
+      "wert": "bergung",
       "einheit": "Absicht",
       "_hinweis": "Gilt für eine Variante ohne Eintrag in absicht_je_variante."
     },
@@ -63,10 +97,24 @@
         "typ": "notruf",
         "parameter": {
           "text_key": "notruf_standard"
+        },
+        "verzweigung": {
+          "gescheitert": "ende"
         }
       },
       {
-        "typ": "abschluss"
+        "typ": "rettung",
+        "parameter": {
+          "ende": "abgegeben"
+        },
+        "verzweigung": {
+          "gescheitert": "ende"
+        }
+      },
+      {
+        "id": "ende",
+        "typ": "abschluss",
+        "erfolg": ["rettung"]
       }
     ],
     "volk_erlaubt": [

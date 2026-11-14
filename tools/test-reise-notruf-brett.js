@@ -94,6 +94,8 @@ function kantenOeffnen(g, hex) {
 function funkAb(g) { const z = []; const e0 = g.emit.bind(g); g.emit = (ev, d) => { if (ev === 'radio') z.push({ von: d.from, text: d.text, fd: d.fd }); return e0(ev, d); }; return z; }
 const angebotZu = (g, o) => notrufAng(g).find((a) => a.notruf.marke === o.marke) || null;
 const faden = (g, a) => Fz(g).liste.find((f) => f.vorlage === a.ref) || null;
+// BEA-02 C: der Plan des Bretts hat nach dem Notruf den Beat rettung. Ohne Crew am Ort endet er an seiner Frist (Taetigkeiten), die Verzweigung fuehrt zum Abschluss (gescheitert); der Rueckfall fuehrt ohne Modell bis dorthin.
+const rettungAus = (g, f) => { for (let i = 0; i < D.BEATS.rettung.frist + 8 && f.phase !== 'abgeschlossen'; i++) { Faden.taetigkeit(g, 'andocken'); lauf(g, 1); } };
 const springe = (g, hex) => Sprung.springeNach(g, Sektoren.ortVonHex(hex));
 
 (async () => {
@@ -102,8 +104,9 @@ const springe = (g, hex) => Sprung.springeNach(g, Sektoren.ortVonHex(hex));
     const katalog = Absicht.katalogStandard();
     const varianten = Array.from(new Set(NOTRUFE.map((e) => (e.parameter || {}).variante)));
     ok(varianten.length === 3 && varianten.every((v) => Object.prototype.hasOwnProperty.call(NB.absicht_je_variante, v) && Object.prototype.hasOwnProperty.call(NB.anlass_je_variante, v)), 'jede Variante des Katalogs (' + varianten.join(', ') + ') hat Absicht und Anlass in den Daten');
-    ok(Object.values(NB.absicht_je_variante).concat([NB.absicht_standard]).every((a) => ['notruf', 'rettung'].includes(a) && Object.prototype.hasOwnProperty.call(katalog.absichten, a)), 'die Absichten in den Daten sind notruf oder rettung und stehen im Katalog der Absichten');
+    ok(Object.values(NB.absicht_je_variante).concat([NB.absicht_standard]).every((a) => ['notruf', 'rettung', 'bergung'].includes(a) && Object.prototype.hasOwnProperty.call(katalog.absichten, a)), 'die Absichten in den Daten sind notruf, rettung oder bergung und stehen im Katalog der Absichten');
     const plan = klon(NBD.plan); plan.titel = NB.titel.replace('{sprecher}', 'Kutter Fortuna'); plan.anlass = NB.anlass_standard;
+    plan.landeplaetze = [{ id: NB.landeplatz_id, art: NB.landeplatz_arten[NB.landeplatz_arten.length - 1] }]; plan.beats.find((b) => b.typ === 'rettung').parameter.landeplatz = NB.landeplatz_id;   // BEA-02 C: die Schablone hat keinen Landeplatz, das Brett setzt ihn je Angebot (Pflicht landeplatz an rettung)
     const r = Bauplan.pruefe(plan);
     ok(r.ok && r.vorlage.beats[0].typ === 'notruf' && r.vorlage.volk_erlaubt.includes('ger'), 'der Plan aus den Daten ist ein gueltiger Bauplan: Beat notruf, Volk ger erlaubt' + (r.ok ? '' : ' – ' + r.fehler[0]));
     ok(NOTRUFE.length === 15, '15 Katalog-Notrufe (' + NOTRUFE.length + ')');
@@ -151,7 +154,7 @@ const springe = (g, hex) => Sprung.springeNach(g, Sektoren.ortVonHex(hex));
       ok(!!a && notrufAng(g).length === 1, tag + ': beim Entstehen liegt ein Angebot am Brett');
       if (!a) continue;
       const absichtSoll = NB.absicht_je_variante[e.parameter.variante];
-      ok(a.hex === o.hex && ['notruf', 'rettung'].includes(a.absicht.absicht) && a.absicht.absicht === absichtSoll, `${tag}: Ort = Notruf-Hex, Absicht ${a.absicht && a.absicht.absicht}`);
+      ok(a.hex === o.hex && ['notruf', 'rettung', 'bergung'].includes(a.absicht.absicht) && a.absicht.absicht === absichtSoll, `${tag}: Ort = Notruf-Hex, Absicht ${a.absicht && a.absicht.absicht}`);
       ok(a.variante === e.parameter.variante && a.herkunft && a.herkunft.hex === hex && a.bezug && a.bezug.sprecher === e.sprecher && !a.bezug.nsc, `${tag}: variante ${a.variante}, herkunft ${a.herkunft && a.herkunft.hex}, bezug.sprecher "${a.bezug && a.bezug.sprecher}" (Text, kein NSC)`);
       ok(a.notruf.marke === o.marke && a.notruf.nr === o.nr && a.notruf.id === e.id, tag + ': Verknuepfung zum Eintrag (notruf nr, id, Marke)');
       const s = Brett.snapshot(g), se = s && s.angebote.find((x) => x.id === 'a' + a.nr);
@@ -171,7 +174,7 @@ const springe = (g, hex) => Sprung.springeNach(g, Sektoren.ortVonHex(hex));
       if (a.volk === 'ger') { gerAng++; if (f && f.parameter.volk === 'ger') gerNsc++; }
       // Ankunft am Hex beendet den Beat wie bisher
       springe(g, o.hex); lauf(g, 3);
-      ok(f && f.beat === 1 && f.phase !== 'laeuft' && g.errors === 0, tag + ': die Ankunft beendet den Beat (Beat ' + (f && f.beat) + ', Phase ' + (f && f.phase) + '), keine Fehler');
+      ok(f && f.beat === 1 && f.nsc.gedaechtnis.some((x) => x.ereignis === 'notruf_gelungen') && g.errors === 0, tag + ': die Ankunft beendet den Beat (Beat ' + (f && f.beat) + ', Phase ' + (f && f.phase) + '), keine Fehler');   // BEA-02 C: danach beginnt der Beat rettung (Phase laeuft oder wartet), vorher stand hier phase != laeuft
       ok(R(g).offen.every((x) => x.marke !== o.marke) && notrufAng(g).length === 0, tag + ': der Eintrag ist beantwortet, kein Angebot uebrig');
       ok(sl(g).abenteuer.aufrufe === 0, tag + ': auch nach Annehmen und Ankunft 0 Komponisten-Aufrufe');
       // S1: Texte, Akzent, Dank
@@ -185,10 +188,11 @@ const springe = (g, hex) => Sprung.springeNach(g, Sektoren.ortVonHex(hex));
         for (let i = 0; i < e.parameter.vorlauf_s + 10 && !R(g).laufend.some((x) => x.phase === 'kampf'); i++) lauf(g, 1);
         g.space.enemies = []; lauf(g, 3);
       }
+      rettungAus(g, f);
       ok(f.phase === 'abgeschlossen' && P.abenteuerLaufend(Fz(g)) === 0, tag + ': Rueckfall-Betrieb: der Faden ist abgeschlossen (Phase ' + f.phase + '), abenteuerLaufend ' + P.abenteuerLaufend(Fz(g)));
       const kd = katDank(e, o, funk), nd = nscDank(funk);
       ok(kd.length === 1 && nd.length === 0 && funk.length >= 2, `${tag}: genau EIN Dank, vom Katalog-Eintrag (${kd.length}), keiner vom NSC (${nd.length}), in ${funk.length} Funkzeilen`);
-      ok(zeilen(funk, txt('notruf_abschluss')).length === 1 && zeilen(funk, txt('abschluss_gelungen')).length === 0, tag + ': Abschlusstext des Notruf-Fadens ist notruf_abschluss (einmal), nicht der Dank-Text abschluss_gelungen');
+      ok(zeilen(funk, txt('abschluss_gescheitert').replace('{name}', f.nsc.name)).length === 1 && zeilen(funk, txt('notruf_abschluss')).length === 0 && zeilen(funk, txt('abschluss_gelungen')).length === 0, tag + ': Abschlusstext des Notruf-Fadens ohne gelungene Rettung ist abschluss_gescheitert (einmal), weder der Dank-Text abschluss_gelungen noch notruf_abschluss (der gilt nur nach gelungener Rettung)');
       ok(funk.every((x) => (g.players || []).every((p) => !p.name || p.name.length < 3 || !x.text.includes(p.name))), tag + ': kein Spielername im Funk');
       const nach = Brett.notrufAnbieten(g, { nr: -777, id: e.id, hex: '0603' === o.hex ? '0504' : '0603', variante: e.parameter.variante, sprecher: 'Probeschiff', marke: 'reise:n-777', ankunft: hex });
       ok(!!nach && Brett.annehmen(g, 'a' + nach.nr) === null && P.abenteuerLaufend(Fz(g)) === 1, tag + ': danach ist ein weiteres Annehmen moeglich');
@@ -293,7 +297,7 @@ const springe = (g, hex) => Sprung.springeNach(g, Sektoren.ortVonHex(hex));
     const g = m.g;
     ok(Absicht2.aktiv(g) === true, 'Modus Absichten an');
     const a = angebotZu(g, m.o);
-    ok(!!a && a.absicht.absicht === 'notruf', 'das Notruf-Angebot traegt seine Absicht (auch hier)');
+    ok(!!a && a.absicht.absicht === NB.absicht_je_variante[NOTRUFE[4].parameter.variante], 'das Notruf-Angebot traegt seine Absicht aus den Daten (auch hier)');   // BEA-02 C: vorher fest notruf, jetzt bergung (Daten)
     g.lageGrenze('andocken');   // das Brett merkt sich die Angebote, die es sieht (Verfall legt sonst ein)
     const v0 = (Fz(g).vorrat || []).length;
     ok(Brett.ablehnen(g, 'a' + a.nr) === null && (Fz(g).vorrat || []).length === v0, 'Angebot ablehnen: nichts im Vorrat');
@@ -335,7 +339,7 @@ const springe = (g, hex) => Sprung.springeNach(g, Sektoren.ortVonHex(hex));
     Fz(g).abenteuerAngebote = alle;
     const gesamt = Buffer.byteLength(JSON.stringify(g.snapshot()));
     console.log(`  Messung: Brett-Block mit 3 Andock-Angeboten ${s3} B, mit 3 Notruf- plus 3 Andock-Angeboten ${s6} B (Zuwachs ${s6 - s3} B, ${Math.round((s6 - s3) / 3)} B je Notruf-Angebot); g.snapshot() gesamt ${gesamt} B (Grenze ${CONFIG.net.snapMax - CONFIG.net.snapLuft} B)`);
-    ok(s6 - s3 < 2000 && gesamt <= CONFIG.net.snapMax - CONFIG.net.snapLuft, 'der Zuwachs ist klein (< 2000 B) und der Snapshot bleibt unter der Grenze');
+    ok(s6 - s3 < 2400 && gesamt <= CONFIG.net.snapMax - CONFIG.net.snapLuft, 'der Zuwachs ist klein (< 2400 B, BEA-02 C: vorher 2000, der Plan hat drei Beats) und der Snapshot bleibt unter der Grenze');
     // Laden: Eintrag und Angebot sind gemeinsam weg
     const d1 = JSON.parse(JSON.stringify(Weltstand.capture(g)));
     ok(Weltstand.validate(d1).length === 0 && !JSON.stringify(d1).includes('"notruf":{"nr"'), 'Weltstand schemagueltig, kein Notruf-Angebot darin');
@@ -408,7 +412,9 @@ const springe = (g, hex) => Sprung.springeNach(g, Sektoren.ortVonHex(hex));
       ok(P.notrufBrettFaden(fn) === true && fn.phase === 'wartet' && Brett.notrufRueckfallWeiter(m.g) === 0, 'mit Spielleiter (Modus mock) ohne Rueckfall-Betrieb fuehrt die Funktion einen Notruf-Faden nicht weiter, das ist Sache des Spielleiters (Phase ' + fn.phase + ')');
     } finally { sl(m.g).rueckfallBetrieb = rb; sl(m.g).mode = modus; }
     lauf(m.g, 1);
-    ok(fn.phase === 'abgeschlossen', 'mit Rueckfall-Betrieb endet er im naechsten Takt (Phase ' + fn.phase + ')');
+    ok(fn.phase !== 'wartet' || fn.beat === 2, 'mit Rueckfall-Betrieb geht er im naechsten Takt weiter (Beat rettung, Phase ' + fn.phase + ')');   // BEA-02 C: vorher: abgeschlossen im naechsten Takt
+    rettungAus(m.g, fn);
+    ok(fn.phase === 'abgeschlossen', 'mit Rueckfall-Betrieb endet er (nach der Frist der Rettung) von selbst (Phase ' + fn.phase + ')');
     ok(m.g.errors === 0 && g.errors === 0, 'keine Fehler');
   });
 
@@ -423,7 +429,8 @@ const springe = (g, hex) => Sprung.springeNach(g, Sektoren.ortVonHex(hex));
     ok(R(g).offen.some((x) => x.marke === o.marke) && Marken.da(g, o.marke), 'die erste Frist ist um, der Eintrag und seine Marke leben weiter (Frist ab Annehmen neu)');
     ok(!(g.marken || []).some((x) => x.id === 'fund:' + o.marke), 'kein Wrack (Fund-Marke) mitten auf dem Weg');
     springe(g, o.hex); lauf(g, 3);
-    ok(katDank(NOTRUFE[4], o, funk).length === 1 && nscDank(funk).length === 0 && faden(g, a).phase === 'abgeschlossen', 'Ankunft nach der ersten Frist: der Katalog-Eintrag dankt (genau einmal, der NSC nicht), der Faden ist abgeschlossen');
+    rettungAus(g, faden(g, a));
+    ok(katDank(NOTRUFE[4], o, funk).length === 1 && nscDank(funk).length === 0 && faden(g, a).phase === 'abgeschlossen','Ankunft nach der ersten Frist: der Katalog-Eintrag dankt (genau einmal, der NSC nicht), der Faden ist abgeschlossen');
     ok(!(g.marken || []).some((x) => x.id === 'fund:' + o.marke), 'kein Wrack nach der Ankunft');
     // nie angekommen: nach der neuen Frist weg, aber nicht als ignoriert gebucht
     const m2 = erzwingen(NOTRUFE[4]);
@@ -566,7 +573,7 @@ const springe = (g, hex) => Sprung.springeNach(g, Sektoren.ortVonHex(hex));
     kantenOeffnen(g2, o.hex);
     const funk = funkAb(g2);
     springe(g2, o.hex); lauf(g2, 3);
-    ok(f2.phase === 'abgeschlossen' && f2.ausgang.art === 'gelungen' && katDank(MIT, o, funk).length === 0 && nscDank(funk).length === 0 && R(g2).laufend.length === 0 && (g2.space.enemies || []).length === 0, 'BEKANNTE LUECKE: Ankunft nach dem Laden beendet den Faden gelungen, ohne Katalog-Dank und ohne Kampf (der Eintrag fehlt)');
+    ok(f2.nsc.gedaechtnis.some((x) => x.ereignis === 'notruf_gelungen') && f2.beat === 1 && katDank(MIT, o, funk).length === 0 && nscDank(funk).length === 0 && R(g2).laufend.length === 0 && (g2.space.enemies || []).length === 0, 'BEKANNTE LUECKE: Ankunft nach dem Laden beendet den Beat notruf gelungen (BEA-02 C: dann folgt die Rettung, vorher der Abschluss), ohne Katalog-Dank und ohne Kampf (der Eintrag fehlt)');
   });
 
   await section('R2 B2: Annehmen, die Frist laeuft ab (nicht rechtzeitig erreicht): der Faden endet gescheitert, auch bei spaeter Ankunft', () => {
@@ -610,7 +617,7 @@ const springe = (g, hex) => Sprung.springeNach(g, Sektoren.ortVonHex(hex));
     Brett.annehmen(g, 'a' + a.nr); const f = faden(g, a);
     springe(g, o.hex); for (let i = 0; i < MIT.parameter.vorlauf_s + 10 && !R(g).laufend.some((x) => x.phase === 'kampf'); i++) lauf(g, 1);
     g.space.enemies = []; lauf(g, 3);
-    ok(f.phase === 'abgeschlossen' && f.ausgang.art === 'gelungen', 'Gegenprobe: Kampf bestanden = Faden gelungen');
+    ok(f.nsc.gedaechtnis.some((x) => x.ereignis === 'notruf_gelungen') && f.beat === 1 && f.phase !== 'abgeschlossen', 'Gegenprobe: Kampf bestanden = Beat notruf gelungen, der Faden geht zur Rettung weiter');   // BEA-02 C: vorher: Faden gelungen (der Plan hatte keine Rettung)
   });
 
   console.log(`\n${n - fails}/${n} Prüfungen bestanden.`);

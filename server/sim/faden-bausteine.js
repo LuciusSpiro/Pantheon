@@ -59,4 +59,5 @@ registriere('forderung', require('./faden-forderung.js').baustein);   // BEA-01 
 registriere('sondersektor', require('./faden-sondersektor.js').sondersektor);   // SON-01 B: Sondersektor (startet das unveraenderte Regiebuch des Sektors, erkennt dessen Ende); Takt: faden-sondersektor.js update
 registriere('landung', require('./faden-landung.js').baustein);   // FAB-01 B: Landung am Ort des Plans (Besetzung aus Daten, Ausgang ueber den Boden-Verteiler faden-boden.js; meldet dort seinen Handler an)
 registriere('wrack', require('./faden-wrack.js').baustein);   // WRK-01 B: Wrack erkunden (Rahmen von faden-landung.js, Ausgang ueber den Boden-Verteiler; meldet dort seinen Handler an)
+registriere('rettung', require('./faden-rettung.js').baustein);   // BEA-02 B: Rettung von Ueberlebenden am Ort des Plans (Besetzung geteilt mit landung, Ausgang ueber den Boden-Verteiler faden-boden.js; meldet dort seinen Handler an)
 module.exports = { registriere, vonId, idVon, platzhalter, istPlatzhalter };

@@ -125,4 +125,5 @@ function datenFehler() {
   return out;
 }
 
-module.exports = { baustein, handler, nachTaetigkeit, update, datenFehler, besetzungVon, TEXTE, WERTE };
+// BEA-02 B: gemeinsame Teile fuer Beats am Boden (faden-rettung.js): Besetzung, Ort, Namen, Karte, niemand unten
+module.exports = { baustein, handler, nachTaetigkeit, update, datenFehler, besetzungVon, besetzungAnlegen, besetzungsSchluessel, besetztAn, ortVon, platzName, hexName, fmt, niemandUnten, TEXTE, WERTE };

@@ -1,0 +1,51 @@
+{
+  "format": "faden-rettung-werte/1",
+  "_hinweis": "BEA-02 B: Zahlen und Namen des Beats rettung (server/sim/faden-rettung.js, Katalog beats.json). Texte stehen in rettung-texte.json, die Besetzung am Ort in boden-werte.json (geteilt mit landung). Alle Werte sind PLATZHALTER-ANNAHMEN der Entwicklung (Balance: Kai, Spieltest). Konvention wie boden-werte.json: je Eintrag wert, einheit, _hinweis. Im Servercode steht keine Zahl und kein Name davon.",
+  "werte": {
+    "anzahl_standard": {
+      "wert": 3,
+      "einheit": "Personen",
+      "_hinweis": "So viele Ueberlebende hat der Beat, wenn der Plan keine anzahl nennt. Muss zwischen anzahl_min und anzahl_max liegen."
+    },
+    "anzahl_min": {
+      "wert": 1,
+      "einheit": "Personen",
+      "_hinweis": "Kleinste Zahl Ueberlebender (der Faden-NSC ist immer dabei)."
+    },
+    "anzahl_max": {
+      "wert": 3,
+      "einheit": "Personen",
+      "_hinweis": "Groesste Zahl Ueberlebender. Nicht groesser als CONFIG.personen.maxGleichzeitig (3): so viele offene Personen traegt eine gebaute Karte zugleich (Katalogpruefung datenFehler, Tests). Der Katalog (beats.json bauplan.parameter.anzahl.erlaubt) listet genau min bis max."
+    },
+    "ende_standard": {
+      "wert": "an_bord",
+      "einheit": "Schluessel von enden",
+      "_hinweis": "Gilt, wenn der Beat kein ende nennt oder ein unbekanntes (Vorlage-Dateien; im Plan lehnt der Expander einen unbekannten Wert ab)."
+    },
+    "enden": {
+      "wert": { "an_bord": { "abgeben": false }, "abgegeben": { "abgeben": true } },
+      "einheit": "Schluessel (Beat-Parameter ende) -> { abgeben }",
+      "_hinweis": "an_bord (abgeben false): gelungen, sobald alle Ueberlebenden im Frachtraum liegen. abgegeben (abgeben true): gelungen, sobald alle an einer Station (Abnehmer) abgegeben sind. Die Schluessel muessen mit bauplan.parameter.ende.erlaubt in beats.json uebereinstimmen (Katalogpruefung datenFehler)."
+    },
+    "person_praefix": {
+      "wert": "u",
+      "einheit": "Zeichen",
+      "_hinweis": "Kennung einer Person: <Fadenid>.<person_praefix><Nummer>, Nummer ab 1; Person 1 ist der NSC des Fadens. Deterministisch, damit der Beat nach Speichern und Laden ohne eigenen Weltstand-Block weiterlaeuft."
+    },
+    "anker_rollen": {
+      "wert": ["deckung", "nsc", "zelle"],
+      "einheit": "Ankerrollen der Karte, in dieser Reihenfolge",
+      "_hinweis": "Wo die Ueberlebenden stehen: zuerst Anker der ersten Rolle, gibt es keinen, die naechste. Die Karte liefert die Anker (landepunkte.karte); weniger Anker als Personen: away.spawnPersonDazu stellt auf die naechste freie Kachel."
+    },
+    "text_max": {
+      "wert": 150,
+      "einheit": "Zeichen",
+      "_hinweis": "Obergrenze eines Funktextes in rettung-texte.json (Katalogpruefung datenFehler); der Funk des Fadens kuerzt ohnehin auf 160 Zeichen."
+    },
+    "schluessel_max": {
+      "wert": 24,
+      "einheit": "Zeichen",
+      "_hinweis": "Obergrenze der Laenge eines Schluessels in enden und des Personen-Praefixes (Katalogpruefung datenFehler)."
+    }
+  }
+}

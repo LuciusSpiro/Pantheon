@@ -116,6 +116,7 @@ function katalogFehler() {
   }
   out.push(...require('./faden-b2.js').katalogFehler().map((t) => fehl('BAUPLAN_KATALOG', t)));   // SUND-04b B2: Daten der Szenen konvoi und geleit, des Beats sabotage, braucht.lage und frist
   out.push(...require('./faden-wrack.js').datenFehler().map((t) => fehl('BAUPLAN_KATALOG', t)));   // WRK-01 B: Katalogzeile, Besetzung, Texte des Beats wrack
+  out.push(...require('./faden-rettung.js').datenFehler().map((t) => fehl('BAUPLAN_KATALOG', t)));   // BEA-02 B: Zahlen, Enden, Texte und Pflicht des Beats rettung
   out.push(...require('./faden-landung.js').datenFehler().map((t) => fehl('BAUPLAN_KATALOG', t)));   // FAB-01 B: Besetzung, Texte, Pflicht landeplatz und Frist des Beats landung
   out.push(...require('./faden-b1.js').katalogFehler().map((t) => fehl('BAUPLAN_KATALOG', t)));   // SUND-04b B1: Texte, Spuren und Parameter der Bausteine geruecht, spur, wiedersehen
   return out;

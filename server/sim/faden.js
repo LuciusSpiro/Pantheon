@@ -45,6 +45,7 @@ const r2 = (x) => Math.round(x * 100) / 100;
 const nat = (x, max) => (Number.isFinite(x) && x >= 0 ? Math.min(Math.floor(x), max) : 0);
 const ZAEHLER_MAX = 9999;
 const HEX = /^\d{4}$/;
+const KENNUNG_MAX = 64;   // Laenge einer Personenkennung in f.laufend (wie das Schema weltstand.schema.json)
 const aktive = P.aktive;
 
 // ---------- Schalter und Zustand
@@ -108,6 +109,26 @@ function nscErzeugen(game, v, volk, name, nscNr) {
   };
   if (v.wahrheit) { nsc.wahrheit = { id: v.wahrheit.id, offenbart: false }; if (v.wahrheit.fraktion) nsc.wahrheit.fraktion = v.wahrheit.fraktion; }
   return nsc;
+}
+// BEA-02 B: bis zu n weitere Namen fuer die Ueberlebenden eines Beats rettung (Namenliste des Volkes des Fadens, namen.json). Eigener, deterministischer Strom des Fadens (Faden, Beat): gleicher Faden und gleicher Beat ziehen
+// dieselben Namen. Keine Doppelten zu den Namen des Kanons und der Faeden (namenVergeben), zu den Personen im Frachtlager und untereinander. Weniger als n, wenn die Liste erschoepft ist (0 bei unbekanntem Volk).
+function ueberlebendeNamen(game, f, n) {
+  const L = f && f.nsc ? N[f.nsc.fraktion] : null;
+  if (!L || !(n > 0)) return [];
+  const vergeben = require('./abenteuer-kanon.js').namenVergeben(zustandVon(game));
+  vergeben.add(f.nsc.name);   // Person 1 des Beats (steht in der Liste der Faeden, hier zur Sicherheit auch fuer einen Faden ausserhalb)
+  const rng = strom(game, idNr(f.id), 'ueberlebende:' + f.beat);
+  const pick = (arr) => arr[Math.floor(rng() * arr.length) % arr.length];
+  const out = [];
+  const frei = (t) => !vergeben.has(t) && !out.includes(t);
+  while (out.length < n) {
+    let t = null;
+    for (let i = 0; i < 40 && !t; i++) { const c = pick(L.vornamen) + ' ' + pick(L.nachnamen); if (frei(c)) t = c; }
+    for (const vor of L.vornamen) for (const nach of L.nachnamen) if (!t && frei(vor + ' ' + nach)) t = vor + ' ' + nach;   // Rest: der erste freie Name (deterministisch)
+    if (!t) break;
+    out.push(t);
+  }
+  return out;
 }
 // SUND-04b B1 Wiedersehen: der NSC eines frueheren, abgeschlossenen Fadens kehrt in einem NEUEN Faden wieder (parameter nsc_von, geprueft in faden-pruefer.js pruefeNscVon). Er bekommt eine neue Kennung (der alte Faden bleibt
 // als Geschichte stehen: Abspann, Gedaechtnis), behaelt aber Name, Schiff, Porträt, Haltung und Gedaechtnis; Zustand und Wahrheit gehoeren der neuen Vorlage.
@@ -240,6 +261,7 @@ function taetigkeit(game, art) {
   F.abenteuerAngebote = F.abenteuerAngebote.filter((a) => a.notruf || a.alter <= W.abenteuer.angebot_gilt_taetigkeiten);
   try { require('./faden-wrack.js').nachTaetigkeit(game); } catch (e) { fehlerZaehlen(game, 'faden-wrack', e); }   // WRK-01 B: wie landung (Crew wieder oben?)
   try { require('./faden-landung.js').nachTaetigkeit(game); } catch (e) { fehlerZaehlen(game, 'faden-landung', e); }   // FAB-01 B: Crew wieder oben (viele Wege melden kein beamedUp)? gelungen zaehlt vor der Frist
+  try { require('./faden-rettung.js').nachTaetigkeit(game); } catch (e) { fehlerZaehlen(game, 'faden-rettung', e); }   // BEA-02 B: alle Ueberlebenden an Bord oder abgegeben? gelungen zaehlt vor der Frist
   for (const f of F.liste.slice()) {   // Frist: ein Beat ohne Ausgang gilt als gescheitert, nichts blockiert. Ohne aktiven Lage-Spielleiter laeuft die Frist NICHT ab (B-S3): der Zaehler zaehlt weiter, gescheitert wird nichts
     if (spielleiterAktiv(game) && f.phase === 'laeuft' && f.laufend && f.laufend.n >= fristVon(f)) {
       melde(game, 'frist', f.id, `Beat ${f.laufend.beat} ohne Ausgang nach ${fristVon(f)} Tätigkeiten: gescheitert`, { faden: f.id, beat: f.laufend.beat });
@@ -626,6 +648,10 @@ function leseFaden(x, F) {
     if (l.beat !== v.beats[f.beat].id) return { fehler: `${x.id}: laufender Beat passt nicht zur Vorlage` };
     f.laufend = { beat: l.beat, n: nat(l.n, ZAEHLER_MAX), seit: nat(l.seit, 1e9) };
     if (typeof l.gewaehlt === 'string' && (v.beats[f.beat].optionen || []).some((o) => o.id === l.gewaehlt)) f.laufend.gewaehlt = l.gewaehlt;
+    for (const k of ['aufgenommen', 'uebergeben']) {   // BEA-02 Nacharbeit: Personen des Beats rettung (faden-rettung.js), nur Kennungen dieses Fadens, hoechstens anzahl_max
+      const s = Array.isArray(l[k]) ? Array.from(new Set(l[k].filter((t) => typeof t === 'string' && t.length <= KENNUNG_MAX && t.startsWith(f.id + '.')))).slice(0, require('./faden-rettung.js').WERTE.anzahl_max.wert) : [];
+      if (s.length) f.laufend[k] = s;
+    }
   }
   if (phase === 'abgeschlossen') {
     const o = istObjekt(x.ausgang) ? x.ausgang : {};
@@ -672,4 +698,4 @@ function lesen(b) {
   return F;
 }
 
-module.exports = { erinnern, aktiv, neu, zustandVon, taetigkeit, abenteuerRegisterAufraeumen, ausgangMitPerson, abenteuerAnbieten, abenteuerNeuAnbieten, abenteuerNotrufAnbieten, abenteuerOeffnen, istBefehl, befehlPruefen, befehlAnwenden, oeffnen, weiterSetzen, beatAusgang, beatZurueck, optionWaehlen, hinweisGezeigt, spielleiterAktiv, haltungPruefen, haltungSortieren, haltungBuchen, anwenden, haltungVon, chanceSpontanhilfe, tonVon, portraetVon, nscVon, ausschnittBlock, promptText, toSave, lesen, aktive, faellig, folgenAnwenden, strom, idNr, wiedersehenKandidaten, fristVon };
+module.exports = { erinnern, aktiv, neu, zustandVon, taetigkeit, abenteuerRegisterAufraeumen, ausgangMitPerson, abenteuerAnbieten, abenteuerNeuAnbieten, abenteuerNotrufAnbieten, abenteuerOeffnen, istBefehl, befehlPruefen, befehlAnwenden, oeffnen, weiterSetzen, beatAusgang, beatZurueck, optionWaehlen, hinweisGezeigt, spielleiterAktiv, haltungPruefen, haltungSortieren, haltungBuchen, anwenden, haltungVon, chanceSpontanhilfe, tonVon, portraetVon, nscVon, ausschnittBlock, promptText, toSave, lesen, aktive, faellig, folgenAnwenden, strom, idNr, wiedersehenKandidaten, fristVon, ueberlebendeNamen };
