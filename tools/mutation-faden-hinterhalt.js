@@ -34,7 +34,7 @@ const MUTATIONEN = [
   [HHJ, "beatVon(x) && x.laufend.hex === hex)", "beatVon(x))", 'Halt: der Schnellsprung haelt an jedem Sektor, solange ein Hinterhalt wartet (nicht nur an seinem Sektor)'],
   [HHJ, "return f ? fmt(T.schnellsprung_hinterhalt, { ort: hexName(hex) }) : null;", "return f ? fmt(T.schnellsprung_hinterhalt, { ort: hex }) : null;", 'Halt-Meldung nennt die Sektornummer statt des Ortsnamens'],
   // Daten statt Literal
-  [HHJ, "H.salz + ':' + salz", "'hinterhalt_ziel' + ':' + salz", 'das Salz des Zufallsstroms steht als Literal im Servercode'],
+  [HHJ, "H.salz + ':' + salz", "'hinterhalt_hexwahl' + ':' + salz", 'das Salz des Zufallsstroms steht als Literal im Servercode'],
   // Crewgroesse
   [SZ, '? nachCrew(W[it.art].anzahl, crewN(game)) : 1;', '? nachCrew(W[it.art].anzahl, 3) : 1;', 'Zahl der Gegner immer fuer Crew 3 (die Crewgroesse zaehlt nicht)'],
   [SW, '"anzahl": {"1": 2, "2": 3, "3": 4}, "ring": 300, "vorlauf_s": 0', '"anzahl": {"1": 2, "2": 3, "3": 3}, "ring": 300, "vorlauf_s": 0', 'Daten: Crew 3 hat nicht mehr Gegner als Crew 2'],

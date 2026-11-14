@@ -193,11 +193,19 @@ function main() {
   // =====================================================================================================================================================================
   console.log('\n4. Beat ohne waehlbaren Sektor');
   {
-    const g = spiel(490, {}, 3);
-    let leer = null;
-    for (const h of KARTE) { const o = Sektoren.ortVonHex(h); if (!o) continue; Space.enterScene(g, o, {}); ab(g); if (!HH.hexWaehlen(g, { id: 'f1' }, 's')) { leer = hexNun(g); break; } }
+    let g = spiel(490, {}, 3);
+    const startOrt = g.ship.scene;
+    let leer = null, leerOrt = null;
+    for (const h of KARTE) { const o = Sektoren.ortVonHex(h); if (!o) continue; Space.enterScene(g, o, {}); ab(g); if (!HH.hexWaehlen(g, { id: 'f1' }, 's')) { leer = hexNun(g); leerOrt = o; break; } }
     ok(!!leer, `Testlage: ein Sektor ohne waehlbares Ziel (${leer})`);
+    // BEA-03 C: braucht.lage hinterhalt_ziel - in diesem Sektor wird der Faden gar nicht erst geoeffnet (das Angebot scheitert vorn)
+    let abgelehnt = null;
+    try { startFaden(g, 'hht_frei'); } catch (e) { abgelehnt = String(e.message); }
+    ok(abgelehnt && abgelehnt.includes('LAGE_ZIEL_FEHLT'), 'ohne waehlbaren Sektor wird der Faden nicht geoeffnet (LAGE_ZIEL_FEHLT)');
+    // Sicherung im Beat selbst: war beim Oeffnen ein Ziel da und ist es beim Beat-Start weg (die Crew ist inzwischen woanders), scheitert der Beat sauber
+    g = spiel(490, {}, 3);   // frisches Spiel: der gescheiterte Oeffnungsversuch hat das Angebot verbraucht
     const f = startFaden(g, 'hht_frei');
+    Space.enterScene(g, leerOrt, {}); ab(g);
     const eintraege0 = ((g.lageRegie && g.lageRegie.log && g.lageRegie.log.entries) || []).length;
     const r = weiter(g, f);
     ok(r.ok && f.phase === 'wartet' && !f.laufend && ged(f).includes('hinterhalt_gescheitert') && !ged(f).includes('hinterhalt_gelungen'), `ohne waehlbaren Sektor scheitert der Beat sauber (Gedaechtnis hinterhalt_gescheitert, Phase ${f.phase})`);
