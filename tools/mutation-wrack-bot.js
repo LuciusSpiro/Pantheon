@@ -18,7 +18,7 @@ for (const f of ['tools/spiel-wrack.js', 'tools/test-wrack-bot.js']) fs.copyFile
 fs.copyFileSync(path.join(ROOT, 'package.json'), path.join(TMP, 'package.json'));
 if (fs.existsSync(path.join(ROOT, 'node_modules'))) { try { fs.symlinkSync(path.join(ROOT, 'node_modules'), path.join(TMP, 'node_modules'), 'junction'); } catch (e) { /* kein Modul noetig */ } }
 
-const GA = 'server/game.js', FW = 'server/sim/faden-wrack.js', AO = 'server/sim/abenteuer-orte.js', BO = 'server/sim/faden-boden.js', RA = 'server/sim/faden-boden-rahmen.js';
+const GA = 'server/game.js', FW = 'server/sim/faden-wrack.js', AO = 'server/sim/abenteuer-orte.js', BO = 'server/sim/faden-boden.js', RA = 'server/sim/faden-boden-rahmen.js', LA = 'server/sim/ladung.js';
 // [Datei, alter Text (genau einmal), neuer Text, Beschreibung, Fall des Tests]
 const MUTATIONEN = [
   [GA, 'if (this.weltsim) { try { FadenBoden.ereignis(this, { name, data }); }', 'if (false) { try { FadenBoden.ereignis(this, { name, data }); }', 'Haken in game.missionEvent (Verteiler) aus: der Beat erfaehrt nichts vom Boden', 'ruhig-1'],
@@ -29,6 +29,7 @@ const MUTATIONEN = [
   [BO, "  beuteGeborgen: 'karte',   // WRK-01 B: traegt data.map: nur der Faden der Karte", '', 'Verteiler kennt beuteGeborgen nicht', 'ruhig-1b'],
   [RA, '  if (!verlangt(e) || besetztAn(game, lp)) return 0;', '  return 0;', 'Besetzung wird nie ausgefuehrt (raeuber ohne Gegner, auch nicht beim Runterbeamen)', 'raeuber-1'],
   [FW, "'abschluss_' + (x.beute ? 'mit' : 'ohne')", "'abschluss_ohne'", 'Abschlussfunk nennt die Beute nie', 'ruhig-1b'],
+  [LA, "Marken.gutschreiben(game, summe, 'verkauf');", "Marken.gutschreiben(game, 0, 'verkauf');", 'Verkauf schreibt keine Marken gut (Bot-Lauf mit --verkauf)', 'ruhig-3blv'],
 ];
 
 const FILTER = process.argv.slice(2).filter((a) => !a.startsWith('--')).map((s) => s.toLowerCase());

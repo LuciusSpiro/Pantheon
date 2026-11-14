@@ -284,7 +284,7 @@
   {"id":"test-forderung-plan","kette":"test","cmd":["tools/test-forderung-plan.js"],"stufe":"fast","budget_s":25},
   {"id":"test-forderung-bot","kette":"test","cmd":["tools/test-forderung-bot.js"],"stufe":"full","budget_s":170},
   {"id":"test-landung-bot","kette":"test","cmd":["tools/test-landung-bot.js"],"stufe":"full","budget_s":170},
-  {"id":"test-wrack-bot","kette":"test","cmd":["tools/test-wrack-bot.js"],"stufe":"full","budget_s":200},
+  {"id":"test-wrack-bot","kette":"test","cmd":["tools/test-wrack-bot.js"],"stufe":"full","budget_s":250},
   {"id":"test-rettung-bot","kette":"test","cmd":["tools/test-rettung-bot.js"],"stufe":"full","budget_s":170},
   {"id":"test-faden-beispiel2","kette":"test","cmd":["tools/test-faden-beispiel2.js"],"stufe":"full","budget_s":170},
   {"id":"test-faden-bitte","kette":"test","cmd":["tools/test-faden-bitte.js"],"stufe":"fast","budget_s":7},
