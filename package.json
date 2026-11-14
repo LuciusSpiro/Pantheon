@@ -394,6 +394,8 @@
     "missionen": "node tools/missionen.js",
     "mitschnitt": "node tools/mitschnitt.js",
     "test:mitschnitt-werkzeug": "node tools/test-mitschnitt-werkzeug.js",
+    "referenz": "node tools/referenz.js",
+    "test:referenz": "node tools/test-referenz.js",
     "test:kontingent": "node tools/test-kontingent.js",
     "test:kontingent-frage": "node tools/test-kontingent-frage.js",
     "sicht:kontingent": "node tools/sicht-kontingent.js",

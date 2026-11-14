@@ -44,6 +44,7 @@
   {"id":"test-ablage","kette":"test","cmd":["tools/test-ablage.js"],"stufe":"fast","budget_s":8},
   {"id":"test-mitschnitt-render","kette":"test","cmd":["tools/test-mitschnitt-render.js"],"stufe":"fast","budget_s":14},
   {"id":"test-mitschnitt-werkzeug","kette":"test","cmd":["tools/test-mitschnitt-werkzeug.js"],"stufe":"fast","budget_s":14},
+  {"id":"test-referenz","kette":"test","cmd":["tools/test-referenz.js"],"stufe":"fast","budget_s":20},
   {"id":"test-messe-absichten","kette":"test","cmd":["tools/test-messe-absichten.js"],"stufe":"full","seriell":true,"budget_s":60},
   {"id":"test-spl-gelaende-szenen","kette":"test","cmd":["tools/test-spl-gelaende-szenen.js"],"stufe":"full","seriell":true,"budget_s":60},
   {"id":"test-spl-posten-gelaende","kette":"test","cmd":["tools/test-spl-posten-gelaende.js"],"stufe":"full","seriell":true,"budget_s":60},

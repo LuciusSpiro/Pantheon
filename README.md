@@ -1514,6 +1514,9 @@ Bei `MITSCHNITT=1` schreiben simulierte Läufe jede vollständig gespielte Missi
 - Die Dokumente nennen die **Wahlregel des Bots** und alle **künstlich gesetzten Schritte** (Teleport, Testhelfer-Kills, Skips): Sie zeigen Bot-Verhalten, nicht Spielerverhalten. Die Zuordnung von Funk zu einem Abenteuer ist heuristisch (laufender Faden).
 - Vertrag und Datenmodell: `CONTRACT-MIT01.md`. Der Mitschnitt führt keine Spielernamen.
 
+### Referenztests und ihre Mitschnitte (REF-01)
+`npm run referenz -- 1|2|3|alle` führt die Referenztests (Faden-Beispiel 1, 2, Wrack-Bot) strikt nacheinander aus und zeigt je Test Exit-Code, Dauer und Schlusszeile (wertet nicht selbst; Mutationsproben: `test:faden-beispiel1-mutation`, `test:faden-beispiel2-mutation`, `test:wrack-bot-mutation`). Mit `--mitschnitt <ordner>` folgen je Beispiel gezielte Läufer mit festem Seed, Ablage `<ordner>/b1|b2|b3/…` (`--nebenfaelle` für die Nebenfälle). Beispiel 2 und 3 dauern je rund drei Minuten; nie parallel oder unter Last starten.
+
 ### Live-Spielleiter einschalten
 Ohne Schalter spielt nur das Archiv (kostet nichts). Live braucht **beide** Einträge in der `.env` und die Claude-CLI (Abo):
 ```
