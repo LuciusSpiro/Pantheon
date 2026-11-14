@@ -24,6 +24,12 @@
 //     Rueckzug ausgeloest ist (Ziel >= 0,80); Rueckzug-Zaehler (aw.truppStats.rueckzug), Gegenstoesse (aw.truppStats.gegenstoss).
 //     Echter Alarm durch Entdeckung: ruhige Gegner (kein --alarm), --lauf 22: node tools/mess-klumpen.js graben --lauf 22 --seeds 8 --sek 120 --spieler 3
 //
+// Hinweise (HYG-02 B):
+//   - Die Graben-Fixtures unter tools/fixtures/mess/ aus BOD-01 sind ueberholt (Werte vor Trupp-Gehirn, Verteidigungsprofil und Welle 3);
+//     die BOD-02-Fixtures (P5 bis P7) sind die Referenz. Neubasierung der Graben-Fixtures steht aus (eigener Schritt).
+//   - graben misst nur Gegner von Deck 0 (Wellen mit deckVon 0 plus Nachschub); Welle 3 steht seit BOD-03 im Bunker auf Deck 1 und
+//     wuerde Paarabstand und Koordinaten mit einer anderen Ebene vermischen. Der Selbsttest erwartet daher weiter 12/6 Gegner.
+//   - Selbsttest endkampf misst 40 s: seit BOD-02 P6 (Trupps) beginnt das Gefecht erst nach ca. 21 bis 24 s.
 const path = require('path');
 const R = path.join(__dirname, '..') + path.sep;
 const CONFIG = require(R + 'shared/config.js');
@@ -109,6 +115,8 @@ function messLauf(modus, o, seed) {
   ticks(g, 0.2);
   const aw = g.aways[lp], ins = inseln(interior.awayInfoOf(lp).map);
   const laufX = modus === 'graben' && o.lauf ? o.laufX : null;
+  // graben: nur Gegner von Deck 0 messen (Wellen mit deckVon 0 + Nachschub am Lift); Welle 3 steht im Bunker auf Deck 1 (andere Ebene, BOD-03)
+  const deck0 = modus === 'graben' ? (() => { const A = g.arena && g.arena.wellen; return (e) => !!A && (Object.keys(A.deckVon || {}).some((n) => A.deckVon[n] === 0 && (A.ids[n] || []).includes(e.id)) || (A.nachschubIds || []).includes(e.id)); })() : null;
   let seq = 0;
   const samples = [];
   for (let s = 0; s < o.sek * 2; s++) {
@@ -117,7 +125,7 @@ function messLauf(modus, o, seed) {
       g.step();
       for (const p of g.players) { if (p.shield) p.shield.seg = 3; if (p.downed) combat.revive(g, p, 3, { quiet: true }); }
     }
-    const al = aw.drones.filter((e) => e.alive);
+    const al = aw.drones.filter((e) => e.alive && (!deck0 || deck0(e)));
     if (al.length < 2) continue;
     const T = al.map(t2);
     let sum = 0, cnt = 0, nn = 0, klumpen = 0;
@@ -202,7 +210,7 @@ function selbsttest() {
   let fails = 0;
   const ok = (c, m) => { if (!c) { fails++; console.log('  FEHLER ' + m); } else console.log('  ok ' + m); };
   const lauf = (modus, extra) => { const o = Object.assign({ modus, seeds: 2, spieler: 3, sek: 20, lauf: false, laufX: 22, staerke: 'gross' }, extra || {}); const rows = []; for (let s = 1; s <= o.seeds; s++) rows.push(messLauf(modus, o, s)); return { o, rows, txt: auswerten(modus, o, rows) }; };
-  for (const [modus, extra, name] of [['endkampf', null, 'endkampf'], ['besetzen', { sek: 10, seeds: 1 }, 'besetzen'], ['graben', { lauf: true }, 'graben --lauf'], ['graben', { lauf: true, alarm: true }, 'graben --lauf --alarm']]) {
+  for (const [modus, extra, name] of [['endkampf', { sek: 40 }, 'endkampf'], ['besetzen', { sek: 10, seeds: 1 }, 'besetzen'], ['graben', { lauf: true }, 'graben --lauf'], ['graben', { lauf: true, alarm: true }, 'graben --lauf --alarm']]) {
     const { rows, txt } = lauf(modus, extra);
     const gef = rows.flatMap((r) => r.samples).filter((s) => s.sieht >= 3);
     ok(rows.every((r) => r.samples.length > 0 && r.fehler === 0), `${name}: Samples vorhanden, keine Tickfehler`);
