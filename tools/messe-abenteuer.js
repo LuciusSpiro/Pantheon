@@ -20,6 +20,8 @@
 //   node tools/messe-abenteuer.js --live ... --out <ordner> --gesamtdeckel <Tokens>   KAT-01 C1: Gesamtdeckel ueber alle Laeufe/Prozesse unter derselben --out-Wurzel (<wurzel>/gesamtverbrauch.json: Tokens, Kosten in USD, je Lauf ein Eintrag mit Profil und Zeit; nach jedem Aufruf atomar geschrieben).
 //                                                                            Vor jedem Aufruf: ist die Summe schon >= Deckel oder Summe + Schaetzwert (Mittel der bisherigen Aufrufe dieses Laufs, sonst 11 000) > Deckel, folgt KEIN weiterer Aufruf; der Lauf endet sauber, index.md nennt "Deckel erreicht nach N Aufrufen", Exit 3. Nur mit --out und nur fuer Claude; im Mock nur ein Hinweis.
 // Obergrenze: Claude hoechstens 10 Aufrufe je Lauf (aufrufZahl: Math.min(n || 10, 10), kostet Geld), Ollama 50, Mock 5000. Das ist absichtlich hart; mehr Aufrufe nur mit mehreren Laeufen und Absprache.
+//   node tools/messe-abenteuer.js ... --katalog-variante <name>           KAT-01 0.3: Katalogtext des Beat-Plan-Prompts NUR fuer diesen Lauf umbauen (tools/messe-katalog.js, Spielcode unveraendert): landeplatz-vorn (Beats mit braucht.landeplatz zuerst) | landeplatz-hinten-ohne-absatz (Original-Reihenfolge, Landeplatz-Absatz entfaellt; Plan-Gueltigkeit dann nicht aussagekraeftig).
+//                                                                            Der Name steht als "Katalog-Variante: <name>" in index.md (mit Katalog- und Prompt-Zeichen gegenueber dem Original), messung.json (katalog_variante), plan-NN.md und Konsole; unbekannter Name: Exit 2. Ohne das Flag bleibt jede Ausgabe wie vorher.
 // Exit 0 (auch bei uebersprungenen Messungen: die Meldung steht in der Ausgabe), Exit 2 bei falschem Aufruf (auch kaputtes Profil), Exit 3 wenn der Gesamtdeckel den Lauf beendet hat. Die Messwerte der echten Anbieter sind nur so gut wie die Zahl der Aufrufe: ab 10 Aufrufen aussagekraeftig, nicht mehr.
 const path = require('path');
 const START_CWD = process.cwd();   // --out ist relativ zum Aufrufer, nicht zum Repo
@@ -33,6 +35,7 @@ const AP = require('../server/sim/abenteuer-prompt.js');
 const Faden = require('../server/sim/faden.js');
 const Ablage = require('./messe-ablage.js');
 const Profil = require('./messe-profil.js');
+const Katalog = require('./messe-katalog.js');
 const fs = require('fs');
 const D = require('../server/sim/faden-daten.js');
 const Absicht = require('../server/sim/abenteuer-absicht.js');
@@ -57,7 +60,9 @@ const vorgeschichteFlag = flag('vorgeschichte');
 const jsonArg = wert('json');
 const profilArg = wert('profil');
 const deckelArg = wert('gesamtdeckel') !== undefined ? Number(wert('gesamtdeckel')) : null;
+const katalogArg = wert('katalog-variante');
 let ausgabeWurzel = null;
+let katalogVariante = null;   // KAT-01 0.3: angewendete Katalog-Variante (--katalog-variante)
 let profil = null;   // KAT-01 C1: geprueftes Profil (--profil)
 function aufrufPruefen() {
   if (mockFlag && (live || anbieter !== undefined)) { console.error('--mock gilt nicht zusammen mit --live oder --anbieter'); process.exit(2); }
@@ -72,6 +77,7 @@ function aufrufPruefen() {
     if (!profilArg || profilArg.startsWith('--')) { console.error('--profil braucht eine Datei'); process.exit(2); }
     try { profil = Profil.profilLesen(profilArg, START_CWD); } catch (e) { console.error(e.message); process.exit(2); }
   }
+  if (args.includes('--katalog-variante') && !Katalog.VARIANTEN.includes(katalogArg)) { console.error(`--katalog-variante: unbekannt oder fehlend "${katalogArg || ''}" (erlaubt: ${Katalog.VARIANTEN.join(', ')})`); process.exit(2); }
   if (args.includes('--gesamtdeckel')) {
     if (!(Number.isInteger(deckelArg) && deckelArg >= 1)) { console.error('--gesamtdeckel: ganze Zahl (Tokens) ab 1'); process.exit(2); }
     if (!args.includes('--out')) { console.error('--gesamtdeckel gilt nur zusammen mit --out (der Zaehler liegt in <out-Wurzel>/gesamtverbrauch.json)'); process.exit(2); }
@@ -104,6 +110,7 @@ function planMarkdown(p, ctx) {
     kosten_usd: e && Number.isFinite(e.geld) && ctx.modus === 'live' ? e.geld : null, gueltigkeit: e ? e.ausgang : 'kein_ergebnis', grund: e && e.grund ? e.grund : null,
     pruefer_befunde: e && Array.isArray(e.fehler) ? e.fehler : [], rueckfall: false, anbieter: e ? e.anbieter : null, modell: e ? e.modell : null, quelle: e ? e.quelle : null,
     ...(ctx.profil ? { profil: ctx.profil } : {}),
+    ...(ctx.katalogVariante ? { katalog_variante: ctx.katalogVariante.name } : {}),
     key: antwort && antwort.key ? antwort.key : null, cli: antwort && antwort.cli ? antwort.cli.quelle : null, aufnahme: ctx.modus === 'live' && antwort && antwort.key ? `regie/aufnahmen/abenteuer/${antwort.key}.json` : null, prompt_datei: `plan-${nn(p.nr)}.prompt.txt`, modus: ctx.modus,
   };
   const L = [Ablage.frontmatter(fm), `# Aufruf ${p.nr}: ${titel || (e ? e.ausgang : 'kein Ergebnis')}`, ''];
@@ -121,7 +128,7 @@ function planMarkdown(p, ctx) {
   return L.join('\n');
 }
 function ablegen(ctx) {
-  const { kz, ordner, plaene, zaehl, folgen, gesamt, wiederholt, dauer, budget0, budget1, bezeichnung, modus, t0, abbruch, argv, profil } = ctx;
+  const { kz, ordner, plaene, zaehl, folgen, gesamt, wiederholt, dauer, budget0, budget1, bezeichnung, modus, t0, abbruch, argv, profil, katalogVariante } = ctx;
   const zeilen = [];
   for (const p of plaene) {
     Ablage.schreibe(ordner, planDatei(p.nr), planMarkdown(p, ctx));
@@ -145,6 +152,7 @@ function ablegen(ctx) {
   const f = Ablage.fmt, pz = Ablage.prozent;
   const I = [Ablage.frontmatter({ titel: 'Messung Abenteuer-Komposition', werkzeug: 'tools/messe-abenteuer.js', modus, bezeichnung, aufrufe: gesamt, erstellt: new Date().toISOString() }), '# Messung Abenteuer-Komposition', ''];
   if (profil) I.push(`- Profil: ${profil}`);
+  if (katalogVariante) I.push(`- Katalog-Variante: ${katalogVariante.name} (Katalog ${f(katalogVariante.zeichen)} statt ${f(katalogVariante.original_zeichen)} Zeichen, Prompt ${katalogVariante.differenz > 0 ? '+' : ''}${f(katalogVariante.differenz)} Zeichen)${katalogVariante.hinweis ? ' · ACHTUNG: ' + katalogVariante.hinweis : ''}`);
   I.push(`- Anbieter: ${bezeichnung}`, `- Aufruf: \`node tools/messe-abenteuer.js ${argv.join(' ')}\``, `- Laufzeit: ${f((Date.now() - t0) / 1000, 10)} s${abbruch ? ' · Abbruch: ' + abbruch : ''}`, '');
   I.push('## Zusammenfassung', '');
   I.push(`- Gültigkeit: gültig ${zaehl.gueltig} (${pz(zaehl.gueltig, gesamt)}), abgelehnt ${abgelehnt} (${pz(abgelehnt, gesamt)}), Ausfall ${ausfall} (${pz(ausfall, gesamt)}) von ${gesamt} Aufrufen`);
@@ -159,7 +167,7 @@ function ablegen(ctx) {
   for (const z of zeilen) I.push(`| ${z.nr} | [${z.datei}](${z.datei}) | ${Ablage.zelle(z.titel)} | ${z.ausgang} | ${Ablage.zelle(z.grund)} | ${f(z.dauer_s, 100)} | ${f(z.tokens)} | ${z.geld != null && modus === 'live' ? f(z.geld, 10000) : '–'} | ${Ablage.zelle(z.typen)} |`);
   I.push('', 'Rohdaten: [messung.json](messung.json). Logbuch des Spiels: `regie/`' + (modus === 'live' ? ', Aufnahmen von Prompt und Rohantwort je Aufruf: `regie/aufnahmen/abenteuer/`.' : '.'), '');
   Ablage.schreibe(ordner, 'index.md', I.join('\n'));
-  Ablage.schreibe(ordner, 'messung.json', JSON.stringify({ format: 'messung-abenteuer/1', werkzeug: 'tools/messe-abenteuer.js', aufruf: argv, modus, bezeichnung, ...(profil ? { profil } : {}), erstellt: new Date().toISOString(), abbruch, zusammenfassung: zf, kennzahlen: kz, aufrufe: zeilen.map((z) => Object.assign({}, z, { rohantwort: ((plaene.find((p) => p.nr === z.nr) || {}).aufrufe || []).map((a) => (a.antwort ? a.antwort.text : null)) })) }, null, 1));
+  Ablage.schreibe(ordner, 'messung.json', JSON.stringify({ format: 'messung-abenteuer/1', werkzeug: 'tools/messe-abenteuer.js', aufruf: argv, modus, bezeichnung, ...(profil ? { profil } : {}), ...(katalogVariante ? { katalog_variante: katalogVariante.name, katalog_variante_zeichen: { katalog: katalogVariante.zeichen, original: katalogVariante.original_zeichen, prompt_differenz: katalogVariante.differenz }, katalog_variante_hinweis: katalogVariante.hinweis } : {}), erstellt: new Date().toISOString(), abbruch, zusammenfassung: zf, kennzahlen: kz, aufrufe: zeilen.map((z) => Object.assign({}, z, { rohantwort: ((plaene.find((p) => p.nr === z.nr) || {}).aufrufe || []).map((a) => (a.antwort ? a.antwort.text : null)) })) }, null, 1));
 }
 
 async function main() {
@@ -245,6 +253,7 @@ async function main() {
     catch (e) { rec.wall_s = (Date.now() - rec.wall0) / 1000; rec.fehler = (e && e.code ? e.code + ': ' : '') + String((e && e.message) || e).slice(0, 300); throw e; }
   };
   const budget0 = LLM.budget();
+  try { if (katalogArg) katalogVariante = Katalog.anwenden(AP, katalogArg, D.BEATS); } catch (err) { console.error(err.message); process.exit(2); }
   const katalogBeat = AP.katalogText().length;   // im Beat-Plan der feste Katalog, im Modus Absichten steht katalog_zeichen im Logbuch
   const plaene = [];   // je Aufruf eine Zeile fuer Ablage und messung.json
 
@@ -297,14 +306,16 @@ async function main() {
   const kz = MA.kennzahlen(kzZeilen, { modusAbsicht, live: modus === 'live', lesbarePlaene: folgen.length, systemZeichen: fs.statSync(modusAbsicht ? Absicht.SYSTEM_DATEI : AP.SYSTEM_DATEI).size });
   kz.welt = { seed: seedArg, vorgeschichte_faeden: vorgeschichteN };
   if (profil) kz.welt.profil = profil.name;
+  if (katalogVariante) kz.welt.katalog_variante = katalogVariante.name;
   console.log(MA.kennzahlenZeilen(kz).join(String.fromCharCode(10)));
   if (profil) console.log(`Profil: ${profil.name}${profilMeldung.length ? ' (' + profilMeldung.join(', ') + ')' : ''}`);
+  if (katalogVariante) console.log(`Katalog-Variante: ${katalogVariante.name} (Katalog ${fmt(katalogVariante.zeichen)} statt ${fmt(katalogVariante.original_zeichen)} Zeichen, Prompt ${katalogVariante.differenz > 0 ? '+' : ''}${fmt(katalogVariante.differenz)})${katalogVariante.hinweis ? ' - ACHTUNG: ' + katalogVariante.hinweis : ''}`);
   if (mitVorgeschichte) console.log(`Welt: Seed ${seedArg}, Vorgeschichte ${vorgeschichteN} abgeschlossene Faeden`);
   if (jsonArg) { try { const d = path.resolve(START_CWD, jsonArg); fs.mkdirSync(path.dirname(d), { recursive: true }); fs.writeFileSync(d, JSON.stringify({ format: 'messung-abenteuer-kennzahlen/1', aufruf: args, bezeichnung, kennzahlen: kz }, null, 1)); console.log(`Kennzahlen als JSON: ${d}`); } catch (err) { console.error('JSON nicht geschrieben: ' + err.message); process.exitCode = 1; } }
   g.errors && console.log(`Serverfehler im Lauf: ${g.errors}`);
   if (ordner) {
     try {
-      ablegen({ kz, ordner, plaene, zaehl, folgen, gesamt, wiederholt, dauer, budget0, budget1: LLM.budget(), bezeichnung, modus, t0, abbruch, argv: args, profil: profil ? profil.name : null });
+      ablegen({ kz, ordner, plaene, zaehl, folgen, gesamt, wiederholt, dauer, budget0, budget1: LLM.budget(), bezeichnung, modus, t0, abbruch, argv: args, profil: profil ? profil.name : null, katalogVariante });
       console.log(`Ablage: ${ordner} (index.md, ${plaene.length} Plan-Dateien, messung.json)`);
     } catch (err) { console.error('Ablage fehlgeschlagen: ' + err.message); process.exitCode = 1; }
   }

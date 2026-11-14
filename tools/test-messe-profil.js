@@ -5,6 +5,7 @@
 //   2 Profile a/b/c/d im Mock: Profil-Name in index.md/messung.json/plan-NN.md, landeplatz_arten und Prompt-Zeichen wie in _gemessen, Kontexte verschieden
 //   3 Ziel reihum (Liste) und fest (ein Hex)   4 ohne --profil unveraendert (kein "Profil"; ein Profil nur mit Namen aendert nichts am Inhalt)
 //   5 Gesamtdeckel mit Fake-CLI: Exit 3 mit kleinem Deckel, gesamtverbrauch.json (Tokens, USD, Eintrag je Lauf), zweiter Lauf sieht die Summe, kaputter Zaehler, Mock-Hinweis
+//   7 Katalogvarianten (tools/messe-katalog.js, --katalog-variante): Zeilenfolge, Multimenge der Beat-Zeilen, Ausgaben, Exit 2, Mutationsprobe (Umbau aus -> pruefen() rot)
 //   6 Mutationsprobe: ohne Deckelpruefung (MESSE_DECKEL_TEST_AUS=1) laeuft derselbe Lauf durch – die Pruefungen von 5 wuerden rot
 const fs = require('fs');
 const os = require('os');
@@ -170,6 +171,59 @@ const wmut = path.join(TMP, 'mutation');
 const rM = lauf(['--live', '--n', '6', '--profil', profA, '--out', wmut, '--gesamtdeckel', '15000'], { ...liveEnv(zd), MESSE_DECKEL_TEST_AUS: '1' });
 const vM = json(path.join(wmut, 'gesamtverbrauch.json'));
 check('6 Mutation (Deckelpruefung aus): Lauf geht durch (Exit 0, 6 Aufrufe, 28 800 Tokens ueber dem Deckel) – genau das fangen die Pruefungen von 5 (Exit 3, 3 Aufrufe, 14 400)', rM.code === 0 && vM.tokens === 28800 && vM.laeufe[0].aufrufe === 6 && !(rM.code === 3 && vM.tokens === 14400), rM.text + JSON.stringify(vM));
+
+// ---------- 7 Katalogvarianten (tools/messe-katalog.js, --katalog-variante)
+const Katalog = require('./messe-katalog.js');
+const AP7 = require('../server/sim/abenteuer-prompt.js');
+const BEATS7 = require('../server/sim/faden-daten.js').BEATS;
+const orig7 = AP7.katalogText();
+const zeilen7 = (t) => t.split(NL);
+const typOf = (z) => (/^- ([a-z_]+)/.exec(z) || [])[1];
+const beatZ = (t) => zeilen7(t).filter((z) => typOf(z) && BEATS7[typOf(z)]);
+const lp = (typ) => !!(BEATS7[typ].braucht && BEATS7[typ].braucht.landeplatz);
+const vorn7 = Katalog.umbauen(orig7, 'landeplatz-vorn', BEATS7);
+const oAbs7 = Katalog.umbauen(orig7, 'landeplatz-hinten-ohne-absatz', BEATS7);
+const bO = beatZ(orig7), bV = beatZ(vorn7);
+const nLp = bO.filter((z) => lp(typOf(z))).length;
+check('7 Daten: mindestens ein Beat-Zeile mit braucht.landeplatz im Katalog, nicht alle', nLp >= 1 && nLp < bO.length, bO.map(typOf).join());
+check('7 landeplatz-vorn: die Landeplatz-Beats stehen zuerst (so viele wie in den Daten), danach keiner mehr', bV.slice(0, nLp).every((z) => lp(typOf(z))) && bV.slice(nLp).every((z) => !lp(typOf(z))), bV.map(typOf).join());
+check('7 landeplatz-vorn: innerhalb jeder Gruppe Reihenfolge des Originals', bV.filter((z) => lp(typOf(z))).join(NL) === bO.filter((z) => lp(typOf(z))).join(NL) && bV.filter((z) => !lp(typOf(z))).join(NL) === bO.filter((z) => !lp(typOf(z))).join(NL));
+check('7 landeplatz-vorn: gleich viele Zeilen, Multimenge der Beat-Zeilen identisch, Zeichenzahl gleich, Katalog verschieden vom Original', zeilen7(vorn7).length === zeilen7(orig7).length && bV.slice().sort().join(NL) === bO.slice().sort().join(NL) && vorn7.length === orig7.length && vorn7 !== orig7);
+check('7 landeplatz-vorn: Zeilen ausserhalb der Beat-Zeilen (Absatz, Regeln) byte-gleich an derselben Stelle', zeilen7(orig7).every((z, i) => (typOf(z) && BEATS7[typOf(z)]) || zeilen7(vorn7)[i] === z));
+check('7 landeplatz-vorn: pruefen() ohne Fehler', Katalog.pruefen(orig7, vorn7, 'landeplatz-vorn', BEATS7).length === 0);
+check('7 ohne-absatz: genau eine Zeile weniger, der Absatz fehlt, Original hatte genau einen', zeilen7(oAbs7).length === zeilen7(orig7).length - 1 && zeilen7(orig7).filter((z) => z.startsWith(Katalog.ABSATZ_ANFANG)).length === 1 && !zeilen7(oAbs7).some((z) => z.startsWith(Katalog.ABSATZ_ANFANG)));
+check('7 ohne-absatz: Beat-Zeilen identisch und in derselben Reihenfolge, Rest byte-gleich, kuerzer', beatZ(oAbs7).join(NL) === bO.join(NL) && oAbs7 === zeilen7(orig7).filter((z) => !z.startsWith(Katalog.ABSATZ_ANFANG)).join(NL) && oAbs7.length < orig7.length);
+check('7 ohne-absatz: pruefen() ohne Fehler', Katalog.pruefen(orig7, oAbs7, 'landeplatz-hinten-ohne-absatz', BEATS7).length === 0);
+const eUnbek = wirft(() => Katalog.umbauen(orig7, 'gibt-es-nicht', BEATS7));
+check('7 Modul: unbekannte Variante wirft mit Namen und Liste', eUnbek && /gibt-es-nicht/.test(eUnbek.message) && /landeplatz-vorn/.test(eUnbek.message));
+// datengetrieben: andere Beat-Daten, andere Reihenfolge (nichts hart codiert)
+const fakeBeats = { aa: {}, bb: { braucht: { landeplatz: true } }, cc: {}, dd: { braucht: { landeplatz: true } } };
+const fakeText = ['Kopf', '- aa: x', '- bb [Szene]: y', '- cc: z', 'Landeplatz (Ort fuer die Dauer des Abenteuers, x', '- dd: w', 'Regeln'].join(NL);
+check('7 datengetrieben: fake Beats bb, dd (Landeplatz) kommen vor aa, cc; Rest bleibt', Katalog.umbauen(fakeText, 'landeplatz-vorn', fakeBeats) === ['Kopf', '- bb [Szene]: y', '- dd: w', '- aa: x', 'Landeplatz (Ort fuer die Dauer des Abenteuers, x', '- cc: z', 'Regeln'].join(NL));
+// Mutationsprobe: Umbau abgeschaltet -> die Pruefung wird rot
+check('7 Mutation (Umbau aus): pruefen() meldet Fehler fuer landeplatz-vorn und fuer ohne-absatz', Katalog.pruefen(orig7, Katalog.umbauen(orig7, 'landeplatz-vorn', BEATS7, { aus: true }), 'landeplatz-vorn', BEATS7).length > 0 && Katalog.pruefen(orig7, Katalog.umbauen(orig7, 'landeplatz-hinten-ohne-absatz', BEATS7, { aus: true }), 'landeplatz-hinten-ohne-absatz', BEATS7).length > 0);
+check('7 pruefen() erkennt einen verlorenen Beat', Katalog.pruefen(orig7, zeilen7(vorn7).slice(1).join(NL), 'landeplatz-vorn', BEATS7).length > 0);
+// Aufruf im Mock
+const profA7 = path.join(PROFILE, 'a-hafen.json');
+const w7 = path.join(TMP, 'katalog-varianten');
+const r7 = {};
+for (const v of ['', 'landeplatz-vorn', 'landeplatz-hinten-ohne-absatz']) r7[v] = lauf(['--n', '3', '--profil', profA7, ...(v ? ['--katalog-variante', v] : []), '--out', path.join(w7, v || 'ohne')]);
+const ord7 = (v) => laufOrdner(path.join(w7, v || 'ohne'))[0] || '';
+const prompt7 = (v) => lies(path.join(ord7(v), 'plan-01.prompt.txt'));
+const kat7 = (t) => (/^<katalog>\n([\s\S]*?)\n<\/katalog>/.exec(t) || [])[1];
+check('7 Aufruf ohne Flag: Exit 0, Katalog im Prompt = Original, nirgends "Katalog-Variante"/katalog_variante', r7[''].code === 0 && kat7(prompt7('')) === orig7 && !/Katalog-Variante/.test(r7[''].out + lies(path.join(ord7(''), 'index.md')) + lies(path.join(ord7(''), 'plan-01.md'))) && !/katalog_variante/.test(lies(path.join(ord7(''), 'messung.json')) + lies(path.join(ord7(''), 'plan-01.md'))), r7[''].text);
+for (const v of ['landeplatz-vorn', 'landeplatz-hinten-ohne-absatz']) {
+  const idx = lies(path.join(ord7(v), 'index.md')), mj = json(path.join(ord7(v), 'messung.json')), pm = lies(path.join(ord7(v), 'plan-01.md'));
+  const soll = Katalog.umbauen(orig7, v, BEATS7);
+  check(`7 Aufruf ${v}: Exit 0, Katalog im Prompt = Variante, Rest des Prompts wie ohne Flag`, r7[v].code === 0 && kat7(prompt7(v)) === soll && prompt7(v).slice(prompt7(v).indexOf('</katalog>')) === prompt7('').slice(prompt7('').indexOf('</katalog>')), r7[v].text);
+  check(`7 Aufruf ${v}: Variante in Konsole, index.md, messung.json (katalog_variante), plan-NN.md-Frontmatter`, r7[v].out.includes('Katalog-Variante: ' + v) && idx.includes('- Katalog-Variante: ' + v) && mj.katalog_variante === v && pm.includes('katalog_variante: "' + v + '"'), r7[v].out + pm.slice(0, 600));
+  check(`7 Aufruf ${v}: Prompt-Differenz ausgewiesen (${soll.length - orig7.length}) und gleich der echten Prompt-Laengendifferenz`, mj.katalog_variante_zeichen.prompt_differenz === soll.length - orig7.length && prompt7(v).length - prompt7('').length === soll.length - orig7.length && idx.includes('Katalog ' + soll.length.toLocaleString('de-DE')), idx.split(NL).filter((z) => /Katalog-Variante/.test(z)).join());
+}
+check('7 Aufruf ohne-absatz vermerkt im Index, dass die Plan-Gueltigkeit nicht aussagekraeftig ist; vorn nicht', /ACHTUNG: .*nicht aussagekraeftig/.test(lies(path.join(ord7('landeplatz-hinten-ohne-absatz'), 'index.md'))) && !/ACHTUNG/.test(lies(path.join(ord7('landeplatz-vorn'), 'index.md'))));
+for (const [bez, args] of [['unbekanntem Namen', ['--katalog-variante', 'foo']], ['fehlendem Namen', ['--katalog-variante']], ['nicht gebauter Variante landeplatz-vorn-ohne-absatz', ['--katalog-variante', 'landeplatz-vorn-ohne-absatz']]]) {
+  const r = lauf(['--n', '1', ...args, '--out', path.join(TMP, 'kv-x')]);
+  check(`7 Aufruf mit ${bez}: Exit 2, kein Lauf-Ordner`, r.code === 2 && laufOrdner(path.join(TMP, 'kv-x')).length === 0, r.text);
+}
 
 fs.rmSync(TMP, { recursive: true, force: true });   // das eigene mkdtemp-Verzeichnis dieses Tests
 let bad = 0;
