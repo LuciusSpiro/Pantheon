@@ -15,7 +15,7 @@ const kopiere = (rel) => fs.cpSync(path.join(ROOT, rel), path.join(TMP, rel), { 
 ['server', 'shared', 'content', 'public'].forEach(kopiere);
 fs.mkdirSync(path.join(TMP, 'tools'), { recursive: true });
 fs.cpSync(path.join(ROOT, 'tools', 'fixtures'), path.join(TMP, 'tools', 'fixtures'), { recursive: true });
-const TESTS = [['tools/test-faden-nach3.js'], ['tools/test-faden-bitte.js'], ['tools/test-faden-vorlagen.js']];   // die schnellen zuerst (die erste rote Pruefung genuegt)
+const TESTS = [['tools/test-faden-nach3.js'], ['tools/test-faden-bitte.js'], ['tools/test-faden-vorlagen.js'], ['tools/test-faden-sim-befehl.js']];   // die schnellen zuerst (die erste rote Pruefung genuegt)
 for (const f of [...TESTS.map((t) => t[0]), 'tools/test-faden-vorlagen.js', 'tools/regie-fixture.js', 'tools/faden-fixture.js', 'tools/gegner-testhilfe.js']) fs.copyFileSync(path.join(ROOT, f), path.join(TMP, f));
 fs.copyFileSync(path.join(ROOT, 'package.json'), path.join(TMP, 'package.json'));
 if (fs.existsSync(path.join(ROOT, 'node_modules'))) { try { fs.symlinkSync(path.join(ROOT, 'node_modules'), path.join(TMP, 'node_modules'), 'junction'); } catch (e) { /* kein Modul noetig */ } }
@@ -57,6 +57,7 @@ const MUTATIONEN = [
   [FD, "ausgang === 'gescheitert' && cat.ereignis_ohne_ware && !f.fracht && !FrachtDaten.ladeBeatDavor(v, f.beat) ? cat.ereignis_ohne_ware : ", "", 'Gedaechtnis: fracht_gescheitert auch ohne Ware'],
   [BT, '      "ereignis_ohne_ware": "fracht_ohne_ware",\n', '', 'Katalog: kein Ereignis fuer „ohne Ware“'],
   [P3, "    const mitFracht = (nsc.gedaechtnis || []).some((g) => g.ereignis === 'fracht_gelungen' || g.ereignis === 'fracht_gescheitert');", "    const mitFracht = (nsc.gedaechtnis || []).some((g) => /^fracht_/.test(g.ereignis));", 'Enthuellung: auch fracht_ohne_ware gilt als Fracht'],
+  [P3, "\n  const mitFracht = (nsc.gedaechtnis || []).some((g) => g.ereignis === 'fracht_gelungen' || g.ereignis === 'fracht_gescheitert');", "\n  const mitFracht = (nsc.gedaechtnis || []).some((g) => /^fracht_/.test(g.ereignis));", 'Enthuellung (Sim-Befehl): auch fracht_ohne_ware gilt als Fracht'],
   // ---- 6. Vorlauf-Fall
   [BI, '      for (const h of (beat && beat.hinweise) || []) Hinweis().senden(game, faden.id, h);', '', 'Bitte: die Hinweise kommen nur mit dem Angebot (Vorlauf-Fall)'],
   // ---- 7. Hinweis des Notrufs

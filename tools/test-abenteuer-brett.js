@@ -701,6 +701,13 @@ section('Funk-Hinweis (SUND-04b F): ein neues Angebot meldet sich einmal im Funk
   ok(hinweise(t4).length === 0, 'ohne Spielleiter: kein Hinweis');
   const t5 = neu(54, { env: { FAEDEN: '' } }); grenzen(t5.g, 2); for (let i = 0; i < 300; i++) t5.g.step();
   ok(hinweise(t5).length === 0 && t5.g.errors === 0, 'ohne FAEDEN: kein Angebot, also kein Hinweis (nur diese Folge belegt, nicht der Aufrufweg)');
+  // Sammelhinweis (HYG-02 D1): dieselben Felder wie der Einzelhinweis, vor allem fd 1 (Funk eines Fadens fuer den Client-Ton)
+  { const sam = () => t.cs[0].inbox.filter((m) => m.t === 'event' && m.kind === 'radio' && m.text === HW_.sammel_text_eins.wert);
+    const s0 = sam().length;
+    ok(offen(g).length === 1 && Brett.sammelHinweis(g) === true, 'Sammelhinweis: bei einem Angebot am Brett wird er gesendet');
+    const s = sam();
+    ok(s.length === s0 + 1 && s[s.length - 1].from === HW_.hinweis_funk_sprecher.wert && s[s.length - 1].lage === 1 && s[s.length - 1].r === 1, 'Sammelhinweis: Sprecher aus den Daten, Lagefunk, Funk-Reiter');
+    ok(s[s.length - 1].fd === 1, 'Sammelhinweis: Funk eines Fadens (fd 1) wie der Einzelhinweis'); }
   ok(g.errors === 0 && g2.errors === 0, 'keine Serverfehler');
 });
 

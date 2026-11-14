@@ -161,7 +161,8 @@ function bereit(o) {
   const f = r.faden;
   const v = D.vorlage(f.vorlage);
   f.hinweise = ['h_gerucht', 'h_papiere']; f.beat = v.beats.findIndex((x) => x.id === 'b_enthuell'); f.phase = 'wartet'; f.zaehler = f.abstand; f.nsc.status = 'verbuendet';
-  if (o.fracht !== false) f.nsc.gedaechtnis.push({ tick: 0, ereignis: 'fracht_gelungen', text_key: 'b_fracht' });
+  if (o.fracht === 'ohne_ware') f.nsc.gedaechtnis.push({ tick: 0, ereignis: 'fracht_ohne_ware', text_key: 'b_fracht' });   // HYG-02 D2: nie eine Ware von ihm geladen (Mutation "auch fracht_ohne_ware gilt als Fracht")
+  else if (o.fracht !== false) f.nsc.gedaechtnis.push({ tick: 0, ereignis: 'fracht_gelungen', text_key: 'b_fracht' });
   return { g, f, funk };
 }
 const weiter = (g, f, art) => Faden.befehlAnwenden(g, Object.assign({ typ: 'faden_weiter', faden: f.id, beat: 'b_enthuell' }, art === undefined ? {} : { art }));
@@ -274,6 +275,13 @@ section('Ohne Fracht: Textvariante', () => {
   const s = bereit({ fracht: false }); const p = postenNah(s.g); weiter(s.g, s.f, 'sprengung');
   const ts = nscTexte(s.funk, s.f);
   ok(ts.length === 1 && ts[0] === txt('enthuellung_sabotage_ohne_fracht', { ziel: nameVon(P3.ziel(s.g, ORT)) }), 'Sprengung ohne Fracht: enthuellung_sabotage_ohne_fracht');
+  // HYG-02 D2: fracht_ohne_ware im Gedaechtnis (die Crew hat nie eine Ware von ihm geladen) ist keine Fracht, auch auf dem Weg ueber sim_befehl
+  const w = bereit({ fracht: 'ohne_ware' }); weiter(w.g, w.f, 'invasion');
+  const tw = nscTexte(w.funk, w.f);
+  ok(tw.length === 1 && tw[0] === txt('enthuellung_invasion_ohne_fracht', { invasion: nameVon(ORT) }), 'Invasion mit fracht_ohne_ware im Gedächtnis: enthuellung_invasion_ohne_fracht (' + tw[0] + ')');
+  const w2 = bereit({ fracht: 'ohne_ware' }); postenNah(w2.g); weiter(w2.g, w2.f, 'sprengung');
+  const tw2 = nscTexte(w2.funk, w2.f);
+  ok(tw2.length === 1 && tw2[0] === txt('enthuellung_sabotage_ohne_fracht', { ziel: nameVon(P3.ziel(w2.g, ORT)) }), 'Sprengung mit fracht_ohne_ware im Gedächtnis: enthuellung_sabotage_ohne_fracht');
 });
 
 section('invasionsZiel: nächstes römisches Ziel, nie Crew, nie Hauptwelt', () => {
