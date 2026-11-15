@@ -1,7 +1,9 @@
-# Pantheon – Stand nach EK8 (Eisenwald-Kampagne EK1–EK8, B1–B3 „Bühnen, Bodenkampf, Sektorkarte“, Wellen 1 und 2)
+# Pantheon 0.1.0
 
 Gemütliches Online-Koop-Raumschiff für 1–4 Spieler im Browser. Ein kleiner Node-Server führt die
 Partie, jeder spielt im eigenen Browserfenster. Kein Game Over – man scheitert mit Würde.
+
+Version 0.1.0 ist der erste Release unter dieser Versionsnummer. Neu sind vor allem die Freie Fahrt mit Spielleiter, Geschichtsfäden mit Beats, Ladung und Handel, Orte und Gelände-Szenen sowie der Schwarm. Geprüft ist das mit Tests, Bot-Läufen und Messläufen; ein Spieltest mit echten Spielern steht aus. Die Änderungen im Überblick stehen unten unter „Neu in 0.1.0“ und im `CHANGELOG.md`.
 
 Das Spiel hieß bis S1 „Sternenschicht“ (Arbeitstitel); der Repo-Ordner heißt jetzt `Pantheon/`. Bisherige
 Ausbaustufen: M1 „Die stumme Boje“ / „Echo im Nebel“ · M2 „Schildwall“ (Planetenmission „Die Tafel von Kesh“) ·
@@ -15,6 +17,17 @@ All, Bodenkampf-Feinschliff; `CONTRACT-W2.md`) · **EK1–EK8** (Eisenwald-Kampa
 
 Die Abschnitte „Neu in …“ stehen unten, das Neueste zuerst. Abnahmen: `concept/buehnen/ABNAHME-B1.md`,
 `ABNAHME-B2.md`, `ABNAHME-B3.md`, `ABNAHME-WELLEN.md`. Offene Punkte der Studioleitung: `concept/buehnen/OFFEN-STUDIO.md`.
+
+## Neu in 0.1.0
+
+Grober Überblick; Einzelheiten und Auftragsnummern stehen im `CHANGELOG.md` im Wurzelverzeichnis.
+
+- **Freie Fahrt mit Spielleiter:** Angebote beim Andocken, Notrufe, der Krieg zwischen Rom und Germanen ist auf der Karte sichtbar, Rückfall ohne Modell. Der Live-Spielleiter mit Claude ist eine Lobby-Option (Standard aus), der Absichten-Modus ist Opt-in.
+- **Geschichtsfäden und Beats:** Neue Beats Forderung, Hinterhalt, Landung, Rettung und Wrack sowie der Sondersektor Helix.
+- **Ladung, Ware und Handel:** Waren als Fracht im Frachtraum, Handel, Personen als Fracht, Invasion nach Warenlieferung.
+- **Orte und Gelände:** Sektor-Kacheln, Orte für beliebige Sektoren in der Freien Fahrt, Gelände-Szenen in Wildnis und Höhle.
+- **Monster und Eisenwald:** Schwarm mit Königin als Alternative zum Rudel, Bunker statt Methalle in Kapitel 4 des Eisenwalds.
+- **Messung und Werkzeuge:** Mission-Mitschnitt, Live-Läufer und Messläufe mit Claude, Referenzläufe, Wächter in `npm run check`, Version im Hauptmenü.
 
 ## Schalter und Fadenvorlagen (Stand HYG-01, Version 0.1.0)
 

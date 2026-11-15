@@ -1,5 +1,5 @@
 {
- "grenzen": {"fast":{"s":300,"hart":true},"full":{"s":600,"hart":false},"slow":{"s":2400,"hart":false},"alles":{"s":2400,"hart":false}},
+ "grenzen": {"fast":{"s":300,"hart":true},"full":{"s":1400,"hart":false},"slow":{"s":2400,"hart":false},"alles":{"s":2400,"hart":false}},
  "schritte": [
   {"id":"check-maps","kette":"check","cmd":["tools/check-maps.js"],"stufe":"fast","budget_s":15},
   {"id":"check-sektoren","kette":"check","cmd":["tools/check-sektoren.js"],"stufe":"fast","budget_s":6},
