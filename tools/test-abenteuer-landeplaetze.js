@@ -384,7 +384,7 @@ function abgelehnt(g, hex, p, code, muster, was) {
     assert.deepStrictEqual(kontextVon(AP.baue(g, { nr: 1, grenze: 'andocken', hex: OSTIA_HEX, letzte: [], werte: AW }).prompt).landeplatz_arten, ['schiff', 'station']);
     g.weltsim.chronik = g.weltsim.chronik || []; for (let i = 0; i < 30; i++) g.weltsim.chronik.push({ t: 2 + i, art: 'szene', ref: 'x' + i, kurz: 'Ereignis Nummer ' + i + ' mit etwas mehr Text damit die Zeile lang wird' });
     const voll = AP.baue(g, { nr: 1, grenze: 'andocken', hex: SK_HEX, letzte: [], werte: AW });
-    assert.ok(voll.prompt && voll.zeichen <= AW.prompt_max_zeichen - 1200, `Prompt mit voller Chronik ${voll.zeichen} Zeichen laesst Luft unter ${AW.prompt_max_zeichen} (BEA-02)`);
+    assert.ok(voll.prompt && voll.zeichen <= AW.prompt_max_zeichen - 400, `Prompt mit voller Chronik ${voll.zeichen} Zeichen laesst Luft unter ${AW.prompt_max_zeichen} (BEA-02, KAT-01: Luft von 1200 auf 400, +800 Katalog)`);
     console.log(`    Katalog ${kat.length} Zeichen, Prompt mit voller Chronik ${voll.zeichen} von ${AW.prompt_max_zeichen}`);
     // der Mock kennt keine Landeplaetze (Feld optional): seine gueltigen Plaene gehen weiter durch Expander, Pruefer und Anbieten, ohne landeplaetze
     const Mock = require('../server/sim/abenteuer-mock.js'), Bauplan = require('../server/sim/faden-bauplan.js');
