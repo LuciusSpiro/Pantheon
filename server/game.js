@@ -877,7 +877,8 @@ class Game {
     this.helloKarte(p, msg);
     if (this.phase !== 'lobby') {
       p.ready = true;
-      if (!p.bot) this.oda(`${p.name} ist an Bord gekommen. Willkommen in der Schicht!`, null);
+      // BOT-01 B: Bots treten nicht über hello bei, dann ist hier nichts zu filtern
+      this.oda(`${p.name} ist an Bord gekommen. Willkommen in der Schicht!`, null);
     }
     this.sendTo(conn, this.welcomeMsg(p.id));
     this.sendeKarte(p);

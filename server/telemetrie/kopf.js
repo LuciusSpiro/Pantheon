@@ -129,7 +129,7 @@ function baueKopf(game, ctx) {
     weltstand: ws && ws.persistent ? ws.id : null,
     regielog: Regielog.safeId((ws && ws.id) || 'ohne-welt') + '.jsonl',
     quelle: ctx.quelle,
-    spielerzahl: game.players.length,
+    spielerzahl: game.players.length,   // Slots gesamt (auch getrennte), nicht Menschen; Bots -> siehe BOT-01 B
     slots: game.players.map((p) => ({ slot: p.id, belegung: 1, konsole: p.console || null, verbunden: !!p.connected, ...(p.bot ? { bot: true } : {}) })),   // nie Name, Karte, clientId; belegung 1 = erste Belegung des Slots in dieser Session
     schiff: { stufe: sh.stufe == null ? null : sh.stufe, module: jaNein(sh.module), waffen: jaNein(sh.waffen), ort: sh.scene || null },
     schalter: schalter(env),

@@ -46,9 +46,9 @@ section('1 Funktionen');
 // ---------- Aufbau eines echten Games ----------
 // menschen echte Clients, bots synthetische Bot-Spieler (eigene Fake-Verbindung, nie OK/Eingaben)
 const mkConn = () => ({ inbox: [], send(o) { this.inbox.push(o); }, sendRaw(s) { this.inbox.push(JSON.parse(s)); } });
-function setup(menschen, bots) {
+function setup(menschen, bots, extraEnv) {
   const dir = path.join(TMP, 'w' + (++seq)); fs.mkdirSync(dir, { recursive: true });
-  const g = new Game({ noStore: true, worlds: true, worldSaveSync: true, worldDir: dir, seed: 7, debug: true, env: { MISSION_SOURCE: 'fallback', SPIELLEITER_LLM: 'off', REGIE_DIR: path.join(TMP, 'regie') }, log: () => {} });
+  const g = new Game({ noStore: true, worlds: true, worldSaveSync: true, worldDir: dir, seed: 7, debug: true, env: Object.assign({ MISSION_SOURCE: 'fallback', SPIELLEITER_LLM: 'off', REGIE_DIR: path.join(TMP, 'regie') }, extraEnv || {}), log: () => {} });
   const conns = [], botConns = [];
   for (let i = 0; i < menschen; i++) { const c = mkConn(); g.addConnection(c); g.handleMessage(c, { t: 'hello', clientId: 'K' + i, name: 'K' + i, color: i }); conns.push(c); }
   for (let i = 0; i < bots; i++) {
@@ -168,6 +168,20 @@ section('5 Snapshot, Client-Helfer, Telemetrie');
   const k = kopfVon(mit.g), k0 = kopfVon(ohne.g);
   ok(k.slots.filter((x) => x.bot === true).length === 3 && k.slots.length === 4, 'Kopf: Slots der Bots tragen bot: true');
   ok(k0.slots.every((x) => !('bot' in x)), 'Kopf reiner Menschenpartie: kein Feld bot an den Slots');
+  ok(k.spielerzahl === 4, 'Kopf: spielerzahl bleibt Slots gesamt (4), unverändert');
+  // Telemetrie-Ereignisse: spielerzahl zählt Menschen (1 Mensch + 3 Bots -> 1), nicht Köpfe
+  const Gefecht = require('../server/telemetrie/gefecht.js');
+  const t = setup(1, 3, { TELEMETRIE: 'an', TELEMETRIE_DIR: path.join(TMP, 'tel'), TELEMETRIE_QUELLE: 'bot' });
+  const tg = t.g, got = [], orig = tg.telemetrie.ereignis.bind(tg.telemetrie);
+  tg.telemetrie.ereignis = (typ, felder) => { got.push({ typ, felder }); return orig(typ, felder); };
+  ok(tg.telemetrie.offen === true, 'Telemetrie offen (Session läuft)');
+  Gefecht.szeneStart(tg, 'wellen', 'crew-test');
+  Gefecht.welle(tg, 'wellen', 1, 3);
+  tg.removeConnection(t.botConns[2]);   // ein Bot geht: Köpfe 3, Menschen 1
+  const von = (typ) => got.filter((e) => e.typ === typ);
+  ok(von('szene_start').length === 1 && von('szene_start')[0].felder.spielerzahl === 1, 'szene_start: spielerzahl == 1 (Menschen, nicht 4 Köpfe)');
+  ok(von('welle').length === 1 && von('welle')[0].felder.spielerzahl === 1, 'welle: spielerzahl == 1');
+  ok(von('spieler_weg').length === 1 && von('spieler_weg')[0].felder.spielerzahl === 1 && Crew.koepfe(tg) === 3, 'spieler_weg: spielerzahl == 1 (Köpfe wären 3)');
 }
 
 // ---------- 6b Skalierung nach Köpfen (A2) ----------
@@ -203,6 +217,20 @@ section('6 Quellscan: Zählung nur in crew.js');
   ok(['server/game.js', 'server/sim/station.js', 'server/sim/kontingent.js', 'server/telemetrie/protokoll.js', 'server/telemetrie/gefecht.js'].every((f) => scharf.includes(f)), 'game.js, station.js, kontingent.js, telemetrie/ sind scharf');
   const veraltet = NOCH_OFFEN.filter((f) => !fs.existsSync(f) || !treffer(f).length);
   ok(veraltet.length === 0, `NOCH_OFFEN enthält nur Dateien mit offener Zählung (A2 entfernt umgestellte)${veraltet.length ? ': ' + veraltet.join(' ') : ''}`);
+  // Positiv: Client ruft menschenZahl (je Datei mindestens ein Treffer, Stellen nach Zeilen gelesen)
+  const quelle = (f) => fs.readFileSync(f, 'utf8').split(/\r?\n/);
+  const hat = (f, re) => quelle(f).some((z) => re.test(z));
+  ok(hat('public/js/client.js', /soloNow[^\n]*menschenZahl|menschenZahl[^\n]*===\s*1/), 'client.js: soloNow nutzt menschenZahl');
+  ok(quelle('public/js/hud.js').filter((z) => /menschenZahl/.test(z)).length >= 2, 'hud.js: mindestens zwei Stellen (Solo-Pause, Zerstört-Einblendung) nutzen menschenZahl');
+  ok(hat('public/js/dev-mock.js', /pause[^\n]*menschenZahl/), 'dev-mock.js: Pause nutzt menschenZahl');
+  // taktRuhig (reise-ereignis.js) fragt „ist ein Mensch da“ über Crew.menschen, nicht über some(connected)
+  const takt = fs.readFileSync('server/sim/reise-ereignis.js', 'utf8').match(/function taktRuhig\(game\) \{[\s\S]*?\n\}/);
+  ok(takt && /Crew\.menschen\(game\)/.test(takt[0]) && !/some\(\(p\) => p\.connected\)/.test(takt[0]), 'taktRuhig: „kein Mensch da“ über Crew.menschen, Bots halten den Takt nicht');
+  // Warnliste (kein Fehlschlag): .some(... connected ...) in server/ – viele sind legitime Einzelprüfungen, hier nur sichtbar gemacht
+  const WARN = /\.some\([^;\n]*connected/;
+  const warn = [];
+  for (const f of dateien) quelle(f).forEach((z, i) => { if (WARN.test(z)) warn.push(f + ':' + (i + 1)); });
+  console.log('  info  Warnliste .some(... connected ...) in server/ (' + warn.length + ', prüfen ob „ein Mensch“ gemeint ist): ' + (warn.join(' ') || 'keine'));
   const alt = /\.filter\(\(?\w+\)? => \w+\.connected !== false\)\.length/;
   const client = ['public/js/client.js', 'public/js/hud.js', 'public/js/dev-mock.js'].filter((f) => fs.readFileSync(f, 'utf8').split(/\r?\n/).some((z) => alt.test(z)));
   ok(client.length === 0, 'Client (client.js, hud.js, dev-mock.js): Pause/Solo zählt über menschenZahl' + (client.length ? ': ' + client.join(' ') : ''));

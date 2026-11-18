@@ -384,11 +384,11 @@ function nachSprung(game, dest) {
 const B1 = () => require('./faden-b1.js');   // lazy wie FA
 const taktTicks = (game, s) => Math.max(1, Math.round(Number(s) * game.C.tickHz));
 const taktMarkeS = (game) => Number(game.C && game.C.marken && game.C.marken.tickSekunden) || 30;
-// Ruhige Lage für den Takt: die Funk-Antwort-Regel plus kein Außenteam, Phase play, mindestens ein Spieler verbunden, kein Boden-Finale
+// Ruhige Lage für den Takt: die Funk-Antwort-Regel plus kein Außenteam, Phase play, mindestens ein Mensch verbunden (Bots allein halten den Takt nicht), kein Boden-Finale
 function taktRuhig(game) {
   if (game.phase !== 'play' || game.finaleBoden) return false;
   const ps = game.players || [];
-  if (!ps.some((p) => p.connected) || ps.some((p) => p.zone === 'away')) return false;
+  if (Crew.menschen(game) === 0 || ps.some((p) => p.zone === 'away')) return false;
   return FA().ruhig(game);
 }
 // freie, anfliegbare Orte im Umkreis (Hex-Abstand takt_ort) um den Crew-Hex: nicht belegt, über offene Kanten in höchstens takt_tiefe Sprüngen erreichbar (mindestens einen Sprung weit)
