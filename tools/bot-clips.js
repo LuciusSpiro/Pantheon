@@ -2,7 +2,7 @@
 // BOT-04 B: Grundgerüst des Clip-Generators. Text + Profil -> Audiodatei über Voicebox (/v1/audio/speech), nur Engine Qwen.
 // Cache nach Hash aus (Profil-ID, Text). Zugang: VOICEBOX_URL (Standard http://sleipnir.local:17493), VOICEBOX_AUTH ("nutzer:passwort");
 // ohne VOICEBOX_AUTH wird das Passwort zur Laufzeit per `ssh sleipnir` aus ~/.config/lan-password geholt (nie im Code oder Commit).
-// Aufruf:  node tools/bot-clips.js profiles | say <profil> <text> | hoerprobe <zielordner>      Cache: BOT_CLIPS_DIR (Standard: Temp)
+// Aufruf:  node tools/bot-clips.js profiles | say <profil> <text> | hoerprobe <zielordner> [namensfilter]      Cache: BOT_CLIPS_DIR (Standard: Temp)
 const crypto = require('crypto');
 const fs = require('fs');
 const os = require('os');
@@ -69,14 +69,15 @@ async function warm(profil, opts = {}) { return synth(profil, WARM_TEXT, opts); 
 
 module.exports = { ENGINE, PHRASEN, clipHash, clipPath, cacheDir, qwenProfile, listProfiles, synth, warm };
 
-async function hoerprobe(ziel) {
-  const profile = qwenProfile(await listProfiles()).filter(p => /^Kara-Test [A-D][12] /.test(p.name)).sort((a, b) => a.name.localeCompare(b.name));
+async function hoerprobe(ziel, filter) {
+  const re = new RegExp(filter || '^Kara-Test [A-D][12] ');
+  const profile = qwenProfile(await listProfiles()).filter(p => re.test(p.name)).sort((a, b) => a.name.localeCompare(b.name));
   fs.mkdirSync(ziel, { recursive: true });
   const w = await warm(profile[0], { dir: ziel });
   console.log('warm: ' + w.ms + ' ms');
   const rows = [];
   for (const p of profile) {
-    const kurz = p.name.match(/^Kara-Test ([A-D][12])/)[1];
+    const kurz = p.name.match(/^\S+ ([A-Z]\d)/)[1];
     const clips = [];
     for (let i = 0; i < PHRASEN.length; i++) {
       const r = await synth(p, PHRASEN[i], { dir: ziel, force: true });
@@ -110,9 +111,9 @@ if (require.main === module) {
       if (!p) throw new Error('Profil nicht gefunden: ' + a);
       console.log(await synth(p, b));
     } else if (cmd === 'hoerprobe' && a) {
-      await hoerprobe(a);
+      await hoerprobe(a, b);
     } else {
-      console.log('Aufruf: node tools/bot-clips.js profiles | say <profil> <text> | hoerprobe <zielordner>');
+      console.log('Aufruf: node tools/bot-clips.js profiles | say <profil> <text> | hoerprobe <zielordner> [namensfilter-regex]');
     }
   })().catch(e => { console.error(e.message); process.exit(1); });
 }
