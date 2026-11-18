@@ -2,14 +2,21 @@
 // BOT-04 C: Sprach-Anbindung des Spielservers. Zwei Routen, beide nur mit gesetztem STT_URL (sonst 503, "Route aus"):
 //   POST /api/stt          Audio roh im Body (Content-Type wird durchgereicht) -> STT_URL (OpenAI-kompatibel /v1/audio/transcriptions,
 //                          multipart file, model=whisper-1, language=de) -> { text }
-//   POST /api/bot-messung  Messmodus (?botmessung=1): { sitzung, eintrag } wird an ./messungen/<sitzung>.json angehaengt
-// Absicherung: Limit 1 MB, Rate-Limit je Adresse, Timeout, nur lokale Browser (Loopback ohne Proxy-Kopfzeile), ausser STT_REMOTE=1.
+//   POST /api/bot-messung  Messmodus (?botmessung=1): { sitzung, eintrag } (nur application/json, nur gleicher Ursprung) wird als eine JSON-Zeile
+//                          an <ROOT>/messungen/<sitzung>.jsonl angehaengt (je Sitzung hoechstens 2000 Eintraege / 1 MB, hoechstens 200 Sitzungen)
+// Absicherung: Limit 1 MB, Rate-Limit je Socket-Adresse (Kopfzeilen wie X-Forwarded-For zaehlen nie als Schluessel), Timeout,
+// nur lokale Browser (Loopback ohne Proxy-Kopfzeile), ausser STT_REMOTE=1.
 // Kein Eingriff in den WebSocket (maxPayload bleibt). Der Browser spricht nie selbst mit Sleipnir.
 const fs = require('fs');
 const path = require('path');
 
 const MAX_BYTES = 1024 * 1024;
 const MAX_JSON_BYTES = 64 * 1024;
+const MAX_ADRESSEN = 500;          // Rate-Limit-Tabelle
+const MAX_EINTRAEGE = 2000;        // je Sitzungsdatei
+const MAX_DATEI_BYTES = 1024 * 1024;
+const MAX_SITZUNGEN = 200;         // Dateien unter messungen/
+const ROOT = path.join(__dirname, '..');
 const ROUTE_STT = '/api/stt';
 const ROUTE_MESSUNG = '/api/bot-messung';
 const ENDUNG = { 'audio/webm': 'webm', 'video/webm': 'webm', 'audio/ogg': 'ogg', 'audio/mp4': 'm4a', 'audio/mpeg': 'mp3', 'audio/wav': 'wav', 'audio/x-wav': 'wav', 'audio/wave': 'wav' };
@@ -32,8 +39,9 @@ function erzeuge(opt) {
   const env = () => o.env || process.env;
   const holen = o.fetch || ((...a) => fetch(...a));
   const jetzt = o.now || (() => Date.now());
-  const messDir = () => o.messDir || path.join(process.cwd(), 'messungen');
-  const fenster = new Map();   // adresse -> [zeitpunkte] (gleitendes Minutenfenster)
+  const messDir = () => o.messDir || path.join(ROOT, 'messungen');
+  const fenster = new Map();   // adresse -> [zeitpunkte] (gleitendes Minutenfenster), hoechstens MAX_ADRESSEN Eintraege
+  const stand = new Map();     // sitzung -> { n, bytes } (aus der Datei beim ersten Zugriff, danach mitgezaehlt)
 
   const aktiv = () => !!String(env().STT_URL || '').trim();
   const remoteErlaubt = () => /^(1|true|on|an)$/i.test(String(env().STT_REMOTE || ''));
@@ -41,7 +49,8 @@ function erzeuge(opt) {
   const timeoutMs = () => Math.max(500, +env().STT_TIMEOUT_MS || 8000);
 
   const hdr = (req, k) => { const v = req.headers && req.headers[k]; return Array.isArray(v) ? v[0] : v; };
-  const adresse = (req) => String(hdr(req, 'cf-connecting-ip') || String(hdr(req, 'x-forwarded-for') || '').split(',')[0].trim() || (req.socket && req.socket.remoteAddress) || '?');
+  // Schluessel nur die Socket-Adresse: Kopfzeilen (X-Forwarded-For, CF-Connecting-IP) kann jeder Client frei setzen und damit das Limit umgehen
+  const adresse = (req) => String((req.socket && req.socket.remoteAddress) || '?');
   // lokal = Verbindung von Loopback und kein Proxy dazwischen (ein Tunnel verbindet von localhost, setzt aber eine Weiterleitungs-Kopfzeile)
   function lokal(req) {
     const a = (req.socket && req.socket.remoteAddress) || '';
@@ -51,8 +60,11 @@ function erzeuge(opt) {
   function drosseln(req) {
     const k = adresse(req), t = jetzt(), liste = (fenster.get(k) || []).filter((x) => t - x < 60000);
     if (liste.length >= pro()) { fenster.set(k, liste); return false; }
-    liste.push(t); fenster.set(k, liste);
-    if (fenster.size > 500) for (const [a, l] of fenster) if (!l.some((x) => t - x < 60000)) fenster.delete(a);
+    liste.push(t); fenster.delete(k); fenster.set(k, liste);   // neu einfuegen: die zuletzt genutzten stehen hinten
+    if (fenster.size > MAX_ADRESSEN) {
+      for (const [a, l] of fenster) if (!l.some((x) => t - x < 60000)) fenster.delete(a);
+      while (fenster.size > MAX_ADRESSEN) fenster.delete(fenster.keys().next().value);   // alle aktiv: aelteste raus
+    }
     return true;
   }
 
@@ -101,21 +113,44 @@ function erzeuge(opt) {
     }
   }
 
+  // Origin (falls der Browser einen schickt) muss zum Host passen; ohne Origin (lokale Skripte, curl) ist es erlaubt
+  function herkunftOk(req) {
+    const origin = hdr(req, 'origin');
+    if (origin === undefined || origin === '') return true;
+    try { return new URL(origin).host.toLowerCase() === String(hdr(req, 'host') || '').toLowerCase(); } catch (e) { return false; }
+  }
+  function sitzungStand(datei, sitzung) {
+    let st = stand.get(sitzung);
+    if (!st) {
+      st = { n: 0, bytes: 0 };
+      try { const b = fs.readFileSync(datei); st.bytes = b.length; for (const x of b) if (x === 10) st.n++; } catch (e) { /* neue Sitzung */ }
+      stand.set(sitzung, st);
+      if (stand.size > MAX_SITZUNGEN) stand.delete(stand.keys().next().value);
+    }
+    return st;
+  }
+
   async function messung(req, res) {
     if (!zugang(req, res)) { req.resume(); return; }
     if (req.method !== 'POST') { req.resume(); return antwort(res, 405, { fehler: 'nur-post' }); }
+    const typ = String(hdr(req, 'content-type') || '').split(';')[0].trim().toLowerCase();
+    if (typ !== 'application/json') { req.resume(); return antwort(res, 415, { fehler: 'nur-json' }); }
+    if (!herkunftOk(req)) { req.resume(); return antwort(res, 403, { fehler: 'fremder-ursprung' }); }
+    if (!drosseln(req)) { req.resume(); return antwort(res, 429, { fehler: 'zu-viele-anfragen' }); }
     let d;
     try { const b = await lies(req, MAX_JSON_BYTES); if (!b) return antwort(res, 413, { fehler: 'zu-gross' }); d = JSON.parse(b.toString('utf8')); } catch (e) { return antwort(res, 400, { fehler: 'kein-json' }); }
     const sitzung = String((d && d.sitzung) || '').replace(/[^A-Za-z0-9_-]/g, '').slice(0, 48);
     if (!sitzung || !d.eintrag || typeof d.eintrag !== 'object') return antwort(res, 400, { fehler: 'unvollstaendig' });
     try {
       fs.mkdirSync(messDir(), { recursive: true });
-      const datei = path.join(messDir(), sitzung + '.json');
-      let doc = { sitzung, eintraege: [] };
-      try { const alt = JSON.parse(fs.readFileSync(datei, 'utf8')); if (alt && Array.isArray(alt.eintraege)) doc = alt; } catch (e) { /* neue Datei */ }
-      doc.eintraege.push(d.eintrag);
-      fs.writeFileSync(datei, JSON.stringify(doc, null, 1));
-      return antwort(res, 200, { ok: true, n: doc.eintraege.length, datei: path.relative(process.cwd(), datei) });
+      const datei = path.join(messDir(), sitzung + '.jsonl');
+      const st = sitzungStand(datei, sitzung);
+      if (st.n === 0 && !fs.existsSync(datei) && fs.readdirSync(messDir()).length >= MAX_SITZUNGEN) return antwort(res, 429, { fehler: 'zu-viele-sitzungen' });
+      const zeile = JSON.stringify({ sitzung, eintrag: d.eintrag }) + '\n';   // eine Zeile je Eintrag (Zeilenumbrueche im Inhalt sind als \n escaped)
+      if (st.n >= MAX_EINTRAEGE || st.bytes + Buffer.byteLength(zeile) > MAX_DATEI_BYTES) return antwort(res, 413, { fehler: 'sitzung-voll' });
+      fs.appendFileSync(datei, zeile);
+      st.n++; st.bytes += Buffer.byteLength(zeile);
+      return antwort(res, 200, { ok: true, n: st.n, datei: path.relative(ROOT, datei) });
     } catch (e) { return antwort(res, 500, { fehler: 'schreiben' }); }
   }
 
@@ -126,7 +161,7 @@ function erzeuge(opt) {
     if (p === ROUTE_MESSUNG) { messung(req, res).catch(() => antwort(res, 500, { fehler: 'intern' })); return true; }
     return false;
   }
-  return { route, aktiv, lokal, MAX_BYTES };
+  return { route, aktiv, lokal, MAX_BYTES, fensterGroesse: () => fenster.size };
 }
 
 const standard = erzeuge();

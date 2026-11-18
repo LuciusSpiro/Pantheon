@@ -92,7 +92,7 @@ const sprechen = async (k) => { k.tasteRunter(); await tick(); return k.tasteHoc
     const k = BS.erzeuge(env); k.schalte(true);
     await sprechen(k);
     ok(L.send.length === 0, 'kein bot.befehl bei Matcher null');
-    ok(L.clips.length === 1 && L.clips[0].some((u) => /\/b0\/|\/navigation\/bot\.unklar\.ogg$/.test(u)) && L.clips[0][0].endsWith('/bot.unklar.ogg'), 'Clip bot.unklar wird versucht: ' + L.clips[0]);
+    ok(L.clips.length === 1 && L.clips[0].every((u) => /\/b0\/bot\.unklar(\.0)?\.(ogg|wav)$/.test(u)) && L.clips[0][0].endsWith('/b0/bot.unklar.0.ogg'), 'Clip bot.unklar wird versucht (Variante 0, Stimme b0 wenn noch keiner angesprochen): ' + L.clips[0]);
     ok(eq(L.untertitel, ['Bitte wiederholen']), 'Clip fehlt: Untertitel "Bitte wiederholen"');
     const b = fake({ text: 'Quatsch', clipDa: true }); const kb = BS.erzeuge(b.env); kb.schalte(true);
     await sprechen(kb);
@@ -180,12 +180,13 @@ const sprechen = async (k) => { k.tasteRunter(); await tick(); return k.tasteHoc
   section('e) Clipwahl, Messmodus, Tasten, Anzeige');
   {
     ok(eq(BS.clipKandidaten('nav.stopp.ok', 'navigation', 1), ['/assets/bots/stimmen/navigation/nav.stopp.ok.1.ogg', '/assets/bots/stimmen/navigation/nav.stopp.ok.1.wav', '/assets/bots/stimmen/navigation/nav.stopp.ok.ogg', '/assets/bots/stimmen/navigation/nav.stopp.ok.wav']), 'Clipwahl mit Variante: Variante zuerst (ogg vor wav), dann ohne Variante');
-    ok(eq(BS.clipKandidaten('bot.unklar', 'ops'), ['/assets/bots/stimmen/ops/bot.unklar.ogg', '/assets/bots/stimmen/ops/bot.unklar.wav']), 'Clipwahl ohne Variante');
+    ok(eq(BS.clipKandidaten('bot.unklar', 'ops'), ['/assets/bots/stimmen/ops/bot.unklar.0.ogg', '/assets/bots/stimmen/ops/bot.unklar.0.wav', '/assets/bots/stimmen/ops/bot.unklar.ogg', '/assets/bots/stimmen/ops/bot.unklar.wav']), 'Clipwahl ohne Variante (S4): zuerst .0, dann ohne Variante');
+    ok(eq(BS.clipKandidaten('nav.stopp.ok', 'b0', null).slice(0, 2), ['/assets/bots/stimmen/b0/nav.stopp.ok.0.ogg', '/assets/bots/stimmen/b0/nav.stopp.ok.0.wav']), 'null wie fehlende Variante');
     const { env, L } = fake(); const k = BS.erzeuge(env); k.schalte(true);
     k.empfange({ t: 'bot.antwort', botId: 'b1', befehl: 'ops.scan', status: 'ok', textId: 'ops.scan.ok', text: 'Aye, scanne.', variante: 0 });
     ok(L.clips[0][0] === '/assets/bots/stimmen/b1/ops.scan.ok.0.ogg' && L.ereignisse.join() === 'untertitel,clip', 'bot.antwort: Untertitel und Clip im selben Schritt, Stimme nach botId');
     k.empfange({ t: 'bot.antwort', botId: 'b9', textId: 'x.ok', stimme: 'kara' });
-    ok(L.clips.at(-1)[0] === '/assets/bots/stimmen/kara/x.ok.ogg' && L.untertitel.at(-1) === 'x.ok', 'msg.stimme hat Vorrang; ohne text zeigt der Untertitel die textId');
+    ok(L.clips.at(-1)[0] === '/assets/bots/stimmen/kara/x.ok.0.ogg' && L.untertitel.at(-1) === 'x.ok', 'msg.stimme hat Vorrang; ohne text zeigt der Untertitel die textId');
     ok(k.empfange({ t: 'snap' }) === false && k.empfange(null) === false, 'fremde Nachrichten werden ignoriert');
     const wirft = fake(); wirft.env.audio.spiele = () => { throw new Error('Audio kaputt'); };
     const kw = BS.erzeuge(wirft.env); kw.schalte(true);
@@ -239,6 +240,100 @@ const sprechen = async (k) => { k.tasteRunter(); await tick(); return k.tasteHoc
     an.feld.value = 'Feuer frei'; an.wurzel.children[3].listeners.submit[0]({ preventDefault() {} });
     ok(gesendet[0] === 'Feuer frei' && an.feld.value === '', 'Absenden gibt den Text weiter und leert das Feld');
     an.messung({ index: 0, phrasen: [{ id: 'p1', text: 'Alle stopp' }], eintraege: [] }); ok(elemente.some((x) => /MESSUNG/.test(x.textContent)), 'Messansicht wird aufgebaut');
+  }
+
+  section('f) Nacharbeit: bot.unklar, Hoechstdauer, 413, Ausschalten, Mikrofon, Mock-Adresse');
+  {
+    // S4: bot.unklar wechselt die Variante und nimmt die Stimme des zuletzt aktiven Bots
+    const { env, L } = fake({ text: 'Quatsch' }); const k = BS.erzeuge(env); k.schalte(true);
+    await sprechen(k); await sprechen(k); await sprechen(k);
+    ok(L.clips.length === 3 && L.clips.map((c) => c[0].match(/bot\.unklar\.(\d)\./)[1]).join() === '0,1,0', 'bot.unklar: Varianten 0, 1, 0 abwechselnd (' + L.clips.map((c) => c[0]).join(' ') + ')');
+    ok(eq(L.untertitel, ['Bitte wiederholen', BS.TEXT.unklar2, 'Bitte wiederholen']) && BS.TEXT.unklar2 === 'Das habe ich nicht verstanden', 'ohne Clip: Untertitel passend zur Variante');
+    ok(L.clips.every((c) => c[0].includes('/b0/')), 'ohne angesprochenen Bot: Stimme b0');
+    k.empfange({ t: 'bot.antwort', botId: 'b2', befehl: 'ops.scan', status: 'ok', textId: 'ops.scan.ok', text: 'Aye' });
+    const n0 = L.clips.length;
+    await sprechen(k);
+    ok(L.clips[n0].every((u) => u.includes('/b2/bot.unklar.')), 'nach Antwort von b2: bot.unklar in der Stimme b2 (' + L.clips[n0][0] + ')');
+    const w = fake({ matcher: { match: () => ({ an: 'b1', befehl: 'ops.scan', konfidenz: 0.9 }) } }); const kw = BS.erzeuge(w.env); kw.schalte(true);
+    await sprechen(kw);
+    const w2 = fake({ text: 'Quatsch' }); w2.env.matcher = () => (w2.L.matcher++, { match: (t) => (t === 'Quatsch' ? null : { an: 'b1', befehl: 'ops.scan' }) });
+    const kw2 = BS.erzeuge(w2.env); kw2.schalte(true);
+    await kw2.sendeText('scan'); await kw2.sendeText('Quatsch');
+    ok(w2.L.clips.at(-1).every((u) => u.includes('/b1/')), 'nach Befehl an b1 (botId im Matcher-Ergebnis): bot.unklar in der Stimme b1');
+    // Stimme aus env.stimmen (b3 faellt auf b0)
+    const b3 = fake({ text: 'Quatsch' }); const k3 = BS.erzeuge(b3.env); k3.schalte(true);
+    k3.empfange({ t: 'bot.antwort', botId: 'b3', textId: 'x.ok' }); await sprechen(k3);
+    ok(b3.L.clips.at(-1)[0].includes('/b0/bot.unklar.'), 'b3 spricht mit der Stimme b0');
+
+    // H6: Hoechstdauer 60 s (Auto-Stop mit Anzeige), Timer wird beim Loslassen geraeumt
+    const timers = []; let geraeumt = 0;
+    const tz = fake({ dauer: 60000 }); tz.env.setTimeout = (f, ms) => { timers.push({ f, ms }); return timers.length; }; tz.env.clearTimeout = () => { geraeumt++; };
+    const kt = BS.erzeuge(tz.env); kt.schalte(true);
+    kt.tasteRunter(); await tick();
+    ok(timers.length === 1 && timers[0].ms === 60000 && BS.MAX_MS === 60000, 'Aufnahme startet einen 60-s-Timer');
+    timers[0].f(); await kt.warte(); await tick(); await kt.warte();
+    ok(tz.L.meldung.includes(BS.TEXT.maxDauer) && tz.L.meldung.at(-1) === BS.TEXT.maxDauer && !kt.lies().aufnahme && tz.L.aufnahme.at(-1) === false && tz.L.stt === 1 && tz.L.send.length === 1, 'nach 60 s: Auto-Stop, Anzeige "Aufnahme nach 60 s beendet" bleibt, Aufnahme wird ausgewertet');
+    ok((await kt.tasteHoch()) === false && tz.L.stt === 1, 'Loslassen nach dem Auto-Stop: nichts doppelt');
+    const t2 = fake(); const tm2 = []; t2.env.setTimeout = (f) => { tm2.push(f); return 1; }; t2.env.clearTimeout = () => { geraeumt++; };
+    const kt2 = BS.erzeuge(t2.env); kt2.schalte(true);
+    const g0 = geraeumt; await sprechen(kt2);
+    ok(geraeumt > g0 && t2.L.stt === 1, 'Loslassen raeumt den Timer');
+    tm2[0](); await tick();
+    ok(t2.L.stt === 1 && t2.L.send.length === 1, 'alter Timer nach Loslassen tut nichts');
+    const t3 = fake(); const tm3 = []; t3.env.setTimeout = (f) => { tm3.push(f); return 1; }; t3.env.clearTimeout = () => {};
+    const kt3 = BS.erzeuge(t3.env); kt3.schalte(true);
+    kt3.tasteRunter(); await tick(); kt3.abbrechen(); tm3[0](); await tick();
+    ok(t3.L.stt === 0 && t3.L.send.length === 0, 'Timer nach Abbruch (Fokusverlust) tut nichts');
+    // 413 vom Server: eigene Meldung, nicht "nicht erreichbar"
+    const e413 = fake(); e413.env.stt = () => { const e = new Error('stt 413'); e.status = 413; return Promise.reject(e); };
+    const k413 = BS.erzeuge(e413.env); k413.schalte(true); await sprechen(k413);
+    ok(e413.L.meldung.at(-1) === 'Aufnahme zu lang.' && !e413.L.meldung.includes(BS.TEXT.sttAus) && e413.L.send.length === 0, '413: Meldung "Aufnahme zu lang.", nicht "nicht erreichbar"');
+    const e502 = fake({ sttFehler: true }); const k502 = BS.erzeuge(e502.env); k502.schalte(true); await sprechen(k502);
+    ok(e502.L.meldung.at(-1) === BS.TEXT.sttAus, 'anderer STT-Fehler bleibt "nicht erreichbar"');
+
+    // H7: nach dem Ausschalten geht nichts mehr an STT oder an den Server
+    const a1 = fake(); const ka1 = BS.erzeuge(a1.env); ka1.schalte(true);
+    ka1.tasteRunter(); await tick();
+    const fertig = ka1.tasteHoch(); ka1.schalte(false);   // ausgeschaltet, bevor die Aufnahme ausgewertet wird
+    await fertig;
+    ok(a1.L.stt === 0 && a1.L.send.length === 0, 'Ausschalten zwischen Loslassen und Auswertung: kein STT-Aufruf, nichts gesendet');
+    let weiter; const a2 = fake(); a2.env.stt = () => { a2.L.stt++; return new Promise((r) => { weiter = r; }); };
+    const ka2 = BS.erzeuge(a2.env); ka2.schalte(true);
+    ka2.tasteRunter(); await tick(); const f2 = ka2.tasteHoch(); await tick(); await tick();
+    ka2.schalte(false); weiter('Schilde Steuerbord'); await f2;
+    ok(a2.L.stt === 1 && a2.L.send.length === 0 && a2.L.clips.length === 0, 'Ausschalten waehrend der Erkennung: Ergebnis wird verworfen, nichts gesendet');
+
+    // H4: ?botmock= nur lokal
+    const M = BS.mockUrlErlaubt;
+    ok(M('ws://localhost:8710') && M('ws://127.0.0.1:8710') && M('ws://[::1]:8710') && M('wss://localhost'), 'botmock: localhost, 127.0.0.1, [::1] erlaubt');
+    ok(!M('ws://evil.example:8710') && !M('ws://localhost.evil.example') && !M('ws://127.0.0.1.evil.example') && !M('ws://192.168.1.5:8710') && !M('http://localhost') && !M('javascript:alert(1)') && !M('') && !M('ws://user@evil.example/') && !M('ws://localhost@evil.example'), 'botmock: fremde Hosts, Tricks, andere Protokolle und Muell abgelehnt');
+    const quelle = fs.readFileSync(path.join(__dirname, '..', 'public', 'js', 'bot-sprache.js'), 'utf8');
+    ok(/mockUrlErlaubt\(mockUrl\)/.test(quelle) && /transportWebSocket\(mockUrl, win\.WebSocket\)/.test(quelle) && /mockOk[^\n]*transportWebSocket|transportWebSocket[^\n]*mockOk|mockUrl !== null && mockOk/.test(quelle) && /TEXT\.mockVerboten/.test(quelle), 'starte(): Mock-Transport nur nach Pruefung, sonst Meldung');
+
+    // H5: Mikrofonstream wird gestoppt, wenn Recorder oder start() wirft
+    for (const [name, wirftBei] of [['new MediaRecorder', 'ctor'], ['rec.start()', 'start']]) {
+      let gestoppt = 0;
+      const stream = { getTracks: () => [{ stop: () => { gestoppt++; } }, { stop: () => { gestoppt++; } }] };
+      function MR() { if (wirftBei === 'ctor') throw new Error('MediaRecorder kaputt'); this.start = () => { throw new Error('start kaputt'); }; }
+      MR.isTypeSupported = () => true;
+      const win = { MediaRecorder: MR, Blob, navigator: { mediaDevices: { getUserMedia: async () => stream } } };
+      let fehler = null; try { await BS.mikrofonBrowser(win).start(); } catch (e) { fehler = e; }
+      ok(fehler && gestoppt === 2, name + ' wirft: Fehler geht weiter, beide Spuren des Mikrofonstreams gestoppt');
+    }
+    // Normalfall bleibt: Recorder laeuft, Stream erst beim Stoppen frei
+    {
+      let gestoppt = 0; const stream = { getTracks: () => [{ stop: () => { gestoppt++; } }] };
+      function MR2() { this.mimeType = 'audio/webm'; this.start = () => {}; this.stop = () => { this.ondataavailable({ data: { size: 3 } }); this.onstop(); }; }
+      MR2.isTypeSupported = () => true;
+      const h = await BS.mikrofonBrowser({ MediaRecorder: MR2, Blob, navigator: { mediaDevices: { getUserMedia: async () => stream } } }).start();
+      ok(gestoppt === 0, 'Normalfall: Stream offen waehrend der Aufnahme');
+      const aufn = await h.stop();
+      ok(gestoppt === 1 && aufn && aufn.mime === 'audio/webm', 'Normalfall: Stoppen gibt Stream frei und liefert die Aufnahme');
+    }
+    // sttBrowser: 413 traegt den Status
+    const sb = BS.sttBrowser({ fetch: async () => ({ ok: false, status: 413 }) });
+    let st = null; try { await sb(new Blob(['x']), 'audio/webm'); } catch (e) { st = e.status; }
+    ok(st === 413, 'sttBrowser: Fehler tragen den HTTP-Status (413)');
   }
 
   console.log('\n' + (n - fails) + '/' + n + ' ok' + (fails ? ', ' + fails + ' FEHLER' : ''));

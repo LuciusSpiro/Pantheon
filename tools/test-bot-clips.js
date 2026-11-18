@@ -26,6 +26,15 @@ for (const [botId, s] of Object.entries(stimmen)) {
   assert.ok(!/passwor|auth/i.test(JSON.stringify(s)), 'kein Zugangsdatum in der Zuordnung');
 }
 assert.ok(Object.keys(texte).length >= 24 && texte['bot.unklar'], 'texte.json: Katalogbefehle und bot.unklar');
+// S3: Befehle mit Argumenten bekommen argumentneutrale Bestaetigungen (eine falsche Bestaetigung im Gefecht ist schlimmer als keine)
+const MIT_ARGS = ['nav.kurs', 'nav.schub', 'nav.abstand', 'ops.ziel', 'ops.feuer_frei', 'ops.beamen', 'tech.prio', 'tech.reparieren', 'tech.schild', 'tech.energie'];
+const ARG_WORT = /steuerbord|backbord|\bbug\b|heck|halbe|volle|markier|basis|antrieb|waffen|torpedo|rohr|löschtrupp|loeschtrupp|feuer zuerst|person|fracht|leck|reaktor|mehr energie|stopp/i;
+for (const id of MIT_ARGS) {
+  const l = texte[id + '.ok'];
+  assert.ok(Array.isArray(l) && l.length === 2 && l.every(t => /^[^\s].{5,60}[.]$/.test(t)), id + ': zwei knappe Varianten');
+  assert.ok(l.every(t => !ARG_WORT.test(t)), id + ': Bestaetigung nennt kein Argument (' + l.join(' | ') + ')');
+  assert.ok(l.some(t => /^Aye/.test(t)), id + ': Aye bleibt');
+}
 const dateien = Clips.clipDateien(texte, stimmen);
 const erwartet = Object.keys(stimmen).length * Object.values(texte).reduce((n, l) => n + l.length, 0) + Object.keys(stimmen).length;   // + bot.unklar.wav je Stimme
 assert.strictEqual(dateien.length, erwartet, 'Zahl der Clips = Stimmen x Varianten (+ bot.unklar ohne Variante)');
@@ -37,7 +46,9 @@ const dateiZuUrl = u => path.join(Clips.VORRAT, ...u.replace('/assets/bots/stimm
 for (const c of dateien) {
   const k = BotSprache.clipKandidaten(c.textId, c.botId, c.variante);
   const treffer = k.find(u => fs.existsSync(dateiZuUrl(u)));
-  assert.strictEqual(treffer && dateiZuUrl(treffer), c.datei, 'Clipwahl findet ' + c.botId + '/' + c.textId + ' Variante ' + c.variante);
+  // ohne Variante (bot.unklar.wav, Kopie von .0) wählt der Client zuerst <textId>.0 (S4): derselbe Inhalt, die .0-Datei
+  const soll = c.variante === null ? c.datei.replace(/\.wav$/, '.0.wav') : c.datei;
+  assert.strictEqual(treffer && dateiZuUrl(treffer), soll, 'Clipwahl findet ' + c.botId + '/' + c.textId + ' Variante ' + c.variante);
 }
 
 // Fallback: fehlt der Clip, liefert die Wiedergabe keinen Pfad, der Untertitel steht trotzdem
@@ -53,9 +64,9 @@ async function fallback() {
     clipBasis: '/assets/bots/stimmen-fehlt',   // Basis ohne Dateien: jeder Clip fehlt
   };
   const k = BotSprache.erzeuge(env); k.schalte(true);
-  k.empfange({ t: 'bot.antwort', botId: 'b0', textId: 'nav.kurs.ok', text: 'Aye, Kurs auf die Markierung.', variante: 0 });
+  k.empfange({ t: 'bot.antwort', botId: 'b0', textId: 'nav.kurs.ok', text: 'Aye, Kurs liegt an.', variante: 0 });
   await new Promise(r => setImmediate(r));
-  assert.deepStrictEqual(untertitel, ['Aye, Kurs auf die Markierung.'], 'Untertitel bleibt, wenn der Clip fehlt');
+  assert.deepStrictEqual(untertitel, ['Aye, Kurs liegt an.'], 'Untertitel bleibt, wenn der Clip fehlt');
   assert.ok(gespielt.length === 1 && gespielt[0].every(u => u.startsWith('/assets/bots/stimmen-fehlt/b0/nav.kurs.ok')), 'Clipwahl fragt Kandidaten an');
   assert.strictEqual(await env.audio.spiele(gespielt[0]), null, 'Wiedergabe liefert keinen Pfad');
 }

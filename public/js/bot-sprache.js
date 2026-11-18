@@ -23,20 +23,28 @@
     keinMatcher: 'Befehlsabgleich nicht geladen.',
     keinBotServer: 'Kein Bot-Server verbunden.',
     zuKurz: 'Zu kurz – Taste halten und dabei sprechen.',
+    zuLang: 'Aufnahme zu lang.',
+    maxDauer: 'Aufnahme nach 60 s beendet.',
+    mockVerboten: 'Mock-Server nur auf localhost erlaubt.',
+    unklar2: 'Das habe ich nicht verstanden',
     messungFehler: 'Messung nicht gespeichert.',
     aufnahme: 'AUFNAHME LÄUFT',
     platzhalter: 'Befehl an die Crew, Enter sendet',
   };
   const STIMMEN = { b0: 'b0', b1: 'b1', b2: 'b2', b3: 'b0' };   // Ordnername im Clip-Vorrat je botId (Kai 2026-11-18: drei Stimmen b0 bis b2, mehr als 3 Bots gibt es nicht; b3 fällt auf b0 zurück); env.stimmen oder msg.stimme überschreiben
+  const MAX_MS = 60000;                                                        // Höchstdauer einer Aufnahme (Auto-Stop); der Server nimmt ohnehin nur 1 MB
+  const UNKLAR_VARIANTEN = 2;                                                  // bot.unklar.0 / .1 im Vorrat (texte.json), abwechselnd
   const MIN_MS = 250;                                                          // kürzere Aufnahmen sind versehentliche Tastenkontakte
   const CLIP_BASIS = '/assets/bots/stimmen';
   const ENDUNGEN = ['ogg', 'wav'];
 
   // ------------------------------------------------------------------ rein: Clipwahl und Messvergleich
-  // Kandidaten in Reihenfolge: genau die Variante des Untertitels zuerst, dann der Clip ohne Variante; ogg vor wav. Die Wiedergabe nimmt den ersten, der existiert.
+  // Kandidaten in Reihenfolge: die Variante des Untertitels zuerst, dann der Clip ohne Variante; ogg vor wav. Die Wiedergabe nimmt den ersten, der existiert.
+  // Ohne Variante (der Vertrag kennt kein Feld `variante`, ein vertragstreuer Server liefert keines): zuerst <textId>.0, dann ohne Variante.
   function clipKandidaten(textId, stimme, variante, basis) {
     const b = (basis || CLIP_BASIS) + '/' + stimme + '/' + textId, out = [];
-    if (Number.isInteger(variante) && variante >= 0) for (const e of ENDUNGEN) out.push(b + '.' + variante + '.' + e);
+    const v = Number.isInteger(variante) && variante >= 0 ? variante : 0;
+    for (const e of ENDUNGEN) out.push(b + '.' + v + '.' + e);
     for (const e of ENDUNGEN) out.push(b + '.' + e);
     return out;
   }
@@ -56,7 +64,9 @@
     const uhr = env.uhr || (() => Date.now());
     const stimmen = Object.assign({}, STIMMEN, env.stimmen || {});
     const A = env.anzeige;
-    const s = { an: false, aufnahme: false, gehalten: false, lauf: 0, handle: null, start: null, abmelden: null, letzte: Promise.resolve(), messmodus: null };
+    const s = { an: false, aufnahme: false, gehalten: false, lauf: 0, handle: null, start: null, abmelden: null, letzte: Promise.resolve(), messmodus: null, timer: null, unklarN: 0, letzterBot: null };
+    const setzeTimer = env.setTimeout || ((f, ms) => setTimeout(f, ms)), loescheTimer = env.clearTimeout || ((t) => clearTimeout(t));
+    const stopTimer = () => { if (s.timer != null) { loescheTimer(s.timer); s.timer = null; } };
 
     const stimmeFuer = (x) => (x && x.stimme) || stimmen[x && x.botId ? x.botId : x] || String(x && x.botId ? x.botId : x || 'b0');
     const meldung = (t) => { try { A.meldung(t); } catch (e) { /* Anzeige darf den Ablauf nie brechen */ } };
@@ -73,7 +83,7 @@
     // ---- Sprechtaste: Aufnahme NUR zwischen Drücken und Loslassen
     function tasteRunter() {
       if (!s.an || s.aufnahme) return false;
-      s.aufnahme = true; s.gehalten = true;
+      s.aufnahme = true; s.gehalten = true; s.maxHinweis = false;
       const lauf = ++s.lauf;
       env.audio.stumm(true); env.audio.stopp();   // Echo: nichts abspielen, solange gesprochen wird
       s.start = (async () => {
@@ -81,9 +91,14 @@
           const h = await env.mikrofon.start();
           if (!s.gehalten || s.lauf !== lauf || !s.an) { try { await h.abbruch(); } catch (e) { /* egal */ } return null; }   // schon losgelassen: sofort wieder zu
           s.handle = h; A.aufnahme(true);
+          s.timer = setzeTimer(() => {   // Höchstdauer: Auto-Stop mit Anzeige, die Aufnahme wird wie beim Loslassen ausgewertet
+            s.timer = null;
+            if (s.lauf !== lauf || !s.aufnahme) return;
+            s.maxHinweis = true; meldung(TEXT.maxDauer); tasteHoch();
+          }, MAX_MS);
           return h;
         } catch (e) {
-          if (s.lauf === lauf) { s.aufnahme = false; s.gehalten = false; env.audio.stumm(false); A.aufnahme(false); }
+          if (s.lauf === lauf) { s.aufnahme = false; s.gehalten = false; stopTimer(); env.audio.stumm(false); A.aufnahme(false); }
           meldung(TEXT.mikro);
           return null;
         }
@@ -92,7 +107,7 @@
     }
     function tasteHoch() {
       if (!s.aufnahme) return Promise.resolve(false);   // außerhalb der Taste passiert nichts
-      s.aufnahme = false; s.gehalten = false;
+      s.aufnahme = false; s.gehalten = false; stopTimer();
       A.aufnahme(false); env.audio.stumm(false);
       const t0 = uhr(), start = s.start; s.handle = null;
       s.letzte = (async () => {
@@ -105,7 +120,7 @@
     }
     function abbrechen() {   // Fokusverlust, Sprache aus: Aufnahme verwerfen, nichts senden
       if (!s.aufnahme) return false;
-      s.aufnahme = false; s.gehalten = false; s.lauf++;
+      s.aufnahme = false; s.gehalten = false; s.lauf++; stopTimer();
       const h = s.handle; s.handle = null;
       A.aufnahme(false); env.audio.stumm(false);
       if (h) { try { h.abbruch(); } catch (e) { /* egal */ } }
@@ -116,12 +131,14 @@
     async function gleiche(text) { const m = await matcher(); if (!m) return { fehlt: true }; try { return { res: m.match(text) || null }; } catch (e) { return { res: null }; } }
 
     async function verarbeiteAufnahme(aufn, t0) {
+      if (!s.an) return false;   // Sprache inzwischen aus: nichts mehr an STT schicken
       if (!aufn || !aufn.blob || !(aufn.blob.size > 0) || (aufn.dauerMs != null && aufn.dauerMs < MIN_MS)) { meldung(TEXT.zuKurz); return false; }
       const tStt0 = uhr();
       let text;
-      try { text = await env.stt(aufn.blob, aufn.mime); } catch (e) { meldung(TEXT.sttAus); return false; }
+      try { text = await env.stt(aufn.blob, aufn.mime); } catch (e) { meldung(e && e.status === 413 ? TEXT.zuLang : TEXT.sttAus); return false; }
+      if (!s.an) return false;   // während der Erkennung ausgeschaltet: verwerfen, nichts senden
       const tText = uhr();
-      meldung(null);
+      if (!s.maxHinweis) meldung(null);   // Hinweis Aufnahme nach 60 s beendet bleibt stehen
       text = String(text == null ? '' : text).trim();
       const g = text ? await gleiche(text) : { res: null };
       if (g.fehlt) { meldung(TEXT.keinMatcher); return false; }
@@ -148,19 +165,22 @@
       let ok = false;
       try { ok = env.transport.send(msg) !== false; } catch (e) { ok = false; }
       if (!ok) { meldung(TEXT.keinBotServer); return false; }
-      meldung(null);
+      if (/^b\d$/.test(String(res.an))) s.letzterBot = res.an;   // zuletzt angesprochener Bot (nur wenn der Matcher eine botId nennt)
+      if (!s.maxHinweis) meldung(null);
       return true;
     }
     async function unklar() {
+      const v = s.unklarN++ % UNKLAR_VARIANTEN;   // beide Varianten abwechselnd
       let url = null;
-      try { url = await env.audio.spiele(clipKandidaten('bot.unklar', stimmeFuer('b0'), null, env.clipBasis)); } catch (e) { url = null; }
-      if (!url) A.untertitel(TEXT.unklar);   // Clip fehlt: Untertitel statt Ton
+      try { url = await env.audio.spiele(clipKandidaten('bot.unklar', stimmeFuer(s.letzterBot || 'b0'), v, env.clipBasis)); } catch (e) { url = null; }   // Stimme des zuletzt angesprochenen/aktiven Bots
+      if (!url) A.untertitel(v === 0 ? TEXT.unklar : TEXT.unklar2);   // Clip fehlt: Untertitel statt Ton
       return false;
     }
 
     // ---- bot.antwort: Untertitel und Clip gleichzeitig; fehlt der Clip, bleibt der Untertitel
     function empfange(msg) {
       if (!s.an || !msg || msg.t !== 'bot.antwort') return false;
+      if (typeof msg.botId === 'string' && msg.botId) s.letzterBot = msg.botId;
       A.untertitel(typeof msg.text === 'string' && msg.text ? msg.text : String(msg.textId || ''));
       if (!s.aufnahme && msg.textId) {   // gehaltene Sprechtaste = Mikrofon offen: nichts abspielen
         const urls = clipKandidaten(msg.textId, stimmeFuer(msg), msg.variante, env.clipBasis);
@@ -207,6 +227,10 @@
   }
 
   // ================================================================== Browser-Adapter (ab hier nur mit window/document, nicht im Kerntest)
+  // ?botmock= nur auf dem eigenen Rechner (localhost, 127.0.0.1, [::1]) und nur per ws/wss; sonst gingen Befehle und Antworten an einen fremden Server
+  function mockUrlErlaubt(url) {
+    try { const u = new URL(String(url)); return /^wss?:$/.test(u.protocol) && ['localhost', '127.0.0.1', '[::1]'].indexOf(u.hostname) >= 0; } catch (e) { return false; }
+  }
   // Transport zum Mock (?botmock=ws://localhost:8710): einfacher WebSocket mit Wiederaufbau; WS wird übergeben (Test: ws-Paket)
   function transportWebSocket(url, WS) {
     const zuhoerer = []; let ws = null, zu = false, timer = null;
@@ -238,10 +262,13 @@
       async start() {   // Mikrofon wird je Tastendruck geöffnet und beim Loslassen wieder freigegeben (Mikrofon-Symbol des Browsers nur während der Aufnahme)
         if (!win.navigator || !win.navigator.mediaDevices || !win.navigator.mediaDevices.getUserMedia || !MR) throw new Error('kein Mikrofon');
         const stream = await win.navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true } });
-        const mime = waehleMime(), rec = new MR(stream, mime ? { mimeType: mime } : {}), teile = [];
         const frei = () => { try { stream.getTracks().forEach((t) => t.stop()); } catch (e) { /* egal */ } };
-        rec.ondataavailable = (ev) => { if (ev.data && ev.data.size) teile.push(ev.data); };
-        const t0 = Date.now(); rec.start();
+        let rec; const mime = waehleMime(), teile = [], t0 = Date.now();
+        try {
+          rec = new MR(stream, mime ? { mimeType: mime } : {});
+          rec.ondataavailable = (ev) => { if (ev.data && ev.data.size) teile.push(ev.data); };
+          rec.start();
+        } catch (e) { frei(); throw e; }   // Mikrofonstream nie offen lassen, wenn der Recorder nicht startet
         return {
           stop() { return new Promise((resolve) => { rec.onstop = () => { frei(); const typ = rec.mimeType || mime || 'audio/webm'; resolve({ blob: new win.Blob(teile, { type: typ }), mime: typ, dauerMs: Date.now() - t0 }); }; try { rec.stop(); } catch (e) { frei(); resolve(null); } }); },
           abbruch() { rec.onstop = null; try { rec.stop(); } catch (e) { /* egal */ } frei(); },
@@ -270,7 +297,7 @@
   function sttBrowser(win) {
     return async (blob, mime) => {
       const r = await win.fetch('/api/stt', { method: 'POST', headers: { 'Content-Type': mime || 'application/octet-stream' }, body: blob });
-      if (!r.ok) throw new Error('stt ' + r.status);
+      if (!r.ok) { const e = new Error('stt ' + r.status); e.status = r.status; throw e; }
       const d = await r.json();
       return d && d.text;
     };
@@ -354,7 +381,9 @@
     if (!win || instanz) return instanz && instanz.kern;
     const params = new URLSearchParams(win.location.search);
     const mockParam = params.get('botmock');
-    const transport = mockParam !== null ? transportWebSocket(mockParam || 'ws://localhost:8710', win.WebSocket) : transportNetStub();
+    const mockUrl = mockParam !== null ? (mockParam || 'ws://localhost:8710') : null;
+    const mockOk = mockUrl === null || mockUrlErlaubt(mockUrl);
+    const transport = mockUrl !== null && mockOk ? transportWebSocket(mockUrl, win.WebSocket) : transportNetStub();
     const sitzung = 'messung-' + new Date().toISOString().replace(/[^0-9]/g, '').slice(0, 14);
     let kern = null;
     const anzeige = baueAnzeige(win, (t) => kern.sendeText(t), (dd) => kern.messeWeiter(dd));
@@ -363,6 +392,7 @@
       postMessung: (sit, eintrag) => win.fetch('/api/bot-messung', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ sitzung: sit, eintrag }) }).then((r) => { if (!r.ok) throw new Error('messung ' + r.status); }),
     };
     kern = erzeuge(env);
+    if (!mockOk) anzeige.meldung(TEXT.mockVerboten);
     const T = win.Tasten;
     const passt = (e, id, fallback) => (T && T.passt ? T.passt(e, id) : e.code === fallback);
     const tippt = () => { const a = win.document.activeElement; return !!(a && (a.tagName === 'INPUT' || a.tagName === 'TEXTAREA')); };
@@ -392,5 +422,5 @@
     i.kern.schalte(false); i.aufraeumen(); i.transport.schliessen();
   }
 
-  return { erzeuge, clipKandidaten, erwartungErfuellt, TEXT, STIMMEN, CLIP_BASIS, transportWebSocket, transportNetStub, baueAnzeige, mikrofonBrowser, audioBrowser, sttBrowser, starte, stoppe, laeuft: () => !!instanz };
+  return { erzeuge, clipKandidaten, erwartungErfuellt, mockUrlErlaubt, TEXT, MAX_MS, STIMMEN, CLIP_BASIS, transportWebSocket, transportNetStub, baueAnzeige, mikrofonBrowser, audioBrowser, sttBrowser, starte, stoppe, laeuft: () => !!instanz };
 });

@@ -1,23 +1,23 @@
 {
  "nav.kurs.ok": [
-  "Aye, Kurs auf die Markierung.",
-  "Kurs liegt an, Käpt'n."
+  "Aye, Kurs liegt an.",
+  "Kurs gesetzt, Käpt'n."
  ],
  "nav.stopp.ok": [
   "Aye, alle Maschinen stopp.",
   "Maschinen stehen."
  ],
  "nav.schub.ok": [
-  "Aye, halbe Kraft voraus.",
-  "Schub gesetzt."
+  "Aye, Schub gesetzt.",
+  "Fahrt wird angepasst."
  ],
  "nav.ausweichen.ok": [
   "Aye, weiche aus.",
   "Ruder hart, wir drehen ab."
  ],
  "nav.abstand.ok": [
-  "Aye, halte Abstand.",
-  "Abstand wird gehalten."
+  "Aye, Abstand wird gehalten.",
+  "Abstand liegt an."
  ],
  "nav.andocken.ok": [
   "Aye, gehe längsseits.",
@@ -28,12 +28,12 @@
   "Sprungkurs liegt an."
  ],
  "ops.ziel.ok": [
-  "Aye, Ziel markiert.",
-  "Ziel erfasst."
+  "Aye, Ziel gesetzt.",
+  "Ziel ist erfasst."
  ],
  "ops.feuer_frei.ok": [
   "Aye, Feuer frei.",
-  "Alle Rohre feuern."
+  "Feuer wird eröffnet."
  ],
  "ops.feuer_halt.ok": [
   "Aye, Feuer eingestellt.",
@@ -48,24 +48,24 @@
   "Landepunktscan läuft."
  ],
  "ops.beamen.ok": [
-  "Aye, Fracht kommt an Bord.",
-  "Fracht wird gebeamt."
+  "Aye, Transport läuft.",
+  "Transporter ist am Werk."
  ],
  "tech.prio.ok": [
-  "Aye, Feuer zuerst.",
-  "Löschtrupp geht vor."
+  "Aye, Priorität gesetzt.",
+  "Reihenfolge steht, Käpt'n."
  ],
  "tech.reparieren.ok": [
-  "Aye, Antrieb wird repariert.",
-  "Reparatur eingeplant."
+  "Aye, Reparatur eingeplant.",
+  "Kommt auf die Liste, Käpt'n."
  ],
  "tech.schild.ok": [
-  "Aye, Schilde Steuerbord.",
-  "Schilde laufen nach Steuerbord."
+  "Aye, Schilde umgelegt.",
+  "Schilde werden verlagert."
  ],
  "tech.energie.ok": [
-  "Aye, mehr Energie auf Waffen.",
-  "Energie wird umgeleitet."
+  "Aye, Energie wird umgeleitet.",
+  "Energieverteilung angepasst."
  ],
  "tech.ueberladen.ok": [
   "Aye, Reaktor wird überladen.",
