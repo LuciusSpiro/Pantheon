@@ -46,15 +46,17 @@ section('1 Funktionen');
 // ---------- Aufbau eines echten Games ----------
 // menschen echte Clients, bots synthetische Bot-Spieler (eigene Fake-Verbindung, nie OK/Eingaben)
 const mkConn = () => ({ inbox: [], send(o) { this.inbox.push(o); }, sendRaw(s) { this.inbox.push(JSON.parse(s)); } });
-function setup(menschen, bots, extraEnv) {
+function setup(menschen, bots, extraEnv, botsZuerst) {
   const dir = path.join(TMP, 'w' + (++seq)); fs.mkdirSync(dir, { recursive: true });
   const g = new Game({ noStore: true, worlds: true, worldSaveSync: true, worldDir: dir, seed: 7, debug: true, env: Object.assign({ MISSION_SOURCE: 'fallback', SPIELLEITER_LLM: 'off', REGIE_DIR: path.join(TMP, 'regie') }, extraEnv || {}), log: () => {} });
   const conns = [], botConns = [];
-  for (let i = 0; i < menschen; i++) { const c = mkConn(); g.addConnection(c); g.handleMessage(c, { t: 'hello', clientId: 'K' + i, name: 'K' + i, color: i }); conns.push(c); }
-  for (let i = 0; i < bots; i++) {
-    const c = mkConn(); g.addConnection(c); g.handleMessage(c, { t: 'hello', clientId: 'B' + i, name: 'B' + i, color: menschen + i });
+  const mensch = (i) => { const c = mkConn(); g.addConnection(c); g.handleMessage(c, { t: 'hello', clientId: 'K' + i, name: 'K' + i, color: i }); conns.push(c); };
+  const bot = (i) => {
+    const c = mkConn(); g.addConnection(c); g.handleMessage(c, { t: 'hello', clientId: 'B' + i, name: 'B' + i, color: botsZuerst ? i + 1 : menschen + i });
     c.player.bot = true; c.player.botId = 'b' + i; botConns.push(c);
-  }
+  };
+  if (botsZuerst) { for (let i = 0; i < bots; i++) bot(i); for (let i = 0; i < menschen; i++) mensch(i); }   // Bots zuerst verbunden (Array-Reihenfolge), der Mensch wünscht Farbe 0
+  else { for (let i = 0; i < menschen; i++) mensch(i); for (let i = 0; i < bots; i++) bot(i); }
   g.handleMessage(conns[0], { t: 'lobbyOpt', startMission: 'freie_fahrt' });
   for (const c of conns.concat(botConns)) g.handleMessage(c, { t: 'ready', ready: true });
   const run = (sec) => { for (let k = 0; k < Math.round(sec * 30); k++) g.step(); };
@@ -153,6 +155,17 @@ section('4 Kontingent: Frage an den Menschen mit Farbe 0');
   ok(Kontingent.frageZustellen(spiel([mensch]), bot0) === false && gesendet.length === 0, 'explizit für einen Bot mit Farbe 0 (nach dem welcome): keine Frage');
   gesendet.length = 0;
   ok(Kontingent.frageZustellen(spiel([sp('p1', 0), sp('p2', 1)])) === true && gesendet.length === 1 && gesendet[0].conn === 'p1', 'reine Menschen: unverändert, die Frage geht an Farbe 0');
+}
+
+{
+  // Echtes Game: 3 Bots zuerst verbunden (Farben 1-3), dann der Mensch mit Farbe 0; offene Frage im Live-Spielleiter
+  const s = setup(1, 3, { SPIELLEITER_LLM: 'live', LLM_LIVE: '1' }, true), g = s.g;
+  const mensch = s.conns[0].player;
+  ok(g.players[0].bot === true && g.players[3] === mensch && mensch.color === 0 && g.players.slice(0, 3).every((q) => q.bot && q.color !== 0), 'Aufbau: 3 Bots stehen vor dem Menschen im Array, der Mensch hat Farbe 0');
+  g.kontingent = Object.assign(g.kontingent || {}, { frage: { offen: true } });
+  for (const c of s.conns.concat(s.botConns)) c.inbox.length = 0;
+  const frage = (c) => c.inbox.filter((m) => m.kind === 'kontingentFrage').length;
+  ok(Kontingent.frageZustellen(g) === true && frage(s.conns[0]) === 1 && s.botConns.every((c) => frage(c) === 0), 'echtes Game, Bots zuerst verbunden: die Frage geht nur an den Menschen mit Farbe 0');
 }
 
 // ---------- 5 Snapshot, Client-Helfer, Telemetrie ----------
