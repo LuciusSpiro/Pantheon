@@ -22,6 +22,7 @@ const Protocol = require('../shared/protocol.js');
 const { Game } = require('../server/game.js');
 const { bfs, clamp, makeRng } = require('../server/util.js');
 const W = require('../server/world.js');
+const Crew = require('../server/sim/crew.js');   // BOT-01 A1
 const Station = require('../server/sim/station.js');   // R1: aktive Station der Bots (Tab-Wechsel)
 const Gsys = require('../server/sim/gegnersystem.js');   // SYS-02c: Zonen und Systeme der Gegner (Katalogdaten) für die Zonen-Taktik
 let simRng = makeRng(1);
@@ -993,7 +994,7 @@ class Agent {
       // Zu dritt verlässt die Taktik die Brücke für Reparaturen (die Waffen feuern unbesetzt mit 50 % weiter).
       // R1 §4.5: Ab 3 Spielern gibt es keine Waffenautomatik – die Taktik bleibt im Gefecht an der Konsole, solange eine Waffe feuern kann;
       // sind alle drei Waffen zerstört, geht sie reparieren (wie ein Mensch, der an der Konsole nichts mehr tun kann).
-      const ohneAutomatik = Station.verbunden(this.game) > this.game.C.waffenAutomatikMaxSpieler;
+      const ohneAutomatik = Crew.koepfe(this.game) > this.game.C.waffenAutomatikMaxSpieler;
       const feuerbereit = ['weapon_bow', 'battery_port', 'battery_stbd'].some((w) => S.ship.systems[w] !== 'broken');
       if (!(ohneAutomatik && feuerbereit) && this.repairDuty(S, p, { damaged: true, cooldown: 6 })) return;
       if (this.enter(S, 'weapons')) this.fight(S, { scan: true });

@@ -19,6 +19,7 @@
 //   freigeben(game)          Befehl kontingent.freigeben: Limit UND Schwelle +500 000, nur wenn erreicht, nicht abgelehnt (Einmal-Sperre) und eine OFFENE Frage der aktuellen Schwelle steht -> null | { code, text }; schliesst die Frage; Logbuch
 //   ablehnen(game)           Befehl kontingent.ablehnen: schliesst die offene Frage fuer diese Schwelle endgueltig -> null | { code, text }; Logbuch
 //   weigerung(code)          { code, text }  (codes: nicht_erreicht, abgelehnt, keine_frage, fehler)
+const Crew = require('./crew.js');   // BOT-01 A1
 const LLM = require('../mission/llm.js');
 
 const FREIGABE = 500000;
@@ -65,14 +66,14 @@ function pruefen(game) {
   }
   return true;
 }
-// Offene Frage als Einmal-Ereignis an den Spieler mit color 0 (ohne Zahlen). Aufruf beim Erreichen und nach dem welcome eines Spielers (dann mit p).
+// Offene Frage als Einmal-Ereignis an den MENSCHEN mit color 0 (BOT-01 A1: ein Bot mit Farbe 0 bekommt sie nie; die Farbvergabe in Paket B verhindert, dass ein Bot Farbe 0 hat) (ohne Zahlen). Aufruf beim Erreichen und nach dem welcome eines Spielers (dann mit p).
 function frageZustellen(game, p) {
   try {
     const z = game && game.kontingent;
     if (!z || !z.frage || !z.frage.offen) return false;
     if (game.phase === 'lobby' || !live(game)) return false;   // LIV-02 Nacharbeit: nur in der Spielphase und nur im Live-Spielleiter dieser Partie (in der Lobby werden Befehle verworfen); startGame stellt beim Start nach
-    const ziel = p || (Array.isArray(game.players) ? game.players.find((o) => o && o.color === FRAGE_FARBE && o.connected && o.conn) : null);
-    if (!ziel || ziel.color !== FRAGE_FARBE || !ziel.conn || typeof game.sendTo !== 'function') return false;
+    const ziel = p || (Array.isArray(game.players) ? game.players.find((o) => o && !Crew.istBot(o) && o.color === FRAGE_FARBE && o.connected && o.conn) : null);
+    if (!ziel || Crew.istBot(ziel) || ziel.color !== FRAGE_FARBE || !ziel.conn || typeof game.sendTo !== 'function') return false;
     game.sendTo(ziel.conn, { t: 'event', kind: 'kontingentFrage', pid: ziel.id });
     return true;
   } catch (e) { if (game && game.countError) game.countError('kontingent-frage', e); return false; }

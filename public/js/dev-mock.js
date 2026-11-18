@@ -1130,7 +1130,7 @@
         }
         break;
       case 'menu':
-        if (msg.op === 'pause') W.paused = !!msg.on && W.players.filter(q => q.connected !== false).length === 1;
+        if (msg.op === 'pause') W.paused = !!msg.on && window.Shared_Protocol.menschenZahl(W) === 1;
         else if (msg.op === 'end') {
           const saved = !!W.ship.dockedAt;
           if (saved) ev('worldSaved', { id: 'w-mock', name: 'Lerche', loc: W.ship.dockedAt });

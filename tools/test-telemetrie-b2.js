@@ -130,7 +130,7 @@ function drehbuch(S) {
   ok(zr.some((x) => x.ort.includes('boden') && x.b_cv[1] === 0) && zr.every((x) => x.ort.every((o) => o === 'raum' || o === 'boden')), 'Boden: ort (raum | boden) und Deckungswerte je Slot');
   ok(zr.every((x) => x.ein_akt[2] === 0 && x.ein_bew[2] === 0), 'Debug und clientError zaehlen nicht als Eingabe (p3 sendet nur diese)');
   ok(zr.every((x) => x.tick_ueber5 >= x.tick_ueber16 && x.tick_ueber16 >= x.tick_ueber33 && x.tick_ueber5 <= x.tick_n && x.snap_n === 0 && x.kappung_n === 0 && x.nachhol_ticks === 0), 'Tick-Zaehler ueber 5/16/33 ms verschachtelt; ohne Server (Bot) keine Snapshot- und Kappungswerte');
-  ok(zr.every((x) => Object.keys(x).length === 5 + SCHEMA.zeitreihe.felder.length), 'Zeitreihe: alle Felder des Schemas, keine fremden');
+  ok(zr.every((x) => Object.keys(x).length === 5 + SCHEMA.zeitreihe.felder.filter((k) => !SCHEMA.zeitreihe.optional.includes(k)).length), 'Zeitreihe: alle Felder des Schemas, keine fremden (optional: bot nur in Partien mit Bots, BOT-01 A1)');
 
   console.log('Schema und Pseudonym');
   const fremd = [];

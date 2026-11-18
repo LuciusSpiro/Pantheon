@@ -395,7 +395,7 @@ for (const [paket, typen] of Object.entries(PAKET_TYPEN)) {
   const fehlt = typen.filter((t) => !(vorgekommen[t] > 0) && !NUR_IM_MENSCHENSPIEL.includes(t));
   ok(fehlt.length === 0 && typen.every((t) => SCHEMA[t]), 'Paket ' + paket + ': jeder Typ kommt vor' + (fehlt.length ? ' – fehlt: ' + fehlt.join(',') : ''));
 }
-{ const z = alleZeilen.filter((x) => x.typ === 'zeitreihe'); const f = SCHEMA.zeitreihe.felder; ok(z.length > 0 && z.every((x) => f.every((k) => k in x)), 'zeitreihe trägt in jeder Zeile alle Felder des Schemas (' + z.length + ' Zeilen)'); }
+{ const z = alleZeilen.filter((x) => x.typ === 'zeitreihe'); const f = SCHEMA.zeitreihe.felder.filter((k) => !(SCHEMA.zeitreihe.optional || []).includes(k)); ok(z.length > 0 && z.every((x) => f.every((k) => k in x)), 'zeitreihe trägt in jeder Zeile alle Felder des Schemas (' + z.length + ' Zeilen)'); }
 
 section('Namenstest über alle Protokolle');
 {

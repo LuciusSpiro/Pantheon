@@ -130,7 +130,7 @@ function baueKopf(game, ctx) {
     regielog: Regielog.safeId((ws && ws.id) || 'ohne-welt') + '.jsonl',
     quelle: ctx.quelle,
     spielerzahl: game.players.length,
-    slots: game.players.map((p) => ({ slot: p.id, belegung: 1, konsole: p.console || null, verbunden: !!p.connected })),   // nie Name, Karte, clientId; belegung 1 = erste Belegung des Slots in dieser Session
+    slots: game.players.map((p) => ({ slot: p.id, belegung: 1, konsole: p.console || null, verbunden: !!p.connected, ...(p.bot ? { bot: true } : {}) })),   // nie Name, Karte, clientId; belegung 1 = erste Belegung des Slots in dieser Session
     schiff: { stufe: sh.stufe == null ? null : sh.stufe, module: jaNein(sh.module), waffen: jaNein(sh.waffen), ort: sh.scene || null },
     schalter: schalter(env),
     tuning_hash: tuning.hash,

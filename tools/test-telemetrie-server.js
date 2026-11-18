@@ -43,7 +43,7 @@ const client = (port, hello) => new Promise((resolve) => {
   const z = fs.readFileSync(path.join(dir, f[0]), 'utf8').split('\n').filter(Boolean).map(JSON.parse).filter((x) => x.typ === 'zeitreihe');
   const sum = (k) => z.reduce((s, x) => s + (x[k] || 0), 0);
   ok(z.length >= 3, 'Zeitreihenzeilen vorhanden (' + z.length + ')');
-  ok(z.every((x) => Object.keys(x).length === 5 + SCHEMA.zeitreihe.felder.length), 'alle Felder des Schemas in jeder Zeile');
+  ok(z.every((x) => Object.keys(x).length === 5 + SCHEMA.zeitreihe.felder.filter((k) => !SCHEMA.zeitreihe.optional.includes(k)).length), 'alle Felder des Schemas in jeder Zeile (außer optional)');
   ok(sum('snap_n') >= 30 && z.some((x) => x.snap_med > 0 && x.snap_max >= x.snap_med), 'Snapshot-Zeit gemessen (' + sum('snap_n') + ' Snapshots, Median > 0, Max >= Median)');
   ok(sum('kappung_n') >= 1 && sum('kappung_ticks') >= 3, 'Kappung: ' + sum('kappung_n') + ' Aufruf(e), ' + sum('kappung_ticks').toFixed(1) + ' Ticks verworfen (600 ms Stillstand - 250 ms)');
   ok(sum('nachhol_ticks') >= 5, 'Nachholen: ' + sum('nachhol_ticks') + ' Ticks nach dem ersten im selben Aufruf');

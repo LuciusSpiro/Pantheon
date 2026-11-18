@@ -26,6 +26,7 @@
 
 const fs = require('fs');
 const path = require('path');
+const Crew = require('../sim/crew.js');   // BOT-01 A1
 const Kopf = require('./kopf.js');
 const Tabelle = require('./ereignisse.js');
 
@@ -311,11 +312,11 @@ class Telemetrie {
     const s = this.s; const sl = Tabelle.slot(slot);
     if (!s) return;
     if (sl) s.belegung[sl] = art === 'wieder' ? (s.belegung[sl] || 1) : (s.belegung[sl] || 0) + 1;   // neu/uebernahme = neue Belegung des Slots, wieder = dieselbe
-    this.ereignis('spieler_bei', { slot: sl, art, belegung: sl ? s.belegung[sl] : null, nachzuegler: !!nachzuegler, spielerzahl: this.game.connectedCount() });
+    this.ereignis('spieler_bei', { slot: sl, art, belegung: sl ? s.belegung[sl] : null, nachzuegler: !!nachzuegler, spielerzahl: Crew.menschen(this.game) });
   }
   spielerWeg(slot) {
     const sl = Tabelle.slot(slot);
-    this.ereignis('spieler_weg', { slot: sl, belegung: sl && this.s ? this.s.belegung[sl] || 0 : null, spielerzahl: this.game.connectedCount() });
+    this.ereignis('spieler_weg', { slot: sl, belegung: sl && this.s ? this.s.belegung[sl] || 0 : null, spielerzahl: Crew.menschen(this.game) });
   }
   // Laufzeitänderung eines Werts (Debug-Befehl tune): Pfad, alter und neuer Wert (Zahl oder Wahrheitswert)
   tune(pfad, alt, neu) { this.ereignis('tune', { pfad: String(pfad).slice(0, 80), alt, neu }); }

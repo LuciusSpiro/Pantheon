@@ -1431,7 +1431,7 @@
       const w = 200, x = VW / 2 - w / 2, y = 92;
       const h = 30 + 12 + this.MENU_ITEMS.length * 22 + 14;
       R.panel(ctx, x, y, w, h, { style: 'brass', title: 'MENÜ' });
-      const solo = (st.players || []).filter(p => p.connected !== false).length <= 1;
+      const solo = PROTO.menschenZahl(st) <= 1;   // BOT-01 A1: Pause gehört den Menschen
       R.text(ctx, st.paused ? 'PAUSE – das Spiel ruht' : solo ? 'Pause wird angefragt …' : 'Das Spiel läuft weiter', VW / 2, y + 12, { color: st.paused ? PAL.ice : PAL.panelLight, align: 'center' });
       let yy = y + 28;
       this.MENU_ITEMS.forEach(([id, label], i) => {
@@ -2147,7 +2147,7 @@
       ctx.fillStyle = F.banderole; ctx.fillRect(x, y, w, M.h);   // rote Kopfleiste wie die Banderole
       R.text(ctx, T.TEXT.schiffZerstoert, VW / 2, y + 5, { color: F.banderoleText, align: 'center', shadow: false });
       const rt = (view.state && view.state.ship && view.state.ship.reaktorTod) || {};
-      const mehrere = ((view.state && view.state.players) || []).filter((q) => q.connected !== false).length > 1;
+      const mehrere = PROTO.menschenZahl(view.state) > 1;   // BOT-01 A1: Zerstört-Einblendung wartet auf Menschen
       // SYS-01 A2 Nacharbeit: „wartet auf n Spieler“, solange nicht alle bestätigt haben (nach meinem OK, oder immer bei mehreren Spielern)
       if (rt.wartet > 0 && (view.zerstoertOkGesendet || mehrere)) R.text(ctx, PS.text(T.TEXT.schiffWartet, { n: rt.wartet }), VW / 2, view.zerstoertOkGesendet ? y + h - 20 : y + h - 38, { color: F.text, align: 'center', shadow: false });
       if (!view.zerstoertOkGesendet) R.button(ctx, VW / 2 - 50, y + h - 26, 100, 18, T.TEXT.schiffOk, { hotkey: 'Enter', onClick: () => view.actions.zerstoertOk && view.actions.zerstoertOk() });
