@@ -274,6 +274,26 @@ const sprechen = async (k) => { k.tasteRunter(); await tick(); return k.tasteHoc
     an.textzeile(true); an.feld.blur(); ok(!an.zeile.offen, 'Fokusverlust bei leerer Zeile: schliesst');
     an.textzeile(true); an.feld.value = 'halber Satz'; an.feld.blur(); ok(an.zeile.offen && an.feld.value === 'halber Satz', 'Fokusverlust mit Text: Zeile bleibt offen');
     an.zeile.schliessen(); ok(!an.zeile.offen, 'schliessen() (HUD: kein Spielbild) schliesst');
+    // S1: gehaltene Spieltasten werden ueber Client.tastenFreigeben freigegeben (keyup in der Zeile erreicht das Spiel nicht)
+    {
+      const gehalten = { KeyW: true, ShiftLeft: true }; let frei = 0;
+      win.Client.tastenFreigeben = () => { frei++; for (const k of Object.keys(gehalten)) delete gehalten[k]; };
+      an.textzeile(true); ok(frei === 1 && !gehalten.KeyW && !gehalten.ShiftLeft, 'Oeffnen gibt die gehaltenen Spieltasten frei (W, Umschalt)');
+      an.feld.listeners.keyup[0]({ stopPropagation() {}, code: 'KeyW' });
+      gehalten.Backslash = true;   // das Spiel sieht das # selbst noch (keydown vor dem Oeffnen), sein keyup bleibt in der Zeile
+      an.zeile.schliessen(); ok(frei === 2 && !gehalten.Backslash, 'Schliessen gibt ebenfalls frei: nichts bleibt haengen');
+      an.zeile.schliessen(); ok(frei === 2, 'schon zu: keine weitere Freigabe');
+      an.feld.value = 'x'; an.textzeile(true); zf.listeners.submit[0]({ preventDefault() {} }); ok(frei === 4, 'Enter schliesst und gibt frei');
+      delete win.Client.tastenFreigeben;
+      ok(an.textzeile(true) === true && (an.zeile.schliessen(), true), 'ohne Client.tastenFreigeben (aelterer Client) kein Absturz');
+      // H2: kein Oeffnen hinter einem Overlay
+      let eingabeFrei = false; win.Client.eingabeFrei = () => eingabeFrei; win.Client.tastenFreigeben = () => { frei++; };
+      const vor = frei; ok(an.textzeile(true) === false && !an.zeile.offen && zf.style.display === 'none' && frei === vor, 'Pausenmenue/Minispiel/Terminal-Zusehen: die Zeile oeffnet nicht (und gibt nichts frei)');
+      eingabeFrei = true; ok(an.textzeile(true) === true && an.zeile.offen, 'ohne Overlay oeffnet sie'); an.zeile.schliessen();
+      delete win.Client.eingabeFrei; delete win.Client.tastenFreigeben;
+      const cj = fs.readFileSync(path.join(__dirname, '..', 'public', 'js', 'client.js'), 'utf8');
+      ok(/Client\.tastenFreigeben = releaseAll;/.test(cj) && /Client\.eingabeFrei = \(\) => \{[^\n]*uiTop\(\)[^\n]*Client\.chapter[^\n]*Client\.minigame[^\n]*TerminalUI\.zusehend/.test(cj), 'client.js bietet tastenFreigeben (= die Freigabe bei Fokusverlust) und eingabeFrei (Menue, Kapitel, Minispiel, Zusehen)');
+    }
     // Lage: Rasterrechteck * Client.scale + Canvas-Versatz (wie #lobbyCode)
     an.textzeile(true); an.zeile.platziere({ x: 178, y: 300, w: 284, h: 14 });
     ok(zf.style.left === (100 + 178 * 3) + 'px' && zf.style.top === (50 + 300 * 3) + 'px' && zf.style.width === '852px' && zf.style.height === '42px', 'Eingabefeld liegt im Rastermass ueber dem Kasten (Skala 3)');
@@ -281,6 +301,8 @@ const sprechen = async (k) => { k.tasteRunter(); await tick(); return k.tasteHoc
     ok(zf.style.left === '356px' && zf.style.top === '600px' && zf.style.width === '568px' && zf.style.height === '28px', 'Skala 2: gleiche Rasterwerte, andere Pixel');
     an.zeile.schliessen();
     an.messung({ index: 0, phrasen: [{ id: 'p1', text: 'Alle stopp' }], eintraege: [] }); ok(elemente.some((x) => /MESSUNG/.test(x.textContent)), 'Messansicht bleibt DOM (Entwicklerwerkzeug)');
+    an.textzeile(true); ok(an.zeile.offen, 'Textzeile fuer aus() offen');
+    an.aus(); ok(!an.zeile.offen && zf.style.display === 'none' && zf.style.pointerEvents === 'none', 'aus(): eine offene Textzeile wird geschlossen');
     an.aus(); ok(hud.sprech.aktiv === false && !hud.notices.some((x) => x.text === 'Anderes' || x.text === BS.TEXT.maxDauer) && an.wurzel.entfernt === true, 'aus(): HUD abgemeldet, eigene Meldungen weg, DOM entfernt');
   }
 
@@ -404,6 +426,18 @@ const sprechen = async (k) => { k.tasteRunter(); await tick(); return k.tasteHoc
       const kk = BS.erzeuge(f.env); kk.schalte(true); await sprechen(kk);
       ok(f.L.verarb.at(-1) === false || f.L.verarb.length === 0, name + ': Zwischenzustand endet nicht haengend');
     }
+    // H3: ueberlappende Ablaeufe: "..." bleibt, bis der letzte fertig ist (Zaehler statt Flag); ein Text-Befehl dazwischen loescht es nicht
+    {
+      const f = fake({ text: 'Quatsch' }); f.L.verarb = []; f.env.anzeige.verarbeitet = (b) => { f.L.verarb.push(b); };
+      const offen = []; f.env.stt = () => new Promise((r) => offen.push(r));
+      const kk = BS.erzeuge(f.env); kk.schalte(true);
+      kk.tasteRunter(); await tick(); const p1 = kk.tasteHoch(); await tick(); await tick();
+      kk.tasteRunter(); await tick(); const p2 = kk.tasteHoch(); await tick(); await tick();
+      ok(offen.length === 2 && f.L.verarb.join() === 'true', 'zwei Ablaeufe laufen: "..." steht (einmal gemeldet)');
+      await kk.sendeText('Quatsch'); ok(f.L.verarb.join() === 'true', 'ein Text-Befehl daneben beendet das "..." der Aufnahmen nicht');
+      offen[0]('Quatsch'); await p1; ok(f.L.verarb.join() === 'true', 'der erste Ablauf ist fertig, der zweite laeuft noch: "..." bleibt');
+      offen[1]('Quatsch'); await p2; ok(f.L.verarb.join() === 'true,false', 'erst mit dem letzten Ergebnis endet das "..."');
+    }
     // STT 503 { fehler: 'stt-aus' } -> eigene Meldung, sonst "nicht erreichbar"
     const sb = BS.sttBrowser({ fetch: async () => ({ ok: false, status: 503, json: async () => ({ fehler: 'stt-aus', text: 'x' }) }) });
     let fe = null; try { await sb(new Blob(['x']), 'audio/webm'); } catch (e) { fe = e; }
@@ -472,8 +506,37 @@ const sprechen = async (k) => { k.tasteRunter(); await tick(); return k.tasteHoc
     {
       const w = neu();
       ok(eq(sl(w, konsole()), { x: 178, w: 284, y: 20, richtung: 'runter' }), 'Konsole ohne ODA: Spalte ab y 20, waechst nach unten');
-      oda(w, eins); ok(sl(w, konsole()).y === 16 + 20 + 4 && sl(w, konsole()).richtung === 'runter', 'Konsole mit ODA oben (y 16, 1 Zeile): Spalte 4 px darunter');
-      oda(w, drei); ok(sl(w, konsole()).y === 16 + 40 + 4, 'Konsole mit 3-zeiliger ODA: darunter');
+      // H1: nur im Voxel-Sitz steht die ODA (y 16) sichtbar; an der Konsole des 2D-Bilds deckt die Konsole sie zu, dort gilt der Mindestwert
+      oda(w, eins); ok(sl(w, konsole()).y === 20 && sl(w, konsole()).richtung === 'runter', 'Konsole (2D) mit verdeckter ODA: Mindestwert y 20, kein leerer Streifen');
+      oda(w, drei); ok(sl(w, konsole()).y === 20, 'Konsole (2D) mit 3-zeiliger verdeckter ODA: ebenso y 20');
+      const wv = neu({ Sitz: { station: true } }), voxel = (o) => konsole(Object.assign({ voxel: true }, o));
+      oda(wv, eins); ok(sl(wv, voxel()).y === 16 + 20 + 4 && sl(wv, voxel()).richtung === 'runter', 'Voxel-Sitz mit ODA oben (y 16, 1 Zeile): Spalte 4 px darunter');
+      oda(wv, drei); ok(sl(wv, voxel()).y === 16 + 40 + 4, 'Voxel-Sitz mit 3-zeiliger ODA: darunter');
+      const wv2 = neu({ Sitz: { station: false } }); oda(wv2, eins); ok(sl(wv2, voxel()).y === 20, 'Voxel-Bild ohne Sitz-Station: die ODA liegt unter der Konsole, Mindestwert');
+    }
+    {
+      // S2: unter der Lagetafel (ab LAGEFUNK_Y) und der Ausweich-Anzeige der Steuer, wenn sie stehen
+      const voxel = (o) => konsole(Object.assign({ voxel: true }, o));
+      const lage = { from: 'Oberkommando', text: 'Raeuber gesichtet bei Hex 4-4, drei Schiffe, Kurs auf Euch zu', lage: true, mehr: 0 };
+      const w = neu({ Consoles: { tab: 2 } }); w.Hud.radioAktuell = () => lage;
+      const cap = konsole({ me: { console: 'captain' } }), tafel = 44 + w.Hud.funkTafelHoehe(lage, null);
+      ok(w.Hud.lagefunkTafelUnten(cap) === tafel && tafel > 44 + 16, 'Captain: Lagetafel steht ab y 44, Unterkante ' + tafel);
+      ok(sl(w, cap).y === tafel + 4 && sl(w, cap).richtung === 'runter', 'Captain mit Lagetafel: Spalte 4 px unter der Tafel');
+      const w0 = neu({ Consoles: { tab: 0 } }); w0.Hud.radioAktuell = () => lage;
+      ok(sl(w0, cap).y === 20, 'Captain im Funk-Reiter (die Tafel wird dort nicht gezeichnet): Mindestwert');
+      const wo = neu({ Consoles: { tab: 0 } }); wo.Hud.radioAktuell = () => lage;
+      ok(sl(wo, konsole({ me: { console: 'weapons' } })).y === 20 && sl(wo, konsole()).y === 20, 'Ops und Steuer: Lagezeile einzeilig oben (y 0-11), die Spalte bleibt bei y 20');
+      const wk = neu({ Consoles: { tab: 2 } }); ok(sl(wk, cap).y === 20, 'Captain ohne Lagemeldung: Mindestwert');
+      const wh = neu({ Consoles: { helmAlertUnten: () => 84 } });
+      ok(sl(wh, konsole()).y === 88, 'Steuer mit Ausweich-Anzeige (Unterkante 84): Spalte 4 px darunter');
+      const wh0 = neu({ Consoles: { helmAlertUnten: () => 0 } }); ok(sl(wh0, konsole()).y === 20, 'Steuer ohne Anzeige: Mindestwert');
+      const wvh = neu({ Sitz: { station: true }, Consoles: { helmAlertUnten: () => 84 } }); oda(wvh, eins); ok(sl(wvh, voxel()).y === 88, 'Voxel-Sitz: Ausweich-Anzeige tiefer als die ODA entscheidet');
+      // die echte Funktion in consoles.js: gilt nur fuer das Bild, in dem die Steuer gezeichnet wurde
+      const cs = fs.readFileSync(path.join(__dirname, '..', 'public', 'js', 'consoles.js'), 'utf8').split(String.fromCharCode(13)).join('');
+      const mH = /helmAlertUnten\(view\) \{[^\n]*\}/.exec(cs);
+      const K = mH ? vm.runInNewContext('({ helmAlertStand: { zeit: 5, unten: 84 }, ' + mH[0] + ' })') : null;
+      ok(K && K.helmAlertUnten({ time: 5 }) === 84 && K.helmAlertUnten({ time: 6 }) === 0 && K.helmAlertUnten(null) === 0, 'Consoles.helmAlertUnten: Unterkante nur im selben Bild (view.time), sonst 0');
+      ok(cs.includes('this.helmAlertStand = { zeit: view.time, unten };') && (cs.match(/unten = y/g) || []).length === 3, 'consoles.js helmAlerts merkt sich die Unterkante von Ausweichen, Ladung und Lanze');
     }
     {
       // 1280 und 1920: dieselben Rasterwerte (die Spalte kennt keine Pixel)
@@ -496,6 +559,36 @@ const sprechen = async (k) => { k.tasteRunter(); await tick(); return k.tasteHoc
       ok(el.id === lang && el.lines.length === 2 && el.w <= 284 && el.h === 22, 'langer Text: hoechstens 2 Zeilen, Breite hoechstens 284');
       H.pushCrewFunk('Bitte wiederholen', 'BORD', '#fff', 2.5); ok(H.sprech.eintraege.at(-1).d === 2.5, 'Dauer 2,5 s fuer "Bitte wiederholen" (explizit)');
       H.sprechAn(false); ok(H.sprech.eintraege.length === 0 && H.sprech.aktiv === false, 'sprechAn(false) raeumt auf');
+    }
+    // S3a: Dedupe ohne Stapelueberlauf (zwei gleiche Eintraege nebeneinander wuerden sonst bleiben), nur bei gleichem Sprecher
+    {
+      const w = neu(), H = w.Hud; H.sprechAn(true);
+      const a1 = H.pushCrewFunk('Aye', 'OPS', '#fff'), a2 = H.pushCrewFunk('Aye', 'OPS', '#fff');
+      ok(H.sprech.eintraege.length === 1 && H.sprech.eintraege[0].id === a2 && a2 > a1, 'derselbe Text vom selben Sprecher: ein Eintrag (der neue), auch ohne Ueberlauf');
+      H.pushCrewFunk('Aye', 'TECHNIK', '#fff'); ok(H.sprech.eintraege.length === 2, 'derselbe Text von einem anderen Sprecher: zwei Eintraege');
+    }
+    // S3b: der Clip-Halt trifft nur den Eintrag mit der Kennung
+    {
+      const w = neu(), H = w.Hud; H.sprechAn(true); tMs = 100000;
+      const ia = H.pushCrewFunk('Erster', 'OPS', '#fff'), ib = H.pushCrewFunk('Zweiter', 'OPS', '#fff');
+      H.crewFunkHalte(ia, true);
+      ok(H.sprech.eintraege.find((e) => e.id === ia).halt === true && H.sprech.eintraege.find((e) => e.id === ib).halt === false, 'Halt: nur der Eintrag mit der Kennung ist gehalten, der andere nicht');
+      tMs += 20000; calls.length = 0; H.zeichneSprechspalte(ctx, fuss());
+      ok(calls.some((c) => c.s === 'Erster') && !calls.some((c) => c.s === 'Zweiter'), '20 s spaeter: der gehaltene steht noch, der andere ist abgelaufen');
+      H.crewFunkHalte(ia, false); ok(H.sprech.eintraege.find((e) => e.id === ia).halt === false, 'Ende loest nur den eigenen Eintrag');
+    }
+    // H4: sehr lange Server-Texte: gekappt, nicht O(n^2) im Messen, zweite Zeile nicht mitten im Wort
+    {
+      let zaehl = 0;
+      const Rz = Object.assign({}, R, { measure: (t) => { zaehl++; return String(t == null ? '' : t).length * 6; } });
+      const w = neu({ Render: Rz }), H = w.Hud; H.sprechAn(true);
+      H.pushCrewFunk('x'.repeat(100000), 'OPS', '#fff'); const m1 = zaehl;
+      ok(H.sprech.eintraege.at(-1).text.length === 300 && m1 < 1500, 'ein Wort mit 100000 Zeichen: auf 300 gekappt, ' + m1 + ' Messungen (< 1500)');
+      zaehl = 0; H.pushCrewFunk('wort '.repeat(5000), 'TECHNIK', '#fff'); const m2 = zaehl, el = H.sprech.eintraege.at(-1);
+      ok(el.text.length === 300 && m2 < 1500 && el.lines.length === 2, '5000 Woerter: auf 300 gekappt, ' + m2 + ' Messungen (< 1500), zwei Zeilen');
+      H.pushCrewFunk('abcdefg '.repeat(5000), 'TECHNIK', '#fff'); const l2 = H.sprech.eintraege.at(-1).lines[1];
+      ok(/^(abcdefg )*abcdefg …$/.test(l2), 'zweite Zeile endet am Wortende mit "…", nicht mitten im Wort: "' + l2 + '"');
+      H.pushCrewFunk('Kurz', 'OPS', '#fff'); ok(H.sprech.eintraege.at(-1).lines.join() === 'Kurz', 'kurzer Text bleibt unveraendert');
     }
     // Ablauf: Ausblenden, Clip haelt den Untertitel
     {
@@ -560,8 +653,9 @@ const sprechen = async (k) => { k.tasteRunter(); await tick(); return k.tasteHoc
       // Nichts ueberdeckt: alles unterhalb der ODA (zu Fuss) bzw. ab Spaltenanfang (Konsole)
       H.sprech.aufnahme = false; oda(w, eins); calls.length = 0; H.zeichneSprechspalte(ctx, fuss());
       ok(calls.filter((c) => c.n === 'backdrop').every((b) => b.y + b.h <= 354 - 20 - 4), 'zu Fuss mit ODA: alle Kacheln enden 4 px ueber der ODA');
-      calls.length = 0; H.zeichneSprechspalte(ctx, konsole());
-      ok(calls.filter((c) => c.n === 'backdrop').every((b) => b.y >= 16 + 20 + 4), 'Konsole mit ODA: alle Kacheln beginnen 4 px unter der ODA');
+      const wvz = neu({ Sitz: { station: true } }), Hv = wvz.Hud; Hv.sprechAn(true); Hv.pushCrewFunk('Eins', 'OPS', '#fff'); Hv.pushCrewFunk('Zwei', 'OPS', '#fff'); oda(wvz, eins);
+      calls.length = 0; Hv.zeichneSprechspalte(ctx, konsole({ voxel: true }));
+      ok(calls.filter((c) => c.n === 'backdrop').length === 2 && calls.filter((c) => c.n === 'backdrop').every((b) => b.y >= 16 + 20 + 4), 'Voxel-Sitz mit ODA: alle Kacheln beginnen 4 px unter der ODA');
     }
     // Einbindung in draw(): auch an der Konsole, ohne Bot-Sprache nichts
     {
@@ -580,6 +674,13 @@ const sprechen = async (k) => { k.tasteRunter(); await tick(); return k.tasteHoc
       // update: Textzeile ohne Spielbild schliesst
       const w4 = neu(), H4 = w4.Hud; H4.sprechAn(true); let zu = 0; H4.sprech.zeile = { offen: true, schliessen: () => { zu++; } }; H4.sprech.tFrame = 0; tMs = 5000;
       H4.update(0.016); ok(zu === 1, 'ohne gezeichnetes Spielbild (Lobby/Menue) schliesst update() die Textzeile');
+      // S3d: die Grenze liegt bei 1500 ms ohne Spielbild
+      const w5 = neu(), H5 = w5.Hud; H5.sprechAn(true); let zu5 = 0; H5.sprech.zeile = { offen: true, schliessen: () => { zu5++; } }; H5.sprech.tFrame = 10000; tMs = 11400;
+      H5.update(0.016); const bei1400 = zu5; tMs = 11600; H5.update(0.016);
+      ok(bei1400 === 0 && zu5 === 1, 'Textzeile: bei 1,4 s ohne Spielbild noch offen, bei 1,6 s geschlossen');
+      // H2: ein Overlay (Menue, Minispiel, Terminal-Zusehen) schliesst die offene Zeile, auch mit gezeichnetem Spielbild
+      let ef = true; const w6 = neu({ Client: { eingabeFrei: () => ef } }), H6 = w6.Hud; H6.sprechAn(true); let zu6 = 0; H6.sprech.zeile = { offen: true, schliessen: () => { zu6++; } }; tMs = 20000; H6.sprech.tFrame = tMs;
+      H6.update(0.016); ok(zu6 === 0, 'Eingabe frei: die Zeile bleibt offen'); ef = false; H6.update(0.016); ok(zu6 === 1, 'ein Overlay ging auf: update() schliesst die Textzeile');
     }
   }
 

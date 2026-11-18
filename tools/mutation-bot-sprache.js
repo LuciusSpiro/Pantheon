@@ -11,15 +11,40 @@ const { spawnSync } = require('child_process');
 
 const ROOT = path.join(__dirname, '..');
 const TMP = fs.mkdtempSync(path.join(os.tmpdir(), 'pantheon-muta-botsprache-'));
+const ende = (code) => { try { fs.rmSync(TMP, { recursive: true, force: true }); } catch (e) { /* egal */ } process.exit(code); };   // das Temp-Verzeichnis geht bei jedem Ausgang weg, auch bei Exit 1 und 2
 fs.mkdirSync(path.join(TMP, 'tools'), { recursive: true });
 fs.cpSync(path.join(ROOT, 'public', 'js'), path.join(TMP, 'public', 'js'), { recursive: true });
-for (const f of ['hud.js', 'bot-sprache.js']) { const p = path.join(TMP, 'public', 'js', f); fs.writeFileSync(p, fs.readFileSync(p, 'utf8').replace(/\r\n/g, '\n')); }   // Anker ohne CRLF-Sorgen
+for (const f of ['hud.js', 'bot-sprache.js', 'consoles.js']) { const p = path.join(TMP, 'public', 'js', f); fs.writeFileSync(p, fs.readFileSync(p, 'utf8').replace(/\r\n/g, '\n')); }   // Anker ohne CRLF-Sorgen
 fs.copyFileSync(path.join(ROOT, 'tools', 'test-bot-sprache.js'), path.join(TMP, 'tools', 'test-bot-sprache.js'));
 
-const CL = 'public/js/client.js', HU = 'public/js/hud.js', BS = 'public/js/bot-sprache.js';
+const CL = 'public/js/client.js', HU = 'public/js/hud.js', BS = 'public/js/bot-sprache.js', CO = 'public/js/consoles.js';
 // [Datei, alter Text (genau einmal), neuer Text, Beschreibung]
 const MUTATIONEN = [
-  [HU, "Math.max(20, 16 + this.odaHoeheOben() + 4)", "20", 'Konsole: Spalte ignoriert die ODA oben'],
+  [HU, "const oda = view.voxel && window.Sitz && Sitz.station ? this.odaHoeheOben() : 0;", "const oda = 0;", 'Voxel-Sitz: Spalte ignoriert die ODA oben'],
+  [HU, "const oda = view.voxel && window.Sitz && Sitz.station ? this.odaHoeheOben() : 0;", "const oda = this.odaHoeheOben();", 'Konsole 2D: auch eine verdeckte ODA zählt'],
+  [HU, "this.lagefunkTafelUnten(view), window.Consoles", "0, window.Consoles", 'Konsole: Lagetafel wird ignoriert'],
+  [HU, "Consoles.helmAlertUnten ? Consoles.helmAlertUnten(view) : 0);", "0);", 'Steuer: Ausweich-Anzeige wird ignoriert'],
+  [HU, "Math.max(20 + oda, unter + 4) : 20 + oda", "Math.max(20 + oda, unter) : 20 + oda", 'Konsole: kein Abstand von 4 px unter Tafel/Anzeige'],
+  [HU, "if (!f || this.lagefunkEinzeilig(view)) return 0;", "if (!f) return 0;", 'Konsole: einzeilige Lagezeile zählt als Tafel'],
+  [CO, "return s && view && s.zeit === view.time ? s.unten : 0;", "return s ? s.unten : 0;", 'Steuer-Anzeige: Unterkante gilt auch in späteren Bildern'],
+  [CO, "this.helmAlertStand = { zeit: view.time, unten };", "this.helmAlertStand = { zeit: view.time, unten: 0 };", 'Steuer-Anzeige: Unterkante wird nicht gemerkt'],
+  // S1 / H2
+  [BS, "if (c && c.tastenFreigeben) c.tastenFreigeben();", "", 'Textzeile öffnen: Spieltasten bleiben gehalten'],
+  [BS, "if (win.Client && win.Client.tastenFreigeben) win.Client.tastenFreigeben();", "", 'Textzeile schließen: Tasten bleiben hängen'],
+  [BS, "if (c && c.eingabeFrei && !c.eingabeFrei()) return false;", "", 'Textzeile öffnet hinter Overlays (Menü, Minispiel, Zusehen)'],
+  [HU, "&& !Client.eingabeFrei()) sp.zeile.schliessen();", "&& false) sp.zeile.schliessen();", 'Overlay geht auf: Textzeile bleibt offen'],
+  // H3
+  [BS, "marke.offen = false; s.verarbN--; verarbStand();", "marke.offen = false; s.verarbN = 0; verarbStand();", '„…“ endet mit dem ersten von mehreren Abläufen'],
+  [BS, "const verarbBeginn = () => { s.verarbN++;", "const verarbBeginn = () => { s.verarbN = 1;", '„…“ als Flag statt Zähler'],
+  // H4
+  [HU, "text = String(text).slice(0, SPRECH_MAXZEICHEN);", "text = String(text);", 'Untertitel: Text nicht gekappt'],
+  [HU, "this.fitWort(lines.slice(1).join(' '), maxT, 1)", "this.fit(lines.slice(1).join(' '), maxT, 1)", 'Untertitel: zweite Zeile mitten im Wort gekürzt'],
+  // S3
+  [HU, "for (let i = E.length - 1; i >= 0; i--) if (E[i].text === text && E[i].who === who) E.splice(i, 1);", "", 'Untertitel: kein Dedupe'],
+  [HU, "for (let i = E.length - 1; i >= 0; i--) if (E[i].text === text && E[i].who === who) E.splice(i, 1);", "for (let i = E.length - 1; i >= 0; i--) if (E[i].text === text) E.splice(i, 1);", 'Untertitel: Dedupe ohne Sprecher'],
+  [HU, "if (e.id !== id) continue;", "", 'Clip-Halt trifft alle Einträge'],
+  [BS, "        schliesse(); entferne(letzteMeldung); entferne(stickyText);", "        entferne(letzteMeldung); entferne(stickyText);", 'aus(): offene Textzeile bleibt'],
+  [HU, "performance.now() - sp.tFrame > 1500 && sp.zeile.schliessen) sp.zeile.schliessen();", "performance.now() - sp.tFrame > 4900 && sp.zeile.schliessen) sp.zeile.schliessen();", 'Textzeile: Schließgrenze 4,9 s statt 1,5 s'],
   [HU, "if (oda > 0) oben = VH - 6 - oda;", "", 'zu Fuß: Spalte ignoriert die ODA unten'],
   [HU, "oben = Math.min(oben, this.oda.cur ? r.y - 14 : r.y);", "oben = Math.min(oben, r.y);", 'Scanner mit ODA: Marke ODA +n wird überdeckt'],
   [HU, "const r = Scanner.rechteck();", "const r = { y: 400 };", 'Scanner-Overlay wird ignoriert'],
@@ -46,9 +71,9 @@ const MUTATIONEN = [
   [HU, "ctx.fillStyle = e.farbe; ctx.fillRect(x, ey, 2, e.h);", "", 'kein Farbbalken'],
   [HU, "{ color: FN.cmd, shadow: false });\n        ctx.globalAlpha = 1;", "{ color: e.farbe, shadow: false });\n        ctx.globalAlpha = 1;", 'Untertiteltext nicht Creme'],
   [BS, "const ENDUNGEN = ['wav', 'ogg'];", "const ENDUNGEN = ['ogg', 'wav'];", 'Clipwahl: ogg vor wav'],
-  [BS, "      verarb(true);   // Zwischenzustand", "      // Zwischenzustand", 'Zwischenzustand wird nie gemeldet'],
-  [BS, "        } finally { verarb(false); }", "        } finally { /* nichts */ }", 'Zwischenzustand bleibt bei Fehlern hängen'],
-  [BS, "      verarb(false);   // das Ergebnis ist da", "      // das Ergebnis ist da", 'Zwischenzustand endet nicht mit dem Ergebnis'],
+  [BS, "      const marke = verarbBeginn();   // Zwischenzustand", "      const marke = { offen: false };   // Zwischenzustand", 'Zwischenzustand wird nie gemeldet'],
+  [BS, "        } finally { verarbEnde(marke); }", "        } finally { /* nichts */ }", 'Zwischenzustand bleibt bei Fehlern hängen'],
+  [BS, "      verarbEnde(marke);   // das Ergebnis ist da", "      // das Ergebnis ist da", 'Zwischenzustand endet nicht mit dem Ergebnis'],
   [BS, "const UNKLAR_DAUER_S = 2.5;", "const UNKLAR_DAUER_S = 4;", '„Bitte wiederholen“ nicht 2,5 s'],
   [BS, "const ROLLEN = { b0: 'NAVIGATION', b1: 'OPS', b2: 'TECHNIK' };", "const ROLLEN = { b0: 'OPS', b1: 'NAVIGATION', b2: 'TECHNIK' };", 'Rollennamen vertauscht'],
   [BS, "{ botId: msg.botId });", "{ botId: null });", 'Antwort ohne botId an die Anzeige'],
@@ -80,13 +105,13 @@ for (const [datei, alt] of MUTATIONEN) {
   const n = fs.readFileSync(path.join(TMP, datei), 'utf8').split(alt).length - 1;
   if (n !== 1) { console.log('ANKER ' + (n ? 'mehrfach (' + n + 'x)' : 'fehlt') + ': ' + datei + ' :: ' + alt.slice(0, 70)); schlecht++; }
 }
-if (schlecht) { console.log(schlecht + ' Anker ungültig'); process.exit(2); }
-if (trocken) { console.log('alle ' + MUTATIONEN.length + ' Anker eindeutig'); process.exit(0); }
+if (schlecht) { console.log(schlecht + ' Anker ungültig'); ende(2); }
+if (trocken) { console.log('alle ' + MUTATIONEN.length + ' Anker eindeutig'); ende(0); }
 
 let erkannt = 0, offen = 0, abstuerze = 0;
 const lauf = () => spawnSync(process.execPath, ['tools/test-bot-sprache.js'], { cwd: TMP, encoding: 'utf8', timeout: 120000 });
 const basis = lauf();
-if (basis.status !== 0) { console.log('Basis ist nicht grün (Exit ' + basis.status + ')'); process.exit(2); }
+if (basis.status !== 0) { console.log('Basis ist nicht grün (Exit ' + basis.status + ')'); ende(2); }
 for (const [datei, alt, neu, text] of MUTATIONEN) {
   if (nur.length && !nur.some((b) => text.includes(b))) continue;
   const pfad = path.join(TMP, datei), orig = fs.readFileSync(pfad, 'utf8');
@@ -96,6 +121,5 @@ for (const [datei, alt, neu, text] of MUTATIONEN) {
   const rot = r.status === 1 && /FEHLER/.test(r.stdout || '');
   if (rot) erkannt++; else if (r.status === 0) { offen++; console.log('NICHT ERKANNT: ' + text); } else { abstuerze++; console.log('ABSTURZ (zählt nicht): ' + text + ' (Exit ' + r.status + ')'); }
 }
-fs.rmSync(TMP, { recursive: true, force: true });
 console.log('Mutationen: ' + erkannt + ' erkannt, ' + offen + ' nicht erkannt, ' + abstuerze + ' Abstürze');
-process.exit(offen || abstuerze ? 1 : 0);
+ende(offen || abstuerze ? 1 : 0);

@@ -609,6 +609,7 @@
       const t = view.time;
       let y = Math.max(fv.win.y + 22, H.szeneUnten(view) + 2);   // SUND-02b UI2: unter der Szenenzeile (sie lag über „AUSWEICHEN!“); ohne Sim-Szene wie vorher
       const evadeAge = view.dodgeFx ? view.dodgeFx.age : 99;
+      let unten = 0;   // BOT-04 C2: Unterkante dessen, was hier gezeichnet wird (0 = nichts); die Sprechspalte der Bot-Sprache weicht ihr aus (helmAlertUnten)
       // laufende Ladungen (kürzeste zuerst)
       const teles = (((st.space && st.space.enemies) || [])).filter(e => e && e.tele).sort((a, b) => n(a.tele.left) - n(b.tele.left));
       if (evadeAge < 1.3) {
@@ -616,6 +617,7 @@
         ctx.fillStyle = 'rgba(11,30,22,0.88)'; ctx.fillRect(x, y, w, h);
         ctx.strokeStyle = PAL.moss; ctx.lineWidth = 2; ctx.strokeRect(x + 1, y + 1, w - 2, h - 2);
         R.text(ctx, 'AUSGEWICHEN!', fv.cx, y + 5, { color: '#8FD06A', scale: 2, align: 'center' });
+        unten = y + h;
         y += h + 4;
       } else if (teles.length) {
         const e = teles[0], te = e.tele;
@@ -646,6 +648,7 @@
         const hint = engDown ? 'Antrieb aus – kein Ausweichen!' : cd > 0 ? 'Ausweichen lädt noch ' + Math.ceil(cd) + ' s' : 'Shift+A / Shift+D';
         R.text(ctx, hint, fv.cx, y, { color: engDown || cd > left ? PAL.red : cd > 0 ? PAL.warn : PAL.amber, align: 'center' });
         y += 12;
+        unten = y;
       }
       // Lanze lädt (Ops hält die Taste; Bug-Lanze oder Lanzenbatterie)
       const bow = (ship.mounts || []).find(mm => mm.charging);
@@ -657,8 +660,12 @@
         const p = clamp(n(bow.power), 0, 1);
         R.bar(ctx, x + 8, y + 15, w - 60, 6, p, p >= 1 ? PAL.mint : PAL.amber);
         R.text(ctx, f1(R.lanceDamage ? R.lanceDamage(bow) : 0) + ' Sch', x + w - 6, y + 14, { color: p >= 1 ? PAL.mint : PAL.amber, align: 'right' });
+        unten = y + h;
       }
+      this.helmAlertStand = { zeit: view.time, unten };
     },
+    // BOT-04 C2: Unterkante der Ausweich-/Lanzen-Anzeige im aktuellen Bild (0, wenn keine steht oder dieses Bild keine Steuer zeichnete); gilt nur für das Bild, in dem helmAlerts lief (view.time)
+    helmAlertUnten(view) { const s = this.helmAlertStand; return s && view && s.zeit === view.time ? s.unten : 0; },
     dodge(view, dir) { view.send({ t: 'cmd', c: 'helm.dodge', dir }); view.actions.sfx('dodge'); },
     // OPS-01 A: Ausrichtung der Karte umschalten (Knopf und Shift+Z); der Zustand liegt in Kartenlogik, nicht hier
     kartenAusrichtung(view, karte) { Kartenlogik.umschalten(karte); view.actions.sfx('ui_click'); },

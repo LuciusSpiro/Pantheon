@@ -67,13 +67,16 @@
     const uhr = env.uhr || (() => Date.now());
     const stimmen = Object.assign({}, STIMMEN, env.stimmen || {});
     const A = env.anzeige;
-    const s = { an: false, verarbeitet: false, aufnahme: false, gehalten: false, lauf: 0, handle: null, start: null, abmelden: null, letzte: Promise.resolve(), messmodus: null, timer: null, unklarN: 0, letzterBot: null };
+    const s = { an: false, verarbeitet: false, aufnahme: false, gehalten: false, lauf: 0, handle: null, start: null, abmelden: null, letzte: Promise.resolve(), messmodus: null, timer: null, unklarN: 0, letzterBot: null, verarbN: 0 };
     const setzeTimer = env.setTimeout || ((f, ms) => setTimeout(f, ms)), loescheTimer = env.clearTimeout || ((t) => clearTimeout(t));
     const stopTimer = () => { if (s.timer != null) { loescheTimer(s.timer); s.timer = null; } };
 
     const stimmeFuer = (x) => (x && x.stimme) || stimmen[x && x.botId ? x.botId : x] || String(x && x.botId ? x.botId : x || 'b0');
     const meldung = (t) => { try { A.meldung(t); } catch (e) { /* Anzeige darf den Ablauf nie brechen */ } };
-    const verarb = (an) => { if (an === s.verarbeitet) return; s.verarbeitet = an; try { if (A.verarbeitet) A.verarbeitet(an); } catch (e) { /* egal */ } };   // nur Wechsel melden
+    // „…“ steht, solange mindestens ein Ablauf (Loslassen bis Ergebnis) läuft; je Ablauf eine Marke, damit überlappende Abläufe sich nicht gegenseitig löschen
+    const verarbStand = () => { const an = s.verarbN > 0; if (an === s.verarbeitet) return; s.verarbeitet = an; try { if (A.verarbeitet) A.verarbeitet(an); } catch (e) { /* egal */ } };   // nur Wechsel melden
+    const verarbBeginn = () => { s.verarbN++; verarbStand(); return { offen: true }; };
+    const verarbEnde = (marke) => { if (!marke || !marke.offen) return; marke.offen = false; s.verarbN--; verarbStand(); };   // je Marke höchstens einmal
     const untertitel = (t, info) => { try { return A.untertitel(t, info); } catch (e) { return undefined; } };   // liefert die Kennung des Untertitels (für clip)
     const clipHalt = (id, an) => { try { if (A.clip && id != null) A.clip(id, an); } catch (e) { /* egal */ } };
 
@@ -116,14 +119,14 @@
       s.aufnahme = false; s.gehalten = false; stopTimer();
       A.aufnahme(false); env.audio.stumm(false);
       const t0 = uhr(), start = s.start; s.handle = null;
-      verarb(true);   // Zwischenzustand „…“ zwischen Loslassen und Ergebnis
+      const marke = verarbBeginn();   // Zwischenzustand „…“ zwischen Loslassen und Ergebnis
       s.letzte = (async () => {
         try {
           const h = await start;
           if (!h) return false;
           let aufn; try { aufn = await h.stop(); } catch (e) { meldung(TEXT.mikro); return false; }
-          return await verarbeiteAufnahme(aufn, t0);
-        } finally { verarb(false); }
+          return await verarbeiteAufnahme(aufn, t0, marke);
+        } finally { verarbEnde(marke); }
       })().catch(() => false);
       return s.letzte;
     }
@@ -139,7 +142,7 @@
     async function matcher() { try { return (await env.matcher()) || null; } catch (e) { return null; } }
     async function gleiche(text) { const m = await matcher(); if (!m) return { fehlt: true }; try { return { res: m.match(text) || null }; } catch (e) { return { res: null }; } }
 
-    async function verarbeiteAufnahme(aufn, t0) {
+    async function verarbeiteAufnahme(aufn, t0, marke) {
       if (!s.an) return false;   // Sprache inzwischen aus: nichts mehr an STT schicken
       if (!aufn || !aufn.blob || !(aufn.blob.size > 0) || (aufn.dauerMs != null && aufn.dauerMs < MIN_MS)) { meldung(TEXT.zuKurz); return false; }
       const tStt0 = uhr();
@@ -153,7 +156,7 @@
       if (g.fehlt) { meldung(TEXT.keinMatcher); return false; }
       const tMatcher = uhr();
       if (s.messmodus) return messeEin({ text, res: g.res, t_stt_ms: tText - tStt0, t_text_ms: tText - t0, t_matcher_ms: tMatcher - t0, dauer_aufnahme_ms: aufn.dauerMs == null ? null : Math.round(aufn.dauerMs) });
-      return ergebnis(g.res, 'sprache');
+      return ergebnis(g.res, 'sprache', marke);
     }
 
     // ---- Texteingabe (Chat-Zeile) als Gegenstück
@@ -167,8 +170,8 @@
     }
 
     // ---- Ergebnis des Matchers: Befehl senden oder (unklar) Rückfrage
-    function ergebnis(res, quelle) {
-      verarb(false);   // das Ergebnis ist da (Befehl, Rückfrage oder Fehler)
+    function ergebnis(res, quelle, marke) {
+      verarbEnde(marke);   // das Ergebnis ist da (Befehl, Rückfrage oder Fehler)
       if (!res || typeof res.befehl !== 'string' || !res.befehl) return unklar();   // unter der Schwelle: nichts senden
       const msg = { t: 'bot.befehl', an: res.an, befehl: res.befehl, quelle };
       if (res.args !== undefined && res.args !== null) msg.args = res.args;
@@ -372,6 +375,9 @@
     function oeffne() {
       const h = hud();
       if (!h || !h.sprechBereit || !h.sprechBereit()) return false;   // nur mit Spielbild: im Menü/Lobby wäre eine unsichtbare Zeile eine Falle
+      const c = win.Client;
+      if (c && c.eingabeFrei && !c.eingabeFrei()) return false;   // Pausenmenü, Minispiel, Zusehen am Terminal, Kapitelkarte: dort wäre die Zeile eine Falle
+      if (c && c.tastenFreigeben) c.tastenFreigeben();   // gehaltene Spieltasten (WASD, Umschalt, E) loslassen: ihr keyup erreicht das Spiel nicht mehr (die Zeile schluckt es)
       zeile.offen = true; lage = ''; zeileForm.style.display = 'block'; zeileForm.style.pointerEvents = 'auto';
       try { feld.focus(); } catch (e) { /* egal */ }
       return true;
@@ -380,6 +386,7 @@
       if (!zeile.offen) return false;
       zeile.offen = false; zeileForm.style.display = 'none'; zeileForm.style.pointerEvents = 'none'; feld.value = '';
       try { if (d.activeElement === feld) feld.blur(); } catch (e) { /* egal */ }
+      if (win.Client && win.Client.tastenFreigeben) win.Client.tastenFreigeben();   // was in der Zeile gedrückt wurde (z. B. das # selbst), bleibt nicht im Spiel hängen
       return true;
     }
     // Tasten in der Textzeile gehören der Textzeile, nie dem Spiel (WASD & Co. laufen sonst mit); Esc schließt ohne Senden, Enter (submit) sendet und schließt

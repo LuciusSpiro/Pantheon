@@ -2619,6 +2619,8 @@
   window.Client = Client;
   Client.interactionAt = interactionAt;   // QA/Debug: E-Hinweis einer Kachel (st, me, tx, ty, zone, ownTile) -> { label, ok } | null
   Client.actions = actions;
+  Client.tastenFreigeben = releaseAll;   // BOT-04 C2: die Textzeile der Bot-Sprache gibt beim Öffnen und Schließen alle gehaltenen Spieltasten frei (wie bei Fokusverlust)
+  Client.eingabeFrei = () => { const st = Client.state; return !uiTop() && !Client.chapter && !Client.minigame && !(window.TerminalUI && TerminalUI.zusehend) && !(st && (st.phase === 'end' || (st.mission && st.mission.m1Done)) && !Client.endDismissed); };   // BOT-04 C2: kein Overlay (Menü, Kapitelkarte, Minispiel, Zusehen am Terminal, Endbild) verdeckt das Spiel: dann darf die Textzeile offen sein
   Client.audio = audio;
   boot();
 })();

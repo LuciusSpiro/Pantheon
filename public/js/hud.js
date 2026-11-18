@@ -25,6 +25,7 @@
   const aktiverSlot = (slots, wf) => (Array.isArray(slots) && wf ? slots.indexOf(wf) : -1);
   const HUD_LAYOUT = { top: 2, kopfH: 28, marksY: 15, shieldY: 12, roomY: 32, jumpY: 45, hintY: 48 };
   const FUNK_W = 228, FUNK_BILD_W = 28;   // Breite der Funktafel (x 204) und des Funkporträts samt Rand
+  const SPRECH_MAXZEICHEN = 300;   // BOT-04 C2: so viele Zeichen eines Untertitels werden höchstens umbrochen und gemessen
   const SPRECH_W = 284;   // BOT-04 C2: Breite der Sprechspalte = Breite der ODA-Zeile (x 178..462)
   const FN_STD = { drive: '#FFC66B', sensor: '#A9D6E5', cmd: '#F4EEDC', warn: '#F2C94C', neutral: '#8EA3B5' };   // Notbehelf, falls menue-tokens.js fehlt (Werte wie Menue.TOKENS.FN)
   const fnFarben = () => (window.Menue && Menue.TOKENS && Menue.TOKENS.FN) || FN_STD;
@@ -281,10 +282,16 @@
     },
     sprechBereit() { const sp = this.sprech; return sp.aktiv && performance.now() - sp.tFrame < 500; },   // das Spielbild wird gerade gezeichnet (nicht Lobby/Menü)
     // Eine gemeinsame Spalte deckungsgleich mit der ODA-Zeile (x 178..462). Zu Fuß: y = Unterkante, richtung 'hoch' (wächst nach oben), 4 px über der höchsten Oberkante der Elemente
-    // unten Mitte (ODA, Funkwahl, Scanner-Overlay, Gesprächsfenster, Kontingent-Frage), sonst bei VH - 6. An der Konsole (die ODA steht oben, y 16): y = Oberkante, richtung 'runter'.
+    // unten Mitte (ODA, Funkwahl, Scanner-Overlay, Gesprächsfenster, Kontingent-Frage), sonst bei VH - 6. An der Konsole: y = Oberkante, richtung 'runter'; ab y 20 (unter der Kopfzeile), im Voxel-Sitz unter der ODA (y 16),
+    // und unter der Lagetafel bzw. der Ausweich-Anzeige der Steuer, wenn eine steht (einzeilige Lagezeilen y 0–11 liegen darüber).
     sprechSlot(view) {
       const x = Math.round(VW / 2 - SPRECH_W / 2);
-      if (view && view.me && view.me.console) return { x, w: SPRECH_W, y: Math.max(20, 16 + this.odaHoeheOben() + 4), richtung: 'runter' };
+      if (view && view.me && view.me.console) {
+        const oda = view.voxel && window.Sitz && Sitz.station ? this.odaHoeheOben() : 0;   // nur im Voxel-Sitz steht die ODA (y 16) sichtbar; die Konsole des 2D-Bilds deckt sie zu (leerer Streifen)
+        // Darunter, was an der Konsole oben steht und Anzeige ist: Lagetafel (ab LAGEFUNK_Y) und Ausweich-/Lanzen-Anzeige der Steuer (consoles.js helmAlerts); beide sind gezeichnet, bevor die Spalte kommt
+        const unter = Math.max(this.lagefunkTafelUnten(view), window.Consoles && Consoles.helmAlertUnten ? Consoles.helmAlertUnten(view) : 0);
+        return { x, w: SPRECH_W, y: unter > 0 ? Math.max(20 + oda, unter + 4) : 20 + oda, richtung: 'runter' };
+      }
       let oben = VH - 6;
       const oda = this.odaHoehe(view);
       if (oda > 0) oben = VH - 6 - oda;
@@ -303,12 +310,12 @@
     pushCrewFunk(text, sprecher, farbe, dauerS) {
       if (!text) return 0;
       const sp = this.sprech, E = sp.eintraege;
-      text = String(text);
+      text = String(text).slice(0, SPRECH_MAXZEICHEN);   // sehr lange Server-Texte: Messen und Umbrechen bleiben klein
       const who = sprecher ? String(sprecher).toUpperCase() : '';
       const wWho = who ? R.measure(who + ':', 1) : 0;
       const maxT = SPRECH_W - 10 - wWho - 6;
       let lines = R.wrap(text, maxT, 1);
-      if (lines.length > 2) lines = [lines[0], this.fit(lines.slice(1).join(' '), maxT, 1)];
+      if (lines.length > 2) lines = [lines[0], this.fitWort(lines.slice(1).join(' '), maxT, 1)];
       let tw = 0; for (const l of lines) tw = Math.max(tw, R.measure(l, 1));
       for (let i = E.length - 1; i >= 0; i--) if (E[i].text === text && E[i].who === who) E.splice(i, 1);
       const e = { id: sp.naechste++, text, who, wWho, farbe: farbe || fnFarben().sensor, lines, w: Math.min(SPRECH_W, 10 + wWho + tw + 6), h: 2 + lines.length * 10, t: performance.now() / 1000, d: dauerS > 0 ? +dauerS : this.crewFunkDauer(text), halt: false, bis: 0 };
@@ -407,6 +414,7 @@
       this.notices = this.notices.filter(n => now - n.t < (n.d || 3));
       const sp = this.sprech;
       if (sp.aktiv && sp.zeile && sp.zeile.offen && performance.now() - sp.tFrame > 1500 && sp.zeile.schliessen) sp.zeile.schliessen();   // kein Spielbild (Lobby, Menü): eine unsichtbare Textzeile bliebe sonst offen
+      if (sp.aktiv && sp.zeile && sp.zeile.offen && sp.zeile.schliessen && window.Client && Client.eingabeFrei && !Client.eingabeFrei()) sp.zeile.schliessen();   // ein Overlay (Menü, Minispiel, Terminal-Zusehen) ging auf: die Zeile schließt
     },
 
     // ---------------------------------------------------------------- Haupt-Zeichnen
@@ -1171,16 +1179,28 @@
     // SUND-02a C: Das Feld sitzt unter dem Konsolen-/Terminal-Kopf (LAGEFUNK_Y statt 6/16: dort lag es über Ort, Marken und Bereichsname) und läuft auch
     // weiter, wenn ein normaler Funkspruch ansteht (an der Konsole steht der Funkspruch nicht im HUD, die Lagemeldung ginge sonst verloren).
     drawLagefunk(ctx, view) {
-      const f = this.radioAktuell();
-      if (!f || !f.lage || !view.me || !view.me.console) return;
-      if (view.me.console === 'captain' && window.Consoles && window.Consoles.tab === 0) return;   // SUND-01 F: im offenen Funk-Reiter steht der Lagefunk dort selbst (das Feld überdeckte ihn)
-      // Client-Runde S5: auf der Sternkarte des Captains (Reiter 2) deckte die Tafel das gemeldete Hex ab. Dort gilt der Neu-Strich der Meldeliste (KarteLage: neue Meldungen
-      // des Hex), die Meldung selbst steht im Funk-Reiter und im Logbuch. Nur in der Lage-Ansicht (Freie Fahrt Sund), sonst bliebe sie ganz aus.
-      if (view.me.console === 'captain' && window.Consoles && window.Consoles.tab === 1 && window.StarMap && window.StarMap.lageAktiv && window.StarMap.lageAktiv()) return;
+      const f = this.lagefunkAnKonsole(view);
+      if (!f) return;
       // Handel und Werft am Hafenterminal: die Tafel deckte Infotext, Modulplätze und den Preis der gewählten Ware. Dort steht sie einzeilig ganz oben über der Kopfzeile (y 0–11,
       // der Kopf des Terminals beginnt bei y 12); die ganze Meldung bleibt im Funk-Reiter und im Logbuch.
       if (this.lagefunkEinzeilig(view)) return this.zeichneFunkZeile(ctx, view, f);
       this.zeichneFunkTafel(ctx, view, f, null, LAGEFUNK_Y + this.sitzVersatz(view));
+    },
+    // Die Lagemeldung, die drawLagefunk an dieser Konsole zeichnet (null, wenn keine steht); Zeichnen und Sprechspalte (lagefunkTafelUnten) teilen sich diese Entscheidung
+    lagefunkAnKonsole(view) {
+      const f = this.radioAktuell();
+      if (!f || !f.lage || !view.me || !view.me.console) return null;
+      if (view.me.console === 'captain' && window.Consoles && window.Consoles.tab === 0) return null;   // SUND-01 F: im offenen Funk-Reiter steht der Lagefunk dort selbst (das Feld überdeckte ihn)
+      // Client-Runde S5: auf der Sternkarte des Captains (Reiter 2) deckte die Tafel das gemeldete Hex ab. Dort gilt der Neu-Strich der Meldeliste (KarteLage: neue Meldungen
+      // des Hex), die Meldung selbst steht im Funk-Reiter und im Logbuch. Nur in der Lage-Ansicht (Freie Fahrt Sund), sonst bliebe sie ganz aus.
+      if (view.me.console === 'captain' && window.Consoles && window.Consoles.tab === 1 && window.StarMap && window.StarMap.lageAktiv && window.StarMap.lageAktiv()) return null;
+      return f;
+    },
+    // BOT-04 C2: Unterkante der Lagetafel (4-zeilig, ab LAGEFUNK_Y) an der Konsole, 0 wenn keine Tafel steht (keine Meldung, einzeilig oben, oder vom Reiter verdeckt)
+    lagefunkTafelUnten(view) {
+      const f = this.lagefunkAnKonsole(view);
+      if (!f || this.lagefunkEinzeilig(view)) return 0;
+      return LAGEFUNK_Y + this.sitzVersatz(view) + this.funkTafelHoehe(f, null);
     },
     // Zeigt die Konsole die Lagemeldung einzeilig (y 0–11, der RUF-SLOT) statt als Tafel? Terminal (shop), Ops (weapons) und Steuer (helm), außer im Voxel-Sitz mit Blick VORN/CREW. Nacharbeit SUND-04a-2 (F4):
     // die Funk-Antwortleiste (Streifen) teilt sich diesen Slot und weicht dem Lagefunk (Funkwahl.zeichne).
