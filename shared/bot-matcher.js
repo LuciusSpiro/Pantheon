@@ -34,18 +34,24 @@
     t = t.replace(/[^a-z0-9]+/g, ' ').trim();
     return t;
   }
-  function tokens(s) { const n = norm(s); return n ? n.split(' ') : []; }
+  let SYN = {};   // Synonyme auf ein Leitwort (z.B. voran -> voraus), gilt fuer Text und Muster
+  function tokens(s) { const n = norm(s); return n ? n.split(' ').map((t) => SYN[t] || t) : []; }
 
   // ---------- Aehnlichkeit ----------
+  // Damerau-Levenshtein (optimal string alignment): Buchstabendreher (zeil/ziel) kosten 1
   function lev(a, b) {
     const n = a.length, m = b.length;
     if (!n) return m; if (!m) return n;
-    let prev = new Array(m + 1), cur = new Array(m + 1);
+    let pp = new Array(m + 1).fill(0), prev = new Array(m + 1), cur = new Array(m + 1);
     for (let j = 0; j <= m; j++) prev[j] = j;
     for (let i = 1; i <= n; i++) {
       cur[0] = i;
-      for (let j = 1; j <= m; j++) cur[j] = Math.min(prev[j] + 1, cur[j - 1] + 1, prev[j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1));
-      const t = prev; prev = cur; cur = t;
+      for (let j = 1; j <= m; j++) {
+        let v = Math.min(prev[j] + 1, cur[j - 1] + 1, prev[j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1));
+        if (i > 1 && j > 1 && a[i - 1] === b[j - 2] && a[i - 2] === b[j - 1]) v = Math.min(v, pp[j - 2] + 1);
+        cur[j] = v;
+      }
+      const t = pp; pp = prev; prev = cur; cur = t;
     }
     return prev[m];
   }
@@ -176,19 +182,21 @@
               const slot = raw[0] === '@';
               const t = norm(slot ? raw.slice(1) : raw);
               if (!t) continue;
-              for (const tt of t.split(' ')) { if (fuell.has(tt)) continue; toks.push({ w: tt, slot }); }
+              for (const t0 of t.split(' ')) { const tt = SYN[t0] || t0; if (fuell.has(tt)) continue; toks.push({ w: tt, slot }); }
             }
             if (!toks.length) continue;
             const key = befehl + '|' + toks.map((t) => (t.slot ? '@' : '') + t.w).join(' ') + '|' + JSON.stringify(x.args);
             if (seen.has(key)) continue; seen.add(key);
-            patterns.push({ befehl, an: def.an || 'alle', toks, args: x.args, argKey: JSON.stringify(sortiert(x.args)) });
+            patterns.push({ befehl, an: def.an || 'alle', meter: !!e.meter, toks, args: x.args, argKey: JSON.stringify(sortiert(x.args)) });
           }
         }
       }
     }
+    SYN = {}; for (const k of Object.keys(muster.synonyme || {})) SYN[norm(k)] = norm(muster.synonyme[k]);
+    const fremd = new Set((muster.fremdwoerter || []).map(norm));
     NIE_AEHNLICH = new Set((muster.nie_aehnlich || []).map(norm));
     const hinten = new Set((muster.adressierung_hinten || []).map(norm));
-    return { fuell, neg, frage, adressen, hinten, patterns, zahlwoerter: muster.zahlwoerter || {} };
+    return { fuell, neg, frage, fremd, adressen, hinten, patterns, zahlwoerter: muster.zahlwoerter || {} };
   }
   function sortiert(o) { const r = {}; for (const k of Object.keys(o).sort()) r[k] = o[k]; return r; }
 
@@ -285,7 +293,7 @@
     const g = geladen();
     const roh = String(text == null ? '' : text);
     if (!/[,;.!?]|\bund\b/i.test(roh)) return null;
-    for (const t of tokens(roh)) if (g.neg.has(t) || g.frage.has(t)) return null;
+    for (const t of tokens(roh)) if (g.neg.has(t) || g.frage.has(t) || g.fremd.has(t)) return null;
     const teile = roh.split(/\s*(?:[,;.!?]+|\bund\b)\s*/i).filter((p) => norm(p));
     if (teile.length < 2 || teile.length > 3) return null;
     let erg = null, kmin = 1, rolle = null;
@@ -311,7 +319,7 @@
     let toks = tokens(text);
     const nachKomma = /,\s*([^,\s]+)\s*[.!?]*\s*$/.exec(String(text));   // "..., Navigation": Adressierung hinten, nur mit Komma ("an Bord" bleibt Inhalt)
     if (!toks.length || toks.length > MAX_TOKENS + 3) return null;
-    for (const t of toks) if (g.neg.has(t) || g.frage.has(t)) return null;
+    for (const t of toks) if (g.neg.has(t) || g.frage.has(t) || g.fremd.has(t)) return null;   // fremd: englische Funktionswoerter ("stop the engines")
 
     // Adressierung (erstes Wort)
     let an = null, anName = false;
@@ -351,6 +359,7 @@
       return r;
     };
     for (const p of g.patterns) {
+      if (p.meter && mz.meter == null) continue;   // Muster nur mit Meterangabe ("Abstand tausend Meter")
       const m = p.toks.length;
       if (Math.abs(m - n) > 3) continue;
       let fehlt = 0; const erlaubt = Math.floor((1 - (schwelle - MARGE)) * Math.max(m, n)) + 1;

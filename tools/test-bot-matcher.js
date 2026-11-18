@@ -108,6 +108,24 @@ pruefe('Ich glaube ja, dass wir jetzt wohl besser, Stopp', null);
 pruefe('Feuer frei Ops', b('ops.feuer_frei', {}, 'ops'));
 pruefe('Feuer frei Technik', null);
 pruefe('Navigation Cours Concordia', null);
+// Runde 2: Regressionsfaelle (BOT-04 A1): englische Funktionswoerter, mehrdeutige Verben, 'zurueck', Seefahrts-Plaudern -> null; Saetze eines Seemanns -> Befehl
+pruefe('All stop', null);
+pruefe('Please stop the engines', null);
+pruefe('Schilde hochfahren', null);
+pruefe('Antrieb runterfahren', null);
+pruefe('Zurück zur Basis', b('nav.kurs', { ziel: 'basis' }));
+pruefe('Zurück zum Schiff', null);
+pruefe('Halber Schub', b('nav.schub', { stufe: 'halb' }));
+pruefe('Halbe Kraft voran', b('nav.schub', { stufe: 'halb' }));
+pruefe('Vollgas', b('nav.schub', { stufe: 'voll' }));
+pruefe('Navigation, Abstand tausend Meter', b('nav.abstand', { meter: 1000 }, 'navigation'));
+pruefe('Abstand', null);
+pruefe('Kurs aufs Zeil', b('nav.kurs', { ziel: 'ziel' }));
+pruefe('Kümmert euch zuerst um das Leck', b('tech.prio', { ziel: 'leck' }));
+pruefe('Stellt das Feuer ein', b('ops.feuer_halt'));
+pruefe('Feuererlaubnis erteilt', b('ops.feuer_frei'));
+for (const t of ["Der Kapitän trinkt Kaffee auf der Brücke","Das Schiff hat einen neuen Anstrich","Die Maschinen sind ziemlich alt","Wir fahren morgen zum Hafen","Der Anker liegt im Schlamm","Ich mag das Meer bei Sturm","Schilde sind teuer geworden","Das Ruder klemmt manchmal","Die Crew hat Hunger","Backbord ist links, oder?","Steuerbord ist rechts","Der Bug sieht kaputt aus","Das Heck ist noch nass","Die Fracht kommt morgen an","Das Außenteam ist müde","Ein Torpedo hat keinen Kaffee","Die Kuppel ist wirklich schön","Der Sensor piept komisch","Die Basis hat Hunger","Das Leck in meinem Eimer","Reaktor ausschalten wäre doof","Schilde runterfahren","Waffen hochfahren","Antrieb hochfahren","Antrieb runterfahren","Maschinen anwerfen","Anker lichten","Leinen los","Segel setzen","Kurs egal","Volle Fahrt zurück","Alle Mann an Deck","Mann über Bord","Boot klar zum Entern","Hart Steuerbord","Ruder hart backbord","Torpedo im Wasser","Feuer im Maschinenraum","Wir haben Land in Sicht","Rettungsboot zu Wasser lassen","Positionslichter an","Zurück","Zurück zum Schiff","Halt die Klappe","Schiff versenken","Beiboot setzen","Kurs auf den Hafen","Sprung ins Wasser","Alle Mann in die Messe","Volle Breitseite von Hans","Fähre kommt"]) pruefe(t, null);
+
 
 // ---- weitere STT-artige Fehler (ohne Praefix, Gross/Klein, Satzzeichen) ----
 pruefe('schilde steuerboard.', b('tech.schild', { sektor: 'stb' }));
