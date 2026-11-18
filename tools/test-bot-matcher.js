@@ -1,6 +1,6 @@
 'use strict';
 // BOT-04 A1: Selbsttest des Bot-Matchers (shared/bot-matcher.js, content/bots/muster.json). In-process, ohne Server.
-// Belegt: alle 23 Befehle des Katalogs v1 sind sprechbar (mindestens ein Fall je Befehl); die 7 bekannten STT-Fehler der Erkundung
+// Belegt: 22 der 23 Befehle des Katalogs v1 sind sprechbar (mindestens ein Fall je Befehl), nav.sprung ausdruecklich nicht (Sprung veraendert die Welt, Fehlerkennung zu teuer); die 7 bekannten STT-Fehler der Erkundung
 // (Frage 6a) laufen auf den richtigen Befehl oder (wo der Katalog nichts hat) auf null; Negativfaelle und Beinahe-Treffer liefern null
 // (Falsch-Positiv 0); fehlendes oder mehrdeutiges Pflichtargument liefert null; hex:/objekt: sind nicht waehlbar; Adressierung; Schwelle
 // (Standard und opts.schwelle); setzeMuster. Die Standardschwelle stuetzt sich auf die Konfidenz-Verteilung dieser Faelle (siehe Ausgabe).
@@ -42,8 +42,6 @@ const pos = [
   ['Abstand zur Basis halten', b('nav.abstand', { ziel: 'basis' })],
   ['Abstand halten 500 Meter', b('nav.abstand', { meter: 500 })], ['Abstand zum Ziel fünfzig Meter', b('nav.abstand', { ziel: 'ziel', meter: 50 })], ['Statusbericht, Ops', b('bot.status', {}, 'ops')], ['Weichen Sie aus', b('nav.ausweichen')],
   ['Andocken', b('nav.andocken')],
-  ['Sprung zur Markierung', b('nav.sprung', { ziel: 'marke' })],
-  ['Springe zur Basis', b('nav.sprung', { ziel: 'basis' })],
   ['Ziel markieren', b('ops.ziel', { ziel: 'markiert' })],
   ['Nächstes Ziel', b('ops.ziel', { ziel: 'naechstes' })],
   ['Markiertes Ziel anvisieren', b('ops.ziel', { ziel: 'markiert' })],
@@ -85,13 +83,30 @@ for (const [t, e] of pos) pruefe(t, e);
 // Ruder hart Backbord: im Katalog v1 gibt es keinen Befehl dafuer (nur nav.kurs/schub/stopp/ausweichen) -> null.
 // Torpedo klar machen: "klar machen" ist Vorbereiten, nicht Feuer frei (ops.feuer_frei) -> null, ein ungewolltes Feuern waere der schlimmere Fehler.
 // Navigation Cours Concordia: "Concordia" ist ein Objekt/Hex, per Sprache nicht waehlbar (Vertrag) -> null.
-// Back zum Zieldrehen = "Bug zum Ziel drehen": Kurs auf das Ziel (nav.kurs ziel), nicht ops.ziel (Annahme, siehe Bericht).
+// Back zum Zieldrehen: "back" ist Bug oder Backbord (nie_aehnlich, nur exakt), ausserdem steht es im Entwicklungsset mit erwartet null -> null.
 pruefe('Schilde Backboard', b('tech.schild', { sektor: 'bb' }));
 pruefe('Wolle Kraft voraus', b('nav.schub', { stufe: 'voll' }));
 pruefe('Alle Maschinen stoppen', b('nav.stopp'));
 pruefe('Ruderhard Backboard', null);
 pruefe('Torpedo klar machen', null);
-pruefe('Back zum Zieldrehen', b('nav.kurs', { ziel: 'ziel' }));
+pruefe('Back zum Zieldrehen', null);
+pruefe('Schilde Back', null);
+// Kurze Woerter (genau 3 Zeichen): gleicher Anfangsbuchstabe plus gleicher Klang oder eine Auslassung; anderer Anfang nie
+pruefe('Schilde Buk', b('tech.schild', { sektor: 'bug' }));
+pruefe('Schilde Hek', b('tech.schild', { sektor: 'heck' }));
+pruefe('Schub nul', b('nav.schub', { stufe: 0 }));
+pruefe('Schilde Unten', null);
+pruefe('Schilde Oben', null);
+// Mehrteilige Aeusserungen: gleiche Befehle in den Teilen ok, verschiedene oder Plaudern null, falsche Rolle null
+pruefe('Maschinen aus, Stopp', b('nav.stopp'));
+pruefe('Anlegen und andocken', b('nav.andocken'));
+pruefe('Nach Hause, Kurs auf die Basis', b('nav.kurs', { ziel: 'basis' }));
+pruefe('Stopp, Kurs auf die Basis', null);
+pruefe('Technik, Kurs auf die Markierung', null);
+pruefe('Kurs Marke, Ops', null);
+pruefe('Ich glaube ja, dass wir jetzt wohl besser, Stopp', null);
+pruefe('Feuer frei Ops', b('ops.feuer_frei', {}, 'ops'));
+pruefe('Feuer frei Technik', null);
 pruefe('Navigation Cours Concordia', null);
 
 // ---- weitere STT-artige Fehler (ohne Praefix, Gross/Klein, Satzzeichen) ----
@@ -108,7 +123,7 @@ pruefe('Schilde Bagbord', b('tech.schild', { sektor: 'bb' }));
 for (const [t, e] of [
   ['Setz Kurs auf die Basis', b('nav.kurs', { ziel: 'basis' })], ['Fahr zur Markierung', b('nav.kurs', { ziel: 'marke' })],
   ['Alle Maschinen anhalten', b('nav.stopp')], ['Schiff stoppen', b('nav.stopp')], ['Volle Kraft voraus bitte', b('nav.schub', { stufe: 'voll' })],
-  ['Halte Abstand zum Ziel', b('nav.abstand', { ziel: 'ziel' })], ['Kurs Marke, Navigation', b('nav.kurs', { ziel: 'marke' }, 'navigation')], ['Dock an', b('nav.andocken')], ['Volle Kraft', b('nav.schub', { stufe: 'voll' })], ['Spring zur Markierung', b('nav.sprung', { ziel: 'marke' })],
+  ['Halte Abstand zum Ziel', b('nav.abstand', { ziel: 'ziel' })], ['Kurs Marke, Navigation', b('nav.kurs', { ziel: 'marke' }, 'navigation')], ['Dock an', b('nav.andocken')], ['Volle Kraft', b('nav.schub', { stufe: 'voll' })],
   ['Nächsten Gegner anvisieren', b('ops.ziel', { ziel: 'naechstes' })], ['Steuerbord Feuer frei', b('ops.feuer_frei', { waffen: 'stb' })], ['Torpedo los', b('ops.feuer_frei', { waffen: 'torpedo' })],
   ['Waffen sichern', b('ops.feuer_halt')], ['Scanne die Umgebung', b('ops.scan')], ['Person an Bord holen', b('ops.beamen', { was: 'person' })],
   ['Feuer löschen', b('tech.prio', { ziel: 'feuer' })], ['Leck abdichten', b('tech.prio', { ziel: 'leck' })], ['Kümmere dich zuerst um das Feuer', b('tech.prio', { ziel: 'feuer' })],
@@ -175,7 +190,7 @@ pruefe('Schilde Steuerbord 500 Meter', null);
 
 // ---- alle Katalogbefehle haben Muster und mindestens einen positiven Fall ----
 {
-  const katalog = ['nav.kurs', 'nav.stopp', 'nav.schub', 'nav.ausweichen', 'nav.abstand', 'nav.andocken', 'nav.sprung',
+  const katalog = ['nav.kurs', 'nav.stopp', 'nav.schub', 'nav.ausweichen', 'nav.abstand', 'nav.andocken',
     'ops.ziel', 'ops.feuer_frei', 'ops.feuer_halt', 'ops.scan', 'ops.landescan', 'ops.beamen',
     'tech.prio', 'tech.reparieren', 'tech.schild', 'tech.energie', 'tech.ueberladen',
     'bord.rueckholen', 'bord.sensor', 'bord.kuppel', 'bot.status', 'bot.automatik'];
@@ -185,7 +200,9 @@ pruefe('Schilde Steuerbord 500 Meter', null);
     assert(info.befehle[k] > 0, 'kein Muster fuer ' + k);
     assert(imTest.has(k), 'kein Testfall fuer ' + k);
   }
-  assert.deepStrictEqual(Object.keys(info.befehle).sort(), katalog.slice().sort(), 'Muster mit Befehlen ausserhalb des Katalogs');
+  assert.deepStrictEqual(Object.keys(info.befehle).sort(), katalog.slice().sort(), 'Muster mit Befehlen ausserhalb des Katalogs (nav.sprung ist nicht sprechbar)');
+  assert(!info.befehle['nav.sprung'], 'nav.sprung darf kein Sprachmuster haben');
+  for (const t of ['Sprung zur Markierung', 'Springe zur Basis', 'Spring zur Markierung', 'Sprung', 'Navigation, Sprung zur Basis', 'Schnellsprung Markierung']) assert(M.match(t) === null, 'Sprung per Sprache: ' + t);
   n += 3;
 }
 

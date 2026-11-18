@@ -1,0 +1,5123 @@
+[
+  {
+    "text": "Kurs auf die Markierung",
+    "art": "positiv",
+    "erwartet": {
+      "befehl": "nav.kurs",
+      "args": {
+        "ziel": "marke"
+      }
+    }
+  },
+  {
+    "text": "Navigation, Kurs auf die Markierung setzen",
+    "art": "positiv",
+    "erwartet": {
+      "befehl": "nav.kurs",
+      "args": {
+        "ziel": "marke"
+      }
+    }
+  },
+  {
+    "text": "Steuern Sie die Markierung an",
+    "art": "positiv",
+    "erwartet": {
+      "befehl": "nav.kurs",
+      "args": {
+        "ziel": "marke"
+      }
+    }
+  },
+  {
+    "text": "Bitte Kurs auf die Marke",
+    "art": "positiv",
+    "erwartet": {
+      "befehl": "nav.kurs",
+      "args": {
+        "ziel": "marke"
+      }
+    }
+  },
+  {
+    "text": "Kurs Marke, Navigation",
+    "art": "positiv",
+    "erwartet": {
+      "befehl": "nav.kurs",
+      "args": {
+        "ziel": "marke"
+      }
+    }
+  },
+  {
+    "text": "Auf die Markierung zuhalten",
+    "art": "positiv",
+    "erwartet": {
+      "befehl": "nav.kurs",
+      "args": {
+        "ziel": "marke"
+      }
+    }
+  },
+  {
+    "text": "Kurs auf das Ziel",
+    "art": "positiv",
+    "erwartet": {
+      "befehl": "nav.kurs",
+      "args": {
+        "ziel": "ziel"
+      }
+    }
+  },
+  {
+    "text": "Navigation, Kurs auf das Ziel",
+    "art": "positiv",
+    "erwartet": {
+      "befehl": "nav.kurs",
+      "args": {
+        "ziel": "ziel"
+      }
+    }
+  },
+  {
+    "text": "Ziel anlaufen",
+    "art": "positiv",
+    "erwartet": {
+      "befehl": "nav.kurs",
+      "args": {
+        "ziel": "ziel"
+      }
+    }
+  },
+  {
+    "text": "Halten Sie auf das Ziel zu",
+    "art": "positiv",
+    "erwartet": {
+      "befehl": "nav.kurs",
+      "args": {
+        "ziel": "ziel"
+      }
+    }
+  },
+  {
+    "text": "Kurs aufs Ziel bitte",
+    "art": "positiv",
+    "erwartet": {
+      "befehl": "nav.kurs",
+      "args": {
+        "ziel": "ziel"
+      }
+    }
+  },
+  {
+    "text": "Ziel ansteuern",
+    "art": "positiv",
+    "erwartet": {
+      "befehl": "nav.kurs",
+      "args": {
+        "ziel": "ziel"
+      }
+    }
+  },
+  {
+    "text": "Kurs auf die Basis",
+    "art": "positiv",
+    "erwartet": {
+      "befehl": "nav.kurs",
+      "args": {
+        "ziel": "basis"
+      }
+    }
+  },
+  {
+    "text": "Navigation, Kurs Basis",
+    "art": "positiv",
+    "erwartet": {
+      "befehl": "nav.kurs",
+      "args": {
+        "ziel": "basis"
+      }
+    }
+  },
+  {
+    "text": "Zurück zur Basis",
+    "art": "positiv",
+    "erwartet": {
+      "befehl": "nav.kurs",
+      "args": {
+        "ziel": "basis"
+      }
+    }
+  },
+  {
+    "text": "Basis anlaufen",
+    "art": "positiv",
+    "erwartet": {
+      "befehl": "nav.kurs",
+      "args": {
+        "ziel": "basis"
+      }
+    }
+  },
+  {
+    "text": "Nach Hause, Kurs auf die Basis",
+    "art": "positiv",
+    "erwartet": {
+      "befehl": "nav.kurs",
+      "args": {
+        "ziel": "basis"
+      }
+    }
+  },
+  {
+    "text": "Bitte Kurs Basis setzen",
+    "art": "positiv",
+    "erwartet": {
+      "befehl": "nav.kurs",
+      "args": {
+        "ziel": "basis"
+      }
+    }
+  },
+  {
+    "text": "Alle Maschinen stopp",
+    "art": "positiv",
+    "erwartet": {
+      "befehl": "nav.stopp",
+      "args": {}
+    }
+  },
+  {
+    "text": "Maschinen stopp",
+    "art": "positiv",
+    "erwartet": {
+      "befehl": "nav.stopp",
+      "args": {}
+    }
+  },
+  {
+    "text": "Navigation, stoppen",
+    "art": "positiv",
+    "erwartet": {
+      "befehl": "nav.stopp",
+      "args": {}
+    }
+  },
+  {
+    "text": "Stopp",
+    "art": "positiv",
+    "erwartet": {
+      "befehl": "nav.stopp",
+      "args": {}
+    }
+  },
+  {
+    "text": "Schiff anhalten",
+    "art": "positiv",
+    "erwartet": {
+      "befehl": "nav.stopp",
+      "args": {}
+    }
+  },
+  {
+    "text": "Halt, alle Maschinen stoppen",
+    "art": "positiv",
+    "erwartet": {
+      "befehl": "nav.stopp",
+      "args": {}
+    }
+  },
+  {
+    "text": "Bitte anhalten",
+    "art": "positiv",
+    "erwartet": {
+      "befehl": "nav.stopp",
+      "args": {}
+    }
+  },
+  {
+    "text": "Maschinen aus, Stopp",
+    "art": "positiv",
+    "erwartet": {
+      "befehl": "nav.stopp",
+      "args": {}
+    }
+  },
+  {
+    "text": "Halbe Kraft voraus",
+    "art": "positiv",
+    "erwartet": {
+      "befehl": "nav.schub",
+      "args": {
+        "stufe": "halb"
+      }
+    }
+  },
+  {
+    "text": "Navigation, halbe Fahrt",
+    "art": "positiv",
+    "erwartet": {
+      "befehl": "nav.schub",
+      "args": {
+        "stufe": "halb"
+      }
+    }
+  },
+  {
+    "text": "Halbe Kraft",
+    "art": "positiv",
+    "erwartet": {
+      "befehl": "nav.schub",
+      "args": {
+        "stufe": "halb"
+      }
+    }
+  },
+  {
+    "text": "Schub auf halb",
+    "art": "positiv",
+    "erwartet": {
+      "befehl": "nav.schub",
+      "args": {
+        "stufe": "halb"
+      }
+    }
+  },
+  {
+    "text": "Bitte halbe Fahrt voraus",
+    "art": "positiv",
+    "erwartet": {
+      "befehl": "nav.schub",
+      "args": {
+        "stufe": "halb"
+      }
+    }
+  },
+  {
+    "text": "Halbe Maschinenkraft",
+    "art": "positiv",
+    "erwartet": {
+      "befehl": "nav.schub",
+      "args": {
+        "stufe": "halb"
+      }
+    }
+  },
+  {
+    "text": "Volle Kraft voraus",
+    "art": "positiv",
+    "erwartet": {
+      "befehl": "nav.schub",
+      "args": {
+        "stufe": "voll"
+      }
+    }
+  },
+  {
+    "text": "Navigation, volle Fahrt",
+    "art": "positiv",
+    "erwartet": {
+      "befehl": "nav.schub",
+      "args": {
+        "stufe": "voll"
+      }
+    }
+  },
+  {
+    "text": "Volle Kraft",
+    "art": "positiv",
+    "erwartet": {
+      "befehl": "nav.schub",
+      "args": {
+        "stufe": "voll"
+      }
+    }
+  },
+  {
+    "text": "Schub auf voll",
+    "art": "positiv",
+    "erwartet": {
+      "befehl": "nav.schub",
+      "args": {
+        "stufe": "voll"
+      }
+    }
+  },
+  {
+    "text": "Alle Kraft voraus, volle Fahrt",
+    "art": "positiv",
+    "erwartet": {
+      "befehl": "nav.schub",
+      "args": {
+        "stufe": "voll"
+      }
+    }
+  },
+  {
+    "text": "Bitte volle Maschinenkraft",
+    "art": "positiv",
+    "erwartet": {
+      "befehl": "nav.schub",
+      "args": {
+        "stufe": "voll"
+      }
+    }
+  },
+  {
+    "text": "Schub null",
+    "art": "positiv",
+    "erwartet": {
+      "befehl": "nav.schub",
+      "args": {
+        "stufe": 0
+      }
+    }
+  },
+  {
+    "text": "Navigation, Schub auf null",
+    "art": "positiv",
+    "erwartet": {
+      "befehl": "nav.schub",
+      "args": {
+        "stufe": 0
+      }
+    }
+  },
+  {
+    "text": "Schub auf Stufe null",
+    "art": "positiv",
+    "erwartet": {
+      "befehl": "nav.schub",
+      "args": {
+        "stufe": 0
+      }
+    }
+  },
+  {
+    "text": "Kraft null",
+    "art": "positiv",
+    "erwartet": {
+      "befehl": "nav.schub",
+      "args": {
+        "stufe": 0
+      }
+    }
+  },
+  {
+    "text": "Maschinen auf null",
+    "art": "positiv",
+    "erwartet": {
+      "befehl": "nav.schub",
+      "args": {
+        "stufe": 0
+      }
+    }
+  },
+  {
+    "text": "Schub Stufe zwei",
+    "art": "positiv",
+    "erwartet": {
+      "befehl": "nav.schub",
+      "args": {
+        "stufe": 2
+      }
+    }
+  },
+  {
+    "text": "Navigation, Schub auf zwei",
+    "art": "positiv",
+    "erwartet": {
+      "befehl": "nav.schub",
+      "args": {
+        "stufe": 2
+      }
+    }
+  },
+  {
+    "text": "Schubstufe zwei bitte",
+    "art": "positiv",
+    "erwartet": {
+      "befehl": "nav.schub",
+      "args": {
+        "stufe": 2
+      }
+    }
+  },
+  {
+    "text": "Stufe zwei voraus",
+    "art": "positiv",
+    "erwartet": {
+      "befehl": "nav.schub",
+      "args": {
+        "stufe": 2
+      }
+    }
+  },
+  {
+    "text": "Schub Stufe drei",
+    "art": "positiv",
+    "erwartet": {
+      "befehl": "nav.schub",
+      "args": {
+        "stufe": 3
+      }
+    }
+  },
+  {
+    "text": "Schub auf drei",
+    "art": "positiv",
+    "erwartet": {
+      "befehl": "nav.schub",
+      "args": {
+        "stufe": 3
+      }
+    }
+  },
+  {
+    "text": "Navigation, Stufe drei voraus",
+    "art": "positiv",
+    "erwartet": {
+      "befehl": "nav.schub",
+      "args": {
+        "stufe": 3
+      }
+    }
+  },
+  {
+    "text": "Schubstufe drei",
+    "art": "positiv",
+    "erwartet": {
+      "befehl": "nav.schub",
+      "args": {
+        "stufe": 3
+      }
+    }
+  },
+  {
+    "text": "Ausweichen",
+    "art": "positiv",
+    "erwartet": {
+      "befehl": "nav.ausweichen",
+      "args": {}
+    }
+  },
+  {
+    "text": "Navigation, ausweichen",
+    "art": "positiv",
+    "erwartet": {
+      "befehl": "nav.ausweichen",
+      "args": {}
+    }
+  },
+  {
+    "text": "Ausweichmanöver",
+    "art": "positiv",
+    "erwartet": {
+      "befehl": "nav.ausweichen",
+      "args": {}
+    }
+  },
+  {
+    "text": "Weichen Sie aus",
+    "art": "positiv",
+    "erwartet": {
+      "befehl": "nav.ausweichen",
+      "args": {}
+    }
+  },
+  {
+    "text": "Ausweichen, schnell",
+    "art": "positiv",
+    "erwartet": {
+      "befehl": "nav.ausweichen",
+      "args": {}
+    }
+  },
+  {
+    "text": "Bitte ausweichen",
+    "art": "positiv",
+    "erwartet": {
+      "befehl": "nav.ausweichen",
+      "args": {}
+    }
+  },
+  {
+    "text": "Ruder, ausweichen",
+    "art": "positiv",
+    "erwartet": {
+      "befehl": "nav.ausweichen",
+      "args": {}
+    }
+  },
+  {
+    "text": "Abstand halten",
+    "art": "positiv",
+    "erwartet": {
+      "befehl": "nav.abstand",
+      "args": {}
+    }
+  },
+  {
+    "text": "Navigation, Abstand halten",
+    "art": "positiv",
+    "erwartet": {
+      "befehl": "nav.abstand",
+      "args": {}
+    }
+  },
+  {
+    "text": "Bitte Abstand halten",
+    "art": "positiv",
+    "erwartet": {
+      "befehl": "nav.abstand",
+      "args": {}
+    }
+  },
+  {
+    "text": "Auf Abstand gehen",
+    "art": "positiv",
+    "erwartet": {
+      "befehl": "nav.abstand",
+      "args": {}
+    }
+  },
+  {
+    "text": "Abstand wahren",
+    "art": "positiv",
+    "erwartet": {
+      "befehl": "nav.abstand",
+      "args": {}
+    }
+  },
+  {
+    "text": "Abstand zum Ziel halten",
+    "art": "positiv",
+    "erwartet": {
+      "befehl": "nav.abstand",
+      "args": {
+        "ziel": "ziel"
+      }
+    }
+  },
+  {
+    "text": "Navigation, Abstand zum Ziel halten",
+    "art": "positiv",
+    "erwartet": {
+      "befehl": "nav.abstand",
+      "args": {
+        "ziel": "ziel"
+      }
+    }
+  },
+  {
+    "text": "Zum Ziel Abstand halten",
+    "art": "positiv",
+    "erwartet": {
+      "befehl": "nav.abstand",
+      "args": {
+        "ziel": "ziel"
+      }
+    }
+  },
+  {
+    "text": "Halten Sie Abstand zum Ziel",
+    "art": "positiv",
+    "erwartet": {
+      "befehl": "nav.abstand",
+      "args": {
+        "ziel": "ziel"
+      }
+    }
+  },
+  {
+    "text": "Abstand zum Ziel hundert Meter halten",
+    "art": "positiv",
+    "erwartet": {
+      "befehl": "nav.abstand",
+      "args": {
+        "ziel": "ziel",
+        "meter": 100
+      }
+    }
+  },
+  {
+    "text": "Navigation, hundert Meter Abstand zum Ziel",
+    "art": "positiv",
+    "erwartet": {
+      "befehl": "nav.abstand",
+      "args": {
+        "ziel": "ziel",
+        "meter": 100
+      }
+    }
+  },
+  {
+    "text": "Halte hundert Meter Abstand zum Ziel",
+    "art": "positiv",
+    "erwartet": {
+      "befehl": "nav.abstand",
+      "args": {
+        "ziel": "ziel",
+        "meter": 100
+      }
+    }
+  },
+  {
+    "text": "Zum Ziel hundert Meter Abstand",
+    "art": "positiv",
+    "erwartet": {
+      "befehl": "nav.abstand",
+      "args": {
+        "ziel": "ziel",
+        "meter": 100
+      }
+    }
+  },
+  {
+    "text": "Abstand zum Ziel fünfzig Meter",
+    "art": "positiv",
+    "erwartet": {
+      "befehl": "nav.abstand",
+      "args": {
+        "ziel": "ziel",
+        "meter": 50
+      }
+    }
+  },
+  {
+    "text": "Navigation, fünfzig Meter Abstand zum Ziel halten",
+    "art": "positiv",
+    "erwartet": {
+      "befehl": "nav.abstand",
+      "args": {
+        "ziel": "ziel",
+        "meter": 50
+      }
+    }
+  },
+  {
+    "text": "Fünfzig Meter Abstand zum Ziel bitte",
+    "art": "positiv",
+    "erwartet": {
+      "befehl": "nav.abstand",
+      "args": {
+        "ziel": "ziel",
+        "meter": 50
+      }
+    }
+  },
+  {
+    "text": "Halte fünfzig Meter Abstand zum Ziel",
+    "art": "positiv",
+    "erwartet": {
+      "befehl": "nav.abstand",
+      "args": {
+        "ziel": "ziel",
+        "meter": 50
+      }
+    }
+  },
+  {
+    "text": "Andocken",
+    "art": "positiv",
+    "erwartet": {
+      "befehl": "nav.andocken",
+      "args": {}
+    }
+  },
+  {
+    "text": "Navigation, andocken",
+    "art": "positiv",
+    "erwartet": {
+      "befehl": "nav.andocken",
+      "args": {}
+    }
+  },
+  {
+    "text": "Bitte andocken",
+    "art": "positiv",
+    "erwartet": {
+      "befehl": "nav.andocken",
+      "args": {}
+    }
+  },
+  {
+    "text": "Anlegen und andocken",
+    "art": "positiv",
+    "erwartet": {
+      "befehl": "nav.andocken",
+      "args": {}
+    }
+  },
+  {
+    "text": "Docken Sie an",
+    "art": "positiv",
+    "erwartet": {
+      "befehl": "nav.andocken",
+      "args": {}
+    }
+  },
+  {
+    "text": "Andockmanöver einleiten",
+    "art": "positiv",
+    "erwartet": {
+      "befehl": "nav.andocken",
+      "args": {}
+    }
+  },
+  {
+    "text": "Zum Andocken anfliegen",
+    "art": "positiv",
+    "erwartet": {
+      "befehl": "nav.andocken",
+      "args": {}
+    }
+  },
+  {
+    "text": "Nächstes Ziel",
+    "art": "positiv",
+    "erwartet": {
+      "befehl": "ops.ziel",
+      "args": {
+        "ziel": "naechstes"
+      }
+    }
+  },
+  {
+    "text": "Ops, nächstes Ziel",
+    "art": "positiv",
+    "erwartet": {
+      "befehl": "ops.ziel",
+      "args": {
+        "ziel": "naechstes"
+      }
+    }
+  },
+  {
+    "text": "Nächstes Ziel anvisieren",
+    "art": "positiv",
+    "erwartet": {
+      "befehl": "ops.ziel",
+      "args": {
+        "ziel": "naechstes"
+      }
+    }
+  },
+  {
+    "text": "Nächstes Ziel erfassen",
+    "art": "positiv",
+    "erwartet": {
+      "befehl": "ops.ziel",
+      "args": {
+        "ziel": "naechstes"
+      }
+    }
+  },
+  {
+    "text": "Das nächste Ziel aufschalten",
+    "art": "positiv",
+    "erwartet": {
+      "befehl": "ops.ziel",
+      "args": {
+        "ziel": "naechstes"
+      }
+    }
+  },
+  {
+    "text": "Ops, nächstes Ziel aufschalten",
+    "art": "positiv",
+    "erwartet": {
+      "befehl": "ops.ziel",
+      "args": {
+        "ziel": "naechstes"
+      }
+    }
+  },
+  {
+    "text": "Markiertes Ziel",
+    "art": "positiv",
+    "erwartet": {
+      "befehl": "ops.ziel",
+      "args": {
+        "ziel": "markiert"
+      }
+    }
+  },
+  {
+    "text": "Ops, markiertes Ziel anvisieren",
+    "art": "positiv",
+    "erwartet": {
+      "befehl": "ops.ziel",
+      "args": {
+        "ziel": "markiert"
+      }
+    }
+  },
+  {
+    "text": "Markiertes Ziel erfassen",
+    "art": "positiv",
+    "erwartet": {
+      "befehl": "ops.ziel",
+      "args": {
+        "ziel": "markiert"
+      }
+    }
+  },
+  {
+    "text": "Das markierte Ziel aufschalten",
+    "art": "positiv",
+    "erwartet": {
+      "befehl": "ops.ziel",
+      "args": {
+        "ziel": "markiert"
+      }
+    }
+  },
+  {
+    "text": "Ops, markiertes Ziel",
+    "art": "positiv",
+    "erwartet": {
+      "befehl": "ops.ziel",
+      "args": {
+        "ziel": "markiert"
+      }
+    }
+  },
+  {
+    "text": "Markiertes Ziel anvisieren bitte",
+    "art": "positiv",
+    "erwartet": {
+      "befehl": "ops.ziel",
+      "args": {
+        "ziel": "markiert"
+      }
+    }
+  },
+  {
+    "text": "Feuer frei",
+    "art": "positiv",
+    "erwartet": {
+      "befehl": "ops.feuer_frei",
+      "args": {}
+    }
+  },
+  {
+    "text": "Ops, Feuer frei",
+    "art": "positiv",
+    "erwartet": {
+      "befehl": "ops.feuer_frei",
+      "args": {}
+    }
+  },
+  {
+    "text": "Feuer frei, bitte",
+    "art": "positiv",
+    "erwartet": {
+      "befehl": "ops.feuer_frei",
+      "args": {}
+    }
+  },
+  {
+    "text": "Waffen frei, Feuer frei",
+    "art": "positiv",
+    "erwartet": {
+      "befehl": "ops.feuer_frei",
+      "args": {}
+    }
+  },
+  {
+    "text": "Feuer eröffnen",
+    "art": "positiv",
+    "erwartet": {
+      "befehl": "ops.feuer_frei",
+      "args": {}
+    }
+  },
+  {
+    "text": "Ops, Feuer eröffnen",
+    "art": "positiv",
+    "erwartet": {
+      "befehl": "ops.feuer_frei",
+      "args": {}
+    }
+  },
+  {
+    "text": "Alle Waffen Feuer frei",
+    "art": "positiv",
+    "erwartet": {
+      "befehl": "ops.feuer_frei",
+      "args": {
+        "waffen": "alle"
+      }
+    }
+  },
+  {
+    "text": "Ops, alle Waffen Feuer frei",
+    "art": "positiv",
+    "erwartet": {
+      "befehl": "ops.feuer_frei",
+      "args": {
+        "waffen": "alle"
+      }
+    }
+  },
+  {
+    "text": "Alle Rohre Feuer frei",
+    "art": "positiv",
+    "erwartet": {
+      "befehl": "ops.feuer_frei",
+      "args": {
+        "waffen": "alle"
+      }
+    }
+  },
+  {
+    "text": "Mit allen Waffen Feuer eröffnen",
+    "art": "positiv",
+    "erwartet": {
+      "befehl": "ops.feuer_frei",
+      "args": {
+        "waffen": "alle"
+      }
+    }
+  },
+  {
+    "text": "Alle Waffen feuern",
+    "art": "positiv",
+    "erwartet": {
+      "befehl": "ops.feuer_frei",
+      "args": {
+        "waffen": "alle"
+      }
+    }
+  },
+  {
+    "text": "Bugwaffen Feuer frei",
+    "art": "positiv",
+    "erwartet": {
+      "befehl": "ops.feuer_frei",
+      "args": {
+        "waffen": "bug"
+      }
+    }
+  },
+  {
+    "text": "Ops, Bug Feuer frei",
+    "art": "positiv",
+    "erwartet": {
+      "befehl": "ops.feuer_frei",
+      "args": {
+        "waffen": "bug"
+      }
+    }
+  },
+  {
+    "text": "Bugwaffen Feuer eröffnen",
+    "art": "positiv",
+    "erwartet": {
+      "befehl": "ops.feuer_frei",
+      "args": {
+        "waffen": "bug"
+      }
+    }
+  },
+  {
+    "text": "Feuer frei mit dem Bug",
+    "art": "positiv",
+    "erwartet": {
+      "befehl": "ops.feuer_frei",
+      "args": {
+        "waffen": "bug"
+      }
+    }
+  },
+  {
+    "text": "Bug Feuer frei",
+    "art": "positiv",
+    "erwartet": {
+      "befehl": "ops.feuer_frei",
+      "args": {
+        "waffen": "bug"
+      }
+    }
+  },
+  {
+    "text": "Backbord Feuer frei",
+    "art": "positiv",
+    "erwartet": {
+      "befehl": "ops.feuer_frei",
+      "args": {
+        "waffen": "bb"
+      }
+    }
+  },
+  {
+    "text": "Ops, Backbordbatterie Feuer frei",
+    "art": "positiv",
+    "erwartet": {
+      "befehl": "ops.feuer_frei",
+      "args": {
+        "waffen": "bb"
+      }
+    }
+  },
+  {
+    "text": "Backbordwaffen Feuer frei",
+    "art": "positiv",
+    "erwartet": {
+      "befehl": "ops.feuer_frei",
+      "args": {
+        "waffen": "bb"
+      }
+    }
+  },
+  {
+    "text": "Backbord Feuer eröffnen",
+    "art": "positiv",
+    "erwartet": {
+      "befehl": "ops.feuer_frei",
+      "args": {
+        "waffen": "bb"
+      }
+    }
+  },
+  {
+    "text": "Backbordseite Feuer frei",
+    "art": "positiv",
+    "erwartet": {
+      "befehl": "ops.feuer_frei",
+      "args": {
+        "waffen": "bb"
+      }
+    }
+  },
+  {
+    "text": "Steuerbord Feuer frei",
+    "art": "positiv",
+    "erwartet": {
+      "befehl": "ops.feuer_frei",
+      "args": {
+        "waffen": "stb"
+      }
+    }
+  },
+  {
+    "text": "Ops, Steuerbordbatterie Feuer frei",
+    "art": "positiv",
+    "erwartet": {
+      "befehl": "ops.feuer_frei",
+      "args": {
+        "waffen": "stb"
+      }
+    }
+  },
+  {
+    "text": "Steuerbordwaffen Feuer frei",
+    "art": "positiv",
+    "erwartet": {
+      "befehl": "ops.feuer_frei",
+      "args": {
+        "waffen": "stb"
+      }
+    }
+  },
+  {
+    "text": "Steuerbord Feuer eröffnen",
+    "art": "positiv",
+    "erwartet": {
+      "befehl": "ops.feuer_frei",
+      "args": {
+        "waffen": "stb"
+      }
+    }
+  },
+  {
+    "text": "Steuerbordseite Feuer frei",
+    "art": "positiv",
+    "erwartet": {
+      "befehl": "ops.feuer_frei",
+      "args": {
+        "waffen": "stb"
+      }
+    }
+  },
+  {
+    "text": "Torpedo Feuer frei",
+    "art": "positiv",
+    "erwartet": {
+      "befehl": "ops.feuer_frei",
+      "args": {
+        "waffen": "torpedo"
+      }
+    }
+  },
+  {
+    "text": "Ops, Torpedo Feuer frei",
+    "art": "positiv",
+    "erwartet": {
+      "befehl": "ops.feuer_frei",
+      "args": {
+        "waffen": "torpedo"
+      }
+    }
+  },
+  {
+    "text": "Torpedo abfeuern",
+    "art": "positiv",
+    "erwartet": {
+      "befehl": "ops.feuer_frei",
+      "args": {
+        "waffen": "torpedo"
+      }
+    }
+  },
+  {
+    "text": "Torpedo los",
+    "art": "positiv",
+    "erwartet": {
+      "befehl": "ops.feuer_frei",
+      "args": {
+        "waffen": "torpedo"
+      }
+    }
+  },
+  {
+    "text": "Torpedos Feuer frei",
+    "art": "positiv",
+    "erwartet": {
+      "befehl": "ops.feuer_frei",
+      "args": {
+        "waffen": "torpedo"
+      }
+    }
+  },
+  {
+    "text": "Torpedo klar und Feuer frei",
+    "art": "positiv",
+    "erwartet": {
+      "befehl": "ops.feuer_frei",
+      "args": {
+        "waffen": "torpedo"
+      }
+    }
+  },
+  {
+    "text": "Feuer einstellen",
+    "art": "positiv",
+    "erwartet": {
+      "befehl": "ops.feuer_halt",
+      "args": {}
+    }
+  },
+  {
+    "text": "Ops, Feuer einstellen",
+    "art": "positiv",
+    "erwartet": {
+      "befehl": "ops.feuer_halt",
+      "args": {}
+    }
+  },
+  {
+    "text": "Feuer halt",
+    "art": "positiv",
+    "erwartet": {
+      "befehl": "ops.feuer_halt",
+      "args": {}
+    }
+  },
+  {
+    "text": "Feuer einstellen, bitte",
+    "art": "positiv",
+    "erwartet": {
+      "befehl": "ops.feuer_halt",
+      "args": {}
+    }
+  },
+  {
+    "text": "Waffen halt",
+    "art": "positiv",
+    "erwartet": {
+      "befehl": "ops.feuer_halt",
+      "args": {}
+    }
+  },
+  {
+    "text": "Feuer stopp",
+    "art": "positiv",
+    "erwartet": {
+      "befehl": "ops.feuer_halt",
+      "args": {}
+    }
+  },
+  {
+    "text": "Ops, Feuer halt",
+    "art": "positiv",
+    "erwartet": {
+      "befehl": "ops.feuer_halt",
+      "args": {}
+    }
+  },
+  {
+    "text": "Scannen",
+    "art": "positiv",
+    "erwartet": {
+      "befehl": "ops.scan",
+      "args": {}
+    }
+  },
+  {
+    "text": "Ops, scannen",
+    "art": "positiv",
+    "erwartet": {
+      "befehl": "ops.scan",
+      "args": {}
+    }
+  },
+  {
+    "text": "Scan",
+    "art": "positiv",
+    "erwartet": {
+      "befehl": "ops.scan",
+      "args": {}
+    }
+  },
+  {
+    "text": "Bitte scannen",
+    "art": "positiv",
+    "erwartet": {
+      "befehl": "ops.scan",
+      "args": {}
+    }
+  },
+  {
+    "text": "Führen Sie einen Scan durch",
+    "art": "positiv",
+    "erwartet": {
+      "befehl": "ops.scan",
+      "args": {}
+    }
+  },
+  {
+    "text": "Umgebung scannen",
+    "art": "positiv",
+    "erwartet": {
+      "befehl": "ops.scan",
+      "args": {}
+    }
+  },
+  {
+    "text": "Ops, Scan durchführen",
+    "art": "positiv",
+    "erwartet": {
+      "befehl": "ops.scan",
+      "args": {}
+    }
+  },
+  {
+    "text": "Landepunkt scannen",
+    "art": "positiv",
+    "erwartet": {
+      "befehl": "ops.landescan",
+      "args": {}
+    }
+  },
+  {
+    "text": "Ops, Landepunkt scannen",
+    "art": "positiv",
+    "erwartet": {
+      "befehl": "ops.landescan",
+      "args": {}
+    }
+  },
+  {
+    "text": "Landescan",
+    "art": "positiv",
+    "erwartet": {
+      "befehl": "ops.landescan",
+      "args": {}
+    }
+  },
+  {
+    "text": "Landepunktscan",
+    "art": "positiv",
+    "erwartet": {
+      "befehl": "ops.landescan",
+      "args": {}
+    }
+  },
+  {
+    "text": "Scannen Sie den Landepunkt",
+    "art": "positiv",
+    "erwartet": {
+      "befehl": "ops.landescan",
+      "args": {}
+    }
+  },
+  {
+    "text": "Landeplatz scannen",
+    "art": "positiv",
+    "erwartet": {
+      "befehl": "ops.landescan",
+      "args": {}
+    }
+  },
+  {
+    "text": "Ops, Landescan bitte",
+    "art": "positiv",
+    "erwartet": {
+      "befehl": "ops.landescan",
+      "args": {}
+    }
+  },
+  {
+    "text": "Person an Bord",
+    "art": "positiv",
+    "erwartet": {
+      "befehl": "ops.beamen",
+      "args": {
+        "was": "person"
+      }
+    }
+  },
+  {
+    "text": "Ops, Person an Bord beamen",
+    "art": "positiv",
+    "erwartet": {
+      "befehl": "ops.beamen",
+      "args": {
+        "was": "person"
+      }
+    }
+  },
+  {
+    "text": "Person beamen",
+    "art": "positiv",
+    "erwartet": {
+      "befehl": "ops.beamen",
+      "args": {
+        "was": "person"
+      }
+    }
+  },
+  {
+    "text": "Personen an Bord holen",
+    "art": "positiv",
+    "erwartet": {
+      "befehl": "ops.beamen",
+      "args": {
+        "was": "person"
+      }
+    }
+  },
+  {
+    "text": "Person hochbeamen",
+    "art": "positiv",
+    "erwartet": {
+      "befehl": "ops.beamen",
+      "args": {
+        "was": "person"
+      }
+    }
+  },
+  {
+    "text": "Ops, Person an Bord",
+    "art": "positiv",
+    "erwartet": {
+      "befehl": "ops.beamen",
+      "args": {
+        "was": "person"
+      }
+    }
+  },
+  {
+    "text": "Fracht an Bord",
+    "art": "positiv",
+    "erwartet": {
+      "befehl": "ops.beamen",
+      "args": {
+        "was": "fracht"
+      }
+    }
+  },
+  {
+    "text": "Ops, Fracht an Bord beamen",
+    "art": "positiv",
+    "erwartet": {
+      "befehl": "ops.beamen",
+      "args": {
+        "was": "fracht"
+      }
+    }
+  },
+  {
+    "text": "Fracht beamen",
+    "art": "positiv",
+    "erwartet": {
+      "befehl": "ops.beamen",
+      "args": {
+        "was": "fracht"
+      }
+    }
+  },
+  {
+    "text": "Fracht an Bord holen",
+    "art": "positiv",
+    "erwartet": {
+      "befehl": "ops.beamen",
+      "args": {
+        "was": "fracht"
+      }
+    }
+  },
+  {
+    "text": "Fracht hochbeamen",
+    "art": "positiv",
+    "erwartet": {
+      "befehl": "ops.beamen",
+      "args": {
+        "was": "fracht"
+      }
+    }
+  },
+  {
+    "text": "Ops, Fracht an Bord",
+    "art": "positiv",
+    "erwartet": {
+      "befehl": "ops.beamen",
+      "args": {
+        "was": "fracht"
+      }
+    }
+  },
+  {
+    "text": "Feuer zuerst",
+    "art": "positiv",
+    "erwartet": {
+      "befehl": "tech.prio",
+      "args": {
+        "ziel": "feuer"
+      }
+    }
+  },
+  {
+    "text": "Technik, Feuer zuerst",
+    "art": "positiv",
+    "erwartet": {
+      "befehl": "tech.prio",
+      "args": {
+        "ziel": "feuer"
+      }
+    }
+  },
+  {
+    "text": "Feuer hat Priorität",
+    "art": "positiv",
+    "erwartet": {
+      "befehl": "tech.prio",
+      "args": {
+        "ziel": "feuer"
+      }
+    }
+  },
+  {
+    "text": "Zuerst das Feuer bekämpfen",
+    "art": "positiv",
+    "erwartet": {
+      "befehl": "tech.prio",
+      "args": {
+        "ziel": "feuer"
+      }
+    }
+  },
+  {
+    "text": "Technik, Priorität Feuer",
+    "art": "positiv",
+    "erwartet": {
+      "befehl": "tech.prio",
+      "args": {
+        "ziel": "feuer"
+      }
+    }
+  },
+  {
+    "text": "Leck zuerst",
+    "art": "positiv",
+    "erwartet": {
+      "befehl": "tech.prio",
+      "args": {
+        "ziel": "leck"
+      }
+    }
+  },
+  {
+    "text": "Technik, Leck zuerst",
+    "art": "positiv",
+    "erwartet": {
+      "befehl": "tech.prio",
+      "args": {
+        "ziel": "leck"
+      }
+    }
+  },
+  {
+    "text": "Leck hat Priorität",
+    "art": "positiv",
+    "erwartet": {
+      "befehl": "tech.prio",
+      "args": {
+        "ziel": "leck"
+      }
+    }
+  },
+  {
+    "text": "Zuerst das Leck abdichten",
+    "art": "positiv",
+    "erwartet": {
+      "befehl": "tech.prio",
+      "args": {
+        "ziel": "leck"
+      }
+    }
+  },
+  {
+    "text": "Technik, Priorität Leck",
+    "art": "positiv",
+    "erwartet": {
+      "befehl": "tech.prio",
+      "args": {
+        "ziel": "leck"
+      }
+    }
+  },
+  {
+    "text": "Antrieb zuerst",
+    "art": "positiv",
+    "erwartet": {
+      "befehl": "tech.prio",
+      "args": {
+        "ziel": "engines"
+      }
+    }
+  },
+  {
+    "text": "Technik, Antrieb zuerst",
+    "art": "positiv",
+    "erwartet": {
+      "befehl": "tech.prio",
+      "args": {
+        "ziel": "engines"
+      }
+    }
+  },
+  {
+    "text": "Antrieb hat Priorität",
+    "art": "positiv",
+    "erwartet": {
+      "befehl": "tech.prio",
+      "args": {
+        "ziel": "engines"
+      }
+    }
+  },
+  {
+    "text": "Technik, Priorität Antrieb",
+    "art": "positiv",
+    "erwartet": {
+      "befehl": "tech.prio",
+      "args": {
+        "ziel": "engines"
+      }
+    }
+  },
+  {
+    "text": "Waffen zuerst",
+    "art": "positiv",
+    "erwartet": {
+      "befehl": "tech.prio",
+      "args": {
+        "ziel": "weapons"
+      }
+    }
+  },
+  {
+    "text": "Technik, Waffen zuerst",
+    "art": "positiv",
+    "erwartet": {
+      "befehl": "tech.prio",
+      "args": {
+        "ziel": "weapons"
+      }
+    }
+  },
+  {
+    "text": "Waffen hat Priorität",
+    "art": "positiv",
+    "erwartet": {
+      "befehl": "tech.prio",
+      "args": {
+        "ziel": "weapons"
+      }
+    }
+  },
+  {
+    "text": "Technik, Priorität Waffen",
+    "art": "positiv",
+    "erwartet": {
+      "befehl": "tech.prio",
+      "args": {
+        "ziel": "weapons"
+      }
+    }
+  },
+  {
+    "text": "Schilde zuerst",
+    "art": "positiv",
+    "erwartet": {
+      "befehl": "tech.prio",
+      "args": {
+        "ziel": "shields"
+      }
+    }
+  },
+  {
+    "text": "Technik, Schilde zuerst",
+    "art": "positiv",
+    "erwartet": {
+      "befehl": "tech.prio",
+      "args": {
+        "ziel": "shields"
+      }
+    }
+  },
+  {
+    "text": "Schilde hat Priorität",
+    "art": "positiv",
+    "erwartet": {
+      "befehl": "tech.prio",
+      "args": {
+        "ziel": "shields"
+      }
+    }
+  },
+  {
+    "text": "Technik, Priorität Schilde",
+    "art": "positiv",
+    "erwartet": {
+      "befehl": "tech.prio",
+      "args": {
+        "ziel": "shields"
+      }
+    }
+  },
+  {
+    "text": "Reaktor zuerst",
+    "art": "positiv",
+    "erwartet": {
+      "befehl": "tech.prio",
+      "args": {
+        "ziel": "reactor"
+      }
+    }
+  },
+  {
+    "text": "Technik, Reaktor zuerst",
+    "art": "positiv",
+    "erwartet": {
+      "befehl": "tech.prio",
+      "args": {
+        "ziel": "reactor"
+      }
+    }
+  },
+  {
+    "text": "Reaktor hat Priorität",
+    "art": "positiv",
+    "erwartet": {
+      "befehl": "tech.prio",
+      "args": {
+        "ziel": "reactor"
+      }
+    }
+  },
+  {
+    "text": "Technik, Priorität Reaktor",
+    "art": "positiv",
+    "erwartet": {
+      "befehl": "tech.prio",
+      "args": {
+        "ziel": "reactor"
+      }
+    }
+  },
+  {
+    "text": "Antrieb reparieren",
+    "art": "positiv",
+    "erwartet": {
+      "befehl": "tech.reparieren",
+      "args": {
+        "system": "engines"
+      }
+    }
+  },
+  {
+    "text": "Technik, Antrieb reparieren",
+    "art": "positiv",
+    "erwartet": {
+      "befehl": "tech.reparieren",
+      "args": {
+        "system": "engines"
+      }
+    }
+  },
+  {
+    "text": "Bitte Antrieb reparieren",
+    "art": "positiv",
+    "erwartet": {
+      "befehl": "tech.reparieren",
+      "args": {
+        "system": "engines"
+      }
+    }
+  },
+  {
+    "text": "Repariert Antrieb",
+    "art": "positiv",
+    "erwartet": {
+      "befehl": "tech.reparieren",
+      "args": {
+        "system": "engines"
+      }
+    }
+  },
+  {
+    "text": "Antrieb instand setzen",
+    "art": "positiv",
+    "erwartet": {
+      "befehl": "tech.reparieren",
+      "args": {
+        "system": "engines"
+      }
+    }
+  },
+  {
+    "text": "Waffen reparieren",
+    "art": "positiv",
+    "erwartet": {
+      "befehl": "tech.reparieren",
+      "args": {
+        "system": "weapons"
+      }
+    }
+  },
+  {
+    "text": "Technik, Waffen reparieren",
+    "art": "positiv",
+    "erwartet": {
+      "befehl": "tech.reparieren",
+      "args": {
+        "system": "weapons"
+      }
+    }
+  },
+  {
+    "text": "Bitte Waffen reparieren",
+    "art": "positiv",
+    "erwartet": {
+      "befehl": "tech.reparieren",
+      "args": {
+        "system": "weapons"
+      }
+    }
+  },
+  {
+    "text": "Repariert Waffen",
+    "art": "positiv",
+    "erwartet": {
+      "befehl": "tech.reparieren",
+      "args": {
+        "system": "weapons"
+      }
+    }
+  },
+  {
+    "text": "Waffen instand setzen",
+    "art": "positiv",
+    "erwartet": {
+      "befehl": "tech.reparieren",
+      "args": {
+        "system": "weapons"
+      }
+    }
+  },
+  {
+    "text": "Schilde reparieren",
+    "art": "positiv",
+    "erwartet": {
+      "befehl": "tech.reparieren",
+      "args": {
+        "system": "shields"
+      }
+    }
+  },
+  {
+    "text": "Technik, Schilde reparieren",
+    "art": "positiv",
+    "erwartet": {
+      "befehl": "tech.reparieren",
+      "args": {
+        "system": "shields"
+      }
+    }
+  },
+  {
+    "text": "Bitte Schilde reparieren",
+    "art": "positiv",
+    "erwartet": {
+      "befehl": "tech.reparieren",
+      "args": {
+        "system": "shields"
+      }
+    }
+  },
+  {
+    "text": "Repariert Schilde",
+    "art": "positiv",
+    "erwartet": {
+      "befehl": "tech.reparieren",
+      "args": {
+        "system": "shields"
+      }
+    }
+  },
+  {
+    "text": "Schilde instand setzen",
+    "art": "positiv",
+    "erwartet": {
+      "befehl": "tech.reparieren",
+      "args": {
+        "system": "shields"
+      }
+    }
+  },
+  {
+    "text": "Reaktor reparieren",
+    "art": "positiv",
+    "erwartet": {
+      "befehl": "tech.reparieren",
+      "args": {
+        "system": "reactor"
+      }
+    }
+  },
+  {
+    "text": "Technik, Reaktor reparieren",
+    "art": "positiv",
+    "erwartet": {
+      "befehl": "tech.reparieren",
+      "args": {
+        "system": "reactor"
+      }
+    }
+  },
+  {
+    "text": "Bitte Reaktor reparieren",
+    "art": "positiv",
+    "erwartet": {
+      "befehl": "tech.reparieren",
+      "args": {
+        "system": "reactor"
+      }
+    }
+  },
+  {
+    "text": "Repariert Reaktor",
+    "art": "positiv",
+    "erwartet": {
+      "befehl": "tech.reparieren",
+      "args": {
+        "system": "reactor"
+      }
+    }
+  },
+  {
+    "text": "Reaktor instand setzen",
+    "art": "positiv",
+    "erwartet": {
+      "befehl": "tech.reparieren",
+      "args": {
+        "system": "reactor"
+      }
+    }
+  },
+  {
+    "text": "Schilde Steuerbord",
+    "art": "positiv",
+    "erwartet": {
+      "befehl": "tech.schild",
+      "args": {
+        "sektor": "stb"
+      }
+    }
+  },
+  {
+    "text": "Technik, Schilde auf Steuerbord",
+    "art": "positiv",
+    "erwartet": {
+      "befehl": "tech.schild",
+      "args": {
+        "sektor": "stb"
+      }
+    }
+  },
+  {
+    "text": "Schild nach Steuerbord verlagern",
+    "art": "positiv",
+    "erwartet": {
+      "befehl": "tech.schild",
+      "args": {
+        "sektor": "stb"
+      }
+    }
+  },
+  {
+    "text": "Steuerbordschild verstärken",
+    "art": "positiv",
+    "erwartet": {
+      "befehl": "tech.schild",
+      "args": {
+        "sektor": "stb"
+      }
+    }
+  },
+  {
+    "text": "Schilde auf Steuerbord",
+    "art": "positiv",
+    "erwartet": {
+      "befehl": "tech.schild",
+      "args": {
+        "sektor": "stb"
+      }
+    }
+  },
+  {
+    "text": "Schilde Backbord",
+    "art": "positiv",
+    "erwartet": {
+      "befehl": "tech.schild",
+      "args": {
+        "sektor": "bb"
+      }
+    }
+  },
+  {
+    "text": "Technik, Schilde auf Backbord",
+    "art": "positiv",
+    "erwartet": {
+      "befehl": "tech.schild",
+      "args": {
+        "sektor": "bb"
+      }
+    }
+  },
+  {
+    "text": "Schild nach Backbord verlagern",
+    "art": "positiv",
+    "erwartet": {
+      "befehl": "tech.schild",
+      "args": {
+        "sektor": "bb"
+      }
+    }
+  },
+  {
+    "text": "Backbordschild verstärken",
+    "art": "positiv",
+    "erwartet": {
+      "befehl": "tech.schild",
+      "args": {
+        "sektor": "bb"
+      }
+    }
+  },
+  {
+    "text": "Schilde auf Backbord",
+    "art": "positiv",
+    "erwartet": {
+      "befehl": "tech.schild",
+      "args": {
+        "sektor": "bb"
+      }
+    }
+  },
+  {
+    "text": "Schilde Bug",
+    "art": "positiv",
+    "erwartet": {
+      "befehl": "tech.schild",
+      "args": {
+        "sektor": "bug"
+      }
+    }
+  },
+  {
+    "text": "Technik, Schilde auf den Bug",
+    "art": "positiv",
+    "erwartet": {
+      "befehl": "tech.schild",
+      "args": {
+        "sektor": "bug"
+      }
+    }
+  },
+  {
+    "text": "Schild nach vorn verlagern",
+    "art": "positiv",
+    "erwartet": {
+      "befehl": "tech.schild",
+      "args": {
+        "sektor": "bug"
+      }
+    }
+  },
+  {
+    "text": "Bugschild verstärken",
+    "art": "positiv",
+    "erwartet": {
+      "befehl": "tech.schild",
+      "args": {
+        "sektor": "bug"
+      }
+    }
+  },
+  {
+    "text": "Schilde auf Bug",
+    "art": "positiv",
+    "erwartet": {
+      "befehl": "tech.schild",
+      "args": {
+        "sektor": "bug"
+      }
+    }
+  },
+  {
+    "text": "Schilde Heck",
+    "art": "positiv",
+    "erwartet": {
+      "befehl": "tech.schild",
+      "args": {
+        "sektor": "heck"
+      }
+    }
+  },
+  {
+    "text": "Technik, Schilde aufs Heck",
+    "art": "positiv",
+    "erwartet": {
+      "befehl": "tech.schild",
+      "args": {
+        "sektor": "heck"
+      }
+    }
+  },
+  {
+    "text": "Schild nach achtern verlagern",
+    "art": "positiv",
+    "erwartet": {
+      "befehl": "tech.schild",
+      "args": {
+        "sektor": "heck"
+      }
+    }
+  },
+  {
+    "text": "Heckschild verstärken",
+    "art": "positiv",
+    "erwartet": {
+      "befehl": "tech.schild",
+      "args": {
+        "sektor": "heck"
+      }
+    }
+  },
+  {
+    "text": "Schilde auf Heck",
+    "art": "positiv",
+    "erwartet": {
+      "befehl": "tech.schild",
+      "args": {
+        "sektor": "heck"
+      }
+    }
+  },
+  {
+    "text": "Mehr Energie auf Waffen",
+    "art": "positiv",
+    "erwartet": {
+      "befehl": "tech.energie",
+      "args": {
+        "system": "weapons",
+        "delta": 1
+      }
+    }
+  },
+  {
+    "text": "Technik, mehr Energie auf Waffen",
+    "art": "positiv",
+    "erwartet": {
+      "befehl": "tech.energie",
+      "args": {
+        "system": "weapons",
+        "delta": 1
+      }
+    }
+  },
+  {
+    "text": "Energie auf Waffen erhöhen",
+    "art": "positiv",
+    "erwartet": {
+      "befehl": "tech.energie",
+      "args": {
+        "system": "weapons",
+        "delta": 1
+      }
+    }
+  },
+  {
+    "text": "Mehr Strom für Waffen",
+    "art": "positiv",
+    "erwartet": {
+      "befehl": "tech.energie",
+      "args": {
+        "system": "weapons",
+        "delta": 1
+      }
+    }
+  },
+  {
+    "text": "Weniger Energie auf Waffen",
+    "art": "positiv",
+    "erwartet": {
+      "befehl": "tech.energie",
+      "args": {
+        "system": "weapons",
+        "delta": -1
+      }
+    }
+  },
+  {
+    "text": "Technik, weniger Energie auf Waffen",
+    "art": "positiv",
+    "erwartet": {
+      "befehl": "tech.energie",
+      "args": {
+        "system": "weapons",
+        "delta": -1
+      }
+    }
+  },
+  {
+    "text": "Energie auf Waffen reduzieren",
+    "art": "positiv",
+    "erwartet": {
+      "befehl": "tech.energie",
+      "args": {
+        "system": "weapons",
+        "delta": -1
+      }
+    }
+  },
+  {
+    "text": "Weniger Strom für Waffen",
+    "art": "positiv",
+    "erwartet": {
+      "befehl": "tech.energie",
+      "args": {
+        "system": "weapons",
+        "delta": -1
+      }
+    }
+  },
+  {
+    "text": "Mehr Energie auf Antrieb",
+    "art": "positiv",
+    "erwartet": {
+      "befehl": "tech.energie",
+      "args": {
+        "system": "engines",
+        "delta": 1
+      }
+    }
+  },
+  {
+    "text": "Technik, mehr Energie auf Antrieb",
+    "art": "positiv",
+    "erwartet": {
+      "befehl": "tech.energie",
+      "args": {
+        "system": "engines",
+        "delta": 1
+      }
+    }
+  },
+  {
+    "text": "Energie auf Antrieb erhöhen",
+    "art": "positiv",
+    "erwartet": {
+      "befehl": "tech.energie",
+      "args": {
+        "system": "engines",
+        "delta": 1
+      }
+    }
+  },
+  {
+    "text": "Mehr Strom für Antrieb",
+    "art": "positiv",
+    "erwartet": {
+      "befehl": "tech.energie",
+      "args": {
+        "system": "engines",
+        "delta": 1
+      }
+    }
+  },
+  {
+    "text": "Weniger Energie auf Antrieb",
+    "art": "positiv",
+    "erwartet": {
+      "befehl": "tech.energie",
+      "args": {
+        "system": "engines",
+        "delta": -1
+      }
+    }
+  },
+  {
+    "text": "Technik, weniger Energie auf Antrieb",
+    "art": "positiv",
+    "erwartet": {
+      "befehl": "tech.energie",
+      "args": {
+        "system": "engines",
+        "delta": -1
+      }
+    }
+  },
+  {
+    "text": "Energie auf Antrieb reduzieren",
+    "art": "positiv",
+    "erwartet": {
+      "befehl": "tech.energie",
+      "args": {
+        "system": "engines",
+        "delta": -1
+      }
+    }
+  },
+  {
+    "text": "Weniger Strom für Antrieb",
+    "art": "positiv",
+    "erwartet": {
+      "befehl": "tech.energie",
+      "args": {
+        "system": "engines",
+        "delta": -1
+      }
+    }
+  },
+  {
+    "text": "Mehr Energie auf Schilde",
+    "art": "positiv",
+    "erwartet": {
+      "befehl": "tech.energie",
+      "args": {
+        "system": "shields",
+        "delta": 1
+      }
+    }
+  },
+  {
+    "text": "Technik, mehr Energie auf Schilde",
+    "art": "positiv",
+    "erwartet": {
+      "befehl": "tech.energie",
+      "args": {
+        "system": "shields",
+        "delta": 1
+      }
+    }
+  },
+  {
+    "text": "Energie auf Schilde erhöhen",
+    "art": "positiv",
+    "erwartet": {
+      "befehl": "tech.energie",
+      "args": {
+        "system": "shields",
+        "delta": 1
+      }
+    }
+  },
+  {
+    "text": "Mehr Strom für Schilde",
+    "art": "positiv",
+    "erwartet": {
+      "befehl": "tech.energie",
+      "args": {
+        "system": "shields",
+        "delta": 1
+      }
+    }
+  },
+  {
+    "text": "Weniger Energie auf Schilde",
+    "art": "positiv",
+    "erwartet": {
+      "befehl": "tech.energie",
+      "args": {
+        "system": "shields",
+        "delta": -1
+      }
+    }
+  },
+  {
+    "text": "Technik, weniger Energie auf Schilde",
+    "art": "positiv",
+    "erwartet": {
+      "befehl": "tech.energie",
+      "args": {
+        "system": "shields",
+        "delta": -1
+      }
+    }
+  },
+  {
+    "text": "Energie auf Schilde reduzieren",
+    "art": "positiv",
+    "erwartet": {
+      "befehl": "tech.energie",
+      "args": {
+        "system": "shields",
+        "delta": -1
+      }
+    }
+  },
+  {
+    "text": "Weniger Strom für Schilde",
+    "art": "positiv",
+    "erwartet": {
+      "befehl": "tech.energie",
+      "args": {
+        "system": "shields",
+        "delta": -1
+      }
+    }
+  },
+  {
+    "text": "Reaktor überladen",
+    "art": "positiv",
+    "erwartet": {
+      "befehl": "tech.ueberladen",
+      "args": {}
+    }
+  },
+  {
+    "text": "Technik, Reaktor überladen",
+    "art": "positiv",
+    "erwartet": {
+      "befehl": "tech.ueberladen",
+      "args": {}
+    }
+  },
+  {
+    "text": "Überladen",
+    "art": "positiv",
+    "erwartet": {
+      "befehl": "tech.ueberladen",
+      "args": {}
+    }
+  },
+  {
+    "text": "Reaktor auf Überlast fahren",
+    "art": "positiv",
+    "erwartet": {
+      "befehl": "tech.ueberladen",
+      "args": {}
+    }
+  },
+  {
+    "text": "Bitte Reaktor überladen",
+    "art": "positiv",
+    "erwartet": {
+      "befehl": "tech.ueberladen",
+      "args": {}
+    }
+  },
+  {
+    "text": "Technik, überladen",
+    "art": "positiv",
+    "erwartet": {
+      "befehl": "tech.ueberladen",
+      "args": {}
+    }
+  },
+  {
+    "text": "Außenteam zurückholen",
+    "art": "positiv",
+    "erwartet": {
+      "befehl": "bord.rueckholen",
+      "args": {}
+    }
+  },
+  {
+    "text": "Außenteam zurück",
+    "art": "positiv",
+    "erwartet": {
+      "befehl": "bord.rueckholen",
+      "args": {}
+    }
+  },
+  {
+    "text": "Holt das Außenteam zurück",
+    "art": "positiv",
+    "erwartet": {
+      "befehl": "bord.rueckholen",
+      "args": {}
+    }
+  },
+  {
+    "text": "Notrückholung",
+    "art": "positiv",
+    "erwartet": {
+      "befehl": "bord.rueckholen",
+      "args": {}
+    }
+  },
+  {
+    "text": "Außenteam rückholen",
+    "art": "positiv",
+    "erwartet": {
+      "befehl": "bord.rueckholen",
+      "args": {}
+    }
+  },
+  {
+    "text": "Bord, Außenteam zurückholen",
+    "art": "positiv",
+    "erwartet": {
+      "befehl": "bord.rueckholen",
+      "args": {}
+    }
+  },
+  {
+    "text": "Sensor",
+    "art": "positiv",
+    "erwartet": {
+      "befehl": "bord.sensor",
+      "args": {}
+    }
+  },
+  {
+    "text": "Bord, Sensor",
+    "art": "positiv",
+    "erwartet": {
+      "befehl": "bord.sensor",
+      "args": {}
+    }
+  },
+  {
+    "text": "Sensor einsetzen",
+    "art": "positiv",
+    "erwartet": {
+      "befehl": "bord.sensor",
+      "args": {}
+    }
+  },
+  {
+    "text": "Sensor bitte",
+    "art": "positiv",
+    "erwartet": {
+      "befehl": "bord.sensor",
+      "args": {}
+    }
+  },
+  {
+    "text": "Sensorunterstützung für das Außenteam",
+    "art": "positiv",
+    "erwartet": {
+      "befehl": "bord.sensor",
+      "args": {}
+    }
+  },
+  {
+    "text": "Kuppel",
+    "art": "positiv",
+    "erwartet": {
+      "befehl": "bord.kuppel",
+      "args": {}
+    }
+  },
+  {
+    "text": "Bord, Kuppel",
+    "art": "positiv",
+    "erwartet": {
+      "befehl": "bord.kuppel",
+      "args": {}
+    }
+  },
+  {
+    "text": "Kuppel einsetzen",
+    "art": "positiv",
+    "erwartet": {
+      "befehl": "bord.kuppel",
+      "args": {}
+    }
+  },
+  {
+    "text": "Kuppel bitte",
+    "art": "positiv",
+    "erwartet": {
+      "befehl": "bord.kuppel",
+      "args": {}
+    }
+  },
+  {
+    "text": "Kuppelunterstützung für das Außenteam",
+    "art": "positiv",
+    "erwartet": {
+      "befehl": "bord.kuppel",
+      "args": {}
+    }
+  },
+  {
+    "text": "Statusbericht",
+    "art": "positiv",
+    "erwartet": {
+      "befehl": "bot.status",
+      "args": {}
+    }
+  },
+  {
+    "text": "Navigation, Statusbericht",
+    "art": "positiv",
+    "erwartet": {
+      "befehl": "bot.status",
+      "args": {}
+    }
+  },
+  {
+    "text": "Statusbericht bitte",
+    "art": "positiv",
+    "erwartet": {
+      "befehl": "bot.status",
+      "args": {}
+    }
+  },
+  {
+    "text": "Meldet die Lage",
+    "art": "positiv",
+    "erwartet": {
+      "befehl": "bot.status",
+      "args": {}
+    }
+  },
+  {
+    "text": "Lagebericht",
+    "art": "positiv",
+    "erwartet": {
+      "befehl": "bot.status",
+      "args": {}
+    }
+  },
+  {
+    "text": "Alle Stationen Statusbericht",
+    "art": "positiv",
+    "erwartet": {
+      "befehl": "bot.status",
+      "args": {}
+    }
+  },
+  {
+    "text": "Bericht zur Lage",
+    "art": "positiv",
+    "erwartet": {
+      "befehl": "bot.status",
+      "args": {}
+    }
+  },
+  {
+    "text": "Automatik",
+    "art": "positiv",
+    "erwartet": {
+      "befehl": "bot.automatik",
+      "args": {}
+    }
+  },
+  {
+    "text": "Navigation, Automatik",
+    "art": "positiv",
+    "erwartet": {
+      "befehl": "bot.automatik",
+      "args": {}
+    }
+  },
+  {
+    "text": "Automatik bitte",
+    "art": "positiv",
+    "erwartet": {
+      "befehl": "bot.automatik",
+      "args": {}
+    }
+  },
+  {
+    "text": "Auf Automatik schalten",
+    "art": "positiv",
+    "erwartet": {
+      "befehl": "bot.automatik",
+      "args": {}
+    }
+  },
+  {
+    "text": "Zurück auf Automatik",
+    "art": "positiv",
+    "erwartet": {
+      "befehl": "bot.automatik",
+      "args": {}
+    }
+  },
+  {
+    "text": "Alle auf Automatik",
+    "art": "positiv",
+    "erwartet": {
+      "befehl": "bot.automatik",
+      "args": {}
+    }
+  },
+  {
+    "text": "Standardverhalten",
+    "art": "positiv",
+    "erwartet": {
+      "befehl": "bot.automatik",
+      "args": {}
+    }
+  },
+  {
+    "text": "Schilde Backboard",
+    "art": "stt-fehler",
+    "erwartet": {
+      "befehl": "tech.schild",
+      "args": {
+        "sektor": "bb"
+      }
+    }
+  },
+  {
+    "text": "Schilde Backbort",
+    "art": "stt-fehler",
+    "erwartet": {
+      "befehl": "tech.schild",
+      "args": {
+        "sektor": "bb"
+      }
+    }
+  },
+  {
+    "text": "Schild Backbord",
+    "art": "stt-fehler",
+    "erwartet": {
+      "befehl": "tech.schild",
+      "args": {
+        "sektor": "bb"
+      }
+    }
+  },
+  {
+    "text": "Schilder Back Bord",
+    "art": "stt-fehler",
+    "erwartet": {
+      "befehl": "tech.schild",
+      "args": {
+        "sektor": "bb"
+      }
+    }
+  },
+  {
+    "text": "Schilde Bagbord",
+    "art": "stt-fehler",
+    "erwartet": {
+      "befehl": "tech.schild",
+      "args": {
+        "sektor": "bb"
+      }
+    }
+  },
+  {
+    "text": "Schilde Bakbord",
+    "art": "stt-fehler",
+    "erwartet": {
+      "befehl": "tech.schild",
+      "args": {
+        "sektor": "bb"
+      }
+    }
+  },
+  {
+    "text": "Schilde Steuerboard",
+    "art": "stt-fehler",
+    "erwartet": {
+      "befehl": "tech.schild",
+      "args": {
+        "sektor": "stb"
+      }
+    }
+  },
+  {
+    "text": "Schilde Steuer Bord",
+    "art": "stt-fehler",
+    "erwartet": {
+      "befehl": "tech.schild",
+      "args": {
+        "sektor": "stb"
+      }
+    }
+  },
+  {
+    "text": "Schilde Stürbord",
+    "art": "stt-fehler",
+    "erwartet": {
+      "befehl": "tech.schild",
+      "args": {
+        "sektor": "stb"
+      }
+    }
+  },
+  {
+    "text": "Schilde Steierbord",
+    "art": "stt-fehler",
+    "erwartet": {
+      "befehl": "tech.schild",
+      "args": {
+        "sektor": "stb"
+      }
+    }
+  },
+  {
+    "text": "Schilder Steuerbord",
+    "art": "stt-fehler",
+    "erwartet": {
+      "befehl": "tech.schild",
+      "args": {
+        "sektor": "stb"
+      }
+    }
+  },
+  {
+    "text": "Technik, Schilde Steuerbort",
+    "art": "stt-fehler",
+    "erwartet": {
+      "befehl": "tech.schild",
+      "args": {
+        "sektor": "stb"
+      }
+    }
+  },
+  {
+    "text": "Schilde Buk",
+    "art": "stt-fehler",
+    "erwartet": {
+      "befehl": "tech.schild",
+      "args": {
+        "sektor": "bug"
+      }
+    }
+  },
+  {
+    "text": "Schilde Bug.",
+    "art": "stt-fehler",
+    "erwartet": {
+      "befehl": "tech.schild",
+      "args": {
+        "sektor": "bug"
+      }
+    }
+  },
+  {
+    "text": "Schilde Buck",
+    "art": "stt-fehler",
+    "erwartet": {
+      "befehl": "tech.schild",
+      "args": {
+        "sektor": "bug"
+      }
+    }
+  },
+  {
+    "text": "Schilde Boog",
+    "art": "stt-fehler",
+    "erwartet": {
+      "befehl": "tech.schild",
+      "args": {
+        "sektor": "bug"
+      }
+    }
+  },
+  {
+    "text": "Schilde Heg",
+    "art": "stt-fehler",
+    "erwartet": {
+      "befehl": "tech.schild",
+      "args": {
+        "sektor": "heck"
+      }
+    }
+  },
+  {
+    "text": "Schilde Heckk",
+    "art": "stt-fehler",
+    "erwartet": {
+      "befehl": "tech.schild",
+      "args": {
+        "sektor": "heck"
+      }
+    }
+  },
+  {
+    "text": "Schilde Hek",
+    "art": "stt-fehler",
+    "erwartet": {
+      "befehl": "tech.schild",
+      "args": {
+        "sektor": "heck"
+      }
+    }
+  },
+  {
+    "text": "Schilde Heck?",
+    "art": "stt-fehler",
+    "erwartet": {
+      "befehl": "tech.schild",
+      "args": {
+        "sektor": "heck"
+      }
+    }
+  },
+  {
+    "text": "Wolle Kraft voraus",
+    "art": "stt-fehler",
+    "erwartet": {
+      "befehl": "nav.schub",
+      "args": {
+        "stufe": "voll"
+      }
+    }
+  },
+  {
+    "text": "Volle Kraft vorraus",
+    "art": "stt-fehler",
+    "erwartet": {
+      "befehl": "nav.schub",
+      "args": {
+        "stufe": "voll"
+      }
+    }
+  },
+  {
+    "text": "Volle Kraft vor aus",
+    "art": "stt-fehler",
+    "erwartet": {
+      "befehl": "nav.schub",
+      "args": {
+        "stufe": "voll"
+      }
+    }
+  },
+  {
+    "text": "Folle Kraft voraus",
+    "art": "stt-fehler",
+    "erwartet": {
+      "befehl": "nav.schub",
+      "args": {
+        "stufe": "voll"
+      }
+    }
+  },
+  {
+    "text": "Voller Kraft voraus",
+    "art": "stt-fehler",
+    "erwartet": {
+      "befehl": "nav.schub",
+      "args": {
+        "stufe": "voll"
+      }
+    }
+  },
+  {
+    "text": "Volle Graft voraus",
+    "art": "stt-fehler",
+    "erwartet": {
+      "befehl": "nav.schub",
+      "args": {
+        "stufe": "voll"
+      }
+    }
+  },
+  {
+    "text": "Wolle Fahrt",
+    "art": "stt-fehler",
+    "erwartet": {
+      "befehl": "nav.schub",
+      "args": {
+        "stufe": "voll"
+      }
+    }
+  },
+  {
+    "text": "Halbe Kraft voraus.",
+    "art": "stt-fehler",
+    "erwartet": {
+      "befehl": "nav.schub",
+      "args": {
+        "stufe": "halb"
+      }
+    }
+  },
+  {
+    "text": "Halbe Graft voraus",
+    "art": "stt-fehler",
+    "erwartet": {
+      "befehl": "nav.schub",
+      "args": {
+        "stufe": "halb"
+      }
+    }
+  },
+  {
+    "text": "Halber Kraft voraus",
+    "art": "stt-fehler",
+    "erwartet": {
+      "befehl": "nav.schub",
+      "args": {
+        "stufe": "halb"
+      }
+    }
+  },
+  {
+    "text": "Halbe Kraft vorraus",
+    "art": "stt-fehler",
+    "erwartet": {
+      "befehl": "nav.schub",
+      "args": {
+        "stufe": "halb"
+      }
+    }
+  },
+  {
+    "text": "Alba Kraft voraus",
+    "art": "stt-fehler",
+    "erwartet": {
+      "befehl": "nav.schub",
+      "args": {
+        "stufe": "halb"
+      }
+    }
+  },
+  {
+    "text": "Schub Null.",
+    "art": "stt-fehler",
+    "erwartet": {
+      "befehl": "nav.schub",
+      "args": {
+        "stufe": 0
+      }
+    }
+  },
+  {
+    "text": "Schupp null",
+    "art": "stt-fehler",
+    "erwartet": {
+      "befehl": "nav.schub",
+      "args": {
+        "stufe": 0
+      }
+    }
+  },
+  {
+    "text": "Schub nul",
+    "art": "stt-fehler",
+    "erwartet": {
+      "befehl": "nav.schub",
+      "args": {
+        "stufe": 0
+      }
+    }
+  },
+  {
+    "text": "Alle Maschinen stoppen",
+    "art": "stt-fehler",
+    "erwartet": {
+      "befehl": "nav.stopp",
+      "args": {}
+    }
+  },
+  {
+    "text": "Alle Maschinen Stop",
+    "art": "stt-fehler",
+    "erwartet": {
+      "befehl": "nav.stopp",
+      "args": {}
+    }
+  },
+  {
+    "text": "Alle Maschinen stoppt",
+    "art": "stt-fehler",
+    "erwartet": {
+      "befehl": "nav.stopp",
+      "args": {}
+    }
+  },
+  {
+    "text": "Alle Maschinen, stopp!",
+    "art": "stt-fehler",
+    "erwartet": {
+      "befehl": "nav.stopp",
+      "args": {}
+    }
+  },
+  {
+    "text": "Alle Maschinen Stopp",
+    "art": "stt-fehler",
+    "erwartet": {
+      "befehl": "nav.stopp",
+      "args": {}
+    }
+  },
+  {
+    "text": "Alle Maschienen stopp",
+    "art": "stt-fehler",
+    "erwartet": {
+      "befehl": "nav.stopp",
+      "args": {}
+    }
+  },
+  {
+    "text": "Maschinen stoppen",
+    "art": "stt-fehler",
+    "erwartet": {
+      "befehl": "nav.stopp",
+      "args": {}
+    }
+  },
+  {
+    "text": "Torpedo klar machen",
+    "art": "stt-fehler",
+    "erwartet": {
+      "befehl": "ops.feuer_frei",
+      "args": {
+        "waffen": "torpedo"
+      }
+    }
+  },
+  {
+    "text": "Torpedo Feuer fr",
+    "art": "stt-fehler",
+    "erwartet": {
+      "befehl": "ops.feuer_frei",
+      "args": {
+        "waffen": "torpedo"
+      }
+    }
+  },
+  {
+    "text": "Torpedo, Feuer frei.",
+    "art": "stt-fehler",
+    "erwartet": {
+      "befehl": "ops.feuer_frei",
+      "args": {
+        "waffen": "torpedo"
+      }
+    }
+  },
+  {
+    "text": "Torpedo Feuer frei?",
+    "art": "stt-fehler",
+    "erwartet": {
+      "befehl": "ops.feuer_frei",
+      "args": {
+        "waffen": "torpedo"
+      }
+    }
+  },
+  {
+    "text": "Dorpedo Feuer frei",
+    "art": "stt-fehler",
+    "erwartet": {
+      "befehl": "ops.feuer_frei",
+      "args": {
+        "waffen": "torpedo"
+      }
+    }
+  },
+  {
+    "text": "Torpedos Feuer fei",
+    "art": "stt-fehler",
+    "erwartet": {
+      "befehl": "ops.feuer_frei",
+      "args": {
+        "waffen": "torpedo"
+      }
+    }
+  },
+  {
+    "text": "Feuer frei.",
+    "art": "stt-fehler",
+    "erwartet": {
+      "befehl": "ops.feuer_frei",
+      "args": {}
+    }
+  },
+  {
+    "text": "Foier frei",
+    "art": "stt-fehler",
+    "erwartet": {
+      "befehl": "ops.feuer_frei",
+      "args": {}
+    }
+  },
+  {
+    "text": "Feuer fry",
+    "art": "stt-fehler",
+    "erwartet": {
+      "befehl": "ops.feuer_frei",
+      "args": {}
+    }
+  },
+  {
+    "text": "Ops, Feuer frei?",
+    "art": "stt-fehler",
+    "erwartet": {
+      "befehl": "ops.feuer_frei",
+      "args": {}
+    }
+  },
+  {
+    "text": "Feier frei",
+    "art": "stt-fehler",
+    "erwartet": {
+      "befehl": "ops.feuer_frei",
+      "args": {}
+    }
+  },
+  {
+    "text": "Feuer Frei Ops",
+    "art": "stt-fehler",
+    "erwartet": {
+      "befehl": "ops.feuer_frei",
+      "args": {}
+    }
+  },
+  {
+    "text": "Alle Waffen Feier frei",
+    "art": "stt-fehler",
+    "erwartet": {
+      "befehl": "ops.feuer_frei",
+      "args": {
+        "waffen": "alle"
+      }
+    }
+  },
+  {
+    "text": "Alle Waffen Feuer fry",
+    "art": "stt-fehler",
+    "erwartet": {
+      "befehl": "ops.feuer_frei",
+      "args": {
+        "waffen": "alle"
+      }
+    }
+  },
+  {
+    "text": "Feuer einstellen.",
+    "art": "stt-fehler",
+    "erwartet": {
+      "befehl": "ops.feuer_halt",
+      "args": {}
+    }
+  },
+  {
+    "text": "Feuer ein stellen",
+    "art": "stt-fehler",
+    "erwartet": {
+      "befehl": "ops.feuer_halt",
+      "args": {}
+    }
+  },
+  {
+    "text": "Feuer Einstellen",
+    "art": "stt-fehler",
+    "erwartet": {
+      "befehl": "ops.feuer_halt",
+      "args": {}
+    }
+  },
+  {
+    "text": "Foier einstellen",
+    "art": "stt-fehler",
+    "erwartet": {
+      "befehl": "ops.feuer_halt",
+      "args": {}
+    }
+  },
+  {
+    "text": "Feuer ein gestellt",
+    "art": "stt-fehler",
+    "erwartet": {
+      "befehl": "ops.feuer_halt",
+      "args": {}
+    }
+  },
+  {
+    "text": "Scannen.",
+    "art": "stt-fehler",
+    "erwartet": {
+      "befehl": "ops.scan",
+      "args": {}
+    }
+  },
+  {
+    "text": "Skannen",
+    "art": "stt-fehler",
+    "erwartet": {
+      "befehl": "ops.scan",
+      "args": {}
+    }
+  },
+  {
+    "text": "Ops, skannen",
+    "art": "stt-fehler",
+    "erwartet": {
+      "befehl": "ops.scan",
+      "args": {}
+    }
+  },
+  {
+    "text": "Scänen",
+    "art": "stt-fehler",
+    "erwartet": {
+      "befehl": "ops.scan",
+      "args": {}
+    }
+  },
+  {
+    "text": "Landepunkt scannen.",
+    "art": "stt-fehler",
+    "erwartet": {
+      "befehl": "ops.landescan",
+      "args": {}
+    }
+  },
+  {
+    "text": "Landepunkt skannen",
+    "art": "stt-fehler",
+    "erwartet": {
+      "befehl": "ops.landescan",
+      "args": {}
+    }
+  },
+  {
+    "text": "Land Punkt scannen",
+    "art": "stt-fehler",
+    "erwartet": {
+      "befehl": "ops.landescan",
+      "args": {}
+    }
+  },
+  {
+    "text": "Lande Punkt scannen",
+    "art": "stt-fehler",
+    "erwartet": {
+      "befehl": "ops.landescan",
+      "args": {}
+    }
+  },
+  {
+    "text": "Landebunkt scannen",
+    "art": "stt-fehler",
+    "erwartet": {
+      "befehl": "ops.landescan",
+      "args": {}
+    }
+  },
+  {
+    "text": "Ausweichen.",
+    "art": "stt-fehler",
+    "erwartet": {
+      "befehl": "nav.ausweichen",
+      "args": {}
+    }
+  },
+  {
+    "text": "Aus weichen",
+    "art": "stt-fehler",
+    "erwartet": {
+      "befehl": "nav.ausweichen",
+      "args": {}
+    }
+  },
+  {
+    "text": "Ausweichen!",
+    "art": "stt-fehler",
+    "erwartet": {
+      "befehl": "nav.ausweichen",
+      "args": {}
+    }
+  },
+  {
+    "text": "Aus weichen, schnell",
+    "art": "stt-fehler",
+    "erwartet": {
+      "befehl": "nav.ausweichen",
+      "args": {}
+    }
+  },
+  {
+    "text": "Ausweichen, Navigation",
+    "art": "stt-fehler",
+    "erwartet": {
+      "befehl": "nav.ausweichen",
+      "args": {}
+    }
+  },
+  {
+    "text": "Andocken.",
+    "art": "stt-fehler",
+    "erwartet": {
+      "befehl": "nav.andocken",
+      "args": {}
+    }
+  },
+  {
+    "text": "An docken",
+    "art": "stt-fehler",
+    "erwartet": {
+      "befehl": "nav.andocken",
+      "args": {}
+    }
+  },
+  {
+    "text": "Andockten",
+    "art": "stt-fehler",
+    "erwartet": {
+      "befehl": "nav.andocken",
+      "args": {}
+    }
+  },
+  {
+    "text": "Ann docken",
+    "art": "stt-fehler",
+    "erwartet": {
+      "befehl": "nav.andocken",
+      "args": {}
+    }
+  },
+  {
+    "text": "Anndocken",
+    "art": "stt-fehler",
+    "erwartet": {
+      "befehl": "nav.andocken",
+      "args": {}
+    }
+  },
+  {
+    "text": "Kurs auf die Markirung",
+    "art": "stt-fehler",
+    "erwartet": {
+      "befehl": "nav.kurs",
+      "args": {
+        "ziel": "marke"
+      }
+    }
+  },
+  {
+    "text": "Kurs auf die Marckierung",
+    "art": "stt-fehler",
+    "erwartet": {
+      "befehl": "nav.kurs",
+      "args": {
+        "ziel": "marke"
+      }
+    }
+  },
+  {
+    "text": "Kurs auf die Markierungen",
+    "art": "stt-fehler",
+    "erwartet": {
+      "befehl": "nav.kurs",
+      "args": {
+        "ziel": "marke"
+      }
+    }
+  },
+  {
+    "text": "Kors auf die Markierung",
+    "art": "stt-fehler",
+    "erwartet": {
+      "befehl": "nav.kurs",
+      "args": {
+        "ziel": "marke"
+      }
+    }
+  },
+  {
+    "text": "Kurz auf die Markierung",
+    "art": "stt-fehler",
+    "erwartet": {
+      "befehl": "nav.kurs",
+      "args": {
+        "ziel": "marke"
+      }
+    }
+  },
+  {
+    "text": "Kurs auf die Basies",
+    "art": "stt-fehler",
+    "erwartet": {
+      "befehl": "nav.kurs",
+      "args": {
+        "ziel": "basis"
+      }
+    }
+  },
+  {
+    "text": "Kurs auf die Bases",
+    "art": "stt-fehler",
+    "erwartet": {
+      "befehl": "nav.kurs",
+      "args": {
+        "ziel": "basis"
+      }
+    }
+  },
+  {
+    "text": "Kurs auf Basis.",
+    "art": "stt-fehler",
+    "erwartet": {
+      "befehl": "nav.kurs",
+      "args": {
+        "ziel": "basis"
+      }
+    }
+  },
+  {
+    "text": "Kurz auf die Basis",
+    "art": "stt-fehler",
+    "erwartet": {
+      "befehl": "nav.kurs",
+      "args": {
+        "ziel": "basis"
+      }
+    }
+  },
+  {
+    "text": "Kurs auf das Siel",
+    "art": "stt-fehler",
+    "erwartet": {
+      "befehl": "nav.kurs",
+      "args": {
+        "ziel": "ziel"
+      }
+    }
+  },
+  {
+    "text": "Kurs auf das Ziehl",
+    "art": "stt-fehler",
+    "erwartet": {
+      "befehl": "nav.kurs",
+      "args": {
+        "ziel": "ziel"
+      }
+    }
+  },
+  {
+    "text": "Kurs aufs Ziel.",
+    "art": "stt-fehler",
+    "erwartet": {
+      "befehl": "nav.kurs",
+      "args": {
+        "ziel": "ziel"
+      }
+    }
+  },
+  {
+    "text": "Antrieb reparieren.",
+    "art": "stt-fehler",
+    "erwartet": {
+      "befehl": "tech.reparieren",
+      "args": {
+        "system": "engines"
+      }
+    }
+  },
+  {
+    "text": "Antrieb reparrieren",
+    "art": "stt-fehler",
+    "erwartet": {
+      "befehl": "tech.reparieren",
+      "args": {
+        "system": "engines"
+      }
+    }
+  },
+  {
+    "text": "Ant Trieb reparieren",
+    "art": "stt-fehler",
+    "erwartet": {
+      "befehl": "tech.reparieren",
+      "args": {
+        "system": "engines"
+      }
+    }
+  },
+  {
+    "text": "Antrib repareren",
+    "art": "stt-fehler",
+    "erwartet": {
+      "befehl": "tech.reparieren",
+      "args": {
+        "system": "engines"
+      }
+    }
+  },
+  {
+    "text": "Waffen reparieren.",
+    "art": "stt-fehler",
+    "erwartet": {
+      "befehl": "tech.reparieren",
+      "args": {
+        "system": "weapons"
+      }
+    }
+  },
+  {
+    "text": "Waffen reperieren",
+    "art": "stt-fehler",
+    "erwartet": {
+      "befehl": "tech.reparieren",
+      "args": {
+        "system": "weapons"
+      }
+    }
+  },
+  {
+    "text": "Waffen reparierung",
+    "art": "stt-fehler",
+    "erwartet": {
+      "befehl": "tech.reparieren",
+      "args": {
+        "system": "weapons"
+      }
+    }
+  },
+  {
+    "text": "Schilder reparieren",
+    "art": "stt-fehler",
+    "erwartet": {
+      "befehl": "tech.reparieren",
+      "args": {
+        "system": "shields"
+      }
+    }
+  },
+  {
+    "text": "Schilde reparrieren",
+    "art": "stt-fehler",
+    "erwartet": {
+      "befehl": "tech.reparieren",
+      "args": {
+        "system": "shields"
+      }
+    }
+  },
+  {
+    "text": "Reaktor überladen.",
+    "art": "stt-fehler",
+    "erwartet": {
+      "befehl": "tech.ueberladen",
+      "args": {}
+    }
+  },
+  {
+    "text": "Reaktor überladden",
+    "art": "stt-fehler",
+    "erwartet": {
+      "befehl": "tech.ueberladen",
+      "args": {}
+    }
+  },
+  {
+    "text": "Reaktor ueberladen",
+    "art": "stt-fehler",
+    "erwartet": {
+      "befehl": "tech.ueberladen",
+      "args": {}
+    }
+  },
+  {
+    "text": "Reactor überladen",
+    "art": "stt-fehler",
+    "erwartet": {
+      "befehl": "tech.ueberladen",
+      "args": {}
+    }
+  },
+  {
+    "text": "Reaktor über laden",
+    "art": "stt-fehler",
+    "erwartet": {
+      "befehl": "tech.ueberladen",
+      "args": {}
+    }
+  },
+  {
+    "text": "Mehr Energie auf Waffen.",
+    "art": "stt-fehler",
+    "erwartet": {
+      "befehl": "tech.energie",
+      "args": {
+        "system": "weapons",
+        "delta": 1
+      }
+    }
+  },
+  {
+    "text": "Mehr Energy auf Waffen",
+    "art": "stt-fehler",
+    "erwartet": {
+      "befehl": "tech.energie",
+      "args": {
+        "system": "weapons",
+        "delta": 1
+      }
+    }
+  },
+  {
+    "text": "Mehr Energie auf Wafen",
+    "art": "stt-fehler",
+    "erwartet": {
+      "befehl": "tech.energie",
+      "args": {
+        "system": "weapons",
+        "delta": 1
+      }
+    }
+  },
+  {
+    "text": "Meer Energie auf Waffen",
+    "art": "stt-fehler",
+    "erwartet": {
+      "befehl": "tech.energie",
+      "args": {
+        "system": "weapons",
+        "delta": 1
+      }
+    }
+  },
+  {
+    "text": "Feuer zuerst.",
+    "art": "stt-fehler",
+    "erwartet": {
+      "befehl": "tech.prio",
+      "args": {
+        "ziel": "feuer"
+      }
+    }
+  },
+  {
+    "text": "Foier zuerst",
+    "art": "stt-fehler",
+    "erwartet": {
+      "befehl": "tech.prio",
+      "args": {
+        "ziel": "feuer"
+      }
+    }
+  },
+  {
+    "text": "Feuer zu erst",
+    "art": "stt-fehler",
+    "erwartet": {
+      "befehl": "tech.prio",
+      "args": {
+        "ziel": "feuer"
+      }
+    }
+  },
+  {
+    "text": "Feuer zuerst!",
+    "art": "stt-fehler",
+    "erwartet": {
+      "befehl": "tech.prio",
+      "args": {
+        "ziel": "feuer"
+      }
+    }
+  },
+  {
+    "text": "Leck zuerst.",
+    "art": "stt-fehler",
+    "erwartet": {
+      "befehl": "tech.prio",
+      "args": {
+        "ziel": "leck"
+      }
+    }
+  },
+  {
+    "text": "Lek zuerst",
+    "art": "stt-fehler",
+    "erwartet": {
+      "befehl": "tech.prio",
+      "args": {
+        "ziel": "leck"
+      }
+    }
+  },
+  {
+    "text": "Leg zuerst",
+    "art": "stt-fehler",
+    "erwartet": {
+      "befehl": "tech.prio",
+      "args": {
+        "ziel": "leck"
+      }
+    }
+  },
+  {
+    "text": "Läck zuerst",
+    "art": "stt-fehler",
+    "erwartet": {
+      "befehl": "tech.prio",
+      "args": {
+        "ziel": "leck"
+      }
+    }
+  },
+  {
+    "text": "Fracht an Bord.",
+    "art": "stt-fehler",
+    "erwartet": {
+      "befehl": "ops.beamen",
+      "args": {
+        "was": "fracht"
+      }
+    }
+  },
+  {
+    "text": "Fracht an Boord",
+    "art": "stt-fehler",
+    "erwartet": {
+      "befehl": "ops.beamen",
+      "args": {
+        "was": "fracht"
+      }
+    }
+  },
+  {
+    "text": "Fracht anbord",
+    "art": "stt-fehler",
+    "erwartet": {
+      "befehl": "ops.beamen",
+      "args": {
+        "was": "fracht"
+      }
+    }
+  },
+  {
+    "text": "Frach an Bord",
+    "art": "stt-fehler",
+    "erwartet": {
+      "befehl": "ops.beamen",
+      "args": {
+        "was": "fracht"
+      }
+    }
+  },
+  {
+    "text": "Person an Bord.",
+    "art": "stt-fehler",
+    "erwartet": {
+      "befehl": "ops.beamen",
+      "args": {
+        "was": "person"
+      }
+    }
+  },
+  {
+    "text": "Persone an Bord",
+    "art": "stt-fehler",
+    "erwartet": {
+      "befehl": "ops.beamen",
+      "args": {
+        "was": "person"
+      }
+    }
+  },
+  {
+    "text": "Personen an Bord.",
+    "art": "stt-fehler",
+    "erwartet": {
+      "befehl": "ops.beamen",
+      "args": {
+        "was": "person"
+      }
+    }
+  },
+  {
+    "text": "Außenteam zurückholen.",
+    "art": "stt-fehler",
+    "erwartet": {
+      "befehl": "bord.rueckholen",
+      "args": {}
+    }
+  },
+  {
+    "text": "Außen Team zurückholen",
+    "art": "stt-fehler",
+    "erwartet": {
+      "befehl": "bord.rueckholen",
+      "args": {}
+    }
+  },
+  {
+    "text": "Aussenteam zurück holen",
+    "art": "stt-fehler",
+    "erwartet": {
+      "befehl": "bord.rueckholen",
+      "args": {}
+    }
+  },
+  {
+    "text": "Außenteam zurück holen",
+    "art": "stt-fehler",
+    "erwartet": {
+      "befehl": "bord.rueckholen",
+      "args": {}
+    }
+  },
+  {
+    "text": "Statusbericht.",
+    "art": "stt-fehler",
+    "erwartet": {
+      "befehl": "bot.status",
+      "args": {}
+    }
+  },
+  {
+    "text": "Status Bericht",
+    "art": "stt-fehler",
+    "erwartet": {
+      "befehl": "bot.status",
+      "args": {}
+    }
+  },
+  {
+    "text": "Statusbericht?",
+    "art": "stt-fehler",
+    "erwartet": {
+      "befehl": "bot.status",
+      "args": {}
+    }
+  },
+  {
+    "text": "Stadusbericht",
+    "art": "stt-fehler",
+    "erwartet": {
+      "befehl": "bot.status",
+      "args": {}
+    }
+  },
+  {
+    "text": "Staatusbericht",
+    "art": "stt-fehler",
+    "erwartet": {
+      "befehl": "bot.status",
+      "args": {}
+    }
+  },
+  {
+    "text": "Automatik.",
+    "art": "stt-fehler",
+    "erwartet": {
+      "befehl": "bot.automatik",
+      "args": {}
+    }
+  },
+  {
+    "text": "Automatig",
+    "art": "stt-fehler",
+    "erwartet": {
+      "befehl": "bot.automatik",
+      "args": {}
+    }
+  },
+  {
+    "text": "Auto matik",
+    "art": "stt-fehler",
+    "erwartet": {
+      "befehl": "bot.automatik",
+      "args": {}
+    }
+  },
+  {
+    "text": "Automatick",
+    "art": "stt-fehler",
+    "erwartet": {
+      "befehl": "bot.automatik",
+      "args": {}
+    }
+  },
+  {
+    "text": "Nächstes Ziel.",
+    "art": "stt-fehler",
+    "erwartet": {
+      "befehl": "ops.ziel",
+      "args": {
+        "ziel": "naechstes"
+      }
+    }
+  },
+  {
+    "text": "Nechstes Ziel",
+    "art": "stt-fehler",
+    "erwartet": {
+      "befehl": "ops.ziel",
+      "args": {
+        "ziel": "naechstes"
+      }
+    }
+  },
+  {
+    "text": "Nächstes Siel",
+    "art": "stt-fehler",
+    "erwartet": {
+      "befehl": "ops.ziel",
+      "args": {
+        "ziel": "naechstes"
+      }
+    }
+  },
+  {
+    "text": "Das nächste Siel",
+    "art": "stt-fehler",
+    "erwartet": {
+      "befehl": "ops.ziel",
+      "args": {
+        "ziel": "naechstes"
+      }
+    }
+  },
+  {
+    "text": "Markiertes Ziel.",
+    "art": "stt-fehler",
+    "erwartet": {
+      "befehl": "ops.ziel",
+      "args": {
+        "ziel": "markiert"
+      }
+    }
+  },
+  {
+    "text": "Markirtes Ziel",
+    "art": "stt-fehler",
+    "erwartet": {
+      "befehl": "ops.ziel",
+      "args": {
+        "ziel": "markiert"
+      }
+    }
+  },
+  {
+    "text": "Marckiertes Ziel",
+    "art": "stt-fehler",
+    "erwartet": {
+      "befehl": "ops.ziel",
+      "args": {
+        "ziel": "markiert"
+      }
+    }
+  },
+  {
+    "text": "Markiertes Siel",
+    "art": "stt-fehler",
+    "erwartet": {
+      "befehl": "ops.ziel",
+      "args": {
+        "ziel": "markiert"
+      }
+    }
+  },
+  {
+    "text": "Ruderhard Backboard",
+    "art": "stt-fehler",
+    "erwartet": null
+  },
+  {
+    "text": "Back zum Zieldrehen",
+    "art": "stt-fehler",
+    "erwartet": null
+  },
+  {
+    "text": "Navigation Cours Concordia",
+    "art": "stt-fehler",
+    "erwartet": null
+  },
+  {
+    "text": "Wie geht es dir heute?",
+    "art": "negativ",
+    "erwartet": null
+  },
+  {
+    "text": "Was gibt es zum Mittagessen?",
+    "art": "negativ",
+    "erwartet": null
+  },
+  {
+    "text": "Ich hol mir kurz einen Kaffee.",
+    "art": "negativ",
+    "erwartet": null
+  },
+  {
+    "text": "Hast du das Wetter gesehen?",
+    "art": "negativ",
+    "erwartet": null
+  },
+  {
+    "text": "Das war ein langer Tag.",
+    "art": "negativ",
+    "erwartet": null
+  },
+  {
+    "text": "Gleich ist Feierabend.",
+    "art": "negativ",
+    "erwartet": null
+  },
+  {
+    "text": "Ich glaube, ich muss mal kurz pausieren.",
+    "art": "negativ",
+    "erwartet": null
+  },
+  {
+    "text": "Wer hat eigentlich die Pizza bestellt?",
+    "art": "negativ",
+    "erwartet": null
+  },
+  {
+    "text": "Das Spiel macht heute richtig Spaß.",
+    "art": "negativ",
+    "erwartet": null
+  },
+  {
+    "text": "Kannst du bitte die Tür zumachen?",
+    "art": "negativ",
+    "erwartet": null
+  },
+  {
+    "text": "Mir ist kalt.",
+    "art": "negativ",
+    "erwartet": null
+  },
+  {
+    "text": "Hast du schon die neue Folge gesehen?",
+    "art": "negativ",
+    "erwartet": null
+  },
+  {
+    "text": "Ich muss nachher noch einkaufen gehen.",
+    "art": "negativ",
+    "erwartet": null
+  },
+  {
+    "text": "Moment, mein Handy klingelt.",
+    "art": "negativ",
+    "erwartet": null
+  },
+  {
+    "text": "Mal sehen, was jetzt passiert.",
+    "art": "negativ",
+    "erwartet": null
+  },
+  {
+    "text": "Oh, das hätte ich nicht gedacht.",
+    "art": "negativ",
+    "erwartet": null
+  },
+  {
+    "text": "Navigation, wie lange noch?",
+    "art": "negativ",
+    "erwartet": null
+  },
+  {
+    "text": "Ops, was siehst du da?",
+    "art": "negativ",
+    "erwartet": null
+  },
+  {
+    "text": "Technik, wie ist der Zustand?",
+    "art": "negativ",
+    "erwartet": null
+  },
+  {
+    "text": "Wo sind wir gerade?",
+    "art": "negativ",
+    "erwartet": null
+  },
+  {
+    "text": "Wer ist an Bord?",
+    "art": "negativ",
+    "erwartet": null
+  },
+  {
+    "text": "Navigation, bist du da?",
+    "art": "negativ",
+    "erwartet": null
+  },
+  {
+    "text": "Wie viel Energie haben wir noch?",
+    "art": "negativ",
+    "erwartet": null
+  },
+  {
+    "text": "Was war das für ein Geräusch?",
+    "art": "negativ",
+    "erwartet": null
+  },
+  {
+    "text": "Ops, siehst du den Gegner?",
+    "art": "negativ",
+    "erwartet": null
+  },
+  {
+    "text": "Technik, hörst du mich?",
+    "art": "negativ",
+    "erwartet": null
+  },
+  {
+    "text": "Wie weit ist die Basis entfernt?",
+    "art": "negativ",
+    "erwartet": null
+  },
+  {
+    "text": "Kannst du mir erklären, was ein Torpedo macht?",
+    "art": "negativ",
+    "erwartet": null
+  },
+  {
+    "text": "Warum hat der Schild versagt?",
+    "art": "negativ",
+    "erwartet": null
+  },
+  {
+    "text": "Wer hat das Feuer gelegt?",
+    "art": "negativ",
+    "erwartet": null
+  },
+  {
+    "text": "Ist der Antrieb kaputt?",
+    "art": "negativ",
+    "erwartet": null
+  },
+  {
+    "text": "Wie schnell sind wir eigentlich?",
+    "art": "negativ",
+    "erwartet": null
+  },
+  {
+    "text": "Hello, how are you?",
+    "art": "negativ",
+    "erwartet": null
+  },
+  {
+    "text": "Please stop the engines.",
+    "art": "negativ",
+    "erwartet": null
+  },
+  {
+    "text": "Fire at will.",
+    "art": "negativ",
+    "erwartet": null
+  },
+  {
+    "text": "Where is the base?",
+    "art": "negativ",
+    "erwartet": null
+  },
+  {
+    "text": "Ich glaube, that is not working.",
+    "art": "negativ",
+    "erwartet": null
+  },
+  {
+    "text": "Bonjour tout le monde",
+    "art": "negativ",
+    "erwartet": null
+  },
+  {
+    "text": "Danke schön und gute Nacht",
+    "art": "negativ",
+    "erwartet": null
+  },
+  {
+    "text": "Thank you very much",
+    "art": "negativ",
+    "erwartet": null
+  },
+  {
+    "text": "Move to the left shield",
+    "art": "negativ",
+    "erwartet": null
+  },
+  {
+    "text": "Reload the torpedo",
+    "art": "negativ",
+    "erwartet": null
+  },
+  {
+    "text": "Full speed ahead",
+    "art": "negativ",
+    "erwartet": null
+  },
+  {
+    "text": "Que pasa, amigo?",
+    "art": "negativ",
+    "erwartet": null
+  },
+  {
+    "text": "Das ist ein Test, okay, one two three.",
+    "art": "negativ",
+    "erwartet": null
+  },
+  {
+    "text": "Ja",
+    "art": "negativ",
+    "erwartet": null
+  },
+  {
+    "text": "Nein",
+    "art": "negativ",
+    "erwartet": null
+  },
+  {
+    "text": "Okay",
+    "art": "negativ",
+    "erwartet": null
+  },
+  {
+    "text": "Genau",
+    "art": "negativ",
+    "erwartet": null
+  },
+  {
+    "text": "Also",
+    "art": "negativ",
+    "erwartet": null
+  },
+  {
+    "text": "Hm",
+    "art": "negativ",
+    "erwartet": null
+  },
+  {
+    "text": "Äh",
+    "art": "negativ",
+    "erwartet": null
+  },
+  {
+    "text": "Ähm",
+    "art": "negativ",
+    "erwartet": null
+  },
+  {
+    "text": "Hmm",
+    "art": "negativ",
+    "erwartet": null
+  },
+  {
+    "text": "Mhm",
+    "art": "negativ",
+    "erwartet": null
+  },
+  {
+    "text": "Oh",
+    "art": "negativ",
+    "erwartet": null
+  },
+  {
+    "text": "Ach so",
+    "art": "negativ",
+    "erwartet": null
+  },
+  {
+    "text": "Tja",
+    "art": "negativ",
+    "erwartet": null
+  },
+  {
+    "text": "Na ja",
+    "art": "negativ",
+    "erwartet": null
+  },
+  {
+    "text": "Ups",
+    "art": "negativ",
+    "erwartet": null
+  },
+  {
+    "text": "Danke",
+    "art": "negativ",
+    "erwartet": null
+  },
+  {
+    "text": "Bitte",
+    "art": "negativ",
+    "erwartet": null
+  },
+  {
+    "text": "Gut",
+    "art": "negativ",
+    "erwartet": null
+  },
+  {
+    "text": "Moment",
+    "art": "negativ",
+    "erwartet": null
+  },
+  {
+    "text": "Stopp mal kurz",
+    "art": "negativ",
+    "erwartet": null
+  },
+  {
+    "text": "Hallo",
+    "art": "negativ",
+    "erwartet": null
+  },
+  {
+    "text": "Ja, äh, genau",
+    "art": "negativ",
+    "erwartet": null
+  },
+  {
+    "text": "Ähm, also, ja",
+    "art": "negativ",
+    "erwartet": null
+  },
+  {
+    "text": "Ähh",
+    "art": "negativ",
+    "erwartet": null
+  },
+  {
+    "text": "Hm hm",
+    "art": "negativ",
+    "erwartet": null
+  },
+  {
+    "text": "Schilde",
+    "art": "negativ",
+    "erwartet": null
+  },
+  {
+    "text": "Feuer",
+    "art": "negativ",
+    "erwartet": null
+  },
+  {
+    "text": "Kurs",
+    "art": "negativ",
+    "erwartet": null
+  },
+  {
+    "text": "Energie",
+    "art": "negativ",
+    "erwartet": null
+  },
+  {
+    "text": "Schub",
+    "art": "negativ",
+    "erwartet": null
+  },
+  {
+    "text": "Abstand",
+    "art": "negativ",
+    "erwartet": null
+  },
+  {
+    "text": "Sprung",
+    "art": "negativ",
+    "erwartet": null
+  },
+  {
+    "text": "Reparieren",
+    "art": "negativ",
+    "erwartet": null
+  },
+  {
+    "text": "Beamen",
+    "art": "negativ",
+    "erwartet": null
+  },
+  {
+    "text": "Ziel",
+    "art": "negativ",
+    "erwartet": null
+  },
+  {
+    "text": "Waffen",
+    "art": "negativ",
+    "erwartet": null
+  },
+  {
+    "text": "Antrieb",
+    "art": "negativ",
+    "erwartet": null
+  },
+  {
+    "text": "Reaktor",
+    "art": "negativ",
+    "erwartet": null
+  },
+  {
+    "text": "Torpedo",
+    "art": "negativ",
+    "erwartet": null
+  },
+  {
+    "text": "Backbord",
+    "art": "negativ",
+    "erwartet": null
+  },
+  {
+    "text": "Steuerbord",
+    "art": "negativ",
+    "erwartet": null
+  },
+  {
+    "text": "Bug",
+    "art": "negativ",
+    "erwartet": null
+  },
+  {
+    "text": "Heck",
+    "art": "negativ",
+    "erwartet": null
+  },
+  {
+    "text": "Priorität",
+    "art": "negativ",
+    "erwartet": null
+  },
+  {
+    "text": "Mehr Energie",
+    "art": "negativ",
+    "erwartet": null
+  },
+  {
+    "text": "Weniger Energie",
+    "art": "negativ",
+    "erwartet": null
+  },
+  {
+    "text": "Zuerst",
+    "art": "negativ",
+    "erwartet": null
+  },
+  {
+    "text": "An Bord",
+    "art": "negativ",
+    "erwartet": null
+  },
+  {
+    "text": "Kurs auf",
+    "art": "negativ",
+    "erwartet": null
+  },
+  {
+    "text": "Schilde auf",
+    "art": "negativ",
+    "erwartet": null
+  },
+  {
+    "text": "Feuer auf",
+    "art": "negativ",
+    "erwartet": null
+  },
+  {
+    "text": "Technik",
+    "art": "negativ",
+    "erwartet": null
+  },
+  {
+    "text": "Navigation",
+    "art": "negativ",
+    "erwartet": null
+  },
+  {
+    "text": "Ops",
+    "art": "negativ",
+    "erwartet": null
+  },
+  {
+    "text": "Technik, Schilde",
+    "art": "negativ",
+    "erwartet": null
+  },
+  {
+    "text": "Ops, Feuer",
+    "art": "negativ",
+    "erwartet": null
+  },
+  {
+    "text": "Navigation, Kurs",
+    "art": "negativ",
+    "erwartet": null
+  },
+  {
+    "text": "Navigation, Schub",
+    "art": "negativ",
+    "erwartet": null
+  },
+  {
+    "text": "Technik, reparieren",
+    "art": "negativ",
+    "erwartet": null
+  },
+  {
+    "text": "Technik, Energie",
+    "art": "negativ",
+    "erwartet": null
+  },
+  {
+    "text": "Ops, beamen",
+    "art": "negativ",
+    "erwartet": null
+  },
+  {
+    "text": "Ops, Ziel",
+    "art": "negativ",
+    "erwartet": null
+  },
+  {
+    "text": "Kurs auf Hex vier sieben",
+    "art": "negativ",
+    "erwartet": null
+  },
+  {
+    "text": "Kurs auf Hex zwölf",
+    "art": "negativ",
+    "erwartet": null
+  },
+  {
+    "text": "Sprung nach Hex vier sieben",
+    "art": "negativ",
+    "erwartet": null
+  },
+  {
+    "text": "Sprung nach Hex fünf",
+    "art": "negativ",
+    "erwartet": null
+  },
+  {
+    "text": "Sprung nach Hex",
+    "art": "negativ",
+    "erwartet": null
+  },
+  {
+    "text": "Kurs auf Objekt sieben",
+    "art": "negativ",
+    "erwartet": null
+  },
+  {
+    "text": "Ziel Objekt drei anvisieren",
+    "art": "negativ",
+    "erwartet": null
+  },
+  {
+    "text": "Navigation, Sprung nach Hex neun",
+    "art": "negativ",
+    "erwartet": null
+  },
+  {
+    "text": "Springe zu Hex zwei drei",
+    "art": "negativ",
+    "erwartet": null
+  },
+  {
+    "text": "Ops, Objekt fünf aufschalten",
+    "art": "negativ",
+    "erwartet": null
+  },
+  {
+    "text": "Kurs auf Concordia",
+    "art": "negativ",
+    "erwartet": null
+  },
+  {
+    "text": "Kurs auf den Mond",
+    "art": "negativ",
+    "erwartet": null
+  },
+  {
+    "text": "Kurs auf den Planeten",
+    "art": "negativ",
+    "erwartet": null
+  },
+  {
+    "text": "Sprung zur Markierung",
+    "art": "negativ",
+    "erwartet": null
+  },
+  {
+    "text": "Ziel Objekt zwei",
+    "art": "negativ",
+    "erwartet": null
+  },
+  {
+    "text": "Vier sieben",
+    "art": "negativ",
+    "erwartet": null
+  },
+  {
+    "text": "Zweihundert",
+    "art": "negativ",
+    "erwartet": null
+  },
+  {
+    "text": "Null eins drei",
+    "art": "negativ",
+    "erwartet": null
+  },
+  {
+    "text": "Siebenundzwanzig",
+    "art": "negativ",
+    "erwartet": null
+  },
+  {
+    "text": "Drei",
+    "art": "negativ",
+    "erwartet": null
+  },
+  {
+    "text": "Eins, zwei, drei",
+    "art": "negativ",
+    "erwartet": null
+  },
+  {
+    "text": "Hundert Meter",
+    "art": "negativ",
+    "erwartet": null
+  },
+  {
+    "text": "Fünfzig",
+    "art": "negativ",
+    "erwartet": null
+  },
+  {
+    "text": "Zehn Grad",
+    "art": "negativ",
+    "erwartet": null
+  },
+  {
+    "text": "Dreihundertsechzig",
+    "art": "negativ",
+    "erwartet": null
+  },
+  {
+    "text": "Neun neun neun",
+    "art": "negativ",
+    "erwartet": null
+  },
+  {
+    "text": "Achtzehn Uhr dreißig",
+    "art": "negativ",
+    "erwartet": null
+  },
+  {
+    "text": "Das Schild vorhin war ziemlich laut.",
+    "art": "negativ",
+    "erwartet": null
+  },
+  {
+    "text": "Ich glaube, das Feuer wird später gelöscht.",
+    "art": "negativ",
+    "erwartet": null
+  },
+  {
+    "text": "Der Kurs gefällt mir nicht.",
+    "art": "negativ",
+    "erwartet": null
+  },
+  {
+    "text": "Die Marke ist jetzt weg.",
+    "art": "negativ",
+    "erwartet": null
+  },
+  {
+    "text": "Wenn wir Energie hätten, wäre das einfacher.",
+    "art": "negativ",
+    "erwartet": null
+  },
+  {
+    "text": "Die Waffen sind übrigens neu.",
+    "art": "negativ",
+    "erwartet": null
+  },
+  {
+    "text": "Ein Torpedo ist ein teures Ding.",
+    "art": "negativ",
+    "erwartet": null
+  },
+  {
+    "text": "Die Basis sieht nett aus.",
+    "art": "negativ",
+    "erwartet": null
+  },
+  {
+    "text": "Der Antrieb klingt komisch.",
+    "art": "negativ",
+    "erwartet": null
+  },
+  {
+    "text": "Der Reaktor wird warm.",
+    "art": "negativ",
+    "erwartet": null
+  },
+  {
+    "text": "Wir sollten später mal scannen, glaube ich.",
+    "art": "negativ",
+    "erwartet": null
+  },
+  {
+    "text": "Ich würde jetzt am liebsten ausweichen, nämlich dem Abwasch.",
+    "art": "negativ",
+    "erwartet": null
+  },
+  {
+    "text": "Andocken ist immer der schwierigste Teil.",
+    "art": "negativ",
+    "erwartet": null
+  },
+  {
+    "text": "Der Statusbericht ist ja ziemlich lang.",
+    "art": "negativ",
+    "erwartet": null
+  },
+  {
+    "text": "Automatik finde ich langweilig.",
+    "art": "negativ",
+    "erwartet": null
+  },
+  {
+    "text": "Ein Außenteam gibt es noch nicht.",
+    "art": "negativ",
+    "erwartet": null
+  },
+  {
+    "text": "Mit dem Sensor bin ich unzufrieden.",
+    "art": "negativ",
+    "erwartet": null
+  },
+  {
+    "text": "Die Kuppel sieht gut aus.",
+    "art": "negativ",
+    "erwartet": null
+  },
+  {
+    "text": "Fracht gibt es hier genug.",
+    "art": "negativ",
+    "erwartet": null
+  },
+  {
+    "text": "Personen sind keine da.",
+    "art": "negativ",
+    "erwartet": null
+  },
+  {
+    "text": "Kai, mach mal langsam.",
+    "art": "negativ",
+    "erwartet": null
+  },
+  {
+    "text": "Okay, was wollte ich jetzt noch mal machen?",
+    "art": "negativ",
+    "erwartet": null
+  },
+  {
+    "text": "Wo ist denn die Maus hin?",
+    "art": "negativ",
+    "erwartet": null
+  },
+  {
+    "text": "Ich hab die Taste verloren.",
+    "art": "negativ",
+    "erwartet": null
+  },
+  {
+    "text": "Mist, falsche Taste.",
+    "art": "negativ",
+    "erwartet": null
+  },
+  {
+    "text": "So, jetzt konzentrieren.",
+    "art": "negativ",
+    "erwartet": null
+  },
+  {
+    "text": "Ich probiere das mal aus.",
+    "art": "negativ",
+    "erwartet": null
+  },
+  {
+    "text": "Das klappt bestimmt nicht.",
+    "art": "negativ",
+    "erwartet": null
+  },
+  {
+    "text": "Noch mal von vorne.",
+    "art": "negativ",
+    "erwartet": null
+  },
+  {
+    "text": "Warte, wie ging das noch mal?",
+    "art": "negativ",
+    "erwartet": null
+  },
+  {
+    "text": "Okay, dann machen wir das so.",
+    "art": "negativ",
+    "erwartet": null
+  },
+  {
+    "text": "Na gut, versuchen wir es.",
+    "art": "negativ",
+    "erwartet": null
+  },
+  {
+    "text": "Das sieht schon besser aus.",
+    "art": "negativ",
+    "erwartet": null
+  },
+  {
+    "text": "Hm, was mache ich da eigentlich?",
+    "art": "negativ",
+    "erwartet": null
+  },
+  {
+    "text": "Ich weiß nicht, ob das richtig ist.",
+    "art": "negativ",
+    "erwartet": null
+  },
+  {
+    "text": "Moment, ich muss nachdenken.",
+    "art": "negativ",
+    "erwartet": null
+  },
+  {
+    "text": "Ach, das ist egal.",
+    "art": "negativ",
+    "erwartet": null
+  },
+  {
+    "text": "Ich bin gleich wieder da.",
+    "art": "negativ",
+    "erwartet": null
+  },
+  {
+    "text": "Wie hieß der Befehl noch mal?",
+    "art": "negativ",
+    "erwartet": null
+  },
+  {
+    "text": "Hoffentlich geht das gut.",
+    "art": "negativ",
+    "erwartet": null
+  },
+  {
+    "text": "Der Hund bellt schon wieder.",
+    "art": "negativ",
+    "erwartet": null
+  },
+  {
+    "text": "Heute Abend regnet es bestimmt.",
+    "art": "negativ",
+    "erwartet": null
+  },
+  {
+    "text": "Hast du die Rechnung bezahlt?",
+    "art": "negativ",
+    "erwartet": null
+  },
+  {
+    "text": "Meine Tastatur klemmt.",
+    "art": "negativ",
+    "erwartet": null
+  },
+  {
+    "text": "Ich bin müde.",
+    "art": "negativ",
+    "erwartet": null
+  },
+  {
+    "text": "Stell mal bitte die Musik leiser.",
+    "art": "negativ",
+    "erwartet": null
+  },
+  {
+    "text": "Schatz, kommst du essen?",
+    "art": "negativ",
+    "erwartet": null
+  },
+  {
+    "text": "Das Paket ist endlich da.",
+    "art": "negativ",
+    "erwartet": null
+  },
+  {
+    "text": "Hast du morgen schon was vor?",
+    "art": "negativ",
+    "erwartet": null
+  },
+  {
+    "text": "Der Bus kommt gleich.",
+    "art": "negativ",
+    "erwartet": null
+  },
+  {
+    "text": "Schilde sind eine tolle Erfindung.",
+    "art": "negativ",
+    "erwartet": null
+  },
+  {
+    "text": "Feuer ist heiß.",
+    "art": "negativ",
+    "erwartet": null
+  },
+  {
+    "text": "Kurs halten ist nicht einfach.",
+    "art": "negativ",
+    "erwartet": null
+  },
+  {
+    "text": "Alle Maschinen sind laut.",
+    "art": "negativ",
+    "erwartet": null
+  },
+  {
+    "text": "Halbe Sachen mag ich nicht.",
+    "art": "negativ",
+    "erwartet": null
+  },
+  {
+    "text": "Volle Kanne, sagt man doch so.",
+    "art": "negativ",
+    "erwartet": null
+  },
+  {
+    "text": "Wir brauchen mehr Zeit.",
+    "art": "negativ",
+    "erwartet": null
+  },
+  {
+    "text": "Weniger ist mehr.",
+    "art": "negativ",
+    "erwartet": null
+  },
+  {
+    "text": "Zuerst die Arbeit, dann das Vergnügen.",
+    "art": "negativ",
+    "erwartet": null
+  },
+  {
+    "text": "Leck mich nicht an.",
+    "art": "negativ",
+    "erwartet": null
+  },
+  {
+    "text": "Kurs auf Hex zwei, Marke eins.",
+    "art": "negativ",
+    "erwartet": null
+  },
+  {
+    "text": "Schilde auf Mitte",
+    "art": "negativ",
+    "erwartet": null
+  },
+  {
+    "text": "Schilde Oben",
+    "art": "negativ",
+    "erwartet": null
+  },
+  {
+    "text": "Schilde Unten",
+    "art": "negativ",
+    "erwartet": null
+  },
+  {
+    "text": "Feuer frei mit der Kanone",
+    "art": "negativ",
+    "erwartet": null
+  },
+  {
+    "text": "Feuer frei mit dem Laser",
+    "art": "negativ",
+    "erwartet": null
+  },
+  {
+    "text": "Waffen Mitte Feuer frei",
+    "art": "negativ",
+    "erwartet": null
+  },
+  {
+    "text": "Kurs auf Hinten",
+    "art": "negativ",
+    "erwartet": null
+  },
+  {
+    "text": "Schub auf mittel",
+    "art": "negativ",
+    "erwartet": null
+  },
+  {
+    "text": "Reparieren Kombüse",
+    "art": "negativ",
+    "erwartet": null
+  },
+  {
+    "text": "Antrieb überladen",
+    "art": "negativ",
+    "erwartet": null
+  },
+  {
+    "text": "Waffen überladen",
+    "art": "negativ",
+    "erwartet": null
+  },
+  {
+    "text": "Mehr Energie auf Kaffeemaschine",
+    "art": "negativ",
+    "erwartet": null
+  },
+  {
+    "text": "Fracht abwerfen",
+    "art": "negativ",
+    "erwartet": null
+  },
+  {
+    "text": "Person abwerfen",
+    "art": "negativ",
+    "erwartet": null
+  },
+  {
+    "text": "Torpedo laden",
+    "art": "negativ",
+    "erwartet": null
+  }
+]

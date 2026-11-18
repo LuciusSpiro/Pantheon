@@ -78,6 +78,13 @@
     for (const code of out) for (const ch of code) if (ch !== r[r.length - 1]) r += ch;   // Doppelte zusammenfassen
     return r ? r[0] + r.slice(1).replace(/0/g, '') : '';
   }
+  // unten/hinten klingen gleich, sind aber zwei Woerter: Phonetik gilt nur, wenn der Anfang (ohne h) gleich klingt (Vokal = derselbe Vokal)
+  function anfangOk(a, b) {
+    const x = a.replace(/^h/, '')[0], y = b.replace(/^h/, '')[0];
+    return x === y || (!'aeiou'.includes(x) && !'aeiou'.includes(y));
+  }
+  function teilfolge(kurz, lang) { let i = 0; for (const c of lang) if (c === kurz[i]) i++; return i === kurz.length; }
+  let NIE_AEHNLICH = new Set();   // Woerter, die nur exakt gelten (z.B. "back": Bug oder Backbord, nie raten)
   const simCache = new Map();
   // Aehnlichkeit zweier Woerter 0..1. Kurze Woerter (bis 3 Zeichen) nur exakt; Ziffern nur exakt.
   function wortSim(a, b) {
@@ -87,11 +94,20 @@
     if (c !== undefined) return c;
     let r;
     const mn = Math.min(a.length, b.length), mx = Math.max(a.length, b.length);
-    if (mn <= 3 || /\d/.test(a) || /\d/.test(b)) r = 0;
-    else {
+    if (/\d/.test(a) || /\d/.test(b) || NIE_AEHNLICH.has(a) || NIE_AEHNLICH.has(b)) r = 0;
+    else if (mn <= 3) {
+      // Kurze Woerter: nur exakt, ausser bei genau 3 Zeichen, gleichem Anfangsbuchstaben und (gleicher Klang oder genau eine Auslassung:
+      // "buk"/"bug", "nul"/"null", "fei"/"frei"). Anderer Anfangsbuchstabe (unten/hinten) zaehlt nie.
+      r = 0;
+      if (mn === 3 && mx <= 5 && a[0] === b[0]) {
+        const ka = koelner(a);
+        if (ka.length >= 2 && ka === koelner(b)) r = 0.88;
+        else if (mx === 4 && (a.length === 3 ? teilfolge(a, b) : teilfolge(b, a))) r = 0.8;
+      }
+    } else {
       const l = 1 - lev(a, b) / mx;
       r = l;
-      if (l >= 0.6) { const ka = koelner(a); if (ka.length >= 2 && ka === koelner(b)) r = Math.max(r, 0.88); }
+      if (l >= 0.6 && anfangOk(a, b)) { const ka = koelner(a); if (ka.length >= 2 && ka === koelner(b)) r = Math.max(r, 0.88); }
     }
     if (simCache.size > 50000) simCache.clear();
     simCache.set(key, r);
@@ -170,7 +186,9 @@
         }
       }
     }
-    return { fuell, neg, frage, adressen, patterns, zahlwoerter: muster.zahlwoerter || {} };
+    NIE_AEHNLICH = new Set((muster.nie_aehnlich || []).map(norm));
+    const hinten = new Set((muster.adressierung_hinten || []).map(norm));
+    return { fuell, neg, frage, adressen, hinten, patterns, zahlwoerter: muster.zahlwoerter || {} };
   }
   function sortiert(o) { const r = {}; for (const k of Object.keys(o).sort()) r[k] = o[k]; return r; }
 
@@ -258,7 +276,36 @@
     return { rest: toks, meter: null };
   }
 
+  // Mehrteilige Aeusserung ("Maschinen aus, Stopp", "Anlegen und andocken", "Nach Hause, Kurs auf die Basis"): erst der ganze Text, sonst
+  // die Teile (Komma/Satzzeichen/"und"). Gilt nur, wenn mindestens ein Teil trifft, alle treffenden Teile denselben Befehl mit denselben
+  // Argumenten liefern und die nicht treffenden Teile hoechstens drei Inhaltswoerter haben (sonst Plaudern: null).
   function match(text, opts) {
+    const r = matchGanz(text, opts);
+    if (r) return r;
+    const g = geladen();
+    const roh = String(text == null ? '' : text);
+    if (!/[,;.!?]|\bund\b/i.test(roh)) return null;
+    for (const t of tokens(roh)) if (g.neg.has(t) || g.frage.has(t)) return null;
+    const teile = roh.split(/\s*(?:[,;.!?]+|\bund\b)\s*/i).filter((p) => norm(p));
+    if (teile.length < 2 || teile.length > 3) return null;
+    let erg = null, kmin = 1, rolle = null;
+    for (const teil of teile) {
+      const tt = tokens(teil);
+      if (tt.length === 1) {   // reines Rollenwort ("Technik, ..."): gilt fuer den ganzen Text
+        const a = g.adressen.find((x) => !x.name && wortSim(tt[0], x.w) >= 0.85);
+        if (a) { rolle = a.an; continue; }
+      }
+      const x = matchGanz(teil, opts);
+      if (x) {
+        if (erg && (erg.befehl !== x.befehl || JSON.stringify(sortiert(erg.args)) !== JSON.stringify(sortiert(x.args)))) return null;
+        if (!erg || (x.an !== 'alle' && erg.an === 'alle')) erg = x;
+        kmin = Math.min(kmin, x.konfidenz);
+      } else if (tokens(teil).filter((t) => !g.fuell.has(t)).length > 3) return null;
+    }
+    if (erg && rolle && erg.an !== 'alle' && rolle !== 'alle' && rolle !== erg.an) return null;   // falsche Rolle angesprochen
+    return erg ? Object.assign({}, erg, { konfidenz: kmin }) : null;
+  }
+  function matchGanz(text, opts) {
     const g = geladen();
     const schwelle = opts && typeof opts.schwelle === 'number' ? opts.schwelle : SCHWELLE;
     let toks = tokens(text);
@@ -273,6 +320,10 @@
       let bestT = null, sT = 0.85;
       for (const a of g.adressen) { const s = wortSim(w, a.w); if (s >= sT) { sT = s; bestT = a; } }
       if (bestT && toks[toks.length - 1] === w) { an = bestT.an; anName = bestT.name; toks = toks.slice(0, -1); }
+    }
+    if (!an && toks.length > 2 && g.hinten.has(toks[toks.length - 1])) {   // "Feuer frei Ops": nur eindeutige Rollenwoerter, mindestens zwei Woerter davor
+      const a = g.adressen.find((x) => x.w === toks[toks.length - 1]);
+      if (a) { an = a.an; anName = a.name; toks = toks.slice(0, -1); }
     }
     if (!an && toks.length > 1) {
       let bestA = null, bestS = 0.85;

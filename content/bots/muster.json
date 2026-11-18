@@ -1,7 +1,7 @@
 {
   "format": "bot-muster/1",
   "quelle": "Vertrag Bot-Befehle, Katalog v1 (2026-11-18). Muster-Syntax: Alternativen (a|b|) (leere Alternative erlaubt), Slots {name}. Text wird normalisiert (klein, ae/oe/ue/ss) und von Fuellwoertern befreit, die Muster ebenso. Argumente kommen aus Slots oder aus 'args' am Muster. hex:<id> und objekt:<id> sind per Sprache nicht waehlbar und kommen hier nicht vor.",
-  "fuellwoerter": ["bitte", "mal", "jetzt", "sofort", "schnell", "einmal", "doch", "ja", "okay", "ok", "aye", "also", "dann", "mir", "uns", "kannst", "kann", "sie", "koennt", "koennte", "koenntest", "du", "ihr", "danke", "kapitaen", "captain", "chef", "skipper", "dich", "der", "die", "das", "den", "dem", "des", "ein", "eine", "einen", "einem", "einer", "auf", "an", "zum", "zur", "zu", "nach", "in", "im", "ins", "von", "vom", "mit", "fuer", "bei", "um", "am"],
+  "fuellwoerter": ["bitte", "mal", "jetzt", "sofort", "schnell", "einmal", "doch", "ja", "okay", "ok", "aye", "also", "dann", "mir", "uns", "kannst", "kann", "sie", "koennt", "koennte", "koenntest", "du", "ihr", "danke", "kapitaen", "captain", "chef", "skipper", "dich", "der", "die", "das", "den", "dem", "des", "ein", "eine", "einen", "einem", "einer", "auf", "an", "zum", "zur", "zu", "aufs", "ans", "fuers", "vors", "nach", "in", "im", "ins", "von", "vom", "mit", "fuer", "bei", "um", "am"],
   "negation": ["nicht", "kein", "keine", "keinen", "nie", "niemals", "nein", "lass", "lasst", "ohne", "nichts", "vergiss"],
   "fragewoerter": ["wie", "warum", "wieso", "weshalb", "wer", "wo", "wann", "welche", "welcher", "welches", "was", "wieviel", "wozu", "ob"],
   "adressierung": {
@@ -11,23 +11,25 @@
     "bord": ["bord", "bordcaptain"],
     "alle": ["crew"]
   },
+  "nie_aehnlich": ["back"],
+  "adressierung_hinten": ["navigation", "navigator", "steuermann", "ops", "operations", "waffenoffizier", "technik", "techniker", "maschinist"],
   "namen": {},
   "slots": {
     "sektor": { "arg": "sektor", "werte": {
       "bug": ["bug", "bugseite", "bugsektor", "vorne", "vorn", "front"],
       "stb": ["steuerbord", "steuerbordseite", "steuerbordsektor", "rechts"],
-      "heck": ["heck", "heckseite", "hecksektor", "hinten"],
+      "heck": ["heck", "heckseite", "hecksektor", "hinten", "achtern", "achter"],
       "bb": ["backbord", "backbordseite", "backbordsektor", "links"] } },
     "waffen": { "arg": "waffen", "werte": {
       "alle": ["alle waffen", "alle rohre", "alle geschuetze", "volle breitseite"],
-      "bug": ["bugwaffe", "bugwaffen", "bug waffen", "bugbatterie"],
-      "bb": ["backbordbatterie", "backbord batterie", "backbordwaffen", "backbord waffen", "backbord"],
-      "stb": ["steuerbordbatterie", "steuerbord batterie", "steuerbordwaffen", "steuerbord waffen", "steuerbord"],
+      "bug": ["bugwaffe", "bugwaffen", "bug waffen", "bugbatterie", "bug", "bugseite"],
+      "bb": ["backbordbatterie", "backbord batterie", "backbordwaffen", "backbord waffen", "backbord", "backbordseite"],
+      "stb": ["steuerbordbatterie", "steuerbord batterie", "steuerbordwaffen", "steuerbord waffen", "steuerbord", "steuerbordseite"],
       "torpedo": ["torpedo", "torpedos", "torpedowerfer"] } },
     "kziel": { "arg": "ziel", "werte": {
       "marke": ["markierung", "marke", "markierten punkt", "wegpunkt"],
       "ziel": ["ziel", "feind", "gegner"],
-      "basis": ["basis", "stuetzpunkt", "heimatbasis", "heimat"] } },
+      "basis": ["basis", "stuetzpunkt", "heimatbasis", "heimat", "hause", "heimathafen"] } },
     "oziel": { "arg": "ziel", "werte": {
       "naechstes": ["naechstes ziel", "naechsten gegner", "naechster gegner", "anderes ziel", "neues ziel"],
       "markiert": ["markiertes ziel", "markierten gegner", "markierte ziel"] } },
@@ -36,7 +38,7 @@
       "fracht": ["fracht", "ladung", "kiste", "kisten"] } },
     "stufe": { "arg": "stufe", "werte": {
       "halb": ["halbe", "halb", "halber"],
-      "voll": ["volle", "voll", "voller", "maximale", "maximum"],
+      "voll": ["volle", "voll", "voller", "maximale", "maximum", "alle"],
       "0": ["null", "0"], "1": ["eins", "1"], "2": ["zwei", "2"], "3": ["drei", "3"], "4": ["vier", "4"], "5": ["fuenf", "5"], "6": ["sechs", "6"] } },
     "system": { "arg": "system", "werte": {
       "reactor": ["reaktor"],
@@ -76,14 +78,14 @@
     "nav.kurs": { "an": "navigation", "muster": [
       "kurs {kziel}", "kurs {kziel} (nehmen|setzen|anlegen|halten|abstecken)", "(nehme|setze|lege|laufe) kurs {kziel}", "kurs auf {kziel} (nehmen|setzen|anlegen)",
       "(steuere|steuer|fliege|flieg|fahre|fahr|ansteuern|ansteuere|anfliegen|anfliege) {kziel}", "{kziel} (ansteuern|anfliegen|anlaufen)",
-      "(bug|back|buck) {kziel} (drehen|richten|ausrichten|wenden)", "dreh (den|)bug {kziel}", "{kziel} zudrehen", "{kziel} (kurs|ansteuern)"
+      "bug {kziel} (drehen|richten|ausrichten|wenden)", "dreh (den|)bug {kziel}", "{kziel} zudrehen", "{kziel} (kurs|ansteuern)", "{kziel} zuhalten", "zuhalten {kziel}", "(halte|halten) {kziel}"
     ] },
     "nav.stopp": { "an": "navigation", "muster": [
       "stopp", "stop", "alle maschinen stopp", "alle maschinen stoppen", "maschinen stopp", "maschinen stoppen", "alle maschinen halt", "maschinen aus", "all stopp", "all stop",
-      "motoren stopp", "motoren stoppen", "anhalten", "schiff anhalten", "schiff stoppen", "schiff stopp", "maschinen anhalten", "alle maschinen anhalten", "fahrt anhalten", "alle maschinen aus", "notstopp", "nothalt", "stillstand", "stehen bleiben", "bremsen", "voll bremsen", "kurs aufgeben", "kurs abbrechen", "fahrt stoppen", "fahrt stopp"
+      "motoren stopp", "motoren stoppen", "anhalten", "schiff anhalten", "schiff stoppen", "schiff stopp", "maschinen anhalten", "alle maschinen anhalten", "fahrt anhalten", "stoppen", "stoppe", "stoppt", "maschinen stoppt", "alle maschinen stoppt", "schiff stoppt", "alle maschinen aus", "notstopp", "nothalt", "stillstand", "stehen bleiben", "bremsen", "voll bremsen", "kurs aufgeben", "kurs abbrechen", "fahrt stoppen", "fahrt stopp"
     ] },
     "nav.schub": { "an": "navigation", "muster": [
-      "{stufe} kraft voraus", "{stufe} kraft", "kraft {stufe} voraus", "{stufe} fahrt voraus", "{stufe} fahrt", "{stufe} voraus", "schub {stufe}", "stufe {stufe}", "maschinen {stufe} voraus", "maschinen {stufe}", "(schub|fahrt|kraft) auf {stufe}",
+      "{stufe} kraft voraus", "{stufe} kraft", "kraft {stufe} voraus", "{stufe} fahrt voraus", "{stufe} fahrt", "{stufe} voraus", "schub {stufe}", "stufe {stufe}", "schub stufe {stufe}", "schubstufe {stufe}", "stufe {stufe} voraus", "schubstufe {stufe} voraus", "{stufe} maschinenkraft", "maschinenkraft {stufe}", "{stufe} maschinenleistung", "{stufe} maschinenkraft voraus", "maschinen {stufe} voraus", "maschinen {stufe}", "(schub|fahrt|kraft) auf {stufe}",
       { "p": "volldampf", "args": { "stufe": "voll" } }, { "p": "volldampf voraus", "args": { "stufe": "voll" } },
       { "p": "(langsame|langsam|kleine) fahrt (voraus|)", "args": { "stufe": 1 } }, { "p": "langsam voraus", "args": { "stufe": 1 } }, { "p": "schleichfahrt", "args": { "stufe": 1 } }
     ] },
@@ -97,10 +99,7 @@
       "(halte|halt|wahre) (abstand|distanz) (zu|zum|zur) {kziel}", "abstand {kziel} (halten|wahren|einhalten|)", "abstand halten (zu|zum|zur) {kziel}", "distanz {kziel} (halten|wahren|)", "{kziel} auf abstand (halten|)", "auf abstand (zu|zum|zur) {kziel} (gehen|bleiben)"
     ] },
     "nav.andocken": { "an": "navigation", "muster": [
-      "andocken", "docken", "dock", "dock an", "andocken einleiten", "anflug andocken", "andockmanoever", "andock manoever", "dock anfliegen", "dock ansteuern", "station andocken", "an station andocken", "andocken beginnen", "andocken starten", "anlegen"
-    ] },
-    "nav.sprung": { "an": "navigation", "muster": [
-      "sprung {kziel}", "sprung zu {kziel}", "(springe|spring|springen) {kziel}", "{kziel} springen", "schnellsprung {kziel}", "schnellsprung zu {kziel}", "sprung {kziel} (einleiten|ausfuehren|starten)", "sprung antrieb {kziel}"
+      "andocken", "docken", "dock", "dock an", "andocken einleiten", "anflug andocken", "andockmanoever", "andock manoever", "dock anfliegen", "dock ansteuern", "station andocken", "an station andocken", "andocken beginnen", "andocken starten", "anlegen", "(andocken|andockmanoever|docken) (einleiten|beginnen|starten|durchfuehren|ausfuehren)", "andocken (anfliegen|ansteuern)", "anlegen (einleiten|beginnen)"
     ] },
     "ops.ziel": { "an": "ops", "muster": [
       "{oziel}", "{oziel} (anvisieren|erfassen|waehlen|aufschalten|setzen|markieren|aussuchen)", "(visiere|erfasse|waehle|schalte) {oziel}",
@@ -109,23 +108,23 @@
     ] },
     "ops.feuer_frei": { "an": "ops", "muster": [
       "feuer frei", "feuer eroeffnen", "feuer los", "angreifen", "angriff", "ziel angreifen", "gegner angreifen", "ziel beschiessen", "ziel unter feuer nehmen", "feuer frei auf das ziel", "schiessen", "feuer frei geben",
-      "feuer frei {waffen}", "{waffen} feuer frei", "feuer eroeffnen {waffen}", "{waffen} feuer eroeffnen", "{waffen} (feuer|los|abfeuern|abschiessen|feuern)", "feuer {waffen} frei", "(feuer|feuern|schiessen) {waffen}", "{waffen} (schiessen|angreifen)"
+      "feuer frei {waffen}", "{waffen} feuer frei", "feuer eroeffnen {waffen}", "{waffen} feuer eroeffnen", "{waffen} (feuer|los|abfeuern|abschiessen|feuern)", "feuer {waffen} frei", "(feuer|feuern|schiessen) {waffen}", "{waffen} (schiessen|angreifen)", "{waffen} klar (und|) feuer frei", "feuer frei (mit|)"
     ] },
     "ops.feuer_halt": { "an": "ops", "muster": [
       "feuer (halt|einstellen|stopp|stoppen|aus|beenden|stop)", "feuerpause", "feuer einstellen", "waffen (halten|sichern|aus|halt)", "waffenruhe", "schiessen einstellen", "aufhoeren zu schiessen", "aufhoeren schiessen", "waffen stillhalten", "stillhalten", "halt feuer"
     ] },
     "ops.scan": { "an": "ops", "muster": [
-      "scannen", "scan", "scanne (umgebung|ziel|sektor|raum)", "umgebung abtasten", "scan starten", "scan (durchfuehren|ausloesen)", "scanne", "umgebung scannen", "ziel scannen", "sensoren scannen", "abtasten", "sensor scan", "scannen starten", "scan einleiten", "sondieren"
+      "scannen", "scan", "scanne (umgebung|ziel|sektor|raum)", "umgebung abtasten", "scan starten", "scan (durchfuehren|ausloesen)", "scanne", "umgebung scannen", "ziel scannen", "sensoren scannen", "abtasten", "sensor scan", "scannen starten", "scan einleiten", "sondieren", "(fuehre|fuehren|mache|machen|mach) scan (durch|)", "scan machen"
     ] },
     "ops.landescan": { "an": "ops", "muster": [
-      "landepunkt scannen", "landescan", "landeplatz scannen", "landepunktscan", "landestelle scannen", "landeplatz absuchen", "landepunkt scan", "landezone scannen", "scan landepunkt", "scan landeplatz", "landepunkt (abtasten|absuchen|pruefen)", "landeplatzscan"
+      "(scannen|scanne|scan|absuchen) (landepunkt|landeplatz|landestelle|landezone)", "landepunkt scannen", "landescan", "landeplatz scannen", "landepunktscan", "landestelle scannen", "landeplatz absuchen", "landepunkt scan", "landezone scannen", "scan landepunkt", "scan landeplatz", "landepunkt (abtasten|absuchen|pruefen)", "landeplatzscan"
     ] },
     "ops.beamen": { "an": "ops", "muster": [
-      "{was} an bord", "{was} (beamen|hochbeamen|transportieren|holen|aufnehmen)", "{was} an bord (beamen|holen|nehmen|transportieren)", "(beame|beamen|hochbeamen) {was}", "(beame|beamen|hole) {was} an bord", "beam {was} (hoch|an bord|)", "transport {was}", "{was} (rauf|hoch) beamen"
+      "{was} an bord", "{was} anbord", "{was} (beamen|hochbeamen|transportieren|holen|aufnehmen)", "{was} an bord (beamen|holen|nehmen|transportieren)", "(beame|beamen|hochbeamen) {was}", "(beame|beamen|hole) {was} an bord", "beam {was} (hoch|an bord|)", "transport {was}", "{was} (rauf|hoch) beamen"
     ] },
     "tech.prio": { "an": "technik", "muster": [
       "{prio} zuerst", "zuerst {prio}", "{prio} (hat|hoechste|erste|oberste) prioritaet", "prioritaet {prio}", "{prio} prioritaet", "vorrang {prio}", "{prio} vorrang", "{prio} zuerst (reparieren|loeschen|abdichten|beheben)",
-      "kuemmere dich zuerst um {prio}", "zuerst um {prio} kuemmern", "kuemmer dich um {prio}", "erst {prio}", "{prio} (loeschen|bekaempfen) zuerst", "zuerst {prio} (loeschen|bekaempfen|abdichten)",
+      "kuemmere dich zuerst um {prio}", "zuerst um {prio} kuemmern", "kuemmer dich um {prio}", "erst {prio}", "{prio} erst", "{prio} (loeschen|bekaempfen) zuerst", "zuerst {prio} (loeschen|bekaempfen|abdichten)",
       { "p": "(feuer|brand) (loeschen|bekaempfen)", "args": { "ziel": "feuer" } }, { "p": "(leck|huellenbruch) (abdichten|stopfen|flicken|schliessen)", "args": { "ziel": "leck" } }
     ] },
     "tech.reparieren": { "an": "technik", "muster": [
@@ -142,22 +141,22 @@
       { "p": "(energie|leistung) {system_energie} (reduzieren|verringern|senken|drosseln|runter)", "args": { "delta": -1 } }, { "p": "{system_energie} (drosseln|runterfahren|abdrehen)", "args": { "delta": -1 } },      { "p": "energie abziehen {system_energie}", "args": { "delta": -1 } }
     ] },
     "tech.ueberladen": { "an": "technik", "muster": [
-      "reaktor (ueberladen|ueberlasten|ueberladung|ueberlastung)", "ueberladen", "ueberladung", "ueberlast", "ueberlasten", "overload", "reaktor overload", "reaktor ueberladung (aktivieren|starten|einleiten)", "reaktor auf ueberlast", "reaktor ueberladen aktivieren", "notenergie", "ueberladung aktivieren", "reaktor ueberdrehen", "(ueberlade|ueberlaste|ueberlasten|ueberladen) reaktor"
+      "reaktor (ueberladen|ueberlasten|ueberladung|ueberlastung)", "ueberladen", "ueberladung", "ueberlast", "ueberlasten", "overload", "reaktor overload", "reaktor ueberladung (aktivieren|starten|einleiten)", "reaktor auf ueberlast", "reaktor ueberlast (fahren|schalten|einleiten|aktivieren|starten)", "reaktor in ueberlast", "reaktor ueberladen aktivieren", "notenergie", "ueberladung aktivieren", "reaktor ueberdrehen", "(ueberlade|ueberlaste|ueberlasten|ueberladen) reaktor"
     ] },
     "bord.rueckholen": { "an": "bord", "muster": [
-      "aussenteam (zurueckholen|rueckholen|zurueck|holen|an bord holen)", "team (zurueckholen|rueckholen|zurueck|holen)", "notrueckholung", "rueckholung", "team zurueck beamen", "alle zurueckholen", "zurueckholen", "aussenteam an bord", "aussenteam (rauf|hoch) beamen", "notfall rueckholung", "aussenteam notfall zurueckholen"
+      "aussenteam (zurueckholen|rueckholen|zurueck|holen|an bord holen)", "team (zurueckholen|rueckholen|zurueck|holen)", "notrueckholung", "rueckholung", "team zurueck beamen", "alle zurueckholen", "zurueckholen", "aussenteam an bord", "(hole|holt|hol|holen) (aussenteam|team) (zurueck|)", "aussenteam (rauf|hoch) beamen", "notfall rueckholung", "aussenteam notfall zurueckholen"
     ] },
     "bord.sensor": { "an": "bord", "muster": [
-      "sensor", "sensoren", "sensorunterstuetzung", "sensor unterstuetzung", "aussenteam sensor", "sensor einsetzen", "sensor aktivieren", "sensor unterstuetzen", "sensoren einsetzen", "unterstuetzung sensor", "sensor hilfe"
+      "sensor", "sensoren", "sensorunterstuetzung", "sensor unterstuetzung", "aussenteam sensor", "sensor einsetzen", "sensor aktivieren", "sensor unterstuetzen", "sensoren einsetzen", "unterstuetzung sensor", "sensor hilfe", "sensorunterstuetzung (aussenteam|einsetzen|aktivieren)", "aussenteam sensorunterstuetzung"
     ] },
     "bord.kuppel": { "an": "bord", "muster": [
-      "kuppel", "kuppelunterstuetzung", "kuppel unterstuetzung", "aussenteam kuppel", "kuppel einsetzen", "kuppel aktivieren", "kuppel unterstuetzen", "unterstuetzung kuppel", "kuppel hilfe", "kuppel schuetzen"
+      "kuppel", "kuppelunterstuetzung", "kuppel unterstuetzung", "aussenteam kuppel", "kuppel einsetzen", "kuppel aktivieren", "kuppel unterstuetzen", "unterstuetzung kuppel", "kuppel hilfe", "kuppel schuetzen", "kuppelunterstuetzung (aussenteam|einsetzen|aktivieren)", "aussenteam kuppelunterstuetzung"
     ] },
     "bot.status": { "an": "alle", "muster": [
-      "statusbericht", "status", "status melden", "status bericht", "lagebericht", "lage melden", "bericht", "bericht erstatten", "statusmeldung", "meldung machen", "lage bericht", "meldung", "melden", "bericht abgeben", "statusbericht abgeben", "bericht zur lage", "lagemeldung", "status (durchgeben|abgeben|geben)"
+      "statusbericht", "status", "status melden", "status bericht", "lagebericht", "lage melden", "bericht", "bericht erstatten", "statusmeldung", "meldung machen", "lage bericht", "meldung", "melden", "bericht abgeben", "statusbericht abgeben", "bericht zur lage", "lagemeldung", "status (durchgeben|abgeben|geben)", "(meldet|melde|melden) lage", "alle stationen (statusbericht|status|melden)", "alle (melden|statusbericht)"
     ] },
     "bot.automatik": { "an": "alle", "muster": [
-      "automatik", "automatik (ein|an|aktivieren|einschalten)", "selbststaendig", "selbststaendig handeln", "eigenstaendig handeln", "standardverhalten", "frei handeln", "befehle verwerfen", "befehle loeschen", "alle befehle verwerfen", "freie entscheidung", "handle selbststaendig", "automatisch weitermachen", "automatik zurueck", "zurueck automatik", "zurueck zur automatik"
+      "automatik", "automatik (ein|an|aktivieren|einschalten)", "selbststaendig", "selbststaendig handeln", "eigenstaendig handeln", "standardverhalten", "frei handeln", "befehle verwerfen", "befehle loeschen", "alle befehle verwerfen", "freie entscheidung", "handle selbststaendig", "automatisch weitermachen", "automatik zurueck", "zurueck automatik", "zurueck zur automatik", "alle (auf|) automatik", "alle selbststaendig"
     ] }
   }
 }
