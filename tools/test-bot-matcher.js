@@ -1,5 +1,7 @@
 'use strict';
-// BOT-04 A1: Selbsttest des Bot-Matchers (shared/bot-matcher.js, content/bots/muster.json). In-process, ohne Server.
+// BOT-04 A1/A3: Selbsttest des Bot-Matchers (shared/bot-matcher.js, content/bots/kanon.json + muster.json). In-process, ohne Server.
+// A3: Kanon-Datei vollstaendig gegen den Katalog v1 (jede Sprechform und Kurzform trifft exakt ihren Befehl, auch mit Adressierung), Sicherheitsregeln
+// (Verneinung, Frage, zwei Argumente, Fremdsprache, zu lang, Rolle), freie Formulierungen (Stufe 2) mit niedrigerer Konfidenz, Eval-Saetze.
 // Belegt: 22 der 23 Befehle des Katalogs v1 sind sprechbar (mindestens ein Fall je Befehl), nav.sprung ausdruecklich nicht (Sprung veraendert die Welt, Fehlerkennung zu teuer); die 7 bekannten STT-Fehler der Erkundung
 // (Frage 6a) laufen auf den richtigen Befehl oder (wo der Katalog nichts hat) auf null; Negativfaelle und Beinahe-Treffer liefern null
 // (Falsch-Positiv 0); fehlendes oder mehrdeutiges Pflichtargument liefert null; hex:/objekt: sind nicht waehlbar; Adressierung; Schwelle
@@ -160,9 +162,12 @@ for (const t of ['Schilde', 'Schilde hoch', 'Kurs', 'Kurs setzen', 'Sprung', 'Re
 // ---- nicht sprechbare Argumente: hex/objekt ----
 for (const t of ['Sprung nach Hex fünf', 'Sprung Hex 12', 'Kurs auf Objekt drei', 'Kurs Concordia', 'Sprung nach Concordia', 'Objekt sieben anvisieren']) pruefe(t, null);
 {
-  const roh = fs.readFileSync(path.join(__dirname, '..', 'content', 'bots', 'muster.json'), 'utf8');
-  assert(!/"(hex|objekt):/.test(roh), 'muster.json enthaelt hex:/objekt: als Argument');
-  n++;
+  for (const datei of ['muster.json', 'kanon.json']) {
+    const roh = fs.readFileSync(path.join(__dirname, '..', 'content', 'bots', datei), 'utf8');
+    assert(!/"(hex|objekt):/.test(roh), datei + ' enthaelt hex:/objekt: als Argument');
+    assert(!/"nav.sprung"/.test(roh), datei + ' enthaelt nav.sprung (nicht sprechbar)');
+  }
+  n += 2;
 }
 
 // ---- Negativfaelle: Plaudern, Beinahe-Treffer, Negation, Fragen ----
@@ -196,14 +201,16 @@ pruefe('Schilde Steuerbord 500 Meter', null);
 // ---- setzeMuster (Browser-Weg): fremde Musterdaten ersetzen die Datei ----
 {
   const roh = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'content', 'bots', 'muster.json'), 'utf8'));
-  const klein = { befehle: { 'nav.stopp': { an: 'navigation', muster: ['halt die klappe'] } }, fuellwoerter: [] };
+  const kanon = kanonDatei();
+  const klein = { befehle: { 'nav.stopp': { an: 'navigation', familie: ['klappe'] } }, fuellwoerter: [], kanon: { befehle: [{ befehl: 'nav.stopp', an: 'navigation', anzeige: 'Halt die Klappe', args: {} }] } };
   M.setzeMuster(klein);
   assert(M.match('Halt die Klappe') && M.match('Halt die Klappe').befehl === 'nav.stopp');
   assert.strictEqual(M.match('Alle Maschinen stopp'), null);
   assert.throws(() => M.setzeMuster(null));
-  M.setzeMuster(roh);
+  assert.throws(() => M.setzeKanon({}));
+  M.setzeMuster(Object.assign({}, roh, { kanon }));
   assert(M.match('Alle Maschinen stopp').befehl === 'nav.stopp');
-  n += 4;
+  n += 5;
 }
 
 // ---- alle Katalogbefehle haben Muster und mindestens einen positiven Fall ----
@@ -215,11 +222,12 @@ pruefe('Schilde Steuerbord 500 Meter', null);
   const info = M.info();
   const imTest = new Set(pos.map(([, e]) => e.befehl));
   for (const k of katalog) {
-    assert(info.befehle[k] > 0, 'kein Muster fuer ' + k);
+    assert(info.befehle[k] > 0, 'keine Sprechform fuer ' + k);
     assert(imTest.has(k), 'kein Testfall fuer ' + k);
   }
-  assert.deepStrictEqual(Object.keys(info.befehle).sort(), katalog.slice().sort(), 'Muster mit Befehlen ausserhalb des Katalogs (nav.sprung ist nicht sprechbar)');
-  assert(!info.befehle['nav.sprung'], 'nav.sprung darf kein Sprachmuster haben');
+  assert.deepStrictEqual(Object.keys(info.befehle).sort(), katalog.slice().sort(), 'Sprechformen mit Befehlen ausserhalb des Katalogs (nav.sprung ist nicht sprechbar)');
+  assert.deepStrictEqual(info.familien.slice().sort(), katalog.slice().sort(), 'Wortfamilien ausserhalb des Katalogs');
+  assert(!info.befehle['nav.sprung'] && !info.familien.includes('nav.sprung'), 'nav.sprung darf keine Sprechform haben');
   for (const t of ['Sprung zur Markierung', 'Springe zur Basis', 'Spring zur Markierung', 'Sprung', 'Navigation, Sprung zur Basis', 'Schnellsprung Markierung']) assert(M.match(t) === null, 'Sprung per Sprache: ' + t);
   n += 3;
 }
@@ -250,14 +258,122 @@ pruefe('Schilde Steuerbord 500 Meter', null);
   }
 }
 
-// ---- Laufzeit: ein Abgleich dauert (kalt, 5000+ Muster) deutlich unter 200 ms ----
+// ---- A3: Kanon-Datei vollstaendig gegen den Katalog v1 (Vertrag Bot-Befehle) ----
+{
+  const ROLLE = { navigation: 'Navigation', ops: 'Ops', technik: 'Technik', bord: 'Bord', alle: 'Crew' };
+  const AN = { nav: 'navigation', ops: 'ops', tech: 'technik', bord: 'bord', bot: 'alle' };
+  const erwartet = new Set();
+  const add = (befehl, args) => erwartet.add(befehl + '|' + JSON.stringify(sortiert(args || {})));
+  const je = (befehl, name, werte, fest) => { for (const w of werte) add(befehl, Object.assign({ [name]: w }, fest)); };
+  const SYS = ['reactor', 'engines', 'shields', 'transfer', 'thruster_port', 'thruster_stbd', 'emitter_bow', 'emitter_stbd', 'emitter_aft', 'emitter_port',
+    'weapon_bow', 'battery_port', 'battery_stbd', 'weapons', 'lafette_1', 'lafette_2', 'lafette_3', 'lafette_5', 'lafette_7', 'lafette_9', 'modul_1', 'modul_2', 'modul_3', 'modul_4'];
+  je('nav.kurs', 'ziel', ['marke', 'ziel', 'basis']);
+  add('nav.stopp');
+  je('nav.schub', 'stufe', ['halb', 'voll', 0, 1, 2, 3, 4, 5, 6]);
+  add('nav.ausweichen');
+  add('nav.abstand'); je('nav.abstand', 'ziel', ['marke', 'ziel', 'basis']);
+  add('nav.andocken');
+  je('ops.ziel', 'ziel', ['naechstes', 'markiert']);
+  add('ops.feuer_frei'); je('ops.feuer_frei', 'waffen', ['alle', 'bug', 'bb', 'stb', 'torpedo']);
+  add('ops.feuer_halt'); add('ops.scan'); add('ops.landescan');
+  je('ops.beamen', 'was', ['person', 'fracht']);
+  je('tech.prio', 'ziel', ['feuer', 'leck', 'reactor', 'engines', 'shields', 'transfer', 'weapons', 'weapon_bow', 'battery_port', 'battery_stbd']);
+  je('tech.reparieren', 'system', SYS);
+  je('tech.schild', 'sektor', ['bug', 'stb', 'heck', 'bb']);
+  for (const delta of [1, -1]) je('tech.energie', 'system', ['engines', 'shields', 'weapons'], { delta });
+  for (const b of ['tech.ueberladen', 'bord.rueckholen', 'bord.sensor', 'bord.kuppel', 'bot.status', 'bot.automatik']) add(b);
+
+  const formen = M.formen();
+  const key = (f) => f.befehl + '|' + JSON.stringify(sortiert(f.args));
+  const ist = formen.map(key);
+  assert.strictEqual(new Set(ist).size, ist.length, 'Kanon: ein Befehl mit denselben Argumenten steht doppelt');
+  assert.deepStrictEqual(Array.from(new Set(ist)).sort(), Array.from(erwartet).sort(), 'Kanon deckt den Katalog v1 nicht genau (Befehle/Argumentwerte)');
+  n += 2;
+
+  const texte = new Map();   // normalisierter Text -> Schluessel (jede Sprechform gehoert genau einem Befehl)
+  for (const f of formen) {
+    assert.strictEqual(f.an, AN[f.befehl.split('.')[0]], 'Kanon: falsche Rolle bei ' + f.befehl);
+    const w = f.anzeige.split(' ').filter(Boolean).length;
+    assert(w >= 1 && w <= 4, 'Kanon: Sprechform nicht 1 bis 4 Woerter: ' + f.anzeige);
+    assert(f.kurz.length <= 3, 'Kanon: mehr als 3 Kurzformen bei ' + f.anzeige);
+    for (const t of [f.anzeige].concat(f.kurz)) {
+      const nt = M._intern.norm(t);
+      assert(!texte.has(nt) || texte.get(nt) === key(f), 'Kanon: Text bei zwei Befehlen: ' + t);
+      texte.set(nt, key(f));
+    }
+    const e = b(f.befehl, f.args, f.an);
+    const r = pruefe(f.anzeige, e);
+    if (r && r.konfidenz !== 1) { fehler++; console.log('FEHLER: Sprechform nicht mit Konfidenz 1: "' + f.anzeige + '" ' + r.konfidenz); }
+    for (const k of f.kurz) pruefe(k, e);
+    pruefe('Bitte ' + f.anzeige, e);
+    pruefe(ROLLE[f.an] + ', ' + f.anzeige, b(f.befehl, f.args, f.an === 'alle' ? 'alle' : f.an));
+    n += 2;
+  }
+  // Vertragsbeispiele ("Beispiel gesprochen") sind Sprechformen des Kanons
+  const anzeigen = new Set(formen.map((f) => f.anzeige));
+  for (const t of ['Kurs auf die Markierung', 'Alle Maschinen stopp', 'Halbe Kraft voraus', 'Ausweichen', 'Abstand halten', 'Andocken', 'Ziel markieren', 'Feuer frei', 'Feuer einstellen', 'Scannen',
+    'Landepunkt scannen', 'Fracht an Bord', 'Feuer zuerst', 'Antrieb reparieren', 'Schilde Steuerbord', 'Mehr Energie auf Waffen', 'Reaktor überladen', 'Außenteam zurückholen', 'Sensor', 'Kuppel',
+    'Statusbericht', 'Automatik']) assert(anzeigen.has(t), 'Vertragsbeispiel fehlt im Kanon: ' + t);
+  n++;
+  // Vertragsluecke ops.ziel: "Ziel markieren" = ziel markiert, im Kanon vermerkt
+  assert(kanonDatei().befehle.some((e) => e.befehl === 'ops.ziel' && e.luecke), 'ops.ziel: Vertragsluecke nicht im Kanon vermerkt');
+  n++;
+}
+function kanonDatei() { return JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'content', 'bots', 'kanon.json'), 'utf8')); }
+
+// ---- A3: Sicherheitsregeln (beide Stufen) ----
+for (const t of [
+  'Nicht Schilde Steuerbord', 'Schilde Steuerbord nicht', 'Kein Feuer frei', 'Kannst du bitte Schilde Steuerbord machen?', 'Wer soll Schilde Steuerbord legen', 'Warum Schilde Steuerbord',
+  'Schilde Steuerbord und Backbord', 'Schilde und Waffen', 'Schilde Bug Heck', 'Antrieb und Schilde reparieren', 'Feuer frei Torpedo und Bugwaffen',
+  'Please Schilde Steuerbord', 'Stop the engines', 'All stop', 'Schilde Steuerbord und ich glaube wir sollten danach noch einen Kaffee holen',
+  'Ops, Schilde Steuerbord', 'Technik, Kurs auf die Markierung', 'Navigation, Reaktor überladen', 'Bord, Statusbericht Technik',
+  'Schilde', 'Kurs auf', 'Reparieren', 'Mehr Energie auf', 'Zuerst', 'Sprung nach Hex fünf', 'Springe zur Basis', 'Schilde Steuerbord wäre gut', 'Maschinen hochfahren',
+  'Das Schiff hat Schilde', 'Steuerbord ist rechts', 'Kuppel Sensor',
+]) pruefe(t, null);
+// Stufe 2 (frei): gleiche Befehle, niedrigere Konfidenz; Kanon bleibt ueber jeder Schwelle
+for (const [t, e] of [
+  ['Repariert den Reaktor', b('tech.reparieren', { system: 'reactor' })], ['Technik, repariere den Antrieb', b('tech.reparieren', { system: 'engines' }, 'technik')],
+  ['Führen Sie einen Scan durch', b('ops.scan')], ['Feuer hat Priorität', b('tech.prio', { ziel: 'feuer' })], ['Steuerbord Schilde', b('tech.schild', { sektor: 'stb' })],
+  ['Mehr Saft auf Waffen', b('tech.energie', { system: 'weapons', delta: 1 })], ['Schubstufe drei', b('nav.schub', { stufe: 3 })], ['Weichen Sie aus', b('nav.ausweichen')],
+  ['Abstand zum Ziel fünfzig Meter', b('nav.abstand', { ziel: 'ziel', meter: 50 })], ['Feuer frei auf Steuerbord', b('ops.feuer_frei', { waffen: 'stb' })],
+]) {
+  const r = pruefe(t, e);
+  if (r && !(r.konfidenz < 1 && r.konfidenz <= 0.92)) { fehler++; console.log('FEHLER: freie Formulierung "' + t + '" Konfidenz ' + r.konfidenz); }
+  n++;
+  if (M.match(t, { schwelle: 0.95 }) !== null) { fehler++; console.log('FEHLER: freie Formulierung "' + t + '" ueber Schwelle 0,95'); }
+  n++;
+}
+{
+  const e = M.match('Schilde Steuerbord', { schwelle: 0.99 });
+  assert(e && e.befehl === 'tech.schild' && e.konfidenz === 1, 'Kanon ueber jeder Schwelle');
+  n++;
+}
+
+// ---- Laufzeit: ein Abgleich dauert (kalt) deutlich unter 200 ms ----
 {
   const t0 = Date.now();
   for (let i = 0; i < 20; i++) M.match('Schilde Steuerbord');
   const ms = (Date.now() - t0) / 20;
   n++;
   if (ms > 200) { fehler++; console.log('FEHLER: match zu langsam: ' + ms + ' ms'); }
-  console.log('match: ' + ms.toFixed(1) + ' ms je Aufruf, ' + M.info().muster + ' expandierte Muster');
+  console.log('match: ' + ms.toFixed(1) + ' ms je Aufruf, ' + M.info().muster + ' Sprechformen');
+}
+
+// ---- Eval-Saetze: Kanon-Set Quote 100 % und Falsch-Positiv 0, freie Sets Falsch-Positiv 0 (bot-eval.js --art), Kanon-Set aktuell gegen den Generator ----
+{
+  const { spawnSync } = require('child_process');
+  const lauf = (argv) => spawnSync(process.execPath, argv, { cwd: path.join(__dirname, '..'), encoding: 'utf8' });
+  const fx = (f) => path.join('tools', 'fixtures', 'bot-eval', f);
+  for (const [datei, art] of [['eval-kanon.json', 'kanon'], ['eval.json', 'frei'], ['eval-dev2.json', 'frei']]) {
+    n++;
+    const r = lauf(['tools/bot-eval.js', fx(datei), '--art', art]);
+    const zeile = (r.stdout.match(/^(Trefferquote|Falsch-Positiv).*$/gm) || []).join('; ');
+    console.log('bot-eval ' + datei + ' (' + art + '): ' + zeile);
+    if (r.status !== 0) { fehler++; console.log('FEHLER: bot-eval ' + datei + ' --art ' + art + ' Exit ' + r.status + ' ' + r.stdout.split(String.fromCharCode(10)).slice(0, 15).join(String.fromCharCode(10))); }
+  }
+  n++;
+  const g = lauf(['tools/gen-eval-kanon.js', '--pruefen']);
+  if (g.status !== 0) { fehler++; console.log('FEHLER: ' + (g.stderr || g.stdout).trim()); }
 }
 
 if (fehler) { console.log(fehler + ' von ' + n + ' Pruefungen FEHLGESCHLAGEN'); process.exit(1); }

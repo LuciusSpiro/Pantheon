@@ -1,29 +1,39 @@
-// BOT-04 A1: Matcher Text -> Bot-Befehl (UMD: window.Shared_BotMatcher / require). Reines JS ohne Abhaengigkeiten, Browser und Node.
-// Vertrag: vault Pantheon/Vertrag Bot-Befehle (Katalog v1). Kein LLM, keine freie Auslegung: der Text wird gegen die feste Musterliste
-// content/bots/muster.json abgeglichen (Fuzzy). match() liefert { an, befehl, args, konfidenz } oder null (null = unklar, der Client spielt
-// den Rueckfrage-Clip bot.unklar). Falsch erkannt ist schlimmer als nicht erkannt: im Zweifel null.
+// BOT-04 A3: Matcher Text -> Bot-Befehl (UMD: window.Shared_BotMatcher / require). Reines JS ohne Abhaengigkeiten, Browser und Node.
+// Vertrag: vault Pantheon/Vertrag Bot-Befehle (Katalog v1). Kein LLM, keine freie Auslegung. match() liefert { an, befehl, args, konfidenz }
+// oder null (null = unklar, der Client spielt den Rueckfrage-Clip bot.unklar). Falsch erkannt ist schlimmer als nicht erkannt: im Zweifel null.
 //
-// Verfahren: Normalisierung (klein, Umlaute, Satzzeichen), Fuellwoerter weg, optionale Adressierung ("Navigation, ...") vorn abtrennen.
-// Muster werden beim Laden expandiert (Alternativen "(a|b|)" und Slots "{name}" -> konkrete Tokenfolgen mit Argumenten). Abgleich je Muster
-// als Token-Alignment (Levenshtein ueber Tokens, Token-Aehnlichkeit = max(Zeichen-Levenshtein, Koelner Phonetik bei kleinem Zeichenabstand),
-// Zusammenziehen/Trennen benachbarter Tokens). Konfidenz = 1 - Kosten / max(Tokenzahl Muster, Tokenzahl Text).
-// Null bei: Negation oder Fragewort, zu langem Text, Konfidenz unter der Schwelle, Mehrdeutigkeit (zwei verschiedene Befehle/Argumente
-// fast gleich gut), Adressierung an die falsche Rolle, Zahl mit "Meter" bei einem anderen Befehl als nav.abstand.
-// Nicht per Sprache waehlbar: hex:<id>, objekt:<id> (kein Muster darf sie enthalten, Test).
+// Leitbild: Ein Captain lernt feste Sprechformen (content/bots/kanon.json, einzige Quelle; Taste, Menue und Sprache zeigen dieselbe Form).
+// Der Matcher ist auf diese Formen optimiert, freie Formulierungen sind ein Zusatz mit niedrigerer Konfidenz.
+//
+// Vorbereitung: Normalisierung (klein, Umlaute, Satzzeichen), optionale Adressierung ("Navigation, ...") abtrennen, Fuellwoerter weg,
+// "<Zahl> Meter" ziehen (nur nav.abstand).
+// Stufe 1 (Kanon): Abgleich der Tokens gegen alle Sprechformen und Kurzformen des Kanons als Token-Alignment (Damerau-Levenshtein je Wort,
+//   Koelner Phonetik bei kleinem Zeichenabstand, Zusammenziehen/Trennen benachbarter Woerter). Ein Zusatzwort kostet ein ganzes Wort:
+//   Stufe 1 ist tolerant gegen Hoerfehler, nicht gegen zusaetzliche Woerter. Konfidenz = 1 - Kosten / Wortzahl, mindestens SCHWELLE.
+// Stufe 2 (frei): Schluesselwort-und-Slot-Abgleich ohne Phrasenaufzaehlung (content/bots/muster.json, "befehle"): je Befehl eine Wortfamilie
+//   (Verb/Substantiv), optional ein Pflichtwort ("und"), erlaubte Begleitwoerter ("mit") und Argument-Slots (Pflicht oder optional).
+//   Ein Befehl gilt nur, wenn die Familie vorkommt, jedes Pflichtargument genau einen Wert hat, KEIN Wort uebrig bleibt, das keiner dieser
+//   Gruppen gehoert, und genau ein Befehl diese Bedingungen erfuellt. Konfidenz hoechstens 0,92 (Kanon 1,0), darunter bei Hoerfehlern.
+// Null bei: Negation, Fragewort oder Frageform ("Kannst du ...?"), Fremdsprache (fremdwoerter), mehr als 10 Woertern, Konfidenz unter der
+//   Schwelle, Mehrdeutigkeit, fehlendem oder mehrdeutigem Pflichtargument (auch "Schilde Bug Heck"), Adressierung an die falsche Rolle,
+//   Zahl mit "Meter" bei einem anderen Befehl als nav.abstand.
+// Nicht per Sprache waehlbar: nav.sprung, hex:<id>, objekt:<id> (weder Kanon noch Familie darf sie enthalten, Test).
 (function (root, factory) {
   if (typeof module === 'object' && module.exports) module.exports = factory(require);
   else root.Shared_BotMatcher = factory(null);
 })(typeof self !== 'undefined' ? self : this, function (req) {
   'use strict';
 
-  // Standardschwelle: siehe Bericht BOT-04 A1 (Messung im Selbsttest und Begruendung in tools/test-bot-matcher.js).
   const SCHWELLE = 0.85;
   const MARGE = 0.05;            // Abstand zwischen bestem und zweitbestem (anderen) Treffer, sonst null
   const MAX_TOKENS = 10;         // laengere Texte sind Plaudern
-  const KOSTE_EXTRA_TEXT = 0.5;  // zusaetzliches Wort im Text
-  const KOSTE_FEHLT = 1;         // Wort des Musters fehlt im Text
+  const KOSTE_EXTRA_TEXT = 1;    // zusaetzliches Wort im Text (Stufe 1: ein ganzes Wort)
+  const KOSTE_FEHLT = 1;         // Wort der Sprechform fehlt im Text
   const SIM_MIN = 0.7;           // darunter gilt ein Wort als falsch (Kosten 1)
   const SIM_MIN_SLOT = 0.75;     // Argumentwoerter strenger (darunter Kosten 1,5)
+  const SIM_FREI = 0.85;         // Stufe 2: Mindestaehnlichkeit eines Wortes (Woerter bis 4 Zeichen aus Familie/mit: nur exakt)
+  const KONF_FREI = 0.92;        // Stufe 2: Konfidenz bei lauter exakten Woertern
+  const STAMM_REST = 3;          // 'stamm*': hoechstens so viele weitere Zeichen
 
   // ---------- Normalisierung ----------
   function norm(s) {
@@ -34,7 +44,7 @@
     t = t.replace(/[^a-z0-9]+/g, ' ').trim();
     return t;
   }
-  let SYN = {};   // Synonyme auf ein Leitwort (z.B. voran -> voraus), gilt fuer Text und Muster
+  let SYN = {};   // Synonyme auf ein Leitwort (z.B. voran -> voraus), gilt fuer Text, Kanon und Familien
   function tokens(s) { const n = norm(s); return n ? n.split(' ').map((t) => SYN[t] || t) : []; }
 
   // ---------- Aehnlichkeit ----------
@@ -120,105 +130,143 @@
     return r;
   }
 
-  // ---------- Muster laden und expandieren ----------
-  let MUSTER = null;     // roh
-  let GEL = null;        // gebaut: { fuell:Set, neg:Set, frage:Set, adressen:[{w,an,name}], befehle:{}, patterns:[], zahlwoerter }
-  let nodeLaden = null;  // in Node: Datei laden, wenn nichts gesetzt wurde
+  // ---------- Daten laden und bauen ----------
+  let MUSTER = null;     // roh (muster.json)
+  let KANON = null;      // roh (kanon.json)
+  let GEL = null;        // gebaut
+  let nodeLaden = null;  // in Node: Dateien laden, wenn nichts gesetzt wurde
   if (req) {
-    nodeLaden = function () {
+    nodeLaden = function (name) {
       const fs = req('fs'), path = req('path');
-      return JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'content', 'bots', 'muster.json'), 'utf8'));
+      return JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'content', 'bots', name), 'utf8'));
     };
   }
 
-  // "(a|b|)" -> alle Kombinationen (leere Alternative erlaubt), verschachtelt nicht
-  function expandAlt(p) {
-    const m = /\(([^()]*)\)/.exec(p);
-    if (!m) return [p];
+  function zuWert(w) { return isNaN(Number(w)) || w === '' ? w : Number(w); }
+  function sortiert(o) { const r = {}; for (const k of Object.keys(o || {}).sort()) r[k] = o[k]; return r; }
+
+  // Kanon -> flache Liste konkreter Sprechformen: { befehl, an, args, anzeige, kurz[], meter }. Schablone {name} in args/anzeige/kurz
+  // wird je Wert aus 'werte.<name>' ausgefuellt (wort = Hauptform, kurz = ganze Kurzformen des Wertes). Auch fuer Menue/Tastenbeschriftung.
+  function kanonFormen(kanon) {
     const out = [];
-    for (const alt of m[1].split('|')) for (const r of expandAlt(p.slice(0, m.index) + alt + p.slice(m.index + m[0].length))) out.push(r);
-    return out;
-  }
-  function expandSlots(p, slots, args) {
-    const m = /\{([a-z_]+)\}/.exec(p);
-    if (!m) return [{ text: p, args }];
-    const slot = slots[m[1]];
-    if (!slot) throw new Error('Muster: unbekannter Slot {' + m[1] + '}');
-    const out = [];
-    for (const wert of Object.keys(slot.werte)) {
-      for (const alias of slot.werte[wert]) {
-        const a = Object.assign({}, args); a[slot.arg] = isNaN(Number(wert)) || wert === '' ? wert : Number(wert);
-        // Slot-Tokens kennzeichnen mit Praefix "@" (wird beim Bauen in Flag umgewandelt)
-        const ersatz = alias.split(' ').filter(Boolean).map((t) => '@' + t).join(' ');
-        for (const r of expandSlots(p.slice(0, m.index) + ersatz + p.slice(m.index + m[0].length), slots, a)) out.push(r);
+    for (const e of (kanon && kanon.befehle) || []) {
+      const schablonen = Object.keys(e.args || {}).filter((k) => typeof e.args[k] === 'string' && /^\{[a-z_]+\}$/.test(e.args[k]));
+      if (schablonen.length > 1) throw new Error('Kanon: mehr als eine Schablone in ' + e.befehl);
+      const basis = { befehl: e.befehl, an: e.an, meter: !!e.meter };
+      if (!schablonen.length) { out.push(Object.assign(basis, { args: Object.assign({}, e.args || {}), anzeige: e.anzeige, kurz: (e.kurz || []).slice() })); continue; }
+      const key = schablonen[0], name = e.args[key].slice(1, -1);
+      const werte = e.werte && e.werte[name];
+      if (!werte) throw new Error('Kanon: keine werte.' + name + ' in ' + e.befehl);
+      for (const wert of Object.keys(werte)) {
+        const w = werte[wert];
+        const args = Object.assign({}, e.args); args[key] = zuWert(wert);
+        const ein = (t) => t.split('{' + name + '}').join(w.wort);
+        out.push(Object.assign({}, basis, { args, anzeige: ein(e.anzeige), kurz: (e.kurz || []).map(ein).concat(w.kurz || []) }));
       }
     }
     return out;
   }
 
-  function bauen(muster) {
+  // Wortmuster der Familien: 'stamm*' (Wortanfang), 'a b' (Gruppe: alle Woerter)
+  function wortMuster(p) {
+    const out = [];
+    for (const roh of p.trim().split(/\s+/)) {
+      const stamm = /\*$/.test(roh);
+      for (const t of tokens(roh.replace(/\*/g, ''))) out.push({ w: t, stamm, strikt: true });
+    }
+    return out;
+  }
+  function gruppen(liste) { return (liste || []).map((p) => wortMuster(p)).filter((g) => g.length); }
+
+  function bauen(muster, kanon) {
+    SYN = {}; for (const k of Object.keys(muster.synonyme || {})) SYN[norm(k)] = norm(muster.synonyme[k]);
     const fuell = new Set((muster.fuellwoerter || []).map(norm));
     const neg = new Set((muster.negation || []).map(norm));
     const frage = new Set((muster.fragewoerter || []).map(norm));
-    const adressen = [];
-    for (const rolle of Object.keys(muster.adressierung || {})) for (const w of muster.adressierung[rolle]) adressen.push({ w: norm(w), an: rolle, name: false });
-    for (const id of Object.keys(muster.namen || {})) for (const w of muster.namen[id]) adressen.push({ w: norm(w), an: id, name: true });
-    const slots = {};
-    for (const k of Object.keys(muster.slots || {})) {
-      const s = muster.slots[k]; const werte = {};
-      for (const v of Object.keys(s.werte)) werte[v] = s.werte[v].map(norm).filter(Boolean);
-      slots[k] = { arg: s.arg, werte };
-    }
-    const patterns = []; const seen = new Set();
-    for (const befehl of Object.keys(muster.befehle || {})) {
-      const def = muster.befehle[befehl];
-      for (const eintrag of def.muster) {
-        const e = typeof eintrag === 'string' ? { p: eintrag } : eintrag;
-        for (const alt of expandAlt(e.p)) {
-          for (const x of expandSlots(alt, slots, Object.assign({}, e.args || {}))) {
-            // Text normalisieren, @-Tokens bleiben als Slot-Tokens erkennbar
-            const toks = [];
-            for (const raw of x.text.split(/\s+/).filter(Boolean)) {
-              const slot = raw[0] === '@';
-              const t = norm(slot ? raw.slice(1) : raw);
-              if (!t) continue;
-              for (const t0 of t.split(' ')) { const tt = SYN[t0] || t0; if (fuell.has(tt)) continue; toks.push({ w: tt, slot }); }
-            }
-            if (!toks.length) continue;
-            const key = befehl + '|' + toks.map((t) => (t.slot ? '@' : '') + t.w).join(' ') + '|' + JSON.stringify(x.args);
-            if (seen.has(key)) continue; seen.add(key);
-            patterns.push({ befehl, an: def.an || 'alle', meter: !!e.meter, toks, args: x.args, argKey: JSON.stringify(sortiert(x.args)) });
-          }
-        }
-      }
-    }
-    SYN = {}; for (const k of Object.keys(muster.synonyme || {})) SYN[norm(k)] = norm(muster.synonyme[k]);
+    const modal = new Set((muster.fragemodale || []).map(norm));
     const fremd = new Set((muster.fremdwoerter || []).map(norm));
     NIE_AEHNLICH = new Set((muster.nie_aehnlich || []).map(norm));
     const hinten = new Set((muster.adressierung_hinten || []).map(norm));
-    return { fuell, neg, frage, fremd, adressen, hinten, patterns, zahlwoerter: muster.zahlwoerter || {} };
-  }
-  function sortiert(o) { const r = {}; for (const k of Object.keys(o).sort()) r[k] = o[k]; return r; }
+    const adressen = [];
+    for (const rolle of Object.keys(muster.adressierung || {})) for (const w of muster.adressierung[rolle]) adressen.push({ w: norm(w), an: rolle, name: false });
+    for (const id of Object.keys(muster.namen || {})) for (const w of muster.namen[id]) adressen.push({ w: norm(w), an: id, name: true });
+    const ohneFuell = (arr) => arr.filter((t) => !fuell.has(t));
 
+    // Slots (Argumentvokabular): Aliase als Tokenfolgen, laengste zuerst
+    const slots = {};
+    for (const k of Object.keys(muster.slots || {})) {
+      const s = muster.slots[k]; const aliase = [];
+      for (const wert of Object.keys(s.werte)) for (const al of s.werte[wert]) {
+        const t = ohneFuell(tokens(al)); if (t.length) aliase.push({ wert, toks: t });
+      }
+      aliase.sort((x, y) => y.toks.length - x.toks.length);
+      slots[k] = { arg: s.arg, aliase };
+    }
+
+    // Stufe 1: Sprechformen des Kanons
+    const formen = []; const seen = new Set();
+    for (const f of kanonFormen(kanon)) {
+      const texte = [f.anzeige].concat(f.kurz);
+      texte.forEach((text, idx) => {
+        const toks = [];
+        // Woerter der Hauptform, die ein Argument sind, werden strenger verglichen: in der Hauptform steht das Argumentwort am Ende der Schablone
+        for (const raw of ohneFuell(tokens(text))) toks.push({ w: raw, slot: false });
+        if (!toks.length) return;
+        // Argumentwoerter markieren: Woerter, die in einem Alias eines Slots des Befehls stehen
+        for (const t of toks) if (Object.keys(f.args).length && argWort(slots, f.args, t.w)) t.slot = true;
+        const key = f.befehl + '|' + toks.map((t) => t.w).join(' ') + '|' + JSON.stringify(sortiert(f.args));
+        if (seen.has(key)) return; seen.add(key);
+        formen.push({ befehl: f.befehl, an: f.an, meter: f.meter, toks, args: f.args, argKey: JSON.stringify(sortiert(f.args)), haupt: idx === 0 });
+      });
+    }
+
+    // Stufe 2: Wortfamilien
+    const fam = {};
+    for (const befehl of Object.keys(muster.befehle || {})) {
+      const d = muster.befehle[befehl];
+      fam[befehl] = {
+        an: d.an || 'alle', familie: gruppen(d.familie), und: gruppen(d.und), mit: gruppen(d.mit).filter((g) => g.length === 1),
+        pflicht: d.pflicht || [], optional: d.optional || [], mind: d.mind || 1, meterErsetztUnd: !!d.meter_ersetzt_und,
+      };
+      for (const s of fam[befehl].pflicht.concat(fam[befehl].optional)) if (!slots[s]) throw new Error('Muster: unbekannter Slot ' + s + ' in ' + befehl);
+    }
+    return { fuell, neg, frage, modal, fremd, adressen, hinten, formen, fam, slots };
+  }
+  // Ist das Wort Teil eines Alias, dessen Wert zu einem Argument des Befehls passt? Grob: Wort kommt in irgendeinem Slot-Alias vor, dessen Wert
+  // (als Text) in den Argumenten des Befehls steht.
+  function argWort(slots, args, w) {
+    const werte = Object.keys(args).map((k) => String(args[k]));
+    for (const k of Object.keys(slots)) for (const al of slots[k].aliase) if (werte.includes(al.wert) && al.toks.includes(w)) return true;
+    return false;
+  }
+
+  function setzeKanon(obj) {
+    if (!obj || typeof obj !== 'object' || !Array.isArray(obj.befehle)) throw new Error('setzeKanon: ungueltige Kanondaten');
+    kanonFormen(obj);   // prueft die Struktur
+    KANON = obj; GEL = null;
+  }
+  // setzeMuster(obj): obj kann zusaetzlich 'kanon' tragen (Browser: ein Aufruf mit beiden Dateien)
   function setzeMuster(obj) {
     if (!obj || typeof obj !== 'object' || !obj.befehle) throw new Error('setzeMuster: ungueltige Musterdaten');
-    GEL = bauen(obj); MUSTER = obj; simCache.clear();
+    if (obj.kanon) setzeKanon(obj.kanon);
+    MUSTER = obj; GEL = null; simCache.clear();
   }
   function geladen() {
     if (!GEL) {
-      if (!nodeLaden) throw new Error('Bot-Matcher: keine Muster gesetzt (setzeMuster)');
-      setzeMuster(nodeLaden());
+      if (!MUSTER) { if (!nodeLaden) throw new Error('Bot-Matcher: keine Muster gesetzt (setzeMuster)'); MUSTER = nodeLaden('muster.json'); }
+      if (!KANON) { if (!nodeLaden) throw new Error('Bot-Matcher: kein Kanon gesetzt (setzeKanon)'); KANON = nodeLaden('kanon.json'); }
+      GEL = bauen(MUSTER, KANON);
     }
     return GEL;
   }
 
-  // ---------- Abgleich ----------
+  // ---------- Stufe 1: Kanon ----------
   function subKosten(a, b, slot) {
     const s = wortSim(a, b);
     if (slot) return s >= SIM_MIN_SLOT ? 1 - s : 1.5;
     return s >= SIM_MIN ? 1 - s : 1;
   }
-  // maxKosten: Abbruch (Infinity), sobald zwei aufeinanderfolgende Zeilen alle darueber liegen (spart den Grossteil der Muster)
+  // maxKosten: Abbruch (Infinity), sobald zwei aufeinanderfolgende Zeilen alle darueber liegen
   function ausrichten(T, P, maxKosten) {
     const n = T.length, m = P.length;
     const D = [];
@@ -231,11 +279,11 @@
         if (i > 0) best = Math.min(best, D[i - 1][j] + KOSTE_EXTRA_TEXT);
         if (j > 0) best = Math.min(best, D[i][j - 1] + KOSTE_FEHLT);
         if (i > 0 && j > 0) best = Math.min(best, D[i - 1][j - 1] + subKosten(T[i - 1], P[j - 1].w, P[j - 1].slot));
-        if (i > 1 && j > 0) {   // zwei Textwoerter = ein Musterwort ("steuer bord")
+        if (i > 1 && j > 0) {   // zwei Textwoerter = ein Formwort ("steuer bord")
           const s = wortSim(T[i - 2] + T[i - 1], P[j - 1].w);
           if (s >= 0.8) best = Math.min(best, D[i - 2][j - 1] + (1 - s) + 0.05);
         }
-        if (i > 0 && j > 1) {   // ein Textwort = zwei Musterwoerter ("zieldrehen")
+        if (i > 0 && j > 1) {   // ein Textwort = zwei Formwoerter ("zieldrehen")
           const s = wortSim(T[i - 1], P[j - 2].w + P[j - 1].w);
           if (s >= 0.8) best = Math.min(best, D[i - 1][j - 2] + (1 - s) + 0.05);
         }
@@ -245,7 +293,141 @@
     }
     return D[n][m];
   }
+  // Ergebnis: { score, p } | 'mehrdeutig' | null
+  function stufe1(g, toks, mz, schwelle) {
+    const beste = new Map();
+    const n = toks.length;
+    const wortOk = new Map();   // Formwort -> kommt im Text (oder zusammengezogen/als Teil eines Textworts) ungefaehr vor
+    const ok = (w) => {
+      let r = wortOk.get(w);
+      if (r === undefined) {
+        r = false;
+        for (let i = 0; i < n && !r; i++) {
+          if (wortSim(toks[i], w) >= SIM_MIN || (w.length >= 3 && toks[i].includes(w))) r = true;
+          else if (i + 1 < n && wortSim(toks[i] + toks[i + 1], w) >= 0.8) r = true;
+        }
+        wortOk.set(w, r);
+      }
+      return r;
+    };
+    for (const p of g.formen) {
+      if (mz.meter != null && !p.meter) continue;   // mit Meterangabe nur nav.abstand
+      const m = p.toks.length;
+      if (Math.abs(m - n) > 3) continue;
+      let fehlt = 0; const erlaubt = Math.floor((1 - (schwelle - MARGE)) * Math.max(m, n)) + 1;
+      for (const t of p.toks) if (!ok(t.w) && ++fehlt > erlaubt) break;
+      if (fehlt > erlaubt) continue;
+      const kosten = ausrichten(toks, p.toks, (1 - (schwelle - MARGE)) * Math.max(m, n));
+      const score = 1 - kosten / Math.max(m, n);
+      if (score < schwelle - MARGE) continue;   // nur Kandidaten, die die Mehrdeutigkeitspruefung betreffen koennen
+      const key = p.befehl + '|' + p.argKey;
+      const alt = beste.get(key);
+      if (!alt || score > alt.score) beste.set(key, { score, p });
+    }
+    if (!beste.size) return null;
+    const liste = Array.from(beste.values()).sort((a, b) => b.score - a.score);
+    const top = liste[0];
+    if (top.score < schwelle) return null;
+    if (liste.length > 1 && top.score - liste[1].score < MARGE) return 'mehrdeutig';
+    return top;
+  }
 
+  // ---------- Stufe 2: Schluesselwort und Slot ----------
+  // Passt Textwort t auf Muster w? Rueckgabe Aehnlichkeit 0..1
+  function passt(t, m) {
+    if (m.stamm) return m.w.length >= 3 && t.startsWith(m.w) && t.length - m.w.length <= STAMM_REST ? 1 : 0;
+    if (m.strikt && m.w.length <= 4) return t === m.w ? 1 : 0;   // kurze Strukturwoerter (alle, kurs, halt) nie raten ("all" ist nicht "alle")
+    const s = wortSim(t, m.w);
+    return s >= SIM_FREI ? s : 0;
+  }
+  // Beste Fundstelle eines Wortmusters: { idx:[...], sim } | null (einzelnes Textwort oder zwei zusammengezogene)
+  function finde(toks, m) {
+    let best = null;
+    for (let i = 0; i < toks.length; i++) {
+      const s = passt(toks[i], m);
+      if (s && (!best || s > best.sim)) best = { idx: [i], sim: s };
+      if (!m.stamm && i + 1 < toks.length && m.w.length >= 6) {
+        const z = wortSim(toks[i] + toks[i + 1], m.w);
+        if (z >= 0.85 && (!best || z - 0.05 > best.sim)) best = { idx: [i, i + 1], sim: z - 0.05 };
+      }
+    }
+    return best;
+  }
+  // Gruppe: alle Wortmuster muessen vorkommen (verschiedene Textwoerter)
+  function findeGruppe(toks, gruppe) {
+    const idx = []; let sim = 1;
+    for (const m of gruppe) {
+      const r = finde(toks, m);
+      if (!r) return null;
+      idx.push(...r.idx); sim = Math.min(sim, r.sim);
+    }
+    return { idx, sim };
+  }
+  // Alle Alias-Fundstellen eines Slots, laengste zuerst, ohne Ueberlappung. Rueckgabe { werte:Set, idx:Set, sim }
+  function findeSlot(slot, toks) {
+    const kand = [];
+    for (const al of slot.aliase) {
+      const L = al.toks.length;
+      for (let i = 0; i + L <= toks.length; i++) {
+        let sim = 1, gut = true;
+        for (let j = 0; j < L && gut; j++) { const s = passt(toks[i + j], { w: al.toks[j], stamm: false }); if (!s) gut = false; else sim = Math.min(sim, s); }
+        if (gut) kand.push({ wert: al.wert, i, len: L, sim });
+      }
+      if (L === 1) for (let i = 0; i + 1 < toks.length; i++) {   // "steuer bord"
+        const z = wortSim(toks[i] + toks[i + 1], al.toks[0]);
+        if (al.toks[0].length >= 6 && z >= 0.85) kand.push({ wert: al.wert, i, len: 2, sim: z - 0.05 });
+      }
+    }
+    kand.sort((a, b) => b.len - a.len || b.sim - a.sim || a.i - b.i);
+    const belegt = new Set(); const werte = new Set(); let sim = 1;
+    for (const k of kand) {
+      let frei = true; for (let j = 0; j < k.len; j++) if (belegt.has(k.i + j)) frei = false;
+      if (!frei) continue;
+      for (let j = 0; j < k.len; j++) belegt.add(k.i + j);
+      werte.add(k.wert); sim = Math.min(sim, k.sim);
+    }
+    return { werte, idx: belegt, sim };
+  }
+  // Liefert { befehl, an, args, konfidenz } | null; mehrere erfuellte Befehle oder Argumentkonflikt -> 'mehrdeutig'
+  function stufe2(g, toks, mz) {
+    const erg = new Map();
+    for (const befehl of Object.keys(g.fam)) {
+      const f = g.fam[befehl];
+      if (mz.meter != null && befehl !== 'nav.abstand') continue;
+      const erklaert = new Set(); let sim = 1;
+      // Familie: mindestens eine Gruppe; alle zutreffenden Gruppen erklaeren ihre Woerter
+      let famOk = false;
+      for (const gr of f.familie) { const r = findeGruppe(toks, gr); if (r) { famOk = true; r.idx.forEach((i) => erklaert.add(i)); sim = Math.min(sim, r.sim); } }
+      if (!famOk) continue;
+      if (f.und.length && !(f.meterErsetztUnd && mz.meter != null)) {
+        let undOk = false;
+        for (const gr of f.und) { const r = findeGruppe(toks, gr); if (r) { undOk = true; r.idx.forEach((i) => erklaert.add(i)); sim = Math.min(sim, r.sim); } }
+        if (!undOk) continue;
+      }
+      const args = {}; let gut = true;
+      for (const [liste, pflicht] of [[f.pflicht, true], [f.optional, false]]) {
+        for (const sn of liste) {
+          const r = findeSlot(g.slots[sn], toks);
+          if (r.werte.size > 1 || (pflicht && r.werte.size === 0)) { gut = false; break; }
+          if (r.werte.size === 1) { args[g.slots[sn].arg] = zuWert(Array.from(r.werte)[0]); r.idx.forEach((i) => erklaert.add(i)); sim = Math.min(sim, r.sim); }
+        }
+        if (!gut) break;
+      }
+      if (!gut) continue;
+      for (let i = 0; i < toks.length; i++) {
+        if (erklaert.has(i)) continue;
+        for (const gr of f.mit) { const s = passt(toks[i], gr[0]); if (s) { erklaert.add(i); sim = Math.min(sim, s); break; } }
+      }
+      if (erklaert.size < toks.length || erklaert.size < f.mind) continue;   // Rest = Wort ausserhalb der Befehlsgruppen: im Zweifel null
+      const konf = KONF_FREI - 0.3 * (1 - sim);
+      erg.set(befehl + '|' + JSON.stringify(sortiert(args)), { befehl, an: f.an, args, konf });
+    }
+    if (!erg.size) return null;
+    if (erg.size > 1) return 'mehrdeutig';
+    return Array.from(erg.values())[0];
+  }
+
+  // ---------- Zahlwoerter ----------
   // Deutsche Zahlwoerter 1..9999 ("fuenfzig", "zweihundertzwanzig", "tausendfuenfhundert", "einundzwanzig"); sonst null
   const EINER = { ein: 1, eins: 1, zwei: 2, drei: 3, vier: 4, fuenf: 5, sechs: 6, sieben: 7, acht: 8, neun: 9 };
   const ZEHNER = { zehn: 10, elf: 11, zwoelf: 12, dreizehn: 13, vierzehn: 14, fuenfzehn: 15, sechzehn: 16, siebzehn: 17, achtzehn: 18, neunzehn: 19, zwanzig: 20, dreissig: 30, vierzig: 40, fuenfzig: 50, sechzig: 60, siebzig: 70, achtzig: 80, neunzig: 90 };
@@ -284,6 +466,7 @@
     return { rest: toks, meter: null };
   }
 
+  // ---------- match ----------
   // Mehrteilige Aeusserung ("Maschinen aus, Stopp", "Anlegen und andocken", "Nach Hause, Kurs auf die Basis"): erst der ganze Text, sonst
   // die Teile (Komma/Satzzeichen/"und"). Gilt nur, wenn mindestens ein Teil trifft, alle treffenden Teile denselben Befehl mit denselben
   // Argumenten liefern und die nicht treffenden Teile hoechstens drei Inhaltswoerter haben (sonst Plaudern: null).
@@ -296,7 +479,7 @@
     for (const t of tokens(roh)) if (g.neg.has(t) || g.frage.has(t) || g.fremd.has(t)) return null;
     const teile = roh.split(/\s*(?:[,;.!?]+|\bund\b)\s*/i).filter((p) => norm(p));
     if (teile.length < 2 || teile.length > 3) return null;
-    let erg = null, kmin = 1, rolle = null;
+    let erg = null, kmin = 1, rolle = null; const unklar = [];
     for (const teil of teile) {
       const tt = tokens(teil);
       if (tt.length === 1) {   // reines Rollenwort ("Technik, ..."): gilt fuer den ganzen Text
@@ -308,7 +491,16 @@
         if (erg && (erg.befehl !== x.befehl || JSON.stringify(sortiert(erg.args)) !== JSON.stringify(sortiert(x.args)))) return null;
         if (!erg || (x.an !== 'alle' && erg.an === 'alle')) erg = x;
         kmin = Math.min(kmin, x.konfidenz);
-      } else if (tokens(teil).filter((t) => !g.fuell.has(t)).length > 3) return null;
+      } else {
+        const rest = tokens(teil).filter((t) => !g.fuell.has(t));
+        if (rest.length > 3) return null;
+        unklar.push(rest);
+      }
+    }
+    // Ein nicht erkannter Teil darf kein Argumentwort des Befehls enthalten ("Torpedo klar und Feuer frei": Torpedo gehoert zum Befehl)
+    if (erg && g.fam[erg.befehl]) {
+      const f = g.fam[erg.befehl];
+      for (const rest of unklar) for (const sn of f.pflicht.concat(f.optional)) if (findeSlot(g.slots[sn], rest).werte.size) return null;
     }
     if (erg && rolle && erg.an !== 'alle' && rolle !== 'alle' && rolle !== erg.an) return null;   // falsche Rolle angesprochen
     return erg ? Object.assign({}, erg, { konfidenz: kmin }) : null;
@@ -316,12 +508,14 @@
   function matchGanz(text, opts) {
     const g = geladen();
     const schwelle = opts && typeof opts.schwelle === 'number' ? opts.schwelle : SCHWELLE;
-    let toks = tokens(text);
-    const nachKomma = /,\s*([^,\s]+)\s*[.!?]*\s*$/.exec(String(text));   // "..., Navigation": Adressierung hinten, nur mit Komma ("an Bord" bleibt Inhalt)
+    const roh = String(text == null ? '' : text);
+    let toks = tokens(roh);
+    const nachKomma = /,\s*([^,\s]+)\s*[.!?]*\s*$/.exec(roh);   // "..., Navigation": Adressierung hinten, nur mit Komma ("an Bord" bleibt Inhalt)
     if (!toks.length || toks.length > MAX_TOKENS + 3) return null;
     for (const t of toks) if (g.neg.has(t) || g.frage.has(t) || g.fremd.has(t)) return null;   // fremd: englische Funktionswoerter ("stop the engines")
+    if (roh.indexOf('?') >= 0) for (const t of toks) if (g.modal.has(t)) return null;           // "Kannst du ...?" ist eine Frage, kein Befehl
 
-    // Adressierung (erstes Wort)
+    // Adressierung (erstes oder letztes Wort)
     let an = null, anName = false;
     if (nachKomma && toks.length > 1) {
       const w = norm(nachKomma[1]);
@@ -342,52 +536,27 @@
     toks = mz.rest.filter((t) => !g.fuell.has(t));
     if (!toks.length || toks.length > MAX_TOKENS) return null;
 
-    // Bester Treffer je (Befehl, Argumente)
-    const beste = new Map();
-    const n = toks.length;
-    const wortOk = new Map();   // Musterwort -> kommt im Text (oder zusammengezogen/als Teil eines Textworts) ungefaehr vor
-    const ok = (w) => {
-      let r = wortOk.get(w);
-      if (r === undefined) {
-        r = false;
-        for (let i = 0; i < n && !r; i++) {
-          if (wortSim(toks[i], w) >= SIM_MIN || (w.length >= 3 && toks[i].includes(w))) r = true;
-          else if (i + 1 < n && wortSim(toks[i] + toks[i + 1], w) >= 0.8) r = true;
-        }
-        wortOk.set(w, r);
-      }
-      return r;
-    };
-    for (const p of g.patterns) {
-      if (p.meter && mz.meter == null) continue;   // Muster nur mit Meterangabe ("Abstand tausend Meter")
-      const m = p.toks.length;
-      if (Math.abs(m - n) > 3) continue;
-      let fehlt = 0; const erlaubt = Math.floor((1 - (schwelle - MARGE)) * Math.max(m, n)) + 1;
-      for (const t of p.toks) if (!ok(t.w) && ++fehlt > erlaubt) break;
-      if (fehlt > erlaubt) continue;
-      const kosten = ausrichten(toks, p.toks, (1 - (schwelle - MARGE)) * Math.max(m, n));
-      const score = 1 - kosten / Math.max(m, n);
-      if (score < schwelle - MARGE) continue;   // nur Kandidaten, die die Mehrdeutigkeitspruefung betreffen koennen
-      const key = p.befehl + '|' + p.argKey;
-      const alt = beste.get(key);
-      if (!alt || score > alt.score) beste.set(key, { score, p });
+    // Stufe 1 (Kanon), dann Stufe 2 (frei)
+    let befehl, hanAn, args, konf;
+    const s1 = stufe1(g, toks, mz, schwelle);
+    if (s1 === 'mehrdeutig') return null;
+    if (s1) { befehl = s1.p.befehl; hanAn = s1.p.an; args = Object.assign({}, s1.p.args); konf = Math.round(s1.score * 1000) / 1000; }
+    else {
+      const s2 = stufe2(g, toks, mz);
+      if (!s2 || s2 === 'mehrdeutig') return null;
+      if (s2.konf < schwelle) return null;
+      befehl = s2.befehl; hanAn = s2.an; args = s2.args; konf = Math.round(s2.konf * 1000) / 1000;
     }
-    if (!beste.size) return null;
-    const liste = Array.from(beste.values()).sort((a, b) => b.score - a.score);
-    const top = liste[0];
-    if (top.score < schwelle) return null;
-    if (liste.length > 1 && top.score - liste[1].score < MARGE) return null;   // mehrdeutig
-    const p = top.p;
     // Rolle
-    if (an && !anName && p.an !== 'alle' && an !== p.an) return null;
-    if (an && !anName && p.an === 'alle' && an === 'alle') an = 'alle';
-    const args = Object.assign({}, p.args);
-    if (mz.meter != null) { if (p.befehl !== 'nav.abstand') return null; args.meter = mz.meter; }
-    return { an: an || p.an, befehl: p.befehl, args, konfidenz: Math.round(top.score * 1000) / 1000 };
+    if (an && !anName && hanAn !== 'alle' && an !== hanAn) return null;
+    if (an && !anName && hanAn === 'alle' && an === 'alle') an = 'alle';
+    if (mz.meter != null) { if (befehl !== 'nav.abstand') return null; args.meter = mz.meter; }
+    return { an: an || hanAn, befehl, args, konfidenz: konf };
   }
 
-  // Alle Befehle mit mindestens einem Muster (Test) und Anzahl expandierter Muster
-  function info() { const g = geladen(); const b = {}; for (const p of g.patterns) b[p.befehl] = (b[p.befehl] || 0) + 1; return { muster: g.patterns.length, befehle: b }; }
+  // Test/Menue: Sprechformen (flach) und Anzahl je Befehl
+  function formen() { return kanonFormen(geladen() && KANON); }
+  function info() { const g = geladen(); const b = {}; for (const p of g.formen) b[p.befehl] = (b[p.befehl] || 0) + 1; return { muster: g.formen.length, befehle: b, familien: Object.keys(g.fam) }; }
 
-  return { match, SCHWELLE, setzeMuster, info, _intern: { norm, koelner, wortSim } };
+  return { match, SCHWELLE, setzeMuster, setzeKanon, formen, kanonFormen, info, _intern: { norm, koelner, wortSim } };
 });

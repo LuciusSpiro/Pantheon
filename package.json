@@ -55,6 +55,8 @@
     "test:faden-nach4-mutation": "node tools/mutation-faden-nach4.js",
     "test:bot-matcher": "node tools/test-bot-matcher.js",
     "bot:eval": "node tools/bot-eval.js",
+    "bot:eval:kanon": "node tools/bot-eval.js tools/fixtures/bot-eval/eval-kanon.json --art kanon",
+    "bot:eval:gen": "node tools/gen-eval-kanon.js",
     "test:hinterhalt-kern": "node tools/test-hinterhalt-kern.js",
     "test:faden-hinterhalt": "node tools/test-faden-hinterhalt.js",
     "test:faden-hinterhalt-mutation": "node tools/mutation-faden-hinterhalt.js",

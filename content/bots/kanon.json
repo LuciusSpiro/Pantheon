@@ -1,0 +1,145 @@
+{
+  "format": "bot-kanon/1",
+  "quelle": "Vertrag Bot-Befehle, Katalog v1 (2026-11-18), Spalte 'Beispiel gesprochen'. EINZIGE Quelle der Sprechformen: Taste, Menue und Sprache zeigen dieselbe feste Formulierung je Befehl und Argument; der Matcher (shared/bot-matcher.js) ist darauf optimiert, freie Formulierungen sind ein Zusatz. nav.sprung ist nicht sprechbar und steht hier nicht. hex:<id> und objekt:<id> sind per Sprache nicht waehlbar und kommen nicht vor.",
+  "hinweise": {
+    "anzeige": "Sprechform, so wie die UI sie zeigt (1 bis 4 Woerter). Enthaelt sie {name}, wird sie je Eintrag in 'werte.<name>' mit dem 'wort' des Wertes ausgefuellt.",
+    "args": "Argumente des Befehls. '{name}' steht fuer den Wert aus 'werte', alles andere ist ein fester Wert.",
+    "kurz": "erlaubte Kurzformen/Synonyme (Stufe 1 gleicht sie wie die Hauptform ab); Schablonen {name} werden mit dem 'wort' ausgefuellt. Je Wert in 'werte' zusaetzlich 'kurz' mit ganzen Formen.",
+    "an": "Rolle, die den Befehl ausfuehrt (navigation, ops, technik, bord, alle).",
+    "meter": "nav.abstand: optionale Angabe '<Zahl> Meter' hinter der Sprechform (args.meter)."
+  },
+  "befehle": [
+    {
+      "befehl": "nav.kurs", "an": "navigation", "anzeige": "Kurs auf {ziel}", "args": { "ziel": "{ziel}" }, "kurz": ["Kurs {ziel}"],
+      "werte": { "ziel": {
+        "marke": { "wort": "die Markierung" },
+        "ziel": { "wort": "das Ziel" },
+        "basis": { "wort": "die Basis", "kurz": ["Zurück zur Basis"] }
+      } }
+    },
+    { "befehl": "nav.stopp", "an": "navigation", "anzeige": "Alle Maschinen stopp", "args": {}, "kurz": ["Stopp", "Maschinen stopp"] },
+    {
+      "befehl": "nav.schub", "an": "navigation", "anzeige": "{stufe}", "args": { "stufe": "{stufe}" }, "kurz": [],
+      "werte": { "stufe": {
+        "halb": { "wort": "Halbe Kraft voraus", "kurz": ["Halbe Kraft", "Halber Schub"] },
+        "voll": { "wort": "Volle Kraft voraus", "kurz": ["Volle Kraft", "Volldampf"] },
+        "0": { "wort": "Schub null", "kurz": ["Stufe null"] },
+        "1": { "wort": "Schub eins", "kurz": ["Stufe eins"] },
+        "2": { "wort": "Schub zwei", "kurz": ["Stufe zwei"] },
+        "3": { "wort": "Schub drei", "kurz": ["Stufe drei"] },
+        "4": { "wort": "Schub vier", "kurz": ["Stufe vier"] },
+        "5": { "wort": "Schub fünf", "kurz": ["Stufe fünf"] },
+        "6": { "wort": "Schub sechs", "kurz": ["Stufe sechs"] }
+      } }
+    },
+    { "befehl": "nav.ausweichen", "an": "navigation", "anzeige": "Ausweichen", "args": {}, "kurz": ["Ausweichmanöver"] },
+    { "befehl": "nav.abstand", "an": "navigation", "anzeige": "Abstand halten", "args": {}, "kurz": [], "meter": true },
+    {
+      "befehl": "nav.abstand", "an": "navigation", "anzeige": "Abstand {ziel} halten", "args": { "ziel": "{ziel}" }, "kurz": [], "meter": true,
+      "werte": { "ziel": {
+        "marke": { "wort": "zur Markierung" },
+        "ziel": { "wort": "zum Ziel" },
+        "basis": { "wort": "zur Basis" }
+      } }
+    },
+    { "befehl": "nav.andocken", "an": "navigation", "anzeige": "Andocken", "args": {}, "kurz": ["Dock an"] },
+    { "befehl": "ops.ziel", "an": "ops", "anzeige": "Ziel markieren", "args": { "ziel": "markiert" }, "kurz": ["Markiertes Ziel"], "luecke": "Vertragsbeispiel 'Ziel markieren' ist fuer ops.ziel nicht eindeutig (naechstes | markiert | objekt:<id>); hier festgelegt auf ziel=markiert, Vertrag klaeren." },
+    { "befehl": "ops.ziel", "an": "ops", "anzeige": "Nächstes Ziel", "args": { "ziel": "naechstes" }, "kurz": ["Nächster Gegner"] },
+    { "befehl": "ops.feuer_frei", "an": "ops", "anzeige": "Feuer frei", "args": {}, "kurz": [] },
+    {
+      "befehl": "ops.feuer_frei", "an": "ops", "anzeige": "Feuer frei {waffen}", "args": { "waffen": "{waffen}" }, "kurz": [],
+      "werte": { "waffen": {
+        "alle": { "wort": "alle Waffen", "kurz": ["Alle Waffen Feuer"] },
+        "bug": { "wort": "Bugwaffen" },
+        "bb": { "wort": "Backbordbatterie" },
+        "stb": { "wort": "Steuerbordbatterie" },
+        "torpedo": { "wort": "Torpedo", "kurz": ["Torpedo los"] }
+      } }
+    },
+    { "befehl": "ops.feuer_halt", "an": "ops", "anzeige": "Feuer einstellen", "args": {}, "kurz": ["Feuer halt"] },
+    { "befehl": "ops.scan", "an": "ops", "anzeige": "Scannen", "args": {}, "kurz": ["Scan"] },
+    { "befehl": "ops.landescan", "an": "ops", "anzeige": "Landepunkt scannen", "args": {}, "kurz": ["Landescan"] },
+    {
+      "befehl": "ops.beamen", "an": "ops", "anzeige": "{was} an Bord", "args": { "was": "{was}" }, "kurz": ["{was} beamen"],
+      "werte": { "was": {
+        "person": { "wort": "Person" },
+        "fracht": { "wort": "Fracht" }
+      } }
+    },
+    {
+      "befehl": "tech.prio", "an": "technik", "anzeige": "{ziel} zuerst", "args": { "ziel": "{ziel}" }, "kurz": [],
+      "werte": { "ziel": {
+        "feuer": { "wort": "Feuer" },
+        "leck": { "wort": "Leck" },
+        "reactor": { "wort": "Reaktor" },
+        "engines": { "wort": "Antrieb" },
+        "shields": { "wort": "Schilde" },
+        "transfer": { "wort": "Transfer" },
+        "weapons": { "wort": "Waffen" },
+        "weapon_bow": { "wort": "Bugwaffe" },
+        "battery_port": { "wort": "Backbord Batterie" },
+        "battery_stbd": { "wort": "Steuerbord Batterie" }
+      } }
+    },
+    {
+      "befehl": "tech.reparieren", "an": "technik", "anzeige": "{system} reparieren", "args": { "system": "{system}" }, "kurz": [],
+      "werte": { "system": {
+        "reactor": { "wort": "Reaktor" },
+        "engines": { "wort": "Antrieb" },
+        "shields": { "wort": "Schilde" },
+        "transfer": { "wort": "Transfer" },
+        "thruster_port": { "wort": "Backbord Düse" },
+        "thruster_stbd": { "wort": "Steuerbord Düse" },
+        "emitter_bow": { "wort": "Bug Emitter" },
+        "emitter_stbd": { "wort": "Steuerbord Emitter" },
+        "emitter_aft": { "wort": "Heck Emitter" },
+        "emitter_port": { "wort": "Backbord Emitter" },
+        "weapon_bow": { "wort": "Bugwaffe" },
+        "battery_port": { "wort": "Backbord Batterie" },
+        "battery_stbd": { "wort": "Steuerbord Batterie" },
+        "weapons": { "wort": "Waffen" },
+        "lafette_1": { "wort": "Lafette eins" },
+        "lafette_2": { "wort": "Lafette zwei" },
+        "lafette_3": { "wort": "Lafette drei" },
+        "lafette_5": { "wort": "Lafette fünf" },
+        "lafette_7": { "wort": "Lafette sieben" },
+        "lafette_9": { "wort": "Lafette neun" },
+        "modul_1": { "wort": "Modul eins" },
+        "modul_2": { "wort": "Modul zwei" },
+        "modul_3": { "wort": "Modul drei" },
+        "modul_4": { "wort": "Modul vier" }
+      } }
+    },
+    {
+      "befehl": "tech.schild", "an": "technik", "anzeige": "Schilde {sektor}", "args": { "sektor": "{sektor}" }, "kurz": ["Schild {sektor}"],
+      "werte": { "sektor": {
+        "bug": { "wort": "Bug" },
+        "stb": { "wort": "Steuerbord" },
+        "heck": { "wort": "Heck" },
+        "bb": { "wort": "Backbord" }
+      } }
+    },
+    {
+      "befehl": "tech.energie", "an": "technik", "anzeige": "Mehr Energie auf {system}", "args": { "system": "{system}", "delta": 1 }, "kurz": [],
+      "werte": { "system": {
+        "engines": { "wort": "Antrieb" },
+        "shields": { "wort": "Schilde" },
+        "weapons": { "wort": "Waffen" }
+      } }
+    },
+    {
+      "befehl": "tech.energie", "an": "technik", "anzeige": "Weniger Energie auf {system}", "args": { "system": "{system}", "delta": -1 }, "kurz": [],
+      "werte": { "system": {
+        "engines": { "wort": "Antrieb" },
+        "shields": { "wort": "Schilde" },
+        "weapons": { "wort": "Waffen" }
+      } }
+    },
+    { "befehl": "tech.ueberladen", "an": "technik", "anzeige": "Reaktor überladen", "args": {}, "kurz": ["Reaktor überlasten"] },
+    { "befehl": "bord.rueckholen", "an": "bord", "anzeige": "Außenteam zurückholen", "args": {}, "kurz": ["Außenteam zurück"] },
+    { "befehl": "bord.sensor", "an": "bord", "anzeige": "Sensor", "args": {}, "kurz": [] },
+    { "befehl": "bord.kuppel", "an": "bord", "anzeige": "Kuppel", "args": {}, "kurz": [] },
+    { "befehl": "bot.status", "an": "alle", "anzeige": "Statusbericht", "args": {}, "kurz": ["Status"] },
+    { "befehl": "bot.automatik", "an": "alle", "anzeige": "Automatik", "args": {}, "kurz": [] }
+  ]
+}
