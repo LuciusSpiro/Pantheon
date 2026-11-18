@@ -367,6 +367,130 @@ for (const t of [
   'Scanner defekt', 'Scan Ergebnis', 'Stoppschild', 'Schild', 'Schilder', 'Zielscheibe', 'Kursbuch', 'Schubkarre', 'Reparaturkosten',
 ]) pruefe(t, null);
 
+// ---- A3 Review-Nacharbeit: Gegenteile, Zustandsmeldungen, Lautaehnliches, Fragezeichen (S1), Prototyp-Woerter (S2), mehrteilige Aeusserungen (H1), Wertgrenzen (H2) ----
+for (const t of [
+  "Feuer Ops",
+  "Feuer Opps",
+  "Feuer Hops",
+  "Feuer oops",
+  "Feuer Obs",
+  "Abdocken",
+  "Abdocken bitte",
+  "Ablegen",
+  "Abfliegen",
+  "Spannen",
+  "Scanner",
+  "Scanners",
+  "Ausreichen",
+  "Ausreichend",
+  "Ausweichend",
+  "Ausweichung",
+  "Waffen repariert",
+  "Reaktor repariert",
+  "Antrieb repariert",
+  "Schilde repariert",
+  "Lafette eins repariert",
+  "Reparatur",
+  "Reparaturen",
+  "Reaktor überladen?",
+  "Feuer frei?",
+  "Kurs auf die Basis?",
+  "Stopp?",
+  "Andocken?",
+  "Schilde Bug?",
+  "Start",
+  "Stopp Start",
+  "Schilde rauf",
+  "Schilde runter",
+  "Schilde hoch",
+  "Reaktor an",
+  "Reaktor aus",
+  "Reaktor hochfahren",
+  "Reaktor runterfahren",
+  "Kurs weg von der Basis",
+  "Kurs weg vom Ziel",
+  "Weg von der Basis",
+  "Weg vom Ziel",
+  "Feuer frei halt",
+  "Feuer gelöscht",
+  "Feuer ist aus",
+  "Antrieb ausgefallen",
+  "Schilde ausgefallen",
+  "Waffen ausgefallen",
+  "Reaktor ausgefallen",
+  "Schub minus eins",
+  "Schub -1",
+  "Schub −2",
+  "Schub 7",
+  "Schub 10",
+  "Schub 99",
+  "Stufe sieben",
+  "Abstand 0 Meter",
+  "Abstand 200000 Meter",
+  "Abstand 2,5 Meter",
+  "Abstand halten -50 Meter",
+  "Abstand halten 100001 Meter",
+  "constructor",
+  "__proto__",
+  "toString",
+  "hasOwnProperty",
+  "valueOf",
+  "isPrototypeOf",
+  "Schub constructor",
+  "Kurs auf constructor",
+  "constructor constructor",
+  "Schilde __proto__",
+  "Abstand __proto__ Meter",
+  "toString Meter",
+  "Energie auf Antrieb und Kurs auf das Ziel",
+  "Antrieb Energie und Kurs Ziel",
+  "Mehr Energie auf Schilde und Kurs auf die Basis",
+  "Reaktor reparieren und Schilde Bug",
+  "Reaktor reparieren und Antrieb zuerst",
+  "Kurs auf die Basis und Schilde Heck",
+  "Torpedo klar und Schub drei",
+]) { try { pruefe(t, null); } catch (e) { fehler++; console.log('FEHLER: "' + t + '" wirft ' + e.message); } }
+// Positivkontrollen: die Verschaerfungen duerfen die richtigen Formen nicht treffen
+pruefe('Repariert den Antrieb', b('tech.reparieren', { system: 'engines' }));        // Imperativ Plural vorn bleibt Befehl
+pruefe('Antrieb reparieren', b('tech.reparieren', { system: 'engines' }));
+pruefe('Andocke', b('nav.andocken'));                                                // Hoerfehler: Auslassen
+pruefe('Andcoken', b('nav.andocken'));                                               // Dreher
+pruefe('Scannen', b('ops.scan'));
+pruefe('Abstand halten 1 Meter', b('nav.abstand', { meter: 1 }));
+pruefe('Abstand halten 100000 Meter', b('nav.abstand', { meter: 100000 }));
+pruefe('Abstand halten 1.000 Meter', b('nav.abstand', { meter: 1000 }));            // Tausenderpunkt ist keine Dezimalzahl
+pruefe('Schub 6', b('nav.schub', { stufe: 6 }));
+pruefe('Schub 0', b('nav.schub', { stufe: 0 }));
+pruefe('Maschinen aus, Stopp', b('nav.stopp'));
+pruefe('Torpedo klar und Feuer frei', null);                                          // Torpedo im unerkannten Teil: Argument des Befehls, nicht raten
+// S2: Prototyp-Woerter duerfen nie werfen und nie etwas treffen (alle Lookup-Tabellen ohne Prototyp)
+for (const w of ['constructor', '__proto__', 'toString', 'hasOwnProperty', 'valueOf', 'isPrototypeOf', 'propertyIsEnumerable', 'toLocaleString', '__defineGetter__', '__lookupGetter__']) {
+  for (const t of [w, 'Schub ' + w, w + ' Meter', 'Abstand halten ' + w + ' Meter', 'Kurs auf ' + w, 'Technik, ' + w, w + ', Stopp', 'Stopp und ' + w, w + ' ' + w]) {
+    n++;
+    let r;
+    try { r = M.match(t); } catch (e) { fehler++; console.log('FEHLER: "' + t + '" wirft ' + e.message); continue; }
+    if (r !== null && !/Stopp/.test(t)) { fehler++; console.log('FEHLER: "' + t + '" erwartet null bekommen ' + JSON.stringify(r)); }
+  }
+}
+// Mutationsproben: die Pruefung muss tatsaechlich greifen. Quelltext ohne die Pruefung laden, dann muss mindestens ein Fall kippen.
+{
+  const quelle = fs.readFileSync(path.join(__dirname, '..', 'shared', 'bot-matcher.js'), 'utf8');
+  const lade = (s) => { const m = { exports: {} }; new Function('module', 'require', '__dirname', s)(m, require, path.join(__dirname, '..', 'shared')); return m.exports; };
+  const mutiere = (name, teil, faelle, mindestens, nur) => {
+    n++;
+    let s;
+    if (nur === undefined) { if (!quelle.includes(teil)) { fehler++; console.log('FEHLER: Mutation ' + name + ': Pruefung nicht im Quelltext'); return; } s = quelle.split(teil).join(''); }
+    else { const stellen = []; for (let p = quelle.indexOf(teil); p >= 0; p = quelle.indexOf(teil, p + 1)) stellen.push(p); if (stellen.length < nur) { fehler++; console.log('FEHLER: Mutation ' + name + ': Stelle fehlt'); return; } const p = stellen[nur - 1]; s = quelle.slice(0, p) + quelle.slice(p + teil.length); }
+    const mut = lade(s);
+    const kipp = faelle.filter((t) => JSON.stringify(mut.match(t)) !== JSON.stringify(M.match(t)));
+    if (kipp.length < mindestens) { fehler++; console.log('FEHLER: Mutation ' + name + ' ueberlebt (nur ' + kipp.length + ' Faelle kippen, erwartet ' + mindestens + ')'); }
+  };
+  const negFaelle = ['Ausweichen, nicht', 'Andocken, nein', 'Kurs auf die Basis, lass das', 'Kein Feuer frei', 'Nicht ausweichen', 'Lass das Feuer frei'];
+  mutiere('Verneinung entfernt (alle Stellen)', 'g.neg.has(t) ||', negFaelle, 3);
+  mutiere('Verneinung bei mehrteiligen Aeusserungen entfernt', 'g.neg.has(t) ||', negFaelle, 3, 1);
+  mutiere('Fragezeichen-Regel entfernt', "roh.indexOf('?') >= 0 ||", ['Feuer frei?', 'Reaktor überladen?', 'Kurs auf die Basis?', 'Stopp?'], 4);
+}
+
 // ---- Eval-Saetze: Kanon-Set Quote 100 % und Falsch-Positiv 0, freie Sets Falsch-Positiv 0 (bot-eval.js --art), Kanon-Set aktuell gegen den Generator ----
 {
   const { spawnSync } = require('child_process');

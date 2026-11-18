@@ -17,6 +17,9 @@
 // Null bei: Negation, Fragewort oder Frageform ("Kannst du ...?"), Fremdsprache (fremdwoerter), mehr als 10 Woertern, Konfidenz unter der
 //   Schwelle, Mehrdeutigkeit, fehlendem oder mehrdeutigem Pflichtargument (auch "Schilde Bug Heck"), Adressierung an die falsche Rolle,
 //   Zahl mit "Meter" bei einem anderen Befehl als nav.abstand.
+// Immer null (Review A3): Fragezeichen, Minus vor Zahl, Dezimalzahl, Meter ausserhalb 1..100000; mehrteilige Aeusserung mit unerkanntem Rest, der ein Befehls-/Slotwort
+//   eines anderen Befehls traegt. Einwort-Formen (nach Fuellwoertern, z. B. "Dock an") tolerieren Auslassen/Einfuegen/Dreher/gleichklingenden Tausch, keine Phonetik allein.
+//   Stufe 2: Zusammenziehen ohne Phonetik (>= 0,9), 'stamm*' nur mit Verbendung (e, en, n, ne, nen, st), Imperativ Plural (-t) nur als erstes Wort ("Waffen repariert" = Meldung).
 // Nicht per Sprache waehlbar: nav.sprung, hex:<id>, objekt:<id> (weder Kanon noch Familie darf sie enthalten, Test).
 (function (root, factory) {
   if (typeof module === 'object' && module.exports) module.exports = factory(require);
@@ -26,6 +29,7 @@
 
   const SCHWELLE = 0.85;
   const MARGE = 0.05;            // Abstand zwischen bestem und zweitbestem (anderen) Treffer, sonst null
+  const METER_MIN = 1, METER_MAX = 100000;   // sinnvoller Bereich der Meterangabe, sonst null
   const MAX_TOKENS = 10;         // laengere Texte sind Plaudern
   const KOSTE_EXTRA_TEXT = 1;    // zusaetzliches Wort im Text (Stufe 1: ein ganzes Wort)
   const KOSTE_FEHLT = 1;         // Wort der Sprechform fehlt im Text
@@ -33,7 +37,10 @@
   const SIM_MIN_SLOT = 0.75;     // Argumentwoerter strenger (darunter Kosten 1,5)
   const SIM_FREI = 0.85;         // Stufe 2: Mindestaehnlichkeit eines Wortes (Woerter bis 4 Zeichen aus Familie/mit: nur exakt)
   const KONF_FREI = 0.92;        // Stufe 2: Konfidenz bei lauter exakten Woertern
-  const STAMM_REST = 3;          // 'stamm*': hoechstens so viele weitere Zeichen
+  // 'stamm*': nur Infinitiv-/Imperativendungen (scan -> scannen, scanne). Kein Partizip (repariert), keine Ableitung (scanner, ausweichung, ausweichend), kein Plural (scanns)
+  const STAMM_ENDUNG = /^(e|en|n|ne|nen|st)?$/;
+  // Imperativ Plural (repariert, kuemmert) nur als erstes Wort: Verb vorn = Befehl, Verb hinten ("Waffen repariert") = Zustandsmeldung, im Zweifel null
+  const STAMM_T = /^(t|et)$/;
 
   // ---------- Normalisierung ----------
   function norm(s) {
@@ -44,7 +51,7 @@
     t = t.replace(/[^a-z0-9]+/g, ' ').trim();
     return t;
   }
-  let SYN = {};   // Synonyme auf ein Leitwort (z.B. voran -> voraus), gilt fuer Text, Kanon und Familien
+  let SYN = Object.create(null);   // Synonyme auf ein Leitwort (z.B. voran -> voraus), gilt fuer Text, Kanon und Familien
   function tokens(s) { const n = norm(s); return n ? n.split(' ').map((t) => SYN[t] || t) : []; }
 
   // ---------- Aehnlichkeit ----------
@@ -179,7 +186,7 @@
   function gruppen(liste) { return (liste || []).map((p) => wortMuster(p)).filter((g) => g.length); }
 
   function bauen(muster, kanon) {
-    SYN = {}; for (const k of Object.keys(muster.synonyme || {})) SYN[norm(k)] = norm(muster.synonyme[k]);
+    SYN = Object.create(null); for (const k of Object.keys(muster.synonyme || {})) SYN[norm(k)] = norm(muster.synonyme[k]);
     const fuell = new Set((muster.fuellwoerter || []).map(norm));
     const neg = new Set((muster.negation || []).map(norm));
     const frage = new Set((muster.fragewoerter || []).map(norm));
@@ -230,7 +237,12 @@
       };
       for (const s of fam[befehl].pflicht.concat(fam[befehl].optional)) if (!slots[s]) throw new Error('Muster: unbekannter Slot ' + s + ' in ' + befehl);
     }
-    return { fuell, neg, frage, modal, fremd, adressen, hinten, formen, fam, slots };
+    // Kennwoerter: alles, was zum Vokabular irgendeines Befehls gehoert (Familienwoerter, Slot-Aliase). Ein unerkannter Teil einer mehrteiligen
+    // Aeusserung darf keines enthalten (sonst wuerde still nur der andere Teil ausgefuehrt).
+    const kenn = [];
+    for (const b of Object.keys(fam)) for (const gr of fam[b].familie) if (gr.length === 1 && gr[0].w.length > 3) kenn.push(gr[0]);   // kurze Familienwoerter (los, aus) sind Fuellsel am Satzende   // Mehrwortgruppen (feuer aus) nur als Ganzes, ihre Einzelwoerter (aus) sind kein Befehlsbeleg
+    for (const k of Object.keys(slots)) for (const al of slots[k].aliase) for (const w of al.toks) kenn.push({ w, stamm: false, strikt: true });
+    return { fuell, neg, frage, modal, fremd, adressen, hinten, formen, fam, slots, kenn };
   }
   // Ist das Wort Teil eines Alias, dessen Wert zu einem Argument des Befehls passt? Grob: Wort kommt in irgendeinem Slot-Alias vor, dessen Wert
   // (als Text) in den Argumenten des Befehls steht.
@@ -261,7 +273,20 @@
   }
 
   // ---------- Stufe 1: Kanon ----------
-  function subKosten(a, b, slot, ohnePhon) {
+  // Einwort-Formen: Auslassen, Einfuegen und Dreher sind Hoerfehler (andocke, andcoken), ein Buchstabentausch ist meist ein anderes Wort (abdocken, scanner)
+  function einwortOk(a, b) {
+    if (a === b) return true;
+    if (a.length > b.length && /end$/.test(a) && !/end$/.test(b)) return false;   // Partizip I (ausweichend)
+    if (a.length !== b.length) return true;
+    let d = 0, k = -1; for (let i = 0; i < a.length; i++) if (a[i] !== b[i]) { d++; k = i; }
+    return d !== 1 || gleichKlang(a[k], b[k]);   // Dreher (d = 2) und gleichklingender Tausch (k/c, o/u, n/m) sind Hoerfehler
+  }
+  const KLANG = { b: 1, p: 1, d: 2, t: 2, f: 3, v: 3, w: 3, c: 4, k: 4, g: 4, q: 4, l: 5, m: 6, n: 6, r: 7, s: 8, z: 8 };
+  function gleichKlang(x, y) { const vx = 'aeiouy'.includes(x), vy = 'aeiouy'.includes(y); if (vx || vy) return vx && vy; return KLANG[x] !== undefined && KLANG[x] === KLANG[y]; }
+  function subKosten(a, b, slot, ohnePhon, vorn) {
+    if (ohnePhon && !einwortOk(a, b)) return 1;
+    // Zustandsmeldung statt Befehl: "repariert" (Partizip, auf -t) gegen die Kanonform "reparieren" gilt nur als erstes Wort ("Repariert den Antrieb", Imperativ Plural)
+    if (!vorn && a.length > 3 && a.endsWith('t') && /(en|n)$/.test(b) && a.slice(0, -1) === b.slice(0, b.endsWith('en') ? -2 : -1)) return 1;
     const s = wortSim(a, b, ohnePhon);
     if (slot) return s >= SIM_MIN_SLOT ? 1 - s : 1.5;
     return s >= SIM_MIN ? 1 - s : 1;
@@ -280,14 +305,14 @@
         let best = Infinity;
         if (i > 0) best = Math.min(best, D[i - 1][j] + KOSTE_EXTRA_TEXT);
         if (j > 0) best = Math.min(best, D[i][j - 1] + KOSTE_FEHLT);
-        if (i > 0 && j > 0) best = Math.min(best, D[i - 1][j - 1] + subKosten(T[i - 1], P[j - 1].w, P[j - 1].slot, ohnePhon));
+        if (i > 0 && j > 0) best = Math.min(best, D[i - 1][j - 1] + subKosten(T[i - 1], P[j - 1].w, P[j - 1].slot, ohnePhon, i === 1));
         if (i > 1 && j > 0) {   // zwei Textwoerter = ein Formwort ("steuer bord")
-          const s = wortSim(T[i - 2] + T[i - 1], P[j - 1].w);
-          if (s >= 0.8) best = Math.min(best, D[i - 2][j - 1] + (1 - s) + 0.05);
+          const s = wortSim(T[i - 2] + T[i - 1], P[j - 1].w, true);
+          if (s >= 0.85) best = Math.min(best, D[i - 2][j - 1] + (1 - s) + 0.05);
         }
         if (i > 0 && j > 1) {   // ein Textwort = zwei Formwoerter ("zieldrehen")
-          const s = wortSim(T[i - 1], P[j - 2].w + P[j - 1].w);
-          if (s >= 0.8) best = Math.min(best, D[i - 1][j - 2] + (1 - s) + 0.05);
+          const s = wortSim(T[i - 1], P[j - 2].w + P[j - 1].w, true);
+          if (s >= 0.85) best = Math.min(best, D[i - 1][j - 2] + (1 - s) + 0.05);
         }
         D[i][j] = best;
       }
@@ -336,8 +361,8 @@
 
   // ---------- Stufe 2: Schluesselwort und Slot ----------
   // Passt Textwort t auf Muster w? Rueckgabe Aehnlichkeit 0..1
-  function passt(t, m) {
-    if (m.stamm) return m.w.length >= 3 && t.startsWith(m.w) && t.length - m.w.length <= STAMM_REST ? 1 : 0;
+  function passt(t, m, pos) {
+    if (m.stamm) { if (m.w.length < 3 || !t.startsWith(m.w)) return 0; const rest = t.slice(m.w.length); return STAMM_ENDUNG.test(rest) || (pos === 0 && STAMM_T.test(rest)) ? 1 : 0; }
     if (m.strikt && m.w.length <= 4) return t === m.w ? 1 : 0;   // kurze Strukturwoerter (alle, kurs, halt) nie raten ("all" ist nicht "alle")
     const s = wortSim(t, m.w);
     return s >= SIM_FREI ? s : 0;
@@ -346,11 +371,11 @@
   function finde(toks, m) {
     let best = null;
     for (let i = 0; i < toks.length; i++) {
-      const s = passt(toks[i], m);
+      const s = passt(toks[i], m, i);
       if (s && (!best || s > best.sim)) best = { idx: [i], sim: s };
       if (!m.stamm && i + 1 < toks.length && m.w.length >= 6) {
-        const z = wortSim(toks[i] + toks[i + 1], m.w);
-        if (z >= 0.85 && (!best || z - 0.05 > best.sim)) best = { idx: [i, i + 1], sim: z - 0.05 };
+        const z = wortSim(toks[i] + toks[i + 1], m.w, true);
+        if (z >= 0.9 && (!best || z - 0.05 > best.sim)) best = { idx: [i, i + 1], sim: z - 0.05 };
       }
     }
     return best;
@@ -376,8 +401,8 @@
         if (gut) kand.push({ wert: al.wert, i, len: L, sim });
       }
       if (L === 1) for (let i = 0; i + 1 < toks.length; i++) {   // "steuer bord"
-        const z = wortSim(toks[i] + toks[i + 1], al.toks[0]);
-        if (al.toks[0].length >= 6 && z >= 0.85) kand.push({ wert: al.wert, i, len: 2, sim: z - 0.05 });
+        const z = wortSim(toks[i] + toks[i + 1], al.toks[0], true);
+        if (al.toks[0].length >= 6 && z >= 0.9) kand.push({ wert: al.wert, i, len: 2, sim: z - 0.05 });
       }
     }
     kand.sort((a, b) => b.len - a.len || b.sim - a.sim || a.i - b.i);
@@ -418,7 +443,7 @@
       if (!gut) continue;
       for (let i = 0; i < toks.length; i++) {
         if (erklaert.has(i)) continue;
-        for (const gr of f.mit) { const s = passt(toks[i], gr[0]); if (s) { erklaert.add(i); sim = Math.min(sim, s); break; } }
+        for (const gr of f.mit) { const s = passt(toks[i], gr[0], i); if (s) { erklaert.add(i); sim = Math.min(sim, s); break; } }
       }
       if (erklaert.size < toks.length || erklaert.size < f.mind) continue;   // Rest = Wort ausserhalb der Befehlsgruppen: im Zweifel null
       const konf = KONF_FREI - 0.3 * (1 - sim);
@@ -431,8 +456,8 @@
 
   // ---------- Zahlwoerter ----------
   // Deutsche Zahlwoerter 1..9999 ("fuenfzig", "zweihundertzwanzig", "tausendfuenfhundert", "einundzwanzig"); sonst null
-  const EINER = { ein: 1, eins: 1, zwei: 2, drei: 3, vier: 4, fuenf: 5, sechs: 6, sieben: 7, acht: 8, neun: 9 };
-  const ZEHNER = { zehn: 10, elf: 11, zwoelf: 12, dreizehn: 13, vierzehn: 14, fuenfzehn: 15, sechzehn: 16, siebzehn: 17, achtzehn: 18, neunzehn: 19, zwanzig: 20, dreissig: 30, vierzig: 40, fuenfzig: 50, sechzig: 60, siebzig: 70, achtzig: 80, neunzig: 90 };
+  const EINER = Object.assign(Object.create(null), { ein: 1, eins: 1, zwei: 2, drei: 3, vier: 4, fuenf: 5, sechs: 6, sieben: 7, acht: 8, neun: 9 });
+  const ZEHNER = Object.assign(Object.create(null), { zehn: 10, elf: 11, zwoelf: 12, dreizehn: 13, vierzehn: 14, fuenfzehn: 15, sechzehn: 16, siebzehn: 17, achtzehn: 18, neunzehn: 19, zwanzig: 20, dreissig: 30, vierzig: 40, fuenfzig: 50, sechzig: 60, siebzig: 70, achtzig: 80, neunzig: 90 });
   function zahlwort(w) {
     if (!w) return null;
     let rest = w, summe = 0;
@@ -463,7 +488,7 @@
       let v = null;
       if (/^\d+$/.test(toks[i])) v = Number(toks[i]);
       else v = zahlwort(toks[i]);
-      if (v != null && v > 0) return { rest: toks.slice(0, i).concat(toks.slice(i + 2)), meter: v };
+      if (v != null && v > 0) return { ungueltig: v < METER_MIN || v > METER_MAX, rest: toks.slice(0, i).concat(toks.slice(i + 2)), meter: v };
     }
     return { rest: toks, meter: null };
   }
@@ -472,7 +497,13 @@
   // Mehrteilige Aeusserung ("Maschinen aus, Stopp", "Anlegen und andocken", "Nach Hause, Kurs auf die Basis"): erst der ganze Text, sonst
   // die Teile (Komma/Satzzeichen/"und"). Gilt nur, wenn mindestens ein Teil trifft, alle treffenden Teile denselben Befehl mit denselben
   // Argumenten liefern und die nicht treffenden Teile hoechstens drei Inhaltswoerter haben (sonst Plaudern: null).
+  // Immer null: Fragezeichen (Rueckfrage ist billiger als ein falscher Befehl; Whisper setzt es nach Intonation), Minus vor einer Zahl
+  // ("Schub -1": das Minus darf nicht verschluckt werden), Dezimalzahl ("2,5 Meter"; Tausenderpunkt 1.000 ist schon normalisiert).
+  function unzulaessig(roh) {
+    return roh.indexOf('?') >= 0 || /(^|[^0-9a-zA-Z])[-−–—]\s?\d/.test(roh) || /\d[.,]\d/.test(roh.replace(/(\d)\.(\d{3})(?!\d)/g, '$1$2'));
+  }
   function match(text, opts) {
+    if (unzulaessig(String(text == null ? '' : text))) return null;
     const r = matchGanz(text, opts);
     if (r) return r;
     const g = geladen();
@@ -499,11 +530,17 @@
         unklar.push(rest);
       }
     }
-    // Ein nicht erkannter Teil darf kein Argumentwort des Befehls enthalten ("Torpedo klar und Feuer frei": Torpedo gehoert zum Befehl)
+    // Ein nicht erkannter Teil darf kein Befehls- oder Argumentwort enthalten, weder des erkannten noch eines anderen Befehls ("Energie auf Antrieb
+    // und Kurs auf das Ziel": der erste Teil ist unklar, enthaelt aber Energie/Antrieb, also null statt nur Kurs). "Torpedo klar und Feuer frei": Torpedo gehoert zum Befehl.
     if (erg && g.fam[erg.befehl]) {
       const f = g.fam[erg.befehl];
       for (const rest of unklar) for (const sn of f.pflicht.concat(f.optional)) if (findeSlot(g.slots[sn], rest).werte.size) return null;
-    }
+      const eigen = [].concat(f.familie, f.und, f.mit).reduce((x, y) => x.concat(y), []);
+      for (const rest of unklar) for (let i = 0; i < rest.length; i++) {
+        if (eigen.some((m) => passt(rest[i], m, i))) continue;
+        if (g.kenn.some((m) => passt(rest[i], m, i))) return null;
+      }
+    } else if (erg) for (const rest of unklar) for (let i = 0; i < rest.length; i++) if (g.kenn.some((m) => passt(rest[i], m, i))) return null;
     if (erg && rolle && erg.an !== 'alle' && rolle !== 'alle' && rolle !== erg.an) return null;   // falsche Rolle angesprochen
     return erg ? Object.assign({}, erg, { konfidenz: kmin }) : null;
   }
@@ -514,8 +551,8 @@
     let toks = tokens(roh);
     const nachKomma = /,\s*([^,\s]+)\s*[.!?]*\s*$/.exec(roh);   // "..., Navigation": Adressierung hinten, nur mit Komma ("an Bord" bleibt Inhalt)
     if (!toks.length || toks.length > MAX_TOKENS + 3) return null;
+    if (unzulaessig(roh)) return null;
     for (const t of toks) if (g.neg.has(t) || g.frage.has(t) || g.fremd.has(t)) return null;   // fremd: englische Funktionswoerter ("stop the engines")
-    if (roh.indexOf('?') >= 0) for (const t of toks) if (g.modal.has(t)) return null;           // "Kannst du ...?" ist eine Frage, kein Befehl
 
     // Adressierung (erstes oder letztes Wort)
     let an = null, anName = false;
@@ -535,6 +572,7 @@
       if (bestA) { an = bestA.an; anName = bestA.name; toks = toks.slice(1); }
     }
     const mz = meterZiehen(toks);
+    if (mz.ungueltig) return null;
     toks = mz.rest.filter((t) => !g.fuell.has(t));
     if (!toks.length || toks.length > MAX_TOKENS) return null;
 
