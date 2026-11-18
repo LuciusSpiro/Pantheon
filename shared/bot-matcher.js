@@ -103,9 +103,9 @@
   let NIE_AEHNLICH = new Set();   // Woerter, die nur exakt gelten (z.B. "back": Bug oder Backbord, nie raten)
   const simCache = new Map();
   // Aehnlichkeit zweier Woerter 0..1. Kurze Woerter (bis 3 Zeichen) nur exakt; Ziffern nur exakt.
-  function wortSim(a, b) {
+  function wortSim(a, b, ohnePhon) {
     if (a === b) return 1;
-    const key = a + '|' + b;
+    const key = a + '|' + b + (ohnePhon ? '|l' : '');
     const c = simCache.get(key);
     if (c !== undefined) return c;
     let r;
@@ -117,13 +117,13 @@
       r = 0;
       if (mn === 3 && mx <= 5 && a[0] === b[0]) {
         const ka = koelner(a);
-        if (ka.length >= 2 && ka === koelner(b)) r = 0.88;
+        if (!ohnePhon && ka.length >= 2 && ka === koelner(b)) r = 0.88;
         else if (mx === 4 && (a.length === 3 ? teilfolge(a, b) : teilfolge(b, a))) r = 0.8;
       }
     } else {
       const l = 1 - lev(a, b) / mx;
       r = l;
-      if (l >= 0.6 && anfangOk(a, b)) { const ka = koelner(a); if (ka.length >= 2 && ka === koelner(b)) r = Math.max(r, 0.88); }
+      if (!ohnePhon && l >= 0.6 && anfangOk(a, b)) { const ka = koelner(a); if (ka.length >= 2 && ka === koelner(b)) r = Math.max(r, 0.88); }
     }
     if (simCache.size > 50000) simCache.clear();
     simCache.set(key, r);
@@ -261,13 +261,15 @@
   }
 
   // ---------- Stufe 1: Kanon ----------
-  function subKosten(a, b, slot) {
-    const s = wortSim(a, b);
+  function subKosten(a, b, slot, ohnePhon) {
+    const s = wortSim(a, b, ohnePhon);
     if (slot) return s >= SIM_MIN_SLOT ? 1 - s : 1.5;
     return s >= SIM_MIN ? 1 - s : 1;
   }
   // maxKosten: Abbruch (Infinity), sobald zwei aufeinanderfolgende Zeilen alle darueber liegen
   function ausrichten(T, P, maxKosten) {
+    // Einwort-Form (Fuellwoerter wie "an" sind weg, "Dock an" -> "dock"): kein Zusatzwort stuetzt den Treffer, Phonetik allein reicht nicht (Deck != Dock)
+    const ohnePhon = P.length === 1;
     const n = T.length, m = P.length;
     const D = [];
     for (let i = 0; i <= n; i++) { D.push(new Array(m + 1).fill(Infinity)); }
@@ -278,7 +280,7 @@
         let best = Infinity;
         if (i > 0) best = Math.min(best, D[i - 1][j] + KOSTE_EXTRA_TEXT);
         if (j > 0) best = Math.min(best, D[i][j - 1] + KOSTE_FEHLT);
-        if (i > 0 && j > 0) best = Math.min(best, D[i - 1][j - 1] + subKosten(T[i - 1], P[j - 1].w, P[j - 1].slot));
+        if (i > 0 && j > 0) best = Math.min(best, D[i - 1][j - 1] + subKosten(T[i - 1], P[j - 1].w, P[j - 1].slot, ohnePhon));
         if (i > 1 && j > 0) {   // zwei Textwoerter = ein Formwort ("steuer bord")
           const s = wortSim(T[i - 2] + T[i - 1], P[j - 1].w);
           if (s >= 0.8) best = Math.min(best, D[i - 2][j - 1] + (1 - s) + 0.05);

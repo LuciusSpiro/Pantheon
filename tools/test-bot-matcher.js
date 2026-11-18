@@ -359,6 +359,14 @@ for (const [t, e] of [
   console.log('match: ' + ms.toFixed(1) + ' ms je Aufruf, ' + M.info().muster + ' Sprechformen');
 }
 
+// ---- A3 Nacharbeit: Einwort-Form + Phonetik allein ("Kapitaen an Deck" lief auf nav.andocken, Kurzform "Dock an" = nach Fuellwort "dock"):
+// Ein Wort, das einem Kanonwort nur ueber Koelner Phonetik zugeordnet wuerde, loest bei Einwort-Formen keinen Befehl aus. Schiffs- und Bruecken-Beinahe-Treffer ----
+for (const t of [
+  'Kapitän an Deck', 'Mannschaft an Deck', 'Alle Mann an Deck', 'Deck eins', 'Brücke an Deck zwei', 'Techniker an Deck', 'Dek vier',
+  'Kai an Deck', 'Lage an Deck', 'Licht an Deck', 'Kapitän auf Deck', 'Ops an Deck', 'Kurzschluss im Deck', 'Deck', 'Schilf am Ufer', 'Schilf',
+  'Scanner defekt', 'Scan Ergebnis', 'Stoppschild', 'Schild', 'Schilder', 'Zielscheibe', 'Kursbuch', 'Schubkarre', 'Reparaturkosten',
+]) pruefe(t, null);
+
 // ---- Eval-Saetze: Kanon-Set Quote 100 % und Falsch-Positiv 0, freie Sets Falsch-Positiv 0 (bot-eval.js --art), Kanon-Set aktuell gegen den Generator ----
 {
   const { spawnSync } = require('child_process');
