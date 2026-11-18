@@ -8,7 +8,7 @@
 //                Woerter ab 7 Buchstaben: letzter Buchstabe weg, Buchstabendreher in der Mitte, Buchstabe in der Mitte weg, zwei Woerter
 //                zusammengezogen. Kurze Woerter (bis 6 Buchstaben, z. B. Kuppel, Sensor, Heck) bekommen nur Lexikonfehler.
 //   negativ      Beinahe-Treffer: fehlendes Argument, ungueltiger Wert, Verneinung, Frage, zwei Argumente, falsche Rolle, Fremdsprache,
-//                zu langer Text, Zusatzwoerter, nav.sprung (nicht sprechbar)
+//                zu langer Text, Zusatzwoerter, nav.sprung (nicht sprechbar), GEGENTEILE (Gegenteile, Zustandsmeldungen, Lautaehnliches, Wertgrenzen, Prototyp-Woerter)
 const fs = require('fs');
 const path = require('path');
 const M = require('../shared/bot-matcher.js');
@@ -55,6 +55,91 @@ const UNGUELTIG = {
 };
 
 const SPRUNG = ['Sprung nach Hex fünf', 'Sprung zur Basis', 'Springe zur Markierung', 'Sprung Hex 12', 'Schnellsprung', 'Navigation, Sprung zur Markierung'];
+
+// Beinahe-Treffer mit Gegenteil oder anderer Bedeutung (Review A3): Gegenteile (Andocken/Abdocken, Schilde rauf/runter, Reaktor an/aus, Kurs weg von),
+// Zustandsmeldungen statt Befehl (repariert), Lautaehnliches (Scanner, Spannen, Feuer Ops), Fragezeichen, Minus/Dezimal/Wertgrenzen, Prototyp-Woerter (constructor), mehrteilige Aeusserungen mit unerkanntem Rest.
+const GEGENTEILE = [
+  "Feuer Ops",
+  "Feuer Opps",
+  "Feuer Hops",
+  "Feuer oops",
+  "Feuer Obs",
+  "Abdocken",
+  "Abdocken bitte",
+  "Ablegen",
+  "Abfliegen",
+  "Spannen",
+  "Scanner",
+  "Scanners",
+  "Ausreichen",
+  "Ausreichend",
+  "Ausweichend",
+  "Ausweichung",
+  "Waffen repariert",
+  "Reaktor repariert",
+  "Antrieb repariert",
+  "Schilde repariert",
+  "Lafette eins repariert",
+  "Reparatur",
+  "Reparaturen",
+  "Reaktor überladen?",
+  "Feuer frei?",
+  "Kurs auf die Basis?",
+  "Stopp?",
+  "Andocken?",
+  "Schilde Bug?",
+  "Start",
+  "Stopp Start",
+  "Schilde rauf",
+  "Schilde runter",
+  "Schilde hoch",
+  "Reaktor an",
+  "Reaktor aus",
+  "Reaktor hochfahren",
+  "Reaktor runterfahren",
+  "Kurs weg von der Basis",
+  "Kurs weg vom Ziel",
+  "Weg von der Basis",
+  "Weg vom Ziel",
+  "Feuer frei halt",
+  "Feuer gelöscht",
+  "Feuer ist aus",
+  "Antrieb ausgefallen",
+  "Schilde ausgefallen",
+  "Waffen ausgefallen",
+  "Reaktor ausgefallen",
+  "Schub minus eins",
+  "Schub -1",
+  "Schub −2",
+  "Schub 7",
+  "Schub 10",
+  "Schub 99",
+  "Stufe sieben",
+  "Abstand 0 Meter",
+  "Abstand 200000 Meter",
+  "Abstand 2,5 Meter",
+  "Abstand halten -50 Meter",
+  "Abstand halten 100001 Meter",
+  "constructor",
+  "__proto__",
+  "toString",
+  "hasOwnProperty",
+  "valueOf",
+  "isPrototypeOf",
+  "Schub constructor",
+  "Kurs auf constructor",
+  "constructor constructor",
+  "Schilde __proto__",
+  "Abstand __proto__ Meter",
+  "toString Meter",
+  "Energie auf Antrieb und Kurs auf das Ziel",
+  "Antrieb Energie und Kurs Ziel",
+  "Mehr Energie auf Schilde und Kurs auf die Basis",
+  "Reaktor reparieren und Schilde Bug",
+  "Reaktor reparieren und Antrieb zuerst",
+  "Kurs auf die Basis und Schilde Heck",
+  "Torpedo klar und Schub drei",
+];
 
 const NICHT_ZUSAMMEN = new Set(['auf', 'die', 'das', 'den', 'der', 'zur', 'zum', 'null', 'eins', 'zwei', 'drei', 'vier', 'fuenf', 'sechs', 'sieben', 'neun']);
 function wortliste(t) { return t.split(' ').filter(Boolean); }
@@ -151,6 +236,7 @@ function erzeuge() {
     add('Wir sollten ' + t + ' irgendwann', 'negativ', null, f.anzeige);
     if (f.befehl !== 'nav.abstand') add(t + ' 500 Meter', 'negativ', null, f.anzeige);
   }
+  for (const t of GEGENTEILE) add(t, 'negativ', null, 'Gegenteil/Beinahe-Treffer');
   for (const t of SPRUNG) add(t, 'negativ', null, 'nav.sprung');
   return faelle;
 }

@@ -19224,6 +19224,444 @@
   "form": "Automatik"
  },
  {
+  "text": "Feuer Ops",
+  "art": "negativ",
+  "erwartet": null,
+  "form": "Gegenteil/Beinahe-Treffer"
+ },
+ {
+  "text": "Feuer Opps",
+  "art": "negativ",
+  "erwartet": null,
+  "form": "Gegenteil/Beinahe-Treffer"
+ },
+ {
+  "text": "Feuer Hops",
+  "art": "negativ",
+  "erwartet": null,
+  "form": "Gegenteil/Beinahe-Treffer"
+ },
+ {
+  "text": "Feuer oops",
+  "art": "negativ",
+  "erwartet": null,
+  "form": "Gegenteil/Beinahe-Treffer"
+ },
+ {
+  "text": "Feuer Obs",
+  "art": "negativ",
+  "erwartet": null,
+  "form": "Gegenteil/Beinahe-Treffer"
+ },
+ {
+  "text": "Abdocken",
+  "art": "negativ",
+  "erwartet": null,
+  "form": "Gegenteil/Beinahe-Treffer"
+ },
+ {
+  "text": "Abdocken bitte",
+  "art": "negativ",
+  "erwartet": null,
+  "form": "Gegenteil/Beinahe-Treffer"
+ },
+ {
+  "text": "Ablegen",
+  "art": "negativ",
+  "erwartet": null,
+  "form": "Gegenteil/Beinahe-Treffer"
+ },
+ {
+  "text": "Abfliegen",
+  "art": "negativ",
+  "erwartet": null,
+  "form": "Gegenteil/Beinahe-Treffer"
+ },
+ {
+  "text": "Spannen",
+  "art": "negativ",
+  "erwartet": null,
+  "form": "Gegenteil/Beinahe-Treffer"
+ },
+ {
+  "text": "Scanner",
+  "art": "negativ",
+  "erwartet": null,
+  "form": "Gegenteil/Beinahe-Treffer"
+ },
+ {
+  "text": "Scanners",
+  "art": "negativ",
+  "erwartet": null,
+  "form": "Gegenteil/Beinahe-Treffer"
+ },
+ {
+  "text": "Ausreichen",
+  "art": "negativ",
+  "erwartet": null,
+  "form": "Gegenteil/Beinahe-Treffer"
+ },
+ {
+  "text": "Ausreichend",
+  "art": "negativ",
+  "erwartet": null,
+  "form": "Gegenteil/Beinahe-Treffer"
+ },
+ {
+  "text": "Ausweichend",
+  "art": "negativ",
+  "erwartet": null,
+  "form": "Gegenteil/Beinahe-Treffer"
+ },
+ {
+  "text": "Ausweichung",
+  "art": "negativ",
+  "erwartet": null,
+  "form": "Gegenteil/Beinahe-Treffer"
+ },
+ {
+  "text": "Waffen repariert",
+  "art": "negativ",
+  "erwartet": null,
+  "form": "Gegenteil/Beinahe-Treffer"
+ },
+ {
+  "text": "Reaktor repariert",
+  "art": "negativ",
+  "erwartet": null,
+  "form": "Gegenteil/Beinahe-Treffer"
+ },
+ {
+  "text": "Antrieb repariert",
+  "art": "negativ",
+  "erwartet": null,
+  "form": "Gegenteil/Beinahe-Treffer"
+ },
+ {
+  "text": "Schilde repariert",
+  "art": "negativ",
+  "erwartet": null,
+  "form": "Gegenteil/Beinahe-Treffer"
+ },
+ {
+  "text": "Lafette eins repariert",
+  "art": "negativ",
+  "erwartet": null,
+  "form": "Gegenteil/Beinahe-Treffer"
+ },
+ {
+  "text": "Reparatur",
+  "art": "negativ",
+  "erwartet": null,
+  "form": "Gegenteil/Beinahe-Treffer"
+ },
+ {
+  "text": "Reparaturen",
+  "art": "negativ",
+  "erwartet": null,
+  "form": "Gegenteil/Beinahe-Treffer"
+ },
+ {
+  "text": "Start",
+  "art": "negativ",
+  "erwartet": null,
+  "form": "Gegenteil/Beinahe-Treffer"
+ },
+ {
+  "text": "Stopp Start",
+  "art": "negativ",
+  "erwartet": null,
+  "form": "Gegenteil/Beinahe-Treffer"
+ },
+ {
+  "text": "Schilde rauf",
+  "art": "negativ",
+  "erwartet": null,
+  "form": "Gegenteil/Beinahe-Treffer"
+ },
+ {
+  "text": "Schilde runter",
+  "art": "negativ",
+  "erwartet": null,
+  "form": "Gegenteil/Beinahe-Treffer"
+ },
+ {
+  "text": "Schilde hoch",
+  "art": "negativ",
+  "erwartet": null,
+  "form": "Gegenteil/Beinahe-Treffer"
+ },
+ {
+  "text": "Reaktor an",
+  "art": "negativ",
+  "erwartet": null,
+  "form": "Gegenteil/Beinahe-Treffer"
+ },
+ {
+  "text": "Reaktor aus",
+  "art": "negativ",
+  "erwartet": null,
+  "form": "Gegenteil/Beinahe-Treffer"
+ },
+ {
+  "text": "Reaktor hochfahren",
+  "art": "negativ",
+  "erwartet": null,
+  "form": "Gegenteil/Beinahe-Treffer"
+ },
+ {
+  "text": "Reaktor runterfahren",
+  "art": "negativ",
+  "erwartet": null,
+  "form": "Gegenteil/Beinahe-Treffer"
+ },
+ {
+  "text": "Kurs weg von der Basis",
+  "art": "negativ",
+  "erwartet": null,
+  "form": "Gegenteil/Beinahe-Treffer"
+ },
+ {
+  "text": "Kurs weg vom Ziel",
+  "art": "negativ",
+  "erwartet": null,
+  "form": "Gegenteil/Beinahe-Treffer"
+ },
+ {
+  "text": "Weg von der Basis",
+  "art": "negativ",
+  "erwartet": null,
+  "form": "Gegenteil/Beinahe-Treffer"
+ },
+ {
+  "text": "Weg vom Ziel",
+  "art": "negativ",
+  "erwartet": null,
+  "form": "Gegenteil/Beinahe-Treffer"
+ },
+ {
+  "text": "Feuer frei halt",
+  "art": "negativ",
+  "erwartet": null,
+  "form": "Gegenteil/Beinahe-Treffer"
+ },
+ {
+  "text": "Feuer gelöscht",
+  "art": "negativ",
+  "erwartet": null,
+  "form": "Gegenteil/Beinahe-Treffer"
+ },
+ {
+  "text": "Feuer ist aus",
+  "art": "negativ",
+  "erwartet": null,
+  "form": "Gegenteil/Beinahe-Treffer"
+ },
+ {
+  "text": "Antrieb ausgefallen",
+  "art": "negativ",
+  "erwartet": null,
+  "form": "Gegenteil/Beinahe-Treffer"
+ },
+ {
+  "text": "Schilde ausgefallen",
+  "art": "negativ",
+  "erwartet": null,
+  "form": "Gegenteil/Beinahe-Treffer"
+ },
+ {
+  "text": "Waffen ausgefallen",
+  "art": "negativ",
+  "erwartet": null,
+  "form": "Gegenteil/Beinahe-Treffer"
+ },
+ {
+  "text": "Reaktor ausgefallen",
+  "art": "negativ",
+  "erwartet": null,
+  "form": "Gegenteil/Beinahe-Treffer"
+ },
+ {
+  "text": "Schub minus eins",
+  "art": "negativ",
+  "erwartet": null,
+  "form": "Gegenteil/Beinahe-Treffer"
+ },
+ {
+  "text": "Schub -1",
+  "art": "negativ",
+  "erwartet": null,
+  "form": "Gegenteil/Beinahe-Treffer"
+ },
+ {
+  "text": "Schub −2",
+  "art": "negativ",
+  "erwartet": null,
+  "form": "Gegenteil/Beinahe-Treffer"
+ },
+ {
+  "text": "Schub 7",
+  "art": "negativ",
+  "erwartet": null,
+  "form": "Gegenteil/Beinahe-Treffer"
+ },
+ {
+  "text": "Schub 10",
+  "art": "negativ",
+  "erwartet": null,
+  "form": "Gegenteil/Beinahe-Treffer"
+ },
+ {
+  "text": "Schub 99",
+  "art": "negativ",
+  "erwartet": null,
+  "form": "Gegenteil/Beinahe-Treffer"
+ },
+ {
+  "text": "Abstand 0 Meter",
+  "art": "negativ",
+  "erwartet": null,
+  "form": "Gegenteil/Beinahe-Treffer"
+ },
+ {
+  "text": "Abstand 200000 Meter",
+  "art": "negativ",
+  "erwartet": null,
+  "form": "Gegenteil/Beinahe-Treffer"
+ },
+ {
+  "text": "Abstand 2,5 Meter",
+  "art": "negativ",
+  "erwartet": null,
+  "form": "Gegenteil/Beinahe-Treffer"
+ },
+ {
+  "text": "Abstand halten -50 Meter",
+  "art": "negativ",
+  "erwartet": null,
+  "form": "Gegenteil/Beinahe-Treffer"
+ },
+ {
+  "text": "Abstand halten 100001 Meter",
+  "art": "negativ",
+  "erwartet": null,
+  "form": "Gegenteil/Beinahe-Treffer"
+ },
+ {
+  "text": "constructor",
+  "art": "negativ",
+  "erwartet": null,
+  "form": "Gegenteil/Beinahe-Treffer"
+ },
+ {
+  "text": "__proto__",
+  "art": "negativ",
+  "erwartet": null,
+  "form": "Gegenteil/Beinahe-Treffer"
+ },
+ {
+  "text": "toString",
+  "art": "negativ",
+  "erwartet": null,
+  "form": "Gegenteil/Beinahe-Treffer"
+ },
+ {
+  "text": "hasOwnProperty",
+  "art": "negativ",
+  "erwartet": null,
+  "form": "Gegenteil/Beinahe-Treffer"
+ },
+ {
+  "text": "valueOf",
+  "art": "negativ",
+  "erwartet": null,
+  "form": "Gegenteil/Beinahe-Treffer"
+ },
+ {
+  "text": "isPrototypeOf",
+  "art": "negativ",
+  "erwartet": null,
+  "form": "Gegenteil/Beinahe-Treffer"
+ },
+ {
+  "text": "Schub constructor",
+  "art": "negativ",
+  "erwartet": null,
+  "form": "Gegenteil/Beinahe-Treffer"
+ },
+ {
+  "text": "Kurs auf constructor",
+  "art": "negativ",
+  "erwartet": null,
+  "form": "Gegenteil/Beinahe-Treffer"
+ },
+ {
+  "text": "constructor constructor",
+  "art": "negativ",
+  "erwartet": null,
+  "form": "Gegenteil/Beinahe-Treffer"
+ },
+ {
+  "text": "Schilde __proto__",
+  "art": "negativ",
+  "erwartet": null,
+  "form": "Gegenteil/Beinahe-Treffer"
+ },
+ {
+  "text": "Abstand __proto__ Meter",
+  "art": "negativ",
+  "erwartet": null,
+  "form": "Gegenteil/Beinahe-Treffer"
+ },
+ {
+  "text": "toString Meter",
+  "art": "negativ",
+  "erwartet": null,
+  "form": "Gegenteil/Beinahe-Treffer"
+ },
+ {
+  "text": "Energie auf Antrieb und Kurs auf das Ziel",
+  "art": "negativ",
+  "erwartet": null,
+  "form": "Gegenteil/Beinahe-Treffer"
+ },
+ {
+  "text": "Antrieb Energie und Kurs Ziel",
+  "art": "negativ",
+  "erwartet": null,
+  "form": "Gegenteil/Beinahe-Treffer"
+ },
+ {
+  "text": "Mehr Energie auf Schilde und Kurs auf die Basis",
+  "art": "negativ",
+  "erwartet": null,
+  "form": "Gegenteil/Beinahe-Treffer"
+ },
+ {
+  "text": "Reaktor reparieren und Schilde Bug",
+  "art": "negativ",
+  "erwartet": null,
+  "form": "Gegenteil/Beinahe-Treffer"
+ },
+ {
+  "text": "Reaktor reparieren und Antrieb zuerst",
+  "art": "negativ",
+  "erwartet": null,
+  "form": "Gegenteil/Beinahe-Treffer"
+ },
+ {
+  "text": "Kurs auf die Basis und Schilde Heck",
+  "art": "negativ",
+  "erwartet": null,
+  "form": "Gegenteil/Beinahe-Treffer"
+ },
+ {
+  "text": "Torpedo klar und Schub drei",
+  "art": "negativ",
+  "erwartet": null,
+  "form": "Gegenteil/Beinahe-Treffer"
+ },
+ {
   "text": "Sprung nach Hex fünf",
   "art": "negativ",
   "erwartet": null,
