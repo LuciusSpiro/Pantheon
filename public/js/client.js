@@ -352,6 +352,12 @@
       if (want === 'voxel' && got !== 'voxel') H.pushNotice('Voxel nicht verfügbar – bleibt 2D', R.PAL.warn);
       audio.play('ui_click');
     } else if (id === 'fullscreen') { toggleFullscreen(); audio.play('ui_click'); }
+    else if (id === 'sprache') {   // BOT-04 C: Opt-in der Bot-Sprache; das Modul wird erst beim Einschalten geladen (bot-sprache-start.js)
+      const S = window.BotSpracheStart;
+      if (!S) { H.pushNotice('Bot-Sprache: nicht geladen', R.PAL.warn); return; }
+      if (dir) S.setze(dir > 0); else S.umschalten();
+      audio.play('ui_click');
+    }
   }
   // Steuerungsseite: Tastenbelegung der Konsolen (window.Tasten) ansehen und umbelegen
   function tastenStand() { return Client.ui.tasten || (Client.ui.tasten = { g: 0, sel: 0, slot: 0, scroll: 0, fang: false }); }
@@ -2301,7 +2307,8 @@
     if (uiTop()) {
       const VR = window.VoxelRender;
       v.optionsInfo = { volume: Client.options.volume, muted: Client.options.muted, saved: Client.options.saved, fullscreen: isFullscreen(),
-        render: VR ? (VR.mode === 'voxel' ? 'voxel' : '2d') : (Client.options.render || '2d'), renderAvailable: !!(VR && typeof VR.setMode === 'function') };
+        render: VR ? (VR.mode === 'voxel' ? 'voxel' : '2d') : (Client.options.render || '2d'), renderAvailable: !!(VR && typeof VR.setMode === 'function'),
+        sprache: !!(window.BotSpracheStart && window.BotSpracheStart.an()) };
       v.endInfo = endInfo();
     }
     if (!st || st.phase === 'lobby') return v;
