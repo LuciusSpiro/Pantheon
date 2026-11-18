@@ -56,15 +56,22 @@
     zeilen.forEach((z, i) => Rd.text(ctx, z, bx + 5, by + 4 + i * 10, { color: '#1B2330', shadow: false }));
   }
 
-  // Gesprächsfenster unten in der Bildmitte: für alle am Ort sichtbar. Wahl: 1, 2, … wählen; sonst E / Enter / Leertaste = weiter
-  function fenster(ctx, st) {
+  // Lage des Gesprächsfensters (Canvas-Einheiten, null ohne Gespräch); auch für Anzeigen, die ihm ausweichen (Hud.sprechSlot)
+  function rechteck(st) {
     const gp = st && st.gp; const Rd = R();
-    if (!gp || !Rd) return;
+    if (!gp || !Rd) return null;
     const w = 420, x = Math.round((VW - w) / 2);
     const zeilen = Rd.wrap(gp.t || '', w - 20, 1).slice(0, 5);
     const wahl = Array.isArray(gp.w) ? gp.w : null;
     const h = 24 + zeilen.length * 10 + (wahl ? wahl.length * 12 + 6 : 14);
-    const y = VH - h - 22;
+    return { x, y: VH - h - 22, w, h, zeilen, wahl };
+  }
+  // Gesprächsfenster unten in der Bildmitte: für alle am Ort sichtbar. Wahl: 1, 2, … wählen; sonst E / Enter / Leertaste = weiter
+  function fenster(ctx, st) {
+    const gp = st && st.gp; const Rd = R();
+    const r = rechteck(st);
+    if (!r) return;
+    const { x, y, w, h, zeilen, wahl } = r;
     ctx.save();
     ctx.fillStyle = FARBE.grund; ctx.fillRect(x, y, w, h);
     ctx.strokeStyle = FARBE.rahmen; ctx.lineWidth = 1; ctx.strokeRect(x + 0.5, y + 0.5, w - 1, h - 1);
@@ -95,5 +102,5 @@
     return false;
   }
 
-  window.Gespraech = { aktiv, kulisse, schilder, blase, fenster, taste };
+  window.Gespraech = { aktiv, kulisse, schilder, blase, fenster, rechteck, taste };
 })();

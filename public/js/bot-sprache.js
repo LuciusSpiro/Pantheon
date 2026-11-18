@@ -1,6 +1,6 @@
-// BOT-04 C: Sprache zu den Bots – Sprechtaste (Push-to-talk), Aufnahme, STT, Matcher, Untertitel und Clips, dazu die Chat-Zeile und der Messmodus (?botmessung=1).
+// BOT-04 C: Sprache zu den Bots – Sprechtaste (Push-to-talk), Aufnahme, STT, Matcher, Untertitel und Clips, dazu die Textzeile und der Messmodus (?botmessung=1).
 // Schichten (Kais 3-Layer-Regel): `erzeuge(env)` ist der Kern ohne DOM und ohne Netz (Zustand, Regeln, Ablauf) und ohne Browser testbar (tools/test-bot-sprache.js);
-// alles Browser-Spezifische (Mikrofon, Audio, fetch, DOM) steckt in Adaptern am Ende, die `starte()` zusammensetzt. Globales `BotSprache` (nur im Browser, wenn geladen).
+// alles Browser-Spezifische (Mikrofon, Audio, fetch, DOM, HUD-Anzeige) steckt in Adaptern am Ende, die `starte()` zusammensetzt. Globales `BotSprache` (nur im Browser, wenn geladen).
 // GELADEN WIRD ES NUR AUF WUNSCH: public/js/bot-sprache-start.js bindet das Skript erst ein, wenn die Bot-Sprache in den Optionen an ist (oder ?botsprache=1, ?botmock, ?botmessung=1).
 // Ist die Sprache aus, gibt es kein getUserMedia, keinen Netzaufruf und keine Zuhörer.
 //
@@ -19,6 +19,7 @@
   const TEXT = {
     unklar: 'Bitte wiederholen',
     sttAus: 'Sprache nicht erreichbar – Menü, Tasten und Textzeile laufen weiter.',
+    sttNichtEingerichtet: 'Sprache nicht eingerichtet (STT_URL fehlt).',   // Server: 503 { fehler: 'stt-aus' }
     mikro: 'Mikrofon nicht verfügbar – Textzeile und Tasten laufen weiter.',
     keinMatcher: 'Befehlsabgleich nicht geladen.',
     keinBotServer: 'Kein Bot-Server verbunden.',
@@ -28,18 +29,20 @@
     mockVerboten: 'Mock-Server nur auf localhost erlaubt.',
     unklar2: 'Das habe ich nicht verstanden',
     messungFehler: 'Messung nicht gespeichert.',
-    aufnahme: 'AUFNAHME LÄUFT',
-    platzhalter: 'Befehl an die Crew, Enter sendet',
+    platzhalter: 'Befehl an die Crew · Enter senden · Esc zu',
   };
+  const ROLLEN = { b0: 'NAVIGATION', b1: 'OPS', b2: 'TECHNIK' };   // Sprechername der Untertitel, bis die Bots eigene Namen und Farben haben (BOT-05); sonst BORD
+  const sprecherName = (botId) => ROLLEN[botId] || 'BORD';
+  const UNKLAR_DAUER_S = 2.5;                                                   // „Bitte wiederholen“ im Untertitel
   const STIMMEN = { b0: 'b0', b1: 'b1', b2: 'b2', b3: 'b0' };   // Ordnername im Clip-Vorrat je botId (Kai 2026-11-18: drei Stimmen b0 bis b2, mehr als 3 Bots gibt es nicht; b3 fällt auf b0 zurück); env.stimmen oder msg.stimme überschreiben
   const MAX_MS = 60000;                                                        // Höchstdauer einer Aufnahme (Auto-Stop); der Server nimmt ohnehin nur 1 MB
   const UNKLAR_VARIANTEN = 2;                                                  // bot.unklar.0 / .1 im Vorrat (texte.json), abwechselnd
   const MIN_MS = 250;                                                          // kürzere Aufnahmen sind versehentliche Tastenkontakte
   const CLIP_BASIS = '/assets/bots/stimmen';
-  const ENDUNGEN = ['ogg', 'wav'];
+  const ENDUNGEN = ['wav', 'ogg'];                                             // der Vorrat hat nur WAV: zuerst wav, sonst erzeugte jeder Clip ein 404 auf .ogg
 
   // ------------------------------------------------------------------ rein: Clipwahl und Messvergleich
-  // Kandidaten in Reihenfolge: die Variante des Untertitels zuerst, dann der Clip ohne Variante; ogg vor wav. Die Wiedergabe nimmt den ersten, der existiert.
+  // Kandidaten in Reihenfolge: die Variante des Untertitels zuerst, dann der Clip ohne Variante; wav vor ogg. Die Wiedergabe nimmt den ersten, der existiert.
   // Ohne Variante (der Vertrag kennt kein Feld `variante`, ein vertragstreuer Server liefert keines): zuerst <textId>.0, dann ohne Variante.
   function clipKandidaten(textId, stimme, variante, basis) {
     const b = (basis || CLIP_BASIS) + '/' + stimme + '/' + textId, out = [];
@@ -58,18 +61,21 @@
 
   // ------------------------------------------------------------------ Kern
   // env: { transport: { send(obj) -> bool, onMessage(fn) -> abmelden }, matcher: () -> { match } | Promise, stt: (blob, mime) -> Promise<text>,
-  //        mikrofon: { start() -> Promise<{ stop() -> Promise<{ blob, mime, dauerMs }>, abbruch() }> }, audio: { spiele(urls) -> Promise<url|null>, stumm(bool), stopp() },
-  //        anzeige: { aufnahme(bool), untertitel(text), meldung(text|null), messung?(zustand) }, uhr?: () -> ms, stimmen?, clipBasis?, postMessung?: (sitzung, eintrag) -> Promise }
+  //        mikrofon: { start() -> Promise<{ stop() -> Promise<{ blob, mime, dauerMs }>, abbruch() }> }, audio: { spiele(urls, { start?, ende? }) -> Promise<url|null>, stumm(bool), stopp() },
+  //        anzeige: { aufnahme(bool), untertitel(text, { botId?, dauerS? }) -> Kennung?, meldung(text|null), verarbeitet?(bool), clip?(kennung, bool), messung?(zustand) }, uhr?: () -> ms, stimmen?, clipBasis?, postMessung?: (sitzung, eintrag) -> Promise }
   function erzeuge(env) {
     const uhr = env.uhr || (() => Date.now());
     const stimmen = Object.assign({}, STIMMEN, env.stimmen || {});
     const A = env.anzeige;
-    const s = { an: false, aufnahme: false, gehalten: false, lauf: 0, handle: null, start: null, abmelden: null, letzte: Promise.resolve(), messmodus: null, timer: null, unklarN: 0, letzterBot: null };
+    const s = { an: false, verarbeitet: false, aufnahme: false, gehalten: false, lauf: 0, handle: null, start: null, abmelden: null, letzte: Promise.resolve(), messmodus: null, timer: null, unklarN: 0, letzterBot: null };
     const setzeTimer = env.setTimeout || ((f, ms) => setTimeout(f, ms)), loescheTimer = env.clearTimeout || ((t) => clearTimeout(t));
     const stopTimer = () => { if (s.timer != null) { loescheTimer(s.timer); s.timer = null; } };
 
     const stimmeFuer = (x) => (x && x.stimme) || stimmen[x && x.botId ? x.botId : x] || String(x && x.botId ? x.botId : x || 'b0');
     const meldung = (t) => { try { A.meldung(t); } catch (e) { /* Anzeige darf den Ablauf nie brechen */ } };
+    const verarb = (an) => { if (an === s.verarbeitet) return; s.verarbeitet = an; try { if (A.verarbeitet) A.verarbeitet(an); } catch (e) { /* egal */ } };   // nur Wechsel melden
+    const untertitel = (t, info) => { try { return A.untertitel(t, info); } catch (e) { return undefined; } };   // liefert die Kennung des Untertitels (für clip)
+    const clipHalt = (id, an) => { try { if (A.clip && id != null) A.clip(id, an); } catch (e) { /* egal */ } };
 
     function schalte(an) {
       an = !!an;
@@ -110,11 +116,14 @@
       s.aufnahme = false; s.gehalten = false; stopTimer();
       A.aufnahme(false); env.audio.stumm(false);
       const t0 = uhr(), start = s.start; s.handle = null;
+      verarb(true);   // Zwischenzustand „…“ zwischen Loslassen und Ergebnis
       s.letzte = (async () => {
-        const h = await start;
-        if (!h) return false;
-        let aufn; try { aufn = await h.stop(); } catch (e) { meldung(TEXT.mikro); return false; }
-        return verarbeiteAufnahme(aufn, t0);
+        try {
+          const h = await start;
+          if (!h) return false;
+          let aufn; try { aufn = await h.stop(); } catch (e) { meldung(TEXT.mikro); return false; }
+          return await verarbeiteAufnahme(aufn, t0);
+        } finally { verarb(false); }
       })().catch(() => false);
       return s.letzte;
     }
@@ -135,7 +144,7 @@
       if (!aufn || !aufn.blob || !(aufn.blob.size > 0) || (aufn.dauerMs != null && aufn.dauerMs < MIN_MS)) { meldung(TEXT.zuKurz); return false; }
       const tStt0 = uhr();
       let text;
-      try { text = await env.stt(aufn.blob, aufn.mime); } catch (e) { meldung(e && e.status === 413 ? TEXT.zuLang : TEXT.sttAus); return false; }
+      try { text = await env.stt(aufn.blob, aufn.mime); } catch (e) { meldung(e && e.status === 413 ? TEXT.zuLang : e && e.fehler === 'stt-aus' ? TEXT.sttNichtEingerichtet : TEXT.sttAus); return false; }
       if (!s.an) return false;   // während der Erkennung ausgeschaltet: verwerfen, nichts senden
       const tText = uhr();
       if (!s.maxHinweis) meldung(null);   // Hinweis Aufnahme nach 60 s beendet bleibt stehen
@@ -159,6 +168,7 @@
 
     // ---- Ergebnis des Matchers: Befehl senden oder (unklar) Rückfrage
     function ergebnis(res, quelle) {
+      verarb(false);   // das Ergebnis ist da (Befehl, Rückfrage oder Fehler)
       if (!res || typeof res.befehl !== 'string' || !res.befehl) return unklar();   // unter der Schwelle: nichts senden
       const msg = { t: 'bot.befehl', an: res.an, befehl: res.befehl, quelle };
       if (res.args !== undefined && res.args !== null) msg.args = res.args;
@@ -173,7 +183,7 @@
       const v = s.unklarN++ % UNKLAR_VARIANTEN;   // beide Varianten abwechselnd
       let url = null;
       try { url = await env.audio.spiele(clipKandidaten('bot.unklar', stimmeFuer(s.letzterBot || 'b0'), v, env.clipBasis)); } catch (e) { url = null; }   // Stimme des zuletzt angesprochenen/aktiven Bots
-      if (!url) A.untertitel(v === 0 ? TEXT.unklar : TEXT.unklar2);   // Clip fehlt: Untertitel statt Ton
+      if (!url) untertitel(v === 0 ? TEXT.unklar : TEXT.unklar2, { botId: s.letzterBot, dauerS: UNKLAR_DAUER_S });   // Clip fehlt: Untertitel statt Ton
       return false;
     }
 
@@ -181,10 +191,11 @@
     function empfange(msg) {
       if (!s.an || !msg || msg.t !== 'bot.antwort') return false;
       if (typeof msg.botId === 'string' && msg.botId) s.letzterBot = msg.botId;
-      A.untertitel(typeof msg.text === 'string' && msg.text ? msg.text : String(msg.textId || ''));
+      const id = untertitel(typeof msg.text === 'string' && msg.text ? msg.text : String(msg.textId || ''), { botId: msg.botId });
       if (!s.aufnahme && msg.textId) {   // gehaltene Sprechtaste = Mikrofon offen: nichts abspielen
         const urls = clipKandidaten(msg.textId, stimmeFuer(msg), msg.variante, env.clipBasis);
-        try { Promise.resolve(env.audio.spiele(urls)).catch(() => null); } catch (e) { /* nur Untertitel */ }
+        // Läuft der Clip länger als die Standarddauer, bleibt der Untertitel bis Clip-Ende (+ 0,5 s in der Anzeige)
+        try { Promise.resolve(env.audio.spiele(urls, { start: () => clipHalt(id, true), ende: () => clipHalt(id, false) })).catch(() => null); } catch (e) { /* nur Untertitel */ }
       }
       return true;
     }
@@ -279,16 +290,18 @@
 
   function audioBrowser(win) {
     let aktuell = null, stumm = false;
-    const versuche = (u) => new Promise((resolve) => {
-      const a = new win.Audio(); let fertig = false;
+    const versuche = (u, cb) => new Promise((resolve) => {
+      const a = new win.Audio(); let fertig = false, laeuft = false;
       const ende = (v) => { if (!fertig) { fertig = true; resolve(v); } };
-      a.addEventListener('error', () => ende(null), { once: true });   // Datei fehlt oder nicht lesbar
-      a.addEventListener('canplay', () => { if (stumm) return ende(null); aktuell = a; a.play().then(() => ende(u), () => ende(null)); }, { once: true });
+      const aus = () => { if (laeuft) { laeuft = false; try { if (cb && cb.ende) cb.ende(); } catch (e) { /* egal */ } } };   // Clip-Ende (zu Ende gespielt, angehalten, Fehler)
+      a.addEventListener('error', () => { ende(null); aus(); }, { once: true });   // Datei fehlt oder nicht lesbar
+      a.addEventListener('ended', aus, { once: true }); a.addEventListener('pause', aus, { once: true });
+      a.addEventListener('canplay', () => { if (stumm) return ende(null); aktuell = a; a.play().then(() => { laeuft = true; try { if (cb && cb.start) cb.start(); } catch (e) { /* egal */ } ende(u); }, () => ende(null)); }, { once: true });
       a.preload = 'auto'; a.src = u;
       setTimeout(() => ende(null), 4000);
     });
     return {
-      async spiele(urls) { for (const u of urls) { if (stumm) return null; const ok = await versuche(u); if (ok) return ok; } return null; },
+      async spiele(urls, cb) { for (const u of urls) { if (stumm) return null; const ok = await versuche(u, cb); if (ok) return ok; } return null; },
       stumm(b) { stumm = !!b; if (stumm) this.stopp(); },
       stopp() { try { if (aktuell) aktuell.pause(); } catch (e) { /* egal */ } aktuell = null; },
     };
@@ -297,7 +310,11 @@
   function sttBrowser(win) {
     return async (blob, mime) => {
       const r = await win.fetch('/api/stt', { method: 'POST', headers: { 'Content-Type': mime || 'application/octet-stream' }, body: blob });
-      if (!r.ok) { const e = new Error('stt ' + r.status); e.status = r.status; throw e; }
+      if (!r.ok) {
+        const e = new Error('stt ' + r.status); e.status = r.status;
+        if (r.status === 503) { try { const j = await r.json(); if (j && j.fehler === 'stt-aus') e.fehler = 'stt-aus'; } catch (x) { /* kein JSON: nicht erreichbar */ } }   // Server: STT_URL nicht gesetzt
+        throw e;
+      }
       const d = await r.json();
       return d && d.text;
     };
@@ -326,36 +343,71 @@
     return ladeMatcher.p;
   }
 
-  // Anzeige: Farben und Rahmen aus den Menü-Tokens (Menue.TOKENS.FARBE: Kachel, Rand, Creme, Gold, Gelb); Pixelschrift gibt es im DOM nicht, daher monospace. Ruhig: keine Animation.
-  function baueAnzeige(win, onText, onMesse) {
-    const d = win.document, F = (win.Menue && win.Menue.TOKENS && win.Menue.TOKENS.FARBE) || { kachel: '#09090C', kachelRand: '#3A3428', text: '#F4EEDC', dim: '#B3A48E', gold: '#FFC66B', nichtBereit: '#F2C94C', tinte: '#120D0A' };
+  // Anzeige im Spiel-HUD (BOT-04 C2): Untertitel, Aufnahme-Anzeige und Meldungen zeichnet das HUD auf dem 640x360-Raster (hud.js Sprechspalte, Hud.pushNotice), nicht mehr das DOM:
+  // so skaliert alles mit dem Bild und weicht ODA, Funkwahl, Scanner und Konsolen-Bedienfeldern aus. Im DOM bleiben nur das unsichtbare <input> der Textzeile (Tastatur, IME, maxlength 120) und
+  // der Messmodus-Kasten (Entwicklerwerkzeug, ?botmessung=1). Ruhig: keine Animation. Austauschbar: Der Kern kennt nur die Schnittstelle
+  // aufnahme(bool), verarbeitet(bool), untertitel(text, { botId?, dauerS? }) -> Kennung, clip(kennung, bool), meldung(text|null), textzeile(bool), messung(stand), aus().
+  function anzeigeHud(win, onText, onMesse) {
+    const d = win.document, hud = () => win.Hud || null;
+    const FN = () => (win.Menue && win.Menue.TOKENS && win.Menue.TOKENS.FN) || { sensor: '#A9D6E5', warn: '#F2C94C' };
+    const F = (win.Menue && win.Menue.TOKENS && win.Menue.TOKENS.FARBE) || { kachel: '#09090C', kachelRand: '#3A3428', text: '#F4EEDC', dim: '#B3A48E', gold: '#FFC66B' };
     const el = (tag, stil, text) => { const e = d.createElement(tag); Object.assign(e.style, stil || {}); if (text != null) e.textContent = text; return e; };
-    const kachel = { background: F.kachel, border: '1px solid ' + F.kachelRand, color: F.text, font: '13px/1.35 monospace', padding: '4px 10px' };
-    const wurzel = el('div', { position: 'fixed', left: '0', right: '0', bottom: '0', zIndex: '40', pointerEvents: 'none' });
-    const unter = el('div', Object.assign({ position: 'absolute', left: '50%', bottom: '44px', transform: 'translateX(-50%)', maxWidth: '70vw', display: 'none', textAlign: 'center' }, kachel));
-    const meld = el('div', Object.assign({}, kachel, { position: 'absolute', left: '50%', bottom: '80px', transform: 'translateX(-50%)', maxWidth: '70vw', display: 'none', color: F.nichtBereit, borderColor: F.nichtBereit }));
-    const rec = el('div', Object.assign({}, kachel, { position: 'absolute', left: '16px', bottom: '44px', display: 'none', color: F.gold, borderColor: F.gold, borderWidth: '2px', letterSpacing: '1px' }), '● ' + TEXT.aufnahme);
-    const zeile = el('form', { position: 'absolute', left: '16px', bottom: '12px', pointerEvents: 'auto' });
-    const feld = el('input', Object.assign({}, kachel, { width: '300px', outline: 'none' }));
-    feld.type = 'text'; feld.placeholder = TEXT.platzhalter; feld.setAttribute('autocomplete', 'off'); feld.setAttribute('maxlength', '120');
-    // Tasten in der Textzeile gehören der Textzeile, nie dem Spiel (WASD & Co. laufen sonst mit)
-    for (const n of ['keydown', 'keyup', 'keypress']) feld.addEventListener(n, (e) => { e.stopPropagation(); if (n === 'keydown' && e.key === 'Escape') feld.blur(); });
-    zeile.addEventListener('submit', (e) => { e.preventDefault(); const t = feld.value; feld.value = ''; onText(t); });
-    zeile.appendChild(feld);
-    wurzel.appendChild(unter); wurzel.appendChild(meld); wurzel.appendChild(rec); wurzel.appendChild(zeile);
+    const kachel = { background: F.kachel, border: '1px solid ' + F.kachelRand, color: F.text, font: '13px/1.35 monospace', padding: '4px 10px' };   // nur für den Messmodus-Kasten
+    const wurzel = el('div', { position: 'fixed', left: '0', top: '0', width: '0', height: '0', zIndex: '40', pointerEvents: 'none' });
+    // Textzeile: das echte <input> liegt unsichtbar genau über dem vom HUD gezeichneten Kasten; Text und Cursor zeichnet das HUD (liest value und selectionStart)
+    const zeileForm = el('form', { position: 'fixed', left: '0', top: '0', width: '0', height: '0', display: 'none', opacity: '0', pointerEvents: 'none', margin: '0', padding: '0' });
+    const feld = el('input', { width: '100%', height: '100%', boxSizing: 'border-box', border: '0', outline: 'none', margin: '0', padding: '0 4px', background: 'transparent', font: '16px monospace' });
+    feld.type = 'text'; feld.setAttribute('autocomplete', 'off'); feld.setAttribute('maxlength', '120'); feld.setAttribute('aria-label', TEXT.platzhalter);
+    zeileForm.appendChild(feld); wurzel.appendChild(zeileForm);
     d.body.appendChild(wurzel);
-    const zeitweise = (e, text, ms, slot) => { clearTimeout(slot.t); e.textContent = text; e.style.display = 'block'; slot.t = setTimeout(() => { e.style.display = 'none'; }, ms); };
-    const slotU = {}, slotM = {};
-    let mess = null;
+    let lage = '', stickyText = null, letzteMeldung = null, mess = null;
+    const zeile = { offen: false, feld, platzhalter: TEXT.platzhalter, schliessen: () => schliesse(), platziere(r) {   // Rasterrechteck -> Bildschirmpixel wie #lobbyCode in client.js layout() (Raster * Client.scale + Canvas-Versatz)
+      const c = d.getElementById && d.getElementById('game'); if (!c || !c.getBoundingClientRect) return;
+      const b = c.getBoundingClientRect(), sc = (win.Client && win.Client.scale) || b.width / 640;
+      const k = [Math.floor(b.left + r.x * sc), Math.floor(b.top + r.y * sc), Math.floor(r.w * sc), Math.floor(r.h * sc)].join();
+      if (k === lage) return;
+      lage = k; const [l, t, w, h] = k.split(',');
+      zeileForm.style.left = l + 'px'; zeileForm.style.top = t + 'px'; zeileForm.style.width = w + 'px'; zeileForm.style.height = h + 'px';
+    } };
+    function oeffne() {
+      const h = hud();
+      if (!h || !h.sprechBereit || !h.sprechBereit()) return false;   // nur mit Spielbild: im Menü/Lobby wäre eine unsichtbare Zeile eine Falle
+      zeile.offen = true; lage = ''; zeileForm.style.display = 'block'; zeileForm.style.pointerEvents = 'auto';
+      try { feld.focus(); } catch (e) { /* egal */ }
+      return true;
+    }
+    function schliesse() {
+      if (!zeile.offen) return false;
+      zeile.offen = false; zeileForm.style.display = 'none'; zeileForm.style.pointerEvents = 'none'; feld.value = '';
+      try { if (d.activeElement === feld) feld.blur(); } catch (e) { /* egal */ }
+      return true;
+    }
+    // Tasten in der Textzeile gehören der Textzeile, nie dem Spiel (WASD & Co. laufen sonst mit); Esc schließt ohne Senden, Enter (submit) sendet und schließt
+    for (const n of ['keydown', 'keyup', 'keypress']) feld.addEventListener(n, (e) => { e.stopPropagation(); if (n === 'keydown' && e.key === 'Escape') { if (e.preventDefault) e.preventDefault(); schliesse(); } });
+    feld.addEventListener('blur', () => { if (zeile.offen && !feld.value) schliesse(); });   // Fokusverlust schließt eine leere Zeile; mit Text bleibt sie offen
+    zeileForm.addEventListener('submit', (e) => { e.preventDefault(); const t = feld.value; schliesse(); onText(t); });
+    const entferne = (text) => { const h = hud(); if (h && text != null) h.notices = h.notices.filter((n) => n.text !== text); };
+    const h0 = hud(); if (h0 && h0.sprechAn) { h0.sprechAn(true); h0.sprech.zeile = zeile; }
     return {
-      feld, wurzel,
-      aufnahme(an) { rec.style.display = an ? 'block' : 'none'; },
-      untertitel(t) { zeitweise(unter, t, 5000, slotU); },
-      meldung(t) { if (!t) { clearTimeout(slotM.t); meld.style.display = 'none'; return; } zeitweise(meld, t, 9000, slotM); },
-      fokus() { feld.focus(); },
+      feld, wurzel, zeile,
+      aufnahme(an) { const h = hud(); if (!h) return; h.sprech.aufnahme = !!an; if (an) { h.sprech.verarbeitet = false; entferne(stickyText); stickyText = null; } },
+      verarbeitet(an) { const h = hud(); if (h) h.sprech.verarbeitet = !!an; },
+      untertitel(t, info) { const h = hud(); return h ? h.pushCrewFunk(t, sprecherName(info && info.botId), FN().sensor, info && info.dauerS) : 0; },
+      clip(id, an) { const h = hud(); if (h && id) h.crewFunkHalte(id, an); },
+      meldung(t) {
+        const h = hud(); if (!h) return;
+        if (!t) { entferne(letzteMeldung); letzteMeldung = null; return; }
+        const bleibt = t === TEXT.maxDauer;   // bleibt bis zur nächsten Aufnahme, auch wenn eine andere Meldung kommt
+        entferne(letzteMeldung); letzteMeldung = bleibt ? null : t;
+        if (bleibt) stickyText = t;
+        h.pushNotice(t, FN().warn, t === TEXT.maxDauer ? 3600 : 6);
+      },
+      hinweis(t) { const h = hud(); if (h) h.pushNotice(t, FN().sensor, 6); },
+      textzeile(an) { return an ? oeffne() : schliesse(); },
+      fokus() { return oeffne(); },
       messung(stand) {
         if (!stand) { if (mess) { mess.remove(); mess = null; } return; }
-        if (!mess) { mess = el('div', Object.assign({}, kachel, { position: 'absolute', right: '16px', top: '16px', width: '340px', maxHeight: '70vh', overflowY: 'auto', pointerEvents: 'auto' })); wurzel.appendChild(mess); }
+        if (!mess) { mess = el('div', Object.assign({}, kachel, { position: 'fixed', right: '16px', top: '16px', width: '340px', maxHeight: '70vh', overflowY: 'auto', pointerEvents: 'auto' })); wurzel.appendChild(mess); }
         mess.textContent = '';
         mess.appendChild(el('div', { color: F.gold, letterSpacing: '1px' }, 'MESSUNG  ' + (stand.index + 1) + '/' + stand.phrasen.length));
         mess.appendChild(el('div', { color: F.dim, margin: '2px 0 6px' }, 'Sprechtaste halten, die markierte Phrase sagen, loslassen. Bild↑/Bild↓ oder Knöpfe wechseln.'));
@@ -370,8 +422,18 @@
         for (const [t, dd] of [['◀ zurück', -1], ['weiter ▶', 1]]) { const b = el('button', Object.assign({}, kachel, { cursor: 'pointer', marginRight: '6px' }), t); b.type = 'button'; b.addEventListener('click', () => onMesse(dd)); knoepfe.appendChild(b); }
         mess.appendChild(knoepfe);
       },
-      aus() { try { wurzel.remove(); } catch (e) { /* egal */ } },
+      aus() {
+        schliesse(); entferne(letzteMeldung); entferne(stickyText);
+        const h = hud(); if (h && h.sprechAn) h.sprechAn(false);
+        try { wurzel.remove(); } catch (e) { /* egal */ }
+      },
     };
+  }
+
+  // Einmaliger Hinweis beim Einschalten, mit den echten (umbelegbaren) Tastenbeschriftungen
+  function startHinweis(T) {
+    const kappe = (id, ersatz) => { try { const k = T && T.kappe ? T.kappe(id) : ''; return k && k !== '–' ? k : ersatz; } catch (e) { return ersatz; } };
+    return 'Bot-Sprache an: ' + kappe('allgemein.sprechen', '^') + ' halten = sprechen, ' + kappe('allgemein.botText', '#') + ' = tippen';
   }
 
   // ---------------------------------------------------------------- Zusammenbau im Browser
@@ -386,7 +448,7 @@
     const transport = mockUrl !== null && mockOk ? transportWebSocket(mockUrl, win.WebSocket) : transportNetStub();
     const sitzung = 'messung-' + new Date().toISOString().replace(/[^0-9]/g, '').slice(0, 14);
     let kern = null;
-    const anzeige = baueAnzeige(win, (t) => kern.sendeText(t), (dd) => kern.messeWeiter(dd));
+    const anzeige = anzeigeHud(win, (t) => kern.sendeText(t), (dd) => kern.messeWeiter(dd));
     const env = {
       transport, matcher: () => ladeMatcher(win), stt: sttBrowser(win), mikrofon: mikrofonBrowser(win), audio: audioBrowser(win), anzeige,
       postMessung: (sit, eintrag) => win.fetch('/api/bot-messung', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ sitzung: sit, eintrag }) }).then((r) => { if (!r.ok) throw new Error('messung ' + r.status); }),
@@ -399,7 +461,7 @@
     const runter = (e) => {
       if (!kern.istAn() || tippt()) return;
       if (passt(e, 'allgemein.sprechen', 'Backquote')) { e.preventDefault(); if (!e.repeat) kern.tasteRunter(); return; }
-      if (passt(e, 'allgemein.botText', 'Backslash')) { e.preventDefault(); if (!e.repeat) anzeige.fokus(); return; }
+      if (passt(e, 'allgemein.botText', 'Backslash')) { e.preventDefault(); if (!e.repeat) anzeige.textzeile(true); return; }
       if (e.code === 'PageDown' || e.code === 'PageUp') { if (kern.messeWeiter(e.code === 'PageDown' ? 1 : -1)) e.preventDefault(); }
     };
     const hoch = (e) => { if (!kern.istAn()) return; const code = e && e.code; const ids = T && T.belegung ? T.belegung('allgemein.sprechen').map((t) => t.replace(/^Shift\+/, '')) : ['Backquote']; if (ids.indexOf(code) >= 0) kern.tasteHoch(); };
@@ -407,6 +469,7 @@
     win.addEventListener('keydown', runter, true); win.addEventListener('keyup', hoch, true); win.addEventListener('blur', weg);
     instanz = { kern, anzeige, transport, aufraeumen() { win.removeEventListener('keydown', runter, true); win.removeEventListener('keyup', hoch, true); win.removeEventListener('blur', weg); } };
     kern.schalte(true);
+    anzeige.hinweis(startHinweis(T));
     if (params.get('botmessung') === '1') {
       try {
         const r = await win.fetch('/bot-messung/phrasen.json', { cache: 'no-store' });
@@ -422,5 +485,5 @@
     i.kern.schalte(false); i.aufraeumen(); i.transport.schliessen();
   }
 
-  return { erzeuge, clipKandidaten, erwartungErfuellt, mockUrlErlaubt, TEXT, MAX_MS, STIMMEN, CLIP_BASIS, transportWebSocket, transportNetStub, baueAnzeige, mikrofonBrowser, audioBrowser, sttBrowser, starte, stoppe, laeuft: () => !!instanz };
+  return { erzeuge, clipKandidaten, erwartungErfuellt, mockUrlErlaubt, TEXT, MAX_MS, STIMMEN, CLIP_BASIS, transportWebSocket, transportNetStub, anzeigeHud, sprecherName, startHinweis, UNKLAR_DAUER_S, mikrofonBrowser, audioBrowser, sttBrowser, starte, stoppe, laeuft: () => !!instanz };
 });

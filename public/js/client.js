@@ -2438,6 +2438,7 @@
         // W2 AP3b: Wellen All spielt an Konsolen – Banner und Ergebnis über der Konsole (sonst verdeckt)
         if (st.wellen) Net.guard('Hud.wellenKonsole', () => H.drawWellen(ctx, v, true));
         Net.guard('Hud.drawLagefunk', () => H.drawLagefunk(ctx, v));   // SUND-01 C: Lagemeldung (Freie Fahrt Sund) über der Konsole
+        if (H.sprech.aktiv) Net.guard('Hud.sprechspalteKonsole', () => H.zeichneSprechspalte(ctx, v));   // BOT-04 C2: Bot-Untertitel, Aufnahme, Textzeile über der Konsole (sonst deckt sie die Konsole zu)
       } else if (window.TerminalUI && TerminalUI.zusehend) {   // PAN-01 D2: Zuschauer am besetzten Terminal (rein lesend)
         K.verdeckt = null; Net.guard('TerminalUI.zusehen', () => { if (!TerminalUI.drawZusehen(ctx, v)) Client.keys = {}; });
         Net.guard('Hud.drawLagefunk', () => H.drawLagefunk(ctx, v));   // SUND-01 C: Lagemeldung auch für Zuschauer am Terminal (sonst gehen die Pflichtmeldungen verloren)

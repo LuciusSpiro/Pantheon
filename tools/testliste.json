@@ -473,6 +473,7 @@
   {"datei":"tools/mutation-rettung-bot.js","grund":"Mutationsprobe auf Abruf (npm run test:rettung-bot-mutation), startet je Mutation echte Server-Laeufe, zu langsam fuer die Kette"},
   {"datei":"tools/mutation-faden-rettung.js","grund":"Mutationsprobe auf Abruf (npm run test:faden-rettung-mutation), zu langsam und zu breit fuer die Kette"},
   {"datei":"tools/mutation-faden-hinterhalt.js","grund":"Mutationsprobe auf Abruf (npm run test:faden-hinterhalt-mutation), zu langsam und zu breit fuer die Kette"},
+  {"datei":"tools/mutation-bot-sprache.js","grund":"Mutationsprobe auf Abruf (npm run test:bot-sprache-mutation), startet je Mutation den Test neu"},
   {"datei":"tools/mutation-hinterhalt-bot.js","grund":"Mutationsprobe auf Abruf (npm run test:hinterhalt-bot-mutation), startet je Mutation echte Server-Laeufe, zu langsam fuer die Kette"},
   {"datei":"tools/mutation-faden-landung.js","grund":"Mutationsprobe auf Abruf (npm run test:faden-landung-mutation), zu langsam und zu breit fuer die Kette"},
   {"datei":"tools/mutation-forderung-plan.js","grund":"Mutationsprobe auf Abruf (npm run test:forderung-plan-mutation), zu langsam und zu breit fuer die Kette"},

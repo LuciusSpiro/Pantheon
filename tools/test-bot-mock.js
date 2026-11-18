@@ -57,7 +57,7 @@ const warteBis = async (f, ms) => { const t = Date.now(); while (!f()) { if (Dat
     ok(da && p && p.ein.t === 'bot.befehl' && p.ein.befehl === k.befehl && p.ein.an === k.an && p.ein.quelle === 'sprache' && eq(p.ein.args || {}, k.args || {}), k.befehl + ': bot.befehl (quelle sprache) beim Mock angekommen');
     ok(p && p.aus.textId === textId && p.aus.status === 'ok' && p.aus.botId === rolle, k.befehl + ': bot.antwort ' + textId + ' von ' + rolle);
     const vi = p && p.aus.variante;
-    ok(L.untertitel.at(-1) === TEXTE[textId][vi] && L.clips.at(-1)[0] === '/assets/bots/stimmen/' + stimme + '/' + textId + '.' + vi + '.ogg', k.befehl + ': Untertitel "' + L.untertitel.at(-1) + '" und Clip ' + stimme + '/' + textId + '.' + vi);
+    ok(L.untertitel.at(-1) === TEXTE[textId][vi] && L.clips.at(-1)[0] === '/assets/bots/stimmen/' + stimme + '/' + textId + '.' + vi + '.wav', k.befehl + ': Untertitel "' + L.untertitel.at(-1) + '" und Clip ' + stimme + '/' + textId + '.' + vi);
     const e = L.ereignisse.slice(-2);
     ok(e[0] === 'untertitel' && e[1] === 'clip', k.befehl + ': Untertitel und Clip im selben Schritt (ohne Pause dazwischen)');
   }

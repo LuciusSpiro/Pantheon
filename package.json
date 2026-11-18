@@ -112,6 +112,7 @@
     "test:seriell": "node tools/run-tests.js --seriell --stufe alles",
     "test:menue": "node tools/test-menue.js",
     "test:bot-sprache": "node tools/test-bot-sprache.js && node tools/test-bot-mock.js && node tools/test-bot-stt.js",
+    "test:bot-sprache-mutation": "node tools/mutation-bot-sprache.js",
     "bot:mock": "node tools/bot-befehl-mock.js",
     "test:version": "node tools/test-version.js",
     "test:tutorial-sprung": "node tools/test-tutorial-sprung.js",

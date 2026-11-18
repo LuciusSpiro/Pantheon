@@ -25,6 +25,9 @@
   const aktiverSlot = (slots, wf) => (Array.isArray(slots) && wf ? slots.indexOf(wf) : -1);
   const HUD_LAYOUT = { top: 2, kopfH: 28, marksY: 15, shieldY: 12, roomY: 32, jumpY: 45, hintY: 48 };
   const FUNK_W = 228, FUNK_BILD_W = 28;   // Breite der Funktafel (x 204) und des Funkporträts samt Rand
+  const SPRECH_W = 284;   // BOT-04 C2: Breite der Sprechspalte = Breite der ODA-Zeile (x 178..462)
+  const FN_STD = { drive: '#FFC66B', sensor: '#A9D6E5', cmd: '#F4EEDC', warn: '#F2C94C', neutral: '#8EA3B5' };   // Notbehelf, falls menue-tokens.js fehlt (Werte wie Menue.TOKENS.FN)
+  const fnFarben = () => (window.Menue && Menue.TOKENS && Menue.TOKENS.FN) || FN_STD;
   const LAGEFUNK_Y = 44;   // SUND-02a C: Oberkante des Lagefunk-Feldes an Konsolen und Terminals (unter deren Kopfzeile, die bis etwa y 40 reicht)
 
   // M3a, PAN-01 B: alle 13 Systeme (+ Altname weapons = schlechteste der drei Waffen); die Lebenserhaltung ist gestrichen
@@ -269,6 +272,104 @@
         y += 13;
       }
     },
+    // ---------------------------------------------------------------- BOT-04 C2: Sprechspalte (Bot-Untertitel, Aufnahme-Anzeige, Textzeile)
+    // Gezeichnet auf dem 640x360-Raster wie alles im HUD; die Bot-Sprache (public/js/bot-sprache.js, anzeigeHud) füllt den Zustand. Solange sprech.aktiv aus ist (Standard), läuft nichts und nichts wird angelegt.
+    sprech: { aktiv: false, tFrame: 0, naechste: 1, eintraege: [], aufnahme: false, verarbeitet: false, zeile: null },   // zeile: { offen, feld: { value, selectionStart }, platzhalter, platziere(rect), schliessen() }
+    sprechAn(an) {
+      const sp = this.sprech; sp.aktiv = !!an;
+      if (!an) { sp.eintraege.length = 0; sp.aufnahme = false; sp.verarbeitet = false; sp.zeile = null; }
+    },
+    sprechBereit() { const sp = this.sprech; return sp.aktiv && performance.now() - sp.tFrame < 500; },   // das Spielbild wird gerade gezeichnet (nicht Lobby/Menü)
+    // Eine gemeinsame Spalte deckungsgleich mit der ODA-Zeile (x 178..462). Zu Fuß: y = Unterkante, richtung 'hoch' (wächst nach oben), 4 px über der höchsten Oberkante der Elemente
+    // unten Mitte (ODA, Funkwahl, Scanner-Overlay, Gesprächsfenster, Kontingent-Frage), sonst bei VH - 6. An der Konsole (die ODA steht oben, y 16): y = Oberkante, richtung 'runter'.
+    sprechSlot(view) {
+      const x = Math.round(VW / 2 - SPRECH_W / 2);
+      if (view && view.me && view.me.console) return { x, w: SPRECH_W, y: Math.max(20, 16 + this.odaHoeheOben() + 4), richtung: 'runter' };
+      let oben = VH - 6;
+      const oda = this.odaHoehe(view);
+      if (oda > 0) oben = VH - 6 - oda;
+      if (window.Scanner && Scanner.aktiv(view && view.me)) {
+        const r = Scanner.rechteck();
+        oben = Math.min(oben, this.oda.cur ? r.y - 14 : r.y);   // mit ODA steht die Marke „ODA +n“ 14 px über dem Overlay
+      }
+      if (window.Funkwahl && Funkwahl.offen()) oben = Math.min(oben, Funkwahl.rechteck(null, null, undefined, view).y);
+      const gr = window.Gespraech && view && view.state ? Gespraech.rechteck(view.state) : null;
+      if (gr) oben = Math.min(oben, gr.y);
+      if (window.KontingentFrage && KontingentFrage.offen()) oben = Math.min(oben, this.kontingentLeiste(view).y);
+      return { x, w: SPRECH_W, y: oben < VH - 6 ? oben - 4 : oben, richtung: 'hoch' };
+    },
+    crewFunkDauer(text) { return Math.max(3, Math.min(8, 2.5 + String(text == null ? '' : text).length / 15)); },
+    // Untertitel eines Bots: Name in Versalien und Farbe, Text creme; höchstens 2 Einträge (der älteste fällt raus). dauerS ohne Angabe nach crewFunkDauer. Liefert die Kennung (für crewFunkHalte).
+    pushCrewFunk(text, sprecher, farbe, dauerS) {
+      if (!text) return 0;
+      const sp = this.sprech, E = sp.eintraege;
+      text = String(text);
+      const who = sprecher ? String(sprecher).toUpperCase() : '';
+      const wWho = who ? R.measure(who + ':', 1) : 0;
+      const maxT = SPRECH_W - 10 - wWho - 6;
+      let lines = R.wrap(text, maxT, 1);
+      if (lines.length > 2) lines = [lines[0], this.fit(lines.slice(1).join(' '), maxT, 1)];
+      let tw = 0; for (const l of lines) tw = Math.max(tw, R.measure(l, 1));
+      for (let i = E.length - 1; i >= 0; i--) if (E[i].text === text && E[i].who === who) E.splice(i, 1);
+      const e = { id: sp.naechste++, text, who, wWho, farbe: farbe || fnFarben().sensor, lines, w: Math.min(SPRECH_W, 10 + wWho + tw + 6), h: 2 + lines.length * 10, t: performance.now() / 1000, d: dauerS > 0 ? +dauerS : this.crewFunkDauer(text), halt: false, bis: 0 };
+      E.push(e);
+      while (E.length > 2) E.shift();
+      return e.id;
+    },
+    // Der Clip zum Untertitel läuft (an = true: der Untertitel bleibt) bzw. ist zu Ende (an = false: noch 0,5 s, mindestens die Grunddauer). Höchstens 30 s Halt, falls das Ende ausbleibt.
+    crewFunkHalte(id, an) {
+      for (const e of this.sprech.eintraege) {
+        if (e.id !== id) continue;
+        if (an) e.halt = true; else { e.halt = false; e.bis = Math.max(e.t + e.d, performance.now() / 1000 + 0.5); }
+      }
+    },
+    crewFunkEnde(e) { return e.halt ? e.t + 30 : (e.bis || e.t + e.d); },
+    zeichneSprechspalte(ctx, view) {
+      const sp = this.sprech;
+      sp.tFrame = performance.now();
+      const E = sp.eintraege, z = sp.zeile && sp.zeile.offen ? sp.zeile : null, rec = sp.aufnahme || sp.verarbeitet;
+      const now = sp.tFrame / 1000;
+      for (let i = E.length - 1; i >= 0; i--) if (now >= this.crewFunkEnde(E[i])) E.splice(i, 1);
+      if (!E.length && !rec && !z) return;
+      const FN = fnFarben(), slot = this.sprechSlot(view), hoch = slot.richtung === 'hoch';
+      let y = slot.y;
+      const stelle = (h) => { if (hoch) { y -= h; const r = y; y -= 1; return r; } const r = y; y += h + 1; return r; };
+      if (z) this.zeichneTextzeile(ctx, view, z, slot.x, stelle(14), slot.w, FN);
+      if (rec) {
+        const aufn = sp.aufnahme, label = 'FUNK OFFEN', w = aufn ? 5 + 4 + 3 + R.measure(label, 1) + 7 : R.measure('…', 1) + 12, x = Math.round(slot.x + (slot.w - w) / 2), ry = stelle(12), col = aufn ? FN.drive : FN.neutral;
+        R.backdrop(ctx, x, ry, w, 12, 0.85);
+        ctx.strokeStyle = col; ctx.lineWidth = 1; ctx.strokeRect(x + 0.5, ry + 0.5, w - 1, 11);
+        if (aufn) {   // Punkt als Pixel (die Pixelschrift kennt kein „●“), kein Blinken
+          ctx.fillStyle = col; ctx.fillRect(x + 6, ry + 4, 2, 4); ctx.fillRect(x + 5, ry + 5, 4, 2);
+          R.text(ctx, label, x + 12, ry + 2, { color: col, shadow: false });
+        } else R.text(ctx, '…', x + 6, ry + 2, { color: col, shadow: false });
+      }
+      let n = rec ? 1 : 2;
+      for (let i = E.length - 1; i >= 0 && n > 0; i--, n--) {
+        const e = E[i], x = Math.round(slot.x + (slot.w - e.w) / 2), ey = stelle(e.h);
+        ctx.globalAlpha = Math.max(0, Math.min(1, (this.crewFunkEnde(e) - now) / 0.4));
+        R.backdrop(ctx, x, ey, e.w, e.h, 0.85);
+        ctx.fillStyle = e.farbe; ctx.fillRect(x, ey, 2, e.h);
+        if (e.who) R.text(ctx, e.who + ':', x + 6, ey + 2, { color: e.farbe, shadow: false });
+        for (let k = 0; k < e.lines.length; k++) R.text(ctx, e.lines[k], x + 10 + e.wWho, ey + 2 + k * 10, { color: FN.cmd, shadow: false });
+        ctx.globalAlpha = 1;
+      }
+    },
+    // Kasten der offenen Textzeile (14 hoch); das echte <input> liegt unsichtbar darüber (z.platziere bekommt das Raster-Rechteck), Text und Cursor kommen von hier
+    zeichneTextzeile(ctx, view, z, x, y, w, FN) {
+      R.backdrop(ctx, x, y, w, 14, 0.92);
+      ctx.strokeStyle = FN.drive; ctx.lineWidth = 1; ctx.strokeRect(x + 0.5, y + 0.5, w - 1, 13);
+      const wert = z.feld ? String(z.feld.value || '') : '', cur = z.feld && z.feld.selectionStart != null ? Math.min(wert.length, z.feld.selectionStart) : wert.length;
+      const innen = w - 10;
+      let von = 0;
+      while (von < cur && R.measure(wert.slice(von, cur), 1) > innen - 6) von++;   // lange Eingabe: der Anfang scrollt heraus, der Cursor bleibt sichtbar
+      ctx.save(); ctx.beginPath(); ctx.rect(x + 1, y + 1, w - 2, 12); ctx.clip();
+      if (!wert) R.text(ctx, z.platzhalter || '', x + 5, y + 3, { color: FN.neutral, shadow: false });
+      else R.text(ctx, wert.slice(von), x + 5, y + 3, { color: FN.cmd, shadow: false });
+      if (Math.floor(((view && view.time) || 0) * 3) % 2 === 0) { ctx.fillStyle = FN.drive; ctx.fillRect(x + 5 + (wert ? R.measure(wert.slice(von, cur), 1) : 0) + 1, y + 3, 4, 7); }
+      ctx.restore();
+      if (z.platziere) z.platziere({ x, y, w, h: 14 });
+    },
     // M1: Ortsname bei Ankunft (großes Banner, blendet aus)
     arrival: null,
     showArrival(name, sub) { if (name) this.arrival = { name: String(name), sub: sub || '', t: performance.now() / 1000 }; },
@@ -304,6 +405,8 @@
       }
       const now = performance.now() / 1000;
       this.notices = this.notices.filter(n => now - n.t < (n.d || 3));
+      const sp = this.sprech;
+      if (sp.aktiv && sp.zeile && sp.zeile.offen && performance.now() - sp.tFrame > 1500 && sp.zeile.schliessen) sp.zeile.schliessen();   // kein Spielbild (Lobby, Menü): eine unsichtbare Textzeile bliebe sonst offen
     },
 
     // ---------------------------------------------------------------- Haupt-Zeichnen
@@ -331,6 +434,7 @@
       if (!inConsole) this.drawReactorHint(ctx, view);
       this.drawArrival(ctx);
       if (!inConsole) this.drawBarks(ctx, view);
+      if (this.sprech.aktiv && !inConsole) Net.guard('Hud.sprechspalte', () => this.zeichneSprechspalte(ctx, view));   // BOT-04 C2: Bot-Untertitel, Aufnahme, Textzeile zu Fuß (an der Konsole zeichnet client.js sie NACH der Konsole, sonst läge die Konsole darüber; ohne Bot-Sprache läuft nichts)
       this.drawOda(ctx, view, inConsole);
       if (st.gp && !inConsole && window.Gespraech) Net.guard('Hud.gespraech', () => window.Gespraech.fenster(ctx, st));   // SL2: Gespräch am Boden
       this.drawNotices(ctx, view);
@@ -1097,6 +1201,8 @@
       if (!cur || (view && view.me && view.me.console)) return 0;
       return 10 + R.wrap(cur.text, 284 - 44, 1).length * 10;
     },
+    // Höhe der ODA-Zeile an der Konsole, wo sie oben bei y 16 steht (drawOda top = true); odaHoehe liefert dort 0 (die Leisten unten brauchen nichts)
+    odaHoeheOben() { return this.odaHoehe({ me: {} }); },
     // Einzeilige Lagemeldung ohne Inhaltsfläche zu berühren: roter Streifen, „LAGE ·“, Sprecher (nur wenn nicht die eigenen Sensoren), Kernaussage (Ort · Fraktion · Stärke, Server-Feld kz),
     // danach die Prosa (gekürzt), „+n“ bei einer Serie. Fixrunde N5: flache Fläche (Tisch) mit 1 px Messing als Unterkante wie die Szenenzeile statt der 2-px-Fase von R.panel (die Schrift
     // saß in dem 11-px-Feld auf dem Rahmen); die Kürzung trifft nur noch die Prosa.
