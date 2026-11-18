@@ -39,6 +39,7 @@
     "spiel:forderung": "node tools/spiel-forderung.js",
     "spiel:landung": "node tools/spiel-landung.js",
     "spiel:wrack": "node tools/spiel-wrack.js",
+    "test:bot-clips": "node tools/test-bot-clips.js",
     "test:wrack-bot": "node tools/test-wrack-bot.js",
     "test:wrack-bot-mutation": "node tools/mutation-wrack-bot.js",
     "test:landung-bot": "node tools/test-landung-bot.js",
