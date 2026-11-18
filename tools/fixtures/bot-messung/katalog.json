@@ -1,0 +1,151 @@
+[
+ {
+  "befehl": "nav.kurs",
+  "an": "navigation",
+  "args": {
+   "ziel": "marke"
+  },
+  "spricht": "Kurs auf die Markierung"
+ },
+ {
+  "befehl": "nav.stopp",
+  "an": "navigation",
+  "spricht": "Alle Maschinen stopp"
+ },
+ {
+  "befehl": "nav.schub",
+  "an": "navigation",
+  "args": {
+   "stufe": "halb"
+  },
+  "spricht": "Halbe Kraft voraus"
+ },
+ {
+  "befehl": "nav.ausweichen",
+  "an": "navigation",
+  "spricht": "Ausweichen"
+ },
+ {
+  "befehl": "nav.abstand",
+  "an": "navigation",
+  "args": {
+   "ziel": "ziel"
+  },
+  "spricht": "Abstand halten"
+ },
+ {
+  "befehl": "nav.andocken",
+  "an": "navigation",
+  "spricht": "Andocken"
+ },
+ {
+  "befehl": "nav.sprung",
+  "an": "navigation",
+  "args": {
+   "ziel": "hex:12"
+  },
+  "spricht": "Sprung nach Hex zwölf"
+ },
+ {
+  "befehl": "ops.ziel",
+  "an": "ops",
+  "args": {
+   "ziel": "markiert"
+  },
+  "spricht": "Ziel markieren"
+ },
+ {
+  "befehl": "ops.feuer_frei",
+  "an": "ops",
+  "args": {
+   "waffen": "alle"
+  },
+  "spricht": "Feuer frei"
+ },
+ {
+  "befehl": "ops.feuer_halt",
+  "an": "ops",
+  "spricht": "Feuer einstellen"
+ },
+ {
+  "befehl": "ops.scan",
+  "an": "ops",
+  "spricht": "Scannen"
+ },
+ {
+  "befehl": "ops.landescan",
+  "an": "ops",
+  "spricht": "Landepunkt scannen"
+ },
+ {
+  "befehl": "ops.beamen",
+  "an": "ops",
+  "args": {
+   "was": "fracht"
+  },
+  "spricht": "Fracht an Bord"
+ },
+ {
+  "befehl": "tech.prio",
+  "an": "technik",
+  "args": {
+   "ziel": "feuer"
+  },
+  "spricht": "Feuer zuerst"
+ },
+ {
+  "befehl": "tech.reparieren",
+  "an": "technik",
+  "args": {
+   "system": "antrieb"
+  },
+  "spricht": "Antrieb reparieren"
+ },
+ {
+  "befehl": "tech.schild",
+  "an": "technik",
+  "args": {
+   "sektor": "stb"
+  },
+  "spricht": "Schilde Steuerbord"
+ },
+ {
+  "befehl": "tech.energie",
+  "an": "technik",
+  "args": {
+   "system": "waffen",
+   "delta": 1
+  },
+  "spricht": "Mehr Energie auf Waffen"
+ },
+ {
+  "befehl": "tech.ueberladen",
+  "an": "technik",
+  "spricht": "Reaktor überladen"
+ },
+ {
+  "befehl": "bord.rueckholen",
+  "an": "bord",
+  "spricht": "Außenteam zurückholen"
+ },
+ {
+  "befehl": "bord.sensor",
+  "an": "bord",
+  "spricht": "Sensor"
+ },
+ {
+  "befehl": "bord.kuppel",
+  "an": "bord",
+  "spricht": "Kuppel"
+ },
+ {
+  "befehl": "bot.status",
+  "an": "alle",
+  "spricht": "Statusbericht"
+ },
+ {
+  "befehl": "bot.automatik",
+  "an": "alle",
+  "spricht": "Automatik"
+ }
+]

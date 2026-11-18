@@ -1396,7 +1396,7 @@
 
     // ---------------------------------------------------------------- Overlays (Menü, Optionen, Steuerung, Weltstände)
     MENU_ITEMS: [['resume', 'Weiterspielen'], ['options', 'Optionen'], ['controls', 'Steuerung'], ['end', 'Partie beenden']],
-    OPTION_ITEMS: ['volume', 'mute', 'render', 'fullscreen', 'back'],
+    OPTION_ITEMS: ['volume', 'mute', 'render', 'fullscreen', 'sprache', 'back'],
     // Einträge je Seite (für die Tastatur-Navigation in client.js)
     pageItems(page, view) {
       if (page === 'menu') return this.MENU_ITEMS.map(i => i[0]);
@@ -1457,7 +1457,7 @@
     },
     drawOptions(ctx, view, sel) {
       const o = view.optionsInfo || {};
-      const w = 320, x = VW / 2 - w / 2, y = 78, h = 176;
+      const w = 320, x = VW / 2 - w / 2, y = 78, h = 200;
       R.panel(ctx, x, y, w, h, { style: 'brass', title: 'OPTIONEN' });
       const rows = this.OPTION_ITEMS;
       const lx = x + 14, cx = x + 112, cw = w - 126;
@@ -1483,6 +1483,9 @@
         } else if (id === 'fullscreen') {
           R.text(ctx, 'Vollbild', lx, ry + 4, { color: PAL.star });
           R.button(ctx, cx, ry, cw, 16, o.fullscreen ? 'An' : 'Aus', { active: !!o.fullscreen, onClick: act(0) });
+        } else if (id === 'sprache') {
+          R.text(ctx, 'Bot-Sprache', lx, ry + 4, { color: PAL.star });   // BOT-04 C: Opt-in, Standard aus (Mikrofon erst nach dem Einschalten)
+          R.button(ctx, cx, ry, cw, 16, o.sprache ? 'An' : 'Aus', { active: !!o.sprache, onClick: act(0) });
         } else if (id === 'back') {
           R.button(ctx, x + w / 2 - 60, ry, 120, 16, 'Zurück', { hotkey: 'Esc', onClick: () => view.actions.uiActivate('options', 'back') });
         }

@@ -1,0 +1,98 @@
+{
+ "nav.kurs.ok": [
+  "Aye, Kurs auf die Markierung.",
+  "Kurs liegt an, Käpt'n."
+ ],
+ "nav.stopp.ok": [
+  "Aye, alle Maschinen stopp.",
+  "Maschinen stehen."
+ ],
+ "nav.schub.ok": [
+  "Aye, halbe Kraft voraus.",
+  "Schub gesetzt."
+ ],
+ "nav.ausweichen.ok": [
+  "Aye, weiche aus.",
+  "Ruder hart, wir drehen ab."
+ ],
+ "nav.abstand.ok": [
+  "Aye, halte Abstand.",
+  "Abstand wird gehalten."
+ ],
+ "nav.andocken.ok": [
+  "Aye, gehe längsseits.",
+  "Anflug zum Andocken."
+ ],
+ "nav.sprung.ok": [
+  "Aye, Sprung wird vorbereitet.",
+  "Sprungkurs liegt an."
+ ],
+ "ops.ziel.ok": [
+  "Aye, Ziel markiert.",
+  "Ziel erfasst."
+ ],
+ "ops.feuer_frei.ok": [
+  "Aye, Feuer frei.",
+  "Alle Rohre feuern."
+ ],
+ "ops.feuer_halt.ok": [
+  "Aye, Feuer eingestellt.",
+  "Waffen schweigen."
+ ],
+ "ops.scan.ok": [
+  "Aye, scanne.",
+  "Scan läuft."
+ ],
+ "ops.landescan.ok": [
+  "Aye, suche Landepunkt.",
+  "Landepunktscan läuft."
+ ],
+ "ops.beamen.ok": [
+  "Aye, Fracht kommt an Bord.",
+  "Fracht wird gebeamt."
+ ],
+ "tech.prio.ok": [
+  "Aye, Feuer zuerst.",
+  "Löschtrupp geht vor."
+ ],
+ "tech.reparieren.ok": [
+  "Aye, Antrieb wird repariert.",
+  "Reparatur eingeplant."
+ ],
+ "tech.schild.ok": [
+  "Aye, Schilde Steuerbord.",
+  "Schilde laufen nach Steuerbord."
+ ],
+ "tech.energie.ok": [
+  "Aye, mehr Energie auf Waffen.",
+  "Energie wird umgeleitet."
+ ],
+ "tech.ueberladen.ok": [
+  "Aye, Reaktor wird überladen.",
+  "Überladung läuft, Käpt'n."
+ ],
+ "bord.rueckholen.ok": [
+  "Aye, Außenteam wird zurückgeholt.",
+  "Rückholung läuft."
+ ],
+ "bord.sensor.ok": [
+  "Aye, Sensor unterstützt das Team.",
+  "Sensor ist auf dem Außenteam."
+ ],
+ "bord.kuppel.ok": [
+  "Aye, Kuppel steht.",
+  "Schildkuppel über dem Team."
+ ],
+ "bot.status.ok": [
+  "Aye, Statusbericht folgt.",
+  "Lage wird gemeldet."
+ ],
+ "bot.automatik.ok": [
+  "Aye, Automatik übernimmt.",
+  "Wieder im Standardbetrieb."
+ ],
+ "bot.unklar": [
+  "Bitte wiederholen, Käpt'n.",
+  "Das habe ich nicht verstanden."
+ ]
+}
