@@ -300,6 +300,7 @@
   {"id":"test-faden-vorlagen-ws","kette":"test","cmd":["tools/test-faden-vorlagen-ws.js"],"stufe":"fast","budget_s":9},
   {"id":"test-faden-nach3","kette":"test","cmd":["tools/test-faden-nach3.js"],"stufe":"fast","budget_s":8},
   {"id":"test-faden-nach4","kette":"test","cmd":["tools/test-faden-nach4.js"],"stufe":"fast","budget_s":7},
+  {"id":"test-bot-matcher","kette":"test","cmd":["tools/test-bot-matcher.js"],"stufe":"fast","budget_s":8},
   {"id":"test-hinterhalt-kern","kette":"test","cmd":["tools/test-hinterhalt-kern.js"],"stufe":"fast","budget_s":7},
   {"id":"test-faden-hinterhalt","kette":"test","cmd":["tools/test-faden-hinterhalt.js"],"stufe":"fast","budget_s":10},
   {"id":"test-hinterhalt-bot","kette":"test","cmd":["tools/test-hinterhalt-bot.js"],"stufe":"full","budget_s":90},
