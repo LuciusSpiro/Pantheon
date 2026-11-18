@@ -25,6 +25,7 @@ const STATIC_DIRS = [
   { prefix: '/content/scanner/', dir: path.join(ROOT, 'content', 'scanner'), nur: ['datenblaetter.json'] },   // SCA-01 P4: Texte der Scan-Ergebnisse (public/js/scan-anzeige.js), nur lesen
   { prefix: '/content/kreaturen/', dir: path.join(ROOT, 'content', 'kreaturen'), nur: ['modelle.json'] },   // MON-02 O3a: Zuordnung Kreatur-Typ -> Voxelmodell (public/js/voxel/actors.js), nur lesen
   { prefix: '/assets/bots/stimmen/', dir: path.join(ROOT, 'assets', 'bots', 'stimmen'), only: ['.ogg', '.wav'] },   // BOT-04 C: Sprach-Clips der Bots (assets/bots/stimmen/<stimme>/<textId>[.<variante>].ogg|wav), nur Audio, nur lesen
+  { prefix: '/content/bots/', dir: path.join(ROOT, 'content', 'bots'), nur: ['kanon.json', 'muster.json'] },   // BOT-04 Integration: Kanon der Sprechformen und Wortfamilien für den Matcher im Browser (public/js/bot-sprache.js), nur lesen; texte.json bleibt auf dem Server
   { prefix: '/bot-messung/', dir: path.join(ROOT, 'tools', 'fixtures', 'bot-messung'), nur: ['phrasen.json'] },   // BOT-04 C: Phrasenliste des Messmodus (?botmessung=1), nur diese Datei, nur lesen
   { prefix: '/content/', dir: path.join(ROOT, 'content'), nur: ['waren.json'] },   // LAD-01 A1: Warenmodell (Anzeigenamen der Ladung; shared/waren.js), nur lesen
   { prefix: '/', dir: path.join(ROOT, 'public') },

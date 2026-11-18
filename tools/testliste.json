@@ -388,6 +388,7 @@
   {"id":"test-bot-sprache","kette":"test","cmd":["tools/test-bot-sprache.js"],"stufe":"fast","budget_s":8},
   {"id":"test-bot-clips","kette":"test","cmd":["tools/test-bot-clips.js"],"stufe":"fast","budget_s":8},
   {"id":"test-bot-mock","kette":"test","cmd":["tools/test-bot-mock.js"],"stufe":"fast","budget_s":8},
+  {"id":"test-bot-integration","kette":"test","cmd":["tools/test-bot-integration.js"],"stufe":"fast","budget_s":10},
   {"id":"test-bot-stt","kette":"test","cmd":["tools/test-bot-stt.js"],"stufe":"fast","budget_s":8},
   {"id":"test-version","kette":"test","cmd":["tools/test-version.js"],"stufe":"fast","budget_s":8},
   {"id":"test-karte-ausrichtung","kette":"test","cmd":["tools/test-karte-ausrichtung.js"],"stufe":"fast","budget_s":6},

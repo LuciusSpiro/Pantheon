@@ -183,7 +183,7 @@ const sprechen = async (k) => { k.tasteRunter(); await tick(); return k.tasteHoc
     ok(eq(BS.clipKandidaten('bot.unklar', 'ops'), ['/assets/bots/stimmen/ops/bot.unklar.ogg', '/assets/bots/stimmen/ops/bot.unklar.wav']), 'Clipwahl ohne Variante');
     const { env, L } = fake(); const k = BS.erzeuge(env); k.schalte(true);
     k.empfange({ t: 'bot.antwort', botId: 'b1', befehl: 'ops.scan', status: 'ok', textId: 'ops.scan.ok', text: 'Aye, scanne.', variante: 0 });
-    ok(L.clips[0][0] === '/assets/bots/stimmen/ops/ops.scan.ok.0.ogg' && L.ereignisse.join() === 'untertitel,clip', 'bot.antwort: Untertitel und Clip im selben Schritt, Stimme nach botId');
+    ok(L.clips[0][0] === '/assets/bots/stimmen/b1/ops.scan.ok.0.ogg' && L.ereignisse.join() === 'untertitel,clip', 'bot.antwort: Untertitel und Clip im selben Schritt, Stimme nach botId');
     k.empfange({ t: 'bot.antwort', botId: 'b9', textId: 'x.ok', stimme: 'kara' });
     ok(L.clips.at(-1)[0] === '/assets/bots/stimmen/kara/x.ok.ogg' && L.untertitel.at(-1) === 'x.ok', 'msg.stimme hat Vorrang; ohne text zeigt der Untertitel die textId');
     ok(k.empfange({ t: 'snap' }) === false && k.empfange(null) === false, 'fremde Nachrichten werden ignoriert');

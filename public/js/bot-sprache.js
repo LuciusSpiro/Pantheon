@@ -27,7 +27,7 @@
     aufnahme: 'AUFNAHME LÄUFT',
     platzhalter: 'Befehl an die Crew, Enter sendet',
   };
-  const STIMMEN = { b0: 'navigation', b1: 'ops', b2: 'technik', b3: 'bord' };   // Standard: Ordnername je botId im Clip-Vorrat; BOT-04 B / BOT-05 können das über env.stimmen oder msg.stimme überschreiben
+  const STIMMEN = { b0: 'b0', b1: 'b1', b2: 'b2', b3: 'b0' };   // Ordnername im Clip-Vorrat je botId (Kai 2026-11-18: drei Stimmen b0 bis b2, mehr als 3 Bots gibt es nicht; b3 fällt auf b0 zurück); env.stimmen oder msg.stimme überschreiben
   const MIN_MS = 250;                                                          // kürzere Aufnahmen sind versehentliche Tastenkontakte
   const CLIP_BASIS = '/assets/bots/stimmen';
   const ENDUNGEN = ['ogg', 'wav'];
@@ -280,10 +280,19 @@
     if (ladeMatcher.p) return ladeMatcher.p;
     const gefunden = () => win.Shared_BotMatcher || win.BotMatcher || null;
     ladeMatcher.p = new Promise((resolve) => {
-      if (gefunden()) return resolve(gefunden());
+      const mitDaten = async () => {   // Matcher braucht Kanon und Muster (im Browser kein Dateizugriff): vom Server holen und setzen
+        const m = gefunden();
+        if (!m) return null;
+        try {
+          const [mu, ka] = await Promise.all(['/content/bots/muster.json', '/content/bots/kanon.json'].map((u) => win.fetch(u).then((r) => { if (!r.ok) throw new Error(u + ' ' + r.status); return r.json(); })));
+          m.setzeMuster(Object.assign({}, mu, { kanon: ka }));
+          return m;
+        } catch (e) { ladeMatcher.p = null; return null; }
+      };
+      if (gefunden()) return resolve(mitDaten());
       const sk = win.document.createElement('script');
       sk.src = '/shared/bot-matcher.js';
-      sk.onload = () => resolve(gefunden());
+      sk.onload = () => resolve(mitDaten());
       sk.onerror = () => { ladeMatcher.p = null; resolve(null); };
       win.document.head.appendChild(sk);
     });
