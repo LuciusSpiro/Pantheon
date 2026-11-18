@@ -21,6 +21,7 @@
 // opts (Tests): { llm, mode, archivDir, archiv (Einträge), regieDir, memoryLog, katalog, env, config, kontext(anlass) }
 
 const path = require('path');
+const Crew = require('../sim/crew.js');   // BOT-01 A2: Zählung über crew.js (Köpfe/Verbundene)
 const LLM = require('./llm.js');
 const Kontingent = require('../sim/kontingent.js');   // LIV-01: Schwelle des Token-Zählers (das Gate vor jeder Anfrage)
 const Haken = require('../telemetrie/haken.js');   // TEL-01 B2: Wartezeit auf den Spielleiter ins Protokoll (liest nur)
@@ -336,7 +337,7 @@ class Spielleiter {
     } catch (e) { this.countError('kontext', e); }
     try { return Context.build(data, anlass || {}, this.katalog()); } catch (e) { this.countError('kontext', e); return {}; }
   }
-  crew() { try { return Math.max(1, Math.min(3, (this.game.players || []).filter((p) => p.connected).length || 1)); } catch (e) { return 1; } }
+  crew() { try { return Math.max(1, Math.min(3, Crew.koepfe(this.game) || 1)); } catch (e) { return 1; } }
   plansBy(pred) { return Object.values(this.plans).filter(pred); }
   planById(id) { return Object.values(this.plans).find((p) => p.id === id) || null; }
   tutorialDone() {

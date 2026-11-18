@@ -28,6 +28,7 @@
 //               FRE-03 D: ausloesenTaktNotruf legt beim Entstehen ein Brett-Angebot an (abenteuer-brett.js notrufAnbieten); Verfall, Ablehnen und Beantworten des Eintrags ziehen es zurück (brettZurueckziehen); notrufMitPerson (alter Hook) gilt nur noch für Notrufe je Sprung
 //   neu() / toSave(ws) / lesen(block) Weltstand welt.sim.reise: { n, letzter?, letzte?, takt?, taktNr? } (optional, Altstand = leer); Notruf-Marken und laufende Ereignisse stehen nicht im Weltstand
 const Sektoren = require('../../shared/sektoren.js');
+const Crew = require('./crew.js');   // BOT-01 A2: Zählung über crew.js (Köpfe/Verbundene)
 const Besitz = require('./besitz.js');
 const Chronik = require('./chronik.js');
 const Marken = require('./marken.js');
@@ -449,7 +450,7 @@ function taktUpdate(game) {
 // ---------- Laufende Gefahren (Vorlauf, Eintreffen, Bewältigung)
 function eintreffen(game, L) {
   const e = eintrag(L.id), sc = e.parameter.schiffe, ship = game.ship;
-  const verbunden = (game.players || []).filter((q) => q.connected).length;
+  const verbunden = Crew.koepfe(game);
   const n = Math.max(sc.min, Math.min(sc.max, verbunden + WERTE.jaeger_je_spieler));
   const rng = strom(seedVon(game), L.nr, 'gegner');
   const w0 = rng() * Math.PI * 2;

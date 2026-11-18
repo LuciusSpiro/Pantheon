@@ -8,6 +8,7 @@
 // interior, world) werden erst beim Aufruf geladen – describe() und der Prüfer laufen ohne Server.
 // run/test bekommen die laufende Mission (server/sim/mission.js) und die Parameter des Aufrufs.
 const Geld = require('../sim/geld.js');   // TEL-01 G: Marken nur über den Buchungsdienst
+const Crew = require('../sim/crew.js');   // BOT-01 A2: Zählung über crew.js (Köpfe/Verbundene)
 const Vorrat = require('../sim/vorrat.js');   // TEL-01 G: Verbrauchsgüter nur über den Buchungsdienst
 const Objects = require('./objects.js');
 
@@ -386,7 +387,7 @@ define({ id: 'item_count', art: 'pruefung', beschreibung: 'Mindestens min Stück
   params: { item: { typ: 'item', pflicht: true }, min: { typ: 'number', pflicht: true, min: 0 } },
   test: (m, a) => (g_(m).inventory[a.item] || 0) >= a.min });
 define({ id: 'crew_max', art: 'pruefung', beschreibung: 'Höchstens max Spieler verbunden', params: { max: { typ: 'number', pflicht: true, min: 1 } },
-  test: (m, a) => g_(m).players.filter((p) => p.connected).length <= a.max });
+  test: (m, a) => Crew.koepfe(g_(m)) <= a.max });
 define({ id: 'squad_cleared', art: 'pruefung', beschreibung: 'Trupp ist erschienen und ausgeschaltet',
   params: { map: { typ: 'map', pflicht: true }, squad: { typ: 'squad', pflicht: true } },
   test: (m, a) => { const aw = g_(m).aways[a.map]; return !!(aw && aw.spawned && aw.spawned[a.squad]) && !aw.drones.some((d) => d.alive && d.squad === a.squad); } });

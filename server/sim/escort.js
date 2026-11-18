@@ -26,6 +26,7 @@
 // Aufrufer: space.js (update, Angriffe, Treffer, Szenenwechsel, Lanze), game.js/ENGINE (snapshot, enemyTgt, command,
 // debug, hpPct), server/mission/bausteine/escort.js (Bausteine). Ohne Schützlinge ändert nichts am bisherigen Ablauf.
 const Flight = require('../../shared/flight.js');
+const Crew = require('./crew.js');   // BOT-01 A2: Zählung über crew.js (Köpfe/Verbundene)
 const Physics = require('../../shared/physics.js');
 const Locations = require('../../shared/locations.js');
 const Sektoren = require('../../shared/sektoren.js');
@@ -94,7 +95,7 @@ function stats(game) {
 const hpFrac = (es) => (es.hpMax > 0 ? Math.max(0, es.hp) / es.hpMax : 0);
 // EK4: Verbündete rufen bei CONFIG.flotte.hilferuf.schwer (Standard 0,4) um Hilfe, Schützlinge ab escorts.distressBelow
 function distressLimit(game, es) { return es && es.ally ? Number(((game.C.flotte || {}).hilferuf || {}).schwer) || 0.4 : cfg(game).distressBelow; }
-const crewN = (game) => Math.max(1, Math.min(3, game.players.filter((p) => p.connected).length));
+const crewN = (game) => Math.max(1, Math.min(3, Crew.koepfe(game)));
 
 // ---------- Funk ohne Missionszustand (mission.radio würde einen offenen Funkspruch überschreiben) ----------
 function radio(game, es, text) {

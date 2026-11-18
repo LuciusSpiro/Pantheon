@@ -1133,7 +1133,7 @@ class Game {
 
   checkLobbyStart() {
     if (this.phase !== 'lobby') return;
-    const con = this.players.filter((p) => p.connected);
+    const con = Crew.verbundene(this);
     if (con.length && con.every((p) => p.ready)) this.startGame();
   }
 

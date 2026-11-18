@@ -12,6 +12,7 @@
 //  - arena_away ohne Kartenwahl (Altweg, Tests): Mission m3 direkt auf Schritt 'courtyard', alle Spieler auf den Kesh-Pads,
 //    Schiff in Transferreichweite; mit Kartenparametern statische Karte (Karten-QA).
 const W = require('../world.js');
+const Crew = require('./crew.js');   // BOT-01 A2: Zählung über crew.js (Köpfe/Verbundene)
 const Schilde = require('../../shared/schilde.js');   // SYS-03 C1: Regenerationspause
 const Locations = require('../../shared/locations.js');
 const interior = require('./interior.js');
@@ -206,7 +207,7 @@ function startAway(game) {
   ship.vx = 0; ship.vy = 0; ship.speed = 0;
   game.setAwayMap('kesh');
   worldFirst(game);
-  const team = game.players.filter((p) => p.connected);
+  const team = Crew.verbundene(game);
   for (const p of team) { if (p.console) interior.konsoleVerlassen(game, p, 'arena'); if (p.downed) interior.revivePlayer(game, p); }
   if (team.length) away.executeBeam(game, team.map((p) => p.id), 'down');
   game.arena = { kind: 'arena_away' };
@@ -264,7 +265,7 @@ function startAwayBuehne(game, params) {
     const opts = { map: lp, bereich: null, fraktion: params.fraktion, staerke: params.staerke || 'mittel', haltung: params.haltung || 'ruhig', tag: 'arena', neue_rolle: null };
     if (besetzen) { try { besetzen(game, opts); } catch (e) { game.countError('arena-besetzen', e); } } else game.countError('arena-besetzen', new Error('besetzen fehlt (BODENKAMPF)'));
   }
-  const team = game.players.filter((p) => p.connected);
+  const team = Crew.verbundene(game);
   for (const p of team) { if (p.console) interior.konsoleVerlassen(game, p, 'arena'); if (p.downed) interior.revivePlayer(game, p); }
   if (team.length) away.executeBeam(game, team.map((p) => p.id), 'down');
   game.arena = { kind: 'arena_away', lp, params: Object.assign({}, params) };
@@ -331,7 +332,7 @@ function startWellen(game, karte, params) {
     if (!lp) { game.oda('Diese Karte ließ sich nicht bauen – die Wellen kommen auf dem Kesh-Hof.', null); lp = 'kesh'; }
   }
   bodenSzene(game, lp);
-  const team = game.players.filter((p) => p.connected);
+  const team = Crew.verbundene(game);
   // Rüstphase (Testumgebung, game.ruestphase): die Crew bleibt an Bord und beamt erst hinunter, wenn am Terminal „Szene starten“ gedrückt wird (wellen.vorbereitungEnde)
   if (!game.ruestphase) {
     for (const p of team) { if (p.console) interior.konsoleVerlassen(game, p, 'arena'); if (p.downed) interior.revivePlayer(game, p); }

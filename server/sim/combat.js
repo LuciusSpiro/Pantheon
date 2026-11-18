@@ -10,6 +10,7 @@
 // Captain-Befehle, Kesh-Interaktionen (Störrelais, Archivschlüssel, Tafel), Debug `tune`.
 // Gegner-KI: server/sim/squad.js. Alle Balancing-Werte: CONFIG.awayCombat.
 const Vorrat = require('./vorrat.js');   // TEL-01 G: Verbrauchsgüter nur über den Buchungsdienst
+const Crew = require('./crew.js');   // BOT-01 A2: Zählung über crew.js (Köpfe/Verbundene)
 const Medipack = require('./medipack.js');   // ITM-01 A: Medipack als Slot-Item mit Ladungen (meldet sich als Item `medipack` an)
 const Haken = require('../telemetrie/haken.js');   // TEL-01 B2: Protokoll-Haken (lesen nur)
 const Physics = require('../../shared/physics.js');
@@ -1246,7 +1247,7 @@ function jammerOff(game, p, i) {
 // QA M2: Ist nur noch ein Spieler verbunden, reicht das Zeitfenster zum Hinüberlaufen (sonst Sackgasse am Tor)
 function keyWindow(game) {
   const C = cfg(game);
-  const solo = game.players.filter((p) => p.connected).length <= 1;
+  const solo = Crew.koepfe(game) <= 1;   // Falle -> BOT-02 A: Archiv-Schlüssel-Fenster hängt an „solo“
   return solo ? Math.max(C.archkeyWindow, C.archkeySoloWindow || 0) : C.archkeyWindow;
 }
 function keyTurned(game, p, i) {
@@ -1522,7 +1523,7 @@ function teamGefangenNehmen(game, landepunkt) {
     try { require('./landepunkte.js').get(game, landepunkt); } catch (e) { return `Landepunkt ${landepunkt}: ${e.message}`; }
   }
   if (!game.aways[landepunkt]) return `Landepunkt ${landepunkt} unbekannt`;
-  const team = game.players.filter((p) => p.connected);
+  const team = Crew.verbundene(game);
   if (!team.length) return 'keine Crew verbunden';
   const it = interior();
   // wer auf einer anderen Außenkarte steht, kommt zuerst an Bord
@@ -1613,7 +1614,7 @@ function besetzen(game, o) {
   for (let i = 0; i < n; i++) picks.push(rezepte[Math.floor(aw.rng() * rezepte.length)]);
   if (opts.staerke === 'gross' && f.gross_extra && f.rezepte[f.gross_extra]) picks.push(f.gross_extra);
   const gesehen = new Set(rollenGesehen(game)); gesehen.add('grundtyp'); gesehen.add('waechter');   // Wächter gilt immer als bekannt (seit Kesh)
-  const spieler = Math.max(1, Math.min(3, game.players.filter((p) => p.connected).length));
+  const spieler = Math.max(1, Math.min(3, Crew.koepfe(game)));
   const ersatz = f.modelle && f.modelle.grundtyp ? 'grundtyp' : null;   // Fraktion ohne grundtyp (herrenlos): Rolle bleibt
   const ersetzt = [];
   let enterer = 0;

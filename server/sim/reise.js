@@ -10,6 +10,7 @@
 //     befreundet nie. Abgefangen heißt: Reise endet, die Lerche steht mitten im Sektor, Jäger greifen an.
 //   Zustand: game.reisePlan | null, game.reise | null, game._reiseOhne (ereignislose Hops am Stück)
 const Locations = require('../../shared/locations.js');
+const Crew = require('./crew.js');   // BOT-01 A2: Zählung über crew.js (Köpfe/Verbundene)
 const Sektoren = require('../../shared/sektoren.js');
 const ReiseEreignis = require('./reise-ereignis.js');   // SUND-03 D
 const Besitz = require('./besitz.js');   // SUND-01 D: aktueller Besitzer statt statischer Hex-Fraktion (ohne Overlay identisch)
@@ -151,7 +152,7 @@ function abfangen(game, hex) {
   ReiseEreignis.abfangenVermerken(game);   // SUND-03 D: das Abfangen zählt für den Abstand der Reise-Ereignisse (höchstens 1 je 3 Sprünge)
   const loc = Locations.get(game.ship.scene); const sc = loc.scene; const ship = game.ship;
   ship.x = Math.round(sc.w / 2); ship.y = Math.round(sc.h / 2); ship.vx = 0; ship.vy = 0; ship.speed = 0;
-  const n = Math.max(R.jaegerMin || 2, Math.min(R.jaegerMax || 4, game.players.filter((q) => q.connected).length + 1));
+  const n = Math.max(R.jaegerMin || 2, Math.min(R.jaegerMax || 4, Crew.koepfe(game) + 1));
   const w0 = game.rng.range(-Math.PI, Math.PI);
   for (let i = 0; i < n; i++) {
     const a = w0 + (i - (n - 1) / 2) * 0.35;

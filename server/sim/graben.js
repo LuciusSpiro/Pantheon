@@ -22,6 +22,7 @@
 //  - Hochbeamen vor dem Ziel: kein Sieg, wie in Wellen Boden bleibt der Stand stehen (Gegner bleiben, die Crew kann ausrüsten und wieder hinunter).
 //  - Alle Texte und Zahlen: CONFIG.graben. Die KI bleibt unberührt (BOD-02).
 const GenFest = require('../../shared/gen-fest.js');
+const Crew = require('./crew.js');   // BOT-01 A2: Zählung über crew.js (Köpfe/Verbundene)
 const Tel = require('../telemetrie/gefecht.js');   // TEL-01 B1: Szene, Neubeginn, Gegner (nur lesen)
 
 let mods = null;
@@ -30,7 +31,7 @@ function M() {
   return mods;
 }
 const cfg = (game) => game.C.graben;
-const team = (game) => game.players.filter((p) => p.connected);
+const team = (game) => Crew.verbundene(game);
 // EIS-01: Textquelle ist S.texte (Kampagne, je Schluessel; fehlt einer, gilt der aus CONFIG.graben.texte), sonst CONFIG.graben.texte (Lobby)
 const text = (game, S, key, ...a) => String((S && S.texte && S.texte[key]) || (cfg(game).texte || {})[key] || '').replace(/\{(\d)\}/g, (m, i) => (a[i] == null ? '' : a[i]));
 const fehler = (game, wo, e) => { if (game.countError) game.countError(wo, e); };

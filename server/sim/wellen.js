@@ -15,6 +15,7 @@
 // Wellen All (Lobby-Start 'arena_space' mit Szene, arena.js): Raumgegner (space.spawnEnemy), Eskalation nur über Zahl und
 // Typ (planAll, CONFIG.wellen.all). Ende: Notfallprotokoll (Hülle 0). Pause: Gefallene stehen auf, Schilde voll.
 const Physics = require('../../shared/physics.js');
+const Crew = require('./crew.js');   // BOT-01 A2: Zählung über crew.js (Köpfe/Verbundene)
 const Schilde = require('../../shared/schilde.js');   // SYS-03 C1: Regenerationspause
 const Los = require('../../shared/los.js');
 const W = require('../world.js');
@@ -131,7 +132,7 @@ function st(game) { return game.arena && game.arena.wellen ? game.arena.wellen :
 function welleGegner(aw) { return ((aw && aw.drones) || []).filter((e) => e.tag === TAG); }
 const modusVon = (S) => (S.buehne === 'all' ? 'wellen_all' : S.buehne === 'graben' ? 'graben' : 'wellen_boden');   // TEL-01 B1
 function stehend(aw) { return welleGegner(aw).filter((e) => e.alive); }
-function team(game) { return game.players.filter((p) => p.connected); }
+function team(game) { return Crew.verbundene(game); }
 
 // start(game, { karte, seed, lp, fraktion }) – Karte steht, Team ist unten (arena.js)
 function start(game, o) {

@@ -2,6 +2,7 @@
 // Raum: Orte/Szenen, Flug, Docken, Faltsprung, Energie/Reaktor, Schilde, Waffen (Phasenkanonen),
 // Gegner (mit Schildsektoren), Projektile, Asteroiden, Ziel-Scan, Weitscan, Marker. CONTRACT-M1 §4–§6, §9.2.
 const Geld = require('./geld.js');   // TEL-01 G: Marken nur über den Buchungsdienst
+const Crew = require('./crew.js');   // BOT-01 A2: Zählung über crew.js (Köpfe/Verbundene)
 const Vorrat = require('./vorrat.js');   // TEL-01 G: Verbrauchsgüter nur über den Buchungsdienst
 const Haken = require('../telemetrie/haken.js');   // TEL-01 B2: Protokoll-Haken (lesen nur)
 const Physics = require('../../shared/physics.js');
@@ -1065,7 +1066,7 @@ function volkFuer(game, kind, explizit) {
 }
 
 function crewScale(game) {
-  const n = Math.max(1, Math.min(3, game.players.filter((p) => p.connected).length));
+  const n = Math.max(1, Math.min(3, Crew.koepfe(game)));
   return game.C.crewScaling[n] || { enemyFireInterval: 1 };
 }
 
@@ -1617,7 +1618,7 @@ function startTele(game, e) {
   game.emit('sfx', { name: 'tele_charge', enemy: e.kind, dur: e.tele.dur, key: e.id });
   game.missionEvent('tele', { enemy: e });
   // Solo: ODA sagt jede Ladung an (Abklingzeit je Gegner)
-  const solo = game.players.filter((p) => p.connected).length === 1;
+  const solo = Crew.koepfe(game) === 1;
   if (solo && (e.teleOdaAt == null || game.time - e.teleOdaAt >= T.odaCooldown)) {
     e.teleOdaAt = game.time;
     game.oda(`${ENEMY_LABEL[e.kind] || 'Gegner'} lädt – ${SECTOR_LABEL[e.tele.sector]}!`, null);

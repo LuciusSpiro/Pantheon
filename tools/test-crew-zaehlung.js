@@ -170,13 +170,30 @@ section('5 Snapshot, Client-Helfer, Telemetrie');
   ok(k0.slots.every((x) => !('bot' in x)), 'Kopf reiner Menschenpartie: kein Feld bot an den Slots');
 }
 
+// ---------- 6b Skalierung nach Köpfen (A2) ----------
+section('6b Skalierung zählt Köpfe: mit 0 und mit 3 Bots');
+{
+  const Loadout = require('../server/sim/loadout.js');
+  const Registry = require('../server/mission/registry.js');
+  const Spielleiter = require('../server/mission/spielleiter.js').Spielleiter;
+  const mensch = (id) => ({ id, connected: true });
+  const bot = (id) => ({ id, bot: true, connected: true });
+  const mit = (m, b) => ({ players: [].concat(Array.from({ length: m }, (_, i) => mensch('p' + i)), Array.from({ length: b }, (_, i) => bot('b' + i))) });
+  const slots = (g) => Loadout.slotzahlFestsetzen(g);
+  ok(slots(mit(1, 0)) === slots(mit(2, 0)) && slots(mit(1, 2)) === slots(mit(3, 0)) && slots(mit(1, 3)) === slots(mit(4, 0)) && slots(mit(1, 3)) !== slots(mit(1, 0)), 'Loadout: Slotzahl nach Köpfen (1 Mensch + 3 Bots wie 4 Menschen, nicht wie 1)');
+  const crewMax = Registry.get('crew_max').test;
+  ok(crewMax({ game: mit(1, 3) }, { max: 3 }) === false && crewMax({ game: mit(1, 2) }, { max: 3 }) === true && crewMax({ game: mit(3, 0) }, { max: 3 }) === true, 'Registry crew_max: Bots zählen mit');
+  const crewVon = (g) => Spielleiter.prototype.crew.call({ game: g });
+  ok(crewVon(mit(1, 0)) === 1 && crewVon(mit(1, 2)) === 3 && crewVon(mit(1, 3)) === 3 && crewVon(mit(3, 0)) === 3 && crewVon({ players: [] }) === 1, 'Spielleiter.crew(): 1 + Bots wie Menschen, gedeckelt auf 3');
+}
+
 // ---------- 6 Quellscan ----------
 section('6 Quellscan: Zählung nur in crew.js');
 {
   // Zählungen per .filter(...connected...).length / .size. Einzelprüfungen (p.zone === 'away' && p.connected) bleiben erlaubt.
   const ZAEHLUNG = /\.filter\([^;\n]*connected[^;\n]*\)\s*\.(length|size)\b|connectedCount|Station\.verbunden\b/;
-  // Dateien, die Paket A2 auf crew.koepfe() / crew.menschen() umstellt; A2 leert diese Liste
-  const NOCH_OFFEN = ['server/mission/registry.js', 'server/mission/spielleiter.js', 'server/sim/combat.js', 'server/sim/escort.js', 'server/sim/faden-szene.js', 'server/sim/finale-boden.js', 'server/sim/flotte.js', 'server/sim/interior.js', 'server/sim/kriegslage-szene.js', 'server/sim/lage-ausschnitt.js', 'server/sim/loadout.js', 'server/sim/mission.js', 'server/sim/reise-ereignis.js', 'server/sim/reise.js', 'server/sim/space.js', 'server/sim/squad.js'];
+  // BOT-01 A2: alle Dateien sind umgestellt, es gibt keine Ausnahmeliste mehr
+  const NOCH_OFFEN = [];
   const dateien = [];
   (function lauf(d) { for (const e of fs.readdirSync(d, { withFileTypes: true })) { const p = path.join(d, e.name); if (e.isDirectory()) lauf(p); else if (e.name.endsWith('.js')) dateien.push(p.split(path.sep).join('/')); } })('server');
   const treffer = (f) => fs.readFileSync(f, 'utf8').split(/\r?\n/).map((z, i) => (ZAEHLUNG.test(z) ? i + 1 : 0)).filter(Boolean);

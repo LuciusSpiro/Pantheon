@@ -9,6 +9,7 @@
 // Ein Prozess spielt eine Partie; die Karte ist je Prozess fix und wechselt nur beim Spielstart (CONTRACT-SL §1).
 // Quelle der Wahrheit der aktiven Karte bleibt shared/sektoren.js (KARTE); dieses Modul schaltet sie nur um.
 const fs = require('fs');
+const Crew = require('./crew.js');   // BOT-01 A2: Zählung über crew.js (Köpfe/Verbundene)
 const path = require('path');
 const Sektoren = require('../../shared/sektoren.js');
 const Locations = require('../../shared/locations.js');
@@ -119,7 +120,7 @@ function bodenStarten(game) {
   try { L.get(game, lp); } catch (e) { game.countError('welt-boden', e); return null; }
   game.transferZiel = { lp, scene: ship.scene };
   game.setAwayMap(lp);
-  const team = game.players.filter((p) => p.connected);
+  const team = Crew.verbundene(game);
   for (const p of team) { if (p.console) interior.konsoleVerlassen(game, p, 'welt'); if (p.downed) interior.revivePlayer(game, p); }
   if (team.length) away.executeBeam(game, team.map((p) => p.id), 'down');
   return lp;
