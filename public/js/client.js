@@ -212,7 +212,7 @@
   // ui.stack: oberste Seite ist offen ('menu' | 'options' | 'controls' | 'confirmEnd' | 'worlds'); Esc geht eine Seite zurück.
   Client.ui = { stack: [], sel: {}, worldsMode: 'list', hold: null, pauseSent: false };
   function uiTop() { const s = Client.ui.stack; return s.length ? s[s.length - 1] : null; }
-  function soloNow() { const st = Client.state; return !!st && (st.players || []).filter(p => p.connected !== false).length === 1; }
+  function soloNow() { const st = Client.state; return !!st && P.menschenZahl(st) === 1; }
   function inGame() { const st = Client.state; return !!(st && st.phase !== 'lobby' && me()); }
   function sendPause(on) { send({ t: (P.C && P.C.MENU) || 'menu', op: 'pause', on: !!on }); }
   function uiPush(page, sel) {

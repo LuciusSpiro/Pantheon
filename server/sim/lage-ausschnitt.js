@@ -8,6 +8,7 @@
 //   ausschnittPassend(game, { maxZeichen })       wählt die kleinste Kürzung (Stufe 0 bis 3), die unter maxZeichen bleibt (Standard: Obergrenze aus den Daten) -> { stufe, zeichen, text, passt }
 // Nie gekürzt: belagert, unterwegs, gefallen (Wendepunkte, bei Stufe 2 nur die letzten 3) und die Crew-Zeile. Obergrenze 4800 Zeichen ≈ 1800 Gemma-Token (Messung der Erkundung: 2,7 Zeichen je Token).
 const Daten = require('../weltsim/daten.js');
+const Crew = require('./crew.js');   // BOT-01 A2: Zählung über crew.js (Köpfe/Verbundene)
 const Context = require('../mission/context.js');
 const Ruf = require('./ruf.js');
 const Marken = require('./marken.js');
@@ -104,7 +105,7 @@ function bauen(game, st, namen) {
   const mieten = z.flotten.filter((fl) => fl.miete).map((fl) => ({ id: fl.id, an: fl.miete.an, rest: fl.miete.bis - z.tick, st: r1(fl.staerke) }));
   return {
     tick: ws.tickZahl,
-    crew: { anzahl: (game.players || []).filter((p) => p && p.connected !== false).length || (game.players || []).length, hex: hex && d.hex[hex] ? hex : null, ort: hex && d.hex[hex] ? name(hex) : null, rang: Ruf.rang(game), stufe: (game.ship && game.ship.stufe) | 0 },
+    crew: { anzahl: Crew.koepfe(game) || (game.players || []).length, hex: hex && d.hex[hex] ? hex : null, ort: hex && d.hex[hex] ? name(hex) : null, rang: Ruf.rang(game), stufe: (game.ship && game.ship.stufe) | 0 },
     ruf: { rom: Ruf.ruf(game, 'rom'), ger: Ruf.ruf(game, 'ger'), kon: Ruf.ruf(game, 'kon') },
     lage: { sieger: lage.sieger, anteil: lage.anteil },
     befehle_frei: Regie.befehleFrei(game),   // SUND-03 F: was Befehle jetzt voraussetzen (Rate-Rest, bereite Piraten, freie Plätze, Abkühlung); gehört zum Nichtkürzbaren

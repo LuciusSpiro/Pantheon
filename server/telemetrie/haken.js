@@ -294,6 +294,7 @@ function zeile(game, s) {
   const P = game.players;
   f.slots = P.map((p) => p.id);
   f.verbunden = P.map((p) => !!p.connected);
+  if (P.some((p) => p.bot)) f.bot = P.map((p) => !!p.bot);   // BOT-01 A1: nur in Partien mit Bots (Eingaben ein_bew/ein_akt von Bot-Slots sind Befehle der Bots, nicht des Menschen)
   f.ort = P.map((p) => (p.zone === 'ship' ? 'raum' : p.zone === 'away' ? 'boden' : null));   // wie ort in den Gefechtsereignissen (B1)
   f.konsole = P.map((p) => p.console || null);
   f.station = P.map((p) => (p.console ? p.station || p.console : null));

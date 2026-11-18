@@ -6,6 +6,7 @@
 // Trupp-Wissen (squad.alert, lastKnown je Spieler), Funksprüche (bark) vor der Aktion, Anti-Hängen (4 s -> neuer Plan).
 // Wächter (kind 'warden'): schläft bis wake, dreht mit turnRate zum Ziel, schießt nur geradeaus, funkt nicht.
 const Haken = require('../telemetrie/haken.js');   // TEL-01 B2: Protokoll-Haken (lesen nur)
+const Crew = require('./crew.js');   // BOT-01 A2: Zählung über crew.js (Köpfe/Verbundene)
 const Physics = require('../../shared/physics.js');
 const Los = require('../../shared/los.js');
 const W = require('../world.js');
@@ -84,7 +85,7 @@ function gleichesDeck(E, s, py) {
   return !s || s.deckBindung == null || !E.info || !E.info.decks || deckVonKachel(E, tileOf(0, py).y) === s.deckBindung;
 }
 
-function crewSize(game) { return Math.max(1, Math.min(game.C.maxPlayers, game.players.filter((p) => p.connected).length)); }
+function crewSize(game) { return Math.max(1, Math.min(game.C.maxPlayers, Crew.koepfe(game))); }
 
 // Trupp erscheinen lassen (Missionsereignis/Debug). Anzahl = Anteil squadScale je Crewgröße (aufgerundet, min. 1).
 // B1 §6.4/B2 §5: opts { map, bereich?, besetzung?: [{ typ, anzahl }], alert?, force? } -> Spawns an `wache`-Ankern der

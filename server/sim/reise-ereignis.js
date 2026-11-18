@@ -28,6 +28,7 @@
 //               FRE-03 D: ausloesenTaktNotruf legt beim Entstehen ein Brett-Angebot an (abenteuer-brett.js notrufAnbieten); Verfall, Ablehnen und Beantworten des Eintrags ziehen es zurück (brettZurueckziehen); notrufMitPerson (alter Hook) gilt nur noch für Notrufe je Sprung
 //   neu() / toSave(ws) / lesen(block) Weltstand welt.sim.reise: { n, letzter?, letzte?, takt?, taktNr? } (optional, Altstand = leer); Notruf-Marken und laufende Ereignisse stehen nicht im Weltstand
 const Sektoren = require('../../shared/sektoren.js');
+const Crew = require('./crew.js');   // BOT-01 A2: Zählung über crew.js (Köpfe/Verbundene)
 const Besitz = require('./besitz.js');
 const Chronik = require('./chronik.js');
 const Marken = require('./marken.js');
@@ -383,11 +384,11 @@ function nachSprung(game, dest) {
 const B1 = () => require('./faden-b1.js');   // lazy wie FA
 const taktTicks = (game, s) => Math.max(1, Math.round(Number(s) * game.C.tickHz));
 const taktMarkeS = (game) => Number(game.C && game.C.marken && game.C.marken.tickSekunden) || 30;
-// Ruhige Lage für den Takt: die Funk-Antwort-Regel plus kein Außenteam, Phase play, mindestens ein Spieler verbunden, kein Boden-Finale
+// Ruhige Lage für den Takt: die Funk-Antwort-Regel plus kein Außenteam, Phase play, mindestens ein Mensch verbunden (Bots allein halten den Takt nicht), kein Boden-Finale
 function taktRuhig(game) {
   if (game.phase !== 'play' || game.finaleBoden) return false;
   const ps = game.players || [];
-  if (!ps.some((p) => p.connected) || ps.some((p) => p.zone === 'away')) return false;
+  if (Crew.menschen(game) === 0 || ps.some((p) => p.zone === 'away')) return false;
   return FA().ruhig(game);
 }
 // freie, anfliegbare Orte im Umkreis (Hex-Abstand takt_ort) um den Crew-Hex: nicht belegt, über offene Kanten in höchstens takt_tiefe Sprüngen erreichbar (mindestens einen Sprung weit)
@@ -449,7 +450,7 @@ function taktUpdate(game) {
 // ---------- Laufende Gefahren (Vorlauf, Eintreffen, Bewältigung)
 function eintreffen(game, L) {
   const e = eintrag(L.id), sc = e.parameter.schiffe, ship = game.ship;
-  const verbunden = (game.players || []).filter((q) => q.connected).length;
+  const verbunden = Crew.koepfe(game);
   const n = Math.max(sc.min, Math.min(sc.max, verbunden + WERTE.jaeger_je_spieler));
   const rng = strom(seedVon(game), L.nr, 'gegner');
   const w0 = rng() * Math.PI * 2;

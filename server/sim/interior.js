@@ -2,6 +2,7 @@
 // Schiffsinneres + Außenkarten (B-7-Plattform, Wrack): Laufen, Interaktion (§4.2), Tragen, Feuer, Lecks, O₂-Folgen,
 // Downed/Revive, Reaktorschalter (M1 §6), Planungstisch (M1 §8), Offline-Systeme (EMP, M1 §5).
 const Vorrat = require('./vorrat.js');   // TEL-01 G: Verbrauchsgüter nur über den Buchungsdienst
+const Crew = require('./crew.js');   // BOT-01 A2: Zählung über crew.js (Köpfe/Verbundene)
 const Tel = require('../telemetrie/gefecht.js');   // TEL-01 B1: zone_aus (nur lesen)
 const Physics = require('../../shared/physics.js');
 const W = require('../world.js');
@@ -602,7 +603,7 @@ function interactionsAt(game, p, tx, ty, own) {
       const occupant = consoleOccupant(game, p, info.console);
       if (occupant) list.push({ kind: 'console', blocked: `Konsole besetzt (${occupant.name}).` });
       else if (info.console === 'shop' && !game.ship.dockedAt && !require('./werft.js').testumgebung(game)) list.push({ kind: 'console', blocked: 'Hafenterminal: nur angedockt (Hafen oder Vaelen-Karawane).' });
-      else if (info.console === 'plan' && game.players.filter((o) => o.console === 'plan' && o.connected).length >= game.C.plan.maxSeated) list.push({ kind: 'console', blocked: 'Am Tisch ist kein Platz mehr.' });
+      else if (info.console === 'plan' && Crew.verbundene(game).filter((o) => o.console === 'plan').length >= game.C.plan.maxSeated) list.push({ kind: 'console', blocked: 'Am Tisch ist kein Platz mehr.' });
       else list.push({ kind: 'console', console: info.console });
     }
     if (info.interact === 'shelf') {

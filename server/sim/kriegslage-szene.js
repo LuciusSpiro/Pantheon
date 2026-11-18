@@ -30,6 +30,7 @@
 //    NIEDERLAGE = Notfallprotokoll der Lerche, wenn kein Verteidiger mehr neben ihr lebt (CONFIG.simSzene.notfallBisNiederlage), oder Verteidiger erschöpft (nach Gnadenfrist) -> Verluste + ort_gefallen
 //    (Hafen/Posten der Crew-Seite) + ein Tick. ABBRUCH (Flucht per Sprung/Notfallsprung) -> nur Verluste, kein ort_*, kein eigener Tick (Sprung-Tick). Ortswechsel ohne Sprung (Debug) -> nur Verluste + ein eigener Tick.
 const Tel = require('../telemetrie/gefecht.js');   // TEL-01 B1: szene_start / szene_ende der Sund-Szenen (nur lesen)
+const Crew = require('./crew.js');   // BOT-01 A2: Zählung über crew.js (Köpfe/Verbundene)
 const fs = require('fs');
 const path = require('path');
 const Kern = require('../weltsim/kern.js');
@@ -685,7 +686,7 @@ const finaleD = () => Finale.WERTE;
 const finaleT = () => require('../../content/welt/finale-werte.json').texte.orbit;
 // Crewgroesse der Orbit-Aufstellung: verbundene Spieler, begrenzt auf die groesste Stufe, die die Daten kennen (K7: keine feste 3; werte.orbit_wachschiffe hat je Stufe einen Eintrag)
 const finaleStufen = () => Object.keys(finaleD().orbit_wachschiffe.wert).map(Number).filter(Number.isInteger);
-const finaleCrew = (game) => Math.max(1, Math.min(Math.max(1, ...finaleStufen()), game.players.filter((p) => p.connected).length));
+const finaleCrew = (game) => Math.max(1, Math.min(Math.max(1, ...finaleStufen()), Crew.koepfe(game)));
 const finaleListe = (w, n) => (w.wert[String(n)] || []).slice();
 // Welle 5, M1: Meldung (ankunft, sieg: Messing) und Gefahr (gegner, niederlage: Rot) als zwei benannte Wege
 function finaleFunkText(game, weg, key, vars, reiter) {

@@ -8,6 +8,7 @@
 // Ein Schritt (step) hat: enter, timers, rules, objectives, next, jumpBlock, choices, scan, onAccept, on, allowBeam, skip,
 // drill, wiederaufnahme.
 const Geld = require('./geld.js');   // TEL-01 G: Marken nur über den Buchungsdienst
+const Crew = require('./crew.js');   // BOT-01 A2: Zählung über crew.js (Köpfe/Verbundene)
 const Tel = require('../telemetrie/gefecht.js');   // TEL-01 B1: szene_start / szene_ende (nur lesen)
 const path = require('path');
 const Locations = require('../../shared/locations.js');
@@ -845,7 +846,7 @@ class Mission {
   spawn(s) {
     const g = this.game;
     if (this.step && this.step.loc && g.ship.scene !== this.step.loc) return;   // nur am Ort des Schritts
-    const crew = Math.max(1, Math.min(3, g.players.filter((p) => p.connected).length));
+    const crew = Math.max(1, Math.min(3, Crew.koepfe(g)));
     const n = s.crew ? (s.crew[crew] || 1) : (s.n || (s.angles ? s.angles.length : (s.atStation ? s.atStation.length : 1)));
     const st = space.stationPoint(g);
     for (let i = 0; i < n; i++) {

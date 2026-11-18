@@ -18,6 +18,7 @@
 //   game.fadenWarte [ { fadenId, beatId, art, nsc, parameter, szene } ], game.fadenHilfe { fadenId, beatId, nsc, schiff, name, versucht, n, ally: { tag, kampf } | null }.
 // Abweichung (Auftrag, Entscheidung): geiseln_befreien am Boden entfaellt; befreiung ist eine Raumszene mit Wachschiffen (Boden-Szenen laufen in der Freien Fahrt nicht).
 const Faden = require('./faden.js');
+const Crew = require('./crew.js');   // BOT-01 A2: Zählung über crew.js (Köpfe/Verbundene)
 const D = require('./faden-daten.js');
 const Bausteine = require('./faden-bausteine.js');
 const Fracht = require('./faden-fracht.js');
@@ -46,7 +47,7 @@ const funk = (game, text) => { if (text) game.emit('radio', { from: SPRECHER, te
 // Gate: FAEDEN=1 und Freie Fahrt. Gestartet werden Szenen nur durch einen Beat, und einen Beat startet nur der Spielleiter (faden_weiter); fällt er aus,
 // laufen die Fristen nicht ab (faden.js B-S3), eine begonnene Szene endet wie jede Szene, wenn der Beat schon weg ist.
 const aktiv = (game) => Faden.aktiv(game);
-const crewN = (game) => Math.max(W.crew_min, Math.min(W.crew_max, game.players.filter((p) => p.connected).length));
+const crewN = (game) => Math.max(W.crew_min, Math.min(W.crew_max, Crew.koepfe(game)));
 const nachCrew = (map, n) => Number(map[String(Math.min(W.crew_max, Math.max(W.crew_min, n)))]) || Number(map[String(W.crew_min)]) || 0;
 const pick = (n) => (n ? { id: n.id, name: n.name, schiff: n.schiff, schiffsklasse: n.schiffsklasse, fraktion: n.fraktion } : null);
 // Zufall: eigener Strom, Zähler im Aufrufer (nie game.rng). Nacharbeit L4: der Strom gehört zu GENAU dieser Hilfe: Weltseed, Faden, NSC, Beat und der Tätigkeitszähler der Fäden (gespeichert)

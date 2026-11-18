@@ -4,6 +4,7 @@
 // Dieses Modul ist die einzige Stelle, die „welche Station bedient dieser Spieler“ beantwortet (Rechteprüfung in game.onCmd,
 // Besetzt-Prüfungen in space/fracht/away/wellen/mission). Es lädt weder interior noch space (kein Zirkelbezug).
 const Protocol = require('../../shared/protocol.js');
+const Crew = require('./crew.js');   // BOT-01 A1
 const Haken = require('../telemetrie/haken.js');   // TEL-01 B2
 
 const KREIS = Protocol.STATION_KREIS;
@@ -20,7 +21,6 @@ function halter(game, kind, ausser) {
 }
 function stationBesetzt(game, kind) { return !!halter(game, kind, null); }
 function stationName(kind) { return NAME[kind] || kind; }
-function verbunden(game) { return game.players.filter((p) => p.connected).length; }
 
 // Aufräumen, wenn ein Interface verlassen wird (Tab weg oder Konsole verlassen): was nur bei Bedienung läuft, endet.
 // Hält ein anderer Spieler dieselbe Station (kann nicht vorkommen, schützt aber den Zustand), bleibt alles.
@@ -60,12 +60,12 @@ function snapFelder(p) {
 
 // Waffenautomatik (§4.5): nur bei 1 oder 2 verbundenen Spielern UND unbesetzter Ops.
 function waffenAutomatikAktiv(game) {
-  return verbunden(game) <= game.C.waffenAutomatikMaxSpieler && !stationBesetzt(game, 'weapons');
+  return Crew.koepfe(game) <= game.C.waffenAutomatikMaxSpieler && !stationBesetzt(game, 'weapons');
 }
 // Bot-Automatik der Technik (§4.5): an bei genau 1 oder 2 verbundenen Spielern.
 function botAutomatikStandard(game) {
-  const n = verbunden(game);
+  const n = Crew.koepfe(game);
   return n >= 1 && n <= game.C.botAutomatikMaxSpieler;
 }
 
-module.exports = { KREIS, stationOf, halter, stationBesetzt, stationName, stationFreigeben, tab, snapFelder, waffenAutomatikAktiv, botAutomatikStandard, verbunden };
+module.exports = { KREIS, stationOf, halter, stationBesetzt, stationName, stationFreigeben, tab, snapFelder, waffenAutomatikAktiv, botAutomatikStandard };

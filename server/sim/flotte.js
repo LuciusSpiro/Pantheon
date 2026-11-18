@@ -17,6 +17,7 @@
 //   ein Gegner), Feuer aus den Waffenplätzen der Klasse (Geschoss kind 'ally', trifft nur Gegner – kein Eigenbeschuss), Gegner dürfen sie anvisieren,
 //   höchstens CONFIG.flotte.max Schiffe je Szene (mehr kommt als Nachschub), Einblenden mit Sprungblitz, Sprung der Flotte (auch Notfallsprung), Minen.
 const fs = require('fs');
+const Crew = require('./crew.js');   // BOT-01 A2: Zählung über crew.js (Köpfe/Verbundene)
 const path = require('path');
 const Physics = require('../../shared/physics.js');
 const Gsys = require('./gegnersystem.js');   // SYS-02b: Zustand der Waffenplätze (zerstört, beschädigt)
@@ -57,7 +58,7 @@ function state(game) { return game.flotte || (game.flotte = neu()); }
 function lerche(game) { return game.ship; }
 const allies = (game) => ((game.space && game.space.escorts) || []).filter((q) => q.ally);
 const alliesActive = (game) => allies(game).filter((q) => escort().active(q));
-const crewN = (game) => Math.max(1, Math.min(3, game.players.filter((p) => p.connected).length));
+const crewN = (game) => Math.max(1, Math.min(3, Crew.koepfe(game)));
 
 // ---------- Funk (ohne Missionszustand: ein offener Funkspruch der Mission bleibt stehen) ----------
 // sprecher: { id?, name }. Mit id legat | mars zeigt der Client das Porträt bzw. das Symbol.

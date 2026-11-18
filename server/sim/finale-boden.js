@@ -14,6 +14,7 @@
 // Zustand: game.finaleBoden = { lp, ort, tag, ziel, gelandet, frei, ende } – nicht im Weltstand (das Finale ist nicht speicherbar). Zufall: nur der eigene Strom der Karte (aw.rng im
 // Endkampf, Seed aus der Landepunkt-ID), nie game.rng.
 const D = require('../../content/welt/finale-boden.json');
+const Crew = require('./crew.js');   // BOT-01 A2: Zählung über crew.js (Köpfe/Verbundene)
 
 const LPD = D.landepunkt;
 const G = D.gegner;
@@ -50,7 +51,7 @@ function wachenFuer(n) {
 }
 // Crewgroesse = verbundene Spieler (wie die Orbit-Skalierung, finaleCrew in kriegslage-szene.js), NICHT die Zahl derer, die gerade unten sind: die Crew beamt gestaffelt hinunter,
 // und die Landung startet im ersten Takt mit irgendeinem Spieler unten (S1 des Finale-Reviews)
-const crewGroesse = (game) => game.players.filter((p) => p.connected).length;
+const crewGroesse = (game) => Crew.koepfe(game);
 const unten = (game, lp) => game.players.filter((p) => p.zone === 'away' && game.away && game.away.map === lp);
 
 // ---------- Start

@@ -493,5 +493,7 @@
     CODE_COLOR_HEX: { mint: '#7FE0C2', bernstein: '#FFC66B', rot: '#E0473C', blau: '#56B4E9', pink: '#CC79A7', weiss: '#F4EEDC' },
     PLAYER_COLORS: ['#56B4E9', '#E69F00', '#CC79A7', '#7FE0C2'],   // R0: vier Spieler
     PLAYER_SHAPES: ['circle', 'triangle', 'diamond', 'square'],
+    // BOT-01 A1: verbundene MENSCHEN im Snapshot (players[].bot = 1 nur bei Bots). Für Pause und Solo-Hinweis; Darstellung von Spielern bleibt bei allen players.
+    menschenZahl(state) { return ((state && state.players) || []).filter((p) => p && p.connected !== false && !p.bot).length; },
   };
 });

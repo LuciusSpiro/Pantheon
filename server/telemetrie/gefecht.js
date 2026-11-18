@@ -10,6 +10,7 @@
 //
 // Ereignistypen und Felder stehen in schema.js (eine Stelle, die Auswertung liest nur das).
 
+const Crew = require('../sim/crew.js');   // BOT-01 A1
 const Haken = require('./haken.js');   // inDeckung: der eine Rechenweg fuer die Deckung (Roh-Zustand siehe dort)
 
 const { r2, num, txt, slotVon, sektorName } = require('./hilfen.js');
@@ -50,7 +51,7 @@ function szenenSchliessen(t, z) {
 }
 // extras der Szenenaufrufer: undefined -> null (undefined waere kein flaches Feld und zaehlte als verworfen)
 const extras = (o) => { const r = {}; if (o) for (const k of Object.keys(o)) { const v = o[k]; r[k] = v === undefined ? null : typeof v === 'number' ? num(v) : v; } return r; };
-const spielerzahl = (game) => (typeof game.connectedCount === 'function' ? game.connectedCount() : null);
+const spielerzahl = (game) => (game && Array.isArray(game.players) ? Crew.menschen(game) : null);   // BOT-01 A1: verbundene Menschen
 
 // ---------- Szenen (Frage 1) ----------
 // Eine Szene = Kampagnenmission, Labor-Umsetzung, Testgelaende, Wellen, Grabenangriff, Endkampf, Sund-Szene. Key = modus + szene.

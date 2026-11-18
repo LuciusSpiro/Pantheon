@@ -4,6 +4,7 @@
 // ersten N Slots (N = game.slotzahl, in startGame() einmal festgesetzt); gespeichert wird nie abgeschnitten.
 // crew.waffen (game.crewWaffen) bleibt als abgeleiteter Spiegel der ersten Waffe erhalten (ältere Spielversionen, Migration), nie Quelle der Wahrheit.
 const Waffen = require('./waffen.js');
+const Crew = require('./crew.js');   // BOT-01 A2: Zählung über crew.js (Köpfe/Verbundene)
 
 const SLOTS_MAX = 3;
 const SLOTS_BIS_2_SPIELER = 3;
@@ -27,7 +28,7 @@ function spiegelAlt(game) { if (!game.crewWaffen || typeof game.crewWaffen !== '
 
 // Slotzahl: 3 bei 1 oder 2 verbundenen Spielern, 2 ab 3. Einmal in startGame() festsetzen, danach fest.
 function slotzahlFestsetzen(game) {
-  const verbunden = (game.players || []).filter((p) => p.connected).length;
+  const verbunden = Crew.koepfe(game);
   game.slotzahl = verbunden >= 3 ? SLOTS_AB_3_SPIELER : SLOTS_BIS_2_SPIELER;
   return game.slotzahl;
 }

@@ -4,6 +4,7 @@
 //   frage    Balancing-Frage laut Konzept: '1' Dauer, '2' Gefecht, '2b' Deckung, '3' Verluste, '4' Menschen, '5' Wirtschaft, '6' Technik, '-' kein Bezug
 //   felder   alle Felder der Zeile AUSSER den Kopffeldern v, typ, sitzung, tick, t (die hat jede Zeile)
 //   auch     weitere Fragen, denen der Typ zuarbeitet
+//   optional Felder aus `felder`, die nur manchmal in der Zeile stehen (BOT-01 A1: zeitreihe.bot nur in Partien mit Bots); alle anderen stehen in jeder Zeile
 //   strukturiert  true: darf verschachtelte Werte tragen (nur der Sessionkopf), alle anderen Typen sind flach
 // Einträge alphabetisch nach typ (B1 und B2 ergänzen parallel, so gibt es kaum Konflikte).
 //
@@ -71,17 +72,17 @@ const SCHEMA = {
   ueberladung: { frage: '2', auch: ['6'], text: 'Reaktor-Überladung der Lerche: wie an (ausgelöst), ende (Zeit abgelaufen, Reaktor schaltet ab) oder, wenn sie vorzeitig endet: zerstoert (Reaktor zerstört), sprung (Notsprung), reset (Szene aufgestellt), online (Reaktor wieder online, nur Debug). Nicht erfasst: Debug-Umstellung auf overload/offline (game.js, reiner Debug-Pfad); der Verlauf steht in der Zeitreihe', felder: ['wie'] },
   welle: { frage: '1', auch: ['2'], text: 'Welle beginnt (Wellen Boden, Wellen All)', felder: ['modus', 'nr', 'gesamt', 'spielerzahl'] },
   welle_geschafft: { frage: '1', auch: ['2'], text: 'Welle geschafft; dauer = Sekunden seit Wellenbeginn', felder: ['modus', 'nr', 'dauer'] },
-  zeitreihe: { frage: '2b', auch: ['4', '5', '6'],
+  zeitreihe: { frage: '2b', auch: ['4', '5', '6'], optional: ['bot'],
     text: 'Schnappschuss alle fenster = 2 s Spielzeit (tickgenau; zaehlt nicht in der Solo-Pause). Technik: tick_n Ticks im Fenster, tick_med/tick_max Dauer von game.step in ms, tick_ueber5/16/33 Ticks mit mehr als 5/16/33 ms; ' +
       'snap_n/snap_med/snap_max Snapshot-Bau + Broadcast in ms (nur im Server, index.js; im Bot-Lauf n = 0); kappung_n Aufrufe der Tickschleife, in denen die 250-ms-Kappung Zeit verwarf, kappung_ticks die dabei verworfene Zeit in Ticks, nachhol_ticks Ticks, die ein Aufruf zusaetzlich zum ersten nachholte; fehler_n Fehler und fehler_wo ihre Schluessel (nie die Meldung). ' +
       'Raum: szene (Name der Szene); r_zustand = ein Zeichen je System in der Reihenfolge interior.SYSTEM_ORDER (0 ok, 1 damaged, 2 broken, 3 offline); r_integ je System (Integritaet des Systems; die Lerche hat KEINEN Huellenwert, die Summe der Systemintegritaet ist der Ersatz dafuer: Auswertung f3.integritaet.min); r_reaktor; r_energie = engines, shields, weapons; r_leistung/r_verbrauch des Reaktors; r_hitze = engines, shields, weapons in Hitzepunkten (ship.heat, 0 bis zur Grenze C.power.heatLimit = 100 in shared/config.js; bei Erreichen schlaegt das System durch (heatDamage) und die Hitze faellt auf 0; die Auswertung liest die Grenze aus shared/config.js, schreibt sie nicht ab); r_schild = vier Sektoren; r_gegner Gegner im Raum (ohne relay). ' +
-      'Je Slot (Listen in der Reihenfolge slots): verbunden, ort (raum | boden), konsole (Ort der Konsole), station (aktives Interface = Rolle), ein_bew/ein_akt = Eingaben im Fenster (Bewegung / alles andere, nur Anzahl, Debug und clientError zaehlen nicht). ' +
+      'Je Slot (Listen in der Reihenfolge slots): verbunden, bot (nur in Partien mit Bots: true bei Bot-Slots), ort (raum | boden), konsole (Ort der Konsole), station (aktives Interface = Rolle), ein_bew/ein_akt = Eingaben im Fenster (Bewegung / alles andere, nur Anzahl, Debug und clientError zaehlen nicht). ' +
       'Boden (nur wenn jemand auf der Aussenkarte ist, sonst null; je Slot null wenn nicht draussen): b_schild Segmente, b_wunden, b_liegt, b_cv (Rohwert, Deutung siehe deckung), b_geduckt, b_sp = Position x,y je Slot in Kacheln (Paare); ' +
       'Gegner: b_gg Zahl, b_gg_duck davon geduckt, b_gg_abst_min kleinster und b_gg_abst_nn mittlerer Abstand zum naechsten Nachbarn (Kacheln), b_gg_pos Positionen x,y als Paare (nur bis 16 Gegner, sonst null). Kein Kontostand.',
     felder: [
       'fenster', 'tick_n', 'tick_med', 'tick_max', 'tick_ueber5', 'tick_ueber16', 'tick_ueber33', 'snap_n', 'snap_med', 'snap_max', 'kappung_n', 'kappung_ticks', 'nachhol_ticks', 'fehler_n', 'fehler_wo',
       'szene', 'r_zustand', 'r_integ', 'r_reaktor', 'r_energie', 'r_leistung', 'r_verbrauch', 'r_hitze', 'r_schild', 'r_gegner',
-      'slots', 'verbunden', 'ort', 'konsole', 'station', 'ein_bew', 'ein_akt',
+      'slots', 'verbunden', 'bot', 'ort', 'konsole', 'station', 'ein_bew', 'ein_akt',
       'b_schild', 'b_wunden', 'b_liegt', 'b_cv', 'b_geduckt', 'b_sp', 'b_gg', 'b_gg_duck', 'b_gg_abst_min', 'b_gg_abst_nn', 'b_gg_pos'] },
   zone_aus: { frage: '3', text: 'Zonensystem der Lerche fällt aus oder wird beschädigt (Stufenverlust)', felder: ['system', 'zone', 'zustand', 'vorher'] },
   zone_wieder: { frage: '3', auch: ['4'], text: 'Zonensystem repariert (schreibt B2 in interior.repairSystem): system = Systemschluessel, zone = Sektor der Lerche (wie bei zone_aus, B1), wie = flick | swap | minigame | bot | oda, durch = player | bot | oda.',

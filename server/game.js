@@ -12,6 +12,7 @@ const space = require('./sim/space.js');
 const Reise = require('./sim/reise.js');   // Spieltest: Schnellsprung
 const TextePool = require('./sim/texte-pool.js');   // SUND-03b T: vorab erzeugte Live-Texte (nur mit Schalter TEXTE_POOL)
 const bots = require('./sim/bots.js');
+const Crew = require('./sim/crew.js');   // BOT-01 A1: zentrale Zählung (Menschen / Köpfe)
 const Station = require('./sim/station.js');   // R1: aktive Station (Tab-Wechsel), Rechteprüfung
 const damage = require('./sim/damage.js');   // M3b §4: Schild- und Schadenslogik, Eskalation, Rückschlag, Reaktor-Autostart
 const Reaktortod = require('./sim/reaktortod.js');   // SYS-01 A2a: Reaktor-Countdown bis zum Tod der Lerche
@@ -284,7 +285,6 @@ class Game {
     if (this.dockSaveT >= every) { this.dockSaveT = 0; this.saveWorld('docked-periodic', { ifChanged: true }); }
   }
   markSaveDue(kind) { this.saveDue = Object.assign(this.saveDue || {}, { [kind]: true }); }
-  connectedCount() { return this.players.filter((p) => p.connected).length; }
 
   // Start abgelehnt (z. B. 5 Weltstände): alle wieder „nicht bereit“ + Hinweis
   refuseStart(text) {
@@ -434,14 +434,14 @@ class Game {
     z.ok.add(p.id);
     return this.zerstoertPruefen();
   }
-  // SYS-01 A2 Nacharbeit: wie viele verbundene Spieler das OK noch nicht gedrückt haben (Snapshot ship.reaktorTod.wartet)
+  // SYS-01 A2 Nacharbeit: wie viele verbundene Menschen (Bots drücken nie OK, BOT-01 A1) das OK noch nicht gedrückt haben (Snapshot ship.reaktorTod.wartet)
   zerstoertWartet() {
     const z = this.zerstoertOffen;
-    return z ? this.players.filter((q) => q.connected && !z.ok.has(q.id)).length : 0;
+    return z ? Crew.verbundene(this).filter((q) => !q.bot && !z.ok.has(q.id)).length : 0;
   }
   // Haben alle verbleibenden verbundenen Spieler bestätigt? Dann Lobby. Auch nach einem Verbindungsverlust (removeConnection). Ohne verbundenen Spieler bleibt der Tod stehen.
   zerstoertPruefen() {
-    if (!this.zerstoertOffen || this.connectedCount() === 0) return false;
+    if (!this.zerstoertOffen || Crew.menschen(this) === 0) return false;
     return this.zerstoertWartet() === 0 ? this.endeZerstoert() : false;
   }
 
@@ -487,7 +487,7 @@ class Game {
     if (msg.op === 'pause') {
       if (this.phase === 'lobby') return;
       if (!msg.on) { this.paused = false; return; }
-      if (this.connectedCount() === 1) this.paused = true;
+      if (Crew.menschen(this) === 1) this.paused = true;
     }
   }
 
@@ -711,7 +711,7 @@ class Game {
       if (msg.t === C.PING) return this.sendTo(conn, { t: 'pong', ts: msg.ts });
       if (msg.t === C.HELLO) {
         this.onHello(conn, msg);
-        if (this.connectedCount() !== 1) this.paused = false;   // S1 §6: zweiter Spieler beendet die Solo-Pause
+        if (Crew.menschen(this) !== 1) this.paused = false;   // S1 §6: zweiter Spieler beendet die Solo-Pause
         return;
       }
       const p = conn.player;
@@ -877,6 +877,7 @@ class Game {
     this.helloKarte(p, msg);
     if (this.phase !== 'lobby') {
       p.ready = true;
+      // BOT-01 B: Bots treten nicht über hello bei, dann ist hier nichts zu filtern
       this.oda(`${p.name} ist an Bord gekommen. Willkommen in der Schicht!`, null);
     }
     this.sendTo(conn, this.welcomeMsg(p.id));
@@ -1133,7 +1134,7 @@ class Game {
 
   checkLobbyStart() {
     if (this.phase !== 'lobby') return;
-    const con = this.players.filter((p) => p.connected);
+    const con = Crew.verbundene(this);
     if (con.length && con.every((p) => p.ready)) this.startGame();
   }
 
@@ -1908,11 +1909,11 @@ class Game {
     this.tick++;
     // S1 §6: Solo-Pause – Simulation steht, Snapshots laufen weiter (paused: true)
     if (this.paused) {
-      if (this.phase === 'lobby' || this.connectedCount() !== 1) this.paused = false;
+      if (this.phase === 'lobby' || Crew.menschen(this) !== 1) this.paused = false;
       else return;   // SYS-01 A2a: der Reaktor-Countdown steht mit der Spielpause (er läuft nur im Zweig darunter)
     }
     this.time += dt;
-    const connected = this.players.some((p) => p.connected);
+    const connected = Crew.menschen(this) > 0;   // BOT-01 A1: Bots halten eine leere Partie nicht am Leben
     if (this.phase === 'lobby' && this.worldsEnabled) {
       // andere Prozesse (Sperren) und Löschungen sichtbar machen
       this.worldListT += dt;
@@ -2360,7 +2361,7 @@ class Game {
       ...(this.phase === 'end' && this.abspann ? { abspann: this.abspann } : {}),   // EK8: Abspann (Titel, Text, Blöcke), nur in Phase end
       campaign: !!(this.weltstand && this.weltstand.persistent),   // S1: Kampagne mit Weltstand (Hinweis beim Beenden)
       players: this.players.map((p) => ({
-        id: p.id, name: p.name, color: p.color, ready: p.ready, connected: p.connected,
+        id: p.id, name: p.name, color: p.color, ready: p.ready, connected: p.connected, ...(p.bot ? { bot: 1 } : {}),
         zone: p.zone, x: r1(p.x), y: r1(p.y), dir: p.dir, moving: p.moving, console: p.console, ...Station.snapFelder(p), carry: p.carry,
         hp: Math.round(p.hp), downed: p.downed, downedFor: r1(p.downedFor), ...(this.time < (p.stunBis || 0) ? { stun: 1 } : {}),
         action: p.hold ? this.holdSnap(p.hold)
