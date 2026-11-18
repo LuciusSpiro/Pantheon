@@ -1,0 +1,267 @@
+{
+ "hinweis": "Phrasenliste fuer ?botmessung=1: je Phrase der erwartete Befehl (BOT-04 C). 23 Katalogbefehle (je Befehl der Beispielsatz des Vertrags) plus bekannte Fehlerfaelle der Erkundung als Varianten.",
+ "phrasen": [
+  {
+   "id": "p01",
+   "text": "Kurs auf die Markierung",
+   "erwartet": {
+    "befehl": "nav.kurs",
+    "args": {
+     "ziel": "marke"
+    }
+   }
+  },
+  {
+   "id": "p02",
+   "text": "Alle Maschinen stopp",
+   "erwartet": {
+    "befehl": "nav.stopp"
+   }
+  },
+  {
+   "id": "p03",
+   "text": "Halbe Kraft voraus",
+   "erwartet": {
+    "befehl": "nav.schub",
+    "args": {
+     "stufe": "halb"
+    }
+   }
+  },
+  {
+   "id": "p04",
+   "text": "Ausweichen",
+   "erwartet": {
+    "befehl": "nav.ausweichen"
+   }
+  },
+  {
+   "id": "p05",
+   "text": "Abstand halten",
+   "erwartet": {
+    "befehl": "nav.abstand",
+    "args": {
+     "ziel": "ziel"
+    }
+   }
+  },
+  {
+   "id": "p06",
+   "text": "Andocken",
+   "erwartet": {
+    "befehl": "nav.andocken"
+   }
+  },
+  {
+   "id": "p07",
+   "text": "Sprung nach Hex zwölf",
+   "erwartet": {
+    "befehl": "nav.sprung",
+    "args": {
+     "ziel": "hex:12"
+    }
+   }
+  },
+  {
+   "id": "p08",
+   "text": "Ziel markieren",
+   "erwartet": {
+    "befehl": "ops.ziel",
+    "args": {
+     "ziel": "markiert"
+    }
+   }
+  },
+  {
+   "id": "p09",
+   "text": "Feuer frei",
+   "erwartet": {
+    "befehl": "ops.feuer_frei",
+    "args": {
+     "waffen": "alle"
+    }
+   }
+  },
+  {
+   "id": "p10",
+   "text": "Feuer einstellen",
+   "erwartet": {
+    "befehl": "ops.feuer_halt"
+   }
+  },
+  {
+   "id": "p11",
+   "text": "Scannen",
+   "erwartet": {
+    "befehl": "ops.scan"
+   }
+  },
+  {
+   "id": "p12",
+   "text": "Landepunkt scannen",
+   "erwartet": {
+    "befehl": "ops.landescan"
+   }
+  },
+  {
+   "id": "p13",
+   "text": "Fracht an Bord",
+   "erwartet": {
+    "befehl": "ops.beamen",
+    "args": {
+     "was": "fracht"
+    }
+   }
+  },
+  {
+   "id": "p14",
+   "text": "Feuer zuerst",
+   "erwartet": {
+    "befehl": "tech.prio",
+    "args": {
+     "ziel": "feuer"
+    }
+   }
+  },
+  {
+   "id": "p15",
+   "text": "Antrieb reparieren",
+   "erwartet": {
+    "befehl": "tech.reparieren",
+    "args": {
+     "system": "antrieb"
+    }
+   }
+  },
+  {
+   "id": "p16",
+   "text": "Schilde Steuerbord",
+   "erwartet": {
+    "befehl": "tech.schild",
+    "args": {
+     "sektor": "stb"
+    }
+   }
+  },
+  {
+   "id": "p17",
+   "text": "Mehr Energie auf Waffen",
+   "erwartet": {
+    "befehl": "tech.energie",
+    "args": {
+     "system": "waffen",
+     "delta": 1
+    }
+   }
+  },
+  {
+   "id": "p18",
+   "text": "Reaktor überladen",
+   "erwartet": {
+    "befehl": "tech.ueberladen"
+   }
+  },
+  {
+   "id": "p19",
+   "text": "Außenteam zurückholen",
+   "erwartet": {
+    "befehl": "bord.rueckholen"
+   }
+  },
+  {
+   "id": "p20",
+   "text": "Sensor",
+   "erwartet": {
+    "befehl": "bord.sensor"
+   }
+  },
+  {
+   "id": "p21",
+   "text": "Kuppel",
+   "erwartet": {
+    "befehl": "bord.kuppel"
+   }
+  },
+  {
+   "id": "p22",
+   "text": "Statusbericht",
+   "erwartet": {
+    "befehl": "bot.status"
+   }
+  },
+  {
+   "id": "p23",
+   "text": "Automatik",
+   "erwartet": {
+    "befehl": "bot.automatik"
+   }
+  },
+  {
+   "id": "p24",
+   "text": "Volle Kraft voraus",
+   "erwartet": {
+    "befehl": "nav.schub",
+    "args": {
+     "stufe": "voll"
+    }
+   }
+  },
+  {
+   "id": "p25",
+   "text": "Alle Maschinen stoppen",
+   "erwartet": {
+    "befehl": "nav.stopp"
+   }
+  },
+  {
+   "id": "p26",
+   "text": "Schilde Backbord",
+   "erwartet": {
+    "befehl": "tech.schild",
+    "args": {
+     "sektor": "bb"
+    }
+   }
+  },
+  {
+   "id": "p27",
+   "text": "Torpedo klar machen",
+   "erwartet": {
+    "befehl": "ops.feuer_frei",
+    "args": {
+     "waffen": "torpedo"
+    }
+   }
+  },
+  {
+   "id": "p28",
+   "text": "Navigation, Kurs auf die Basis",
+   "erwartet": {
+    "befehl": "nav.kurs",
+    "args": {
+     "ziel": "basis"
+    },
+    "an": "navigation"
+   }
+  },
+  {
+   "id": "p29",
+   "text": "Technik, Schilde Bug",
+   "erwartet": {
+    "befehl": "tech.schild",
+    "args": {
+     "sektor": "bug"
+    },
+    "an": "technik"
+   }
+  },
+  {
+   "id": "p30",
+   "text": "Ops, Feuer einstellen",
+   "erwartet": {
+    "befehl": "ops.feuer_halt",
+    "an": "ops"
+   }
+  }
+ ]
+}

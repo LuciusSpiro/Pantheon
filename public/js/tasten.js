@@ -61,6 +61,9 @@
     // SUND-03b A: Funk-Antwort (Freie Fahrt Sund): eine freie Taste (Punkt, auf der deutschen Tastatur Umschalt+Punkt = Doppelpunkt): markiert die nächste Antwort bzw. sendet die markierte; gilt nur, solange ein Angebot offen ist
     A('allgemein.funkWaehlen', 'allgemein', 'Funkantwort: nächste Option markieren', ['Period']),
     A('allgemein.funkSenden', 'allgemein', 'Funkantwort: markierte Option senden', ['Shift+Period']),
+    // BOT-04 C: Sprache zu den Bots (nur wirksam, wenn Sprache in den Optionen an ist; sonst tut die Taste nichts). ^ (Backquote) halten = sprechen, # (Backslash) = Textzeile öffnen; beide im Spiel sonst unbelegt
+    A('allgemein.sprechen', 'allgemein', 'Bots: Sprechtaste (halten, nur mit Sprache an)', ['Backquote']),
+    A('allgemein.botText', 'allgemein', 'Bots: Textzeile öffnen (nur mit Sprache an)', ['Backslash']),
 
     // ------------------------------------------------------------ Steuer (helm)
     A('steuer.ruderBb', 'steuer', 'Ruder Backbord (halten)', ['KeyA', 'ArrowLeft']),
