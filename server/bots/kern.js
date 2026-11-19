@@ -145,6 +145,9 @@ class BotKern {
     return best;
   }
 
+  // BOT-01 B3: Zufall und Mitspieler des Agenten. Standard = Testbot (Modulhalter setSimRng, game.simAgents); der Server-Agent (bots/mannschaft.js) ueberschreibt beides mit dem Strom und der Liste seines Games.
+  zufall() { return simRng(); }
+  kollegen() { return this.game.simAgents || []; }
   me(S) { return S.players.find((p) => p.id === this.pid); }
   tile(p) { return { x: Math.floor(p.x / TILE), y: Math.floor(p.y / TILE) }; }
   awayMap(S) { return S.away.map === 'wreck' ? Maps.wreck : Maps.platform; }
@@ -196,7 +199,7 @@ class BotKern {
     if (this.lastPos && dist(this.lastPos.x, this.lastPos.y, p.x, p.y) < 0.5) this.stuckT += DT; else this.stuckT = 0;
     this.lastPos = { x: p.x, y: p.y };
     if (this.jiggle > 0) { this.jiggle -= DT; this.input(this.jiggleDir.x, this.jiggleDir.y); return false; }
-    if (this.stuckT > 0.6) { this.stuckT = 0; this.jiggle = 0.25; const a = simRng() * Math.PI * 2; this.jiggleDir = { x: Math.round(Math.cos(a) * 100) / 100, y: Math.round(Math.sin(a) * 100) / 100 }; }
+    if (this.stuckT > 0.6) { this.stuckT = 0; this.jiggle = 0.25; const a = this.zufall() * Math.PI * 2; this.jiggleDir = { x: Math.round(Math.cos(a) * 100) / 100, y: Math.round(Math.sin(a) * 100) / 100 }; }
     let dx = target.x - p.x, dy = target.y - p.y;
     if (path.length) {
       const n = path[0];
@@ -341,7 +344,7 @@ class BotKern {
       mg.t += DT;
       if (mg.t > 0.5 && !(p.action && p.action.kind === 'minigame')) { m.mg = null; this.waitT = 0.5; statistik(this.game).minigameRejected = (statistik(this.game).minigameRejected || 0) + 1; return 'running'; }
       if (mg.t >= 3.5) {
-        this.send({ t: 'cmd', c: 'repair.done', system: sys, errors: Math.floor(simRng() * 3) });
+        this.send({ t: 'cmd', c: 'repair.done', system: sys, errors: Math.floor(this.zufall() * 3) });
         mg.phase = 'done'; mg.t = 0;
       }
       return 'running';
@@ -359,7 +362,7 @@ class BotKern {
     if (p.zone !== 'ship') return false;
     const queue = sh.repairQueue || [];
     const botBusy = (s) => queue.some((q) => q.system === s && q.bot);
-    const mates = (this.game.simAgents || []).filter((a) => a !== this && a.memo.job);
+    const mates = this.kollegen().filter((a) => a !== this && a.memo.job);
     const taken = (s) => mates.some((a) => a.memo.job.sys === s && S.time - (a.memo.job.seen || 0) < 2);
     if (m.job && S.time - (m.job.seen || S.time) > 2) { m.job = null; m.mg = null; }   // liegengebliebener Auftrag (Rolle war woanders)
     if (m.job && m.job.sys !== 'reactor' && sh.systems.reactor === 'broken' && !taken('reactor')) { m.job = null; m.mg = null; m.jobCd = 0; this.ix = null; if (this.actDown) this.act(false); }   // SYS-01 C1a-2 Nacharbeit: der zerstörte Reaktor (Countdown) geht jeder anderen Arbeit vor
@@ -586,12 +589,10 @@ class BotKern {
     statistik(this.game).zonenZiele = (statistik(this.game).zonenZiele || 0) + (want ? 1 : 0);
     if (want && defs.find((d) => d.id === want).art === 'reaktor') statistik(this.game).reaktorZiele = (statistik(this.game).reaktorZiele || 0) + 1;
   }
-  fight(S, opts) {
+  // Zielwahl der Ops (aus fight() herausgezogen, BOT-01 B3, unveraendert): Gegner, der gerade laedt (Treffer verzoegern die Ladung), sonst einer im Bogen, sonst der naechste.
+  // Der Server-Agent (bots/mannschaft.js) ueberschreibt sie: ein von anderen markiertes Ziel geht vor.
+  waehleZiel(S, enemies, M) {
     const sh = S.ship;
-    const enemies = this.lebende(S);
-    const M = this.mountsOf(S);
-    // §20.3: Lanze lädt noch, aber keine Gegner mehr -> loslassen (ins Leere)
-    if (!enemies.length) { if (M.bow && M.bow.charging) this.cmd('weapons.charge', { mount: 'bow', on: false }); return; }
     const any = (e) => MOUNT_IDS.some((id) => this.inArcM(S, M[id], e));
     const byDist = (a, b) => dist(a.x, a.y, sh.x, sh.y) - dist(b.x, b.y, sh.x, sh.y);
     const cur = enemies.find((e) => e.id === sh.target);
@@ -600,7 +601,15 @@ class BotKern {
     // M3b §6: Jäger im Anflug (state approach) vor dem Bug -> Lanze auf die Anfluglinie (sie fliegen gerade auf uns zu)
     const incoming = enemies.filter((e) => e.kind === 'raider' && /^app/.test(e.state || '') && this.onApproachLine(S, e)).sort(byDist)[0];
     const lanceReady = M.bow && M.bow.state !== 'broken' && (M.bow.charge >= 1 || M.bow.charging);
-    const target = charging || (incoming && lanceReady ? incoming : null) || (cur && any(cur) ? cur : null) || enemies.filter(any).sort(byDist)[0] || cur || enemies.slice().sort(byDist)[0];
+    return charging || (incoming && lanceReady ? incoming : null) || (cur && any(cur) ? cur : null) || enemies.filter(any).sort(byDist)[0] || cur || enemies.slice().sort(byDist)[0];
+  }
+  fight(S, opts) {
+    const sh = S.ship;
+    const enemies = this.lebende(S);
+    const M = this.mountsOf(S);
+    // §20.3: Lanze lädt noch, aber keine Gegner mehr -> loslassen (ins Leere)
+    if (!enemies.length) { if (M.bow && M.bow.charging) this.cmd('weapons.charge', { mount: 'bow', on: false }); return; }
+    const target = this.waehleZiel(S, enemies, M);
     if (sh.target !== target.id) { this.cmd('weapons.target', { id: target.id }); return; }
     // Scan vorab (Taktik-Rolle): zeigt Schilde/Feuerbögen
     if (opts && opts.scan && !target.scanned && dist(target.x, target.y, sh.x, sh.y) < 780 && (this.memo.scanUntil || 0) < S.time + 10) {
@@ -770,7 +779,7 @@ class BotKern {
     else if (this.pilot() === 'maneuver') this.helmManeuver(S, e, LANGSAM_ZIELE.includes(e.kind) ? { slow: true } : undefined);   // SYS-02c: gegen langsame Kampfschiffe (Kreuzer 32 px/s) stehen bleiben: die Breitseite schleppt das Ziel mit (es kreist auf Lerche ± 90°), mit ½-Tempo läuft es ab und feuert aus der Reichweite
     else this.aimHelm(S, e, e.kind === 'pylon' || e.kind === 'relay' ? 380 : 450);
     // Reflex beider Strategien: Ausweichrolle vor einem nahen Projektil
-    if (S.space.projectiles.some((q) => (q.kind === 'enemy' || q.kind === 'emp') && dist(q.x, q.y, sh.x, sh.y) < 90) && sh.dodgeCd === 0 && (this.memo.dodgeAt || 0) < S.time) { this.memo.dodgeAt = S.time + 1; this.cmd('helm.dodge', { dir: simRng() < 0.5 ? -1 : 1 }); }
+    if (S.space.projectiles.some((q) => (q.kind === 'enemy' || q.kind === 'emp') && dist(q.x, q.y, sh.x, sh.y) < 90) && sh.dodgeCd === 0 && (this.memo.dodgeAt || 0) < S.time) { this.memo.dodgeAt = S.time + 1; this.cmd('helm.dodge', { dir: this.zufall() < 0.5 ? -1 : 1 }); }
   }
   // Drehwunsch (rad, relativ zum Bug) zur Kartenmitte, wenn das Schiff im Randstreifen liegt; sonst 0 (Kurs halten)
   randNachMitte(S) {
@@ -785,7 +794,7 @@ class BotKern {
     if (sh.dodgeCd > 0 || sh.docked) return;
     for (const e of S.space.enemies) {
       if (!e.tele || e.tele.left > W) continue;
-      if (!m.dodgePlan[e.id]) m.dodgePlan[e.id] = { at: 0.1 + simRng() * (W - 0.25) };
+      if (!m.dodgePlan[e.id]) m.dodgePlan[e.id] = { at: 0.1 + this.zufall() * (W - 0.25) };
       if (e.tele.left <= m.dodgePlan[e.id].at) {
         const rel = norm(Math.atan2(e.y - sh.y, e.x - sh.x) - sh.angle);
         this.cmd('helm.dodge', { dir: rel < 0 ? 1 : -1 });   // vom Gegner weg
@@ -868,6 +877,13 @@ class BotKern {
     this.schildVerteilung(S);
     this.queueRepairs(S);
   }
+  // BOT-01 B3: Technik als eigene Rolle (Konsole technik direkt, kein Tab ueber den Captain-Platz): Schilde verteilen, Reparaturliste fuellen.
+  // technikCmd schaltet nicht um, wenn der Bot schon an der Technik steht (stationTab sieht stationOf == technik).
+  technikDienst(S, p) {
+    if (!this.enter(S, 'technik')) return;
+    this.schildVerteilung(S);
+    this.queueRepairs(S);
+  }
   // Schildpunkte zur Bedrohung verteilen (Captain; SYS-02c: auch Solo im Gefecht per Tab auf die Technik, wie ein Spieler)
   schildVerteilung(S) {
     const sh = S.ship; const m = this.memo;
@@ -907,7 +923,7 @@ class BotKern {
       if (!wantFire && m.firePrio) { m.firePrio = false; this.technikCmd(S, 'technik.priority', { target: null }); }
       const q = sh.repairQueue || [];
       if (sh.systems.reactor === 'broken' && (!q.length || q[0].system !== 'reactor')) { this.technikCmd(S, 'technik.priority', { target: 'reactor' }); return; }   // SYS-01 A2a: zerstörter Reaktor (Countdown) an die Spitze der Reparaturliste
-      const busyPlayer = (s) => (this.game.simAgents || []).some((a) => a.memo.job && a.memo.job.sys === s && S.time - (a.memo.job.seen || 0) < 2);
+      const busyPlayer = (s) => this.kollegen().some((a) => a.memo.job && a.memo.job.sys === s && S.time - (a.memo.job.seen || 0) < 2);
       const want = REPAIR_PRIO.filter((s) => (sh.systems[s] === 'broken' || sh.systems[s] === 'damaged') && !busyPlayer(s))
         .sort((a, b) => (sh.systems[a] === 'broken' ? 0 : 1) - (sh.systems[b] === 'broken' ? 0 : 1));
       for (const s of want) {
@@ -1023,6 +1039,15 @@ class BotKern {
     if (this.role === 'helm' && p.console !== 'helm') { this.enter(S, 'helm'); return true; }   // vom Nebenjob zurück ans Steuer, sofort: der Weg kostet Zeit (solo wechselt die Konsolen selbst)
     if (rt.rest > 80) return false;
     if (!this.enter(S, 'helm')) return true;
+    this.cmd('helm.notsprung');
+    statistik(this.game).reaktorNotsprung = (statistik(this.game).reaktorNotsprung || 0) + 1;
+    return true;
+  }
+  // BOT-01 B3: Reaktor-Countdown, nur die Notsprung-Entscheidung (keine Laufwege: die Reparatur holen der Schrauber, die Technik stellt den Reaktor an die Spitze der Liste).
+  // Wie reaktorRettung: unter 8 s Rest springt die Steuer (cmd helm.notsprung von der Steuer-Konsole). -> true, wenn gesprungen wurde bzw. der Befehl rausging
+  reaktorNotsprung(S, p) {
+    const rt = S.ship.reaktorTod;
+    if (!rt || rt.rest < 0 || rt.rest > 80 || S.ship.docked || p.zone !== 'ship' || p.console !== 'helm') return false;
     this.cmd('helm.notsprung');
     statistik(this.game).reaktorNotsprung = (statistik(this.game).reaktorNotsprung || 0) + 1;
     return true;
