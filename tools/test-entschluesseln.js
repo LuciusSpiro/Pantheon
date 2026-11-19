@@ -106,10 +106,9 @@ console.log('Bot (sim-headless GenericAgent, Bergsteigen)');
 {
   const fs = require('fs'), path = require('path'), Module = require('module');
   const file = path.join(__dirname, 'sim-headless.js');
-  let src = fs.readFileSync(file, 'utf8');
-  src = src.slice(0, src.lastIndexOf('\n(async () => {')) + '\n;module.exports = { GenericAgent, setSimRng: (r) => { simRng = r; } };\n';
+  // BOT-01 B1: regulaerer require statt Quelltextschnitt (sim-headless exportiert GenericAgent und setSimRng; argv ohne Optionen)
   const argv = process.argv; process.argv = [argv[0], file];
-  let Sim; try { const m = new Module(file, module); m.filename = file; m.paths = Module._nodeModulePaths(path.dirname(file)); m._compile(src, file); Sim = m.exports; } finally { process.argv = argv; }
+  let Sim; try { Sim = require(file); } finally { process.argv = argv; }
   const { makeRng } = require('../server/util.js');
   for (const [name, abw, qmin, qmax] of [['genau', 0, 2, 3], ['ungenau', 0.17, 0, 1]]) {   // dauer halbiert (12,5 s): der Bot gibt sich erst bei s >= ~0,2 zufrieden
     Sim.setSimRng(makeRng(11));

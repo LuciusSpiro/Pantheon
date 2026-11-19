@@ -180,10 +180,9 @@ console.log('Bot (sim-headless GenericAgent: Sonde zur Marke und durch den Sprun
 {
   const Module = require('module');
   const file = path.join(__dirname, 'sim-headless.js');
-  let src = fs.readFileSync(file, 'utf8');
-  src = src.slice(0, src.lastIndexOf('\n(async () => {')) + '\n;module.exports = { GenericAgent, setSimRng: (r) => { simRng = r; } };\n';
+  // BOT-01 B1: regulaerer require statt Quelltextschnitt (sim-headless exportiert GenericAgent und setSimRng; argv ohne Optionen)
   const argv = process.argv; process.argv = [argv[0], file];
-  let Sim; try { const m = new Module(file, module); m.filename = file; m.paths = Module._nodeModulePaths(path.dirname(file)); m._compile(src, file); Sim = m.exports; } finally { process.argv = argv; }
+  let Sim; try { Sim = require(file); } finally { process.argv = argv; }
   const { makeRng } = require('../server/util.js');
   for (const [name, opts] of [['Marke', { sondeZiel: { x: 1500, y: 900 } }], ['Sprungpunkt', { sondeNach: '0207' }]]) {
     Sim.setSimRng(makeRng(11));
