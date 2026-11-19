@@ -92,7 +92,7 @@ class BotKern {
     if (msg.t === 'leave') {
       const me = this.game.players.find((p) => p.id === this.pid);
       const h = this.game.ship.helm || {};
-      if (me && me.console === 'helm' && typeof h.stage === 'number' && h.stage !== STOP && !this.keepStage) this.game.handleMessage(this.conn, { t: 'cmd', c: 'helm.throttle', set: STOP });
+      if (me && me.console === 'helm' && typeof h.stage === 'number' && h.stage !== STOP && !this.keepStage) this.send({ t: 'cmd', c: 'helm.throttle', set: STOP });   // ueber send(): ein Server-Agent (bots/mannschaft.js) geht auch hier durch den Wachposten
     }
     this.game.handleMessage(this.conn, msg);
   }
@@ -908,12 +908,15 @@ class BotKern {
       }
     }
   }
+  // Der Testbot fuehrt die Reparaturliste selbst und schaltet die Bot-Automatik der Schrauber dafuer ab (setzt botAutoChosen: die Wahl gilt bis Partieende). true = abgeschaltet, in diesem Schritt nichts weiter.
+  // Der Server-Agent (bots/mannschaft.js) ueberschreibt das: er sendet technik.botAuto nie, die Schwelle botAutomatikStandard entscheidet.
+  automatikAbschalten(S) { this.technikCmd(S, 'technik.botAuto', { on: false }); return true; }
   // Reparaturliste füllen (zu dritt; solo macht das die Automatik). Läuft in jedem Missionsschritt, sobald der Captain an der Konsole ist.
   queueRepairs(S) {
     const sh = S.ship; const m = this.memo;
     if (this.opts.queue !== false && (m.queueAt || 0) < S.time) {
       m.queueAt = S.time + 1.5;
-      if (sh.botAuto) { this.technikCmd(S, 'technik.botAuto', { on: false }); return; }
+      if (sh.botAuto && this.automatikAbschalten(S)) return;
       // QA S2b: Die Schrauber nehmen die Reparaturliste vor Feuer. Brennt es nach einem harten Gefecht an mehreren Stellen,
       // bricht das Feuer frisch Geflicktes sofort wieder (Golden m1/3 Seed 8: Triebwerk 5 Min. im Kreis geflickt, kein
       // Sprung). Wie ein Mensch: Captain stellt „Feuer zuerst“, solange es brennt und kein Gegner mehr da ist (oder ≥ 3 Brände).

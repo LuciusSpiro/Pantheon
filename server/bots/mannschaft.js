@@ -1,14 +1,17 @@
 'use strict';
 // BOT-01 B3: Spielverhalten der Server-Bots. Ein Agent je Bot-Spieler (server/bots/lauf.js legt sie an), er erbt den Kern der Testbots (kern.js) und kennt nur die Standard-Dienstpflicht seiner Rolle:
-//   navigation (Kern-Rolle helm)    Steuer-Konsole besetzen; im Gefecht helmFight (Strategie maneuver: Breitseite, Ausweichen vor Ladungen), sonst Kurs und Stufe halten, am Kartenrand zur Mitte.
+//   navigation (Kern-Rolle helm)    Steuer-Konsole besetzen; im Gefecht helmFight (Strategie maneuver: Breitseite, Ausweichen vor Ladungen), sonst Kurs und Stufe halten, am Kartenrand zur Mitte. Ist jemand im Aussenteam unten (zone away), nur Kurs halten und Ausweichen (Beamreichweite).
 //                                   Kein eigenes Reisen, Andocken oder Kurssetzen (Paket C: Befehle).
-//   ops (Kern-Rolle weapons)        Ops-Konsole besetzen, fight (Ladepunkte, Lanze, Batterien, Zusatzwaffen); ein von anderen markiertes Ziel geht vor (waehleZiel).
-//   technik (Kern-Rolle technik)    Technik-Konsole besetzen (eigene Rolle, kein Tab ueber den Captain-Platz), technikDienst: Schilde verteilen, Reparaturliste und Prioritaeten. Die Schrauber (sim/bots.js) arbeiten die Liste ab.
+//   ops (Kern-Rolle weapons)        Ops-Konsole besetzen, fight (Ladepunkte, Lanze, Batterien, Zusatzwaffen); die Marke des Captains (capZiel), dann ein von anderen markiertes Ziel geht vor (waehleZiel).
+//   technik (Kern-Rolle technik)    Technik-Konsole besetzen (eigene Rolle, kein Tab ueber den Captain-Platz), technikDienst: Schilde verteilen, Reparaturliste und Prioritaeten. Die Schrauber (sim/bots.js) arbeiten die Liste ab; technik.botAuto sendet der Agent nie (botAutomatikStandard entscheidet).
 // Der Agent sendet alles ueber game.handleMessage(p.conn, msg), nie hello/ready/Loadout und nur Befehle der eigenen Station (erlaubt()). Mensch gewinnt: haelt ein Mensch die Station des Bots, ist der Zustand 'wartet' und der Bot sendet nichts fuer sie.
 // Zustand (Absicht) lebt im Agenten, nie im Spielerobjekt oder Snapshot. Zufall und Mitspieler gehoeren dem Lauf des Games (zufall, kollegen), kein Modulzustand.
 const Protocol = require('../../shared/protocol.js');
 const Crew = require('../sim/crew.js');
 const Station = require('../sim/station.js');
+const Space = require('../sim/space.js');
+const Sonden = require('../sim/sonden.js');
+const CaptainZiel = require('../sim/captainziel.js');
 const { BotKern, DT } = require('./kern.js');
 const Absicht = require('./absicht.js');
 
@@ -31,6 +34,8 @@ class BotMannschaft extends BotKern {
   }
   zufall() { return this.rng(); }
   kollegen() { return this.lauf.liste(); }
+  // Die Schrauber-Automatik regelt botAutomatikStandard (Technik durch Bot besetzt: aus, sonst nach Koepfen); der Agent waehlt sie nie (kein technik.botAuto: das setzt botAutoChosen fuer die ganze Partie). Die Liste fuehrt er trotzdem.
+  automatikAbschalten() { return false; }
   hello() { /* Server-Bots haben kein hello und kein ready (sie sind Spieler seit der Lobby) */ }
 
   // Wachposten: nur Eingabe, Aktion, Konsole verlassen, Ablegen und Befehle der eigenen Station (plus Tab). Nie hello, ready, lobbyBot, captain.*, Loadout, Debug.
@@ -43,7 +48,7 @@ class BotMannschaft extends BotKern {
   }
   send(msg) {
     if (this.spieler.conn !== this.conn || !this.erlaubt(msg)) { this.verworfen++; return; }
-    if (msg.t === 'cmd') this.befehle++;
+    if (msg.t === 'cmd') this.befehle++;   // auch das Stufenhalten vor leave (kern.js send) laeuft durch diesen Wachposten
     super.send(msg);
   }
   cmd(c, extra) {
@@ -51,8 +56,12 @@ class BotMannschaft extends BotKern {
     super.cmd(c, extra);
   }
 
-  // Zielwahl der Ops: ein von anderen markiertes Ziel (ship.target, das der Bot nie selbst gesendet hat) geht vor dem Kern (Ladung, Anflug, im Bogen, naechster). Sonst wie die Testbots.
+  // Zielwahl der Ops: erst die Marke des Captains (captain.anzeigeziel -> ship.capZiel, nur ein lebender Gegner, den die Ops auch aufschalten koennte), dann ein von anderen markiertes Ziel (ship.target, das der Bot nie selbst
+  // gesendet hat), dann der Kern (Ladung, Anflug, im Bogen, naechster). Gefeuert wird weiter nur im Bogen (lanceFight, Batterien, Zusatzwaffen), die Marke erzwingt keinen Schuss ins Leere.
   waehleZiel(S, enemies, M) {
+    const cz = CaptainZiel.gueltig(this.game);
+    const capMarke = cz && enemies.find((e) => e.id === cz.id);
+    if (capMarke && this.aufschaltbar(capMarke)) return capMarke;   // nicht aufschaltbar (ausser Sensoren): weapons.target wuerde abgewiesen, fight() hinge an der Zielwahl
     const t = this.game.ship.target;   // der Spielzustand, nicht der Snapshot: eine frische Marke eines Menschen darf nicht im alten Stand untergehen
     if (t != null && !this.memo.gesendeteZiele.has(t)) {
       const markiert = S.space.enemies.find((e) => e.id === t);
@@ -60,6 +69,8 @@ class BotMannschaft extends BotKern {
     }
     return super.waehleZiel(S, enemies, M);
   }
+
+  aufschaltbar(e) { return Math.hypot(this.game.ship.x - e.x, this.game.ship.y - e.y) <= Space.sensorReichweite(this.game) || !!Sonden.sieht(this.game, e.x, e.y); }
 
   // Wer haelt meine Station? Ein Mensch am Ort (Konsole) oder als aktives Interface (Tab) -> wartet.
   menschHaeltStation() {
@@ -95,7 +106,15 @@ class BotMannschaft extends BotKern {
   // Steuer: Reaktor-Notsprung, im Gefecht Breitseite und Ausweichen, sonst Kurs halten ohne ins Leere zu fliegen
   steuerDienst(S, p) {
     if (this.reaktorNotsprung(S, p)) return;
+    if (this.aussenteamUnten()) { this.kursHaltenFuerAussenteam(S); return; }
     if (S.space.enemies.some((e) => e.kind !== 'relay')) { this.helmFight(S, this.helmFocus(S)); return; }
+    this.kursHalten(S);
+  }
+  // Ist irgendwer (Mensch oder Bot) im Aussenteam unten? Dann bleibt das Schiff in Beamreichweite (away.js „Zu weit vom Ziel“).
+  aussenteamUnten() { return this.game.players.some((o) => o.zone === 'away'); }
+  // Aussenteam unten: kein Nachsetzen, keine Breitseite; Stufe und Kurs bleiben, nur Ausweichen vor Ladungen und die Randkorrektur
+  kursHaltenFuerAussenteam(S) {
+    if (this.pilot() === 'maneuver') this.dodgeTele(S);
     this.kursHalten(S);
   }
   // Kurs und Stufe nicht aendern; nur im Randstreifen der Karte zur Mitte drehen (randNachMitte), sonst Ruder 0
