@@ -1,6 +1,10 @@
 'use strict';
 // SL11: die Sund-Kette "Die Schuld der Lerche" per Bot (GenericAgent aus sim-headless.js).
 //   node tools/sim-sund.js [--weg loesegeld|soeldner|beide] [--crew 1|3] [--seed S] [--kapitel alle|k4_gestrandet] [--von k4_gestrandet] [--verbose]
+//   BOT-01 B4b (Abnahmekriterium 9): node tools/sim-sund.js --kapitel alle --crew 1 --server-bots navigation,ops,technik
+//     --server-bots  Rollen der Server-Bots (kommagetrennt aus navigation, ops, technik; nur mit --crew 1). Der Crew-1-Bot (solo) ist der Mensch-Ersatz (kein god ausser dem Bunker-Schritt wie sonst, keine Sonderrechte);
+//                    die Server-Bots kommen ueber BotSpieler.botHinzufuegen in der Lobby, game.step() treibt sie (sim-headless runGeneric opts.serverBots). Die Tabelle nennt den Lauf "Crew 1 + Server-Bots", je Lauf
+//                    steht eine Zeile "Server-Bots (...)": Befehle, verworfen, Zustand je Bot, Ticks mit einem Bot unten bzw. bewusstlos. Ohne die Option aendert sich weder Ablauf noch Ausgabe.
 // Läufe: ganze Kette ab Kapitel 1 (Lobby-Modus schuld_der_lerche) bzw. Labor-Einstieg je Kapitel (--kapitel alle, stoppt nach dem Kapitel).
 const Sim = require('./sim-headless.js');
 const Kampagne = require('../server/mission/kampagne.js');
@@ -9,6 +13,12 @@ const args = process.argv.slice(2);
 const argVal = (k, d) => (args.indexOf(k) >= 0 ? args[args.indexOf(k) + 1] : d);
 const log = (...a) => console.log(...a);
 const TRACE = args.includes('--trace');
+const SB_TEXT = argVal('--server-bots', null);   // BOT-01 B4b
+const SERVER_BOTS = SB_TEXT === null ? null : String(SB_TEXT).split(',').filter(Boolean);
+if (SERVER_BOTS && (argVal('--crew', null) !== '1' || !SERVER_BOTS.length || SERVER_BOTS.some((r, i) => !['navigation', 'ops', 'technik'].includes(r) || SERVER_BOTS.indexOf(r) !== i))) {
+  console.error('Aufruf: node tools/sim-sund.js --kapitel alle --crew 1 --server-bots navigation,ops,technik (Teilmenge)');
+  process.exit(2);
+}
 
 const stepHook = (a, S, p, info) => {
   const fn = HOOKS[info.m.activeId + '/' + info.step.id];
@@ -348,12 +358,12 @@ async function main() {
   const rows = []; let bad = 0;
   for (const crew of crews) for (const j of jobs) {
     const t0 = Date.now();
-    const r = await Sim.runGeneric({ seed, crew, mode: 'kette', start: 'schuld_der_lerche', einstieg: j.einstieg, stopNach: j.stopNach, weg: j.weg, abkuerzungen: !args.includes('--ohne-abkuerzung'), stepHook, stepLimit: () => 1500, pilot: 'maneuver', maxSec: j.stopNach ? 5000 : 30000, missionMax: 4000, funk: 'a', notrufeBot: null, ...laden(j) });
+    const r = await Sim.runGeneric({ seed, crew, mode: 'kette', start: 'schuld_der_lerche', einstieg: j.einstieg, stopNach: j.stopNach, weg: j.weg, abkuerzungen: !args.includes('--ohne-abkuerzung'), stepHook, stepLimit: () => 1500, pilot: 'maneuver', maxSec: j.stopNach ? 5000 : 30000, missionMax: 4000, funk: 'a', notrufeBot: null, ...(SERVER_BOTS ? { serverBots: SERVER_BOTS } : {}), ...laden(j) });
     r.befunde = r.errList.filter((e) => BEKANNT.test(e)); r.errors -= r.befunde.length;
     const gut = !r.aborted && !r.errors && (j.stopNach ? (r.stopNach === j.stopNach || r.ende) : r.ende);
     if (!gut) bad++;
     rows.push({ j, crew, r, gut, wall: Date.now() - t0 });
-    Sim.printGenericRun(r, j.label + ' Crew ' + crew);
+    Sim.printGenericRun(r, j.label + ' Crew ' + crew + (SERVER_BOTS ? ' + Server-Bots' : ''));
     if (r.sim.abkuerzungen && r.sim.abkuerzungen.length) log('  ABKÜRZUNGEN (forceStep): ' + r.sim.abkuerzungen.join(', '));
     for (const s of r.saveLoad || []) { if (!s.ok) bad++; if (!s.ok || args.includes('--verbose')) log(`  Speichern/Laden ${s.kap}: ${s.ok ? 'ok' : 'FEHL'} ${s.info}`); }
     if (r.saveLoad && r.saveLoad.length) log(`  Speichern/Laden an ${r.saveLoad.length} Kapitelübergängen, ${r.saveLoad.filter((s) => s.ok).length} ok`);
@@ -361,7 +371,7 @@ async function main() {
   }
   log('\n| Lauf | Crew | Ergebnis | Spielzeit (min) | Wand (s) | Kapitel |');
   log('|---|---|---|---|---|---|');
-  for (const x of rows) log(`| ${x.j.label} | ${x.crew} | ${x.gut ? 'ok' : 'FEHL' + (x.r.aborted ? ' (' + x.r.aborted + ')' : '')} | ${Sim.fmtMin(x.r.gameTime)} | ${(x.wall / 1000).toFixed(0)} | ${x.r.missions.map((m) => m.id.split('_')[0] + (m.skips ? ' skip' + m.skips.length : '') + (m.success ? '' : ' offen')).join(', ')} |`);
+  for (const x of rows) log(`| ${x.j.label} | ${x.crew}${SERVER_BOTS ? ' + Server-Bots' : ''} | ${x.gut ? 'ok' : 'FEHL' + (x.r.aborted ? ' (' + x.r.aborted + ')' : '')} | ${Sim.fmtMin(x.r.gameTime)} | ${(x.wall / 1000).toFixed(0)} | ${x.r.missions.map((m) => m.id.split('_')[0] + (m.skips ? ' skip' + m.skips.length : '') + (m.success ? '' : ' offen')).join(', ')} |`);
   log(bad ? '\nSIM SUND FEHLGESCHLAGEN (' + bad + ')' : '\nSIM SUND OK');
   return bad;
 }

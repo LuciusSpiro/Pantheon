@@ -2688,6 +2688,9 @@ async function runGeneric(opts) {
   const origCount = game.countError.bind(game);
   game.countError = (where, err) => { if (errList.length < 40) errList.push(`${where}: ${err && err.message ? err.message : err}`); origCount(where, err); };
   game.simStats = { reactorRestarts: 0, widescans: 0, wreckDone: false, orders: 0, coverShots: 0, keyTries: 0, accepts: 0, choices: [], unknownUms: {}, escortOrders: 0 };
+  const serverBots = opts.serverBots || [];   // BOT-01 B4b: Rollen der Server-Bots neben dem Mensch-Ersatz (nur crew 1, Rolle solo, nicht labor); Bots kommen ueber botHinzufuegen in die Lobby, game.step() treibt sie (wie runArena --bots)
+  if (serverBots.length && (crew !== 1 || opts.mode === 'labor')) throw new Error('serverBots nur mit crew 1 und ohne Labor-Modus');
+  if (serverBots.length) BotLauf.optionenSetzen(game, { pilot: opts.pilot });
   const rollen = opts.mode === 'kette' ? ['captain', 'helm', 'weapons', 'captain'] : ['captain', 'helm', 'weapons'];   // EIS-01 P5: nur der Kette-Lauf hat bei Crew 4 vier Bot-Spieler (der vierte als zweiter Captain wie im GrabenAgent); alle anderen Modi bleiben bei drei Bots, bitgleich zu main
   const roles = crew === 1 ? ['solo'] : rollen.slice(0, crew);
   const agents = roles.map((r, i) => new GenericAgent(game, i, r, opts));
@@ -2720,7 +2723,11 @@ async function runGeneric(opts) {
     if (game.phase !== 'play' || !game.labor) res.aborted = `Labor-Start ${opts.labor} abgelehnt (${JSON.stringify(errList.slice(0, 2))})`;
   } else {
     game.lobbyOpts.startMission = opts.start || 'free';   // EK8: eisenwald | eisenwald_ohne (Kette)
-    for (const a of agents) { game.addConnection(a.conn); a.hello(); }
+    if (serverBots.length) {   // BOT-01 B4b: Mensch zuerst (hello), dann die Server-Bots in der Lobby, dann bereit
+      for (const a of agents) { game.addConnection(a.conn); a.send({ t: 'hello', clientId: 'sim-' + a.idx, name: ['Ada', 'Bo', 'Cem', 'Dan'][a.idx], color: a.idx }); }
+      for (const r of serverBots) if (!BotSpieler.botHinzufuegen(game, null, r)) throw new Error('Bot ' + r + ' nicht hinzugefuegt');
+      for (const a of agents) a.send({ t: 'ready', ready: true });
+    } else for (const a of agents) { game.addConnection(a.conn); a.hello(); }
     if (opts.einstieg) {   // EK8: Labor-Einstieg in ein Kapitel der Kette (Zustand davor wird hergestellt)
       const k = game.mission.kette;
       const e = k ? k.einstieg(opts.einstieg) : 'keine Kampagnenkette aktiv';
@@ -2773,6 +2780,13 @@ async function runGeneric(opts) {
     // W2 AP6: Beobachtung Personen (gleichzeitig offen) und Enterer an Engstellen (aw.engStats)
     if (S.away && S.away.npcs) res.personenMax = Math.max(res.personenMax || 0, S.away.npcs.filter((n) => !n.rescued).length);
     for (const a of agents) a.update(S);
+    if (serverBots.length && ticks % 30 === 0) {   // BOT-01 B4b: Stand der Server-Bots (der Lauf endet mit der Partie): Befehle, Zustand, Zeit unten/bewusstlos (Ticks)
+      const sb = res.serverBots || (res.serverBots = { rollen: serverBots, bots: [], untenTicks: 0, downedTicks: 0, tickLetzt: 0 });
+      sb.bots = BotLauf.agenten(game).map((a) => ({ rolle: a.rolleBot, befehle: a.befehle, verworfen: a.verworfen, zustand: a.absicht.zustand }));
+      const bp = game.players.filter((q) => q.bot); sb.tickLetzt = ticks;
+      if (bp.some((q) => q.zone === 'away')) sb.untenTicks += 30;
+      if (bp.some((q) => q.downed)) sb.downedTicks += 30;
+    }
     const m = game.mission;
     if (VERBOSE && ticks % Number(argVal('--every', 120)) === 0) {
       const sh = game.ship;
@@ -2912,6 +2926,7 @@ function printGenericRun(r, label) {
     if (esc.length) log('    Schützling: ' + esc.map((s) => `${s.step} ${s.escort} (${s.escortHp} %)`).join(', ') + ` · stats.escort ${JSON.stringify(ms.escortStats)}`);
   }
   if (r.errList.length) log('  Server-Fehler: ' + [...new Set(r.errList)].slice(0, 6).join(' | '));
+  if (r.serverBots) log('  Server-Bots (' + r.serverBots.rollen.join(',') + '): ' + r.serverBots.bots.map((b) => b.rolle + ' ' + b.befehle + ' Befehle/' + b.verworfen + ' verworfen/' + b.zustand).join(' · ') + ' · unten ' + r.serverBots.untenTicks + ' Ticks, bewusstlos ' + r.serverBots.downedTicks + ' Ticks');
   if (r.sim && Object.keys(r.sim.unknownUms || {}).length) log('  Ohne Bot-Handler: ' + Object.keys(r.sim.unknownUms).join(', '));
 }
 
