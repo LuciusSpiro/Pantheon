@@ -10,6 +10,7 @@
 // Bots tragen bot: true, rolle, botId (b0..b3), stimme (null, spaeter BOT-04/05) und keine clientId (clientId null; onHello sucht zusaetzlich nie unter Bots); Menschen tragen diese Felder nie. Bots bekommen nie Farbe 0 (die gehoert dem ersten Menschen, Kontingent-Frage).
 // Zufall nur hier (Lobby, nie in der Simulation): game.botZufall (Tests) oder Math.random.
 const Crew = require('../sim/crew.js');
+const Lauf = require('./lauf.js');   // BOT-01 B3: Agenten der Bots (geraeumte/entfernte Bots verlieren ihren Agenten sofort)
 
 let namenPool = [];
 try { namenPool = require('../../content/bots/namen.json').namen || []; } catch (e) { namenPool = []; }
@@ -40,6 +41,7 @@ function botFarbe(game) {
 const karteSetzen = (game, b) => game.botKarteWuerfeln(b, zufallVon(game), namenPool);
 // Bot aus der Lobby nehmen, wie wenn ein Mensch die Lobby verlaesst (Karte raeumen, Spieler filtern, Telemetrie)
 function ausLobbyNehmen(game, b) {
+  Lauf.entfernen(game, b);
   game.raeumeKarte(b);
   game.players = game.players.filter((o) => o !== b);
   game.telemetrie.spielerWeg(b.id);
@@ -52,8 +54,10 @@ function botHinzufuegen(game, spieler, rolle) {
   const farbe = botFarbe(game), botId = kleinsteFreieBotId(game);
   if (bots(game).length >= game.C.maxPlayers - 1 || game.players.length >= game.C.maxPlayers || farbe === null || botId === null) return verweigere(game, spieler, 'Kein Platz für einen weiteren Bot.');
   const id = kleinsteFreieId(game);
-  const b = { id, clientId: null, name: id, color: farbe, ready: true, connected: true, conn: { send() {}, close() {}, bot: true }, lastSeq: 0,
+  const conn = { send() {}, close() {}, bot: true };
+  const b = { id, clientId: null, name: id, color: farbe, ready: true, connected: true, conn, lastSeq: 0,
     bot: true, rolle, botId, stimme: null };
+  conn.player = b;   // BOT-01 B3: handleMessage(conn, msg) findet den Spieler ueber conn.player (der Agent sendet ueber die Verbindung des Bots)
   game.resetPlayer(b, game.players.length);
   game.players.push(b);
   karteSetzen(game, b);
@@ -105,6 +109,7 @@ function lobbyBotBefehl(game, spieler, msg) {
 // Partie: der Platz bleibt in players (Indizes, Spawns), wird aber ein freier, nicht verbundener Platz, den der Uebernahmeweg in onHello nutzt
 function zuFreiemPlatz(game, b) {
   game.platzFreigeben(b, 'abgang');
+  Lauf.entfernen(game, b);
   b.connected = false; b.conn = null; b.clientId = null;
   delete b.bot; delete b.rolle; delete b.botId; delete b.stimme;
   game.karteVergessen(b);

@@ -52,6 +52,7 @@ const Abspann = require('./sim/abspann.js');   // SUND-04a-3: Abspänne der Frei
 const Ruf = require('./sim/ruf.js');   // SUND-02b B: Ruf je Fraktion und Dienstgrade von Rom (nur Freie Fahrt Sund)
 const FunkAntwort = require('./sim/funk-antwort.js');   // SUND-03b A: Funk-Antworten mit Folgen (nur Freie Fahrt Sund, folgt dem Reise-Ereignis-Schalter)
 const BotSpieler = require('./bots/spieler.js');   // BOT-01 B2: Bots als Spieler auf Slots (Lobby)
+const BotLauf = require('./bots/lauf.js');   // BOT-01 B3: Spielverhalten der Bots (Agenten je Bot-Spieler, Tick am Ende von tickKern)
 const Kontingent = require('./sim/kontingent.js');   // LIV-01: Schwelle des Token-Zählers, Befehle kontingent.freigeben/ablehnen, Frage an den Spieler mit color 0
 const AbenteuerBrett = require('./sim/abenteuer-brett.js');   // SUND-04b C: Auftragsbrett (nur mit FAEDEN=1, Freie Fahrt Sund)
 const FadenBitte = require('./sim/faden-bitte.js');   // SUND-04a-2 P2: Bitten der Geschichtsfäden (nur mit FAEDEN=1, Freie Fahrt Sund)
@@ -2006,6 +2007,7 @@ class Game {
       this.safe('planMaps', () => this.syncPlanMaps());   // SL7b: Karten gescannter Landepunkte an alle (Planungstisch); einmal je Spieler
       this.safe('vorbau', () => this.vorbauBeiAnkunft());   // B1: Landepunkte des neuen Orts vorbauen (nach dem Tick)
       this.safe('weltstand', () => this.updateWeltstand(dt));   // S1 §5.3: am Ende des Ticks
+      this.safe('botlauf', () => BotLauf.tick(this));   // BOT-01 B3: Bot-Agenten (ohne Bot-Spieler sofort zurueck)
     }
   }
 
@@ -2210,7 +2212,9 @@ class Game {
   wantsSnapshot() { return this.tick % this.C.net.snapEvery === 0; }
 
   // ---------- Snapshot (§5.3 + M1 §10) ----------
-  snapshot() {
+  // BOT-01 B3: der fuer das Broadcast gebaute Snapshot geht an den Bot-Lauf (nur wenn Bots laufen), der Inhalt bleibt byte-gleich
+  snapshot() { const snap = this.snapshotBauen(); BotLauf.snapshotMerken(this, snap); return snap; }
+  snapshotBauen() {
     const C = this.C; const ship = this.ship; const sp = this.space; const aw = this.away;
     const integSnap = interior.integritaetSnapshot(this);   // SYS-01 A1: einmal je Snapshot, ohne Schreibzugriff
     this.snapCount++;

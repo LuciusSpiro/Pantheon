@@ -6,6 +6,7 @@
 const Protocol = require('../../shared/protocol.js');
 const Crew = require('./crew.js');   // BOT-01 A1
 const Haken = require('../telemetrie/haken.js');   // TEL-01 B2
+const BotWeichen = require('../bots/weichen.js');   // BOT-01 B3: Mensch gewinnt (Tab auf die Station eines Bots)
 
 const KREIS = Protocol.STATION_KREIS;
 const NAME = { helm: 'Navigation', weapons: 'Ops', captain: 'Captain', technik: 'Technik' };
@@ -42,7 +43,8 @@ function tab(game, p, dir) {
   const belegt = [];
   for (let k = 1; k < KREIS.length; k++) {
     const kind = KREIS[(i0 + d * k + KREIS.length * 2) % KREIS.length];
-    const h = halter(game, kind, p);
+    let h = halter(game, kind, p);
+    if (h && BotWeichen.weichtFuerMensch(game, kind, p)) h = null;   // BOT-01 B3: haelt ein Bot die Station, weicht er dem Menschen
     if (h) { belegt.push(`${stationName(kind)}: durch ${h.name} besetzt`); continue; }
     stationFreigeben(game, von, p);
     p.station = kind === p.console ? null : kind;
@@ -58,12 +60,14 @@ function snapFelder(p) {
   return p.console && p.station && p.station !== p.console ? { station: p.station } : {};
 }
 
-// Waffenautomatik (§4.5): nur bei 1 oder 2 verbundenen Spielern UND unbesetzter Ops.
+// Waffenautomatik (§4.5): nur bei 1 oder 2 verbundenen Spielern UND unbesetzter Ops (besetzt durch Mensch oder Bot braucht sie niemand; unbesetzt entscheiden die Koepfe, Bots eingeschlossen).
 function waffenAutomatikAktiv(game) {
   return Crew.koepfe(game) <= game.C.waffenAutomatikMaxSpieler && !stationBesetzt(game, 'weapons');
 }
-// Bot-Automatik der Technik (§4.5): an bei genau 1 oder 2 verbundenen Spielern.
+// Bot-Automatik der Technik (§4.5): an bei genau 1 oder 2 verbundenen Spielern. BOT-01 B3: haelt ein Technik-Bot die Station, fuehrt er die Reparaturliste selbst (technik.botAuto), die Automatik der Schrauber ist dann nicht gebraucht.
 function botAutomatikStandard(game) {
+  const t = halter(game, 'technik', null);
+  if (t && Crew.istBot(t)) return false;
   const n = Crew.koepfe(game);
   return n >= 1 && n <= game.C.botAutomatikMaxSpieler;
 }
