@@ -157,12 +157,11 @@ try {
 
   console.log('Bot: ganze Spur über 3 Hexe bis zur verborgenen Kante (sim-headless)');
   {
-    const fs = require('fs'), path = require('path'), Module = require('module');
+    const path = require('path');
     const file = path.join(__dirname, 'sim-headless.js');
-    let src = fs.readFileSync(file, 'utf8');
-    src = src.slice(0, src.lastIndexOf('\n(async () => {')) + '\n;module.exports = { GenericAgent, setSimRng: (r) => { simRng = r; } };\n';
+    // BOT-01 B1: regulaerer require statt Quelltextschnitt (sim-headless exportiert GenericAgent und setSimRng; argv ohne Optionen)
     const argv = process.argv; process.argv = [argv[0], file];
-    let Sim; try { const m = new Module(file, module); m.filename = file; m.paths = Module._nodeModulePaths(path.dirname(file)); m._compile(src, file); Sim = m.exports; } finally { process.argv = argv; }
+    let Sim; try { Sim = require(file); } finally { process.argv = argv; }
     const { makeRng } = require('../server/util.js');
     Sim.setSimRng(makeRng(5));
     const g = new Game({ noStore: true, seed: 5, env: { MISSION_SOURCE: 'fallback' }, log: () => {} });

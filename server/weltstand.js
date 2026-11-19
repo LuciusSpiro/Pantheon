@@ -704,7 +704,8 @@ function capture(game) {
     version: VERSION, id: ws.id, name: ws.name, erstellt: ws.data.erstellt || now, gespeichert: now,
     spielzeit_s: Math.max(0, Math.round((game.time - game.stats.playTimeStart) * 10) / 10),
     tutorial,
-    meta: { spieler: game.players.map((p) => p.name).slice(0, 3), server: String(game.serverVersion || '') },
+    // BOT-01 B2: Bots gehören nicht in den Weltstand (meta.spieler ist nur die Anzeige „Crew“ im Hauptmenü)
+    meta: { spieler: game.players.filter((p) => !p.bot).map((p) => p.name).slice(0, 3), server: String(game.serverVersion || '') },
     ort: { angedockt: loc },
     schiff: {
       name: 'Lerche',

@@ -36,7 +36,6 @@
 
 const fs = require('fs');
 const path = require('path');
-const Module = require('module');
 const { fork } = require('child_process');
 
 const ROOT = path.join(__dirname, '..');
@@ -49,24 +48,11 @@ const r1 = (x) => Math.round(x * 10) / 10;
 
 // ---------- sim-headless laden (ohne Hauptteil) ----------
 function loadSim() {
+  // BOT-01 B1: regulaerer require (sim-headless exportiert Agent, KeshAgent, setSimRng, DT, TILE, KESH, KESH_GOALS, onShipPad, dist), kein Quelltextschnitt mehr.
   const file = path.join(__dirname, 'sim-headless.js');
-  let src = fs.readFileSync(file, 'utf8');
-  // Hauptteil beginnt entweder mit '(async () => {' oder (seit SL11, Bibliotheksexport) mit der require.main-Zeile davor
-  let cut = src.lastIndexOf('\nif (require.main !== module) module.exports');
-  if (cut < 0) cut = src.lastIndexOf('\n(async () => {');
-  if (cut < 0) throw new Error('sim-headless.js: Hauptteil „(async () => {“ nicht gefunden');
-  src = src.slice(0, cut) + '\n;module.exports = { Agent, KeshAgent, setSimRng: (r) => { simRng = r; },\n' +
-    '  DT, TILE, KESH: typeof KESH !== "undefined" ? KESH : null, KESH_GOALS: typeof KESH_GOALS !== "undefined" ? KESH_GOALS : null,\n' +
-    '  onShipPad: typeof onShipPad !== "undefined" ? onShipPad : null, dist };\n';
   const argv = process.argv;
   process.argv = [argv[0], file];   // sim-headless liest Optionen beim Laden aus argv – keine durchreichen
-  try {
-    const m = new Module(file, module);
-    m.filename = file;
-    m.paths = Module._nodeModulePaths(path.dirname(file));
-    m._compile(src, file);
-    return m.exports;
-  } finally { process.argv = argv; }
+  try { return require(file); } finally { process.argv = argv; }
 }
 
 // ---------- Ein Lauf ----------

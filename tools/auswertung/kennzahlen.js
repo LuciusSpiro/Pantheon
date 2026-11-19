@@ -132,6 +132,10 @@ const KENNZAHL_INFO = {
   'f4.dabei.*': { summe: true, einheit: 's', frage: '4', richtung: 'neutral', text: 'Zeit, die der Slot verbunden war (Fenster der Zeitreihe)' },
   'f4.rolle.*.*': { summe: true, einheit: 's', frage: '4', richtung: 'neutral', text: 'Rollenzeit je Slot: Station (captain, helm ...) im Raum, boden = draussen, ohne = im Schiff an keiner Konsole; nur verbunden' },
   'f4.wechsel.*': { summe: true, einheit: 'n', frage: '4', richtung: 'neutral', text: 'Wechsel der aktiven Station je Slot (konsole, grund tab)' },
+  'f4.bot.dabei.*': { summe: true, einheit: 's', frage: '4', richtung: 'neutral', text: 'Bot-Slot (zeitreihe.bot): verbundene Zeit, getrennt von den Menschen' },
+  'f4.bot.rolle.*.*': { summe: true, einheit: 's', frage: '4', richtung: 'neutral', text: 'Bot-Slot: Rollenzeit je Station (ohne = unterwegs oder wartend)' },
+  'f4.bot.eingaben.*': { summe: true, einheit: 'n', frage: '4', richtung: 'neutral', text: 'Eingaben und Befehle des Bot-Slots (ein_bew + ein_akt): Eingaben der Bots, nie die von Menschen' },
+  'f4.bot.wechsel.*': { summe: true, einheit: 'n', frage: '4', richtung: 'neutral', text: 'Wechsel der aktiven Station je Bot-Slot' },
   'f4.leerlauf.*.dauer': { summe: true, einheit: 's', frage: '4', richtung: 'schlechter', text: 'Summe der Leerlauf-Strecken (mindestens 30 s ohne jede Eingabe). Bei quelle bot nicht aussagekräftig: Bots erzeugen keine Eingaben, es gibt dort keine Leerlauf-Auffälligkeit' },
   'f4.leerlauf.*.episoden': { summe: true, einheit: 'n', frage: '4', richtung: 'schlechter', text: 'Zahl der Leerlauf-Strecken' },
   'f4.leerlauf.*.anteil': { einheit: '%', frage: '4', richtung: 'schlechter', text: 'Leerlauf / verbundene Zeit des Slots' },
@@ -227,7 +231,8 @@ function proSlot(d) {
     const aktiv = new Set();
     sl.forEach((s, i) => {
       if (!SLOT.test(s)) return;
-      const e = m[s] || (m[s] = { dabei: 0, boden: 0, rolle: {}, leer: [], lauf: 0, erstes: r.t });
+      const e = m[s] || (m[s] = { dabei: 0, boden: 0, rolle: {}, leer: [], lauf: 0, erstes: r.t, bot: false, ein: 0 });
+      if (Array.isArray(r.bot) && r.bot[i] === true) e.bot = true;   // BOT-01 B3: Slot eines Bots (zeitreihe.bot, nur in Partien mit Bots): wird in f4 getrennt von den Menschen ausgewiesen
       const verbunden = Array.isArray(r.verbunden) ? r.verbunden[i] === true : true;
       if (!verbunden) { e.abgang = r.t; return; }   // Abgang: zaehlt nirgends
       e.dabei += f;
@@ -236,6 +241,7 @@ function proSlot(d) {
       e.rolle[rolle] = (e.rolle[rolle] || 0) + f;
       if (ort === 'boden') e.boden += f;
       const a = Array.isArray(r.ein_bew) ? r.ein_bew[i] : null, b = Array.isArray(r.ein_akt) ? r.ein_akt[i] : null;
+      if (num(a) && num(b)) e.ein += a + b;
       if (num(a) && num(b) && a + b === 0) { e.lauf += f; aktiv.add(s); } else flush(e);
     });
     for (const s of Object.keys(m)) if (!aktiv.has(s)) flush(m[s]);
@@ -516,6 +522,12 @@ function f4(d, ps) {
   const o = {};
   for (const s of Object.keys(ps)) {
     const e = ps[s];
+    if (e.bot) {   // BOT-01 B3: Bots getrennt (kein Leerlauf: ein wartender Bot sendet nichts); Eingaben = ein_bew + ein_akt der Bot-Befehle
+      put(o, 'bot.dabei.' + s, e.dabei);
+      for (const k of Object.keys(e.rolle)) put(o, 'bot.rolle.' + s + '.' + k, e.rolle[k]);
+      put(o, 'bot.eingaben.' + s, e.ein);
+      continue;
+    }
     put(o, 'dabei.' + s, e.dabei);
     for (const k of Object.keys(e.rolle)) put(o, 'rolle.' + s + '.' + k, e.rolle[k]);
     const leer = summe(e.leer);
@@ -525,7 +537,7 @@ function f4(d, ps) {
   }
   const tab = {};
   for (const z of L(d, 'konsole')) if (z.grund === 'tab' && SLOT.test(z.slot)) zaehle(tab, z.slot);
-  for (const s of Object.keys(ps)) put(o, 'wechsel.' + s, tab[s] || 0);
+  for (const s of Object.keys(ps)) put(o, (ps[s].bot ? 'bot.wechsel.' : 'wechsel.') + s, tab[s] || 0);
   const rp = L(d, 'reparatur');
   if (rp.length) {
     put(o, 'reparatur.n', rp.length);

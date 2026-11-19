@@ -11,6 +11,7 @@ const { DIRS, NEIGHBOR_ORDER, dist } = require('../util.js');
 const onboard = require('./onboard.js');   // R0: Ivo abgeben (onboard lädt interior nicht)
 const Haken = require('../telemetrie/haken.js');   // TEL-01 B2: Protokoll-Haken (lesen nur)
 const Station = require('./station.js');   // R1 §4.4: aktive Station (lädt nichts aus interior)
+const BotWeichen = require('../bots/weichen.js');   // BOT-01 B3: Mensch gewinnt (Bots weichen an ihren Stationen)
 const Integ = require('./integritaet.js');   // SYS-01 C1a-1: Schwellen und Grundwert (Lerche und Gegner)
 const Fracht = require('./fracht.js');   // EK3 Teil A: Systemtreffer bricht das Fracht-Beamen ab (fracht.js lädt interior nicht)
 
@@ -554,7 +555,8 @@ function consoleOccupant(game, p, kind) {
   if (kind === 'plan') return null;   // Planungstisch: nicht exklusiv (bis zu 3)
   if (kind === 'ausruestung') return null;   // AUS-01 B: Ausrüstungsstation: das Loadout gehört dem Spieler, beliebig viele zugleich
   // R1 §4.4: belegt ist der Ort (Konsole selbst) und das Interface (ein anderer hält die Station per Tab)
-  return game.players.find((o) => o !== p && o.connected && (o.console === kind || Station.stationOf(o) === kind)) || null;
+  const o = game.players.find((q) => q !== p && q.connected && (q.console === kind || Station.stationOf(q) === kind)) || null;
+  return o && BotWeichen.kannWeichen(game, kind, p) ? null : o;   // BOT-01 B3: einem Menschen weicht ein Bot (performInteraction gibt die Station dann frei)
 }
 
 function interactionsAt(game, p, tx, ty, own) {
@@ -788,7 +790,7 @@ function performInteraction(game, p, it) {
       if (wk) { const zs = game.ship.systems[pl.system]; return game.notice(p, `Waffenplatz ${pl.platz}: ${wk.name}${zs && zs !== 'ok' ? ' (' + (zs === 'damaged' ? 'beschädigt' : 'zerstört') + ' – reparieren: E halten)' : ''}.`); }
       return game.notice(p, offen ? `Waffenplatz ${pl.platz}: frei, noch keine Waffe eingebaut (Werft, später).` : `Waffenplatz ${pl.platz}: verschlossen – Ausbaustufe ${pl.stufe} nötig.`);
     }
-    case 'console': return enterConsole(game, p, it.console);
+    case 'console': BotWeichen.weichtFuerMensch(game, it.console, p); return enterConsole(game, p, it.console);   // BOT-01 B3
     case 'bed': return enterConsole(game, p, 'quartier');
     case 'locker': return enterConsole(game, p, 'spind');   // CHA-01 D
     case 'lore': return game.transfer.readLore(game, p);

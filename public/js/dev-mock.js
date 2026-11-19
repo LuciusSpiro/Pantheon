@@ -1154,6 +1154,7 @@
         if ('world' in msg) { const vor = W.lobbyOpts.world; W.lobbyOpts.world = msg.world == null ? null : (W.lobbyOpts.worlds.some(x => x.id === msg.world && x.state === 'ok') ? msg.world : W.lobbyOpts.world); if (W.lobbyOpts.world && W.lobbyOpts.world !== vor) W.lobbyOpts.liveSpielleiter = false; }   // FRE-01 B: Fortsetzen läuft nie live (wie der Server)
         if (typeof msg.liveSpielleiter === 'boolean' && W.lobbyOpts.startMission === 'freie_fahrt' && !W.lobbyOpts.world) W.lobbyOpts.liveSpielleiter = msg.liveSpielleiter;
         break;
+      case 'lobbyBot': notice('Bots gibt es nur am echten Server'); break;   // BOT-01 B2
       case 'mark': W.away.marker = { x: msg.x, y: msg.y }; break;
       case 'cmd': cmd(p, msg); break;
       case 'ping': emit({ t: 'pong', ts: msg.ts }); break;

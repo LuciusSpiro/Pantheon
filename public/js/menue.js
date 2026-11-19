@@ -31,7 +31,8 @@
     version: { praefix: 'v' },   // HYG-02 A: „v0.1.0“ unten rechts
     detail: { spieler: '1–4 Spieler', neuerWeltstand: 'neuer Weltstand {n}/{max}', weltstandVoll: 'Alle {max} Plätze belegt · F löscht', weltstandVollKurz: 'Alle {max} Plätze belegt', weltstandVollLang: 'Alle {max} Plätze belegt – erst einen löschen (F)', keinWeltstand: 'kein Weltstand', raumOeffnen: 'Raum öffnen', fortsetzen: 'Fortsetzen', tutorial: 'Tutorial', an: 'an', aus: 'aus', optionen: 'OPTIONEN', inLobby: 'In der Lobby', crew: 'Crew' },
     fortsetzen: { keiner: 'Noch kein Weltstand gespeichert', weitere: '+ {n} weitere · F öffnet die Liste', liste: 'F öffnet die Liste', unlesbar: 'nicht ladbar' },
-    hinweise: { waehlen: 'wählen', charakter: 'Charakter', optionen: 'Optionen', zurueck: 'Titel', bereit: 'bereit', farbe: 'Farbe', modus: 'Modus', link: 'Link', menue: 'Hauptmenü', hilfe: 'Hilfe' },
+    hinweise: { waehlen: 'wählen', charakter: 'Charakter', optionen: 'Optionen', zurueck: 'Titel', bereit: 'bereit', farbe: 'Farbe', modus: 'Modus', link: 'Link', menue: 'Hauptmenü', hilfe: 'Hilfe', bot: 'Bot' },
+    bot: { hinzufuegen: 'BOT HINZUFÜGEN', navigation: 'Navigation', ops: 'Ops', technik: 'Technik', wuerfeln: 'Würfeln', entfernen: 'Entfernen', rolleWechseln: 'Rolle wechseln' },   // BOT-01 B2: Bots auf freien Plätzen (Lobby)
     lobby: { gruppeModus: 'MODUS', modusAendern: 'Modus ändern (alle)', fortsetzenVon: 'FORTSETZEN', bereit: 'BEREIT', bereitZurueck: 'Enter: zurück', bereitMelden: 'Bereit melden', alleBereit: 'alle bereit', wartetAuf: 'wartet auf', verbindet: 'verbinde …', warteServer: 'warte auf Server …', verlassen: 'Esc: Hauptmenü', ohneCode: 'ohne Raumcode', getrennt: 'getrennt' },
     modus: { titel: 'MODUS WÄHLEN', enter: 'setzen', knopf: 'Modus setzen', esc: 'schließen', weltstaende: 'Weltstände', aktiv: 'aktiv' },
     einladung: { gruppe: 'EINLADUNG', holtDich: 'holt dich an Bord.', modus: 'Modus', raum: 'Raum', anBord: 'An Bord', anBordMitDir: '{n} an Bord + du', nurDu: 'nur du', wem: 'MIT WEM GEHST DU AN BORD?', deinPlatz: 'DEIN PLATZ', farbe: 'Farbe', nameCharakter: 'Name = Charaktername', crewWaehlt: 'Modus und Weltstand wählt die Crew in der Lobby.', anBordMit: 'Mit {name} an Bord', nichtBeitreten: 'Esc: nicht beitreten', frei: 'FREI', neuHinweis: 'N legt an', niemand: 'noch niemand an Bord', karteVoll: 'Alle Plätze sind belegt.' },
@@ -390,7 +391,17 @@
     // ------------------------------------------------------------------ Crew (rein, aus dem Snapshot)
     // Gastgeber = wer zuerst im Raum ist: der Server führt kein Feld dafür, die Spielerliste hält die Beitrittsreihenfolge → der erste verbundene Spieler
     const verbunden = (spieler) => (spieler || []).filter((p) => p && p.connected !== false);
-    const gastgeber = (spieler) => verbunden(spieler)[0] || null;
+    const gastgeber = (spieler) => verbunden(spieler).find((p) => !p.bot) || null;   // BOT-01 B2: ein Bot ist nie Gastgeber
+    // BOT-01 B2: Rollen der Bots (gleiche Reihenfolge wie auf dem Server, server/bots/spieler.js); frei = noch kein Bot mit dieser Rolle
+    const BOT_ROLLEN = ['navigation', 'ops', 'technik'];
+    const botRollenFrei = (spieler) => BOT_ROLLEN.filter((r) => !verbunden(spieler).some((p) => p.bot && p.rolle === r));
+    // nächste freie Rolle nach der aktuellen des Bots (reihum), null wenn keine andere frei ist
+    function botNaechsteRolle(spieler, bot) {
+      const frei = botRollenFrei(spieler);
+      for (let i = 1; i < BOT_ROLLEN.length; i++) { const r = BOT_ROLLEN[(BOT_ROLLEN.indexOf(bot && bot.rolle) + i) % BOT_ROLLEN.length]; if (frei.includes(r)) return r; }
+      return null;
+    }
+    const botLetzter = (spieler) => { const b = verbunden(spieler).filter((p) => p.bot); return b.length ? b[b.length - 1] : null; };
     function zaehlung(spieler) {
       const v = verbunden(spieler), bereit = v.filter((p) => p.ready);
       return { an: v.length, bereit: bereit.length, alleBereit: v.length > 0 && bereit.length === v.length, wartend: v.filter((p) => !p.ready) };
@@ -425,7 +436,7 @@
       sichtbar, gruppen, modusVon, aktuellerEintrag, auswahlEintrag, synchronisiere, snapshotEingang, welten, neuesteWelt,
       bewege, waehleTaste, waehleEintragId, schalteTutorialMerker, schalteTutorialDerRunde, nachrichtFuer, bestaetige, oeffneModusWahl, schliesseModusWahl,
       starte, weiter, zurueck, imRaum, weltstaende, weltstandGewaehlt, neuerWeltstandGewaehlt, sichtbarenModusSichern, einladungAblehnen, einladungNeuerCharakter, laborAuswahl, startOptionen, bewegeEinladung, setzeEinladungCursor, einladungAnnehmen, einladungAufGewaehlten,
-      gastgeber, zaehlung, verbunden, optionenFuer, optionFuerTaste,
+      gastgeber, zaehlung, verbunden, BOT_ROLLEN, botRollenFrei, botNaechsteRolle, botLetzter, optionenFuer, optionFuerTaste,
       eintragTitel, modusTitel, bereitAnzeige, eintragAktiv, kammerKnopfText, titelUmbruch, lobbyKopf, satzZeile, lobbyChips, chipReihen, grabenAbschnitte, laborSatz, einladungBesatzung, raumcodeEingang,
     };
   }
