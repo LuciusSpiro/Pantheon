@@ -209,6 +209,10 @@ function f4Block(kz) {
     const x = (info.nachzuegler ? ' · Nachzügler ab ' + zeit(info.erstes_fenster) : '') + (info.abgang != null ? ' · Abgang bei ' + zeit(info.abgang) : '');
     z.push('- ' + s + ': dabei ' + zeit(f.dabei[s]) + ' · ' + r + ' · Leerlauf ' + (l ? zeit(l.dauer) + ' (' + l.episoden + '×, ' + n(l.anteil, 0) + ' %)' : '-') + ' · Wechsel ' + n(get(f, 'wechsel.' + s), 0) + x);
   }
+  for (const s of keys(get(f, 'bot.dabei'))) {   // BOT-01 B3: Bot-Slots getrennt
+    const r = get(f, 'bot.rolle.' + s) ? liste(get(f, 'bot.rolle.' + s), (k, v) => k + ' ' + zeit(v), ', ') : '-';
+    z.push('- Bot ' + s + ': dabei ' + zeit(get(f, 'bot.dabei.' + s)) + ' · ' + r + ' · Eingaben ' + n(get(f, 'bot.eingaben.' + s), 0) + ' · Wechsel ' + n(get(f, 'bot.wechsel.' + s), 0));
+  }
   if (z.length === 1 && !f.reparatur) z.push('- keine Daten');
   if (f.reparatur) z.push('- Reparaturspiele: ' + f.reparatur.n + ', Erfolg ' + n(f.reparatur.erfolg_anteil, 0) + ' %, Ø ' + zeit(f.reparatur.dauer_mittel) + ', Notflicken ' + n(f.reparatur.notflicken, 0));
   return z;
