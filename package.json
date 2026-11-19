@@ -44,6 +44,7 @@
     "test:wrack-bot": "node tools/test-wrack-bot.js",
     "test:wrack-bot-mutation": "node tools/mutation-wrack-bot.js",
     "test:landung-bot": "node tools/test-landung-bot.js",
+    "test:bot-messwerkzeug": "node tools/test-bot-messwerkzeug.js",
     "test:landung-bot-mutation": "node tools/mutation-landung-bot.js",
     "spiel:rettung": "node tools/spiel-rettung.js",
     "test:rettung-bot": "node tools/test-rettung-bot.js",
