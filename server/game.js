@@ -497,6 +497,7 @@ class Game {
   // ---------- Zustand ----------
   reset() {
     this.telemetrie.sessionBeenden('reset');   // TEL-01 A: eine offene Session endet hier (Grund aus sessionEnded, sonst 'reset'); ohne offene Session nichts
+    BotLauf.beenden(this);   // BOT-01 B3: Lobby und neue Partie kennen keine Agenten der letzten
     this.zerstoertOffen = null;   // SYS-01 A2b: eine neue Partie beginnt ohne Einblendung
     Hauptschirm.zuruecksetzen(this);   // KUL-02 S1: eine neue Partie beginnt mit der klassischen Ansicht
     Reise.reset(this);

@@ -1,6 +1,7 @@
 'use strict';
 // BOT-01 B3: der Lauf der Server-Bots (Action-Layer). Je Game eine Instanz, Zustand NUR dort (WeakMap, nie ein Feld an game, nie Modulzustand der Partie): Agenten (mannschaft.js), Zufallsstrom, letzter Snapshot.
 //   tick(game)                      einmal je Spieltick (Ende von tickKern, gerufen ueber safe('botlauf')): Agenten abgleichen, jeden Agenten mit dem zuletzt gebauten Snapshot arbeiten lassen
+//   beenden(game)                   Lauf des Games verwerfen (Game.reset: Lobby, Partieende, Neustart)
 //   snapshotMerken(game, snap)      Game.snapshot() meldet den fuer den Broadcast ohnehin gebauten Snapshot (nur wenn ein Lauf existiert; sonst nichts)
 //   optionenSetzen(game, opts)      Kern-Optionen der Agenten dieses Games (nur Werkzeuge: pilot nose|maneuver)
 //   entfernen(game, spieler)        Agent weg (Bot geraeumt, verdraengt, entfernt)
@@ -49,6 +50,7 @@ function tick(game) {
   lauf.abgleichen();
   lauf.schritt();
 }
+function beenden(game) { LAEUFE.delete(game); }   // reset(): Partieende, Lobby, Neustart
 function snapshotMerken(game, snap) { const lauf = LAEUFE.get(game); if (lauf) lauf.snap = snap; }
 function optionenSetzen(game, opts) { OPTIONEN.set(game, Object.assign({}, opts)); }   // Werkzeuge (tools/sim-headless.js arena --pilot)
 function entfernen(game, spieler) { const lauf = LAEUFE.get(game); if (lauf && spieler) lauf.loeschen(spieler.id); }
@@ -56,4 +58,4 @@ function wartet(game, spieler) { const a = agent(game, spieler); if (a) a.weicht
 function agent(game, spieler) { const lauf = LAEUFE.get(game); return lauf && spieler ? lauf.agentenMap.get(spieler.id) || null : null; }
 function agenten(game) { const lauf = LAEUFE.get(game); return lauf ? lauf.liste().slice() : []; }
 
-module.exports = { tick, snapshotMerken, optionenSetzen, entfernen, wartet, agent, agenten, istServerBot };
+module.exports = { tick, beenden, snapshotMerken, optionenSetzen, entfernen, wartet, agent, agenten, istServerBot };

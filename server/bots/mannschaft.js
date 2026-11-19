@@ -47,13 +47,13 @@ class BotMannschaft extends BotKern {
     super.send(msg);
   }
   cmd(c, extra) {
-    if (c === 'weapons.target' && extra && extra.id != null) this.memo.gesendeteZiele.add(extra.id);
+    if (c === 'weapons.target' && extra && extra.id != null && this.game.ship.target !== extra.id) this.memo.gesendeteZiele.add(extra.id);   // eine schon stehende (fremde) Marke wird nie zur eigenen
     super.cmd(c, extra);
   }
 
   // Zielwahl der Ops: ein von anderen markiertes Ziel (ship.target, das der Bot nie selbst gesendet hat) geht vor dem Kern (Ladung, Anflug, im Bogen, naechster). Sonst wie die Testbots.
   waehleZiel(S, enemies, M) {
-    const t = S.ship.target;
+    const t = this.game.ship.target;   // der Spielzustand, nicht der Snapshot: eine frische Marke eines Menschen darf nicht im alten Stand untergehen
     if (t != null && !this.memo.gesendeteZiele.has(t)) {
       const markiert = S.space.enemies.find((e) => e.id === t);
       if (markiert) return markiert;
