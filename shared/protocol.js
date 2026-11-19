@@ -288,6 +288,8 @@
       HELLO: 'hello', READY: 'ready', INPUT: 'input', ACT: 'act', SHOOT: 'shoot', MARK: 'mark',
       DROP: 'drop', LEAVE: 'leave', SCHUBS: 'schubs', CMD: 'cmd', PING: 'ping', DEBUG: 'debug',
       LOBBY_OPT: 'lobbyOpt',   // M0: { skipDrill: bool } – nur in der Lobby, jeder darf umschalten; FRE-01: { liveSpielleiter: bool } – nur Lobby, nur Modus freie_fahrt mit neuer Welt (sonst ignoriert), Standard false, Wechsel von Modus/Weltstand setzt zurück; M2: { startMission: START_MISSIONS }; S1: { world }
+      LOBBY_BOT: 'lobbyBot',   // BOT-01 B2: Bots auf Slots, nur in der Lobby, jeder Mensch darf (sonst notice, nichts passiert): { op: 'add', rolle } legt einen Bot auf den kleinsten freien Platz (rolle: 'navigation' | 'ops' | 'technik', jede höchstens einmal, höchstens 3 Bots),
+                               //   { op: 'wuerfeln', pid } neue Karte und Name (Platz, Rolle, Farbe bleiben), { op: 'weg', pid } entfernt den Bot, { op: 'rolle', pid, rolle } wechselt die Rolle auf eine freie. pid muss ein Bot sein (nie ein Mensch). Antwort: Ereignis karte (wie bei Menschen), Snapshot players[].bot = 1 und players[].rolle (nur Bots). bot.befehl / bot.antwort sind für Paket C reserviert.
       WORLD: 'world',          // S1: { op: 'delete', id }
       MENU: 'menu',            // S1: { op: 'end' } | { op: 'pause', on }
     },

@@ -119,5 +119,27 @@
     return { params, colors: { skin: haut.skin, skin_shadow: haut.skin_shadow, hair: haar } };
   }
 
-  return { VERSION, NAME_MIN, NAME_MAX, STANDARD_NAME, standardKarte, pruefeKarte, pruefeOutfit, pruefeName, eindeutigerName, figurAusKarte };
+  // BOT-01 B2: Zufallskarte für einen Bot. Rein: alle Würfe kommen aus zufall() ([0, 1)), nichts anderes ist zufällig. Gewürfelt werden Körper, Charakterplätze, Haut, Haar und Outfitplätze aus den
+  // Teilen des jeweiligen Platzes; gesperrte Teile (herkunft ausser 'frei') würfelt der Editor auch nicht. Name aus namen (Pool, Rohnamen), eindeutig zu andereNamen; ohne gültigen Namen im Pool 'Crew'.
+  // Das Ergebnis geht unverändert durch pruefeKarte. Ohne brauchbaren Katalog: Standardkarte mit dem Namen.
+  function zufallskarte(katalog, zufall, andereNamen, namen) {
+    const s = sicht(katalog);
+    const wuerfel = (n) => Math.min(n - 1, Math.max(0, Math.floor((typeof zufall === 'function' ? zufall() : 0) * n)));
+    const nimm = (liste) => liste[wuerfel(liste.length)];
+    const pool = (Array.isArray(namen) ? namen : []).map(pruefeName).filter(Boolean);
+    const name = eindeutigerName(pool.length ? nimm(pool) : STANDARD_NAME, andereNamen);
+    const k = standardKarte(name, katalog);
+    if (!s) return k;
+    const frei = (t) => istObjekt(t) && typeof t.id === 'string' && (t.herkunft === undefined || t.herkunft === 'frei');
+    const teileVon = (p) => (Array.isArray(katalog.teile) ? katalog.teile : []).filter((t) => frei(t) && t.platz === p.id && s.teile.has(t.id) && t.id.startsWith(p.id + '/')).map((t) => t.id.slice(p.id.length + 1));
+    const wahl = (p) => { const l = teileVon(p); return l.length ? nimm(l) : standardVon(p); };
+    if (s.koerper.length) k.koerper = nimm(s.koerper);
+    for (const p of s.charakter) k[p.id] = wahl(p);
+    if (s.nHaut) k.haut = wuerfel(s.nHaut);
+    if (s.nHaar) k.haar = wuerfel(s.nHaar);
+    for (const p of s.outfit) k.outfit[p.id] = wahl(p);
+    return k;
+  }
+
+  return { VERSION, NAME_MIN, NAME_MAX, STANDARD_NAME, standardKarte, pruefeKarte, pruefeOutfit, pruefeName, eindeutigerName, figurAusKarte, zufallskarte };
 });

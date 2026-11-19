@@ -51,6 +51,7 @@ const Notrufe = require('./sim/notrufe.js');   // SL8: Notrufe (game.notrufe, Sn
 const Abspann = require('./sim/abspann.js');   // SUND-04a-3: Abspänne der Freien Fahrt Sund (Debug abspann)
 const Ruf = require('./sim/ruf.js');   // SUND-02b B: Ruf je Fraktion und Dienstgrade von Rom (nur Freie Fahrt Sund)
 const FunkAntwort = require('./sim/funk-antwort.js');   // SUND-03b A: Funk-Antworten mit Folgen (nur Freie Fahrt Sund, folgt dem Reise-Ereignis-Schalter)
+const BotSpieler = require('./bots/spieler.js');   // BOT-01 B2: Bots als Spieler auf Slots (Lobby)
 const Kontingent = require('./sim/kontingent.js');   // LIV-01: Schwelle des Token-Zählers, Befehle kontingent.freigeben/ablehnen, Frage an den Spieler mit color 0
 const AbenteuerBrett = require('./sim/abenteuer-brett.js');   // SUND-04b C: Auftragsbrett (nur mit FAEDEN=1, Freie Fahrt Sund)
 const FadenBitte = require('./sim/faden-bitte.js');   // SUND-04a-2 P2: Bitten der Geschichtsfäden (nur mit FAEDEN=1, Freie Fahrt Sund)
@@ -683,6 +684,7 @@ class Game {
     if (this.phase === 'lobby') {
       this.raeumeKarte(p);   // die ID wird neu vergeben, die Mitspieler räumen die alte Karte
       this.players = this.players.filter((o) => o !== p);
+      BotSpieler.botsNachLetztemMenschenRaeumen(this);   // BOT-01 B2: eine Lobby ohne Mensch ist leer
       if (!this.players.length) this.lobbyOpts.liveSpielleiter = false;   // FRE-01 Nacharbeit W1: leere Lobby, die nächste Gruppe entscheidet neu
       this.telemetrie.spielerWeg(p.id);   // TEL-01 A: nur Slot und Zahl; vor checkLobbyStart, sonst landet der Abgang als Phantom in der gerade begonnenen Session
       this.checkLobbyStart();
@@ -781,6 +783,7 @@ class Game {
             this.log(`${p.name}: Live-Spielleiter ${msg.liveSpielleiter ? 'an (echter Claude)' : 'aus'}.`);
           }
           break;
+        case C.LOBBY_BOT: BotSpieler.lobbyBotBefehl(this, p, msg); break;   // BOT-01 B2: nur Lobby, die Prüfung steht in den Funktionen
         case C.WORLD: this.onWorldMsg(conn, p, msg); break;   // S1 §6
         case C.MENU: this.onMenuMsg(p, msg); break;           // S1 §6
         case C.INPUT: {
@@ -849,6 +852,7 @@ class Game {
       if (p.zone === 'away') Loadout.standSenden(this, p);   // AUS-01 E: Wiederverbinden am Boden: das HUD braucht den Stand erneut
       return;
     }
+    BotSpieler.botVerdraengtFuerMensch(this);   // BOT-01 B2: bei vollem Server räumt der zuletzt hinzugefügte Bot
     if (this.players.length >= C.maxPlayers) {
       const free = this.players.find((o) => !o.connected);
       if (!free) { this.sendTo(conn, { t: 'full', text: 'Server voll – es sind schon 4 Crewmitglieder an Bord.' }); try { conn.close && conn.close(); } catch (e) { /* egal */ } return; }
@@ -1134,7 +1138,7 @@ class Game {
 
   checkLobbyStart() {
     if (this.phase !== 'lobby') return;
-    const con = Crew.verbundene(this);
+    const con = Crew.verbundene(this).filter((p) => !Crew.istBot(p));   // BOT-01 B2: Bots sind immer bereit, nur Menschen entscheiden; mit nur Bots startet nichts
     if (con.length && con.every((p) => p.ready)) this.startGame();
   }
 
@@ -2361,7 +2365,7 @@ class Game {
       ...(this.phase === 'end' && this.abspann ? { abspann: this.abspann } : {}),   // EK8: Abspann (Titel, Text, Blöcke), nur in Phase end
       campaign: !!(this.weltstand && this.weltstand.persistent),   // S1: Kampagne mit Weltstand (Hinweis beim Beenden)
       players: this.players.map((p) => ({
-        id: p.id, name: p.name, color: p.color, ready: p.ready, connected: p.connected, ...(p.bot ? { bot: 1 } : {}),
+        id: p.id, name: p.name, color: p.color, ready: p.bot ? true : p.ready, connected: p.connected, ...(p.bot ? { bot: 1, rolle: p.rolle } : {}),
         zone: p.zone, x: r1(p.x), y: r1(p.y), dir: p.dir, moving: p.moving, console: p.console, ...Station.snapFelder(p), carry: p.carry,
         hp: Math.round(p.hp), downed: p.downed, downedFor: r1(p.downedFor), ...(this.time < (p.stunBis || 0) ? { stun: 1 } : {}),
         action: p.hold ? this.holdSnap(p.hold)
