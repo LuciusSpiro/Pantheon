@@ -104,7 +104,7 @@ console.log('Ergebnis, Fakt, Abbruch, Baustein, Prüfung');
 
 console.log('Bot (sim-headless GenericAgent, Bergsteigen)');
 {
-  const fs = require('fs'), path = require('path'), Module = require('module');
+  const path = require('path');
   const file = path.join(__dirname, 'sim-headless.js');
   // BOT-01 B1: regulaerer require statt Quelltextschnitt (sim-headless exportiert GenericAgent und setSimRng; argv ohne Optionen)
   const argv = process.argv; process.argv = [argv[0], file];

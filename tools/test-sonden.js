@@ -178,7 +178,6 @@ console.log('Snapshot-Größe');
 
 console.log('Bot (sim-headless GenericAgent: Sonde zur Marke und durch den Sprungpunkt)');
 {
-  const Module = require('module');
   const file = path.join(__dirname, 'sim-headless.js');
   // BOT-01 B1: regulaerer require statt Quelltextschnitt (sim-headless exportiert GenericAgent und setSimRng; argv ohne Optionen)
   const argv = process.argv; process.argv = [argv[0], file];

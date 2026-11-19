@@ -16,14 +16,10 @@ const IG = (g) => require('../server/sim/interior.js').integritaetSnapshot(g).ge
 // Gilt auch für golden-trace.js (lädt diese Datei ohne Hauptteil). Snapshot-Leser: alive fehlt = true, asleep/cr fehlen = false.
 CONFIG.debug.snapKiRolle = true;
 const Locations = require('../shared/locations.js');
-const Drift = require('../shared/drift.js');   // W2 AP3b: bewegte Brocken
 const Protocol = require('../shared/protocol.js');
 const { Game } = require('../server/game.js');
 const { bfs, clamp, makeRng } = require('../server/util.js');
 const W = require('../server/world.js');
-const Crew = require('../server/sim/crew.js');   // BOT-01 A1
-const Station = require('../server/sim/station.js');   // R1: aktive Station der Bots (Tab-Wechsel)
-const Gsys = require('../server/sim/gegnersystem.js');   // SYS-02c: Zonen und Systeme der Gegner (Katalogdaten) für die Zonen-Taktik
 const Kern = require('../server/bots/kern.js');   // BOT-01 B1: missionsneutraler Kern der Bots (Agent-Basis), Zufall, Statistik
 const { BotKern, setSimRng } = Kern;
 const { simRng, STOP, HALF, QUARTER, THREEQ, FULL, shelfOf, DT, TILE, norm, dist } = Kern;

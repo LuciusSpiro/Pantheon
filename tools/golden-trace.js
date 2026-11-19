@@ -36,7 +36,6 @@
 
 const fs = require('fs');
 const path = require('path');
-const Module = require('module');
 const { fork } = require('child_process');
 
 const ROOT = path.join(__dirname, '..');
