@@ -7,10 +7,9 @@
 //   botVerdraengtFuerMensch(game)                ein Mensch tritt bei vollem Server bei: der zuletzt hinzugefuegte Bot raeumt (Lobby: weg; Partie: wird zum freien, nicht verbundenen Platz); sonst nichts
 //   botsNachLetztemMenschenRaeumen(game)         Lobby ohne Mensch: alle Bots weg
 // `spieler` ist der Mensch, der die Aenderung verlangt; Ablehnungen gehen als notice an ihn. Rueckgabe der Befehle: true = geaendert, false = abgelehnt (nichts geaendert).
-// Bots tragen bot: true, rolle, botId (b0..b3), stimme (null, spaeter BOT-04/05); Menschen tragen diese Felder nie. Bots bekommen nie Farbe 0 (die gehoert dem ersten Menschen, Kontingent-Frage).
+// Bots tragen bot: true, rolle, botId (b0..b3), stimme (null, spaeter BOT-04/05) und keine clientId (clientId null; onHello sucht zusaetzlich nie unter Bots); Menschen tragen diese Felder nie. Bots bekommen nie Farbe 0 (die gehoert dem ersten Menschen, Kontingent-Frage).
 // Zufall nur hier (Lobby, nie in der Simulation): game.botZufall (Tests) oder Math.random.
 const Crew = require('../sim/crew.js');
-const interior = require('../sim/interior.js');
 
 let namenPool = [];
 try { namenPool = require('../../content/bots/namen.json').namen || []; } catch (e) { namenPool = []; }
@@ -53,7 +52,7 @@ function botHinzufuegen(game, spieler, rolle) {
   const farbe = botFarbe(game), botId = kleinsteFreieBotId(game);
   if (bots(game).length >= game.C.maxPlayers - 1 || game.players.length >= game.C.maxPlayers || farbe === null || botId === null) return verweigere(game, spieler, 'Kein Platz für einen weiteren Bot.');
   const id = kleinsteFreieId(game);
-  const b = { id, clientId: 'bot-' + botId, name: id, color: farbe, ready: true, connected: true, conn: { send() {}, close() {}, bot: true }, lastSeq: 0,
+  const b = { id, clientId: null, name: id, color: farbe, ready: true, connected: true, conn: { send() {}, close() {}, bot: true }, lastSeq: 0,
     bot: true, rolle, botId, stimme: null };
   game.resetPlayer(b, game.players.length);
   game.players.push(b);
@@ -105,12 +104,10 @@ function lobbyBotBefehl(game, spieler, msg) {
 
 // Partie: der Platz bleibt in players (Indizes, Spawns), wird aber ein freier, nicht verbundener Platz, den der Uebernahmeweg in onHello nutzt
 function zuFreiemPlatz(game, b) {
-  interior.konsoleVerlassen(game, b, 'abgang');
-  b.input.mx = 0; b.input.my = 0; b.actDown = false; b.hold = null;
+  game.platzFreigeben(b, 'abgang');
   b.connected = false; b.conn = null; b.clientId = null;
   delete b.bot; delete b.rolle; delete b.botId; delete b.stimme;
-  game.raeumeKarte(b);
-  b.karte = null;
+  game.karteVergessen(b);
   b.name = 'Crew ' + b.id.slice(1);
   game.telemetrie.spielerWeg(b.id);
   game.log(`Bot-Platz ${b.id} geräumt für einen Menschen.`);

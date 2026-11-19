@@ -289,7 +289,7 @@ class Game {
 
   // Start abgelehnt (z. B. 5 Weltstände): alle wieder „nicht bereit“ + Hinweis
   refuseStart(text) {
-    for (const p of this.players) { p.ready = false; this.notice(p, text); }
+    for (const p of this.players) { p.ready = Crew.istBot(p); this.notice(p, text); }   // Bots sind immer bereit (BOT-01 B2)
     this.log('Start abgelehnt: ' + text);
   }
 
@@ -374,7 +374,7 @@ class Game {
       this.log(`Weltstand ${id} nicht geladen: ${reason}`);
       this.lobbyOpts.world = null;
       this.env = this.envBasis;   // FRE-01 A: kein Szenario-Env in der Lobby
-      for (const p of this.players) p.ready = false;
+      for (const p of this.players) p.ready = Crew.istBot(p);
       this.refreshWorldList();
     };
     const r = Weltstand.load(dir, id, this);
@@ -458,7 +458,8 @@ class Game {
     // QA-Abnahme S1: den gerade gespielten Stand in der Lobby vorauswählen (statt „Neu: Kampagne“), sofern er in der Liste ok ist
     this.lobbyOpts.world = prevWorld && this.worldList.some((w) => w.id === prevWorld && w.state === 'ok') ? prevWorld : null;
     this.lobbyOpts.liveSpielleiter = false;   // FRE-01 B: live gilt für eine Partie, nicht für die nächste
-    for (const q of this.players) q.ready = false;
+    for (const q of this.players) q.ready = Crew.istBot(q);   // Bots sind immer bereit (Snapshot und Zustand stimmen überein)
+    BotSpieler.botsNachLetztemMenschenRaeumen(this);   // BOT-01 B2: eine Lobby ohne verbundenen Menschen behält keine Bots für die nächste Gruppe
   }
 
   onWorldMsg(conn, p, msg) {
@@ -679,8 +680,7 @@ class Game {
     if (!p || p.conn !== conn) return;
     p.conn = null; p.connected = false;
     this.paused = false;   // S1 §6: Trennen beendet die Solo-Pause
-    p.input.mx = 0; p.input.my = 0; p.actDown = false; p.hold = null;
-    if (p.console) interior.konsoleVerlassen(this, p, 'abgang');
+    this.platzFreigeben(p, 'abgang');
     if (this.phase === 'lobby') {
       this.raeumeKarte(p);   // die ID wird neu vergeben, die Mitspieler räumen die alte Karte
       this.players = this.players.filter((o) => o !== p);
@@ -689,15 +689,22 @@ class Game {
       this.telemetrie.spielerWeg(p.id);   // TEL-01 A: nur Slot und Zahl; vor checkLobbyStart, sonst landet der Abgang als Phantom in der gerade begonnenen Session
       this.checkLobbyStart();
     } else {
-      if (p.zone === 'away') {
-        if (p.carry) interior.dropCarry(this, p);
-        interior.placeOnShipPad(this, p);
-        p.beamLock = false;
-      }
       this.telemetrie.spielerWeg(p.id);   // TEL-01 A: nur Slot und Zahl
     }
     this.log(`Spieler ${p.name} getrennt.`);
     if (this.zerstoertOffen && this.phase !== 'lobby') this.zerstoertPruefen();   // SYS-01 A2 Nacharbeit: A hat OK gedrückt, B trennt -> Lobby
+  }
+
+  // Ein Platz wird frei (Mensch trennt, Bot macht Platz): Eingaben null (inkl. Rennen), Halteaktion und Aktionstaste weg, Konsole verlassen;
+  // in der Partie am Boden: Fracht fallen lassen, aufs Schiffspad, Beam-Sperre weg. Einziger Weg dafür (removeConnection und zuFreiemPlatz in bots/spieler.js).
+  platzFreigeben(p, grund) {
+    p.input.mx = 0; p.input.my = 0; if (p.input.run) p.input.run = false; p.actDown = false; p.hold = null;
+    if (p.console) interior.konsoleVerlassen(this, p, grund);
+    if (this.phase !== 'lobby' && p.zone === 'away') {
+      if (p.carry) interior.dropCarry(this, p);
+      interior.placeOnShipPad(this, p);
+      p.beamLock = false;
+    }
   }
 
   handleRaw(conn, raw) {
@@ -829,7 +836,7 @@ class Game {
     }
     const clientId = typeof msg.clientId === 'string' ? msg.clientId.slice(0, 64) : null;
     const name = typeof msg.name === 'string' ? msg.name.replace(/[\u0000-\u001f<>]/g, '').trim().slice(0, 12) : '';
-    let p = clientId ? this.players.find((o) => o.clientId === clientId) : null;
+    let p = clientId ? this.players.find((o) => !Crew.istBot(o) && o.clientId === clientId) : null;   // BOT-01 B2 Nacharbeit: nie einen Bot kapern
     if (!p && conn.player) p = conn.player;
     if (p) {
       if (p.conn && p.conn !== conn) {
@@ -924,6 +931,8 @@ class Game {
   raeumeKarte(p) {
     if (p.karte) this.emit(Protocol.EVT_KARTE, { pid: p.id, k: null });
   }
+  // Platz eines Bots wird frei für einen Menschen: die Karte gehörte dem Bot (Mitspieler räumen sie, k = null)
+  karteVergessen(p) { this.raeumeKarte(p); p.karte = null; }
   hatCharakterkarte(p) { return !!p.karte; }   // Frage an game.js: die Karte selbst liest kein anderer Servercode (tools/test-trefferbox.js)
   karteOutfit(p, msg) {
     if (!charakterKatalog || !p.karte) return;

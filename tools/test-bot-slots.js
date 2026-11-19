@@ -6,7 +6,8 @@
 //  4. Farbe 0 gehört nie einem Bot (auch Bots zuerst)
 //  5. Lobby-Start: Bots sind immer bereit, nur Menschen entscheiden; letzter Mensch weg: Bots weg
 //  6. Verdrängen: Mensch bei vollem Server (Lobby und Partie), freier Platz geht vor, Station frei, Kontingent-Frage an den Menschen
-//  7. Menschen ohne Bot-Felder, Snapshot reiner Menschenpartie byte-gleich; Snapshot-Felder der Bots; Telemetrie-Kopf; Weltstand
+//  6b. Kapern: hello mit der clientId eines Bots übernimmt keinen Bot   6c. Partieende: Lobby ohne Mensch räumt Bots, ready konsistent   6d. Bot am Boden verdrängt
+//  7. Menschen und ihr Snapshot ohne Bot-Felder (Tiefensuche); Snapshot-Felder der Bots; Telemetrie-Kopf; Weltstand
 //  8. Quellscan: Zählung nur in crew.js, Protokoll
 //   node tools/test-bot-slots.js
 const fs = require('fs');
@@ -17,6 +18,9 @@ const { Game } = require('../server/game.js');
 const Crew = require('../server/sim/crew.js');
 const Kontingent = require('../server/sim/kontingent.js');
 const Station = require('../server/sim/station.js');
+const interior = require('../server/sim/interior.js');
+const W = require('../server/world.js');
+const BotSpieler = require('../server/bots/spieler.js');
 const Charakter = require('../shared/charakter.js');
 const Protocol = require('../shared/protocol.js');
 const katalog = require('../content/katalog/charakter.json');
@@ -88,7 +92,7 @@ section('2 Lobby: hinzufügen, würfeln, entfernen, Rollenwechsel');
   ok(Protocol.C.LOBBY_BOT === 'lobbyBot', 'Protokoll: C.LOBBY_BOT = lobbyBot');
   bot(g, c, 'add', { rolle: 'navigation' });
   let b = botsVon(g)[0];
-  ok(botsVon(g).length === 1 && b.rolle === 'navigation' && b.botId === 'b0' && b.id === 'p2' && b.clientId === 'bot-b0' && b.bot === true && b.stimme === null, 'add: Bot p2 mit Rolle navigation, botId b0, clientId bot-b0');
+  ok(botsVon(g).length === 1 && b.rolle === 'navigation' && b.botId === 'b0' && b.id === 'p2' && b.clientId === null && b.bot === true && b.stimme === null, 'add: Bot p2 mit Rolle navigation, botId b0, ohne clientId');
   ok(b.connected === true && b.color === 1 && b.ready === true && typeof b.conn.send === 'function' && b.conn.bot === true, 'Bot verbunden, Farbe 1 (nicht 0), Fake-Verbindung');
   ok(b.karte && JSON.stringify(Charakter.pruefeKarte(b.karte, katalog)) === JSON.stringify(b.karte) && b.name === b.karte.name, 'Karte gültig (unverändert durch pruefeKarte), Name aus der Karte');
   ok(karten(c).some((m) => m.pid === 'p2' && m.k && m.k.name === b.name), 'Ereignis karte an den Menschen (Figur und Name wie bei Menschen)');
@@ -222,10 +226,16 @@ section('6 Mensch bei vollem Server: ein Bot räumt');
   run(1);
   ok(g.phase === 'play' && g.players.length === 4, 'Partie läuft voll');
   const letzter = g.players[3];
-  letzter.console = 'weapons'; letzter.station = 'weapons';
-  ok(Station.stationBesetzt(g, 'weapons') === true, 'der letzte Bot sitzt an der Konsole weapons (Station besetzt)');
+  interior.enterConsole(g, letzter, 'weapons');   // der echte Weg, auf dem ein Spieler eine Konsole betritt
+  letzter.input.mx = 1; letzter.input.my = -1; letzter.input.run = true; letzter.actDown = true; letzter.hold = { kind: 'minigame' };
+  letzter.clientId = 'bot-rest';   // ein Rest in clientId darf das Räumen nicht überleben
+  ok(Station.stationBesetzt(g, 'weapons') === true && letzter.console === 'weapons', 'der letzte Bot sitzt an der Konsole weapons (Station besetzt)');
   const bots0 = botsVon(g).map((b) => b.id);
   g.kontingent = Object.assign(g.kontingent || {}, { frage: { offen: true } });
+  ok(BotSpieler.botVerdraengtFuerMensch(g) === true && letzter.connected === false && letzter.conn === null && letzter.clientId === null && !('bot' in letzter) && !('rolle' in letzter) && letzter.karte === null,
+    'geräumter Platz: nicht verbunden, ohne conn, clientId null, Bot-Felder und Karte weg');
+  ok(letzter.input.mx === 0 && letzter.input.my === 0 && letzter.input.run === false && letzter.actDown === false && letzter.hold === null && letzter.console === null && letzter.station === null,
+    'geräumter Platz: Eingaben (auch run), actDown, hold, Konsole und Station geräumt, noch bevor ein Mensch sitzt');
   const c2 = mensch(g, 1, 1);
   const m2 = c2.player;
   ok(m2 && m2 === letzter && !m2.bot && m2.connected && m2.conn === c2 && m2.clientId === 'K1', 'Partie: der Mensch übernimmt den Platz des letzten Bots (gleiches Spielerobjekt, Index bleibt)');
@@ -251,13 +261,125 @@ section('6 Mensch bei vollem Server: ein Bot räumt');
   ok(c4.player && c4.player.connected && botsVon(g).length === botsDavor - 1 && g.players.length === 4, 'Partie voll: ein weiterer Mensch verdrängt den nächsten Bot');
 }
 
+// ---------- 6b Kapern per clientId ----------
+section('6b hello mit der clientId eines Bots übernimmt keinen Bot');
+{
+  const helloMit = (g, cid, name) => { const c = mkConn(); g.addConnection(c); g.handleMessage(c, { t: 'hello', clientId: cid, name: name, color: 2 }); return c; };
+  const intakt = (g, bs) => bs.every((b) => g.players.includes(b) && b.bot === true && b.rolle && b.botId && 'stimme' in b && b.connected && b.conn && b.conn.bot === true);
+  for (const cid of ['bot-b0', 'bot-b1', 'bot-p2', '', null, undefined]) {
+    const g = neu(), c = mensch(g, 0, 0);
+    bot(g, c, 'add', { rolle: 'ops' }); bot(g, c, 'add', { rolle: 'technik' });
+    const bs = botsVon(g);
+    ok(bs.every((b) => b.clientId === null), 'Bots haben keine clientId (' + JSON.stringify(cid) + ')');
+    bs.forEach((b, i) => { b.clientId = 'bot-b' + i; });   // wie vor der Nacharbeit angelegt: die Suche in onHello muss selbst absichern
+    const c2 = helloMit(g, cid, 'Neu');
+    ok(c2.player && !c2.player.bot && !bs.includes(c2.player) && c2.player.connected && c2.player.conn === c2 && intakt(g, bs) && Crew.menschen(g) === 2 && g.players.length === 4,
+      'Lobby: hello mit clientId ' + JSON.stringify(cid) + ' bekommt einen eigenen Platz, beide Bots unverändert (nur sie tragen Bot-Felder)');
+    ok(!('bot' in c2.player) && !('rolle' in c2.player) && !('botId' in c2.player) && !('stimme' in c2.player), 'der Neue trägt keine Bot-Felder (' + JSON.stringify(cid) + ')');
+  }
+  // Partie, Server nicht voll
+  const g = neu(), c = mensch(g, 0, 0);
+  bot(g, c, 'add', { rolle: 'ops' });
+  g.handleMessage(c, { t: 'lobbyOpt', startMission: 'freie_fahrt' });
+  g.handleMessage(c, { t: 'ready', ready: true }); run(1);
+  const b = botsVon(g)[0]; b.clientId = 'bot-b0';
+  const c2 = helloMit(g, 'bot-b0', 'Neu');
+  ok(g.phase === 'play' && c2.player && c2.player !== b && !c2.player.bot && c2.player.id === 'p3' && intakt(g, [b]) && Crew.menschen(g) === 2, 'Partie: hello mit bot-b0 legt einen neuen Platz an (p3), der Bot bleibt Bot');
+  // Partie, Server voll: die Verdrängregel gilt, der Mensch erbt keinen Bot-Zustand
+  const g2 = neu(), d = mensch(g2, 0, 0);
+  bot(g2, d, 'add', { rolle: 'navigation' }); bot(g2, d, 'add', { rolle: 'ops' }); bot(g2, d, 'add', { rolle: 'technik' });
+  g2.handleMessage(d, { t: 'lobbyOpt', startMission: 'freie_fahrt' });
+  g2.handleMessage(d, { t: 'ready', ready: true }); run(1);
+  botsVon(g2).forEach((x, i) => { x.clientId = 'bot-b' + i; });
+  const rest = botsVon(g2).slice(0, 2);
+  const d2 = helloMit(g2, 'bot-b0', 'Neu');
+  ok(d2.player && !d2.player.bot && g2.players.length === 4 && botsVon(g2).length === 2 && intakt(g2, rest) && Crew.menschen(g2) === 2 && d2.player.id === 'p4', 'Partie voll: hello mit bot-b0 verdrängt gemäß Regel den letzten Bot (p4), die anderen bleiben');
+}
+
+// ---------- 6c Rundenende: Bots und ready ----------
+section('6c Partieende: Lobby ohne Mensch räumt die Bots, ready bleibt konsistent');
+{
+  const g = neu(), c = mensch(g, 0, 0);
+  bot(g, c, 'add', { rolle: 'ops' }); bot(g, c, 'add', { rolle: 'technik' });
+  g.handleMessage(c, { t: 'lobbyOpt', startMission: 'freie_fahrt' });
+  g.handleMessage(c, { t: 'ready', ready: true }); run(1);
+  ok(g.phase === 'play' && botsVon(g).length === 2, 'Partie läuft mit zwei Bots');
+  g.removeConnection(c);
+  ok(botsVon(g).length === 2 && g.phase === 'play', 'der Mensch trennt in der Partie: die Bots bleiben bis zum Ende');
+  g.endSession(null, { grund: 'wellen' });
+  ok(g.phase === 'lobby' && botsVon(g).length === 0 && g.players.every((p) => !p.bot) && Crew.menschen(g) === 0, 'endSession ohne verbundenen Menschen: Lobby ohne Bots');
+  const c2 = mensch(g, 1, 1);
+  ok(c2.player && botsVon(g).length === 0 && !g.players.some((p) => p.bot), 'die nächste Gruppe beginnt ohne Bots');
+}
+{
+  const g = neu(), c = mensch(g, 0, 0), c2 = mensch(g, 1, 1);
+  bot(g, c, 'add', { rolle: 'ops' }); bot(g, c, 'add', { rolle: 'technik' });
+  g.handleMessage(c, { t: 'lobbyOpt', startMission: 'freie_fahrt' });
+  g.handleMessage(c, { t: 'ready', ready: true }); g.handleMessage(c2, { t: 'ready', ready: true }); run(1);
+  ok(g.phase === 'play', 'Partie mit zwei Menschen und zwei Bots');
+  g.removeConnection(c);
+  g.endSession(c2.player, {});
+  const sp = g.snapshot().players;
+  ok(g.phase === 'lobby' && botsVon(g).length === 2 && Crew.menschen(g) === 1, 'endSession mit verbundenem Menschen: die Bots bleiben');
+  ok(botsVon(g).every((b) => b.ready === true), 'Bots: ready intern true nach dem Partieende');
+  ok(sp.filter((x) => x.bot).length === 2 && sp.filter((x) => x.bot).every((x) => x.ready === true) && sp.filter((x) => !x.bot).every((x) => x.ready === false), 'Snapshot: Bots ready true, Menschen ready false');
+  ok(g.players.filter((p) => !p.bot).every((p) => p.ready === false), 'Menschen: ready intern false nach dem Partieende');
+  g.handleMessage(c2, { t: 'ready', ready: true });
+  ok(g.phase === 'play', 'nächste Runde startet, sobald der Mensch bereit ist');
+}
+{
+  // refuseStart: Bots bleiben bereit, Menschen nicht
+  const g = neu(), c = mensch(g, 0, 0);
+  bot(g, c, 'add', { rolle: 'ops' });
+  g.handleMessage(c, { t: 'ready', ready: true });
+  g.phase = 'lobby'; g.players.forEach((p) => { p.ready = true; });
+  g.refuseStart('Test');
+  ok(botsVon(g).every((b) => b.ready === true) && !c.player.ready, 'refuseStart: Bots bleiben bereit, der Mensch nicht');
+}
+
+// ---------- 6d Verdrängen am Boden ----------
+section('6d Bot am Boden wird verdrängt: Mensch erbt Fracht und Beam-Sperre nicht');
+{
+  const g = neu(), c = mensch(g, 0, 0);
+  bot(g, c, 'add', { rolle: 'navigation' }); bot(g, c, 'add', { rolle: 'ops' }); bot(g, c, 'add', { rolle: 'technik' });
+  g.handleMessage(c, { t: 'lobbyOpt', startMission: 'freie_fahrt' });
+  g.handleMessage(c, { t: 'ready', ready: true }); run(1);
+  const letzter = g.players[3];
+  interior.placeOnAwayPad(g, letzter);
+  letzter.carry = 'kiste'; letzter.carryCharges = 0; letzter.beamLock = true;
+  letzter.input.mx = 1; letzter.input.run = true; letzter.actDown = true; letzter.hold = { kind: 'scan' };
+  ok(letzter.zone === 'away' && letzter.bot === true, 'der letzte Bot steht am Boden und trägt Fracht');
+  const c2 = mensch(g, 1, 1), m2 = c2.player;
+  ok(m2 === letzter && !m2.bot && m2.connected, 'der Mensch übernimmt den Platz');
+  ok(m2.carry === null && m2.carryCharges === 0 && m2.beamLock === false, 'keine geerbte Fracht, keine geerbte Beam-Sperre');
+  ok(m2.zone === 'ship' && W.SHIP_PADS.some((pd) => { const t = W.tileCenter(pd.x, pd.y); return t.x === m2.x && t.y === m2.y; }), 'der Mensch steht auf einem Schiffspad');
+  ok(g.away && g.away.items.some((i) => i.kind === 'kiste'), 'die Fracht des Bots liegt am Boden');
+  ok(m2.hold === null && m2.actDown === false && m2.input.mx === 0 && m2.input.my === 0 && m2.input.run === false, 'input, run, hold und actDown des Bots sind geräumt');
+  let wirft = false; try { run(2); g.snapshot(); } catch (e) { wirft = true; }
+  ok(!wirft && g.errors === 0, 'danach läuft die Partie fehlerfrei');
+}
+
 // ---------- 7 Felder, Snapshot, Telemetrie, Weltstand ----------
-section('7 Menschen ohne Bot-Felder, Snapshot byte-gleich, Telemetrie, Weltstand');
+section('7 Menschen ohne Bot-Felder (Tiefensuche), Snapshot-Felder, Telemetrie, Weltstand');
 {
   const a = neu(), ca = mensch(a, 0, 0), ca2 = mensch(a, 1, 1);
   const b = neu(), cb = mensch(b, 0, 0), cb2 = mensch(b, 1, 1);
   bot(b, cb, 'add', { rolle: 'ops' }); bot(b, cb, 'weg', { pid: 'p3' });   // Bot-Code gelaufen, Bot wieder weg
-  ok(JSON.stringify(a.snapshot()) === JSON.stringify(b.snapshot()), 'Lobby-Snapshot: mit Bot hinzu und weg byte-gleich zu einem ohne Bot-Code');
+  ok(JSON.stringify(a.snapshot()) === JSON.stringify(b.snapshot()), 'Lobby-Snapshot: ein Bot, der hinzukommt und wieder geht, hinterlässt keine Spur (zwei getrennte Games)');
+  const BOTKEYS = ['bot', 'rolle', 'botId', 'stimme'];
+  const tief = (o, pfad, out, seen) => {   // alle Pfade, an denen ein Bot-Schlüssel steht (conn übersprungen: Test-Verbindung mit Posteingang)
+    if (!o || typeof o !== 'object' || seen.has(o)) return out; seen.add(o);
+    for (const k of Object.keys(o)) { if (k === 'conn') continue; if (BOTKEYS.includes(k)) out.push(pfad + '.' + k); tief(o[k], pfad + '.' + k, out, seen); }
+    return out;
+  };
+  const funde = (g) => tief(g.players, 'players', [], new Set()).concat(tief(g.snapshot(), 'snap', [], new Set()));
+  ok(funde(a).length === 0 && funde(b).length === 0, 'reine Menschen-Lobby (auch nach Bot hinzu und weg): weder Spielerobjekte noch Snapshot tragen bot, rolle, botId oder stimme');
+  ok(tief({ x: [{ y: { bot: 1 } }] }, 'o', [], new Set()).length === 1 && tief({ x: [{ y: 1 }] }, 'o', [], new Set()).length === 0, 'Selbsttest der Tiefensuche: findet einen verschachtelten Schlüssel, ignoriert saubere Objekte');
+  const pl = neu(), cp = mensch(pl, 0, 0), cp2 = mensch(pl, 1, 1);
+  bot(pl, cp, 'add', { rolle: 'ops' }); bot(pl, cp, 'weg', { pid: 'p3' });
+  pl.handleMessage(cp, { t: 'lobbyOpt', startMission: 'freie_fahrt' });
+  pl.handleMessage(cp, { t: 'ready', ready: true }); pl.handleMessage(cp2, { t: 'ready', ready: true }); run(1);
+  ok(pl.phase === 'play' && funde(pl).length === 0, 'reine Menschen-Partie (nach Bot hinzu und weg): auch mitten in der Partie kein Bot-Schlüssel in Spielerobjekten und Snapshot' + (funde(pl).length ? ' - ' + funde(pl).join(' ') : ''));
   ok([ca, ca2, cb, cb2].every((c) => ['bot', 'rolle', 'botId', 'stimme'].every((f) => !(f in c.player))), 'Menschen tragen keines der Felder bot, rolle, botId, stimme');
   const s = JSON.stringify(a.snapshot());
   ok(!s.includes('"bot"') && !s.includes('"rolle"'), 'reiner Menschen-Snapshot: kein Feld bot, kein Feld rolle');
@@ -266,6 +388,10 @@ section('7 Menschen ohne Bot-Felder, Snapshot byte-gleich, Telemetrie, Weltstand
   const sp = m.snapshot().players;
   ok(sp.length === 3 && !('bot' in sp[0]) && !('rolle' in sp[0]) && sp[1].bot === 1 && sp[1].rolle === 'technik' && sp[2].bot === 1 && sp[2].rolle === 'navigation', 'Snapshot: bot: 1 und rolle nur bei Bots');
   ok(sp[1].ready === true && sp[2].ready === true && sp[0].ready === false, 'Snapshot: Bots zeigen ready true, der Mensch sein eigenes Bereit');
+  m.players[1].ready = false; m.players[2].ready = false;
+  const sp2 = m.snapshot().players;
+  ok(sp2[1].ready === true && sp2[2].ready === true, 'Snapshot erzwingt ready true für Bots, auch wenn der interne Wert false wäre');
+  m.players[1].ready = true; m.players[2].ready = true;
   const Kopf = require('../server/telemetrie/kopf.js');
   const k = Kopf.baueKopf(m, { tuning: Kopf.tuningStand(m), quelle: 'mensch' });
   ok(k.slots.filter((x) => x.bot === true).length === 2 && !('bot' in k.slots[0]), 'Telemetrie-Kopf: slots[].bot = true nur bei den Bots');
@@ -289,9 +415,16 @@ section('8 Quellscan');
   const verstoesse = dateien.filter((f) => f !== 'server/sim/crew.js' && fs.readFileSync(f, 'utf8').split(/\r?\n/).some((z) => ZAEHLUNG.test(z)));
   ok(dateien.includes('server/bots/spieler.js') && verstoesse.length === 0, 'server/: keine Zählung per filter(connected).length außerhalb crew.js' + (verstoesse.length ? ' – ' + verstoesse.join(' ') : ''));
   const sp = fs.readFileSync('server/bots/spieler.js', 'utf8');
-  ok(!/bot\.befehl|bot\.antwort/.test(sp) && !/Boolean|, (true|false)\)/.test(sp.split('\n').filter((z) => /^function /.test(z)).join('\n')), 'spieler.js: bot.befehl/bot.antwort unberührt, keine Verhaltens-Flags in den Signaturen');
+  // Signaturen: jede function-Deklaration und jede Pfeilfunktion mit Klammer-Parametern in spieler.js (auch eingerückte): kein Parameter heißt wie ein Verhaltens-Flag, kein Default ist ein Boolean
+  const FLAGNAME = /^(?:ist\w*|mit\w*|ohne\w*|nur\w*|flag\w*|opts?|options?|modus|mode|force|silent|stumm|bool\w*)$/i;
+  const signaturen = (text) => { const out = []; const re = /\bfunction\s*\w*\s*\(([^)]*)\)|(?:=|\()\s*\(([^()]*)\)\s*=>/g; let m; while ((m = re.exec(text))) out.push(m[1] !== undefined ? m[1] : m[2]); return out; };
+  const flagVerstoesse = (text) => signaturen(text).flatMap((s) => s.split(',').map((x) => x.trim()).filter(Boolean)).filter((par) => FLAGNAME.test(par.split('=')[0].trim()) || /=\s*(?:true|false)\b/.test(par));
+  ok(signaturen(sp).length >= 12, 'Signatur-Scan sieht die Funktionen von spieler.js (' + signaturen(sp).length + ' Signaturen)');
+  ok(flagVerstoesse('function a(x, mitBots) {}').length === 1 && flagVerstoesse('const f = (g, silent = false) => 1;').length === 1 && flagVerstoesse('function b(g, x = true) {}').length === 1 && flagVerstoesse('const f = (g, b) => 1; function h(game, spieler) {}').length === 0, 'Selbsttest des Signatur-Scans: findet Flag-Namen und Boolean-Defaults in function und Pfeilfunktion, nicht game/spieler');
+  ok(!/bot\.befehl|bot\.antwort/.test(sp) && flagVerstoesse(sp).length === 0, 'spieler.js: bot.befehl/bot.antwort unberührt, keine Verhaltens-Flags in den Signaturen (function und Pfeilfunktion; Grenze: Parameter-Destrukturierung wird nicht geprüft)');
   const game = fs.readFileSync('server/game.js', 'utf8');
-  ok((game.match(/BotSpieler\./g) || []).length === 3, 'game.js: genau drei dünne Aufrufe (Dispatch, Räumen, Verdrängen) – ' + (game.match(/BotSpieler\./g) || []).length);
+  ok((game.match(/BotSpieler\./g) || []).length === 4, 'game.js: genau vier dünne Aufrufe (Dispatch, Räumen beim Trennen, Räumen beim Partieende, Verdrängen) – ' + (game.match(/BotSpieler\./g) || []).length);
+  ok(!/\.karte\b|\.input\b|\.hold\b|\.actDown\b/.test(sp.replace(/\/\/.*$/gm, '')), 'spieler.js fasst weder karte noch input, hold oder actDown an (das liegt in game.js: karteVergessen, platzFreigeben)');
 }
 
 console.log(`\ntest-bot-slots: ${n - fails}/${n} ok`);

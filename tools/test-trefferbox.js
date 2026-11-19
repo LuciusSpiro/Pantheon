@@ -22,7 +22,7 @@ const section = (t) => console.log('\n' + t);
 // ------------------------------------------------------------------ 1. statisch
 // Eine Zeile liest „die Karte eines Spielers“, wenn auf p.karte (auch p2., pl., player., spieler., other.; o./i./q. sind Optionen bzw. Szenen-Info mit der Landkarte) oder auf ein Karten-Feld zugegriffen wird.
 // Die Sim-Daten `info.karte` / `K.karte` (Landkarte der Außenmission) sind etwas anderes und treffen das Muster nicht.
-const SPIELER_KARTE = /\b(?:p|p\d|pl|pp|player|spieler|other|me|pa|pb|pj)\.karte\b|\bshared\/charakter\b|\bCharakter\./;
+const SPIELER_KARTE = /\b(?:p|p\d|pl|pp|player|spieler|other|me|pa|pb|pj|b)\.karte\b|\bshared\/charakter\b|\bCharakter\./;
 function dateien(dir, out) {
   for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
     const f = path.join(dir, e.name);
@@ -39,7 +39,7 @@ function leser(dateiListe) {
 }
 // game.js ist kein Freibrief: nur die Verteilung der Karte darf sie lesen. Jede Fundstelle wird der umschließenden Methode zugeordnet (Zeile `  name(...) {` mit zwei Leerzeichen Einzug).
 // Erlaubt: onHello (Platzübernahme), helloKarte, sendeKarte, raeumeKarte (Lobby verlassen), karteOutfit, welcomeMsg; dazu die Kopfzeilen (Import, Katalog). Empfänger reg/sektorkarteCache sind Sim-Daten (Landepunkt-Registry, Sektorkarte).   Ebenso W.AWAY_MAPS[..].karte (Landepunkt-Karten).
-const GAME_ERLAUBT = new Set(['onHello', 'helloKarte', 'sendeKarte', 'raeumeKarte', 'karteOutfit', 'hatCharakterkarte', 'welcomeMsg', 'botKarteWuerfeln']);
+const GAME_ERLAUBT = new Set(['onHello', 'helloKarte', 'sendeKarte', 'raeumeKarte', 'karteOutfit', 'hatCharakterkarte', 'karteVergessen', 'welcomeMsg', 'botKarteWuerfeln']);
 const GAME_KOPF = /^(?:const Charakter = require\('\.\.\/shared\/charakter\.js'\)|let charakterKatalog|try \{ charakterKatalog)/;
 const GAME_LESER = /(?<!\breg|\bsektorkarteCache|\bAWAY_MAPS\[[^\]]*\])\.karte\b|\bCharakter\.|\bcharakterKatalog\b/;
 function gameLeser(text) {
