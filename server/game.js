@@ -907,6 +907,14 @@ class Game {
     const wunsch = Charakter.pruefeName(typeof roh === 'object' ? roh.name : null);
     p.name = p.karte.name = Charakter.eindeutigerName(wunsch || Charakter.pruefeName(p.name) || Charakter.STANDARD_NAME, andere);
   }
+  // BOT-01 B2: Zufallskarte für einen Bot (Name aus dem Pool, eindeutig in der Crew), danach Ereignis karte; ohne Katalog nur der Name
+  botKarteWuerfeln(p, zufall, namen) {
+    const andere = this.players.filter((o) => o !== p).map((o) => o.name);
+    const k = Charakter.zufallskarte(charakterKatalog, zufall, andere, namen);
+    p.name = k.name;
+    p.karte = charakterKatalog ? k : null;
+    this.sendeKarte(p);
+  }
   // Ereignis karte an alle (nur mit Karte; nach Übernahme eines Platzes durch einen Spieler ohne Karte k = null)
   sendeKarte(p, auchLeer) {
     if (p.karte) this.emit(Protocol.EVT_KARTE, { pid: p.id, k: p.karte });

@@ -9,12 +9,9 @@
 // `spieler` ist der Mensch, der die Aenderung verlangt; Ablehnungen gehen als notice an ihn. Rueckgabe der Befehle: true = geaendert, false = abgelehnt (nichts geaendert).
 // Bots tragen bot: true, rolle, botId (b0..b3), stimme (null, spaeter BOT-04/05); Menschen tragen diese Felder nie. Bots bekommen nie Farbe 0 (die gehoert dem ersten Menschen, Kontingent-Frage).
 // Zufall nur hier (Lobby, nie in der Simulation): game.botZufall (Tests) oder Math.random.
-const Charakter = require('../../shared/charakter.js');
 const Crew = require('../sim/crew.js');
 const interior = require('../sim/interior.js');
 
-let katalog = null;
-try { katalog = require('../../content/katalog/charakter.json'); } catch (e) { katalog = null; }
 let namenPool = [];
 try { namenPool = require('../../content/bots/namen.json').namen || []; } catch (e) { namenPool = []; }
 
@@ -40,16 +37,8 @@ function botFarbe(game) {
   for (let c = 1; c < game.C.maxPlayers; c++) if (!belegt.has(c)) return c;
   return null;
 }
-function neueKarte(game, ohne) {
-  const andere = game.players.filter((o) => o !== ohne).map((o) => o.name);
-  return Charakter.zufallskarte(katalog, zufallVon(game), andere, namenPool);
-}
-function karteSetzen(game, b) {
-  const k = neueKarte(game, b);
-  b.name = k.name;
-  b.karte = katalog ? k : null;
-  game.sendeKarte(b);
-}
+// die Karte gehört game.js (dort liegen Katalog und Kartenverteilung, tools/test-trefferbox.js): hier nur der Wunsch nach einer neuen Zufallskarte
+const karteSetzen = (game, b) => game.botKarteWuerfeln(b, zufallVon(game), namenPool);
 // Bot aus der Lobby nehmen, wie wenn ein Mensch die Lobby verlaesst (Karte raeumen, Spieler filtern, Telemetrie)
 function ausLobbyNehmen(game, b) {
   game.raeumeKarte(b);
