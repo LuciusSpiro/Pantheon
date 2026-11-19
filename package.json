@@ -406,6 +406,7 @@
     "referenz": "node tools/referenz.js",
     "test:referenz": "node tools/test-referenz.js",
     "test:crew-zaehlung": "node tools/test-crew-zaehlung.js",
+    "test:bot-kern": "node tools/test-bot-kern.js",
     "test:kontingent": "node tools/test-kontingent.js",
     "test:kontingent-frage": "node tools/test-kontingent-frage.js",
     "sicht:kontingent": "node tools/sicht-kontingent.js",
