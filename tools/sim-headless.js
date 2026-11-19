@@ -7,6 +7,10 @@
 //   node tools/sim-headless.js 1 --seed 7   -> nur solo, Seed 7
 //   node tools/sim-headless.js 3 --wreck    -> zu dritt mit Wrack-Außenmission
 //   node tools/sim-headless.js --verbose    -> ODA-/Notice-Texte mitschreiben
+//   node tools/sim-headless.js arena --pilot maneuver --mensch captain --bots navigation,ops,technik --seeds 3
+//                                           -> BOT-01 B3: Testgelaende mit einem Mensch-Ersatz (Testbot am Captain-Platz, zaehlt als Mensch, bedient nur die Captain-Konsole) und Server-Bots
+//                                              (BotSpieler.botHinzufuegen in der Lobby, Verhalten ueber den Lauf in game.step()); --bots navigation|ops|technik, kommagetrennt. Ohne --mensch/--bots laeuft alles wie bisher.
+//                                              Ausgabe wie die Arena-Auswertung (Wellen, Huellenverlust, Notfaelle je Seed und im Mittel) plus eine Zeile je Bot (Rolle, Befehle).
 const Maps = require('../shared/maps.js');
 const Physics = require('../shared/physics.js');
 const CONFIG = require('../shared/config.js');
@@ -20,6 +24,8 @@ const Protocol = require('../shared/protocol.js');
 const { Game } = require('../server/game.js');
 const { bfs, clamp, makeRng } = require('../server/util.js');
 const W = require('../server/world.js');
+const BotSpieler = require('../server/bots/spieler.js');   // BOT-01 B3: Server-Bots (Arena mit Mensch-Ersatz)
+const BotLauf = require('../server/bots/lauf.js');
 const Kern = require('../server/bots/kern.js');   // BOT-01 B1: missionsneutraler Kern der Bots (Agent-Basis), Zufall, Statistik
 const { BotKern, setSimRng } = Kern;
 const { simRng, STOP, HALF, QUARTER, THREEQ, FULL, shelfOf, DT, TILE, norm, dist } = Kern;
@@ -848,6 +854,11 @@ class ArenaAgent extends Agent {
   }
 }
 
+// BOT-01 B3: Mensch-Ersatz am Captain-Platz: sitzt an der Captain-Konsole und tut sonst nichts (ein Testbot-Captain wuerde per Tab die Stationen der Server-Bots an sich reissen: Mensch gewinnt)
+class MenschCaptain extends ArenaAgent {
+  captainFight(S, p) { this.enter(S, 'captain'); }
+}
+
 const ArenaMod = require('../server/sim/arena.js');
 // M3b §6: Messung im Testgelände. Zusätzlich zu M3a: Schild-/Schadenszähler (leakHits, escalations, repairSetbacks,
 // overflowHull), Breitseiten-Anteil der Korvetten (Lerche im Feuerbogen einer Breitseite) und die Lanzen-Trefferquote
@@ -858,9 +869,11 @@ async function runArena(opts) {
   const game = botSpiel(new Game({ noStore: true, seed, env: botEnv({ MISSION_SOURCE: 'fallback' }), log: VERBOSE ? (...a) => log('  [game] ' + a.join(' ')) : () => {} }));
   game.telemetrie.szenario(opts.pilot);   // TEL-01 C: die Steuerstrategie gehoert in die Gruppen-ID der Basis (nur Protokoll, kein Spielverhalten)
   game.simStats = { reactorRestarts: 0, widescans: 0, wreckDone: false };
-  const roles = opts.players === 1 ? ['solo'] : ['helm', 'weapons', 'captain'].slice(0, opts.players);
-  const agents = roles.map((r, i) => new ArenaAgent(game, i, r, opts));
+  const serverBots = opts.bots || [];   // BOT-01 B3: Rollen der Server-Bots; mit opts.mensch ersetzt ein MenschCaptain die Testbots
+  const roles = opts.mensch ? [opts.mensch] : opts.players === 1 ? ['solo'] : ['helm', 'weapons', 'captain'].slice(0, opts.players);
+  const agents = roles.map((r, i) => new (opts.mensch ? MenschCaptain : ArenaAgent)(game, i, r, opts));
   game.simAgents = agents;
+  if (serverBots.length) BotLauf.optionenSetzen(game, { pilot: opts.pilot });
   const ev = { tele: 0, teleMiss: 0, dodged: 0, lanceFire: 0, lanceHit: 0, lanceFizzle: 0, systemHit: 0, lanceRaiderShots: 0, lanceRaiderHits: 0, escalated: 0, repairSetback: 0,
     shots: 0, hits: 0, hitsShield: 0, hitsHull: 0, hitsHeavy: 0 };   // QA M3b: Gegnerschüsse (Blaster) und Treffer am Schiff
   const kindById = {};
@@ -889,7 +902,11 @@ async function runArena(opts) {
   } };
   game.addConnection(watcher); watcher.observer = true;
   game.lobbyOpts.startMission = 'arena_space';
-  for (const a of agents) { game.addConnection(a.conn); a.hello(); }
+  if (serverBots.length) {   // Mensch zuerst, dann die Bots in der Lobby, dann bereit (der Start kommt mit dem bereiten Menschen)
+    for (const a of agents) { game.addConnection(a.conn); a.send({ t: 'hello', clientId: 'sim-' + a.idx, name: ['Ada', 'Bo', 'Cem', 'Dan'][a.idx], color: a.idx }); }
+    for (const r of serverBots) if (!BotSpieler.botHinzufuegen(game, null, r)) throw new Error('Bot ' + r + ' nicht hinzugefuegt');
+    for (const a of agents) a.send({ t: 'ready', ready: true });
+  } else for (const a of agents) { game.addConnection(a.conn); a.hello(); }
   let S = game.snapshot();
   const waves = []; let cur = null;
   let prevHull = IG(game), hullLoss = 0, ticks = 0, lastProgress = 0, softlock = false;
@@ -936,6 +953,7 @@ async function runArena(opts) {
     statsMissing: ['leakHits', 'escalations', 'repairSetbacks', 'overflowHull'].filter((k) => st[k] == null),
     broadside: bs.gbTicks ? bs.gbBroadside / bs.gbTicks : null, gbSec: bs.gbTicks * DT,
     ev, sim: game.simStats, hull: IG(game),
+    botZeilen: BotLauf.agenten(game).map((a) => ({ rolle: a.rolleBot, befehle: a.befehle, verworfen: a.verworfen, zustand: a.absicht.zustand })),
     waffenSchaden: Math.round(((st.waffenSchaden || {}).gesamt || 0) * 10) / 10, torpedos: st.torpedos || 0, torpedoTreffer: st.torpedoTreffer || 0, torpedoLerche: st.torpedoLerche || 0, schuesse: st.schuesse || 0, schussTreffer: st.schussTreffer || 0, torpedoAbgeprallt: st.torpedoAbgeprallt || 0,   // PAN-01 C: Schaden der Lerche an Gegnern (Schild + Hülle), Torpedos
   };
 }
@@ -1032,7 +1050,9 @@ async function arenaMain() {
   if (argVal('--szene', null)) return arenaSzenenMain();   // W2 AP3b: Wellen All
   const pilots = !PILOT || PILOT === 'both' ? ['nose', 'maneuver'] : [PILOT];
   const nSeeds = Number(argVal('--seeds', 10));
-  const players = Number(argVal('--players', 3));
+  const mensch = argVal('--mensch', null);   // BOT-01 B3: Mensch-Ersatz (captain) + Server-Bots
+  const botRollen = (argVal('--bots', '') || '').split(',').map((s) => s.trim()).filter(Boolean);
+  const players = mensch ? 1 + botRollen.length : Number(argVal('--players', 3));
   // EK1b: --wellen-def "fregatte;korvette,raider" ersetzt CONFIG.arena.waves (Wellen mit ; trennen, Arten mit ,)
   if (argVal('--wellen-def', null)) CONFIG.arena.waves = argVal('--wellen-def').split(';').map((w) => w.split(',').map((k) => k.trim()).filter(Boolean));
   const nWaves = Number(argVal('--waves', CONFIG.arena.waves.length));
@@ -1044,16 +1064,17 @@ async function arenaMain() {
   const f1 = (v) => (v == null || !isFinite(v) ? '—' : (Math.round(v * 10) / 10).toString());
   const pct = (v) => (v == null || !isFinite(v) ? '—' : Math.round(v * 100) + ' %');
   for (const pilot of pilots) {
-    log(`\n=== Testgelände Raumkampf – Steuer „${pilot}“, ${players} Spieler, ${nWaves} Wellen, ${nSeeds} Seeds (Bot-Spieler, Plausibilität, keine Spieldauer) ===`);
+    log(`\n=== Testgelände Raumkampf – Steuer „${pilot}“, ${players} Spieler${mensch ? ` (Mensch-Ersatz ${mensch} + Server-Bots ${botRollen.join(', ') || '–'})` : ''}, ${nWaves} Wellen, ${nSeeds} Seeds (Bot-Spieler, Plausibilität, keine Spieldauer) ===`);
     const rs = [];
     for (let i = 0; i < nSeeds; i++) {
-      const r = await runArena({ seed: base + i, pilot, players, waves: nWaves, maxSec, waveLimit });
+      const r = await runArena({ seed: base + i, pilot, players, waves: nWaves, maxSec, waveLimit, mensch, bots: botRollen });
       rs.push(r);
       if (r.errors > 0 || r.softlock) ok = false;
       log(`Seed ${r.seed}: ${r.cleared}/${nWaves} Wellen (${r.failed} über ${waveLimit} s) in ${r.time} s${r.softlock ? ' – SOFTLOCK (300 s ohne Fortschritt)' : ''} · Hülle −${r.hullLoss} (Überlauf ${f1(r.overflowHull)}) · Notfälle ${r.emergencies} · ` +
         `je Welle ${r.waves.map((w) => `W${w.wave} ${w.dur}s/${w.hull}${w.failed ? 'x' : ''}`).join(' ')} · leakHits ${r.leakHits} · Eskalationen ${r.escalations} · Rückschläge ${r.repairSetbacks} · bridgeLeaves ${r.bridgeLeaves} · ` +
         `Breitseite KB ${pct(r.broadside)} (${f1(r.gbSec)} s) · Lanze ${r.ev.lanceHit}/${r.ev.lanceFire}/${r.ev.lanceFizzle}, gegen Jäger ${r.ev.lanceRaiderHits}/${r.ev.lanceRaiderShots} · ` +
         `Flicken ${r.flicks} · Minispiele ${r.minigames} · Austausch ${r.swaps} · Ladungen ${r.ev.tele} (verfehlt ${r.ev.teleMiss}) · Schüsse ${r.ev.shots} · Treffer ${r.ev.hits} (Schild ${r.ev.hitsShield}/Hülle ${r.ev.hitsHull}/schwer ${r.ev.hitsHeavy}) · Fehler ${r.errors} · WS ${r.waffenSchaden} · TP ${r.torpedos} · TT ${r.torpedoTreffer} · SCH ${r.schuesse}/${r.schussTreffer} · AB ${r.torpedoAbgeprallt}`);
+      for (const z of r.botZeilen) log(`  Bot ${z.rolle}: ${z.befehle} Befehle, abgewiesen ${z.verworfen}, Zustand ${z.zustand}`);   // BOT-01 B3: nur mit Server-Bots
       if (r.statsMissing.length && i === 0) log(`  Hinweis: game.stats ohne ${r.statsMissing.join(', ')} (SERVER-DAMAGE, §4 Zähler) – als 0 gezählt`);
     }
     const avg = (f) => rs.reduce((a, r) => a + f(r), 0) / rs.length;
