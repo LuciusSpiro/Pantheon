@@ -120,13 +120,16 @@
   }
 
   // BOT-01 B2: Zufallskarte für einen Bot. Rein: alle Würfe kommen aus zufall() ([0, 1)), nichts anderes ist zufällig. Gewürfelt werden Körper, Charakterplätze, Haut, Haar und Outfitplätze aus den
-  // Teilen des jeweiligen Platzes; gesperrte Teile (herkunft ausser 'frei') würfelt der Editor auch nicht. Name aus namen (Pool, Rohnamen), eindeutig zu andereNamen; ohne gültigen Namen im Pool 'Crew'.
+  // Teilen des jeweiligen Platzes; gesperrte Teile (herkunft ausser 'frei') würfelt der Editor auch nicht. Name aus namen (Pool, Rohnamen), bevorzugt einer, den andereNamen noch nicht tragen, sonst mit Zählsuffix; ohne gültigen Namen im Pool 'Crew'.
   // Das Ergebnis geht unverändert durch pruefeKarte. Ohne brauchbaren Katalog: Standardkarte mit dem Namen.
   function zufallskarte(katalog, zufall, andereNamen, namen) {
     const s = sicht(katalog);
     const wuerfel = (n) => Math.min(n - 1, Math.max(0, Math.floor((typeof zufall === 'function' ? zufall() : 0) * n)));
     const nimm = (liste) => liste[wuerfel(liste.length)];
-    const pool = (Array.isArray(namen) ? namen : []).map(pruefeName).filter(Boolean);
+    const gueltig = (Array.isArray(namen) ? namen : []).map(pruefeName).filter(Boolean);
+    const belegt = new Set((Array.isArray(andereNamen) ? andereNamen : []).filter((x) => typeof x === 'string').map((x) => x.toLowerCase()));
+    const unbelegt = gueltig.filter((x) => !belegt.has(x.toLowerCase()));   // zuerst ein Name, den die Crew noch nicht trägt; erst wenn der Pool leer läuft, gilt der Zählsuffix
+    const pool = unbelegt.length ? unbelegt : gueltig;
     const name = eindeutigerName(pool.length ? nimm(pool) : STANDARD_NAME, andereNamen);
     const k = standardKarte(name, katalog);
     if (!s) return k;

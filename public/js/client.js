@@ -459,6 +459,19 @@
       Client.lobby.color = c; lsSet('sternenschicht.color', String(c));
       Net.sendHello();
     },
+    // BOT-01 B2: Bots auf Plätzen der Lobby (Server: lobbyBot, nur Lobby; die Regeln prüft der Server, hier stehen nur die Wünsche)
+    botHinzufuegen(rolle) { send({ t: P.C.LOBBY_BOT || 'lobbyBot', op: 'add', rolle }); audio.play('ui_click'); },
+    botWuerfeln(pid) { send({ t: P.C.LOBBY_BOT || 'lobbyBot', op: 'wuerfeln', pid }); audio.play('ui_click'); },
+    botEntfernen(pid) { send({ t: P.C.LOBBY_BOT || 'lobbyBot', op: 'weg', pid }); audio.play('ui_click'); },
+    botRolleWechseln(pid, rolle) { send({ t: P.C.LOBBY_BOT || 'lobbyBot', op: 'rolle', pid, rolle }); audio.play('ui_click'); },
+    botPlatzFuellen() {   // Taste P: Bot mit der ersten freien Rolle
+      const rolle = window.MenueFluss && MenueFluss.botRollenFrei((Client.state && Client.state.players) || [])[0];
+      if (rolle) this.botHinzufuegen(rolle); else audio.play('error');
+    },
+    botLetztenEntfernen() {   // Umschalt+P: den zuletzt hinzugefügten Bot
+      const b = window.MenueFluss && MenueFluss.botLetzter((Client.state && Client.state.players) || []);
+      if (b) this.botEntfernen(b.id); else audio.play('error');
+    },
     toggleReady() {
       const m = me();
       if (!m) return;

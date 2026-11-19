@@ -269,8 +269,29 @@
     if (ich) txt(c, T.karte.du, x + w - 6, ty, MF.dim, 'right');
     txt(c, fit(oberteil(karte), w - 10, 1), x + 5, y + CR.bild + 1 + KK.zeileY, MF.text);
     if (p.waffe) txt(c, fit(T.opt.waffe + ': ' + p.waffe, w - 10, 1), x + 5, y + CR.bild + 1 + KK.zeileY + 11, MF.dim);   // Wellen Boden, Grabenangriff, Labor: Waffe je Spieler
-    stempel(c, p.ready ? 'anBord' : 'nichtBereit', x + w / 2, y + h - MT.STEMPEL.h - 7);
+    if (p.bot) botKnoepfe(c, x, y, w, h, p, view);   // BOT-01 B2: ein Bot ist immer bereit, statt des Stempels die Knöpfe
+    else stempel(c, p.ready ? 'anBord' : 'nichtBereit', x + w / 2, y + h - MT.STEMPEL.h - 7);
     rand(c, x, y, w, h, MF.karteRand);
+  }
+  // BOT-01 B2: kleiner Knopf auf der Karte (Kachelgrund, Karten-Rand, Messing/Text als Schrift); gesperrt = gedämpft ohne Klick
+  function botKnopf(c, x, y, w, text, farbe, onClick, name) {
+    rect(c, x, y, w, 11, MF.kappe); rand(c, x, y, w, 11, MF.karteRand);
+    txt(c, fit(text, w - 4, 1), x + w / 2, y + 2, onClick ? farbe : MF.dim, 'center');
+    if (onClick) klick({ x, y, w, h: 11 }, name || text, onClick);
+  }
+  // Bot-Zeile: Rolle (Klick: nächste freie Rolle), Würfeln, Entfernen; Tasten P / Umschalt+P siehe Hinweise
+  function botKnoepfe(c, x, y, w, h, p, view) {
+    const a = view.actions, kx = x + 6, kw = w - 12, ky = y + h - 36, alle = spielerVon(view), naechste = F.botNaechsteRolle(alle, p);
+    botKnopf(c, kx, ky, kw, (T.bot[p.rolle] || p.rolle || '?').toUpperCase(), MF.messing, naechste ? () => a.botRolleWechseln && a.botRolleWechseln(p.id, naechste) : null, T.bot.rolleWechseln);
+    botKnopf(c, kx, ky + 12, kw, T.bot.wuerfeln, MF.text, () => a.botWuerfeln && a.botWuerfeln(p.id));
+    botKnopf(c, kx, ky + 24, kw, T.bot.entfernen, MF.nichtBereit, () => a.botEntfernen && a.botEntfernen(p.id));
+  }
+  // leerer Platz: ein Knopf je noch freie Rolle (nur für Spieler im Raum)
+  function botHinzufuegenKnoepfe(c, x, y, w, h, view) {
+    const a = view.actions, frei = F.botRollenFrei(spielerVon(view));
+    if (!frei.length) return;
+    txt(c, fit(T.bot.hinzufuegen, w - 8, 1), x + w / 2, y + h - 62, MF.dim, 'center');
+    frei.forEach((r, i) => botKnopf(c, x + 6, y + h - 48 + i * 12, w - 12, T.bot[r], MF.messing, () => a.botHinzufuegen && a.botHinzufuegen(r), T.bot.hinzufuegen + ': ' + T.bot[r]));
   }
   // Chips unter dem Modus („M Modus ändern“ + Zusatzoptionen als „Name: Wert“, Name gedämpft, Wert hell): was ein Chip ist und wo er sitzt, entscheidet MenueFluss (lobbyChips, chipReihen), hier wird nur gezeichnet
   function lobbyChips(c, view, lob, ich, y0) {
@@ -332,9 +353,10 @@
         rect(c, x, y, CR.w, CR.h, MF.karte); hatch(c, x, y, CR.w, CR.h, MF.freiSchraffur, 4); dash(c, x, y, CR.w, CR.h, MF.karteRand, 3);
         kappeM(c, x + 4, y + 4, String(i + 1), MF.karteRand, MF.dim);
         txtSp(c, MX.frei, x + CR.w / 2, y + CR.h / 2 - 14, MF.dim, 1, MS.detail.skala, 'center'); if (code()) txt(c, MX.laedtEin, x + CR.w / 2, y + CR.h / 2 + 6, MF.dim, 'center');
+        if (ich) botHinzufuegenKnoepfe(c, x, y, CR.w, CR.h, view);
         continue;
       }
-      kartenFlaeche(c, x, y, CR.w, CR.h, i, Object.assign({ gastgeber: gast && gast.id === p.id, waffe: mitWaffe ? ((lob.waffen && lob.waffen[p.id]) ? (H.WAFFE_NAME[lob.waffen[p.id]] || lob.waffen[p.id]) : T.opt.waffeStandard) : null }, p), view);
+      kartenFlaeche(c, x, y, CR.w, CR.h, i, Object.assign({ gastgeber: gast && gast.id === p.id, waffe: mitWaffe && !p.bot ? ((lob.waffen && lob.waffen[p.id]) ? (H.WAFFE_NAME[lob.waffen[p.id]] || lob.waffen[p.id]) : T.opt.waffeStandard) : null }, p), view);
     }
     if (!spielerVon(view).length) txt(c, (window.Net && Net.status === 'open') ? T.lobby.warteServer : T.lobby.verbindet, CR.x, CR.y + 20, MF.dim);
     // START-Kachel
@@ -356,7 +378,7 @@
     let rx = VW - 8; const rechts = [['H', T.hinweise.hilfe], ['O', T.hinweise.optionen]].map(([k, t]) => { const w = kappeBreite(k) + 4 + breite(t); rx -= w; const x0 = rx; rx -= 12; return { k, t, w, x: x0 }; });
     let hx = hinweise(c, L.modus.x, L.hinweise, [[T.tasten.enter, T.hinweise.bereit]], rx);
     hx = farbWahl(c, view, ich, hx, L.hinweise);
-    hinweise(c, hx, L.hinweise, [['C', T.hinweise.charakter], ['M', T.hinweise.modus], ['L', T.hinweise.link], [T.tasten.esc, T.hinweise.menue]], rx);
+    hinweise(c, hx, L.hinweise, [['C', T.hinweise.charakter], ['M', T.hinweise.modus], ['L', T.hinweise.link], [T.tasten.esc, T.hinweise.menue], ['P', T.hinweise.bot]], rx);
     for (const r of rechts) { rect(c, r.x - 2, L.hinweise - 1, r.w + 4, 15, P.rgba(MF.kachel, MM.kachelDeckkraft)); kappeM(c, r.x, L.hinweise, r.k); txt(c, r.t, r.x + kappeBreite(r.k) + 4, L.hinweise + 3, MF.dim); }
     const SZ = MM.statuszeile; rect(c, 0, SZ.y, VW, SZ.h, MF.statuszeile); rect(c, 0, SZ.y, VW, 1, MF.kachelRand);
     let x = SZ.innen; const ty = SZ.y + Math.floor((SZ.h - 7) / 2);
@@ -497,6 +519,7 @@
     if (code === 'Enter' || code === 'NumpadEnter') { if (!rep) a.toggleReady(); return true; }
     if (code === 'KeyM') { if (ich && !rep) { F.oeffneModusWahl(lob); ton('ui_click'); } return true; }
     if (code === 'KeyF') { if (ich && !rep) a.openWorlds && a.openWorlds('list'); return true; }
+    if (code === 'KeyP') { if (ich && !rep) { if (e.shiftKey) a.botLetztenEntfernen && a.botLetztenEntfernen(); else a.botPlatzFuellen && a.botPlatzFuellen(); } return true; }   // BOT-01 B2: P Bot auf den nächsten freien Platz, Umschalt+P letzten Bot entfernen
     if (code === 'KeyL') { if (ich && !rep && a.copyInvite && window.Net && Net.serverRoomCode) a.copyInvite(); return true; }
     const farbe = /^Digit([1-4])$/.exec(code);
     if (farbe) { if (!rep) a.setColor(+farbe[1] - 1); return true; }
