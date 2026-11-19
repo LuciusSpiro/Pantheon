@@ -380,10 +380,35 @@ section('7 Automatik-Schwellen');
   ok(Station.botAutomatikStandard({ C, players: [mensch1(null), bot('technik', null)] }) === true, 'Technik-Bot noch unterwegs: unbesetzt, entscheidet die Kopfzahl (an bei 2)');
   ok(Station.botAutomatikStandard({ C, players: [mensch1('technik'), bot('ops', null)] }) === true, 'Technik durch einen Menschen: wie bisher nach Koepfen');
   ok(Station.botAutomatikStandard({ C, players: [mensch1(null), bot('navigation', null), bot('ops', null)] }) === false, 'unbesetzt und 3 Koepfe: aus');
-  // lebendes Spiel: Mensch + Technik-Bot -> Schrauber-Automatik aus, Mensch uebernimmt -> Standard nach Koepfen
+  // lebendes Spiel (BOT-01 B3 Nacharbeit, Befund 1): Mensch + Technik-Bot. Der Server-Agent sendet technik.botAuto nie; botAuto folgt botAutomatikStandard (Bot an der Technik: aus, Mensch an der Technik: nach Koepfen)
   const P = partie({ bots: ['technik'] });
+  const { g, h, c } = P;
   lauf(P, 40, () => stationVon(P, 'technik') === 'technik'); lauf(P, 4);
-  ok(P.g.ship.botAuto === false, 'Spiel: Technik-Bot haelt die Station, botAuto aus');
+  const bid = botVon(P, 'technik').id; const ag = agentVon(P, 'technik');
+  const folgtStandard = () => g.ship.botAuto === Station.botAutomatikStandard(g) && !g.ship.botAutoChosen;
+  ok(g.ship.botAuto === false && folgtStandard(), 'Spiel: Technik-Bot haelt die Station, botAuto aus (= Standard, nicht gewaehlt)');
+  // der Snapshot des Bots zeigt botAuto an (Rest aus der Zeit vor dem Platznehmen): der Testbot haette technik.botAuto { on:false } gesendet und die Wahl fuer die Partie festgeschrieben
+  interior.damageSystem(g, 'battery_port', 'broken');
+  const tStale = g.time;
+  for (let i = 0; i < 12 * CONFIG.tickHz; i++) { tick(P); if (ag.lauf.snap) ag.lauf.snap.ship.botAuto = true; }
+  ok(cmds(P, bid, 'technik.botAuto').length === 0 && !g.ship.botAutoChosen, 'Snapshot zeigt botAuto an: der Server-Agent sendet technik.botAuto nie, botAutoChosen bleibt aus');
+  ok(cmds(P, bid, 'technik.repair', tStale).some((s) => s.msg.system === 'battery_port') && folgtStandard(), 'er fuehrt die Reparaturliste trotzdem (technik.repair) und botAuto bleibt beim Standard');
+  ok(lauf(P, 120, () => g.ship.systems.battery_port !== 'broken'), 'die Schrauber arbeiten den Eintrag ab (battery_port nicht mehr zerstoert)');
+  // Mensch uebernimmt die Technik -> Standard nach Koepfen (2 Koepfe: an)
+  neben(g, h, 'technik'); eTaste(g, c); lauf(P, 3);
+  ok(h.console === 'technik' && botVon(P, 'technik').console === null, 'Mensch uebernimmt die Technik, der Bot weicht');
+  ok(g.ship.botAuto === true && folgtStandard(), 'Mensch an der Technik: botAuto = Standard nach Koepfen (an), nicht festgeschrieben');
+  g.handleMessage(c, { t: 'leave' });
+  ok(lauf(P, 30, () => stationVon(P, 'technik') === 'technik'), 'Mensch geht, der Bot sitzt wieder an der Technik'); lauf(P, 3);
+  ok(g.ship.botAuto === false && folgtStandard(), 'Bot wieder an der Technik: botAuto = Standard (aus)');
+  ok(cmds(P, bid, 'technik.botAuto').length === 0 && g.errors === 0, 'der Bot hat die ganze Partie lang kein technik.botAuto gesendet, game.errors 0');
+  // der Bot raeumt (voller Server, ein zweiter Mensch tritt bei): Standard nach Koepfen (4 Koepfe: aus)
+  const Q = partie({ bots: ['navigation', 'ops', 'technik'] });
+  lauf(Q, 40, () => alleSitzen(Q)); lauf(Q, 2);
+  ok(Q.g.ship.botAuto === false && !Q.g.ship.botAutoChosen, 'drei Bots: botAuto aus, nicht gewaehlt');
+  const c2 = mensch(Q.g, 9, 3); lauf(Q, 3);
+  ok(c2.player === botVon(Q, 'technik') || !Q.g.players.some((p) => p.bot && p.rolle === 'technik'), 'der Technik-Bot hat geraeumt (der Mensch bekam den Platz)');
+  ok(Q.g.ship.botAuto === Station.botAutomatikStandard(Q.g) && !Q.g.ship.botAutoChosen, 'danach folgt botAuto dem Standard nach Koepfen (' + Q.g.ship.botAuto + '), nicht festgeschrieben');
 }
 
 // ---------- 8 Pause, Reset, Browser-Schluss ----------
@@ -559,6 +584,179 @@ section('12 Quellscan');
   ok(!/^(let|var)\s/m.test(gespiegelt) && /new WeakMap\(\)/.test(gespiegelt), 'lauf.js: kein veraenderlicher Modulzustand, Zustand je Game in WeakMap');
   const hatBoolFlag = /\b(function\s+\w+|\w+\s*\()\s*\([^)]*\b(mitBot|nurBot|istBot|botMode|bot)\b\s*[,)=]/.test(neu);
   ok(!hatBoolFlag, 'keine Bot-Flags als Parameter in den neuen Modulen');
+}
+
+// ---------- 13 Nacharbeit Befund 2: Marke des Captains ----------
+section('13 Ops: die Marke des Captains (captain.anzeigeziel) geht vor');
+{
+  // die Lanze trifft nur, was auf der Strahllinie liegt: der ferne Gegner (auf der Linie) wird nur getroffen, wenn der Bot ihn waehlt; ohne Marke waehlte der Kern den naeheren
+  const P = partie({ bots: ['ops'] });
+  lauf(P, 30, () => stationVon(P, 'ops') === 'weapons');
+  const { g, h, c } = P;
+  interior.enterConsole(g, h, 'captain');
+  const nah = [rel(g, 230, 85), rel(g, 250, 95), rel(g, 220, 100)].find((p) => space.inMountArc(g, 'stbd', p.x, p.y) && !space.inMountArc(g, 'bow', p.x, p.y)), fern = rel(g, 450, 0);   // der nahe im Steuerbord-Bogen (Kern: naechster im Bogen), der ferne auf der Strahllinie der Lanze
+  const ea = fest(P, 'korvette', nah.x, nah.y); const eb = fest(P, 'korvette', fern.x, fern.y);
+  ok(Station.stationOf(h) === 'captain', 'Setup: der Mensch sitzt als Captain');
+  g.handleMessage(c, { t: 'cmd', c: 'captain.anzeigeziel', id: eb.id });
+  ok(g.ship.capZiel && g.ship.capZiel.id === eb.id && g.ship.target !== eb.id, 'der Captain markiert den ferneren Gegner (ship.capZiel), ship.target bleibt unberuehrt');
+  const ib = Testhilfe.gesamtIntegritaet(eb); const t0 = g.time;
+  lauf(P, 25, () => Testhilfe.gesamtIntegritaet(eb) < ib);
+  const bid = botVon(P, 'ops').id;
+  ok(cmds(P, bid, 'weapons.target', t0).some((s) => s.msg.id === eb.id) && g.ship.target === eb.id, 'der Ops-Bot setzt weapons.target auf den markierten (fernen) Gegner');
+  ok(Testhilfe.gesamtIntegritaet(eb) < ib, 'die Lanze trifft den markierten Gegner');
+  ok(!cmds(P, bid, 'weapons.target', t0).some((s) => s.msg.id === ea.id), 'er schaltet den naeheren nicht auf');
+  // die Marke stirbt: Rueckfall auf den Kern (naechster im Bogen)
+  g.space.enemies = g.space.enemies.filter((e) => e !== eb); P.fest = P.fest.filter((e) => e !== eb);
+  lauf(P, 8);
+  ok(!g.ship.capZiel && g.ship.target === ea.id, 'Marke entfaellt (Gegner tot): die Marke ist weg und der Bot nimmt den Gegner im Bogen (Kern)');
+  ok(g.errors === 0, 'game.errors 0');
+}
+{
+  // Marke ausser Bogen: der Bot folgt ihr, schiesst aber nicht ins Leere und haengt nicht
+  const P = partie({ bots: ['ops'] });
+  lauf(P, 30, () => stationVon(P, 'ops') === 'weapons');
+  const { g, h, c } = P; interior.enterConsole(g, h, 'captain');
+  const arc = (p) => space.inMountArc(g, 'stbd', p.x, p.y) && !space.inMountArc(g, 'bow', p.x, p.y);
+  const a = [rel(g, 230, 85), rel(g, 250, 95), rel(g, 220, 100)].find(arc);
+  const ea = fest(P, 'korvette', a.x, a.y);
+  const hinten = rel(g, 500, 180);
+  const eb = fest(P, 'korvette', hinten.x, hinten.y);
+  const imBogen = ['bow', 'port', 'stbd'].some((m) => space.inMountArc(g, m, hinten.x, hinten.y));
+  g.handleMessage(c, { t: 'cmd', c: 'captain.anzeigeziel', id: eb.id });
+  const ia = Testhilfe.gesamtIntegritaet(ea), ib = Testhilfe.gesamtIntegritaet(eb); const t0 = g.time;
+  lauf(P, 25);
+  const bid = botVon(P, 'ops').id;
+  ok(!imBogen && g.ship.target === eb.id, 'Marke ausser Bogen: die Ops folgt ihr (ship.target = markierter Gegner)');
+  ok(Testhilfe.gesamtIntegritaet(eb) === ib && !cmds(P, bid, 'weapons.charge', t0).some((s) => s.msg.on === true), 'keine Fehlschuesse: der markierte Gegner ausser Bogen wird nicht beschossen, keine Lanzenladung ins Leere');
+  ok(Testhilfe.gesamtIntegritaet(ea) < ia, 'kein Haengenbleiben: die Batterie feuert weiter auf den Gegner im Bogen');
+  ok(cmds(P, bid, 'weapons.target', t0).length <= 2, 'kein Hin und Her der Zielwahl (' + cmds(P, bid, 'weapons.target', t0).length + ' weapons.target)');
+  ok(g.errors === 0, 'game.errors 0');
+  // nicht aufschaltbar (ausser Sensoren): die Marke wird uebergangen statt weapons.target dauernd abgewiesen zu bekommen
+  const weit = rel(g, 4000, 10); const ec = fest(P, 'korvette', weit.x, weit.y);
+  g.ship.capZiel = { id: ec.id, scene: g.ship.scene };
+  const agent = agentVon(P, 'ops'); const S = g.snapshot();
+  const gewaehlt = agent.waehleZiel(S, agent.lebende(S), agent.mountsOf(S));
+  ok(gewaehlt && gewaehlt.id !== ec.id, 'Marke ausserhalb der Sensoren wird nicht gewaehlt (weapons.target wuerde abgewiesen, fight() haengt sonst)');
+}
+
+// ---------- 14 Nacharbeit Befund 3: Navigation bei Aussenteam unten ----------
+section('14 Navigation: Aussenteam unten, das Schiff haelt Kurs und Stufe');
+{
+  const lage = (away, tele) => {
+    const P = partie({ bots: ['navigation'] });
+    lauf(P, 30, () => stationVon(P, 'navigation') === 'helm');
+    const g = P.g;
+    g.ship.helm.stage = 3; g.ship.vx = 0; g.ship.vy = 0;
+    const pos = rel(g, 450, 60);
+    fest(P, 'korvette', pos.x, pos.y, tele ? { tele: { left: 0.1, sector: 0 } } : undefined);
+    if (away) P.h.zone = 'away';
+    return P;
+  };
+  const nav = (P) => botVon(P, 'navigation').id;
+  const A = lage(true); const a0 = { x: A.g.ship.x, y: A.g.ship.y, ang: A.g.ship.angle }; const tA = A.g.time;
+  lauf(A, 10);
+  const helmA = cmds(A, nav(A), 'helm.', tA);
+  const dAng = Math.abs(Math.atan2(Math.sin(A.g.ship.angle - a0.ang), Math.cos(A.g.ship.angle - a0.ang)));
+  ok(!helmA.some((s) => s.msg.c === 'helm.throttle') && A.g.ship.helm.stage === 3, 'Aussenteam unten: keine Stufenwahl, die Stufe bleibt');
+  ok(helmA.every((s) => s.msg.c === 'helm.input' && s.msg.turn === 0 && s.msg.thrust === 0), `nur Kurs halten (helm.input ohne Ruder, ${helmA.length} Befehle), kein Nachsetzen, keine Breitseite`);
+  ok(dAng < 0.02, `der Kurs bleibt (${dAng.toFixed(3)} rad), keine Kreise`);
+  const dist = Math.hypot(A.g.ship.x - a0.x, A.g.ship.y - a0.y);
+  ok(dist > 5 && A.g.errors === 0, `das Schiff driftet nur durch die gehaltene Stufe (${dist.toFixed(0)} px in 10 s)`);
+  const B = lage(false); const tB = B.g.time;
+  lauf(B, 10);
+  ok(cmds(B, nav(B), 'helm.', tB).some((s) => s.msg.c === 'helm.input' && s.msg.turn !== 0), 'Gegenprobe ohne Aussenteam: die Steuer manoevriert im Gefecht wie bisher (Ruder ungleich 0)');
+  const D = lage(true, true); const tD = D.g.time;
+  lauf(D, 4);
+  ok(cmds(D, nav(D), 'helm.dodge', tD).length > 0, 'Aussenteam unten: Ausweichen vor einer Ladung bleibt erlaubt (helm.dodge)');
+  // ein Bot im Aussenteam zaehlt wie ein Mensch
+  const E = partie({ bots: ['navigation', 'ops'] });
+  lauf(E, 40, () => alleSitzen(E)); E.g.ship.helm.stage = 3;
+  const pe = E.g.ship.helm; const eg = rel(E.g, 450, 60); fest(E, 'korvette', eg.x, eg.y);
+  botVon(E, 'ops').zone = 'away'; const tE = E.g.time;
+  lauf(E, 5);
+  ok(!cmds(E, nav(E), 'helm.', tE).some((s) => s.msg.turn !== 0), 'ein Bot im Aussenteam haelt die Navigation ebenso zurueck');
+}
+
+// ---------- 15 Nacharbeit Befund 4 und 5: Wachposten ----------
+section('15 Wachposten: jede Nachricht eines Server-Agenten geht durch ihn');
+{
+  const P = partie({ bots: ['navigation', 'ops', 'technik'], wellen: true });
+  lauf(P, 40, () => alleSitzen(P));
+  const agent = agentVon(P, 'navigation');
+  const spyN = () => P.spy.length;
+  const verboten = [
+    { t: 'hello', clientId: 'x', name: 'x', color: 0 }, { t: 'ready', ready: true }, { t: 'cmd', c: 'captain.anzeigeziel', id: 'e1' }, { t: 'cmd', c: 'captain.scan' },
+    { t: 'debug' }, { t: 'shoot' }, { t: 'mark' }, { t: 'cmd', c: 'weapons.fire', mount: 'all' }, { t: 'cmd', c: 'technik.shield', sector: 0, delta: 1 },
+    { t: 'schubs' }, { t: 'menu', op: 'pause', on: true }, { t: 'world' }, { t: 'lobbyBot' }, { t: 'lobbyOpt' }, { t: 'cmd' }, { t: 'cmd', c: 42 }, null, {},
+  ];
+  const v0 = agent.verworfen; const n0 = spyN(); const b0 = agent.befehle;
+  const gesperrt = verboten.filter((m) => agent.erlaubt(m) === false).length;
+  for (const m of verboten) agent.send(m);
+  ok(gesperrt === verboten.length, `erlaubt() weist alle ${verboten.length} verbotenen Nachrichten ab (${gesperrt})`);
+  ok(agent.verworfen - v0 === verboten.length && spyN() === n0 && agent.befehle === b0, `send() verwirft sie und zaehlt verworfen (${agent.verworfen - v0}), nichts erreicht handleMessage, kein Befehl gezaehlt`);
+  agent.verworfen = 0;
+  const erlaubt = [{ t: 'input', seq: 1, mx: 0, my: 0 }, { t: 'act', down: false }, { t: 'leave' }, { t: 'drop' }, { t: 'cmd', c: 'helm.input', turn: 0, thrust: 0 }, { t: 'cmd', c: Protocol.CMD_STATION_TAB, dir: 1 }];
+  ok(erlaubt.every((m) => agent.erlaubt(m) === true), 'erlaubt() laesst Eingabe, Aktion, leave, drop, Befehle der eigenen Station und Tab durch');
+  // Spion: jede Nachricht eines Agenten an game.handleMessage wurde vom Wachposten freigegeben und gezaehlt (auch das Stufenhalten vor leave)
+  const frei = new Map(); const orig = new Map();
+  for (const a of Lauf.agenten(P.g)) { frei.set(a.spieler.id, 0); orig.set(a, a.erlaubt.bind(a)); a.erlaubt = (m) => { const r = orig.get(a)(m); if (r) frei.set(a.spieler.id, frei.get(a.spieler.id) + 1); return r; }; }
+  const s0 = P.spy.length; const befehle0 = new Map(Lauf.agenten(P.g).map((a) => [a.spieler.id, a.befehle]));
+  lauf(P, 75);
+  P.g.ship.helm.stage = 3; const sL = P.spy.length;
+  agent.send({ t: 'leave' });   // Steuer verlassen: vorher stellt der Kern auf STOPP (helm.throttle)
+  const neu = P.spy.slice(s0);
+  const throttle = P.spy.slice(sL).filter((s) => s.pid === agent.spieler.id && s.msg.c === 'helm.throttle');
+  ok(throttle.length === 1 && throttle[0].msg.set === 1 && P.g.ship.helm.stage === 1, 'Steuer verlassen: das Stufenhalten (helm.throttle STOPP) wird gesendet');
+  let alle = true;
+  for (const a of Lauf.agenten(P.g)) {
+    const mine = neu.filter((s) => s.pid === a.spieler.id); const cm = mine.filter((s) => s.msg.t === 'cmd').length;
+    if (mine.length !== frei.get(a.spieler.id) || a.befehle - befehle0.get(a.spieler.id) !== cm) alle = false;
+  }
+  ok(neu.length > 50 && alle, `jede Nachricht der drei Agenten an handleMessage (${neu.length}) wurde vom Wachposten freigegeben, der Zaehler befehle gleicht den gesendeten cmd`);
+  ok(Lauf.agenten(P.g).every((a) => a.verworfen === 0), 'die Agenten selbst senden nichts Verbotenes (verworfen 0)');
+  // Verbietet der Wachposten das Stufenhalten, erreicht es handleMessage nicht
+  agent.erlaubt = (m) => !(m.t === 'cmd' && m.c === 'helm.throttle') && orig.get(agent)(m);
+  lauf(P, 30, () => botVon(P, 'navigation').console === 'helm');
+  P.g.ship.helm.stage = 3; const vv = agent.verworfen; const sn = spyN();
+  ok(botVon(P, 'navigation').console === 'helm', 'Setup: der Navigations-Bot sitzt wieder an der Steuer');
+  agent.send({ t: 'leave' });
+  ok(agent.verworfen === vv + 1 && !P.spy.slice(sn).some((s) => s.msg.c === 'helm.throttle'), 'ein vom Wachposten abgewiesenes Stufenhalten erreicht handleMessage nicht');
+  ok(P.g.errors === 0, 'game.errors 0');
+}
+
+// ---------- 16 Nacharbeit Testluecke (f): Mensch haelt die Station ueber Zeit ----------
+section('16 Mensch haelt die Station, der Bot bleibt wartend');
+{
+  const P = partie({ bots: ['navigation', 'ops'] });
+  const { g, h, c } = P;
+  lauf(P, 40, () => alleSitzen(P));
+  const nav = botVon(P, 'navigation'); const ag = agentVon(P, 'navigation');
+  neben(g, h, 'helm'); eTaste(g, c);
+  ok(h.console === 'helm' && ag.absicht.zustand === 'wartet', 'Mensch sitzt an der Steuer, der Bot wartet');
+  const t0 = g.time; let immer = true, nie = true;
+  for (let i = 0; i < 12 * CONFIG.tickHz; i++) { tick(P); if (ag.absicht.zustand !== 'wartet') immer = false; if (nav.console === 'helm') nie = false; }
+  ok(immer, 'ueber 12 s Tick fuer Tick: Zustand bleibt wartet (nicht unterwegs)');
+  ok(nie && h.console === 'helm', 'der Bot nimmt dem Menschen die Steuer nicht ab');
+  ok(P.spy.filter((s) => s.pid === nav.id && s.t > t0).length === 0, 'der Bot sendet in der Zeit nichts (auch kein input, act, leave)');
+  g.handleMessage(c, { t: 'leave' });
+  ok(lauf(P, 30, () => nav.console === 'helm') && lauf(P, 1) && ag.absicht.zustand === 'an_station', 'erst nach Verlassen uebernimmt der Bot wieder (an_station)');
+}
+
+// ---------- 17 Nacharbeit Testluecke (g): Stale-Schutz ----------
+section('17 Stale-Schutz: ein zu alter Snapshot wird nicht bearbeitet');
+{
+  const P = partie({ bots: ['technik'] });
+  const { g } = P;
+  lauf(P, 40, () => stationVon(P, 'technik') === 'technik'); lauf(P, 2);
+  const ag = agentVon(P, 'technik'); const bid = botVon(P, 'technik').id;
+  interior.damageSystem(g, 'battery_port', 'broken');
+  const basis = JSON.parse(JSON.stringify(g.snapshot()));
+  const mk = (tickAbstand) => { const S = JSON.parse(JSON.stringify(basis)); S.tick = g.tick - tickAbstand; S.time = g.time + 10; return S; };
+  const n0 = P.spy.length;
+  ag.tick(mk(7)); ag.tick(mk(50));
+  ok(P.spy.length === n0, 'Snapshot aelter als 6 Ticks: der Agent handelt nicht (keine Nachricht)');
+  ag.tick(mk(6));
+  ok(P.spy.slice(n0).some((s) => s.pid === bid && s.msg.c === 'technik.repair' && s.msg.system === 'battery_port'), 'Snapshot genau an der Grenze (6 Ticks) und aktuell: der Agent handelt (technik.repair)');
 }
 
 console.log(fails ? `\ntest-bot-lauf: ${fails} FEHLER von ${n}` : `\ntest-bot-lauf: ${n}/${n} ok`);
