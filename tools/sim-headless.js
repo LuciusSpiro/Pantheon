@@ -11,6 +11,13 @@
 //                                           -> BOT-01 B3: Testgelaende mit einem Mensch-Ersatz (Testbot am Captain-Platz, zaehlt als Mensch, bedient nur die Captain-Konsole) und Server-Bots
 //                                              (BotSpieler.botHinzufuegen in der Lobby, Verhalten ueber den Lauf in game.step()); --bots navigation|ops|technik, kommagetrennt. Ohne --mensch/--bots laeuft alles wie bisher.
 //                                              Ausgabe wie die Arena-Auswertung (Wellen, Huellenverlust, Notfaelle je Seed und im Mittel) plus eine Zeile je Bot (Rolle, Befehle).
+//   node tools/sim-headless.js arena --pilot maneuver --mensch captain,helm --bots ops,technik --seeds 10 [--seed 11]
+//                                           -> BOT-01 B4c: --mensch nimmt eine Liste (captain|helm|weapons, keine doppelte): je Rolle ein Mensch-Ersatz, der nur an SEINER Konsole sitzt (kein Tab, kein Wandern, keine Reparaturgaenge:
+//                                              captain = nur Captain-Konsole, helm = Steuer wie der Testbot-Helm im Gefecht und zwischen den Wellen, weapons = Waffen feuern wie der Testbot); ohne god, ohne Teleport.
+//                                              Zuordnung Server-Bot -> Konsole: navigation = helm, ops = weapons, technik = technik (captain hat keinen Server-Bot). Ueberschneidet sich die Mensch-Konsole mit einem Server-Bot
+//                                              (z. B. --mensch helm --bots navigation), Exit 2 mit Text; --ueberlappung erlaubt es ausdruecklich (der Mensch gewinnt die Station, der Bot weicht = Zustand wartet).
+//                                              Bei mehr als einem Mensch-Ersatz folgt je Seed eine Zeile "Stationsanteil" (Anteil der Ticks an der eigenen Konsole je Mensch, je Bot an_station/wartet/unterwegs mit Zahl der Wechsel).
+//                                              Unbekannte/doppelte Rolle, --mensch mit --players: Exit 2, kein Lauf.
 const Maps = require('../shared/maps.js');
 const Physics = require('../shared/physics.js');
 const CONFIG = require('../shared/config.js');
@@ -858,6 +865,34 @@ class ArenaAgent extends Agent {
 class MenschCaptain extends ArenaAgent {
   captainFight(S, p) { this.enter(S, 'captain'); }
 }
+// BOT-01 B4c: reine Besetzer fuer Helm und Waffen: wie ArenaAgent-helm/-weapons an der Konsole (steuern, feuern), aber ohne Reaktor-/Reparaturgaenge und ohne Tab-Wechsel auf andere Stationen
+class MenschHelm extends ArenaAgent {
+  update(S) {
+    const p = this.me(S);
+    if (!p) return;
+    if (this.waitT > 0) { this.waitT -= DT; return; }
+    if (p.downed) { this.input(0, 0); this.act(false); this.ix = null; return; }
+    if (S.phase !== 'play') return;
+    if (!this.enter(S, 'helm')) return;
+    if (S.space.enemies.some((e) => e.kind !== 'relay')) { this.helmFight(S, this.helmFocus(S)); return; }
+    const home = (this.opts && this.opts.home) || CONFIG.arena.shipPos; const sh = S.ship;
+    if (dist(sh.x, sh.y, home.x, home.y) > 300) this.steer(S, home.x, home.y, 120, 100); else this.brake(S);
+  }
+}
+class MenschWeapons extends ArenaAgent {
+  update(S) {
+    const p = this.me(S);
+    if (!p) return;
+    if (this.waitT > 0) { this.waitT -= DT; return; }
+    if (p.downed) { this.input(0, 0); this.act(false); this.ix = null; return; }
+    if (S.phase !== 'play') return;
+    if (!this.enter(S, 'weapons')) return;
+    if (S.space.enemies.some((e) => e.kind !== 'relay')) this.fight(S, { scan: true });
+  }
+}
+const MENSCH_KLASSEN = { captain: MenschCaptain, helm: MenschHelm, weapons: MenschWeapons };
+const MENSCH_KONSOLE = { captain: 'captain', helm: 'helm', weapons: 'weapons' };
+const BOT_KONSOLE = { navigation: 'helm', ops: 'weapons', technik: 'technik' };
 
 const ArenaMod = require('../server/sim/arena.js');
 // M3b §6: Messung im Testgelände. Zusätzlich zu M3a: Schild-/Schadenszähler (leakHits, escalations, repairSetbacks,
@@ -870,8 +905,9 @@ async function runArena(opts) {
   game.telemetrie.szenario(opts.pilot);   // TEL-01 C: die Steuerstrategie gehoert in die Gruppen-ID der Basis (nur Protokoll, kein Spielverhalten)
   game.simStats = { reactorRestarts: 0, widescans: 0, wreckDone: false };
   const serverBots = opts.bots || [];   // BOT-01 B3: Rollen der Server-Bots; mit opts.mensch ersetzt ein MenschCaptain die Testbots
-  const roles = opts.mensch ? [opts.mensch] : opts.players === 1 ? ['solo'] : ['helm', 'weapons', 'captain'].slice(0, opts.players);
-  const agents = roles.map((r, i) => new (opts.mensch ? MenschCaptain : ArenaAgent)(game, i, r, opts));
+  const menschen = opts.mensch ? [].concat(opts.mensch) : null;   // BOT-01 B4c: Liste der Mensch-Ersatz-Rollen
+  const roles = menschen ? menschen : opts.players === 1 ? ['solo'] : ['helm', 'weapons', 'captain'].slice(0, opts.players);
+  const agents = roles.map((r, i) => new (menschen ? MENSCH_KLASSEN[r] : ArenaAgent)(game, i, r, opts));
   game.simAgents = agents;
   if (serverBots.length) BotLauf.optionenSetzen(game, { pilot: opts.pilot });
   const ev = { tele: 0, teleMiss: 0, dodged: 0, lanceFire: 0, lanceHit: 0, lanceFizzle: 0, systemHit: 0, lanceRaiderShots: 0, lanceRaiderHits: 0, escalated: 0, repairSetback: 0,
@@ -912,10 +948,20 @@ async function runArena(opts) {
   let prevHull = IG(game), hullLoss = 0, ticks = 0, lastProgress = 0, softlock = false;
   const gbArcs = (kind) => CONFIG.enemyWeapons[kind] || [];   // EK1b: Breitseiten-Schiffe (Korvette, Fregatte, Kreuzer)
   const bs = { gbTicks: 0, gbBroadside: 0 };
+  const zaehle = !!(menschen && menschen.length > 1);   // BOT-01 B4c: Stationsanteile nur im Mehr-Mensch-Modus (bestehende Ausgaben bleiben byte-gleich)
+  const anteil = { ticks: 0, mensch: agents.map(() => 0), bot: {} };
   while (game.time < opts.maxSec) {
     game.step(); ticks++;
     if (game.wantsSnapshot()) S = game.snapshot();
     for (const a of agents) a.update(S);
+    if (zaehle && game.phase === 'play') {
+      anteil.ticks++;
+      agents.forEach((a, i) => { const q = S.players.find((o) => o.id === a.pid); if (q && q.console === MENSCH_KONSOLE[a.role]) anteil.mensch[i]++; });
+      for (const b of BotLauf.agenten(game)) {
+        const z = anteil.bot[b.rolleBot] || (anteil.bot[b.rolleBot] = { an_station: 0, wartet: 0, unterwegs: 0, wechsel: 0, letzt: null });
+        const zs = b.absicht.zustand; z[zs] = (z[zs] || 0) + 1; if (z.letzt !== null && z.letzt !== zs) z.wechsel++; z.letzt = zs;
+      }
+    }
     const h = IG(game);
     if (h < prevHull) hullLoss += prevHull - h;
     prevHull = h;
@@ -953,6 +999,7 @@ async function runArena(opts) {
     statsMissing: ['leakHits', 'escalations', 'repairSetbacks', 'overflowHull'].filter((k) => st[k] == null),
     broadside: bs.gbTicks ? bs.gbBroadside / bs.gbTicks : null, gbSec: bs.gbTicks * DT,
     ev, sim: game.simStats, hull: IG(game),
+    anteil: zaehle ? { rollen: agents.map((a) => a.role), ticks: anteil.ticks, mensch: anteil.mensch, bot: anteil.bot } : null,
     botZeilen: BotLauf.agenten(game).map((a) => ({ rolle: a.rolleBot, befehle: a.befehle, verworfen: a.verworfen, zustand: a.absicht.zustand })),
     waffenSchaden: Math.round(((st.waffenSchaden || {}).gesamt || 0) * 10) / 10, torpedos: st.torpedos || 0, torpedoTreffer: st.torpedoTreffer || 0, torpedoLerche: st.torpedoLerche || 0, schuesse: st.schuesse || 0, schussTreffer: st.schussTreffer || 0, torpedoAbgeprallt: st.torpedoAbgeprallt || 0,   // PAN-01 C: Schaden der Lerche an Gegnern (Schild + Hülle), Torpedos
   };
@@ -1050,9 +1097,24 @@ async function arenaMain() {
   if (argVal('--szene', null)) return arenaSzenenMain();   // W2 AP3b: Wellen All
   const pilots = !PILOT || PILOT === 'both' ? ['nose', 'maneuver'] : [PILOT];
   const nSeeds = Number(argVal('--seeds', 10));
-  const mensch = argVal('--mensch', null);   // BOT-01 B3: Mensch-Ersatz (captain) + Server-Bots
+  const menschArg = argVal('--mensch', null);   // BOT-01 B3: Mensch-Ersatz (captain) + Server-Bots; B4c: Liste captain|helm|weapons
   const botRollen = (argVal('--bots', '') || '').split(',').map((s) => s.trim()).filter(Boolean);
-  const players = mensch ? 1 + botRollen.length : Number(argVal('--players', 3));
+  const menschListe = menschArg ? menschArg.split(',').map((s) => s.trim()).filter(Boolean) : null;
+  const mensch = menschListe ? menschListe.join(',') : null;
+  if (menschListe) {   // BOT-01 B4c: Aufruf pruefen, Fehler = Exit 2 ohne Lauf
+    const fehler = [];
+    if (!menschListe.length) fehler.push('--mensch ohne Rolle');
+    for (const r of menschListe) if (!MENSCH_KLASSEN[r]) fehler.push('unbekannte Mensch-Rolle "' + r + '" (erlaubt: captain, helm, weapons)');
+    if (new Set(menschListe).size !== menschListe.length) fehler.push('doppelte Mensch-Rolle in --mensch ' + menschArg);
+    for (const r of botRollen) if (!BOT_KONSOLE[r]) fehler.push('unbekannte Bot-Rolle "' + r + '" (erlaubt: navigation, ops, technik)');
+    if (new Set(botRollen).size !== botRollen.length) fehler.push('doppelte Bot-Rolle in --bots ' + argVal('--bots', ''));
+    if (argVal('--players', null)) fehler.push('--mensch und --players schliessen sich aus (die Zahl ergibt sich aus --mensch und --bots)');
+    if (menschListe.length + botRollen.length > 4) fehler.push('mehr als 4 Koepfe (--mensch + --bots)');
+    const ueber = menschListe.filter((r) => MENSCH_KLASSEN[r] && botRollen.some((b) => BOT_KONSOLE[b] === MENSCH_KONSOLE[r]));
+    if (ueber.length && !args.includes('--ueberlappung')) fehler.push('Mensch-Konsole ' + ueber.join(', ') + ' wird von einem Server-Bot gehalten (' + botRollen.filter((b) => ueber.some((r) => BOT_KONSOLE[b] === MENSCH_KONSOLE[r])).join(', ') + '): der Mensch uebernimmt die Station, der Bot weicht; mit --ueberlappung ausdruecklich erlauben');
+    if (fehler.length) { console.log('arena --mensch: ' + fehler.join('; ')); process.exit(2); }
+  }
+  const players = mensch ? menschListe.length + botRollen.length : Number(argVal('--players', 3));
   // EK1b: --wellen-def "fregatte;korvette,raider" ersetzt CONFIG.arena.waves (Wellen mit ; trennen, Arten mit ,)
   if (argVal('--wellen-def', null)) CONFIG.arena.waves = argVal('--wellen-def').split(';').map((w) => w.split(',').map((k) => k.trim()).filter(Boolean));
   const nWaves = Number(argVal('--waves', CONFIG.arena.waves.length));
@@ -1067,13 +1129,17 @@ async function arenaMain() {
     log(`\n=== Testgelände Raumkampf – Steuer „${pilot}“, ${players} Spieler${mensch ? ` (Mensch-Ersatz ${mensch} + Server-Bots ${botRollen.join(', ') || '–'})` : ''}, ${nWaves} Wellen, ${nSeeds} Seeds (Bot-Spieler, Plausibilität, keine Spieldauer) ===`);
     const rs = [];
     for (let i = 0; i < nSeeds; i++) {
-      const r = await runArena({ seed: base + i, pilot, players, waves: nWaves, maxSec, waveLimit, mensch, bots: botRollen });
+      const r = await runArena({ seed: base + i, pilot, players, waves: nWaves, maxSec, waveLimit, mensch: menschListe, bots: botRollen });
       rs.push(r);
       if (r.errors > 0 || r.softlock) ok = false;
       log(`Seed ${r.seed}: ${r.cleared}/${nWaves} Wellen (${r.failed} über ${waveLimit} s) in ${r.time} s${r.softlock ? ' – SOFTLOCK (300 s ohne Fortschritt)' : ''} · Hülle −${r.hullLoss} (Überlauf ${f1(r.overflowHull)}) · Notfälle ${r.emergencies} · ` +
         `je Welle ${r.waves.map((w) => `W${w.wave} ${w.dur}s/${w.hull}${w.failed ? 'x' : ''}`).join(' ')} · leakHits ${r.leakHits} · Eskalationen ${r.escalations} · Rückschläge ${r.repairSetbacks} · bridgeLeaves ${r.bridgeLeaves} · ` +
         `Breitseite KB ${pct(r.broadside)} (${f1(r.gbSec)} s) · Lanze ${r.ev.lanceHit}/${r.ev.lanceFire}/${r.ev.lanceFizzle}, gegen Jäger ${r.ev.lanceRaiderHits}/${r.ev.lanceRaiderShots} · ` +
         `Flicken ${r.flicks} · Minispiele ${r.minigames} · Austausch ${r.swaps} · Ladungen ${r.ev.tele} (verfehlt ${r.ev.teleMiss}) · Schüsse ${r.ev.shots} · Treffer ${r.ev.hits} (Schild ${r.ev.hitsShield}/Hülle ${r.ev.hitsHull}/schwer ${r.ev.hitsHeavy}) · Fehler ${r.errors} · WS ${r.waffenSchaden} · TP ${r.torpedos} · TT ${r.torpedoTreffer} · SCH ${r.schuesse}/${r.schussTreffer} · AB ${r.torpedoAbgeprallt}`);
+      if (r.anteil) {   // BOT-01 B4c
+        const A = r.anteil, pc = (n) => Math.round(n / Math.max(1, A.ticks) * 1000) / 10 + ' %';
+        log(`  Stationsanteil: ${A.rollen.map((ro, i) => `Mensch ${ro} an eigener Konsole ${pc(A.mensch[i])}`).join(' · ')}${Object.entries(A.bot).map(([ro, z]) => ` · Bot ${ro} an_station ${pc(z.an_station || 0)}, wartet ${pc(z.wartet || 0)}, unterwegs ${pc(z.unterwegs || 0)}, Wechsel ${z.wechsel}`).join('')}`);
+      }
       for (const z of r.botZeilen) log(`  Bot ${z.rolle}: ${z.befehle} Befehle, abgewiesen ${z.verworfen}, Zustand ${z.zustand}`);   // BOT-01 B3: nur mit Server-Bots
       if (r.statsMissing.length && i === 0) log(`  Hinweis: game.stats ohne ${r.statsMissing.join(', ')} (SERVER-DAMAGE, §4 Zähler) – als 0 gezählt`);
     }
