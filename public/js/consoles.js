@@ -757,7 +757,7 @@
           R.text(ctx, f1(tl.left), bx + bw / 2, y + 1, { color: PAL.red, align: 'center' });
         } else { ctx.strokeStyle = PAL.panel; ctx.lineWidth = 1; ctx.strokeRect(bx + 0.5, y + 0.5, bw - 1, 14); }
         const mo = R.ui.mouse || {};
-        if (mo.x >= bx && mo.y >= y && mo.x < bx + bw && mo.y < y + 15) R.ui.tooltip = { text: H.SECTOR_NAMES[i] + ' ' + n(cur[i]) + ': ' + lk.long + ' (verteilt die Technik)', x: mo.x, y: mo.y };
+        if (mo.x >= bx && mo.y >= y && mo.x < bx + bw && mo.y < y + 15) R.ui.tooltip = { text: H.SECTOR_NAMES[i] + ' ' + n(cur[i]) + ' (verteilt die Technik)', x: mo.x, y: mo.y };
       }
     },
 

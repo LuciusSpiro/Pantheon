@@ -401,6 +401,7 @@
   {"id":"test-karte-labels","kette":"test","cmd":["tools/test-karte-labels.js"],"stufe":"fast","budget_s":7},
   {"id":"test-captain-ziel","kette":"test","cmd":["tools/test-captain-ziel.js"],"stufe":"fast","budget_s":6},
   {"id":"test-captain-zielkasten","kette":"test","cmd":["tools/test-captain-zielkasten.js"],"stufe":"fast","budget_s":6},
+  {"id":"test-schildleiste-tooltip","kette":"test","cmd":["tools/test-schildleiste-tooltip.js"],"stufe":"fast","budget_s":6},
   {"id":"test-beam-hinweis","kette":"test","cmd":["tools/test-beam-hinweis.js"],"stufe":"fast","budget_s":7},
   {"id":"test-frontsicht","kette":"test","cmd":["tools/test-frontsicht.js"],"stufe":"fast","budget_s":6},
   {"id":"test-hauptschirm-zustand","kette":"test","cmd":["tools/test-hauptschirm-zustand.js"],"stufe":"fast","budget_s":6},
