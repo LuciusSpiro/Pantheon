@@ -13,11 +13,11 @@
 //   PultAuftrag.fraktion(id)      -> { id, buchstabe, name, feld, text }   (id 'rom'|'ger'|'kon' oder Kürzel r/g/k; unbekannt -> neutral)
 //   PultAuftrag.folge(e)          -> { marke: { f, d, art, wort } | null, text }   (Objekt { f, art, d, text } oder Zeichenkette „Ruf Rom +1“)
 //   PultAuftrag.typText(typen)    -> 'Gerücht · Konvoi'
-//   PultAuftrag.verfall(rest)     -> { kurz: 'noch 7', lang: 'verfällt nach 7 Tätigkeiten', bald: bool }
+//   PultAuftrag.verfall(rest)     -> { kurz: 'noch 7 Ticks', lang: 'verfällt nach 7 Ticks', bald: bool }   (Tick = eine gezählte Tätigkeit des Fadenkerns, server/sim/faden.js taetigkeit; Erklärung: TEXT.tickHinweis)
 //   PultAuftrag.beats(schritt, gesamt) -> ['fertig', 'jetzt', 'offen', …]   (schritt 1-basiert)
 //   PultAuftrag.schritt(s)        -> { text, gefahr, wahl: [{ text, folgen: [Marke] }] | null }   (Zeichenkette oder { text, gefahr, wahl? })
 //   PultAuftrag.schrittSicht(liste, aktuell) -> [Schritt + { zustand: 'fertig'|'jetzt'|'verborgen' }]   (aktuell 1-basiert; ein verborgener Schritt trägt keinen Text, keine Gefahr, keine Wahl: Spannung, SPT-01 D)
-//   PultAuftrag.markeText(m)      -> 'Ruf Konkordat +2'; wahlText(wahl) -> 'Wahl: Helfen (Haltung Rom +1) · …'; beginnt(rest, kurz) -> 'beginnt in 3 Tätigkeiten' / 'in 3'; hudBeatW(n)
+//   PultAuftrag.markeText(m)      -> 'Ruf Konkordat +2'; wahlText(wahl) -> 'Wahl: Helfen (Haltung Rom +1) · …'; beginnt(rest, kurz) -> 'beginnt in 3 Ticks' / 'in 3'; hudBeatW(n)
 //   PultAuftrag.text(vorlage, werte), PultAuftrag.kontrast(a, b)
 //
 // Regeln (kurz, ausführlich in der Notiz):
@@ -88,13 +88,13 @@
     bereich: { x: 70, y: 42, w: 558, h: 152 },   // = PultTerminal.layout().handel (Handel, Kurs, Information nutzen dasselbe Rechteck)
     info: { x: 70, y: 198, w: 558, h: 30 },      // = PultTerminal.layout().handelInfo: Infozeile, 3 Zeilen im Raster 10
     titelY: 29,                                  // Bereichstitel AUFTRAGSBRETT und Hilfe-Zeile (wie Handel: r.y − 13)
-    liste: { w: 214, luft: 4, karteH: 46, karteHKompakt: 36, balken: 2, innen: 6, titelLuft: 6, kappeLuft: 5, rechtsLuft: 8,
+    liste: { w: 214, luft: 4, karteH: 46, karteHKompakt: 36, balken: 2, innen: 6, titelLuft: 6, kappeLuft: 5, rechtsLuft: 4,
       zeilen: { normal: [5, 18, 31], kompakt: [4, 15, 26] }, max: 3, markenMax: 3, cham: 4 },   // y der drei Textzeilen (Titel, Typ · Ort, Marken) in der Karte; Luft: Titel zur Plakette, Kappe zum Titel, Verfall zum Ort
     spalte: 10,                                  // Abstand Liste → Detail
     laeuft: { h: 30, luft: 4, balken: 3, beatW: 22, beatH: 6, beatLuft: 2, beatsMaxW: 200, x: 10, y1: 5, y2: 18, rand: 8, titelLuft: 8, fristLuft: 12, beatsLuft: 6, schrittLuft: 4 },   // x/y1/y2: Textspalte und -zeilen im Streifen
     // Detail: Titel + Auftraggeber · Anlass · Typ-Marken + Ort + Verfall · Trenner · GEFAHR · Schritte (links) | Gelingt / Scheitert (rechts)
     // Läuft ein Abenteuer, ist Annehmen gesperrt: Anlass und Folgen kürzen auf eine Zeile (voller Text als Tooltip).
-    detail: { schritteW: 178, folgenX: 186, schritteMax: 4, folgeZeilen: 3, folgeZeilenKompakt: 2, anlassZeilen: 2, anlassZeilenKompakt: 1, schritteZeichen: 28,
+    detail: { schritteW: 178, tickLuft: 3, folgenX: 186, schritteMax: 4, folgeZeilen: 3, folgeZeilenKompakt: 2, anlassZeilen: 2, anlassZeilenKompakt: 1, schritteZeichen: 28,
       kopfH: 11, folgeLuft: 3, folgeMax: 4, schrittX: 9, nach: 8, typLuft: 4, vonPlak: 4, vonText: 8, titelLuft: 10, gefahrX: 5, gefahrText: 8, tagMin: 72 },   // kopfH: Überschrift + 2 px bis zur ersten Zeile; typLuft: Abstand der Typ-Marken zum Ort; tagMin: so viel Platz bleibt dem Ort neben den Typ-Marken
     zeile: 9, zeileLuft: 10,
     kappe: { w: 11, h: 9, pad: 5 },                      // Nummernkappe 1–3 (Taste)
@@ -119,16 +119,18 @@
     hilfe: '{wahl} wählen · {an} annehmen · {ab} ablehnen', hilfeGesperrt: '{wahl} wählen · {ab} ablehnen kostet nichts',
     gelingt: 'Gelingt', scheitert: 'Scheitert', schritte: 'Schritte', gefahr: 'Gefahr', keineGefahr: 'kein Kampf angekündigt',
     ort: 'Ort', von: 'Auftrag von', herkunft: 'ab {hafen}', ortOffen: 'Ort wird im Funk genannt', herkunftTip: 'Herkunft: {hafen}', zielTip: 'Ziel: {ort}', vonTip: 'Auftraggeber: {name}',
-    laeuft: 'Läuft', schritt: 'Schritt {i} von {n}', frist: 'Frist noch {n}', fristBald: 'Frist läuft ab',
-    beginnt: 'beginnt in {n} Tätigkeiten', beginntEins: 'beginnt in 1 Tätigkeit', beginntGleich: 'beginnt gleich', hudBeginnt: 'in {n}',
+    laeuft: 'Läuft', schritt: 'Schritt {i} von {n}', frist: 'Frist noch {n} Ticks', fristBald: 'Frist läuft ab',
+    beginnt: 'beginnt in {n} Ticks', beginntEins: 'beginnt in 1 Tick', beginntGleich: 'beginnt gleich', hudBeginnt: 'in {n}',
     ruf: 'Ruf', haltung: 'Haltung', wahl: 'Wahl', wahlTip: 'Wahl: {optionen}',
-    verfallLang: 'verfällt nach {n} Tätigkeiten', verfallEins: 'verfällt nach der nächsten Tätigkeit', verfallKurz: 'noch {n}', verfallBald: 'verfällt bald',
+    verfallLang: 'verfällt nach {n} Ticks', verfallEins: 'verfällt nach dem nächsten Tick', verfallKurz: 'noch {n} Ticks', verfallKurzEins: 'noch 1 Tick', verfallBald: 'verfällt bald',
+    // Tick = eine Tätigkeit, die der Fadenkern zählt (faden.taetigkeit): Ende einer Szene, Andocken, Wahl oder Ablehnung einer Option, bewältigter Notruf mit Person. NICHT jeder Sprung.
+    tickHinweis: 'Ein Tick: Szene endet, Crew andockt, Option entschieden oder Notruf bewältigt.', tickHinweisKurz: 'Tick: Szene, Andocken u. a.',
     schrittVerborgen: '?', schrittVerborgenTip: 'Dieser Schritt wird erst gezeigt, wenn er dran ist.',
     annehmen: 'Annehmen', ablehnen: 'Ablehnen', kostetNichts: 'Ablehnen kostet nichts',
     gesperrt: 'Ein Abenteuer läuft schon', gesperrtGrund: 'Erst „{titel}“ abschließen',
     angenommen: 'Angenommen', angenommenText: 'Die Crew hat „{titel}“ angenommen.',
     geruecht: 'Gerücht', mehrSchritte: '+{n} weitere',
-    leerTitel: 'Kein Angebot', leerText: 'Gerade liegt am Brett nichts aus. Nach der nächsten Tätigkeit oder dem nächsten Abenteuer gibt es wieder Angebote.',
+    leerTitel: 'Kein Angebot', leerText: 'Gerade liegt am Brett nichts aus. Nach dem nächsten Tick oder dem nächsten Abenteuer gibt es wieder Angebote.',
     hudAbenteuer: 'Abenteuer', hudFrist: 'Frist {n}',
   };
   // Typ-Marken (Beat-Typen aus content/faeden/beats.json)
@@ -160,7 +162,10 @@
     const schritte = { x: dx, y, w: D.schritteW, h: z + 2 + D.schritteMax * z };
     const gelingt = { x: fx, y, w: fw, h: folgeH, zeilen: fz };
     const scheitert = { x: fx, y: y + folgeH + D.folgeLuft, w: fw, h: folgeH, zeilen: fz };
-    const detail = { x: dx, y: y0, w: dw, h: h0, unten: Math.max(schritte.y + schritte.h, scheitert.y + scheitert.h), titel, anlass, ort, trenner, gefahr, schritte, gelingt, scheitert };
+    const unten = Math.max(schritte.y + schritte.h, scheitert.y + scheitert.h);
+    // Tick-Hinweis (SPT-01 E): in der linken Spalte unter den Schritten, bis zur Unterkante des Details (Folgen sind dort höher als die Schritte)
+    const ty = schritte.y + schritte.h + D.tickLuft, tick = { x: dx, y: ty, w: D.schritteW, h: Math.max(0, unten - ty) };
+    const detail = { x: dx, y: y0, w: dw, h: h0, unten, titel, anlass, ort, trenner, gefahr, schritte, tick, gelingt, scheitert };
     return {
       bereich: B, titel: { x: B.x, y: MASS.titelY, w: B.w, h: z }, liste, karteH: kh, detail,
       laeuft: laeuft ? { x: B.x, y: B.y, w: B.w, h: La.h } : null,
@@ -191,10 +196,10 @@
   }
   const pfeile = (d) => (d > 0 ? '▲' : '▼').repeat(Math.min(2, Math.abs(d)));
   function typText(typen) { return (Array.isArray(typen) ? typen : []).map((t) => TYP[t] || (String(t).charAt(0).toUpperCase() + String(t).slice(1))).filter(Boolean).join(' · '); }
-  // Verfall in Tätigkeiten: bald = höchstens 2 (Gelb und „!“, Wort „verfällt bald“)
+  // Verfall in Ticks (gezählte Tätigkeiten): bald = höchstens 2 (Gelb und „!“, Wort „verfällt bald“)
   function verfall(rest) {
     const n = isNum(rest) ? Math.max(0, Math.floor(rest)) : 0, bald = n <= 2;
-    return { n, bald, kurz: bald ? '! ' + text('verfallKurz', { n }) : text('verfallKurz', { n }), lang: n <= 1 ? text('verfallEins') : text('verfallLang', { n }) };
+    return { n, bald, kurz: (bald ? '! ' : '') + (n === 1 ? text('verfallKurzEins') : text('verfallKurz', { n })), lang: n <= 1 ? text('verfallEins') : text('verfallLang', { n }) };
   }
   function beats(schritt, gesamt) {
     const n = Math.max(1, Math.min(12, isNum(gesamt) ? Math.floor(gesamt) : 1)), i = Math.max(1, Math.min(n, isNum(schritt) ? Math.floor(schritt) : 1));
@@ -217,7 +222,7 @@
   function markeText(m) { return m && m.f ? text(m.art === 'haltung' ? 'haltung' : 'ruf') + ' ' + fraktion(m.f).name + ' ' + vorzeichen(m.d) : ''; }
   // Tooltip der Wahl einer Bitte: „Wahl: Helfen (Haltung Rom +1) · Ablehnen (Haltung Rom −1)“
   function wahlText(wahl) { return text('wahlTip', { optionen: (wahl || []).map((o) => o.text + (o.folgen && o.folgen.length ? ' (' + o.folgen.map(markeText).join(', ') + ')' : '')).join(' · ') }); }
-  // Zustand „wartet“: rest ist dort die Zahl der Tätigkeiten bis zum nächsten Schritt (Server restLaufend), keine Frist
+  // Zustand „wartet“: rest ist dort die Zahl der Ticks bis zum nächsten Schritt (Server restLaufend), keine Frist
   function beginnt(rest, kurz) {
     const n = isNum(rest) ? Math.max(0, Math.floor(rest)) : 0;
     return kurz ? text('hudBeginnt', { n }) : n === 0 ? text('beginntGleich') : n === 1 ? text('beginntEins') : text('beginnt', { n });

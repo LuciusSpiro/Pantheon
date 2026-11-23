@@ -98,7 +98,7 @@
   }
   const klick = (b) => { if (b.onClick && R.ui && R.ui.buttons) R.ui.buttons.push(b); };
 
-  // FRE-03 Nacharbeit S4: ein Notruf-Angebot altert nicht in Taetigkeiten, der Server schickt kein rest: dann steht keine Frist (leere Zeichen), nie ein erfundenes "noch 0"
+  // FRE-03 Nacharbeit S4: ein Notruf-Angebot altert nicht in Ticks (Taetigkeiten), der Server schickt kein rest: dann steht keine Frist (leere Zeichen), nie ein erfundenes "noch 0"
   const verfallVon = (a) => (typeof a.rest === 'number' ? A.verfall(a.rest) : { n: 0, bald: false, kurz: '', lang: '' });
 
   // ---------------------------------------------------------------- Karte (links)
@@ -169,7 +169,7 @@
       rand(c, x, D.ort.y, w, M.tag.h, FA.tagRand); txt(c, s, x + M.tag.innen + 1, D.ort.y + M.tag.textY, FA.dim, titelO); x += w + M.tag.luft;
     });
     const ox = x + (x > D.ort.x ? Z.typLuft : 0);
-    // Herkunft und Ziel gehen vor der langen Verfallsangabe: passt „ab Hafen → Ziel“ (bzw. der Hinweis bei ort_offen) nicht neben „verfällt nach n Tätigkeiten“, steht dort die Kurzform („noch n“)
+    // Herkunft und Ziel gehen vor der langen Verfallsangabe: passt „ab Hafen → Ziel“ (bzw. der Hinweis bei ort_offen) nicht neben „verfällt nach n Ticks“, steht dort die Kurzform („noch n“)
     const voll = ortKandidaten(a)[0] || '';
     if (a.hafen && voll && tw(voll) > ende0 - ox) { vt = v.kurz; ende = D.ort.x + D.ort.w - tw(vt) - Z.nach; }
     txt(c, ortDetail(a, ende - ox), ox, D.ort.y + M.tag.textY, FA.text);   // ein langer Ortsname (bis 40 Zeichen) weicht dem Verfall
@@ -189,6 +189,12 @@
       if (zusatz) { txt(c, zusatz, te, y, FA.dim); tip({ x: S.x, y, w: S.w, h: M.zeile }, A.wahlText(s.wahl)); }
     });
     if (st.length > max) txt(c, A.text('mehrSchritte', { n: st.length - max + 1 }), S.x + Z.schrittX, S.y + Z.kopfH + (max - 1) * M.zeile, FA.dim);
+    // Tick-Hinweis (SPT-01 E) unter den Schritten, nur wo eine Frist steht (ein Notruf-Angebot altert nicht); reicht der Platz nicht für den ganzen Satz, steht die Kurzform, der Tooltip hat immer den Satz
+    if (typeof a.rest === 'number') {
+      const Hi = D.tick, rows = Math.floor(Hi.h / M.zeile), voll = T.umbruch(A.text('tickHinweis'), Hi.w, 0);
+      (voll.length <= rows ? voll : umbr(A.text('tickHinweisKurz'), Hi.w, rows)).forEach((z, i) => txt(c, z, Hi.x, Hi.y + i * M.zeile, FA.dim));
+      if (rows > 0) tip({ x: Hi.x, y: Hi.y, w: Hi.w, h: rows * M.zeile }, A.text('tickHinweis'));
+    }
     // Gelingt | Scheitert: ohne laufendes Abenteuer 6 Zeilen für beide; der Scheitern-Satz des Servers steht als letzte Zeile unter SCHEITERT, braucht Scheitert höchstens 2 Zeilen, bekommt Gelingt bis zu 4
     const vs = a.vorschau || {}, G = D.gelingt, Sc = D.scheitert, kompakt = G.zeilen < Z.folgeZeilen;
     const gi = folgenInhalt(vs.gelingt, G.w), si = folgenInhalt(vs.scheitert, Sc.w), satz = !kompakt && scheitern ? scheitern : '';
@@ -207,7 +213,7 @@
   }
 
   // ---------------------------------------------------------------- Laufend (Streifen oben), leer, Infozeile
-  // Zustand „wartet“ (der Start des nächsten Schritts steht noch aus): rest ist die Zahl der Tätigkeiten bis dahin, keine Frist (Server restLaufend). Rechts steht dann „beginnt in n Tätigkeiten“ in dim,
+  // Zustand „wartet“ (der Start des nächsten Schritts steht noch aus): rest ist die Zahl der Ticks bis dahin, keine Frist (Server restLaufend). Rechts steht dann „beginnt in n Ticks“ in dim,
   // und der Beat „jetzt“ ist hohl (Doppelrahmen), nicht voll: die Form trägt den Unterschied zu „läuft“, nicht die Farbe.
   function laeuftStreifen(c, r, l) {
     const wartet = l.ph !== 'laeuft';
@@ -215,7 +221,7 @@
     const x0 = r.x + LA.x, y1 = r.y + LA.y1, y2 = r.y + LA.y2;
     const e = txt(c, A.text('laeuft'), x0, y1, FA.laeuft, titelO);
     const v = A.verfall(l.rest), fe = r.x + r.w - LA.rand;
-    const fr = wartet ? A.beginnt(l.rest) : v.n <= 1 ? '! ' + A.text('fristBald') : A.text('frist', { n: v.n }) + (v.n === 1 ? ' Tätigkeit' : ' Tätigkeiten');
+    const fr = wartet ? A.beginnt(l.rest) : v.n <= 1 ? '! ' + A.text('fristBald') : A.text('frist', { n: v.n });
     txt(c, fr, fe, y1, wartet ? FA.dim : v.bald ? FA.bald : FA.text, { align: 'right' });
     txt(c, kuerzen(l.titel, fe - tw(fr) - LA.fristLuft - (e + LA.titelLuft)), e + LA.titelLuft, y1, FA.text);
     const b = A.beats(l.schritt, l.schritte_gesamt), bw = Math.min(LA.beatW, Math.floor((LA.beatsMaxW - (b.length - 1) * LA.beatLuft) / b.length));
@@ -274,7 +280,7 @@
     rect(c, x, y, H.balken, H.h, FA.laeuft);
     const y1 = y + H.y1, y2 = y + H.y2, re = x + H.w - H.innen;
     const v = A.verfall(l.rest);
-    // rechts: eben angenommen (mint), sonst die Frist (ab 2 Tätigkeiten „!“ in Gelb); wartet das Abenteuer auf den nächsten Schritt, ist rest keine Frist: dim „in n“ (Tätigkeiten bis zum Schritt)
+    // rechts: eben angenommen (mint), sonst die Frist (ab 2 Ticks „!“ in Gelb); wartet das Abenteuer auf den nächsten Schritt, ist rest keine Frist: dim „in n“ (Ticks bis zum Schritt)
     const rechts = l.neu ? A.text('angenommen').toUpperCase() : wartet ? A.beginnt(l.rest, true) : (v.bald ? '! ' : '') + A.text('hudFrist', { n: v.n });
     const rcol = l.neu ? FA.laeuft : wartet ? FA.hudDim : v.bald ? FA.bald : FA.hudDim;
     txt(c, rechts, re, y1, rcol, { align: 'right' });

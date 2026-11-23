@@ -1,8 +1,10 @@
 'use strict';
-// SPT-01 D: Auftragsbrett, Schritte mit Fragezeichen (E „Ticks“ im Folgecommit). Ohne Browser, mit den ECHTEN Dateien pult-terminal-tokens.js, pult-auftrag-tokens.js, pult-terminal-brett.js, brett.js.
+// SPT-01 D + E: Auftragsbrett, Schritte mit Fragezeichen und „Ticks“. Ohne Browser, mit den ECHTEN Dateien pult-terminal-tokens.js, pult-auftrag-tokens.js, pult-terminal-brett.js, brett.js.
 //  D: ein Angebot zeigt nur Schritt 1, die übrigen Schritte als „?“; kein Text, keine Bake, keine Wahl eines späteren Schritts steht irgendwo (gezeichneter Text, Klick- und Tooltipflächen);
 //     die Gesamtzeile GEFAHR bleibt, nennt aber nur einen sichtbaren gefährlichen Schritt; Gelingt/Scheitert/Scheitern-Satz bleiben unverändert; der laufende Auftrag zeigt nur den aktuellen Schritt.
 //     Mutationsprobe im Test: ohne Maskierung (A.schrittSicht gibt alles frei) schlägt die Leckprüfung an.
+//  E: „noch n Ticks“, „verfällt nach n Ticks“, Hinweis, was ein Tick ist (an die Arten gebunden, die der Fadenkern zählt, content/faeden/werte.json); Notruf-Angebot ohne Frist und ohne Hinweis;
+//     das Wort „Tätigkeit(en)“ steht nirgends mehr im sichtbaren Text.
 //   node tools/test-schritte-maske.js
 const fs = require('fs');
 const path = require('path');
@@ -13,6 +15,7 @@ const J = (f) => fs.readFileSync(path.join(ROOT, 'public', 'js', f), 'utf8');
 const PA = require('../public/js/pult-auftrag-tokens.js');
 const KT = require('../public/js/karte-tokens.js');
 const B = require('../public/js/brett.js');
+const WERTE = JSON.parse(fs.readFileSync(path.join(ROOT, 'content', 'faeden', 'werte.json'), 'utf8'));
 let fails = 0;
 const ok = (c, t) => { if (c) console.log('  ok   ' + t); else { fails++; console.log('  FEHLER ' + t); } };
 const section = (t) => console.log('\n[' + t + ']');
@@ -128,6 +131,45 @@ section('D4: Mutationsprobe: ohne Maskierung schlägt die Leckprüfung an');
   ok(lecks.length === 3, 'Mutation (alle Schritte sichtbar): die Leckprüfung findet ' + lecks.join(', '));
   zeichne(baustein(modell({ angebote: [A4] })));
   ok(leckt(SPAETER).length === 0, 'mit der Maskierung wieder dicht');
+}
+
+// ================================================================ E1: Ticks
+section('E1: „noch n Ticks“ / „verfällt nach n Ticks“ und der Hinweis');
+{
+  const v = PA.verfall;
+  ok(v(9).kurz === 'noch 9 Ticks' && v(9).lang === 'verfällt nach 9 Ticks' && v(0).kurz === '! noch 0 Ticks' && v(1).kurz === '! noch 1 Tick' && v(1).lang === 'verfällt nach dem nächsten Tick' && v(2).kurz === '! noch 2 Ticks', 'Kurzform, Langform, Einzahl (1 Tick), bald mit „!“');
+  ok(PA.beginnt(3) === 'beginnt in 3 Ticks' && PA.beginnt(1) === 'beginnt in 1 Tick' && PA.text('frist', { n: 5 }) === 'Frist noch 5 Ticks' && /Tick/.test(TEXT.leerText), 'beginnt, Frist und leerer Zustand sagen Ticks');
+  // Der Hinweis nennt jede Art, die der Fadenkern zählt (content/faeden/werte.json taetigkeiten), und nur diese
+  const arten = WERTE.werte.taetigkeiten.wert, wort = { szene_ende: /Szene endet/, andocken: /andockt/, absicht: /Option/, notruf: /Notruf/ };
+  ok(arten.every((a) => wort[a] && wort[a].test(TEXT.tickHinweis)) && Object.keys(wort).length === arten.length, 'der Hinweis nennt jede gezählte Art (' + arten.join(', ') + ') und keine andere');
+  ok(!/Sprung|Sprünge/.test(TEXT.tickHinweis + TEXT.tickHinweisKurz), 'der Hinweis behauptet keinen Sprung (ein Sprung zählt nicht als Tick des Angebots)');
+  zeichne(baustein(modell({ angebote: [A4] })));
+  const T0 = D.tick, zeilen = rec.texte.filter((t) => t.x === T0.x && t.y >= T0.y && t.y < T0.y + T0.h);
+  ok(zeilen.length >= 2 && zeilen.map((t) => t.s).join(' ') === TEXT.tickHinweis, 'Detail: der volle Hinweis steht in der linken Spalte unter den Schritten (' + zeilen.length + ' Zeilen)');
+  ok(zeilen.every((t) => t.col === FARBE.dim && t.x + t.w <= T0.x + T0.w && t.y + t.h <= D.unten), 'Hinweis in dim, innerhalb der Spalte und über der Unterkante des Details');
+  ok(R2.ui.buttons.some((b) => b.label === TEXT.tickHinweis), 'Tooltip mit dem vollen Satz');
+  ok(hat('verfällt nach 9 Ticks') && hat('noch 9 Ticks'), 'Karte „noch 9 Ticks“, Detail „verfällt nach 9 Ticks“');
+  // kompakt (ein Abenteuer läuft): nur eine Zeile Platz: Kurzform
+  const laufend = { id: 'a9', titel: 'L', schritt: 2, schritte_gesamt: 4, schritt_text: 'x', ph: 'laeuft', rest: 5 };
+  zeichne(baustein(modell({ angebote: [A4], laufend })));
+  const Dk = PA.layout(true).detail.tick, zk = rec.texte.filter((t) => t.x === Dk.x && t.y >= Dk.y && t.y < Dk.y + Dk.h);
+  ok(zk.length === 1 && zk[0].s === TEXT.tickHinweisKurz, 'kompaktes Detail: ' + zk.length + ' Zeile, Kurzform „' + TEXT.tickHinweisKurz + '“');
+}
+section('E2: Notruf-Angebot ohne Frist und ohne Hinweis; „Tätigkeit“ nirgends sichtbar');
+{
+  const NOTRUF = { id: 'a5', titel: 'Notruf: Kutter', ort: '0603', ortname: 'Speculum', von: 'rom', notruf: 1, hafen: 'Kantenstein', anlass: 'Ein Schiff ruft um Hilfe.', typen: ['notruf'] };
+  const m = modell({ angebote: [NOTRUF] });
+  ok(m.angebote[0].rest === null, 'ohne rest bleibt rest null');
+  zeichne(baustein(m));
+  ok(!hatTeil(/Tick|noch \d|verfällt|Frist/) && !alleTexte().some((s) => /Ticks? zählt/.test(s)), 'kein „noch n“, kein „verfällt“, kein Tick-Hinweis (auch nicht als Tooltip)');
+  // alle Zustände: das Wort Tätigkeit steht nirgends
+  const lf = (ph, rest) => ({ id: 'a9', titel: 'L', schritt: 2, schritte_gesamt: 3, schritt_text: 'x', ph, rest });
+  const faelle = [baustein(modell({ angebote: [A4, NOTRUF] })), baustein(modell({ angebote: [A4], laufend: lf('laeuft', 5) })), baustein(modell({ angebote: [A4], laufend: lf('wartet', 3) })), baustein(modell({ angebote: [], laufend: lf('laeuft', 2) }))];
+  let treffer = [];
+  faelle.forEach((b) => { zeichne(b); treffer = treffer.concat(alleTexte().filter((s) => /Tätigkeit/i.test(s))); });
+  [{ ph: 'wartet', rest: 3 }, { ph: 'laeuft', rest: 5 }, { ph: 'wartet', rest: 1, neu: true }].forEach((o) => { rec.texte.length = 0; PT.zeichneAbenteuerHud(ctx, 40, Object.assign({ titel: 'L', schritt: 2, schritte_gesamt: 3, schritt_text: 'x', gefahr: false }, o)); treffer = treffer.concat(rec.texte.map((t) => t.s).filter((s) => /Tätigkeit/i.test(s))); });
+  ok(treffer.length === 0, 'Brett (Angebot, laufend, wartend, leer) und HUD zeigen nie „Tätigkeit“ (' + treffer.join(' | ') + ')');
+  ok(Object.values(TEXT).every((s) => !/Tätigkeit/i.test(s)), 'die Texttabelle von PultAuftrag enthält das Wort nicht mehr');
 }
 
 console.log(fails ? '\n' + fails + ' FEHLER' : '\nSCHRITTE-MASKE OK');

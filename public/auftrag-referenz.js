@@ -130,7 +130,7 @@
     P.cham(c, r.x, r.y, r.w, r.h, FA.kachel, 0, 0, 4, 0); rect(c, r.x, r.y, La.balken, r.h, FA.laeuft);
     const x0 = r.x + 10, y1 = r.y + 5, y2 = r.y + 18;
     const e = txt(c, A.text('laeuft'), x0, y1, FA.laeuft, titelO);
-    const v = A.verfall(l.rest), fr = v.n <= 1 ? '! ' + A.text('fristBald') : A.text('frist', { n: v.n }) + (v.n === 1 ? ' Tätigkeit' : ' Tätigkeiten');
+    const v = A.verfall(l.rest), fr = v.n <= 1 ? '! ' + A.text('fristBald') : A.text('frist', { n: v.n });
     const fe = r.x + r.w - 8; txt(c, fr, fe, y1, v.bald ? FA.bald : FA.text, { align: 'right' });
     txt(c, kuerzen(l.titel, fe - tw(fr) - 12 - (e + 8)), e + 8, y1, FA.text);
     const b = A.beats(l.schritt, l.schritte_gesamt), bw = Math.min(La.beatW, Math.floor((La.beatsMaxW - (b.length - 1) * La.beatLuft) / b.length));
@@ -204,7 +204,7 @@
     rect(c, x, y, H.balken, H.h, FA.laeuft);
     const y1 = y + 3, y2 = y + 13, re = x + H.w - H.innen;
     const v = A.verfall(l.rest);
-    const rechts = l.neu ? A.text('angenommen').toUpperCase() : (v.bald ? '! ' : '') + A.text('hudFrist', { n: v.n });   // „Frist 7“: Einheit Tätigkeiten (Tooltip/Hilfe), „!“ + Gelb ab 2
+    const rechts = l.neu ? A.text('angenommen').toUpperCase() : (v.bald ? '! ' : '') + A.text('hudFrist', { n: v.n });   // „Frist 7“: Einheit Ticks (Tooltip/Hilfe), „!“ + Gelb ab 2
     const rcol = l.neu ? FA.laeuft : v.bald ? FA.bald : FA.hudDim;
     txt(c, rechts, re, y1, rcol, { align: 'right' });
     txt(c, kuerzen(l.titel, re - tw(rechts) - 6 - (x + H.innen)), x + H.innen, y1, FA.hudTitel);

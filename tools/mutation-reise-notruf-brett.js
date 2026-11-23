@@ -32,7 +32,7 @@ const MUTATIONEN = [
   [BR, "  entfernen(F, a);\n  return true;\n}", "  return true;\n}", 'zurueckziehenFuerNotruf entfernt nichts'],
   [RE, "  if (ev && ev.takt === true) return;\n", "", 'alter Hook: auch Takt-Notrufe legen ein zweites Angebot in F.angebote an'],
   // ---- Altern und Obergrenzen
-  [FA, "for (const a of F.abenteuerAngebote) if (!a.notruf) a.alter++;", "for (const a of F.abenteuerAngebote) a.alter++;", 'Notruf-Angebote altern in Tätigkeiten'],
+  [FA, "for (const a of F.abenteuerAngebote) if (!a.notruf) a.alter++;", "for (const a of F.abenteuerAngebote) a.alter++;", 'Notruf-Angebote altern in Ticks (Tätigkeiten)'],
   [FA, "a.notruf || a.alter <= W.abenteuer.angebot_gilt_taetigkeiten", "a.alter <= W.abenteuer.angebot_gilt_taetigkeiten", 'Notruf-Angebote verfallen nach angebot_gilt_taetigkeiten'],
   [BR, "if (da.length >= NB.notruf_angebote_max || da.some((a) => a.notruf.marke === o.marke)) return null;", "if (da.some((a) => a.notruf.marke === o.marke)) return null;", 'notruf_angebote_max wird nicht eingehalten'],
   [BR, "if (da.length >= NB.notruf_angebote_max || da.some((a) => a.notruf.marke === o.marke)) return null;", "if (da.length >= NB.notruf_angebote_max) return null;", 'dieselbe Marke bekommt ein zweites Angebot'],
