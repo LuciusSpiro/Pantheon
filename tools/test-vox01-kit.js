@@ -28,11 +28,22 @@ async function main() {
   console.log('\n[Bauweise rom_feld: Daten]');
   ok(achsen.bauweisen.rom_feld && achsen.bauweisen.rom_feld.status === 'aktiv', 'achsen.json: rom_feld aktiv (Prefetch, Prüfer)');
   ok(tab.rom_feld.format === 'bauweise/1' && tab.rom_feld.id === 'rom_feld', 'rom_feld.json: format, id');
-  const sameKits = Object.keys(tab.rom.kits).filter((k) => !['plateau', 'kante', 'rampe', 'baum', 'brustwehr', 'grabensohle'].includes(k));
-  ok(sameKits.length > 15 && sameKits.every((k) => JSON.stringify(tab.rom_feld.kits[k]) === JSON.stringify(tab.rom.kits[k])), `alles andere wie rom.json (${sameKits.length} Kit-Einträge gleich)`);
+  // SCH-02: rom.json trägt zusätzlich die Schiff-Einträge (Kits fels/leere/abgrund, Anker lift/leiter und der Schlüssel "schiff" je Anker). Schiffe gibt es nur
+  // in der Bauweise rom, nie in rom_feld (Feldkarten). Diese Einträge sind hier ausdrücklich und benannt ausgenommen; jede andere Abweichung bleibt ein Fehler.
+  const SCHIFF_KITS = ['fels', 'leere', 'abgrund'], SCHIFF_ANKER = ['lift', 'leiter'];
+  const ohneSchiffAnker = (anker) => { const o = {}; for (const [k, v] of Object.entries(anker)) { if (SCHIFF_ANKER.includes(k)) continue; const c = JSON.parse(JSON.stringify(v)); delete c.schiff; o[k] = c; } return o; };
+  const kitsGleich = (feld, rom) => { const ks = Object.keys(rom.kits).filter((k) => !['plateau', 'kante', 'rampe', 'baum', 'brustwehr', 'grabensohle', ...SCHIFF_KITS].includes(k)); return ks.length > 15 && ks.every((k) => JSON.stringify(feld.kits[k]) === JSON.stringify(rom.kits[k])) ? ks.length : 0; };
+  const ankerGleich = (feld, rom) => { const a = ohneSchiffAnker(feld.anker); delete a.aussicht; a.ziel.aussenposten = rom.anker.ziel.aussenposten; return JSON.stringify(a) === JSON.stringify(ohneSchiffAnker(rom.anker)); };
+  ok(kitsGleich(tab.rom_feld, tab.rom) > 15, `alles andere wie rom.json (${kitsGleich(tab.rom_feld, tab.rom)} Kit-Einträge gleich, ohne Schiff-Kits ${SCHIFF_KITS.join('/')})`);
   ok(['leit', 'leit_fuss', 'deckung_props', 'weg_boden'].every((k) => JSON.stringify(tab.rom_feld[k]) === JSON.stringify(tab.rom[k])), 'leit, leit_fuss, deckung_props, weg_boden wie rom.json');
-  const ankerOhne5c = JSON.parse(JSON.stringify(tab.rom_feld.anker)); delete ankerOhne5c.aussicht; ankerOhne5c.ziel.aussenposten = tab.rom.anker.ziel.aussenposten;
-  ok(JSON.stringify(ankerOhne5c) === JSON.stringify(tab.rom.anker), 'anker wie rom.json, abweichend nur aussicht (neu) und ziel.aussenposten (VOX-01 5c)');
+  ok(ankerGleich(tab.rom_feld, tab.rom), 'anker wie rom.json, abweichend nur aussicht (neu), ziel.aussenposten (VOX-01 5c) und die Schiff-Einträge (lift, leiter, Schlüssel schiff; SCH-02, in rom_feld nie gebraucht)');
+  {   // Gegenproben: Abweichungen außerhalb Schiff müssen weiter auffallen
+    const kl = JSON.parse(JSON.stringify(tab.rom_feld)); kl.kits.boden = { id: 'kit/rom/anders' };
+    const al = JSON.parse(JSON.stringify(tab.rom_feld)); al.anker.sprengpunkt['*'] = 'prop/anders';
+    const as = JSON.parse(JSON.stringify(tab.rom_feld)); as.anker.sprengpunkt.schiff = 'prop/rom/schiff/reaktor_schiff'; as.anker.lift = { '*': 'x' };
+    ok(kitsGleich(kl, tab.rom) === 0 && !ankerGleich(al, tab.rom), 'Gegenprobe: geänderter Kit-Eintrag (boden) und geänderter Anker (sprengpunkt *) außerhalb Schiff fallen auf');
+    ok(ankerGleich(as, tab.rom), 'Gegenprobe: Schiff-Einträge in rom_feld ändern das Ergebnis nicht (ausdrücklich ausgenommen)');
+  }
   ok(tab.rom_feld.paletten.art.aussenposten === 'sommer_wald' && man.has('kit/rom_feld/boden') && fs.existsSync(path.join(ROOT, 'public/voxel/assets/palettes/sommer_wald.json')), 'Palette sommer_wald (synchronisiert)');
   const E = (bw, kind, art = 'aussenposten') => R.eintragVon(tab[bw].kits[kind], art);
   const pl = E('rom_feld', 'plateau'), ra = E('rom_feld', 'rampe'), ka = E('rom_feld', 'kante'), gs = E('rom_feld', 'grabensohle'), bw = E('rom_feld', 'brustwehr'), ba = E('rom_feld', 'baum');

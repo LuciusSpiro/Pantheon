@@ -3,9 +3,9 @@
   "name": "Rom-Schiff innen, verfallen – schwächeres, kälteres Licht, leichter Nebel, gedimmt; Weltraum-Hintergrund dunkel",
   "background": "#05070C",
   "fog": { "color": "#161A20", "near": 1.4, "far": 4.6 },
-  "hemi": { "sky": "#8E9AA4", "ground": "#1E1B18", "intensity": 0.7 },
+  "hemi": { "sky": "#8E9AA4", "ground": "#1E1B18", "intensity": 0.8 },
   "ambient": { "color": "#2A2E34", "intensity": 0.28 },
   "sun": { "color": "#C4CCD0", "intensity": 0.85, "dir": [-0.3, 1, 0.35], "softness": 4 },
-  "exposure": 1.1,
+  "exposure": 1.15,
   "bloom": { "strength": 0.7, "radius": 0.5, "threshold": 0.75 }
 }

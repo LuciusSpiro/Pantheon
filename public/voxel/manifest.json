@@ -19733,7 +19733,7 @@
         ]
       },
       "budgetTris": 2500,
-      "measuredTris": 2160,
+      "measuredTris": 2394,
       "tags": [
         "rom",
         "schiff",
@@ -19799,7 +19799,7 @@
         ]
       },
       "budgetTris": 2500,
-      "measuredTris": 1810,
+      "measuredTris": 1988,
       "tags": [
         "rom",
         "schiff",
@@ -19972,12 +19972,8 @@
           0
         ]
       },
-      "tint": [
-        "cloth",
-        "cloth2"
-      ],
       "budgetTris": 2500,
-      "measuredTris": 1712,
+      "measuredTris": 1390,
       "tags": [
         "rom",
         "schiff",
@@ -19996,7 +19992,7 @@
         1,
         1
       ],
-      "height": 1.69,
+      "height": 1.38,
       "facing": "+z",
       "params": {
         "state": [
@@ -20021,6 +20017,16 @@
           0,
           0.6
         ],
+        "light": [
+          0,
+          1,
+          0
+        ],
+        "label": [
+          0,
+          1.6,
+          0
+        ],
         "hand": [
           0,
           0.82,
@@ -20035,20 +20041,10 @@
           0,
           0.8,
           0.12
-        ],
-        "light": [
-          0,
-          1.15,
-          0
-        ],
-        "label": [
-          0,
-          1.9,
-          0
         ]
       },
       "budgetTris": 2500,
-      "measuredTris": 1202,
+      "measuredTris": 1372,
       "tags": [
         "rom",
         "schiff",

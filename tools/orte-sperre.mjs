@@ -75,7 +75,7 @@ export function pruefeOrte(ctx, opts = {}) {
       if (istObj(dp)) for (const [kind, l] of Object.entries(dp)) if (Array.isArray(l)) for (const id of l) melde(bw, art, `deckung_props.${kind}`, id);
       // Deko: jeder Platztyp der Kartenart und '*' (Freiland ohne Platz). Ohne eigene Regel gilt '*'.
       const d = ctx.deko && ctx.deko[bw] && ctx.deko[bw].regeln;
-      if (d) for (const typ of [...(ctx.platztypen[art] || []), '*']) { const r = d[art + ':' + typ] || d[art + ':*']; if (r) for (const id of r.props || []) melde(bw, art, `deko.${art}:${typ}`, id); }
+      if (d) for (const typ of [...(ctx.platztypen[art] || []), '*']) { const r = d[art + ':' + typ] || d[art + ':*']; if (r) for (const e of r.props || []) { const id = idVon(e); if (id) melde(bw, art, `deko.${art}:${typ}`, id); } }   // SCH-02 C3: Eintrag = ID oder { id, params, gewicht }
       const rr = ctx.raumRollen && ctx.raumRollen[art];
       if (rr && istObj(rr.rollen)) for (const [name, def] of Object.entries(rr.rollen)) for (const id of [].concat(def[bw] || [])) melde(bw, art, `rollen.${name}`, id);
     }

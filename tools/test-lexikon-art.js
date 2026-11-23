@@ -29,5 +29,24 @@ ok(Lex.laengste('{{lex.ziel}}') >= Math.max(Lex.aufloesenFuerArt('{{lex.ziel}}',
 // artVon: Kartenart aus Landepunkt-Eintrag, Handkarte/leer = null
 ok(Lex.artVon({ landepunkte: { eintraege: { m1: { art: 'schiff' } } } }, 'm1') === 'schiff' && Lex.artVon({ landepunkte: { dyn: { m2: { art: 'hand' } } } }, 'm2') === null && Lex.artVon({}, null) === null, 'artVon: Eintrag, hand, leer');
 
+// Verdrahtung: Mission.tpl loest {{lex.*}} ueber die Kartenart des Landepunkts auf (server/sim/mission.js tpl -> lexBauweise/lexArt -> Lexikon.aufloesenFuerArt).
+// Faellt die Zeile auf Lexikon.aufloesen(text, bauweise) zurueck, bleibt das Rom-Schiff beim Kastell-Wort (Mutationsprobe im Bericht SCH-02 Nacharbeit).
+{
+  const path = require('path');
+  process.chdir(path.join(__dirname, '..'));
+  const { Mission } = require('../server/sim/mission.js');
+  const mission = (eintrag) => new Mission({ landepunkte: { dyn: { kz: eintrag } }, aways: {}, countError() { /* kein @-Text */ } });
+  const def = { buehne: { aussenkarten: ['kz'] } };   // einzige Aussenkarte der Buehne = Landepunkt (lexKarte)
+  const TT = 'Lies {{lex.terminal:den}} und sprenge {{lex.sprengpunkt:den}}.';
+  const m = (eintrag) => mission(eintrag).tpl(TT, def);
+  const rS = m({ art: 'schiff', bauweise: 'rom' });
+  ok(/Logbuchpult/.test(rS) && /Reaktorkern/.test(rS) && !/Wachbuch|Pulverkammer/.test(rS), 'Mission.tpl: Landepunkt art schiff + bauweise rom -> Logbuchpult/Reaktorkern (' + rS + ')');
+  ok(rS === Lex.aufloesenFuerArt(TT, 'rom', 'schiff'), 'Mission.tpl rom/schiff = Lexikon.aufloesenFuerArt');
+  ok(m({ art: 'station', bauweise: 'rom' }) === Lex.aufloesen(TT, 'rom') && m({ art: 'aussenposten', bauweise: 'rom' }) === Lex.aufloesen(TT, 'rom'), 'Mission.tpl rom/station und rom/aussenposten: unveraendert');
+  ok(/Wachbuch/.test(m({ art: 'station', bauweise: 'rom' })), 'Mission.tpl rom/station: weiter Kastell-Wort (Wachbuch)');
+  ok(m({ art: 'schiff', bauweise: 'germanen' }) === Lex.aufloesen(TT, 'germanen') && m({ art: 'station', bauweise: 'germanen' }) === Lex.aufloesen(TT, 'germanen'), 'Mission.tpl germanen (Schiff und Station): unveraendert');
+  ok(mission({ art: 'hand' }).tpl(TT, def) === Lex.aufloesen(TT, null), 'Mission.tpl Handkarte ohne Bauweise: neutral wie zuvor');
+}
+
 console.log(`\n${n - bad}/${n} ok${bad ? ', ' + bad + ' FEHLER' : ''}`);
 process.exit(bad ? 1 : 0);

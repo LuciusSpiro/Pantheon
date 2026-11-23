@@ -1,7 +1,7 @@
 {
   "id": "prop/rom/schiff/reaktor_schiff",
   "name": "Schiffsreaktor: Tholos mit Glühkern, schlank (Rom, Sprengpunkt)",
-  "notes": "Anker sprengpunkt. Schlanke Eigenfassung im Stil von lerche/station/reactor (Tholos, sechs Säulen, Bronzekuppel mit Oculus), jitter 0, unter 2 500 Dreiecken. state 0 intakt (kaltblauer Kern), 1 scharf (Sprengpaket am Altar, Ladungen an den Säulen, rote Blinklichter, Kern Amber), 2 zerstört (Kuppel eingebrochen, Säule gebrochen, Ruß, Glutnest).",
+  "notes": "Anker sprengpunkt. Schlanke Eigenfassung im Stil von lerche/station/reactor (Tholos, vier Säulen, Bronzekuppel mit Oculus), jitter 0, unter 2 500 Dreiecken. state 0 intakt, auch 3 platziert, das das Spiel für Sprengpunkte nach dem Setzen übergibt (kaltblauer Kern), 1 scharf (Sprengpaket am Altar, Ladungen an den Säulen, rote Blinklichter, Kern Amber), 2 zerstört (Kuppel eingebrochen, Säule gebrochen, Ruß, Glutnest).",
   "tier": "detail",
   "palette": "lerche_rom",
   "jitter": 0,
@@ -10,16 +10,16 @@
   "params": {
     "state": { "default": 0, "min": 0, "max": 2, "step": 1, "label": "Zustand 0 intakt / 1 scharf / 2 zerstört" }
   },
-  "let": { "tot": "state == 2", "arm": "state == 1" },
+  "let": { "tot": "state == 2", "arm": "state == 1", "int": "state == 0 || state == 3" },
   "variants": { "scharf": { "state": 1 }, "zerstoert": { "state": 2 } },
   "ops": [
     { "op": "box", "name": "Sockel", "at": [-8, 0, -8], "size": [16, 2, 16], "color": "metal_dark" },
     { "op": "cyl", "name": "Stufe Marmor", "at": [0, 2, 0], "r": 7, "h": 2, "color": "secondary" },
 
-    { "op": "cyl", "name": "Kern blau", "if": "state == 0", "at": [0, 4, 0], "r": 2.2, "h": 10, "color": { "role": "glow", "emit": 2.2 }, "jitter": false },
+    { "op": "cyl", "name": "Kern blau", "if": "int", "at": [0, 4, 0], "r": 2.2, "h": 10, "color": { "role": "glow", "emit": 2.2 }, "jitter": false },
     { "op": "cyl", "name": "Kern amber (scharf)", "if": "arm", "at": [0, 4, 0], "r": 2.2, "h": 10, "color": { "role": "glow2", "emit": 2.6 }, "jitter": false },
     { "op": "cyl", "name": "Kern dunkel", "if": "tot", "at": [0, 4, 0], "r": 2.2, "h": 10, "color": "glass", "jitter": false },
-    { "op": "cyl", "name": "Kernring Bronze", "at": [0, 8, 0], "r": 2.8, "h": 1, "color": "metal_dark", "repeat": { "count": 1, "step": [0, 4, 0] } },
+    { "op": "cyl", "name": "Kernring Bronze", "at": [0, 8, 0], "r": 2.8, "h": 1, "color": "metal_dark" },
 
     { "op": "group", "name": "Vier Säulen", "mirror": "x", "mirrorAt": 0, "ops": [
       { "op": "group", "name": "Säule vorn", "at": [4.5, 0, 4], "ops": [
@@ -38,7 +38,7 @@
     { "op": "cyl", "name": "Kuppelfuß Rot", "at": [0, 17, 0], "r": 6.8, "h": 1, "hollow": 1.2, "mode": "paint", "color": "primary" },
     { "op": "cyl", "name": "Oculus", "at": [0, 16, 0], "r": 2.2, "h": 7, "mode": "carve" },
     { "op": "cyl", "name": "Laterne Fuß", "at": [0, 21, 0], "r": 2.4, "h": 1, "color": "metal_dark" },
-    { "op": "cyl", "name": "Laterne blau", "if": "state == 0", "at": [0, 22, 0], "r": 1.8, "h": 2, "color": { "role": "glow", "emit": 2.2 }, "jitter": false },
+    { "op": "cyl", "name": "Laterne blau", "if": "int", "at": [0, 22, 0], "r": 1.8, "h": 2, "color": { "role": "glow", "emit": 2.2 }, "jitter": false },
     { "op": "cyl", "name": "Laterne amber (scharf)", "if": "arm", "at": [0, 22, 0], "r": 1.8, "h": 2, "color": { "role": "glow2", "emit": 2.4 }, "jitter": false },
     { "op": "cyl", "name": "Laterne dunkel", "if": "tot", "at": [0, 22, 0], "r": 1.8, "h": 2, "color": "glass", "jitter": false },
     { "op": "cyl", "name": "Laternenkappe", "at": [0, 24, 0], "r": 2.2, "h": 1, "color": "trim" },
