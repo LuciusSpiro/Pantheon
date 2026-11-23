@@ -176,11 +176,13 @@
     tip({ x: ox, y: D.ort.y, w: Math.max(0, ende - ox), h: M.tag.h }, ortTip(a));
     if (vt) txt(c, vt, D.ort.x + D.ort.w, D.ort.y + M.tag.textY, v.bald ? FA.bald : FA.dim, { align: 'right' });
     rect(c, D.trenner.x, D.trenner.y, D.trenner.w, 1, FA.trenner);
-    // Schritte (höchstens 4, sonst „+n weitere“), gefährliche mit kleiner Bake, eine Bitte mit „· Wahl“ und ihren Optionen samt Marken im Tooltip
-    const S = D.schritte, st = ((a.vorschau && a.vorschau.schritte) || []).map(A.schritt), max = Z.schritteMax;
+    // Schritte (höchstens 4, sonst „+n weitere“), gefährliche mit kleiner Bake, eine Bitte mit „· Wahl“ und ihren Optionen samt Marken im Tooltip.
+    // SPT-01 D: ein Angebot zeigt nur Schritt 1, die übrigen als „?“ (A.schrittSicht, ohne Text, Bake und Wahl: nichts verrät den späteren Schritt)
+    const S = D.schritte, st = A.schrittSicht((a.vorschau && a.vorschau.schritte) || [], 1), max = Z.schritteMax;
     txt(c, A.text('schritte'), S.x, S.y, FA.dim, titelO);
     st.slice(0, st.length > max ? max - 1 : max).forEach((s, i) => {
       const y = S.y + Z.kopfH + i * M.zeile; txt(c, String(i + 1), S.x, y, FA.dim);
+      if (s.zustand === 'verborgen') { txt(c, A.text('schrittVerborgen'), S.x + Z.schrittX, y, FA.dim); tip({ x: S.x, y, w: S.w, h: M.zeile }, A.text('schrittVerborgenTip')); return; }
       let tx = S.x + Z.schrittX; if (s.gefahr) { bake(c, tx, y, M.bakeKlein.w, M.bakeKlein.h, M.bakeKlein.schritt); tx += M.bakeKlein.w + M.bakeKlein.luft; }
       const zusatz = s.wahl ? ' · ' + A.text('wahl') : '';
       const te = txt(c, kuerzen(s.text, S.x + S.w - tx - tw(zusatz)), tx, y, FA.text);
@@ -198,8 +200,9 @@
     folgenBlock(c, G.x, G.y, G.w, A.text('gelingt'), gi, gn);
     folgenBlock(c, Sc.x, kompakt ? Sc.y : G.y + Z.kopfH + gn * M.zeile + Z.folgeLuft, Sc.w, A.text('scheitert'), si, sn, satz);
     // Gefahr: Bake + Wort + der gefährliche Schritt; ohne Gefahr ausdrücklich „kein Kampf angekündigt“ (Gefahr wird angekündigt)
-    const Ge = D.gefahr;
-    if (vs.gefahr) { bake(c, Ge.x, Ge.y, M.bake.w, M.bake.h); const gx = txt(c, A.text('gefahr'), Ge.x + M.bake.w + Z.gefahrX, Ge.y + 1, FA.gefahrText, titelO); txt(c, kuerzen(vs.gefahrText || '', Ge.x + Ge.w - gx - Z.gefahrText), gx + Z.gefahrText, Ge.y + 1, FA.text); }
+    // SPT-01 D: der Text steht nur, wenn der gefährliche Schritt sichtbar ist (Schritt 1); ein verborgener Schritt bleibt auch hier verborgen, die Ankündigung GEFAHR bleibt
+    const Ge = D.gefahr, gs = st.find((s) => s.gefahr);
+    if (vs.gefahr) { bake(c, Ge.x, Ge.y, M.bake.w, M.bake.h); const gx = txt(c, A.text('gefahr'), Ge.x + M.bake.w + Z.gefahrX, Ge.y + 1, FA.gefahrText, titelO); if (gs) txt(c, kuerzen(gs.text, Ge.x + Ge.w - gx - Z.gefahrText), gx + Z.gefahrText, Ge.y + 1, FA.text); }
     else txt(c, A.text('keineGefahr'), Ge.x, Ge.y + 1, FA.dim);
   }
 

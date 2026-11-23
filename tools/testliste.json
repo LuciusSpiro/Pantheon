@@ -403,6 +403,7 @@
   {"id":"test-captain-zielkasten","kette":"test","cmd":["tools/test-captain-zielkasten.js"],"stufe":"fast","budget_s":6},
   {"id":"test-schildleiste-tooltip","kette":"test","cmd":["tools/test-schildleiste-tooltip.js"],"stufe":"fast","budget_s":6},
   {"id":"test-hinweisleiste-klick","kette":"test","cmd":["tools/test-hinweisleiste-klick.js"],"stufe":"fast","budget_s":6},
+  {"id":"test-schritte-maske","kette":"test","cmd":["tools/test-schritte-maske.js"],"stufe":"fast","budget_s":6},
   {"id":"test-beam-hinweis","kette":"test","cmd":["tools/test-beam-hinweis.js"],"stufe":"fast","budget_s":7},
   {"id":"test-frontsicht","kette":"test","cmd":["tools/test-frontsicht.js"],"stufe":"fast","budget_s":6},
   {"id":"test-hauptschirm-zustand","kette":"test","cmd":["tools/test-hauptschirm-zustand.js"],"stufe":"fast","budget_s":6},

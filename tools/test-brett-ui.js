@@ -187,8 +187,8 @@ section('Zeichnen: drei Angebote, Gefahr nie nur über Farbe, Zahlen und Texte')
   ok(gefahrWorte.every((t) => t.col === FARBE.gefahrText || t.col === FARBE.ink), 'Gefahr als Text nur in gefahrText (oder ink auf Messing), nie in Rot der Bake');
   const rote = rec.rects.filter((r) => r.col === FARBE.gefahrRot);
   ok(rote.length >= 3 && rec.rects.some((r) => r.col === FARBE.gefahrHell), 'Bake gezeichnet (rote und helle Streifen)');
-  ok(hat('Konvoi stellen und aufhalten'), 'Detail (gewählt: Konvoi) nennt den gefährlichen Schritt hinter GEFAHR');
-  ok(hat('Gerücht in Concordia prüfen') && hat('Nach Kantenstein springen') && hat('Ladung in Concordia löschen') && hat('1') && hat('4'), 'Schritte 1 bis 4 aus dem Snapshot');
+  ok(!hat('Konvoi stellen und aufhalten'), 'SPT-01 D: Detail (gewählt: Konvoi) verrät den gefährlichen Schritt 3 nicht hinter GEFAHR (das Wort GEFAHR bleibt)');
+  ok(hat('Gerücht in Concordia prüfen') && !hat('Nach Kantenstein springen') && !hat('Ladung in Concordia löschen') && hat('1') && hat('4') && rec.texte.filter((t) => t.s === '?').length === 3, 'SPT-01 D: Schritt 1 im Klartext, die Schritte 2 bis 4 als „?“ (Nummern 1 bis 4 stehen)');
   ok(hat('verfällt nach 9 Tätigkeiten'), 'Detail: „verfällt nach 9 Tätigkeiten“');
   ok(hat('Das Konkordat zahlt, Kantenstein verliert Nachschub.') || hatTeil(/^Das Konkordat zahlt/), 'Satz bei „Gelingt“ aus dem Snapshot');
   ok(hat('GELINGT'), 'Überschrift Gelingt');
@@ -211,7 +211,7 @@ section('Zeichnen: gewähltes Angebot wechselt das Detail, ein Angebot, kein Ang
   ok(hat('Eine Boje sendet seit drei Tagen nichts mehr.') && hat('verfällt nach 11 Tätigkeiten'), 'Detail der Boje');
   zeichne(baustein(m, 'a2'));
   geometrie('Heimweg');
-  ok(hat('! verfällt nach 2 Tätigkeiten') && hat('Durch die Front bei Gullfjord') && rec.texte.some((t) => t.s === 'Germanen'), 'Detail Heimweg: bald (!), gefährlicher Schritt, Auftraggeber Germanen');
+  ok(hat('! verfällt nach 2 Tätigkeiten') && !hat('Durch die Front bei Gullfjord') && hat('In Ostia Nova an Bord nehmen') && rec.texte.some((t) => /^GEFAHR$/i.test(t.s) && t.x >= L.handel.x + MASS.liste.w) && rec.texte.some((t) => t.s === 'Germanen'), 'Detail Heimweg: bald (!), GEFAHR angekündigt, der gefährliche Schritt 2 verborgen (SPT-01 D), Auftraggeber Germanen');
   m = modellAus({ angebote: [BOJE] });
   zeichne(baustein(m));
   geometrie('eins');

@@ -16,6 +16,7 @@
 //   PultAuftrag.verfall(rest)     -> { kurz: 'noch 7', lang: 'verfällt nach 7 Tätigkeiten', bald: bool }
 //   PultAuftrag.beats(schritt, gesamt) -> ['fertig', 'jetzt', 'offen', …]   (schritt 1-basiert)
 //   PultAuftrag.schritt(s)        -> { text, gefahr, wahl: [{ text, folgen: [Marke] }] | null }   (Zeichenkette oder { text, gefahr, wahl? })
+//   PultAuftrag.schrittSicht(liste, aktuell) -> [Schritt + { zustand: 'fertig'|'jetzt'|'verborgen' }]   (aktuell 1-basiert; ein verborgener Schritt trägt keinen Text, keine Gefahr, keine Wahl: Spannung, SPT-01 D)
 //   PultAuftrag.markeText(m)      -> 'Ruf Konkordat +2'; wahlText(wahl) -> 'Wahl: Helfen (Haltung Rom +1) · …'; beginnt(rest, kurz) -> 'beginnt in 3 Tätigkeiten' / 'in 3'; hudBeatW(n)
 //   PultAuftrag.text(vorlage, werte), PultAuftrag.kontrast(a, b)
 //
@@ -122,6 +123,7 @@
     beginnt: 'beginnt in {n} Tätigkeiten', beginntEins: 'beginnt in 1 Tätigkeit', beginntGleich: 'beginnt gleich', hudBeginnt: 'in {n}',
     ruf: 'Ruf', haltung: 'Haltung', wahl: 'Wahl', wahlTip: 'Wahl: {optionen}',
     verfallLang: 'verfällt nach {n} Tätigkeiten', verfallEins: 'verfällt nach der nächsten Tätigkeit', verfallKurz: 'noch {n}', verfallBald: 'verfällt bald',
+    schrittVerborgen: '?', schrittVerborgenTip: 'Dieser Schritt wird erst gezeigt, wenn er dran ist.',
     annehmen: 'Annehmen', ablehnen: 'Ablehnen', kostetNichts: 'Ablehnen kostet nichts',
     gesperrt: 'Ein Abenteuer läuft schon', gesperrtGrund: 'Erst „{titel}“ abschließen',
     angenommen: 'Angenommen', angenommenText: 'Die Crew hat „{titel}“ angenommen.',
@@ -204,6 +206,12 @@
     const wahl = Array.isArray(s.wahl) && s.wahl.length ? s.wahl.filter((o) => o && typeof o === 'object').map((o) => ({ text: String(o.text || ''), folgen: (Array.isArray(o.folgen) ? o.folgen : []).map(folge).filter((f) => f.marke).map((f) => f.marke) })) : null;
     return { text: String(s.text || ''), gefahr: !!s.gefahr, wahl };
   }
+  // Sichtbarkeit der Schritte (SPT-01 D, Kai: Schritte erst zeigen, wenn sie dran sind): erledigte (vor `aktuell`) und der aktuelle bleiben, alle späteren werden verborgen: ohne Text,
+  // ohne Gefahr, ohne Wahl (die Maskierung geschieht hier in den Daten, die Zeichnung kann nichts verraten, was nicht mehr da ist). Ein Angebot ist `aktuell` 1.
+  function schrittSicht(liste, aktuell) {
+    const a = isNum(aktuell) ? Math.max(1, Math.floor(aktuell)) : 1;
+    return (Array.isArray(liste) ? liste : []).map((s, i) => (i + 1 <= a ? Object.assign(schritt(s), { zustand: i + 1 < a ? 'fertig' : 'jetzt' }) : { text: '', gefahr: false, wahl: null, zustand: 'verborgen' }));
+  }
   // „Ruf Konkordat +2“ / „Haltung Germanen −1“: die Marke im Wortlaut (Tooltip der Fläche, die Plakette trägt nur den Buchstaben)
   const vorzeichen = (d) => (d > 0 ? '+' : '−') + Math.abs(d);
   function markeText(m) { return m && m.f ? text(m.art === 'haltung' ? 'haltung' : 'ruf') + ' ' + fraktion(m.f).name + ' ' + vorzeichen(m.d) : ''; }
@@ -219,5 +227,5 @@
   function lum(h) { const n = parseInt(String(h).slice(1, 7), 16); return [n >> 16, (n >> 8) & 255, n & 255].map((v) => { v /= 255; return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4); }).reduce((a, v, i) => a + v * [0.2126, 0.7152, 0.0722][i], 0); }
   function kontrast(a, b) { const A = lum(FARBE[a] || a), B = lum(FARBE[b] || b); return (Math.max(A, B) + 0.05) / (Math.min(A, B) + 0.05); }
 
-  return { TOKENS, layout, fraktion, folge, pfeile, typText, verfall, beats, schritt, markeText, wahlText, beginnt, hudBeatW, text, kontrast };
+  return { TOKENS, layout, fraktion, folge, pfeile, typText, verfall, beats, schritt, schrittSicht, markeText, wahlText, beginnt, hudBeatW, text, kontrast };
 });
