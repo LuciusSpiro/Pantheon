@@ -2,6 +2,8 @@
 // Streut Deko-Props deterministisch aus Karten-Seed und Platz. Reine Funktion ohne three.js (läuft auch in Node).
 // Regeln (Art-Daten content/buehnen/deko/<bauweise>.json):
 //   { format: "deko/1", regeln: { <platztyp>|"*": { props: [ids], dichte: [min, max], wandnah: bool, frei_halten: 2 } } }
+//   Ein props-Eintrag ist eine ID (String) oder { id, params?, gewicht? } (SCH-02 C3): params gehen als Modell-Parameter bis assetGeo (kit.js),
+//   gewicht (ganze Zahl >= 1, Standard 1) = Anzahl der Lose in der Auswahl. Karten ohne Objekt-Einträge streuen byte-gleich wie vorher.
 // Rollenmodus (ORT-01, Format rollen/1, content/buehnen/rollen/<kartenart>.json; opts.rollen = { daten, bauweise, ausschluss? }):
 //   Für Plätze, deren Raumtyp (Präfix der Platz-ID ohne _n: kommando, werkstatt_2 → werkstatt) in daten.raumtypen steht, wird je
 //   Platzrechteck nach Rollen gestreut statt je 8×8-Zelle. Die Rolle nennt ihre Belegung je Bauweise (daten.rollen.<name>.<bauweise>),
@@ -228,7 +230,12 @@ export function streuen(k, regeln, opts = {}) {
     const p = zelleZuPlatz.get(cx + ',' + cy) || null;
     const typ = p ? p.typ : '*';
     const regel = regelFuer(typ, k.art, R);
-    const props = ((regel && regel.props) || []).filter(Boolean);
+    const props = [];   // Lose: ID-Strings (wie bisher) oder Objekt-Einträge (SCH-02 C3, gewicht = mehrfach im Topf)
+    for (const e of ((regel && regel.props) || [])) {
+      if (!e) continue;
+      if (typeof e === 'string') props.push(e);
+      else if (e.id) for (let g = Math.max(1, e.gewicht | 0); g > 0; g--) props.push(e);
+    }
     const pool = props.concat(extra);
     if (!pool.length) continue;
     const rnd = mulberry32(fnv((p ? p.id : '*') + ':' + cx + ':' + cy, seed));
@@ -254,7 +261,8 @@ export function streuen(k, regeln, opts = {}) {
       const extraOk = useExtra ? extra.filter((e) => !e.wandnah || wandnah(x, y)) : null;
       const list = useExtra ? (extraOk.length ? extraOk.map((e) => e.id) : props) : props;
       if (!list.length) continue;   // nur wandnahe Besitz-Props und keine Wand daneben
-      const id = list[Math.floor(rnd() * list.length)];
+      const lose = list[Math.floor(rnd() * list.length)];
+      const id = typeof lose === 'string' ? lose : lose.id;
       let rot = Math.floor(rnd() * 4) * (Math.PI / 2);
       const ex = useExtra && extraOk.find((e) => e.id === id);
       if ((regel && regel.wandnah) || (ex && ex.wandnah)) {
@@ -262,7 +270,9 @@ export function streuen(k, regeln, opts = {}) {
         if (WANDNAH[kind(x, y - 1)]) rot = 0; else if (WANDNAH[kind(x, y + 1)]) rot = Math.PI;
         else if (WANDNAH[kind(x - 1, y)]) rot = Math.PI / 2; else if (WANDNAH[kind(x + 1, y)]) rot = -Math.PI / 2;
       }
-      out.push({ id, x, y, rot, seed: Math.floor(rnd() * 8), platz: p ? p.id : null, dx: (rnd() - 0.5) * 0.3, dz: (rnd() - 0.5) * 0.3 });
+      const dd = { id, x, y, rot, seed: Math.floor(rnd() * 8), platz: p ? p.id : null, dx: (rnd() - 0.5) * 0.3, dz: (rnd() - 0.5) * 0.3 };
+      if (typeof lose !== 'string' && lose.params) dd.params = lose.params;
+      out.push(dd);
     }
   }
   if (rollenPlaetze.length) {

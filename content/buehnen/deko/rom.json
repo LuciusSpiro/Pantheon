@@ -1,7 +1,7 @@
 {
   "format": "deko/1",
   "id": "rom",
-  "hinweis": "ART-RUINE (Ruinen-Regeln) und ORT-01 Paket 9 (Außenposten und Station-Gänge, Spiegel der Germanen-Regeln mit römischen Technik-Stücken; kein '*'-Rückfall, weil die Ruine dieselbe Datei nutzt). Nur Optik, nie Deckung, nie auf Anker-, Tür-, Weg- oder Kantenmitte-Kacheln. Nach Kartensichtung: Dichten halbiert, höchstens 4 Props je Zelle, alle Regeln wandnah (nur an Wänden und in Ecken, keine freien Flächen). SCH-02 C1 (Schiff innen, Platztypen antrieb, reaktor, bruecke, batteriedeck, sektion): nur FLACHE Stücke (Höhe <= 0,3 m, ohne Kollision überlaufbar, Kai 2026-11-23); bisher nur lerche/furn/floor_decal (Ölfleck). Bewusst kein '*': die Ruine nutzt dieselbe Datei und würde Plätze ohne Regel (tuer) mitbestreut bekommen; der Mittelplatz des Schiffs heißt sektion. Brücke bleibt leer.",
+  "hinweis": "ART-RUINE (Ruinen-Regeln) und ORT-01 Paket 9 (Außenposten und Station-Gänge, Spiegel der Germanen-Regeln mit römischen Technik-Stücken; kein '*'-Rückfall, weil die Ruine dieselbe Datei nutzt). Nur Optik, nie Deckung, nie auf Anker-, Tür-, Weg- oder Kantenmitte-Kacheln. Nach Kartensichtung: Dichten halbiert, höchstens 4 Props je Zelle, alle Regeln wandnah (nur an Wänden und in Ecken, keine freien Flächen). SCH-02 C1 (Schiff innen, Platztypen antrieb, reaktor, bruecke, batteriedeck, sektion): nur FLACHE Stücke (Höhe <= 0,3 m, ohne Kollision überlaufbar, Kai 2026-11-23); SCH-02 C3: Objekt-Einträge { id, params: { kind }, gewicht } streuen floor_decal abwechslungsreich (kind 1 Bolzen, 3 Warnstreifen, 5 Kabel, 6 Teile, 8 Schiene je Gewicht 2, kind 0 Ölfleck Gewicht 1; nie kind 4 Werkzeugkiste und 7 Eimer, 0,25 m und damit zu hoch für überschreitbare Bodendeko; höchstes gestreutes Stück Schiene 0,19 m). Bewusst kein '*': die Ruine nutzt dieselbe Datei und würde Plätze ohne Regel (tuer) mitbestreut bekommen; der Mittelplatz des Schiffs heißt sektion. Brücke bleibt leer.",
   "regeln": {
     "porta": {
       "props": [
@@ -431,22 +431,104 @@
     },
     "antrieb": {
       "props": [
-        "lerche/furn/floor_decal"
+        {
+          "id": "lerche/furn/floor_decal",
+          "params": {
+            "kind": 1
+          },
+          "gewicht": 2
+        },
+        {
+          "id": "lerche/furn/floor_decal",
+          "params": {
+            "kind": 3
+          },
+          "gewicht": 2
+        },
+        {
+          "id": "lerche/furn/floor_decal",
+          "params": {
+            "kind": 5
+          },
+          "gewicht": 2
+        },
+        {
+          "id": "lerche/furn/floor_decal",
+          "params": {
+            "kind": 6
+          },
+          "gewicht": 2
+        },
+        {
+          "id": "lerche/furn/floor_decal",
+          "params": {
+            "kind": 8
+          },
+          "gewicht": 2
+        },
+        {
+          "id": "lerche/furn/floor_decal",
+          "params": {
+            "kind": 0
+          },
+          "gewicht": 1
+        }
       ],
       "dichte": [
-        0,
-        2
+        1,
+        3
       ],
       "wandnah": false,
       "frei_halten": 1
     },
     "reaktor": {
       "props": [
-        "lerche/furn/floor_decal"
+        {
+          "id": "lerche/furn/floor_decal",
+          "params": {
+            "kind": 1
+          },
+          "gewicht": 2
+        },
+        {
+          "id": "lerche/furn/floor_decal",
+          "params": {
+            "kind": 3
+          },
+          "gewicht": 2
+        },
+        {
+          "id": "lerche/furn/floor_decal",
+          "params": {
+            "kind": 5
+          },
+          "gewicht": 2
+        },
+        {
+          "id": "lerche/furn/floor_decal",
+          "params": {
+            "kind": 6
+          },
+          "gewicht": 2
+        },
+        {
+          "id": "lerche/furn/floor_decal",
+          "params": {
+            "kind": 8
+          },
+          "gewicht": 2
+        },
+        {
+          "id": "lerche/furn/floor_decal",
+          "params": {
+            "kind": 0
+          },
+          "gewicht": 1
+        }
       ],
       "dichte": [
-        0,
-        2
+        1,
+        3
       ],
       "wandnah": false,
       "frei_halten": 1
@@ -462,18 +544,100 @@
     },
     "batteriedeck": {
       "props": [
-        "lerche/furn/floor_decal"
+        {
+          "id": "lerche/furn/floor_decal",
+          "params": {
+            "kind": 1
+          },
+          "gewicht": 2
+        },
+        {
+          "id": "lerche/furn/floor_decal",
+          "params": {
+            "kind": 3
+          },
+          "gewicht": 2
+        },
+        {
+          "id": "lerche/furn/floor_decal",
+          "params": {
+            "kind": 5
+          },
+          "gewicht": 2
+        },
+        {
+          "id": "lerche/furn/floor_decal",
+          "params": {
+            "kind": 6
+          },
+          "gewicht": 2
+        },
+        {
+          "id": "lerche/furn/floor_decal",
+          "params": {
+            "kind": 8
+          },
+          "gewicht": 2
+        },
+        {
+          "id": "lerche/furn/floor_decal",
+          "params": {
+            "kind": 0
+          },
+          "gewicht": 1
+        }
       ],
       "dichte": [
-        0,
-        1
+        1,
+        2
       ],
       "wandnah": false,
       "frei_halten": 1
     },
     "sektion": {
       "props": [
-        "lerche/furn/floor_decal"
+        {
+          "id": "lerche/furn/floor_decal",
+          "params": {
+            "kind": 1
+          },
+          "gewicht": 2
+        },
+        {
+          "id": "lerche/furn/floor_decal",
+          "params": {
+            "kind": 3
+          },
+          "gewicht": 2
+        },
+        {
+          "id": "lerche/furn/floor_decal",
+          "params": {
+            "kind": 5
+          },
+          "gewicht": 2
+        },
+        {
+          "id": "lerche/furn/floor_decal",
+          "params": {
+            "kind": 6
+          },
+          "gewicht": 2
+        },
+        {
+          "id": "lerche/furn/floor_decal",
+          "params": {
+            "kind": 8
+          },
+          "gewicht": 2
+        },
+        {
+          "id": "lerche/furn/floor_decal",
+          "params": {
+            "kind": 0
+          },
+          "gewicht": 1
+        }
       ],
       "dichte": [
         0,

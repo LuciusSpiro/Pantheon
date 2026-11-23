@@ -154,6 +154,7 @@
   {"id":"test-bauweise-besitz","kette":"test","cmd":["tools/test-bauweise-besitz.js"],"stufe":"fast","budget_s":8},
   {"id":"test-rom-boden","kette":"test","cmd":["tools/test-rom-boden.js"],"stufe":"fast","budget_s":7},
   {"id":"test-rom-schiff","kette":"test","cmd":["tools/test-rom-schiff.js"],"stufe":"fast","budget_s":6},
+  {"id":"test-deko-params","kette":"test","cmd":["tools/test-deko-params.js"],"stufe":"fast","budget_s":6},
   {"id":"hash-baseline --compare --karten","kette":"test","cmd":["tools/hash-baseline.js","--compare","--karten","--ohne-zeichen","s,a,v"],"stufe":"fast","budget_s":8},
   {"id":"test-gen-schiff","kette":"test","cmd":["tools/test-gen-schiff.js"],"stufe":"fast","budget_s":8},
   {"id":"test-schiff-anbindung","kette":"test","cmd":["tools/test-schiff-anbindung.js"],"stufe":"fast","budget_s":6},
