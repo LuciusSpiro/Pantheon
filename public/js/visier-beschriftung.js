@@ -140,6 +140,11 @@
     return String(name || '').toUpperCase().slice(0, max);
   }
 
+  function bojeZiel(st, j) {   // SPT-01 F: Name des Sprungziels der Boje j (dieselbe Quelle wie die Sektorkarte, StarMap.bojeZielName), null = unbekannt
+    const SM = root.StarMap;
+    try { return SM && SM.bojeZielName ? SM.bojeZielName(st, j) : null; } catch (e) { return null; }
+  }
+
   function baue(view, L, c, opt) {
     opt = opt || {};
     const st = view && view.state, VO = root.VisierObjekte;
@@ -189,13 +194,17 @@
         const hw = Math.max(2, p.k * (sprung ? 10 : 6)), hh = hw * 1.4, ax = top.ok ? top.x : p.x, ay = (top.ok ? top.y - hh - 1 : p.y) - B.label.abstand;
         if (sprung) {
           const g = gewaehlteBoje(o.j);
-          schild('boje:' + String(o.j.k != null ? o.j.k : num(o.j.x) + ',' + num(o.j.y)), BS.rang.sprungboje, 'sprungboje', g ? g.kurz : 'BOJE' + (o.j.n ? ' ' + o.j.n : ''), B.label.farbe, ax, ay, 'oben',
+          schild('boje:' + String(o.j.k != null ? o.j.k : num(o.j.x) + ',' + num(o.j.y)), BS.rang.sprungboje, 'sprungboje', g ? g.kurz : bojeText(o.j), B.label.farbe, ax, ay, 'oben',
             { text: String(num(Math.hypot(o.j.x - ship.x, o.j.y - ship.y))), skala: B.label.entfernungSkala, farbe: B.label.entfernungFarbe });
         } else schild('nav:' + num(o.b.x) + ',' + num(o.b.y), BS.rang.nav, 'navboje', B.label.text, B.label.farbe, ax, ay, 'oben', null);
       } else if (o.art === 'sprungfeld') {
         const B = OB.boje.sprung, d = Math.hypot(o.m.x - ship.x, o.m.y - ship.y);
         schild('sprungpunkt:' + num(o.m.x) + ',' + num(o.m.y), BS.rang.sprungboje, 'sprungboje', String(o.m.name || 'SPRUNGPUNKT').toUpperCase().slice(0, 14), B.label.farbe, o.p.x, o.p.y - B.label.abstand, 'oben', { text: String(num(d)), skala: B.label.entfernungSkala, farbe: B.label.entfernungFarbe });
       }
+    }
+    function bojeText(j) {   // bekannte Boje: Name des Zielsektors (Kurzform), sonst wie bisher BOJE <Hex>
+      const zn = bojeZiel(st, j);
+      return zn ? kurzName(zn, j.n) : 'BOJE' + (j.n ? ' ' + j.n : '');
     }
     function zielText(id, bb, entf) {
       const Z = OB.gegner.ziel;
