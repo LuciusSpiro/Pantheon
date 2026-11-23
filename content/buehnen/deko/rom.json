@@ -1,7 +1,7 @@
 {
   "format": "deko/1",
   "id": "rom",
-  "hinweis": "ART-RUINE (Ruinen-Regeln) und ORT-01 Paket 9 (Außenposten und Station-Gänge, Spiegel der Germanen-Regeln mit römischen Technik-Stücken; kein '*'-Rückfall, weil die Ruine dieselbe Datei nutzt). Nur Optik, nie Deckung, nie auf Anker-, Tür-, Weg- oder Kantenmitte-Kacheln. Nach Kartensichtung: Dichten halbiert, höchstens 4 Props je Zelle, alle Regeln wandnah (nur an Wänden und in Ecken, keine freien Flächen).",
+  "hinweis": "ART-RUINE (Ruinen-Regeln) und ORT-01 Paket 9 (Außenposten und Station-Gänge, Spiegel der Germanen-Regeln mit römischen Technik-Stücken; kein '*'-Rückfall, weil die Ruine dieselbe Datei nutzt). Nur Optik, nie Deckung, nie auf Anker-, Tür-, Weg- oder Kantenmitte-Kacheln. Nach Kartensichtung: Dichten halbiert, höchstens 4 Props je Zelle, alle Regeln wandnah (nur an Wänden und in Ecken, keine freien Flächen). SCH-02 C1 (Schiff innen, Platztypen antrieb, reaktor, bruecke, batteriedeck, sektion): nur FLACHE Stücke (Höhe <= 0,3 m, ohne Kollision überlaufbar, Kai 2026-11-23); bisher nur lerche/furn/floor_decal (Ölfleck). Bewusst kein '*': die Ruine nutzt dieselbe Datei und würde Plätze ohne Regel (tuer) mitbestreut bekommen; der Mittelplatz des Schiffs heißt sektion. Brücke bleibt leer.",
   "regeln": {
     "porta": {
       "props": [
@@ -428,6 +428,59 @@
       ],
       "wandnah": true,
       "frei_halten": 2
+    },
+    "antrieb": {
+      "props": [
+        "lerche/furn/floor_decal"
+      ],
+      "dichte": [
+        0,
+        2
+      ],
+      "wandnah": false,
+      "frei_halten": 1
+    },
+    "reaktor": {
+      "props": [
+        "lerche/furn/floor_decal"
+      ],
+      "dichte": [
+        0,
+        2
+      ],
+      "wandnah": false,
+      "frei_halten": 1
+    },
+    "bruecke": {
+      "props": [],
+      "dichte": [
+        0,
+        0
+      ],
+      "wandnah": false,
+      "frei_halten": 1
+    },
+    "batteriedeck": {
+      "props": [
+        "lerche/furn/floor_decal"
+      ],
+      "dichte": [
+        0,
+        1
+      ],
+      "wandnah": false,
+      "frei_halten": 1
+    },
+    "sektion": {
+      "props": [
+        "lerche/furn/floor_decal"
+      ],
+      "dichte": [
+        0,
+        1
+      ],
+      "wandnah": false,
+      "frei_halten": 1
     }
   }
 }

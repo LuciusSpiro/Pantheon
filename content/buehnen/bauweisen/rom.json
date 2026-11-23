@@ -131,6 +131,15 @@
         }
       }
     },
+    "fels": {
+      "terrain": true
+    },
+    "leere": {
+      "leer": true
+    },
+    "abgrund": {
+      "leer": true
+    },
     "baum": {
       "id": "natur/nadelbaum",
       "nadel": "natur/nadelbaum",
@@ -170,6 +179,7 @@
     "terminal": {
       "station": "ort/rom/gemein/terminal",
       "aussenposten": "ort/rom/gemein/terminal",
+      "schiff": "ort/rom/gemein/terminal",
       "*": "prop/rom/ruine/offiziersschloss"
     },
     "raetsel": {
@@ -184,6 +194,7 @@
     "beute": {
       "station": "ort/rom/gemein/kassenkapsel",
       "aussenposten": "ort/rom/gemein/kassenkapsel",
+      "schiff": "ort/rom/gemein/kassenkapsel",
       "*": "prop/rom/ruine/legionskasse"
     },
     "fund": {
@@ -202,11 +213,13 @@
     "abholpunkt": {
       "station": "ort/rom/gemein/abholbake",
       "aussenposten": "ort/rom/gemein/abholbake",
+      "schiff": "ort/rom/gemein/abholbake",
       "*": "prop/germanen/gemein/bake_abholpunkt"
     },
     "zelle": {
       "station": "ort/rom/gemein/zelle",
       "aussenposten": "ort/rom/gemein/zelle",
+      "schiff": "ort/rom/gemein/zelle",
       "*": "prop/rom/ruine/carcer"
     }
   },
@@ -294,7 +307,8 @@
         "intakt": "rom",
         "verfallen": "rom_verfallen",
         "umkaempft": "rom_umkaempft"
-      }
+      },
+      "schiff": "lerche_rom"
     }
   },
   "stimmung": {

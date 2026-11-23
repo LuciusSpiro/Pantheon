@@ -894,7 +894,7 @@ class Mission {
     const g = this.game;
     const def = defIn || this.textDef || this.def;
     if (text[0] === '@') text = Loader.text(def, text, (e) => g.countError('mission-text', e));
-    if (typeof text === 'string' && text.indexOf('{{') >= 0) text = Lexikon.aufloesen(text, this.lexBauweise(def));   // B1 F2
+    if (typeof text === 'string' && text.indexOf('{{') >= 0) text = Lexikon.aufloesenFuerArt(text, this.lexBauweise(def), this.lexArt(def));   // B1 F2; SCH-02 C1: Kartenart-Variante
     const mapOfObject = (o) => {
       const ks = ((def && def.buehne && def.buehne.aussenkarten) || []).concat(Objects.MAP_IDS);
       return ks.find((m) => Objects.declared(m)[o]) || null;
@@ -924,15 +924,17 @@ class Mission {
 
   // B1 F2: Bauweise für {{lex.*}} – Landepunkt des laufenden Schritts (allowBeam; die Karte, auf der das Außenteam gerade
   // ist, zuerst), sonst die einzige Außenkarte der Bühne; ohne Landepunkt bzw. Handkarte ohne Bauweise: null (neutral)
-  lexBauweise(def) {
+  lexKarte(def) {
     const g = this.game;
     let maps = [];
     if (this.step && (!def || def === this.def)) maps = [].concat(this.step.allowBeam || []);
     if (!maps.length) { const ak = (def && def.buehne && def.buehne.aussenkarten) || []; if (ak.length === 1) maps = ak; }
     if (!maps.length) return null;
     const aktiv = maps.find((m) => g.aways && g.aways[m] && g.aways[m].active);
-    return Lexikon.bauweiseVon(g, aktiv || maps[0]);
+    return aktiv || maps[0];
   }
+  lexBauweise(def) { return Lexikon.bauweiseVon(this.game, this.lexKarte(def)); }
+  lexArt(def) { return Lexikon.artVon(this.game, this.lexKarte(def)); }   // SCH-02 C1: Kartenart derselben Karte (rom.json art.schiff)
 
   // ---------- Entscheidungen ----------
   openChoice(id) {

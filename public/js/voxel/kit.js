@@ -28,7 +28,7 @@
 import * as THREE from 'three';
 import * as DefaultLoader from './loader.js';
 import { streuen, streuenWildnis, belegungVon, besitzStreuFuerOrt } from './deko.js';
-import { mitAkzent, WILDNIS_STIMMUNG, stimmungVon } from './stimmung.js';
+import { mitAkzent, WILDNIS_STIMMUNG, stimmungFuerZustand } from './stimmung.js';
 import { glutAusnahme } from './glut.js';
 import * as KULISSE from './hoehle-kulisse.js';   // GEL-02 E2: Schacht, Pilze, Kristalle, Glutring (nur Karten mit erdBoden)
 import { KLASSE, connVon, hash2, eintragVon, ankerEintragVon, eintragIds, baumWahl, kronenZelle, hochRichtung, segmentBox, mitNachlauf, kronenAus, bauweiseMerken, jsonLader } from './kit-regeln.js';
@@ -873,7 +873,7 @@ async function bauKarte(parent, karteIn, opts) {
   stats.palette = paletteId;
   // Stimmung
   try {
-    const mood = stimmungVon(BW.stimmung, k.art, k.boden);   // GEL-01 D: wildnis je Bodenton (stimmung["wildnis:<boden>"]), sonst stimmung[art]
+    const mood = stimmungFuerZustand(BW.stimmung, k.art, k.boden, k.zustand);   // GEL-01 D: wildnis je Bodenton (stimmung["wildnis:<boden>"]), sonst stimmung[art]; SCH-02 C1: stimmung["<art>:<zustand>"] zuerst
     if (mood && opts.setMood) opts.setMood(mood);
     stats.stimmung = mood;
   } catch (e) { countErr('kit.mood', e); }

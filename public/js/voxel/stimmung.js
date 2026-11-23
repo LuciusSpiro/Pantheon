@@ -76,3 +76,8 @@ export function stimmungVon(tabelle, art, boden) {
   const t = tabelle || {};
   return (art === 'hoehle' && (t.hoehle || 'hoehle')) || (boden && t[art + ':' + boden]) || t[art] || (art === 'wildnis' && boden && WILDNIS_STIMMUNG_JE_BODEN[boden]) || null;
 }
+/** SCH-02 C1: Stimmungs-ID je Zustand: stimmung["<art>:<zustand>"] (z. B. "schiff:verfallen") gewinnt vor stimmungVon; ohne so einen Schlüssel (alle Bauweisen bis SCH-02) identisch zu stimmungVon. Die Höhle bleibt bei ihrem einen Eintrag. */
+export function stimmungFuerZustand(tabelle, art, boden, zustand) {
+  const t = tabelle || {};
+  return (art !== 'hoehle' && zustand && t[art + ':' + zustand]) || stimmungVon(t, art, boden);
+}
