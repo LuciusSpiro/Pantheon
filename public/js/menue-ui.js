@@ -37,12 +37,21 @@
     P.cham(c, x, y, w, K.h, bg || MF.kappe, K.schraeg, 0, K.schraeg, 0); txt(c, k, x + w / 2, y + 3, ink || MF.kappeText, 'center');
     return x + w;
   }
-  // Hinweisreihe: [Kappe Text] …; hoechstens bis maxX (was nicht mehr passt, entfällt). Gibt das Ende zurück
-  function hinweise(c, x, y, liste, maxX) {
-    for (const [k, t] of liste) {
+  // Ein Hinweis der Leiste: Kappe + Text. Mit Action-ID (AKTION) ist er klickbar, solange die Taste in diesem Zustand etwas täte; die Klickfläche ist genau
+  // das gezeichnete Rechteck (Kappe bis Textende) und ruft dieselbe Action wie die Taste (tue). Gibt das Ende des Textes zurück.
+  function hinweisEintrag(c, view, x, y, k, t, id) {
+    const w = Math.max(MM.kappe.minW, breite(k) + MM.kappe.innen) + 4 + breite(t), r = { x, y, w, h: MM.kappe.h };
+    const an = !!id && gilt(id, view), m = R.ui && R.ui.mouse, hover = an && !!m && m.x >= r.x && m.y >= r.y && m.x < r.x + r.w && m.y < r.y + r.h;
+    const tx = kappeM(c, x, y, k) + 4; txt(c, t, tx, y + 3, hover ? MF.text : MF.dim);
+    if (an) klick(r, t, () => tue(id, view));
+    return x + w;
+  }
+  // Hinweisreihe: [Kappe Text (Action-ID)] …; hoechstens bis maxX (was nicht mehr passt, entfällt). Gibt das Ende zurück
+  function hinweise(c, view, x, y, liste, maxX) {
+    for (const [k, t, id] of liste) {
       const w = Math.max(MM.kappe.minW, breite(k) + MM.kappe.innen) + 4 + breite(t);
       if (maxX && x + w > maxX) break;
-      x = kappeM(c, x, y, k) + 4; x = txt(c, t, x, y + 3, MF.dim) + 12;
+      x = hinweisEintrag(c, view, x, y, k, t, id) + 12;
     }
     return x;
   }
@@ -173,8 +182,8 @@
     raster(c, MT.SCHRIFTZUG.raster, Tt.x, Tt.schriftzug.y, Tt.schriftzug.s, MF.text);
     txtSp(c, MX.claim, Tt.x, Tt.claim, MF.gold, MS.claim.sp);
     txt(c, MX.unterzeile, Tt.x, Tt.unterzeile, MF.dim);
-    knopfGold(c, Tt.x, Tt.knopf.y, Tt.knopf.w, T.tasten.enter, T.titel.knopf, () => F.weiter());
-    hinweise(c, Tt.x, Tt.hinweise, [['C', T.hinweise.charakter], ['O', T.hinweise.optionen], ['H', T.hinweise.hilfe]]);
+    knopfGold(c, Tt.x, Tt.knopf.y, Tt.knopf.w, T.tasten.enter, T.titel.knopf, () => tue('weiter', view));
+    hinweise(c, view, Tt.x, Tt.hinweise, [['C', T.hinweise.charakter, 'charakter'], ['O', T.hinweise.optionen, 'optionen'], ['H', T.hinweise.hilfe, 'hilfe']]);
     txt(c, MX.fuss, Tt.x, Tt.fuss, MF.dim);
     charakterOben(c, view);
   }
@@ -242,7 +251,7 @@
     liste(c, view, lob);
     const e = F.auswahlEintrag(lob);
     detail(c, view, lob, e, e && e.fortsetzen ? T.detail.fortsetzen : T.detail.raumOeffnen, () => F.bestaetige(lob));
-    hinweise(c, MM.menue.x, MM.menue.hinweise, [[T.tasten.auswahl, T.hinweise.waehlen], ['C', T.hinweise.charakter], ['O', T.hinweise.optionen], ['H', T.hinweise.hilfe], [T.tasten.esc, T.hinweise.zurueck]]);
+    hinweise(c, view, MM.menue.x, MM.menue.hinweise, [[T.tasten.auswahl, T.hinweise.waehlen], ['C', T.hinweise.charakter, 'charakter'], ['O', T.hinweise.optionen, 'optionen'], ['H', T.hinweise.hilfe, 'hilfe'], [T.tasten.esc, T.hinweise.zurueck, 'zurueck']]);
     charakterOben(c, view);
   }
   function modusWahl(c, view) {
@@ -252,7 +261,7 @@
     liste(c, view, lob);
     const e = F.auswahlEintrag(lob);
     detail(c, view, lob, e, T.modus.knopf, () => F.bestaetige(lob));
-    hinweise(c, MM.menue.x, MM.menue.hinweise, [[T.tasten.auswahl, T.hinweise.waehlen], [T.tasten.enter, T.modus.enter], ['F', T.modus.weltstaende], [T.tasten.esc, T.modus.esc]]);
+    hinweise(c, view, MM.menue.x, MM.menue.hinweise, [[T.tasten.auswahl, T.hinweise.waehlen], [T.tasten.enter, T.modus.enter, 'bestaetige'], ['F', T.modus.weltstaende, 'welten'], [T.tasten.esc, T.modus.esc, 'zurueck']]);
   }
 
   // ---------------------------------------------------------------- Crew-Lobby
@@ -375,11 +384,11 @@
     T.karte.escZeile.forEach((z, i) => txt(c, z, ST.x + 8, ST.y + 134 + i * 10, MF.dim));
     // Hinweise und Statuszeile
     const kappeBreite = (k) => Math.max(MM.kappe.minW, breite(k) + MM.kappe.innen);
-    let rx = VW - 8; const rechts = [['H', T.hinweise.hilfe], ['O', T.hinweise.optionen]].map(([k, t]) => { const w = kappeBreite(k) + 4 + breite(t); rx -= w; const x0 = rx; rx -= 12; return { k, t, w, x: x0 }; });
-    let hx = hinweise(c, L.modus.x, L.hinweise, [[T.tasten.enter, T.hinweise.bereit]], rx);
+    let rx = VW - 8; const rechts = [['H', T.hinweise.hilfe, 'hilfe'], ['O', T.hinweise.optionen, 'optionen']].map(([k, t, id]) => { const w = kappeBreite(k) + 4 + breite(t); rx -= w; const x0 = rx; rx -= 12; return { k, t, id, w, x: x0 }; });
+    let hx = hinweise(c, view, L.modus.x, L.hinweise, [[T.tasten.enter, T.hinweise.bereit, 'bereit']], rx);
     hx = farbWahl(c, view, ich, hx, L.hinweise);
-    hinweise(c, hx, L.hinweise, [['C', T.hinweise.charakter], ['M', T.hinweise.modus], ['L', T.hinweise.link], [T.tasten.esc, T.hinweise.menue], ['P', T.hinweise.bot]], rx);
-    for (const r of rechts) { rect(c, r.x - 2, L.hinweise - 1, r.w + 4, 15, P.rgba(MF.kachel, MM.kachelDeckkraft)); kappeM(c, r.x, L.hinweise, r.k); txt(c, r.t, r.x + kappeBreite(r.k) + 4, L.hinweise + 3, MF.dim); }
+    hinweise(c, view, hx, L.hinweise, [['C', T.hinweise.charakter, 'charakter'], ['M', T.hinweise.modus, 'modus'], ['L', T.hinweise.link, 'link'], [T.tasten.esc, T.hinweise.menue, 'zurueck'], ['P', T.hinweise.bot, 'bot']], rx);
+    for (const r of rechts) { rect(c, r.x - 2, L.hinweise - 1, r.w + 4, 15, P.rgba(MF.kachel, MM.kachelDeckkraft)); hinweisEintrag(c, view, r.x, L.hinweise, r.k, r.t, r.id); }
     const SZ = MM.statuszeile; rect(c, 0, SZ.y, VW, SZ.h, MF.statuszeile); rect(c, 0, SZ.y, VW, 1, MF.kachelRand);
     let x = SZ.innen; const ty = SZ.y + Math.floor((SZ.h - 7) / 2);
     [[MX.status.modus, fit(m.welt ? String(m.titel) : label(lob.startMission || 'm1'), 200, 1), MF.text], [MX.status.crew, z.an + T.status.crewEinheit, MF.text], [MX.status.bereit, z.bereit + '/' + z.an, z.alleBereit ? MF.bereit : MF.nichtBereit], [MX.status.raum, code() || '–', MF.gold]].forEach(([l, v, col]) => {
@@ -436,7 +445,7 @@
     if (k) knopfGold(c, tx + 10, cy + 100, tw - 20, T.tasten.enter, fit(ME.text(T.einladung.anBordMit, { name: k.karte.name }), tw - 56, 1), () => F.einladungAnnehmen());
     else txt(c, T.einladung.neuHinweis, tx + 10, cy + 104, MF.dim);
     txt(c, T.einladung.nichtBeitreten, tx + 10, cy + 126, MF.dim); klick({ x: tx + 10, y: cy + 124, w: tw - 20, h: 11 }, 'Einladung ablehnen', () => F.einladungAblehnen());
-    hinweise(c, 32, 340, [[T.tasten.ziffern, T.hinweisEinladung.charakter], ['N', T.hinweisEinladung.neu], ['C', T.hinweisEinladung.liste], [T.tasten.enter, T.hinweisEinladung.anBord], [T.tasten.esc, T.hinweisEinladung.abbrechen]], 560);
+    hinweise(c, view, 32, 340, [[T.tasten.ziffern, T.hinweisEinladung.charakter], ['N', T.hinweisEinladung.neu, 'einladungNeu'], ['C', T.hinweisEinladung.liste, 'charakter'], [T.tasten.enter, T.hinweisEinladung.anBord, 'einladungAnnehmen'], [T.tasten.esc, T.hinweisEinladung.abbrechen, 'einladungAblehnen']], 560);
   }
 
   // ---------------------------------------------------------------- Raumcode-Eingang (Stil A): eine deckende Kachel links, das Eingabefeld ist ein DOM-Input (client.js, Maße MASS.eingang.feld)
@@ -469,31 +478,54 @@
     txt(c, T.version.praefix + v, VW - MM.statuszeile.innen, MM.statuszeile.y + 8, MF.gold, 'right');
   }
 
+  // ---------------------------------------------------------------- Aktionen der Hinweisleiste
+  // EINE Stelle je Aktion: die Taste (taste() unten) und der Klick auf den Hinweis der Leiste (hinweisEintrag) rufen beide tue(id, view).
+  // gilt = löst die Taste in diesem Zustand etwas aus; nur dann ist der Hinweis klickbar.
+  const sfx = (v, n) => { if (v.actions.sfx) v.actions.sfx(n); };
+  const AKTION = {
+    optionen: { gilt: (v) => !!v.actions.openOptions, tu: (v) => v.actions.openOptions() },
+    hilfe: { gilt: (v) => !!v.actions.openHilfe, tu: (v) => v.actions.openHilfe() },
+    charakter: { gilt: (v) => !!v.actions.openKammer, tu: (v) => v.actions.openKammer() },
+    weiter: { gilt: () => true, tu: (v) => { F.weiter(); sfx(v, 'ui_click'); } },
+    bestaetige: { gilt: () => true, tu: (v) => { const r = F.bestaetige(lobbyVon(v)); sfx(v, r.ok ? 'ui_click' : 'error'); } },
+    zurueck: { gilt: () => true, tu: (v) => { F.zurueck(ichVon(v)); sfx(v, 'ui_back'); } },
+    welten: { gilt: (v) => !!v.actions.openWorlds, tu: (v) => v.actions.openWorlds('list') },
+    bereit: { gilt: (v) => !!v.actions.toggleReady, tu: (v) => v.actions.toggleReady() },
+    modus: { gilt: (v) => !!ichVon(v), tu: (v) => { F.oeffneModusWahl(lobbyVon(v)); sfx(v, 'ui_click'); } },
+    link: { gilt: (v) => !!(ichVon(v) && v.actions.copyInvite && window.Net && Net.serverRoomCode), tu: (v) => v.actions.copyInvite() },
+    bot: { gilt: (v) => !!(ichVon(v) && v.actions.botPlatzFuellen), tu: (v) => v.actions.botPlatzFuellen() },   // Umschalt+P (Bot entfernen) bleibt eine reine Taste
+    einladungNeu: { gilt: () => true, tu: () => F.einladungNeuerCharakter() },
+    einladungAnnehmen: { gilt: () => true, tu: (v) => { const r = F.einladungAnnehmen(); sfx(v, r.ok ? 'ui_click' : 'error'); } },
+    einladungAblehnen: { gilt: () => true, tu: (v) => { F.einladungAblehnen(); sfx(v, 'ui_back'); } },
+  };
+  const gilt = (id, view) => !!AKTION[id] && AKTION[id].gilt(view);
+  function tue(id, view) { if (!gilt(id, view)) return false; AKTION[id].tu(view); return true; }
+
   // ---------------------------------------------------------------- Tasten
   // true = Taste verbraucht. Navigation über MenueFluss, Lobby-Aktionen über view.actions; hier steht nur, welche Taste was auslöst.
   function taste(e, view) {
     const code = e.code, s = F.lies().schirm, lob = lobbyVon(view), ich = ichVon(view), a = view.actions, rep = e.repeat;
-    const ton = (n) => { if (a.sfx) a.sfx(n); };
+    const ton = (n) => sfx(view, n);
     const hilfe = code === 'KeyH' || !!(window.Tasten && Tasten.passt(e, 'allgemein.hilfe'));   // H wie bisher, ? wie an den Pulten
     const gemeinsam = () => {   // Optionen, Hilfe, Charakter – auf jedem Bildschirm
       if (rep) return code === 'KeyO' || hilfe || code === 'KeyC';
-      if (code === 'KeyO') { a.openOptions && a.openOptions(); return true; }
-      if (hilfe) { a.openHilfe && a.openHilfe(); return true; }
-      if (window.Tasten && Tasten.passt(e, 'charakter.oeffnen')) { a.openKammer && a.openKammer(); return true; }
+      if (code === 'KeyO') { tue('optionen', view); return true; }
+      if (hilfe) { tue('hilfe', view); return true; }
+      if (window.Tasten && Tasten.passt(e, 'charakter.oeffnen')) { tue('charakter', view); return true; }
       return false;
     };
     if (s === 'titel') {
       if (gemeinsam()) return true;
-      if ((code === 'Enter' || code === 'NumpadEnter' || code === 'Space') && !rep) { F.weiter(); ton('ui_click'); return true; }
+      if ((code === 'Enter' || code === 'NumpadEnter' || code === 'Space') && !rep) { tue('weiter', view); return true; }
       return true;
     }
     if (s === 'menue' || (s === 'lobby' && F.lies().modusOffen)) {
       if (gemeinsam()) return true;
       if (code === 'ArrowUp' || code === 'ArrowDown') { F.bewege(code === 'ArrowUp' ? -1 : 1, lob); ton('ui_click'); return true; }
       if (rep) return true;
-      if (code === 'Enter' || code === 'NumpadEnter') { const r = F.bestaetige(lob); ton(r.ok ? 'ui_click' : 'error'); return true; }
-      if (code === 'Escape') { F.zurueck(ich); ton('ui_back'); return true; }
-      if (code === 'KeyF') { a.openWorlds && a.openWorlds('list'); return true; }
+      if (code === 'Enter' || code === 'NumpadEnter') { tue('bestaetige', view); return true; }
+      if (code === 'Escape') { tue('zurueck', view); return true; }
+      if (code === 'KeyF') { tue('welten', view); return true; }
       if (code === 'KeyU') { const en = F.auswahlEintrag(lob); if (en && en.tutorial) { F.schalteTutorialMerker(); ton('ui_click'); } return true; }
       const d = /^(?:Digit|Numpad)(\d)$/.exec(code);
       if (d) { const r = F.waehleTaste(d[1], lob); if (r.ok) ton('ui_click'); return true; }
@@ -508,19 +540,19 @@
       if (rep) return true;
       const d = /^(?:Digit|Numpad)([1-4])$/.exec(code);
       if (d) { F.setzeEinladungCursor(+d[1] - 1); ton('ui_click'); return true; }
-      if (code === 'KeyN') { F.einladungNeuerCharakter(); return true; }
-      if (code === 'Enter' || code === 'NumpadEnter') { const r = F.einladungAnnehmen(); ton(r.ok ? 'ui_click' : 'error'); return true; }
-      if (code === 'Escape') { F.einladungAblehnen(); ton('ui_back'); return true; }
+      if (code === 'KeyN') { tue('einladungNeu', view); return true; }
+      if (code === 'Enter' || code === 'NumpadEnter') { tue('einladungAnnehmen', view); return true; }
+      if (code === 'Escape') { tue('einladungAblehnen', view); return true; }
       return true;
     }
     // Lobby
     if (gemeinsam()) return true;
-    if (code === 'Escape') { if (!rep) { F.zurueck(ich); ton('ui_back'); } return true; }
-    if (code === 'Enter' || code === 'NumpadEnter') { if (!rep) a.toggleReady(); return true; }
-    if (code === 'KeyM') { if (ich && !rep) { F.oeffneModusWahl(lob); ton('ui_click'); } return true; }
-    if (code === 'KeyF') { if (ich && !rep) a.openWorlds && a.openWorlds('list'); return true; }
-    if (code === 'KeyP') { if (ich && !rep) { if (e.shiftKey) a.botLetztenEntfernen && a.botLetztenEntfernen(); else a.botPlatzFuellen && a.botPlatzFuellen(); } return true; }   // BOT-01 B2: P Bot auf den nächsten freien Platz, Umschalt+P letzten Bot entfernen
-    if (code === 'KeyL') { if (ich && !rep && a.copyInvite && window.Net && Net.serverRoomCode) a.copyInvite(); return true; }
+    if (code === 'Escape') { if (!rep) tue('zurueck', view); return true; }
+    if (code === 'Enter' || code === 'NumpadEnter') { if (!rep) tue('bereit', view); return true; }
+    if (code === 'KeyM') { if (!rep) tue('modus', view); return true; }
+    if (code === 'KeyF') { if (ich && !rep) tue('welten', view); return true; }
+    if (code === 'KeyP') { if (ich && !rep) { if (e.shiftKey) a.botLetztenEntfernen && a.botLetztenEntfernen(); else tue('bot', view); } return true; }   // BOT-01 B2: P Bot auf den nächsten freien Platz, Umschalt+P letzten Bot entfernen
+    if (code === 'KeyL') { if (!rep) tue('link', view); return true; }
     const farbe = /^Digit([1-4])$/.exec(code);
     if (farbe) { if (!rep) a.setColor(+farbe[1] - 1); return true; }
     if (ich) {
