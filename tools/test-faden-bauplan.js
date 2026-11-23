@@ -486,7 +486,7 @@ section('(f) Altstand aus main (ohne Plan-Feld) laedt und laeuft 40 Ticks weiter
 });
 
 // ---------------------------------------------------------------- (g) Obergrenzen
-section('(g) Obergrenzen: 3 aktive Faeden, 1 laufendes Abenteuer, 3 offene Abenteuer-Angebote, Abstand, Verfall', () => {
+section('(g) Obergrenzen: 3 aktive Faeden, 3 laufende Abenteuer, 3 offene Abenteuer-Angebote, Abstand, Verfall', () => {
   const P1 = plan([b('spontanhilfe'), b('abschluss')], { titel: 'Erstes Abenteuer' }), P2 = plan([b('notruf'), b('abschluss')], { titel: 'Zweites Abenteuer' }), P3 = plan([b('fracht'), b('abschluss')], { titel: 'Drittes Abenteuer' }), P4 = plan([b('raumschlacht'), b('abschluss')], { titel: 'Viertes Abenteuer' });
   const g = spiel();
   const a1 = Faden.abenteuerAnbieten(g, P1, { hex: '0305' }), a2 = Faden.abenteuerAnbieten(g, P2, { hex: '0202' }), a3 = Faden.abenteuerAnbieten(g, P3, { hex: '0203' });
@@ -509,16 +509,21 @@ section('(g) Obergrenzen: 3 aktive Faeden, 1 laufendes Abenteuer, 3 offene Abent
   ok(!/ZEBRAKAI/i.test(alle(gz)) && !/ZEBRAKAI/i.test(alle(voll)), 'Titel und Anlass der Modellantwort (hier ein Spielername) tauchen in keinem Logbuch-Eintrag auf');
   const o1 = Faden.abenteuerOeffnen(g, a1.angebot.nr);
   ok(o1.ok && o1.faden.plan && g.weltsim.faeden.abenteuerAngebote.length === 2, 'das erste Abenteuer geht auf, ein Platz im Angebot wird frei');
-  const o2 = Faden.abenteuerOeffnen(g, a2.angebot.nr);
-  ok(!o2.ok && /^ABENTEUER_LAUFEND/.test(o2.grund) && g.weltsim.faeden.liste.length === 1, 'ein zweites laufendes Abenteuer: abgelehnt (ABENTEUER_LAUFEND), obwohl nur 1 von 3 Faeden aktiv ist: ' + o2.grund);
+  // SPT-01 C: laufend_max ist 3 (Kai, 2026-11-23): drei Abenteuer laufen zugleich
+  ok(D.WERTE.abenteuer.laufend_max === 3 && D.WERTE.aktiv_max === 3, 'Daten: laufend_max 3, aktiv_max 3');
+  const o2 = Faden.abenteuerOeffnen(g, a2.angebot.nr), o3 = Faden.abenteuerOeffnen(g, a3.angebot.nr);
+  ok(o2.ok && o3.ok && g.weltsim.faeden.liste.length === 3 && Pruefer.abenteuerLaufend(g.weltsim.faeden) === 3, 'ein zweites und ein drittes laufendes Abenteuer: erlaubt (laufend_max 3), drei Abenteuer laufen');
   ok(!Faden.abenteuerOeffnen(g, 999).ok && /^KEIN_ANGEBOT/.test(Faden.abenteuerOeffnen(g, 999).grund), 'ein Angebot, das es nicht gibt: KEIN_ANGEBOT');
-  ok(Faden.abenteuerAnbieten(g, P4, { hex: '0204' }).ok, 'das vierte Abenteuer passt jetzt als Angebot');
+  const a4b = Faden.abenteuerAnbieten(g, P4, { hex: '0204' });
+  ok(a4b.ok, 'das vierte Abenteuer passt jetzt als Angebot');
+  const o4 = Faden.abenteuerOeffnen(g, a4b.angebot.nr);
+  ok(!o4.ok && /^OBERGRENZE/.test(o4.grund) && g.weltsim.faeden.liste.length === 3, 'ein viertes laufendes Abenteuer: abgelehnt, schon als OBERGRENZE (laufend_max und aktiv_max sind beide 3, die Obergrenze aktiver Faeden prueft zuerst): ' + o4.grund);
   // Abenteuer abschliessen: dann ist wieder Platz fuer ein laufendes
   const f = o1.faden;
   for (let i = 0; i < 10 && f.phase !== 'abgeschlossen'; i++) { if (f.phase === 'wartet') bringeWeiter(g, f); if (f.phase === 'laeuft') Faden.beatAusgang(g, f.id, 'gelungen'); }
   ok(f.phase === 'abgeschlossen', 'das erste Abenteuer ist abgeschlossen');
-  const o2b = Faden.abenteuerOeffnen(g, a2.angebot.nr);
-  ok(o2b.ok, 'danach geht das naechste auf (laufend_max zaehlt nur nicht abgeschlossene)');
+  const o4b = Faden.abenteuerOeffnen(g, a4b.angebot.nr);
+  ok(o4b.ok, 'danach geht das naechste auf (laufend_max zaehlt nur nicht abgeschlossene)');
   // 3 aktive Faeden: zwei Dateien-Faeden + ein Abenteuer, dann ist Schluss (auch fuer die Dateien)
   const h = spiel();
   const fa = X.oeffne(h, 'test_geschichte'), fb = (X.registriere(X.alsVorlage('test_b')), X.oeffne(h, 'test_b'));
@@ -670,15 +675,17 @@ section('Anbieten und Oeffnen: ungueltige Plaene, doppelte Angebote, Parameter, 
   ok(!Faden.abenteuerOeffnen(g, a3.angebot.nr, 'kein Objekt').ok && !Faden.abenteuerOeffnen(g, 'x').ok && !Faden.abenteuerOeffnen(g, 1.5).ok, 'Parameter, die kein Objekt sind, und Angebots-Nummern, die keine ganzen Zahlen sind: abgelehnt');
   ok(Faden.abenteuerOeffnen(g, a3.angebot.nr).ok, 'ohne Parameter geht es auf (NSC aus den Datenlisten)');
   ok(g.errors === 0, 'keine Serverfehler');
-  // Laden: zwei laufende Abenteuer in einem Stand -> nur das erste bleibt
+  // Laden: vier laufende Abenteuer in einem Stand -> nur die ersten drei bleiben (SPT-01 C: laufend_max 3 = aktiv_max 3, der Leser verwirft das vierte schon als zu viele aktive Faeden)
   const h = spiel(), h1 = abenteuer(h, P1, '0305').f;
   const sim = JSON.parse(JSON.stringify(Weltstand.capture(h).welt.sim));
   const zw = JSON.parse(JSON.stringify(sim.faeden.liste[0]));
-  const pl2 = plan([b('notruf'), b('abschluss')], { titel: 'Zweites Abenteuer' }), v2 = BP.expandiere(pl2).vorlage;
-  zw.id = 'f9'; zw.vorlage = v2.id; zw.plan = v2; zw.nsc.id = 'n9'; zw.nsc.name = rom.vornamen[1] + ' ' + rom.nachnamen[1];
-  sim.faeden.liste.push(zw);
+  for (const i of [1, 2, 3]) {
+    const zi = JSON.parse(JSON.stringify(zw)), vi = BP.expandiere(plan([b('notruf'), b('abschluss')], { titel: 'Weiteres Abenteuer ' + i })).vorlage;
+    zi.id = 'f' + (8 + i); zi.vorlage = vi.id; zi.plan = vi; zi.nsc.id = 'n' + (8 + i); zi.nsc.name = rom.vornamen[i] + ' ' + rom.nachnamen[i];
+    sim.faeden.liste.push(zi);
+  }
   const h2 = spiel(); Kriegslage.restore(h2, sim);
-  ok(h2.weltsim.faeden.liste.length === 1 && h2.weltsim.faeden.liste[0].id === h1.id && h2.weltsim.faeden.ladeFehler.some((t) => /laufendes Abenteuer/.test(t)), 'ein Stand mit zwei laufenden Abenteuern: nur das erste bleibt (laufend_max), Meldung');
+  ok(h2.weltsim.faeden.liste.length === 3 && h2.weltsim.faeden.liste[0].id === h1.id && h2.weltsim.faeden.liste.map((x) => x.id).join() === 'f1,f9,f10' && h2.weltsim.faeden.ladeFehler.some((t) => /f11/.test(t) && /aktive/.test(t)), 'ein Stand mit vier laufenden Abenteuern: nur die ersten drei bleiben (laufend_max 3), das vierte wird mit Meldung verworfen');
   // Register: eine Vorlage der Dateien mit Abenteuer-Id
   const w = BP.expandiere(plan([b('notruf'), b('abschluss')], { titel: 'Kollision' })).vorlage;
   const kopie = klon(w); D.registriere(kopie);

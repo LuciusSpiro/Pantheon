@@ -270,14 +270,18 @@ section('Befehle: annehmen (Crew entscheidet, die ERSTE Antwort gilt), Codes, Ei
     tx.g.errors = 0;
     ok(tx.an('a' + p.angebot.nr).ok === true, 'danach laesst sich das Angebot normal annehmen'); }
   ok(t.ab(id2, t.cs[1]).code === 'schon_beantwortet', 'auch Ablehnen nach der Annahme: schon_beantwortet');
-  // hoechstens ein laufendes Abenteuer
+  // SPT-01 C: bis zu laufend_max (3) laufende Abenteuer zugleich, das vierte meldet laeuft_schon (die Pruefung steht VOR kein_platz: bei drei laufenden sind auch die drei aktiven Faeden voll)
+  ok(WERTE.abenteuer.wert.laufend_max === 3 && WERTE.aktiv_max.wert === 3, 'Daten: laufend_max 3, aktiv_max 3');
+  const e1 = t.an(id1, t.cs[1]), e3 = t.an(id3, t.cs[2]);
+  ok(e1.ok === true && e3.ok === true && liste(g).filter((f) => f.plan && f.phase !== 'abgeschlossen').length === 3 && offen(g).length === 0, 'ein zweites und ein drittes Abenteuer neben dem laufenden: angenommen, drei laufen zugleich');
+  const a4 = anbieten(g, bitteplan(4)), id4 = 'a' + a4.angebot.nr;
   const fp0 = logbuch(g).filter((x) => x.art === 'faden_pruefung').length;
-  const e = t.an(id1, t.cs[1]);
-  ok(e.ok === false && e.code === 'laeuft_schon' && offen(g).length === 2, 'ein zweites Abenteuer neben dem laufenden: laeuft_schon, das Angebot bleibt');
+  const e = t.an(id4, t.cs[1]);
+  ok(a4.ok && e.ok === false && e.code === 'laeuft_schon' && e.text === BRETT.weigerungen.laeuft_schon && offen(g).length === 1 && liste(g).length === 3, 'ein viertes Abenteuer neben drei laufenden: laeuft_schon (nicht kein_platz), das Angebot bleibt');
   ok(logbuch(g).filter((x) => x.art === 'faden_pruefung').length === fp0, 'die Weigerung ist sauber: kein Eintrag faden_pruefung im Logbuch (der Zustand wird vorher geprueft)');
   // am Boden
   g.players[0].downed = true;
-  const d = t.an(id1, t.cs[0]);
+  const d = t.an(id4, t.cs[0]);
   ok(d.ok === false && d.code === 'am_boden', 'wer am Boden liegt: am_boden');
   g.players[0].downed = false;
   // Code ohne Schalter
@@ -290,7 +294,6 @@ section('Befehle: annehmen (Crew entscheidet, die ERSTE Antwort gilt), Codes, Ei
   const k = tl.an('a' + p.angebot.nr);
   ok(k.ok === false && k.code === 'kein_spielleiter' && offen(tl.g).length === 1 && liste(tl.g).length === 0, 'ohne Spielleiter: kein_spielleiter, das Angebot bleibt bis zum Verfall, nichts wird begonnen');
   ok(g.errors === 0 && tl.g.errors === 0 && t0.g.errors === 0, 'keine Serverfehler');
-  void id3;
 });
 
 section('Befehle: ablehnen kostet nichts (kein Ruf, keine Haltung, kein Cooldown), der Platz wird frei', () => {
