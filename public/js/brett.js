@@ -65,7 +65,6 @@
     const gef = schritte.find((s) => s.gefahr);
     return {
       gefahr: v.gefahr === true || v.gefahr === 1 || !!gef,
-      gefahrText: gef ? gef.text : '',   // der Server schickt nur „ja/nein“; genannt wird der erste gefährliche Schritt
       schritte,
       gelingt: liste(v.gelingt, GRENZE.folgen).map(folgeAus).filter((x) => x !== null),
       scheitert: liste(v.scheitert, GRENZE.folgen).map(folgeAus).filter((x) => x !== null),

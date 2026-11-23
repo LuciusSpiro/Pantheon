@@ -41,7 +41,7 @@ section('brett.js: Storage, Löschsignal, Müll, Grenzen');
   B.lesen({ t: 'snap', world: { abenteuer: block } });
   let m = B.modell();
   ok(m && m.ok === true && m.kopf === 'Auftragsbrett' && m.angebote.length === 1 && m.angebote[0].titel === 'Der Bernsteinkonvoi' && m.angebote[0].rest === 9 && m.angebote[0].aus_geruecht === true && m.laufend === null, 'Block -> Modell');
-  ok(m.angebote[0].vorschau.gefahr === true && m.angebote[0].vorschau.gefahrText === 'Konvoi stellen' && m.angebote[0].vorschau.schritte.length === 2 && m.angebote[0].vorschau.gelingt.length === 2, 'Vorschau: Gefahr, genannt wird der erste gefährliche Schritt, Folgen');
+  ok(m.angebote[0].vorschau.gefahr === true && m.angebote[0].vorschau.gefahrText === undefined && m.angebote[0].vorschau.schritte.some((s) => s.gefahr === true) && m.angebote[0].vorschau.schritte.length === 2 && m.angebote[0].vorschau.gelingt.length === 2, 'Vorschau: Gefahr, der gefährliche Schritt steht in den Schritten (kein vorgefertigter Text), Folgen');
   ok(m.geruechte.length === 1 && m.geruechte[0].angebot === 'a1', 'Gerücht mit Verweis auf das Angebot');
   B.lesen({ t: 'snap', world: {} });
   ok(B.modell() !== null, 'ein Snapshot ohne world.abenteuer lässt den Block stehen');
@@ -189,7 +189,7 @@ section('Zeichnen: drei Angebote, Gefahr nie nur über Farbe, Zahlen und Texte')
   ok(rote.length >= 3 && rec.rects.some((r) => r.col === FARBE.gefahrHell), 'Bake gezeichnet (rote und helle Streifen)');
   ok(!hat('Konvoi stellen und aufhalten'), 'SPT-01 D: Detail (gewählt: Konvoi) verrät den gefährlichen Schritt 3 nicht hinter GEFAHR (das Wort GEFAHR bleibt)');
   ok(hat('Gerücht in Concordia prüfen') && !hat('Nach Kantenstein springen') && !hat('Ladung in Concordia löschen') && hat('1') && hat('4') && rec.texte.filter((t) => t.s === '?').length === 3, 'SPT-01 D: Schritt 1 im Klartext, die Schritte 2 bis 4 als „?“ (Nummern 1 bis 4 stehen)');
-  ok(hat('verfällt nach 9 Ticks'), 'Detail: „verfällt nach 9 Ticks“');
+  ok(hat('gilt noch 9 Ticks'), 'Detail: „gilt noch 9 Ticks“');
   ok(hat('Das Konkordat zahlt, Kantenstein verliert Nachschub.') || hatTeil(/^Das Konkordat zahlt/), 'Satz bei „Gelingt“ aus dem Snapshot');
   ok(hat('GELINGT'), 'Überschrift Gelingt');
   ok(rec.texte.some((t) => /^SCHEITERT$/i.test(t.s)) && !rec.texte.some((t) => /^(MISSLINGT|VERLOREN|STRAFE)/i.test(t.s)), 'Überschrift Scheitert (kein Strafwort)');
@@ -208,10 +208,16 @@ section('Zeichnen: gewähltes Angebot wechselt das Detail, ein Angebot, kein Ang
   zeichne(baustein(m, 'a3'));
   geometrie('Boje');
   ok(hat('kein Kampf angekündigt') && !rec.texte.some((t) => /^GEFAHR$/i.test(t.s) && t.x >= L.handel.x + MASS.liste.w), 'Angebot ohne Gefahr: ausdrücklich „kein Kampf angekündigt“, kein GEFAHR im Detail');
-  ok(hat('Eine Boje sendet seit drei Tagen nichts mehr.') && hat('verfällt nach 11 Ticks'), 'Detail der Boje');
+  ok(hat('Eine Boje sendet seit drei Tagen nichts mehr.') && hat('gilt noch 11 Ticks'), 'Detail der Boje');
   zeichne(baustein(m, 'a2'));
   geometrie('Heimweg');
-  ok(hat('! verfällt nach 2 Ticks') && !hat('Durch die Front bei Gullfjord') && hat('In Ostia Nova an Bord nehmen') && rec.texte.some((t) => /^GEFAHR$/i.test(t.s) && t.x >= L.handel.x + MASS.liste.w) && rec.texte.some((t) => t.s === 'Germanen'), 'Detail Heimweg: bald (!), GEFAHR angekündigt, der gefährliche Schritt 2 verborgen (SPT-01 D), Auftraggeber Germanen');
+  ok(hat('! gilt noch 2 Ticks') && !hat('Durch die Front bei Gullfjord') && hat('In Ostia Nova an Bord nehmen') && rec.texte.some((t) => /^GEFAHR$/i.test(t.s) && t.x >= L.handel.x + MASS.liste.w) && rec.texte.some((t) => t.s === 'Germanen'), 'Detail Heimweg: bald (!), GEFAHR angekündigt, der gefährliche Schritt 2 verborgen (SPT-01 D), Auftraggeber Germanen');
+  {   // der gefährliche Schritt ist sichtbar (Schritt 1): sein Text steht hinter GEFAHR, in derselben Zeile (kommt aus den Schritten, nicht aus einem vorgefertigten Feld)
+    const K1 = klon(KONVOI); K1.vorschau.schritte = [{ text: 'Konvoi stellen und aufhalten', gefahr: true }].concat(K1.vorschau.schritte.slice(1));
+    zeichne(baustein(modellAus({ angebote: [K1] }), 'a1'));
+    const gw = rec.texte.find((t) => /^GEFAHR$/i.test(t.s) && t.x >= L.handel.x + MASS.liste.w);
+    ok(!!gw && rec.texte.some((t) => /^Konvoi stellen/.test(t.s) && t.y === gw.y && t.x > gw.x), 'Detail: ist der gefährliche Schritt sichtbar, steht sein Text hinter GEFAHR');
+  }
   m = modellAus({ angebote: [BOJE] });
   zeichne(baustein(m));
   geometrie('eins');
@@ -590,15 +596,15 @@ section('Notruf-Angebot ohne rest: keine erfundene Frist (kein "noch 0", kein "v
   let m = modellAus({ angebote: [NOTRUF] });
   ok(m.angebote[0].rest === null, 'brett.js: ohne rest im Snapshot bleibt rest null (nicht 0)');
   zeichne(baustein(m));
-  ok(!hatTeil(/noch d/) && !hatTeil(/verfällt/) && !hatTeil(/Frist/) && !hatTeil(/Tick/), 'Karte und Detail: weder "noch n Ticks" noch "verfällt nach n Ticks" noch ein Tick-Hinweis (SPT-01 E: das Notruf-Angebot altert nicht)');
+  ok(!hatTeil(/noch \d/) && !hatTeil(/verfällt/) && !hatTeil(/Frist/) && !hatTeil(/Tick/), 'Karte und Detail: weder "noch n Ticks" noch "gilt noch n Ticks" noch ein Tick-Hinweis (SPT-01 E: das Notruf-Angebot altert nicht)');
   ok(hatTeil(/Kutter Fortuna/) && hatTeil(/Speculum/), 'Titel und Ort stehen trotzdem');
   geometrie('Notruf ohne rest');
   m = modellAus({ angebote: [NOTRUF, KONVOI] });
   zeichne(baustein(m, 'a1'));
   ok(hat('noch 9 Ticks') && !hatTeil(/noch 0/), 'neben einem regulären Angebot (rest 9) zeigt nur dieses seine Frist');
   m = modellAus({ angebote: [Object.assign(klon(KONVOI), { rest: 0 })] });
-  zeichne(baustein(m));
-  ok(hatTeil(/noch 0/), 'ein regulares Angebot mit rest 0 zeigt weiter "noch 0" (echte Null, nicht fehlend)');
+  zeichne(baustein(m, 'a1'));
+  ok(hat('! läuft ab') && hat('! verfällt mit dem nächsten Tick') && !hatTeil(/noch 0/), 'ein reguläres Angebot mit rest 0 (echte Null, nicht fehlend) zeigt „! läuft ab“ und „verfällt mit dem nächsten Tick“, kein „noch 0“ (es überlebt keinen weiteren Tick)');
 }
 
 // ================================================================ 3. terminal-ui.js gegen einen echten Server

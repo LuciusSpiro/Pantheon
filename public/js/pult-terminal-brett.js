@@ -169,7 +169,7 @@
       rand(c, x, D.ort.y, w, M.tag.h, FA.tagRand); txt(c, s, x + M.tag.innen + 1, D.ort.y + M.tag.textY, FA.dim, titelO); x += w + M.tag.luft;
     });
     const ox = x + (x > D.ort.x ? Z.typLuft : 0);
-    // Herkunft und Ziel gehen vor der langen Verfallsangabe: passt „ab Hafen → Ziel“ (bzw. der Hinweis bei ort_offen) nicht neben „verfällt nach n Ticks“, steht dort die Kurzform („noch n“)
+    // Herkunft und Ziel gehen vor der langen Verfallsangabe: passt „ab Hafen → Ziel“ (bzw. der Hinweis bei ort_offen) nicht neben „gilt noch n Ticks“, steht dort die Kurzform („noch n“)
     const voll = ortKandidaten(a)[0] || '';
     if (a.hafen && voll && tw(voll) > ende0 - ox) { vt = v.kurz; ende = D.ort.x + D.ort.w - tw(vt) - Z.nach; }
     txt(c, ortDetail(a, ende - ox), ox, D.ort.y + M.tag.textY, FA.text);   // ein langer Ortsname (bis 40 Zeichen) weicht dem Verfall
@@ -193,7 +193,7 @@
     if (typeof a.rest === 'number') {
       const Hi = D.tick, rows = Math.floor(Hi.h / M.zeile), voll = T.umbruch(A.text('tickHinweis'), Hi.w, 0);
       (voll.length <= rows ? voll : umbr(A.text('tickHinweisKurz'), Hi.w, rows)).forEach((z, i) => txt(c, z, Hi.x, Hi.y + i * M.zeile, FA.dim));
-      if (rows > 0) tip({ x: Hi.x, y: Hi.y, w: Hi.w, h: rows * M.zeile }, A.text('tickHinweis'));
+      if (rows > 0) tip({ x: Hi.x, y: Hi.y, w: Hi.w, h: rows * M.zeile }, A.text('tickHinweisLang'));
     }
     // Gelingt | Scheitert: ohne laufendes Abenteuer 6 Zeilen für beide; der Scheitern-Satz des Servers steht als letzte Zeile unter SCHEITERT, braucht Scheitert höchstens 2 Zeilen, bekommt Gelingt bis zu 4
     const vs = a.vorschau || {}, G = D.gelingt, Sc = D.scheitert, kompakt = G.zeilen < Z.folgeZeilen;

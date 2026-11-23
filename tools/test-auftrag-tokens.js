@@ -90,7 +90,7 @@ ok(!f4.marke && f4.text === 'Sigrid erinnert sich an Euch.', 'folge Text bleibt 
 ok(f5.marke && f5.marke.f === 'kon' && f5.marke.d === 2, 'folge: Name statt Kürzel, Betrag auf 2 begrenzt');
 ok(!PA.folge({ f: 'rom', d: 0 }).marke && !PA.folge(null).marke, 'folge ohne Änderung / leer: keine Marke');
 ok(PA.pfeile(2) === '▲▲' && PA.pfeile(-1) === '▼', 'pfeile');
-ok(PA.verfall(7).kurz === 'noch 7 Ticks' && PA.verfall(7).lang === 'verfällt nach 7 Ticks' && PA.verfall(1).kurz === '! noch 1 Tick' && PA.verfall(1).lang === 'verfällt nach dem nächsten Tick' && !PA.verfall(7).bald && PA.verfall(2).bald && PA.verfall(1).lang === TEXT.verfallEins && PA.verfall(undefined).n === 0, 'verfall');
+ok(PA.verfall(7).kurz === 'noch 7 Ticks' && PA.verfall(7).lang === 'gilt noch 7 Ticks' && PA.verfall(1).kurz === '! noch 1 Tick' && PA.verfall(1).lang === 'gilt noch einen Tick' && PA.verfall(0).kurz === '! läuft ab' && PA.verfall(0).lang === TEXT.verfallNull && !/noch 0/.test(PA.verfall(0).kurz + PA.verfall(0).lang) && !PA.verfall(7).bald && PA.verfall(2).bald && PA.verfall(1).lang === TEXT.verfallEins && PA.verfall(undefined).n === 0, 'verfall');
 ok(PA.beats(3, 4).join() === 'fertig,fertig,jetzt,offen' && PA.beats(9, 3).join() === 'fertig,fertig,jetzt' && PA.beats(null, null).join() === 'jetzt', 'beats');
 ok(PA.typText(['geruecht', 'konvoi']) === 'Gerücht · Konvoi' && PA.typText(['neuartig']) === 'Neuartig' && PA.typText(null) === '', 'typText');
 ok(PA.schritt('a').gefahr === false && PA.schritt({ text: 'b', gefahr: 1 }).gefahr === true, 'schritt');

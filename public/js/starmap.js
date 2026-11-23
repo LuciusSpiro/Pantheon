@@ -224,16 +224,20 @@
     const m = /^(\d{4})-(\d{4})$/.exec(String(b.k || ''));
     return m && L.hier ? (m[1] === L.hier ? m[2] : m[2] === L.hier ? m[1] : null) : null;
   }
-  function bojeZielName(P, L, b, lang) {
+  function bojeZielAuf(P, L, b, lang) {   // { name, hex, u1 }: u1 = der Name kommt aus der U1-Regel (Marke/temporär), nicht aus hexName
     const n = bojeZielHex(L, b);
     if (!n) return null;
     const nm = hexName(P, L, n, lang);
-    if (nm !== '?' && nm !== 'Unbekanntes System') return nm;
+    if (nm !== '?' && nm !== 'Unbekanntes System') return { name: nm, hex: n, u1: false };
     // U1 (Kai): ein temporärer Sprungpunkt oder ein Missionsziel führt nicht ins Namenlose: der Ortsname der Marke bzw. des Kapitels gilt
     const hx = P.K.hexe[n];
-    if (hx && hx.name && hx.name !== '?' && ((b.z || 'aktiv') === 'temporaer' || (store.marken || []).some((mk) => mk && mk.h === n))) return hx.name + ' ' + n;
+    if (hx && hx.name && hx.name !== '?' && ((b.z || 'aktiv') === 'temporaer' || (store.marken || []).some((mk) => mk && mk.h === n))) return { name: hx.name, hex: n, u1: true };
     return null;
   }
+  // nur der Name (Visier, Karten-Tooltip): nie mit Hexnummer, damit keine Kurzform mitten in der Nummer schneidet
+  function bojeZielName(P, L, b, lang) { const r = bojeZielAuf(P, L, b, lang); return r ? r.name : null; }
+  // Raumszene: im U1-Fall hängt die Hexnummer am Namen (Verhalten wie bisher)
+  function bojeSzenenName(P, L, b, lang) { const r = bojeZielAuf(P, L, b, lang); return r ? (r.u1 ? r.name + ' ' + r.hex : r.name) : null; }
   function sperrGrund(P, L, h) {
     const s = P.K.hexe[h];
     if (!s) return null;
@@ -753,7 +757,7 @@
       if (IB && typeof IB.boje === 'function' && IB.boje(ctx, z, p.x, p.y, zoom, w + (cam.front ? 0 : (cam.rot || 0)), { t, ziel: !!gewaehlt }) !== false) gr = Math.max(26, 96 * zoom);
       else { gr = Math.max(12, Math.min(28, Math.round(90 * zoom))); zeichneBojeErsatz(ctx, z, p.x, p.y, gr); }
       let name = b.n || '';
-      if (P && b.n) name = bojeZielName(P, L, b, true) || 'Sektor ' + b.n;
+      if (P && b.n) name = bojeSzenenName(P, L, b, true) || 'Sektor ' + b.n;
       // Beschriftung unter der Boje (sonst darüber), knapp gehalten: voller Text nur beim gewählten Ziel. Bis render.js
       // die Label-Kollision (lab) im Hook reicht, weicht sie hier selbst aus: der „200“-Peilstrich der Frontsicht und
       // die eigenen Bojen-Labels sind Hindernisse.
@@ -851,6 +855,10 @@
     // SPT-01 F: (state, boje { k, n, z }) -> Name des Sprungziels (Kurzform wie die Randpfeile: 'Leer' für leeren Hex) oder null (Ziel unbekannt, keine Karte)
     bojeZielName(st, b) {
       try { const K = karte(); if (!K || !b) return null; const P = prep(K); return bojeZielName(P, lage(st, P), b, false); } catch (e) { return null; }
+    },
+    // wie bojeZielName, aber im U1-Fall (temporär/Marke) mit angehängter Hexnummer: so beschriftet die Raumszene (drawSzene); lang = Leerraum/Unbekanntes System ausgeschrieben
+    bojeSzenenName(st, b) {
+      try { const K = karte(); if (!K || !b) return null; const P = prep(K); return bojeSzenenName(P, lage(st, P), b, true); } catch (e) { return null; }
     },
     // (ctx, cam { toS, zoom, front }, state) – Bojen der Raumszene
     drawSzene(ctx, cam, st) {

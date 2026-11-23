@@ -204,7 +204,7 @@
     rect(c, x, y, H.balken, H.h, FA.laeuft);
     const y1 = y + 3, y2 = y + 13, re = x + H.w - H.innen;
     const v = A.verfall(l.rest);
-    const rechts = l.neu ? A.text('angenommen').toUpperCase() : (v.bald ? '! ' : '') + A.text('hudFrist', { n: v.n });   // „Frist 7“: Einheit Ticks (Tooltip/Hilfe), „!“ + Gelb ab 2
+    const rechts = l.neu ? A.text('angenommen').toUpperCase() : (v.bald ? '! ' : '') + A.text('hudFrist', { n: v.n });   // „Frist 7“ steht ohne Einheit (die Zahl zählt Ticks; es gibt hier keinen Tooltip dazu), „!“ + Gelb ab 2
     const rcol = l.neu ? FA.laeuft : v.bald ? FA.bald : FA.hudDim;
     txt(c, rechts, re, y1, rcol, { align: 'right' });
     txt(c, kuerzen(l.titel, re - tw(rechts) - 6 - (x + H.innen)), x + H.innen, y1, FA.hudTitel);

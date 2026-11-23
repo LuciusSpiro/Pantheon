@@ -3,7 +3,7 @@
 //  D: ein Angebot zeigt nur Schritt 1, die übrigen Schritte als „?“; kein Text, keine Bake, keine Wahl eines späteren Schritts steht irgendwo (gezeichneter Text, Klick- und Tooltipflächen);
 //     die Gesamtzeile GEFAHR bleibt, nennt aber nur einen sichtbaren gefährlichen Schritt; Gelingt/Scheitert/Scheitern-Satz bleiben unverändert; der laufende Auftrag zeigt nur den aktuellen Schritt.
 //     Mutationsprobe im Test: ohne Maskierung (A.schrittSicht gibt alles frei) schlägt die Leckprüfung an.
-//  E: „noch n Ticks“, „verfällt nach n Ticks“, Hinweis, was ein Tick ist (an die Arten gebunden, die der Fadenkern zählt, content/faeden/werte.json); Notruf-Angebot ohne Frist und ohne Hinweis;
+//  E: „noch n Ticks“, „gilt noch n Ticks“ (n = 0: „verfällt mit dem nächsten Tick“), Hinweis, was ein Tick ist (an die Arten gebunden, die der Fadenkern zählt, content/faeden/werte.json); Notruf-Angebot ohne Frist und ohne Hinweis;
 //     das Wort „Tätigkeit(en)“ steht nirgends mehr im sichtbaren Text.
 //   node tools/test-schritte-maske.js
 const fs = require('fs');
@@ -134,21 +134,21 @@ section('D4: Mutationsprobe: ohne Maskierung schlägt die Leckprüfung an');
 }
 
 // ================================================================ E1: Ticks
-section('E1: „noch n Ticks“ / „verfällt nach n Ticks“ und der Hinweis');
+section('E1: „noch n Ticks“ / „gilt noch n Ticks“ und der Hinweis');
 {
   const v = PA.verfall;
-  ok(v(9).kurz === 'noch 9 Ticks' && v(9).lang === 'verfällt nach 9 Ticks' && v(0).kurz === '! noch 0 Ticks' && v(1).kurz === '! noch 1 Tick' && v(1).lang === 'verfällt nach dem nächsten Tick' && v(2).kurz === '! noch 2 Ticks', 'Kurzform, Langform, Einzahl (1 Tick), bald mit „!“');
+  ok(v(9).kurz === 'noch 9 Ticks' && v(9).lang === 'gilt noch 9 Ticks' && v(12).lang === 'gilt noch 12 Ticks' && v(2).lang === 'gilt noch 2 Ticks' && v(0).kurz === '! läuft ab' && v(0).lang === 'verfällt mit dem nächsten Tick' && v(1).kurz === '! noch 1 Tick' && v(1).lang === 'gilt noch einen Tick' && v(2).kurz === '! noch 2 Ticks', 'Kurzform, Langform, Einzahl (1 Tick), bald mit „!“');
   ok(PA.beginnt(3) === 'beginnt in 3 Ticks' && PA.beginnt(1) === 'beginnt in 1 Tick' && PA.text('frist', { n: 5 }) === 'Frist noch 5 Ticks' && /Tick/.test(TEXT.leerText), 'beginnt, Frist und leerer Zustand sagen Ticks');
   // Der Hinweis nennt jede Art, die der Fadenkern zählt (content/faeden/werte.json taetigkeiten), und nur diese
-  const arten = WERTE.werte.taetigkeiten.wert, wort = { szene_ende: /Szene endet/, andocken: /andockt/, absicht: /Option/, notruf: /Notruf/ };
-  ok(arten.every((a) => wort[a] && wort[a].test(TEXT.tickHinweis)) && Object.keys(wort).length === arten.length, 'der Hinweis nennt jede gezählte Art (' + arten.join(', ') + ') und keine andere');
-  ok(!/Sprung|Sprünge/.test(TEXT.tickHinweis + TEXT.tickHinweisKurz), 'der Hinweis behauptet keinen Sprung (ein Sprung zählt nicht als Tick des Angebots)');
+  const arten = WERTE.werte.taetigkeiten.wert, wort = { szene_ende: /Szene endet/, andocken: /dockt an/, absicht: /Strat\. Option gewählt\/abgelehnt|Strategische Option gewählt oder abgelehnt/, notruf: /Notruf/ };
+  ok(arten.every((a) => wort[a] && wort[a].test(TEXT.tickHinweis) && wort[a].test(TEXT.tickHinweisLang)) && Object.keys(wort).length === arten.length, 'der Hinweis nennt jede gezählte Art (' + arten.join(', ') + ') und keine andere');
+  ok(!/Sprung|Sprünge/.test(TEXT.tickHinweis + TEXT.tickHinweisLang + TEXT.tickHinweisKurz), 'der Hinweis behauptet keinen Sprung (ein Sprung zählt nicht als Tick des Angebots)');
   zeichne(baustein(modell({ angebote: [A4] })));
   const T0 = D.tick, zeilen = rec.texte.filter((t) => t.x === T0.x && t.y >= T0.y && t.y < T0.y + T0.h);
   ok(zeilen.length >= 2 && zeilen.map((t) => t.s).join(' ') === TEXT.tickHinweis, 'Detail: der volle Hinweis steht in der linken Spalte unter den Schritten (' + zeilen.length + ' Zeilen)');
   ok(zeilen.every((t) => t.col === FARBE.dim && t.x + t.w <= T0.x + T0.w && t.y + t.h <= D.unten), 'Hinweis in dim, innerhalb der Spalte und über der Unterkante des Details');
-  ok(R2.ui.buttons.some((b) => b.label === TEXT.tickHinweis), 'Tooltip mit dem vollen Satz');
-  ok(hat('verfällt nach 9 Ticks') && hat('noch 9 Ticks'), 'Karte „noch 9 Ticks“, Detail „verfällt nach 9 Ticks“');
+  ok(R2.ui.buttons.some((b) => b.label === TEXT.tickHinweisLang && /Strategische Option gewählt oder abgelehnt/.test(b.label) && /dockt an/.test(b.label)), 'Tooltip mit dem ausgeschriebenen Satz');
+  ok(hat('gilt noch 9 Ticks') && hat('noch 9 Ticks'), 'Karte „noch 9 Ticks“, Detail „gilt noch 9 Ticks“');
   // kompakt (ein Abenteuer läuft): nur eine Zeile Platz: Kurzform
   const laufend = { id: 'a9', titel: 'L', schritt: 2, schritte_gesamt: 4, schritt_text: 'x', ph: 'laeuft', rest: 5 };
   zeichne(baustein(modell({ angebote: [A4], laufend })));

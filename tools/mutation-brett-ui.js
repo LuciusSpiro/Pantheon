@@ -33,7 +33,7 @@ const MUTATIONEN = [
   [BR, "const GRENZE = { angebote: 3, geruechte: 3,", "const GRENZE = { angebote: 5, geruechte: 5,", 'mehr als 3 Angebote und Gerüchte'],
   [BR, ".replace(/[\\u0000-\\u001f]+/g, ' ')", ".replace(/[\\u0000-\\u0000]+/g, ' ')", 'Steuerzeichen bleiben im Text'],
   [BR, ".slice(0, max || GRENZE.text) : '');", ".slice(0, 99999) : '');", 'Texte werden nicht begrenzt'],
-  [BR, "gefahrText: gef ? gef.text : '',", "gefahrText: '',", 'der gefährliche Schritt wird nicht genannt'],
+  [PB, "const Ge = D.gefahr, gs = st.find((s) => s.gefahr);", "const Ge = D.gefahr, gs = null;", 'der sichtbare gefährliche Schritt wird nicht genannt'],
   [BR, "const frisch = (l) => !!l && l.ph === 'wartet' && l.schritt === 1;", "const frisch = (l) => !!l && l.ph === 'wartet';", 'ANGENOMMEN steht bei jedem wartenden Schritt'],
   [BR, "schon_beantwortet: 'Schon beantwortet: die erste Antwort der Crew gilt.',", "schon_beantwortet: 'Schon beantwortet.',", 'Kurztext schon_beantwortet ohne „erste Antwort gilt“'],
   [BR, "kein_platz: 'Kein Platz für einen weiteren Handlungsstrang. Das Angebot bleibt.',", "kein_platz: 'Kein Platz für einen weiteren Handlungsstrang.',", 'Kurztext kein_platz verschweigt, dass das Angebot bleibt'],

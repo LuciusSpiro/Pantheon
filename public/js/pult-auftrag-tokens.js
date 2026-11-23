@@ -13,7 +13,7 @@
 //   PultAuftrag.fraktion(id)      -> { id, buchstabe, name, feld, text }   (id 'rom'|'ger'|'kon' oder Kürzel r/g/k; unbekannt -> neutral)
 //   PultAuftrag.folge(e)          -> { marke: { f, d, art, wort } | null, text }   (Objekt { f, art, d, text } oder Zeichenkette „Ruf Rom +1“)
 //   PultAuftrag.typText(typen)    -> 'Gerücht · Konvoi'
-//   PultAuftrag.verfall(rest)     -> { kurz: 'noch 7 Ticks', lang: 'verfällt nach 7 Ticks', bald: bool }   (Tick = eine gezählte Tätigkeit des Fadenkerns, server/sim/faden.js taetigkeit; Erklärung: TEXT.tickHinweis)
+//   PultAuftrag.verfall(rest)     -> { kurz: 'noch 7 Ticks', lang: 'gilt noch 7 Ticks', bald: bool }   // rest = Ticks, die das Angebot noch ÜBERLEBT (n = 0: der nächste Tick nimmt es vom Brett; server/sim/faden.js behält a.alter <= gilt)   (Tick = eine gezählte Tätigkeit des Fadenkerns, server/sim/faden.js taetigkeit; Erklärung: TEXT.tickHinweis)
 //   PultAuftrag.beats(schritt, gesamt) -> ['fertig', 'jetzt', 'offen', …]   (schritt 1-basiert)
 //   PultAuftrag.schritt(s)        -> { text, gefahr, wahl: [{ text, folgen: [Marke] }] | null }   (Zeichenkette oder { text, gefahr, wahl? })
 //   PultAuftrag.schrittSicht(liste, aktuell) -> [Schritt + { zustand: 'fertig'|'jetzt'|'verborgen' }]   (aktuell 1-basiert; ein verborgener Schritt trägt keinen Text, keine Gefahr, keine Wahl: Spannung, SPT-01 D)
@@ -122,9 +122,10 @@
     laeuft: 'Läuft', schritt: 'Schritt {i} von {n}', frist: 'Frist noch {n} Ticks', fristBald: 'Frist läuft ab',
     beginnt: 'beginnt in {n} Ticks', beginntEins: 'beginnt in 1 Tick', beginntGleich: 'beginnt gleich', hudBeginnt: 'in {n}',
     ruf: 'Ruf', haltung: 'Haltung', wahl: 'Wahl', wahlTip: 'Wahl: {optionen}',
-    verfallLang: 'verfällt nach {n} Ticks', verfallEins: 'verfällt nach dem nächsten Tick', verfallKurz: 'noch {n} Ticks', verfallKurzEins: 'noch 1 Tick', verfallBald: 'verfällt bald',
+    verfallLang: 'gilt noch {n} Ticks', verfallEins: 'gilt noch einen Tick', verfallNull: 'verfällt mit dem nächsten Tick', verfallKurz: 'noch {n} Ticks', verfallKurzEins: 'noch 1 Tick', verfallKurzNull: 'läuft ab', verfallBald: 'verfällt bald',
     // Tick = eine Tätigkeit, die der Fadenkern zählt (faden.taetigkeit): Ende einer Szene, Andocken, Wahl oder Ablehnung einer Option, bewältigter Notruf mit Person. NICHT jeder Sprung.
-    tickHinweis: 'Ein Tick: Szene endet, Crew andockt, Option entschieden oder Notruf bewältigt.', tickHinweisKurz: 'Tick: Szene, Andocken u. a.',
+    // tickHinweis passt in die Detailspalte (178 px, 3 Zeilen), tickHinweisLang ist der ausgeschriebene Satz im Tooltip (Strategische Option = absicht.waehlen/ablehnen am Terminal, nicht Annehmen am Brett)
+    tickHinweis: 'Tick: Szene endet, Crew dockt an, Notruf bewältigt, Strat. Option gewählt/abgelehnt.', tickHinweisLang: 'Ein Tick: Szene endet, Crew dockt an, Notruf bewältigt, Strategische Option gewählt oder abgelehnt.', tickHinweisKurz: 'Tick: Szene, Andocken u. a.',
     schrittVerborgen: '?', schrittVerborgenTip: 'Dieser Schritt wird erst gezeigt, wenn er dran ist.',
     annehmen: 'Annehmen', ablehnen: 'Ablehnen', kostetNichts: 'Ablehnen kostet nichts',
     gesperrt: 'Ein Abenteuer läuft schon', gesperrtGrund: 'Erst „{titel}“ abschließen',
@@ -196,10 +197,10 @@
   }
   const pfeile = (d) => (d > 0 ? '▲' : '▼').repeat(Math.min(2, Math.abs(d)));
   function typText(typen) { return (Array.isArray(typen) ? typen : []).map((t) => TYP[t] || (String(t).charAt(0).toUpperCase() + String(t).slice(1))).filter(Boolean).join(' · '); }
-  // Verfall in Ticks (gezählte Tätigkeiten): bald = höchstens 2 (Gelb und „!“, Wort „verfällt bald“)
+  // Verfall in Ticks (gezählte Tätigkeiten): bald = höchstens 2 (Gelb und „!“); n ist die Zahl der Ticks, die das Angebot noch übersteht, bei 0 nimmt der nächste Tick es vom Brett
   function verfall(rest) {
     const n = isNum(rest) ? Math.max(0, Math.floor(rest)) : 0, bald = n <= 2;
-    return { n, bald, kurz: (bald ? '! ' : '') + (n === 1 ? text('verfallKurzEins') : text('verfallKurz', { n })), lang: n <= 1 ? text('verfallEins') : text('verfallLang', { n }) };
+    return { n, bald, kurz: (bald ? '! ' : '') + (n === 0 ? text('verfallKurzNull') : n === 1 ? text('verfallKurzEins') : text('verfallKurz', { n })), lang: n === 0 ? text('verfallNull') : n === 1 ? text('verfallEins') : text('verfallLang', { n }) };
   }
   function beats(schritt, gesamt) {
     const n = Math.max(1, Math.min(12, isNum(gesamt) ? Math.floor(gesamt) : 1)), i = Math.max(1, Math.min(n, isNum(schritt) ? Math.floor(schritt) : 1));
