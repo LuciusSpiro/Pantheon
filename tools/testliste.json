@@ -102,6 +102,7 @@
   {"id":"test-fallen-typen","kette":"test","cmd":["tools/test-fallen-typen.js"],"stufe":"full","budget_s":25},
   {"id":"test-sektoren","kette":"test","cmd":["tools/test-sektoren.js"],"stufe":"full","budget_s":22},
   {"id":"test-entern","kette":"test","cmd":["tools/test-entern.js"],"stufe":"fast","budget_s":6},
+  {"id":"test-entern-rom","kette":"test","cmd":["tools/test-entern-rom.js"],"stufe":"fast","budget_s":6},
   {"id":"test-wellen","kette":"test","cmd":["tools/test-wellen.js"],"stufe":"fast","budget_s":9},
   {"id":"test-labor","kette":"test","cmd":["tools/test-labor.js"],"stufe":"fast","budget_s":20},
   {"id":"test-wellen-all","kette":"test","cmd":["tools/test-wellen-all.js"],"stufe":"fast","budget_s":8},
