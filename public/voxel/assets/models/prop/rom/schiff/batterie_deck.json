@@ -1,0 +1,56 @@
+{
+  "id": "prop/rom/schiff/batterie_deck",
+  "name": "Batteriedeck: Ballista-Batterie mit vier Rohren (Rom, Schiff, Ziel)",
+  "notes": "Anker ziel (Platz batteriedeck). Nachbau von lerche/station/battery mit jitter 0 (Dreiecksbudget). state 0 frei (vier Rohre geladen, ruhiges Kaltlicht), 1 genommen (Rohre leer und dunkel, Magazin offen und ausgeräumt, gelber Statusring, weiße Lampe), 2 aktiviert (Volllast: Rohre grell, Leuchtband auf der Haube, Lichtsäule).",
+  "tier": "detail",
+  "palette": "lerche_rom",
+  "jitter": 0,
+  "tags": ["rom", "schiff", "prop", "ziel", "batterie"],
+  "footprint": [1, 1],
+  "params": {
+    "state": { "default": 0, "min": 0, "max": 2, "step": 1, "label": "Zustand 0 frei / 1 genommen / 2 aktiviert" }
+  },
+  "let": { "e": "state == 2 ? 2.4 : 1.2", "tak": "state == 1", "ful": "state == 2" },
+  "variants": { "genommen": { "state": 1 }, "aktiviert": { "state": 2 } },
+  "ops": [
+    { "op": "use", "name": "Sockel", "model": "lerche/station/parts_c/plinth", "at": [0, 0, 0], "params": { "w": 14, "d": 14, "h": 3, "state": 0 } },
+
+    { "op": "box", "name": "Unterbau", "at": [-6, 3, -6], "size": [12, 4, 9], "color": "metal" },
+    { "op": "box", "name": "Unterbau Rotfeld", "at": [-6, 3, 2], "size": [12, 4, 1], "color": { "frame": "trim", "fill": "primary", "axes": "xy", "width": 1 } },
+    { "op": "use", "name": "Wartungsklappe", "model": "lerche/station/parts_c/hatch", "at": [0, 3, 3], "params": { "open": 0, "w": 4, "h": 4 } },
+
+    { "op": "box", "name": "Rahmenwange", "at": [-7, 3, -7], "size": [1, 10, 11], "color": "metal_dark", "mirror": "x", "mirrorAt": 0 },
+    { "op": "box", "name": "Wangenkante Gold", "at": [-7, 12, -7], "size": [1, 1, 11], "color": "trim", "mirror": "x", "mirrorAt": 0 },
+
+    { "op": "group", "name": "Vier Rohre", "repeat": { "count": 4, "step": [3, 0, 0], "var": "i" }, "ops": [
+      { "op": "cyl", "name": "Rohr", "axis": "z", "at": [-4.5, 9.5, -7], "r": 1.5, "h": 9, "color": "metal_light" },
+      { "op": "box", "name": "Rohrband", "at": [-6, 8, -5], "size": [3, 3, 1], "color": "trim", "mode": "paint" },
+      { "op": "box", "name": "Rohr geladen (Ladelinie)", "if": "!tak", "at": [-5, 11, -6], "size": [1, 1, 7], "color": { "role": "glow", "emit": "e" }, "jitter": false, "mode": "paint" },
+      { "op": "box", "name": "Verschluss", "at": [-6, 7, 2], "size": [3, 5, 3], "color": "metal" },
+      { "op": "box", "name": "Verschlusskappe", "at": [-6, 8, 5], "size": [3, 3, 1], "color": "trim" },
+      { "op": "box", "name": "Verschluss geladen", "if": "!tak", "at": [-5, 9, 5], "size": [1, 1, 1], "color": { "role": "glow", "emit": "e + 0.4" }, "jitter": false },
+      { "op": "box", "name": "Verschluss leer", "if": "tak", "at": [-5, 9, 5], "size": [1, 1, 1], "color": "dark", "jitter": false },
+      { "op": "box", "name": "Verschlusshebel", "at": [-5, 12, 3], "size": [1, 1, 2], "color": "metal_dark" }
+    ] },
+
+    { "op": "group", "name": "Kurbel (außenbords)", "ops": [
+      { "op": "cyl", "name": "Kurbelrad", "axis": "x", "at": [-8, 7, -2], "r": 2.5, "h": 1, "hollow": 1, "color": "trim" },
+      { "op": "box", "name": "Kurbelnabe", "at": [-8, 6, -3], "size": [1, 2, 2], "color": "metal_dark" },
+      { "op": "box", "name": "Kurbelgriff", "at": [-8, 9, -3], "size": [1, 1, 1], "color": "leather" }
+    ] },
+
+    { "op": "box", "name": "Magazinhaube", "if": "!tak", "at": [-6, 12, -7], "size": [12, 2, 5], "color": { "frame": "trim", "fill": "primary", "axes": "xz", "width": 1 } },
+    { "op": "box", "name": "Haubengrat", "if": "!tak", "at": [-1, 14, -7], "size": [2, 1, 5], "color": "metal_dark" },
+    { "op": "box", "name": "Magazin offen: Schacht", "if": "tak", "at": [-6, 12, -7], "size": [12, 1, 5], "color": "dark", "jitter": false },
+    { "op": "box", "name": "Magazin offen: Deckel hochgeklappt", "if": "tak", "at": [-6, 13, -8], "size": [12, 6, 1], "color": { "frame": "trim", "fill": "primary", "axes": "xy", "width": 1 } },
+    { "op": "box", "name": "Haube Leuchtband (aktiviert)", "if": "ful", "at": [-5, 14, -6], "size": [10, 1, 1], "color": { "role": "glow", "emit": 2.6 }, "jitter": false },
+
+    { "op": "use", "name": "Statuskrone", "model": "lerche/station/parts_c/crown", "at": [0, "tak ? 13 : 14", -4], "params": { "state": "tak ? 1 : 0", "post": 2, "r": 3.5 } },
+    { "op": "cyl", "name": "Lichtsäule (aktiviert)", "if": "ful", "at": [0, 19, -4], "r": 1, "h": 6, "color": { "role": "glow", "emit": 2.4 }, "jitter": false },
+
+    { "op": "box", "name": "Statuslampe (genommen)", "if": "tak", "at": [5, 8, 5], "size": [2, 2, 2], "color": { "role": "white", "emit": 1.2 }, "jitter": false },
+    { "op": "line", "name": "Hebel umgelegt (genommen)", "if": "tak", "from": [6, 3, 5], "to": [6, 7, 7], "r": 0.6, "color": "metal_light" }
+  ],
+  "sockets": { "use": [0, 0, 0.6], "fx_smoke": [0, 1.2, -0.2], "fx_spark": [0.3, 0.8, 0.3], "light": [0, 1.0, 0], "label": [0, 1.7, 0] },
+  "anchor": [0, 0, 0]
+}

@@ -7,7 +7,7 @@
 // ziel: je Platztyp bruecke, reaktor, batteriedeck und Mittelsektion (sektion -> '*', Laderaum) ein EIGENES Modell (Abnahme SCH-02 Nr. 3).
 // Pflichtsatz: shared/gen-schiff.js PFLICHT (eingang, abholpunkt, sprengpunkt, ziel, terminal, zelle, beute, nsc, wache, lift, leiter) ohne eingang/nsc/wache
 //   (Eingang hat im Schiff kein Anker-Prop, nsc und wache sind Figuren); dazu falle (Typen schott, druck, schuss).
-// Stand SCH-02 C1: ROT auf sprengpunkt, ziel (4), lift, leiter, bis C2 die Modelle aus B1/B2 verdrahtet. NICHT in tools/testliste.json bis dahin.
+// Stand SCH-02 C2: gruen (Modelle aus B1/B2 verdrahtet), Schritt der Kette (tools/testliste.json, Stufe fast).
 const fs = require('fs');
 const path = require('path');
 const { pathToFileURL } = require('url');

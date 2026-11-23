@@ -79,7 +79,7 @@
     {
       "team": "art-sch",
       "file": "art-sch.json",
-      "count": 12
+      "count": 19
     },
     {
       "team": "art-st",
@@ -19676,6 +19676,463 @@
       ],
       "source": "prop/rom/ruine/schutt",
       "team": "art-ru"
+    },
+    "prop/rom/schiff/batterie_deck": {
+      "id": "prop/rom/schiff/batterie_deck",
+      "kind": "model",
+      "tier": "detail",
+      "palette": "lerche_rom",
+      "footprint": [
+        1,
+        1
+      ],
+      "height": 1.6,
+      "facing": "+z",
+      "params": {
+        "state": [
+          0,
+          2
+        ]
+      },
+      "states": {
+        "frei": {
+          "state": 0
+        },
+        "genommen": {
+          "state": 1
+        },
+        "aktiviert": {
+          "state": 2
+        }
+      },
+      "sockets": {
+        "use": [
+          0,
+          0,
+          0.6
+        ],
+        "fx_smoke": [
+          0,
+          1.2,
+          -0.2
+        ],
+        "fx_spark": [
+          0.3,
+          0.8,
+          0.3
+        ],
+        "light": [
+          0,
+          1,
+          0
+        ],
+        "label": [
+          0,
+          1.7,
+          0
+        ]
+      },
+      "budgetTris": 2500,
+      "measuredTris": 2160,
+      "tags": [
+        "rom",
+        "schiff",
+        "anker",
+        "ziel"
+      ],
+      "source": "prop/rom/schiff/batterie_deck",
+      "team": "art-sch"
+    },
+    "prop/rom/schiff/bruecke_konsole": {
+      "id": "prop/rom/schiff/bruecke_konsole",
+      "kind": "model",
+      "tier": "detail",
+      "palette": "lerche_rom",
+      "footprint": [
+        1,
+        1
+      ],
+      "height": 1.6,
+      "facing": "+z",
+      "params": {
+        "state": [
+          0,
+          2
+        ]
+      },
+      "states": {
+        "frei": {
+          "state": 0
+        },
+        "genommen": {
+          "state": 1
+        },
+        "aktiviert": {
+          "state": 2
+        }
+      },
+      "sockets": {
+        "use": [
+          0,
+          0,
+          0.6
+        ],
+        "fx_smoke": [
+          0.1,
+          0.9,
+          0
+        ],
+        "fx_spark": [
+          0.3,
+          0.8,
+          0.2
+        ],
+        "light": [
+          0,
+          0.9,
+          0
+        ],
+        "label": [
+          0,
+          1.7,
+          0
+        ]
+      },
+      "budgetTris": 2500,
+      "measuredTris": 1810,
+      "tags": [
+        "rom",
+        "schiff",
+        "anker",
+        "ziel"
+      ],
+      "source": "prop/rom/schiff/bruecke_konsole",
+      "team": "art-sch"
+    },
+    "prop/rom/schiff/laderaum_stapel": {
+      "id": "prop/rom/schiff/laderaum_stapel",
+      "kind": "model",
+      "tier": "detail",
+      "palette": "lerche_rom",
+      "footprint": [
+        1,
+        1
+      ],
+      "height": 1.65,
+      "facing": "+z",
+      "params": {
+        "state": [
+          0,
+          2
+        ]
+      },
+      "states": {
+        "frei": {
+          "state": 0
+        },
+        "genommen": {
+          "state": 1
+        },
+        "aktiviert": {
+          "state": 2
+        }
+      },
+      "sockets": {
+        "use": [
+          0,
+          0,
+          0.6
+        ],
+        "fx_smoke": [
+          0,
+          1,
+          0
+        ],
+        "fx_spark": [
+          0.3,
+          0.7,
+          0.3
+        ],
+        "light": [
+          0,
+          1.2,
+          0
+        ],
+        "label": [
+          0,
+          1.7,
+          0
+        ]
+      },
+      "budgetTris": 2500,
+      "measuredTris": 884,
+      "tags": [
+        "rom",
+        "schiff",
+        "anker",
+        "ziel"
+      ],
+      "source": "prop/rom/schiff/laderaum_stapel",
+      "team": "art-sch"
+    },
+    "prop/rom/schiff/leiter": {
+      "id": "prop/rom/schiff/leiter",
+      "kind": "model",
+      "tier": "detail",
+      "palette": "lerche_rom",
+      "footprint": [
+        1,
+        1
+      ],
+      "height": 2.19,
+      "facing": "+z",
+      "params": {
+        "deck": [
+          1,
+          2
+        ]
+      },
+      "states": {
+        "deck1": {
+          "deck": 1
+        },
+        "deck2": {
+          "deck": 2
+        }
+      },
+      "sockets": {
+        "use": [
+          0,
+          0,
+          0.2
+        ],
+        "label": [
+          0,
+          2.3,
+          0
+        ]
+      },
+      "budgetTris": 2500,
+      "measuredTris": 1070,
+      "tags": [
+        "rom",
+        "schiff",
+        "anker",
+        "leiter"
+      ],
+      "source": "prop/rom/schiff/leiter",
+      "team": "art-sch"
+    },
+    "prop/rom/schiff/lift_schacht": {
+      "id": "prop/rom/schiff/lift_schacht",
+      "kind": "model",
+      "tier": "detail",
+      "palette": "lerche_rom",
+      "footprint": [
+        1,
+        1
+      ],
+      "height": 2.25,
+      "facing": "+z",
+      "params": {
+        "deck": [
+          1,
+          2
+        ],
+        "faehrt": [
+          0,
+          1
+        ]
+      },
+      "states": {
+        "deck1": {
+          "deck": 1
+        },
+        "deck2": {
+          "deck": 2
+        },
+        "faehrt": {
+          "faehrt": 1
+        }
+      },
+      "sockets": {
+        "use": [
+          0,
+          0,
+          0
+        ],
+        "light": [
+          0,
+          2,
+          -0.4
+        ],
+        "label": [
+          0,
+          2.3,
+          0
+        ]
+      },
+      "tint": [
+        "cloth",
+        "cloth2"
+      ],
+      "budgetTris": 2500,
+      "measuredTris": 1712,
+      "tags": [
+        "rom",
+        "schiff",
+        "anker",
+        "lift"
+      ],
+      "source": "prop/rom/schiff/lift_schacht",
+      "team": "art-sch"
+    },
+    "prop/rom/schiff/reaktor_schalter": {
+      "id": "prop/rom/schiff/reaktor_schalter",
+      "kind": "model",
+      "tier": "detail",
+      "palette": "lerche_rom",
+      "footprint": [
+        1,
+        1
+      ],
+      "height": 1.69,
+      "facing": "+z",
+      "params": {
+        "state": [
+          0,
+          2
+        ]
+      },
+      "states": {
+        "frei": {
+          "state": 0
+        },
+        "genommen": {
+          "state": 1
+        },
+        "aktiviert": {
+          "state": 2
+        }
+      },
+      "sockets": {
+        "use": [
+          0,
+          0,
+          0.6
+        ],
+        "hand": [
+          0,
+          0.82,
+          0.3
+        ],
+        "fx_smoke": [
+          0,
+          1.6,
+          -0.2
+        ],
+        "fx_spark": [
+          0,
+          0.8,
+          0.12
+        ],
+        "light": [
+          0,
+          1.15,
+          0
+        ],
+        "label": [
+          0,
+          1.9,
+          0
+        ]
+      },
+      "budgetTris": 2500,
+      "measuredTris": 1202,
+      "tags": [
+        "rom",
+        "schiff",
+        "anker",
+        "ziel"
+      ],
+      "source": "prop/rom/schiff/reaktor_schalter",
+      "team": "art-sch"
+    },
+    "prop/rom/schiff/reaktor_schiff": {
+      "id": "prop/rom/schiff/reaktor_schiff",
+      "kind": "model",
+      "tier": "detail",
+      "palette": "lerche_rom",
+      "footprint": [
+        1,
+        1
+      ],
+      "height": 1.65,
+      "facing": "+z",
+      "params": {
+        "state": [
+          0,
+          2
+        ]
+      },
+      "states": {
+        "intakt": {
+          "state": 0
+        },
+        "scharf": {
+          "state": 1
+        },
+        "zerstoert": {
+          "state": 2
+        }
+      },
+      "sockets": {
+        "use": [
+          0,
+          0,
+          0.6
+        ],
+        "charge": [
+          0,
+          0.6,
+          0.35
+        ],
+        "fx_explode": [
+          0,
+          0.8,
+          0
+        ],
+        "fx_smoke": [
+          0,
+          1.6,
+          0
+        ],
+        "fx_spark": [
+          0.25,
+          0.8,
+          0.3
+        ],
+        "light": [
+          0,
+          0.9,
+          0
+        ],
+        "label": [
+          0,
+          1.9,
+          0
+        ]
+      },
+      "budgetTris": 2500,
+      "measuredTris": 2402,
+      "tags": [
+        "rom",
+        "schiff",
+        "anker",
+        "sprengpunkt"
+      ],
+      "source": "prop/rom/schiff/reaktor_schiff",
+      "team": "art-sch"
     },
     "rom/barriere": {
       "id": "rom/barriere",

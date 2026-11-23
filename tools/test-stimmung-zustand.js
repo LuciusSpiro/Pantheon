@@ -3,7 +3,7 @@
 // SCH-02 C1: Stimmung je Zustand (public/js/voxel/stimmung.js stimmungFuerZustand).
 //   node tools/test-stimmung-zustand.js
 // 1. Testbauweise (Fixture): der Schluessel "<art>:<zustand>" gewinnt vor "<art>"; ohne ihn gilt "<art>"; Hoehle und Wildnis-Boden unberuehrt.
-// 2. Bestand: fuer jede Bauweisen-Datei, Kartenart, Bodenton und jeden Zustand liefert stimmungFuerZustand dasselbe wie stimmungVon (kein Schluessel "<art>:<zustand>" im Bestand).
+// 2. Bestand: fuer jede Bauweisen-Datei, Kartenart, Bodenton und jeden Zustand liefert stimmungFuerZustand dasselbe wie stimmungVon (Zustandsschluessel im Bestand nur schiff:verfallen/schiff:umkaempft in rom.json, SCH-02 C2).
 // 3. Verdrahtung: kit.js ruft stimmungFuerZustand mit k.zustand auf und nicht mehr stimmungVon direkt.
 const fs = require('fs');
 const path = require('path');
@@ -32,14 +32,21 @@ const ok = (c, t) => { n++; if (!c) { bad++; console.log('  FEHLER ' + t); } els
   const dir = path.join(ROOT, 'content', 'buehnen', 'bauweisen');
   const ARTEN = ['aussenposten', 'station', 'schiff', 'ruine', 'wildnis', 'hoehle', 'gelaende', 'hand', 'unbekannt'];
   const BOEDEN = [null, undefined, 'wueste', 'gras', 'vulkan', 'erde'];
-  let faelle = 0, abweich = 0, zustandsKeys = 0;
+  let faelle = 0, abweich = 0;
+  const zustandsKeys = {};   // Datei -> Schluessel "<art>:<zustand>"
   for (const f of fs.readdirSync(dir).filter((x) => x.endsWith('.json'))) {
     const t = JSON.parse(fs.readFileSync(path.join(dir, f), 'utf8').replace(/^﻿/, '')).stimmung || {};
-    for (const k of Object.keys(t)) if (ZUSTAENDE.some((z) => k.endsWith(':' + z))) zustandsKeys++;
-    for (const art of ARTEN) for (const b of BOEDEN) for (const z of ZUSTAENDE.concat([undefined])) { faelle++; if (S.stimmungFuerZustand(t, art, b, z) !== S.stimmungVon(t, art, b)) abweich++; }
+    for (const k of Object.keys(t)) if (ZUSTAENDE.some((z) => k.endsWith(':' + z))) (zustandsKeys[f] = zustandsKeys[f] || []).push(k);
+    for (const art of ARTEN) for (const b of BOEDEN) for (const z of ZUSTAENDE.concat([undefined])) {
+      if ((zustandsKeys[f] || []).includes(art + ':' + z)) continue;   // Absicht: dieser Zustandsschluessel gewinnt (Rom-Schiff, SCH-02 C2)
+      faelle++; if (S.stimmungFuerZustand(t, art, b, z) !== S.stimmungVon(t, art, b)) abweich++;
+    }
   }
-  ok(zustandsKeys === 0, 'kein Bestands-Schluessel "<art>:<zustand>" (SCH-02 C2 traegt sie erst mit B2-Moods ein)' + (zustandsKeys ? ' – gefunden ' + zustandsKeys : ''));
-  ok(faelle > 500 && abweich === 0, `${faelle} Bestandsfaelle: stimmungFuerZustand == stimmungVon (${abweich} Abweichungen)`);
+  // Einziger Bestands-Zustandsschluessel: schiff:verfallen und schiff:umkaempft in rom.json (SCH-02 C2)
+  const erlaubt = { 'rom.json': ['schiff:verfallen', 'schiff:umkaempft'] };
+  const unerwartet = Object.keys(zustandsKeys).filter((f) => JSON.stringify(zustandsKeys[f].slice().sort()) !== JSON.stringify((erlaubt[f] || []).slice().sort()) );
+  ok(unerwartet.length === 0 && Object.keys(zustandsKeys).length === 1, 'Zustandsschluessel "<art>:<zustand>" nur in rom.json (schiff:verfallen, schiff:umkaempft)' + (unerwartet.length ? ' – abweichend: ' + unerwartet.join(', ') : ''));
+  ok(faelle > 500 && abweich === 0, `${faelle} Bestandsfaelle ohne diese Schluessel: stimmungFuerZustand == stimmungVon (${abweich} Abweichungen)`);
 
   console.log('[Verdrahtung]');
   const kit = fs.readFileSync(path.join(ROOT, 'public/js/voxel/kit.js'), 'utf8');

@@ -152,6 +152,7 @@
   {"id":"test-glut","kette":"test","cmd":["tools/test-glut.js"],"stufe":"fast","budget_s":6},
   {"id":"test-bauweise-besitz","kette":"test","cmd":["tools/test-bauweise-besitz.js"],"stufe":"fast","budget_s":8},
   {"id":"test-rom-boden","kette":"test","cmd":["tools/test-rom-boden.js"],"stufe":"fast","budget_s":7},
+  {"id":"test-rom-schiff","kette":"test","cmd":["tools/test-rom-schiff.js"],"stufe":"fast","budget_s":6},
   {"id":"hash-baseline --compare --karten","kette":"test","cmd":["tools/hash-baseline.js","--compare","--karten","--ohne-zeichen","s,a,v"],"stufe":"fast","budget_s":8},
   {"id":"test-gen-schiff","kette":"test","cmd":["tools/test-gen-schiff.js"],"stufe":"fast","budget_s":8},
   {"id":"test-schiff-anbindung","kette":"test","cmd":["tools/test-schiff-anbindung.js"],"stufe":"fast","budget_s":6},
@@ -451,7 +452,6 @@
   {"id":"test-visier-skin","kette":"test","cmd":["tools/test-visier-skin.js"],"stufe":"fast","budget_s":8}
  ],
  "ausgenommen": [
-  {"datei":"tools/test-rom-schiff.js","grund":"SCH-02 Pflichttest, bis C2 absichtlich rot (sprengpunkt, ziel, lift, leiter ohne Rom-Modell); C2 hängt ihn als Schritt in die Kette und entfernt diesen Eintrag"},
   {"datei":"tools/check-assets.mjs","grund":"Asset-Pruefung gegen public/voxel bzw. Voxelwerk (npm run check:assets), braucht gebaute Assets; nicht in der Kette"},
   {"datei":"tools/check-missions.js","grund":"nicht in der Kette, Altlast (npm run check-missions); vermutlich vergessener Eintrag, bewerten"},
   {"datei":"tools/mutation-abenteuer-c.js","grund":"Mutationsprobe auf Abruf (npm run test:abenteuer-brett-mutation), zu langsam und zu breit fuer die Kette; nur der Ankercheck (--trocken) laeuft in der Kette check"},

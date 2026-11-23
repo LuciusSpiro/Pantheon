@@ -1,0 +1,17 @@
+{
+  "id": "prop/rom/schiff/reaktor_schalter",
+  "name": "Reaktorschalter: Hebel an Marmorsäule (Rom, Schiff, ziel im Reaktorraum)",
+  "notes": "Dünne Hülle um lerche/station/reactor_switch (SCH-02 C2). Das Spiel übergibt den Ankerzustand als state (0 frei, 1 genommen, 2 aktiviert); die Lerche-Vorlage kennt nur pos (0 ruht, 1 gehalten, 2 umgelegt). Die Hülle bildet state auf pos ab.",
+  "tier": "detail",
+  "palette": "lerche_rom",
+  "jitter": 0,
+  "tags": ["rom", "schiff", "prop", "ziel"],
+  "footprint": [1, 1],
+  "params": {
+    "state": { "default": 0, "min": 0, "max": 2, "step": 1, "label": "frei / genommen / aktiviert" }
+  },
+  "variants": { "genommen": { "state": 1 }, "aktiviert": { "state": 2 } },
+  "ops": [
+    { "op": "use", "name": "Schalter", "model": "lerche/station/reactor_switch", "params": { "pos": "state" }, "at": [0, 0, 0] }
+  ]
+}

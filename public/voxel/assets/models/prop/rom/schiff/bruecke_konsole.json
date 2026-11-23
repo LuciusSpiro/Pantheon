@@ -1,0 +1,52 @@
+{
+  "id": "prop/rom/schiff/bruecke_konsole",
+  "name": "Kommandostand: kurulischer Stuhl mit Seitenpult (Rom, Schiff, Ziel)",
+  "notes": "Anker ziel (Platz bruecke). Nachbau von lerche/console/captain mit jitter 0 (Dreiecksbudget). state 0 frei (Pult ruhig leuchtend), 1 genommen (Pult gedimmt, weiße Statuslampe, Hebel umgelegt), 2 aktiviert (Pult hell, Leuchtrand am Fuß, Lichtsäule über der Lehne).",
+  "tier": "detail",
+  "palette": "lerche_rom",
+  "jitter": 0,
+  "tags": ["rom", "schiff", "prop", "ziel", "bruecke", "konsole"],
+  "footprint": [1, 1],
+  "params": {
+    "state": { "default": 0, "min": 0, "max": 2, "step": 1, "label": "Zustand 0 frei / 1 genommen / 2 aktiviert" }
+  },
+  "let": { "e": "state == 1 ? 0.2 : (state == 2 ? 1.8 : 0.9)", "tak": "state == 1", "ful": "state == 2" },
+  "variants": { "genommen": { "state": 1 }, "aktiviert": { "state": 2 } },
+  "ops": [
+    { "op": "use", "name": "Besetzt-Rand", "model": "lerche/station/parts_c/rim", "at": [0, 0, 0], "params": { "w": 16, "d": 16, "on": "ful" } },
+    { "op": "cyl", "name": "Podest", "at": [-1, 0, 0], "r": 6.8, "h": 1, "color": "metal_dark" },
+    { "op": "cyl", "name": "Podest Goldring", "at": [-1, 0, 0], "r": 6.8, "hollow": 1, "h": 1, "color": "trim" },
+    { "op": "cyl", "name": "Podest Marmor", "at": [-1, 1, 0], "r": 5.5, "h": 1, "color": "secondary" },
+    { "op": "box", "name": "Mäanderfuge", "at": [-6, 1, 5], "size": [10, 1, 1], "color": { "stripes": ["trim", "secondary"], "axis": "x", "period": 1 }, "mode": "paint" },
+
+    { "op": "group", "name": "Kurulische Kreuzbeine (vorn und hinten)", "mirror": "z", "mirrorAt": 0, "ops": [
+      { "op": "line", "name": "Bein a", "from": [-6, 2, 3.5], "to": [1, 8, 3.5], "r": 0.7, "color": "trim" },
+      { "op": "line", "name": "Bein b", "from": [1, 2, 3.5], "to": [-6, 8, 3.5], "r": 0.7, "color": "trim" },
+      { "op": "box", "name": "Kreuzniete", "at": [-3, 4, 3], "size": [2, 2, 2], "color": "metal_dark" },
+      { "op": "box", "name": "Fußkufe", "at": [-7, 2, 3], "size": [10, 1, 1], "color": { "shade": "trim", "f": 0.8 } }
+    ] },
+    { "op": "box", "name": "Sitzrahmen", "at": [-7, 8, -4], "size": [10, 2, 8], "color": "metal" },
+    { "op": "box", "name": "Sitzrahmen Goldkante", "at": [-7, 9, 3], "size": [10, 1, 1], "color": "trim" },
+    { "op": "box", "name": "Sitzpolster (Purpur)", "at": [-6, 10, -3], "size": [8, 2, 6], "color": "cloth2" },
+    { "op": "box", "name": "Rückenlehne", "at": [-7, 10, -5], "size": [10, 8, 2], "color": { "frame": "trim", "fill": "cloth2", "axes": "xy", "width": 1 } },
+    { "op": "box", "name": "Lehnenkrone", "at": [-6, 18, -5], "size": [8, 1, 2], "color": "trim" },
+    { "op": "box", "name": "Lehnenkrone Mitte", "at": [-3, 19, -5], "size": [2, 1, 2], "color": { "shade": "trim", "f": 1.1 } },
+    { "op": "box", "name": "Armlehne", "at": [-8, 12, -4], "size": [1, 1, 7], "color": "secondary", "mirror": "x", "mirrorAt": -2 },
+    { "op": "box", "name": "Armlehnenstütze", "at": [-8, 10, 2], "size": [1, 2, 1], "color": "trim", "mirror": "x", "mirrorAt": -2 },
+
+    { "op": "box", "name": "Seitenpult Säule", "at": [4, 2, -2], "size": [3, 9, 4], "color": "metal" },
+    { "op": "box", "name": "Seitenpult Rotfeld", "at": [7, 3, -1], "size": [1, 6, 2], "color": "primary" },
+    { "op": "wedge", "name": "Seitenpult schräg", "at": [3, 11, -4], "size": [5, 3, 8], "slope": "-x", "color": "metal_dark" },
+    { "op": "box", "name": "Seitenpult Anzeige", "at": [3, 11, -3], "size": [5, 3, 6], "mode": "paint", "color": "dark", "jitter": false },
+    { "op": "box", "name": "Seitenpult Tasten", "repeat": { "count": 3, "step": [0, 0, 2], "var": "k" }, "at": [4, 13, -2], "size": [1, 1, 1], "mode": "paint", "color": { "role": "glow2", "emit": "e" }, "jitter": false },
+    { "op": "box", "name": "Befehlslinie", "at": [6, 11, -3], "size": [1, 3, 6], "mode": "paint", "color": { "role": "glow", "emit": "e" }, "jitter": false },
+    { "op": "box", "name": "Seitenpult Goldkante", "at": [3, 11, -4], "size": [1, 1, 8], "color": "trim" },
+    { "op": "box", "name": "Anzeige aktiv (aktiviert)", "if": "ful", "at": [3, 12, -3], "size": [3, 1, 6], "mode": "paint", "color": { "role": "glow", "emit": 2.2 }, "jitter": false },
+
+    { "op": "cyl", "name": "Lichtsäule (aktiviert)", "if": "ful", "at": [-2, 20, -4], "r": 1, "h": 5, "color": { "role": "glow", "emit": 2.4 }, "jitter": false },
+    { "op": "box", "name": "Statuslampe (genommen)", "if": "tak", "at": [-1, 12, 3], "size": [2, 2, 2], "color": { "role": "white", "emit": 1.2 }, "jitter": false },
+    { "op": "line", "name": "Hebel umgelegt (genommen)", "if": "tak", "from": [8, 4, 4], "to": [8, 7, 6], "r": 0.6, "color": "metal_light" }
+  ],
+  "sockets": { "use": [0, 0, 0.6], "fx_smoke": [0.1, 0.9, 0], "fx_spark": [0.3, 0.8, 0.2], "light": [0, 0.9, 0], "label": [0, 1.7, 0] },
+  "anchor": [0, 0, 0]
+}

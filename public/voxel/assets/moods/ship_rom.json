@@ -1,0 +1,11 @@
+{
+  "id": "ship_rom",
+  "name": "Rom-Schiff innen, intakt – warmes Messing-/Bernsteinlicht, dunkler Weltraum, Frachter-/Militärcharakter (nah an ship_private, mehr Kontrast, kühlerer Boden)",
+  "background": "#07090F",
+  "fog": { "color": "#0E0C0B", "near": 2.2, "far": 6.5 },
+  "hemi": { "sky": "#D8BC8A", "ground": "#2E2219", "intensity": 0.95 },
+  "ambient": { "color": "#3A2E22", "intensity": 0.3 },
+  "sun": { "color": "#FFD9A0", "intensity": 1.35, "dir": [-0.3, 1, 0.35], "softness": 4 },
+  "exposure": 1.2,
+  "bloom": { "strength": 0.55, "radius": 0.45, "threshold": 0.8 }
+}

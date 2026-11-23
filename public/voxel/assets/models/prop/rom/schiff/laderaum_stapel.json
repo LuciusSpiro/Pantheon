@@ -1,0 +1,46 @@
+{
+  "id": "prop/rom/schiff/laderaum_stapel",
+  "name": "Laderaum: Containerstapel mit Portalkran (Rom, Schiff, Ziel)",
+  "notes": "Anker ziel (Platz sektion/Laderaum). Nachbau von lerche/furn/container_stack, Kran auf 1,5 m gekürzt. state 0 frei (zwei Container, rotes Oberteil, Kranlicht Amber), 1 genommen (oberer Container abgeladen, Haken leer abgesenkt, weiße Statuslampe), 2 aktiviert (oberer Container Bronze mit Leuchtband, Lichtsäule am Kran).",
+  "tier": "detail",
+  "palette": "lerche_rom",
+  "jitter": 0,
+  "tags": ["rom", "schiff", "prop", "ziel", "laderaum", "fracht"],
+  "footprint": [1, 1],
+  "params": {
+    "state": { "default": 0, "min": 0, "max": 2, "step": 1, "label": "Zustand 0 frei / 1 genommen / 2 aktiviert" }
+  },
+  "let": { "tak": "state == 1", "ful": "state == 2" },
+  "variants": { "genommen": { "state": 1 }, "aktiviert": { "state": 2 } },
+  "ops": [
+    { "op": "box", "name": "Palette", "at": [1, 0, 3], "size": [14, 1, 12], "color": "metal_dark" },
+    { "op": "box", "name": "Container unten", "at": [2, 1, 4], "size": [12, 8, 10], "color": { "stripes": ["metal", { "shade": "metal", "f": 0.8 }], "axis": "x", "period": 2 } },
+    { "op": "box", "name": "Container unten Rahmen", "at": [2, 1, 4], "size": [12, 8, 10], "color": { "frame": "metal_light", "fill": { "shade": "metal", "f": 0.9 }, "axes": "yz", "width": 1 }, "mode": "paint" },
+    { "op": "box", "name": "Container oben Rot", "if": "state == 0", "at": [3, 9, 5], "size": [10, 7, 8], "color": { "stripes": ["primary", { "shade": "primary", "f": 0.8 }], "axis": "x", "period": 2 } },
+    { "op": "box", "name": "Container oben Bronze", "if": "ful", "at": [3, 9, 5], "size": [10, 7, 8], "color": { "stripes": ["trim", { "shade": "trim", "f": 0.75 }], "axis": "x", "period": 2 } },
+    { "op": "box", "name": "Leuchtband oben (aktiviert)", "if": "ful", "at": [3, 12, 13], "size": [10, 1, 1], "color": { "role": "glow", "emit": 2.4 }, "jitter": false },
+    { "op": "box", "name": "Eckbeschlag", "at": [2, 8, 13], "size": [2, 2, 1], "color": "trim", "mirror": "x", "mirrorAt": 8 },
+    { "op": "box", "name": "Türgriffe", "at": [6, 3, 14], "size": [1, 4, 1], "color": "metal_light", "mirror": "x", "mirrorAt": 8 },
+    { "op": "box", "name": "Frachtschild", "at": [6, 5, 14], "size": [4, 3, 1], "color": { "frame": "trim", "fill": "secondary", "axes": "xy", "width": 1 } },
+    { "op": "box", "name": "Statuslampe (genommen)", "if": "tak", "at": [7, 8, 12], "size": [2, 2, 2], "color": { "role": "white", "emit": 1.2 }, "jitter": false },
+    { "op": "box", "name": "Zurrband (genommen)", "if": "tak", "at": [2, 8, 4], "size": [12, 1, 10], "mode": "paint", "color": { "stripes": ["warning", "black"], "axis": "x", "period": 1 }, "jitter": false },
+
+    { "op": "group", "name": "Hebezeug (Portalkran an der Rückwand)", "ops": [
+      { "op": "box", "name": "Kransäule", "at": [1, 1, 1], "size": [2, 22, 2], "color": "metal" },
+      { "op": "box", "name": "Kransockel", "at": [0, 0, 0], "size": [4, 2, 4], "color": "metal_dark" },
+      { "op": "box", "name": "Kransäule Band", "at": [1, 10, 1], "size": [2, 2, 2], "color": { "stripes": ["warning", "black"], "axis": "y", "period": 1 }, "mode": "paint", "jitter": false },
+      { "op": "box", "name": "Ausleger", "at": [1, 21, 1], "size": [14, 2, 2], "color": "metal" },
+      { "op": "box", "name": "Auslegerstrebe", "at": [3, 18, 1], "size": [2, 3, 2], "color": "metal_dark" },
+      { "op": "line", "name": "Zugstrebe", "from": [3, 20, 2], "to": [13, 22, 2], "r": 0.5, "color": "metal_dark" },
+      { "op": "box", "name": "Laufkatze", "at": [8, 19, 0], "size": [4, 2, 4], "color": "trim" },
+      { "op": "line", "name": "Hubseil oben", "if": "!tak", "from": [10, 19, 2], "to": [10, 17, 6], "r": 0.5, "color": "metal_dark" },
+      { "op": "box", "name": "Haken oben", "if": "!tak", "at": [9, 15, 5], "size": [2, 2, 2], "color": "metal_light" },
+      { "op": "line", "name": "Hubseil unten (leer, abgesenkt)", "if": "tak", "from": [10, 19, 2], "to": [10, 12, 4], "r": 0.5, "color": "metal_dark" },
+      { "op": "box", "name": "Haken leer", "if": "tak", "at": [9, 10, 3], "size": [2, 2, 2], "color": "metal_light" },
+      { "op": "box", "name": "Kranlicht Amber", "if": "!tak", "at": [1, 23, 1], "size": [2, 1, 2], "color": { "role": "glow2", "emit": 1.2 }, "jitter": false },
+      { "op": "cyl", "name": "Lichtsäule (aktiviert)", "if": "ful", "at": [2, 24, 2], "r": 1, "h": 2, "color": { "role": "glow", "emit": 2.4 }, "jitter": false }
+    ] }
+  ],
+  "sockets": { "use": [0, 0, 0.6], "fx_smoke": [0, 1.0, 0], "fx_spark": [0.3, 0.7, 0.3], "light": [0, 1.2, 0], "label": [0, 1.7, 0] },
+  "anchor": [8, 0, 8]
+}
