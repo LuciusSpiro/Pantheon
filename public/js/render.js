@@ -315,11 +315,12 @@
   function drawTooltip(ctx) {
     const t = ui.tooltip;
     if (!t) return;
-    const w = measure(t.text, 1) + 8;
-    const x = Math.min(VW - w - 2, t.x + 8), y = Math.min(VH - 14, t.y + 10);
-    ctx.fillStyle = 'rgba(11,14,26,0.95)'; ctx.fillRect(x, y, w, 12);
-    ctx.strokeStyle = PAL.warn; ctx.strokeRect(x + 0.5, y + 0.5, w - 1, 11);
-    text(ctx, t.text, x + 4, y + 2, { color: PAL.warn, shadow: false });
+    const zl = String(t.text).split('\n'), h = 2 + 10 * zl.length;   // SPT-02 6: mehrere Zeilen (Scan-Anzeige: Name, darunter Zustand)
+    const w = Math.max.apply(null, zl.map((q) => measure(q, 1))) + 8;
+    const x = Math.min(VW - w - 2, t.x + 8), y = Math.min(VH - h - 2, t.y + 10);
+    ctx.fillStyle = 'rgba(11,14,26,0.95)'; ctx.fillRect(x, y, w, h);
+    ctx.strokeStyle = PAL.warn; ctx.strokeRect(x + 0.5, y + 0.5, w - 1, h - 1);
+    zl.forEach((q, i) => text(ctx, q, x + 4, y + 2 + 10 * i, { color: PAL.warn, shadow: false }));
   }
 
   // ------------------------------------------------------------------ Karten-Hilfen

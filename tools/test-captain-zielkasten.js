@@ -43,7 +43,7 @@ function umgebung(quellen) {
   win.__fehler = [];
   win.Net = { guard: (w, f, d) => { try { return f(); } catch (e) { win.__fehler.push(w + ': ' + e.message); return d; } }, reportError(w, e) { win.__fehler.push(w + ': ' + (e && e.message)); } };
   win.Hud = new Proxy({}, { get: () => () => 0 });
-  for (const f of ['kennung.js', 'render.js', 'pult-systeme-tokens.js', 'zonenkreuz.js', 'zielsysteme.js', 'kartenlogik.js', 'pult.js', 'consoles.js', 'pult-stationen.js']) vm.runInContext((quellen && quellen[f]) || read(f), win, { filename: f });
+  for (const f of ['kennung.js', 'render.js', 'pult-systeme-tokens.js', 'zonenkreuz.js', 'zielstapel.js', 'zielsysteme.js', 'kartenlogik.js', 'pult.js', 'consoles.js', 'pult-stationen.js']) vm.runInContext((quellen && quellen[f]) || read(f), win, { filename: f });
   win.Zielsysteme.store.daten = DATEN;
   return win;
 }

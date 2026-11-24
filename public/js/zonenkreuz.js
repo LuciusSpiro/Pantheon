@@ -182,6 +182,8 @@
       if (weg) txt('+' + weg, body.x + MASS.innen, y, F.dim);
     }
 
+    // SPT-02 6: o.inhalt ersetzt die Zeilen der Kacheln (Scan-Anzeige Stapel, Zielstapel.inhalt); ohne o.inhalt gilt inhalt() wie bisher (Technik, Schadensplan)
+    const INH = o.inhalt ? (l, b, zn, zu, lw) => o.inhalt(l, b, zn, zu, lw, { c, F, rc, rand, txt, tw, mass, o, R }) : inhalt;
     ZONEN.forEach((zn) => {
       const z = m.zonen[zn], t = L[zn], body = schildKante(t, z);
       bodies[zn] = body;
@@ -189,7 +191,7 @@
       if (z.leer) strich(body.x, body.y, body.w, body.h, F.zer, 2); else rand(body.x, body.y, body.w, body.h, F.kachelRand);
       if (o.seite === zn) rand(t.x - MASS.seiteRahmen, t.y - MASS.seiteRahmen, t.w + 2 * MASS.seiteRahmen, t.h + 2 * MASS.seiteRahmen, F.seiteZugewandt);
       const leerWort = z.leer && body.w >= (mass.leerMin || mass.zweiZeilig);
-      inhalt(z.sys, body, zn, false, leerWort);
+      INH(z.sys, body, zn, false, leerWort);
       if (leerWort) txt(ZEICHEN.leer, body.x + body.w - MASS.innen, body.y + body.h - 10, F.zerText, 'right');
     });
     // Mitte: zu (schraffiert), solange die zugewandte Zone nicht leer ist; sonst offen. Reaktor zerstört = Fläche kachelReaktor.
@@ -203,7 +205,7 @@
       if (zn === 'bug') rc(mt.x + 2, mt.y - 3, mt.w - 4, 3 + wd, wc);
       if (zn === 'heck') rc(mt.x + 2, mt.y + mt.h - wd, mt.w - 4, 3 + wd, wc);
     });
-    inhalt(m.mitte.sys, { x: mt.x + 2, y: mt.y + 2, w: mt.w - 4, h: mt.h - 4 }, 'mitte', zu);
+    INH(m.mitte.sys, { x: mt.x + 2, y: mt.y + 2, w: mt.w - 4, h: mt.h - 4 }, 'mitte', zu);
     if (zu) {
       schraffur(mt.x + 1, mt.y + 1, mt.w - 2, mt.h - 2, F.zuSchraffur, MASS.schraffurZu);
       const w2 = tw(ZEICHEN.zu) + 6;
@@ -226,7 +228,8 @@
     let reaktorZer = false;
     sys.forEach((d, i) => {
       const st = code[zs[2 * i]] || 'ok', pct = Math.max(0, Math.min(100, Number(zs[2 * i + 1]) || 0));
-      const e = { id: d.id, name: String(d.kurz || d.name || d.id), pct, state: st, zust: zustandVon(pct, st), platz: null, fragil: false, idx: i, hinter: !wahl.has(i), funktion: d.funktion };
+      const e = { id: d.id, name: String(d.kurz || d.name || d.id), pct, state: st, zust: zustandVon(pct, st), platz: null, fragil: false, idx: i, hinter: !wahl.has(i), funktion: d.funktion,
+        art: d.art, zone: d.zone, platzName: d.platz || null, modul: d.modul || null, kurz: String(d.kurz || '') };   // SPT-02 6: Art, Platz und Modul für Symbol und Namen der Stapel-Anzeige (der Name bleibt der Kurzname, wird dort nicht mehr gezeigt)
       if (d.art === 'reaktor' && st === 'broken') reaktorZer = true;
       (ZONEN.indexOf(d.zone) >= 0 ? zonen[d.zone].sys : mitte.sys).push(e);
     });

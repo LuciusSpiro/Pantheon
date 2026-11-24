@@ -26,7 +26,7 @@
 //     zeichneBereich(ctx, rects, b)         Umschalter Handel / Werft (H / W), mit b.lage ({ gesperrt, grund }) auch Lage (L), nur Freie Fahrt Sund
 //     zeichneAktionen(ctx, rects, a)        Hauptknopf (Enter Umbau bestätigen | F Freischalten | H Zum Handel), Hinweis, A Ausbau, ↑↓ Teil
 //     zeichneStatus(ctx, rect, s)           Am Gerät: Spielerfarbe · Zusehen: Farben
-//     symbolModul(ctx, id, x, y, o)         Pixel-Symbol frachtraum | krankenstation | werkstatt (10×10, Format wie SYMBOLE im Katalog)
+//     symbolModul(ctx, id, x, y, o)         Pixel-Symbol frachtraum | krankenstation | werkstatt | reaktor | schildgenerator | emitter | antrieb (10×10, Format wie SYMBOLE im Katalog)
 //     symbolTeil(ctx, teil, x, y, o)        Waffe (Katalogsymbol über SchiffsUI) oder Modul
 //   Hilfen: PultTerminal.txt(ctx, s, x, y, farbe, { align, scale, sperr }), tw(s, scale, sperr), umbruch(s, w, maxZeilen), kappe(aktion, ersatz), kontrast(a, b)
 (function () {
@@ -161,6 +161,11 @@
     frachtraum: ['..........', '...####...', '...#++#...', '...#oo#...', '...####...', '####.####.', '#++#.#++#.', '#oo#.#oo#.', '####.####.', '..........'],
     krankenstation: ['..........', '...####...', '...#ww#...', '####ww####', '#wwwwwwww#', '#wwwwwwww#', '####ww####', '...#ww#...', '...####...', '..........'],
     werkstatt: ['.#...#....', '.#...#....', '.##+##....', '..###.....', '...##.....', '....##....', '.....#+...', '......#+..', '.......##.', '........#.'],
+    // SPT-02 6 (Scan-Anzeige Stapel): Systeme der Gegner im Zielkasten. reaktor und schildgenerator aus art.js (ICONS reactor / shields), emitter und antrieb neu.
+    reaktor: ['...####...', '..#....#..', '.#..++..#.', '#..+ww+..#', '#.+wwww+.#', '#.+wwww+.#', '#..+ww+..#', '.#..++..#.', '..#....#..', '...####...'],
+    schildgenerator: ['.########.', '#++++++++#', '#+######+#', '#+######+#', '#+######+#', '.#+####+#.', '.#+####+#.', '..#+##+#..', '...#++#...', '....##....'],
+    emitter: ['..######..', '.#......#.', '#..####..#', '..#....#..', '.#..##..#.', '...#++#...', '....++....', '...#++#...', '..#o++o#..', '.########.'],   // Sender mit zwei Bögen: strahlt den Schild seiner Seite ab
+    antrieb: ['...####...', '...#++#...', '..#++++#..', '..#++++#..', '.#++++++#.', '#++++++++#', '##########', '..wwwwww..', '...wwww...', '....ww....'],   // Düse (Glocke) mit Flamme nach unten
   };
   const spriteCache = new Map();
   function hex2rgb(h) { const n = parseInt(String(h).slice(1, 7), 16); return [n >> 16, (n >> 8) & 255, n & 255]; }

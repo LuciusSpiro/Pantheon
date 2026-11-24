@@ -82,7 +82,9 @@
       else cham(c, x, y, w, h, body, 0, 0, 3, 0);
       if (b.hold != null) cham(c, x + kw + 1, y, Math.round((w - kw - 1) * Math.max(0, Math.min(1, b.hold))), h, col);
       if (kw) txt(c, kz, x + kw / 2, ty, this.text, 'center');
-      txt(c, text, kw ? x + kw + 5 : x + w / 2, ty, b.hold != null ? this.text : this.ink, kw ? undefined : 'center');
+      let tx = kw ? x + kw + 5 : x + w / 2;
+      if (b.vor) tx = b.vor(c, tx, y, h, b.hold != null ? this.text : this.ink) || tx;   // SPT-02 6: Symbol vor dem Text (Systemziel-Knopf); gibt die neue Textstelle zurück
+      txt(c, text, tx, ty, b.hold != null ? this.text : this.ink, kw ? undefined : 'center');
       if (b.active) rand(c, x - 2, y - 2, w + 4, h + 4, this.text);
     },
     segs(c, x, y, n, f, col, sw = 9, sh = 7) {
@@ -143,7 +145,9 @@
       if (b.active && !off) { cham(c, x - 2, y - 2, w + 4, h + 4, col, cut + 1, cut + 1, cut + 1, cut + 1); cham(c, x - 1, y - 1, w + 2, h + 2, this.bg, cut + 1, cut + 1, cut + 1, cut + 1); }
       cham(c, x, y, w, h, off ? this.off : b.active ? mix(this.plate, col, 0.22) : hov ? mix(this.plate, col, 0.12) : this.plate, cut, cut, cut, cut);
       if (kw) { cham(c, x + 1, y + 1, kw, h - 2, off ? this.offLine : col, cut, cut, cut, cut); if (!off) { c.fillStyle = mix(col, '#FFFFFF', 0.35); c.fillRect(x + 4, y + 2, kw - 6, 1); } txt(c, kz, x + 1 + kw / 2, ty, off ? this.dim : this.ink, 'center'); }
-      txt(c, text, kw ? x + kw + 6 : x + w / 2, ty, off ? mix(this.dim, this.bg, 0.25) : this.text, kw ? undefined : 'center');
+      let tx = kw ? x + kw + 6 : x + w / 2;
+      if (b.vor && !off) tx = b.vor(c, tx, y, h, this.text) || tx;   // SPT-02 6: Symbol vor dem Text (Systemziel-Knopf)
+      txt(c, text, tx, ty, off ? mix(this.dim, this.bg, 0.25) : this.text, kw ? undefined : 'center');
       if (!off && h >= 12) { c.fillStyle = b.hold != null ? this.offLine : rgba(col, 0.55); c.fillRect(x + kw + 4, y + h - 2, Math.max(0, w - kw - 8), 1); }
       if (b.hold != null && !off) { c.fillStyle = col; c.fillRect(x + kw + 4, y + h - 3, Math.round(Math.max(0, w - kw - 8) * Math.max(0, Math.min(1, b.hold))), 2); }
     },
@@ -191,7 +195,7 @@
   }
   function knopf(c, x, y, w, h, label, opts) {
     opts = opts || {};
-    const b = { x, y, w, h, label, disabled: !!opts.disabled, reason: opts.reason, onClick: opts.onClick, hotkey: opts.hotkey || null, active: !!opts.active, hold: opts.hold };
+    const b = { x, y, w, h, label, disabled: !!opts.disabled, reason: opts.reason, onClick: opts.onClick, hotkey: opts.hotkey || null, active: !!opts.active, hold: opts.hold, vor: opts.vor };
     const col = FN[opts.fn] || (opts.color && opts.color !== PAL.star ? opts.color : null) || (opts.active ? FN.shield : FN.neutral);
     b.hotkey = kappe(opts.hotkey, opts.aktion) || null;
     if (opts.kontur && !b.disabled) knopfKontur(K, c, b, col, b.hotkey || '', opts.text != null ? opts.text : label);   // Welle 5 (K3): Kontur statt Fläche
