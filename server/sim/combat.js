@@ -1076,6 +1076,8 @@ function gesehenVomTeam(game, E, team, R, e) {
   }
   return false;
 }
+// BOT-02 B4: sieht dieser eine Spieler den Gegner selbst (Sichtradius, Lanzenkegel, jeweils mit Sichtlinie; ohne Sensor und Fokus)? Nur lesen (Ansage des Bord-Bots: was das Team weiss, der Mensch unten aber nicht sieht).
+const gesehenVonSpieler = (game, p, e) => gesehenVomTeam(game, env(game), [p], cfg(game).sightTiles * TILE, e);
 // Sichtbarkeit im Snapshot: gesehen, Sensor oder Captain-Fokus (focusUntil)
 const sichtbarFuerTeam = (game, E, team, R, e, sensor) => gesehenVomTeam(game, E, team, R, e) || sensor || game.time < (e.focusUntil || 0);
 
@@ -1933,7 +1935,7 @@ module.exports = {
   makeKesh, rolleGesehen, isV2, isV2Away, playerOnV2, onArrive, onLeave, hitPlayer, woundPlayer, revive, updateWounded, krankenstationHolt, squadRecall,
   shoot, fireEnemy, hitEnemy, strikeEnemy, knockOut, order, interactionsAt, holdDuration, holdValid, completeHold, completeRevive,
   jammerOff, keyTurned, openVault, takeTablet, spawnSquad, wakeWarden, update, updateVisibility, verdecktVor, scanQuality, tune, tuneList,
-  playerSnap, droneSnap, awaySnap, pickupMedkit, fullShield, env, teamOf, sichtRadius, sichtbarFuerTeam,
+  playerSnap, droneSnap, awaySnap, pickupMedkit, fullShield, env, teamOf, sichtRadius, sichtbarFuerTeam, gesehenVonSpieler,
   losBetween, setCrouch, checkCrouch, canCrouch, speedFactor, crouchCfg,
   // B1/B2 (BODENKAMPF Welle 1): kartenneutral, Waffen-Schnittstelle
   ensureV2, ruesteV2, coverSpots, spawnProjectile, flaeche, strahl, kaempfer, wirkungVon, waffenAktiv, _setzeModul,

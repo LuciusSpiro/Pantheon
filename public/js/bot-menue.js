@@ -341,7 +341,7 @@
       const an = p ? p.an : e ? e.an : null;
       const rolle = an && an !== 'alle' ? an : null;
       if (rolle && typeof msg.botId === 'string' && msg.botId) s.botRolle[msg.botId] = rolle;
-      const sprecher = rolle || (msg.botId && s.botRolle[msg.botId]) || null;
+      const sprecher = msg.befehl === 'bord.ansage' ? 'bord' : rolle || (msg.botId && s.botRolle[msg.botId]) || null;   // BOT-02 B4: eine Ansage des Bord-Bots (keine Antwort auf einen Befehl: kein p, kein an, keine Quittung, kein „gilt“) trägt den Namen BORD
       if (p) { if (gut) p.ok++; else p.nein++; if (p.ok + p.nein >= p.erwartet) p.fertig = true; }
       if (an) {
         const setze = (phase) => { s.quittung = { an, phase, t: jetzt }; };

@@ -11,6 +11,7 @@
 //                                   nur der Haelter wird waehrend eines Dienstes im Lauf gemerkt (Hysterese: ein wieder aufstehender Bot uebernimmt nicht zurueck, solange der Haelter gueltig ist)
 //   bordAktiv(game, spieler)        BOT-02 B1: der Bord-Dienst dieses Bots ist faellig (er ist der Bord-Bot und ein MENSCH ist unten (zone away) oder beamt gerade runter); Bots unten zaehlen nicht
 //   dienstLaeuft(game, spieler)     BOT-02 B1: bordAktiv und kein verbundener Mensch an der Transfer-Konsole (Mensch gewinnt, der Dienst ruht): die EINE Quelle fuer Agent, Wachposten und Station-Automatik
+//   bordDienstHaelt(game)           BOT-02 B4: ein Bord-Bot haelt den Dienst wirklich (bordBot + dienstLaeuft; ueber weichen.js bordBotHaelt fuer away.js: die ODA schweigt, der Bot sagt die Codefolge an)
 //   stationVertreten(game, kind)    BOT-02 B1: der Bord-Bot haelt den Dienst wirklich (dienstLaeuft) und die Station seiner Rolle ist kind (helm, weapons, technik): die Station ist vertreten, nicht verwaist (station.js ueber weichen.js)
 //   agent(game, spieler), agenten(game)   Zugriff (Tests, Werkzeug)
 // Snapshot: der Server baut game.snapshot() nur alle net.snapEvery Ticks fuer das Broadcast (er ist fuer alle Spieler gleich, kein snapshot(forPlayer)). Der Lauf nimmt diesen und baut keinen zweiten (snapshot() hat Seiteneffekte:
@@ -51,6 +52,7 @@ function bordBot(game) {
 }
 function bordAktiv(game, spieler) { return !!spieler && game.phase === 'play' && bordBot(game) === spieler && dienstBedarf(game); }
 function dienstLaeuft(game, spieler) { return bordAktiv(game, spieler) && !menschHaeltTransfer(game); }
+function bordDienstHaelt(game) { const b = bordBot(game); return !!b && dienstLaeuft(game, b); }   // BOT-02 B4: irgendein Bord-Bot haelt den Dienst (weichen.js bordBotHaelt; away.js: die ODA schweigt)
 function stationVertreten(game, kind) {
   const b = bordBot(game);
   return !!b && STATION[b.rolle] === kind && dienstLaeuft(game, b);
@@ -106,4 +108,4 @@ function prioritaetLoesen(game, spieler) { const a = agent(game, spieler); retur
 function agent(game, spieler) { const lauf = LAEUFE.get(game); return lauf && spieler ? lauf.agentenMap.get(spieler.id) || null : null; }
 function agenten(game) { const lauf = LAEUFE.get(game); return lauf ? lauf.liste().slice() : []; }
 
-module.exports = { tick, beenden, snapshotMerken, optionenSetzen, entfernen, wartet, prioritaetLoesen, agent, agenten, istServerBot, bordBot, bordAktiv, dienstLaeuft, stationVertreten };
+module.exports = { tick, beenden, snapshotMerken, optionenSetzen, entfernen, wartet, prioritaetLoesen, agent, agenten, istServerBot, bordBot, bordAktiv, dienstLaeuft, bordDienstHaelt, stationVertreten };

@@ -75,7 +75,8 @@ const STIMMEN = path.join(ROOT, 'content', 'bots', 'stimmen.json');
 const VORRAT = path.join(ROOT, 'assets', 'bots', 'stimmen');
 const OHNE_VARIANTE = ['bot.unklar'];
 // BOT-01 C1: Ablehnungen (abgelehnt/unmoeglich) laufen als Untertitel, der Clip-Vorrat deckt nur ok und bot.unklar (BOT-04 Abnahme 6); der Client faellt ohne Clip auf den Untertitel zurueck.
-const OHNE_CLIP = /[.](abgelehnt|unmoeglich)[.]/;
+// BOT-02 B4: die Ansagen des Bord-Bots (bord.ansage.*) sind Vorlagen mit Werten (Untertitel, kein Clip-Vorrat).
+const OHNE_CLIP = /[.](abgelehnt|unmoeglich)[.]|^bord[.]ansage[.]/;
 
 
 function clipDateien(texte, stimmen, vorrat) {
@@ -142,7 +143,7 @@ async function vorrat(opts = {}) {
   return stat;
 }
 
-module.exports = { ENGINE, PHRASEN, clipHash, clipPath, cacheDir, qwenProfile, listProfiles, synth, warm, clipDateien, trimWav, vorrat, VORRAT, TEXTE, STIMMEN };
+module.exports = { OHNE_CLIP, ENGINE, PHRASEN, clipHash, clipPath, cacheDir, qwenProfile, listProfiles, synth, warm, clipDateien, trimWav, vorrat, VORRAT, TEXTE, STIMMEN };
 
 async function hoerprobe(ziel, filter) {
   const re = new RegExp(filter || '^Kara-Test [A-D][12] ');

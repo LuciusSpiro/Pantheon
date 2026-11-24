@@ -5,6 +5,7 @@
 // BOT-02 B2: ebenso die Captain-Konsole: dort steht ein Bot nur auf dem kurzen Weg des Bord-Dienstes (captain.support); kommt ein Mensch, weicht er (Mensch gewinnt an jeder Konsole), der Dienst geht zurueck zum Transfer.
 //   kannWeichen(game, kind, mensch)    nur lesen: wuerde der Bot (und nur Bots) an kind weichen? (Aktionsliste „Konsole besetzt“ in interior.js)
 //   weichtFuerMensch(game, kind, mensch)  der Bot gibt die Station frei (game.platzFreigeben); true = die Station ist jetzt frei fuer den Menschen
+//   bordBotHaelt(game)                 BOT-02 B4: ein Bord-Bot haelt den Dienst wirklich (lauf.js bordDienstHaelt); away.js: die ODA funkt die Codetabelle dann nicht, der Bot sagt sie an
 //   vertreten(game, kind)              BOT-02 B1: ein Bord-Bot haelt den Dienst wirklich und die Station seiner Rolle ist kind (lauf.js stationVertreten); station.js zaehlt sie dann als vertreten (Automatik nach Kopfregel ODER vertreten)
 // Aufrufer: Station.tab (Tab auf eine Bot-Station), interior.consoleOccupant (Aktionsliste) und interior.performInteraction (Konsole betreten).
 // Wieder uebernehmen: der Agent prueft jeden Tick, ob ein Mensch seine Station haelt, und geht zurueck, sobald nicht (kein Aufruf noetig).
@@ -36,4 +37,7 @@ function weichtFuerMensch(game, kind, mensch) {
 // station.js (Automatik-Schwellen) fragt hier, ob der Bord-Dienst eines Bots die Station verwaist hat; Lauf erst beim Aufruf (Zirkelbezug), der Bot-Bezug bleibt in diesem Modul
 function vertreten(game, kind) { return require('./lauf.js').stationVertreten(game, kind); }
 
-module.exports = { BOT_STATIONEN, BOT_ORTE, kannWeichen, weichtFuerMensch, vertreten };
+// BOT-02 B4: haelt ein Bord-Bot den Dienst (Mensch unten, kein Mensch an der Transfer-Konsole)? away.js laesst dann die ODA die Codetabelle nicht funken, der Bot sagt sie an (ansagen.js)
+function bordBotHaelt(game) { return require('./lauf.js').bordDienstHaelt(game); }
+
+module.exports = { BOT_STATIONEN, BOT_ORTE, kannWeichen, weichtFuerMensch, vertreten, bordBotHaelt };

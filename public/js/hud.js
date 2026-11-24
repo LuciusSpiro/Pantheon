@@ -325,7 +325,9 @@
       return { x, w: SPRECH_W, y: oben < VH - 6 ? oben - 4 : oben, richtung: 'hoch' };
     },
     crewFunkDauer(text) { return Math.max(3, Math.min(8, 2.5 + String(text == null ? '' : text).length / 15)); },
-    // Untertitel eines Bots: Name in Versalien und Farbe, Text creme; höchstens 2 Einträge (der älteste fällt raus). dauerS ohne Angabe nach crewFunkDauer. Liefert die Kennung (für crewFunkHalte).
+    // BOT-02 B4: so viele Untertitel stehen höchstens in der Sprechspalte: 2 wie bisher, 3 nur wenn Bots im Spiel sind (sprech.bots; Ansagen des Bord-Bots kommen zu den Antworten hinzu). Rein, nur der Zustand.
+    sprechMax(sp) { return (sp || this.sprech).bots ? 3 : 2; },
+    // Untertitel eines Bots: Name in Versalien und Farbe, Text creme; höchstens 2 Einträge, mit Bots im Spiel 3 (der älteste fällt raus). dauerS ohne Angabe nach crewFunkDauer. Liefert die Kennung (für crewFunkHalte).
     pushCrewFunk(text, sprecher, farbe, dauerS) {
       if (!text) return 0;
       const sp = this.sprech, E = sp.eintraege;
@@ -339,7 +341,7 @@
       for (let i = E.length - 1; i >= 0; i--) if (E[i].text === text && E[i].who === who) E.splice(i, 1);
       const e = { id: sp.naechste++, text, who, wWho, farbe: farbe || fnFarben().sensor, lines, w: Math.min(SPRECH_W, 10 + wWho + tw + 6), h: 2 + lines.length * 10, t: performance.now() / 1000, d: dauerS > 0 ? +dauerS : this.crewFunkDauer(text), halt: false, bis: 0 };
       E.push(e);
-      while (E.length > 2) E.shift();
+      while (E.length > this.sprechMax(sp)) E.shift();
       return e.id;
     },
     // Der Clip zum Untertitel läuft (an = true: der Untertitel bleibt) bzw. ist zu Ende (an = false: noch 0,5 s, mindestens die Grunddauer). Höchstens 30 s Halt, falls das Ende ausbleibt.
@@ -370,7 +372,7 @@
           R.text(ctx, label, x + 12, ry + 2, { color: col, shadow: false });
         } else R.text(ctx, '…', x + 6, ry + 2, { color: col, shadow: false });
       }
-      let n = rec ? 1 : 2;
+      let n = this.sprechMax(sp) - (rec ? 1 : 0);
       for (let i = E.length - 1; i >= 0 && n > 0; i--, n--) {
         const e = E[i], x = Math.round(slot.x + (slot.w - e.w) / 2), ey = stelle(e.h);
         ctx.globalAlpha = Math.max(0, Math.min(1, (this.crewFunkEnde(e) - now) / 0.4));

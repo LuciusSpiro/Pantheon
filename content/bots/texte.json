@@ -1123,6 +1123,18 @@
   "Das klappt gerade nicht.",
   "Da hakt es gerade, Käpt'n."
  ],
+ "bord.ansage.code": [
+  "Codefolge am Kustodenpult: {FOLGE}.",
+  "Kustodenpult, Farben der Reihe nach: {FOLGE}."
+ ],
+ "bord.ansage.gegner": [
+  "{LAGE}",
+  "Orbit meldet: {LAGE}"
+ ],
+ "bord.ansage.raetsel": [
+  "Rätsel voraus: {HINWEIS}",
+  "Rätselpaar: {HINWEIS}"
+ ],
  "bot.status.abgelehnt.fehler": [
   "Das klappt gerade nicht.",
   "Da hakt es gerade, Käpt'n."

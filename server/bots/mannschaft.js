@@ -21,6 +21,7 @@ const { BotKern, DT, STOP, LANGSAM_ZIELE, BOT_SCHILD_SEKTOR_MAX, dist, norm } = 
 const Absicht = require('./absicht.js');
 const Navziel = require('./navziel.js');
 const Lage = require('./bordlage.js');
+const Ansagen = require('./ansagen.js');   // BOT-02 B4: Ansagen des Bord-Bots (eigenes Modul, hier nur der Einhaengepunkt in bordDienst)
 
 const KERN_ROLLE = { navigation: 'helm', ops: 'weapons', technik: 'technik' };
 const STATION = { navigation: 'helm', ops: 'weapons', technik: 'technik' };
@@ -162,6 +163,7 @@ class BotMannschaft extends BotKern {
     const da = this.enter(S, 'transfer');
     this.zustandSetzen(da ? 'an_station' : 'unterwegs');
     if (da && pid !== null) this.bordRueckholen(pid);
+    Ansagen.tick(this.game, this.spieler);   // BOT-02 B4: Ansagen an den Menschen unten (Codefolge, Gegner, Raetselhinweis), eigenes Modul
     return true;
   }
   // Registry (befehle/bord.js): der Befehl des Menschen als Absicht; ersetzt einen vorherigen. rueckholen geht dem Weg vor (bordDienst bricht einen laufenden Weg ab).
