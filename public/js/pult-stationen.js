@@ -259,8 +259,11 @@
         // SYS-01 C1b-2: Taste 0 wählt reihum die anwählbaren Systeme des gescannten Ziels; die Beschriftung nennt das gewählte (Kurzname)
         const ZS = window.Zielsysteme, zid = ZS && target ? ZS.wahlbar(st, target) : [], zsel = ZS ? ZS.gewaehlt(st) : null, zan = !!zsel;
         const zb = 2 * zw + 4;
-        const zname = zan && ZS ? ((ZS.zeilen(st, target).find((q) => q.id === zsel) || {}).kurz || 'Ziel') : 'Systemziel';
-        if (ZS && target && target.scanned) P.knopf(ctx, x, y, zb, 14, 'Systemziel', { hotkey: '0', aktion: 'ops.systemziel', fn: 'drive', text: zname, active: zan, disabled: !zid.length, reason: !target ? 'Kein Ziel' : !target.scanned ? 'Erst scannen (S halten)' : 'Kein System des Ziels ist erreichbar (erst die Seite öffnen)', onClick: () => this.systemzielWechseln(view) });
+        // SPT-02 6: Symbol und Name der Art statt Kürzel („Kanone Bug“, „Reaktor“, „Batterie Stb 2“); ohne Stapel-Modul oder ohne Daten des Systems der alte Kurzname
+        const ZST = window.Zielstapel, zdat = zan && ZS && target ? ZS.systemeVon(target.kind).find((q) => q.id === zsel) : null, zinf = ZST && zdat ? ZST.info(zdat, target) : null;
+        const zname = zan && ZS ? (zinf ? zinf.kurzName : (ZS.zeilen(st, target).find((q) => q.id === zsel) || {}).kurz || 'Ziel') : 'Systemziel';
+        const zvor = zinf ? (cc, tx, ty, th, col) => { ZST.symbolZeichnen(cc, zinf.maske, tx + 5, ty + Math.floor(th / 2), col); return tx + 13; } : undefined;
+        if (ZS && target && target.scanned) P.knopf(ctx, x, y, zb, 14, 'Systemziel', { hotkey: '0', aktion: 'ops.systemziel', fn: 'drive', text: zname, vor: zvor, active: zan, disabled: !zid.length, reason: !target ? 'Kein Ziel' : !target.scanned ? 'Erst scannen (S halten)' : 'Kein System des Ziels ist erreichbar (erst die Seite öffnen)', onClick: () => this.systemzielWechseln(view) });
         P.knopf(ctx, x + 2 * (zw + 4), y, zw, 14, 'Batterien', { hotkey: 'Leer', aktion: 'ops.waffe.beideSeiten', text: salven.length > 2 ? 'alle' : 'beide', fn: 'weapon', disabled: !batReady, reason: 'Keine Batterie geladen', onClick: () => this.cmd(view, 'weapons.fire', { mount: 'all' }) });
         T(ctx, 'PUNKTE ' + used + '/' + cp, x, y + 19, cp === 0 ? P.FN.weapon : used < cp ? P.FN.drive : P.FN.shield);
         T(ctx, 'Q/E · A/D · Rad/Rechtsklick: Punkte', x, y + 27, K.dim);
@@ -388,7 +391,10 @@
         // Das Kreuz richtet sich nach dem Platz (Ops: immer die volle Höhe; ein niedriger Kasten, etwa in der Lage-Spalte des Captains, zeichnet ein niedrigeres Kreuz mit weniger Zeilen)
         const kh = Math.min(PSk.TOKENS.MASS.kreuz.ziel.h - (rest != null ? 10 : 0), b.y + b.h - 4 - y - PSk.TOKENS.MASS.seiteRahmen - 3 - (rest != null ? 10 : 0));
         if (kh < 30) return { ungescannt: false };   // Countdown: eine Textzeile unter dem Kreuz, das Kreuz wird dafür kürzer (die Frachtraum-Leiste bleibt frei)
-        ZKk.zeichne(c, zmod, { x: b.x + 6, y, w: b.w - 12, h: kh }, { skin: P.skinId(view), mass: PSk.TOKENS.MASS.kreuz.ziel, gegner: true, zugewandt: zug, seite: zug, selId: ZSk.gewaehlt(zst) });
+        // SPT-02 6: Symbole statt Kürzel (Zielstapel.inhalt); die Flächen der Balkenstücke gehen an den Tooltip unter der Maus (Name, Zustand, Prozent)
+        const ZST = window.Zielstapel, zellen = [];
+        ZKk.zeichne(c, zmod, { x: b.x + 6, y, w: b.w - 12, h: kh }, { skin: P.skinId(view), mass: PSk.TOKENS.MASS.kreuz.ziel, gegner: true, zugewandt: zug, seite: zug, selId: ZSk.gewaehlt(zst), inhalt: ZST ? ZST.inhalt(target, { zellen }) : undefined });
+        if (ZST) ZST.tooltipSetzen(R, zellen);
         y += kh + PSk.TOKENS.MASS.seiteRahmen + 3;   // Review C1b-2: unter dem Bernstein-Rahmen der zugewandten Seite weiter
         if (rest != null) { T(c, PSk.text(PSk.TOKENS.TEXT.reaktorZiel, { s: rest.toFixed(1).replace('.', ',') }), b.x + 6, y, F.zerText); y += 10; }
         if (b.y + b.h - 4 - y >= 11) { try { this.zielAusstattung(c, target, b.x + 6, y, b.w - 12, b.y + b.h - 4 - y, { txt: (str, xx, yy, col, al) => T(c, str, xx, yy, col, al), dim: K.dim, text: K.text, fn: P.FN.drive, amber: P.FN.drive, dark: K.bg, state: view.state }); } catch (err) { Net.reportError('Pult.zielAusstattung', err); } }
