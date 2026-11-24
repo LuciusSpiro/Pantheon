@@ -17,7 +17,9 @@ const TEXTE = require('../../content/bots/texte.json');
 const QUELLEN = ['menu', 'taste', 'sprache', 'text'];
 const ROLLEN_AN = ['navigation', 'ops', 'technik', 'bord'];
 const BOT_ID = /^b[0-3]$/;
-const OBJEKT_ID = /^(?:objekt|hex):[A-Za-z0-9_.,-]{1,40}$/;
+const OBJEKT_ID = /^objekt:[A-Za-z0-9_.,-]{1,40}$/;   // ops.ziel: nur objekt:<id> (Vertrag §3)
+const HEX_ODER_OBJEKT_ID = /^(?:objekt|hex):[A-Za-z0-9_.,-]{1,40}$/;   // nav.kurs, nav.abstand, nav.sprung
+const DELTA = { '1': 1, '+1': 1, '-1': -1 };
 const GRENZE = { meter: [1, 100000], stufe: [0, 6] };   // Wertgrenzen gehoeren dem Server (Vertrag)
 const RATE_MAX = 10, RATE_FENSTER_MS = 1000;
 const UNBEKANNT = 'befehl';   // Pseudo-Befehl fuer textIds, wenn der Befehlsname unbekannt ist
@@ -43,52 +45,69 @@ function baueKatalog() {
     if (e.meter) k.meter = true;
   }
   for (const k of kat.values()) for (const a of k.args.values()) a.pflicht = a.n === k.n;   // Pflicht = in jeder Sprechform des Befehls vorhanden
-  for (const [name, k] of kat) {   // freie Ziele: objekt:<id> / hex:<id> (nicht sprechbar, nur Menue/Taste)
-    if (name === 'nav.kurs' || name === 'nav.abstand' || name === 'ops.ziel') k.args.get('ziel').muster.push(OBJEKT_ID);
+  for (const [name, k] of kat) {   // freie Ziele: objekt:<id> / hex:<id> (nicht sprechbar: gelten nur bei Quelle menu/taste, siehe pruefeWert)
+    if (name === 'nav.kurs' || name === 'nav.abstand') k.args.get('ziel').muster.push(HEX_ODER_OBJEKT_ID);
+    if (name === 'ops.ziel') k.args.get('ziel').muster.push(OBJEKT_ID);
   }
   // nav.sprung: gueltig, aber nicht im Kanon (Vertrag: nur Menue/Taste, nie Sprache)
-  kat.set('nav.sprung', { an: 'navigation', n: 1, meter: false, quellen: ['menu', 'taste'], args: new Map([['ziel', { werte: new Set(['marke', 'ziel', 'basis']), muster: [OBJEKT_ID], pflicht: true, n: 1 }]]) });
+  kat.set('nav.sprung', { an: 'navigation', n: 1, meter: false, quellen: ['menu', 'taste'], args: new Map([['ziel', { werte: new Set(['marke', 'ziel', 'basis']), muster: [HEX_ODER_OBJEKT_ID], pflicht: true, n: 1 }]]) });
   return kat;
 }
 const KATALOG = baueKatalog();
 
 // ---------- Argumente ----------
-function wertOk(name, spec, v) {
-  if (typeof v !== 'string' && !(typeof v === 'number' && Number.isFinite(v))) return false;
+// Prueft einen Wert und liefert den normalisierten (stufe: Zahl 0-6 oder halb/voll; delta: Zahl 1/-1; sonst String), undefined = ungueltig.
+// menue: Quelle menu/taste; nur dort gelten die freien Ziele objekt:<id> / hex:<id> (nicht sprechbar).
+function pruefeWert(name, spec, v, menue) {
+  if (typeof v !== 'string' && !(typeof v === 'number' && Number.isFinite(v))) return undefined;
   const s = String(v);
-  if (GRENZE[name] && istZahlWort(s)) return Number(s) >= GRENZE[name][0] && Number(s) <= GRENZE[name][1];
-  return spec.werte.has(s) || spec.muster.some((re) => re.test(s));
+  if (name === 'delta') return hat(DELTA, s) && spec.werte.has(String(DELTA[s])) ? DELTA[s] : undefined;
+  if (name === 'stufe' && istZahlWort(s)) { const z = Number(s); return z >= GRENZE.stufe[0] && z <= GRENZE.stufe[1] ? z : undefined; }
+  return spec.werte.has(s) || (menue && spec.muster.some((re) => re.test(s))) ? s : undefined;
 }
-function argsOk(k, args) {
+// Liefert eine normalisierte Kopie der args oder null (abgelehnt argument). Die Registry sieht nie das Original.
+function pruefeArgs(k, args, menue) {
   if (args === undefined || args === null) args = {};
-  if (typeof args !== 'object' || Array.isArray(args)) return false;
-  const keys = Object.keys(args);
-  for (const key of keys) {
+  if (typeof args !== 'object' || Array.isArray(args)) return null;
+  for (const key of Object.keys(args)) {
     if (key === 'meter' && k.meter) continue;
-    if (!k.args.has(key)) return false;
+    if (!k.args.has(key)) return null;
   }
+  const out = {};
   for (const [name, spec] of k.args) {
-    if (!hat(args, name) || args[name] === undefined) { if (spec.pflicht) return false; continue; }
-    if (!wertOk(name, spec, args[name])) return false;
+    if (!hat(args, name) || args[name] === undefined) { if (spec.pflicht) return null; continue; }
+    const w = pruefeWert(name, spec, args[name], menue);
+    if (w === undefined) return null;
+    out[name] = w;
   }
   if (hat(args, 'meter') && args.meter !== undefined) {
     const m = args.meter;
-    if (typeof m !== 'number' || !Number.isFinite(m) || m < GRENZE.meter[0] || m > GRENZE.meter[1]) return false;
+    if (typeof m !== 'number' || !Number.isFinite(m) || m < GRENZE.meter[0] || m > GRENZE.meter[1]) return null;
+    out.meter = m;
   }
-  return true;
+  return out;
 }
 
+// Rueckmeldungen der Befehle (C2): { ok: true } oder { ok: false, code } mit einem Code aus gruende.json fuer diesen Befehl (u. a. kein_ziel, nicht_jetzt, system). Alles andere (Ausnahme, fehlender oder nicht vorgesehener Code)
+// wird zu abgelehnt/fehler und per game.countError('bot.grund') sichtbar gezaehlt. args gehen normalisiert (stufe/delta als Zahl) als Kopie an die Registry; hex:/objekt:-Ziele nur bei Quelle menu/taste.
+// Rate: je Spieler 10 je Sekunde; nur die erste Ablehnung im Fenster wird beantwortet, weitere werden still verworfen.
 // ---------- Zustand je Game ----------
-const RATEN = new WeakMap();   // game -> Map(spieler.id -> [Zeitstempel ms])
+const RATEN = new WeakMap();   // game -> Map(spieler.id -> { t: [Zeitstempel ms], gemeldet })
 const VARIANTEN = new WeakMap();   // game -> Map(botId|textId -> Zaehler)
 
-function rateFrei(game, spieler) {
+// 'frei' = angenommen, 'melden' = erste Ablehnung im Fenster (wird beantwortet), 'still' = weitere Ablehnung im selben Fenster (verworfen, keine Antwort: keine Flut)
+function rateStand(game, spieler) {
   let m = RATEN.get(game); if (!m) { m = new Map(); RATEN.set(game, m); }
   const jetzt = Date.now();
-  const liste = (m.get(spieler.id) || []).filter((t) => jetzt - t < RATE_FENSTER_MS);
-  if (liste.length >= RATE_MAX) { m.set(spieler.id, liste); return false; }   // abgelehnte Befehle zaehlen nicht mit: kein Dauerzustand
-  liste.push(jetzt); m.set(spieler.id, liste);
-  return true;
+  const z = m.get(spieler.id) || { t: [], gemeldet: false };
+  z.t = z.t.filter((t) => jetzt - t < RATE_FENSTER_MS);
+  m.set(spieler.id, z);
+  if (z.t.length >= RATE_MAX) {   // abgelehnte Befehle zaehlen nicht mit: kein Dauerzustand
+    if (z.gemeldet) return 'still';
+    z.gemeldet = true; return 'melden';
+  }
+  z.t.push(jetzt); z.gemeldet = false;
+  return 'frei';
 }
 
 // ---------- Antwort ----------
@@ -123,28 +142,33 @@ const wartetAn = (game, bot) => { const a = Lauf.agent(game, bot); return !!(a &
 function fuerBot(game, bot, name, args) {
   const gruende = GRUENDE.befehle[name] || [];
   if (gruende.includes('wartet') && wartetAn(game, bot)) return antwort(game, bot.botId, name, 'abgelehnt', 'wartet');
-  let r;
-  try { r = Befehle.befehl(game, bot, name, args || {}); } catch (e) { game.countError('bot.befehl', e); r = { ok: false, code: 'unbekannt' }; }
-  if (r && r.ok === true) return antwort(game, bot.botId, name, 'ok');
-  const code = r && typeof r.code === 'string' && gruende.includes(r.code) ? r.code : 'unbekannt';
-  return antwort(game, bot.botId, name, GRUENDE.gruende[code], code);
+  let r, ursache = null;
+  try { r = Befehle.befehl(game, bot, name, Object.assign({}, args)); } catch (e) { ursache = 'ausnahme: ' + (e && e.message); }
+  if (!ursache && r && r.ok === true) return antwort(game, bot.botId, name, 'ok');
+  const code = r && typeof r.code === 'string' ? r.code : null;
+  if (!ursache && code && gruende.includes(code)) return antwort(game, bot.botId, name, GRUENDE.gruende[code], code);
+  // Ein Fehlerpfad: Ausnahme, kein Code oder ein Code, der fuer den Befehl nicht in gruende.json steht -> abgelehnt fehler, sichtbar gezaehlt (Luecken in gruende.json)
+  game.countError('bot.grund', new Error(`${name}: ${ursache || 'Code ' + JSON.stringify(code)} (ok ${JSON.stringify(r && r.ok)})`));
+  return antwort(game, bot.botId, name, GRUENDE.gruende.fehler, 'fehler');
 }
 
 // ---------- Eingang ----------
 function antworten(game, spieler, msg) {
   const name = typeof msg.befehl === 'string' && KATALOG.has(msg.befehl) ? msg.befehl : null;
-  if (!rateFrei(game, spieler)) return [antwort(game, null, name, 'abgelehnt', 'rate')];
+  const rate = rateStand(game, spieler);
+  if (rate === 'still') return [];
+  if (rate === 'melden') return [antwort(game, null, name, 'abgelehnt', 'rate')];
   if (game.phase !== 'play') return [antwort(game, null, name, 'abgelehnt', 'phase')];
   if (!name) return [antwort(game, null, null, 'abgelehnt', 'unbekannt')];
   const k = KATALOG.get(name);
   if (typeof msg.quelle !== 'string' || !k.quellen.includes(msg.quelle)) return [antwort(game, null, name, 'abgelehnt', 'quelle')];
   const an = msg.an;
   if (typeof an !== 'string' || !(an === 'alle' || ROLLEN_AN.includes(an) || BOT_ID.test(an)) || !adressatOk(k, an)) return [antwort(game, null, name, 'abgelehnt', 'adressat')];
-  if (!argsOk(k, msg.args)) return [antwort(game, BOT_ID.test(an) ? an : null, name, 'abgelehnt', 'argument')];
+  const args = pruefeArgs(k, msg.args, msg.quelle === 'menu' || msg.quelle === 'taste');
+  if (!args) return [antwort(game, BOT_ID.test(an) ? an : null, name, 'abgelehnt', 'argument')];
   const bots = botsFuer(game, an);
   if (!bots.length) return [antwort(game, BOT_ID.test(an) ? an : null, name, 'unmoeglich', 'kein_bot')];
   if (k.an !== 'alle' && bots.some((b) => b.rolle !== k.an)) return [antwort(game, an, name, 'abgelehnt', 'adressat')];   // botId eines Bots mit anderer Rolle
-  const args = msg.args && typeof msg.args === 'object' ? Object.assign({}, msg.args) : {};
   return bots.map((b) => fuerBot(game, b, name, args));
 }
 

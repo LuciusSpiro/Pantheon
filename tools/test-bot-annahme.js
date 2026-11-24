@@ -4,7 +4,8 @@
 //  1. Daten: Katalog (22 Kanon-Befehle + nav.sprung), Gruende je Befehl, jede textId existiert (2 Varianten), Texte nennen keine Argumente, Protokollkonstanten
 //  2. Absender: Mensch ohne Bots -> unmoeglich kein_bot; ein Bot als Absender wird abgewiesen (keine Antwort, kein Registry-Aufruf)
 //  3. Lobby/Partieende: abgelehnt phase
-//  4. Gruende: unbekannt, quelle (auch nav.sprung per Sprache), adressat, argument (Muell), kein_bot, wartet, rate, kein_ziel/system aus der Registry
+//  4. Gruende: unbekannt, quelle (auch nav.sprung per Sprache), adressat, argument (Muell, Normalisierung, hex:/objekt: nur Menue/Taste), kein_bot, wartet, rate (je Spieler, keine Antwort-Flut),
+//     kein_ziel/nicht_jetzt/system aus der Registry, nicht vorgesehene Codes und Ausnahmen -> fehler + countError('bot.grund')
 //  5. Adressierung: Rolle, botId, alle (eine Antwort je Bot), bord (kein Bot), bot.*; fehlende optionale Argumente werden nicht abgelehnt
 //  6. Antwort: Form (direkt, keine event-Huelle), Text und Variante passen zur textId, Registry-Ausnahme bricht nichts
 //  7. Reine Menschenpartie: bot.befehl aendert Snapshots und Nachrichten (ausser der Antwort) nicht
@@ -80,7 +81,11 @@ section('1 Daten: Katalog, Gruende, Texte');
   ok(katalog.every((b) => Array.isArray(GRUENDE.befehle[b]) && GRUENDE.befehle[b].length > 0) && Object.keys(GRUENDE.befehle).every((b) => b === 'befehl' || katalog.includes(b)), 'gruende.json: jeder Befehl hat seine Gruende, kein fremder Eintrag');
   const alleGruende = Object.keys(GRUENDE.gruende);
   ok(Object.values(GRUENDE.befehle).every((l) => l.every((x) => alleGruende.includes(x)) && new Set(l).size === l.length), 'jeder Grund ist definiert und je Befehl nur einmal');
-  ok(['unbekannt', 'adressat', 'quelle', 'argument', 'phase', 'wartet', 'kein_bot', 'kein_ziel', 'system', 'rate'].every((x) => alleGruende.includes(x)), 'alle zehn Gruende des Briefings vorhanden');
+  ok(['unbekannt', 'adressat', 'quelle', 'argument', 'phase', 'wartet', 'kein_bot', 'kein_ziel', 'system', 'rate', 'fehler', 'nicht_jetzt'].every((x) => alleGruende.includes(x)) && alleGruende.length === 12 && GRUENDE.gruende.fehler === 'abgelehnt' && GRUENDE.gruende.nicht_jetzt === 'abgelehnt', 'alle zwoelf Gruende vorhanden (zehn des Briefings + fehler + nicht_jetzt, beide abgelehnt)');
+  const Bn = Object.keys(GRUENDE.befehle).filter((b) => b !== 'befehl');
+  ok(Bn.length === 23 && Bn.every((b) => GRUENDE.befehle[b].includes('fehler')), 'fehler: fuer alle 23 Befehle (Rollenbefehle, bord.*, bot.*)');
+  ok(Bn.every((b) => GRUENDE.befehle[b].includes('nicht_jetzt') === !b.startsWith('bot.')) && GRUENDE.befehle['befehl'].every((x) => x !== 'fehler' && x !== 'nicht_jetzt'), 'nicht_jetzt: fuer alle Rollenbefehle und bord.*, nicht fuer bot.*');
+  ok(GRUENDE.befehle['nav.sprung'].includes('kein_ziel') && GRUENDE.befehle['nav.andocken'].includes('kein_ziel'), 'kein_ziel auch bei nav.sprung und nav.andocken');
   const fehlt = [], schwach = [];
   for (const [b, l] of Object.entries(GRUENDE.befehle)) for (const gr of l) {
     const id = `${b}.${GRUENDE.gruende[gr]}.${gr}`;
@@ -167,7 +172,8 @@ section('4 Gruende');
     ['nav.kurs', 'navigation', { ziel: 'hex:' }], ['nav.kurs', 'navigation', { ziel: 'objekt:a b' }], ['nav.kurs', 'navigation', {}],
     ['nav.stopp', 'navigation', { stufe: 1 }], ['nav.stopp', 'navigation', [1, 2]], ['nav.stopp', 'navigation', 'text'], ['nav.stopp', 'navigation', 5],
     ['ops.beamen', 'ops', {}], ['ops.beamen', 'ops', { was: 'kaffee' }], ['ops.ziel', 'ops', { ziel: 'alles' }], ['ops.feuer_frei', 'ops', { waffen: 'kanone' }], ['ops.feuer_frei', 'ops', { waffen: 'alle', meter: 5 }],
-    ['tech.energie', 'technik', { system: 'engines' }], ['tech.energie', 'technik', { system: 'engines', delta: 2 }], ['tech.energie', 'technik', { system: 'reactor', delta: 1 }], ['tech.energie', 'technik', { system: 'engines', delta: '+1' }],
+    ['tech.energie', 'technik', { system: 'engines' }], ['tech.energie', 'technik', { system: 'engines', delta: 2 }], ['tech.energie', 'technik', { system: 'reactor', delta: 1 }], ['tech.energie', 'technik', { system: 'engines', delta: '++1' }], ['tech.energie', 'technik', { system: 'engines', delta: '1.0' }], ['tech.energie', 'technik', { system: 'engines', delta: 0 }],
+    ['ops.ziel', 'ops', { ziel: 'hex:e4' }],
     ['tech.schild', 'technik', { sektor: 'oben' }], ['tech.reparieren', 'technik', {}], ['tech.reparieren', 'technik', { system: 'kombuese' }], ['tech.prio', 'technik', { ziel: 5 }],
     ['nav.sprung', 'navigation', {}], ['nav.sprung', 'navigation', { ziel: '' }], ['bot.status', 'alle', { x: 1 }],
   ];
@@ -181,6 +187,7 @@ section('4 Gruende');
     ['nav.stopp', 'navigation', undefined], ['nav.stopp', 'navigation', null], ['nav.stopp', 'navigation', {}], ['nav.sprung', 'navigation', { ziel: 'hex:12' }],
     ['ops.ziel', 'ops', { ziel: 'markiert' }], ['ops.ziel', 'ops', { ziel: 'naechstes' }], ['ops.ziel', 'ops', { ziel: 'objekt:e4' }], ['ops.feuer_frei', 'ops', undefined], ['ops.feuer_frei', 'ops', {}], ['ops.feuer_frei', 'ops', { waffen: 'torpedo' }], ['ops.beamen', 'ops', { was: 'fracht' }],
     ['tech.prio', 'technik', { ziel: 'feuer' }], ['tech.prio', 'technik', { ziel: 'weapon_bow' }], ['tech.reparieren', 'technik', { system: 'lafette_9' }], ['tech.schild', 'technik', { sektor: 'heck' }], ['tech.energie', 'technik', { system: 'weapons', delta: -1 }], ['tech.energie', 'technik', { system: 'shields', delta: 1 }],
+    ['tech.energie', 'technik', { system: 'engines', delta: '+1' }], ['tech.energie', 'technik', { system: 'engines', delta: '-1' }], ['tech.energie', 'technik', { system: 'engines', delta: '1' }],
   ];
   const G3 = partie({ bots: ['navigation', 'ops', 'technik'] }); lauf(G3, 3);
   const zu = []; const gesehen = [];
@@ -191,6 +198,31 @@ section('4 Gruende');
   ok(zu.length === 0 && gesehen.length === GUT.length, `gueltige Argumente (${GUT.length} Faelle, auch fehlende optionale und hex/objekt, Grenzwerte): angenommen, ok` + (zu.length ? ' - zu streng: ' + zu.join(' ') : ''));
   const ohneFeuer = gesehen.find(([b, a]) => b === 'ops.feuer_frei' && Object.keys(a).length === 0);
   ok(!!ohneFeuer, 'fehlende optionale Argumente gehen unveraendert (nicht aufgefuellt) an die Registry - das Auffuellen ist C2');
+  // K3: die Registry bekommt normalisierte Kopien (Zahlen statt Text), nie das Original
+  const NORM = [
+    ['nav.schub', 'navigation', { stufe: '3' }, { stufe: 3 }], ['nav.schub', 'navigation', { stufe: 4 }, { stufe: 4 }], ['nav.schub', 'navigation', { stufe: 'halb' }, { stufe: 'halb' }],
+    ['tech.energie', 'technik', { system: 'engines', delta: '+1' }, { system: 'engines', delta: 1 }], ['tech.energie', 'technik', { system: 'engines', delta: '-1' }, { system: 'engines', delta: -1 }],
+    ['tech.energie', 'technik', { system: 'weapons', delta: '1' }, { system: 'weapons', delta: 1 }], ['tech.energie', 'technik', { system: 'weapons', delta: 1 }, { system: 'weapons', delta: 1 }], ['tech.energie', 'technik', { system: 'weapons', delta: -1 }, { system: 'weapons', delta: -1 }],
+    ['nav.abstand', 'navigation', { ziel: 'ziel', meter: 500 }, { ziel: 'ziel', meter: 500 }],
+  ];
+  const nBad = [];
+  for (const [b, an, args, soll] of NORM) {
+    let ist = null;
+    const orig = JSON.parse(JSON.stringify(args));
+    haken(an, b, (g, bot, ar) => { ist = ar; return { ok: true }; }, () => einz(G3, cmd(b, an, args)));
+    if (!ist || JSON.stringify(ist) !== JSON.stringify(soll) || Object.keys(soll).some((k) => typeof ist[k] !== typeof soll[k]) || ist === args || JSON.stringify(args) !== JSON.stringify(orig)) nBad.push(b + JSON.stringify(args) + ' -> ' + JSON.stringify(ist));
+  }
+  ok(nBad.length === 0, `Normalisierung (${NORM.length} Faelle): stufe als Zahl, delta als Zahl 1/-1, halb bleibt Text, meter Zahl; Registry sieht eine Kopie, das Original bleibt` + (nBad.length ? ' - ' + nBad.join(' ') : ''));
+  // K2: hex:<id> und objekt:<id> sind nicht sprechbar; ops.ziel kennt nur objekt:<id>
+  const FREI = [['nav.kurs', 'navigation', { ziel: 'hex:7_3' }], ['nav.kurs', 'navigation', { ziel: 'objekt:abc' }], ['nav.abstand', 'navigation', { ziel: 'hex:1' }], ['nav.abstand', 'navigation', { ziel: 'objekt:x' }], ['ops.ziel', 'ops', { ziel: 'objekt:e4' }]];
+  const frei = [];
+  for (const q of ['sprache', 'text']) for (const [b, an, args] of FREI) { const a = einz(G3, cmd(b, an, args, q)); if (!(a && a.status === 'abgelehnt' && grund(a) === 'argument')) frei.push(q + ':' + b + JSON.stringify(args)); }
+  ok(frei.length === 0, `hex:/objekt: per Sprache und Text: abgelehnt argument (${FREI.length * 2} Faelle)` + (frei.length ? ' - angenommen: ' + frei.join(' ') : ''));
+  const treffer = [];
+  for (const q of ['menu', 'taste']) for (const [b, an, args] of FREI) haken(an, b, () => ({ ok: true }), () => { const a = einz(G3, cmd(b, an, args, q)); if (!(a && a.status === 'ok')) treffer.push(q + ':' + b); });
+  ok(treffer.length === 0, 'dieselben Ziele per Menue und Taste: angenommen');
+  ok(['marke', 'ziel', 'basis'].every((z) => haken('navigation', 'nav.kurs', () => ({ ok: true }), () => { const a = einz(G3, cmd('nav.kurs', 'navigation', { ziel: z }, 'sprache')); return a && a.status === 'ok'; })), 'feste Ziele (marke, ziel, basis) bleiben per Sprache sprechbar');
+  ok(grund(einz(G3, cmd('ops.ziel', 'ops', { ziel: 'hex:e4' }, 'menu'))) === 'argument' && grund(einz(G3, cmd('ops.ziel', 'ops', { ziel: 'hex:e4' }, 'taste'))) === 'argument', 'ops.ziel nimmt auch per Menue/Taste kein hex:<id> (Vertrag: nur objekt:<id>)');
   // kein_bot
   const kbRolle = einz(P, cmd('tech.schild', 'technik', { sektor: 'bug' }));
   ok(kbRolle && kbRolle.status === 'unmoeglich' && grund(kbRolle) === 'kein_bot', 'Rolle ohne Bot (nur navigation und ops da): unmoeglich kein_bot');
@@ -215,7 +247,7 @@ section('4 Gruende');
   // rate
   const R = partie({ bots: ['ops'] }); lauf(R, 3);
   const erg = haken('ops', 'ops.scan', () => ({ ok: true }), () => { jetzt += 5000; const l1 = []; for (let i = 0; i < 12; i++) l1.push(...senden(R, cmd('ops.scan', 'ops'))); return l1; });
-  ok(erg.length === 12 && erg.slice(0, 10).every((a) => a.status === 'ok') && erg.slice(10).every((a) => a.status === 'abgelehnt' && a.textId === 'ops.scan.abgelehnt.rate'), 'Rate: 10 Befehle je Sekunde angenommen, der 11. und 12. abgelehnt (rate)');
+  ok(erg.length === 11 && erg.slice(0, 10).every((a) => a.status === 'ok') && erg[10].status === 'abgelehnt' && erg[10].textId === 'ops.scan.abgelehnt.rate', 'Rate: 10 Befehle je Sekunde angenommen, der 11. abgelehnt (rate), der 12. wird still verworfen (K4)');
   jetzt += 5000;
   const wieder = haken('ops', 'ops.scan', () => ({ ok: true }), () => { for (let i = 0; i < 10; i++) senden(R, cmd('ops.scan', 'ops')); const x = senden(R, cmd('ops.scan', 'ops'))[0]; jetzt += 1100; const y = senden(R, cmd('ops.scan', 'ops'))[0]; return [x, y]; });
   ok(grund(wieder[0]) === 'rate' && wieder[1].status === 'ok', 'Rate ist kein Dauerzustand: eine Sekunde spaeter wird wieder angenommen');
@@ -224,7 +256,39 @@ section('4 Gruende');
   ok(wirkung === 10, 'abgelehnt wegen rate: nur Antwort, nie Wirkung (25 gesendet, 10 ausgefuehrt)');
   jetzt += 5000;
   const unb = []; for (let i = 0; i < 12; i++) unb.push(...senden(R, cmd('quatsch', 'ops')));
-  ok(unb.slice(10).every((a) => a.textId === 'befehl.abgelehnt.rate'), 'Rate gilt auch fuer unbekannte Befehle (textId befehl.abgelehnt.rate)');
+  ok(unb.length === 11 && unb.slice(0, 10).every((a) => a.textId === 'befehl.abgelehnt.unbekannt') && unb[10].textId === 'befehl.abgelehnt.rate', 'Rate gilt auch fuer unbekannte Befehle (textId befehl.abgelehnt.rate)');
+  // K4: keine Antwort-Flut, pro Spieler und Fenster nur die erste Rate-Ablehnung wird beantwortet
+  jetzt += 5000;
+  const flut = haken('ops', 'ops.scan', () => ({ ok: true }), () => { const l = []; for (let i = 0; i < 100; i++) l.push(...senden(R, cmd('ops.scan', 'ops'))); return l; });
+  ok(flut.length === 11 && flut.filter((a) => grund(a) === 'rate').length === 1, 'Flut: 100 Nachrichten im Fenster -> 10 ok und genau eine Rate-Antwort (nicht 90)');
+  jetzt += 1100;   // naechstes Fenster: wieder angenommen, die naechste Ueberschreitung wird wieder einmal gemeldet
+  const flut2 = haken('ops', 'ops.scan', () => ({ ok: true }), () => { const l = []; for (let i = 0; i < 30; i++) l.push(...senden(R, cmd('ops.scan', 'ops'))); return l; });
+  ok(flut2.length === 11 && flut2.slice(0, 10).every((a) => a.status === 'ok') && grund(flut2[10]) === 'rate', 'naechstes Fenster: 10 ok, wieder genau eine Rate-Antwort (kein Dauerzustand)');
+  // W2: Rate gilt je Spieler, nicht global (zwei Menschen)
+  {
+    const g = neuesGame(); const cA = mkConn(), cB = mkConn();
+    for (const [c, id] of [[cA, 'KA'], [cB, 'KB']]) { g.addConnection(c); g.handleMessage(c, { t: 'hello', clientId: id, name: id, color: 0 }); }
+    BotSpieler.botHinzufuegen(g, null, 'ops');
+    g.lobbyOpts.startMission = 'arena_space';
+    g.handleMessage(cA, { t: 'ready', ready: true }); g.handleMessage(cB, { t: 'ready', ready: true });
+    if (g.arena) { g.arena.nextAt = 1e9; g.space.enemies = []; }
+    const Q = { g, c: cA, h: cA.player };
+    lauf(Q, 3);
+    ok(g.phase === 'play' && cA.player && cB.player && cA.player.id !== cB.player.id, 'Zwei Menschen in einer laufenden Partie');
+    const r = haken('ops', 'ops.scan', () => ({ ok: true }), () => {
+      jetzt += 5000;
+      const a = []; for (let i = 0; i < 14; i++) a.push(...senden(Q, cmd('ops.scan', 'ops'), cA));
+      const b1 = senden(Q, cmd('ops.scan', 'ops'), cB);
+      const a2 = senden(Q, cmd('ops.scan', 'ops'), cA);
+      const b2 = []; for (let i = 0; i < 9; i++) b2.push(...senden(Q, cmd('ops.scan', 'ops'), cB));
+      return { a, b1, a2, b2 };
+    });
+    ok(r.a.length === 11 && r.a.slice(0, 10).every((x) => x.status === 'ok') && grund(r.a[10]) === 'rate', 'Mensch A flutet ueber das Limit: 10 ok, dann Rate');
+    ok(r.b1.length === 1 && r.b1[0].status === 'ok' && r.b2.length === 9 && r.b2.every((x) => x.status === 'ok'), 'Mensch B wird weiter angenommen (eigene Zaehlung: 10 Befehle, alle ok)');
+    ok(r.a2.length === 0, 'A bleibt gedrosselt (weitere Nachricht im Fenster: verworfen)');
+    const b3 = haken('ops', 'ops.scan', () => ({ ok: true }), () => senden(Q, cmd('ops.scan', 'ops'), cB));
+    ok(b3.length === 1 && grund(b3[0]) === 'rate', 'B hat jetzt ebenfalls sein Limit erreicht (eigene Rate-Antwort)');
+  }
   // kein_ziel und system aus der Registry
   const Z = partie({ bots: ['navigation', 'ops'] }); lauf(Z, 3);
   const kz = haken('ops', 'ops.feuer_frei', () => ({ ok: false, code: 'kein_ziel' }), () => einz(Z, cmd('ops.feuer_frei', 'ops')));
@@ -233,12 +297,43 @@ section('4 Gruende');
   ok(ky && ky.textId === 'nav.abstand.abgelehnt.kein_ziel', 'nav.abstand ohne markiertes Ziel: abgelehnt kein_ziel');
   const sy = haken('ops', 'ops.scan', () => ({ ok: false, code: 'system' }), () => einz(Z, cmd('ops.scan', 'ops')));
   ok(sy && sy.status === 'unmoeglich' && sy.textId === 'ops.scan.unmoeglich.system', 'Registry meldet system (zerstoert): unmoeglich, Grund system');
-  const fremd = haken('ops', 'ops.scan', () => ({ ok: false, code: 'erfunden' }), () => einz(Z, cmd('ops.scan', 'ops')));
-  const fremd2 = haken('ops', 'ops.scan', () => ({ ok: false, code: 'kein_ziel' }), () => einz(Z, cmd('ops.scan', 'ops')));
-  ok(fremd && fremd.textId === 'ops.scan.abgelehnt.unbekannt' && fremd2 && fremd2.textId === 'ops.scan.abgelehnt.unbekannt', 'ein Grund, der fuer den Befehl nicht vorgesehen ist, wird zu unbekannt (die textId existiert immer)');
+  // kein_ziel auch bei nav.sprung und nav.andocken; nicht_jetzt fuer Rollenbefehle und bord.*
+  const ks = haken('navigation', 'nav.sprung', () => ({ ok: false, code: 'kein_ziel' }), () => einz(Z, cmd('nav.sprung', 'navigation', { ziel: 'marke' })));
+  const ka = haken('navigation', 'nav.andocken', () => ({ ok: false, code: 'kein_ziel' }), () => einz(Z, cmd('nav.andocken', 'navigation')));
+  ok(ks && ks.textId === 'nav.sprung.abgelehnt.kein_ziel' && typeof ks.text === 'string' && ka && ka.textId === 'nav.andocken.abgelehnt.kein_ziel' && typeof ka.text === 'string', 'nav.sprung und nav.andocken melden kein_ziel: eigener Text statt Fehler');
+  const NJ = [['ops', 'ops.beamen', 'ops', { was: 'fracht' }], ['ops', 'ops.landescan', 'ops'], ['navigation', 'nav.ausweichen', 'navigation'], ['navigation', 'nav.andocken', 'navigation']];
+  const njBad = [];
+  for (const [reg, b, an, args] of NJ) {
+    const a = haken(reg, b, () => ({ ok: false, code: 'nicht_jetzt' }), () => einz(Z, cmd(b, an, args)));
+    if (!(a && a.status === 'abgelehnt' && a.textId === b + '.abgelehnt.nicht_jetzt' && typeof a.text === 'string' && a.text === TEXTE[a.textId][a.variante])) njBad.push(b);
+  }
+  ok(njBad.length === 0, 'Registry meldet nicht_jetzt (Beamen ohne Fracht, Landescan, Ausweichen, Andocken): abgelehnt, Text je Befehl' + (njBad.length ? ' - ' + njBad.join(' ') : ''));
+  ok(Object.keys(GRUENDE.befehle).filter((b) => b.startsWith('bord.')).every((b) => GRUENDE.befehle[b].includes('nicht_jetzt') && Array.isArray(TEXTE[b + '.abgelehnt.nicht_jetzt'])), 'bord.*: nicht_jetzt vorgesehen, Text vorhanden');
+  // W1: nicht vorgesehene Codes und Ausnahmen -> abgelehnt fehler + countError('bot.grund'), nie stilles unbekannt
+  const FEHL = [];
+  const ce0 = Z.g.countError; Z.g.countError = (wo, e) => { FEHL.push([wo, e && e.message]); };
+  const f1 = (code, b, an, reg, args) => haken(reg, b, () => ({ ok: false, code }), () => einz(Z, cmd(b, an, args)));
+  const fremd = f1('erfunden', 'ops.scan', 'ops', 'ops');
+  const fremd2 = f1('kein_ziel', 'ops.scan', 'ops', 'ops');
+  const fremd3 = f1('nicht_jetzt', 'bot.status', 'ops', 'bot');
+  ok(fremd && fremd.status === 'abgelehnt' && fremd.textId === 'ops.scan.abgelehnt.fehler' && typeof fremd.text === 'string' && fremd2 && fremd2.textId === 'ops.scan.abgelehnt.fehler' && fremd3 && fremd3.textId === 'bot.status.abgelehnt.fehler', 'ein Code, der fuer den Befehl nicht vorgesehen ist (erfunden, kein_ziel bei ops.scan, nicht_jetzt bei bot.status): abgelehnt fehler');
+  ok(FEHL.length === 3 && FEHL.every(([wo]) => wo === 'bot.grund') && /ops\.scan/.test(FEHL[0][1]) && /erfunden/.test(FEHL[0][1]) && /kein_ziel/.test(FEHL[1][1]) && /bot\.status/.test(FEHL[2][1]), 'jeder dieser Faelle wird per countError("bot.grund") mit Befehl und Code gezaehlt');
+  FEHL.length = 0;
   const nichts = haken('ops', 'ops.scan', () => undefined, () => einz(Z, cmd('ops.scan', 'ops')));
   const falsch = haken('ops', 'ops.scan', () => ({ ok: 'ja' }), () => einz(Z, cmd('ops.scan', 'ops')));
-  ok(nichts && nichts.status === 'abgelehnt' && falsch && falsch.status === 'abgelehnt', 'nur ok === true gilt als angenommen (undefined oder "ja" nicht)');
+  ok(nichts && nichts.status === 'abgelehnt' && nichts.textId === 'ops.scan.abgelehnt.fehler' && falsch && falsch.textId === 'ops.scan.abgelehnt.fehler' && FEHL.length === 2, 'nur ok === true gilt als angenommen (undefined oder "ja": abgelehnt fehler, gezaehlt)');
+  FEHL.length = 0;
+  const gut = haken('ops', 'ops.scan', () => ({ ok: false, code: 'unbekannt' }), () => einz(Z, cmd('ops.scan', 'ops')));
+  const gut2 = haken('ops', 'ops.scan', () => ({ ok: false, code: 'system' }), () => einz(Z, cmd('ops.scan', 'ops')));
+  ok(grund(gut) === 'unbekannt' && grund(gut2) === 'system' && FEHL.length === 0, 'vorgesehene Codes (unbekannt, system) gelten unveraendert und zaehlen keinen Fehler');
+  const ausn = haken('ops', 'ops.scan', () => { throw new Error('kaputt'); }, () => einz(Z, cmd('ops.scan', 'ops')));
+  ok(ausn && ausn.status === 'abgelehnt' && ausn.textId === 'ops.scan.abgelehnt.fehler' && FEHL.length === 1 && FEHL[0][0] === 'bot.grund' && /ops\.scan/.test(FEHL[0][1]) && /kaputt/.test(FEHL[0][1]), 'Ausnahme in der Registry-Funktion: abgelehnt fehler (nicht unbekannt), ein countError("bot.grund") mit Befehl und Ursache');
+  Z.g.countError = ce0;
+  // an alle: eine Ausnahme bei einem Bot, die anderen Bots antworten normal
+  const Y = partie({ bots: ['navigation', 'ops'] }); lauf(Y, 3);
+  Y.g.countError = () => {};
+  const teilw = haken('bot', 'bot.status', (g, bot) => { if (bot.rolle === 'ops') throw new Error('x'); return { ok: true }; }, () => ein(Y, cmd('bot.status', 'alle')));
+  ok(teilw.length === 2 && teilw.filter((x) => x.status === 'ok').length === 1 && teilw.filter((x) => grund(x) === 'fehler').length === 1, 'an alle: Ausnahme bei einem Bot trifft nur dessen Antwort (fehler), der andere antwortet ok');
 }
 
 // ---------- 5 Adressierung ----------
@@ -267,6 +362,16 @@ section('5 Adressierung: Rolle, botId, alle, bord');
     ruf.length = 0; a = ein(P, cmd('nav.stopp', 'alle'));
     ok(a.length === 1 && grund(a[0]) === 'adressat' && ruf.length === 0, 'Rollenbefehl an alle: adressat (nur bot.* geht an mehrere)');
   } finally { for (const [r, b] of EINTR) delete Befehle.REGISTER[r][b]; }
+  // an alle mit drei Bots: die Textvariante wechselt je Bot ab (Schluessel botId|textId), nicht gemeinsam
+  const V = partie({ bots: ['navigation', 'ops', 'technik'] }); lauf(V, 3);
+  const va = haken('bot', 'bot.status', () => ({ ok: true }), () => [ein(V, cmd('bot.status', 'alle')), ein(V, cmd('bot.status', 'alle'))]);
+  ok(va[0].length === 3 && va[1].length === 3 && va[0].every((x) => x.variante === 0) && va[1].every((x) => x.variante === 1), 'an alle mit drei Bots: jeder Bot beginnt bei Variante 0 und wechselt je Aufruf auf 1 (Zaehler je Bot)');
+  // nur verbundene Bots werden angesprochen
+  const W = partie({ bots: ['ops'] }); lauf(W, 3);
+  const wb = botVon(W, 'ops'); wb.connected = false;
+  const wk = einz(W, cmd('ops.scan', 'ops')); const wa = einz(W, cmd('bot.status', 'alle'));
+  wb.connected = true;
+  ok(wk && wk.status === 'unmoeglich' && grund(wk) === 'kein_bot' && wa && grund(wa) === 'kein_bot', 'getrennter Bot (connected false) wird nicht angesprochen: kein_bot');
   const S = partie({ bots: ['navigation', 'ops'] }); lauf(S, 3);
   const teil = haken('bot', 'bot.status', (g, bot) => (bot.rolle === 'ops' ? { ok: false, code: 'unbekannt' } : { ok: true }), () => ein(S, cmd('bot.status', 'alle')));
   ok(teil.length === 2 && teil.filter((x) => x.status === 'ok').length === 1 && teil.filter((x) => x.status === 'abgelehnt').length === 1, 'an alle: Ergebnis je Bot einzeln (einer ok, einer abgelehnt)');
@@ -283,9 +388,9 @@ section('6 Antwort: Form, Text, Variante, Ausnahme');
   ok(ant.every((x) => x.text === TEXTE[x.textId][x.variante]) && ant[0].variante === 0 && ant[1].variante === 1 && ant[2].variante === 0, 'text = TEXTE[textId][variante]; die zwei Varianten wechseln sich ab');
   const abg = einz(P, cmd('nav.stopp', 'navigation'));
   ok(abg && abg.text === TEXTE[abg.textId][abg.variante], 'auch bei Ablehnung: Text und Variante aus der Tabelle');
-  const ce = P.g.countError; P.g.countError = () => {};   // die erwartete Ausnahme nicht auf die Konsole schreiben
+  const ce = P.g.countError; const gez = []; P.g.countError = (wo) => { gez.push(wo); };   // die erwartete Ausnahme nicht auf die Konsole schreiben
   const eg = haken('ops', 'ops.scan', () => { throw new Error('kaputt'); }, () => { let e = null, a2 = null; try { a2 = einz(P, cmd('ops.scan', 'ops')); } catch (x) { e = x; } return { e, a2 }; });
-  ok(eg.e === null && eg.a2 && eg.a2.status === 'abgelehnt' && grund(eg.a2) === 'unbekannt', 'Registry wirft: keine Ausnahme nach aussen, Antwort abgelehnt');
+  ok(eg.e === null && eg.a2 && eg.a2.status === 'abgelehnt' && grund(eg.a2) === 'fehler' && gez.length === 1 && gez[0] === 'bot.grund', 'Registry wirft: keine Ausnahme nach aussen, Antwort abgelehnt fehler, ein Fehlerpfad (bot.grund)');
   P.g.countError = ce;
   let geworfen = 0;
   const err0 = P.g.errors;

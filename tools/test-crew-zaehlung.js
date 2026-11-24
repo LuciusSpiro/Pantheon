@@ -262,7 +262,8 @@ section('6 Quellscan: Zählung nur in crew.js');
   // Warnliste (kein Fehlschlag): .some(... connected ...) in server/ – viele sind legitime Einzelprüfungen, hier nur sichtbar gemacht
   const WARN = /\.some\([^;\n]*connected/;
   const warn = [];
-  for (const f of dateien) quelle(f).forEach((z, i) => { if (WARN.test(z)) warn.push(f + ':' + (i + 1)); });
+  // Zeilen, die Bots schon ausnehmen (Crew.istBot), sind geprueft und stehen nicht mehr auf der Liste (away.js: humansAboard)
+  for (const f of dateien) quelle(f).forEach((z, i) => { if (WARN.test(z) && !/Crew\.istBot/.test(z)) warn.push(f + ':' + (i + 1)); });
   console.log('  info  Warnliste .some(... connected ...) in server/ (' + warn.length + ', prüfen ob „ein Mensch“ gemeint ist): ' + (warn.join(' ') || 'keine'));
   const alt = /\.filter\(\(?\w+\)? => \w+\.connected !== false\)\.length/;
   const client = ['public/js/client.js', 'public/js/hud.js', 'public/js/dev-mock.js'].filter((f) => fs.readFileSync(f, 'utf8').split(/\r?\n/).some((z) => alt.test(z)));

@@ -934,5 +934,189 @@
  "bot.unklar": [
   "Bitte wiederholen, Käpt'n.",
   "Das habe ich nicht verstanden."
+ ],
+ "nav.kurs.abgelehnt.nicht_jetzt": [
+  "Im Moment nicht möglich, Käpt'n.",
+  "Die Lage lässt das jetzt nicht zu."
+ ],
+ "nav.kurs.abgelehnt.fehler": [
+  "Das klappt gerade nicht.",
+  "Da hakt es gerade, Käpt'n."
+ ],
+ "nav.stopp.abgelehnt.nicht_jetzt": [
+  "Im Moment nicht möglich, Käpt'n.",
+  "Die Lage lässt das jetzt nicht zu."
+ ],
+ "nav.stopp.abgelehnt.fehler": [
+  "Das klappt gerade nicht.",
+  "Da hakt es gerade, Käpt'n."
+ ],
+ "nav.schub.abgelehnt.nicht_jetzt": [
+  "Im Moment nicht möglich, Käpt'n.",
+  "Die Lage lässt das jetzt nicht zu."
+ ],
+ "nav.schub.abgelehnt.fehler": [
+  "Das klappt gerade nicht.",
+  "Da hakt es gerade, Käpt'n."
+ ],
+ "nav.ausweichen.abgelehnt.nicht_jetzt": [
+  "Im Moment nicht möglich, Käpt'n.",
+  "Die Lage lässt das jetzt nicht zu."
+ ],
+ "nav.ausweichen.abgelehnt.fehler": [
+  "Das klappt gerade nicht.",
+  "Da hakt es gerade, Käpt'n."
+ ],
+ "nav.abstand.abgelehnt.nicht_jetzt": [
+  "Im Moment nicht möglich, Käpt'n.",
+  "Die Lage lässt das jetzt nicht zu."
+ ],
+ "nav.abstand.abgelehnt.fehler": [
+  "Das klappt gerade nicht.",
+  "Da hakt es gerade, Käpt'n."
+ ],
+ "nav.andocken.abgelehnt.kein_ziel": [
+  "Es ist kein Ziel markiert.",
+  "Mir fehlt ein Ziel, Käpt'n."
+ ],
+ "nav.andocken.abgelehnt.nicht_jetzt": [
+  "Im Moment nicht möglich, Käpt'n.",
+  "Die Lage lässt das jetzt nicht zu."
+ ],
+ "nav.andocken.abgelehnt.fehler": [
+  "Das klappt gerade nicht.",
+  "Da hakt es gerade, Käpt'n."
+ ],
+ "nav.sprung.abgelehnt.kein_ziel": [
+  "Es ist kein Ziel markiert.",
+  "Mir fehlt ein Ziel, Käpt'n."
+ ],
+ "nav.sprung.abgelehnt.nicht_jetzt": [
+  "Im Moment nicht möglich, Käpt'n.",
+  "Die Lage lässt das jetzt nicht zu."
+ ],
+ "nav.sprung.abgelehnt.fehler": [
+  "Das klappt gerade nicht.",
+  "Da hakt es gerade, Käpt'n."
+ ],
+ "ops.ziel.abgelehnt.nicht_jetzt": [
+  "Dafür ist jetzt nicht die Lage, Käpt'n.",
+  "Geht gerade nicht, das passt nicht zur Lage."
+ ],
+ "ops.ziel.abgelehnt.fehler": [
+  "Das klappt gerade nicht.",
+  "Da hakt es gerade, Käpt'n."
+ ],
+ "ops.feuer_frei.abgelehnt.nicht_jetzt": [
+  "Dafür ist jetzt nicht die Lage, Käpt'n.",
+  "Geht gerade nicht, das passt nicht zur Lage."
+ ],
+ "ops.feuer_frei.abgelehnt.fehler": [
+  "Das klappt gerade nicht.",
+  "Da hakt es gerade, Käpt'n."
+ ],
+ "ops.feuer_halt.abgelehnt.nicht_jetzt": [
+  "Dafür ist jetzt nicht die Lage, Käpt'n.",
+  "Geht gerade nicht, das passt nicht zur Lage."
+ ],
+ "ops.feuer_halt.abgelehnt.fehler": [
+  "Das klappt gerade nicht.",
+  "Da hakt es gerade, Käpt'n."
+ ],
+ "ops.scan.abgelehnt.nicht_jetzt": [
+  "Dafür ist jetzt nicht die Lage, Käpt'n.",
+  "Geht gerade nicht, das passt nicht zur Lage."
+ ],
+ "ops.scan.abgelehnt.fehler": [
+  "Das klappt gerade nicht.",
+  "Da hakt es gerade, Käpt'n."
+ ],
+ "ops.landescan.abgelehnt.nicht_jetzt": [
+  "Dafür ist jetzt nicht die Lage, Käpt'n.",
+  "Geht gerade nicht, das passt nicht zur Lage."
+ ],
+ "ops.landescan.abgelehnt.fehler": [
+  "Das klappt gerade nicht.",
+  "Da hakt es gerade, Käpt'n."
+ ],
+ "ops.beamen.abgelehnt.nicht_jetzt": [
+  "Dafür ist jetzt nicht die Lage, Käpt'n.",
+  "Geht gerade nicht, das passt nicht zur Lage."
+ ],
+ "ops.beamen.abgelehnt.fehler": [
+  "Das klappt gerade nicht.",
+  "Da hakt es gerade, Käpt'n."
+ ],
+ "tech.prio.abgelehnt.nicht_jetzt": [
+  "In dieser Lage nicht machbar.",
+  "Jetzt gerade nicht, Käpt'n."
+ ],
+ "tech.prio.abgelehnt.fehler": [
+  "Das klappt gerade nicht.",
+  "Da hakt es gerade, Käpt'n."
+ ],
+ "tech.reparieren.abgelehnt.nicht_jetzt": [
+  "In dieser Lage nicht machbar.",
+  "Jetzt gerade nicht, Käpt'n."
+ ],
+ "tech.reparieren.abgelehnt.fehler": [
+  "Das klappt gerade nicht.",
+  "Da hakt es gerade, Käpt'n."
+ ],
+ "tech.schild.abgelehnt.nicht_jetzt": [
+  "In dieser Lage nicht machbar.",
+  "Jetzt gerade nicht, Käpt'n."
+ ],
+ "tech.schild.abgelehnt.fehler": [
+  "Das klappt gerade nicht.",
+  "Da hakt es gerade, Käpt'n."
+ ],
+ "tech.energie.abgelehnt.nicht_jetzt": [
+  "In dieser Lage nicht machbar.",
+  "Jetzt gerade nicht, Käpt'n."
+ ],
+ "tech.energie.abgelehnt.fehler": [
+  "Das klappt gerade nicht.",
+  "Da hakt es gerade, Käpt'n."
+ ],
+ "tech.ueberladen.abgelehnt.nicht_jetzt": [
+  "In dieser Lage nicht machbar.",
+  "Jetzt gerade nicht, Käpt'n."
+ ],
+ "tech.ueberladen.abgelehnt.fehler": [
+  "Das klappt gerade nicht.",
+  "Da hakt es gerade, Käpt'n."
+ ],
+ "bord.rueckholen.abgelehnt.nicht_jetzt": [
+  "Das geht in dieser Lage nicht.",
+  "Jetzt nicht, Käpt'n, die Lage gibt es nicht her."
+ ],
+ "bord.rueckholen.abgelehnt.fehler": [
+  "Das klappt gerade nicht.",
+  "Da hakt es gerade, Käpt'n."
+ ],
+ "bord.sensor.abgelehnt.nicht_jetzt": [
+  "Das geht in dieser Lage nicht.",
+  "Jetzt nicht, Käpt'n, die Lage gibt es nicht her."
+ ],
+ "bord.sensor.abgelehnt.fehler": [
+  "Das klappt gerade nicht.",
+  "Da hakt es gerade, Käpt'n."
+ ],
+ "bord.kuppel.abgelehnt.nicht_jetzt": [
+  "Das geht in dieser Lage nicht.",
+  "Jetzt nicht, Käpt'n, die Lage gibt es nicht her."
+ ],
+ "bord.kuppel.abgelehnt.fehler": [
+  "Das klappt gerade nicht.",
+  "Da hakt es gerade, Käpt'n."
+ ],
+ "bot.status.abgelehnt.fehler": [
+  "Das klappt gerade nicht.",
+  "Da hakt es gerade, Käpt'n."
+ ],
+ "bot.automatik.abgelehnt.fehler": [
+  "Das klappt gerade nicht.",
+  "Da hakt es gerade, Käpt'n."
  ]
 }
