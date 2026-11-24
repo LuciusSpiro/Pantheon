@@ -554,10 +554,10 @@ section('11 Lebenszyklus der Agenten');
   const Q = partie({ bots: [], start: false }); const c2 = mensch(Q.g, 4, 2); c2.player.bot = true;
   Q.g.lobbyOpts.startMission = 'arena_space'; Q.g.handleMessage(Q.c, { t: 'ready', ready: true }); lauf(Q, 1);
   ok(Q.g.phase === 'play' && Lauf.agenten(Q.g).length === 0, 'synthetischer Bot ohne Rolle: kein Agent');
-  // Befehle-Registry (C2b): navigation 7, ops 6, technik 5, bot 2, nur bord leer; ein Name ohne Eintrag liefert unbekannt
+  // Befehle-Registry (C2b): navigation 7, ops 6, technik 5, bot 2, bord 3 (Geruest BOT-02 B1); ein Name ohne Eintrag liefert unbekannt
   const r = Befehle.befehl(g, ops, 'ops.quatsch', { id: 'e1' });
-  const SOLL = { navigation: 7, ops: 6, technik: 5, bot: 2, bord: 0 };
-  ok(r && r.ok === false && r.code === 'unbekannt' && Object.entries(Befehle.REGISTER).every(([rolle, reg]) => Object.keys(reg).length === SOLL[rolle]), 'Registry der Befehle: navigation 7, ops 6, technik 5, bot 2, bord leer (BOT-02); ein unbekannter Name liefert unbekannt');
+  const SOLL = { navigation: 7, ops: 6, technik: 5, bot: 2, bord: 3 };
+  ok(r && r.ok === false && r.code === 'unbekannt' && Object.entries(Befehle.REGISTER).every(([rolle, reg]) => Object.keys(reg).length === SOLL[rolle]), 'Registry der Befehle: navigation 7, ops 6, technik 5, bot 2, bord 3 (Geruest, BOT-02 B1); ein unbekannter Name liefert unbekannt');
   ok(Befehle.befehl(g, ops, '__proto__', {}).code === 'unbekannt' && Befehle.befehl(g, null, 'x').code === 'unbekannt', 'unbekannt auch fuer __proto__ und ohne Bot');
   ok(Absicht.ZUSTAENDE.join() === 'unterwegs,an_station,wartet' && Absicht.neueAbsicht('ops').zustand === 'unterwegs', 'Absicht: Zustaende unterwegs, an_station, wartet');
 }
@@ -569,7 +569,10 @@ section('12 Quellscan');
   const botZeilen = (f) => lies(f).map((z, i) => ({ z, i: i + 1 })).filter((x) => /Bot[A-Z]|istBot|\.bot\b/.test(x.z.replace(/\/\/.*$/, '')));
   const st = botZeilen('server/sim/station.js').filter((x) => !/BotWeichen|Crew\.istBot/.test(x.z));
   ok(st.length === 0, 'station.js: Bot-Bezug nur ueber BotWeichen und Crew.istBot in botAutomatikStandard' + (st[0] ? ' – ' + st[0].i + ': ' + st[0].z.trim() : ''));
-  ok(lies('server/sim/station.js').filter((z) => /BotWeichen/.test(z)).length === 2 && lies('server/sim/station.js').filter((z) => /Crew\.istBot/.test(z)).length === 1, 'station.js: zwei Zeilen BotWeichen (laden, Tab), eine Zeile Crew.istBot');
+  // Code ohne Kommentare: BotWeichen laden, Tab (weichtFuerMensch) und seit BOT-02 B1 zweimal vertreten (Waffenautomatik, Bot-Automatik der Technik); Crew.istBot einmal
+  const stCode = lies('server/sim/station.js').map((z) => z.replace(/\s*\/\/.*$/, ''));
+  const stZ = (re) => stCode.filter((z) => re.test(z)).length;
+  ok(stZ(/require\(.*weichen\.js/) === 1 && stZ(/BotWeichen\.weichtFuerMensch/) === 1 && stZ(/BotWeichen\.vertreten/) === 2 && stZ(/BotWeichen/) === 4 && stZ(/Crew\.istBot/) === 1, 'station.js: vier Zeilen BotWeichen (laden, Tab, vertreten in Waffenautomatik und Bot-Automatik der Technik), eine Zeile Crew.istBot');
   const io = botZeilen('server/sim/interior.js').filter((x) => !/BotWeichen/.test(x.z) && !/\bBots?\b.*(Konsole|haben|keine|Charakterkarte)/.test(x.z));
   ok(io.length === 0, 'interior.js: Bot-Bezug nur ueber BotWeichen' + (io[0] ? ' – ' + io[0].i + ': ' + io[0].z.trim() : ''));
   ok(lies('server/sim/interior.js').filter((z) => /BotWeichen/.test(z)).length === 3, 'interior.js: drei duenne Stellen (Laden, Aktionsliste consoleOccupant, performInteraction)');
@@ -644,8 +647,8 @@ section('13 Ops: die Marke des Captains (captain.anzeigeziel) geht vor');
 section('14 Navigation: Aussenteam unten, das Schiff haelt Kurs und Stufe');
 {
   const lage = (away, tele) => {
-    const P = partie({ bots: ['navigation'] });
-    lauf(P, 30, () => stationVon(P, 'navigation') === 'helm');
+    const P = partie({ bots: ['navigation', 'technik'] });   // BOT-02 B1: ein Technik-Bot haelt den Bord-Dienst, die Navigation bleibt mit Aussenteam unten am Steuer (allein haette sie den Dienst)
+    lauf(P, 30, () => stationVon(P, 'navigation') === 'helm' && stationVon(P, 'technik') === 'technik');
     const g = P.g;
     g.ship.helm.stage = 3; g.ship.vx = 0; g.ship.vy = 0;
     const pos = rel(g, 450, 60);

@@ -45,6 +45,7 @@ function text(game, agent) {
   const a = agent.absicht;
   if (agent.spieler.downed) return 'Bewusstlos, ohne Auftrag.';
   if (agent.spieler.zone !== 'ship') return 'Nicht an Bord, ohne Auftrag.';
+  if (agent.bordDienstLaeuft()) return a.zustand === 'an_station' ? 'Halte den Transfer, bis das Team zurück ist.' : 'Unterwegs zum Transfer.';   // BOT-02 B1: Bord-Dienst
   if (a.zustand === 'wartet') return 'Ein Mitspieler hat die Station, ich warte.';
   if (a.zustand === 'unterwegs') return 'Unterwegs zur Station.';
   const s = agent.rolleBot === 'navigation' ? nav(game, a, a.befehl) : agent.rolleBot === 'ops' ? ops(game, a, a.befehl) : technik(game, a);

@@ -67,6 +67,7 @@ function partie(o) {
   const c = mkConn(); g.addConnection(c);
   g.handleMessage(c, { t: 'hello', clientId: 'K0', name: 'K0', color: 0 });
   BotSpieler.botHinzufuegen(g, null, 'navigation');
+  BotSpieler.botHinzufuegen(g, null, 'technik');   // BOT-02 B1: mit Aussenteam unten haelt ein Technik-Bot den Bord-Dienst, die Navigation bleibt am Steuer (als einziger Bot hat sie ihn)
   g.lobbyOpts.startMission = o.start || 'arena_space';
   g.handleMessage(c, { t: 'ready', ready: true });
   const P = { g, c, h: c.player, spy, fest: [], uhr: 1e12 }; ALLE.push(P);
