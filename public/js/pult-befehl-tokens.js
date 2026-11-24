@@ -29,6 +29,7 @@
     S: { ohneBots: 258, mitBots: 240 },
     tafel: { x: 62, y: 262, w: 572, h: 64, deckeRand: 2 },
     raster: { x: 62, y: 275, zw: 188, zh: 14, sx: 4, sy: 3, spalten: 3, reihen: 3, infoRechts: 5 },
+    faenger: { x: 60, y: 261, w: 576, h: 65 },   // deckender Klickfänger über der ganzen Tafel (Titelzeile bis letzte Reihe): leere Felder und Lücken schlucken Klicks, der Reiter-Knopf darunter bleibt unberührt
     crew: { x: 62, y: 330, zw: 92, zh: 14, sx: 4, trenner: 327, trennerAlpha: 0.35 },
     einblendung: { deckung: 0.92 },   // Ego-Sitz, Blick VORN/CREW: Tafel und Crew-Zeile (y 261 bis 346) mit dieser Deckung über dem Bild
   };

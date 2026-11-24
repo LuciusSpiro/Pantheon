@@ -250,7 +250,7 @@
       const rest = Math.max(0, Math.min(1, 1 - (uhr() - s.letzte) / Z.autoZu));
       return {
         stufe: s.stufe, rolle: s.rolle, pfad, fn, rechts, rest, seite: s.seite, seiten: seiten.length,
-        zellen: zellen(),
+        zellen: zellen(), faenger: T.MASS.faenger,
         fuss: s.stufe === 1 && env.sprache && env.sprache() ? fuellen(TX.fussSprache, { taste: kappe('allgemein.sprechen') }) : null,
       };
     }
@@ -281,6 +281,28 @@
       return fertig(sende(e, z.wert, 'menu'));
     }
     function fertig(ok) { if (ok) { schliesse(); return { art: 'gesendet' }; } return { art: 'fehlt' }; }
+
+    // ---- Tasten (Consoles.keyDown, Station captain): EINE Entscheidung, ohne Tastencodes. ist(aktionId) -> bool sagt, ob die Taste die Standardtaste dieser Aktion ist.
+    // Ohne Bots: nichts (die Tasten gehören den Reitern). Tafel offen: Q W E A S D Z X C wählen, R blättert, Rück/B eine Stufe zurück, die Direkttasten gelten weiter,
+    // ALLES ANDERE wird geschluckt (der Reiter-Bereich ruht; Ziffern, Zoom, Hilfe, Tab und Esc kommen vorher bzw. nachher in consoles.js und erreichen diese Funktion nicht).
+    // Tafel zu: B öffnet, die Direkttasten senden, sonst nichts. Ergebnis { geschluckt, ton }.
+    function tastenDruck(ist) {
+      if (s.botsN === 0) return { geschluckt: false, ton: false };
+      aktualisiere();
+      if (s.offen) {
+        for (const f of T.FELDER) if (ist(T.FELD_AKTION[f])) { const r = waehle(f); return { geschluckt: true, ton: r.art === 'stufe' || r.art === 'frage' || r.art === 'gesendet' }; }
+        if (ist('captain.befehl.weiter')) return { geschluckt: true, ton: blaettern() };
+        if (ist('captain.befehl.zurueck') || ist('captain.befehl')) return { geschluckt: true, ton: zurueck() };
+      } else if (ist('captain.befehl')) return { geschluckt: true, ton: oeffnen() };
+      for (const d of LAGE.direkt) if (ist(d.aktion)) return { geschluckt: true, ton: taste(d.aktion).ok };   // Direkttasten: immer geschluckt, der Reiter-Zweig kennt kein Shift
+      return { geschluckt: s.offen, ton: false };
+    }
+    // Esc: Wiederholung (gehaltene Taste) tut nichts, solange Bots da sind; ein neuer Druck schließt die offene Tafel. true = Esc ist verbraucht, false = die Konsole darf verlassen werden.
+    function escape(wiederholt) {
+      if (s.botsN === 0) return false;
+      if (wiederholt) return true;
+      return schliessen();
+    }
 
     // ---- Crew-Zeile (unter den Pult-Spalten, solange Bots da sind): Knopf „Befehle“ (zugleich Quittung) und die Direkttasten
     function quittungJetzt() {
@@ -335,7 +357,7 @@
     }
 
     return {
-      synchron, reset, setzeKanon, geladen, oeffnen, umschalten, zurueck, schliessen, waehle, blaettern, taste, antwort, ansicht, crew, aktualisiere,
+      synchron, reset, setzeKanon, geladen, oeffnen, umschalten, zurueck, schliessen, waehle, blaettern, taste, tastenDruck, escape, antwort, ansicht, crew, aktualisiere,
       istOffen: () => { aktualisiere(); return s.offen; }, hatBots: () => s.botsN > 0, botsZahl: () => s.botsN, rollenStand: () => rollen, giltVon: gilt,
       lies: () => ({ offen: s.offen, stufe: s.stufe, rolle: s.rolle, key: s.key, seite: s.seite, gilt: s.gilt, ausstehend: s.ausstehend.length, aktiv: s.aktiv }),
     };

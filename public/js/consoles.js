@@ -3267,7 +3267,7 @@
       if ((e.code === 'Minus' || e.code === 'Slash') && e.shiftKey && window.Pult && this.PULT_STATIONEN && (this.PULT_STATIONEN.includes(c) || c === 'spind' || (c === 'shop' && window.TerminalUI))) { Pult.hilfeUmschalten(); return true; }   // ? = Hilfe-Overlay
       const code = e.code;
       this.keys[code] = true;
-      if (code === 'Escape') { if (c === 'spind' && window.Pult && Pult.hilfe) Pult.hilfeUmschalten(); else if (c === 'captain' && window.PultBefehl && PultBefehl.escape()) return true; /* BOT-01 C3: offene Befehlstafel zu, Konsole bleibt */ else view.actions.leave(); return true; }
+      if (code === 'Escape') { if (c === 'spind' && window.Pult && Pult.hilfe) Pult.hilfeUmschalten(); else if (c === 'captain' && window.PultBefehl && PultBefehl.escape(e)) return true; /* BOT-01 C3: offene Befehlstafel zu, Konsole bleibt */ else view.actions.leave(); return true; }
       if (c === 'spind') return window.KammerUi ? KammerUi.spindTaste(e, view) : true;   // CHA-01 D
       // TB1: Kartenansicht (Sternkarte, Detailkarten, Sektorplan): 0/Pos1 zurücksetzen, +/− zoomen – nur wenn gerade eine Karte sichtbar ist
       const KA = window.KartenAnsicht;
@@ -3299,10 +3299,11 @@
           if (code === 'KeyJ' || ((code === 'Enter' || code === 'NumpadEnter') && performance.now() - this.notsprungAsk < 6000)) return press(() => this.tryButton('Ja, Notsprung'));
           return true;
         case 'captain': {
-          if (window.PultBefehl && PultBefehl.taste(e, view)) return true;   // BOT-01 C3: Befehlstafel und Direkttasten der Bots VOR dem Reiter-Zweig (der ignoriert Shift: Sh+X wäre sonst „Marker löschen“); ohne Bots false
           const awayOn = this.awayActive(st);
           // M3b: Schildstoß (B+1–4, Shift+Pfeil) entfällt
-          if (d >= 1 && d <= 6) { if (d - 1 === TAB_AWAY && !awayOn) { this.denied('Nur während der Außenmission'); return true; } this.tab = d - 1; return true; }
+          if (d >= 1 && d <= 6) { if (d - 1 === TAB_AWAY && !awayOn) { this.denied('Nur während der Außenmission'); return true; } this.tab = d - 1; return true; }   // Reiterziffern bleiben bei offener Tafel erlaubt
+          const kartenZoom = code === 'Equal' || code === 'NumpadAdd' || code === 'Minus' || code === 'NumpadSubtract';   // Zoom der Lage-Karte bleibt bei offener Tafel erlaubt
+          if (!kartenZoom && window.PultBefehl && PultBefehl.taste(e, view)) return true;   // BOT-01 C3: Befehlstafel und Direkttasten der Bots VOR dem Reiter-Zweig (der ignoriert Shift: Sh+X wäre sonst „Marker löschen“); bei offener Tafel schluckt sie alles Übrige; ohne Bots false
           const tab = this.tab;
           if (tab === 0) {
             if (code === 'Enter') return press(() => this.tryButton('Funkspruch annehmen'));

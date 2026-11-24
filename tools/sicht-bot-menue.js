@@ -199,6 +199,20 @@ async function main() {
     await page.evaluate(() => __game.send({ t: 'debug', cmd: 'sitz', console: 'captain', hin: true })); await sleep(700);
     const hk = await page.evaluate(() => Consoles.findButtons(/^(Alle Maschinen stopp|Feuer frei|Statusbericht|Befehle)$/).map((x) => x.label + '=' + x.hotkey));
     ok(hk.length >= 4 && hk.some((s) => /Alle Maschinen stopp=Sh\+X/.test(s)) && hk.some((s) => /Befehle=B/.test(s)), 'Crew-Zeile mit Kappen in der Knopfliste (Hilfe): ' + hk.join(', '));
+    // Esc (Befund 2, M9): bei offener Tafel nur die Tafel zu; ein NEUER Druck danach verlässt die Konsole auch mit Bots; gehaltenes Esc (Wiederholung) verlässt nicht
+    const konsole = () => page.evaluate(() => { const p = __game.state.players.find((q) => q.id === __game.pid); return p ? p.console : null; });
+    const sitzen = async () => { if (await konsole() !== 'captain') { await page.evaluate(() => __game.send({ t: 'debug', cmd: 'sitz', console: 'captain', hin: true })); await sleep(700); } };
+    await sitzen(); await zu(page);
+    await taste(page, 'KeyB'); await taste(page, 'Escape', 300);
+    ok(!(await zustand(page)).offen && await konsole() === 'captain', 'Esc bei offener Tafel: Tafel zu, Konsole bleibt');
+    await taste(page, 'Escape', 500);
+    ok(await konsole() === null, 'zweites Esc (neuer Druck) verlässt die Konsole auch mit Bots (M9)');
+    await sitzen();
+    await taste(page, 'KeyB');
+    await page.keyboard.down('Escape'); await sleep(60); await page.keyboard.down('Escape'); await sleep(60); await page.keyboard.down('Escape'); await sleep(300); await page.keyboard.up('Escape'); await sleep(400);
+    ok(!(await zustand(page)).offen && await konsole() === 'captain', 'gehaltenes Esc (Tastenwiederholung): schließt die Tafel, verlässt die Konsole nicht');
+    await taste(page, 'Escape', 500);
+    ok(await konsole() === null, 'danach ein neuer Esc-Druck verlässt die Konsole');
     ok(errs.length === 0, 'keine Seitenfehler' + (errs.length ? ': ' + errs.slice(0, 2).join(' | ') : ''));
     await ctx.close();
   });
@@ -343,6 +357,62 @@ async function main() {
       ok(q.text === 'OPS abgelehnt' && q.fn === 'weapon', 'Mock ' + name + ': abgelehnt in Rot am Knopf (' + q.text + ')');
       await bild(page, '17-mock-' + name + '-abgelehnt');
       ok(errs.length === 0, 'Mock ' + name + ': keine Seitenfehler' + (errs.length ? ': ' + errs.slice(0, 2).join(' | ') : ''));
+      await ctx.close();
+    }
+    // Befund 1: ein Klick auf ein leeres Tafelfeld oder in eine Lücke trifft den Fänger, nicht den verdeckten Reiter-Knopf (Reiter Funk und Lage, Stufe 1 und 3)
+    for (const tab of [0, 2]) {
+      const rn = tab === 0 ? 'Funk' : 'Lage';
+      const { ctx, page, errs } = await seite(b, port, 'mock=1&console=captain&tab=' + tab + '&mockbots=navigation,ops&markers=1&render=2d&pult=rom');
+      await page.waitForFunction(() => window.PultBefehl && PultBefehl.menue.hatBots() && PultBefehl.menue.geladen(), null, { timeout: 8000 });
+      await sleep(500);
+      await page.evaluate(() => { window.__sent = []; const o = Net.send.bind(Net); Net.send = (m) => { if (m && m.t !== 'ping' && m.t !== 'input') window.__sent.push(JSON.stringify(m)); return o(m); }; });   // ping und input sind Dauerrauschen
+      const punkte = () => page.evaluate(() => {
+        const M = PultBefehlTokens.MASS, RA = M.raster, a = PultBefehl.menue.ansicht();
+        const mitte = (i) => [RA.x + (i % 3) * (RA.zw + RA.sx) + RA.zw / 2, RA.y + Math.floor(i / 3) * (RA.zh + RA.sy) + RA.zh / 2];
+        const leer = a.zellen.map((z, i) => (z.zustand === 'leer' ? i : -1)).filter((i) => i >= 0).map(mitte);
+        const luecken = [[RA.x + RA.zw + RA.sx / 2, RA.y + 5], [RA.x + 2 * RA.zw + 1.5 * RA.sx, RA.y + 20], [RA.x + 50, RA.y + RA.zh + RA.sy / 2], [RA.x + 50, RA.y + 2 * RA.zh + 1.5 * RA.sy], [M.tafel.x + 100, M.tafel.y + 2]];
+        return { leer, luecken };
+      });
+      for (const stufe of [1, 3]) {
+        await zu(page); await taste(page, 'KeyB');
+        if (stufe === 3) { await taste(page, 'KeyW'); await taste(page, 'KeyE'); }
+        const z0 = await zustand(page);
+        ok(z0.offen && z0.stufe === stufe, 'Reiter ' + rn + ': Tafel offen auf Stufe ' + stufe);
+        const p = await punkte();
+        const tab0 = await page.evaluate(() => Consoles.tab);
+        await page.evaluate(() => { window.__sent.length = 0; });
+        const alle = p.leer.concat(p.luecken);
+        for (const [x, y] of alle) { await page.mouse.click(x * 2, y * 2); await sleep(60); }
+        const nach = await page.evaluate(() => ({ sent: window.__sent.slice(), tab: Consoles.tab, offen: PultBefehl.sichtbar(), stufe: PultBefehl.menue.lies().stufe }));
+        ok(alle.length >= 5 && nach.sent.length === 0 && nach.tab === tab0 && nach.offen && nach.stufe === stufe, 'Klick auf ein leeres Feld und in eine Lücke sendet nichts und wechselt keinen Reiter (Reiter ' + rn + ', Stufe ' + stufe + ', ' + p.leer.length + ' leere Felder + ' + p.luecken.length + ' Lücken; gesendet ' + nach.sent.length + (nach.sent.length ? ' ' + nach.sent.join(' ').slice(0, 160) : '') + ', Reiter ' + tab0 + ' -> ' + nach.tab + ')');
+        if (tab === 2 && stufe === 1) await bild(page, '19-mock-lage-tafel-nach-leerklicks');
+      }
+      // Befund 3 und M13: bei offener Tafel ruht der Reiter-Bereich; bei geschlossener wirken dieselben Tasten wie bisher (Gegenprobe)
+      await page.evaluate(() => { window.__tb = []; window.__zoom = 0; window.__scan = 0; const tb = Consoles.tryButton.bind(Consoles); Consoles.tryButton = (...a) => { window.__tb.push(String(a[0])); return tb(...a); }; const cz = Consoles.cycleZoom.bind(Consoles); Consoles.cycleZoom = (...a) => { window.__zoom++; return cz(...a); }; const ss = Consoles.setScan.bind(Consoles); Consoles.setScan = (...a) => { window.__scan++; return ss(...a); }; });
+      const spur = () => page.evaluate(() => ({ tb: window.__tb.slice(), zoom: window.__zoom, scan: window.__scan, sent: window.__sent.length }));
+      const nullen = () => page.evaluate(() => { window.__tb.length = 0; window.__zoom = 0; window.__scan = 0; window.__sent.length = 0; });
+      const tasten = tab === 0 ? ['Enter', 'Shift+KeyQ', 'Shift+KeyW', 'Shift+KeyE', 'KeyL'] : ['KeyT', 'Space', 'KeyZ', 'KeyX', 'KeyH', 'KeyN', 'Shift+KeyT'];
+      await zu(page); await nullen();
+      for (const k of tasten) await taste(page, k, 80);
+      let s = await spur();
+      ok(s.tb.length + s.zoom + s.scan > 0, 'Gegenprobe Reiter ' + rn + ', Tafel zu: die Tasten wirken im Reiter (' + JSON.stringify(s) + ')');
+      await taste(page, 'KeyB'); await nullen();
+      for (const k of tasten) await taste(page, k, 80);
+      s = await spur();
+      ok(s.tb.length === 0 && s.zoom === 0 && s.scan === 0 && s.sent === 0 && (await zustand(page)).offen, 'Reiter ' + rn + ', Tafel offen: ' + tasten.join(', ') + ' wirken nicht im Reiter und senden nichts (' + JSON.stringify(s) + ')');
+      if (tab === 0) ok(s.tb.length === 0, 'Shift+Q und Enter auf dem Funk-Reiter bei offener Tafel senden keine Funkantwort');
+      if (tab === 2) {   // M13: Taste auf leerem Tafelfeld (Stufe 1: X, Z, C sind leer) tut nichts im Reiter
+        await nullen();
+        for (const k of ['KeyX', 'KeyZ', 'KeyC']) await taste(page, k, 80);
+        s = await spur();
+        ok(s.tb.length === 0 && s.zoom === 0 && s.sent === 0 && (await zustand(page)).offen, 'Taste auf leerem Tafelfeld (X, Z, C) tut nichts im Reiter (' + JSON.stringify(s) + ')');
+        await nullen();
+        await taste(page, 'Equal', 80);
+        ok((await spur()).zoom === 1, 'Zoom (+) der Lage-Karte bleibt bei offener Tafel erlaubt');
+        await taste(page, 'Digit1', 120);
+        ok(await page.evaluate(() => Consoles.tab) === 0 && (await zustand(page)).offen, 'Reiterziffer 1 bleibt bei offener Tafel erlaubt (Reiter wechselt, Tafel bleibt)');
+      }
+      ok(errs.length === 0, 'Reiter ' + rn + ': keine Seitenfehler' + (errs.length ? ': ' + errs.slice(0, 2).join(' | ') : ''));
       await ctx.close();
     }
     // ohne mockbots: Pult wie bisher

@@ -488,8 +488,11 @@ const platz = (e) => { for (const k of Object.keys(e.args)) { const pm = /^\{(\w
     ok(pos('pult-befehl-tokens') > pos('pult-stationen') && pos('bot-menue') > pos('pult-befehl-tokens') && pos('pult-befehl') > pos('bot-menue') && pos('pult-befehl') < pos('client') && pos('tasten') < pos('pult-befehl-tokens') && pos('hud') < pos('pult-befehl-tokens') && pos('consoles') < pos('pult-befehl-tokens'), 'index.html: Tokens, Kern, Anschluss nach tasten/hud/consoles/pult-stationen und vor client.js');
     const K = lies('consoles.js'), kd = K.slice(K.indexOf('keyDown(e, view) {'), K.indexOf('keyUp(e, view) {'));
     const iCap = kd.indexOf("case 'captain': {"), iBot = kd.indexOf('PultBefehl.taste(e, view)'), iReiter = kd.indexOf('if (tab === 0) {', iCap);
-    ok(iBot > iCap && iBot < iReiter && iBot < kd.indexOf('const awayOn', iCap), 'consoles.js: PultBefehl.taste steht im Captain-Zweig VOR dem Reiter-Zweig (der Shift ignoriert)');
-    ok(kd.indexOf('PultBefehl.escape()') > 0 && kd.indexOf('PultBefehl.escape()') < kd.indexOf('view.actions.leave()'), 'consoles.js: Esc schließt die Tafel, bevor leave() die Konsole verlässt');
+    const iZiffer = kd.indexOf('if (d >= 1 && d <= 6)', iCap);
+    ok(iBot > iZiffer && iZiffer > iCap && iBot < iReiter, 'consoles.js: PultBefehl.taste steht im Captain-Zweig VOR dem Reiter-Zweig (der Shift ignoriert), die Reiterziffern 1-6 davor (bleiben bei offener Tafel erlaubt)');
+    ok(/kartenZoom/.test(kd) && /!kartenZoom && window[.]PultBefehl && PultBefehl[.]taste[(]e, view[)]/.test(kd), 'consoles.js: der Zoom der Lage-Karte (+/-) geht an der Tafel vorbei');
+    ok(/PultBefehl[.]escape[(]e[)]/.test(kd), 'consoles.js: Esc übergibt das Ereignis (Wiederholung wird erkannt)');
+    ok(kd.indexOf('PultBefehl.escape(e)') > 0 && kd.indexOf('PultBefehl.escape(e)') < kd.indexOf('view.actions.leave()'), 'consoles.js: Esc schließt die Tafel, bevor leave() die Konsole verlässt');
     ok(/stationAbbau\(view\) \{\s*if \(window\.PultBefehl\) PultBefehl\.schliessen\(\)/.test(K), 'consoles.js: stationAbbau schließt die Tafel (Tab, Verlassen)');
     ok(/b\.add\(window\.PultBefehl && PultBefehl\.sichtbar\(\) \? 'captain\.befehl'/.test(K), 'consoles.js: tastenBereiche liefert bei offener Tafel nur captain.befehl (die Reiter-Bereiche ruhen)');
     ok(/PultBefehl\.statusY\(\) : 258/.test(lies('pult-stationen.js')) && /PultBefehl\.zeichne\(ctx, view, g\)/.test(lies('pult-stationen.js')), 'pult-stationen.js: Statusleiste 240/258 und Zeichnen über PultBefehl');
@@ -501,6 +504,120 @@ const platz = (e) => { for (const k of Object.keys(e.args)) { const pm = /^\{(\w
     ok(!/e\.code|\.code\s*===|'Key[A-Z]'/.test(pb), 'pult-befehl.js: kein hartkodierter Tastencode (alles über Tasten.aktion/ausEvent)');
     const kern = lies('bot-menue.js').split('\n').filter((z) => !/^\s*\/\//.test(z)).join('\n');
     ok(!/Net\.|WebSocket|document\.|window\.|fetch\(/.test(kern), 'bot-menue.js: kein Netz, kein DOM (reiner Kern)');
+  }
+
+  // ================================================================= 10. Tasten, Esc und Klickfänger als Verhalten (Nacharbeit)
+  section('10. Tasten, Esc und Klickfänger (Verhalten im Kern und im Zeichnen mit Attrappen)');
+  {
+    const STD = { 'captain.befehl': ['KeyB'], 'captain.bot.stopp': ['Shift+KeyX'], 'captain.bot.ausweichen': ['Shift+KeyA', 'Shift+KeyD'], 'captain.bot.feuerFrei': ['Shift+KeyF'], 'captain.bot.feuerHalt': ['Shift+KeyG'], 'captain.bot.status': ['Shift+KeyS'],
+      'captain.befehl.q': ['KeyQ'], 'captain.befehl.w': ['KeyW'], 'captain.befehl.e': ['KeyE'], 'captain.befehl.a': ['KeyA'], 'captain.befehl.s': ['KeyS'], 'captain.befehl.d': ['KeyD'], 'captain.befehl.y': ['KeyZ'], 'captain.befehl.x': ['KeyX'], 'captain.befehl.c': ['KeyC'],
+      'captain.befehl.weiter': ['KeyR'], 'captain.befehl.zurueck': ['Backspace'] };
+    const druck = (x, taste) => x.m.tastenDruck((id) => (STD[id] || []).includes(taste));
+    const zu0 = (x) => x.L.senden.length + '|' + JSON.stringify(x.m.lies());
+    // ohne Bots: nichts geschluckt (B, Sh+X, Q, beliebig), nichts gesendet
+    {
+      const x = mk({ crew: [mensch('captain')] });
+      ok(['KeyB', 'Shift+KeyX', 'Shift+KeyS', 'KeyQ', 'Enter'].every((t) => druck(x, t).geschluckt === false) && x.L.senden.length === 0 && x.L.denied.length === 0, 'ohne Bots: B, Sh+X, Sh+S, Q, Enter werden nicht geschluckt, kein Hinweis, nichts gesendet');
+      ok(x.m.escape(false) === false && x.m.escape(true) === false, 'ohne Bots: Esc ist nie verbraucht (die Konsole wird verlassen wie bisher)');
+    }
+    // Tafel zu: B öffnet, Direkttasten senden (quelle taste), alles andere gehört den Reitern
+    {
+      const x = mk();
+      ok(['KeyQ', 'KeyW', 'KeyZ', 'KeyX', 'Enter', 'Space'].every((t) => druck(x, t).geschluckt === false) && x.L.senden.length === 0, 'Tafel zu: Q W Z X Enter Space werden nicht geschluckt (Reiter-Bereich)');
+      const r = druck(x, 'Shift+KeyX');
+      ok(r.geschluckt && r.ton && letzte(x.L) && letzte(x.L).befehl === 'nav.stopp' && letzte(x.L).quelle === 'taste' && !x.m.istOffen(), 'Tafel zu: Sh+X sendet nav.stopp (quelle taste), geschluckt');
+      x.warte(100);
+      ok(druck(x, 'KeyB').geschluckt && x.m.istOffen() && x.m.lies().stufe === 1, 'Tafel zu: B öffnet auf Stufe 1');
+    }
+    // Tafel offen: gewählt wird über die Felder, ALLES andere wird geschluckt und ändert nichts
+    {
+      const x = mk();
+      druck(x, 'KeyB');
+      const vorher = zu0(x);
+      const fremd = ['Enter', 'Shift+KeyQ', 'Shift+KeyW', 'Shift+KeyE', 'KeyL', 'Space', 'KeyT', 'Shift+KeyT', 'KeyH', 'KeyF', 'KeyV', 'KeyN', 'KeyK', 'KeyM', 'Shift+KeyZ', 'ArrowLeft'];
+      ok(fremd.every((t) => { const r = druck(x, t); return r.geschluckt === true && r.ton === false; }) && zu0(x) === vorher, 'Tafel offen: Enter, Sh+Q/W/E, L, Space, T, Sh+T, H, F, V, N, K, M, Sh+Z, Pfeil werden geschluckt und ändern nichts (M13)');
+      ok(druck(x, 'KeyC').geschluckt && zu0(x) === vorher, 'Tafel offen, Stufe 1: C (leeres Feld) wird geschluckt, nichts ändert sich, nichts gesendet (M13)');
+      ok(druck(x, 'KeyZ').geschluckt && druck(x, 'KeyX').geschluckt && zu0(x) === vorher, 'Tafel offen, Stufe 1: Z und X (leere Felder) geschluckt, nichts ändert sich (M13)');
+      ok(druck(x, 'KeyR').geschluckt && zu0(x) === vorher, 'Tafel offen, Stufe 1: R (kein Blättern möglich) geschluckt, ohne Ton');
+      const w = druck(x, 'KeyW');
+      ok(w.geschluckt && w.ton && x.m.lies().stufe === 2 && x.m.lies().rolle === 'ops', 'Tafel offen: W wählt das Feld (Stufe 2 Ops), mit Ton');
+      ok(druck(x, 'Backspace').ton && x.m.lies().stufe === 1, 'Tafel offen: Rück geht eine Stufe zurück');
+      ok(druck(x, 'KeyB').ton && !x.m.istOffen(), 'Tafel offen, Stufe 1: B schließt');
+    }
+    // Tafel offen: Direkttasten gelten weiter und schließen nach dem Senden
+    {
+      const x = mk();
+      druck(x, 'KeyB'); druck(x, 'Shift+KeyS');
+      ok(letzte(x.L) && letzte(x.L).befehl === 'bot.status' && !x.m.istOffen(), 'Tafel offen: Sh+S sendet bot.status und schließt die Tafel');
+    }
+    // Blättern über R (Stufe 3, mehrere Seiten): geschluckt, mit Ton
+    {
+      const x = mk({ crew: [bot('navigation'), bot('ops'), bot('technik')] });
+      druck(x, 'KeyB'); druck(x, 'KeyE'); druck(x, 'KeyA');
+      const s0 = x.m.lies().seite, r = druck(x, 'KeyR');
+      ok(x.m.lies().stufe === 3 && r.geschluckt && r.ton && x.m.lies().seite === s0 + 1, 'Stufe 3 (Technik reparieren): R blättert eine Seite, mit Ton');
+    }
+    // Esc: neuer Druck schließt die offene Tafel, danach (zweites Esc) darf die Konsole verlassen werden; Wiederholung tut nichts (M9)
+    {
+      const x = mk();
+      ok(x.m.escape(false) === false, 'Esc mit Bots, Tafel zu: nicht verbraucht, die Konsole wird verlassen (M9)');
+      druck(x, 'KeyB');
+      ok(x.m.escape(true) === true && x.m.istOffen(), 'Esc als Wiederholung bei offener Tafel: verbraucht, Tafel bleibt');
+      ok(x.m.escape(false) === true && !x.m.istOffen(), 'Esc (neuer Druck) bei offener Tafel: verbraucht, Tafel zu');
+      ok(x.m.escape(true) === true, 'Esc als Wiederholung nach dem Schließen: verbraucht, die Konsole wird nicht verlassen (gehaltenes Esc)');
+      ok(x.m.escape(false) === false, 'zweites Esc (neuer Druck) bei geschlossener Tafel: nicht verbraucht, die Konsole wird verlassen (M9)');
+    }
+    // Klickfänger: die Ansicht trägt ihn, er deckt Titelzeile, alle neun Felder und die Lücken
+    {
+      const x = mk(), RA = TK.MASS.raster, TA = TK.MASS.tafel;
+      ok(x.m.ansicht() === null, 'Tafel zu: keine Ansicht, kein Fänger');
+      druck(x, 'KeyB');
+      const fg = x.m.ansicht().faenger;
+      const feldRechtecke = []; for (let r = 0; r < RA.reihen; r++) for (let s = 0; s < RA.spalten; s++) feldRechtecke.push({ x: RA.x + s * (RA.zw + RA.sx), y: RA.y + r * (RA.zh + RA.sy), w: RA.zw, h: RA.zh });
+      ok(fg && fg.x <= TA.x && fg.y <= TA.y && fg.x + fg.w >= TA.x + TA.w && fg.y + fg.h >= TA.y + TA.h && feldRechtecke.every((f) => fg.x <= f.x && fg.y <= f.y && fg.x + fg.w >= f.x + f.w && fg.y + fg.h >= f.y + f.h), 'Fänger deckt die Tafel samt Titelzeile und alle neun Felder samt Lücken');
+      ok(fg.x === 60 && fg.y === 261 && fg.x + fg.w === 636 && fg.y + fg.h === 326, 'Fänger x 60-636, y 261-326 (' + JSON.stringify(fg) + ')');
+    }
+    // Zeichnen mit Attrappen: ein Reiter-Knopf liegt unter der Tafel; ein Klick auf leeres Feld und Lücke trifft den Fänger, nicht den Reiter-Knopf (Befund 1)
+    {
+      const ctxStub = new Proxy({}, { get: () => () => {}, set: () => true });
+      const ui = { buttons: [], mouse: null, tooltip: null };
+      const Pult = {
+        FN: new Proxy({}, { get: (_, k) => '#' + String(k) }), tw: (t) => String(t).length * 4, rgba: () => '#000', mix: () => '#000', txt: () => {}, titel: () => {}, kappe: () => '',
+        knopf: (c, bx, by, bw, bh, label, o) => { const b = { x: bx, y: by, w: bw, h: bh, label, disabled: !!(o && o.disabled), onClick: o && o.onClick, hotkey: null }; ui.buttons.push(b); return b; },
+      };
+      const sandbox = { window: {}, console, performance: { now: () => 1000 }, fetch: undefined };
+      const w = sandbox.window;
+      Object.assign(w, { Render: { ui }, Pult, Consoles: { view: null, stationOf: () => null, denied: () => {} }, Hud: null, Tasten: null, PultBefehlTokens: TK, BotMenue: BM, Shared_Protocol: Protocol, Net: undefined });
+      vm.runInNewContext(fs.readFileSync(path.join(PUB, 'pult-befehl.js'), 'utf8'), sandbox, { filename: 'pult-befehl.js' });
+      const PB = w.PultBefehl;
+      PB.menue.setzeKanon(KANON);
+      PB.rahmen({ players: [bot('navigation'), bot('ops')], phase: 'play' });
+      const skin = { bg: '#101010', dim: '#888888', id: 'rom', ink: '#ffffff', text: '#ffffff' };
+      const RA = TK.MASS.raster;
+      const treffer = (px, py) => { for (let i = ui.buttons.length - 1; i >= 0; i--) { const b = ui.buttons[i]; if (px >= b.x && py >= b.y && px < b.x + b.w && py < b.y + b.h) return b; } return null; };   // wie Render.clickUi: der zuletzt registrierte Treffer gewinnt
+      const zeichne = () => { ui.buttons.length = 0; ui.buttons.push({ x: 62, y: 262, w: 570, h: 60, label: 'REITER', disabled: false, onClick: () => {} }); PB.zeichne(ctxStub, null, { skin }); };
+      const mitte = (f) => { const r = Math.floor(f / 3), s = f % 3; return [RA.x + s * (RA.zw + RA.sx) + RA.zw / 2, RA.y + r * (RA.zh + RA.sy) + RA.zh / 2]; };
+      const luecken = [[RA.x + RA.zw + RA.sx / 2, RA.y + 5], [RA.x + 2 * RA.zw + 1.5 * RA.sx, RA.y + 20], [RA.x + 50, RA.y + RA.zh + RA.sy / 2], [RA.x + 50, RA.y + 2 * RA.zh + 1.5 * RA.sy], [TK.MASS.tafel.x + 100, TK.MASS.tafel.y + 2], [TK.MASS.faenger.x + 1, TK.MASS.tafel.y + 30]];
+      const pruefe = (stufeName) => {
+        zeichne();
+        const a = PB.menue.ansicht(), leereFelder = a.zellen.map((z, i) => (z.zustand === 'leer' ? i : -1)).filter((i) => i >= 0);
+        const punkte = leereFelder.map(mitte).concat(luecken);
+        const reiterGetroffen = punkte.filter(([px, py]) => { const b = treffer(px, py); return !b || b.label === 'REITER'; });
+        const faengerOk = punkte.filter(([px, py]) => { const b = treffer(px, py); return b && b.label === '' && !b.disabled && !b.onClick; });
+        ok((leereFelder.length > 0 || /^Stufe 3/.test(stufeName)) && reiterGetroffen.length === 0 && faengerOk.length === punkte.length, stufeName + ': ' + leereFelder.length + ' leere Felder und ' + luecken.length + ' Lückenpunkte treffen den Fänger (kein onClick), nie den Reiter-Knopf (' + reiterGetroffen.length + ' Fehltreffer)');
+        const bereit = a.zellen.map((z, i) => (z.zustand !== 'leer' ? i : -1)).filter((i) => i >= 0);
+        ok(bereit.length > 0 && bereit.every((i) => { const [px, py] = mitte(i), b = treffer(px, py); return b && b.label !== '' && b.label !== 'REITER' && typeof b.onClick === 'function'; }), stufeName + ': belegte Felder bleiben anklickbar (eigener Knopf liegt über dem Fänger)');
+      };
+      PB.menue.oeffnen(); pruefe('Stufe 1');
+      PB.menue.waehle('Q'); pruefe('Stufe 2 Navigation');
+      PB.menue.waehle('E'); pruefe('Stufe 3 Schub');
+      PB.menue.schliessen();
+      zeichne();
+      ok(treffer(300, 300) && treffer(300, 300).label === 'REITER', 'Tafel zu: kein Fänger, der Reiter-Knopf ist wieder erreichbar');
+      PB.rahmen({ players: [mensch('captain')], phase: 'play' });
+      zeichne();
+      ok(ui.buttons.length === 1 && ui.buttons[0].label === 'REITER', 'ohne Bots: PultBefehl zeichnet nichts und registriert nichts (kein Fänger)');
+    }
   }
 
   console.log('\n' + (fails ? fails + ' von ' + n + ' FEHLGESCHLAGEN' : 'alle ' + n + ' Prüfungen ok'));

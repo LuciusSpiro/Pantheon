@@ -95,6 +95,7 @@
     const TA = M.tafel, RA = M.raster, F = TK.FARBE;
     if (R.ui.mouse && R.ui.mouse.x >= TA.x && R.ui.mouse.x < TA.x + TA.w && R.ui.mouse.y >= TA.y && R.ui.mouse.y < TA.y + TA.h) R.ui.tooltip = null;   // verdeckte Knöpfe darunter melden nichts
     c.fillStyle = K.bg; c.fillRect(TA.x - TA.deckeRand, TA.y - 1, TA.w + 2 * TA.deckeRand, TA.h + 1);
+    const FG = a.faenger; R.ui.buttons.push({ x: FG.x, y: FG.y, w: FG.w, h: FG.h, label: '', disabled: false, onClick: null, hotkey: null });   // Klickfänger: vor den Feldern registriert, Klicks auf leere Felder und Lücken verpuffen hier (clickUi nimmt den zuletzt registrierten Treffer), nicht im verdeckten Reiter-Knopf
     const col = fnFarbe(a.fn), titelCol = a.fn === 'weapon' ? F.titelRot : col;   // roter TEXT nie in FN.weapon
     P.titel(c, TA.x, TA.y, TA.w, a.pfad, titelCol);
     // Restzeit: die Titellinie selbst läuft ab (voll = gerade bedient); rechts im Titel der Hinweis (mit Grund, damit die Linie nicht durch ihn läuft)
@@ -123,20 +124,15 @@
 
   // ---------------------------------------------------------------- Tasten (aus Consoles.keyDown, Station captain; e ist schon auf die Standardtaste der Aktion umgesetzt, Tasten.tastenKanon)
   const istStd = (e, id) => { const a = T && T.aktion ? T.aktion(id) : null, t = T && T.ausEvent ? T.ausEvent(e) : null; return !!(a && t && a.std.indexOf(t) >= 0); };
-  function taste(e) {
-    if (!menue.hatBots()) return false;   // reine Menschenpartie: die Tasten gehören den Reitern wie bisher
-    if (menue.istOffen()) {   // Tafel-Bereich (vorrang): Q W E A S D Z X C wählen, R blättert, Rück/B eine Stufe zurück
-      for (const f of TK.FELDER) if (istStd(e, TK.FELD_AKTION[f])) { klick(f); return true; }
-      if (istStd(e, 'captain.befehl.weiter')) { if (menue.blaettern()) sfx('ui_click'); return true; }
-      if (istStd(e, 'captain.befehl.zurueck') || istStd(e, 'captain.befehl')) { sfxBefehl(menue.zurueck()); return true; }
-    } else if (istStd(e, 'captain.befehl')) { sfxBefehl(menue.oeffnen()); return true; }
-    for (const d of TK.LAGE.direkt) if (istStd(e, d.aktion)) { const r = menue.taste(d.aktion); if (r.ok) sfx('ui_click'); return true; }   // Direkttasten: immer geschluckt, der Reiter-Zweig kennt kein Shift
-    return false;
+  function taste(e) {   // die Entscheidung trifft der Kern (menue.tastenDruck); hier nur die Zuordnung Ereignis -> Standardtaste und der Ton
+    const r = menue.tastenDruck((id) => istStd(e, id));
+    if (r.ton) sfx('ui_click');
+    return r.geschluckt;
   }
 
   window.PultBefehl = {
     menue, taste,
-    escape() { return menue.hatBots() && menue.schliessen(); },   // Esc bei offener Tafel: Tafel zu, die Konsole bleibt
+    escape(e) { return menue.escape(!!(e && e.repeat)); },   // Esc: offene Tafel zu, die Konsole bleibt; gehaltenes Esc (Wiederholung) tut nichts; sonst darf die Konsole verlassen werden
     schliessen() { menue.schliessen(); },   // Station gewechselt oder verlassen (Consoles.stationAbbau)
     statusY() { return menue.hatBots() ? M.S.mitBots : M.S.ohneBots; },
     // je Bild aus client.js: Crew-Lage aus dem Snapshot, Sprechspalte für Antworten, Kanon laden. Ohne Bots nur eine Schleife über die Spieler.
