@@ -521,6 +521,33 @@ section('Missionen: flightV2.missions aus, Lerche mit Stufen (§2)', () => {
   ok(g.errors === 0, 'keine Server-Fehler');
 });
 
+section('SPT-02 8: Pilot.active je Modus (Freie Fahrt Sund mit V2, Kampagne und Menschenpartie unverändert)', () => {
+  const Pilot = require('../server/sim/pilot.js');
+  const F = CONFIG.spaceM3b.flightV2;
+  ok(F.weltsim === true && F.missions === false, 'Daten: flightV2.weltsim true, missions false');
+  const start = (modus, extra) => {
+    const g = new Game({ noStore: true, seed: 161354297, debug: true, env: { MISSION_SOURCE: 'fallback', SPIELLEITER_LLM: 'off', TELEMETRIE: 'aus' }, log: () => {}, ...(extra || {}) });
+    const c = { inbox: [], send(m) { this.inbox.push(m); } };
+    g.addConnection(c); g.handleMessage(c, { t: 'hello', clientId: 'X', name: 'X', color: 0 });
+    g.handleMessage(c, { t: 'lobbyOpt', startMission: modus }); g.handleMessage(c, { t: 'ready', ready: true });
+    for (let k = 0; k < 30; k++) g.step();
+    return g;
+  };
+  const ff = start('freie_fahrt', { worlds: true, worldSaveSync: true, worldDir: require('fs').mkdtempSync(require('path').join(require('os').tmpdir(), 'flug-ff-')) });
+  ok(!!ff.weltsim && Pilot.active(ff) === true, 'Freie Fahrt Sund: Pilot.active true');
+  ok(Pilot.flies(ff, 'korvette') && Pilot.flies(ff, 'raider'), 'Freie Fahrt Sund: Korvette und Jäger fliegen über das Flugmodell');
+  ok(ff.errors === 0, 'Freie Fahrt Sund: keine Server-Fehler');
+  const kamp = start('m1');
+  ok(!kamp.weltsim && Pilot.active(kamp) === false, 'Kampagne (Tutorial): Pilot.active false');
+  const kette = start('eisenwald_ohne');
+  ok(!kette.weltsim && Pilot.active(kette) === (!!(kette.mission && kette.mission.flightV2 && kette.mission.flightV2())), 'Kampagnenkette: Pilot.active folgt allein der Buchart');
+  F.weltsim = false;
+  ok(Pilot.active(ff) === false, 'Schalter flightV2.weltsim false: Freie Fahrt wieder auf moveLegacy');
+  F.weltsim = true;
+  const arena = start('arena_space');
+  ok(Pilot.active(arena) === !!F.arena, 'Wellen All: Pilot.active folgt flightV2.arena');
+});
+
 section('QA M3b: Jäger schießen mit Vorhalt (spaceM3b.pilotFire)', () => {
   const PF = CONFIG.spaceM3b.pilotFire && CONFIG.spaceM3b.pilotFire.raider;
   ok(!!PF && PF.lead > 0, `pilotFire.raider: Vorhalt ${PF && PF.lead}, Intervall ${PF && PF.fireInterval} s`);

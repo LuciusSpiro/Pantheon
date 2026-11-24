@@ -388,6 +388,7 @@ section('game.rng bleibt unberührt (mit und ohne Sim-Ticks)');
     const t = setup(freshDir(), 'freie_fahrt', { seed: 4242 }); const g = t.g;
     t.start();
     if (!mitSim) { g.weltsim = null; g.weltBesitz = null; }
+    g.C.spaceM3b.flightV2.weltsim = false;   // SPT-02 8: V2 hängt an game.weltsim und würfelt anders – hier soll nur die Sim-Kopplung verglichen werden (Rückstellung am Ende von lauf)
     g.C.reise.neutralChance = 0.5; g.C.reise.neutralPlus = 0.1; g.C.reise.feindChance = 0.5; g.C.reise.fraktionArt.rom = 'feind';
     const ereignisse = [];
     for (const h of ['0205', '0305', '0205']) {
@@ -397,6 +398,7 @@ section('game.rng bleibt unberührt (mit und ohne Sim-Ticks)');
     }
     for (let i = 0; i < 30; i++) Kriegslage.tick(g, 'sprung');
     const folge = []; for (let i = 0; i < 12; i++) folge.push(g.rng());
+    g.C.spaceM3b.flightV2.weltsim = true;
     return { folge, ereignisse, ticks: ticks(g) };
   };
   const mit = lauf(true), ohne = lauf(false);
