@@ -5,6 +5,8 @@
 //   standort(game, z)        aktuelle Lage des Ziels { x, y, typ, obj? } oder null (Ziel gibt es nicht mehr)
 //   dockLage(game)           Liegeplatz der Szene, wenn die Crew hier andocken darf, sonst null
 //   stationLage(game)        Mitte der Station der Szene (sonst der Liegeplatz) oder null
+//   sprungGrundOffen(grund)  ship.jump.blockedReason: true, wenn der Grund der Anflug selbst ist (Sprungpunkt anfliegen, ablegen, Abstand zur Station) und der Bot ihn beheben kann; sonst false (Stoersender, Antrieb, Aussenteam, Transfer, Missionssperre)
+// basis ist nur das Dock der aktuellen Szene (kein "naechste freundliche Station" ueber Sektorgrenzen): im fremden Sektor ist kein_ziel das richtige Ergebnis. Folgepunkt Reise (BOT-01 Bericht).
 const Locations = require('../../shared/locations.js');
 const Sektoren = require('../../shared/sektoren.js');
 const Space = require('../sim/space.js');
@@ -44,4 +46,7 @@ function standort(game, z, fuer) {
   return rt ? { x: rt.x, y: rt.y, typ: rt.type, obj: rt.obj } : null;
 }
 
-module.exports = { aufloesen, standort, dockLage, stationLage };
+const SPRUNG_OFFEN = /^(Sprungpunkt|Erst ablegen|Zu nah an der Station)/;
+const sprungGrundOffen = (grund) => !grund || SPRUNG_OFFEN.test(grund);
+
+module.exports = { aufloesen, standort, dockLage, stationLage, sprungGrundOffen };

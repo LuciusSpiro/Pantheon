@@ -36,7 +36,7 @@ const W = require('../server/world.js');
 const BotSpieler = require('../server/bots/spieler.js');
 const Lauf = require('../server/bots/lauf.js');
 const { BotMannschaft } = require('../server/bots/mannschaft.js');
-const { BotKern } = require('../server/bots/kern.js');
+const { BotKern, STOP } = require('../server/bots/kern.js');
 const Befehle = require('../server/bots/befehle/index.js');
 const GRUENDE = require('../content/bots/gruende.json');
 const TEXTE = require('../content/bots/texte.json');
@@ -111,7 +111,13 @@ function neben(g, p, konsole) {
 }
 const eTaste = (g, conn) => { g.handleMessage(conn, { t: 'act', down: true }); g.handleMessage(conn, { t: 'act', down: false }); };
 const fehlerOk = (P) => P.g.errors === 0;
-const frei = (P) => { const s = P.g.ship; s.docked = false; s.dockedAt = null; s.dockArmed = true; s.x = 1100; s.y = 1500; s.angle = 0; s.vx = 0; s.vy = 0; s.speed = 0; s.helm.stage = 0; s.helm.autoStop = false; lauf(P, 1.5); senden(P, 'nav.schub', { stufe: 0 }, { an: 'navigation' }); lauf(P, 2); };
+const frei = (P) => { const s = P.g.ship; s.docked = false; s.dockedAt = null; s.dockArmed = true; s.x = 1100; s.y = 1500; s.angle = 0; s.vx = 0; s.vy = 0; s.speed = 0; s.helm.stage = 0; s.helm.autoStop = false; lauf(P, 1.5); holdStopp(P); lauf(P, 2); };
+// Das Schiff bleibt auf STOPP, solange kein Navigationsbefehl gilt (BOT-01 C2a Nacharbeit: nav.schub 0 ist nav.stopp und haelt nichts mehr fest, der Standard kaempft sonst um die Position und verschiebt die Testlage)
+function holdStopp(P) {
+  const na = agent(P, 'navigation'); if (!na || na.holdStopp) return;
+  na.holdStopp = true; const alt = na.steuerDienst;
+  na.steuerDienst = function (S, p) { if (this.absicht.befehl) return alt.call(this, S, p); this.helmS(S, 0, STOP); };
+}
 
 // ---------- 1 Registry ----------
 section('1 Registry: 13 Befehle, Rueckgabeform, Codes aus gruende.json');

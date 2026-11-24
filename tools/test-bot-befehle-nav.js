@@ -6,12 +6,13 @@
 //   4. nav.kurs (marke, ziel, objekt, basis): das Schiff kommt an (je zwei Seeds und Ausgangslagen), steht danach; Ziel verschwindet: Bot haelt an; kein_ziel
 //   5. nav.abstand: haelt den Abstand ueber eine Wartezeit (Gegner: Breitseite, Station: fester Punkt), Standardwerte (Captain-Marke, dann Ops-Marke), kein_ziel
 //   6. nav.andocken: Anflug und Andocken (zwei Ausgangslagen), kein_ziel ohne Dock, schon angedockt
-//   7. nav.sprung: Sprung (marke, hex mit Route), kein_ziel, nicht_jetzt
-//   8. Ablehnungen: nicht_jetzt (Aussenteam unten), system (Antrieb zerstoert), wartet (Mensch an der Steuer), jede Antwort mit passender textId
-//   9. Mensch gewinnt: Absicht verworfen, Bot sendet nichts, Bot uebernimmt im Standardverhalten; Notsprung hat Vorrang; Aussenteam beendet den Kurs; ein anderer Befehl ersetzt den Kurs
-//  10. Reine Menschenpartie unveraendert (Nachrichten, Snapshots byte-gleich mit leerem Lauf)
+//   7. nav.sprung: nur ziel marke (Wahl des Captains bleibt), hex/ziel/basis/objekt kein_ziel ohne Spielzustand; Sprung, Route; Stoersender/Transfer/Reise bei Annahme; Absicht endet bei Blockade und gekipptem Ziel
+//   8. Ablehnungen: nicht_jetzt (Aussenteam unten: nur Schub 0), system (Antrieb zerstoert), wartet (Mensch an der Steuer), jede Antwort mit passender textId
+//   9. Mensch gewinnt: Absicht verworfen, Bot sendet nichts, Bot uebernimmt im Standardverhalten; Notsprung hat Vorrang; Aussenteam beendet jede Absicht (auch Schub); ein anderer Befehl ersetzt den Kurs
+//  10. Absicht endet bei downed, Bot nicht an Bord, Szenenwechsel (auch Schub); Ausweichen im Befehl
+//  11. Reine Menschenpartie: kein Bot-Code laeuft (der Byte-Vergleich ist der Golden-Lauf), Quellscan der Registries, Wachposten, Projektil-Reflex synchron
 //   node tools/test-bot-befehle-nav.js
-//   Mutationsproben: BOT_NAV_MUT=mensch|kein_ziel|abstand node tools/test-bot-befehle-nav.js (muss rot sein, siehe tools/mutation-bot-befehle-nav.js)
+//   Mutationsproben: BOT_NAV_MUT=<name> node tools/test-bot-befehle-nav.js (muss rot sein, Namen und Wirkung in tools/mutation-bot-befehle-nav.js)
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
@@ -32,9 +33,16 @@ const { STOP, HALF, FULL } = require('../server/bots/kern.js');
 const GRUENDE = require('../content/bots/gruende.json');
 
 const MUT = process.env.BOT_NAV_MUT || '';
-if (MUT === 'mensch') { const alt = BotMannschaft.prototype.befehlVerwerfen; BotMannschaft.prototype.befehlVerwerfen = function (grund) { return grund === 'mensch' ? false : alt.call(this, grund); }; }
+if (MUT === 'mensch') { for (const k of ['befehlVerwerfen', 'alleVerwerfen']) { const alt = BotMannschaft.prototype[k]; BotMannschaft.prototype[k] = function (grund) { return grund === 'mensch' ? false : alt.call(this, grund); }; } }   // seit C2b geht die Menschenuebernahme ueber alleVerwerfen
 if (MUT === 'kein_ziel') Navziel.aufloesen = () => ({ art: 'objekt', id: 'gibtsnicht' });
 if (MUT === 'abstand') BotMannschaft.prototype.abstandAusfuehren = function () { return true; };
+if (MUT === 'schub_ohne_fels') BotMannschaft.prototype.schubHalten = function (S) { this.ausweichenImBefehl(S); this.helmS(S, this.turnCmd(S, this.randNachMitte(S)), this.absicht.befehl.stage); };   // der alte Stand: kein Felsen-Ausweichen
+if (MUT === 'wachposten_auf') BotMannschaft.prototype.erlaubt = function () { return true; };
+if (MUT === 'ausweichen_im_befehl_raus') BotMannschaft.prototype.ausweichenImBefehl = function () { /* kein Ausweichen im Befehl */ };
+if (MUT === 'sprung_blockiert_raus') { const alt = BotMannschaft.prototype.sprungAusfuehren; BotMannschaft.prototype.sprungAusfuehren = function (S, b) { const j = this.game.ship.jump; const g0 = j.blockedReason; try { j.blockedReason = null; return alt.call(this, S, b); } finally { j.blockedReason = g0; } }; }
+if (MUT === 'schub_aussenteam') { const alt = BotMannschaft.prototype.steuerDienst; BotMannschaft.prototype.steuerDienst = function (S, p) { const b = this.absicht.befehl; if (b && b.name === 'nav.schub') { const au = this.aussenteamUnten; this.aussenteamUnten = () => false; try { return alt.call(this, S, p); } finally { this.aussenteamUnten = au; } } return alt.call(this, S, p); }; }
+if (MUT === 'sprung_hex') { const reg = require('../server/bots/befehle/navigation.js'); const alt = reg['nav.sprung']; reg['nav.sprung'] = (game, bot, args) => { const m = /^hex:([0-9]{4})$/.exec(args.ziel || ''); if (m) { Sprung.selectDest(game, m[1]); return alt(game, bot, { ziel: 'marke' }); } return alt(game, bot, args); }; }
+if (MUT === 'jammer_reise_raus') { const reg = require('../server/bots/befehle/navigation.js'); const alt = reg['nav.sprung']; reg['nav.sprung'] = (game, bot, args) => { const r0 = game.reise, ja = Sprung.jammersPresent, ib = game.transfer.isBeaming; game.reise = null; Sprung.jammersPresent = () => false; game.transfer.isBeaming = () => false; try { return alt(game, bot, args); } finally { game.reise = r0; Sprung.jammersPresent = ja; game.transfer.isBeaming = ib; } }; }
 
 let fails = 0, n = 0;
 const ok = (c, t) => { n++; if (c) console.log('  ok   ' + t); else { fails++; console.log('  FEHLER ' + t); } };
@@ -42,6 +50,7 @@ const section = (t) => console.log('\n' + t);
 const TMP = fs.mkdtempSync(path.join(os.tmpdir(), 'pantheon-botnav-'));
 process.on('exit', () => { try { fs.rmSync(TMP, { recursive: true, force: true }); } catch (e) { /* egal */ } });
 let seq = 0;
+const ALLE = [];   // jede Partie des Tests: am Ende muss der Wachposten keine Nachricht eines Bots abgewiesen haben (verworfen === 0)
 
 // ---------- Aufbau ----------
 const mkConn = () => ({ inbox: [], send(o) { this.inbox.push(o); }, sendRaw(s) { this.inbox.push(JSON.parse(s)); } });
@@ -58,7 +67,7 @@ function partie(o) {
   BotSpieler.botHinzufuegen(g, null, 'navigation');
   g.lobbyOpts.startMission = o.start || 'arena_space';
   g.handleMessage(c, { t: 'ready', ready: true });
-  const P = { g, c, h: c.player, spy, fest: [], uhr: 1e12 };
+  const P = { g, c, h: c.player, spy, fest: [], uhr: 1e12 }; ALLE.push(P);
   if (g.arena) { g.arena.nextAt = 1e9; g.space.enemies = []; }
   if (o.start === 'free') { g.space.enemies = []; g.C.reise.neutralChance = 0; g.C.reise.neutralPlus = 0; }
   lauf(P, 30, () => Station.stationOf(bot(P)) === 'helm'); lauf(P, 1);
@@ -129,6 +138,31 @@ section('2 nav.schub: Stufe setzen und halten');
   ok(g.ship.helm.stage === HALF, `im Gefecht (Korvette da) bleibt die Stufe des Captains stehen (${g.ship.helm.stage}, ohne Befehl wuerde helmFight sie aendern)`);
   void e;
   ok(fehlerOk(P), 'game.errors leer');
+}
+{
+  // K1b: Schub 0 ist dasselbe wie nav.stopp (Absicht weg, helm.stop, Standardverhalten) - auch im Gefecht
+  const P = partie({}); const { g } = P;
+  setze(P, 1100, 1500, 0);
+  befehl(P, 'nav.schub', { stufe: 'halb' }); lauf(P, 2);
+  const e = gegner(P, 'korvette', g.ship.x + 650, g.ship.y + 250); void e;
+  lauf(P, 3);
+  const t0 = g.time;
+  ok(befehl(P, 'nav.schub', { stufe: 0 }) === 'nav.schub.ok', 'Schub null im Gefecht: ok');
+  ok(!agent(P).absicht.befehl && agent(P).absicht.standard && agent(P).befehlGrund === 'stopp' && cmds(P, 'helm.stop', t0).length === 1, 'Schub null = nav.stopp: Absicht verworfen (Grund stopp), ein helm.stop, Standardverhalten');
+  lauf(P, 6);
+  ok(!agent(P).absicht.befehl && agent(P).absicht.standard, 'danach haelt der Bot nichts mehr fest: helmFight regelt wieder (keine Dauer-Absicht STOPP)');
+  ok(fehlerOk(P), 'game.errors leer');
+}
+{
+  // K1a: nav.schub weicht Felsen aus (derselbe Wunschwinkel wie steer). Brocken auf der Bahn, volle Kraft: das Schiff beruehrt ihn nicht
+  const P = partie({}); const { g } = P;
+  setze(P, 300, 700, 0);
+  g.space.asteroids = [{ id: 'fels1', x: 850, y: 700, r: 70, seed: 1 }]; g.asteroidsDirty = true;
+  lauf(P, 1);
+  befehl(P, 'nav.schub', { stufe: 'voll' });
+  let min = 1e9; let ang = 0;
+  lauf(P, 14, () => { min = Math.min(min, Math.hypot(g.ship.x - 850, g.ship.y - 700)); ang = Math.max(ang, Math.abs(g.ship.angle)); return false; });
+  ok(min > 70 + 25 && ang > 0.05 && g.errors === 0, `nav.schub voll: der Brocken auf der Bahn wird umflogen (kleinster Abstand zur Mitte ${min.toFixed(0)} px > Radius 70 + 25, Kurs gedreht ${ang.toFixed(2)} rad)`);
 }
 
 // ---------- 3 nav.stopp, nav.ausweichen ----------
@@ -287,36 +321,83 @@ section('7 nav.sprung');
     return P;
   };
   {
+    // marke: das vom Captain gewaehlte Ziel; einzelner Hop
     const P = vorbereiten(7); const { g } = P;
-    const antwort = befehl(P, 'nav.sprung', { ziel: 'hex:0306' }); const t0 = g.time;
+    ok(befehl(P, 'nav.sprung', { ziel: 'marke' }) === 'nav.sprung.abgelehnt.kein_ziel', 'marke ohne gewaehltes Sprungziel: kein_ziel');
+    Sprung.selectDest(g, '0306'); lauf(P, 1);   // das tut der Captain (captain.selectDest), nicht die Registry
+    const antwort = befehl(P, 'nav.sprung', { ziel: 'marke' }); const t0 = g.time;
     const gesprungen = lauf(P, 150, () => g.ship.scene !== 'hafen');
-    ok(antwort === 'nav.sprung.ok' && gesprungen && g.ship.scene === 'splitter', `hex:0306: der Bot fliegt zum Sprungpunkt und springt (Szene ${g.ship.scene} nach ${(g.time - t0).toFixed(1)} s)`);
+    ok(antwort === 'nav.sprung.ok' && gesprungen && g.ship.scene === 'splitter', `marke: der Bot fliegt zum Sprungpunkt und springt (Szene ${g.ship.scene} nach ${(g.time - t0).toFixed(1)} s)`);
     ok(cmds(P, 'helm.jump').length === 1 && cmds(P, 'helm.schnellsprung').length === 0, 'einzelner Hop: helm.jump');
     lauf(P, 2);
     ok(!agent(P).absicht.befehl && agent(P).befehlGrund === 'szene' && fehlerOk(P), 'danach keine Absicht mehr, keine Fehler');
   }
   {
+    // Route (zwei Hops), vom Captain gewaehlt: helm.schnellsprung
     const P = vorbereiten(11); const { g } = P;
-    const antwort = befehl(P, 'nav.sprung', { ziel: 'hex:0406' });
-    ok(antwort === 'nav.sprung.ok' && !!g.reisePlan && g.reisePlan.hops.join() === '0306,0406', 'hex:0406 (zwei Hops): Route gewaehlt wie vom Captain (captain.selectDest)');
+    Sprung.selectDest(g, '0406'); lauf(P, 1);
+    ok(!!g.reisePlan && g.reisePlan.hops.join() === '0306,0406', 'Route 0306,0406 vom Captain gewaehlt');
+    ok(befehl(P, 'nav.sprung', { ziel: 'marke' }) === 'nav.sprung.ok', 'marke mit gewaehlter Route: ok');
     lauf(P, 150, () => g.ship.scene !== 'hafen'); lauf(P, 12);
     ok(g.ship.scene === 'b7' && !g.reise && cmds(P, 'helm.schnellsprung').length === 1, `mit gewaehlter Route: helm.schnellsprung, alle Hops (Szene ${g.ship.scene})`);
   }
   {
+    // W1: hex, ziel, basis, objekt waehlen nie ein Sprungziel; die Wahl des Captains bleibt, kein cmd des Bots
     const P = vorbereiten(7); const { g } = P;
-    ok(befehl(P, 'nav.sprung', { ziel: 'marke' }) === 'nav.sprung.abgelehnt.kein_ziel', 'marke ohne gewaehltes Sprungziel: kein_ziel');
     Sprung.selectDest(g, '0306'); lauf(P, 1);
-    ok(befehl(P, 'nav.sprung', { ziel: 'marke' }) === 'nav.sprung.ok', 'marke mit gewaehltem Sprungziel: ok');
-    lauf(P, 150, () => g.ship.scene !== 'hafen');
-    ok(g.ship.scene === 'splitter', 'das gewaehlte Sprungziel wird angesprungen');
-    ok(befehl(P, 'nav.sprung', { ziel: 'ziel' }) === 'nav.sprung.abgelehnt.kein_ziel' && befehl(P, 'nav.sprung', { ziel: 'basis' }) === 'nav.sprung.abgelehnt.kein_ziel', 'ziel und basis sind keine Sektoren: kein_ziel');
-    ok(befehl(P, 'nav.sprung', { ziel: 'hex:9999' }) === 'nav.sprung.abgelehnt.kein_ziel', 'unbekannter Hex: kein_ziel');
+    const dest0 = g.ship.jump.dest; const plan0 = JSON.stringify(g.reisePlan); const n0 = cmds(P).length;
+    const a = ['hex:0406', 'hex:0306', 'hex:9999', 'ziel', 'basis', 'objekt:x'].map((z) => befehl(P, 'nav.sprung', { ziel: z }));
+    ok(a.every((x) => x === 'nav.sprung.abgelehnt.kein_ziel'), 'hex:<id>, ziel, basis, objekt: kein_ziel (' + a.join(' ') + ')');
+    ok(g.ship.jump.dest === dest0 && JSON.stringify(g.reisePlan) === plan0 && !agent(P).absicht.befehl && cmds(P).length === n0, `die Wahl des Captains bleibt (Ziel ${g.ship.jump.dest}, reisePlan unveraendert), keine Absicht, kein cmd des Bots`);
+    // mit zwei Hops (reisePlan gesetzt): ein Mensch sendet hex:0206 - keine Ueberschreibung
+    Sprung.selectDest(g, '0406'); lauf(P, 1);
+    const plan1 = JSON.stringify(g.reisePlan);
+    befehl(P, 'nav.sprung', { ziel: 'hex:0206' });
+    ok(JSON.stringify(g.reisePlan) === plan1 && g.reisePlan.hops.join() === '0306,0406', 'Route des Captains bleibt bei hex:0206 stehen');
   }
   {
+    // laufende Reise, Stoersender, Transfer bei der Annahme (die Vorpruefung, nicht der noch alte blockedReason): nicht_jetzt
     const P = vorbereiten(7); const { g } = P;
+    Sprung.selectDest(g, '0306'); lauf(P, 1);
     g.reise = { hops: ['0306'], i: 0, t: 0, ziel: 'splitter', abbruch: false };
-    ok(befehl(P, 'nav.sprung', { ziel: 'hex:0306' }) === 'nav.sprung.abgelehnt.nicht_jetzt', 'laufende Reise: nicht_jetzt');
+    ok(befehl(P, 'nav.sprung', { ziel: 'marke' }) === 'nav.sprung.abgelehnt.nicht_jetzt', 'laufende Reise: nicht_jetzt');
     g.reise = null;
+    const j = space.spawnEnemy(g, 'korvette', { x: g.ship.x + 900, y: g.ship.y });   // Stoersender in der Szene, blockedReason noch vom Tick davor
+    ok(Sprung.jammersPresent(g) && !/rsender/.test(g.ship.jump.blockedReason || ''), 'Aufbau: Stoersender da, blockedReason noch alt');
+    ok(befehl(P, 'nav.sprung', { ziel: 'marke' }) === 'nav.sprung.abgelehnt.nicht_jetzt' && !agent(P).absicht.befehl, 'Stoersender bei Annahme: nicht_jetzt, keine Absicht');
+    g.space.enemies = g.space.enemies.filter((q) => q !== j); lauf(P, 1);
+    const ib = g.transfer.isBeaming; g.transfer.isBeaming = () => true;
+    try { ok(befehl(P, 'nav.sprung', { ziel: 'marke' }) === 'nav.sprung.abgelehnt.nicht_jetzt' && !agent(P).absicht.befehl, 'Transfer laeuft bei Annahme: nicht_jetzt, keine Absicht'); } finally { g.transfer.isBeaming = ib; }
+    ok(befehl(P, 'nav.sprung', { ziel: 'marke' }) === 'nav.sprung.ok', 'Gegenprobe: ohne Hindernis ok');
+  }
+  {
+    // W2: ein Stoersender erscheint nach der Annahme - die Absicht endet, helmFight laeuft, das Schiff steht nicht still
+    const P = vorbereiten(7); const { g } = P;
+    Sprung.selectDest(g, '0306'); lauf(P, 1);
+    ok(befehl(P, 'nav.sprung', { ziel: 'marke' }) === 'nav.sprung.ok', 'Sprung angenommen');
+    lauf(P, 3);
+    const e = gegner(P, 'korvette', g.ship.x + 700, g.ship.y); void e; const t0 = g.time;
+    lauf(P, 5);
+    ok(!agent(P).absicht.befehl && agent(P).befehlGrund === 'blockiert' && agent(P).absicht.standard, `Stoersender nach der Annahme: die Absicht endet (Grund ${agent(P).befehlGrund})`);
+    const v = []; lauf(P, 30, () => { v.push(g.ship.speed); return false; });
+    ok(Math.max(...v) > 10 && cmds(P, 'weapons.', t0).length + cmds(P, 'helm.', t0).length > 0, `der Bot kaempft wieder (helmFight): das Schiff steht nicht still (hoechstens ${Math.max(...v).toFixed(0)} px/s)`);
+    ok(fehlerOk(P), 'game.errors leer');
+  }
+  {
+    // W2: Transfer laeuft nach der Annahme (blockedReason "Transfer laeuft"): Absicht endet; Ziel kippt (Sprungpunkt-Automatik): Absicht endet
+    const P = vorbereiten(7); const { g } = P;
+    Sprung.selectDest(g, '0306'); lauf(P, 1);
+    befehl(P, 'nav.sprung', { ziel: 'marke' }); lauf(P, 2);
+    const ib = g.transfer.isBeaming; g.transfer.isBeaming = () => true;
+    try { lauf(P, 2); } finally { g.transfer.isBeaming = ib; }
+    ok(!agent(P).absicht.befehl && agent(P).befehlGrund === 'blockiert', `Sprung gesperrt nach der Annahme (Transfer): Absicht endet (${agent(P).befehlGrund})`);
+    const Q = vorbereiten(7); const q = Q.g;
+    Sprung.selectDest(q, '0306'); lauf(Q, 1);
+    befehl(Q, 'nav.sprung', { ziel: 'marke' }); lauf(Q, 2);
+    ok(!!agent(Q).absicht.befehl, 'Aufbau: Absicht laeuft');
+    q.ship.jump.dest = 'b7'; lauf(Q, 2);   // das Ziel kippt (Sprungpunkt-Automatik jumpAutomatik setzt j.dest ebenso)
+    ok(!agent(Q).absicht.befehl && agent(Q).befehlGrund === 'ziel_geaendert', `Ziel gekippt: Absicht endet (${agent(Q).befehlGrund}), der Bot springt nicht woandershin`);
+    ok(cmds(Q, 'helm.jump').length === 0 && cmds(Q, 'helm.schnellsprung').length === 0 && fehlerOk(Q), 'kein Sprung gesendet, keine Fehler');
   }
 }
 
@@ -331,8 +412,11 @@ section('8 Ablehnungen: nicht_jetzt, system, wartet');
   h.zone = 'away';
   const az = {}; for (const [nm, ar] of sieben) az[nm] = befehl(P, nm, ar);
   h.zone = 'ship';
-  ok(['nav.kurs', 'nav.abstand', 'nav.andocken', 'nav.sprung'].every((nm) => az[nm] === nm + '.abgelehnt.nicht_jetzt'), 'Aussenteam unten: nav.kurs, nav.abstand, nav.andocken, nav.sprung abgelehnt nicht_jetzt');
-  ok(['nav.stopp', 'nav.schub', 'nav.ausweichen'].every((nm) => az[nm] === nm + '.ok'), 'Aussenteam unten: nav.stopp, nav.schub, nav.ausweichen bleiben moeglich');
+  ok(['nav.kurs', 'nav.abstand', 'nav.andocken', 'nav.sprung', 'nav.schub'].every((nm) => az[nm] === nm + '.abgelehnt.nicht_jetzt'), 'Aussenteam unten (zone away): nav.kurs, nav.abstand, nav.andocken, nav.sprung und nav.schub (Stufe 2) abgelehnt nicht_jetzt');
+  ok(['nav.stopp', 'nav.ausweichen'].every((nm) => az[nm] === nm + '.ok'), 'Aussenteam unten: nav.stopp und nav.ausweichen bleiben moeglich');
+  h.zone = 'away';
+  ok(befehl(P, 'nav.schub', { stufe: 0 }) === 'nav.schub.ok' && befehl(P, 'nav.schub', { stufe: 'voll' }) === 'nav.schub.abgelehnt.nicht_jetzt' && !agent(P).absicht.befehl, 'Aussenteam unten: nav.schub nur mit Stufe 0 (Stopp), alles andere nicht_jetzt, keine Absicht');
+  h.zone = 'ship';
   agent(P).befehlVerwerfen('test'); g.ship.dodgeCd = 0;
   // Antrieb zerstoert
   g.ship.systems.engines = 'broken';
@@ -392,11 +476,17 @@ section('9 Mensch gewinnt, Notsprung, Aussenteam, Befehlswechsel');
   setze(P, 1100, 1500, 0);
   const e = gegner(P, 'korvette', g.ship.x + 1400, g.ship.y); capZiel(g, e.id);
   befehl(P, 'nav.kurs', { ziel: 'marke' }); lauf(P, 3);
-  agent(P).aussenteamUnten = () => true; lauf(P, 1);
+  P.h.zone = 'away'; lauf(P, 1);   // echtes Aussenteam unten (zone away)
   ok(!agent(P).absicht.befehl && agent(P).befehlGrund === 'aussenteam', 'Aussenteam geht nach unten: der Kurs endet (nur Kurs halten wie bisher)');
-  befehl(P, 'nav.schub', { stufe: 'voll' }); lauf(P, 3);
-  ok(agent(P).absicht.befehl && agent(P).absicht.befehl.name === 'nav.schub' && g.ship.helm.stage === FULL, 'Aussenteam unten: nav.schub bleibt als Absicht und die Stufe steht');
-  delete agent(P).aussenteamUnten;
+  P.h.zone = 'ship'; lauf(P, 1);
+  befehl(P, 'nav.schub', { stufe: 'voll' }); lauf(P, 4);
+  ok(agent(P).absicht.befehl && agent(P).absicht.befehl.name === 'nav.schub' && g.ship.helm.stage === FULL && g.ship.speed > 40, 'Aufbau: Schub-Absicht laeuft (volle Kraft)');
+  const ts = g.time; P.h.zone = 'away'; lauf(P, 1);
+  ok(!agent(P).absicht.befehl && agent(P).befehlGrund === 'aussenteam' && cmds(P, 'helm.stop', ts).length === 1, 'Schub-Absicht, Aussenteam geht runter: die Absicht endet (Grund aussenteam), das Schiff wird angehalten (helm.stop)');
+  lauf(P, 25); const x1 = g.ship.x, y1 = g.ship.y; lauf(P, 5);
+  ok(g.ship.speed < 3 && Math.hypot(g.ship.x - x1, g.ship.y - y1) < 10 && !agent(P).absicht.befehl, `danach steht das Schiff (${g.ship.speed.toFixed(1)} px/s), keine neue Absicht: Beamreichweite bleibt`);
+  ok(befehl(P, 'nav.schub', { stufe: 'voll' }) === 'nav.schub.abgelehnt.nicht_jetzt', 'mit Aussenteam unten: nav.schub voll abgelehnt');
+  P.h.zone = 'ship'; lauf(P, 1);
   befehl(P, 'nav.kurs', { ziel: 'marke' }); const a1 = agent(P).absicht.befehl;
   befehl(P, 'nav.abstand', {}); const a2 = agent(P).absicht.befehl;
   befehl(P, 'nav.stopp');
@@ -413,35 +503,110 @@ section('9 Mensch gewinnt, Notsprung, Aussenteam, Befehlswechsel');
   ok(Lauf.agent(P.g, bot(P)) !== alt, 'Reset: der Lauf (mit seinen Absichten) ist verworfen');
 }
 
-// ---------- 10 Reine Menschenpartie ----------
-section('10 Reine Menschenpartie unveraendert');
+// ---------- 10 Absicht endet bei downed, nicht an Bord, Szenenwechsel; Ausweichen im Befehl ----------
+section('10 Ende der Absicht (downed, nicht an Bord, Szene), Ausweichen im Befehl');
 {
-  const sha = (noop) => {
-    const orig = Lauf.tick; if (noop) Lauf.tick = () => {};
-    const h = crypto.createHash('sha1'); let nSnap = 0;
-    try {
-      for (const [start, seed] of [['arena_space', 5], ['m3', 6]]) {
-        const dir = path.join(TMP, 'w' + (++seq)); fs.mkdirSync(dir, { recursive: true });
-        const g = new Game({ noStore: true, seed, worldDir: dir, env: { MISSION_SOURCE: 'fallback', SPIELLEITER_LLM: 'off', REGIE_DIR: path.join(TMP, 'regie') }, log: () => {} });
-        const c = { send: (o) => h.update(JSON.stringify(o)), sendRaw: (s) => h.update(s) }; g.addConnection(c); g.handleMessage(c, { t: 'hello', clientId: 'M0', name: 'M0', color: 0 });
-        g.lobbyOpts.startMission = start; g.handleMessage(c, { t: 'ready', ready: true });
-        for (let i = 0; i < 700; i++) {
-          if (i === 100) interior.enterConsole(g, c.player, 'helm');
-          if (i === 150) g.handleMessage(c, { t: 'bot.befehl', an: 'navigation', befehl: 'nav.kurs', args: { ziel: 'marke' }, quelle: 'menu' });
-          if (i === 200) g.handleMessage(c, { t: 'cmd', c: 'helm.throttle', set: 4 });
-          g.step();
-          if (g.wantsSnapshot()) { h.update(JSON.stringify(g.snapshot())); nSnap++; }
-        }
-        h.update(JSON.stringify([g.errors, g.time, g.ship.x, g.ship.y, g.players.map((p) => [p.x, p.y, p.console])]));
-        ok(Lauf.agenten(g).length === 0, `${start}: ohne Bots kein Lauf, keine Agenten`);
+  for (const [name, args, extra] of [['nav.kurs', { ziel: 'marke' }, 'kurs'], ['nav.schub', { stufe: 'halb' }, 'schub']]) {
+    // downed
+    const P = partie({}); const { g } = P;
+    setze(P, 1100, 1500, 0);
+    const e = gegner(P, 'korvette', g.ship.x + 1400, g.ship.y); capZiel(g, e.id);
+    befehl(P, name, args); lauf(P, 2);
+    ok(!!agent(P).absicht.befehl, `${extra}: Absicht laeuft`);
+    bot(P).downed = true; lauf(P, 1.5); bot(P).downed = false;
+    ok(!agent(P).absicht.befehl && agent(P).befehlGrund === 'unten', `${extra}: Bot ist unten (downed): Absicht verworfen (Grund ${agent(P).befehlGrund})`);
+    lauf(P, 4);
+    ok(!agent(P).absicht.befehl, `${extra}: nach dem Aufstehen laeuft nichts von selbst weiter`);
+    // nicht an Bord
+    befehl(P, name, args); lauf(P, 2);
+    ok(!!agent(P).absicht.befehl, `${extra}: neue Absicht laeuft`);
+    bot(P).zone = 'away'; g.snapshot(); g.step(); bot(P).zone = 'ship'; lauf(P, 1);   // der Snapshot des Agenten kennt die Lage des Bots sofort (sonst endet die Absicht schon durch aussenteamUnten)
+    ok(!agent(P).absicht.befehl && agent(P).befehlGrund === 'unten', `${extra}: Bot nicht an Bord (zone away): Absicht verworfen (Grund ${agent(P).befehlGrund})`);
+    lauf(P, 4);
+    ok(!agent(P).absicht.befehl && fehlerOk(P), `${extra}: danach keine Absicht, keine Fehler`);
+    // Szenenwechsel (die Szene der Absicht ist nicht mehr die des Schiffs)
+    befehl(P, name, args); lauf(P, 2);
+    agent(P).absicht.befehl.szene = 'andere_szene'; lauf(P, 1);
+    ok(!agent(P).absicht.befehl && agent(P).befehlGrund === 'szene', `${extra}: Szenenwechsel: Absicht verworfen (Grund ${agent(P).befehlGrund})`);
+  }
+}
+{
+  // ausweichenImBefehl: Geschoss nahe am Schiff waehrend nav.kurs: helm.dodge (der Befehl kaempft nicht, weicht aber aus)
+  const P = partie({}); const { g } = P;
+  setze(P, 1100, 1500, 0);
+  const e = gegner(P, 'korvette', g.ship.x + 1500, g.ship.y); capZiel(g, e.id);
+  befehl(P, 'nav.kurs', { ziel: 'marke' }); lauf(P, 2);
+  g.ship.dodgeCd = 0; const t0 = g.time;
+  for (let k = 0; k < 90; k++) {   // 3 s: ein Geschoss des Gegners dicht am Schiff (der Testlauf raeumt Geschosse sonst weg)
+    for (const x of P.fest) if (g.space.enemies.includes(x)) { x.x = x.pin.x; x.y = x.pin.y; x.angle = x.pin.angle; x.vx = 0; x.vy = 0; x.fireT = -999; }
+    g.space.projectiles = g.space.projectiles.filter((q) => q.kind !== 'enemy');
+    g.space.projectiles.push({ id: g.nextId('pr'), kind: 'enemy', x: g.ship.x + 75, y: g.ship.y, angle: 0, speed: 0, ttl: 5, dmg: 0, owner: e.id });
+    g.step(); if (g.wantsSnapshot()) g.snapshot();
+  }
+  g.space.projectiles = g.space.projectiles.filter((q) => q.kind !== 'enemy');
+  ok(cmds(P, 'helm.dodge', t0).length >= 1 && !!agent(P).absicht.befehl, `nav.kurs: ein Geschoss dicht am Schiff loest helm.dodge aus (${cmds(P, 'helm.dodge', t0).length}x), der Kurs gilt weiter`);
+  ok(fehlerOk(P), 'game.errors leer');
+}
+
+// ---------- 11 Menschenpartie, Quellscan, Wachposten, Projektil-Reflex ----------
+section('11 Menschenpartie ohne Bot-Code, Quellscan der Registries, Wachposten, Projektil-Reflex');
+{
+  // Ohne Bots laeuft kein Bot-Code: kein Agent, keine Absicht, kein Aufruf von tick/steuerDienst/befehlSetzen. Der Byte-Vergleich der Menschenpartie (Nachrichten, Snapshots) ist der Golden-Lauf
+  // (tools/golden-trace.js --all, diff gegen die Basis); ein Vergleich des Laufs mit sich selbst bewiese nichts.
+  const zaehl = { tick: 0, steuerDienst: 0, befehlSetzen: 0 }; const alt = {};
+  for (const k of Object.keys(zaehl)) { alt[k] = BotMannschaft.prototype[k]; BotMannschaft.prototype[k] = function (...a) { zaehl[k]++; return alt[k].apply(this, a); }; }
+  let nSnap = 0; const antworten = [];
+  try {
+    for (const [start, seed] of [['arena_space', 5], ['m3', 6]]) {
+      const dir = path.join(TMP, 'w' + (++seq)); fs.mkdirSync(dir, { recursive: true });
+      const g = new Game({ noStore: true, seed, worldDir: dir, env: { MISSION_SOURCE: 'fallback', SPIELLEITER_LLM: 'off', REGIE_DIR: path.join(TMP, 'regie') }, log: () => {} });
+      const c = { inbox: [], send(o) { this.inbox.push(o); }, sendRaw(s) { this.inbox.push(JSON.parse(s)); } }; g.addConnection(c); g.handleMessage(c, { t: 'hello', clientId: 'M0', name: 'M0', color: 0 });
+      g.lobbyOpts.startMission = start; g.handleMessage(c, { t: 'ready', ready: true });
+      for (let i = 0; i < 400; i++) {
+        if (i === 100) interior.enterConsole(g, c.player, 'helm');
+        if (i === 150) g.handleMessage(c, { t: 'bot.befehl', an: 'navigation', befehl: 'nav.kurs', args: { ziel: 'marke' }, quelle: 'menu' });
+        if (i === 200) g.handleMessage(c, { t: 'cmd', c: 'helm.throttle', set: 4 });
+        g.step();
+        if (g.wantsSnapshot()) { g.snapshot(); nSnap++; }
       }
-    } finally { Lauf.tick = orig; }
-    return { hash: h.digest('hex'), nSnap };
+      antworten.push(...c.inbox.filter((x) => x.t === 'bot.antwort').map((x) => x.textId));
+      ok(Lauf.agenten(g).length === 0 && g.errors === 0, `${start}: ohne Bots kein Lauf, keine Agenten, keine Fehler`);
+    }
+  } finally { for (const k of Object.keys(alt)) BotMannschaft.prototype[k] = alt[k]; }
+  ok(nSnap > 40 && zaehl.tick === 0 && zaehl.steuerDienst === 0 && zaehl.befehlSetzen === 0, `Menschenpartie (mit einem bot.befehl): kein Bot-Code laeuft (tick ${zaehl.tick}, steuerDienst ${zaehl.steuerDienst}, befehlSetzen ${zaehl.befehlSetzen}; ${nSnap} Snapshots)`);
+  ok(antworten.every((x) => /\.unmoeglich\.kein_bot$/.test(x)) && antworten.length === 2, 'der bot.befehl ohne Bot wird nur beantwortet (unmoeglich kein_bot), setzt nichts: ' + antworten.join(' '));
+}
+{
+  // Quellscan der Registries (server/bots/befehle/*.js): kein Zugriff, der Spielzustand aendert. Erlaubt sind nur diese lesenden Aufrufe von Spielmodulen; alles andere ist ein Befund.
+  const ERLAUBT = new Set(['Navziel.aufloesen', 'Navziel.dockLage', 'Navziel.sprungGrundOffen', 'Station.stationOf', 'Sprung.jammersPresent', 'CaptainZiel.gueltig', 'Space.resolveTarget', 'Waffen.mountState', 'Lauf.agent', 'Status.text', 'Math.max', 'Math.min', 'Math.round', 'Math.abs', 'Math.floor', 'Math.hypot', 'Object.keys', 'Object.assign', 'Object.entries', 'Object.freeze', 'Array.isArray', 'JSON.stringify', 'Number.isFinite', 'Number.isInteger', 'String.raw']);
+  const scan = (quelle) => {
+    const q = quelle.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/.*$/gm, '').replace(/'(?:[^'\\\n]|\\.)*'|`(?:[^`\\]|\\.)*`/g, "''");
+    const funde = [];
+    for (const m of q.matchAll(/\b([A-Z][A-Za-z]*)\.([a-zA-Z_]+)\(/g)) if (!ERLAUBT.has(m[1] + '.' + m[2])) funde.push('Aufruf ' + m[1] + '.' + m[2]);
+    for (const m of q.matchAll(/\b(game|ship|sh|g|bot|p|s|space|state|mission|explore|transfer)\b(?:\.[A-Za-z_]+|\[[^\]]+\])+\s*(?:=(?!=)|\+=|-=|\*=|\/=|\+\+|--)/g)) if (!/^bot[[]''[\]]/.test(m[0])) funde.push('Zuweisung ' + m[0].trim());   // bot['name'] = ist das Eintragen in die Registry, kein Spielzustand
+    for (const m of q.matchAll(/\.(cmd|send|emit|missionEvent|handleMessage|selectDest|push|splice|delete)\(/g)) funde.push('Aufruf .' + m[1] + '(');
+    return funde;
   };
-  const mit = sha(false), ohne = sha(true);
-  ok(mit.nSnap > 60 && mit.hash === ohne.hash, `Menschenpartie (mit einem bot.befehl): Snapshots und Nachrichten identisch mit echtem und mit leerem Lauf (${mit.nSnap} Snapshots)`);
-  const quelle = fs.readFileSync(path.join(__dirname, '..', 'server', 'bots', 'befehle', 'navigation.js'), 'utf8');
-  ok(!/game\.(ship|space)\.[a-zA-Z.]+\s*=[^=]/.test(quelle) && !/\.cmd\(|handleMessage/.test(quelle), 'Quellscan: die Registry schreibt nie Spielzustand und sendet nie selbst (nur Absicht und Agent-Methoden)');
+  const dir = path.join(__dirname, '..', 'server', 'bots', 'befehle');
+  const dateien = fs.readdirSync(dir).filter((x) => x.endsWith('.js'));
+  const funde = {}; for (const d of dateien) funde[d] = scan(fs.readFileSync(path.join(dir, d), 'utf8'));
+  ok(dateien.length >= 5 && dateien.every((d) => funde[d].length === 0), 'Quellscan: keine Registry (' + dateien.join(' ') + ') ruft eine Spielfunktion mit Zustandsaenderung auf, schreibt Spielzustand oder sendet selbst' + Object.entries(funde).filter(([, v]) => v.length).map(([d, v]) => ' [' + d + ': ' + v.join(', ') + ']').join(''));
+  ok(scan('Sprung.selectDest(game, h);').length >= 1 && scan('game.ship.x = 5;').length === 1 && scan('ship.jump.dest = 3;').length === 1 && scan('Besitz.uebernehmen(game);').length === 1 && scan('agent.cmd(1);').length === 1 && scan('const z = CaptainZiel.gueltig(game); // Sprung.selectDest(x)').length === 0, 'der Scan selbst erkennt Sprung.selectDest, Zuweisungen an game/ship, Besitz-Aufrufe und .cmd( (und ignoriert Kommentare)');
+}
+{
+  // Wachposten: der Agent sendet nie Nachrichten ausserhalb seiner Station (captain.*, weapons.*, hello ...); jede Partie des Tests: verworfen === 0
+  const P = partie({}); const a = agent(P); const t0 = P.g.time; const v0 = a.verworfen;
+  a.send({ t: 'cmd', c: 'captain.selectDest', dest: 'splitter' }); a.send({ t: 'cmd', c: 'weapons.fire', mount: 'all' }); a.send({ t: 'hello', clientId: 'x' });
+  ok(a.verworfen === v0 + 3 && P.spy.filter((x) => x.t >= t0 && x.msg.c === 'captain.selectDest').length === 0 && P.spy.filter((x) => x.msg.t === 'hello' && x.pid === bot(P).id).length === 0, 'Wachposten: captain.selectDest, weapons.fire und hello des Bots werden verworfen und kommen nie beim Spiel an');
+  ok(a.befehle === 0 || P.spy.every((x) => x.pid !== bot(P).id || x.msg.t !== 'cmd' || /^(helm\.|station\.)/.test(x.msg.c) || x.msg.c === 'station.tab'), 'der Bot sendet nur helm.-Befehle (und station.tab)');
+  const bad = []; for (const Q of ALLE) { if (Q === P) continue; const ag = Lauf.agent(Q.g, bot(Q)); if (ag && ag.verworfen !== 0) bad.push(ag.verworfen); const fremd = Q.spy.filter((x) => x.pid === (bot(Q) && bot(Q).id) && x.msg.t === 'cmd' && !/^(helm\.|station\.)/.test(x.msg.c)); if (fremd.length) bad.push(fremd[0].msg.c); }
+  ok(bad.length === 0, `in allen ${ALLE.length - 1} Partien dieses Tests: kein Bot hat eine Nachricht ausserhalb seiner Station gesendet, der Wachposten hat nichts verworfen (verworfen === 0)${bad.length ? ' ' + bad.join(',') : ''}`);
+}
+{
+  // K4: der Projektil-Reflex in mannschaft.js (ausweichenImBefehl) ist eine Kopie aus kern.js (helmFight); beide Bedingungen muessen im Wortlaut gleich bleiben (Schwelle 90 px, dodgeCd, Sperre 1 s)
+  const zeile = (datei) => { const l = fs.readFileSync(path.join(__dirname, '..', 'server', 'bots', datei), 'utf8').split(/\r?\n/).filter((x) => x.includes("S.space.projectiles.some((q) => (q.kind === 'enemy'")); return l.map((x) => x.trim()); };
+  const k = zeile('kern.js'), m = zeile('mannschaft.js');
+  ok(k.length === 1 && m.length === 1 && k[0] === m[0] && /< 90\)/.test(k[0]), 'Projektil-Reflex: kern.js und mannschaft.js tragen dieselbe Bedingung (90 px, dodgeCd, Sperre)');
 }
 
 console.log(`\ntest-bot-befehle-nav: ${n - fails}/${n} ok`);

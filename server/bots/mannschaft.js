@@ -105,8 +105,8 @@ class BotMannschaft extends BotKern {
     if (this.menschHaeltStation()) { this.zustandSetzen('wartet'); this.alleVerwerfen('mensch'); return; }
     if (Station.stationOf(p) !== Station.stationOf(live)) return;   // der Snapshot ist aelter als ein Stationswechsel: erst mit dem naechsten handeln
     if (this.waitT > 0) { this.waitT -= DT; return; }
-    if (p.downed) { this.input(0, 0); this.act(false); this.ix = null; return; }
-    if (p.zone !== 'ship') return;   // ein Bot am Boden (Beamen mit Pad) hat hier nichts zu tun
+    if (p.downed) { this.navAbsichtVerwerfen('unten'); this.input(0, 0); this.act(false); this.ix = null; return; }
+    if (p.zone !== 'ship') { this.navAbsichtVerwerfen('unten'); return; }   // ein Bot am Boden (Beamen mit Pad) hat hier nichts zu tun; sein Navigationsbefehl endet
     this.zustandSetzen(Station.stationOf(live) === this.stationKind ? 'an_station' : 'unterwegs');
     if (!this.enter(S, this.stationKind)) return;
     this.dienst(S, p);
@@ -118,13 +118,16 @@ class BotMannschaft extends BotKern {
     else if (this.rolleBot === 'technik') this.technikDienst(S, p);
   }
   // Steuer: Reaktor-Notsprung, im Gefecht Breitseite und Ausweichen, sonst Kurs halten ohne ins Leere zu fliegen
-  // BOT-01 C2a: ein Befehl des Captains (absicht.befehl) geht dem Standardverhalten vor, nicht dem Notsprung. Bei Aussenteam unten endet er (ausser nav.schub: die Stufe bleibt).
+  // BOT-01 C2a: ein Befehl des Captains (absicht.befehl) geht dem Standardverhalten vor, nicht dem Notsprung. Bei Aussenteam unten endet jeder Navigationsbefehl (Beamreichweite, Bericht 8.3 Nr. 3); eine Schub-Absicht
+  // haelt dabei das Schiff an (helm.stop), ein Kurs bleibt wie bisher stehen (Kurs und Stufe halten).
   steuerDienst(S, p) {
     if (this.reaktorNotsprung(S, p)) return;
+    const b = this.absicht.befehl;
+    if (b && b.name.startsWith('nav.') && this.game.ship.scene !== b.szene) this.befehlVerwerfen('szene');
     if (this.aussenteamUnten()) {
-      const b = this.absicht.befehl;
-      if (b && b.name !== 'nav.schub') this.befehlVerwerfen('aussenteam');
-      if (this.absicht.befehl) { this.schubHalten(S); return; }
+      const a = this.absicht.befehl;
+      if (a && a.name === 'nav.schub') this.anhalten('aussenteam');
+      else if (a) this.befehlVerwerfen('aussenteam');
       this.kursHaltenFuerAussenteam(S); return;
     }
     if (this.absicht.befehl && this.befehlAusfuehren(S)) return;
@@ -271,7 +274,7 @@ class BotMannschaft extends BotKern {
       case 'nav.kurs': return this.kursAusfuehren(S, b);
       case 'nav.abstand': return this.abstandAusfuehren(S, b);
       case 'nav.andocken': return this.andockenAusfuehren(S);
-      case 'nav.sprung': return this.sprungAusfuehren(S);
+      case 'nav.sprung': return this.sprungAusfuehren(S, b);
       case 'nav.schub': this.schubHalten(S); return true;
       default: this.befehlVerwerfen('unbekannt'); return false;
     }
@@ -280,7 +283,8 @@ class BotMannschaft extends BotKern {
   zielWeg(S) { this.anhalten('ziel_weg'); return true; }
   // Befehl beenden und das Schiff anhalten (Allstopp; angedockt steht es schon), sonst fliegt es mit der letzten Stufe weiter
   anhalten(grund) { this.befehlVerwerfen(grund); if (!this.game.ship.docked) this.cmd('helm.stop'); }
-  // Ladungen (Telegraph) und nahe Geschosse: ausweichen wie im Gefecht, ohne Position zu kaempfen
+  // Ladungen (Telegraph) und nahe Geschosse: ausweichen wie im Gefecht, ohne Position zu kaempfen. Der Projektil-Reflex ist eine Kopie aus kern.js helmFight (90 px, dodgeCd, 1 s Sperre, Golden-Basis): beide Stellen synchron halten
+  // (tools/test-bot-befehle-nav.js vergleicht die Schwellen aus den Quelltexten).
   ausweichenImBefehl(S) {
     const sh = S.ship;
     if (this.pilot() === 'maneuver') this.dodgeTele(S);
@@ -323,19 +327,29 @@ class BotMannschaft extends BotKern {
     return true;
   }
   // Sprung: zum Sprungpunkt fliegen (flyClear: Abstand zur Station, Sprungpunkt der Kante), dann springen wie der Mensch an der Steuer (helm.jump bzw. helm.schnellsprung bei gewaehlter Route)
-  sprungAusfuehren(S) {
+  // Der Befehl endet (Standardverhalten, im Gefecht helmFight), wenn das gewaehlte Ziel kippt (Sprungpunkt-Automatik, Captain waehlt neu) oder die Lage den Sprung sperrt (Stoersender, Antrieb ohne Energie, Aussenteam, Transfer, Missionssperre).
+  sprungAusfuehren(S, b) {
     const j = this.game.ship.jump || {};
     if (this.game.reise) return true;
     if (!j.dest) { this.befehlVerwerfen('ziel_weg'); return false; }
+    if (j.dest !== b.dest) { this.befehlVerwerfen('ziel_geaendert'); return false; }
+    if (!Navziel.sprungGrundOffen(j.blockedReason)) { this.befehlVerwerfen('blockiert'); return false; }
     if (j.ready) { this.cmd(this.game.reisePlan ? 'helm.schnellsprung' : 'helm.jump'); return true; }
     this.ausweichenImBefehl(S);
     this.flyClear(S);
     return true;
   }
-  // nav.schub: die Stufe des Captains halten (auch im Gefecht), Ruder wie beim Kurshalten
+  // nav.schub: die Stufe des Captains halten (auch im Gefecht), Kurs halten, am Kartenrand zur Mitte, Felsen ausweichen (freierWinkel wie steer), Ladungen und Geschossen ausweichen. Schub 0 ist nav.stopp und keine Absicht.
   schubHalten(S) {
     this.ausweichenImBefehl(S);
-    this.helmS(S, this.turnCmd(S, this.randNachMitte(S)), this.absicht.befehl.stage);
+    const sh = S.ship;
+    const wunsch = this.freierWinkel(S, sh.angle + this.randNachMitte(S), 280);
+    this.helmS(S, this.turnCmd(S, norm(wunsch - sh.angle)), this.absicht.befehl.stage);
+  }
+  // Ein Navigationsbefehl endet, wenn der Bot ausfaellt (downed) oder nicht mehr an Bord ist (zone != ship): sonst liefe er danach unbemerkt weiter. Befehle von ops und technik bleiben (eigene Regeln).
+  navAbsichtVerwerfen(grund) {
+    const b = this.absicht.befehl;
+    if (b && b.name.startsWith('nav.')) this.befehlVerwerfen(grund);
   }
   // Direkte Befehle (die Registry prueft vorher Station, Lage und System): nav.stopp, nav.ausweichen
   stoppen() { this.befehlVerwerfen('stopp'); this.cmd('helm.stop'); }

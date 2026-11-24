@@ -1,12 +1,12 @@
 'use strict';
 // BOT-01 C2a: Registry der Bot-Befehle fuer die Rolle navigation (Vertrag Bot-Befehle, Katalog v1). Jede Funktion: (game, bot, args) => { ok: true } | { ok: false, code }.
+// Die Registry liest nur (Navziel, Station.stationOf, Sprung.jammersPresent) und setzt die Absicht des Agenten; sie ruft nie eine Spielfunktion mit Zustandsaenderung auf (der Quellscan in tools/test-bot-befehle-nav.js haelt das fest).
 // Codes (content/bots/gruende.json): kein_ziel (das Ziel gibt es nicht), nicht_jetzt (geht in dieser Lage nicht), system (Antrieb zerstoert). Alles andere zaehlt C1 als Fehler.
 // Schichten: die Registry prueft Voraussetzungen und setzt die Absicht des Agenten (kurs, abstand, andocken, sprung, schub) bzw. sendet die direkten Befehle (stopp, ausweichen) ueber ihn.
 // Die Ausfuehrung des Fluges liegt im Agenten (server/bots/mannschaft.js, Methoden befehlAusfuehren ...), die Ziele in navziel.js. Hier keine Spiellogik des Fluges.
 // args kommen normalisiert aus der Annahme (annahme.js): ziel marke|ziel|basis|hex:<id>|objekt:<id>, stufe 0-6|halb|voll, meter 1-100000.
 const Station = require('../../sim/station.js');
 const Sprung = require('../../sim/sprung.js');
-const Sektoren = require('../../../shared/sektoren.js');
 const Lauf = require('../lauf.js');
 const Navziel = require('../navziel.js');
 const { STOP, HALF, FULL } = require('../kern.js');
@@ -19,7 +19,7 @@ const OK = { ok: true };
 const maschineAus = (game) => { const st = game.ship.systems && game.ship.systems.engines; return st === 'broken' || st === 'offline'; };
 
 // Gemeinsame Vorpruefung. o.bewegt: der Befehl setzt das Schiff in Bewegung (Antrieb noetig); o.aussenteam: mit Aussenteam unten nicht (das Schiff muss in Beamreichweite bleiben,
-// Entscheidung des Leiters aus Paket B); o.station: der Bot muss jetzt an der Steuer sitzen (direkte Befehle gehen als cmd sofort raus, ein Bot unterwegs koennte sie nicht ausfuehren).
+// Entscheidung des Leiters aus Paket B, Bericht 8.3 Nr. 3); o.station: der Bot muss jetzt an der Steuer sitzen (direkte Befehle gehen als cmd sofort raus, ein Bot unterwegs koennte sie nicht ausfuehren).
 // -> { agent } oder { fehler: { ok: false, code } }
 function vorab(game, bot, o) {
   const agent = Lauf.agent(game, bot);
@@ -56,10 +56,14 @@ nav['nav.stopp'] = (game, bot) => {
   return OK;
 };
 
+// Schub 0 ist nav.stopp (Absicht weg, helm.stop, Standardverhalten). Mit Aussenteam unten nur Stufe 0 (Beamreichweite, Bericht 8.3 Nr. 3), alles andere nicht_jetzt.
+// Skala der Lerche (Kanon bleibt Kais Sache): Schub 4 bis 6 sind alle volle Kraft, Schub zwei = halbe Kraft.
 nav['nav.schub'] = (game, bot, args) => {
-  const v = vorab(game, bot, { bewegt: true });
+  const stage = stufenIndex(args.stufe);
+  if (stage === STOP) return nav['nav.stopp'](game, bot, args);
+  const v = vorab(game, bot, { bewegt: true, aussenteam: true });
   if (v.fehler) return v.fehler;
-  v.agent.befehlSetzen('nav.schub', args, { stage: stufenIndex(args.stufe) });
+  v.agent.befehlSetzen('nav.schub', args, { stage });
   return OK;
 };
 
@@ -90,24 +94,18 @@ nav['nav.andocken'] = (game, bot) => {
   return OK;
 };
 
-// Sprung: marke = das Sprungziel, das der Captain gewaehlt hat (ship.jump.dest); hex:<id> waehlt es wie captain.selectDest. ziel, basis und objekt sind keine Sektoren: kein_ziel.
-// Der Bot fliegt zum Sprungpunkt und springt (helm.jump, bei gewaehlter Route helm.schnellsprung). Was die Lage verbietet (Reise laeuft, Stoersender, Aussenteam, Transfer, Missionssperre): nicht_jetzt.
+// Sprung: nur ziel marke = das Sprungziel, das der Captain gewaehlt hat (ship.jump.dest); die Wahl bleibt beim Captain (captain.selectDest), die Registry waehlt nie ein Ziel und schreibt keinen Spielzustand.
+// hex:<id>, ziel, basis und objekt: kein_ziel. Der Bot fliegt zum Sprungpunkt und springt (helm.jump, bei gewaehlter Route helm.schnellsprung). Was die Lage verbietet (Reise laeuft, Stoersender, Aussenteam, Transfer,
+// Missionssperre, Antrieb ohne Energie): nicht_jetzt; nur der Anflug selbst (Navziel.sprungGrundOffen) ist kein Hindernis.
 nav['nav.sprung'] = (game, bot, args) => {
   const v = vorab(game, bot, { bewegt: true, aussenteam: true });
   if (v.fehler) return v.fehler;
+  if (args.ziel !== 'marke') return KEIN_ZIEL;
   const j = game.ship.jump || {};
   if (game.reise || Sprung.jammersPresent(game) || game.transfer.isBeaming(game)) return NICHT_JETZT;
-  const hex = /^hex:(\d{4})$/.exec(args.ziel);
-  if (args.ziel === 'marke') {
-    if (!j.dest) return KEIN_ZIEL;
-    const grund = j.blockedReason || '';
-    if (grund && !/^(Sprungpunkt|Erst ablegen|Zu nah an der Station|Sprungantrieb|Antrieb ohne Energie)/.test(grund) && !/^Kein Sprungpunkt/.test(grund)) return NICHT_JETZT;
-  } else if (hex) {
-    if (!Sektoren.hatSzene(hex[1])) return KEIN_ZIEL;
-    if (Sprung.selectDest(game, hex[1])) return NICHT_JETZT;   // Fehlertext des Spiels (gesperrt, keine Route, gleicher Sektor ...)
-  } else return KEIN_ZIEL;
-  if (!game.ship.jump.dest) return KEIN_ZIEL;
-  v.agent.befehlSetzen('nav.sprung', args, { dest: game.ship.jump.dest });
+  if (!j.dest) return KEIN_ZIEL;
+  if (!Navziel.sprungGrundOffen(j.blockedReason)) return NICHT_JETZT;
+  v.agent.befehlSetzen('nav.sprung', args, { dest: j.dest });
   return OK;
 };
 
