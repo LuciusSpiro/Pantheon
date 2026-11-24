@@ -26,7 +26,7 @@ const warteBis = async (f, ms) => { const t = Date.now(); while (!f()) { if (Dat
   ok(Object.keys(TEXTE).every((k) => k === 'bot.unklar' || ids.includes(k.replace(/\.ok$/, '')) || (/^[a-z]+([.][a-z_]+)?[.](abgelehnt|unmoeglich)[.][a-z_]+$/.test(k) && (k.startsWith('befehl.') || ids.includes(k.split('.').slice(0, 2).join('.'))))), 'texte.json: keine Texte ohne Befehl (BOT-01 C1: auch <befehl>.abgelehnt|unmoeglich.<grund>; tools/test-bot-annahme.js prueft die Gruende)');
   ok(botIdFuer('navigation') === 'b0' && botIdFuer('ops') === 'b1' && botIdFuer('technik') === 'b2' && botIdFuer('bord') === 'b3' && botIdFuer('alle') === 'b0' && botIdFuer('b2') === 'b2' && botIdFuer('x') === null, 'botId nach Rolle (navigation b0, ops b1, technik b2, bord b3, alle b0)');
   const ph = JSON.parse(fs.readFileSync(path.join(__dirname, 'fixtures', 'bot-messung', 'phrasen.json'), 'utf8')).phrasen;
-  ok(ph.length >= 24 && ph.every((p) => p.id && p.text && p.erwartet && ids.includes(p.erwartet.befehl)) && ids.every((id) => ph.some((p) => p.erwartet.befehl === id)), 'phrasen.json: mindestens 24 Phrasen, jede mit erwartetem Katalogbefehl, jeder Befehl abgedeckt');
+  ok(ph.length >= 24 && ph.every((p) => p.id && p.text && (p.erwartet === null || (p.erwartet && ids.includes(p.erwartet.befehl)))) && ids.every((id) => ph.some((p) => p.erwartet && p.erwartet.befehl === id) || KATALOG.find((k) => k.befehl === id).ohneMatcher), 'phrasen.json: mindestens 24 Phrasen, jede mit erwartetem Katalogbefehl, jeder Befehl abgedeckt');
 
   section('Mock-Lauf: jeder Katalogbefehl per Sprache');
   const logDatei = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'botmock-')), 'mock.log');

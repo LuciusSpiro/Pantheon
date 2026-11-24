@@ -19,10 +19,12 @@ fs.cpSync(path.join(ROOT, 'server'), path.join(TMP, 'server'), { recursive: true
 if (fs.existsSync(path.join(ROOT, 'package.json'))) fs.copyFileSync(path.join(ROOT, 'package.json'), path.join(TMP, 'package.json'));   // D1: test-bot-sprache-net.js braucht Matcher und Protokoll, den Kanon und die Muster
 fs.cpSync(path.join(ROOT, 'content'), path.join(TMP, 'content'), { recursive: true });   // D1: auch der Servertest liest Spieldaten (Waren, Bots)
 for (const f of ['hud.js', 'bot-sprache.js', 'bot-menue.js', 'consoles.js']) { const p = path.join(TMP, 'public', 'js', f); fs.writeFileSync(p, fs.readFileSync(p, 'utf8').replace(/\r\n/g, '\n')); }   // Anker ohne CRLF-Sorgen
-for (const f of ['test-bot-sprache.js', 'test-bot-sprache-net.js', 'test-bot-sprache-server.js']) fs.copyFileSync(path.join(ROOT, 'tools', f), path.join(TMP, 'tools', f));
+for (const f of ['test-bot-sprache.js', 'test-bot-sprache-net.js', 'test-bot-sprache-server.js', 'test-bot-sprache-pegel.js', 'test-bot-katalog.js']) fs.copyFileSync(path.join(ROOT, 'tools', f), path.join(TMP, 'tools', f));
+fs.cpSync(path.join(ROOT, 'tools', 'fixtures', 'bot-messung'), path.join(TMP, 'tools', 'fixtures', 'bot-messung'), { recursive: true });   // D2: der Katalogtest liest die Phrasenlisten
 
 const CL = 'public/js/client.js', HU = 'public/js/hud.js', BS = 'public/js/bot-sprache.js', CO = 'public/js/consoles.js', BMN = 'public/js/bot-menue.js';
 const NET = 'test-bot-sprache-net.js';   // D1: Mutationen am Net-Transport und an sprachBefehl prüft dieser Test (fünftes Element), alle anderen test-bot-sprache.js
+const PEG = 'test-bot-sprache-pegel.js', KAT = 'test-bot-katalog.js';   // D2: Stille-Schranke und Messkatalog gegen den Matcher
 const SRV = 'test-bot-sprache-server.js';   // D1: Mutationen an der Reihenfolge Eintrag/Senden prüft der Servertest (synchrone Brücke: die Antwort kommt noch im send)
 // [Datei, alter Text (genau einmal), neuer Text, Beschreibung, Testdatei?]
 const MUTATIONEN = [
@@ -64,8 +66,8 @@ const MUTATIONEN = [
   [HU, "length / 15))", "length / 10))", 'Dauer: Zeichen je Sekunde'],
   [HU, "while (E.length > 2) E.shift();", "while (E.length > 3) E.shift();", 'Stapel: mehr als 2 Einträge'],
   [HU, "let n = rec ? 1 : 2;", "let n = 2;", 'Aufnahme ersetzt den untersten Platz nicht'],
-  [HU, "if (this.sprech.aktiv && !inConsole) Net.guard('Hud.sprechspalte'", "if (this.sprech.aktiv) Net.guard('Hud.sprechspalte'", 'Sprechspalte auch vor der Konsole (die Konsole deckt sie zu)'],
-  [CL, "if (H.sprech.aktiv) Net.guard('Hud.sprechspalteKonsole', () => H.zeichneSprechspalte(ctx, v));", "", 'Sprechspalte an der Konsole fehlt'],
+  [HU, "if ((this.sprech.aktiv || this.sprech.bots) && !inConsole) Net.guard('Hud.sprechspalte'", "if (this.sprech.aktiv || this.sprech.bots) Net.guard('Hud.sprechspalte'", 'Sprechspalte auch vor der Konsole (die Konsole deckt sie zu)'],
+  [CL, "if (H.sprech.aktiv || H.sprech.bots) Net.guard('Hud.sprechspalteKonsole', () => H.zeichneSprechspalte(ctx, v));", "", 'Sprechspalte an der Konsole fehlt'],
   [HU, "return e.halt ? e.t + 30 : (e.bis || e.t + e.d);", "return e.halt ? Infinity : (e.bis || e.t + e.d);", 'Halt ohne Obergrenze'],
   [HU, "performance.now() / 1000 + 0.5); }", "performance.now() / 1000); }", 'nach Clip-Ende keine 0,5 s'],
   [HU, "e.bis = Math.max(e.t + e.d, performance", "e.bis = Math.max(0, performance", 'nach Clip-Ende nicht mindestens die Grunddauer'],
@@ -122,6 +124,20 @@ const MUTATIONEN = [
   [BMN, "? s.botRolle[msg.an] : null;", "? null : null;", 'D1: bot.status an botId: Quittung ignoriert die bekannte Rolle des Bots', NET],
   [BMN, "msg.an === 'alle' ? Math.max(1, s.botsN) : 1, gilt);", "an === 'alle' ? Math.max(1, s.botsN) : 1, gilt);", 'D1: erwartet folgt dem aufgelösten Adressaten statt dem genannten (botId erwartet 4)', NET],
   [BMN, "s.quittung = p.vorher || null;", "s.quittung = null;", 'D1: Verwerfen stellt die vorige Quittung nicht wieder her', NET],
+  // BOT-04 D2: Stille-Schranke und Messkatalog (der Pegel-Teil im Browser, pegelMesser, ist nur im echten Browser prüfbar: dort mit --use-fake-device-for-media-stream von Hand gemessen)
+  [BS, "if (typeof aufn.pegel === 'number' && aufn.pegel < PEGEL_MIN) {", "if (false) {", 'D2: Stille-Schranke entfernt (Stille geht an STT)', PEG],
+  [BS, "aufn.pegel < PEGEL_MIN) {", "aufn.pegel > PEGEL_MIN) {", 'D2: Vergleich der Stille-Schranke invertiert', PEG],
+  [BS, "aufn.pegel < PEGEL_MIN) {", "aufn.pegel <= PEGEL_MIN) {", 'D2: Grenze exakt zählt schon als Stille', PEG],
+  [BS, "const PEGEL_MIN = 0.005;", "const PEGEL_MIN = 0.2;", 'D2: Grenze auf hohen Wert (leises Sprechen wird verworfen)', PEG],
+  [BS, "if (typeof aufn.pegel === 'number' && aufn.pegel < PEGEL_MIN) {", "if (aufn.pegel < PEGEL_MIN) {", 'D2: pegel null (kein Web Audio) blockiert STT', PEG],
+  [BS, "if (s.messmodus) await messeStille(aufn);", "", 'D2: Stille im Messmodus ohne eigenen Eintrag', PEG],
+  [BS, "meldung(TEXT.stille); return false;", "return false;", 'D2: Stille ohne Meldung', PEG],
+  [BS, "stille: true, pegel: aufn.pegel,", "stille: false, pegel: aufn.pegel,", 'D2: Stille-Eintrag nicht als stille markiert', PEG],
+  [BS, "pegel: x.pegel == null ? null : x.pegel,", "", 'D2: Messeintrag ohne Pegel', PEG],
+  [BS, "pegel: typeof aufn.pegel === 'number' ? aufn.pegel : null });", "});", 'D2: Pegel erreicht den Messeintrag nicht', PEG],
+  [BS, "const v = Math.abs(samples[i]); if (v > m && isFinite(v)) m = v;", "const v = samples[i]; if (v > m && isFinite(v)) m = v;", 'D2: Spitze ohne Betrag (negative Ausschläge zählen nicht)', PEG],
+  [BS, "if (v > m && isFinite(v)) m = v;", "if (v > m) m = v;", 'D2: Spitze lässt Unendlich zu', PEG],
+  [BS, "    if (erwartet === null) return !res;\n", "", 'D2: erwartet null (bewusst nicht erkennbar) wird nicht als richtig gewertet', KAT],
 ];
 
 const nur = process.argv.slice(2).filter((a) => !a.startsWith('--'));
@@ -137,7 +153,7 @@ if (trocken) { console.log('alle ' + MUTATIONEN.length + ' Anker eindeutig'); en
 
 let erkannt = 0, offen = 0, abstuerze = 0;
 const lauf = (test) => spawnSync(process.execPath, ['tools/' + (test || 'test-bot-sprache.js')], { cwd: TMP, encoding: 'utf8', timeout: 120000 });
-for (const t of [null, NET, SRV]) { const basis = lauf(t); if (basis.status !== 0) { console.log('Basis ist nicht grün (' + (t || 'test-bot-sprache.js') + ', Exit ' + basis.status + ')'); console.log(String(basis.stderr || basis.stdout || '').slice(-500)); ende(2); } }
+for (const t of [null, NET, SRV, PEG, KAT]) { const basis = lauf(t); if (basis.status !== 0) { console.log('Basis ist nicht grün (' + (t || 'test-bot-sprache.js') + ', Exit ' + basis.status + ')'); console.log(String(basis.stderr || basis.stdout || '').slice(-500)); ende(2); } }
 for (const [datei, alt, neu, text, test] of MUTATIONEN) {
   if (nur.length && !nur.some((b) => text.includes(b))) continue;
   const pfad = path.join(TMP, datei), orig = fs.readFileSync(pfad, 'utf8');

@@ -1,5 +1,5 @@
 {
- "hinweis": "Phrasenliste fuer ?botmessung=1: je Phrase der erwartete Befehl (BOT-04 C). 23 Katalogbefehle (je Befehl der Beispielsatz des Vertrags) plus bekannte Fehlerfaelle der Erkundung als Varianten.",
+ "hinweis": "Phrasenliste fuer ?botmessung=1: je Phrase der erwartete Befehl (BOT-04 C). 23 Katalogbefehle (je Befehl der Beispielsatz des Vertrags) plus bekannte Fehlerfaelle der Erkundung als Varianten. Erwartet wird, was der MATCHER liefert (BOT-04 D2, getestet in tools/test-bot-katalog.js): Standardwerte fuellt der Server (Feuer frei ohne Waffe = alle, Abstand halten ohne Ziel = markiertes Ziel), deshalb stehen dort keine Argumente; Systemnamen sind die Spiel-IDs (engines, weapons); erwartet null = der Matcher muss null liefern (nav.sprung ist per Sprache nicht erreichbar, Torpedo klar machen kennt der Kanon nicht). Messeintraege mit stille: true (kein Ton) zaehlen nicht als Messung.",
  "phrasen": [
   {
    "id": "p01",
@@ -39,10 +39,7 @@
    "id": "p05",
    "text": "Abstand halten",
    "erwartet": {
-    "befehl": "nav.abstand",
-    "args": {
-     "ziel": "ziel"
-    }
+    "befehl": "nav.abstand"
    }
   },
   {
@@ -55,12 +52,7 @@
   {
    "id": "p07",
    "text": "Sprung nach Hex zwölf",
-   "erwartet": {
-    "befehl": "nav.sprung",
-    "args": {
-     "ziel": "hex:12"
-    }
-   }
+   "erwartet": null
   },
   {
    "id": "p08",
@@ -76,10 +68,7 @@
    "id": "p09",
    "text": "Feuer frei",
    "erwartet": {
-    "befehl": "ops.feuer_frei",
-    "args": {
-     "waffen": "alle"
-    }
+    "befehl": "ops.feuer_frei"
    }
   },
   {
@@ -129,7 +118,7 @@
    "erwartet": {
     "befehl": "tech.reparieren",
     "args": {
-     "system": "antrieb"
+     "system": "engines"
     }
    }
   },
@@ -149,7 +138,7 @@
    "erwartet": {
     "befehl": "tech.energie",
     "args": {
-     "system": "waffen",
+     "system": "weapons",
      "delta": 1
     }
    }
@@ -226,12 +215,7 @@
   {
    "id": "p27",
    "text": "Torpedo klar machen",
-   "erwartet": {
-    "befehl": "ops.feuer_frei",
-    "args": {
-     "waffen": "torpedo"
-    }
-   }
+   "erwartet": null
   },
   {
    "id": "p28",

@@ -21,6 +21,7 @@
     sttAus: 'Sprache nicht erreichbar – Menü, Tasten und Textzeile laufen weiter.',
     sttNichtEingerichtet: 'Sprache nicht eingerichtet (STT_URL fehlt).',   // Server: 503 { fehler: 'stt-aus' }
     mikro: 'Mikrofon nicht verfügbar – Textzeile und Tasten laufen weiter.',
+    stille: 'Mikrofon liefert keinen Ton.',   // BOT-04 D2: Pegel unter PEGEL_MIN, es geht nichts an STT
     keinMatcher: 'Befehlsabgleich nicht geladen.',
     keinBotServer: 'Kein Bot-Server verbunden.',
     zuKurz: 'Zu kurz – Taste halten und dabei sprechen.',
@@ -38,6 +39,10 @@
   const MAX_MS = 60000;                                                        // Höchstdauer einer Aufnahme (Auto-Stop); der Server nimmt ohnehin nur 1 MB
   const UNKLAR_VARIANTEN = 2;                                                  // bot.unklar.0 / .1 im Vorrat (texte.json), abwechselnd
   const MIN_MS = 250;                                                          // kürzere Aufnahmen sind versehentliche Tastenkontakte
+  // BOT-04 D2 Stille-Schranke: liegt die SPITZE (größter Betrag der Samples, 0..1) einer Aufnahme unter dieser Grenze, geht kein Audio an STT (Whisper erfindet auf Stille Sätze).
+  // ABSICHTLICH SEHR NIEDRIG (0,005 = -46 dBFS): sie fängt nur ein falsches/stummes Eingabegerät (Digital-Stille, Spitze 0; totes Rauschen liegt bei 0,001 bis 0,003), nie leises Sprechen
+  // (Flüstern am Mikrofon liegt über 0,02). Ein verworfener echter Befehl im Gefecht ist schlimmer als ein überflüssiger STT-Aufruf. pegel null (kein Web Audio) = ungeprüft senden.
+  const PEGEL_MIN = 0.005;
   const CLIP_BASIS = '/assets/bots/stimmen';
   const ENDUNGEN = ['wav', 'ogg'];                                             // der Vorrat hat nur WAV: zuerst wav, sonst erzeugte jeder Clip ein 404 auf .ogg
 
@@ -51,8 +56,17 @@
     for (const e of ENDUNGEN) out.push(b + '.' + e);
     return out;
   }
+  // Spitze einer Sample-Folge (Float32Array o. ä., -1..1): größter Betrag, nicht endliche Werte zählen nicht, leer = 0. Reine Rechenlogik der Pegelmessung (der Browser-Teil liefert nur die Samples).
+  function spitzeAusSamples(samples) {
+    let m = 0;
+    if (!samples) return 0;
+    for (let i = 0; i < samples.length; i++) { const v = Math.abs(samples[i]); if (v > m && isFinite(v)) m = v; }
+    return m;
+  }
   // richtig = gleicher Befehl, alle erwarteten Argumente (als Text verglichen) und, falls erwartet, gleicher Adressat
+  // erwartet null = bewusst nicht erkennbar (z. B. nav.sprung per Sprache): richtig, wenn der Matcher null liefert
   function erwartungErfuellt(erwartet, res) {
+    if (erwartet === null) return !res;
     if (!res || !res.befehl || !erwartet) return false;
     if (res.befehl !== erwartet.befehl) return false;
     if (erwartet.an && res.an !== erwartet.an) return false;
@@ -146,6 +160,10 @@
     async function verarbeiteAufnahme(aufn, t0, marke) {
       if (!s.an) return false;   // Sprache inzwischen aus: nichts mehr an STT schicken
       if (!aufn || !aufn.blob || !(aufn.blob.size > 0) || (aufn.dauerMs != null && aufn.dauerMs < MIN_MS)) { meldung(TEXT.zuKurz); return false; }
+      if (typeof aufn.pegel === 'number' && aufn.pegel < PEGEL_MIN) {   // D2: kein Ton angekommen: nichts an STT, keine Befehlsauswertung
+        if (s.messmodus) await messeStille(aufn);
+        meldung(TEXT.stille); return false;
+      }
       const tStt0 = uhr();
       let text;
       try { text = await env.stt(aufn.blob, aufn.mime); } catch (e) { meldung(e && e.status === 413 ? TEXT.zuLang : e && e.fehler === 'stt-aus' ? TEXT.sttNichtEingerichtet : TEXT.sttAus); return false; }
@@ -156,7 +174,7 @@
       const g = text ? await gleiche(text) : { res: null };
       if (g.fehlt) { meldung(TEXT.keinMatcher); return false; }
       const tMatcher = uhr();
-      if (s.messmodus) return messeEin({ text, res: g.res, t_stt_ms: tText - tStt0, t_text_ms: tText - t0, t_matcher_ms: tMatcher - t0, dauer_aufnahme_ms: aufn.dauerMs == null ? null : Math.round(aufn.dauerMs) });
+      if (s.messmodus) return messeEin({ text, res: g.res, t_stt_ms: tText - tStt0, t_text_ms: tText - t0, t_matcher_ms: tMatcher - t0, dauer_aufnahme_ms: aufn.dauerMs == null ? null : Math.round(aufn.dauerMs), pegel: typeof aufn.pegel === 'number' ? aufn.pegel : null });
       return ergebnis(g.res, 'sprache', marke);
     }
 
@@ -229,8 +247,18 @@
         zeit: new Date().toISOString(), phraseId: p ? p.id : null, phrase: p ? p.text : null, erwartet: p ? p.erwartet : null,
         rohtext: x.text, ergebnis: res ? { an: res.an, befehl: res.befehl, args: res.args || null } : null, konfidenz: res && res.konfidenz != null ? res.konfidenz : null,
         richtig: p ? erwartungErfuellt(p.erwartet, res) : null,
-        t_stt_ms: Math.round(x.t_stt_ms), t_text_ms: Math.round(x.t_text_ms), t_matcher_ms: Math.round(x.t_matcher_ms), dauer_aufnahme_ms: x.dauer_aufnahme_ms,   // t_text: Loslassen -> Text (Aufnahme beenden + STT), t_matcher: Loslassen -> Matcher fertig
+        t_stt_ms: Math.round(x.t_stt_ms), t_text_ms: Math.round(x.t_text_ms), t_matcher_ms: Math.round(x.t_matcher_ms), dauer_aufnahme_ms: x.dauer_aufnahme_ms, pegel: x.pegel == null ? null : x.pegel,   // t_text: Loslassen -> Text (Aufnahme beenden + STT), t_matcher: Loslassen -> Matcher fertig
       };
+      m.eintraege.push(eintrag);
+      zeigeMessung();
+      if (m.post) { try { await m.post(m.sitzung, eintrag); } catch (e) { meldung(TEXT.messungFehler); } }
+      return eintrag;
+    }
+
+    // Stille im Messmodus: eigener Eintrag mit stille: true (kein Rohtext, kein Ergebnis, richtig null). Er zählt NICHT als Messung der Phrase (die Auswertung nimmt Einträge mit stille: true aus; das Messfeld zeigt sie als „kein Ton“).
+    async function messeStille(aufn) {
+      const m = s.messmodus, p = aktuellePhrase();
+      const eintrag = { zeit: new Date().toISOString(), phraseId: p ? p.id : null, phrase: p ? p.text : null, erwartet: p ? p.erwartet : null, stille: true, pegel: aufn.pegel, rohtext: null, ergebnis: null, konfidenz: null, richtig: null, t_stt_ms: null, t_text_ms: null, t_matcher_ms: null, dauer_aufnahme_ms: aufn.dauerMs == null ? null : Math.round(aufn.dauerMs) };
       m.eintraege.push(eintrag);
       zeigeMessung();
       if (m.post) { try { await m.post(m.sitzung, eintrag); } catch (e) { meldung(TEXT.messungFehler); } }
@@ -295,6 +323,31 @@
     };
   }
 
+  // D2: misst die Spitze des Mikrofonsignals während der Aufnahme (AudioContext + AnalyserNode, alle 30 ms ein Fenster von 2048 Samples, Rechnung in spitzeAusSamples).
+  // ende() liefert die Spitze 0..1 und gibt den Kontext frei; null, wenn kein Web Audio da ist, der Kontext nicht lief oder nie ein Fenster gelesen wurde (nie raten: lieber ungeprüft senden als einen Befehl verwerfen).
+  function pegelMesser(win, stream) {
+    let ctx = null, an = null, buf = null, timer = null, spitze = 0, fenster = 0, fertig = false;
+    const lies = () => { try { an.getFloatTimeDomainData(buf); spitze = Math.max(spitze, spitzeAusSamples(buf)); fenster++; } catch (e) { /* egal */ } };
+    try {
+      const AC = win.AudioContext || win.webkitAudioContext;
+      if (AC) {
+        ctx = new AC(); const quelle = ctx.createMediaStreamSource(stream);
+        an = ctx.createAnalyser(); an.fftSize = 2048; buf = new Float32Array(an.fftSize); quelle.connect(an);   // nicht an den Ausgang: kein Echo
+        try { if (ctx.state === 'suspended' && ctx.resume) ctx.resume(); } catch (e) { /* egal */ }
+        timer = setInterval(() => { if (ctx && ctx.state === 'running') lies(); }, 30);
+      }
+    } catch (e) { if (timer) clearInterval(timer); timer = null; try { if (ctx && ctx.close) ctx.close(); } catch (x) { /* egal */ } ctx = null; an = null; }
+    return {
+      ende() {
+        if (fertig || !ctx) return null;
+        fertig = true; if (timer) clearInterval(timer); timer = null;
+        const lief = ctx.state === 'running'; if (lief) lies();
+        try { if (ctx.close) ctx.close(); } catch (e) { /* egal */ }
+        return lief && fenster > 0 ? spitze : null;
+      },
+    };
+  }
+
   function mikrofonBrowser(win) {
     const MR = win.MediaRecorder;
     const waehleMime = () => { for (const t of ['audio/webm;codecs=opus', 'audio/webm', 'audio/ogg;codecs=opus', 'audio/mp4']) { try { if (MR.isTypeSupported && MR.isTypeSupported(t)) return t; } catch (e) { /* weiter */ } } return ''; };
@@ -304,14 +357,16 @@
         const stream = await win.navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true } });
         const frei = () => { try { stream.getTracks().forEach((t) => t.stop()); } catch (e) { /* egal */ } };
         let rec; const mime = waehleMime(), teile = [], t0 = Date.now();
+        const pm = pegelMesser(win, stream);   // D2: Pegel der Aufnahme (null, wenn Web Audio fehlt oder nicht lief)
+        const frei2 = () => { frei(); pm.ende(); };
         try {
           rec = new MR(stream, mime ? { mimeType: mime } : {});
           rec.ondataavailable = (ev) => { if (ev.data && ev.data.size) teile.push(ev.data); };
           rec.start();
-        } catch (e) { frei(); throw e; }   // Mikrofonstream nie offen lassen, wenn der Recorder nicht startet
+        } catch (e) { frei2(); throw e; }   // Mikrofonstream nie offen lassen, wenn der Recorder nicht startet
         return {
-          stop() { return new Promise((resolve) => { rec.onstop = () => { frei(); const typ = rec.mimeType || mime || 'audio/webm'; resolve({ blob: new win.Blob(teile, { type: typ }), mime: typ, dauerMs: Date.now() - t0 }); }; try { rec.stop(); } catch (e) { frei(); resolve(null); } }); },
-          abbruch() { rec.onstop = null; try { rec.stop(); } catch (e) { /* egal */ } frei(); },
+          stop() { return new Promise((resolve) => { rec.onstop = () => { const pegel = pm.ende(); frei(); const typ = rec.mimeType || mime || 'audio/webm'; resolve({ blob: new win.Blob(teile, { type: typ }), mime: typ, dauerMs: Date.now() - t0, pegel }); }; try { rec.stop(); } catch (e) { frei2(); resolve(null); } }); },
+          abbruch() { rec.onstop = null; try { rec.stop(); } catch (e) { /* egal */ } frei2(); },
         };
       },
     };
@@ -444,11 +499,12 @@
         mess.textContent = '';
         mess.appendChild(el('div', { color: F.gold, letterSpacing: '1px' }, 'MESSUNG  ' + (stand.index + 1) + '/' + stand.phrasen.length));
         mess.appendChild(el('div', { color: F.dim, margin: '2px 0 6px' }, 'Sprechtaste halten, die markierte Phrase sagen, loslassen. Bild↑/Bild↓ oder Knöpfe wechseln.'));
-        const letzte = {}; for (const e of stand.eintraege) letzte[e.phraseId] = e;
+        const letzte = {}, stille = {}; for (const e of stand.eintraege) { if (e.stille) stille[e.phraseId] = e; else { letzte[e.phraseId] = e; delete stille[e.phraseId]; } }   // Stille zählt nicht als Messung
         stand.phrasen.forEach((p, i) => {
           const e = letzte[p.id], an = i === stand.index;
           const zeile2 = el('div', { color: an ? F.gold : F.text, borderLeft: '2px solid ' + (an ? F.gold : 'transparent'), paddingLeft: '6px' }, (e ? (e.richtig ? '[ok] ' : '[--] ') : '[  ] ') + p.text);
           mess.appendChild(zeile2);
+          if (stille[p.id] && an) mess.appendChild(el('div', { color: F.gold, paddingLeft: '6px' }, 'kein Ton (Pegel ' + Number(stille[p.id].pegel).toFixed(4) + ') · nicht gewertet'));
           if (e && an) mess.appendChild(el('div', { color: F.dim, paddingLeft: '6px' }, '„' + e.rohtext + '“ → ' + (e.ergebnis ? e.ergebnis.befehl : 'unklar') + (e.konfidenz != null ? ' ' + e.konfidenz : '') + ' · ' + e.t_matcher_ms + ' ms'));
         });
         const knoepfe = el('div', { marginTop: '6px' });
@@ -521,5 +577,5 @@
 
   // BOT-01 C3: verarbeitet die Sprache die bot.antwort der Spielverbindung selbst? Dann zeigt public/js/pult-befehl.js sie nicht noch einmal (genau ein Verarbeiter je Antwort). Der Net-Transport (transportNet, BOT-04 D) setzt `netz: true`.
   const netAntworten = () => !!(instanz && instanz.transport && instanz.transport.netz === true);
-  return { erzeuge, clipKandidaten, netAntworten, erwartungErfuellt, transportNet, menueAnschluss, mockUrlErlaubt, TEXT, MAX_MS, STIMMEN, CLIP_BASIS, transportWebSocket, transportNetStub, anzeigeHud, sprecherName, startHinweis, UNKLAR_DAUER_S, mikrofonBrowser, audioBrowser, sttBrowser, starte, stoppe, laeuft: () => !!instanz };
+  return { erzeuge, spitzeAusSamples, PEGEL_MIN, clipKandidaten, netAntworten, erwartungErfuellt, transportNet, menueAnschluss, mockUrlErlaubt, TEXT, MAX_MS, STIMMEN, CLIP_BASIS, transportWebSocket, transportNetStub, anzeigeHud, sprecherName, startHinweis, UNKLAR_DAUER_S, mikrofonBrowser, audioBrowser, sttBrowser, starte, stoppe, laeuft: () => !!instanz };
 });
