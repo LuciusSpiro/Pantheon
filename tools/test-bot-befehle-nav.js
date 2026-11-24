@@ -636,7 +636,7 @@ section('11 Menschenpartie ohne Bot-Code, Quellscan der Registries, Wachposten, 
 }
 {
   // Quellscan der Registries (server/bots/befehle/*.js): kein Zugriff, der Spielzustand aendert. Erlaubt sind nur diese lesenden Aufrufe von Spielmodulen; alles andere ist ein Befund.
-  const ERLAUBT = new Set(['Navziel.aufloesen', 'Navziel.dockLage', 'Navziel.sprungGrundOffen', 'Station.stationOf', 'Sprung.jammersPresent', 'CaptainZiel.gueltig', 'Space.resolveTarget', 'Waffen.mountState', 'Lauf.agent', 'Status.text', 'Math.max', 'Math.min', 'Math.round', 'Math.abs', 'Math.floor', 'Math.hypot', 'Object.keys', 'Object.assign', 'Object.entries', 'Object.freeze', 'Array.isArray', 'JSON.stringify', 'Number.isFinite', 'Number.isInteger', 'String.raw']);
+  const ERLAUBT = new Set(['Navziel.aufloesen', 'Navziel.dockLage', 'Navziel.sprungGrundOffen', 'Station.stationOf', 'Sprung.jammersPresent', 'CaptainZiel.gueltig', 'Space.resolveTarget', 'Waffen.mountState', 'Lauf.agent', 'Lauf.dienstLaeuft', 'Lage.untenMenschen', 'Lage.anyAway', 'Lage.allesDowned', 'Lage.rueckholSperre', 'Lage.captainBelegt', 'Lage.supportSperre', 'Status.text', 'Math.max', 'Math.min', 'Math.round', 'Math.abs', 'Math.floor', 'Math.hypot', 'Object.keys', 'Object.assign', 'Object.entries', 'Object.freeze', 'Array.isArray', 'JSON.stringify', 'Number.isFinite', 'Number.isInteger', 'String.raw']);
   const scan = (quelle) => {
     const q = quelle.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/.*$/gm, '').replace(/'(?:[^'\\\n]|\\.)*'|`(?:[^`\\]|\\.)*`/g, "''");
     const funde = [];

@@ -295,7 +295,7 @@ section('6 Wachposten: im Dienst nur die Whitelist (transfer.recall, captain.sup
 }
 
 // ---------- 7 bord.*-Befehle ----------
-section('7 bord.*: kein_bot ohne Bord-Bot, nicht_jetzt mit Geruest');
+section('7 bord.*: kein_bot ohne Bord-Bot, kein_ziel ohne Menschen unten, nicht_jetzt (B2: Wirkung und Rueckholung in test-bot02-rueckholung.js)');
 {
   const N = partie({ bots: [] });
   const r0 = ['bord.rueckholen', 'bord.sensor', 'bord.kuppel'].map((b) => befehl(N, { an: 'bord', befehl: b })[0]);
@@ -305,10 +305,11 @@ section('7 bord.*: kein_bot ohne Bord-Bot, nicht_jetzt mit Geruest');
   const tb = botVon(P, 'technik');
   const antw = () => ['bord.rueckholen', 'bord.sensor', 'bord.kuppel'].map((b) => befehl(P, { an: 'bord', befehl: b }));
   let r = antw();
-  ok(r.every((x) => x.length === 1 && x[0].status === 'abgelehnt' && x[0].textId === `${x[0].befehl}.abgelehnt.nicht_jetzt` && x[0].botId === tb.botId && typeof x[0].text === 'string'), 'mit Bots, Mensch an Bord: nicht_jetzt (Text vorhanden), Antwort vom Bord-Bot');
+  ok(r.every((x) => x.length === 1 && x[0].status === 'abgelehnt' && x[0].textId === `${x[0].befehl}.abgelehnt.kein_ziel` && x[0].botId === tb.botId && typeof x[0].text === 'string'), 'mit Bots, Mensch an Bord (niemand unten): kein_ziel (Text vorhanden), Antwort vom Bord-Bot');
   runter(P.h); lauf(P, 40, () => tb.console === 'transfer'); lauf(P, 1);
+  P.g.support.recall = 30; P.g.support.sensor = 30; P.g.support.kuppel = 30;   // Abklingzeiten: die bord.*-Befehle antworten nicht_jetzt (ohne Weg, ohne Rueckholung); die Wirkung prueft test-bot02-rueckholung.js
   r = antw();
-  ok(r.every((x) => x.length === 1 && x[0].textId === `${x[0].befehl}.abgelehnt.nicht_jetzt` && x[0].botId === tb.botId), 'Dienst laeuft: weiter nicht_jetzt (Geruest, B2 bis B4 fuellen)');
+  ok(r.every((x) => x.length === 1 && x[0].textId === `${x[0].befehl}.abgelehnt.nicht_jetzt` && x[0].botId === tb.botId), 'Dienst laeuft, Abklingzeiten laufen: nicht_jetzt');
   const alle = befehl(P, { an: 'alle', befehl: 'bord.sensor' });
   ok(alle.length === 1 && alle[0].textId === 'bord.sensor.abgelehnt.adressat', 'an: alle schliesst bord aus (bord.sensor an alle: adressat)');
   const rolle = befehl(P, { an: 'technik', befehl: 'bord.sensor' });

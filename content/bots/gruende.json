@@ -35,9 +35,9 @@
     "tech.schild": ["unbekannt", "adressat", "quelle", "argument", "phase", "wartet", "nicht_jetzt", "rate", "kein_bot", "system", "fehler"],
     "tech.energie": ["unbekannt", "adressat", "quelle", "argument", "phase", "wartet", "nicht_jetzt", "rate", "kein_bot", "system", "fehler"],
     "tech.ueberladen": ["unbekannt", "adressat", "quelle", "argument", "phase", "wartet", "nicht_jetzt", "rate", "kein_bot", "system", "fehler"],
-    "bord.rueckholen": ["unbekannt", "adressat", "quelle", "argument", "phase", "wartet", "nicht_jetzt", "rate", "kein_bot", "system", "fehler"],
-    "bord.sensor": ["unbekannt", "adressat", "quelle", "argument", "phase", "wartet", "nicht_jetzt", "rate", "kein_bot", "system", "fehler"],
-    "bord.kuppel": ["unbekannt", "adressat", "quelle", "argument", "phase", "wartet", "nicht_jetzt", "rate", "kein_bot", "system", "fehler"],
+    "bord.rueckholen": ["unbekannt", "adressat", "quelle", "argument", "phase", "wartet", "kein_ziel", "nicht_jetzt", "rate", "kein_bot", "system", "fehler"],
+    "bord.sensor": ["unbekannt", "adressat", "quelle", "argument", "phase", "wartet", "kein_ziel", "nicht_jetzt", "rate", "kein_bot", "system", "fehler"],
+    "bord.kuppel": ["unbekannt", "adressat", "quelle", "argument", "phase", "wartet", "kein_ziel", "nicht_jetzt", "rate", "kein_bot", "system", "fehler"],
     "bot.status": ["unbekannt", "adressat", "quelle", "argument", "phase", "rate", "kein_bot", "fehler"],
     "bot.automatik": ["unbekannt", "adressat", "quelle", "argument", "phase", "rate", "kein_bot", "fehler"]
   }
