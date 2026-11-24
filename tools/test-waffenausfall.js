@@ -33,7 +33,7 @@ function szene(opts) {
   const st = { g, e, sh, t: 0, schuss: 0, seen: new Set(), wechsel: [], facing: null, sideWechsel: 0, side: e.side };
   st.tick = () => {
     if (opts && opts.fahrt) { ang += om * DT; sh.x = g.space.w / 2 + Math.cos(ang) * R0; sh.y = g.space.h / 2 + Math.sin(ang) * R0; sh.angle = ang + Math.PI / 2; sh.vx = -Math.sin(ang) * R0 * om; sh.vy = Math.cos(ang) * R0 * om; }
-    if (e.shields) { e.shields[1] = 2; e.shields[3] = 2; }   // die Schildregel (schwaches Segment) soll nicht mitwechseln: nur der Waffenausfall unterscheidet
+    if (e.shields) { if (st.schilde) st.schilde(); else { e.shields[1] = 2; e.shields[3] = 2; } }   // die Schildregel (schwaches Segment) soll nicht mitwechseln: nur der Waffenausfall unterscheidet
     g.step(); st.t += DT;
     for (const p of g.space.projectiles) if (p.owner === e.id && !st.seen.has(p.id)) { st.seen.add(p.id); st.schuss++; }
     if (e.side !== st.side) { st.sideWechsel++; st.side = e.side; }   // Umlauf auf die andere Seite des Sollpunkts
@@ -74,6 +74,19 @@ console.log('\nWaffe der zugewandten Seite zerstört (Lerche steht), beide Seite
     ok(s.wechsel.length === w1 && zuAlt === 0, T + '60 s später kein Rückwechsel: die ausgefallene Seite zeigt nie wieder zur Lerche (' + zuAlt + ' Ticks)');
   }
   ok(gesehen.size === 2, 'beide Seiten kamen als zugewandte ausgefallene Seite vor (' + [...gesehen].map((x) => SEITE[x]).join(', ') + ')');
+}
+
+console.log('\nUngleiche Schilde bei Waffenausfall (Lerche steht): Vorrang des Ausfalls vor der Schwachschild-Regel, kein Umlauf');
+for (const [seed, angle] of [[31, 0.7], [32, -0.7]]) {
+  const s = szene({ seed, angle });
+  if (!s.einschwingen()) { ok(false, 'Seed ' + seed + ': Boot liegt mit einer Seite zur Lerche'); continue; }
+  const alt = s.sec(), neu = alt === 1 ? 3 : 1;
+  // die heile Seite hat Schild 0 (vom Spieler beschossen), die ausgefallene Seite Schild 4: die Schwachschild-Regel will wechseln
+  s.schilde = () => { s.e.shields[neu] = 0; s.e.shields[alt] = 4; };
+  s.zerstoere(alt); s.facing = alt; const sw0 = s.sideWechsel, s0 = s.schuss;
+  for (let i = 0, N = Math.round(120 / DT); i < N; i++) { s.halte(alt); s.tick(); }
+  ok(s.sideWechsel === sw0, 'Seed ' + seed + ': kein Platzwechsel-Umlauf trotz schwachem Schild der heilen Seite (Platzwechsel ' + (s.sideWechsel - sw0) + ')');
+  ok(s.sec() === neu && s.schuss - s0 > 0, 'Seed ' + seed + ': die heile Seite zeigt zur Lerche und schießt (' + SEITE[s.sec()] + ', Schüsse ' + (s.schuss - s0) + ')');
 }
 
 console.log('\nWaffe der zugewandten Seite funktioniert: kein Wechsel');

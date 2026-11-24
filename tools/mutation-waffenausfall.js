@@ -38,6 +38,7 @@ const MUTATIONEN = [
   [PI, "const waffeAus = other != null && ws != null && (e.side === 1 ? 3 : 1) !== ws && tv >= 15;", "const waffeAus = other != null && ws != null && tv >= 15;", "Seitenwechsel auch, wenn die richtige Seite schon zeigt"],
   [PI, "const waffeAus = other != null && ws != null && (e.side === 1 ? 3 : 1) !== ws && tv >= 15;", "const waffeAus = other != null && ws != null && (e.side === 1 ? 3 : 1) !== ws;", "Seitenwechsel auch bei stehender Lerche (Umlauf statt Drehen)"],
   [PI, "(((weak || waffeAus) && nearSt) || e.offBeamT > 6)", "((weak && nearSt) || e.offBeamT > 6)", "Waffenausfall löst keinen Seitenwechsel aus"],
+  [PI, "const weak = ws == null && other != null", "const weak = other != null", "Schwachschild-Regel auch bei Waffenausfall (Umlauf bei ungleichen Schilden)"],
   [PI, "      e.side = -e.side; e.offBeamT = 0; e.switchCd = K.switchCd;", "      e.side = -e.side; e.offBeamT = 0; e.switchCd = 0;", "Abklingzeit nach dem Wechsel fehlt"],
   [PI, "((e.side === 1 ? 3 : 1) === ws ? base : norm(base + Math.PI))", "((e.side === 1 ? 3 : 1) !== ws ? base : norm(base + Math.PI))", "Quer liegen: falsche Seite zur Lerche"],
   [PI, "ws != null ? ((e.side === 1 ? 3 : 1) === ws", "false ? ((e.side === 1 ? 3 : 1) === ws", "Quer liegen: Waffenseite ignoriert"],
