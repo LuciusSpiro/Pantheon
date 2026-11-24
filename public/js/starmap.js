@@ -545,6 +545,7 @@
 
     // SL1B: Marken (Missionsziele, Notrufe, Spuren, Funde, Kontakte). Ziel: gestrichelter Doppelring + Fähnchen, die übrigen: Plakette an der
     // oberen rechten Ecke des Hexes; mehrere Marken im selben Hex stehen nebeneinander. Notrufe zeigen ihre Restzeit als Bogen.
+    const mkRects = [];   // SPT-02 5: Klickflächen der Plaketten (markeAn): { id, t, h, x, y, r }
     {
       const nr = {};
       const pr = Math.max(LG ? LG.M.notruf.rMinLage : 5, Math.min(9, s * 0.2));   // SUND-01 F: in der Lage-Karte mindestens 6
@@ -559,6 +560,7 @@
         const k = nr[mk.h] = (nr[mk.h] || 0) + 1;
         const px = p.x + s * 0.5 - (k - 1) * (pr * 2 + 1), py = p.y - h3 / 2 + pr + 2;
         KZ.marke(ctx, mk.t, px, py, t, { r: pr, hier: mk.h === L.hier, rest: mk.b, gesamt: mk.g || 0, deckend: !!LG });
+        if (mk.t !== 'ziel' && mk.id) mkRects.push({ id: mk.id, t: mk.t, h: mk.h, x: px, y: py, r: pr });
       }
     }
 
@@ -612,7 +614,7 @@
     ctx.strokeStyle = COL.messing; ctx.lineWidth = 1; ctx.strokeRect(rect.x + 0.5, rect.y + 0.5, rect.w - 1, rect.h - 1);
     if (LG) { store.hoverHex = hover; store.lageModell = { A, adj: lageAdj(P), hier: L.hier, hexe: Object.keys(K.hexe), verborgen: new Set(Object.keys(K.hexe).filter((h) => hexStatus(P, L, h).art === 'verborgen')) }; } else { store.hoverHex = null; store.lageModell = null; }   // SUND-01 C: für die Spalte der Konsole
     if (opts.rects) opts.rects.length = 0;   // Treffer laufen über StarMap.hit
-    return { toS, toW, scale: s, mitte, layout: { rect: gArea, gx, gy, s, h3, alle, mitte, ansicht, area: gArea } };
+    return { toS, toW, scale: s, mitte, layout: { rect: gArea, gx, gy, s, h3, alle, mitte, ansicht, area: gArea, marken: mkRects } };
   }
 
   // Textzeilen zum Fokus-Hex
@@ -872,6 +874,18 @@
       if (store.aus) return null;
       try { return treffer(x, y, rects); } catch (e) { report('StarMap.hit', e); return null; }
     },
+    // SPT-02 5: (x, y, rects) -> { id, t, h } der Plakette (nicht Ziel) unter dem Punkt oder null; gleiche Zuordnung zur Karte wie hit() (rects), nur im Kartenbereich
+    markeAn(x, y, rects) {
+      if (store.aus) return null;
+      try {
+        const lay = store.layouts.find((l) => l.hex && (!rects || l.rects === rects) && x >= l.rect.x && y >= l.rect.y && x < l.rect.x + l.rect.w && y < l.rect.y + l.rect.h);
+        if (!lay || !lay.marken) return null;
+        if (lay.area && (x < lay.area.x || y < lay.area.y || x >= lay.area.x + lay.area.w || y >= lay.area.y + lay.area.h)) return null;
+        let best = null, bd = 1e9;
+        for (const m of lay.marken) { const d = Math.hypot(m.x - x, m.y - y); if (d <= m.r + 3 && d < bd) { bd = d; best = m; } }
+        return best ? { id: best.id, t: best.t, h: best.h } : null;
+      } catch (e) { report('StarMap.markeAn', e); return null; }
+    },
     // Für Tests: Hexmitte in Bildschirmkoordinaten der zuletzt gezeichneten Karte
     hexMitte(hex, rects) {
       const l = store.layouts.find(q => q.hex && (!rects || q.rects === rects)) || null;
@@ -882,7 +896,7 @@
     const key = rects || null;
     let l = store.layouts.find(q => q.rects === key);
     if (!l) { l = { rects: key }; store.layouts.push(l); if (store.layouts.length > 6) store.layouts.shift(); }
-    Object.assign(l, { rect, hex: true, s: layout.s, alle: layout.alle, mitte: layout.mitte, state, area: layout.area });
+    Object.assign(l, { rect, hex: true, s: layout.s, alle: layout.alle, mitte: layout.mitte, state, area: layout.area, marken: layout.marken || [] });
   }
   function markAlt(rects) {
     const l = store.layouts.find(q => q.rects === (rects || null));
