@@ -131,6 +131,15 @@
         }
       }
     },
+    "fels": {
+      "terrain": true
+    },
+    "leere": {
+      "leer": true
+    },
+    "abgrund": {
+      "leer": true
+    },
     "baum": {
       "id": "natur/nadelbaum",
       "nadel": "natur/nadelbaum",
@@ -170,6 +179,7 @@
     "terminal": {
       "station": "ort/rom/gemein/terminal",
       "aussenposten": "ort/rom/gemein/terminal",
+      "schiff": "ort/rom/gemein/terminal",
       "*": "prop/rom/ruine/offiziersschloss"
     },
     "raetsel": {
@@ -179,11 +189,13 @@
     "sprengpunkt": {
       "station": "ort/rom/station/sprengreaktor",
       "aussenposten": "ort/rom/aussenposten/zellenbatterie",
+      "schiff": "prop/rom/schiff/reaktor_schiff",
       "*": "prop/rom/ruine/munitionskammer"
     },
     "beute": {
       "station": "ort/rom/gemein/kassenkapsel",
       "aussenposten": "ort/rom/gemein/kassenkapsel",
+      "schiff": "ort/rom/gemein/kassenkapsel",
       "*": "prop/rom/ruine/legionskasse"
     },
     "fund": {
@@ -197,17 +209,31 @@
     "ziel": {
       "station": "ort/rom/gemein/feldstandarte",
       "aussenposten": "ort/rom/gemein/feldstandarte",
+      "schiff": {
+        "bruecke": "prop/rom/schiff/bruecke_konsole",
+        "reaktor": "prop/rom/schiff/reaktor_schalter",
+        "batteriedeck": "prop/rom/schiff/batterie_deck",
+        "*": "prop/rom/schiff/laderaum_stapel"
+      },
       "*": "leit/rom/ruine/fahnenheiligtum"
     },
     "abholpunkt": {
       "station": "ort/rom/gemein/abholbake",
       "aussenposten": "ort/rom/gemein/abholbake",
+      "schiff": "ort/rom/gemein/abholbake",
       "*": "prop/germanen/gemein/bake_abholpunkt"
     },
     "zelle": {
       "station": "ort/rom/gemein/zelle",
       "aussenposten": "ort/rom/gemein/zelle",
+      "schiff": "ort/rom/gemein/zelle",
       "*": "prop/rom/ruine/carcer"
+    },
+    "lift": {
+      "*": "prop/rom/schiff/lift_schacht"
+    },
+    "leiter": {
+      "*": "prop/rom/schiff/leiter"
     }
   },
   "leit": {
@@ -294,7 +320,8 @@
         "intakt": "rom",
         "verfallen": "rom_verfallen",
         "umkaempft": "rom_umkaempft"
-      }
+      },
+      "schiff": "lerche_rom"
     }
   },
   "stimmung": {
@@ -304,7 +331,10 @@
     "wildnis": "wildnis_wiesenwald",
     "wildnis:wueste": "wildnis_wueste",
     "wildnis:gras": "wildnis_wiesenwald",
-    "wildnis:vulkan": "wildnis_vulkan"
+    "wildnis:vulkan": "wildnis_vulkan",
+    "schiff": "ship_rom",
+    "schiff:verfallen": "ship_rom_verfallen",
+    "schiff:umkaempft": "ship_rom_umkaempft"
   },
   "deckung_props": {
     "hinweis": "Außenposten: Deckungskacheln zeigen diese Props statt der Kit-Teile (Kai 2026-10-11). Nie Truhe/Kiste: das sind Beute-Objekte. Auswahl je Kachel nach Hash.",

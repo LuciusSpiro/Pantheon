@@ -1,0 +1,11 @@
+{
+  "id": "ship_rom_umkaempft",
+  "name": "Rom-Schiff innen, umkämpft – Notlicht: dunkles, fast neutrales Grundlicht, Rot im Schatten, warnend, dunkler Weltraum-Hintergrund, leichter Rauchnebel",
+  "background": "#080406",
+  "fog": { "color": "#1E0C0C", "near": 1.6, "far": 5 },
+  "hemi": { "sky": "#8A2A22", "ground": "#3A0C0A", "intensity": 0.85 },
+  "ambient": { "color": "#3A1614", "intensity": 0.3 },
+  "sun": { "color": "#E8C8C0", "intensity": 0.75, "dir": [-0.3, 1, 0.35], "softness": 4 },
+  "exposure": 1.05,
+  "bloom": { "strength": 0.7, "radius": 0.55, "threshold": 0.7 }
+}

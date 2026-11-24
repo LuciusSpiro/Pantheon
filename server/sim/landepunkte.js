@@ -649,7 +649,7 @@ function ortBeam(ort) {
   if (sc) return { x: Math.round(sc.w / 2), y: Math.round(sc.h / 2), range: 360 };
   return { x: 0, y: 0, range: 360 };
 }
-// prise(game, ort, gegner { id, fraktion, x, y, beam? }) -> lpId '<ort>.prise' (§7); beam z. B. aus Entern.beamPunkt: Schiff, Bauweise aus dem Besitz (bauweiseFuerBesitz; germanen, solange achsen.json Schiff nicht freigibt), Besitz = Fraktion, Seed aus der Gegner-ID, umkaempft
+// prise(game, ort, gegner { id, fraktion, x, y, beam? }) -> lpId '<ort>.prise' (§7); beam z. B. aus Entern.beamPunkt: Schiff, Bauweise aus dem Besitz (bauweiseFuerBesitz; rom bei Besitz rom seit SCH-02, sonst germanen), Besitz = Fraktion, Seed aus der Gegner-ID, umkaempft
 // SCH-01 P2: Seed einer Prise aus der Gegner-ID (FNV-1a % 100000 + 1); entern.js nutzt dieselbe Funktion (kein zweites Exemplar der Formel)
 function priseSeed(gegnerId) { return (Buehne.fnv(String(gegnerId != null ? gegnerId : 'prise')) % 100000) + 1; }
 function prise(game, ort, gegner) {

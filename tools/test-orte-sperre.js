@@ -42,6 +42,7 @@ const clone = (o) => JSON.parse(JSON.stringify(o));
     ['rom leit mit germanischem Modell', (c) => { c.bauweisen.rom.leit.landeplatz.aussenposten = 'prop/germanen/aussenposten/landeplatz_2x2'; }, /germanisches Modell/],
     ['germanen Rolle mit werkzeug (Holzwerkbank)', (c) => { c.raumRollen.station.rollen['werkstatt.werkzeug'].germanen = 'prop/germanen/gemein/werkzeug'; }, /Holzwerkbank/],
     ['rom deko mit Ruine-Prop in einem Generator-Platztyp', (c) => { c.deko.rom.regeln['aussenposten:hof'] = { props: ['prop/rom/ruine/schutt'] }; }, /Ruine/],
+    ['rom deko mit Ruine-Prop als Objekt-Eintrag {id, params, gewicht} (SCH-02 C3)', (c) => { c.deko.rom.regeln['aussenposten:hof'] = { props: [{ id: 'prop/rom/ruine/schutt', params: { v: 1 }, gewicht: 2 }] }; }, /Ruine/],
   ];
   for (const [name, mut, re] of faelle) {
     const c = basis(); mut(c);

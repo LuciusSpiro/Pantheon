@@ -74,11 +74,11 @@ ok(mitGen('0', () => LP.nutztGenerator('kesh.schiff-1', { art: 'schiff', schablo
 }
 
 // ---------------- Rom-Layout / Debug ohne Freischaltung ----------------
-abschnitt('bauweise rom bei art schiff (Debug), achsen.json bleibt zu');
+abschnitt('bauweise rom bei art schiff (SCH-02: achsen.json freigeschaltet)');
 {
   const ach = Buehne.daten().achsen;
-  ok(ach.bauweise_nach_besitz.kartenarten.schiff.erlaubt === false, 'achsen.json: kartenarten.schiff.erlaubt bleibt false');
-  ok(LP.bauweiseFuerBesitz('schiff', 'rom') === 'germanen' && LP.bauweiseFuerBesitz('schiff', 'rostmeute') === 'germanen', 'bauweiseFuerBesitz: Schiff bleibt germanisch, solange nicht freigeschaltet');
+  ok(ach.bauweise_nach_besitz.kartenarten.schiff.erlaubt === true, 'achsen.json: kartenarten.schiff.erlaubt ist true (SCH-02)');
+  ok(LP.bauweiseFuerBesitz('schiff', 'rom') === 'rom' && LP.bauweiseFuerBesitz('schiff', 'rostmeute') === 'germanen', 'bauweiseFuerBesitz: Schiff mit Besitz rom -> rom, Rostmeute bleibt germanisch');
   const g = fakeGame();
   const id = LP.testgelaende(g, { art: 'schiff', seed: 7, bauweise: 'rom', besitz: 'rom' });
   frisch(g, id);
@@ -154,29 +154,21 @@ abschnitt('Prise: Bauweise aus dem Besitz (bauweiseFuerBesitz)');
   ok(k.schablone === 'gen-schiff' && k.zustand === 'umkaempft', 'Prise baut mit Generator (Prüfer in genBauen bestanden)');
   ok(LP.eintrag(g, lp).schablone === 'gen-schiff', 'Eintrag trägt nach dem Bau gen-schiff');
 
-  // Rom: nur mit freigeschalteter Tabelle (achsen.json bleibt zu) -> Daten kurz überschreiben
-  const D = Buehne.daten();
-  const kopie = JSON.parse(JSON.stringify(D.achsen));
-  const rom = (kopie.bauweise_nach_besitz.kartenarten.schiff = { erlaubt: true, je_besitz: { rom: 'rom', rostmeute: 'germanen' } });
-  const Roh = { achsen: kopie };
+  // Rom: achsen.json ist seit SCH-02 freigeschaltet, kein In-Memory-Schalter mehr nötig
   let besitzRom = null;
-  const vorher = D.achsen.bauweise_nach_besitz.kartenarten.schiff;   // gesicherter Original-Eintrag
-  try {
-    D.achsen.bauweise_nach_besitz.kartenarten.schiff = rom;   // in-memory, nicht gespeichert
+  {
     const g3 = fakeGame();
     const lp3 = LP.prise(g3, 'kesh', { id: 'p2', fraktion: 'rom', x: 1, y: 1 });
     besitzRom = LP.eintrag(g3, lp3).bauweise;
     frisch(g3, lp3);
     const k3 = LP.karte(g3, lp3);
-    ok(besitzRom === 'rom', 'Besitz rom (Tabelle freigeschaltet) -> Bauweise rom');
-    ok(k3.schablone === 'gen-schiff', 'Rom-Prise baut mit Generator (Layout rechteck; bis P1 wie schiff) (Prüfer in genBauen bestanden)');
+    ok(besitzRom === 'rom', 'Besitz rom -> Bauweise rom');
+    ok(k3.schablone === 'gen-schiff', 'Rom-Prise baut mit Generator (Layout rechteck) (Prüfer in genBauen bestanden)');
     // entern.js nimmt dieselbe Bauweise
     const { g: g4, p } = enternPrise('rom');
     ok(p.bauweise === 'rom' && p.besitz === 'rom' && LP.eintrag(g4, p.lpId).bauweise === 'rom', 'entern.js: Bauweise rom aus dem Besitz, Eintrag stimmt überein');
-  } finally { D.achsen.bauweise_nach_besitz.kartenarten.schiff = vorher; }
-  ok(Buehne.daten().achsen.bauweise_nach_besitz.kartenarten.schiff.erlaubt === false, 'Tabelle wieder zu');
-  void Roh;
-  // entern.js bei geschlossener Tabelle
+  }
+  // entern.js mit Besitz rostmeute (germanisch wie zuvor)
   const { p: p5, e: e5 } = enternPrise();
   ok(p5.bauweise === 'germanen' && p5.seed === altSeed(e5.id), 'entern.prise rostmeute: germanen, Seed wie bisher');
 }

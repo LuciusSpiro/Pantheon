@@ -25,7 +25,7 @@ const tv = (o) => Physics.toTile(o.x, o.y);
 
 function lauf(layout, seed, np) {
   const bauweise = layout === 'rechteck' ? 'rom' : 'germanen', besitz = layout === 'rechteck' ? 'rom' : 'rostmeute', fraktion = layout === 'rechteck' ? 'rom' : 'rostmeute';
-  const { g, map, k } = H.neuesSpiel(np, { art: 'schiff', seed, bauweise, besitz, zustand: 'umkaempft', fraktion, staerke: 'mittel', haltung: 'wach' });
+  const { g, map, k } = H.neuesSpiel(np, Object.assign({ art: 'schiff', seed, besitz, zustand: 'umkaempft', fraktion, staerke: 'mittel', haltung: 'wach' }, layout === 'rechteck' ? {} : { bauweise }));   // SCH-02 D: Rom ohne Bauweise im Aufruf, sie kommt aus dem Besitz (achsen.json je_besitz)
   g.god = true; g.inventory.ladung = 5;
   const E = combat.env(g);
   const out = { layout, seed, np, map, w: k.w, h: k.h, schablone: k.schablone, bauweise: k.bauweise, log: [], fehler: [] };
@@ -127,6 +127,7 @@ for (const layout of LAYOUTS) for (const seed of SEEDS) for (const np of NPS) {
   try { o = lauf(layout, seed, np); } catch (e) { ok(false, `${tag}: Ausnahme ${String(e.stack).split(String.fromCharCode(10)).slice(0, 3).join(' | ')}`); continue; }
   const ziele = o.res.filter((r) => r.rolle), erreicht = ziele.filter((r) => r.erreicht).length, geaendert = ziele.filter((r) => r.erreicht && r.vorher !== r.nachher).length;
   console.log(`[${tag}] ${o.map} ${o.w}x${o.h}: Ziele erreicht ${erreicht}/${ziele.length}, Zustand geändert ${geaendert}, Türen ${o.tuerOffen}, ${o.sek} s, Tick max ${o.maxTickMs} ms${o.log.length ? ' | ' + o.log.join('; ') : ''}`);
+  ok(o.bauweise === (layout === 'rechteck' ? 'rom' : 'germanen'), `${tag}: Bauweise ${o.bauweise} (Rom aus dem Besitz abgeleitet)`);
   ok(ziele.length > 0 && erreicht === ziele.length, `${tag}: alle Ziele erreicht (${erreicht}/${ziele.length}${ziele.filter((r) => !r.erreicht).map((r) => ' ' + r.id).join('')})`);
   ok(o.heimAbholpunkt === true && o.hoch === true, `${tag}: Rückweg zum Abholpunkt, alle hochgebeamt`);
   ok(o.fehler.length === 0, `${tag}: keine Fehlermeldung des Bots (${o.fehler.join(', ')})`);

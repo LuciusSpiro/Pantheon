@@ -86,6 +86,14 @@ function eintrag(schluessel, bauweise) {
   return norm(neutral[schluessel]);
 }
 function wort(schluessel, bauweise) { const e = eintrag(schluessel, bauweise); return e ? e.wort : null; }
+// SCH-02 C1: Kartenart-Variante. Ein Lexikon darf einen Abschnitt art.<kartenart>.eintraege führen (z. B. rom.json art.schiff: Raumschiff-Wörter
+// statt Kastell-Wörter); er gilt vor den eintraege der Bauweise, fehlt dort ein Schlüssel, gilt der Rest wie zuvor. Ohne art (oder ohne Abschnitt)
+// ist das Ergebnis identisch zu eintrag().
+function eintragFuerArt(schluessel, bauweise, art) {
+  const l = bauweise && art && laden().lex[bauweise];
+  const v = l && l.art && l.art[art] && norm(l.art[art].eintraege && l.art[art].eintraege[schluessel]);
+  return v || eintrag(schluessel, bauweise);
+}
 
 // Form eines Eintrags -> Text | null (Form nicht möglich)
 function form(e, f) {
@@ -108,7 +116,9 @@ function bekannt() {
 // Alle Einträge, die für einen Schlüssel je nach Bauweise gelten können (jede Bauweise + ohne Bauweise)
 function moegliche(schluessel) {
   const { lex } = laden();
-  return Object.keys(lex).concat([null]).map((bw) => [bw, eintrag(schluessel, bw)]);
+  const art = [];
+  for (const [bw, l] of Object.entries(lex)) for (const a of Object.keys(l.art || {})) art.push([bw + '/' + a, eintragFuerArt(schluessel, bw, a)]);
+  return Object.keys(lex).concat([null]).map((bw) => [bw, eintrag(schluessel, bw)]).concat(art);
 }
 
 const satzanfang = (vorher, nachher) => /(^|[.!?]\s+|„)\s*$/.test(vorher)
@@ -193,11 +203,14 @@ function namenHinweise(text) {
   return out;
 }
 
-function aufloesen(text, bauweise) {
+function aufloesen(text, bauweise) { return aufloesenMit(text, (k) => eintrag(k, bauweise)); }
+// SCH-02 C1: wie aufloesen, mit der Kartenart-Variante des Lexikons (eintragFuerArt)
+function aufloesenFuerArt(text, bauweise, art) { return aufloesenMit(text, (k) => eintragFuerArt(k, bauweise, art)); }
+function aufloesenMit(text, nachschlagen) {
   if (typeof text !== 'string' || text.indexOf('{{') < 0) return text;
   text = normalisieren(text).text;
   return text.replace(RE_LEX, (all, k, f, pos, whole) => {
-    const e = eintrag(k, bauweise);
+    const e = nachschlagen(k);
     let t = form(e, f) || (e && e.wort) || k.replace(/_/g, ' ');
     if (satzanfang(whole.slice(0, pos), whole.slice(pos + all.length))) t = gross(t);
     return t;
@@ -246,7 +259,9 @@ function offene(textIn) {
 // Längste Auflösung über alle Bauweisen und neutral (Prüfer ODA-LAENGE)
 function laengste(text) {
   if (typeof text !== 'string' || text.indexOf('{{') < 0) return typeof text === 'string' ? text.length : 0;
-  return Math.max(...Object.keys(laden().lex).concat([null]).map((bw) => aufloesen(text, bw).length));
+  const lex = laden().lex;
+  const art = []; for (const [bw, l] of Object.entries(lex)) for (const a of Object.keys(l.art || {})) art.push(aufloesenFuerArt(text, bw, a).length);
+  return Math.max(...Object.keys(lex).concat([null]).map((bw) => aufloesen(text, bw).length), ...art);
 }
 
 // Bauweise eines Landepunkts ohne Kartenbau: Laufzeit-Eintrag (game.landepunkte) -> Stammdaten -> Kartenart-Standard
@@ -266,4 +281,15 @@ function bauweiseVon(game, mapId) {
   } catch (x) { return null; }
 }
 
-module.exports = { laden, neuLaden, eintrag, wort, form, bekannt, aufloesen, einsetzen, offene, normalisieren, satzanfaenge, namenHinweise, laengste, bauweiseVon, FORMEN, DIR };
+// Kartenart eines Landepunkts (wie bauweiseVon: Laufzeit-Eintrag -> Stammdaten); null bei Handkarte/unbekannt
+function artVon(game, mapId) {
+  if (!mapId) return null;
+  const S = game && game.landepunkte;
+  const e = S && ((S.eintraege && S.eintraege[mapId]) || (S.dyn && S.dyn[mapId]));
+  let lp = null;
+  try { lp = require('./objects.js').landepunkt(mapId); } catch (x) { lp = null; }
+  const art = (e && e.art) || (lp && lp.art);
+  return art && art !== 'hand' ? art : null;
+}
+
+module.exports = { laden, neuLaden, eintrag, eintragFuerArt, aufloesenFuerArt, artVon, wort, form, bekannt, aufloesen, einsetzen, offene, normalisieren, satzanfaenge, namenHinweise, laengste, bauweiseVon, FORMEN, DIR };

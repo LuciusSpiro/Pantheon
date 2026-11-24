@@ -1057,6 +1057,10 @@ abschnitt('K-SILHOUETTE');
   const dk = { id: 't', regeln: { hof: { props: ['p/turm', 'p/fass'], wandnah: false }, korridor: { props: ['p/monitor'], wandnah: true } } };
   const g = Buehne.silhouetteFehler({ bauweisen: [], deko: [dk], modelle });
   ok(g.length === 1 && g[0].id === 'p/turm', 'Deko: hoher Prop auf Hof = Fehler, Fass und schmaler Wandmonitor nicht');
+  // SCH-02 C3: Deko-Eintraege duerfen { id, params, gewicht } sein; auch dann gilt K-SILHOUETTE (vorher: Objekt-Eintrag stillschweigend ungeprueft)
+  const dko = { id: 't', regeln: { hof: { props: [{ id: 'p/turm', params: { state: 1 }, gewicht: 2 }, { id: 'p/fass', gewicht: 1 }, 'p/fass'], wandnah: false }, korridor: { props: [{ id: 'p/monitor' }], wandnah: true } } };
+  const go = Buehne.silhouetteFehler({ bauweisen: [], deko: [dko], modelle });
+  ok(go.length === 1 && go[0].id === 'p/turm' && go[0].code === 'K-SILHOUETTE', 'Deko-Objekt-Eintrag {id, params, gewicht}: hoher Prop = K-SILHOUETTE, niedriger und wandnaher Eintrag nicht');
   const D0 = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'content', 'buehnen', 'bauweisen', 'germanen.json'), 'utf8'));
   ok(!(D0.anker.aussicht && D0.anker.aussicht.aussenposten), 'germanen: kein Wachturm-Prop am aussicht-Anker (Plateau ist der Ausguck)');
 }

@@ -1,0 +1,44 @@
+{
+  "id": "prop/rom/schiff/reaktor_schalter",
+  "name": "Reaktorschalter: Hebelpult mit Bernsteinleuchte auf Messingsockel (Rom, Schiff, Ziel im Reaktorraum)",
+  "notes": "Nachbau im Stil der Lerche (lerche/station/reactor_switch war mit 0,56 m Breite als Missionsziel zu schmal, SCH-02 Nacharbeit). Volle Kachel (16 Voxel), Messing-Sockelplatte, Marmorpult, Schaltkopf mit Hebel, Bernstein-Leuchte; ca. 1,2 m hoch (aktiviert mit Kristall 1,4 m). Das Spiel übergibt den Ankerzustand als state: 0 frei (Hebel oben, Leuchte bernsteinfarben hell), 1 genommen (Hebel waagrecht, Leuchte aus, Pult dunkel), 2 aktiviert (Hebel unten, Leuchte und Kristall hell, Leuchtband am Pult). Anker explizit [0,0,0], sonst springt das Modell beim Zustandswechsel (Grundfläche ändert sich).",
+  "tier": "detail",
+  "palette": "lerche_rom",
+  "jitter": 0,
+  "tags": ["rom", "schiff", "prop", "ziel"],
+  "footprint": [1, 1],
+  "params": {
+    "state": { "default": 0, "min": 0, "max": 2, "step": 1, "label": "frei / genommen / aktiviert" }
+  },
+  "let": { "fre": "state == 0", "tak": "state == 1", "ful": "state == 2" },
+  "variants": { "genommen": { "state": 1 }, "aktiviert": { "state": 2 } },
+  "ops": [
+    { "op": "box", "name": "Sockelplatte", "at": [-8, 0, -8], "size": [16, 2, 16], "color": { "frame": "trim", "fill": { "checker": ["secondary", "paving"], "period": 2 }, "axes": "xz" } },
+    { "op": "box", "name": "Sockelplatte Kante", "at": [-7, 2, -7], "size": [14, 1, 14], "color": "trim" },
+    { "op": "box", "name": "Pult Marmor", "at": [-6, 3, -5], "size": [12, 6, 10], "color": { "frame": "trim", "fill": "stone", "axes": "xy", "width": 1 } },
+    { "op": "box", "name": "Pult Rotband", "at": [-6, 5, 4], "size": [12, 2, 1], "color": "primary", "mode": "paint" },
+    { "op": "box", "name": "Pultkranz", "at": [-7, 9, -6], "size": [14, 1, 12], "color": "trim" },
+    { "op": "box", "name": "Schaltkopf", "at": [-6, 10, -5], "size": [12, 6, 10], "color": { "frame": "trim", "fill": "metal", "axes": "xy", "width": 1 } },
+    { "op": "box", "name": "Hebelschlitz", "at": [-1, 11, 4], "size": [2, 5, 1], "color": "black", "jitter": false },
+    { "op": "box", "name": "Drehpunkt", "at": [-2, 12, 5], "size": [4, 2, 1], "color": "trim" },
+
+    { "op": "line", "name": "Hebel frei (oben)", "if": "fre", "from": [0, 13, 6], "to": [0, 17, 7], "r": 1, "color": "metal_light" },
+    { "op": "box", "name": "Griff frei", "if": "fre", "at": [-2, 17, 5], "size": [4, 2, 3], "color": "primary" },
+    { "op": "line", "name": "Hebel genommen (waagrecht)", "if": "tak", "from": [0, 13, 6], "to": [0, 13, 7], "r": 1, "color": "metal_light" },
+    { "op": "box", "name": "Griff genommen", "if": "tak", "at": [-2, 12, 7], "size": [4, 3, 1], "color": "#F2C94C", "emit": 1.2, "jitter": false },
+    { "op": "line", "name": "Hebel aktiviert (unten)", "if": "ful", "from": [0, 12, 6], "to": [0, 6, 7], "r": 1, "color": "metal_light" },
+    { "op": "box", "name": "Griff aktiviert", "if": "ful", "at": [-2, 4, 5], "size": [4, 2, 3], "color": "primary" },
+
+    { "op": "box", "name": "Leuchtsockel", "at": [-3, 16, -3], "size": [6, 1, 6], "color": "trim" },
+    { "op": "box", "name": "Leuchte frei (Bernstein)", "if": "fre", "at": [-2, 17, -2], "size": [4, 2, 4], "color": { "role": "glow2", "emit": 1.6 }, "jitter": false },
+    { "op": "box", "name": "Leuchte genommen (aus)", "if": "tak", "at": [-2, 17, -2], "size": [4, 2, 4], "color": "metal_dark", "jitter": false },
+    { "op": "box", "name": "Leuchte aktiviert (hell)", "if": "ful", "at": [-2, 17, -2], "size": [4, 2, 4], "color": { "role": "glow2", "emit": 2.2 }, "jitter": false },
+    { "op": "box", "name": "Kristall aktiviert", "if": "ful", "at": [-1, 19, -1], "size": [2, 3, 2], "color": { "role": "glow", "emit": 2.4 }, "jitter": false },
+
+    { "op": "box", "name": "Statusband genommen (gelb)", "if": "tak", "at": [-5, 14, 4], "size": [10, 1, 1], "color": "#F2C94C", "emit": 1, "jitter": false, "mode": "paint" },
+    { "op": "box", "name": "Leuchtband aktiviert", "if": "ful", "at": [-5, 7, 4], "size": [10, 1, 1], "color": { "role": "glow", "emit": 2 }, "jitter": false, "mode": "paint" },
+    { "op": "box", "name": "Anzeige frei (Amber)", "if": "fre", "at": [-4, 14, 4], "size": [2, 1, 1], "color": { "role": "glow2", "emit": 1.4 }, "jitter": false, "mode": "paint" }
+  ],
+  "sockets": { "use": [0, 0, 0.6], "light": [0, 1.2, 0], "label": [0, 1.6, 0] },
+  "anchor": [0, 0, 0]
+}

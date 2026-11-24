@@ -69,8 +69,11 @@
         "hinweis": "Ruine ist immer rom (Kartenart)"
       },
       "schiff": {
-        "erlaubt": false,
-        "hinweis": "Schiff innen bleibt germanisch"
+        "erlaubt": true,
+        "je_besitz": {
+          "rom": "rom"
+        },
+        "hinweis": "SCH-02: freigeschaltet. Römische Prisen und Wracks bauen das Rechteck-Layout mit römischer Bauweise; bestehende Weltstände behalten ihre beim Anlegen gespeicherte Bauweise."
       }
     }
   },

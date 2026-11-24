@@ -31,7 +31,7 @@ section('Ableitung bauweiseFuerBesitz (Datentabelle, nicht Sonderfall im Code)')
   const erwartet = {
     station: { rom: 'rom', ger: 'germanen', konkordat: 'germanen', rostmeute: 'germanen', herrenlos: 'germanen', kontor: 'germanen', raubzug: 'germanen', kustoden: 'germanen' },
     aussenposten: { rom: 'rom', ger: 'germanen', konkordat: 'germanen', rostmeute: 'germanen', herrenlos: 'germanen', kontor: 'germanen' },
-    schiff: { rom: 'germanen', ger: 'germanen', konkordat: 'germanen', rostmeute: 'germanen', herrenlos: 'germanen', kontor: 'germanen' },
+    schiff: { rom: 'rom', ger: 'germanen', konkordat: 'germanen', rostmeute: 'germanen', herrenlos: 'germanen', kontor: 'germanen' },
     ruine: { rom: 'rom', ger: 'rom', konkordat: 'rom', rostmeute: 'rom', herrenlos: 'rom' },
   };
   const falsch = [];
@@ -43,7 +43,7 @@ section('Ableitung bauweiseFuerBesitz (Datentabelle, nicht Sonderfall im Code)')
   const T = A.bauweise_nach_besitz && A.bauweise_nach_besitz.kartenarten;
   ok(T && T.station && T.station.erlaubt === true && T.station.je_besitz.rom === 'rom', 'Tabelle: station { erlaubt: true, rom → rom }');
   ok(T.aussenposten && T.aussenposten.erlaubt === true && T.aussenposten.je_besitz.rom === 'rom' && /Cardo/.test(T.aussenposten.hinweis || ''), 'Tabelle: aussenposten { erlaubt: true, rom → rom } (CAR-01: Cardo-Layout steht)');
-  ok(T.schiff.erlaubt === false && T.ruine.erlaubt === false, 'Tabelle: Schiff und Ruine nicht freigegeben');
+  ok(T.schiff.erlaubt === true && T.schiff.je_besitz.rom === 'rom' && T.ruine.erlaubt === false, 'Tabelle: schiff { erlaubt: true, rom → rom } (SCH-02), Ruine nicht freigegeben');
   ok(Object.values(T).every((t) => Object.values(t.je_besitz || {}).every((bw) => A.bauweisen[bw] && A.bauweisen[bw].status === 'aktiv')), 'Tabelle: jede Ziel-Bauweise ist in achsen.bauweisen aktiv');
   ok(A.besitz.rom.status === 'aktiv' && A.besitz.ger.status === 'aktiv', 'achsen.besitz: rom und ger aktiv (rom stand auf spaeter)');
   for (const b of ['rom', 'ger']) ok(fs.existsSync(path.join(ROOT, 'content/buehnen/paletten/' + b + '.json')), `Besitz-Palette content/buehnen/paletten/${b}.json vorhanden`);
@@ -69,7 +69,7 @@ section('LP.neu: Bauweise folgt dem Besitz beim Anlegen');
   const d = (id) => g.landepunkte.dyn[id];
   ok(d(st).bauweise === 'rom' && d(st).besitz === 'rom', 'Station mit Besitz rom: Bauweise rom');
   ok(d(ap).bauweise === 'rom' && d(ap).besitz === 'rom', 'Außenposten mit Besitz rom: Bauweise rom (CAR-01)');
-  ok(d(sk).bauweise === 'germanen', 'Schiff mit Besitz rom: bleibt germanisch');
+  ok(d(sk).bauweise === 'rom' && d(sk).besitz === 'rom', 'Schiff mit Besitz rom: Bauweise rom (SCH-02)');
   ok(d(st2).bauweise === 'germanen' && d(st3).bauweise === 'germanen' && d(st3).besitz === 'herrenlos', 'Station mit Besitz kontor bzw. ohne Besitz: germanisch');
   ok(d(st4).bauweise === 'germanen', 'ausdrückliche Bauweise gewinnt (Debug, Testgelände)');
   const k = LP.karte(g, st);

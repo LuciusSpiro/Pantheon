@@ -28,7 +28,7 @@
 import * as THREE from 'three';
 import * as DefaultLoader from './loader.js';
 import { streuen, streuenWildnis, belegungVon, besitzStreuFuerOrt } from './deko.js';
-import { mitAkzent, WILDNIS_STIMMUNG, stimmungVon } from './stimmung.js';
+import { mitAkzent, WILDNIS_STIMMUNG, stimmungFuerZustand } from './stimmung.js';
 import { glutAusnahme } from './glut.js';
 import * as KULISSE from './hoehle-kulisse.js';   // GEL-02 E2: Schacht, Pilze, Kristalle, Glutring (nur Karten mit erdBoden)
 import { KLASSE, connVon, hash2, eintragVon, ankerEintragVon, eintragIds, baumWahl, kronenZelle, hochRichtung, segmentBox, mitNachlauf, kronenAus, bauweiseMerken, jsonLader } from './kit-regeln.js';
@@ -845,7 +845,7 @@ async function bauKarte(parent, karteIn, opts) {
   const dekoRegeln = opts.deko === false ? null : D.deko;
   // ORT-01 6D/9: Altstücke (Fass, Kette, Holzwerkbank, Feuerschale) fallen aus der Besitz-Streuung in Station und Außenposten weg (deko.js besitzStreuFuerOrt, auch von tools/hash-baseline.js benutzt); Schiff und Ruine bleiben unverändert
   const dekoExtra = besitzStreuFuerOrt(k.art, D.besitz && D.besitz.streu);
-  if (dekoRegeln && dekoRegeln.regeln) for (const r of Object.values(dekoRegeln.regeln)) for (const id of (r && r.props) || []) if (inManifest(id)) want.add(id);
+  if (dekoRegeln && dekoRegeln.regeln) for (const r of Object.values(dekoRegeln.regeln)) for (const e of (r && r.props) || []) { const id = typeof e === 'string' ? e : e && e.id; if (inManifest(id)) want.add(id); }
   for (const e of dekoExtra) { const id = typeof e === 'string' ? e : e && e.id; if (id && inManifest(id)) want.add(id); }
   // ORT-01 Rollenmodus: Belegungen der streu-Rollen für diese Bauweise (nur Plätze der Karte brauchen sie, geladen wird, was im Manifest steht)
   const rollenDaten = opts.deko === false || !D.rollen || !D.rollen.raumtypen || !Object.keys(D.rollen.raumtypen).length ? null : D.rollen;
@@ -873,7 +873,7 @@ async function bauKarte(parent, karteIn, opts) {
   stats.palette = paletteId;
   // Stimmung
   try {
-    const mood = stimmungVon(BW.stimmung, k.art, k.boden);   // GEL-01 D: wildnis je Bodenton (stimmung["wildnis:<boden>"]), sonst stimmung[art]
+    const mood = stimmungFuerZustand(BW.stimmung, k.art, k.boden, k.zustand);   // GEL-01 D: wildnis je Bodenton (stimmung["wildnis:<boden>"]), sonst stimmung[art]; SCH-02 C1: stimmung["<art>:<zustand>"] zuerst
     if (mood && opts.setMood) opts.setMood(mood);
     stats.stimmung = mood;
   } catch (e) { countErr('kit.mood', e); }
@@ -1260,12 +1260,12 @@ async function bauKarte(parent, karteIn, opts) {
       let regeln = dekoRegeln;
       if (deckIds.size && dekoRegeln && dekoRegeln.regeln) {
         regeln = Object.assign({}, dekoRegeln, { regeln: {} });
-        for (const [t, r] of Object.entries(dekoRegeln.regeln)) regeln.regeln[t] = Object.assign({}, r, { props: ((r && r.props) || []).filter((id) => !deckIds.has(id)) });
+        for (const [t, r] of Object.entries(dekoRegeln.regeln)) regeln.regeln[t] = Object.assign({}, r, { props: ((r && r.props) || []).filter((e) => !deckIds.has(typeof e === 'string' ? e : e && e.id)) });
       }
       const liste = streuen({ id: k.id, w: k.w, h: k.h, seed: k.seed, art: k.art, stride: k.stride, kindAt: k.kindAt, anker: k.anker, plaetze: k.plaetze }, regeln,
         { extra: dekoExtra, rollen: rollenDaten ? { daten: rollenDaten, bauweise: bw, ausschluss: deckIds, leitFuss: BW.leit_fuss || null } : null, onFehler: (e) => countErr('kit.rollen', e) });
       for (const dd of liste) {
-        const g = assetGeo(dd.id, { seed: dd.seed, zustand: zKit, art: k.art });
+        const g = assetGeo(dd.id, Object.assign({ seed: dd.seed, zustand: zKit, art: k.art }, dd.params));   // dd.params: Objekt-Eintrag der Regel (SCH-02 C3); der Cache-Schlüssel enthält sie
         if (!g) { stats.dekoFehlt[dd.id] = (stats.dekoFehlt[dd.id] || 0) + 1; continue; }   // Deko ohne Asset: weglassen (kein Platzhalter)
         const lift = BODEN_HOEHE[k.kindAt(dd.x, dd.y)] || 0;
         const mm = tileMatrix(dd.x, dd.y, dd.rot, dd.dx, dd.dz, lift);

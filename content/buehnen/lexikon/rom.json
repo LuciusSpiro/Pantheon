@@ -3,6 +3,7 @@
   "bauweise": "rom",
   "quelle": "INHALT §8 (Team KATALOG); Lore: verfallene römische Grenzkastelle aus der Zeit, als Rom den Saumraum hielt",
   "hinweis": "Platzhalter {{lex.<schluessel>}} in Umsetzungs- und Spielleitertexten, aufgelöst nach der Bauweise des Landepunkts. Zeichenketten ersetzen direkt; Listen (namen, fund_alt, ort_muster) sind Auswahl für den Spielleiter, als Platzhalter gilt der erste Eintrag. rollen: Anzeigenamen der neutralen Gegnerrollen. Fehlt ein Schlüssel, gilt 'neutral'. Einträge: Zeichenkette (nur artikellos) oder { wort, genus m|f|n, plural?, gen?, dat? }. Formen im Text: {{lex.x}} Wort, {{lex.x:der|den|dem|des|ein|einen|einem}} mit Artikel, {{lex.x:pl}} Plural (server/mission/lexikon.js).",
+  "hinweis_art": "SCH-02 C1: art.<kartenart>.eintraege ist eine Kartenart-Variante und gilt vor eintraege (server/mission/lexikon.js eintragFuerArt). art.schiff = römisches Raumschiff innen (Prise/Wrack), römisch-militärisch statt Kastell; fehlende Schlüssel fallen auf eintraege zurück.",
   "eintraege": {
     "fund": { "wort": "Legionskasse", "genus": "f", "plural": "Legionskassen" },
     "ladung": { "wort": "Frachtamphore", "genus": "f", "plural": "Frachtamphoren" },
@@ -47,6 +48,27 @@
       "Wachbuch",
       "Tabularium"
     ]
+  },
+  "art": {
+    "schiff": {
+      "eintraege": {
+        "terminal": { "wort": "Logbuchpult", "genus": "n", "plural": "Logbuchpulte", "gen": "Logbuchpults" },
+        "sprengpunkt": { "wort": "Reaktorkern", "genus": "m", "plural": "Reaktorkerne", "gen": "Reaktorkerns" },
+        "ziel": { "wort": "Steuerpult", "genus": "n", "plural": "Steuerpulte", "gen": "Steuerpults" },
+        "herzstueck": { "wort": "Praetorium", "genus": "n", "plural": "Praetoria", "gen": "Praetoriums" },
+        "beute": { "wort": "Kassenkapsel", "genus": "f", "plural": "Kassenkapseln" },
+        "abholpunkt": { "wort": "Rückholbake", "genus": "f", "plural": "Rückholbaken" },
+        "aussicht": { "wort": "Ausguck", "genus": "m", "plural": "Ausgucke", "gen": "Ausgucks" },
+        "wachen": { "wort": "Besatzungswächter", "plural": "Besatzungswächter" },
+        "tor_station": { "wort": "Schott", "genus": "n", "plural": "Schotts", "gen": "Schotts" },
+        "eingang_laut": { "wort": "Hauptschleuse", "genus": "f", "plural": "Hauptschleusen" },
+        "eingang_leise": { "wort": "Hüllenbresche", "genus": "f", "plural": "Hüllenbreschen" },
+        "eingang_technisch": { "wort": "Wartungsluke", "genus": "f", "plural": "Wartungsluken" },
+        "ort_muster": [
+          "Liburna <Name>"
+        ]
+      }
+    }
   },
   "rollen": {
     "waechter": "Kastell-Automat"

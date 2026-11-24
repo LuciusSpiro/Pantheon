@@ -1818,7 +1818,7 @@
       }
     }
     for (const d of (o && o.deko) || []) {
-      for (const [typ, r] of Object.entries(d.regeln || {})) for (const id of (r && r.props) || []) pruef(id, `deko ${d.id}.${typ}`, !!r.wandnah);
+      for (const [typ, r] of Object.entries(d.regeln || {})) for (const e of (r && r.props) || []) pruef(typeof e === 'string' ? e : e && e.id, `deko ${d.id}.${typ}`, !!r.wandnah);   // SCH-02 C3: Eintrag = Modell-ID oder { id, params, gewicht }
     }
     for (const r of (o && o.rollen) || []) {
       const art = {};   // Rolle → { kind, wandnah } aus den Raumtyp-Einträgen
