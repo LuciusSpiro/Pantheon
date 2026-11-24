@@ -1,0 +1,360 @@
+// BOT-01 C3: Sichtprüfung des Befehlsmenüs der Bots am Captain-Pult im echten Client gegen den echten Server (Server-Bots über die Lobby, lobbyBot add).
+// Prüft mit echten Tasten im Browser: B, Stufen 1 bis 3, Senden (erwartete bot.befehl), die Antwort des Servers (bot.antwort) als Untertitel und Quittung, Tafel schließt, Esc, 6-s-Auto-Schließen,
+// Direkttasten Sh+X/A/D/F/G/S, Tasten vor dem Reiter-Zweig (Sh+X löscht keinen Marker), Funk-/Reitertasten bleiben bei geschlossener Tafel frei, Sprache an (eine Antwort, ein Untertitel),
+// reine Menschenpartie (nichts aktiv, nichts gesendet, Pult wie bisher), Ego-Sitz (Einblendung), Dev-Mock (Bots im Snapshot, Mensch an Station).
+// Bilder nach shots/bot01c3-menue (git-ignoriert). Eigener Server je Szenario (Port ab 3462, ROOM_CODE=off, Weltordner im Temp-Verzeichnis, nicht im Repo).
+// Aufruf: node tools/sicht-bot-menue.js [--port 3462] [--nur szenarien,kommagetrennt]   (Exit 1, wenn eine Prüfung fehlschlägt)
+'use strict';
+const path = require('path');
+const fs = require('fs');
+const os = require('os');
+const http = require('http');
+const { spawn } = require('child_process');
+
+const ROOT = path.join(__dirname, '..');
+const arg = (n, d) => { const i = process.argv.indexOf('--' + n); return i > 0 && process.argv[i + 1] ? process.argv[i + 1] : d; };
+const PORT0 = +arg('port', '3462');
+const NUR = arg('nur', '').split(',').filter(Boolean);
+const SHOTS = path.join(ROOT, 'shots', 'bot01c3-menue');
+const TMP = fs.mkdtempSync(path.join(os.tmpdir(), 'pantheon-sichtbotmenue-'));
+process.on('exit', () => { try { fs.rmSync(TMP, { recursive: true, force: true }); } catch (e) { /* egal */ } });
+function playwright() {
+  for (const k of [process.env.PLAYWRIGHT_CORE, 'C:/tmp/pw-test/node_modules/playwright-core', 'C:/tmp/pwtest/node_modules/playwright-core', 'playwright-core'].filter(Boolean)) { try { return require(k); } catch (e) { /* weiter */ } }
+  console.error('playwright-core nicht gefunden'); process.exit(2);
+}
+const { chromium } = playwright();
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+const ping = (port) => new Promise((res) => { const r = http.get({ host: '127.0.0.1', port, path: '/', timeout: 800 }, (x) => { x.resume(); res(x.statusCode === 200); }); r.on('error', () => res(false)); r.on('timeout', () => { r.destroy(); res(false); }); });
+
+let fehlt = 0, n = 0;
+const ok = (c, t) => { n++; if (c) console.log('   ok    ' + t); else { fehlt++; console.log('   FEHLT ' + t); } };
+const info = (t) => console.log('   info  ' + t);
+
+let portNr = PORT0;
+async function mitServer(name, fn) {
+  if (NUR.length && !NUR.includes(name)) return;
+  const port = portNr++;
+  console.log('\n== ' + name + ' (Port ' + port + ') ==');
+  if (await ping(port)) throw new Error('Port ' + port + ' belegt');
+  const dir = path.join(TMP, name);
+  const env = Object.assign({}, process.env, { PORT: String(port), ROOM_CODE: 'off', WORLD_DIR: path.join(dir, 'worlds'), REGIE_DIR: path.join(dir, 'regie'), ERZEUGT_DIR: path.join(dir, 'erzeugt') });
+  delete env.LLM_LIVE; delete env.SPIELLEITER_LLM;
+  const srv = spawn(process.execPath, ['server/index.js', '--debug'], { cwd: ROOT, env, stdio: ['ignore', 'pipe', 'pipe'] });
+  let log = ''; srv.stdout.on('data', (d) => { log += d; }); srv.stderr.on('data', (d) => { log += d; });
+  for (let i = 0; i < 150 && !(await ping(port)); i++) await sleep(100);
+  const b = await chromium.launch({ args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader'] });
+  try { await fn(b, port); }
+  finally { await b.close(); srv.kill(); const se = log.split('\n').filter((l) => /Error|TypeError/.test(l)); if (se.length) { fehlt++; console.log('   FEHLT Serverfehler: ' + se.slice(0, 4).join(' | ')); } }
+}
+
+// Seite öffnen, Spieler beitreten lassen, Aufzeichnung der Nachrichten (bot.befehl, bot.antwort, alle cmd-Namen)
+async function seite(b, port, query, opts) {
+  const ctx = await b.newContext({ viewport: { width: 1280, height: 720 } });
+  const page = await ctx.newPage();
+  const errs = []; page.on('pageerror', (e) => errs.push(e.message)); page.on('console', (m) => { if (m.type() === 'error' && !/favicon|404/.test(m.text())) errs.push('console: ' + m.text().slice(0, 160)); });
+  await page.addInitScript(() => {
+    window.__bef = []; window.__cmd = []; window.__ant = []; window.__alle = [];
+    const orig = WebSocket.prototype.send;
+    WebSocket.prototype.send = function (d) { try { const m = JSON.parse(d); if (m && m.t === 'bot.befehl') window.__bef.push(m); else if (m && m.t === 'cmd') window.__cmd.push(m.c); if (m && m.t !== 'ping' && m.t !== 'input') window.__alle.push(m.t); } catch (e) { /* binär */ } return orig.call(this, d); };
+  });
+  await page.goto('http://127.0.0.1:' + port + '/?' + query);
+  await page.waitForFunction(() => window.__game && __game.send && __game.state, null, { timeout: 30000 });
+  await page.evaluate(() => { Net.on((m) => { if (m && m.t === 'bot.antwort') window.__ant.push(m); }); });
+  return { ctx, page, errs };
+}
+async function startePartie(page, rollen) {
+  for (const r of rollen) { await page.evaluate((x) => __game.send({ t: 'lobbyBot', op: 'add', rolle: x }), r); await sleep(150); }
+  if (rollen.length) await page.waitForFunction((k) => __game.state.players.filter((p) => p.bot).length >= k, rollen.length, { timeout: 8000 });
+  await page.evaluate(() => __game.send({ t: 'lobbyOpt', startMission: 'free', skipDrill: true }));
+  await page.evaluate(() => __game.send({ t: 'ready', ready: true }));
+  await page.waitForFunction(() => __game.state && __game.state.phase !== 'lobby', null, { timeout: 30000 });
+  await page.evaluate(() => __game.send({ t: 'debug', cmd: 'sitz', console: 'captain', hin: true }));
+  await page.waitForFunction(() => __game.state.players.find((p) => p.id === __game.pid && p.console === 'captain'), null, { timeout: 8000 });
+  await page.mouse.move(5, 5);
+  await page.waitForFunction(() => window.PultBefehl && (!PultBefehl.menue.hatBots() || PultBefehl.menue.geladen()), null, { timeout: 8000 });   // Kanon ist geholt
+  await sleep(300);
+}
+const zustand = (page) => page.evaluate(() => (window.PultBefehl ? Object.assign({}, PultBefehl.menue.lies(), { bots: PultBefehl.menue.hatBots(), S: PultBefehl.statusY() }) : null));
+const zu = (page) => page.evaluate(() => PultBefehl.schliessen());   // Tafel zu (ein Esc würde bei schon geschlossener Tafel die Konsole verlassen)
+const taste = async (page, key, nach) => { await page.keyboard.press(key); await sleep(nach || 150); };
+const bild = async (page, name) => { fs.mkdirSync(SHOTS, { recursive: true }); await page.screenshot({ path: path.join(SHOTS, name + '.png') }); info('Bild ' + name); };
+const leere = (page) => page.evaluate(() => { window.__bef.length = 0; window.__cmd.length = 0; window.__ant.length = 0; window.__alle.length = 0; });
+const warteAntworten = (page, k, ms) => page.waitForFunction((kk) => window.__ant.length >= kk, k, { timeout: ms || 4000 }).then(() => true, () => false);
+const untertitel = (page) => page.evaluate(() => Hud.sprech.eintraege.map((e) => e.who + ': ' + e.text));
+const sortiert = (v) => (Array.isArray(v) ? v.map(sortiert) : v && typeof v === 'object' ? Object.fromEntries(Object.keys(v).sort().map((k) => [k, sortiert(v[k])])) : v);
+const gleich = (a, b) => JSON.stringify(sortiert(a)) === JSON.stringify(sortiert(b));
+
+async function main() {
+  // ---------------------------------------------------------------- 1. Partie mit zwei Server-Bots (Navigation, Ops), Skin rom, Sprache aus
+  await mitServer('bots-rom', async (b, port) => {
+    const { ctx, page, errs } = await seite(b, port, 'debug=1&render=2d&pult=rom');
+    await startePartie(page, ['navigation', 'ops']);
+    let z = await zustand(page);
+    ok(z && z.bots && z.S === 240 && !z.offen, 'Partie mit Bots: Crew-Zeile aktiv (S 240), Tafel zu');
+    ok(!(await page.evaluate(() => BotSpracheStart.an())), 'Sprache aus (Standard)');
+    await page.evaluate(() => __game.send({ t: 'cmd', c: 'captain.marker', x: 900, y: 700 }));   // Marker setzen: „Marker löschen“ wäre sonst gesperrt (Altlast Sh+X)
+    await page.keyboard.press('Digit3'); await sleep(300);
+    await bild(page, '01-zu');
+    // Tafel: B, Stufen
+    await leere(page);
+    await taste(page, 'KeyB'); z = await zustand(page);
+    ok(z.offen && z.stufe === 1, 'B öffnet die Tafel auf Stufe 1');
+    await bild(page, '02-stufe1'); await zu(page);
+    await zu(page); await taste(page, 'KeyB'); await taste(page, 'KeyW'); z = await zustand(page);
+    ok(z.stufe === 2 && z.rolle === 'ops', 'W: Stufe 2 Ops');
+    await bild(page, '03-stufe2'); await zu(page);
+    await zu(page); await taste(page, 'KeyB'); await taste(page, 'KeyW'); await taste(page, 'KeyE'); z = await zustand(page);
+    ok(z.stufe === 3, 'E: Stufe 3 (Feuer frei …)');
+    await bild(page, '04-stufe3');
+    await zu(page);
+    await leere(page);
+    await zu(page); await taste(page, 'KeyB'); await taste(page, 'KeyW'); await taste(page, 'KeyE'); await taste(page, 'KeyW', 100);
+    ok(await page.evaluate(() => window.__bef.length) === 1, 'W sendet genau einen Befehl');
+    const bef = await page.evaluate(() => window.__bef[0]);
+    ok(gleich(bef, { t: 'bot.befehl', an: 'ops', befehl: 'ops.feuer_frei', args: { waffen: 'bug' }, quelle: 'menu' }), 'bot.befehl: ' + JSON.stringify(bef));
+    z = await zustand(page);
+    ok(!z.offen, 'Tafel schließt nach dem Senden');
+    ok(await warteAntworten(page, 1), 'der Server antwortet (bot.antwort)');
+    const ant = await page.evaluate(() => window.__ant[0]);
+    info('Antwort: ' + JSON.stringify(ant));
+    ok(ant && ant.befehl === 'ops.feuer_frei' && ['ok', 'abgelehnt', 'unmoeglich'].includes(ant.status) && typeof ant.textId === 'string', 'Antwort hat befehl, status, textId');
+    await sleep(300);
+    let ut = await untertitel(page);
+    ok(ut.length === 1 && /^OPS: /.test(ut[0]), 'Untertitel erscheint genau einmal, ohne Sprache (' + ut.join(' | ') + ')');
+    const q = await page.evaluate(() => PultBefehl.menue.crew()[0]);
+    ok(q.quittung && /^OPS (aye|abgelehnt)$/.test(q.text), 'Quittung am Knopf Befehle: ' + q.text);
+    // zweite Antwort kommt nicht doppelt
+    await sleep(500);
+    ut = await untertitel(page);
+    ok(ut.length === 1, 'kein zweiter Untertitel nachträglich (' + ut.join(' | ') + ')');
+    await bild(page, '05-antwort');
+
+    // Direkttasten
+    for (const [key, an, befehl] of [['Shift+KeyX', 'navigation', 'nav.stopp'], ['Shift+KeyA', 'navigation', 'nav.ausweichen'], ['Shift+KeyD', 'navigation', 'nav.ausweichen'], ['Shift+KeyF', 'ops', 'ops.feuer_frei'], ['Shift+KeyG', 'ops', 'ops.feuer_halt'], ['Shift+KeyS', 'alle', 'bot.status']]) {
+      await leere(page); await sleep(700);
+      await taste(page, key, 250);
+      const m = await page.evaluate(() => window.__bef.slice());
+      ok(m.length === 1 && gleich(m[0], { t: 'bot.befehl', an, befehl, quelle: 'taste' }), key + ' sendet ' + befehl + ' an ' + an + ' (quelle taste)');
+      ok(await warteAntworten(page, key === 'Shift+KeyS' ? 2 : 1), key + ': Antwort(en) vom Server');
+    }
+    ut = await untertitel(page);
+    ok(ut.length <= 2, 'höchstens zwei Untertitel stehen (' + ut.length + ')');
+    await bild(page, '06-status');
+    // Tasten vor dem Reiter-Zweig: Sh+X darf nicht „Marker löschen“ auslösen, X ohne Shift schon (Altverhalten, Tafel zu)
+    await leere(page);
+    await taste(page, 'Shift+KeyX', 250);
+    ok(!(await page.evaluate(() => window.__cmd)).includes('captain.marker'), 'Sh+X löscht keinen Marker (Bot-Taste vor dem Reiter-Zweig)');
+    await leere(page);
+    await taste(page, 'KeyX', 250);
+    ok((await page.evaluate(() => window.__cmd)).includes('captain.marker') && (await page.evaluate(() => window.__bef.length)) === 0, 'X ohne Shift löscht den Marker wie bisher und sendet keinen Bot-Befehl');
+    // Ist die Tafel zu, gehören Q/W/E/A/S/D den Reitern (Funkantworten, Sternkarte): die Bot-Tasten fangen sie nicht ab
+    ok(await page.evaluate(() => [PultBefehl.taste({ code: 'KeyQ', shiftKey: false }), PultBefehl.taste({ code: 'KeyW', shiftKey: false }), PultBefehl.taste({ code: 'KeyE', shiftKey: false }), PultBefehl.taste({ code: 'KeyA', shiftKey: false }), PultBefehl.taste({ code: 'KeyD', shiftKey: false }), PultBefehl.taste({ code: 'KeyZ', shiftKey: false })].every((r) => r === false)), 'Tafel zu: Q W E A D Z gehen nicht an die Tafel');
+    // Esc: Tafel zu, Konsole bleibt; zweites Esc verlässt
+    await zu(page); await taste(page, 'KeyB'); await taste(page, 'KeyQ');
+    await taste(page, 'Escape', 250);
+    z = await zustand(page);
+    ok(!z.offen && await page.evaluate(() => __game.state.players.find((p) => p.id === __game.pid).console) === 'captain', 'Esc bei offener Tafel: Tafel zu, Konsole bleibt');
+    // Zurück: B, Rück
+    await zu(page); await taste(page, 'KeyB'); await taste(page, 'KeyW'); await taste(page, 'KeyE');
+    await taste(page, 'Backspace'); z = await zustand(page);
+    ok(z.offen && z.stufe === 2, 'Rück: eine Stufe zurück');
+    await taste(page, 'KeyB'); z = await zustand(page);
+    ok(z.offen && z.stufe === 1, 'B: noch eine Stufe zurück');
+    await taste(page, 'KeyB'); z = await zustand(page);
+    ok(!z.offen, 'B auf Stufe 1 schließt');
+    // gesperrte Rolle: Technik hat keinen Bot
+    await leere(page);
+    await zu(page); await taste(page, 'KeyB'); await taste(page, 'KeyE'); z = await zustand(page);
+    ok(z.offen && z.stufe === 1 && (await page.evaluate(() => window.__bef.length)) === 0, 'E (Technik, kein Bot): gesperrt, nichts gesendet');
+    await bild(page, '07-gesperrt');
+    // 6 s Auto-Schließen
+    await sleep(6400);
+    z = await zustand(page);
+    ok(!z.offen, 'nach 6 s ohne Taste schließt die Tafel von selbst');
+    // Ziffern bleiben Reiter bei offener Tafel
+    await taste(page, 'KeyB'); await taste(page, 'Digit1', 250);
+    z = await zustand(page);
+    ok(z.offen && await page.evaluate(() => Consoles.tab) === 0, 'Reiter 1 bei offener Tafel: Reiter wechselt, Tafel bleibt');
+    await taste(page, 'Escape');
+    // Umbelegung (Menü Steuerung): Direkttaste und Tafelfeld folgen der neuen Taste, die alte Taste tut nichts
+    await page.evaluate(() => { Tasten.setze('captain.bot.stopp', 0, 'Shift+KeyK'); Tasten.setze('captain.befehl.q', 0, 'KeyM'); });
+    await leere(page); await zu(page);
+    await taste(page, 'Shift+KeyK', 250);
+    ok((await page.evaluate(() => window.__bef.map((m) => m.befehl))).join() === 'nav.stopp', 'umbelegt: Sh+K sendet nav.stopp');
+    await leere(page);
+    await taste(page, 'Shift+KeyX', 250);
+    ok((await page.evaluate(() => window.__bef.length)) === 0 && !(await page.evaluate(() => window.__cmd)).includes('captain.marker'), 'umbelegt: Sh+X (alte Taste) sendet nichts und löscht keinen Marker');
+    await taste(page, 'KeyB'); await taste(page, 'KeyM'); z = await zustand(page);
+    ok(z.offen && z.stufe === 2 && z.rolle === 'navigation', 'umbelegt: M wählt das Feld Q (Navigation)');
+    await taste(page, 'KeyQ'); z = await zustand(page);
+    ok(z.stufe === 2, 'umbelegt: Q (alte Taste) wählt in der offenen Tafel nichts mehr');
+    await zu(page);
+    await page.evaluate(() => { Tasten.zuruecksetzen('captain.bot.stopp'); Tasten.zuruecksetzen('captain.befehl.q'); });
+    // Tab schließt die Tafel
+    await taste(page, 'KeyB'); await taste(page, 'Tab', 400);
+    z = await zustand(page);
+    ok(!z.offen, 'Tab (Station wechseln) schließt die Tafel');
+    // Hilfe listet Tafelfelder und Crew-Zeile (sie sind Knöpfe mit Kappe)
+    await page.evaluate(() => __game.send({ t: 'leave' })); await sleep(400);
+    await page.evaluate(() => __game.send({ t: 'debug', cmd: 'sitz', console: 'captain', hin: true })); await sleep(700);
+    const hk = await page.evaluate(() => Consoles.findButtons(/^(Alle Maschinen stopp|Feuer frei|Statusbericht|Befehle)$/).map((x) => x.label + '=' + x.hotkey));
+    ok(hk.length >= 4 && hk.some((s) => /Alle Maschinen stopp=Sh\+X/.test(s)) && hk.some((s) => /Befehle=B/.test(s)), 'Crew-Zeile mit Kappen in der Knopfliste (Hilfe): ' + hk.join(', '));
+    ok(errs.length === 0, 'keine Seitenfehler' + (errs.length ? ': ' + errs.slice(0, 2).join(' | ') : ''));
+    await ctx.close();
+  });
+
+  // ---------------------------------------------------------------- 2. Skin germanen, drei Bots, Technik (Nachfrage, Seiten)
+  await mitServer('bots-germanen', async (b, port) => {
+    const { ctx, page, errs } = await seite(b, port, 'debug=1&render=2d&pult=germanen');
+    await startePartie(page, ['navigation', 'ops', 'technik']);
+    await page.keyboard.press('Digit3'); await sleep(300);
+    await zu(page); await taste(page, 'KeyB'); await taste(page, 'KeyE');
+    await bild(page, '08-germanen-technik'); await zu(page);
+    await leere(page);
+    await zu(page); await taste(page, 'KeyB'); await taste(page, 'KeyE'); await taste(page, 'KeyD'); let z = await zustand(page);
+    ok(z.offen && (await page.evaluate(() => window.__bef.length)) === 0, 'Reaktor überladen: erster Druck fragt, sendet nichts');
+    await bild(page, '09-germanen-frage');
+    await zu(page); await taste(page, 'KeyB'); await taste(page, 'KeyE'); await taste(page, 'KeyD'); await taste(page, 'KeyD', 300);
+    const m = await page.evaluate(() => window.__bef.slice());
+    ok(m.length === 1 && m[0].befehl === 'tech.ueberladen' && m[0].an === 'technik' && m[0].quelle === 'menu', 'zweiter Druck sendet tech.überladen');
+    ok(await warteAntworten(page, 1), 'Antwort des Servers');
+    // Seiten: … reparieren, R blättert
+    await sleep(600);
+    await zu(page); await taste(page, 'KeyB'); await taste(page, 'KeyE'); await taste(page, 'KeyA');
+    await taste(page, 'KeyR'); await taste(page, 'KeyR');
+    z = await zustand(page);
+    ok(z.offen && z.stufe === 3 && z.seite === 2, 'R blättert (Seite 3 von … reparieren)');
+    await bild(page, '10-germanen-reparieren-seite3');
+    await zu(page); await taste(page, 'KeyB'); await taste(page, 'KeyE'); await taste(page, 'KeyA'); await taste(page, 'KeyR'); await taste(page, 'KeyR');
+    const vorQ = await page.evaluate(() => window.__bef.length);
+    await taste(page, 'KeyQ', 200);
+    ok(await page.evaluate(() => window.__bef.length) === vorQ && (await zustand(page)).stufe === 3, 'Seite 3 Q (Lafette sieben): die Lerche hat dort keine Waffe, leeres Feld, nichts gesendet');
+    await taste(page, 'KeyW', 200);
+    const m2 = await page.evaluate(() => window.__bef.slice(-1)[0]);
+    ok(m2 && m2.befehl === 'tech.reparieren' && m2.args && m2.args.system === 'weapon_bow', 'Seite 3 W: weapon_bow (' + JSON.stringify(m2 && m2.args) + ')');
+    // Technik-Taste Y (KeyZ) und C erreichbar: Schub 4 (Y) bei Navigation
+    await sleep(500);
+    await zu(page); await taste(page, 'KeyB'); await taste(page, 'KeyQ'); await taste(page, 'KeyE'); await taste(page, 'KeyA', 250);
+    const m3 = await page.evaluate(() => window.__bef.slice(-1)[0]);
+    ok(m3 && m3.befehl === 'nav.schub' && m3.args.stufe === 1, 'B Q E A: nav.schub stufe 1 (Zahl)');
+    await sleep(500);
+    await zu(page); await taste(page, 'KeyB'); await taste(page, 'KeyQ'); await taste(page, 'KeyA'); await bild(page, '11-germanen-kurs');
+    await zu(page); await taste(page, 'KeyB'); await taste(page, 'KeyQ'); await taste(page, 'KeyA'); await taste(page, 'KeyZ', 100);
+    ok((await page.evaluate(() => window.__bef.slice(-1)[0])).befehl === 'nav.schub', 'Y (KeyZ) auf leerem Feld sendet nichts');
+    await taste(page, 'KeyW', 250);
+    const m4 = await page.evaluate(() => window.__bef.slice(-1)[0]);
+    ok(m4.befehl === 'nav.kurs' && m4.args.ziel === 'ziel', 'B Q A W: nav.kurs ziel=ziel');
+    ok(errs.length === 0, 'keine Seitenfehler' + (errs.length ? ': ' + errs.slice(0, 2).join(' | ') : ''));
+    await ctx.close();
+  });
+
+  // ---------------------------------------------------------------- 3. Sprache an: genau ein Untertitel je Antwort
+  await mitServer('sprache-an', async (b, port) => {
+    const { ctx, page, errs } = await seite(b, port, 'debug=1&render=2d&pult=rom&botsprache=1');
+    await page.waitForFunction(() => window.BotSprache && BotSprache.laeuft(), null, { timeout: 15000 });
+    await startePartie(page, ['navigation', 'ops']);
+    ok(await page.evaluate(() => BotSpracheStart.an() && BotSprache.laeuft()), 'Bot-Sprache läuft');
+    await leere(page);
+    await taste(page, 'KeyB');
+    await bild(page, '12-sprache-stufe1');
+    ok(await page.evaluate(() => PultBefehl.menue.ansicht().fuss) !== null, 'Sprache an: Fußzeile in Stufe 1');
+    await taste(page, 'KeyW'); await taste(page, 'KeyQ', 250);
+    ok(await warteAntworten(page, 1), 'Antwort vom Server');
+    await sleep(500);
+    const ut = await untertitel(page);
+    ok(ut.length === 1, 'Sprache an: die Antwort erscheint genau einmal (' + ut.join(' | ') + ')');
+    ok(!(await page.evaluate(() => BotSprache.netAntworten())), 'Sprache hängt (noch) nicht am Spielnetz: das Menü zeigt die Antwort (Paket D stellt um, dann zeigt die Sprache sie)');
+    ok(await page.evaluate(() => PultBefehl.menue.crew()[0].quittung !== null), 'Quittung auch bei Sprache an');
+    ok(errs.length === 0, 'keine Seitenfehler' + (errs.length ? ': ' + errs.slice(0, 2).join(' | ') : ''));
+    await ctx.close();
+  });
+
+  // ---------------------------------------------------------------- 4. Reine Menschenpartie: nichts aktiv, Pult wie bisher
+  await mitServer('mensch', async (b, port) => {
+    const { ctx, page, errs } = await seite(b, port, 'debug=1&render=2d&pult=rom');
+    await startePartie(page, []);
+    await page.evaluate(() => __game.send({ t: 'cmd', c: 'captain.marker', x: 900, y: 700 }));
+    await page.keyboard.press('Digit3'); await sleep(400);
+    const z = await zustand(page);
+    ok(z && !z.bots && z.S === 258 && !z.offen, 'ohne Bots: kein Befehlsmenü (S 258, Tafel zu)');
+    ok(await page.evaluate(() => Hud.sprech.bots === false && !Hud.sprech.aktiv), 'ohne Bots: Sprechspalte nicht angeschaltet');
+    ok(await page.evaluate(() => Consoles.findButtons(/^(Befehle|Statusbericht|Alle Maschinen stopp)$/).length) === 0, 'keine Knöpfe der Crew-Zeile');
+    await bild(page, '13-mensch');
+    await leere(page);
+    await taste(page, 'KeyB', 250);
+    ok(await page.evaluate(() => window.__bef.length) === 0 && !(await zustand(page)).offen, 'B: keine Tafel, kein bot.befehl');
+    await leere(page);
+    await taste(page, 'Shift+KeyX', 300);
+    ok((await page.evaluate(() => window.__cmd)).includes('captain.marker') && (await page.evaluate(() => window.__bef.length)) === 0, 'Sh+X: Altverhalten (Marker löschen), kein bot.befehl');
+    await leere(page);
+    await taste(page, 'Shift+KeyF', 200); await taste(page, 'Shift+KeyS', 200);
+    ok(await page.evaluate(() => window.__bef.length) === 0, 'Sh+F / Sh+S: nichts gesendet');
+    await taste(page, 'Escape', 400);
+    ok(await page.evaluate(() => { const p = __game.state.players.find((q) => q.id === __game.pid); return !p.console; }), 'Esc verlässt die Konsole wie bisher');
+    ok(!(await page.evaluate(() => window.__alle)).some((t) => /^bot\./.test(t)), 'keine neuen Nachrichten (bot.*)');
+    ok(errs.length === 0, 'keine Seitenfehler' + (errs.length ? ': ' + errs.slice(0, 2).join(' | ') : ''));
+    await ctx.close();
+  });
+
+  // ---------------------------------------------------------------- 5. Ego-Sitz (Voxel): Einblendung in den Blicken VORN/CREW
+  await mitServer('ego', async (b, port) => {
+    const { ctx, page, errs } = await seite(b, port, 'debug=1&render=voxel&pult=rom');
+    await page.evaluate(() => __game.send({ t: 'lobbyOpt', startMission: 'free', skipDrill: true }));
+    for (const r of ['navigation', 'ops']) { await page.evaluate((x) => __game.send({ t: 'lobbyBot', op: 'add', rolle: x }), r); await sleep(150); }
+    await page.evaluate(() => __game.send({ t: 'ready', ready: true }));
+    await page.waitForFunction(() => __game.state && __game.state.phase !== 'lobby', null, { timeout: 30000 });
+    await page.waitForFunction(() => window.VoxelRender && VoxelRender.ready, null, { timeout: 30000 });
+    await page.evaluate(() => __game.send({ t: 'debug', cmd: 'sitz', console: 'captain', hin: true })); await sleep(1500);
+    await page.mouse.move(640, 300);
+    const blick = await page.evaluate(() => (window.Sitz && Sitz.station ? Sitz.blick : '-'));
+    ok(blick === 'vorn', 'Ego-Sitz, Blick VORN');
+    await leere(page);
+    await taste(page, 'KeyB', 300); await taste(page, 'KeyW', 300);
+    ok((await zustand(page)).offen && (await zustand(page)).stufe === 2, 'B W wirken im Blick VORN (Tasten der Konsole)');
+    await bild(page, '14-ego-vorn-einblendung');
+    await taste(page, 'KeyE', 200); await taste(page, 'KeyS', 300);
+    const m = await page.evaluate(() => window.__bef.slice());
+    ok(m.length === 1 && m[0].befehl === 'ops.feuer_frei' && m[0].args.waffen === 'alle', 'B W E S: Feuer frei alle Waffen aus dem Blick VORN');
+    ok(await warteAntworten(page, 1), 'Antwort des Servers');
+    await sleep(300);
+    ok((await untertitel(page)).length === 1, 'Untertitel im Ego-Sitz');
+    await bild(page, '15-ego-vorn-antwort');
+    ok(errs.length === 0, 'keine Seitenfehler' + (errs.length ? ': ' + errs.slice(0, 2).join(' | ') : ''));
+    await ctx.close();
+  });
+
+  // ---------------------------------------------------------------- 6. Dev-Mock: Bots im Snapshot, Mensch an Station
+  await mitServer('mock', async (b, port) => {
+    for (const [pult, name] of [['rom', 'rom'], ['germanen', 'germanen']]) {
+      const { ctx, page, errs } = await seite(b, port, 'mock=1&console=captain&tab=2&mockbots=navigation,ops&mockmensch=helm&markers=1&render=2d&pult=' + pult);
+      await page.waitForFunction(() => window.PultBefehl && PultBefehl.menue.hatBots() && PultBefehl.menue.geladen(), null, { timeout: 8000 });
+      await sleep(300);
+      let z = await zustand(page);
+      ok(z && z.bots && z.S === 240, 'Mock ' + name + ': Bots im Snapshot, Crew-Zeile');
+      await taste(page, 'KeyB');
+      const a = await page.evaluate(() => PultBefehl.menue.ansicht().zellen.map((c) => c.text + ':' + c.zustand + ':' + c.info));
+      ok(/^Navigation:aus:Mensch an Station\|Ops:bereit:/.test(a.join('|')) && /Technik:aus:kein Bot/.test(a.join('|')), 'Mock ' + name + ': Navigation gesperrt (Mensch an Station), Technik kein Bot');
+      await bild(page, '16-mock-' + name + '-stufe1');
+      await taste(page, 'KeyE');   // Technik: gesperrt
+      await taste(page, 'KeyW'); await taste(page, 'KeyS', 400);   // Ops: Ziel markieren: Mock lehnt ab
+      ok(await warteAntworten(page, 1), 'Mock ' + name + ': Mock-Antwort');
+      await sleep(300);
+      const q = await page.evaluate(() => PultBefehl.menue.crew()[0]);
+      ok(q.text === 'OPS abgelehnt' && q.fn === 'weapon', 'Mock ' + name + ': abgelehnt in Rot am Knopf (' + q.text + ')');
+      await bild(page, '17-mock-' + name + '-abgelehnt');
+      ok(errs.length === 0, 'Mock ' + name + ': keine Seitenfehler' + (errs.length ? ': ' + errs.slice(0, 2).join(' | ') : ''));
+      await ctx.close();
+    }
+    // ohne mockbots: Pult wie bisher
+    const { ctx, page } = await seite(b, port, 'mock=1&console=captain&tab=2&render=2d&pult=rom');
+    await sleep(1000);
+    const z = await zustand(page);
+    ok(z && !z.bots && z.S === 258, 'Mock ohne Bots: S 258, keine Crew-Zeile');
+    await bild(page, '18-mock-ohne-bots');
+    await ctx.close();
+  });
+
+  console.log(fehlt ? '\n' + fehlt + ' von ' + n + ' Prüfung(en) FEHLGESCHLAGEN' : '\nalle ' + n + ' Prüfungen ok (Bilder: ' + SHOTS + ')');
+  process.exit(fehlt ? 1 : 0);
+}
+main().catch((e) => { console.error(e); process.exit(1); });

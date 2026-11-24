@@ -266,7 +266,7 @@
   // STUB für Paket D: der Weg über die Spielverbindung (net.js). Bis BOT-01 C den Server-Teil liefert, geht nichts hinaus (send -> false: Meldung „Kein Bot-Server verbunden“).
   // Paket D ersetzt das durch: send: (obj) => Net.send(obj), onMessage: (fn) => Net.on((m) => m.t === 'bot.antwort' && fn(m)).
   function transportNetStub() {
-    return { send() { return false; }, onMessage() { return () => {}; }, schliessen() {}, offen: () => false, stub: true };
+    return { send() { return false; }, onMessage() { return () => {}; }, schliessen() {}, offen: () => false, stub: true };   // netz: true setzt erst der echte Net-Transport (BotSprache.netAntworten)
   }
 
   function mikrofonBrowser(win) {
@@ -492,5 +492,7 @@
     i.kern.schalte(false); i.aufraeumen(); i.transport.schliessen();
   }
 
-  return { erzeuge, clipKandidaten, erwartungErfuellt, mockUrlErlaubt, TEXT, MAX_MS, STIMMEN, CLIP_BASIS, transportWebSocket, transportNetStub, anzeigeHud, sprecherName, startHinweis, UNKLAR_DAUER_S, mikrofonBrowser, audioBrowser, sttBrowser, starte, stoppe, laeuft: () => !!instanz };
+  // BOT-01 C3: verarbeitet die Sprache die bot.antwort der Spielverbindung selbst? Dann zeigt public/js/pult-befehl.js sie nicht noch einmal (genau ein Verarbeiter je Antwort). Der Net-Transport (Paket D) setzt `netz: true`.
+  const netAntworten = () => !!(instanz && instanz.transport && instanz.transport.netz === true);
+  return { erzeuge, clipKandidaten, netAntworten, erwartungErfuellt, mockUrlErlaubt, TEXT, MAX_MS, STIMMEN, CLIP_BASIS, transportWebSocket, transportNetStub, anzeigeHud, sprecherName, startHinweis, UNKLAR_DAUER_S, mikrofonBrowser, audioBrowser, sttBrowser, starte, stoppe, laeuft: () => !!instanz };
 });

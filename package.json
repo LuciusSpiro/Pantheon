@@ -411,6 +411,8 @@
     "test:bot-slots": "node tools/test-bot-slots.js",
     "test:bot-lauf": "node tools/test-bot-lauf.js",
     "test:bot-annahme": "node tools/test-bot-annahme.js",
+    "test:bot-menue": "node tools/test-bot-menue.js",
+    "sicht:bot-menue": "node tools/sicht-bot-menue.js",
     "test:kontingent": "node tools/test-kontingent.js",
     "test:kontingent-frage": "node tools/test-kontingent-frage.js",
     "sicht:kontingent": "node tools/sicht-kontingent.js",

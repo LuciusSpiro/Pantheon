@@ -155,6 +155,7 @@
     },
     // laufende Eingaben des bisherigen Interfaces beenden (Konsole verlassen oder per Tab auf eine andere Station geschaltet)
     stationAbbau(view) {
+      if (window.PultBefehl) PultBefehl.schliessen();   // BOT-01 C3: eine offene Befehlstafel bleibt nicht an der nächsten Station stehen
       if (this.current === 'helm' && view && this.helmSent.turn) view.send({ t: 'cmd', c: 'helm.input', turn: 0, thrust: 0 });
       if (this.scanOn && view) { view.send({ t: 'cmd', c: 'captain.scan', on: false }); this.scanOn = false; }
       if (this.tscanOn && view) { view.send({ t: 'cmd', c: 'weapons.scan', on: false }); this.tscanOn = false; }
@@ -3234,7 +3235,7 @@
       const st = view.state || {}, b = new Set();
       if (c === 'technik') b.add(this.ttab === 1 ? 'technik.schaden' : 'technik.energie');
       if (c === 'shop') { const tu = window.TerminalUI; b.add(tu && tu.lage && !tu.zusehend && tu.bereichJetzt === 'brett' ? 'terminal.brett' : tu && tu.lage && !tu.zusehend && tu.bereichJetzt === 'info' ? 'terminal.info' : tu && tu.lage && !tu.zusehend && tu.bereichJetzt === 'lage' ? 'terminal.lage' : tu && tu.lage && tu.zustand.bereich === 'handel' && !tu.zusehend ? 'terminal.handel' : 'terminal.werft'); }   // SUND-02b D: Bereich Lage (Absichten, Enter nimmt an); PAN-01 D2: Enter kauft im Handel, baut um in der Werft
-      if (c === 'captain') { b.add(['captain.funk', 'captain.stern', 'captain.lage', 'captain.aussen', 'captain.plan', 'captain.notruf'][this.tab] || 'captain.funk'); if (this.tab === 1 || this.tab === 4) b.add('captain.karte'); }
+      if (c === 'captain') { b.add(window.PultBefehl && PultBefehl.sichtbar() ? 'captain.befehl' : ['captain.funk', 'captain.stern', 'captain.lage', 'captain.aussen', 'captain.plan', 'captain.notruf'][this.tab] || 'captain.funk'); if (this.tab === 1 || this.tab === 4) b.add('captain.karte'); }   // BOT-01 C3: bei offener Befehlstafel gehören ihr Q W E A S D Z X C R Rück, der Reiter-Bereich ruht (Ziffern 1–6 bleiben)
       if (c === 'weapons') {
         if (this.fracht && this.fracht(st).show) b.add('ops.fracht');
         if (window.Entschluesseln && Entschluesseln.aktiv && Entschluesseln.aktiv(st)) b.add('ops.entschl');
@@ -3266,7 +3267,7 @@
       if ((e.code === 'Minus' || e.code === 'Slash') && e.shiftKey && window.Pult && this.PULT_STATIONEN && (this.PULT_STATIONEN.includes(c) || c === 'spind' || (c === 'shop' && window.TerminalUI))) { Pult.hilfeUmschalten(); return true; }   // ? = Hilfe-Overlay
       const code = e.code;
       this.keys[code] = true;
-      if (code === 'Escape') { if (c === 'spind' && window.Pult && Pult.hilfe) Pult.hilfeUmschalten(); else view.actions.leave(); return true; }
+      if (code === 'Escape') { if (c === 'spind' && window.Pult && Pult.hilfe) Pult.hilfeUmschalten(); else if (c === 'captain' && window.PultBefehl && PultBefehl.escape()) return true; /* BOT-01 C3: offene Befehlstafel zu, Konsole bleibt */ else view.actions.leave(); return true; }
       if (c === 'spind') return window.KammerUi ? KammerUi.spindTaste(e, view) : true;   // CHA-01 D
       // TB1: Kartenansicht (Sternkarte, Detailkarten, Sektorplan): 0/Pos1 zurücksetzen, +/− zoomen – nur wenn gerade eine Karte sichtbar ist
       const KA = window.KartenAnsicht;
@@ -3298,6 +3299,7 @@
           if (code === 'KeyJ' || ((code === 'Enter' || code === 'NumpadEnter') && performance.now() - this.notsprungAsk < 6000)) return press(() => this.tryButton('Ja, Notsprung'));
           return true;
         case 'captain': {
+          if (window.PultBefehl && PultBefehl.taste(e, view)) return true;   // BOT-01 C3: Befehlstafel und Direkttasten der Bots VOR dem Reiter-Zweig (der ignoriert Shift: Sh+X wäre sonst „Marker löschen“); ohne Bots false
           const awayOn = this.awayActive(st);
           // M3b: Schildstoß (B+1–4, Shift+Pfeil) entfällt
           if (d >= 1 && d <= 6) { if (d - 1 === TAB_AWAY && !awayOn) { this.denied('Nur während der Außenmission'); return true; } this.tab = d - 1; return true; }

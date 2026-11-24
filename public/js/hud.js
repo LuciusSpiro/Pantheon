@@ -275,7 +275,7 @@
     },
     // ---------------------------------------------------------------- BOT-04 C2: Sprechspalte (Bot-Untertitel, Aufnahme-Anzeige, Textzeile)
     // Gezeichnet auf dem 640x360-Raster wie alles im HUD; die Bot-Sprache (public/js/bot-sprache.js, anzeigeHud) füllt den Zustand. Solange sprech.aktiv aus ist (Standard), läuft nichts und nichts wird angelegt.
-    sprech: { aktiv: false, tFrame: 0, naechste: 1, eintraege: [], aufnahme: false, verarbeitet: false, zeile: null },   // zeile: { offen, feld: { value, selectionStart }, platzhalter, platziere(rect), schliessen() }
+    sprech: { aktiv: false, bots: false, tFrame: 0, naechste: 1, eintraege: [], aufnahme: false, verarbeitet: false, zeile: null },   // zeile: { offen, feld: { value, selectionStart }, platzhalter, platziere(rect), schliessen() }
     sprechAn(an) {
       const sp = this.sprech; sp.aktiv = !!an;
       if (!an) { sp.eintraege.length = 0; sp.aufnahme = false; sp.verarbeitet = false; sp.zeile = null; }
@@ -442,7 +442,7 @@
       if (!inConsole) this.drawReactorHint(ctx, view);
       this.drawArrival(ctx);
       if (!inConsole) this.drawBarks(ctx, view);
-      if (this.sprech.aktiv && !inConsole) Net.guard('Hud.sprechspalte', () => this.zeichneSprechspalte(ctx, view));   // BOT-04 C2: Bot-Untertitel, Aufnahme, Textzeile zu Fuß (an der Konsole zeichnet client.js sie NACH der Konsole, sonst läge die Konsole darüber; ohne Bot-Sprache läuft nichts)
+      if ((this.sprech.aktiv || this.sprech.bots) && !inConsole) Net.guard('Hud.sprechspalte', () => this.zeichneSprechspalte(ctx, view));   // BOT-04 C2: Bot-Untertitel, Aufnahme, Textzeile zu Fuß (an der Konsole zeichnet client.js sie NACH der Konsole, sonst läge die Konsole darüber; ohne Bot-Sprache läuft nichts)
       this.drawOda(ctx, view, inConsole);
       if (st.gp && !inConsole && window.Gespraech) Net.guard('Hud.gespraech', () => window.Gespraech.fenster(ctx, st));   // SL2: Gespräch am Boden
       this.drawNotices(ctx, view);
