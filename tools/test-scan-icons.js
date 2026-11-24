@@ -15,7 +15,6 @@ const JS = path.join(ROOT, 'public', 'js');
 const DATEN = require('../content/kampf/gegner-systeme.json');
 const SCH = require('../shared/schiffskatalog.js');
 const PS = require('../public/js/pult-systeme-tokens.js');
-const ZK = require('../public/js/zonenkreuz.js');
 
 let fails = 0, n = 0;
 const ok = (c, t) => { n++; if (c) console.log('  ok   ' + t); else { fails++; console.log('  FEHLER ' + t); } };
@@ -35,7 +34,9 @@ function ladeModul(f) {
   return m.exports;
 }
 const ZST = ladeModul('zielstapel.js');
+const ZK = ladeModul('zonenkreuz.js');
 const F = PS.farben('rom'), MASS = PS.TOKENS.MASS, STP = MASS.stapel, TEXT = PS.TOKENS.TEXT;
+const TEXT_LEER = PS.TOKENS.ZEICHEN.leer;
 const ALLE_KURZ = new Set(); for (const k of Object.values(DATEN.klassen)) for (const d of k.systeme) ALLE_KURZ.add(d.kurz);
 
 // ---------------------------------------------------------------------------------------------------------------------------------
@@ -126,7 +127,7 @@ section('(b) Stapel: Gruppierung, Zähler, ein Balkenstück je Einheit');
   const stb = inZone('stb'), bb = inZone('bb'), bug = inZone('bug'), heck = inZone('heck'), mitte = S.filter((s) => im(k.r.mitte, { x: s.mx, y: s.my }));
   ok(stb.map((s) => s.maske).join() === 'waffe:lanzenbatterie,waffe:standardbatterie,emitter', 'Stb (4 Systeme): drei Zeilen Lanzenbatterie, Batterie (2 Waffen in einer Zeile), Emitter: ' + stb.map((s) => s.maske).join());
   ok(bb.map((s) => s.maske).join() === 'waffe:standardbatterie,waffe:lanzenbatterie,emitter', 'Bb: Batterie (bb1 + bb3) steht vor der Lanzenbatterie in einer Zeile: ' + bb.map((s) => s.maske).join());
-  ok(bug.map((s) => s.maske).join() === 'waffe:lanze,waffe:standardkanone,emitter', 'Bug: Lanze, Kanone, Emitter');
+  ok(bug.map((s) => s.maske).join() === 'waffe:lanze,waffe:standardkanone' && k.rec.texte.some((t) => t.s === '+1' && im(B.bug, t)), 'Bug (48 px breit): Lanze und Kanone, der Emitter fällt in „+1“ (drei Arten brauchen je Balkenstück mind. ' + STP.balkenMin + ' px)');
   ok(heck.map((s) => s.maske).join() === 'antrieb,emitter', 'Heck: Antrieb, Emitter');
   ok(mitte.length === 5 && mitte.map((s) => s.maske).sort().join() === 'frachtraum,krankenstation,reaktor,schildgenerator,werkstatt', 'Mitte: fünf Arten, ' + mitte.map((s) => s.maske).join());
   // Zähler nur bei mehreren; Zahl steht neben dem Symbol
@@ -138,14 +139,14 @@ section('(b) Stapel: Gruppierung, Zähler, ein Balkenstück je Einheit');
   const striche = (zn) => k.rec.rects.filter((r) => r.f === F.zer && r.h === 1 && r.w < 30 && r.y > B[zn].y + 2 && r.y < B[zn].y + B[zn].h - 2 && im(B[zn], r));
   ok(spuren('stb').length === 3 && striche('stb').length === 1, `Stb: 4 Einheiten = 3 Balkenstücke mit Spur + 1 Strich (${spuren('stb').length} + ${striche('stb').length})`);
   ok(spuren('bb').length === 4 && striche('bb').length === 0, `Bb: 4 Einheiten = 4 Balkenstücke (${spuren('bb').length})`);
-  ok(spuren('bug').length === 3 && spuren('heck').length === 2, 'Bug 3 und Heck 2 Balkenstücke');
+  ok(spuren('bug').length === 2 && spuren('heck').length === 2, 'Bug 2 und Heck 2 Balkenstücke');
   ok(k.r.mitte && k.rec.rects.filter((r) => r.f === F.pipLeer && r.h === STP.balkenH && im(k.r.mitte, r)).length === 5, 'Mitte: fünf Balkenstücke');
   const xs = spuren('bb').filter((r) => r.y === spuren('bb')[0].y).map((r) => r.x);
   ok(new Set(xs).size === xs.length && xs.length >= 2, 'die Balkenstücke einer Zeile liegen nebeneinander (verschiedene x): ' + xs.join(' '));
   // Füllung nach Prozent: Batterie Stb 2 (40 %, beschädigt) in Gelb, die zweite heil in Creme
   const stbFarben = k.rec.rects.filter((r) => [F.besch, F.ok].includes(r.f) && r.h === STP.balkenH && im(B.stb, r)).map((r) => r.f);
   ok(stbFarben.includes(F.besch) && stbFarben.includes(F.ok), 'Zustandsfarbe: beschädigt Gelb, heil Creme');
-  ok(k.zellen.length === DATEN.klassen.kreuzer.systeme.length && k.zellen.length === 18, 'Tooltip-Flächen: eine je Einheit (18 Systeme, ' + k.zellen.length + ')');
+  ok(k.zellen.length === DATEN.klassen.kreuzer.systeme.length - 1 && k.zellen.length === 17, 'Tooltip-Flächen: eine je gezeichnete Einheit (18 Systeme, eines in „+1“: ' + k.zellen.length + ')');
   ok(k.rec.texte.every((t) => !ALLE_KURZ.has(t.s)) && !k.rec.texte.some((t) => /^[WE](Bg|St|Hk|Bb)\d?$|^(Antr|Reakt|Schld|Werk|Krank|Frach)$/.test(t.s)), 'kein Kürzel im Bild (WBg, ESt, Antr, Reakt …)');
   ok(!k.rec.texte.some((t) => /%|zer\./.test(t.s)), 'kein Prozentwert und kein „zer.“ im Bild (nur im Tooltip)');
   const alt = zeichneKreuz('kreuzer', Object.assign({}, SZENE, { ohneInhalt: true }));
@@ -200,7 +201,7 @@ section('(b) Nicht wählbare Zeilen gedimmt, Überlauf „+n“');
   const gezeigt = eng.rec.symbole.filter((s) => im(eng.r.mitte, { x: s.mx, y: s.my })).length;
   ok(plus.length >= 1 && plus.some((t) => im(eng.r.mitte, t)), 'niedriger Kasten: „+n“ in der Mitte (' + plus.map((t) => t.s).join(' ') + ')');
   ok(plus.some((t) => im(eng.r.mitte, t) && t.s === '+' + (5 - gezeigt)), 'das „+n“ nennt genau die fehlenden Arten (5 - ' + gezeigt + ')');
-  ok(k.rec.texte.filter((t) => /^\+\d+$/.test(t.s)).length === 0, 'im vollen Kasten kein „+n“');
+  ok(k.rec.texte.filter((t) => /^\+\d+$/.test(t.s)).map((t) => t.s).join() === '+1', 'im vollen Kasten nur das „+1“ der Bug-Kachel');
   const ger = ZST.fluss(5, { w: 44, h: 53 }, STP.zeile, 53);
   ok(ger.cap >= 5, 'Fluss: fünf Arten in der Mitte des vollen Kasten passen (' + ger.rows + ' Zeilen × ' + ger.cols + ' Spalten)');
   ok(ZST.fluss(9, { w: 44, h: 20 }, STP.zeile, 20).cols <= 2, 'Fluss: höchstens so viele Spalten, wie die Breite zulässt (mind. ' + STP.spalteMin + ' px je Spalte)');
@@ -216,6 +217,104 @@ section('(b) Jäger und Korvette');
   ok(korv.rec.symbole.length === 10 && korv.m.offen.join() === 'bb', 'Korvette: zehn Symbole, Bb leer (Mitte offen): ' + korv.rec.symbole.length + ' ' + korv.m.offen.join());
   ok(korv.rec.symbole.filter((s) => s.farbe === F.stapelZer).length === 2, 'Korvette: die beiden zerstörten Systeme (Waffe Bb, Emitter Bb) grau');
   ok(korv.rec.rects.filter((r) => r.f === F.zerText && r.w === 1 && r.h === 1).length === 40, 'Korvette: zwei Kreuze (Waffe Bb, Emitter Bb)');
+}
+
+section('(c) Tooltip über das Modell: voller Name bei allen Arten aller Klassen (M1)');
+{
+  let alle = 0, falsch = [];
+  for (const [kl, def] of Object.entries(DATEN.klassen)) {
+    const zs = []; for (const d of def.systeme) zs.push(0, 100); zs.push(-1);
+    const m = ZK.modellZiel({ ship: { zielSys: zs, zielZon: { z: 0, pct: [100, 100, 100, 100], leer: [0, 0, 0, 0] }, zielWahl: [] } }, { systeme: def.systeme, lay: null });
+    const eintraege = [].concat(m.mitte.sys, ...['bug', 'stb', 'heck', 'bb'].map((z) => m.zonen[z].sys));
+    for (const e of eintraege) {
+      alle++;
+      const I = ZST.info(e, { weapons: [] }), roh = def.systeme.find((d) => d.id === e.id), kurz = I.langName.split(' · ')[0];
+      if (e.art !== 'waffe' && e.art !== 'emitter' && kurz !== String(roh.name)) falsch.push(kl + ':' + e.id + ' „' + kurz + '“');
+      if (ALLE_KURZ.has(kurz) || /^(Reakt|Schld|Antr|Werk|Krank|Frach)$/.test(kurz)) falsch.push(kl + ':' + e.id + ' Kürzel „' + kurz + '“');
+      if (ZST.tooltipText(I, e).split('\n').length !== 2) falsch.push(kl + ':' + e.id + ' Tooltip nicht zweizeilig');
+    }
+  }
+  ok(alle >= 60 && falsch.length === 0, 'Tooltip-Name aus dem Modell-Eintrag = voller Name der Daten, kein Kürzel (' + alle + ' Systeme, 7 Klassen)' + (falsch.length ? ': ' + falsch.join('; ') : ''));
+  const zs = []; for (const d of DATEN.klassen.korvette.systeme) zs.push(d.id === 'antrieb' ? 1 : 0, d.id === 'antrieb' ? 0 : 100); zs.push(-1);
+  const m = ZK.modellZiel({ ship: { zielSys: zs, zielZon: { z: 0, pct: [100, 100, 100, 100], leer: [0, 0, 0, 0] }, zielWahl: [] } }, { systeme: DATEN.klassen.korvette.systeme, lay: null });
+  const an = m.zonen.heck.sys.find((e) => e.id === 'antrieb');
+  ok(ZST.tooltipText(ZST.info(an, null), an) === 'Antrieb\nbeschädigt · 0 %', 'Antrieb am Modell: Tooltip „Antrieb“ / „beschädigt · 0 %“ (' + JSON.stringify(ZST.tooltipText(ZST.info(an, null), an)) + ')');
+}
+
+section('Zustand: der Serverzustand geht vor (S2)');
+{
+  ok(ZK.zustandVon(0, 'damaged') === 'besch' && ZK.zustandVon(40, 'damaged') === 'besch' && ZK.zustandVon(100, 'damaged') === 'besch', 'damaged ist immer beschädigt, auch mit 0 %');
+  ok(ZK.zustandVon(0, 'broken') === 'zer' && ZK.zustandVon(60, 'broken') === 'zer', 'broken ist immer zerstört');
+  ok(ZK.zustandVon(0, 'ok') === 'zer' && ZK.zustandVon(30, 'ok') === 'besch' && ZK.zustandVon(80, 'ok') === 'ok' && ZK.zustandVon(50, 'offline') === 'offline', 'ok: Prozent entscheiden wie bisher (0 % zerstört), offline bleibt offline');
+  const k = zeichneKreuz('korvette', { zust: { antrieb: [1, 0] }, zugewandt: 'heck', weapons: [] });
+  const an = k.zellen.find((q) => q.e.id === 'antrieb');
+  ok(an && an.e.zust === 'besch' && k.rec.rects.filter((r) => r.f === F.zerText && r.w === 1 && r.h === 1).length === 0, 'Antrieb „damaged“ mit 0 %: kein Kreuz, nicht als zerstört gezeichnet');
+}
+
+section('(b) Spaltenbreite nach Bedarf, Balkenstücke mind. so breit wie balkenMin (S1)');
+{
+  const tw5 = (s) => String(s).length * 5, G = (n) => ({ es: new Array(n).fill({}) });
+  ok(STP.balkenMin === 3, 'MASS.stapel.balkenMin = 3');
+  const breit = ZST.spalten([G(2), G(1)], { w: 100, h: 20 }, STP.zeile, 20, tw5);
+  ok(breit.zaehler === true && breit.cap === 2 && breit.breiten.length === 2, 'breite Kachel: Zähler bleibt, beide Arten nebeneinander');
+  ok(breit.breiten.reduce((a, b) => a + b, 0) >= 100 - 4 + 2 - breit.breiten.length, 'freie Breite verteilt sich auf die Spalten (Summe = Kachelbreite)');
+  const eng = ZST.spalten([G(2), G(1)], { w: 48, h: 20 }, STP.zeile, 20, tw5);
+  ok(eng.zaehler === false && eng.cap === 2, 'Kanone ×2 + Emitter in 48 px: der Zähler fällt weg, beide Arten bleiben (' + JSON.stringify(eng) + ')');
+  const drei = ZST.spalten([G(1), G(1), G(1)], { w: 48, h: 20 }, STP.zeile, 20, tw5);
+  ok(drei.cap === 2, 'drei Arten in einer Zeile von 48 px: nur zwei, der Rest in „+n“ (cap ' + drei.cap + ')');
+  ok(ZST.spalten([G(3)], { w: 40, h: 20 }, STP.zeile, 20, tw5).breiten[0] >= ZST.bedarf(G(3), tw5, false), 'eine Spalte bekommt mindestens den Bedarf ihrer Gruppe');
+  const summen = [eng, breit, drei].every((s) => s.breiten.reduce((a, b) => a + b, 0) <= 48 - 4 + 2 || s === breit);
+  ok(summen, 'die Spalten zusammen sind nie breiter als die Kachel');
+  // im gezeichneten Kasten: kein Balkenstück schmaler als balkenMin, keines ragt aus der Kachel oder in ein Symbol
+  const szenen = [zeichneKreuz('kreuzer', SZENE), zeichneKreuz('kreuzer', { zust: {}, weapons: [{ platz: 'bug', typ: 'bolzen' }, { platz: 'bug2', typ: 'bolzen' }, { platz: 'stbd1', typ: 'batterie' }, { platz: 'stbd2', typ: 'batterie' }, { platz: 'stbd3', typ: 'batterie' }, { platz: 'bb1', typ: 'batterie' }, { platz: 'bb2', typ: 'batterie' }, { platz: 'bb3', typ: 'batterie' }] }),
+    zeichneKreuz('korvette', { zust: {}, weapons: [{ platz: 'bug', typ: 'lanze' }, { platz: 'stbd', typ: 'batterie' }, { platz: 'bb', typ: 'lanze' }] }), zeichneKreuz('raider', { zust: {}, weapons: [{ facing: 0 }], zugewandt: 'bug' })];
+  let schmal = 0, raus = 0, ueberSymbol = 0, stuecke = 0;
+  for (const s of szenen) {
+    const tiles = Object.values(s.r.bodies).concat([s.r.mitte]);
+    for (const r of s.rec.rects.filter((q) => q.f === F.pipLeer && q.h === STP.balkenH)) {
+      stuecke++;
+      if (r.w < STP.balkenMin) schmal++;
+      const t = tiles.find((b) => im(b, r));
+      if (!t || r.x + r.w > t.x + t.w) raus++;
+      if (s.rec.symbole.some((y) => r.x < y.mx + STP.symbol / 2 && r.x + r.w > y.mx - STP.symbol / 2 && r.y < y.my + STP.symbol / 2 && r.y + r.h > y.my - STP.symbol / 2)) ueberSymbol++;
+    }
+  }
+  ok(stuecke > 40 && schmal === 0, 'kein Balkenstück schmaler als ' + STP.balkenMin + ' px (' + stuecke + ' Stücke in 4 Szenen)');
+  ok(raus === 0 && ueberSymbol === 0, 'kein Balkenstück ragt aus seiner Kachel oder in ein Nachbarsymbol');
+  // Kreuzer-Bug mit zwei gleichen Kanonen und Emitter (Review): zwei Stücke je 3 px oder mehr, beide Arten sichtbar
+  const kb = zeichneKreuz('kreuzer', { zust: {}, weapons: [{ platz: 'bug', typ: 'bolzen' }, { platz: 'bug2', typ: 'bolzen' }] });
+  const bugSym = kb.rec.symbole.filter((y) => im(kb.r.bodies.bug, { x: y.mx, y: y.my }));
+  ok(bugSym.map((y) => y.maske).join() === 'waffe:standardkanone,emitter', 'Kreuzer-Bug: Kanone ×2 und Emitter beide sichtbar: ' + bugSym.map((y) => y.maske).join());
+}
+
+section('Tooltip-Farben (K1)');
+{
+  const e = (zust, pct) => ({ zust, pct }), I = ZST.info(DATEN.klassen.kreuzer.systeme.find((q) => q.id === 'antrieb'), null);
+  const R = (ee) => { const r = { ui: { mouse: { x: 12, y: 8 }, tooltip: null } }; ZST.tooltipSetzen(r, [{ x: 10, y: 5, w: 6, h: 6, e: ee, info: I }], F); return r.ui.tooltip; };
+  ok((R(e('besch', 40)).farben || [])[0] === F.text && (R(e('besch', 40)).farben || [])[1] === F.besch, 'beschädigt: Name in Textfarbe, Zustand Gelb');
+  ok((R(e('zer', 0)).farben || [])[1] === F.zerText && (R(e('ok', 90)).farben || [])[1] === F.text, 'zerstört in zerText, heil in Textfarbe');
+  const drawn = quelle('render.js');
+  ok(/t\.farben && t\.farben\[i\]/.test(drawn), 'Render.drawTooltip nimmt die Farbe je Zeile');
+}
+
+section('LEER und Zeilen in niedriger Kachel (K2)');
+{
+  const schnitt = (a, b) => a.x < b.x + b.w && a.x + a.w > b.x && a.y < b.y + b.h && a.y + a.h > b.y;
+  for (const h of [116, 100, 90, 84, 76, 70]) {   // Höhe des Kreuzes: der Kasten richtet sich nach dem Platz, die Bug-Kachel wird niedrig
+    const k = zeichneKreuz('raider', { zust: { waffe_bug: [2, 0], emitter_bug: [2, 0] }, zugewandt: 'bug', weapons: [{ facing: 0 }], rect: { x: 6, y: 40, w: 146, h } });
+    const leer = k.rec.texte.find((t) => t.s === TEXT_LEER);
+    const lb = leer ? { x: leer.x - TEXT_LEER.length * 5, y: leer.y, w: TEXT_LEER.length * 5, h: 7 } : null;
+    const boxen = k.rec.symbole.filter((y) => im(k.r.bodies.bug, { x: y.mx, y: y.my })).map((y) => ({ x: y.mx - STP.symbol / 2, y: y.my - STP.symbol / 2, w: STP.symbol, h: STP.symbol }))
+      .concat(k.rec.rects.filter((r) => (r.f === F.zer || r.f === F.pipLeer) && r.h <= STP.balkenH && im(k.r.bodies.bug, r)));
+    ok(!!leer && im(k.r.bodies.bug, leer) && boxen.length >= 1 && boxen.every((b) => !schnitt(b, lb)), 'Kreuz ' + h + ' px (Bug-Kachel ' + k.r.bodies.bug.h + ' px): LEER überdeckt kein Symbol und kein Balkenstück (' + boxen.length + ' Teile)');
+  }
+}
+
+section('Keine freien Werte (K3)');
+{
+  const zq = quelle('zielstapel.js');
+  ok(!/x \+ 15\b/.test(zq) && !/i < 10\b/.test(zq) && !/x \+ 10 - i/.test(zq) && !/const k = \d/.test(zq), 'zielstapel.js: Versatz und Kreuzgröße stehen als Tokens in MASS.stapel (versatz, kreuz)');
+  ok(STP.versatz === 15 && STP.kreuz === 10, 'MASS.stapel.versatz 15 und kreuz 10');
 }
 
 // ---------------------------------------------------------------------------------------------------------------------------------
@@ -299,7 +398,7 @@ section('Einbindung');
   const html = read('../index.html');
   ok(/zonenkreuz\.js[\s\S]*zielstapel\.js[\s\S]*pult-stationen\.js/.test(html), 'index.html lädt zielstapel.js nach zonenkreuz.js und vor pult-stationen.js');
   const q = quelle('pult-stationen.js');
-  ok(/ZST\.inhalt\(target/.test(q) && /ZST\.tooltipSetzen\(R, zellen\)/.test(q) && /vor: zvor/.test(q), 'pult-stationen.js: Zielkasten benutzt Zielstapel.inhalt, Tooltip und Knopf-Symbol');
+  ok(/ZST\.inhalt\(target/.test(q) && /ZST\.tooltipSetzen\(R, zellen, F\)/.test(q) && /vor: zvor/.test(q), 'pult-stationen.js: Zielkasten benutzt Zielstapel.inhalt, Tooltip und Knopf-Symbol');
   const ps = read('pult-systeme-tokens.js');
   ok(/stapelZer: '#4A5468'/.test(ps) && /stapel: \{ zeile: 14/.test(ps), 'Tokens: Farbe stapelZer und MASS.stapel stehen in pult-systeme-tokens.js');
   const zq = quelle('zielstapel.js');

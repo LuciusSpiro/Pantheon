@@ -320,7 +320,7 @@
     const x = Math.min(VW - w - 2, t.x + 8), y = Math.min(VH - h - 2, t.y + 10);
     ctx.fillStyle = 'rgba(11,14,26,0.95)'; ctx.fillRect(x, y, w, h);
     ctx.strokeStyle = PAL.warn; ctx.strokeRect(x + 0.5, y + 0.5, w - 1, h - 1);
-    zl.forEach((q, i) => text(ctx, q, x + 4, y + 2 + 10 * i, { color: PAL.warn, shadow: false }));
+    zl.forEach((q, i) => text(ctx, q, x + 4, y + 2 + 10 * i, { color: (t.farben && t.farben[i]) || PAL.warn, shadow: false }));
   }
 
   // ------------------------------------------------------------------ Karten-Hilfen

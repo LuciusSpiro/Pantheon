@@ -44,7 +44,7 @@
     let name;
     if (art === 'waffe') { const w = SCH && SCH.BY_ID && SCH.BY_ID[art0]; name = w ? String(w.name).replace(WAFFEN_VORSATZ, '').replace(/^./, (ch) => ch.toUpperCase()) : 'Waffe'; }
     else if (art === 'emitter') name = TEXT.stapel.emitter;
-    else name = String(d.name || art);
+    else name = String(d.nameLang || d.name || art);   // nameLang: voller Name aus den Daten (der Modell-Eintrag trägt als name das Kürzel)
     const seite = art !== 'antrieb' && zone !== 'mitte';
     const zk = TEXT.seiteKurz, zl = TEXT.zoneLang;
     return { d, art, maske, nr, farbe: ART_FARBE[art] || FN.neutral, name,
@@ -59,6 +59,8 @@
     if (e.zust === 'offline') return Z.offline;
     return fmt(sehrBesch(e) ? Z.besch : Z.ok, { p: e.pct });
   }
+  // Farbe der Zustandszeile im Tooltip (Mockup zustCol): zerstört zerText, beschädigt Gelb, offline dim, sonst Text
+  const zustandFarbe = (e, F) => (e.zust === 'zer' ? F.zerText : sehrBesch(e) ? F.besch : e.zust === 'offline' ? F.dim : F.text);
   const tooltipText = (inf, e) => inf.langName + '\n' + zustandText(e);
 
   // ---------------------------------------------------------------- Gruppen und Fluss
@@ -76,14 +78,33 @@
     return { rows, cols, colW: Math.floor(breit / cols), cap: rows * cols };
   }
 
+  // Breite einer Spalte für eine Gruppe: Symbol, Zähler (nur bei mehreren und wenn Platz), je Einheit ein Balkenstück von mind. balkenMin plus Lücke, Rand
+  function bedarf(g, tw, zaehler) { const n = g.es.length; return MASS.versatz + (zaehler && n > 1 ? tw(String(n)) + 2 : 0) + n * MASS.balkenMin + (n - 1) + 2; }
+  // Spaltenbreiten nach Bedarf je Gruppe (Spalte = Gruppen k von col*rows bis col*rows+rows-1): passt es nicht, fällt zuerst der Zähler weg, dann die letzte Spalte (Rest in „+n“);
+  // übrige Breite verteilt sich gleichmäßig auf die Spalten. Rückgabe { rows, breiten[], zaehler, cap }
+  function spalten(gruppen, body, lh, frei, tw) {
+    const f = fluss(gruppen.length, body, lh, frei), breit = body.w - 4 + 2;
+    let anzahl = Math.min(gruppen.length, f.cap), zaehler = true, b = [];
+    const bauen = () => { const w = []; for (let k = 0; k < anzahl; k++) { const c = Math.floor(k / f.rows); w[c] = Math.max(w[c] || 0, bedarf(gruppen[k], tw, zaehler)); } return w; };
+    const summe = (w) => w.reduce((s, v) => s + v, 0);
+    for (;;) {
+      b = bauen();
+      if (summe(b) <= breit || anzahl <= 1) break;
+      if (zaehler) { zaehler = false; b = bauen(); if (summe(b) <= breit) break; }
+      anzahl = (b.length - 1) * f.rows; zaehler = true;
+    }
+    const extra = Math.max(0, Math.floor((breit - summe(b)) / b.length));
+    return { rows: f.rows, breiten: b.map((v) => v + extra), zaehler, cap: anzahl };
+  }
+
   // ---------------------------------------------------------------- Zeichnen
   // Symbol (Mitte mx/my, 12×12): Waffe über SchiffsUI, die übrigen Arten über PultTerminal.symbolModul
   function symbolZeichnen(c, maske, mx, my, farbe) {
     if (maske.indexOf('waffe:') === 0) { const UI = root.SchiffsUI; return !!(UI && UI.drawWaffe(c, maske.slice(6), mx, my, { color: farbe })); }
     const PT = root.PultTerminal; return !!(PT && PT.symbolModul(c, maske, mx, my, { color: farbe }));
   }
-  // Kreuz über dem Symbol (10×10 Diagonalen): „zerstört“ als Form
-  function kreuzUeber(c, x, y, col) { c.fillStyle = col; for (let i = 0; i < 10; i++) { c.fillRect(x + 1 + i, y + 1 + i, 1, 1); c.fillRect(x + 10 - i, y + 1 + i, 1, 1); } }
+  // Kreuz über dem Symbol (MASS.stapel.kreuz × kreuz Diagonalen): „zerstört“ als Form
+  function kreuzUeber(c, x, y, col) { const k = MASS.kreuz; c.fillStyle = col; for (let i = 0; i < k; i++) { c.fillRect(x + 1 + i, y + 1 + i, 1, 1); c.fillRect(x + k - i, y + 1 + i, 1, 1); } }
   // Balkenstück einer Einheit: Spur, Anteil in Zustandsfarbe; zerstört = 1-px-Strich in Rot
   function miniBalken(c, F, rc, x, y, w, h, e) {
     if (e.zust === 'zer') { rc(x, y + h - 1, w, 1, F.zer); return; }
@@ -96,18 +117,21 @@
     return function (list, body, zn, zu, leerWort, api) {
       const c = api.c, F = api.F, rc = api.rc, rand = api.rand, o = api.o, lh = MASS.zeile, S = MASS.symbol;
       const gruppen = gruppiere(list, target);
-      const f = fluss(gruppen.length, body, lh, body.h - (leerWort ? 10 : 0));
+      // LEER (leere Kachel) steht unten rechts; ist die Kachel zu niedrig für eine Zeile über dem Wort, steht es rechts neben der Zeile und die Zeilen verlieren seine Breite
+      const leerNeben = leerWort && Math.floor((body.h - 10 - 4 + 1) / lh) < 1;
+      const bd = leerNeben ? Object.assign({}, body, { w: body.w - api.tw(TOK.ZEICHEN.leer) - TOK.MASS.innen - 2 }) : body;
+      const f = spalten(gruppen, bd, lh, bd.h - (leerWort && !leerNeben ? 10 : 0), api.tw);
       gruppen.slice(0, f.cap).forEach((g, k) => {
         const col = Math.floor(k / f.rows), row = k % f.rows;
-        const x = body.x + 2 + col * f.colW, y = body.y + 3 + row * lh, w = f.colW - 2;
+        const x = body.x + 2 + f.breiten.slice(0, col).reduce((s, v) => s + v, 0), y = body.y + 3 + row * lh, w = f.breiten[col] - 2;
         const selE = g.es.find((e) => e.id === o.selId);
         if (selE) { rc(x - 1, y - 2, w + 1, lh - 1, F.systemzielZeile); rc(x - 1, y - 2, MASS.rand, lh - 1, F.systemziel); }
         const alleZer = g.es.every((e) => e.zust === 'zer'), dim = (zu || g.es.every((e) => e.hinter)) && !selE && !alleZer;
         if (dim) c.globalAlpha = 0.6;
         symbol(c, g.maske, x + 1 + S / 2, y - 1 + S / 2, alleZer ? F.stapelZer : g.info.farbe);
         if (alleZer) kreuzUeber(c, x + 1, y - 1, F.zerText);
-        let bx = x + 15;
-        if (g.es.length > 1) { api.txt(g.es.length, bx, y + 1, F.text); bx += api.tw(String(g.es.length)) + 2; }
+        let bx = x + MASS.versatz;
+        if (f.zaehler && g.es.length > 1) { api.txt(g.es.length, bx, y + 1, F.text); bx += api.tw(String(g.es.length)) + 2; }
         // Balkenstücke: je Einheit eines, Breite aus der Restbreite
         const n = g.es.length, sw = Math.max(MASS.balkenMin, Math.floor((x + w - bx - (n - 1)) / n));
         g.es.forEach((e, i) => {
@@ -122,12 +146,12 @@
     };
   }
   // Tooltip der Fläche unter der Maus (R.ui.mouse); Zeilenumbruch im Text, Anzeige in Render.drawTooltip
-  function tooltipSetzen(R, zellen) {
+  function tooltipSetzen(R, zellen, F) {
     const m = R && R.ui && R.ui.mouse; if (!m || !zellen) return null;
     const z = zellen.find((q) => m.x >= q.x && m.y >= q.y && m.x < q.x + q.w && m.y < q.y + q.h);
     if (!z) return null;
-    R.ui.tooltip = { text: tooltipText(z.info, z.e), x: m.x, y: m.y };
+    R.ui.tooltip = { text: tooltipText(z.info, z.e), x: m.x, y: m.y, farben: F ? [F.text, zustandFarbe(z.e, F)] : undefined };   // Zeile 1 Textfarbe, Zeile 2 Zustandsfarbe
     return z;
   }
-  return { info, gruppiere, fluss, inhalt, tooltipText, zustandText, tooltipSetzen, symbolZeichnen, kreuzUeber, ART_MASKE, ART_FARBE };
+  return { info, gruppiere, fluss, spalten, bedarf, zustandFarbe, inhalt, tooltipText, zustandText, tooltipSetzen, symbolZeichnen, kreuzUeber, ART_MASKE, ART_FARBE };
 });
