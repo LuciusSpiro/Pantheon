@@ -290,7 +290,7 @@ function ausgangMitPerson(game, o) {
   if (!W.ausloeser.includes(o.art) || !W.ausgaenge.includes(o.ausgang)) return null;
   taetigkeit(game, o.art);   // der Ausgang ist selbst eine Taetigkeit (gezaehlt vor dem Angebot, das neue Angebot ist also frisch)
   const F = zustandVon(game);
-  if (aktive(F).length >= W.aktiv_max) return null;   // kein Platz: ein Angebot waere sinnlos (Obergrenze)
+  if (P.aktiveRegulaer(F).length >= W.aktiv_max) return null;   // SPT-02 4: Notruf-Faeden zaehlen nicht. kein Platz: ein Angebot waere sinnlos (Obergrenze)
   const hex = typeof o.hex === 'string' && HEX.test(o.hex) ? o.hex : '';
   const volk = hex ? volkVonHex(game, hex) : null;
   // P3: ein Auslöser kann auf Ereignis-Kennungen eingeschränkt sein (Daten: ausloeser[].ereignis, z. B. notruf_pirat_frachter); ohne Feld gilt jede Ereignis der Art
@@ -545,7 +545,8 @@ function optionWaehlen(game, fadenId, optionId) {
 function ausschnittBlock(game) {
   if (!aktiv(game)) return null;
   const F = zustandVon(game);
-  const liste = aktive(F).slice(0, W.aktiv_max);
+  let nr = 0, nn = 0;   // SPT-02 4: regulaere Faeden bis aktiv_max, Notruf-Faeden (sie brauchen weiter den Befehl faden_weiter des Modells) bis notruf_aktiv_max, in Reihenfolge der Faeden
+  const liste = aktive(F).filter((f) => (P.notrufBrettFaden(f) ? nn++ < P.NOTRUF_AKTIV_MAX : nr++ < W.aktiv_max));
   const fa = liste.map((f) => {
     const v = D.vorlage(f.vorlage), beat = v.beats[f.beat];
     const e = { id: f.id, v: v.id, ph: f.phase, beat: beat.id, typ: beat.typ, z: f.zaehler, nsc: { f: f.nsc.fraktion, st: f.nsc.status, h: f.nsc.haltung } };
@@ -556,7 +557,7 @@ function ausschnittBlock(game) {
   });
   const ang = F.angebote.map((a) => ({ nr: a.nr, v: a.vorlagen.slice(), hex: a.hex, volk: a.volk }));
   if (!fa.length && !ang.length) return null;
-  const block = { aktiv: fa, platz: Math.max(0, W.aktiv_max - fa.length) };
+  const block = { aktiv: fa, platz: Math.max(0, W.aktiv_max - liste.filter((f) => !P.notrufBrettFaden(f)).length) };
   if (ang.length) block.angebote = ang;
   const zu = () => JSON.stringify(block).length > W.ausschnitt.zeichen;
   if (zu() && block.angebote) { for (const a of block.angebote) a.v = a.v.slice(0, 2); }
@@ -679,8 +680,10 @@ function lesen(b) {
     const r = leseFaden(x, F);
     if (!r.faden) { F.ladeFehler.push(r.fehler); continue; }
     if (ids.has(r.faden.id) || F.liste.some((y) => y.nsc.id === r.faden.nsc.id)) { F.ladeFehler.push(`${r.faden.id}: Kennung doppelt`); continue; }
-    if (r.faden.phase !== 'abgeschlossen' && aktive(F).length >= W.aktiv_max) { F.ladeFehler.push(`${r.faden.id}: mehr als ${W.aktiv_max} aktive Fäden, verworfen`); continue; }
-    if (r.faden.plan && r.faden.phase !== 'abgeschlossen' && P.abenteuerLaufend(F) >= W.abenteuer.laufend_max) { F.ladeFehler.push(`${r.faden.id}: mehr als ${W.abenteuer.laufend_max} laufendes Abenteuer, verworfen`); continue; }
+    const nf = P.notrufBrettFaden(r.faden);   // SPT-02 4: ein Notruf-Faden (Herkunft f.notruf) zaehlt nur gegen notruf_aktiv_max, nie gegen aktiv_max oder laufend_max
+    if (nf && r.faden.phase !== 'abgeschlossen' && P.notrufGrenzeErreicht(F)) { F.ladeFehler.push(`${r.faden.id}: mehr als ${P.NOTRUF_AKTIV_MAX} aktive Notrufe, verworfen`); continue; }
+    if (!nf && r.faden.phase !== 'abgeschlossen' && P.aktiveRegulaer(F).length >= W.aktiv_max) { F.ladeFehler.push(`${r.faden.id}: mehr als ${W.aktiv_max} aktive Fäden, verworfen`); continue; }
+    if (!nf && r.faden.plan && r.faden.phase !== 'abgeschlossen' && P.abenteuerLaufend(F) >= W.abenteuer.laufend_max) { F.ladeFehler.push(`${r.faden.id}: mehr als ${W.abenteuer.laufend_max} laufendes Abenteuer, verworfen`); continue; }
     ids.add(r.faden.id);
     F.liste.push(r.faden);
   }

@@ -328,7 +328,8 @@
   const brettKarte = (BR, id) => (BR && (BR.angebote.find((k) => k.id === id) || BR.angebote[0])) || null;   // gewähltes Angebot, sonst das erste
   const brettKannAntworten = (BR) => !s.zusehen && !!BR && BR.angebote.length > 0 && !wartetJetzt();
   function brettAnnehmen(view, BR, id) {
-    if (!brettKannAntworten(BR) || !BR.ok || BR.voll || !id) return;   // SPT-02 3: gesperrt erst bei erreichter Grenze (laufend_max aus dem Block), nicht schon beim ersten laufenden Abenteuer
+    const k = brettKarte(BR, id);
+    if (!brettKannAntworten(BR) || !BR.ok || (BR.voll && !(k && k.notruf)) || !id) return;   // SPT-02 3: gesperrt erst bei erreichter Grenze (laufend_max aus dem Block), nicht schon beim ersten laufenden Abenteuer; SPT-02 4: ein Notruf-Angebot nie (der Server prueft notruf_aktiv_max)
     if (Brett.annehmen((m) => view.send(m), id)) warten();
   }
   function brettAblehnen(view, BR, id) {
@@ -343,7 +344,7 @@
   function brettNummer(BR, nr) { if (s.zusehen || !BR || !BR.angebote[nr - 1]) return; s.brettId = BR.angebote[nr - 1].id; s.antwort = null; }
   // Modell des Bereichs für T.zeichneBrett; a.brett = gewählte Id (bei Zuschauern die des Nutzers). Zeile 1 der Infozeile: Absage des Servers (gelb) vor ANGENOMMEN (mint, aus dem Snapshot)
   function brettBauen(view, m, L, a, bedienbar, wartet, ant) {
-    const BR = brett(), TX = BT(), gew = brettKarte(BR, a.brett), lauf = BR.laufend, voll = BR.voll, frei = bedienbar && !wartet;
+    const BR = brett(), TX = BT(), gew = brettKarte(BR, a.brett), lauf = BR.laufend, voll = BR.voll && !(gew && gew.notruf), frei = bedienbar && !wartet;
     m.bereich = 'brett';
     m.kopf = { ort: L.ort, art: 'hafen', marken: L.marks };
     m.brett = {

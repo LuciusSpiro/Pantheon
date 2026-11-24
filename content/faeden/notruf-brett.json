@@ -7,6 +7,11 @@
       "einheit": "Angebote",
       "_hinweis": "Höchstens so viele Notruf-Angebote zugleich am Brett. Sie zählen GETRENNT von angebote_max (content/faeden/werte.json abenteuer): Andock-Angebote und Notruf-Angebote verdrängen sich nie. Gleich takt_offen_max (content/reise/werte.json): zu jedem offenen Takt-Notruf gehört höchstens ein Angebot."
     },
+    "notruf_aktiv_max": {
+      "wert": 3,
+      "einheit": "Notruf-Fäden",
+      "_hinweis": "SPT-02 4: Höchstens so viele angenommene Notruf-Fäden (Faden mit Herkunft f.notruf) zugleich aktiv. Notruf-Fäden zählen NICHT in aktiv_max und NICHT in laufend_max (content/faeden/werte.json) und umgekehrt: ein Notruf scheitert nie an laeuft_schon oder kein_platz. Ist die Grenze erreicht, entsteht kein weiterer Takt-Notruf (reise-ereignis.js taktNotruf) und das Annehmen eines vorhandenen Notruf-Angebots meldet notruf_voll; kein 'ältester verfällt' (das buchte im_stich_gelassen ohne Entscheidung der Crew)."
+    },
     "absicht_je_variante": {
       "wert": {
         "havarie": "bergung",
