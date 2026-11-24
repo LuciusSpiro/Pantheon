@@ -3139,7 +3139,7 @@ async function umsetzungMain() {
   const bArg = argVal('--buehne', null);
   const buehne = bArg ? { kartenart: bArg.split(':')[0], besitz: bArg.split(':')[1] || undefined } : null;
   const samples = []; const runs = [];
-  // EK6: Umsetzungen mit dauer_je_crew spielen nur die dort genannten Crewgrößen (Feldzeichen hissen: mindestens 2, Bots: zu dritt)
+  // EK6: Umsetzungen mit dauer_je_crew spielen nur die dort genannten Crewgrößen (Feldzeichen hissen: ab 1, ein Spieler allein im Außenteam genügt; Bots: zu dritt)
   const katalog = require('../server/mission/katalog.js').load({});
   const crewOk = (id, crew) => { const u = katalog.molekuele[id.split('/')[0]].umsetzungen.find((x) => x.id === id.split('/')[1]); return !u || !u.dauer_je_crew || !!u.dauer_je_crew[crew]; };
   for (const crew of crews) for (let i = 0; i < nSeeds; i++) {

@@ -89,7 +89,7 @@ section('Generator: Feldzeichen in der Platzmitte', () => {
   ok(JSON.stringify(roh(5)) === JSON.stringify(roh(5)), 'gleicher Seed, gleiche Karte');
 });
 
-section('Feldzeichen hissen: nur zu zweit, Fortschritt bleibt', () => {
+section('Feldzeichen hissen: zu zweit oder mehr nur gemeinsam, Fortschritt bleibt', () => {
   const { g, ev } = spiel(3, 7);
   const a = flagge(), [p1, p2, p3] = g.players, T = CONFIG.anker.halten.flagge;
   ok(a && Anker.zustand(g, LP, a.id) === 'unten', 'Feldzeichen unten');
@@ -248,7 +248,7 @@ section('Katalog, Labor, Bausteine', () => {
   ok(['angriff_starten', 'gegner_abziehen', 'boss_besiegt', 'crew_gefallen'].every((id) => Reg.get(id)), 'Bausteine registriert');
   const k = require('../server/mission/katalog.js').load({});
   const u = k.molekuele.stellung_nehmen.umsetzungen.find((x) => x.id === 'flagge_hissen');
-  ok(u && u.status === 'verfuegbar' && !u.dauer_je_crew['1'], 'Umsetzung verfügbar, solo nicht vorgesehen (zwei hissen gemeinsam)');
+  ok(u && u.status === 'verfuegbar' && Array.isArray(u.dauer_je_crew['1']), 'Umsetzung verfügbar, auch solo vorgesehen (BOT-02 A2: ein Spieler allein im Außenteam darf hissen)');
 });
 
 console.log(`\ntest-eisenwald: ${n - fails}/${n} ok${fails ? ', ' + fails + ' FEHLER' : ''}`);

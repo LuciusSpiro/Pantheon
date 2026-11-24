@@ -151,8 +151,10 @@ function setzen(game, map, id, z, pid, opts) {
 function istAnkerHold(kind) { return typeof kind === 'string' && kind.startsWith('anker:'); }
 function ankerAt(k, tx, ty) { return k.anker.filter((a) => a.x === tx && a.y === ty); }
 function inventar(game) { return game.inventory || {}; }
-// EK6 (Feldzeichen): lebende Spieler im Außenteam (nicht verwundet/bewusstlos/gefangen) – Hissen braucht mindestens flagge.min (2) davon
+// EK6 (Feldzeichen): lebende Spieler im Außenteam (nicht verwundet/bewusstlos/gefangen) – Hissen braucht mindestens flaggeMin (2) davon
 function flaggeCfg(game) { return (game.C && game.C.anker && game.C.anker.flagge) || { min: 2 }; }
+// BOT-02 A2: ist genau 1 Spieler im Außenteam (gleiche Solo-Zählung wie das Rätselpaar, auch ein Verwundeter zählt), genügt 1 Halter
+function flaggeMin(game) { return istSolo(game) ? Math.min(1, flaggeCfg(game).min) : flaggeCfg(game).min; }
 function flaggeCrew(game) { return game.players.filter((p) => p.zone === 'away' && p.connected !== false && !p.downed); }
 function flaggeZeit(game) { return Number((kfg(game).halten || {}).flagge) || 6; }
 
@@ -181,7 +183,7 @@ function interactionsAt(game, p, tx, ty, list) {
         break;
       case 'flagge':
         if (z === 'unten') {
-          if (flaggeCrew(game).length < flaggeCfg(game).min) block('Das Feldzeichen hissen zwei gemeinsam – allein geht es nicht.');
+          if (flaggeCrew(game).length < flaggeMin(game)) block('Das Feldzeichen hissen zwei gemeinsam – dafür muss noch jemand aufstehen.');
           else it({ op: 'hissen' });
         } else block('Das Feldzeichen steht.');
         break;
@@ -268,7 +270,7 @@ function holdValid(game, p, h) {
   switch (a.rolle) {
     case 'terminal': return h.op === 'lesen' ? z === 'geladen' : (z === 'bereit' || z === 'laedt');
     case 'sprengpunkt': return z === 'intakt' && !(aw.ankerSperre && aw.ankerSperre[a.id]) && (inventar(game).ladung || 0) > 0;
-    case 'flagge': return z === 'unten' && flaggeCrew(game).length >= flaggeCfg(game).min;   // lebt nur noch einer: Hissen nicht möglich
+    case 'flagge': return z === 'unten' && flaggeCrew(game).length >= flaggeMin(game);   // lebt nur noch einer: Hissen nicht möglich
     case 'zelle': return z === 'zu';
     case 'beute': return z === 'voll';
     case 'ziel': return z === 'frei' && !(aw.ankerSperre && aw.ankerSperre[a.id]);
@@ -627,14 +629,15 @@ function update(game, dt) {
   for (const a of k.anker) if (a.rolle === 'terminal' && !haelt.has(a.id) && zustandIn(aw, k, a.id) === 'laedt') setzen(game, aw.map, a.id, 'bereit', null);
   abbauTick(game, aw, k, L, dt);
   abbauVormerkTick(game, aw, k);
-  // Feldzeichen (EK6): Fortschritt läuft nur, solange mindestens flagge.min lebende Spieler gleichzeitig halten; er bleibt, wenn einer loslässt
+  // Feldzeichen (EK6): Fortschritt läuft nur, solange mindestens flaggeMin (2; solo 1) lebende Spieler gleichzeitig halten; er bleibt, wenn einer loslässt
   for (const a of k.anker) {
     if (a.rolle !== 'flagge' || zustandIn(aw, k, a.id) !== 'unten') continue;
     const F = L.flagge || (L.flagge = {});
     const f = F[a.id] || (F[a.id] = { t: 0 });
     const T = flaggeZeit(game);
     const halter = game.players.filter((p) => p.zone === 'away' && !p.downed && p.hold && p.hold.kind === 'anker:flagge' && p.hold.anker === a.id);
-    if (halter.length >= flaggeCfg(game).min && flaggeCrew(game).length >= flaggeCfg(game).min) f.t = Math.min(T, f.t + dt);
+    const fMin = flaggeMin(game);
+    if (halter.length >= fMin && flaggeCrew(game).length >= fMin) f.t = Math.min(T, f.t + dt);
     for (const p of halter) { p.hold.t = Math.min(f.t, T); p.hold.dur = T + 0.2; }   // Fortschrittsbalken der Halter = gemeinsamer Fortschritt
     if (f.t >= T - 1e-9) {
       delete F[a.id];
