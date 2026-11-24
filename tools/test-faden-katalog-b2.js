@@ -472,7 +472,9 @@ section('(c5) Konvoi: Szenenwechsel, Andocken und Sim-Szene loesen die Szene auf
   // der Konvoi verschwindet (Szene verlassen durch ein anderes Modul): gescheitert, aufgeraeumt
   { const t = neu(33, 1), g = t.g; const f = szeneStart(t, b('konvoi'), { fern: true }); vorlauf(t);
     g.space.konvoi = null; t.run(0.2);
-    ok(!szene(g) && g.space.enemies.length === 0 && f.phase === 'wartet' && f.nsc.status !== 'verbuendet', 'der Konvoi ist weg (Zustand): gescheitert, die uebrigen Schiffe werden abgeraeumt'); }
+    // SPT-02 7: die Angreifer der Szene ziehen ab (leaving) statt still gelöscht zu werden; nach der Zeitgrenze (14 s) ist nichts übrig
+    ok(!szene(g) && g.space.enemies.every((e) => e.leaving) && f.phase === 'wartet' && f.nsc.status !== 'verbuendet', 'der Konvoi ist weg (Zustand): gescheitert, die uebrigen Schiffe ziehen ab');
+    t.run(16); ok(g.space.enemies.length === 0, 'und nach dem Abzug steht nichts mehr'); }
   // im Vorlauf gibt es noch keinen Konvoi dieser Szene: ein fremder (kein Beat) bleibt bei der Unterbrechung unberuehrt
   { const t = neu(34, 1), g = t.g; const f = szeneStart(t, b('konvoi'), { fern: true });
     ok(szene(g).phase === 'vorlauf', 'Vorlauf'); Konvoi.an(g, { n: 1, eskorte: 'keine', sieg: 'aufhalten', wiederholung: false });

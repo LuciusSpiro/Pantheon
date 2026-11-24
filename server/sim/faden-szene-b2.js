@@ -8,6 +8,7 @@
 //   beginn(game, fs) -> true | false | 'kein_platz'     Kampf beginnt: Konvoi bzw. Schützling und Angreifer; false = nicht möglich (Szene scheitert); 'kein_platz' = die Escort-Engine hat keinen Platz für den Schützling (keine Szene, kein Scheitern: der Beat steht wieder aus)
 //   ausgang(game, fs) -> 'gelungen' | 'gescheitert' | null                  Ausgang aus dem Konvoi-Ausgang bzw. dem Zustand des Schützlings, oder die Höchstdauer
 //   aufraeumen(game, fs)                      Konvoi, Eskorte, Beute am Boden bzw. Schützling und Angreifer gehen (jedes Ende: Ausgang, Unterbrechung, Sprung, Andocken)
+//   aufraeumenMitKnall(game, fs)              wie aufraeumen, aber ein länger kampfunfähiger Schützling explodiert (SPT-02 7, Ende mit Ausgang)
 const DATEN = require('../../content/faeden/szenen-werte.json');
 const Konvoi = require('./konvoi.js');
 const Escort = require('./escort.js');
@@ -108,5 +109,19 @@ function aufraeumen(game, fs) {
   if (sp.escorts) sp.escorts = sp.escorts.filter((q) => q.tag !== fs.tag);
   if (sp.escortsGone) sp.escortsGone = sp.escortsGone.filter((q) => q.tag !== fs.tag);
 }
+// SPT-02 7 (E Abgänge): Ende mit Ausgang. Ein kampfunfähiger Schützling (sein Knall liegt länger als KNALL_PAUSE_S zurück, Escort.disable setzt disabledT) geht mit Explosion; ein eben
+// erst zerstörter hat seinen Knall schon (kein zweiter im selben Atemzug). Sonst wie aufraeumen (Konvoi: Transporter, die noch im Feld sind, bleiben still, die gesprungenen haben ihren Blitz).
+const KNALL_PAUSE_S = 1.5;
+function aufraeumenMitKnall(game, fs) {
+  const sp = game.space;
+  if (fs.art !== 'konvoi' && sp.escorts) {
+    for (const q of sp.escorts) {
+      if (q.tag !== fs.tag || !(q.state === 'kampfunfaehig' || q.state === 'zerstoert')) continue;
+      if (game.time - (q.disabledT == null ? -1e9 : q.disabledT) <= KNALL_PAUSE_S) continue;
+      game.emit('explosion', { x: Math.round(q.x), y: Math.round(q.y), zone: 'space' });
+    }
+  }
+  aufraeumen(game, fs);
+}
 
-module.exports = { istArt, plan, beginn, ausgang, aufraeumen, ARTEN };
+module.exports = { istArt, plan, beginn, ausgang, aufraeumen, aufraeumenMitKnall, ARTEN };

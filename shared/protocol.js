@@ -228,6 +228,10 @@
     // Ereignis konvoiSprung { x, y } (Transporter gesprungen), konvoiAusgang { was: 'gepluendert'|'aufgehalten'|'entkommen' }.
     KONVOI_EVENTS: ['konvoiSprung', 'konvoiAusgang'],
     KONVOI_AUSGAENGE: ['gepluendert', 'aufgehalten', 'entkommen'],
+    // SPT-02 7 (E Abgänge): Ereignis abgang { x, y, art } (Raumkoordinaten, ausserhalb des Snapshots): ein Schiff verlässt die Szene ohne Tod. art 'sprung' (Notsprung, Zielschiff der Verfolgung, Transporter, Verbündete am Szenenende)
+    // oder 'rueck' (Rückzug nach der Zeitgrenze 14 s mitten im Feld). Client: R.addFx abgang_sprung / abgang_rueck, kein Ton. konvoiSprung bleibt die Meldung, das Bild kommt über abgang.
+    ABGANG_EVENTS: ['abgang'],
+    ABGANG_ARTEN: ['sprung', 'rueck'],
     // SUND-04a-1 A (gezielter Systemtreffer der Ops, Szenentyp A6 Verfolgung): cmd { c: 'weapons.systemziel', id: 'antrieb' | null } wählt das System am gescannten Ziel an (null hebt es auf; verfällt mit dem Ziel und der Szene).
     // Snapshot: ship.zs = gewähltes Systemziel (fehlt = keins); space.enemies[].az = Antriebsstufe des GESCANNTEN Ziels (1 beschädigt, 2 ausgefallen; fehlt = voll), sj = Fortschritt der Sprungladung 0..1 und nm = Name (nur das fliehende Zielschiff);
     // space.vf = { x, y, r } Fluchtpunkt der Verfolgung (nur solange das Zielschiff flieht). Daten: content/kampf/zielsysteme-werte.json (der Client lädt sie, public/js/zielsysteme.js) und verfolgung-werte.json.

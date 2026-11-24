@@ -193,6 +193,7 @@ section('Fahrt, Sprung und Ausgang entkommen (Aufhalten)', () => {
   ok(Konvoi.ausgang(g) === 'entkommen', 'Aufhalten: der erste Sprung beendet die Szene mit Ausgang entkommen (' + Konvoi.ausgang(g) + ')');
   T.run(5);
   ok(Konvoi.gesprungen(g) >= 1 && T.ev('konvoiSprung').length >= 1 && T.ev('konvoiAusgang').some((e) => e.was === 'entkommen'), 'Ereignisse konvoiSprung und konvoiAusgang (entkommen)');
+  ok(T.ev('abgang').filter((e) => e.art === 'sprung').length === T.ev('konvoiSprung').length && T.ev('abgang').length >= 1, 'SPT-02 7: je Sprung des Transporters ein abgang sprung (das Bild; konvoiSprung bleibt die Meldung)');
   ok(T.odas.some((t) => /springt in etwa 30 s/.test(t)) && T.odas.some((t) => /springt in etwa 10 s/.test(t)), 'Ansagen 30 s und 10 s vor dem Sprung');
   ok(!Konvoi.erfolg(g) && Konvoi.ausgang(g) === 'entkommen' && g.space.konvoi.neuAt === null, 'ohne Wiederholung bleibt entkommen stehen (kein neuer Konvoi)');
 });

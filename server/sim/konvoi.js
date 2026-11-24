@@ -19,6 +19,7 @@ const Waren = require('../../shared/waren.js');   // LAD-01 A1
 const Zielsysteme = require('./zielsysteme.js');
 const Gsys = require('./gegnersystem.js');   // GEG-01 A: Antrieb und Reaktor des Transporters für kannSpringen
 const Tel = require('../telemetrie/gefecht.js');   // TEL-01 M: Protokoll-Haken (nur lesen)
+const Abgang = require('./abgang.js');   // SPT-02 7: Sprungblitz am Abgang
 const Gegnersprung = require('./gegnersprung.js');   // SYS-01 C Nacharbeit: ein Transporter mit Notfallsprung (Baustein) ist entkommen, nicht zerstört
 
 let spaceMod = null;   // lazy (Zirkelbezug space -> konvoi)
@@ -290,6 +291,7 @@ function springen(game, k, e) {
   if (game.ship.target === e.id) Zielsysteme.zielLoeschen(game);
   game.emit('sfx', { name: 'jump' });
   game.emit('konvoiSprung', { x: Math.round(e.x), y: Math.round(e.y) });
+  Abgang.melde(game, e, 'sprung');   // das Bild; konvoiSprung bleibt die Meldung (Client: kein zweiter Blitz)
   game.oda('Transporter gesprungen – weg ist er.', null);
   game.missionEvent('konvoiSprung', { id: e.id, x: e.x, y: e.y });
 }
