@@ -7,6 +7,8 @@
 //   entfernen(game, spieler)        Agent weg (Bot geraeumt, verdraengt, entfernt)
 //   wartet(game, spieler)           der Agent weicht einem Menschen (bots/weichen.js)
 //   prioritaetLoesen(game, spieler) BOT-01 C2b: die vom Bot gesetzte Prioritaet der Technik zuruecknehmen, bevor ein Mensch die Station hat oder der Platz geraeumt wird (weichen.js, spieler.js)
+//   bordBot(game)                   BOT-02 B1: der Bot, der den Bord-Dienst haelt (Technik, sonst Ops, sonst Navigation; null ohne Server-Bots). Rein aus den Spielern, kein Zustand
+//   bordAktiv(game, spieler)        BOT-02 B1: der Bord-Dienst dieses Bots laeuft (er ist der Bord-Bot und mindestens ein MENSCH ist im Aussenteam unten, zone away); Bots unten zaehlen nicht
 //   agent(game, spieler), agenten(game)   Zugriff (Tests, Werkzeug)
 // Snapshot: der Server baut game.snapshot() nur alle net.snapEvery Ticks fuer das Broadcast (er ist fuer alle Spieler gleich, kein snapshot(forPlayer)). Der Lauf nimmt diesen und baut keinen zweiten (snapshot() hat Seiteneffekte:
 // Zaehler und Sendeschluessel). Die Agenten arbeiten jeden Tick mit dem letzten Stand (wie die Testbots, nur ein Tick aelter). Ohne Bot-Spieler in einer laufenden Partie gibt es keinen Lauf: tick() kehrt nach einer Schleife ueber players zurueck.
@@ -21,6 +23,15 @@ const OPTIONEN = new WeakMap();   // game -> Kern-Optionen der Agenten (Werkzeug
 const istServerBot = (p) => !!(p && p.bot && ROLLEN.includes(p.rolle) && p.connected && p.conn && p.conn.player === p);
 const hatServerBots = (game) => game.players.some(istServerBot);
 
+// BOT-02 B1: Bord-Dienst = Zusatzdienst eines vorhandenen Bots (keine Lobby-Rolle, kein Slot). Zuweisung: Technik-Bot, sonst Ops-Bot, sonst Navigations-Bot (der Navigations-Bot bleibt am Steuer, solange es einen anderen gibt).
+const BORD_REIHE = ['technik', 'ops', 'navigation'];
+function bordBot(game) {
+  for (const rolle of BORD_REIHE) { const b = game.players.find((p) => istServerBot(p) && p.rolle === rolle); if (b) return b; }
+  return null;
+}
+const menschUnten = (game) => game.players.some((p) => p && p.connected && !p.bot && p.zone === 'away');
+function bordAktiv(game, spieler) { return !!spieler && game.phase === 'play' && bordBot(game) === spieler && menschUnten(game); }
+
 class Lauf {
   constructor(game) {
     this.game = game; this.runId = game.runId; this.agentenMap = new Map(); this.snap = null; this.cache = null;
@@ -32,6 +43,7 @@ class Lauf {
     ship.priority = null;
     return true;
   }
+  bordAktiv(spieler) { return bordAktiv(this.game, spieler); }   // BOT-02 B1: fuer den Agenten (mannschaft.js laedt dieses Modul nicht, Zirkelbezug)
   rngFuer(spieler) { return makeRng((((this.game.seed >>> 0) * 7919 + 311 + this.game.players.indexOf(spieler) * 101) >>> 0)); }
   liste() { return this.cache || (this.cache = Array.from(this.agentenMap.values())); }
   anlegen(spieler) { this.agentenMap.set(spieler.id, new BotMannschaft(this.game, spieler, this, OPTIONEN.get(this.game))); this.cache = null; }
@@ -67,4 +79,4 @@ function prioritaetLoesen(game, spieler) { const a = agent(game, spieler); retur
 function agent(game, spieler) { const lauf = LAEUFE.get(game); return lauf && spieler ? lauf.agentenMap.get(spieler.id) || null : null; }
 function agenten(game) { const lauf = LAEUFE.get(game); return lauf ? lauf.liste().slice() : []; }
 
-module.exports = { tick, beenden, snapshotMerken, optionenSetzen, entfernen, wartet, prioritaetLoesen, agent, agenten, istServerBot };
+module.exports = { tick, beenden, snapshotMerken, optionenSetzen, entfernen, wartet, prioritaetLoesen, agent, agenten, istServerBot, bordBot, bordAktiv };

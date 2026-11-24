@@ -5,6 +5,8 @@
 //   ops (Kern-Rolle weapons)        Ops-Konsole besetzen, fight (Ladepunkte, Lanze, Batterien, Zusatzwaffen); die Marke des Captains (capZiel), dann ein von anderen markiertes Ziel geht vor (waehleZiel).
 //   technik (Kern-Rolle technik)    Technik-Konsole besetzen (eigene Rolle, kein Tab ueber den Captain-Platz), technikDienst: Schilde verteilen, Reparaturliste und Prioritaeten. Die Schrauber (sim/bots.js) arbeiten die Liste ab; technik.botAuto sendet der Agent nie (botAutomatikStandard entscheidet).
 // BOT-01 C2b: ops und technik tragen Befehle als Absicht (absicht.befehl ops.ziel, absicht.feuer/waffen, absicht.halten scan/prio/schild); Einmal-Aktionen gehen ueber einmalig(), bot.automatik loescht alles.
+// BOT-02 B1: Bord-Dienst (Zusatzdienst, siehe lauf.js bordBot): ist ein Mensch im Aussenteam unten, geht der Bord-Bot zur Transfer-Konsole (Ort, kein Tab) und haelt sie; sein Rollenverhalten ruht, die Station-Automatik springt ein. Der Wachposten
+// erlaubt ihm dann transfer.* und captain.*. Ende: kein Mensch mehr unten -> leave und zurueck an die Station. Ein Mensch an der Transfer-Konsole gewinnt (weichen.js): der Dienst ruht, der Bot geht an seine Station.
 // Der Agent sendet alles ueber game.handleMessage(p.conn, msg), nie hello/ready/Loadout und nur Befehle der eigenen Station (erlaubt()). Mensch gewinnt: haelt ein Mensch die Station des Bots, ist der Zustand 'wartet' und der Bot sendet nichts fuer sie.
 // Zustand (Absicht) lebt im Agenten, nie im Spielerobjekt oder Snapshot. Zufall und Mitspieler gehoeren dem Lauf des Games (zufall, kollegen), kein Modulzustand.
 const Protocol = require('../../shared/protocol.js');
@@ -27,6 +29,7 @@ const ANKUNFT_VORHALT = 60;   // steer wird auf diesen Abstand weniger gesteuert
 const ABSTAND_STANDARD = 400;   // nav.abstand ohne meter: wie helmManeuver bisher
 const ABSTAND_TOLERANZ = 40;   // nav.abstand an einem festen Punkt (Station, Fund): so genau haelt der Bot den Abstand
 const PRIO_DAUERHAFT = ['fire', 'breach'];   // tech.prio feuer/leck gelten bis bot.automatik, Gegenbefehl oder Mensch; eine System-Prioritaet endet, wenn das System heil ist
+const BORD_PRAEFIXE = ['transfer.', 'captain.'];   // BOT-02 B1: nur der Bord-Dienst darf sie senden (Wachposten), nie die normale Rolle
 const FRIST_FRISCH = 6;   // Ticks: aelterer Snapshot als das zaehlt nicht (Schutz vor einem Rest aus einer frueheren Partie)
 
 class BotMannschaft extends BotKern {
@@ -42,6 +45,7 @@ class BotMannschaft extends BotKern {
     this.befehle = 0; this.verworfen = 0;   // gesendete cmd; vom Wachposten abgewiesene Nachrichten (muss 0 bleiben)
     this.memo.gesendeteZiele = new Set();
     this.festesZiel = null;   // BOT-01 C2b: waehrend fightMitMarke das Feuerziel (Gegner), sonst null
+    this.bordBegonnen = false;   // BOT-02 B1: der laufende Bord-Dienst hat die Absicht der Rolle schon verworfen
     this.prioSperre = false;   // BOT-01 C2b: waehrend queueRepairs mit gehaltener tech.prio unterdrueckt cmd die Standard-Prioritaeten
   }
   zufall() { return this.rng(); }
@@ -54,7 +58,7 @@ class BotMannschaft extends BotKern {
   erlaubt(msg) {
     switch (msg && msg.t) {
       case 'input': case 'act': case 'leave': case 'drop': return true;
-      case 'cmd': return typeof msg.c === 'string' && (msg.c === Protocol.CMD_STATION_TAB || msg.c.startsWith(this.stationKind + '.'));
+      case 'cmd': return typeof msg.c === 'string' && (msg.c === Protocol.CMD_STATION_TAB || msg.c.startsWith(this.stationKind + '.') || (this.bordDienstLaeuft() && BORD_PRAEFIXE.some((x) => msg.c.startsWith(x))));
       default: return false;
     }
   }
@@ -105,14 +109,29 @@ class BotMannschaft extends BotKern {
   tick(S) {
     const p = this.me(S); const live = this.spieler;
     if (!p || live.conn !== this.conn || this.game.phase !== 'play' || S.phase !== 'play' || this.game.tick - S.tick > FRIST_FRISCH) return;
-    if (this.menschHaeltStation()) { this.zustandSetzen('wartet'); this.alleVerwerfen('mensch'); return; }
+    const dienst = this.bordDienstLaeuft() && !this.menschHaeltTransfer();   // Mensch an der Transfer-Konsole gewinnt: der Dienst ruht, der Bot tut seine Rolle
+    if (!this.bordDienstLaeuft()) this.bordBegonnen = false;
+    if (!dienst && this.menschHaeltStation()) { this.zustandSetzen('wartet'); this.alleVerwerfen('mensch'); return; }   // BOT-02 B1: mit Bord-Dienst steht der Bot nicht an seiner Station, ein Mensch dort stoert ihn nicht
     if (Station.stationOf(p) !== Station.stationOf(live)) return;   // der Snapshot ist aelter als ein Stationswechsel: erst mit dem naechsten handeln
     if (this.waitT > 0) { this.waitT -= DT; return; }
     if (p.downed) { this.alleVerwerfen('unten'); this.input(0, 0); this.act(false); this.ix = null; return; }
     if (p.zone !== 'ship') { this.alleVerwerfen('unten'); return; }   // ein Bot am Boden (Beamen mit Pad) hat hier nichts zu tun; Befehle und Haltezustaende enden (BOT-01 C2b: auch die Prioritaet der Technik)
+    if (dienst) { this.bordDienst(S); return; }
     this.zustandSetzen(Station.stationOf(live) === this.stationKind ? 'an_station' : 'unterwegs');
     if (!this.enter(S, this.stationKind)) return;
     this.dienst(S, p);
+  }
+
+  // BOT-02 B1: Bord-Dienst. Ein Mensch im Aussenteam unten und dieser Bot ist der Bord-Bot (lauf.js)
+  bordDienstLaeuft() { return this.lauf.bordAktiv(this.spieler); }
+  menschHaeltTransfer() { return this.game.players.some((o) => o !== this.spieler && !Crew.istBot(o) && o.connected && o.console === 'transfer'); }
+  // Zur Transfer-Konsole gehen und dort bleiben; das Rollenverhalten ruht (Haelt ein Mensch die Transfer-Konsole, laeuft der Dienst nicht: tick, Mensch gewinnt, weichen.js).
+  // Beim Beginn endet alles Gehaltene der Rolle (Befehle, Prioritaet), die Station-Automatik uebernimmt (Technik: botAutomatikStandard, Ops: waffenAutomatikAktiv, beides nach Koepfen); technik.botAuto sendet der Agent nie.
+  bordDienst(S) {
+    if (!this.bordBegonnen) { this.alleVerwerfen('bord'); this.bordBegonnen = true; }
+    const da = this.enter(S, 'transfer');
+    this.zustandSetzen(da ? 'an_station' : 'unterwegs');
+    return true;
   }
 
   dienst(S, p) {

@@ -129,12 +129,15 @@ const adressatOk = (k, an) => {
   if (k.an === 'alle') return an === 'alle' || BOT_ID.test(an) || (ROLLEN_AN.includes(an) && an !== 'bord');
   return an === k.an || BOT_ID.test(an);
 };
+// BOT-02 B1: 'bord' ist keine Rolle eines Bots, sondern der Zusatzdienst des Bord-Bots (lauf.js bordBot): an: bord trifft ihn, "alle" schliesst bord aus (bot.* gelten fuer jeden Bot ueber seine Rolle)
 function botsFuer(game, an) {
   const bots = game.players.filter((p) => p && p.bot && p.connected);
   if (an === 'alle') return bots;
+  if (an === 'bord') { const b = Lauf.bordBot(game); return b && b.connected ? [b] : []; }
   if (BOT_ID.test(an)) return bots.filter((p) => p.botId === an);
   return bots.filter((p) => p.rolle === an);
 }
+const passtZurRolle = (game, k, b) => (k.an === 'bord' ? Lauf.bordBot(game) === b : b.rolle === k.an);
 const wartetAn = (game, bot) => { const a = Lauf.agent(game, bot); return !!(a && a.absicht && a.absicht.zustand === 'wartet'); };
 
 // BOT-01 C2b: nur bot.status bringt einen eigenen Text aus dem Zustand des Bots (status.js); er ersetzt den Text der Variante, textId und variante bleiben. Zeilenumbrueche raus, Laenge begrenzt. Fuer alle anderen Befehle wird der Registry-Text weiter ignoriert.
@@ -174,7 +177,7 @@ function antworten(game, spieler, msg) {
   if (!args) return [antwort(game, BOT_ID.test(an) ? an : null, name, 'abgelehnt', 'argument')];
   const bots = botsFuer(game, an);
   if (!bots.length) return [antwort(game, BOT_ID.test(an) ? an : null, name, 'unmoeglich', 'kein_bot')];
-  if (k.an !== 'alle' && bots.some((b) => b.rolle !== k.an)) return [antwort(game, an, name, 'abgelehnt', 'adressat')];   // botId eines Bots mit anderer Rolle
+  if (k.an !== 'alle' && bots.some((b) => !passtZurRolle(game, k, b))) return [antwort(game, an, name, 'abgelehnt', 'adressat')];   // botId eines Bots mit anderer Rolle (bord: nicht der Bord-Bot)
   return bots.map((b) => fuerBot(game, b, name, args));
 }
 

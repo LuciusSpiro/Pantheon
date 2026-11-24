@@ -143,7 +143,7 @@ section('1 Registry: 13 Befehle, Rueckgabeform, Codes aus gruende.json');
   const tech = ['tech.prio', 'tech.reparieren', 'tech.schild', 'tech.energie', 'tech.ueberladen'];
   ok(ops.every((x) => typeof R.ops[x] === 'function') && Object.keys(R.ops).length === 6, 'die Registry ops traegt genau die sechs Befehle');
   ok(tech.every((x) => typeof R.technik[x] === 'function') && Object.keys(R.technik).length === 5, 'die Registry technik traegt genau die fuenf Befehle');
-  ok(typeof R.bot['bot.status'] === 'function' && typeof R.bot['bot.automatik'] === 'function' && Object.keys(R.bot).length === 2 && Object.keys(R.bord).length === 0, 'die Registry bot traegt bot.status und bot.automatik, bord bleibt leer (BOT-02)');
+  ok(typeof R.bot['bot.status'] === 'function' && typeof R.bot['bot.automatik'] === 'function' && Object.keys(R.bot).length === 2 && Object.keys(R.bord).length === 3, 'die Registry bot traegt bot.status und bot.automatik, bord die drei Befehle als Geruest (BOT-02 B1)');
   const P = partie({}); frei(P);
   const e = gegner(P, 'korvette', 500, 0);
   const codes = new Set();

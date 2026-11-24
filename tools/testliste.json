@@ -262,6 +262,7 @@
   {"id":"test-bot-kern","kette":"test","cmd":["tools/test-bot-kern.js"],"stufe":"fast","budget_s":10},
   {"id":"test-bot-slots","kette":"test","cmd":["tools/test-bot-slots.js"],"stufe":"fast","budget_s":20},
   {"id":"test-bot-lauf","kette":"test","cmd":["tools/test-bot-lauf.js"],"stufe":"fast","budget_s":60},
+  {"id":"test-bot02-bord","kette":"test","cmd":["tools/test-bot02-bord.js"],"stufe":"fast","budget_s":60},
   {"id":"test-bot-annahme","kette":"test","cmd":["tools/test-bot-annahme.js"],"stufe":"fast","budget_s":60},
   {"id":"test-bot-befehle-nav","kette":"test","cmd":["tools/test-bot-befehle-nav.js"],"stufe":"fast","budget_s":150},
   {"id":"mutation-bot-befehle-nav","kette":"test","cmd":["tools/mutation-bot-befehle-nav.js"],"stufe":"slow","budget_s":600},

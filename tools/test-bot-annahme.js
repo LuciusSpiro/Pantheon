@@ -102,8 +102,8 @@ section('1 Daten: Katalog, Gruende, Texte');
   const nennt = neu.filter(([, l]) => l.some((t) => /\d/.test(t) || woerter.some((w) => t.toLowerCase().includes(w))));
   ok(neu.length > 0 && nennt.length === 0, `Ablehnungstexte nennen keine Argumente (${neu.length} textIds, keine Ziffer, kein Wort der Argumentwerte)`);
   ok(Protocol.C.BOT_BEFEHL === 'bot.befehl' && Protocol.C.BOT_ANTWORT === 'bot.antwort', 'Protokoll: C.BOT_BEFEHL / C.BOT_ANTWORT');
-  const SOLL = { navigation: 7, ops: 6, technik: 5, bot: 2, bord: 0 };
-  ok(Object.entries(Befehle.REGISTER).every(([rolle, r]) => Object.keys(r).length === SOLL[rolle]), 'C2b: navigation 7, ops 6, technik 5, bot 2 Befehle; nur bord ist noch leer (BOT-02)');
+  const SOLL = { navigation: 7, ops: 6, technik: 5, bot: 2, bord: 3 };
+  ok(Object.entries(Befehle.REGISTER).every(([rolle, r]) => Object.keys(r).length === SOLL[rolle]), 'C2b: navigation 7, ops 6, technik 5, bot 2 Befehle; bord traegt die drei Befehle als Geruest (BOT-02 B1)');
 }
 
 // ---------- 2 Absender ----------
@@ -363,7 +363,7 @@ section('5 Adressierung: Rolle, botId, alle, bord');
     ruf.length = 0; a = ein(P, cmd('bot.status', 'ops'));
     ok(a.length === 1 && a[0].botId === bo.botId, 'bot.status an eine Rolle: der eine Bot dieser Rolle');
     ruf.length = 0; a = ein(P, cmd('bord.sensor', 'bord'));
-    ok(a.length === 1 && a[0].status === 'unmoeglich' && a[0].textId === 'bord.sensor.unmoeglich.kein_bot' && ruf.length === 0, 'an bord: unmoeglich kein_bot (kein Bord-Bot bis BOT-02), keine Wirkung');
+    ok(a.length === 1 && a[0].status === 'ok' && a[0].botId === bt.botId && ruf.join() === bt.botId + ':bord.sensor', 'an bord: der Bord-Bot (mit allen drei Bots der Technik-Bot, BOT-02 B1) bekommt den Befehl; ohne Bot kein_bot (tools/test-bot02-bord.js)');
     ruf.length = 0; a = ein(P, cmd('nav.stopp', 'alle'));
     ok(a.length === 1 && grund(a[0]) === 'adressat' && ruf.length === 0, 'Rollenbefehl an alle: adressat (nur bot.* geht an mehrere)');
   } finally { EINTR.forEach(([r, b], i) => { if (ALT[i]) Befehle.REGISTER[r][b] = ALT[i]; else delete Befehle.REGISTER[r][b]; }); }
