@@ -74,10 +74,14 @@ const TEXTE = path.join(ROOT, 'content', 'bots', 'texte.json');
 const STIMMEN = path.join(ROOT, 'content', 'bots', 'stimmen.json');
 const VORRAT = path.join(ROOT, 'assets', 'bots', 'stimmen');
 const OHNE_VARIANTE = ['bot.unklar'];
+// BOT-01 C1: Ablehnungen (abgelehnt/unmoeglich) laufen als Untertitel, der Clip-Vorrat deckt nur ok und bot.unklar (BOT-04 Abnahme 6); der Client faellt ohne Clip auf den Untertitel zurueck.
+const OHNE_CLIP = /[.](abgelehnt|unmoeglich)[.]/;
+
 
 function clipDateien(texte, stimmen, vorrat) {
   const out = [];
   for (const botId of Object.keys(stimmen)) for (const textId of Object.keys(texte)) {
+    if (OHNE_CLIP.test(textId)) continue;
     texte[textId].forEach((text, i) => out.push({ botId, textId, variante: i, text, datei: path.join(vorrat || VORRAT, botId, textId + '.' + i + '.wav') }));
     if (OHNE_VARIANTE.includes(textId) && texte[textId].length) out.push({ botId, textId, variante: null, text: texte[textId][0], datei: path.join(vorrat || VORRAT, botId, textId + '.wav'), kopieVon: 0 });
   }
