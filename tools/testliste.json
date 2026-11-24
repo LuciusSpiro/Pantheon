@@ -469,6 +469,7 @@
   {"id":"test-visier-skin","kette":"test","cmd":["tools/test-visier-skin.js"],"stufe":"fast","budget_s":8}
  ],
  "ausgenommen": [
+  {"datei":"tools/bot-latenz.js","grund":"BOT-04 D3 Messwerkzeug (npm run mess:bot-latenz): echter Spielserver + Chrome + Sprache ueber Voicebox/STT auf Sleipnir, braucht SSH-Tunnel; Messung, kein Test"},
   {"datei":"tools/check-assets.mjs","grund":"Asset-Pruefung gegen public/voxel bzw. Voxelwerk (npm run check:assets), braucht gebaute Assets; nicht in der Kette"},
   {"datei":"tools/check-missions.js","grund":"nicht in der Kette, Altlast (npm run check-missions); vermutlich vergessener Eintrag, bewerten"},
   {"datei":"tools/mutation-abenteuer-c.js","grund":"Mutationsprobe auf Abruf (npm run test:abenteuer-brett-mutation), zu langsam und zu breit fuer die Kette; nur der Ankercheck (--trocken) laeuft in der Kette check"},
