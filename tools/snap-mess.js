@@ -694,17 +694,36 @@ function brettLauf(S, seed) {
     const a0 = Faden.abenteuerAnbieten(g, lang(i), { hex: '0305' });
     if (!a0.ok) fehler++; else g.handleMessage(cs[0], { t: 'cmd', c: 'abenteuer.annehmen', id: 'a' + a0.angebot.nr });
   }
+  // SPT-02 13: dazu die angenommenen Notruf-Faeden (notruf_aktiv_max, zaehlen nicht in laufend_max): derselbe lange Plan, Herkunft f.notruf wie beim Annehmen eines Notruf-Angebots (faden.js abenteuerOeffnen)
+  const NBW = require('../content/faeden/notruf-brett.json').werte;
+  for (let i = 0; i < NBW.notruf_aktiv_max.wert; i++) {
+    const r = Faden.abenteuerNotrufAnbieten(g, lang(10 + i), { hex: '0305' });
+    if (!r.ok) { fehler++; continue; }
+    r.angebot.notruf = { nr: r.angebot.nr, id: 'n' + i, marke: 'reise:n' + i };
+    if (!Faden.abenteuerOeffnen(g, r.angebot.nr, {}).ok) fehler++;
+  }
   // FRE-02 B1: jedes Angebot traegt seine Herkunft (Hafen; hier einer der laengsten Namen der Karte, 15 Zeichen): der Block nennt sie als hafen
   for (let i = 3; i <= 5; i++) { const r = Faden.abenteuerAnbieten(g, lang(i), { hex: '0305' }); if (!r.ok) fehler++; else r.angebot.herkunft = { hex: '0207' }; }
+  // SPT-02 13: notruf_angebote_max Notruf-Angebote am Brett (zaehlen getrennt von angebote_max), dieselbe Herkunft
+  for (let i = 0; i < NBW.notruf_angebote_max.wert; i++) {
+    const r = Faden.abenteuerNotrufAnbieten(g, lang(20 + i), { hex: '0305' });
+    if (!r.ok) { fehler++; continue; }
+    r.angebot.notruf = { nr: r.angebot.nr, id: 'n' + (10 + i), marke: 'reise:n' + (10 + i) }; r.angebot.herkunft = { hex: '0207' };
+  }
+  // SPT-02 13: zuletzt gesetzt (laengster Titel und Text, 4 Wirkungen); z.t folgt F.t in der Schleife, damit er die ganze Messung steht (zuletzt_gilt_taetigkeiten)
+  const Fz = Faden.zustandVon(g), BW = require('../content/faeden/abenteuer-brett.json').werte;
+  const Z = { titel: 'T'.repeat(BW.titel_max.wert), ausgang: 'gescheitert', text: 'x'.repeat(BW.zuletzt_text_max.wert), nr: Fz.nr, t: Fz.t, w: [{ f: 'rom', art: 'ruf', d: -10 }, { f: 'ger', art: 'ruf', d: -10 }, { f: 'saum', art: 'ruf', d: -10 }, { f: 'ger', art: 'haltung', d: -10 }] };
+  (Fz.brett || (Fz.brett = { antworten: [], abgelehnt: [], pruefung: -1e9 })).zuletzt = Z;
   const bm = require('../server/sim/faden-daten.js').WERTE.beats_max;   // der ungünstigste Fall: jedes Angebot mit beats_max Beats (Daten werte.json)
   if (!Faden.zustandVon(g).abenteuerAngebote.every((x) => x.vorlage.beats.length === bm)) fehler++;
-  if (!(Faden.zustandVon(g).abenteuerAngebote.length === 3 && Faden.zustandVon(g).liste.filter((f) => f.plan && f.phase !== 'abgeschlossen').length === 3)) fehler++;
+  const AN = Faden.zustandVon(g).abenteuerAngebote, LF = Faden.zustandVon(g).liste.filter((f) => f.plan && f.phase !== 'abgeschlossen');
+  if (!(AN.filter((x) => !x.notruf).length === 3 && AN.filter((x) => x.notruf).length === NBW.notruf_angebote_max.wert && LF.filter((f) => !f.notruf).length === 3 && LF.filter((f) => f.notruf).length === NBW.notruf_aktiv_max.wert)) fehler++;
   for (let k = 0; k < 400; k++) {
     if (k % 40 === 39) g.lageGrenze('andocken');
-    g.step();
+    g.step(); Z.t = Fz.t;
     const s = g.snapshot();
     messen(S, s);
-    if (s.world && s.world.abenteuer) { mitBlock++; blockMax = Math.max(blockMax, bytes(s.world.abenteuer)); }
+    if (s.world && s.world.abenteuer) { if (!s.world.abenteuer.zuletzt) fehler++; mitBlock++; blockMax = Math.max(blockMax, bytes(s.world.abenteuer)); }
   }
   if (!mitBlock) fehler++;
   const f = g.errors + fehler;
