@@ -629,12 +629,10 @@ function notrufBeatStarten(game, faden) {
 function notrufRueckfallWeiter(game) {
   const F = game && game.weltsim && game.weltsim.faeden, l = game && game.lageSpielleiter;
   if (!F || !l || l.rueckfallBetrieb !== true || !Faden().aktiv(game) || !Faden().spielleiterAktiv(game)) return 0;
-  const R = game.weltsim.reise, laufend = (R && R.laufend) || [];
   let n = 0;
   for (const f of F.liste.slice()) {
     for (let i = 0; i < 4 && f.phase === 'wartet' && P.notrufBrettFaden(f); i++) {   // Beats hintereinander, hoechstens 4 (Notruf, ggf. Kampf-Beats, Abschluss); eine laufende Szene beendet die Schleife
-      const ort = f.parameter && f.parameter.ort;
-      if (laufend.some((x) => x.notruf === true && x.ev && x.ev.hex === ort)) break;
+      if (notrufGefahrLaeuft(game, f)) break;
       if (f.beat < 1) break;   // der erste Beat (notruf) gehoert dem Annehmen (notrufBeatStarten)
       f.zaehler = Math.max(f.zaehler, f.abstand);
       let r;
@@ -666,6 +664,36 @@ function abenteuerRueckfallWeiter(game) {
       if (!rueckfallAbgelehnt.has(f)) rueckfallAbgelehnt.set(f, new Set());
       rueckfallAbgelehnt.get(f).add(f.beat);
       fehlerZaehlen(game, 'abenteuer-brett-rueckfall', new Error(String(r.grund)));
+      continue;
+    }
+    n++;
+  }
+  return n;
+}
+// Laeuft die Reise-Gefahr dieses Notruf-Fadens noch (Eintrag in R.laufend am Ort des Fadens)? Dann steht der Kampf aus, der Abschluss darf nicht mitten darin kommen.
+function notrufGefahrLaeuft(game, f) {
+  const R = game.weltsim.reise, laufend = (R && R.laufend) || [], ort = f.parameter && f.parameter.ort;
+  return laufend.some((x) => x.notruf === true && x.ev && x.ev.hex === ort);
+}
+// SPT-02 4b: wie abenteuerAbschlussWeiter, aber fuer Notruf-Faeden (P.notrufBrettFaden) im Betrieb MIT Modell: ein Notruf-Faden im faelligen Abschluss-Beat (B[typ].abschluss, zaehler >= abstand, nie die Abstand-Umgehung) hing sonst
+// fuer immer in Phase wartet und blockierte einen der notruf_aktiv_max Plaetze (dauerhaft keine neuen Notrufe). Er wird nur abgeschlossen, wenn die Reise-Gefahr nicht mehr laeuft (notrufGefahrLaeuft); ein Wegspringen vorher hat
+// faden-p3.js notrufImStich schon als gescheitert verbucht (die Strafe bleibt), der Abschluss wertet nur das Gedaechtnis. Im Rueckfall-Betrieb fuehrt notrufRueckfallWeiter (nie doppelt). Beats vor dem Abschluss (notruf, rettung) bleiben Sache
+// des Modells. Eine Ablehnung zaehlt einmal je Faden und Beat (gemeinsam mit abenteuerAbschlussWeiter). -> Anzahl gestarteter Abschluss-Beats
+function notrufAbschlussWeiter(game) {
+  const F = game && game.weltsim && game.weltsim.faeden, l = game && game.lageSpielleiter;
+  if (!F || !l || l.rueckfallBetrieb === true || !Faden().aktiv(game) || !Faden().spielleiterAktiv(game)) return 0;
+  let n = 0;
+  for (const f of F.liste.slice()) {
+    if (!P.notrufBrettFaden(f) || f.phase !== 'wartet' || f.beat < 1 || f.zaehler < f.abstand) continue;
+    const beat = D.vorlage(f.vorlage).beats[f.beat];
+    if (!beat || !B[beat.typ] || !B[beat.typ].abschluss) continue;
+    if (notrufGefahrLaeuft(game, f)) continue;
+    if (rueckfallAbgelehnt.has(f) && rueckfallAbgelehnt.get(f).has(f.beat)) continue;
+    let r;
+    try { r = Faden().befehlAnwenden(game, { typ: 'faden_weiter', faden: f.id, beat: beat.id }); } catch (e) { fehlerZaehlen(game, 'abenteuer-brett-abschluss', e); continue; }
+    if (!r.ok) {
+      rueckfallAbgelehnt.set(f, (rueckfallAbgelehnt.get(f) || new Set()).add(f.beat));
+      fehlerZaehlen(game, 'abenteuer-brett-abschluss', new Error(String(r.grund)));
       continue;
     }
     n++;
@@ -742,4 +770,4 @@ function lesen(b, F) {   // muellfest: Unbrauchbares faellt weg (Meldung in F.la
 // SPL-02 D: die NSC, die eine Fortsetzung tragen (Katalog der Absichten, absicht-pruefer.js): die Verbindung fuer abenteuer-geschichte.js, das den Pruefer nicht selbst laedt
 const fortsetzungsNamen = (game, katalog) => Absicht().fortsetzungsNamen(game, katalog);
 
-module.exports = { snapshot, schluessel, zuletztVon, annehmen, ablehnen, vorschau, marken, kuerzen, beiEnde, hinweisAnbieten, beiTaetigkeit, beiUpdate, anschluss, beiAndocken, anschlussFuellen, ausVorratFuellen, ausVorratEinsAnbieten, sammelHinweis, passtZuLage, neuAnbieten, notrufAnbieten, notrufGrenzeErreicht, notrufRueckfallWeiter, abenteuerRueckfallWeiter, abenteuerAbschlussWeiter, zurueckziehenFuerNotruf, toSave, lesen, weigerung, schrittText, fortsetzungsNamen };
+module.exports = { snapshot, schluessel, zuletztVon, annehmen, ablehnen, vorschau, marken, kuerzen, beiEnde, hinweisAnbieten, beiTaetigkeit, beiUpdate, anschluss, beiAndocken, anschlussFuellen, ausVorratFuellen, ausVorratEinsAnbieten, sammelHinweis, passtZuLage, neuAnbieten, notrufAnbieten, notrufGrenzeErreicht, notrufRueckfallWeiter, notrufAbschlussWeiter, abenteuerRueckfallWeiter, abenteuerAbschlussWeiter, zurueckziehenFuerNotruf, toSave, lesen, weigerung, schrittText, fortsetzungsNamen };

@@ -3,7 +3,7 @@
 // Bei Erreichen entsteht kein weiterer Notruf (reise-ereignis.js taktNotruf, abenteuer-brett.js notrufAnbieten); ein vorhandenes Notruf-Angebot meldet beim Annehmen notruf_voll. Pruefreihenfolge: ein Notruf-Angebot
 // scheitert nie an laeuft_schon oder kein_platz, ein regulaeres Angebot nie an notruf_voll.
 //   A: Daten   B: drei laufende Abenteuer + drei Notrufe zugleich   C: ein vierter Notruf entsteht nicht (Takt und Brett)   D: Reihenfolge der Pruefungen beim Annehmen   E: umgekehrt (Notrufe belegen keinen Platz der Abenteuer)
-//   F: Speichern und Laden verwirft keinen Notruf-Faden   G: Snapshot (laufend mit notruf, max)   H: ein beendeter Notruf-Faden hinterlaesst zuletzt   I: Notruf-Faden mit Modell im Abschluss (Beleg, kein Fix)
+//   F: Speichern und Laden verwirft keinen Notruf-Faden   G: Snapshot (laufend mit notruf, max)   H: ein beendeter Notruf-Faden hinterlaesst zuletzt   I: Notruf-Faden mit Modell im Abschluss wird abgeschlossen (SPT-02 4b)
 //   node tools/test-notruf-zaehlung.js
 const fs = require('fs');
 const path = require('path');
@@ -222,23 +222,72 @@ section('H: ein beendeter Notruf-Faden hinterlaesst zuletzt', () => {
   ok(!JSON.stringify(z.zuletzt).includes(f.nsc.name), 'der Name des NSC steht nie im zuletzt (der Titel nennt nur den Sprecher des Katalog-Notrufs, wie das Angebot)');
 });
 
-section('I: Beleg (kein Fix): ein Notruf-Faden mit Modell haengt im Abschluss, abenteuerAbschlussWeiter fuehrt ihn nicht', () => {
-  const g = neu();
-  const a = notrufAn(g, 0, '0603');
-  notrufAnnehmen(g, a);
-  const f = Fz(g).liste.find((x) => P.notrufBrettFaden(x));
-  const letzter = D.vorlage(f.vorlage).beats.length - 1;
-  g.lageSpielleiter.rueckfallBetrieb = false; g.lageSpielleiter.mode = 'mock';   // Betrieb mit Modell: nur der Lage-Spielleiter fuehrt Faeden weiter
-  f.beat = letzter; f.phase = 'wartet'; f.laufend = null; f.zaehler = f.abstand;
-  const typ = D.vorlage(f.vorlage).beats[letzter].typ;
+section('I: SPT-02 4b: ein Notruf-Faden mit Modell im faelligen Abschluss wird abgeschlossen (notrufAbschlussWeiter), nie mitten im Kampf, nie vor dem Abstand', () => {
+  const FP3 = require('../server/sim/faden-p3.js');
+  // ein angenommener Notruf-Faden im Betrieb mit Modell, im Abschluss-Beat, faellig
+  const abschlussFaden = (i) => {
+    const g = neu();
+    const a = notrufAn(g, i, '0603');
+    notrufAnnehmen(g, a);
+    const f = Fz(g).liste.find((x) => P.notrufBrettFaden(x));
+    const letzter = D.vorlage(f.vorlage).beats.length - 1;
+    g.lageSpielleiter.rueckfallBetrieb = false; g.lageSpielleiter.mode = 'mock';   // Betrieb mit Modell: nur der Lage-Spielleiter fuehrt Faeden weiter
+    f.beat = letzter; f.phase = 'wartet'; f.laufend = null; f.zaehler = f.abstand;
+    return { g, f, a };
+  };
+  const { g, f } = abschlussFaden(0);
+  const typ = D.vorlage(f.vorlage).beats[f.beat].typ;
   ok(D.BEATS[typ].abschluss === true, 'der letzte Beat des Notruf-Plans ist ein Abschluss-Beat (' + typ + ')');
-  const n1 = Brett.abenteuerAbschlussWeiter(g), n2 = Brett.notrufRueckfallWeiter(g);
-  ok(n1 === 0 && n2 === 0 && f.phase === 'wartet' && P.notrufAktiv(Fz(g)).length === 1, 'abenteuerAbschlussWeiter ' + n1 + ', notrufRueckfallWeiter ' + n2 + ': der Faden bleibt in Phase wartet und zaehlt weiter in notruf_aktiv_max');
-  // Gegenprobe: derselbe Zustand bei einem REGULAEREN Faden wird geschlossen
+  ok(Brett.abenteuerAbschlussWeiter(g) === 0 && f.phase === 'wartet', 'abenteuerAbschlussWeiter fasst den Notruf-Faden weiterhin nicht an (regulaere Faeden)');
+  ok(Brett.notrufRueckfallWeiter(g) === 0 && f.phase === 'wartet', 'notrufRueckfallWeiter tut mit Modell nichts');
+  // Gefahr laeuft noch: Eintrag in R.laufend am Ort des Fadens -> kein Abschluss mitten im Kampf
+  const ort = f.parameter.ort;
+  R(g).laufend.push({ nr: 900, id: 'x', phase: 'kampf', notruf: true, ev: { hex: ort } });
+  ok(Brett.notrufAbschlussWeiter(g) === 0 && f.phase === 'wartet', 'Notruf mitten im Kampf (Gefahr laeuft am Ort): unberuehrt');
+  R(g).laufend.length = 0;
+  // Abstand nicht umgangen
+  f.zaehler = f.abstand - 1;
+  ok(Brett.notrufAbschlussWeiter(g) === 0 && f.phase === 'wartet', 'vor dem Abstand startet der Abschluss nicht (Zaehler ' + f.zaehler + ', Abstand ' + f.abstand + ')');
+  f.zaehler = f.abstand;
+  // Spielleiter aus: kein Auftrag zum Abschliessen
+  g.lageSpielleiter.mode = 'off';
+  ok(Brett.notrufAbschlussWeiter(g) === 0 && f.phase === 'wartet', 'Spielleiter aus: der Abschluss bleibt stehen');
+  g.lageSpielleiter.mode = 'mock';
+  // Rueckfall-Betrieb: nie doppelt treiben (dort fuehrt notrufRueckfallWeiter)
+  g.lageSpielleiter.rueckfallBetrieb = true;
+  ok(Brett.notrufAbschlussWeiter(g) === 0 && f.phase === 'wartet', 'Rueckfall-Betrieb: notrufAbschlussWeiter tut nichts (Sache von notrufRueckfallWeiter)');
+  g.lageSpielleiter.rueckfallBetrieb = false;
+  ok(Brett.notrufAbschlussWeiter(g) === 1 && f.phase === 'abgeschlossen' && P.notrufAktiv(Fz(g)).length === 0, 'Gefahr vorbei, Abstand erreicht, mit Modell: der Notruf-Faden schliesst ab und gibt seinen Platz in notruf_aktiv_max frei');
+  ok(Brett.notrufAbschlussWeiter(g) === 0, 'ein abgeschlossener Faden wird nicht noch einmal angefasst');
+
+  // drei haengende Notrufe sind keine Falle mehr: nach dem Abschluss entsteht wieder ein Notruf-Angebot
+  const g3 = neu();
+  for (let i = 0; i < 3; i++) notrufAnnehmen(g3, notrufAn(g3, i));
+  g3.lageSpielleiter.rueckfallBetrieb = false; g3.lageSpielleiter.mode = 'mock';
+  for (const x of P.notrufAktiv(Fz(g3))) { x.beat = D.vorlage(x.vorlage).beats.length - 1; x.phase = 'wartet'; x.laufend = null; x.zaehler = x.abstand; }
+  ok(Brett.notrufGrenzeErreicht(g3) === true && notrufAn(g3, 3) === null, 'drei haengende Notrufe: kein weiterer Notruf');
+  ok(Brett.notrufAbschlussWeiter(g3) === 3 && nFaden(g3) === 0 && !!notrufAn(g3, 3), 'nach notrufAbschlussWeiter: alle drei abgeschlossen, ein neuer Notruf entsteht wieder');
+
+  // im Stich gelassen: die Strafe bleibt, der Abschluss wertet "gescheitert" (kein Umgehen ohne Spielerentscheidung)
+  const s = abschlussFaden(1);
+  const marke = s.f.notruf.marke;
+  s.f.beat = 1; s.f.phase = 'wartet';   // vor dem Abschluss (rettung o. ae.), Crew springt weg
+  ok(D.BEATS[D.vorlage(s.f.vorlage).beats[1].typ].abschluss !== true && Brett.notrufAbschlussWeiter(s.g) === 0 && s.f.phase === 'wartet' && s.f.beat === 1, 'ein faelliger Beat VOR dem Abschluss (' + D.vorlage(s.f.vorlage).beats[1].typ + ') bleibt Sache des Modells');
+  ok(FP3.notrufImStich(s.g, marke) === true, 'notrufImStich verbucht den Faden als im Stich gelassen');
+  ok(s.f.beat === D.vorlage(s.f.vorlage).beats.length - 1 && s.f.phase === 'wartet', 'im Stich gelassen: der Plan springt zum Abschluss');
+  ok(Brett.notrufAbschlussWeiter(s.g) === 1 && s.f.phase === 'abgeschlossen' && s.f.ausgang && s.f.ausgang.art === 'gescheitert', 'der Abschluss kommt nach dem Im-Stich-Lassen und endet gescheitert (' + (s.f.ausgang && s.f.ausgang.art) + ')');
+
+  // im Betrieb verdrahtet: der Takt (g.step) schliesst den haengenden Notruf-Faden ab, ohne dass ein Test die Funktion selbst ruft
+  const v = abschlussFaden(2);
+  lauf(v.g, 3);
+  ok(v.f.phase === 'abgeschlossen' && nFaden(v.g) === 0, 'Takt: der haengende Notruf-Faden wird im Betrieb abgeschlossen (Phase ' + v.f.phase + ')');
+
+  // Gegenprobe: derselbe Zustand bei einem REGULAEREN Faden wird von abenteuerAbschlussWeiter geschlossen, notrufAbschlussWeiter fasst ihn nicht an
   const g2 = neu();
   const r = regulaer(g2, 1);
   g2.lageSpielleiter.rueckfallBetrieb = false; g2.lageSpielleiter.mode = 'mock';
   r.beat = D.vorlage(r.vorlage).beats.length - 1; r.phase = 'wartet'; r.laufend = null; r.zaehler = r.abstand;
+  ok(Brett.notrufAbschlussWeiter(g2) === 0 && r.phase === 'wartet', 'regulaerer Faden: notrufAbschlussWeiter fasst ihn nicht an');
   ok(Brett.abenteuerAbschlussWeiter(g2) === 1 && r.phase === 'abgeschlossen', 'Gegenprobe: derselbe Zustand bei einem regulaeren Faden: abenteuerAbschlussWeiter schliesst ab');
 });
 

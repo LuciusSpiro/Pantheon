@@ -63,6 +63,15 @@ const MUTATIONEN = [
   [CL, 'voll: laufend.filter((l) => !l.notruf).length >= laufendMax', 'voll: laufend.length >= laufendMax', 'zd: Client: Notruf-Faeden machen das Brett voll'],
   [CL, 'notruf: a.notruf === true || a.notruf === 1,', 'notruf: false,', 'ze: Client: das Notruf-Angebot traegt kein notruf'],
   [CL, 'notruf: l.notruf === true || l.notruf === 1,', 'notruf: false,', 'zf: Client: der laufende Notruf traegt kein notruf'],
+  // ---- SPT-02 4b: Notruf-Abschluss mit Modell (notrufAbschlussWeiter)
+  [RE, "  try { require('./abenteuer-brett.js').notrufAbschlussWeiter(game); } catch", "  try { } catch", "4b-a: der Aufruf in reise-ereignis.js fehlt (haengender Notruf-Faden bleibt)"],
+  [BR, "    if (notrufGefahrLaeuft(game, f)) continue;\n    if (rueckfallAbgelehnt", "    if (rueckfallAbgelehnt", "4b-b: Abschluss auch mitten im Kampf der Reise-Gefahr"],
+  [BR, "    if (!P.notrufBrettFaden(f) || f.phase !== 'wartet' || f.beat < 1 || f.zaehler < f.abstand) continue;\n", "    if (!P.notrufBrettFaden(f) || f.phase !== 'wartet' || f.beat < 1) continue;\n", "4b-c: der Abstand wird umgangen"],
+  [BR, "    if (!beat || !B[beat.typ] || !B[beat.typ].abschluss) continue;\n    if (notrufGefahrLaeuft", "    if (!beat) continue;\n    if (notrufGefahrLaeuft", "4b-d: auch Beats vor dem Abschluss (rettung) werden gefuehrt"],
+  [BR, "if (!F || !l || l.rueckfallBetrieb === true || !Faden().aktiv(game) || !Faden().spielleiterAktiv(game)) return 0;\n  let n = 0;\n  for (const f of F.liste.slice()) {\n    if (!P.notrufBrettFaden", "if (!F || !l || !Faden().aktiv(game) || !Faden().spielleiterAktiv(game)) return 0;\n  let n = 0;\n  for (const f of F.liste.slice()) {\n    if (!P.notrufBrettFaden", "4b-e: ohne Rueckfall-Guard (doppeltes Treiben im Rueckfall-Betrieb)"],
+  [BR, "if (!F || !l || l.rueckfallBetrieb === true || !Faden().aktiv(game) || !Faden().spielleiterAktiv(game)) return 0;\n  let n = 0;\n  for (const f of F.liste.slice()) {\n    if (!P.notrufBrettFaden", "if (!F || !l || l.rueckfallBetrieb === true || !Faden().aktiv(game)) return 0;\n  let n = 0;\n  for (const f of F.liste.slice()) {\n    if (!P.notrufBrettFaden", "4b-f: ohne spielleiterAktiv-Guard"],
+  [BR, "    if (!P.notrufBrettFaden(f) || f.phase !== 'wartet' || f.beat < 1 || f.zaehler < f.abstand) continue;\n", "    if (f.phase !== 'wartet' || f.beat < 1 || f.zaehler < f.abstand) continue;\n", "4b-g: auch regulaere Faeden (nicht nur Notruf-Faeden)"],
+  [BR, "function notrufAbschlussWeiter(game) {\n", "function notrufAbschlussWeiter(game) {\n  return 0;\n", "4b-h: die Funktion tut nichts"],
 ];
 
 const FILTER = process.argv.slice(2).filter((a) => !a.startsWith('--')).map((s) => s.toLowerCase());
