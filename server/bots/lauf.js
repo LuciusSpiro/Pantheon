@@ -9,7 +9,10 @@
 //   prioritaetLoesen(game, spieler) BOT-01 C2b: die vom Bot gesetzte Prioritaet der Technik zuruecknehmen, bevor ein Mensch die Station hat oder der Platz geraeumt wird (weichen.js, spieler.js)
 //   bordBot(game)                   BOT-02 B1: der Bot, der den Bord-Dienst haelt (Technik, sonst Ops, sonst Navigation; bewusstlose und unten stehende Bots uebersprungen; null ohne Server-Bots). Rein aus den Spielern,
 //                                   nur der Haelter wird waehrend eines Dienstes im Lauf gemerkt (Hysterese: ein wieder aufstehender Bot uebernimmt nicht zurueck, solange der Haelter gueltig ist)
-//   bordAktiv(game, spieler)        BOT-02 B1: der Bord-Dienst dieses Bots ist faellig (er ist der Bord-Bot und ein MENSCH ist unten (zone away) oder beamt gerade runter); Bots unten zaehlen nicht
+//   bordAktiv(game, spieler)        BOT-02 B1: der Bord-Dienst dieses Bots ist faellig (er ist der Bord-Bot und ein MENSCH ist unten (zone away), beamt gerade runter oder der Vorlauf laeuft (B3)); Bots unten zaehlen nicht
+//   vorlaufLaeuft(game)             BOT-02 B3: der Vorlauf vor dem Beamen laeuft: ein Landepunkt ist gewaehlt (game.transferZiel), mindestens ein Mensch ist an Bord, keiner unten und keiner beamt; er endet, wenn der Landepunkt weg ist, ein Mensch beamt
+//                                   oder VORLAUF_FRIST abgelaufen ist (ein Landepunkt, dessen Vorlauf endete, beginnt keinen zweiten; ein neu gewaehlter schon). Zustand nur im Lauf, nie am Spiel. Zaehlt als Dienstbedarf (Bot geht zum Transfer, Navigation haelt an)
+//   beamVorbereitet(game)           BOT-02 B3: Vorlauf ODER ein Mensch beamt gerade runter (Navigations-Bot: Schiff stoppen und halten, wie bei Aussenteam unten)
 //   dienstLaeuft(game, spieler)     BOT-02 B1: bordAktiv und kein verbundener Mensch an der Transfer-Konsole (Mensch gewinnt, der Dienst ruht): die EINE Quelle fuer Agent, Wachposten und Station-Automatik
 //   bordDienstHaelt(game)           BOT-02 B4: ein Bord-Bot haelt den Dienst wirklich (bordBot + dienstLaeuft; ueber weichen.js bordBotHaelt fuer away.js: die ODA schweigt, der Bot sagt die Codefolge an)
 //   stationVertreten(game, kind)    BOT-02 B1: der Bord-Bot haelt den Dienst wirklich (dienstLaeuft) und die Station seiner Rolle ist kind (helm, weapons, technik): die Station ist vertreten, nicht verwaist (station.js ueber weichen.js)
@@ -37,7 +40,13 @@ const menschBeamtRunter = (game) => {
   if (b && b.dir === 'down' && b.pids.some((id) => { const p = game.playerById(id); return !!p && p.connected && !p.bot; })) return true;
   return game.players.some((p) => p && p.connected && !p.bot && p.zone === 'ship' && p.hold && p.hold.kind === 'beam' && p.hold.dir === 'down');
 };
-const dienstBedarf = (game) => game.phase === 'play' && (menschUnten(game) || menschBeamtRunter(game));
+// BOT-02 B3: Vorlauf vor dem Beamen. Ein gewaehlter Landepunkt (game.transferZiel, wird bei jeder Wahl ein neues Objekt) und ein Mensch an Bord: der Bord-Bot geht schon jetzt zum Transfer (der Beam dauert nur ca. 3 s, der Weg ist laenger).
+// Ohne Beam darf er nicht ewig laufen: nach VORLAUF_FRIST s endet er, der Bot geht an seine Station; dasselbe Ziel beginnt keinen zweiten Vorlauf (vorlaufZiel), erst eine neue Wahl. Der Zustand steht nur im Lauf (Lauf.vorlaufPruefen, je Tick).
+const VORLAUF_FRIST = 120;   // s: spaetestens dann (ab Wahl des Landepunkts) endet der Vorlauf ohne Beam; Wahl am Transfer, Weg zum Pad und E-Halten brauchen deutlich weniger, die Reserve deckt einen langsamen Menschen
+const menschAnBord = (game) => game.players.some((p) => p && p.connected && !p.bot && p.zone === 'ship');
+const vorlaufLaeuft = (game) => { const lauf = LAEUFE.get(game); return !!lauf && game.phase === 'play' && !!lauf.vorlauf && lauf.vorlauf.ziel === game.transferZiel; };
+const beamVorbereitet = (game) => vorlaufLaeuft(game) || menschBeamtRunter(game);
+const dienstBedarf = (game) => game.phase === 'play' && (menschUnten(game) || menschBeamtRunter(game) || vorlaufLaeuft(game));
 const menschHaeltTransfer = (game) => game.players.some((o) => o && !o.bot && o.connected && o.console === 'transfer');
 // ein Bot kann den Dienst halten: Server-Bot, bei Bewusstsein, an Bord (B-3)
 const dienstFaehig = (p) => istServerBot(p) && !p.downed && p.zone === 'ship';
@@ -62,6 +71,7 @@ class Lauf {
   constructor(game) {
     this.game = game; this.runId = game.runId; this.agentenMap = new Map(); this.snap = null; this.cache = null;
     this.bordHalter = null;   // BOT-02 B1: der Bot, der den laufenden Dienst haelt (Hysterese, nur waehrend des Dienstes)
+    this.vorlauf = null; this.vorlaufZiel = null;   // BOT-02 B3: { ziel, seit } waehrend des Vorlaufs; das Ziel (game.transferZiel), dessen Vorlauf zuletzt begann (ein Ziel beginnt ihn nur einmal)
   }
   // BOT-01 C2b: die vom Bot gesetzte Prioritaet der Technik zuruecknehmen (nur wenn ship.priority noch der gehaltene Wert ist; eine Prioritaet des Menschen bleibt). true = zurueckgenommen
   prioritaetLoesen(wert) {
@@ -70,6 +80,21 @@ class Lauf {
     ship.priority = null;
     return true;
   }
+  // BOT-02 B3: den Vorlauf nachfuehren (einmal je Tick vor den Agenten, nur Lauf-Zustand). Beginn: Landepunkt gewaehlt, Mensch an Bord, niemand unten oder beamend, dieser Landepunkt noch nicht dran gewesen.
+  // Beginn nur, wenn ein Mensch an der Transfer-Konsole steht, wenn der neue Landepunkt zum ersten Mal auffaellt (Spielpfad transfer.ziel); setzt das Spiel selbst ein Ziel (Szenenstart, Arena), gibt es keinen Vorlauf.
+  // Ende: Landepunkt weg oder neu gewaehlt, Mensch unten oder beamend (dann gilt der Dienst wie bisher), Frist; das Ziel bleibt als erledigt vermerkt.
+  vorlaufPruefen() {
+    const g = this.game; const z = g.transferZiel;
+    if (!z) { this.vorlauf = null; this.vorlaufZiel = null; return; }
+    if (this.vorlauf && this.vorlauf.ziel !== z) this.vorlauf = null;
+    const frei = menschAnBord(g) && !menschUnten(g) && !menschBeamtRunter(g);
+    if (this.vorlauf) { if (!frei || g.time - this.vorlauf.seit > VORLAUF_FRIST) this.vorlauf = null; return; }
+    if (z === this.vorlaufZiel) return;
+    this.vorlaufZiel = z;   // jedes Ziel wird nur beim ersten Sehen beurteilt (ein Ziel, das das Spiel selbst setzt, etwa beim Start einer Szene, beginnt spaeter keinen Vorlauf)
+    if (frei && menschHaeltTransfer(g)) this.vorlauf = { ziel: z, seit: g.time };   // gewaehlt hat ihn ein Mensch: transfer.ziel gibt es nur an der Transfer-Konsole
+  }
+  vorlaufLaeuft() { return vorlaufLaeuft(this.game); }
+  beamVorbereitet() { return beamVorbereitet(this.game); }
   bordAktiv(spieler) { return bordAktiv(this.game, spieler); }   // BOT-02 B1: fuer den Agenten (mannschaft.js laedt dieses Modul nicht, Zirkelbezug)
   dienstLaeuft(spieler) { return dienstLaeuft(this.game, spieler); }
   rngFuer(spieler) { return makeRng((((this.game.seed >>> 0) * 7919 + 311 + this.game.players.indexOf(spieler) * 101) >>> 0)); }
@@ -86,6 +111,7 @@ class Lauf {
   }
   schritt() {
     const S = this.snap;
+    this.vorlaufPruefen();
     if (!dienstBedarf(this.game)) this.bordHalter = null;   // Dienst zu Ende: beim naechsten gilt wieder die Reihe
     if (!S) return;
     for (const a of this.liste()) this.game.safe('botlauf:' + a.rolleBot, () => a.tick(S));
@@ -108,4 +134,4 @@ function prioritaetLoesen(game, spieler) { const a = agent(game, spieler); retur
 function agent(game, spieler) { const lauf = LAEUFE.get(game); return lauf && spieler ? lauf.agentenMap.get(spieler.id) || null : null; }
 function agenten(game) { const lauf = LAEUFE.get(game); return lauf ? lauf.liste().slice() : []; }
 
-module.exports = { tick, beenden, snapshotMerken, optionenSetzen, entfernen, wartet, prioritaetLoesen, agent, agenten, istServerBot, bordBot, bordAktiv, dienstLaeuft, bordDienstHaelt, stationVertreten };
+module.exports = { tick, beenden, snapshotMerken, optionenSetzen, entfernen, wartet, prioritaetLoesen, agent, agenten, istServerBot, bordBot, bordAktiv, dienstLaeuft, bordDienstHaelt, stationVertreten, vorlaufLaeuft, beamVorbereitet, VORLAUF_FRIST };

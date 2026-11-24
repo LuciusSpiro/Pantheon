@@ -79,7 +79,7 @@ ops['ops.scan'] = (game, bot) => {
 ops['ops.landescan'] = (game, bot) => {
   const v = vorab(game, bot, { station: true });
   if (v.fehler) return v.fehler;
-  return v.agent.einmalig('weapons.landescan') ? NICHT_JETZT : OK;   // Orbit, Landepunkt in Scanreichweite, Scan laeuft schon: das Spiel antwortet
+  return v.agent.landescanSenden() ? NICHT_JETZT : OK;   // Orbit, Landepunkt in Scanreichweite, Scan laeuft schon: das Spiel antwortet
 };
 
 ops['ops.beamen'] = (game, bot, args) => {
