@@ -160,7 +160,7 @@ console.log('\nC: Betrieb mit Modell bleibt unberuehrt (kein Doppeltreiben)');
     Faden.taetigkeit(g, 'andocken'); g.step(); getrieben += treiber();
     for (let k = 0; k < FRIST + 1 && f.phase === 'laeuft'; k++) Faden.taetigkeit(g, 'andocken');
   }
-  ok(f.phase === 'abgeschlossen' && getrieben === 2 && beatsGestartet(g, f) === 2, `Mock-Treiber: jeder Beat genau einmal gestartet (${getrieben} Befehle, ${beatsGestartet(g, f)} Beats, Phase ${f.phase})`);
+  ok(f.phase === 'abgeschlossen' && getrieben >= 1 && getrieben <= 2 && beatsGestartet(g, f) === 2, `Mock-Treiber: jeder Beat genau einmal gestartet (${getrieben} Befehle, ${beatsGestartet(g, f)} Beats, Phase ${f.phase}; SPT-02 1: den faelligen Abschluss-Beat darf auch abenteuerAbschlussWeiter starten, dann sendet der Treiber nur 1 Befehl)`);
   ok(abgelehnt(g).length === 0 && g.errors === 0 && fehler.length === 0, 'keine abgelehnten Befehle (auch nicht FADEN_BELEGT durch Doppeltreiben), keine Fehler');
   sl.rueckfallBetrieb = rb; sl.mode = modus;
 }

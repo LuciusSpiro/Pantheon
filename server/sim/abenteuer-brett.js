@@ -644,6 +644,30 @@ function abenteuerRueckfallWeiter(game) {
   }
   return n;
 }
+// SPT-02 1 (B1): ein Faden, dessen Modell nicht weiterfuehrt (Betrieb mit Modell, Spielleiter antwortet nicht oder nach gescheitertem Beat), hing im Abschluss-Beat (b2_abschluss) fuer immer in Phase wartet und blockierte laufend_max bis Spielende:
+// nichts sendet faden_weiter, abenteuerRueckfallWeiter tut mit Modell nichts. Diese Funktion fuehrt NUR Beats, deren Katalogeintrag B[typ].abschluss hat, auch im Live-Betrieb aus, sobald sie faellig sind (zaehler >= abstand, nie die
+// ABSTAND-Umgehung des Rueckfalls) - der Abschluss beendet den Faden, das Modell-Fuehren sonst bleibt unberuehrt. Regulaere Faeden (f.plan, kein f.notruf), hoechstens ein Beat je Faden und Takt; eine Ablehnung zaehlt einmal je Faden und Beat
+// (gemeinsam mit abenteuerRueckfallWeiter, die im Rueckfall-Betrieb zuerst laeuft: ein schon laufender Beat wird nie doppelt gestartet). -> Anzahl gestarteter Abschluss-Beats
+function abenteuerAbschlussWeiter(game) {
+  const F = game && game.weltsim && game.weltsim.faeden;
+  if (!F || !Faden().aktiv(game) || !Faden().spielleiterAktiv(game)) return 0;
+  let n = 0;
+  for (const f of F.liste.slice()) {
+    if (!f.plan || f.notruf || f.phase !== 'wartet' || f.beat < 1 || f.zaehler < f.abstand) continue;
+    const beat = D.vorlage(f.vorlage).beats[f.beat];
+    if (!beat || !B[beat.typ] || !B[beat.typ].abschluss) continue;
+    if (rueckfallAbgelehnt.has(f) && rueckfallAbgelehnt.get(f).has(f.beat)) continue;
+    let r;
+    try { r = Faden().befehlAnwenden(game, { typ: 'faden_weiter', faden: f.id, beat: beat.id }); } catch (e) { fehlerZaehlen(game, 'abenteuer-brett-abschluss', e); continue; }
+    if (!r.ok) {
+      rueckfallAbgelehnt.set(f, (rueckfallAbgelehnt.get(f) || new Set()).add(f.beat));
+      fehlerZaehlen(game, 'abenteuer-brett-abschluss', new Error(String(r.grund)));
+      continue;
+    }
+    n++;
+  }
+  return n;
+}
 // Der Eintrag des Notrufs (Marke) ist verfallen, abgelehnt oder beantwortet: sein Angebot geht vom Brett (nichts im Vorrat, keine Antwort-Marke: ein spaeterer Druck auf das Angebot meldet kein_angebot). -> true, wenn eines wegging
 function zurueckziehenFuerNotruf(game, marke) {
   const F = game && game.weltsim && game.weltsim.faeden;
@@ -690,4 +714,4 @@ function lesen(b, F) {   // muellfest: Unbrauchbares faellt weg (Meldung in F.la
 // SPL-02 D: die NSC, die eine Fortsetzung tragen (Katalog der Absichten, absicht-pruefer.js): die Verbindung fuer abenteuer-geschichte.js, das den Pruefer nicht selbst laedt
 const fortsetzungsNamen = (game, katalog) => Absicht().fortsetzungsNamen(game, katalog);
 
-module.exports = { snapshot, schluessel, annehmen, ablehnen, vorschau, marken, kuerzen, beiEnde, hinweisAnbieten, beiTaetigkeit, beiUpdate, anschluss, beiAndocken, anschlussFuellen, ausVorratFuellen, ausVorratEinsAnbieten, sammelHinweis, passtZuLage, neuAnbieten, notrufAnbieten, notrufRueckfallWeiter, abenteuerRueckfallWeiter, zurueckziehenFuerNotruf, toSave, lesen, weigerung, schrittText, fortsetzungsNamen };
+module.exports = { snapshot, schluessel, annehmen, ablehnen, vorschau, marken, kuerzen, beiEnde, hinweisAnbieten, beiTaetigkeit, beiUpdate, anschluss, beiAndocken, anschlussFuellen, ausVorratFuellen, ausVorratEinsAnbieten, sammelHinweis, passtZuLage, neuAnbieten, notrufAnbieten, notrufRueckfallWeiter, abenteuerRueckfallWeiter, abenteuerAbschlussWeiter, zurueckziehenFuerNotruf, toSave, lesen, weigerung, schrittText, fortsetzungsNamen };
