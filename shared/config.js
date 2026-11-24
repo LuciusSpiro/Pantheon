@@ -744,6 +744,7 @@
       shieldRadius: 46,          // px: Lerche „dazwischen“, wenn die Schusslinie so nah an ihrer Mitte vorbeigeht (Breitseite als Schild)
       hitRadius: 8,              // px zusätzlich zum Klassenradius für Projektile mit Schützling-Ziel
       spawnDist: 260,            // px: von 'lerche' = so weit steuerbord der Lerche
+      leaveMaxS: 14,             // s: so lange zieht ein abdrehender Gegner (enemies_retreat, Szenenende) höchstens durchs Feld, dann löst er sich auf (updateLeaving, Abgang 'rueck'); Faden-Szenen: Abzug „höchstens ~14 s“
       // Reisetempo folgt_kurs als Anteil der Klassen-Höchstfahrt (QA-INTEGRATION S2: deutlich unter der Lerche, Geleit ~3–4 min)
       cruise: { min: 0.2, max: 0.45 },
       // Schaden auf Schützlinge je Crewgröße (Faktor auf hullPerDamage); Ziel: zu dritt 70–90 % heil, solo 50–70 % heil
