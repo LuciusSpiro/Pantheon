@@ -1,0 +1,42 @@
+{
+  "format": "bot-gruende/1",
+  "quelle": "Vertrag Bot-Befehle (Katalog v1, BOT-01 C1). Ablehnungsgruende je Befehl als Daten: server/bots/annahme.js liest sie, tools/test-bot-annahme.js prueft, dass jede textId '<befehl>.<status>.<grund>' in content/bots/texte.json steht. Der Pseudo-Befehl 'befehl' deckt Nachrichten ab, deren Befehlsname unbekannt ist.",
+  "gruende": {
+    "unbekannt": "abgelehnt",
+    "adressat": "abgelehnt",
+    "quelle": "abgelehnt",
+    "argument": "abgelehnt",
+    "phase": "abgelehnt",
+    "wartet": "abgelehnt",
+    "kein_ziel": "abgelehnt",
+    "rate": "abgelehnt",
+    "kein_bot": "unmoeglich",
+    "system": "unmoeglich"
+  },
+  "befehle": {
+    "befehl": ["unbekannt", "phase", "rate"],
+    "nav.kurs": ["unbekannt", "adressat", "quelle", "argument", "phase", "wartet", "kein_ziel", "rate", "kein_bot", "system"],
+    "nav.stopp": ["unbekannt", "adressat", "quelle", "argument", "phase", "wartet", "rate", "kein_bot", "system"],
+    "nav.schub": ["unbekannt", "adressat", "quelle", "argument", "phase", "wartet", "rate", "kein_bot", "system"],
+    "nav.ausweichen": ["unbekannt", "adressat", "quelle", "argument", "phase", "wartet", "rate", "kein_bot", "system"],
+    "nav.abstand": ["unbekannt", "adressat", "quelle", "argument", "phase", "wartet", "kein_ziel", "rate", "kein_bot", "system"],
+    "nav.andocken": ["unbekannt", "adressat", "quelle", "argument", "phase", "wartet", "rate", "kein_bot", "system"],
+    "nav.sprung": ["unbekannt", "adressat", "quelle", "argument", "phase", "wartet", "rate", "kein_bot", "system"],
+    "ops.ziel": ["unbekannt", "adressat", "quelle", "argument", "phase", "wartet", "kein_ziel", "rate", "kein_bot", "system"],
+    "ops.feuer_frei": ["unbekannt", "adressat", "quelle", "argument", "phase", "wartet", "kein_ziel", "rate", "kein_bot", "system"],
+    "ops.feuer_halt": ["unbekannt", "adressat", "quelle", "argument", "phase", "wartet", "rate", "kein_bot", "system"],
+    "ops.scan": ["unbekannt", "adressat", "quelle", "argument", "phase", "wartet", "rate", "kein_bot", "system"],
+    "ops.landescan": ["unbekannt", "adressat", "quelle", "argument", "phase", "wartet", "rate", "kein_bot", "system"],
+    "ops.beamen": ["unbekannt", "adressat", "quelle", "argument", "phase", "wartet", "rate", "kein_bot", "system"],
+    "tech.prio": ["unbekannt", "adressat", "quelle", "argument", "phase", "wartet", "rate", "kein_bot", "system"],
+    "tech.reparieren": ["unbekannt", "adressat", "quelle", "argument", "phase", "wartet", "rate", "kein_bot", "system"],
+    "tech.schild": ["unbekannt", "adressat", "quelle", "argument", "phase", "wartet", "rate", "kein_bot", "system"],
+    "tech.energie": ["unbekannt", "adressat", "quelle", "argument", "phase", "wartet", "rate", "kein_bot", "system"],
+    "tech.ueberladen": ["unbekannt", "adressat", "quelle", "argument", "phase", "wartet", "rate", "kein_bot", "system"],
+    "bord.rueckholen": ["unbekannt", "adressat", "quelle", "argument", "phase", "wartet", "rate", "kein_bot", "system"],
+    "bord.sensor": ["unbekannt", "adressat", "quelle", "argument", "phase", "wartet", "rate", "kein_bot", "system"],
+    "bord.kuppel": ["unbekannt", "adressat", "quelle", "argument", "phase", "wartet", "rate", "kein_bot", "system"],
+    "bot.status": ["unbekannt", "adressat", "quelle", "argument", "phase", "rate", "kein_bot"],
+    "bot.automatik": ["unbekannt", "adressat", "quelle", "argument", "phase", "rate", "kein_bot"]
+  }
+}

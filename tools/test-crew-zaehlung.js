@@ -214,6 +214,26 @@ section('6b Skalierung zählt Köpfe: mit 0 und mit 3 Bots');
   ok(crewVon(mit(1, 0)) === 1 && crewVon(mit(1, 2)) === 3 && crewVon(mit(1, 3)) === 3 && crewVon(mit(3, 0)) === 3 && crewVon({ players: [] }) === 1, 'Spielleiter.crew(): 1 + Bots wie Menschen, gedeckelt auf 3');
 }
 
+// ---------- 6c ODA-Codehilfe (BOT-01 C1): ein Bot oben zaehlt nicht als Mensch an Bord ----------
+section('6c ODA-Codehilfe am Kustodenpult: Bots an Bord zaehlen nicht als Mensch');
+{
+  const away = require('../server/sim/away.js');
+  const lauf = (modus) => {   // modus: 'bot' (ein Bot an Bord), 'mensch' (ein zweiter Mensch an Bord), 'leer' (niemand an Bord)
+    const { g } = setup(modus === 'mensch' ? 2 : 1, modus === 'bot' ? 1 : 0);
+    const aussen = g.players[0]; const oben = g.players[1] || null;
+    aussen.zone = 'away'; aussen.downed = false; if (oben) oben.zone = 'ship';
+    g.away.active = true; g.away.map = 'platform'; g.away.odaCodeHelp = false; g.away.noHumanT = 0;
+    g.away.kustodenpult = { disabled: false, lockout: 0 };
+    const dt = 1 / 30; const bis = Math.ceil((g.C.away.odaCodeHelpDelay + 2) / dt);
+    for (let i = 0; i < bis && !g.away.odaCodeHelp; i++) { try { away.update(g, dt); } catch (e) { return { fehler: e.message }; } }
+    return { hilfe: g.away.odaCodeHelp, t: g.away.noHumanT, koepfe: Crew.koepfe(g), menschen: Crew.menschen(g) };
+  };
+  const bot = lauf('bot'), mensch = lauf('mensch'), leer = lauf('leer');
+  ok(!bot.fehler && bot.koepfe === 2 && bot.menschen === 1 && bot.hilfe === true, 'Bot oben, Mensch im Aussenteam: die Codehilfe kommt (Bot zaehlt nicht als Mensch an Bord)' + (bot.fehler ? ' - ' + bot.fehler : ''));
+  ok(leer.hilfe === true, 'niemand oben: Codehilfe kommt (wie bisher)');
+  ok(mensch.hilfe === false, 'ein Mensch oben: keine Codehilfe (reine Menschenpartie unveraendert)');
+}
+
 // ---------- 6 Quellscan ----------
 section('6 Quellscan: Zählung nur in crew.js');
 {

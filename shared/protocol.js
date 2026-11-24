@@ -288,8 +288,10 @@
       HELLO: 'hello', READY: 'ready', INPUT: 'input', ACT: 'act', SHOOT: 'shoot', MARK: 'mark',
       DROP: 'drop', LEAVE: 'leave', SCHUBS: 'schubs', CMD: 'cmd', PING: 'ping', DEBUG: 'debug',
       LOBBY_OPT: 'lobbyOpt',   // M0: { skipDrill: bool } – nur in der Lobby, jeder darf umschalten; FRE-01: { liveSpielleiter: bool } – nur Lobby, nur Modus freie_fahrt mit neuer Welt (sonst ignoriert), Standard false, Wechsel von Modus/Weltstand setzt zurück; M2: { startMission: START_MISSIONS }; S1: { world }
+      BOT_BEFEHL: 'bot.befehl',   // BOT-01 C1: { an, befehl, args?, quelle } – an: navigation | ops | technik | bord | alle | botId (b0..b3); quelle: menu | taste | sprache | text. Nur Menschen, nur in der laufenden Partie; Antwort an den Absender: BOT_ANTWORT (je Bot eine). Vertrag: vault/Pantheon/Vertrag Bot-Befehle.md
+      BOT_ANTWORT: 'bot.antwort',   // BOT-01 C1, Server -> Client (direkt, keine event-Huelle): { botId, befehl, status: ok | erledigt | abgelehnt | unmoeglich, textId, text?, variante? }; textId = <befehl>.<status>[.<grund>], Texte in content/bots/texte.json, Gruende in content/bots/gruende.json
       LOBBY_BOT: 'lobbyBot',   // BOT-01 B2: Bots auf Slots, nur in der Lobby, jeder Mensch darf (sonst notice, nichts passiert): { op: 'add', rolle } legt einen Bot auf den kleinsten freien Platz (rolle: 'navigation' | 'ops' | 'technik', jede höchstens einmal, höchstens 3 Bots),
-                               //   { op: 'wuerfeln', pid } neue Karte und Name (Platz, Rolle, Farbe bleiben), { op: 'weg', pid } entfernt den Bot, { op: 'rolle', pid, rolle } wechselt die Rolle auf eine freie. pid muss ein Bot sein (nie ein Mensch). Antwort: Ereignis karte (wie bei Menschen), Snapshot players[].bot = 1 und players[].rolle (nur Bots). bot.befehl / bot.antwort sind für Paket C reserviert.
+                               //   { op: 'wuerfeln', pid } neue Karte und Name (Platz, Rolle, Farbe bleiben), { op: 'weg', pid } entfernt den Bot, { op: 'rolle', pid, rolle } wechselt die Rolle auf eine freie. pid muss ein Bot sein (nie ein Mensch). Antwort: Ereignis karte (wie bei Menschen), Snapshot players[].bot = 1 und players[].rolle (nur Bots).
       WORLD: 'world',          // S1: { op: 'delete', id }
       MENU: 'menu',            // S1: { op: 'end' } | { op: 'pause', on }
     },

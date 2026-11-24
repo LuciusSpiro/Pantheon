@@ -410,6 +410,7 @@
     "test:bot-kern": "node tools/test-bot-kern.js",
     "test:bot-slots": "node tools/test-bot-slots.js",
     "test:bot-lauf": "node tools/test-bot-lauf.js",
+    "test:bot-annahme": "node tools/test-bot-annahme.js",
     "test:kontingent": "node tools/test-kontingent.js",
     "test:kontingent-frage": "node tools/test-kontingent-frage.js",
     "sicht:kontingent": "node tools/sicht-kontingent.js",
