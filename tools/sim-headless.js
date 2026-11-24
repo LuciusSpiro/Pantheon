@@ -3139,12 +3139,23 @@ async function umsetzungMain() {
   const bArg = argVal('--buehne', null);
   const buehne = bArg ? { kartenart: bArg.split(':')[0], besitz: bArg.split(':')[1] || undefined } : null;
   const samples = []; const runs = [];
-  // EK6: Umsetzungen mit dauer_je_crew spielen nur die dort genannten Crewgrößen (Feldzeichen hissen: ab 1, ein Spieler allein im Außenteam genügt; Bots: zu dritt)
+  // EK6: Umsetzungen mit dauer_je_crew spielen nur die dort genannten Crewgrößen (Katalog-Tabelle).
+  // BOT-02 A2: Der Katalog-Schlüssel "1" bei flagge_hissen gilt für den Spielserver (1 Mensch im Außenteam hisst allein, Bots oben),
+  // NICHT für den Sim-Piloten: er hisst/hält die Siedlung nicht (Softlock labs1_kampf). Darum eine eigene Ausschlussliste,
+  // die den Lauf mit Grund überspringt statt ihn stillschweigend an die Katalog-Tabelle zu koppeln.
+  const PILOT_KANN_NICHT = { 'stellung_nehmen/flagge_hissen': { crews: [1], grund: 'Sim-Pilot hisst/hält die Siedlung nicht (Feldzeichen, Endkampf; Server-Regel gilt trotzdem)' } };
   const katalog = require('../server/mission/katalog.js').load({});
   const crewOk = (id, crew) => { const u = katalog.molekuele[id.split('/')[0]].umsetzungen.find((x) => x.id === id.split('/')[1]); return !u || !u.dauer_je_crew || !!u.dauer_je_crew[crew]; };
+  const uebersprungen = (id, crew) => {
+    if (!crewOk(id, crew)) return 'Katalog: dauer_je_crew hat keinen Schlüssel für Crew ' + crew;
+    const pk = PILOT_KANN_NICHT[id];
+    return pk && pk.crews.includes(crew) ? pk.grund : null;
+  };
+  const gemeldet = new Set();
   for (const crew of crews) for (let i = 0; i < nSeeds; i++) {
     for (const id of ids) {
-      if (!crewOk(id, crew)) continue;
+      const skip = uebersprungen(id, crew);
+      if (skip) { if (!gemeldet.has(id + '|' + crew)) { gemeldet.add(id + '|' + crew); log(`ÜBERSPRUNGEN ${id} Crew ${crew}: ${skip}`); } continue; }
       const r = await runGeneric({ seed: base + i, crew, mode: 'labor', labor: id, staerke, buehne, pilot: 'maneuver', maxSec: 4000, funk: (base + i) % 2 ? 'b' : 'a' });
       runs.push({ id, crew, seed: base + i, r });
       if (VERBOSE || r.aborted || r.errors || r.missions.some((m) => !m.success || m.skips)) printGenericRun(r, 'Labor ' + id);

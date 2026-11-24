@@ -1,6 +1,6 @@
 {
   "$schema": "../regiebuch/regiebuch.schema.json",
-  "_kommentar": "EK8 Kapitel 7 „Siedlung, Flagge“. Die Schritte siedlung (Hissen) und siedlung_kampf sind die echte Bodenmission (EK6, CONTRACT-EK5-6, Molekül stellung_nehmen/flagge_hissen): Landepunkt eisenwald.siedlung, Feldzeichen auf dem Dorfplatz (zwei hissen gemeinsam), danach 10 Gegner und ein Anführer von allen Seiten. flagge_gehisst gilt, sobald das Feldzeichen oben ist (Angriff beginnt); boss_besiegt gilt, wenn der Anführer gefallen ist und das Team wieder an Bord ist; beide Flags zusammen beenden das Kapitel (erfolg). Fällt die Crew (Notrückholung): Siedlung zurücksetzen, beide Flags löschen, Ausgang rueckzug (die Szene beginnt von vorn). SOLO: Hissen braucht zwei lebende Spieler und geht allein nicht; die Kette darf nicht blockieren, darum hisst bei höchstens einem verbundenen Spieler ein Legionär mit (10 s nach dem Runterbeamen), und der Angriff ist kleiner (5 statt 10 Gegner plus Anführer). Verdrahtung Boden: CONTRACT-EK8.md, Abschnitt 4a.",
+  "_kommentar": "EK8 Kapitel 7 „Siedlung, Flagge“. Die Schritte siedlung (Hissen) und siedlung_kampf sind die echte Bodenmission (EK6, CONTRACT-EK5-6, Molekül stellung_nehmen/flagge_hissen): Landepunkt eisenwald.siedlung, Feldzeichen auf dem Dorfplatz (ist nur einer im Außenteam, hisst er allein, sonst hissen zwei gemeinsam), danach 10 Gegner und ein Anführer von allen Seiten. flagge_gehisst gilt, sobald das Feldzeichen oben ist (Angriff beginnt); boss_besiegt gilt, wenn der Anführer gefallen ist und das Team wieder an Bord ist; beide Flags zusammen beenden das Kapitel (erfolg). Fällt die Crew (Notrückholung): Siedlung zurücksetzen, beide Flags löschen, Ausgang rueckzug (die Szene beginnt von vorn). SOLO: Hissen geht allein, wenn nur ein Spieler im Außenteam ist (BOT-02 A2), sonst braucht es zwei lebende Halter; die Kette darf nicht blockieren, darum beamt bei höchstens einem verbundenen Spieler ein Legionär mit (10 s nach dem Runterbeamen), und der Angriff ist kleiner (5 statt 10 Gegner plus Anführer). Verdrahtung Boden: CONTRACT-EK8.md, Abschnitt 4a.",
   "format": "regiebuch/1",
   "id": "k7_siedlung",
 
@@ -131,18 +131,18 @@
   },
 
   "texte": {
-    "buch.briefing": "Das Feldzeichen steht in der Mitte der Siedlung auf dem Platz. Zwei von euch hissen es gemeinsam, die anderen decken. Dann kommen die Verteidiger: zehn Mann und ihr Anführer, von allen Seiten. Fällt der Anführer, fällt der Rest. Fällt die Crew, beginnt die Siedlung von vorn. Allein hisst ein Legionär mit, und es kommen weniger Gegner.",
+    "buch.briefing": "Das Feldzeichen steht in der Mitte der Siedlung auf dem Platz. Ist nur einer von euch unten, hisst er es allein, sonst hissen zwei gemeinsam, die anderen decken. Dann kommen die Verteidiger: zehn Mann und ihr Anführer, von allen Seiten. Fällt der Anführer, fällt der Rest. Fällt die Crew, beginnt die Siedlung von vorn. Ist nur einer unten, beamt ein Legionär mit, und es kommen weniger Gegner.",
     "buch.belohnung": "Eisenwald",
 
     "landung.lage": "Eisenwald, die Siedlung unter uns. Das Feldzeichen steht in der Mitte.",
-    "landung.legat": "Das Feldzeichen steht in der Mitte. Zwei von euch hissen, die anderen decken.",
+    "landung.legat": "Das Feldzeichen steht in der Mitte. Wer unten ist, hisst es: allein, wenn nur einer unten ist, sonst zu zweit. Die anderen decken.",
 
 
     "rueckzug.ansage": "Notrückholung eingeleitet. Wir kommen wieder.",
 
-    "siedlung.start": "Das Feldzeichen steht in der Mitte des Dorfplatzes. Zwei von euch hissen, die anderen decken.",
-    "siedlung.hinweis": "Captain: Zwei Mann zum Feldzeichen, gemeinsam E halten. Danach kommen sie von allen Seiten.",
-    "siedlung.allein": "Allein ist das Feldzeichen nicht zu hissen. Ein Legionär beamt mit hinunter und fasst mit an. Haltet ihn und euch am Leben.",
+    "siedlung.start": "Das Feldzeichen steht in der Mitte des Dorfplatzes. Hisst es, allein oder zu zweit, die anderen decken.",
+    "siedlung.hinweis": "Captain: Feldzeichen hissen, E halten – allein, wenn nur einer unten ist. Danach kommen sie von allen Seiten.",
+    "siedlung.allein": "Ist nur einer von euch unten, hisst er das Feldzeichen allein. Ein Legionär beamt mit hinunter und fasst mit an. Haltet ihn und euch am Leben.",
     "siedlung.angriff": "Sie haben es gesehen! Gegner von allen Seiten!",
     "siedlung.boss": "Der große dort, das ist ihr Anführer. Fällt er, fällt der Rest.",
     "siedlung.tipp_boss": "Captain: Den Großen ausschalten, dann ist Schluss. Deckung nutzen, zusammen vorrücken.",
@@ -152,7 +152,7 @@
 
 
     "ziel.runter": "Außenteam runterbeamen (Transfer, Landepunkt Siedlung Eisenwald)",
-    "ziel.hissen": "Das Feldzeichen zu zweit hissen",
+    "ziel.hissen": "Das Feldzeichen hissen (allein, wenn nur einer unten ist, sonst zu zweit)",
     "ziel.boss": "Den Anführer besiegen",
     "ziel.hoch": "Zurück zum Teleportpunkt und hochbeamen",
 

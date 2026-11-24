@@ -1825,7 +1825,7 @@
         ],
         "umsetzungen": [
           {
-            "beschreibung": "Das Feldzeichen steht in der Mitte des Dorfplatzes. Zwei hissen es gemeinsam (E halten, der Fortschritt bleibt; lebt von zwei nur einer, geht es nicht), eine einzelne Person allein. Dann greifen 10 Gegner und ein Anführer von allen Seiten an, danach erscheint niemand mehr. Fällt der Anführer, beamen die übrigen raus: Sieg. Fällt die Crew, bringt die Notrückholung sie an Bord, die Siedlung beginnt von vorn (Zerstörtes, Alarm, Feldzeichen unten) und die Szene geht zurück zum Hissen.",
+            "beschreibung": "Das Feldzeichen steht in der Mitte des Dorfplatzes. Ist nur eine Person im Außenteam, hisst sie allein; sonst zwei gemeinsam (E halten, Fortschritt bleibt; lebt von zwei nur einer, geht es nicht). Dann greifen 10 Gegner und ein Anführer von allen Seiten an, danach erscheint niemand mehr. Fällt der Anführer, beamen die übrigen raus: Sieg. Fällt die Crew, bringt die Notrückholung sie an Bord, die Siedlung beginnt von vorn (Zerstörtes, Alarm, Feldzeichen unten) und die Szene geht zurück zum Hissen.",
             "braucht_anker": {
               "anker": [
                 "flagge",

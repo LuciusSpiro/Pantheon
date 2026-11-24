@@ -1638,10 +1638,12 @@
           if (z === 'scharf') return { label: 'SCHARF – weg da!', ok: false };
           return { label: 'Gesprengt', ok: false };
         }
-        case 'flagge':   // EK6: nur gemeinsam (zwei halten gleichzeitig), der Fortschritt bleibt
+        case 'flagge':   // EK6: gemeinsam (zwei halten gleichzeitig), bei genau 1 Spieler im Außenteam allein (BOT-02 A2); der Fortschritt bleibt
           if (z === 'unten') {
-            const lebend = (st.players || []).filter(q => q.zone === 'away' && !q.downed).length;
-            return lebend >= 2 ? { label: 'E halten: Feldzeichen hissen (' + sec('flagge') + ', zwei gleichzeitig)', ok: true } : { label: 'Feldzeichen – hissen geht nur zu zweit', ok: false };
+            const SBf = window.Shared_Buehne;   // Regel und Zählung: shared/buehne.js flaggeHinweis (eine Quelle mit server/sim/anker.js)
+            const mn = (CFG.anker && CFG.anker.flagge && CFG.anker.flagge.min) || 2;
+            if (SBf && SBf.flaggeHinweis) return SBf.flaggeHinweis(st.players, mn, sec('flagge'));
+            return { label: 'E halten: Feldzeichen hissen (' + sec('flagge') + ')', ok: true };
           }
           return { label: 'Das Feldzeichen steht', ok: false };
         case 'zelle': {
@@ -1735,10 +1737,12 @@
         if (ks.gateOpen) return { label: 'Archivschlüssel: Tor ist offen', ok: false };
         const keys = (st.away && st.away.keys) || [];
         const other = keys.find(k => k !== ks.key && (+k.t || 0) > 0);
-        return { label: 'Halten: Archivschlüssel drehen (' + fs(AC.archkeyTime, 3) + ' s) · ' + (other ? 'der zweite wird gedreht!' : 'beide gleichzeitig!'), ok: true };
+        const SBk = window.Shared_Buehne;   // BOT-02 A1: im Solo-Fenster (genau 1 im Außenteam) nacheinander, sonst beide gleichzeitig (shared/buehne.js)
+        const kh = SBk && SBk.archkeyHinweis ? SBk.archkeyHinweis(SBk.raetselSolo(st.players), SBk.archkeyFenster(st.players, AC)) : 'beide gleichzeitig!';
+        return { label: 'Halten: Archivschlüssel drehen (' + fs(AC.archkeyTime, 3) + ' s) · ' + (other ? 'der zweite wird gedreht!' : kh), ok: true };
       }
       if (ch === 'T') return ks.tablet && ks.tablet.taken ? { label: 'Sockel: leer', ok: false } : { label: 'Halten: Tafel bergen (' + fs(AC.tabletTime, 3) + ' s)', ok: true };
-      if (ch === 'G') return ks.gateOpen ? null : { label: 'Tor: zwei Archivschlüssel in der Halle gleichzeitig drehen', ok: false };
+      if (ch === 'G') return ks.gateOpen ? null : { label: window.Shared_Buehne && window.Shared_Buehne.raetselSolo(st.players) ? 'Tor: beide Archivschlüssel in der Halle drehen (nacheinander, ' + Math.floor(window.Shared_Buehne.archkeyFenster(st.players, AC)) + ' s Zeit)' : 'Tor: zwei Archivschlüssel in der Halle gleichzeitig drehen', ok: false };
     }
     if (zone === 'ship' && st.ship) {
       if ((st.ship.fires || []).some(f => f[0] === tx && f[1] === ty)) return carry === 'loeschgel' ? { label: 'Halten: Feuer löschen', ok: true } : { label: 'Löschgel nötig (Lager)', ok: false };

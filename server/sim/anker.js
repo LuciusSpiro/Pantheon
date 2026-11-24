@@ -154,8 +154,8 @@ function inventar(game) { return game.inventory || {}; }
 // EK6 (Feldzeichen): lebende Spieler im Außenteam (nicht verwundet/bewusstlos/gefangen) – Hissen braucht mindestens flaggeMin (2) davon
 function flaggeCfg(game) { return (game.C && game.C.anker && game.C.anker.flagge) || { min: 2 }; }
 // BOT-02 A2: ist genau 1 Spieler im Außenteam (gleiche Solo-Zählung wie das Rätselpaar, auch ein Verwundeter zählt), genügt 1 Halter
-function flaggeMin(game) { return istSolo(game) ? Math.min(1, flaggeCfg(game).min) : flaggeCfg(game).min; }
-function flaggeCrew(game) { return game.players.filter((p) => p.zone === 'away' && p.connected !== false && !p.downed); }
+function flaggeMin(game) { return Buehne.flaggeBraucht(game.players, flaggeCfg(game).min); }   // Zählung in shared/buehne.js (eine Quelle mit dem Client-Hinweis)
+function flaggeCrew(game) { return Buehne.flaggeCrew(game.players); }
 function flaggeZeit(game) { return Number((kfg(game).halten || {}).flagge) || 6; }
 
 function interactionsAt(game, p, tx, ty, list) {
@@ -183,7 +183,7 @@ function interactionsAt(game, p, tx, ty, list) {
         break;
       case 'flagge':
         if (z === 'unten') {
-          if (flaggeCrew(game).length < flaggeMin(game)) block('Das Feldzeichen hissen zwei gemeinsam – dafür muss noch jemand aufstehen.');
+          if (flaggeCrew(game).length < flaggeMin(game)) block(Buehne.FLAGGE_GESPERRT);
           else it({ op: 'hissen' });
         } else block('Das Feldzeichen steht.');
         break;
@@ -314,7 +314,7 @@ function completeHold(game, p, h) {
       else ladungScharf(game, map, a.id, null, p.id);
       return;
     }
-    case 'flagge': return;   // wird in update() vollendet (gemeinsamer Fortschritt zweier Halter)
+    case 'flagge': return;   // wird in update() vollendet (gemeinsamer Fortschritt der Halter, bei 1 Spieler im Außenteam genügt einer)
     case 'zelle': setzen(game, map, a.id, 'offen', p.id); return;
     case 'beute': {   // WRK-01 A1: erst Ware ins Schiffslager (nur Wrack-Orte), dann leer; ohne Platz geht der Anker trotzdem auf (ohne Ware, Meldung an die Spielerin)
       const b = Wrack.beuteBergen(game, map);

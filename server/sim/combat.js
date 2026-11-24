@@ -1245,11 +1245,10 @@ function jammerOff(game, p, i) {
   else game.oda('Störrelais aus! Eins fehlt noch, dann ist der Captain-Scan klar.', null);
   game.missionEvent('jammerOff', { i });
 }
-// QA M2: Ist nur noch ein Spieler verbunden, reicht das Zeitfenster zum Hinüberlaufen (sonst Sackgasse am Tor)
+// QA M2 / BOT-02 A1: Ist genau 1 Spieler im Außenteam (wie das Rätselpaar, nicht Köpfe insgesamt; Zählung shared/buehne.js),
+// reicht das lange Zeitfenster zum Hinüberlaufen (sonst Sackgasse am Tor); ab 2 im Außenteam das enge Gruppenfenster
 function keyWindow(game) {
-  const C = cfg(game);
-  const solo = Buehne.raetselSolo(game.players);   // BOT-02 A1: „solo“ = genau 1 Spieler im Außenteam (wie das Rätselpaar), nicht Köpfe insgesamt
-  return solo ? Math.max(C.archkeyWindow, C.archkeySoloWindow || 0) : C.archkeyWindow;
+  return Buehne.archkeyFenster(game.players, cfg(game));
 }
 function keyTurned(game, p, i) {
   const C = cfg(game); const aw = game.away; const k = aw.keys[i];
@@ -1296,7 +1295,7 @@ function updateKeys(game) {
     if (k.doneAt != null) {
       if (game.time - k.doneAt > keyWindow(game)) {
         k.doneAt = null; k.t = 0;
-        if (game.time - aw.keyHintAt > 6) { aw.keyHintAt = game.time; game.oda('Beide Schlüssel gleichzeitig – einer allein reicht dem Archiv nicht.', null); }
+        if (game.time - aw.keyHintAt > 6) { aw.keyHintAt = game.time; game.oda(Buehne.raetselSolo(game.players) ? 'Zu langsam – ' + Buehne.archkeyHinweis(true, keyWindow(game)) + '.' : 'Beide Schlüssel gleichzeitig – einer allein reicht dem Archiv nicht.', null); }
         game.emit('sfx', { name: 'code_fail', zone: 'away', x: k.x * TILE + 16, y: k.y * TILE + 16 });
       } else { k.t = 1; continue; }
     }

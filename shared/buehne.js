@@ -1725,6 +1725,25 @@
   // Solo-Regel des Rätselpaars (Studioleitung, F4): genau 1 (verbundener) Spieler im Außenteam. players: Server game.players
   // bzw. Snapshot st.players (Felder connected, zone). Eine Zählung für Server (anker.js) und Client (E-Hinweis).
   function raetselSolo(players) { return (players || []).filter((p) => p && p.connected !== false && p.zone === 'away').length <= 1; }
+  // BOT-02 A2: Feldzeichen hissen. Lebende Halter-Kandidaten = verbunden, im Außenteam, nicht am Boden; benötigt werden
+  // cfgMin (CONFIG.anker.flagge.min, 2), bei genau 1 Spieler im Außenteam (raetselSolo) nur 1. Eine Zählung für Server
+  // (anker.js flaggeMin/flaggeCrew) und Client (E-Hinweis, flaggeHinweis).
+  const FLAGGE_GESPERRT = 'Das Feldzeichen hissen zwei gemeinsam – dafür muss noch jemand aufstehen.';
+  function flaggeCrew(players) { return (players || []).filter((p) => p && p.zone === 'away' && p.connected !== false && !p.downed); }
+  function flaggeBraucht(players, cfgMin) { const m = Number(cfgMin) || 2; return raetselSolo(players) ? Math.min(1, m) : m; }
+  // flaggeHinweis(players, cfgMin, dauerText) -> { label, ok } für den E-Hinweis am liegenden Feldzeichen
+  function flaggeHinweis(players, cfgMin, dauerText) {
+    const braucht = flaggeBraucht(players, cfgMin);
+    const d = dauerText ? ' (' + dauerText + (braucht > 1 ? ', zwei gleichzeitig' : '') + ')' : (braucht > 1 ? ' (zwei gleichzeitig)' : '');
+    if (flaggeCrew(players).length < braucht) return { label: FLAGGE_GESPERRT, ok: false };
+    return { label: 'E halten: Feldzeichen hissen' + d, ok: true };
+  }
+  // BOT-02 A1: Archiv-Schlüssel (Kesh). Zeitfenster zwischen den zwei Schlössern: solo (genau 1 im Außenteam) das lange
+  // archkeySoloWindow, sonst archkeyWindow. AC = CONFIG.awayCombat. archkeyHinweis wie raetselHinweis für die Schlüssel.
+  function archkeyFenster(players, AC) { const w = Number(AC && AC.archkeyWindow) || 1.5; return raetselSolo(players) ? Math.max(w, Number(AC && AC.archkeySoloWindow) || 0) : w; }
+  function archkeyHinweis(solo, fensterSek) {
+    return solo ? 'nach dem ersten Schloss das zweite innerhalb von ' + Math.floor(fensterSek || 0) + ' s' : 'beide gleichzeitig!';
+  }
   // Karte in Server-Form (anker als Objekte, kanten als { id: { tiles, zustand } }). Die Client-Form aus awayMap
   // (anker [id, rolle, x, y, extra], kanten [[id, tiles, startIdx]]) wird umgesetzt: Kantenstart = Zustand startIdx der
   // Kachelart der ersten Kantenkachel (wie render.js kantenTypInfo).
@@ -1860,7 +1879,7 @@
     bauen, bauRoh, ausRaster, pruefen, kennzahlen, vorwaermen, hand, leitFuss, zustaendeAnwenden, alsText, ANKER_GLYPHE,
     tuerKacheln: K.tuerKacheln, raster: K.raster, SCHIFF_STRIDE, STANDARD_CFG,
     TUER_ZEIT, kantenListe, ankerKanten, eingangAktion, kachelZustandRegel, ankerBlockiert, ankerBlockiertIn, ankerIdsVergeben, ankerStart, fallenSchottKanten,
-    raetselWege, raetselFenster, raetselHinweis, raetselSolo, raetselSoloFenster, karteServerForm, padTiles, deckLinkInReichweite, interaktionsVorrang, fehlerhafteModule,
+    raetselWege, raetselFenster, raetselHinweis, raetselSolo, raetselSoloFenster, FLAGGE_GESPERRT, flaggeCrew, flaggeBraucht, flaggeHinweis, archkeyFenster, archkeyHinweis, karteServerForm, padTiles, deckLinkInReichweite, interaktionsVorrang, fehlerhafteModule,
     silhouetteFehler, silhouetteDaten, FIGUR_HOEHE_M,
   };
 });

@@ -15,6 +15,7 @@ const Anker = require('../server/sim/anker.js');
 const combat = require('../server/sim/combat.js');
 const away = require('../server/sim/away.js');
 const W = require('../server/world.js');
+const Buehne = require('../shared/buehne.js');
 
 let fails = 0, n = 0;
 const ok = (c, t) => { n++; if (c) console.log('  ok   ' + t); else { fails++; console.log('  FEHLER ' + t); } };
@@ -64,6 +65,32 @@ section('a) Archiv-Schlüssel: Fenster nach Spielern im Außenteam');
   ok(r.away === 1 && r.offen, 'zwei Menschen, einer an Bord, einer unten: jetzt Solo (1 im Außenteam, wie das Rätselpaar)');
 }
 
+// Solo-Wortlaut der Meldung nach abgelaufenem Fenster (Server) und der Hinweise (shared, Client)
+section('a2) Archiv-Schlüssel: Meldung/Hinweis solo vs. Gruppe');
+{
+  const meldung = (np, bots, unten, warte) => {
+    const { g, run } = keshSpiel(np, bots, unten);
+    const msgs = []; const oda = g.oda.bind(g); g.oda = (t, ...r) => { msgs.push(String(t)); return oda(t, ...r); };
+    combat.keyTurned(g, g.players[0], 0);
+    run(warte);
+    return msgs.join(' | ');
+  };
+  const w = Math.max(AC.archkeyWindow, AC.archkeySoloWindow);
+  let m = meldung(4, 3, 1, w + 1);
+  ok(/innerhalb von 15 s/.test(m) && !/gleichzeitig/.test(m), `1 Mensch unten, Fenster abgelaufen: Solo-Wortlaut „nach dem ersten Schloss das zweite innerhalb von 15 s“ (${m})`);
+  m = meldung(5, 3, 2, AC.archkeyWindow + 1);
+  ok(/Beide Schlüssel gleichzeitig/.test(m) && !/innerhalb von/.test(m), `2 Menschen unten: bisheriger Wortlaut „Beide Schlüssel gleichzeitig“ (${m})`);
+  const pl = (...zonen) => zonen.map((z) => ({ zone: z, connected: true }));
+  ok(Buehne.archkeyFenster(pl('away', 'ship', 'ship', 'ship'), AC) === AC.archkeySoloWindow && Buehne.archkeyFenster(pl('away', 'away'), AC) === AC.archkeyWindow, 'shared archkeyFenster: 1 im Außenteam = Solo-Fenster, 2 = Gruppenfenster');
+  ok(/innerhalb von 15 s/.test(Buehne.archkeyHinweis(true, 15)) && Buehne.archkeyHinweis(false) === 'beide gleichzeitig!', 'shared archkeyHinweis: Solo/Gruppe');
+  // zweiter Spieler getrennt: 2 unten, einer trennt -> Solo-Fenster
+  const { g, run, aw } = keshSpiel(2, 0, 2);
+  g.players[1].connected = false;
+  combat.keyTurned(g, g.players[0], 0); run(10);
+  const noch = aw.keys[0].doneAt != null; combat.keyTurned(g, g.players[0], 1);
+  ok(noch && aw.vault.open, '2 unten, einer getrennt: der andere bekommt das Solo-Fenster (10 s Abstand öffnet)');
+}
+
 // ---------- b) Feldzeichen ----------
 const LP = 'splitter.eisenwald', LAB = 'stellung_nehmen/flagge_hissen';
 const ticks = (g, sek) => { const k = Math.round(sek * CONFIG.tickHz); for (let i = 0; i < k; i++) g.step(); };
@@ -94,11 +121,16 @@ const halten = (g, ps, a, sek) => {
 const angebot = (g, p, a) => { const li = []; Anker.interactionsAt(g, p, a.x, a.y, li); return li[0]; };
 
 section('b) Feldzeichen: Solo-Regel nach Spielern im Außenteam');
+// Client-Hinweis (shared/buehne.js flaggeHinweis) == Server-Angebot (anker.js interactionsAt) für dieselben Spieler
+const hinweisPasst = (g, p, a, text) => { const o = angebot(g, p, a); const h = Buehne.flaggeHinweis(g.players, CONFIG.anker.flagge.min, '6 s'); return o && h.ok === !o.blocked && (h.ok || h.label === (o.blocked)) ? text : null; };
 {
   // 1 Mensch unten, 3 Bots an Bord: hisst allein
   const { g, a, T } = flaggeSpiel(4, 1, 3);
   const [p1] = g.players;
   ok(g.players.filter((p) => p.zone === 'away').length === 1 && p1.zone === 'away', '1 Mensch unten, 3 Bots oben');
+  const h1 = Buehne.flaggeHinweis(g.players, CONFIG.anker.flagge.min, '6 s');
+  ok(h1.ok === true && /Feldzeichen hissen \(6 s\)/.test(h1.label) && !/zwei/.test(h1.label), `Client-Hinweis 1 unten + 3 Bots: „${h1.label}“, ok`);
+  ok(hinweisPasst(g, p1, a, true), 'Client-Hinweis stimmt mit dem Server-Angebot überein (1 unten)');
   const o = angebot(g, p1, a);
   ok(o && o.kind === 'anker:flagge' && o.op === 'hissen' && !o.blocked, 'Hissen wird angeboten (kein „zwei gemeinsam“)');
   ok(Anker.holdValid(g, p1, { kind: 'anker:flagge', anker: a.id }) === true, 'holdValid true');
@@ -120,6 +152,8 @@ section('b) Feldzeichen: Solo-Regel nach Spielern im Außenteam');
   const [p1, p2] = g.players;
   const o = angebot(g, p1, a);
   ok(o && o.kind === 'anker:flagge' && !o.blocked, '2 im Außenteam, beide leben: Hissen wird angeboten');
+  const h2 = Buehne.flaggeHinweis(g.players, CONFIG.anker.flagge.min, '6 s');
+  ok(h2.ok && /6 s, zwei gleichzeitig/.test(h2.label) && hinweisPasst(g, p1, a, true), `Client-Hinweis 2 unten: „${h2.label}“`);
   halten(g, [p1], a, 3);
   ok(p1.hold && Math.abs(p1.hold.t) < 0.01 && Anker.zustand(g, LP, a.id) === 'unten', 'ein Halter von zwei: kein Fortschritt');
   halten(g, [p1, p2], a, T + 1);
@@ -132,6 +166,8 @@ section('b) Feldzeichen: Solo-Regel nach Spielern im Außenteam');
   combat.woundPlayer(g, p2, { kind: 'test' });
   const o = angebot(g, p1, a);
   ok(o && /zwei gemeinsam/.test(o.blocked || ''), `2 im Außenteam, einer verwundet: Hinweis „zwei gemeinsam“ (${o && o.blocked})`);
+  const h3 = Buehne.flaggeHinweis(g.players, CONFIG.anker.flagge.min, '6 s');
+  ok(!h3.ok && h3.label === Buehne.FLAGGE_GESPERRT && hinweisPasst(g, p1, a, true), 'Client-Hinweis 2 unten, einer verwundet: gesperrt mit dem Server-Text');
   ok(Anker.holdValid(g, p1, { kind: 'anker:flagge', anker: a.id }) === false, '2 im Außenteam, einer verwundet: holdValid false');
   combat.revive(g, p2, null, { quiet: true });
   ok(Anker.holdValid(g, p1, { kind: 'anker:flagge', anker: a.id }) === true, 'wieder aufgestanden: möglich');
@@ -143,6 +179,47 @@ section('b) Feldzeichen: Solo-Regel nach Spielern im Außenteam');
   combat.woundPlayer(g, p1, { kind: 'test' });
   const o = angebot(g, p1, a);
   ok(o && !!o.blocked && Anker.holdValid(g, p1, { kind: 'anker:flagge', anker: a.id }) === false, 'allein unten und verwundet: kein Hissen');
+}
+
+{
+  // 3 Spieler, 2 unten, einer trennt die Verbindung: der andere ist jetzt allein im Außenteam und hisst allein
+  const { g, a, T } = flaggeSpiel(3, 2, 1, 10);
+  const [p1, p2] = g.players;
+  p2.connected = false;
+  const o = angebot(g, p1, a);
+  ok(o && o.kind === 'anker:flagge' && !o.blocked && Anker.holdValid(g, p1, { kind: 'anker:flagge', anker: a.id }) === true, '2 unten, einer getrennt: Hissen für den anderen angeboten und gültig');
+  ok(Buehne.flaggeHinweis(g.players, CONFIG.anker.flagge.min, '6 s').ok && hinweisPasst(g, p1, a, true), 'Client-Hinweis nach Trennung: allein hissbar');
+  halten(g, [p1], a, T + 1);
+  ok(Anker.zustand(g, LP, a.id) === 'gehisst', '2 unten, einer getrennt: der andere hisst allein');
+}
+{
+  // 3 unten, einer getrennt, einer am Boden: ein Getrennter zählt weder als Halter noch gegen die Regel (2 verbundene im Außenteam -> zwei nötig)
+  const { g, a } = flaggeSpiel(3, 3, 0, 12);
+  const [p1, p2, p3] = g.players;
+  p3.connected = false; combat.woundPlayer(g, p2, { kind: 'test' });
+  const o = angebot(g, p1, a);
+  ok(o && !!o.blocked && Anker.holdValid(g, p1, { kind: 'anker:flagge', anker: a.id }) === false && !Buehne.flaggeHinweis(g.players, CONFIG.anker.flagge.min, '6 s').ok, '3 unten, einer getrennt, einer am Boden: nur 1 lebender Halter, gesperrt (Server und Client)');
+}
+{
+  // Zweiter beamt mitten im Hissen runter: Fortschritt bleibt, ab dann braucht es 2 Halter
+  const { g, a, T } = flaggeSpiel(3, 1, 2, 11);
+  const [p1, p2] = g.players;
+  halten(g, [p1], a, T / 2);
+  const vorher = p1.hold ? p1.hold.t : -1;
+  ok(vorher > T / 2 - 0.6 && Anker.zustand(g, LP, a.id) === 'unten', `allein halber Fortschritt (${vorher.toFixed ? vorher.toFixed(1) : vorher} s)`);
+  away.executeBeam(g, [p2.id], 'down'); ticks(g, 1);
+  ok(p2.zone === 'away', 'zweiter Spieler ist heruntergebeamt');
+  halten(g, [p1], a, 3);
+  ok(p1.hold && Math.abs(p1.hold.t - vorher) < 0.7 && Anker.zustand(g, LP, a.id) === 'unten', `ab 2 im Außenteam: ein Halter bringt nichts mehr, Fortschritt bleibt (${p1.hold ? p1.hold.t.toFixed(1) : '-'} s)`);
+  halten(g, [p1, p2], a, T / 2 + 1);
+  ok(Anker.zustand(g, LP, a.id) === 'gehisst', 'zwei Halter schließen den Rest ab: gehisst');
+}
+
+// Der Client darf die Hinweise nicht selbst zählen/formulieren (sonst läuft er wieder von der Server-Regel weg)
+{
+  const cl = fs.readFileSync(path.join(__dirname, '..', 'public', 'js', 'client.js'), 'utf8');
+  ok(/Shared_Buehne[\s\S]{0,300}flaggeHinweis\(st\.players/.test(cl) && !/hissen geht nur zu zweit/.test(cl), 'client.js: Feldzeichen-Hinweis kommt aus shared/buehne.js flaggeHinweis');
+  ok(/archkeyHinweis\(/.test(cl) && !/other ? 'der zweite wird gedreht!' : 'beide gleichzeitig!'/.test(cl), 'client.js: Archivschlüssel-Hinweis kommt aus shared/buehne.js archkeyHinweis');
 }
 
 // ---------- c) Katalog ----------
@@ -158,7 +235,7 @@ section('c) Katalog: dauer_je_crew mit Schlüssel "1"');
       if (!Array.isArray(u.dauer_je_crew['1']) || u.dauer_je_crew['1'].length !== 2) fehlt.push(j.id + '/' + u.id);
     }
   }
-  ok(mit === 52 && ohne === 5, `Bestand: 52 Umsetzungen mit Tabelle, 5 ohne (crewunabhängig) – gefunden ${mit}/${ohne}`);
+  ok(mit > 0, `Bestand: ${mit} Umsetzungen mit Tabelle, ${ohne} ohne (crewunabhängig)`);   // keine feste Zahl: die Regel ist unten („jede mit Tabelle hat "1"“)
   ok(fehlt.length === 0, `jede Umsetzung mit dauer_je_crew hat den Schlüssel "1"${fehlt.length ? ': ' + fehlt.join(', ') : ''}`);
   const u = JSON.parse(fs.readFileSync(path.join(dir, 'stellung_nehmen.json'), 'utf8')).umsetzungen.find((x) => x.id === 'flagge_hissen');
   const d = u.dauer_je_crew;
