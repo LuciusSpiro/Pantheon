@@ -12,6 +12,11 @@
 //   t_antwort        bot.antwort mit status ok im Client angekommen (rohes WebSocket-Ereignis, vor der Verarbeitung durch das Spiel)
 //   t_zustand        erste Spielzustands-Aenderung im Snapshot, die der Befehl bewirkt (je Befehl eine Pruefregel unten, sonst "nicht trennbar")
 //   t_ton            Clip-Wiedergabe beginnt (Ereignis playing des Audio-Elements, HTMLMediaElement.play wird beobachtet)
+// Gueltige Messung und Auswertung (reine Funktionen in tools/bot-latenz-auswertung.js, getestet): Latenz (Median/p90) nur aus Laeufen mit erwartetem Befehl erkannt (exakte Regel BotSprache.erwartungErfuellt) UND Antwort ok UND Vorbereitung ok.
+// Ablehnungen (kein_ziel, nicht_jetzt, ...), Fehlerkennungen, ausbleibende Antworten und gescheiterte Vorbereitung stehen in eigenen Spalten mit Grund, nicht in der Latenz; die Latenz der Ablehnungsantwort steht getrennt als Info.
+// Je Befehl: "Annahme-Latenz gemessen (n)" | "nur Ablehnung messbar (Grund)" | "nicht erkannt" | ... Median = Mittel der beiden mittleren Werte bei geradem n; p90 = Nearest-Rank, bei n < 5 "n zu klein".
+// "Zustand" (t_zustand) ist eine BEOBACHTUNG im Snapshot, keine Kausalitaet: gezaehlt wird nur eine Aenderung NACH dem Absenden des bot.befehl, gemessen gegen den Zustand beim Absenden; ein von selbst drehendes Schiff
+// (kursHalten im Randstreifen, Standardbewegung) kann eine Regel trotzdem zufaellig erfuellen.
 // Verzerrungen (siehe auch Kopf der Zusammenfassung): Snapshots kommen alle net.snapEvery Ticks (Granularitaet des Zustands, bis zu +1 Snapshot-Takt), headless + Software-GL (swiftshader) belastet den Client,
 // STT ueber SSH-Tunnel, die WAV hat TAIL_MS Stille nach dem Sprachende (ein Mensch laesst oft frueher los), pro Start ein Aufwaermlauf (Matcher, Whisper, Clip-Dekodierung kalt), der nicht zaehlt.
 // Fake-Audio-Schleife: --use-file-for-fake-audio-capture=<wav>%noloop (die Datei laeuft einmal; das Mikrofon wird je Tastendruck neu geoeffnet). Ob Chrome je Oeffnen neu beginnt, prueft das Werkzeug je Messung
@@ -22,6 +27,7 @@ const path = require('path');
 const fs = require('fs');
 const os = require('os');
 const http = require('http');
+const Ausw = require('./bot-latenz-auswertung.js');
 const { spawn } = require('child_process');
 
 const ROOT = path.join(__dirname, '..');
@@ -34,11 +40,14 @@ const TAIL_MS = 250;     // Stille nach der Phrase (bis zum Loslassen)
 const RATE = 48000;
 const STT_URL = 'http://127.0.0.1:8300';
 const WARTE_ANTWORT_MS = 15000, WARTE_ZUSTAND_MS = 5000, WARTE_TON_MS = 3000;
+const PORT_MIN = 3470, PORT_ZAHL = 10;   // alle benutzten Ports liegen in 3470 bis 3479 (nie 3100/3300)
 
 // ---------------------------------------------------------------- die 22 sprechbaren Befehle (content/bots/kanon.json), je eine Sprechform
 // text: Sprechform aus dem Kanon (Menue/Taste/Sprache zeigen dieselbe), erwartet: was der Matcher liefern muss; vor: Vorbereitung je Wiederholung (Befehle ueber die Spielverbindung wie das Menue, dann warten);
 // zustand: Quelltext einer Funktion (s, b) -> bool; s = Schiff im Snapshot (verkleinert, siehe PICK), b = dasselbe zum Zeitpunkt des Loslassens. null = im Spiel nicht beobachtbar -> "nicht trennbar".
 const SEND = (an, befehl, args) => ({ send: { t: 'bot.befehl', an, befehl, args, quelle: 'menu' } });
+const DEBUG = (cmd, rest) => ({ send: Object.assign({ t: 'debug', cmd }, rest || {}) });   // Debug-Befehle des Servers (--debug), wie die Sitz-Anweisung beim Start
+const GEGNER = [DEBUG('god', { on: true }), DEBUG('spawn', { kind: 'raider', dist: 500, winkel: 0 })];   // ein Gegner in Sensorreichweite (Ziel fuer ops.*); die Lerche bleibt unverwundbar
 const BEFEHLE = [
   { id: 'nav.kurs', an: 'navigation', text: 'Kurs auf die Basis', args: { ziel: 'basis' }, vor: [SEND('navigation', 'nav.stopp', {}), { warte: 's.stage === s.stop && s.speed < 3' }],   // die Markierung ist das Anzeigeziel eines OBJEKTS (Gegner, Mine, Station): ohne Objekte in der Szene kein_ziel; die Basis geht
     zustand: 's.stage !== b.stage || s.turn !== b.turn' },
@@ -47,17 +56,17 @@ const BEFEHLE = [
   { id: 'nav.ausweichen', an: 'navigation', text: 'Ausweichen', args: {}, vor: [{ warte: 's.dodgeCd === 0' }], zustand: 's.dodgeCd > 0 && b.dodgeCd === 0' },
   { id: 'nav.abstand', an: 'navigation', text: 'Abstand zur Basis halten', args: { ziel: 'basis' }, vor: [SEND('navigation', 'nav.stopp', {}), { warte: 's.stage === s.stop && s.speed < 3' }], zustand: 's.stage !== b.stage || s.turn !== b.turn' },
   { id: 'nav.andocken', an: 'navigation', text: 'Andocken', args: {}, vor: [SEND('navigation', 'nav.stopp', {}), { warte: 's.stage === s.stop && s.speed < 3' }], zustand: 's.stage !== b.stage || s.turn !== b.turn' },
-  { id: 'ops.ziel', an: 'ops', text: 'Nächstes Ziel', args: { ziel: 'naechstes' }, vor: [], zustand: null },   // ohne Gegner kein Ziel im Snapshot
-  { id: 'ops.feuer_frei', an: 'ops', text: 'Feuer frei Bugwaffen', args: { waffen: 'bug' }, vor: [], zustand: null },   // Feuerzustand ist Absicht des Server-Bots, im Snapshot nicht sichtbar (nur Ladung/Schuss bei Gegner)
+  { id: 'ops.ziel', an: 'ops', text: 'Nächstes Ziel', args: { ziel: 'naechstes' }, vor: GEGNER, zustand: null },   // ohne Gegner kein_ziel: je Wiederholung ein Gegner per Debug-Spawn; ob der Server ihn annimmt (Sensorreichweite), zeigt die Messung
+  { id: 'ops.feuer_frei', an: 'ops', text: 'Feuer frei Bugwaffen', args: { waffen: 'bug' }, vor: GEGNER, zustand: null },   // ohne Gegner/Marke immer kein_ziel; Feuerzustand ist Absicht des Server-Bots, im Snapshot nicht sichtbar
   { id: 'ops.feuer_halt', an: 'ops', text: 'Feuer einstellen', args: {}, vor: [], zustand: null },
-  { id: 'ops.scan', an: 'ops', text: 'Scannen', args: {}, vor: [], zustand: null },
+  { id: 'ops.scan', an: 'ops', text: 'Scannen', args: {}, vor: GEGNER.concat([SEND('ops', 'ops.ziel', { ziel: 'naechstes' })]), zustand: null },   // das Spiel scannt nur ein Ziel
   { id: 'ops.landescan', an: 'ops', text: 'Landepunkt scannen', args: {}, vor: [], zustand: null },
   { id: 'ops.beamen', an: 'ops', text: 'Person an Bord', args: { was: 'person' }, vor: [], zustand: null },
   { id: 'tech.prio', an: 'technik', text: 'Feuer zuerst', args: { ziel: 'feuer' }, vor: [], zustand: null },   // gehaltene Prioritaet, im Snapshot erst sichtbar, wenn es brennt
-  { id: 'tech.reparieren', an: 'technik', text: 'Reaktor reparieren', args: { system: 'reactor' }, vor: [], zustand: null },   // heiles System: nicht_jetzt
+  { id: 'tech.reparieren', an: 'technik', text: 'Reaktor reparieren', args: { system: 'reactor' }, vor: [DEBUG('damage', { system: 'reactor', state: 'ok' }), DEBUG('damage', { system: 'reactor', state: 'damaged' }), { warte: 's.rsys === "damaged"' }], zustand: null },   // ein heiles System (oder eine laufende Reparatur) lehnt mit nicht_jetzt ab: je Wiederholung Reaktor per Debug zuerst heil (leert die Reparaturliste), dann beschaedigt
   { id: 'tech.schild', an: 'technik', text: 'Schilde Heck', args: { sektor: 'heck' }, vor: [SEND('technik', 'tech.schild', { sektor: 'bug' }), { warte: 's.alloc[2] === 0 && s.alloc[0] === 4' }], zustand: 's.alloc[2] > b.alloc[2]' },   // Steuerbord stuende schon auf der Bot-Obergrenze 4 (kern.js BOT_SCHILD_SEKTOR_MAX): keine sichtbare Folge; Heck startet bei 0
   { id: 'tech.energie', an: 'technik', text: 'Mehr Energie auf Waffen', args: { system: 'weapons', delta: 1 }, vor: [SEND('technik', 'tech.energie', { system: 'weapons', delta: -1 }), { warte: 's.power.weapons < 2' }], zustand: 's.power.weapons > b.power.weapons' },
-  { id: 'tech.ueberladen', an: 'technik', text: 'Reaktor überladen', args: {}, vor: [{ warte: 's.ro === 0' }], zustand: 's.ro > 0 && !(b.ro > 0)' },
+  { id: 'tech.ueberladen', an: 'technik', text: 'Reaktor überladen', args: {}, vor: [DEBUG('reactor', { state: 'online' }), { warte: 's.rs === "online" && s.ro === 0' }], zustand: 's.ro > 0 && !(b.ro > 0)' },   // ueberladen geht nur bei Reaktor online (Ende der Ueberladung = abgeschaltet, dann Pause): je Wiederholung per Debug-Befehl zurueck auf online
   { id: 'bord.rueckholen', an: 'bord', text: 'Außenteam zurückholen', args: {}, vor: [], zustand: null },
   { id: 'bord.sensor', an: 'bord', text: 'Sensor', args: {}, vor: [], zustand: null },
   { id: 'bord.kuppel', an: 'bord', text: 'Kuppel', args: {}, vor: [], zustand: null },
@@ -73,14 +82,14 @@ if (hat('hilfe') || hat('help') || hat('h')) {
     'Aufruf: node tools/bot-latenz.js [Optionen]      oder   npm run mess:bot-latenz -- [Optionen]',
     '  --n <k>           Wiederholungen je Befehl (Standard 2). Gesamt-n je Marke = k x Zahl der Befehle (22 Befehle: --n 2 gibt 44, --n 3 gibt 66; fuer n >= 30 reichen 22 x 2).',
     '  --befehle <liste> kommagetrennt, z. B. nav.stopp,nav.schub,tech.schild (Standard: alle 22). --liste zeigt die Befehle.',
-    '  --port <p>        erster Port (Standard 3470, belegt werden hoechstens 3470 bis 3479); nie 3100/3300.',
+    '  --port <p>        erster Port (Standard 3470, Pflicht: 3470 bis 3479; die Befehle belegen reihum nur Ports dieses Bereichs, nie 3100/3300; ein belegter Port bricht vorab ab).',
     '  --keine-stt       Trockenlauf ohne Sleipnir: Text per Textzeile (Backslash) statt Sprache, nur Marken Antwort und Zustand (und Ton).',
     '  --aufwaerm <k>    Aufwaermlaeufe je Start, zaehlen nicht (Standard 1).',
     '  --sichtbar        Chrome mit Fenster statt headless.',
     '  --ausgabe <dir>   Ausgabeordner (Standard messungen/, git-ignoriert).',
     '  --liste           Befehle und Pruefregeln auflisten.',
     'Voraussetzung Sprache: SSH-Zugang `ssh sleipnir` (Tunnel zur STT auf Port 8300 startet das Werkzeug selbst und beendet ihn danach nur, wenn er von ihm kam; Voicebox fuer die Sprach-WAVs,',
-    'WAVs liegen im Cache messungen/wav-cache/ und werden nur bei Bedarf erzeugt). Ausgabe: messungen/bot-latenz-<zeit>.jsonl (eine Zeile je Messung) und -zusammenfassung.json.',
+    'WAVs liegen im Cache messungen/wav-cache/ (Schluessel: Befehl, Stimme, Text, Rate, Stille vorn/hinten); die Voicebox wird nur gefragt, wenn eine WAV fehlt). Ausgabe: messungen/bot-latenz-<zeit>.jsonl (eine Zeile je Messung) und -zusammenfassung.json.',
   ].join('\n'));
   process.exit(0);
 }
@@ -96,7 +105,10 @@ const WAEHLE = (arg('befehle', '') || '').split(',').map((s) => s.trim()).filter
 const LISTE = WAEHLE.length ? BEFEHLE.filter((b) => WAEHLE.includes(b.id)) : BEFEHLE;
 const unbekannt = WAEHLE.filter((id) => !BEFEHLE.some((b) => b.id === id));
 if (unbekannt.length) { console.error('Unbekannte Befehle: ' + unbekannt.join(', ')); process.exit(2); }
-if (PORT0 === 3100 || PORT0 === 3300) { console.error('Port 3100/3300 ist tabu.'); process.exit(2); }
+if (!Number.isInteger(PORT0) || PORT0 < PORT_MIN || PORT0 >= PORT_MIN + PORT_ZAHL) { console.error('--port muss zwischen ' + PORT_MIN + ' und ' + (PORT_MIN + PORT_ZAHL - 1) + ' liegen (3100/3300 sind tabu).'); process.exit(2); }
+const portFuer = (i) => PORT_MIN + ((PORT0 - PORT_MIN + i) % PORT_ZAHL);   // reihum innerhalb 3470 bis 3479
+const PORTS = LISTE.map((b, i) => portFuer(i));
+if (PORTS.some((p) => p === 3100 || p === 3300 || p < PORT_MIN || p >= PORT_MIN + PORT_ZAHL)) { console.error('Port ausserhalb 3470 bis 3479: ' + PORTS.join(',')); process.exit(2); }
 
 function playwright() {
   for (const k of [process.env.PLAYWRIGHT_CORE, 'playwright-core', 'C:/tmp/pw-test/node_modules/playwright-core', 'C:/tmp/pwtest/node_modules/playwright-core'].filter(Boolean)) { try { return require(k); } catch (e) { /* weiter */ } }
@@ -163,13 +175,13 @@ async function befehlsWav(b) {
   const clips = require('./bot-clips.js');
   const stimmen = JSON.parse(fs.readFileSync(path.join(ROOT, 'content', 'bots', 'stimmen.json'), 'utf8'));
   const sp = stimmen.b1;   // eine feste Stimme fuer den "Captain" (Nuechtern); die Bots sprechen im Spiel mit ihren eigenen
+  // Cache-Schluessel: Befehl, Stimme+Text (clipHash), Rate UND Stille vorn/hinten (LEAD_MS/TAIL_MS): aendert sich eine davon, entsteht eine neue WAV statt einer veralteten
+  const ziel = path.join(WAV_CACHE, b.id + '.' + clips.clipHash(sp.profilId, b.text) + '.' + RATE + '.l' + LEAD_MS + 't' + TAIL_MS + '.wav');
+  if (fs.existsSync(ziel)) { const w = wavLesen(fs.readFileSync(ziel)); return { datei: ziel, dauerMs: Math.round(w.samples.length * 1000 / w.rate), aus: 'wav-cache' }; }   // Voicebox wird nicht gefragt
   if (!profilCache) { const alle = await clips.listProfiles(); profilCache = alle.find((p) => p.id === sp.profilId); if (!profilCache) throw new Error('Profil ' + sp.profilName + ' nicht in Voicebox'); }
   const roh = await clips.synth(profilCache, b.text, { dir: path.join(WAV_CACHE, 'roh') });
-  const ziel = path.join(WAV_CACHE, b.id + '.' + clips.clipHash(profilCache.id, b.text) + '.' + RATE + '.wav');
-  let dauer;
-  if (fs.existsSync(ziel)) { const w = wavLesen(fs.readFileSync(ziel)); dauer = Math.round(w.samples.length * 1000 / w.rate); }
-  else { const u = umrechnen(fs.readFileSync(roh.file)); fs.writeFileSync(ziel, u.wav); dauer = u.dauerMs; }
-  return { datei: ziel, dauerMs: dauer, aus: roh.cached ? 'cache' : roh.ms + ' ms' };
+  const u = umrechnen(fs.readFileSync(roh.file)); fs.writeFileSync(ziel, u.wav);
+  return { datei: ziel, dauerMs: u.dauerMs, aus: roh.cached ? 'roh-cache' : roh.ms + ' ms' };
 }
 
 // ---------------------------------------------------------------- STT-Tunnel
@@ -183,12 +195,12 @@ async function sttBereit() {
 }
 
 // ---------------------------------------------------------------- Browser-Haken (nur beobachten, nichts aendern)
-const PICK = (s) => ({ stage: s.helm && s.helm.stage, stop: s.helm && s.helm.stop, turn: s.helm && s.helm.turn, alloc: s.shields && s.shields.alloc ? s.shields.alloc.slice() : [0, 0, 0, 0], power: Object.assign({}, s.power), dodgeCd: s.dodgeCd, docked: s.docked, speed: s.speed, ro: s.reactor ? s.reactor.overloadLeft : 0, x: s.x, y: s.y });
+const PICK = (s) => ({ stage: s.helm && s.helm.stage, stop: s.helm && s.helm.stop, turn: s.helm && s.helm.turn, alloc: s.shields && s.shields.alloc ? s.shields.alloc.slice() : [0, 0, 0, 0], power: Object.assign({}, s.power), dodgeCd: s.dodgeCd, docked: s.docked, speed: s.speed, ro: s.reactor ? s.reactor.overloadLeft : 0, x: s.x, y: s.y, rs: s.reactor ? s.reactor.state : null, rsys: s.systems ? s.systems.reactor : null });
 function haken(pickSrc) {
-  const M = window.__m = { ev: [], armed: false, hit: false, base: null, last: null, watch: null, textmodus: false };
+  const M = window.__m = { ev: [], armed: false, hit: false, base: null, last: null, watch: null, textmodus: false, tBefehl: null };
   const rec = (n, x) => M.ev.push(Object.assign({ n, t: performance.now() }, x || {}));
   M.rec = rec;
-  const los = () => { rec('release'); M.base = M.last; M.hit = false; M.armed = true; };
+  const los = () => { rec('release'); M.base = M.last; M.hit = false; M.armed = true; M.tBefehl = null; };   // Zustandsregeln gelten erst nach dem Absenden (tBefehl), siehe send
   window.addEventListener('keydown', (e) => { if (e.code === 'Backquote' && !e.repeat) rec('press'); if (e.code === 'Enter' && M.textmodus && !e.repeat) los(); }, true);
   window.addEventListener('keyup', (e) => { if (e.code === 'Backquote') los(); }, true);
   const F = window.fetch;
@@ -199,7 +211,7 @@ function haken(pickSrc) {
     return F.apply(this, arguments).then((r) => { rec('stt_antwort'); r.clone().json().then((j) => rec('stt_text', { text: j && j.text }), () => {}); return r; });
   };
   const S = WebSocket.prototype.send;
-  WebSocket.prototype.send = function (d) { try { if (typeof d === 'string' && d.indexOf('bot.befehl') >= 0) { const m = JSON.parse(d); if (m && m.t === 'bot.befehl') rec('befehl', { befehl: m.befehl, an: m.an, args: m.args || null, quelle: m.quelle }); } } catch (e) { /* egal */ } return S.apply(this, arguments); };
+  WebSocket.prototype.send = function (d) { try { if (typeof d === 'string' && d.indexOf('bot.befehl') >= 0) { const m = JSON.parse(d); if (m && m.t === 'bot.befehl') { rec('befehl', { befehl: m.befehl, an: m.an, args: m.args || null, quelle: m.quelle }); if (M.armed && M.tBefehl == null) { M.tBefehl = performance.now(); M.base = M.last; M.hit = false; } } } } catch (e) { /* egal */ } return S.apply(this, arguments); };
   const W = window.WebSocket;
   window.WebSocket = new Proxy(W, { construct(t, a) { const ws = new t(...a); ws.addEventListener('message', (ev) => { const d = ev.data; if (typeof d === 'string' && d.indexOf('bot.antwort') >= 0) { try { const m = JSON.parse(d); if (m && m.t === 'bot.antwort') rec('antwort', { befehl: m.befehl, status: m.status, textId: m.textId, botId: m.botId }); } catch (e) { /* egal */ } } }); return ws; } });
   const P = HTMLMediaElement.prototype.play;
@@ -211,7 +223,8 @@ function snapHaken() {   // nach dem Laden: ueber Net.on (parst die Nachricht oh
   Net.on((m) => {
     if (!m || m.t !== 'snap' || !m.ship) return;
     const s = M.pick(m.ship); M.last = s;
-    if (M.armed && !M.hit && M.watch && M.base) { let ok = false; try { ok = !!M.watch(s, M.base); } catch (e) { ok = false; } if (ok) { M.hit = true; M.rec('zustand'); } }
+    if (M.armed && !M.hit && M.watch && M.base && M.tBefehl != null) {   // nur nach dem Absenden des bot.befehl (Basis = Zustand beim Absenden)
+      let ok = false; try { ok = !!M.watch(s, M.base); } catch (e) { ok = false; } if (ok) { M.hit = true; M.rec('zustand'); } }
   });
 }
 
@@ -225,31 +238,34 @@ async function startServer(port, stt) {
   const srv = spawn(process.execPath, ['server/index.js', '--debug'], { cwd: ROOT, env, stdio: ['ignore', 'pipe', 'pipe'] });
   kinder.add(srv);
   let log = ''; srv.stdout.on('data', (d) => { log += d; }); srv.stderr.on('data', (d) => { log += d; });
-  for (let i = 0; i < 200 && !(await httpOk(port, '/')); i++) await sleep(100);
+  for (let i = 0; i < 600 && !(await httpOk(port, '/')); i++) await sleep(100);   // bis 60 s (auf einem belasteten Rechner startet der Server langsam)
   if (!(await httpOk(port, '/'))) { srv.kill(); throw new Error('Server startet nicht: ' + log.slice(-300)); }
   return { srv, log: () => log, ende() { try { srv.kill(); } catch (e) { /* egal */ } kinder.delete(srv); } };
 }
+let letzterBrowser = null;
 async function oeffneSpiel(port, wavDatei) {
   const args = ['--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--autoplay-policy=no-user-gesture-required', '--use-fake-ui-for-media-stream', '--use-fake-device-for-media-stream'];
   if (wavDatei) args.push('--use-file-for-fake-audio-capture=' + wavDatei + '%noloop');
   const opt = { args, headless: !hat('sichtbar') };
   let browser;
   try { browser = await chromium.launch(Object.assign({ channel: 'chrome' }, opt)); } catch (e) { browser = await chromium.launch(opt); }   // installierter Chrome, sonst das Chromium von Playwright
+  letzterBrowser = browser;
   const ctx = await browser.newContext({ viewport: { width: 1280, height: 720 } });
   const page = await ctx.newPage();
   const fehler = []; page.on('pageerror', (e) => fehler.push(e.message));
   await page.addInitScript(() => { try { window.localStorage.setItem('pantheon.botsprache', '1'); } catch (e) { /* egal */ } });   // Opt-in wie der Schalter in den Optionen
   await page.addInitScript(haken, PICK.toString());
-  await page.goto('http://127.0.0.1:' + port + '/?debug=1&render=2d');
+  await page.goto('http://127.0.0.1:' + port + '/?debug=1&render=2d', { timeout: 90000 });
   await page.waitForFunction(() => window.__game && __game.send && __game.state && window.Net, null, { timeout: 30000 });
-  for (const r of ['navigation', 'ops', 'technik']) { await page.evaluate((x) => __game.send({ t: 'lobbyBot', op: 'add', rolle: x }), r); await sleep(150); }
-  await page.waitForFunction(() => __game.state.players.filter((p) => p.bot).length >= 3, null, { timeout: 8000 });
+  const rollen = ['navigation', 'ops', 'technik'];   // einen Bord-Bot gibt es nicht (Lobby kennt nur diese drei Rollen): bord.* wird vom Server immer mit kein_bot abgelehnt = "nur Ablehnung messbar"
+  for (const r of rollen) { await page.evaluate((x) => __game.send({ t: 'lobbyBot', op: 'add', rolle: x }), r); await sleep(150); }
+  await page.waitForFunction((n) => __game.state.players.filter((p) => p.bot).length >= n, rollen.length, { timeout: 8000 });
   await page.evaluate(() => __game.send({ t: 'lobbyOpt', startMission: 'free', skipDrill: true }));
   await page.evaluate(() => __game.send({ t: 'ready', ready: true }));
   await page.waitForFunction(() => __game.state && __game.state.phase !== 'lobby', null, { timeout: 30000 });
   await page.evaluate(() => __game.send({ t: 'debug', cmd: 'sitz', console: 'captain', hin: true }));
   await page.waitForFunction(() => __game.state.players.find((p) => p.id === __game.pid && p.console === 'captain'), null, { timeout: 8000 });
-  await page.waitForFunction(() => { const b = __game.state.players.filter((p) => p.bot); return b.length === 3 && b.every((p) => p.console); }, null, { timeout: 25000 });   // Bots sitzen an ihren Stationen
+  await page.waitForFunction((x) => { const b = __game.state.players.filter((p) => p.bot); return b.length === x.n && b.every((p) => p.console); }, { n: rollen.length }, { timeout: 25000 });   // Bots sitzen an ihren Stationen
   await page.waitForFunction(() => window.BotSprache && BotSprache.laeuft(), null, { timeout: 15000 });
   await page.evaluate(snapHaken);
   await page.mouse.move(5, 5);
@@ -278,9 +294,9 @@ async function unterwegs(page) {   // einmal je Start: das Schiff liegt im Hafen
   return los;
 }
 
-const erwartungOk = (b, e) => !!e && e.befehl === b.id && (!b.an || b.an === 'alle' || e.an === b.an) && Object.keys(b.args || {}).every((k) => String(e.args && e.args[k]) === String(b.args[k]));
+const erwartungOk = Ausw.erwartungOk;   // exakt wie BotSprache.erwartungErfuellt (siehe tools/bot-latenz-auswertung.js)
 async function messen(page, b, wav) {
-  await page.evaluate((src) => { const M = window.__m; M.ev.length = 0; M.armed = false; M.hit = false; M.base = null; M.watch = src ? new Function('s', 'b', 'return (' + src + ')') : null; M.textmodus = false; }, b.zustand);
+  await page.evaluate((src) => { const M = window.__m; M.ev.length = 0; M.armed = false; M.hit = false; M.base = null; M.tBefehl = null; M.watch = src ? new Function('s', 'b', 'return (' + src + ')') : null; M.textmodus = false; }, b.zustand);
   if (KEINE_STT) {
     await page.evaluate(() => { window.__m.textmodus = true; });
     await page.keyboard.press('Backslash'); await sleep(250);
@@ -297,7 +313,8 @@ async function messen(page, b, wav) {
   while (Date.now() < t_ende) {
     ev = await page.evaluate(() => window.__m.ev.slice());
     const rel = ev.find((e) => e.n === 'release');
-    if (rel && ev.some((e) => e.n === 'antwort' && e.t > rel.t)) break;
+    const bef0 = rel && ev.find((e) => e.n === 'befehl' && e.t > rel.t);
+    if (rel && bef0 && ev.some((e) => e.n === 'antwort' && e.t > rel.t && e.befehl === bef0.befehl)) break;   // die Antwort auf DEN gesendeten Befehl, nicht ein spaetes Echo der Vorbereitung
     const stt = ev.find((e) => e.n === 'stt_text');
     if (rel && stt && !ev.some((e) => e.n === 'befehl' && e.t > rel.t) && Date.now() - t_start > 3000) { await sleep(1500); if (!(await page.evaluate(() => window.__m.ev.some((e) => e.n === 'befehl')))) break; }
     await sleep(80);
@@ -306,7 +323,7 @@ async function messen(page, b, wav) {
   for (;;) {
     ev = await page.evaluate(() => window.__m.ev.slice());
     const rel = ev.find((e) => e.n === 'release');
-    const hatZ = ev.some((e) => e.n === 'zustand' && rel && e.t > rel.t), hatT = ev.some((e) => e.n === 'playing' && rel && e.t > rel.t);
+    const bz = ev.find((e) => e.n === 'befehl' && rel && e.t > rel.t), hatZ = ev.some((e) => e.n === 'zustand' && bz && e.t > bz.t), hatT = ev.some((e) => e.n === 'playing' && rel && e.t > rel.t);
     if ((!b.zustand || hatZ) && hatT) break;
     if (Date.now() > t_zustand_ende + WARTE_TON_MS) break;
     await sleep(80);
@@ -326,47 +343,24 @@ async function messen(page, b, wav) {
   m.t_matcher_ms = d(bef);
   m.erkannt = !!bef && erwartungOk(b, bef);
   m.gesendet = bef ? { befehl: bef.befehl, an: bef.an, args: bef.args } : null;
-  const ant = nach('antwort');
+  const ant = nach('antwort', (e) => !!bef && e.befehl === bef.befehl);   // Antwort auf den gesendeten Befehl (der Server nennt den Befehl in bot.antwort)
   m.antwort_status = ant ? ant.status : null; m.antwort_textId = ant ? ant.textId : null;
   m.t_antwort_ms = d(ant);   // Eingang bot.antwort (Annahme durch den Server); ok/abgelehnt steht in antwort_status
   m.t_antwort_ok = !!ant && ant.status === 'ok';
-  const z = nach('zustand');
+  const z = bef ? nach('zustand', (e) => e.t > bef.t) : null;   // Zustandsmarke nur nach dem Absenden
   m.t_zustand_ms = d(z);
   m.zustand_status = !b.zustand ? 'nicht-trennbar' : z ? 'beobachtet' : (await page.evaluate(() => { const M = window.__m; return !!(M.base && M.watch && M.watch(M.last, M.base)); })) ? 'vorab-erfuellt' : 'keine-aenderung';
-  m.lage = await page.evaluate(() => { const b = window.__m.base; return b ? { docked: b.docked, stage: b.stage, speed: b.speed, dodgeCd: b.dodgeCd, alloc: b.alloc, weapons: b.power && b.power.weapons } : null; });   // Ausgangslage beim Loslassen (zur Deutung von abgelehnt/keine-aenderung)
-  const ton = nach('playing');
+  m.lage = await page.evaluate(() => { const b = window.__m.base; return b ? { docked: b.docked, stage: b.stage, speed: b.speed, dodgeCd: b.dodgeCd, alloc: b.alloc, weapons: b.power && b.power.weapons } : null; });   // Ausgangslage beim Absenden (zur Deutung von abgelehnt/keine-aenderung)
+  const ton = ant ? nach('playing', (e) => e.t >= ant.t - 1) : null;   // Ton nach der Antwort (Quittung), nicht die Vorbereitung
   m.t_ton_ms = d(ton); m.t_play_call_ms = d(nach('play_call'));
   m.ton_clip = ton ? ton.src.replace(/^.*\/stimmen\//, '') : null;
   if (!ton) m.ton_status = ant ? (ant.status === 'ok' ? 'kein-clip' : 'ablehnung-ohne-clip') : 'keine-antwort';
   return m;
 }
 
-// ---------------------------------------------------------------- Statistik
-const perz = (a, p) => { if (!a.length) return null; const s = a.slice().sort((x, y) => x - y); return s[Math.max(0, Math.ceil(p * s.length) - 1)]; };
-const stat = (a) => { const v = a.filter((x) => x != null); return { n: v.length, median: perz(v, 0.5), p90: perz(v, 0.9), min: v.length ? Math.min(...v) : null, max: v.length ? Math.max(...v) : null }; };
-const MARKEN = ['t_aufnahme_ende_ms', 't_stt_ms', 't_matcher_ms', 't_antwort_ms', 't_zustand_ms', 't_ton_ms'];
-function zusammenfassung(zeilen) {
-  const z = zeilen.filter((m) => !m.aufwaermen && !m.fehler);
-  const werte = (liste, marke) => liste.map((m) => m[marke]).filter((x) => x != null);
-  const fuer = (liste) => {
-    const o = { messungen: liste.length, erkannt: liste.filter((m) => m.erkannt).length, nicht_erkannt: liste.filter((m) => !m.erkannt).length, antwort_ok: liste.filter((m) => m.t_antwort_ok).length, abgelehnt: liste.filter((m) => m.antwort_status && m.antwort_status !== 'ok').length };
-    for (const k of MARKEN) o[k.replace(/_ms$/, '')] = stat(werte(liste, k));
-    o.zustand_nicht_trennbar = liste.length && liste.every((m) => m.zustand_status === 'nicht-trennbar');
-    o.zustand_status = {}; for (const m of liste) o.zustand_status[m.zustand_status] = (o.zustand_status[m.zustand_status] || 0) + 1;
-    return o;
-  };
-  const je = {}; for (const b of LISTE) { const l = z.filter((m) => m.befehl === b.id); if (l.length) je[b.id] = fuer(l); }
-  return { insgesamt: fuer(z), je_befehl: je, aufwaermlaeufe: zeilen.filter((m) => m.aufwaermen).length, fehler: zeilen.filter((m) => m.fehler).map((m) => m.befehl + ': ' + m.fehler) };
-}
-const f = (s) => (s && s.n ? s.median + '/' + s.p90 + ' (' + s.n + ')' : '-');
-function tabelle(sum) {
-  const kopf = ['Befehl'.padEnd(17), 'n', 'erk', 'ok', 'stt', 'matcher', 'antwort', 'zustand', 'ton'];
-  const zeilen = [kopf.join(' | ')];
-  const zeile = (name, o) => zeilen.push([name.padEnd(17), String(o.messungen).padStart(2), String(o.erkannt).padStart(3), String(o.antwort_ok).padStart(2), f(o.t_stt).padStart(14), f(o.t_matcher).padStart(14), f(o.t_antwort).padStart(14), (o.zustand_nicht_trennbar ? 'nicht trennbar' : f(o.t_zustand) + (o.zustand_status['vorab-erfuellt'] || o.zustand_status['keine-aenderung'] ? ' [' + Object.entries(o.zustand_status).filter(([k]) => k !== 'beobachtet').map(([k, v]) => k + ' ' + v).join(',') + ']' : '')).padStart(14), f(o.t_ton).padStart(14)].join(' | '));
-  for (const [k, o] of Object.entries(sum.je_befehl)) zeile(k, o);
-  zeile('ALLE', sum.insgesamt);
-  return 'Median/p90 in ms ab Loslassen (n):\n' + zeilen.join('\n');
-}
+// ---------------------------------------------------------------- Statistik: reine Funktionen in tools/bot-latenz-auswertung.js (Test: tools/test-bot-latenz-auswertung.js)
+const zusammenfassung = (zeilen) => Ausw.zusammenfassung(zeilen, LISTE.map((x) => x.id));
+const tabelle = Ausw.tabelle;
 
 // ---------------------------------------------------------------- Lauf
 async function main() {
@@ -374,16 +368,20 @@ async function main() {
   const stamp = new Date().toISOString().replace(/[-:]/g, '').replace(/\..*/, '').replace('T', '-');
   const jsonl = path.join(OUT, 'bot-latenz-' + stamp + '.jsonl');
   const alle = [];
+  for (const p of new Set(PORTS)) { if (await httpOk(p, '/')) { console.error('Port ' + p + ' ist belegt (benutzt werden ' + PORTS.join(',') + '): Abbruch.'); process.exit(2); } }
   if (!KEINE_STT) { try { const eigen = await sttBereit(); console.log('STT erreichbar auf 8300' + (eigen ? ' (Tunnel von diesem Werkzeug)' : ' (stand schon)')); } catch (e) { console.error(e.message); process.exit(1); } }
   let i = 0;
   for (const b of LISTE) {
-    const port = PORT0 + (i++ % 10);
+    const port = PORTS[i++];
     console.log('\n== ' + b.id + ' "' + b.text + '" (Port ' + port + ')');
     let wav = null, srv = null, spiel = null;
     try {
       if (!KEINE_STT) { wav = await befehlsWav(b); console.log('   WAV ' + wav.dauerMs + ' ms (' + wav.aus + ')'); }
       srv = await startServer(port, !KEINE_STT);
-      spiel = await oeffneSpiel(port, wav && wav.datei);
+      for (let versuch = 0; versuch < 2 && !spiel; versuch++) {   // der Chrome-Start (headless, Software-GL) haengt gelegentlich: einmal neu versuchen
+        try { spiel = await oeffneSpiel(port, wav && wav.datei); }
+        catch (e) { try { if (letzterBrowser) await letzterBrowser.close(); } catch (x) { /* egal */ } letzterBrowser = null; if (versuch) throw e; console.log('   Start fehlgeschlagen, zweiter Versuch: ' + String(e && e.message).split('\n')[0]); }
+      }
       const los = await unterwegs(spiel.page);
       if (!los) console.log('   Hinweis: das Schiff hat nicht abgelegt (Flugbefehle evtl. ohne Wirkung)');
       for (let k = 0; k < AUFWAERM + N; k++) {
@@ -392,7 +390,8 @@ async function main() {
         const m = await messen(spiel.page, b, wav);
         m.aufwaermen = warm; m.wiederholung = warm ? null : k - AUFWAERM + 1; m.vorbereitung_ok = vorOk;
         alle.push(m); fs.appendFileSync(jsonl, JSON.stringify(m) + '\n');
-        console.log('   ' + (warm ? 'warm ' : 'rep' + m.wiederholung + '  ') + (m.fehler ? 'FEHLER ' + m.fehler : 'erk=' + (m.erkannt ? 'ja' : 'NEIN') + ' roh="' + (m.rohtext == null ? '' : m.rohtext) + '" stt=' + m.t_stt_ms + ' matcher=' + m.t_matcher_ms + ' antwort=' + m.t_antwort_ms + '(' + m.antwort_status + ') zustand=' + (m.t_zustand_ms == null ? m.zustand_status : m.t_zustand_ms) + ' ton=' + (m.t_ton_ms == null ? m.ton_status : m.t_ton_ms)));
+        const kl = Ausw.klassifiziere(m);
+        console.log('   ' + (warm ? 'warm ' : 'rep' + m.wiederholung + '  ') + (m.fehler ? 'FEHLER ' + m.fehler : '[' + kl.art + (kl.grund ? ':' + kl.grund : '') + '] erk=' + (m.erkannt ? 'ja' : 'NEIN') + (m.vorbereitung_ok ? '' : ' VORBEREITUNG-GESCHEITERT') + ' roh="' + (m.rohtext == null ? '' : m.rohtext) + '" stt=' + m.t_stt_ms + ' matcher=' + m.t_matcher_ms + ' antwort=' + m.t_antwort_ms + '(' + m.antwort_status + ') zustand=' + (m.t_zustand_ms == null ? m.zustand_status : m.t_zustand_ms) + ' ton=' + (m.t_ton_ms == null ? m.ton_status : m.t_ton_ms)));
       }
       if (spiel.fehler.length) console.log('   Seitenfehler: ' + spiel.fehler.slice(0, 3).join(' | '));
     } catch (e) {
@@ -400,15 +399,18 @@ async function main() {
       const m = { befehl: b.id, fehler: String(e && e.message).slice(0, 300), zeit: new Date().toISOString() }; alle.push(m); fs.appendFileSync(jsonl, JSON.stringify(m) + '\n');
     } finally {
       if (spiel) { try { await spiel.browser.close(); } catch (e) { /* egal */ } }
+      else if (letzterBrowser) { try { await letzterBrowser.close(); } catch (e) { /* egal */ } letzterBrowser = null; }   // Start gescheitert: der halb geoeffnete Chrome bleibt nicht stehen
       if (srv) srv.ende();
     }
   }
   const sum = zusammenfassung(alle);
   const kopf = { werkzeug: 'tools/bot-latenz.js', zeit: new Date().toISOString(), n_je_befehl: N, aufwaerm_je_start: AUFWAERM, modus: KEINE_STT ? 'Text (ohne STT, ohne Aufnahme)' : 'Sprache (Chrome-Fake-Mikrofon, Qwen-Stimme, STT ueber Tunnel)', lead_ms: LEAD_MS, tail_ms: TAIL_MS,
-    hinweise: ['t0 = Loslassen der Sprechtaste (keyup, capture) bzw. Enter in der Textzeile im Browser (performance.now)', 'Snapshot-Takt begrenzt die Aufloesung von t_zustand', 'headless + Software-GL', 'TAIL_MS Stille nach dem Sprachende in der WAV', 'Aufwaermlauf nicht gezaehlt'] };
+    hinweise: ['t0 = Loslassen der Sprechtaste (keyup, capture) bzw. Enter in der Textzeile im Browser (performance.now)', 'Snapshot-Takt begrenzt die Aufloesung von t_zustand', 'headless + Software-GL', 'TAIL_MS Stille nach dem Sprachende in der WAV', 'Aufwaermlauf nicht gezaehlt', 'Latenz nur aus gueltigen Messungen (erkannt, Antwort ok, Vorbereitung ok); Ablehnungen eigene Spalten', 'Median bei geradem n = Mittel der beiden mittleren Werte, p90 Nearest-Rank, n < 5 nicht ausgewiesen', 'Zustand = Beobachtung im Snapshot nach dem Absenden, keine Kausalitaet'] };
   fs.writeFileSync(path.join(OUT, 'bot-latenz-' + stamp + '-zusammenfassung.json'), JSON.stringify(Object.assign({}, kopf, sum), null, 1));
   console.log('\n' + tabelle(sum));
-  console.log('\nnicht erkannt: ' + sum.insgesamt.nicht_erkannt + ' von ' + sum.insgesamt.messungen + ' · abgelehnt (status != ok): ' + sum.insgesamt.abgelehnt + ' · Fehler: ' + sum.fehler.length);
+  const g = sum.insgesamt;
+  console.log('\nBefehle:\n' + Object.entries(sum.je_befehl).map(([k, o]) => '  ' + k.padEnd(16) + o.status).join('\n'));
+  console.log('\ngueltig ' + g.gemessen + ' von ' + g.messungen + ' · abgelehnt ' + g.abgelehnt + ' · nicht erkannt ' + g.nicht_erkannt + ' · ohne Antwort ' + g.keine_antwort + ' · Vorbereitung gescheitert ' + g.vorbereitung_gescheitert + ' · Fehler ' + sum.fehler.length);
   console.log('Ausgabe: ' + jsonl + ' (+ -zusammenfassung.json)');
 }
 main().then(() => { aufraeumen(); process.exit(0); }, (e) => { console.error(e); aufraeumen(); process.exit(1); });
