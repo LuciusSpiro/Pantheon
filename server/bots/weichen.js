@@ -25,7 +25,7 @@ function kannWeichen(game, kind, mensch) {
 function weichtFuerMensch(game, kind, mensch) {
   if (!kannWeichen(game, kind, mensch)) return false;
   const Lauf = require('./lauf.js');
-  for (const b of halterVon(game, kind, mensch)) { game.platzFreigeben(b, 'mensch'); Lauf.wartet(game, b); }
+  for (const b of halterVon(game, kind, mensch)) { Lauf.prioritaetLoesen(game, b); game.platzFreigeben(b, 'mensch'); Lauf.wartet(game, b); }   // BOT-01 C2b: die Prioritaet des Bots ist weg, bevor der Mensch sie sieht
   return true;
 }
 

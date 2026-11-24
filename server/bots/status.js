@@ -11,6 +11,7 @@ const stufeWort = (s) => (s === STOP ? STUFE[0] : s === HALF ? STUFE[2] : s === 
 const GRUPPE = { bug: 'Bug', bb: 'Backbord', stb: 'Steuerbord', torpedo: 'Torpedo' };
 const SEKTOR = ['Bug', 'Steuerbord', 'Heck', 'Backbord'];
 const PRIO = { fire: 'Feuer', breach: 'Leck' };
+const gross = (s) => s.charAt(0).toUpperCase() + s.slice(1);
 const ZIEL = { marke: 'die Marke des Captains', ziel: 'das Ops-Ziel', basis: 'die Basis' };
 
 const nav = (g, a, b) => {
@@ -21,7 +22,7 @@ const nav = (g, a, b) => {
     case 'nav.andocken': return 'Anflug zum Andocken.';
     case 'nav.sprung': return g.ship.jump && g.ship.jump.ready ? 'Sprungpunkt erreicht.' : 'Fliege zum Sprungpunkt.';
     case 'nav.schub': return `Schub gehalten: ${stufeWort(b.stage)}.`;
-    default: return 'Befehl laeuft.';
+    default: return 'Befehl läuft.';
   }
 };
 const ops = (g, a, b) => {
@@ -32,16 +33,18 @@ const ops = (g, a, b) => {
 const technik = (g, a) => {
   const h = a.halten; const t = [];
   if (h.schild !== undefined) t.push(`Schilde nach ${SEKTOR[h.schild]}`);
-  if (h.prio) t.push(`${PRIO[h.prio.wert] || interior.sysNameNom(h.prio.wert)} zuerst`);
+  if (h.prio) t.push(`${PRIO[h.prio.wert] || gross(interior.sysNameNom(h.prio.wert))} zuerst`);
   if (!t.length) t.push('Schilde nach Bedrohung');
   const rc = g.ship.reactorCtl;
-  if (rc && rc.state === 'overload') t.push('Reaktor ueberladen');
-  else if (interior.SYSTEM_ORDER.some((s) => interior.systemAktiv(g, s) && g.ship.systems[s] !== 'ok')) t.push('Schaeden an Bord');
+  if (rc && rc.state === 'overload') t.push('Reaktor überladen');
+  else if (interior.SYSTEM_ORDER.some((s) => interior.systemAktiv(g, s) && g.ship.systems[s] !== 'ok')) t.push('Schäden an Bord');
   return t.join(', ') + '.';
 };
 
 function text(game, agent) {
   const a = agent.absicht;
+  if (agent.spieler.downed) return 'Bewusstlos, ohne Auftrag.';
+  if (agent.spieler.zone !== 'ship') return 'Nicht an Bord, ohne Auftrag.';
   if (a.zustand === 'wartet') return 'Ein Mitspieler hat die Station, ich warte.';
   if (a.zustand === 'unterwegs') return 'Unterwegs zur Station.';
   const s = agent.rolleBot === 'navigation' ? nav(game, a, a.befehl) : agent.rolleBot === 'ops' ? ops(game, a, a.befehl) : technik(game, a);

@@ -30,14 +30,15 @@ function systemAus(game, sys) {
 
 const tech = {};
 
-// feuer/leck: Prioritaet der Schrauber; <system>: dieses System zuerst. Gehalten, bis bot.automatik, ein anderer tech.prio, die Menschenuebernahme oder das Ende der Partie (die Standard-Prioritaeten sind dann aus).
+// feuer/leck: Prioritaet der Schrauber; <system>: dieses System zuerst. feuer/leck gelten, bis bot.automatik, ein anderer tech.prio, die Menschenuebernahme oder das Ende der Partie (die Standard-Prioritaeten sind dann aus);
+// eine System-Prioritaet endet, sobald das System heil ist (Agent: prioErledigt, Grund erledigt).
 tech['tech.prio'] = (game, bot, args) => {
   const v = vorab(game, bot, {});
   if (v.fehler) return v.fehler;
   const wert = PRIO[args.ziel] || args.ziel;
   if (!PRIO[args.ziel]) {
     if (!interior.systemAktiv(game, wert)) return SYSTEM;
-    if (game.ship.systems[wert] === 'ok' && !interior.isFragile(game, wert)) return NICHT_JETZT;   // nichts zu reparieren
+    if (game.ship.systems[wert] === 'ok') return NICHT_JETZT;   // nichts zu reparieren (auch ein geflicktes, fragiles System: der flick-Eintrag waere sofort erledigt)
   }
   v.agent.haltenSetzen('prio', { wert });
   return OK;

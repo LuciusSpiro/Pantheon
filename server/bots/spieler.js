@@ -108,6 +108,7 @@ function lobbyBotBefehl(game, spieler, msg) {
 
 // Partie: der Platz bleibt in players (Indizes, Spawns), wird aber ein freier, nicht verbundener Platz, den der Uebernahmeweg in onHello nutzt
 function zuFreiemPlatz(game, b) {
+  Lauf.prioritaetLoesen(game, b);   // BOT-01 C2b: eine vom Bot gesetzte Prioritaet bleibt nicht im Schiff stehen
   game.platzFreigeben(b, 'abgang');
   Lauf.entfernen(game, b);
   b.connected = false; b.conn = null; b.clientId = null;

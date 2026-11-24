@@ -2,16 +2,16 @@
 // BOT-01 C2b: die Befehle von Ops, Technik und Bot (Katalog v1) wirken im Server-Bot (server/bots/befehle/ops.js, technik.js, bot.js; Ausfuehrung im Agenten mannschaft.js; Statustext status.js).
 // Echtes Game, Server-Bots (Navigation, Ops, Technik), Befehle ueber bot.befehl, Wirkung am Spielzustand beobachtet.
 //   1. Registry: 13 Befehle (6 ops, 5 technik, 2 bot), Rueckgabeform, Codes aus gruende.json
-//   2. ops.ziel: markiert, naechstes, objekt:<id> (Ziel gehalten gegen den Standard), Ziel zerstoert, kein_ziel
+//   2. ops.ziel: markiert, naechstes, objekt:<id> (Ziel gehalten gegen den Standard), Ziel zerstoert, kein_ziel; Station/Mine als Ziel (Marke steht, Feuer auf Gegner laeuft weiter, Mine wird beschossen)
 //   3. ops.feuer_halt / ops.feuer_frei: kein Schuss ueber 20 s trotz Gegner im Bogen, danach wieder Feuer; waffen begrenzt die Gruppen; kein_ziel, system, nicht_jetzt
 //   4. ops.scan, ops.landescan, ops.beamen: Wirkung (Scan, Halteprozesse), nicht_jetzt, system
-//   5. tech.schild, tech.prio: gehalten gegen die Technik-Automatik; tech.reparieren, tech.energie, tech.ueberladen: Wirkung, nicht_jetzt, system
+//   5. tech.schild, tech.prio: gehalten gegen die Technik-Automatik (prioSperre), System-Prioritaet endet bei heilem System, Feuer/Leck bleiben; tech.reparieren, tech.energie, tech.ueberladen: Wirkung, nicht_jetzt, system
 //   6. bot.status (Text nur dort), bot.automatik (alle Rollen, auch Navigation)
 //   7. Ablehnungen: wartet, nicht_jetzt (nicht an der Konsole); jede Antwort mit passender textId
-//   8. Mensch gewinnt (Absicht verworfen, Bot sendet nichts, danach Standard), Reaktor-Ausnahme der Prioritaet
-//   9. Reine Menschenpartie unveraendert (Nachrichten, Snapshots byte-gleich mit leerem Lauf), Quellscan der Registries
+//   8. Mensch gewinnt (Absicht verworfen, Bot sendet nichts, danach Standard), Reaktor-Ausnahme der Prioritaet; die Prioritaet des Bots geht mit (Mensch, Raeumen, bewusstlos), Absichten enden bei downed
+//   9. Reine Menschenpartie: kein Bot-Code laeuft (der Byte-Vergleich ist der Golden-Lauf). Den Quellscan der Registries (server/bots/befehle/*.js) fuehrt tools/test-bot-befehle-nav.js (Abschnitt 11) fuer alle Dateien
 //   node tools/test-bot-befehle-ops-tech.js
-//   Mutationsproben: BOT_OT_MUT=feuer_halt|schild|status|mensch node tools/test-bot-befehle-ops-tech.js (muss rot sein, siehe tools/mutation-bot-befehle-ops-tech.js)
+//   Mutationsproben: BOT_OT_MUT=feuer_halt|schild|status|mensch|ziel_stumm|prio_sperre|system_aktiv|prio_bleibt|prio_endet_nie|unten node tools/test-bot-befehle-ops-tech.js (muss rot sein, siehe tools/mutation-bot-befehle-ops-tech.js)
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
@@ -27,6 +27,13 @@ if (MUT === 'status') {
   if (neu === alt) throw new Error('Mutation status: Quelle nicht gefunden');
   const m = new Module(f, module); m.filename = f; m.paths = Module._nodeModulePaths(path.dirname(f)); require.cache[f] = m; m._compile(neu, f);
 }
+// Mutation system_aktiv: tech.prio prueft nicht, ob das System eingebaut ist
+if (MUT === 'system_aktiv') {
+  const f = require.resolve('../server/bots/befehle/technik.js');
+  const alt = fs.readFileSync(f, 'utf8'); const neu = alt.replace('if (!interior.systemAktiv(game, wert)) return SYSTEM;', '');
+  if (neu === alt) throw new Error('Mutation system_aktiv: Quelle nicht gefunden');
+  const m = new Module(f, module); m.filename = f; m.paths = Module._nodeModulePaths(path.dirname(f)); require.cache[f] = m; m._compile(neu, f);
+}
 const { Game } = require('../server/game.js');
 const Station = require('../server/sim/station.js');
 const interior = require('../server/sim/interior.js');
@@ -38,11 +45,20 @@ const Lauf = require('../server/bots/lauf.js');
 const { BotMannschaft } = require('../server/bots/mannschaft.js');
 const { BotKern, STOP } = require('../server/bots/kern.js');
 const Befehle = require('../server/bots/befehle/index.js');
+const Status = require('../server/bots/status.js');
+const Alarm = require('../server/sim/alarm.js');
 const GRUENDE = require('../content/bots/gruende.json');
 const TEXTE = require('../content/bots/texte.json');
 
 if (MUT === 'feuer_halt') BotMannschaft.prototype.feuerErlaubt = function (c, extra) { return extra || {}; };
 if (MUT === 'schild') BotMannschaft.prototype.schildVerteilung = function (S) { return BotKern.prototype.schildVerteilung.call(this, S); };
+// ziel_stumm: eine Nicht-Gegner-Marke legt das Feuer still (alter Stand); prio_sperre: die Standard-Prioritaeten laufen gegen die gehaltene; prio_bleibt: die Prioritaet des Bots bleibt im Schiff;
+// prio_endet_nie: eine System-Prioritaet endet nicht; unten: bewusstlos/abwesend verwirft nichts
+if (MUT === 'ziel_stumm') BotMannschaft.prototype.fightMitMarke = function () {};
+if (MUT === 'prio_sperre') Object.defineProperty(BotMannschaft.prototype, 'prioSperre', { get() { return false; }, set() { /* nie sperren */ } });
+if (MUT === 'prio_bleibt') BotMannschaft.prototype.prioritaetZuruecknehmen = function () { return false; };
+if (MUT === 'prio_endet_nie') BotMannschaft.prototype.prioErledigt = function () { return false; };
+if (MUT === 'unten') { const alt = BotMannschaft.prototype.alleVerwerfen; BotMannschaft.prototype.alleVerwerfen = function (grund) { return grund === 'unten' ? false : alt.call(this, grund); }; }
 if (MUT === 'mensch') { const alt = BotMannschaft.prototype.alleVerwerfen; BotMannschaft.prototype.alleVerwerfen = function (grund) { return grund === 'mensch' ? false : alt.call(this, grund); }; }
 
 let fails = 0, n = 0;
@@ -161,9 +177,41 @@ section('2 ops.ziel: markiert, naechstes, objekt, zerstoert, kein_ziel');
   ok(agent(P, 'ops').befehlGrund === 'ziel_weg' && !agent(P, 'ops').absicht.befehl && agent(P, 'ops').absicht.standard, 'Ziel zerstoert: die Absicht endet (ziel_weg), Standardverhalten');
   ok(g.ship.target === b.id, 'danach waehlt der Standard die Captain-Marke');
   ok(fehlerOk(P), 'game.errors leer');
-  // Station als Ziel (kein Gegner): die Marke steht, kein Feuer
-  const st = partie({ start: 'free' });
-  ok(st.g.ship.docked, 'Hafen: angedockt');
+}
+{
+  // Station als Ziel (kein Gegner): die Marke steht UND der Bot feuert weiter auf den Gegner im Bogen (BOT-01 C2b Nacharbeit W1). Kontrolle: derselbe Aufbau ohne Befehl.
+  // die Korvette liegt genau auf der Strahllinie der Lanze (in Blickrichtung des Schiffs), sonst trifft sie nie und die Lanze wartet auf einen Treffer
+  const aufbau = () => { const P = partie({ start: 'free' }); frei(P); const w = P.g.ship.angle; const e = gegner(P, 'korvette', 450 * Math.cos(w), 450 * Math.sin(w)); return { P, e }; };
+  const K = aufbau(); const tk = K.P.g.time; lauf(K.P, 20); const kontrolle = feuerCmds(K.P, tk).length;
+  ok(kontrolle > 0, `Kontrolle (ohne Befehl): der Bot feuert auf die Korvette im Bogen (${kontrolle} Feuerbefehle)`);
+  for (const via of ['objekt:station', 'markiert']) {
+    const { P, e } = aufbau(); const { g } = P;
+    if (via === 'markiert') capZiel(g, 'station');
+    ok(befehl(P, 'ops.ziel', { ziel: via }) === 'ops.ziel.ok' && agent(P, 'ops').absicht.befehl.id === 'station', `ops.ziel ${via} auf die Station: ok`);
+    const t0 = g.time; lauf(P, 20);
+    const n = feuerCmds(P, t0).length;
+    ok(g.ship.target === 'station', `${via}: die Marke steht auf der Station (ship.target ${g.ship.target})`);
+    ok(n > 0 && n >= kontrolle * 0.5, `${via}: der Bot feuert weiter auf die Korvette (${n} Feuerbefehle, Kontrolle ${kontrolle}, ${P.lanze} Lanzenschuesse)`);
+    ok(cmds(P, 'ops', 'weapons.target', t0).every((x) => x.msg.id === 'station'), `${via}: nie ein weapons.target auf den Gegner (die Marke wird nicht ueberschrieben)`);
+    ok(!!agent(P, 'ops').absicht.befehl && fehlerOk(P), `${via}: der Befehl gilt weiter, game.errors leer`);
+    befehl(P, 'ops.feuer_halt'); const t1 = g.time; lauf(P, 12);
+    ok(feuerCmds(P, t1).length === 0 && g.ship.target === 'station', `${via}: feuer_halt sperrt auch dann (kein Feuerbefehl), die Marke bleibt`);
+    void e;
+  }
+}
+{
+  // Mine als Ziel: der Bot feuert mit der Seitenbatterie darauf (feuer_halt sperrt)
+  const P = partie({}); const { g } = P; frei(P);
+  const s = g.ship;
+  const [mine] = Alarm.minenSetzen(g, { n: 1, positionen: [{ x: s.x, y: s.y + 300 }] }); mine.gesehen = true; mine.ohneStrom = true;
+  befehl(P, 'ops.feuer_halt');
+  ok(befehl(P, 'ops.ziel', { ziel: 'objekt:' + mine.id }) === 'ops.ziel.ok', 'ops.ziel auf eine Mine: ok');
+  const t0 = g.time; lauf(P, 10);
+  ok(g.ship.target === mine.id && feuerCmds(P, t0).length === 0 && !!Alarm.mineById(g, mine.id), 'feuer_halt: die Marke steht auf der Mine, kein Schuss, die Mine bleibt');
+  befehl(P, 'ops.feuer_frei', {}); const t1 = g.time; lauf(P, 20, () => !Alarm.mineById(g, mine.id));
+  ok(!Alarm.mineById(g, mine.id) && cmds(P, 'ops', 'weapons.fire', t1).length > 0, 'feuer_frei: die Batterie schiesst auf die Mine, sie ist weg');
+  lauf(P, 2);
+  ok(agent(P, 'ops').befehlGrund === 'ziel_weg' && !agent(P, 'ops').absicht.befehl && fehlerOk(P), 'Mine zerstoert: der Befehl endet (ziel_weg), keine Fehler');
 }
 
 // ---------- 3 Feuer ----------
@@ -333,16 +381,51 @@ section('5 Technik: schild, prio gehalten; reparieren, energie, ueberladen');
   g.ship.systems.thruster_port = 'damaged';
   ok(befehl(P, 'tech.prio', { ziel: 'engines' }) === 'tech.prio.abgelehnt.nicht_jetzt', 'Antrieb heil: nichts zu reparieren, nicht_jetzt');
   g.ship.systems.shields = 'broken';
-  ok(befehl(P, 'tech.prio', { ziel: 'shields' }) === 'tech.prio.ok'); lauf(P, 6);
+  const kaputt = () => { g.ship.systems.shields = 'broken'; return false; };   // die Schrauber sollen es nicht reparieren (sonst endet die Prioritaet, siehe W3 unten)
+  ok(befehl(P, 'tech.prio', { ziel: 'shields' }) === 'tech.prio.ok'); lauf(P, 6, kaputt);
   ok(g.ship.priority === 'shields' && g.ship.repairQueue.length > 0 && g.ship.repairQueue[0].system === 'shields', `System-Prioritaet: ship.priority shields, Reparaturliste ${JSON.stringify(g.ship.repairQueue.map((q) => q.system))}`);
   // Reaktor zerstoert: die Sonderreparatur geht vor, danach stellt der Bot die gehaltene Prioritaet wieder her
-  g.ship.systems.reactor = 'broken'; lauf(P, 6);
+  g.ship.systems.reactor = 'broken'; lauf(P, 6, kaputt);
   ok(g.ship.priority === 'reactor', 'Reaktor zerstoert: Standard-Prioritaet Reaktor geht vor');
-  g.ship.systems.reactor = 'ok'; lauf(P, 6);
+  g.ship.systems.reactor = 'ok'; lauf(P, 6, kaputt);
   ok(g.ship.priority === 'shields', 'Reaktor heil: die gehaltene Prioritaet kommt wieder');
   g.ship.systems.shields = 'ok'; g.ship.systems.thruster_port = 'ok';
   g.ship.systems.lafette_5 = 'ok';
   ok(befehl(P, 'tech.prio', { ziel: 'weapon_bow' }) === 'tech.prio.abgelehnt.nicht_jetzt', 'System heil: nicht_jetzt');
+  ok(fehlerOk(P), 'game.errors leer');
+}
+{
+  // prioSperre (Nacharbeit): der Befehl steht VOR dem ersten Feuer, memo.firePrio ist noch false: ohne Sperre setzte der Standard "Feuer zuerst" und der Agent stellte "Leck" zurueck (Hin und Her)
+  const P = partie({}); const { g } = P; frei(P);
+  ok(befehl(P, 'tech.prio', { ziel: 'leck' }) === 'tech.prio.ok', 'tech.prio leck (noch kein Feuer an Bord): ok');
+  lauf(P, 4);
+  const ct = W.CONSOLE_TILES.helm[0]; const t = W.accessTiles(W.ship, W.shipWalkable, ct.x, ct.y)[0];
+  let wechsel = 0; const t0 = g.time;
+  lauf(P, 25, () => { interior.addFire(g, t.x, t.y); if (g.ship.priority !== 'breach') wechsel++; return false; });
+  ok(g.ship.fireList.length > 0 && wechsel === 0 && cmds(P, 'technik', 'technik.priority', t0).filter((x) => x.msg.target === 'fire').length === 0, `Leck zuerst gilt gegen den Standard (ship.priority nie ausser breach, ${wechsel} Abweichungen, kein technik.priority fire gesendet) trotz Feuer ohne Gegner`);
+}
+{
+  // tech.prio auf ein nicht eingebautes System: direkter Registry-Aufruf (die Annahme laesst nur Systeme des Katalogs zu), Antwort system
+  const P = partie({}); frei(P);
+  const r = Befehle.befehl(P.g, bot(P, 'technik'), 'tech.prio', { ziel: 'lafette_5' });
+  ok(!interior.systemAktiv(P.g, 'lafette_5') && r && r.ok === false && r.code === 'system', `nicht eingebaute Lafette: tech.prio -> system (${JSON.stringify(r)})`);
+  ok(!agent(P, 'technik').absicht.halten.prio, 'abgelehnt: keine Prioritaet gesetzt');
+}
+{
+  // W3: eine System-Prioritaet endet, sobald das System heil ist (Grund erledigt, Prioritaet zurueck); danach greift die Standard-Feuerprioritaet. Feuer/Leck bleiben gehalten (siehe oben).
+  const P = partie({}); const { g } = P; frei(P);
+  g.ship.systems.shields = 'damaged';
+  ok(befehl(P, 'tech.prio', { ziel: 'shields' }) === 'tech.prio.ok', 'Schilde beschaedigt: tech.prio shields ok');
+  lauf(P, 3);
+  ok(g.ship.priority === 'shields' && /Schildgenerator/.test(Status.text(g, agent(P, 'technik'))), `System-Prioritaet gilt (ship.priority ${g.ship.priority}, Status "${Status.text(g, agent(P, 'technik'))}")`);
+  g.ship.systems.shields = 'ok'; lauf(P, 4);
+  const te = agent(P, 'technik');
+  ok(!te.absicht.halten.prio && te.befehlGrund === 'erledigt' && g.ship.priority === null, `Schilde heil: die Prioritaet endet (Grund ${te.befehlGrund}, ship.priority ${g.ship.priority})`);
+  ok(!/Schildgenerator|zuerst/.test(Status.text(g, te)), 'der Status nennt sie nicht mehr: "' + Status.text(g, te) + '"');
+  const tiles = ['helm', 'weapons', 'technik'].map((k) => { const c = W.CONSOLE_TILES[k][0]; return W.accessTiles(W.ship, W.shipWalkable, c.x, c.y)[0]; });
+  const t0 = g.time;
+  lauf(P, 8, () => { for (const q of tiles) interior.addFire(g, q.x, q.y); return false; });
+  ok(g.ship.priority === 'fire' && cmds(P, 'technik', 'technik.priority', t0).some((x) => x.msg.target === 'fire'), `mehrere Braende, kein Gegner: die Standard-Feuerprioritaet greift wieder (ship.priority ${g.ship.priority})`);
   ok(fehlerOk(P), 'game.errors leer');
 }
 {
@@ -411,6 +494,17 @@ section('6 bot.status und bot.automatik');
   ok(/Heck/.test(b2) && b2 !== T(a2), `der Text folgt dem Zustand: Technik "${b2}"`);
   befehl(P, 'ops.feuer_frei', { waffen: 'bb' });
   ok(/Backbord/.test(T(status('ops'))), 'Ops nennt die Waffengruppe: "' + T(status('ops')) + '"');
+  // Satzanfang gross, echte Umlaute (Nacharbeit)
+  g.ship.reactorCtl.state = 'overload';
+  const tu = Status.text(g, agent(P, 'technik'));
+  g.ship.reactorCtl.state = 'normal'; g.ship.systems.thruster_port = 'damaged';
+  const tx = Status.text(g, agent(P, 'technik'));
+  ok(/überladen/.test(tu) && /Schäden/.test(tx) && !/ueberl|Schaeden/.test(tu + tx), `Statustext: echte Umlaute ("${tu}" | "${tx}")`);
+  g.ship.systems.thruster_port = 'ok';
+  g.ship.systems.shields = 'damaged'; befehl(P, 'tech.prio', { ziel: 'shields' });
+  const sg = Status.text(g, agent(P, 'technik'));
+  ok(/^[A-ZÄÖÜ]/.test(sg) && /zuerst/.test(sg), `System-Prioritaet im Status mit grossem Anfang ("${sg}")`);
+  g.ship.systems.shields = 'ok'; befehl(P, 'bot.automatik', undefined, { an: 'technik' }); lauf(P, 4);
   // kein Text bei anderen Befehlen: die Variante aus texte.json, nie der Registry-Text
   const orig = Befehle.REGISTER.ops['ops.scan'];
   Befehle.REGISTER.ops['ops.scan'] = () => ({ ok: true, text: 'GEHEIMER REGISTRY TEXT' });
@@ -507,6 +601,52 @@ section('8 Mensch gewinnt: Absicht verworfen, Bot sendet nichts, danach Standard
   ok(zurueck && te.absicht.standard && Object.keys(te.absicht.halten).length === 0 && fehlerOk(P), 'Mensch geht: Technik im Standardverhalten, keine alten Einstellungen, keine Fehler');
 }
 {
+  // W2: die vom Bot gesetzte Prioritaet bleibt nicht im Schiff stehen, wenn ein Mensch uebernimmt
+  const P = partie({}); const { g, h, c } = P; frei(P);
+  befehl(P, 'tech.prio', { ziel: 'leck' }); lauf(P, 8);
+  ok(g.ship.priority === 'breach', 'Ausgangslage: Leck zuerst steht im Schiff');
+  neben(g, h, 'technik'); eTaste(g, c);
+  ok(h.console === 'technik' && g.ship.priority === null, 'Mensch setzt sich an die Technik: die Prioritaet des Bots ist weg, bevor er sie sieht (sofort, ohne Tick)');
+  lauf(P, 1); g.handleMessage(c, { t: 'leave' });
+  const zurueck = lauf(P, 30, () => Station.stationOf(bot(P, 'technik')) === 'technik'); lauf(P, 40);
+  ok(zurueck && g.ship.priority === null && agent(P, 'technik').absicht.standard, `Mensch geht, 40 s Standard: ship.priority ${g.ship.priority} (nicht mehr breach), keine Absicht`);
+  // eine Prioritaet des Menschen bleibt unangetastet (auch wenn der Bot noch eine andere haelt)
+  const te = agent(P, 'technik');
+  Lauf.agent(g, bot(P, 'technik')).haltenSetzen('prio', { wert: 'breach' }); g.ship.priority = 'fire';
+  ok(te.prioritaetZuruecknehmen() === false && g.ship.priority === 'fire', 'ship.priority ist nicht die gehaltene (Mensch gesetzt): bleibt unangetastet');
+  te.alleVerwerfen('test');
+  // Raeumen: ein Mensch verdraengt den Technik-Bot (letzter Platz)
+  const Q = partie({}); frei(Q);
+  befehl(Q, 'tech.prio', { ziel: 'leck' }); lauf(Q, 8);
+  ok(Q.g.ship.priority === 'breach', 'Raeumen: Leck zuerst steht');
+  ok(BotSpieler.botVerdraengtFuerMensch(Q.g) === true && Q.g.ship.priority === null, 'der Platz wird geraeumt: die Prioritaet des Bots ist weg');
+  ok(fehlerOk(P) && fehlerOk(Q), 'game.errors leer');
+}
+{
+  // Bewusstlos (downed): Ops- und Technik-Absichten und Haltezustaende enden (Grund unten), die Prioritaet geht zurueck; der Status meldet es
+  const P = partie({}); const { g } = P; frei(P);
+  const e = gegner(P, 'korvette', 450, 0); g.ship.target = e.id;
+  befehl(P, 'ops.feuer_halt'); befehl(P, 'ops.ziel', { ziel: 'naechstes' }); befehl(P, 'tech.prio', { ziel: 'leck' }); befehl(P, 'tech.schild', { sektor: 'heck' }); lauf(P, 6);
+  ok(g.ship.priority === 'breach' && agent(P, 'ops').absicht.feuer === 'halt', 'Ausgangslage: Feuerhalt, Ziel, Leck zuerst, Schild heck');
+  const po = bot(P, 'ops'), pt = bot(P, 'technik');
+  po.downed = true; pt.downed = true; lauf(P, 1);
+  const op = agent(P, 'ops'), te = agent(P, 'technik');
+  ok(op.absicht.standard && te.absicht.standard && !op.absicht.feuer && !op.absicht.befehl && Object.keys(te.absicht.halten).length === 0 && op.befehlGrund === 'unten' && te.befehlGrund === 'unten', 'bewusstlos: Ops- und Technik-Absichten sind verworfen (Grund unten)');
+  ok(g.ship.priority === null, 'bewusstlos: die Prioritaet des Bots ist zurueckgenommen');
+  ok(/Bewusstlos/.test(Status.text(g, op)) && /Bewusstlos/.test(Status.text(g, te)) && !/Feuer/.test(Status.text(g, op)), `Status: "${Status.text(g, op)}"`);
+  po.downed = false; pt.downed = false; lauf(P, 3);
+  const t0 = g.time; lauf(P, 15);
+  ok(op.absicht.standard && g.ship.priority !== 'breach' && (feuerCmds(P, t0).length > 0 || P.lanze > 0), 'danach Standardverhalten: kein altes Feuerhalt, der Bot feuert wieder');
+  // nicht an Bord (zone != ship)
+  befehl(P, 'ops.feuer_halt'); befehl(P, 'tech.schild', { sektor: 'bug' });
+  const zone0 = po.zone; po.zone = 'away'; pt.zone = 'away'; lauf(P, 0.3);
+  const verworfen = op.absicht.standard && te.absicht.standard && op.befehlGrund === 'unten';
+  const stext = Status.text(g, op);
+  po.zone = zone0; pt.zone = zone0;
+  ok(verworfen && /Nicht an Bord/.test(stext), `zone != ship: die Absichten enden (unten), Status "${stext}"`);
+  ok(fehlerOk(P), 'game.errors leer');
+}
+{
   // Absicht endet mit dem Spiel
   const P = partie({}); frei(P);
   befehl(P, 'ops.feuer_halt'); const alt = agent(P, 'ops'); P.g.reset && P.g.reset('test'); lauf(P, 1);
@@ -514,36 +654,34 @@ section('8 Mensch gewinnt: Absicht verworfen, Bot sendet nichts, danach Standard
 }
 
 // ---------- 9 Reine Menschenpartie ----------
-section('9 Reine Menschenpartie unveraendert');
+section('9 Reine Menschenpartie ohne Bot-Code');
 {
-  const sha = (noop) => {
-    const orig = Lauf.tick; if (noop) Lauf.tick = () => {};
-    const h = crypto.createHash('sha1'); let nSnap = 0;
-    try {
-      for (const [start, seed] of [['arena_space', 5], ['m3', 6]]) {
-        const dir = path.join(TMP, 'w' + (++seq)); fs.mkdirSync(dir, { recursive: true });
-        const g = new Game({ noStore: true, seed, worldDir: dir, env: { MISSION_SOURCE: 'fallback', SPIELLEITER_LLM: 'off', REGIE_DIR: path.join(TMP, 'regie') }, log: () => {} });
-        const c = { send: (o) => h.update(JSON.stringify(o)), sendRaw: (s) => h.update(s) }; g.addConnection(c); g.handleMessage(c, { t: 'hello', clientId: 'M0', name: 'M0', color: 0 });
-        g.lobbyOpts.startMission = start; g.handleMessage(c, { t: 'ready', ready: true });
-        for (let i = 0; i < 700; i++) {
-          if (i === 100) interior.enterConsole(g, c.player, 'weapons');
-          if (i === 150) for (const [an, befehl, args] of [['ops', 'ops.ziel', { ziel: 'naechstes' }], ['ops', 'ops.feuer_halt'], ['technik', 'tech.schild', { sektor: 'heck' }], ['alle', 'bot.status'], ['alle', 'bot.automatik']]) g.handleMessage(c, { t: 'bot.befehl', an, befehl, args, quelle: 'menu' });
-          if (i === 200) g.handleMessage(c, { t: 'cmd', c: 'weapons.scan', on: true });
-          g.step();
-          if (g.wantsSnapshot()) { h.update(JSON.stringify(g.snapshot())); nSnap++; }
-        }
-        h.update(JSON.stringify([g.errors, g.time, g.ship.x, g.ship.y, g.ship.priority, g.ship.shields.alloc, g.players.map((p) => [p.x, p.y, p.console])]));
-        ok(Lauf.agenten(g).length === 0, `${start}: ohne Bots kein Lauf, keine Agenten`);
+  // Ohne Bots laeuft kein Bot-Code: kein Agent, keine Absicht, kein Aufruf von tick/opsDienst/technikDienst/Absicht-Setzern; bot.befehl wird nur mit unmoeglich.kein_bot beantwortet. Der Byte-Vergleich der
+  // Menschenpartie (Nachrichten, Snapshots) ist der Golden-Lauf (tools/golden-trace.js --all, diff gegen die Basis); ein Vergleich des Laufs mit sich selbst bewiese nichts.
+  // Den Quellscan der Registries (server/bots/befehle/*.js, schaerfer: Aufrufe, Zuweisungen mit Klammern, .cmd/.send) fuehrt tools/test-bot-befehle-nav.js Abschnitt 11 fuer alle Dateien dort.
+  const NAMEN = ['tick', 'opsDienst', 'technikDienst', 'befehlSetzen', 'feuerSetzen', 'haltenSetzen', 'prioritaetZuruecknehmen'];
+  const zaehl = {}; const alt = {};
+  for (const k of NAMEN) { zaehl[k] = 0; alt[k] = BotMannschaft.prototype[k]; BotMannschaft.prototype[k] = function (...a) { zaehl[k]++; return alt[k].apply(this, a); }; }
+  let nSnap = 0; const antworten = [];
+  try {
+    for (const [start, seed] of [['arena_space', 5], ['m3', 6]]) {
+      const dir = path.join(TMP, 'w' + (++seq)); fs.mkdirSync(dir, { recursive: true });
+      const g = new Game({ noStore: true, seed, worldDir: dir, env: { MISSION_SOURCE: 'fallback', SPIELLEITER_LLM: 'off', REGIE_DIR: path.join(TMP, 'regie') }, log: () => {} });
+      const c = mkConn(); g.addConnection(c); g.handleMessage(c, { t: 'hello', clientId: 'M0', name: 'M0', color: 0 });
+      g.lobbyOpts.startMission = start; g.handleMessage(c, { t: 'ready', ready: true });
+      for (let i = 0; i < 400; i++) {
+        if (i === 100) interior.enterConsole(g, c.player, 'weapons');
+        if (i === 150) for (const [an, bef, args] of [['ops', 'ops.ziel', { ziel: 'naechstes' }], ['ops', 'ops.feuer_halt'], ['technik', 'tech.schild', { sektor: 'heck' }], ['technik', 'tech.prio', { ziel: 'leck' }], ['alle', 'bot.automatik']]) g.handleMessage(c, { t: 'bot.befehl', an, befehl: bef, args, quelle: 'menu' });
+        if (i === 200) g.handleMessage(c, { t: 'cmd', c: 'weapons.scan', on: true });
+        g.step();
+        if (g.wantsSnapshot()) { g.snapshot(); nSnap++; }
       }
-    } finally { Lauf.tick = orig; }
-    return { hash: h.digest('hex'), nSnap };
-  };
-  const mit = sha(false), ohne = sha(true);
-  ok(mit.nSnap > 60 && mit.hash === ohne.hash, `Menschenpartie (mit fuenf bot.befehl): Snapshots und Nachrichten identisch mit echtem und mit leerem Lauf (${mit.nSnap} Snapshots)`);
-  for (const f of ['ops.js', 'technik.js', 'bot.js']) {
-    const quelle = fs.readFileSync(path.join(__dirname, '..', 'server', 'bots', 'befehle', f), 'utf8').split('\n').filter((l) => !l.trim().startsWith('//')).join('\n');
-    ok(!/game\.(ship|space)\.[a-zA-Z.]+\s*=[^=]/.test(quelle) && !/\.cmd\(|handleMessage|\.send\(/.test(quelle), `Quellscan ${f}: die Registry schreibt nie Spielzustand und sendet nie selbst (nur Absicht und Agent-Methoden)`);
-  }
+      antworten.push(...c.inbox.filter((x) => x.t === 'bot.antwort').map((x) => x.textId));
+      ok(Lauf.agenten(g).length === 0 && g.errors === 0, `${start}: ohne Bots kein Lauf, keine Agenten, keine Fehler`);
+    }
+  } finally { for (const k of NAMEN) BotMannschaft.prototype[k] = alt[k]; }
+  ok(nSnap > 40 && NAMEN.every((k) => zaehl[k] === 0), `Menschenpartie (mit fuenf bot.befehl): kein Bot-Code laeuft (${NAMEN.map((k) => k + ' ' + zaehl[k]).join(', ')}; ${nSnap} Snapshots)`);
+  ok(antworten.length === 10 && antworten.every((x) => /\.unmoeglich\.kein_bot$/.test(x)), 'jeder bot.befehl ohne Bot wird nur beantwortet (unmoeglich kein_bot), setzt nichts: ' + antworten.join(' '));
 }
 
 console.log(`\ntest-bot-befehle-ops-tech: ${n - fails}/${n} ok`);

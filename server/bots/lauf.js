@@ -6,6 +6,7 @@
 //   optionenSetzen(game, opts)      Kern-Optionen der Agenten dieses Games (nur Werkzeuge: pilot nose|maneuver)
 //   entfernen(game, spieler)        Agent weg (Bot geraeumt, verdraengt, entfernt)
 //   wartet(game, spieler)           der Agent weicht einem Menschen (bots/weichen.js)
+//   prioritaetLoesen(game, spieler) BOT-01 C2b: die vom Bot gesetzte Prioritaet der Technik zuruecknehmen, bevor ein Mensch die Station hat oder der Platz geraeumt wird (weichen.js, spieler.js)
 //   agent(game, spieler), agenten(game)   Zugriff (Tests, Werkzeug)
 // Snapshot: der Server baut game.snapshot() nur alle net.snapEvery Ticks fuer das Broadcast (er ist fuer alle Spieler gleich, kein snapshot(forPlayer)). Der Lauf nimmt diesen und baut keinen zweiten (snapshot() hat Seiteneffekte:
 // Zaehler und Sendeschluessel). Die Agenten arbeiten jeden Tick mit dem letzten Stand (wie die Testbots, nur ein Tick aelter). Ohne Bot-Spieler in einer laufenden Partie gibt es keinen Lauf: tick() kehrt nach einer Schleife ueber players zurueck.
@@ -23,6 +24,13 @@ const hatServerBots = (game) => game.players.some(istServerBot);
 class Lauf {
   constructor(game) {
     this.game = game; this.runId = game.runId; this.agentenMap = new Map(); this.snap = null; this.cache = null;
+  }
+  // BOT-01 C2b: die vom Bot gesetzte Prioritaet der Technik zuruecknehmen (nur wenn ship.priority noch der gehaltene Wert ist; eine Prioritaet des Menschen bleibt). true = zurueckgenommen
+  prioritaetLoesen(wert) {
+    const ship = this.game.ship;
+    if (!ship || ship.priority !== wert) return false;
+    ship.priority = null;
+    return true;
   }
   rngFuer(spieler) { return makeRng((((this.game.seed >>> 0) * 7919 + 311 + this.game.players.indexOf(spieler) * 101) >>> 0)); }
   liste() { return this.cache || (this.cache = Array.from(this.agentenMap.values())); }
@@ -55,7 +63,8 @@ function snapshotMerken(game, snap) { const lauf = LAEUFE.get(game); if (lauf) l
 function optionenSetzen(game, opts) { OPTIONEN.set(game, Object.assign({}, opts)); }   // Werkzeuge (tools/sim-headless.js arena --pilot)
 function entfernen(game, spieler) { const lauf = LAEUFE.get(game); if (lauf && spieler) lauf.loeschen(spieler.id); }
 function wartet(game, spieler) { const a = agent(game, spieler); if (a) a.weicht(); }
+function prioritaetLoesen(game, spieler) { const a = agent(game, spieler); return a ? a.prioritaetZuruecknehmen() : false; }
 function agent(game, spieler) { const lauf = LAEUFE.get(game); return lauf && spieler ? lauf.agentenMap.get(spieler.id) || null : null; }
 function agenten(game) { const lauf = LAEUFE.get(game); return lauf ? lauf.liste().slice() : []; }
 
-module.exports = { tick, beenden, snapshotMerken, optionenSetzen, entfernen, wartet, agent, agenten, istServerBot };
+module.exports = { tick, beenden, snapshotMerken, optionenSetzen, entfernen, wartet, prioritaetLoesen, agent, agenten, istServerBot };

@@ -4,11 +4,17 @@
 //   schild      die gehaltene Technik-Einstellung wird nicht gehalten (die Verteilung nach Bedrohung laeuft weiter)
 //   status      die Annahme uebernimmt den Registry-Text bei jedem Befehl, nicht nur bei bot.status
 //   mensch      die Absicht wird bei Menschenuebernahme nicht verworfen (Mensch gewinnt faellt)
-// Ohne Mutation laeuft der Test gruen (Gegenprobe). Dauer: je Lauf rund eine Minute.   node tools/mutation-bot-befehle-ops-tech.js [name ...]
+//   ziel_stumm  eine Station/Mine als Ziel legt das Feuer auf Gegner still (BOT-01 C2b Nacharbeit W1)
+//   prio_sperre die Standard-Prioritaeten (Feuer zuerst) laufen gegen die gehaltene tech.prio
+//   system_aktiv  tech.prio prueft nicht, ob das System eingebaut ist
+//   prio_bleibt die vom Bot gesetzte Prioritaet bleibt im Schiff stehen (Mensch, Raeumen, bewusstlos; W2)
+//   prio_endet_nie  eine System-Prioritaet endet nicht, wenn das System heil ist (W3)
+//   unten       bewusstlos/abwesend verwirft keine Absicht
+// Ohne Mutation laeuft der Test gruen (Gegenprobe). Dauer: je Lauf rund zwei Minuten (Stufe slow).   node tools/mutation-bot-befehle-ops-tech.js [name ...]
 const { spawnSync } = require('child_process');
 const path = require('path');
 const test = path.join(__dirname, 'test-bot-befehle-ops-tech.js');
-const alle = ['feuer_halt', 'schild', 'status', 'mensch'];
+const alle = ['feuer_halt', 'schild', 'status', 'mensch', 'ziel_stumm', 'prio_sperre', 'system_aktiv', 'prio_bleibt', 'prio_endet_nie', 'unten'];
 const gewaehlt = process.argv.slice(2).length ? process.argv.slice(2) : alle;
 let fails = 0;
 for (const m of ['', ...gewaehlt]) {
