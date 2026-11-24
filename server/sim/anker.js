@@ -242,14 +242,20 @@ function raetselGebunden(k, tor) {
   if (!rs.length) return false;
   return tor.paar ? rs.some((a) => a.paar === tor.paar) : true;
 }
-// BOT-02 B4: ein ungeloestes Raetselschloss im Umkreis (Kacheln) des Spielers, fuer die Ansage des Bord-Bots (nur lesen): { paar, solo, fenster } oder null. Hinweis und Fenster wie im E-Hinweis (Buehne.raetselHinweis).
+// BOT-02 B4: ein ungeloestes Raetselschloss im Umkreis (Kacheln) des Spielers, fuer die Ansage des Bord-Bots (nur lesen): { paar, solo, fenster, partner } oder null. Fenster wie im E-Hinweis (Buehne.raetselHinweis);
+// partner = Mitte des Gegenstuecks desselben Paares in Pixeln ({ x, y }), solange es nicht geloest ist, sonst null (Karte ohne eindeutiges Gegenstueck, Paar ohne Kennung).
+function raetselPartner(aw, k, a) {
+  if (a.paar == null) return null;
+  const q = k.anker.find((o) => o.rolle === 'raetsel' && o.paar === a.paar && o.id !== a.id);
+  return q && zustandIn(aw, k, q.id) !== 'geloest' ? mitte(q) : null;
+}
 function raetselNahe(game, p, kacheln) {
   const aw = game.away; if (!aw || !p || p.zone !== 'away') return null;
   const k = karteVon(aw.map); if (!k) return null;
   for (const a of ankerListe(game, aw, k)) {
     if (a.rolle !== 'raetsel' || zustandIn(aw, k, a.id) === 'geloest') continue;
     const c = mitte(a);
-    if (Math.hypot(c.x - p.x, c.y - p.y) <= kacheln * TILE) return { paar: a.paar == null ? a.id : a.paar, solo: istSolo(game), fenster: paarFenster(game, k, a.paar) };
+    if (Math.hypot(c.x - p.x, c.y - p.y) <= kacheln * TILE) return { paar: a.paar == null ? a.id : a.paar, solo: istSolo(game), fenster: paarFenster(game, k, a.paar), partner: raetselPartner(aw, k, a) };
   }
   return null;
 }

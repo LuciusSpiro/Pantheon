@@ -3,8 +3,8 @@
 // Echtes Game, Server-Bots, Testgelaende Ruine (arena_away, v2-Karte mit Raetselpaar) und Plattform (Kustodenpult, Handkarte).
 //   1. Texte und Vertrag: textIds ohne Argumente, Texte in texte.json, hoechstens 90 Zeichen (Hoechstfaelle), Form der Nachricht, kein Clip-Vorrat, keine Spielernamen (Quellscan)
 //   2. Codefolge: der Bord-Bot sagt sie an (einmal je Karte), die ODA schweigt; ohne Bord-Bot funkt die ODA wie bisher; mit Mensch an Bord unveraendert; nur wenn die Hilfe im Dienst ausgeloest wurde
-//   3. Gegner: nur was das Team kennt und der Mensch unten nicht selbst sieht; Richtung und Entfernung; nur bei Neuzugang oder geaenderter Zahl; nie dasselbe zweimal in 30 s; verborgene Gegner bleiben verborgen
-//   4. Raetselhinweis: bei einem ungeloesten Schloss, einmal je Paar; solo nacheinander mit Fenster, in der Gruppe gleichzeitig
+//   3. Gegner: alle lebenden Gegner der Kommandokarte (nicht nach vis), abzueglich dessen, was der Mensch sieht UND im Bildausschnitt hat; Richtung und Entfernung, gestoerter Scan grob; nur bei Neuzugang oder geaenderter Zahl; nie dasselbe zweimal in 30 s; Handkarte schweigt
+//   4. Raetselhinweis: bei einem ungeloesten Schloss, einmal je Paar; Ort des zweiten Schlosses, solo mit Fenster, in der Gruppe beide gleichzeitig
 //   5. Haeufigkeit: hoechstens eine Ansage je 8 s je Empfaenger, ueber alle Arten
 //   6. Nur im laufenden Bord-Dienst; keine Wirkung auf die Befehlsannahme (Rate, Antworten)
 //   7. Client: Sprechspalte 3 Eintraege nur mit Bots (sonst unveraendert 2); Ansage ohne Quittung/gilt, Sprecher BORD, kein Clip
@@ -27,7 +27,6 @@ const BotSpieler = require('../server/bots/spieler.js');
 const Lauf = require('../server/bots/lauf.js');
 const Ansagen = require('../server/bots/ansagen.js');
 const Protocol = require('../shared/protocol.js');
-const Buehne = require('../shared/buehne.js');
 const TEXTE = require('../content/bots/texte.json');
 const Clips = require('./bot-clips.js');
 
@@ -112,8 +111,14 @@ section('1 Texte und Vertrag');
   const l = Ansagen.lage({ x: 0, y: 0 }, viele);
   ok(l.length + 14 <= 90 && TEXTE['bord.ansage.gegner'].every((v) => roh(v, { LAGE: l }).length <= 90), `Lage mit acht Richtungen: ${l.length} Zeichen, mit Vorsilbe <= 90`);
   ok(Ansagen.fuelle('{LAGE}', { LAGE: 'x'.repeat(200) }).length === 90, 'ein zu langer Text wird auf 90 Zeichen begrenzt');
-  const hmax = [Buehne.raetselHinweis(true, 9999) + '.', Buehne.raetselHinweis(false)];
-  ok(TEXTE['bord.ansage.raetsel'].every((v) => hmax.every((h) => roh(v, { HINWEIS: h }).length <= 90)), 'Raetselhinweis solo und Gruppe: <= 90');
+  // Raetselhinweis: laengste Faelle (Suedwesten, 99 m, Fenster bis 99 s; Gruppe; ohne Ort), je gegen alle Vorlagen
+  const aus = { x: 0, y: 0 }, partnerSW = { x: -70 * T, y: 70 * T };
+  const hmax = [Ansagen.raetselHinweis(aus, { solo: true, fenster: 99.9, partner: partnerSW }), Ansagen.raetselHinweis(aus, { solo: false, partner: partnerSW }), Ansagen.raetselHinweis(aus, { solo: true, fenster: 99, partner: null }), Ansagen.raetselHinweis(aus, { solo: false, partner: null })];
+  ok(hmax[0] === 'Zweites Schloss im Südwesten, 98 Meter, dann innerhalb von 99 Sekunden.', 'Raetselhinweis solo, laengster Fall: ' + hmax[0]);
+  ok(TEXTE['bord.ansage.raetsel'].every((v) => hmax.every((h) => roh(v, { HINWEIS: h }).length <= 90)), 'Raetselhinweis solo und Gruppe: jede Vorlage mit jedem Hinweis hoechstens 90 Zeichen (laengste ' + Math.max(...TEXTE['bord.ansage.raetsel'].flatMap((v) => hmax.map((h) => roh(v, { HINWEIS: h }).length))) + ')');
+  // echte Umlaute und ß (kein ae/ue/ss-Ersatz): dort, wo sie vorkommen muessen
+  ok(TEXTE['bord.ansage.raetsel'].every((t) => t.includes('Rätsel')) && Ansagen.lage({ x: 0, y: 0 }, [{ id: 'a', x: 0, y: 5 * T }]).includes('Süden') && Ansagen.lage({ x: 0, y: 0 }, [{ id: 'a', x: -5 * T, y: 5 * T }], true).includes('Südwesten') && hmax[0].includes('Südwesten') && hmax[3].includes('Schlösser') && Ansagen.codeFolge({ codeTable: { kreis: 'weiss' }, kustodenpult: { symbols: ['kreis'] } }) === 'Kreis Weiß' && Ansagen.lage({ x: 0, y: 0 }, [{ id: 'a', x: 5 * T, y: 0 }], true).includes('gestört'), 'echte Umlaute und ß: Rätsel, Süden, Südwesten, Schlösser, Weiß, gestört');
+  ok(['Rätsel voraus: ', 'Rätselpaar: '].every((v) => TEXTE['bord.ansage.raetsel'].some((t) => t.startsWith(v))), 'Vorlagen Raetselhinweis: die zwei Varianten');
   ok(TEXTE['bord.ansage.code'].concat(TEXTE['bord.ansage.gegner'], TEXTE['bord.ansage.raetsel']).every((t) => !/[0-9]/.test(t) && !/name/i.test(t)), 'Vorlagen: keine Ziffer, kein Name');
   const quelle = fs.readFileSync(path.join(__dirname, '..', 'server', 'bots', 'ansagen.js'), 'utf8').split(/\r?\n/).map((z) => z.replace(/^\s*\/\/.*$/, '').replace(/\s\/\/\s.*$/, '')).join('\n');   // ohne Kommentare (CRLF der Arbeitskopie oder LF)
   ok(!/\.name\b/.test(quelle) && !/Math\.random|game\.rng|llm/i.test(quelle), 'Quellscan ansagen.js: kein Spielername, kein Zufall, kein LLM');
@@ -138,7 +143,7 @@ section('2 Codefolge: der Bord-Bot sagt sie an, die ODA schweigt; ohne Bord-Bot 
     ok(a.length === 1, 'genau eine Ansage (' + a.length + ')');
     const m = a[0] && a[0].m;
     ok(m && m.t === 'bot.antwort' && m.befehl === 'bord.ansage' && m.status === 'ok' && m.botId === null && m.textId === 'bord.ansage.code' && typeof m.text === 'string' && m.text === TEXTE['bord.ansage.code'][m.variante].replace('{FOLGE}', folgeSoll(P.g)), 'Form: bot.antwort, befehl bord.ansage, status ok, botId null, textId bord.ansage.code, text = Vorlage mit der Folge: ' + (m && m.text));
-    ok(m && m.text.length <= 90 && /^[\x20-\x7EÀ-ſ„“]+$/.test(m.text), 'hoechstens 90 Zeichen, echte Umlaute, keine Steuerzeichen');
+    ok(m && m.text.length <= 90 && !/[\x00-\x1F]/.test(m.text) && /Kreis|Dreieck|Raute|Stern|Welle|Kreuz/.test(m.text), 'hoechstens 90 Zeichen, keine Steuerzeichen, Symbolnamen der Folge im Text (die Umlaute prueft Abschnitt 1)');
     ok(a[0] && a[0].t >= P.g.away.noHumanT - 1 && a[0].t - 8 < VERZ + 2, 'zeitlich beim Ereignis der ODA (nach odaCodeHelpDelay)');
     lauf(P, 60);
     ok(ans(P.c).filter((e) => e.m.textId === 'bord.ansage.code').length === 1, 'einmal je Karte: auch 60 s spaeter nicht noch einmal');
@@ -186,92 +191,158 @@ section('2 Codefolge: der Bord-Bot sagt sie an, die ODA schweigt; ohne Bord-Bot 
 }
 
 // ---------- 3 Gegner ----------
-section('3 Gegner: nur was das Team kennt und der Mensch nicht selbst sieht');
+section('3 Gegner: alle lebenden Gegner der Kommandokarte, abzueglich dessen, was der Mensch auf dem Bildschirm hat');
 {
   const P = partie({});
   const { g, h, c } = P;
-  ok(lauf(P, 8, () => dienst(P)) && dienst(P) && combat.isV2(g), 'Ausgangslage: Ruine (v2), Mensch unten, Bord-Dienst laeuft');
-  // verborgener Gegner: weit weg, nicht sichtbar (kein Sensor): nichts, kein Leck
-  const fern = gegner(P, 14, 0);
+  ok(lauf(P, 8, () => dienst(P)) && dienst(P) && combat.isV2(g) && g.away.drones.length === 0, 'Ausgangslage: Ruine (v2) ohne Gegner, Mensch unten, Bord-Dienst laeuft');
   lauf(P, 10);
-  ok(ans(c).length === 0, 'ein Gegner, den das Team nicht kennt (nicht sichtbar, kein Sensor): keine Ansage (Nebel bleibt)');
-  // Sensor: jetzt kennt das Team ihn, der Mensch sieht ihn nicht (14 Kacheln)
-  sensor(P, true);
-  const t0 = g.time;
-  ok(warteBisAnsage(P, c, 6), 'Sensor an, Gegner 14 Kacheln im Osten: Ansage');
+  ok(ans(c).length === 0, 'ohne Gegner: keine Ansage');
+  // Gegner ohne vis (kein Mitspieler sieht ihn, kein Sensor): die Kommandokarte zeichnet ihn trotzdem, also wird er angesagt (Kais Vorgabe: was das Aussenteam nicht sieht, der Captain aber schon)
+  const fern = gegner(P, 14, 0);
+  ok(warteBisAnsage(P, c, 6), 'Gegner 14 Kacheln im Osten, ohne vis und ohne Sensor: Ansage');
+  ok(!fern.vis && !(g.time < g.away.sensorUntil), 'Kontrolle: der Gegner hat kein vis, es laeuft kein Sensor (die Quelle ist nicht e.vis)');
   const a = ans(c);
   ok(a.length === 1 && a[0].m.textId === 'bord.ansage.gegner' && /Ein Gegner im Osten, etwa 14 Meter\./.test(a[0].m.text) && a[0].m.text.length <= 90, 'Text: ' + (a[0] && a[0].m.text));
   ok(a[0] && a[0].m.botId === null && a[0].m.befehl === 'bord.ansage' && a[0].m.status === 'ok', 'Form wie bei der Codefolge');
   const tErst = a[0] ? a[0].t : 0;
+  // Neuzugang: zweiter ferner Gegner gleich nach der Meldung: die 8-s-Grenze haelt die zweite Ansage zurueck, danach kommt sie mit der neuen Zahl
+  gegner(P, 15, 1);
+  lauf(P, 4);
+  ok(g.time - tErst < 8 && ans(c).length === 1, 'Neuzugang weniger als 8 s nach der Meldung: noch keine zweite Ansage (' + (g.time - tErst).toFixed(1) + ' s)');
+  lauf(P, 8);
+  const neu = ans(c);
+  ok(neu.length === 2 && neu[1].t - tErst >= 8 - 1 / 30 && /Zwei Gegner im Osten, etwa 14 Meter\./.test(neu[1].m.text), 'Neuzugang: Zahl aendert sich -> nach 8 s eine Ansage mit der neuen Zahl: ' + (neu[1] && neu[1].m.text));
   lauf(P, 40);
-  ok(ans(c).length === 1, 'derselbe Gegner, nichts Neues: auch nach 40 s keine Wiederholung (ueber die 30 s hinaus)');
-  // Gegner, den der Mensch selbst sieht: nicht ansagen
+  ok(ans(c).length === 2, 'dieselben Gegner, nichts Neues: auch nach 40 s keine Wiederholung (ueber die 30 s hinaus)');
+  // Gegner, den der Mensch selbst sieht (Sichtlinie, im Bildausschnitt): nicht ansagen
   let nah = null;
   for (let r = 2; r <= 6 && !nah; r++) for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1], [1, 1], [-1, -1]]) { if (combat.gesehenVonSpieler(g, h, { x: h.x + dx * r * T, y: h.y + dy * r * T })) { nah = [dx * r, dy * r]; break; } }
   ok(!!nah, 'Aufbau: eine Kachel in Sicht des Menschen gefunden ' + JSON.stringify(nah));
   const n0 = ans(c).length;
-  if (nah) { gegner(P, nah[0], nah[1]); lauf(P, 12); }
-  ok(ans(c).length === n0, 'ein Gegner in Sicht des Menschen (auch vom Sensor erfasst): keine Ansage');
-  ok(g.away.drones.filter((d) => d.alive !== false && d.vis).length >= 2, 'Kontrolle: beide Gegner sind fuers Team sichtbar (vis), nur der ferne wird angesagt');
-  // Neuzugang: zweiter ferner Gegner, 8-s-Grenze beachten
-  const tNeu = g.time;
-  const zweiter = gegner(P, 15, 1);
-  lauf(P, 3);
-  ok(ans(c, tNeu).length === 0 || tNeu - tErst >= 8, 'Neuzugang: bei weniger als 8 s Abstand zur letzten Ansage noch keine zweite');
-  lauf(P, 12);
-  const neu = ans(c, tNeu);
-  ok(neu.length === 1 && /Zwei Gegner im Osten, etwa 14 Meter\./.test(neu[0].m.text), 'Neuzugang: Zahl aendert sich -> eine Ansage mit der neuen Zahl: ' + (neu[0] && neu[0].m.text));
+  let nahE = null;
+  if (nah) { nahE = gegner(P, nah[0], nah[1]); lauf(P, 12); }
+  ok(ans(c).length === n0, 'ein Gegner in Sicht des Menschen: keine Ansage');
+  ok(nahE && nahE.vis === true && fern.vis === false && Ansagen.imBild(g, h, nahE), 'Kontrolle: der nahe Gegner ist gesehen (vis) und im Bildausschnitt, die fernen nicht gesehen: nur die fernen werden angesagt');
   // Richtungen
   for (const [dx, dy, name] of [[0, -13, 'Norden'], [0, 13, 'Süden'], [-13, 0, 'Westen'], [13, -13, 'Nordosten'], [-13, 13, 'Südwesten']]) {
     ok(Ansagen.kompass({ x: 0, y: 0 }, { x: dx * T, y: dy * T }) === name, `Richtung ${name} (Norden ist oben, y wird kleiner)`);
   }
   ok(Ansagen.meter(12 * T) === 12 && Ansagen.meter(14.4 * T) === 14 && Ansagen.meter(3.4 * T) === 3 && Ansagen.meter(5) === 1, 'Meter = Kacheln (1 Kachel = 1 m), ab 10 auf 2 gerundet, mindestens 1');
   ok(g.errors === 0, 'game.errors 0');
-  // 30-s-Regel: Gegner weg und dieselbe Lage wieder -> dieselbe Meldung nie zweimal binnen 30 s
-  {
-    const Q = partie({});
-    lauf(Q, 8, () => dienst(Q)); sensor(Q, true);
-    const tot = () => { for (const d of Q.g.away.drones) if (d.id.startsWith('T')) d.alive = false; };
-    gegner(Q, 14, 0);
-    lauf(Q, 6, () => ans(Q.c).length > 0);
-    const t1 = ans(Q.c)[0] ? ans(Q.c)[0].t : -1;
-    tot(); lauf(Q, 9);
-    gegner(Q, 14, 0);   // neue Lage-Kennung, derselbe Text (ein Gegner im Osten, 14 m), 9 s nach der Meldung
-    lauf(Q, 15);
-    ok(t1 >= 0 && ans(Q.c).length === 1, 'dieselbe Lage nach 9 s wieder (24 s nach der Meldung): nicht noch einmal (30-s-Regel)');
-    tot(); lauf(Q, 8);
-    gegner(Q, 14, 0);   // 32 s nach der Meldung
-    lauf(Q, 4);
-    ok(ans(Q.c).length === 2 && ans(Q.c)[1].t - t1 >= 30 && ans(Q.c)[1].m.text.includes('Ein Gegner im Osten, etwa 14 Meter.'), 'nach Ablauf der 30 s darf dieselbe Lage wieder gemeldet werden');
+}
+{
+  // Gegner hinter einer Wand, im Bildausschnitt: nur die Kommandokarte zeigt ihn, der Mensch sieht ihn nicht -> Ansage
+  const P = partie({});
+  const { g, h, c } = P;
+  lauf(P, 8, () => dienst(P));
+  let wand = null;
+  for (let r = 3; r <= 9 && !wand; r++) for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1], [1, 1], [-1, -1], [1, -1], [-1, 1]]) {
+    const q = { x: h.x + dx * r * T, y: h.y + dy * r * T };
+    if (Ansagen.imBild(g, h, q) && !combat.gesehenVonSpieler(g, h, q) && Math.hypot(dx * r, dy * r) < 9) { wand = [dx * r, dy * r]; break; }
+  }
+  ok(!!wand, 'Aufbau: eine Kachel im Bildausschnitt (unter 9 Kacheln), die der Mensch nicht sieht (Wand dazwischen) ' + JSON.stringify(wand));
+  if (wand) {
+    const e = gegner(P, wand[0], wand[1]);
+    sensor(P, true);
+    ok(warteBisAnsage(P, c, 8), 'Gegner hinter der Wand im Bildausschnitt (vom Sensor gezeichnet): Ansage');
+    const soll = 'Ein Gegner im ' + Ansagen.kompass(h, e) + ', etwa ' + Ansagen.meter(Math.hypot(e.x - h.x, e.y - h.y)) + ' Meter.';
+    ok(ans(c).length === 1 && ans(c)[0].m.text.includes(soll), 'Text mit Richtung und Entfernung: ' + soll + ' / ' + (ans(c)[0] && ans(c)[0].m.text));
   }
 }
 {
-  // Plattform (Handkarte): alle Gegner fuer alle sichtbar, nichts anzusagen
+  // Bildausschnitt: Rahmen des Clients (Abzug nur, was sichtbar UND im Bild ist); gesehen, aber nicht im Bild (z. B. Lanzenkegel, Posten) wird angesagt
+  const P = partie({});
+  const { g, h, c } = P;
+  const B = Ansagen.BILD;
+  const q = (dx, dy) => ({ x: h.x + dx * T, y: h.y + dy * T });
+  ok(Ansagen.imBild(g, h, q(14, 0)) && Ansagen.imBild(g, h, q(-14, 0)) && !Ansagen.imBild(g, h, q(16, 0)) && !Ansagen.imBild(g, h, q(-16, 0)), 'Bildausschnitt seitlich: bis 15 Kacheln im Bild, 16 nicht');
+  ok(Ansagen.imBild(g, h, q(0, -9.5)) && !Ansagen.imBild(g, h, q(0, -10.5)) && Ansagen.imBild(g, h, q(0, 8)) && !Ansagen.imBild(g, h, q(0, 9)), 'Bildausschnitt senkrecht: nach Norden bis 10, nach Sueden bis 8,5 Kacheln (Norden = oben)');
+  ok(B.seite >= 14.7 && B.nord >= 9.3 && B.sued >= 8.2, 'Rahmen mindestens so gross wie 2D am Kartenrand (14,7 / 9,2 / 8,2) und Voxel weit (14,4 / 9,3 / 6,6)');
+  lauf(P, 8, () => dienst(P));
+  const echt = combat.gesehenVonSpieler;
+  try {
+    combat.gesehenVonSpieler = () => true;   // Mensch "sieht" alles (z. B. Posten mit Aussicht oder Lanzenkegel): nur was im Bildausschnitt liegt, zaehlt als auf dem Bildschirm
+    const innen = gegner(P, 5, 0), aussen = gegner(P, 0, -20);
+    lauf(P, 10);
+    const t = ans(c).map((e) => e.m.text).join(' | ');
+    ok(ans(c).length === 1 && /Ein Gegner im Norden, etwa 20 Meter\./.test(t) && !/Osten/.test(t), 'gesehen, aber nicht im Bildausschnitt (20 Kacheln im Norden): angesagt; gesehen und im Bild (5 im Osten): nicht: ' + t);
+    ok(innen.alive && aussen.alive, 'Aufbau: beide Gegner leben');
+  } finally { combat.gesehenVonSpieler = echt; }
+}
+{
+  // Gestoerter Scan (Stoerrelais an): die Karte zeigt nur Rauschen; die Ansage nennt nur die grobe Richtung und eine ungefaehre Zahl, keine Entfernung
+  const P = partie({});
+  const { g, c } = P;
+  lauf(P, 8, () => dienst(P));
+  g.away.jammers = [{ x: 1, y: 1, off: false }];
+  ok(combat.scanQuality(g, g.away) < 1, 'Aufbau: Stoerrelais an, scanQuality < 1');
+  gegner(P, 14, 0); gegner(P, 15, 1);
+  ok(warteBisAnsage(P, c, 8), 'gestoerter Scan: Ansage kommt');
+  const m = ans(c)[0] && ans(c)[0].m;
+  ok(m && /^(Orbit meldet: )?Scan gestört: etwa zwei Gegner im Osten\.$/.test(m.text) && !/Meter|\d/.test(m.text), 'nur Richtung und ungefaehre Zahl, keine Entfernung: ' + (m && m.text));
+  const grob = Ansagen.lage({ x: 0, y: 0 }, [{ id: 'a', x: 5 * T, y: 0 }, { id: 'b', x: 0, y: -9 * T }], true);
+  ok(grob === 'Scan gestört: etwa ein Gegner im Osten. Etwa ein Gegner im Norden.', 'zwei Richtungen grob: ' + grob);
+  g.away.jammers[0].off = true;
+  ok(combat.scanQuality(g, g.away) === 1 && /Meter/.test(Ansagen.lage({ x: 0, y: 0 }, [{ id: 'a', x: 5 * T, y: 0 }], false)), 'Relais aus: wieder mit Entfernung');
+}
+{
+  // Kreaturen: die Kommandokarte zeichnet sie nur, wenn das Team sie sieht (Kreatur.snap); dann werden sie wie Gegner angesagt
+  const P = partie({});
+  const { g, h, c } = P;
+  lauf(P, 8, () => dienst(P));
+  const K = require('../server/sim/kreatur.js').erzeugenAuf(g, g.away, 'rudeltier', { x: h.x + 14 * T, y: h.y });
+  lauf(P, 10);
+  ok(!!K && ans(c).length === 0, 'Kreatur, die das Team nicht sieht: nicht auf der Kommandokarte, keine Ansage');
+  sensor(P, true);
+  ok(warteBisAnsage(P, c, 8) && /^Ein Gegner im /.test(ans(c)[0].m.text), 'Kreatur im Sensor (auf der Kommandokarte): angesagt: ' + (ans(c)[0] && ans(c)[0].m.text));
+}
+{
+  // 30-s-Regel: Gegner weg und dieselbe Lage wieder -> dieselbe Meldung nie zweimal binnen 30 s
+  const Q = partie({});
+  lauf(Q, 8, () => dienst(Q));
+  const tot = () => { for (const d of Q.g.away.drones) if (d.id.startsWith('T')) d.alive = false; };
+  gegner(Q, 14, 0);
+  lauf(Q, 6, () => ans(Q.c).length > 0);
+  const t1 = ans(Q.c)[0] ? ans(Q.c)[0].t : -1;
+  tot(); lauf(Q, 9);
+  gegner(Q, 14, 0);   // neue Lage-Kennung, derselbe Text (ein Gegner im Osten, 14 m), 9 s nach der Meldung
+  lauf(Q, 15);
+  ok(t1 >= 0 && ans(Q.c).length === 1, 'dieselbe Lage nach 9 s wieder (24 s nach der Meldung): nicht noch einmal (30-s-Regel)');
+  tot(); lauf(Q, 8);
+  gegner(Q, 14, 0);   // 32 s nach der Meldung
+  lauf(Q, 4);
+  ok(ans(Q.c).length === 2 && ans(Q.c)[1].t - t1 >= 30 && ans(Q.c)[1].m.text.includes('Ein Gegner im Osten, etwa 14 Meter.'), 'nach Ablauf der 30 s darf dieselbe Lage wieder gemeldet werden');
+}
+{
+  // Plattform (Handkarte): der Captain sieht dort Gegner nur waehrend des Sensors (capAway ohne showDrones), dann haben alle sie: die Art schweigt
   const P = partie({ karte: 'platform' });
   P.g.away.sensorUntil = 1e9;
+  ok(!combat.isV2(P.g) && P.g.away.drones.some((d) => d.alive !== false), 'Aufbau: Plattform ist keine v2-Karte und hat lebende Gegner');
   lauf(P, 12);
-  ok(ans(P.c).filter((e) => e.m.textId === 'bord.ansage.gegner').length === 0, 'Handkarte (Plattform): keine Gegner-Ansage');
+  ok(ans(P.c).filter((e) => e.m.textId === 'bord.ansage.gegner').length === 0, 'Handkarte (Plattform): keine Gegner-Ansage, auch mit Sensor');
 }
 
 {
   // Aussenmission nicht aktiv: keine Ansage; danach wieder
   const P = partie({});
-  lauf(P, 8, () => dienst(P)); gegner(P, 14, 0).vis = true;   // vis von Hand: bei ruhender Aussenmission rechnet die Sicht nicht
+  lauf(P, 8, () => dienst(P)); gegner(P, 14, 0);
   P.g.away.active = false;
   lauf(P, 12);
   ok(ans(P.c).length === 0, 'Aussenmission nicht aktiv: keine Ansage');
-  P.g.away.active = true; sensor(P, true);
+  P.g.away.active = true;
   ok(lauf(P, 10, () => ans(P.c).length > 0), 'wieder aktiv: die Ansage kommt');
 }
 
 // ---------- 4 Raetselhinweis ----------
-section('4 Raetselhinweis');
+section('4 Raetselhinweis: Ort des zweiten Schlosses; solo mit Fenster, in der Gruppe beide gleichzeitig');
 {
   const P = partie({});
   const { g, h, c } = P;
   const karte = W.AWAY_MAPS[g.away.map].karte;
   const rs = karte.anker.filter((a) => a.rolle === 'raetsel');
   const nebenAnker = (a, d) => { h.x = a.x * T + 16 + (d || T); h.y = a.y * T + 16; h.moving = false; };
+  ok(rs.length === 2 && rs[0].x === 4 && rs[0].y === 1 && rs[1].x === 38 && rs[1].y === 19 && rs[0].paar === rs[1].paar, 'Aufbau: Raetselpaar der Ruine bei (4|1) und (38|19)');
   lauf(P, 8, () => dienst(P));
   lauf(P, 10);
   ok(ans(c).length === 0, 'weit vom Rätsel: keine Ansage');
@@ -279,12 +350,24 @@ section('4 Raetselhinweis');
   ok(warteBisAnsage(P, c, 6), 'am Schloss: Ansage');
   const a = ans(c);
   const fenster = Math.floor(require('../server/sim/anker.js').paarFenster(g, karte, rs[0].paar));
-  ok(a.length === 1 && a[0].m.textId === 'bord.ansage.raetsel' && a[0].m.text.length <= 90 && a[0].m.text.includes('nacheinander, ' + fenster + ' s Zeit'), 'solo (genau 1 im Aussenteam): Hinweis nacheinander mit dem Fenster des Servers (' + fenster + ' s): ' + (a[0] && a[0].m.text));
+  // Mensch steht eine Kachel oestlich vom ersten Schloss: das zweite liegt 33 Kacheln ostwaerts und 18 suedwaerts (Norden = oben), 37,6 Kacheln entfernt, ab 10 auf 2 gerundet = 38
+  const soll = 'Zweites Schloss im Südosten, 38 Meter, dann innerhalb von ' + fenster + ' Sekunden.';
+  ok(a.length === 1 && a[0].m.textId === 'bord.ansage.raetsel' && a[0].m.text.length <= 90 && a[0].m.text.includes(soll), 'solo (ein Mensch unten): Ort des Gegenstuecks und Fenster des Servers (' + fenster + ' s): ' + (a[0] && a[0].m.text));
+  ok(a[0] && !/nacheinander|gleichzeitig/.test(a[0].m.text), 'der Hinweis wiederholt nicht den E-Hinweis am Schloss („nacheinander“, „gleichzeitig“)');
   lauf(P, 30);
   ok(ans(c).length === 1, 'einmal je Paar: bleibt der Mensch am Schloss, kommt nichts nach');
   nebenAnker(rs[1]);
   lauf(P, 12);
   ok(ans(c).length === 1, 'zweites Schloss desselben Paares: keine zweite Ansage');
+  // Gegenstueck schon geloest (nur dieses): kein Ort
+  const Pg = partie({});
+  const kg = W.AWAY_MAPS[Pg.g.away.map].karte; const rg = kg.anker.filter((x) => x.rolle === 'raetsel');
+  Pg.g.away.zustaende = Object.assign(Pg.g.away.zustaende || {}, { [rg[1].id]: 'geloest' });
+  Pg.h.x = rg[0].x * T + 16 + T; Pg.h.y = rg[0].y * T + 16;
+  const nahe = require('../server/sim/anker.js').raetselNahe(Pg.g, Pg.h, 3);
+  ok(nahe && nahe.partner === null, 'Gegenstueck schon geloest: raetselNahe nennt keinen Ort');
+  const ohneOrt = Ansagen.raetselHinweis(Pg.h, { solo: true, fenster: 20.7, partner: null });
+  ok(ohneOrt === 'Zweites Schloss, dann innerhalb von 20 Sekunden.' && Ansagen.raetselHinweis(Pg.h, { solo: false, fenster: 1.5, partner: null }) === 'Beide Schlösser gleichzeitig drehen.', 'ohne ermittelbaren Ort: Text ohne Richtung und Entfernung, kein erfundener Ort');
   // geloest: nichts
   const P2 = partie({});
   const k2 = W.AWAY_MAPS[P2.g.away.map].karte; const r2 = k2.anker.filter((x) => x.rolle === 'raetsel');
@@ -293,14 +376,14 @@ section('4 Raetselhinweis');
   P2.h.x = r2[0].x * T + 16 + T; P2.h.y = r2[0].y * T + 16;
   lauf(P2, 12);
   ok(ans(P2.c).length === 0, 'geloestes Paar: keine Ansage');
-  // Gruppe: zwei Menschen unten -> gleichzeitig
+  // Gruppe: zwei Menschen unten -> beide gleichzeitig, mit dem Ort des zweiten Schlosses
   const P3 = partie({ menschen: 2, unten: 2 });
   const k3 = W.AWAY_MAPS[P3.g.away.map].karte; const r3 = k3.anker.filter((x) => x.rolle === 'raetsel');
   lauf(P3, 8, () => dienst(P3));
   for (const cc of P3.conns) { cc.player.x = r3[0].x * T + 16 + T; cc.player.y = r3[0].y * T + 16; }
   lauf(P3, 12);
   const g3 = ans(P3.conns[0]);
-  ok(g3.length === 1 && /beide gleichzeitig!/.test(g3[0].m.text) && ans(P3.conns[1]).length === 1, 'Gruppe (zwei unten): „beide gleichzeitig!“, jeder Mensch unten bekommt seine Ansage: ' + (g3[0] && g3[0].m.text));
+  ok(g3.length === 1 && g3[0].m.text.includes('Zweites Schloss im Südosten, 38 Meter, beide gleichzeitig drehen.') && !/Sekunden/.test(g3[0].m.text) && ans(P3.conns[1]).length === 1, 'Gruppe (zwei unten): „beide gleichzeitig“ mit dem Ort des zweiten Schlosses, jeder Mensch unten bekommt seine Ansage: ' + (g3[0] && g3[0].m.text));
 }
 
 // ---------- 5 Haeufigkeit ----------
@@ -393,7 +476,8 @@ section('7 Client: Sprechspalte, Quittung, Clip');
     for (const t of ['Eins', 'Zwei', 'Drei', 'Vier']) H2.pushCrewFunk(t, 'BORD', '#fff');
     ok(H2.sprech.eintraege.map((e) => e.text).join() === 'Zwei,Drei,Vier' && zeichne(H2) === 3, 'mit Bots: 3 Eintraege (der aelteste faellt raus)');
     H2.sprech.aufnahme = true;
-    ok(zeichne(H2) === 3 + 0 || zeichne(H2) === 2 + 1, 'mit Bots und offener Aufnahme: Aufnahme-Anzeige plus zwei Untertitel (Platz fuer drei Zeilen insgesamt)');
+    const mitAufnahme = zeichne(H2);
+    ok(mitAufnahme === 3, 'mit Bots und offener Aufnahme: genau drei gezeichnete Flaechen (Aufnahme-Anzeige plus zwei Untertitel statt drei Untertitel: Platz fuer drei Zeilen insgesamt, ' + mitAufnahme + ')');
     H2.sprech.bots = false; H2.sprech.aufnahme = false;
     ok(zeichne(H2) === 2, 'Bots weg: wieder nur 2 gezeichnet (pixelgleich wie bisher)');
   }

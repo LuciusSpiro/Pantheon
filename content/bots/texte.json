@@ -1121,7 +1121,7 @@
  ],
  "bord.ansage.raetsel": [
   "Rätsel voraus: {HINWEIS}",
-  "Hier ein Rätselpaar: {HINWEIS}"
+  "Rätselpaar: {HINWEIS}"
  ],
  "bot.status.abgelehnt.fehler": [
   "Das klappt gerade nicht.",

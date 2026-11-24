@@ -36,7 +36,12 @@ for (const id of MIT_ARGS) {
   assert.ok(l.some(t => /^Aye/.test(t)), id + ': Aye bleibt');
 }
 const dateien = Clips.clipDateien(texte, stimmen);
-const erwartet = Object.keys(stimmen).length * Object.entries(texte).filter(([id]) => !Clips.OHNE_CLIP.test(id)).reduce((n, [, l]) => n + l.length, 0) + Object.keys(stimmen).length;   // + bot.unklar.wav je Stimme
+// Unabhaengige Erwartung (nicht aus Clips.OHNE_CLIP): ohne Clip sind die Ablehnungen (.abgelehnt./.unmoeglich.) und die Ansagen des Bord-Bots (bord.ansage.*, nur Untertitel); alles andere hat Clips
+const ohneClip = (id) => id.includes('.abgelehnt.') || id.includes('.unmoeglich.') || id.startsWith('bord.ansage.');
+const ansageIds = Object.keys(texte).filter(id => id.startsWith('bord.ansage.'));
+assert.ok(ansageIds.length >= 3 && ansageIds.every(id => Clips.OHNE_CLIP.test(id)) && !Clips.OHNE_CLIP.test('nav.kurs.ok') && !Clips.OHNE_CLIP.test('bot.unklar'), 'OHNE_CLIP trifft alle bord.ansage.*, aber keine ok-Antwort und nicht bot.unklar');
+assert.deepStrictEqual(Object.keys(texte).filter(id => ohneClip(id) !== Clips.OHNE_CLIP.test(id)), [], 'OHNE_CLIP stimmt fuer jede textId mit der festen Regel des Tests ueberein');
+const erwartet = Object.keys(stimmen).length * Object.entries(texte).filter(([id]) => !ohneClip(id)).reduce((n, [, l]) => n + l.length, 0) + Object.keys(stimmen).length;   // + bot.unklar.wav je Stimme
 assert.strictEqual(dateien.length, erwartet, 'Zahl der Clips = Stimmen x Varianten (+ bot.unklar ohne Variante)');
 const fehlend = dateien.filter(c => !fs.existsSync(c.datei) || fs.statSync(c.datei).size < 1000);
 assert.deepStrictEqual(fehlend.map(c => path.relative(Clips.VORRAT, c.datei)), [], 'Vorrat vollständig: jede textId x Stimme x Variante hat eine Datei');
