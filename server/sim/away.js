@@ -8,6 +8,7 @@ const W = require('../world.js');
 const interior = require('./interior.js');
 const Station = require('./station.js');   // R1 §4.4
 const Crew = require('./crew.js');   // BOT-01 C1: Bots zaehlen nicht als Mensch an Bord
+const BotWeichen = require('../bots/weichen.js');   // BOT-02 B4: haelt ein Bord-Bot den Dienst, schweigt die ODA bei der Codehilfe (eine zentrale Frage, kein Direktzugriff auf den Lauf)
 const combat = require('./combat.js');
 const squad = require('./squad.js');
 const { bfs, lineOfSight, dist, makeRng } = require('../util.js');
@@ -497,7 +498,7 @@ function update(game, dt) {
     away.noHumanT += dt;
     if (away.noHumanT >= C.away.odaCodeHelpDelay) {
       away.odaCodeHelp = true;
-      game.oda('Niemand an Bord? Ich funke euch die Codetabelle direkt aufs Kustodenpult. Gern geschehen.', null);
+      if (!BotWeichen.bordBotHaelt(game)) game.oda('Niemand an Bord? Ich funke euch die Codetabelle direkt aufs Kustodenpult. Gern geschehen.', null);   // BOT-02 B4: haelt ein Bord-Bot den Dienst, sagt er die Codefolge an (bots/ansagen.js), die ODA schweigt
     }
   }
   const v2 = combat.isV2(game);

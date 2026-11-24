@@ -36,7 +36,7 @@ for (const id of MIT_ARGS) {
   assert.ok(l.some(t => /^Aye/.test(t)), id + ': Aye bleibt');
 }
 const dateien = Clips.clipDateien(texte, stimmen);
-const erwartet = Object.keys(stimmen).length * Object.entries(texte).filter(([id]) => !/[.](abgelehnt|unmoeglich)[.]/.test(id)).reduce((n, [, l]) => n + l.length, 0) + Object.keys(stimmen).length;   // + bot.unklar.wav je Stimme
+const erwartet = Object.keys(stimmen).length * Object.entries(texte).filter(([id]) => !Clips.OHNE_CLIP.test(id)).reduce((n, [, l]) => n + l.length, 0) + Object.keys(stimmen).length;   // + bot.unklar.wav je Stimme
 assert.strictEqual(dateien.length, erwartet, 'Zahl der Clips = Stimmen x Varianten (+ bot.unklar ohne Variante)');
 const fehlend = dateien.filter(c => !fs.existsSync(c.datei) || fs.statSync(c.datei).size < 1000);
 assert.deepStrictEqual(fehlend.map(c => path.relative(Clips.VORRAT, c.datei)), [], 'Vorrat vollständig: jede textId x Stimme x Variante hat eine Datei');

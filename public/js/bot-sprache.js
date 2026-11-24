@@ -195,7 +195,7 @@
       if (!s.an || !msg || msg.t !== 'bot.antwort') return false;
       if (typeof msg.botId === 'string' && msg.botId) s.letzterBot = msg.botId;
       const id = untertitel(typeof msg.text === 'string' && msg.text ? msg.text : String(msg.textId || ''), { botId: msg.botId });
-      if (!s.aufnahme && msg.textId) {   // gehaltene Sprechtaste = Mikrofon offen: nichts abspielen
+      if (!s.aufnahme && msg.textId && msg.befehl !== 'bord.ansage') {   // gehaltene Sprechtaste = Mikrofon offen: nichts abspielen; BOT-02 B4: Ansagen des Bord-Bots haben keinen Clip-Vorrat (nur Untertitel, kein 404 je Ansage)
         const urls = clipKandidaten(msg.textId, stimmeFuer(msg), msg.variante, env.clipBasis);
         // Läuft der Clip länger als die Standarddauer, bleibt der Untertitel bis Clip-Ende (+ 0,5 s in der Anzeige)
         try { Promise.resolve(env.audio.spiele(urls, { start: () => clipHalt(id, true), ende: () => clipHalt(id, false) })).catch(() => null); } catch (e) { /* nur Untertitel */ }
