@@ -203,7 +203,7 @@ function snapshot(game) {
   if (ls.length) s.max = W.abenteuer.laufend_max;   // SPT-02 3: die Grenze aus den Daten (der Client sperrt Annehmen erst bei Erreichen, keine Zahl im Client)
   s.laufend = ls.map((l) => {
     const v = D.vorlage(l.vorlage), b = v && v.beats[l.beat], cat = b && has(B, b.typ) ? B[b.typ] : null;
-    const e = { id: l.id, titel: text(v ? v.titel : '', BW.titel_max), ort: l.parameter.ort || '', schritt: l.beat + 1, schritte_gesamt: v ? v.beats.length : 0, schritt_text: b ? schrittText(b) : '', gefahr: !!(cat && cat.gefahr), ph: l.phase === 'laeuft' ? 'laeuft' : 'wartet', rest: restLaufend(l) };
+    const e = { id: l.id, ...(P.notrufBrettFaden(l) ? { notruf: 1 } : {}), titel: text(v ? v.titel : '', BW.titel_max), ort: l.parameter.ort || '', schritt: l.beat + 1, schritte_gesamt: v ? v.beats.length : 0, schritt_text: b ? schrittText(b) : '', gefahr: !!(cat && cat.gefahr), ph: l.phase === 'laeuft' ? 'laeuft' : 'wartet', rest: restLaufend(l) };
     if (v && typeof v.anlass === 'string') e.anlass = text(v.anlass, BW.anlass_max);
     return e;
   });
@@ -229,13 +229,18 @@ function veraltet(game, F, a, grund) {   // das Angebot ist nicht mehr spielbar 
   logbuch(game, 'faden_ereignis', { ausgang: 'abenteuer_veraltet', key: a.ref, begruendung: `Angebot ${a.nr} vom Brett genommen: ${String(grund).slice(0, 120)}`, plan: { angebot: a.nr, vorlage: a.ref } });
   return fehl('veraltet');
 }
+// SPT-02 4: die Grenze notruf_aktiv_max der aktiven Notruf-Faeden ist erreicht (reise-ereignis.js taktNotruf: dann entsteht kein weiterer Takt-Notruf); ohne Faeden-Zustand false
+function notrufGrenzeErreicht(game) { const F = game && game.weltsim && game.weltsim.faeden; return !!F && P.notrufGrenzeErreicht(F); }
 function annehmen(game, id) {
   const g = finden(game, id);
   if (g.fehler) return g.fehler;
   const { F, a } = g;
   if (!Faden().spielleiterAktiv(game)) return fehl('kein_spielleiter');   // ohne Spielleiter steht ein begonnenes Abenteuer nur: es wird gar nicht erst begonnen, das Angebot bleibt bis zum Verfall
-  if (P.abenteuerGrenzeErreicht(F)) return fehl('laeuft_schon');
-  if (P.aktive(F).length >= W.aktiv_max) return fehl('kein_platz');
+  if (a.notruf) { if (P.notrufGrenzeErreicht(F)) return fehl('notruf_voll'); }   // SPT-02 4: ein Notruf-Angebot prueft NUR die eigene Grenze (notruf_aktiv_max), nie laeuft_schon oder kein_platz
+  else {
+    if (P.abenteuerGrenzeErreicht(F)) return fehl('laeuft_schon');
+    if (P.aktiveRegulaer(F).length >= W.aktiv_max) return fehl('kein_platz');
+  }
   const lg = P.pruefeLage(game, a.vorlage);
   if (lg) return veraltet(game, F, a, lg);
   let r;
@@ -252,7 +257,7 @@ function annehmen(game, id) {
     r = Faden().abenteuerOeffnen(game, a.nr, { nsc_von: kand[0] });
   } else r = Faden().abenteuerOeffnen(game, a.nr, {});
   if (!r.ok) {
-    if (/^(OBERGRENZE|ABENTEUER_LAUFEND)/.test(r.grund)) return fehl(/^OBERGRENZE/.test(r.grund) ? 'kein_platz' : 'laeuft_schon');   // der Zustand hat sich zwischen Pruefung und Oeffnen geaendert: das Angebot bleibt
+    if (/^(OBERGRENZE|ABENTEUER_LAUFEND|NOTRUF_VOLL)/.test(r.grund)) return fehl(/^OBERGRENZE/.test(r.grund) ? 'kein_platz' : /^NOTRUF_VOLL/.test(r.grund) ? 'notruf_voll' : 'laeuft_schon');   // der Zustand hat sich zwischen Pruefung und Oeffnen geaendert: das Angebot bleibt
     return veraltet(game, F, a, r.grund);   // NSC_VON, NAME, NSC_ZAHL, Lage: das Angebot ist so nicht mehr zu spielen
   }
   gemerkt(brett(F).antworten, a.nr, BW.antworten_gemerkt);
@@ -571,6 +576,7 @@ function notrufAnbieten(game, o) {
   const F = game && game.weltsim && game.weltsim.faeden;
   if (!F || !istObjekt(o) || !Faden().aktiv(game) || !Faden().spielleiterAktiv(game)) return null;
   if (typeof o.hex !== 'string' || !HEX.test(o.hex) || typeof o.marke !== 'string' || !o.marke) return null;
+  if (P.notrufGrenzeErreicht(F)) return null;   // SPT-02 4: bei notruf_aktiv_max aktiven Notruf-Faeden entsteht kein weiterer Notruf (reise-ereignis.js taktNotruf prueft dasselbe schon vorher)
   const da = P.notrufAngebote(F);
   if (da.length >= NB.notruf_angebote_max || da.some((a) => a.notruf.marke === o.marke)) return null;
   const sprecher = String(o.sprecher || '').slice(0, 40);
@@ -736,4 +742,4 @@ function lesen(b, F) {   // muellfest: Unbrauchbares faellt weg (Meldung in F.la
 // SPL-02 D: die NSC, die eine Fortsetzung tragen (Katalog der Absichten, absicht-pruefer.js): die Verbindung fuer abenteuer-geschichte.js, das den Pruefer nicht selbst laedt
 const fortsetzungsNamen = (game, katalog) => Absicht().fortsetzungsNamen(game, katalog);
 
-module.exports = { snapshot, schluessel, zuletztVon, annehmen, ablehnen, vorschau, marken, kuerzen, beiEnde, hinweisAnbieten, beiTaetigkeit, beiUpdate, anschluss, beiAndocken, anschlussFuellen, ausVorratFuellen, ausVorratEinsAnbieten, sammelHinweis, passtZuLage, neuAnbieten, notrufAnbieten, notrufRueckfallWeiter, abenteuerRueckfallWeiter, abenteuerAbschlussWeiter, zurueckziehenFuerNotruf, toSave, lesen, weigerung, schrittText, fortsetzungsNamen };
+module.exports = { snapshot, schluessel, zuletztVon, annehmen, ablehnen, vorschau, marken, kuerzen, beiEnde, hinweisAnbieten, beiTaetigkeit, beiUpdate, anschluss, beiAndocken, anschlussFuellen, ausVorratFuellen, ausVorratEinsAnbieten, sammelHinweis, passtZuLage, neuAnbieten, notrufAnbieten, notrufGrenzeErreicht, notrufRueckfallWeiter, abenteuerRueckfallWeiter, abenteuerAbschlussWeiter, zurueckziehenFuerNotruf, toSave, lesen, weigerung, schrittText, fortsetzungsNamen };

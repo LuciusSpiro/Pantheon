@@ -48,7 +48,7 @@ const MUTATIONEN = [
   [PR, "if (folgenlos > 1) out.push(", "if (false) out.push(", 'Scheinwahl: mehrere folgenlose Optionen erlaubt'],
   [PR, "if (!(a.min >= W.abstand.min && a.max <= W.abstand.max && a.min <= a.max)) fehler.push(", "if (false) fehler.push(", 'Abstand der Vorlage darf den Bereich erweitern'],
   // ---- Pruefer der Befehle
-  [PR, "if (aktive(F).length + ctx.oeffnen >= W.aktiv_max) return fehl(", "if (false) return fehl(", 'Obergrenze aus (mehr als 3 aktive Faeden)'],
+  [PR, "if (aktiveRegulaer(F).length + ctx.oeffnen >= W.aktiv_max) return fehl(", "if (false) return fehl(", 'Obergrenze aus (mehr als 3 aktive Faeden)'],
   [PR, "if (f.zaehler < f.abstand) return fehl(", "if (false) return fehl(", 'Abstand aus (Beat vor 2 bis 4 Taetigkeiten)'],
   [PR, "if (b.beat !== beat.id) return fehl('REIHENFOLGE'", "if (false) return fehl('REIHENFOLGE'", 'Reihenfolge der Beats nicht erzwungen'],
   [PR, "if (f.phase === 'laeuft') return fehl('FADEN_BELEGT'", "if (false) return fehl('FADEN_BELEGT'", 'zweiter Beat waehrend einer laeuft'],
@@ -71,7 +71,7 @@ const MUTATIONEN = [
   [FA, "return r2(y0 + (y1 - y0) * ((h - x0) / (x1 - x0)));", "return y1;", 'Kurve der Spontanhilfe springt statt zu interpolieren'],
   [FA, "if (!nscVon(game, w.npc)) return { ok: false, grund: 'unbekannter NSC (npc): er steht in keinem Faden' };", "", 'Haltung fuer einen NSC, den es nicht gibt'],
   [FA, "return v === '1' || v === 'on';", "return true;", 'Schalter immer an'],
-  [FA, "if (aktive(F).length >= W.aktiv_max) return null;   // kein Platz: ein Angebot waere sinnlos (Obergrenze)", "if (false) return null;", 'Angebot trotz voller Obergrenze'],
+  [FA, "if (P.aktiveRegulaer(F).length >= W.aktiv_max) return null;", "if (false) return null;", 'Angebot trotz voller Obergrenze'],
   [FA, "if (f.laufend.gewaehlt) return { ok: false, grund: 'schon gewählt' };", "", 'Option mehrfach waehlbar'],
   [FA, "  const beat = D.vorlage(f.vorlage).beats[f.beat];\n  if (!(beat.hinweise || []).includes(hinweisId))", "  const beat = D.vorlage(f.vorlage).beats[f.beat];\n  for (const h of beat.hinweise || []) if (!f.hinweise.includes(h)) f.hinweise.push(h);\n  if (!(beat.hinweise || []).includes(hinweisId))", 'Hinweise zaehlen ohne Bestaetigung durch den Baustein (B-S1)'],
   [FA, "  if (!f.hinweise.includes(hinweisId)) f.hinweise.push(hinweisId);", "  if (!f.hinweise.includes(hinweisId) && false) f.hinweise.push(hinweisId);", 'Bestaetigung wird nicht gespeichert (B-S1)'],
@@ -83,7 +83,7 @@ const MUTATIONEN = [
   [SC, "\"maxProperties\": 6,\n            \"properties\": {\n              \"text_key\": {\n                \"type\": \"string\",\n                \"maxLength\": 40,\n                \"pattern\": \"^[a-z0-9_]{1,40}$\"", "\"maxProperties\": 6,\n            \"properties\": {\n              \"text_key\": {\n                \"type\": \"string\",\n                \"maxLength\": 40", 'text_key im Beat-Parameter: Muster im Schema aus (B-M1)'],
   [PR, "if (!EREIGNIS.test(e)) out.push(", "if (false) out.push(", 'Katalog: Beat-Typ mit ungueltigem Gedaechtnis-Ereignis wird nicht gemeldet (B-M1)'],
   [FA, "if (cat.braucht && cat.braucht.wahrheit && f.nsc.wahrheit) f.nsc.wahrheit.offenbart = true;", "", 'Enthuellung setzt die Wahrheit nicht'],
-  [FA, "if (r.faden.phase !== 'abgeschlossen' && aktive(F).length >= W.aktiv_max) {", "if (false) {", 'Leser klemmt die Obergrenze nicht'],
+  [FA, "if (!nf && r.faden.phase !== 'abgeschlossen' && P.aktiveRegulaer(F).length >= W.aktiv_max) {", "if (false) {", 'Leser klemmt die Obergrenze nicht'],
   [FA, "const e = P.pruefeFaden(f);\n  return e.length ?", "const e = [];\n  return e.length ?", 'Leser prueft den Faden nicht'],
   // ---- Anbindung
   [KL, "const fb = Faden.toSave(ws); if (fb) b.faeden = fb;", "", 'Faeden werden nicht gespeichert'],
@@ -96,7 +96,7 @@ const MUTATIONEN = [
   [RB, "if (g) out.abgelehnt.push({ befehl: b, grund: g }); else fadenAngenommen.push(", "if (g) { /* verschluckt */ } else fadenAngenommen.push(", 'abgelehnte Faden-Befehle verschwinden ohne Logbuch'],
   [LA, "const fb = fadenBlock(game); if (fb) b.faeden = fb;", "", 'kein Faden-Block im Ausschnitt'],
   [LP, "return F.aktiv(game) ? F.promptText() : ''; }", "return F.promptText(); }", 'Faden-Text im Prompt auch ohne Schalter'],
-  [FA, "  const block = { aktiv: fa, platz: Math.max(0, W.aktiv_max - fa.length) };", "  const block = { aktiv: fa.map((x) => Object.assign(x, { nsc: Object.assign(x.nsc, { name: liste[fa.indexOf(x)].nsc.name }) })), platz: Math.max(0, W.aktiv_max - fa.length) };", 'NSC-Namen im Prompt-Block'],
+  [FA, "  const block = { aktiv: fa, platz: Math.max(0, W.aktiv_max - liste.filter((f) => !P.notrufBrettFaden(f)).length) };", "  const block = { aktiv: fa.map((x) => Object.assign(x, { nsc: Object.assign(x.nsc, { name: liste[fa.indexOf(x)].nsc.name }) })), platz: Math.max(0, W.aktiv_max - liste.filter((f) => !P.notrufBrettFaden(f)).length) };", 'NSC-Namen im Prompt-Block'],
   [FA, "while (zu() && block.aktiv.length > 1) block.aktiv.pop();", "", 'Faden-Block wird nicht gekuerzt'],
   [LM, "x.ph === 'wartet' && x.faellig === 1", "x.ph === 'wartet'", 'Mock stellt Beats vor der Faelligkeit'],
   // ---- Wirkung haltung_aenderung

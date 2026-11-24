@@ -28,6 +28,7 @@ const Wirkungen = require('../weltsim/wirkungen.js');
 const W = D.WERTE, B = D.BEATS, N = D.NAMEN, H = D.HALTUNG;
 const SB = W.sim_befehl;   // FAD-01 A: Folgetyp sim_befehl (Arten, Standardart, Tat-Beats, erlaubte Beats), alles Daten
 const RUF_QUELLEN = require('../../content/welt/ruf-werte.json').werte.quellen.wert;
+const NOTRUF_AKTIV_MAX = JSON.parse(fs.readFileSync(path.join(D.DIR, 'notruf-brett.json'), 'utf8')).werte.notruf_aktiv_max.wert;   // SPT-02 4: Notruf-Faeden haben ihre eigene Obergrenze (Daten, neben notruf_angebote_max)
 const HEX = /^\d{4}$/;
 const has = (o, k) => Object.prototype.hasOwnProperty.call(o, k);
 // Karte der Faeden ist die der Freien Fahrt Sund (content/welt/sund_frei.json), nicht der gerade global geladene Kartenstand (shared/sektoren.js haelt beim Start Limes): ein Sektor ist spielbar, wenn die Karte ihn
@@ -562,7 +563,7 @@ function pruefeOeffnen(F, b, ctx) {
   const p = b.parameter === undefined ? {} : b.parameter;
   if (!istObjekt(p)) return fehl('PARAMETER', 'parameter ist kein Objekt');
   for (const k of Object.keys(p)) if (!PARAM_FELDER.includes(k)) return fehl('PARAMETER', `unbekannter Parameter "${k}" (erlaubt: ${PARAM_FELDER.join(', ')})`);
-  if (aktive(F).length + ctx.oeffnen >= W.aktiv_max) return fehl('OBERGRENZE', `höchstens ${W.aktiv_max} aktive Fäden`);
+  if (aktiveRegulaer(F).length + ctx.oeffnen >= W.aktiv_max) return fehl('OBERGRENZE', `höchstens ${W.aktiv_max} aktive Fäden`);   // SPT-02 4: Notruf-Faeden zaehlen nicht (eigene Grenze notruf_aktiv_max)
   // Angebot: eine Taetigkeit mit Person muss da sein (explizit per Nummer oder das erste passende)
   let a;
   if (p.angebot !== undefined) {
@@ -719,7 +720,11 @@ function platzNachOrtswechsel(v) {
 
 // ---------- Abenteuer (SUND-04b A1): der zweite, benannte Weg, einen Faden zu oeffnen (nicht ueber ein Notruf-Angebot, sondern ueber einen geprueften Bauplan)
 // Obergrenze aktiv_max und Abstand gelten weiter (der Abstand wird beim Oeffnen gezogen, faden.js); dazu hoechstens laufend_max laufende Abenteuer und hoechstens angebote_max offene Abenteuer-Angebote.
-const abenteuerLaufend = (F) => aktive(F).filter((f) => f.plan).length;
+// SPT-02 4: Notruf-Faeden (Herkunft f.notruf, notrufBrettFaden) zaehlen weder in aktiv_max noch in laufend_max, sondern nur in notruf_aktiv_max: ein Notruf scheitert nie an laeuft_schon oder kein_platz, und er belegt keinen Platz der regulaeren Abenteuer
+const aktiveRegulaer = (F) => aktive(F).filter((f) => !notrufBrettFaden(f));
+const notrufAktiv = (F) => aktive(F).filter(notrufBrettFaden);
+const notrufGrenzeErreicht = (F) => notrufAktiv(F).length >= NOTRUF_AKTIV_MAX;
+const abenteuerLaufend = (F) => aktiveRegulaer(F).filter((f) => f.plan).length;
 // SPT-02 3: die Grenze laufend_max ist erreicht (Annehmen, Rueckfall, Vorrat und Anschluss fuellen das Brett nur darunter; abenteuerLaufend ist die Anzahl, kein Ja/Nein)
 const abenteuerGrenzeErreicht = (F) => abenteuerLaufend(F) >= W.abenteuer.laufend_max;
 // FRE-03 D: Notruf-Angebote (Feld notruf am Angebot) liegen im selben Brett, zaehlen aber getrennt: angebote_max gilt nur fuer die uebrigen (Andock-, Rueckfall-, Komponisten-Angebote)
@@ -744,8 +749,11 @@ function pruefeAbenteuerOeffnen(F, nr, p) {
   for (const k of Object.keys(p)) if (!['volk', 'name', 'nsc_von'].includes(k)) return fehl('PARAMETER', `unbekannter Parameter "${k}" (erlaubt: volk, name, nsc_von)`);
   const a = Number.isInteger(nr) ? (F.abenteuerAngebote || []).find((x) => x.nr === nr) : null;
   if (!a) return fehl('KEIN_ANGEBOT', `ein Abenteuer-Angebot ${String(nr).slice(0, 12)} gibt es nicht (mehr)`);
-  if (aktive(F).length >= W.aktiv_max) return fehl('OBERGRENZE', `hoechstens ${W.aktiv_max} aktive Faeden`);
-  if (abenteuerLaufend(F) >= W.abenteuer.laufend_max) return fehl('ABENTEUER_LAUFEND', `hoechstens ${W.abenteuer.laufend_max} laufendes Abenteuer`);
+  if (a.notruf) { if (notrufGrenzeErreicht(F)) return fehl('NOTRUF_VOLL', `hoechstens ${NOTRUF_AKTIV_MAX} aktive Notrufe`); }   // SPT-02 4: ein Notruf-Angebot prueft nur die eigene Grenze, nie OBERGRENZE oder ABENTEUER_LAUFEND
+  else {
+    if (aktiveRegulaer(F).length >= W.aktiv_max) return fehl('OBERGRENZE', `hoechstens ${W.aktiv_max} aktive Faeden`);
+    if (abenteuerLaufend(F) >= W.abenteuer.laufend_max) return fehl('ABENTEUER_LAUFEND', `hoechstens ${W.abenteuer.laufend_max} laufendes Abenteuer`);
+  }
   const v = a.vorlage;
   if (p.volk !== undefined && !v.volk_erlaubt.includes(p.volk)) return fehl('PARAMETER', `volk "${p.volk}" ist fuer dieses Abenteuer nicht erlaubt (${v.volk_erlaubt.join(', ')})`);
   const volk = p.volk || (v.volk_erlaubt.includes(a.volk) ? a.volk : v.volk_erlaubt[0]);
@@ -767,4 +775,4 @@ function befehlPruefen(F, b, ctx) {
 }
 const istBefehl = (b) => istObjekt(b) && has(BEFEHL_FELDER, b.typ);
 
-module.exports = { istSimBefehl, simBefehlFolge, simBefehlArten, sundSpielbar, nscAlt, wiedersehenNsc, pruefeNscVon, pruefeLage, pruefeLandeplaetze, dateiLandeplatzFehler, pruefeAbenteuerAnbieten, pruefeNotrufAnbieten, pruefeAbenteuerOeffnen, abenteuerLaufend, abenteuerGrenzeErreicht, regulaereAngebote, notrufAngebote, notrufBrettFaden, abschlussGelungen, haltungsWege, tonFuer, effektiv, katalogFehler, TEXT_KEY, pruefeVorlage, pruefeFaden, pruefeOeffnen, pruefeWeiter, befehlPruefen, istBefehl, neuerKontext, folgeWirkung, folgeProfil, optionenFehler, fluchtzielOk, aktive, nameOk, BEFEHL_FELDER, PARAM_FELDER };
+module.exports = { istSimBefehl, simBefehlFolge, simBefehlArten, sundSpielbar, nscAlt, wiedersehenNsc, pruefeNscVon, pruefeLage, pruefeLandeplaetze, dateiLandeplatzFehler, pruefeAbenteuerAnbieten, pruefeNotrufAnbieten, pruefeAbenteuerOeffnen, abenteuerLaufend, abenteuerGrenzeErreicht, aktiveRegulaer, notrufAktiv, notrufGrenzeErreicht, NOTRUF_AKTIV_MAX, regulaereAngebote, notrufAngebote, notrufBrettFaden, abschlussGelungen, haltungsWege, tonFuer, effektiv, katalogFehler, TEXT_KEY, pruefeVorlage, pruefeFaden, pruefeOeffnen, pruefeWeiter, befehlPruefen, istBefehl, neuerKontext, folgeWirkung, folgeProfil, optionenFehler, fluchtzielOk, aktive, nameOk, BEFEHL_FELDER, PARAM_FELDER };

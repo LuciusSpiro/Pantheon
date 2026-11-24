@@ -160,6 +160,7 @@
     "kein_spielleiter": "Der Spielleiter ist gerade nicht erreichbar. Das Angebot bleibt.",
     "laeuft_schon": "Es laufen schon {n} Abenteuer. Das Angebot bleibt.",
     "kein_platz": "Die Crew hat gerade keinen Platz für einen weiteren Handlungsstrang. Das Angebot bleibt.",
+    "notruf_voll": "Die Crew führt schon so viele Notrufe, wie sie bewältigen kann. Das Angebot bleibt.",
     "veraltet": "Der Auftrag hat sich erledigt. Er wurde vom Brett genommen.",
     "fehler": "Das Brett konnte die Antwort nicht verarbeiten. Das Angebot bleibt.",
     "am_boden": "Wer am Boden liegt, kann nicht entscheiden."

@@ -25,6 +25,7 @@
     kein_spielleiter: 'Der Spielleiter ist nicht erreichbar. Das Angebot bleibt.',
     laeuft_schon: 'Es laufen schon {n} Abenteuer. Das Angebot bleibt.',   // {n}: die Grenze aus dem Block (max)
     kein_platz: 'Kein Platz für einen weiteren Handlungsstrang. Das Angebot bleibt.',
+    notruf_voll: 'Die Crew führt schon so viele Notrufe, wie sie bewältigen kann. Das Angebot bleibt.',
     veraltet: 'Der Auftrag hat sich erledigt und wurde vom Brett genommen.',
     fehler: 'Das Brett konnte nicht antworten. Das Angebot bleibt, noch einmal versuchen.',
   };
@@ -79,6 +80,7 @@
       von: str(a.von, 8), aus_geruecht: a.aus_geruecht === true || a.aus_geruecht === 1,
       typen: liste(a.typen, GRENZE.typen * 4).filter((t) => typeof t === 'string' && t.trim()).slice(0, GRENZE.typen).map((t) => str(t.trim(), GRENZE.typ)),   // Beat-Typen ohne Abschluss (Server, höchstens 4)
       vorschau: vorschauAus(a.vorschau),
+      notruf: a.notruf === true || a.notruf === 1,   // SPT-02 4: ein Notruf-Angebot zaehlt nicht gegen laufend_max (Annehmen nie am Hinweis "laeuft schon" gesperrt)
     };
   }
   function laufendAus(l) {
@@ -88,6 +90,7 @@
       id: str(l.id, GRENZE.id), titel: kurz(l.titel, GRENZE.titel), anlass: str(l.anlass, GRENZE.anlass), ort: str(l.ort, GRENZE.ort),
       schritt: Math.max(1, Math.min(gesamt, zahl(l.schritt) || 1)), schritte_gesamt: gesamt, schritt_text: str(l.schritt_text, 60), gefahr: l.gefahr === true || l.gefahr === 1,
       ph: l.ph === 'laeuft' ? 'laeuft' : 'wartet', rest: zahl(l.rest),
+      notruf: l.notruf === true || l.notruf === 1,   // SPT-02 4: ein Notruf-Faden zaehlt nicht gegen laufend_max
     };
   }
   function modellAus(b) {
@@ -98,7 +101,7 @@
     const ids = new Set(angebote.map((a) => a.id));
     const geruechte = liste(b.geruechte, GRENZE.geruechte).filter((g) => g && typeof g === 'object' && str(g.text)).map((g) => ({ von: str(g.von, 8), text: str(g.text), angebot: typeof g.angebot === 'string' && ids.has(g.angebot) ? g.angebot : '' }));
     if (!angebote.length && !laufend.length) return null;   // nichts zu zeigen: kein Bereich (der Server sendet dann null)
-    return { ok: b.ok === 1 || b.ok === true, kopf: str(b.kopf, 30), ablehnen: str(b.ablehnen, 50), scheitern: str(b.scheitern, 100), angebote, geruechte, laufend, laufendMax, voll: laufend.length >= laufendMax };
+    return { ok: b.ok === 1 || b.ok === true, kopf: str(b.kopf, 30), ablehnen: str(b.ablehnen, 50), scheitern: str(b.scheitern, 100), angebote, geruechte, laufend, laufendMax, voll: laufend.filter((l) => !l.notruf).length >= laufendMax };   // SPT-02 4: voll zaehlt nur die regulaeren Abenteuer
   }
   const modell = () => modellAus(store.abenteuer);
 

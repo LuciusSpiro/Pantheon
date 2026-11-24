@@ -402,6 +402,7 @@ function taktNotruf(game) {
   const R = zustandVon(game);
   const hex = R && game.ship && Marken.hexVon(game.ship.scene);
   if (!hex || R.offen.length >= WERTE.takt_offen_max) return null;
+  try { if (require('./abenteuer-brett.js').notrufGrenzeErreicht(game)) return null; } catch (e) { /* ohne Brett keine Grenze */ }   // SPT-02 4: notruf_aktiv_max angenommene Notruf-Faeden laufen: kein weiterer Notruf (Zaehler bleibt, Neuversuch wie bei takt_offen_max)
   const orte = taktOrte(game, R, hex);
   if (!orte.length) return null;
   const ctx = ctxVon(game, hex);
