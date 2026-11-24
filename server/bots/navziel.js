@@ -2,6 +2,8 @@
 // BOT-01 C2a: Ziele der Navigations-Befehle (Katalog v1: nav.kurs, nav.abstand, nav.andocken). Nur lesen, nie schreiben; kein Zustand.
 // Die Aufloesung nimmt das Vorhandene: Captain-Marke (CaptainZiel), Ops-Marke (ship.target), Dock und Station der Szene (Besitz.dockLage, Szenendaten), Objekte per space.resolveTarget.
 //   aufloesen(game, name)    name = marke | ziel | basis | objekt:<id> -> { art, id?, dock? } oder null (hex:<id> ist kein Ziel in der Szene: null)
+//                            marke (BOT-02 B5): der Positions-Marker des Captains (ship.markers.captain, Sh+X loescht ihn) als { art: 'punkt' }, sonst das Anzeigeziel (ship.capZiel) als Objekt;
+//                            der taktische Marker (ship.markers.tactical, Ops) und die Ops-Marke ship.target (name ziel) sind nicht marke
 //   standort(game, z)        aktuelle Lage des Ziels { x, y, typ, obj? } oder null (Ziel gibt es nicht mehr)
 //   dockLage(game)           Liegeplatz der Szene, wenn die Crew hier andocken darf, sonst null
 //   stationLage(game)        Mitte der Station der Szene (sonst der Liegeplatz) oder null
@@ -29,8 +31,17 @@ function stationLage(game) {
   return l.scene.station || dockLage(game);
 }
 
+// Positions-Marker des Captains (captain.marker): { x, y } im Schiffsraum der Szene oder null. Die Szene setzt ihn beim Betreten zurueck (space.js).
+function markerLage(game) {
+  const m = game.ship.markers && game.ship.markers.captain;
+  return m && Number.isFinite(m.x) && Number.isFinite(m.y) ? m : null;
+}
+
 function aufloesen(game, name) {
-  if (name === 'marke') { const cz = CaptainZiel.gueltig(game); return cz ? { art: 'objekt', id: cz.id } : null; }
+  if (name === 'marke') {
+    if (markerLage(game)) return { art: 'punkt' };
+    const cz = CaptainZiel.gueltig(game); return cz ? { art: 'objekt', id: cz.id } : null;
+  }
   if (name === 'ziel') { const t = game.ship.target; return t != null && Space.resolveTarget(game, t) ? { art: 'objekt', id: t } : null; }
   if (name === 'basis') return dockLage(game) ? { art: 'basis' } : null;
   const m = typeof name === 'string' ? OBJEKT.exec(name) : null;
@@ -42,6 +53,7 @@ function aufloesen(game, name) {
 function standort(game, z, fuer) {
   if (!z) return null;
   if (z.art === 'basis') { const p = fuer === 'abstand' ? stationLage(game) : dockLage(game); return p ? { x: p.x, y: p.y, typ: 'basis' } : null; }
+  if (z.art === 'punkt') { const m = markerLage(game); return m ? { x: m.x, y: m.y, typ: 'marke' } : null; }   // Marker weg (Sh+X): wie ein verschwundenes Objekt (ziel_weg); versetzt der Captain ihn, folgt der Bot
   const rt = Space.resolveTarget(game, z.id);
   return rt ? { x: rt.x, y: rt.y, typ: rt.type, obj: rt.obj } : null;
 }
