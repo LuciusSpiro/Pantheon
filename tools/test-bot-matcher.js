@@ -35,8 +35,8 @@ const pos = [
   ['Stopp', b('nav.stopp')],
   ['Halbe Kraft voraus', b('nav.schub', { stufe: 'halb' })],
   ['Volle Kraft voraus', b('nav.schub', { stufe: 'voll' })],
-  ['Stufe drei', b('nav.schub', { stufe: 3 })],
-  ['Schub 2', b('nav.schub', { stufe: 2 })],
+  ['Dreiviertel Kraft voraus', b('nav.schub', { stufe: 'dreiviertel' })],
+  ['Rückwärts langsam', b('nav.schub', { stufe: 'rueckwaerts' })], ['Viertel Kraft voraus', b('nav.schub', { stufe: 'viertel' })],
   ['Ausweichen', b('nav.ausweichen')],
   ['Bitte sofort ausweichen', b('nav.ausweichen')],
   ['Abstand halten', b('nav.abstand', {})],
@@ -96,7 +96,7 @@ pruefe('Schilde Back', null);
 // Kurze Woerter (genau 3 Zeichen): gleicher Anfangsbuchstabe plus gleicher Klang oder eine Auslassung; anderer Anfang nie
 pruefe('Schilde Buk', b('tech.schild', { sektor: 'bug' }));
 pruefe('Schilde Hek', b('tech.schild', { sektor: 'heck' }));
-pruefe('Schub nul', b('nav.schub', { stufe: 0 }));
+pruefe('Viertl Kraft voraus', b('nav.schub', { stufe: 'viertel' }));
 pruefe('Schilde Unten', null);
 pruefe('Schilde Oben', null);
 // Mehrteilige Aeusserungen: gleiche Befehle in den Teilen ok, verschiedene oder Plaudern null, falsche Rolle null
@@ -241,7 +241,7 @@ pruefe('Schilde Steuerbord 500 Meter', null);
     ['Nächstes Ziel', 'ziel', 'naechstes'], ['Markiertes Ziel', 'ziel', 'markiert'],
     ['Feuer zuerst', 'ziel', 'feuer'], ['Leck zuerst', 'ziel', 'leck'], ['Schilde zuerst', 'ziel', 'shields'],
     ['Person an Bord', 'was', 'person'], ['Fracht an Bord', 'was', 'fracht'],
-    ['Schub null', 'stufe', 0], ['Schub eins', 'stufe', 1], ['Halbe Kraft voraus', 'stufe', 'halb'], ['Volle Kraft voraus', 'stufe', 'voll'],
+    ['Rückwärts langsam', 'stufe', 'rueckwaerts'], ['Viertel Kraft voraus', 'stufe', 'viertel'], ['Dreiviertel Kraft voraus', 'stufe', 'dreiviertel'], ['Halbe Kraft voraus', 'stufe', 'halb'], ['Volle Kraft voraus', 'stufe', 'voll'],
     ['Reaktor reparieren', 'system', 'reactor'], ['Triebwerk reparieren', 'system', 'engines'], ['Schildgenerator reparieren', 'system', 'shields'], ['Transfer reparieren', 'system', 'transfer'],
     ['Backbord Düse reparieren', 'system', 'thruster_port'], ['Steuerbord Düse reparieren', 'system', 'thruster_stbd'],
     ['Bug Emitter reparieren', 'system', 'emitter_bow'], ['Steuerbord Emitter reparieren', 'system', 'emitter_stbd'], ['Heck Emitter reparieren', 'system', 'emitter_aft'], ['Backbord Emitter reparieren', 'system', 'emitter_port'],
@@ -269,7 +269,7 @@ pruefe('Schilde Steuerbord 500 Meter', null);
     'weapon_bow', 'battery_port', 'battery_stbd', 'weapons', 'lafette_1', 'lafette_2', 'lafette_3', 'lafette_5', 'lafette_7', 'lafette_9', 'modul_1', 'modul_2', 'modul_3', 'modul_4'];
   je('nav.kurs', 'ziel', ['marke', 'ziel', 'basis']);
   add('nav.stopp');
-  je('nav.schub', 'stufe', ['halb', 'voll', 0, 1, 2, 3, 4, 5, 6]);
+  je('nav.schub', 'stufe', ['rueckwaerts', 'viertel', 'halb', 'dreiviertel', 'voll']);
   add('nav.ausweichen');
   add('nav.abstand'); je('nav.abstand', 'ziel', ['marke', 'ziel', 'basis']);
   add('nav.andocken');
@@ -334,7 +334,7 @@ for (const t of [
 for (const [t, e] of [
   ['Repariert den Reaktor', b('tech.reparieren', { system: 'reactor' })], ['Technik, repariere den Antrieb', b('tech.reparieren', { system: 'engines' }, 'technik')],
   ['Führen Sie einen Scan durch', b('ops.scan')], ['Feuer hat Priorität', b('tech.prio', { ziel: 'feuer' })], ['Steuerbord Schilde', b('tech.schild', { sektor: 'stb' })],
-  ['Mehr Saft auf Waffen', b('tech.energie', { system: 'weapons', delta: 1 })], ['Schubstufe drei', b('nav.schub', { stufe: 3 })], ['Weichen Sie aus', b('nav.ausweichen')],
+  ['Mehr Saft auf Waffen', b('tech.energie', { system: 'weapons', delta: 1 })], ['Schubstufe voll', b('nav.schub', { stufe: 'voll' })], ['Weichen Sie aus', b('nav.ausweichen')],
   ['Abstand zum Ziel fünfzig Meter', b('nav.abstand', { ziel: 'ziel', meter: 50 })], ['Feuer frei auf Steuerbord', b('ops.feuer_frei', { waffen: 'stb' })],
 ]) {
   const r = pruefe(t, e);
@@ -459,8 +459,9 @@ pruefe('Scannen', b('ops.scan'));
 pruefe('Abstand halten 1 Meter', b('nav.abstand', { meter: 1 }));
 pruefe('Abstand halten 100000 Meter', b('nav.abstand', { meter: 100000 }));
 pruefe('Abstand halten 1.000 Meter', b('nav.abstand', { meter: 1000 }));            // Tausenderpunkt ist keine Dezimalzahl
-pruefe('Schub 6', b('nav.schub', { stufe: 6 }));
-pruefe('Schub 0', b('nav.schub', { stufe: 0 }));
+pruefe('Schub 6', null);                                                              // BOT-01 D: die alten Zahlstufen 0 bis 6 gibt es nicht mehr
+pruefe('Schub 0', null);
+pruefe('Stufe drei', null);
 pruefe('Maschinen aus, Stopp', b('nav.stopp'));
 pruefe('Torpedo klar und Feuer frei', null);                                          // Torpedo im unerkannten Teil: Argument des Befehls, nicht raten
 // S2: Prototyp-Woerter duerfen nie werfen und nie etwas treffen (alle Lookup-Tabellen ohne Prototyp)

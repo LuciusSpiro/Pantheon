@@ -170,7 +170,7 @@ section('4 Gruende');
   }
   // argument (Muell)
   const ARG = [
-    ['nav.schub', 'navigation', { stufe: 7 }], ['nav.schub', 'navigation', { stufe: -1 }], ['nav.schub', 'navigation', { stufe: 2.5 }], ['nav.schub', 'navigation', { stufe: 'viel' }], ['nav.schub', 'navigation', {}], ['nav.schub', 'navigation', { stufe: 3, extra: 1 }],
+    ['nav.schub', 'navigation', { stufe: 7 }], ['nav.schub', 'navigation', { stufe: 0 }], ['nav.schub', 'navigation', { stufe: 6 }], ['nav.schub', 'navigation', { stufe: '3' }], ['nav.schub', 'navigation', { stufe: 'stopp' }], ['nav.schub', 'navigation', { stufe: 'Voll' }], ['nav.schub', 'navigation', { stufe: -1 }], ['nav.schub', 'navigation', { stufe: 2.5 }], ['nav.schub', 'navigation', { stufe: 'viel' }], ['nav.schub', 'navigation', {}], ['nav.schub', 'navigation', { stufe: 'halb', extra: 1 }],
     ['nav.schub', 'navigation', { stufe: { a: 1 } }], ['nav.schub', 'navigation', { stufe: [1] }], ['nav.schub', 'navigation', { stufe: null }], ['nav.schub', 'navigation', { stufe: true }], ['nav.schub', 'navigation', { stufe: NaN }], ['nav.schub', 'navigation', { stufe: Infinity }],
     ['nav.abstand', 'navigation', { meter: 0 }], ['nav.abstand', 'navigation', { meter: 100001 }], ['nav.abstand', 'navigation', { meter: '500' }], ['nav.abstand', 'navigation', { meter: NaN }], ['nav.abstand', 'navigation', { ziel: 'mond' }],
     ['nav.kurs', 'navigation', { ziel: 'hex:' }], ['nav.kurs', 'navigation', { ziel: 'objekt:a b' }], ['nav.kurs', 'navigation', {}],
@@ -186,7 +186,7 @@ section('4 Gruende');
   ok(grund(einz(P, cmd('nav.schub', 'navigation', JSON.parse('{"stufe":"halb","__proto__":{"x":1}}')))) === 'argument', 'argument: __proto__ als eigener Schluessel wird abgelehnt');
   // gueltige Argumente erreichen die Registry (Gegenprobe: nicht zu streng)
   const GUT = [
-    ['nav.schub', 'navigation', { stufe: 0 }], ['nav.schub', 'navigation', { stufe: 6 }], ['nav.schub', 'navigation', { stufe: '3' }], ['nav.schub', 'navigation', { stufe: 'halb' }], ['nav.schub', 'navigation', { stufe: 'voll' }],
+    ['nav.schub', 'navigation', { stufe: 'rueckwaerts' }], ['nav.schub', 'navigation', { stufe: 'viertel' }], ['nav.schub', 'navigation', { stufe: 'halb' }], ['nav.schub', 'navigation', { stufe: 'dreiviertel' }], ['nav.schub', 'navigation', { stufe: 'voll' }],
     ['nav.kurs', 'navigation', { ziel: 'marke' }], ['nav.kurs', 'navigation', { ziel: 'hex:7_3' }], ['nav.kurs', 'navigation', { ziel: 'objekt:abc-1' }], ['nav.abstand', 'navigation', {}], ['nav.abstand', 'navigation', { meter: 1 }], ['nav.abstand', 'navigation', { meter: 100000 }], ['nav.abstand', 'navigation', { ziel: 'ziel', meter: 500 }],
     ['nav.stopp', 'navigation', undefined], ['nav.stopp', 'navigation', null], ['nav.stopp', 'navigation', {}], ['nav.sprung', 'navigation', { ziel: 'hex:12' }],
     ['ops.ziel', 'ops', { ziel: 'markiert' }], ['ops.ziel', 'ops', { ziel: 'naechstes' }], ['ops.ziel', 'ops', { ziel: 'objekt:e4' }], ['ops.feuer_frei', 'ops', undefined], ['ops.feuer_frei', 'ops', {}], ['ops.feuer_frei', 'ops', { waffen: 'torpedo' }], ['ops.beamen', 'ops', { was: 'fracht' }],
@@ -204,7 +204,7 @@ section('4 Gruende');
   ok(!!ohneFeuer, 'fehlende optionale Argumente gehen unveraendert (nicht aufgefuellt) an die Registry - das Auffuellen ist C2');
   // K3: die Registry bekommt normalisierte Kopien (Zahlen statt Text), nie das Original
   const NORM = [
-    ['nav.schub', 'navigation', { stufe: '3' }, { stufe: 3 }], ['nav.schub', 'navigation', { stufe: 4 }, { stufe: 4 }], ['nav.schub', 'navigation', { stufe: 'halb' }, { stufe: 'halb' }],
+    ['nav.schub', 'navigation', { stufe: 'rueckwaerts' }, { stufe: 'rueckwaerts' }], ['nav.schub', 'navigation', { stufe: 'dreiviertel' }, { stufe: 'dreiviertel' }], ['nav.schub', 'navigation', { stufe: 'halb' }, { stufe: 'halb' }],
     ['tech.energie', 'technik', { system: 'engines', delta: '+1' }, { system: 'engines', delta: 1 }], ['tech.energie', 'technik', { system: 'engines', delta: '-1' }, { system: 'engines', delta: -1 }],
     ['tech.energie', 'technik', { system: 'weapons', delta: '1' }, { system: 'weapons', delta: 1 }], ['tech.energie', 'technik', { system: 'weapons', delta: 1 }, { system: 'weapons', delta: 1 }], ['tech.energie', 'technik', { system: 'weapons', delta: -1 }, { system: 'weapons', delta: -1 }],
     ['nav.abstand', 'navigation', { ziel: 'ziel', meter: 500 }, { ziel: 'ziel', meter: 500 }],

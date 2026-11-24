@@ -393,8 +393,16 @@ class BotMannschaft extends BotKern {
   schubHalten(S) {
     this.ausweichenImBefehl(S);
     const sh = S.ship;
+    const stage = this.absicht.befehl.stage;
+    if (stage < STOP) {   // rueckwaerts: das Heck fliegt voraus; Kartenrand und Felsen werden vom Heck aus gesehen, das Ruder dreht das Heck mit dem Bug
+      const r = this.randNachMitte(S);
+      const flug = sh.angle + Math.PI;
+      const wunsch = this.freierWinkel(S, flug + (r === 0 ? 0 : norm(r - Math.PI)), 280);
+      this.helmS(S, this.turnCmd(S, norm(wunsch - flug)), stage);
+      return;
+    }
     const wunsch = this.freierWinkel(S, sh.angle + this.randNachMitte(S), 280);
-    this.helmS(S, this.turnCmd(S, norm(wunsch - sh.angle)), this.absicht.befehl.stage);
+    this.helmS(S, this.turnCmd(S, norm(wunsch - sh.angle)), stage);
   }
   // Direkte Befehle (die Registry prueft vorher Station, Lage und System): nav.stopp, nav.ausweichen
   stoppen() { this.befehlVerwerfen('stopp'); this.cmd('helm.stop'); }

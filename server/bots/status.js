@@ -7,7 +7,7 @@ const { STOP, HALF, FULL } = require('./kern.js');
 
 const MAX = 90;
 const STUFE = ['Stopp', 'Viertel Kraft', 'halbe Kraft', 'dreiviertel Kraft', 'volle Kraft'];   // Index = Stufe der Lerche (STOP .. FULL)
-const stufeWort = (s) => (s === STOP ? STUFE[0] : s === HALF ? STUFE[2] : s === FULL ? STUFE[4] : STUFE[Math.max(0, Math.min(4, s - STOP))] || STUFE[0]);
+const stufeWort = (s) => (s < STOP ? 'Rückwärts' : s === STOP ? STUFE[0] : s === HALF ? STUFE[2] : s === FULL ? STUFE[4] : STUFE[Math.max(0, Math.min(4, s - STOP))] || STUFE[0]);
 const GRUPPE = { bug: 'Bug', bb: 'Backbord', stb: 'Steuerbord', torpedo: 'Torpedo' };
 const SEKTOR = ['Bug', 'Steuerbord', 'Heck', 'Backbord'];
 const PRIO = { fire: 'Feuer', breach: 'Leck' };

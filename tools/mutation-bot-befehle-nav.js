@@ -10,11 +10,13 @@
 //   sprung_blockiert_raus      die nav.sprung-Absicht ignoriert eine Blockade nach der Annahme (W2, Zombie-Absicht)
 //   schub_aussenteam           die Schub-Absicht laeuft mit Aussenteam unten weiter (W3)
 //   schub_ohne_fels            nav.schub weicht Felsen nicht aus (K1a)
+//   schub_rueckwaerts_wie_viertel  rueckwaerts landet auf der Stufe viertel (BOT-01 D: das Schiff faehrt nicht rueckwaerts)
+//   schub_rueckwaerts_vom_bug  rueckwaerts ohne Felsen- und Randsicht vom Heck (BOT-01 D)
 // Ohne Mutation laeuft der Test gruen (Gegenprobe). Dauer: je Lauf rund eine Minute.   node tools/mutation-bot-befehle-nav.js [name ...]
 const { spawnSync } = require('child_process');
 const path = require('path');
 const test = path.join(__dirname, 'test-bot-befehle-nav.js');
-const alle = ['mensch', 'kein_ziel', 'abstand', 'wachposten_auf', 'jammer_reise_raus', 'ausweichen_im_befehl_raus', 'sprung_hex', 'sprung_blockiert_raus', 'schub_aussenteam', 'schub_ohne_fels'];
+const alle = ['mensch', 'kein_ziel', 'abstand', 'wachposten_auf', 'jammer_reise_raus', 'ausweichen_im_befehl_raus', 'sprung_hex', 'sprung_blockiert_raus', 'schub_aussenteam', 'schub_ohne_fels', 'schub_rueckwaerts_wie_viertel', 'schub_rueckwaerts_vom_bug'];
 const gewaehlt = process.argv.slice(2).length ? process.argv.slice(2) : alle;
 let fails = 0;
 for (const m of ['', ...gewaehlt]) {

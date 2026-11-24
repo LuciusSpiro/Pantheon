@@ -250,7 +250,7 @@ async function main() {
     await sleep(500);
     await zu(page); await taste(page, 'KeyB'); await taste(page, 'KeyQ'); await taste(page, 'KeyE'); await taste(page, 'KeyA', 250);
     const m3 = await page.evaluate(() => window.__bef.slice(-1)[0]);
-    ok(m3 && m3.befehl === 'nav.schub' && m3.args.stufe === 1, 'B Q E A: nav.schub stufe 1 (Zahl)');
+    ok(m3 && m3.befehl === 'nav.schub' && m3.args.stufe === 'viertel', 'B Q E A: nav.schub stufe viertel (Wort)');
     await sleep(500);
     await zu(page); await taste(page, 'KeyB'); await taste(page, 'KeyQ'); await taste(page, 'KeyA'); await bild(page, '11-germanen-kurs');
     await zu(page); await taste(page, 'KeyB'); await taste(page, 'KeyQ'); await taste(page, 'KeyA'); await taste(page, 'KeyZ', 100);
