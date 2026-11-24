@@ -2,8 +2,8 @@
 
 Erzeugt aus `basis-win32-x64.json` (`npm run basis`), ersetzt die Handtabellen der README. Gilt nur für **win32-x64**: auf anderer Plattform ist der Raumkampf nicht bit-gleich, der Bericht meldet das als Datenzeile.
 
-- Spielstand wie `08c665e7` (Commit der Läufe `414f268f`), Node v22.20.0, Kennzahl-Version 1, Tuning-Hash `000248fee71b4ff4`, Stand 2026-11-24.
-- 12 Seeds je Gruppe, Laufzeit 8:42 min (4 Prozesse parallel), keine Fehlerläufe.
+- Spielstand wie `08c665e7` (Commit der Läufe `186ff47b`), Node v22.20.0, Kennzahl-Version 1, Tuning-Hash `23e62451599f5d54`, Stand 2026-11-24.
+- 12 Seeds je Gruppe, Laufzeit 15:52 min (4 Prozesse parallel), keine Fehlerläufe.
 - Schwelle für „auffällig“ (Bericht): Abstand zur Spanne Min–Max der Basis-Seeds größer als max(25 %, 2 × IQR) UND Abstand zum Median mindestens die Mindestmenge der Kennzahl (innerhalb der Spanne ist nie etwas auffällig). Technik (Tickzeit, Snapshot) steht nicht in der Basis.
 - Schreibweise: `Schlüssel Median [Min–Max]`; fehlende Zähler und Summen (`summe: true` in KENNZAHL_INFO) gelten als 0, Quoten, Mittel und Mediane fehlen einfach (Kennzahlen mit weniger als 4 Läufen in der Basis werden nicht verglichen). Ausgang `rot` = das Bot-Skript meldete Misserfolg (kein Sieg, Softlock); das Protokoll ist gültig und zählt mit.
 
@@ -46,7 +46,7 @@ Rückwärtsprobe, Stand 2026-11-03, neu gefahren in TEL-01 M gegen die Basis auf
 | `arena_away/station/1` Wellen station solo | 12 | ok 12 | 114,4 s |
 | `arena_away/station/3` Wellen station zu dritt | 12 | ok 12 | 4:60 min |
 | `arena_graben/3` Grabenangriff zu dritt | 12 | ok 12 | 25:00 min |
-| `arena_space/maneuver/3` Raumkampf-Arena zu dritt, Steuer maneuver | 12 | ok 12 | 14:56 min |
+| `arena_space/maneuver/3` Raumkampf-Arena zu dritt, Steuer maneuver | 12 | ok 12 | 15:08 min |
 | `arena_space/nose/3` Raumkampf-Arena zu dritt, Steuer nose | 12 | ok 12 | 19:07 min |
 | `m1/1` Kampagne solo (M1, M2) | 12 | ok 11, rot 1 | 19:54 min |
 | `m1/3` Kampagne zu dritt (M1, M2) | 12 | ok 11, rot 1 | 16:30 min |
@@ -471,30 +471,30 @@ Rückwärtsprobe, Stand 2026-11-03, neu gefahren in TEL-01 M gegen die Basis auf
 
 `node tools/sim-headless.js arena --pilot maneuver --players 3 --seeds 1 --seed <S>` · Seeds 1–12 · 12 Läufe
 
-- **F1 Dauer und Ausgang:** ausgang.session_ende 1 · dauer.arena_raum.mittel 895,72 [833,83–1146,5] · dauer.arena_raum.n 1
-  dauer.arena_raum.summe 895,72 [833,83–1146,5] · dauer.session 895,72 [833,83–1146,5] · spieler.abgaenge 0 · spieler.beitritte 2 · spieler.max 3
+- **F1 Dauer und Ausgang:** ausgang.session_ende 1 · dauer.arena_raum.mittel 907,69 [792,03–1048,93] · dauer.arena_raum.n 1
+  dauer.arena_raum.summe 907,69 [792,03–1048,93] · dauer.session 907,69 [792,03–1048,93] · spieler.abgaenge 0 · spieler.beitritte 2 · spieler.max 3
   spieler.nachzuegler 0 · spieler.start 3
-- **F2 Gefecht:** gefecht.raum 828 [766–1080] · gegner_neu.raum 14 · gegner_weg.raum 2 [0–12] · kills.raum.gesamt 12 [2–14] · kills.raum.korvette 3,5 [1–4]
-  kills.raum.pylon 0,5 [0–1] · kills.raum.raider 6,5 [1–8] · kills.raum.sentinel 1 [0–1] · kills_von.lerche 12 [2–14] · quote.raum.lanze 95,45 [0–100]
-  quote.raum.standardbatterie 93,65 [88,64–98,57] · quote_wirkt.raum.lanze 95,45 [0–100] · quote_wirkt.raum.standardbatterie 85,2 [80–96,15]
-  schaden.raum.aus.roh 644,74 [133–786,24] · schaden.raum.aus.schild 67,58 [21–92] · schaden.raum.aus.wirkt 453,22 [87,78–563,6]
-  schaden.raum.ein.roh 70,75 [34,5–333] · schaden.raum.ein.schild 32,25 [16,5–77] · schaden.raum.ein.wirkt 15 [3–316,5] · schuesse.raum.lanze 15 [1–25]
-  schuesse.raum.standardbatterie 208,5 [52–241] · treffer_je_schuss.raum.lanze 0,96 [0–1] · treffer_je_schuss.raum.standardbatterie 0,94 [0,89–0,99]
-  treffer_n.raum.aus 207,5 [50–241] · treffer_n.raum.ein 74,5 [34–268] · zeit_bis_kill.raum.korvette 61,9 [41,42–90,9]
-  zeit_bis_kill.raum.pylon 102,07 [71,13–165,6] · zeit_bis_kill.raum.raider 112,3 [90,22–156,77] · zeit_bis_kill.raum.sentinel 55,09 [44,07–103,73]
-- **F3 Verluste:** bodenschild_leer.n 0 · erster_verlust_s 15,9 [13,7–34,27] · gefallen.n 0 · integritaet.min 85,68 [34,19–95,73] · neustarts 0
-  notfall.n 0 [0–2] · notrueckholung.n 0 · schiff_zerstoert.n 0 [0–2] · zone_aus.kaputt 11,5 [1–110] · zone_aus.n 23 [4–120]
-- **F4 Rollen:** dabei.p1 895 [832–1146] · dabei.p2 895 [832–1146] · dabei.p3 895 [832–1146] · leerlauf.p1.anteil 0 · leerlauf.p1.dauer 0
-  leerlauf.p1.episoden 0 · leerlauf.p2.anteil 0 [0–17,11] · leerlauf.p2.dauer 0 [0–154] · leerlauf.p2.episoden 0 [0–2] · leerlauf.p3.anteil 22,96 [0–38,65]
-  leerlauf.p3.dauer 200 [0–344] · leerlauf.p3.episoden 4 [0–6] · reparatur.dauer_mittel 3 [1,62–3] · reparatur.erfolg_anteil 100 [86,27–100]
-  reparatur.n 1 [0–51] · reparatur.notflicken 0 [0–48] · rolle.p1.helm 750 [130–908] · rolle.p1.ohne 156 [0–768] · rolle.p2.ohne 32 [2–962]
-  rolle.p2.weapons 830 [184–936] · rolle.p3.captain 893 [824–1144] · rolle.p3.ohne 2 [2–64] · wechsel.p1 0 · wechsel.p2 0 · wechsel.p3 534 [72–635]
-- **F5 Wirtschaft:** buchung.ersatzteil.bot -1 [-3–0] · buchung.ersatzteil.regal -1 [-4–0] · buchung.marks.abschuss 442,5 [80–505]
-  buchung.marks.notfall 0 [-100–0] · energie.automatik_n 1,5 [0–8] · energie.engines_anteil 33,33 [33,13–41,58] · energie.shields_anteil 33,81 [33,33–43,41]
-  energie.weapons_anteil 32,63 [15,02–33,33] · konto.ersatzteil.anfang 4 · konto.ersatzteil.ende 2 [0–3] · konto.ersatzteil.netto -2 [-4–-1]
-  konto.marks.anfang 5000 · konto.marks.ende 5442,5 [4980–5505] · konto.marks.netto 442,5 [-20–505] · stand.marks.testmarken 5000
+- **F2 Gefecht:** gefecht.raum 840 [726–982] · gegner_neu.raum 14 · gegner_weg.raum 2 [0–9] · kills.raum.gesamt 12 [5–14] · kills.raum.korvette 3,5 [1–4]
+  kills.raum.pylon 1 [0–1] · kills.raum.raider 6 [4–8] · kills.raum.sentinel 1 [0–1] · kills_von.lerche 12 [5–14] · quote.raum.lanze 91,4 [66,67–100]
+  quote.raum.standardbatterie 92,89 [88,72–98,57] · quote_wirkt.raum.lanze 91,4 [66,67–100] · quote_wirkt.raum.standardbatterie 84,74 [79,92–92,86]
+  schaden.raum.aus.roh 660,99 [219,54–775,6] · schaden.raum.aus.schild 71,5 [21–90] · schaden.raum.aus.wirkt 461,19 [159,66–552,96]
+  schaden.raum.ein.roh 50,25 [34,5–253] · schaden.raum.ein.schild 35,25 [26,5–66] · schaden.raum.ein.wirkt 12,25 [3–199] · schuesse.raum.lanze 15 [3–25]
+  schuesse.raum.standardbatterie 219 [70–252] · treffer_je_schuss.raum.lanze 0,91 [0,67–1] · treffer_je_schuss.raum.standardbatterie 0,93 [0,89–0,99]
+  treffer_n.raum.aus 215 [72–250] · treffer_n.raum.ein 60 [33–268] · zeit_bis_kill.raum.korvette 58,05 [41,42–90,9]
+  zeit_bis_kill.raum.pylon 112,3 [70,77–165,6] · zeit_bis_kill.raum.raider 109,02 [90,22–164,85] · zeit_bis_kill.raum.sentinel 54 [41,4–118,87]
+- **F3 Verluste:** bodenschild_leer.n 0 · erster_verlust_s 15,9 [13,7–34,27] · gefallen.n 0 · integritaet.min 91,45 [34,19–95,73] · neustarts 0
+  notfall.n 0 [0–2] · notrueckholung.n 0 · schiff_zerstoert.n 0 [0–2] · zone_aus.kaputt 7 [1–95] · zone_aus.n 13 [4–111]
+- **F4 Rollen:** dabei.p1 907 [792–1048] · dabei.p2 907 [792–1048] · dabei.p3 907 [792–1048] · leerlauf.p1.anteil 0 · leerlauf.p1.dauer 0
+  leerlauf.p1.episoden 0 · leerlauf.p2.anteil 4,37 [0–17,11] · leerlauf.p2.dauer 39 [0–154] · leerlauf.p2.episoden 1 [0–2] · leerlauf.p3.anteil 27,9 [0–55,92]
+  leerlauf.p3.dauer 235 [0–586] · leerlauf.p3.episoden 4 [0–6] · reparatur.dauer_mittel 3 [1,62–3] · reparatur.erfolg_anteil 100 [75–100] · reparatur.n 1 [0–48]
+  reparatur.notflicken 0 [0–45] · rolle.p1.helm 782 [104–908] · rolle.p1.ohne 61 [0–864] · rolle.p2.ohne 18 [2–770] · rolle.p2.weapons 830 [254–936]
+  rolle.p3.captain 905 [790–1046] · rolle.p3.ohne 2 [2–56] · wechsel.p1 0 · wechsel.p2 0 · wechsel.p3 550 [196–631]
+- **F5 Wirtschaft:** buchung.ersatzteil.bot -1 [-3–0] · buchung.ersatzteil.regal -1 [-4–0] · buchung.marks.abschuss 445 [140–505]
+  buchung.marks.notfall 0 [-100–0] · energie.automatik_n 0 [0–8] · energie.engines_anteil 33,33 [33,33–37,72] · energie.shields_anteil 33,33 [33,33–38,49]
+  energie.weapons_anteil 33,33 [23,8–33,33] · konto.ersatzteil.anfang 4 · konto.ersatzteil.ende 1,5 [0–3] · konto.ersatzteil.netto -2,5 [-4–-1]
+  konto.marks.anfang 5000 · konto.marks.ende 5445 [5040–5505] · konto.marks.netto 445 [40–505] · stand.marks.testmarken 5000
 - **F6 Technik (deterministischer Teil):** daten.abgeschnitten 0 · daten.kaputt 0 · daten.ohne_ende 0 · daten.unbekannte_typen 0 · fehler.schreiben 0
-  fehler.verworfen 0 · fehler.zeitreihe 0 · protokoll.zeilen 1537 [1010–2006] · protokoll.zeilen_je_min 105,69 [52,86–141,27] · tick.n 26850 [24960–34380]
+  fehler.verworfen 0 · fehler.zeitreihe 0 · protokoll.zeilen 1576 [1221–1945] · protokoll.zeilen_je_min 108,4 [71,49–128,64] · tick.n 27210 [23760–31440]
 
 ## arena_space/nose/3 – Raumkampf-Arena zu dritt, Steuer nose
 
