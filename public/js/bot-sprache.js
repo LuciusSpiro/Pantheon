@@ -62,7 +62,8 @@
   // ------------------------------------------------------------------ Kern
   // env: { transport: { send(obj) -> bool, onMessage(fn) -> abmelden }, matcher: () -> { match } | Promise, stt: (blob, mime) -> Promise<text>,
   //        mikrofon: { start() -> Promise<{ stop() -> Promise<{ blob, mime, dauerMs }>, abbruch() }> }, audio: { spiele(urls, { start?, ende? }) -> Promise<url|null>, stumm(bool), stopp() },
-  //        anzeige: { aufnahme(bool), untertitel(text, { botId?, dauerS? }) -> Kennung?, meldung(text|null), verarbeitet?(bool), clip?(kennung, bool), messung?(zustand) }, uhr?: () -> ms, stimmen?, clipBasis?, postMessung?: (sitzung, eintrag) -> Promise }
+  //        vorSenden?(msg) -> Vermerk (BotMenue.sprachBefehl: legt den Eintrag für Quittung und „gilt“ an, BEVOR gesendet wird), verworfen?(vermerk) (Sendefehler: Eintrag zurück), siehe menueAnschluss,
+//        anzeige: { aufnahme(bool), untertitel(text, { botId?, dauerS? }) -> Kennung?, meldung(text|null), verarbeitet?(bool), clip?(kennung, bool), messung?(zustand) }, uhr?: () -> ms, stimmen?, clipBasis?, postMessung?: (sitzung, eintrag) -> Promise }
   function erzeuge(env) {
     const uhr = env.uhr || (() => Date.now());
     const stimmen = Object.assign({}, STIMMEN, env.stimmen || {});
@@ -175,9 +176,11 @@
       if (!res || typeof res.befehl !== 'string' || !res.befehl) return unklar();   // unter der Schwelle: nichts senden
       const msg = { t: 'bot.befehl', an: res.an, befehl: res.befehl, quelle };
       if (res.args !== undefined && res.args !== null) msg.args = res.args;
+      let vermerk = null;   // BotMenue legt den Eintrag für Quittung und „gilt“ an (ohne zu senden), BEVOR gesendet wird: die Antwort kann nicht vor dem Eintrag kommen
+      if (env.vorSenden) { try { vermerk = env.vorSenden(msg); } catch (e) { vermerk = null; } }
       let ok = false;
       try { ok = env.transport.send(msg) !== false; } catch (e) { ok = false; }
-      if (!ok) { meldung(TEXT.keinBotServer); return false; }
+      if (!ok) { if (env.verworfen && vermerk) { try { env.verworfen(vermerk); } catch (e) { /* egal */ } } meldung(TEXT.keinBotServer); return false; }
       if (/^b\d$/.test(String(res.an))) s.letzterBot = res.an;   // zuletzt angesprochener Bot (nur wenn der Matcher eine botId nennt)
       if (!s.maxHinweis) meldung(null);
       return true;
@@ -263,10 +266,33 @@
       offen: () => !!(ws && ws.readyState === 1),
     };
   }
-  // STUB für Paket D: der Weg über die Spielverbindung (net.js). Bis BOT-01 C den Server-Teil liefert, geht nichts hinaus (send -> false: Meldung „Kein Bot-Server verbunden“).
-  // Paket D ersetzt das durch: send: (obj) => Net.send(obj), onMessage: (fn) => Net.on((m) => m.t === 'bot.antwort' && fn(m)).
+  // Der Weg über die Spielverbindung (net.js, BOT-04 D): bot.befehl geht mit Net.send an den Spielserver, bot.antwort kommt über Net.on. Ohne offene Verbindung -> false (Meldung „Kein Bot-Server verbunden“).
+  // netz: true -> die Sprache zeigt die Antworten (BotSprache.netAntworten), pult-befehl.js führt dann nur Quittung und „gilt“. schliessen() lässt die Spielverbindung unberührt.
+  function transportNet(Net) {
+    const offen = () => { try { return !!Net && (typeof Net.isOpen === 'function' ? !!Net.isOpen() : true); } catch (e) { return false; } };
+    return {
+      send(obj) { if (!offen()) return false; try { return Net.send(obj) !== false; } catch (e) { return false; } },
+      onMessage(fn) {
+        if (!Net || typeof Net.on !== 'function') return () => {};
+        const weg = Net.on((m) => { if (m && m.t === 'bot.antwort') fn(m); });
+        return typeof weg === 'function' ? weg : () => {};
+      },
+      schliessen() {},
+      offen,
+      netz: true,
+    };
+  }
+  // Rückfall ohne Spielverbindung (kein Net im Fenster, oder ein verbotener ?botmock=): nichts geht hinaus (send -> false)
   function transportNetStub() {
-    return { send() { return false; }, onMessage() { return () => {}; }, schliessen() {}, offen: () => false, stub: true };   // netz: true setzt erst der echte Net-Transport (BotSprache.netAntworten)
+    return { send() { return false; }, onMessage() { return () => {}; }, schliessen() {}, offen: () => false, stub: true };
+  }
+  // Anschluss an das Befehlsmenü (BotMenue gehört der Zustand): die Sprache meldet jeden Befehl vor dem Senden an (sprachBefehl) und nimmt ihn bei Sendefehler zurück. holeMenue wird je Aufruf gefragt (PultBefehl kann später laden).
+  function menueAnschluss(holeMenue) {
+    const menue = () => { try { return holeMenue() || null; } catch (e) { return null; } };
+    return {
+      vorSenden: (msg) => { const m = menue(); return m && m.sprachBefehl ? m.sprachBefehl(msg) : null; },
+      verworfen: (vermerk) => { const m = menue(); if (m && m.sprachBefehlVerworfen) m.sprachBefehlVerworfen(vermerk); },
+    };
   }
 
   function mikrofonBrowser(win) {
@@ -452,12 +478,13 @@
     const mockParam = params.get('botmock');
     const mockUrl = mockParam !== null ? (mockParam || 'ws://localhost:8710') : null;
     const mockOk = mockUrl === null || mockUrlErlaubt(mockUrl);
-    const transport = mockUrl !== null && mockOk ? transportWebSocket(mockUrl, win.WebSocket) : transportNetStub();
+    const transport = mockUrl !== null ? (mockOk ? transportWebSocket(mockUrl, win.WebSocket) : transportNetStub()) : win.Net ? transportNet(win.Net) : transportNetStub();   // ?botmock= hat Vorrang (verboten: Stub, nie still die echte Verbindung)
     const sitzung = 'messung-' + new Date().toISOString().replace(/[^0-9]/g, '').slice(0, 14);
     let kern = null;
     const anzeige = anzeigeHud(win, (t) => kern.sendeText(t), (dd) => kern.messeWeiter(dd));
     const env = {
       transport, matcher: () => ladeMatcher(win), stt: sttBrowser(win), mikrofon: mikrofonBrowser(win), audio: audioBrowser(win), anzeige,
+      ...(transport.netz === true ? menueAnschluss(() => win.PultBefehl && win.PultBefehl.menue) : {}),   // nur am Spielnetz: nur dort erreichen die Antworten das Menü
       postMessung: (sit, eintrag) => win.fetch('/api/bot-messung', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ sitzung: sit, eintrag }) }).then((r) => { if (!r.ok) throw new Error('messung ' + r.status); }),
     };
     kern = erzeuge(env);
@@ -492,7 +519,7 @@
     i.kern.schalte(false); i.aufraeumen(); i.transport.schliessen();
   }
 
-  // BOT-01 C3: verarbeitet die Sprache die bot.antwort der Spielverbindung selbst? Dann zeigt public/js/pult-befehl.js sie nicht noch einmal (genau ein Verarbeiter je Antwort). Der Net-Transport (Paket D) setzt `netz: true`.
+  // BOT-01 C3: verarbeitet die Sprache die bot.antwort der Spielverbindung selbst? Dann zeigt public/js/pult-befehl.js sie nicht noch einmal (genau ein Verarbeiter je Antwort). Der Net-Transport (transportNet, BOT-04 D) setzt `netz: true`.
   const netAntworten = () => !!(instanz && instanz.transport && instanz.transport.netz === true);
-  return { erzeuge, clipKandidaten, netAntworten, erwartungErfuellt, mockUrlErlaubt, TEXT, MAX_MS, STIMMEN, CLIP_BASIS, transportWebSocket, transportNetStub, anzeigeHud, sprecherName, startHinweis, UNKLAR_DAUER_S, mikrofonBrowser, audioBrowser, sttBrowser, starte, stoppe, laeuft: () => !!instanz };
+  return { erzeuge, clipKandidaten, netAntworten, erwartungErfuellt, transportNet, menueAnschluss, mockUrlErlaubt, TEXT, MAX_MS, STIMMEN, CLIP_BASIS, transportWebSocket, transportNetStub, anzeigeHud, sprecherName, startHinweis, UNKLAR_DAUER_S, mikrofonBrowser, audioBrowser, sttBrowser, starte, stoppe, laeuft: () => !!instanz };
 });

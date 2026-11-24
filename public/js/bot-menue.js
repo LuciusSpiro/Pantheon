@@ -1,7 +1,7 @@
 // BOT-01 C3: Befehlsmenü der Bots am Captain-Pult – Zustand und Regeln, ohne DOM, Canvas und Netz (Kern; Node-Test tools/test-bot-menue.js). Globales `BotMenue`.
 // Schichten (Kais 3-Layer-Regel), analog bot-sprache.js:
 //   Zustand (Storage)   `erzeuge(env)` hält Tafel (offen, Stufe, Rolle, Befehl, Seite, letzte Taste), Nachfrage, Quittung, „gilt“ je Rolle, ausstehende Befehle. EINE Stelle, die Zeichnen, Tasten und Hilfe lesen.
-//   Regeln (Action)     benannte Funktionen je Absicht: oeffnen · zurueck · schliessen · waehle(feld) · blaettern · taste(aktion) · antwort(msg) · synchron(players, phase). Menü (quelle 'menu') und Direkttasten
+//   Regeln (Action)     benannte Funktionen je Absicht: oeffnen · zurueck · schliessen · waehle(feld) · blaettern · taste(aktion) · antwort(msg) · sprachBefehl(msg) (Eintrag für einen Sprach-/Textbefehl, BOT-04 D) · synchron(players, phase). Menü (quelle 'menu') und Direkttasten
 //                       (quelle 'taste') rufen dieselbe Sende-Funktion; Verfügbarkeit (Bot da? Mensch an der Station?) rechnet hier eine Funktion, nicht das Pult.
 //   Frontend            public/js/pult-befehl.js zeichnet aus `ansicht()` und `crew()` (Maße, Farben nur aus public/js/pult-befehl-tokens.js) und ruft die Funktionen auf.
 // Beschriftung nur aus content/bots/kanon.json (Vertrag Bot-Befehle): Stufe 2 = anzeige mit {x} -> „…“, Stufe 3 = werte.<x>.<id>.wort, Crew-Zeile = kürzeste Form aus anzeige/kurz. Keine Sprechform im Code.
@@ -47,6 +47,25 @@
     return p ? fuellen(e.anzeige, { [p.name]: p.werte[wertId] ? p.werte[wertId].wort : '' }) : e.anzeige;
   };
   const kuerzeste = (e) => [e.anzeige].concat(e.kurz || []).reduce((a, b) => (b.length < a.length ? b : a));
+  // Kanon-Eintrag und Wert-ID zu Befehl + Argumenten des Matchers (Spiel-IDs): alle festen Argumente gleich, das Platzhalter-Argument ein Wert des Eintrags, keine fremden Argumente (außer meter);
+  // (so ist die Wahl eindeutig: ops.feuer_frei mit waffen trifft nur den Eintrag mit Platzhalter, ohne waffen nur den ohne). null = nicht abbildbar.
+  function eintragFuerArgs(befehl, args, idx) {   // idx: indexVon(kanon)
+    const a0 = args && typeof args === 'object' ? args : {};
+    for (const e of idx.values()) {
+      if (e.befehl !== befehl) continue;
+      const ea = e.args || {}, namen = Object.keys(ea);
+      if (Object.keys(a0).some((k) => k !== 'meter' && namen.indexOf(k) < 0)) continue;
+      let wert = null, passt = true;
+      for (const n of namen) {
+        const v = a0[n], m = PLATZHALTER.exec(String(ea[n]));
+        if (v === undefined || v === null) { passt = false; break; }
+        if (m) { if (!Object.prototype.hasOwnProperty.call((e.werte || {})[m[1]] || {}, String(v))) { passt = false; break; } wert = String(v); }
+        else if (String(v) !== String(ea[n])) { passt = false; break; }
+      }
+      if (passt) return { e, wert };
+    }
+    return null;
+  }
   const zahlWert = (v) => (/^(?:0|[1-9]\d{0,5})$/.test(String(v)) ? Number(v) : v);
 
   // ------------------------------------------------------------------ Kern
@@ -164,10 +183,35 @@
       let ok = false;
       try { ok = env.senden(msg) !== false; } catch (err) { ok = false; }
       if (!ok) { verweigere('Keine Verbindung zum Spiel'); return false; }
-      const jetzt = uhr();
-      s.ausstehend.push({ t: jetzt, an: e.an, befehl: e.befehl, erwartet: e.an === 'alle' ? Math.max(1, s.botsN) : 1, ok: 0, nein: 0, fertig: false,
-        gilt: { key: schluesselVon(e), wert: p ? String(wertId) : null, sprech: sprechform(e, wertId) } });
-      s.quittung = { an: e.an, phase: 'gesendet', t: jetzt };
+      merkeAusstehend(e.an, e.befehl, e.an === 'alle' ? Math.max(1, s.botsN) : 1, { key: schluesselVon(e), wert: p ? String(wertId) : null, sprech: sprechform(e, wertId) });
+      return true;
+    }
+    // gesendeter Befehl: Eintrag für die Antwort (Quittung, „gilt“) und Quittung „gesendet“; Menü und Sprache legen ihn gleich an
+    function merkeAusstehend(an, befehl, erwartet, gilt) {
+      const p = { t: uhr(), an, befehl, erwartet, ok: 0, nein: 0, fertig: false, gilt };
+      s.ausstehend.push(p);
+      s.quittung = { an, phase: 'gesendet', t: p.t };
+      return p;
+    }
+    // Sprach-/Textbefehl (quelle 'sprache' / 'text'): die Bot-Sprache sendet selbst, hier wird nur der Eintrag angelegt (ohne zu senden), damit die Antwort Quittung und „gilt“ setzt.
+    // msg ist die bot.befehl der Sprache mit den Argumenten des Matchers (Spiel-IDs des Kanons). Passt der Befehl auf keinen Kanon-Eintrag, entsteht ein Eintrag OHNE „gilt“ (lieber nichts als falsch).
+    // Liefert den Eintrag (für sprachBefehlVerworfen) oder null (Befehl unbekannt, nichts angelegt).
+    function sprachBefehl(msg) {
+      aktualisiere();
+      if (!msg || msg.t !== befehlTyp || typeof msg.befehl !== 'string') return null;
+      const f = eintragFuerArgs(msg.befehl, msg.args, index);
+      const e = f ? f.e : befehlEintrag.get(msg.befehl);
+      if (!e) return null;
+      const an = typeof msg.an === 'string' && (msg.an === 'alle' || ROLLEN.indexOf(msg.an) >= 0) ? msg.an : e.an;   // botId ('b0'): die Rolle des Befehls
+      const gilt = f ? { key: schluesselVon(f.e), wert: f.wert, sprech: sprechform(f.e, f.wert) } : null;
+      return merkeAusstehend(an, msg.befehl, msg.an === 'alle' ? Math.max(1, s.botsN) : 1, gilt);
+    }
+    // Die Sprache konnte den Befehl doch nicht senden: Eintrag und Quittung „gesendet“ wieder weg
+    function sprachBefehlVerworfen(p) {
+      const i = p ? s.ausstehend.indexOf(p) : -1;
+      if (i < 0) return false;
+      s.ausstehend.splice(i, 1);
+      if (s.quittung && s.quittung.t === p.t && s.quittung.phase === 'gesendet') s.quittung = null;
       return true;
     }
     // Direkttaste (Aktion in tasten.js; quelle 'taste', beim Klick auf den Knopf der Crew-Zeile 'menu'): { ok, grund? }
@@ -350,7 +394,7 @@
       }
       if (p && status === 'ok') {
         if (p.befehl === 'bot.automatik') s.gilt = {};
-        else if (rolle && !/^bot\./.test(p.befehl)) s.gilt[rolle] = p.gilt;
+        else if (rolle && !/^bot\./.test(p.befehl)) { if (p.gilt) s.gilt[rolle] = p.gilt; else delete s.gilt[rolle]; }   // Wert nicht abbildbar: die alte Absicht gilt nicht mehr, eine neue ist unbekannt
       }
       const text = typeof msg.text === 'string' && msg.text ? msg.text : String(msg.textId || '');
       const zeigen = !!text && (!env.antwortenAnzeigen || env.antwortenAnzeigen() !== false);
@@ -359,11 +403,11 @@
     }
 
     return {
-      synchron, reset, setzeKanon, geladen, oeffnen, umschalten, zurueck, schliessen, waehle, blaettern, taste, tastenDruck, escape, antwort, ansicht, crew, aktualisiere,
+      synchron, reset, setzeKanon, geladen, oeffnen, umschalten, zurueck, schliessen, waehle, blaettern, taste, tastenDruck, escape, antwort, sprachBefehl, sprachBefehlVerworfen, ansicht, crew, aktualisiere,
       istOffen: () => { aktualisiere(); return s.offen; }, hatBots: () => s.botsN > 0, botsZahl: () => s.botsN, rollenStand: () => rollen, giltVon: gilt,
       lies: () => ({ offen: s.offen, stufe: s.stufe, rolle: s.rolle, key: s.key, seite: s.seite, gilt: s.gilt, ausstehend: s.ausstehend.length, aktiv: s.aktiv }),
     };
   }
 
-  return { erzeuge, schluesselVon, platzVon, indexVon, sprechform, kuerzeste, fuellen };
+  return { erzeuge, eintragFuerArgs, schluesselVon, platzVon, indexVon, sprechform, kuerzeste, fuellen };
 });
