@@ -370,7 +370,13 @@ console.log('\nObergrenzen bleiben: 3 Angebote, laufend_max 3, Verfall nach ' + 
   ok(r2 === null, 'ein zweites laeuft zugleich');
   const vor = brett(g).length;
   andocken(t);
-  ok(brett(g).length <= vor && vorrat(g).length === 1, 'bei laufenden Abenteuern fuellt der Vorrat das Brett nicht nach');
+  ok(brett(g).length >= vor && brett(g).length <= MAXA && vorrat(g).length <= 1, 'SPT-02 3: bei ZWEI laufenden Abenteuern (unter laufend_max) fuellt der Vorrat das Brett weiter nach (hoechstens ' + MAXA + ')');
+  const id3 = 'a' + brett(g)[0].nr;
+  ok(Brett.annehmen(g, id3) === null && g.weltsim.faeden.liste.filter((f) => f.plan && f.phase !== 'abgeschlossen').length === 3, 'ein drittes laeuft zugleich (Grenze laufend_max erreicht)');
+  V.hinzufuegen(g, V.eintrag(g, { absicht: ab('rettung'), art: ART }).eintrag);
+  const vorV = vorrat(g).length, vorB = brett(g).length;
+  andocken(t);
+  ok(brett(g).length <= vorB && vorrat(g).length >= vorV, 'bei DREI laufenden Abenteuern fuellt der Vorrat das Brett nicht nach (Eintraege bleiben liegen)');
   ok(brett(g).every((a) => a.alter <= GILT), 'Verfall: kein Angebot ist aelter als ' + GILT + ' Taetigkeiten');
   tick(g, GILT + 1);
   ok(brett(g).length === 0, 'nach ' + (GILT + 1) + ' Taetigkeiten ist das Brett leer (Verfall wie bisher)');

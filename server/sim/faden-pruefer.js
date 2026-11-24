@@ -720,6 +720,8 @@ function platzNachOrtswechsel(v) {
 // ---------- Abenteuer (SUND-04b A1): der zweite, benannte Weg, einen Faden zu oeffnen (nicht ueber ein Notruf-Angebot, sondern ueber einen geprueften Bauplan)
 // Obergrenze aktiv_max und Abstand gelten weiter (der Abstand wird beim Oeffnen gezogen, faden.js); dazu hoechstens laufend_max laufende Abenteuer und hoechstens angebote_max offene Abenteuer-Angebote.
 const abenteuerLaufend = (F) => aktive(F).filter((f) => f.plan).length;
+// SPT-02 3: die Grenze laufend_max ist erreicht (Annehmen, Rueckfall, Vorrat und Anschluss fuellen das Brett nur darunter; abenteuerLaufend ist die Anzahl, kein Ja/Nein)
+const abenteuerGrenzeErreicht = (F) => abenteuerLaufend(F) >= W.abenteuer.laufend_max;
 // FRE-03 D: Notruf-Angebote (Feld notruf am Angebot) liegen im selben Brett, zaehlen aber getrennt: angebote_max gilt nur fuer die uebrigen (Andock-, Rueckfall-, Komponisten-Angebote)
 const regulaereAngebote = (F) => ((F && F.abenteuerAngebote) || []).filter((a) => !a.notruf);
 const notrufAngebote = (F) => ((F && F.abenteuerAngebote) || []).filter((a) => !!a.notruf);
@@ -765,4 +767,4 @@ function befehlPruefen(F, b, ctx) {
 }
 const istBefehl = (b) => istObjekt(b) && has(BEFEHL_FELDER, b.typ);
 
-module.exports = { istSimBefehl, simBefehlFolge, simBefehlArten, sundSpielbar, nscAlt, wiedersehenNsc, pruefeNscVon, pruefeLage, pruefeLandeplaetze, dateiLandeplatzFehler, pruefeAbenteuerAnbieten, pruefeNotrufAnbieten, pruefeAbenteuerOeffnen, abenteuerLaufend, regulaereAngebote, notrufAngebote, notrufBrettFaden, abschlussGelungen, haltungsWege, tonFuer, effektiv, katalogFehler, TEXT_KEY, pruefeVorlage, pruefeFaden, pruefeOeffnen, pruefeWeiter, befehlPruefen, istBefehl, neuerKontext, folgeWirkung, folgeProfil, optionenFehler, fluchtzielOk, aktive, nameOk, BEFEHL_FELDER, PARAM_FELDER };
+module.exports = { istSimBefehl, simBefehlFolge, simBefehlArten, sundSpielbar, nscAlt, wiedersehenNsc, pruefeNscVon, pruefeLage, pruefeLandeplaetze, dateiLandeplatzFehler, pruefeAbenteuerAnbieten, pruefeNotrufAnbieten, pruefeAbenteuerOeffnen, abenteuerLaufend, abenteuerGrenzeErreicht, regulaereAngebote, notrufAngebote, notrufBrettFaden, abschlussGelungen, haltungsWege, tonFuer, effektiv, katalogFehler, TEXT_KEY, pruefeVorlage, pruefeFaden, pruefeOeffnen, pruefeWeiter, befehlPruefen, istBefehl, neuerKontext, folgeWirkung, folgeProfil, optionenFehler, fluchtzielOk, aktive, nameOk, BEFEHL_FELDER, PARAM_FELDER };

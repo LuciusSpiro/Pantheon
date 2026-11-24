@@ -72,7 +72,7 @@ async function lauf(b, vw, vh, port) {
     await page.evaluate(() => { const id = Brett.modell().angebote[0].id; __game.send({ t: 'cmd', c: 'abenteuer.annehmen', id }); __game.send({ t: 'cmd', c: 'abenteuer.annehmen', id }); });
     await sleep(1200);
     z = await zust();
-    if (!z.modell || !z.modell.laufend) fehler.push('Annahme: kein laufendes Abenteuer im Snapshot');
+    if (!z.modell || !z.modell.laufend.length) fehler.push('Annahme: kein laufendes Abenteuer im Snapshot');
     if (z.antwort !== 'schon_beantwortet') fehler.push('zweite Antwort: Code ' + z.antwort + ' statt schon_beantwortet');
     await shot('04-laeuft-und-zweite-antwort', 400);
     await taste('KeyW'); await taste('KeyO'); await sleep(2200); await shot('05-laeuft-angenommen', 300);

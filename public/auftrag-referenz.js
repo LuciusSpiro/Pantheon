@@ -189,8 +189,8 @@
     P.knopf(c, K.x, py, K.w, TA.handel.h, A.text('knopf'), { hotkey: 'O', fn: 'nav', active: true });
     const an = m.angebote || [], sel = an.find((a) => a.id === m.gewaehlt) || an[0];
     const gesperrt = !!m.laufend, kein = !sel;
-    P.knopf(c, TA.haupt.x, TA.haupt.y, TA.haupt.w, TA.haupt.h, A.text('annehmen'), { hotkey: 'Enter', fn: 'nav', disabled: gesperrt || kein, reason: gesperrt ? A.text('gesperrtGrund', { titel: m.laufend.titel }) : null });
-    if (gesperrt) txt(c, A.text('gesperrt'), TA.hinweis.x, TA.hinweis.y, FA.bald);
+    P.knopf(c, TA.haupt.x, TA.haupt.y, TA.haupt.w, TA.haupt.h, A.text('annehmen'), { hotkey: 'Enter', fn: 'nav', disabled: gesperrt || kein, reason: gesperrt ? A.text('gesperrtGrund') : null });
+    if (gesperrt) txt(c, A.text('gesperrt', { n: 3 }), TA.hinweis.x, TA.hinweis.y, FA.bald);
     else if (!kein) txt(c, A.text('kostetNichts'), TA.hinweis.x, TA.hinweis.y, FA.laeuft);
     P.knopf(c, TA.ausbau.x, TA.ausbau.y, TA.ausbau.w, TA.ausbau.h, A.text('ablehnen'), { hotkey: 'X', fn: 'neutral', kontur: true, disabled: kein });
     P.knopf(c, TA.teil.x, TA.teil.y, TA.teil.w, TA.teil.h, 'Angebot', { hotkey: '↑↓', fn: 'neutral', disabled: an.length < 2 });
