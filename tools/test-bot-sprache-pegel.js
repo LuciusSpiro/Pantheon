@@ -4,6 +4,8 @@
 //  a) reine Rechnung spitzeAusSamples (Stille, Sinus 0,02 / 0,05, Vorzeichen, kaputte Werte)
 //  b) Schranke im Kern: Stille, Grenze exakt, knapp darunter, leises Sprechen, pegel null/fehlt, "…" endet
 //  c) Messmodus: Eintrag traegt pegel, Stille ist ein eigener Eintrag (stille: true, richtig null) und zaehlt nicht als Messung
+//  d) reine Abdeckungslogik pegelAbdeckungReicht (Spaetstart-Schutz)
+//  e) pegelMesser im echten mikrofonBrowser gegen ein Fake-Fenster (AudioContext, AnalyserNode, MediaRecorder): Fail-open, Spaetstart, Ausnahmen, Aufraeumen, keine unbehandelten Ablehnungen
 //   node tools/test-bot-sprache-pegel.js
 const BS = require('../public/js/bot-sprache.js');
 
@@ -113,6 +115,136 @@ const sinus = (a, nn) => Float32Array.from({ length: nn || 4800 }, (_, i) => a *
     ok(L.meldung.at(-1) === BS.TEXT.stille, 'Stille im Messmodus: Meldung steht');
     ok(L.verarb.at(-1) === false, 'Stille im Messmodus: "…" endet');
   }
+  section('d) pegelAbdeckungReicht (rein)');
+  {
+    const R = BS.pegelAbdeckungReicht, T = BS.PEGEL_TAKT_MS, S = BS.PEGEL_START_MAX_MS, A = BS.PEGEL_ABDECKUNG_MIN;
+    console.log('  Konstanten: Takt ' + T + ' ms, Start hoechstens ' + S + ' ms, Abdeckung mindestens ' + A);
+    ok(R(0, 27, 800) === true && R(30, 26, 800) === true, 'normaler Lauf (erstes Fenster nach 0 bis 30 ms, Fenster je Takt): reicht');
+    ok(R(S, 100, 800) === true && R(S + 1, 100, 800) === false, 'erstes Fenster genau an der Grenze reicht, 1 ms spaeter nicht');
+    ok(R(20, Math.ceil(800 * A / T), 800) === true && R(20, Math.ceil(800 * A / T) - 1, 800) === false, 'Abdeckung genau an der Grenze reicht, ein Fenster weniger nicht');
+    ok(R(null, 5, 800) === false && R(undefined, 5, 800) === false && R(NaN, 5, 800) === false, 'nie ein Fenster gelesen (Verzug null/undefined/NaN): reicht nicht');
+    ok(R(10, 0, 800) === false && R(10, NaN, 800) === false, 'Fensterzahl 0 oder kaputt: reicht nicht');
+    ok(R(10, 1, 40) === true && R(10, 1, 400) === false, 'kurze Aufnahme: ein Fenster deckt genug, bei langer Aufnahme nicht');
+    ok(R(800, 1, 820) === false, 'Spaetstart: erstes Fenster erst kurz vor dem Loslassen: reicht nicht');
+    ok(R(10, 3, 60000) === false, 'gedrosselter Timer (3 Fenster in 60 s): reicht nicht');
+    ok(R(10, 5, NaN) === false && R(10, 5, -1) === false, 'kaputte Dauer: reicht nicht');
+  }
+
+  section('e) pegelMesser im Browser-Adapter (mikrofonBrowser mit Fake-Fenster)');
+  const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+  const aktiv = new Set(), siOrig = global.setInterval, ciOrig = global.clearInterval;   // zaehlt offene Intervalle: pegelMesser darf nach stop/abbruch keines hinterlassen
+  global.setInterval = (...a) => { const id = siOrig(...a); aktiv.add(id); return id; };
+  global.clearInterval = (id) => { aktiv.delete(id); return ciOrig(id); };
+  let unbehandelt = 0; process.on('unhandledRejection', () => { unbehandelt++; });
+  // o: { zustand: 'running'|'suspended', laufAbMs, signal, wirft: 'ctor'|'quelle'|'lesen'|undefined, resumeLehntAb, closeLehntAb, keinAC, lesenNachStop }
+  function browser(o) {
+    o = o || {};
+    const S = { ctx: null, geschlossen: 0, resume: 0, lesen: 0, gestoppt: 0 };
+    class AC {
+      constructor() { if (o.wirft === 'ctor') throw new Error('ctor'); this.state = o.zustand || 'running'; S.ctx = this; }
+      createMediaStreamSource() { if (o.wirft === 'quelle') throw new Error('quelle'); return { connect() {} }; }
+      createAnalyser() { return { fftSize: 2048, getFloatTimeDomainData(b) { S.lesen++; if (o.wirft === 'lesen') throw new Error('lesen'); b.fill(0); if (o.signal) b[7] = o.signal; } }; }
+      resume() { S.resume++; return o.resumeLehntAb ? Promise.reject(new Error('resume')) : Promise.resolve(); }
+      close() { S.geschlossen++; this.state = 'closed'; return o.closeLehntAb ? Promise.reject(new Error('close')) : Promise.resolve(); }
+    }
+    class MR {
+      constructor() { this.mimeType = 'audio/webm'; }
+      static isTypeSupported() { return true; }
+      start() {}
+      stop() { setTimeout(() => { if (this.ondataavailable) this.ondataavailable({ data: { size: 1000 } }); if (this.onstop) this.onstop(); }, 5); }
+    }
+    const stream = { getTracks: () => [{ stop() { S.gestoppt++; } }] };
+    const win = { MediaRecorder: MR, Blob: class { constructor() { this.size = 1000; } }, navigator: { mediaDevices: { getUserMedia: async () => stream } } };
+    if (!o.keinAC) win.AudioContext = AC;
+    return { win, S };
+  }
+  const aufnehmen = async (o, ms, vorStop) => {
+    const { win, S } = browser(o);
+    const h = await BS.mikrofonBrowser(win).start();
+    if (o && o.laufAbMs !== undefined && S.ctx) setTimeout(() => { if (S.ctx.state !== 'closed') S.ctx.state = 'running'; }, o.laufAbMs);
+    await sleep(ms);
+    if (vorStop) vorStop(S);
+    const a = await h.stop();
+    return { a, S, h };
+  };
+  {
+    const { a, S } = await aufnehmen({ signal: 0.05 }, 400);
+    ok(typeof a.pegel === 'number' && Math.abs(a.pegel - 0.05) < 1e-6 && a.pegel > BS.PEGEL_MIN, 'normaler Lauf mit Signal: Spitze 0,05');
+    ok(S.geschlossen === 1 && S.gestoppt === 1, 'normaler Lauf: AudioContext einmal geschlossen, Mikrofonspur gestoppt');
+    const n0 = S.lesen; await sleep(120);
+    ok(S.lesen === n0 && aktiv.size === 0, 'nach stop() ist das Intervall gestoppt (kein offenes Intervall, kein Lesen mehr)');
+  }
+  {
+    const { a } = await aufnehmen({}, 400);
+    ok(a.pegel === 0, 'Stille ueber die ganze Dauer bei laufendem Kontext: Spitze 0 (Schranke greift)');
+  }
+  {
+    const { a, S } = await aufnehmen({ zustand: 'suspended' }, 300);
+    ok(a.pegel === null && S.resume === 1 && S.lesen === 0, 'suspendierter, nie laufender Kontext: pegel null, resume versucht, nie gelesen');
+    ok(S.geschlossen === 1, 'suspendiert: Kontext trotzdem geschlossen');
+  }
+  {
+    const { a } = await aufnehmen({ zustand: 'suspended', resumeLehntAb: true }, 200);
+    await sleep(30);
+    ok(a.pegel === null && unbehandelt === 0, 'resume() abgelehnt: pegel null, keine unbehandelte Ablehnung');
+  }
+  {
+    const { a, S } = await aufnehmen({ signal: 0.05, closeLehntAb: true }, 200);
+    await sleep(30);
+    ok(typeof a.pegel === 'number' && S.geschlossen === 1 && unbehandelt === 0, 'close() abgelehnt: Pegel kommt trotzdem, keine unbehandelte Ablehnung');
+  }
+  {
+    // Spaetstart (Befund 1): Kontext laeuft erst kurz vor dem Loslassen, davor wurde gesprochen (hier nicht mehr hoerbar: Raumrauschen 0,002)
+    const { a } = await aufnehmen({ zustand: 'suspended', signal: 0.002, laufAbMs: 380 }, 400);
+    ok(a.pegel === null, 'Spaetstart (Kontext laeuft erst kurz vor dem Loslassen, nur Raumrauschen gelesen): pegel null, Befehl wird NICHT verworfen (' + a.pegel + ')');
+  }
+  {
+    // lange Aufnahme, Kontext laeuft erst nach 250 ms: die Fenster danach decken genug, aber der Anfang des Befehls fehlt (erstes Fenster nach mehr als PEGEL_START_MAX_MS)
+    const { a } = await aufnehmen({ zustand: 'suspended', signal: 0.002, laufAbMs: 250 }, 600);
+    ok(a.pegel === null, 'Spaetstart nach 250 ms bei 600 ms Aufnahme (Abdeckung allein genuegt, Anfang fehlt): pegel null (' + a.pegel + ')');
+  }
+  {
+    const { a } = await aufnehmen({ zustand: 'suspended', signal: 0, laufAbMs: 380 }, 400);
+    ok(a.pegel === null, 'Spaetstart mit Digital-Stille: ebenfalls null (Messung deckt die Aufnahme nicht ab)');
+  }
+  {
+    const { a } = await aufnehmen({ zustand: 'suspended', signal: 0.002, laufAbMs: 60 }, 400);
+    ok(typeof a.pegel === 'number' && a.pegel > 0, 'kurzer Start (Kontext laeuft nach 60 ms): Messung zaehlt (' + a.pegel + ')');
+  }
+  {
+    const { a } = await aufnehmen({ signal: 0.05 }, 300, (S) => { S.ctx.state = 'suspended'; });
+    ok(a.pegel === null, 'Kontext laeuft beim Loslassen nicht mehr (Unterbrechung): pegel null trotz gelesener Fenster');
+  }
+  for (const w of ['ctor', 'quelle', 'lesen']) {
+    const { a, S } = await aufnehmen({ wirft: w }, 200);
+    await sleep(30);
+    ok(a.pegel === null && unbehandelt === 0, 'Ausnahme in ' + ({ ctor: 'Konstruktor', quelle: 'createMediaStreamSource', lesen: 'getFloatTimeDomainData' }[w]) + ': pegel null, Aufnahme laeuft weiter (Blob ' + (a.blob ? 'da' : 'fehlt') + ')');
+    if (w === 'quelle') ok(S.geschlossen === 1, 'Ausnahme in createMediaStreamSource: Kontext wird geschlossen');
+  }
+  {
+    const { a } = await aufnehmen({ keinAC: true }, 100);
+    ok(a.pegel === null, 'kein AudioContext im Browser: pegel null');
+  }
+  {
+    // stop und abbruch: Kontext nur einmal geschlossen, Spur frei
+    const { win, S } = browser({ signal: 0.05 });
+    const h = await BS.mikrofonBrowser(win).start();
+    await sleep(100);
+    h.abbruch();
+    ok(S.geschlossen === 1 && S.gestoppt === 1, 'abbruch(): Kontext geschlossen, Spur gestoppt');
+    const n0 = S.lesen; await sleep(100);
+    ok(S.lesen === n0 && aktiv.size === 0, 'abbruch(): Intervall gestoppt (kein offenes Intervall)');
+    h.abbruch();
+    ok(S.geschlossen === 1, 'zweites abbruch(): Kontext nicht noch einmal geschlossen');
+  }
+  {
+    const { a, S, h } = await aufnehmen({ signal: 0.05 }, 200);
+    h.abbruch();
+    ok(typeof a.pegel === 'number' && S.geschlossen === 1, 'stop() und danach abbruch(): Kontext nur einmal geschlossen');
+  }
+  global.setInterval = siOrig; global.clearInterval = ciOrig;
+  ok(unbehandelt === 0, 'insgesamt keine unbehandelte Promise-Ablehnung (' + unbehandelt + ')');
+
   console.log('\n' + (fails ? fails + ' FEHLER von ' + n : n + '/' + n + ' ok'));
   process.exit(fails ? 1 : 0);
 })();

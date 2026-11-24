@@ -213,7 +213,9 @@ const sprechen = async (k) => { k.tasteRunter(); await tick(); return k.tasteHoc
     kpf.setzeMessmodus({ phrasen: [{ id: 'p1', text: 'x', erwartet: { befehl: 'tech.schild' } }], sitzung: 's2', post: async () => { throw new Error('404'); } });
     await sprechen(kpf);
     ok(pf.L.meldung.includes(BS.TEXT.messungFehler), 'Speichern der Messung scheitert: Meldung');
-    ok(BS.erwartungErfuellt({ befehl: 'a', args: { x: 1 } }, { befehl: 'a', args: { x: '1', y: 2 } }) && !BS.erwartungErfuellt({ befehl: 'a', an: 'ops' }, { befehl: 'a', an: 'bord' }) && !BS.erwartungErfuellt({ befehl: 'a' }, null), 'Messvergleich: Argumente als Text, Adressat, null');
+    ok(BS.erwartungErfuellt({ befehl: 'a', args: { x: 1 } }, { befehl: 'a', args: { x: '1' } }) && !BS.erwartungErfuellt({ befehl: 'a', an: 'ops' }, { befehl: 'a', an: 'bord' }) && !BS.erwartungErfuellt({ befehl: 'a' }, null), 'Messvergleich: Argumente als Text, Adressat, null');
+    ok(BS.erwartungErfuellt({ befehl: 'a', args: { x: 1 } }, { befehl: 'a', args: { x: '1' } }) && !BS.erwartungErfuellt({ befehl: 'a', args: {} }, { befehl: 'a', args: { waffen: 'torpedo' } }) && !BS.erwartungErfuellt({ befehl: 'a' }, { befehl: 'a', args: { y: 2 } }), 'Messvergleich exakt: zusaetzliche Argumente im Ergebnis sind falsch');
+    ok(BS.erwartungErfuellt({ befehl: 'a', args: { x: 1 } }, { befehl: 'a', args: { x: 1, meter: 50 } }) && !BS.erwartungErfuellt({ befehl: 'a', args: { meter: 50 } }, { befehl: 'a', args: {} }), 'Messvergleich: zusaetzliches meter zaehlt nicht, erwartetes meter schon');
 
     // Tastenbelegung (Standardtaste frei, umbelegbar)
     const T = (() => { const win = { localStorage: { getItem: () => null, setItem() {}, removeItem() {} } }; vm.runInNewContext(fs.readFileSync(path.join(__dirname, '..', 'public', 'js', 'tasten.js'), 'utf8'), { window: win, console }); return win.Tasten; })();
@@ -257,6 +259,8 @@ const sprechen = async (k) => { k.tasteRunter(); await tick(); return k.tasteHoc
     an.meldung(BS.TEXT.maxDauer); ok(hud.notices.at(-1).d === 3600, '"Aufnahme nach 60 s beendet." bleibt stehen');
     an.meldung('Anderes'); ok(hud.notices.some((x) => x.text === BS.TEXT.maxDauer), 'bleibt auch neben anderen Meldungen');
     an.aufnahme(true); ok(!hud.notices.some((x) => x.text === BS.TEXT.maxDauer), 'bis zur naechsten Aufnahme'); an.aufnahme(false);
+    an.meldung(BS.TEXT.stille); ok(hud.notices.some((x) => x.text === BS.TEXT.stille), 'Stille-Meldung steht');
+    an.aufnahme(true); ok(!hud.notices.some((x) => x.text === BS.TEXT.stille), 'neue Aufnahme raeumt "Mikrofon liefert keinen Ton." weg'); an.aufnahme(false);
     an.hinweis('Hallo'); ok(eq(hud.notices.at(-1), { text: 'Hallo', color: FNT.sensor, d: 6 }), 'Hinweis beim Einschalten: pushNotice, 6 s');
     ok(BS.startHinweis({ kappe: (id) => ({ 'allgemein.sprechen': '^', 'allgemein.botText': '#' }[id]) }) === 'Bot-Sprache an: ^ halten = sprechen, # = tippen', 'Startnotiz mit den echten Tastenbeschriftungen');
     ok(BS.startHinweis({ kappe: (id) => (id === 'allgemein.sprechen' ? 'F9' : '–') }) === 'Bot-Sprache an: F9 halten = sprechen, # = tippen', 'Startnotiz: umbelegte Taste, Ersatz bei fehlender Belegung');

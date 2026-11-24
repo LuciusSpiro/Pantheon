@@ -99,7 +99,7 @@ const MUTATIONEN = [
   [BS, "feld.setAttribute('maxlength', '120');", "feld.setAttribute('maxlength', '999');", 'Eingabe nicht auf 120 begrenzt'],
   [BS, "pointerEvents: 'none', margin: '0', padding: '0' });", "pointerEvents: 'auto', margin: '0', padding: '0' });", 'geschlossenes Eingabefeld fängt Mausklicks'],
   [BS, "t === TEXT.maxDauer ? 3600 : 6", "6", 'Meldung „Aufnahme nach 60 s beendet“ verschwindet'],
-  [BS, "if (an) { h.sprech.verarbeitet = false; entferne(stickyText); stickyText = null; }", "if (an) { h.sprech.verarbeitet = false; }", 'Dauer-Meldung bleibt nach der nächsten Aufnahme'],
+  [BS, "if (an) { h.sprech.verarbeitet = false; entferne(stickyText); stickyText = null; entferne", "if (an) { h.sprech.verarbeitet = false; entferne", 'Dauer-Meldung bleibt nach der nächsten Aufnahme'],
   [BS, "h.pushNotice(t, FN().warn,", "h.pushNotice(t, FN().sensor,", 'Meldung nicht in Warnfarbe'],
   [BS, "e && e.fehler === 'stt-aus' ? TEXT.sttNichtEingerichtet : TEXT.sttAus", "TEXT.sttAus", 'STT nicht eingerichtet nicht unterschieden'],
   [BS, "if (j && j.fehler === 'stt-aus') e.fehler = 'stt-aus';", "", 'Client liest 503 stt-aus nicht'],
@@ -124,7 +124,7 @@ const MUTATIONEN = [
   [BMN, "? s.botRolle[msg.an] : null;", "? null : null;", 'D1: bot.status an botId: Quittung ignoriert die bekannte Rolle des Bots', NET],
   [BMN, "msg.an === 'alle' ? Math.max(1, s.botsN) : 1, gilt);", "an === 'alle' ? Math.max(1, s.botsN) : 1, gilt);", 'D1: erwartet folgt dem aufgelösten Adressaten statt dem genannten (botId erwartet 4)', NET],
   [BMN, "s.quittung = p.vorher || null;", "s.quittung = null;", 'D1: Verwerfen stellt die vorige Quittung nicht wieder her', NET],
-  // BOT-04 D2: Stille-Schranke und Messkatalog (der Pegel-Teil im Browser, pegelMesser, ist nur im echten Browser prüfbar: dort mit --use-fake-device-for-media-stream von Hand gemessen)
+  // BOT-04 D2: Stille-Schranke und Messkatalog (pegelMesser läuft in test-bot-sprache-pegel.js gegen ein Fake-Fenster mit AudioContext/MediaRecorder; nur das echte Web Audio ist Handarbeit: --use-fake-device-for-media-stream)
   [BS, "if (typeof aufn.pegel === 'number' && aufn.pegel < PEGEL_MIN) {", "if (false) {", 'D2: Stille-Schranke entfernt (Stille geht an STT)', PEG],
   [BS, "aufn.pegel < PEGEL_MIN) {", "aufn.pegel > PEGEL_MIN) {", 'D2: Vergleich der Stille-Schranke invertiert', PEG],
   [BS, "aufn.pegel < PEGEL_MIN) {", "aufn.pegel <= PEGEL_MIN) {", 'D2: Grenze exakt zählt schon als Stille', PEG],
@@ -138,6 +138,23 @@ const MUTATIONEN = [
   [BS, "const v = Math.abs(samples[i]); if (v > m && isFinite(v)) m = v;", "const v = samples[i]; if (v > m && isFinite(v)) m = v;", 'D2: Spitze ohne Betrag (negative Ausschläge zählen nicht)', PEG],
   [BS, "if (v > m && isFinite(v)) m = v;", "if (v > m) m = v;", 'D2: Spitze lässt Unendlich zu', PEG],
   [BS, "    if (erwartet === null) return !res;\n", "", 'D2: erwartet null (bewusst nicht erkennbar) wird nicht als richtig gewertet', KAT],
+  [BS, "    if (Object.keys(ra).some((k) => !(k in ea) && k !== 'meter')) return false;\n", "", 'D2: zusätzliche Argumente im Matcher-Ergebnis zählen als richtig', KAT],
+  [BS, "!(k in ea) && k !== 'meter'", "!(k in ea)", 'D2: zusätzliches meter zählt als falsch', KAT],
+  [BS, "return lief && pegelAbdeckungReicht(tErst === null ? null : tErst - t0, fenster, dauer) ? spitze : null;", "return spitze;", 'D2: pegelMesser ohne Lauf- und Abdeckungsprüfung', PEG],
+  [BS, "return lief && pegelAbdeckungReicht(", "return pegelAbdeckungReicht(", 'D2: pegelMesser prüft nicht, ob der Kontext beim Loslassen läuft', PEG],
+  [BS, "tErst === null ? null : tErst - t0, fenster, dauer) ? spitze : null;", "0, fenster, dauer) ? spitze : null;", 'D2: Spätstart (erstes Fenster spät) wird nicht erkannt', PEG],
+  [BS, "    if (verzugMs > PEGEL_START_MAX_MS) return false;\n", "", 'D2: Abdeckung: Verzug des ersten Fensters nicht geprüft', PEG],
+  [BS, "    return fenster * PEGEL_TAKT_MS >= dauerMs * PEGEL_ABDECKUNG_MIN;", "    return true;", 'D2: Abdeckung: Anteil der gelesenen Fenster nicht geprüft', PEG],
+  [BS, "if (typeof verzugMs !== 'number' || !isFinite(verzugMs) || !(fenster > 0) || !(dauerMs >= 0)) return false;", "if (typeof verzugMs !== 'number') return false;", 'D2: Abdeckung: keine Fenster gelesen zählt als abgedeckt', PEG],
+  [BS, "fenster++; if (tErst === null) tErst = Date.now(); } catch", "if (tErst === null) tErst = Date.now(); } catch", 'D2: Fenster ohne Zählung (fenster++ fehlt)', PEG],
+  [BS, "if (fertig || !ctx) return null;", "if (!ctx) return null;", 'D2: pegelMesser.ende läuft mehrfach (zweimal close)', PEG],
+  [BS, "fertig = true; if (timer) clearInterval(timer); timer = null;", "fertig = true;", 'D2: pegelMesser stoppt das Intervall nicht', PEG],
+  [BS, "        try { if (ctx.close) abgefangen(ctx.close()); } catch (e) { /* egal */ }\n", "", 'D2: pegelMesser schließt den AudioContext nicht', PEG],
+  [BS, "abgefangen(ctx.resume())", "ctx.resume()", 'D2: resume() ohne catch (unbehandelte Ablehnung)', PEG],
+  [BS, "        try { if (ctx.close) abgefangen(ctx.close()); } catch (e) { /* egal */ }\n        return", "        try { if (ctx.close) ctx.close(); } catch (e) { /* egal */ }\n        return", 'D2: close() ohne catch (unbehandelte Ablehnung)', PEG],
+  [BS, "const frei2 = () => { frei(); pm.ende(); };", "const frei2 = () => { frei(); };", 'D2: Abbruch gibt den Pegelmesser nicht frei', PEG],
+  [BS, "const pegel = pm.ende(); frei();", "const pegel = null; frei();", 'D2: stop() liefert keinen Pegel', PEG],
+  [BS, "entferne(stickyText); stickyText = null; entferne(letzteMeldung); letzteMeldung = null; } },", "entferne(stickyText); stickyText = null; } },", 'D2: neue Aufnahme räumt die alte Meldung nicht weg'],
 ];
 
 const nur = process.argv.slice(2).filter((a) => !a.startsWith('--'));

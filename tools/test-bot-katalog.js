@@ -27,6 +27,9 @@ ok(nullIds.length === 2 && nullIds.includes('Sprung nach Hex zwölf') && nullIds
 ok(!BS.erwartungErfuellt(null, { befehl: 'ops.feuer_frei', args: {} }) && BS.erwartungErfuellt(null, null), 'erwartungErfuellt: erwartet null heisst "Matcher liefert null"');
 ok(!PHRASEN.some((p) => p.erwartet && p.erwartet.args && Object.values(p.erwartet.args).some((v) => ['antrieb', 'waffen'].includes(String(v)) && p.erwartet.befehl !== 'ops.feuer_frei')), 'keine veralteten Systemnamen (antrieb/waffen) in den Erwartungen');
 
+ok(BS.erwartungErfuellt({ befehl: 'ops.feuer_frei', args: {} }, { befehl: 'ops.feuer_frei', args: {} }) && !BS.erwartungErfuellt({ befehl: 'ops.feuer_frei', args: {} }, { befehl: 'ops.feuer_frei', args: { waffen: 'torpedo' } }), 'erwartungErfuellt exakt: zusaetzliche Argumente (Feuer frei nur Torpedo) sind falsch');
+ok(BS.erwartungErfuellt({ befehl: 'nav.abstand', args: {} }, { befehl: 'nav.abstand', args: { meter: 500 } }) && !BS.erwartungErfuellt({ befehl: 'nav.abstand', args: { meter: 500 } }, { befehl: 'nav.abstand', args: {} }), 'erwartungErfuellt: zusaetzliches meter im Ergebnis zaehlt nicht, erwartetes meter schon');
+
 section('katalog.json: Mock-Katalog');
 for (const k of KATALOG) {
   const res = M.match(k.spricht);
