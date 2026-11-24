@@ -11,6 +11,7 @@ const Physics = require('../../shared/physics.js');
 const Drift = require('../../shared/drift.js');   // W2 AP3b: Brocken-Lage (Freigabe Studioleitung: nur avoid/keepApart)
 const Schilde = require('../../shared/schilde.js');   // EK1b: Segment, das der Lerche zugewandt ist
 const Zielsysteme = require('./zielsysteme.js');   // SUND-04a-1 A: Antrieb (e.zs) senkt die Fahrt
+const Gsys = require('./gegnersystem.js');   // SPT-02 9: Waffenzustand je Platz (zerstoertPlatz)
 const Verfolgung = require('./verfolgung.js');   // SUND-04a-1 A: e.fluchtZiel (Tempo, Ankunft aus Daten)
 
 const norm = Physics.normAngle;
@@ -157,6 +158,20 @@ function detour(ax, ay, bx, by, ox, oy, clear) {
   return { x: ox + nx / nd * (clear + 60), y: oy + ny / nd * (clear + 60) };
 }
 
+// SPT-02 9: Waffenplätze einer Seite (Sektor 1 = Steuerbord 'stbd…', 3 = Backbord 'bb…'). Liefert die Seite (1 oder 3), die der Lerche zugewandt sein soll,
+// weil auf der Gegenseite alle Plätze zerstört sind und diese Seite noch mindestens einen funktionierenden hat; sonst null (keine Vorgabe: beide heil, beide
+// ausgefallen, Klasse ohne Seitenplätze). Schalter: spaceM3b.pilot.waffenWechsel.an (Daten)
+function waffenSeite(game, e) {
+  const wv = P(game).waffenWechsel;
+  if (!wv || !wv.an) return null;
+  const platz = (s) => (game.C.enemyWeapons[e.kind] || []).filter((w) => typeof w.platz === 'string' && w.platz.indexOf(s === 1 ? 'stbd' : 'bb') === 0);
+  const ganz = (s) => platz(s).filter((w) => !Gsys.zerstoertPlatz(e, w)).length;
+  const aus = (s) => platz(s).length > 0 && ganz(s) === 0;
+  if (aus(1) && !aus(3) && ganz(3) > 0) return 3;
+  if (aus(3) && !aus(1) && ganz(1) > 0) return 1;
+  return null;
+}
+
 // ---------- Breitseite (Korvette, Fregatte, Kreuzer): Stationshalten im Bezugssystem der Lerche ----------
 function breitseite(game, e, c, dt) {
   const p = P(game); const L = targetOf(game, e); const K = klasse(game, e.kind);
@@ -170,6 +185,10 @@ function breitseite(game, e, c, dt) {
   const bearing = Math.atan2(dy, dx);
   const relL = norm(bearing - e.angle);          // wo liegt die Lerche, von der Korvette aus
   e.switchCd = Math.max(0, (e.switchCd || 0) - dt);
+  // SPT-02 9: Seite mit funktionierender Waffe (falls die Gegenseite ausgefallen ist) – erst nach waffenWechsel.verzug s ununterbrochen, gegen Flattern bei kurzen Ausfällen
+  const wRoh = waffenSeite(game, e);
+  e.wunschT = wRoh != null ? (e.wunschT || 0) + dt : 0;
+  const ws = wRoh != null && e.wunschT >= ((p.waffenWechsel || {}).verzug || 0) ? wRoh : null;
 
   if (e.pstate === 'station') {
     // Seitenwechsel 1: der Breitseitensektor zur Lerche ist schwach (≤ 1), die andere Seite deutlich stärker
@@ -181,13 +200,19 @@ function breitseite(game, e, c, dt) {
     const mine = e.shields ? e.shields[segI] : 0;
     const theirs = e.shields && other != null ? (lay ? Schilde.seitenMax(lay, e.shields, other) : e.shields[other]) : 0;
     const weak = other != null && e.shields && mine <= 1 && theirs >= mine + 2;
+    // SPT-02 9: Seitenwechsel 3: die Waffen der zugewandten Seite sind ausgefallen (alle Plätze dort zerstört), die Gegenseite hat noch eine –
+    // nur der tatsächliche Ausfall zählt (nicht die Waffenart: EK1a wechselte nach Bestückung und brach den Escort-Test 'deckt')
+    // (steht die Lerche still, dreht das Boot auf seinem Platz: die Ausrichtung folgt unten aus ws, kein Umlauf nötig)
+    // (fährt die Lerche, liegt das Boot parallel zu ihrem Kurs: auf side = +1 zeigt Backbord zu ihr, auf -1 Steuerbord – maßgeblich ist der Platz, nicht der augenblickliche Sektor)
+    const waffeAus = other != null && ws != null && (e.side === 1 ? 3 : 1) !== ws && tv >= 15;
     // Seitenwechsel 2: die Lerche liegt lange vor dem Bug oder hinter dem Heck (keine Breitseite möglich)
     // (nur in der Nähe des Sollpunkts – auf dem Weg dorthin liegt die Lerche natürlich oft vorn)
     const sa = base + e.side * Math.PI / 2;
     const nearSt = Math.hypot(L.x + Math.cos(sa) * R - e.x, L.y + Math.sin(sa) * R - e.y) < 180;
-    const offBeam = nearSt && Math.abs(Math.abs(relL) - Math.PI / 2) > Math.PI / 4;
+    // (nicht, solange das Boot bei stehender Lerche wegen eines Waffenausfalls auf seinem Platz die Seite wechselt: die Drehung führt durch „nicht querab“)
+    const offBeam = nearSt && Math.abs(Math.abs(relL) - Math.PI / 2) > Math.PI / 4 && !(ws != null && sec !== ws && tv < 15);
     e.offBeamT = offBeam ? (e.offBeamT || 0) + dt : Math.max(0, (e.offBeamT || 0) - dt);
-    if (e.switchCd <= 0 && ((weak && nearSt) || e.offBeamT > 6)) {
+    if (e.switchCd <= 0 && (((weak || waffeAus) && nearSt) || e.offBeamT > 6)) {
       // vor oder hinter der Lerche herum – je nachdem, wohin der Bug der Korvette zeigt (keine Wende über die Lerche)
       e.crossFront = Math.cos(norm(e.angle - base)) >= 0;
       e.side = -e.side; e.offBeamT = 0; e.switchCd = K.switchCd;
@@ -230,7 +255,8 @@ function breitseite(game, e, c, dt) {
   // Breitseite) und nur mit ¼ / Stopp / Rückwärts nachrücken, statt Kreise zu fahren
   // (W2: nur, solange die Lerche in Reichweite der Breitseite liegt – sonst nachrücken statt außer Reichweite liegen bleiben)
   if (e.pstate === 'station' && tv < 15 && err < 150 && d >= 190 && (R >= K.range || d <= R + 40)) {
-    const hd = Math.cos(norm(base - e.angle)) >= 0 ? base : norm(base + Math.PI);
+    // SPT-02 9: mit Kopf = base liegt die Lerche an Backbord, wenn das Boot auf side = +1 steht, sonst an Steuerbord; ist eine Seite ausgefallen, zeigt die funktionierende zu ihr
+    const hd = ws != null ? ((e.side === 1 ? 3 : 1) === ws ? base : norm(base + Math.PI)) : Math.cos(norm(base - e.angle)) >= 0 ? base : norm(base + Math.PI);
     const along = ex * Math.cos(e.angle) + ey * Math.sin(e.angle);
     const stage = along > 40 ? stageNear(c, 0.25) : along < -40 ? 0 : Flight.stopStage(c);
     return { stage, head: hd };

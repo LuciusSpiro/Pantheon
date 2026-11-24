@@ -4,6 +4,7 @@
 //   anflug  : 3 Jäger gegen die langsam kreisende (unverwundbare) Lerche in der Szene splitter, Modus freie_fahrt; Anflug = Abstand >450 px, dann <220 px; je Jäger in --dauer s
 //   gefecht : --korvetten Korvetten gegen die Bot-Crew (Lerche nicht unverwundbar), bis alle tot sind oder --dauer s;
 //             Verluste Korvetten (Abschüsse) : Verluste Lerche (Hüllenverlust in Lerche-Hüllen)
+//   --ausfall / --aus: siehe oben (Waffenausfall der zugewandten Seite; waffenWechsel aus)
 //   Pilot.active und Abstürze (game.errors) stehen je Lauf dabei.
 const fs = require('fs');
 const os = require('os');
@@ -24,6 +25,10 @@ const SEEDS = Math.max(1, Number(val('--seeds', 5)) | 0);
 const DAUER = Number(val('--dauer', 300));
 const NK = Number(val('--korvetten', 3)) | 0;
 const CREW = Number(val('--crew', 3)) === 1 ? 1 : 3;
+const AUSFALL = args.includes('--ausfall');   // SPT-02 9: bei t = 20 s wird bei jeder Korvette die Waffe der zugewandten Seite zerstört und gehalten (Gegner repariert nicht)
+if (args.includes('--aus')) CONFIG.spaceM3b.pilot.waffenWechsel.an = false;   // SPT-02 9: Stand vor Paket 9 (Seitenwechsel nach Waffenausfall aus)
+const Physics = require('../shared/physics.js');
+const Testhilfe = require('./gegner-testhilfe.js');
 const HZ = CONFIG.tickHz;
 const DT = 1 / HZ;
 const TMP = fs.mkdtempSync(path.join(os.tmpdir(), 'pantheon-messflug-'));
@@ -93,7 +98,12 @@ function gefecht(seed) {
   sh.x = g.space.w / 2; sh.y = g.space.h / 2; sh.vx = 0; sh.vy = 0; sh.angle = 0; sh.speed = 0; sh.helm.stage = Math.max(sh.helm.stage, 1);
   for (let i = 0; i < NK; i++) Space.spawnEnemy(g, 'korvette', { angle: i * (6.283 / NK), tag: 'sonde' });
   let snap = g.snapshot(); let huelleMin = 100; let tEnde = DAUER;
+  const SEITE = ['bug', 'stbd', 'heck', 'bb']; const toteSeite = new Map();
   for (let i = 0, N = Math.round(DAUER / DT); i < N; i++) {
+    if (AUSFALL) {
+      if (i === Math.round(20 / DT)) for (const e of g.space.enemies) { if (e.kind !== 'korvette' || !e.sys) continue; const sec = Physics.sectorOf(e.x, e.y, e.angle, sh.x, sh.y); const ids = Object.keys(e.sys).filter((k) => k.startsWith('waffe_' + SEITE[sec === 1 || sec === 3 ? sec : 1])); toteSeite.set(e, ids); }
+      for (const [e, ids] of toteSeite) for (const id of ids) if (e.sys && e.sys[id] && e.sys[id].z !== 'broken') Testhilfe.setzeIntegritaet(e, id, 0);
+    }
     g.step();
     if (g.wantsSnapshot()) snap = g.snapshot();
     for (const a of agents) a.update(snap);

@@ -751,7 +751,8 @@
     spaceM3b: {
       flightV2: { arena: true, missions: false, weltsim: true },   // neues Gegner-Flugmodell; die Lerche fliegt überall mit Stufen. weltsim (SPT-02 8, Kai 2026-11-23): Freie Fahrt Sund (game.weltsim, alle Szenen der Weltsimulation) fliegt mit V2; Kampagne/Tutorial folgen weiter missions bzw. der Buchart
       pilot: { kP: 2.5, kD: 1.2, korvetteRange: 400, lead: 1.5, approachOffset: 60, overshootDist: 380, overshootTime: 3,
-        raiderStagger: 2, edgeLook: 2, minSeparation: 60, stuckTime: 4 },
+        raiderStagger: 2, edgeLook: 2, minSeparation: 60, stuckTime: 4,
+        waffenWechsel: { an: true, verzug: 2 } },   // SPT-02 9: Seitenwechsel bei Waffenausfall der zugewandten Seite (an, Verzug s bis zum Wechsel; Abklingzeit = pilotKlasse.switchCd)
       // EK1b: Breitseiten-KI (pilot.breitseite) mit Klassenparametern statt einer Funktion je Klasse: range = Soll-Abstand zur Lerche (px, Vorgabe pilot.korvetteRange, höchstens
       // Waffenreichweite − 40), switchCd = Mindestabstand zwischen zwei Seitenwechseln (s). Schwere Schiffe wechseln die Seite seltener.
       pilotKlasse: { korvette: { switchCd: 12 }, fregatte: { range: 420, switchCd: 16 }, kreuzer: { range: 440, switchCd: 20 } },
