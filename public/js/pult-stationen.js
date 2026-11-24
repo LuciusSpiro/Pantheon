@@ -539,7 +539,7 @@
     pultCaptain(ctx, view) {
       const st = view.state;
       const awayOn = this.awayActive(st);
-      const TABS = ['Funk', 'Sternkarte', 'Lage', 'Außenteam', 'Sektorplan', 'Notrufe'];
+      const TABS = ['Funk', 'Sternkarte', 'Lage', 'Außenteam', 'Sektorplan', 'Aufträge'];
       if (this.tab === 3 && !awayOn) this.tab = 0;
       let ctl = '';
       const g = P.rahmen(ctx, view, { titel: 'CAPTAIN', S: 258, station: 'captain', anzeige: (c, r) => {

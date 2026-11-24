@@ -115,11 +115,11 @@ console.log('\nC: Wegfall und Ersatz');
   ok(Brett.snapshot(g).zuletzt.titel === 'Neu' && !Array.isArray(Brett.snapshot(g).zuletzt), 'genau ein Eintrag, der juengste');
 }
 
-console.log('\nD: Client: Pseudo-Eintrag im Notruf-Reiter');
+console.log('\nD: Client: Pseudo-Eintrag im Reiter Aufträge (Tab Aktive Missionen)');
 {
   const gezeichnet = [], knoepfe = [], befehle = [];
   const win = {
-    Render: { PAL: { brass: '#a', panelLight: '#b', mint: '#c', amber: '#d', red: '#e', star: '#f' }, text: (c, t) => gezeichnet.push(String(t)), button: (c, x, y, w, h, t) => knoepfe.push(t), wrap: (t) => [String(t)] },
+    Render: { PAL: { brass: '#a', panelLight: '#b', mint: '#c', amber: '#d', red: '#e', star: '#f' }, text: (c, t) => gezeichnet.push(String(t)), button: (c, x, y, w, h, t) => knoepfe.push(t), wrap: (t) => [String(t)], measure: (t) => String(t).length * 5 },
     Brett: { store: { abenteuer: { zuletzt: { titel: 'Geleit nach Rom', ausgang: 'gescheitert', text: 'Von Flavia hört ihr nichts mehr.', w: [{ f: 'rom', art: 'ruf', d: -2 }, { f: 'rom', art: 'haltung', d: -1 }] } } } },
     Shared_Sektoren: { hexName: (h) => h }, performance: { now: () => 1000 },
   };
@@ -128,7 +128,7 @@ console.log('\nD: Client: Pseudo-Eintrag im Notruf-Reiter');
   const V = win.NotrufView, cmd = (c) => befehle.push(c);
   const view = { state: { nr: [] } };
   const p = V.pseudoEintraege();
-  ok(p.length === 1 && p[0].pseudo === true && p[0].ausgang === 'gescheitert' && V.liste(view.state).length === 1, 'ohne Notrufe: genau ein Pseudo-Eintrag (pseudo: true)');
+  ok(p.length === 1 && p[0].pseudo === true && p[0].ausgang === 'gescheitert' && V.aktiveListe(view).length === 1 && V.notrufListe(view).length === 0 && V.liste(view.state).length === 0, 'ohne Notrufe: genau ein Pseudo-Eintrag (pseudo: true) im Tab Aktive Missionen, keiner bei den Notrufen');
   V.drawCaptain({ fillRect() {} }, view, { x: 0, y: 0, w: 400, h: 200 }, cmd);
   const bild = gezeichnet.join('|');
   ok(/GESCHEITERT/.test(bild) && /Geleit nach Rom/.test(bild) && /hört ihr nichts mehr/.test(bild) && /Wirkung: Ruf Rom -2 · Haltung -1/.test(bild), `Eintrag, Abschlusstext und Wirkung werden gezeichnet (${bild.slice(0, 160)})`);
@@ -138,13 +138,14 @@ console.log('\nD: Client: Pseudo-Eintrag im Notruf-Reiter');
   // mit einem echten Notruf davor: Enter gilt dem Notruf, auf dem Pseudo-Eintrag nicht
   const view2 = { state: { nr: [{ i: 7, h: '0305', k: 'k', z: 0, r: 100, f: { b: 'Hilfe', n: 'X', q: [], a: [] } }] } };
   befehle.length = 0;
-  V.key('ArrowDown', view2, cmd);   // Wahl auf den Pseudo-Eintrag (Index 1)
+  V.setzeTab('aktiv');   // Wahl auf den Pseudo-Eintrag (Tab Aktive Missionen)
   const n1 = befehle.length;
-  ok(V.key('Enter', view2, cmd) === false && befehle.length === n1, 'mit Notruf davor: auf dem Pseudo-Eintrag schickt Enter nichts');
-  V.key('ArrowUp', view2, cmd);
+  ok(V.key('Enter', view2, cmd) === false && befehle.length === n1, 'auf dem Pseudo-Eintrag schickt Enter nichts');
+  V.setzeTab('notruf');   // der echte Notruf steht im Tab Notrufe
+  ok(V.notrufListe(view2).length === 1 && V.aktiveListe(view2).length === 1, 'mit Notruf davor: er steht im Tab Notrufe, der Pseudo-Eintrag im Tab Aktive Missionen');
   ok(V.key('Enter', view2, cmd) === true && befehle[befehle.length - 1] === 'captain.notruf.hinfliegen', 'auf dem echten Notruf gilt Enter weiter (hinfliegen)');
   win.Brett.store.abenteuer = null;
-  ok(V.pseudoEintraege().length === 0 && V.liste({ nr: [] }).length === 0, 'ohne Block kein Pseudo-Eintrag');
+  ok(V.pseudoEintraege().length === 0 && V.aktiveListe({ state: { nr: [] } }).length === 0, 'ohne Block kein Pseudo-Eintrag');
 }
 
 console.log(`\n${n - fails}/${n} Prüfungen bestanden.`);
