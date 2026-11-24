@@ -212,7 +212,7 @@ function notrufImStich(game, marke) {
   const f = F && F.liste.find((x) => x.phase !== 'abgeschlossen' && x.notruf && x.notruf.marke === marke);
   if (!f) return false;
   const v = D.vorlage(f.vorlage);
-  if (f.phase === 'laeuft' && v.beats[f.beat].typ === 'notruf') { Faden().beatAusgang(game, f.id, 'gescheitert'); return true; }
+  if (f.phase === 'laeuft' && !D.BEATS[v.beats[f.beat].typ].abschluss) { Faden().beatAusgang(game, f.id, 'gescheitert'); return true; }   // SPT-02 12: nicht nur notruf, auch ein laufender Beat rettung (Crew sprang weg) scheitert, statt bis Spielende zu laufen
   const g = f.nsc.gedaechtnis || [];
   for (let i = g.length - 1; i >= 0; i--) if (g[i].ereignis === 'notruf_gelungen') { g[i].ereignis = 'notruf_gescheitert'; break; }
   const naechster = v.beats[f.beat] && D.BEATS[v.beats[f.beat].typ];

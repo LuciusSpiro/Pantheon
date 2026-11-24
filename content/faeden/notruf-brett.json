@@ -12,6 +12,11 @@
       "einheit": "Notruf-Fäden",
       "_hinweis": "SPT-02 4: Höchstens so viele angenommene Notruf-Fäden (Faden mit Herkunft f.notruf) zugleich aktiv. Notruf-Fäden zählen NICHT in aktiv_max und NICHT in laufend_max (content/faeden/werte.json) und umgekehrt: ein Notruf scheitert nie an laeuft_schon oder kein_platz. Ist die Grenze erreicht, entsteht kein weiterer Takt-Notruf (reise-ereignis.js taktNotruf) und das Annehmen eines vorhandenen Notruf-Angebots meldet notruf_voll; kein 'ältester verfällt' (das buchte im_stich_gelassen ohne Entscheidung der Crew)."
     },
+    "notruf_faden_frist_spruenge": {
+      "wert": 24,
+      "einheit": "Spruenge (Sim-Ticks, weltsim.tickZahl)",
+      "_hinweis": "SPT-02 12: so viele Spruenge nach dem Annehmen endet ein Notruf-Faden hoechstens, ob er im Beat notruf, rettung oder davor wartet (Brett: notrufHaengerBeenden). Er endet dann gescheitert wie ein nicht rechtzeitig erreichter Notruf (Beat gescheitert, Folge im_stich_gelassen, Abschluss gescheitert mit Text zuletzt) und gibt seinen Platz in notruf_aktiv_max frei. Grund: die Frist des Beats rettung (beats.json, 16) zaehlt Taetigkeiten (szene_ende, andocken, absicht, notruf), keine Zeit: sitzt die Crew am Ort oder ist weggesprungen, steht sie bei 0, und mit Modell startet niemand einen Beat, den das Modell nicht fuehrt. 24 = bis zu notruf_gilt_spruenge (8, content/reise/werte.json) fuer den Anflug plus 16 fuer die Rettung. Gezaehlt ab dem Annehmen (f.begonnen, steht im Weltstand). Aufgeschoben, solange die Crew am Landeplatz unten ist oder die Reise-Gefahr des Notrufs laeuft."
+    },
     "absicht_je_variante": {
       "wert": {
         "havarie": "bergung",

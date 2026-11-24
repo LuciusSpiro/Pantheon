@@ -700,6 +700,31 @@ function notrufAbschlussWeiter(game) {
   }
   return n;
 }
+// SPT-02 12: ein angenommener Notruf-Faden endet spaetestens NB.notruf_faden_frist_spruenge Spruenge nach dem Annehmen (f.begonnen, weltsim.tickZahl = ein Tick je Sprung). Die Frist des Beats rettung (beats.json) zaehlt
+// Taetigkeiten, keine Zeit: ohne Taetigkeit steht sie bei 0, und mit Modell startet niemand einen Beat, den das Modell nicht fuehrt (Faden wartet vor rettung): der Faden belegte notruf_aktiv_max bis Spielende. Hier endet er
+// ueber denselben Pfad wie ein nicht rechtzeitig erreichter Notruf (faden-p3.js notrufImStich: laufender Beat gescheitert, sonst Plan zum Abschluss, Gedaechtnis gescheitert), danach laeuft der Abschluss sofort (Abstand
+// entfaellt: es gibt nichts abzuwarten; auch ein Faden, der im Abschluss-Beat auf Taetigkeiten wartet, die nie kommen, wird so geschlossen, sein Ausgang bleibt). Aufgeschoben wird, solange die Crew am Landeplatz des Beats unten ist (die Rettung laeuft dann) oder die Reise-Gefahr am Ort laeuft
+// (notrufGefahrLaeuft). Wie notrufAbschlussWeiter nur mit Spielleiter (Modell oder Rueckfall-Betrieb). Ein Fehler zaehlt, blockiert nichts. -> Anzahl beendeter Faeden
+function notrufHaengerBeenden(game) {
+  const F = game && game.weltsim && game.weltsim.faeden, ws = game && game.weltsim;
+  if (!F || !Faden().aktiv(game) || !Faden().spielleiterAktiv(game) || !Number.isFinite(ws.tickZahl)) return 0;
+  let n = 0;
+  for (const f of F.liste.slice()) {
+    if (!P.notrufBrettFaden(f) || f.phase === 'abgeschlossen' || ws.tickZahl - f.begonnen < NB.notruf_faden_frist_spruenge) continue;
+    const beat = D.vorlage(f.vorlage).beats[f.beat];
+    if (!beat || !B[beat.typ] || notrufGefahrLaeuft(game, f)) continue;
+    const lp = require('./faden-boden-rahmen.js').ortVon(game, f, beat);
+    if (lp && !require('./faden-boden-rahmen.js').niemandUnten(game, lp)) continue;
+    try {
+      if (!B[beat.typ].abschluss && (!require('./faden-p3.js').notrufImStich(game, f.notruf.marke) || f.phase !== 'wartet')) { n++; continue; }   // im Abschluss-Beat bleibt das Gedaechtnis (eine erfuellte Rettung endet gelungen), nur der Abstand entfaellt
+      f.zaehler = Math.max(f.zaehler, f.abstand);
+      const r = Faden().befehlAnwenden(game, { typ: 'faden_weiter', faden: f.id, beat: D.vorlage(f.vorlage).beats[f.beat].id });
+      if (!r.ok) fehlerZaehlen(game, 'abenteuer-brett-haenger', new Error(String(r.grund)));
+      n++;
+    } catch (e) { fehlerZaehlen(game, 'abenteuer-brett-haenger', e); }
+  }
+  return n;
+}
 // SPT-02 1 (B1): ein Faden, dessen Modell nicht weiterfuehrt (Betrieb mit Modell, Spielleiter antwortet nicht oder nach gescheitertem Beat), hing im Abschluss-Beat (b2_abschluss) fuer immer in Phase wartet und blockierte laufend_max bis Spielende:
 // nichts sendet faden_weiter, abenteuerRueckfallWeiter tut mit Modell nichts. Diese Funktion fuehrt NUR Beats, deren Katalogeintrag B[typ].abschluss hat, auch im Live-Betrieb aus, sobald sie faellig sind (zaehler >= abstand, nie die
 // ABSTAND-Umgehung des Rueckfalls) - der Abschluss beendet den Faden, das Modell-Fuehren sonst bleibt unberuehrt. Regulaere Faeden (f.plan, kein f.notruf), hoechstens ein Beat je Faden und Takt; eine Ablehnung zaehlt einmal je Faden und Beat
@@ -770,4 +795,4 @@ function lesen(b, F) {   // muellfest: Unbrauchbares faellt weg (Meldung in F.la
 // SPL-02 D: die NSC, die eine Fortsetzung tragen (Katalog der Absichten, absicht-pruefer.js): die Verbindung fuer abenteuer-geschichte.js, das den Pruefer nicht selbst laedt
 const fortsetzungsNamen = (game, katalog) => Absicht().fortsetzungsNamen(game, katalog);
 
-module.exports = { snapshot, schluessel, zuletztVon, annehmen, ablehnen, vorschau, marken, kuerzen, beiEnde, hinweisAnbieten, beiTaetigkeit, beiUpdate, anschluss, beiAndocken, anschlussFuellen, ausVorratFuellen, ausVorratEinsAnbieten, sammelHinweis, passtZuLage, neuAnbieten, notrufAnbieten, notrufGrenzeErreicht, notrufRueckfallWeiter, notrufAbschlussWeiter, abenteuerRueckfallWeiter, abenteuerAbschlussWeiter, zurueckziehenFuerNotruf, toSave, lesen, weigerung, schrittText, fortsetzungsNamen };
+module.exports = { snapshot, schluessel, zuletztVon, annehmen, ablehnen, vorschau, marken, kuerzen, beiEnde, hinweisAnbieten, beiTaetigkeit, beiUpdate, anschluss, beiAndocken, anschlussFuellen, ausVorratFuellen, ausVorratEinsAnbieten, sammelHinweis, passtZuLage, neuAnbieten, notrufAnbieten, notrufGrenzeErreicht, notrufRueckfallWeiter, notrufAbschlussWeiter, notrufHaengerBeenden, abenteuerRueckfallWeiter, abenteuerAbschlussWeiter, zurueckziehenFuerNotruf, toSave, lesen, weigerung, schrittText, fortsetzungsNamen };
