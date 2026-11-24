@@ -10,14 +10,26 @@
   const num = (v, d) => (typeof v === 'number' && isFinite(v) ? v : d || 0);
   const ZUSTAND = ['offen', 'angenommen', 'vor Ort'];
 
-  function liste(st) { return (st && st.nr) || []; }
+  // SPT-02 2 (B2): Pseudo-Eintrag „zuletzt beendeter Faden“ aus world.abenteuer.zuletzt (Brett.store, nur der Server schreibt): { i: 'zuletzt', pseudo: true, k: 'z', ausgang, titel, text, w }.
+  // Er steht am Ende der Liste, ist nur zum Lesen da (kein Fokus-, Hinfliegen-, Ablehnen-, Frage-Befehl: pseudo) und wird in Paket 5 (Reiter „Aufträge“) in den Tab „Aktive Missionen“ übernommen.
+  const FRAKTION = { rom: 'Rom', ger: 'Germanen', kon: 'Konkordat' };
+  const txt = (v, max) => (typeof v === 'string' ? v.replace(/[\u0000-\u001f]+/g, ' ').slice(0, max) : '');
+  function pseudoEintraege() {
+    const b = window.Brett && window.Brett.store && window.Brett.store.abenteuer;
+    const z = b && typeof b === 'object' ? b.zuletzt : null;
+    if (!z || typeof z !== 'object' || !txt(z.titel, 60)) return [];
+    const w = (Array.isArray(z.w) ? z.w : []).filter((m) => m && typeof m === 'object' && isFinite(m.d) && m.d !== 0).slice(0, 4).map((m) => ({ art: m.art === 'haltung' ? 'haltung' : 'ruf', f: txt(m.f, 8), d: m.d }));
+    return [{ i: 'zuletzt', pseudo: true, k: 'z', ausgang: z.ausgang === 'gelungen' ? 'gelungen' : 'gescheitert', titel: txt(z.titel, 60), text: txt(z.text, 160), w }];
+  }
+  function wirkungText(w) { return w.map((m) => (m.art === 'haltung' ? 'Haltung ' : 'Ruf ' + (FRAKTION[m.f] || m.f) + ' ') + (m.d > 0 ? '+' : '') + m.d).join(' · '); }
+  function liste(st) { const l = (st && st.nr) || []; const p = pseudoEintraege(); return p.length ? l.concat(p) : l; }
   function fokus(st) { return liste(st).find((r) => r.f) || null; }
   function hexName(h) { const S = window.Shared_Sektoren; return S && S.hexName ? S.hexName(h) : h; }
   function zeit(s) { s = Math.max(0, Math.round(num(s))); return Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0'); }
 
   const FRAGE_TASTEN = ['KeyQ', 'KeyE', 'KeyR', 'KeyF'];   // Fragen 1–4 (die Ziffern schalten die Reiter)
   const V = { sel: 0 };
-  function aktuell(st) { const l = liste(st); const f = fokus(st); return f || l[Math.min(V.sel, l.length - 1)] || null; }
+  function aktuell(st) { const l = liste(st); const w = l[Math.min(V.sel, l.length - 1)]; if (w && w.pseudo) return w; const f = fokus(st); return f || w || null; }   // SPT-02 2: die Wahl auf dem Pseudo-Eintrag gilt vor dem Server-Fokus (der bleibt auf dem letzten echten Notruf)
 
   // Captain-Reiter. area { x, y, w, h }; cmd(c, extra) schickt Befehle. -> Hilfetext
   function drawCaptain(ctx, view, area, cmd) {
@@ -30,12 +42,27 @@
     l.forEach((r, i) => {
       const isSel = sel && sel.i === r.i;
       ctx.fillStyle = isSel ? 'rgba(255,198,107,0.18)' : 'rgba(255,255,255,0.04)'; ctx.fillRect(area.x, y - 2, lw, 24);
+      if (r.pseudo) {   // beendeter Faden: nur lesen
+        R.text(ctx, (r.titel.length > 24 ? r.titel.slice(0, 23) + '…' : r.titel), area.x + 4, y, { color: isSel ? PAL.amber : PAL.star || '#F4EEDC' });
+        R.text(ctx, r.ausgang === 'gelungen' ? 'erledigt' : 'gescheitert', area.x + 4, y + 10, { color: r.ausgang === 'gelungen' ? PAL.mint : PAL.red });
+        R.button(ctx, area.x + lw - 40, y, 36, 18, 'Wahl', { onClick: () => { V.sel = i; } });
+        y += 28; return;
+      }
       R.text(ctx, (r.k === 'k' ? '! ' : '? ') + hexName(r.h), area.x + 4, y, { color: isSel ? PAL.amber : PAL.star || '#F4EEDC' });
       R.text(ctx, ZUSTAND[r.z] + (r.r != null ? ' · noch ' + zeit(r.r) : ''), area.x + 4, y + 10, { color: r.r != null && r.r < 90 ? PAL.red : PAL.panelLight });
       R.button(ctx, area.x + lw - 40, y, 36, 18, 'Wahl', { onClick: () => { V.sel = i; cmd('captain.notruf.fokus', { id: r.i }); } });
       y += 28;
     });
     if (!sel) return 'W/S wählen';
+    if (sel.pseudo) {   // SPT-02 2: beendeter Faden mit Abschlusstext (kein Befehl, keine Knöpfe)
+      const px = area.x + lw + 12, pw = area.w - lw - 14; let py = area.y;
+      R.text(ctx, sel.ausgang === 'gelungen' ? 'AUFTRAG ERLEDIGT' : 'AUFTRAG GESCHEITERT', px, py, { color: sel.ausgang === 'gelungen' ? PAL.mint : PAL.red }); py += 14;
+      for (const t of R.wrap(sel.titel, pw, 1)) { R.text(ctx, t, px, py, { color: PAL.star || '#F4EEDC' }); py += 10; }
+      py += 4;
+      for (const t of R.wrap(sel.text, pw, 1)) { R.text(ctx, t, px, py, { color: PAL.panelLight }); py += 10; }
+      if (sel.w.length) { py += 4; for (const t of R.wrap('Wirkung: ' + wirkungText(sel.w), pw, 1)) { R.text(ctx, t, px, py, { color: PAL.amber }); py += 10; } }
+      return 'W/S wählen · beendeter Auftrag, nichts zu tun';
+    }
     if (!sel.f && performance.now() - (V.ask || 0) > 500) { V.ask = performance.now(); cmd('captain.notruf.fokus', { id: sel.i }); }   // Details nur für den Fokus
     const f = sel.f || {};
     const px = area.x + lw + 12, pw = area.w - lw - 14;
@@ -63,9 +90,10 @@
   function key(code, view, cmd) {
     const st = view.state; const l = liste(st); const sel = aktuell(st);
     if (!l.length) return false;
-    if (code === 'ArrowUp' || code === 'KeyW') { V.sel = (V.sel + l.length - 1) % l.length; cmd('captain.notruf.fokus', { id: l[V.sel].i }); return true; }
-    if (code === 'ArrowDown' || code === 'KeyS') { V.sel = (V.sel + 1) % l.length; cmd('captain.notruf.fokus', { id: l[V.sel].i }); return true; }
-    if (!sel) return false;
+    const fokusCmd = () => { if (!l[V.sel].pseudo) cmd('captain.notruf.fokus', { id: l[V.sel].i }); };   // ein Pseudo-Eintrag hat keinen Fokus beim Server
+    if (code === 'ArrowUp' || code === 'KeyW') { V.sel = (V.sel + l.length - 1) % l.length; fokusCmd(); return true; }
+    if (code === 'ArrowDown' || code === 'KeyS') { V.sel = (V.sel + 1) % l.length; fokusCmd(); return true; }
+    if (!sel || sel.pseudo) return false;   // SPT-02 2: Pseudo-Eintrag: weder Enter (hinfliegen) noch X noch Fragen
     if (code === 'Enter' || code === 'NumpadEnter') { cmd('captain.notruf.hinfliegen', { id: sel.i }); return true; }
     if (code === 'KeyX' && sel.z !== 2) { cmd('captain.notruf.ablehnen', { id: sel.i }); return true; }
     const fi = FRAGE_TASTEN.indexOf(code); if (fi >= 0 && sel.f && sel.f.q && sel.f.q[fi]) { cmd('captain.notruf.befragen', { id: sel.i, i: fi }); return true; }   // Ziffern wechseln den Reiter
@@ -96,5 +124,5 @@
     R.text(ctx, 'Notruf', p.x + 12, p.y - 4, { color: '#FF6B5E' });
   }
 
-  window.NotrufView = { drawCaptain, key, drawButton, opsKey, draw, liste };
+  window.NotrufView = { drawCaptain, key, drawButton, opsKey, draw, liste, pseudoEintraege };
 })();

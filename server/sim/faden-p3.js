@@ -196,6 +196,7 @@ const abschluss = {
     const gelungen = Pruefer.abschlussGelungen(ctx.beat, nsc);
     const key = nsc.status === 'tot' ? 'abschluss_tot' : !gelungen ? 'abschluss_gescheitert' : P.notrufBrettFaden(faden) ? W.notruf_abschluss_text.wert : (ctx.beat.parameter && ctx.beat.parameter.text_key && T[ctx.beat.parameter.text_key] ? ctx.beat.parameter.text_key : 'abschluss_gelungen');
     const text = (nsc.status !== 'tot' && poolText(game, faden, ctx.beat.id, [key])) || fmt(T[key], { name: nsc.name });   // SPL-02 E3: Haken (Slot = Textschluessel), ohne angemeldeten Plan und bei einem Toten null
+    if (faden.plan) faden.abschlussText = text;   // SPT-02 2: beiEnde (abenteuer-brett.js) liest und loescht ihn: der Abschlusstext steht im Snapshot zuletzt, nie im Weltstand
     if (nsc.status === 'tot') Bitte().funkSprecher(game, W.tot_sprecher.wert, text);   // Nacharbeit F3d: ein Toter spricht nie selbst (kein eigener Name, kein Porträt)
     else sagen(game, nsc, text);
     return { ausgang: gelungen ? 'gelungen' : 'gescheitert' };

@@ -149,9 +149,9 @@ function restLaufend(f) {
 function schluessel(game) {
   const F = game && game.weltsim && game.weltsim.faeden;
   if (!F || !Faden().aktiv(game)) return null;
-  const l = laufendVon(F);
-  if (!F.abenteuerAngebote.length && !l) return null;
-  return [Faden().spielleiterAktiv(game) ? 1 : 0, F.abenteuerAngebote.map((a) => a.nr + ':' + restAngebot(a) + ':' + vonAngebot(game, a)).join(','), l ? [l.id, l.beat, l.phase, restLaufend(l)].join(':') : ''].join('|');
+  const l = laufendVon(F), z = zuletztVon(F);
+  if (!F.abenteuerAngebote.length && !l && !z) return null;
+  return [Faden().spielleiterAktiv(game) ? 1 : 0, F.abenteuerAngebote.map((a) => a.nr + ':' + restAngebot(a) + ':' + vonAngebot(game, a)).join(','), l ? [l.id, l.beat, l.phase, restLaufend(l)].join(':') : '', z ? z.nr + ':' + z.t : ''].join('|');
 }
 // Fraktion des Auftraggebers: das Volk des Angebots, sonst das erste erlaubte Volk der Vorlage; ein Wiedersehen: das Volk des juengsten Kandidaten
 function vonAngebot(game, a) {
@@ -183,8 +183,8 @@ function sichtbareAngebote(F) {
 function snapshot(game) {
   const F = game && game.weltsim && game.weltsim.faeden;
   if (!F || !Faden().aktiv(game)) return null;
-  const l = laufendVon(F);
-  if (!F.abenteuerAngebote.length && !l) return null;
+  const l = laufendVon(F), z = zuletztVon(F);
+  if (!F.abenteuerAngebote.length && !l && !z) return null;
   const text = (t, max) => kuerzen(ohneNamen(game, String(t)), max);
   const s = { ok: Faden().spielleiterAktiv(game) ? 1 : 0, kopf: BW.kopf, ablehnen: BW.ablehnen_text, scheitern: BW.scheitern_text, angebote: [] };
   const alle = sichtbareAngebote(F);
@@ -206,6 +206,7 @@ function snapshot(game) {
     if (v && typeof v.anlass === 'string') e.anlass = text(v.anlass, BW.anlass_max);
     s.laufend = e;
   }
+  if (z) s.zuletzt = { titel: z.titel, ausgang: z.ausgang, text: z.text, ...(z.w ? { w: z.w } : {}) };   // SPT-02 2: der eben beendete Faden (fehlt, wenn keiner)
   return s;
 }
 
@@ -271,12 +272,31 @@ function ablehnen(game, id) {   // kostet nichts: keine Ruf- oder Haltungsfolge,
   return null;
 }
 
+// ---------- SPT-02 2 (B2): der zuletzt beendete Faden bleibt sichtbar (Snapshot zuletzt { titel, ausgang, text, w? }, Anzeige: Captain-Reiter Notrufe/Aufträge). Genau einer, der juengste. Nur Laufzeit (nicht im Weltstand).
+// Der Text ist der des Abschluss-Beats (faden-p3.js, derselbe wie der Funk), die Wirkung w nur die Marken, die der Abschluss-Beat fuer diesen Ausgang ohnehin setzt (marken(), keine neue Rechnung).
+// Regel: er steht, solange kein neuer Faden entstanden ist (F.nr gleich) und weniger als zuletzt_gilt_taetigkeiten Taetigkeiten vergangen sind; ein spaeter endender Faden ersetzt ihn.
+function zuletztMerken(game, F, f, key) {
+  const v = D.vorlage(f.vorlage), b = v && v.beats[f.beat];
+  const o = b && istObjekt(b.aus) && istObjekt(b.aus[key]) ? b.aus[key] : {};
+  const text = f.abschlussText || BW['zuletzt_text_' + key];
+  delete f.abschlussText;
+  const z = { titel: kuerzen(ohneNamen(game, String(v ? v.titel : '')), BW.titel_max), ausgang: key, text: kuerzen(ohneNamen(game, String(text)), BW.zuletzt_text_max), nr: F.nr, t: F.t };
+  const w = marken(o.folge, f.parameter && f.parameter.volk).slice(0, 4);
+  if (w.length) z.w = w;
+  brett(F).zuletzt = z;
+}
+function zuletztVon(F) {
+  const z = F && F.brett && F.brett.zuletzt;
+  return z && z.nr === F.nr && F.t - z.t < BW.zuletzt_gilt_taetigkeiten ? z : null;
+}
+
 // ---------- Ende eines Abenteuers: Chronik (Zeile aus Daten, nie aus dem Freitext des Modells), Logbuch ohne Titel und Anlass, Anschluss
 function beiEnde(game, f, ausgang) {
   const F = Faden().zustandVon(game);
   if (!f || !f.plan || !F) return;
   const key = ausgang === 'gelungen' ? 'gelungen' : 'gescheitert';   // nie der Name des NSC und nie Titel oder Anlass: die Chronik geht in den Prompt des Spielleiters (Test: der Name des NSC steht nie im Prompt)
   const ort = f.parameter && f.parameter.ort ? hexName(f.parameter.ort) : 'dem Sektor';
+  zuletztMerken(game, F, f, key);
   try { Chronik().eintragen(game, { art: 'reise', ref: f.id, kurz: fmt(BR.chronik[key], { ort }), param: { art: 'abenteuer', ausgang: ausgang === 'gelungen' ? 'gelungen' : 'gescheitert' } }); } catch (e) { fehlerZaehlen(game, 'abenteuer-chronik', e); }
   logbuch(game, 'faden_ereignis', { ausgang: 'abenteuer_ende', key: f.id, begruendung: `Abenteuer ${f.vorlage} ${ausgang}, NSC ${f.nsc.status}`, plan: { faden: f.id, vorlage: f.vorlage, ausgang, status: f.nsc.status } });
   anschluss(game);
@@ -714,4 +734,4 @@ function lesen(b, F) {   // muellfest: Unbrauchbares faellt weg (Meldung in F.la
 // SPL-02 D: die NSC, die eine Fortsetzung tragen (Katalog der Absichten, absicht-pruefer.js): die Verbindung fuer abenteuer-geschichte.js, das den Pruefer nicht selbst laedt
 const fortsetzungsNamen = (game, katalog) => Absicht().fortsetzungsNamen(game, katalog);
 
-module.exports = { snapshot, schluessel, annehmen, ablehnen, vorschau, marken, kuerzen, beiEnde, hinweisAnbieten, beiTaetigkeit, beiUpdate, anschluss, beiAndocken, anschlussFuellen, ausVorratFuellen, ausVorratEinsAnbieten, sammelHinweis, passtZuLage, neuAnbieten, notrufAnbieten, notrufRueckfallWeiter, abenteuerRueckfallWeiter, abenteuerAbschlussWeiter, zurueckziehenFuerNotruf, toSave, lesen, weigerung, schrittText, fortsetzungsNamen };
+module.exports = { snapshot, schluessel, zuletztVon, annehmen, ablehnen, vorschau, marken, kuerzen, beiEnde, hinweisAnbieten, beiTaetigkeit, beiUpdate, anschluss, beiAndocken, anschlussFuellen, ausVorratFuellen, ausVorratEinsAnbieten, sammelHinweis, passtZuLage, neuAnbieten, notrufAnbieten, notrufRueckfallWeiter, abenteuerRueckfallWeiter, abenteuerAbschlussWeiter, zurueckziehenFuerNotruf, toSave, lesen, weigerung, schrittText, fortsetzungsNamen };
