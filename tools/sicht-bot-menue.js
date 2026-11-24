@@ -424,6 +424,106 @@ async function main() {
     await ctx.close();
   });
 
+  // ---------------------------------------------------------------- 7. Designer-Review (W1 bis W3, K6 bis K8, K10)
+  // W3: Funk-Reiter mit Funkspruch und Untertiteln (echter Server), Slot der Sprechspalte je Reiter gegen die Bedienflächen des Bildes
+  await mitServer('review-funk', async (b, port) => {
+    const { ctx, page, errs } = await seite(b, port, 'debug=1&render=2d&pult=rom');
+    await startePartie(page, ['navigation', 'ops']);
+    await page.keyboard.press('Digit1'); await sleep(300);
+    const funk = await page.waitForFunction(() => Hud.radioAktuell && Hud.radioAktuell(), null, { timeout: 20000 }).then(() => true, () => false);
+    ok(funk, 'Funk-Reiter: ein Funkspruch steht in der Anzeige (Kasten oben links)');
+    await leere(page);
+    await taste(page, 'Shift+KeyS', 200);
+    ok(await warteAntworten(page, 2), 'Status an alle: zwei Antworten');
+    await sleep(500);
+    const u = await untertitel(page);
+    ok(u.length === 2, 'zwei Untertitel in der Sprechspalte (' + u.join(' | ') + ')');
+    const slot = await page.evaluate(() => Hud.sprechSlot(Consoles.view));
+    ok(slot.richtung === 'hoch' && slot.y === 216 && slot.x === 178, 'Funk-Reiter: Sprechspalte unten, Unterkante y 216 (4 px über der Frachtleiste y 220), wächst nach oben (' + JSON.stringify(slot) + ')');
+    const rect = await page.evaluate(() => { const E = Hud.sprech.eintraege, h = E.reduce((a, e) => a + e.h + 1, 0); return { top: Hud.sprechSlot(Consoles.view).y - h, h }; });
+    const knoepfe = await page.evaluate(() => Render.ui.buttons.filter((x) => x.label && x.y < 240).map((x) => ({ x: x.x, y: x.y, w: x.w, h: x.h, label: x.label })));
+    const schnitt = knoepfe.filter((k) => k.x < 462 && k.x + k.w > 178 && k.y < 216 && k.y + k.h > rect.top);
+    ok(schnitt.length === 0, 'Funk-Reiter: kein Knopf unter den zwei Untertiteln (y ' + rect.top + ' bis 216; ' + knoepfe.length + ' Knöpfe oberhalb der Statusleiste)' + (schnitt.length ? ': ' + schnitt.map((k) => k.label).join(', ') : ''));
+    await bild(page, 'r01-funk-funkspruch-untertitel');
+    // alle Captain-Reiter: der Slot (ungünstigster Fall 61 hoch) schneidet nie eine Bedienfläche des laufenden Bildes
+    for (const tab of [0, 1, 2, 3, 4, 5]) {
+      await page.evaluate((t) => { Consoles.tab = t; }, tab); await sleep(350);
+      const r = await page.evaluate(() => {
+        const s = Hud.sprechSlot(Consoles.view), h = 61, y0 = s.richtung === 'hoch' ? s.y - h : s.y;
+        const bt = Render.ui.buttons.filter((x) => x.label && x.y < 240 && x.x < s.x + s.w && x.x + x.w > s.x && x.y < y0 + h && x.y + x.h > y0).map((x) => x.label);
+        return { ort: Hud.sprechOrt(Consoles.view), y0, h, bt, n: Render.ui.buttons.length };
+      });
+      ok(r.bt.length === 0, 'Reiter ' + tab + ' (Slot ' + r.ort + ', Spalte y ' + r.y0 + ' bis ' + (r.y0 + r.h) + '): keine Bedienfläche darunter' + (r.bt.length ? ' – TRIFFT ' + r.bt.join(', ') : ''));
+    }
+    ok(errs.filter((e) => !/lk is not defined/.test(e)).length === 0, 'keine Seitenfehler (außer dem Altfehler lk, Pult.shieldStrip)' + (errs.length ? ': ' + errs.slice(0, 2).join(' | ') : ''));
+    await ctx.close();
+  });
+  // W1, W2, K8: Reparaturliste mit Zuständen (Mock dmg=1), beide Skins; K6, K7: gesperrte Direkttaste, Tooltip mit Rolle
+  await mitServer('review-mock', async (b, port) => {
+    for (const skin of ['rom', 'germanen']) {
+      const P = skin === 'rom' ? 'r' : 'rg';
+      const { ctx, page, errs } = await seite(b, port, 'mock=1&console=captain&tab=2&markers=1&dmg=1&mockbots=navigation,ops,technik&render=2d&pult=' + skin);
+      await page.waitForFunction(() => window.PultBefehl && PultBefehl.menue.hatBots() && PultBefehl.menue.geladen(), null, { timeout: 8000 });
+      await sleep(600);
+      await taste(page, 'KeyB'); await taste(page, 'KeyE'); await taste(page, 'KeyA');
+      const sys = await page.evaluate(() => __game.state.ship.systems), fr = await page.evaluate(() => __game.state.ship.fragile);
+      info(skin + ': Zustände ' + JSON.stringify(sys) + ' geflickt ' + JSON.stringify(fr));
+      for (let s2 = 1; s2 <= 4; s2++) {
+        if (!(await zustand(page)).offen) { await taste(page, 'KeyB'); await taste(page, 'KeyE'); await taste(page, 'KeyA'); for (let i = 1; i < s2; i++) await taste(page, 'KeyR'); }   // die Tafel schließt nach 6 s ohne Taste von selbst (langsamer Rechner)
+        const a = await page.evaluate(() => PultBefehl.menue.ansicht().zellen.filter((c) => c.zustand !== 'leer').map((c) => ({ w: c.wert, i: c.info })));
+        const falsch = a.filter((c) => { const z = sys[c.w]; const soll = z === 'broken' ? 'zer.' : z === 'damaged' ? 'besch.' : ''; return c.i !== soll; });
+        ok(falsch.length === 0, skin + ' Reparieren Seite ' + s2 + ': Info je Feld = Zustand des Schiffs (' + a.map((c) => c.w + ':' + (c.i || '-')).join(' ') + ')');
+        await bild(page, P + '14-reparieren-s' + s2); await taste(page, 'KeyR');
+      }
+      await zu(page);
+      // K6/K7: Technik hat hier einen Bot, Navigation ebenfalls; mit Mensch an der Steuerung ist Stopp gesperrt
+      ok(errs.filter((e) => !/lk is not defined/.test(e)).length === 0, skin + ': keine Seitenfehler (außer lk)');
+      await ctx.close();
+    }
+    for (const skin of ['rom', 'germanen']) {
+      const { ctx, page, errs } = await seite(b, port, 'mock=1&console=captain&tab=0&markers=1&mockbots=ops&render=2d&pult=' + skin);
+      await page.waitForFunction(() => window.PultBefehl && PultBefehl.menue.hatBots() && PultBefehl.menue.geladen(), null, { timeout: 8000 });
+      await sleep(500);
+      await taste(page, 'Shift+KeyX', 150);
+      const q = await page.evaluate(() => PultBefehl.menue.crew()[0]);
+      ok(q.quittung === 'gesperrt' && q.textKurz === 'NAV gesperrt' && q.fn === 'warn', skin + ': Sh+X ohne Navigation-Bot: Quittung „' + q.textKurz + '“ in warn (Tafel zu)');
+      ok(!(await zustand(page)).offen, skin + ': die Tafel bleibt zu');
+      await bild(page, 'r05-direkttaste-gesperrt-' + skin);
+      await sleep(2100);
+      ok((await page.evaluate(() => PultBefehl.menue.crew()[0])).quittung === null, skin + ': nach 2 s ist die Quittung weg');
+      // Tooltip an „Sh+X Stopp“ (Crew-Zeile, x 158..250, y 330..344)
+      await page.mouse.move(400, 674); await sleep(300);
+      const tip = await page.evaluate(() => Render.ui.tooltip && Render.ui.tooltip.text);
+      ok(tip === 'Kein Bot an der Navigation', skin + ': Tooltip an Stopp „' + tip + '“');
+      await bild(page, 'r06-hover-gesperrt-stopp-' + skin);
+      ok(errs.filter((e) => !/lk is not defined/.test(e)).length === 0, skin + ': keine Seitenfehler (außer lk)');
+      await ctx.close();
+    }
+  });
+  // K10: Ego-Sitz, offene Tafel, Siegel „Weltstand gesichert“ bleibt über der Einblendung
+  await mitServer('review-ego', async (b, port) => {
+    const { ctx, page, errs } = await seite(b, port, 'debug=1&render=voxel&pult=rom');
+    await page.evaluate(() => __game.send({ t: 'lobbyOpt', startMission: 'free', skipDrill: true }));
+    for (const r of ['navigation', 'ops']) { await page.evaluate((x) => __game.send({ t: 'lobbyBot', op: 'add', rolle: x }), r); await sleep(150); }
+    await page.evaluate(() => __game.send({ t: 'ready', ready: true }));
+    await page.waitForFunction(() => __game.state && __game.state.phase !== 'lobby', null, { timeout: 30000 });
+    await page.waitForFunction(() => window.VoxelRender && VoxelRender.ready, null, { timeout: 30000 });
+    await page.evaluate(() => __game.send({ t: 'debug', cmd: 'sitz', console: 'captain', hin: true })); await sleep(1500);
+    await page.mouse.move(640, 300);
+    await page.evaluate(() => { window.__seal = []; const o = Render.backdrop; Render.backdrop = function (c, x, y, w, h, a) { if (x === 270 && h === 14) window.__seal.push(y); return o.apply(this, arguments); }; });
+    await taste(page, 'KeyB', 300);
+    await page.evaluate(() => Hud.showSaveSeal(true, 'Weltstand gesichert · Hafen Lichtkordon')); await sleep(700);
+    const y = await page.evaluate(() => window.__seal.slice(-1)[0]);
+    ok(y != null && y + 14 <= 261, 'Ego-Sitz, Tafel offen: das Siegel liegt über der Einblendung (y ' + y + ' bis ' + (y + 14) + ' <= 261)');
+    await bild(page, 'r10-ego-vorn-siegel-tafel-offen');
+    await page.evaluate(() => { window.__seal.length = 0; PultBefehl.schliessen(); Hud.showSaveSeal(true, 'Weltstand gesichert · Hafen Lichtkordon'); }); await sleep(700);
+    const y2 = await page.evaluate(() => window.__seal.slice(-1)[0]);
+    ok(y2 === 342, 'Ego-Sitz, Tafel zu: das Siegel bleibt an seinem alten Platz (y ' + y2 + ')');
+    await bild(page, 'r11-ego-vorn-siegel-tafel-zu');
+    ok(errs.filter((e) => !/lk is not defined/.test(e)).length === 0, 'keine Seitenfehler (außer lk)');
+    await ctx.close();
+  });
+
   console.log(fehlt ? '\n' + fehlt + ' von ' + n + ' Prüfung(en) FEHLGESCHLAGEN' : '\nalle ' + n + ' Prüfungen ok (Bilder: ' + SHOTS + ')');
   process.exit(fehlt ? 1 : 0);
 }

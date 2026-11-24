@@ -63,6 +63,25 @@ function erwartet(e, wertId, quelle) {
 }
 const platz = (e) => { for (const k of Object.keys(e.args)) { const pm = /^\{(\w+)\}$/.exec(String(e.args[k])); if (pm) return { arg: k, name: pm[1], werte: (e.werte || {})[pm[1]] }; } return null; };
 
+// Echtes pult.js (Skin je Aufruf) und pult-befehl.js im vm-Kontext mit Rastersimulation: fillRect malt in ein Pixelfeld, R.text wird aufgezeichnet.
+// Damit lässt sich die Schriftfarbe gegen die Fläche UNTER dem Text messen (Designer-Review W1/K8).
+function bauePult(skin, ship) {
+  const px = new Array(640 * 360).fill('#000000'), texte = [];
+  const ctx = { fillStyle: '#000000', strokeStyle: '', lineWidth: 1, globalAlpha: 1, save() {}, restore() {}, beginPath() {}, rect() {}, clip() {}, strokeRect() {}, drawImage() {}, setTransform() {}, clearRect() {},
+    fillRect(x, y, w, h) { if (/^#/.test(this.fillStyle)) for (let j = Math.max(0, y | 0); j < Math.min(360, (y + h) | 0); j++) for (let i = Math.max(0, x | 0); i < Math.min(640, (x + w) | 0); i++) px[j * 640 + i] = this.fillStyle; } };
+  const ui = { buttons: [], mouse: { x: -1, y: -1 }, tooltip: null };
+  const R = { PAL: new Proxy({}, { get: () => '#808080' }), ui, measure: (t) => String(t).length * 4, text: (c, t, x, y, o) => texte.push({ s: String(t), x, y, farbe: o.color, align: o.align }), button() {}, backdrop() {} };
+  const view = { state: { ship: Object.assign({ systems: {}, fragile: [], mod: [1, 1, 1, 1] }, ship || {}) }, send() {}, actions: {}, time: 0 };
+  const win = { Render: R, Shared_Config: {}, Shared_Protocol: Protocol, location: { search: '?pult=' + skin }, localStorage: { getItem() { return null; } }, URLSearchParams, console, performance: { now: () => 1000 }, Net: { send: () => true, on() {} } };
+  win.window = win; vm.createContext(win);
+  vm.runInContext(fs.readFileSync(path.join(PUB, 'tasten.js'), 'utf8'), win);
+  vm.runInContext(fs.readFileSync(path.join(PUB, 'pult.js'), 'utf8'), win);
+  win.Consoles = { view, stationOf: () => null, denied() {}, helmInfo: () => ({ stages: [0, 1, 2, 3, 4, 5, 6], stop: 0, names: ['STOPP'], stage: 0 }), waffeAmPlatz: () => true };
+  win.PultBefehlTokens = TK; win.BotMenue = BM;
+  vm.runInContext(fs.readFileSync(path.join(PUB, 'pult-befehl.js'), 'utf8'), win);
+  return { win, ctx, px, texte, ui, view };
+}
+
 (async () => {
   // ================================================================= 1. Daten
   section('1. Daten und Abdeckung');
@@ -617,6 +636,129 @@ const platz = (e) => { for (const k of Object.keys(e.args)) { const pm = /^\{(\w
       PB.rahmen({ players: [mensch('captain')], phase: 'play' });
       zeichne();
       ok(ui.buttons.length === 1 && ui.buttons[0].label === 'REITER', 'ohne Bots: PultBefehl zeichnet nichts und registriert nichts (kein Fänger)');
+    }
+  }
+
+  // ================================================================= 11. Designer-Review (W1, W2, K6, K7, K8)
+  section('11. Designer-Review: Grund je Rolle (K7), gesperrte Direkttaste in der Quittung (K6), Zustandsinfo (W2), Info-Farben (W1, K8)');
+  {
+    // K7: der Grund nennt die Rolle, an der die Sperre hängt; nirgends bleibt ein Platzhalter stehen
+    const x = mk({ crew: [mensch('captain'), bot('ops'), bot('technik')] });
+    const r = x.m.taste('captain.bot.stopp');
+    ok(r.ok === false && r.grund === 'keinBot' && x.L.denied.at(-1) === 'Kein Bot an der Navigation' && x.m.crew()[1].grund === 'Kein Bot an der Navigation', 'Sh+X ohne Navigation-Bot: „Kein Bot an der Navigation“ (Denied und Tooltip der Crew-Zeile)');
+    ok(x.m.crew()[2].grund === 'Kein Bot an der Navigation' && x.m.crew()[3].gesperrt === false, 'Ausweichen hat denselben Grund wie Stopp (gleiche Rolle), Feuer frei ist frei');
+    x.m.oeffnen(); x.m.waehle('Q');
+    ok(x.L.denied.at(-1) === 'Kein Bot an der Navigation' && x.m.ansicht().rechts.text === 'Kein Bot an der Navigation', 'Tafel: Feld Navigation ohne Bot: derselbe Satz im Titelhinweis');
+    x.m.schliessen(); x.m.oeffnen(); x.m.waehle('A');
+    ok(x.L.denied.at(-1) === 'Nur während der Außenmission', 'Bord: „Nur während der Außenmission“ (kein Platzhalter nötig)');
+    const m2 = mk({ crew: [mensch('captain'), mensch('weapons'), bot('navigation'), bot('ops'), bot('technik')] });
+    m2.m.oeffnen(); m2.m.waehle('W');
+    ok(m2.L.denied.at(-1) === 'Ein Mensch sitzt an Ops – sag es ihm', 'Ops mit Mensch: „Ein Mensch sitzt an Ops – sag es ihm“');
+    const m3 = mk({ crew: [mensch('captain'), bot('navigation'), bot('ops')] });
+    m3.m.oeffnen(); m3.m.waehle('E');
+    ok(m3.L.denied.at(-1) === 'Kein Bot an der Technik', 'Technik ohne Bot: „Kein Bot an der Technik“');
+    const alle = []; for (const g of ['keinBot', 'mensch', 'aussen', 'keineBots']) for (const ro of Object.keys(TK.TEXT.rolleAn)) alle.push(m3.L.denied.length >= 0 && TK.TEXT.grundLang[g].replace(/\{rolle\}/g, TK.TEXT.rolleAn[ro]));
+    ok(alle.every((t) => !/[{}]/.test(t)) && Object.keys(TK.TEXT.rolleAn).sort().join() === Object.keys(TK.TEXT.rolleName).sort().join(), 'rolleAn deckt jede Rolle ab, kein Satz behält einen Platzhalter');
+    // K10: die Einblendung steht nur im Ego-Sitz (Blick VORN/CREW) bei offener Tafel mit Bots
+    {
+      const P1 = bauePult('rom', {}), PB = P1.win.PultBefehl;
+      PB.menue.setzeKanon(KANON);
+      PB.rahmen({ players: [mensch('captain'), bot('ops')], phase: 'play' });
+      ok(PB.einblendungOben() === 0, 'Einblendung: Tafel zu = 0');
+      PB.menue.oeffnen(); ok(PB.einblendungOben() === 0, 'Tafel offen, aber kein Ego-Sitz (2D-Pult): 0');
+      P1.win.Sitz = { station: 'captain', blick: 'vorn' }; ok(PB.einblendungOben() === TK.MASS.tafel.y - 1, 'Ego-Sitz, Blick VORN, Tafel offen: Oberkante ' + PB.einblendungOben() + ' (y 261)');
+      P1.win.Sitz.blick = 'crew'; ok(PB.einblendungOben() === 261, 'Blick CREW: ebenso');
+      P1.win.Sitz.blick = 'pult'; ok(PB.einblendungOben() === 0, 'Blick auf das Pult: keine Einblendung, 0');
+      P1.win.Sitz.blick = 'vorn'; PB.rahmen({ players: [mensch('captain')], phase: 'play' }); ok(PB.einblendungOben() === 0, 'ohne Bots: 0 (Pult unverändert)');
+    }
+    // K6: die gesperrte Direkttaste steht 2 s in der Quittung am Knopf „Befehle“, auch bei geschlossener Tafel
+    const k = mk({ crew: [mensch('captain'), bot('ops')] });
+    ok(k.m.crew()[0].quittung === null && !k.m.istOffen(), 'K6 Ausgang: Tafel zu, keine Quittung');
+    const kr = k.m.taste('captain.bot.stopp');
+    const q0 = k.m.crew()[0];
+    ok(kr.ok === false && k.L.senden.length === 0 && q0.quittung === 'gesperrt' && q0.text === 'NAVIGATION gesperrt' && q0.textKurz === 'NAV gesperrt' && q0.fn === 'warn', 'Sh+X gesperrt, Tafel zu: Quittung „NAV gesperrt“ in warn (nichts gesendet)');
+    k.warte(1900); ok(k.m.crew()[0].quittung === 'gesperrt', 'Quittung nach 1,9 s noch da');
+    k.warte(200); ok(k.m.crew()[0].quittung === null && k.m.crew()[0].text === 'Befehle' && k.m.crew()[0].fn === 'cmd', 'nach 2,1 s weg (wieder „Befehle“)');
+    k.m.taste('captain.bot.feuerFrei'); ok(k.m.crew()[0].quittung === 'gesendet', 'ein freier Befehl quittiert wie bisher (gesendet), nicht gesperrt');
+    k.warte(5200); k.m.crew();
+    const mensch2 = mk({ crew: [mensch('captain'), mensch('weapons'), bot('navigation')] });
+    mensch2.m.taste('captain.bot.feuerFrei');
+    ok(mensch2.m.crew()[0].quittung === 'gesperrt' && mensch2.m.crew()[0].textKurz === 'OPS gesperrt', 'Mensch an Ops: Direkttaste Feuer frei zeigt „OPS gesperrt“');
+  }
+  {
+    // W2: Zustandsinfo aus dem Snapshot, dieselbe Abbildung wie die Abzeichen (render.js STATE_SHORT): broken = AUS = zer., damaged = BESCH = besch., geflickt ohne Wort
+    const rs = fs.readFileSync(path.join(PUB, 'render.js'), 'utf8').split(String.fromCharCode(13)).join('');
+    ok(/STATE_SHORT = \{ ok: 'OK', damaged: 'BESCH', broken: 'AUS', offline: 'EMP' \}/.test(rs), 'Quelle der Abbildung: render.js STATE_SHORT (damaged = BESCH, broken = AUS) unverändert');
+    const sys = { reactor: 'ok', engines: 'damaged', shields: 'broken', transfer: 'ok', weapons: 'damaged', thruster_port: 'damaged', emitter_bow: 'broken',
+      lafette_5: 'damaged', lafette_7: 'broken', lafette_9: 'ok', lafette_1: 'ok', weapon_bow: 'broken', battery_port: 'ok', battery_stbd: 'damaged',
+      modul_1: 'damaged', modul_2: 'broken', modul_3: 'ok', modul_4: 'ok', offline_sys: 'offline' };
+    const fragile = ['reactor', 'lafette_9', 'battery_port', 'modul_3'];   // geflickt (ship.fragile), Zustand ok
+    const P1 = bauePult('rom', { systems: sys, fragile });
+    const wi = (id, key) => P1.win.PultBefehl.wertInfo(key || 'tech.reparieren:system', id);
+    const info = (id, key) => { const i = wi(id, key); return i ? i.text + '/' + i.stil : null; };
+    ok(info('reactor') === null && info('transfer') === null, 'Hauptsystem heil (und geflickt): keine Info');
+    ok(info('engines') === 'besch./besch' && info('weapons') === 'besch./besch', 'Hauptsystem damaged (Antrieb, Waffen): „besch.“');
+    ok(info('shields') === 'zer./zer', 'Hauptsystem broken (Schilde): „zer.“');
+    ok(info('thruster_port') === 'besch./besch' && info('emitter_bow') === 'zer./zer', 'Düse damaged = besch., Emitter broken = zer.');
+    ok(info('lafette_5') === 'besch./besch' && info('lafette_7') === 'zer./zer' && info('lafette_9') === null && info('lafette_1') === null, 'Lafetten: damaged = besch., broken = zer., geflickt und heil ohne Info');
+    ok(info('weapon_bow') === 'zer./zer' && info('battery_port') === null && info('battery_stbd') === 'besch./besch', 'Waffenplätze: Bug zer., Backbord (heil, geflickt) ohne Info, Steuerbord besch.');
+    ok(info('modul_1') === 'besch./besch' && info('modul_2') === 'zer./zer' && info('modul_3') === null && info('modul_4') === null, 'Module: damaged = besch., broken = zer., geflickt und heil ohne Info');
+    ok(info('offline_sys') === null && info('gibt_es_nicht') === null && info('engines', 'nav.kurs:ziel') === null && info('engines', 'tech.prio:ziel') === 'besch./besch', 'offline und unbekannte Kennung: keine Info; nur Reparieren und Priorität tragen Zustandswörter');
+    ok(info('constructor') === null && info('toString') === null, 'Kennungen wie Objekteigenschaften liefern keine Info');
+    // dieselbe Abbildung im Feld der Tafel (Stufe 3, alle Seiten)
+    const M = P1.win.PultBefehl.menue;
+    M.setzeKanon(KANON); M.synchron([mensch('captain'), bot('technik')], 'play');
+    M.oeffnen(); M.waehle('E'); M.waehle('A');
+    const seiten = []; for (let i = 0; i < 4; i++) { seiten.push(M.ansicht().zellen.filter((z) => z.zustand !== 'leer').map((z) => z.wert + ':' + z.info).join(' ')); M.blaettern(); }
+    ok(seiten[0] === 'reactor: engines:besch. shields:zer. transfer: weapons:besch.', 'Tafel Seite 1 (Hauptsysteme): Antrieb, Schilde, Waffen zeigen den Zustand, Reaktor (geflickt) nicht – ' + seiten[0]);
+    ok(/lafette_7:zer\./.test(seiten[2]) && /lafette_5:besch\./.test(seiten[2]) && /lafette_9: /.test(seiten[2]) && /battery_port: /.test(seiten[2]) && /battery_stbd:besch\./.test(seiten[2]), 'Tafel Seite 3 (Waffenplätze): Zustand je Lafette – ' + seiten[2]);
+    ok(seiten[3] === 'modul_1:besch. modul_2:zer. modul_3: modul_4:', 'Tafel Seite 4 (Module): Zustand je Modul – ' + seiten[3]);
+  }
+  {
+    // W1, K8: Info-Farbe gegen die tatsächliche Fläche (Rasterprobe im echten pult.js, beide Skins)
+    const FARBEN = Object.values(TK.FN_BEFEHL).concat(Object.values(TK.FARBE.rolle), ['weapon']);
+    const fns = [...new Set(FARBEN)];
+    for (const skinName of ['rom', 'germanen']) {
+      const P1 = bauePult(skinName, { systems: {}, fragile: [] }), K = P1.win.Pult.SKINS[skinName], F = P1.win.Pult.FN, IF = P1.win.PultBefehl.infoFarbe;
+      const flaeche = (zfn, o) => (o.aus ? (skinName === 'rom' ? K.bg : K.off) : skinName === 'rom' ? F[zfn] : o.aktiv ? P1.win.Pult.mix(K.plate, F[zfn], 0.22) : K.plate);   // Fläche unter der Schrift (wie Skin.knopf sie malt)
+      let min = 99, minWo = '';
+      for (const zfn of fns) for (const o of [{}, { aktiv: true }, { aus: true }, { stil: 'zer' }, { stil: 'besch' }, { aktiv: true, stil: 'zer' }]) {
+        const c = PS.kontrast(IF(K, zfn, o), flaeche(zfn, o));
+        if (c < min) { min = c; minWo = zfn + ' ' + JSON.stringify(o); }
+      }
+      ok(min >= 4.5, skinName + ': Info-Schrift auf der Fläche in jedem Zustand und jeder Funktionsfarbe >= 4,5:1 (kleinster Wert ' + min.toFixed(2) + ' bei ' + minWo + ')');
+    }
+    {
+      const R1 = bauePult('rom', {}), G1 = bauePult('germanen', {});
+      const rom = R1.win.Pult.SKINS.rom, ger = G1.win.Pult.SKINS.germanen;
+      const IR = R1.win.PultBefehl.infoFarbe, IG = G1.win.PultBefehl.infoFarbe;
+      ok(IR(rom, 'neutral', { stil: 'zer' }) === IR(rom, 'neutral', {}) && IR(rom, 'neutral', { stil: 'besch' }) === IR(rom, 'neutral', {}), 'rom: zer./besch. behalten die Skin-Farbe (das Wort trägt die Bedeutung), keine Stilfarbe');
+      ok(IG(ger, 'neutral', { stil: 'zer' }) === TK.FARBE.titelRot && IG(ger, 'neutral', { stil: 'besch' }) === G1.win.Pult.FN.warn, 'germanen: zer. in titelRot, besch. in warn (auf der dunklen Platte 5,6 und 9,8:1)');
+      ok(IG(ger, 'weapon', { aktiv: true }) === ger.text && IG(ger, 'weapon', {}) === TK.FARBE.titelRot, 'germanen: auf der aktiven Platte die Schriftfarbe des Skins, sonst titelRot');
+    }
+    // am gezeichneten Bild: was PultBefehl.zeichne malt, gemessen an der Fläche unter dem Text (Rastersimulation)
+    for (const skinName of ['rom', 'germanen']) {
+      const sys = { engines: 'damaged', shields: 'broken', weapons: 'damaged', transfer: 'ok' };
+      const P1 = bauePult(skinName, { systems: sys, fragile: [] });
+      const PB = P1.win.PultBefehl, M = PB.menue;
+      M.setzeKanon(KANON); PB.rahmen({ players: [mensch('captain'), bot('technik'), bot('ops'), bot('navigation')], phase: 'play' });
+      const g = P1.win.Pult.rahmen(P1.ctx, P1.view, { titel: 'CAPTAIN', S: 240, station: 'captain' });
+      const sonde = (woerter) => P1.texte.filter((t) => woerter.includes(t.s)).map((t) => ({ s: t.s, farbe: t.farbe, flaeche: P1.px[(t.y + 3) * 640 + (t.x - 2)], kontrast: PS.kontrast(t.farbe, P1.px[(t.y + 3) * 640 + (t.x - 2)]) }));
+      const frisch = () => { P1.texte.length = 0; P1.ui.buttons.length = 0; PB.zeichne(P1.ctx, P1.view, g); };
+      M.oeffnen(); M.waehle('E'); M.waehle('A'); frisch();
+      let t = sonde(['zer.', 'besch.']);
+      ok(t.length === 3 && t.every((e) => e.kontrast >= 4.5), skinName + ': Reparieren Seite 1: „zer.“ und „besch.“ gezeichnet, Kontrast gemessen ' + t.map((e) => e.s + ' ' + e.kontrast.toFixed(2)).join(', '));
+      if (skinName === 'rom') ok(t.every((e) => e.farbe !== TK.FARBE.titelRot && e.farbe !== P1.win.Pult.FN.warn), 'rom: weder Rot noch Gelb als Schriftfarbe der Zustandswörter');
+      M.schliessen(); M.oeffnen(); M.waehle('E'); M.waehle('D'); frisch();   // Reaktor überladen? (Nachfrage: Feld in weapon, Info „nochmal D“ auf der aktiven Fläche)
+      t = sonde(['nochmal D']);
+      ok(t.length === 1 && t[0].kontrast >= 4.5, skinName + ': Nachfrage „nochmal D“ auf aktiver Fläche, Kontrast gemessen ' + (t[0] ? t[0].kontrast.toFixed(2) : 'nicht gezeichnet'));
+      M.schliessen(); M.taste('captain.bot.feuerHalt'); M.antwort(antwort('b2', 'ops.feuer_halt', 'ok')); M.taste('captain.bot.ausweichen'); M.antwort(antwort('b3', 'nav.ausweichen', 'ok'));
+      M.oeffnen(); M.waehle('W'); frisch();   // Ops: „Feuer einstellen“ gilt (weapon)
+      t = sonde(['gilt']);
+      ok(t.length === 1 && t[0].kontrast >= 4.5, skinName + ': „gilt“ (Ops, weapon) auf aktiver Fläche, Kontrast gemessen ' + (t[0] ? t[0].kontrast.toFixed(2) : 'nicht gezeichnet'));
+      M.zurueck(); M.waehle('Q'); frisch();   // Navigation: Ausweichen gilt (drive)
+      t = sonde(['gilt']);
+      ok(t.length === 1 && t[0].kontrast >= 4.5, skinName + ': „gilt“ (Navigation, drive) auf aktiver Fläche, Kontrast gemessen ' + (t[0] ? t[0].kontrast.toFixed(2) : 'nicht gezeichnet'));
     }
   }
 

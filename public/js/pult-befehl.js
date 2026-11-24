@@ -28,13 +28,14 @@
     if (m) return !!(ship.mod || [])[+m[1] - 1];   // leerer Modulraum
     return true;
   }
+  // Zustandswort rechts im Feld (Reparieren, Priorität): dieselbe Quelle und Abbildung wie die Zustandsabzeichen des Spiels (render.js STATE_SHORT über ship.systems[id]):
+  // 'broken' (AUS) = zer., 'damaged' (BESCH) = besch.; heil, geflickt (ship.fragile, das Abzeichen FLICK) und ohne Zustand (EMP) tragen keine Info.
+  // Gilt für jede Kennung, die der Snapshot in ship.systems führt: Hauptsysteme, Düsen/Emitter, Lafetten (lafette_N), Waffenplätze und Module (modul_N).
+  const ZUSTAND_INFO = { broken: { text: TX.zustandZer, stil: 'zer' }, damaged: { text: TX.zustandBesch, stil: 'besch' } };
   function wertInfo(key, id) {
     if (key !== 'tech.reparieren:system' && key !== 'tech.prio:ziel') return null;
     const ship = schiff(), sys = ship && ship.systems ? ship.systems[id] : undefined;
-    if (sys === undefined) return null;
-    if (sys === 'broken') return { text: TX.zustandZer, stil: 'zer' };
-    if (R.fragileOf && R.fragileOf(K0.view.state, id)) return { text: TX.zustandBesch, stil: 'besch' };
-    return null;
+    return (sys !== undefined && Object.prototype.hasOwnProperty.call(ZUSTAND_INFO, sys)) ? ZUSTAND_INFO[sys] : null;
   }
 
   // ---------------------------------------------------------------- Anschluss
@@ -91,6 +92,19 @@
   }
   const sfxBefehl = (ok) => { if (ok) sfx('ui_click'); };
 
+  // Schriftfarbe der Info rechts im Feld. rom: Schrift auf der vollen Funktionsfläche des Knopfes (ink, bei Farben mit Luft gemischt), das Wort trägt die Bedeutung (zer./besch.): eine Stilfarbe
+  // (Rot, Gelb) auf der Fläche läse sich nicht (1,1 und 1,6:1). germanen: Schrift auf der dunklen Platte, dort tragen die Stilfarben (titelRot 5,6, warn 9,8:1); auf der AKTIVEN Platte
+  // (gewählt, Nachfrage; Platte = mix(plate, Funktionsfarbe, 0,22)) steht die Schriftfarbe des Skins (text), titelRot hat dort nur 4,4:1. Gesperrt: dim.
+  function infoFarbe(K, zfn, o) {
+    if (o.aus) return K.dim;
+    const F = TK.FARBE, zc = fnFarbe(zfn);
+    if (K.id === 'rom') return zfn === 'weapon' ? K.ink : P.mix(K.ink, zc, F.infoMisch);
+    if (o.aktiv) return K.text;
+    if (o.stil === 'zer') return F.titelRot;
+    if (o.stil === 'besch') return P.FN.warn;
+    return zfn === 'weapon' ? F.titelRot : zc;
+  }
+
   function tafel(c, K, a) {
     const TA = M.tafel, RA = M.raster, F = TK.FARBE;
     if (R.ui.mouse && R.ui.mouse.x >= TA.x && R.ui.mouse.x < TA.x + TA.w && R.ui.mouse.y >= TA.y && R.ui.mouse.y < TA.y + TA.h) R.ui.tooltip = null;   // verdeckte Knöpfe darunter melden nichts
@@ -111,9 +125,7 @@
       const aus = z.zustand === 'aus', zfn = z.zustand === 'frage' ? 'weapon' : z.fn;
       P.knopf(c, x, y, RA.zw, RA.zh, TX.labelVorsatz + z.text, { aktion: z.aktion, fn: zfn, text: z.text, disabled: aus, reason: aus ? TX.grundLang[z.grund] : undefined, active: z.zustand === 'gewaehlt' || z.zustand === 'frage', onClick: () => klick(z.feld) });
       if (z.info) {
-        const zc = fnFarbe(zfn);
-        let farbe = aus ? K.dim : K.id === 'rom' ? (zfn === 'weapon' ? K.ink : P.mix(K.ink, zc, F.infoMisch)) : (zfn === 'weapon' ? F.titelRot : zc);
-        if (z.infoStil === 'zer') farbe = F.titelRot; else if (z.infoStil === 'besch') farbe = P.FN.warn;
+        const farbe = infoFarbe(K, zfn, { aus, aktiv: z.zustand === 'gewaehlt' || z.zustand === 'frage', stil: z.infoStil });
         const kw = Math.max(13, P.tw(P.kappe(null, z.aktion)) + 7), frei = RA.zw - kw - 5 - P.tw(z.text) - 8 - RA.infoRechts;
         P.txt(c, kuerze(z.info, Math.max(0, frei)), x + RA.zw - RA.infoRechts, y + 3, farbe, 'right');
       }
@@ -131,7 +143,7 @@
   }
 
   window.PultBefehl = {
-    menue, taste,
+    menue, taste, wertInfo, infoFarbe,
     escape(e) { return menue.escape(!!(e && e.repeat)); },   // Esc: offene Tafel zu, die Konsole bleibt; gehaltenes Esc (Wiederholung) tut nichts; sonst darf die Konsole verlassen werden
     schliessen() { menue.schliessen(); },   // Station gewechselt oder verlassen (Consoles.stationAbbau)
     statusY() { return menue.hatBots() ? M.S.mitBots : M.S.ohneBots; },
@@ -151,6 +163,12 @@
     },
     hatBots() { return menue.hatBots(); },
     sichtbar() { return menue.hatBots() && menue.istOffen(); },
+    // Oberkante der Einblendung (y), solange sie steht (Ego-Sitz, Blick VORN/CREW, Tafel offen, Bots im Spiel), sonst 0: Meldungen am unteren Rand (Siegel) weichen ihr
+    einblendungOben() {
+      if (!menue.hatBots() || !menue.istOffen()) return 0;
+      const sz = window.Sitz;
+      return sz && sz.station && sz.blick !== 'pult' ? M.tafel.y - 1 : 0;
+    },
     // Ego-Sitz, Blick VORN/CREW: das Pult ist nicht zu sehen, die offene Tafel erscheint als Einblendung am unteren Rand (Tafel und Crew-Zeile aus dem Pult-Puffer)
     einblenden(ctx, puffer) {
       if (!menue.hatBots() || !menue.istOffen()) return;

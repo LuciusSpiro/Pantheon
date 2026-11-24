@@ -55,6 +55,8 @@
     const uhr = env.uhr || (() => Date.now());
     const A = env.anzeige || {};
     const befehlTyp = env.befehlTyp || 'bot.befehl';
+    // Grund einer Sperre als Satz (Tooltip, Titelhinweis, Denied): {rolle} wird mit der Rolle gefüllt, an der die Sperre hängt
+    const grundText = (grund, rolle) => fuellen(TX.grundLang[grund] || TX.grund[grund] || '', { rolle: TX.rolleAn ? TX.rolleAn[rolle] : null });
     const kappe = (id) => { try { return env.kappe ? env.kappe(id) : ''; } catch (e) { return ''; } };
     const stationVon = env.stationVon || ((p) => (p && p.console ? (p.station || p.console) : null));
     let index = indexVon(env.kanon);
@@ -104,7 +106,7 @@
     }
 
     // ---- Zeit: abgelaufene Dinge wegräumen (vor jedem Lesen und jeder Aktion)
-    const quittungsDauer = (q) => (q.phase === 'gesendet' ? Z.warten + Z.keineAntwort : q.phase === 'aye' ? Z.aye : Z.nein);
+    const quittungsDauer = (q) => (q.phase === 'gesendet' ? Z.warten + Z.keineAntwort : q.phase === 'aye' ? Z.aye : q.phase === 'gesperrt' ? Z.sperrGrund : Z.nein);
     function aktualisiere() {
       const t = uhr();
       if (s.offen && t - s.letzte > Z.autoZu) schliesse();
@@ -119,7 +121,7 @@
     function oeffnen() {
       aktualisiere();
       if (s.offen) return false;
-      if (s.botsN === 0) { verweigere(TX.grundLang.keineBots); return false; }
+      if (s.botsN === 0) { verweigere(grundText('keineBots')); return false; }
       if (!geladen()) { verweigere(TX.grund.laedt); return false; }
       s.offen = true; s.stufe = 1; s.rolle = null; s.key = null; s.seite = 0; s.frage = null; s.grund = null; beruehrt();
       if (A.ton) A.ton('ui_click');
@@ -154,7 +156,7 @@
     // ---- Befehl senden (Menü und Taste rufen dieselbe Funktion)
     function sende(e, wertId, quelle) {
       const grund = sperrGrund(e.an);
-      if (grund) { verweigere(TX.grundLang[grund]); return false; }
+      if (grund) { verweigere(grundText(grund, e.an)); return false; }
       const args = {}, p = platzVon(e);
       for (const n of Object.keys(e.args || {})) args[n] = p && n === p.arg ? zahlWert(wertId) : e.args[n];
       const msg = { t: befehlTyp, an: e.an, befehl: e.befehl, quelle };
@@ -174,10 +176,10 @@
       const d = LAGE.direkt.find((x) => x.aktion === aktionId);
       const e = d ? index.get(d.key) : null;
       if (!e) return { ok: false };
-      if (s.botsN === 0) { verweigere(TX.grundLang.keineBots); return { ok: false, grund: 'keineBots' }; }
+      if (s.botsN === 0) { verweigere(grundText('keineBots')); return { ok: false, grund: 'keineBots' }; }
       const grund = sperrGrund(e.an);
       const ok = !grund && sende(e, null, quelle || 'taste');
-      if (grund) verweigere(TX.grundLang[grund]);
+      if (grund) { verweigere(grundText(grund, e.an)); s.quittung = { an: e.an, phase: 'gesperrt', t: uhr() }; }   // der Grund steht 2 s in der Quittung am Knopf „Befehle“ (auch bei geschlossener Tafel)
       if (ok) schliesse();
       return { ok, grund: grund || undefined };
     }
@@ -263,7 +265,7 @@
       const z = zellen().find((x) => x.feld === feld);
       if (!z || z.zustand === 'leer') return { art: 'leer' };
       if (s.stufe === 1) {
-        if (z.zustand === 'aus') { verweigere(TX.grundLang[z.grund]); return { art: 'sperre', grund: z.grund }; }
+        if (z.zustand === 'aus') { verweigere(grundText(z.grund, z.rolle)); return { art: 'sperre', grund: z.grund }; }
         s.stufe = 2; s.rolle = z.rolle; s.key = null; s.seite = 0;
         return { art: 'stufe' };
       }
@@ -322,7 +324,7 @@
       for (const d of LAGE.direkt) {
         const e = index.get(d.key);
         const grund = !e ? 'laedt' : sperrGrund(e.an);
-        out.push({ aktion: d.aktion, label: e ? e.anzeige : '', text: e ? kuerzeste(e) : '', fn: d.fn, gesperrt: !!grund, grund: grund ? (TX.grundLang[grund] || TX.grund[grund]) : undefined, an: e ? e.an : null });
+        out.push({ aktion: d.aktion, label: e ? e.anzeige : '', text: e ? kuerzeste(e) : '', fn: d.fn, gesperrt: !!grund, grund: grund ? grundText(grund, e && e.an) : undefined, an: e ? e.an : null });
       }
       return out;
     }

@@ -20,7 +20,7 @@
     titelRot: '#FF6B5E',        // roter TITEL-/Hinweistext (= PultSysteme zerText); FN.weapon nie als Schrift auf Dunkel (4,7:1)
     infoMisch: 0.15,            // Info rechts auf Farbfläche (rom): mix(ink, fn, 0.15), >= 5,9:1; auf weapon: ink (4,7:1)
     infoGermanen: 'fn',         // germanen: Info in der Funktionsfarbe auf der Platte (rot: titelRot, 5,6:1)
-    quittung: { gesendet: 'neutral', aye: 'shield', nein: 'weapon' },
+    quittung: { gesendet: 'neutral', aye: 'shield', nein: 'weapon', gesperrt: 'warn' },   // gesperrt: Direkttaste ohne Bot an der Rolle (Fläche warn, Schrift ink)
     sperrGrund: 'warn',
   };
   // </tokens>
@@ -48,10 +48,11 @@
     rechts: { stufe1: 'B / Esc schließt', sonst: 'B zurück · Esc zu', seite: 'R Seite {n}/{m} · {name}', seiteOhneName: 'R Seite {n}/{m}', frage: '{taste} nochmal = senden' },
     fussSprache: '{taste} halten und sagen, was hier steht: dieselben Befehle per Sprache',
     grund: { keinBot: 'kein Bot', mensch: 'Mensch an Station', aussen: 'nur Außenmission', keineBots: 'Keine Bots an Bord', laedt: 'Befehle werden geladen' },
-    grundLang: { keinBot: 'Kein Bot an dieser Rolle', mensch: 'Ein Mensch sitzt dort – sag es ihm', aussen: 'Nur während der Außenmission', keineBots: 'Keine Bots an Bord' },
+    grundLang: { keinBot: 'Kein Bot an {rolle}', mensch: 'Ein Mensch sitzt an {rolle} – sag es ihm', aussen: 'Nur während der Außenmission', keineBots: 'Keine Bots an Bord' },   // {rolle}: rolleAn (Tooltip, Titelhinweis)
+    rolleAn: { navigation: 'der Navigation', ops: 'Ops', technik: 'der Technik', bord: 'Bord', alle: 'Alle' },   // nach „an“ (Kein Bot an der Navigation)
     gilt: 'gilt',
     bots: { eins: '{n} Bot', mehr: '{n} Bots' },
-    quittung: { gesendet: '{ROLLE} …', aye: '{ROLLE} aye', nein: '{ROLLE} abgelehnt', still: '{ROLLE} keine Antwort' },
+    quittung: { gesendet: '{ROLLE} …', aye: '{ROLLE} aye', nein: '{ROLLE} abgelehnt', still: '{ROLLE} keine Antwort', gesperrt: '{ROLLE} gesperrt' },
     frage: { 'tech.ueberladen': 'Reaktor überladen?' }, frageInfo: 'nochmal {taste}',
     // Stufe-2-Name, wo der Kanon keinen hergibt (nav.schub hat als anzeige nur „{stufe}“)
     name2: { 'nav.schub:stufe': 'Schub …' },

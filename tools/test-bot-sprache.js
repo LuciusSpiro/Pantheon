@@ -463,6 +463,7 @@ const sprechen = async (k) => { k.tasteRunter(); await tick(); return k.tasteHoc
       measure: (t) => String(t == null ? '' : t).length * 6,
       wrap(str, maxW) { const out = []; let line = ''; for (const w of String(str).split(' ')) { const test = line ? line + ' ' + w : w; if (test.length * 6 > maxW && line) { out.push(line); line = w; } else line = test; } if (line) out.push(line); return out; },
       backdrop: (c, x, y, w, h, a) => calls.push({ n: 'backdrop', x, y, w, h, a, ga: ctx.globalAlpha }),
+      art: () => true,
       text: (c, s, x, y, o) => calls.push({ n: 'text', s, x, y, o }),
     };
     const ctx = { globalAlpha: 1, fillStyle: '', strokeStyle: '', lineWidth: 1, save() {}, restore() {}, beginPath() {}, rect() {}, clip() {}, fillRect(x, y, w, h) { calls.push({ n: 'fillRect', x, y, w, h, c: this.fillStyle }); }, strokeRect(x, y, w, h) { calls.push({ n: 'strokeRect', x, y, w, h, c: this.strokeStyle }); } };
@@ -544,6 +545,44 @@ const sprechen = async (k) => { k.tasteRunter(); await tick(); return k.tasteHoc
       oda(a, drei); oda(b, drei);
       ok(eq(sl(a, fuss()), sl(b, fuss())) && eq(sl(a, konsole()), sl(b, konsole())), '1280 (Skala 2) und 1920 (Skala 3): sprechSlot liefert dieselben Rasterwerte');
       ok(!/innerWidth|innerHeight|devicePixelRatio|Client\.scale/.test(fs.readFileSync(path.join(__dirname, '..', 'public', 'js', 'hud.js'), 'utf8').split('BOT-04 C2: Sprechspalte')[1].split('M1: Ortsname bei Ankunft')[0]), 'hud.js-Sprechspalte rechnet nirgends mit Pixeln oder Skala');
+    }
+    {
+      // BOT-01 C3 (Designer-Review W3): benannter Slot je Captain-Reiter. Funk (0) und Außenteam (3) tragen im oberen Drittel Inhalt und Bedienflächen: die Spalte steht dort unten (S - 24, wächst nach oben)
+      const cap = konsole({ me: { console: 'captain' } });
+      const pult = (S, station) => ({ konsole: () => ({ S, station: station || 'captain' }) });
+      const ort = (extra, v) => { const w = neu(extra); return { ort: w.Hud.sprechOrt(v || cap), slot: sl(w, v || cap) }; };
+      const unten = (S) => ({ x: 178, w: 284, y: S - 24, richtung: 'hoch' }), oben = { x: 178, w: 284, y: 20, richtung: 'runter' };
+      const erwartet = ['unten', 'oben', 'oben', 'unten', 'oben', 'oben'];
+      for (let tab = 0; tab < 6; tab++) {
+        const r = ort({ Consoles: { tab }, Pult: pult(240) });
+        ok(r.ort === erwartet[tab] && eq(r.slot, erwartet[tab] === 'unten' ? unten(240) : oben), 'Captain Reiter ' + tab + ' (mit Bots, S 240): Slot ' + erwartet[tab] + ' ' + JSON.stringify(r.slot));
+      }
+      ok(eq(ort({ Consoles: { tab: 0 }, Pult: pult(258) }).slot, unten(258)), 'ohne Bots (S 258): unten bei 234 (die Lage folgt der Statusleiste des Pults)');
+      ok(eq(ort({ Consoles: { tab: 0 } }).slot, oben) && eq(ort({ Consoles: { tab: 0 }, Pult: { konsole: () => null } }).slot, oben), 'kein Pult gezeichnet (Pult.konsole null): bleibt oben');
+      ok(eq(ort({ Consoles: { tab: 0 }, Pult: pult(240, 'technik') }).slot, oben), 'Pult einer anderen Station gezeichnet: bleibt oben');
+      for (const c of ['helm', 'weapons', 'technik', 'shop']) ok(eq(ort({ Consoles: { tab: 0 }, Pult: pult(240, c) }, konsole({ me: { console: c } })).slot, oben), c + ': Slot unverändert oben (y 20)');
+      // Ego-Sitz: Blick VORN und CREW (das Pult ist nicht zu sehen) bleiben wie sie sind, nur mit sichtbarem Pult gilt unten
+      const sv = (blick) => ort({ Consoles: { tab: 0 }, Pult: pult(240), Sitz: { station: true, blick } }, Object.assign({ voxel: true }, cap));
+      ok(sv('vorn').ort === 'oben' && sv('crew').ort === 'oben' && sv('vorn').slot.richtung === 'runter' && sv('vorn').slot.y === 20, 'Ego-Sitz Blick VORN/CREW: oben (wie bisher)');
+      ok(sv('pult').ort === 'unten' && sv('pult').slot.richtung === 'hoch', 'Ego-Sitz mit Blick auf das Pult: unten wie am 2D-Pult');
+      // aufgeklappte Funk-Antwortleiste (x 388..628, y 141..232 bei S 240) bleibt frei: die Spalte steht darüber
+      const fw = { offen: () => true, modell: () => null, rechteck: () => ({ x: 388, y: 141, w: 240, h: 91 }) };
+      ok(eq(ort({ Consoles: { tab: 0 }, Pult: pult(240), Funkwahl: fw }).slot, { x: 178, w: 284, y: 137, richtung: 'hoch' }), 'Funk-Leiste aufgeklappt: Spalte 4 px über ihrer Oberkante (y 137)');
+      ok(eq(ort({ Consoles: { tab: 0 }, Pult: pult(240), Funkwahl: Object.assign({}, fw, { rechteck: () => ({ x: 404, y: 0, w: 232, h: 11 }) }) }).slot, unten(240)), 'Funk-Streifen im Ruf-Slot oben: kein Einfluss');
+      ok(eq(ort({ Consoles: { tab: 0 }, Pult: pult(240), Funkwahl: Object.assign({}, fw, { offen: () => false }) }).slot, unten(240)), 'keine Funk-Antwort offen: kein Einfluss');
+      ok(eq(ort({ Consoles: { tab: 0 }, Pult: pult(240), Funkwahl: Object.assign({}, fw, { rechteck: () => ({ x: 480, y: 141, w: 150, h: 91 }) }) }).slot, unten(240)), 'Leiste rechts der Spalte (x >= 462): kein Einfluss');
+      // Zeichnen: die Einträge wachsen von der Unterkante nach oben, nichts reicht unter die Unterkante
+      const wz = neu({ Consoles: { tab: 0 }, Pult: pult(240) }); wz.Hud.sprechAn(true); wz.Hud.pushCrewFunk('Unterwegs zur Station.', 'CREW', '#fff'); wz.Hud.pushCrewFunk('Aye, bot.status.', 'OPS', '#fff');
+      calls.length = 0; wz.Hud.zeichneSprechspalte(ctx, cap);
+      const rects = calls.filter((c) => c.n === 'backdrop');
+      ok(rects.length === 2 && Math.max(...rects.map((r) => r.y + r.h)) === 216 && Math.min(...rects.map((r) => r.y)) > 150, 'gezeichnet: zwei Untertitel stapeln sich nach oben, die Unterkante liegt bei y 216 (4 px über der Frachtleiste bei y 220)');
+    }
+    {
+      // BOT-01 C3 (Designer-Review K10): das Siegel „Weltstand gesichert“ (kompakt an der Konsole, y 342) weicht der offenen Einblendung (Oberkante 261) nach oben
+      const siegel = (extra) => { const w = neu(extra); w.Hud.showSaveSeal(true, 'Weltstand gesichert · Hafen Lichtkordon'); calls.length = 0; w.Hud.drawSaveSeal(ctx, konsole({ me: { console: 'captain' } })); const b = calls.filter((c) => c.n === 'backdrop' && c.x === 270 && c.h === 14); return b.length ? b[0].y : null; };
+      ok(siegel({}) === 342, 'Siegel an der Konsole ohne Befehlsmenü: y 342 (wie bisher)');
+      ok(siegel({ PultBefehl: { einblendungOben: () => 0 } }) === 342, 'Befehlsmenü ohne offene Einblendung: Siegel bleibt bei y 342');
+      ok(siegel({ PultBefehl: { einblendungOben: () => 261 } }) === 261 - 14 - 4, 'offene Einblendung (Oberkante 261): Siegel 4 px darüber (y 243, Unterkante 257)');
     }
     // Dauer und Stapel
     {

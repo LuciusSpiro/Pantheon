@@ -96,6 +96,48 @@ section('Antwortleiste: keine Bedienfläche verdeckt (Leiste im Standardzustand,
   const sr = FW.rechteck(FW.modell(), { S: 258, station: 'captain' });
   ok(namen.every((k) => F[k].knoepfe.every((b) => !schneiden(sr, b))), 'der Streifen im Ruf-Slot oben (' + sr.x + ',' + sr.y + ' ' + sr.w + 'x' + sr.h + ') liegt in KEINER gemessenen Ansicht über einer Bedienfläche (auch nicht in Steuer und Ops, wo „Später“ ihn zeigt)');
 }
+// ---------------------------------------------------------------- BOT-01 C3 (Designer-Review W3): Sprechspalte gegen die Bedienflächen
+section('Sprechspalte: der Slot je Captain-Reiter überdeckt keine Bedienfläche (Untertitel, Aufnahme, Textzeile im ungünstigsten Fall)');
+{
+  const F = JSON.parse(fs.readFileSync(path.join(__dirname, 'fixtures', 'funk-bedienflaechen.json'), 'utf8')).ansichten;
+  const R = { PAL: new Proxy({}, { get: (t, k) => '#' + String(k) }), measure: (t) => String(t == null ? '' : t).length * 6, wrap: (s) => [s], backdrop() {}, text() {} };
+  const view = (o) => Object.assign({ time: 1, self: { zone: 'ship' }, me: { console: 'captain' }, state: { phase: 'play' } }, o || {});
+  const neuesHud = (tab, S) => {
+    const w = { Render: R, Shared_Maps: {}, Shared_Config: {}, Shared_Protocol: {}, Net: { guard: (nm, f) => f(), on() {} }, performance: { now: () => 1000 }, Menue: { TOKENS: { FN: { drive: '#FFC66B', sensor: '#A9D6E5', cmd: '#F4EEDC', warn: '#F2C94C', neutral: '#8EA3B5' } } },
+      Consoles: { tab }, Pult: { konsole: () => ({ S, station: 'captain' }) }, Funkwahl: { offen: () => FW.offen(), modell: () => FW.modell(), rechteck: (m, k) => FW.rechteck(m, k) } };
+    w.window = w; vm.createContext(w); vm.runInContext(J('hud.js'), w, { filename: 'hud.js' });
+    return w.Hud;
+  };
+  // ungünstigster Fall der Spalte: offene Textzeile (14) + zwei Untertitel zu je zwei Zeilen (22); jeder Eintrag 1 px Abstand
+  const HOEHE = 15 + 2 * 23;
+  const reiterNamen = { 0: 'Funk', 1: 'Sternkarte', 2: 'Lage', 3: 'Außenteam', 4: 'Sektorplan', 5: 'Notrufe' };
+  const rechteckVon = (slot) => ({ x: slot.x, y: slot.richtung === 'hoch' ? slot.y - HOEHE : slot.y, w: slot.w, h: HOEHE });
+  let geprueft = 0;
+  for (const S of [240, 258]) {
+    for (const tab of [0, 1, 2, 4, 5]) {
+      const v = F['captain-' + tab];
+      if (!v) { ok(false, 'Messung für Captain-Reiter ' + tab + ' fehlt'); continue; }
+      const H = neuesHud(tab, S), slot = H.sprechSlot(view()), r = rechteckVon(slot);
+      const hit = v.knoepfe.filter((b) => b.y < S && schneiden(r, b));
+      ok(hit.length === 0 && r.y >= 18 && r.y + r.h <= S - 6 - 14, 'S ' + S + ' ' + reiterNamen[tab] + ' (Slot ' + H.sprechOrt(view()) + ', Spalte ' + r.x + ',' + r.y + ' ' + r.w + 'x' + r.h + '): keine Bedienfläche der Messung darunter, auf dem Schirm über der Frachtleiste' + (hit.length ? ' – TRIFFT ' + hit.map((b) => b.label).join(', ') : ''));
+      geprueft++;
+      // die aufgeklappte Funk-Antwortleiste ist selbst eine Bedienfläche: die Spalte weicht ihr aus (Funk-Reiter: Leiste x 388..628 unten rechts auf dem Schirm)
+      FW.lesen({ t: 'snap', phase: 'play', world: { funkwahl: block(3) } });
+      FW.store.konsole = { S, station: 'captain' }; FW.store.geoeffnetBei = 'captain'; FW.store.eingeklappt = false;
+      const bar = FW.rechteck(FW.modell(), { S, station: 'captain' }, false);
+      const sl2 = H.sprechSlot(view()), r2 = rechteckVon(sl2);
+      ok(!schneiden(r2, bar), 'S ' + S + ' ' + reiterNamen[tab] + ', Antwortleiste aufgeklappt (' + bar.x + ',' + bar.y + ' ' + bar.w + 'x' + bar.h + '): Spalte ' + r2.x + ',' + r2.y + ' ' + r2.w + 'x' + r2.h + ' schneidet sie nicht');
+      FW.store.geoeffnetBei = null; FW.store.konsole = null;
+    }
+  }
+  ok(geprueft === 10, 'alle gemessenen Captain-Reiter (0, 1, 2, 4, 5) bei beiden Statusleisten-Höhen geprüft');
+  ok(neuesHud(3, 240).sprechOrt(view()) === 'unten' && neuesHud(0, 240).sprechOrt(view()) === 'unten', 'Außenteam (3, nur während der Außenmission messbar: dort stehen die Orbit-Knöpfe ab y 48) und Funk (0): Slot unten');
+  // Gegenprobe: oben am Reiter Außenteam und Funk-Leiste: ohne das Ausweichen würde die Spalte in der Funk-Leiste (x 388..462) landen
+  FW.lesen({ t: 'snap', phase: 'play', world: { funkwahl: block(3) } });
+  const bar = FW.rechteck(FW.modell(), { S: 240, station: 'captain' }, false), naiv = { x: 178, y: 240 - 24 - HOEHE, w: 284, h: HOEHE };
+  ok(schneiden(naiv, bar), 'Gegenprobe: ohne Ausweichen läge die Spalte unten in der aufgeklappten Antwortleiste (Rechteck ' + naiv.x + ',' + naiv.y + ' schneidet ' + bar.x + ',' + bar.y + ')');
+  FW.store.konsole = null; FW.store.geoeffnetBei = null;
+}
 section('Antwortleiste: Taste, Esc und Später an Konsolen mit Streifen');
 {
   FW.lesen({ t: 'snap', phase: 'play', world: { funkwahl: block(3) } });

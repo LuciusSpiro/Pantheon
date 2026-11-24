@@ -27,6 +27,10 @@
   const FUNK_W = 228, FUNK_BILD_W = 28;   // Breite der Funktafel (x 204) und des Funkporträts samt Rand
   const SPRECH_MAXZEICHEN = 300;   // BOT-04 C2: so viele Zeichen eines Untertitels werden höchstens umbrochen und gemessen
   const SPRECH_W = 284;   // BOT-04 C2: Breite der Sprechspalte = Breite der ODA-Zeile (x 178..462)
+  // BOT-01 C3 (Designer-Review W3): benannter Slot der Sprechspalte je Captain-Reiter. 'oben' = ab y 20 (Standard), 'unten' = am unteren Rand der Anzeige, 4 px über der Frachtleiste des Pults.
+  // Reiter Funk (0) und Außenteam (3) tragen im oberen Drittel Inhalt und Bedienflächen (Funksprüche, Orbit-Unterstützung): dort wandert die Spalte nach unten (tools/test-bot-sprache.js, Abschnitt h).
+  const SPRECH_ORT_REITER = { captain: ['unten', 'oben', 'oben', 'unten', 'oben', 'oben'] };   // Funk, Sternkarte, Lage, Außenteam, Sektorplan, Notrufe
+  const SPRECH_UNTEN_ABSTAND = 24;   // Unterkante der Spalte unten = S (Oberkante der Statusleiste) - 6 (Schirm) - 14 (Frachtleiste) - 4
   const FN_STD = { drive: '#FFC66B', sensor: '#A9D6E5', cmd: '#F4EEDC', warn: '#F2C94C', neutral: '#8EA3B5' };   // Notbehelf, falls menue-tokens.js fehlt (Werte wie Menue.TOKENS.FN)
   const fnFarben = () => (window.Menue && Menue.TOKENS && Menue.TOKENS.FN) || FN_STD;
   const LAGEFUNK_Y = 44;   // SUND-02a C: Oberkante des Lagefunk-Feldes an Konsolen und Terminals (unter deren Kopfzeile, die bis etwa y 40 reicht)
@@ -284,9 +288,24 @@
     // Eine gemeinsame Spalte deckungsgleich mit der ODA-Zeile (x 178..462). Zu Fuß: y = Unterkante, richtung 'hoch' (wächst nach oben), 4 px über der höchsten Oberkante der Elemente
     // unten Mitte (ODA, Funkwahl, Scanner-Overlay, Gesprächsfenster, Kontingent-Frage), sonst bei VH - 6. An der Konsole: y = Oberkante, richtung 'runter'; ab y 20 (unter der Kopfzeile), im Voxel-Sitz unter der ODA (y 16),
     // und unter der Lagetafel bzw. der Ausweich-Anzeige der Steuer, wenn eine steht (einzeilige Lagezeilen y 0–11 liegen darüber).
+    // 'oben' | 'unten': der Slot der Spalte an der Konsole (nur wenn das Pult gerade gezeichnet wird: Sitz mit Blick VORN/CREW und Bord ohne Pult bleiben 'oben')
+    sprechOrt(view) {
+      const tabelle = view && view.me ? SPRECH_ORT_REITER[view.me.console] : null;
+      if (!tabelle) return 'oben';
+      if (window.Sitz && window.Sitz.station && window.Sitz.blick !== 'pult') return 'oben';
+      const k = window.Pult && typeof window.Pult.konsole === 'function' ? window.Pult.konsole(view) : null;
+      const tab = window.Consoles ? window.Consoles.tab : 0;
+      return k && k.station === view.me.console && tabelle[tab] === 'unten' ? 'unten' : 'oben';
+    },
     sprechSlot(view) {
       const x = Math.round(VW / 2 - SPRECH_W / 2);
       if (view && view.me && view.me.console) {
+        if (this.sprechOrt(view) === 'unten') {
+          let unten = window.Pult.konsole(view).S - SPRECH_UNTEN_ABSTAND;
+          const fw = window.Funkwahl && Funkwahl.offen() ? Funkwahl.rechteck(Funkwahl.modell(), window.Pult.konsole(view)) : null;   // die aufgeklappte Antwortleiste (unten rechts auf dem Schirm) bleibt frei
+          if (fw && fw.y > 20 && fw.x < x + SPRECH_W && fw.x + fw.w > x) unten = Math.min(unten, fw.y - 4);
+          return { x, w: SPRECH_W, y: unten, richtung: 'hoch' };
+        }
         const oda = view.voxel && window.Sitz && Sitz.station ? this.odaHoeheOben() : 0;   // nur im Voxel-Sitz steht die ODA (y 16) sichtbar; die Konsole des 2D-Bilds deckt sie zu (leerer Streifen)
         // Darunter, was an der Konsole oben steht und Anzeige ist: Lagetafel (ab LAGEFUNK_Y) und Ausweich-/Lanzen-Anzeige der Steuer (consoles.js helmAlerts); beide sind gezeichnet, bevor die Spalte kommt
         const unter = Math.max(this.lagefunkTafelUnten(view), window.Consoles && Consoles.helmAlertUnten ? Consoles.helmAlertUnten(view) : 0);
@@ -2145,6 +2164,7 @@
       const kons = !!(inGame && me.console);   // an einer Konsole: kompaktes Siegel rechts neben der Statusleiste (Höhe 14, x 270), damit „AM GERÄT“ und die Hilfe frei bleiben
       const h = kons ? 14 : 22;
       let y = kons ? VH - 18 : VH - h - 4 - (carry ? (view.self && view.self.zone === 'away' ? 62 : 24) : 0);
+      if (kons && window.PultBefehl && PultBefehl.einblendungOben) { const eb = PultBefehl.einblendungOben(); if (eb) y = Math.min(y, eb - h - 4); }   // BOT-01 C3: die offene Befehlstafel (Einblendung im Ego-Sitz, y 261 bis 346) bleibt frei, das Siegel sitzt darüber
       if (inGame && !kons && this.bodenOben != null) y = Math.min(y, this.bodenOben - h - 4);   // AUS-02 Nacharbeit: das Boden-Panel (Hilfezeile ganz unten) bleibt frei, das Siegel sitzt darüber
       if (inGame && !kons && window.Funkwahl && Funkwahl.offen()) y = Math.min(y, Funkwahl.rechteck(null, null, undefined, view).y - h - 4);   // SUND-03b UI (S9): steht unten mittig eine Funk-Antwortleiste, kommt das Siegel darüber
       // Lobby (QA-Abnahme S1): Siegel eine Zeile höher, links neben „Ton aktiv“ – dort ist Platz für den Ort.
