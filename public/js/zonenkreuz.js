@@ -41,8 +41,9 @@
   // Zustand eines Systems: Server-Zustand (ship.systems) und Prozent zusammen; offline (EMP) und zerstört haben eigene Form.
   function zustandVon(pct, state) {
     if (state === 'offline') return 'offline';
-    if (state === 'broken' || !(pct > 0)) return 'zer';
-    return state === 'damaged' ? 'besch' : PS.zustand(pct, 100);
+    if (state === 'broken') return 'zer';
+    if (state === 'damaged') return 'besch';   // SPT-02 6: der Serverzustand geht vor (beschädigt mit 0 % ist nicht zerstört)
+    return !(pct > 0) ? 'zer' : PS.zustand(pct, 100);
   }
   // opts.name(id) -> Anzeigename; opts.reihenfolge: Liste der System-IDs (Reihenfolge der Zeilen), sonst die der Snapshot-Positionen
   function modell(state, opts) {
@@ -229,7 +230,7 @@
     sys.forEach((d, i) => {
       const st = code[zs[2 * i]] || 'ok', pct = Math.max(0, Math.min(100, Number(zs[2 * i + 1]) || 0));
       const e = { id: d.id, name: String(d.kurz || d.name || d.id), pct, state: st, zust: zustandVon(pct, st), platz: null, fragil: false, idx: i, hinter: !wahl.has(i), funktion: d.funktion,
-        art: d.art, zone: d.zone, platzName: d.platz || null, modul: d.modul || null, kurz: String(d.kurz || '') };   // SPT-02 6: Art, Platz und Modul für Symbol und Namen der Stapel-Anzeige (der Name bleibt der Kurzname, wird dort nicht mehr gezeigt)
+        art: d.art, zone: d.zone, platzName: d.platz || null, modul: d.modul || null, kurz: String(d.kurz || ''), nameLang: String(d.name || d.id) };   // SPT-02 6: Art, Platz und Modul für Symbol und Namen der Stapel-Anzeige (der Name bleibt der Kurzname, wird dort nicht mehr gezeigt)
       if (d.art === 'reaktor' && st === 'broken') reaktorZer = true;
       (ZONEN.indexOf(d.zone) >= 0 ? zonen[d.zone].sys : mitte.sys).push(e);
     });

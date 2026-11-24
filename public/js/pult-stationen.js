@@ -394,7 +394,7 @@
         // SPT-02 6: Symbole statt Kürzel (Zielstapel.inhalt); die Flächen der Balkenstücke gehen an den Tooltip unter der Maus (Name, Zustand, Prozent)
         const ZST = window.Zielstapel, zellen = [];
         ZKk.zeichne(c, zmod, { x: b.x + 6, y, w: b.w - 12, h: kh }, { skin: P.skinId(view), mass: PSk.TOKENS.MASS.kreuz.ziel, gegner: true, zugewandt: zug, seite: zug, selId: ZSk.gewaehlt(zst), inhalt: ZST ? ZST.inhalt(target, { zellen }) : undefined });
-        if (ZST) ZST.tooltipSetzen(R, zellen);
+        if (ZST) ZST.tooltipSetzen(R, zellen, F);
         y += kh + PSk.TOKENS.MASS.seiteRahmen + 3;   // Review C1b-2: unter dem Bernstein-Rahmen der zugewandten Seite weiter
         if (rest != null) { T(c, PSk.text(PSk.TOKENS.TEXT.reaktorZiel, { s: rest.toFixed(1).replace('.', ',') }), b.x + 6, y, F.zerText); y += 10; }
         if (b.y + b.h - 4 - y >= 11) { try { this.zielAusstattung(c, target, b.x + 6, y, b.w - 12, b.y + b.h - 4 - y, { txt: (str, xx, yy, col, al) => T(c, str, xx, yy, col, al), dim: K.dim, text: K.text, fn: P.FN.drive, amber: P.FN.drive, dark: K.bg, state: view.state }); } catch (err) { Net.reportError('Pult.zielAusstattung', err); } }

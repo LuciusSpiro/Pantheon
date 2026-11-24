@@ -12,13 +12,13 @@ const ROOT = path.join(__dirname, '..');
 const lies = (f) => fs.readFileSync(path.join(ROOT, 'public', 'js', f), 'utf8').replace(/\r\n/g, '\n');
 const TMP = fs.mkdtempSync(path.join(os.tmpdir(), 'pantheon-muta-si-'));
 const trocken = process.argv.includes('--trocken');
-const ZS = 'zielstapel.js', ST = 'pult-stationen.js', ZK = 'zonenkreuz.js';
+const ZS = 'zielstapel.js', ST = 'pult-stationen.js', ZK = 'zonenkreuz.js', RN = 'render.js';
 const NL = String.fromCharCode(92) + 'n';   // der Text \n (Backslash, n) im Quelltext
 // [Datei, alter Text, neuer Text, Beschreibung]
 const MUTATIONEN = [
   [ZS, 'let g = gruppen.find((q) => q.maske === I.maske);', 'let g = null;', 'Gruppierung: gleiche Arten werden nicht mehr zusammengefasst'],
   [ZS, 'let g = gruppen.find((q) => q.maske === I.maske);', 'let g = gruppen.find((q) => q.maske === I.maske && q.es.length < 1);', 'Gruppierung: nur die erste Einheit je Art'],
-  [ZS, 'if (g.es.length > 1) { api.txt(g.es.length,', 'if (g.es.length > 99) { api.txt(g.es.length,', 'Zähler fehlt bei mehreren Einheiten'],
+  [ZS, 'if (f.zaehler && g.es.length > 1) {', 'if (f.zaehler && g.es.length > 99) {', 'Zähler fehlt bei mehreren Einheiten'],
   [ZS, 'const sx = bx + i * (sw + 1);', 'const sx = bx;', 'Balkenstücke einer Zeile liegen übereinander statt nebeneinander'],
   [ZS, "if (e.zust === 'zer') { rc(x, y + h - 1, w, 1, F.zer); return; }", "if (e.zust === 'zer') { rc(x, y, w, h, F.zer); return; }", 'zerstört: volles rotes Stück statt 1-px-Strich'],
   [ZS, 'if (alleZer) kreuzUeber(c, x + 1, y - 1, F.zerText);', 'if (false) kreuzUeber(c, x + 1, y - 1, F.zerText);', 'zerstört: kein Kreuz über dem Symbol (nur Farbe)'],
@@ -39,14 +39,28 @@ const MUTATIONEN = [
   [ZS, "const sehrBesch = (e) => e.zust === 'besch' || e.pct <= 50;", "const sehrBesch = (e) => e.zust === 'besch';", 'bis 50 % ist heil: Farbe des Balkens und Wort im Tooltip weichen ab'],
   [ZS, 'return fmt(sehrBesch(e) ? Z.besch : Z.ok, { p: e.pct });', 'return fmt(sehrBesch(e) ? Z.besch : Z.ok, { p: 100 });', 'Tooltip nennt immer 100 %'],
   [ZS, "const tooltipText = (inf, e) => inf.langName + '" + NL + "' + zustandText(e);", 'const tooltipText = (inf, e) => inf.langName;', 'Tooltip ohne Zustand'],
-  [ZS, 'R.ui.tooltip = { text: tooltipText(z.info, z.e), x: m.x, y: m.y };', 'R.ui.tooltip = null;', 'Tooltip wird nie gesetzt'],
+  [ZS, 'R.ui.tooltip = { text: tooltipText(z.info, z.e),', "R.ui.tooltip = { text: '',", 'Tooltip wird nie gesetzt'],
   [ZS, 'const z = zellen.find((q) => m.x >= q.x && m.y >= q.y && m.x < q.x + q.w && m.y < q.y + q.h);', 'const z = zellen[0];', 'Tooltip: immer die erste Fläche statt der unter der Maus'],
   [ST, 'inhalt: ZST ? ZST.inhalt(target, { zellen }) : undefined });', '});', 'Zielkasten: wieder Kürzel statt Stapel (Hook nicht übergeben)'],
-  [ST, 'if (ZST) ZST.tooltipSetzen(R, zellen);', '', 'Zielkasten: Tooltip fehlt'],
+  [ST, 'if (ZST) ZST.tooltipSetzen(R, zellen, F);', '', 'Zielkasten: Tooltip fehlt'],
   [ST, 'text: zname, vor: zvor, active: zan,', 'text: zname, active: zan,', 'Systemziel-Knopf ohne Symbol'],
   [ST, 'const zname = zan && ZS ? (zinf ? zinf.kurzName :', 'const zname = zan && ZS ? (false ? zinf.kurzName :', 'Systemziel-Knopf: wieder Kürzel statt Name der Art'],
   [ZK, 'const INH = o.inhalt ? (l, b, zn, zu, lw) => o.inhalt(l, b, zn, zu, lw, { c, F, rc, rand, txt, tw, mass, o, R }) : inhalt;', 'const INH = inhalt;', 'Zonenkreuz: Parameter inhalt wird ignoriert'],
   [ZK, "platzName: d.platz || null, modul: d.modul || null,", 'platzName: null, modul: d.modul || null,', 'modellZiel gibt den Waffenplatz nicht weiter'],
+  // Nacharbeit M1/S1/S2/K1/K2/K3
+  [ZK, ", nameLang: String(d.name || d.id) };", ' };', 'M1: Modell-Eintrag ohne vollen Namen (Tooltip zeigt Kürzel)'],
+  [ZS, 'String(d.nameLang || d.name || art)', 'String(d.name || art)', 'M1: Tooltip liest den Namen nicht aus nameLang'],
+  [ZK, "    if (state === 'damaged') return 'besch';   // SPT-02 6: der Serverzustand geht vor (beschädigt mit 0 % ist nicht zerstört)\n", '', 'S2: damaged mit 0 % wird zerstört gezeichnet'],
+  [ZK, "if (state === 'broken') return 'zer';", "if (state === 'broken' || !(pct > 0)) return 'zer';", 'S2: Prozent 0 macht jeden Zustand zerstört'],
+  [ZS, 'n * MASS.balkenMin', 'n * 1', 'S1: Bedarf rechnet nur 1 px je Balkenstück'],
+  [ZS, 'if (zaehler) { zaehler = false; b = bauen(); if (summe(b) <= breit) break; }', '', 'S1: der Zähler fällt nie weg (Balkenstücke werden gequetscht oder die Arten fallen in „+n“)'],
+  [ZS, 'const extra = Math.max(0, Math.floor((breit - summe(b)) / b.length));', 'const extra = 0;', 'S1: freie Breite wird nicht verteilt'],
+  [ZS, 'let bx = x + MASS.versatz;', 'let bx = x + 12;', 'S1: Balkenstücke beginnen im Symbol'],
+  [ZS, 'const leerNeben = leerWort && Math.floor((body.h - 10 - 4 + 1) / lh) < 1;', 'const leerNeben = false;', 'K2: LEER überlappt die Symbolzeile der niedrigen Kachel'],
+  [ZS, 'farben: F ? [F.text, zustandFarbe(z.e, F)] : undefined', 'farben: undefined', 'K1: Tooltip ohne Zeilenfarben'],
+  [ZS, "const zustandFarbe = (e, F) => (e.zust === 'zer' ? F.zerText :", "const zustandFarbe = (e, F) => (e.zust === 'zer' ? F.text :", 'K1: zerstört im Tooltip in Textfarbe'],
+  [RN, '(t.farben && t.farben[i]) || PAL.warn', 'PAL.warn', 'K1: drawTooltip ignoriert die Zeilenfarben'],
+  [ZS, 'const k = MASS.kreuz; c.fillStyle', 'const k = 10; c.fillStyle', 'K3: Kreuzgröße als freie Zahl'],
 ];
 let ueberlebt = 0, laeufe = 0;
 for (const [datei, alt, neu, was] of MUTATIONEN) {

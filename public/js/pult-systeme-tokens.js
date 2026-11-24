@@ -134,7 +134,7 @@
     wand: 2,                       // Dicke der offenen Wand zur Mitte (ragt 3 px in die Fuge)
     systemzielMarke: 2,            // Strich links an der Zeile des Systemziels / des gezielten Systems
     schraffurZu: 4, schraffurUnt: 2,
-    stapel: { zeile: 14, symbol: 12, balkenH: 4, balkenMin: 2, rand: 2, spalteMin: 15 },   // SPT-02 6: Zeile je Art im Zielkasten (Symbol 12 px, Balkenstück 4 px hoch, mind. 2 px breit; Spalte mind. 15 px = Symbol mit Rand und Lücke, sonst „+n“)
+    stapel: { zeile: 14, symbol: 12, kreuz: 10, versatz: 15, balkenH: 4, balkenMin: 3, rand: 2, spalteMin: 15 },   // SPT-02 6: Zeile je Art im Zielkasten (Symbol 12 px, Balkenstück 4 px hoch, mind. 3 px breit; versatz = Beginn von Zähler/Balken nach dem Symbol, kreuz = Kantenlänge des Zerstört-Kreuzes; Spalte mind. 15 px = Symbol mit Rand und Lücke, sonst „+n“)
     banderole: { h: 18, ablauf: 2, zahlScale: 2, versatz: 22 },   // über der Anzeige (y 6), volle Breite 572; Inhalt der Anzeige darunter um `versatz` nach unten
     cdBalken: 2,                   // Höhe Cooldown-Balken in der Zelle (wie Halten der Lanze)
     bresche: { halbwinkel: 0.6, deckkraft: 0.35, kante: 2 },   // Keil auf der Karte: Winkel wie die Schildseite (±0,6 rad), Fläche transparent, Kante voll (2 px seit Review C1b-2: 1 px ging unter Strahlen und Treffern unter)
