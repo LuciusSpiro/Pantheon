@@ -11,7 +11,7 @@
 //   mensch_gewinnt_raus       der Bord-Bot geht zum Transfer, obwohl ein Mensch ihn haelt
 //   vorlauf_nav_offen         Navigationsbefehle im Vorlauf sind nicht gesperrt (nicht_jetzt)
 // Nacharbeit (Review V-1 bis V-6):
-//   vorrang_aus               (tools/test-bot02-notsprung.js, BOT_NS_MUT) der Bord-Dienst ruht nicht bei Reaktor-Countdown: kein Notsprung, die Lerche stirbt
+//   nav_bord               (tools/test-bot02-notsprung.js, BOT_NS_MUT) der Navigations-Bot haelt wieder den Bord-Dienst (Nacharbeit 2): Notsprung vom Transfer aus zu spaet, die Lerche stirbt
 //   bereich_ignorieren        V-2: Vorlauf, Stopp und Sperre auch ausserhalb der Beamreichweite
 //   frist_ausserhalb          V-2: die Frist zaehlt auch ausserhalb der Reichweite
 //   pad_signal_aus            V-3: ein Mensch auf dem Pad bei zu schnellem Schiff loest keinen Stopp aus
@@ -25,8 +25,8 @@ const { spawnSync } = require('child_process');
 const path = require('path');
 const test = path.join(__dirname, 'test-bot02-vorlauf.js');
 const testNs = path.join(__dirname, 'test-bot02-notsprung.js');
-const alle = ['vorlauf_aus', 'frist_raus', 'ziel_mehrfach', 'scan_auto_aus', 'scan_doppelt', 'scan_vor_transfer_raus', 'stopp_aus', 'stopp_immer', 'mensch_gewinnt_raus', 'vorlauf_nav_offen', 'bereich_ignorieren', 'frist_ausserhalb', 'pad_signal_aus', 'pad_ohne_mensch', 'gegner_ignorieren', 'countdown_ignorieren', 'abbruch_beendet', 'downed_zaehlt', 'vorrang_aus'];
-const NS = ['vorrang_aus'];   // laeuft gegen den Notsprung-Test (BOT_NS_MUT)
+const alle = ['vorlauf_aus', 'frist_raus', 'ziel_mehrfach', 'scan_auto_aus', 'scan_doppelt', 'scan_vor_transfer_raus', 'stopp_aus', 'stopp_immer', 'mensch_gewinnt_raus', 'vorlauf_nav_offen', 'bereich_ignorieren', 'frist_ausserhalb', 'pad_signal_aus', 'pad_ohne_mensch', 'gegner_ignorieren', 'countdown_ignorieren', 'abbruch_beendet', 'downed_zaehlt', 'nav_bord'];
+const NS = ['nav_bord'];   // laeuft gegen den Notsprung-Test (BOT_NS_MUT)
 const gewaehlt = process.argv.slice(2).length ? process.argv.slice(2) : alle;
 let fails = 0;
 // Laeufe: Gegenprobe des Vorlauf-Tests, die Mutationen, Gegenprobe des Notsprung-Tests (nur wenn eine seiner Mutationen laeuft)

@@ -2,8 +2,8 @@
 // BOT-02 B5: Messskript Notsprung des Navigations-Bots (Bericht BOT-01 8.3 Nr. 4): reaktorNotsprung (kern.js) loest unter 8 s Reaktor-Countdown helm.notsprung aus. Das Skript MISST und
 // protokolliert (Tick fuer Tick am Spielzustand), es aendert kein Verhalten. Echtes Game (Freie Fahrt, Server-Bots), Countdown des zweiten Ausfalls (10 s: keine Reparatur rettet ihn).
 //   (a) Navigation (+Technik) am Steuer, niemand unten
-//   (b) ein Mensch unten (zone away): b1 Navigation+Technik (Technik haelt den Bord-Dienst), b2 nur Navigation (sie ist der Bord-Bot und steht an der Transfer-Konsole), b3 Navigation+Ops+Technik
-//   (b2t, b2x) wie b2, aber der Bord-Bot steht beim Countdown schon an der Transfer-Konsole (b2t: erster Ausfall, 20 s; b2x: zweiter Ausfall, 10 s: der Weg zur Steuer dauert rund 10 s, die Lerche ist verloren)
+//   (b) ein Mensch unten (zone away): b1 Navigation+Technik (Technik haelt den Bord-Dienst), b2 nur Navigation (Nacharbeit 2: sie ist nie Bord-Bot und bleibt am Steuer), b3 Navigation+Ops+Technik
+//   (b2x, b2y) wie b2 mit kurzem Countdown: b2x zweiter Ausfall (10 s), b2y dritter Ausfall (5 s): der Bot sitzt an der Steuer und springt, die Lerche lebt
 //   (c) Vergleich ohne Navigations-Bot: Ops+Technik, ohne und mit Mensch unten
 //   node tools/mess-bot02-notsprung.js        (Exit 0, wenn jeder Fall seine erwartete Antwort liefert; die Bewertung steht im Rueckbericht, nicht im Exit)
 const fs = require('fs');
@@ -100,8 +100,8 @@ const a1 = fall('a1', ['navigation'], false);
 const a2 = fall('a2', ['navigation', 'technik'], false);
 const b1 = fall('b1', ['navigation', 'technik'], true);
 const b2 = fall('b2', ['navigation'], true);
-const b2t = fall('b2t', ['navigation'], true, { amTransfer: true, ausfaelle: 0 });
-const b2x = fall('b2x', ['navigation'], true, { amTransfer: true, ausfaelle: 1 });
+const b2x = fall('b2x', ['navigation'], true, { ausfaelle: 1 });
+const b2y = fall('b2y', ['navigation'], true, { ausfaelle: 2 });
 const b3 = fall('b3', ['navigation', 'ops', 'technik'], true);
 const c1 = fall('c1', ['ops', 'technik'], false);
 const c2 = fall('c2', ['ops', 'technik'], true);
@@ -110,9 +110,9 @@ console.log('\n=== Auswertung ===');
 ok(a1.gesprungen && !a1.tot && a1.zeitBisSprung >= 1.5 && a1.zeitBisSprung <= 2.5, `(a1) nur Navigation, niemand unten: Notsprung bei Rest 8 s (nach ${a1.zeitBisSprung} s), Lerche lebt`);
 ok(a2.gesprungen && !a2.tot, `(a2) Navigation+Technik, niemand unten: Notsprung (${a2.zeitBisSprung} s), Lerche lebt`);
 ok(b1.gesprungen && !b1.tot && b1.rueckholung, `(b1) Mensch unten, Technik haelt den Bord-Dienst: Notsprung (${b1.zeitBisSprung} s), Rueckholung ${b1.rueckholung}, Mensch ${b1.mensch}`);
-ok(b2.gesprungen && !b2.tot, `(b2) nur Navigation mit Mensch unten (Bot auf dem Weg zum Transfer): Notsprung ${b2.gesprungen} (${b2.zeitBisSprung} s), tot ${b2.tot}, Mensch ${b2.mensch}`);
-ok(b2t.gesprungen && !b2t.tot, `(b2t) nur Navigation, Bot am Transfer, erster Ausfall (20 s): Notsprung ${b2t.gesprungen} (${b2t.zeitBisSprung} s), tot ${b2t.tot}`);
-console.log(`  info (b2x) nur Navigation, Bot am Transfer, zweiter Ausfall (10 s): Notsprung ${b2x.gesprungen}, tot ${b2x.tot} (der Weg zur Steuer dauert rund 10 s)`);
+ok(b2.gesprungen && !b2.tot, `(b2) nur Navigation mit Mensch unten (bleibt am Steuer): Notsprung ${b2.gesprungen} (${b2.zeitBisSprung} s), tot ${b2.tot}, Mensch ${b2.mensch}`);
+ok(b2x.gesprungen && !b2x.tot, `(b2x) nur Navigation, Mensch unten, zweiter Ausfall (10 s): Notsprung ${b2x.gesprungen} (${b2x.zeitBisSprung} s), tot ${b2x.tot}`);
+ok(b2y.gesprungen && !b2y.tot, `(b2y) nur Navigation, Mensch unten, dritter Ausfall (5 s): Notsprung ${b2y.gesprungen} (${b2y.zeitBisSprung} s), tot ${b2y.tot}`);
 console.log(`  info (b3) alle drei, Mensch unten: Notsprung ${b3.gesprungen}, tot ${b3.tot}, Mensch ${b3.mensch}`);
 ok(!c1.gesprungen && c1.tot, `(c1) ohne Navigations-Bot: kein Notsprung, die Lerche stirbt (tot ${c1.tot})`);
 console.log(`  info (c2) ohne Navigation, Mensch unten: Notsprung ${c2.gesprungen}, tot ${c2.tot}`);

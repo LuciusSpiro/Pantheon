@@ -1,11 +1,10 @@
 'use strict';
-// BOT-02 B3-Nacharbeit (Review V-1): Notsprung des Navigations-Bots, auch wenn er den Bord-Dienst haelt (lauf.js notsprungVorrang). Echtes Game (Freie Fahrt, Server-Bots), Reaktor des zweiten Ausfalls (Countdown 10 s):
-//   1. nur Navigation, ein Mensch unten (Mess-Fall b2): der Bot haelt den Bord-Dienst am Transfer, verlaesst ihn bei Countdown (erster Ausfall, 20 s), springt, die Lerche lebt, der Mensch kommt mit (Notrueckholung); info: zweiter Ausfall (10 s) vom Transfer aus
-//   2. Vorlauf-Variante: nur Navigation als Bord-Bot im Vorlauf (Landepunkt gewaehlt, Mensch an Bord, Bot am Transfer): Countdown -> Steuer -> Notsprung, die Lerche lebt
+// BOT-02 B3-Nacharbeit 2 (Review V-1, Entscheidung des Leiters): der Navigations-Bot uebernimmt NIE den Bord-Dienst, sein Notsprung geht von der Steuer aus (Weg Transfer-Steuer 10 s, Countdowns 10/5/2,5 s sind von dort nicht zu schaffen). Echtes Game (Freie Fahrt, Server-Bots):
+//   1. nur Navigation, ein Mensch unten (Mess-Fall b2): der Bot bleibt am Steuer; Countdown 20 s, 10 s und 5 s: er springt, die Lerche lebt, der Mensch kommt mit (Notrueckholung)
+//   2. Vorlauf-Variante: nur Navigation, Landepunkt gewaehlt, Mensch an Bord (Vorlauf in Reichweite): der Bot haelt das Schiff an der Steuer an; Countdown 10 s: Notsprung, die Lerche lebt
 //   3. Mensch haelt das Steuer: der Bot wartet (kein helm.notsprung, nie zwei Halter an der Steuer)
-//   4. Countdown endet (Reaktor repariert): der Bord-Dienst gilt wieder, der Bot geht zum Transfer zurueck
-//   5. Technik haelt den Bord-Dienst (Mess-Fall b1): unveraendert, der Navigations-Bot springt von seinem Posten
-//   Mutationsproben: BOT_NS_MUT (tools/mutation-bot02-vorlauf.js): vorrang_aus
+//   4. Technik haelt den Bord-Dienst (Mess-Fall b1): der Navigations-Bot springt von seinem Posten
+//   Mutationsproben: BOT_NS_MUT (tools/mutation-bot02-vorlauf.js): nav_bord (der Navigations-Bot haelt wieder den Bord-Dienst)
 //   node tools/test-bot02-notsprung.js
 const fs = require('fs');
 const os = require('os');
@@ -91,41 +90,39 @@ function neben(g, p, konsole) {
 // ---------- Mutationsprobe ----------
 const MUT = process.env.BOT_NS_MUT || '';
 if (MUT) {
-  if (MUT === 'vorrang_aus') {   // der Bord-Dienst ruht nur wegen eines Menschen am Transfer, nicht wegen des Countdowns
+  if (MUT === 'nav_bord') {   // der Navigations-Bot haelt den Bord-Dienst, sobald ein Mensch unten ist (wie vor Nacharbeit 2)
     const P0 = partie(['navigation']); lauf(P0, 1);
     const L = Object.getPrototypeOf(Lauf.agent(P0.g, botVon(P0, 'navigation')).lauf);
-    L.dienstLaeuft = function (sp) { return this.bordAktiv(sp) && !this.game.players.some((o) => o && !o.bot && o.connected && o.console === 'transfer'); };
+    const alt = L.dienstLaeuft;
+    L.dienstLaeuft = function (sp) { if (sp && sp.rolle === 'navigation') return this.game.players.some((o) => o && !o.bot && o.connected && o.zone === 'away') && !this.game.players.some((o) => o && !o.bot && o.connected && o.console === 'transfer'); return alt.call(this, sp); };
   } else { console.log('unbekannte Mutation ' + MUT); process.exit(2); }
 }
 
 // ---------- 1 Mess-Fall b2 ----------
-section('1 Nur Navigation, ein Mensch unten (Bord-Dienst am Transfer): Countdown -> Steuer -> Notsprung');
-{
+section('1 Nur Navigation, ein Mensch unten: der Bot bleibt am Steuer und springt (Countdown 20, 10 und 5 s)');
+for (const [n, cdSoll] of [[0, 20], [1, 10], [2, 5]]) {
   const P = partie(['navigation']); const { g } = P; const nb = botVon(P, 'navigation');
   amSprungpunkt(P);
-  P.h.zone = 'away'; lauf(P, 40, () => nb.console === 'transfer');
-  ok(Lauf.bordBot(g) === nb && nb.console === 'transfer' && Lauf.dienstLaeuft(g, nb), 'Ausgangslage: der Navigations-Bot haelt den Bord-Dienst und steht an der Transfer-Konsole');
-  const cd = reaktorBrechen(P, 0); const t0 = g.time;
-  ok(cd === 20 && !Lauf.dienstLaeuft(g, nb) && Lauf.bordAktiv(g, nb) && Lauf.notsprungVorrang(g, nb), `Reaktor zerstoert (Countdown ${cd} s): der Dienst ist faellig, ruht aber wegen des Notsprung-Vorrangs`);
-  let amSteuer = null;
-  lauf(P, 25, () => g.ship.schiffZerstoert || (hat(P, 'notsprung') && g.time - hat(P, 'notsprung').t > 3), () => { if (amSteuer === null && nb.console === 'helm') amSteuer = g.time - t0; });
+  P.h.zone = 'away'; lauf(P, 12);
+  ok(Lauf.bordBot(g) === null && !Lauf.bordAktiv(g, nb) && nb.console === 'helm', `Countdown ${cdSoll} s: Ausgangslage: kein Bord-Bot, der Navigations-Bot sitzt an der Steuer (Mensch unten)`);
+  const cd = reaktorBrechen(P, n); const t0 = g.time;
+  lauf(P, 25, () => g.ship.schiffZerstoert || (hat(P, 'notsprung') && g.time - hat(P, 'notsprung').t > 3));
   const ns = hat(P, 'notsprung');
-  ok(!!ns && !g.ship.schiffZerstoert, `der Bot springt (nach ${ns ? (ns.t - t0).toFixed(1) : '-'} s), die Lerche lebt`);
-  ok(notsprungCmds(P).length >= 1 && notsprungCmds(P).every((s) => s.rolle === 'navigation'), `helm.notsprung kam vom Navigations-Bot (${notsprungCmds(P).length}x)`);
-  ok(!!hat(P, 'squadRecall') && P.h.zone === 'ship', 'der Notsprung holt den Menschen zurueck (Notrueckholung), er ist an Bord');
+  ok(cd === cdSoll && !!ns && !g.ship.schiffZerstoert, `Countdown ${cd} s: der Bot springt (nach ${ns ? (ns.t - t0).toFixed(1) : '-'} s), die Lerche lebt`);
+  ok(notsprungCmds(P).length >= 1 && notsprungCmds(P).every((s) => s.rolle === 'navigation') && !!hat(P, 'squadRecall') && P.h.zone === 'ship', 'helm.notsprung vom Navigations-Bot, der Notsprung holt den Menschen zurueck (Notrueckholung)');
   ok(g.errors === 0 && Lauf.agent(g, nb).verworfen === 0, 'game.errors 0, der Wachposten hat nichts verworfen');
-  info(`Weg Transfer -> Steuer: der Bot ist ${amSteuer === null ? '-' : amSteuer.toFixed(1)} s nach dem Countdown-Beginn an der Steuer, der Notsprung-Befehl geht bei Rest 8 s (hier ${ns ? (notsprungCmds(P)[0].t - t0).toFixed(1) : '-'} s); ein Countdown von 10 s (zweiter Ausfall) endet vor der Ankunft, nur der erste (20 s) ist vom Transfer aus zu retten`);
 }
 
 // ---------- 2 Vorlauf-Variante ----------
-section('2 Vorlauf: Navigations-Bot als einziger Bot, Landepunkt gewaehlt, er steht am Transfer: Countdown -> Steuer -> Notsprung');
+section('2 Vorlauf: nur Navigation, Landepunkt gewaehlt, Mensch an Bord: Stopp an der Steuer, Countdown 10 s -> Notsprung');
 {
   const P = partie(['navigation']); const { g } = P; const nb = botVon(P, 'navigation');
   amLandepunkt(P);
+  g.ship.helm.stage = 3; lauf(P, 3);
   waehle(P); verlassen(P);
-  const am = lauf(P, 40, () => nb.console === 'transfer');
-  ok(am && Lauf.vorlaufLaeuft(g) && Lauf.dienstLaeuft(g, nb) && !P.h.zone.startsWith('a'), 'Vorlauf: der Navigations-Bot steht am Transfer, niemand unten');
-  const t0 = g.time; reaktorBrechen(P, 0);
+  lauf(P, 15);
+  ok(Lauf.vorlaufLaeuft(g) && nb.console === 'helm' && !Lauf.bordAktiv(g, nb) && g.ship.speed <= g.C.ship.beamMaxSpeed, 'Vorlauf in Reichweite: der Navigations-Bot bleibt an der Steuer und hat das Schiff angehalten, kein Bord-Dienst');
+  const t0 = g.time; reaktorBrechen(P, 1);
   lauf(P, 25, () => g.ship.schiffZerstoert || (hat(P, 'notsprung') && g.time - hat(P, 'notsprung').t > 3));
   const ns = hat(P, 'notsprung');
   ok(!!ns && !g.ship.schiffZerstoert, `der Bot springt (nach ${ns ? (ns.t - t0).toFixed(1) : '-'} s), die Lerche lebt`);
@@ -135,36 +132,18 @@ section('2 Vorlauf: Navigations-Bot als einziger Bot, Landepunkt gewaehlt, er st
 // ---------- 3 Mensch haelt das Steuer ----------
 section('3 Ein Mensch haelt das Steuer: der Bot wartet (kein helm.notsprung, nie zwei Halter an der Steuer)');
 {
-  const P = partie(['navigation']); const { g } = P; const nb = botVon(P, 'navigation');
+  const P = partie(['navigation']); const { g } = P;
   amSprungpunkt(P);
-  P.h.zone = 'away'; lauf(P, 8, () => nb.console === 'transfer');
-  // ein zweiter Mensch fehlt: der Mensch unten ist der einzige; er steht am Boden, also haelt niemand die Steuer. Der Mensch wird zurueckgeholt und sitzt an der Steuer.
-  P.h.zone = 'ship'; lauf(P, 0.3);
   neben(g, P.h, 'helm'); g.handleMessage(P.c, { t: 'act', down: true }); g.handleMessage(P.c, { t: 'act', down: false });
-  lauf(P, 3, () => P.h.console === 'helm');
+  lauf(P, 5, () => P.h.console === 'helm');
   ok(P.h.console === 'helm', 'der Mensch sitzt an der Steuer');
-  reaktorBrechen(P);
+  reaktorBrechen(P, 0);
   let doppelt = false; lauf(P, 8, null, () => { if (haelt(P, 'helm').length > 1) doppelt = true; });
   ok(notsprungCmds(P).length === 0 && P.h.console === 'helm' && !doppelt, 'Countdown, der Mensch haelt die Steuer: der Bot sendet keinen Notsprung, nie zwei Halter an der Steuer');
 }
 
-// ---------- 4 Countdown endet ----------
-section('4 Der Countdown endet (Reaktor repariert): der Bord-Dienst gilt wieder');
-{
-  const P = partie(['navigation']); const { g } = P; const nb = botVon(P, 'navigation');
-  amSprungpunkt(P);
-  P.h.zone = 'away'; lauf(P, 8, () => nb.console === 'transfer');
-  g.ship.reaktorAusfaelle = 0; interior.damageSystem(g, 'reactor', 'broken');   // erster Ausfall: Countdown 20 s
-  lauf(P, 1.5);
-  ok(!!g.ship.reaktorCountdown && !Lauf.dienstLaeuft(g, nb), 'Countdown laeuft: der Dienst ruht');
-  interior.repairSystem(g, 'reactor', 'player', 'flick'); Space.reactorOnline(g, 'Test');
-  lauf(P, 1);
-  ok(!g.ship.reaktorCountdown && Lauf.dienstLaeuft(g, nb), 'Countdown aus: der Dienst gilt wieder');
-  ok(lauf(P, 30, () => nb.console === 'transfer') && notsprungCmds(P).length === 0 && !g.ship.schiffZerstoert, 'der Bot geht zum Transfer zurueck, ohne gesprungen zu sein');
-}
-
-// ---------- 5 Technik haelt den Bord-Dienst ----------
-section('5 Technik haelt den Bord-Dienst (Mess-Fall b1): der Navigations-Bot springt von seinem Posten');
+// ---------- 4 Technik haelt den Bord-Dienst ----------
+section('4 Technik haelt den Bord-Dienst (Mess-Fall b1): der Navigations-Bot springt von seinem Posten');
 {
   const P = partie(['navigation', 'technik']); const { g } = P; const tb = botVon(P, 'technik');
   amSprungpunkt(P);

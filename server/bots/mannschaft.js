@@ -8,8 +8,8 @@
 // BOT-02 B1: Bord-Dienst (Zusatzdienst, siehe lauf.js bordBot/dienstLaeuft): ist ein Mensch im Aussenteam unten oder beamt gerade runter, geht der Bord-Bot zur Transfer-Konsole (Ort, kein Tab) und haelt sie; sein Rollenverhalten ruht, die Station-Automatik
 // springt ein (station.js, ueber weichen.js vertreten). Der Wachposten erlaubt ihm dann genau die Befehle aus BORD_BEFEHLE (Whitelist, keine Praefixe). Ende: kein Mensch mehr unten -> leave und zurueck an die Station. Ein Mensch an der Transfer-Konsole
 // gewinnt (weichen.js): der Dienst ruht (dienstLaeuft false), der Bot geht an seine Station.
-// BOT-02 B3: Vor dem Beamen (Vorlauf, lauf.js vorlaufLaeuft: Landepunkt gewaehlt, Mensch an Bord, noch niemand unten): der Bord-Bot geht schon jetzt zur Transfer-Konsole (Ops-Bot als Bord-Bot scannt zuvor den Landepunkt, Navigations-Bot haelt zuvor das Schiff an);
-// ein anderer Ops-Bot scannt den Landepunkt von seiner Station aus (landescanAuto, wie ein Mensch an Ops, nur wenn der Scan noch fehlt und moeglich ist); der Navigations-Bot haelt das Schiff an und bleibt stehen (stoppFuerBeam, nur Tempo, nie Position).
+// BOT-02 B3: Vor dem Beamen (Vorlauf, lauf.js vorlaufLaeuft: Landepunkt gewaehlt, Mensch an Bord, noch niemand unten): der Bord-Bot geht schon jetzt zur Transfer-Konsole (ein Ops-Bot als Bord-Bot scannt zuvor den Landepunkt);
+// ein anderer Ops-Bot scannt den Landepunkt von seiner Station aus (landescanAuto, wie ein Mensch an Ops, nur wenn der Scan noch fehlt und moeglich ist); der Navigations-Bot (nie Bord-Bot, er bleibt am Steuer) haelt das Schiff an und bleibt stehen (stoppFuerBeam aus steuerDienst, nur Tempo, nie Position).
 // Der Agent sendet alles ueber game.handleMessage(p.conn, msg), nie hello/ready/Loadout und nur Befehle der eigenen Station (erlaubt()). Mensch gewinnt: haelt ein Mensch die Station des Bots, ist der Zustand 'wartet' und der Bot sendet nichts fuer sie.
 // Zustand (Absicht) lebt im Agenten, nie im Spielerobjekt oder Snapshot. Zufall und Mitspieler gehoeren dem Lauf des Games (zufall, kollegen), kein Modulzustand.
 const Protocol = require('../../shared/protocol.js');
@@ -174,7 +174,7 @@ class BotMannschaft extends BotKern {
     Ansagen.tick(this.game, this.spieler);   // BOT-02 B4: Ansagen an den Menschen unten (Codefolge, Gegner, Raetselhinweis), eigenes Modul
     return true;
   }
-  // BOT-02 B3: im Vorlauf zuerst, was vor dem Beamen zu tun ist, solange der Bord-Bot noch an seiner Station steht: Ops-Bot scannt den Landepunkt (an der Waffenkonsole), Navigations-Bot haelt das Schiff an (am Steuer).
+  // BOT-02 B3: im Vorlauf zuerst, was vor dem Beamen zu tun ist, solange der Bord-Bot noch an seiner Station steht: ein Ops-Bot scannt den Landepunkt (an der Waffenkonsole).
   // Danach geht er zum Transfer. Haelt ein Mensch die Station, entfaellt der Schritt (der Mensch erledigt es). true = der Bot ist noch dabei.
   bordVorTransfer(S) {
     if (!this.lauf.vorlaufLaeuft() || this.menschHaeltStation()) return false;
@@ -185,7 +185,6 @@ class BotMannschaft extends BotKern {
       if (da) this.landescanAuto();
       return true;
     }
-    if (this.rolleBot === 'navigation' && Station.stationOf(this.spieler) === 'helm' && this.stoppFuerBeam(S)) return true;
     return false;
   }
   // Scan des Landepunkts (eine Quelle fuer ops.landescan und den Auto-Scan): Einmal-Aktion, Antwort des Spiels (Text der Ablehnung) oder null = angenommen. Orbit, Reichweite, laufender Scan: das Spiel antwortet.

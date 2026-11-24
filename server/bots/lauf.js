@@ -7,15 +7,15 @@
 //   entfernen(game, spieler)        Agent weg (Bot geraeumt, verdraengt, entfernt)
 //   wartet(game, spieler)           der Agent weicht einem Menschen (bots/weichen.js)
 //   prioritaetLoesen(game, spieler) BOT-01 C2b: die vom Bot gesetzte Prioritaet der Technik zuruecknehmen, bevor ein Mensch die Station hat oder der Platz geraeumt wird (weichen.js, spieler.js)
-//   bordBot(game)                   BOT-02 B1: der Bot, der den Bord-Dienst haelt (Technik, sonst Ops, sonst Navigation; bewusstlose und unten stehende Bots uebersprungen; null ohne Server-Bots). Rein aus den Spielern,
+//   bordBot(game)                   BOT-02 B1: der Bot, der den Bord-Dienst haelt (Technik, sonst Ops; NIE der Navigations-Bot: sein Notsprung geht von der Steuer aus und ist wichtiger als Rueckholung und Ansagen; nur Navigation = kein Bord-Bot, dann regelt die Automatik des Spiels die Rueckholung; bewusstlose und unten stehende Bots uebersprungen; null ohne Server-Bots). Rein aus den Spielern,
 //                                   nur der Haelter wird waehrend eines Dienstes im Lauf gemerkt (Hysterese: ein wieder aufstehender Bot uebernimmt nicht zurueck, solange der Haelter gueltig ist)
 //   bordAktiv(game, spieler)        BOT-02 B1: der Bord-Dienst dieses Bots ist faellig (er ist der Bord-Bot und ein MENSCH ist unten (zone away), beamt gerade runter oder der Vorlauf laeuft (B3)); Bots unten zaehlen nicht
 //   vorlaufLaeuft(game)             BOT-02 B3: der Vorlauf vor dem Beamen laeuft: ein Landepunkt ist gewaehlt (game.transferZiel), mindestens ein Mensch (nicht bewusstlos) ist an Bord, keiner unten, keine feindlichen Gegner im Raum, kein Reaktor-Countdown
 //                                   UND das Schiff liegt in Beamreichweite (bordlage.js beamInReichweite; ausserhalb ist der Vorlauf nur vorgemerkt: kein Stopp, keine Sperre, der Bord-Bot bleibt an der Station, die Frist steht). Er endet, wenn der Landepunkt weg ist,
 //                                   ein Mensch runtergebeamt ist (unten), Gegner oder Countdown da sind, kein Mensch an Bord ist oder VORLAUF_FRIST (in Reichweite) abgelaufen ist. Ein Mensch, der den Beam abbricht, beendet ihn NICHT. Ein Landepunkt, dessen Vorlauf endete, beginnt keinen zweiten; ein neu gewaehlter schon. Zustand nur im Lauf, nie am Spiel. Zaehlt als Dienstbedarf
-//   beamVorbereitet(game)           BOT-02 B3: Vorlauf ODER ein Mensch beamt gerade runter (Navigations-Bot: Schiff stoppen und halten, wie bei Aussenteam unten; Sperre der Navigationsbefehle)
+//   beamVorbereitet(game)           BOT-02 B3: Vorlauf ODER ein Mensch beamt gerade runter (Navigations-Bot am Steuer: Schiff stoppen und halten, wie bei Aussenteam unten; Sperre der Navigationsbefehle)
 //   stoppNoetig(game)               BOT-02 B3-Nacharbeit: beamVorbereitet ODER ein Mensch steht auf einem Schiffspad und das Schiff ist in Reichweite zu schnell (bordlage.js padMenschZuSchnell): NUR der Stopp des Navigations-Bots, nie Vorlauf, nie Bord-Dienst
-//   dienstLaeuft(game, spieler)     BOT-02 B1: bordAktiv, kein verbundener Mensch an der Transfer-Konsole (Mensch gewinnt, der Dienst ruht) und kein Notsprung-Vorrang (BOT-02 B3-Nacharbeit: der Navigations-Bot geht bei Reaktor-Countdown ans Steuer): die EINE Quelle fuer Agent, Wachposten und Station-Automatik
+//   dienstLaeuft(game, spieler)     BOT-02 B1: bordAktiv, kein verbundener Mensch an der Transfer-Konsole (Mensch gewinnt, der Dienst ruht) : die EINE Quelle fuer Agent, Wachposten und Station-Automatik
 //   bordDienstHaelt(game)           BOT-02 B4: ein Bord-Bot haelt den Dienst wirklich (bordBot + dienstLaeuft; ueber weichen.js bordBotHaelt fuer away.js: die ODA schweigt, der Bot sagt die Codefolge an)
 //   stationVertreten(game, kind)    BOT-02 B1: der Bord-Bot haelt den Dienst wirklich (dienstLaeuft) und die Station seiner Rolle ist kind (helm, weapons, technik): die Station ist vertreten, nicht verwaist (station.js ueber weichen.js)
 //   agent(game, spieler), agenten(game)   Zugriff (Tests, Werkzeug)
@@ -33,8 +33,10 @@ const OPTIONEN = new WeakMap();   // game -> Kern-Optionen der Agenten (Werkzeug
 const istServerBot = (p) => !!(p && p.bot && ROLLEN.includes(p.rolle) && p.connected && p.conn && p.conn.player === p);
 const hatServerBots = (game) => game.players.some(istServerBot);
 
-// BOT-02 B1: Bord-Dienst = Zusatzdienst eines vorhandenen Bots (keine Lobby-Rolle, kein Slot). Zuweisung: Technik-Bot, sonst Ops-Bot, sonst Navigations-Bot (der Navigations-Bot bleibt am Steuer, solange es einen anderen gibt).
-const BORD_REIHE = ['technik', 'ops', 'navigation'];
+// BOT-02 B1: Bord-Dienst = Zusatzdienst eines vorhandenen Bots (keine Lobby-Rolle, kein Slot). Zuweisung: Technik-Bot, sonst Ops-Bot. Der Navigations-Bot uebernimmt NIE den Bord-Dienst (Entscheidung des Leiters, Nacharbeit 2): der Notsprung ist seine Aufgabe und nur von der Steuer aus erreichbar (der Weg Transfer-Steuer dauert 10 s,
+// die Countdowns 10/5/2,5 s sind von dort nicht zu schaffen); die Lerche zu retten geht vor Rueckholung und Ansagen. Gibt es nur den Navigations-Bot, gibt es keinen Bord-Dienst (bord.* antwortet kein_bot, keine Ansagen, die ODA-Codehilfe funkt wie ohne Bord-Bot);
+// die Rueckholung regelt dann die Automatik des Spiels (v1 Aufwachen nach 15 s, v2 squadRecall). Bewusste Einschraenkung.
+const BORD_REIHE = ['technik', 'ops'];
 const menschUnten = (game) => game.players.some((p) => p && p.connected && !p.bot && p.zone === 'away');
 // B-5: der Dienst beginnt schon beim Beamen, damit der Bot beim Landen am Transfer steht. Ausloeser ohne Spielzustand zu aendern: ein Mensch haelt E auf dem Schiffspad (p.hold beam, Richtung down; interior selfbeam)
 // oder die Konsole hat den Beamvorgang gestartet (ship.beaming, Richtung down; away.consoleBeam loescht dabei p.hold). Bricht der Mensch ab, ist beides weg und der Dienst endet.
@@ -52,9 +54,6 @@ const menschAnBord = (game) => game.players.some((p) => p && p.connected && !p.b
 const vorlaufLaeuft = (game) => { const lauf = LAEUFE.get(game); return !!lauf && game.phase === 'play' && !!lauf.vorlauf && lauf.vorlauf.ziel === game.transferZiel && Lage.beamInReichweite(game); };
 const beamVorbereitet = (game) => vorlaufLaeuft(game) || menschBeamtRunter(game);
 const stoppNoetig = (game) => beamVorbereitet(game) || Lage.padMenschZuSchnell(game);
-// BOT-02 B3-Nacharbeit (Review V-1): laeuft der Reaktor-Countdown, geht der Navigations-Bot ans Steuer (kern.js reaktorNotsprung verlangt p.console 'helm'): kein Bord-Dienst, damit Tick, Wachposten, Annahme und Station-Automatik mitziehen.
-// Der Notsprung bei Rest <= 8 s loest steuerDienst aus; haelt ein Mensch das Steuer, wartet der Bot (Mensch gewinnt). Endet der Countdown (Reaktor repariert), gilt der Bord-Dienst wieder. Angedockt gibt es keinen Notsprung.
-const notsprungVorrang = (game, spieler) => !!spieler && spieler.rolle === 'navigation' && !!game.ship.reaktorCountdown && !game.ship.docked;
 const dienstBedarf = (game) => game.phase === 'play' && (menschUnten(game) || menschBeamtRunter(game) || vorlaufLaeuft(game));
 const menschHaeltTransfer = (game) => game.players.some((o) => o && !o.bot && o.connected && o.console === 'transfer');
 // ein Bot kann den Dienst halten: Server-Bot, bei Bewusstsein, an Bord (B-3)
@@ -69,7 +68,7 @@ function bordBot(game) {
   return b;
 }
 function bordAktiv(game, spieler) { return !!spieler && game.phase === 'play' && bordBot(game) === spieler && dienstBedarf(game); }
-function dienstLaeuft(game, spieler) { return bordAktiv(game, spieler) && !menschHaeltTransfer(game) && !notsprungVorrang(game, spieler); }
+function dienstLaeuft(game, spieler) { return bordAktiv(game, spieler) && !menschHaeltTransfer(game); }
 function bordDienstHaelt(game) { const b = bordBot(game); return !!b && dienstLaeuft(game, b); }   // BOT-02 B4: irgendein Bord-Bot haelt den Dienst (weichen.js bordBotHaelt; away.js: die ODA schweigt)
 function stationVertreten(game, kind) {
   const b = bordBot(game);
@@ -150,4 +149,4 @@ function prioritaetLoesen(game, spieler) { const a = agent(game, spieler); retur
 function agent(game, spieler) { const lauf = LAEUFE.get(game); return lauf && spieler ? lauf.agentenMap.get(spieler.id) || null : null; }
 function agenten(game) { const lauf = LAEUFE.get(game); return lauf ? lauf.liste().slice() : []; }
 
-module.exports = { tick, beenden, snapshotMerken, optionenSetzen, entfernen, wartet, prioritaetLoesen, agent, agenten, istServerBot, bordBot, bordAktiv, dienstLaeuft, bordDienstHaelt, stationVertreten, vorlaufLaeuft, beamVorbereitet, stoppNoetig, notsprungVorrang, VORLAUF_FRIST };
+module.exports = { tick, beenden, snapshotMerken, optionenSetzen, entfernen, wartet, prioritaetLoesen, agent, agenten, istServerBot, bordBot, bordAktiv, dienstLaeuft, bordDienstHaelt, stationVertreten, vorlaufLaeuft, beamVorbereitet, stoppNoetig, VORLAUF_FRIST };

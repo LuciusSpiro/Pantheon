@@ -7,7 +7,7 @@
 //   4. (d) Navigations-Bot stoppt das fahrende Schiff (canBeam danach ohne tooFast); ohne Navigations-Bot kein Stopp; ohne Landepunkt kein Stopp; nur Tempo, nie Position; Befehle im Vorlauf (in Reichweite)
 //      V-2 Landepunkt ausserhalb der Beamreichweite: Vorlauf nur vorgemerkt, nav.kurs fliegt hin, bei Eintritt stoppt der Nav-Bot und der Bord-Bot geht zum Transfer; die Frist zaehlt nur in Reichweite
 //      V-3 Standardort ohne gewaehlten Landepunkt: ein Mensch auf dem Pad bei zu schnellem Schiff (in Reichweite) loest den Stopp aus, danach gelingt E; ohne Mensch auf dem Pad und ausserhalb der Reichweite kein Stopp
-//   5. (e) Bord-Bot = Ops-Bot (kein Technik-Bot): erst Scan, dann Transfer; Bord-Bot = Navigations-Bot: erst Stopp; beide stehen am Transfer, bevor der Beam des laufenden Menschen endet
+//   5. (e) Bord-Bot = Ops-Bot (kein Technik-Bot): erst Scan, dann Transfer; der Navigations-Bot ist nie Bord-Bot (er haelt das Schiff an der Steuer an und bleibt dort)
 //   6. (f) Abbruch: Landepunkt weg, Frist (60 s), Mensch beamt nie: der Bot kehrt zurueck, nie zwei Halter, kein zweiter Vorlauf fuer dasselbe Ziel, neue Wahl beginnt neu; nach dem Beam kein neuer Vorlauf
 //      V-4 Gegner im Raum und Reaktor-Countdown beenden den Vorlauf (kein Stillstand), V-5 ein abgebrochener Beam beendet ihn nicht, V-6 ein bewusstloser Mensch haelt ihn nicht am Leben
 //   7. bot.status, Quellscan, (g) reine Menschenpartie byte-gleich (mess-bot02-menschenpartie.js gegen Basis b954db81)
@@ -385,7 +385,7 @@ section('4 Navigations-Bot stoppt das fahrende Schiff (nur Tempo); ohne Navigati
 }
 
 // ---------- 5 (e) Bord-Bot ist der Ops-Bot ----------
-section('5 Bord-Bot = Ops-Bot (kein Technik-Bot): erst Scan, dann Transfer; Bord-Bot = Navigations-Bot: erst Stopp');
+section('5 Bord-Bot = Ops-Bot (kein Technik-Bot): erst Scan, dann Transfer; Navigations-Bot nie Bord-Bot');
 {
   const P = szene({ bots: ['ops'] }); const { g } = P; const ob = botVon(P, 'ops'); let ersterTransfer = null, scanFertig = null, sawWeapons = false;
   ok(Lauf.bordBot(g) === ob, 'Ausgangslage: der Ops-Bot ist der Bord-Bot');
@@ -411,16 +411,14 @@ section('5 Bord-Bot = Ops-Bot (kein Technik-Bot): erst Scan, dann Transfer; Bord
   ok(lauf(P, 40, () => ob.console === 'transfer') && scans(P).length === 1 && Lpscan.gescannt(g, LP), 'das Schiff kommt in Reichweite: der Ops-Bot scannt (ein Scan) und geht zum Transfer');
 }
 {
-  // Bord-Bot = Navigations-Bot (einziger Bot): erst das Schiff anhalten, dann zum Transfer
-  const P = szene({ bots: ['navigation'], dx: 320 }); const { g } = P; const nb = botVon(P, 'navigation'); let gestoppt = null, transfer = null;
+  // Nacharbeit 2: der Navigations-Bot ist nie Bord-Bot (einziger Bot): er haelt das Schiff an der Steuer an und bleibt dort, auch nach dem Beam; der Transfer bleibt frei
+  const P = szene({ bots: ['navigation'], dx: 320 }); const { g } = P; const nb = botVon(P, 'navigation');
   g.ship.helm.stage = 3; lauf(P, 6); g.ship.x = BEAM.x - 100;
-  waehle(P); lauf(P, 3);   // der Mensch bleibt kurz an der Konsole: der Navigations-Bot haelt das Schiff schon an der Steuer an
-  const vermerken = () => { if (gestoppt === null && g.ship.helm.stage === STOP) gestoppt = g.time; if (transfer === null && nb.console === 'transfer') transfer = g.time; };
-  verlassen(P);
-  const wn = geheUndBeame(P, nb, vermerken);
-  lauf(P, 40, () => transfer !== null, vermerken);
-  ok(wn.tLand !== null && wn.tBot !== null && wn.tBot < 15, `Navigations-Bot als Bord-Bot: erst Stopp, dann am Transfer (Bot +${wn.tBot === null ? '-' : wn.tBot.toFixed(1)} s nach dem Verlassen der Konsole, bei der Landung am Transfer: ${wn.botBeiLandung}; Landung ab dem Verlassen der Konsole: ${wn.tLand === null ? '-' : wn.tLand.toFixed(1)} s)`);
-  ok(gestoppt !== null && transfer !== null && gestoppt <= transfer && stopps(P).length >= 1 && g.ship.speed <= g.C.ship.beamMaxSpeed + 1, `der Navigations-Bot als Bord-Bot haelt das Schiff an (Stufe Stopp bei ${gestoppt && gestoppt.toFixed(1)}), bevor er den Posten verlaesst (Transfer bei ${transfer && transfer.toFixed(1)}): Tempo ${g.ship.speed.toFixed(1)}`);
+  waehle(P); verlassen(P);
+  const wn = geheUndBeame(P, nb);
+  lauf(P, 5);
+  ok(wn.tLand !== null && wn.tBot === null && nb.console === 'helm' && haelt(P, 'transfer').length === 0 && Lauf.bordBot(g) === null, 'Navigations-Bot als einziger Bot: er bleibt an der Steuer (nie am Transfer), der Mensch landet, kein Bord-Bot');
+  ok(g.ship.helm.stage === STOP && g.ship.speed <= g.C.ship.beamMaxSpeed + 1 && stopps(P).length >= 1, `er hat das Schiff im Vorlauf angehalten (Stufe Stopp, Tempo ${g.ship.speed.toFixed(1)}, ${stopps(P).length} helm.stop)`);
 }
 
 // ---------- 6 (f) Abbruch ----------
