@@ -1,18 +1,20 @@
 'use strict';
 // BOT-02 B1: der Bord-Dienst (Zusatzdienst eines vorhandenen Bots, keine Lobby-Rolle; server/bots/lauf.js bordBot/bordAktiv, mannschaft.js bordDienst, weichen.js, annahme.js, befehle/bord.js). Echtes Game, Server-Bots, Testgelaende Raumkampf.
 //   1. Zuweisung je Bot-Kombination (Technik, sonst Ops, sonst Navigation; keine Bots: keiner), keine Lobby-Rolle, kein neues Feld am Spielerobjekt
-//   2. Der Dienst startet erst, wenn ein MENSCH unten ist (zone away): Bot an der Transfer-Konsole (p.console transfer), die anderen Bots bleiben an ihren Stationen, technik.botAuto wird nie gesendet
-//   3. Station-Automatik springt ein (Mensch + Technik-Bot, Mensch + Ops-Bot: 2 Koepfe); mit 4 Koepfen nicht (bestehende Kopfregel, hier festgehalten)
+//   2. Der Dienst startet, wenn ein Mensch unten ist (zone away) oder runterbeamt: Bot an der Transfer-Konsole (p.console transfer), die anderen Bots bleiben an ihren Stationen, technik.botAuto wird nie gesendet
+//   3. Station-Automatik springt ein, auch mit 4 Koepfen (B-1: vertreten), nie ohne laufenden Dienst; Reine Menschenpartie unveraendert
 //   4. Ende: Aufstieg, Notrueckholung, Mensch unten trennt: der Bot gibt die Transfer-Konsole frei und geht an seine Station
 //   5. Mensch gewinnt: ein Mensch betritt die Transfer-Konsole, der Bot weicht, geht an seine Station, kommt zurueck, wenn der Mensch geht; nie zwei Halter, keine Station doppelt (12 s, Tick fuer Tick)
-//   6. Wachposten: transfer.* und captain.* nur im Bord-Dienst und nur fuer den Bord-Bot (Test und Quellscan)
-//   7. bord.*-Befehle: ohne Bord-Bot kein_bot, mit nicht_jetzt (Geruest), Adressierung (an alle, Rolle, botId), bot.status im Dienst
-//   8. Reine Menschenpartie unveraendert: Snapshots, Nachrichten, Zufallsstand identisch mit echtem und leerem Lauf (auch mit Mensch unten und an der Transfer-Konsole)
+//   6. Wachposten: nur die Whitelist BORD_BEFEHLE (transfer.recall, captain.support) im Dienst und nur fuer den Bord-Bot; alles andere dort gesperrt (Test und Quellscan)
+//   7. bord.*-Befehle: ohne Bord-Bot kein_bot, mit nicht_jetzt (Geruest), Adressierung (an alle, Rolle, botId), bot.status im Dienst; Rollenbefehle im Dienst nicht_jetzt (B-6)
+//   8. Reine Menschenpartie unveraendert: Snapshots, Nachrichten, Zufallsstand identisch mit echtem und leerem Lauf (auch mit Mensch unten und an der Transfer-Konsole), und gegen den Basisstand 73f93ed0
+//   9. Nacharbeit B-2/B-3/B-5/B-7: Dienstende mit Mensch an der Station, bewusstloser Bord-Bot (Wechsel, Hysterese), Dienstbeginn beim Beamen (Spielpfad E-Halten, Abbruch, Konsole), Absichten beim Wiederbeginn
 //   node tools/test-bot02-bord.js
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
 const crypto = require('crypto');
+const cp = require('child_process');
 process.chdir(path.join(__dirname, '..'));
 const { Game } = require('../server/game.js');
 const Station = require('../server/sim/station.js');
@@ -170,7 +172,22 @@ section('3 Die Station-Automatik springt ein, wenn der Bot die Station verlaesst
   ok(Station.waffenAutomatikAktiv(O.g) === true, 'Ops-Bot im Dienst (2 Koepfe): Waffenautomatik an');
   const V = partie({ bots: ['navigation', 'ops', 'technik'] });
   lauf(V, 40, () => sitzen(V)); runter(V.h); lauf(V, 40, () => botVon(V, 'technik').console === 'transfer'); lauf(V, 2);
-  ok(V.g.ship.botAuto === false && Station.waffenAutomatikAktiv(V.g) === false && !Station.stationBesetzt(V.g, 'technik'), 'vier Koepfe: weiter keine Automatik (bestehende Kopfregel, nicht Teil von B1), die Technik-Station ist ohne Halter');
+  ok(V.g.ship.botAuto === true && V.g.ship.botAutoChosen === false && Station.botAutomatikStandard(V.g) === true && !Station.stationBesetzt(V.g, 'technik'), 'vier Koepfe, Technik-Bot im Dienst (B-1): die Schrauber-Automatik laeuft trotz Kopfregel, nicht festgeschrieben');
+  ok(Station.waffenAutomatikAktiv(V.g) === false, 'vier Koepfe, Technik-Bot im Dienst: Ops ist besetzt (Ops-Bot an den Waffen), keine Waffenautomatik');
+  hoch(V.g, V.h); lauf(V, 40, () => Station.stationOf(botVon(V, 'technik')) === 'technik'); lauf(V, 2);
+  ok(V.g.ship.botAuto === false && Station.waffenAutomatikAktiv(V.g) === false, 'vier Koepfe, kein Dienst (Mensch wieder an Bord): wie vorher, keine Automatik');
+  const V2 = partie({ bots: ['navigation', 'ops', 'technik'] });
+  lauf(V2, 40, () => sitzen(V2)); lauf(V2, 2);
+  ok(V2.g.ship.botAuto === false && Station.waffenAutomatikAktiv(V2.g) === false && Station.botAutomatikStandard(V2.g) === false, 'vier Koepfe, kein Dienst: weiter keine Automatik (Kopfregel)');
+  // Ops im Dienst bei vier Koepfen: nur wenn der Ops-Bot den Dienst haelt (Technik-Bot bewusstlos, B-3), dann Waffenautomatik an
+  const W3 = partie({ bots: ['navigation', 'ops', 'technik'] });
+  lauf(W3, 40, () => sitzen(W3));
+  const tw = botVon(W3, 'technik'); tw.downed = true; tw.downedFor = 0;
+  runter(W3.h); lauf(W3, 40, () => botVon(W3, 'ops').console === 'transfer'); lauf(W3, 2);
+  ok(Lauf.bordBot(W3.g) === botVon(W3, 'ops') && Station.waffenAutomatikAktiv(W3.g) === true && Station.stationBesetzt(W3.g, 'weapons') === false, 'vier Koepfe, Ops-Bot im Dienst: Waffenautomatik an (B-1), Ops-Station frei');
+  const O4 = partie({ bots: ['navigation', 'ops', 'technik'] });
+  lauf(O4, 40, () => sitzen(O4)); lauf(O4, 2);
+  ok(Station.waffenAutomatikAktiv(O4.g) === false && Station.botAutomatikStandard(O4.g) === false, 'vier Koepfe, nur Mensch an Bord: wie bisher aus');
 }
 
 // ---------- 4 Ende des Dienstes ----------
@@ -241,28 +258,40 @@ section('5 Mensch an der Transfer-Konsole: der Bot weicht (12 s Tick fuer Tick, 
 }
 
 // ---------- 6 Wachposten ----------
-section('6 Wachposten: transfer.* und captain.* nur im Bord-Dienst');
+section('6 Wachposten: im Dienst nur die Whitelist (transfer.recall, captain.support), sonst nichts von transfer.*/captain.*');
 {
   const P = partie({ bots: ['navigation', 'ops', 'technik'] });
   const { g } = P;
   lauf(P, 40, () => sitzen(P));
   const ag = { navigation: agentVon(P, 'navigation'), ops: agentVon(P, 'ops'), technik: agentVon(P, 'technik') };
   const nachr = (c) => ({ t: 'cmd', c });
-  const zu = (a) => ['transfer.down', 'transfer.recall', 'transfer.ziel', 'captain.support', 'captain.scan', 'captain.order'].map((c) => a.erlaubt(nachr(c)));
-  ok(Object.values(ag).every((a) => zu(a).every((x) => x === false)), 'Mensch an Bord (kein Dienst): kein Bot darf transfer.* oder captain.*');
+  const ERLAUBT = ['transfer.recall', 'captain.support'];
+  const GESPERRT = ['transfer.down', 'transfer.up', 'transfer.ziel', 'transfer.supply', 'captain.scan', 'captain.order', 'captain.selectDest', 'captain.anzeigeziel', 'transfer.', 'captain.', 'transfer.recall2'];
+  const alle = ERLAUBT.concat(GESPERRT);
+  ok(Object.values(ag).every((a) => alle.every((c) => a.erlaubt(nachr(c)) === false)), 'Mensch an Bord (kein Dienst): kein Bot darf eines der transfer.*/captain.*-Kommandos');
   runter(P.h); lauf(P, 3);
-  ok(zu(ag.technik).every((x) => x === true), 'Dienst laeuft: der Technik-Bot darf transfer.* und captain.*');
-  ok([ag.navigation, ag.ops].every((a) => zu(a).every((x) => x === false)), 'die anderen Bots (kein Dienst) duerfen es weiter nicht');
+  ok(ERLAUBT.every((c) => ag.technik.erlaubt(nachr(c)) === true), 'Dienst laeuft: der Technik-Bot darf transfer.recall und captain.support');
+  ok(GESPERRT.every((c) => ag.technik.erlaubt(nachr(c)) === false), 'Dienst laeuft: alles andere aus transfer.*/captain.* bleibt gesperrt (down, up, ziel, supply, sonstige captain.*, Praefixe, Namensvarianten)');
+  const v0 = ag.technik.verworfen, b0 = ag.technik.befehle;
+  for (const c of GESPERRT) ag.technik.send(nachr(c));
+  ok(ag.technik.verworfen === v0 + GESPERRT.length && ag.technik.befehle === b0, `gesperrte Befehle im Dienst: send() verwirft jeden (verworfen +${ag.technik.verworfen - v0}), keiner geht raus`);
+  const v1 = ag.technik.verworfen;
+  for (const c of ERLAUBT) ag.technik.send(nachr(c));
+  ok(ag.technik.verworfen === v1 && ag.technik.befehle === b0 + ERLAUBT.length, 'die zwei erlaubten kommen durch den Wachposten (nicht verworfen, gezaehlt)');
+  ok([ag.navigation, ag.ops].every((a) => alle.every((c) => a.erlaubt(nachr(c)) === false)), 'die anderen Bots (kein Dienst) duerfen nichts davon');
   ok(ag.technik.erlaubt(nachr('technik.repair')) && !ag.technik.erlaubt(nachr('weapons.fire')) && !ag.technik.erlaubt(nachr('helm.stop')) && !ag.technik.erlaubt({ t: 'hello' }) && !ag.technik.erlaubt({ t: 'lobbyBot', op: 'add' }) && !ag.technik.erlaubt(nachr('transferdown')) && !ag.technik.erlaubt(nachr('captainsupport')), 'sonst unveraendert: eigene Station ja; fremde Stationen, hello, lobbyBot und Namen ohne Punkt nein');
-  const v0 = ag.technik.verworfen; ag.technik.send({ t: 'cmd', c: 'weapons.fire' });
-  ok(ag.technik.verworfen === v0 + 1, 'ein fremdes cmd wird vom Wachposten verworfen und gezaehlt');
+  const v2 = ag.technik.verworfen; ag.technik.send({ t: 'cmd', c: 'weapons.fire' });
+  ok(ag.technik.verworfen === v2 + 1, 'ein fremdes cmd wird vom Wachposten verworfen und gezaehlt');
   hoch(g, P.h); lauf(P, 2);
-  ok(zu(ag.technik).every((x) => x === false), 'Dienst vorbei: transfer.* und captain.* wieder gesperrt');
+  ok(alle.every((c) => ag.technik.erlaubt(nachr(c)) === false), 'Dienst vorbei: auch die zwei erlaubten wieder gesperrt');
   const src = fs.readFileSync(path.join(__dirname, '..', 'server', 'bots', 'mannschaft.js'), 'utf8');
   const erl = (/erlaubt\(msg\) \{[\s\S]*?\r?\n  \}/.exec(src) || [''])[0];
-  ok(/BORD_PRAEFIXE = \['transfer\.', 'captain\.'\]/.test(src) && /this\.bordDienstLaeuft\(\) && BORD_PRAEFIXE\.some/.test(erl), 'Quellscan: BORD_PRAEFIXE = transfer. und captain., im Wachposten nur zusammen mit bordDienstLaeuft()');
-  const freie = (src.match(/'(?:transfer|captain)\./g) || []).length;
-  ok(freie === 2, `Quellscan: mannschaft.js nennt die Praefixe nur in BORD_PRAEFIXE (${freie} Fundstellen)`);
+  const wl = /const BORD_BEFEHLE = \[([^\]]*)\]/.exec(src);
+  ok(!!wl && wl[1].split(',').map((x) => x.trim().replace(/'/g, '')).join() === 'transfer.recall,captain.support', 'Quellscan: BORD_BEFEHLE (benannte Whitelist) ist genau transfer.recall und captain.support');
+  ok(/this\.bordDienstLaeuft\(\) && BORD_BEFEHLE\.includes\(msg\.c\)/.test(erl), 'Quellscan: der Wachposten oeffnet die Whitelist nur zusammen mit bordDienstLaeuft(), exakter Vergleich (includes)');
+  const code = src.split(/\r?\n/).filter((z) => !/^\s*\/\//.test(z)).map((z) => z.replace(/\s\/\/.*$/, '')).join('\n');
+  const nennt = (code.match(/['"](?:transfer|captain)\.[a-zA-Z]*['"]/g) || []).filter((x, i, l) => l.indexOf(x) === i);
+  ok(nennt.every((x) => /^'(?:transfer\.recall|captain\.support)'$/.test(x)) && !/startsWith\(['"](?:transfer|captain)/.test(code), `Quellscan: im Code (ohne Kommentare) kommen transfer.*/captain.* nur als die zwei Whitelist-Namen vor, kein Praefix-Vergleich (${nennt.join(' ')})`);
 }
 
 // ---------- 7 bord.*-Befehle ----------
@@ -277,7 +306,7 @@ section('7 bord.*: kein_bot ohne Bord-Bot, nicht_jetzt mit Geruest');
   const antw = () => ['bord.rueckholen', 'bord.sensor', 'bord.kuppel'].map((b) => befehl(P, { an: 'bord', befehl: b }));
   let r = antw();
   ok(r.every((x) => x.length === 1 && x[0].status === 'abgelehnt' && x[0].textId === `${x[0].befehl}.abgelehnt.nicht_jetzt` && x[0].botId === tb.botId && typeof x[0].text === 'string'), 'mit Bots, Mensch an Bord: nicht_jetzt (Text vorhanden), Antwort vom Bord-Bot');
-  runter(P.h); lauf(P, 40, () => tb.console === 'transfer');
+  runter(P.h); lauf(P, 40, () => tb.console === 'transfer'); lauf(P, 1);
   r = antw();
   ok(r.every((x) => x.length === 1 && x[0].textId === `${x[0].befehl}.abgelehnt.nicht_jetzt` && x[0].botId === tb.botId), 'Dienst laeuft: weiter nicht_jetzt (Geruest, B2 bis B4 fuellen)');
   const alle = befehl(P, { an: 'alle', befehl: 'bord.sensor' });
@@ -289,10 +318,21 @@ section('7 bord.*: kein_bot ohne Bord-Bot, nicht_jetzt mit Geruest');
   const st = befehl(P, { an: 'alle', befehl: 'bot.status' });
   ok(st.length === 3 && st.every((x) => x.status === 'ok'), 'bot.status an alle: drei Antworten (bord kommt nicht als vierter Bot hinzu)');
   const stb = st.find((x) => x.botId === tb.botId);
-  ok(stb && /Transfer/.test(stb.text), `bot.status des Bord-Bots im Dienst nennt den Transfer ("${stb && stb.text}")`);
+  ok(stb && /Transfer/.test(stb.text) && agentVon(P, 'technik').absicht.zustand === 'an_station' && tb.console === 'transfer', `bot.status des Bord-Bots im Dienst nennt den Transfer ("${stb && stb.text}"), Zustand an_station, Konsole transfer`);
   ok(!st.filter((x) => x.botId !== tb.botId).some((x) => /Transfer/.test(x.text || '')), 'die anderen Bots nennen ihn nicht');
   const tp = befehl(P, { an: 'technik', befehl: 'tech.prio', args: { ziel: 'feuer' } });
-  ok(tp.length === 1 && tp[0].botId === tb.botId, 'Befehle der Rolle (tech.prio) gehen weiter an den Bord-Bot');
+  ok(tp.length === 1 && tp[0].botId === tb.botId, 'Befehle der Rolle (tech.prio) gehen weiter an den Bord-Bot (Antwort kommt von ihm)');
+  // B-6: im Dienst antworten die Rollen des Bord-Bots nicht_jetzt, nie ok; die Absicht bleibt leer
+  ok(tp[0].status === 'abgelehnt' && tp[0].textId === 'tech.prio.abgelehnt.nicht_jetzt' && typeof tp[0].text === 'string' && !/\bok\b/i.test(tp[0].text) && !agentVon(P, 'technik').absicht.halten.prio, 'Dienst: tech.prio an den Bord-Bot -> abgelehnt nicht_jetzt (Status geprueft, kein ok), keine Absicht gesetzt');
+  const rollen = [['technik', 'tech.reparieren', { system: 'engines' }], ['technik', 'tech.schild', { sektor: 'bug' }], ['technik', 'tech.energie', { system: 'engines', delta: '+1' }], ['technik', 'tech.ueberladen', {}]];
+  const antR = rollen.map(([an, b, args]) => befehl(P, { an, befehl: b, args })[0]);
+  ok(antR.every((x) => x && x.status !== 'ok' && !/\.ok$/.test(x.textId) && (x.status === 'abgelehnt' || x.status === 'unmoeglich')), `Dienst: weitere tech.*-Befehle an den Bord-Bot nie ok (${antR.map((x) => x && x.textId).join(', ')})`);
+  ok(antR.filter((x) => x && x.textId.endsWith('.abgelehnt.nicht_jetzt')).length >= 2, 'Dienst: mindestens die Annahme-Befehle sind nicht_jetzt (Prueffall der Registry bleibt dahinter wirksam)');
+  const stOk = befehl(P, { an: 'technik', befehl: 'bot.status' });
+  ok(stOk.length === 1 && stOk[0].status === 'ok' && /Transfer/.test(stOk[0].text), 'Ausnahme bot.status: im Dienst weiter ok, mit Transfer-Text');
+  const navR = befehl(P, { an: 'navigation', befehl: 'nav.stopp' });
+  const opsR = befehl(P, { an: 'ops', befehl: 'ops.feuer_halt' });
+  ok(navR[0].status === 'ok' && opsR[0].status === 'ok', 'die Bots ohne Dienst (Navigation, Ops) nehmen ihre Rollenbefehle weiter an (ok)');
   ok(P.g.errors === 0, 'game.errors 0');
 }
 
@@ -330,6 +370,175 @@ section('8 Reine Menschenpartie: der Lauf aendert nichts (auch mit Mensch unten 
   const mit = sha(false), ohne = sha(true);
   ok(mit.nSnap > 100 && mit.hash === ohne.hash, `Menschenpartien (Mensch unten, am Transfer): Snapshots, Nachrichten, Zufallsstand und Spieler byte-gleich mit echtem und leerem Lauf (${mit.nSnap} Snapshots)`);
   console.log('  info  Hash ' + mit.hash + ' (fuer den Vergleich vorher/nachher, Basis 73f93ed0)');
+  // Basisbaum 73f93ed0 per git archive (kein stash, kein checkout), dasselbe Messskript fuer beide Baeume
+  const BASIS = '73f93ed0';
+  const baum = path.join(TMP, 'basis');
+  let entpackt = false;   // ohne Shell und ohne -C <Laufwerkspfad> (GNU tar liest C: als Host)
+  try { fs.mkdirSync(baum, { recursive: true }); const tarball = cp.execFileSync('git', ['archive', BASIS], { cwd: path.join(__dirname, '..'), maxBuffer: 1 << 29 }); cp.execFileSync('tar', ['-x'], { cwd: baum, input: tarball }); entpackt = fs.existsSync(path.join(baum, 'server', 'game.js')); } catch (e) { console.log('  info  git archive nicht moeglich: ' + String(e.message).split('\n')[0]); }
+  if (entpackt) {
+    const messen = (wurzel) => JSON.parse(cp.execFileSync(process.execPath, [path.join(__dirname, 'mess-bot02-menschenpartie.js'), wurzel], { encoding: 'utf8', env: Object.assign({}, process.env, { NODE_PATH: path.join(__dirname, '..', 'node_modules') }) }).trim().split('\n').pop());
+    const alt = messen(baum), neu = messen(path.join(__dirname, '..'));
+    ok(alt.snapshots > 300 && alt.errors === 0 && neu.errors === 0 && alt.hash === neu.hash && alt.snapshots === neu.snapshots, `Basisstand ${BASIS} gegen Stand (drei Menschenpartien, Mensch unten und am Transfer): Hash gleich (${neu.hash.slice(0, 8)}, ${neu.snapshots} Snapshots, Fehler 0)`);
+  } else ok(false, 'Basisbaum ' + BASIS + ' liess sich nicht entpacken (git archive): Vergleich nicht moeglich');
+}
+
+// ---------- 9 Nacharbeit ----------
+section('9 Nacharbeit: Verwerfen, Dienstende mit Mensch an der Station, bewusstloser Bord-Bot, Beamen, Wiederbeginn, Raeumen');
+const Loc = require('../shared/locations.js');
+// Testsaeume fuer den Spielpfad des Beamens (Spielzustand wie ein Spieler ihn braucht, nichts am Dienst): die Mission sperrt die Plattform (Boje scannen), das Schiff steht ausserhalb der Beamreichweite
+function beamBereit(P) {
+  const g = P.g; g.mission.beamDownBlocked = () => null;
+  const sc = Loc.get(g.ship.scene).scene; g.ship.x = sc.station.x; g.ship.y = sc.station.y; g.ship.speed = 0;
+  return away.canBeam(g, 'down').ok;
+}
+{
+  // 9a Verwerfen beim Dienstbeginn: Haltezustand (tech.prio), Prioritaet im Schiff, Feuerzustand der Ops
+  const P = partie({ bots: ['navigation', 'ops', 'technik'] });
+  lauf(P, 40, () => sitzen(P));
+  const ag = agentVon(P, 'technik');
+  const r = befehl(P, { an: 'technik', befehl: 'tech.prio', args: { ziel: 'feuer' } });
+  lauf(P, 10, () => P.g.ship.priority === 'fire');
+  ok(r[0].status === 'ok' && !!ag.absicht.halten.prio && P.g.ship.priority === 'fire', 'Vorher: tech.prio feuer gesetzt (absicht.halten.prio) und im Schiff (ship.priority fire)');
+  runter(P.h); lauf(P, 3);
+  ok(Object.keys(ag.absicht.halten).length === 0 && !ag.absicht.befehl && ag.befehlGrund === 'bord' && P.g.ship.priority === null, `Dienstbeginn verwirft das Gehaltene: absicht.halten leer, befehlGrund bord (${ag.befehlGrund}), die Prioritaet im Schiff ist zurueckgenommen (${P.g.ship.priority})`);
+  const O = partie({ bots: ['ops'] });
+  lauf(O, 40, () => sitzen(O));
+  const ro = befehl(O, { an: 'ops', befehl: 'ops.feuer_halt' });
+  const ao = agentVon(O, 'ops');
+  ok(ro[0].status === 'ok' && ao.absicht.feuer === 'halt', 'Vorher: ops.feuer_halt gesetzt (absicht.feuer)');
+  runter(O.h); lauf(O, 3);
+  ok(!ao.absicht.feuer && ao.befehlGrund === 'bord', 'Dienstbeginn verwirft auch den Feuerzustand der Ops (befehlGrund bord)');
+}
+{
+  // 9b B-2: Dienst zu Ende, ein Mensch sitzt inzwischen an der Station des Bots: der Bot bleibt nicht am Transfer stehen
+  const P = partie({ bots: ['technik'], menschen: 2 });
+  const { g } = P; const a = P.h, b = P.conns[1].player, cb = P.conns[1]; const tb = botVon(P, 'technik'); let ag;
+  lauf(P, 40, () => sitzen(P)); ag = agentVon(P, 'technik');
+  runter(a); lauf(P, 40, () => tb.console === 'transfer'); lauf(P, 1);
+  interior.enterConsole(g, b, 'technik');
+  ok(tb.console === 'transfer' && b.console === 'technik', 'Ausgangslage: der Bot haelt den Transfer im Dienst, Mensch B sitzt an seiner Technik');
+  let d = null; const pruefe = () => { if (!d) d = doppelt(P); };
+  hoch(g, a);
+  const frei = lauf(P, 10, () => tb.console === null, pruefe); lauf(P, 8, null, pruefe);
+  ok(frei && tb.console === null && haelt(P, 'transfer').length === 0 && ag.absicht.zustand === 'wartet', 'Dienst zu Ende, Mensch an der Technik: der Bot verlaesst die Transfer-Konsole (kein Haenger) und wartet');
+  ok(b.console === 'technik' && !d && g.errors === 0, 'Mensch B behaelt die Technik, nie zwei Halter, keine Fehler');
+  g.handleMessage(cb, { t: 'leave' });
+  const zurueck = lauf(P, 40, () => Station.stationOf(tb) === 'technik'); lauf(P, 1);
+  ok(zurueck && ag.absicht.zustand === 'an_station', 'Mensch B geht: der Bot setzt sich wieder an die Technik');
+}
+{
+  // 9c B-3: bewusstloser Bord-Bot, Wechsel auf den naechsten, Hysterese
+  const P = partie({ bots: ['navigation', 'ops', 'technik'] });
+  const { g } = P; const tb = botVon(P, 'technik'), ob = botVon(P, 'ops');
+  lauf(P, 40, () => sitzen(P));
+  runter(P.h); lauf(P, 40, () => tb.console === 'transfer'); lauf(P, 1);
+  let d = null, wechsel = 0, letzter = Lauf.bordBot(g);
+  const pruefe = () => { if (!d) d = doppelt(P); const bb = Lauf.bordBot(g); if (bb !== letzter) { wechsel++; letzter = bb; } };
+  interior.downPlayer(g, tb, 'test');
+  ok(tb.downed && Lauf.bordBot(g) === ob && Lauf.dienstLaeuft(g, ob), 'Technik-Bot bewusstlos: der Ops-Bot ist Bord-Bot (Reihe Technik > Ops > Navigation, Bewusstlose uebersprungen)');
+  const da = lauf(P, 40, () => ob.console === 'transfer', pruefe); lauf(P, 1, null, pruefe);
+  ok(da && haelt(P, 'transfer').length === 1 && haelt(P, 'transfer')[0] === ob && !d, 'der Ops-Bot uebernimmt die Transfer-Konsole, nie zwei Halter');
+  ok(!Station.stationBesetzt(g, 'weapons') && Station.waffenAutomatikAktiv(g) === true, 'Ops-Station verwaist, Waffenautomatik springt ein (vier Koepfe, B-1)');
+  interior.revivePlayer(g, tb); wechsel = 0;
+  lauf(P, 30, null, pruefe);
+  ok(Station.stationOf(tb) === 'technik' && ob.console === 'transfer' && Lauf.bordBot(g) === ob && wechsel === 0 && !d, `Der Technik-Bot steht wieder auf, setzt sich an seine Technik und uebernimmt nicht zurueck (Hysterese: der Ops-Bot haelt sauber; Wechsel ${wechsel}, nie zwei Halter)`);
+  hoch(g, P.h); lauf(P, 40, () => sitzen(P), pruefe);
+  ok(sitzen(P) && haelt(P, 'transfer').length === 0 && Lauf.bordBot(g) === tb, 'Dienst zu Ende: alle drei Bots an ihren Stationen; beim naechsten Dienst gilt wieder die Reihe (Technik-Bot)');
+  runter(P.h); lauf(P, 40, () => tb.console === 'transfer');
+  ok(tb.console === 'transfer' && Lauf.bordBot(g) === tb && !d && g.errors === 0, 'naechster Dienst: der Technik-Bot haelt ihn wieder, keine Fehler');
+  // alle bewusstlos: kein Bord-Bot, keine Fehler
+  for (const p of g.players.filter((q) => q.bot)) interior.downPlayer(g, p, 'test');
+  lauf(P, 3);
+  ok(Lauf.bordBot(g) === null && g.errors === 0 && haelt(P, 'transfer').length === 0, 'alle Bots bewusstlos: kein Bord-Bot, Transfer frei, keine Fehler');
+}
+{
+  // 9d B-5: der Dienst beginnt beim Beamen (Spielpfad: E halten auf dem Pad, selfbeam -> p.hold beam -> executeBeam)
+  const P = partie({ bots: ['navigation', 'ops', 'technik'] });
+  const { g } = P; const tb = botVon(P, 'technik'); let ag;
+  lauf(P, 40, () => sitzen(P)); ag = agentVon(P, 'technik');
+  ok(beamBereit(P), 'Testsaum: Beamen moeglich (canBeam down)');
+  interior.placeOnShipPad(g, P.h, 0); lauf(P, 1);
+  ok(!Lauf.bordAktiv(g, tb), 'Mensch steht nur auf dem Pad: kein Dienst');
+  g.handleMessage(P.c, { t: 'act', down: true });
+  lauf(P, 0.2);
+  ok(P.h.hold && P.h.hold.kind === 'beam' && P.h.hold.dir === 'down' && P.h.zone === 'ship', 'Mensch haelt E auf dem Pad: p.hold beam (down), noch an Bord');
+  ok(Lauf.bordAktiv(g, tb), 'Beamstart (E-Halten): der Dienst ist faellig, bevor der Mensch unten ist');
+  lauf(P, 1);
+  ok(Station.stationOf(tb) !== 'technik' && (tb.console === 'transfer' || ag.absicht.zustand === 'unterwegs'), `Der Bot geht los (Konsole ${tb.console}, Zustand ${ag.absicht.zustand})`);
+  // Abbruch: E loslassen, Beam ab, Dienst endet, der Bot geht zurueck
+  g.handleMessage(P.c, { t: 'act', down: false });
+  lauf(P, 0.2);
+  ok(!P.h.hold && P.h.zone === 'ship' && !Lauf.bordAktiv(g, tb), 'E losgelassen: Beam abgebrochen (hold weg), der Dienst endet');
+  const zur = lauf(P, 40, () => Station.stationOf(tb) === 'technik'); lauf(P, 1);
+  ok(zur && tb.console === 'technik' && ag.absicht.zustand === 'an_station' && haelt(P, 'transfer').length === 0, 'der Bot sitzt wieder an der Technik, Transfer frei');
+  // vollstaendiger Beam: E halten bis zum Ende, der Mensch landet unten, der Bot steht am Transfer
+  const t0 = g.time;
+  g.handleMessage(P.c, { t: 'act', down: true });
+  const unten = lauf(P, 8, () => P.h.zone === 'away');
+  const tLand = g.time - t0; const amTransfer = tb.console === 'transfer';
+  ok(unten && P.h.zone === 'away', `Beamsequenz bis zum Ende (Spielpfad, ${tLand.toFixed(1)} s): der Mensch ist unten`);
+  console.log('  info  beim Landen: Bord-Bot an der Transfer-Konsole ' + (amTransfer ? 'ja' : 'nein, Zustand ' + ag.absicht.zustand));
+  ok(lauf(P, 40, () => tb.console === 'transfer') && Lauf.dienstLaeuft(g, tb), 'der Dienst laeuft nach der Landung weiter, der Bot haelt den Transfer');
+  g.handleMessage(P.c, { t: 'act', down: false });
+  hoch(g, P.h); lauf(P, 40, () => Station.stationOf(tb) === 'technik');
+  ok(Station.stationOf(tb) === 'technik' && g.errors === 0, 'Aufstieg: Dienst zu Ende, keine Fehler');
+}
+{
+  // 9d2 B-5 ueber die Konsole (transfer.down, away.consoleBeam): Mensch B am Transfer gewinnt, geht er, uebernimmt der Bot waehrend des laufenden Beams
+  const P = partie({ bots: ['navigation', 'technik'], menschen: 2 });
+  const { g } = P; const a = P.h, b = P.conns[1].player, cb = P.conns[1]; const tb = botVon(P, 'technik');
+  lauf(P, 40, () => sitzen(P));
+  beamBereit(P);
+  interior.placeOnShipPad(g, a, 0); interior.enterConsole(g, b, 'transfer');
+  lauf(P, 1);
+  g.handleMessage(cb, { t: 'cmd', c: 'transfer.down' });
+  ok(g.ship.beaming && g.ship.beaming.dir === 'down' && g.ship.beaming.pids.includes(a.id), 'Konsolen-Beam (transfer.down) laeuft: ship.beaming down mit dem Menschen auf dem Pad');
+  ok(Lauf.bordAktiv(g, tb) && !Lauf.dienstLaeuft(g, tb) && Station.stationOf(tb) === 'technik', 'Beam laeuft: der Dienst ist faellig, ruht aber, solange ein Mensch den Transfer haelt (der Bot bleibt an der Technik)');
+  g.handleMessage(cb, { t: 'leave' }); lauf(P, 0.3);
+  ok(g.ship.beaming && Lauf.dienstLaeuft(g, tb), 'Mensch B verlaesst die Konsole waehrend des Beams: der Dienst laeuft');
+  ok(lauf(P, 10, () => a.zone === 'away') && lauf(P, 40, () => tb.console === 'transfer'), 'der Beam endet unten, der Bot haelt den Transfer');
+}
+{
+  // 9e B-7: Wiederbeginn nach Mensch am Transfer verwirft das in der Zwischenzeit Gesetzte
+  const P = partie({ bots: ['technik'], menschen: 2 });
+  const { g } = P; const a = P.h, b = P.conns[1].player, cb = P.conns[1]; const tb = botVon(P, 'technik'); let ag;
+  lauf(P, 40, () => sitzen(P)); ag = agentVon(P, 'technik');
+  runter(a); lauf(P, 40, () => tb.console === 'transfer');
+  neben(g, b, 'transfer'); eTaste(g, cb);
+  lauf(P, 40, () => Station.stationOf(tb) === 'technik');
+  const r = befehl(P, { an: 'technik', befehl: 'tech.prio', args: { ziel: 'feuer' } });
+  lauf(P, 5, () => g.ship.priority === 'fire');
+  ok(r[0].status === 'ok' && !!ag.absicht.halten.prio, 'Mensch haelt den Transfer, der Bot an der Technik nimmt tech.prio an (ok, Absicht gesetzt)');
+  g.handleMessage(cb, { t: 'leave' });
+  ok(lauf(P, 40, () => tb.console === 'transfer') && Object.keys(ag.absicht.halten).length === 0 && ag.befehlGrund === 'bord' && g.ship.priority === null, 'Mensch geht, der Bot kehrt in den Dienst zurueck: das Gesetzte endet (bordBegonnen zurueckgesetzt), Prioritaet im Schiff weg');
+}
+{
+  // 9f der Bord-Bot wird im Dienst geraeumt (Verdraengen fuer einen neuen Menschen): Konsole frei, kein Haenger, der naechste Bot uebernimmt
+  const P = partie({ bots: ['navigation', 'ops', 'technik'] });
+  const { g } = P; const tb = botVon(P, 'technik'), ob = botVon(P, 'ops');
+  lauf(P, 40, () => sitzen(P));
+  runter(P.h); lauf(P, 40, () => tb.console === 'transfer'); lauf(P, 1);
+  const c2 = mensch(g, 1); const p2 = c2.player;
+  ok(p2 && p2.connected && !p2.bot && !tb.bot && tb.connected, 'der neue Mensch verdraengt den letzten Bot (Technik) mitten im Dienst und uebernimmt seinen Platz');
+  let d = null; lauf(P, 3, null, () => { if (!d) d = doppelt(P); });
+  ok(haelt(P, 'transfer').every((x) => x !== tb) && Lauf.agent(g, tb) === null && g.errors === 0, 'der geraeumte Bot haelt nichts mehr, sein Agent ist weg, keine Fehler');
+  ok(lauf(P, 40, () => ob.console === 'transfer', () => { if (!d) d = doppelt(P); }) && Lauf.bordBot(g) === ob && !d, 'der Ops-Bot ist jetzt Bord-Bot und haelt den Transfer (kein Haenger, nie zwei Halter)');
+  hoch(g, P.h); lauf(P, 40, () => Station.stationOf(ob) === 'weapons');
+  ok(Station.stationOf(ob) === 'weapons' && g.errors === 0, 'Dienst zu Ende: der Ops-Bot ist wieder an den Waffen');
+}
+
+{
+  // 9g Trennung des Menschen unten (zweiter Mensch bleibt): der Bot gibt den Transfer frei UND ist wieder an seiner Station
+  const P = partie({ bots: ['navigation', 'technik'], menschen: 2 });
+  const { g } = P; const tb = botVon(P, 'technik'); let ag;
+  lauf(P, 40, () => sitzen(P)); ag = agentVon(P, 'technik');
+  runter(P.h); lauf(P, 40, () => tb.console === 'transfer'); lauf(P, 1);
+  ok(tb.console === 'transfer' && g.players.filter((p) => p.connected && !p.bot).length === 2, 'Ausgangslage: Mensch 1 unten, der Bot haelt den Transfer, ein zweiter Mensch ist an Bord');
+  let d = null;
+  g.removeConnection(P.c);
+  const zur = lauf(P, 40, () => Station.stationOf(tb) === 'technik', () => { if (!d) d = doppelt(P); }); lauf(P, 1);
+  ok(zur && haelt(P, 'transfer').length === 0 && tb.console === 'technik' && ag.absicht.zustand === 'an_station' && !d, 'Trennung: der Bot gibt den Transfer frei UND ist wieder an der Technik (p.console technik, Zustand an_station)');
+  ok(g.errors === 0, 'game.errors 0');
 }
 
 console.log(fails ? `\ntest-bot02-bord: ${fails} FEHLER von ${n}` : `\ntest-bot02-bord: ${n}/${n} ok`);

@@ -60,14 +60,16 @@ function snapFelder(p) {
   return p.console && p.station && p.station !== p.console ? { station: p.station } : {};
 }
 
-// Waffenautomatik (§4.5): nur bei 1 oder 2 verbundenen Spielern UND unbesetzter Ops (besetzt durch Mensch oder Bot braucht sie niemand; unbesetzt entscheiden die Koepfe, Bots eingeschlossen).
+// Waffenautomatik (§4.5): nur bei unbesetzter Ops (besetzt durch Mensch oder Bot braucht sie niemand) und bei 1 oder 2 verbundenen Spielern (Bots eingeschlossen). BOT-02 B1: auch bei mehr Koepfen, wenn der Ops-Bot im Bord-Dienst ist (vertreten).
 function waffenAutomatikAktiv(game) {
-  return Crew.koepfe(game) <= game.C.waffenAutomatikMaxSpieler && !stationBesetzt(game, 'weapons');
+  if (stationBesetzt(game, 'weapons')) return false;
+  return Crew.koepfe(game) <= game.C.waffenAutomatikMaxSpieler || BotWeichen.vertreten(game, 'weapons');
 }
 // Bot-Automatik der Technik (§4.5): an bei genau 1 oder 2 verbundenen Spielern. BOT-01 B3: haelt ein Technik-Bot die Station, fuehrt er die Reparaturliste selbst (technik.botAuto), die Automatik der Schrauber ist dann nicht gebraucht.
 function botAutomatikStandard(game) {
   const t = halter(game, 'technik', null);
   if (t && Crew.istBot(t)) return false;
+  if (!t && BotWeichen.vertreten(game, 'technik')) return true;   // BOT-02 B1: der Technik-Bot ist im Bord-Dienst und die Technik verwaist: die Automatik springt unabhaengig von der Kopfzahl ein
   const n = Crew.koepfe(game);
   return n >= 1 && n <= game.C.botAutomatikMaxSpieler;
 }

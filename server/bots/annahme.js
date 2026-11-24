@@ -148,9 +148,13 @@ function statusText(msg, name, r) {
   if (t) msg.text = t;
   return msg;
 }
+// BOT-02 B1: haelt der Bot den Bord-Dienst (lauf.js dienstLaeuft), steht er nicht an seiner Station: Rollenbefehle (nav., ops., tech.) gehen nicht, ehrlich nicht_jetzt statt ok mit spaeterer Wirkung.
+// Ausnahmen: bot.* (status, automatik) und bord.* (eigene Registry).
+const ROLLENBEFEHL = /^(?:nav|ops|tech)\./;
 function fuerBot(game, bot, name, args) {
   const gruende = GRUENDE.befehle[name] || [];
   if (gruende.includes('wartet') && wartetAn(game, bot)) return antwort(game, bot.botId, name, 'abgelehnt', 'wartet');
+  if (ROLLENBEFEHL.test(name) && gruende.includes('nicht_jetzt') && Lauf.dienstLaeuft(game, bot)) return antwort(game, bot.botId, name, GRUENDE.gruende.nicht_jetzt, 'nicht_jetzt');
   let r, ursache = null;
   try { r = Befehle.befehl(game, bot, name, Object.assign({}, args)); } catch (e) { ursache = 'ausnahme: ' + (e && e.message); }
   if (!ursache && r && r.ok === true) return statusText(antwort(game, bot.botId, name, 'ok'), name, r);

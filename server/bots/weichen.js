@@ -4,6 +4,7 @@
 // BOT-02 B1: auch die Transfer-Konsole (Ort ohne Tab) gehoert dazu, wenn ein Bot sie im Bord-Dienst haelt (nur dann steht dort ein Bot); der Dienst ruht, bis der Mensch geht (mannschaft.js).
 //   kannWeichen(game, kind, mensch)    nur lesen: wuerde der Bot (und nur Bots) an kind weichen? (Aktionsliste „Konsole besetzt“ in interior.js)
 //   weichtFuerMensch(game, kind, mensch)  der Bot gibt die Station frei (game.platzFreigeben); true = die Station ist jetzt frei fuer den Menschen
+//   vertreten(game, kind)              BOT-02 B1: ein Bord-Bot haelt den Dienst wirklich und die Station seiner Rolle ist kind (lauf.js stationVertreten); station.js zaehlt sie dann als vertreten (Automatik nach Kopfregel ODER vertreten)
 // Aufrufer: Station.tab (Tab auf eine Bot-Station), interior.consoleOccupant (Aktionsliste) und interior.performInteraction (Konsole betreten).
 // Wieder uebernehmen: der Agent prueft jeden Tick, ob ein Mensch seine Station haelt, und geht zurueck, sobald nicht (kein Aufruf noetig).
 const Crew = require('../sim/crew.js');
@@ -31,4 +32,7 @@ function weichtFuerMensch(game, kind, mensch) {
   return true;
 }
 
-module.exports = { BOT_STATIONEN, BOT_ORTE, kannWeichen, weichtFuerMensch };
+// station.js (Automatik-Schwellen) fragt hier, ob der Bord-Dienst eines Bots die Station verwaist hat; Lauf erst beim Aufruf (Zirkelbezug), der Bot-Bezug bleibt in diesem Modul
+function vertreten(game, kind) { return require('./lauf.js').stationVertreten(game, kind); }
+
+module.exports = { BOT_STATIONEN, BOT_ORTE, kannWeichen, weichtFuerMensch, vertreten };

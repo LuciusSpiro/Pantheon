@@ -5,8 +5,9 @@
 //   ops (Kern-Rolle weapons)        Ops-Konsole besetzen, fight (Ladepunkte, Lanze, Batterien, Zusatzwaffen); die Marke des Captains (capZiel), dann ein von anderen markiertes Ziel geht vor (waehleZiel).
 //   technik (Kern-Rolle technik)    Technik-Konsole besetzen (eigene Rolle, kein Tab ueber den Captain-Platz), technikDienst: Schilde verteilen, Reparaturliste und Prioritaeten. Die Schrauber (sim/bots.js) arbeiten die Liste ab; technik.botAuto sendet der Agent nie (botAutomatikStandard entscheidet).
 // BOT-01 C2b: ops und technik tragen Befehle als Absicht (absicht.befehl ops.ziel, absicht.feuer/waffen, absicht.halten scan/prio/schild); Einmal-Aktionen gehen ueber einmalig(), bot.automatik loescht alles.
-// BOT-02 B1: Bord-Dienst (Zusatzdienst, siehe lauf.js bordBot): ist ein Mensch im Aussenteam unten, geht der Bord-Bot zur Transfer-Konsole (Ort, kein Tab) und haelt sie; sein Rollenverhalten ruht, die Station-Automatik springt ein. Der Wachposten
-// erlaubt ihm dann transfer.* und captain.*. Ende: kein Mensch mehr unten -> leave und zurueck an die Station. Ein Mensch an der Transfer-Konsole gewinnt (weichen.js): der Dienst ruht, der Bot geht an seine Station.
+// BOT-02 B1: Bord-Dienst (Zusatzdienst, siehe lauf.js bordBot/dienstLaeuft): ist ein Mensch im Aussenteam unten oder beamt gerade runter, geht der Bord-Bot zur Transfer-Konsole (Ort, kein Tab) und haelt sie; sein Rollenverhalten ruht, die Station-Automatik
+// springt ein (station.js, ueber weichen.js vertreten). Der Wachposten erlaubt ihm dann genau die Befehle aus BORD_BEFEHLE (Whitelist, keine Praefixe). Ende: kein Mensch mehr unten -> leave und zurueck an die Station. Ein Mensch an der Transfer-Konsole
+// gewinnt (weichen.js): der Dienst ruht (dienstLaeuft false), der Bot geht an seine Station.
 // Der Agent sendet alles ueber game.handleMessage(p.conn, msg), nie hello/ready/Loadout und nur Befehle der eigenen Station (erlaubt()). Mensch gewinnt: haelt ein Mensch die Station des Bots, ist der Zustand 'wartet' und der Bot sendet nichts fuer sie.
 // Zustand (Absicht) lebt im Agenten, nie im Spielerobjekt oder Snapshot. Zufall und Mitspieler gehoeren dem Lauf des Games (zufall, kollegen), kein Modulzustand.
 const Protocol = require('../../shared/protocol.js');
@@ -29,7 +30,9 @@ const ANKUNFT_VORHALT = 60;   // steer wird auf diesen Abstand weniger gesteuert
 const ABSTAND_STANDARD = 400;   // nav.abstand ohne meter: wie helmManeuver bisher
 const ABSTAND_TOLERANZ = 40;   // nav.abstand an einem festen Punkt (Station, Fund): so genau haelt der Bot den Abstand
 const PRIO_DAUERHAFT = ['fire', 'breach'];   // tech.prio feuer/leck gelten bis bot.automatik, Gegenbefehl oder Mensch; eine System-Prioritaet endet, wenn das System heil ist
-const BORD_PRAEFIXE = ['transfer.', 'captain.'];   // BOT-02 B1: nur der Bord-Dienst darf sie senden (Wachposten), nie die normale Rolle
+// BOT-02 B1: Whitelist der Befehle, die nur der Bord-Dienst senden darf (Wachposten), nie die normale Rolle. Exakte Namen, keine Praefixe: B1 braucht nur die Rueckholung und die Unterstuetzung (captain.support, serverseitig nur an der
+// Captain-Konsole; der Bot laeuft dafuer ab B2 dorthin). transfer.down/up/ziel/supply und alle uebrigen captain.* bleiben gesperrt, auch im Dienst. B2/B3 erweitern die Liste bei Bedarf einzeln, nie per Praefix.
+const BORD_BEFEHLE = ['transfer.recall', 'captain.support'];
 const FRIST_FRISCH = 6;   // Ticks: aelterer Snapshot als das zaehlt nicht (Schutz vor einem Rest aus einer frueheren Partie)
 
 class BotMannschaft extends BotKern {
@@ -54,11 +57,11 @@ class BotMannschaft extends BotKern {
   automatikAbschalten() { return false; }
   hello() { /* Server-Bots haben kein hello und kein ready (sie sind Spieler seit der Lobby) */ }
 
-  // Wachposten: nur Eingabe, Aktion, Konsole verlassen, Ablegen und Befehle der eigenen Station (plus Tab). Nie hello, ready, lobbyBot, captain.*, Loadout, Debug.
+  // Wachposten: nur Eingabe, Aktion, Konsole verlassen, Ablegen und Befehle der eigenen Station (plus Tab; im Bord-Dienst die Whitelist BORD_BEFEHLE). Nie hello, ready, lobbyBot, sonstige captain.*/transfer.*, Loadout, Debug.
   erlaubt(msg) {
     switch (msg && msg.t) {
       case 'input': case 'act': case 'leave': case 'drop': return true;
-      case 'cmd': return typeof msg.c === 'string' && (msg.c === Protocol.CMD_STATION_TAB || msg.c.startsWith(this.stationKind + '.') || (this.bordDienstLaeuft() && BORD_PRAEFIXE.some((x) => msg.c.startsWith(x))));
+      case 'cmd': return typeof msg.c === 'string' && (msg.c === Protocol.CMD_STATION_TAB || msg.c.startsWith(this.stationKind + '.') || (this.bordDienstLaeuft() && BORD_BEFEHLE.includes(msg.c)));
       default: return false;
     }
   }
@@ -109,9 +112,13 @@ class BotMannschaft extends BotKern {
   tick(S) {
     const p = this.me(S); const live = this.spieler;
     if (!p || live.conn !== this.conn || this.game.phase !== 'play' || S.phase !== 'play' || this.game.tick - S.tick > FRIST_FRISCH) return;
-    const dienst = this.bordDienstLaeuft() && !this.menschHaeltTransfer();   // Mensch an der Transfer-Konsole gewinnt: der Dienst ruht, der Bot tut seine Rolle
-    if (!this.bordDienstLaeuft()) this.bordBegonnen = false;
-    if (!dienst && this.menschHaeltStation()) { this.zustandSetzen('wartet'); this.alleVerwerfen('mensch'); return; }   // BOT-02 B1: mit Bord-Dienst steht der Bot nicht an seiner Station, ein Mensch dort stoert ihn nicht
+    const dienst = this.bordDienstLaeuft();   // lauf.js dienstLaeuft: Mensch unten oder beamt, kein Mensch an der Transfer-Konsole (der gewinnt: der Dienst ruht, der Bot tut seine Rolle)
+    if (!dienst) this.bordBegonnen = false;   // auch solange ein Mensch den Transfer haelt: beim Wiederbeginn endet das in der Zwischenzeit Gesetzte
+    if (!dienst && this.menschHaeltStation()) {   // BOT-02 B1: mit Bord-Dienst steht der Bot nicht an seiner Station, ein Mensch dort stoert ihn nicht
+      this.zustandSetzen('wartet'); this.alleVerwerfen('mensch');
+      if (live.console && live.console !== this.stationKind) this.send({ t: 'leave' });   // Dienst zu Ende, ein Mensch sitzt inzwischen an der Station des Bots: die Transfer-Konsole freigeben, nicht dort stehen bleiben
+      return;
+    }
     if (Station.stationOf(p) !== Station.stationOf(live)) return;   // der Snapshot ist aelter als ein Stationswechsel: erst mit dem naechsten handeln
     if (this.waitT > 0) { this.waitT -= DT; return; }
     if (p.downed) { this.alleVerwerfen('unten'); this.input(0, 0); this.act(false); this.ix = null; return; }
@@ -123,10 +130,9 @@ class BotMannschaft extends BotKern {
   }
 
   // BOT-02 B1: Bord-Dienst. Ein Mensch im Aussenteam unten und dieser Bot ist der Bord-Bot (lauf.js)
-  bordDienstLaeuft() { return this.lauf.bordAktiv(this.spieler); }
-  menschHaeltTransfer() { return this.game.players.some((o) => o !== this.spieler && !Crew.istBot(o) && o.connected && o.console === 'transfer'); }
-  // Zur Transfer-Konsole gehen und dort bleiben; das Rollenverhalten ruht (Haelt ein Mensch die Transfer-Konsole, laeuft der Dienst nicht: tick, Mensch gewinnt, weichen.js).
-  // Beim Beginn endet alles Gehaltene der Rolle (Befehle, Prioritaet), die Station-Automatik uebernimmt (Technik: botAutomatikStandard, Ops: waffenAutomatikAktiv, beides nach Koepfen); technik.botAuto sendet der Agent nie.
+  bordDienstLaeuft() { return this.lauf.dienstLaeuft(this.spieler); }   // eine Quelle (lauf.js): Bord-Bot, Dienst faellig, kein Mensch an der Transfer-Konsole
+  // Zur Transfer-Konsole gehen und dort bleiben; das Rollenverhalten ruht (Haelt ein Mensch die Transfer-Konsole, laeuft der Dienst nicht: Mensch gewinnt, weichen.js).
+  // Beim Beginn endet alles Gehaltene der Rolle (Befehle, Prioritaet), die Station-Automatik uebernimmt (Technik: botAutomatikStandard, Ops: waffenAutomatikAktiv, beides ueber weichen.js vertreten, auch bei mehr als zwei Koepfen); technik.botAuto sendet der Agent nie.
   bordDienst(S) {
     if (!this.bordBegonnen) { this.alleVerwerfen('bord'); this.bordBegonnen = true; }
     const da = this.enter(S, 'transfer');
