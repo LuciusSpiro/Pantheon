@@ -4,6 +4,8 @@
 //   loc=hafen|splitter|b7|vaelen|wrack|nebel|relais   Start-Ort        console=helm|captain|weapons|technik|plan|quartier|shop|transfer
 //   tab=0..3 (Captain-Reiter; bei console=technik 0..1)  station=technik (Interface weicht vom Ort ab)   zone=away   reactor=overload|offline   scanned=1 (Gegner gescannt)   reveal=1 (Verstecke aufgedeckt)
 //   markers=1 (Captain-/Ops-Marker)   pins=1 (Plan-Pins)   ivo=1 (Ivo an Bord)   m1end=1 (Ende-Screen)   mockcrew=0 (solo)
+//   BOT-01 C3: mockbots=navigation,ops,technik (die Mitspieler p2.. sind Bots: players[].bot=1, rolle; Befehlsmenü am Captain-Pult; bot.befehl wird mit bot.antwort beantwortet, ops.ziel:markiert wird abgelehnt)
+//             mockmensch=helm|weapons|technik (ein Mensch sitzt dort: der Bot der Rolle wartet)
 //   pos=x,y (eigene Kachel)   phase=lobby   personen=1 (W2 AP6: drei Personen auf der Außenkarte, mit zone=away)
 //   M3a/§20: korvette=1  tele=1 (Ladung endlos)  charging=1 (Lanze lädt endlos)  salvo=1 (Batterien feuern laufend)  fastcharge=1  dmg=1  mg=1
 //   M3b: stage=0..5 (Startstufe)  raiders=1 (Jäger fliegen Anflug/Überflug/Wende)  esc=1 (Eskalations-Zähler laufen)
@@ -143,6 +145,12 @@
     const long = params.get('mocknames') === 'lang';   // S1: lange Namen für Layout-Prüfung
     const players = [mkPlayer('p1', long ? 'Bartholomäus' : 'Du', 0, sp[0])];
     if (crew) { players.push(mkPlayer('p2', long ? 'Kunigundchen' : 'Mira', 1, sp[1])); players.push(mkPlayer('p3', long ? 'Maximilianus' : 'Juno', 2, sp[2])); players[1].ready = players[2].ready = true; }
+    // BOT-01 C3: ?mockbots=navigation,ops – die Mitspieler werden zu Bots (Snapshot players[].bot = 1, rolle); ?mockmensch=helm setzt einen Menschen an diese Station
+    ((params.get('mockbots') || '').split(',').filter(Boolean)).forEach((rolle, i) => {
+      const pl = players[i + 1] || (players[i + 1] = mkPlayer('p' + (i + 2), 'Bot ' + rolle, i + 1, sp[(i + 1) % sp.length]));
+      pl.bot = 1; pl.rolle = rolle; pl.ready = true; pl.name = pl.name === 'Mira' || pl.name === 'Juno' || pl.name.indexOf('Bot ') === 0 ? 'Bot ' + rolle : pl.name;
+    });
+    if (params.get('mockmensch')) { const pl = mkPlayer('p9', 'Tom', 3, sp[0]); pl.console = params.get('mockmensch'); pl.ready = true; players.push(pl); }
     const deco = {};
     for (const b of Maps.BEDS) for (const s of b.slots) deco[s.id] = null;
     deco.q0a = 'trophaee_boje'; deco.q1a = 'poster'; deco.q1b = 'aquarium'; deco.q2c = 'sessel';
@@ -1155,6 +1163,7 @@
         if (typeof msg.liveSpielleiter === 'boolean' && W.lobbyOpts.startMission === 'freie_fahrt' && !W.lobbyOpts.world) W.lobbyOpts.liveSpielleiter = msg.liveSpielleiter;
         break;
       case 'lobbyBot': notice('Bots gibt es nur am echten Server'); break;   // BOT-01 B2
+      case 'bot.befehl': botBefehl(msg); break;   // BOT-01 C3
       case 'mark': W.away.marker = { x: msg.x, y: msg.y }; break;
       case 'cmd': cmd(p, msg); break;
       case 'ping': emit({ t: 'pong', ts: msg.ts }); break;
@@ -1166,6 +1175,17 @@
         else if (msg.cmd === 'reveal') W._hidden.forEach(h => { h.revealed = true; });
         break;
     }
+  }
+  // BOT-01 C3: Mock-Antworten auf bot.befehl (je angesprochenem Bot eine); echte Wirkung gibt es nur am Server
+  function botBefehl(msg) {
+    const bots = W.players.filter((p) => p.bot), ziel = msg.an === 'alle' ? bots : bots.filter((p) => p.rolle === msg.an);
+    const antwort = (botId, status, textId, text) => setTimeout(() => emit({ t: 'bot.antwort', botId, befehl: msg.befehl, status, textId, text }), 120);
+    if (!ziel.length) { antwort(null, 'unmoeglich', msg.befehl + '.unmoeglich.kein_bot', 'Dafür ist niemand an Bord.'); return; }
+    ziel.forEach((p) => {
+      const botId = 'b' + bots.indexOf(p);
+      if (msg.befehl === 'ops.ziel' && msg.args && msg.args.ziel === 'markiert') antwort(botId, 'abgelehnt', 'ops.ziel.abgelehnt.kein_ziel', 'Es ist kein Ziel markiert.');
+      else antwort(botId, 'ok', msg.befehl + '.ok', 'Aye, ' + msg.befehl + '.');
+    });
   }
   function setReactor(state) {
     const r = W.ship.reactor;

@@ -33,8 +33,8 @@ if (process.argv.includes('--selftest')) {
 }
 // SYS-01 (Designer): die Tokens der Systemanzeige unterliegen derselben Regel (Farbwerte nur im Token-Block); SUND-04b D: ebenso die des Auftragsbretts;
 // CHA-01 (Designer): ebenso Kleiderkammer, Startmenü und Namensmarke. Neue Kammer-/Menü-Dateien (pult-kammer*.js, menue*.js) fallen automatisch darunter.
-const TOKEN_DATEIEN = ['pult-systeme-tokens.js', 'pult-auftrag-tokens.js', 'pult-kammer-tokens.js', 'menue-tokens.js', 'namensmarke-tokens.js'];
-const dateien = fs.readdirSync(DIR).filter((f) => (/terminal/i.test(f) || /^pult-kammer/.test(f) || /^menue/.test(f) || TOKEN_DATEIEN.includes(f)) && f.endsWith('.js'));
+const TOKEN_DATEIEN = ['pult-systeme-tokens.js', 'pult-auftrag-tokens.js', 'pult-kammer-tokens.js', 'menue-tokens.js', 'namensmarke-tokens.js', 'pult-befehl-tokens.js'];   // BOT-01 C3: Befehlsmenü (Tokens und Zeichencode pult-befehl*.js)
+const dateien = fs.readdirSync(DIR).filter((f) => (/terminal/i.test(f) || /^pult-kammer/.test(f) || /^menue/.test(f) || /^pult-befehl/.test(f) || TOKEN_DATEIEN.includes(f)) && f.endsWith('.js'));
 for (const f of TOKEN_DATEIEN) if (!dateien.includes(f)) { console.log(`Token-Datei fehlt: public/js/${f}`); process.exit(1); }
 const treffer = dateien.flatMap((f) => pruefe(f, fs.readFileSync(path.join(DIR, f), 'utf8')));
 console.log(`${dateien.length} Terminal-Datei(en) geprüft: ${dateien.join(', ') || '–'}`);

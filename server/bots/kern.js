@@ -403,28 +403,8 @@ class BotKern {
   steer(S, tx, ty, arriveDist, maxSpd) {
     const sh = S.ship;
     const gd = Math.hypot(tx - sh.x, ty - sh.y) || 1;
-    if (S.space.asteroids) this.memo.asteroids = S.space.asteroids;
-    if (this.memo.astScene !== sh.scene && S.space.asteroids) this.memo.astScene = sh.scene;
-    // W2 AP3b: bewegte Brocken (Wellen All) mit derselben Drift-Funktion wie Server und Client; still: unverändert
-    const rocks = this.memo.astScene === sh.scene ? Drift.jetzt(this.memo.asteroids || [], S.time) : [];
     const goalA = Math.atan2(ty - sh.y, tx - sh.x);
-    const clear = (a, len) => {
-      const cx = Math.cos(a), cy = Math.sin(a);
-      for (const r of rocks) {
-        const rx = r.x - sh.x, ry = r.y - sh.y;
-        const along = rx * cx + ry * cy;
-        if (along < -10 || along > len + r.r) continue;
-        if (Math.abs(-rx * cy + ry * cx) < r.r + 36 + 22) return false;
-      }
-      return true;
-    };
-    let desired = goalA;
-    const look = Math.min(280, gd);
-    for (let k = 0; k <= 16; k++) {
-      const cands = k === 0 ? [goalA] : [goalA + k * 0.12, goalA - k * 0.12];
-      const ok = cands.filter((a) => clear(a, look)).sort((a, b) => Math.abs(norm(a - sh.angle)) - Math.abs(norm(b - sh.angle)));
-      if (ok.length) { desired = ok[0]; break; }
-    }
+    const desired = this.freierWinkel(S, goalA, Math.min(280, gd));
     const diff = norm(desired - sh.angle);
     const turn = this.turnCmd(S, diff);
     const rest = Math.max(0, gd - arriveDist);
@@ -437,6 +417,31 @@ class BotKern {
     else stage = this.stageFor(targetSpeed);
     this.helmS(S, turn, stage);
     return gd <= arriveDist;
+  }
+  // Wunschwinkel zum Zielwinkel goalA, der auf den naechsten len px keinem Brocken zu nahe kommt (BOT-01 C2a Nacharbeit: aus steer herausgezogen, auch fuer nav.schub; Verhalten von steer unveraendert)
+  freierWinkel(S, goalA, len0) {
+    const sh = S.ship;
+    if (S.space.asteroids) this.memo.asteroids = S.space.asteroids;
+    if (this.memo.astScene !== sh.scene && S.space.asteroids) this.memo.astScene = sh.scene;
+    // W2 AP3b: bewegte Brocken (Wellen All) mit derselben Drift-Funktion wie Server und Client; still: unverändert
+    const rocks = this.memo.astScene === sh.scene ? Drift.jetzt(this.memo.asteroids || [], S.time) : [];
+    const clear = (a, len) => {
+      const cx = Math.cos(a), cy = Math.sin(a);
+      for (const r of rocks) {
+        const rx = r.x - sh.x, ry = r.y - sh.y;
+        const along = rx * cx + ry * cy;
+        if (along < -10 || along > len + r.r) continue;
+        if (Math.abs(-rx * cy + ry * cx) < r.r + 36 + 22) return false;
+      }
+      return true;
+    };
+    let desired = goalA;
+    for (let k = 0; k <= 16; k++) {
+      const cands = k === 0 ? [goalA] : [goalA + k * 0.12, goalA - k * 0.12];
+      const ok = cands.filter((a) => clear(a, len0)).sort((a, b) => Math.abs(norm(a - sh.angle)) - Math.abs(norm(b - sh.angle)));
+      if (ok.length) { desired = ok[0]; break; }
+    }
+    return desired;
   }
   // Anhalten: Allstopp (X) bei Fahrt, sonst STOPP. true = steht.
   brake(S) {
@@ -778,7 +783,7 @@ class BotKern {
     if (e.kind === 'raider' || e.kind === 'relay') this.helmS(S, this.turnCmd(S, this.randNachMitte(S)), HALF);   // SYS-01 C1a-2 Nacharbeit: Kurs halten, am Kartenrand zur Mitte (sonst steht die Lerche mit dem Bug an der Wand, ein Jäger mit Restintegrität fliegt Kreise außer Bogen)
     else if (this.pilot() === 'maneuver') this.helmManeuver(S, e, LANGSAM_ZIELE.includes(e.kind) ? { slow: true } : undefined);   // SYS-02c: gegen langsame Kampfschiffe (Kreuzer 32 px/s) stehen bleiben: die Breitseite schleppt das Ziel mit (es kreist auf Lerche ± 90°), mit ½-Tempo läuft es ab und feuert aus der Reichweite
     else this.aimHelm(S, e, e.kind === 'pylon' || e.kind === 'relay' ? 380 : 450);
-    // Reflex beider Strategien: Ausweichrolle vor einem nahen Projektil
+    // Reflex beider Strategien: Ausweichrolle vor einem nahen Projektil. BOT-01 C2a: mannschaft.js ausweichenImBefehl traegt dieselbe Bedingung (90 px, dodgeCd, 1 s Sperre), beide synchron halten (der Test in tools/test-bot-befehle-nav.js vergleicht die Schwellen)
     if (S.space.projectiles.some((q) => (q.kind === 'enemy' || q.kind === 'emp') && dist(q.x, q.y, sh.x, sh.y) < 90) && sh.dodgeCd === 0 && (this.memo.dodgeAt || 0) < S.time) { this.memo.dodgeAt = S.time + 1; this.cmd('helm.dodge', { dir: this.zufall() < 0.5 ? -1 : 1 }); }
   }
   // Drehwunsch (rad, relativ zum Bug) zur Kartenmitte, wenn das Schiff im Randstreifen liegt; sonst 0 (Kurs halten)
@@ -834,7 +839,8 @@ class BotKern {
     const s = m.side === 'stbd' ? 1 : -1;
     // Ladung eines Gegners, der uns im Bogen hat: wegdrehen auf VOLL (aus Bogen/Reichweite)
     const threat = S.space.enemies.find((q) => q.tele && q.tele.left > 0.4 && dist(q.x, q.y, sh.x, sh.y) < 620);
-    const delta = clamp((d - 400) / 250, -0.4, 0.4);   // > 0: näher ran (Ziel etwas mehr nach vorn), < 0: Abstand gewinnen
+    const abstand = (opts && opts.abstand) || 400;   // BOT-01 C2a: nav.abstand setzt ihn, sonst wie immer 400
+    const delta = clamp((d - abstand) / 250, -0.4, 0.4);   // > 0: näher ran (Ziel etwas mehr nach vorn), < 0: Abstand gewinnen
     if (threat && !(opts && opts.slow)) {
       const tb = Math.atan2(threat.y - sh.y, threat.x - sh.x);
       const away = norm(tb + Math.PI);
