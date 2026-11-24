@@ -14,6 +14,7 @@ const Crew = require('./crew.js');   // BOT-01 A2: Zählung über crew.js (Köpf
 const Medipack = require('./medipack.js');   // ITM-01 A: Medipack als Slot-Item mit Ladungen (meldet sich als Item `medipack` an)
 const Haken = require('../telemetrie/haken.js');   // TEL-01 B2: Protokoll-Haken (lesen nur)
 const Physics = require('../../shared/physics.js');
+const Buehne = require('../../shared/buehne.js');   // BOT-02 A1: Solo-Zählung des Rätselpaars (raetselSolo)
 const Los = require('../../shared/los.js');
 const Protocol = require('../../shared/protocol.js');
 const W = require('../world.js');
@@ -1247,7 +1248,7 @@ function jammerOff(game, p, i) {
 // QA M2: Ist nur noch ein Spieler verbunden, reicht das Zeitfenster zum Hinüberlaufen (sonst Sackgasse am Tor)
 function keyWindow(game) {
   const C = cfg(game);
-  const solo = Crew.koepfe(game) <= 1;   // Falle -> BOT-02 A: Archiv-Schlüssel-Fenster hängt an „solo“
+  const solo = Buehne.raetselSolo(game.players);   // BOT-02 A1: „solo“ = genau 1 Spieler im Außenteam (wie das Rätselpaar), nicht Köpfe insgesamt
   return solo ? Math.max(C.archkeyWindow, C.archkeySoloWindow || 0) : C.archkeyWindow;
 }
 function keyTurned(game, p, i) {
