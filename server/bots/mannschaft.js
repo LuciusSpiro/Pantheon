@@ -4,6 +4,7 @@
 //                                   Reisen, Andocken und Kurssetzen nur auf Befehl des Captains (BOT-01 C2a: nav.kurs, nav.abstand, nav.andocken, nav.sprung, nav.schub als Absicht, siehe Abschnitt Befehle der Navigation unten).
 //   ops (Kern-Rolle weapons)        Ops-Konsole besetzen, fight (Ladepunkte, Lanze, Batterien, Zusatzwaffen); die Marke des Captains (capZiel), dann ein von anderen markiertes Ziel geht vor (waehleZiel).
 //   technik (Kern-Rolle technik)    Technik-Konsole besetzen (eigene Rolle, kein Tab ueber den Captain-Platz), technikDienst: Schilde verteilen, Reparaturliste und Prioritaeten. Die Schrauber (sim/bots.js) arbeiten die Liste ab; technik.botAuto sendet der Agent nie (botAutomatikStandard entscheidet).
+// BOT-01 C2b: ops und technik tragen Befehle als Absicht (absicht.befehl ops.ziel, absicht.feuer/waffen, absicht.halten scan/prio/schild); Einmal-Aktionen gehen ueber einmalig(), bot.automatik loescht alles.
 // Der Agent sendet alles ueber game.handleMessage(p.conn, msg), nie hello/ready/Loadout und nur Befehle der eigenen Station (erlaubt()). Mensch gewinnt: haelt ein Mensch die Station des Bots, ist der Zustand 'wartet' und der Bot sendet nichts fuer sie.
 // Zustand (Absicht) lebt im Agenten, nie im Spielerobjekt oder Snapshot. Zufall und Mitspieler gehoeren dem Lauf des Games (zufall, kollegen), kein Modulzustand.
 const Protocol = require('../../shared/protocol.js');
@@ -12,7 +13,8 @@ const Station = require('../sim/station.js');
 const Space = require('../sim/space.js');
 const Sonden = require('../sim/sonden.js');
 const CaptainZiel = require('../sim/captainziel.js');
-const { BotKern, DT, STOP, LANGSAM_ZIELE, dist, norm } = require('./kern.js');
+const Katalog = require('../../shared/schiffskatalog.js');
+const { BotKern, DT, STOP, LANGSAM_ZIELE, BOT_SCHILD_SEKTOR_MAX, dist, norm } = require('./kern.js');
 const Absicht = require('./absicht.js');
 const Navziel = require('./navziel.js');
 
@@ -38,6 +40,7 @@ class BotMannschaft extends BotKern {
     this.befehlGrund = null;   // BOT-01 C2a: warum der letzte Befehl endete (angekommen, stopp, ziel_weg, mensch, aussenteam, szene, ...); nur fuer Tests und Berichte
     this.befehle = 0; this.verworfen = 0;   // gesendete cmd; vom Wachposten abgewiesene Nachrichten (muss 0 bleiben)
     this.memo.gesendeteZiele = new Set();
+    this.prioSperre = false;   // BOT-01 C2b: waehrend queueRepairs mit gehaltener tech.prio unterdrueckt cmd die Standard-Prioritaeten
   }
   zufall() { return this.rng(); }
   kollegen() { return this.lauf.liste(); }
@@ -59,6 +62,8 @@ class BotMannschaft extends BotKern {
     super.send(msg);
   }
   cmd(c, extra) {
+    if (this.rolleBot === 'ops' && (c === 'weapons.charge' || c === 'weapons.fire')) { extra = this.feuerErlaubt(c, extra); if (!extra) return; }   // BOT-01 C2b: ops.feuer_halt / ops.feuer_frei waffen (kern.js fight() bleibt unveraendert)
+    if (c === 'technik.priority' && this.prioSperre) return;   // BOT-01 C2b: tech.prio gilt gegen die Standard-Prioritaeten der Technik
     if (c === 'weapons.target' && extra && extra.id != null && this.game.ship.target !== extra.id) this.memo.gesendeteZiele.add(extra.id);   // eine schon stehende (fremde) Marke wird nie zur eigenen
     super.cmd(c, extra);
   }
@@ -66,6 +71,8 @@ class BotMannschaft extends BotKern {
   // Zielwahl der Ops: erst die Marke des Captains (captain.anzeigeziel -> ship.capZiel, nur ein lebender Gegner, den die Ops auch aufschalten koennte), dann ein von anderen markiertes Ziel (ship.target, das der Bot nie selbst
   // gesendet hat), dann der Kern (Ladung, Anflug, im Bogen, naechster). Gefeuert wird weiter nur im Bogen (lanceFight, Batterien, Zusatzwaffen), die Marke erzwingt keinen Schuss ins Leere.
   waehleZiel(S, enemies, M) {
+    const b = this.absicht.befehl;   // BOT-01 C2b: ein gesetztes Ziel (ops.ziel) geht allem vor, solange der Gegner lebt und aufschaltbar ist
+    if (b && b.name === 'ops.ziel') { const e = enemies.find((q) => q.id === b.id); if (e && this.aufschaltbar(e)) return e; }
     const cz = CaptainZiel.gueltig(this.game);
     const capMarke = cz && enemies.find((e) => e.id === cz.id);
     if (capMarke && this.aufschaltbar(capMarke)) return capMarke;   // nicht aufschaltbar (ausser Sensoren): weapons.target wuerde abgewiesen, fight() hinge an der Zielwahl
@@ -87,7 +94,7 @@ class BotMannschaft extends BotKern {
   zustandSetzen(z) {
     if (this.absicht.zustand === z) return;
     this.absicht.zustand = z; this.absicht.seit = this.game.time;
-    if (z === 'wartet') { this.befehlVerwerfen('mensch'); this.ix = null; if (this.actDown) this.act(false); this.input(0, 0); }
+    if (z === 'wartet') { this.alleVerwerfen('mensch'); this.ix = null; if (this.actDown) this.act(false); this.input(0, 0); }
   }
   // von bots/weichen.js: ein Mensch hat die Station bekommen (Tab oder Konsole)
   weicht() { this.zustandSetzen('wartet'); this.waitT = 0; this.ix = null; }
@@ -95,7 +102,7 @@ class BotMannschaft extends BotKern {
   tick(S) {
     const p = this.me(S); const live = this.spieler;
     if (!p || live.conn !== this.conn || this.game.phase !== 'play' || S.phase !== 'play' || this.game.tick - S.tick > FRIST_FRISCH) return;
-    if (this.menschHaeltStation()) { this.zustandSetzen('wartet'); this.befehlVerwerfen('mensch'); return; }
+    if (this.menschHaeltStation()) { this.zustandSetzen('wartet'); this.alleVerwerfen('mensch'); return; }
     if (Station.stationOf(p) !== Station.stationOf(live)) return;   // der Snapshot ist aelter als ein Stationswechsel: erst mit dem naechsten handeln
     if (this.waitT > 0) { this.waitT -= DT; return; }
     if (p.downed) { this.input(0, 0); this.act(false); this.ix = null; return; }
@@ -136,7 +143,113 @@ class BotMannschaft extends BotKern {
     const turn = this.turnCmd(S, this.randNachMitte(S));
     if (turn !== this.helmSent.turn || turn !== 0) this.helm(turn, 0);
   }
-  opsDienst(S, p) { this.fight(S, { scan: true }); }
+  // BOT-01 C2b: Ops. Standard: feuern auf die Marke, sonst den naechsten im Bogen (fight). Gehalten werden ein gesetztes Ziel (ops.ziel), der Feuerzustand (ops.feuer_frei/halt, Gruppe in absicht.waffen)
+  // und ein laufender Scan (ops.scan); gesendet wird weiter nur ueber cmd (Wachposten), das Feuer filtert feuerErlaubt.
+  opsDienst(S, p) {
+    this.scanHalten(S);
+    const b = this.absicht.befehl;
+    if (b && b.name === 'ops.ziel' && this.zielHalten(S, b)) return;
+    this.fight(S, { scan: true });
+  }
+  // Das gesetzte Ziel gilt bis es zerstoert ist (oder die Szene wechselt). true = kein Gegner (Station, Objekt): nur die Marke halten, kein Feuer.
+  zielHalten(S, b) {
+    if (this.game.ship.scene !== b.szene) { this.befehlVerwerfen('szene'); return false; }
+    const rt = Space.resolveTarget(this.game, b.id);
+    if (!rt) { this.befehlVerwerfen('ziel_weg'); return false; }
+    if (rt.type === 'enemy') return false;
+    if (this.game.ship.target !== b.id && (rt.type !== 'mine' || this.aufschaltbar(rt))) this.cmd('weapons.target', { id: b.id });
+    return true;
+  }
+  // ops.scan: der Scan haelt nur kurz (tscan.holdTimeout), der Agent haelt ihn wie ein Mensch (S halten) bis das Ziel gescannt ist, das Ziel wechselt oder die Frist ablaeuft
+  scanHalten(S) {
+    const h = this.absicht.halten.scan;
+    if (!h) return;
+    const e = S.space.enemies.find((q) => q.id === h.id);
+    if (S.time > h.bis || this.game.ship.target !== h.id || (e && e.scanned)) { Absicht.haltenEnde(this.absicht, 'scan'); return; }
+    if ((this.memo.scanBefAt || 0) < S.time) { this.memo.scanBefAt = S.time + 0.3; this.cmd('weapons.scan', { on: true }); }
+  }
+  naechsterGegner() {
+    const sh = this.game.ship;
+    return this.game.space.enemies.filter((e) => this.aufschaltbar(e)).sort((a, b) => dist(a.x, a.y, sh.x, sh.y) - dist(b.x, b.y, sh.x, sh.y))[0] || null;
+  }
+  // Waffengruppen der Befehle (Katalog v1): bug = Plaetze vorn, bb/stb = Seiten, torpedo = Torpedowerfer; Heck-Waffen (und der Turm) zaehlen nur zu 'alle'
+  waffenGruppe(id) {
+    const platz = Katalog.platzVonMount(id);
+    if (platz == null) return null;
+    const w = Katalog.waffe((this.game.ship.waffen || {})[platz]);
+    if (w && w.art === 'torpedo') return 'torpedo';
+    const seite = Katalog.PLATZ[platz].seite;
+    return seite === 'vorn' ? 'bug' : seite === 'Bb' ? 'bb' : seite === 'Stb' ? 'stb' : null;
+  }
+  gruppeMounts(gruppe) { return Space.mountIds(this.game).filter((id) => this.waffenGruppe(id) === gruppe); }
+  // Filter fuer weapons.charge / weapons.fire: null = nicht senden. feuer 'halt' sperrt alles, waffen beschraenkt auf eine Gruppe ('all' wird auf die erlaubten Batterien verkleinert).
+  feuerErlaubt(c, extra) {
+    const a = this.absicht;
+    if (a.feuer === 'halt') return null;
+    if (!a.waffen) return extra || {};
+    const ok = (id) => this.waffenGruppe(id) === a.waffen;
+    if (c === 'weapons.charge') return ok((extra && extra.mount) || 'bow') ? extra : null;
+    const mount = extra && extra.mount;
+    if (mount === 'all') { const ids = ['port', 'stbd'].filter(ok); return ids.length === 2 ? extra : ids.length ? Object.assign({}, extra, { mount: ids[0] }) : null; }
+    return ok(mount) ? extra : null;
+  }
+  // Technik: schild (Sektor 0 bis 3) und prio ({ wert }) in absicht.halten
+  schildVerteilung(S) {
+    const sec = this.absicht.halten.schild;
+    if (sec === undefined) { super.schildVerteilung(S); return; }
+    this.schildHalten(S, sec);
+  }
+  // Schilde auf den gewaehlten Sektor verlagern (ein Punkt je Sekunde wie ein Mensch, auch ohne Gegner), bis er die Bot-Obergrenze oder die Kappe des Emitters erreicht; die anderen Seiten geben ab (zuerst die gegenueber)
+  schildHalten(S, sec) {
+    const sh = S.ship; const m = this.memo;
+    if ((m.shieldAt || 0) >= S.time) return;
+    const al = sh.shields.alloc; const cap = (sh.shields.cap || [8, 8, 8, 8]);
+    const ziel = Math.min(cap[sec], BOT_SCHILD_SEKTOR_MAX);
+    if (al[sec] >= ziel) return;
+    m.shieldAt = S.time + 1;
+    const pool = sh.shields.pool != null ? sh.shields.pool : 8;
+    const used = al.reduce((x, y) => x + y, 0);
+    if (used < pool) { this.technikCmd(S, 'technik.shield', { sector: sec, delta: 1 }); return; }
+    const opp = (sec + 2) % 4;
+    const donor = [0, 1, 2, 3].filter((i) => i !== sec && al[i] > 0).sort((x, y) => (y === opp ? 1 : 0) - (x === opp ? 1 : 0) || al[y] - al[x])[0];
+    if (donor == null) return;
+    this.technikCmd(S, 'technik.shield', { sector: donor, delta: -1 });
+    this.technikCmd(S, 'technik.shield', { sector: sec, delta: 1 });
+  }
+  // Prioritaet halten: die Standard-Prioritaeten (Feuer zuerst, Reaktor) werden unterdrueckt (prioSperre in cmd), sonst ueberschriebe der naechste Tick sie. Ist der Reaktor zerstoert, gilt der Standard
+  // (die Sonderreparatur geht vor); danach stellt der Agent die gehaltene Prioritaet wieder her. bot.automatik loest die Prioritaet wieder (prioLoesen).
+  queueRepairs(S) {
+    const m = this.memo; const prio = this.absicht.halten.prio;
+    if (m.prioLoesen && this.technikCmd(S, 'technik.priority', { target: null })) { m.prioLoesen = false; m.firePrio = false; }
+    if (!prio || this.game.ship.systems.reactor === 'broken') { super.queueRepairs(S); return; }
+    this.prioSperre = true;
+    try { super.queueRepairs(S); } finally { this.prioSperre = false; }
+    if (this.game.ship.priority !== prio.wert && (m.prioAt || 0) < S.time) { m.prioAt = S.time + 1; this.technikCmd(S, 'technik.priority', { target: prio.wert }); }
+  }
+  // Einmal-Aktion: sendet cmd ueber den Wachposten und liefert die Antwort des Spiels (Text der Ablehnung) oder null = angenommen. Die Verbindung des Bots hoert dabei kurz die notice mit.
+  einmalig(c, extra) {
+    const texte = []; const conn = this.conn; const alt = conn.send; const n0 = this.befehle;
+    conn.send = (o) => { if (o && o.t === 'event' && o.kind === 'notice' && o.pid === this.pid) texte.push(o.text); };
+    try { this.send(Object.assign({ t: 'cmd', c }, extra || {})); } finally { conn.send = alt; }
+    if (this.befehle === n0) return 'Nicht gesendet.';
+    return texte.length ? texte[0] : null;
+  }
+  // bot.automatik: alles Gehaltene weg (Befehl, Feuerzustand, Technik-Einstellungen), Standardverhalten; die gehaltene Prioritaet der Technik wird zurueckgenommen
+  automatik() {
+    const prio = !!this.absicht.halten.prio;
+    this.alleVerwerfen('automatik');
+    if (prio) this.memo.prioLoesen = true;
+  }
+  // Alles Gehaltene verwerfen (Mensch uebernimmt, bot.automatik); true = es gab etwas
+  alleVerwerfen(grund) {
+    const a = this.absicht;
+    const hatte = !!(a.befehl || a.feuer || Object.keys(a.halten).length);
+    Absicht.alleEnde(a);
+    if (hatte) this.befehlGrund = grund;
+    return hatte;
+  }
+  feuerSetzen(feuer, waffen) { Absicht.feuerSetzen(this.absicht, feuer, waffen); this.befehlGrund = null; }
+  haltenSetzen(name, wert) { Absicht.haltenSetzen(this.absicht, name, wert); this.befehlGrund = null; }
 
   // ---------- BOT-01 C2a: Befehle der Navigation ----------
   // Die Registry (befehle/navigation.js) prueft und setzt nur die Absicht (befehlSetzen) bzw. sendet die direkten Befehle (stoppen, ausweichenNun); ausgefuehrt wird sie hier, jeden Tick in steuerDienst.

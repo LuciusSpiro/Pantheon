@@ -102,7 +102,8 @@ section('1 Daten: Katalog, Gruende, Texte');
   const nennt = neu.filter(([, l]) => l.some((t) => /\d/.test(t) || woerter.some((w) => t.toLowerCase().includes(w))));
   ok(neu.length > 0 && nennt.length === 0, `Ablehnungstexte nennen keine Argumente (${neu.length} textIds, keine Ziffer, kein Wort der Argumentwerte)`);
   ok(Protocol.C.BOT_BEFEHL === 'bot.befehl' && Protocol.C.BOT_ANTWORT === 'bot.antwort', 'Protokoll: C.BOT_BEFEHL / C.BOT_ANTWORT');
-  ok(Object.entries(Befehle.REGISTER).every(([rolle, r]) => (rolle === 'navigation' ? Object.keys(r).length === 7 : Object.keys(r).length === 0)), 'C2a: navigation traegt sieben Befehle, die anderen vier Registries sind noch leer (C2b)');
+  const SOLL = { navigation: 7, ops: 6, technik: 5, bot: 2, bord: 0 };
+  ok(Object.entries(Befehle.REGISTER).every(([rolle, r]) => Object.keys(r).length === SOLL[rolle]), 'C2b: navigation 7, ops 6, technik 5, bot 2 Befehle; nur bord ist noch leer (BOT-02)');
 }
 
 // ---------- 2 Absender ----------
@@ -135,7 +136,7 @@ section('3 Lobby und Partieende: abgelehnt phase');
   ok(u && u.status === 'abgelehnt' && u.textId === 'befehl.abgelehnt.phase' && u.befehl === null, 'Lobby, unbekannter Befehl: textId befehl.abgelehnt.phase, befehl null');
   P.g.handleMessage(P.c, { t: 'ready', ready: true }); lauf(P, 2);
   const l = einz(P, cmd('ops.scan', 'ops'));
-  ok(P.g.phase === 'play' && l && grund(l) === 'unbekannt', 'Partie laeuft: die Phase lehnt nicht mehr ab (leere Registry: unbekannt)');
+  ok(P.g.phase === 'play' && l && grund(l) !== 'phase' && grund(l) !== 'unbekannt', 'Partie laeuft: die Phase lehnt nicht mehr ab (C2b: ops.scan ist eine echte Registry-Funktion)');
   P.g.phase = 'end';
   const e = einz(P, cmd('ops.scan', 'ops'));
   ok(e && grund(e) === 'phase', 'Partieende (phase end): abgelehnt, Grund phase');
@@ -152,8 +153,9 @@ section('4 Gruende');
     const a = einz(P, m);
     ok(a && a.status === 'abgelehnt' && a.textId === 'befehl.abgelehnt.unbekannt' && a.befehl === null && typeof a.text === 'string', 'unbekannt: ' + titel);
   }
-  const l = einz(P, cmd('ops.scan', 'ops'));
-  ok(l && l.status === 'abgelehnt' && l.textId === 'ops.scan.abgelehnt.unbekannt' && l.botId === ops.botId, 'leere Registry: abgelehnt, Grund unbekannt, mit botId des Bots');
+  const altScan = Befehle.REGISTER.ops['ops.scan']; delete Befehle.REGISTER.ops['ops.scan'];   // C2b: eine Registry ohne Eintrag (der Befehl steht im Katalog, die Funktion fehlt)
+  let l; try { l = einz(P, cmd('ops.scan', 'ops')); } finally { Befehle.REGISTER.ops['ops.scan'] = altScan; }
+  ok(l && l.status === 'abgelehnt' && l.textId === 'ops.scan.abgelehnt.unbekannt' && l.botId === ops.botId, 'Registry ohne Eintrag: abgelehnt, Grund unbekannt, mit botId des Bots');
   // quelle
   for (const [titel, q] of [['fehlt', undefined], ['unbekannt', 'telepathie'], ['Zahl', 7], ['__proto__', '__proto__']]) {
     const m = cmd('ops.scan', 'ops', undefined, q); if (q === undefined) delete m.quelle;
@@ -244,7 +246,7 @@ section('4 Gruende');
     const andere = einz(P, cmd('nav.stopp', 'navigation'));
     ok(andere && andere.textId.startsWith('nav.stopp.') && grund(andere) !== 'wartet', 'der Navigations-Bot (wartet nicht) ist davon unberuehrt (C2a: echte Registry, nie wartet)');
     const bs = einz(P, cmd('bot.status', ops.botId));
-    ok(bs && grund(bs) === 'unbekannt', 'bot.* kennt keinen Wartezustand (laeuft bis zur Registry)');
+    ok(bs && bs.status === 'ok' && bs.textId === 'bot.status.ok' && /warte/.test(bs.text), 'bot.* kennt keinen Wartezustand (laeuft bis zur Registry: C2b antwortet ok mit dem Statustext)');
   });
   // rate
   const R = partie({ bots: ['ops'] }); lauf(R, 3);

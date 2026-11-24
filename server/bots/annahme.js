@@ -139,12 +139,20 @@ function botsFuer(game, an) {
 }
 const wartetAn = (game, bot) => { const a = Lauf.agent(game, bot); return !!(a && a.absicht && a.absicht.zustand === 'wartet'); };
 
+// BOT-01 C2b: nur bot.status bringt einen eigenen Text aus dem Zustand des Bots (status.js); er ersetzt den Text der Variante, textId und variante bleiben. Zeilenumbrueche raus, Laenge begrenzt. Fuer alle anderen Befehle wird der Registry-Text weiter ignoriert.
+const STATUS_MAX = 120;
+function statusText(msg, name, r) {
+  if (name !== 'bot.status' || typeof r.text !== 'string') return msg;
+  const t = r.text.replace(/[\r\n]+/g, ' ').trim().slice(0, STATUS_MAX);
+  if (t) msg.text = t;
+  return msg;
+}
 function fuerBot(game, bot, name, args) {
   const gruende = GRUENDE.befehle[name] || [];
   if (gruende.includes('wartet') && wartetAn(game, bot)) return antwort(game, bot.botId, name, 'abgelehnt', 'wartet');
   let r, ursache = null;
   try { r = Befehle.befehl(game, bot, name, Object.assign({}, args)); } catch (e) { ursache = 'ausnahme: ' + (e && e.message); }
-  if (!ursache && r && r.ok === true) return antwort(game, bot.botId, name, 'ok');
+  if (!ursache && r && r.ok === true) return statusText(antwort(game, bot.botId, name, 'ok'), name, r);
   const code = r && typeof r.code === 'string' ? r.code : null;
   if (!ursache && code && gruende.includes(code)) return antwort(game, bot.botId, name, GRUENDE.gruende[code], code);
   // Ein Fehlerpfad: Ausnahme, kein Code oder ein Code, der fuer den Befehl nicht in gruende.json steht -> abgelehnt fehler, sichtbar gezaehlt (Luecken in gruende.json)
