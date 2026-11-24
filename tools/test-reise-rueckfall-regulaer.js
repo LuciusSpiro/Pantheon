@@ -72,11 +72,11 @@ for (const [art, p] of Object.entries(ARTEN)) {
     const na = P.notrufAngebote(Fz(g))[0];
     const nr = na ? Brett.annehmen(g, 'a' + na.nr) : 'kein Notruf-Angebot';
     const ok1 = vorher === 'wartet0' && gestartet && f.phase === 'abgeschlossen' && f.ausgang && f.ausgang.art === 'gescheitert' && beatsGestartet(g, f) === 2;
-    const ok2 = nr === null && P.abenteuerLaufend(Fz(g)) === 1 && g.errors === 0 && fehler.length === 0 && abgelehnt(g).length === 0;
+    const ok2 = nr === null && P.abenteuerLaufend(Fz(g)) === 0 && P.notrufAktiv(Fz(g)).length === 1 && g.errors === 0 && fehler.length === 0 && abgelehnt(g).length === 0;
     ergebnis.push(ok1 && ok2);
     if (!(ok1 && ok2)) ok(false, `${art} Seed ${seed}: Vorher ${vorher}, Beat 0 gestartet ${gestartet}, Phase ${f.phase}, Beats ${beatsGestartet(g, f)}, Notruf annehmen ${JSON.stringify(nr)}, laufend ${P.abenteuerLaufend(Fz(g))}, Fehler ${g.errors} ${fehler.slice(0, 2)}, abgelehnt ${abgelehnt(g).length}`);
   }
-  ok(ergebnis.length === SEEDS.length && ergebnis.every(Boolean), `${art}: ${SEEDS.length} Seeds: Beat 0 startet, Faden abgeschlossen (gescheitert ohne Crew-Tat), kein Fehler, danach ein Notruf-Angebot annehmbar (nur dieses laeuft: abenteuerLaufend 1)`);
+  ok(ergebnis.length === SEEDS.length && ergebnis.every(Boolean), `${art}: ${SEEDS.length} Seeds: Beat 0 startet, Faden abgeschlossen (gescheitert ohne Crew-Tat), kein Fehler, danach ein Notruf-Angebot annehmbar (nur dieses laeuft: SPT-02 4: Notruf-Faeden zaehlen nicht in laufend_max, abenteuerLaufend 0, notrufAktiv 1)`);
 }
 {   // Abstand: nur Beat 0 uebergeht ihn, ein spaeterer Beat wartet auf seine Faelligkeit
   const { g } = spiel(7);

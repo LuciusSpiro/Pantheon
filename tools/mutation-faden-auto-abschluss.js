@@ -26,8 +26,8 @@ const BR = 'server/sim/abenteuer-brett.js', RE = 'server/sim/reise-ereignis.js';
 const ZL = "if (!f.plan || f.notruf || f.phase !== 'wartet' || f.beat < 1 || f.zaehler";
 // [Datei, alter Text (genau einmal), neuer Text, Beschreibung]
 const MUTATIONEN = [
-  [BR, '    if (!beat || !B[beat.typ] || !B[beat.typ].abschluss) continue;\n', '    if (!beat) continue;\n', 'a: auch Beats ohne abschluss werden gefuehrt (Eingriff in das Modell-Fuehren)'],
-  [BR, 'f.beat < 1 || f.zaehler < f.abstand) continue;\n    const beat', 'f.beat < 1) continue;\n    const beat', 'b: der Abstand wird uebergangen (ABSTAND-Umgehung)'],
+  [BR, '    if (!beat || !B[beat.typ] || !B[beat.typ].abschluss) continue;\n    if (rueckfallAbgelehnt', '    if (!beat) continue;\n    if (rueckfallAbgelehnt', 'a: auch Beats ohne abschluss werden gefuehrt (Eingriff in das Modell-Fuehren)'],
+  [BR, "f.notruf || f.phase !== 'wartet' || f.beat < 1 || f.zaehler < f.abstand) continue;\n    const beat", "f.notruf || f.phase !== 'wartet' || f.beat < 1) continue;\n    const beat", 'b: der Abstand wird uebergangen (ABSTAND-Umgehung)'],
   [RE, "  try { require('./abenteuer-brett.js').abenteuerAbschlussWeiter(game); } catch", '  try { } catch', 'c: der Aufruf in reise-ereignis.js fehlt (nichts schliesst den Faden ab)'],
   [BR, ZL, ZL.replace(' || f.notruf', ''), 'd: ohne f.notruf-Ausschluss (Notruf-Faeden werden angefasst)'],
   [BR, ZL, ZL.replace('!f.plan || ', ''), 'e: ohne f.plan-Bedingung (alte Faeden ohne Plan werden angefasst)'],
