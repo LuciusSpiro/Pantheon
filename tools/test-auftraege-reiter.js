@@ -34,10 +34,11 @@ const QUELLE = fs.readFileSync('public/js/notrufe.js', 'utf8');
 function client(opt) {
   opt = opt || {};
   BrettClient.store.abenteuer = null;   // das Modul hält den Block global: jeder Client beginnt leer
-  const gez = [], knoepfe = [], flaechen = [];
+  const gez = [], knoepfe = [], flaechen = [], farben = [], glyphen = [];   // farben: [{ t, c }] je gezeichnetem Text; glyphen: Zahl der gezeichneten Gefahr-Bake (PultTerminal.zeichneGefahrGlyph)
   const win = {
-    Render: { PAL: { brass: '#a', panelLight: '#b', mint: '#c', amber: '#d', red: '#e', star: '#f', ice: '#g' }, text: (c, t) => gez.push(String(t)), button: (c, x, y, w, h, t) => knoepfe.push(String(t)), wrap: (t) => [String(t)], measure: (t) => String(t).length * 5, ui: { buttons: flaechen } },
-    Brett: BrettClient, StarMap: { marken: [] }, Shared_Sektoren: { hexName: (h) => 'Hex' + h },
+    Render: { PAL: { brass: '#a', panelLight: '#b', mint: '#c', amber: '#d', red: '#e', star: '#f', ice: '#g' }, text: (c, t, x, y, o) => { gez.push(String(t)); farben.push({ t: String(t), c: o && o.color }); }, button: (c, x, y, w, h, t) => knoepfe.push(String(t)), wrap: (t) => [String(t)], measure: (t) => String(t).length * 5, ui: { buttons: flaechen } },
+    Brett: BrettClient, StarMap: { marken: [] }, Shared_Sektoren: { hexName: (h) => (opt.namen && opt.namen[h]) || 'Hex' + h },
+    PultTerminal: { zeichneGefahrGlyph: () => { glyphen.push(1); }, gefahrGlyphBreite: 10 },
     Consoles: opt.buch ? { bookEntries: () => ({ list: opt.buch }) } : undefined,
     performance: { now: () => 1000 },
   };
@@ -46,8 +47,8 @@ function client(opt) {
   const ctx = { fillRect() {}, strokeRect() {}, set fillStyle(v) {}, set strokeStyle(v) {}, set lineWidth(v) {} };
   const befehle = [];
   const cmd = (c, e) => befehle.push(c + (e && e.id != null ? ':' + e.id : ''));
-  const zeichne = (view) => { gez.length = 0; knoepfe.length = 0; flaechen.length = 0; const h = win.NotrufView.drawCaptain(ctx, view, { x: 0, y: 0, w: 564, h: 238 }, cmd); return { bild: gez.join('|'), knoepfe: knoepfe.slice(), hinweis: h }; };
-  return { win, V: win.NotrufView, view: { state: { nr: [] } }, befehle, cmd, zeichne, gez, knoepfe, flaechen };
+  const zeichne = (view) => { gez.length = 0; knoepfe.length = 0; flaechen.length = 0; farben.length = 0; glyphen.length = 0; const h = win.NotrufView.drawCaptain(ctx, view, { x: 0, y: 0, w: 564, h: 238 }, cmd); return { bild: gez.join('|'), knoepfe: knoepfe.slice(), hinweis: h, farben: farben.slice(), glyphen: glyphen.length }; };
+  return { win, V: win.NotrufView, view: { state: { nr: [] } }, befehle, cmd, zeichne, gez, knoepfe, flaechen, farben, glyphen };
 }
 const setzeWelt = (c, g, opt) => {   // Server-Stand -> Client-Stand (Brett-Block, Marken, nr), wie der Snapshot ihn liefert
   opt = opt || {};
@@ -196,8 +197,8 @@ section('E: Anzeige', () => {
   const gross = client(); const marken = []; for (let i = 0; i < 12; i++) marken.push({ h: '0' + (101 + i), t: 'notruf', id: 'reise:n' + i, b: 600 });
   gross.win.StarMap.marken = marken; gross.view.state = { nr: [] };
   gross.V.oeffne('reise:n11'); const zg = gross.zeichne(gross.view);
-  ok(/NOTRUF · Hex0112/.test(zg.bild) && /! Hex0112/.test(zg.bild) && /12\/12/.test(zg.bild), 'zwölf Einträge: der letzte (gewählte) steht in der sichtbaren Liste, Zähler 12/12');
-  ok(!/! Hex0101\b/.test(zg.bild), 'zwölf Einträge: die ersten rutschen aus dem Fenster (nichts läuft aus dem Bereich)');
+  ok(/NOTRUF · Hex0112/.test(zg.bild) && /Hex0112 · offen/.test(zg.bild) && /12\/12/.test(zg.bild), 'zwölf Einträge: der letzte (gewählte) steht in der sichtbaren Liste, Zähler 12/12');
+  ok(!/Hex0101 · offen/.test(zg.bild), 'zwölf Einträge: die ersten rutschen aus dem Fenster (nichts läuft aus dem Bereich)');
   // leere Tabs
   const leer = client(); leer.V.setzeTab('notruf'); ok(/Keine Notrufe/.test(leer.zeichne(leer.view).bild), 'leerer Tab Notrufe nennt es');
   leer.V.setzeTab('aktiv'); ok(/Keine aktiven Missionen/.test(leer.zeichne(leer.view).bild), 'leerer Tab Aktive Missionen nennt es');
@@ -243,12 +244,78 @@ section('H: Karte – markeAn liefert die Notruf-Plakette unter dem Klick (starm
   ok(SM.markeAn(0, 0, []) === null, 'fremde rects (andere Karte): kein Treffer');
 });
 
+section('I: SPT-02 5b – Zeitangaben, Rot, Unterscheidbarkeit', () => {
+  const farbe = (z, t) => (z.farben.find((f) => f.t === t) || {}).c;
+  const ROT = '#e', GRAU = '#b', MINT = '#c', STERN = '#f';
+  const block = (laufend, angebote, extra) => Object.assign({ ok: 1, kopf: 'Brett', max: 3, nmax: 3, angebote: angebote || [], laufend }, extra || {});
+  // Befund 3: Rot ist nur noch Dringlichkeit. Gefahr: Bake vor dem Text, der Text bleibt Mint; „gescheitert“ grau; im Detail ist die Schrittzeile neutral, nur „Gefahr in diesem Schritt“ ist rot (mit Bake)
+  const c = client({ namen: { '0305': 'Ostia Nova' } });
+  c.win.Brett.store.abenteuer = block([
+    { id: 'f1', titel: 'Der Konvoi', ort: '0305', schritt: 1, schritte_gesamt: 2, schritt_text: 'Konvoi aufhalten', gefahr: true, ph: 'laeuft', rest: 5 },
+    { id: 'f2', titel: 'Das Geleit', ort: '0305', schritt: 1, schritte_gesamt: 2, schritt_text: 'Geleit', gefahr: false, ph: 'laeuft', rest: 5 }], [], { zuletzt: { titel: 'Altes Geleit', ausgang: 'gescheitert', text: 'Im Sand verlaufen.' } });
+  let z = c.zeichne(c.view);
+  ok(farbe(z, 'Abenteuer · Ostia Nova · Schritt 1 von 2') === MINT && !z.farben.some((f) => f.c === ROT && /Schritt|Abenteuer|gescheitert/.test(f.t) && f.t !== 'Gefahr in diesem Schritt'), 'Liste: zweite Zeile eines Abenteuers (auch mit Gefahr) in Mint, nie in Rot: ' + z.farben.map((f) => f.t + '=' + f.c).slice(0, 8).join(' | '));
+  ok(z.glyphen === 2 && z.farben.filter((f) => f.t === 'Gefahr in diesem Schritt').length === 1 && farbe(z, 'Gefahr in diesem Schritt') === ROT, 'Gefahr: je eine Bake in der Liste (beim gefährlichen Abenteuer) und im Detail, das Wort „Gefahr in diesem Schritt“ ist rot: Glyphen ' + z.glyphen);
+  ok(farbe(z, 'Schritt 1 von 2: Konvoi aufhalten') === STERN, 'Detail: die Schrittzeile ist neutral (Creme), nicht rot');
+  ok(farbe(z, 'gescheitert') === GRAU && !z.farben.some((f) => f.c === ROT && f.t === 'gescheitert'), 'Liste: „gescheitert“ grau');
+  for (let i = 0; i < 2; i++) c.V.key('KeyS', c.view, c.cmd);
+  z = c.zeichne(c.view);
+  ok(/AUFTRAG GESCHEITERT/.test(z.bild) && farbe(z, 'AUFTRAG GESCHEITERT') === ROT, 'Detail zuletzt: die rote Überschrift AUFTRAG GESCHEITERT bleibt');
+  // Frist läuft ab bleibt rot (echte Dringlichkeit): Takt-Notruf unter 90 s, Kampagne unter 90 s
+  const d = client();
+  d.win.StarMap.marken = [{ h: '0603', t: 'notruf', id: 'reise:n5', b: 60 }]; d.view.state = { nr: [{ i: 'sl_klar', h: '0105', k: 'k', z: 0, r: 60 }] };
+  d.V.setzeTab('notruf'); z = d.zeichne(d.view);
+  ok(farbe(z, 'Hex0105 · offen · noch 1:00') === undefined && farbe(z, 'offen · noch 1:00') === ROT && farbe(z, 'Hex0603 · offen · noch 1:00') === ROT, 'Frist unter 90 s bleibt rot (Kampagne und Takt): ' + z.farben.map((f) => f.t).join(' | '));
+
+  // Befund 2: eine Einheit je Frist. Marke (offen, am Brett): m:ss bei Kampagne UND Takt; angenommener Takt-Notruf: Ticks des Fadens wie im Brett, keine Minuten
+  const e = client();
+  e.win.Brett.store.abenteuer = block([{ id: 'n1', notruf: 1, titel: 'Notruf: Kutter Fortuna', ort: '0504', schritt: 1, schritte_gesamt: 3, ph: 'laeuft', rest: 6 }], [{ id: 'a9', titel: 'Notruf: Kutter Fortuna', ort: '0603', ortname: 'X', notruf: 1, vorschau: {} }]);
+  e.win.StarMap.marken = [{ h: '0603', t: 'notruf', id: 'reise:n1', b: 590 }, { h: '0504', t: 'notruf', id: 'reise:n2', b: 900 }, { h: '0105', t: 'notruf', id: 'reise:n3', b: 590 }];
+  e.view.state = { nr: [{ i: 'sl_klar', h: '0105', k: 'k', z: 0, r: 590 }] };
+  e.V.setzeTab('notruf'); z = e.zeichne(e.view);
+  ok(z.farben.some((f) => f.t === 'offen · noch 9:50') && z.farben.some((f) => f.t === 'Hex0603 · am Brett · noch 9:50') && z.farben.some((f) => f.t === 'Hex0105 · offen · noch 9:50'), 'Kampagne, am Brett und offen: dasselbe Format „noch 9:50“: ' + z.farben.map((f) => f.t).join(' | '));
+  ok(z.farben.some((f) => f.t === 'Hex0504 · angenommen · noch 6 Ticks') && !z.farben.some((f) => /min\b/.test(f.t)), 'angenommener Takt-Notruf: die Frist des Fadens in Ticks wie im Brett („noch 6 Ticks“), nirgends Minuten');
+  e.V.oeffne('reise:n2'); z = e.zeichne(e.view);
+  ok(z.farben.some((f) => f.t === 'Frist noch 6 Ticks') && !z.farben.some((f) => /Frist: noch/.test(f.t)), 'Detail eines angenommenen Takt-Notrufs: „Frist noch 6 Ticks“ wie im Brett');
+  e.V.oeffne('reise:n1'); z = e.zeichne(e.view);
+  ok(z.farben.some((f) => f.t === 'Frist: noch 9:50'), 'Detail eines Notrufs am Brett: Marken-Lebensdauer m:ss');
+
+  // Befund 4: gleiche Einträge unterscheidbar. Ort in der zweiten Zeile, im Tab Notrufe kein „Notruf:“ im Titel, Hilferuf ohne Auftrag heißt nicht wie der Kampagnen-Ruf, kein doppelter Klammerteil bei unbenannten Hexen
+  const f = client({ namen: { '0404': 'Leerraum 0404', '0603': 'Kantenstein', '0504': 'Concordia', '0105': 'Concordia' } });
+  f.win.Brett.store.abenteuer = block([
+    { id: 'n1', notruf: 1, titel: 'Notruf: Kutter Fortuna', ort: '0603', schritt: 1, schritte_gesamt: 3, ph: 'laeuft', rest: 6 },
+    { id: 'n2', notruf: 1, titel: 'Notruf: Kutter Fortuna', ort: '0404', schritt: 1, schritte_gesamt: 3, ph: 'laeuft', rest: 6 }]);
+  f.win.StarMap.marken = [{ h: '0603', t: 'notruf', id: 'reise:n1', b: 590 }, { h: '0404', t: 'notruf', id: 'reise:n2', b: 590 }, { h: '0504', t: 'notruf', id: 'reise:n3', b: 590 }];
+  f.view.state = { nr: [{ i: 'sl_klar', h: '0105', k: 'k', z: 0, r: 590 }] };
+  z = f.zeichne(f.view);
+  ok(z.farben.some((t) => t.t === 'Notruf · Kantenstein · Schritt 1 von 3') && z.farben.some((t) => t.t === 'Notruf · Leerraum 0404 · Schritt 1 von 3'), 'Aktive Missionen: gleiche Titel unterscheiden sich durch den Ort in Zeile 2: ' + z.farben.map((t) => t.t).join(' | '));
+  f.V.setzeTab('notruf'); z = f.zeichne(f.view);
+  ok(z.farben.some((t) => t.t === '! Kutter Fortuna') && !z.farben.some((t) => /^! Notruf:/.test(t.t)) && z.farben.some((t) => t.t === 'Kantenstein · angenommen · noch 6 Ticks') && z.farben.some((t) => t.t === 'Leerraum 0404 · angenommen · noch 6 Ticks'), 'Tab Notrufe: ohne „Notruf:“ im Titel, Ort in Zeile 2 (zwei Kutter Fortuna unterscheidbar): ' + z.farben.map((t) => t.t).join(' | '));
+  ok(z.farben.some((t) => t.t === '! Concordia') && z.farben.some((t) => t.t === '! Hilferuf') && z.farben.some((t) => t.t === 'Concordia · offen · noch 9:50'), 'Kampagnen-Ruf „! Concordia“ und Hilferuf am selben Ort sind verschieden („! Hilferuf“, Ort in Zeile 2)');
+  f.V.oeffne('reise:n2'); z = f.zeichne(f.view);
+  ok(z.farben.some((t) => t.t === 'Ort: Leerraum 0404') && !/\(0404\)/.test(z.bild), 'unbenannte Hexe: „Leerraum 0404“ ohne zweites „(0404)“');
+  // Zu lang für alles: erst entfällt das Wort „angenommen“, die Frist und der Ort bleiben
+  const h = client({ namen: { '0603': 'Ein langer Ortsname' } });
+  h.win.Brett.store.abenteuer = block([{ id: 'n1', notruf: 1, titel: 'Notruf: Kutter Fortuna', ort: '0603', schritt: 1, schritte_gesamt: 3, ph: 'laeuft', rest: 6 }]);
+  h.win.StarMap.marken = [{ h: '0603', t: 'notruf', id: 'reise:n1', b: 590 }];
+  h.V.setzeTab('notruf'); z = h.zeichne(h.view);
+  ok(z.farben.some((t) => t.t === 'Ein langer Ortsname · noch 6 Ticks'), 'passt Zeile 2 nicht, entfällt zuerst das Wort „angenommen“ (Ort und Frist bleiben): ' + z.farben.map((t) => t.t).join(' | '));
+  // Breite: die zweite Zeile passt in die Liste (kein Überlauf), auch bei langem Ortsnamen
+  const g = client({ namen: { '0603': 'Ein sehr langer Ortsname im Sund' } });
+  g.win.Brett.store.abenteuer = block([{ id: 'n1', notruf: 1, titel: 'Notruf: Kutter Fortuna', ort: '0603', schritt: 1, schritte_gesamt: 3, ph: 'laeuft', rest: 6 }]);
+  g.win.StarMap.marken = [{ h: '0603', t: 'notruf', id: 'reise:n1', b: 590 }];
+  g.V.setzeTab('notruf'); z = g.zeichne(g.view);
+  ok(z.farben.filter((t) => / · /.test(t.t) && !/Ruf|Hex/.test(t.t)).every((t) => t.t.length * 5 <= 222) && z.farben.some((t) => /…/.test(t.t)), 'langer Ortsname: Zeile 2 bleibt in der Listenbreite (gekürzt, nie überlang)');
+});
+
 section('G: keine neuen Snapshot-Felder', () => {
   const g = neu(); regulaer(g, 0); takt(g, 0, true);
   const s = Brett.snapshot(g), l = s.laufend[0], a = s.angebote.find((x) => x.notruf);
   ok(Object.keys(l).sort().join() === 'anlass,gefahr,id,ort,ph,rest,schritt,schritt_text,schritte_gesamt,titel'.split(',').sort().join() || Object.keys(l).every((k) => ['id', 'notruf', 'titel', 'ort', 'schritt', 'schritte_gesamt', 'schritt_text', 'gefahr', 'ph', 'rest', 'anlass'].includes(k)), 'laufend: nur bestehende Felder: ' + Object.keys(l).join());
   ok(!!a && Object.keys(a).every((k) => ['id', 'titel', 'ort', 'ortname', 'von', 'aus_geruecht', 'vorschau', 'typen', 'notruf', 'hafen', 'anlass', 'ort_offen', 'rest'].includes(k)), 'Notruf-Angebot: nur bestehende Felder: ' + (a ? Object.keys(a).join() : '–'));
   ok(Marken.snapshot(g).every((m) => Object.keys(m).every((k) => ['h', 't', 'id', 's', 'b', 'g'].includes(k))), 'Marken: nur bestehende Felder (h, t, id, s, b, g)');
+  const NMAX = JSON.parse(fs.readFileSync('content/faeden/notruf-brett.json', 'utf8')).werte.notruf_aktiv_max.wert;
+  ok(s.nmax === NMAX && s.max === 3 && Object.keys(s).every((k) => ['ok', 'kopf', 'ablehnen', 'scheitern', 'angebote', 'geruechte', 'laufend', 'max', 'nmax', 'zuletzt'].includes(k)), 'SPT-02 5b: der Block trägt notruf_aktiv_max als nmax (ein Feld neben max, nur mit laufend), sonst nichts Neues: ' + Object.keys(s).join());
 });
 
 console.log(`\n${n - fails}/${n} Prüfungen bestanden.`);

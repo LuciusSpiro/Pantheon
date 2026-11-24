@@ -154,7 +154,7 @@ const LAUFEND = { id: 'a9', titel: 'Der Bernsteinkonvoi', schritt: 3, schritte_g
 const GER = [{ von: 'kon', text: 'Germanische Frachter meiden die Bojen.', angebot: 'a1' }, { von: 'kon', text: 'Eine Germanin fragt nach der Lerche.', angebot: 'a2' }];
 const modellAus = (blk) => { BrettClient.lesen({ t: 'snap', world: { abenteuer: Object.assign({ ok: 1, kopf: 'Auftragsbrett', ablehnen: 'Ablehnen kostet nichts.', scheitern: 'Scheitern blockiert nichts.', angebote: [] }, klon(blk)) } }); return BrettClient.modell(); };
 // Modell wie terminal-ui.js es dem Baustein gibt
-const baustein = (m, gew, info) => ({ titel: m.kopf, hilfe: m.angebote.length ? '↑↓ wählen · Ent annehmen · X ablehnen' : '', laufend: m.laufend, gewaehlt: gew || (m.angebote[0] && m.angebote[0].id), geruechte: m.geruechte, scheitern: m.scheitern, leerText: '', info: info || null,
+const baustein = (m, gew, info) => ({ max: m.laufendMax, notrufMax: m.notrufMax, titel: m.kopf, hilfe: m.angebote.length ? '↑↓ wählen · Ent annehmen · X ablehnen' : '', laufend: m.laufend, gewaehlt: gew || (m.angebote[0] && m.angebote[0].id), geruechte: m.geruechte, scheitern: m.scheitern, leerText: '', info: info || null,
   angebote: m.angebote.map((a, i) => Object.assign({}, a, { nr: i + 1, kappe: String(i + 1), onClick: () => {} })) });
 function zeichne(b) { rec.texte.length = 0; rec.rects.length = 0; rec.knoepfe.length = 0; rec.cham.length = 0; R2.ui.buttons.length = 0; try { PT.zeichneBrett(ctx, b); } catch (e) { ok(false, 'Zeichnen des Bretts wirft: ' + e.message); } return rec.texte.map((t) => t.s); }
 const hat = (s) => rec.texte.some((t) => t.s === s);
@@ -242,6 +242,84 @@ section('Zeichnen: gewähltes Angebot wechselt das Detail, ein Angebot, kein Ang
   const bald = klon(LAUFEND); bald.rest = 1;
   m = modellAus({ angebote: [BOJE], laufend: bald }); zeichne(baustein(m));
   ok(hat('! Frist läuft ab') && rec.texte.find((t) => t.s === '! Frist läuft ab').col === FARBE.bald, 'Frist fast um: „! Frist läuft ab“ in Gelb');
+}
+
+section('Zeichnen: bis zu sechs laufende (SPT-02 5b): Notruf-Fäden in einer Sammelzeile, Überschrift, Layout 0 bis 4 Zeilen ohne Überlappung');
+{
+  const lf = (id, titel, o) => Object.assign({ id, titel, schritt: 1, schritte_gesamt: 2, schritt_text: 'Schritt ' + titel, gefahr: false, ph: 'laeuft', rest: 8 }, o || {});
+  const REG = [lf('a1', 'Der Eisenzug', { gefahr: true }), lf('a2', 'Das Fährschiff', { rest: 4 }), lf('a3', 'Der Funkspruch')];
+  const NOT = [lf('n1', 'Notruf: Kutter Fortuna', { notruf: 1, schritte_gesamt: 3, rest: 6 }), lf('n2', 'Notruf: Kutter Fortuna', { notruf: 1, schritte_gesamt: 3, rest: 9 }), lf('n3', 'Notruf: Kutter Fortuna', { notruf: 1, schritte_gesamt: 3, rest: 7 })];
+  const AN = [KONVOI, HEIMWEG, BOJE];
+  const BR = MASS.bereich, ende = BR.y + BR.h;
+  // Layout: 0 bis 4 Zeilen (mehr wird auf 4 begrenzt): Zeilen, Karten und Detail liegen im Bereich und übereinander, nichts schneidet sich
+  const probleme = [];
+  for (const n of [0, 1, 2, 3, 4, 5, 6, 9, true, false]) {
+    const l = PA.layout(n), zeilen = n === true ? 1 : n === false ? 0 : Math.min(4, n);
+    const lr = l.laeuft ? [{ x: l.laeuft.x, y: l.laeuft.y, w: l.laeuft.w, h: l.laeuft.h }] : [];
+    const kk = l.liste.map((k) => ({ x: k.x, y: k.y, w: k.w, h: k.h }));
+    if ((l.laeuft ? l.laeuft.n : 0) !== zeilen) probleme.push(n + ': Zeilenzahl ' + (l.laeuft ? l.laeuft.n : 0));
+    if (l.laeuft && l.laeuft.y + l.laeuft.h > l.liste[0].y) probleme.push(n + ': Zeilen reichen in die erste Karte');
+    if (kk.some((k, i) => schneiden(k, lr[0] || { x: 0, y: 0, w: 0, h: 0 }) || kk.some((q, j) => i !== j && schneiden(k, q)))) probleme.push(n + ': Karten überlappen');
+    if (kk.some((k) => k.y + k.h > ende)) probleme.push(n + ': Karte unter dem Bereich (' + Math.max(...kk.map((k) => k.y + k.h)) + ' > ' + ende + ')');
+    if (l.detail.unten > ende) probleme.push(n + ': Detail unten ' + l.detail.unten + ' > ' + ende);
+    if (l.detail.tick.h > 0 && l.detail.tick.y + l.detail.tick.h > l.detail.unten) probleme.push(n + ': Tick-Hinweis unter dem Detail');
+    if (l.detail.y !== l.liste[0].y) probleme.push(n + ': Detail beginnt nicht auf Höhe der Karten');
+    if (l.info.y - 3 < ende) probleme.push(n + ': Linie der Infozeile über dem Bereich');
+  }
+  ok(probleme.length === 0, 'Layout 0 bis 4 Zeilen (5, 6, 9 gelten als 4): Zeilen, Karten und Detail im Bereich bis ' + ende + ', ohne Überlappung' + (probleme.length ? ': ' + probleme.slice(0, 4).join(' | ') : ''));
+  ok(PA.layout(4).laeuft.zeileH === MASS.laeuft.dicht.h && PA.layout(3).laeuft.zeileH === MASS.laeuft.zeile.h && PA.layout(4).karteH === MASS.liste.dicht.karteH && PA.layout(3).karteH === MASS.liste.karteHKompakt && PA.layout(4).laeuft.h === 4 * MASS.laeuft.dicht.h + 3 * MASS.laeuft.dicht.luft, 'vier Zeilen sind dicht (9 px, Karten 35), bis drei bleibt es wie in SPT-02 3');
+
+  // sechs laufende (drei Abenteuer + drei Notruf-Fäden) und drei Angebote: das Brett läuft nicht über
+  let m = modellAus({ angebote: AN, laufend: REG.concat(NOT), max: 3, nmax: 3 });
+  ok(m.laufend.length === 6 && m.notrufMax === 3 && m.laufendMax === 3, 'Modell: sechs laufende, laufend_max 3 und notruf_aktiv_max 3 aus dem Block');
+  zeichne(baustein(m));
+  geometrie('sechs laufende, drei Angebote');
+  ok(hat('Der Eisenzug') && hat('Das Fährschiff') && hat('Der Funkspruch') && !rec.texte.some((t) => /Kutter Fortuna/.test(t.s)), 'die drei Abenteuer haben je eine Zeile, die Notruf-Fäden keine eigene (kein „Kutter Fortuna“ im Brett)');
+  ok(hat('NOTRUFE 3') && hat('nächste Frist 6 Ticks'), 'Sammelzeile: „NOTRUFE 3“ und „nächste Frist 6 Ticks“ (die kleinste Frist der Notruf-Fäden, Zahl aus den Daten)');
+  { const l4 = PA.layout(4).laeuft, y4 = l4.y + 3 * (l4.zeileH + l4.zeileLuft) + MASS.laeuft.zeile.y;
+    const zeile4 = rec.texte.filter((t) => t.y === y4);
+    ok(zeile4.map((t) => t.s).join('|').replace(/^NOTRUFE 3\|/, 'N|') === 'N|·|nächste Frist 6 Ticks' && zeile4.find((t) => t.s === '·').col === FARBE.dim, 'vierte Zeile: „NOTRUFE 3“, Trennpunkt, „nächste Frist 6 Ticks“ in dieser Reihenfolge (' + zeile4.map((t) => t.s).join('|') + ')'); }
+  ok(rec.rects.filter((r) => r.col === FARBE.laeuft && r.h === MASS.laeuft.dicht.h && r.w === MASS.laeuft.zeile.balken).length === 4, 'vier Zeilen, je ein Mint-Balken links (3 Abenteuer + Sammelzeile)');
+  ok(rec.rects.filter((r) => r.col === FARBE.laeuft && r.h === MASS.laeuft.zeile.beatH).length === 3 && rec.rects.filter((r) => r.col === FARBE.beatOffen && r.h === 1).length === 3 * 2, 'Beats nur bei den drei Abenteuern (je ein voller Beat „jetzt“ und ein hohler), keiner in der Sammelzeile');
+  ok(hat('ABENTEUER 3/3 · NOTRUFE 3/3') && rec.texte.find((t) => t.s === 'ABENTEUER 3/3 · NOTRUFE 3/3').col === FARBE.laeuft && rec.texte.find((t) => t.s === 'ABENTEUER 3/3 · NOTRUFE 3/3').y === MASS.titelY, 'Überschrift „ABENTEUER 3/3 · NOTRUFE 3/3“ in Mint in der Titelzeile (Grenzen aus dem Block, nicht erfunden)');
+  ok(R2.ui.buttons.filter((b) => b.onClick).length === 3 && R2.ui.buttons.filter((b) => b.onClick).every((b) => b.h === MASS.liste.dicht.karteH && b.y + b.h <= ende), 'alle drei Angebote bleiben klickbar und liegen im Bereich');
+  const gedr = rec.texte.filter((t) => t.y >= PA.layout(4).detail.y && t.y < MASS.info.y - 3 && t.x >= MASS.bereich.x + MASS.liste.w);
+  ok(gedr.length > 0 && !hatTeil(/^Tick:/), 'Detail: die Zeile „Tick: …“ entfällt, wo der Platz fehlt');
+  // Frist der Sammelzeile: Gelb ab 2 Ticks, wartend dim, ohne Grenze keine Zahl dahinter
+  const nbald = NOT.map((x, i) => Object.assign(klon(x), { rest: i === 1 ? 1 : 9 }));
+  m = modellAus({ angebote: [BOJE], laufend: REG.concat(nbald), max: 3, nmax: 3 }); zeichne(baustein(m));
+  ok(hat('! nächste Frist läuft ab') && rec.texte.find((t) => t.s === '! nächste Frist läuft ab').col === FARBE.bald, 'Sammelzeile: kleinste Frist 1 Tick: „! nächste Frist läuft ab“ in Gelb');
+  const nw = NOT.map((x) => Object.assign(klon(x), { ph: 'wartet', rest: 2 }));
+  m = modellAus({ angebote: [BOJE], laufend: REG.slice(0, 1).concat(nw), max: 3, nmax: 3 }); zeichne(baustein(m));
+  ok(hatTeil(/^beginnt in 2 Ticks$/) && !hatTeil(/nächste Frist/), 'Sammelzeile, alle wartend: „beginnt in 2 Ticks“ statt einer Frist');
+  m = modellAus({ angebote: [BOJE], laufend: REG.concat(NOT), max: 3 }); zeichne(baustein(m));
+  ok(m.notrufMax === 0 && hat('ABENTEUER 3/3 · NOTRUFE 3'), 'ohne nmax im Block: „NOTRUFE 3“ ohne erfundene Grenze');
+  // Überschrift ohne Notruf-Fäden, mit einem einzelnen, und wenn sie nicht passt
+  m = modellAus({ angebote: [BOJE], laufend: [REG[0], REG[1]], max: 3, nmax: 3 }); zeichne(baustein(m));
+  ok(hat('ABENTEUER 2/3') && !hatTeil(/NOTRUFE/), 'zwei Abenteuer, keine Notrufe: nur „ABENTEUER 2/3“');
+  m = modellAus({ angebote: [BOJE], laufend: [REG[0]], max: 3, nmax: 3 }); zeichne(baustein(m));
+  ok(!hatTeil(/^ABENTEUER/), 'ein Abenteuer allein: keine Überschrift (der Streifen heißt LÄUFT)');
+  m = modellAus({ angebote: [BOJE], laufend: [NOT[0]], max: 3, nmax: 3 }); zeichne(baustein(m)); geometrie('ein Notruf-Faden');
+  ok(hat('ABENTEUER 0/3 · NOTRUFE 1/3') && hat('Notruf: Kutter Fortuna') && !hatTeil(/^NOTRUFE 1$/), 'ein einziger Notruf-Faden bleibt ein Streifen mit allen Angaben, keine Sammelzeile; Überschrift „ABENTEUER 0/3 · NOTRUFE 1/3“');
+  m = modellAus({ angebote: [BOJE], laufend: NOT, max: 3, nmax: 3 }); zeichne(baustein(m)); geometrie('nur Notrufe');
+  ok(hat('NOTRUFE 3') && hat('ABENTEUER 0/3 · NOTRUFE 3/3'), 'nur Notruf-Fäden: eine Sammelzeile, Überschrift nennt 0/3 Abenteuer');
+  m = modellAus({ angebote: AN, laufend: REG.concat(NOT), max: 3, nmax: 3 });
+  let eng = null; for (let k = 20; k < 120 && !eng; k++) { const b = baustein(m); b.hilfe = 'x'.repeat(k); zeichne(b); if (!hatTeil(/^ABENTEUER \d/i)) eng = b; }   // die kürzeste Tastenzeile, neben der die Überschrift nicht mehr passt
+  zeichne(eng); geometrie('zu enge Titelzeile (Tastenzeile ' + eng.hilfe.length + ' Zeichen)');
+  ok(!hatTeil(/^ABENTEUER \d/i), 'passt die Überschrift nicht neben die Tastenzeile, entfällt sie (kein Überlauf)');
+  // Matrix: 0..3 Abenteuer × 0..3 Notruf-Fäden × 0..3 Angebote: Texte im Bereich, keine Überlappung, Detail über der Linie, Karten im Bereich
+  const bad = []; let nGeprueft = 0;
+  for (let r = 0; r <= 3; r++) for (let nn = 0; nn <= 3; nn++) for (let a = 0; a <= 3; a++) {
+    if (!r && !nn && !a) continue;
+    const mm = modellAus({ angebote: AN.slice(0, a), laufend: REG.slice(0, r).concat(NOT.slice(0, nn)), max: 3, nmax: 3 }); if (!mm) continue;
+    zeichne(baustein(mm)); nGeprueft++;
+    const Bx = L.handel, Ix = L.handelInfo, T = rec.texte.filter((t) => t.s.trim()), tag = r + 'A+' + nn + 'N+' + a + 'An';
+    if (T.some((t) => t.x < Bx.x || t.x + t.w > Bx.x + Bx.w || t.y < MASS.titelY || t.y + t.h > Ix.y + Ix.h)) bad.push(tag + ': Text draußen');
+    for (let i = 0; i < T.length; i++) for (let j = i + 1; j < T.length; j++) if (schneiden(T[i], T[j])) bad.push(tag + ': ' + T[i].s + ' × ' + T[j].s);
+    if (T.filter((t) => t.y < Ix.y - 3).some((t) => t.y + t.h > Ix.y - 3)) bad.push(tag + ': Detail über der Linie');
+    if (R2.ui.buttons.filter((b) => b.onClick).some((b) => b.y + b.h > Bx.y + Bx.h)) bad.push(tag + ': Karte unter dem Bereich');
+  }
+  ok(nGeprueft >= 50 && bad.length === 0, nGeprueft + ' Kombinationen (0 bis 3 Abenteuer, 0 bis 3 Notruf-Fäden, 0 bis 3 Angebote): nichts läuft über, nichts überlappt' + (bad.length ? ': ' + bad.slice(0, 4).join(' | ') : ''));
 }
 
 section('Zeichnen: zwei und drei laufende Abenteuer (SPT-02 3): je eine Zeile, die Karten behalten ihren Platz');

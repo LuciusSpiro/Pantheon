@@ -348,7 +348,7 @@
     m.bereich = 'brett';
     m.kopf = { ort: L.ort, art: 'hafen', marken: L.marks };
     m.brett = {
-      titel: BR.kopf || TX.bereich, laufend: lauf, gewaehlt: gew ? gew.id : null, geruechte: BR.geruechte, leerText: '',
+      titel: BR.kopf || TX.bereich, laufend: lauf, gewaehlt: gew ? gew.id : null, geruechte: BR.geruechte, leerText: '', max: BR.laufendMax, notrufMax: BR.notrufMax,
       hilfe: bedienbar && gew ? window.PultAuftrag.text(voll || !BR.ok ? 'hilfeGesperrt' : 'hilfe', { wahl: T.kappe('terminal.teil', '↑↓'), an: T.kappe('terminal.brettAnnehmen', 'Enter'), ab: T.kappe('terminal.brettAblehnen', 'X') }) : '',   // Annehmen gesperrt (läuft schon, kein Spielleiter): „Ent annehmen“ entfällt, „Ablehnen kostet nichts“ bleibt sichtbar
       scheitern: BR.scheitern,
       angebote: BR.angebote.map((k, i) => Object.assign({}, k, { nr: i + 1, kappe: T.kappe('terminal.brett' + (i + 1), String(i + 1)), onClick: bedienbar ? () => { s.brettId = k.id; s.antwort = null; } : null })),

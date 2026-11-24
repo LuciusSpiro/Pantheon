@@ -200,7 +200,7 @@ function snapshot(game) {
   }
   const g = geruechte(alle);
   if (g.length) s.geruechte = g;
-  if (ls.length) s.max = W.abenteuer.laufend_max;   // SPT-02 3: die Grenze aus den Daten (der Client sperrt Annehmen erst bei Erreichen, keine Zahl im Client)
+  if (ls.length) { s.max = W.abenteuer.laufend_max; s.nmax = P.NOTRUF_AKTIV_MAX; }   // SPT-02 3: die Grenze aus den Daten (der Client sperrt Annehmen erst bei Erreichen, keine Zahl im Client); SPT-02 5b: dazu notruf_aktiv_max (nmax) fuer die Ueberschrift "ABENTEUER n/max · NOTRUFE n/max"
   s.laufend = ls.map((l) => {
     const v = D.vorlage(l.vorlage), b = v && v.beats[l.beat], cat = b && has(B, b.typ) ? B[b.typ] : null;
     const e = { id: l.id, ...(P.notrufBrettFaden(l) ? { notruf: 1 } : {}), titel: text(v ? v.titel : '', BW.titel_max), ort: l.parameter.ort || '', schritt: l.beat + 1, schritte_gesamt: v ? v.beats.length : 0, schritt_text: b ? schrittText(b) : '', gefahr: !!(cat && cat.gefahr), ph: l.phase === 'laeuft' ? 'laeuft' : 'wartet', rest: restLaufend(l) };

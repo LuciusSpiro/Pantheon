@@ -57,6 +57,23 @@ const MUTATIONEN = [
   [PS, "const TABS = ['Funk', 'Sternkarte', 'Lage', 'Außenteam', 'Sektorplan', 'Aufträge'];", "const TABS = ['Funk', 'Sternkarte', 'Lage', 'Außenteam', 'Sektorplan', 'Notrufe'];", 'z2: Pult: Reiter heisst noch Notrufe'],
   [TA, "A('captain.reiter6', 'captain', 'Reiter Aufträge', NUM(6).reverse()),", "A('captain.reiter6', 'captain', 'Reiter Notrufe', NUM(6).reverse()),", 'z3: Tastenbelegung: Reiter 6 heisst noch Notrufe'],
   [TA, "    A('captain.notruf.tabNotruf', 'captain', 'Aufträge: Tab Notrufe', ['ArrowRight', 'KeyD'], 'captain.notruf'),\n", '', 'z4: Tastenbelegung ohne Tab-Taste'],
+  // ---- SPT-02 5b: Zeitangaben, Rot, Unterscheidbarkeit
+  [NV, ": 'Hilferuf', 22)", ': hexName(e.h), 22)', '5b-a: Hilferuf ohne Auftrag heißt wie der Kampagnen-Ruf (Ort als Titel)'],
+  [NV, ".replace(/^Notruf: */, '')", ".replace(/^zzzz/, '')", '5b-b: „Notruf:“ bleibt im Titel des Tabs Notrufe'],
+  [NV, 'c: PAL.mint, bake: e.gefahr }', 'c: e.gefahr ? PAL.red : PAL.mint, bake: e.gefahr }', '5b-c: Gefahr färbt die zweite Zeile rot'],
+  [NV, 'c: PAL.mint, bake: e.gefahr }', 'c: PAL.mint, bake: false }', '5b-d: keine Bake vor dem gefährlichen Abenteuer'],
+  [NV, "c: e.ausgang === 'gelungen' ? PAL.mint : PAL.panelLight }", "c: e.ausgang === 'gelungen' ? PAL.mint : PAL.red }", '5b-e: „gescheitert“ in der Liste rot'],
+  [NV, "py, { color: PAL.star || '#F4EEDC' }); py += 11;   // SPT-02 5b: neutral", "py, { color: e.gefahr ? PAL.red : PAL.star || '#F4EEDC' }); py += 11;   // SPT-02 5b: neutral", '5b-f: Detail: Schrittzeile rot bei Gefahr'],
+  [NV, 'if (T && T.zeichneGefahrGlyph) { T.zeichneGefahrGlyph(ctx, px, py + 1); gx += T.gefahrGlyphBreite; }', '', '5b-g: Detail: keine Bake vor „Gefahr in diesem Schritt“'],
+  [NV, "const markeDauer = (s) => 'noch ' + zeit(s);", "const markeDauer = (s) => 'noch ' + Math.max(1, Math.ceil(num(s) / 60)) + ' min';", '5b-h: Marken-Lebensdauer in Minuten statt m:ss'],
+  [NV, '[ortName(e.h), st, fristKurz(f)]', "[ortName(e.h), st, e.b != null ? markeDauer(e.b) : '']", '5b-i: angenommener Takt-Notruf zeigt Minuten statt der Ticks des Fadens'],
+  [NV, 'if (e.faden && !e.angebot) R.text(ctx, fristText(e.faden)', 'if (false) R.text(ctx, fristText(e.faden)', '5b-j: Detail eines angenommenen Takt-Notrufs ohne Ticks-Frist'],
+  [NV, "return n.indexOf(h) >= 0 ? n : n + ' (' + h + ')';", "return n + ' (' + h + ')';", '5b-k: unbenannte Hexe mit doppeltem Klammerteil'],
+  [NV, "[e.notruf ? 'Notruf' : 'Abenteuer', ortName(e.ort), schrittText(e)]", "[e.notruf ? 'Notruf' : 'Abenteuer', '', schrittText(e)]", '5b-l: Aktive Missionen: kein Ort in Zeile 2'],
+  [NV, "passend([ortName(e.h), st, e.b != null ? markeDauer(e.b) : ''], [1])", "passend(['', st, e.b != null ? markeDauer(e.b) : ''], [1])", '5b-m: Tab Notrufe: kein Ort in Zeile 2'],
+  [NV, 'while (r.length > 1 && R.measure(r, 1) > BREIT)', 'while (false)', '5b-n: Zeile 2 wird nicht auf die Listenbreite gekürzt'],
+  [NV, "if (R.measure(t.map((o) => o.s).join(' · '), 1) <= BREIT) break;", 'if (true) break;', '5b-o: Teile entfallen nie, nur gekürzt'],
+  ['server/sim/abenteuer-brett.js', 's.nmax = P.NOTRUF_AKTIV_MAX;', '', '5b-p: der Block trägt keine Grenze notruf_aktiv_max'],
 ];
 
 const FILTER = process.argv.slice(2).filter((a) => !a.startsWith('--')).map((s) => s.toLowerCase());

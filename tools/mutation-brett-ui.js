@@ -25,6 +25,21 @@ const BR = 'public/js/brett.js', TU = 'public/js/terminal-ui.js', PB = 'public/j
   CO = 'public/js/consoles.js', CL = 'public/js/client.js', HU = 'public/js/hud.js', WE = 'server/sim/werft.js', IX = 'public/index.html', PA = 'public/js/pult-auftrag-tokens.js';
 // [Datei, alter Text (genau einmal), neuer Text, Beschreibung]
 const MUTATIONEN = [
+  // ---- SPT-02 5b: Sammelzeile der Notruf-Fäden, Überschrift, Layout bis 4 Zeilen
+  [PB, 'sammel = nots.length >= 2;', 'sammel = false;', '5b: Notruf-Fäden werden nicht zusammengefasst (sechs Zeilen)'],
+  [PB, 'sammel = nots.length >= 2;', 'sammel = nots.length >= 1;', '5b: auch ein einzelner Notruf-Faden wird zur Sammelzeile'],
+  [PB, 'if (!nots && reg < 2) return;', 'if (false) return;', '5b: Überschrift auch bei einem einzelnen Abenteuer'],
+  [PB, 'laeuftUeberschrift(c, b, B, L.titel.y, reg.length, nots.length);', '', '5b: keine Überschrift über dem Block Läuft'],
+  [PB, '<= ende) { txt(c, s, x, y, FA.laeuft,', '<= ende + 999) { txt(c, s, x, y, FA.laeuft,', '5b: die Überschrift prüft nicht, ob sie neben die Tastenzeile passt'],
+  [PB, "const x = txt(c, '·', e + Z.fristLuft / 2, y, FA.dim) + Z.fristLuft / 2;", 'const x = e + Z.fristLuft;', '5b: Sammelzeile ohne Trennpunkt'],
+  [PB, "if (typeof a.rest === 'number' && hiRows > 0) {", "if (typeof a.rest === 'number') {", '5b: der Tick-Hinweis entfällt im dichten Layout nicht'],
+  [PB, "return { s: n <= 1 ? '! ' + A.text('notrufFristBald') : A.text('notrufFrist', { n }), col: v.bald ? FA.bald : FA.text };", "return { s: A.text('notrufFrist', { n }), col: FA.text };", '5b: Sammelzeile ohne Gelb und ohne „läuft ab“ bei Frist 1'],
+  [PB, "const lauf = nots.filter((l) => l.ph === 'laeuft'), min = (ls) => Math.min.apply(null, ls.map((l) => l.rest));", 'const lauf = nots, min = (ls) => Math.max.apply(null, ls.map((l) => l.rest));', '5b: Sammelzeile nennt die größte statt der kleinsten Frist'],
+  [BR, 'const notrufMax = isNum(b.nmax) ? Math.max(1, zahl(b.nmax)) : 0;', 'const notrufMax = 3;', '5b: notruf_aktiv_max wird im Client erfunden statt aus dem Block gelesen'],
+  [PA, 'zeilenMax: 4, dichtAb: 4,', 'zeilenMax: 9, dichtAb: 4,', '5b: der Block darf mehr als vier Zeilen haben'],
+  [PA, 'zeilenMax: 4, dichtAb: 4,', 'zeilenMax: 4, dichtAb: 9,', '5b: das dichte Layout greift nie (Überlauf bei vier Zeilen)'],
+  [PA, 'folgeZeilenDicht: 1,', 'folgeZeilenDicht: 3,', '5b: das Detail bleibt im dichten Layout dreizeilig (läuft über die Infozeile)'],
+  [PA, 'dicht: { karteH: 35, luft: 2 } }', 'dicht: { karteH: 36, luft: 4 } }', '5b: Karten im dichten Layout wie sonst (laufen unter den Bereich)'],
   // ---- brett.js: Storage, Müll, Grenzen, Befehle, Texte
   [BR, "if (msg.t === 'welcome') { store.abenteuer = null; return; }", "if (msg.t === 'welcome') { return; }", 'welcome leert nicht'],
   [BR, "if (msg.phase === 'lobby') { store.abenteuer = null; return; }", "if (msg.phase === 'lobby') { return; }", 'Lobby leert nicht'],
@@ -67,7 +82,7 @@ const MUTATIONEN = [
   [BR, "voll: laufend.filter((l) => !l.notruf).length >= laufendMax", "voll: false", 'SPT-02 3: brett.js meldet nie voll'],
   [BR, "const laufendMax = isNum(b.max) ? Math.max(1, zahl(b.max)) : 1;", "const laufendMax = 3;", 'SPT-02 3: die Grenze steht fest im Client statt aus dem Block'],
   [BR, "Array.isArray(ls) ? ls.filter(frisch).pop() : null", "Array.isArray(ls) ? ls.filter(frisch).shift() : null", 'SPT-02 3: ANGENOMMEN nennt das aelteste statt das juengste frische Abenteuer'],
-  [PB, "if (ls.length === 1) laeuftStreifen(c, L.laeuft, ls[0]);\n    else ls.forEach(", "if (ls.length === 1) laeuftStreifen(c, L.laeuft, ls[0]);\n    else ls.slice(0, 1).forEach(", 'SPT-02 3: das Brett zeigt von mehreren laufenden Abenteuern nur das erste'],
+  [PB, "if (zeilen.length === 1 && !sammel) laeuftStreifen(c, LL, zeilen[0]);\n    else zeilen.forEach(", "if (zeilen.length === 1 && !sammel) laeuftStreifen(c, LL, zeilen[0]);\n    else zeilen.slice(0, 1).forEach(", 'SPT-02 3: das Brett zeigt von mehreren laufenden Abenteuern nur das erste'],
   [TU, "fn: 'modul' } : { text: '', fn: 'dim' },", "fn: 'dim' } : { text: '', fn: 'dim' },", 'Hinweis „kostet nichts“ nicht in Mint'],
   [TU, "BR.ablehnen ? BR.ablehnen.replace(/\\.$/, '') : TX.kostetNichts", "TX.kostetNichts", 'Hinweis „kostet nichts“ nicht aus den Daten des Servers'],
   [TU, "voll ? window.PultAuftrag.text('gesperrtGrund') :", "voll ? '' :", 'gesperrter Annehmen-Knopf ohne Grund'],

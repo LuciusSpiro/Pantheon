@@ -32,8 +32,20 @@
   function wirkungText(w) { return w.map((m) => (m.art === 'haltung' ? 'Haltung ' : 'Ruf ' + (FRAKTION[m.f] || m.f) + ' ') + (m.d > 0 ? '+' : '') + m.d).join(' · '); }
   function hexName(h) { const S = window.Shared_Sektoren; return S && S.hexName ? S.hexName(h) : h; }
   function zeit(s) { s = Math.max(0, Math.round(num(s))); return Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0'); }
-  const minuten = (s) => Math.max(1, Math.ceil(num(s) / 60));
-  function ortText(h) { return /^\d{4}$/.test(String(h || '')) ? hexName(h) + ' (' + h + ')' : txt(h, 30); }
+  // Lebensdauer einer Notruf-Marke (Kampagne und Takt gleich): m:ss. Die Frist eines angenommenen Takt-Notrufs steht dagegen in Ticks wie im Brett (SPT-02 5b)
+  const markeDauer = (s) => 'noch ' + zeit(s);
+  const istHex = (h) => /^\d{4}$/.test(String(h || ''));
+  const ortName = (h) => (istHex(h) ? hexName(h) : txt(h, 30));
+  function ortText(h) { if (!istHex(h)) return txt(h, 30); const n = hexName(h); return n.indexOf(h) >= 0 ? n : n + ' (' + h + ')'; }   // unbenannte Hexe heißen schon „Leerraum 0404“: kein zweites „(0404)“
+  const ohneNotruf = (t) => String(t || '').replace(/^Notruf: */, '');   // im Tab „Notrufe“ steht „Notruf“ schon im Tab
+  // Zeile aus Teilen („a · b · c“) auf die Breite der Liste: passt sie nicht, entfallen die Teile in der Reihenfolge `weg`, zuletzt wird gekürzt
+  const LW = 230, BREIT = LW - 8;   // Breite der Liste (SPT-02 5b: 230 statt 190, damit „Notruf · Kantenstein · Schritt 1 von 3“ mit Bake in eine Zeile passt)
+  function passend(teile, weg) {
+    let t = teile.map((s, i) => ({ s, i })).filter((o) => o.s);
+    for (const k of weg || []) { if (R.measure(t.map((o) => o.s).join(' · '), 1) <= BREIT) break; t = t.filter((o) => o.i !== k); }
+    let r = t.map((o) => o.s).join(' · '); while (r.length > 1 && R.measure(r, 1) > BREIT) r = r.slice(0, -2) + '…';
+    return r;
+  }
 
   // ---- Daten der Tabs (alles aus dem, was der Client schon hat: nr, Brett-Block, world.marken, Missionsbuch)
   function liste(st) { return (st && st.nr) || []; }   // Kampagnen-Notrufe (Server-Snapshot nr); auch für den Ops-Knopf
@@ -96,6 +108,12 @@
     if (e.ph !== 'laeuft') return P ? P.beginnt(e.rest) : 'beginnt in ' + num(e.rest) + ' Ticks';
     return num(e.rest) <= 1 ? (P ? P.text('fristBald') : 'Frist läuft ab') : (P ? P.text('frist', { n: e.rest }) : 'Frist noch ' + e.rest + ' Ticks');
   }
+  // Frist des Fadens kurz („noch 6 Ticks“); wartet er noch auf den Beginn, ist rest keine Frist („beginnt in 2 Ticks“)
+  function fristKurz(e) {
+    const P = PA();
+    if (e.ph !== 'laeuft') return P ? P.beginnt(e.rest) : 'beginnt in ' + num(e.rest) + ' Ticks';
+    return num(e.rest) <= 1 ? (P ? P.text('fristBald') : 'Frist läuft ab') : 'noch ' + num(e.rest) + ' Ticks';
+  }
   function schrittText(e) { const P = PA(); return P ? P.text('schritt', { i: e.schritt, n: e.gesamt }) : 'Schritt ' + e.schritt + ' von ' + e.gesamt; }
 
   // ---- Zeichnen
@@ -106,18 +124,23 @@
     if (e.art === 'faden') return { t: kurz(e.titel, 24), c: istSel ? PAL.amber : k };
     if (e.art === 'mission') return { t: kurz(e.titel, 24), c: istSel ? PAL.amber : k };
     if (e.pseudo) return { t: kurz(e.titel, 24), c: istSel ? PAL.amber : k };
-    if (e.art === 'takt') return { t: '! ' + kurz(e.angebot ? e.angebot.titel : e.faden ? e.faden.titel : hexName(e.h), 22), c: istSel ? PAL.amber : k };
+    if (e.art === 'takt') return { t: '! ' + kurz(e.angebot ? ohneNotruf(e.angebot.titel) : e.faden ? ohneNotruf(e.faden.titel) : 'Hilferuf', 22), c: istSel ? PAL.amber : k };   // SPT-02 5b: ohne „Notruf:“ (steht im Tab); ein Hilferuf ohne Auftrag heißt so, nicht wie der Kampagnen-Ruf am selben Ort; der Ort steht in Zeile 2
     return { t: (e.k === 'k' ? '! ' : '? ') + hexName(e.h), c: istSel ? PAL.amber : k };
   }
+  // SPT-02 5b: Rot nur für echte Dringlichkeit (Frist läuft ab); Gefahr steht als schraffierte Bake vor dem Text (wie im Brett) und der Text bleibt Mint, „gescheitert“ ist grau
   function zeile2(e) {
-    if (e.art === 'faden') return { t: (e.notruf ? 'Notruf' : 'Abenteuer') + ' · ' + schrittText(e), c: e.gefahr ? (PAL.red) : PAL.mint };
+    if (e.art === 'faden') return { t: passend([e.notruf ? 'Notruf' : 'Abenteuer', ortName(e.ort), schrittText(e)], [0]), c: PAL.mint, bake: e.gefahr };
     if (e.art === 'mission') return { t: (KIND[e.kind] || 'Mission') + (e.verfolgt ? ' · verfolgt' : ' · aktiv'), c: PAL.ice || PAL.panelLight };
-    if (e.pseudo) return { t: e.ausgang === 'gelungen' ? 'erledigt' : 'gescheitert', c: e.ausgang === 'gelungen' ? PAL.mint : PAL.red };
+    if (e.pseudo) return { t: e.ausgang === 'gelungen' ? 'erledigt' : 'gescheitert', c: e.ausgang === 'gelungen' ? PAL.mint : PAL.panelLight };
     if (e.art === 'takt') {
       const st = e.angebot ? 'am Brett' : e.faden ? 'angenommen' : 'offen';
-      return { t: st + (e.b != null ? ' · noch ' + minuten(e.b) + ' min' : ''), c: e.b != null && e.b < 90 ? PAL.red : PAL.panelLight };
+      if (e.faden && !e.angebot) {   // angenommen: die Frist des Fadens in Ticks, wie im Brett
+        const f = e.faden, bald = f.ph === 'laeuft' && num(f.rest) <= 1;
+        return { t: passend([ortName(e.h), st, fristKurz(f)], [1]), c: bald ? PAL.red : PAL.panelLight };
+      }
+      return { t: passend([ortName(e.h), st, e.b != null ? markeDauer(e.b) : ''], [1]), c: e.b != null && e.b < 90 ? PAL.red : PAL.panelLight };
     }
-    return { t: ZUSTAND[e.z] + (e.r != null ? ' · noch ' + zeit(e.r) : ''), c: e.r != null && e.r < 90 ? PAL.red : PAL.panelLight };
+    return { t: ZUSTAND[e.z] + (e.r != null ? ' · ' + markeDauer(e.r) : ''), c: e.r != null && e.r < 90 ? PAL.red : PAL.panelLight };
   }
   function tabLeiste(ctx, area, anz) {
     const T = [['aktiv', 'Aktive Missionen', 'captain.notruf.tabAktiv', 'A'], ['notruf', 'Notrufe', 'captain.notruf.tabNotruf', 'D']];
@@ -134,10 +157,13 @@
     for (const t of R.wrap(e.titel, pw, 1)) { R.text(ctx, t, px, py, { color: PAL.star || '#F4EEDC' }); py += 10; }
     py += 3;
     if (e.anlass) py = absatz(ctx, e.anlass, px, py, pw, PAL.panelLight, 3) + 3;
-    R.text(ctx, schrittText(e) + (e.schrittText ? ': ' + e.schrittText : ''), px, py, { color: e.gefahr ? PAL.red : PAL.star || '#F4EEDC' }); py += 11;
+    R.text(ctx, schrittText(e) + (e.schrittText ? ': ' + e.schrittText : ''), px, py, { color: PAL.star || '#F4EEDC' }); py += 11;   // SPT-02 5b: neutral, Rot nur für die Gefahr darunter
     if (e.ort) { R.text(ctx, 'Ort: ' + ortText(e.ort), px, py, { color: PAL.panelLight }); py += 11; }
     R.text(ctx, fristText(e), px, py, { color: e.ph === 'laeuft' && num(e.rest) <= 1 ? PAL.red : PAL.amber }); py += 11;
-    if (e.gefahr) { R.text(ctx, 'Gefahr in diesem Schritt', px, py, { color: PAL.red }); py += 11; }
+    if (e.gefahr) {
+      const T = window.PultTerminal; let gx = px; if (T && T.zeichneGefahrGlyph) { T.zeichneGefahrGlyph(ctx, px, py + 1); gx += T.gefahrGlyphBreite; }
+      R.text(ctx, 'Gefahr in diesem Schritt', gx, py, { color: PAL.red }); py += 11;
+    }
     return 'W/S wählen · A/D Tab · läuft von allein, nichts zu tun';
   }
   function detailMission(ctx, e, px, pw, py) {
@@ -167,7 +193,9 @@
       py += 3;
     } else { py = absatz(ctx, 'Ein Hilferuf aus ' + hexName(e.h) + '. Dazu liegt kein Auftrag am Brett.', px, py, pw, PAL.panelLight, 3) + 3; }
     R.text(ctx, 'Ort: ' + ortText(e.h), px, py, { color: PAL.panelLight }); py += 11;
-    if (e.b != null) { R.text(ctx, 'Frist: noch ' + minuten(e.b) + ' min', px, py, { color: e.b < 90 ? PAL.red : PAL.amber }); py += 11; }
+    // SPT-02 5b: angenommen: die Frist des Fadens in Ticks (wie im Brett); offen oder am Brett: die Lebensdauer der Marke in m:ss (wie beim Kampagnen-Notruf)
+    if (e.faden && !e.angebot) R.text(ctx, fristText(e.faden), px, py, { color: e.faden.ph === 'laeuft' && num(e.faden.rest) <= 1 ? PAL.red : PAL.amber }), py += 11;
+    else if (e.b != null) { R.text(ctx, 'Frist: ' + markeDauer(e.b), px, py, { color: e.b < 90 ? PAL.red : PAL.amber }); py += 11; }
     if (e.angebot) py = absatz(ctx, 'Angeboten am Auftragsbrett. Annehmen dort (Terminal, Bereich Brett), hier nicht.', px, py + 3, pw, PAL.mint, 3);
     else if (e.faden) py = absatz(ctx, 'Angenommen: läuft unter „Aktive Missionen“.', px, py + 3, pw, PAL.mint, 2);
     else py = absatz(ctx, 'Man muss keinem Ruf folgen.', px, py + 3, pw, PAL.panelLight, 2);
@@ -203,7 +231,7 @@
     const tab = V.tab, l = L[tab], top = area.y + 20;
     const ar = { x: area.x, y: top, w: area.w, h: area.h - (top - area.y) - LEISTE };   // unten bleibt die Fracht-/Rangleiste der Konsole frei
     if (!l.length) { R.text(ctx, tab === 'notruf' ? TXT.notrufLeer : TXT.aktivLeer, ar.x + 4, ar.y + 2, { color: PAL.panelLight }); return 'A/D Tab wechseln'; }
-    const lw = 190, sel = aktuell(view, tab);
+    const lw = LW, sel = aktuell(view, tab);
     const rows = Math.max(1, Math.floor((ar.h + 2) / ROW)), si = Math.max(0, l.findIndex((e) => sel && e.i === sel.i));
     const ab = si >= rows ? si - rows + 1 : 0;
     let y = ar.y;
@@ -216,7 +244,9 @@
       }
       const z1 = zeile1(e, isSel), z2 = zeile2(e);
       R.text(ctx, z1.t, ar.x + 4, y, { color: z1.c });
-      R.text(ctx, z2.t, ar.x + 4, y + 10, { color: z2.c });
+      let x2 = ar.x + 4;
+      if (z2.bake) { const T = window.PultTerminal; if (T && T.zeichneGefahrGlyph) { T.zeichneGefahrGlyph(ctx, x2, y + 11); x2 += T.gefahrGlyphBreite; } else R.text(ctx, '!', x2, y + 10, { color: PAL.red }), x2 += 8; }
+      R.text(ctx, z2.t, x2, y + 10, { color: z2.c });
       if (R.ui && R.ui.buttons) R.ui.buttons.push({ x: ar.x, y: y - 2, w: lw, h: 24, label: '', disabled: false, onClick: () => waehle(tab, e, cmd) });
       y += ROW;
     });

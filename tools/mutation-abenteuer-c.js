@@ -82,7 +82,7 @@ const MUTATIONEN = [
   // SPT-02 3: laufend_max 3, Anzahl statt Ja/Nein, Liste im Snapshot
   ["server/sim/abenteuer-brett.js", "ls.map((l) => [l.id, l.beat, l.phase, restLaufend(l)].join(':')).join(',')", "ls.slice(0, 1).map((l) => [l.id, l.beat, l.phase, restLaufend(l)].join(':')).join(',')", "Schluessel: nur das erste laufende Abenteuer aendert den Schluessel"],
   ["server/sim/abenteuer-brett.js", "s.laufend = ls.map((l) => {", "s.laufend = ls.slice(0, 1).map((l) => {", "Snapshot: die Liste laufend traegt nur das erste Abenteuer"],
-  ["server/sim/abenteuer-brett.js", "if (ls.length) s.max = W.abenteuer.laufend_max;", "", "Snapshot: die Grenze max fehlt"],
+  ["server/sim/abenteuer-brett.js", "if (ls.length) { s.max = W.abenteuer.laufend_max; s.nmax = P.NOTRUF_AKTIV_MAX; }", "if (ls.length) { s.nmax = P.NOTRUF_AKTIV_MAX; }", "Snapshot: die Grenze max fehlt"],
   ["server/sim/abenteuer-brett.js", "if (P.abenteuerGrenzeErreicht(F)) return out;", "", "Rueckfall fuellen: auch bei erreichter Grenze laufend_max"],
   ["server/sim/abenteuer-brett.js", "if (P.abenteuerGrenzeErreicht(F)) return out;", "if (P.abenteuerLaufend(F)) return out;", "Rueckfall fuellen: schon ein laufendes Abenteuer sperrt (Ja/Nein statt Anzahl)"],
   ["server/sim/abenteuer-brett.js", "if (P.regulaereAngebote(F).length || P.abenteuerGrenzeErreicht(F)) return null;", "if (P.regulaereAngebote(F).length || P.abenteuerLaufend(F)) return null;", "Anschluss: schon ein laufendes Abenteuer sperrt (Ja/Nein statt Anzahl)"],

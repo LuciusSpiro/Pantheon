@@ -1,7 +1,7 @@
 // SUND-04b D: Auftragsbrett in der Anzeige (nur Freie Fahrt Sund mit FAEDEN=1). Globales `Brett`, in Node als Modul (Tests).
 // Storage: store.abenteuer = letzter Block world.abenteuer (README „SUND-04b C“; kommt nur bei Änderung; world.abenteuer = null ist das Löschsignal; welcome und die Lobby leeren ebenfalls).
 //   Gleich für alle Spieler (nur der Server schreibt). Ohne Block (kein FAEDEN=1) gibt es keinen Bereich, keine Hinweise, keine Fehler.
-// Action: modell() -> null | { ok, kopf, ablehnen, scheitern, angebote: [{ id, titel, anlass, ort, ortname, ort_offen, hafen, rest, von, aus_geruecht, typen, vorschau }], geruechte, laufend: [..] (Liste), laufendMax, voll (laufend.length >= laufendMax) },
+// Action: modell() -> null | { ok, kopf, ablehnen, scheitern, angebote: [{ id, titel, anlass, ort, ortname, ort_offen, hafen, rest, von, aus_geruecht, typen, vorschau }], geruechte, laufend: [..] (Liste), laufendMax, notrufMax, voll (laufend.length >= laufendMax) },
 //   müllfest (jedes Feld wird auf Typ und Länge geprüft; Titel, Anlass und Gerücht sind Modelltext: nur als Text gezeichnet, nie als HTML). Dazu die Kurztexte der Antwortcodes und die
 //   Befehle abenteuer.annehmen / abenteuer.ablehnen (der Server entscheidet alles; die erste Antwort der Crew gilt).
 // Das Terminal (terminal-ui.js, Bereich „Brett“) und der Flug-HUD (hud.js, Streifen) lesen nur hierüber; gezeichnet wird in pult-terminal-brett.js.
@@ -97,11 +97,12 @@
     if (!b || typeof b !== 'object') return null;
     const angebote = liste(b.angebote, GRENZE.angebote).map(angebotAus).filter(Boolean);
     const laufend = (Array.isArray(b.laufend) ? liste(b.laufend, GRENZE.laufend) : b.laufend ? [b.laufend] : []).map(laufendAus).filter(Boolean);   // SPT-02 3: eine Liste (der Server sendet alle laufenden Abenteuer; ein einzelnes Objekt eines Altstands gilt als eines)
+    const notrufMax = isNum(b.nmax) ? Math.max(1, zahl(b.nmax)) : 0;   // SPT-02 5b: die Grenze notruf_aktiv_max aus den Daten (0 = unbekannt: die Ueberschrift nennt dann keine Grenze)
     const laufendMax = isNum(b.max) ? Math.max(1, zahl(b.max)) : 1;   // die Grenze laufend_max aus den Daten des Servers; fehlt sie, gilt 1 (Annehmen bleibt gesperrt: der Server entscheidet ohnehin)
     const ids = new Set(angebote.map((a) => a.id));
     const geruechte = liste(b.geruechte, GRENZE.geruechte).filter((g) => g && typeof g === 'object' && str(g.text)).map((g) => ({ von: str(g.von, 8), text: str(g.text), angebot: typeof g.angebot === 'string' && ids.has(g.angebot) ? g.angebot : '' }));
     if (!angebote.length && !laufend.length) return null;   // nichts zu zeigen: kein Bereich (der Server sendet dann null)
-    return { ok: b.ok === 1 || b.ok === true, kopf: str(b.kopf, 30), ablehnen: str(b.ablehnen, 50), scheitern: str(b.scheitern, 100), angebote, geruechte, laufend, laufendMax, voll: laufend.filter((l) => !l.notruf).length >= laufendMax };   // SPT-02 4: voll zaehlt nur die regulaeren Abenteuer
+    return { ok: b.ok === 1 || b.ok === true, kopf: str(b.kopf, 30), ablehnen: str(b.ablehnen, 50), scheitern: str(b.scheitern, 100), angebote, geruechte, laufend, laufendMax, notrufMax, voll: laufend.filter((l) => !l.notruf).length >= laufendMax };   // SPT-02 4: voll zaehlt nur die regulaeren Abenteuer
   }
   const modell = () => modellAus(store.abenteuer);
 
