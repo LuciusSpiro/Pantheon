@@ -466,6 +466,7 @@ function eintreffen(game, L) {
 function update(game, dt) {   // eslint-disable-line no-unused-vars
   FA().update(game);   // SUND-03b A: Reaktion des Sprechers, Angebot in unruhiger Lage zurückziehen
   try { require('./faden-p3.js').update(game); } catch (e) { if (game.countError) game.countError('faden-p3-update', e); }   // SUND-04a-2 P3: die Ankunft am Ort beendet einen Notruf
+  try { require('./abenteuer-brett.js').notrufHaengerBeenden(game); } catch (e) { if (game.countError) game.countError('reise-notruf-haenger', e); }   // SPT-02 12: ein Notruf-Faden, der nach notruf_faden_frist_spruenge Spruengen noch vor dem Abschluss steht (rettung nie erfuellt), endet gescheitert und gibt seinen Platz frei
   try { require('./abenteuer-brett.js').notrufRueckfallWeiter(game); } catch (e) { if (game.countError) game.countError('reise-notruf-weiter', e); }   // FRE-03 Nacharbeit B1: Notruf-Faden im Rueckfall-Betrieb bis zum Abschluss fuehren
   try { require('./abenteuer-brett.js').abenteuerRueckfallWeiter(game); } catch (e) { if (game.countError) game.countError('reise-abenteuer-weiter', e); }   // FRE-05: reguläre Brett-Fäden (Gerücht, Konvoi, Geleit, Spur, Sabotage) im Rückfall-Betrieb weiterführen
   try { require('./abenteuer-brett.js').notrufAbschlussWeiter(game); } catch (e) { if (game.countError) game.countError('reise-notruf-abschluss', e); }   // SPT-02 4b: ein Notruf-Faden im faelligen Abschluss-Beat schliesst im Betrieb mit Modell ab, sobald die Reise-Gefahr vorbei ist (sonst belegt er notruf_aktiv_max bis Spielende)
