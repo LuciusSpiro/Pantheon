@@ -118,6 +118,7 @@
     "test:bot02-ansagen-mutation": "node tools/mutation-bot02-ansagen.js",
     "test:bot02-vorlauf": "node tools/test-bot02-vorlauf.js",
     "test:bot02-vorlauf-mutation": "node tools/mutation-bot02-vorlauf.js",
+    "test:bot02-notsprung": "node tools/test-bot02-notsprung.js",
     "bot:mock": "node tools/bot-befehl-mock.js",
     "test:version": "node tools/test-version.js",
     "test:tutorial-sprung": "node tools/test-tutorial-sprung.js",

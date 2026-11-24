@@ -43,8 +43,8 @@ const AUTO_GANG_PAUSE = 40;   // B2-Nacharbeit: Gesamtpause von Sensor und Kuppe
 const WEG_FRIST = 45;   // s: laeuft der Bot so lange zur Captain-Konsole, ohne dass er sendet (Weg versperrt), gibt er auf
 const BORD_BEFEHL_FRIST = 20;   // s: ein Befehl bord.rueckholen, der nicht ausgefuehrt werden kann, verfaellt
 const SENDE_PAUSE = 2;   // s: zwischen zwei Versuchen, transfer.recall zu senden
-const SCAN_PAUSE = 2;   // BOT-02 B3: s zwischen zwei Versuchen, weapons.landescan zu senden (der Scan laeuft 4 s, der Bot haelt ihn nicht, er wartet nur an der Konsole)
-const STOPP_PAUSE = 1.5;   // BOT-02 B3: s zwischen zwei helm.stop (wie kern.js Allstopp)
+const SCAN_PAUSE = 2;   // BOT-02 B3: s zwischen zwei Versuchen, weapons.landescan zu senden (der Scan laeuft 4 s, der Bot haelt ihn nicht, er wartet nur an der Konsole). Schutzcode: im Normalbetrieb nicht erreichbar (landescanAuto sendet nur, solange kein Scan laeuft und der Landepunkt offen ist; der Scan haelt ihn dann zu)
+const STOPP_PAUSE = 1.5;   // BOT-02 B3: s zwischen zwei helm.stop (wie kern.js Allstopp). Schutzcode: im Normalbetrieb nicht erreichbar (nach dem ersten helm.stop laeuft autoStop, stoppFuerBeam sendet dann nichts mehr)
 const FRIST_FRISCH = 6;   // Ticks: aelterer Snapshot als das zaehlt nicht (Schutz vor einem Rest aus einer frueheren Partie)
 
 class BotMannschaft extends BotKern {
@@ -199,11 +199,11 @@ class BotMannschaft extends BotKern {
     if (!g.lpscan && g.time >= this.scanAutoAt) { this.scanAutoAt = g.time + SCAN_PAUSE; this.landescanSenden(); }
     return true;
   }
-  // BOT-02 B3: Schiff anhalten, wenn ein Beam vorbereitet wird (Vorlauf oder ein Mensch beamt runter) und es faehrt: schneller als beamMaxSpeed oder eine Stufe ueber Stopp (helm.stop, auch kern.js Allstopp: Pause);
+  // BOT-02 B3: Schiff anhalten, wenn ein Beam vorbereitet wird (Vorlauf in Beamreichweite, ein Mensch beamt runter oder steht bei zu schnellem Schiff auf dem Pad, lauf.js stoppNoetig) und es faehrt: schneller als beamMaxSpeed oder eine Stufe ueber Stopp (helm.stop, auch kern.js Allstopp: Pause);
   // nur das Tempo, nie die Position (zu weit vom Ziel ist ein Kursbefehl des Menschen). true = das Schiff ist noch nicht ruhig (Allstopp laeuft, Stufe oder Tempo)
   stoppFuerBeam(S) {
     const g = this.game; const sh = g.ship;
-    if (!this.lauf.beamVorbereitet() || sh.docked || !sh.helm || Station.stationOf(this.spieler) !== 'helm') return false;
+    if (!this.lauf.stoppNoetig() || sh.docked || !sh.helm || Station.stationOf(this.spieler) !== 'helm') return false;
     if (!sh.helm.autoStop && sh.speed <= g.C.ship.beamMaxSpeed && sh.helm.stage === STOP) return false;
     this.vorTun = 'stopp';
     if (!sh.helm.autoStop && (this.memo.stopAt || 0) < S.time) { this.memo.stopAt = S.time + STOPP_PAUSE; this.cmd('helm.stop'); }
@@ -292,7 +292,7 @@ class BotMannschaft extends BotKern {
     if (this.reaktorNotsprung(S, p)) return;
     const b = this.absicht.befehl;
     if (b && b.name.startsWith('nav.') && this.game.ship.scene !== b.szene) this.befehlVerwerfen('szene');
-    if (this.aussenteamUnten()) {
+    if (this.aussenteamUnten() || this.lauf.stoppNoetig()) {   // stoppNoetig: auch ein Mensch auf dem Pad bei zu schnellem Schiff (Review V-3, lauf.js): Befehle enden, das Schiff haelt an
       const a = this.absicht.befehl;
       if (a && a.name === 'nav.schub') this.anhalten('aussenteam');
       else if (a) this.befehlVerwerfen('aussenteam');
@@ -300,7 +300,7 @@ class BotMannschaft extends BotKern {
       this.kursHaltenFuerAussenteam(S); return;
     }
     if (this.absicht.befehl && this.befehlAusfuehren(S)) return;
-    if (S.space.enemies.some((e) => e.kind !== 'relay')) { this.helmFight(S, this.helmFocus(S)); return; }
+    if (Lage.gegnerImRaum(S.space.enemies)) { this.helmFight(S, this.helmFocus(S)); return; }
     this.kursHalten(S);
   }
   // Ist irgendwer (Mensch oder Bot) im Aussenteam unten? Dann bleibt das Schiff in Beamreichweite (away.js „Zu weit vom Ziel“).
