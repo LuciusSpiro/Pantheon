@@ -8,8 +8,8 @@
 // BOT-02 B1: Bord-Dienst (Zusatzdienst, siehe lauf.js bordBot/dienstLaeuft): ist ein Mensch im Aussenteam unten oder beamt gerade runter, geht der Bord-Bot zur Transfer-Konsole (Ort, kein Tab) und haelt sie; sein Rollenverhalten ruht, die Station-Automatik
 // springt ein (station.js, ueber weichen.js vertreten). Der Wachposten erlaubt ihm dann genau die Befehle aus BORD_BEFEHLE (Whitelist, keine Praefixe). Ende: kein Mensch mehr unten -> leave und zurueck an die Station. Ein Mensch an der Transfer-Konsole
 // gewinnt (weichen.js): der Dienst ruht (dienstLaeuft false), der Bot geht an seine Station.
-// BOT-02 B3: Vor dem Beamen (Vorlauf, lauf.js vorlaufLaeuft: Landepunkt gewaehlt, Mensch an Bord, noch niemand unten): der Bord-Bot geht schon jetzt zur Transfer-Konsole (Ops-Bot als Bord-Bot scannt zuvor den Landepunkt, Navigations-Bot haelt zuvor das Schiff an);
-// ein anderer Ops-Bot scannt den Landepunkt von seiner Station aus (landescanAuto, wie ein Mensch an Ops, nur wenn der Scan noch fehlt und moeglich ist); der Navigations-Bot haelt das Schiff an und bleibt stehen (stoppFuerBeam, nur Tempo, nie Position).
+// BOT-02 B3: Vor dem Beamen (Vorlauf, lauf.js vorlaufLaeuft: Landepunkt gewaehlt, Mensch an Bord, noch niemand unten): der Bord-Bot geht schon jetzt zur Transfer-Konsole (ein Ops-Bot als Bord-Bot scannt zuvor den Landepunkt);
+// ein anderer Ops-Bot scannt den Landepunkt von seiner Station aus (landescanAuto, wie ein Mensch an Ops, nur wenn der Scan noch fehlt und moeglich ist); der Navigations-Bot (nie Bord-Bot, er bleibt am Steuer) haelt das Schiff an und bleibt stehen (stoppFuerBeam aus steuerDienst, nur Tempo, nie Position).
 // Der Agent sendet alles ueber game.handleMessage(p.conn, msg), nie hello/ready/Loadout und nur Befehle der eigenen Station (erlaubt()). Mensch gewinnt: haelt ein Mensch die Station des Bots, ist der Zustand 'wartet' und der Bot sendet nichts fuer sie.
 // Zustand (Absicht) lebt im Agenten, nie im Spielerobjekt oder Snapshot. Zufall und Mitspieler gehoeren dem Lauf des Games (zufall, kollegen), kein Modulzustand.
 const Protocol = require('../../shared/protocol.js');
@@ -43,8 +43,8 @@ const AUTO_GANG_PAUSE = 40;   // B2-Nacharbeit: Gesamtpause von Sensor und Kuppe
 const WEG_FRIST = 45;   // s: laeuft der Bot so lange zur Captain-Konsole, ohne dass er sendet (Weg versperrt), gibt er auf
 const BORD_BEFEHL_FRIST = 20;   // s: ein Befehl bord.rueckholen, der nicht ausgefuehrt werden kann, verfaellt
 const SENDE_PAUSE = 2;   // s: zwischen zwei Versuchen, transfer.recall zu senden
-const SCAN_PAUSE = 2;   // BOT-02 B3: s zwischen zwei Versuchen, weapons.landescan zu senden (der Scan laeuft 4 s, der Bot haelt ihn nicht, er wartet nur an der Konsole)
-const STOPP_PAUSE = 1.5;   // BOT-02 B3: s zwischen zwei helm.stop (wie kern.js Allstopp)
+const SCAN_PAUSE = 2;   // BOT-02 B3: s zwischen zwei Versuchen, weapons.landescan zu senden (der Scan laeuft 4 s, der Bot haelt ihn nicht, er wartet nur an der Konsole). Schutzcode: im Normalbetrieb nicht erreichbar (landescanAuto sendet nur, solange kein Scan laeuft und der Landepunkt offen ist; der Scan haelt ihn dann zu)
+const STOPP_PAUSE = 1.5;   // BOT-02 B3: s zwischen zwei helm.stop (wie kern.js Allstopp). Schutzcode: im Normalbetrieb nicht erreichbar (nach dem ersten helm.stop laeuft autoStop, stoppFuerBeam sendet dann nichts mehr)
 const FRIST_FRISCH = 6;   // Ticks: aelterer Snapshot als das zaehlt nicht (Schutz vor einem Rest aus einer frueheren Partie)
 
 class BotMannschaft extends BotKern {
@@ -174,7 +174,7 @@ class BotMannschaft extends BotKern {
     Ansagen.tick(this.game, this.spieler);   // BOT-02 B4: Ansagen an den Menschen unten (Codefolge, Gegner, Raetselhinweis), eigenes Modul
     return true;
   }
-  // BOT-02 B3: im Vorlauf zuerst, was vor dem Beamen zu tun ist, solange der Bord-Bot noch an seiner Station steht: Ops-Bot scannt den Landepunkt (an der Waffenkonsole), Navigations-Bot haelt das Schiff an (am Steuer).
+  // BOT-02 B3: im Vorlauf zuerst, was vor dem Beamen zu tun ist, solange der Bord-Bot noch an seiner Station steht: ein Ops-Bot scannt den Landepunkt (an der Waffenkonsole).
   // Danach geht er zum Transfer. Haelt ein Mensch die Station, entfaellt der Schritt (der Mensch erledigt es). true = der Bot ist noch dabei.
   bordVorTransfer(S) {
     if (!this.lauf.vorlaufLaeuft() || this.menschHaeltStation()) return false;
@@ -185,7 +185,6 @@ class BotMannschaft extends BotKern {
       if (da) this.landescanAuto();
       return true;
     }
-    if (this.rolleBot === 'navigation' && Station.stationOf(this.spieler) === 'helm' && this.stoppFuerBeam(S)) return true;
     return false;
   }
   // Scan des Landepunkts (eine Quelle fuer ops.landescan und den Auto-Scan): Einmal-Aktion, Antwort des Spiels (Text der Ablehnung) oder null = angenommen. Orbit, Reichweite, laufender Scan: das Spiel antwortet.
@@ -199,11 +198,11 @@ class BotMannschaft extends BotKern {
     if (!g.lpscan && g.time >= this.scanAutoAt) { this.scanAutoAt = g.time + SCAN_PAUSE; this.landescanSenden(); }
     return true;
   }
-  // BOT-02 B3: Schiff anhalten, wenn ein Beam vorbereitet wird (Vorlauf oder ein Mensch beamt runter) und es faehrt: schneller als beamMaxSpeed oder eine Stufe ueber Stopp (helm.stop, auch kern.js Allstopp: Pause);
+  // BOT-02 B3: Schiff anhalten, wenn ein Beam vorbereitet wird (Vorlauf in Beamreichweite, ein Mensch beamt runter oder steht bei zu schnellem Schiff auf dem Pad, lauf.js stoppNoetig) und es faehrt: schneller als beamMaxSpeed oder eine Stufe ueber Stopp (helm.stop, auch kern.js Allstopp: Pause);
   // nur das Tempo, nie die Position (zu weit vom Ziel ist ein Kursbefehl des Menschen). true = das Schiff ist noch nicht ruhig (Allstopp laeuft, Stufe oder Tempo)
   stoppFuerBeam(S) {
     const g = this.game; const sh = g.ship;
-    if (!this.lauf.beamVorbereitet() || sh.docked || !sh.helm || Station.stationOf(this.spieler) !== 'helm') return false;
+    if (!this.lauf.stoppNoetig() || sh.docked || !sh.helm || Station.stationOf(this.spieler) !== 'helm') return false;
     if (!sh.helm.autoStop && sh.speed <= g.C.ship.beamMaxSpeed && sh.helm.stage === STOP) return false;
     this.vorTun = 'stopp';
     if (!sh.helm.autoStop && (this.memo.stopAt || 0) < S.time) { this.memo.stopAt = S.time + STOPP_PAUSE; this.cmd('helm.stop'); }
@@ -292,7 +291,7 @@ class BotMannschaft extends BotKern {
     if (this.reaktorNotsprung(S, p)) return;
     const b = this.absicht.befehl;
     if (b && b.name.startsWith('nav.') && this.game.ship.scene !== b.szene) this.befehlVerwerfen('szene');
-    if (this.aussenteamUnten()) {
+    if (this.aussenteamUnten() || this.lauf.stoppNoetig()) {   // stoppNoetig: auch ein Mensch auf dem Pad bei zu schnellem Schiff (Review V-3, lauf.js): Befehle enden, das Schiff haelt an
       const a = this.absicht.befehl;
       if (a && a.name === 'nav.schub') this.anhalten('aussenteam');
       else if (a) this.befehlVerwerfen('aussenteam');
@@ -300,7 +299,7 @@ class BotMannschaft extends BotKern {
       this.kursHaltenFuerAussenteam(S); return;
     }
     if (this.absicht.befehl && this.befehlAusfuehren(S)) return;
-    if (S.space.enemies.some((e) => e.kind !== 'relay')) { this.helmFight(S, this.helmFocus(S)); return; }
+    if (Lage.gegnerImRaum(S.space.enemies)) { this.helmFight(S, this.helmFocus(S)); return; }
     this.kursHalten(S);
   }
   // Ist irgendwer (Mensch oder Bot) im Aussenteam unten? Dann bleibt das Schiff in Beamreichweite (away.js „Zu weit vom Ziel“).

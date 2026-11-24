@@ -12,10 +12,14 @@
 //   gesundheit(game, p)           Anteil 0..1: auf v2-Karten die Schildsegmente (p.shield), sonst p.hp
 //   kuppelNoetig(game)            ein aufrechter Mensch unten unter 50 % Gesundheit (die Automatik setzt die Kuppel nur zusammen mit gegnerAktiv, mannschaft.js bordWegWaehlen)
 //   landescanOffen(game)          BOT-02 B3: der gewaehlte Landepunkt (game.transferZiel) ist noch nicht gescannt und der Scan laeuft oder ist jetzt moeglich (Landepunkt in Scanreichweite, lpscan.ziele): die EINE Frage fuer den Auto-Scan des Ops-Bots und den Scan-Vorlauf des Bord-Bots
+//   beamInReichweite(game)        BOT-02 B3-Nacharbeit: das Schiff liegt in der Beamreichweite des Transferpunkts, den auch away.canBeam nutzt (away.beamSpot: gewaehlter Landepunkt, sonst Standardort); die EINE Quelle fuer Vorlauf, Stopp und Sperre
+//   padMenschZuSchnell(game)      BOT-02 B3-Nacharbeit: ein Mensch (verbunden, kein Bot, nicht downed) steht auf einem Schiffspad, das Schiff faehrt schneller als beamMaxSpeed und liegt in Beamreichweite: er will beamen, das Tempo verhindert es (Signal nur fuer den Stopp des Navigations-Bots)
+//   gegnerImRaum(enemies)         BOT-02 B3-Nacharbeit: feindliche Gegner im Raum (ohne Relais); die EINE Definition fuer den Steuer-Dienst (Gefecht) und das Ende des Vorlaufs (enemies: game.space.enemies oder S.space.enemies)
 //   gegnerAktiv(game)             unten sind Gegner aktiv: ein Trupp ist alarmiert oder eine wache Drohne ist nah (NAH_PX) an einem aufrechten Menschen unten
 const Station = require('../sim/station.js');
 const Combat = require('../sim/combat.js');
 const Lpscan = require('../sim/lpscan.js');
+const Away = require('../sim/away.js');
 
 const NAH_PX = 480;   // eine wache Drohne in diesem Abstand (15 Kacheln) zu einem aufrechten Menschen zaehlt als aktiver Gegner, auch ohne Alarm des Trupps
 const KUPPEL_SCHWELLE = 0.5;
@@ -72,4 +76,15 @@ function landescanOffen(game) {
   return !!game.lpscan || Lpscan.ziele(game).some((l) => l.id === z.lp);
 }
 
-module.exports = { NAH_PX, landescanOffen, KUPPEL_SCHWELLE, untenMenschen, allesDowned, rueckholZiel, rueckholSperre, rueckholAutomatik, anyAway, captainBelegt, supportSperre, gesundheit, kuppelNoetig, gegnerAktiv };
+function beamInReichweite(game) {
+  const sp = Away.beamSpot(game);
+  return !!sp && Math.hypot(game.ship.x - sp.x, game.ship.y - sp.y) <= sp.range;
+}
+function padMenschZuSchnell(game) {
+  if (!(game.ship.speed > game.C.ship.beamMaxSpeed)) return false;
+  const aufPad = game.players.some((p) => p && p.connected && !p.bot && !p.downed && p.zone === 'ship' && Away.onPad(game, p));
+  return aufPad && beamInReichweite(game);
+}
+const gegnerImRaum = (enemies) => (enemies || []).some((e) => e && e.kind !== 'relay');
+
+module.exports = { NAH_PX, landescanOffen, beamInReichweite, padMenschZuSchnell, gegnerImRaum, KUPPEL_SCHWELLE, untenMenschen, allesDowned, rueckholZiel, rueckholSperre, rueckholAutomatik, anyAway, captainBelegt, supportSperre, gesundheit, kuppelNoetig, gegnerAktiv };

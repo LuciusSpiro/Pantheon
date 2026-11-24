@@ -91,9 +91,9 @@ function befehl(P, msg, conn) {
 }
 
 // ---------- 1 Zuweisung ----------
-section('1 Zuweisung: Technik-Bot, sonst Ops-Bot, sonst Navigations-Bot');
+section('1 Zuweisung: Technik-Bot, sonst Ops-Bot; der Navigations-Bot nie (Nacharbeit 2)');
 {
-  const fall = [[['navigation', 'ops', 'technik'], 'technik'], [['ops', 'technik'], 'technik'], [['navigation', 'technik'], 'technik'], [['navigation', 'ops'], 'ops'], [['ops'], 'ops'], [['navigation'], 'navigation'], [['technik'], 'technik'], [[], null]];
+  const fall = [[['navigation', 'ops', 'technik'], 'technik'], [['ops', 'technik'], 'technik'], [['navigation', 'technik'], 'technik'], [['navigation', 'ops'], 'ops'], [['ops'], 'ops'], [['navigation'], null], [['technik'], 'technik'], [[], null]];
   for (const [bots, soll] of fall) {
     const P = partie({ bots });
     const b = Lauf.bordBot(P.g);
@@ -140,18 +140,26 @@ section('2 Der Dienst beginnt erst, wenn ein Mensch unten ist; der Bot steht an 
   ok(g.errors === 0, 'game.errors 0');
 }
 {
-  for (const [bots, soll] of [[['ops', 'technik'], 'technik'], [['navigation', 'ops'], 'ops'], [['navigation'], 'navigation']]) {
+  for (const [bots, soll] of [[['ops', 'technik'], 'technik'], [['navigation', 'ops'], 'ops']]) {
     const P = partie({ bots });
     lauf(P, 40, () => sitzen(P));
     runter(P.h);
     const da = lauf(P, 40, () => botVon(P, soll).console === 'transfer'); lauf(P, 1);
     ok(da && haelt(P, 'transfer').length === 1 && haelt(P, 'transfer')[0] === botVon(P, soll), `Bots ${bots.join('+')}: ${soll} haelt die Transfer-Konsole, sonst niemand`);
-    if (soll === 'navigation') ok(P.g.ship.helm.stage === 1, 'Navigations-Bot als einziger Bot: er verlaesst die Steuer mit Stufe Stopp (kern.js stellt sie vorher)');
     ok(P.g.errors === 0, '  game.errors 0');
   }
   const P0 = partie({ bots: [] });
   runter(P0.h); lauf(P0, 5);
   ok(Lauf.bordBot(P0.g) === null && P0.g.errors === 0 && Lauf.agenten(P0.g).length === 0, 'ohne Bots: kein Bord-Bot, kein Lauf, keine Fehler');
+  {
+    // Nacharbeit 2: nur der Navigations-Bot: kein Bord-Dienst, er bleibt am Steuer, bord.* antwortet kein_bot
+    const N = partie({ bots: ['navigation'] }); const nb = botVon(N, 'navigation');
+    lauf(N, 40, () => sitzen(N)); runter(N.h); lauf(N, 15);
+    ok(Lauf.bordBot(N.g) === null && !Lauf.bordAktiv(N.g, nb) && !Lauf.bordDienstHaelt(N.g) && nb.console === 'helm' && haelt(N, 'transfer').length === 0, 'nur Navigation, Mensch unten: kein Bord-Bot, kein Bord-Dienst, der Bot bleibt am Steuer, der Transfer ist frei');
+    const rr = befehl(N, { an: 'bord', befehl: 'bord.rueckholen' })[0];
+    ok(rr && rr.status !== 'ok' && /kein_bot/.test(rr.textId || ''), `bord.rueckholen: kein_bot (${rr && rr.textId})`);
+    ok(N.g.errors === 0 && agentVon(N, 'navigation').verworfen === 0, 'game.errors 0, nichts verworfen');
+  }
 }
 
 // ---------- 3 Station-Automatik ----------
