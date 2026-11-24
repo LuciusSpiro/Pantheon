@@ -41,11 +41,19 @@ const technik = (g, a) => {
   return t.join(', ') + '.';
 };
 
+// BOT-02 B1/B2: der Bord-Dienst (kurz, hoechstens 90 Zeichen): Rueckholung, Weg zur Captain-Konsole, Halten des Transfers
+function bordText(agent, a) {
+  const b = agent.bord;
+  if (b.tun === 'rueckholen') return 'Hole das Team zurück.';
+  if (b.tun === 'captain' && b.weg) return `Gehe zur Captain-Konsole, ${b.weg.art === 'sensor' ? 'Sensor' : 'Kuppel'} für das Team.`;
+  return a.zustand === 'an_station' ? 'Halte den Transfer, bis das Team zurück ist.' : 'Unterwegs zum Transfer.';
+}
+
 function text(game, agent) {
   const a = agent.absicht;
   if (agent.spieler.downed) return 'Bewusstlos, ohne Auftrag.';
   if (agent.spieler.zone !== 'ship') return 'Nicht an Bord, ohne Auftrag.';
-  if (agent.bordDienstLaeuft()) return a.zustand === 'an_station' ? 'Halte den Transfer, bis das Team zurück ist.' : 'Unterwegs zum Transfer.';   // BOT-02 B1: Bord-Dienst
+  if (agent.bordDienstLaeuft()) return bordText(agent, a);
   if (a.zustand === 'wartet') return 'Ein Mitspieler hat die Station, ich warte.';
   if (a.zustand === 'unterwegs') return 'Unterwegs zur Station.';
   const s = agent.rolleBot === 'navigation' ? nav(game, a, a.befehl) : agent.rolleBot === 'ops' ? ops(game, a, a.befehl) : technik(game, a);

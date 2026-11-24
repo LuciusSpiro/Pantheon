@@ -1087,6 +1087,10 @@
   "Das klappt gerade nicht.",
   "Da hakt es gerade, Käpt'n."
  ],
+ "bord.rueckholen.abgelehnt.kein_ziel": [
+  "Es ist niemand unten.",
+  "Niemand im Außenteam, Käpt'n."
+ ],
  "bord.rueckholen.abgelehnt.nicht_jetzt": [
   "Das geht in dieser Lage nicht.",
   "Jetzt nicht, Käpt'n, die Lage gibt es nicht her."
@@ -1095,6 +1099,10 @@
   "Das klappt gerade nicht.",
   "Da hakt es gerade, Käpt'n."
  ],
+ "bord.sensor.abgelehnt.kein_ziel": [
+  "Es ist niemand unten.",
+  "Niemand im Außenteam, Käpt'n."
+ ],
  "bord.sensor.abgelehnt.nicht_jetzt": [
   "Das geht in dieser Lage nicht.",
   "Jetzt nicht, Käpt'n, die Lage gibt es nicht her."
@@ -1102,6 +1110,10 @@
  "bord.sensor.abgelehnt.fehler": [
   "Das klappt gerade nicht.",
   "Da hakt es gerade, Käpt'n."
+ ],
+ "bord.kuppel.abgelehnt.kein_ziel": [
+  "Es ist niemand unten.",
+  "Niemand im Außenteam, Käpt'n."
  ],
  "bord.kuppel.abgelehnt.nicht_jetzt": [
   "Das geht in dieser Lage nicht.",

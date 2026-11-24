@@ -20,6 +20,7 @@ const Katalog = require('../../shared/schiffskatalog.js');
 const { BotKern, DT, STOP, LANGSAM_ZIELE, BOT_SCHILD_SEKTOR_MAX, dist, norm } = require('./kern.js');
 const Absicht = require('./absicht.js');
 const Navziel = require('./navziel.js');
+const Lage = require('./bordlage.js');
 
 const KERN_ROLLE = { navigation: 'helm', ops: 'weapons', technik: 'technik' };
 const STATION = { navigation: 'helm', ops: 'weapons', technik: 'technik' };
@@ -33,6 +34,10 @@ const PRIO_DAUERHAFT = ['fire', 'breach'];   // tech.prio feuer/leck gelten bis 
 // BOT-02 B1: Whitelist der Befehle, die nur der Bord-Dienst senden darf (Wachposten), nie die normale Rolle. Exakte Namen, keine Praefixe: B1 braucht nur die Rueckholung und die Unterstuetzung (captain.support, serverseitig nur an der
 // Captain-Konsole; der Bot laeuft dafuer ab B2 dorthin). transfer.down/up/ziel/supply und alle uebrigen captain.* bleiben gesperrt, auch im Dienst. B2/B3 erweitern die Liste bei Bedarf einzeln, nie per Praefix.
 const BORD_BEFEHLE = ['transfer.recall', 'captain.support'];
+const SENSOR_PAUSE = 60;   // BOT-02 B2: der Bord-Bot setzt den Sensor selbst hoechstens einmal je 60 s (die Abklingzeit des Spiels sind 30 s)
+const WEG_FRIST = 45;   // s: laeuft der Bot so lange zur Captain-Konsole, ohne dass er sendet (Weg versperrt), gibt er auf
+const BORD_BEFEHL_FRIST = 20;   // s: ein Befehl bord.rueckholen, der nicht ausgefuehrt werden kann, verfaellt
+const SENDE_PAUSE = 2;   // s: zwischen zwei Versuchen, transfer.recall zu senden
 const FRIST_FRISCH = 6;   // Ticks: aelterer Snapshot als das zaehlt nicht (Schutz vor einem Rest aus einer frueheren Partie)
 
 class BotMannschaft extends BotKern {
@@ -49,6 +54,9 @@ class BotMannschaft extends BotKern {
     this.memo.gesendeteZiele = new Set();
     this.festesZiel = null;   // BOT-01 C2b: waehrend fightMitMarke das Feuerziel (Gegner), sonst null
     this.bordBegonnen = false;   // BOT-02 B1: der laufende Bord-Dienst hat die Absicht der Rolle schon verworfen
+    // BOT-02 B2: Zustand des Bord-Dienstes (nur Agent, nie Spielzustand). befehl { art: rueckholen|sensor|kuppel, seit } vom Menschen (Registry befehle/bord.js); weg { art, seit, grund: befehl|auto } = der Bot geht zur Captain-Konsole
+    // und sendet captain.support; tun = was der Bot gerade tut (rueckholen | captain | null, fuer bot.status); sensorAuto = Zeit der letzten Sensor-Automatik; nichtVor = nach einem Fehlschlag kein neuer Weg vor dieser Zeit.
+    this.bord = { befehl: null, weg: null, tun: null, sensorAuto: -1e9, nichtVor: 0, rueckholAt: 0 };
     this.prioSperre = false;   // BOT-01 C2b: waehrend queueRepairs mit gehaltener tech.prio unterdrueckt cmd die Standard-Prioritaeten
   }
   zufall() { return this.rng(); }
@@ -113,7 +121,7 @@ class BotMannschaft extends BotKern {
     const p = this.me(S); const live = this.spieler;
     if (!p || live.conn !== this.conn || this.game.phase !== 'play' || S.phase !== 'play' || this.game.tick - S.tick > FRIST_FRISCH) return;
     const dienst = this.bordDienstLaeuft();   // lauf.js dienstLaeuft: Mensch unten oder beamt, kein Mensch an der Transfer-Konsole (der gewinnt: der Dienst ruht, der Bot tut seine Rolle)
-    if (!dienst) this.bordBegonnen = false;   // auch solange ein Mensch den Transfer haelt: beim Wiederbeginn endet das in der Zwischenzeit Gesetzte
+    if (!dienst) { this.bordBegonnen = false; this.bordLoeschen(); }   // B2: ohne Dienst auch kein Befehl und kein Weg; auch solange ein Mensch den Transfer haelt: beim Wiederbeginn endet das in der Zwischenzeit Gesetzte
     if (!dienst && this.menschHaeltStation()) {   // BOT-02 B1: mit Bord-Dienst steht der Bot nicht an seiner Station, ein Mensch dort stoert ihn nicht
       this.zustandSetzen('wartet'); this.alleVerwerfen('mensch');
       if (live.console && live.console !== this.stationKind) this.send({ t: 'leave' });   // Dienst zu Ende, ein Mensch sitzt inzwischen an der Station des Bots: die Transfer-Konsole freigeben, nicht dort stehen bleiben
@@ -133,11 +141,91 @@ class BotMannschaft extends BotKern {
   bordDienstLaeuft() { return this.lauf.dienstLaeuft(this.spieler); }   // eine Quelle (lauf.js): Bord-Bot, Dienst faellig, kein Mensch an der Transfer-Konsole
   // Zur Transfer-Konsole gehen und dort bleiben; das Rollenverhalten ruht (Haelt ein Mensch die Transfer-Konsole, laeuft der Dienst nicht: Mensch gewinnt, weichen.js).
   // Beim Beginn endet alles Gehaltene der Rolle (Befehle, Prioritaet), die Station-Automatik uebernimmt (Technik: botAutomatikStandard, Ops: waffenAutomatikAktiv, beides ueber weichen.js vertreten, auch bei mehr als zwei Koepfen); technik.botAuto sendet der Agent nie.
+  // BOT-02 B2: am Transfer holt der Bot zurueck (transfer.recall: Lage alle Menschen unten downed, oder Befehl) und geht auf Befehl bzw. Automatik zur Captain-Konsole (captain.support gilt serverseitig nur dort) und danach zurueck.
+  // Die Rueckholung geht dem Laufweg immer vor: ist die Lage da oder ein Befehl bord.rueckholen gesetzt, bleibt der Bot am Transfer bzw. laeuft sofort zurueck; ein Weg beginnt nie, wenn alle Menschen unten downed sind.
   bordDienst(S) {
     if (!this.bordBegonnen) { this.alleVerwerfen('bord'); this.bordBegonnen = true; }
+    const b = this.bord;
+    const pid = this.bordRueckholBedarf();
+    if (pid !== null) b.weg = null;
+    else { this.bordWegPruefen(); if (!b.weg) this.bordWegWaehlen(); }
+    if (b.weg) {
+      b.tun = 'captain';
+      const da = this.enter(S, 'captain');
+      this.zustandSetzen(da ? 'an_station' : 'unterwegs');
+      if (da) this.bordUnterstuetzen();
+      return true;
+    }
+    b.tun = pid !== null ? 'rueckholen' : null;
     const da = this.enter(S, 'transfer');
     this.zustandSetzen(da ? 'an_station' : 'unterwegs');
+    if (da && pid !== null) this.bordRueckholen(pid);
     return true;
+  }
+  // Registry (befehle/bord.js): der Befehl des Menschen als Absicht; ersetzt einen vorherigen. rueckholen geht dem Weg vor (bordDienst bricht einen laufenden Weg ab).
+  bordBefehlSetzen(art) {
+    this.bord.befehl = { art, seit: this.game.time };
+    this.befehlGrund = null;
+  }
+  // Befehl, Weg und Anzeige weg (Dienst zu Ende, bot.automatik, Mensch uebernimmt); die Sensor-Pause bleibt. true = es gab etwas
+  bordLoeschen() {
+    const b = this.bord; const hatte = !!(b.befehl || b.weg);
+    b.befehl = null; b.weg = null; b.tun = null;
+    return hatte;
+  }
+  // pid des Menschen, den der Bot jetzt per transfer.recall holt, oder null. Befehl bord.rueckholen: sofort, auch wenn noch jemand aufrecht ist (verfaellt, wenn niemand mehr unten ist, der Transfer gesperrt ist oder
+  // nach BORD_BEFEHL_FRIST). Automatik: erst wenn ALLE Menschen unten downed sind (die Lage bleibt bestehen: der Bot sendet nur ohne bekannte Sperre, nach Ablauf der Abklingzeit setzt er nach).
+  bordRueckholBedarf() {
+    const b = this.bord; const g = this.game;
+    if (b.befehl && b.befehl.art === 'rueckholen') {
+      const pid = Lage.rueckholZiel(g, true);
+      if (pid === null || Lage.rueckholSperre(g) || g.time - b.befehl.seit > BORD_BEFEHL_FRIST) b.befehl = null;
+      else return pid;
+    }
+    return Lage.allesDowned(g) ? Lage.rueckholZiel(g, false) : null;
+  }
+  bordRueckholen(pid) {
+    const b = this.bord; const t = this.game.time;
+    if (Lage.rueckholSperre(this.game) || t < b.rueckholAt) return;   // bekannte Sperre (Abklingzeit, Transfer aus): nichts senden, kein Dauerfeuer
+    b.rueckholAt = t + SENDE_PAUSE;
+    const fehler = this.einmalig('transfer.recall', { pid });
+    if (!fehler && b.befehl && b.befehl.art === 'rueckholen') b.befehl = null;
+  }
+  // der Weg zur Captain-Konsole gilt nur, solange er sicher und sinnvoll ist (sonst zurueck zum Transfer)
+  bordWegPruefen() {
+    const b = this.bord; const g = this.game;
+    if (!b.weg) return;
+    const w = b.weg;
+    if (Lage.captainBelegt(g, this.spieler) || !Lage.anyAway(g) || Lage.allesDowned(g) || Lage.supportSperre(g, w.art) || g.time - w.seit > WEG_FRIST) this.bordWegAufgeben(g.time - w.seit > WEG_FRIST ? 5 : 0);
+  }
+  bordWegAufgeben(pause) {
+    const b = this.bord; const art = b.weg && b.weg.art;
+    if (b.befehl && b.befehl.art === art) b.befehl = null;
+    b.weg = null; b.nichtVor = this.game.time + (pause || 0);
+  }
+  // einen Weg beginnen: der Befehl des Menschen, sonst die Automatik (Kuppel vor Sensor). Nie, wenn alle unten downed sind, ein Mensch die Captain-Konsole haelt oder niemand unten ist.
+  bordWegWaehlen() {
+    const b = this.bord; const g = this.game; const t = g.time;
+    if (t < b.nichtVor) return;
+    const bf = b.befehl && (b.befehl.art === 'sensor' || b.befehl.art === 'kuppel') ? b.befehl.art : null;
+    const frei = Lage.anyAway(g) && !Lage.allesDowned(g) && !Lage.captainBelegt(g, this.spieler);
+    if (bf) {
+      if (!frei || Lage.supportSperre(g, bf)) { b.befehl = null; return; }   // Lage hat sich geaendert: der Befehl verfaellt
+      b.weg = { art: bf, seit: t, grund: 'befehl' };
+      return;
+    }
+    if (!frei) return;
+    if (Lage.kuppelNoetig(g) && !Lage.supportSperre(g, 'kuppel')) b.weg = { art: 'kuppel', seit: t, grund: 'auto' };
+    else if (Lage.gegnerAktiv(g) && !Lage.supportSperre(g, 'sensor') && t - b.sensorAuto >= SENSOR_PAUSE) b.weg = { art: 'sensor', seit: t, grund: 'auto' };
+  }
+  // An der Captain-Konsole: captain.support senden (Einmal-Aktion, Antwort des Spiels), danach ist der Weg zu Ende und der Bot geht zum Transfer zurueck
+  bordUnterstuetzen() {
+    const b = this.bord; const w = b.weg;
+    const fehler = this.einmalig('captain.support', { kind: w.art });
+    if (w.art === 'sensor') b.sensorAuto = this.game.time;   // auch nach einem Befehl: die Automatik setzt danach nicht gleich nach
+    if (b.befehl && b.befehl.art === w.art) b.befehl = null;
+    b.weg = null;
+    if (fehler) b.nichtVor = this.game.time + 5;
   }
 
   dienst(S, p) {
@@ -322,6 +410,7 @@ class BotMannschaft extends BotKern {
     const a = this.absicht;
     if (grund !== 'automatik') this.prioritaetZuruecknehmen();   // Mensch, Raeumen, unten: der Bot sendet nichts mehr, der Server nimmt seine Prioritaet zurueck (bot.automatik nimmt sie selbst per cmd zurueck)
     const hatte = !!(a.befehl || a.feuer || Object.keys(a.halten).length);
+    if (grund !== 'bord') this.bordLoeschen();   // BOT-02 B2: der Beginn des Dienstes verwirft den Befehl nicht (er kann im selben Tick angenommen worden sein)
     Absicht.alleEnde(a);
     if (hatte) this.befehlGrund = grund;
     return hatte;

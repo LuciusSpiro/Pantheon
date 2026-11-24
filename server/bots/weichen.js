@@ -1,7 +1,8 @@
 'use strict';
 // BOT-01 B3: Mensch gewinnt. Wer als Mensch eine Station verlangt, die ein Bot haelt, bekommt sie; der Bot gibt sie frei und wartet (Zustand 'wartet' im Agenten, bots/lauf.js).
-// Menschen blockieren einander wie bisher: nur Bots weichen. Nur die Stationen, die Bots besetzen (helm, weapons, technik) und die Transfer-Konsole im Bord-Dienst (BOT-02 B1); captain und alle anderen Orte (spind ...) beruehrt das nie.
+// Menschen blockieren einander wie bisher: nur Bots weichen. Nur die Stationen, die Bots besetzen (helm, weapons, technik) und die Transfer-Konsole im Bord-Dienst (BOT-02 B1); alle anderen Orte (spind ...) beruehrt das nie.
 // BOT-02 B1: auch die Transfer-Konsole (Ort ohne Tab) gehoert dazu, wenn ein Bot sie im Bord-Dienst haelt (nur dann steht dort ein Bot); der Dienst ruht, bis der Mensch geht (mannschaft.js).
+// BOT-02 B2: ebenso die Captain-Konsole: dort steht ein Bot nur auf dem kurzen Weg des Bord-Dienstes (captain.support); kommt ein Mensch, weicht er (Mensch gewinnt an jeder Konsole), der Dienst geht zurueck zum Transfer.
 //   kannWeichen(game, kind, mensch)    nur lesen: wuerde der Bot (und nur Bots) an kind weichen? (Aktionsliste „Konsole besetzt“ in interior.js)
 //   weichtFuerMensch(game, kind, mensch)  der Bot gibt die Station frei (game.platzFreigeben); true = die Station ist jetzt frei fuer den Menschen
 //   vertreten(game, kind)              BOT-02 B1: ein Bord-Bot haelt den Dienst wirklich und die Station seiner Rolle ist kind (lauf.js stationVertreten); station.js zaehlt sie dann als vertreten (Automatik nach Kopfregel ODER vertreten)
@@ -10,7 +11,7 @@
 const Crew = require('../sim/crew.js');
 
 const BOT_STATIONEN = ['helm', 'weapons', 'technik'];
-const BOT_ORTE = BOT_STATIONEN.concat('transfer');   // Orte, an denen ein Bot einem Menschen weicht
+const BOT_ORTE = BOT_STATIONEN.concat('transfer', 'captain');   // Orte, an denen ein Bot einem Menschen weicht (BOT-02 B2: captain nur, solange der Bord-Bot dort captain.support sendet)
 // station.js laedt dieses Modul: Station und Lauf erst beim Aufruf (kein Zirkelbezug beim Laden)
 const stationOf = (o) => require('../sim/station.js').stationOf(o);
 
