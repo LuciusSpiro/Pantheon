@@ -834,7 +834,8 @@ class BotKern {
     const s = m.side === 'stbd' ? 1 : -1;
     // Ladung eines Gegners, der uns im Bogen hat: wegdrehen auf VOLL (aus Bogen/Reichweite)
     const threat = S.space.enemies.find((q) => q.tele && q.tele.left > 0.4 && dist(q.x, q.y, sh.x, sh.y) < 620);
-    const delta = clamp((d - 400) / 250, -0.4, 0.4);   // > 0: näher ran (Ziel etwas mehr nach vorn), < 0: Abstand gewinnen
+    const abstand = (opts && opts.abstand) || 400;   // BOT-01 C2a: nav.abstand setzt ihn, sonst wie immer 400
+    const delta = clamp((d - abstand) / 250, -0.4, 0.4);   // > 0: näher ran (Ziel etwas mehr nach vorn), < 0: Abstand gewinnen
     if (threat && !(opts && opts.slow)) {
       const tb = Math.atan2(threat.y - sh.y, threat.x - sh.x);
       const away = norm(tb + Math.PI);

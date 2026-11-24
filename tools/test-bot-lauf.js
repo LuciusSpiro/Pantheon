@@ -556,7 +556,7 @@ section('11 Lebenszyklus der Agenten');
   ok(Q.g.phase === 'play' && Lauf.agenten(Q.g).length === 0, 'synthetischer Bot ohne Rolle: kein Agent');
   // Befehle-Registry: leer, liefert unbekannt
   const r = Befehle.befehl(g, ops, 'ops.ziel', { id: 'e1' });
-  ok(r && r.ok === false && r.code === 'unbekannt' && Object.values(Befehle.REGISTER).every((reg) => Object.keys(reg).length === 0), 'Registry der Befehle: leer, jeder Name liefert unbekannt');
+  ok(r && r.ok === false && r.code === 'unbekannt' && Object.entries(Befehle.REGISTER).every(([rolle, reg]) => Object.keys(reg).length === (rolle === 'navigation' ? 7 : 0)), 'Registry der Befehle: nur navigation traegt Befehle (C2a, sieben), ops.ziel liefert noch unbekannt');
   ok(Befehle.befehl(g, ops, '__proto__', {}).code === 'unbekannt' && Befehle.befehl(g, null, 'x').code === 'unbekannt', 'unbekannt auch fuer __proto__ und ohne Bot');
   ok(Absicht.ZUSTAENDE.join() === 'unterwegs,an_station,wartet' && Absicht.neueAbsicht('ops').zustand === 'unterwegs', 'Absicht: Zustaende unterwegs, an_station, wartet');
 }

@@ -70,7 +70,9 @@ const ein = (P, msg) => { jetzt += 5000; return senden(P, msg); };   // Rate-Fen
 const einz = (P, msg) => { const a = ein(P, msg); return a.length === 1 ? a[0] : null; };
 const grund = (a) => (a ? a.textId.split('.').pop() : null);
 // Registry-Haken: haengt eine Testfunktion ein und entfernt sie wieder
-function haken(reg, name, fn, was) { Befehle.REGISTER[reg][name] = fn; try { return was(); } finally { delete Befehle.REGISTER[reg][name]; } }
+// C2a: die Registry navigation traegt echte Befehle; haken stellt den Eintrag danach wieder her (loescht nur, was vorher fehlte)
+const hatEintrag = (reg, name) => Object.prototype.hasOwnProperty.call(Befehle.REGISTER[reg], name);
+function haken(reg, name, fn, was) { const alt = hatEintrag(reg, name) ? Befehle.REGISTER[reg][name] : undefined; Befehle.REGISTER[reg][name] = fn; try { return was(); } finally { if (alt) Befehle.REGISTER[reg][name] = alt; else delete Befehle.REGISTER[reg][name]; } }
 
 // ---------- 1 Daten ----------
 section('1 Daten: Katalog, Gruende, Texte');
@@ -100,7 +102,7 @@ section('1 Daten: Katalog, Gruende, Texte');
   const nennt = neu.filter(([, l]) => l.some((t) => /\d/.test(t) || woerter.some((w) => t.toLowerCase().includes(w))));
   ok(neu.length > 0 && nennt.length === 0, `Ablehnungstexte nennen keine Argumente (${neu.length} textIds, keine Ziffer, kein Wort der Argumentwerte)`);
   ok(Protocol.C.BOT_BEFEHL === 'bot.befehl' && Protocol.C.BOT_ANTWORT === 'bot.antwort', 'Protokoll: C.BOT_BEFEHL / C.BOT_ANTWORT');
-  ok(Object.values(Befehle.REGISTER).every((r) => Object.keys(r).length === 0), 'C1: alle fuenf Registries sind leer (Wirkung kommt in C2)');
+  ok(Object.entries(Befehle.REGISTER).every(([rolle, r]) => (rolle === 'navigation' ? Object.keys(r).length === 7 : Object.keys(r).length === 0)), 'C2a: navigation traegt sieben Befehle, die anderen vier Registries sind noch leer (C2b)');
 }
 
 // ---------- 2 Absender ----------
@@ -240,7 +242,7 @@ section('4 Gruende');
     const w = einz(P, cmd('ops.scan', 'ops'));
     ok(Station.stationOf(P.h) === 'weapons' && agent.absicht.zustand === 'wartet' && w && w.status === 'abgelehnt' && w.textId === 'ops.scan.abgelehnt.wartet', 'Mensch haelt die Station: abgelehnt, Grund wartet' + (Station.stationOf(P.h) === 'weapons' ? '' : ' (Tab: ' + f + ')'));
     const andere = einz(P, cmd('nav.stopp', 'navigation'));
-    ok(andere && grund(andere) === 'unbekannt', 'der Navigations-Bot (wartet nicht) ist davon unberuehrt');
+    ok(andere && andere.textId.startsWith('nav.stopp.') && grund(andere) !== 'wartet', 'der Navigations-Bot (wartet nicht) ist davon unberuehrt (C2a: echte Registry, nie wartet)');
     const bs = einz(P, cmd('bot.status', ops.botId));
     ok(bs && grund(bs) === 'unbekannt', 'bot.* kennt keinen Wartezustand (laeuft bis zur Registry)');
   });
@@ -343,6 +345,7 @@ section('5 Adressierung: Rolle, botId, alle, bord');
   const [bn, bo, bt] = ['navigation', 'ops', 'technik'].map((r) => botVon(P, r));
   const ruf = [];
   const EINTR = [['navigation', 'nav.stopp'], ['ops', 'ops.scan'], ['technik', 'tech.ueberladen'], ['bot', 'bot.status'], ['bot', 'bot.automatik'], ['bord', 'bord.sensor']];
+  const ALT = EINTR.map(([r, b]) => (hatEintrag(r, b) ? Befehle.REGISTER[r][b] : undefined));
   for (const [r, b] of EINTR) Befehle.REGISTER[r][b] = (g, bot) => { ruf.push(bot.botId + ':' + b); return { ok: true }; };
   try {
     let a = ein(P, cmd('nav.stopp', 'navigation'));
@@ -361,7 +364,7 @@ section('5 Adressierung: Rolle, botId, alle, bord');
     ok(a.length === 1 && a[0].status === 'unmoeglich' && a[0].textId === 'bord.sensor.unmoeglich.kein_bot' && ruf.length === 0, 'an bord: unmoeglich kein_bot (kein Bord-Bot bis BOT-02), keine Wirkung');
     ruf.length = 0; a = ein(P, cmd('nav.stopp', 'alle'));
     ok(a.length === 1 && grund(a[0]) === 'adressat' && ruf.length === 0, 'Rollenbefehl an alle: adressat (nur bot.* geht an mehrere)');
-  } finally { for (const [r, b] of EINTR) delete Befehle.REGISTER[r][b]; }
+  } finally { EINTR.forEach(([r, b], i) => { if (ALT[i]) Befehle.REGISTER[r][b] = ALT[i]; else delete Befehle.REGISTER[r][b]; }); }
   // an alle mit drei Bots: die Textvariante wechselt je Bot ab (Schluessel botId|textId), nicht gemeinsam
   const V = partie({ bots: ['navigation', 'ops', 'technik'] }); lauf(V, 3);
   const va = haken('bot', 'bot.status', () => ({ ok: true }), () => [ein(V, cmd('bot.status', 'alle')), ein(V, cmd('bot.status', 'alle'))]);
