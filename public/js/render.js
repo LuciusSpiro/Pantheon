@@ -1488,6 +1488,31 @@
       ctx.restore();
       return;
     }
+    if (kind === 'abgang_sprung') {   // SPT-02 7: Sprungblitz (Ereignis abgang art sprung): weisser Kern, wachsender Ring und ein Lichtstrich in Flugrichtung des Hyperraums
+      const p = clamp01(opts && opts.p != null ? opts.p : (t % 1));
+      ctx.save(); ctx.globalCompositeOperation = 'lighter';
+      const a = 1 - p;
+      ctx.strokeStyle = 'rgba(127,243,255,' + (0.95 * a).toFixed(3) + ')'; ctx.lineWidth = 2 * a + 1;
+      ctx.beginPath(); ctx.arc(x, y, 3 + p * 30, 0, Math.PI * 2); ctx.stroke();
+      ctx.strokeStyle = 'rgba(255,255,255,' + (0.9 * a).toFixed(3) + ')'; ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.arc(x, y, 2 + p * 14, 0, Math.PI * 2); ctx.stroke();
+      ctx.fillStyle = 'rgba(190,250,255,' + (0.85 * a).toFixed(3) + ')';
+      const l = 6 + p * 34; ctx.fillRect(Math.round(x - l), Math.round(y) - 1, Math.round(l * 2), 2);
+      ctx.fillRect(Math.round(x) - 1, Math.round(y - l * 0.4), 2, Math.round(l * 0.8));
+      if (p < 0.5) { ctx.fillStyle = 'rgba(255,255,255,' + (0.9 * (1 - p / 0.5)).toFixed(3) + ')'; ctx.beginPath(); ctx.arc(x, y, 3 + p * 8, 0, Math.PI * 2); ctx.fill(); }
+      ctx.restore();
+      return;
+    }
+    if (kind === 'abgang_rueck') {   // SPT-02 7: der abgezogene Gegner löst sich mitten im Feld auf (Ereignis abgang art rueck): schwacher Funkenkranz, der nach innen zusammenfällt
+      const p = clamp01(opts && opts.p != null ? opts.p : (t % 1));
+      ctx.save(); ctx.globalCompositeOperation = 'lighter';
+      ctx.strokeStyle = 'rgba(255,170,70,' + (0.8 * (1 - p)).toFixed(3) + ')'; ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.arc(x, y, 16 * (1 - p) + 2, 0, Math.PI * 2); ctx.stroke();
+      ctx.fillStyle = 'rgba(255,241,184,' + (0.9 * (1 - p)).toFixed(3) + ')';
+      for (let i = 0; i < 6; i++) { const w = i * 1.047 + p * 2; const r = 18 * (1 - p) + 2; ctx.fillRect(Math.round(x + Math.cos(w) * r) - 1, Math.round(y + Math.sin(w) * r) - 1, 2, 2); }
+      ctx.restore();
+      return;
+    }
     if (art('drawFx', 'drawFx:' + kind, [ctx, kind, x, y, t, opts || {}])) return;
     const f = Math.floor(t * 10);
     switch (kind) {

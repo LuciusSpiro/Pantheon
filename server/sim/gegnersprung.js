@@ -14,6 +14,7 @@
 // Zahlen: content/kampf/gegnersprung-werte.json. Zufall: keiner.
 const Gsys = require('./gegnersystem.js');
 const Zielsysteme = require('./zielsysteme.js');
+const Abgang = require('./abgang.js');   // SPT-02 7: Sprungblitz am Abgang
 const W = require('../../content/kampf/gegnersprung-werte.json').werte;
 
 function regel(game, r) {
@@ -48,6 +49,7 @@ function entkommen(game, e) {
   sp.enemies = sp.enemies.filter((o) => o !== e);
   if (game.ship.target === e.id) { Zielsysteme.zielLoeschen(game); }
   game.emit('sfx', { name: 'jump' });
+  Abgang.melde(game, e, 'sprung');
   game.missionEvent('enemyEscaped', { enemy: e });
 }
 

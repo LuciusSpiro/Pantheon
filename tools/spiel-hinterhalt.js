@@ -234,7 +234,7 @@ const plan = () => ({
     pruef(ged.filter((e) => e === soll).length === 1 && !ged.includes(gegen), `Gedaechtnis: genau ${soll}, einmal (${ged.join(', ')})`);
     pruef(verlauf.some((v) => v.includes(`endet`) && v.includes(AUSGANG)), `der Beat hinterhalt endet ${AUSGANG} (${verlauf.join(' > ')})`);
     pruef(!!f.ausgang && ['gelungen', 'gescheitert'].includes(f.ausgang.art), `Ausgang des Fadens: ${f.ausgang && f.ausgang.art}`);
-    pruef(!g.fadenSzene && !(g.fadenWarte || []).length && g.space.enemies.length === 0, `nichts bleibt am Ort stehen: keine Szene, keine Warteschlange, keine Gegner (${g.space.enemies.length})`);
+    pruef(!g.fadenSzene && !(g.fadenWarte || []).length && g.space.enemies.every((e) => e.leaving), `nichts bleibt am Ort stehen: keine Szene, keine Warteschlange, keine kaempfenden Gegner (SPT-02 7: uebrige ziehen ab: ${g.space.enemies.length})`);
     pruef(!f.laufend && HH.halt(g, H) === null && !(g.weltsim.faeden.liste.some((x) => x.laufend && x.laufend.hex)), 'der Sektor des Beats ist weg (laufend, Halt), nichts wartet mehr');
     if (AUSGANG === 'gescheitert' && WIE === 'flucht') pruef(funk.some((t) => t === SZD.texte.szenenwechsel), 'der Funk meldet den Szenenwechsel (Sektor verlassen)');
     if (AUSGANG === 'gelungen') pruef(funk.some((t) => t === SZD.texte.gelungen.hinterhalt), 'der Funk meldet den Sieg (Text aus den Daten)');

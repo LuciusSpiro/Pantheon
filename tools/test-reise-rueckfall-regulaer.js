@@ -118,7 +118,7 @@ for (const art of ['konvoi', 'geleit']) {   // im Flug: Vorlauf, Kampf; der Ruec
   ok(f.phase === 'laeuft' && f.beat === 0 && !!tag && weiter === 0 && Brett.abenteuerRueckfallWeiter(g) === 0, `${art}: im Flug beginnt die Szene (Kampf nach ${k} Takten), der Faden laeuft, der Rueckfall fuehrt ihn nicht weiter`);
   for (let i = 0; i < FRIST + 1; i++) Faden.taetigkeit(g, 'andocken');
   g.step(); g.step();
-  ok(!g.fadenSzene && (g.fadenWarte || []).length === 0 && !g.space.enemies.some((e) => e.tag === tag), `${art}: die Frist beendet den Beat, die Szene ist weg (keine Gegner, keine Warteschlange)`);
+  ok(!g.fadenSzene && (g.fadenWarte || []).length === 0 && g.space.enemies.every((e) => e.tag !== tag || e.leaving), `${art}: die Frist beendet den Beat, die Szene ist weg (keine kaempfenden Gegner, SPT-02 7: sie ziehen ab; keine Warteschlange)`);
   for (let i = 0; i < 40 && f.phase !== 'abgeschlossen'; i++) takt(g);
   ok(f.phase === 'abgeschlossen' && P.abenteuerLaufend(Fz(g)) === 0 && g.errors === 0 && fehler.length === 0 && !g.fadenSzene, `${art}: danach fuehrt der Rueckfall den Faden zum Abschluss, nichts bleibt haengen`);
 }

@@ -37,6 +37,7 @@ const Kern = require('../weltsim/kern.js');
 const Plan = require('../weltsim/wellenplan.js');
 const Zufall = require('../weltsim/zufall.js');
 const Flotte = require('./flotte.js');
+const Abgang = require('./abgang.js');   // SPT-02 7: Sprungblitz der Verbündeten am Szenenende
 const Escort = require('./escort.js');
 const Gsys = require('./gegnersystem.js');   // SYS-01 C1a-1: Verrat setzt die Hüllen-Quote auf die Systemintegrität
 const Kriegslage = require('./kriegslage.js');
@@ -197,6 +198,7 @@ function gueltige(game, liste) { const z = game.weltsim.zustand; return liste.fi
 function aufraeumen(game, S) {
   const sp = game.space;
   if (sp && sp.escorts) {
+    if (game.ship.scene === S.szene) for (const q of sp.escorts) if (q.sim === S.id && q.ally && q.hp > 0) Abgang.melde(game, q, 'sprung');   // SPT-02 7: die Verbündeten der Szene springen ab (Bild; nach einem Ortswechsel stehen ihre Koordinaten im falschen Raum: dann still); der Verrat (unten) lässt sie still, sie werden dort zu Gegnern am selben Ort
     sp.escorts = sp.escorts.filter((q) => q.sim !== S.id);
     if (sp.escortsGone) sp.escortsGone = sp.escortsGone.filter((g) => !String(g.tag || '').startsWith('sz' + S.id + '_'));
   }

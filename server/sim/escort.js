@@ -36,6 +36,7 @@ const Schilde = require('../../shared/schilde.js');   // SYS-02b: Schildsegmente
 const Katalog = require('../../shared/schiffskatalog.js');   // SYS-02b: Sturmwerte, Torpedo-Lesart
 
 let spaceMod = null;   // lazy (Zirkelbezug space -> escort)
+const Abgang = require('./abgang.js');   // SPT-02 7: Abgang am Zeitlimit des Rueckzugs
 const Gsys = require('./gegnersystem.js');   // SYS-01 C1a-1: Gegner-Lebensanzeige (integPct)
 const space = () => spaceMod || (spaceMod = require('./space.js'));
 let flotteMod = null;  // EK4: Verbündete (flotte.js) – lazy (Zirkelbezug flotte -> escort)
@@ -497,7 +498,7 @@ function heile(game, es) {
 }
 function disable(game, es) {
   if (es.ally) { if (Gsys.hat(es)) gtod().sofort(es); es.hp = 0; flotte().allyLost(game, es); return; }   // EK4: ein Verbündeter wird zerstört (Funkspruch, Kapsel, Weltstand), er treibt nicht
-  es.hp = 0; es.state = 'kampfunfaehig'; es.distress = false; es.befehl = null; es.pending = null; es.docked = false;
+  es.hp = 0; es.state = 'kampfunfaehig'; es.disabledT = game.time; es.distress = false; es.befehl = null; es.pending = null; es.docked = false;
   es.ausgang = es.npc ? 'schwer_beschaedigt' : 'verloren';
   syncFlags(game, es);
   stats(game).disabled++;
@@ -584,6 +585,7 @@ function updateLeaving(game, dt) {
   for (const e of out) {
     if (game.ship.target === e.id) zielsys().zielLoeschen(game);
     game.emit('teleMiss', { id: e.id });
+    if (e.leaveT > 14) Abgang.melde(game, e, 'rueck');   // SPT-02 7: Zeitlimit mitten im Feld: der Gegner loest sich sichtbar auf (am Rand fliegt er sichtbar hinaus)
     game.missionEvent('enemyLeft', { enemy: e });
   }
   if (!sp.enemies.length) game.oda('Sie drehen ab – Kontakt verloren.', null);

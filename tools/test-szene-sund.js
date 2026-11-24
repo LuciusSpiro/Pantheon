@@ -375,6 +375,34 @@ section('Hafen gehalten', () => {
   ok(romStaerke0.every((v, i) => rom[i].staerke <= v + 1e-9), 'Hafenflotte hat nur verloren, nichts gewonnen');
 });
 
+section('SPT-02 7: Verbündete springen am Szenenende sichtbar ab (abgang sprung), nach einem Ortswechsel still', () => {
+  const sammle = (g) => { const l = []; const o = g.emit.bind(g); g.emit = (k, d) => { if (k === 'abgang') l.push(d); return o(k, d); }; return l; };
+  // Sieg: die lebenden Verbündeten der Szene springen ab, je einer, an ihrer Position
+  let t = neu(); let g = t.g; ab(g);
+  flotte(g, OSTIA, 'ger', 17, { belagerung: true });
+  ankunft(g, OSTIA);
+  const ev = sammle(g);
+  run(g, 21);
+  const vor = verbuendete(g).filter((q) => q.hp > 0).map((q) => ({ x: Math.round(q.x), y: Math.round(q.y) }));
+  ok(vor.length >= 1, 'Verbündete stehen in der Szene (' + vor.length + ')');
+  bisFlaggschiff(g, 300);
+  const nachFlagg = verbuendete(g).filter((q) => q.hp > 0);
+  ev.length = 0;
+  kill(g, g.space.enemies.find((e) => e.flagg)); run(g, 0.2);
+  ok(!g.simSzene && Szene.letzte(g).ausgang === 'sieg', 'Szene endet mit Sieg');
+  ok(ev.length === nachFlagg.length && ev.length >= 1 && ev.every((e) => e.art === 'sprung' && Number.isFinite(e.x) && Number.isFinite(e.y)), 'Sieg: je lebendem Verbündeten ein abgang sprung (' + ev.length + ' von ' + nachFlagg.length + ')');
+  ok(verbuendete(g).length === 0, 'und die Verbündeten sind weg');
+  // Ortswechsel (Szene verlassen): Koordinaten gehören zum alten Raum, kein Bild im neuen
+  t = neu(); g = t.g; ab(g);
+  flotte(g, OSTIA, 'ger', 17, { belagerung: true });
+  ankunft(g, OSTIA);
+  const ev2 = sammle(g);
+  run(g, 21);
+  Space.enterScene(g, Sektoren.ortVonHex('0505'), {});
+  run(g, 0.5);
+  ok(!g.simSzene && verbuendete(g).length === 0 && ev2.length === 0, 'Ortswechsel: die Szene endet, die Verbündeten gehen still (kein abgang im falschen Raum)');
+});
+
 section('Hafen gefallen (Crew unterlegen / Verteidiger erschöpft)', () => {
   // a) Notfallprotokoll der Lerche: mit lebenden Verteidigern geht die Schlacht weiter, ohne sie ist die Crew unterlegen
   let t = neu(); let g = t.g; ab(g);
