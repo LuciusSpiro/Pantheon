@@ -413,6 +413,8 @@
     "test:bot-annahme": "node tools/test-bot-annahme.js",
     "test:bot-befehle-nav": "node tools/test-bot-befehle-nav.js",
     "test:bot-befehle-ops-tech": "node tools/test-bot-befehle-ops-tech.js",
+    "test:bot-menue": "node tools/test-bot-menue.js",
+    "sicht:bot-menue": "node tools/sicht-bot-menue.js",
     "test:kontingent": "node tools/test-kontingent.js",
     "test:kontingent-frage": "node tools/test-kontingent-frage.js",
     "sicht:kontingent": "node tools/sicht-kontingent.js",

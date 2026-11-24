@@ -668,7 +668,7 @@ const sprechen = async (k) => { k.tasteRunter(); await tick(); return k.tasteHoc
       ok(n.sprech === 1 && n.barks === 2, 'Sprache an: Sprechspalte in draw() nur zu Fuss (Barks bleiben an der Konsole aus)');
       const cl = fs.readFileSync(path.join(__dirname, '..', 'public', 'js', 'client.js'), 'utf8').split(String.fromCharCode(13)).join('');
       const iK = cl.indexOf("Net.guard('Hud.sprechspalteKonsole', () => H.zeichneSprechspalte(ctx, v))");
-      ok(iK > cl.indexOf("Net.guard('Sitz.draw'") && iK > cl.indexOf("Net.guard('Consoles.draw'") && cl.slice(iK - 60, iK).includes('if (H.sprech.aktiv)') && cl.indexOf('if (v.me.console) {') < iK && iK < cl.indexOf("Net.guard('Funkwahl.zeichne'"), 'client.js: an der Konsole wird die Sprechspalte NACH der Konsole gezeichnet (nur mit Sprache an), sonst laege die Konsole darueber');
+      ok(iK > cl.indexOf("Net.guard('Sitz.draw'") && iK > cl.indexOf("Net.guard('Consoles.draw'") && cl.slice(iK - 70, iK).includes('if (H.sprech.aktiv || H.sprech.bots)') && cl.indexOf('if (v.me.console) {') < iK && iK < cl.indexOf("Net.guard('Funkwahl.zeichne'"), 'client.js: an der Konsole wird die Sprechspalte NACH der Konsole gezeichnet (nur mit Sprache an oder Bots im Spiel, BOT-01 C3), sonst laege die Konsole darueber');
       H.sprech.tFrame = tMs; ok(H.sprechBereit(), 'sprechBereit: nach einem gezeichneten Bild bereit'); tMs += 600; ok(!H.sprechBereit(), 'und nicht mehr, wenn kein Bild mehr gezeichnet wird');
       const w3 = neu(); const H3 = w3.Hud; ok(H3.sprech.aktiv === false && H3.sprech.eintraege.length === 0 && H3.sprech.zeile === null && !H3.sprechBereit(), 'Standardzustand: aus, leer, nicht bereit');
       // update: Textzeile ohne Spielbild schliesst
