@@ -19,6 +19,11 @@
 //                  unten und beamt wie sonst, ohne Sonderrechte und ohne god. Die Server-Bots kommen ueber die echte Lobby-Nachricht lobbyBot { op: 'add', rolle } dieses Clients auf die Plaetze 2 bis 4 (server/bots/spieler.js),
 //                  bevor alle bereit sind; ihr Verhalten laeuft in game.step() (server/bots/lauf.js), sie bekommen keine Hilfen. Neue Pruefungen: Bots sitzen (Rollen, verbunden, Agenten da), nur der Mensch-Ersatz war unten
 //                  (kein Bot gebeamt), kein Bot bewusstlos oder unten. Ohne die Option aendert sich weder Ablauf noch Ausgabe.
+//
+// BOT-02 B6 (Abnahme 5 und 7): zusaetzlicher Modus --bord (nur mit --crew 1 --server-bots navigation,ops,technik): die Bots tun die Arbeit des Bord-Dienstes.
+//   node tools/spiel-landung.js --besetzung ruhig|raeuber|belagerer --crew 1 --server-bots navigation,ops,technik --bord [--seed N] [--json datei] [--verlauf]
+//   Der Mensch-Ersatz scannt NICHT (Ops-Bot) und stoppt das Schiff NICHT (Navigations-Bot); er waehlt den Landepunkt an der Transfer-Konsole, geht (kuenstliche Gehzeit) zum Pad und haelt E. Das Schiff FAEHRT zu Beginn (Stufe 3, ueber der Beamgrenze,
+//   in Beamreichweite) und wird nie festgehalten. Der Bord-Bot (Technik) steht am Transfer. Neue Pruefungen und die Zusatzmessung (Ansagen, ODA, Rueckholung; --json: bord) siehe tools/lib/bord-messung.js. Ohne --bord aendert sich nichts.
 //   Zusatz im Mitschnitt (--verlauf, bei Fehlern die letzten Zeilen): STATION-Zeilen bei jedem Wechsel (wer haelt welche Station, Schiff: Stufe, Tempo), BOTS-Zeile je Phase; in der Messdatei serverBots { rollen, stationen (Verlauf), befehle }.
 const fs = require('fs');
 const os = require('os');
@@ -35,6 +40,8 @@ const FRIST_LAUF = hat('frist-lauf');
 const JSON_DATEI = wert('json');
 const SB_TEXT = wert('server-bots');   // BOT-01 B4b
 const SERVER_BOTS = SB_TEXT === undefined ? null : SB_TEXT.split(',').filter(Boolean);
+const BORD = hat('bord');   // BOT-02 B6
+const Bord = require('./lib/bord-messung.js');
 if (!['ruhig', 'raeuber', 'belagerer'].includes(BES) || ![1, 3].includes(CREW) || !Number.isFinite(SEED) || !Number.isFinite(UNTEN_MS)) {
   console.error('Aufruf: node tools/spiel-landung.js --besetzung ruhig|raeuber|belagerer [--crew 1|3] [--seed N] [--frist-lauf] [--unten-ms N] [--verlauf]');
   process.exit(2);
@@ -43,6 +50,8 @@ if (SERVER_BOTS && (CREW !== 1 || !SERVER_BOTS.length || SERVER_BOTS.some((r, i)
   console.error('Aufruf: --server-bots navigation,ops,technik (Teilmenge, nur mit --crew 1)');
   process.exit(2);
 }
+const BORD_FEHLER = Bord.pruefArgs({ bord: BORD, crew: CREW, serverBots: SERVER_BOTS, fristLauf: FRIST_LAUF });
+if (BORD_FEHLER) { console.error('Aufruf: ' + BORD_FEHLER); process.exit(2); }
 for (const k of ['SPIELLEITER_LLM', 'LLM_LIVE']) delete process.env[k];
 process.env.MISSION_SOURCE = 'fallback'; process.env.LAGE_SPIELLEITER = '1'; process.env.REISE_EREIGNISSE = '1'; process.env.FAEDEN = '1'; process.env.SPIELLEITER_RUECKFALL = '1';
 const WebSocket = require('ws');
@@ -102,6 +111,7 @@ const plan = () => ({
   const schiffText = () => { const s = g.ship; return `Stufe ${s.helm && s.helm.stage} v${Math.round(s.speed || 0)} ${s.docked ? 'angedockt' : 'frei'} ${s.scene}`; };
   const botsZeile = (wo) => { const l = BotLauf.agenten(g).map((a) => `${a.rolleBot}: ${a.befehle} Befehle, ${a.verworfen} verworfen, ${a.absicht && a.absicht.zustand}`); zeile(`BOTS     ${wo}: ${l.join(' | ') || 'kein Agent'}`); return l; };
   let sbTimer = null, sbLetzt = '';
+  const bm = BORD ? Bord.messung({ g, cl, Station, k, jetzt: t0, zeile }) : null;   // BOT-02 B6: Messfuehler (nur lesen)
   if (SERVER_BOTS) {
     const sbBots = g.players.filter((p) => p.bot);
     pruef(sbBots.length === SERVER_BOTS.length && SERVER_BOTS.every((r) => sbBots.some((b) => b.rolle === r && b.connected)) && g.players[0] && !g.players[0].bot && g.phase === 'play', `Server-Bots sitzen (${sbBots.map((b) => b.id + ':' + b.rolle).join(', ')}), Phase ${g.phase}`);
@@ -113,7 +123,7 @@ const plan = () => ({
   // ---- Beobachtung: Funk, Faden-Verlauf aus dem Logbuch der Regie, Ereignisse am Boden
   const emit0 = g.emit.bind(g); g.emit = (...a) => { if (a[0] === 'radio' && a[1]) zeile(`FUNK     ${String(a[1].from || '?').padEnd(16)} ${a[1].text}`); return emit0(...a); };
   const me0 = g.missionEvent.bind(g); const boden = [];
-  g.missionEvent = (kk, d) => { if (['beamedDown', 'beamedUp', 'notsprung'].includes(kk)) { boden.push({ k: kk, map: d && d.map, n: d && d.players ? d.players.length : 0, notrueckholung: !!(d && d.notrueckholung) }); zeile(`EREIGNIS ${kk} ${d && d.map ? d.map : ''} ${d && d.players ? d.players.length + ' Spieler' : ''}${d && d.notrueckholung ? ' Notrueckholung' : ''}`); } return me0(kk, d); };
+  g.missionEvent = (kk, d) => { if (bm) bm.ereignis(kk, d); if (['beamedDown', 'beamedUp', 'notsprung'].includes(kk)) { boden.push({ k: kk, map: d && d.map, n: d && d.players ? d.players.length : 0, notrueckholung: !!(d && d.notrueckholung) }); zeile(`EREIGNIS ${kk} ${d && d.map ? d.map : ''} ${d && d.players ? d.players.length + ' Spieler' : ''}${d && d.notrueckholung ? ' Notrueckholung' : ''}`); } return me0(kk, d); };
   if (typeof g.notice === 'function') { const n0 = g.notice.bind(g); g.notice = (pp, t2, ...r) => { zeile('HINWEIS  ' + t2); return n0(pp, t2, ...r); }; }
   const logbuch = () => (g.lageRegie && g.lageRegie.log && g.lageRegie.log.entries) || [];
   const beobachtet = new Set(); const verlauf = [];
@@ -163,8 +173,10 @@ const plan = () => ({
     await wartenAuf(() => !!LP.info(g, lpId), 8000);
     const info = LP.info(g, lpId);
     if (!info || !info.beam) throw new Error('Landepunkt ohne Beam-Punkt: ' + lpId);
-    let stehtSchon = false; const stehen = () => { if (!stehtSchon) { stehtSchon = true; k('ort-setzen'); } const s = g.ship; s.docked = false; s.dockedAt = null; s.x = info.beam.x + 20; s.y = info.beam.y; s.vx = 0; s.vy = 0; s.speed = 0; if (s.helm) { s.helm.thrust = 0; s.helm.turn = 0; } };
-    stehen();
+    let stehtSchon = false; const stehen0 = () => { if (!stehtSchon) { stehtSchon = true; k('ort-setzen'); } const s = g.ship; s.docked = false; s.dockedAt = null; s.x = info.beam.x + 20; s.y = info.beam.y; s.vx = 0; s.vy = 0; s.speed = 0; if (s.helm) { s.helm.thrust = 0; s.helm.turn = 0; } };
+    const stehen = BORD ? () => {} : stehen0;   // BOT-02 B6: mit --bord steht das Schiff nie kuenstlich still (der Navigations-Bot stoppt es)
+    if (BORD) bm.fahren(info.beam); else stehen();
+    if (!BORD) {
     await w.konsole('weapons');
     cl[0].send({ t: 'cmd', c: 'weapons.landescan' });
     const gescannt = await wartenAuf(() => { stehen(); return Lpscan.gescannt(g, lpId); }, 15000);
@@ -173,17 +185,31 @@ const plan = () => ({
     if (SERVER_BOTS) botsZeile('nach Scan');
     // ---- Transfer-Konsole: Landepunkt waehlen (transfer.ziel), Konsole verlassen
     cl[0].send({ t: 'leave' }); await sleep(250);   // die Ops steht auf; an der Transfer-Konsole sitzt sie neu (Tab wechselt nur zwischen Steuer, Ops und den anderen Stationen eines Platzes)
+    }
     await w.konsole('transfer');
     cl[0].send({ t: 'cmd', c: 'transfer.ziel', landepunkt: lpId });
+    if (BORD) bm.gewaehlt(lpId);
     await wartenAuf(() => g.away && g.away.map === lpId, 3000);
     pruef(g.away && g.away.map === lpId && g.transferZiel && g.transferZiel.lp === lpId, `Landepunkt gewaehlt (transfer.ziel): away.map ${g.away && g.away.map}`);
     cl[0].send({ t: 'leave' }); await sleep(250);
+    if (BORD) { k('gehzeit'); await sleep(Bord.GEHZEIT_MS); }   // kuenstlich: der Mensch geht vom Transfer zum Pad
     // ---- Pads: die untere Mannschaft steht auf den Pads (gesetzt), E halten (selfbeam), alle auf Pads beamen zusammen
     const mannschaft = g.players.slice(0, CREW === 1 ? 1 : 2);   // Crew 3: zwei Bots gehen runter, der dritte bleibt an Bord (Mehrspieler-Pfad)
     k('spieler-setzen');
     mannschaft.forEach((p, i) => interior.placeOnShipPad(g, p, i));
     stehen(); await sleep(200);
     const halte = async (richtung, ziel) => {   // E halten bis die Zone wechselt
+      if (BORD) {   // BOT-02 B6: wie ein Mensch, der nach einer Abweisung (Schiff noch zu schnell) neu ansetzt
+        let da = false; const t = Date.now();
+        while (!da && Date.now() - t < 25000) {
+          for (const p of mannschaft) cl[g.players.indexOf(p)].send({ t: 'act', down: true });
+          da = await wartenAuf(() => mannschaft.every((p) => p.zone === ziel), 5500);
+          for (const p of mannschaft) cl[g.players.indexOf(p)].send({ t: 'act', down: false });
+          if (!da) await sleep(250);
+        }
+        zeile(`BOT      ${richtung}: ${mannschaft.map((p) => p.name + ' ' + p.zone).join(', ')} (E halten, selfbeam, mit Neuansatz)`);
+        return da;
+      }
       for (const p of mannschaft) { const c = cl[g.players.indexOf(p)]; c.send({ t: 'act', down: true }); }
       const da = await wartenAuf(() => { stehen(); return mannschaft.every((p) => p.zone === ziel); }, 15000);
       for (const p of mannschaft) { const c = cl[g.players.indexOf(p)]; c.send({ t: 'act', down: false }); }
@@ -212,6 +238,7 @@ const plan = () => ({
   for (let i = 0; i < 12; i++) { await grenze(); }
   await sleep(500);
   if (sbTimer) clearInterval(sbTimer);
+  const bordDaten = BORD ? bm.beenden() : null;
   const sbBefehle = SERVER_BOTS ? botsZeile('Ende') : null;
   const ged = f.nsc.gedaechtnis.map((e) => e.ereignis);
   const orteNach = orte();
@@ -234,13 +261,14 @@ const plan = () => ({
   if (SERVER_BOTS) {
     pruef(!FRIST_LAUF && downs.length >= 1 && downs.every((e) => e.n === unten.length) && ups.every((e) => e.n === unten.length), `nur der Mensch-Ersatz war unten (beamedDown ${downs.map((e) => e.n).join('+')}, beamedUp ${ups.map((e) => e.n).join('+')} Spieler; Soll je ${unten.length})`);
     pruef(g.players.filter((p) => p.bot).every((p) => !p.downed && p.connected), 'kein Server-Bot bewusstlos oder weg');
+    if (BORD) for (const x of Bord.auswerten(bordDaten)) pruef(x.ok, x.text);
   }
   pruef(aufrufe() === 0, `Komponisten-Aufrufe ${aufrufe()} (Rueckfall ohne Modell)`);
   pruef(g.errors === 0, `g.errors ${g.errors}`);
   const sek = Math.round((Date.now() - t0) / 100) / 10;
   const ok = abw.length === 0;
-  const kurz = `${ok ? 'ok' : 'FEHLER'} ${BES} crew ${CREW} seed ${SEED}${FRIST_LAUF ? ' frist-lauf' : ''}${SERVER_BOTS ? ' server-bots ' + SERVER_BOTS.join(',') : ''}: Ausgang ${f.ausgang && f.ausgang.art}, Verlauf ${verlauf.join(' > ')}; Gegner ${gegner}; unten ${unten.length}; Komponisten-Aufrufe ${aufrufe()}; g.errors ${g.errors}; Orte ${zahlOrte(orteVor)} vorher, ${zahlOrte(orteWaehrend)} im Lauf, ${zahlOrte(orteNach)} nachher; ${sek} s; kuenstlich ${JSON.stringify(kz)}`;
-  if (JSON_DATEI) fs.writeFileSync(JSON_DATEI, JSON.stringify({ besetzung: BES, crew: CREW, seed: g.seed, fristLauf: FRIST_LAUF, ok, abweichungen: abw, faden: { phase: f.phase, ausgang: f.ausgang && f.ausgang.art, gedaechtnis: ged, verlauf }, gegner, gegnerArten, unten: unten.length, komponistenAufrufe: aufrufe(), errors: g.errors, orte: { vor: zahlOrte(orteVor), lauf: zahlOrte(orteWaehrend), nach: zahlOrte(orteNach), nachDetail: orteNach }, boden: boden.filter((e) => e.map === lpId), sekunden: sek, kuenstlich: kz, ...(SERVER_BOTS ? { serverBots: { rollen: SERVER_BOTS, stationen: sbStationen, befehle: sbBefehle } } : {}) }, null, 1) + '\n', 'utf8');
+  const kurz = `${ok ? 'ok' : 'FEHLER'} ${BES} crew ${CREW} seed ${SEED}${FRIST_LAUF ? ' frist-lauf' : ''}${SERVER_BOTS ? ' server-bots ' + SERVER_BOTS.join(',') : ''}: Ausgang ${f.ausgang && f.ausgang.art}, Verlauf ${verlauf.join(' > ')}; Gegner ${gegner}; unten ${unten.length}; Komponisten-Aufrufe ${aufrufe()}; g.errors ${g.errors}; Orte ${zahlOrte(orteVor)} vorher, ${zahlOrte(orteWaehrend)} im Lauf, ${zahlOrte(orteNach)} nachher; ${sek} s; kuenstlich ${JSON.stringify(kz)}${BORD ? `; bord: Ansagen ${bordDaten.ansagen.length}, ODA ${bordDaten.oda.length}` : ''}`;
+  if (JSON_DATEI) fs.writeFileSync(JSON_DATEI, JSON.stringify({ besetzung: BES, crew: CREW, seed: g.seed, fristLauf: FRIST_LAUF, ok, abweichungen: abw, faden: { phase: f.phase, ausgang: f.ausgang && f.ausgang.art, gedaechtnis: ged, verlauf }, gegner, gegnerArten, unten: unten.length, komponistenAufrufe: aufrufe(), errors: g.errors, orte: { vor: zahlOrte(orteVor), lauf: zahlOrte(orteWaehrend), nach: zahlOrte(orteNach), nachDetail: orteNach }, boden: boden.filter((e) => e.map === lpId), sekunden: sek, kuenstlich: kz, ...(SERVER_BOTS ? { serverBots: { rollen: SERVER_BOTS, stationen: sbStationen, befehle: sbBefehle } } : {}), ...(BORD ? { bord: Object.assign({}, bordDaten, { zusatz: Bord.zusatz(bordDaten) }) } : {}) }, null, 1) + '\n', 'utf8');
   for (const x of cl) { try { x.ws.close(); } catch (e) { /* egal */ } }
   if (!ok) for (const z of zeilen.slice(-40)) console.log(z);
   console.log(kurz);
