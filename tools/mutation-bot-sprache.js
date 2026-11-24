@@ -14,14 +14,16 @@ const TMP = fs.mkdtempSync(path.join(os.tmpdir(), 'pantheon-muta-botsprache-'));
 const ende = (code) => { try { fs.rmSync(TMP, { recursive: true, force: true }); } catch (e) { /* egal */ } process.exit(code); };   // das Temp-Verzeichnis geht bei jedem Ausgang weg, auch bei Exit 1 und 2
 fs.mkdirSync(path.join(TMP, 'tools'), { recursive: true });
 fs.cpSync(path.join(ROOT, 'public', 'js'), path.join(TMP, 'public', 'js'), { recursive: true });
-fs.cpSync(path.join(ROOT, 'shared'), path.join(TMP, 'shared'), { recursive: true });   // D1: test-bot-sprache-net.js braucht Matcher und Protokoll, den Kanon und die Muster
-fs.mkdirSync(path.join(TMP, 'content', 'bots'), { recursive: true });
-for (const f of ['kanon.json', 'muster.json']) fs.copyFileSync(path.join(ROOT, 'content', 'bots', f), path.join(TMP, 'content', 'bots', f));
+fs.cpSync(path.join(ROOT, 'shared'), path.join(TMP, 'shared'), { recursive: true });
+fs.cpSync(path.join(ROOT, 'server'), path.join(TMP, 'server'), { recursive: true });   // D1: test-bot-sprache-server.js fährt den echten Server (Game, Bots)
+if (fs.existsSync(path.join(ROOT, 'package.json'))) fs.copyFileSync(path.join(ROOT, 'package.json'), path.join(TMP, 'package.json'));   // D1: test-bot-sprache-net.js braucht Matcher und Protokoll, den Kanon und die Muster
+fs.cpSync(path.join(ROOT, 'content'), path.join(TMP, 'content'), { recursive: true });   // D1: auch der Servertest liest Spieldaten (Waren, Bots)
 for (const f of ['hud.js', 'bot-sprache.js', 'bot-menue.js', 'consoles.js']) { const p = path.join(TMP, 'public', 'js', f); fs.writeFileSync(p, fs.readFileSync(p, 'utf8').replace(/\r\n/g, '\n')); }   // Anker ohne CRLF-Sorgen
-for (const f of ['test-bot-sprache.js', 'test-bot-sprache-net.js']) fs.copyFileSync(path.join(ROOT, 'tools', f), path.join(TMP, 'tools', f));
+for (const f of ['test-bot-sprache.js', 'test-bot-sprache-net.js', 'test-bot-sprache-server.js']) fs.copyFileSync(path.join(ROOT, 'tools', f), path.join(TMP, 'tools', f));
 
 const CL = 'public/js/client.js', HU = 'public/js/hud.js', BS = 'public/js/bot-sprache.js', CO = 'public/js/consoles.js', BMN = 'public/js/bot-menue.js';
 const NET = 'test-bot-sprache-net.js';   // D1: Mutationen am Net-Transport und an sprachBefehl prüft dieser Test (fünftes Element), alle anderen test-bot-sprache.js
+const SRV = 'test-bot-sprache-server.js';   // D1: Mutationen an der Reihenfolge Eintrag/Senden prüft der Servertest (synchrone Brücke: die Antwort kommt noch im send)
 // [Datei, alter Text (genau einmal), neuer Text, Beschreibung, Testdatei?]
 const MUTATIONEN = [
   [HU, "const oda = view.voxel && window.Sitz && Sitz.station ? this.odaHoeheOben() : 0;", "const oda = 0;", 'Voxel-Sitz: Spalte ignoriert die ODA oben'],
@@ -109,11 +111,17 @@ const MUTATIONEN = [
   [BS, "win.Net ? transportNet(win.Net) : transportNetStub();", "transportNetStub();", 'D1: starte nimmt nie den Net-Transport', NET],
   [BS, "(mockOk ? transportWebSocket(mockUrl, win.WebSocket) : transportNetStub())", "(mockOk ? transportWebSocket(mockUrl, win.WebSocket) : transportNet(win.Net))", 'D1: verbotener Mock fällt auf die echte Verbindung', NET],
   [BS, "...(transport.netz === true ? menueAnschluss(", "...(false ? menueAnschluss(", 'D1: starte hängt die Sprache nicht an das Menü', NET],
-  [BMN, "if (p.gilt) s.gilt[rolle] = p.gilt; else delete s.gilt[rolle];", "s.gilt[rolle] = p.gilt;", 'D1: nicht abbildbarer Wert setzt ein falsches „gilt“', NET],
+  [BMN, "if (p.gilt && offene === 1) s.gilt[rolle] = p.gilt; else delete s.gilt[rolle];", "s.gilt[rolle] = p.gilt;", 'D1: nicht abbildbarer Wert setzt ein falsches „gilt“', NET],
   [BMN, "if (Object.keys(a0).some((k) => k !== 'meter' && namen.indexOf(k) < 0)) continue;", "", 'D1: fremde Argumente passen auf einen Eintrag', NET],
   [BMN, "msg.an === 'alle' ? Math.max(1, s.botsN) : 1, gilt);", "1, gilt);", 'D1: an alle erwartet nur eine Antwort', NET],
-  [BMN, "? msg.an : e.an;   // botId", "? e.an : e.an;   // botId", 'D1: Rolle des Adressaten wird ignoriert', NET],
+  [BMN, "? msg.an : botRolle || e.an;   // botId", "? e.an : botRolle || e.an;   // botId", 'D1: Rolle des Adressaten wird ignoriert', NET],
   [BMN, "s.ausstehend.splice(i, 1);", "", 'D1: verworfener Eintrag bleibt stehen', NET],
+  [BS, "if (env.vorSenden) { try { vermerk = env.vorSenden(msg); } catch (e) { vermerk = null; } }\n      let ok = false;\n      try { ok = env.transport.send(msg) !== false; } catch (e) { ok = false; }", "let ok = false;\n      try { ok = env.transport.send(msg) !== false; } catch (e) { ok = false; }\n      if (env.vorSenden) { try { vermerk = env.vorSenden(msg); } catch (e) { vermerk = null; } }", 'D1: vorSenden (Eintrag) erst nach dem Senden', SRV],
+  [BMN, "{ if (!p) p = q; offene++; }", "{ p = q; offene++; }", 'D1: Antwort wird dem JÜNGSTEN offenen Eintrag zugeordnet (LIFO statt FIFO)', NET],
+  [BMN, "if (p.gilt && offene === 1) s.gilt[rolle]", "if (p.gilt) s.gilt[rolle]", 'D1: „gilt“ auch bei mehreren offenen Einträgen', NET],
+  [BMN, "? s.botRolle[msg.an] : null;", "? null : null;", 'D1: bot.status an botId: Quittung ignoriert die bekannte Rolle des Bots', NET],
+  [BMN, "msg.an === 'alle' ? Math.max(1, s.botsN) : 1, gilt);", "an === 'alle' ? Math.max(1, s.botsN) : 1, gilt);", 'D1: erwartet folgt dem aufgelösten Adressaten statt dem genannten (botId erwartet 4)', NET],
+  [BMN, "s.quittung = p.vorher || null;", "s.quittung = null;", 'D1: Verwerfen stellt die vorige Quittung nicht wieder her', NET],
 ];
 
 const nur = process.argv.slice(2).filter((a) => !a.startsWith('--'));
@@ -129,7 +137,7 @@ if (trocken) { console.log('alle ' + MUTATIONEN.length + ' Anker eindeutig'); en
 
 let erkannt = 0, offen = 0, abstuerze = 0;
 const lauf = (test) => spawnSync(process.execPath, ['tools/' + (test || 'test-bot-sprache.js')], { cwd: TMP, encoding: 'utf8', timeout: 120000 });
-for (const t of [null, NET]) { const basis = lauf(t); if (basis.status !== 0) { console.log('Basis ist nicht grün (' + (t || 'test-bot-sprache.js') + ', Exit ' + basis.status + ')'); ende(2); } }
+for (const t of [null, NET, SRV]) { const basis = lauf(t); if (basis.status !== 0) { console.log('Basis ist nicht grün (' + (t || 'test-bot-sprache.js') + ', Exit ' + basis.status + ')'); console.log(String(basis.stderr || basis.stdout || '').slice(-500)); ende(2); } }
 for (const [datei, alt, neu, text, test] of MUTATIONEN) {
   if (nur.length && !nur.some((b) => text.includes(b))) continue;
   const pfad = path.join(TMP, datei), orig = fs.readFileSync(pfad, 'utf8');

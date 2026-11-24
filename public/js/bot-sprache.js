@@ -63,7 +63,7 @@
   // env: { transport: { send(obj) -> bool, onMessage(fn) -> abmelden }, matcher: () -> { match } | Promise, stt: (blob, mime) -> Promise<text>,
   //        mikrofon: { start() -> Promise<{ stop() -> Promise<{ blob, mime, dauerMs }>, abbruch() }> }, audio: { spiele(urls, { start?, ende? }) -> Promise<url|null>, stumm(bool), stopp() },
   //        vorSenden?(msg) -> Vermerk (BotMenue.sprachBefehl: legt den Eintrag für Quittung und „gilt“ an, BEVOR gesendet wird), verworfen?(vermerk) (Sendefehler: Eintrag zurück), siehe menueAnschluss,
-//        anzeige: { aufnahme(bool), untertitel(text, { botId?, dauerS? }) -> Kennung?, meldung(text|null), verarbeitet?(bool), clip?(kennung, bool), messung?(zustand) }, uhr?: () -> ms, stimmen?, clipBasis?, postMessung?: (sitzung, eintrag) -> Promise }
+  //        anzeige: { aufnahme(bool), untertitel(text, { botId?, dauerS? }) -> Kennung?, meldung(text|null), verarbeitet?(bool), clip?(kennung, bool), messung?(zustand) }, uhr?: () -> ms, stimmen?, clipBasis?, postMessung?: (sitzung, eintrag) -> Promise }
   function erzeuge(env) {
     const uhr = env.uhr || (() => Date.now());
     const stimmen = Object.assign({}, STIMMEN, env.stimmen || {});

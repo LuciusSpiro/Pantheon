@@ -291,6 +291,55 @@ for (const e of KANON.befehle) {
     await C.kern.sendeText('Quatsch mit Sosse'); ok(/\/b1\/bot\.unklar/.test(C.L.clips[C.L.clips.length - 1][0]), 'nach einer Antwort von b1: Stimme b1');
   }
 
+  section('f) mehrere offene Befehle: FIFO-Zuordnung, „gilt“ nie falsch, toter Eintrag, bot.status an eine botId');
+  {
+    const crew4 = () => ['navigation', 'ops', 'technik', 'bord'].map((r, i) => ({ id: 'b' + i, bot: 1, rolle: r, connected: true }));
+    const schub = (B, stufe) => B.menue.sprachBefehl({ t: 'bot.befehl', an: 'navigation', befehl: 'nav.schub', args: { stufe }, quelle: 'sprache' });
+    const gw = (B) => { const g = B.menue.giltVon('navigation'); return g ? g.wert : null; };
+    const kombi = (a1, a2) => { const B = bauen({ crew: crew4() }); const p1 = schub(B, 'voll'), p2 = schub(B, 'halb'); B.menue.antwort(antwort('nav.schub', a1)); B.menue.antwort(antwort('nav.schub', a2)); return { B, p1, p2 }; };
+    // Antworten in Eingangsreihenfolge: die erste gehört zum ÄLTESTEN Eintrag (Server antwortet je Verbindung synchron)
+    let r = kombi('ok', 'abgelehnt');
+    ok(r.p1.ok === 1 && r.p1.nein === 0 && r.p2.ok === 0 && r.p2.nein === 1, 'FIFO: ok gehört zu „voll“ (älteste), abgelehnt zu „halb“ (Zähler ' + [r.p1.ok, r.p1.nein, r.p2.ok, r.p2.nein] + ')');
+    ok(gw(r.B) !== 'halb' && r.B.menue.crew()[0].text === 'NAVIGATION abgelehnt', 'ok(voll), abgelehnt(halb): nie „halb“ als „gilt“ (' + gw(r.B) + '), Quittung nein');
+    ok(gw(r.B) === null, 'zwei offene beim ersten ok: lieber kein „gilt“ (Stand ' + gw(r.B) + ')');
+    r = kombi('abgelehnt', 'ok');
+    ok(r.p1.nein === 1 && r.p2.ok === 1 && gw(r.B) === 'halb' && r.B.menue.crew()[0].text === 'NAVIGATION aye', 'abgelehnt(voll), ok(halb): „gilt“ halb (einziger offener Eintrag bei der Antwort), Quittung aye');
+    r = kombi('ok', 'ok');
+    ok(r.p1.ok === 1 && r.p2.ok === 1 && gw(r.B) === 'halb', 'ok, ok: erstes ohne „gilt“ (zwei offene), zweites setzt halb (zuletzt gesendet, stimmt)');
+    r = kombi('abgelehnt', 'abgelehnt');
+    ok(gw(r.B) === null && r.p1.nein === 1 && r.p2.nein === 1, 'abgelehnt, abgelehnt: kein „gilt“');
+    // altes „gilt“ voll, dann zwei offene Befehle (halb, stopp wäre anderer Befehl): ein Treffer mit zwei offenen löscht das alte „gilt“ statt ein falsches zu setzen
+    const V = bauen({ crew: crew4() }); schub(V, 'voll'); V.menue.antwort(antwort('nav.schub', 'ok')); ok(gw(V) === 'voll', 'Einzelbefehl (Normalfall): „gilt“ voll');
+    schub(V, 'halb'); schub(V, 'dreiviertel'); V.menue.antwort(antwort('nav.schub', 'ok'));
+    ok(gw(V) === null, 'zwei offene mit altem „gilt“: das alte „gilt“ fällt weg, kein falsches (' + gw(V) + ')');
+    // Befehle mit anderem Namen stören die Zählung nicht
+    const W = bauen({ crew: crew4() }); schub(W, 'voll'); W.menue.sprachBefehl({ t: 'bot.befehl', an: 'ops', befehl: 'ops.feuer_frei', args: {}, quelle: 'sprache' });
+    W.menue.antwort(antwort('nav.schub', 'ok')); ok(gw(W) === 'voll', 'offener Befehl eines anderen Namens: „gilt“ wird gesetzt');
+    // toter Eintrag (keine Antwort, z. B. Rate-Limit still): fängt keine spätere Antwort als „gilt“
+    const T = bauen({ crew: crew4() }); const tot = schub(T, 'voll'); T.zeit(1000); const neu = schub(T, 'halb');
+    T.menue.antwort(antwort('nav.schub', 'ok'));
+    ok(gw(T) === null && tot.ok === 1 && neu.ok === 0, 'toter Eintrag noch nicht verfallen: Antwort geht an den älteren, „gilt“ bleibt leer (Genau-ein-offener-Regel)');
+    const T2 = bauen({ crew: crew4() }); const tot2 = schub(T2, 'voll'); T2.zeit(13000); const neu2 = schub(T2, 'halb');
+    T2.menue.antwort(antwort('nav.schub', 'ok'));
+    ok(gw(T2) === 'halb' && T2.menue.lies().ausstehend === 1 && tot2.ok === 0 && neu2.ok === 1, 'toter Eintrag verfallen (12 s): die Antwort gehört zum neuen Befehl, „gilt“ halb');
+    // bot.status an eine botId
+    const S = bauen({ crew: crew4() });
+    const b0 = S.menue.sprachBefehl({ t: 'bot.befehl', an: 'b1', befehl: 'bot.status', args: {}, quelle: 'text' });
+    ok(b0.erwartet === 1 && b0.an === 'alle', 'bot.status an botId (Rolle unbekannt): eine Antwort erwartet, Quittung wie bisher bei „alle“ (' + b0.an + ', ' + b0.erwartet + ')');
+    S.menue.antwort(antwort('bot.status', 'ok', { botId: 'b1' }));
+    ok(S.menue.crew()[0].text === 'ALLE aye' && b0.fertig, 'bot.status an botId: nach einer Antwort „aye“ (nicht erst nach vier)');
+    S.menue.sprachBefehl({ t: 'bot.befehl', an: 'b1', befehl: 'ops.feuer_frei', args: {}, quelle: 'sprache' }); S.menue.antwort(antwort('ops.feuer_frei', 'ok', { botId: 'b1' }));   // lernt: b1 ist Ops
+    const b1 = S.menue.sprachBefehl({ t: 'bot.befehl', an: 'b1', befehl: 'bot.status', args: {}, quelle: 'text' });
+    ok(b1.an === 'ops' && b1.erwartet === 1, 'bot.status an botId (Rolle bekannt): Quittung bei der Rolle des Bots (' + b1.an + ')');
+    S.menue.antwort(antwort('bot.status', 'ok', { botId: 'b1' })); ok(S.menue.crew()[0].text === 'OPS aye', 'bot.status an b1: „OPS aye“ (' + S.menue.crew()[0].text + ')');
+    // Verwerfen stellt die vorige Quittung wieder her
+    const Q = bauen({ crew: crew4() }); Q.menue.sprachBefehl({ t: 'bot.befehl', an: 'ops', befehl: 'ops.feuer_frei', args: {}, quelle: 'sprache' }); Q.menue.antwort(antwort('ops.feuer_frei', 'ok'));
+    ok(Q.menue.crew()[0].text === 'OPS aye', 'Vorstand: „OPS aye“');
+    const q2 = schub(Q, 'voll'); ok(Q.menue.crew()[0].text.indexOf('NAVIGATION') === 0, 'neuer Eintrag überschreibt die Quittung');
+    ok(Q.menue.sprachBefehlVerworfen(q2) && Q.menue.crew()[0].text === 'OPS aye', 'verworfen: vorige Quittung „OPS aye“ wieder da, nicht leer');
+    const q3 = schub(Q, 'halb'); schub(Q, 'voll'); Q.menue.sprachBefehlVerworfen(q3); ok(Q.menue.crew()[0].text.indexOf('NAVIGATION') === 0, 'verworfen, aber jüngere Quittung eines anderen Eintrags: bleibt');
+  }
+
   console.log('\n' + (fails ? 'FEHLER: ' + fails + ' von ' + n : 'test-bot-sprache-net: ' + n + ' Pruefungen gruen'));
   process.exit(fails ? 1 : 0);
 })().catch((e) => { console.log('FEHLER ' + (e && e.stack || e)); process.exit(1); });

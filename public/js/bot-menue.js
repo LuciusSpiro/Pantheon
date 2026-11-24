@@ -188,9 +188,9 @@
     }
     // gesendeter Befehl: Eintrag für die Antwort (Quittung, „gilt“) und Quittung „gesendet“; Menü und Sprache legen ihn gleich an
     function merkeAusstehend(an, befehl, erwartet, gilt) {
-      const p = { t: uhr(), an, befehl, erwartet, ok: 0, nein: 0, fertig: false, gilt };
+      const p = { t: uhr(), an, befehl, erwartet, ok: 0, nein: 0, fertig: false, gilt, vorher: s.quittung };
       s.ausstehend.push(p);
-      s.quittung = { an, phase: 'gesendet', t: p.t };
+      s.quittung = p.quittung = { an, phase: 'gesendet', t: p.t };
       return p;
     }
     // Sprach-/Textbefehl (quelle 'sprache' / 'text'): die Bot-Sprache sendet selbst, hier wird nur der Eintrag angelegt (ohne zu senden), damit die Antwort Quittung und „gilt“ setzt.
@@ -202,7 +202,8 @@
       const f = eintragFuerArgs(msg.befehl, msg.args, index);
       const e = f ? f.e : befehlEintrag.get(msg.befehl);
       if (!e) return null;
-      const an = typeof msg.an === 'string' && (msg.an === 'alle' || ROLLEN.indexOf(msg.an) >= 0) ? msg.an : e.an;   // botId ('b0'): die Rolle des Befehls
+      const botRolle = msg.befehl.indexOf('bot.') === 0 && typeof msg.an === 'string' ? s.botRolle[msg.an] : null;   // bot.status an eine botId: die Rolle dieses Bots, wenn schon bekannt
+      const an = typeof msg.an === 'string' && (msg.an === 'alle' || ROLLEN.indexOf(msg.an) >= 0) ? msg.an : botRolle || e.an;   // botId ('b0'): die Rolle des Befehls
       const gilt = f ? { key: schluesselVon(f.e), wert: f.wert, sprech: sprechform(f.e, f.wert) } : null;
       return merkeAusstehend(an, msg.befehl, msg.an === 'alle' ? Math.max(1, s.botsN) : 1, gilt);
     }
@@ -211,7 +212,7 @@
       const i = p ? s.ausstehend.indexOf(p) : -1;
       if (i < 0) return false;
       s.ausstehend.splice(i, 1);
-      if (s.quittung && s.quittung.t === p.t && s.quittung.phase === 'gesendet') s.quittung = null;
+      if (s.quittung === p.quittung) s.quittung = p.vorher || null;   // den Stand vor dem Eintrag wiederherstellen, nicht auf leer
       return true;
     }
     // Direkttaste (Aktion in tasten.js; quelle 'taste', beim Klick auf den Knopf der Crew-Zeile 'menu'): { ok, grund? }
@@ -380,7 +381,8 @@
       aktualisiere();
       const jetzt = uhr(), status = msg.status, gut = status === 'ok' || status === 'erledigt';
       let p = null;
-      for (let i = s.ausstehend.length - 1; i >= 0; i--) { const q = s.ausstehend[i]; if (!q.fertig && (!msg.befehl || q.befehl === msg.befehl)) { p = q; break; } }
+      let offene = 0;   // offene Einträge dieses Befehls: der Server antwortet je Verbindung in Eingangsreihenfolge, die erste Antwort gehört zum ÄLTESTEN (FIFO)
+      for (let i = 0; i < s.ausstehend.length; i++) { const q = s.ausstehend[i]; if (!q.fertig && (!msg.befehl || q.befehl === msg.befehl)) { if (!p) p = q; offene++; } }
       const e = msg.befehl ? befehlEintrag.get(msg.befehl) : null;
       const an = p ? p.an : e ? e.an : null;
       const rolle = an && an !== 'alle' ? an : null;
@@ -394,7 +396,7 @@
       }
       if (p && status === 'ok') {
         if (p.befehl === 'bot.automatik') s.gilt = {};
-        else if (rolle && !/^bot\./.test(p.befehl)) { if (p.gilt) s.gilt[rolle] = p.gilt; else delete s.gilt[rolle]; }   // Wert nicht abbildbar: die alte Absicht gilt nicht mehr, eine neue ist unbekannt
+        else if (rolle && !/^bot\./.test(p.befehl)) { if (p.gilt && offene === 1) s.gilt[rolle] = p.gilt; else delete s.gilt[rolle]; }   // mehrere offene Befehle: die Zuordnung ist nicht sicher, lieber kein „gilt“ als ein falsches   // Wert nicht abbildbar: die alte Absicht gilt nicht mehr, eine neue ist unbekannt
       }
       const text = typeof msg.text === 'string' && msg.text ? msg.text : String(msg.textId || '');
       const zeigen = !!text && (!env.antwortenAnzeigen || env.antwortenAnzeigen() !== false);
