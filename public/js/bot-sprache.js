@@ -47,6 +47,11 @@
   // sähe sie nur das Raumrauschen kurz vor dem Loslassen, während der Befehl davor gesprochen wurde: dann gilt die Messung als unbrauchbar (pegel null = senden).
   const PEGEL_TAKT_MS = 30;           // Leseabstand des Analysers (ein Fenster je Takt)
   const PEGEL_START_MAX_MS = 150;     // spätestens so lange nach Aufnahmebeginn muss das erste Fenster gelesen sein (5 Takte Luft; ein normaler Start liegt bei 0 bis 50 ms); wer später startet, hat den Anfang des Befehls verpasst
+  // Lücken: der Analyser hält nur die letzten 2048 Samples (≈ 43 ms bei 48 kHz). Blockiert der Hauptthread länger am Stück (Szenenwechsel, GC, Tab im Hintergrund), gehen Samples verloren, und die Spitze stammt nur aus dem Rauschen
+  // davor/danach, während der Befehl genau in der Lücke gesprochen worden sein kann (Anzahl der Fenster allein würde das nicht merken). Größte erlaubte Lücke zwischen zwei Lesungen (inkl. letzte Lesung beim Loslassen):
+  // 250 ms: gemessen reicht schon der Timer-Jitter eines ruhigen Prozesses auf Windows bis ≈ 85 ms (Takt 30 ms), 100 ms wäre also Dauerrauschen; und ein Befehl ist mindestens ≈ 600 ms lang, eine Lücke bis 250 ms verschluckt höchstens
+  // eine Silbe, der Rest wird noch gelesen. Alles darüber heißt „unbekannt, was gesprochen wurde“ -> pegel null = senden (nie einen Befehl auf Verdacht verwerfen).
+  const PEGEL_LUECKE_MAX_MS = 250;
   const PEGEL_ABDECKUNG_MIN = 0.5;    // gelesene Fenster mal Takt müssen mindestens diesen Anteil der Aufnahmedauer decken (gedrosselte Timer im Hintergrund, belastetes Spiel: dann lieber senden)
   const CLIP_BASIS = '/assets/bots/stimmen';
   const ENDUNGEN = ['wav', 'ogg'];                                             // der Vorrat hat nur WAV: zuerst wav, sonst erzeugte jeder Clip ein 404 auf .ogg
@@ -69,10 +74,12 @@
     return m;
   }
   // Reine Abdeckungslogik der Pegelmessung (siehe PEGEL_START_MAX_MS): darf ein gemessener Pegel als Aussage über die GANZE Aufnahme gelten?
-  // verzugMs = Zeit von Aufnahmebeginn bis zum ersten gelesenen Fenster (null = nie gelesen), fenster = Zahl der gelesenen Fenster, dauerMs = Aufnahmedauer. Im Zweifel false (= senden).
-  function pegelAbdeckungReicht(verzugMs, fenster, dauerMs) {
+  // verzugMs = Zeit von Aufnahmebeginn bis zum ersten gelesenen Fenster (null = nie gelesen), fenster = Zahl der gelesenen Fenster, dauerMs = Aufnahmedauer,
+  // lueckeMs = größter Abstand zwischen zwei Lesungen (undefined = nicht angegeben, nur die ersten drei Prüfungen; pegelMesser gibt ihn immer an). Im Zweifel false (= senden).
+  function pegelAbdeckungReicht(verzugMs, fenster, dauerMs, lueckeMs) {
     if (typeof verzugMs !== 'number' || !isFinite(verzugMs) || !(fenster > 0) || !(dauerMs >= 0)) return false;
     if (verzugMs > PEGEL_START_MAX_MS) return false;
+    if (lueckeMs !== undefined && !(typeof lueckeMs === 'number' && lueckeMs >= 0 && lueckeMs <= PEGEL_LUECKE_MAX_MS)) return false;   // Blockade mitten in der Aufnahme: nicht gesehen, was gesprochen wurde
     return fenster * PEGEL_TAKT_MS >= dauerMs * PEGEL_ABDECKUNG_MIN;
   }
   // richtig = gleicher Befehl, GENAU die erwarteten Argumente (als Text verglichen, keine zusätzlichen; nur ein zusätzliches meter zählt nicht) und, falls erwartet, gleicher Adressat.
@@ -343,9 +350,9 @@
   // (Spätstart, siehe pegelAbdeckungReicht; nie raten: lieber ungeprüft senden als einen Befehl verwerfen).
   const abgefangen = (p) => { try { if (p && typeof p.catch === 'function') p.catch(() => {}); } catch (e) { /* egal */ } };   // abgelehnte Promises von resume()/close() erzeugen keine unbehandelte Ablehnung
   function pegelMesser(win, stream) {
-    let ctx = null, an = null, buf = null, timer = null, spitze = 0, fenster = 0, fertig = false, tErst = null;
+    let ctx = null, an = null, buf = null, timer = null, spitze = 0, fenster = 0, fertig = false, tErst = null, tLetzt = null, luecke = 0;
     const t0 = Date.now();
-    const lies = () => { try { an.getFloatTimeDomainData(buf); spitze = Math.max(spitze, spitzeAusSamples(buf)); fenster++; if (tErst === null) tErst = Date.now(); } catch (e) { /* egal */ } };
+    const lies = () => { try { an.getFloatTimeDomainData(buf); spitze = Math.max(spitze, spitzeAusSamples(buf)); fenster++; const jetzt = Date.now(); if (tErst === null) tErst = jetzt; if (tLetzt !== null) luecke = Math.max(luecke, jetzt - tLetzt); tLetzt = jetzt; } catch (e) { /* egal */ } };
     try {
       const AC = win.AudioContext || win.webkitAudioContext;
       if (AC) {
@@ -362,7 +369,7 @@
         const lief = ctx.state === 'running'; if (lief) lies();
         const dauer = Date.now() - t0;
         try { if (ctx.close) abgefangen(ctx.close()); } catch (e) { /* egal */ }
-        return lief && pegelAbdeckungReicht(tErst === null ? null : tErst - t0, fenster, dauer) ? spitze : null;
+        return lief && pegelAbdeckungReicht(tErst === null ? null : tErst - t0, fenster, dauer, luecke) ? spitze : null;
       },
     };
   }
@@ -596,5 +603,5 @@
 
   // BOT-01 C3: verarbeitet die Sprache die bot.antwort der Spielverbindung selbst? Dann zeigt public/js/pult-befehl.js sie nicht noch einmal (genau ein Verarbeiter je Antwort). Der Net-Transport (transportNet, BOT-04 D) setzt `netz: true`.
   const netAntworten = () => !!(instanz && instanz.transport && instanz.transport.netz === true);
-  return { erzeuge, spitzeAusSamples, pegelAbdeckungReicht, PEGEL_MIN, PEGEL_START_MAX_MS, PEGEL_ABDECKUNG_MIN, PEGEL_TAKT_MS, clipKandidaten, netAntworten, erwartungErfuellt, transportNet, menueAnschluss, mockUrlErlaubt, TEXT, MAX_MS, STIMMEN, CLIP_BASIS, transportWebSocket, transportNetStub, anzeigeHud, sprecherName, startHinweis, UNKLAR_DAUER_S, mikrofonBrowser, audioBrowser, sttBrowser, starte, stoppe, laeuft: () => !!instanz };
+  return { erzeuge, spitzeAusSamples, pegelAbdeckungReicht, PEGEL_MIN, PEGEL_START_MAX_MS, PEGEL_LUECKE_MAX_MS, PEGEL_ABDECKUNG_MIN, PEGEL_TAKT_MS, clipKandidaten, netAntworten, erwartungErfuellt, transportNet, menueAnschluss, mockUrlErlaubt, TEXT, MAX_MS, STIMMEN, CLIP_BASIS, transportWebSocket, transportNetStub, anzeigeHud, sprecherName, startHinweis, UNKLAR_DAUER_S, mikrofonBrowser, audioBrowser, sttBrowser, starte, stoppe, laeuft: () => !!instanz };
 });

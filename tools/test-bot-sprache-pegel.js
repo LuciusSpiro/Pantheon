@@ -4,8 +4,8 @@
 //  a) reine Rechnung spitzeAusSamples (Stille, Sinus 0,02 / 0,05, Vorzeichen, kaputte Werte)
 //  b) Schranke im Kern: Stille, Grenze exakt, knapp darunter, leises Sprechen, pegel null/fehlt, "…" endet
 //  c) Messmodus: Eintrag traegt pegel, Stille ist ein eigener Eintrag (stille: true, richtig null) und zaehlt nicht als Messung
-//  d) reine Abdeckungslogik pegelAbdeckungReicht (Spaetstart-Schutz)
-//  e) pegelMesser im echten mikrofonBrowser gegen ein Fake-Fenster (AudioContext, AnalyserNode, MediaRecorder): Fail-open, Spaetstart, Ausnahmen, Aufraeumen, keine unbehandelten Ablehnungen
+//  d) reine Abdeckungslogik pegelAbdeckungReicht (Spaetstart-Schutz, groesste Luecke zwischen zwei Lesungen)
+//  e) pegelMesser im echten mikrofonBrowser gegen ein Fake-Fenster (AudioContext, AnalyserNode, MediaRecorder): Fail-open, Spaetstart, Blockade des Hauptthreads mitten in der Aufnahme, Ausnahmen, Aufraeumen, keine unbehandelten Ablehnungen
 //   node tools/test-bot-sprache-pegel.js
 const BS = require('../public/js/bot-sprache.js');
 
@@ -128,6 +128,16 @@ const sinus = (a, nn) => Float32Array.from({ length: nn || 4800 }, (_, i) => a *
     ok(R(800, 1, 820) === false, 'Spaetstart: erstes Fenster erst kurz vor dem Loslassen: reicht nicht');
     ok(R(10, 3, 60000) === false, 'gedrosselter Timer (3 Fenster in 60 s): reicht nicht');
     ok(R(10, 5, NaN) === false && R(10, 5, -1) === false, 'kaputte Dauer: reicht nicht');
+    ok(R(10, 0, 0) === false && R(10, 0, 100) === false, 'keine Fenster gelesen (fenster 0) zaehlt nie als abgedeckt, auch nicht bei Dauer 0');
+    ok(R(null, 30, 800) === false && R(undefined, 30, 800) === false && R(NaN, 30, 800) === false, 'kein Verzug (nie gelesen) reicht nicht, auch wenn die Fensterzahl rechnerisch genuegt');
+    const L = BS.PEGEL_LUECKE_MAX_MS;
+    console.log('  Lueckengrenze: ' + L + ' ms (Takt ' + T + ' ms)');
+    ok(L >= 100 && L <= 300, 'Lueckengrenze liegt zwischen 100 und 300 ms (Timer-Jitter bis ca. 85 ms erlaubt, Blockade von 900 ms nicht)');
+    ok(R(0, 27, 800, 0) === true && R(0, 27, 800, T) === true && R(30, 26, 800, 2 * T) === true, 'normaler Lauf mit Luecken bis 2 Takte: reicht');
+    ok(R(0, 27, 800, L) === true && R(0, 27, 800, L + 1) === false, 'groesste Luecke genau an der Grenze reicht, 1 ms mehr nicht');
+    ok(R(10, 30, 1800, 900) === false && R(10, 30, 1800) === true, 'Fehlerfall: 1,8 s Aufnahme, 900 ms am Stueck blockiert (30 Fenster = 900 ms Abdeckung): reicht nicht; ohne Lueckenangabe (alt) hiess es reicht');
+    ok(R(10, 30, 800, null) === false && R(10, 30, 800, NaN) === false && R(10, 30, 800, -1) === false && R(10, 30, 800, '5') === false, 'kaputte Lueckenangabe (null, NaN, negativ, Text): reicht nicht');
+    ok(R(0, 27, 800) === true && R(S, 100, 800) === true && R(20, Math.ceil(800 * A / T), 800) === true, 'ohne Lueckenangabe (drei Argumente) gelten die bisherigen Regeln unveraendert');
   }
 
   section('e) pegelMesser im Browser-Adapter (mikrofonBrowser mit Fake-Fenster)');
@@ -158,6 +168,9 @@ const sinus = (a, nn) => Float32Array.from({ length: nn || 4800 }, (_, i) => a *
     if (!o.keinAC) win.AudioContext = AC;
     return { win, S };
   }
+  // Unter Last (parallele Testlaeufe) verzoegern sich Timer weit ueber den Takt; die Luecken-Pruefung macht dann aus einer Messung ein null (fail-open, gewollt). Tests, die eine MESSUNG erwarten,
+  // versuchen es deshalb bis zu 4 mal (eine echte Regression liefert jedes Mal null und faellt trotzdem durch); die Tests auf null brauchen das nicht.
+  const stabil = async (f) => { let r; for (let i = 0; i < 4; i++) { r = await f(); if (r.a.pegel !== null) break; } return r; };
   const aufnehmen = async (o, ms, vorStop) => {
     const { win, S } = browser(o);
     const h = await BS.mikrofonBrowser(win).start();
@@ -168,14 +181,14 @@ const sinus = (a, nn) => Float32Array.from({ length: nn || 4800 }, (_, i) => a *
     return { a, S, h };
   };
   {
-    const { a, S } = await aufnehmen({ signal: 0.05 }, 400);
+    const { a, S } = await stabil(() => aufnehmen({ signal: 0.05 }, 400));
     ok(typeof a.pegel === 'number' && Math.abs(a.pegel - 0.05) < 1e-6 && a.pegel > BS.PEGEL_MIN, 'normaler Lauf mit Signal: Spitze 0,05');
     ok(S.geschlossen === 1 && S.gestoppt === 1, 'normaler Lauf: AudioContext einmal geschlossen, Mikrofonspur gestoppt');
     const n0 = S.lesen; await sleep(120);
     ok(S.lesen === n0 && aktiv.size === 0, 'nach stop() ist das Intervall gestoppt (kein offenes Intervall, kein Lesen mehr)');
   }
   {
-    const { a } = await aufnehmen({}, 400);
+    const { a } = await stabil(() => aufnehmen({}, 400));
     ok(a.pegel === 0, 'Stille ueber die ganze Dauer bei laufendem Kontext: Spitze 0 (Schranke greift)');
   }
   {
@@ -189,7 +202,7 @@ const sinus = (a, nn) => Float32Array.from({ length: nn || 4800 }, (_, i) => a *
     ok(a.pegel === null && unbehandelt === 0, 'resume() abgelehnt: pegel null, keine unbehandelte Ablehnung');
   }
   {
-    const { a, S } = await aufnehmen({ signal: 0.05, closeLehntAb: true }, 200);
+    const { a, S } = await stabil(() => aufnehmen({ signal: 0.05, closeLehntAb: true }, 200));
     await sleep(30);
     ok(typeof a.pegel === 'number' && S.geschlossen === 1 && unbehandelt === 0, 'close() abgelehnt: Pegel kommt trotzdem, keine unbehandelte Ablehnung');
   }
@@ -208,7 +221,7 @@ const sinus = (a, nn) => Float32Array.from({ length: nn || 4800 }, (_, i) => a *
     ok(a.pegel === null, 'Spaetstart mit Digital-Stille: ebenfalls null (Messung deckt die Aufnahme nicht ab)');
   }
   {
-    const { a } = await aufnehmen({ zustand: 'suspended', signal: 0.002, laufAbMs: 60 }, 400);
+    const { a } = await stabil(() => aufnehmen({ zustand: 'suspended', signal: 0.002, laufAbMs: 60 }, 400));
     ok(typeof a.pegel === 'number' && a.pegel > 0, 'kurzer Start (Kontext laeuft nach 60 ms): Messung zaehlt (' + a.pegel + ')');
   }
   {
@@ -225,6 +238,35 @@ const sinus = (a, nn) => Float32Array.from({ length: nn || 4800 }, (_, i) => a *
     const { a } = await aufnehmen({ keinAC: true }, 100);
     ok(a.pegel === null, 'kein AudioContext im Browser: pegel null');
   }
+  const dnOrig = Date.now; let versatz = 0; Date.now = () => dnOrig() + versatz;   // Uhr mit Versatz: eine Blockade des Hauptthreads (Szenenwechsel, GC; kein Timer laeuft) ist ein Sprung der Uhr, ohne dass der Test wartet
+  const blockiere = (ms) => { versatz += ms; };
+  const mitLuecke = async (o, vorMs, blockMs, nachMs) => {   // vorMs aufnehmen, blockMs blockiert, nachMs aufnehmen
+    const { win, S } = browser(o);
+    const h = await BS.mikrofonBrowser(win).start();
+    await sleep(vorMs); blockiere(blockMs); await sleep(nachMs);
+    return { a: await h.stop(), S };
+  };
+  {
+    // Befund 3: 2,1 s Aufnahme, 900 ms am Stueck blockiert, der Befehl wurde in der Luecke gesprochen; davor/danach nur Raumrauschen (0,002). Fenster davor/danach decken ihre Haelfte der Dauer ab.
+    const { a } = await mitLuecke({ signal: 0.002 }, 600, 900, 600);
+    ok(a.pegel === null, 'Blockade von 900 ms mitten in der Aufnahme: pegel null (Befehl wird NICHT verworfen), obwohl die Fenster rechnerisch genug decken (' + a.pegel + ')');
+  }
+  {
+    const { a } = await mitLuecke({ signal: 0 }, 600, 900, 600);
+    ok(a.pegel === null, 'Blockade mitten in der Aufnahme mit Digital-Stille davor/danach: ebenfalls null (' + a.pegel + ')');
+  }
+  {
+    const { a } = await mitLuecke({ signal: 0.002 }, 800, 500, 0);
+    ok(a.pegel === null, 'Blockade unmittelbar vor dem Loslassen (letzte Lesung bis Loslassen 500 ms): pegel null (' + a.pegel + ')');
+  }
+  {
+    const { a } = await stabil(() => mitLuecke({ signal: 0.002 }, 400, 40, 400));
+    ok(typeof a.pegel === 'number' && a.pegel > 0, 'kleine Luecke (40 ms Blockade) zaehlt weiter als Messung (' + a.pegel + ')');
+  }
+  {
+    const { a } = await stabil(() => mitLuecke({ signal: 0 }, 400, 40, 400));
+    ok(a.pegel === 0, 'kleine Luecke bei echter Stille: Spitze 0, die Schranke greift weiter (' + a.pegel + ')');
+  }
   {
     // stop und abbruch: Kontext nur einmal geschlossen, Spur frei
     const { win, S } = browser({ signal: 0.05 });
@@ -238,11 +280,11 @@ const sinus = (a, nn) => Float32Array.from({ length: nn || 4800 }, (_, i) => a *
     ok(S.geschlossen === 1, 'zweites abbruch(): Kontext nicht noch einmal geschlossen');
   }
   {
-    const { a, S, h } = await aufnehmen({ signal: 0.05 }, 200);
+    const { a, S, h } = await stabil(() => aufnehmen({ signal: 0.05 }, 200));
     h.abbruch();
     ok(typeof a.pegel === 'number' && S.geschlossen === 1, 'stop() und danach abbruch(): Kontext nur einmal geschlossen');
   }
-  global.setInterval = siOrig; global.clearInterval = ciOrig;
+  global.setInterval = siOrig; global.clearInterval = ciOrig; Date.now = dnOrig;
   ok(unbehandelt === 0, 'insgesamt keine unbehandelte Promise-Ablehnung (' + unbehandelt + ')');
 
   console.log('\n' + (fails ? fails + ' FEHLER von ' + n : n + '/' + n + ' ok'));
