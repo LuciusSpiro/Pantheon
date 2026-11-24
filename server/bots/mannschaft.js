@@ -35,6 +35,8 @@ const PRIO_DAUERHAFT = ['fire', 'breach'];   // tech.prio feuer/leck gelten bis 
 // Captain-Konsole; der Bot laeuft dafuer ab B2 dorthin). transfer.down/up/ziel/supply und alle uebrigen captain.* bleiben gesperrt, auch im Dienst. B2/B3 erweitern die Liste bei Bedarf einzeln, nie per Praefix.
 const BORD_BEFEHLE = ['transfer.recall', 'captain.support'];
 const SENSOR_PAUSE = 60;   // BOT-02 B2: der Bord-Bot setzt den Sensor selbst hoechstens einmal je 60 s (die Abklingzeit des Spiels sind 30 s)
+const KUPPEL_PAUSE = 60;   // B2-Nacharbeit: die Kuppel setzt er selbst hoechstens einmal je 60 s (Abklingzeit des Spiels 45 s plus Wirkung): ohne Pause pendelte er bei einem Menschen knapp unter der Schwelle alle 45 s zur Konsole und kostete oben Schild und ODA-Ansage
+const AUTO_GANG_PAUSE = 40;   // B2-Nacharbeit: Gesamtpause von Sensor und Kuppel: nie mehr als ein automatischer Gang zur Captain-Konsole je 40 s (zaehlt ab Beginn des Gangs, auch wenn er abgebrochen wird), damit der Bot nicht dauernd vom Transfer weg ist
 const WEG_FRIST = 45;   // s: laeuft der Bot so lange zur Captain-Konsole, ohne dass er sendet (Weg versperrt), gibt er auf
 const BORD_BEFEHL_FRIST = 20;   // s: ein Befehl bord.rueckholen, der nicht ausgefuehrt werden kann, verfaellt
 const SENDE_PAUSE = 2;   // s: zwischen zwei Versuchen, transfer.recall zu senden
@@ -55,8 +57,8 @@ class BotMannschaft extends BotKern {
     this.festesZiel = null;   // BOT-01 C2b: waehrend fightMitMarke das Feuerziel (Gegner), sonst null
     this.bordBegonnen = false;   // BOT-02 B1: der laufende Bord-Dienst hat die Absicht der Rolle schon verworfen
     // BOT-02 B2: Zustand des Bord-Dienstes (nur Agent, nie Spielzustand). befehl { art: rueckholen|sensor|kuppel, seit } vom Menschen (Registry befehle/bord.js); weg { art, seit, grund: befehl|auto } = der Bot geht zur Captain-Konsole
-    // und sendet captain.support; tun = was der Bot gerade tut (rueckholen | captain | null, fuer bot.status); sensorAuto = Zeit der letzten Sensor-Automatik; nichtVor = nach einem Fehlschlag kein neuer Weg vor dieser Zeit.
-    this.bord = { befehl: null, weg: null, tun: null, sensorAuto: -1e9, nichtVor: 0, rueckholAt: 0 };
+    // und sendet captain.support; tun = was der Bot gerade tut (rueckholen | captain | null, fuer bot.status); sensorAuto/kuppelAuto = Zeit des letzten Sensors/der letzten Kuppel (Pausen), autoGang = Beginn des letzten automatischen Gangs (Gesamtpause); nichtVor = nach einem Fehlschlag kein neuer Weg vor dieser Zeit.
+    this.bord = { befehl: null, weg: null, tun: null, sensorAuto: -1e9, nichtVor: 0, rueckholAt: 0, kuppelAuto: -1e9, autoGang: -1e9 };
     this.prioSperre = false;   // BOT-01 C2b: waehrend queueRepairs mit gehaltener tech.prio unterdrueckt cmd die Standard-Prioritaeten
   }
   zufall() { return this.rng(); }
@@ -141,7 +143,7 @@ class BotMannschaft extends BotKern {
   bordDienstLaeuft() { return this.lauf.dienstLaeuft(this.spieler); }   // eine Quelle (lauf.js): Bord-Bot, Dienst faellig, kein Mensch an der Transfer-Konsole
   // Zur Transfer-Konsole gehen und dort bleiben; das Rollenverhalten ruht (Haelt ein Mensch die Transfer-Konsole, laeuft der Dienst nicht: Mensch gewinnt, weichen.js).
   // Beim Beginn endet alles Gehaltene der Rolle (Befehle, Prioritaet), die Station-Automatik uebernimmt (Technik: botAutomatikStandard, Ops: waffenAutomatikAktiv, beides ueber weichen.js vertreten, auch bei mehr als zwei Koepfen); technik.botAuto sendet der Agent nie.
-  // BOT-02 B2: am Transfer holt der Bot zurueck (transfer.recall: Lage alle Menschen unten downed, oder Befehl) und geht auf Befehl bzw. Automatik zur Captain-Konsole (captain.support gilt serverseitig nur dort) und danach zurueck.
+  // BOT-02 B2: am Transfer holt der Bot zurueck (transfer.recall: Lage alle Menschen unten downed, oder Befehl) und geht auf Befehl bzw. Automatik (nur bei aktiven Gegnern, siehe bordWegWaehlen) zur Captain-Konsole (captain.support gilt serverseitig nur dort) und danach zurueck.
   // Die Rueckholung geht dem Laufweg immer vor: ist die Lage da oder ein Befehl bord.rueckholen gesetzt, bleibt der Bot am Transfer bzw. laeuft sofort zurueck; ein Weg beginnt nie, wenn alle Menschen unten downed sind.
   bordDienst(S) {
     if (!this.bordBegonnen) { this.alleVerwerfen('bord'); this.bordBegonnen = true; }
@@ -174,7 +176,7 @@ class BotMannschaft extends BotKern {
     return hatte;
   }
   // pid des Menschen, den der Bot jetzt per transfer.recall holt, oder null. Befehl bord.rueckholen: sofort, auch wenn noch jemand aufrecht ist (verfaellt, wenn niemand mehr unten ist, der Transfer gesperrt ist oder
-  // nach BORD_BEFEHL_FRIST). Automatik: erst wenn ALLE Menschen unten downed sind (die Lage bleibt bestehen: der Bot sendet nur ohne bekannte Sperre, nach Ablauf der Abklingzeit setzt er nach).
+  // nach BORD_BEFEHL_FRIST). Automatik (nur wo das Spiel nicht selbst zurueckholt, siehe Lage.rueckholAutomatik): erst wenn ALLE Menschen unten downed sind (die Lage bleibt bestehen: der Bot sendet nur ohne bekannte Sperre, nach Ablauf der Abklingzeit setzt er nach).
   bordRueckholBedarf() {
     const b = this.bord; const g = this.game;
     if (b.befehl && b.befehl.art === 'rueckholen') {
@@ -182,7 +184,7 @@ class BotMannschaft extends BotKern {
       if (pid === null || Lage.rueckholSperre(g) || g.time - b.befehl.seit > BORD_BEFEHL_FRIST) b.befehl = null;
       else return pid;
     }
-    return Lage.allesDowned(g) ? Lage.rueckholZiel(g, false) : null;
+    return Lage.allesDowned(g) && Lage.rueckholAutomatik(g) ? Lage.rueckholZiel(g, false) : null;   // auf v2-Karten regelt das Spiel die Rueckholung der liegenden Mannschaft selbst (bordlage.js rueckholAutomatik): nur der Befehl holt
   }
   bordRueckholen(pid) {
     const b = this.bord; const t = this.game.time;
@@ -215,14 +217,19 @@ class BotMannschaft extends BotKern {
       return;
     }
     if (!frei) return;
-    if (Lage.kuppelNoetig(g) && !Lage.supportSperre(g, 'kuppel')) b.weg = { art: 'kuppel', seit: t, grund: 'auto' };
-    else if (Lage.gegnerAktiv(g) && !Lage.supportSperre(g, 'sensor') && t - b.sensorAuto >= SENSOR_PAUSE) b.weg = { art: 'sensor', seit: t, grund: 'auto' };
+    // Automatik nur bei aktiven Gegnern (ohne Gegner hilft die Kuppel nicht, auf v1 heilt nur das Medipack) und hoechstens ein Gang je AUTO_GANG_PAUSE
+    if (!Lage.gegnerAktiv(g) || t - b.autoGang < AUTO_GANG_PAUSE) return;
+    let art = null;
+    if (Lage.kuppelNoetig(g) && !Lage.supportSperre(g, 'kuppel') && t - b.kuppelAuto >= KUPPEL_PAUSE) art = 'kuppel';
+    else if (!Lage.supportSperre(g, 'sensor') && t - b.sensorAuto >= SENSOR_PAUSE) art = 'sensor';
+    if (art) { b.weg = { art, seit: t, grund: 'auto' }; b.autoGang = t; }
   }
   // An der Captain-Konsole: captain.support senden (Einmal-Aktion, Antwort des Spiels), danach ist der Weg zu Ende und der Bot geht zum Transfer zurueck
   bordUnterstuetzen() {
     const b = this.bord; const w = b.weg;
     const fehler = this.einmalig('captain.support', { kind: w.art });
     if (w.art === 'sensor') b.sensorAuto = this.game.time;   // auch nach einem Befehl: die Automatik setzt danach nicht gleich nach
+    else b.kuppelAuto = this.game.time;
     if (b.befehl && b.befehl.art === w.art) b.befehl = null;
     b.weg = null;
     if (fehler) b.nichtVor = this.game.time + 5;

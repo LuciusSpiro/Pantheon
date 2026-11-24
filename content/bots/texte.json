@@ -72,16 +72,16 @@
   "Überladung läuft, Käpt'n."
  ],
  "bord.rueckholen.ok": [
-  "Aye, Außenteam wird zurückgeholt.",
-  "Rückholung läuft."
+  "Aye, Rückholung läuft.",
+  "Verstanden, ich hole zurück."
  ],
  "bord.sensor.ok": [
-  "Aye, Sensor unterstützt das Team.",
-  "Sensor ist auf dem Außenteam."
+  "Aye, ich setze den Sensor.",
+  "Verstanden, Sensor kommt."
  ],
  "bord.kuppel.ok": [
-  "Aye, Kuppel steht.",
-  "Schildkuppel über dem Team."
+  "Aye, ich setze die Kuppel.",
+  "Verstanden, Kuppel kommt."
  ],
  "bot.status.ok": [
   "Aye, Statusbericht folgt.",

@@ -5,10 +5,12 @@
 //   rueckholZiel(game, befehl)    pid fuer transfer.recall: der erste Mensch unten, der downed ist (die Lage), mit Befehl auch ohne Verwundete: der Verwundetste (niedrigster Anteil), sonst der erste
 //   rueckholSperre(game)          null oder 'transfer' (Transfer ausgefallen/kaputt, auch nach dem Durchbrennen) | 'abklingzeit' (game.support.recall laeuft)
 //   anyAway(game)                 jemand (wie away.anyAway) ist unten: Voraussetzung von captain.support
-//   captainBelegt(game, bot)      ein anderer Spieler haelt die Captain-Station (Ort oder Tab): der Mensch gewinnt, der Bot geht nicht hin
+//   rueckholAutomatik(game)       darf der Bot von selbst zurueckholen? Nur wo das Spiel es nicht selbst regelt: auf v2-Karten (Combat.isV2 und away.active, wie combat.update/updateSquadRecall) laufen Gefangennahme/Ausbruch,
+//                                 squadRecall (Wartezeit, Haescher), Statistik und Telemetrie der Notrueckholung; der Bot kaeme ihnen zuvor. Dort holt nur der Befehl bord.rueckholen zurueck
+//   captainBelegt(game, bot)      ein anderer Spieler haelt die Captain-Konsole: als Station (Tab, Station.halter) ODER am Ort (o.console 'captain', auch wenn er per Tab eine andere Station aktiv hat: er haelt die Konsole trotzdem, interior.js); der Mensch gewinnt, der Bot geht nicht hin
 //   supportSperre(game, kind)     null oder 'abklingzeit' (game.support.sensor/kuppel) | 'wirkung' (Kuppel noch aktiv)
 //   gesundheit(game, p)           Anteil 0..1: auf v2-Karten die Schildsegmente (p.shield), sonst p.hp
-//   kuppelNoetig(game)            ein aufrechter Mensch unten unter 50 % Gesundheit
+//   kuppelNoetig(game)            ein aufrechter Mensch unten unter 50 % Gesundheit (die Automatik setzt die Kuppel nur zusammen mit gegnerAktiv, mannschaft.js bordWegWaehlen)
 //   gegnerAktiv(game)             unten sind Gegner aktiv: ein Trupp ist alarmiert oder eine wache Drohne ist nah (NAH_PX) an einem aufrechten Menschen unten
 const Station = require('../sim/station.js');
 const Combat = require('../sim/combat.js');
@@ -20,6 +22,8 @@ const aus = (st) => st === 'broken' || st === 'offline';
 const untenMenschen = (game) => game.players.filter((p) => p && p.connected && !p.bot && p.zone === 'away');
 const aufrecht = (game) => untenMenschen(game).filter((p) => !p.downed);
 function allesDowned(game) { const u = untenMenschen(game); return u.length > 0 && u.every((p) => p.downed); }
+// combat.js update (aus away.js nur bei isV2 und away.active) ruft updateSquadRecall: dort regelt das Spiel die Rueckholung der liegenden Mannschaft selbst
+const rueckholAutomatik = (game) => !(Combat.isV2(game) && game.away && game.away.active);
 
 function gesundheit(game, p) {
   if (Combat.isV2(game) && p.shield && p.shield.max > 0) return p.shield.seg / p.shield.max;
@@ -41,7 +45,7 @@ function rueckholSperre(game) {
 }
 
 const anyAway = (game) => game.players.some((p) => p && p.zone === 'away');
-const captainBelegt = (game, bot) => !!Station.halter(game, 'captain', bot);
+const captainBelegt = (game, bot) => !!Station.halter(game, 'captain', bot) || game.players.some((o) => o && o !== bot && o.connected && o.console === 'captain');
 function supportSperre(game, kind) {
   if (!game.support || !(kind === 'sensor' || kind === 'kuppel')) return 'abklingzeit';
   if (game.support[kind] > 0) return 'abklingzeit';
@@ -59,4 +63,4 @@ function gegnerAktiv(game) {
   return alarm || lebend.some((e) => stehend.some((p) => Math.hypot(e.x - p.x, e.y - p.y) <= NAH_PX));
 }
 
-module.exports = { NAH_PX, KUPPEL_SCHWELLE, untenMenschen, allesDowned, rueckholZiel, rueckholSperre, anyAway, captainBelegt, supportSperre, gesundheit, kuppelNoetig, gegnerAktiv };
+module.exports = { NAH_PX, KUPPEL_SCHWELLE, untenMenschen, allesDowned, rueckholZiel, rueckholSperre, rueckholAutomatik, anyAway, captainBelegt, supportSperre, gesundheit, kuppelNoetig, gegnerAktiv };

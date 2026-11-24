@@ -4,7 +4,8 @@
 //   2. bord.rueckholen: ok / kein_ziel / nicht_jetzt, sofort auch bei aufrechten Menschen, Wahl des Ziels
 //   3. bord.sensor / bord.kuppel: der Bot laeuft zur Captain-Konsole, sendet captain.support, kehrt zurueck (Wirkung am Spielzustand); Mensch an der Captain-Konsole, Abklingzeit, kein Ziel; Laufzeitmessung
 //   4. Rueckholung geht dem Laufweg vor; Dienstende mitten im Weg; bot.automatik; Mensch gewinnt an der Captain-Konsole (weichen.js)
-//   5. Automatik nach Regeln: Sensor bei aktiven Gegnern (hoechstens einmal je 60 s), Kuppel bei einem Menschen unter 50 %
+//   5. Automatik nach Regeln: Sensor bei aktiven Gegnern (hoechstens einmal je 60 s), Kuppel bei aktiven Gegnern und einem Menschen unter 50 % (hoechstens einmal je 60 s), insgesamt hoechstens ein Gang je 40 s (B2-Nacharbeit N-3)
+//   5b. v2-Karten (N-1): die Automatik holt nicht zurueck (das Spiel regelt es: squadRecall), der Befehl schon; Captain-Konsole am Ort statt als Tab (N-2); SENDE_PAUSE isoliert und ehrlicher bot.status (N-4/N-7)
 //   6. bot.status, Wachposten (nur die zwei erlaubten Kommandos, nie zwei Halter), Registry nur lesend, reine Menschenpartie byte-gleich (mess-bot02-menschenpartie.js)
 //   Mutationsproben: Umgebungsvariable BOT_RUECK_MUT (siehe unten, tools/mutation-bot02-rueckholung.js)
 //   node tools/test-bot02-rueckholung.js
@@ -52,6 +53,12 @@ else if (MUT === 'wachposten_auf') proto.erlaubt = () => true;
 else if (MUT === 'rueckholen_befehl_ignoriert') proto.bordRueckholBedarf = function () { return Lage.allesDowned(this.game) ? Lage.rueckholZiel(this.game, false) : null; };
 else if (MUT === 'registry_ok_immer') { BordRegistry['bord.rueckholen'] = () => ({ ok: true }); BordRegistry['bord.sensor'] = () => ({ ok: true }); BordRegistry['bord.kuppel'] = () => ({ ok: true }); }
 else if (MUT === 'sofort_senden') { const alt = proto.bordRueckholen; proto.bordRueckholen = function (pid) { this.bord.rueckholAt = 0; alt.call(this, pid); }; Lage.rueckholSperre = () => null; }
+else if (MUT === 'v2_auto') Lage.rueckholAutomatik = () => true;   // N-1: auch auf v2-Karten holt der Bot von selbst zurueck
+else if (MUT === 'captain_ort_ignoriert') Lage.captainBelegt = (g, bot) => !!Station.halter(g, 'captain', bot);   // N-2: nur die aktive Station, nicht der Ort
+else if (MUT === 'kuppel_ohne_gegner') Lage.gegnerAktiv = () => true;   // N-3: Kuppel (und Sensor) ohne Gegner
+else if (MUT === 'kuppel_pause_raus') { const alt = proto.bordUnterstuetzen; proto.bordUnterstuetzen = function () { alt.call(this); this.bord.kuppelAuto = -1e9; }; }
+else if (MUT === 'gang_pause_raus') { const alt = proto.bordWegWaehlen; proto.bordWegWaehlen = function () { alt.call(this); this.bord.autoGang = -1e9; }; }
+else if (MUT === 'sende_pause_raus') { const alt = proto.bordRueckholen; proto.bordRueckholen = function (pid) { this.bord.rueckholAt = 0; alt.call(this, pid); }; }   // N-7: nur die Pause, die Sperre bleibt
 else if (MUT === 'weichen_captain_raus') { const alt = Weichen.kannWeichen; Weichen.kannWeichen = (g, k, m) => (k === 'captain' ? false : alt(g, k, m)); }
 else if (MUT) { console.log('unbekannte Mutation ' + MUT); process.exit(2); }
 
@@ -437,11 +444,11 @@ section('5 Automatik: Sensor bei aktiven Gegnern (hoechstens einmal je 60 s), Ku
 {
   const P = szene({ ruhe: false }); const { g, a, tb } = P;
   g.support.sensor = 999; g.support.kuppel = 0;
-  a.hp = 60;
+  a.hp = 60; drohne(g, a, 300);
   lauf(P, 8);
   ok(supports(P).length === 0 && Lage.kuppelNoetig(g) === false, 'Mensch aufrecht mit 60 %: keine Kuppel');
   const t0 = g.time; a.hp = 40;
-  ok(lauf(P, 40, () => supports(P, t0).length > 0) && supports(P, t0)[0].msg.kind === 'kuppel', 'Mensch unten mit 40 % und aufrecht: der Bot setzt die Kuppel (Weg zur Captain-Konsole)');
+  ok(lauf(P, 40, () => supports(P, t0).length > 0) && supports(P, t0)[0].msg.kind === 'kuppel', 'aktive Gegner, Mensch unten mit 40 % und aufrecht: der Bot setzt die Kuppel (Weg zur Captain-Konsole)');
   ok(g.away.kuppelHp === g.C.support.kuppel.absorb && g.support.kuppel > 40, 'Wirkung am Spielzustand: kuppelHp gesetzt, Abklingzeit laeuft');
   ok(lauf(P, 40, () => tb.console === 'transfer'), 'danach zurueck am Transfer');
   const n1 = supports(P, t0).length;
@@ -456,7 +463,7 @@ section('5 Automatik: Sensor bei aktiven Gegnern (hoechstens einmal je 60 s), Ku
   const t0 = g.time;
   lauf(P, 40, () => supports(P, t0).length > 0);
   ok(supports(P, t0)[0] && supports(P, t0)[0].msg.kind === 'kuppel', 'Gegner aktiv und Mensch unter 50 %: zuerst die Kuppel');
-  const P2 = szene({ ruhe: false }); P2.g.support.kuppel = 20; P2.g.support.sensor = 999; P2.a.hp = 30;
+  const P2 = szene({ ruhe: false }); P2.g.support.kuppel = 20; P2.g.support.sensor = 999; P2.a.hp = 30; drohne(P2.g, P2.a, 300);
   let weg = false; lauf(P2, 8, null, () => { if (P2.tb.console !== 'transfer') weg = true; });
   ok(!weg && supports(P2).length === 0, 'Kuppel in der Abklingzeit: der Bot geht nicht los');
 }
@@ -473,6 +480,107 @@ section('5 Automatik: Sensor bei aktiven Gegnern (hoechstens einmal je 60 s), Ku
   ok(Lage.gesundheit(g, a) === a.hp / g.C.player.hp, 'sonst gilt p.hp');
 }
 
+// ---------- 5b B2-Nacharbeit: v2-Karten, Captain-Konsole am Ort, Gesamtpause, SENDE_PAUSE ----------
+section('5b v2-Karten (das Spiel regelt die Rueckholung), Captain-Konsole am Ort, Gesamtpause der Automatik, SENDE_PAUSE');
+{
+  // N-1: Bedingung als Funktion
+  const P = szene(); const { g } = P;
+  const v1 = Lage.rueckholAutomatik(g);
+  Combat.ruesteV2(g, g.away); g.away.active = false; const v2aus = Lage.rueckholAutomatik(g);
+  g.away.active = true; const v2an = Lage.rueckholAutomatik(g);
+  ok(v1 === true && v2aus === true && v2an === false && Combat.isV2(g), 'rueckholAutomatik: v1 true; v2 und away.active (combat.update/squadRecall laufen) false; v2 ohne aktive Karte true');
+}
+{
+  // N-1: echte v2-Karte (Plattform nach ruesteV2, wie das Spiel sie nach dem Tutorial umruestet): alle downed, der Bot sendet nichts, squadRecall des Spiels holt nach seiner Wartezeit zurueck
+  const P = szene(); const { g, a, tb } = P;
+  Combat.ruesteV2(g, g.away); g.away.active = true;
+  lauf(P, 2);
+  const t0 = g.time; Combat.woundPlayer(g, a, 'test');
+  lauf(P, 4);
+  ok(Combat.isV2(g) && Lage.allesDowned(g) && a.zone === 'away' && recalls(P, t0).length === 0, 'v2, alle unten downed: nach 4 s sendet der Bot nichts (transfer.recall), der Mensch liegt noch unten');
+  const s = befehl(P, { an: 'technik', befehl: 'bot.status' })[0];
+  ok(s && s.text === 'Team liegt, Rückholung läuft über das Schiff.', `bot.status auf v2 meldet den Ist-Zustand: "${s && s.text}"`);
+  ok(P.tb.console === 'transfer' && Lauf.dienstLaeuft(g, tb), 'der Bot haelt weiter den Transfer');
+  ok(lauf(P, 4, () => a.zone === 'ship') && recalls(P, t0).length === 0 && !a.downed, `das Spiel holt zurueck (squadRecall nach ${(g.time - t0).toFixed(1)} s, Wartezeit ${g.C.awayCombat.wounded.squadRecallDelay} s), ohne transfer.recall des Bots`);
+  ok(g.away.stats.squadRecalls === 1 && g.errors === 0 && P.ag.verworfen === 0, 'aw.stats.squadRecalls = 1 (die Spielmechanik lief), keine Fehler');
+}
+{
+  // N-1: der Befehl bord.rueckholen sendet auch auf v2
+  const P = szene(); const { g, a } = P;
+  Combat.ruesteV2(g, g.away); g.away.active = true;
+  lauf(P, 2);
+  const t0 = g.time; Combat.woundPlayer(g, a, 'test'); lauf(P, 1);
+  const r = bord(P, 'bord.rueckholen');
+  ok(r.status === 'ok' && lauf(P, 3, () => a.zone === 'ship') && recalls(P, t0).length === 1 && recalls(P, t0)[0].msg.pid === a.id, 'v2: bord.rueckholen auf Befehl sendet transfer.recall und holt zurueck (vor der Wartezeit des Spiels)');
+}
+{
+  // N-2: ein Mensch AM ORT captain, per Tab eine andere Station aktiv: haelt die Konsole trotzdem
+  const P = szene({ menschen: 2, einer: true }); const { g, a, tb } = P;
+  g.support.sensor = 0; g.support.kuppel = 0;
+  interior.enterConsole(g, P.b, 'captain'); P.b.station = 'helm';
+  ok(P.b.console === 'captain' && Station.stationOf(P.b) === 'helm' && !Station.halter(g, 'captain', tb) && Lage.captainBelegt(g, tb) === true, 'Aufbau: B am Ort captain, Tab helm: Station.halter findet ihn nicht, captainBelegt schon');
+  const r = bord(P, 'bord.kuppel'), r2 = bord(P, 'bord.sensor');
+  ok(r.textId === 'bord.kuppel.abgelehnt.nicht_jetzt' && r2.textId === 'bord.sensor.abgelehnt.nicht_jetzt', 'bord.kuppel/bord.sensor: nicht_jetzt');
+  a.hp = 30; drohne(g, a, 300);
+  let weg = false;
+  lauf(P, 60, null, () => { if (tb.console !== 'transfer' || P.ag.bord.weg) weg = true; });
+  ok(!weg && supports(P).length === 0 && P.b.console === 'captain', '60 s mit Gegnern und einem Menschen bei 30 %: der Bot ist nie unterwegs, bleibt am Transfer (kein Pendeln vor der besetzten Konsole)');
+}
+{
+  // N-2: der Mensch setzt sich (Ort captain, Tab helm), waehrend der Bot schon unterwegs ist
+  const P = szene({ menschen: 2, einer: true }); const { g, tb } = P;
+  g.support.sensor = 0;
+  const t0 = g.time; bord(P, 'bord.sensor');
+  lauf(P, 20, () => tb.console !== 'transfer' && tb.console !== 'captain');
+  interior.enterConsole(g, P.b, 'captain'); P.b.station = 'helm';
+  let d = null;
+  ok(lauf(P, 40, () => tb.console === 'transfer', () => { if (!d) d = doppelt(P); }), 'Mensch am Ort captain (Tab helm) waehrend des Weges: der Bot kehrt um');
+  ok(supports(P, t0).length === 0 && P.ag.bord.weg === null && P.b.console === 'captain' && !d, 'kein captain.support, der Mensch behaelt die Konsole, nie zwei Halter');
+}
+{
+  // N-3: ohne Gegner keine Automatik, auch bei einem Menschen unter 50 % (auf v1 heilt nur das Medipack)
+  const P = szene({ ruhe: false }); const { g, a } = P;
+  g.support.kuppel = 0; a.hp = 40;
+  let starts = 0, letzter = null;
+  lauf(P, 180, null, () => { g.support.sensor = 999; a.hp = 40; const w = P.ag.bord.weg; if (w && w !== letzter) starts++; letzter = w; });
+  ok(starts === 0 && supports(P).length === 0 && P.tb.console === 'transfer' && Lage.kuppelNoetig(g) === true && Lage.gegnerAktiv(g) === false, `0 Drohnen, Mensch bei 40 %, 180 s: ${starts} Gaenge, ${supports(P).length} captain.support (der Bot bleibt am Transfer)`);
+}
+{
+  // N-3: mit Gegnern: Kuppel und Sensor teilen sich eine Gesamtpause (40 s je Gang), je Art 60 s
+  const P = szene({ ruhe: false }); const { g, a } = P;
+  drohne(g, a, 300);
+  const starts = []; let letzter = null;
+  lauf(P, 180, null, () => { g.support.sensor = 0; g.support.kuppel = 0; g.away.kuppelHp = 0; a.hp = 40; const w = P.ag.bord.weg; if (w && w !== letzter) starts.push({ t: g.time, art: w.art }); letzter = w; });
+  const sp = supports(P); const luecke = (l) => l.slice(1).map((x, i) => x.t - l[i].t);
+  const kup = sp.filter((s) => s.msg.kind === 'kuppel'), sen = sp.filter((s) => s.msg.kind === 'sensor');
+  const minGang = Math.min(...luecke(sp.map((s) => ({ t: s.t })))), minK = Math.min(...luecke(kup)), minS = Math.min(...luecke(sen));
+  // gezaehlt wird am Senden (captain.support): steht der Bot schon an der Konsole, beginnt und endet ein Gang im selben Tick (der Weg ist von aussen nie zu sehen)
+  ok(sp.length >= 3 && sp.length <= 5 && minGang >= 38, `mit Gegnern: ${sp.length} Gaenge in 180 s (${sp.map((s) => s.msg.kind + '@' + s.t.toFixed(0)).join(' ')}), Abstand mindestens ${minGang.toFixed(1)} s (Gesamtpause 40 s)`);
+  ok(kup.length >= 2 && sen.length >= 1 && minK >= 59.9 && (sen.length < 2 || minS >= 59.9), `Kuppel ${kup.length}x (Abstand mindestens ${minK.toFixed(1)} s), Sensor ${sen.length}x: je Art hoechstens einmal je 60 s`);
+  ok(g.errors === 0 && P.ag.verworfen === 0, 'keine Fehler');
+}
+{
+  // N-7: SENDE_PAUSE isoliert: das Spiel lehnt transfer.recall ab, ohne dass Abklingzeit oder Transfer-Ausfall bekannt sind (Lage.rueckholSperre bleibt null): der Bot wiederholt nur alle 2 s
+  const P = szene(); const { g, a } = P;
+  const alt = away.recall; away.recall = () => 'Test: abgelehnt.';
+  try {
+    const t0 = g.time; interior.downPlayer(g, a, 'test');
+    lauf(P, 7);
+    const l = recalls(P, t0); const n1 = l.length;
+    const s = befehl(P, { an: 'technik', befehl: 'bot.status' })[0];
+    ok(Lage.rueckholSperre(g) === null && n1 >= 3 && n1 <= 5 && a.zone === 'away', `Spiel lehnt ab, keine bekannte Sperre: in 7 s ${n1} Versuche (Pause 2 s), nicht Dauerfeuer`);
+    ok(s && s.text === 'Hole das Team zurück.', `bot.status ohne Sperre: "${s && s.text}"`);
+    const gaps = l.slice(1).map((x, i) => x.t - l[i].t);
+    ok(gaps.length > 0 && gaps.every((x) => x >= 1.9), `Abstand zwischen zwei Versuchen mindestens 2 s (${gaps.map((x) => x.toFixed(1)).join(' ')})`);
+  } finally { away.recall = alt; }
+}
+{
+  // N-5: Annahme-Texte als Absicht, ohne Argumente
+  const tx = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'content', 'bots', 'texte.json'), 'utf8'));
+  const ids = ['bord.rueckholen.ok', 'bord.sensor.ok', 'bord.kuppel.ok'];
+  ok(ids.every((id) => Array.isArray(tx[id]) && tx[id].length === 2 && tx[id].every((t) => /^[^\s].{5,60}[.]$/.test(t) && !/steht|wird zurückgeholt|unterstützt|über dem/.test(t)) && /^Aye/.test(tx[id][0])), 'bord.*.ok: je zwei Varianten, Absicht statt Wirkung ("Kuppel steht" u. a. weg), erste mit Aye');
+}
+
 // ---------- 6 Status, Wachposten, Registry, Menschenpartie ----------
 section('6 bot.status, Wachposten, Registry nur lesend, reine Menschenpartie');
 {
@@ -481,8 +589,11 @@ section('6 bot.status, Wachposten, Registry nur lesend, reine Menschenpartie');
   ok(/Halte den Transfer/.test(st().text), `bot.status im Dienst: "${st().text}"`);
   g.support.recall = 999; interior.downPlayer(g, a, 'test'); lauf(P, 1);
   const s2 = st().text;
-  ok(/Hole das Team zurück/.test(s2) && s2.length <= 90, `bot.status bei der Rueckholung: "${s2}"`);
-  const texte = ['Hole das Team zurück.', 'Gehe zur Captain-Konsole, Sensor für das Team.', 'Gehe zur Captain-Konsole, Kuppel für das Team.', 'Halte den Transfer, bis das Team zurück ist.', 'Unterwegs zum Transfer.'];
+  ok(s2 === 'Transfer lädt, warte auf Rückholung.', `bot.status bei gesperrter Rueckholung (Abklingzeit): ehrlich, nicht "Hole das Team zurueck": "${s2}"`);
+  g.support.recall = 0; g.ship.systems.transfer = 'broken'; lauf(P, 1);
+  const s3 = st().text;
+  ok(s3 === 'Transfer ausgefallen, warte auf die Reparatur.', `bot.status bei ausgefallenem Transfer: "${s3}"`);
+  const texte = ['Hole das Team zurück.', 'Transfer lädt, warte auf Rückholung.', 'Transfer ausgefallen, warte auf die Reparatur.', 'Team liegt, Rückholung läuft über das Schiff.', 'Gehe zur Captain-Konsole, Sensor für das Team.', 'Gehe zur Captain-Konsole, Kuppel für das Team.', 'Halte den Transfer, bis das Team zurück ist.', 'Unterwegs zum Transfer.'];
   ok(texte.every((t) => t.length <= Status.MAX), 'alle Bord-Statustexte: hoechstens 90 Zeichen');
 }
 {
