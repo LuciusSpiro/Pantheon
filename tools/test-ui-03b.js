@@ -27,6 +27,9 @@ const S_TERMINAL = PT.TOKENS.S;
 // S je Konsole direkt aus den Pult-Layouts (rahmen(... S: n ...))
 const stationen = {};
 for (const m of J('pult-stationen.js').matchAll(/titel: '(\w+)', S: (\d+)/g)) stationen[m[1] + m[2]] = { name: m[1], S: +m[2] };
+// BOT-01 C3: Die Captain-Leiste hat zwei Hoehen (S: window.PultBefehl ? PultBefehl.statusY() : 258): beide aus pult-befehl-tokens.js lesen
+const capS = J('pult-befehl-tokens.js').match(/S: \{ ohneBots: (\d+), mitBots: (\d+) \}/);
+if (capS) { delete stationen.CAPTAIN258; stationen.CAPTAIN_ohneBots = { name: 'CAPTAIN', S: +capS[1] }; stationen.CAPTAIN_mitBots = { name: 'CAPTAIN (Bots)', S: +capS[2] }; }
 const konsolen = Object.values(stationen).concat([{ name: 'TERMINAL', S: S_TERMINAL }]);
 
 // ---------------------------------------------------------------- Funkwahl (echtes funkwahl.js)
