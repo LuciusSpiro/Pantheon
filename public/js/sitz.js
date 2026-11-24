@@ -263,7 +263,8 @@
       R.text(ctx, 'Maus an den oberen Rand oder Rad ▲: Hauptschirm', VW / 2, 1, { color: PAL.panelLight, align: 'center' });
     } else {
       Consoles.verdeckt = R.ui.buttons.splice(nb);   // für Tasten erreichbar, für Klicks nicht
-      zeichneKante(ctx, view);
+      // BOT-01 C3: offene Befehlstafel der Bots als Einblendung am unteren Rand (Blick VORN/CREW); die Pultkante weicht ihr, solange sie offen ist (höchstens 6 s)
+      if (S.station === 'captain' && window.PultBefehl && PultBefehl.sichtbar()) PultBefehl.einblenden(ctx, pultCanvas); else zeichneKante(ctx, view);
     }
   }
 

@@ -554,9 +554,10 @@ section('11 Lebenszyklus der Agenten');
   const Q = partie({ bots: [], start: false }); const c2 = mensch(Q.g, 4, 2); c2.player.bot = true;
   Q.g.lobbyOpts.startMission = 'arena_space'; Q.g.handleMessage(Q.c, { t: 'ready', ready: true }); lauf(Q, 1);
   ok(Q.g.phase === 'play' && Lauf.agenten(Q.g).length === 0, 'synthetischer Bot ohne Rolle: kein Agent');
-  // Befehle-Registry: leer, liefert unbekannt
-  const r = Befehle.befehl(g, ops, 'ops.ziel', { id: 'e1' });
-  ok(r && r.ok === false && r.code === 'unbekannt' && Object.values(Befehle.REGISTER).every((reg) => Object.keys(reg).length === 0), 'Registry der Befehle: leer, jeder Name liefert unbekannt');
+  // Befehle-Registry (C2b): navigation 7, ops 6, technik 5, bot 2, nur bord leer; ein Name ohne Eintrag liefert unbekannt
+  const r = Befehle.befehl(g, ops, 'ops.quatsch', { id: 'e1' });
+  const SOLL = { navigation: 7, ops: 6, technik: 5, bot: 2, bord: 0 };
+  ok(r && r.ok === false && r.code === 'unbekannt' && Object.entries(Befehle.REGISTER).every(([rolle, reg]) => Object.keys(reg).length === SOLL[rolle]), 'Registry der Befehle: navigation 7, ops 6, technik 5, bot 2, bord leer (BOT-02); ein unbekannter Name liefert unbekannt');
   ok(Befehle.befehl(g, ops, '__proto__', {}).code === 'unbekannt' && Befehle.befehl(g, null, 'x').code === 'unbekannt', 'unbekannt auch fuer __proto__ und ohne Bot');
   ok(Absicht.ZUSTAENDE.join() === 'unterwegs,an_station,wartet' && Absicht.neueAbsicht('ops').zustand === 'unterwegs', 'Absicht: Zustaende unterwegs, an_station, wartet');
 }

@@ -51,6 +51,7 @@ const Notrufe = require('./sim/notrufe.js');   // SL8: Notrufe (game.notrufe, Sn
 const Abspann = require('./sim/abspann.js');   // SUND-04a-3: Abspänne der Freien Fahrt Sund (Debug abspann)
 const Ruf = require('./sim/ruf.js');   // SUND-02b B: Ruf je Fraktion und Dienstgrade von Rom (nur Freie Fahrt Sund)
 const FunkAntwort = require('./sim/funk-antwort.js');   // SUND-03b A: Funk-Antworten mit Folgen (nur Freie Fahrt Sund, folgt dem Reise-Ereignis-Schalter)
+const BotAnnahme = require('./bots/annahme.js');   // BOT-01 C1: Annahme der Bot-Befehle (bot.befehl)
 const BotSpieler = require('./bots/spieler.js');   // BOT-01 B2: Bots als Spieler auf Slots (Lobby)
 const BotLauf = require('./bots/lauf.js');   // BOT-01 B3: Spielverhalten der Bots (Agenten je Bot-Spieler, Tick am Ende von tickKern)
 const Kontingent = require('./sim/kontingent.js');   // LIV-01: Schwelle des Token-Zählers, Befehle kontingent.freigeben/ablehnen, Frage an den Spieler mit color 0
@@ -793,6 +794,7 @@ class Game {
           }
           break;
         case C.LOBBY_BOT: BotSpieler.lobbyBotBefehl(this, p, msg); break;   // BOT-01 B2: nur Lobby, die Prüfung steht in den Funktionen
+        case C.BOT_BEFEHL: BotAnnahme.annehmen(this, p, msg); break;   // BOT-01 C1: Regeln und Antwort in bots/annahme.js
         case C.WORLD: this.onWorldMsg(conn, p, msg); break;   // S1 §6
         case C.MENU: this.onMenuMsg(p, msg); break;           // S1 §6
         case C.INPUT: {

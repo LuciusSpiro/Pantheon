@@ -548,7 +548,7 @@
       const TABS = ['Funk', 'Sternkarte', 'Lage', 'Außenteam', 'Sektorplan', 'Aufträge'];
       if (this.tab === 3 && !awayOn) this.tab = 0;
       let ctl = '';
-      const g = P.rahmen(ctx, view, { titel: 'CAPTAIN', S: 258, station: 'captain', anzeige: (c, r) => {
+      const g = P.rahmen(ctx, view, { titel: 'CAPTAIN', S: window.PultBefehl ? PultBefehl.statusY() : 258, station: 'captain', anzeige: (c, r) => {
         const a = { x: r.x + 4, y: r.y + 4, w: r.w - 8, h: r.h - 8 };
         switch (this.tab) {
           case 0: ctl = this.capRadio(c, view, a); break;
@@ -597,6 +597,7 @@
           T(ctx, z.seite + ' ' + z.kurz + (z.n > 1 && z.gleich ? ' ×' + z.n : '') + ' ' + z.text, zx + 10, zy, z.aus ? K.dim : K.text);
         });
       }
+      if (window.PultBefehl && PultBefehl.hatBots()) Net.guard('PultBefehl.zeichne', () => PultBefehl.zeichne(ctx, view, g));   // BOT-01 C3: Crew-Zeile und Befehlstafel (nur in Partien mit Bots)
       return ctl;
     },
   });

@@ -91,8 +91,1032 @@
   "Aye, Automatik übernimmt.",
   "Wieder im Standardbetrieb."
  ],
+ "befehl.abgelehnt.unbekannt": [
+  "Den Befehl kenne ich nicht.",
+  "Das steht nicht in meiner Befehlsliste, Käpt'n."
+ ],
+ "befehl.abgelehnt.phase": [
+  "Gerade läuft keine Fahrt.",
+  "Ohne laufende Fahrt gibt es nichts zu befehlen."
+ ],
+ "befehl.abgelehnt.rate": [
+  "Eins nach dem anderen, Käpt'n.",
+  "Langsam, ich komme nicht mit."
+ ],
+ "nav.kurs.abgelehnt.unbekannt": [
+  "Den Befehl kenne ich nicht.",
+  "Das steht nicht in meiner Befehlsliste, Käpt'n."
+ ],
+ "nav.kurs.abgelehnt.adressat": [
+  "Dafür bin ich nicht zuständig.",
+  "Das ist nicht mein Posten."
+ ],
+ "nav.kurs.abgelehnt.quelle": [
+  "Auf diesem Weg nehme ich den Befehl nicht an.",
+  "Diese Eingabe gilt bei mir nicht."
+ ],
+ "nav.kurs.abgelehnt.argument": [
+  "Die Angabe passt nicht, Käpt'n.",
+  "Damit kann ich nichts anfangen."
+ ],
+ "nav.kurs.abgelehnt.phase": [
+  "Gerade läuft keine Fahrt.",
+  "Ohne laufende Fahrt gibt es nichts zu befehlen."
+ ],
+ "nav.kurs.abgelehnt.wartet": [
+  "Ein Mensch hält die Station, ich warte.",
+  "Die Station ist besetzt, ich halte mich raus."
+ ],
+ "nav.kurs.abgelehnt.kein_ziel": [
+  "Es ist kein Ziel markiert.",
+  "Mir fehlt ein Ziel, Käpt'n."
+ ],
+ "nav.kurs.abgelehnt.rate": [
+  "Eins nach dem anderen, Käpt'n.",
+  "Langsam, ich komme nicht mit."
+ ],
+ "nav.kurs.unmoeglich.kein_bot": [
+  "Dafür ist niemand an Bord.",
+  "Der Posten ist nicht besetzt."
+ ],
+ "nav.kurs.unmoeglich.system": [
+  "Die Anlage ist ausgefallen, das geht nicht.",
+  "Dafür fehlt uns die Anlage, Käpt'n."
+ ],
+ "nav.stopp.abgelehnt.unbekannt": [
+  "Den Befehl kenne ich nicht.",
+  "Das steht nicht in meiner Befehlsliste, Käpt'n."
+ ],
+ "nav.stopp.abgelehnt.adressat": [
+  "Dafür bin ich nicht zuständig.",
+  "Das ist nicht mein Posten."
+ ],
+ "nav.stopp.abgelehnt.quelle": [
+  "Auf diesem Weg nehme ich den Befehl nicht an.",
+  "Diese Eingabe gilt bei mir nicht."
+ ],
+ "nav.stopp.abgelehnt.argument": [
+  "Die Angabe passt nicht, Käpt'n.",
+  "Damit kann ich nichts anfangen."
+ ],
+ "nav.stopp.abgelehnt.phase": [
+  "Gerade läuft keine Fahrt.",
+  "Ohne laufende Fahrt gibt es nichts zu befehlen."
+ ],
+ "nav.stopp.abgelehnt.wartet": [
+  "Ein Mensch hält die Station, ich warte.",
+  "Die Station ist besetzt, ich halte mich raus."
+ ],
+ "nav.stopp.abgelehnt.rate": [
+  "Eins nach dem anderen, Käpt'n.",
+  "Langsam, ich komme nicht mit."
+ ],
+ "nav.stopp.unmoeglich.kein_bot": [
+  "Dafür ist niemand an Bord.",
+  "Der Posten ist nicht besetzt."
+ ],
+ "nav.stopp.unmoeglich.system": [
+  "Die Anlage ist ausgefallen, das geht nicht.",
+  "Dafür fehlt uns die Anlage, Käpt'n."
+ ],
+ "nav.schub.abgelehnt.unbekannt": [
+  "Den Befehl kenne ich nicht.",
+  "Das steht nicht in meiner Befehlsliste, Käpt'n."
+ ],
+ "nav.schub.abgelehnt.adressat": [
+  "Dafür bin ich nicht zuständig.",
+  "Das ist nicht mein Posten."
+ ],
+ "nav.schub.abgelehnt.quelle": [
+  "Auf diesem Weg nehme ich den Befehl nicht an.",
+  "Diese Eingabe gilt bei mir nicht."
+ ],
+ "nav.schub.abgelehnt.argument": [
+  "Die Angabe passt nicht, Käpt'n.",
+  "Damit kann ich nichts anfangen."
+ ],
+ "nav.schub.abgelehnt.phase": [
+  "Gerade läuft keine Fahrt.",
+  "Ohne laufende Fahrt gibt es nichts zu befehlen."
+ ],
+ "nav.schub.abgelehnt.wartet": [
+  "Ein Mensch hält die Station, ich warte.",
+  "Die Station ist besetzt, ich halte mich raus."
+ ],
+ "nav.schub.abgelehnt.rate": [
+  "Eins nach dem anderen, Käpt'n.",
+  "Langsam, ich komme nicht mit."
+ ],
+ "nav.schub.unmoeglich.kein_bot": [
+  "Dafür ist niemand an Bord.",
+  "Der Posten ist nicht besetzt."
+ ],
+ "nav.schub.unmoeglich.system": [
+  "Die Anlage ist ausgefallen, das geht nicht.",
+  "Dafür fehlt uns die Anlage, Käpt'n."
+ ],
+ "nav.ausweichen.abgelehnt.unbekannt": [
+  "Den Befehl kenne ich nicht.",
+  "Das steht nicht in meiner Befehlsliste, Käpt'n."
+ ],
+ "nav.ausweichen.abgelehnt.adressat": [
+  "Dafür bin ich nicht zuständig.",
+  "Das ist nicht mein Posten."
+ ],
+ "nav.ausweichen.abgelehnt.quelle": [
+  "Auf diesem Weg nehme ich den Befehl nicht an.",
+  "Diese Eingabe gilt bei mir nicht."
+ ],
+ "nav.ausweichen.abgelehnt.argument": [
+  "Die Angabe passt nicht, Käpt'n.",
+  "Damit kann ich nichts anfangen."
+ ],
+ "nav.ausweichen.abgelehnt.phase": [
+  "Gerade läuft keine Fahrt.",
+  "Ohne laufende Fahrt gibt es nichts zu befehlen."
+ ],
+ "nav.ausweichen.abgelehnt.wartet": [
+  "Ein Mensch hält die Station, ich warte.",
+  "Die Station ist besetzt, ich halte mich raus."
+ ],
+ "nav.ausweichen.abgelehnt.rate": [
+  "Eins nach dem anderen, Käpt'n.",
+  "Langsam, ich komme nicht mit."
+ ],
+ "nav.ausweichen.unmoeglich.kein_bot": [
+  "Dafür ist niemand an Bord.",
+  "Der Posten ist nicht besetzt."
+ ],
+ "nav.ausweichen.unmoeglich.system": [
+  "Die Anlage ist ausgefallen, das geht nicht.",
+  "Dafür fehlt uns die Anlage, Käpt'n."
+ ],
+ "nav.abstand.abgelehnt.unbekannt": [
+  "Den Befehl kenne ich nicht.",
+  "Das steht nicht in meiner Befehlsliste, Käpt'n."
+ ],
+ "nav.abstand.abgelehnt.adressat": [
+  "Dafür bin ich nicht zuständig.",
+  "Das ist nicht mein Posten."
+ ],
+ "nav.abstand.abgelehnt.quelle": [
+  "Auf diesem Weg nehme ich den Befehl nicht an.",
+  "Diese Eingabe gilt bei mir nicht."
+ ],
+ "nav.abstand.abgelehnt.argument": [
+  "Die Angabe passt nicht, Käpt'n.",
+  "Damit kann ich nichts anfangen."
+ ],
+ "nav.abstand.abgelehnt.phase": [
+  "Gerade läuft keine Fahrt.",
+  "Ohne laufende Fahrt gibt es nichts zu befehlen."
+ ],
+ "nav.abstand.abgelehnt.wartet": [
+  "Ein Mensch hält die Station, ich warte.",
+  "Die Station ist besetzt, ich halte mich raus."
+ ],
+ "nav.abstand.abgelehnt.kein_ziel": [
+  "Es ist kein Ziel markiert.",
+  "Mir fehlt ein Ziel, Käpt'n."
+ ],
+ "nav.abstand.abgelehnt.rate": [
+  "Eins nach dem anderen, Käpt'n.",
+  "Langsam, ich komme nicht mit."
+ ],
+ "nav.abstand.unmoeglich.kein_bot": [
+  "Dafür ist niemand an Bord.",
+  "Der Posten ist nicht besetzt."
+ ],
+ "nav.abstand.unmoeglich.system": [
+  "Die Anlage ist ausgefallen, das geht nicht.",
+  "Dafür fehlt uns die Anlage, Käpt'n."
+ ],
+ "nav.andocken.abgelehnt.unbekannt": [
+  "Den Befehl kenne ich nicht.",
+  "Das steht nicht in meiner Befehlsliste, Käpt'n."
+ ],
+ "nav.andocken.abgelehnt.adressat": [
+  "Dafür bin ich nicht zuständig.",
+  "Das ist nicht mein Posten."
+ ],
+ "nav.andocken.abgelehnt.quelle": [
+  "Auf diesem Weg nehme ich den Befehl nicht an.",
+  "Diese Eingabe gilt bei mir nicht."
+ ],
+ "nav.andocken.abgelehnt.argument": [
+  "Die Angabe passt nicht, Käpt'n.",
+  "Damit kann ich nichts anfangen."
+ ],
+ "nav.andocken.abgelehnt.phase": [
+  "Gerade läuft keine Fahrt.",
+  "Ohne laufende Fahrt gibt es nichts zu befehlen."
+ ],
+ "nav.andocken.abgelehnt.wartet": [
+  "Ein Mensch hält die Station, ich warte.",
+  "Die Station ist besetzt, ich halte mich raus."
+ ],
+ "nav.andocken.abgelehnt.rate": [
+  "Eins nach dem anderen, Käpt'n.",
+  "Langsam, ich komme nicht mit."
+ ],
+ "nav.andocken.unmoeglich.kein_bot": [
+  "Dafür ist niemand an Bord.",
+  "Der Posten ist nicht besetzt."
+ ],
+ "nav.andocken.unmoeglich.system": [
+  "Die Anlage ist ausgefallen, das geht nicht.",
+  "Dafür fehlt uns die Anlage, Käpt'n."
+ ],
+ "nav.sprung.abgelehnt.unbekannt": [
+  "Den Befehl kenne ich nicht.",
+  "Das steht nicht in meiner Befehlsliste, Käpt'n."
+ ],
+ "nav.sprung.abgelehnt.adressat": [
+  "Dafür bin ich nicht zuständig.",
+  "Das ist nicht mein Posten."
+ ],
+ "nav.sprung.abgelehnt.quelle": [
+  "Auf diesem Weg nehme ich den Befehl nicht an.",
+  "Diese Eingabe gilt bei mir nicht."
+ ],
+ "nav.sprung.abgelehnt.argument": [
+  "Die Angabe passt nicht, Käpt'n.",
+  "Damit kann ich nichts anfangen."
+ ],
+ "nav.sprung.abgelehnt.phase": [
+  "Gerade läuft keine Fahrt.",
+  "Ohne laufende Fahrt gibt es nichts zu befehlen."
+ ],
+ "nav.sprung.abgelehnt.wartet": [
+  "Ein Mensch hält die Station, ich warte.",
+  "Die Station ist besetzt, ich halte mich raus."
+ ],
+ "nav.sprung.abgelehnt.rate": [
+  "Eins nach dem anderen, Käpt'n.",
+  "Langsam, ich komme nicht mit."
+ ],
+ "nav.sprung.unmoeglich.kein_bot": [
+  "Dafür ist niemand an Bord.",
+  "Der Posten ist nicht besetzt."
+ ],
+ "nav.sprung.unmoeglich.system": [
+  "Die Anlage ist ausgefallen, das geht nicht.",
+  "Dafür fehlt uns die Anlage, Käpt'n."
+ ],
+ "ops.ziel.abgelehnt.unbekannt": [
+  "Den Befehl kenne ich nicht.",
+  "Das steht nicht in meiner Befehlsliste, Käpt'n."
+ ],
+ "ops.ziel.abgelehnt.adressat": [
+  "Dafür bin ich nicht zuständig.",
+  "Das ist nicht mein Posten."
+ ],
+ "ops.ziel.abgelehnt.quelle": [
+  "Auf diesem Weg nehme ich den Befehl nicht an.",
+  "Diese Eingabe gilt bei mir nicht."
+ ],
+ "ops.ziel.abgelehnt.argument": [
+  "Die Angabe passt nicht, Käpt'n.",
+  "Damit kann ich nichts anfangen."
+ ],
+ "ops.ziel.abgelehnt.phase": [
+  "Gerade läuft keine Fahrt.",
+  "Ohne laufende Fahrt gibt es nichts zu befehlen."
+ ],
+ "ops.ziel.abgelehnt.wartet": [
+  "Ein Mensch hält die Station, ich warte.",
+  "Die Station ist besetzt, ich halte mich raus."
+ ],
+ "ops.ziel.abgelehnt.kein_ziel": [
+  "Es ist kein Ziel markiert.",
+  "Mir fehlt ein Ziel, Käpt'n."
+ ],
+ "ops.ziel.abgelehnt.rate": [
+  "Eins nach dem anderen, Käpt'n.",
+  "Langsam, ich komme nicht mit."
+ ],
+ "ops.ziel.unmoeglich.kein_bot": [
+  "Dafür ist niemand an Bord.",
+  "Der Posten ist nicht besetzt."
+ ],
+ "ops.ziel.unmoeglich.system": [
+  "Die Anlage ist ausgefallen, das geht nicht.",
+  "Dafür fehlt uns die Anlage, Käpt'n."
+ ],
+ "ops.feuer_frei.abgelehnt.unbekannt": [
+  "Den Befehl kenne ich nicht.",
+  "Das steht nicht in meiner Befehlsliste, Käpt'n."
+ ],
+ "ops.feuer_frei.abgelehnt.adressat": [
+  "Dafür bin ich nicht zuständig.",
+  "Das ist nicht mein Posten."
+ ],
+ "ops.feuer_frei.abgelehnt.quelle": [
+  "Auf diesem Weg nehme ich den Befehl nicht an.",
+  "Diese Eingabe gilt bei mir nicht."
+ ],
+ "ops.feuer_frei.abgelehnt.argument": [
+  "Die Angabe passt nicht, Käpt'n.",
+  "Damit kann ich nichts anfangen."
+ ],
+ "ops.feuer_frei.abgelehnt.phase": [
+  "Gerade läuft keine Fahrt.",
+  "Ohne laufende Fahrt gibt es nichts zu befehlen."
+ ],
+ "ops.feuer_frei.abgelehnt.wartet": [
+  "Ein Mensch hält die Station, ich warte.",
+  "Die Station ist besetzt, ich halte mich raus."
+ ],
+ "ops.feuer_frei.abgelehnt.kein_ziel": [
+  "Es ist kein Ziel markiert.",
+  "Mir fehlt ein Ziel, Käpt'n."
+ ],
+ "ops.feuer_frei.abgelehnt.rate": [
+  "Eins nach dem anderen, Käpt'n.",
+  "Langsam, ich komme nicht mit."
+ ],
+ "ops.feuer_frei.unmoeglich.kein_bot": [
+  "Dafür ist niemand an Bord.",
+  "Der Posten ist nicht besetzt."
+ ],
+ "ops.feuer_frei.unmoeglich.system": [
+  "Die Anlage ist ausgefallen, das geht nicht.",
+  "Dafür fehlt uns die Anlage, Käpt'n."
+ ],
+ "ops.feuer_halt.abgelehnt.unbekannt": [
+  "Den Befehl kenne ich nicht.",
+  "Das steht nicht in meiner Befehlsliste, Käpt'n."
+ ],
+ "ops.feuer_halt.abgelehnt.adressat": [
+  "Dafür bin ich nicht zuständig.",
+  "Das ist nicht mein Posten."
+ ],
+ "ops.feuer_halt.abgelehnt.quelle": [
+  "Auf diesem Weg nehme ich den Befehl nicht an.",
+  "Diese Eingabe gilt bei mir nicht."
+ ],
+ "ops.feuer_halt.abgelehnt.argument": [
+  "Die Angabe passt nicht, Käpt'n.",
+  "Damit kann ich nichts anfangen."
+ ],
+ "ops.feuer_halt.abgelehnt.phase": [
+  "Gerade läuft keine Fahrt.",
+  "Ohne laufende Fahrt gibt es nichts zu befehlen."
+ ],
+ "ops.feuer_halt.abgelehnt.wartet": [
+  "Ein Mensch hält die Station, ich warte.",
+  "Die Station ist besetzt, ich halte mich raus."
+ ],
+ "ops.feuer_halt.abgelehnt.rate": [
+  "Eins nach dem anderen, Käpt'n.",
+  "Langsam, ich komme nicht mit."
+ ],
+ "ops.feuer_halt.unmoeglich.kein_bot": [
+  "Dafür ist niemand an Bord.",
+  "Der Posten ist nicht besetzt."
+ ],
+ "ops.feuer_halt.unmoeglich.system": [
+  "Die Anlage ist ausgefallen, das geht nicht.",
+  "Dafür fehlt uns die Anlage, Käpt'n."
+ ],
+ "ops.scan.abgelehnt.unbekannt": [
+  "Den Befehl kenne ich nicht.",
+  "Das steht nicht in meiner Befehlsliste, Käpt'n."
+ ],
+ "ops.scan.abgelehnt.adressat": [
+  "Dafür bin ich nicht zuständig.",
+  "Das ist nicht mein Posten."
+ ],
+ "ops.scan.abgelehnt.quelle": [
+  "Auf diesem Weg nehme ich den Befehl nicht an.",
+  "Diese Eingabe gilt bei mir nicht."
+ ],
+ "ops.scan.abgelehnt.argument": [
+  "Die Angabe passt nicht, Käpt'n.",
+  "Damit kann ich nichts anfangen."
+ ],
+ "ops.scan.abgelehnt.phase": [
+  "Gerade läuft keine Fahrt.",
+  "Ohne laufende Fahrt gibt es nichts zu befehlen."
+ ],
+ "ops.scan.abgelehnt.wartet": [
+  "Ein Mensch hält die Station, ich warte.",
+  "Die Station ist besetzt, ich halte mich raus."
+ ],
+ "ops.scan.abgelehnt.rate": [
+  "Eins nach dem anderen, Käpt'n.",
+  "Langsam, ich komme nicht mit."
+ ],
+ "ops.scan.unmoeglich.kein_bot": [
+  "Dafür ist niemand an Bord.",
+  "Der Posten ist nicht besetzt."
+ ],
+ "ops.scan.unmoeglich.system": [
+  "Die Anlage ist ausgefallen, das geht nicht.",
+  "Dafür fehlt uns die Anlage, Käpt'n."
+ ],
+ "ops.landescan.abgelehnt.unbekannt": [
+  "Den Befehl kenne ich nicht.",
+  "Das steht nicht in meiner Befehlsliste, Käpt'n."
+ ],
+ "ops.landescan.abgelehnt.adressat": [
+  "Dafür bin ich nicht zuständig.",
+  "Das ist nicht mein Posten."
+ ],
+ "ops.landescan.abgelehnt.quelle": [
+  "Auf diesem Weg nehme ich den Befehl nicht an.",
+  "Diese Eingabe gilt bei mir nicht."
+ ],
+ "ops.landescan.abgelehnt.argument": [
+  "Die Angabe passt nicht, Käpt'n.",
+  "Damit kann ich nichts anfangen."
+ ],
+ "ops.landescan.abgelehnt.phase": [
+  "Gerade läuft keine Fahrt.",
+  "Ohne laufende Fahrt gibt es nichts zu befehlen."
+ ],
+ "ops.landescan.abgelehnt.wartet": [
+  "Ein Mensch hält die Station, ich warte.",
+  "Die Station ist besetzt, ich halte mich raus."
+ ],
+ "ops.landescan.abgelehnt.rate": [
+  "Eins nach dem anderen, Käpt'n.",
+  "Langsam, ich komme nicht mit."
+ ],
+ "ops.landescan.unmoeglich.kein_bot": [
+  "Dafür ist niemand an Bord.",
+  "Der Posten ist nicht besetzt."
+ ],
+ "ops.landescan.unmoeglich.system": [
+  "Die Anlage ist ausgefallen, das geht nicht.",
+  "Dafür fehlt uns die Anlage, Käpt'n."
+ ],
+ "ops.beamen.abgelehnt.unbekannt": [
+  "Den Befehl kenne ich nicht.",
+  "Das steht nicht in meiner Befehlsliste, Käpt'n."
+ ],
+ "ops.beamen.abgelehnt.adressat": [
+  "Dafür bin ich nicht zuständig.",
+  "Das ist nicht mein Posten."
+ ],
+ "ops.beamen.abgelehnt.quelle": [
+  "Auf diesem Weg nehme ich den Befehl nicht an.",
+  "Diese Eingabe gilt bei mir nicht."
+ ],
+ "ops.beamen.abgelehnt.argument": [
+  "Die Angabe passt nicht, Käpt'n.",
+  "Damit kann ich nichts anfangen."
+ ],
+ "ops.beamen.abgelehnt.phase": [
+  "Gerade läuft keine Fahrt.",
+  "Ohne laufende Fahrt gibt es nichts zu befehlen."
+ ],
+ "ops.beamen.abgelehnt.wartet": [
+  "Ein Mensch hält die Station, ich warte.",
+  "Die Station ist besetzt, ich halte mich raus."
+ ],
+ "ops.beamen.abgelehnt.rate": [
+  "Eins nach dem anderen, Käpt'n.",
+  "Langsam, ich komme nicht mit."
+ ],
+ "ops.beamen.unmoeglich.kein_bot": [
+  "Dafür ist niemand an Bord.",
+  "Der Posten ist nicht besetzt."
+ ],
+ "ops.beamen.unmoeglich.system": [
+  "Die Anlage ist ausgefallen, das geht nicht.",
+  "Dafür fehlt uns die Anlage, Käpt'n."
+ ],
+ "tech.prio.abgelehnt.unbekannt": [
+  "Den Befehl kenne ich nicht.",
+  "Das steht nicht in meiner Befehlsliste, Käpt'n."
+ ],
+ "tech.prio.abgelehnt.adressat": [
+  "Dafür bin ich nicht zuständig.",
+  "Das ist nicht mein Posten."
+ ],
+ "tech.prio.abgelehnt.quelle": [
+  "Auf diesem Weg nehme ich den Befehl nicht an.",
+  "Diese Eingabe gilt bei mir nicht."
+ ],
+ "tech.prio.abgelehnt.argument": [
+  "Die Angabe passt nicht, Käpt'n.",
+  "Damit kann ich nichts anfangen."
+ ],
+ "tech.prio.abgelehnt.phase": [
+  "Gerade läuft keine Fahrt.",
+  "Ohne laufende Fahrt gibt es nichts zu befehlen."
+ ],
+ "tech.prio.abgelehnt.wartet": [
+  "Ein Mensch hält die Station, ich warte.",
+  "Die Station ist besetzt, ich halte mich raus."
+ ],
+ "tech.prio.abgelehnt.rate": [
+  "Eins nach dem anderen, Käpt'n.",
+  "Langsam, ich komme nicht mit."
+ ],
+ "tech.prio.unmoeglich.kein_bot": [
+  "Dafür ist niemand an Bord.",
+  "Der Posten ist nicht besetzt."
+ ],
+ "tech.prio.unmoeglich.system": [
+  "Die Anlage ist ausgefallen, das geht nicht.",
+  "Dafür fehlt uns die Anlage, Käpt'n."
+ ],
+ "tech.reparieren.abgelehnt.unbekannt": [
+  "Den Befehl kenne ich nicht.",
+  "Das steht nicht in meiner Befehlsliste, Käpt'n."
+ ],
+ "tech.reparieren.abgelehnt.adressat": [
+  "Dafür bin ich nicht zuständig.",
+  "Das ist nicht mein Posten."
+ ],
+ "tech.reparieren.abgelehnt.quelle": [
+  "Auf diesem Weg nehme ich den Befehl nicht an.",
+  "Diese Eingabe gilt bei mir nicht."
+ ],
+ "tech.reparieren.abgelehnt.argument": [
+  "Die Angabe passt nicht, Käpt'n.",
+  "Damit kann ich nichts anfangen."
+ ],
+ "tech.reparieren.abgelehnt.phase": [
+  "Gerade läuft keine Fahrt.",
+  "Ohne laufende Fahrt gibt es nichts zu befehlen."
+ ],
+ "tech.reparieren.abgelehnt.wartet": [
+  "Ein Mensch hält die Station, ich warte.",
+  "Die Station ist besetzt, ich halte mich raus."
+ ],
+ "tech.reparieren.abgelehnt.rate": [
+  "Eins nach dem anderen, Käpt'n.",
+  "Langsam, ich komme nicht mit."
+ ],
+ "tech.reparieren.unmoeglich.kein_bot": [
+  "Dafür ist niemand an Bord.",
+  "Der Posten ist nicht besetzt."
+ ],
+ "tech.reparieren.unmoeglich.system": [
+  "Die Anlage ist ausgefallen, das geht nicht.",
+  "Dafür fehlt uns die Anlage, Käpt'n."
+ ],
+ "tech.schild.abgelehnt.unbekannt": [
+  "Den Befehl kenne ich nicht.",
+  "Das steht nicht in meiner Befehlsliste, Käpt'n."
+ ],
+ "tech.schild.abgelehnt.adressat": [
+  "Dafür bin ich nicht zuständig.",
+  "Das ist nicht mein Posten."
+ ],
+ "tech.schild.abgelehnt.quelle": [
+  "Auf diesem Weg nehme ich den Befehl nicht an.",
+  "Diese Eingabe gilt bei mir nicht."
+ ],
+ "tech.schild.abgelehnt.argument": [
+  "Die Angabe passt nicht, Käpt'n.",
+  "Damit kann ich nichts anfangen."
+ ],
+ "tech.schild.abgelehnt.phase": [
+  "Gerade läuft keine Fahrt.",
+  "Ohne laufende Fahrt gibt es nichts zu befehlen."
+ ],
+ "tech.schild.abgelehnt.wartet": [
+  "Ein Mensch hält die Station, ich warte.",
+  "Die Station ist besetzt, ich halte mich raus."
+ ],
+ "tech.schild.abgelehnt.rate": [
+  "Eins nach dem anderen, Käpt'n.",
+  "Langsam, ich komme nicht mit."
+ ],
+ "tech.schild.unmoeglich.kein_bot": [
+  "Dafür ist niemand an Bord.",
+  "Der Posten ist nicht besetzt."
+ ],
+ "tech.schild.unmoeglich.system": [
+  "Die Anlage ist ausgefallen, das geht nicht.",
+  "Dafür fehlt uns die Anlage, Käpt'n."
+ ],
+ "tech.energie.abgelehnt.unbekannt": [
+  "Den Befehl kenne ich nicht.",
+  "Das steht nicht in meiner Befehlsliste, Käpt'n."
+ ],
+ "tech.energie.abgelehnt.adressat": [
+  "Dafür bin ich nicht zuständig.",
+  "Das ist nicht mein Posten."
+ ],
+ "tech.energie.abgelehnt.quelle": [
+  "Auf diesem Weg nehme ich den Befehl nicht an.",
+  "Diese Eingabe gilt bei mir nicht."
+ ],
+ "tech.energie.abgelehnt.argument": [
+  "Die Angabe passt nicht, Käpt'n.",
+  "Damit kann ich nichts anfangen."
+ ],
+ "tech.energie.abgelehnt.phase": [
+  "Gerade läuft keine Fahrt.",
+  "Ohne laufende Fahrt gibt es nichts zu befehlen."
+ ],
+ "tech.energie.abgelehnt.wartet": [
+  "Ein Mensch hält die Station, ich warte.",
+  "Die Station ist besetzt, ich halte mich raus."
+ ],
+ "tech.energie.abgelehnt.rate": [
+  "Eins nach dem anderen, Käpt'n.",
+  "Langsam, ich komme nicht mit."
+ ],
+ "tech.energie.unmoeglich.kein_bot": [
+  "Dafür ist niemand an Bord.",
+  "Der Posten ist nicht besetzt."
+ ],
+ "tech.energie.unmoeglich.system": [
+  "Die Anlage ist ausgefallen, das geht nicht.",
+  "Dafür fehlt uns die Anlage, Käpt'n."
+ ],
+ "tech.ueberladen.abgelehnt.unbekannt": [
+  "Den Befehl kenne ich nicht.",
+  "Das steht nicht in meiner Befehlsliste, Käpt'n."
+ ],
+ "tech.ueberladen.abgelehnt.adressat": [
+  "Dafür bin ich nicht zuständig.",
+  "Das ist nicht mein Posten."
+ ],
+ "tech.ueberladen.abgelehnt.quelle": [
+  "Auf diesem Weg nehme ich den Befehl nicht an.",
+  "Diese Eingabe gilt bei mir nicht."
+ ],
+ "tech.ueberladen.abgelehnt.argument": [
+  "Die Angabe passt nicht, Käpt'n.",
+  "Damit kann ich nichts anfangen."
+ ],
+ "tech.ueberladen.abgelehnt.phase": [
+  "Gerade läuft keine Fahrt.",
+  "Ohne laufende Fahrt gibt es nichts zu befehlen."
+ ],
+ "tech.ueberladen.abgelehnt.wartet": [
+  "Ein Mensch hält die Station, ich warte.",
+  "Die Station ist besetzt, ich halte mich raus."
+ ],
+ "tech.ueberladen.abgelehnt.rate": [
+  "Eins nach dem anderen, Käpt'n.",
+  "Langsam, ich komme nicht mit."
+ ],
+ "tech.ueberladen.unmoeglich.kein_bot": [
+  "Dafür ist niemand an Bord.",
+  "Der Posten ist nicht besetzt."
+ ],
+ "tech.ueberladen.unmoeglich.system": [
+  "Die Anlage ist ausgefallen, das geht nicht.",
+  "Dafür fehlt uns die Anlage, Käpt'n."
+ ],
+ "bord.rueckholen.abgelehnt.unbekannt": [
+  "Den Befehl kenne ich nicht.",
+  "Das steht nicht in meiner Befehlsliste, Käpt'n."
+ ],
+ "bord.rueckholen.abgelehnt.adressat": [
+  "Dafür bin ich nicht zuständig.",
+  "Das ist nicht mein Posten."
+ ],
+ "bord.rueckholen.abgelehnt.quelle": [
+  "Auf diesem Weg nehme ich den Befehl nicht an.",
+  "Diese Eingabe gilt bei mir nicht."
+ ],
+ "bord.rueckholen.abgelehnt.argument": [
+  "Die Angabe passt nicht, Käpt'n.",
+  "Damit kann ich nichts anfangen."
+ ],
+ "bord.rueckholen.abgelehnt.phase": [
+  "Gerade läuft keine Fahrt.",
+  "Ohne laufende Fahrt gibt es nichts zu befehlen."
+ ],
+ "bord.rueckholen.abgelehnt.wartet": [
+  "Ein Mensch hält die Station, ich warte.",
+  "Die Station ist besetzt, ich halte mich raus."
+ ],
+ "bord.rueckholen.abgelehnt.rate": [
+  "Eins nach dem anderen, Käpt'n.",
+  "Langsam, ich komme nicht mit."
+ ],
+ "bord.rueckholen.unmoeglich.kein_bot": [
+  "Dafür ist niemand an Bord.",
+  "Der Posten ist nicht besetzt."
+ ],
+ "bord.rueckholen.unmoeglich.system": [
+  "Die Anlage ist ausgefallen, das geht nicht.",
+  "Dafür fehlt uns die Anlage, Käpt'n."
+ ],
+ "bord.sensor.abgelehnt.unbekannt": [
+  "Den Befehl kenne ich nicht.",
+  "Das steht nicht in meiner Befehlsliste, Käpt'n."
+ ],
+ "bord.sensor.abgelehnt.adressat": [
+  "Dafür bin ich nicht zuständig.",
+  "Das ist nicht mein Posten."
+ ],
+ "bord.sensor.abgelehnt.quelle": [
+  "Auf diesem Weg nehme ich den Befehl nicht an.",
+  "Diese Eingabe gilt bei mir nicht."
+ ],
+ "bord.sensor.abgelehnt.argument": [
+  "Die Angabe passt nicht, Käpt'n.",
+  "Damit kann ich nichts anfangen."
+ ],
+ "bord.sensor.abgelehnt.phase": [
+  "Gerade läuft keine Fahrt.",
+  "Ohne laufende Fahrt gibt es nichts zu befehlen."
+ ],
+ "bord.sensor.abgelehnt.wartet": [
+  "Ein Mensch hält die Station, ich warte.",
+  "Die Station ist besetzt, ich halte mich raus."
+ ],
+ "bord.sensor.abgelehnt.rate": [
+  "Eins nach dem anderen, Käpt'n.",
+  "Langsam, ich komme nicht mit."
+ ],
+ "bord.sensor.unmoeglich.kein_bot": [
+  "Dafür ist niemand an Bord.",
+  "Der Posten ist nicht besetzt."
+ ],
+ "bord.sensor.unmoeglich.system": [
+  "Die Anlage ist ausgefallen, das geht nicht.",
+  "Dafür fehlt uns die Anlage, Käpt'n."
+ ],
+ "bord.kuppel.abgelehnt.unbekannt": [
+  "Den Befehl kenne ich nicht.",
+  "Das steht nicht in meiner Befehlsliste, Käpt'n."
+ ],
+ "bord.kuppel.abgelehnt.adressat": [
+  "Dafür bin ich nicht zuständig.",
+  "Das ist nicht mein Posten."
+ ],
+ "bord.kuppel.abgelehnt.quelle": [
+  "Auf diesem Weg nehme ich den Befehl nicht an.",
+  "Diese Eingabe gilt bei mir nicht."
+ ],
+ "bord.kuppel.abgelehnt.argument": [
+  "Die Angabe passt nicht, Käpt'n.",
+  "Damit kann ich nichts anfangen."
+ ],
+ "bord.kuppel.abgelehnt.phase": [
+  "Gerade läuft keine Fahrt.",
+  "Ohne laufende Fahrt gibt es nichts zu befehlen."
+ ],
+ "bord.kuppel.abgelehnt.wartet": [
+  "Ein Mensch hält die Station, ich warte.",
+  "Die Station ist besetzt, ich halte mich raus."
+ ],
+ "bord.kuppel.abgelehnt.rate": [
+  "Eins nach dem anderen, Käpt'n.",
+  "Langsam, ich komme nicht mit."
+ ],
+ "bord.kuppel.unmoeglich.kein_bot": [
+  "Dafür ist niemand an Bord.",
+  "Der Posten ist nicht besetzt."
+ ],
+ "bord.kuppel.unmoeglich.system": [
+  "Die Anlage ist ausgefallen, das geht nicht.",
+  "Dafür fehlt uns die Anlage, Käpt'n."
+ ],
+ "bot.status.abgelehnt.unbekannt": [
+  "Den Befehl kenne ich nicht.",
+  "Das steht nicht in meiner Befehlsliste, Käpt'n."
+ ],
+ "bot.status.abgelehnt.adressat": [
+  "Dafür bin ich nicht zuständig.",
+  "Das ist nicht mein Posten."
+ ],
+ "bot.status.abgelehnt.quelle": [
+  "Auf diesem Weg nehme ich den Befehl nicht an.",
+  "Diese Eingabe gilt bei mir nicht."
+ ],
+ "bot.status.abgelehnt.argument": [
+  "Die Angabe passt nicht, Käpt'n.",
+  "Damit kann ich nichts anfangen."
+ ],
+ "bot.status.abgelehnt.phase": [
+  "Gerade läuft keine Fahrt.",
+  "Ohne laufende Fahrt gibt es nichts zu befehlen."
+ ],
+ "bot.status.abgelehnt.rate": [
+  "Eins nach dem anderen, Käpt'n.",
+  "Langsam, ich komme nicht mit."
+ ],
+ "bot.status.unmoeglich.kein_bot": [
+  "Dafür ist niemand an Bord.",
+  "Der Posten ist nicht besetzt."
+ ],
+ "bot.automatik.abgelehnt.unbekannt": [
+  "Den Befehl kenne ich nicht.",
+  "Das steht nicht in meiner Befehlsliste, Käpt'n."
+ ],
+ "bot.automatik.abgelehnt.adressat": [
+  "Dafür bin ich nicht zuständig.",
+  "Das ist nicht mein Posten."
+ ],
+ "bot.automatik.abgelehnt.quelle": [
+  "Auf diesem Weg nehme ich den Befehl nicht an.",
+  "Diese Eingabe gilt bei mir nicht."
+ ],
+ "bot.automatik.abgelehnt.argument": [
+  "Die Angabe passt nicht, Käpt'n.",
+  "Damit kann ich nichts anfangen."
+ ],
+ "bot.automatik.abgelehnt.phase": [
+  "Gerade läuft keine Fahrt.",
+  "Ohne laufende Fahrt gibt es nichts zu befehlen."
+ ],
+ "bot.automatik.abgelehnt.rate": [
+  "Eins nach dem anderen, Käpt'n.",
+  "Langsam, ich komme nicht mit."
+ ],
+ "bot.automatik.unmoeglich.kein_bot": [
+  "Dafür ist niemand an Bord.",
+  "Der Posten ist nicht besetzt."
+ ],
  "bot.unklar": [
   "Bitte wiederholen, Käpt'n.",
   "Das habe ich nicht verstanden."
+ ],
+ "nav.kurs.abgelehnt.nicht_jetzt": [
+  "Im Moment nicht möglich, Käpt'n.",
+  "Die Lage lässt das jetzt nicht zu."
+ ],
+ "nav.kurs.abgelehnt.fehler": [
+  "Das klappt gerade nicht.",
+  "Da hakt es gerade, Käpt'n."
+ ],
+ "nav.stopp.abgelehnt.nicht_jetzt": [
+  "Im Moment nicht möglich, Käpt'n.",
+  "Die Lage lässt das jetzt nicht zu."
+ ],
+ "nav.stopp.abgelehnt.fehler": [
+  "Das klappt gerade nicht.",
+  "Da hakt es gerade, Käpt'n."
+ ],
+ "nav.schub.abgelehnt.nicht_jetzt": [
+  "Im Moment nicht möglich, Käpt'n.",
+  "Die Lage lässt das jetzt nicht zu."
+ ],
+ "nav.schub.abgelehnt.fehler": [
+  "Das klappt gerade nicht.",
+  "Da hakt es gerade, Käpt'n."
+ ],
+ "nav.ausweichen.abgelehnt.nicht_jetzt": [
+  "Im Moment nicht möglich, Käpt'n.",
+  "Die Lage lässt das jetzt nicht zu."
+ ],
+ "nav.ausweichen.abgelehnt.fehler": [
+  "Das klappt gerade nicht.",
+  "Da hakt es gerade, Käpt'n."
+ ],
+ "nav.abstand.abgelehnt.nicht_jetzt": [
+  "Im Moment nicht möglich, Käpt'n.",
+  "Die Lage lässt das jetzt nicht zu."
+ ],
+ "nav.abstand.abgelehnt.fehler": [
+  "Das klappt gerade nicht.",
+  "Da hakt es gerade, Käpt'n."
+ ],
+ "nav.andocken.abgelehnt.kein_ziel": [
+  "Es ist kein Ziel markiert.",
+  "Mir fehlt ein Ziel, Käpt'n."
+ ],
+ "nav.andocken.abgelehnt.nicht_jetzt": [
+  "Im Moment nicht möglich, Käpt'n.",
+  "Die Lage lässt das jetzt nicht zu."
+ ],
+ "nav.andocken.abgelehnt.fehler": [
+  "Das klappt gerade nicht.",
+  "Da hakt es gerade, Käpt'n."
+ ],
+ "nav.sprung.abgelehnt.kein_ziel": [
+  "Es ist kein Ziel markiert.",
+  "Mir fehlt ein Ziel, Käpt'n."
+ ],
+ "nav.sprung.abgelehnt.nicht_jetzt": [
+  "Im Moment nicht möglich, Käpt'n.",
+  "Die Lage lässt das jetzt nicht zu."
+ ],
+ "nav.sprung.abgelehnt.fehler": [
+  "Das klappt gerade nicht.",
+  "Da hakt es gerade, Käpt'n."
+ ],
+ "ops.ziel.abgelehnt.nicht_jetzt": [
+  "Dafür ist jetzt nicht die Lage, Käpt'n.",
+  "Geht gerade nicht, das passt nicht zur Lage."
+ ],
+ "ops.ziel.abgelehnt.fehler": [
+  "Das klappt gerade nicht.",
+  "Da hakt es gerade, Käpt'n."
+ ],
+ "ops.feuer_frei.abgelehnt.nicht_jetzt": [
+  "Dafür ist jetzt nicht die Lage, Käpt'n.",
+  "Geht gerade nicht, das passt nicht zur Lage."
+ ],
+ "ops.feuer_frei.abgelehnt.fehler": [
+  "Das klappt gerade nicht.",
+  "Da hakt es gerade, Käpt'n."
+ ],
+ "ops.feuer_halt.abgelehnt.nicht_jetzt": [
+  "Dafür ist jetzt nicht die Lage, Käpt'n.",
+  "Geht gerade nicht, das passt nicht zur Lage."
+ ],
+ "ops.feuer_halt.abgelehnt.fehler": [
+  "Das klappt gerade nicht.",
+  "Da hakt es gerade, Käpt'n."
+ ],
+ "ops.scan.abgelehnt.nicht_jetzt": [
+  "Dafür ist jetzt nicht die Lage, Käpt'n.",
+  "Geht gerade nicht, das passt nicht zur Lage."
+ ],
+ "ops.scan.abgelehnt.fehler": [
+  "Das klappt gerade nicht.",
+  "Da hakt es gerade, Käpt'n."
+ ],
+ "ops.landescan.abgelehnt.nicht_jetzt": [
+  "Dafür ist jetzt nicht die Lage, Käpt'n.",
+  "Geht gerade nicht, das passt nicht zur Lage."
+ ],
+ "ops.landescan.abgelehnt.fehler": [
+  "Das klappt gerade nicht.",
+  "Da hakt es gerade, Käpt'n."
+ ],
+ "ops.beamen.abgelehnt.nicht_jetzt": [
+  "Dafür ist jetzt nicht die Lage, Käpt'n.",
+  "Geht gerade nicht, das passt nicht zur Lage."
+ ],
+ "ops.beamen.abgelehnt.fehler": [
+  "Das klappt gerade nicht.",
+  "Da hakt es gerade, Käpt'n."
+ ],
+ "tech.prio.abgelehnt.nicht_jetzt": [
+  "In dieser Lage nicht machbar.",
+  "Jetzt gerade nicht, Käpt'n."
+ ],
+ "tech.prio.abgelehnt.fehler": [
+  "Das klappt gerade nicht.",
+  "Da hakt es gerade, Käpt'n."
+ ],
+ "tech.reparieren.abgelehnt.nicht_jetzt": [
+  "In dieser Lage nicht machbar.",
+  "Jetzt gerade nicht, Käpt'n."
+ ],
+ "tech.reparieren.abgelehnt.fehler": [
+  "Das klappt gerade nicht.",
+  "Da hakt es gerade, Käpt'n."
+ ],
+ "tech.schild.abgelehnt.nicht_jetzt": [
+  "In dieser Lage nicht machbar.",
+  "Jetzt gerade nicht, Käpt'n."
+ ],
+ "tech.schild.abgelehnt.fehler": [
+  "Das klappt gerade nicht.",
+  "Da hakt es gerade, Käpt'n."
+ ],
+ "tech.energie.abgelehnt.nicht_jetzt": [
+  "In dieser Lage nicht machbar.",
+  "Jetzt gerade nicht, Käpt'n."
+ ],
+ "tech.energie.abgelehnt.fehler": [
+  "Das klappt gerade nicht.",
+  "Da hakt es gerade, Käpt'n."
+ ],
+ "tech.ueberladen.abgelehnt.nicht_jetzt": [
+  "In dieser Lage nicht machbar.",
+  "Jetzt gerade nicht, Käpt'n."
+ ],
+ "tech.ueberladen.abgelehnt.fehler": [
+  "Das klappt gerade nicht.",
+  "Da hakt es gerade, Käpt'n."
+ ],
+ "bord.rueckholen.abgelehnt.nicht_jetzt": [
+  "Das geht in dieser Lage nicht.",
+  "Jetzt nicht, Käpt'n, die Lage gibt es nicht her."
+ ],
+ "bord.rueckholen.abgelehnt.fehler": [
+  "Das klappt gerade nicht.",
+  "Da hakt es gerade, Käpt'n."
+ ],
+ "bord.sensor.abgelehnt.nicht_jetzt": [
+  "Das geht in dieser Lage nicht.",
+  "Jetzt nicht, Käpt'n, die Lage gibt es nicht her."
+ ],
+ "bord.sensor.abgelehnt.fehler": [
+  "Das klappt gerade nicht.",
+  "Da hakt es gerade, Käpt'n."
+ ],
+ "bord.kuppel.abgelehnt.nicht_jetzt": [
+  "Das geht in dieser Lage nicht.",
+  "Jetzt nicht, Käpt'n, die Lage gibt es nicht her."
+ ],
+ "bord.kuppel.abgelehnt.fehler": [
+  "Das klappt gerade nicht.",
+  "Da hakt es gerade, Käpt'n."
+ ],
+ "bot.status.abgelehnt.fehler": [
+  "Das klappt gerade nicht.",
+  "Da hakt es gerade, Käpt'n."
+ ],
+ "bot.automatik.abgelehnt.fehler": [
+  "Das klappt gerade nicht.",
+  "Da hakt es gerade, Käpt'n."
  ]
 }

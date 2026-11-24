@@ -7,6 +7,7 @@ const Locations = require('../../shared/locations.js');
 const W = require('../world.js');
 const interior = require('./interior.js');
 const Station = require('./station.js');   // R1 §4.4
+const Crew = require('./crew.js');   // BOT-01 C1: Bots zaehlen nicht als Mensch an Bord
 const combat = require('./combat.js');
 const squad = require('./squad.js');
 const { bfs, lineOfSight, dist, makeRng } = require('../util.js');
@@ -491,7 +492,7 @@ function update(game, dt) {
   if (game.time >= away.kuppelUntil) away.kuppelHp = 0;
   if (!away.active) return;
   const awayPlayers = game.players.filter((p) => p.zone === 'away' && !p.downed);
-  const humansAboard = game.players.some((p) => p.zone === 'ship' && p.connected);
+  const humansAboard = game.players.some((p) => p.zone === 'ship' && p.connected && !Crew.istBot(p));
   if (away.map === 'platform' && !away.kustodenpult.disabled && !away.odaCodeHelp && awayPlayers.length && !humansAboard) {
     away.noHumanT += dt;
     if (away.noHumanT >= C.away.odaCodeHelpDelay) {
