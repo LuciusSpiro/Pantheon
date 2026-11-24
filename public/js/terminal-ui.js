@@ -328,7 +328,7 @@
   const brettKarte = (BR, id) => (BR && (BR.angebote.find((k) => k.id === id) || BR.angebote[0])) || null;   // gewähltes Angebot, sonst das erste
   const brettKannAntworten = (BR) => !s.zusehen && !!BR && BR.angebote.length > 0 && !wartetJetzt();
   function brettAnnehmen(view, BR, id) {
-    if (!brettKannAntworten(BR) || !BR.ok || BR.laufend || !id) return;
+    if (!brettKannAntworten(BR) || !BR.ok || BR.voll || !id) return;   // SPT-02 3: gesperrt erst bei erreichter Grenze (laufend_max aus dem Block), nicht schon beim ersten laufenden Abenteuer
     if (Brett.annehmen((m) => view.send(m), id)) warten();
   }
   function brettAblehnen(view, BR, id) {
@@ -343,23 +343,23 @@
   function brettNummer(BR, nr) { if (s.zusehen || !BR || !BR.angebote[nr - 1]) return; s.brettId = BR.angebote[nr - 1].id; s.antwort = null; }
   // Modell des Bereichs für T.zeichneBrett; a.brett = gewählte Id (bei Zuschauern die des Nutzers). Zeile 1 der Infozeile: Absage des Servers (gelb) vor ANGENOMMEN (mint, aus dem Snapshot)
   function brettBauen(view, m, L, a, bedienbar, wartet, ant) {
-    const BR = brett(), TX = BT(), gew = brettKarte(BR, a.brett), lauf = BR.laufend, frei = bedienbar && !wartet;
+    const BR = brett(), TX = BT(), gew = brettKarte(BR, a.brett), lauf = BR.laufend, voll = BR.voll, frei = bedienbar && !wartet;
     m.bereich = 'brett';
     m.kopf = { ort: L.ort, art: 'hafen', marken: L.marks };
     m.brett = {
       titel: BR.kopf || TX.bereich, laufend: lauf, gewaehlt: gew ? gew.id : null, geruechte: BR.geruechte, leerText: '',
-      hilfe: bedienbar && gew ? window.PultAuftrag.text(lauf || !BR.ok ? 'hilfeGesperrt' : 'hilfe', { wahl: T.kappe('terminal.teil', '↑↓'), an: T.kappe('terminal.brettAnnehmen', 'Enter'), ab: T.kappe('terminal.brettAblehnen', 'X') }) : '',   // Annehmen gesperrt (läuft schon, kein Spielleiter): „Ent annehmen“ entfällt, „Ablehnen kostet nichts“ bleibt sichtbar
+      hilfe: bedienbar && gew ? window.PultAuftrag.text(voll || !BR.ok ? 'hilfeGesperrt' : 'hilfe', { wahl: T.kappe('terminal.teil', '↑↓'), an: T.kappe('terminal.brettAnnehmen', 'Enter'), ab: T.kappe('terminal.brettAblehnen', 'X') }) : '',   // Annehmen gesperrt (läuft schon, kein Spielleiter): „Ent annehmen“ entfällt, „Ablehnen kostet nichts“ bleibt sichtbar
       scheitern: BR.scheitern,
       angebote: BR.angebote.map((k, i) => Object.assign({}, k, { nr: i + 1, kappe: T.kappe('terminal.brett' + (i + 1), String(i + 1)), onClick: bedienbar ? () => { s.brettId = k.id; s.antwort = null; } : null })),
-      info: ant && !ant.ok ? { grund: ant.text } : Brett.frisch(lauf) ? { angenommen: lauf.titel } : null,
+      info: ant && !ant.ok ? { grund: ant.text } : Brett.frischeVon(lauf) ? { angenommen: Brett.frischeVon(lauf).titel } : null,
     };
     m.schnitt = null; m.kreuz = { plaetze: plaetzeModell(L), gesperrt: true, grund: 'Zur Werft: ' + T.kappe('terminal.werft', 'W'), onPlatz: bedienbar ? (p) => waehlePlatz(view, p) : null };
     m.module = { module: moduleModell(L), gesperrt: true, energie: energieText(L), onModul: bedienbar ? (r) => waehleRaum(view, r) : null };
-    const grundAnnehmen = !bedienbar || wartet ? null : lauf ? window.PultAuftrag.text('gesperrtGrund', { titel: lauf.titel }) : !BR.ok ? Brett.antwortText('kein_spielleiter') : !gew ? Brett.antwortText('kein_angebot') : null;
-    const kann = frei && !!gew && !lauf && BR.ok;
+    const grundAnnehmen = !bedienbar || wartet ? null : voll ? window.PultAuftrag.text('gesperrtGrund') : !BR.ok ? Brett.antwortText('kein_spielleiter') : !gew ? Brett.antwortText('kein_angebot') : null;
+    const kann = frei && !!gew && !voll && BR.ok;
     m.aktionen = {
       haupt: { art: 'brettAnnehmen', text: TX.annehmen, disabled: !kann, grund: grundAnnehmen, onClick: () => brettAnnehmen(view, BR, gew && gew.id) },
-      hinweis: s.zusehen ? { text: 'Du siehst zu · Esc zurück', fn: 'dim' } : lauf ? { text: TX.gesperrt, fn: 'warn' } : !BR.ok ? { text: Brett.antwortText('kein_spielleiter'), fn: 'warn' } : gew ? { text: BR.ablehnen ? BR.ablehnen.replace(/\.$/, '') : TX.kostetNichts, fn: 'modul' } : { text: '', fn: 'dim' },
+      hinweis: s.zusehen ? { text: 'Du siehst zu · Esc zurück', fn: 'dim' } : voll ? { text: window.PultAuftrag.text('gesperrt', { n: BR.laufendMax }), fn: 'warn' } : !BR.ok ? { text: Brett.antwortText('kein_spielleiter'), fn: 'warn' } : gew ? { text: BR.ablehnen ? BR.ablehnen.replace(/\.$/, '') : TX.kostetNichts, fn: 'modul' } : { text: '', fn: 'dim' },
       ausbau: { label: TX.ablehnen, aktion: 'terminal.brettAblehnen', taste: 'X', kontur: true, disabled: !(frei && !!gew), grund: gew ? null : Brett.antwortText('kein_angebot'), onClick: () => brettAblehnen(view, BR, gew && gew.id) },
       teil: { label: 'Angebot', disabled: BR.angebote.length < 2 || !bedienbar, onClick: () => brettWeiter(view, 1) },
     };

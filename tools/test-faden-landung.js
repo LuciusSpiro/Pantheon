@@ -464,10 +464,9 @@ await section('(h) Abraeumen, zwei Faeden, zwei Beats', async () => {
   hierHin(T);
   const f1 = oeffnen(T.g, '0904', plan('schiff', 'ruhig'));
   beatStarten(T.g, f1);
-  f1.phase = 'abgeschlossen';   // Aufbau: laufend_max ist 1 (ein laufendes Abenteuer), fuer die Probe zaehlt der erste kurz nicht
+  // SPT-01 C: laufend_max ist 3, zwei laufende Abenteuer nebeneinander gehen ohne Umweg (vorher zaehlte der erste kurz als abgeschlossen)
   const f2 = oeffnen(T.g, '0904', plan('station', 'ruhig'));
-  f1.phase = 'laeuft';
-  ok(f1.id !== f2.id, 'Aufbau: zwei Faeden ' + f1.id + ' und ' + f2.id);
+  ok(f2 && f1.phase === 'laeuft' && f1.id !== f2.id, 'Aufbau: zwei Faeden ' + f1.id + ' und ' + f2.id);
   beatStarten(T.g, f2);
   const i1 = AO.idVon('skjaldborg', f1.id, 'absturz'), i2 = AO.idVon('skjaldborg', f2.id, 'absturz');
   await tick(8);

@@ -675,7 +675,7 @@ function fadenLauf(S, seed) {
   return { fehler, szenen, verbuendete };
 }
 
-// ---------- Aufbau 13 (SUND-04b C): Auftragsbrett – 3 Spieler, FAEDEN=1, drei offene Angebote mit den laengsten Plaenen (8 Beats, Gefahr, Wahl, Geruechte, Titel 40 und Anlass 110 Zeichen, je 4 Typen) UND ein laufendes Abenteuer. Gemessen wird jeder
+// ---------- Aufbau 13 (SUND-04b C): Auftragsbrett – 3 Spieler, FAEDEN=1, drei offene Angebote mit den laengsten Plaenen (8 Beats, Gefahr, Wahl, Geruechte, Titel 40 und Anlass 110 Zeichen, je 4 Typen) UND drei laufende Abenteuer (SPT-02 3, laufend_max 3). Gemessen wird jeder
 // Snapshot ueber 400 Ticks mit Taetigkeiten (der Block kommt bei jeder Aenderung neu), dazu die Groesse des Blocks selbst. ----------
 function brettLauf(S, seed) {
   const fs = require('fs'), os = require('os'), path = require('path');
@@ -689,14 +689,16 @@ function brettLauf(S, seed) {
   for (let k = 0; k < 15; k++) g.step();
   const lang = (i) => ({ format: 'faden-bauplan/1', titel: 'Ein sehr langer Titel Nummer ' + i + ' im Hafen von Ostia Nova', anlass: 'Ein langer Anlass, der die Grenze von hundertzehn Zeichen deutlich ueberschreitet und deshalb im Server gekuerzt wird (' + i + ').', beats: [{ typ: 'bitte', verzweigung: { gescheitert: 'e' } }, { typ: 'notruf' }, { typ: 'geruecht' }, { typ: 'spur' }, { typ: 'enthuellung', verzweigung: { gescheitert: 'e' } }, { typ: 'geleit' }, { typ: 'konvoi' }, { typ: 'abschluss', id: 'e' }] });
   let fehler = 0, blockMax = 0, mitBlock = 0;
-  const a0 = Faden.abenteuerAnbieten(g, lang(0), { hex: '0305' });
-  const r0 = a0.ok ? g.handleMessage(cs[0], { t: 'cmd', c: 'abenteuer.annehmen', id: 'a' + a0.angebot.nr }) : null;
-  void r0;
+  // SPT-02 3: laufend_max 3: drei laufende Abenteuer (je ein langer Plan) UND drei offene Angebote
+  for (let i = 0; i < 3; i++) {
+    const a0 = Faden.abenteuerAnbieten(g, lang(i), { hex: '0305' });
+    if (!a0.ok) fehler++; else g.handleMessage(cs[0], { t: 'cmd', c: 'abenteuer.annehmen', id: 'a' + a0.angebot.nr });
+  }
   // FRE-02 B1: jedes Angebot traegt seine Herkunft (Hafen; hier einer der laengsten Namen der Karte, 15 Zeichen): der Block nennt sie als hafen
-  for (let i = 1; i <= 3; i++) { const r = Faden.abenteuerAnbieten(g, lang(i), { hex: '0305' }); if (!r.ok) fehler++; else r.angebot.herkunft = { hex: '0207' }; }
+  for (let i = 3; i <= 5; i++) { const r = Faden.abenteuerAnbieten(g, lang(i), { hex: '0305' }); if (!r.ok) fehler++; else r.angebot.herkunft = { hex: '0207' }; }
   const bm = require('../server/sim/faden-daten.js').WERTE.beats_max;   // der ungünstigste Fall: jedes Angebot mit beats_max Beats (Daten werte.json)
   if (!Faden.zustandVon(g).abenteuerAngebote.every((x) => x.vorlage.beats.length === bm)) fehler++;
-  if (!(Faden.zustandVon(g).abenteuerAngebote.length === 3 && Faden.zustandVon(g).liste.some((f) => f.plan && f.phase !== 'abgeschlossen'))) fehler++;
+  if (!(Faden.zustandVon(g).abenteuerAngebote.length === 3 && Faden.zustandVon(g).liste.filter((f) => f.plan && f.phase !== 'abgeschlossen').length === 3)) fehler++;
   for (let k = 0; k < 400; k++) {
     if (k % 40 === 39) g.lageGrenze('andocken');
     g.step();
@@ -843,5 +845,5 @@ const phasenOk = laeufe.freieFahrt.every((l) => 'vkfsn'.split('').every((p) => l
 if (!phasenOk) console.log('  VERFEHLT: nicht alle Phasen v k f s n der Szenenzeile gemessen');
 const alleOk = phasenOk && res.frachtVoll.ok && laeufe.frachtVoll.every((l) => !l.fehler && l.falle && l.falle.fracht === 16) && res.brett.ok && laeufe.brett.every((l) => !l.total) && res.faden.ok && laeufe.faden.every((l) => !l.fehler && l.szenen === 5 && l.verbuendete === 1) && res.orbit.ok && res.freieFahrt.ok && res.verfolgung.ok && res.finaleOrbit.ok && laeufe.finaleOrbit.every((l) => !l.fehler) && res.worst.ok && res.worstScan.ok && res.worstKreaturen.ok && laeufe.worstKreaturen.every((l) => !l.fehler && l.kreaturen.anzMax >= 6) && res.worstRudel8.ok && res.worstRudel12.ok && res.worstSchwarm20.ok && res.worstSchwarm30.ok && laeufe.worstSchwarm20.every((l) => !l.fehler && l.kreaturen.angelegt === 20) && laeufe.worstSchwarm30.every((l) => !l.fehler && l.kreaturen.angelegt === 30) && laeufe.worstRudel8.every((l) => !l.fehler && l.kreaturen.angelegt === 8) && laeufe.worstRudel12.every((l) => !l.fehler && l.kreaturen.angelegt === 12) && laeufe.worstScan.every((l) => !l.fehler && l.scannende === 4 && l.scEintraege === 16) && res.wellen.ok && res.raum.ok && res.methalle.ok && res.endkampf.ok && res.boden.ok && res.konvoi.ok && res.flotte.ok && laeufe.endkampf.every((l) => l.boss && l.gegner >= 11) && laeufe.boden.every((l) => l.boss && l.gegner >= 11 && l.unten === 4);
 console.log(`
-${alleOk ? 'ok' : 'VERFEHLT'}: Worst Case max ${res.worst.max} B, Worst Case mit 4 Scannenden und 16 Scan-Einträgen max ${res.worstScan.max} B, Worst Case mit vollem Frachtraum (16 Ladungen, Flags) max ${res.frachtVoll.max} B, Worst Case mit 6 Kreaturen max ${res.worstKreaturen.max} B, Worst Case mit Rudel 8 / 12 max ${res.worstRudel8.max} / ${res.worstRudel12.max} B, Worst Case mit Schwarm 20 / 30 plus Königin max ${res.worstSchwarm20.max} / ${res.worstSchwarm30.max} B, Wellenlauf max ${res.wellen.max} B, Raum-Alarm max ${res.raum.max} B, Methalle max ${res.methalle.max} B, Endkampf (10 Gegner + Anführer, 4 Spieler) max ${res.endkampf.max} B, Boden Schrein (10 Wachen + Wächter, 4 Spieler) max ${res.boden.max} B, Konvoi max ${res.konvoi.max} B, Flotte max ${res.flotte.max} B, Orbitschlacht max ${res.orbit.max} B, Freie Fahrt Sund max ${res.freieFahrt.max} B, Faden-Szenen (Konvoi, Geleit, Havarist, Panne, Geleit mit Verbündetem der Spontanhilfe, 3 Spieler) max ${res.faden.max} B, Auftragsbrett (3 Angebote und 1 laufendes, 3 Spieler) max ${res.brett.max} B (Block max ${Math.max(...laeufe.brett.map((l) => l.blockMax))} B), Orbit des Finales max ${res.finaleOrbit.max} B (Ziel ≤ ${ZIEL} B) – ${res.ms} ms`);
+${alleOk ? 'ok' : 'VERFEHLT'}: Worst Case max ${res.worst.max} B, Worst Case mit 4 Scannenden und 16 Scan-Einträgen max ${res.worstScan.max} B, Worst Case mit vollem Frachtraum (16 Ladungen, Flags) max ${res.frachtVoll.max} B, Worst Case mit 6 Kreaturen max ${res.worstKreaturen.max} B, Worst Case mit Rudel 8 / 12 max ${res.worstRudel8.max} / ${res.worstRudel12.max} B, Worst Case mit Schwarm 20 / 30 plus Königin max ${res.worstSchwarm20.max} / ${res.worstSchwarm30.max} B, Wellenlauf max ${res.wellen.max} B, Raum-Alarm max ${res.raum.max} B, Methalle max ${res.methalle.max} B, Endkampf (10 Gegner + Anführer, 4 Spieler) max ${res.endkampf.max} B, Boden Schrein (10 Wachen + Wächter, 4 Spieler) max ${res.boden.max} B, Konvoi max ${res.konvoi.max} B, Flotte max ${res.flotte.max} B, Orbitschlacht max ${res.orbit.max} B, Freie Fahrt Sund max ${res.freieFahrt.max} B, Faden-Szenen (Konvoi, Geleit, Havarist, Panne, Geleit mit Verbündetem der Spontanhilfe, 3 Spieler) max ${res.faden.max} B, Auftragsbrett (3 Angebote und 3 laufende, 3 Spieler) max ${res.brett.max} B (Block max ${Math.max(...laeufe.brett.map((l) => l.blockMax))} B), Orbit des Finales max ${res.finaleOrbit.max} B (Ziel ≤ ${ZIEL} B) – ${res.ms} ms`);
 process.exit(alleOk ? 0 : 1);

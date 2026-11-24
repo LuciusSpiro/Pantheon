@@ -67,7 +67,7 @@
     angebot: FN.nav,              // Messing: Balken links an der Karte, volle Fläche = gewählt, Bereichstitel, Gerücht-Balken
     laeuft: FN.shield,            // Mint: LÄUFT, erledigte Beats, „Ablehnen kostet nichts“, ANGENOMMEN
     beatOffen: ROM.dim,           // Rand eines offenen Beats, hohl (Grafik 6,1:1 auf Kachel; platzZu wäre nur 2,7:1). Fertig = volle Mint-Fläche, jetzt = Mint + Rahmen in text
-    bald: FN.warn,                // Gelb: verfällt bald / Frist läuft ab, „Ein Abenteuer läuft schon“, Absage
+    bald: FN.warn,                // Gelb: verfällt bald / Frist läuft ab, „Es laufen schon {n} Abenteuer“, Absage
     gefahrRot: FN.weapon,         // Bake: rote Streifen (Grafik)
     gefahrHell: PU.hell,          // Bake: helle Streifen (wie die Front-Bake der Karte)
     gefahrText: '#FF6B5E',        // GEFAHR als Text (= PultSysteme zerText, = Notruf-Marke): 5,9:1 Kachel · 7,1:1 Grund
@@ -91,7 +91,9 @@
     liste: { w: 214, luft: 4, karteH: 46, karteHKompakt: 36, balken: 2, innen: 6, titelLuft: 6, kappeLuft: 5, rechtsLuft: 4,
       zeilen: { normal: [5, 18, 31], kompakt: [4, 15, 26] }, max: 3, markenMax: 3, cham: 4 },   // y der drei Textzeilen (Titel, Typ · Ort, Marken) in der Karte; Luft: Titel zur Plakette, Kappe zum Titel, Verfall zum Ort
     spalte: 10,                                  // Abstand Liste → Detail
-    laeuft: { h: 30, luft: 4, balken: 3, beatW: 22, beatH: 6, beatLuft: 2, beatsMaxW: 200, x: 10, y1: 5, y2: 18, rand: 8, titelLuft: 8, fristLuft: 12, beatsLuft: 6, schrittLuft: 4 },   // x/y1/y2: Textspalte und -zeilen im Streifen
+    laeuft: { h: 30, luft: 4, balken: 3, beatW: 22, beatH: 6, beatLuft: 2, beatsMaxW: 200, x: 10, y1: 5, y2: 18, rand: 8, titelLuft: 8, fristLuft: 12, beatsLuft: 6, schrittLuft: 4,   // x/y1/y2: Textspalte und -zeilen im Streifen
+      // SPT-02 3: laufen zwei oder drei Abenteuer, hat jedes eine Zeile (h 10, Lücke 1); drei Zeilen + luft = 34 px = Streifen + Lücke bei einem Abenteuer (30 + 4): die Karten darunter behalten ihren Platz
+      zeile: { h: 10, luft: 1, luftNach: 2, balken: 2, x: 8, y: 1, titelW: 150, beatsX: 164, beatsW: 66, beatWMax: 10, beatH: 4, beatLuft: 1, schrittLuft: 6, rand: 8, fristLuft: 12 } },
     // Detail: Titel + Auftraggeber · Anlass · Typ-Marken + Ort + Verfall · Trenner · GEFAHR · Schritte (links) | Gelingt / Scheitert (rechts)
     // Läuft ein Abenteuer, ist Annehmen gesperrt: Anlass und Folgen kürzen auf eine Zeile (voller Text als Tooltip).
     detail: { schritteW: 178, tickLuft: 3, folgenX: 186, schritteMax: 4, folgeZeilen: 3, folgeZeilenKompakt: 2, anlassZeilen: 2, anlassZeilenKompakt: 1, schritteZeichen: 28,
@@ -128,7 +130,7 @@
     tickHinweis: 'Tick: Szene endet, Crew dockt an, Notruf bewältigt, Strat. Option gewählt/abgelehnt.', tickHinweisLang: 'Ein Tick: Szene endet, Crew dockt an, Notruf bewältigt, Strategische Option gewählt oder abgelehnt.', tickHinweisKurz: 'Tick: Szene, Andocken u. a.',
     schrittVerborgen: '?', schrittVerborgenTip: 'Dieser Schritt wird erst gezeigt, wenn er dran ist.',
     annehmen: 'Annehmen', ablehnen: 'Ablehnen', kostetNichts: 'Ablehnen kostet nichts',
-    gesperrt: 'Ein Abenteuer läuft schon', gesperrtGrund: 'Erst „{titel}“ abschließen',
+    gesperrt: 'Es laufen schon {n} Abenteuer', gesperrtGrund: 'Erst ein laufendes Abenteuer abschließen',
     angenommen: 'Angenommen', angenommenText: 'Die Crew hat „{titel}“ angenommen.',
     geruecht: 'Gerücht', mehrSchritte: '+{n} weitere',
     leerTitel: 'Kein Angebot', leerText: 'Gerade liegt am Brett nichts aus. Nach dem nächsten Tick oder dem nächsten Abenteuer gibt es wieder Angebote.',
@@ -142,10 +144,12 @@
   const isNum = (v) => typeof v === 'number' && isFinite(v);
   function text(vorlage, werte) { return String(TEXT[vorlage] != null ? TEXT[vorlage] : vorlage).replace(/\{(\w+)\}/g, (m, k) => (werte && werte[k] != null ? String(werte[k]) : m)); }
 
-  // Rechtecke. laeuft = true: oben der Laufend-Streifen über die volle Breite, Karten kompakt (36 statt 46)
+  // Rechtecke. laeuft = Zahl der laufenden Abenteuer (true = 1, false = 0): bei einem oben der Laufend-Streifen über die volle Breite (30 px), bei zwei oder drei je eine Zeile (10 px), Karten kompakt (36 statt 46)
   function layout(laeuft) {
-    const B = MASS.bereich, Li = MASS.liste, La = MASS.laeuft;
-    const y0 = laeuft ? B.y + La.h + La.luft : B.y, h0 = B.y + B.h - y0;
+    const B = MASS.bereich, Li = MASS.liste, La = MASS.laeuft, Lz = La.zeile;
+    const n = typeof laeuft === 'number' ? Math.max(0, Math.floor(laeuft)) : laeuft ? 1 : 0;
+    laeuft = n > 0;
+    const lh = n > 1 ? n * Lz.h + (n - 1) * Lz.luft : La.h, y0 = laeuft ? B.y + lh + (n > 1 ? Lz.luftNach : La.luft) : B.y, h0 = B.y + B.h - y0;
     const kh = laeuft ? Li.karteHKompakt : Li.karteH;
     const liste = [0, 1, 2].map((i) => ({ x: B.x, y: y0 + i * (kh + Li.luft), w: Li.w, h: kh }));
     const dx = B.x + Li.w + MASS.spalte, dw = B.x + B.w - dx, z = MASS.zeile, D = MASS.detail;
@@ -169,7 +173,7 @@
     const detail = { x: dx, y: y0, w: dw, h: h0, unten, titel, anlass, ort, trenner, gefahr, schritte, tick, gelingt, scheitert };
     return {
       bereich: B, titel: { x: B.x, y: MASS.titelY, w: B.w, h: z }, liste, karteH: kh, detail,
-      laeuft: laeuft ? { x: B.x, y: B.y, w: B.w, h: La.h } : null,
+      laeuft: laeuft ? { x: B.x, y: B.y, w: B.w, h: lh, n } : null,
       info: MASS.info, knopf: MASS.knopf,
     };
   }

@@ -352,18 +352,24 @@ const springe = (g, hex) => Sprung.springeNach(g, Sektoren.ortVonHex(hex));
     ok(notrufAng(g2).every((a) => R(g2).offen.some((o) => o.marke === a.notruf.marke)) && notrufAng(g2).length === R(g2).offen.length, 'nach dem Laden entstehen neue Notrufe wieder mit Angebot (' + notrufAng(g2).length + ')');
   });
 
-  await section('Annehmen bei laufendem Abenteuer meldet klar (laeuft_schon), Angebot und Eintrag bleiben', () => {
+  await section('Annehmen bei drei laufenden Abenteuern meldet klar (laeuft_schon), Angebot und Eintrag bleiben', () => {
     const t = spiel(), g = t.g;
     ohneFlotten(g);
     setzeHex(g, '0305');
     g.missionEvent('docked', {});
     const r0 = Brett.annehmen(g, 'a' + regAng(g)[0].nr);
     ok(r0 === null && P.abenteuerLaufend(Fz(g)) === 1, 'ein Andock-Angebot ist angenommen: ein Abenteuer laeuft');
+    // SPT-01 C: laufend_max ist 3, erst bei drei laufenden Abenteuern (und damit drei aktiven Faeden) meldet das Annehmen laeuft_schon
+    for (const i of [2, 3]) {
+      const pl = { format: 'faden-bauplan/1', titel: 'Auftrag Nummer ' + i, anlass: 'Ein Test ohne Namen fuer das Brett.', beats: [{ typ: 'geruecht' }, { typ: 'abschluss' }], volk_erlaubt: ['rom'] };
+      const ra = Faden.abenteuerAnbieten(g, pl, { hex: Sektoren.hexVonOrt(g.ship.scene) });
+      ok(ra.ok && Brett.annehmen(g, 'a' + ra.angebot.nr) === null && P.abenteuerLaufend(Fz(g)) === i, 'ein weiteres Abenteuer ist angenommen: ' + i + ' laufen');
+    }
     nur([NOTRUFE[4].id], () => { R(g).takt = SCHWELLE - 1; g.step(); });
     const a = notrufAng(g)[0];
     const r = a && Brett.annehmen(g, 'a' + a.nr);
     ok(!!a && r && r.code === 'laeuft_schon' && typeof r.text === 'string' && r.text.length > 3, 'Notruf-Angebot annehmen: ' + (r && r.code) + ' ("' + (r && r.text) + '")');
-    ok(notrufAng(g).includes(a) && R(g).offen.length === 1 && P.abenteuerLaufend(Fz(g)) === 1, 'das Angebot und der Eintrag bleiben, es laeuft weiter genau ein Abenteuer');
+    ok(notrufAng(g).includes(a) && R(g).offen.length === 1 && P.abenteuerLaufend(Fz(g)) === 3, 'das Angebot und der Eintrag bleiben, es laufen weiter genau drei Abenteuer');
   });
 
   await section('Alter Hook (faden.ausgangMitPerson): fuer Takt-Notrufe entfallen, fuer Notrufe je Sprung unveraendert (Lage-Spielleiter)', () => {

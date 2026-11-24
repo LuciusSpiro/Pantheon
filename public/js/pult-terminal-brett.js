@@ -5,7 +5,7 @@
 // Hängt an: Render, Pult, PultTerminal (pult-terminal-tokens.js), PultAuftrag. Keine Farbwerte und keine Maße hier (tools/check-terminal-farben.js, Dateiname enthält „terminal“): nur PultAuftrag.TOKENS (FARBE, MASS).
 // Jede Textzeile ist gekürzt: R.wrap bricht nur an Leerzeichen, ein langes Wort ohne Leerzeichen liefe sonst über den Rand (umbr kappt jede Zeile mit kuerzen).
 //
-//   PultTerminal.zeichneBrett(ctx, b)          b: { titel, hilfe, laufend: Brett-laufend | null, gewaehlt: id, angebote: [Angebot + { nr, kappe, onClick }], geruechte, scheitern, leerText, info: { grund } | { angenommen: titel } | null }
+//   PultTerminal.zeichneBrett(ctx, b)          b: { titel, hilfe, laufend: [Brett-laufend] (Liste; ein einzelnes Objekt oder null gilt auch), gewaehlt: id, angebote: [Angebot + { nr, kappe, onClick }], geruechte, scheitern, leerText, info: { grund } | { angenommen: titel } | null }
 //   PultTerminal.zeichneAbenteuerHud(ctx, y, l)  l: Brett-laufend + { neu } (eben angenommen); gibt die Unterkante zurück
 (function () {
   'use strict';
@@ -236,6 +236,24 @@
     if (l.gefahr) { bake(c, x, y2 - UEBER, M.bakeKlein.w, M.bakeKlein.h, M.bakeKlein.schritt); x += M.bakeKlein.w + M.bakeKlein.luft; }
     txt(c, kuerzen(l.schritt_text || '', r.x + r.w - LA.rand - x), x, y2 - UEBER, FA.text);
   }
+  // SPT-02 3: zwei oder drei laufende Abenteuer: je eine Zeile (Titel, Beats, Schritt, Frist), mint Balken links; die eine Streifen-Darstellung (zwei Zeilen) gilt nur bei einem
+  function laeuftZeile(c, r, l) {
+    const Z = LA.zeile, wartet = l.ph !== 'laeuft', y = r.y + Z.y;
+    rect(c, r.x, r.y, r.w, r.h, FA.kachel); rect(c, r.x, r.y, Z.balken, r.h, FA.laeuft);
+    const v = A.verfall(l.rest), fe = r.x + r.w - Z.rand;
+    const fr = wartet ? A.beginnt(l.rest) : v.n <= 1 ? '! ' + A.text('fristBald') : A.text('frist', { n: v.n });
+    txt(c, fr, fe, y, wartet ? FA.dim : v.bald ? FA.bald : FA.text, { align: 'right' });
+    const x0 = r.x + Z.x;
+    txt(c, kuerzen(l.titel, Z.titelW), x0, y, FA.text);
+    const b = A.beats(l.schritt, l.schritte_gesamt), bw = Math.min(Z.beatWMax, Math.floor((Z.beatsW - (b.length - 1) * Z.beatLuft) / b.length)), by = r.y + Math.floor((r.h - Z.beatH) / 2);
+    let x = r.x + Z.beatsX; b.forEach((s) => {
+      if (s === 'fertig' || (s === 'jetzt' && !wartet)) rect(c, x, by, bw, Z.beatH, FA.laeuft); else rand(c, x, by, bw, Z.beatH, s === 'jetzt' ? FA.text : FA.beatOffen);
+      x += bw + Z.beatLuft;
+    });
+    x = r.x + Z.beatsX + Z.beatsW + Z.schrittLuft;
+    if (l.gefahr) { bake(c, x, y + 1, M.bakeKlein.w, M.bakeKlein.h, M.bakeKlein.schritt); x += M.bakeKlein.w + M.bakeKlein.luft; }
+    txt(c, kuerzen(l.schritt_text || '', fe - tw(fr) - Z.fristLuft - x), x, y, FA.text);
+  }
   function leer(c, B, b) {
     const E = M.leer; P.cham(c, B.x, B.y, B.w, E.h, FA.kachelZu, 0, 0, E.cham, 0); rect(c, B.x, B.y, E.balken, E.h, FA.leerBalken);
     txt(c, A.text('leerTitel'), B.x + E.x, B.y + E.titelY, FA.text, titelO);
@@ -260,10 +278,11 @@
   }
 
   function zeichneBrett(c, b) {
-    const an = (b.angebote || []).slice(0, LI.max), lauf = !!b.laufend, L = A.layout(lauf), B = L.bereich;
+    const an = (b.angebote || []).slice(0, LI.max), ls = Array.isArray(b.laufend) ? b.laufend : b.laufend ? [b.laufend] : [], lauf = ls.length > 0, L = A.layout(ls.length), B = L.bereich;
     txt(c, b.titel || A.text('bereich'), B.x, L.titel.y, FA.angebot, titelO);
     if (an.length && b.hilfe) txt(c, b.hilfe, B.x + B.w, L.titel.y, FA.dim, { align: 'right' });   // ohne Angebot keine Tastenzeile
-    if (lauf) laeuftStreifen(c, L.laeuft, b.laufend);
+    if (ls.length === 1) laeuftStreifen(c, L.laeuft, ls[0]);
+    else ls.forEach((l, i) => laeuftZeile(c, { x: L.laeuft.x, y: L.laeuft.y + i * (LA.zeile.h + LA.zeile.luft), w: L.laeuft.w, h: LA.zeile.h }, l));
     if (!an.length) leer(c, lauf ? { x: B.x, y: L.liste[0].y, w: B.w } : B, b);
     else {
       an.forEach((a, i) => karte(c, L.liste[i], a, a.id === b.gewaehlt, lauf));
