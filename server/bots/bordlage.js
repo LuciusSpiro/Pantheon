@@ -11,9 +11,11 @@
 //   supportSperre(game, kind)     null oder 'abklingzeit' (game.support.sensor/kuppel) | 'wirkung' (Kuppel noch aktiv)
 //   gesundheit(game, p)           Anteil 0..1: auf v2-Karten die Schildsegmente (p.shield), sonst p.hp
 //   kuppelNoetig(game)            ein aufrechter Mensch unten unter 50 % Gesundheit (die Automatik setzt die Kuppel nur zusammen mit gegnerAktiv, mannschaft.js bordWegWaehlen)
+//   landescanOffen(game)          BOT-02 B3: der gewaehlte Landepunkt (game.transferZiel) ist noch nicht gescannt und der Scan laeuft oder ist jetzt moeglich (Landepunkt in Scanreichweite, lpscan.ziele): die EINE Frage fuer den Auto-Scan des Ops-Bots und den Scan-Vorlauf des Bord-Bots
 //   gegnerAktiv(game)             unten sind Gegner aktiv: ein Trupp ist alarmiert oder eine wache Drohne ist nah (NAH_PX) an einem aufrechten Menschen unten
 const Station = require('../sim/station.js');
 const Combat = require('../sim/combat.js');
+const Lpscan = require('../sim/lpscan.js');
 
 const NAH_PX = 480;   // eine wache Drohne in diesem Abstand (15 Kacheln) zu einem aufrechten Menschen zaehlt als aktiver Gegner, auch ohne Alarm des Trupps
 const KUPPEL_SCHWELLE = 0.5;
@@ -63,4 +65,11 @@ function gegnerAktiv(game) {
   return alarm || lebend.some((e) => stehend.some((p) => Math.hypot(e.x - p.x, e.y - p.y) <= NAH_PX));
 }
 
-module.exports = { NAH_PX, KUPPEL_SCHWELLE, untenMenschen, allesDowned, rueckholZiel, rueckholSperre, rueckholAutomatik, anyAway, captainBelegt, supportSperre, gesundheit, kuppelNoetig, gegnerAktiv };
+// BOT-02 B3: nur lesen. Gescannt (auch Handkarten) oder nicht scannbar (zu weit, ohne Beam-Punkt, angedockt): nicht offen; ein laufender Scan gilt als offen, solange sein Landepunkt noch nicht gescannt ist
+function landescanOffen(game) {
+  const z = game.transferZiel;
+  if (!z || !z.lp || Lpscan.gescannt(game, z.lp)) return false;
+  return !!game.lpscan || Lpscan.ziele(game).some((l) => l.id === z.lp);
+}
+
+module.exports = { NAH_PX, landescanOffen, KUPPEL_SCHWELLE, untenMenschen, allesDowned, rueckholZiel, rueckholSperre, rueckholAutomatik, anyAway, captainBelegt, supportSperre, gesundheit, kuppelNoetig, gegnerAktiv };

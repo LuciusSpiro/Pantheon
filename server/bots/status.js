@@ -46,6 +46,9 @@ const technik = (g, a) => {
 // B2-Nacharbeit: der Text zeigt die Lage ehrlich: bei gesperrter Rueckholung (Abklingzeit, Transfer aus) sagt er das, und auf v2-Karten (das Spiel regelt die Rueckholung der liegenden Mannschaft) meldet er nur den Ist-Zustand
 function bordText(game, agent, a) {
   const b = agent.bord;
+  if (agent.vorTun === 'scan') return 'Scanne den Landepunkt.';   // BOT-02 B3: Vorlauf, vor dem Gang zum Transfer
+  if (agent.vorTun === 'stopp') return 'Halte das Schiff an.';
+  if (b.tun === null && agent.lauf.vorlaufLaeuft() && !Lage.anyAway(game)) return a.zustand === 'an_station' ? 'Warte am Transfer auf das Beamen.' : 'Gehe zum Transfer.';
   if (b.tun === 'rueckholen') {
     const sperre = Lage.rueckholSperre(game);
     return sperre === 'transfer' ? 'Transfer ausgefallen, warte auf die Reparatur.' : sperre === 'abklingzeit' ? 'Transfer lädt, warte auf Rückholung.' : 'Hole das Team zurück.';
@@ -60,6 +63,8 @@ function text(game, agent) {
   if (agent.spieler.downed) return 'Bewusstlos, ohne Auftrag.';
   if (agent.spieler.zone !== 'ship') return 'Nicht an Bord, ohne Auftrag.';
   if (agent.bordDienstLaeuft()) return bordText(game, agent, a);
+  if (agent.vorTun === 'scan') return 'Scanne den Landepunkt.';   // BOT-02 B3: Ops-Bot im Vorlauf, Navigations-Bot beim Anhalten
+  if (agent.vorTun === 'stopp') return 'Halte das Schiff an.';
   if (a.zustand === 'wartet') return 'Ein Mitspieler hat die Station, ich warte.';
   if (a.zustand === 'unterwegs') return 'Unterwegs zur Station.';
   const s = agent.rolleBot === 'navigation' ? nav(game, a, a.befehl) : agent.rolleBot === 'ops' ? ops(game, a, a.befehl) : technik(game, a);

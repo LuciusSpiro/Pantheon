@@ -8,6 +8,8 @@
 // BOT-02 B1: Bord-Dienst (Zusatzdienst, siehe lauf.js bordBot/dienstLaeuft): ist ein Mensch im Aussenteam unten oder beamt gerade runter, geht der Bord-Bot zur Transfer-Konsole (Ort, kein Tab) und haelt sie; sein Rollenverhalten ruht, die Station-Automatik
 // springt ein (station.js, ueber weichen.js vertreten). Der Wachposten erlaubt ihm dann genau die Befehle aus BORD_BEFEHLE (Whitelist, keine Praefixe). Ende: kein Mensch mehr unten -> leave und zurueck an die Station. Ein Mensch an der Transfer-Konsole
 // gewinnt (weichen.js): der Dienst ruht (dienstLaeuft false), der Bot geht an seine Station.
+// BOT-02 B3: Vor dem Beamen (Vorlauf, lauf.js vorlaufLaeuft: Landepunkt gewaehlt, Mensch an Bord, noch niemand unten): der Bord-Bot geht schon jetzt zur Transfer-Konsole (Ops-Bot als Bord-Bot scannt zuvor den Landepunkt, Navigations-Bot haelt zuvor das Schiff an);
+// ein anderer Ops-Bot scannt den Landepunkt von seiner Station aus (landescanAuto, wie ein Mensch an Ops, nur wenn der Scan noch fehlt und moeglich ist); der Navigations-Bot haelt das Schiff an und bleibt stehen (stoppFuerBeam, nur Tempo, nie Position).
 // Der Agent sendet alles ueber game.handleMessage(p.conn, msg), nie hello/ready/Loadout und nur Befehle der eigenen Station (erlaubt()). Mensch gewinnt: haelt ein Mensch die Station des Bots, ist der Zustand 'wartet' und der Bot sendet nichts fuer sie.
 // Zustand (Absicht) lebt im Agenten, nie im Spielerobjekt oder Snapshot. Zufall und Mitspieler gehoeren dem Lauf des Games (zufall, kollegen), kein Modulzustand.
 const Protocol = require('../../shared/protocol.js');
@@ -41,6 +43,8 @@ const AUTO_GANG_PAUSE = 40;   // B2-Nacharbeit: Gesamtpause von Sensor und Kuppe
 const WEG_FRIST = 45;   // s: laeuft der Bot so lange zur Captain-Konsole, ohne dass er sendet (Weg versperrt), gibt er auf
 const BORD_BEFEHL_FRIST = 20;   // s: ein Befehl bord.rueckholen, der nicht ausgefuehrt werden kann, verfaellt
 const SENDE_PAUSE = 2;   // s: zwischen zwei Versuchen, transfer.recall zu senden
+const SCAN_PAUSE = 2;   // BOT-02 B3: s zwischen zwei Versuchen, weapons.landescan zu senden (der Scan laeuft 4 s, der Bot haelt ihn nicht, er wartet nur an der Konsole)
+const STOPP_PAUSE = 1.5;   // BOT-02 B3: s zwischen zwei helm.stop (wie kern.js Allstopp)
 const FRIST_FRISCH = 6;   // Ticks: aelterer Snapshot als das zaehlt nicht (Schutz vor einem Rest aus einer frueheren Partie)
 
 class BotMannschaft extends BotKern {
@@ -60,6 +64,8 @@ class BotMannschaft extends BotKern {
     // BOT-02 B2: Zustand des Bord-Dienstes (nur Agent, nie Spielzustand). befehl { art: rueckholen|sensor|kuppel, seit } vom Menschen (Registry befehle/bord.js); weg { art, seit, grund: befehl|auto } = der Bot geht zur Captain-Konsole
     // und sendet captain.support; tun = was der Bot gerade tut (rueckholen | captain | null, fuer bot.status); sensorAuto/kuppelAuto = Zeit des letzten Sensors/der letzten Kuppel (Pausen), autoGang = Beginn des letzten automatischen Gangs (Gesamtpause); nichtVor = nach einem Fehlschlag kein neuer Weg vor dieser Zeit.
     this.bord = { befehl: null, weg: null, tun: null, sensorAuto: -1e9, nichtVor: 0, rueckholAt: 0, kuppelAuto: -1e9, autoGang: -1e9 };
+    this.vorTun = null;   // BOT-02 B3: was der Bot im Vorlauf gerade tut (scan | stopp | null), nur fuer bot.status, je Tick neu
+    this.scanAutoAt = 0;   // BOT-02 B3: fruehestens dann der naechste automatische weapons.landescan
     this.prioSperre = false;   // BOT-01 C2b: waehrend queueRepairs mit gehaltener tech.prio unterdrueckt cmd die Standard-Prioritaeten
   }
   zufall() { return this.rng(); }
@@ -122,6 +128,7 @@ class BotMannschaft extends BotKern {
 
   tick(S) {
     const p = this.me(S); const live = this.spieler;
+    this.vorTun = null;
     if (!p || live.conn !== this.conn || this.game.phase !== 'play' || S.phase !== 'play' || this.game.tick - S.tick > FRIST_FRISCH) return;
     const dienst = this.bordDienstLaeuft();   // lauf.js dienstLaeuft: Mensch unten oder beamt, kein Mensch an der Transfer-Konsole (der gewinnt: der Dienst ruht, der Bot tut seine Rolle)
     if (!dienst) { this.bordBegonnen = false; this.bordLoeschen(); }   // B2: ohne Dienst auch kein Befehl und kein Weg; auch solange ein Mensch den Transfer haelt: beim Wiederbeginn endet das in der Zwischenzeit Gesetzte
@@ -149,6 +156,7 @@ class BotMannschaft extends BotKern {
   bordDienst(S) {
     if (!this.bordBegonnen) { this.alleVerwerfen('bord'); this.bordBegonnen = true; }
     const b = this.bord;
+    if (this.bordVorTransfer(S)) return true;
     const pid = this.bordRueckholBedarf();
     if (pid !== null) b.weg = null;
     else { this.bordWegPruefen(); if (!b.weg) this.bordWegWaehlen(); }
@@ -164,6 +172,41 @@ class BotMannschaft extends BotKern {
     this.zustandSetzen(da ? 'an_station' : 'unterwegs');
     if (da && pid !== null) this.bordRueckholen(pid);
     Ansagen.tick(this.game, this.spieler);   // BOT-02 B4: Ansagen an den Menschen unten (Codefolge, Gegner, Raetselhinweis), eigenes Modul
+    return true;
+  }
+  // BOT-02 B3: im Vorlauf zuerst, was vor dem Beamen zu tun ist, solange der Bord-Bot noch an seiner Station steht: Ops-Bot scannt den Landepunkt (an der Waffenkonsole), Navigations-Bot haelt das Schiff an (am Steuer).
+  // Danach geht er zum Transfer. Haelt ein Mensch die Station, entfaellt der Schritt (der Mensch erledigt es). true = der Bot ist noch dabei.
+  bordVorTransfer(S) {
+    if (!this.lauf.vorlaufLaeuft() || this.menschHaeltStation()) return false;
+    if (this.rolleBot === 'ops' && Lage.landescanOffen(this.game)) {
+      const da = this.enter(S, 'weapons');
+      this.zustandSetzen(da ? 'an_station' : 'unterwegs');
+      this.vorTun = 'scan';
+      if (da) this.landescanAuto();
+      return true;
+    }
+    if (this.rolleBot === 'navigation' && Station.stationOf(this.spieler) === 'helm' && this.stoppFuerBeam(S)) return true;
+    return false;
+  }
+  // Scan des Landepunkts (eine Quelle fuer ops.landescan und den Auto-Scan): Einmal-Aktion, Antwort des Spiels (Text der Ablehnung) oder null = angenommen. Orbit, Reichweite, laufender Scan: das Spiel antwortet.
+  landescanSenden() { return this.einmalig('weapons.landescan'); }
+  // BOT-02 B3: Auto-Scan der Ops im Vorlauf (Standardverhalten wie ein Mensch an Ops): nur an der Waffenkonsole, nur wenn der Scan noch fehlt und moeglich ist (Lage.landescanOffen), nie doppelt (lpscan laeuft, Pause).
+  // true = der Scan steht an oder laeuft (der Bord-Bot wartet dafuer an der Konsole)
+  landescanAuto() {
+    const g = this.game;
+    if (!this.lauf.vorlaufLaeuft() || Station.stationOf(this.spieler) !== 'weapons' || !Lage.landescanOffen(g)) return false;
+    this.vorTun = 'scan';
+    if (!g.lpscan && g.time >= this.scanAutoAt) { this.scanAutoAt = g.time + SCAN_PAUSE; this.landescanSenden(); }
+    return true;
+  }
+  // BOT-02 B3: Schiff anhalten, wenn ein Beam vorbereitet wird (Vorlauf oder ein Mensch beamt runter) und es faehrt: schneller als beamMaxSpeed oder eine Stufe ueber Stopp (helm.stop, auch kern.js Allstopp: Pause);
+  // nur das Tempo, nie die Position (zu weit vom Ziel ist ein Kursbefehl des Menschen). true = das Schiff ist noch nicht ruhig (Allstopp laeuft, Stufe oder Tempo)
+  stoppFuerBeam(S) {
+    const g = this.game; const sh = g.ship;
+    if (!this.lauf.beamVorbereitet() || sh.docked || !sh.helm || Station.stationOf(this.spieler) !== 'helm') return false;
+    if (!sh.helm.autoStop && sh.speed <= g.C.ship.beamMaxSpeed && sh.helm.stage === STOP) return false;
+    this.vorTun = 'stopp';
+    if (!sh.helm.autoStop && (this.memo.stopAt || 0) < S.time) { this.memo.stopAt = S.time + STOPP_PAUSE; this.cmd('helm.stop'); }
     return true;
   }
   // Registry (befehle/bord.js): der Befehl des Menschen als Absicht; ersetzt einen vorherigen. rueckholen geht dem Weg vor (bordDienst bricht einen laufenden Weg ab).
@@ -253,6 +296,7 @@ class BotMannschaft extends BotKern {
       const a = this.absicht.befehl;
       if (a && a.name === 'nav.schub') this.anhalten('aussenteam');
       else if (a) this.befehlVerwerfen('aussenteam');
+      this.stoppFuerBeam(S);   // BOT-02 B3: Beam vorbereitet (Vorlauf/Beamen): das Schiff anhalten und stehen lassen
       this.kursHaltenFuerAussenteam(S); return;
     }
     if (this.absicht.befehl && this.befehlAusfuehren(S)) return;
@@ -260,7 +304,8 @@ class BotMannschaft extends BotKern {
     this.kursHalten(S);
   }
   // Ist irgendwer (Mensch oder Bot) im Aussenteam unten? Dann bleibt das Schiff in Beamreichweite (away.js „Zu weit vom Ziel“).
-  aussenteamUnten() { return this.game.players.some((o) => o.zone === 'away'); }
+  // BOT-02 B3: dazu zaehlt ein vorbereiteter Beam (Vorlauf, Mensch beamt runter): die Steuerung verhaelt sich wie bei Aussenteam unten, Navigationsbefehle (ausser nav.stopp) sind nicht_jetzt
+  aussenteamUnten() { return this.game.players.some((o) => o.zone === 'away') || this.lauf.beamVorbereitet(); }
   // Aussenteam unten: kein Nachsetzen, keine Breitseite; Stufe und Kurs bleiben, nur Ausweichen vor Ladungen und die Randkorrektur
   kursHaltenFuerAussenteam(S) {
     if (this.pilot() === 'maneuver') this.dodgeTele(S);
@@ -275,6 +320,7 @@ class BotMannschaft extends BotKern {
   // und ein laufender Scan (ops.scan); gesendet wird weiter nur ueber cmd (Wachposten), das Feuer filtert feuerErlaubt.
   opsDienst(S, p) {
     this.scanHalten(S);
+    this.landescanAuto();   // BOT-02 B3
     const b = this.absicht.befehl;
     if (b && b.name === 'ops.ziel' && this.zielHalten(S, b)) return;
     this.fight(S, { scan: true });
