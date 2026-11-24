@@ -72,6 +72,8 @@ function active(game) {
   const arena = !!(game.arena && game.arena.kind === 'arena_space');
   // S2 §0.17: erzeugte Missionen (kopf.art 'generiert'|'archiv') fliegen mit der neuen KI (ENGINE liefert mission.flightV2)
   if (!arena && game.mission && typeof game.mission.flightV2 === 'function' && game.mission.flightV2()) return true;
+  // SPT-02 8: Freie Fahrt Sund (Weltsimulation läuft) – Szenenebene-Schalter flightV2.weltsim in den Daten; Kampagne hat kein game.weltsim
+  if (!arena && F.weltsim && game.weltsim) return true;
   return arena ? !!F.arena : !!F.missions;
 }
 // Fliegt dieser Gegner über das Flugmodell?
