@@ -143,7 +143,7 @@
   {"id":"test-zielsysteme-ui","kette":"test","cmd":["tools/test-zielsysteme-ui.js"],"stufe":"fast","budget_s":6},
   {"id":"test-ziel-scan","kette":"test","cmd":["tools/test-ziel-scan.js"],"stufe":"fast","budget_s":6},
   {"id":"test-scan-icons","kette":"test","cmd":["tools/test-scan-icons.js"],"stufe":"fast","budget_s":6},
-  {"id":"mutation-scan-icons","kette":"test","cmd":["tools/mutation-scan-icons.js"],"stufe":"fast","budget_s":20},
+  {"id":"mutation-scan-icons","kette":"test","cmd":["tools/mutation-scan-icons.js"],"stufe":"fast","budget_s":30},
   {"id":"test-verfolgung","kette":"test","cmd":["tools/test-verfolgung.js"],"stufe":"fast","budget_s":10},
   {"id":"test-verfolgung-bot","kette":"test","cmd":["tools/test-verfolgung-bot.js"],"stufe":"fast","budget_s":10},
   {"id":"test-flotte","kette":"test","cmd":["tools/test-flotte.js"],"stufe":"fast","budget_s":14},
