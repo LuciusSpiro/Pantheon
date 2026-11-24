@@ -65,7 +65,7 @@ const DEFAULTS = {
   max: 2, hull: { frachter: 120, karawane: 100, bergungsboot: 70 }, obeyDelay: { pos: 0, neutral: 2, neg: 4 },
   warnAt: [0.75, 0.5, 0.25], aggroOnHit: 10, rebukeCooldown: 30, distressBelow: 0.5, distressFastBelow: 0.3,
   hullPerDamage: 5, tele: { dur: 2 }, empStall: 6, underFireHold: 4, followDist: 200, leash: 480, arriveDist: 130,
-  dockGap: 30, dockSpeed: 35, repairDist: 180, repairSpeed: 40, shieldRadius: 46, hitRadius: 8, spawnDist: 260,
+  dockGap: 30, dockSpeed: 35, repairDist: 180, repairSpeed: 40, shieldRadius: 46, hitRadius: 8, spawnDist: 260, leaveMaxS: 14,
 };
 function cfg(game) {
   const c = (game.C && game.C.escorts) || {};
@@ -578,14 +578,14 @@ function updateLeaving(game, dt) {
     if (e.rt && e.rt.rest != null) continue;   // SYS-01 C2a (Review M1): läuft der Reaktor-Countdown, zieht der Gegner nicht ab; er stirbt dort (gegnertod)
     e.leaveT = (e.leaveT || 0) + dt;
     const m = 90;
-    if (e.leaveT > 14 || e.x < m || e.y < m || e.x > sp.w - m || e.y > sp.h - m) out.push(e);
+    if (e.leaveT > cfg(game).leaveMaxS || e.x < m || e.y < m || e.x > sp.w - m || e.y > sp.h - m) out.push(e);
   }
   if (!out.length) return;
   sp.enemies = sp.enemies.filter((e) => !out.includes(e));
   for (const e of out) {
     if (game.ship.target === e.id) zielsys().zielLoeschen(game);
     game.emit('teleMiss', { id: e.id });
-    if (e.leaveT > 14) Abgang.melde(game, e, 'rueck');   // SPT-02 7: Zeitlimit mitten im Feld: der Gegner loest sich sichtbar auf (am Rand fliegt er sichtbar hinaus)
+    if (e.leaveT > cfg(game).leaveMaxS) Abgang.melde(game, e, 'rueck');   // SPT-02 7: Zeitlimit mitten im Feld: der Gegner loest sich sichtbar auf (am Rand fliegt er sichtbar hinaus)
     game.missionEvent('enemyLeft', { enemy: e });
   }
   if (!sp.enemies.length) game.oda('Sie drehen ab – Kontakt verloren.', null);

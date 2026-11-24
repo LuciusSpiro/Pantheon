@@ -199,7 +199,8 @@ function breitseite(game, e, c, dt) {
     const segI = lay ? Schilde.segmentOf(lay, e.x, e.y, e.angle, L.x, L.y) : sec;
     const mine = e.shields ? e.shields[segI] : 0;
     const theirs = e.shields && other != null ? (lay ? Schilde.seitenMax(lay, e.shields, other) : e.shields[other]) : 0;
-    const weak = other != null && e.shields && mine <= 1 && theirs >= mine + 2;
+    // (ein Waffenausfall hat Vorrang: solange ws gilt, richtet ihn unten hd aus – die Schwachschild-Regel würde sonst dieselbe Seite wieder zurückdrehen, Umlauf)
+    const weak = ws == null && other != null && e.shields && mine <= 1 && theirs >= mine + 2;
     // SPT-02 9: Seitenwechsel 3: die Waffen der zugewandten Seite sind ausgefallen (alle Plätze dort zerstört), die Gegenseite hat noch eine –
     // nur der tatsächliche Ausfall zählt (nicht die Waffenart: EK1a wechselte nach Bestückung und brach den Escort-Test 'deckt')
     // (steht die Lerche still, dreht das Boot auf seinem Platz: die Ausrichtung folgt unten aus ws, kein Umlauf nötig)

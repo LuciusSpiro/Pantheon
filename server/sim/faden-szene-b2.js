@@ -109,15 +109,14 @@ function aufraeumen(game, fs) {
   if (sp.escorts) sp.escorts = sp.escorts.filter((q) => q.tag !== fs.tag);
   if (sp.escortsGone) sp.escortsGone = sp.escortsGone.filter((q) => q.tag !== fs.tag);
 }
-// SPT-02 7 (E Abgänge): Ende mit Ausgang. Ein kampfunfähiger Schützling (sein Knall liegt länger als KNALL_PAUSE_S zurück, Escort.disable setzt disabledT) geht mit Explosion; ein eben
+// SPT-02 7 (E Abgänge): Ende mit Ausgang. Ein kampfunfähiger Schützling (sein Knall liegt länger als W.knall_pause_s zurück, Escort.disable setzt disabledT) geht mit Explosion; ein eben
 // erst zerstörter hat seinen Knall schon (kein zweiter im selben Atemzug). Sonst wie aufraeumen (Konvoi: Transporter, die noch im Feld sind, bleiben still, die gesprungenen haben ihren Blitz).
-const KNALL_PAUSE_S = 1.5;
 function aufraeumenMitKnall(game, fs) {
   const sp = game.space;
   if (fs.art !== 'konvoi' && sp.escorts) {
     for (const q of sp.escorts) {
       if (q.tag !== fs.tag || !(q.state === 'kampfunfaehig' || q.state === 'zerstoert')) continue;
-      if (game.time - (q.disabledT == null ? -1e9 : q.disabledT) <= KNALL_PAUSE_S) continue;
+      if (game.time - (q.disabledT == null ? -1e9 : q.disabledT) <= W.knall_pause_s) continue;
       game.emit('explosion', { x: Math.round(q.x), y: Math.round(q.y), zone: 'space' });
     }
   }
