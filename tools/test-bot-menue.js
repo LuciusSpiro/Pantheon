@@ -266,9 +266,15 @@ function bauePult(skin, ship) {
     ok(anzahl === sollAnzahl, 'alle Befehle und Werte des Kanons sind per Menü erreichbar (' + anzahl + ' von ' + sollAnzahl + ')');
     ok(x.L.senden.every((m) => m.t === 'bot.befehl' && m.quelle === 'menu' && ['navigation', 'ops', 'technik', 'bord', 'alle'].includes(m.an) && !/sprung/.test(m.befehl)), 'alle Nachrichten: t bot.befehl, quelle menu, an Rolle oder alle, nie nav.sprung');
     ok(Protocol.C.BOT_BEFEHL === 'bot.befehl' && Protocol.C.BOT_ANTWORT === 'bot.antwort', 'Protokollkonstanten BOT_BEFEHL / BOT_ANTWORT');
-    // Zahlen als Zahl (stufe 3), Wörter als Wort
+    // Schubstufen als Wort (BOT-01 D: rueckwaerts, viertel, halb, dreiviertel, voll)
     x.m.oeffnen(); x.m.waehle('Q'); x.m.waehle('E'); x.m.waehle('S');
-    ok(eq(letzte(x.L).args, { stufe: 2 }), 'Schub zwei: stufe als Zahl 2');
+    ok(eq(letzte(x.L).args, { stufe: 'rueckwaerts' }), 'Rückwärts: stufe rueckwaerts');
+    x.m.oeffnen(); x.m.waehle('Q'); x.m.waehle('E'); x.m.waehle('A');
+    ok(eq(letzte(x.L).args, { stufe: 'viertel' }), 'Viertel Kraft: stufe viertel');
+    x.m.oeffnen(); x.m.waehle('Q'); x.m.waehle('E'); x.m.waehle('E');
+    ok(eq(letzte(x.L).args, { stufe: 'halb' }), 'Halbe Kraft: stufe halb');
+    x.m.oeffnen(); x.m.waehle('Q'); x.m.waehle('E'); x.m.waehle('W');
+    ok(eq(letzte(x.L).args, { stufe: 'dreiviertel' }), 'Dreiviertel Kraft: stufe dreiviertel');
     x.m.oeffnen(); x.m.waehle('Q'); x.m.waehle('E'); x.m.waehle('Q');
     ok(eq(letzte(x.L).args, { stufe: 'voll' }), 'Volle Kraft: stufe voll');
     x.m.oeffnen(); x.m.waehle('E'); x.m.waehle('E'); x.m.waehle('W');
@@ -307,10 +313,10 @@ function bauePult(skin, ship) {
   }
   {
     // Werte, die das Schiff nicht hat: leere Felder, Plätze bleiben
-    const x = mk({ crew: [mensch('captain'), bot('navigation'), bot('technik')], wertFrei: (key, id) => !(key === 'nav.schub:stufe' && +id > 4) && id !== 'modul_4' });
+    const x = mk({ crew: [mensch('captain'), bot('navigation'), bot('technik')], wertFrei: (key, id) => !(key === 'nav.schub:stufe' && id === 'rueckwaerts') && id !== 'modul_4' });
     x.m.oeffnen(); x.m.waehle('Q'); x.m.waehle('E');
-    ok(zelle(x.m, 'Y').text === 'Schub vier' && zelle(x.m, 'X').zustand === 'leer' && zelle(x.m, 'C').zustand === 'leer' && zelle(x.m, 'Q').text === 'Volle Kraft voraus', 'Schubstufe über der Höchststufe: leeres Feld, Platz bleibt');
-    ok(x.m.waehle('C').art === 'leer' && x.L.senden.length === 0, 'Taste auf leerem Feld sendet nichts');
+    ok(zelle(x.m, 'A').text === 'Viertel Kraft voraus' && zelle(x.m, 'S').zustand === 'leer' && zelle(x.m, 'Y').zustand === 'leer' && zelle(x.m, 'Q').text === 'Volle Kraft voraus', 'Rückwärtsstufe fehlt dem Schiff: leeres Feld, Platz bleibt');
+    ok(x.m.waehle('S').art === 'leer' && x.L.senden.length === 0, 'Taste auf leerem Feld sendet nichts');
     x.m.schliessen();
     const t = mk({ crew: [mensch('captain'), bot('technik')], wertInfo: (key, id) => (id === 'engines' ? { text: 'besch.', stil: 'besch' } : id === 'reactor' ? { text: 'zer.', stil: 'zer' } : null) });
     t.m.oeffnen(); t.m.waehle('E'); t.m.waehle('A');
@@ -466,9 +472,9 @@ function bauePult(skin, ship) {
     x.m.waehle('E');
     ok(zelle(x.m, 'W').zustand === 'gewaehlt' && zelle(x.m, 'W').info === 'gilt' && zelle(x.m, 'A').zustand === 'bereit', 'Stufe 3: der Wert Bugwaffen gilt');
     x.m.schliessen();
-    // Schub: Titel „Schub drei“
-    x.m.oeffnen(); x.m.waehle('Q'); x.m.waehle('E'); x.m.waehle('D'); x.m.antwort(antwort('b0', 'nav.schub', 'ok'));
-    x.m.oeffnen(); ok(zelle(x.m, 'Q').info === 'Schub drei', 'Schub drei: Sprechform aus dem Kanon-Wort'); x.m.schliessen();
+    // Schub: Titel „Dreiviertel Kraft voraus“
+    x.m.oeffnen(); x.m.waehle('Q'); x.m.waehle('E'); x.m.waehle('W'); x.m.antwort(antwort('b0', 'nav.schub', 'ok'));
+    x.m.oeffnen(); ok(zelle(x.m, 'Q').info === 'Dreiviertel Kraft voraus', 'Dreiviertel: Sprechform aus dem Kanon-Wort'); x.m.schliessen();
     // bot.status ändert nichts, Automatik löscht alles
     x.m.taste('captain.bot.status'); x.m.antwort(antwort('b1', 'bot.status', 'ok')); x.m.antwort(antwort('b0', 'bot.status', 'ok'));
     ok(x.m.giltVon('ops') && x.m.giltVon('navigation'), 'bot.status verändert „gilt“ nicht');

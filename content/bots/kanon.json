@@ -21,15 +21,11 @@
     {
       "befehl": "nav.schub", "an": "navigation", "anzeige": "{stufe}", "args": { "stufe": "{stufe}" }, "kurz": [],
       "werte": { "stufe": {
+        "rueckwaerts": { "wort": "Rückwärts langsam", "kurz": ["Rückwärts", "Maschinen rückwärts"] },
+        "viertel": { "wort": "Viertel Kraft voraus", "kurz": ["Viertel Kraft", "Langsame Fahrt"] },
         "halb": { "wort": "Halbe Kraft voraus", "kurz": ["Halbe Kraft", "Halber Schub"] },
-        "voll": { "wort": "Volle Kraft voraus", "kurz": ["Volle Kraft", "Volldampf"] },
-        "0": { "wort": "Schub null", "kurz": ["Stufe null"] },
-        "1": { "wort": "Schub eins", "kurz": ["Stufe eins"] },
-        "2": { "wort": "Schub zwei", "kurz": ["Stufe zwei"] },
-        "3": { "wort": "Schub drei", "kurz": ["Stufe drei"] },
-        "4": { "wort": "Schub vier", "kurz": ["Stufe vier"] },
-        "5": { "wort": "Schub fünf", "kurz": ["Stufe fünf"] },
-        "6": { "wort": "Schub sechs", "kurz": ["Stufe sechs"] }
+        "dreiviertel": { "wort": "Dreiviertel Kraft voraus", "kurz": ["Dreiviertel Kraft"] },
+        "voll": { "wort": "Volle Kraft voraus", "kurz": ["Volle Kraft", "Volldampf"] }
       } }
     },
     { "befehl": "nav.ausweichen", "an": "navigation", "anzeige": "Ausweichen", "args": {}, "kurz": ["Ausweichmanöver"] },

@@ -21,7 +21,7 @@
   function wertFrei(key, id) {
     const ship = schiff();
     if (!ship) return true;
-    if (key === 'nav.schub:stufe' && /^\d+$/.test(id)) { const hi = K0.helmInfo(ship); return +id <= hi.stages.length - 1 - hi.stop; }   // Schubstufe über der Höchststufe: leeres Feld
+    if (key === 'nav.schub:stufe' && id === 'rueckwaerts') return K0.helmInfo(ship).stop > 0;   // Schiff ohne Rückwärtsstufe: leeres Feld
     let m = /^lafette_(\d)$/.exec(id);
     if (m && K0.waffeAmPlatz) return !!K0.waffeAmPlatz(K0.view, +m[1]);   // Lafette ohne Waffe
     m = /^modul_(\d)$/.exec(id);

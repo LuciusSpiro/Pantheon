@@ -609,785 +609,422 @@
   "form": "Alle Maschinen stopp"
  },
  {
-  "text": "Schub null",
+  "text": "Rückwärts langsam",
   "art": "positiv",
   "erwartet": {
    "befehl": "nav.schub",
    "args": {
-    "stufe": 0
+    "stufe": "rueckwaerts"
    }
   },
-  "form": "Schub null"
+  "form": "Rückwärts langsam"
  },
  {
-  "text": "schub null.",
+  "text": "rückwärts langsam.",
   "art": "positiv",
   "erwartet": {
    "befehl": "nav.schub",
    "args": {
-    "stufe": 0
+    "stufe": "rueckwaerts"
    }
   },
-  "form": "Schub null"
+  "form": "Rückwärts langsam"
  },
  {
-  "text": "Navigation, Schub null",
+  "text": "Navigation, Rückwärts langsam",
   "art": "positiv",
   "erwartet": {
    "befehl": "nav.schub",
    "args": {
-    "stufe": 0
+    "stufe": "rueckwaerts"
    }
   },
-  "form": "Schub null"
+  "form": "Rückwärts langsam"
  },
  {
-  "text": "Bitte Schub null",
+  "text": "Bitte Rückwärts langsam",
   "art": "positiv",
   "erwartet": {
    "befehl": "nav.schub",
    "args": {
-    "stufe": 0
+    "stufe": "rueckwaerts"
    }
   },
-  "form": "Schub null"
+  "form": "Rückwärts langsam"
  },
  {
-  "text": "Schub null bitte",
+  "text": "Rückwärts langsam bitte",
   "art": "positiv",
   "erwartet": {
    "befehl": "nav.schub",
    "args": {
-    "stufe": 0
+    "stufe": "rueckwaerts"
    }
   },
-  "form": "Schub null"
+  "form": "Rückwärts langsam"
  },
  {
-  "text": "Schub null, Navigation",
+  "text": "Rückwärts langsam, Navigation",
   "art": "positiv",
   "erwartet": {
    "befehl": "nav.schub",
    "args": {
-    "stufe": 0
+    "stufe": "rueckwaerts"
    }
   },
-  "form": "Schub null"
+  "form": "Rückwärts langsam"
  },
  {
-  "text": "Navigation, bitte Schub null",
+  "text": "Navigation, bitte Rückwärts langsam",
   "art": "positiv",
   "erwartet": {
    "befehl": "nav.schub",
    "args": {
-    "stufe": 0
+    "stufe": "rueckwaerts"
    }
   },
-  "form": "Schub null"
+  "form": "Rückwärts langsam"
  },
  {
-  "text": "Stufe null",
+  "text": "Rückwärts",
   "art": "positiv",
   "erwartet": {
    "befehl": "nav.schub",
    "args": {
-    "stufe": 0
+    "stufe": "rueckwaerts"
    }
   },
-  "form": "Schub null"
+  "form": "Rückwärts langsam"
  },
  {
-  "text": "stufe null.",
+  "text": "rückwärts.",
   "art": "positiv",
   "erwartet": {
    "befehl": "nav.schub",
    "args": {
-    "stufe": 0
+    "stufe": "rueckwaerts"
    }
   },
-  "form": "Schub null"
+  "form": "Rückwärts langsam"
  },
  {
-  "text": "Navigation, Stufe null",
+  "text": "Navigation, Rückwärts",
   "art": "positiv",
   "erwartet": {
    "befehl": "nav.schub",
    "args": {
-    "stufe": 0
+    "stufe": "rueckwaerts"
    }
   },
-  "form": "Schub null"
+  "form": "Rückwärts langsam"
  },
  {
-  "text": "Schub Nul",
+  "text": "Maschinen rückwärts",
+  "art": "positiv",
+  "erwartet": {
+   "befehl": "nav.schub",
+   "args": {
+    "stufe": "rueckwaerts"
+   }
+  },
+  "form": "Rückwärts langsam"
+ },
+ {
+  "text": "maschinen rückwärts.",
+  "art": "positiv",
+  "erwartet": {
+   "befehl": "nav.schub",
+   "args": {
+    "stufe": "rueckwaerts"
+   }
+  },
+  "form": "Rückwärts langsam"
+ },
+ {
+  "text": "Navigation, Maschinen rückwärts",
+  "art": "positiv",
+  "erwartet": {
+   "befehl": "nav.schub",
+   "args": {
+    "stufe": "rueckwaerts"
+   }
+  },
+  "form": "Rückwärts langsam"
+ },
+ {
+  "text": "Rückwärt langsam",
   "art": "stt-fehler",
   "erwartet": {
    "befehl": "nav.schub",
    "args": {
-    "stufe": 0
+    "stufe": "rueckwaerts"
    }
   },
-  "form": "Schub null"
+  "form": "Rückwärts langsam"
  },
  {
-  "text": "Schub eins",
+  "text": "Rücwkärts langsam",
+  "art": "stt-fehler",
+  "erwartet": {
+   "befehl": "nav.schub",
+   "args": {
+    "stufe": "rueckwaerts"
+   }
+  },
+  "form": "Rückwärts langsam"
+ },
+ {
+  "text": "Rückärts langsam",
+  "art": "stt-fehler",
+  "erwartet": {
+   "befehl": "nav.schub",
+   "args": {
+    "stufe": "rueckwaerts"
+   }
+  },
+  "form": "Rückwärts langsam"
+ },
+ {
+  "text": "Rückwärts langsa",
+  "art": "stt-fehler",
+  "erwartet": {
+   "befehl": "nav.schub",
+   "args": {
+    "stufe": "rueckwaerts"
+   }
+  },
+  "form": "Rückwärts langsam"
+ },
+ {
+  "text": "Rückwärts lagnsam",
+  "art": "stt-fehler",
+  "erwartet": {
+   "befehl": "nav.schub",
+   "args": {
+    "stufe": "rueckwaerts"
+   }
+  },
+  "form": "Rückwärts langsam"
+ },
+ {
+  "text": "Rückwärts lansam",
+  "art": "stt-fehler",
+  "erwartet": {
+   "befehl": "nav.schub",
+   "args": {
+    "stufe": "rueckwaerts"
+   }
+  },
+  "form": "Rückwärts langsam"
+ },
+ {
+  "text": "Rückwärtslangsam",
+  "art": "stt-fehler",
+  "erwartet": {
+   "befehl": "nav.schub",
+   "args": {
+    "stufe": "rueckwaerts"
+   }
+  },
+  "form": "Rückwärts langsam"
+ },
+ {
+  "text": "Viertel Kraft voraus",
   "art": "positiv",
   "erwartet": {
    "befehl": "nav.schub",
    "args": {
-    "stufe": 1
+    "stufe": "viertel"
    }
   },
-  "form": "Schub eins"
+  "form": "Viertel Kraft voraus"
  },
  {
-  "text": "schub eins.",
+  "text": "viertel kraft voraus.",
   "art": "positiv",
   "erwartet": {
    "befehl": "nav.schub",
    "args": {
-    "stufe": 1
+    "stufe": "viertel"
    }
   },
-  "form": "Schub eins"
+  "form": "Viertel Kraft voraus"
  },
  {
-  "text": "Navigation, Schub eins",
+  "text": "Navigation, Viertel Kraft voraus",
   "art": "positiv",
   "erwartet": {
    "befehl": "nav.schub",
    "args": {
-    "stufe": 1
+    "stufe": "viertel"
    }
   },
-  "form": "Schub eins"
+  "form": "Viertel Kraft voraus"
  },
  {
-  "text": "Bitte Schub eins",
+  "text": "Bitte Viertel Kraft voraus",
   "art": "positiv",
   "erwartet": {
    "befehl": "nav.schub",
    "args": {
-    "stufe": 1
+    "stufe": "viertel"
    }
   },
-  "form": "Schub eins"
+  "form": "Viertel Kraft voraus"
  },
  {
-  "text": "Schub eins bitte",
+  "text": "Viertel Kraft voraus bitte",
   "art": "positiv",
   "erwartet": {
    "befehl": "nav.schub",
    "args": {
-    "stufe": 1
+    "stufe": "viertel"
    }
   },
-  "form": "Schub eins"
+  "form": "Viertel Kraft voraus"
  },
  {
-  "text": "Schub eins, Navigation",
+  "text": "Viertel Kraft voraus, Navigation",
   "art": "positiv",
   "erwartet": {
    "befehl": "nav.schub",
    "args": {
-    "stufe": 1
+    "stufe": "viertel"
    }
   },
-  "form": "Schub eins"
+  "form": "Viertel Kraft voraus"
  },
  {
-  "text": "Navigation, bitte Schub eins",
+  "text": "Navigation, bitte Viertel Kraft voraus",
   "art": "positiv",
   "erwartet": {
    "befehl": "nav.schub",
    "args": {
-    "stufe": 1
+    "stufe": "viertel"
    }
   },
-  "form": "Schub eins"
+  "form": "Viertel Kraft voraus"
  },
  {
-  "text": "Stufe eins",
+  "text": "Viertel Kraft",
   "art": "positiv",
   "erwartet": {
    "befehl": "nav.schub",
    "args": {
-    "stufe": 1
+    "stufe": "viertel"
    }
   },
-  "form": "Schub eins"
+  "form": "Viertel Kraft voraus"
  },
  {
-  "text": "stufe eins.",
+  "text": "viertel kraft.",
   "art": "positiv",
   "erwartet": {
    "befehl": "nav.schub",
    "args": {
-    "stufe": 1
+    "stufe": "viertel"
    }
   },
-  "form": "Schub eins"
+  "form": "Viertel Kraft voraus"
  },
  {
-  "text": "Navigation, Stufe eins",
+  "text": "Navigation, Viertel Kraft",
   "art": "positiv",
   "erwartet": {
    "befehl": "nav.schub",
    "args": {
-    "stufe": 1
+    "stufe": "viertel"
    }
   },
-  "form": "Schub eins"
+  "form": "Viertel Kraft voraus"
  },
  {
-  "text": "Schub zwei",
+  "text": "Langsame Fahrt",
   "art": "positiv",
   "erwartet": {
    "befehl": "nav.schub",
    "args": {
-    "stufe": 2
+    "stufe": "viertel"
    }
   },
-  "form": "Schub zwei"
+  "form": "Viertel Kraft voraus"
  },
  {
-  "text": "schub zwei.",
+  "text": "langsame fahrt.",
   "art": "positiv",
   "erwartet": {
    "befehl": "nav.schub",
    "args": {
-    "stufe": 2
+    "stufe": "viertel"
    }
   },
-  "form": "Schub zwei"
+  "form": "Viertel Kraft voraus"
  },
  {
-  "text": "Navigation, Schub zwei",
+  "text": "Navigation, Langsame Fahrt",
   "art": "positiv",
   "erwartet": {
    "befehl": "nav.schub",
    "args": {
-    "stufe": 2
+    "stufe": "viertel"
    }
   },
-  "form": "Schub zwei"
+  "form": "Viertel Kraft voraus"
  },
  {
-  "text": "Bitte Schub zwei",
-  "art": "positiv",
+  "text": "Vierte Kraft voraus",
+  "art": "stt-fehler",
   "erwartet": {
    "befehl": "nav.schub",
    "args": {
-    "stufe": 2
+    "stufe": "viertel"
    }
   },
-  "form": "Schub zwei"
+  "form": "Viertel Kraft voraus"
  },
  {
-  "text": "Schub zwei bitte",
-  "art": "positiv",
+  "text": "Viretel Kraft voraus",
+  "art": "stt-fehler",
   "erwartet": {
    "befehl": "nav.schub",
    "args": {
-    "stufe": 2
+    "stufe": "viertel"
    }
   },
-  "form": "Schub zwei"
+  "form": "Viertel Kraft voraus"
  },
  {
-  "text": "Schub zwei, Navigation",
-  "art": "positiv",
+  "text": "Vietel Kraft voraus",
+  "art": "stt-fehler",
   "erwartet": {
    "befehl": "nav.schub",
    "args": {
-    "stufe": 2
+    "stufe": "viertel"
    }
   },
-  "form": "Schub zwei"
+  "form": "Viertel Kraft voraus"
  },
  {
-  "text": "Navigation, bitte Schub zwei",
-  "art": "positiv",
+  "text": "Viertelkraft voraus",
+  "art": "stt-fehler",
   "erwartet": {
    "befehl": "nav.schub",
    "args": {
-    "stufe": 2
+    "stufe": "viertel"
    }
   },
-  "form": "Schub zwei"
+  "form": "Viertel Kraft voraus"
  },
  {
-  "text": "Stufe zwei",
-  "art": "positiv",
+  "text": "Viertel Kraftvoraus",
+  "art": "stt-fehler",
   "erwartet": {
    "befehl": "nav.schub",
    "args": {
-    "stufe": 2
+    "stufe": "viertel"
    }
   },
-  "form": "Schub zwei"
- },
- {
-  "text": "stufe zwei.",
-  "art": "positiv",
-  "erwartet": {
-   "befehl": "nav.schub",
-   "args": {
-    "stufe": 2
-   }
-  },
-  "form": "Schub zwei"
- },
- {
-  "text": "Navigation, Stufe zwei",
-  "art": "positiv",
-  "erwartet": {
-   "befehl": "nav.schub",
-   "args": {
-    "stufe": 2
-   }
-  },
-  "form": "Schub zwei"
- },
- {
-  "text": "Schub drei",
-  "art": "positiv",
-  "erwartet": {
-   "befehl": "nav.schub",
-   "args": {
-    "stufe": 3
-   }
-  },
-  "form": "Schub drei"
- },
- {
-  "text": "schub drei.",
-  "art": "positiv",
-  "erwartet": {
-   "befehl": "nav.schub",
-   "args": {
-    "stufe": 3
-   }
-  },
-  "form": "Schub drei"
- },
- {
-  "text": "Navigation, Schub drei",
-  "art": "positiv",
-  "erwartet": {
-   "befehl": "nav.schub",
-   "args": {
-    "stufe": 3
-   }
-  },
-  "form": "Schub drei"
- },
- {
-  "text": "Bitte Schub drei",
-  "art": "positiv",
-  "erwartet": {
-   "befehl": "nav.schub",
-   "args": {
-    "stufe": 3
-   }
-  },
-  "form": "Schub drei"
- },
- {
-  "text": "Schub drei bitte",
-  "art": "positiv",
-  "erwartet": {
-   "befehl": "nav.schub",
-   "args": {
-    "stufe": 3
-   }
-  },
-  "form": "Schub drei"
- },
- {
-  "text": "Schub drei, Navigation",
-  "art": "positiv",
-  "erwartet": {
-   "befehl": "nav.schub",
-   "args": {
-    "stufe": 3
-   }
-  },
-  "form": "Schub drei"
- },
- {
-  "text": "Navigation, bitte Schub drei",
-  "art": "positiv",
-  "erwartet": {
-   "befehl": "nav.schub",
-   "args": {
-    "stufe": 3
-   }
-  },
-  "form": "Schub drei"
- },
- {
-  "text": "Stufe drei",
-  "art": "positiv",
-  "erwartet": {
-   "befehl": "nav.schub",
-   "args": {
-    "stufe": 3
-   }
-  },
-  "form": "Schub drei"
- },
- {
-  "text": "stufe drei.",
-  "art": "positiv",
-  "erwartet": {
-   "befehl": "nav.schub",
-   "args": {
-    "stufe": 3
-   }
-  },
-  "form": "Schub drei"
- },
- {
-  "text": "Navigation, Stufe drei",
-  "art": "positiv",
-  "erwartet": {
-   "befehl": "nav.schub",
-   "args": {
-    "stufe": 3
-   }
-  },
-  "form": "Schub drei"
- },
- {
-  "text": "Schub vier",
-  "art": "positiv",
-  "erwartet": {
-   "befehl": "nav.schub",
-   "args": {
-    "stufe": 4
-   }
-  },
-  "form": "Schub vier"
- },
- {
-  "text": "schub vier.",
-  "art": "positiv",
-  "erwartet": {
-   "befehl": "nav.schub",
-   "args": {
-    "stufe": 4
-   }
-  },
-  "form": "Schub vier"
- },
- {
-  "text": "Navigation, Schub vier",
-  "art": "positiv",
-  "erwartet": {
-   "befehl": "nav.schub",
-   "args": {
-    "stufe": 4
-   }
-  },
-  "form": "Schub vier"
- },
- {
-  "text": "Bitte Schub vier",
-  "art": "positiv",
-  "erwartet": {
-   "befehl": "nav.schub",
-   "args": {
-    "stufe": 4
-   }
-  },
-  "form": "Schub vier"
- },
- {
-  "text": "Schub vier bitte",
-  "art": "positiv",
-  "erwartet": {
-   "befehl": "nav.schub",
-   "args": {
-    "stufe": 4
-   }
-  },
-  "form": "Schub vier"
- },
- {
-  "text": "Schub vier, Navigation",
-  "art": "positiv",
-  "erwartet": {
-   "befehl": "nav.schub",
-   "args": {
-    "stufe": 4
-   }
-  },
-  "form": "Schub vier"
- },
- {
-  "text": "Navigation, bitte Schub vier",
-  "art": "positiv",
-  "erwartet": {
-   "befehl": "nav.schub",
-   "args": {
-    "stufe": 4
-   }
-  },
-  "form": "Schub vier"
- },
- {
-  "text": "Stufe vier",
-  "art": "positiv",
-  "erwartet": {
-   "befehl": "nav.schub",
-   "args": {
-    "stufe": 4
-   }
-  },
-  "form": "Schub vier"
- },
- {
-  "text": "stufe vier.",
-  "art": "positiv",
-  "erwartet": {
-   "befehl": "nav.schub",
-   "args": {
-    "stufe": 4
-   }
-  },
-  "form": "Schub vier"
- },
- {
-  "text": "Navigation, Stufe vier",
-  "art": "positiv",
-  "erwartet": {
-   "befehl": "nav.schub",
-   "args": {
-    "stufe": 4
-   }
-  },
-  "form": "Schub vier"
- },
- {
-  "text": "Schub fünf",
-  "art": "positiv",
-  "erwartet": {
-   "befehl": "nav.schub",
-   "args": {
-    "stufe": 5
-   }
-  },
-  "form": "Schub fünf"
- },
- {
-  "text": "schub fünf.",
-  "art": "positiv",
-  "erwartet": {
-   "befehl": "nav.schub",
-   "args": {
-    "stufe": 5
-   }
-  },
-  "form": "Schub fünf"
- },
- {
-  "text": "Navigation, Schub fünf",
-  "art": "positiv",
-  "erwartet": {
-   "befehl": "nav.schub",
-   "args": {
-    "stufe": 5
-   }
-  },
-  "form": "Schub fünf"
- },
- {
-  "text": "Bitte Schub fünf",
-  "art": "positiv",
-  "erwartet": {
-   "befehl": "nav.schub",
-   "args": {
-    "stufe": 5
-   }
-  },
-  "form": "Schub fünf"
- },
- {
-  "text": "Schub fünf bitte",
-  "art": "positiv",
-  "erwartet": {
-   "befehl": "nav.schub",
-   "args": {
-    "stufe": 5
-   }
-  },
-  "form": "Schub fünf"
- },
- {
-  "text": "Schub fünf, Navigation",
-  "art": "positiv",
-  "erwartet": {
-   "befehl": "nav.schub",
-   "args": {
-    "stufe": 5
-   }
-  },
-  "form": "Schub fünf"
- },
- {
-  "text": "Navigation, bitte Schub fünf",
-  "art": "positiv",
-  "erwartet": {
-   "befehl": "nav.schub",
-   "args": {
-    "stufe": 5
-   }
-  },
-  "form": "Schub fünf"
- },
- {
-  "text": "Stufe fünf",
-  "art": "positiv",
-  "erwartet": {
-   "befehl": "nav.schub",
-   "args": {
-    "stufe": 5
-   }
-  },
-  "form": "Schub fünf"
- },
- {
-  "text": "stufe fünf.",
-  "art": "positiv",
-  "erwartet": {
-   "befehl": "nav.schub",
-   "args": {
-    "stufe": 5
-   }
-  },
-  "form": "Schub fünf"
- },
- {
-  "text": "Navigation, Stufe fünf",
-  "art": "positiv",
-  "erwartet": {
-   "befehl": "nav.schub",
-   "args": {
-    "stufe": 5
-   }
-  },
-  "form": "Schub fünf"
- },
- {
-  "text": "Schub sechs",
-  "art": "positiv",
-  "erwartet": {
-   "befehl": "nav.schub",
-   "args": {
-    "stufe": 6
-   }
-  },
-  "form": "Schub sechs"
- },
- {
-  "text": "schub sechs.",
-  "art": "positiv",
-  "erwartet": {
-   "befehl": "nav.schub",
-   "args": {
-    "stufe": 6
-   }
-  },
-  "form": "Schub sechs"
- },
- {
-  "text": "Navigation, Schub sechs",
-  "art": "positiv",
-  "erwartet": {
-   "befehl": "nav.schub",
-   "args": {
-    "stufe": 6
-   }
-  },
-  "form": "Schub sechs"
- },
- {
-  "text": "Bitte Schub sechs",
-  "art": "positiv",
-  "erwartet": {
-   "befehl": "nav.schub",
-   "args": {
-    "stufe": 6
-   }
-  },
-  "form": "Schub sechs"
- },
- {
-  "text": "Schub sechs bitte",
-  "art": "positiv",
-  "erwartet": {
-   "befehl": "nav.schub",
-   "args": {
-    "stufe": 6
-   }
-  },
-  "form": "Schub sechs"
- },
- {
-  "text": "Schub sechs, Navigation",
-  "art": "positiv",
-  "erwartet": {
-   "befehl": "nav.schub",
-   "args": {
-    "stufe": 6
-   }
-  },
-  "form": "Schub sechs"
- },
- {
-  "text": "Navigation, bitte Schub sechs",
-  "art": "positiv",
-  "erwartet": {
-   "befehl": "nav.schub",
-   "args": {
-    "stufe": 6
-   }
-  },
-  "form": "Schub sechs"
- },
- {
-  "text": "Stufe sechs",
-  "art": "positiv",
-  "erwartet": {
-   "befehl": "nav.schub",
-   "args": {
-    "stufe": 6
-   }
-  },
-  "form": "Schub sechs"
- },
- {
-  "text": "stufe sechs.",
-  "art": "positiv",
-  "erwartet": {
-   "befehl": "nav.schub",
-   "args": {
-    "stufe": 6
-   }
-  },
-  "form": "Schub sechs"
- },
- {
-  "text": "Navigation, Stufe sechs",
-  "art": "positiv",
-  "erwartet": {
-   "befehl": "nav.schub",
-   "args": {
-    "stufe": 6
-   }
-  },
-  "form": "Schub sechs"
+  "form": "Viertel Kraft voraus"
  },
  {
   "text": "Halbe Kraft voraus",
@@ -1553,6 +1190,171 @@
    }
   },
   "form": "Halbe Kraft voraus"
+ },
+ {
+  "text": "Dreiviertel Kraft voraus",
+  "art": "positiv",
+  "erwartet": {
+   "befehl": "nav.schub",
+   "args": {
+    "stufe": "dreiviertel"
+   }
+  },
+  "form": "Dreiviertel Kraft voraus"
+ },
+ {
+  "text": "dreiviertel kraft voraus.",
+  "art": "positiv",
+  "erwartet": {
+   "befehl": "nav.schub",
+   "args": {
+    "stufe": "dreiviertel"
+   }
+  },
+  "form": "Dreiviertel Kraft voraus"
+ },
+ {
+  "text": "Navigation, Dreiviertel Kraft voraus",
+  "art": "positiv",
+  "erwartet": {
+   "befehl": "nav.schub",
+   "args": {
+    "stufe": "dreiviertel"
+   }
+  },
+  "form": "Dreiviertel Kraft voraus"
+ },
+ {
+  "text": "Bitte Dreiviertel Kraft voraus",
+  "art": "positiv",
+  "erwartet": {
+   "befehl": "nav.schub",
+   "args": {
+    "stufe": "dreiviertel"
+   }
+  },
+  "form": "Dreiviertel Kraft voraus"
+ },
+ {
+  "text": "Dreiviertel Kraft voraus bitte",
+  "art": "positiv",
+  "erwartet": {
+   "befehl": "nav.schub",
+   "args": {
+    "stufe": "dreiviertel"
+   }
+  },
+  "form": "Dreiviertel Kraft voraus"
+ },
+ {
+  "text": "Dreiviertel Kraft voraus, Navigation",
+  "art": "positiv",
+  "erwartet": {
+   "befehl": "nav.schub",
+   "args": {
+    "stufe": "dreiviertel"
+   }
+  },
+  "form": "Dreiviertel Kraft voraus"
+ },
+ {
+  "text": "Navigation, bitte Dreiviertel Kraft voraus",
+  "art": "positiv",
+  "erwartet": {
+   "befehl": "nav.schub",
+   "args": {
+    "stufe": "dreiviertel"
+   }
+  },
+  "form": "Dreiviertel Kraft voraus"
+ },
+ {
+  "text": "Dreiviertel Kraft",
+  "art": "positiv",
+  "erwartet": {
+   "befehl": "nav.schub",
+   "args": {
+    "stufe": "dreiviertel"
+   }
+  },
+  "form": "Dreiviertel Kraft voraus"
+ },
+ {
+  "text": "dreiviertel kraft.",
+  "art": "positiv",
+  "erwartet": {
+   "befehl": "nav.schub",
+   "args": {
+    "stufe": "dreiviertel"
+   }
+  },
+  "form": "Dreiviertel Kraft voraus"
+ },
+ {
+  "text": "Navigation, Dreiviertel Kraft",
+  "art": "positiv",
+  "erwartet": {
+   "befehl": "nav.schub",
+   "args": {
+    "stufe": "dreiviertel"
+   }
+  },
+  "form": "Dreiviertel Kraft voraus"
+ },
+ {
+  "text": "Dreivierte Kraft voraus",
+  "art": "stt-fehler",
+  "erwartet": {
+   "befehl": "nav.schub",
+   "args": {
+    "stufe": "dreiviertel"
+   }
+  },
+  "form": "Dreiviertel Kraft voraus"
+ },
+ {
+  "text": "Dreiivertel Kraft voraus",
+  "art": "stt-fehler",
+  "erwartet": {
+   "befehl": "nav.schub",
+   "args": {
+    "stufe": "dreiviertel"
+   }
+  },
+  "form": "Dreiviertel Kraft voraus"
+ },
+ {
+  "text": "Dreivertel Kraft voraus",
+  "art": "stt-fehler",
+  "erwartet": {
+   "befehl": "nav.schub",
+   "args": {
+    "stufe": "dreiviertel"
+   }
+  },
+  "form": "Dreiviertel Kraft voraus"
+ },
+ {
+  "text": "Dreiviertelkraft voraus",
+  "art": "stt-fehler",
+  "erwartet": {
+   "befehl": "nav.schub",
+   "args": {
+    "stufe": "dreiviertel"
+   }
+  },
+  "form": "Dreiviertel Kraft voraus"
+ },
+ {
+  "text": "Dreiviertel Kraftvoraus",
+  "art": "stt-fehler",
+  "erwartet": {
+   "befehl": "nav.schub",
+   "args": {
+    "stufe": "dreiviertel"
+   }
+  },
+  "form": "Dreiviertel Kraft voraus"
  },
  {
   "text": "Volle Kraft voraus",
@@ -12096,13 +11898,13 @@
   "form": "nav.schub ungueltig"
  },
  {
-  "text": "Schub null und Schub eins",
+  "text": "Rückwärts langsam und Viertel Kraft voraus",
   "art": "negativ",
   "erwartet": null,
   "form": "nav.schub zwei Argumente"
  },
  {
-  "text": "Schub null und Volle Kraft voraus",
+  "text": "Rückwärts langsam und Volle Kraft voraus",
   "art": "negativ",
   "erwartet": null,
   "form": "nav.schub zwei Argumente"
@@ -12720,592 +12522,172 @@
   "form": "Alle Maschinen stopp"
  },
  {
-  "text": "Nicht Schub null",
+  "text": "Nicht Rückwärts langsam",
   "art": "negativ",
   "erwartet": null,
-  "form": "Schub null"
+  "form": "Rückwärts langsam"
  },
  {
-  "text": "Schub null nicht",
+  "text": "Rückwärts langsam nicht",
   "art": "negativ",
   "erwartet": null,
-  "form": "Schub null"
+  "form": "Rückwärts langsam"
  },
  {
-  "text": "Auf keinen Fall Schub null",
+  "text": "Auf keinen Fall Rückwärts langsam",
   "art": "negativ",
   "erwartet": null,
-  "form": "Schub null"
+  "form": "Rückwärts langsam"
  },
  {
-  "text": "Kannst du bitte Schub null?",
+  "text": "Kannst du bitte Rückwärts langsam?",
   "art": "negativ",
   "erwartet": null,
-  "form": "Schub null"
+  "form": "Rückwärts langsam"
  },
  {
-  "text": "Warum Schub null?",
+  "text": "Warum Rückwärts langsam?",
   "art": "negativ",
   "erwartet": null,
-  "form": "Schub null"
+  "form": "Rückwärts langsam"
  },
  {
-  "text": "Wer soll Schub null?",
+  "text": "Wer soll Rückwärts langsam?",
   "art": "negativ",
   "erwartet": null,
-  "form": "Schub null"
+  "form": "Rückwärts langsam"
  },
  {
-  "text": "Technik, Schub null",
+  "text": "Technik, Rückwärts langsam",
   "art": "negativ",
   "erwartet": null,
-  "form": "Schub null"
+  "form": "Rückwärts langsam"
  },
  {
-  "text": "Schub null, Technik",
+  "text": "Rückwärts langsam, Technik",
   "art": "negativ",
   "erwartet": null,
-  "form": "Schub null"
+  "form": "Rückwärts langsam"
  },
  {
-  "text": "Please Schub null",
+  "text": "Please Rückwärts langsam",
   "art": "negativ",
   "erwartet": null,
-  "form": "Schub null"
+  "form": "Rückwärts langsam"
  },
  {
-  "text": "Schub null und ich glaube wir sollten danach noch einen Kaffee holen",
+  "text": "Rückwärts langsam und ich glaube wir sollten danach noch einen Kaffee holen",
   "art": "negativ",
   "erwartet": null,
-  "form": "Schub null"
+  "form": "Rückwärts langsam"
  },
  {
-  "text": "Vielleicht Schub null",
+  "text": "Vielleicht Rückwärts langsam",
   "art": "negativ",
   "erwartet": null,
-  "form": "Schub null"
+  "form": "Rückwärts langsam"
  },
  {
-  "text": "Schub null wäre gut",
+  "text": "Rückwärts langsam wäre gut",
   "art": "negativ",
   "erwartet": null,
-  "form": "Schub null"
+  "form": "Rückwärts langsam"
  },
  {
-  "text": "Wir sollten Schub null irgendwann",
+  "text": "Wir sollten Rückwärts langsam irgendwann",
   "art": "negativ",
   "erwartet": null,
-  "form": "Schub null"
+  "form": "Rückwärts langsam"
  },
  {
-  "text": "Schub null 500 Meter",
+  "text": "Rückwärts langsam 500 Meter",
   "art": "negativ",
   "erwartet": null,
-  "form": "Schub null"
+  "form": "Rückwärts langsam"
  },
  {
-  "text": "Nicht Schub eins",
+  "text": "Nicht Viertel Kraft voraus",
   "art": "negativ",
   "erwartet": null,
-  "form": "Schub eins"
+  "form": "Viertel Kraft voraus"
  },
  {
-  "text": "Schub eins nicht",
+  "text": "Viertel Kraft voraus nicht",
   "art": "negativ",
   "erwartet": null,
-  "form": "Schub eins"
+  "form": "Viertel Kraft voraus"
  },
  {
-  "text": "Auf keinen Fall Schub eins",
+  "text": "Auf keinen Fall Viertel Kraft voraus",
   "art": "negativ",
   "erwartet": null,
-  "form": "Schub eins"
+  "form": "Viertel Kraft voraus"
  },
  {
-  "text": "Kannst du bitte Schub eins?",
+  "text": "Kannst du bitte Viertel Kraft voraus?",
   "art": "negativ",
   "erwartet": null,
-  "form": "Schub eins"
+  "form": "Viertel Kraft voraus"
  },
  {
-  "text": "Warum Schub eins?",
+  "text": "Warum Viertel Kraft voraus?",
   "art": "negativ",
   "erwartet": null,
-  "form": "Schub eins"
+  "form": "Viertel Kraft voraus"
  },
  {
-  "text": "Wer soll Schub eins?",
+  "text": "Wer soll Viertel Kraft voraus?",
   "art": "negativ",
   "erwartet": null,
-  "form": "Schub eins"
+  "form": "Viertel Kraft voraus"
  },
  {
-  "text": "Technik, Schub eins",
+  "text": "Technik, Viertel Kraft voraus",
   "art": "negativ",
   "erwartet": null,
-  "form": "Schub eins"
+  "form": "Viertel Kraft voraus"
  },
  {
-  "text": "Schub eins, Technik",
+  "text": "Viertel Kraft voraus, Technik",
   "art": "negativ",
   "erwartet": null,
-  "form": "Schub eins"
+  "form": "Viertel Kraft voraus"
  },
  {
-  "text": "Please Schub eins",
+  "text": "Please Viertel Kraft voraus",
   "art": "negativ",
   "erwartet": null,
-  "form": "Schub eins"
+  "form": "Viertel Kraft voraus"
  },
  {
-  "text": "Schub eins und ich glaube wir sollten danach noch einen Kaffee holen",
+  "text": "Viertel Kraft voraus und ich glaube wir sollten danach noch einen Kaffee holen",
   "art": "negativ",
   "erwartet": null,
-  "form": "Schub eins"
+  "form": "Viertel Kraft voraus"
  },
  {
-  "text": "Vielleicht Schub eins",
+  "text": "Vielleicht Viertel Kraft voraus",
   "art": "negativ",
   "erwartet": null,
-  "form": "Schub eins"
+  "form": "Viertel Kraft voraus"
  },
  {
-  "text": "Schub eins wäre gut",
+  "text": "Viertel Kraft voraus wäre gut",
   "art": "negativ",
   "erwartet": null,
-  "form": "Schub eins"
+  "form": "Viertel Kraft voraus"
  },
  {
-  "text": "Wir sollten Schub eins irgendwann",
+  "text": "Wir sollten Viertel Kraft voraus irgendwann",
   "art": "negativ",
   "erwartet": null,
-  "form": "Schub eins"
+  "form": "Viertel Kraft voraus"
  },
  {
-  "text": "Schub eins 500 Meter",
+  "text": "Viertel Kraft voraus 500 Meter",
   "art": "negativ",
   "erwartet": null,
-  "form": "Schub eins"
- },
- {
-  "text": "Nicht Schub zwei",
-  "art": "negativ",
-  "erwartet": null,
-  "form": "Schub zwei"
- },
- {
-  "text": "Schub zwei nicht",
-  "art": "negativ",
-  "erwartet": null,
-  "form": "Schub zwei"
- },
- {
-  "text": "Auf keinen Fall Schub zwei",
-  "art": "negativ",
-  "erwartet": null,
-  "form": "Schub zwei"
- },
- {
-  "text": "Kannst du bitte Schub zwei?",
-  "art": "negativ",
-  "erwartet": null,
-  "form": "Schub zwei"
- },
- {
-  "text": "Warum Schub zwei?",
-  "art": "negativ",
-  "erwartet": null,
-  "form": "Schub zwei"
- },
- {
-  "text": "Wer soll Schub zwei?",
-  "art": "negativ",
-  "erwartet": null,
-  "form": "Schub zwei"
- },
- {
-  "text": "Technik, Schub zwei",
-  "art": "negativ",
-  "erwartet": null,
-  "form": "Schub zwei"
- },
- {
-  "text": "Schub zwei, Technik",
-  "art": "negativ",
-  "erwartet": null,
-  "form": "Schub zwei"
- },
- {
-  "text": "Please Schub zwei",
-  "art": "negativ",
-  "erwartet": null,
-  "form": "Schub zwei"
- },
- {
-  "text": "Schub zwei und ich glaube wir sollten danach noch einen Kaffee holen",
-  "art": "negativ",
-  "erwartet": null,
-  "form": "Schub zwei"
- },
- {
-  "text": "Vielleicht Schub zwei",
-  "art": "negativ",
-  "erwartet": null,
-  "form": "Schub zwei"
- },
- {
-  "text": "Schub zwei wäre gut",
-  "art": "negativ",
-  "erwartet": null,
-  "form": "Schub zwei"
- },
- {
-  "text": "Wir sollten Schub zwei irgendwann",
-  "art": "negativ",
-  "erwartet": null,
-  "form": "Schub zwei"
- },
- {
-  "text": "Schub zwei 500 Meter",
-  "art": "negativ",
-  "erwartet": null,
-  "form": "Schub zwei"
- },
- {
-  "text": "Nicht Schub drei",
-  "art": "negativ",
-  "erwartet": null,
-  "form": "Schub drei"
- },
- {
-  "text": "Schub drei nicht",
-  "art": "negativ",
-  "erwartet": null,
-  "form": "Schub drei"
- },
- {
-  "text": "Auf keinen Fall Schub drei",
-  "art": "negativ",
-  "erwartet": null,
-  "form": "Schub drei"
- },
- {
-  "text": "Kannst du bitte Schub drei?",
-  "art": "negativ",
-  "erwartet": null,
-  "form": "Schub drei"
- },
- {
-  "text": "Warum Schub drei?",
-  "art": "negativ",
-  "erwartet": null,
-  "form": "Schub drei"
- },
- {
-  "text": "Wer soll Schub drei?",
-  "art": "negativ",
-  "erwartet": null,
-  "form": "Schub drei"
- },
- {
-  "text": "Technik, Schub drei",
-  "art": "negativ",
-  "erwartet": null,
-  "form": "Schub drei"
- },
- {
-  "text": "Schub drei, Technik",
-  "art": "negativ",
-  "erwartet": null,
-  "form": "Schub drei"
- },
- {
-  "text": "Please Schub drei",
-  "art": "negativ",
-  "erwartet": null,
-  "form": "Schub drei"
- },
- {
-  "text": "Schub drei und ich glaube wir sollten danach noch einen Kaffee holen",
-  "art": "negativ",
-  "erwartet": null,
-  "form": "Schub drei"
- },
- {
-  "text": "Vielleicht Schub drei",
-  "art": "negativ",
-  "erwartet": null,
-  "form": "Schub drei"
- },
- {
-  "text": "Schub drei wäre gut",
-  "art": "negativ",
-  "erwartet": null,
-  "form": "Schub drei"
- },
- {
-  "text": "Wir sollten Schub drei irgendwann",
-  "art": "negativ",
-  "erwartet": null,
-  "form": "Schub drei"
- },
- {
-  "text": "Schub drei 500 Meter",
-  "art": "negativ",
-  "erwartet": null,
-  "form": "Schub drei"
- },
- {
-  "text": "Nicht Schub vier",
-  "art": "negativ",
-  "erwartet": null,
-  "form": "Schub vier"
- },
- {
-  "text": "Schub vier nicht",
-  "art": "negativ",
-  "erwartet": null,
-  "form": "Schub vier"
- },
- {
-  "text": "Auf keinen Fall Schub vier",
-  "art": "negativ",
-  "erwartet": null,
-  "form": "Schub vier"
- },
- {
-  "text": "Kannst du bitte Schub vier?",
-  "art": "negativ",
-  "erwartet": null,
-  "form": "Schub vier"
- },
- {
-  "text": "Warum Schub vier?",
-  "art": "negativ",
-  "erwartet": null,
-  "form": "Schub vier"
- },
- {
-  "text": "Wer soll Schub vier?",
-  "art": "negativ",
-  "erwartet": null,
-  "form": "Schub vier"
- },
- {
-  "text": "Technik, Schub vier",
-  "art": "negativ",
-  "erwartet": null,
-  "form": "Schub vier"
- },
- {
-  "text": "Schub vier, Technik",
-  "art": "negativ",
-  "erwartet": null,
-  "form": "Schub vier"
- },
- {
-  "text": "Please Schub vier",
-  "art": "negativ",
-  "erwartet": null,
-  "form": "Schub vier"
- },
- {
-  "text": "Schub vier und ich glaube wir sollten danach noch einen Kaffee holen",
-  "art": "negativ",
-  "erwartet": null,
-  "form": "Schub vier"
- },
- {
-  "text": "Vielleicht Schub vier",
-  "art": "negativ",
-  "erwartet": null,
-  "form": "Schub vier"
- },
- {
-  "text": "Schub vier wäre gut",
-  "art": "negativ",
-  "erwartet": null,
-  "form": "Schub vier"
- },
- {
-  "text": "Wir sollten Schub vier irgendwann",
-  "art": "negativ",
-  "erwartet": null,
-  "form": "Schub vier"
- },
- {
-  "text": "Schub vier 500 Meter",
-  "art": "negativ",
-  "erwartet": null,
-  "form": "Schub vier"
- },
- {
-  "text": "Nicht Schub fünf",
-  "art": "negativ",
-  "erwartet": null,
-  "form": "Schub fünf"
- },
- {
-  "text": "Schub fünf nicht",
-  "art": "negativ",
-  "erwartet": null,
-  "form": "Schub fünf"
- },
- {
-  "text": "Auf keinen Fall Schub fünf",
-  "art": "negativ",
-  "erwartet": null,
-  "form": "Schub fünf"
- },
- {
-  "text": "Kannst du bitte Schub fünf?",
-  "art": "negativ",
-  "erwartet": null,
-  "form": "Schub fünf"
- },
- {
-  "text": "Warum Schub fünf?",
-  "art": "negativ",
-  "erwartet": null,
-  "form": "Schub fünf"
- },
- {
-  "text": "Wer soll Schub fünf?",
-  "art": "negativ",
-  "erwartet": null,
-  "form": "Schub fünf"
- },
- {
-  "text": "Technik, Schub fünf",
-  "art": "negativ",
-  "erwartet": null,
-  "form": "Schub fünf"
- },
- {
-  "text": "Schub fünf, Technik",
-  "art": "negativ",
-  "erwartet": null,
-  "form": "Schub fünf"
- },
- {
-  "text": "Please Schub fünf",
-  "art": "negativ",
-  "erwartet": null,
-  "form": "Schub fünf"
- },
- {
-  "text": "Schub fünf und ich glaube wir sollten danach noch einen Kaffee holen",
-  "art": "negativ",
-  "erwartet": null,
-  "form": "Schub fünf"
- },
- {
-  "text": "Vielleicht Schub fünf",
-  "art": "negativ",
-  "erwartet": null,
-  "form": "Schub fünf"
- },
- {
-  "text": "Schub fünf wäre gut",
-  "art": "negativ",
-  "erwartet": null,
-  "form": "Schub fünf"
- },
- {
-  "text": "Wir sollten Schub fünf irgendwann",
-  "art": "negativ",
-  "erwartet": null,
-  "form": "Schub fünf"
- },
- {
-  "text": "Schub fünf 500 Meter",
-  "art": "negativ",
-  "erwartet": null,
-  "form": "Schub fünf"
- },
- {
-  "text": "Nicht Schub sechs",
-  "art": "negativ",
-  "erwartet": null,
-  "form": "Schub sechs"
- },
- {
-  "text": "Schub sechs nicht",
-  "art": "negativ",
-  "erwartet": null,
-  "form": "Schub sechs"
- },
- {
-  "text": "Auf keinen Fall Schub sechs",
-  "art": "negativ",
-  "erwartet": null,
-  "form": "Schub sechs"
- },
- {
-  "text": "Kannst du bitte Schub sechs?",
-  "art": "negativ",
-  "erwartet": null,
-  "form": "Schub sechs"
- },
- {
-  "text": "Warum Schub sechs?",
-  "art": "negativ",
-  "erwartet": null,
-  "form": "Schub sechs"
- },
- {
-  "text": "Wer soll Schub sechs?",
-  "art": "negativ",
-  "erwartet": null,
-  "form": "Schub sechs"
- },
- {
-  "text": "Technik, Schub sechs",
-  "art": "negativ",
-  "erwartet": null,
-  "form": "Schub sechs"
- },
- {
-  "text": "Schub sechs, Technik",
-  "art": "negativ",
-  "erwartet": null,
-  "form": "Schub sechs"
- },
- {
-  "text": "Please Schub sechs",
-  "art": "negativ",
-  "erwartet": null,
-  "form": "Schub sechs"
- },
- {
-  "text": "Schub sechs und ich glaube wir sollten danach noch einen Kaffee holen",
-  "art": "negativ",
-  "erwartet": null,
-  "form": "Schub sechs"
- },
- {
-  "text": "Vielleicht Schub sechs",
-  "art": "negativ",
-  "erwartet": null,
-  "form": "Schub sechs"
- },
- {
-  "text": "Schub sechs wäre gut",
-  "art": "negativ",
-  "erwartet": null,
-  "form": "Schub sechs"
- },
- {
-  "text": "Wir sollten Schub sechs irgendwann",
-  "art": "negativ",
-  "erwartet": null,
-  "form": "Schub sechs"
- },
- {
-  "text": "Schub sechs 500 Meter",
-  "art": "negativ",
-  "erwartet": null,
-  "form": "Schub sechs"
+  "form": "Viertel Kraft voraus"
  },
  {
   "text": "Nicht Halbe Kraft voraus",
@@ -13390,6 +12772,90 @@
   "art": "negativ",
   "erwartet": null,
   "form": "Halbe Kraft voraus"
+ },
+ {
+  "text": "Nicht Dreiviertel Kraft voraus",
+  "art": "negativ",
+  "erwartet": null,
+  "form": "Dreiviertel Kraft voraus"
+ },
+ {
+  "text": "Dreiviertel Kraft voraus nicht",
+  "art": "negativ",
+  "erwartet": null,
+  "form": "Dreiviertel Kraft voraus"
+ },
+ {
+  "text": "Auf keinen Fall Dreiviertel Kraft voraus",
+  "art": "negativ",
+  "erwartet": null,
+  "form": "Dreiviertel Kraft voraus"
+ },
+ {
+  "text": "Kannst du bitte Dreiviertel Kraft voraus?",
+  "art": "negativ",
+  "erwartet": null,
+  "form": "Dreiviertel Kraft voraus"
+ },
+ {
+  "text": "Warum Dreiviertel Kraft voraus?",
+  "art": "negativ",
+  "erwartet": null,
+  "form": "Dreiviertel Kraft voraus"
+ },
+ {
+  "text": "Wer soll Dreiviertel Kraft voraus?",
+  "art": "negativ",
+  "erwartet": null,
+  "form": "Dreiviertel Kraft voraus"
+ },
+ {
+  "text": "Technik, Dreiviertel Kraft voraus",
+  "art": "negativ",
+  "erwartet": null,
+  "form": "Dreiviertel Kraft voraus"
+ },
+ {
+  "text": "Dreiviertel Kraft voraus, Technik",
+  "art": "negativ",
+  "erwartet": null,
+  "form": "Dreiviertel Kraft voraus"
+ },
+ {
+  "text": "Please Dreiviertel Kraft voraus",
+  "art": "negativ",
+  "erwartet": null,
+  "form": "Dreiviertel Kraft voraus"
+ },
+ {
+  "text": "Dreiviertel Kraft voraus und ich glaube wir sollten danach noch einen Kaffee holen",
+  "art": "negativ",
+  "erwartet": null,
+  "form": "Dreiviertel Kraft voraus"
+ },
+ {
+  "text": "Vielleicht Dreiviertel Kraft voraus",
+  "art": "negativ",
+  "erwartet": null,
+  "form": "Dreiviertel Kraft voraus"
+ },
+ {
+  "text": "Dreiviertel Kraft voraus wäre gut",
+  "art": "negativ",
+  "erwartet": null,
+  "form": "Dreiviertel Kraft voraus"
+ },
+ {
+  "text": "Wir sollten Dreiviertel Kraft voraus irgendwann",
+  "art": "negativ",
+  "erwartet": null,
+  "form": "Dreiviertel Kraft voraus"
+ },
+ {
+  "text": "Dreiviertel Kraft voraus 500 Meter",
+  "art": "negativ",
+  "erwartet": null,
+  "form": "Dreiviertel Kraft voraus"
  },
  {
   "text": "Nicht Volle Kraft voraus",

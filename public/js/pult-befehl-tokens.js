@@ -77,7 +77,7 @@
     stufe3: {
       'nav.kurs:ziel': { Q: 'marke', W: 'ziel', E: 'basis' },
       'nav.abstand:ziel': { Q: 'marke', W: 'ziel', E: 'basis' },
-      'nav.schub:stufe': { Q: 'voll', W: 'halb', E: '0', A: '1', S: '2', D: '3', Y: '4', X: '5', C: '6' },
+      'nav.schub:stufe': { Q: 'voll', W: 'dreiviertel', E: 'halb', A: 'viertel', S: 'rueckwaerts' },
       'ops.feuer_frei:waffen': { W: 'bug', A: 'bb', D: 'stb', X: 'torpedo', S: 'alle' },   // Kompass-Regel: W Bug, A Backbord, D Steuerbord, X Heck/Torpedo, S Mitte
       'ops.beamen:was': { Q: 'person', W: 'fracht' },
       'tech.schild:sektor': { W: 'bug', A: 'bb', D: 'stb', X: 'heck' },

@@ -1,13 +1,13 @@
 'use strict';
 // BOT-01 C2a: die Navigations-Befehle des Katalogs v1 wirken im Server-Bot (server/bots/befehle/navigation.js, Ausfuehrung im Agenten mannschaft.js, Ziele navziel.js). Echtes Game, Server-Bots, Befehle ueber bot.befehl.
 //   1. Registry: sieben Befehle, Rueckgabe { ok } / { ok:false, code } mit Codes aus gruende.json
-//   2. nav.schub: Stufe setzen und halten (Schub n, halb, voll), auch im Gefecht
+//   2. nav.schub: Stufe setzen und halten (rueckwaerts, viertel, halb, dreiviertel, voll), auch im Gefecht; rueckwaerts faehrt wirklich rueckwaerts
 //   3. nav.stopp und nav.ausweichen
 //   4. nav.kurs (marke, ziel, objekt, basis): das Schiff kommt an (je zwei Seeds und Ausgangslagen), steht danach; Ziel verschwindet: Bot haelt an; kein_ziel
 //   5. nav.abstand: haelt den Abstand ueber eine Wartezeit (Gegner: Breitseite, Station: fester Punkt), Standardwerte (Captain-Marke, dann Ops-Marke), kein_ziel
 //   6. nav.andocken: Anflug und Andocken (zwei Ausgangslagen), kein_ziel ohne Dock, schon angedockt
 //   7. nav.sprung: nur ziel marke (Wahl des Captains bleibt), hex/ziel/basis/objekt kein_ziel ohne Spielzustand; Sprung, Route; Stoersender/Transfer/Reise bei Annahme; Absicht endet bei Blockade und gekipptem Ziel
-//   8. Ablehnungen: nicht_jetzt (Aussenteam unten: nur Schub 0), system (Antrieb zerstoert), wartet (Mensch an der Steuer), jede Antwort mit passender textId
+//   8. Ablehnungen: nicht_jetzt (Aussenteam unten: nur Stopp), system (Antrieb zerstoert), wartet (Mensch an der Steuer), jede Antwort mit passender textId
 //   9. Mensch gewinnt: Absicht verworfen, Bot sendet nichts, Bot uebernimmt im Standardverhalten; Notsprung hat Vorrang; Aussenteam beendet jede Absicht (auch Schub); ein anderer Befehl ersetzt den Kurs
 //  10. Absicht endet bei downed, Bot nicht an Bord, Szenenwechsel (auch Schub); Ausweichen im Befehl
 //  11. Reine Menschenpartie: kein Bot-Code laeuft (der Byte-Vergleich ist der Golden-Lauf), Quellscan der Registries, Wachposten, Projektil-Reflex synchron
@@ -29,7 +29,7 @@ const Lauf = require('../server/bots/lauf.js');
 const Navziel = require('../server/bots/navziel.js');
 const { BotMannschaft } = require('../server/bots/mannschaft.js');
 const Befehle = require('../server/bots/befehle/index.js');
-const { STOP, HALF, FULL } = require('../server/bots/kern.js');
+const { STOP, QUARTER, HALF, THREEQ, FULL } = require('../server/bots/kern.js');
 const GRUENDE = require('../content/bots/gruende.json');
 
 const MUT = process.env.BOT_NAV_MUT || '';
@@ -37,6 +37,8 @@ if (MUT === 'mensch') { for (const k of ['befehlVerwerfen', 'alleVerwerfen']) { 
 if (MUT === 'kein_ziel') Navziel.aufloesen = () => ({ art: 'objekt', id: 'gibtsnicht' });
 if (MUT === 'abstand') BotMannschaft.prototype.abstandAusfuehren = function () { return true; };
 if (MUT === 'schub_ohne_fels') BotMannschaft.prototype.schubHalten = function (S) { this.ausweichenImBefehl(S); this.helmS(S, this.turnCmd(S, this.randNachMitte(S)), this.absicht.befehl.stage); };   // der alte Stand: kein Felsen-Ausweichen
+if (MUT === 'schub_rueckwaerts_wie_viertel') { const reg = require('../server/bots/befehle/navigation.js'); const alt = reg['nav.schub']; reg['nav.schub'] = (game, bot, args) => alt(game, bot, args.stufe === 'rueckwaerts' ? Object.assign({}, args, { stufe: 'viertel' }) : args); }   // BOT-01 D: rueckwaerts landet auf der falschen Stufe
+if (MUT === 'schub_rueckwaerts_vom_bug') { const alt = BotMannschaft.prototype.schubHalten; BotMannschaft.prototype.schubHalten = function (S) { const b = this.absicht.befehl; if (b.stage < STOP) { this.ausweichenImBefehl(S); this.helmS(S, 0, b.stage); return; } return alt.call(this, S); }; }   // BOT-01 D: rueckwaerts ohne Felsen- und Randsicht vom Heck
 if (MUT === 'wachposten_auf') BotMannschaft.prototype.erlaubt = function () { return true; };
 if (MUT === 'ausweichen_im_befehl_raus') BotMannschaft.prototype.ausweichenImBefehl = function () { /* kein Ausweichen im Befehl */ };
 if (MUT === 'sprung_blockiert_raus') { const alt = BotMannschaft.prototype.sprungAusfuehren; BotMannschaft.prototype.sprungAusfuehren = function (S, b) { const j = this.game.ship.jump; const g0 = j.blockedReason; try { j.blockedReason = null; return alt.call(this, S, b); } finally { j.blockedReason = g0; } }; }
@@ -119,9 +121,9 @@ section('1 Registry: sieben Befehle, Rueckgabeform, Codes aus gruende.json');
   const P = partie({});
   const codes = new Set();
   const probe = (name, args) => { const r = Befehle.befehl(P.g, bot(P), name, args); ok(r && (r.ok === true || (r.ok === false && typeof r.code === 'string')), `${name}: { ok } oder { ok:false, code } (${JSON.stringify(r)})`); if (r.code) codes.add(name + ':' + r.code); return r; };
-  probe('nav.kurs', { ziel: 'marke' }); probe('nav.abstand', {}); probe('nav.andocken', {}); probe('nav.sprung', { ziel: 'marke' }); probe('nav.schub', { stufe: 2 }); probe('nav.stopp', {}); probe('nav.ausweichen', {});
+  probe('nav.kurs', { ziel: 'marke' }); probe('nav.abstand', {}); probe('nav.andocken', {}); probe('nav.sprung', { ziel: 'marke' }); probe('nav.schub', { stufe: 'viertel' }); probe('nav.stopp', {}); probe('nav.ausweichen', {});
   ok(Array.from(codes).every((k) => GRUENDE.befehle[k.split(':')[0]].includes(k.split(':')[1])), 'jeder Code steht fuer seinen Befehl in gruende.json: ' + Array.from(codes).join(' '));
-  ok(Befehle.befehl(P.g, bot(P), 'nav.schub', { stufe: 3 }).ok === true && Lauf.agent(P.g, bot(P)).absicht.befehl.name === 'nav.schub', 'der Befehl traegt die Absicht (name) im Agenten');
+  ok(Befehle.befehl(P.g, bot(P), 'nav.schub', { stufe: 'dreiviertel' }).ok === true && Lauf.agent(P.g, bot(P)).absicht.befehl.name === 'nav.schub', 'der Befehl traegt die Absicht (name) im Agenten');
   ok(!JSON.stringify(P.g.snapshot()).includes('nav.schub') && !('absicht' in bot(P)), 'die Absicht steht weder im Snapshot noch im Spielerobjekt');
 }
 
@@ -131,7 +133,9 @@ section('2 nav.schub: Stufe setzen und halten');
   const P = partie({}); const { g } = P;
   setze(P, 1100, 1500, 0);
   const beob = (arg, soll, t) => { const a = befehl(P, 'nav.schub', { stufe: arg }); lauf(P, 3); ok(a === 'nav.schub.ok' && g.ship.helm.stage === soll, `${t}: Antwort ok, Stufe ${g.ship.helm.stage} (soll ${soll})`); };
-  beob(2, STOP + 2, 'Schub zwei = halbe Kraft'); beob('voll', FULL, 'voll'); beob('halb', HALF, 'halb'); beob(0, STOP, 'Schub null = STOPP'); beob(1, STOP + 1, 'Schub eins'); beob(6, FULL, 'Schub sechs = volle Kraft (mehr gibt die Lerche nicht)');
+  beob('voll', FULL, 'voll'); beob('halb', HALF, 'halb'); beob('dreiviertel', THREEQ, 'dreiviertel'); beob('viertel', QUARTER, 'viertel'); beob('rueckwaerts', STOP - 1, 'rueckwaerts (Index 0, die R-Stufe)');
+  ok(HALF === STOP + 2 && THREEQ === STOP + 3 && FULL === STOP + 4 && QUARTER === STOP + 1, 'die Stufenindizes der Lerche: R, STOPP, 1/4, 1/2, 3/4, VOLL');
+  for (const alt of [0, 1, 2, 3, 4, 5, 6, '3', 'null', 'stopp']) ok(befehl(P, 'nav.schub', { stufe: alt }) === 'nav.schub.abgelehnt.argument', `alte Stufe ${JSON.stringify(alt)} ist unbekannt: abgelehnt argument`);
   befehl(P, 'nav.schub', { stufe: 'halb' }); lauf(P, 2);
   const e = gegner(P, 'korvette', g.ship.x + 650, g.ship.y + 250);
   lauf(P, 12);
@@ -140,15 +144,15 @@ section('2 nav.schub: Stufe setzen und halten');
   ok(fehlerOk(P), 'game.errors leer');
 }
 {
-  // K1b: Schub 0 ist dasselbe wie nav.stopp (Absicht weg, helm.stop, Standardverhalten) - auch im Gefecht
+  // K1b: nav.stopp im Gefecht (Absicht weg, helm.stop, Standardverhalten)
   const P = partie({}); const { g } = P;
   setze(P, 1100, 1500, 0);
   befehl(P, 'nav.schub', { stufe: 'halb' }); lauf(P, 2);
   const e = gegner(P, 'korvette', g.ship.x + 650, g.ship.y + 250); void e;
   lauf(P, 3);
   const t0 = g.time;
-  ok(befehl(P, 'nav.schub', { stufe: 0 }) === 'nav.schub.ok', 'Schub null im Gefecht: ok');
-  ok(!agent(P).absicht.befehl && agent(P).absicht.standard && agent(P).befehlGrund === 'stopp' && cmds(P, 'helm.stop', t0).length === 1, 'Schub null = nav.stopp: Absicht verworfen (Grund stopp), ein helm.stop, Standardverhalten');
+  ok(befehl(P, 'nav.stopp') === 'nav.stopp.ok', 'nav.stopp im Gefecht: ok');
+  ok(!agent(P).absicht.befehl && agent(P).absicht.standard && agent(P).befehlGrund === 'stopp' && cmds(P, 'helm.stop', t0).length === 1, 'nav.stopp: Absicht verworfen (Grund stopp), ein helm.stop, Standardverhalten');
   lauf(P, 6);
   ok(!agent(P).absicht.befehl && agent(P).absicht.standard, 'danach haelt der Bot nichts mehr fest: helmFight regelt wieder (keine Dauer-Absicht STOPP)');
   ok(fehlerOk(P), 'game.errors leer');
@@ -163,6 +167,49 @@ section('2 nav.schub: Stufe setzen und halten');
   let min = 1e9; let ang = 0;
   lauf(P, 14, () => { min = Math.min(min, Math.hypot(g.ship.x - 850, g.ship.y - 700)); ang = Math.max(ang, Math.abs(g.ship.angle)); return false; });
   ok(min > 70 + 25 && ang > 0.05 && g.errors === 0, `nav.schub voll: der Brocken auf der Bahn wird umflogen (kleinster Abstand zur Mitte ${min.toFixed(0)} px > Radius 70 + 25, Kurs gedreht ${ang.toFixed(2)} rad)`);
+}
+
+{
+  // BOT-01 D: rueckwaerts faehrt wirklich rueckwaerts (Heck voraus), Kurs und Andocken uebernehmen danach wieder
+  const P = partie({}); const { g } = P;
+  setze(P, 1100, 700, 0);
+  const x0 = g.ship.x;
+  befehl(P, 'nav.schub', { stufe: 'rueckwaerts' }); lauf(P, 6);
+  const fwd = () => g.ship.vx * Math.cos(g.ship.angle) + g.ship.vy * Math.sin(g.ship.angle);
+  ok(g.ship.helm.stage === STOP - 1 && fwd() < -15 && g.ship.x < x0 - 30 && agent(P).absicht.befehl && agent(P).absicht.befehl.name === 'nav.schub', `rueckwaerts: Stufe R, Fahrt ${fwd().toFixed(1)} px/s gegen den Bug, x ${x0.toFixed(0)} -> ${g.ship.x.toFixed(0)}, Absicht gehalten`);
+  ok(/R.ckw.rts/.test(require('../server/bots/status.js').text(g, agent(P))), 'bot.status nennt die Rueckwaertsfahrt: ' + require('../server/bots/status.js').text(g, agent(P)));
+  const e = gegner(P, 'korvette', g.ship.x + 1400, g.ship.y); capZiel(g, e.id);
+  befehl(P, 'nav.kurs', { ziel: 'objekt:' + e.id }); lauf(P, 8);
+  ok(g.ship.helm.stage >= QUARTER && fwd() > 10 && agent(P).absicht.befehl && agent(P).absicht.befehl.name === 'nav.kurs', `danach nav.kurs: ueberschreibt die Rueckwaertsstufe (Stufe ${g.ship.helm.stage}, Fahrt ${fwd().toFixed(1)} px/s voraus)`);
+  befehl(P, 'nav.schub', { stufe: 'rueckwaerts' }); lauf(P, 3);
+  ok(g.ship.helm.stage === STOP - 1, 'wieder rueckwaerts');
+  g.ship.dodgeCd = 0; befehl(P, 'nav.ausweichen'); lauf(P, 2);
+  ok(agent(P).absicht.befehl && agent(P).absicht.befehl.name === 'nav.schub' && g.ship.helm.stage === STOP - 1, 'Ausweichen rueckwaerts: die Absicht (Rueckwaertsstufe) bleibt');
+  weg(P, e); befehl(P, 'nav.stopp');
+  ok(g.ship.helm.stage === STOP && g.ship.helm.autoStop === true && !agent(P).absicht.befehl, 'nav.stopp aus der Rueckwaertsfahrt: Allstopp (Stufe STOPP, autoStop), Absicht weg');
+  lauf(P, 15, () => g.ship.speed < 3);
+  ok(g.ship.speed < 3, `das Schiff steht (${g.ship.speed.toFixed(1)} px/s)`);
+  ok(fehlerOk(P), 'game.errors leer');
+}
+{
+  // rueckwaerts weicht einem Felsen hinter dem Heck aus (Felsen und Rand werden vom Heck aus gesehen)
+  const P = partie({}); const { g } = P;
+  setze(P, 1400, 700, 0);
+  g.space.asteroids = [{ id: 'fels2', x: 850, y: 700, r: 70, seed: 1 }]; g.asteroidsDirty = true;
+  lauf(P, 1);
+  befehl(P, 'nav.schub', { stufe: 'rueckwaerts' });
+  let min = 1e9;
+  lauf(P, 30, () => { min = Math.min(min, Math.hypot(g.ship.x - 850, g.ship.y - 700)); return false; });
+  ok(min > 70 + 36 + 20 && g.errors === 0, `rueckwaerts: der Brocken hinter dem Heck wird umfahren (kleinster Abstand zur Mitte ${min.toFixed(0)} px > Radius 70 + 36 + 20)`);
+}
+{
+  // rueckwaerts am Kartenrand: das Schiff dreht zur Mitte, statt aus der Karte zu fahren
+  const P = partie({}); const { g } = P;
+  setze(P, 400, 700, 0);   // Heck zeigt zur linken Kante (x = 0)
+  befehl(P, 'nav.schub', { stufe: 'rueckwaerts' });
+  let min = 1e9;
+  lauf(P, 45, () => { min = Math.min(min, g.ship.x); return false; });
+  ok(min > 20 && g.ship.x > 150 && g.errors === 0, `rueckwaerts Richtung Kartenrand: das Heck dreht zur Mitte, kleinster x ${min.toFixed(0)} px, nach 45 s wieder bei x ${g.ship.x.toFixed(0)}`);
 }
 
 // ---------- 3 nav.stopp, nav.ausweichen ----------
@@ -188,7 +235,7 @@ section('3 nav.stopp und nav.ausweichen');
   ok(befehl(P, 'nav.ausweichen') === 'nav.ausweichen.ok', 'nav.ausweichen: ok');
   ok(cmds(P, 'helm.dodge', t1).length === 1 && g.ship.dodgeCd > 0, `helm.dodge gesendet, die Ausweichrolle laeuft (Abklingzeit ${g.ship.dodgeCd.toFixed(1)} s)`);
   ok(befehl(P, 'nav.ausweichen') === 'nav.ausweichen.abgelehnt.nicht_jetzt', 'Ausweichrolle laedt noch: abgelehnt nicht_jetzt');
-  befehl(P, 'nav.schub', { stufe: 2 }); lauf(P, 1); g.ship.dodgeCd = 0;
+  befehl(P, 'nav.schub', { stufe: 'halb' }); lauf(P, 1); g.ship.dodgeCd = 0;
   befehl(P, 'nav.ausweichen'); ok(agent(P).absicht.befehl && agent(P).absicht.befehl.name === 'nav.schub', 'ein Ausweichen laesst die Absicht (Schub) stehen');
   ok(fehlerOk(P), 'game.errors leer');
 }
@@ -304,6 +351,16 @@ for (const [seed, dx, dy, ang] of [[7, 700, 0, 0], [11, -400, 450, 2], [23, 150,
   ok(befehl(P, 'nav.andocken') === 'nav.andocken.ok' && !agent(P).absicht.befehl, 'schon angedockt: ok ohne neue Absicht');
 }
 {
+  // BOT-01 D: aus der Rueckwaertsfahrt heraus uebernimmt nav.andocken die Stufen wieder und dockt an
+  const P = partie({ seed: 7, start: 'free' }); const { g } = P;
+  setze(P, 1400, 700, 0);
+  befehl(P, 'nav.schub', { stufe: 'rueckwaerts' }); lauf(P, 4);
+  ok(g.ship.helm.stage === STOP - 1 && g.ship.speed > 10, 'Aufbau: rueckwaerts unterwegs');
+  const antwort = befehl(P, 'nav.andocken');
+  const da = lauf(P, 120, () => g.ship.docked); lauf(P, 1);
+  ok(antwort === 'nav.andocken.ok' && da && g.ship.dockedAt === 'hafen' && fehlerOk(P), 'aus der Rueckwaertsfahrt: nav.andocken ueberschreibt die Stufe und dockt an, keine Fehler');
+}
+{
   const P = partie({}); setze(P, 1100, 1500, 0);
   ok(befehl(P, 'nav.andocken') === 'nav.andocken.abgelehnt.kein_ziel' && !agent(P).absicht.befehl, 'im All ohne Dock: abgelehnt kein_ziel');
   const Q = partie({ start: 'free' }); setze(Q, 1300, 700, 0);
@@ -407,15 +464,15 @@ section('8 Ablehnungen: nicht_jetzt, system, wartet');
   const P = partie({}); const { g, h } = P;
   setze(P, 1100, 1500, 0);
   const e = gegner(P, 'korvette', g.ship.x + 800, g.ship.y); capZiel(g, e.id);
-  const sieben = [['nav.kurs', { ziel: 'marke' }], ['nav.stopp'], ['nav.schub', { stufe: 2 }], ['nav.ausweichen'], ['nav.abstand', {}], ['nav.andocken', {}], ['nav.sprung', { ziel: 'marke' }]];
+  const sieben = [['nav.kurs', { ziel: 'marke' }], ['nav.stopp'], ['nav.schub', { stufe: 'halb' }], ['nav.ausweichen'], ['nav.abstand', {}], ['nav.andocken', {}], ['nav.sprung', { ziel: 'marke' }]];
   // Aussenteam unten
   h.zone = 'away';
   const az = {}; for (const [nm, ar] of sieben) az[nm] = befehl(P, nm, ar);
   h.zone = 'ship';
-  ok(['nav.kurs', 'nav.abstand', 'nav.andocken', 'nav.sprung', 'nav.schub'].every((nm) => az[nm] === nm + '.abgelehnt.nicht_jetzt'), 'Aussenteam unten (zone away): nav.kurs, nav.abstand, nav.andocken, nav.sprung und nav.schub (Stufe 2) abgelehnt nicht_jetzt');
+  ok(['nav.kurs', 'nav.abstand', 'nav.andocken', 'nav.sprung', 'nav.schub'].every((nm) => az[nm] === nm + '.abgelehnt.nicht_jetzt'), 'Aussenteam unten (zone away): nav.kurs, nav.abstand, nav.andocken, nav.sprung und nav.schub (halb) abgelehnt nicht_jetzt');
   ok(['nav.stopp', 'nav.ausweichen'].every((nm) => az[nm] === nm + '.ok'), 'Aussenteam unten: nav.stopp und nav.ausweichen bleiben moeglich');
   h.zone = 'away';
-  ok(befehl(P, 'nav.schub', { stufe: 0 }) === 'nav.schub.ok' && befehl(P, 'nav.schub', { stufe: 'voll' }) === 'nav.schub.abgelehnt.nicht_jetzt' && !agent(P).absicht.befehl, 'Aussenteam unten: nav.schub nur mit Stufe 0 (Stopp), alles andere nicht_jetzt, keine Absicht');
+  ok(befehl(P, 'nav.stopp') === 'nav.stopp.ok' && ['rueckwaerts', 'viertel', 'halb', 'dreiviertel', 'voll'].every((s) => befehl(P, 'nav.schub', { stufe: s }) === 'nav.schub.abgelehnt.nicht_jetzt') && !agent(P).absicht.befehl, 'Aussenteam unten: nur nav.stopp, jede Schubstufe (auch rueckwaerts) nicht_jetzt, keine Absicht');
   h.zone = 'ship';
   agent(P).befehlVerwerfen('test'); g.ship.dodgeCd = 0;
   // Antrieb zerstoert
@@ -437,7 +494,7 @@ section('8 Ablehnungen: nicht_jetzt, system, wartet');
   const e = gegner(P, 'korvette', g.ship.x + 800, g.ship.y); capZiel(g, e.id);
   neben(g, h, 'helm'); eTaste(g, c); lauf(P, 1);
   ok(h.console === 'helm' && agent(P).absicht.zustand === 'wartet', 'Mensch sitzt an der Steuer, der Bot wartet');
-  const sieben = [['nav.kurs', { ziel: 'marke' }], ['nav.stopp'], ['nav.schub', { stufe: 2 }], ['nav.ausweichen'], ['nav.abstand', {}], ['nav.andocken', {}], ['nav.sprung', { ziel: 'marke' }]];
+  const sieben = [['nav.kurs', { ziel: 'marke' }], ['nav.stopp'], ['nav.schub', { stufe: 'halb' }], ['nav.ausweichen'], ['nav.abstand', {}], ['nav.andocken', {}], ['nav.sprung', { ziel: 'marke' }]];
   ok(sieben.every(([nm, ar]) => befehl(P, nm, ar) === nm + '.abgelehnt.wartet') && !agent(P).absicht.befehl, 'alle sieben Befehle: abgelehnt wartet, keine Absicht');
 }
 

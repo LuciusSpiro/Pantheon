@@ -20,12 +20,11 @@ const BOT_ID = /^b[0-3]$/;
 const OBJEKT_ID = /^objekt:[A-Za-z0-9_.,-]{1,40}$/;   // ops.ziel: nur objekt:<id> (Vertrag §3)
 const HEX_ODER_OBJEKT_ID = /^(?:objekt|hex):[A-Za-z0-9_.,-]{1,40}$/;   // nav.kurs, nav.abstand, nav.sprung
 const DELTA = { '1': 1, '+1': 1, '-1': -1 };
-const GRENZE = { meter: [1, 100000], stufe: [0, 6] };   // Wertgrenzen gehoeren dem Server (Vertrag)
+const GRENZE = { meter: [1, 100000] };   // Wertgrenzen gehoeren dem Server (Vertrag)
 const RATE_MAX = 10, RATE_FENSTER_MS = 1000;
 const UNBEKANNT = 'befehl';   // Pseudo-Befehl fuer textIds, wenn der Befehlsname unbekannt ist
 
 const hat = (o, k) => Object.prototype.hasOwnProperty.call(o, k);
-const istZahlWort = (s) => /^(?:0|[1-9]\d{0,5})$/.test(s);
 
 // ---------- Katalog aus dem Kanon ----------
 // { an, args: Map(name -> { werte:Set, muster:[RegExp], pflicht }), meter, quellen }
@@ -56,13 +55,12 @@ function baueKatalog() {
 const KATALOG = baueKatalog();
 
 // ---------- Argumente ----------
-// Prueft einen Wert und liefert den normalisierten (stufe: Zahl 0-6 oder halb/voll; delta: Zahl 1/-1; sonst String), undefined = ungueltig.
+// Prueft einen Wert und liefert den normalisierten (stufe: eines der Stufenwoerter des Kanons; delta: Zahl 1/-1; sonst String), undefined = ungueltig.
 // menue: Quelle menu/taste; nur dort gelten die freien Ziele objekt:<id> / hex:<id> (nicht sprechbar).
 function pruefeWert(name, spec, v, menue) {
   if (typeof v !== 'string' && !(typeof v === 'number' && Number.isFinite(v))) return undefined;
   const s = String(v);
   if (name === 'delta') return hat(DELTA, s) && spec.werte.has(String(DELTA[s])) ? DELTA[s] : undefined;
-  if (name === 'stufe' && istZahlWort(s)) { const z = Number(s); return z >= GRENZE.stufe[0] && z <= GRENZE.stufe[1] ? z : undefined; }
   return spec.werte.has(s) || (menue && spec.muster.some((re) => re.test(s))) ? s : undefined;
 }
 // Liefert eine normalisierte Kopie der args oder null (abgelehnt argument). Die Registry sieht nie das Original.
@@ -89,7 +87,7 @@ function pruefeArgs(k, args, menue) {
 }
 
 // Rueckmeldungen der Befehle (C2): { ok: true } oder { ok: false, code } mit einem Code aus gruende.json fuer diesen Befehl (u. a. kein_ziel, nicht_jetzt, system). Alles andere (Ausnahme, fehlender oder nicht vorgesehener Code)
-// wird zu abgelehnt/fehler und per game.countError('bot.grund') sichtbar gezaehlt. args gehen normalisiert (stufe/delta als Zahl) als Kopie an die Registry; hex:/objekt:-Ziele nur bei Quelle menu/taste.
+// wird zu abgelehnt/fehler und per game.countError('bot.grund') sichtbar gezaehlt. args gehen normalisiert (delta als Zahl) als Kopie an die Registry; hex:/objekt:-Ziele nur bei Quelle menu/taste.
 // Rate: je Spieler 10 je Sekunde; nur die erste Ablehnung im Fenster wird beantwortet, weitere werden still verworfen.
 // ---------- Zustand je Game ----------
 const RATEN = new WeakMap();   // game -> Map(spieler.id -> { t: [Zeitstempel ms], gemeldet })

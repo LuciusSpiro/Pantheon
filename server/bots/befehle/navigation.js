@@ -4,12 +4,12 @@
 // Codes (content/bots/gruende.json): kein_ziel (das Ziel gibt es nicht), nicht_jetzt (geht in dieser Lage nicht), system (Antrieb zerstoert). Alles andere zaehlt C1 als Fehler.
 // Schichten: die Registry prueft Voraussetzungen und setzt die Absicht des Agenten (kurs, abstand, andocken, sprung, schub) bzw. sendet die direkten Befehle (stopp, ausweichen) ueber ihn.
 // Die Ausfuehrung des Fluges liegt im Agenten (server/bots/mannschaft.js, Methoden befehlAusfuehren ...), die Ziele in navziel.js. Hier keine Spiellogik des Fluges.
-// args kommen normalisiert aus der Annahme (annahme.js): ziel marke|ziel|basis|hex:<id>|objekt:<id>, stufe 0-6|halb|voll, meter 1-100000.
+// args kommen normalisiert aus der Annahme (annahme.js): ziel marke|ziel|basis|hex:<id>|objekt:<id>, stufe rueckwaerts|viertel|halb|dreiviertel|voll, meter 1-100000.
 const Station = require('../../sim/station.js');
 const Sprung = require('../../sim/sprung.js');
 const Lauf = require('../lauf.js');
 const Navziel = require('../navziel.js');
-const { STOP, HALF, FULL } = require('../kern.js');
+const { STOP, QUARTER, HALF, THREEQ, FULL } = require('../kern.js');
 
 const NICHT_JETZT = { ok: false, code: 'nicht_jetzt' };
 const KEIN_ZIEL = { ok: false, code: 'kein_ziel' };
@@ -30,11 +30,10 @@ function vorab(game, bot, o) {
   return { agent };
 }
 
-// Stufe -> Index der Lerche: Schub 0 = STOPP, 1 bis 4 = ein Viertel, halbe, drei Viertel, volle Kraft; darueber (Matcher erlaubt bis 6) = volle Kraft. halb/voll = die Stufen halb und voll.
+// Stufe -> Index der Lerche (shared/config.js lerche.stages [R, STOPP, ein Viertel, halb, drei Viertel, voll]): rueckwaerts = Index STOP - 1 (die Rueckwaertsstufe), STOPP ist nav.stopp.
+const STUFEN = { rueckwaerts: STOP - 1, viertel: QUARTER, halb: HALF, dreiviertel: THREEQ, voll: FULL };
 function stufenIndex(stufe) {
-  if (stufe === 'halb') return HALF;
-  if (stufe === 'voll') return FULL;
-  return Math.min(FULL, STOP + Math.max(0, Math.round(Number(stufe)) || 0));
+  return Object.prototype.hasOwnProperty.call(STUFEN, stufe) ? STUFEN[stufe] : STOP;   // die Annahme laesst nur die fuenf Woerter durch; alles andere waere Stopp
 }
 
 const nav = {};
@@ -56,8 +55,8 @@ nav['nav.stopp'] = (game, bot) => {
   return OK;
 };
 
-// Schub 0 ist nav.stopp (Absicht weg, helm.stop, Standardverhalten). Mit Aussenteam unten nur Stufe 0 (Beamreichweite, Bericht 8.3 Nr. 3), alles andere nicht_jetzt.
-// Skala der Lerche (Kanon bleibt Kais Sache): Schub 4 bis 6 sind alle volle Kraft, Schub zwei = halbe Kraft.
+// Stopp ist nav.stopp (Absicht weg, helm.stop, Standardverhalten). Mit Aussenteam unten nur Stopp (Beamreichweite, Bericht 8.3 Nr. 3), jede Schubstufe (auch rueckwaerts) nicht_jetzt.
+// Skala = die Stufen des Schiffs (Kais Entscheidung 2026-11-24): rueckwaerts, viertel, halb, dreiviertel, voll.
 nav['nav.schub'] = (game, bot, args) => {
   const stage = stufenIndex(args.stufe);
   if (stage === STOP) return nav['nav.stopp'](game, bot, args);
