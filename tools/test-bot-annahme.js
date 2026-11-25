@@ -27,6 +27,8 @@ const Befehle = require('../server/bots/befehle/index.js');
 const KANON = require('../content/bots/kanon.json');
 const GRUENDE = require('../content/bots/gruende.json');
 const TEXTE = require('../content/bots/texte.json');
+const TexteFiguren = require('../server/bots/texte-figuren.js');   // BOT-05 A3: Text je Figur, Rueckfall texte.json
+const listeVon = (a) => TexteFiguren.listeFuer(a.botId, a.textId, TEXTE);
 
 let fails = 0, n = 0;
 const ok = (c, t) => { n++; if (c) console.log('  ok   ' + t); else { fails++; console.log('  FEHLER ' + t); } };
@@ -309,7 +311,7 @@ section('4 Gruende');
   const njBad = [];
   for (const [reg, b, an, args] of NJ) {
     const a = haken(reg, b, () => ({ ok: false, code: 'nicht_jetzt' }), () => einz(Z, cmd(b, an, args)));
-    if (!(a && a.status === 'abgelehnt' && a.textId === b + '.abgelehnt.nicht_jetzt' && typeof a.text === 'string' && a.text === TEXTE[a.textId][a.variante])) njBad.push(b);
+    if (!(a && a.status === 'abgelehnt' && a.textId === b + '.abgelehnt.nicht_jetzt' && typeof a.text === 'string' && a.text === listeVon(a)[a.variante])) njBad.push(b);
   }
   ok(njBad.length === 0, 'Registry meldet nicht_jetzt (Beamen ohne Fracht, Landescan, Ausweichen, Andocken): abgelehnt, Text je Befehl' + (njBad.length ? ' - ' + njBad.join(' ') : ''));
   ok(Object.keys(GRUENDE.befehle).filter((b) => b.startsWith('bord.')).every((b) => GRUENDE.befehle[b].includes('nicht_jetzt') && Array.isArray(TEXTE[b + '.abgelehnt.nicht_jetzt'])), 'bord.*: nicht_jetzt vorgesehen, Text vorhanden');
@@ -390,9 +392,12 @@ section('6 Antwort: Form, Text, Variante, Ausnahme');
   const a = ant[0];
   ok(a.t === 'bot.antwort' && Object.keys(a).sort().join() === 'befehl,botId,status,t,text,textId,variante' && a.textId === 'ops.scan.ok', 'Form: t, botId, befehl, status, textId, text, variante - direkt, keine event-Huelle');
   ok(P.c.inbox.every((m) => m.t !== 'event' || m.kind !== 'bot.antwort'), 'keine Antwort als event verpackt');
-  ok(ant.every((x) => x.text === TEXTE[x.textId][x.variante]) && ant[0].variante === 0 && ant[1].variante === 1 && ant[2].variante === 0, 'text = TEXTE[textId][variante]; die zwei Varianten wechseln sich ab');
+  ok(ant.every((x) => x.text === listeVon(x)[x.variante]) && ant[0].variante === 0 && ant[1].variante === 1 && ant[2].variante === 0, 'text = Liste der Figur [variante] (BOT-05 A3, sonst TEXTE[textId]); die zwei Varianten wechseln sich ab');
   const abg = einz(P, cmd('nav.stopp', 'navigation'));
-  ok(abg && abg.text === TEXTE[abg.textId][abg.variante], 'auch bei Ablehnung: Text und Variante aus der Tabelle');
+  // BOT-05 A3: Server-Text und Clip passen je Index: der Text der Antwort ist der Text, den das Manifest der Stimme dieser Figur unter textId.variante nennt (sonst spraeche der Clip etwas anderes als der Untertitel)
+  const clipText = (x) => { const m = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'assets', 'bots', 'stimmen', require('../server/bots/figuren.js').figurMitId(x.botId).stimme, 'clips.json'), 'utf8')); return m.texte[m.clips[x.textId + '.' + x.variante]]; };
+  ok(ant.concat([abg]).every((x) => x && typeof x.text === 'string' && clipText(x) === x.text), 'Server-Text = Text des Manifest-Clips derselben Figur und Variante (ok und Ablehnung)');
+  ok(abg && abg.text === listeVon(abg)[abg.variante], 'auch bei Ablehnung: Text und Variante aus der Tabelle');
   const ce = P.g.countError; const gez = []; P.g.countError = (wo) => { gez.push(wo); };   // die erwartete Ausnahme nicht auf die Konsole schreiben
   const eg = haken('ops', 'ops.scan', () => { throw new Error('kaputt'); }, () => { let e = null, a2 = null; try { a2 = einz(P, cmd('ops.scan', 'ops')); } catch (x) { e = x; } return { e, a2 }; });
   ok(eg.e === null && eg.a2 && eg.a2.status === 'abgelehnt' && grund(eg.a2) === 'fehler' && gez.length === 1 && gez[0] === 'bot.grund', 'Registry wirft: keine Ausnahme nach aussen, Antwort abgelehnt fehler, ein Fehlerpfad (bot.grund)');

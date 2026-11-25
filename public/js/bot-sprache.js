@@ -62,9 +62,12 @@
   // ------------------------------------------------------------------ rein: Clipwahl und Messvergleich
   // Kandidaten in Reihenfolge: die Variante des Untertitels zuerst, dann der Clip ohne Variante; wav vor ogg. Die Wiedergabe nimmt den ersten, der existiert.
   // Ohne Variante (der Vertrag kennt kein Feld `variante`, ein vertragstreuer Server liefert keines): zuerst <textId>.0, dann ohne Variante.
-  function clipKandidaten(textId, stimme, variante, basis) {
+  // BOT-05 A3: mit Manifest (clips.json der Stimme: { clips: { "<textId>.<variante>": "<datei>" }, texte: { "<datei>": "<text>" } }) steht die Datei des Manifests an erster Stelle; die alte Namensregel bleibt als Rueckfall.
+  function clipKandidaten(textId, stimme, variante, basis, manifest) {
     const b = (basis || CLIP_BASIS) + '/' + stimme + '/' + textId, out = [];
     const v = Number.isInteger(variante) && variante >= 0 ? variante : 0;
+    const datei = manifest && manifest.clips && typeof manifest.clips === 'object' ? manifest.clips[textId + '.' + v] : null;
+    if (typeof datei === 'string' && /^[A-Za-z0-9_.-]+$/.test(datei)) out.push((basis || CLIP_BASIS) + '/' + stimme + '/' + datei);
     for (const e of ENDUNGEN) out.push(b + '.' + v + '.' + e);
     for (const e of ENDUNGEN) out.push(b + '.' + e);
     return out;
@@ -111,6 +114,20 @@
     const setzeTimer = env.setTimeout || ((f, ms) => setTimeout(f, ms)), loescheTimer = env.clearTimeout || ((t) => clearTimeout(t));
     const stopTimer = () => { if (s.timer != null) { loescheTimer(s.timer); s.timer = null; } };
 
+    // BOT-05 A3: Manifest je Stimme einmal laden (env.ladeManifest(url) -> Promise<Objekt|null>; Fehler und Fehlen = null, dann gilt die Namensregel). Ohne env.ladeManifest oder mit schon geladenem Manifest laeuft fn ohne Verzoegerung.
+    const manifeste = new Map();   // stimme -> { m, fertig, p }
+    function mitManifest(stimme, fn) {
+      if (!env.ladeManifest) return fn(null);
+      let e = manifeste.get(stimme);
+      if (!e) {
+        e = { m: null, fertig: false, p: null };
+        const url = (env.clipBasis || CLIP_BASIS) + '/' + stimme + '/clips.json';
+        const fertig = (m) => { e.m = m && typeof m === 'object' && m.clips && typeof m.clips === 'object' ? m : null; e.fertig = true; };
+        try { e.p = Promise.resolve(env.ladeManifest(url)).then(fertig, () => fertig(null)); } catch (x) { fertig(null); }
+        manifeste.set(stimme, e);
+      }
+      return e.fertig ? fn(e.m) : e.p.then(() => fn(e.m));
+    }
     const stimmeFuer = (x) => (x && x.stimme) || stimmen[x && x.botId ? x.botId : x] || String(x && x.botId ? x.botId : x || 'b0');
     const meldung = (t) => { try { A.meldung(t); } catch (e) { /* Anzeige darf den Ablauf nie brechen */ } };
     // „…“ steht, solange mindestens ein Ablauf (Loslassen bis Ergebnis) läuft; je Ablauf eine Marke, damit überlappende Abläufe sich nicht gegenseitig löschen
@@ -230,9 +247,14 @@
     }
     async function unklar() {
       const v = s.unklarN++ % UNKLAR_VARIANTEN;   // beide Varianten abwechselnd
-      let url = null;
-      try { url = await env.audio.spiele(clipKandidaten('bot.unklar', stimmeFuer(s.letzterBot || 'b0'), v, env.clipBasis)); } catch (e) { url = null; }   // Stimme des zuletzt angesprochenen/aktiven Bots
-      untertitel(v === 0 ? TEXT.unklar : TEXT.unklar2, { botId: s.letzterBot, dauerS: UNKLAR_DAUER_S });   // Untertitel immer, auch wenn der Clip läuft (Kai 2026-11-25)
+      const stimme = stimmeFuer(s.letzterBot || 'b0');   // Stimme des zuletzt angesprochenen/aktiven Bots
+      let url = null, man = null;
+      try { man = await mitManifest(stimme, (m) => m); } catch (e) { man = null; }
+      try { url = await env.audio.spiele(clipKandidaten('bot.unklar', stimme, v, env.clipBasis, man)); } catch (e) { url = null; }
+      // BOT-05 A3: der Untertitel ist der Text des Clips (Manifest: Datei -> Text, je Figur eigene Saetze), sonst der feste Text
+      const datei = man && man.clips ? man.clips['bot.unklar.' + v] : null;
+      const ansage = datei && man.texte && typeof man.texte[datei] === 'string' && man.texte[datei] ? man.texte[datei] : (v === 0 ? TEXT.unklar : TEXT.unklar2);
+      untertitel(ansage, { botId: s.letzterBot, dauerS: UNKLAR_DAUER_S });   // Untertitel immer, auch wenn der Clip läuft (Kai 2026-11-25)
       return false;
     }
 
@@ -242,9 +264,10 @@
       if (typeof msg.botId === 'string' && msg.botId) s.letzterBot = msg.botId;
       const id = untertitel(typeof msg.text === 'string' && msg.text ? msg.text : String(msg.textId || ''), { botId: msg.botId, von: msg.von });
       if (!s.aufnahme && msg.textId && msg.befehl !== 'bord.ansage') {   // gehaltene Sprechtaste = Mikrofon offen: nichts abspielen; BOT-02 B4: Ansagen des Bord-Bots haben keinen Clip-Vorrat (nur Untertitel, kein 404 je Ansage)
-        const urls = clipKandidaten(msg.textId, stimmeFuer(msg), msg.variante, env.clipBasis);
+        const stimme = stimmeFuer(msg);
         // Läuft der Clip länger als die Standarddauer, bleibt der Untertitel bis Clip-Ende (+ 0,5 s in der Anzeige)
-        try { Promise.resolve(env.audio.spiele(urls, { start: () => clipHalt(id, true), ende: () => clipHalt(id, false) })).catch(() => null); } catch (e) { /* nur Untertitel */ }
+        const spiele = (man) => Promise.resolve(env.audio.spiele(clipKandidaten(msg.textId, stimme, msg.variante, env.clipBasis, man), { start: () => clipHalt(id, true), ende: () => clipHalt(id, false) })).catch(() => null);
+        try { Promise.resolve(mitManifest(stimme, spiele)).catch(() => null); } catch (e) { /* nur Untertitel */ }
       }
       return true;
     }
@@ -292,7 +315,7 @@
 
     return {
       schalte, tasteRunter, tasteHoch, abbrechen, sendeText, empfange, setzeMessmodus, messeWeiter, aktuellePhrase,
-      istAn: () => s.an, lies: () => ({ an: s.an, aufnahme: s.aufnahme }), warte: () => s.letzte, clipKandidaten: (t, st, v) => clipKandidaten(t, st, v, env.clipBasis),
+      istAn: () => s.an, lies: () => ({ an: s.an, aufnahme: s.aufnahme }), warte: () => s.letzte, clipKandidaten: (t, st, v, man) => clipKandidaten(t, st, v, env.clipBasis, man),
     };
   }
 
@@ -569,6 +592,7 @@
     const anzeige = anzeigeHud(win, (t) => kern.sendeText(t), (dd) => kern.messeWeiter(dd));
     const env = {
       transport, matcher: () => ladeMatcher(win), stt: sttBrowser(win), mikrofon: mikrofonBrowser(win), audio: audioBrowser(win), anzeige,
+      ladeManifest: (url) => win.fetch(url).then((r) => (r.ok ? r.json() : null)).catch(() => null),   // BOT-05 A3: clips.json je Stimme, null = Namensregel
       ...(transport.netz === true ? menueAnschluss(() => win.PultBefehl && win.PultBefehl.menue) : {}),   // nur am Spielnetz: nur dort erreichen die Antworten das Menü
       postMessung: (sit, eintrag) => win.fetch('/api/bot-messung', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ sitzung: sit, eintrag }) }).then((r) => { if (!r.ok) throw new Error('messung ' + r.status); }),
     };

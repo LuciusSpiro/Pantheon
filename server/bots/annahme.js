@@ -13,6 +13,7 @@ const Befehle = require('./befehle/index.js');
 const KANON = require('../../content/bots/kanon.json');
 const GRUENDE = require('../../content/bots/gruende.json');
 const TEXTE = require('../../content/bots/texte.json');
+const TexteFiguren = require('./texte-figuren.js');   // BOT-05 A3: Liste je Figur (Rueckfall: texte.json); dieselbe Quelle wie der Clip-Vorrat
 
 const QUELLEN = ['menu', 'taste', 'sprache', 'text'];
 const ROLLEN_AN = ['navigation', 'ops', 'technik', 'bord'];
@@ -113,7 +114,7 @@ function antwort(game, botId, befehl, status, grund) {
   const name = befehl || UNBEKANNT;
   const textId = grund ? `${name}.${status}.${grund}` : `${name}.${status}`;
   const msg = { t: Protocol.C.BOT_ANTWORT, botId: botId || null, befehl: befehl || null, status, textId };
-  const liste = hat(TEXTE, textId) && Array.isArray(TEXTE[textId]) ? TEXTE[textId] : null;
+  const liste = TexteFiguren.listeFuer(botId, textId, TEXTE);   // BOT-05 A3: Figurvarianten ersetzen die Grundliste nur fuer diese Figur; ohne botId oder ohne Figurliste gilt texte.json
   if (liste && liste.length) {
     let m = VARIANTEN.get(game); if (!m) { m = new Map(); VARIANTEN.set(game, m); }
     const key = (botId || '') + '|' + textId;

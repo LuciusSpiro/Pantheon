@@ -49,6 +49,7 @@ const Status = require('../server/bots/status.js');
 const Alarm = require('../server/sim/alarm.js');
 const GRUENDE = require('../content/bots/gruende.json');
 const TEXTE = require('../content/bots/texte.json');
+const TexteFiguren = require('../server/bots/texte-figuren.js');   // BOT-05 A3: Text je Figur, Rueckfall texte.json
 
 if (MUT === 'feuer_halt') BotMannschaft.prototype.feuerErlaubt = function (c, extra) { return extra || {}; };
 if (MUT === 'schild') BotMannschaft.prototype.schildVerteilung = function (S) { return BotKern.prototype.schildVerteilung.call(this, S); };
@@ -510,9 +511,9 @@ section('6 bot.status und bot.automatik');
   Befehle.REGISTER.ops['ops.scan'] = () => ({ ok: true, text: 'GEHEIMER REGISTRY TEXT' });
   const x = senden(P, 'ops.scan', {}, { an: 'ops' });
   Befehle.REGISTER.ops['ops.scan'] = orig;
-  ok(x.length === 1 && x[0].textId === 'ops.scan.ok' && TEXTE['ops.scan.ok'].includes(x[0].text), 'andere Befehle: der Registry-Text wird ignoriert, es bleibt die Variante aus texte.json');
+  ok(x.length === 1 && x[0].textId === 'ops.scan.ok' && TexteFiguren.listeFuer(x[0].botId, 'ops.scan.ok', TEXTE).includes(x[0].text), 'andere Befehle: der Registry-Text wird ignoriert, es bleibt die Variante der Figur (Rueckfall texte.json)');
   const y = senden(P, 'ops.feuer_halt', {}, { an: 'ops' });
-  ok(y.length === 1 && TEXTE['ops.feuer_halt.ok'].includes(y[0].text), 'ops.feuer_halt: Text aus texte.json');
+  ok(y.length === 1 && TexteFiguren.listeFuer(y[0].botId, 'ops.feuer_halt.ok', TEXTE).includes(y[0].text), 'ops.feuer_halt: Text der Figur (Rueckfall texte.json)');
   // Zeilenumbrueche raus, Laenge begrenzt
   Befehle.REGISTER.bot['bot.status'] = () => ({ ok: true, text: 'Zeile eins\nZeile zwei\r\n' + 'x'.repeat(400) });
   const z = senden(P, 'bot.status', {}, { an: 'ops' });

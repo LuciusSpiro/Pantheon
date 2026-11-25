@@ -20,6 +20,7 @@ const Protocol = require('../shared/protocol.js');
 const KANON = require('../content/bots/kanon.json');
 const MUSTER = require('../content/bots/muster.json');
 const TEXTE = require('../content/bots/texte.json');
+const TexteFiguren = require('../server/bots/texte-figuren.js');   // BOT-05 A3: Text je Figur, Rueckfall texte.json
 
 let n = 0, fails = 0;
 const ok = (c, msg) => { n++; if (!c) { fails++; console.log('  FEHLER ' + msg); } else console.log('  ok ' + msg); };
@@ -109,7 +110,7 @@ function client(P) {
     ok(m.quelle === 'text' && m.an === 'navigation' && m.befehl === 'nav.schub' && m.args.stufe === 'halb', 'bot.befehl quelle text, an navigation, nav.schub halb');
     ok(C.net.antworten.length === 1 && a.status === 'ok' && a.textId === 'nav.schub.ok' && a.botId === bot(P, 'navigation').botId, 'Server-Annahme: ok (nicht abgelehnt quelle), Antwort vom Navigations-Bot');
     lauf(P, 3); ok(g.ship.helm.stage === HALF, 'Wirkung am Zustand: Schubstufe halb (' + g.ship.helm.stage + ')');
-    ok(C.L.sprUntertitel.length === 1 && TEXTE['nav.schub.ok'].includes(C.L.sprUntertitel[0].text) && C.L.menUntertitel.length === 0, 'genau ein Untertitel, von der Sprache, Text aus dem Vorrat: „' + (C.L.sprUntertitel[0] && C.L.sprUntertitel[0].text) + '“');
+    ok(C.L.sprUntertitel.length === 1 && TexteFiguren.listeFuer(a.botId, a.textId, TEXTE).includes(C.L.sprUntertitel[0].text) && C.L.menUntertitel.length === 0, 'genau ein Untertitel, von der Sprache, Text aus dem Vorrat: „' + (C.L.sprUntertitel[0] && C.L.sprUntertitel[0].text) + '“');
     ok(C.menue.crew()[0].quittung === 'aye' && C.menue.giltVon('navigation').key === 'nav.schub:stufe' && C.menue.giltVon('navigation').wert === 'halb' && C.menue.giltVon('navigation').sprech === 'Halbe Kraft voraus', 'Menü: Quittung „aye“, „gilt“ Navigation: nav.schub halb „Halbe Kraft voraus“');
   }
   section('b) Sprechtaste: Schilde, Feuer, Stopp');
@@ -140,7 +141,7 @@ function client(P) {
     ok(await C.kern.sendeText('Sensor') === true, 'Text „Sensor“ gesendet');
     const m = C.net.gesendet[C.net.gesendet.length - 1], a = C.net.antworten[n0];
     ok(m.an === 'bord' && m.befehl === 'bord.sensor' && C.net.antworten.length === n0 + 1 && a.status === 'abgelehnt' && a.textId === 'bord.sensor.abgelehnt.kein_ziel', 'Server: abgelehnt kein_ziel, niemand unten (BOT-02: der Bot an Bord nimmt den Befehl an) (' + (a && a.textId) + ')');
-    ok(C.L.sprUntertitel.length === u0 + 1 && TEXTE['bord.sensor.abgelehnt.kein_ziel'].includes(C.L.sprUntertitel[u0].text), 'Untertitel der Sprache: „' + (C.L.sprUntertitel[u0] && C.L.sprUntertitel[u0].text) + '“');
+    ok(C.L.sprUntertitel.length === u0 + 1 && TexteFiguren.listeFuer(a.botId, a.textId, TEXTE).includes(C.L.sprUntertitel[u0].text), 'Untertitel der Sprache: „' + (C.L.sprUntertitel[u0] && C.L.sprUntertitel[u0].text) + '“');
     ok(C.menue.crew()[0].quittung === 'nein' && C.menue.giltVon('navigation') === gilt0 && C.menue.giltVon('bord') === null, 'Menü: Quittung „nein“ (abgelehnt), kein „gilt“ für Bord');
     const a2n = C.net.antworten.length;
     await C.sprich('Schilde Oben'); ok(C.net.antworten.length === a2n, 'unklarer Satz: nichts gesendet, keine Server-Antwort');
