@@ -38,6 +38,7 @@
   {"id":"test-bausteine","kette":"test","cmd":["tools/test-bausteine.js"],"stufe":"fast","budget_s":7},
   {"id":"test-regiebuch","kette":"test","cmd":["tools/test-regiebuch.js"],"stufe":"fast","budget_s":8},
   {"id":"test-bot-gedaechtnis","kette":"test","cmd":["tools/test-bot-gedaechtnis.js"],"stufe":"fast","seriell":true,"budget_s":15},
+  {"id":"test-bot-gespraech","kette":"test","cmd":["tools/test-bot-gespraech.js"],"stufe":"fast","budget_s":25},
   {"id":"test-weltstand","kette":"test","cmd":["tools/test-weltstand.js"],"stufe":"fast","seriell":true,"budget_s":10},
   {"id":"test-spielleiter --strict","kette":"test","cmd":["tools/test-spielleiter.js","--strict"],"stufe":"full","budget_s":23},
   {"id":"test-transport-ollama","kette":"test","cmd":["tools/test-transport-ollama.js"],"stufe":"fast","budget_s":6},
