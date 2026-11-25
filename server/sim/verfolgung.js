@@ -19,6 +19,7 @@
 const Sektoren = require('../../shared/sektoren.js');
 const Zielsysteme = require('./zielsysteme.js');
 const Gsys = require('./gegnersystem.js');
+const Abgang = require('./abgang.js');   // SPT-02 7: Sprungblitz am Abgang
 const Gegnersprung = require('./gegnersprung.js');   // SYS-01 C Nacharbeit: Notfallsprung (Baustein) = entkommen
 const W = require('../../content/kampf/verfolgung-werte.json').werte;
 
@@ -177,6 +178,7 @@ function springen(game, k, e) {
   game.space.enemies = game.space.enemies.filter((o) => o !== e);
   abgeben(game, e);
   game.emit('sfx', { name: 'jump' });
+  Abgang.melde(game, e, 'sprung');
   setzeAusgang(game, k, 'entkommen');
 }
 function gestellt(game, k, e) {

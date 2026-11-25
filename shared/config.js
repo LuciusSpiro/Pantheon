@@ -744,14 +744,16 @@
       shieldRadius: 46,          // px: Lerche „dazwischen“, wenn die Schusslinie so nah an ihrer Mitte vorbeigeht (Breitseite als Schild)
       hitRadius: 8,              // px zusätzlich zum Klassenradius für Projektile mit Schützling-Ziel
       spawnDist: 260,            // px: von 'lerche' = so weit steuerbord der Lerche
+      leaveMaxS: 14,             // s: so lange zieht ein abdrehender Gegner (enemies_retreat, Szenenende) höchstens durchs Feld, dann löst er sich auf (updateLeaving, Abgang 'rueck'); Faden-Szenen: Abzug „höchstens ~14 s“
       // Reisetempo folgt_kurs als Anteil der Klassen-Höchstfahrt (QA-INTEGRATION S2: deutlich unter der Lerche, Geleit ~3–4 min)
       cruise: { min: 0.2, max: 0.45 },
       // Schaden auf Schützlinge je Crewgröße (Faktor auf hullPerDamage); Ziel: zu dritt 70–90 % heil, solo 50–70 % heil
       crewDamage: { 1: 0.18, 2: 0.9, 3: 1.25 } },   // QA S2b: solo 0.4 -> 0.18 (Jäger 3× zäher: Geleit solo 0/10 -> 5/10 heil)
     spaceM3b: {
-      flightV2: { arena: true, missions: false },   // neues Gegner-Flugmodell; die Lerche fliegt überall mit Stufen
+      flightV2: { arena: true, missions: false, weltsim: true },   // neues Gegner-Flugmodell; die Lerche fliegt überall mit Stufen. weltsim (SPT-02 8, Kai 2026-11-23): Freie Fahrt Sund (game.weltsim, alle Szenen der Weltsimulation) fliegt mit V2; Kampagne/Tutorial folgen weiter missions bzw. der Buchart
       pilot: { kP: 2.5, kD: 1.2, korvetteRange: 400, lead: 1.5, approachOffset: 60, overshootDist: 380, overshootTime: 3,
-        raiderStagger: 2, edgeLook: 2, minSeparation: 60, stuckTime: 4 },
+        raiderStagger: 2, edgeLook: 2, minSeparation: 60, stuckTime: 4,
+        waffenWechsel: { an: true, verzug: 2 } },   // SPT-02 9: Seitenwechsel bei Waffenausfall der zugewandten Seite (an, Verzug s bis zum Wechsel; Abklingzeit = pilotKlasse.switchCd)
       // EK1b: Breitseiten-KI (pilot.breitseite) mit Klassenparametern statt einer Funktion je Klasse: range = Soll-Abstand zur Lerche (px, Vorgabe pilot.korvetteRange, höchstens
       // Waffenreichweite − 40), switchCd = Mindestabstand zwischen zwei Seitenwechseln (s). Schwere Schiffe wechseln die Seite seltener.
       pilotKlasse: { korvette: { switchCd: 12 }, fregatte: { range: 420, switchCd: 16 }, kreuzer: { range: 440, switchCd: 20 } },

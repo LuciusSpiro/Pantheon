@@ -1,0 +1,16 @@
+{
+  "_kommentar": "SPT-02 Paket 10 (Sperrfeuer-Guard Korvette, space.js updateSperrfeuer): Vergleich Basis spt02 a30a7928 (frischer Lauf, 20 Seeds) gegen spt02-p10: node tools/golden-trace.js --compare <basis> <neu> --allow tools/fixtures/golden/allow-spt02-10.json. 116 von 120 Traces sind byte-identisch (m3 vollstaendig, m1/m2 Crew 3 vollstaendig, Crew 1 ausser Seed 7 und 8). Die vier abweichenden Traces (m1/1/7, m2/1/7, m1/1/8, m2/1/8) stammen aus zwei Laeufen (m2 setzt den m1-Lauf fort), in denen der geaenderte Guard tatsaechlich ausloest: Korvetten mit Lanze an einem nicht zugewandten Platz und Batterie auf der zugewandten Seite (Seed 7: bug=lanze, stbd=bolzen, bb=batterie, 4 Stoesse, die der alte Guard sperrte; Seed 8: bug=batterie, stbd=lanze, bb=batterie, 1 Stoss); in den Kontrollseeds 1 und 2 ist die Zahl solcher Stoesse 0 und die Traces gleich. Die Korvette schiesst jetzt Sperrfeuer, die Lerche nimmt anderen Schaden: (1) stages m1/* und m2/*: Schrittzeiten verschieben sich durch anderen Kampfverlauf, die Schrittfolge ist gleich. (2) texts: Schadens-, Brand-, Reparatur- und Ladungsmeldungen der Lerche (andere Systeme zu anderen Zeiten getroffen, 'Wächter lädt' haengt an der Kampfdauer). (3) inventory ersatzteil, flickblech: Reparaturen verbrauchen anderes Material.",
+  "stages": [
+    "m1/*",
+    "m2/*"
+  ],
+  "texts": [
+    "(beschädigt|zerstört|Schildsektor leer|Hüllenbruch|Flickblech|lädt – |Liegengeblieben|Dauerbrand|unter 40 %|Treffer im Sektor|Reparatur)"
+  ],
+  "flags": [],
+  "inventory": [
+    "ersatzteil",
+    "flickblech"
+  ],
+  "duration": []
+}

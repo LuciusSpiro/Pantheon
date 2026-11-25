@@ -9,7 +9,7 @@
 //   annehmen(game, id) / ablehnen(game, id) -> null | { code, text }   Befehle abenteuer.annehmen / abenteuer.ablehnen { id: 'a<Nummer>' } (game.js); Codes: weigerung(code)
 //   vorschau(vorlage) -> [Schritt]      die Vorschau aus den Daten der Vorlage (Test, Snapshot)
 //   beiEnde(game, faden, ausgang)       (Aufrufer: faden.beatAusgang) Ende eines Abenteuers: Chronik-Zeile aus Daten, Logbuch ohne Titel, Anschluss-Garantie
-//   beiTaetigkeit(game) / beiUpdate(game) / anschluss(game) -> Angebot | null   Anschluss-Garantie: kein Angebot und kein laufendes Abenteuer -> ein deterministischer Rueckfall aus anschluss.json (ohne Modell)
+//   beiTaetigkeit(game) / beiUpdate(game) / anschluss(game) -> Angebot | null   Anschluss-Garantie: kein Angebot und laufend_max nicht erreicht -> ein deterministischer Rueckfall aus anschluss.json (ohne Modell)
 //   hinweisAnbieten(game, angebot)      SUND-04b F: Funkzeile "Neuer Auftrag am Brett" (Text aus den Daten, Titel gekuerzt ohne Spielernamen), einmal je Angebot-Id, hoechstens eine je Taetigkeitszaehler F.t; nie beim Laden (lesen) und ohne Spielleiter nicht
 //   FRE-02 B1: neuAnbieten nimmt zusaetzlich herkunft (Hafen-Hex) und absicht (absicht/1); das Angebot traegt herkunft { hex } und absicht (nur Weltstand, nie Snapshot); Snapshot: hafen (Name), ort_offen (Beat mit verlegt_ort: ort/ortname leer)
 //   toSave(F) / lesen(block, F)         Weltstand welt.sim.faeden.abenteuer { zuletzt?, angebote?: [{ hex, alter, plan, volk?, bezug?, locker?, herkunft?: { hex }, absicht? }], vorrat?: [Eintrag] } (additiv, muellfest; die Plaene laufen erneut durch den Pruefer)
@@ -48,7 +48,7 @@ const klon = (v) => JSON.parse(JSON.stringify(v));
 const HEX = /^\d{4}$/;
 const ID_RE = /^a\d{1,6}$/;
 const VORLAGE_ID = /^abenteuer_[0-9a-f]{12}$/;
-const fehl = (code) => ({ code, text: has(BR.weigerungen, code) ? BR.weigerungen[code] : code });
+const fehl = (code) => ({ code, text: has(BR.weigerungen, code) ? fmt(BR.weigerungen[code], { n: W.abenteuer.laufend_max }) : code });   // SPT-02 3: {n} = laufend_max (laeuft_schon)
 const weigerung = fehl;
 const logbuch = (game, art, e) => { try { regie().schreibe(game, Object.assign({ art }, e)); } catch (err) { if (game && game.countError) game.countError('abenteuer-brett-logbuch', err); } };
 const fehlerZaehlen = (game, wo, e) => { if (game && game.countError) game.countError(wo, e); };
@@ -140,7 +140,7 @@ function typenVon(v) {
 }
 // FRE-02 B1: hat ein Beat der Vorlage (oder seine Variante) das Datenflag verlegt_ort (beats.json), steht das Ziel nicht fest (Beat-Typen nie im Code)
 const ortOffen = (v) => !!v && Array.isArray(v.beats) && v.beats.some((b) => [b.typ].concat(istObjekt(b.variante) ? [b.variante.typ] : []).some((t) => has(B, t) && B[t].verlegt_ort === true));
-const laufendVon = (F) => F.liste.find((f) => f.plan && f.phase !== 'abgeschlossen') || null;
+const laufendeVon = (F) => F.liste.filter((f) => f.plan && f.phase !== 'abgeschlossen');   // SPT-02 3: alle laufenden Abenteuer in Reihenfolge der Faeden (bis laufend_max)
 const restAngebot = (a) => Math.max(0, W.abenteuer.angebot_gilt_taetigkeiten - a.alter);
 function restLaufend(f) {
   if (f.phase === 'laeuft' && f.laufend) return Math.max(0, Faden().fristVon(f) - f.laufend.n);
@@ -149,9 +149,9 @@ function restLaufend(f) {
 function schluessel(game) {
   const F = game && game.weltsim && game.weltsim.faeden;
   if (!F || !Faden().aktiv(game)) return null;
-  const l = laufendVon(F);
-  if (!F.abenteuerAngebote.length && !l) return null;
-  return [Faden().spielleiterAktiv(game) ? 1 : 0, F.abenteuerAngebote.map((a) => a.nr + ':' + restAngebot(a) + ':' + vonAngebot(game, a)).join(','), l ? [l.id, l.beat, l.phase, restLaufend(l)].join(':') : ''].join('|');
+  const ls = laufendeVon(F), z = zuletztVon(F);
+  if (!F.abenteuerAngebote.length && !ls.length && !z) return null;
+  return [Faden().spielleiterAktiv(game) ? 1 : 0, F.abenteuerAngebote.map((a) => a.nr + ':' + restAngebot(a) + ':' + vonAngebot(game, a)).join(','), ls.map((l) => [l.id, l.beat, l.phase, restLaufend(l)].join(':')).join(','), z ? z.nr + ':' + z.t : ''].join('|');
 }
 // Fraktion des Auftraggebers: das Volk des Angebots, sonst das erste erlaubte Volk der Vorlage; ein Wiedersehen: das Volk des juengsten Kandidaten
 function vonAngebot(game, a) {
@@ -183,8 +183,8 @@ function sichtbareAngebote(F) {
 function snapshot(game) {
   const F = game && game.weltsim && game.weltsim.faeden;
   if (!F || !Faden().aktiv(game)) return null;
-  const l = laufendVon(F);
-  if (!F.abenteuerAngebote.length && !l) return null;
+  const ls = laufendeVon(F), z = zuletztVon(F);
+  if (!F.abenteuerAngebote.length && !ls.length && !z) return null;
   const text = (t, max) => kuerzen(ohneNamen(game, String(t)), max);
   const s = { ok: Faden().spielleiterAktiv(game) ? 1 : 0, kopf: BW.kopf, ablehnen: BW.ablehnen_text, scheitern: BW.scheitern_text, angebote: [] };
   const alle = sichtbareAngebote(F);
@@ -200,12 +200,15 @@ function snapshot(game) {
   }
   const g = geruechte(alle);
   if (g.length) s.geruechte = g;
-  if (l) {
+  if (ls.length) { s.max = W.abenteuer.laufend_max; s.nmax = P.NOTRUF_AKTIV_MAX; }   // SPT-02 3: die Grenze aus den Daten (der Client sperrt Annehmen erst bei Erreichen, keine Zahl im Client); SPT-02 5b: dazu notruf_aktiv_max (nmax) fuer die Ueberschrift "ABENTEUER n/max · NOTRUFE n/max"
+  s.laufend = ls.map((l) => {
     const v = D.vorlage(l.vorlage), b = v && v.beats[l.beat], cat = b && has(B, b.typ) ? B[b.typ] : null;
-    const e = { id: l.id, titel: text(v ? v.titel : '', BW.titel_max), ort: l.parameter.ort || '', schritt: l.beat + 1, schritte_gesamt: v ? v.beats.length : 0, schritt_text: b ? schrittText(b) : '', gefahr: !!(cat && cat.gefahr), ph: l.phase === 'laeuft' ? 'laeuft' : 'wartet', rest: restLaufend(l) };
+    const e = { id: l.id, ...(P.notrufBrettFaden(l) ? { notruf: 1 } : {}), titel: text(v ? v.titel : '', BW.titel_max), ort: l.parameter.ort || '', schritt: l.beat + 1, schritte_gesamt: v ? v.beats.length : 0, schritt_text: b ? schrittText(b) : '', gefahr: !!(cat && cat.gefahr), ph: l.phase === 'laeuft' ? 'laeuft' : 'wartet', rest: restLaufend(l) };
     if (v && typeof v.anlass === 'string') e.anlass = text(v.anlass, BW.anlass_max);
-    s.laufend = e;
-  }
+    return e;
+  });
+  if (!s.laufend.length) delete s.laufend;
+  if (z) s.zuletzt = { titel: z.titel, ausgang: z.ausgang, text: z.text, ...(z.w ? { w: z.w } : {}) };   // SPT-02 2: der eben beendete Faden (fehlt, wenn keiner)
   return s;
 }
 
@@ -226,13 +229,18 @@ function veraltet(game, F, a, grund) {   // das Angebot ist nicht mehr spielbar 
   logbuch(game, 'faden_ereignis', { ausgang: 'abenteuer_veraltet', key: a.ref, begruendung: `Angebot ${a.nr} vom Brett genommen: ${String(grund).slice(0, 120)}`, plan: { angebot: a.nr, vorlage: a.ref } });
   return fehl('veraltet');
 }
+// SPT-02 4: die Grenze notruf_aktiv_max der aktiven Notruf-Faeden ist erreicht (reise-ereignis.js taktNotruf: dann entsteht kein weiterer Takt-Notruf); ohne Faeden-Zustand false
+function notrufGrenzeErreicht(game) { const F = game && game.weltsim && game.weltsim.faeden; return !!F && P.notrufGrenzeErreicht(F); }
 function annehmen(game, id) {
   const g = finden(game, id);
   if (g.fehler) return g.fehler;
   const { F, a } = g;
   if (!Faden().spielleiterAktiv(game)) return fehl('kein_spielleiter');   // ohne Spielleiter steht ein begonnenes Abenteuer nur: es wird gar nicht erst begonnen, das Angebot bleibt bis zum Verfall
-  if (P.abenteuerLaufend(F) >= W.abenteuer.laufend_max) return fehl('laeuft_schon');
-  if (P.aktive(F).length >= W.aktiv_max) return fehl('kein_platz');
+  if (a.notruf) { if (P.notrufGrenzeErreicht(F)) return fehl('notruf_voll'); }   // SPT-02 4: ein Notruf-Angebot prueft NUR die eigene Grenze (notruf_aktiv_max), nie laeuft_schon oder kein_platz
+  else {
+    if (P.abenteuerGrenzeErreicht(F)) return fehl('laeuft_schon');
+    if (P.aktiveRegulaer(F).length >= W.aktiv_max) return fehl('kein_platz');
+  }
   const lg = P.pruefeLage(game, a.vorlage);
   if (lg) return veraltet(game, F, a, lg);
   let r;
@@ -249,7 +257,7 @@ function annehmen(game, id) {
     r = Faden().abenteuerOeffnen(game, a.nr, { nsc_von: kand[0] });
   } else r = Faden().abenteuerOeffnen(game, a.nr, {});
   if (!r.ok) {
-    if (/^(OBERGRENZE|ABENTEUER_LAUFEND)/.test(r.grund)) return fehl(/^OBERGRENZE/.test(r.grund) ? 'kein_platz' : 'laeuft_schon');   // der Zustand hat sich zwischen Pruefung und Oeffnen geaendert: das Angebot bleibt
+    if (/^(OBERGRENZE|ABENTEUER_LAUFEND|NOTRUF_VOLL)/.test(r.grund)) return fehl(/^OBERGRENZE/.test(r.grund) ? 'kein_platz' : /^NOTRUF_VOLL/.test(r.grund) ? 'notruf_voll' : 'laeuft_schon');   // der Zustand hat sich zwischen Pruefung und Oeffnen geaendert: das Angebot bleibt
     return veraltet(game, F, a, r.grund);   // NSC_VON, NAME, NSC_ZAHL, Lage: das Angebot ist so nicht mehr zu spielen
   }
   gemerkt(brett(F).antworten, a.nr, BW.antworten_gemerkt);
@@ -271,12 +279,31 @@ function ablehnen(game, id) {   // kostet nichts: keine Ruf- oder Haltungsfolge,
   return null;
 }
 
+// ---------- SPT-02 2 (B2): der zuletzt beendete Faden bleibt sichtbar (Snapshot zuletzt { titel, ausgang, text, w? }, Anzeige: Captain-Reiter Notrufe/Aufträge). Genau einer, der juengste. Nur Laufzeit (nicht im Weltstand).
+// Der Text ist der des Abschluss-Beats (faden-p3.js, derselbe wie der Funk), die Wirkung w nur die Marken, die der Abschluss-Beat fuer diesen Ausgang ohnehin setzt (marken(), keine neue Rechnung).
+// Regel: er steht, solange kein neuer Faden entstanden ist (F.nr gleich) und weniger als zuletzt_gilt_taetigkeiten Taetigkeiten vergangen sind; ein spaeter endender Faden ersetzt ihn.
+function zuletztMerken(game, F, f, key) {
+  const v = D.vorlage(f.vorlage), b = v && v.beats[f.beat];
+  const o = b && istObjekt(b.aus) && istObjekt(b.aus[key]) ? b.aus[key] : {};
+  const text = f.abschlussText || BW['zuletzt_text_' + key];
+  delete f.abschlussText;
+  const z = { titel: kuerzen(ohneNamen(game, String(v ? v.titel : '')), BW.titel_max), ausgang: key, text: kuerzen(ohneNamen(game, String(text)), BW.zuletzt_text_max), nr: F.nr, t: F.t };
+  const w = marken(o.folge, f.parameter && f.parameter.volk).slice(0, 4);
+  if (w.length) z.w = w;
+  brett(F).zuletzt = z;
+}
+function zuletztVon(F) {
+  const z = F && F.brett && F.brett.zuletzt;
+  return z && z.nr === F.nr && F.t - z.t < BW.zuletzt_gilt_taetigkeiten ? z : null;
+}
+
 // ---------- Ende eines Abenteuers: Chronik (Zeile aus Daten, nie aus dem Freitext des Modells), Logbuch ohne Titel und Anlass, Anschluss
 function beiEnde(game, f, ausgang) {
   const F = Faden().zustandVon(game);
   if (!f || !f.plan || !F) return;
   const key = ausgang === 'gelungen' ? 'gelungen' : 'gescheitert';   // nie der Name des NSC und nie Titel oder Anlass: die Chronik geht in den Prompt des Spielleiters (Test: der Name des NSC steht nie im Prompt)
   const ort = f.parameter && f.parameter.ort ? hexName(f.parameter.ort) : 'dem Sektor';
+  zuletztMerken(game, F, f, key);
   try { Chronik().eintragen(game, { art: 'reise', ref: f.id, kurz: fmt(BR.chronik[key], { ort }), param: { art: 'abenteuer', ausgang: ausgang === 'gelungen' ? 'gelungen' : 'gescheitert' } }); } catch (e) { fehlerZaehlen(game, 'abenteuer-chronik', e); }
   logbuch(game, 'faden_ereignis', { ausgang: 'abenteuer_ende', key: f.id, begruendung: `Abenteuer ${f.vorlage} ${ausgang}, NSC ${f.nsc.status}`, plan: { faden: f.id, vorlage: f.vorlage, ausgang, status: f.nsc.status } });
   anschluss(game);
@@ -315,7 +342,7 @@ function passt(game, F, bp, stufe, hex) {
 function anschluss(game) {
   if (!Faden().aktiv(game) || anschlussAus(game) || !Faden().spielleiterAktiv(game)) return null;
   const F = Faden().zustandVon(game);
-  if (P.regulaereAngebote(F).length || P.abenteuerLaufend(F)) return null;   // FRE-03 D: ein Notruf-Angebot ersetzt die Anschluss-Garantie nicht
+  if (P.regulaereAngebote(F).length || P.abenteuerGrenzeErreicht(F)) return null;   // FRE-03 D: ein Notruf-Angebot ersetzt die Anschluss-Garantie nicht
   const hex = crewHex(game);
   if (!hex) return null;
   return rueckfallWahl(game, F, hex, true);
@@ -378,13 +405,13 @@ function beiAndocken(game) {
 }
 // FRE-03 E: die Art des Vorrats, unter der ein Angebot eingelegt wird (Daten: abenteuer-brett.json vorrat_art, vorrat_art_notruf)
 const vorratArtVon = (a) => (a.notruf ? BW.vorrat_art_notruf : BW.vorrat_art);
-// FRE-02 C: EIN Angebot aus dem Vorrat auf das Brett (nur Absichten, Opt-in; Vorbedingungen wie anschlussFuellen: Spielleiter, Hafen, kein laufendes Abenteuer, Platz am Brett; nicht der Schalter ABENTEUER_ANSCHLUSS, der
+// FRE-02 C: EIN Angebot aus dem Vorrat auf das Brett (nur Absichten, Opt-in; Vorbedingungen wie anschlussFuellen: Spielleiter, Hafen, laufend_max nicht erreicht, Platz am Brett; nicht der Schalter ABENTEUER_ANSCHLUSS, der
 // gehoert dem Rueckfall). Ziel = Ziel-Belegung wie A2 (der Inszenierer waehlt ein freies Ziel), Herkunft = Hafen (anbietenAusAbsicht). Ohne Modus Absichten oder ohne gueltigen, nicht gesperrten Eintrag: null, nichts aendert sich. -> Angebot | null
 function ausVorratEinsAnbieten(game) {
   if (!Faden().aktiv(game) || !Absicht2().aktiv(game) || !Faden().spielleiterAktiv(game)) return null;
   const F = Faden().zustandVon(game);
   if (!F || !Array.isArray(F.vorrat) || !F.vorrat.length) return null;
-  if (P.regulaereAngebote(F).length >= W.abenteuer.angebote_max || P.abenteuerLaufend(F)) return null;
+  if (P.regulaereAngebote(F).length >= W.abenteuer.angebote_max || P.abenteuerGrenzeErreicht(F)) return null;
   const hex = crewHex(game);
   if (!hex) return null;
   const r = Vorrat().ausVorratOhneSperre(game, BW.vorrat_art);
@@ -408,13 +435,13 @@ function komponistOffen(game) {
   try { const l = game && game.lageSpielleiter, a = l && l.abenteuer; return !!a && typeof a.platzFuerKomponist === 'function' && a.platzFuerKomponist(); } catch (e) { return false; }
 }
 // Rueckfall fuellen: ein Angebot je Schritt, jedes Ziel ein anderes (die belegten Ziele der offenen Angebote sind gesperrt), bis angebote_max; keine Garantie-Lockerung (siehe rueckfallWahl). Gleiche Vorbedingungen wie
-// anschluss (Schalter, Spielleiter, Hafen); laeuft ein Abenteuer, fuellt der Rueckfall nicht (wie anschluss). FRE-02 B2 Nacharbeit: hat der Komponist eine Anfrage offen (nach der Grenze), gilt wie vor B2 nur die
+// anschluss (Schalter, Spielleiter, Hafen); ist laufend_max erreicht, fuellt der Rueckfall nicht (wie anschluss). FRE-02 B2 Nacharbeit: hat der Komponist eine Anfrage offen (nach der Grenze), gilt wie vor B2 nur die
 // Anschluss-Garantie (EIN Angebot, nur bei leerem Brett, mit den Lockerungen); die uebrigen Plaetze bleiben dem Komponisten. Ohne Komponist (Rueckfall-Betrieb, Deckel, Kontingent): bis angebote_max. -> [neue Angebote]
 function anschlussFuellen(game) {
   const out = [];
   if (!Faden().aktiv(game) || anschlussAus(game) || !Faden().spielleiterAktiv(game)) return out;
   const F = Faden().zustandVon(game);
-  if (P.abenteuerLaufend(F)) return out;
+  if (P.abenteuerGrenzeErreicht(F)) return out;
   const hex = crewHex(game);
   if (!hex) return out;
   const nurGarantie = komponistOffen(game);
@@ -549,6 +576,7 @@ function notrufAnbieten(game, o) {
   const F = game && game.weltsim && game.weltsim.faeden;
   if (!F || !istObjekt(o) || !Faden().aktiv(game) || !Faden().spielleiterAktiv(game)) return null;
   if (typeof o.hex !== 'string' || !HEX.test(o.hex) || typeof o.marke !== 'string' || !o.marke) return null;
+  if (P.notrufGrenzeErreicht(F)) return null;   // SPT-02 4: bei notruf_aktiv_max aktiven Notruf-Faeden entsteht kein weiterer Notruf (reise-ereignis.js taktNotruf prueft dasselbe schon vorher)
   const da = P.notrufAngebote(F);
   if (da.length >= NB.notruf_angebote_max || da.some((a) => a.notruf.marke === o.marke)) return null;
   const sprecher = String(o.sprecher || '').slice(0, 40);
@@ -601,12 +629,10 @@ function notrufBeatStarten(game, faden) {
 function notrufRueckfallWeiter(game) {
   const F = game && game.weltsim && game.weltsim.faeden, l = game && game.lageSpielleiter;
   if (!F || !l || l.rueckfallBetrieb !== true || !Faden().aktiv(game) || !Faden().spielleiterAktiv(game)) return 0;
-  const R = game.weltsim.reise, laufend = (R && R.laufend) || [];
   let n = 0;
   for (const f of F.liste.slice()) {
     for (let i = 0; i < 4 && f.phase === 'wartet' && P.notrufBrettFaden(f); i++) {   // Beats hintereinander, hoechstens 4 (Notruf, ggf. Kampf-Beats, Abschluss); eine laufende Szene beendet die Schleife
-      const ort = f.parameter && f.parameter.ort;
-      if (laufend.some((x) => x.notruf === true && x.ev && x.ev.hex === ort)) break;
+      if (notrufGefahrLaeuft(game, f)) break;
       if (f.beat < 1) break;   // der erste Beat (notruf) gehoert dem Annehmen (notrufBeatStarten)
       f.zaehler = Math.max(f.zaehler, f.abstand);
       let r;
@@ -638,6 +664,85 @@ function abenteuerRueckfallWeiter(game) {
       if (!rueckfallAbgelehnt.has(f)) rueckfallAbgelehnt.set(f, new Set());
       rueckfallAbgelehnt.get(f).add(f.beat);
       fehlerZaehlen(game, 'abenteuer-brett-rueckfall', new Error(String(r.grund)));
+      continue;
+    }
+    n++;
+  }
+  return n;
+}
+// Laeuft die Reise-Gefahr dieses Notruf-Fadens noch (Eintrag in R.laufend am Ort des Fadens)? Dann steht der Kampf aus, der Abschluss darf nicht mitten darin kommen.
+function notrufGefahrLaeuft(game, f) {
+  const R = game.weltsim.reise, laufend = (R && R.laufend) || [], ort = f.parameter && f.parameter.ort;
+  return laufend.some((x) => x.notruf === true && x.ev && x.ev.hex === ort);
+}
+// SPT-02 4b: wie abenteuerAbschlussWeiter, aber fuer Notruf-Faeden (P.notrufBrettFaden) im Betrieb MIT Modell: ein Notruf-Faden im faelligen Abschluss-Beat (B[typ].abschluss, zaehler >= abstand, nie die Abstand-Umgehung) hing sonst
+// fuer immer in Phase wartet und blockierte einen der notruf_aktiv_max Plaetze (dauerhaft keine neuen Notrufe). Er wird nur abgeschlossen, wenn die Reise-Gefahr nicht mehr laeuft (notrufGefahrLaeuft); ein Wegspringen vorher hat
+// faden-p3.js notrufImStich schon als gescheitert verbucht (die Strafe bleibt), der Abschluss wertet nur das Gedaechtnis. Im Rueckfall-Betrieb fuehrt notrufRueckfallWeiter (nie doppelt). Beats vor dem Abschluss (notruf, rettung) bleiben Sache
+// des Modells. Eine Ablehnung zaehlt einmal je Faden und Beat (gemeinsam mit abenteuerAbschlussWeiter). -> Anzahl gestarteter Abschluss-Beats
+function notrufAbschlussWeiter(game) {
+  const F = game && game.weltsim && game.weltsim.faeden, l = game && game.lageSpielleiter;
+  if (!F || !l || l.rueckfallBetrieb === true || !Faden().aktiv(game) || !Faden().spielleiterAktiv(game)) return 0;
+  let n = 0;
+  for (const f of F.liste.slice()) {
+    if (!P.notrufBrettFaden(f) || f.phase !== 'wartet' || f.beat < 1 || f.zaehler < f.abstand) continue;
+    const beat = D.vorlage(f.vorlage).beats[f.beat];
+    if (!beat || !B[beat.typ] || !B[beat.typ].abschluss) continue;
+    if (notrufGefahrLaeuft(game, f)) continue;
+    if (rueckfallAbgelehnt.has(f) && rueckfallAbgelehnt.get(f).has(f.beat)) continue;
+    let r;
+    try { r = Faden().befehlAnwenden(game, { typ: 'faden_weiter', faden: f.id, beat: beat.id }); } catch (e) { fehlerZaehlen(game, 'abenteuer-brett-abschluss', e); continue; }
+    if (!r.ok) {
+      rueckfallAbgelehnt.set(f, (rueckfallAbgelehnt.get(f) || new Set()).add(f.beat));
+      fehlerZaehlen(game, 'abenteuer-brett-abschluss', new Error(String(r.grund)));
+      continue;
+    }
+    n++;
+  }
+  return n;
+}
+// SPT-02 12: ein angenommener Notruf-Faden endet spaetestens NB.notruf_faden_frist_spruenge Spruenge nach dem Annehmen (f.begonnen, weltsim.tickZahl = ein Tick je Sprung). Die Frist des Beats rettung (beats.json) zaehlt
+// Taetigkeiten, keine Zeit: ohne Taetigkeit steht sie bei 0, und mit Modell startet niemand einen Beat, den das Modell nicht fuehrt (Faden wartet vor rettung): der Faden belegte notruf_aktiv_max bis Spielende. Hier endet er
+// ueber denselben Pfad wie ein nicht rechtzeitig erreichter Notruf (faden-p3.js notrufImStich: laufender Beat gescheitert, sonst Plan zum Abschluss, Gedaechtnis gescheitert), danach laeuft der Abschluss sofort (Abstand
+// entfaellt: es gibt nichts abzuwarten; auch ein Faden, der im Abschluss-Beat auf Taetigkeiten wartet, die nie kommen, wird so geschlossen, sein Ausgang bleibt). Aufgeschoben wird, solange die Crew am Landeplatz des Beats unten ist (die Rettung laeuft dann) oder die Reise-Gefahr am Ort laeuft
+// (notrufGefahrLaeuft). Wie notrufAbschlussWeiter nur mit Spielleiter (Modell oder Rueckfall-Betrieb). Ein Fehler zaehlt, blockiert nichts. -> Anzahl beendeter Faeden
+function notrufHaengerBeenden(game) {
+  const F = game && game.weltsim && game.weltsim.faeden, ws = game && game.weltsim;
+  if (!F || !Faden().aktiv(game) || !Faden().spielleiterAktiv(game) || !Number.isFinite(ws.tickZahl)) return 0;
+  let n = 0;
+  for (const f of F.liste.slice()) {
+    if (!P.notrufBrettFaden(f) || f.phase === 'abgeschlossen' || ws.tickZahl - f.begonnen < NB.notruf_faden_frist_spruenge) continue;
+    const beat = D.vorlage(f.vorlage).beats[f.beat];
+    if (!beat || !B[beat.typ] || notrufGefahrLaeuft(game, f)) continue;
+    const lp = require('./faden-boden-rahmen.js').ortVon(game, f, beat);
+    if (lp && !require('./faden-boden-rahmen.js').niemandUnten(game, lp)) continue;
+    try {
+      if (!B[beat.typ].abschluss && (!require('./faden-p3.js').notrufImStich(game, f.notruf.marke) || f.phase !== 'wartet')) { n++; continue; }   // im Abschluss-Beat bleibt das Gedaechtnis (eine erfuellte Rettung endet gelungen), nur der Abstand entfaellt
+      f.zaehler = Math.max(f.zaehler, f.abstand);
+      const r = Faden().befehlAnwenden(game, { typ: 'faden_weiter', faden: f.id, beat: D.vorlage(f.vorlage).beats[f.beat].id });
+      if (!r.ok) fehlerZaehlen(game, 'abenteuer-brett-haenger', new Error(String(r.grund)));
+      n++;
+    } catch (e) { fehlerZaehlen(game, 'abenteuer-brett-haenger', e); }
+  }
+  return n;
+}
+// SPT-02 1 (B1): ein Faden, dessen Modell nicht weiterfuehrt (Betrieb mit Modell, Spielleiter antwortet nicht oder nach gescheitertem Beat), hing im Abschluss-Beat (b2_abschluss) fuer immer in Phase wartet und blockierte laufend_max bis Spielende:
+// nichts sendet faden_weiter, abenteuerRueckfallWeiter tut mit Modell nichts. Diese Funktion fuehrt NUR Beats, deren Katalogeintrag B[typ].abschluss hat, auch im Live-Betrieb aus, sobald sie faellig sind (zaehler >= abstand, nie die
+// ABSTAND-Umgehung des Rueckfalls) - der Abschluss beendet den Faden, das Modell-Fuehren sonst bleibt unberuehrt. Regulaere Faeden (f.plan, kein f.notruf), hoechstens ein Beat je Faden und Takt; eine Ablehnung zaehlt einmal je Faden und Beat
+// (gemeinsam mit abenteuerRueckfallWeiter, die im Rueckfall-Betrieb zuerst laeuft: ein schon laufender Beat wird nie doppelt gestartet). -> Anzahl gestarteter Abschluss-Beats
+function abenteuerAbschlussWeiter(game) {
+  const F = game && game.weltsim && game.weltsim.faeden;
+  if (!F || !Faden().aktiv(game) || !Faden().spielleiterAktiv(game)) return 0;
+  let n = 0;
+  for (const f of F.liste.slice()) {
+    if (!f.plan || f.notruf || f.phase !== 'wartet' || f.beat < 1 || f.zaehler < f.abstand) continue;
+    const beat = D.vorlage(f.vorlage).beats[f.beat];
+    if (!beat || !B[beat.typ] || !B[beat.typ].abschluss) continue;
+    if (rueckfallAbgelehnt.has(f) && rueckfallAbgelehnt.get(f).has(f.beat)) continue;
+    let r;
+    try { r = Faden().befehlAnwenden(game, { typ: 'faden_weiter', faden: f.id, beat: beat.id }); } catch (e) { fehlerZaehlen(game, 'abenteuer-brett-abschluss', e); continue; }
+    if (!r.ok) {
+      rueckfallAbgelehnt.set(f, (rueckfallAbgelehnt.get(f) || new Set()).add(f.beat));
+      fehlerZaehlen(game, 'abenteuer-brett-abschluss', new Error(String(r.grund)));
       continue;
     }
     n++;
@@ -690,4 +795,4 @@ function lesen(b, F) {   // muellfest: Unbrauchbares faellt weg (Meldung in F.la
 // SPL-02 D: die NSC, die eine Fortsetzung tragen (Katalog der Absichten, absicht-pruefer.js): die Verbindung fuer abenteuer-geschichte.js, das den Pruefer nicht selbst laedt
 const fortsetzungsNamen = (game, katalog) => Absicht().fortsetzungsNamen(game, katalog);
 
-module.exports = { snapshot, schluessel, annehmen, ablehnen, vorschau, marken, kuerzen, beiEnde, hinweisAnbieten, beiTaetigkeit, beiUpdate, anschluss, beiAndocken, anschlussFuellen, ausVorratFuellen, ausVorratEinsAnbieten, sammelHinweis, passtZuLage, neuAnbieten, notrufAnbieten, notrufRueckfallWeiter, abenteuerRueckfallWeiter, zurueckziehenFuerNotruf, toSave, lesen, weigerung, schrittText, fortsetzungsNamen };
+module.exports = { snapshot, schluessel, zuletztVon, annehmen, ablehnen, vorschau, marken, kuerzen, beiEnde, hinweisAnbieten, beiTaetigkeit, beiUpdate, anschluss, beiAndocken, anschlussFuellen, ausVorratFuellen, ausVorratEinsAnbieten, sammelHinweis, passtZuLage, neuAnbieten, notrufAnbieten, notrufGrenzeErreicht, notrufRueckfallWeiter, notrufAbschlussWeiter, notrufHaengerBeenden, abenteuerRueckfallWeiter, abenteuerAbschlussWeiter, zurueckziehenFuerNotruf, toSave, lesen, weigerung, schrittText, fortsetzungsNamen };

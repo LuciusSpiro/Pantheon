@@ -196,6 +196,7 @@ const abschluss = {
     const gelungen = Pruefer.abschlussGelungen(ctx.beat, nsc);
     const key = nsc.status === 'tot' ? 'abschluss_tot' : !gelungen ? 'abschluss_gescheitert' : P.notrufBrettFaden(faden) ? W.notruf_abschluss_text.wert : (ctx.beat.parameter && ctx.beat.parameter.text_key && T[ctx.beat.parameter.text_key] ? ctx.beat.parameter.text_key : 'abschluss_gelungen');
     const text = (nsc.status !== 'tot' && poolText(game, faden, ctx.beat.id, [key])) || fmt(T[key], { name: nsc.name });   // SPL-02 E3: Haken (Slot = Textschluessel), ohne angemeldeten Plan und bei einem Toten null
+    if (faden.plan) faden.abschlussText = text;   // SPT-02 2: beiEnde (abenteuer-brett.js) liest und loescht ihn: der Abschlusstext steht im Snapshot zuletzt, nie im Weltstand
     if (nsc.status === 'tot') Bitte().funkSprecher(game, W.tot_sprecher.wert, text);   // Nacharbeit F3d: ein Toter spricht nie selbst (kein eigener Name, kein Porträt)
     else sagen(game, nsc, text);
     return { ausgang: gelungen ? 'gelungen' : 'gescheitert' };
@@ -211,7 +212,7 @@ function notrufImStich(game, marke) {
   const f = F && F.liste.find((x) => x.phase !== 'abgeschlossen' && x.notruf && x.notruf.marke === marke);
   if (!f) return false;
   const v = D.vorlage(f.vorlage);
-  if (f.phase === 'laeuft' && v.beats[f.beat].typ === 'notruf') { Faden().beatAusgang(game, f.id, 'gescheitert'); return true; }
+  if (f.phase === 'laeuft' && !D.BEATS[v.beats[f.beat].typ].abschluss) { Faden().beatAusgang(game, f.id, 'gescheitert'); return true; }   // SPT-02 12: nicht nur notruf, auch ein laufender Beat rettung (Crew sprang weg) scheitert, statt bis Spielende zu laufen
   const g = f.nsc.gedaechtnis || [];
   for (let i = g.length - 1; i >= 0; i--) if (g[i].ereignis === 'notruf_gelungen') { g[i].ereignis = 'notruf_gescheitert'; break; }
   const naechster = v.beats[f.beat] && D.BEATS[v.beats[f.beat].typ];

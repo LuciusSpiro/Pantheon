@@ -126,7 +126,7 @@ console.log('\nJe Andocken genau ein Funk, nie doppelt; volles Brett fuellt nich
   ok(g.errors === 0, 'keine Serverfehler');
 }
 
-console.log('\nLaufendes Abenteuer: 1 laufendes, der Rueckfall fuellt nicht, der Funk nennt die vorhandenen');
+console.log('\nLaufende Abenteuer: der Rueckfall fuellt nicht, der Funk nennt die vorhandenen (laufend_max 3: zwei laufen zugleich)');
 {
   const t = neu(7), g = t.g;
   angebote(g).length = 0;
@@ -134,11 +134,16 @@ console.log('\nLaufendes Abenteuer: 1 laufendes, der Rueckfall fuellt nicht, der
   const id1 = 'a' + angebote(g)[0].nr, id2 = 'a' + angebote(g)[1].nr;
   ok(Brett.annehmen(g, id1) === null, 'Annehmen startet den Faden');
   ok(zust(g).liste.filter((f) => f.plan && f.phase !== 'abgeschlossen').length === 1 && angebote(g).length === MAXA - 1, 'ein laufendes Abenteuer, ' + (MAXA - 1) + ' Angebote am Brett');
-  const r2 = Brett.annehmen(g, id2);
-  ok(!!r2 && r2.code === 'laeuft_schon', 'ein zweites laeuft nicht (laeuft_schon)');
+  const r2 = Brett.annehmen(g, id2);   // SPT-01 C: laufend_max 3, das zweite geht auf (laeuft_schon erst beim vierten: test-abenteuer-brett.js)
+  ok(r2 === null && zust(g).liste.filter((f) => f.plan && f.phase !== 'abgeschlossen').length === 2 && angebote(g).length === MAXA - 2, 'ein zweites laeuft zugleich, ' + (MAXA - 2) + ' Angebot am Brett');
   const f0 = brettFunk(t).length;
   andocken(t, '0305');
-  ok(angebote(g).length <= MAXA - 1 && brettFunk(t).length === f0 + 1 && brettFunk(t)[f0].text === sammelText(angebote(g).length), 'Andocken beim laufenden Abenteuer: nichts nachgefuellt (der Rueckfall wartet wie anschluss), Funk mit der Zahl der vorhandenen (' + angebote(g).length + ')');
+  ok(angebote(g).length > MAXA - 2 && angebote(g).length <= MAXA && brettFunk(t).length === f0 + 1 && brettFunk(t)[f0].text === sammelText(angebote(g).length), 'SPT-02 3: Andocken bei ZWEI laufenden Abenteuern (unter laufend_max): das Brett wird nachgefuellt, Funk mit der Zahl der vorhandenen (' + angebote(g).length + ')');
+  const id3 = 'a' + angebote(g)[0].nr;
+  ok(Brett.annehmen(g, id3) === null && zust(g).liste.filter((f) => f.plan && f.phase !== 'abgeschlossen').length === 3, 'ein drittes laeuft zugleich: die Grenze laufend_max ist erreicht');
+  const vor3 = angebote(g).length, f3 = brettFunk(t).length;
+  andocken(t, '0305');
+  ok(angebote(g).length <= vor3 && brettFunk(t).length === f3 + (angebote(g).length ? 1 : 0) && (!angebote(g).length || brettFunk(t)[f3].text === sammelText(angebote(g).length)), 'Andocken bei DREI laufenden Abenteuern (Grenze erreicht): nichts nachgefuellt (der Rueckfall wartet wie anschluss), Funk mit der Zahl der vorhandenen (' + angebote(g).length + ')');
 }
 
 console.log('\nKein Funk bei 0 (Rueckfall aus), Funk bei 1 (Einzahl)');

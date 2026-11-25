@@ -33,7 +33,7 @@
   const LIGHTS = [['warm', 'Warm'], ['mint', 'Mint'], ['bernstein', 'Bernstein'], ['aus', 'Aus']];
   const STYLE_ROWS = [['floor', 'BODEN', FLOORS], ['wall', 'WAND', WALLS], ['light', 'LICHT', LIGHTS]];
   // R1: Captain-Konsole 4 Reiter, Technik-Konsole 2 (Energie & Schilde und Schadensplan zogen aus dem Captain um); Hitze folgt in R2
-  const TABS = ['Funk', 'Sternkarte', 'Lage', 'Außenteam', 'Sektorplan', 'Notrufe'];   // SL4: Reiter 5 = Sektorplan (Sektoransicht mit Positionen); SL8: Reiter 6 = Notrufe
+  const TABS = ['Funk', 'Sternkarte', 'Lage', 'Außenteam', 'Sektorplan', 'Aufträge'];   // SL4: Reiter 5 = Sektorplan (Sektoransicht mit Positionen); SL8: Reiter 6 = Notrufe, SPT-02 5: Aufträge (Tabs Aktive Missionen / Notrufe)
   const TAB_AWAY = 3;
   const TAB_PLAN = 4;
   const TAB_NOTRUF = 5;
@@ -3573,6 +3573,9 @@
       if (c === 'captain' && this.tab === TAB_AWAY && this.isAwayV2(view.state)) return this.awayMapClick(view, x, y, button);
       if (c === 'captain' && this.tab === 1 && button === 0) {
         // B3 (Welle 0): zuerst StarMap.hit (Team KARTE, Hexkarte); der Stub liefert null -> bisherige Trefferliste
+        // SPT-02 5: ein Klick auf eine Notruf-Marke (Plakette am Hex, Kampagne und Takt) öffnet Reiter „Aufträge“, Tab „Notrufe“, und wählt den Eintrag
+        const mkHit = window.StarMap && typeof window.StarMap.markeAn === 'function' && window.NotrufView ? window.StarMap.markeAn(x, y, this.starRects) : null;
+        if (mkHit && mkHit.t === 'notruf' && mkHit.id && NotrufView.oeffne(mkHit.id)) { this.tab = TAB_NOTRUF; view.actions.sfx('ui_click'); return true; }
         const hitLoc = (window.StarMap && typeof window.StarMap.hit === 'function' && window.StarMap.hit(x, y, this.starRects)) || this.starRects.find(r => this.inRect(x, y, r));
         if (hitLoc) {
           // B3: Hex-Auswahl ({ id: ort|leer-<hex>, hex }); Doppelklick wählt das Sprungziel

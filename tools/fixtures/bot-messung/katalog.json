@@ -28,9 +28,6 @@
  {
   "befehl": "nav.abstand",
   "an": "navigation",
-  "args": {
-   "ziel": "ziel"
-  },
   "spricht": "Abstand halten"
  },
  {
@@ -44,6 +41,7 @@
   "args": {
    "ziel": "hex:12"
   },
+  "ohneMatcher": true,
   "spricht": "Sprung nach Hex zwölf"
  },
  {
@@ -57,9 +55,6 @@
  {
   "befehl": "ops.feuer_frei",
   "an": "ops",
-  "args": {
-   "waffen": "alle"
-  },
   "spricht": "Feuer frei"
  },
  {
@@ -97,7 +92,7 @@
   "befehl": "tech.reparieren",
   "an": "technik",
   "args": {
-   "system": "antrieb"
+   "system": "engines"
   },
   "spricht": "Antrieb reparieren"
  },
@@ -113,7 +108,7 @@
   "befehl": "tech.energie",
   "an": "technik",
   "args": {
-   "system": "waffen",
+   "system": "weapons",
    "delta": 1
   },
   "spricht": "Mehr Energie auf Waffen"

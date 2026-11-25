@@ -136,6 +136,6 @@
     { "befehl": "bord.sensor", "an": "bord", "anzeige": "Sensor", "args": {}, "kurz": [] },
     { "befehl": "bord.kuppel", "an": "bord", "anzeige": "Kuppel", "args": {}, "kurz": [] },
     { "befehl": "bot.status", "an": "alle", "anzeige": "Statusbericht", "args": {}, "kurz": ["Status"] },
-    { "befehl": "bot.automatik", "an": "alle", "anzeige": "Automatik", "args": {}, "kurz": [] }
+    { "befehl": "bot.automatik", "an": "alle", "anzeige": "Automatik", "args": {}, "kurz": ["Automatisch"] }
   ]
 }

@@ -20,7 +20,7 @@ win.window = win; win.self = win;
 vm.createContext(win);
 win.Net = { guard: (w, fn, d) => { try { return fn(); } catch (e) { return d; } }, reportError() {} };
 win.Hud = { SECTOR_NAMES: ['Bug', 'Steuerbord', 'Heck', 'Backbord'] };   // Namen wie in hud.js; sonst Attrappe
-for (const q of ['kennung.js', 'render.js', 'pult-systeme-tokens.js', 'zonenkreuz.js', 'zielsysteme.js', 'kartenlogik.js', 'pult.js', 'consoles.js']) vm.runInContext(read(q), win, { filename: q });
+for (const q of ['kennung.js', 'render.js', 'pult-systeme-tokens.js', 'zonenkreuz.js', 'zielstapel.js', 'zielsysteme.js', 'kartenlogik.js', 'pult.js', 'consoles.js']) vm.runInContext(read(q), win, { filename: q });
 const R = win.Render, C = win.Consoles;
 const hudNamen = read('hud.js').match(/const SECTOR_NAMES = (\[[^\]]*\])/);
 ok(hudNamen && JSON.stringify(win.Hud.SECTOR_NAMES) === JSON.stringify(eval(hudNamen[1])), 'Sektornamen der Attrappe gleich hud.js');

@@ -378,7 +378,10 @@ function main() {
     weiter(g, f); betritt(g, '0705'); schritte(g, 0.3);
     ok(!!g.fadenSzene && tags(g).length === anzahl(3), 'der Hinterhalt kaempft');
     X.grenzen(g, D.BEATS.hinterhalt.frist + 2, 'szene_ende'); schritte(g, 1);
-    ok(ged(f).includes('hinterhalt_gescheitert') && nichtsStehen(g), 'Frist im Kampf: gescheitert, Szene und Gegner weggeraeumt');
+    // SPT-02 7: die Gegner werden nicht mehr still gelöscht, sie ziehen ab (leaving) und sind nach der Zeitgrenze von 14 s weg
+    ok(ged(f).includes('hinterhalt_gescheitert') && !g.fadenSzene && g.space.enemies.length > 0 && g.space.enemies.every((e) => e.leaving), 'Frist im Kampf: gescheitert, Szene weg, die Gegner ziehen ab (nicht still gelöscht)');
+    schritte(g, 16);
+    ok(nichtsStehen(g), 'Frist im Kampf: nach dem Abzug steht nichts mehr');
   }
 
   // =====================================================================================================================================================================

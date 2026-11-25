@@ -3,7 +3,7 @@
 // den Test in ein Temp-Verzeichnis (das Repo bleibt unberuehrt), aendert dort je Lauf EINE Regel und verlangt, dass der Test rot wird (Exit != 0 mit mindestens einer FEHLER-Zeile). Ueberlebt eine Mutation, deckt
 // der Test die Regel nicht ab. Selbstcheck: VOR jedem Lauf muss jede Mutation anwendbar sein (Anker genau einmal im Quelltext der Kopie), sonst bricht die Probe mit Exit 2 ab.
 //   node tools/mutation-faden-bauplan.js [begriff ...] [--trocken]      (npm run test:faden-bauplan-mutation)
-// Bewusst nicht in der Liste (aequivalente Mutanten): „Hinweise auch an der Enthuellung selbst (i <= erste)“ (die Enthuellung ist kein Hinweis-Traeger, die Schleife aendert mit den heutigen Daten nichts), „registriereAbenteuer: derselbe Inhalt ist schon eingetragen“ (reine Zeitersparnis: die erneute Pruefung gaebe dasselbe Ergebnis), „Wahrheit mit
+// Bewusst nicht in der Liste (aequivalente Mutanten): SPT-01 C: die Pruefung laufend_max im Pruefer (pruefeAbenteuerOeffnen) und im Leser (faden.js, Laden), seit laufend_max und aktiv_max beide 3 sind: abenteuerLaufend zaehlt nur aktive Faeden mit Plan, die Obergrenze aktiver Faeden steht in beiden Stellen davor und greift bei gleicher Zahl immer zuerst (aktive Faeden sind eine Obermenge, die Daten sind eingefroren, ein Test kann aktiv_max nicht anheben); das Brett prueft laeuft_schon selbst vor kein_platz (mutation-abenteuer-c.js), „Hinweise auch an der Enthuellung selbst (i <= erste)“ (die Enthuellung ist kein Hinweis-Traeger, die Schleife aendert mit den heutigen Daten nichts), „registriereAbenteuer: derselbe Inhalt ist schon eingetragen“ (reine Zeitersparnis: die erneute Pruefung gaebe dasselbe Ergebnis), „Wahrheit mit
 // ungueltigem Hinweistext in bauplan.json: HINWEIS_TEXT des Pruefers“ (zweites Netz, katalogFehler meldet es vorher).
 const fs = require('fs');
 const os = require('os');
@@ -120,13 +120,12 @@ const MUTATIONEN = [
   [PR, "const gleicheFolge = !namenlos || folgeProfil(aus.gescheitert.folge) === folgeProfil(aus.gelungen.folge);", "const gleicheFolge = true;", 'Pruefer: namenlos zaehlt die Folge nicht als Unterschied'],
   [PR, "const gleicheFolge = !namenlos || folgeProfil(aus.gescheitert.folge) === folgeProfil(aus.gelungen.folge);", "const gleicheFolge = !namenlos;", 'Pruefer: namenlos darf folgenlos scheitern'],
   [PR, "const gleicheFolge = !namenlos || folgeProfil(aus.gescheitert.folge) === folgeProfil(aus.gelungen.folge);", "const gleicheFolge = false;", 'Pruefer: Scheitern ohne Zustandsunterschied nie folgenlos (04a-Regel geschwaecht)'],
-  [PR, "if ((F.abenteuerAngebote || []).length >= W.abenteuer.angebote_max) return fehl(", "if (false) return fehl(", 'Pruefer: beliebig viele Abenteuer-Angebote'],
+  [PR, "if (regulaereAngebote(F).length >= W.abenteuer.angebote_max) return fehl(", "if (false) return fehl(", 'Pruefer: beliebig viele Abenteuer-Angebote'],
   [PR, "if (!(istObjekt(o) && typeof o.hex === 'string' && HEX.test(o.hex) && sundSpielbar(o.hex))) return fehl(", "if (false) return fehl(", 'Pruefer: Abenteuer ohne spielbaren Ort'],
-  [PR, "const abenteuerLaufend = (F) => aktive(F).filter((f) => f.plan).length;", "const abenteuerLaufend = (F) => aktive(F).filter((f) => !f.plan).length;", 'Pruefer: laufende Abenteuer falsch gezaehlt'],
+  [PR, "const abenteuerLaufend = (F) => aktiveRegulaer(F).filter((f) => f.plan).length;", "const abenteuerLaufend = (F) => aktiveRegulaer(F).filter((f) => !f.plan).length;", 'Pruefer: laufende Abenteuer falsch gezaehlt'],
   [PR, "if (!['volk', 'name', 'nsc_von'].includes(k)) return fehl('PARAMETER'", "if (false) return fehl('PARAMETER'", 'Pruefer: Abenteuer oeffnen mit unbekanntem Parameter'],
   [PR, "if (!a) return fehl('KEIN_ANGEBOT', `ein Abenteuer-Angebot", "if (false) return fehl('KEIN_ANGEBOT', `ein Abenteuer-Angebot", 'Pruefer: Abenteuer oeffnen ohne Angebot'],
-  [PR, "if (aktive(F).length >= W.aktiv_max) return fehl('OBERGRENZE'", "if (false) return fehl('OBERGRENZE'", 'Pruefer: Abenteuer ueber der Obergrenze aktiver Faeden'],
-  [PR, "if (abenteuerLaufend(F) >= W.abenteuer.laufend_max) return fehl(", "if (false) return fehl(", 'Pruefer: mehr als ein laufendes Abenteuer'],
+  [PR, "if (aktiveRegulaer(F).length >= W.aktiv_max) return fehl('OBERGRENZE', `hoechstens", "if (false) return fehl('OBERGRENZE', `hoechstens", 'Pruefer: Abenteuer ueber der Obergrenze aktiver Faeden'],
   [PR, "if (p.volk !== undefined && !v.volk_erlaubt.includes(p.volk)) return fehl('PARAMETER', `volk \"${p.volk}\" ist fuer dieses Abenteuer", "if (false) return fehl('PARAMETER', `volk \"${p.volk}\" ist fuer dieses Abenteuer", 'Pruefer: Abenteuer mit unerlaubtem Volk'],
   [PR, "    if (!require('./abenteuer-kanon.js').nameFrei(F, p.name)) return fehl('NAME', `der Name ${p.name} ist schon vergeben`);   // SUND-04b E1: auch ein Name aus dem Kanon (der Faden kann schon aus der Liste gefallen sein)\n  }\n  return null;\n}\n\nfunction befehlPruefen", "    if (false) return fehl('NAME', `der Name ${p.name} ist schon vergeben`);\n  }\n  return null;\n}\n\nfunction befehlPruefen", 'Pruefer: Abenteuer mit vergebenem Namen'],
   // ---- Abenteuer-Register
@@ -138,12 +137,12 @@ const MUTATIONEN = [
   [DD, "kanonisch(x[k])).join(',') + '}';", "kanonisch(x[k])).join(',') + '}'.concat(Math.random());", 'Register: Id haengt vom Zufall ab'],
   [DD, "return BAUPLAN.werte.id_praefix + require('crypto').createHash('sha1').update(kanonisch(o)).digest('hex').slice(0, BAUPLAN.werte.id_hash_laenge);", "return BAUPLAN.werte.id_praefix + require('crypto').createHash('sha1').update(kanonisch({ titel: o.titel })).digest('hex').slice(0, BAUPLAN.werte.id_hash_laenge);", 'Register: Id haengt nur vom Titel ab'],
   // ---- Anbieten, Oeffnen, Laden, Takt
-  [FA, "  for (const a of F.abenteuerAngebote) a.alter++;", "", 'Faden: Abenteuer-Angebote altern nicht'],
-  [FA, "  F.abenteuerAngebote = F.abenteuerAngebote.filter((a) => a.alter <= W.abenteuer.angebot_gilt_taetigkeiten);", "", 'Faden: Abenteuer-Angebote verfallen nie'],
+  [FA, "  for (const a of F.abenteuerAngebote) if (!a.notruf) a.alter++;", "", 'Faden: Abenteuer-Angebote altern nicht'],
+  [FA, "  F.abenteuerAngebote = F.abenteuerAngebote.filter((a) => a.notruf || a.alter <= W.abenteuer.angebot_gilt_taetigkeiten);", "", 'Faden: Abenteuer-Angebote verfallen nie'],
   [FA, "if (F.abenteuerAngebote.some((a) => a.ref === r.vorlage.id && a.hex === o.hex)) return abgelehnt(", "if (false) return abgelehnt(", 'Faden: dasselbe Abenteuer doppelt als Angebot'],
   [FA, "plan: { titel_zeichen: istObjekt(bauplan) && typeof bauplan.titel === 'string' ? bauplan.titel.length : null }", "plan: { titel: istObjekt(bauplan) && typeof bauplan.titel === 'string' ? bauplan.titel.slice(0, 60) : null }", 'Faden: der Titel der Modellantwort steht im Regie-Logbuch'],
   [FA, "  if (!r.ok) return abgelehnt(r.fehler[0], r.fehler);", "", 'Faden: ungueltiger Plan wird angeboten'],
-  [FA, "  const g = P.pruefeAbenteuerAnbieten(F, o);\n  if (g) return abgelehnt(g);", "", 'Faden: Angebots-Grenzen werden beim Anbieten nicht geprueft'],
+  [FA, "  const g = (pruefeAnbieten || P.pruefeAbenteuerAnbieten)(F, o);\n  if (g) return abgelehnt(g);", "", 'Faden: Angebots-Grenzen werden beim Anbieten nicht geprueft'],
   [FA, "  const g = P.pruefeAbenteuerOeffnen(F, nr, p);\n  if (g) return abgelehnt(g);", "", 'Faden: Oeffnen ohne Pruefung (Grenzen, Parameter)'],
   [FA, "const f = { id: 'f' + F.nr, vorlage: v.id, plan: klon(v), parameter: { volk, ort: a.hex,", "const f = { id: 'f' + F.nr, vorlage: v.id, parameter: { volk, ort: a.hex,", 'Faden: der Plan steht nicht im Faden (nicht im Weltstand)'],
   [FA, "  f.abstand = abstandZiehen(game, f);\n  F.liste.push(f);\n  while (F.liste.length > W.faeden_gesamt_max) {\n    const i = F.liste.findIndex((x) => x.phase === 'abgeschlossen');\n    if (i < 0) break;\n    F.liste.splice(i, 1);\n  }\n  if (alt) require('./abenteuer-kanon.js').wiedersehenBeginnen(F, f); else require('./abenteuer-kanon.js').beginnen(F, f);   // SUND-04b E1: Name, Volk, Titel, Ort stehen ab jetzt im Kanon\n  melde(game, 'geoeffnet', f.id, `Abenteuer", "  f.abstand = 0;\n  F.liste.push(f);\n  while (F.liste.length > W.faeden_gesamt_max) {\n    const i = F.liste.findIndex((x) => x.phase === 'abgeschlossen');\n    if (i < 0) break;\n    F.liste.splice(i, 1);\n  }\n  if (alt) require('./abenteuer-kanon.js').wiedersehenBeginnen(F, f); else require('./abenteuer-kanon.js').beginnen(F, f);   // SUND-04b E1: Name, Volk, Titel, Ort stehen ab jetzt im Kanon\n  melde(game, 'geoeffnet', f.id, `Abenteuer", 'Faden: Abenteuer ohne Abstand zum ersten Beat'],
@@ -153,7 +152,6 @@ const MUTATIONEN = [
   [FA, "const reg = istObjekt(x.plan) && x.plan.id === x.vorlage ? D.registriereAbenteuer(x.plan, F) : { ok: false, fehler: ['ABENTEUER_ID: der Plan gehoert nicht zu diesem Faden'] };", "const reg = D.registriereAbenteuer(x.plan, F);", 'Laden: der Plan muss nicht zur Vorlage des Fadens gehoeren'],
   [FA, "if (!reg.ok) return { fehler: `${x.id}: Plan ungültig", "if (false) return { fehler: `${x.id}: Plan ungültig", 'Laden: ungueltiger gespeicherter Plan wird nicht verworfen'],
   [FA, "} else if (D.istAbenteuer(x.vorlage)) return { fehler:", "} else if (false) return { fehler:", 'Laden: Abenteuer ohne Plan wird gespielt'],
-  [FA, "if (r.faden.plan && r.faden.phase !== 'abgeschlossen' && P.abenteuerLaufend(F) >= W.abenteuer.laufend_max) {", "if (false) {", 'Laden: mehr als ein laufendes Abenteuer im Stand'],
   [FA, "plan = klon(D.vorlage(x.vorlage));", "plan = null;", 'Laden: der Plan geht beim Laden verloren'],
   // ---- Prototyp-Schluessel und Groesse (Nacharbeit)
   [WS, "else if (Object.prototype.hasOwnProperty.call(props, k)) fallbackValidate(", "else if (props[k]) fallbackValidate(", 'Weltstand-Pruefer: props[k] findet Felder im Prototyp (constructor, toString)'],
@@ -169,7 +167,7 @@ const MUTATIONEN = [
   [DD, "try { zeichen = JSON.stringify(v).length; } catch (e) { /* unbrauchbar: gilt als zu gross */ }", "zeichen = 0;", 'Register: Groesse wird nicht gemessen'],
   [DW, '"plan_max_zeichen": 8000,', '"plan_max_zeichen": 800,', 'Daten: Groessengrenze eines Plans 800 (zu knapp fuer echte Plaene)'],
   // ---- Daten
-  [DW, '"abenteuer": {"wert": {"laufend_max": 1,', '"abenteuer": {"wert": {"laufend_max": 2,', 'Daten: zwei laufende Abenteuer erlaubt'],
+  [DW, '"abenteuer": {"wert": {"laufend_max": 3,', '"abenteuer": {"wert": {"laufend_max": 4,', 'Daten: vier laufende Abenteuer erlaubt'],
   [DW, '"angebote_max": 3,', '"angebote_max": 4,', 'Daten: vier Abenteuer-Angebote erlaubt'],
   [DW, '"angebot_gilt_taetigkeiten": 12}', '"angebot_gilt_taetigkeiten": 13}', 'Daten: Abenteuer-Angebot gilt 13 statt 12 Taetigkeiten'],
   [DW, '"nsc_rollen": {"wert": ["namenlos"]', '"nsc_rollen": {"wert": ["namenlos", "spion"]', 'Daten: zusaetzliche Rolle des NSC'],
@@ -184,7 +182,7 @@ const MUTATIONEN = [
   [DP, '"hinweise": ["h_gerucht", "h_papiere", "h_scan", "h_hafenfunk"]', '"hinweise": ["h_gerucht", "h_papiere"]', 'Daten: Wahrheit hat nur Hinweise mit {name}'],
   [DP, '"fraktion": "ger", "hinweise"', '"fraktion": "rom", "hinweise"', 'Daten: Wahrheit ist roemisch statt germanisch'],
   [DB, '"start_status":"gefangen"', '"start_status":"aktiv"', 'Daten: Befreiung startet aktiv'],
-  [DB, '"gelungen":{"status":["tot","feindlich","aktiv"]', '"gelungen":{"status":["feindlich","tot","aktiv"]', 'Daten: Raumschlacht gelungen zuerst feindlich'],
+  [DB, '"optional": ["text_key", "volk"]},\n      "bauplan": {"start_status":"aktiv","hinweis_traeger":false,"parameter":{"volk":{"erlaubt":["ger","rom","kon"],"ohne_standard":true,"verborgen":true}},"aus":{"gelungen":{"status":["tot","feindlich","aktiv"]', '"optional": ["text_key", "volk"]},\n      "bauplan": {"start_status":"aktiv","hinweis_traeger":false,"parameter":{"volk":{"erlaubt":["ger","rom","kon"],"ohne_standard":true,"verborgen":true}},"aus":{"gelungen":{"status":["feindlich","tot","aktiv"]', 'Daten: Raumschlacht gelungen zuerst feindlich'],
   [DB, '"gelungen":{"status":["verbuendet","gefangen","aktiv"]', '"gelungen":{"status":["aktiv","verbuendet","gefangen"]', 'Daten: Notruf gelungen zuerst aktiv'],
   [DB, '"hinweis_traeger":true,"optionen_pflicht"', '"hinweis_traeger":false,"optionen_pflicht"', 'Daten: Bitte ist kein Hinweis-Traeger'],
   [DB, '"hinweis_traeger":true,"optionen_pflicht":true', '"hinweis_traeger":true,"optionen_pflicht":false', 'Daten: Bitte braucht keine Optionen'],

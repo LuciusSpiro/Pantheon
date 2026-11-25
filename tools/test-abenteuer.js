@@ -201,12 +201,12 @@ section('Takt: Cooldown, Deckel, 3 Angebote, 1 laufendes, 3 Faeden', async () =>
   ok(F(t3.g).abenteuerAngebote.length === FW.abenteuer.angebote_max && m3.asks().length === FW.abenteuer.angebote_max, `hoechstens ${FW.abenteuer.angebote_max} offene Angebote: drei Aufrufe, danach keiner mehr (${m3.asks().length})`);
   ok(m3.ab.zaehler.uebersprungen.angebote_voll === 9 - 3, 'die uebrigen Grenzen sind als angebote_voll uebersprungen');
   ok(!m3.ab.erzwingen().gestartet && m3.ab.erzwingen().grund === 'angebote_voll', 'auch das Debug-Kommando (erzwingen) beachtet die Obergrenze der Angebote');
-  // 1 laufendes Abenteuer und 3 aktive Faeden
+  // 2 laufende Abenteuer (laufend_max 3, SPT-01 C) und 3 aktive Faeden
   const g = t3.g, a = F(g).abenteuerAngebote;
   const r1 = Faden.abenteuerOeffnen(g, a[0].nr), r2 = Faden.abenteuerOeffnen(g, a[0] ? F(g).abenteuerAngebote[0].nr : 0);
-  ok(r1.ok && !r2.ok && /^ABENTEUER_LAUFEND/.test(r2.grund), 'ein zweites Abenteuer laesst sich nicht oeffnen: ' + r2.grund);
-  const f1 = X.oeffne(g), f2 = X.oeffne(g), f3 = X.oeffne(g);
-  ok(f1 && f2 && !f3, 'neben dem Abenteuer zwei weitere Faeden, der dritte (4. aktive) scheitert an der Obergrenze');
+  ok(r1.ok && r2.ok && F(g).liste.filter((f) => f.plan && f.phase !== 'abgeschlossen').length === FW.abenteuer.laufend_max - 1, 'ein zweites Abenteuer laesst sich oeffnen (laufend_max ' + FW.abenteuer.laufend_max + ')');
+  const f1 = X.oeffne(g), f2 = X.oeffne(g);
+  ok(f1 && !f2, 'neben den zwei Abenteuern ein weiterer Faden, der zweite (4. aktive) scheitert an der Obergrenze');
   const r3 = Faden.abenteuerOeffnen(g, F(g).abenteuerAngebote[0].nr);
   ok(!r3.ok && /^OBERGRENZE/.test(r3.grund), `${FW.aktiv_max} aktive Faeden: ${r3.grund}`);
   // Verfall der Angebote gibt den Platz frei: nach der Frist beginnt der Spielleiter wieder

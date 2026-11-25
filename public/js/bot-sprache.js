@@ -6,7 +6,7 @@
 //
 // Ablauf Sprache:  Taste halten (MediaRecorder läuft nur dann) -> loslassen -> POST /api/stt (Audio roh) -> Text -> Matcher -> bot.befehl { an, befehl, args, quelle: 'sprache' }
 // Ablauf Text:     Chat-Zeile -> Matcher -> bot.befehl { …, quelle: 'text' }
-// Matcher unklar (null): KEIN bot.befehl; stattdessen Clip bot.unklar (fehlt er: Untertitel „Bitte wiederholen“).
+// Matcher unklar (null): KEIN bot.befehl; stattdessen Clip bot.unklar (Untertitel „Bitte wiederholen“ immer dazu).
 // Antwort:         bot.antwort -> Untertitel immer, Clip assets/bots/stimmen/<stimme>/<textId>[.<variante>].ogg|wav wenn vorhanden (sonst nur Untertitel). Solange die Sprechtaste gehalten wird, bleibt die Wiedergabe stumm (Echo).
 // Nachrichten tragen das Typfeld `t` ('bot.befehl' / 'bot.antwort'); der Matcher kommt aus shared/bot-matcher.js: match(text, opts?) -> { an, befehl, args, konfidenz } | null (Global Shared_BotMatcher, UMD wie Shared_Protocol).
 (function (root, factory) {
@@ -21,6 +21,7 @@
     sttAus: 'Sprache nicht erreichbar – Menü, Tasten und Textzeile laufen weiter.',
     sttNichtEingerichtet: 'Sprache nicht eingerichtet (STT_URL fehlt).',   // Server: 503 { fehler: 'stt-aus' }
     mikro: 'Mikrofon nicht verfügbar – Textzeile und Tasten laufen weiter.',
+    stille: 'Mikrofon liefert keinen Ton.',   // BOT-04 D2: Pegel unter PEGEL_MIN, es geht nichts an STT
     keinMatcher: 'Befehlsabgleich nicht geladen.',
     keinBotServer: 'Kein Bot-Server verbunden.',
     zuKurz: 'Zu kurz – Taste halten und dabei sprechen.',
@@ -38,6 +39,20 @@
   const MAX_MS = 60000;                                                        // Höchstdauer einer Aufnahme (Auto-Stop); der Server nimmt ohnehin nur 1 MB
   const UNKLAR_VARIANTEN = 2;                                                  // bot.unklar.0 / .1 im Vorrat (texte.json), abwechselnd
   const MIN_MS = 250;                                                          // kürzere Aufnahmen sind versehentliche Tastenkontakte
+  // BOT-04 D2 Stille-Schranke: liegt die SPITZE (größter Betrag der Samples, 0..1) einer Aufnahme unter dieser Grenze, geht kein Audio an STT (Whisper erfindet auf Stille Sätze).
+  // ABSICHTLICH SEHR NIEDRIG (0,005 = -46 dBFS): sie fängt nur ein falsches/stummes Eingabegerät (Digital-Stille, Spitze 0; totes Rauschen liegt bei 0,001 bis 0,003), nie leises Sprechen
+  // (Flüstern am Mikrofon liegt über 0,02). Ein verworfener echter Befehl im Gefecht ist schlimmer als ein überflüssiger STT-Aufruf. pegel null (kein Web Audio) = ungeprüft senden.
+  const PEGEL_MIN = 0.005;
+  // Spätstart-Schutz: die Pegelmessung darf die Schranke nur auslösen, wenn sie die Aufnahme auch wirklich abgedeckt hat. Läuft der AudioContext erst spät (suspended, Start-Latenz, Bluetooth A2DP -> HFP),
+  // sähe sie nur das Raumrauschen kurz vor dem Loslassen, während der Befehl davor gesprochen wurde: dann gilt die Messung als unbrauchbar (pegel null = senden).
+  const PEGEL_TAKT_MS = 30;           // Leseabstand des Analysers (ein Fenster je Takt)
+  const PEGEL_START_MAX_MS = 150;     // spätestens so lange nach Aufnahmebeginn muss das erste Fenster gelesen sein (5 Takte Luft; ein normaler Start liegt bei 0 bis 50 ms); wer später startet, hat den Anfang des Befehls verpasst
+  // Lücken: der Analyser hält nur die letzten 2048 Samples (≈ 43 ms bei 48 kHz). Blockiert der Hauptthread länger am Stück (Szenenwechsel, GC, Tab im Hintergrund), gehen Samples verloren, und die Spitze stammt nur aus dem Rauschen
+  // davor/danach, während der Befehl genau in der Lücke gesprochen worden sein kann (Anzahl der Fenster allein würde das nicht merken). Größte erlaubte Lücke zwischen zwei Lesungen (inkl. letzte Lesung beim Loslassen):
+  // 250 ms: gemessen reicht schon der Timer-Jitter eines ruhigen Prozesses auf Windows bis ≈ 85 ms (Takt 30 ms), 100 ms wäre also Dauerrauschen; und ein Befehl ist mindestens ≈ 600 ms lang, eine Lücke bis 250 ms verschluckt höchstens
+  // eine Silbe, der Rest wird noch gelesen. Alles darüber heißt „unbekannt, was gesprochen wurde“ -> pegel null = senden (nie einen Befehl auf Verdacht verwerfen).
+  const PEGEL_LUECKE_MAX_MS = 250;
+  const PEGEL_ABDECKUNG_MIN = 0.5;    // gelesene Fenster mal Takt müssen mindestens diesen Anteil der Aufnahmedauer decken (gedrosselte Timer im Hintergrund, belastetes Spiel: dann lieber senden)
   const CLIP_BASIS = '/assets/bots/stimmen';
   const ENDUNGEN = ['wav', 'ogg'];                                             // der Vorrat hat nur WAV: zuerst wav, sonst erzeugte jeder Clip ein 404 auf .ogg
 
@@ -51,17 +66,39 @@
     for (const e of ENDUNGEN) out.push(b + '.' + e);
     return out;
   }
-  // richtig = gleicher Befehl, alle erwarteten Argumente (als Text verglichen) und, falls erwartet, gleicher Adressat
+  // Spitze einer Sample-Folge (Float32Array o. ä., -1..1): größter Betrag, nicht endliche Werte zählen nicht, leer = 0. Reine Rechenlogik der Pegelmessung (der Browser-Teil liefert nur die Samples).
+  function spitzeAusSamples(samples) {
+    let m = 0;
+    if (!samples) return 0;
+    for (let i = 0; i < samples.length; i++) { const v = Math.abs(samples[i]); if (v > m && isFinite(v)) m = v; }
+    return m;
+  }
+  // Reine Abdeckungslogik der Pegelmessung (siehe PEGEL_START_MAX_MS): darf ein gemessener Pegel als Aussage über die GANZE Aufnahme gelten?
+  // verzugMs = Zeit von Aufnahmebeginn bis zum ersten gelesenen Fenster (null = nie gelesen), fenster = Zahl der gelesenen Fenster, dauerMs = Aufnahmedauer,
+  // lueckeMs = größter Abstand zwischen zwei Lesungen (undefined = nicht angegeben, nur die ersten drei Prüfungen; pegelMesser gibt ihn immer an). Im Zweifel false (= senden).
+  function pegelAbdeckungReicht(verzugMs, fenster, dauerMs, lueckeMs) {
+    if (typeof verzugMs !== 'number' || !isFinite(verzugMs) || !(fenster > 0) || !(dauerMs >= 0)) return false;
+    if (verzugMs > PEGEL_START_MAX_MS) return false;
+    if (lueckeMs !== undefined && !(typeof lueckeMs === 'number' && lueckeMs >= 0 && lueckeMs <= PEGEL_LUECKE_MAX_MS)) return false;   // Blockade mitten in der Aufnahme: nicht gesehen, was gesprochen wurde
+    return fenster * PEGEL_TAKT_MS >= dauerMs * PEGEL_ABDECKUNG_MIN;
+  }
+  // richtig = gleicher Befehl, GENAU die erwarteten Argumente (als Text verglichen, keine zusätzlichen; nur ein zusätzliches meter zählt nicht) und, falls erwartet, gleicher Adressat.
+  // Exakt auch im Messmodus: ein Matcher, der für „Feuer frei“ {waffen:'torpedo'} liefert, ließe den Server nur Torpedos feuern und darf nicht als richtig gelten.
+  // erwartet null = bewusst nicht erkennbar (z. B. nav.sprung per Sprache): richtig, wenn der Matcher null liefert
   function erwartungErfuellt(erwartet, res) {
+    if (erwartet === null) return !res;
     if (!res || !res.befehl || !erwartet) return false;
     if (res.befehl !== erwartet.befehl) return false;
     if (erwartet.an && res.an !== erwartet.an) return false;
-    return Object.keys(erwartet.args || {}).every((k) => String(res.args && res.args[k]) === String(erwartet.args[k]));
+    const ea = erwartet.args || {}, ra = res.args || {};
+    if (Object.keys(ra).some((k) => !(k in ea) && k !== 'meter')) return false;
+    return Object.keys(ea).every((k) => String(ra[k]) === String(ea[k]));
   }
 
   // ------------------------------------------------------------------ Kern
   // env: { transport: { send(obj) -> bool, onMessage(fn) -> abmelden }, matcher: () -> { match } | Promise, stt: (blob, mime) -> Promise<text>,
   //        mikrofon: { start() -> Promise<{ stop() -> Promise<{ blob, mime, dauerMs }>, abbruch() }> }, audio: { spiele(urls, { start?, ende? }) -> Promise<url|null>, stumm(bool), stopp() },
+  //        vorSenden?(msg) -> Vermerk (BotMenue.sprachBefehl: legt den Eintrag für Quittung und „gilt“ an, BEVOR gesendet wird), verworfen?(vermerk) (Sendefehler: Eintrag zurück), siehe menueAnschluss,
   //        anzeige: { aufnahme(bool), untertitel(text, { botId?, dauerS? }) -> Kennung?, meldung(text|null), verarbeitet?(bool), clip?(kennung, bool), messung?(zustand) }, uhr?: () -> ms, stimmen?, clipBasis?, postMessung?: (sitzung, eintrag) -> Promise }
   function erzeuge(env) {
     const uhr = env.uhr || (() => Date.now());
@@ -145,6 +182,10 @@
     async function verarbeiteAufnahme(aufn, t0, marke) {
       if (!s.an) return false;   // Sprache inzwischen aus: nichts mehr an STT schicken
       if (!aufn || !aufn.blob || !(aufn.blob.size > 0) || (aufn.dauerMs != null && aufn.dauerMs < MIN_MS)) { meldung(TEXT.zuKurz); return false; }
+      if (typeof aufn.pegel === 'number' && aufn.pegel < PEGEL_MIN) {   // D2: kein Ton angekommen: nichts an STT, keine Befehlsauswertung
+        if (s.messmodus) await messeStille(aufn);
+        meldung(TEXT.stille); return false;
+      }
       const tStt0 = uhr();
       let text;
       try { text = await env.stt(aufn.blob, aufn.mime); } catch (e) { meldung(e && e.status === 413 ? TEXT.zuLang : e && e.fehler === 'stt-aus' ? TEXT.sttNichtEingerichtet : TEXT.sttAus); return false; }
@@ -155,7 +196,7 @@
       const g = text ? await gleiche(text) : { res: null };
       if (g.fehlt) { meldung(TEXT.keinMatcher); return false; }
       const tMatcher = uhr();
-      if (s.messmodus) return messeEin({ text, res: g.res, t_stt_ms: tText - tStt0, t_text_ms: tText - t0, t_matcher_ms: tMatcher - t0, dauer_aufnahme_ms: aufn.dauerMs == null ? null : Math.round(aufn.dauerMs) });
+      if (s.messmodus) return messeEin({ text, res: g.res, t_stt_ms: tText - tStt0, t_text_ms: tText - t0, t_matcher_ms: tMatcher - t0, dauer_aufnahme_ms: aufn.dauerMs == null ? null : Math.round(aufn.dauerMs), pegel: typeof aufn.pegel === 'number' ? aufn.pegel : null });
       return ergebnis(g.res, 'sprache', marke);
     }
 
@@ -175,9 +216,11 @@
       if (!res || typeof res.befehl !== 'string' || !res.befehl) return unklar();   // unter der Schwelle: nichts senden
       const msg = { t: 'bot.befehl', an: res.an, befehl: res.befehl, quelle };
       if (res.args !== undefined && res.args !== null) msg.args = res.args;
+      let vermerk = null;   // BotMenue legt den Eintrag für Quittung und „gilt“ an (ohne zu senden), BEVOR gesendet wird: die Antwort kann nicht vor dem Eintrag kommen
+      if (env.vorSenden) { try { vermerk = env.vorSenden(msg); } catch (e) { vermerk = null; } }
       let ok = false;
       try { ok = env.transport.send(msg) !== false; } catch (e) { ok = false; }
-      if (!ok) { meldung(TEXT.keinBotServer); return false; }
+      if (!ok) { if (env.verworfen && vermerk) { try { env.verworfen(vermerk); } catch (e) { /* egal */ } } meldung(TEXT.keinBotServer); return false; }
       if (/^b\d$/.test(String(res.an))) s.letzterBot = res.an;   // zuletzt angesprochener Bot (nur wenn der Matcher eine botId nennt)
       if (!s.maxHinweis) meldung(null);
       return true;
@@ -186,7 +229,7 @@
       const v = s.unklarN++ % UNKLAR_VARIANTEN;   // beide Varianten abwechselnd
       let url = null;
       try { url = await env.audio.spiele(clipKandidaten('bot.unklar', stimmeFuer(s.letzterBot || 'b0'), v, env.clipBasis)); } catch (e) { url = null; }   // Stimme des zuletzt angesprochenen/aktiven Bots
-      if (!url) untertitel(v === 0 ? TEXT.unklar : TEXT.unklar2, { botId: s.letzterBot, dauerS: UNKLAR_DAUER_S });   // Clip fehlt: Untertitel statt Ton
+      untertitel(v === 0 ? TEXT.unklar : TEXT.unklar2, { botId: s.letzterBot, dauerS: UNKLAR_DAUER_S });   // Untertitel immer, auch wenn der Clip läuft (Kai 2026-11-25)
       return false;
     }
 
@@ -226,8 +269,18 @@
         zeit: new Date().toISOString(), phraseId: p ? p.id : null, phrase: p ? p.text : null, erwartet: p ? p.erwartet : null,
         rohtext: x.text, ergebnis: res ? { an: res.an, befehl: res.befehl, args: res.args || null } : null, konfidenz: res && res.konfidenz != null ? res.konfidenz : null,
         richtig: p ? erwartungErfuellt(p.erwartet, res) : null,
-        t_stt_ms: Math.round(x.t_stt_ms), t_text_ms: Math.round(x.t_text_ms), t_matcher_ms: Math.round(x.t_matcher_ms), dauer_aufnahme_ms: x.dauer_aufnahme_ms,   // t_text: Loslassen -> Text (Aufnahme beenden + STT), t_matcher: Loslassen -> Matcher fertig
+        t_stt_ms: Math.round(x.t_stt_ms), t_text_ms: Math.round(x.t_text_ms), t_matcher_ms: Math.round(x.t_matcher_ms), dauer_aufnahme_ms: x.dauer_aufnahme_ms, pegel: x.pegel == null ? null : x.pegel,   // t_text: Loslassen -> Text (Aufnahme beenden + STT), t_matcher: Loslassen -> Matcher fertig
       };
+      m.eintraege.push(eintrag);
+      zeigeMessung();
+      if (m.post) { try { await m.post(m.sitzung, eintrag); } catch (e) { meldung(TEXT.messungFehler); } }
+      return eintrag;
+    }
+
+    // Stille im Messmodus: eigener Eintrag mit stille: true (kein Rohtext, kein Ergebnis, richtig null). Er zählt NICHT als Messung der Phrase (Stille-Einträge tragen stille: true und richtig: null; wer in der JSONL-Messdatei eine Quote rechnet, muss sie ausfiltern, eine Auswertung gibt es im Repo nicht; das Messfeld zeigt sie als „kein Ton“).
+    async function messeStille(aufn) {
+      const m = s.messmodus, p = aktuellePhrase();
+      const eintrag = { zeit: new Date().toISOString(), phraseId: p ? p.id : null, phrase: p ? p.text : null, erwartet: p ? p.erwartet : null, stille: true, pegel: aufn.pegel, rohtext: null, ergebnis: null, konfidenz: null, richtig: null, t_stt_ms: null, t_text_ms: null, t_matcher_ms: null, dauer_aufnahme_ms: aufn.dauerMs == null ? null : Math.round(aufn.dauerMs) };
       m.eintraege.push(eintrag);
       zeigeMessung();
       if (m.post) { try { await m.post(m.sitzung, eintrag); } catch (e) { meldung(TEXT.messungFehler); } }
@@ -263,10 +316,62 @@
       offen: () => !!(ws && ws.readyState === 1),
     };
   }
-  // STUB für Paket D: der Weg über die Spielverbindung (net.js). Bis BOT-01 C den Server-Teil liefert, geht nichts hinaus (send -> false: Meldung „Kein Bot-Server verbunden“).
-  // Paket D ersetzt das durch: send: (obj) => Net.send(obj), onMessage: (fn) => Net.on((m) => m.t === 'bot.antwort' && fn(m)).
+  // Der Weg über die Spielverbindung (net.js, BOT-04 D): bot.befehl geht mit Net.send an den Spielserver, bot.antwort kommt über Net.on. Ohne offene Verbindung -> false (Meldung „Kein Bot-Server verbunden“).
+  // netz: true -> die Sprache zeigt die Antworten (BotSprache.netAntworten), pult-befehl.js führt dann nur Quittung und „gilt“. schliessen() lässt die Spielverbindung unberührt.
+  function transportNet(Net) {
+    const offen = () => { try { return !!Net && (typeof Net.isOpen === 'function' ? !!Net.isOpen() : true); } catch (e) { return false; } };
+    return {
+      send(obj) { if (!offen()) return false; try { return Net.send(obj) !== false; } catch (e) { return false; } },
+      onMessage(fn) {
+        if (!Net || typeof Net.on !== 'function') return () => {};
+        const weg = Net.on((m) => { if (m && m.t === 'bot.antwort') fn(m); });
+        return typeof weg === 'function' ? weg : () => {};
+      },
+      schliessen() {},
+      offen,
+      netz: true,
+    };
+  }
+  // Rückfall ohne Spielverbindung (kein Net im Fenster, oder ein verbotener ?botmock=): nichts geht hinaus (send -> false)
   function transportNetStub() {
-    return { send() { return false; }, onMessage() { return () => {}; }, schliessen() {}, offen: () => false, stub: true };   // netz: true setzt erst der echte Net-Transport (BotSprache.netAntworten)
+    return { send() { return false; }, onMessage() { return () => {}; }, schliessen() {}, offen: () => false, stub: true };
+  }
+  // Anschluss an das Befehlsmenü (BotMenue gehört der Zustand): die Sprache meldet jeden Befehl vor dem Senden an (sprachBefehl) und nimmt ihn bei Sendefehler zurück. holeMenue wird je Aufruf gefragt (PultBefehl kann später laden).
+  function menueAnschluss(holeMenue) {
+    const menue = () => { try { return holeMenue() || null; } catch (e) { return null; } };
+    return {
+      vorSenden: (msg) => { const m = menue(); return m && m.sprachBefehl ? m.sprachBefehl(msg) : null; },
+      verworfen: (vermerk) => { const m = menue(); if (m && m.sprachBefehlVerworfen) m.sprachBefehlVerworfen(vermerk); },
+    };
+  }
+
+  // D2: misst die Spitze des Mikrofonsignals während der Aufnahme (AudioContext + AnalyserNode, alle 30 ms ein Fenster von 2048 Samples, Rechnung in spitzeAusSamples).
+  // ende() liefert die Spitze 0..1 und gibt den Kontext frei; null, wenn kein Web Audio da ist, der Kontext nicht lief, nie ein Fenster gelesen wurde oder die Messung die Aufnahme nicht ausreichend abdeckt
+  // (Spätstart, siehe pegelAbdeckungReicht; nie raten: lieber ungeprüft senden als einen Befehl verwerfen).
+  const abgefangen = (p) => { try { if (p && typeof p.catch === 'function') p.catch(() => {}); } catch (e) { /* egal */ } };   // abgelehnte Promises von resume()/close() erzeugen keine unbehandelte Ablehnung
+  function pegelMesser(win, stream) {
+    let ctx = null, an = null, buf = null, timer = null, spitze = 0, fenster = 0, fertig = false, tErst = null, tLetzt = null, luecke = 0;
+    const t0 = Date.now();
+    const lies = () => { try { an.getFloatTimeDomainData(buf); spitze = Math.max(spitze, spitzeAusSamples(buf)); fenster++; const jetzt = Date.now(); if (tErst === null) tErst = jetzt; if (tLetzt !== null) luecke = Math.max(luecke, jetzt - tLetzt); tLetzt = jetzt; } catch (e) { /* egal */ } };
+    try {
+      const AC = win.AudioContext || win.webkitAudioContext;
+      if (AC) {
+        ctx = new AC(); const quelle = ctx.createMediaStreamSource(stream);
+        an = ctx.createAnalyser(); an.fftSize = 2048; buf = new Float32Array(an.fftSize); quelle.connect(an);   // nicht an den Ausgang: kein Echo
+        try { if (ctx.state === 'suspended' && ctx.resume) abgefangen(ctx.resume()); } catch (e) { /* egal */ }
+        timer = setInterval(() => { if (ctx && ctx.state === 'running') lies(); }, PEGEL_TAKT_MS);
+      }
+    } catch (e) { if (timer) clearInterval(timer); timer = null; try { if (ctx && ctx.close) abgefangen(ctx.close()); } catch (x) { /* egal */ } ctx = null; an = null; }
+    return {
+      ende() {
+        if (fertig || !ctx) return null;
+        fertig = true; if (timer) clearInterval(timer); timer = null;
+        const lief = ctx.state === 'running'; if (lief) lies();
+        const dauer = Date.now() - t0;
+        try { if (ctx.close) abgefangen(ctx.close()); } catch (e) { /* egal */ }
+        return lief && pegelAbdeckungReicht(tErst === null ? null : tErst - t0, fenster, dauer, luecke) ? spitze : null;
+      },
+    };
   }
 
   function mikrofonBrowser(win) {
@@ -278,14 +383,16 @@
         const stream = await win.navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true } });
         const frei = () => { try { stream.getTracks().forEach((t) => t.stop()); } catch (e) { /* egal */ } };
         let rec; const mime = waehleMime(), teile = [], t0 = Date.now();
+        const pm = pegelMesser(win, stream);   // D2: Pegel der Aufnahme (null, wenn Web Audio fehlt oder nicht lief)
+        const frei2 = () => { frei(); pm.ende(); };
         try {
           rec = new MR(stream, mime ? { mimeType: mime } : {});
           rec.ondataavailable = (ev) => { if (ev.data && ev.data.size) teile.push(ev.data); };
           rec.start();
-        } catch (e) { frei(); throw e; }   // Mikrofonstream nie offen lassen, wenn der Recorder nicht startet
+        } catch (e) { frei2(); throw e; }   // Mikrofonstream nie offen lassen, wenn der Recorder nicht startet
         return {
-          stop() { return new Promise((resolve) => { rec.onstop = () => { frei(); const typ = rec.mimeType || mime || 'audio/webm'; resolve({ blob: new win.Blob(teile, { type: typ }), mime: typ, dauerMs: Date.now() - t0 }); }; try { rec.stop(); } catch (e) { frei(); resolve(null); } }); },
-          abbruch() { rec.onstop = null; try { rec.stop(); } catch (e) { /* egal */ } frei(); },
+          stop() { return new Promise((resolve) => { rec.onstop = () => { const pegel = pm.ende(); frei(); const typ = rec.mimeType || mime || 'audio/webm'; resolve({ blob: new win.Blob(teile, { type: typ }), mime: typ, dauerMs: Date.now() - t0, pegel }); }; try { rec.stop(); } catch (e) { frei2(); resolve(null); } }); },
+          abbruch() { rec.onstop = null; try { rec.stop(); } catch (e) { /* egal */ } frei2(); },
         };
       },
     };
@@ -397,7 +504,7 @@
     const h0 = hud(); if (h0 && h0.sprechAn) { h0.sprechAn(true); h0.sprech.zeile = zeile; }
     return {
       feld, wurzel, zeile,
-      aufnahme(an) { const h = hud(); if (!h) return; h.sprech.aufnahme = !!an; if (an) { h.sprech.verarbeitet = false; entferne(stickyText); stickyText = null; } },
+      aufnahme(an) { const h = hud(); if (!h) return; h.sprech.aufnahme = !!an; if (an) { h.sprech.verarbeitet = false; entferne(stickyText); stickyText = null; entferne(letzteMeldung); letzteMeldung = null; } },   // neue Aufnahme räumt die alte Meldung weg (z. B. „Mikrofon liefert keinen Ton.“)
       verarbeitet(an) { const h = hud(); if (h) h.sprech.verarbeitet = !!an; },
       untertitel(t, info) { const h = hud(); return h ? h.pushCrewFunk(t, sprecherName(info && info.botId), FN().sensor, info && info.dauerS) : 0; },
       clip(id, an) { const h = hud(); if (h && id) h.crewFunkHalte(id, an); },
@@ -418,11 +525,12 @@
         mess.textContent = '';
         mess.appendChild(el('div', { color: F.gold, letterSpacing: '1px' }, 'MESSUNG  ' + (stand.index + 1) + '/' + stand.phrasen.length));
         mess.appendChild(el('div', { color: F.dim, margin: '2px 0 6px' }, 'Sprechtaste halten, die markierte Phrase sagen, loslassen. Bild↑/Bild↓ oder Knöpfe wechseln.'));
-        const letzte = {}; for (const e of stand.eintraege) letzte[e.phraseId] = e;
+        const letzte = {}, stille = {}; for (const e of stand.eintraege) { if (e.stille) stille[e.phraseId] = e; else { letzte[e.phraseId] = e; delete stille[e.phraseId]; } }   // Stille zählt nicht als Messung
         stand.phrasen.forEach((p, i) => {
           const e = letzte[p.id], an = i === stand.index;
           const zeile2 = el('div', { color: an ? F.gold : F.text, borderLeft: '2px solid ' + (an ? F.gold : 'transparent'), paddingLeft: '6px' }, (e ? (e.richtig ? '[ok] ' : '[--] ') : '[  ] ') + p.text);
           mess.appendChild(zeile2);
+          if (stille[p.id] && an) mess.appendChild(el('div', { color: F.gold, paddingLeft: '6px' }, 'kein Ton (Pegel ' + Number(stille[p.id].pegel).toFixed(4) + ') · nicht gewertet'));
           if (e && an) mess.appendChild(el('div', { color: F.dim, paddingLeft: '6px' }, '„' + e.rohtext + '“ → ' + (e.ergebnis ? e.ergebnis.befehl : 'unklar') + (e.konfidenz != null ? ' ' + e.konfidenz : '') + ' · ' + e.t_matcher_ms + ' ms'));
         });
         const knoepfe = el('div', { marginTop: '6px' });
@@ -452,12 +560,13 @@
     const mockParam = params.get('botmock');
     const mockUrl = mockParam !== null ? (mockParam || 'ws://localhost:8710') : null;
     const mockOk = mockUrl === null || mockUrlErlaubt(mockUrl);
-    const transport = mockUrl !== null && mockOk ? transportWebSocket(mockUrl, win.WebSocket) : transportNetStub();
+    const transport = mockUrl !== null ? (mockOk ? transportWebSocket(mockUrl, win.WebSocket) : transportNetStub()) : win.Net ? transportNet(win.Net) : transportNetStub();   // ?botmock= hat Vorrang (verboten: Stub, nie still die echte Verbindung)
     const sitzung = 'messung-' + new Date().toISOString().replace(/[^0-9]/g, '').slice(0, 14);
     let kern = null;
     const anzeige = anzeigeHud(win, (t) => kern.sendeText(t), (dd) => kern.messeWeiter(dd));
     const env = {
       transport, matcher: () => ladeMatcher(win), stt: sttBrowser(win), mikrofon: mikrofonBrowser(win), audio: audioBrowser(win), anzeige,
+      ...(transport.netz === true ? menueAnschluss(() => win.PultBefehl && win.PultBefehl.menue) : {}),   // nur am Spielnetz: nur dort erreichen die Antworten das Menü
       postMessung: (sit, eintrag) => win.fetch('/api/bot-messung', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ sitzung: sit, eintrag }) }).then((r) => { if (!r.ok) throw new Error('messung ' + r.status); }),
     };
     kern = erzeuge(env);
@@ -492,7 +601,7 @@
     i.kern.schalte(false); i.aufraeumen(); i.transport.schliessen();
   }
 
-  // BOT-01 C3: verarbeitet die Sprache die bot.antwort der Spielverbindung selbst? Dann zeigt public/js/pult-befehl.js sie nicht noch einmal (genau ein Verarbeiter je Antwort). Der Net-Transport (Paket D) setzt `netz: true`.
+  // BOT-01 C3: verarbeitet die Sprache die bot.antwort der Spielverbindung selbst? Dann zeigt public/js/pult-befehl.js sie nicht noch einmal (genau ein Verarbeiter je Antwort). Der Net-Transport (transportNet, BOT-04 D) setzt `netz: true`.
   const netAntworten = () => !!(instanz && instanz.transport && instanz.transport.netz === true);
-  return { erzeuge, clipKandidaten, netAntworten, erwartungErfuellt, mockUrlErlaubt, TEXT, MAX_MS, STIMMEN, CLIP_BASIS, transportWebSocket, transportNetStub, anzeigeHud, sprecherName, startHinweis, UNKLAR_DAUER_S, mikrofonBrowser, audioBrowser, sttBrowser, starte, stoppe, laeuft: () => !!instanz };
+  return { erzeuge, spitzeAusSamples, pegelAbdeckungReicht, PEGEL_MIN, PEGEL_START_MAX_MS, PEGEL_LUECKE_MAX_MS, PEGEL_ABDECKUNG_MIN, PEGEL_TAKT_MS, clipKandidaten, netAntworten, erwartungErfuellt, transportNet, menueAnschluss, mockUrlErlaubt, TEXT, MAX_MS, STIMMEN, CLIP_BASIS, transportWebSocket, transportNetStub, anzeigeHud, sprecherName, startHinweis, UNKLAR_DAUER_S, mikrofonBrowser, audioBrowser, sttBrowser, starte, stoppe, laeuft: () => !!instanz };
 });

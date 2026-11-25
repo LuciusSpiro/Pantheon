@@ -1857,8 +1857,8 @@
     // SUND-04b D: schmaler Status des laufenden Abenteuers (nur mit world.abenteuer.laufend, also Freie Fahrt Sund mit FAEDEN=1); gibt die neue Oberkante für die Planungszeile zurück
     drawAbenteuerStreifen(ctx, y) {
       const BR = window.Brett && Brett.modell ? Brett.modell() : null, T = window.PultTerminal;
-      if (!BR || !BR.laufend || !T || !T.zeichneAbenteuerHud) return y;
-      return T.zeichneAbenteuerHud(ctx, y, Object.assign({}, BR.laufend, { neu: Brett.frisch(BR.laufend) })) + 2;
+      if (!BR || !BR.laufend || !BR.laufend.length || !T || !T.zeichneAbenteuerHud) return y;   // SPT-02 3: bei mehreren laufenden Abenteuern zeigt der Streifen das erste (die Liste steht im Terminal-Brett)
+      return T.zeichneAbenteuerHud(ctx, y, Object.assign({}, BR.laufend[0], { neu: Brett.frisch(BR.laufend[0]) })) + 2;
     },
     drawPlanningLine(ctx, view, y) {
       const p = this.planningOf(view.state);

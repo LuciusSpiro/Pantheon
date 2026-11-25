@@ -5,7 +5,7 @@
 // Hängt an: Render, Pult, PultTerminal (pult-terminal-tokens.js), PultAuftrag. Keine Farbwerte und keine Maße hier (tools/check-terminal-farben.js, Dateiname enthält „terminal“): nur PultAuftrag.TOKENS (FARBE, MASS).
 // Jede Textzeile ist gekürzt: R.wrap bricht nur an Leerzeichen, ein langes Wort ohne Leerzeichen liefe sonst über den Rand (umbr kappt jede Zeile mit kuerzen).
 //
-//   PultTerminal.zeichneBrett(ctx, b)          b: { titel, hilfe, laufend: Brett-laufend | null, gewaehlt: id, angebote: [Angebot + { nr, kappe, onClick }], geruechte, scheitern, leerText, info: { grund } | { angenommen: titel } | null }
+//   PultTerminal.zeichneBrett(ctx, b)          b: { titel, hilfe, laufend: [Brett-laufend] (Liste; ein einzelnes Objekt oder null gilt auch), gewaehlt: id, angebote: [Angebot + { nr, kappe, onClick }], geruechte, scheitern, leerText, info: { grund } | { angenommen: titel } | null }
 //   PultTerminal.zeichneAbenteuerHud(ctx, y, l)  l: Brett-laufend + { neu } (eben angenommen); gibt die Unterkante zurück
 (function () {
   'use strict';
@@ -190,8 +190,9 @@
     });
     if (st.length > max) txt(c, A.text('mehrSchritte', { n: st.length - max + 1 }), S.x + Z.schrittX, S.y + Z.kopfH + (max - 1) * M.zeile, FA.dim);
     // Tick-Hinweis (SPT-01 E) unter den Schritten, nur wo eine Frist steht (ein Notruf-Angebot altert nicht); reicht der Platz nicht für den ganzen Satz, steht die Kurzform, der Tooltip hat immer den Satz
-    if (typeof a.rest === 'number') {
-      const Hi = D.tick, rows = Math.floor(Hi.h / M.zeile), voll = T.umbruch(A.text('tickHinweis'), Hi.w, 0);
+    const hiRows = Math.floor(D.tick.h / M.zeile);   // SPT-02 5b: reicht der Platz nicht für eine Zeile (dichtes Layout), entfällt der Tick-Hinweis zuerst (umbruch mit 0 Zeilen hieße „alle“)
+    if (typeof a.rest === 'number' && hiRows > 0) {
+      const Hi = D.tick, rows = hiRows, voll = T.umbruch(A.text('tickHinweis'), Hi.w, 0);
       (voll.length <= rows ? voll : umbr(A.text('tickHinweisKurz'), Hi.w, rows)).forEach((z, i) => txt(c, z, Hi.x, Hi.y + i * M.zeile, FA.dim));
       if (rows > 0) tip({ x: Hi.x, y: Hi.y, w: Hi.w, h: rows * M.zeile }, A.text('tickHinweisLang'));
     }
@@ -236,6 +237,47 @@
     if (l.gefahr) { bake(c, x, y2 - UEBER, M.bakeKlein.w, M.bakeKlein.h, M.bakeKlein.schritt); x += M.bakeKlein.w + M.bakeKlein.luft; }
     txt(c, kuerzen(l.schritt_text || '', r.x + r.w - LA.rand - x), x, y2 - UEBER, FA.text);
   }
+  // SPT-02 3: zwei oder drei laufende Abenteuer: je eine Zeile (Titel, Beats, Schritt, Frist), mint Balken links; die eine Streifen-Darstellung (zwei Zeilen) gilt nur bei einem
+  function laeuftZeile(c, r, l) {
+    const Z = LA.zeile, wartet = l.ph !== 'laeuft', y = r.y + Z.y;
+    rect(c, r.x, r.y, r.w, r.h, FA.kachel); rect(c, r.x, r.y, Z.balken, r.h, FA.laeuft);
+    const v = A.verfall(l.rest), fe = r.x + r.w - Z.rand;
+    const fr = wartet ? A.beginnt(l.rest) : v.n <= 1 ? '! ' + A.text('fristBald') : A.text('frist', { n: v.n });
+    txt(c, fr, fe, y, wartet ? FA.dim : v.bald ? FA.bald : FA.text, { align: 'right' });
+    const x0 = r.x + Z.x;
+    txt(c, kuerzen(l.titel, Z.titelW), x0, y, FA.text);
+    const b = A.beats(l.schritt, l.schritte_gesamt), bw = Math.min(Z.beatWMax, Math.floor((Z.beatsW - (b.length - 1) * Z.beatLuft) / b.length)), by = r.y + Math.floor((r.h - Z.beatH) / 2);
+    let x = r.x + Z.beatsX; b.forEach((s) => {
+      if (s === 'fertig' || (s === 'jetzt' && !wartet)) rect(c, x, by, bw, Z.beatH, FA.laeuft); else rand(c, x, by, bw, Z.beatH, s === 'jetzt' ? FA.text : FA.beatOffen);
+      x += bw + Z.beatLuft;
+    });
+    x = r.x + Z.beatsX + Z.beatsW + Z.schrittLuft;
+    if (l.gefahr) { bake(c, x, y + 1, M.bakeKlein.w, M.bakeKlein.h, M.bakeKlein.schritt); x += M.bakeKlein.w + M.bakeKlein.luft; }
+    txt(c, kuerzen(l.schritt_text || '', fe - tw(fr) - Z.fristLuft - x), x, y, FA.text);
+  }
+  // SPT-02 5b: Sammelzeile „NOTRUFE 3 · nächste Frist 6 Ticks“ für alle Notruf-Fäden (mint Balken wie die Abenteuer-Zeilen, kein Fortschritt je Faden: die Einzelheiten stehen im Reiter Aufträge).
+  // Frist = die kleinste Frist der laufenden Notruf-Fäden; läuft noch keiner, steht dim „beginnt in n Ticks“ (rest ist dort keine Frist)
+  function sammelFrist(nots) {
+    const lauf = nots.filter((l) => l.ph === 'laeuft'), min = (ls) => Math.min.apply(null, ls.map((l) => l.rest));
+    if (!lauf.length) return { s: A.beginnt(min(nots)), col: FA.dim };
+    const n = min(lauf), v = A.verfall(n);
+    return { s: n <= 1 ? '! ' + A.text('notrufFristBald') : A.text('notrufFrist', { n }), col: v.bald ? FA.bald : FA.text };
+  }
+  function sammelZeile(c, r, nots) {
+    const Z = LA.zeile, y = r.y + Z.y;
+    rect(c, r.x, r.y, r.w, r.h, FA.kachel); rect(c, r.x, r.y, Z.balken, r.h, FA.laeuft);
+    const e = txt(c, A.text('notrufe', { n: nots.length }), r.x + Z.x, y, FA.laeuft, titelO), f = sammelFrist(nots);
+    const x = txt(c, '·', e + Z.fristLuft / 2, y, FA.dim) + Z.fristLuft / 2;
+    txt(c, kuerzen(f.s, r.x + r.w - Z.rand - x), x, y, f.col);
+  }
+  // SPT-02 5b: Überschrift des Blocks „Läuft“ in der Titelzeile: „ABENTEUER 3/3 · NOTRUFE 3/3“ (Grenzen aus dem Block; ohne Notruf-Fäden nur „ABENTEUER n/3“). Passt sie nicht zwischen Titel und Tastenzeile, entfällt sie (nie Überlauf)
+  function laeuftUeberschrift(c, b, B, y, reg, nots) {
+    if (!nots && reg < 2) return;   // ein Abenteuer allein trägt schon die Überschrift LÄUFT im Streifen
+    const z = (wort, n, max) => wort + ' ' + n + (max ? '/' + max : '');
+    const s = z(A.text('hudAbenteuer'), reg, b.max) + (nots ? ' · ' + z(A.text('notrufeWort'), nots, b.notrufMax) : '');
+    const x = B.x + tw(String(b.titel || A.text('bereich')).toUpperCase(), 1, titelO.sperr) + Z.titelLuft, ende = B.x + B.w - (b.hilfe && (b.angebote || []).length ? tw(b.hilfe) + Z.titelLuft : 0);
+    for (const o of [titelO, null]) if (x + (o ? tw(s.toUpperCase(), 1, o.sperr) : tw(s)) <= ende) { txt(c, s, x, y, FA.laeuft, o || undefined); return; }
+  }
   function leer(c, B, b) {
     const E = M.leer; P.cham(c, B.x, B.y, B.w, E.h, FA.kachelZu, 0, 0, E.cham, 0); rect(c, B.x, B.y, E.balken, E.h, FA.leerBalken);
     txt(c, A.text('leerTitel'), B.x + E.x, B.y + E.titelY, FA.text, titelO);
@@ -260,14 +302,23 @@
   }
 
   function zeichneBrett(c, b) {
-    const an = (b.angebote || []).slice(0, LI.max), lauf = !!b.laufend, L = A.layout(lauf), B = L.bereich;
+    const an = (b.angebote || []).slice(0, LI.max), ls = Array.isArray(b.laufend) ? b.laufend : b.laufend ? [b.laufend] : [];
+    // SPT-02 5b: zwei oder mehr Notruf-Fäden stehen in EINER Sammelzeile (nach den Abenteuern); der Block hat so höchstens zeilenMax (4) Zeilen und das Detail bleibt über der Infozeile
+    const reg = ls.filter((l) => !l.notruf), nots = ls.filter((l) => l.notruf), sammel = nots.length >= 2;
+    const zeilen = sammel ? reg.slice(0, LA.zeilenMax - 1).concat([{ sammel: nots }]) : ls.slice(0, LA.zeilenMax);
+    const lauf = zeilen.length > 0, L = A.layout(sammel ? Math.max(2, zeilen.length) : zeilen.length), B = L.bereich, LL = L.laeuft;
     txt(c, b.titel || A.text('bereich'), B.x, L.titel.y, FA.angebot, titelO);
     if (an.length && b.hilfe) txt(c, b.hilfe, B.x + B.w, L.titel.y, FA.dim, { align: 'right' });   // ohne Angebot keine Tastenzeile
-    if (lauf) laeuftStreifen(c, L.laeuft, b.laufend);
+    laeuftUeberschrift(c, b, B, L.titel.y, reg.length, nots.length);
+    if (zeilen.length === 1 && !sammel) laeuftStreifen(c, LL, zeilen[0]);
+    else zeilen.forEach((l, i) => { const r = { x: LL.x, y: LL.y + i * (LL.zeileH + LL.zeileLuft), w: LL.w, h: LL.zeileH }; if (l.sammel) sammelZeile(c, r, l.sammel); else laeuftZeile(c, r, l); });
     if (!an.length) leer(c, lauf ? { x: B.x, y: L.liste[0].y, w: B.w } : B, b);
     else {
       an.forEach((a, i) => karte(c, L.liste[i], a, a.id === b.gewaehlt, lauf));
+      // das Detail endet spätestens an der Unterkante des Bereichs (über der Linie der Infozeile), was darunter läge, wird nicht gezeichnet; der Tick-Hinweis entfällt zuerst (layout: tick.h)
+      c.save(); c.beginPath(); c.rect(L.detail.x, L.detail.y, L.detail.w, B.y + B.h - L.detail.y); c.clip();
       detail(c, L.detail, an.find((a) => a.id === b.gewaehlt) || an[0], b.scheitern);
+      c.restore();
     }
     infozeile(c, L.info, Object.assign({}, b, { angebote: an }));
     return L;
@@ -297,5 +348,7 @@
   }
 
   T.zeichneBrett = zeichneBrett;
+  T.zeichneGefahrGlyph = (c, x, y) => bake(c, x, y, M.bakeKlein.w, M.bakeKlein.h, M.bakeKlein.schritt);   // SPT-02 5b: dieselbe schraffierte Bake für die Liste des Reiters Aufträge (notrufe.js)
+  T.gefahrGlyphBreite = M.bakeKlein.w + M.bakeKlein.luft;
   T.zeichneAbenteuerHud = zeichneAbenteuerHud;
 })();

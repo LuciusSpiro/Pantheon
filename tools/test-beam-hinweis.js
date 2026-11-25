@@ -49,7 +49,7 @@ function umgebung(ersetze) {
   win.__fehler = [];
   win.Net = { guard: (w, f, d) => { try { return f(); } catch (e) { win.__fehler.push(w + ': ' + e.message); return d; } }, reportError(w, e) { win.__fehler.push(w + ': ' + (e && e.message)); } };
   win.Hud = new Proxy({}, { get: () => () => 0 });
-  for (const f of ['kennung.js', 'render.js', 'pult-systeme-tokens.js', 'zonenkreuz.js', 'zielsysteme.js', 'kartenlogik.js', 'pult.js', 'consoles.js', 'pult-stationen.js']) {
+  for (const f of ['kennung.js', 'render.js', 'pult-systeme-tokens.js', 'zonenkreuz.js', 'zielstapel.js', 'zielsysteme.js', 'kartenlogik.js', 'pult.js', 'consoles.js', 'pult-stationen.js']) {
     let q = read('public/js/' + f); if (ersetze && ersetze[f]) q = ersetze[f](q);
     vm.runInContext(q, win, { filename: f });
   }

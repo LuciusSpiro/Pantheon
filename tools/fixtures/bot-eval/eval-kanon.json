@@ -11811,6 +11811,33 @@
   "form": "Automatik"
  },
  {
+  "text": "Automatisch",
+  "art": "positiv",
+  "erwartet": {
+   "befehl": "bot.automatik",
+   "args": {}
+  },
+  "form": "Automatik"
+ },
+ {
+  "text": "automatisch.",
+  "art": "positiv",
+  "erwartet": {
+   "befehl": "bot.automatik",
+   "args": {}
+  },
+  "form": "Automatik"
+ },
+ {
+  "text": "Crew, Automatisch",
+  "art": "positiv",
+  "erwartet": {
+   "befehl": "bot.automatik",
+   "args": {}
+  },
+  "form": "Automatik"
+ },
+ {
   "text": "Automati",
   "art": "stt-fehler",
   "erwartet": {
