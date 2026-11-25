@@ -134,13 +134,13 @@ function client(P) {
     ok(g.ship.helm.stage === STOP && g.ship.helm.autoStop === true && !agent(P, 'navigation').absicht.befehl && agent(P, 'navigation').befehlGrund === 'stopp', 'Wirkung: Maschinen stopp (Allstopp, Schub-Absicht aufgegeben)');
     ok(C.menue.giltVon('navigation').key === 'nav.stopp', '„gilt“ Navigation: Alle Maschinen stopp');
   }
-  section('c) Ablehnung als Untertitel: Bord-Befehl ohne Bord-Bot');
+  section('c) Ablehnung als Untertitel: Bord-Befehl, niemand unten');
   {
     const gilt0 = C.menue.giltVon('navigation'), u0 = C.L.sprUntertitel.length, n0 = C.net.antworten.length;
     ok(await C.kern.sendeText('Sensor') === true, 'Text „Sensor“ gesendet');
     const m = C.net.gesendet[C.net.gesendet.length - 1], a = C.net.antworten[n0];
-    ok(m.an === 'bord' && m.befehl === 'bord.sensor' && C.net.antworten.length === n0 + 1 && a.status === 'unmoeglich' && a.textId === 'bord.sensor.unmoeglich.kein_bot', 'Server: unmoeglich kein_bot (' + (a && a.textId) + ')');
-    ok(C.L.sprUntertitel.length === u0 + 1 && TEXTE['bord.sensor.unmoeglich.kein_bot'].includes(C.L.sprUntertitel[u0].text), 'Untertitel der Sprache: „' + (C.L.sprUntertitel[u0] && C.L.sprUntertitel[u0].text) + '“');
+    ok(m.an === 'bord' && m.befehl === 'bord.sensor' && C.net.antworten.length === n0 + 1 && a.status === 'abgelehnt' && a.textId === 'bord.sensor.abgelehnt.kein_ziel', 'Server: abgelehnt kein_ziel, niemand unten (BOT-02: der Bot an Bord nimmt den Befehl an) (' + (a && a.textId) + ')');
+    ok(C.L.sprUntertitel.length === u0 + 1 && TEXTE['bord.sensor.abgelehnt.kein_ziel'].includes(C.L.sprUntertitel[u0].text), 'Untertitel der Sprache: „' + (C.L.sprUntertitel[u0] && C.L.sprUntertitel[u0].text) + '“');
     ok(C.menue.crew()[0].quittung === 'nein' && C.menue.giltVon('navigation') === gilt0 && C.menue.giltVon('bord') === null, 'Menü: Quittung „nein“ (abgelehnt), kein „gilt“ für Bord');
     const a2n = C.net.antworten.length;
     await C.sprich('Schilde Oben'); ok(C.net.antworten.length === a2n, 'unklarer Satz: nichts gesendet, keine Server-Antwort');
