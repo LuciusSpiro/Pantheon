@@ -88,7 +88,7 @@ let rund;
 section('(c) Obergrenze 12 je Figur, hohe Gewichte bleiben');
 {
   const g = partie().g;
-  ok(g.C.weltstand.botMemoryMax === 12, 'Konfiguration weltstand.botMemoryMax = 12');
+  ok(G.MAX_JE_FIGUR === 12, 'Obergrenze je Figur = 12 (Konstante in gedaechtnis.js, kein Config-Schluessel wegen Tuning-Hash)');
   for (let i = 0; i < 50; i++) G.merken(g, 'b1', { ereignis: 'e' + i, text: 'Ereignis ' + i, gewicht: (i === 7 || i === 23 || i === 41) ? 3 : 1 });
   const l = G.lesen(g, 'b1');
   ok(l.length === 12, '50 Ereignisse -> genau 12 (' + l.length + ')');

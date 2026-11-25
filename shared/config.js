@@ -531,7 +531,7 @@
       // Kap. 8 springt erst zur Wahl zurück, wenn das Lösegeld bezahlbar ist (kein sofortiger Rücksprung).
       sund: { forderung: 400, geldziel: 400, soeldner: 400, loesegeld: 520 } },
     // Weltstand: höchstens 5 Stände, angedockt höchstens alle 10 s speichern (nur bei Änderung), NSC-Gedächtnis je 12 Einträge
-    weltstand: { max: 5, dockedSaveEvery: 10, npcMemoryMax: 12, botMemoryMax: 12, logKeep: 60, attitudeMin: -3, attitudeMax: 3 },
+    weltstand: { max: 5, dockedSaveEvery: 10, npcMemoryMax: 12, logKeep: 60, attitudeMin: -3, attitudeMax: 3 },
     // Spielmenü: Pause nur solo; Löschen eines Weltstands durch Halten (s)
     menu: { pauseSoloOnly: true, deleteHold: 1.0, savedNoticeTime: 2.5 },
 

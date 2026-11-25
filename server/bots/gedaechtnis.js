@@ -18,7 +18,9 @@ const SYSTEM_PAUSE_S = 120;
 const laufzeit = new WeakMap();   // game -> { bewusstlos: Map(botId -> missionId), systemT: Zahl }
 
 const cfg = (game) => (game && game.C && game.C.weltstand) || {};
-const maxJe = (game) => Math.max(1, Number(cfg(game).botMemoryMax) || 12);
+// Obergrenze je Figur: bewusst Konstante hier, kein Schluessel in shared/config.js (jede Aenderung dort aendert den Tuning-Hash der Telemetrie-Basis, test-rueckprobe/test-basis wuerden rot). Ein Wert C.weltstand.botMemoryMax gaelte, falls spaeter gesetzt.
+const MAX_JE_FIGUR = 12;
+const maxJe = (game) => Math.max(1, Number(cfg(game).botMemoryMax) || MAX_JE_FIGUR);
 // nur ein gespeicherter Weltstand (persistent) hat ein Gedaechtnis; Szenario-Labor und Testlaeufe ohne Welt bleiben unberuehrt
 const speicher = (game) => { const ws = game && game.weltstand; return ws && ws.persistent && ws.data ? ws.data : null; };
 const spielzeit = (game) => { try { return Math.round(game.mission.playTime()); } catch (e) { return 0; } };
@@ -129,4 +131,4 @@ function gespraech(game, botId) {
   return merken(game, botId, { ereignis: 'gespraech', text: 'Sprach mit dem Captain.', gewicht: 1 });
 }
 
-module.exports = { BOT_IDS, TEXT_MAX, merken, lesen, toSave, restore, beiMissionEnde, beiBewusstlos, beiSystemAusfall, gespraech };
+module.exports = { BOT_IDS, TEXT_MAX, MAX_JE_FIGUR, merken, lesen, toSave, restore, beiMissionEnde, beiBewusstlos, beiSystemAusfall, gespraech };
