@@ -461,7 +461,6 @@
     },
     // BOT-01 B2: Bots auf Plätzen der Lobby (Server: lobbyBot, nur Lobby; die Regeln prüft der Server, hier stehen nur die Wünsche)
     botHinzufuegen(rolle) { send({ t: P.C.LOBBY_BOT || 'lobbyBot', op: 'add', rolle }); audio.play('ui_click'); },
-    botWuerfeln(pid) { send({ t: P.C.LOBBY_BOT || 'lobbyBot', op: 'wuerfeln', pid }); audio.play('ui_click'); },
     botEntfernen(pid) { send({ t: P.C.LOBBY_BOT || 'lobbyBot', op: 'weg', pid }); audio.play('ui_click'); },
     botRolleWechseln(pid, rolle) { send({ t: P.C.LOBBY_BOT || 'lobbyBot', op: 'rolle', pid, rolle }); audio.play('ui_click'); },
     botPlatzFuellen() {   // Taste P: Bot mit der ersten freien Rolle

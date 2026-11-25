@@ -1,0 +1,36 @@
+{
+  "format": "bot-figuren/1",
+  "hinweis": "BOT-05 A1: die Stammcrew. Jeder Bot ist eine feste Figur (botId = Figur, nicht Platz): Name, Karte, Stimme und Persoenlichkeit sind in jeder Partie gleich. stimme ist ein Schluessel aus stimmen.json. Die Karte besteht Charakter.pruefeKarte unveraendert und nutzt nur freie Teile. Vergeben wird die erste freie Figur in der Reihenfolge der Datei.",
+  "figuren": [
+    {
+      "botId": "b0",
+      "name": "Livia",
+      "stimme": "b0",
+      "karte": {
+        "v": 1, "name": "Livia", "koerper": "standard", "frisur": "stirnband", "haut": 2, "haar": 5,
+        "outfit": { "kopf": "keine", "oberteil": "robe", "hose": "bordhose", "schuhe": "bordstiefel", "haende": "keine", "umhang": "sagum" }
+      },
+      "persoenlichkeit": "Die Älteste an Bord, fuhr lange Fracht im Sund. Spricht ruhig und knapp und wird bei Gefahr eher leiser als lauter. Greift gern zu Seemannsbildern („Wind von Backbord“). Dem Captain gegenüber loyal: Hält sie eine Entscheidung für falsch, sagt sie das einmal offen und folgt dann."
+    },
+    {
+      "botId": "b1",
+      "name": "Cassius",
+      "stimme": "b1",
+      "karte": {
+        "v": 1, "name": "Cassius", "koerper": "standard", "frisur": "kurz", "haut": 1, "haar": 1,
+        "outfit": { "kopf": "keine", "oberteil": "bordtunika", "hose": "anzughose", "schuhe": "bordstiefel", "haende": "keine", "umhang": "keiner" }
+      },
+      "persoenlichkeit": "Früher Schreiber in einer Flottenkanzlei, präzise und trocken. Nennt lieber Zahlen als Eindrücke, sein Humor ist so trocken, dass man ihn leicht überhört. Korrigiert Ungenauigkeiten, auch beim Captain. Respektiert den Rang, das Vertrauen in die Person muss der Captain sich verdienen."
+    },
+    {
+      "botId": "b2",
+      "name": "Titus",
+      "stimme": "b2",
+      "karte": {
+        "v": 1, "name": "Titus", "koerper": "standard", "frisur": "wild", "haut": 0, "haar": 3,
+        "outfit": { "kopf": "keine", "oberteil": "plankenweste", "hose": "bordhose", "schuhe": "bordstiefel", "haende": "armschiene", "umhang": "keiner" }
+      },
+      "persoenlichkeit": "Der Jüngste, auf seiner ersten großen Fahrt. Neugierig, schnell begeistert, redet zu viel, wenn er nervös ist. Will über jedes fremde Schiff alles wissen. Bewundert den Captain offen und will sich beweisen."
+    }
+  ]
+}

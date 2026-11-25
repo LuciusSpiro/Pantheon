@@ -1,26 +1,22 @@
 'use strict';
 // BOT-01 B2: Bots als Spieler auf Slots (Vertrag Bot-Befehle §1). Action-Layer der Lobby: jede Nachricht lobbyBot { op } hat genau eine Funktion hier, game.js verteilt nur.
 //   botHinzufuegen(game, spieler, rolle)         op 'add': neuer Bot auf dem kleinsten freien Platz (Lobby; Rolle gueltig und frei; hoechstens maxPlayers - 1 Bots, nie ueber maxPlayers Spieler)
-//   botWuerfeln(game, spieler, pid)              op 'wuerfeln': neue Zufallskarte und Name, Platz/Id/Rolle/Farbe bleiben
 //   botEntfernen(game, spieler, pid)             op 'weg': Bot aus der Lobby
 //   botRolleWechseln(game, spieler, pid, rolle)  op 'rolle': Rolle auf eine freie wechseln
 //   botVerdraengtFuerMensch(game)                ein Mensch tritt bei vollem Server bei: der zuletzt hinzugefuegte Bot raeumt (Lobby: weg; Partie: wird zum freien, nicht verbundenen Platz); sonst nichts
 //   botsNachLetztemMenschenRaeumen(game)         Lobby ohne Mensch: alle Bots weg
 // `spieler` ist der Mensch, der die Aenderung verlangt; Ablehnungen gehen als notice an ihn. Rueckgabe der Befehle: true = geaendert, false = abgelehnt (nichts geaendert).
-// Bots tragen bot: true, rolle, botId (b0..b3), stimme (null, spaeter BOT-04/05) und keine clientId (clientId null; onHello sucht zusaetzlich nie unter Bots); Menschen tragen diese Felder nie. Bots bekommen nie Farbe 0 (die gehoert dem ersten Menschen, Kontingent-Frage).
-// Zufall nur hier (Lobby, nie in der Simulation): game.botZufall (Tests) oder Math.random.
+// Bots tragen bot: true, rolle, botId (Figur der Stammcrew b0..b2, BOT-05 A1: erste freie Figur aus content/bots/figuren.json, unabhaengig von Rolle und Platz; b3 ist keine Figur und wird nie vergeben), stimme (Schluessel der Figur in stimmen.json) und keine clientId (clientId null; onHello sucht zusaetzlich nie unter Bots); Menschen tragen diese Felder nie. Bots bekommen nie Farbe 0 (die gehoert dem ersten Menschen, Kontingent-Frage).
+// Name, Karte und Stimme gehoeren der Figur und sind in jeder Partie gleich: kein Zufall mehr (BOT-05 A1, Lobby-Wuerfeln der Bots entfaellt; op 'wuerfeln' wird wie jede unbekannte op abgelehnt). Ein geraeumter Bot gibt seine Figur frei.
 const Crew = require('../sim/crew.js');
 const Lauf = require('./lauf.js');   // BOT-01 B3: Agenten der Bots (geraeumte/entfernte Bots verlieren ihren Agenten sofort)
 
-let namenPool = [];
-try { namenPool = require('../../content/bots/namen.json').namen || []; } catch (e) { namenPool = []; }
+const Figuren = require('./figuren.js');   // BOT-05 A1: laedt und prueft content/bots/figuren.json beim Start (Fehler werfen)
 
 const ROLLEN = ['navigation', 'ops', 'technik'];
-const BOT_IDS = ['b0', 'b1', 'b2', 'b3'];
 const NUR_LOBBY = 'Bots lassen sich nur in der Lobby ändern.';
 
 const bots = (game) => game.players.filter((p) => Crew.istBot(p));
-const zufallVon = (game) => (typeof game.botZufall === 'function' ? game.botZufall : Math.random);
 const botMitId = (game, pid) => game.players.find((p) => p.id === pid && Crew.istBot(p)) || null;
 const rolleFrei = (game, rolle) => !bots(game).some((b) => b.rolle === rolle);
 const verweigere = (game, spieler, text) => { if (spieler) game.notice(spieler, text); return false; };
@@ -30,15 +26,16 @@ function kleinsteFreieId(game) {
   let n = 1; while (belegt.has('p' + n)) n++;
   return 'p' + n;
 }
-function kleinsteFreieBotId(game) { return BOT_IDS.find((id) => !bots(game).some((b) => b.botId === id)) || null; }
+// erste freie Figur der Stammcrew (Reihenfolge der Datei), null wenn alle Figuren an Bord sind
+const freieFigur = (game) => Figuren.erstFreieFigur(bots(game).map((b) => b.botId));
 // Bots nehmen die kleinste freie Farbe ab 1; Farbe 0 bleibt dem ersten Menschen (applyColorWish der Menschen bleibt unberuehrt)
 function botFarbe(game) {
   const belegt = new Set(game.players.filter((o) => o.color != null).map((o) => o.color));
   for (let c = 1; c < game.C.maxPlayers; c++) if (!belegt.has(c)) return c;
   return null;
 }
-// die Karte gehört game.js (dort liegen Katalog und Kartenverteilung, tools/test-trefferbox.js): hier nur der Wunsch nach einer neuen Zufallskarte
-const karteSetzen = (game, b) => game.botKarteWuerfeln(b, zufallVon(game), namenPool);
+// die Karte gehört game.js (dort liegen Katalog und Kartenverteilung, tools/test-trefferbox.js): hier nur die Figur, deren feste Karte gelten soll
+const karteSetzen = (game, b, figur) => game.botKarteSetzen(b, figur);
 // Bot aus der Lobby nehmen, wie wenn ein Mensch die Lobby verlaesst (Karte raeumen, Spieler filtern, Telemetrie)
 function ausLobbyNehmen(game, b) {
   Lauf.entfernen(game, b);
@@ -51,26 +48,18 @@ function botHinzufuegen(game, spieler, rolle) {
   if (game.phase !== 'lobby') return verweigere(game, spieler, NUR_LOBBY);
   if (!ROLLEN.includes(rolle)) return verweigere(game, spieler, 'Unbekannte Rolle.');
   if (!rolleFrei(game, rolle)) return verweigere(game, spieler, 'Diese Rolle ist schon mit einem Bot besetzt.');
-  const farbe = botFarbe(game), botId = kleinsteFreieBotId(game);
-  if (bots(game).length >= game.C.maxPlayers - 1 || game.players.length >= game.C.maxPlayers || farbe === null || botId === null) return verweigere(game, spieler, 'Kein Platz für einen weiteren Bot.');
+  const farbe = botFarbe(game), figur = freieFigur(game);
+  if (bots(game).length >= game.C.maxPlayers - 1 || game.players.length >= game.C.maxPlayers || farbe === null || figur === null) return verweigere(game, spieler, 'Kein Platz für einen weiteren Bot.');
   const id = kleinsteFreieId(game);
   const conn = { send() {}, close() {}, bot: true };
   const b = { id, clientId: null, name: id, color: farbe, ready: true, connected: true, conn, lastSeq: 0,
-    bot: true, rolle, botId, stimme: null };
+    bot: true, rolle, botId: figur.botId, stimme: figur.stimme };
   conn.player = b;   // BOT-01 B3: handleMessage(conn, msg) findet den Spieler ueber conn.player (der Agent sendet ueber die Verbindung des Bots)
   game.resetPlayer(b, game.players.length);
   game.players.push(b);
-  karteSetzen(game, b);
+  karteSetzen(game, b, figur);
   game.telemetrie.spielerBei(b.id, 'neu', false);
   game.log(`Bot ${b.name} (${b.id}, ${rolle}) hinzugefügt.`);
-  return true;
-}
-
-function botWuerfeln(game, spieler, pid) {
-  if (game.phase !== 'lobby') return verweigere(game, spieler, NUR_LOBBY);
-  const b = botMitId(game, pid);
-  if (!b) return verweigere(game, spieler, 'Das ist kein Bot.');
-  karteSetzen(game, b);
   return true;
 }
 
@@ -99,7 +88,6 @@ function botRolleWechseln(game, spieler, pid, rolle) {
 function lobbyBotBefehl(game, spieler, msg) {
   switch (msg && msg.op) {
     case 'add': return botHinzufuegen(game, spieler, msg.rolle);
-    case 'wuerfeln': return botWuerfeln(game, spieler, msg.pid);
     case 'weg': return botEntfernen(game, spieler, msg.pid);
     case 'rolle': return botRolleWechseln(game, spieler, msg.pid, msg.rolle);
     default: return verweigere(game, spieler, 'Unbekannter Bot-Befehl.');
@@ -136,4 +124,4 @@ function botsNachLetztemMenschenRaeumen(game) {
   return alle.length > 0;
 }
 
-module.exports = { ROLLEN, lobbyBotBefehl, botHinzufuegen, botWuerfeln, botEntfernen, botRolleWechseln, botVerdraengtFuerMensch, botsNachLetztemMenschenRaeumen };
+module.exports = { ROLLEN, lobbyBotBefehl, botHinzufuegen, botEntfernen, botRolleWechseln, botVerdraengtFuerMensch, botsNachLetztemMenschenRaeumen };

@@ -918,12 +918,14 @@ class Game {
     const wunsch = Charakter.pruefeName(typeof roh === 'object' ? roh.name : null);
     p.name = p.karte.name = Charakter.eindeutigerName(wunsch || Charakter.pruefeName(p.name) || Charakter.STANDARD_NAME, andere);
   }
-  // BOT-01 B2: Zufallskarte für einen Bot (Name aus dem Pool, eindeutig in der Crew), danach Ereignis karte; ohne Katalog nur der Name
-  botKarteWuerfeln(p, zufall, namen) {
+  // BOT-05 A1: feste Karte einer Bot-Figur (figur.karte aus content/bots/figuren.json) für einen Bot, danach Ereignis karte. Der Name der Figur gilt; trägt ihn schon jemand in der Crew (ein Mensch behält seinen), hängt eindeutigerName einen Zählsuffix an den Bot.
+  // Die Karte wird kopiert (die Figurendatei bleibt unberührt) und geht durch pruefeKarte; ohne Katalog nur der Name
+  botKarteSetzen(p, figur) {
     const andere = this.players.filter((o) => o !== p).map((o) => o.name);
-    const k = Charakter.zufallskarte(charakterKatalog, zufall, andere, namen);
-    p.name = k.name;
-    p.karte = charakterKatalog ? k : null;
+    const name = Charakter.eindeutigerName(figur.karte.name, andere);
+    if (!charakterKatalog) { p.name = name; p.karte = null; return; }
+    p.karte = Charakter.pruefeKarte(Object.assign(JSON.parse(JSON.stringify(figur.karte)), { name }), charakterKatalog);
+    p.name = p.karte.name;
     this.sendeKarte(p);
   }
   // Ereignis karte an alle (nur mit Karte; nach Übernahme eines Platzes durch einen Spieler ohne Karte k = null)

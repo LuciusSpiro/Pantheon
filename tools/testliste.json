@@ -267,6 +267,7 @@
   {"id":"test-crew-zaehlung","kette":"test","cmd":["tools/test-crew-zaehlung.js"],"stufe":"fast","budget_s":15},
   {"id":"test-bot02-raetselfallen","kette":"test","cmd":["tools/test-bot02-raetselfallen.js"],"stufe":"fast","budget_s":20},
   {"id":"test-bot-kern","kette":"test","cmd":["tools/test-bot-kern.js"],"stufe":"fast","budget_s":10},
+  {"id":"test-bot-figuren","kette":"test","cmd":["tools/test-bot-figuren.js"],"stufe":"fast","budget_s":20},
   {"id":"test-bot-slots","kette":"test","cmd":["tools/test-bot-slots.js"],"stufe":"fast","budget_s":20},
   {"id":"test-bot-lauf","kette":"test","cmd":["tools/test-bot-lauf.js"],"stufe":"fast","budget_s":60},
   {"id":"test-bot02-bord","kette":"test","cmd":["tools/test-bot02-bord.js"],"stufe":"fast","budget_s":60},
