@@ -41,7 +41,7 @@ const ok = (c, msg) => { n++; if (!c) { fails++; console.log('  FEHLER ' + msg);
   const vorrat = fs.readdirSync(path.join(ROOT, 'assets', 'bots', 'stimmen')).sort();
   ok(JSON.stringify(vorrat) === JSON.stringify(['b0', 'b1', 'b2']), 'Clip-Vorrat hat b0 bis b2: ' + vorrat);
   for (const id of ['b0', 'b1', 'b2']) ok(vorrat.includes(BS.STIMMEN[id]), 'Standard-Stimme von ' + id + ' = ' + BS.STIMMEN[id] + ' liegt im Vorrat');
-  ok(vorrat.includes(BS.STIMMEN.b3), 'b3 fällt auf einen vorhandenen Ordner zurück');
+  ok(!('b3' in BS.STIMMEN) && Object.keys(BS.STIMMEN).join() === 'b0,b1,b2', 'b3 hat keine Stimme (wird nie vergeben): nur b0 bis b2, ohne Figur kein Clip');
 
   if (http && http.close) await new Promise((rs) => { http.closeAllConnections && http.closeAllConnections(); http.close(rs); });
   console.log('\n' + (fails ? 'FEHLER: ' + fails + ' von ' + n : 'test-bot-integration: ' + n + ' Pruefungen gruen'));

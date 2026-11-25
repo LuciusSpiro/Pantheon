@@ -181,7 +181,7 @@ function antworten(game, spieler, msg) {
   const args = pruefeArgs(k, msg.args, msg.quelle === 'menu' || msg.quelle === 'taste');
   if (!args) return [antwort(game, BOT_ID.test(an) ? an : null, name, 'abgelehnt', 'argument')];
   const bots = botsFuer(game, an);
-  if (!bots.length) return [antwort(game, BOT_ID.test(an) ? an : null, name, 'unmoeglich', 'kein_bot')];
+  if (!bots.length) return [antwort(game, null, name, 'unmoeglich', 'kein_bot')];   // BOT-05 Nacharbeit: die Figur spielt nicht mit, also spricht sie auch nicht (kein Figurtext, keine eigene Stimme): Grundtext, botId null
   if (k.an !== 'alle' && bots.some((b) => !passtZurRolle(game, k, b))) return [antwort(game, an, name, 'abgelehnt', 'adressat')];   // botId eines Bots mit anderer Rolle (bord: nicht der Bord-Bot)
   return bots.map((b) => fuerBot(game, b, name, args));
 }

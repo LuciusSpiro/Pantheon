@@ -25,6 +25,8 @@
       if (name === null || name !== x.name) f.push(w + 'Name ungueltig (' + JSON.stringify(x.name) + ')');
       else if (namen.has(name.toLowerCase())) f.push(w + 'Name ' + name + ' doppelt'); else namen.add(name.toLowerCase());
       if (!istObjekt(stimmen) || typeof x.stimme !== 'string' || !Object.prototype.hasOwnProperty.call(stimmen, x.stimme)) f.push(w + 'Stimme ' + JSON.stringify(x.stimme) + ' fehlt in stimmen.json');
+      // Der Client leitet die Stimme aus der botId ab, der Generator aus figur.stimme: nur gleich koennen sie nie auseinanderlaufen
+      if (typeof x.stimme === 'string' && typeof x.botId === 'string' && x.stimme !== x.botId) f.push(w + 'Stimme ' + JSON.stringify(x.stimme) + ' ist nicht die botId ' + x.botId);
       if (typeof x.persoenlichkeit !== 'string' || !x.persoenlichkeit.trim()) f.push(w + 'persoenlichkeit fehlt');
       if (!istObjekt(x.karte)) { f.push(w + 'Karte fehlt'); return; }
       if (JSON.stringify(Charakter.pruefeKarte(x.karte, katalog)) !== JSON.stringify(x.karte)) f.push(w + 'Karte besteht pruefeKarte nicht unveraendert');

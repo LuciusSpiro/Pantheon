@@ -184,7 +184,7 @@ section('4 Server: Name + Rolle (Abnahme 3)');
   // Figur nicht in der Partie: kein_bot (so lehnte der Server schon vorher jede botId ohne Bot ab)
   const C = partie(['navigation', 'ops'], 1);
   r = mitSpion(() => sprich(C, NAME.b2 + ', Statusbericht'));
-  ok(r.ergebnis.msg.an === 'b2' && r.ergebnis.antw.length === 1 && r.ergebnis.antw[0].botId === 'b2' && r.ergebnis.antw[0].status === 'unmoeglich' && r.ergebnis.antw[0].textId === 'bot.status.unmoeglich.kein_bot' && r.aufrufe.length === 0,
+  ok(r.ergebnis.msg.an === 'b2' && r.ergebnis.antw.length === 1 && r.ergebnis.antw[0].botId === null && r.ergebnis.antw[0].status === 'unmoeglich' && r.ergebnis.antw[0].textId === 'bot.status.unmoeglich.kein_bot' && r.aufrufe.length === 0,
     NAME.b2 + ' nicht in der Partie: unmoeglich/kein_bot, kein Bot fuehrt etwas aus (' + r.ergebnis.antw.map((a) => a.textId) + ')');
 }
 

@@ -11,7 +11,7 @@
 //   9. Telemetrie: Bot-Slots in der Zeitreihe markiert, Auswertung f4 trennt Bots und Menschen
 //  10. Reine Menschenpartie unveraendert: Lauf als No-op ersetzt ergibt dieselben Snapshots und Nachrichten (SHA1), kein neues Feld an game, kein Lauf; snapshot() = snapshotBauen()
 //  11. Lebenszyklus der Agenten: Lobby keine, Start da, Partieende/Lobby weg, Neustart neu, Bot verdraengt weg
-//  12. Quellscan: Bot-Logik nur in server/bots/, station.js/interior.js nur duenne Aufrufe, kern.js ohne Missionslogik
+//  12. Quellscan: Bot-Logik nur in server/bots/, station.js/interior.js/combat.js nur duenne Aufrufe (BotWeichen, benannte Gedaechtnis-Haken mit Anzahl), kern.js ohne Missionslogik
 //   node tools/test-bot-lauf.js
 const fs = require('fs');
 const os = require('os');
@@ -573,8 +573,16 @@ section('12 Quellscan');
   const stCode = lies('server/sim/station.js').map((z) => z.replace(/\s*\/\/.*$/, ''));
   const stZ = (re) => stCode.filter((z) => re.test(z)).length;
   ok(stZ(/require\(.*weichen\.js/) === 1 && stZ(/BotWeichen\.weichtFuerMensch/) === 1 && stZ(/BotWeichen\.vertreten/) === 2 && stZ(/BotWeichen/) === 4 && stZ(/Crew\.istBot/) === 1, 'station.js: vier Zeilen BotWeichen (laden, Tab, vertreten in Waffenautomatik und Bot-Automatik der Technik), eine Zeile Crew.istBot');
-  const io = botZeilen('server/sim/interior.js').filter((x) => !/BotWeichen/.test(x.z) && !/\bBots?\b.*(Konsole|haben|keine|Charakterkarte)/.test(x.z));
-  ok(io.length === 0, 'interior.js: Bot-Bezug nur ueber BotWeichen' + (io[0] ? ' – ' + io[0].i + ': ' + io[0].z.trim() : ''));
+  // BOT-05 A4: das Gedaechtnis der Figuren hat benannte duenne Haken (require('../bots/gedaechtnis.js').beiXxx in try/catch); nur sie sind neben BotWeichen erlaubt, jeder Bot-Bezug daneben faellt auf
+  const hakenZeile = (z) => /require\('\.\.\/bots\/gedaechtnis\.js'\)\.bei(Bewusstlos|SystemAusfall)\(game, /.test(z) && /catch \(e\) \{ game\.countError\('bot-gedaechtnis', e\); \}/.test(z);
+  const io = botZeilen('server/sim/interior.js').filter((x) => !/BotWeichen/.test(x.z) && !/\bBots?\b.*(Konsole|haben|keine|Charakterkarte)/.test(x.z) && !hakenZeile(x.z));
+  ok(io.length === 0, 'interior.js: Bot-Bezug nur ueber BotWeichen und die Gedaechtnis-Haken' + (io[0] ? ' – ' + io[0].i + ': ' + io[0].z.trim() : ''));
+  const ioHaken = lies('server/sim/interior.js').filter((z) => /bots\/gedaechtnis\.js/.test(z));
+  ok(ioHaken.length === 2 && ioHaken.every(hakenZeile) && ioHaken.filter((z) => /beiBewusstlos/.test(z)).every((z) => /^\s*if \(p\.bot\) \{ try/.test(z)), 'interior.js: genau zwei Gedaechtnis-Haken (beiBewusstlos nur fuer Bots, beiSystemAusfall in damageSystemRoh)');
+  const co = botZeilen('server/sim/combat.js').filter((x) => !hakenZeile(x.z));
+  ok(co.length === 0, 'combat.js: Bot-Bezug nur im Gedaechtnis-Haken' + (co[0] ? ' – ' + co[0].i + ': ' + co[0].z.trim() : ''));
+  const coHaken = lies('server/sim/combat.js').filter((z) => /bots\/gedaechtnis\.js/.test(z));
+  ok(coHaken.length === 1 && /^function botGedaechtnis\(game, p\) \{ if \(!p\.bot\) return; try/.test(coHaken[0]) && lies('server/sim/combat.js').filter((z) => /\bbotGedaechtnis\(game, p\);/.test(z)).length === 2, 'combat.js: ein Haken botGedaechtnis (Wachter: nur Bots), an zwei Stellen gerufen (bewusstlos, gefesselt)');
   ok(lies('server/sim/interior.js').filter((z) => /BotWeichen/.test(z)).length === 3, 'interior.js: drei duenne Stellen (Laden, Aktionsliste consoleOccupant, performInteraction)');
   const g = lies('server/game.js').filter((z) => /BotLauf/.test(z));
   ok(g.length === 4, 'game.js: BotLauf an vier Stellen (laden, reset, Tick, snapshot): ' + g.length);

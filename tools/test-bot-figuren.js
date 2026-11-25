@@ -73,6 +73,7 @@ section('1 figuren.json: gültig, Prüfung lehnt Fehler ab');
   ok(mut((d) => { d.figuren[2].karte.haar = 99; }), 'Farbindex außerhalb abgelehnt');
   ok(mut((d) => { delete d.figuren[2].karte.outfit.umhang; }), 'Karte mit fehlendem Feld abgelehnt');
   ok(mut((d) => { d.figuren[2].stimme = 'b9'; }), 'Stimme ohne Eintrag in stimmen.json abgelehnt');
+  ok(mut((d) => { d.figuren[2].stimme = 'b1'; }) && pruefe((() => { const d = klon(daten); d.figuren[2].stimme = 'b1'; return d; })()).some((x) => /nicht die botId/.test(x)), 'Stimme einer anderen Figur (b2 mit Stimme b1, in stimmen.json vorhanden) abgelehnt: Stimme muss = botId sein');
   ok(mut((d) => { d.figuren[0].persoenlichkeit = ' '; }), 'leere Persönlichkeit abgelehnt');
   ok(mut((d) => { delete d.figuren[0].karte; }), 'fehlende Karte abgelehnt');
   const kat2 = klon(katalog); kat2.teile.find((t) => t.id === 'oberteil/robe').herkunft = 'gesperrt';

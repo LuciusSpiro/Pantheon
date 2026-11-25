@@ -17,10 +17,10 @@ const TEXT_MAX = 120;
 const SYSTEM_PAUSE_S = 120;
 const laufzeit = new WeakMap();   // game -> { bewusstlos: Map(botId -> missionId), systemT: Zahl }
 
-const cfg = (game) => (game && game.C && game.C.weltstand) || {};
-// Obergrenze je Figur: bewusst Konstante hier, kein Schluessel in shared/config.js (jede Aenderung dort aendert den Tuning-Hash der Telemetrie-Basis, test-rueckprobe/test-basis wuerden rot). Ein Wert C.weltstand.botMemoryMax gaelte, falls spaeter gesetzt.
+// Obergrenze je Figur: bewusst Konstante hier, kein Schluessel in shared/config.js (jede Aenderung dort aendert den Tuning-Hash der Telemetrie-Basis, test-rueckprobe/test-basis wuerden rot). Auch kein Config-Pfad: das Weltstand-Schema begrenzt maxItems auf 12, ein groesserer Wert liesse jedes Save scheitern.
 const MAX_JE_FIGUR = 12;
-const maxJe = (game) => Math.max(1, Number(cfg(game).botMemoryMax) || MAX_JE_FIGUR);
+// Missionsenden schreiben in jede Figur; hoechstens so viele Plaetze gehen an sie, der Rest bleibt Ereignissen (bewusstlos, Systemausfall, Gespraech)
+const MAX_MISSIONEN = 8;
 // nur ein gespeicherter Weltstand (persistent) hat ein Gedaechtnis; Szenario-Labor und Testlaeufe ohne Welt bleiben unberuehrt
 const speicher = (game) => { const ws = game && game.weltstand; return ws && ws.persistent && ws.data ? ws.data : null; };
 const spielzeit = (game) => { try { return Math.round(game.mission.playTime()); } catch (e) { return 0; } };
@@ -29,8 +29,12 @@ const lauf = (game) => { let l = laufzeit.get(game); if (!l) { l = { bewusstlos:
 // Menschennamen nie ins Gedaechtnis (auch nicht ueber Missions- oder Ortstexte): alle Spielernamen der Partie raus
 function ohneNamen(game, text) {
   let s = String(text == null ? '' : text);
-  const namen = (game.players || []).filter((p) => p && !p.bot && typeof p.name === 'string' && p.name.trim().length >= 2).map((p) => p.name.trim());
-  for (const n of namen.sort((a, b) => b.length - a.length)) s = s.split(n).join('jemand');
+  // Wortgrenzen (Unicode), ohne Gross-/Kleinschreibung; Namen unter 2 Buchstaben bleiben unberuehrt ("Kaiserin" bleibt bei Mensch "Kai", "erfolg" bei Mensch "er")
+  const namen = (game.players || []).filter((p) => p && !p.bot && typeof p.name === 'string').map((p) => p.name.trim()).filter((n) => (n.match(/\p{L}/gu) || []).length >= 2);
+  for (const n of namen.sort((a, b) => b.length - a.length)) {
+    const esc = n.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    s = s.replace(new RegExp('(?<![\\p{L}\\p{N}_])' + esc + '(?![\\p{L}\\p{N}_])', 'giu'), 'jemand');
+  }
   return s.replace(/\s+/g, ' ').trim();
 }
 
@@ -42,11 +46,19 @@ function liste(game, botId, anlegen) {
   return d.botFiguren[botId].gedaechtnis;
 }
 
-function verdraengen(l, max) {
-  while (l.length > max) {   // kleinstes Gewicht fliegt, bei Gleichstand der aelteste (fehlendes Gewicht = 1, wie bei NSC)
-    let idx = 0, w = Infinity;
-    l.forEach((x, i) => { const g = Number.isFinite(x.gewicht) ? x.gewicht : 1; if (g < w) { w = g; idx = i; } });
+// Missionseintraege: der aelteste weicht, sobald es mehr als MAX_MISSIONEN werden
+function missionenBegrenzen(l) {
+  let n = l.filter((x) => x.ereignis === 'mission').length;
+  while (n > MAX_MISSIONEN) { l.splice(l.findIndex((x) => x.ereignis === 'mission'), 1); n--; }
+}
+
+// kleinstes Gewicht fliegt, bei Gleichstand der aelteste (fehlendes Gewicht = 1, wie bei NSC); `neu` (Index) wird nie verdraengt
+function verdraengen(l, max, neu) {
+  while (l.length > max) {
+    let idx = -1, w = Infinity;
+    l.forEach((x, i) => { if (i === neu) return; const g = Number.isFinite(x.gewicht) ? x.gewicht : 1; if (g < w) { w = g; idx = i; } });
     l.splice(idx, 1);
+    if (neu != null && idx < neu) neu--;
   }
 }
 
@@ -59,7 +71,8 @@ function merken(game, botId, e) {
   if (m) rec.mission = m.slice(0, 80);
   if (x.gewicht != null && Number.isFinite(Number(x.gewicht))) rec.gewicht = Number(x.gewicht);
   l.push(rec);
-  verdraengen(l, maxJe(game));
+  if (rec.ereignis === 'mission') missionenBegrenzen(l);
+  verdraengen(l, MAX_JE_FIGUR, l.length - 1);   // der neue Eintrag bleibt immer, sonst wuerde gespraech() ein nie gespeichertes Ereignis melden
   return true;
 }
 
@@ -91,7 +104,8 @@ function restore(game, block) {
       if (Number.isFinite(x.gewicht)) r.gewicht = x.gewicht;
       l.push(r);
     }
-    verdraengen(l, maxJe(game));
+    missionenBegrenzen(l);
+    verdraengen(l, MAX_JE_FIGUR);
     if (l.length) { if (!d.botFiguren) d.botFiguren = {}; d.botFiguren[id] = { gedaechtnis: l }; }
   }
 }
@@ -115,7 +129,7 @@ function beiBewusstlos(game, p) {
   const l = lauf(game);
   if (l.bewusstlos.get(p.botId) === m) return;
   l.bewusstlos.set(p.botId, m);
-  merken(game, p.botId, { ereignis: 'bewusstlos', text: 'War bewusstlos und wurde wieder auf die Beine gebracht.', gewicht: 1 });
+  merken(game, p.botId, { ereignis: 'bewusstlos', text: 'Ging im Einsatz zu Boden.', gewicht: 1 });
 }
 
 function beiSystemAusfall(game, system) {

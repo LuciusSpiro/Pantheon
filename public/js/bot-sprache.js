@@ -38,7 +38,7 @@
     return p ? p.name.toUpperCase() : 'BORD';
   };
   const UNKLAR_DAUER_S = 2.5;                                                   // „Bitte wiederholen“ im Untertitel
-  const STIMMEN = { b0: 'b0', b1: 'b1', b2: 'b2', b3: 'b0' };   // Ordnername im Clip-Vorrat je botId (Kai 2026-11-18: drei Stimmen b0 bis b2, mehr als 3 Bots gibt es nicht; b3 fällt auf b0 zurück); env.stimmen oder msg.stimme überschreiben
+  const STIMMEN = { b0: 'b0', b1: 'b1', b2: 'b2' };   // Ordnername im Clip-Vorrat je botId (drei Figuren b0 bis b2, Stimme = botId, erzwingt shared/bot-figuren.js); eine botId ohne Eintrag hat keine Stimme: kein Clip, nur Untertitel; env.stimmen oder msg.stimme überschreiben
   const MAX_MS = 60000;                                                        // Höchstdauer einer Aufnahme (Auto-Stop); der Server nimmt ohnehin nur 1 MB
   const UNKLAR_VARIANTEN = 2;                                                  // bot.unklar.0 / .1 im Vorrat (texte.json), abwechselnd
   const MIN_MS = 250;                                                          // kürzere Aufnahmen sind versehentliche Tastenkontakte
@@ -57,12 +57,20 @@
   const PEGEL_LUECKE_MAX_MS = 250;
   const PEGEL_ABDECKUNG_MIN = 0.5;    // gelesene Fenster mal Takt müssen mindestens diesen Anteil der Aufnahmedauer decken (gedrosselte Timer im Hintergrund, belastetes Spiel: dann lieber senden)
   const CLIP_BASIS = '/assets/bots/stimmen';
+  const MANIFEST_NEU_MS = 30000;                                               // fehlgeschlagenes Manifest hoechstens alle 30 s neu laden
   const ENDUNGEN = ['wav', 'ogg'];                                             // der Vorrat hat nur WAV: zuerst wav, sonst erzeugte jeder Clip ein 404 auf .ogg
 
   // ------------------------------------------------------------------ rein: Clipwahl und Messvergleich
   // Kandidaten in Reihenfolge: die Variante des Untertitels zuerst, dann der Clip ohne Variante; wav vor ogg. Die Wiedergabe nimmt den ersten, der existiert.
   // Ohne Variante (der Vertrag kennt kein Feld `variante`, ein vertragstreuer Server liefert keines): zuerst <textId>.0, dann ohne Variante.
   // BOT-05 A3: mit Manifest (clips.json der Stimme: { clips: { "<textId>.<variante>": "<datei>" }, texte: { "<datei>": "<text>" } }) steht die Datei des Manifests an erster Stelle; die alte Namensregel bleibt als Rueckfall.
+  // Clip fuer einen Text ohne Figur (bot.antwort ohne botId: Server schickt den Grundtext aus texte.json): nur wenn das Manifest der Stimme GENAU diesen Text als Clip fuehrt (Feld texte: Datei -> Text), sonst keiner (nie ein Clip mit anderem Text als der Untertitel)
+  function clipFuerText(text, stimme, basis, manifest) {
+    const t = manifest && manifest.texte && typeof manifest.texte === 'object' ? manifest.texte : null;
+    if (!t || typeof text !== 'string' || !text) return [];
+    const datei = Object.keys(t).find((k) => t[k] === text && /^[A-Za-z0-9_.-]+$/.test(k));
+    return datei ? [(basis || CLIP_BASIS) + '/' + stimme + '/' + datei] : [];
+  }
   function clipKandidaten(textId, stimme, variante, basis, manifest) {
     const b = (basis || CLIP_BASIS) + '/' + stimme + '/' + textId, out = [];
     const v = Number.isInteger(variante) && variante >= 0 ? variante : 0;
@@ -115,20 +123,28 @@
     const stopTimer = () => { if (s.timer != null) { loescheTimer(s.timer); s.timer = null; } };
 
     // BOT-05 A3: Manifest je Stimme einmal laden (env.ladeManifest(url) -> Promise<Objekt|null>; Fehler und Fehlen = null, dann gilt die Namensregel). Ohne env.ladeManifest oder mit schon geladenem Manifest laeuft fn ohne Verzoegerung.
-    const manifeste = new Map();   // stimme -> { m, fertig, p }
+    // Ein Fehlschlag (Netz, 404, kaputtes JSON) wird nicht dauerhaft gemerkt: der naechste Clip versucht es erneut, hoechstens einmal je MANIFEST_NEU_MS (keine Schleife); ein geladenes Manifest bleibt.
+    const manifeste = new Map();   // stimme -> { m, fertig, p, t }
     function mitManifest(stimme, fn) {
-      if (!env.ladeManifest) return fn(null);
+      if (!env.ladeManifest || !stimme) return fn(null);
       let e = manifeste.get(stimme);
+      if (e && e.fertig && !e.m && uhr() - e.t >= MANIFEST_NEU_MS) { manifeste.delete(stimme); e = null; }
       if (!e) {
-        e = { m: null, fertig: false, p: null };
+        e = { m: null, fertig: false, p: null, t: 0 };
         const url = (env.clipBasis || CLIP_BASIS) + '/' + stimme + '/clips.json';
-        const fertig = (m) => { e.m = m && typeof m === 'object' && m.clips && typeof m.clips === 'object' ? m : null; e.fertig = true; };
+        const fertig = (m) => { e.m = m && typeof m === 'object' && m.clips && typeof m.clips === 'object' ? m : null; e.fertig = true; e.t = uhr(); };
         try { e.p = Promise.resolve(env.ladeManifest(url)).then(fertig, () => fertig(null)); } catch (x) { fertig(null); }
         manifeste.set(stimme, e);
       }
       return e.fertig ? fn(e.m) : e.p.then(() => fn(e.m));
     }
-    const stimmeFuer = (x) => (x && x.stimme) || stimmen[x && x.botId ? x.botId : x] || String(x && x.botId ? x.botId : x || 'b0');
+    // Stimme (Ordner im Clip-Vorrat): msg.stimme, sonst die der botId (Nachricht oder nackte botId); ohne Figur null = kein Clip
+    const stimmeFuer = (x) => {
+      if (x && typeof x === 'object' && typeof x.stimme === 'string' && /^[A-Za-z0-9_-]+$/.test(x.stimme)) return x.stimme;
+      const id = x && typeof x === 'object' ? x.botId : x;
+      return typeof id === 'string' && Object.prototype.hasOwnProperty.call(stimmen, id) ? stimmen[id] : null;
+    };
+    const stimmeOhneFigur = () => stimmeFuer(s.letzterBot) || stimmeFuer('b0');   // wie bei bot.unklar: die Stimme des zuletzt angesprochenen Bots, sonst b0
     const meldung = (t) => { try { A.meldung(t); } catch (e) { /* Anzeige darf den Ablauf nie brechen */ } };
     // „…“ steht, solange mindestens ein Ablauf (Loslassen bis Ergebnis) läuft; je Ablauf eine Marke, damit überlappende Abläufe sich nicht gegenseitig löschen
     const verarbStand = () => { const an = s.verarbN > 0; if (an === s.verarbeitet) return; s.verarbeitet = an; try { if (A.verarbeitet) A.verarbeitet(an); } catch (e) { /* egal */ } };   // nur Wechsel melden
@@ -247,7 +263,7 @@
     }
     async function unklar() {
       const v = s.unklarN++ % UNKLAR_VARIANTEN;   // beide Varianten abwechselnd
-      const stimme = stimmeFuer(s.letzterBot || 'b0');   // Stimme des zuletzt angesprochenen/aktiven Bots
+      const stimme = stimmeOhneFigur();   // Stimme des zuletzt angesprochenen/aktiven Bots
       let url = null, man = null;
       try { man = await mitManifest(stimme, (m) => m); } catch (e) { man = null; }
       try { url = await env.audio.spiele(clipKandidaten('bot.unklar', stimme, v, env.clipBasis, man)); } catch (e) { url = null; }
@@ -261,13 +277,20 @@
     // ---- bot.antwort: Untertitel und Clip gleichzeitig; fehlt der Clip, bleibt der Untertitel
     function empfange(msg) {
       if (!s.an || !msg || msg.t !== 'bot.antwort') return false;
-      if (typeof msg.botId === 'string' && msg.botId) s.letzterBot = msg.botId;
-      const id = untertitel(typeof msg.text === 'string' && msg.text ? msg.text : String(msg.textId || ''), { botId: msg.botId, von: msg.von });
+      // Ohne botId (Ablehnungen phase, rate, adressat, kein_bot ...; der Server schickt den Grundtext): Sprecher und Stimme des zuletzt angesprochenen Bots (sonst BORD bzw. b0), Clip nur bei exakt gleichem Text im Manifest
+      const figur = typeof msg.botId === 'string' && msg.botId ? msg.botId : null;
+      const vorher = s.letzterBot;
+      if (figur) s.letzterBot = figur;
+      const id = untertitel(typeof msg.text === 'string' && msg.text ? msg.text : String(msg.textId || ''), { botId: figur || (msg.von ? null : vorher), von: msg.von });
       if (!s.aufnahme && msg.textId && msg.befehl !== 'bord.ansage') {   // gehaltene Sprechtaste = Mikrofon offen: nichts abspielen; BOT-02 B4: Ansagen des Bord-Bots haben keinen Clip-Vorrat (nur Untertitel, kein 404 je Ansage)
-        const stimme = stimmeFuer(msg);
+        const stimme = figur ? stimmeFuer(msg) : stimmeOhneFigur();
         // Läuft der Clip länger als die Standarddauer, bleibt der Untertitel bis Clip-Ende (+ 0,5 s in der Anzeige)
-        const spiele = (man) => Promise.resolve(env.audio.spiele(clipKandidaten(msg.textId, stimme, msg.variante, env.clipBasis, man), { start: () => clipHalt(id, true), ende: () => clipHalt(id, false) })).catch(() => null);
-        try { Promise.resolve(mitManifest(stimme, spiele)).catch(() => null); } catch (e) { /* nur Untertitel */ }
+        const spiele = (man) => {
+          const kand = figur ? clipKandidaten(msg.textId, stimme, msg.variante, env.clipBasis, man) : clipFuerText(msg.text, stimme, env.clipBasis, man);
+          if (!kand.length) return null;   // ohne Figur ohne passenden Clip: nur der Untertitel
+          return Promise.resolve(env.audio.spiele(kand, { start: () => clipHalt(id, true), ende: () => clipHalt(id, false) })).catch(() => null);
+        };
+        if (stimme) { try { Promise.resolve(mitManifest(stimme, spiele)).catch(() => null); } catch (e) { /* nur Untertitel */ } }   // ohne Stimme (botId ohne Figur): kein Clip, nur Untertitel
       }
       return true;
     }
@@ -630,5 +653,5 @@
 
   // BOT-01 C3: verarbeitet die Sprache die bot.antwort der Spielverbindung selbst? Dann zeigt public/js/pult-befehl.js sie nicht noch einmal (genau ein Verarbeiter je Antwort). Der Net-Transport (transportNet, BOT-04 D) setzt `netz: true`.
   const netAntworten = () => !!(instanz && instanz.transport && instanz.transport.netz === true);
-  return { erzeuge, spitzeAusSamples, pegelAbdeckungReicht, PEGEL_MIN, PEGEL_START_MAX_MS, PEGEL_LUECKE_MAX_MS, PEGEL_ABDECKUNG_MIN, PEGEL_TAKT_MS, clipKandidaten, netAntworten, erwartungErfuellt, transportNet, menueAnschluss, mockUrlErlaubt, TEXT, MAX_MS, STIMMEN, CLIP_BASIS, transportWebSocket, transportNetStub, anzeigeHud, sprecherName, startHinweis, UNKLAR_DAUER_S, mikrofonBrowser, audioBrowser, sttBrowser, starte, stoppe, laeuft: () => !!instanz };
+  return { erzeuge, spitzeAusSamples, pegelAbdeckungReicht, PEGEL_MIN, PEGEL_START_MAX_MS, PEGEL_LUECKE_MAX_MS, PEGEL_ABDECKUNG_MIN, PEGEL_TAKT_MS, clipKandidaten, clipFuerText, netAntworten, erwartungErfuellt, transportNet, menueAnschluss, mockUrlErlaubt, TEXT, MAX_MS, STIMMEN, CLIP_BASIS, transportWebSocket, transportNetStub, anzeigeHud, sprecherName, startHinweis, UNKLAR_DAUER_S, mikrofonBrowser, audioBrowser, sttBrowser, starte, stoppe, laeuft: () => !!instanz };
 });

@@ -436,7 +436,7 @@ function healPlayer(game, p, amount) {
 
 function downPlayer(game, p, source) {
   p.downed = true; p.downedFor = 0; p.hp = 0;
-  { try { require('../bots/gedaechtnis.js').beiBewusstlos(game, p); } catch (e) { game.countError('bot-gedaechtnis', e); } }   // BOT-05 A4
+  if (p.bot) { try { require('../bots/gedaechtnis.js').beiBewusstlos(game, p); } catch (e) { game.countError('bot-gedaechtnis', e); } }   // BOT-05 A4
   if (p.console) konsoleVerlassen(game, p, 'niedergestreckt');
   p.hold = null; p.input.mx = 0; p.input.my = 0;
   if (p.carry) dropCarry(game, p);

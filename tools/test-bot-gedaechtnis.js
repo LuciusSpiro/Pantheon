@@ -180,5 +180,65 @@ section('(g) Ereignisquellen im Lauf');
   ok(g2.errors === 0, 'Ereignisquellen ohne Weltstand werfen nicht');
 }
 
+// ---------------------------------------------------------------------------------------------
+section('(h) W1: Missionen belegen hoechstens 8 von 12 Plaetzen, neuer Eintrag wird nie sofort verdraengt');
+{
+  const g = partie().g;
+  for (let i = 0; i < 20; i++) G.beiMissionEnde(g, 'mx' + i, 'Titel ' + i, 'erfolg');
+  let l = G.lesen(g, 'b0');
+  ok(l.length === 8 && l.every((x) => x.ereignis === 'mission'), '20 Missionen -> 8 Eintraege, alle Mission (' + l.length + ')');
+  ok(l[0].mission === 'mx12' && l[7].mission === 'mx19', 'der aelteste Missionseintrag weicht zuerst: mx12 bis mx19 bleiben');
+  const bot0 = bots(g).find((p) => p.botId === 'b0');
+  Interior.downPlayer(g, bot0, 'test');
+  ok(G.gespraech(g, 'b0') === true, 'gespraech meldet true');
+  l = G.lesen(g, 'b0');
+  ok(l.some((x) => x.ereignis === 'bewusstlos') && l.some((x) => x.ereignis === 'gespraech'), 'bewusstlos und Gespraech sind gespeichert');
+  ok(l.filter((x) => x.ereignis === 'mission').length <= 8 && l.length === 10, 'Missionen <= 8, insgesamt 10 bis hierher (' + l.length + ')');
+  for (let i = 0; i < 6; i++) G.merken(g, 'b0', { ereignis: 'e' + i, text: 'Ereignis ' + i, gewicht: 1 });
+  l = G.lesen(g, 'b0');
+  ok(l.length === 12 && l.filter((x) => x.ereignis === 'mission').length <= 8, 'voll: genau 12, Missionen <= 8');
+  ok(l[l.length - 1].ereignis === 'e5', 'der neueste Eintrag steht und wurde nicht verdraengt');
+  G.beiMissionEnde(g, 'mneu', 'Neu', 'erfolg');
+  l = G.lesen(g, 'b0');
+  ok(l.length === 12 && l[l.length - 1].mission === 'mneu' && l.filter((x) => x.ereignis === 'mission').length === 8, 'neue Mission bei vollem Speicher: bleibt, 12 insgesamt, 8 Missionen');
+  // Eintrag mit kleinerem Gewicht als alle anderen: bleibt trotzdem
+  const g2 = partie().g;
+  for (let i = 0; i < 12; i++) G.merken(g2, 'b1', { ereignis: 'hoch' + i, text: 'h', gewicht: 5 });
+  ok(G.merken(g2, 'b1', { ereignis: 'leicht', text: 'l', gewicht: 1 }) === true && G.lesen(g2, 'b1').pop().ereignis === 'leicht', 'leichter Eintrag unter lauter schweren: wird gespeichert, nicht sofort verdraengt');
+}
+
+// ---------------------------------------------------------------------------------------------
+section('(i) Namensfilter: Wortgrenzen, Gross/Klein, Sonderzeichen, kurze Namen');
+{
+  let g = partie({ mensch: 'Kai' }).g;
+  G.merken(g, 'b0', { ereignis: 't', text: 'Rettet KAI und kai, die Kaiserin nicht' });
+  ok(G.lesen(g, 'b0')[0].text === 'Rettet jemand und jemand, die Kaiserin nicht', 'KAI und kai ersetzt, Kaiserin bleibt (' + G.lesen(g, 'b0')[0].text + ')');
+  g = partie({ mensch: 'er' }).g;
+  G.merken(g, 'b0', { ereignis: 't', text: 'Der Erfolg: er kam, erfolg bleibt' });
+  ok(G.lesen(g, 'b0')[0].text === 'Der Erfolg: jemand kam, erfolg bleibt', 'Mensch "er": ganzes Wort ersetzt, erfolg/Erfolg bleiben (' + G.lesen(g, 'b0')[0].text + ')');
+  g = partie({ mensch: 'x' }).g;
+  G.merken(g, 'b0', { ereignis: 't', text: 'x marks the box' });
+  ok(G.lesen(g, 'b0')[0].text === 'x marks the box', 'Name mit einem Buchstaben wird ignoriert');
+  g = partie({ mensch: 'Al(x)+' }).g;
+  G.merken(g, 'b0', { ereignis: 't', text: 'Alx und Al(x)+ gehen' });
+  ok(G.lesen(g, 'b0')[0].text === 'Alx und jemand gehen', 'Regex-Sonderzeichen im Namen sind escaped (' + G.lesen(g, 'b0')[0].text + ')');
+  g = partie({ mensch: 'Jürgen' }).g;
+  G.merken(g, 'b0', { ereignis: 't', text: 'JÜRGEN und Jürgens Hund' });
+  ok(G.lesen(g, 'b0')[0].text === 'jemand und Jürgens Hund', 'Umlaute: JÜRGEN ersetzt, Jürgens bleibt (' + G.lesen(g, 'b0')[0].text + ')');
+}
+
+// ---------------------------------------------------------------------------------------------
+section('(j) Texte und Konfig: bewusstlos behauptet keine Rettung, Obergrenze nicht aus Config');
+{
+  const g = partie().g;
+  Interior.downPlayer(g, bots(g).find((p) => p.botId === 'b2'), 'test');
+  const t = G.lesen(g, 'b2').find((x) => x.ereignis === 'bewusstlos').text;
+  ok(t === 'Ging im Einsatz zu Boden.' && !/gerettet|beine|wieder/i.test(t), 'Text bewusstlos: ' + t);
+  g.C.weltstand.botMemoryMax = 40;
+  for (let i = 0; i < 30; i++) G.merken(g, 'b2', { ereignis: 'e' + i, text: 'x', gewicht: 1 });
+  ok(G.lesen(g, 'b2').length === 12 && Weltstand.validate(Weltstand.capture(g), g).length === 0, 'C.weltstand.botMemoryMax = 40 wird ignoriert: 12, Save gueltig');
+  delete g.C.weltstand.botMemoryMax;
+}
+
 console.log('\n' + (n - fails) + '/' + n + ' ok');
 if (fails) { console.log(fails + ' FEHLER'); process.exit(1); }

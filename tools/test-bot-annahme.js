@@ -233,7 +233,7 @@ section('4 Gruende');
   const kbRolle = einz(P, cmd('tech.schild', 'technik', { sektor: 'bug' }));
   ok(kbRolle && kbRolle.status === 'unmoeglich' && grund(kbRolle) === 'kein_bot', 'Rolle ohne Bot (nur navigation und ops da): unmoeglich kein_bot');
   const kb = einz(P, cmd('nav.stopp', 'b3'));
-  ok(kb && kb.status === 'unmoeglich' && kb.textId === 'nav.stopp.unmoeglich.kein_bot' && kb.botId === 'b3', 'botId ohne Bot: unmoeglich kein_bot');
+  ok(kb && kb.status === 'unmoeglich' && kb.textId === 'nav.stopp.unmoeglich.kein_bot' && kb.botId === null, 'botId ohne Bot: unmoeglich kein_bot, botId null (die Figur spielt nicht mit, spricht also nicht)');
   // wartet: Mensch haelt die Station des Ops-Bots
   interior.enterConsole(P.g, P.h, 'captain');
   haken('ops', 'ops.scan', () => ({ ok: true }), () => {
@@ -398,7 +398,12 @@ section('6 Antwort: Form, Text, Variante, Ausnahme');
   const clipText = (x) => { const m = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'assets', 'bots', 'stimmen', require('../server/bots/figuren.js').figurMitId(x.botId).stimme, 'clips.json'), 'utf8')); return m.texte[m.clips[x.textId + '.' + x.variante]]; };
   ok(ant.every((x) => x.botId && clipText(x) === x.text), 'Server-Text = Text des Manifest-Clips derselben Figur und Variante');
   const fig = ['b0', 'b1', 'b2'].map((id) => { const m = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'assets', 'bots', 'stimmen', id, 'clips.json'), 'utf8')); return Object.keys(m.clips).some((k) => k === 'nav.stopp.abgelehnt.phase.0'); });
-  ok(fig.every(Boolean) && (!abg.botId || clipText(abg) === abg.text), 'auch Ablehnungen haben je Stimme Clips im Manifest; hat die Antwort einen Bot, passt der Text zum Clip (ohne Bot gilt die Grundliste)');
+  ok(fig.every(Boolean), 'auch Ablehnungen haben je Stimme Clips im Manifest');
+  ok(abg && abg.botId === null && abg.textId === 'nav.stopp.unmoeglich.kein_bot', 'Gegenprobe: nav.stopp an die Navigation ohne Navigations-Bot hat keine botId (Grundtext, kein Clip) - dieser Fall taugt nicht fuer den Clip-Vergleich');
+  // eine Ablehnung MIT botId (der Ops-Bot lehnt per Registry kein_ziel ab): Text gleich Text des Manifest-Clips dieser Figur
+  const kz6 = haken('ops', 'ops.feuer_frei', () => ({ ok: false, code: 'kein_ziel' }), () => [einz(P, cmd('ops.feuer_frei', 'ops')), einz(P, cmd('ops.feuer_frei', 'ops')), einz(P, cmd('ops.feuer_frei', 'ops'))]);
+  ok(kz6.every((x) => x && x.status === 'abgelehnt' && grund(x) === 'kein_ziel' && /^b[0-2]$/.test(x.botId)), 'Ablehnung kein_ziel hat die botId der Figur (' + kz6.map((x) => x && x.botId + ':' + x.textId) + ')');
+  ok(kz6.every((x) => x && typeof x.text === 'string' && clipText(x) === x.text), 'Ablehnung mit botId: Text = Text des Manifest-Clips derselben Figur und Variante (wirklich verglichen: ' + kz6.length + ' Antworten)');
   ok(abg && abg.text === listeVon(abg)[abg.variante], 'auch bei Ablehnung: Text und Variante aus der Tabelle');
   const ce = P.g.countError; const gez = []; P.g.countError = (wo) => { gez.push(wo); };   // die erwartete Ausnahme nicht auf die Konsole schreiben
   const eg = haken('ops', 'ops.scan', () => { throw new Error('kaputt'); }, () => { let e = null, a2 = null; try { a2 = einz(P, cmd('ops.scan', 'ops')); } catch (x) { e = x; } return { e, a2 }; });

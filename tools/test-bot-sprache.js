@@ -331,7 +331,7 @@ const sprechen = async (k) => { k.tasteRunter(); await tick(); return k.tasteHoc
     // Stimme aus env.stimmen (b3 faellt auf b0)
     const b3 = fake({ text: 'Quatsch' }); const k3 = BS.erzeuge(b3.env); k3.schalte(true);
     k3.empfange({ t: 'bot.antwort', botId: 'b3', textId: 'x.ok' }); await sprechen(k3);
-    ok(b3.L.clips.at(-1)[0].includes('/b0/bot.unklar.'), 'b3 spricht mit der Stimme b0');
+    ok(b3.L.clips.at(-1)[0].includes('/b0/bot.unklar.'), 'bot.unklar nach einer botId ohne Figur (b3): Stimme b0 (nie eine Stimme b3)');
 
     // H6: Hoechstdauer 60 s (Auto-Stop mit Anzeige), Timer wird beim Loslassen geraeumt
     const timers = []; let geraeumt = 0;
@@ -725,6 +725,65 @@ const sprechen = async (k) => { k.tasteRunter(); await tick(); return k.tasteHoc
       let ef = true; const w6 = neu({ Client: { eingabeFrei: () => ef } }), H6 = w6.Hud; H6.sprechAn(true); let zu6 = 0; H6.sprech.zeile = { offen: true, schliessen: () => { zu6++; } }; tMs = 20000; H6.sprech.tFrame = tMs;
       H6.update(0.016); ok(zu6 === 0, 'Eingabe frei: die Zeile bleibt offen'); ef = false; H6.update(0.016); ok(zu6 === 1, 'ein Overlay ging auf: update() schliesst die Textzeile');
     }
+  }
+
+  section('i) BOT-05 Nacharbeit: Stimme ohne botId, botId ohne Figur, Manifest-Neuversuch');
+  {
+    const GRUND = 'Das geht gerade nicht.';
+    const MAN = (stimme) => ({ format: 'bot-clips/1', stimme, clips: { 'nav.stopp.abgelehnt.phase.0': 'aaaa1111.wav', 'bot.unklar.0': 'bbbb2222.wav', 'x.0': 'cccc3333.wav' }, texte: { 'aaaa1111.wav': 'Figurtext Phase.', 'bbbb2222.wav': 'Noch mal bitte.', 'cccc3333.wav': GRUND } });
+    let jetzt = 1000;
+    const bau = (o) => {
+      const w = fake(); w.env.uhr = () => jetzt; const infos = []; const geladen = [];
+      w.env.anzeige.untertitel = (t, info) => { w.L.ereignisse.push('untertitel'); w.L.untertitel.push(t); infos.push(info); return infos.length; };
+      w.env.ladeManifest = (url) => { geladen.push(url); const st = url.split('/').at(-2); return Promise.resolve(o && o.fehler && o.fehler(geladen.length) ? null : MAN(st)); };
+      const k = BS.erzeuge(w.env); k.schalte(true);
+      return { w, k, infos, geladen };
+    };
+    // Standard: STIMMEN kennt nur b0 bis b2
+    ok(Object.keys(BS.STIMMEN).join() === 'b0,b1,b2', 'STIMMEN: nur b0, b1, b2 (kein b3)');
+    // botId null, noch kein Bot angesprochen: Stimme b0, Sprecher BORD (kein Name), Clip nur bei exakt gleichem Text im Manifest
+    let t = bau();
+    t.k.empfange({ t: 'bot.antwort', botId: null, befehl: 'nav.stopp', status: 'abgelehnt', textId: 'nav.stopp.abgelehnt.phase', text: GRUND }); await tick(); await tick();
+    ok(t.geladen.join() === '/assets/bots/stimmen/b0/clips.json', 'botId null ohne letzten Bot: Manifest der Stimme b0 (nie "[object Object]", ' + t.geladen + ')');
+    ok(t.w.L.clips.length === 1 && t.w.L.clips[0].join() === '/assets/bots/stimmen/b0/cccc3333.wav', 'Text steht im Manifest: genau dieser Clip (' + t.w.L.clips.map((c) => c.join()) + ')');
+    ok(t.infos[0].botId === null && t.w.L.untertitel[0] === GRUND, 'Untertitel mit Grundtext, ohne Bot (Anzeige: BORD)');
+    // anderer Text: kein Clip, nur Untertitel
+    t.k.empfange({ t: 'bot.antwort', botId: null, befehl: 'nav.stopp', status: 'abgelehnt', textId: 'nav.stopp.abgelehnt.rate', text: 'Etwas ganz anderes.' }); await tick(); await tick();
+    ok(t.w.L.clips.length === 1 && t.w.L.untertitel.at(-1) === 'Etwas ganz anderes.', 'Text nicht im Manifest: nur Untertitel, kein Clip mit anderem Text');
+    // ein Clip ohne Text-Eintrag im Manifest (texte fehlt): nie ein Clip
+    const o2 = bau(); o2.w.env.ladeManifest = (u) => { o2.geladen.push(u); const m = MAN('b0'); delete m.texte; return Promise.resolve(m); };
+    o2.k.empfange({ t: 'bot.antwort', botId: null, textId: 'nav.stopp.abgelehnt.phase', text: GRUND }); await tick(); await tick();
+    ok(o2.w.L.clips.length === 0 && o2.w.L.untertitel.length === 1, 'Manifest ohne texte: kein Clip');
+    // nach einer Antwort von b2: botId null -> Stimme b2 und Name von b2
+    t = bau();
+    t.k.empfange({ t: 'bot.antwort', botId: 'b2', befehl: 'ops.scan', status: 'ok', textId: 'ops.scan.ok', text: 'Figurtext.', variante: 0 }); await tick(); await tick();
+    t.k.empfange({ t: 'bot.antwort', botId: null, befehl: 'nav.stopp', status: 'abgelehnt', textId: 'x', text: GRUND }); await tick(); await tick();
+    ok(t.infos[1].botId === 'b2' && t.w.L.clips.at(-1).join() === '/assets/bots/stimmen/b2/cccc3333.wav', 'botId null nach b2: Sprecher b2, Stimme b2, Clip mit gleichem Text (' + t.w.L.clips.at(-1) + ')');
+    // von (Bord-Ansage) behaelt Vorrang vor dem letzten Bot
+    t.k.empfange({ t: 'bot.antwort', botId: null, von: 'b0', befehl: 'bord.ansage', textId: 'bord.ansage', text: 'Ansage.' });
+    ok(t.infos.at(-1).botId === null && t.infos.at(-1).von === 'b0', 'Bord-Ansage: Sprecher aus von, nicht der letzte Bot');
+    // botId ohne Figur (b3, b7): nur Untertitel, kein Manifest, kein Clip
+    t = bau();
+    t.k.empfange({ t: 'bot.antwort', botId: 'b3', befehl: 'ops.scan', status: 'ok', textId: 'ops.scan.ok', text: 'Aye.', variante: 0 }); await tick(); await tick();
+    t.k.empfange({ t: 'bot.antwort', botId: 'b7', befehl: 'ops.scan', status: 'ok', textId: 'ops.scan.ok', text: 'Aye.', variante: 0 }); await tick(); await tick();
+    ok(t.w.L.clips.length === 0 && t.geladen.length === 0 && t.w.L.untertitel.length === 2, 'botId ohne Figur (b3, b7): Untertitel, aber kein Clip und kein Manifest-Abruf');
+    // Manifest-Fehler wird nicht dauerhaft gemerkt, hoechstens ein Neuversuch je 30 s
+    t = bau({ fehler: (n) => n === 1 });
+    const figurAntwort = () => t.k.empfange({ t: 'bot.antwort', botId: 'b1', befehl: 'ops.scan', status: 'ok', textId: 'bot.unklar', text: 'Figurtext.', variante: 0 });
+    figurAntwort(); await tick(); await tick();
+    ok(t.geladen.length === 1 && t.w.L.clips[0].join().includes('/b1/bot.unklar.0.wav'), 'erster Abruf scheitert: Namensregel als Rueckfall');
+    jetzt += 10000; figurAntwort(); await tick(); await tick();
+    ok(t.geladen.length === 1, 'nach 10 s kein neuer Abruf (keine Schleife)');
+    jetzt += 25000; figurAntwort(); await tick(); await tick();
+    ok(t.geladen.length === 2 && t.w.L.clips.at(-1)[0] === '/assets/bots/stimmen/b1/bbbb2222.wav', 'nach 35 s zweiter Abruf, diesmal mit Erfolg: Clip aus dem Manifest');
+    jetzt += 100000; figurAntwort(); await tick(); await tick();
+    ok(t.geladen.length === 2, 'geladenes Manifest bleibt im Cache');
+    // dauerhaft kaputt: je 30 s hoechstens ein Versuch
+    t = bau({ fehler: () => true });
+    for (let i = 0; i < 5; i++) { t.k.empfange({ t: 'bot.antwort', botId: 'b0', textId: 'x', text: 'T', variante: 0 }); await tick(); await tick(); }
+    ok(t.geladen.length === 1, 'dauerhaft kaputt: innerhalb von 30 s bleibt es bei einem Abruf (' + t.geladen.length + ')');
+    jetzt += 31000; t.k.empfange({ t: 'bot.antwort', botId: 'b0', textId: 'x', text: 'T', variante: 0 }); await tick(); await tick();
+    ok(t.geladen.length === 2, 'nach 30 s wieder ein Versuch');
   }
 
   console.log('\n' + (n - fails) + '/' + n + ' ok' + (fails ? ', ' + fails + ' FEHLER' : ''));
