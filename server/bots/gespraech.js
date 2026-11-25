@@ -12,6 +12,7 @@
 //   Reihenfolge je gid: denkt, dann satz 0, ton 0 (oder spaeter), satz 1, ...; ton kommt je nr genau einmal und in Satzreihenfolge; zum Schluss genau ein ende (oder nicht_erreichbar/abgelehnt als Abschluss).
 // Ablauf: je Mensch eine Anfrage (eine neue ersetzt die alte, auch eine laufende: die alte bekommt abgelehnt/ersetzt); global hoechstens eine LLM-Anfrage zugleich; Rate-Limit je Spieler (Standard 6 je Minute);
 //   Zeitlimits (Env): erstes Token und gesamt je 30 s (gespraech-dienste.js), TTS 30 s je Satz. Hoechstens 3 Saetze werden gesprochen. Faellt die Sprachausgabe aus, kommen die Saetze als Text, ton ohne audio.
+//   Wartezeit in der Schlange hoechstens 20 s (BOT_GESPRAECH_WARTE_MS): danach nicht_erreichbar mit grund 'zeit' (B-Nacharbeit K2). Die Voicebox wird nur mit gesetzter VOICEBOX_URL angesprochen (K4), sonst reiner Text.
 //   Kommt das Zeitlimit mitten in der Antwort, zaehlt das bisher Gesprochene als Antwort (ende), ohne einen Satz ist es nicht_erreichbar.
 // Zustand je Game (WeakMap, zusaetzlich nach runId): laufende Anfragen, Rate, Verlauf (die letzten 3 Wortwechsel je Bot, nie im Weltstand), Entprellung des Gedaechtnis-Hakens. Die Warteschlange fuer das LLM ist prozessweit.
 // Wirkungsfreiheit: lesend (Spielzustand, Gedaechtnis); die einzige Ausnahme ist Gedaechtnis.gespraech (hoechstens einmal je 10 Minuten Spielzeit und Bot, nur „sprach mit dem Captain“, nie der Inhalt).
@@ -37,6 +38,8 @@ const VERLAUF_MAX = 3;
 const HAKEN_PAUSE_S = 600;   // Gedaechtnis-Haken: hoechstens einmal je 10 Minuten Spielzeit und Bot
 const RATE_FENSTER_MS = 60000;
 const RATE_STANDARD = 6;
+const WARTE_STANDARD_MS = 20000;   // so lange wartet eine Anfrage hoechstens auf das LLM, das eine andere Anfrage belegt
+const warteMs = () => { const n = Number(process.env.BOT_GESPRAECH_WARTE_MS); return Number.isFinite(n) && n > 0 ? n : WARTE_STANDARD_MS; };
 
 let agentQuelle = null;
 function verdrahten(o) { agentQuelle = o && typeof o.agent === 'function' ? o.agent : null; }
@@ -81,16 +84,19 @@ function abschluss(r, msg) {   // genau ein Abschluss je Anfrage
 // ---------- globale Warteschlange: hoechstens eine LLM-Anfrage zugleich ----------
 const warteschlange = [];
 let llmBelegt = false;
+// Ergebnis: true (LLM gehoert der Anfrage), false (beendet, solange sie wartete), 'zeit' (Wartelimit)
 function erwerben(r) {
   return new Promise((resolve) => {
     if (r.beendet) return resolve(false);
     if (!llmBelegt) { llmBelegt = true; return resolve(true); }
-    r.warte = { resolve }; warteschlange.push(r);
+    const timer = setTimeout(() => warteEntfernen(r, 'zeit'), warteMs());
+    if (timer.unref) timer.unref();
+    r.warte = { resolve: (v) => { clearTimeout(timer); resolve(v); } }; warteschlange.push(r);
   });
 }
-function warteEntfernen(r) {
+function warteEntfernen(r, wert) {
   const i = warteschlange.indexOf(r);
-  if (i >= 0) { warteschlange.splice(i, 1); const w = r.warte; r.warte = null; if (w) w.resolve(false); }
+  if (i >= 0) { warteschlange.splice(i, 1); const w = r.warte; r.warte = null; if (w) w.resolve(wert === undefined ? false : wert); }
 }
 function freigeben() {
   const n = warteschlange.shift();
@@ -125,7 +131,7 @@ async function laufen(r) {
 
   const ton = async (nr, text) => {
     if (r.beendet) return;
-    if (!ohneTon && profil) {
+    if (!ohneTon && profil && Dienste.voiceboxAktiv()) {
       try {
         const buf = await Dienste.sprechen({ voice: profil, text, signal: r.ac.signal });
         if (r.beendet) return;
@@ -157,6 +163,7 @@ async function laufen(r) {
 
   let ergebnis = null, fehlerCode = null;
   const erlaubt = await erwerben(r);
+  if (erlaubt === 'zeit') return abschluss(r, { zustand: 'nicht_erreichbar', grund: 'zeit' });   // zu lange in der Schlange gewartet
   if (!erlaubt) return;
   try {
     if (!gueltig(r)) return;

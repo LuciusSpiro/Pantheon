@@ -191,8 +191,9 @@ function annehmen(game, spieler, msg) {
   try {
     if (!spieler || !spieler.conn || Crew.istBot(spieler) || !msg || typeof msg !== 'object') return;
     const liste = antworten(game, spieler, msg);
+    const runde = msg.befehl === 'bot.status' ? StatusTon.vorbereiten(game, spieler, liste) : null;   // BOT-05 B2: Stimme zur Statusantwort; markiert die Antworten (tonRunde), nur mit VOICEBOX_URL, sonst null
     for (const a of liste) game.sendTo(spieler.conn, a);
-    if (msg.befehl === 'bot.status') StatusTon.sprechen(game, spieler, liste);   // BOT-05 B2: Stimme zur Statusantwort (asynchron, ohne Voicebox ohne Wirkung)
+    if (runde) StatusTon.sprechen(game, spieler, liste, runde);   // asynchron; ohne Voicebox ohne Wirkung
   } catch (e) { game.countError('bot.annahme', e); }
 }
 

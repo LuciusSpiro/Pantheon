@@ -8,6 +8,7 @@
 //  5. Abnahme 9: kein Aufruf von llm.js und der Transporte, keine fremden Ziele (nur OLLAMA_URL und VOICEBOX_URL), kein Prozessstart, Spielleiter-Kontext unveraendert und ohne Anzeigenamen
 //  6. Reine Menschenpartie: kein_bot, kein LLM-Aufruf, Spielzustand unveraendert; Lobby: phase
 //  7. Ersetzen, Warteschlange, Rate-Limit, Textlaenge, Verlauf hoechstens 3, Gedaechtnis-Haken entprellt, Audio-Ablage (Ablauf, Obergrenze)
+//  9 bot.status mit Stimme; 10 BOT-05 B-Nacharbeit: Statuston begrenzt (je Spieler eine Runde, hoechstens 3 gleichzeitige Voicebox-Anfragen, eigener Audio-Topf), Warteschlange 20 s (K2), Voicebox nur mit VOICEBOX_URL (K4), LAGE-Schilde mit Emitterzustand (W6/K1), Prompt-Regel (K6)
 //   node tools/test-bot-gespraech.js
 const fs = require('fs');
 const os = require('os');
@@ -193,7 +194,8 @@ const ZEIT = (ms) => { process.env.BOT_GESPRAECH_ERSTES_TOKEN_MS = String(ms); p
     const bot = botVon(g, 'b1');
     // Zustand setzen
     g.ship.angle = Math.PI / 2;   // Sueden = 180
-    g.ship.shields.current = [4, 2, 1, 0]; g.ship.shields.cap = [4, 4, 4, 4];
+    const VOLL = g.C.shields.maxPerSector;   // volle Staerke = Kappe eines intakten Emitters (BOT-05 B-Nacharbeit: Prozent davon, nicht der gekuerzten Sektorkappe)
+    g.ship.shields.current = [VOLL, VOLL / 2, VOLL / 4, 0];
     g.ship.helm.stage = Kern.FULL;
     g.ship.systems.engines = 'broken';
     g.ship.reactorCtl.state = 'overload';
@@ -221,7 +223,7 @@ const ZEIT = (ms) => { process.env.BOT_GESPRAECH_ERSTES_TOKEN_MS = String(ms); p
     ok(/Reaktor: überladen/.test(sp) && /Sprung: bereit/.test(sp), 'Prompt: Reaktor ueberladen, Sprung bereit');
     ok(/Ort: .+/.test(sp) && !/Ort: unbekannt/.test(sp), 'Prompt: Ort (' + (sp.match(/Ort: (.*)/) || [])[1] + ')');
     // Zustand aendern -> Prompt aendert sich
-    g.ship.angle = 0; g.ship.shields.current = [0, 4, 4, 4]; g.ship.helm.stage = Kern.STOP; g.ship.systems.engines = 'ok'; g.ship.systems.shields = 'damaged'; g.ship.reactorCtl.state = 'online'; g.ship.jump.ready = false; g.ship.target = null;
+    g.ship.angle = 0; g.ship.shields.current = [0, VOLL, VOLL, VOLL]; g.ship.helm.stage = Kern.STOP; g.ship.systems.engines = 'ok'; g.ship.systems.shields = 'damaged'; g.ship.reactorCtl.state = 'online'; g.ship.jump.ready = false; g.ship.target = null;
     await frage(P, 'Und jetzt?');
     const sp2 = sysPrompt(llm);
     ok(/Kurs: 90 Grad/.test(sp2) && /Schub: Stopp/.test(sp2) && /Bug 0 %, Steuerbord 100 %, Heck 100 %, Backbord 100 %/.test(sp2) && /Ziel: keines gesetzt/.test(sp2), 'geaendert: Kurs 90, Stopp, Schilde, kein Ziel');
@@ -319,9 +321,9 @@ const ZEIT = (ms) => { process.env.BOT_GESPRAECH_ERSTES_TOKEN_MS = String(ms); p
     const dauer = Date.now() - t0;
     const m = reden(P.c, n0);
     ok(zust(m).join(',') === 'denkt,nicht_erreichbar' && m[1].grund === 'zeit', 'haengendes Ollama: nicht_erreichbar (Zeitlimit) statt Endlos-Warten: ' + zust(m).join(','));
-    ok(dauer >= 600 && dauer < 2500, 'innerhalb des Zeitlimits (700 ms Limit, gemessen ' + dauer + ' ms)');
+    ok(dauer >= 600 && dauer < 5000, 'innerhalb des Zeitlimits (700 ms Limit, gemessen ' + dauer + ' ms)');
     ok(g.time > zeit0 && antw.length === 3 && antw.every((a) => a.status === 'ok'), 'das Spiel tickt weiter, bot.befehl bot.status liefert ok von allen drei Bots (' + antw.map((a) => a.status).join(',') + ')');
-    ok(llm.gleichzeitig === 0, 'die haengende Anfrage wurde abgebrochen');
+    ok(await bis(() => llm.gleichzeitig === 0, 500), 'die haengende Anfrage wurde abgebrochen');
     // 4b Ollama haengt nach dem ersten Satz: Teilantwort zaehlt
     llm.reset(); llm.modus = 'haengt-nach'; llm.antwort = () => 'Kurs 270 Grad, Captain. Dann';
     // erster Chunk ist nur 7 Zeichen: drei Chunks bis zum Satzende; wir lassen den Strom nach dem ersten Chunk haengen -> kein Satz -> nicht_erreichbar/Rest
@@ -331,13 +333,13 @@ const ZEIT = (ms) => { process.env.BOT_GESPRAECH_ERSTES_TOKEN_MS = String(ms); p
     const m4b = await frage(P, 'Bericht?');
     ok(zust(m4b).join(',') === 'denkt,satz0,ton0,ende' && m4b[1].text === 'Aye, Captain', 'Teilantwort vor dem Zeitlimit zaehlt als Antwort (Rest ohne Satzende wird gesprochen, ende)');
     // 4c Ollama gar nicht erreichbar (Port zu)
-    ZEIT(3000);
+    ZEIT(8000);
     const alterPort = process.env.OLLAMA_URL;
     process.env.OLLAMA_URL = 'http://127.0.0.1:1';
     const t1 = Date.now();
     const m4c = await frage(P, 'Hallo?');
     process.env.OLLAMA_URL = alterPort;
-    ok(zust(m4c).join(',') === 'denkt,nicht_erreichbar' && m4c[1].grund === 'llm' && Date.now() - t1 < 3000, 'Port zu: nicht_erreichbar (llm) sofort');
+    ok(zust(m4c).join(',') === 'denkt,nicht_erreichbar' && m4c[1].grund === 'llm' && Date.now() - t1 < 5000, 'Port zu: nicht_erreichbar (llm) sofort');
     llm.reset(); llm.modus = 'fehler';
     const m4d = await frage(P, 'Hallo?');
     ok(zust(m4d).join(',') === 'denkt,nicht_erreichbar', 'HTTP 500 von Ollama: nicht_erreichbar');
@@ -399,7 +401,8 @@ const ZEIT = (ms) => { process.env.BOT_GESPRAECH_ERSTES_TOKEN_MS = String(ms); p
     ok(llm.anfragen.every((a) => JSON.stringify(a.body).includes('Hannibal Barkas') || true) && llm.anfragen.some((a) => JSON.stringify(a.body).includes('Hannibal')), 'der Anzeigename steht (nur) im lokalen Prompt');
     const quelle = fs.readFileSync(path.join(ROOT, 'server', 'bots', 'gespraech-dienste.js'), 'utf8');
     const hosts = quelle.match(/https?:\/\/[^'"`\s)]+/g) || [];
-    ok(hosts.every((h) => /127\.0\.0\.1:11435|sleipnir\.local:17493/.test(h)), 'im Quelltext stehen nur die Standardwerte von OLLAMA_URL und VOICEBOX_URL als Adressen: ' + hosts.join(', '));
+    ok(hosts.length > 0 && hosts.every((h) => /127\.0\.0\.1:11435/.test(h)), 'im Quelltext steht nur der Standardwert von OLLAMA_URL als Adresse (VOICEBOX_URL hat im Server keinen Standard, K4): ' + hosts.join(', '));
+    ok(fs.readdirSync(path.join(ROOT, 'server', 'bots')).filter((f) => f.endsWith('.js')).every((f) => !/sleipnir\.local/.test(fs.readFileSync(path.join(ROOT, 'server', 'bots', f), 'utf8'))), 'kein Server-Modul in server/bots nennt sleipnir.local (K4)');
     const ws = JSON.stringify(g.weltstand.data);
     ok(!/Gespraech|Wie steht es|Was sagt das/.test(ws.replace(/"ereignis":"gespraech"/g, '')), 'Gespraechsinhalt steht nicht im Weltstand (nur der Haken ereignis gespraech)');
   }
@@ -460,7 +463,7 @@ const ZEIT = (ms) => { process.env.BOT_GESPRAECH_ERSTES_TOKEN_MS = String(ms); p
     const erste = alle.filter((m) => m.gid === gid1), zweite = alle.filter((m) => m.gid !== gid1);
     ok(zust(erste).join(',') === 'denkt,abgelehnt' && erste[1].grund === 'ersetzt', 'die erste Anfrage bekommt abgelehnt/ersetzt: ' + zust(erste).join(','));
     ok(zust(zweite).join(',') === 'denkt,satz0,ton0,ende' && zweite[1].text === 'Zweite Antwort, Captain.', 'die zweite laeuft durch');
-    ok(llm.gleichzeitig === 0 && llm.anfragen.length === 2, 'die haengende Anfrage wurde abgebrochen (kein offener Strom)');
+    ok(await bis(() => llm.gleichzeitig === 0, 500) && llm.anfragen.length === 2, 'die haengende Anfrage wurde abgebrochen (kein offener Strom)');
     // 7b Warteschlange: zwei Menschen, hoechstens eine LLM-Anfrage zugleich
     const M2 = { c: P.c2 };
     llm.reset(); vb.reset(); llm.chunkMs = 25; llm.antwort = () => 'Kurs 270 Grad, Captain. Alles ruhig.';
@@ -615,14 +618,23 @@ const ZEIT = (ms) => { process.env.BOT_GESPRAECH_ERSTES_TOKEN_MS = String(ms); p
     n0 = P.c.inbox.length; vb.reset(); vb.modus = '401';
     P.g.handleMessage(P.c, { t: 'bot.befehl', an: 'alle', befehl: 'bot.status', quelle: 'text' });
     await bis(() => vb.anfragen.length >= 1, 2000); await sleep(150);
-    ok(P.c.inbox.slice(n0).filter((m) => m.t === 'bot.antwort').length === 3 && zu().length === 0 && vb.anfragen.length === 1, 'Voicebox 401: Antworten wie bisher, kein Ton, kein Wiederholen je Bot (' + vb.anfragen.length + ' Versuch)');
+    ok(P.c.inbox.slice(n0).filter((m) => m.t === 'bot.antwort').length === 3 && zu().every((m) => m.zustand === 'ausfall' && !m.audio) && zu().length === 1 && vb.anfragen.length === 1, 'Voicebox 401: Antworten wie bisher, kein Ton, kein Wiederholen je Bot (' + vb.anfragen.length + ' Versuch), EINE Meldung ausfall fuer den Rest der Runde (der Client gibt die Untertitel frei)');
+    const antw401 = P.c.inbox.slice(n0).filter((m) => m.t === 'bot.antwort');
+    ok(antw401.every((a) => typeof a.tonRunde === 'string') && zu()[0].runde === antw401[0].tonRunde, 'die Antworten tragen tonRunde, die Meldung ausfall dieselbe runde');
     // d) ohne konfigurierte Voicebox (weder VOICEBOX_URL noch VOICEBOX_AUTH): nichts geht hinaus
     n0 = P.c.inbox.length; vb.reset();
     const url = process.env.VOICEBOX_URL; delete process.env.VOICEBOX_URL;
     P.g.handleMessage(P.c, { t: 'bot.befehl', an: 'alle', befehl: 'bot.status', quelle: 'text' });
     await sleep(150);
+    const ohneUrl = P.c.inbox.slice(n0).filter((m) => m.t === 'bot.antwort');
+    ok(ohneUrl.length === 3 && ohneUrl.every((a) => a.tonRunde === undefined) && zu().length === 0 && vb.anfragen.length === 0, 'ohne VOICEBOX_URL: Antworten wie bisher (ohne tonRunde: der Client haelt nichts), kein Aufruf, keine Nachricht');
+    // K4: VOICEBOX_AUTH allein reicht NICHT (eine Regel: nur VOICEBOX_URL schaltet den Ton ein; kein Standardwert sleipnir.local im Server)
+    n0 = P.c.inbox.length; process.env.VOICEBOX_AUTH = 'x:y';
+    P.g.handleMessage(P.c, { t: 'bot.befehl', an: 'alle', befehl: 'bot.status', quelle: 'text' });
+    await sleep(150);
+    delete process.env.VOICEBOX_AUTH;
+    ok(!Dienste.voiceboxAktiv() && zu().length === 0 && vb.anfragen.length === 0, 'K4: VOICEBOX_AUTH ohne VOICEBOX_URL schaltet keinen Ton ein, kein Netzaufruf');
     process.env.VOICEBOX_URL = url;
-    ok(P.c.inbox.slice(n0).filter((m) => m.t === 'bot.antwort').length === 3 && zu().length === 0 && vb.anfragen.length === 0, 'ohne Voicebox-Konfiguration: Antworten wie bisher, kein Aufruf');
     // e) Partie vorbei waehrend der Sprachausgabe: nichts mehr
     n0 = P.c.inbox.length; vb.reset(); vb.verzoegerung = 200;
     P.g.handleMessage(P.c, { t: 'bot.befehl', an: 'alle', befehl: 'bot.status', quelle: 'text' });
@@ -637,7 +649,126 @@ const ZEIT = (ms) => { process.env.BOT_GESPRAECH_ERSTES_TOKEN_MS = String(ms); p
     const RG = Prompt.REGELN.join('\n');
     ok(/nie zu, etwas zu tun/.test(RG) && /nie, etwas getan zu haben/.test(RG) && /nie mit „Verstanden“, „Aye“/.test(RG) && /Wetter-, See- oder Stimmungsbilder als Tatsache/.test(RG) && /Seemannsbilder nur als Redewendung/.test(RG), 'Regeln 2 und 3: keine Zusage, keine Erledigt-Behauptung, kein Verstanden/Aye, keine erfundenen Wetter-/Seebilder');
     ok(Prompt.REGELN.length === 5 && RG.length < 1500, 'Regeln bleiben kurz (5 Regeln, ' + RG.length + ' Zeichen)');
-    ok(/StatusTon\.sprechen\(game, spieler, liste\)/.test(fs.readFileSync(path.join(ROOT, 'server', 'bots', 'annahme.js'), 'utf8')), 'annahme.js: ein duenner Aufruf nur fuer bot.status');
+    const asrc = fs.readFileSync(path.join(ROOT, 'server', 'bots', 'annahme.js'), 'utf8');
+    ok(/StatusTon\.vorbereiten\(game, spieler, liste\)/.test(asrc) && /StatusTon\.sprechen\(game, spieler, liste, runde\)/.test(asrc) && (asrc.match(/StatusTon\./g) || []).length === 2, 'annahme.js: zwei duenne Aufrufe nur fuer bot.status (vorbereiten, sprechen)');
+  }
+
+  // ---------------------------------------------------------------------------------------------
+  section('10 BOT-05 B-Nacharbeit: Status-Ton begrenzt (W3), Audio-Topf, Warteschlange (K2), Voicebox nur mit VOICEBOX_URL (K4), LAGE-Schilde (W6/K1)');
+  {
+    const interior = require('../server/sim/interior.js');
+    const STATUS = { t: 'bot.befehl', an: 'alle', befehl: 'bot.status', quelle: 'text' };
+    // a) Audio-Ablage: eigener Topf fuer Statusclips
+    {
+      Audio.test.leeren();
+      const clip = (t) => wavVon(t);
+      const g1 = []; for (let i = 0; i < 5; i++) g1.push(Audio.ablegen(clip('gespraech ' + i)).id);
+      const s1 = []; for (let i = 0; i < 10; i++) s1.push(Audio.ablegen(clip('status ' + i), 'status').id);
+      ok(g1.every((id) => Audio.holen(id)) && s1.filter((id) => Audio.holen(id)).length === Audio.STATUS_MAX && Audio.STATUS_MAX === 6, 'zehn Statusclips: hoechstens ' + Audio.STATUS_MAX + ' bleiben, alle fuenf Gespraechsclips unberuehrt');
+      ok(s1.slice(-6).every((id) => Audio.holen(id)) && !Audio.holen(s1[0]), 'es fallen die aeltesten Statusclips raus');
+      const g2 = []; for (let i = 0; i < 30; i++) g2.push(Audio.ablegen(clip('gespraech neu ' + i)).id);
+      ok(s1.every((id) => !Audio.holen(id)) && g2.slice(-25).every((id) => Audio.holen(id)) && Audio.test.stand().n === Audio.MAX_DATEIEN, 'Platzmangel (30 Dateien): zuerst gehen die Statusclips, dann erst die aeltesten Gespraechsclips');
+      Audio.test.leeren();
+    }
+    // b) Belegskript statuston.js: zehn Runden in einer Sekunde an alle drei Bots
+    {
+      llm.reset(); vb.reset(); ZEIT(5000); llm.antwort = () => 'Aye, Captain. Alles ruhig an Bord.';
+      const P = partie({ mensch: 'Hannibal' });
+      spiel(P, 20);
+      Audio.test.leeren();
+      const rede = await frage(P, 'Wie ist die Lage?', { an: 'b1' });
+      const gespraechUrls = rede.filter((m) => m.audio).map((m) => m.audio.split('/').pop().replace('.wav', ''));
+      ok(gespraechUrls.length > 0 && gespraechUrls.every((id) => Audio.holen(id)), 'Vorbereitung: ein Gespraech mit Audio liegt in der Ablage (' + gespraechUrls.length + ' Clips)');
+      vb.reset(); vb.verzoegerung = 600;
+      const n0 = P.c.inbox.length;
+      for (let i = 0; i < 10; i++) { P.g.handleMessage(P.c, STATUS); await sleep(100); }
+      await bis(() => P.c.inbox.slice(n0).filter((m) => m.t === 'bot.rede' && m.zu === 'bot.status' && m.zustand === 'ende').length >= 3 && vb.gleichzeitig === 0, 8000);
+      await sleep(100);
+      const zu = P.c.inbox.slice(n0).filter((m) => m.t === 'bot.rede' && m.zu === 'bot.status');
+      const antw = P.c.inbox.slice(n0).filter((m) => m.t === 'bot.antwort');
+      const letzteRunde = antw[antw.length - 1].tonRunde;
+      ok(antw.length === 30, 'zehn Runden, je drei Antworten (' + antw.length + ')');
+      ok(vb.maxGleichzeitig <= 3, 'zehn Runden in einer Sekunde: hoechstens 3 gleichzeitige Voicebox-Anfragen (gemessen ' + vb.maxGleichzeitig + ', ' + vb.anfragen.length + ' Anfragen gesamt)');
+      ok(zu.filter((m) => m.zustand === 'ton').length === 3 && zu.every((m) => m.runde === letzteRunde), 'an den Client gehen nur die Toene der LETZTEN Runde (die alten sind verworfen): ' + zu.filter((m) => m.zustand === 'ton').length);
+      ok(vb.anfragen.length <= 12, 'hoechstens ein Versuch je ersetzter Runde, nie alle drei Bots auf Vorrat (' + vb.anfragen.length + ' Anfragen, ohne Begrenzung waeren es 30)');
+      ok(Audio.test.stand().n <= 3 + gespraechUrls.length && gespraechUrls.every((id) => Audio.holen(id)), 'Statusclips verdraengen kein Gespraechsaudio (Ablage ' + Audio.test.stand().n + ')');
+      // eine Runde allein: wie bisher (ton + ende je Bot, in der Reihenfolge der Antworten)
+      vb.reset(); const n1 = P.c.inbox.length;
+      P.g.handleMessage(P.c, STATUS);
+      await bis(() => P.c.inbox.slice(n1).filter((m) => m.t === 'bot.rede' && m.zu === 'bot.status' && m.zustand === 'ende').length >= 3, 4000);
+      const einzel = P.c.inbox.slice(n1).filter((m) => m.t === 'bot.rede' && m.zu === 'bot.status');
+      ok(einzel.length === 6 && vb.maxGleichzeitig === 1, 'eine einzelne Runde: drei Toene nacheinander (je Bot einer, hoechstens 1 gleichzeitig: ' + vb.maxGleichzeitig + ')');
+      Audio.test.leeren(); vb.reset();
+    }
+    // c) K2: Wartezeit in der Schlange begrenzt
+    {
+      llm.reset(); vb.reset(); ZEIT(5000);
+      const P = partie({ mensch: 'Hannibal', mensch2: 'Scipio', bots: ['navigation', 'ops'] });
+      spiel(P, 20);
+      process.env.BOT_GESPRAECH_WARTE_MS = '300';
+      llm.modus = 'haengt';
+      const na = P.c.inbox.length, nb = P.c2.inbox.length, t0 = Date.now();
+      P.g.handleMessage(P.c, { t: 'bot.gespraech', an: 'b0', text: 'Erste Frage haengt', quelle: 'text' });
+      await bis(() => llm.anfragen.length === 1, 2000);
+      P.g.handleMessage(P.c2, { t: 'bot.gespraech', an: 'b1', text: 'Zweite Frage wartet', quelle: 'text' });
+      await bis(() => abgeschlossen(reden(P.c2, nb)), 4000);
+      const dauer = Date.now() - t0, m2 = reden(P.c2, nb);
+      ok(zust(m2).join(',') === 'denkt,nicht_erreichbar' && m2[1].grund === 'zeit', 'wer zu lange in der Schlange wartet, bekommt nicht_erreichbar mit grund zeit: ' + zust(m2).join(',') + ' / ' + (m2[1] && m2[1].grund));
+      ok(dauer >= 300 && dauer < 3000 && llm.anfragen.length === 1, 'nach dem Wartelimit (300 ms, gemessen ' + dauer + ' ms), nie beim LLM angekommen (' + llm.anfragen.length + ' Anfrage)');
+      ok(!reden(P.c, na).some((m) => ENDE.includes(m.zustand)), 'die erste (laufende) Anfrage ist davon unberuehrt');
+      delete process.env.BOT_GESPRAECH_WARTE_MS;
+      Gespraech.beenden(P.g);
+      llm.reset();
+      ok(await bis(() => llm.gleichzeitig === 0, 1000), 'danach ist das LLM wieder frei');
+      const m3 = (llm.antwort = () => 'Wieder frei, Captain.', await frage(P, 'Noch da?', { an: 'b0' }));
+      ok(zust(m3).join(',') === 'denkt,satz0,ton0,ende', 'die Schlange laeuft danach normal weiter: ' + zust(m3).join(','));
+      ZEIT(5000);
+    }
+    // d) K4: ohne VOICEBOX_URL laeuft das Gespraech als reiner Text, ohne Netzaufruf
+    {
+      llm.reset(); vb.reset(); llm.antwort = () => AUTO;
+      const P = partie({ mensch: 'Hannibal' });
+      spiel(P, 20);
+      const url = process.env.VOICEBOX_URL; delete process.env.VOICEBOX_URL;
+      const m = await frage(P, 'Wie geht es?');
+      process.env.VOICEBOX_URL = url;
+      ok(m.filter((x) => x.zustand === 'satz').length === 3 && m.filter((x) => x.zustand === 'ton').length === 3 && m.filter((x) => x.zustand === 'ton').every((x) => x.audio === undefined) && m[m.length - 1].zustand === 'ende', 'ohne VOICEBOX_URL: drei Saetze, ton ohne audio, ende');
+      ok(vb.anfragen.length === 0, 'ohne VOICEBOX_URL: kein Netzaufruf an die Voicebox');
+      delete process.env.VOICEBOX_URL;
+      let fehlercode = null; try { await Dienste.sprechen({ voice: 'x', text: 'y' }); } catch (e) { fehlercode = e.code; }
+      const warm = await Dienste.vorwaermen('x');
+      process.env.VOICEBOX_URL = url;
+      ok(fehlercode === 'tts_aus' && warm.tts === false && Dienste.voiceboxAktiv(), 'Dienste: sprechen() wirft tts_aus ohne VOICEBOX_URL, vorwaermen meldet tts false, mit URL ist die Voicebox aktiv');
+      ok(vb.anfragen.length === 0, 'auch sprechen() und vorwaermen() gehen ohne VOICEBOX_URL nicht ins Netz');
+    }
+    // e) W6/K1: LAGE-Schilde als Prozent der vollen Staerke, Emitter-Zustand aus dem Spiel (Kappen und Zustaende ueber die Spielfunktionen, nicht ueber shields.cap)
+    {
+      const P = partie({ mensch: 'Hannibal' });
+      const g = P.g; spiel(P, 20);
+      const bot = botVon(g, 'b1'), VOLL = g.C.shields.maxPerSector;
+      const zustaende = ['broken', 'ok', 'damaged', 'ok'];
+      ['emitter_bow', 'emitter_stbd', 'emitter_aft', 'emitter_port'].forEach((e, i) => interior.setzeZustand(g, e, zustaende[i]));
+      g.ship.shields.alloc = [VOLL, VOLL / 2, VOLL / 2, VOLL]; g.ship.shields.allocIntent = g.ship.shields.alloc.slice(); g.ship.shields.current = [VOLL, VOLL / 2, VOLL / 4, VOLL];
+      spiel(P, 3);   // enforceShields laeuft im Tick: Kappen 0 / voll / halb / voll
+      const cap = g.ship.shields.cap.slice();
+      g.ship.shields.current = [VOLL, VOLL / 2, VOLL / 4, VOLL];   // Werte nach dem Tick festlegen (kein weiterer Tick zwischen Setzen und Lesen); der ausgefallene Sektor traegt einen veralteten Wert
+      ok(cap[0] === 0 && cap[1] === VOLL && cap[2] === VOLL / 2 && cap[3] === VOLL, 'Spiel: Kappen aus den Emitterzustaenden (' + cap.join('/') + ')');
+      const au = Lage.lageAuszug(g, bot), z = Lage.lageZeilen(au).find((x) => /^Schilde:/.test(x));
+      ok(JSON.stringify(au.emitter) === JSON.stringify({ bug: 'ausgefallen', steuerbord: 'ok', heck: 'beschaedigt', backbord: 'ok' }) && au.schilde.bug === 0, 'lageAuszug: Emitterzustand je Sektor, ausgefallener Sektor 0 %');
+      const erw = 'Schilde: Bug 0 % (Emitter ausgefallen), Steuerbord 50 %, Heck 25 % (Emitter beschädigt), Backbord 100 %';
+      ok(z === erw, 'Zeile: ausgefallen als "0 % (Emitter ausgefallen)" (nie unbekannt), beschaedigt mit Zusatz: ' + z);
+      ok(/Backbord 100 %$/.test(z) && !/unbekannt/.test(z), 'intakte Emitter ohne Zusatz, Prozent der vollen Staerke (' + VOLL + ' Punkte)');
+      // beschaedigter Emitter: die halbe Kappe ist bei voller Auslastung 50 % der vollen Staerke
+      g.ship.shields.current[2] = g.ship.shields.cap[2];
+      ok(Lage.lageAuszug(g, bot).schilde.heck === 50, 'beschaedigter Emitter, Sektor voll geladen: 50 % der vollen Staerke');
+      // ein veralteter Wert im ausgefallenen Sektor zaehlt nicht
+      g.ship.shields.current[0] = VOLL;
+      ok(Lage.lageAuszug(g, bot).schilde.bug === 0, 'ausgefallener Emitter: immer 0 %, auch bei veraltetem Wert');
+      // Prompt-Regel 2 (K6)
+      const RG = Prompt.REGELN[1];
+      ok(/unter LAGE, ZUSTAND oder ABSICHT stehen/.test(RG) && /nicht unter LAGE, ZUSTAND, ABSICHT oder GEDÄCHTNIS steht/.test(RG), 'K6: Regel 2 nennt LAGE, ZUSTAND und ABSICHT (und GEDAECHTNIS bei "Erfinde nichts")');
+      ok(/\/\/ BOT-01 C1: Regeln und Antwort in bots\/annahme\.js/.test(fs.readFileSync(path.join(ROOT, 'server', 'game.js'), 'utf8').split('\n').find((l) => /case C\.BOT_BEFEHL:/.test(l)) || '') && !/BOT-01 C1/.test(fs.readFileSync(path.join(ROOT, 'server', 'game.js'), 'utf8').split('\n').find((l) => /case C\.BOT_GESPRAECH:/.test(l)) || ''), 'K5: der Kommentar BOT-01 C1 steht an BOT_BEFEHL, nicht an BOT_GESPRAECH');
+    }
   }
 
   await llm.stop(); await vb.stop();

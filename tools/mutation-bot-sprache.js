@@ -19,12 +19,13 @@ fs.cpSync(path.join(ROOT, 'server'), path.join(TMP, 'server'), { recursive: true
 if (fs.existsSync(path.join(ROOT, 'package.json'))) fs.copyFileSync(path.join(ROOT, 'package.json'), path.join(TMP, 'package.json'));   // D1: test-bot-sprache-net.js braucht Matcher und Protokoll, den Kanon und die Muster
 fs.cpSync(path.join(ROOT, 'content'), path.join(TMP, 'content'), { recursive: true });   // D1: auch der Servertest liest Spieldaten (Waren, Bots)
 for (const f of ['hud.js', 'bot-sprache.js', 'bot-menue.js', 'consoles.js']) { const p = path.join(TMP, 'public', 'js', f); fs.writeFileSync(p, fs.readFileSync(p, 'utf8').replace(/\r\n/g, '\n')); }   // Anker ohne CRLF-Sorgen
-for (const f of ['test-bot-sprache.js', 'test-bot-sprache-net.js', 'test-bot-sprache-server.js', 'test-bot-sprache-pegel.js', 'test-bot-katalog.js']) fs.copyFileSync(path.join(ROOT, 'tools', f), path.join(TMP, 'tools', f));
+for (const f of ['test-bot-sprache.js', 'test-bot-sprache-net.js', 'test-bot-sprache-server.js', 'test-bot-sprache-pegel.js', 'test-bot-katalog.js', 'test-bot-gespraech-client.js']) fs.copyFileSync(path.join(ROOT, 'tools', f), path.join(TMP, 'tools', f));
 fs.cpSync(path.join(ROOT, 'tools', 'fixtures', 'bot-messung'), path.join(TMP, 'tools', 'fixtures', 'bot-messung'), { recursive: true });   // D2: der Katalogtest liest die Phrasenlisten
 
 const CL = 'public/js/client.js', HU = 'public/js/hud.js', BS = 'public/js/bot-sprache.js', CO = 'public/js/consoles.js', BMN = 'public/js/bot-menue.js';
 const NET = 'test-bot-sprache-net.js';   // D1: Mutationen am Net-Transport und an sprachBefehl prüft dieser Test (fünftes Element), alle anderen test-bot-sprache.js
 const PEG = 'test-bot-sprache-pegel.js', KAT = 'test-bot-katalog.js';   // D2: Stille-Schranke und Messkatalog gegen den Matcher
+const GC = 'test-bot-gespraech-client.js';   // BOT-05 B-Nacharbeit: Gespräch im Client (Textzeile, Untertitel mit dem Ton, Status-Ton, Kreuz-Loslassen, Farben)
 const SRV = 'test-bot-sprache-server.js';   // D1: Mutationen an der Reihenfolge Eintrag/Senden prüft der Servertest (synchrone Brücke: die Antwort kommt noch im send)
 // [Datei, alter Text (genau einmal), neuer Text, Beschreibung, Testdatei?]
 const MUTATIONEN = [
@@ -50,7 +51,7 @@ const MUTATIONEN = [
   // S3
   [HU, "for (let i = E.length - 1; i >= 0; i--) if (E[i].text === text && E[i].who === who) E.splice(i, 1);", "", 'Untertitel: kein Dedupe'],
   [HU, "for (let i = E.length - 1; i >= 0; i--) if (E[i].text === text && E[i].who === who) E.splice(i, 1);", "for (let i = E.length - 1; i >= 0; i--) if (E[i].text === text) E.splice(i, 1);", 'Untertitel: Dedupe ohne Sprecher'],
-  [HU, "if (e.id !== id) continue;", "", 'Clip-Halt trifft alle Einträge'],
+  [HU, "if (e.id !== id) continue;\n        if (an) {", "if (an) {", 'Clip-Halt trifft alle Einträge'],
   [BS, "        schliesse(); entferne(letzteMeldung); entferne(stickyText);", "        entferne(letzteMeldung); entferne(stickyText);", 'aus(): offene Textzeile bleibt'],
   [HU, "performance.now() - sp.tFrame > 1500 && sp.zeile.schliessen) sp.zeile.schliessen();", "performance.now() - sp.tFrame > 4900 && sp.zeile.schliessen) sp.zeile.schliessen();", 'Textzeile: Schließgrenze 4,9 s statt 1,5 s'],
   [HU, "if (oda > 0) oben = VH - 6 - oda;", "", 'zu Fuß: Spalte ignoriert die ODA unten'],
@@ -68,30 +69,30 @@ const MUTATIONEN = [
   [HU, "let n = this.sprechMax(sp) - (rec ? 1 : 0);", "let n = this.sprechMax(sp);", 'Aufnahme ersetzt den untersten Platz nicht'],
   [HU, "if ((this.sprech.aktiv || this.sprech.bots) && !inConsole) Net.guard('Hud.sprechspalte'", "if (this.sprech.aktiv || this.sprech.bots) Net.guard('Hud.sprechspalte'", 'Sprechspalte auch vor der Konsole (die Konsole deckt sie zu)'],
   [CL, "if (H.sprech.aktiv || H.sprech.bots) Net.guard('Hud.sprechspalteKonsole', () => H.zeichneSprechspalte(ctx, v));", "", 'Sprechspalte an der Konsole fehlt'],
-  [HU, "return e.halt ? e.t + 30 : (e.bis || e.t + e.d);", "return e.halt ? Infinity : (e.bis || e.t + e.d);", 'Halt ohne Obergrenze'],
+  [HU, "e.halt ? e.haltT + 30 :", "e.halt ? Infinity :", 'Halt ohne Obergrenze'],
   [HU, "performance.now() / 1000 + 0.5); }", "performance.now() / 1000); }", 'nach Clip-Ende keine 0,5 s'],
-  [HU, "e.bis = Math.max(e.t + e.d, performance", "e.bis = Math.max(0, performance", 'nach Clip-Ende nicht mindestens die Grunddauer'],
+  [HU, "e.bis = Math.max(e.bis, e.t + e.d, performance", "e.bis = Math.max(e.bis, 0, performance", 'nach Clip-Ende nicht mindestens die Grunddauer'],
   [HU, "(this.crewFunkEnde(e) - now) / 0.4", "(this.crewFunkEnde(e) - now) / 4", 'Ausblenden dauert nicht 0,4 s'],
   [HU, "R.backdrop(ctx, x, ey, e.w, e.h, 0.85);", "R.backdrop(ctx, x, ey, e.w, e.h, 0.5);", 'Untergrund der Untertitel nicht 0,85'],
   [HU, "while (von < cur && R.measure(wert.slice(von, cur), 1) > innen - 6) von++;", "", 'lange Eingabe scrollt nicht'],
   [HU, "if (z) this.zeichneTextzeile(ctx, view, z, slot.x, stelle(14), slot.w, FN);", "if (z) this.zeichneTextzeile(ctx, view, z, slot.x, stelle(14) + 3, slot.w, FN);", 'Textzeile nicht ganz unten in der Spalte'],
   [HU, "if (sp.aktiv && sp.zeile && sp.zeile.offen && performance.now() - sp.tFrame > 1500", "if (sp.aktiv && sp.zeile && sp.zeile.offen && false", 'Textzeile bleibt ohne Spielbild offen'],
   [HU, "ctx.fillStyle = e.farbe; ctx.fillRect(x, ey, 2, e.h);", "", 'kein Farbbalken'],
-  [HU, "{ color: FN.cmd, shadow: false });\n        ctx.globalAlpha = 1;", "{ color: e.farbe, shadow: false });\n        ctx.globalAlpha = 1;", 'Untertiteltext nicht Creme'],
+  [HU, "{ color: e.textFarbe || FN.cmd, shadow: false });\n        ctx.globalAlpha = 1;", "{ color: e.farbe, shadow: false });\n        ctx.globalAlpha = 1;", 'Untertiteltext nicht Creme'],
   [BS, "const ENDUNGEN = ['wav', 'ogg'];", "const ENDUNGEN = ['ogg', 'wav'];", 'Clipwahl: ogg vor wav'],
   [BS, "      const marke = verarbBeginn();   // Zwischenzustand", "      const marke = { offen: false };   // Zwischenzustand", 'Zwischenzustand wird nie gemeldet'],
   [BS, "        } finally { verarbEnde(marke); }", "        } finally { /* nichts */ }", 'Zwischenzustand bleibt bei Fehlern hängen'],
   [BS, "      verarbEnde(marke);   // das Ergebnis ist da", "      // das Ergebnis ist da", 'Zwischenzustand endet nicht mit dem Ergebnis'],
   [BS, "const UNKLAR_DAUER_S = 2.5;", "const UNKLAR_DAUER_S = 4;", '„Bitte wiederholen“ nicht 2,5 s'],
-  [BS, "const ROLLEN = { b0: 'NAVIGATION', b1: 'OPS', b2: 'TECHNIK' };", "const ROLLEN = { b0: 'OPS', b1: 'NAVIGATION', b2: 'TECHNIK' };", 'Rollennamen vertauscht'],
-  [BS, "{ botId: msg.botId });", "{ botId: null });", 'Antwort ohne botId an die Anzeige'],
-  [BS, "ende: () => clipHalt(id, false) }", "ende: () => {} }", 'Clip-Ende erreicht die Anzeige nicht'],
+  [BS, "return p ? p.name.toUpperCase() : 'BORD';", "return p ? p.name : 'BORD';", 'Sprechername der Figur nicht in Versalien'],
+  [BS, "{ botId: figur || (msg.von ? null : vorher), von: msg.von, halten", "{ botId: null, von: msg.von, halten", 'Antwort ohne botId an die Anzeige'],
+  [BS, "ende: () => { clipHalt(id, false); if (frei) frei(); } }", "ende: () => { if (frei) frei(); } }", 'Clip-Ende erreicht die Anzeige nicht'],
   [BS, "start: () => clipHalt(id, true),", "start: () => {},", 'Clip-Start erreicht die Anzeige nicht'],
   [BS, "if (n === 'keydown' && e.key === 'Escape') { if (e.preventDefault) e.preventDefault(); schliesse(); }", "if (n === 'keydown' && e.key === 'Escape') { if (e.preventDefault) e.preventDefault(); }", 'Esc schließt die Textzeile nicht'],
   [BS, "if (zeile.offen && !feld.value) schliesse();", "if (zeile.offen) schliesse();", 'Fokusverlust schließt auch mit Text'],
   [BS, "if (zeile.offen && !feld.value) schliesse();", "if (false) schliesse();", 'Fokusverlust schließt nie'],
-  [BS, "const t = feld.value; schliesse(); onText(t);", "const t = feld.value; onText(t);", 'Enter sendet, schließt aber nicht'],
-  [BS, "const t = feld.value; schliesse(); onText(t);", "const t = feld.value; schliesse();", 'Enter sendet nicht'],
+  [BS, "const t = feld.value, fuer = zeileFuer; schliesse(); if (fuer", "const t = feld.value, fuer = zeileFuer; if (fuer", 'Enter sendet, schließt aber nicht'],
+  [BS, "else onText(t); });", "else { /* nichts */ } });", 'Enter sendet nicht'],
   [BS, "e.stopPropagation(); if (n === 'keydown'", "if (n === 'keydown'", 'Tasten der Textzeile erreichen das Spiel'],
   [BS, "Math.floor(b.left + r.x * sc), Math.floor(b.top + r.y * sc)", "Math.floor(b.left + r.x), Math.floor(b.top + r.y)", 'Eingabefeld ohne Skalierung'],
   [BS, "Math.floor(r.w * sc), Math.floor(r.h * sc)]", "Math.floor(r.w), Math.floor(r.h)]", 'Eingabefeld ohne Größenskalierung'],
@@ -103,12 +104,12 @@ const MUTATIONEN = [
   [BS, "h.pushNotice(t, FN().warn,", "h.pushNotice(t, FN().sensor,", 'Meldung nicht in Warnfarbe'],
   [BS, "e && e.fehler === 'stt-aus' ? TEXT.sttNichtEingerichtet : TEXT.sttAus", "TEXT.sttAus", 'STT nicht eingerichtet nicht unterschieden'],
   [BS, "if (j && j.fehler === 'stt-aus') e.fehler = 'stt-aus';", "", 'Client liest 503 stt-aus nicht'],
-  [BS, "' halten = sprechen, '", "' = sprechen, '", 'Startnotiz ohne „halten“'],
+  [BS, "'Befehl ' + kappe('allgemein.sprechen', '^') + ' halten, '", "'Befehl ' + kappe('allgemein.sprechen', '^') + ', '", 'Startnotiz ohne „halten“'],
   // BOT-04 D1: Net-Transport, Anschluss an das Menü, Sprach-Einträge
   [BS, "try { vermerk = env.vorSenden(msg); } catch (e) { vermerk = null; }", "vermerk = null;", 'D1: die Sprache ruft sprachBefehl nicht auf (kein Eintrag, keine Quittung, kein „gilt“)', NET],
   [BS, "if (!ok) { if (env.verworfen && vermerk)", "if (!ok) { if (false)", 'D1: Sendefehler nimmt den Eintrag nicht zurück', NET],
   [BS, "send(obj) { if (!offen()) return false;", "send(obj) {", 'D1: Net-Transport meldet bei getrennter Verbindung Erfolg', NET],
-  [BS, "const weg = Net.on((m) => { if (m && m.t === 'bot.antwort') fn(m); });", "const weg = Net.on((m) => { fn(m); });", 'D1: Net-Transport reicht jede Nachricht durch', NET],
+  [BS, "if (m && (m.t === 'bot.antwort' || m.t === 'bot.rede')) fn(m); });", "fn(m); });", 'D1: Net-Transport reicht jede Nachricht durch', NET],
   [BS, "netz: true,", "netz: false,", 'D1: Net-Transport meldet netz: false (zwei Verarbeiter je Antwort)', NET],
   [BS, "win.Net ? transportNet(win.Net) : transportNetStub();", "transportNetStub();", 'D1: starte nimmt nie den Net-Transport', NET],
   [BS, "(mockOk ? transportWebSocket(mockUrl, win.WebSocket) : transportNetStub())", "(mockOk ? transportWebSocket(mockUrl, win.WebSocket) : transportNet(win.Net))", 'D1: verbotener Mock fällt auf die echte Verbindung', NET],
@@ -130,8 +131,8 @@ const MUTATIONEN = [
   [BS, "aufn.pegel < PEGEL_MIN) {", "aufn.pegel <= PEGEL_MIN) {", 'D2: Grenze exakt zählt schon als Stille', PEG],
   [BS, "const PEGEL_MIN = 0.005;", "const PEGEL_MIN = 0.2;", 'D2: Grenze auf hohen Wert (leises Sprechen wird verworfen)', PEG],
   [BS, "if (typeof aufn.pegel === 'number' && aufn.pegel < PEGEL_MIN) {", "if (aufn.pegel < PEGEL_MIN) {", 'D2: pegel null (kein Web Audio) blockiert STT', PEG],
-  [BS, "if (s.messmodus) await messeStille(aufn);", "", 'D2: Stille im Messmodus ohne eigenen Eintrag', PEG],
-  [BS, "meldung(TEXT.stille); return false;", "return false;", 'D2: Stille ohne Meldung', PEG],
+  [BS, "if (s.messmodus) await messeStille(a);", "", 'D2: Stille im Messmodus ohne eigenen Eintrag', PEG],
+  [BS, "meldung(TEXT.stille); return null;", "return null;", 'D2: Stille ohne Meldung', PEG],
   [BS, "stille: true, pegel: aufn.pegel,", "stille: false, pegel: aufn.pegel,", 'D2: Stille-Eintrag nicht als stille markiert', PEG],
   [BS, "pegel: x.pegel == null ? null : x.pegel,", "", 'D2: Messeintrag ohne Pegel', PEG],
   [BS, "pegel: typeof aufn.pegel === 'number' ? aufn.pegel : null });", "});", 'D2: Pegel erreicht den Messeintrag nicht', PEG],
@@ -165,6 +166,35 @@ const MUTATIONEN = [
   [BS, "const frei2 = () => { frei(); pm.ende(); };", "const frei2 = () => { frei(); };", 'D2: Abbruch gibt den Pegelmesser nicht frei', PEG],
   [BS, "const pegel = pm.ende(); frei();", "const pegel = null; frei();", 'D2: stop() liefert keinen Pegel', PEG],
   [BS, "entferne(stickyText); stickyText = null; entferne(letzteMeldung); letzteMeldung = null; } },", "entferne(stickyText); stickyText = null; } },", 'D2: neue Aufnahme räumt die alte Meldung nicht weg'],
+  // BOT-05 B-Nacharbeit: W1 Textzeile, W2 Untertitel mit dem Ton, W3 Status-Runden, K2 denkt nach, K3 Kreuz-Loslassen, Designer (Farben, Layout, Startnotiz)
+  [BS, "if (zeile.offen && neu !== zeileFuer) feld.value = '';", "", 'W1: Wechsel der Art leert den Text der offenen Zeile nicht', GC],
+  [BS, "zeile.kopfArt = zeileFuer; zeile.kopf = zeileFuer === 'gespraech' ? TEXT.kopfGespraech : TEXT.kopfBefehl;", "", 'W1: die Art der Zeile (Kopf) ist nicht sichtbar', GC],
+  [BS, "if (fuer === 'gespraech' && onGespraech) onGespraech(t);", "if (fuer === 'gespraech' && onGespraech) { /* nichts */ }", 'W1: Enter in der Gesprächszeile sendet nichts', GC],
+  [BS, "if (art0 && art0 !== s.art) return Promise.resolve(false);", "", 'K3: Loslassen einer Sprechtaste beendet die Aufnahme der anderen Art', GC],
+  [BS, "kern.tasteHoch('gespraech'); };", "kern.tasteHoch(); };", 'K3: der Tastatur-Zuhörer reicht die Art der Taste nicht weiter', GC],
+  [BS, "{ botId: r.botId, halten: true }", "{ botId: r.botId }", 'W2: der Satz-Untertitel wartet nicht auf seinen Ton', GC],
+  [BS, "const ende = () => { halt(false); frei(id, !lief); };", "const ende = () => { halt(false); };", 'W2: das Ende des Tons gibt den wartenden Untertitel nicht frei', GC],
+  [BS, "{ frei(st.saetze.get(nr), true); st.saetze.delete(nr); continue; }", "continue;", 'W2: ein ausgefallener Ton (ohne audio) gibt den Untertitel nicht frei', GC],
+  [BS, "if (st) freiAlle(st);", "", 'W2: ein gestoppter Strom gibt seine wartenden Untertitel nicht frei', GC],
+  [BS, "if (st.art === 'status' ? (st.naechste > 0 || st.fertig) : (st.fertig && !st.puffer.size)) { streams.delete(st.gid); freiAlle(st); }", "if (st.art === 'status' ? (st.naechste > 0 || st.fertig) : (st.fertig && !st.puffer.size)) { streams.delete(st.gid); }", 'W2: ein beendeter Strom gibt Untertitel ohne Ton nicht frei', GC],
+  [BS, "lief = true; halt(true);", "halt(true);", 'W2: nie angelaufener Ton zählt als gelaufen (Nachlauf statt normale Dauer)', GC],
+  [BS, "if (st.art === 'status' && st.runde !== runde) stoppeStream(st.gid);", "if (false) stoppeStream(st.gid);", 'W3: eine neue Statusrunde verwirft den alten Statusstrom nicht', GC],
+  [BS, "if (statusWartet[i].runde !== runde) { frei(statusWartet[i].id, true); statusWartet.splice(i, 1); }", "if (false) { frei(statusWartet[i].id, true); statusWartet.splice(i, 1); }", 'W3: eine neue Statusrunde gibt die wartenden Antworttexte der alten nicht frei', GC],
+  [BS, "if (z === 'ausfall') {", "if (false) {", 'W3: Ausfallmeldung des Servers gibt die wartenden Antworttexte nicht frei', GC],
+  [BS, "halten: !!tonRunde });", "halten: false });", 'W2: der Antworttext der Statusantwort wartet nicht auf den Statuston', GC],
+  [BS, "DENKT_MAX_S = WARTE_MAX_S + LAUF_MAX_S + 5;", "DENKT_MAX_S = 35;", 'K2: denkt nach steht fest nur 35 s', GC],
+  [BS, "if (!mitBots) return befehl;", "", 'Startnotiz nennt das Gespräch auch ohne Bots'],
+  [BS, "kappe('allgemein.gespraechText', 'Ö') + ' tippen'", "'Ö tippen'", 'Startnotiz: Gesprächstaste nicht aus der Belegung'],
+  [BS, "farbe = sprecher === 'BORD' ? neutral : FN().sensor;", "farbe = FN().sensor;", 'Designer: BORD nicht in FN.neutral', GC],
+  [BS, "if (sprecher === 'DU') farbe = farbeVon(liste.find((p) => p && c && p.id === c.pid));", "if (sprecher === 'DU') farbe = null;", 'Designer: DU nicht in der eigenen Spielerfarbe', GC],
+  [BS, "else if (sprecher !== 'BORD') farbe = farbeVon(liste.find((p) => p && p.bot && botId && p.botId === botId));", "else if (sprecher !== 'BORD') farbe = null;", 'Designer: Name des Bots nicht in der Spielerfarbe', GC],
+  [BS, "textFarbe: info && info.leise ? neutral : undefined", "textFarbe: undefined", 'Designer: denkt nach nicht in FN.neutral', GC],
+  [HU, "const x = Math.round(slot.x + (slot.w - maxW) / 2);", "const x = slot.x;", 'Designer: Untertitel nicht auf einer gemeinsamen, mittig gesetzten Kante'],
+  [HU, "const ey = stelle(e.h, SPRECH_ABSTAND);", "const ey = stelle(e.h);", 'Designer: kein 3-px-Abstand zwischen den Untertiteln'],
+  [HU, "e.wartet = false;\n", "\n", 'W2: crewFunkFrei löst den wartenden Eintrag nicht'],
+  [HU, "e.bis = Math.max(e.bis, ausfall ? jetzt + e.d : Math.max(e.t + e.d, jetzt + 0.5));", "e.bis = Math.max(e.bis, Math.max(e.t + e.d, jetzt + 0.5));", 'W2: Ausfall zählt die Dauer ab dem Eintreffen statt ab dem Ausfall'],
+  [HU, "e.wartet ? e.t + SPRECH_WARTE_MAX :", "e.wartet ? Infinity :", 'W2: wartender Untertitel ohne Obergrenze'],
+  [HU, "if (kopf) R.text(ctx, kopf, x + 5,", "if (false) R.text(ctx, kopf, x + 5,", 'W1: die Textzeile zeigt die Art nicht'],
 ];
 
 const nur = process.argv.slice(2).filter((a) => !a.startsWith('--'));

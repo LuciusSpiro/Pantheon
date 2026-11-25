@@ -6,6 +6,7 @@
 //  4 Anzeige: denkt nach -> Saetze -> Ende, nicht erreichbar, abgelehnt (rate, kein_bot), ersetzt, veraltete Nachrichten
 //  5 Ton: je gid in nr-Reihenfolge, nicht bei gehaltener Taste, ersetzt stoppt, fehlende/ungueltige audio, Ausfall
 //  6 bot.status mit Stimme: nach dem Bestaetigungs-Clip, kein zweiter Untertitel, mehrere Bots nacheinander
+//  7 BOT-05 B-Nacharbeit: a W1 geteilte Textzeile, b K3 Kreuz-Loslassen, c W2 Untertitel mit dem Ton (echtes hud.js, Fake-Zeit), d W3 Status-Runden, e Farben (Designer), f Startnotiz
 //   node tools/test-bot-gespraech-client.js
 const fs = require('fs');
 const path = require('path');
@@ -26,7 +27,7 @@ const gid = (i) => 'g' + i;
 // Fake-Umgebung: zaehlt alles, was nach aussen geht
 function fake(o) {
   o = o || {};
-  const L = { mik: 0, stt: 0, matchAufrufe: 0, send: [], untertitel: [], weg: [], meldung: [], clips: [], spiele: [], stopp: 0, stumm: [], halt: [] };
+  const L = { mik: 0, stt: 0, matchAufrufe: 0, send: [], untertitel: [], weg: [], meldung: [], clips: [], spiele: [], stopp: 0, stumm: [], halt: [], frei: [] };
   let zeit = 0, idZ = 0;
   const bots = o.bots === undefined ? BOTS : o.bots;
   const env = {
@@ -45,6 +46,7 @@ function fake(o) {
       untertitel: (t, info) => { const id = ++idZ; L.untertitel.push({ id, t, info: info || {} }); return id; },
       untertitelWeg: (id) => { L.weg.push(id); },
       clip: (id, an) => { L.halt.push([id, an]); },
+      frei: (id, ausfall) => { L.frei.push([id, ausfall]); },   // BOT-05 B-Nacharbeit W2: der wartende Untertitel wird frei (ausfall: kein Ton kam)
     },
   };
   const k = BS.erzeuge(env);
@@ -417,6 +419,288 @@ const letzte = (L) => L.send[L.send.length - 1];
     a.k.empfange({ t: 'bot.antwort', botId: 'b0', befehl: 'ops.scan', status: 'ok', textId: 'ops.scan.ok', variante: 0, text: 'Scan.' });
     rede(a.k, { botId: 'b0', gid: 'sx', zustand: 'ton', nr: 0, audio: URL_A('7'), zu: 'bot.status' });
     ok(a.L.spiele.length === 2, 'nur bot.status haelt den Statuston zurueck (ein anderer Clip laeuft nicht dagegen an)');
+  }
+
+  // ------------------------------------------------------------------------------------------ 7 BOT-05 B-Nacharbeit
+  section('7a W1: geteilte Textzeile (Gespraechstext geht nie als Befehl hinaus), Art der Zeile sichtbar');
+  const PLAYER_COLORS = ['#56B4E9', '#E69F00', '#CC79A7', '#7FE0C2'];
+  const FNT = { drive: '#FFC66B', sensor: '#A9D6E5', cmd: '#F4EEDC', warn: '#F2C94C', neutral: '#8EA3B5' };
+  const mkDom = () => {
+    const mk = (tag) => { const e = { tag, style: {}, children: [], listeners: {}, textContent: '', attrs: {}, value: '', appendChild(c) { this.children.push(c); }, addEventListener(t, f) { (this.listeners[t] = this.listeners[t] || []).push(f); }, setAttribute(k, v) { this.attrs[k] = v; }, focus() { doc.activeElement = this; }, blur() { doc.activeElement = null; }, remove() {}, getBoundingClientRect: () => ({ left: 0, top: 0, width: 640, height: 360 }) }; return e; };
+    const canvas = mk('canvas');
+    const doc = { createElement: mk, body: mk('body'), head: mk('head'), activeElement: null, getElementById: (id) => (id === 'game' ? canvas : null) };
+    return doc;
+  };
+  const tastenWelt = () => { const tw = { localStorage: { getItem: () => null, setItem() {}, removeItem() {} } }; vm.runInNewContext(fs.readFileSync(path.join(__dirname, '..', 'public', 'js', 'tasten.js'), 'utf8'), { window: tw, console }); return tw.Tasten; };
+  const inhalt = (u) => JSON.parse(fs.readFileSync(path.join(__dirname, '..', u.replace(/^\//, '')), 'utf8'));
+  const SPIELER = [{ id: 'p1', name: 'Kai', color: 0 }, { id: 'p2', name: 'Livia', bot: 1, botId: 'b0', rolle: 'navigation', color: 1 }, { id: 'p3', name: 'Cassius', bot: 1, botId: 'b1', rolle: 'ops', color: 2 }, { id: 'p4', name: 'Titus', bot: 1, botId: 'b2', rolle: 'technik', color: 3 }];
+  // Fenster mit Fake-Hud (o.hud) oder dem echten (o.hud = echtes Hud-Objekt); Net.on faengt den Zuhoerer; o.mikrofon: Fake-MediaRecorder
+  const fenster = async (o) => {
+    o = o || {};
+    const doc = mkDom(), T = tastenWelt(), gesendet = [], hand = {}; let netFn = null;
+    const hud = o.hud || { sprech: { aktiv: false, bots: false, aufnahme: false, verarbeitet: false, zeile: null }, notices: [], titel: [],
+      sprechAn(b) { hud.sprech.aktiv = !!b; }, sprechBereit: () => true, pushNotice(t) { hud.notices.push(t); }, pushCrewFunk(t, wer, farbe, dauer, opt) { hud.titel.push({ t, wer, farbe, dauer, opt }); return hud.titel.length; }, crewFunkHalte() {}, crewFunkWeg() {}, crewFunkFrei() {} };
+    const win = {
+      location: { search: '' }, document: doc, Hud: hud, Tasten: T, Shared_BotMatcher: Matcher, Menue: { TOKENS: { FN: FNT, FARBE: {} }, spieler: (i) => ({ farbe: PLAYER_COLORS[i] }) },
+      Client: { scale: 1, pid: 'p1', state: { phase: 'play', players: o.spieler || SPIELER }, eingabeFrei: () => true, tastenFreigeben() {} },
+      Net: { isOpen: () => true, send: (m) => { gesendet.push(m); return true; }, on: (fn) => { netFn = fn; return () => {}; } },
+      fetch: (u) => Promise.resolve({ ok: true, json: async () => inhalt(u) }),
+      addEventListener(t, f) { (hand[t] = hand[t] || []).push(f); }, removeEventListener() {},
+    };
+    if (o.audio) win.Audio = o.audio;
+    if (o.mikrofon) { win.navigator = { mediaDevices: { getUserMedia: async () => ({ getTracks: () => [{ stop() {} }] }) } }; win.MediaRecorder = class { constructor() { this.mimeType = 'audio/webm'; } start() {} stop() { if (this.onstop) this.onstop(); } static isTypeSupported() { return true; } }; win.Blob = class { constructor(p) { this.size = 5000; } }; }
+    const k = await BS.starte(win);
+    const taste = (code, art) => { let vorbei = 0; const e = { code, shiftKey: false, repeat: false, preventDefault: () => { vorbei++; } }; for (const f of hand[art || 'keydown'] || []) f(e); return vorbei; };
+    const absenden = () => { const form = doc.body.children.at(-1).children[0]; form.listeners.submit[0]({ preventDefault() {} }); };
+    return { win, doc, hud, k, gesendet, taste, absenden, rein: (m) => netFn(m), zeile: () => hud.sprech.zeile, stop: () => BS.stoppe() };
+  };
+  {
+    const r = await fenster();
+    const z = r.zeile();
+    // Ablauf des Reviews: Ö, Text, Klick ins Bild (die Zeile bleibt offen), dann #, Enter
+    r.taste('Semicolon');
+    ok(z.offen && z.kopf === 'GESPRÄCH' && z.kopfArt === 'gespraech', 'Ö: offene Zeile traegt den Kopf GESPRAECH');
+    z.feld.value = 'Schilde Steuerbord'; z.feld.blur();
+    ok(z.offen && z.feld.value === 'Schilde Steuerbord', 'Fokusverlust mit Text: die Zeile bleibt offen (wie bisher)');
+    r.taste('Backslash');
+    ok(z.offen && z.kopf === 'BEFEHL' && z.kopfArt === 'befehl' && z.platzhalter === BS.TEXT.platzhalter, '#: die Zeile wechselt zu BEFEHL (Kopf und Platzhalter)');
+    ok(z.feld.value === '', 'der Gespraechstext ist beim Wechsel der Art geleert (W1)');
+    r.absenden(); await tick(); await tick();
+    ok(r.gesendet.length === 0, 'Enter nach dem Wechsel sendet nichts (vorher: bot.befehl tech.schild): ' + JSON.stringify(r.gesendet));
+    // umgekehrt: Befehlstext, dann Ö
+    r.taste('Backslash'); z.feld.value = 'Schilde Steuerbord'; z.feld.blur();
+    r.taste('Semicolon');
+    ok(z.kopf === 'GESPRÄCH' && z.feld.value === '' && z.offen, 'umgekehrt (# dann Ö): Befehlstext geleert, Kopf GESPRAECH');
+    z.feld.value = 'Wie geht es dir?'; r.absenden(); await tick(); await tick(); await tick();
+    ok(r.gesendet.length === 1 && r.gesendet[0].t === 'bot.gespraech' && r.gesendet[0].text === 'Wie geht es dir?', 'neu getippter Gespraechstext geht als bot.gespraech hinaus');
+    // gleiche Art erneut gedrueckt: Text bleibt
+    r.taste('Semicolon'); z.feld.value = 'halber Satz'; z.feld.blur(); r.taste('Semicolon');
+    ok(z.offen && z.feld.value === 'halber Satz' && z.kopf === 'GESPRÄCH', 'dieselbe Taste noch einmal: der Text bleibt (kein Wechsel der Art)');
+    z.schliessen();
+    ok(r.gesendet.every((m) => m.t !== 'bot.befehl'), 'in diesem ganzen Ablauf geht kein Gespraechstext als bot.befehl hinaus');
+    r.stop();
+  }
+
+  section('7b K3: Kreuz-Loslassen beendet nur die Aufnahme der eigenen Art');
+  {
+    const { k, L } = fake({ text: 'Titus, wie ist der Zustand?' });
+    k.tasteRunter(); await tick();
+    ok(k.gespraechSprechenRunter() === false, 'Vorbedingung: Befehlsaufnahme laeuft, die Gespraechstaste startet keine zweite');
+    ok((await k.tasteHoch('gespraech')) === false && L.stt === 0, 'Loslassen der Gespraechstaste beendet die Befehlsaufnahme NICHT');
+    const ok2 = await k.tasteHoch('befehl');
+    ok(L.stt === 1 && ok2 !== undefined, 'Loslassen der eigenen Taste beendet sie (STT laeuft)');
+    const g = fake({ text: 'Titus, wie ist der Zustand?' });
+    g.k.gespraechSprechenRunter(); await tick();
+    ok((await g.k.tasteHoch('befehl')) === false && g.L.stt === 0, 'umgekehrt: Loslassen der Befehlstaste beendet die Gespraechsaufnahme nicht');
+    ok((await g.k.gespraechSprechenHoch()) === true && g.L.stt === 1 && g.L.send.at(-1).t === 'bot.gespraech', 'die Gespraechstaste beendet sie und sendet bot.gespraech');
+    const e = fake({ text: 'Hallo' });
+    e.k.tasteRunter(); await tick(); await e.k.tasteHoch(); ok(e.L.stt === 1, 'ohne Art (Auto-Stop nach 60 s) endet die laufende Aufnahme wie bisher');
+    // im Browser-Anschluss: der keyup-Zuhoerer reicht die Art weiter
+    const r = await fenster({ mikrofon: true });
+    r.taste('Backquote'); await tick(); await tick(); await tick();
+    ok(r.hud.sprech.aufnahme === true, 'Browser: ^ gedrueckt, Aufnahme laeuft');
+    r.taste('Quote'); r.taste('Quote', 'keyup'); await tick(); await tick();
+    ok(r.hud.sprech.aufnahme === true, 'Browser: Ä gedrueckt und losgelassen waehrend ^ gehalten wird: die Aufnahme laeuft weiter');
+    r.taste('Backquote', 'keyup'); await tick(); await tick();
+    ok(r.hud.sprech.aufnahme === false, 'Browser: ^ losgelassen beendet die Aufnahme');
+    r.stop();
+  }
+
+  section('7c W2: Untertitel laufen mit dem Ton mit (echtes hud.js, Fake-Zeit, Fake-Audio)');
+  const hudWelt = (zeit) => {
+    const calls = [];
+    const R = {
+      PAL: new Proxy({}, { get: (t, k) => '#' + String(k) }),
+      measure: (t) => String(t == null ? '' : t).length * 6,
+      wrap(str, maxW) { const out = []; let line = ''; for (const w of String(str).split(' ')) { const test = line ? line + ' ' + w : w; if (test.length * 6 > maxW && line) { out.push(line); line = w; } else line = test; } if (line) out.push(line); return out; },
+      backdrop: (c, x, y, w, h, a) => calls.push({ n: 'backdrop', x, y, w, h, a }),
+      art: () => true,
+      text: (c, s, x, y, o) => calls.push({ n: 'text', s, x, y, o }),
+    };
+    const ctx = { globalAlpha: 1, fillStyle: '', strokeStyle: '', lineWidth: 1, save() {}, restore() {}, beginPath() {}, rect() {}, clip() {}, fillRect(x, y, w, h) { calls.push({ n: 'fillRect', x, y, w, h, c: this.fillStyle }); }, strokeRect() {} };
+    const w = { Render: R, Shared_Maps: {}, Shared_Config: {}, Shared_Protocol: {}, Net: { guard: (nm, f) => f(), on() {} }, performance: { now: () => zeit.ms }, Menue: { TOKENS: { FN: FNT } } };
+    w.window = w; vm.createContext(w);
+    vm.runInContext(fs.readFileSync(path.join(__dirname, '..', 'public', 'js', 'hud.js'), 'utf8'), w, { filename: 'hud.js' });
+    const ansicht = { time: 1, self: { zone: 'ship' }, me: {}, state: { phase: 'play' } };
+    return { Hud: w.Hud, calls, ctx, texte: () => { calls.length = 0; w.Hud.zeichneSprechspalte(ctx, ansicht); return calls.filter((c) => c.n === 'text').map((c) => c.s); } };
+  };
+  const FakeAudio = () => {
+    const reg = [];
+    class A { constructor() { this.l = {}; this.pre = ''; reg.push(this); }
+      addEventListener(t, f, o) { (this.l[t] = this.l[t] || []).push({ f, once: !!(o && o.once) }); }
+      emit(t) { for (const x of (this.l[t] || []).slice()) { if (x.once) this.l[t] = this.l[t].filter((y) => y !== x); x.f(); } }
+      set preload(v) { this.pre = v; }
+      set src(v) { this.url = v; Promise.resolve().then(() => this.emit('canplay')); }
+      play() { return Promise.resolve(); }
+      pause() { this.emit('pause'); } }
+    return { Klasse: A, reg };
+  };
+  const SATZ = ['Kurs 270 Grad, Captain.', 'Schilde bei 100 Prozent.', 'Alles ruhig an Bord.'];
+  {
+    const zeit = { ms: 1000 }, T = (s) => { zeit.ms = 1000 + Math.round(s * 1000); };
+    const W = hudWelt(zeit), fa = FakeAudio();
+    W.Hud.sprech.bots = true;
+    const r = await fenster({ hud: W.Hud, audio: fa.Klasse });
+    T(0);
+    await r.k.sendeGespraechText('Cassius, wie ist die Lage?');
+    ok(W.texte().includes('Cassius, wie ist die Lage?'), 'die eigene Zeile steht als DU da');
+    r.rein({ t: 'bot.rede', botId: 'b1', gid: 'g1', zustand: 'denkt' });
+    ok(W.texte().includes('denkt nach …'), 'denkt nach … steht');
+    // K2 (Client): denkt nach bleibt, solange die Anfrage wartet oder laeuft: weit ueber 35 s (Warte- plus Laufzeitlimit des Servers 20 + 30 s)
+    T(40); ok(W.texte().includes('denkt nach …'), 'K2: denkt nach steht nach 40 s noch (nicht mehr fest 35 s)');
+    T(2.0);
+    SATZ.forEach((t, i) => r.rein({ t: 'bot.rede', botId: 'b1', gid: 'g1', zustand: 'satz', nr: i, text: t }));
+    ok(!W.texte().includes('denkt nach …') && SATZ.every((t) => W.texte().includes(t)), 'die drei Saetze stehen, denkt nach ist weg');
+    // Toene: je 3,5 s ab 2,6 s
+    T(2.6);
+    SATZ.forEach((t, i) => r.rein({ t: 'bot.rede', botId: 'b1', gid: 'g1', zustand: 'ton', nr: i, audio: '/api/bot-rede/' + String(i + 1).repeat(32) + '.wav' }));
+    r.rein({ t: 'bot.rede', botId: 'b1', gid: 'g1', zustand: 'ende' });
+    await tick(); await tick(); await tick();
+    ok(fa.reg.length === 1, 'Ton 0 spielt (' + fa.reg.length + ' Audio-Element)');
+    const sichtbar = () => SATZ.map((t) => (W.texte().includes(t) ? 1 : 0)).join('');
+    T(5.0); ok(sichtbar() === '111', 'Ton 0 laeuft (2,6 bis 6,1 s): alle drei Saetze stehen, auch 2 und 3 obwohl ihr Ton noch nicht laeuft (' + sichtbar() + ')');
+    T(6.1); fa.reg[0].emit('ended'); await tick(); await tick();
+    ok(fa.reg.length === 2, 'Ton 1 startet nach dem Ende von Ton 0');
+    T(6.4); ok(sichtbar() === '111', '0,3 s nach Ton 0: Satz 0 steht noch (Nachlauf 0,5 s)');
+    T(6.7); ok(sichtbar() === '011', '0,6 s nach Ton 0: Satz 0 ist weg, Satz 1 (spielt) und Satz 2 (wartet) stehen (' + sichtbar() + ')');
+    T(9.0); ok(sichtbar() === '011', 'Ton 1 laeuft (6,1 bis 9,6 s): Satz 1 steht (nach 4 s Grunddauer waere er weg), Satz 2 auch (' + sichtbar() + ')');
+    T(9.6); fa.reg[1].emit('ended'); await tick(); await tick();
+    ok(fa.reg.length === 3, 'Ton 2 startet');
+    T(10.3); ok(sichtbar() === '001', 'Satz 1 nach seinem Ton (0,7 s) weg, Satz 2 steht (' + sichtbar() + ')');
+    T(12.9); ok(sichtbar() === '001', 'Ton 2 laeuft (9,6 bis 13,1 s): Satz 2 steht');
+    T(13.1); fa.reg[2].emit('ended'); await tick(); await tick();
+    T(13.4); ok(sichtbar() === '001', '0,3 s nach Ton 2: Satz 2 steht noch');
+    T(13.7); ok(sichtbar() === '000', '0,6 s nach Ton 2: alles weg (' + sichtbar() + ')');
+    // Farben (Designer): Name und Balken in Spielerfarbe, DU eigene Farbe, Satztext cmd
+    const E = W.Hud.sprech.eintraege;
+    ok(E.length === 0, 'Spalte leer nach dem Ablauf');
+    r.stop();
+  }
+  {
+    // kein Ton (kein audio): die normale Dauer gilt ab dem Ausfall, nicht ab dem Eintreffen des Satzes
+    const zeit = { ms: 1000 }, T = (s) => { zeit.ms = 1000 + Math.round(s * 1000); };
+    const W = hudWelt(zeit), fa = FakeAudio();
+    W.Hud.sprech.bots = true;
+    const r = await fenster({ hud: W.Hud, audio: fa.Klasse });
+    T(0);
+    r.rein({ t: 'bot.rede', botId: 'b1', gid: 'g1', zustand: 'denkt' });
+    r.rein({ t: 'bot.rede', botId: 'b1', gid: 'g1', zustand: 'satz', nr: 0, text: SATZ[0] });
+    r.rein({ t: 'bot.rede', botId: 'b1', gid: 'g1', zustand: 'satz', nr: 1, text: SATZ[1] });
+    const d = W.Hud.crewFunkDauer(SATZ[0]), d1 = W.Hud.crewFunkDauer(SATZ[1]);
+    T(20);   // lange nach dem Eintreffen: die Sicherung haelt noch, der Ton ist nicht ausgefallen (Server noch bei der Sprachausgabe)
+    ok(W.texte().includes(SATZ[0]) && W.texte().includes(SATZ[1]), 'Ton noch ausstehend: die Saetze stehen weiter (20 s)');
+    r.rein({ t: 'bot.rede', botId: 'b1', gid: 'g1', zustand: 'ton', nr: 0 });   // Voicebox ausgefallen: ton ohne audio
+    r.rein({ t: 'bot.rede', botId: 'b1', gid: 'g1', zustand: 'ton', nr: 1 });
+    r.rein({ t: 'bot.rede', botId: 'b1', gid: 'g1', zustand: 'ende' });
+    await tick();
+    T(20 + d - 0.3); ok(W.texte().includes(SATZ[0]), 'ton ohne audio: Satz 0 steht noch die normale Dauer ab dem Ausfall (' + d.toFixed(2) + ' s)');
+    T(20 + d + 0.2); ok(!W.texte().includes(SATZ[0]), 'danach ist er weg');
+    T(20 + d1 + 0.2); ok(!W.texte().includes(SATZ[1]), 'Satz 1 ebenso');
+    ok(fa.reg.length === 0, 'kein Ton gespielt');
+    r.stop();
+  }
+
+  {
+    // der Ausfall wirkt sofort, auch wenn der Strom noch offen ist (kein ende): ton ohne audio gibt nur diesen Satz frei
+    const { k, L } = fake();
+    rede(k, { gid: gid(1), zustand: 'denkt' });
+    rede(k, { gid: gid(1), zustand: 'satz', nr: 0, text: 'Satz null, Captain.' }); rede(k, { gid: gid(1), zustand: 'satz', nr: 1, text: 'Satz eins, Captain.' });
+    ok(L.untertitel.filter((u) => u.info.halten === true).length === 2 && L.frei.length === 0, 'Saetze warten auf ihren Ton (halten), noch nichts frei');
+    rede(k, { gid: gid(1), zustand: 'ton', nr: 0 });
+    ok(eq(L.frei, [[L.untertitel.find((u) => u.t === 'Satz null, Captain.').id, true]]), 'ton ohne audio (Strom noch offen): genau dieser Satz wird sofort mit Ausfall frei');
+    // Ende des Stroms: ein Satz, zu dem nie ein Ton kam, wird dabei frei (Ausfall)
+    rede(k, { gid: gid(1), zustand: 'ton', nr: 2, audio: URL_A('2') });   // Ton 2 kommt, Ton 1 nie
+    rede(k, { gid: gid(1), zustand: 'ende' });
+    const n1 = L.frei.length;
+    L.spiele[0].cb.start(); L.spiele[0].cb.ende();
+    ok(L.frei.length > n1 && L.frei.some((f) => f[0] === L.untertitel.find((u) => u.t === 'Satz eins, Captain.').id && f[1] === true), 'Ende des Stroms: der Satz ohne jeden Ton wird mit Ausfall frei (nicht erst nach 60 s)');
+  }
+
+  section('7d W3 (Client): Status-Ton, der Antworttext wartet auf den Ton; eine neue Runde verwirft die alte');
+  {
+    const antw = (botId, text, runde) => Object.assign({ t: 'bot.antwort', botId, befehl: 'bot.status', status: 'ok', textId: 'bot.status.ok', variante: 0, text }, runde ? { tonRunde: runde } : {});
+    const stat = (botId, gid, runde, audio) => Object.assign({ botId, gid, zustand: 'ton', nr: 0, zu: 'bot.status', runde }, audio ? { audio } : {});
+    // Antworttext haelt bis zum Ton
+    {
+      const { k, L } = fake({ spieleErgebnis: (urls) => urls[0] });
+      k.empfange(antw('b0', 'Kurs 270, Captain.', 'r1'));
+      ok(L.untertitel[0].info.halten === true, 'bot.antwort mit tonRunde: der Untertitel wartet auf den Statuston (halten)');
+      rede(k, stat('b0', 's1', 'r1', URL_A('a')));
+      rede(k, { botId: 'b0', gid: 's1', zustand: 'ende', zu: 'bot.status', runde: 'r1' });
+      L.spiele[0].cb.start(); L.spiele[0].cb.ende();   // Bestaetigungs-Clip
+      ok(L.frei.length === 0, 'Clip-Ende gibt den Untertitel NICHT frei (der Statuston kommt noch)');
+      L.spiele[1].cb.start(); L.spiele[1].cb.ende();   // Statuston
+      ok(eq(L.frei, [[1, false]]), 'nach dem Statuston: frei mit Nachlauf (ausfall false)');
+    }
+    // ohne tonRunde (Server ohne Voicebox): nichts wartet
+    {
+      const { k, L } = fake({ spieleErgebnis: (urls) => urls[0] });
+      k.empfange(antw('b0', 'Kurs 270, Captain.'));
+      ok(L.untertitel[0].info.halten === false && L.frei.length === 0, 'ohne tonRunde: der Untertitel wartet auf nichts (halten false)');
+    }
+    // ton ohne audio: ausgefallen
+    {
+      const { k, L } = fake({ spieleErgebnis: (urls) => urls[0] });
+      k.empfange(antw('b0', 'Kurs 270, Captain.', 'r1'));
+      rede(k, stat('b0', 's1', 'r1', null));
+      L.spiele[0].cb.start(); L.spiele[0].cb.ende();
+      ok(eq(L.frei, [[1, true]]), 'Statuston ohne audio: frei mit Ausfall (normale Dauer ab jetzt)');
+    }
+    // neue Runde verwirft die alte: Strom und wartende Untertitel
+    {
+      const { k, L } = fake({ spieleErgebnis: (urls) => urls[0] });
+      k.empfange(antw('b0', 'Erste Runde, Bot 0.', 'r1')); k.empfange(antw('b1', 'Erste Runde, Bot 1.', 'r1'));
+      rede(k, stat('b0', 's1', 'r1', URL_A('a')));   // Ton von Bot 0 liegt schon da, Bot 1 fehlt noch
+      ok(L.spiele.length === 2, 'Vorbedingung: zwei Bestaetigungs-Clips, der Statuston wartet');
+      k.empfange(antw('b0', 'Zweite Runde, Bot 0.', 'r2'));
+      ok(L.frei.some((f) => f[0] === 1 && f[1] === true) && L.frei.some((f) => f[0] === 2 && f[1] === true), 'neue Runde: die Untertitel der alten (mit und ohne Strom) werden freigegeben (ausfall)');
+      rede(k, stat('b0', 's9', 'r2', URL_A('7')));
+      for (const e of L.spiele.slice(0, 3)) { e.cb.start(); e.cb.ende(); }
+      const toene = L.spiele.filter((e) => /bot-rede/.test(e.urls[0])).map((e) => e.urls[0]);
+      ok(eq(toene, [URL_A('7')]), 'abgespielt wird nur der Ton der neuen Runde, nie der der alten (' + toene.length + ' Ton)');
+      // Ausfallmeldung des Servers fuer den Rest der Runde
+      const m = fake({ spieleErgebnis: (urls) => urls[0] });
+      m.k.empfange(antw('b0', 'A.', 'r3')); m.k.empfange(antw('b1', 'B.', 'r3')); m.k.empfange(antw('b2', 'C.', 'r3'));
+      rede(m.k, stat('b0', 's1', 'r3', URL_A('1')));
+      rede(m.k, { botId: 'b1', gid: 's2', zustand: 'ausfall', zu: 'bot.status', runde: 'r3' });
+      ok(m.L.frei.length === 2 && m.L.frei.every((f) => f[1] === true) && eq(m.L.frei.map((f) => f[0]).sort(), [2, 3]), 'ausfall des Servers: die Untertitel der Bots ohne Ton (b1, b2) werden frei, der von b0 wartet auf seinen Ton');
+    }
+  }
+
+  section('7e Designer: Farben und Untertitel-Anzeige im HUD-Adapter');
+  {
+    const zeit = { ms: 1000 };
+    const W = hudWelt(zeit);
+    W.Hud.sprech.bots = true;
+    const r = await fenster({ hud: W.Hud, audio: FakeAudio().Klasse });
+    await r.k.sendeGespraechText('Cassius, Lage?');
+    r.rein({ t: 'bot.rede', botId: 'b1', gid: 'g1', zustand: 'denkt' });
+    let E = W.Hud.sprech.eintraege;
+    const du = E.find((e) => e.who === 'DU'), denkt = E.find((e) => e.text === 'denkt nach …');
+    ok(du && du.farbe === PLAYER_COLORS[0], '"DU" in der eigenen Spielerfarbe (' + (du && du.farbe) + ')');
+    ok(denkt && denkt.who === 'CASSIUS' && denkt.farbe === PLAYER_COLORS[2] && denkt.textFarbe === FNT.neutral, '"denkt nach …": Name in der Spielerfarbe des Bot-Spielers (Cassius, Farbe 3), Text in FN.neutral');
+    r.rein({ t: 'bot.rede', botId: 'b1', gid: 'g1', zustand: 'satz', nr: 0, text: 'Kurs 270 Grad, Captain.' });
+    E = W.Hud.sprech.eintraege;
+    const satz = E.find((e) => e.text === 'Kurs 270 Grad, Captain.');
+    ok(satz && satz.farbe === PLAYER_COLORS[2] && !satz.textFarbe, 'Satz: Name und Balken in der Spielerfarbe, Text bleibt FN.cmd (kein textFarbe)');
+    r.rein({ t: 'bot.rede', botId: 'b1', gid: 'g1', zustand: 'ende' });
+    // BORD: nicht erreichbar -> Sprecher BORD in FN.neutral
+    await r.k.sendeGespraechText('Livia, Lage?');
+    r.rein({ t: 'bot.rede', botId: 'b0', gid: 'g2', zustand: 'denkt' });
+    r.rein({ t: 'bot.rede', botId: 'b0', gid: 'g2', zustand: 'nicht_erreichbar', grund: 'zeit' });
+    const bord = W.Hud.sprech.eintraege.find((e) => /nicht erreichbar/.test(e.text));
+    ok(bord && bord.who === 'BORD' && bord.farbe === FNT.neutral, 'Meldung "nicht erreichbar": Sprecher BORD in FN.neutral (' + (bord && bord.who + ' ' + bord.farbe) + ')');
+    r.stop();
+  }
+
+  section('7f Startnotiz im Browser-Anschluss: mit Bots mit Gespraech, ohne Bots nur der Befehl, spaeter nachgereicht');
+  {
+    const ohne = await fenster({ spieler: [{ id: 'p1', name: 'Kai', color: 0 }] });
+    ok(ohne.hud.notices.includes('Befehl ^ halten, # tippen'), 'ohne Bots: "Befehl ^ halten, # tippen" (' + JSON.stringify(ohne.hud.notices) + ')');
+    ohne.stop();
+    const mit = await fenster();
+    ok(mit.hud.notices.includes('Befehl ^ halten, # tippen · Gespräch Ä halten, Ö tippen'), 'mit Bots: Befehl und Gespraech (' + JSON.stringify(mit.hud.notices) + ')');
+    mit.stop();
   }
 
   console.log(`\n${n - fails}/${n} Pruefungen ok` + (fails ? `, ${fails} FEHLER` : ''));

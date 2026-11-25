@@ -1,16 +1,19 @@
 'use strict';
 // BOT-05 B1: Ablage der Sprachclips des Bot-Gespraechs im Speicher (nie auf der Platte) und ihre Auslieferung.
 //   GET /api/bot-rede/<id>.wav   id = 32 Hex-Zeichen (crypto.randomBytes, nicht erratbar), Gueltigkeit 3 Minuten, hoechstens 30 Dateien und 20 MB; danach 404
-//   ablegen(buf)  -> { id, url }       route(req, res) -> true, wenn die Anfrage dieser Route gehoert (Einhaengepunkt in server/index.js)
+//   ablegen(buf, art?)  -> { id, url }       art 'status' (bot.status-Stimme, B-Nacharbeit W3): eigener kleiner Topf, hoechstens STATUS_MAX Clips; ist er voll, faellt der aelteste Statusclip raus. Bei Platzmangel
+//   (Dateien, Bytes) gehen immer zuerst die Statusclips, erst dann die aeltesten Gespraechsclips: Statusstimmen verdraengen nie ein Gespraechsaudio.
+//   route(req, res) -> true, wenn die Anfrage dieser Route gehoert (Einhaengepunkt in server/index.js)
 // Prozessweit (die ids sind zufaellig, kein Zustand einer Partie). Nur lesen, keine Auflistung, kein Verzeichnis.
 const crypto = require('crypto');
 
 const GUELTIG_MS = 3 * 60 * 1000;
 const MAX_DATEIEN = 30;
 const MAX_BYTES = 20 * 1024 * 1024;
+const STATUS_MAX = 6;
 const PFAD = /^\/api\/bot-rede\/([0-9a-f]{32})\.wav$/;
 
-const speicher = new Map();   // id -> { buf, bis }   (Einfuegereihenfolge = Alter)
+const speicher = new Map();   // id -> { buf, bis, status }   (Einfuegereihenfolge = Alter)
 let bytes = 0;
 let jetzt = () => Date.now();
 
@@ -18,14 +21,20 @@ function aufraeumen() {
   const t = jetzt();
   for (const [id, e] of speicher) if (e.bis <= t) { bytes -= e.buf.length; speicher.delete(id); }
 }
-function ablegen(buf) {
+const entfernen = (id) => { const e = speicher.get(id); if (e) { bytes -= e.buf.length; speicher.delete(id); } };
+// aeltester Eintrag der Art (status: true/false), ohne die neue Datei
+const aeltester = (status, ausser) => { for (const [id, e] of speicher) if (id !== ausser && !!e.status === status) return id; return null; };
+function ablegen(buf, art) {
   aufraeumen();
   const id = crypto.randomBytes(16).toString('hex');
-  speicher.set(id, { buf, bis: jetzt() + GUELTIG_MS });
+  const status = art === 'status';
+  speicher.set(id, { buf, bis: jetzt() + GUELTIG_MS, status });
   bytes += buf.length;
-  while (speicher.size > MAX_DATEIEN || (bytes > MAX_BYTES && speicher.size > 1)) {   // die aeltesten raus (die neue Datei bleibt immer)
-    const aelteste = speicher.keys().next().value;
-    bytes -= speicher.get(aelteste).buf.length; speicher.delete(aelteste);
+  if (status) { let n = 0; for (const e of speicher.values()) if (e.status) n++; while (n-- > STATUS_MAX) entfernen(aeltester(true, id)); }   // eigener Topf
+  while (speicher.size > MAX_DATEIEN || (bytes > MAX_BYTES && speicher.size > 1)) {   // Platzmangel: zuerst die aeltesten Statusclips, dann die aeltesten Gespraechsclips (die neue Datei bleibt immer)
+    const raus = aeltester(true, id) || aeltester(false, id);
+    if (!raus) break;
+    entfernen(raus);
   }
   return { id, url: `/api/bot-rede/${id}.wav` };
 }
@@ -51,4 +60,4 @@ function route(req, res) {
 // nur fuer Tests: Uhr ersetzen, Zustand leeren
 const test = { uhr(f) { jetzt = f || (() => Date.now()); }, leeren() { speicher.clear(); bytes = 0; }, stand: () => ({ n: speicher.size, bytes }) };
 
-module.exports = { ablegen, holen, route, test, GUELTIG_MS, MAX_DATEIEN, MAX_BYTES };
+module.exports = { ablegen, holen, route, test, GUELTIG_MS, MAX_DATEIEN, MAX_BYTES, STATUS_MAX };

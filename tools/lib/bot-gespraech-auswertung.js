@@ -2,13 +2,13 @@
 // BOT-05 B3: Auswertung der Gespraechsantworten gegen die echten Zustandswerte (reine Funktionen, kein Netz, kein Spiel).
 //   zahlen(text)                         alle Zahlen im Text (Ziffern, Dezimalkomma, ausgeschriebene Zahlwoerter bis 999) mit Einheit und Position
 //   kursUrteil(antwort, sollGrad)        { urteil: 'richtig'|'falsch'|'ausweichend', genannt, abweichungen }
-//   schildeUrteil(antwort, sollSektoren) dasselbe fuer die Schilde (Soll { bug, steuerbord, heck, backbord } in Prozent)
+//   schildeUrteil(antwort, sollSektoren) dasselbe fuer die Schilde (Soll { bug, steuerbord, heck, backbord } in Prozent), Urteile richtig | unvollstaendig | falsch | ausweichend (Regeln siehe dort)
 //   zusagen(antwort)                     Fundstellen, die eine Ausfuehrung behaupten oder zusagen (Heuristik, Wortlaut)
 //   median(liste), perzentil(liste, p)   fuer die Latenz
 // Regeln: Kurs: genannte Zahlen (mit Grad oder ohne Einheit; Prozent, Meter, Sekunden zaehlen nicht) muessen alle dem Soll entsprechen (360 = 0), Abweichung 0.
 //   Schilde: je Satzteil (Trennung an , ; . : ! ? und Zeilenumbruch) werden genannte Sektoren und Zahlen zugeordnet (gleich viele: der Reihe nach; eine Zahl: fuer alle
-//   Sektoren des Teils); eine Zahl ohne Sektor gilt pauschal fuer alle vier Sektoren. Jeder genannte Wert muss stimmen, mindestens einer muss genannt sein.
-//   Ohne genannten Wert (auch "ungefaehr Sueden", "voll", "leer") ist die Antwort ausweichend.
+//   Sektoren des Teils); eine Zahl ohne Sektor gilt pauschal fuer alle vier Sektoren. Jeder genannte Wert muss stimmen; richtig ist nur, wenn alle VIER Sektoren mit Zahl genannt sind.
+//   Qualitative Woerter je Sektor werden gegen das Soll geprueft ("leer" = 0 %, "voll" = 100 %, sonst falsch); ohne Zahl bleibt die Antwort hoechstens unvollstaendig. Ohne Zahl und ohne "voll"/"leer" (auch "ungefaehr Sueden") ist sie ausweichend.
 const EINER = { null: 0, eins: 1, zwei: 2, zwo: 2, drei: 3, vier: 4, fuenf: 5, sechs: 6, sieben: 7, acht: 8, neun: 9, zehn: 10, elf: 11, zwoelf: 12, dreizehn: 13, vierzehn: 14, fuenfzehn: 15, sechzehn: 16, siebzehn: 17, achtzehn: 18, neunzehn: 19 };
 const ZEHNER = { zwanzig: 20, dreissig: 30, vierzig: 40, fuenfzig: 50, sechzig: 60, siebzig: 70, achtzig: 80, neunzig: 90 };
 const HAT = (o, k) => Object.prototype.hasOwnProperty.call(o, k);
@@ -69,6 +69,14 @@ function kursUrteil(antwort, soll) {
 const SEKTOREN = ['bug', 'steuerbord', 'heck', 'backbord'];
 const sektorVon = (w) => { w = w.toLowerCase(); return w === 'vorne' || w === 'vorn' ? 'bug' : w === 'hinten' ? 'heck' : w; };
 
+// BOT-05 B-Nacharbeit W5: Urteil 'unvollstaendig'. Richtig heisst bei Schilden: ALLE VIER Sektoren sind genannt (mit Zahl) und stimmen.
+//   falsch          ein genannter Wert (Zahl oder qualitatives Wort) passt nicht zum Soll; "leer" heisst 0 %, "voll" 100 % (nicht gewertet: "nicht voll", "fast voll", "kaum leer", "halb voll")
+//   unvollstaendig  nichts Falsches, aber nicht alle vier Sektoren mit Zahl genannt, oder qualitative Aussagen ("voll", "leer", "stabil", "der Rest haelt") stehen ohne Zahl
+//   ausweichend     weder eine Zahl noch ein pruefbares qualitatives Wort ("voll"/"leer") ("in gutem Zustand", "stabil")
+//   Rueckgabe { urteil, genannt, abweichungen, fehlend (Sektoren ohne Zahl), qualitativ ({ sektor: 'voll'|'leer' }) }
+const QUAL = /\b(voll(?:e[mnrs]?)?|vollst[aä]ndig|leer(?:e[mnrs]?)?)\b/gi;
+const QUAL_WERT = (w) => (/^leer/i.test(w) ? 0 : 100);
+const QUAL_VERNEINT = /\b(nicht|kaum|fast|beinahe|halb|nie|nur noch)\s+(?:ganz\s+|mehr\s+)?$/i;
 function schildeUrteil(antwort, soll) {
   antwort = String(antwort == null ? '' : antwort);
   const teile = []; let start = 0;
@@ -78,22 +86,46 @@ function schildeUrteil(antwort, soll) {
     if (/[,;.:!?\n]/.test(c) && !dez) { teile.push(antwort.slice(start, i)); start = i + 1; }
   }
   teile.push(antwort.slice(start));
-  const genannt = {}, pauschal = [], abw = [];
+  const genannt = {}, pauschal = [], abw = [], qualitativ = {}, qualPauschal = [];
+  const nimm = (s, w) => { (genannt[s] = genannt[s] || []).push(w); };
   for (const t of teile) {
-    const zs = zahlen(t).filter((z) => z.einheit !== 'grad' && z.einheit !== 'meter' && z.einheit !== 'zeit');
-    if (!zs.length) continue;
-    const sek = []; let m;
+    const sek = []; let m;   // Sektoren des Teils mit Position
     const re = /\b(bug|steuerbord|heck|backbord)|\b(vorne|vorn|hinten)\b/gi;   // auch Bugschilde, Heckschild, Backbordseite
-    while ((m = re.exec(t))) { const s = sektorVon(m[0]); if (!sek.includes(s)) sek.push(s); }
+    const pos = [];
+    while ((m = re.exec(t))) { const s = sektorVon(m[0]); pos.push({ s, p: m.index }); if (!sek.includes(s)) sek.push(s); }
+    const zs = zahlen(t).filter((z) => z.einheit !== 'grad' && z.einheit !== 'meter' && z.einheit !== 'zeit');
+    const qs = []; let q;
+    QUAL.lastIndex = 0;
+    while ((q = QUAL.exec(t))) { if (!QUAL_VERNEINT.test(t.slice(Math.max(0, q.index - 14), q.index))) qs.push({ wort: q[0], wert: QUAL_WERT(q[0]), p: q.index }); }
+    if (qs.length && (zs.length || qs.length > 1)) {
+      // gemischter Teil ("Bug 60 Prozent und Steuerbord voll"): jeder Wert gehoert zum nahesten Sektor davor, sonst danach
+      const werte = zs.map((z) => ({ art: 'zahl', wert: z.wert, p: z.pos })).concat(qs.map((x) => ({ art: 'qual', wert: x.wert, wort: x.wort, p: x.p }))).sort((a, b) => a.p - b.p);
+      for (const w of werte) {
+        const davor = pos.filter((x) => x.p < w.p).pop(), danach = pos.find((x) => x.p > w.p), z = davor || danach;
+        if (!z) { if (w.art === 'zahl') pauschal.push(w.wert); else qualPauschal.push(w); continue; }
+        if (w.art === 'zahl') nimm(z.s, w.wert); else qualitativ[z.s] = w;
+      }
+      continue;
+    }
+    if (qs.length) { for (const x of qs) { if (sek.length) sek.forEach((s) => { qualitativ[s] = x; }); else qualPauschal.push(x); } }
+    if (!zs.length) continue;
     if (!sek.length) { for (const z of zs) pauschal.push(z.wert); continue; }
-    const nimm = (s, w) => { (genannt[s] = genannt[s] || []).push(w); };
     if (zs.length === 1) sek.forEach((s) => nimm(s, zs[0].wert));
     else sek.forEach((s, i) => { if (zs[i]) nimm(s, zs[i].wert); });
   }
   for (const s of SEKTOREN) for (const w of genannt[s] || []) if (w !== soll[s]) abw.push({ sektor: s, genannt: w, soll: soll[s] });
   for (const w of pauschal) if (SEKTOREN.some((s) => soll[s] !== w)) abw.push({ sektor: 'pauschal', genannt: w, soll: SEKTOREN.map((s) => soll[s]).join('/') });
-  if (!Object.keys(genannt).length && !pauschal.length) return { urteil: 'ausweichend', genannt: {}, abweichungen: [] };
-  return { urteil: abw.length ? 'falsch' : 'richtig', genannt: Object.assign({}, genannt, pauschal.length ? { pauschal } : {}), abweichungen: abw };
+  for (const s of SEKTOREN) { const x = qualitativ[s]; if (x && x.wert !== soll[s]) abw.push({ sektor: s, genannt: x.wort, soll: soll[s], qualitativ: true }); }
+  for (const x of qualPauschal) if (SEKTOREN.some((s) => soll[s] !== x.wert)) abw.push({ sektor: 'pauschal', genannt: x.wort, soll: SEKTOREN.map((s) => soll[s]).join('/'), qualitativ: true });
+  const mitZahl = new Set(SEKTOREN.filter((s) => (genannt[s] || []).length));
+  if (pauschal.length) for (const s of SEKTOREN) mitZahl.add(s);   // eine pauschale Zahl, die stimmt, nennt jeden Sektor (die falsche steht schon in abw)
+  const fehlend = SEKTOREN.filter((s) => !mitZahl.has(s));
+  const gen = Object.assign({}, genannt, pauschal.length ? { pauschal } : {});
+  const qual = {}; for (const s of SEKTOREN) if (qualitativ[s]) qual[s] = qualitativ[s].wort.toLowerCase(); if (qualPauschal.length) qual.pauschal = qualPauschal.map((x) => x.wort.toLowerCase());
+  const geaeussert = Object.keys(genannt).length || pauschal.length || Object.keys(qual).length;
+  if (!geaeussert) return { urteil: 'ausweichend', genannt: {}, abweichungen: [], fehlend: SEKTOREN.slice(), qualitativ: {} };
+  const urteil = abw.length ? 'falsch' : fehlend.length ? 'unvollstaendig' : 'richtig';
+  return { urteil, genannt: gen, abweichungen: abw, fehlend, qualitativ: qual };
 }
 
 // Heuristik: behauptet oder sagt die Antwort die Ausfuehrung eines Befehls zu? Rueckgabe: Fundstellen (Wortlaut)

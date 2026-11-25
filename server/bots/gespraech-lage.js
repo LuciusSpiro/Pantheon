@@ -5,7 +5,9 @@
 //   zustandText(game, bot, agent) / absichtText(game, bot, agent)   Zustand und Absicht des Bots als Text
 // Kursumrechnung: Shared_Physics.kompassGrad(ship.angle) wie die Anzeige am Pult. Schiffswinkel (rad): 0 = +x = Osten, y nach unten, im Uhrzeigersinn positiv;
 //   Kompass = Winkel in Grad + 90, auf 0..359 gerundet und normiert: 0 = Norden (oben), 90 = Osten, 180 = Sueden, 270 = Westen.
-// Schilde: Sektoren 0 Bug, 1 Steuerbord, 2 Heck, 3 Backbord (wie status.js SEKTOR); Prozent = aktuelle Punkte / Kappe des Sektors (ship.shields.cap, sonst 4 wie space.js).
+// Schilde: Sektoren 0 Bug, 1 Steuerbord, 2 Heck, 3 Backbord (wie status.js SEKTOR); Prozent = aktuelle Punkte / volle Stärke (CONFIG.shields.maxPerSector = Kappe eines INTAKTEN Emitters, wie die Anzeige am Pult),
+//   nicht die gekürzte Kappe des Sektors (B-Nacharbeit W6/K1): ein beschädigter Emitter (Kappe halb) trägt den Zusatz „(Emitter beschädigt)“, ein ausgefallener steht als „0 % (Emitter ausgefallen)“, nie als „unbekannt“.
+//   auszug.emitter: { bug|steuerbord|heck|backbord: 'ok' | 'beschaedigt' | 'ausgefallen' | null } (Zustand des Emitters je Sektor; null = unbekannt).
 // Ziel: ship.target (Ops-Ziel) aufgeloest in game.space.enemies; Entfernung in m (1 Welt-px = 1 m, wie jump.d) auf 10 gerundet ("grob").
 const Physics = require('../../shared/physics.js');
 const Locations = require('../../shared/locations.js');
@@ -13,6 +15,7 @@ const interior = require('../sim/interior.js');
 const Status = require('./status.js');
 
 const SEKTOREN = ['bug', 'steuerbord', 'heck', 'backbord'];
+const EMITTER_ZUSTAND = { ok: 'ok', damaged: 'beschaedigt', broken: 'ausgefallen', offline: 'ausgefallen' };   // offline (EMP) wirkt wie zerstört (space.js stateKey)
 const SYSTEM_ZUSTAND = { damaged: 'beschädigt', offline: 'offline', broken: 'ausgefallen' };
 const ROLLE = {
   navigation: 'Navigation: du fliegst die Lerche (Kurs, Schub, Sprung).',
@@ -23,13 +26,22 @@ const ROLLE = {
 const zahl = (v) => (typeof v === 'number' && Number.isFinite(v) ? v : null);
 const sicher = (f) => { try { return f(); } catch (e) { return null; } };
 
-function schilde(ship) {
+function schilde(game, ship, em) {
   const sh = ship && ship.shields;
+  const voll = game && game.C && game.C.shields ? zahl(game.C.shields.maxPerSector) : null;   // volle Stärke = Kappe eines intakten Emitters (Konfiguration)
   const out = {};
   for (let i = 0; i < 4; i++) {
     const cur = sh && Array.isArray(sh.current) ? zahl(sh.current[i]) : null;
-    const cap = sh && Array.isArray(sh.cap) && zahl(sh.cap[i]) != null ? sh.cap[i] : 4;
-    out[SEKTOREN[i]] = cur == null || !(cap > 0) ? null : Math.max(0, Math.min(100, Math.round(cur / cap * 100)));
+    out[SEKTOREN[i]] = em[SEKTOREN[i]] === 'ausgefallen' ? 0 : cur == null || !(voll > 0) ? null : Math.max(0, Math.min(100, Math.round(cur / voll * 100)));
+  }
+  return out;
+}
+function emitter(ship) {
+  const out = {};
+  for (let i = 0; i < 4; i++) {
+    const sys = interior.emitterFor(i);
+    const st = ship && ship.systems && sys ? ship.systems[sys] : null;
+    out[SEKTOREN[i]] = st == null ? (ship && ship.systems ? 'ok' : null) : (EMITTER_ZUSTAND[st] || null);   // ein fehlender Eintrag heißt wie in space.js sysState: ok
   }
   return out;
 }
@@ -66,10 +78,12 @@ function lageAuszug(game, bot) {
   const ship = game && game.ship;
   const rc = ship && ship.reactorCtl;
   const stage = ship && ship.helm ? zahl(ship.helm.stage) : null;
+  const em = emitter(ship);
   return {
     kurs_grad: ship && zahl(ship.angle) != null ? Physics.kompassGrad(ship.angle) : null,
     schub: stage == null ? null : Status.stufeWort(stage),
-    schilde: schilde(ship),
+    schilde: schilde(game, ship, em),
+    emitter: em,
     ziel: ziel(game, ship),
     systeme: systeme(game, ship),
     reaktor: rc && typeof rc.state === 'string' ? { zustand: rc.state, ueberladen: rc.state === 'overload' } : null,
@@ -86,11 +100,12 @@ function lageZeilen(a) {
   if (z && z.keins) zielText = 'keines gesetzt';
   else if (z) zielText = `${z.art ? ZIEL_ART[z.art] || z.art : 'Objekt'}${z.name ? ' ' + z.name : ''}, Entfernung ${z.entfernung_m == null ? 'unbekannt' : 'rund ' + z.entfernung_m + ' m'}`;
   const sys = a.systeme == null ? 'unbekannt' : a.systeme.length ? a.systeme.map((s) => `${s.name} ${s.zustand}`).join(', ') : 'keine ausgefallen oder beschädigt';
-  const s = a.schilde;
+  const s = a.schilde, em = a.emitter || {};
+  const sch = (k) => (s[k] == null ? 'unbekannt' : s[k] + ' %' + (em[k] === 'ausgefallen' ? ' (Emitter ausgefallen)' : em[k] === 'beschaedigt' ? ' (Emitter beschädigt)' : ''));
   return [
     `Kurs: ${u(a.kurs_grad, (v) => v + ' Grad')} (0 = Norden, 90 = Osten, 180 = Süden, 270 = Westen)`,
     `Schub: ${u(a.schub)}`,
-    `Schilde: Bug ${u(s.bug, (v) => v + ' %')}, Steuerbord ${u(s.steuerbord, (v) => v + ' %')}, Heck ${u(s.heck, (v) => v + ' %')}, Backbord ${u(s.backbord, (v) => v + ' %')}`,
+    `Schilde: Bug ${sch('bug')}, Steuerbord ${sch('steuerbord')}, Heck ${sch('heck')}, Backbord ${sch('backbord')}`,
     `Ziel: ${zielText}`,
     `Systeme: ${sys}`,
     `Reaktor: ${a.reaktor == null ? 'unbekannt' : a.reaktor.ueberladen ? 'überladen' : a.reaktor.zustand === 'online' ? 'läuft normal' : a.reaktor.zustand}`,

@@ -40,21 +40,32 @@ ok(kf.abweichungen.length === 1 && kf.abweichungen[0].genannt === 90 && kf.abwei
 section('3 Urteil Schilde');
 const S = { bug: 50, steuerbord: 100, heck: 13, backbord: 0 };
 const s = (t) => A.schildeUrteil(t, S).urteil;
-ok(s('Bug 50 Prozent, Heck dreizehn') === 'richtig', '"Bug 50 Prozent, Heck dreizehn": richtig (Teilwerte reichen, alle genannten stimmen)');
+// BOT-05 B-Nacharbeit W5: "richtig" heisst bei Schilden ALLE VIER Sektoren genannt und korrekt (Teilantworten sind "unvollstaendig", nicht mehr richtig)
+ok(s('Bug 50 Prozent, Heck dreizehn') === 'unvollstaendig', '"Bug 50 Prozent, Heck dreizehn": unvollstaendig (Teilwerte stimmen, aber nur zwei Sektoren; vorher richtig)');
 ok(s('Bug 50 Prozent, Steuerbord 100 Prozent, Heck 13 Prozent, Backbord 0 Prozent.') === 'richtig', 'alle vier richtig');
 ok(s('Bug 50 Prozent, Heck 14 Prozent.') === 'falsch', 'ein Sektor falsch: falsch');
-ok(s('Steuerbord 100 Prozent und Backbord 0 Prozent.') === 'richtig', 'zwei Sektoren in einem Teil der Reihe nach');
+ok(s('Steuerbord 100 Prozent und Backbord 0 Prozent.') === 'unvollstaendig' && s('Bug 50 Prozent, Steuerbord 100 Prozent und Backbord 0 Prozent, Heck 13 Prozent.') === 'richtig', 'zwei Sektoren in einem Teil der Reihe nach (nur zwei: unvollstaendig, mit allen vier: richtig)');
 ok(s('Bug und Backbord je 50 Prozent') === 'falsch', 'eine Zahl fuer zwei Sektoren, Backbord stimmt nicht: falsch');
-ok(s('13 Prozent am Heck, Captain.') === 'richtig', 'Zahl vor dem Sektor');
+ok(s('13 Prozent am Heck, Captain.') === 'unvollstaendig' && s('13 Prozent am Heck, 50 Prozent am Bug, Steuerbord 100 Prozent, Backbord 0 Prozent.') === 'richtig', 'Zahl vor dem Sektor (ein Sektor: unvollstaendig)');
 ok(s('Die Schilde sind in gutem Zustand, nur am Heck schwach.') === 'ausweichend', 'kein Wert: ausweichend');
-ok(s('Fast voll, Backbord leer.') === 'ausweichend', 'voll/leer ohne Zahl: ausweichend');
+ok(s('Fast voll, Backbord leer.') === 'unvollstaendig' && s('Backbord voll.') === 'falsch' && s('Die Schilde sind stabil, Captain.') === 'ausweichend', 'voll/leer ohne Zahl: "Backbord leer" stimmt (Soll 0), aber ohne Zahl nur unvollstaendig (vorher ausweichend); "Backbord voll" ist falsch; "stabil" ohne alles bleibt ausweichend');
 ok(s('Alle Schilde bei 100 Prozent.') === 'falsch', 'pauschaler Wert, der nicht fuer alle Sektoren stimmt: falsch');
 ok(A.schildeUrteil('Alle Schilde bei 50 Prozent.', { bug: 50, steuerbord: 50, heck: 50, backbord: 50 }).urteil === 'richtig', 'pauschaler Wert, der fuer alle stimmt: richtig');
-ok(s('Kurs 270 Grad, Bug 50 Prozent.') === 'richtig', 'Gradzahl in der Schilde-Antwort wird ignoriert');
+ok(s('Kurs 270 Grad, Bug 50 Prozent.') === 'unvollstaendig' && s('Kurs 270 Grad, Bug 50 Prozent, Steuerbord 100 Prozent, Heck 13 Prozent, Backbord 0 Prozent.') === 'richtig', 'Gradzahl in der Schilde-Antwort wird ignoriert');
 ok(s('Die Bugschilde liegen bei 50 Prozent. Backbord weist 0 Prozent auf. Steuerbord und Heck sind mit 100 Prozent stabil.') === 'falsch' && s('Die Bugschilde liegen bei 50 Prozent. Backbord weist 0 Prozent auf. Steuerbord 100 Prozent und Heck 13 Prozent.') === 'richtig', 'Zusammensetzungen (Bugschilde) zählen als Sektor; Heck 13 nicht 100');
 const sf = A.schildeUrteil('Bug 50 Prozent, Heck 14 Prozent.', S);
 ok(sf.abweichungen.length === 1 && sf.abweichungen[0].sektor === 'heck' && sf.abweichungen[0].genannt === 14 && sf.abweichungen[0].soll === 13, 'Abweichung nennt Sektor, genannten Wert und Soll');
-ok(A.schildeUrteil('Bug 3,5 Prozent', { bug: 3.5, steuerbord: 0, heck: 0, backbord: 0 }).urteil === 'richtig', 'Dezimalkomma wird nicht als Satzgrenze zerschnitten');
+ok(A.schildeUrteil('Bug 3,5 Prozent, Steuerbord 0, Heck 0, Backbord 0', { bug: 3.5, steuerbord: 0, heck: 0, backbord: 0 }).urteil === 'richtig' && A.schildeUrteil('Bug 3,5 Prozent', { bug: 3.5, steuerbord: 0, heck: 0, backbord: 0 }).urteil === 'unvollstaendig', 'Dezimalkomma wird nicht als Satzgrenze zerschnitten');
+
+// Beispiele aus dem Review (Befund W5)
+const R5 = { bug: 60, steuerbord: 67, heck: 0, backbord: 0 };
+const u5 = (t) => A.schildeUrteil(t, R5);
+ok(u5('Bugschild bei 60 Prozent, der Rest hält.').urteil === 'unvollstaendig' && JSON.stringify(u5('Bugschild bei 60 Prozent, der Rest hält.').fehlend) === '["steuerbord","heck","backbord"]', 'Review: "Bugschild bei 60 Prozent, der Rest hält." -> unvollstaendig (drei Sektoren fehlen)');
+ok(u5('Bug 60 Prozent, Steuerbord voll, hinten alles bestens.').urteil === 'falsch' && u5('Bug 60 Prozent, Steuerbord voll, hinten alles bestens.').abweichungen.some((a) => a.sektor === 'steuerbord' && a.genannt === 'voll' && a.soll === 67), 'Review: "Bug 60 Prozent, Steuerbord voll, hinten alles bestens." (Soll 60/67/0/0) -> falsch (Steuerbord ist nicht voll)');
+ok(u5('Bug 60 Prozent, Steuerbord 67 Prozent, Heck leer, Backbord leer.').urteil === 'unvollstaendig' && u5('Bug 60 Prozent, Steuerbord 67 Prozent, Heck 0 Prozent, Backbord 0 Prozent.').urteil === 'richtig', 'leer stimmt (Soll 0), steht aber ohne Zahl: unvollstaendig; mit Zahlen: richtig');
+ok(u5('Bug 60 Prozent und Steuerbord voll.').urteil === 'falsch' && u5('Alle Schilde voll.').urteil === 'falsch' && A.schildeUrteil('Alle Schilde voll.', { bug: 100, steuerbord: 100, heck: 100, backbord: 100 }).urteil === 'unvollstaendig', 'gemischter Teil: Steuerbord voll gegen 67 falsch; pauschal "voll" gegen nicht volle Sektoren falsch, bei lauter 100 nur unvollstaendig (keine Zahl)');
+ok(u5('Heck nicht voll, Steuerbord fast voll, Bug 60 Prozent.').urteil === 'unvollstaendig', 'verneintes oder abgeschwaechtes voll ("nicht voll", "fast voll") wird nicht als 100 % gewertet');
+ok(['richtig', 'unvollstaendig', 'falsch', 'ausweichend'].every((x) => ['Bug 60 Prozent, Steuerbord 67 Prozent, Heck 0 Prozent, Backbord 0 Prozent.', 'Bug 60.', 'Bug 61, Steuerbord 67, Heck 0, Backbord 0.', 'Ganz gut.'].map((t) => u5(t).urteil).includes(x)), 'alle vier Urteile kommen vor');
 
 section('4 Zusagen und Statistik');
 ok(A.zusagen('Aye, mach ich sofort, Captain.').length >= 2, 'Aye und "mach ich": Zusage');
@@ -70,7 +81,7 @@ section('5 Trockenlauf des Werkzeugs (Fake-Ollama und Fake-Voicebox, echte Parti
   let code = 0, text = '';
   try { text = childProcess.execFileSync(process.execPath, ['tools/mess-bot-gespraech.js', '--trocken', '--n', '4', '--nb', '3', '--aus', aus], { encoding: 'utf8', timeout: 90000 }); } catch (e) { code = e.status || 1; text = String(e.stdout || '') + String(e.stderr || ''); }
   ok(code === 0, 'Werkzeug endet mit Code 0 (alle Fake-Antworten richtig, kein Befehl ausgeloest)' + (code ? ': ' + text.slice(-400) : ''));
-  ok(/\(a\) richtig 4, falsch 0, ausweichend 0/.test(text), 'Konsole: (a) richtig 4 von 4');
+  ok(/\(a\) richtig 4, unvollstaendig 0, falsch 0, ausweichend 0/.test(text), 'Konsole: (a) richtig 4 von 4, die vier Urteile getrennt ausgewiesen');
   ok(/\(b\) Befehlsaufrufe 0, Zustand ungleich 0, Zusagen 0 von 3/.test(text), 'Konsole: (b) keine Befehlsaufrufe, Zustand gleich');
   ok(/\(c\) Latenz/.test(text), 'Konsole: Latenz');
   const zeilen = fs.existsSync(path.join(aus, 'protokoll.jsonl')) ? fs.readFileSync(path.join(aus, 'protokoll.jsonl'), 'utf8').trim().split('\n').map((z) => JSON.parse(z)) : [];

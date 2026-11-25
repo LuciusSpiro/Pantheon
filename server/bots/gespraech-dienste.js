@@ -1,10 +1,11 @@
 'use strict';
 // BOT-05 B1: die beiden Dienste des Bot-Gespraechs, beide nur lokal auf Sleipnir und nur diese zwei Ziel-URLs:
 //   OLLAMA_URL    (Standard http://127.0.0.1:11435, SSH-Tunnel)       Streaming-Chat des Gespraechsmodells
-//   VOICEBOX_URL  (Standard http://sleipnir.local:17493)              Text-zu-Sprache in der Stimme der Figur
+//   VOICEBOX_URL  (KEIN Standard: ohne sie gibt es keinen Ton, nur Text; B-Nacharbeit K4)   Text-zu-Sprache in der Stimme der Figur
 // Nie Claude, nie server/mission/llm.js und deren Transporte: dieses Modul hat einen eigenen kleinen Client.
 //   ollamaStrom({ messages, signal, onText })   -> { text, ende: 'fertig'|'zeit'|'abgebrochen' }; wirft Error mit code 'nicht_erreichbar' (Verbindung, HTTP-Fehler, Zeitlimit ohne ein Zeichen)
-//   sprechen({ voice, text, signal })           -> Buffer (WAV); wirft Error (Auth, Zeit, Verbindung, Format)
+//   sprechen({ voice, text, signal })           -> Buffer (WAV); wirft Error (Auth, Zeit, Verbindung, Format; ohne VOICEBOX_URL code 'tts_aus' und KEIN Netzaufruf)
+//   voiceboxAktiv()                             true nur mit gesetzter VOICEBOX_URL (eine Regel fuer Gespraech, Statuston und Vorwaermen)
 //   vorwaermen(voice)                           leerer Ollama-Aufruf mit keep_alive und ein Kurzclip der Voicebox (Fehler werden verschluckt, Rueckgabe { llm, tts })
 // Einstellungen (alle beim Aufruf gelesen, damit Tests sie setzen koennen): BOT_GESPRAECH_MODELL, BOT_GESPRAECH_ERSTES_TOKEN_MS (30000), BOT_GESPRAECH_GESAMT_MS (30000),
 //   BOT_GESPRAECH_TTS_MS (30000), VOICEBOX_AUTH ("nutzer:passwort"; fehlt es, geht die Anfrage ohne Auth hinaus und ein 401 heisst "ohne Ton", kein ssh).
@@ -15,7 +16,8 @@ const WARM_TEXT = 'Bereit';
 const env = () => process.env;
 const zahlEnv = (k, std) => { const n = Number(env()[k]); return Number.isFinite(n) && n > 0 ? n : std; };
 const ollamaUrl = () => String(env().OLLAMA_URL || 'http://127.0.0.1:11435').replace(/\/+$/, '');
-const voiceboxUrl = () => String(env().VOICEBOX_URL || 'http://sleipnir.local:17493').replace(/\/+$/, '');
+const voiceboxUrl = () => String(env().VOICEBOX_URL || '').trim().replace(/\/+$/, '');
+const voiceboxAktiv = () => voiceboxUrl() !== '';
 const modell = () => String(env().BOT_GESPRAECH_MODELL || MODELL);
 const fehler = (code, msg) => { const e = new Error(msg || code); e.code = code; return e; };
 
@@ -77,6 +79,7 @@ async function ollamaStrom({ messages, signal, onText }) {
 }
 
 async function sprechen({ voice, text, signal, timeoutMs }) {
+  if (!voiceboxAktiv()) throw fehler('tts_aus', 'VOICEBOX_URL nicht gesetzt');
   const sigs = [AbortSignal.timeout(timeoutMs || zahlEnv('BOT_GESPRAECH_TTS_MS', 30000))];
   if (signal) sigs.push(signal);
   const headers = { 'Content-Type': 'application/json' };
@@ -100,8 +103,8 @@ async function vorwaermen(voice) {
     const r = await fetch(ollamaUrl() + '/api/chat', { method: 'POST', headers: { 'Content-Type': 'application/json' }, signal: AbortSignal.timeout(120000), body: JSON.stringify({ model: modell(), messages: [], stream: false, keep_alive: '30m' }) });
     out.llm = r.ok; try { await r.arrayBuffer(); } catch (e) { /* egal */ }
   } catch (e) { /* kein Ollama: egal */ }
-  if (voice) { try { await sprechen({ voice, text: WARM_TEXT, timeoutMs: 120000 }); out.tts = true; } catch (e) { /* ohne Ton: egal */ } }
+  if (voice && voiceboxAktiv()) { try { await sprechen({ voice, text: WARM_TEXT, timeoutMs: 120000 }); out.tts = true; } catch (e) { /* ohne Ton: egal */ } }
   return out;
 }
 
-module.exports = { ollamaStrom, sprechen, vorwaermen, MODELL, ollamaUrl, voiceboxUrl };
+module.exports = { ollamaStrom, sprechen, vorwaermen, MODELL, ollamaUrl, voiceboxUrl, voiceboxAktiv };

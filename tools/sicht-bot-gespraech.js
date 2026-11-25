@@ -1,7 +1,9 @@
 // BOT-05 B2: Sichtpruefung des Bot-Gespraechs im echten Client gegen den echten Server mit Fake-Ollama und Fake-Voicebox (tools/lib/bot-gespraech-fakes.js).
 // Bilder: Lobby mit drei Bots (Kartenlayout), Sprechspalte "denkt nach", mit Gespraechssaetzen, "nicht erreichbar". Geprueft mit echten Tasten (Ö = Gespraechszeile, Ä halten = Gespraech sprechen):
 // Ö oeffnet die Zeile, Enter sendet bot.gespraech (nie bot.befehl), der Server antwortet bot.rede, die Sprechspalte zeigt es. Eigener Server (Port ab 3492, ROOM_CODE=off, Weltordner im Temp-Verzeichnis).
-// Aufruf: node tools/sicht-bot-gespraech.js [--port 3492] [--bilder <Ordner>]   (Exit 1, wenn eine Pruefung fehlschlaegt; Software-GL ist langsam)
+// Aufruf: node tools/sicht-bot-gespraech.js [--port 3492] [--bilder <Ordner>] [--render 3d|2d] [--gl gpu|swiftshader]   (Exit 1, wenn eine Pruefung fehlschlaegt)
+//   Standard: --render 3d (WebGL/Voxel, mit --gl gpu ueber ANGLE/D3D11; --gl swiftshader erzwingt Software-GL, langsam). --render 2d ist der 2D-Rueckfall (die Lobby zeigt dann nur
+//   Frisur-Vorschaubilder). B-Nacharbeit: zusaetzlich ein Bild an Bord mit den drei Figuren (Voxel, nur mit --render 3d).
 'use strict';
 const path = require('path');
 const fs = require('fs');
@@ -14,6 +16,9 @@ const ROOT = path.join(__dirname, '..');
 const arg = (n, d) => { const i = process.argv.indexOf('--' + n); return i > 0 && process.argv[i + 1] ? process.argv[i + 1] : d; };
 const PORT = +arg('port', '3492');
 const BILDER = arg('bilder', path.join(ROOT, 'shots', 'bot05-gespraech'));
+const RENDER = arg('render', '3d'), GL = arg('gl', 'gpu');
+const RPARAM = RENDER === '2d' ? '&render=2d' : '';   // 3d: der Client waehlt selbst (WebGL, Voxel), sonst Rueckfall
+const GL_ARGS = GL === 'swiftshader' ? ['--use-angle=swiftshader', '--enable-unsafe-swiftshader'] : ['--use-angle=d3d11', '--ignore-gpu-blocklist', '--enable-gpu'];
 const TMP = fs.mkdtempSync(path.join(os.tmpdir(), 'pantheon-sichtgespraech-'));
 process.on('exit', () => { try { fs.rmSync(TMP, { recursive: true, force: true }); } catch (e) { /* egal */ } });
 function playwright() {
@@ -43,13 +48,20 @@ async function main() {
   const srv = spawn(process.execPath, ['server/index.js', '--debug'], { cwd: ROOT, env, stdio: ['ignore', 'pipe', 'pipe'] });
   let log = ''; srv.stdout.on('data', (d) => { log += d; }); srv.stderr.on('data', (d) => { log += d; });
   for (let i = 0; i < 150 && !(await ping(PORT)); i++) await sleep(100);
-  const b = await chromium.launch({ args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--autoplay-policy=no-user-gesture-required'] });
+  const b = await chromium.launch({ args: GL_ARGS.concat(['--autoplay-policy=no-user-gesture-required']) });
+  {
+    const t = await b.newPage();
+    const renderer = await t.evaluate(() => { const c = document.createElement('canvas'); const g = c.getContext('webgl2') || c.getContext('webgl'); if (!g) return null; const e = g.getExtension('WEBGL_debug_renderer_info'); return e ? g.getParameter(e.UNMASKED_RENDERER_WEBGL) : 'WebGL'; });
+    await t.close();
+    info('Browser-GL: ' + (renderer || 'KEIN WebGL') + ' (--render ' + RENDER + ', --gl ' + GL + ')');
+    if (RENDER !== '2d' && !renderer) info('ACHTUNG: kein WebGL, der Client faellt auf 2D zurueck');
+  }
   try {
     // ---- Lobby ohne Debug-Anzeige (die Debug-Tafel deckt sonst die Karten zu): ein Spieler, drei Bots ueber Net.send
     {
       const c0 = await b.newContext({ viewport: { width: 1280, height: 720 } });
       const p0 = await c0.newPage();
-      await p0.goto('http://127.0.0.1:' + PORT + '/?render=2d&pult=rom&botsprache=1');
+      await p0.goto('http://127.0.0.1:' + PORT + '/?pult=rom&botsprache=1' + RPARAM);
       await p0.waitForFunction(() => window.Net && Net.send && Client && Client.state && Client.state.phase === 'lobby' && Client.pid, null, { timeout: 30000 });
       for (const r of ['navigation', 'ops', 'technik']) { await p0.evaluate((x) => Net.send({ t: 'lobbyBot', op: 'add', rolle: x }), r); await sleep(200); }
       await p0.waitForFunction(() => Client.state.players.filter((p) => p.bot).length >= 3, null, { timeout: 8000 });
@@ -65,7 +77,7 @@ async function main() {
       const orig = WebSocket.prototype.send;
       WebSocket.prototype.send = function (d) { try { const m = JSON.parse(d); if (m && /^bot\./.test(m.t)) window.__gesendet.push(m); } catch (e) { /* egal */ } return orig.call(this, d); };
     });
-    await page.goto('http://127.0.0.1:' + PORT + '/?debug=1&render=2d&pult=rom&botsprache=1');
+    await page.goto('http://127.0.0.1:' + PORT + '/?debug=1&pult=rom&botsprache=1' + RPARAM);
     await page.waitForFunction(() => window.__game && __game.send && __game.state, null, { timeout: 30000 });
     await page.evaluate(() => { Net.on((m) => { if (m && m.t === 'bot.rede') window.__rede.push(m); }); });
 

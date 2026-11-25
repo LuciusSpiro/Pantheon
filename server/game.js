@@ -797,8 +797,8 @@ class Game {
           }
           break;
         case C.LOBBY_BOT: BotSpieler.lobbyBotBefehl(this, p, msg); break;   // BOT-01 B2: nur Lobby, die Prüfung steht in den Funktionen
-        case C.BOT_BEFEHL: BotAnnahme.annehmen(this, p, msg); break;
-        case C.BOT_GESPRAECH: BotGespraech.annehmen(this, p, msg); break;   // BOT-05 B1: Regeln, Antwort und Ablauf in bots/gespraech.js   // BOT-01 C1: Regeln und Antwort in bots/annahme.js
+        case C.BOT_BEFEHL: BotAnnahme.annehmen(this, p, msg); break;   // BOT-01 C1: Regeln und Antwort in bots/annahme.js
+        case C.BOT_GESPRAECH: BotGespraech.annehmen(this, p, msg); break;   // BOT-05 B1: Regeln, Antwort und Ablauf in bots/gespraech.js
         case C.WORLD: this.onWorldMsg(conn, p, msg); break;   // S1 §6
         case C.MENU: this.onMenuMsg(p, msg); break;           // S1 §6
         case C.INPUT: {

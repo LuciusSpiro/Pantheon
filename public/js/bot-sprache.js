@@ -30,8 +30,9 @@
     mockVerboten: 'Mock-Server nur auf localhost erlaubt.',
     unklar2: 'Das habe ich nicht verstanden',
     messungFehler: 'Messung nicht gespeichert.',
-    platzhalter: 'Befehl an die Crew · Enter senden · Esc zu',
-    platzhalterGespraech: 'Gespräch mit der Crew · Enter senden · Esc zu',
+    platzhalter: 'an die Crew · Enter senden · Esc zu',   // steht hinter dem Kopf BEFEHL bzw. GESPRÄCH der Zeile (hud.js zeichneTextzeile)
+    platzhalterGespraech: 'mit der Crew · Enter senden · Esc zu',
+    kopfBefehl: 'BEFEHL', kopfGespraech: 'GESPRÄCH',   // BOT-05 B-Nacharbeit W1: die offene Zeile zeigt immer, wohin sie sendet (auch mit Text im Feld)
     denkt: 'denkt nach …',
     rate: 'Einen Moment, Captain.',
     keinBot: 'Diese Figur ist nicht an Bord.',
@@ -166,7 +167,7 @@
       if (an === s.an) return s.an;
       s.an = an;
       if (an) { s.abmelden = env.transport.onMessage(empfange); }
-      else { abbrechen(); for (const st of Array.from(streams.values())) stoppeStream(st.gid); s.rede = null; s.clipsOffen = 0; if (s.abmelden) { s.abmelden(); s.abmelden = null; } meldung(null); if (A.aus) A.aus(); }
+      else { abbrechen(); for (const st of Array.from(streams.values())) stoppeStream(st.gid); statusWartet.length = 0; s.statusRunde = null; s.rede = null; s.clipsOffen = 0; if (s.abmelden) { s.abmelden(); s.abmelden = null; } meldung(null); if (A.aus) A.aus(); }
       return s.an;
     }
 
@@ -198,8 +199,9 @@
       })();
       return true;
     }
-    function tasteHoch() {
+    function tasteHoch(art0) {
       if (!s.aufnahme) return Promise.resolve(false);   // außerhalb der Taste passiert nichts
+      if (art0 && art0 !== s.art) return Promise.resolve(false);   // BOT-05 B-Nacharbeit K3: das Loslassen einer Sprechtaste beendet nur die Aufnahme ihrer eigenen Art (Kreuz-Loslassen tut nichts)
       s.aufnahme = false; s.gehalten = false; stopTimer();
       A.aufnahme(false); env.audio.stumm(false);
       const t0 = uhr(), start = s.start, art = s.art; s.handle = null;
@@ -303,7 +305,8 @@
 
     // ---- bot.rede: Anzeige (denkt nach -> Sätze -> Ende) und Ton
     const REDE_URL = /^\/api\/bot-rede\/[0-9a-f]{32}\.wav$/;
-    const DENKT_MAX_S = 35;
+    // „denkt nach …“ bleibt, solange die Anfrage wartet oder läuft: bis zu einem Abschluss (satz, ende, nicht_erreichbar, abgelehnt), höchstens bis Warte- plus Laufzeitlimit des Servers (gespraech.js: 20 s Schlange, 30 s LLM) plus 5 s Luft
+    const WARTE_MAX_S = 20, LAUF_MAX_S = 30, DENKT_MAX_S = WARTE_MAX_S + LAUF_MAX_S + 5;
     function beendeRede(r) {   // still: Anzeige der alten Anfrage weg, ihre Töne stoppen
       if (!r) return;
       untertitelWeg(r.denktId); r.denktId = null;
@@ -314,7 +317,19 @@
       const st = streams.get(gid);
       streams.delete(gid);
       if (s.spielt && s.spielt.gid === gid) { const sp = s.spielt; s.spielt = null; if (sp.haltAus) sp.haltAus(); try { env.audio.stopp(); } catch (e) { /* egal */ } bahnWeiter(); }
+      if (st) freiAlle(st);   // Untertitel, die noch auf einen Ton warteten: ab jetzt ihre normale Dauer
       return st;
+    }
+    // BOT-05 B-Nacharbeit W2: ein Untertitel, der auf seinen Ton wartet (halten), wird frei, sobald der Ton gelaufen ODER ausgefallen ist; ausfall = kein Ton kam, dann gilt die normale Dauer ab jetzt
+    const frei = (id, ausfall) => { try { if (A.frei && id != null) A.frei(id, !!ausfall); } catch (e) { /* egal */ } };
+    function freiAlle(st) { for (const id of st.saetze.values()) frei(id, true); st.saetze.clear(); }
+    // bot.status: je Antwortrunde (tonRunde des Servers) wartet der Antworttext auf den Ton seines Bots; eine neue Runde verwirft die älteren Statusströme und gibt deren Untertitel frei (B-Nacharbeit W3)
+    const statusWartet = [];   // { runde, botId, id }
+    function neueStatusRunde(runde) {
+      if (s.statusRunde === runde) return;
+      s.statusRunde = runde;
+      for (const st of Array.from(streams.values())) if (st.art === 'status' && st.runde !== runde) stoppeStream(st.gid);
+      for (let i = statusWartet.length - 1; i >= 0; i--) if (statusWartet[i].runde !== runde) { frei(statusWartet[i].id, true); statusWartet.splice(i, 1); }
     }
     function ablehnung(msg) {   // abgelehnt ohne laufende Anfrage (rate, kein_bot, text, quelle, phase)
       const g = msg.grund;
@@ -327,9 +342,19 @@
       const z = msg.zustand, gid = typeof msg.gid === 'string' && msg.gid ? msg.gid : null;
       if (!gid || typeof z !== 'string') return false;
       if (msg.zu === 'bot.status') {   // Stimme zur Statusantwort: kein eigener Untertitel (der Text steht in der bot.antwort), nur der Ton, nach dem Bestätigungs-Clip, ein Bot nach dem anderen
+        const runde = typeof msg.runde === 'string' && msg.runde ? msg.runde : null;
+        if (runde) neueStatusRunde(runde);   // ein neuer Status-Strom verwirft die älteren (W3)
+        if (z === 'ausfall') {   // der Rest dieser Runde bekommt keinen Ton: die wartenden Antworttexte laufen mit normaler Dauer aus
+          for (let i = statusWartet.length - 1; i >= 0; i--) if (statusWartet[i].runde === runde) { frei(statusWartet[i].id, true); statusWartet.splice(i, 1); }
+          return true;
+        }
         const st = streamFuer(gid, 'status');
-        if (z === 'ton') st.puffer.set(Number.isInteger(msg.nr) ? msg.nr : 0, typeof msg.audio === 'string' && REDE_URL.test(msg.audio) ? msg.audio : null);
-        else if (z === 'ende') st.fertig = true;
+        st.runde = runde;
+        if (z === 'ton') {
+          st.puffer.set(Number.isInteger(msg.nr) ? msg.nr : 0, typeof msg.audio === 'string' && REDE_URL.test(msg.audio) ? msg.audio : null);
+          const w = statusWartet.findIndex((x) => x.runde === runde && x.botId === (typeof msg.botId === 'string' ? msg.botId : null));
+          if (w >= 0) { st.saetze.set(Number.isInteger(msg.nr) ? msg.nr : 0, statusWartet[w].id); statusWartet.splice(w, 1); }   // der Antworttext gehört zu diesem Ton
+        } else if (z === 'ende') st.fertig = true;
         bahnWeiter();
         return true;
       }
@@ -338,7 +363,7 @@
       if (z === 'denkt') {
         if (r) beendeRede(r);
         for (const st of Array.from(streams.values())) if (st.art === 'gespraech') stoppeStream(st.gid);   // ein neuer gid stoppt die alte Wiedergabe
-        s.rede = { gid, botId, denktId: untertitel(TEXT.denkt, { botId, dauerS: DENKT_MAX_S }), saetze: new Map() };
+        s.rede = { gid, botId, denktId: untertitel(TEXT.denkt, { botId, dauerS: DENKT_MAX_S, leise: true }), saetze: new Map() };
         if (botId) s.partner = botId;
         return true;
       }
@@ -348,7 +373,7 @@
       const nr = Number.isInteger(msg.nr) && msg.nr >= 0 ? msg.nr : null;
       if (z === 'satz') {
         untertitelWeg(r.denktId); r.denktId = null;
-        if (typeof msg.text === 'string' && msg.text && nr !== null) { const id = untertitel(msg.text, { botId: r.botId }); st.saetze.set(nr, id); }
+        if (typeof msg.text === 'string' && msg.text && nr !== null) { const id = untertitel(msg.text, { botId: r.botId, halten: true }); st.saetze.set(nr, id); }   // W2: bleibt, bis sein Ton gelaufen oder ausgefallen ist
         return true;
       }
       if (z === 'ton') {
@@ -372,29 +397,31 @@
           if (!st.puffer.has(st.naechste)) break;
           const nr = st.naechste, url = st.puffer.get(nr);
           st.puffer.delete(nr); st.naechste++;
-          if (!url || s.aufnahme) continue;   // ohne Audio oder bei gehaltener Sprechtaste: nur der Untertitel
+          if (!url || s.aufnahme) { frei(st.saetze.get(nr), true); st.saetze.delete(nr); continue; }   // ohne Audio oder bei gehaltener Sprechtaste: nur der Untertitel, mit normaler Dauer ab jetzt
           spieleTon(st, nr, url);
           return;
         }
-        if (st.art === 'status' ? (st.naechste > 0 || st.fertig) : (st.fertig && !st.puffer.size)) streams.delete(st.gid);
+        if (st.art === 'status' ? (st.naechste > 0 || st.fertig) : (st.fertig && !st.puffer.size)) { streams.delete(st.gid); freiAlle(st); }
       }
     }
     function spieleTon(st, nr, url) {
       const id = st.saetze.get(nr);
+      st.saetze.delete(nr);   // der Untertitel gehört ab jetzt diesem Ton (Ende oder Ausfall gibt ihn frei)
       const mein = { gid: st.gid, haltAus: null };
       s.spielt = mein;
-      let frei = false, timer = null;
+      let zu = false, timer = null, lief = false;
       const halt = (an) => clipHalt(id, an);
+      const ende = () => { halt(false); frei(id, !lief); };   // gelaufen: Nachlauf des Clips (0,5 s); nie angelaufen: normale Dauer ab dem Ausfall
       const fertig = () => {
-        if (frei) return;
-        frei = true; if (timer != null) loescheTimer(timer);
-        halt(false);
+        if (zu) return;
+        zu = true; if (timer != null) loescheTimer(timer);
+        ende();
         if (s.spielt === mein) s.spielt = null;
         bahnWeiter();
       };
-      mein.haltAus = () => { if (!frei) { frei = true; if (timer != null) loescheTimer(timer); halt(false); } };
+      mein.haltAus = () => { if (!zu) { zu = true; if (timer != null) loescheTimer(timer); ende(); } };
       timer = setzeTimer(fertig, TON_MAX_MS);   // Sicherung: bleibt das Ende aus, geht die Bahn trotzdem weiter
-      try { Promise.resolve(env.audio.spiele([url], { start: () => halt(true), ende: fertig })).then((u) => { if (!u) fertig(); }, fertig); } catch (e) { fertig(); }
+      try { Promise.resolve(env.audio.spiele([url], { start: () => { lief = true; halt(true); }, ende: fertig })).then((u) => { if (!u) fertig(); }, fertig); } catch (e) { fertig(); }
     }
     // Bestätigungs-Clip einer Statusantwort läuft: der Statuston wartet darauf (Zähler, je Clip genau einmal frei)
     function clipOffen() {
@@ -451,7 +478,11 @@
       const figur = typeof msg.botId === 'string' && msg.botId ? msg.botId : null;
       const vorher = s.letzterBot;
       if (figur) s.letzterBot = figur;
-      const id = untertitel(typeof msg.text === 'string' && msg.text ? msg.text : String(msg.textId || ''), { botId: figur || (msg.von ? null : vorher), von: msg.von });
+      // BOT-05 B-Nacharbeit W2/W3: mit tonRunde (der Server spricht diese Statusantwort) bleibt der Text stehen, bis der Statuston gelaufen oder ausgefallen ist
+      const tonRunde = typeof msg.tonRunde === 'string' && msg.tonRunde && figur && msg.befehl === 'bot.status' && msg.status === 'ok' ? msg.tonRunde : null;
+      if (tonRunde) neueStatusRunde(tonRunde);
+      const id = untertitel(typeof msg.text === 'string' && msg.text ? msg.text : String(msg.textId || ''), { botId: figur || (msg.von ? null : vorher), von: msg.von, halten: !!tonRunde });
+      if (tonRunde && id != null) statusWartet.push({ runde: tonRunde, botId: figur, id });
       if (!s.aufnahme && msg.textId && msg.befehl !== 'bord.ansage') {   // gehaltene Sprechtaste = Mikrofon offen: nichts abspielen; BOT-02 B4: Ansagen des Bord-Bots haben keinen Clip-Vorrat (nur Untertitel, kein 404 je Ansage)
         const stimme = figur ? stimmeFuer(msg) : stimmeOhneFigur();
         // Läuft der Clip länger als die Standarddauer, bleibt der Untertitel bis Clip-Ende (+ 0,5 s in der Anzeige)
@@ -508,7 +539,7 @@
     }
 
     return {
-      schalte, tasteRunter, tasteHoch, abbrechen, sendeText, empfange, gespraechSprechenRunter, gespraechSprechenHoch: tasteHoch, sendeGespraechText, botsDa, partner: () => s.partner, setzeMessmodus, messeWeiter, aktuellePhrase,
+      schalte, tasteRunter, tasteHoch, abbrechen, sendeText, empfange, gespraechSprechenRunter, gespraechSprechenHoch: () => tasteHoch('gespraech'), sendeGespraechText, botsDa, partner: () => s.partner, setzeMessmodus, messeWeiter, aktuellePhrase,
       istAn: () => s.an, lies: () => ({ an: s.an, aufnahme: s.aufnahme }), warte: () => s.letzte, clipKandidaten: (t, st, v, man) => clipKandidaten(t, st, v, env.clipBasis, man),
     };
   }
@@ -697,7 +728,7 @@
     zeileForm.appendChild(feld); wurzel.appendChild(zeileForm);
     d.body.appendChild(wurzel);
     let lage = '', stickyText = null, letzteMeldung = null, mess = null, zeileFuer = 'befehl';   // zeileFuer: wohin die offene Zeile sendet (befehl | gespraech)
-    const zeile = { offen: false, feld, platzhalter: TEXT.platzhalter, schliessen: () => schliesse(), platziere(r) {   // Rasterrechteck -> Bildschirmpixel wie #lobbyCode in client.js layout() (Raster * Client.scale + Canvas-Versatz)
+    const zeile = { offen: false, feld, platzhalter: TEXT.platzhalter, kopf: TEXT.kopfBefehl, kopfArt: 'befehl', schliessen: () => schliesse(), platziere(r) {   // Rasterrechteck -> Bildschirmpixel wie #lobbyCode in client.js layout() (Raster * Client.scale + Canvas-Versatz)
       const c = d.getElementById && d.getElementById('game'); if (!c || !c.getBoundingClientRect) return;
       const b = c.getBoundingClientRect(), sc = (win.Client && win.Client.scale) || b.width / 640;
       const k = [Math.floor(b.left + r.x * sc), Math.floor(b.top + r.y * sc), Math.floor(r.w * sc), Math.floor(r.h * sc)].join();
@@ -711,7 +742,10 @@
       const c = win.Client;
       if (c && c.eingabeFrei && !c.eingabeFrei()) return false;   // Pausenmenü, Minispiel, Zusehen am Terminal, Kapitelkarte: dort wäre die Zeile eine Falle
       if (c && c.tastenFreigeben) c.tastenFreigeben();   // gehaltene Spieltasten (WASD, Umschalt, E) loslassen: ihr keyup erreicht das Spiel nicht mehr (die Zeile schluckt es)
-      zeileFuer = fuer === 'gespraech' ? 'gespraech' : 'befehl'; zeile.platzhalter = zeileFuer === 'gespraech' ? TEXT.platzhalterGespraech : TEXT.platzhalter; feld.setAttribute('aria-label', zeile.platzhalter);
+      const neu = fuer === 'gespraech' ? 'gespraech' : 'befehl';
+      if (zeile.offen && neu !== zeileFuer) feld.value = '';   // BOT-05 B-Nacharbeit W1: Wechsel der Art einer offenen Zeile: der Text der anderen Art wird nie mit der neuen gesendet (Gesprächstext als Befehl)
+      zeileFuer = neu; zeile.platzhalter = zeileFuer === 'gespraech' ? TEXT.platzhalterGespraech : TEXT.platzhalter; feld.setAttribute('aria-label', (zeileFuer === 'gespraech' ? TEXT.kopfGespraech : TEXT.kopfBefehl) + ' ' + zeile.platzhalter);
+      zeile.kopfArt = zeileFuer; zeile.kopf = zeileFuer === 'gespraech' ? TEXT.kopfGespraech : TEXT.kopfBefehl;   // das HUD zeichnet die Art vor den Text, auch wenn Text im Feld steht
       zeile.offen = true; lage = ''; zeileForm.style.display = 'block'; zeileForm.style.pointerEvents = 'auto';
       try { feld.focus(); } catch (e) { /* egal */ }
       return true;
@@ -733,7 +767,22 @@
       feld, wurzel, zeile,
       aufnahme(an) { const h = hud(); if (!h) return; h.sprech.aufnahme = !!an; if (an) { h.sprech.verarbeitet = false; entferne(stickyText); stickyText = null; entferne(letzteMeldung); letzteMeldung = null; } },   // neue Aufnahme räumt die alte Meldung weg (z. B. „Mikrofon liefert keinen Ton.“)
       verarbeitet(an) { const h = hud(); if (h) h.sprech.verarbeitet = !!an; },
-      untertitel(t, info) { const h = hud(); const st = win.Client && win.Client.state; return h ? h.pushCrewFunk(t, info && info.sprecher ? info.sprecher : sprecherName(info && (info.botId || info.von), st && st.players), FN().sensor, info && info.dauerS) : 0; },   // BOT-05 B2: info.sprecher überschreibt den Figurnamen (DU)
+      // BOT-05 B2: info.sprecher überschreibt den Figurnamen (DU). B-Nacharbeit (Designer): Name und Balken in der Spielerfarbe (Bot-Spieler bzw. DU = eigene Farbe), BORD in FN.neutral; leise („denkt nach …“): Text in FN.neutral;
+      // halten: der Untertitel bleibt, bis frei(kennung) kommt (sein Ton ist gelaufen oder ausgefallen)
+      untertitel(t, info) {
+        const h = hud(); if (!h) return 0;
+        const c = win.Client, st = c && c.state, liste = st && Array.isArray(st.players) ? st.players : [];
+        const sprecher = info && info.sprecher ? info.sprecher : sprecherName(info && (info.botId || info.von), liste);
+        const farbeVon = (p) => { try { const sp = p && p.color != null && win.Menue && win.Menue.spieler ? win.Menue.spieler(p.color) : null; return sp && sp.farbe ? sp.farbe : null; } catch (e) { return null; } };
+        const botId = info && (info.botId || info.von);
+        let farbe = null;
+        if (sprecher === 'DU') farbe = farbeVon(liste.find((p) => p && c && p.id === c.pid));
+        else if (sprecher !== 'BORD') farbe = farbeVon(liste.find((p) => p && p.bot && botId && p.botId === botId));
+        const neutral = FN().neutral || FN().sensor;
+        if (!farbe) farbe = sprecher === 'BORD' ? neutral : FN().sensor;
+        return h.pushCrewFunk(t, sprecher, farbe, info && info.dauerS, { wartet: !!(info && info.halten), textFarbe: info && info.leise ? neutral : undefined });
+      },
+      frei(id, ausfall) { const h = hud(); if (h && id && h.crewFunkFrei) h.crewFunkFrei(id, ausfall); },
       untertitelWeg(id) { const h = hud(); if (h && id && h.crewFunkWeg) h.crewFunkWeg(id); },   // von: Figur des Bord-Bots bei Ansagen (botId null)
       clip(id, an) { const h = hud(); if (h && id) h.crewFunkHalte(id, an); },
       meldung(t) {
@@ -775,9 +824,12 @@
   }
 
   // Einmaliger Hinweis beim Einschalten, mit den echten (umbelegbaren) Tastenbeschriftungen
-  function startHinweis(T) {
+  function startHinweis(T, mitBots) {
     const kappe = (id, ersatz) => { try { const k = T && T.kappe ? T.kappe(id) : ''; return k && k !== '–' ? k : ersatz; } catch (e) { return ersatz; } };
-    return 'Bot-Sprache an: ' + kappe('allgemein.sprechen', '^') + ' halten = sprechen, ' + kappe('allgemein.botText', '#') + ' = tippen';
+    // BOT-05 B-Nacharbeit: mit Bots in der Partie steht auch das Gespräch da (Ä halten, Ö tippen), ohne Bots nur der Befehl; die Tasten kommen aus der Belegung
+    const befehl = 'Befehl ' + kappe('allgemein.sprechen', '^') + ' halten, ' + kappe('allgemein.botText', '#') + ' tippen';
+    if (!mitBots) return befehl;
+    return befehl + ' · Gespräch ' + kappe('allgemein.gespraechSprechen', 'Ä') + ' halten, ' + kappe('allgemein.gespraechText', 'Ö') + ' tippen';
   }
 
   // ---------------------------------------------------------------- Zusammenbau im Browser
@@ -812,12 +864,17 @@
       if (passt(e, 'allgemein.gespraechText', 'Semicolon')) { if (!kern.botsDa()) return; e.preventDefault(); if (!e.repeat) anzeige.gespraechszeile(true); return; }
       if (e.code === 'PageDown' || e.code === 'PageUp') { if (kern.messeWeiter(e.code === 'PageDown' ? 1 : -1)) e.preventDefault(); }
     };
-    const hoch = (e) => { if (!kern.istAn()) return; const code = e && e.code; const ids = (id, std) => (T && T.belegung ? T.belegung(id).map((t) => t.replace(/^Shift\+/, '')) : [std]); if (ids('allgemein.sprechen', 'Backquote').indexOf(code) >= 0 || ids('allgemein.gespraechSprechen', 'Quote').indexOf(code) >= 0) kern.tasteHoch(); };
+    // BOT-05 B-Nacharbeit K3: das Loslassen beendet nur die Aufnahme der Taste, die diese Art gestartet hat (Befehl ^ / Gespräch Ä), nie die der anderen
+    const hoch = (e) => { if (!kern.istAn()) return; const code = e && e.code; const ids = (id, std) => (T && T.belegung ? T.belegung(id).map((t) => t.replace(/^Shift\+/, '')) : [std]); if (ids('allgemein.sprechen', 'Backquote').indexOf(code) >= 0) kern.tasteHoch('befehl'); else if (ids('allgemein.gespraechSprechen', 'Quote').indexOf(code) >= 0) kern.tasteHoch('gespraech'); };
     const weg = () => kern.abbrechen();
     win.addEventListener('keydown', runter, true); win.addEventListener('keyup', hoch, true); win.addEventListener('blur', weg);
-    instanz = { kern, anzeige, transport, aufraeumen() { win.removeEventListener('keydown', runter, true); win.removeEventListener('keyup', hoch, true); win.removeEventListener('blur', weg); } };
+    instanz = { kern, anzeige, transport, aufraeumen() { if (typeof hinweisTimer !== 'undefined' && hinweisTimer) clearInterval(hinweisTimer); win.removeEventListener('keydown', runter, true); win.removeEventListener('keyup', hoch, true); win.removeEventListener('blur', weg); } };
     kern.schalte(true);
-    anzeige.hinweis(startHinweis(T));
+    // BOT-05 B-Nacharbeit: die Notiz nennt das Gespräch nur mit Bots in der Partie. Beim Einschalten in der Lobby gibt es noch keine: erscheinen sie später, kommt die volle Notiz einmal nach (Abfrage im Sekundentakt)
+    let hinweisMitBots = kern.botsDa();
+    anzeige.hinweis(startHinweis(T, hinweisMitBots));
+    let hinweisTimer = null;
+    if (!hinweisMitBots && typeof setInterval === 'function') { hinweisTimer = setInterval(() => { if (kern.botsDa()) { hinweisMitBots = true; clearInterval(hinweisTimer); hinweisTimer = null; anzeige.hinweis(startHinweis(T, true)); } }, 1000); if (hinweisTimer && hinweisTimer.unref) hinweisTimer.unref(); }
     if (params.get('botmessung') === '1') {
       try {
         const r = await win.fetch('/bot-messung/phrasen.json', { cache: 'no-store' });

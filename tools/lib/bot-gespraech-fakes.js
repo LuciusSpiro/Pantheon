@@ -51,13 +51,15 @@ const wavVon = (text) => {
   return Buffer.concat([h, daten]);
 };
 function fakeVoicebox() {
-  const f = { anfragen: [], modus: 'ok', verzoegerung: 0, sockets: new Set(), port: 0 };
+  const f = { anfragen: [], modus: 'ok', verzoegerung: 0, gleichzeitig: 0, maxGleichzeitig: 0, sockets: new Set(), port: 0 };   // gleichzeitig: Anfragen, die der Server gerade bearbeitet (Ankunft bis Antwort oder Abbruch)
   f.server = http.createServer((req, res) => {
     let body = '';
     req.on('data', (c) => { body += c; });
     req.on('end', () => {
       let b = {}; try { b = JSON.parse(body); } catch (e) { /* egal */ }
       f.anfragen.push({ url: req.url, methode: req.method, body: b, auth: req.headers.authorization || null });
+      f.gleichzeitig++; f.maxGleichzeitig = Math.max(f.maxGleichzeitig, f.gleichzeitig);
+      let zu = false; res.on('close', () => { if (!zu) { zu = true; f.gleichzeitig--; } });
       if (f.modus === 'haengt') return;
       if (f.modus === '401') { res.writeHead(401); return res.end('nein'); }
       const antworten = () => { const w = wavVon(String(b.input)); res.writeHead(200, { 'Content-Type': 'audio/wav', 'Content-Length': w.length }); res.end(w); };
@@ -67,7 +69,7 @@ function fakeVoicebox() {
   f.server.on('connection', (s) => { f.sockets.add(s); s.on('close', () => f.sockets.delete(s)); });
   f.start = () => new Promise((r) => f.server.listen(f.port, '127.0.0.1', () => { f.port = f.server.address().port; r(f); }));
   f.stop = () => new Promise((r) => { for (const s of f.sockets) s.destroy(); f.server.close(() => r()); });
-  f.reset = () => { f.anfragen.length = 0; f.modus = 'ok'; f.verzoegerung = 0; };
+  f.reset = () => { f.anfragen.length = 0; f.modus = 'ok'; f.verzoegerung = 0; f.maxGleichzeitig = f.gleichzeitig; };
   return f;
 }
 

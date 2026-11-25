@@ -262,8 +262,12 @@ const sprechen = async (k) => { k.tasteRunter(); await tick(); return k.tasteHoc
     an.meldung(BS.TEXT.stille); ok(hud.notices.some((x) => x.text === BS.TEXT.stille), 'Stille-Meldung steht');
     an.aufnahme(true); ok(!hud.notices.some((x) => x.text === BS.TEXT.stille), 'neue Aufnahme raeumt "Mikrofon liefert keinen Ton." weg'); an.aufnahme(false);
     an.hinweis('Hallo'); ok(eq(hud.notices.at(-1), { text: 'Hallo', color: FNT.sensor, d: 6 }), 'Hinweis beim Einschalten: pushNotice, 6 s');
-    ok(BS.startHinweis({ kappe: (id) => ({ 'allgemein.sprechen': '^', 'allgemein.botText': '#' }[id]) }) === 'Bot-Sprache an: ^ halten = sprechen, # = tippen', 'Startnotiz mit den echten Tastenbeschriftungen');
-    ok(BS.startHinweis({ kappe: (id) => (id === 'allgemein.sprechen' ? 'F9' : '–') }) === 'Bot-Sprache an: F9 halten = sprechen, # = tippen', 'Startnotiz: umbelegte Taste, Ersatz bei fehlender Belegung');
+    // BOT-05 B-Nacharbeit: ohne Bots nur der Befehl, mit Bots auch das Gespräch (Ä halten, Ö tippen); die Tasten kommen immer aus der Belegung (kappe), mit Ersatz bei fehlender Belegung
+    const kap = { 'allgemein.sprechen': '^', 'allgemein.botText': '#', 'allgemein.gespraechSprechen': 'Ä', 'allgemein.gespraechText': 'Ö' };
+    ok(BS.startHinweis({ kappe: (id) => kap[id] }, false) === 'Befehl ^ halten, # tippen' && BS.startHinweis({ kappe: (id) => kap[id] }) === 'Befehl ^ halten, # tippen', 'Startnotiz ohne Bots: nur der Befehl, mit den echten Tastenbeschriftungen');
+    ok(BS.startHinweis({ kappe: (id) => kap[id] }, true) === 'Befehl ^ halten, # tippen · Gespräch Ä halten, Ö tippen', 'Startnotiz mit Bots: Befehl und Gespräch');
+    ok(BS.startHinweis({ kappe: (id) => (id === 'allgemein.sprechen' ? 'F9' : id === 'allgemein.gespraechText' ? 'F8' : '–') }, true) === 'Befehl F9 halten, # tippen · Gespräch Ä halten, F8 tippen', 'Startnotiz: umbelegte Tasten, Ersatz bei fehlender Belegung');
+    ok(BS.startHinweis({ kappe: (id) => (id === 'allgemein.sprechen' ? 'F9' : '–') }, false) === 'Befehl F9 halten, # tippen', 'Startnotiz ohne Bots: umbelegte Taste, Ersatz bei fehlender Belegung');
     // Textzeile: offen nur mit Spielbild; Enter sendet und schliesst, Esc schliesst ohne Senden, Fokusverlust schliesst nur, wenn leer
     const zf = an.wurzel.children[0];
     hud.bereit = false; ok(an.textzeile(true) === false && !an.zeile.offen, 'Textzeile oeffnet nicht ohne Spielbild (Lobby/Menue)'); hud.bereit = true;
@@ -652,6 +656,56 @@ const sprechen = async (k) => { k.tasteRunter(); await tick(); return k.tasteHoc
       calls.length = 0; H.zeichneSprechspalte(ctx, fuss()); ok(calls.some((c) => c.s === 'Kurzer Clip'), 'kuerzer als die Grunddauer: Grunddauer gilt (3 s)');
       const id4 = H.pushCrewFunk('Haengt', 'OPS', '#fff'); const t2 = tMs; H.crewFunkHalte(id4, true); tMs = t2 + 31000; calls.length = 0; H.zeichneSprechspalte(ctx, fuss());
       ok(!calls.some((c) => c.s === 'Haengt'), 'bleibt das Clip-Ende aus, haelt der Untertitel hoechstens 30 s');
+    }
+    // BOT-05 B-Nacharbeit (Designer): gemeinsame linke Kante, 3 px Abstand, Farben je Sprecher; wartende Untertitel (W2); Art der Textzeile (W1)
+    {
+      const w = neu(), H = w.Hud; H.sprechAn(true); H.sprech.bots = true; tMs = 70000;
+      H.pushCrewFunk('Kurz.', 'LIVIA', '#56B4E9', 20);
+      H.pushCrewFunk('Ein deutlich laengerer Satz im Untertitel, Captain.', 'CASSIUS', '#CC79A7', 20, { textFarbe: '#8EA3B5' });
+      H.pushCrewFunk('Mittel lang.', 'BORD', '#8EA3B5', 20);
+      calls.length = 0; H.zeichneSprechspalte(ctx, fuss());
+      const bd = calls.filter((c) => c.n === 'backdrop'), slot = H.sprechSlot(fuss());
+      const maxW = Math.max(...bd.map((b) => b.w));
+      ok(bd.length === 3 && new Set(bd.map((b) => b.x)).size === 1, 'alle sichtbaren Eintraege teilen EINE linke Kante (x ' + bd.map((b) => b.x).join('/') + ', Breiten ' + bd.map((b) => b.w).join('/') + ')');
+      ok(bd[0].x === Math.round(slot.x + (slot.w - maxW) / 2) && maxW === Math.max(...bd.map((b) => b.w)) && bd.some((b) => b.w < maxW), 'die Kante liegt so, dass der breiteste Eintrag mittig im Slot steht (die schmaleren schliessen links buendig an)');
+      const sortiert = bd.slice().sort((a, b) => a.y - b.y);
+      ok(sortiert.slice(1).every((b, i) => b.y - (sortiert[i].y + sortiert[i].h) === 3), '3 px Abstand zwischen den Eintraegen (Luecken ' + sortiert.slice(1).map((b, i) => b.y - (sortiert[i].y + sortiert[i].h)).join('/') + ')');
+      const balken = calls.filter((c) => c.n === 'fillRect' && c.w === 2).map((c) => c.c);
+      ok(eq(balken.sort(), ['#56B4E9', '#8EA3B5', '#CC79A7']), 'Balken in der Farbe des Sprechers (Spielerfarben, BORD neutral)');
+      const tx = (s) => calls.find((c) => c.n === 'text' && c.s === s);
+      ok(tx('LIVIA:').o.color === '#56B4E9' && tx('CASSIUS:').o.color === '#CC79A7' && tx('BORD:').o.color === '#8EA3B5', 'Sprechername in der Farbe des Sprechers');
+      ok(tx('Kurz.').o.color === '#F4EEDC' && calls.filter((c) => c.n === 'text' && /^Ein deutlich/.test(c.s)).every((c) => c.o.color === '#8EA3B5'), 'Satztext FN.cmd; mit textFarbe (denkt nach) in dieser Farbe');
+      // ohne Bots (Standard 2 Eintraege) bleibt es beim Stapel: aelteste faellt raus, Abstand gilt auch dort
+      const w2 = neu(), H2 = w2.Hud; H2.sprechAn(true); tMs = 70000;
+      for (const t of ['Eins', 'Zwei', 'Drei']) H2.pushCrewFunk(t, 'BORD', '#fff');
+      calls.length = 0; H2.zeichneSprechspalte(ctx, fuss());
+      ok(calls.filter((c) => c.n === 'backdrop').length === 2, 'ohne Bots weiter hoechstens zwei Eintraege');
+      // wartet / crewFunkFrei (W2)
+      const w3 = neu(), H3 = w3.Hud; H3.sprechAn(true); H3.sprech.bots = true; tMs = 100000;
+      const id = H3.pushCrewFunk('Wartet auf den Ton.', 'LIVIA', '#fff', undefined, { wartet: true });
+      const zeigt = (dt) => { tMs = 100000 + dt * 1000; calls.length = 0; H3.zeichneSprechspalte(ctx, fuss()); return calls.some((c) => c.n === 'text' && c.s === 'Wartet auf den Ton.'); };
+      ok(zeigt(0.1) && zeigt(30) && zeigt(59), 'wartender Eintrag: steht weit ueber die Grunddauer (59 s)');
+      ok(!zeigt(61), 'Sicherung: ohne Freigabe nach 60 s weg');
+      tMs = 100000; const id2 = H3.pushCrewFunk('Zweiter wartet.', 'LIVIA', '#fff', undefined, { wartet: true });
+      const zeigt2 = (dt) => { tMs = 100000 + dt * 1000; calls.length = 0; H3.zeichneSprechspalte(ctx, fuss()); return calls.some((c) => c.n === 'text' && c.s === 'Zweiter wartet.'); };
+      tMs = 110000; H3.crewFunkFrei(id2, false);
+      ok(zeigt2(10.4) && !zeigt2(10.6), 'Frei nach gelaufenem Ton: noch 0,5 s, dann weg');
+      tMs = 100000; const id3 = H3.pushCrewFunk('Dritter ohne Ton.', 'LIVIA', '#fff', undefined, { wartet: true }); const d3 = H3.crewFunkDauer('Dritter ohne Ton.');
+      tMs = 120000; H3.crewFunkFrei(id3, true);
+      const zeigt3 = (dt) => { tMs = 120000 + dt * 1000; calls.length = 0; H3.zeichneSprechspalte(ctx, fuss()); return calls.some((c) => c.n === 'text' && c.s === 'Dritter ohne Ton.'); };
+      ok(zeigt3(d3 - 0.2) && !zeigt3(d3 + 0.2), 'Frei mit Ausfall: die normale Dauer ab jetzt (' + d3.toFixed(2) + ' s), nicht ab dem Eintreffen');
+      tMs = 130000; const id4 = H3.pushCrewFunk('Clip laeuft.', 'LIVIA', '#fff', undefined, { wartet: true });
+      tMs = 131000; H3.crewFunkHalte(id4, true); H3.crewFunkFrei(id4, false); tMs = 150000; calls.length = 0; H3.zeichneSprechspalte(ctx, fuss());
+      ok(calls.some((c) => c.s === 'Clip laeuft.'), 'frei, aber der Clip laeuft noch (halt): der Eintrag bleibt (Halt hoechstens 30 s ab Tonbeginn)');
+      // Textzeile: die Art steht vorn, auch mit Text (W1)
+      const w4 = neu(), H4 = w4.Hud; H4.sprechAn(true); tMs = 160000;
+      const feld = { value: 'Schilde Steuerbord', selectionStart: 18 };
+      H4.sprech.zeile = { offen: true, feld, platzhalter: 'x', kopf: 'GESPRÄCH', kopfArt: 'gespraech', platziere() {} };
+      calls.length = 0; H4.zeichneSprechspalte(ctx, fuss());
+      const kopf = calls.find((c) => c.n === 'text' && /^GESPRÄCH/.test(c.s)), text = calls.find((c) => c.n === 'text' && c.s === 'Schilde Steuerbord');
+      ok(kopf && text && kopf.o.color === '#A9D6E5' && text.x > kopf.x + R.measure(kopf.s) - 1, 'Textzeile mit Text: der Kopf GESPRÄCH (Farbe sensor) steht vor dem Text');
+      H4.sprech.zeile.kopf = 'BEFEHL'; H4.sprech.zeile.kopfArt = 'befehl'; calls.length = 0; H4.zeichneSprechspalte(ctx, fuss());
+      ok(calls.some((c) => c.n === 'text' && /^BEFEHL/.test(c.s) && c.o.color === '#FFC66B'), 'Befehlszeile: Kopf BEFEHL in der Befehlsfarbe (drive)');
     }
     // Zeichnen: Reihenfolge, Spalte, Aufnahme ersetzt den untersten Platz, Textzeile
     {

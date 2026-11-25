@@ -1,13 +1,15 @@
 'use strict';
 // BOT-05 B3: Abnahmelaeufe fuer das Gespraech mit den Bots (Abnahme 5, 6 live und Latenz) in einer echten Partie, Server-intern (startServer, WebSocket, 1 Mensch als Testclient, 3 Bots).
 //   (a) Zustandsstichprobe: --n Fragen (halb "Wie ist der Kurs?", halb "Wie stehen die Schilde?", verteilt auf b0 Livia, b1 Cassius, b2 Titus). Vor jeder Frage ein anderer Zustand
-//       (Schiffswinkel, Schildwerte und -kappen je Sektor, jede vierte Frage ein beschaedigtes System). Soll = lageAuszug zum Zeitpunkt des Prompt-Baus (die Funktion wird nur abgehoert).
-//       Urteil richtig / falsch / ausweichend nach tools/lib/bot-gespraech-auswertung.js (Regeln dort); ausweichend zaehlt als Fehler und wird getrennt ausgewiesen.
+//       (Schiffswinkel, Schildwerte je Sektor, Zustand der vier Emitter ok / beschaedigt / ausgefallen ueber die Spielfunktionen, jede vierte Frage ein beschaedigtes System). Die Kappen ergeben sich im Spiel aus den
+//       Emitterzustaenden (space.js enforceShields); shields.cap wird NICHT gesetzt (B-Nacharbeit W6: der Tick ueberschrieb es). Soll = lageAuszug zum Zeitpunkt des Prompt-Baus (die Funktion wird nur abgehoert).
+//       Urteil richtig / unvollstaendig / falsch / ausweichend nach tools/lib/bot-gespraech-auswertung.js (Regeln dort; bei Schilden heisst richtig: alle vier Sektoren genannt und korrekt); unvollstaendig,
+//       falsch und ausweichend zaehlen als Fehler und werden getrennt ausgewiesen.
 //   (b) Plauderbefehle: --nb Befehle im Plauderton (Standard = n). Erwartet: kein cmd, kein bot.befehl, keine Annahme, kein Aufruf der Befehlsfunktion, Schiffszustand je Gespraech gleich.
 //       Gezaehlt wird zusaetzlich, wie oft die Antwort eine Ausfuehrung behauptet oder zusagt (Wortliste, Wortlaut im Protokoll).
 //   (c) Latenz: Zeit bis denkt, erster satz, erster ton, ende ueber alle Gespraeche; Median und p90; das erste (kalte) Gespraech getrennt.
 // Aufruf:
-//   OLLAMA_URL=http://127.0.0.1:11435 VOICEBOX_URL=http://sleipnir.local:17493 VOICEBOX_AUTH=kai:... node tools/mess-bot-gespraech.js --n 20 [--nb 20] [--aus <ordner>] [--seed 1] [--mission m1]
+//   OLLAMA_URL=http://127.0.0.1:11435 [VOICEBOX_URL=http://sleipnir.local:17493 VOICEBOX_AUTH=kai:...] node tools/mess-bot-gespraech.js --n 20 [--nb 20] [--aus <ordner>] [--seed 1] [--mission m1]
 //   node tools/mess-bot-gespraech.js --trocken [--n 4]     Fake-Ollama und Fake-Voicebox aus tools/lib/bot-gespraech-fakes.js (Fake antwortet mit den Werten aus der LAGE im Prompt), kein Sleipnir
 // Ausgabe: Konsole plus <aus>/protokoll.jsonl und <aus>/protokoll.md (Standard messungen/bot-gespraech-<zeit>/). Das Passwort steht nur in der Umgebung und nie in der Ausgabe.
 const fs = require('fs');
@@ -87,21 +89,29 @@ const kopie = (o) => JSON.parse(JSON.stringify(o));
 // Teil des Schiffszustands, den ein Befehl veraendern wuerde (Schub, Schilde-Verteilung, Ziel, Technik-Prioritaet, Systeme, Waffen); Kurs und Schildwerte laufen mit der Zeit selbst
 const befehlsZustand = (g) => JSON.stringify({ stage: g.ship.helm.stage, autoStop: g.ship.helm.autoStop, alloc: g.ship.shields.alloc, target: g.ship.target, priority: g.ship.priority, systems: g.ship.systems, waffen: g.ship.waffen, sprung: g.ship.jump && g.ship.jump.ready });
 
+// Emitter je Sektor (Index = Sektor 0 Bug, 1 Steuerbord, 2 Heck, 3 Backbord): Zustand ueber die Spielfunktion setzen; die Kappe daraus rechnet space.js (ok = volle Staerke, beschaedigt = halbe, ausgefallen = 0)
+const EMITTER_ZUSTAND = ['ok', 'damaged', 'broken'];
 function zustandSetzen(g, i) {
   const grad = ganz(0, 359);
   g.ship.angle = (grad - 90) * Math.PI / 180;
   g.ship.turnVel = 0; g.ship.helm.turn = 0;
-  const cap = [ganz(3, 6), ganz(3, 6), ganz(3, 6), ganz(3, 6)];
-  g.ship.shields.cap = cap;
-  g.ship.shields.current = cap.map((c) => ganz(0, c));
-  const beschaedigt = [];
   for (const s of Object.keys(g.ship.systems)) if (g.ship.systems[s] !== 'ok') { try { interior.setzeZustand(g, s, 'ok'); } catch (e) { /* weiter */ } }
+  // Emitter: jede dritte Frage alle intakt, sonst abwechselnd ein beschaedigter bzw. ein ausgefallener (plus ein beschaedigter) Emitter, Sektor zufaellig: alle drei Faelle werden gemessen
+  const emitter = ['ok', 'ok', 'ok', 'ok'];
+  const phase = i % 3;
+  if (phase === 1) emitter[ganz(0, 3)] = 'damaged';
+  if (phase === 2) { const a = ganz(0, 3); emitter[a] = 'broken'; const b = (a + ganz(1, 3)) % 4; emitter[b] = 'damaged'; }
+  emitter.forEach((st, sek) => { if (st !== 'ok') { try { interior.setzeZustand(g, interior.emitterFor(sek), st); } catch (e) { /* weiter */ } } });
+  const voll = g.C.shields.maxPerSector;
+  const cap = emitter.map((st) => Math.floor(voll * (st === 'broken' ? 0 : st === 'damaged' ? 0.5 : 1)));   // wie space.js shieldCaps (emitterCap); nur zur Anzeige im Protokoll
+  g.ship.shields.current = cap.map((c) => ganz(0, c));   // Schildwerte je Sektor; der naechste Tick klemmt sie auf die tatsaechliche Kappe (gleich der hier berechneten)
+  const beschaedigt = [];
   if (i % 4 === 3) {
     const kandidaten = interior.SYSTEM_ORDER.filter((s) => g.ship.systems[s] === 'ok');
     const s = kandidaten[ganz(0, kandidaten.length - 1)];
     if (s) { try { interior.damageSystem(g, s, 'damaged', { debug: true }); beschaedigt.push(s); } catch (e) { /* weiter */ } }
   }
-  return { gradGesetzt: grad, kappen: cap, beschaedigt };
+  return { gradGesetzt: grad, emitter: emitter.map((e) => ({ ok: 'ok', damaged: 'beschaedigt', broken: 'ausgefallen' }[e])), kappen: cap, beschaedigt };
 }
 
 // ---------- Client ----------
@@ -203,10 +213,12 @@ const sek = (v) => (v == null ? '-' : (v / 1000).toFixed(2) + ' s');
   // ---------- Auswertung ----------
   const a = protokoll.filter((e) => e.teil === 'a'), b = protokoll.filter((e) => e.teil === 'b');
   const zaehl = (l, u) => l.filter((e) => e.urteil === u).length;
-  const R = { n: a.length, richtig: zaehl(a, 'richtig'), falsch: zaehl(a, 'falsch'), ausweichend: zaehl(a, 'ausweichend'), keinUrteil: zaehl(a, 'kein_urteil') };
+  const R = { n: a.length, richtig: zaehl(a, 'richtig'), unvollstaendig: zaehl(a, 'unvollstaendig'), falsch: zaehl(a, 'falsch'), ausweichend: zaehl(a, 'ausweichend'), keinUrteil: zaehl(a, 'kein_urteil') };
   const kursA = a.filter((e) => e.art === 'kurs'), schA = a.filter((e) => e.art === 'schilde');
-  R.kurs = { n: kursA.length, richtig: zaehl(kursA, 'richtig'), falsch: zaehl(kursA, 'falsch'), ausweichend: zaehl(kursA, 'ausweichend') };
-  R.schilde = { n: schA.length, richtig: zaehl(schA, 'richtig'), falsch: zaehl(schA, 'falsch'), ausweichend: zaehl(schA, 'ausweichend') };
+  R.kurs = { n: kursA.length, richtig: zaehl(kursA, 'richtig'), unvollstaendig: zaehl(kursA, 'unvollstaendig'), falsch: zaehl(kursA, 'falsch'), ausweichend: zaehl(kursA, 'ausweichend') };
+  R.schilde = { n: schA.length, richtig: zaehl(schA, 'richtig'), unvollstaendig: zaehl(schA, 'unvollstaendig'), falsch: zaehl(schA, 'falsch'), ausweichend: zaehl(schA, 'ausweichend') };
+  const emZ = schA.map((e) => (e.zustandGesetzt && e.zustandGesetzt.emitter) || []);
+  R.emitter = { alleOk: emZ.filter((z) => z.every((x) => x === 'ok')).length, mitBeschaedigt: emZ.filter((z) => z.includes('beschaedigt')).length, mitAusgefallen: emZ.filter((z) => z.includes('ausgefallen')).length };   // Schildfragen je Emitterfall (W6)
   const bR = { n: b.length, befehlsaufrufe: b.reduce((s, e) => s + e.befehlsaufrufe.length, 0), zustandUngleich: b.filter((e) => !e.zustandGleich).length, mitZusage: b.filter((e) => e.zusagen.length).length, ohneAntwort: b.filter((e) => e.ausgang !== 'ende').length };
   const lat = (l, k) => { const w = l.map((e) => e.zeiten[k]).filter((x) => x != null); return { n: w.length, median: rund(A.median(w)), p90: rund(A.perzentil(w, 90)), max: rund(Math.max(...w, 0)) }; };
   const warm = protokoll.filter((e) => !e.kalt), kalt = protokoll.filter((e) => e.kalt);
@@ -217,9 +229,9 @@ const sek = (v) => (v == null ? '-' : (v / 1000).toFixed(2) + ' s');
   fs.writeFileSync(path.join(AUS, 'protokoll.jsonl'), protokoll.map((e) => JSON.stringify(e)).join('\n') + '\n');
   const md = [];
   md.push(`# Messung Bot-Gespraech (BOT-05 B3) ${zeitMarke}`, '', `Modus ${TROCKEN ? 'TROCKEN (Fake-Dienste)' : 'echt'}, Mission ${MISSION}, n = ${N}, nb = ${NB}, Seed ${SEED}, Ollama ${process.env.OLLAMA_URL}, Modell ${process.env.BOT_GESPRAECH_MODELL || 'gemma4:26b-a4b-it-q4_K_M'}.`, '');
-  md.push('## (a) Zustandsstichprobe', '', `richtig ${R.richtig} / falsch ${R.falsch} / ausweichend ${R.ausweichend} / ohne Antwort ${R.keinUrteil} von ${R.n}. Kurs: ${JSON.stringify(R.kurs)}. Schilde: ${JSON.stringify(R.schilde)}.`, '');
+  md.push('## (a) Zustandsstichprobe', '', `richtig ${R.richtig} / unvollstaendig ${R.unvollstaendig} / falsch ${R.falsch} / ausweichend ${R.ausweichend} / ohne Antwort ${R.keinUrteil} von ${R.n}. Kurs: ${JSON.stringify(R.kurs)}. Schilde: ${JSON.stringify(R.schilde)}.`, '');
   md.push('| # | Bot | Frage | Soll | Antwort (woertlich) | Urteil | abweichend | satz | ton | ende |', '|---|---|---|---|---|---|---|---|---|---|');
-  for (const e of a) md.push(`| ${e.nr} | ${e.figur} | ${e.frage} | ${JSON.stringify(e.soll)}${e.systemeSoll && e.systemeSoll.length ? ' Systeme ' + e.systemeSoll.map((s) => s.system + ' ' + s.zustand).join(',') : ''} | ${(e.antwort || '(' + e.ausgang + ')').replace(/\|/g, '/')} | ${e.urteil} | ${JSON.stringify(e.abweichungen)} | ${sek(e.zeiten.satz1)} | ${sek(e.zeiten.ton1)} | ${sek(e.zeiten.ende)} |`);
+  for (const e of a) md.push(`| ${e.nr} | ${e.figur} | ${e.frage} | ${JSON.stringify(e.soll)}${e.zustandGesetzt && e.zustandGesetzt.emitter && e.zustandGesetzt.emitter.some((x) => x !== 'ok') ? ' Emitter ' + e.zustandGesetzt.emitter.join('/') : ''}${e.systemeSoll && e.systemeSoll.length ? ' Systeme ' + e.systemeSoll.map((s) => s.system + ' ' + s.zustand).join(',') : ''} | ${(e.antwort || '(' + e.ausgang + ')').replace(/\|/g, '/')} | ${e.urteil} | ${JSON.stringify(e.abweichungen)} | ${sek(e.zeiten.satz1)} | ${sek(e.zeiten.ton1)} | ${sek(e.zeiten.ende)} |`);
   md.push('', '## (b) Plauderbefehle', '', `Befehlsaufrufe ${bR.befehlsaufrufe} (Soll 0), Zustand ungleich in ${bR.zustandUngleich} von ${bR.n}, Antworten mit Zusage/Ausfuehrungsbehauptung ${bR.mitZusage} von ${bR.n}, ohne Antwort ${bR.ohneAntwort}.`, '');
   md.push('| # | Bot | Befehl im Plauderton | Antwort (woertlich) | Zusage-Treffer | Befehlsaufrufe | Zustand gleich |', '|---|---|---|---|---|---|---|');
   for (const e of b) md.push(`| ${e.nr} | ${e.figur} | ${e.frage} | ${(e.antwort || '(' + e.ausgang + ')').replace(/\|/g, '/')} | ${e.zusagen.join('; ') || '-'} | ${e.befehlsaufrufe.join(',') || '0'} | ${e.zustandGleich ? 'ja' : 'NEIN'} |`);
@@ -228,8 +240,9 @@ const sek = (v) => (v == null ? '-' : (v / 1000).toFixed(2) + ' s');
   fs.writeFileSync(path.join(AUS, 'protokoll.md'), md.join('\n') + '\n');
 
   console.log('\n=== Ergebnis ===');
-  console.log(`(a) richtig ${R.richtig}, falsch ${R.falsch}, ausweichend ${R.ausweichend}, ohne Antwort ${R.keinUrteil} von ${R.n}  (Kurs ${JSON.stringify(R.kurs)}, Schilde ${JSON.stringify(R.schilde)})`);
-  for (const e of a.filter((x) => x.urteil === 'falsch')) console.log(`    falsch #${e.nr} ${e.figur} "${e.frage}": Soll ${JSON.stringify(e.soll)}, Antwort "${e.antwort}"`);
+  console.log(`(a) richtig ${R.richtig}, unvollstaendig ${R.unvollstaendig}, falsch ${R.falsch}, ausweichend ${R.ausweichend}, ohne Antwort ${R.keinUrteil} von ${R.n}  (Kurs ${JSON.stringify(R.kurs)}, Schilde ${JSON.stringify(R.schilde)})`);
+  console.log(`    Schildfragen nach Emitterzustand: alle intakt ${R.emitter.alleOk}, mit beschaedigtem ${R.emitter.mitBeschaedigt}, mit ausgefallenem ${R.emitter.mitAusgefallen}`);
+  for (const e of a.filter((x) => x.urteil === 'falsch' || x.urteil === 'unvollstaendig')) console.log(`    ${e.urteil} #${e.nr} ${e.figur} "${e.frage}": Soll ${JSON.stringify(e.soll)}, Antwort "${e.antwort}"`);
   console.log(`(b) Befehlsaufrufe ${bR.befehlsaufrufe}, Zustand ungleich ${bR.zustandUngleich}, Zusagen ${bR.mitZusage} von ${bR.n}, ohne Antwort ${bR.ohneAntwort}`);
   for (const e of b.filter((x) => x.zusagen.length)) console.log(`    Zusage #${e.nr} ${e.figur} "${e.frage}": "${e.antwort}" [${e.zusagen.join('; ')}]`);
   console.log('(c) Latenz ms, ohne Kaltstart (Median / p90) | alle | Kaltstart');
@@ -240,5 +253,5 @@ const sek = (v) => (v == null ? '-' : (v / 1000).toFixed(2) + ' s');
   await srv.close();
   await dst.stop();
   const fehler = R.keinUrteil + bR.befehlsaufrufe + bR.zustandUngleich;
-  process.exit(TROCKEN && (R.falsch || R.ausweichend || fehler) ? 1 : 0);
+  process.exit(TROCKEN && (R.falsch || R.unvollstaendig || R.ausweichend || fehler) ? 1 : 0);
 })().catch((e) => { console.error('Abbruch:', e && e.stack || e); process.exit(1); });

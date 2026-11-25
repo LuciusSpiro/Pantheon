@@ -7,7 +7,7 @@
       "name": "Livia",
       "stimme": "b0",
       "karte": {
-        "v": 1, "name": "Livia", "koerper": "standard", "frisur": "stirnband", "haut": 2, "haar": 5,
+        "v": 1, "name": "Livia", "koerper": "standard", "frisur": "stirnband", "haut": 3, "haar": 6,
         "outfit": { "kopf": "keine", "oberteil": "robe", "hose": "bordhose", "schuhe": "bordstiefel", "haende": "keine", "umhang": "sagum" }
       },
       "persoenlichkeit": "Die Älteste an Bord, fuhr lange Fracht im Sund. Spricht ruhig und knapp und wird bei Gefahr eher leiser als lauter. Greift gern zu Seemannsbildern („Wind von Backbord“). Dem Captain gegenüber loyal: Hält sie eine Entscheidung für falsch, sagt sie das einmal offen und folgt dann."
@@ -17,8 +17,8 @@
       "name": "Cassius",
       "stimme": "b1",
       "karte": {
-        "v": 1, "name": "Cassius", "koerper": "standard", "frisur": "kurz", "haut": 1, "haar": 1,
-        "outfit": { "kopf": "keine", "oberteil": "bordtunika", "hose": "anzughose", "schuhe": "bordstiefel", "haende": "keine", "umhang": "keiner" }
+        "v": 1, "name": "Cassius", "koerper": "standard", "frisur": "keine", "haut": 1, "haar": 1,
+        "outfit": { "kopf": "keine", "oberteil": "einsatzanzug", "hose": "anzughose", "schuhe": "einsatzstiefel", "haende": "einsatzhandschuh", "umhang": "keiner" }
       },
       "persoenlichkeit": "Früher Schreiber in einer Flottenkanzlei, präzise und trocken. Nennt lieber Zahlen als Eindrücke, sein Humor ist so trocken, dass man ihn leicht überhört. Korrigiert Ungenauigkeiten, auch beim Captain. Respektiert den Rang, das Vertrauen in die Person muss der Captain sich verdienen."
     },
@@ -27,8 +27,8 @@
       "name": "Titus",
       "stimme": "b2",
       "karte": {
-        "v": 1, "name": "Titus", "koerper": "standard", "frisur": "wild", "haut": 0, "haar": 3,
-        "outfit": { "kopf": "keine", "oberteil": "plankenweste", "hose": "bordhose", "schuhe": "bordstiefel", "haende": "armschiene", "umhang": "keiner" }
+        "v": 1, "name": "Titus", "koerper": "standard", "frisur": "wild", "haut": 2, "haar": 3,
+        "outfit": { "kopf": "keine", "oberteil": "lorica", "hose": "bordhose", "schuhe": "bordstiefel", "haende": "armschiene", "umhang": "keiner" }
       },
       "persoenlichkeit": "Der Jüngste, auf seiner ersten großen Fahrt. Neugierig, schnell begeistert, redet zu viel, wenn er nervös ist. Will über jedes fremde Schiff alles wissen. Bewundert den Captain offen und will sich beweisen."
     }
