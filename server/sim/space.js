@@ -1508,8 +1508,9 @@ function updateSperrfeuer(game, e, retreating, dt, verh) {
   // Kurz vor einer Ladung keinen Stoß beginnen (lesbar: erst Sperrfeuer, dann Ruhe, dann Ladung)
   const teleIv = cfg.fireInterval * crewScale(game).enemyFireInterval;
   const burstDur = (S.burst - 1) * (S.burstGap || 0.25);
-  // (nur wenn die Ladung auch beginnen kann – im Band zwischen Lade- und Sperrfeuer-Reichweite feuert das Boot weiter)
-  if (M3(game).tele && M3(game).tele[e.kind] && hatWaffe(game, e, 'lanze') && e.fireT + burstDur + 0.5 >= teleIv && dist(e.x, e.y, T.x, T.y) <= waffenReichweite(game, cfg.range)) return;
+  // (nur wenn die Ladung auch beginnen kann – im Band zwischen Lade- und Sperrfeuer-Reichweite feuert das Boot weiter; SPT-02 10: und nur, wenn eine Lanze im Bogen auf das Ziel liegt (enemyCanHit wie in updateTele),
+  // sonst startet nie eine Ladung, e.fireT bleibt über der Schwelle und das Sperrfeuer wäre dauerhaft gesperrt)
+  if (M3(game).tele && M3(game).tele[e.kind] && enemyCanHit(game, e, T, 'lanze') && e.fireT + burstDur + 0.5 >= teleIv && dist(e.x, e.y, T.x, T.y) <= waffenReichweite(game, cfg.range)) return;
   sf.left = S.burst; sf.n = 0; sf.gapT = 0; sf.t = 0;
   sperrStats(game).bursts++;
   const o = lage ? platzPunkt(game, e, imBogen[0]) : sperrMuzzle(e, T, W);

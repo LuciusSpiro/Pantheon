@@ -32,6 +32,26 @@
       "einheit": "Zeichen",
       "_hinweis": "Titel im Block (= Brett.GRENZE.titel der Anzeige; die Karte kuerzt auf ihre Breite selbst, das Detail zeigt den vollen Titel). Laenger wird mit … gekuerzt, im Server."
     },
+    "zuletzt_gilt_taetigkeiten": {
+      "wert": 12,
+      "einheit": "Taetigkeiten",
+      "_hinweis": "SPT-02 2: wie lange der zuletzt beendete Faden (snapshot zuletzt) im Aufträge-Reiter steht, in Taetigkeiten (wie ein Angebot). Er faellt auch weg, sobald ein neuer Faden entsteht oder ein anderer endet (der juengste ersetzt ihn)."
+    },
+    "zuletzt_text_max": {
+      "wert": 110,
+      "einheit": "Zeichen",
+      "_hinweis": "SPT-02 2: Laenge des Abschlusstexts in snapshot zuletzt (der Text, den der Abschluss-Beat ohnehin als Funk sagt); laenger wird mit … gekuerzt."
+    },
+    "zuletzt_text_gelungen": {
+      "wert": "Der Auftrag ist erledigt.",
+      "einheit": "Text",
+      "_hinweis": "SPT-02 2: Ersatz, wenn der Abschluss-Beat keinen Text hinterlassen hat (kein Faden mit Abschluss-Beat, Altstand)."
+    },
+    "zuletzt_text_gescheitert": {
+      "wert": "Der Auftrag ist gescheitert.",
+      "einheit": "Text",
+      "_hinweis": "SPT-02 2: Ersatz, wenn der Abschluss-Beat keinen Text hinterlassen hat."
+    },
     "typen_max": {
       "wert": 4,
       "einheit": "Typen",
@@ -138,8 +158,9 @@
     "schon_beantwortet": "Darüber hat die Crew schon entschieden.",
     "unbekannt": "Diesen Auftrag kennt das Brett nicht.",
     "kein_spielleiter": "Der Spielleiter ist gerade nicht erreichbar. Das Angebot bleibt.",
-    "laeuft_schon": "Die Crew hat schon einen Auftrag. Das Angebot bleibt.",
+    "laeuft_schon": "Es laufen schon {n} Abenteuer. Das Angebot bleibt.",
     "kein_platz": "Die Crew hat gerade keinen Platz für einen weiteren Handlungsstrang. Das Angebot bleibt.",
+    "notruf_voll": "Die Crew führt schon so viele Notrufe, wie sie bewältigen kann. Das Angebot bleibt.",
     "veraltet": "Der Auftrag hat sich erledigt. Er wurde vom Brett genommen.",
     "fehler": "Das Brett konnte die Antwort nicht verarbeiten. Das Angebot bleibt.",
     "am_boden": "Wer am Boden liegt, kann nicht entscheiden."

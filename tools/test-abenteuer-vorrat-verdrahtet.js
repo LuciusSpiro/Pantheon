@@ -356,7 +356,7 @@ console.log('\nOhne ABENTEUER_ABSICHTEN: Vorrat leer, Verlauf wie mit dem alten 
   ok(vorrat(g2).length === 0, 'mit Modus: ein abgelehntes Angebot ohne Absicht kommt nicht in den Vorrat');
 }
 
-console.log('\nObergrenzen bleiben: 3 Angebote, 1 laufendes, Verfall nach ' + GILT);
+console.log('\nObergrenzen bleiben: 3 Angebote, laufend_max 3, Verfall nach ' + GILT);
 {
   const t = neu(7, { deckel: 4 }), g = t.g;
   for (const nm of ['rettung', 'lieferung', 'falscher_haendler']) V.hinzufuegen(g, V.eintrag(g, { absicht: ab(nm), art: ART }).eintrag);
@@ -366,11 +366,17 @@ console.log('\nObergrenzen bleiben: 3 Angebote, 1 laufendes, Verfall nach ' + GI
   ok(brett(g).length === MAXA && vorrat(g).length === 1, 'das Brett nimmt hoechstens ' + MAXA + ' (ein Eintrag bleibt liegen)');
   const id1 = 'a' + brett(g)[0].nr, id2 = 'a' + brett(g)[1].nr;
   ok(Brett.annehmen(g, id1) === null, 'Annehmen startet den Faden');
-  const r2 = Brett.annehmen(g, id2);
-  ok(!!r2 && r2.code === 'laeuft_schon', 'ein zweites laeuft nicht (laeuft_schon)');
+  const r2 = Brett.annehmen(g, id2);   // SPT-01 C: laufend_max 3, das zweite geht auf (laeuft_schon erst beim vierten: test-abenteuer-brett.js)
+  ok(r2 === null, 'ein zweites laeuft zugleich');
   const vor = brett(g).length;
   andocken(t);
-  ok(brett(g).length <= vor && vorrat(g).length === 1, 'bei einem laufenden Abenteuer fuellt der Vorrat das Brett nicht nach');
+  ok(brett(g).length >= vor && brett(g).length <= MAXA && vorrat(g).length <= 1, 'SPT-02 3: bei ZWEI laufenden Abenteuern (unter laufend_max) fuellt der Vorrat das Brett weiter nach (hoechstens ' + MAXA + ')');
+  const id3 = 'a' + brett(g)[0].nr;
+  ok(Brett.annehmen(g, id3) === null && g.weltsim.faeden.liste.filter((f) => f.plan && f.phase !== 'abgeschlossen').length === 3, 'ein drittes laeuft zugleich (Grenze laufend_max erreicht)');
+  V.hinzufuegen(g, V.eintrag(g, { absicht: ab('rettung'), art: ART }).eintrag);
+  const vorV = vorrat(g).length, vorB = brett(g).length;
+  andocken(t);
+  ok(brett(g).length <= vorB && vorrat(g).length >= vorV, 'bei DREI laufenden Abenteuern fuellt der Vorrat das Brett nicht nach (Eintraege bleiben liegen)');
   ok(brett(g).every((a) => a.alter <= GILT), 'Verfall: kein Angebot ist aelter als ' + GILT + ' Taetigkeiten');
   tick(g, GILT + 1);
   ok(brett(g).length === 0, 'nach ' + (GILT + 1) + ' Taetigkeiten ist das Brett leer (Verfall wie bisher)');

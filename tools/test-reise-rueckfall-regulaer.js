@@ -72,11 +72,11 @@ for (const [art, p] of Object.entries(ARTEN)) {
     const na = P.notrufAngebote(Fz(g))[0];
     const nr = na ? Brett.annehmen(g, 'a' + na.nr) : 'kein Notruf-Angebot';
     const ok1 = vorher === 'wartet0' && gestartet && f.phase === 'abgeschlossen' && f.ausgang && f.ausgang.art === 'gescheitert' && beatsGestartet(g, f) === 2;
-    const ok2 = nr === null && P.abenteuerLaufend(Fz(g)) === 1 && g.errors === 0 && fehler.length === 0 && abgelehnt(g).length === 0;
+    const ok2 = nr === null && P.abenteuerLaufend(Fz(g)) === 0 && P.notrufAktiv(Fz(g)).length === 1 && g.errors === 0 && fehler.length === 0 && abgelehnt(g).length === 0;
     ergebnis.push(ok1 && ok2);
     if (!(ok1 && ok2)) ok(false, `${art} Seed ${seed}: Vorher ${vorher}, Beat 0 gestartet ${gestartet}, Phase ${f.phase}, Beats ${beatsGestartet(g, f)}, Notruf annehmen ${JSON.stringify(nr)}, laufend ${P.abenteuerLaufend(Fz(g))}, Fehler ${g.errors} ${fehler.slice(0, 2)}, abgelehnt ${abgelehnt(g).length}`);
   }
-  ok(ergebnis.length === SEEDS.length && ergebnis.every(Boolean), `${art}: ${SEEDS.length} Seeds: Beat 0 startet, Faden abgeschlossen (gescheitert ohne Crew-Tat), kein Fehler, danach ein Notruf-Angebot annehmbar (nur dieses laeuft: abenteuerLaufend 1)`);
+  ok(ergebnis.length === SEEDS.length && ergebnis.every(Boolean), `${art}: ${SEEDS.length} Seeds: Beat 0 startet, Faden abgeschlossen (gescheitert ohne Crew-Tat), kein Fehler, danach ein Notruf-Angebot annehmbar (nur dieses laeuft: SPT-02 4: Notruf-Faeden zaehlen nicht in laufend_max, abenteuerLaufend 0, notrufAktiv 1)`);
 }
 {   // Abstand: nur Beat 0 uebergeht ihn, ein spaeterer Beat wartet auf seine Faelligkeit
   const { g } = spiel(7);
@@ -118,7 +118,7 @@ for (const art of ['konvoi', 'geleit']) {   // im Flug: Vorlauf, Kampf; der Ruec
   ok(f.phase === 'laeuft' && f.beat === 0 && !!tag && weiter === 0 && Brett.abenteuerRueckfallWeiter(g) === 0, `${art}: im Flug beginnt die Szene (Kampf nach ${k} Takten), der Faden laeuft, der Rueckfall fuehrt ihn nicht weiter`);
   for (let i = 0; i < FRIST + 1; i++) Faden.taetigkeit(g, 'andocken');
   g.step(); g.step();
-  ok(!g.fadenSzene && (g.fadenWarte || []).length === 0 && !g.space.enemies.some((e) => e.tag === tag), `${art}: die Frist beendet den Beat, die Szene ist weg (keine Gegner, keine Warteschlange)`);
+  ok(!g.fadenSzene && (g.fadenWarte || []).length === 0 && g.space.enemies.every((e) => e.tag !== tag || e.leaving), `${art}: die Frist beendet den Beat, die Szene ist weg (keine kaempfenden Gegner, SPT-02 7: sie ziehen ab; keine Warteschlange)`);
   for (let i = 0; i < 40 && f.phase !== 'abgeschlossen'; i++) takt(g);
   ok(f.phase === 'abgeschlossen' && P.abenteuerLaufend(Fz(g)) === 0 && g.errors === 0 && fehler.length === 0 && !g.fadenSzene, `${art}: danach fuehrt der Rueckfall den Faden zum Abschluss, nichts bleibt haengen`);
 }
@@ -160,7 +160,7 @@ console.log('\nC: Betrieb mit Modell bleibt unberuehrt (kein Doppeltreiben)');
     Faden.taetigkeit(g, 'andocken'); g.step(); getrieben += treiber();
     for (let k = 0; k < FRIST + 1 && f.phase === 'laeuft'; k++) Faden.taetigkeit(g, 'andocken');
   }
-  ok(f.phase === 'abgeschlossen' && getrieben === 2 && beatsGestartet(g, f) === 2, `Mock-Treiber: jeder Beat genau einmal gestartet (${getrieben} Befehle, ${beatsGestartet(g, f)} Beats, Phase ${f.phase})`);
+  ok(f.phase === 'abgeschlossen' && getrieben >= 1 && getrieben <= 2 && beatsGestartet(g, f) === 2, `Mock-Treiber: jeder Beat genau einmal gestartet (${getrieben} Befehle, ${beatsGestartet(g, f)} Beats, Phase ${f.phase}; SPT-02 1: den faelligen Abschluss-Beat darf auch abenteuerAbschlussWeiter starten, dann sendet der Treiber nur 1 Befehl)`);
   ok(abgelehnt(g).length === 0 && g.errors === 0 && fehler.length === 0, 'keine abgelehnten Befehle (auch nicht FADEN_BELEGT durch Doppeltreiben), keine Fehler');
   sl.rueckfallBetrieb = rb; sl.mode = modus;
 }

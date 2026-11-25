@@ -1,7 +1,7 @@
 // SUND-04b D: Auftragsbrett in der Anzeige (nur Freie Fahrt Sund mit FAEDEN=1). Globales `Brett`, in Node als Modul (Tests).
 // Storage: store.abenteuer = letzter Block world.abenteuer (README „SUND-04b C“; kommt nur bei Änderung; world.abenteuer = null ist das Löschsignal; welcome und die Lobby leeren ebenfalls).
 //   Gleich für alle Spieler (nur der Server schreibt). Ohne Block (kein FAEDEN=1) gibt es keinen Bereich, keine Hinweise, keine Fehler.
-// Action: modell() -> null | { ok, kopf, ablehnen, scheitern, angebote: [{ id, titel, anlass, ort, ortname, ort_offen, hafen, rest, von, aus_geruecht, typen, vorschau }], geruechte, laufend },
+// Action: modell() -> null | { ok, kopf, ablehnen, scheitern, angebote: [{ id, titel, anlass, ort, ortname, ort_offen, hafen, rest, von, aus_geruecht, typen, vorschau }], geruechte, laufend: [..] (Liste), laufendMax, notrufMax, voll (laufend.length >= laufendMax) },
 //   müllfest (jedes Feld wird auf Typ und Länge geprüft; Titel, Anlass und Gerücht sind Modelltext: nur als Text gezeichnet, nie als HTML). Dazu die Kurztexte der Antwortcodes und die
 //   Befehle abenteuer.annehmen / abenteuer.ablehnen (der Server entscheidet alles; die erste Antwort der Crew gilt).
 // Das Terminal (terminal-ui.js, Bereich „Brett“) und der Flug-HUD (hud.js, Streifen) lesen nur hierüber; gezeichnet wird in pult-terminal-brett.js.
@@ -13,7 +13,7 @@
   'use strict';
   const store = { abenteuer: null };
   // Grenzen der Anzeige (der Server kürzt schon enger: Titel 26, Anlass 110, Schritt 28; hier nur die Abwehr gegen Müll)
-  const GRENZE = { angebote: 3, geruechte: 3, schritte: 12, folgen: 8, titel: 40, anlass: 160, text: 90, ort: 40, id: 12, typen: 4, typ: 16, wahl: 4, wahlText: 44 };
+  const GRENZE = { laufend: 6, angebote: 3, geruechte: 3, schritte: 12, folgen: 8, titel: 40, anlass: 160, text: 90, ort: 40, id: 12, typen: 4, typ: 16, wahl: 4, wahlText: 44 };
   const ID_FORM = /^a\d{1,6}$/;   // wie der Server (Form der Angebots-Id)
   // Kurztexte je Antwortcode (README SUND-04b C); fehlt einer, gilt der Klartext des Servers (ev.text), sonst ALLGEMEIN
   const CODE_KURZ = {
@@ -23,8 +23,9 @@
     schon_beantwortet: 'Schon beantwortet: die erste Antwort der Crew gilt.',
     am_boden: 'Wer am Boden liegt, kann nicht entscheiden.',
     kein_spielleiter: 'Der Spielleiter ist nicht erreichbar. Das Angebot bleibt.',
-    laeuft_schon: 'Ein Abenteuer läuft schon. Das Angebot bleibt.',
+    laeuft_schon: 'Es laufen schon {n} Abenteuer. Das Angebot bleibt.',   // {n}: die Grenze aus dem Block (max)
     kein_platz: 'Kein Platz für einen weiteren Handlungsstrang. Das Angebot bleibt.',
+    notruf_voll: 'Die Crew führt schon so viele Notrufe, wie sie bewältigen kann. Das Angebot bleibt.',
     veraltet: 'Der Auftrag hat sich erledigt und wurde vom Brett genommen.',
     fehler: 'Das Brett konnte nicht antworten. Das Angebot bleibt, noch einmal versuchen.',
   };
@@ -79,6 +80,7 @@
       von: str(a.von, 8), aus_geruecht: a.aus_geruecht === true || a.aus_geruecht === 1,
       typen: liste(a.typen, GRENZE.typen * 4).filter((t) => typeof t === 'string' && t.trim()).slice(0, GRENZE.typen).map((t) => str(t.trim(), GRENZE.typ)),   // Beat-Typen ohne Abschluss (Server, höchstens 4)
       vorschau: vorschauAus(a.vorschau),
+      notruf: a.notruf === true || a.notruf === 1,   // SPT-02 4: ein Notruf-Angebot zaehlt nicht gegen laufend_max (Annehmen nie am Hinweis "laeuft schon" gesperrt)
     };
   }
   function laufendAus(l) {
@@ -88,23 +90,31 @@
       id: str(l.id, GRENZE.id), titel: kurz(l.titel, GRENZE.titel), anlass: str(l.anlass, GRENZE.anlass), ort: str(l.ort, GRENZE.ort),
       schritt: Math.max(1, Math.min(gesamt, zahl(l.schritt) || 1)), schritte_gesamt: gesamt, schritt_text: str(l.schritt_text, 60), gefahr: l.gefahr === true || l.gefahr === 1,
       ph: l.ph === 'laeuft' ? 'laeuft' : 'wartet', rest: zahl(l.rest),
+      notruf: l.notruf === true || l.notruf === 1,   // SPT-02 4: ein Notruf-Faden zaehlt nicht gegen laufend_max
     };
   }
   function modellAus(b) {
     if (!b || typeof b !== 'object') return null;
     const angebote = liste(b.angebote, GRENZE.angebote).map(angebotAus).filter(Boolean);
-    const laufend = laufendAus(b.laufend);
+    const laufend = (Array.isArray(b.laufend) ? liste(b.laufend, GRENZE.laufend) : b.laufend ? [b.laufend] : []).map(laufendAus).filter(Boolean);   // SPT-02 3: eine Liste (der Server sendet alle laufenden Abenteuer; ein einzelnes Objekt eines Altstands gilt als eines)
+    const notrufMax = isNum(b.nmax) ? Math.max(1, zahl(b.nmax)) : 0;   // SPT-02 5b: die Grenze notruf_aktiv_max aus den Daten (0 = unbekannt: die Ueberschrift nennt dann keine Grenze)
+    const laufendMax = isNum(b.max) ? Math.max(1, zahl(b.max)) : 1;   // die Grenze laufend_max aus den Daten des Servers; fehlt sie, gilt 1 (Annehmen bleibt gesperrt: der Server entscheidet ohnehin)
     const ids = new Set(angebote.map((a) => a.id));
     const geruechte = liste(b.geruechte, GRENZE.geruechte).filter((g) => g && typeof g === 'object' && str(g.text)).map((g) => ({ von: str(g.von, 8), text: str(g.text), angebot: typeof g.angebot === 'string' && ids.has(g.angebot) ? g.angebot : '' }));
-    if (!angebote.length && !laufend) return null;   // nichts zu zeigen: kein Bereich (der Server sendet dann null)
-    return { ok: b.ok === 1 || b.ok === true, kopf: str(b.kopf, 30), ablehnen: str(b.ablehnen, 50), scheitern: str(b.scheitern, 100), angebote, geruechte, laufend };
+    if (!angebote.length && !laufend.length) return null;   // nichts zu zeigen: kein Bereich (der Server sendet dann null)
+    return { ok: b.ok === 1 || b.ok === true, kopf: str(b.kopf, 30), ablehnen: str(b.ablehnen, 50), scheitern: str(b.scheitern, 100), angebote, geruechte, laufend, laufendMax, notrufMax, voll: laufend.filter((l) => !l.notruf).length >= laufendMax };   // SPT-02 4: voll zaehlt nur die regulaeren Abenteuer
   }
   const modell = () => modellAus(store.abenteuer);
 
   // „Eben angenommen“: das Abenteuer wartet noch auf den ersten Schritt (aus dem Snapshot, für alle Geräte gleich, kein lokaler Zustand)
   const frisch = (l) => !!l && l.ph === 'wartet' && l.schritt === 1;
+  // das zuletzt angenommene unter den laufenden Abenteuern, das noch auf seinen ersten Schritt wartet (die Liste steht in Reihenfolge der Annahme), sonst null
+  const frischeVon = (ls) => (Array.isArray(ls) ? ls.filter(frisch).pop() : null) || null;
   // Text der Absage zu einem Antwortcode
-  function antwortText(code, text) { return CODE_KURZ[code] || (typeof text === 'string' && text.trim() ? str(text.trim(), GRENZE.text) : ALLGEMEIN); }
+  function antwortText(code, text) {
+    const m = modell(), kurz = CODE_KURZ[code];
+    return kurz ? kurz.split('{n}').join(String(m ? m.laufendMax : 1)) : (typeof text === 'string' && text.trim() ? str(text.trim(), GRENZE.text) : ALLGEMEIN);
+  }
   // Befehle im Protokollformat (README SUND-04b C); false bei einer ungültigen Id
   function annehmen(send, id) { return befehl(send, 'abenteuer.annehmen', id); }
   function ablehnen(send, id) { return befehl(send, 'abenteuer.ablehnen', id); }
@@ -118,5 +128,5 @@
     if (N && typeof N.on === 'function') N.on(lesen);   // wie absicht.js: jede Servernachricht läuft durch lesen()
   })();
 
-  return { store, lesen, modellAus, modell, frisch, antwortText, annehmen, ablehnen, CODE_KURZ, GRENZE };
+  return { store, lesen, modellAus, modell, frisch, frischeVon, antwortText, annehmen, ablehnen, CODE_KURZ, GRENZE };
 });

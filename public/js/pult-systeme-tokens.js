@@ -93,6 +93,8 @@
     statusReaktor: FN.weapon,     // REAKTOR 6,4 s
     // SYS-01 A2b: geflickt (fragil) = Balken in Orange wie FRAGILE_COL (render.js) plus 1-px-Tape-Schraffur darüber (Form, nicht nur Farbe)
     fragil: '#F08A3C',
+    // SPT-02 6 (Scan-Anzeige Stapel): Symbol eines zerstörten Systems (Grau, dazu Kreuz und Strich: der Zustand hängt nicht an der Farbe)
+    stapelZer: '#4A5468',
   };
   // Skin germanen: nur die Flächen wechseln, Zustände bleiben (Funktion gleich in allen Skins)
   const FARBE_SKIN = {
@@ -132,6 +134,7 @@
     wand: 2,                       // Dicke der offenen Wand zur Mitte (ragt 3 px in die Fuge)
     systemzielMarke: 2,            // Strich links an der Zeile des Systemziels / des gezielten Systems
     schraffurZu: 4, schraffurUnt: 2,
+    stapel: { zeile: 14, symbol: 12, kreuz: 10, versatz: 15, balkenH: 4, balkenMin: 3, rand: 2, spalteMin: 15 },   // SPT-02 6: Zeile je Art im Zielkasten (Symbol 12 px, Balkenstück 4 px hoch, mind. 3 px breit; versatz = Beginn von Zähler/Balken nach dem Symbol, kreuz = Kantenlänge des Zerstört-Kreuzes; Spalte mind. 15 px = Symbol mit Rand und Lücke, sonst „+n“)
     banderole: { h: 18, ablauf: 2, zahlScale: 2, versatz: 22 },   // über der Anzeige (y 6), volle Breite 572; Inhalt der Anzeige darunter um `versatz` nach unten
     cdBalken: 2,                   // Höhe Cooldown-Balken in der Zelle (wie Halten der Lanze)
     bresche: { halbwinkel: 0.6, deckkraft: 0.35, kante: 2 },   // Keil auf der Karte: Winkel wie die Schildseite (±0,6 rad), Fläche transparent, Kante voll (2 px seit Review C1b-2: 1 px ging unter Strahlen und Treffern unter)
@@ -156,6 +159,9 @@
     // SYS-01 C1b-2 (Ziel-Scan): Reaktor-Countdown am Ziel (zerText, kein Pult-Banner), Gesamtintegrität statt HÜLLE, Grund für nicht anwählbare Systeme
     reaktorZiel: 'REAKTOR ZERSTÖRT · {s} s', gesamt: 'GESAMT {p} %', systemziel: 'Systemziel',
     nichtWaehlbar: { seite: 'Seite {zone} abgewandt', mitte: 'Mitte erst, wenn {zone} leer ist', zerstoert: 'System zerstört' },
+    // SPT-02 6 (Scan-Anzeige Stapel): Seitenname für Knopf (kurz), Zustand im Tooltip; Art-Namen: Waffen aus dem Katalog, sonst Name aus gegner-systeme.json
+    seiteKurz: { bug: 'Bug', stb: 'Stb', heck: 'Heck', bb: 'Bb', mitte: '' },
+    stapel: { emitter: 'Emitter', zustand: { ok: 'heil · {p} %', besch: 'beschädigt · {p} %', zer: 'zerstört', offline: 'offline' } },
   };
   // </tokens>
 

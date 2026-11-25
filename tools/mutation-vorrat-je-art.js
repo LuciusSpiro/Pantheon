@@ -59,7 +59,7 @@ const MUTATIONEN = [
   [BR, "  if (a.absicht) { try { Vorrat().einlegenAus(game, a, vorratArtVon(a)); }", "  if (a.absicht && !a.notruf) { try { Vorrat().einlegenAus(game, a, vorratArtVon(a)); }", 'Ablehnen: ein Notruf-Angebot kommt nicht in den Vorrat'],
   [BR, "    if (!a.absicht || F.abenteuerAngebote.includes(a) || b.antworten.includes(a.nr)) continue;", "    if (!a.absicht || a.notruf || F.abenteuerAngebote.includes(a) || b.antworten.includes(a.nr)) continue;", 'Verfall: ein Notruf-Angebot kommt nicht in den Vorrat'],
   // ---- Luecke aus D: gefuellter Vorrat im Absichten-Modus
-  [BR, "if (P.regulaereAngebote(F).length >= W.abenteuer.angebote_max || P.abenteuerLaufend(F)) return null;\n  const hex = crewHex(game);", "if (F.abenteuerAngebote.length >= W.abenteuer.angebote_max || P.abenteuerLaufend(F)) return null;\n  const hex = crewHex(game);", 'Vorrat fuellt das Brett: Notruf-Angebote zaehlen mit (ausVorratEinsAnbieten)'],
+  [BR, "if (P.regulaereAngebote(F).length >= W.abenteuer.angebote_max || P.abenteuerGrenzeErreicht(F)) return null;\n  const hex = crewHex(game);", "if (F.abenteuerAngebote.length >= W.abenteuer.angebote_max || P.abenteuerGrenzeErreicht(F)) return null;\n  const hex = crewHex(game);", 'Vorrat fuellt das Brett: Notruf-Angebote zaehlen mit (ausVorratEinsAnbieten)'],
   [BR, "  while (out.length < W.abenteuer.angebote_max) {\n    const a = ausVorratEinsAnbieten(game);", "  while (out.length < 1) {\n    const a = ausVorratEinsAnbieten(game);", 'ausVorratFuellen fuellt nur ein Angebot'],
 ];
 

@@ -18,6 +18,7 @@ const Weltstand = require('../server/weltstand.js');
 const Kriegslage = require('../server/sim/kriegslage.js');
 const Chronik = require('../server/sim/chronik.js');
 const Brett = require('../server/sim/abenteuer-brett.js');
+const PR = require('../server/sim/faden-pruefer.js');
 const BP = require('../server/sim/faden-bauplan.js');
 const Bitte = require('../server/sim/faden-bitte.js');
 const B2 = require('../server/sim/faden-b2.js');
@@ -113,7 +114,7 @@ section('Daten: Brett-Texte, Weigerungen, Anschluss-Plaene (3 bis 6, durch dense
   ok(WERTE.status.wert.every((s) => s in BRETT.status_scheitern) && Object.keys(BRETT.status_gelingen).every((s) => WERTE.status.wert.includes(s)), 'Zustaende des NSC: jeder hat einen Eintrag fuer das Scheitern, keiner ist unbekannt');
   ok(CODES.every((c) => typeof BRETT.weigerungen[c] === 'string' && BRETT.weigerungen[c].length > 5), 'jede Weigerung der Befehle hat einen Text (' + CODES.join(', ') + ')');
   const alle = JSON.stringify([BRETT.schritte, BRETT.weigerungen, BRETT.folgen, BRETT.chronik, BRETT.status_gelingen, BRETT.status_scheitern]);
-  ok(!/\{name\}/.test(JSON.stringify(BRETT.chronik)) && (alle.match(/\{\w+\}/g) || []).every((p) => ['{ort}', '{fraktion}', '{delta}'].includes(p)), 'Platzhalter nur {ort} {fraktion} {delta}; die Chronik nennt nie den Namen des NSC (sie geht in den Prompt des Spielleiters)');
+  ok(!/\{name\}/.test(JSON.stringify(BRETT.chronik)) && (alle.match(/\{\w+\}/g) || []).every((p) => ['{ort}', '{fraktion}', '{delta}', '{n}'].includes(p)), 'Platzhalter nur {ort} {fraktion} {delta} (und {n} in der Weigerung laeuft_schon); die Chronik nennt nie den Namen des NSC (sie geht in den Prompt des Spielleiters)');
   ok(ANS.plaene.length >= 3 && ANS.plaene.length <= 8, 'Anschluss-Plaene: 3 bis 8 (' + ANS.plaene.length + ', der siebte ist Helix: SON-01 C, der achte der Hinterhalt: BEA-03 C)');
   const ergebnisse = ANS.plaene.map((p) => BP.pruefe(p));
   ok(ergebnisse.every((r) => r.ok), 'jeder Anschluss-Plan besteht Expander und Pruefer' + ergebnisse.filter((r) => !r.ok).map((r) => ' ' + r.fehler[0]).join(''));
@@ -165,13 +166,13 @@ section('Snapshot world.abenteuer: Block, Vorschau aus den Daten, Loeschsignal, 
   const p = anbieten(g, notrufplan(1));
   t.an('a' + p.angebot.nr);
   const l = block(g);
-  ok(l && l.laufend && l.laufend.id === liste(g)[0].id && l.laufend.schritt === 1 && l.laufend.schritte_gesamt === 2 && l.laufend.ph === 'wartet' && l.laufend.schritt_text === BRETT.schritte.notruf.text && l.laufend.gefahr === false && Number.isInteger(l.laufend.rest) && l.laufend.rest >= 0, 'laufendes Abenteuer: Id, Schritt 1 von 2 (schritte_gesamt), wartet, schritt_text, gefahr, Rest');
-  ok(l && l.angebote.length === 0 && l.laufend.ort === '0305' && l.laufend.titel === 'Notruf 1', 'Angebote leer, Ort, Titel (Crew-neutral, hier ohne Namen im Text unveraendert)');
+  ok(l && Array.isArray(l.laufend) && l.laufend.length === 1 && l.max === WERTE.abenteuer.wert.laufend_max && l.laufend[0].id === liste(g)[0].id && l.laufend[0].schritt === 1 && l.laufend[0].schritte_gesamt === 2 && l.laufend[0].ph === 'wartet' && l.laufend[0].schritt_text === BRETT.schritte.notruf.text && l.laufend[0].gefahr === false && Number.isInteger(l.laufend[0].rest) && l.laufend[0].rest >= 0, 'laufendes Abenteuer: Id, Schritt 1 von 2 (schritte_gesamt), wartet, schritt_text, gefahr, Rest');
+  ok(l && l.angebote.length === 0 && l.laufend[0].ort === '0305' && l.laufend[0].titel === 'Notruf 1', 'Angebote leer, Ort, Titel (Crew-neutral, hier ohne Namen im Text unveraendert)');
   const f = liste(g)[0];
   ok(keinBlock(g), 'der Block ist gesendet, ein zweiter Snapshot traegt ihn nicht');
   startBeat(g, f);
   const l2 = block(g);
-  ok(l2 && l2.laufend.ph === 'laeuft' && l2.laufend.rest > 0 && l2.laufend.rest <= WERTE.beat_frist.wert, 'laeuft der Beat, zeigt der Block die Frist (' + (l2 && l2.laufend.rest) + ' Taetigkeiten)');
+  ok(l2 && l2.laufend[0].ph === 'laeuft' && l2.laufend[0].rest > 0 && l2.laufend[0].rest <= WERTE.beat_frist.wert, 'laeuft der Beat, zeigt der Block die Frist (' + (l2 && l2.laufend[0].rest) + ' Taetigkeiten)');
   ok(g.errors === 0, 'keine Serverfehler');
 });
 
@@ -222,7 +223,7 @@ section('Snapshot: Kuerzung im Server (Titel 40, Anlass 110), Geruechte aus den 
   // laufend: gefahr
   const g4 = neu(26, { env: { ABENTEUER_ANSCHLUSS: '0' } }), p4 = anbieten(g4.g, plan([b('konvoi'), b('abschluss')], { titel: 'Konvoi laeuft', anlass: 'Ein Konvoi, der gleich kommt, ohne Namen' }));
   g4.an('a' + p4.angebot.nr);
-  const l4 = block(g4.g).laufend;
+  const l4 = block(g4.g).laufend[0];
   ok(l4.gefahr === true && l4.schritt_text === BRETT.schritte.konvoi.text && l4.schritte_gesamt === 2, 'laufend: gefahr (Konvoi ist eine Szene), schritt_text aus den Daten');
   // Scheitern = staerkste Einzelfolge, nie die Summe
   const vw = Brett.vorschau(BP.pruefe(plan([b('wiedersehen'), b('notruf'), b('abschluss')])).vorlage, 'rom');
@@ -270,14 +271,18 @@ section('Befehle: annehmen (Crew entscheidet, die ERSTE Antwort gilt), Codes, Ei
     tx.g.errors = 0;
     ok(tx.an('a' + p.angebot.nr).ok === true, 'danach laesst sich das Angebot normal annehmen'); }
   ok(t.ab(id2, t.cs[1]).code === 'schon_beantwortet', 'auch Ablehnen nach der Annahme: schon_beantwortet');
-  // hoechstens ein laufendes Abenteuer
+  // SPT-01 C: bis zu laufend_max (3) laufende Abenteuer zugleich, das vierte meldet laeuft_schon (die Pruefung steht VOR kein_platz: bei drei laufenden sind auch die drei aktiven Faeden voll)
+  ok(WERTE.abenteuer.wert.laufend_max === 3 && WERTE.aktiv_max.wert === 3, 'Daten: laufend_max 3, aktiv_max 3');
+  const e1 = t.an(id1, t.cs[1]), e3 = t.an(id3, t.cs[2]);
+  ok(e1.ok === true && e3.ok === true && liste(g).filter((f) => f.plan && f.phase !== 'abgeschlossen').length === 3 && offen(g).length === 0, 'ein zweites und ein drittes Abenteuer neben dem laufenden: angenommen, drei laufen zugleich');
+  const a4 = anbieten(g, bitteplan(4)), id4 = 'a' + a4.angebot.nr;
   const fp0 = logbuch(g).filter((x) => x.art === 'faden_pruefung').length;
-  const e = t.an(id1, t.cs[1]);
-  ok(e.ok === false && e.code === 'laeuft_schon' && offen(g).length === 2, 'ein zweites Abenteuer neben dem laufenden: laeuft_schon, das Angebot bleibt');
+  const e = t.an(id4, t.cs[1]);
+  ok(a4.ok && e.ok === false && e.code === 'laeuft_schon' && e.text === BRETT.weigerungen.laeuft_schon.split('{n}').join(String(WERTE.abenteuer.wert.laufend_max)) && !/{n}/.test(e.text) && offen(g).length === 1 && liste(g).length === 3, 'ein viertes Abenteuer neben drei laufenden: laeuft_schon (nicht kein_platz), das Angebot bleibt');
   ok(logbuch(g).filter((x) => x.art === 'faden_pruefung').length === fp0, 'die Weigerung ist sauber: kein Eintrag faden_pruefung im Logbuch (der Zustand wird vorher geprueft)');
   // am Boden
   g.players[0].downed = true;
-  const d = t.an(id1, t.cs[0]);
+  const d = t.an(id4, t.cs[0]);
   ok(d.ok === false && d.code === 'am_boden', 'wer am Boden liegt: am_boden');
   g.players[0].downed = false;
   // Code ohne Schalter
@@ -290,7 +295,6 @@ section('Befehle: annehmen (Crew entscheidet, die ERSTE Antwort gilt), Codes, Ei
   const k = tl.an('a' + p.angebot.nr);
   ok(k.ok === false && k.code === 'kein_spielleiter' && offen(tl.g).length === 1 && liste(tl.g).length === 0, 'ohne Spielleiter: kein_spielleiter, das Angebot bleibt bis zum Verfall, nichts wird begonnen');
   ok(g.errors === 0 && tl.g.errors === 0 && t0.g.errors === 0, 'keine Serverfehler');
-  void id3;
 });
 
 section('Befehle: ablehnen kostet nichts (kein Ruf, keine Haltung, kein Cooldown), der Platz wird frei', () => {
@@ -432,7 +436,25 @@ section('Anschluss-Garantie: nach dem Ende ein Angebot ohne Modell, nie der letz
   const t2 = neu(34), g2 = t2.g;
   const a = anbieten(g2, bitteplan(1)); t2.an('a' + a.angebot.nr);
   wipe(g2); grenzen(g2, 3); for (let i = 0; i < 300; i++) g2.step();
-  ok(offen(g2).length === 0, 'waehrend ein Abenteuer laeuft, entsteht kein Rueckfall-Angebot');
+  ok(offen(g2).length > 0, 'SPT-02 3: waehrend EIN Abenteuer laeuft (laufend_max 3), fuellt der Rueckfall das Brett nach (' + offen(g2).length + ' Angebote)');
+  wipe(g2); const nf1 = Brett.anschlussFuellen(g2);
+  ok(nf1.length >= 1 && offen(g2).length === nf1.length, 'SPT-02 3: anschlussFuellen (Andocken) fuellt bei EINEM laufenden Abenteuer das Brett (' + nf1.length + ' Angebote, ohne Komponist bis angebote_max)');
+  { wipe(g2); const a2 = anbieten(g2, bitteplan(2)); t2.an('a' + a2.angebot.nr);
+    wipe(g2); const nf2 = Brett.anschlussFuellen(g2);
+    ok(nf2.length >= 1, 'SPT-02 3: anschlussFuellen fuellt auch bei ZWEI laufenden Abenteuern (' + nf2.length + ')');
+    wipe(g2); grenzen(g2, 3); for (let i = 0; i < 300; i++) g2.step();
+    ok(liste(g2).filter((x) => x.plan && x.phase !== 'abgeschlossen').length === 2 && offen(g2).length > 0, 'bei ZWEI laufenden Abenteuern fuellt der Rueckfall das Brett weiter nach (' + offen(g2).length + ' Angebote)');
+    const a3 = anbieten(g2, bitteplan(3)); t2.an('a' + a3.angebot.nr);
+    wipe(g2); grenzen(g2, 3); for (let i = 0; i < 300; i++) g2.step();
+    ok(liste(g2).filter((x) => x.plan && x.phase !== 'abgeschlossen').length === 3 && offen(g2).length === 0 && PR.abenteuerGrenzeErreicht(zust(g2)) === true, 'bei DREI laufenden (laufend_max) entsteht kein Rueckfall-Angebot mehr');
+    ok(Brett.anschluss(g2) === null && Brett.anschlussFuellen(g2).length === 0 && offen(g2).length === 0, 'auch Anschluss-Garantie und Anschluss-Fuellen bleiben bei erreichter Grenze aus');
+    const bl = Brett.snapshot(g2);
+    ok(bl && Array.isArray(bl.laufend) && bl.laufend.length === 3 && bl.max === 3 && new Set(bl.laufend.map((x) => x.id)).size === 3, 'Snapshot: laufend ist eine Liste mit drei verschiedenen Abenteuern, max 3 aus den Daten');
+    const lauf3 = liste(g2).filter((x) => x.plan && x.phase !== 'abgeschlossen'), k0 = Brett.schluessel(g2), b0 = lauf3[2].beat;
+    lauf3[2].beat = b0 + 1;
+    ok(Brett.schluessel(g2) !== k0, 'SPT-02 3: der Schluessel aendert sich, wenn sich nur das DRITTE laufende Abenteuer aendert (nicht nur das erste zaehlt)');
+    lauf3[2].beat = b0;
+    }
   // Spielleiter weg: nichts
   const t3 = neu(35), g3 = t3.g; g3.lageSpielleiter.dispose(); grenzen(g3, 2); for (let i = 0; i < 300; i++) g3.step();
   ok(offen(g3).length === 0, 'ohne Spielleiter: kein Rueckfall (alles wie vorher)');
@@ -554,7 +576,7 @@ section('Ohne Spielleiter laeuft die Welt weiter: begonnene Abenteuer stehen, sp
   ok(f.phase === z0.phase && f.beat === z0.beat && g.errors === 0, 'das Abenteuer steht (kein Fortschritt, kein Scheitern durch die Frist), kein Fehler');
   ok(liste(g).length === 1 && Weltstand.validate(Weltstand.capture(g), g).filter((x) => /faeden|abenteuer/.test(String(x))).length === 0, 'speicherbar und schemagueltig');
   const s = block(g);
-  ok(s && s.ok === 0 && s.laufend && s.laufend.id === f.id, 'Snapshot: ok 0 (Spielleiter nicht erreichbar), das laufende Abenteuer steht im Block');
+  ok(s && s.ok === 0 && s.laufend && s.laufend[0].id === f.id, 'Snapshot: ok 0 (Spielleiter nicht erreichbar), das laufende Abenteuer steht im Block');
   ok(offen(g).length === 0 || offen(g).every((x) => x.alter <= GILT), 'Angebote verfallen weiter nach den Taetigkeiten (kein Haengenbleiben)');
   ok(t.an('a' + c.angebot.nr).code === 'kein_spielleiter' || offen(g).length === 0, 'Antworten auf Angebote ohne Spielleiter: kein_spielleiter oder schon verfallen');
 });

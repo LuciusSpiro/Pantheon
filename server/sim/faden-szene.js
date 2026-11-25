@@ -23,6 +23,9 @@ const D = require('./faden-daten.js');
 const Bausteine = require('./faden-bausteine.js');
 const Fracht = require('./faden-fracht.js');
 const Hinweis = require('./faden-hinweis.js');
+const Escort = require('./escort.js');   // SPT-02 7: Abzug der Gegner am Szenenende (Escort.retreat)
+const Abgang = require('./abgang.js');   // SPT-02 7: Sprungblitz des Verbündeten am Ende des Gefechts
+const Tel = require('../telemetrie/gefecht.js');   // SPT-02 7: Grund szene_ende fuer gegner_weg (nur lesen)
 const SZB2 = require('./faden-szene-b2.js');   // SUND-04b B2: Szenenarten konvoi und geleit
 const Hinterhalt = require('./faden-hinterhalt.js');   // BEA-03 A: Beat hinterhalt (Hex, Ankunft, Halt); ruft starten() lazy
 const Sektoren = require('../../shared/sektoren.js');
@@ -133,21 +136,40 @@ function kampfBeginn(game, fs) {
 
 // ---------- Ende ----------
 // Aufräumen: Gegner der Szene und das Zielschiff der Verfolgung gehen, der Verbündete des Gefechts bleibt bis zum Ende seines Gefechts (hilfeTakt)
-function aufraeumen(game, fs) {
+// SPT-02 7 (E Abgänge): zwei benannte Wege. aufraeumen = STILL (Unterbrechung, Sprung/Szenenwechsel: der Spieler sieht die Szene nicht mehr bzw. sie war nie da).
+// aufraeumenMitAbzug = Ausgang (gelungen, gescheitert) und Frist: die Gegner der Szene drehen ab (Escort.retreat, sichtbar, höchstens ~14 s), ein kampfunfähiger Schützling sprengt.
+function aufraeumen(game, fs) { abbauen(game, fs, { gegner: gegnerStill, schuetzling: SZB2.aufraeumen }); }
+function aufraeumenMitAbzug(game, fs) { abbauen(game, fs, { gegner: gegnerAbziehen, schuetzling: SZB2.aufraeumenMitKnall }); }
+function abbauen(game, fs, wie) {
   const sp = game.space;
   const vf = fs.art === 'verfolgung' ? sp.verfolgung : null;   // nur die Verfolgung dieser Szene, nie eine fremde
-  if (SZB2.istArt(fs.art)) SZB2.aufraeumen(game, fs);   // SUND-04b B2: Konvoi bzw. Schützling (die Angreifer tragen den Tag der Szene und gehen unten)
-  const weg = sp.enemies.filter((e) => e.tag === fs.tag || (vf && e.id === vf.ziel));
-  if (weg.length) sp.enemies = sp.enemies.filter((e) => !weg.includes(e));
-  if (weg.some((e) => e.id === game.ship.target)) Zielsysteme.zielLoeschen(game);
+  if (SZB2.istArt(fs.art)) wie.schuetzling(game, fs);   // SUND-04b B2: Konvoi bzw. Schützling (die Angreifer tragen den Tag der Szene und gehen unten)
+  const ziel = vf ? sp.enemies.filter((e) => e.id === vf.ziel) : [];   // das Zielschiff der Verfolgung (gestellt, ausgefallen) geht immer still: es kann nicht abziehen
+  const eigene = sp.enemies.filter((e) => e.tag === fs.tag && !ziel.includes(e));
+  if (eigene.length) wie.gegner(game, eigene, fs.tag);
+  if (ziel.length) gegnerStill(game, ziel);
   if (vf) { sp.verfolgung = null; if (!game.simSzene) Zielsysteme.szeneAn(game, false); }
   game.fadenSzene = null;
+}
+function gegnerStill(game, weg) {
+  Tel.raumWegGrund(game, weg, 'szene_ende');   // statt 'unbekannt' in gegner_weg
+  game.space.enemies = game.space.enemies.filter((e) => !weg.includes(e));
+  if (weg.some((e) => e.id === game.ship.target)) Zielsysteme.zielLoeschen(game);
+}
+// Die Gegner drehen ab: Escort.retreat setzt die Regel mit Tag der Szene (alle sofort, 101 %), sie gilt nur für diese Gegner; eine vorher gesetzte Regel (enemies_retreat) bleibt unberührt.
+// Wer nicht abziehen kann (Relais, Pylon) geht still. Das Ziel bleibt gewählt, bis der Gegner das Feld verlässt (updateLeaving löscht es dann).
+function gegnerAbziehen(game, weg, tag) {
+  const sp = game.space; const alt = sp.retreatRule;
+  Escort.retreat(game, { tag });
+  if (alt) sp.retreatRule = alt; else delete sp.retreatRule;
+  const bleibt = weg.filter((e) => !e.leaving);
+  if (bleibt.length) gegnerStill(game, bleibt);
 }
 // Ende der Szene mit Ausgang (gelungen, gescheitert) oder ohne (Unterbrechung, siehe unterbrechen). textKey: Funk-Text (null = keiner)
 function enden(game, fs, ausgang, textKey) {
   const name = fs.nsc ? fs.nsc.name : '';
   const txt = textKey ? T[textKey] : (ausgang === 'gelungen' ? T.gelungen[fs.textKey || fs.art] : T.gescheitert[fs.textKey || fs.art]);
-  aufraeumen(game, fs);
+  if (textKey === 'szenenwechsel') aufraeumen(game, fs); else aufraeumenMitAbzug(game, fs);   // Andocken/Ortswechsel: still, jeder andere Ausgang: Abzug
   funk(game, fmt(txt, { name }));
   if (laeuft(game, fs.fadenId, fs.beatId)) Faden.beatAusgang(game, fs.fadenId, ausgang);
   naechsteStarten(game);
@@ -166,7 +188,7 @@ function andockenEnde(game) {
 
 // Takt eines laufenden Kampfes: Ausgang nach Art (Gegner gehen oder fallen, Zielschiff gestellt/zerstört/entkommen)
 function kampfTakt(game, fs) {
-  if (!laeuft(game, fs.fadenId, fs.beatId)) { aufraeumen(game, fs); naechsteStarten(game); return; }   // Frist oder ein anderer Weg hat den Beat schon beendet
+  if (!laeuft(game, fs.fadenId, fs.beatId)) { aufraeumenMitAbzug(game, fs); naechsteStarten(game); return; }   // Frist oder ein anderer Weg hat den Beat schon beendet (SPT-02 7: die Gegner ziehen ab)
   if (fs.art === 'verfolgung') {
     const a = Verfolgung.ausgang(game);
     if (a === 'gestellt' || a === 'zerstoert') return enden(game, fs, 'gelungen', null);
@@ -217,7 +239,10 @@ function wuerfeln(game, h) {
 function hilfeWeg(game) {
   const h = game.fadenHilfe;
   if (!h || !h.ally) return;
-  if (game.space.escorts) game.space.escorts = game.space.escorts.filter((q) => q.tag !== h.ally.tag);
+  if (game.space.escorts) {
+    for (const q of game.space.escorts) if (q.tag === h.ally.tag && q.hp > 0) Abgang.melde(game, q, 'sprung');   // SPT-02 7: der Verbündete springt ab (Bild, kein Ton, keine Mechanik)
+    game.space.escorts = game.space.escorts.filter((q) => q.tag !== h.ally.tag);
+  }
   h.ally = null;
   if (!game.simSzene && game.flotte) { try { flotte().beenden(game); } catch (e) { if (game.countError) game.countError('faden-hilfe', e); } game.flotte = null; }
 }

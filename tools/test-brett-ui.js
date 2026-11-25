@@ -40,7 +40,7 @@ section('brett.js: Storage, Löschsignal, Müll, Grenzen');
   const block = { ok: 1, kopf: 'Auftragsbrett', ablehnen: 'Ablehnen kostet nichts.', scheitern: 'x', angebote: [{ id: 'a1', titel: 'Der Bernsteinkonvoi', ort: '0305', ortname: 'Kantenstein', rest: 9, von: 'kon', aus_geruecht: true, vorschau: { gefahr: true, schritte: [{ text: 'Nach Kantenstein', gefahr: false }, { text: 'Konvoi stellen', gefahr: true }], gelingt: ['Das Konkordat zahlt.', { f: 'kon', art: 'haltung', d: 1 }], scheitert: [{ f: 'kon', art: 'haltung', d: -1 }] } }], geruechte: [{ von: 'kon', text: 'Frachter laufen Kantenstein an.', angebot: 'a1' }] };
   B.lesen({ t: 'snap', world: { abenteuer: block } });
   let m = B.modell();
-  ok(m && m.ok === true && m.kopf === 'Auftragsbrett' && m.angebote.length === 1 && m.angebote[0].titel === 'Der Bernsteinkonvoi' && m.angebote[0].rest === 9 && m.angebote[0].aus_geruecht === true && m.laufend === null, 'Block -> Modell');
+  ok(m && m.ok === true && m.kopf === 'Auftragsbrett' && m.angebote.length === 1 && m.angebote[0].titel === 'Der Bernsteinkonvoi' && m.angebote[0].rest === 9 && m.angebote[0].aus_geruecht === true && m.laufend.length === 0 && m.laufendMax === 1 && m.voll === false, 'Block -> Modell');
   ok(m.angebote[0].vorschau.gefahr === true && m.angebote[0].vorschau.gefahrText === undefined && m.angebote[0].vorschau.schritte.some((s) => s.gefahr === true) && m.angebote[0].vorschau.schritte.length === 2 && m.angebote[0].vorschau.gelingt.length === 2, 'Vorschau: Gefahr, der gefährliche Schritt steht in den Schritten (kein vorgefertigter Text), Folgen');
   ok(m.geruechte.length === 1 && m.geruechte[0].angebot === 'a1', 'Gerücht mit Verweis auf das Angebot');
   B.lesen({ t: 'snap', world: {} });
@@ -54,7 +54,7 @@ section('brett.js: Storage, Löschsignal, Müll, Grenzen');
   for (const bad of ['x', 5, [], {}, { angebote: 'x' }, { angebote: [null, 5, {}, { id: 'x1', titel: 'T' }, { id: 'a1' }, { id: 'a1', titel: 7 }] }, { laufend: { id: 'a1' } }, { laufend: { titel: 'T', schritt: 'x', schritte_gesamt: -4, rest: 'x' } }, { angebote: [{ id: 'a1', titel: 'T', vorschau: { schritte: [1, null, { text: 5 }], gelingt: [null, 5, { f: 3 }, { f: 'rom' }], scheitert: 'x' } }] }]) {
     B.lesen({ t: 'snap', world: { abenteuer: bad } });
     let m2, fehler = null; try { m2 = B.modell(); } catch (e) { fehler = e; }
-    ok(!fehler && (m2 === null || (Array.isArray(m2.angebote) && m2.angebote.length <= 3 && (!m2.laufend || m2.laufend.schritt >= 1 && m2.laufend.schritt <= m2.laufend.schritte_gesamt))), 'Müll als Block ohne Ausnahme: ' + JSON.stringify(bad).slice(0, 70));
+    ok(!fehler && (m2 === null || (Array.isArray(m2.angebote) && m2.angebote.length <= 3 && m2.laufend.every((l) => l.schritt >= 1 && l.schritt <= l.schritte_gesamt))), 'Müll als Block ohne Ausnahme: ' + JSON.stringify(bad).slice(0, 70));
   }
   B.lesen({ t: 'snap', world: { abenteuer: { ok: 1, kopf: 'Auftragsbrett', angebote: [], geruechte: [{ von: 'rom', text: 'nur ein Gerücht' }] } } });
   ok(B.modell() === null, 'weder Angebot noch laufendes Abenteuer (auch mit Gerüchten): kein Modell, kein Bereich');
@@ -72,7 +72,7 @@ section('brett.js: Storage, Löschsignal, Müll, Grenzen');
   ok(B.modell().angebote[0].titel === 'A B C', 'Steuerzeichen werden zu Leerzeichen');
   B.lesen({ t: 'snap', world: { abenteuer: { angebote: [{ id: 'a12', titel: 'X' }], laufend: { id: 'a3', titel: 'L', schritt: 9, schritte_gesamt: 4, ph: 'laeuft', rest: 3.9 } } } });
   m = B.modell();
-  ok(m.laufend.schritt === 4 && m.laufend.rest === 3 && m.laufend.ph === 'laeuft', 'laufend: Schritt auf die Gesamtzahl begrenzt, rest ganzzahlig');
+  ok(m.laufend.length === 1 && m.laufend[0].schritt === 4 && m.laufend[0].rest === 3 && m.laufend[0].ph === 'laeuft', 'laufend: Schritt auf die Gesamtzahl begrenzt, rest ganzzahlig');
   ok(B.frisch({ ph: 'wartet', schritt: 1 }) === true && B.frisch({ ph: 'laeuft', schritt: 1 }) === false && B.frisch({ ph: 'wartet', schritt: 2 }) === false && B.frisch(null) === false, 'frisch = wartet auf den ersten Schritt');
 
   section('brett.js: Befehle im Protokollformat, Antwortcodes');
@@ -154,7 +154,7 @@ const LAUFEND = { id: 'a9', titel: 'Der Bernsteinkonvoi', schritt: 3, schritte_g
 const GER = [{ von: 'kon', text: 'Germanische Frachter meiden die Bojen.', angebot: 'a1' }, { von: 'kon', text: 'Eine Germanin fragt nach der Lerche.', angebot: 'a2' }];
 const modellAus = (blk) => { BrettClient.lesen({ t: 'snap', world: { abenteuer: Object.assign({ ok: 1, kopf: 'Auftragsbrett', ablehnen: 'Ablehnen kostet nichts.', scheitern: 'Scheitern blockiert nichts.', angebote: [] }, klon(blk)) } }); return BrettClient.modell(); };
 // Modell wie terminal-ui.js es dem Baustein gibt
-const baustein = (m, gew, info) => ({ titel: m.kopf, hilfe: m.angebote.length ? '↑↓ wählen · Ent annehmen · X ablehnen' : '', laufend: m.laufend, gewaehlt: gew || (m.angebote[0] && m.angebote[0].id), geruechte: m.geruechte, scheitern: m.scheitern, leerText: '', info: info || null,
+const baustein = (m, gew, info) => ({ max: m.laufendMax, notrufMax: m.notrufMax, titel: m.kopf, hilfe: m.angebote.length ? '↑↓ wählen · Ent annehmen · X ablehnen' : '', laufend: m.laufend, gewaehlt: gew || (m.angebote[0] && m.angebote[0].id), geruechte: m.geruechte, scheitern: m.scheitern, leerText: '', info: info || null,
   angebote: m.angebote.map((a, i) => Object.assign({}, a, { nr: i + 1, kappe: String(i + 1), onClick: () => {} })) });
 function zeichne(b) { rec.texte.length = 0; rec.rects.length = 0; rec.knoepfe.length = 0; rec.cham.length = 0; R2.ui.buttons.length = 0; try { PT.zeichneBrett(ctx, b); } catch (e) { ok(false, 'Zeichnen des Bretts wirft: ' + e.message); } return rec.texte.map((t) => t.s); }
 const hat = (s) => rec.texte.some((t) => t.s === s);
@@ -242,6 +242,113 @@ section('Zeichnen: gewähltes Angebot wechselt das Detail, ein Angebot, kein Ang
   const bald = klon(LAUFEND); bald.rest = 1;
   m = modellAus({ angebote: [BOJE], laufend: bald }); zeichne(baustein(m));
   ok(hat('! Frist läuft ab') && rec.texte.find((t) => t.s === '! Frist läuft ab').col === FARBE.bald, 'Frist fast um: „! Frist läuft ab“ in Gelb');
+}
+
+section('Zeichnen: bis zu sechs laufende (SPT-02 5b): Notruf-Fäden in einer Sammelzeile, Überschrift, Layout 0 bis 4 Zeilen ohne Überlappung');
+{
+  const lf = (id, titel, o) => Object.assign({ id, titel, schritt: 1, schritte_gesamt: 2, schritt_text: 'Schritt ' + titel, gefahr: false, ph: 'laeuft', rest: 8 }, o || {});
+  const REG = [lf('a1', 'Der Eisenzug', { gefahr: true }), lf('a2', 'Das Fährschiff', { rest: 4 }), lf('a3', 'Der Funkspruch')];
+  const NOT = [lf('n1', 'Notruf: Kutter Fortuna', { notruf: 1, schritte_gesamt: 3, rest: 6 }), lf('n2', 'Notruf: Kutter Fortuna', { notruf: 1, schritte_gesamt: 3, rest: 9 }), lf('n3', 'Notruf: Kutter Fortuna', { notruf: 1, schritte_gesamt: 3, rest: 7 })];
+  const AN = [KONVOI, HEIMWEG, BOJE];
+  const BR = MASS.bereich, ende = BR.y + BR.h;
+  // Layout: 0 bis 4 Zeilen (mehr wird auf 4 begrenzt): Zeilen, Karten und Detail liegen im Bereich und übereinander, nichts schneidet sich
+  const probleme = [];
+  for (const n of [0, 1, 2, 3, 4, 5, 6, 9, true, false]) {
+    const l = PA.layout(n), zeilen = n === true ? 1 : n === false ? 0 : Math.min(4, n);
+    const lr = l.laeuft ? [{ x: l.laeuft.x, y: l.laeuft.y, w: l.laeuft.w, h: l.laeuft.h }] : [];
+    const kk = l.liste.map((k) => ({ x: k.x, y: k.y, w: k.w, h: k.h }));
+    if ((l.laeuft ? l.laeuft.n : 0) !== zeilen) probleme.push(n + ': Zeilenzahl ' + (l.laeuft ? l.laeuft.n : 0));
+    if (l.laeuft && l.laeuft.y + l.laeuft.h > l.liste[0].y) probleme.push(n + ': Zeilen reichen in die erste Karte');
+    if (kk.some((k, i) => schneiden(k, lr[0] || { x: 0, y: 0, w: 0, h: 0 }) || kk.some((q, j) => i !== j && schneiden(k, q)))) probleme.push(n + ': Karten überlappen');
+    if (kk.some((k) => k.y + k.h > ende)) probleme.push(n + ': Karte unter dem Bereich (' + Math.max(...kk.map((k) => k.y + k.h)) + ' > ' + ende + ')');
+    if (l.detail.unten > ende) probleme.push(n + ': Detail unten ' + l.detail.unten + ' > ' + ende);
+    if (l.detail.tick.h > 0 && l.detail.tick.y + l.detail.tick.h > l.detail.unten) probleme.push(n + ': Tick-Hinweis unter dem Detail');
+    if (l.detail.y !== l.liste[0].y) probleme.push(n + ': Detail beginnt nicht auf Höhe der Karten');
+    if (l.info.y - 3 < ende) probleme.push(n + ': Linie der Infozeile über dem Bereich');
+  }
+  ok(probleme.length === 0, 'Layout 0 bis 4 Zeilen (5, 6, 9 gelten als 4): Zeilen, Karten und Detail im Bereich bis ' + ende + ', ohne Überlappung' + (probleme.length ? ': ' + probleme.slice(0, 4).join(' | ') : ''));
+  ok(PA.layout(4).laeuft.zeileH === MASS.laeuft.dicht.h && PA.layout(3).laeuft.zeileH === MASS.laeuft.zeile.h && PA.layout(4).karteH === MASS.liste.dicht.karteH && PA.layout(3).karteH === MASS.liste.karteHKompakt && PA.layout(4).laeuft.h === 4 * MASS.laeuft.dicht.h + 3 * MASS.laeuft.dicht.luft, 'vier Zeilen sind dicht (9 px, Karten 35), bis drei bleibt es wie in SPT-02 3');
+
+  // sechs laufende (drei Abenteuer + drei Notruf-Fäden) und drei Angebote: das Brett läuft nicht über
+  let m = modellAus({ angebote: AN, laufend: REG.concat(NOT), max: 3, nmax: 3 });
+  ok(m.laufend.length === 6 && m.notrufMax === 3 && m.laufendMax === 3, 'Modell: sechs laufende, laufend_max 3 und notruf_aktiv_max 3 aus dem Block');
+  zeichne(baustein(m));
+  geometrie('sechs laufende, drei Angebote');
+  ok(hat('Der Eisenzug') && hat('Das Fährschiff') && hat('Der Funkspruch') && !rec.texte.some((t) => /Kutter Fortuna/.test(t.s)), 'die drei Abenteuer haben je eine Zeile, die Notruf-Fäden keine eigene (kein „Kutter Fortuna“ im Brett)');
+  ok(hat('NOTRUFE 3') && hat('nächste Frist 6 Ticks'), 'Sammelzeile: „NOTRUFE 3“ und „nächste Frist 6 Ticks“ (die kleinste Frist der Notruf-Fäden, Zahl aus den Daten)');
+  { const l4 = PA.layout(4).laeuft, y4 = l4.y + 3 * (l4.zeileH + l4.zeileLuft) + MASS.laeuft.zeile.y;
+    const zeile4 = rec.texte.filter((t) => t.y === y4);
+    ok(zeile4.map((t) => t.s).join('|').replace(/^NOTRUFE 3\|/, 'N|') === 'N|·|nächste Frist 6 Ticks' && zeile4.find((t) => t.s === '·').col === FARBE.dim, 'vierte Zeile: „NOTRUFE 3“, Trennpunkt, „nächste Frist 6 Ticks“ in dieser Reihenfolge (' + zeile4.map((t) => t.s).join('|') + ')'); }
+  ok(rec.rects.filter((r) => r.col === FARBE.laeuft && r.h === MASS.laeuft.dicht.h && r.w === MASS.laeuft.zeile.balken).length === 4, 'vier Zeilen, je ein Mint-Balken links (3 Abenteuer + Sammelzeile)');
+  ok(rec.rects.filter((r) => r.col === FARBE.laeuft && r.h === MASS.laeuft.zeile.beatH).length === 3 && rec.rects.filter((r) => r.col === FARBE.beatOffen && r.h === 1).length === 3 * 2, 'Beats nur bei den drei Abenteuern (je ein voller Beat „jetzt“ und ein hohler), keiner in der Sammelzeile');
+  ok(hat('ABENTEUER 3/3 · NOTRUFE 3/3') && rec.texte.find((t) => t.s === 'ABENTEUER 3/3 · NOTRUFE 3/3').col === FARBE.laeuft && rec.texte.find((t) => t.s === 'ABENTEUER 3/3 · NOTRUFE 3/3').y === MASS.titelY, 'Überschrift „ABENTEUER 3/3 · NOTRUFE 3/3“ in Mint in der Titelzeile (Grenzen aus dem Block, nicht erfunden)');
+  ok(R2.ui.buttons.filter((b) => b.onClick).length === 3 && R2.ui.buttons.filter((b) => b.onClick).every((b) => b.h === MASS.liste.dicht.karteH && b.y + b.h <= ende), 'alle drei Angebote bleiben klickbar und liegen im Bereich');
+  const gedr = rec.texte.filter((t) => t.y >= PA.layout(4).detail.y && t.y < MASS.info.y - 3 && t.x >= MASS.bereich.x + MASS.liste.w);
+  ok(gedr.length > 0 && !hatTeil(/^Tick:/), 'Detail: die Zeile „Tick: …“ entfällt, wo der Platz fehlt');
+  // Frist der Sammelzeile: Gelb ab 2 Ticks, wartend dim, ohne Grenze keine Zahl dahinter
+  const nbald = NOT.map((x, i) => Object.assign(klon(x), { rest: i === 1 ? 1 : 9 }));
+  m = modellAus({ angebote: [BOJE], laufend: REG.concat(nbald), max: 3, nmax: 3 }); zeichne(baustein(m));
+  ok(hat('! nächste Frist läuft ab') && rec.texte.find((t) => t.s === '! nächste Frist läuft ab').col === FARBE.bald, 'Sammelzeile: kleinste Frist 1 Tick: „! nächste Frist läuft ab“ in Gelb');
+  const nw = NOT.map((x) => Object.assign(klon(x), { ph: 'wartet', rest: 2 }));
+  m = modellAus({ angebote: [BOJE], laufend: REG.slice(0, 1).concat(nw), max: 3, nmax: 3 }); zeichne(baustein(m));
+  ok(hatTeil(/^beginnt in 2 Ticks$/) && !hatTeil(/nächste Frist/), 'Sammelzeile, alle wartend: „beginnt in 2 Ticks“ statt einer Frist');
+  m = modellAus({ angebote: [BOJE], laufend: REG.concat(NOT), max: 3 }); zeichne(baustein(m));
+  ok(m.notrufMax === 0 && hat('ABENTEUER 3/3 · NOTRUFE 3'), 'ohne nmax im Block: „NOTRUFE 3“ ohne erfundene Grenze');
+  // Überschrift ohne Notruf-Fäden, mit einem einzelnen, und wenn sie nicht passt
+  m = modellAus({ angebote: [BOJE], laufend: [REG[0], REG[1]], max: 3, nmax: 3 }); zeichne(baustein(m));
+  ok(hat('ABENTEUER 2/3') && !hatTeil(/NOTRUFE/), 'zwei Abenteuer, keine Notrufe: nur „ABENTEUER 2/3“');
+  m = modellAus({ angebote: [BOJE], laufend: [REG[0]], max: 3, nmax: 3 }); zeichne(baustein(m));
+  ok(!hatTeil(/^ABENTEUER/), 'ein Abenteuer allein: keine Überschrift (der Streifen heißt LÄUFT)');
+  m = modellAus({ angebote: [BOJE], laufend: [NOT[0]], max: 3, nmax: 3 }); zeichne(baustein(m)); geometrie('ein Notruf-Faden');
+  ok(hat('ABENTEUER 0/3 · NOTRUFE 1/3') && hat('Notruf: Kutter Fortuna') && !hatTeil(/^NOTRUFE 1$/), 'ein einziger Notruf-Faden bleibt ein Streifen mit allen Angaben, keine Sammelzeile; Überschrift „ABENTEUER 0/3 · NOTRUFE 1/3“');
+  m = modellAus({ angebote: [BOJE], laufend: NOT, max: 3, nmax: 3 }); zeichne(baustein(m)); geometrie('nur Notrufe');
+  ok(hat('NOTRUFE 3') && hat('ABENTEUER 0/3 · NOTRUFE 3/3'), 'nur Notruf-Fäden: eine Sammelzeile, Überschrift nennt 0/3 Abenteuer');
+  m = modellAus({ angebote: AN, laufend: REG.concat(NOT), max: 3, nmax: 3 });
+  let eng = null; for (let k = 20; k < 120 && !eng; k++) { const b = baustein(m); b.hilfe = 'x'.repeat(k); zeichne(b); if (!hatTeil(/^ABENTEUER \d/i)) eng = b; }   // die kürzeste Tastenzeile, neben der die Überschrift nicht mehr passt
+  zeichne(eng); geometrie('zu enge Titelzeile (Tastenzeile ' + eng.hilfe.length + ' Zeichen)');
+  ok(!hatTeil(/^ABENTEUER \d/i), 'passt die Überschrift nicht neben die Tastenzeile, entfällt sie (kein Überlauf)');
+  // Matrix: 0..3 Abenteuer × 0..3 Notruf-Fäden × 0..3 Angebote: Texte im Bereich, keine Überlappung, Detail über der Linie, Karten im Bereich
+  const bad = []; let nGeprueft = 0;
+  for (let r = 0; r <= 3; r++) for (let nn = 0; nn <= 3; nn++) for (let a = 0; a <= 3; a++) {
+    if (!r && !nn && !a) continue;
+    const mm = modellAus({ angebote: AN.slice(0, a), laufend: REG.slice(0, r).concat(NOT.slice(0, nn)), max: 3, nmax: 3 }); if (!mm) continue;
+    zeichne(baustein(mm)); nGeprueft++;
+    const Bx = L.handel, Ix = L.handelInfo, T = rec.texte.filter((t) => t.s.trim()), tag = r + 'A+' + nn + 'N+' + a + 'An';
+    if (T.some((t) => t.x < Bx.x || t.x + t.w > Bx.x + Bx.w || t.y < MASS.titelY || t.y + t.h > Ix.y + Ix.h)) bad.push(tag + ': Text draußen');
+    for (let i = 0; i < T.length; i++) for (let j = i + 1; j < T.length; j++) if (schneiden(T[i], T[j])) bad.push(tag + ': ' + T[i].s + ' × ' + T[j].s);
+    if (T.filter((t) => t.y < Ix.y - 3).some((t) => t.y + t.h > Ix.y - 3)) bad.push(tag + ': Detail über der Linie');
+    if (R2.ui.buttons.filter((b) => b.onClick).some((b) => b.y + b.h > Bx.y + Bx.h)) bad.push(tag + ': Karte unter dem Bereich');
+  }
+  ok(nGeprueft >= 50 && bad.length === 0, nGeprueft + ' Kombinationen (0 bis 3 Abenteuer, 0 bis 3 Notruf-Fäden, 0 bis 3 Angebote): nichts läuft über, nichts überlappt' + (bad.length ? ': ' + bad.slice(0, 4).join(' | ') : ''));
+}
+
+section('Zeichnen: zwei und drei laufende Abenteuer (SPT-02 3): je eine Zeile, die Karten behalten ihren Platz');
+{
+  const E1 = Object.assign(klon(LAUFEND), { id: 'a9', titel: 'Der Eisenzug' });
+  const E2 = Object.assign(klon(LAUFEND), { id: 'a10', titel: 'Das Fährschiff', schritt: 1, schritte_gesamt: 3, schritt_text: 'Geleit nach Gullfjord', ph: 'wartet', rest: 2, gefahr: false });
+  const E3 = Object.assign(klon(LAUFEND), { id: 'a11', titel: 'Der Funkspruch', schritt: 2, schritte_gesamt: 6, schritt_text: 'Der Spur folgen', rest: 1, gefahr: false });
+  ok(PA.layout(1).liste[0].y === PA.layout(3).liste[0].y && PA.layout(1).detail.y === PA.layout(3).detail.y && PA.layout(3).liste[2].y + PA.layout(3).karteH <= L.handel.y + L.handel.h, 'Layout: drei Zeilen belegen genau so viel wie der eine Streifen, die Karten beginnen an derselben Stelle und enden im Bereich');
+  ok(PA.layout(0).laeuft === null && PA.layout(false).laeuft === null && PA.layout(true).laeuft.h === MASS.laeuft.h && PA.layout(1).laeuft.h === MASS.laeuft.h && PA.layout(2).laeuft.h === 2 * MASS.laeuft.zeile.h + MASS.laeuft.zeile.luft && PA.layout(3).laeuft.n === 3, 'Layout: 0 kein Streifen, 1 (auch true) der Streifen mit 30, 2 und 3 je Zeile h 10 mit Lücke 1');
+  let m = modellAus({ angebote: [KONVOI, HEIMWEG, BOJE], laufend: [E1, E2, E3], max: 3 });
+  ok(m.laufend.length === 3 && m.laufendMax === 3 && m.voll === true, 'Modell: drei laufende, max 3, voll');
+  zeichne(baustein(m));
+  geometrie('drei laufende');
+  ok(hat('Der Eisenzug') && hat('Das Fährschiff') && hat('Der Funkspruch') && !rec.texte.some((t) => /^LÄUFT$/i.test(t.s)), 'jede der drei Zeilen nennt ihren Titel (kein Streifen mit LÄUFT)');
+  ok(hat('Frist noch 5 Ticks') && hat('! Frist läuft ab') && rec.texte.some((t) => /^beginnt in 2 Ticks$/i.test(t.s)), 'Zeilen: Frist noch 5 Ticks, Frist läuft ab (rest 1), wartend: „beginnt in 2 Ticks“');
+  ok(hat('Konvoi stellen und aufhalten') && hat('Geleit nach Gullfjord') && hat('Der Spur folgen') && rec.rects.filter((r) => r.h === MASS.laeuft.zeile.beatH).length >= 13, 'Zeilen: der Schrittname steht ungekürzt, die Beats (4 + 3 + 6) zeigen den Fortschritt statt „Schritt i von n“');
+  ok(R2.ui.buttons.filter((b) => b.onClick).length === 3 && R2.ui.buttons.filter((b) => b.onClick).every((b) => b.h === MASS.liste.karteHKompakt), 'die drei Karten bleiben klickbar und kompakt (36)');
+  ok(rec.rects.filter((r) => r.col === FARBE.laeuft && r.h === MASS.laeuft.zeile.h).length === 3, 'je Zeile ein mintfarbener Balken links (3)');
+  m = modellAus({ angebote: [BOJE], laufend: [E1, E2], max: 3 });
+  zeichne(baustein(m));
+  geometrie('zwei laufende');
+  ok(m.voll === false && hat('Der Eisenzug') && hat('Das Fährschiff'), 'zwei laufende: Modell nicht voll, beide Zeilen da');
+  { const F1 = Object.assign(klon(E2), { id: 'a20', titel: 'Erst angenommen' }), F2 = Object.assign(klon(E2), { id: 'a21', titel: 'Zuletzt angenommen' });
+    const mf = modellAus({ angebote: [BOJE], laufend: [E1, F1, F2], max: 3 });
+    ok(BrettClient.frischeVon(mf.laufend) && BrettClient.frischeVon(mf.laufend).titel === 'Zuletzt angenommen' && BrettClient.frischeVon([mf.laufend[0]]) === null && BrettClient.frischeVon(null) === null, 'ANGENOMMEN nennt das zuletzt angenommene unter mehreren frischen Abenteuern (die Liste steht in Reihenfolge der Annahme), sonst nichts'); }
+  m = modellAus({ angebote: [BOJE], laufend: E1 });
+  ok(m.laufend.length === 1 && m.laufendMax === 1 && m.voll === true, 'Altform (ein Objekt, kein max): eine laufende, max 1, voll (Annehmen bleibt gesperrt, der Server entscheidet)');
+  ok(modellAus({ angebote: [BOJE], laufend: [E1, E2, E3, E1, E2, E3, E1, E2], max: 3 }).laufend.length <= BrettClient.GRENZE.laufend, 'Müll: mehr laufende als die Abwehrgrenze werden abgeschnitten');
+  ok(BrettClient.antwortText('laeuft_schon').indexOf('{') < 0 && /3 Abenteuer/.test((modellAus({ angebote: [BOJE], laufend: [E1, E2, E3], max: 3 }), BrettClient.antwortText('laeuft_schon'))) && BrettClient.CODE_KURZ.laeuft_schon !== BrettClient.antwortText('laeuft_schon'), 'Kurztext laeuft_schon: die Zahl kommt aus dem Block (max), kein {n} bleibt stehen');
 }
 
 section('Zeichnen: Infozeile (Absagen, angenommen), lange Texte, Text bleibt Text');
@@ -373,7 +480,7 @@ section('D1: Titel in Versalien mit Sperrung, passt er nicht in normaler Schreib
   const lang = 'Ein Titel der deutlich länger als vierzig Zeichen ist und gekürzt wird';
   BrettClient.lesen({ t: 'snap', world: { abenteuer: { angebote: [{ id: 'a1', titel: lang }], laufend: { id: 'a2', titel: lang, schritt: 1, schritte_gesamt: 2 } } } });
   const mm = BrettClient.modell();
-  ok(mm.angebote[0].titel.length === 40 && mm.angebote[0].titel.endsWith('…') && lang.startsWith(mm.angebote[0].titel.slice(0, -1)) && mm.laufend.titel === mm.angebote[0].titel, 'brett.js kürzt Titel (Angebot und laufend) mit „…“ statt still abzuschneiden');
+  ok(mm.angebote[0].titel.length === 40 && mm.angebote[0].titel.endsWith('…') && lang.startsWith(mm.angebote[0].titel.slice(0, -1)) && mm.laufend[0].titel === mm.angebote[0].titel, 'brett.js kürzt Titel (Angebot und laufend) mit „…“ statt still abzuschneiden');
 }
 
 section('D2: Zustand „wartet“ sieht nicht aus wie „läuft“ (Streifen und HUD), H5');
@@ -527,7 +634,7 @@ section('FRE-02 B1: Herkunft (Hafen) und Ziel, ort_offen zeigt kein Ziel, Auftra
 
 section('H1, H4 bis H9: Ersetzungsmuster, Hilfe, Aufrufer, Tokens');
 {
-  ok(PA.text('gesperrtGrund', { titel: "a$'b" }) === "Erst „a$'b“ abschließen" && PA.text('gesperrtGrund', { titel: '$& $1 $$' }) === 'Erst „$& $1 $$“ abschließen', 'H1: Titel mit $-Mustern bleiben unverändert im Grund (kein String.replace-Muster)');
+  ok(PA.text('gesperrt', { n: "a$'b" }) === "Es laufen schon a$'b Abenteuer" && PA.text('gesperrt', { n: '$& $1 $$' }) === 'Es laufen schon $& $1 $$ Abenteuer', 'H1: Werte mit $-Mustern bleiben unverändert im Text (kein String.replace-Muster)');
   ok(PT.zeichneBrett.length === 2, 'H8: zeichneBrett(c, b) ohne ungenutzte Parameter');
   const src = (f) => fs.readFileSync(path.join(__dirname, '..', f), 'utf8').replace(/\r\n/g, '\n');
   const tb = src('public/js/pult-terminal-brett.js');
@@ -557,7 +664,7 @@ section('brett.js: Typprüfungen (Folgen, Schritte, laufend, Listen) und Zeichne
   m = blk({ angebote: [{ id: 'a1', titel: 'T', vorschau: { schritte: ['Als Text', { text: 'Objekt', gefahr: true }, 5, null, { text: '' }, {}, { text: 7 }] } }] });
   ok(JSON.stringify(m.angebote[0].vorschau.schritte.map((s) => [s.text, s.gefahr])) === JSON.stringify([['Als Text', false], ['Objekt', true]]) && m.angebote[0].vorschau.gefahr === true, 'Schritte: Zeichenketten und Objekte mit Text; leere und fremde fallen weg');
   m = blk({ angebote: [{ id: 'a1', titel: 'T' }], laufend: { id: 'a2', schritt: 1, schritte_gesamt: 3 } });
-  ok(m.laufend === null && m.angebote.length === 1, 'laufend ohne Titel gilt nicht');
+  ok(m.laufend.length === 0 && m.angebote.length === 1, 'laufend ohne Titel gilt nicht');
   m = blk({ laufend: { id: 'a2', schritt: 1 } });
   ok(m === null, 'nur ein laufendes Abenteuer ohne Titel: kein Modell');
   m = blk({ angebote: 'x', geruechte: 'y' });
@@ -579,7 +686,7 @@ section('Quellen: Anschluss in hud.js, consoles.js, client.js und werft.js (nich
 {
   const src = (f) => fs.readFileSync(path.join(__dirname, '..', f), 'utf8').replace(/\r\n/g, '\n');
   const hud = src('public/js/hud.js');
-  ok(/drawAbenteuerStreifen\(ctx, y\) \{[\s\S]*?Brett\.modell\(\)[\s\S]*?zeichneAbenteuerHud\(ctx, y,[\s\S]*?Brett\.frisch\(BR\.laufend\)/.test(hud) && /planY = this\.drawAbenteuerStreifen\(ctx, planY\)/.test(hud) && /drawPlanningLine\(ctx, view, planY\)/.test(hud), 'hud.js: der Streifen kommt aus Brett.modell(), „frisch“ aus dem Snapshot, die Planungszeile rückt unter ihn');
+  ok(/drawAbenteuerStreifen\(ctx, y\) \{[\s\S]*?Brett\.modell\(\)[\s\S]*?zeichneAbenteuerHud\(ctx, y,[\s\S]*?Brett\.frisch\(BR\.laufend\[0\]\)/.test(hud) && /planY = this\.drawAbenteuerStreifen\(ctx, planY\)/.test(hud) && /drawPlanningLine\(ctx, view, planY\)/.test(hud), 'hud.js: der Streifen kommt aus Brett.modell(), „frisch“ aus dem Snapshot, die Planungszeile rückt unter ihn');
   ok(/objBottom \|\| 30\) \+ 2;\n[^\n]*drawAbenteuerStreifen/.test(hud), 'hud.js: der Streifen sitzt bei objBottom + 2 direkt unter dem Ziele-Kasten');
   ok(/tu\.bereichJetzt === 'brett' \? 'terminal\.brett'/.test(src('public/js/consoles.js')), 'consoles.js: tastenBereiche kennt den Bereich Brett (umbelegte Tasten gelten dort)');
   ok(/ev\.kind === 'abenteuerAntwort'/.test(src('public/js/client.js')), 'client.js: abenteuerAntwort geht an das Terminal');
@@ -698,17 +805,26 @@ section('terminal-ui: Brett mit drei Angeboten, Tasten und Befehle');
   ok(cmds(t).length === 1 && JSON.stringify(cmds(t)[0]) === JSON.stringify({ t: 'cmd', c: 'abenteuer.ablehnen', id: ids[2] }), 'X sendet { t: cmd, c: abenteuer.ablehnen, id } mit der Id des gewählten Angebots');
   ok(t.ids().join() === ids.slice(0, 2).join() && TU.zustand.antwort === null && TU.zustand.wartet === null, 'der Server nimmt es vom Brett; die Antwort ok ist leise (keine Meldung), nichts wartet mehr');
   m = t.m();
-  ok(m.brett.info === null && m.brett.angebote.length === 2 && BR.modell().laufend === null && JSON.stringify(t.g.weltsim.faeden.liste.length) === haltungVorher, 'Ablehnen: keine Meldung, 2 Angebote bleiben, nichts startet');
+  ok(m.brett.info === null && m.brett.angebote.length === 2 && BR.modell().laufend.length === 0 && JSON.stringify(t.g.weltsim.faeden.liste.length) === haltungVorher, 'Ablehnen: keine Meldung, 2 Angebote bleiben, nichts startet');
   // annehmen (Enter)
   t.key('Enter');
   ok(cmds(t, 'abenteuer.annehmen').length === 1 && cmds(t, 'abenteuer.annehmen')[0].id === ids[0] && cmds(t, 'abenteuer.annehmen')[0].t === 'cmd', 'Enter sendet abenteuer.annehmen mit der Id des gewählten Angebots (' + ids[0] + ', nach dem Ablehnen die erste)');
   m = t.m();
-  ok(!!BR.modell().laufend && BR.modell().angebote.every((a) => a.id !== ids[0]), 'Annahme: das Abenteuer läuft laut Snapshot (world.abenteuer.laufend), das Angebot ist vom Brett');
-  ok(m.brett.laufend && m.brett.laufend.titel === 'Notruf 1', 'Modell trägt das laufende Abenteuer (Titel aus dem Snapshot)');
-  ok(m.brett.info && m.brett.info.angenommen === m.brett.laufend.titel, 'ANGENOMMEN steht, solange das Abenteuer auf den ersten Schritt wartet (Snapshot, kein lokaler Zustand)');
-  ok(m.aktionen.haupt.disabled === true && m.aktionen.haupt.grund === 'Erst „Notruf 1“ abschließen', 'Annehmen gesperrt, Grund: Erst „Notruf 1“ abschließen');
-  ok(m.aktionen.hinweis.text === TEXT.gesperrt && m.aktionen.hinweis.fn === 'warn', 'sichtbarer Hinweis „Ein Abenteuer läuft schon“ in Gelb (nicht nur Tooltip)');
-  ok(m.aktionen.ausbau.disabled === false, 'Ablehnen bleibt möglich, solange ein Abenteuer läuft');
+  ok(BR.modell().laufend.length === 1 && BR.modell().angebote.every((a) => a.id !== ids[0]), 'Annahme: das Abenteuer läuft laut Snapshot (world.abenteuer.laufend, eine Liste), das Angebot ist vom Brett');
+  ok(m.brett.laufend.length === 1 && m.brett.laufend[0].titel === 'Notruf 1', 'Modell trägt das laufende Abenteuer (Titel aus dem Snapshot)');
+  ok(m.brett.info && m.brett.info.angenommen === m.brett.laufend[0].titel, 'ANGENOMMEN steht, solange das Abenteuer auf den ersten Schritt wartet (Snapshot, kein lokaler Zustand)');
+  // SPT-02 3: laufend_max 3: bei einem und bei zwei laufenden Abenteuern bleibt Annehmen frei, gesperrt erst bei drei
+  ok(m.aktionen.haupt.disabled === false && m.aktionen.hinweis.fn !== 'warn' && /annehmen/.test(m.brett.hilfe) && BR.modell().voll === false, 'SPT-02 3: bei EINEM laufenden Abenteuer bleibt Annehmen frei (kein Sperrhinweis, Tastenzeile mit „annehmen“)');
+  t.key('Enter'); m = t.m();
+  ok(cmds(t, 'abenteuer.annehmen').length === 2 && m.brett.laufend.length === 2 && m.brett.angebote.length === 0, 'SPT-02 3: das zweite Abenteuer wird angenommen (Enter sendet)');
+  X.Faden.abenteuerAnbieten(t.g, notrufplan(4), { hex: '0305' }); m = t.m();
+  ok(m.brett.laufend.length === 2 && m.brett.angebote.length === 1 && m.aktionen.haupt.disabled === false && BR.modell().voll === false, 'SPT-02 3: bei ZWEI laufenden Abenteuern bleibt Annehmen frei');
+  t.key('Enter'); m = t.m();
+  ok(cmds(t, 'abenteuer.annehmen').length === 3 && m.brett.laufend.length === 3 && BR.modell().voll === true && BR.modell().laufendMax === 3, 'SPT-02 3: das dritte wird angenommen, der Block meldet drei laufende und max 3 (voll)');
+  X.Faden.abenteuerAnbieten(t.g, notrufplan(5), { hex: '0305' }); m = t.m();
+  ok(m.brett.angebote.length === 1 && m.aktionen.haupt.disabled === true && m.aktionen.haupt.grund === 'Erst ein laufendes Abenteuer abschließen', 'Annehmen gesperrt erst bei erreichter Grenze, Grund: Erst ein laufendes Abenteuer abschließen');
+  ok(m.aktionen.hinweis.text === PA.text('gesperrt', { n: 3 }) && m.aktionen.hinweis.text === 'Es laufen schon 3 Abenteuer' && m.aktionen.hinweis.fn === 'warn', 'sichtbarer Hinweis „Es laufen schon 3 Abenteuer“ (Zahl aus dem Block) in Gelb (nicht nur Tooltip)');
+  ok(m.aktionen.ausbau.disabled === false, 'Ablehnen bleibt möglich, solange die Grenze erreicht ist');
   const vor = t.sent.length; t.key('Enter');
   ok(t.sent.length === vor, 'Enter bei laufendem Abenteuer sendet nichts');
   // Mausklick auf Annehmen / Ablehnen geht denselben Weg wie die Tasten
@@ -732,7 +848,7 @@ section('terminal-ui: zweite Antwort (schon_beantwortet) und alle Absagen');
   const m = TU.modell(t.view(0));
   ok(m.brett.info && m.brett.info.grund === BR.antwortText('schon_beantwortet') && /erste Antwort der Crew gilt/.test(m.brett.info.grund), 'die Infozeile zeigt „… die erste Antwort der Crew gilt.“');
   ok(!m.brett.info.angenommen && TU.zustand.wartet === null, 'Absage ersetzt ANGENOMMEN, nichts wartet mehr');
-  ok(t.ids().indexOf(ids[0]) < 0 && !BR.modell().laufend, 'die erste Antwort bleibt, es startet nichts');
+  ok(t.ids().indexOf(ids[0]) < 0 && BR.modell().laufend.length === 0, 'die erste Antwort bleibt, es startet nichts');
 }
 {
   // ein anderer Spieler hat ANGENOMMEN: der Snapshot zeigt „ANGENOMMEN“ für alle, die zweite Antwort (Enter am veralteten Stand) bringt die Absage und ersetzt es
@@ -745,7 +861,7 @@ section('terminal-ui: zweite Antwort (schon_beantwortet) und alle Absagen');
   ok(TU.zustand.antwort && TU.zustand.antwort.code === 'schon_beantwortet' && cmds(t, 'abenteuer.annehmen').length === 1, 'zweite Annahme: schon_beantwortet');
   t.auftauen(); t.lesen();
   const m = TU.modell(t.view(0));
-  ok(m.brett.laufend && m.brett.laufend.titel === 'Notruf 1' && m.brett.info && m.brett.info.grund === BR.antwortText('schon_beantwortet') && !m.brett.info.angenommen, 'das Abenteuer läuft (frisch), die Absage steht trotzdem in der Infozeile (sie ersetzt ANGENOMMEN)');
+  ok(m.brett.laufend.length === 1 && m.brett.laufend[0].titel === 'Notruf 1' && m.brett.info && m.brett.info.grund === BR.antwortText('schon_beantwortet') && !m.brett.info.angenommen, 'das Abenteuer läuft (frisch), die Absage steht trotzdem in der Infozeile (sie ersetzt ANGENOMMEN)');
 }
 {
   // Doppeldruck: bevor die Antwort da ist, sendet das Terminal nichts ein zweites Mal
@@ -815,7 +931,7 @@ section('terminal-ui: Zuschauer sehen das Brett, bedienen nichts');
   t.oeffnen(); t.key('KeyO'); warte(130); TU.draw({}, t.view(0)); t.nachlauf(0); t.key('Enter', 0);
   TU.zusehen(t.view(1), true);
   const m1 = t.m(1);
-  ok(m1.brett.laufend && m1.brett.info && m1.brett.info.angenommen === m1.brett.laufend.titel && m1.aktionen.hinweis.text === 'Du siehst zu · Esc zurück', 'der Zuschauer sieht das laufende Abenteuer und ANGENOMMEN (Snapshot-getrieben), dazu „Du siehst zu“');
+  ok(m1.brett.laufend.length === 1 && m1.brett.info && m1.brett.info.angenommen === m1.brett.laufend[0].titel && m1.aktionen.hinweis.text === 'Du siehst zu · Esc zurück', 'der Zuschauer sieht das laufende Abenteuer und ANGENOMMEN (Snapshot-getrieben), dazu „Du siehst zu“');
   TU.zusehen(t.view(1), false);
 }
 
@@ -871,7 +987,7 @@ section('Tasten: O frei, keine Kollision, Namen');
   ok(Ta.kappe('terminal.brett') === 'O' && Ta.kappe('terminal.brettAnnehmen') === 'Enter' && Ta.kappe('terminal.brettAblehnen') === 'X', 'Kappen: O, Ent, X');
 }
 
-section('H1, H4: terminal-ui (Sperrgrund ohne Ersetzungsmuster, Tastenzeile bei gesperrter Annahme)');
+section('H1, H4: terminal-ui (Sperrgrund, Tastenzeile bei gesperrter Annahme: erst bei erreichter Grenze laufend_max)');
 {
   const t = partie({ angebote: 0 });
   const a1 = X.Faden.abenteuerAnbieten(t.g, plan([{ typ: 'notruf' }, { typ: 'abschluss' }], { titel: "A$'B $& x", anlass: 'Probeanlass ohne Namen im Test' }), { hex: '0305' });
@@ -881,9 +997,11 @@ section('H1, H4: terminal-ui (Sperrgrund ohne Ersetzungsmuster, Tastenzeile bei 
   let m = t.m();
   ok(/annehmen/.test(m.brett.hilfe) && /ablehnen/.test(m.brett.hilfe) && m.brett.scheitern === DATEN.werte.scheitern_text.wert, 'ohne Sperre: „wählen · annehmen · ablehnen“, der Scheitern-Satz des Servers geht ins Modell');
   t.key('Enter'); m = t.m();
-  ok(m.aktionen.haupt.disabled === true && m.aktionen.haupt.grund === "Erst „A$'B $& x“ abschließen", 'H1: Sperrgrund mit dem Titel „A$\'B $& x“ unverändert: ' + m.aktionen.haupt.grund);
+  ok(m.aktionen.haupt.disabled === false && /annehmen/.test(m.brett.hilfe) && m.brett.laufend.length === 1 && m.brett.laufend[0].titel === "A$'B $& x", 'H1: ein laufendes Abenteuer sperrt Annehmen nicht (laufend_max 3); der Titel mit $-Mustern steht unverändert im Modell');
+  t.key('Enter'); X.Faden.abenteuerAnbieten(t.g, notrufplan(3), { hex: '0305' }); t.key('Enter'); X.Faden.abenteuerAnbieten(t.g, notrufplan(4), { hex: '0305' }); m = t.m();
+  ok(m.brett.laufend.length === 3 && m.aktionen.haupt.disabled === true && m.aktionen.haupt.grund === 'Erst ein laufendes Abenteuer abschließen', 'H1: bei drei laufenden: gesperrt, Sperrgrund aus den festen Texten: ' + m.aktionen.haupt.grund);
   ok(!/annehmen/.test(m.brett.hilfe) && /ablehnen/.test(m.brett.hilfe) && /kostet nichts/.test(m.brett.hilfe), 'H4: bei gesperrter Annahme entfällt „Ent annehmen“ in der Tastenzeile, „ablehnen kostet nichts“ bleibt sichtbar: ' + m.brett.hilfe);
-  ok(m.aktionen.hinweis.text === TEXT.gesperrt && m.aktionen.hinweis.fn === 'warn', 'H4: der Sperrgrund steht sichtbar unter dem Knopf');
+  ok(m.aktionen.hinweis.text === 'Es laufen schon 3 Abenteuer' && m.aktionen.hinweis.fn === 'warn', 'H4: der Sperrgrund steht sichtbar unter dem Knopf');
 }
 
 console.log('\n' + (fails ? fails + ' FEHLER von ' + n : 'alle ' + n + ' Prüfungen ok'));

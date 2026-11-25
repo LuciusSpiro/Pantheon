@@ -39,7 +39,7 @@ const MUTATIONEN = [
   [PR, "if (regulaereAngebote(F).length >= W.abenteuer.angebote_max) return fehl('ABENTEUER_ANGEBOTE'", "if ((F.abenteuerAngebote || []).length >= W.abenteuer.angebote_max) return fehl('ABENTEUER_ANGEBOTE'", 'Notruf-Angebote zählen gegen angebote_max (verdrängen Andock-Angebote)'],
   [FA, "const g = (pruefeAnbieten || P.pruefeAbenteuerAnbieten)(F, o);", "const g = P.pruefeAbenteuerAnbieten(F, o);", 'Notruf-Angebot prüft gegen angebote_max (bei vollem Brett kein Notruf-Angebot)'],
   [BR, "const k = a.notruf ? 'notruf' : 'regulaer';", "const k = 'regulaer';", 'Snapshot zählt Notruf- und Andock-Angebote zusammen (3 statt 3 + 3)'],
-  [BR, "if (P.regulaereAngebote(F).length || P.abenteuerLaufend(F)) return null;   // FRE-03 D", "if (F.abenteuerAngebote.length || P.abenteuerLaufend(F)) return null;   // FRE-03 D", 'Anschluss-Garantie: ein Notruf-Angebot zählt als Angebot'],
+  [BR, "if (P.regulaereAngebote(F).length || P.abenteuerGrenzeErreicht(F)) return null;   // FRE-03 D", "if (F.abenteuerAngebote.length || P.abenteuerGrenzeErreicht(F)) return null;   // FRE-03 D", 'Anschluss-Garantie: ein Notruf-Angebot zählt als Angebot'],
   [BR, "while (P.regulaereAngebote(F).length < W.abenteuer.angebote_max) {", "while (F.abenteuerAngebote.length < W.abenteuer.angebote_max) {", 'Rückfall füllt das Brett: Notruf-Angebote zählen mit (weniger Andock-Angebote)'],
   // ---- Felder und Verhalten des Angebots
   [BR, "angebotAusstatten(a, { herkunft: o.ankunft,", "angebotAusstatten(a, { herkunft: o.hex,", 'herkunft ist der Notruf-Hex statt der Crew-Hex'],

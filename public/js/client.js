@@ -1269,6 +1269,10 @@
         R.addFx(ev.small ? 'explosion_ring' : 'explosion', null, ev.x, ev.y, ev.small ? 0.55 : 0.7, { space: true });
         audio.play('explosion_small', ev.small ? { volume: 0.55 } : undefined);
         break;
+      case 'abgang':   // SPT-02 7: ein Schiff verlässt die Szene ohne Tod (Sprungblitz bzw. Auflösen nach dem Rückzug); kein Ton, der Sprung bringt sein sfx jump selbst mit
+        if (ev.art === 'sprung' || ev.art === 'rueck') R.addFx('abgang_' + ev.art, null, ev.x, ev.y, ev.art === 'sprung' ? 0.8 : 0.9, { space: true });
+        break;
+      case 'konvoiSprung': break;   // SPT-02 7: das Bild kommt über abgang (derselbe Server-Takt), hier kein zweiter Blitz
       case 'beam':
         for (const pid of ev.pids || []) Client.beamFx[pid] = { t0: performance.now(), dir: ev.dir };
         audio.play('beam');
