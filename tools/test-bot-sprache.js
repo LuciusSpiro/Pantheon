@@ -97,7 +97,7 @@ const sprechen = async (k) => { k.tasteRunter(); await tick(); return k.tasteHoc
     ok(eq(L.untertitel, ['Bitte wiederholen']), 'Clip fehlt: Untertitel "Bitte wiederholen"');
     const b = fake({ text: 'Quatsch', clipDa: true }); const kb = BS.erzeuge(b.env); kb.schalte(true);
     await sprechen(kb);
-    ok(b.L.send.length === 0 && b.L.untertitel.length === 0 && b.L.clips.length === 1, 'Clip da: Ton statt Untertitel, weiterhin kein bot.befehl');
+    ok(b.L.send.length === 0 && eq(b.L.untertitel, ['Bitte wiederholen']) && b.L.clips.length === 1, 'Clip da: Ton und Untertitel, weiterhin kein bot.befehl');
     const l = fake({ text: '   ' }); const kl = BS.erzeuge(l.env); kl.schalte(true);
     await sprechen(kl);
     ok(l.L.send.length === 0 && l.L.matcher === 0 && l.L.clips.length === 1, 'leerer STT-Text: kein Matcher-Aufruf, Rueckfrage, nichts gesendet');

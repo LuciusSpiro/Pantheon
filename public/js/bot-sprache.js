@@ -6,7 +6,7 @@
 //
 // Ablauf Sprache:  Taste halten (MediaRecorder läuft nur dann) -> loslassen -> POST /api/stt (Audio roh) -> Text -> Matcher -> bot.befehl { an, befehl, args, quelle: 'sprache' }
 // Ablauf Text:     Chat-Zeile -> Matcher -> bot.befehl { …, quelle: 'text' }
-// Matcher unklar (null): KEIN bot.befehl; stattdessen Clip bot.unklar (fehlt er: Untertitel „Bitte wiederholen“).
+// Matcher unklar (null): KEIN bot.befehl; stattdessen Clip bot.unklar (Untertitel „Bitte wiederholen“ immer dazu).
 // Antwort:         bot.antwort -> Untertitel immer, Clip assets/bots/stimmen/<stimme>/<textId>[.<variante>].ogg|wav wenn vorhanden (sonst nur Untertitel). Solange die Sprechtaste gehalten wird, bleibt die Wiedergabe stumm (Echo).
 // Nachrichten tragen das Typfeld `t` ('bot.befehl' / 'bot.antwort'); der Matcher kommt aus shared/bot-matcher.js: match(text, opts?) -> { an, befehl, args, konfidenz } | null (Global Shared_BotMatcher, UMD wie Shared_Protocol).
 (function (root, factory) {
@@ -229,7 +229,7 @@
       const v = s.unklarN++ % UNKLAR_VARIANTEN;   // beide Varianten abwechselnd
       let url = null;
       try { url = await env.audio.spiele(clipKandidaten('bot.unklar', stimmeFuer(s.letzterBot || 'b0'), v, env.clipBasis)); } catch (e) { url = null; }   // Stimme des zuletzt angesprochenen/aktiven Bots
-      if (!url) untertitel(v === 0 ? TEXT.unklar : TEXT.unklar2, { botId: s.letzterBot, dauerS: UNKLAR_DAUER_S });   // Clip fehlt: Untertitel statt Ton
+      untertitel(v === 0 ? TEXT.unklar : TEXT.unklar2, { botId: s.letzterBot, dauerS: UNKLAR_DAUER_S });   // Untertitel immer, auch wenn der Clip läuft (Kai 2026-11-25)
       return false;
     }
 
