@@ -14,11 +14,19 @@ const TMP = fs.mkdtempSync(path.join(os.tmpdir(), 'pantheon-muta-botsprache-'));
 const ende = (code) => { try { fs.rmSync(TMP, { recursive: true, force: true }); } catch (e) { /* egal */ } process.exit(code); };   // das Temp-Verzeichnis geht bei jedem Ausgang weg, auch bei Exit 1 und 2
 fs.mkdirSync(path.join(TMP, 'tools'), { recursive: true });
 fs.cpSync(path.join(ROOT, 'public', 'js'), path.join(TMP, 'public', 'js'), { recursive: true });
-for (const f of ['hud.js', 'bot-sprache.js', 'consoles.js']) { const p = path.join(TMP, 'public', 'js', f); fs.writeFileSync(p, fs.readFileSync(p, 'utf8').replace(/\r\n/g, '\n')); }   // Anker ohne CRLF-Sorgen
-fs.copyFileSync(path.join(ROOT, 'tools', 'test-bot-sprache.js'), path.join(TMP, 'tools', 'test-bot-sprache.js'));
+fs.cpSync(path.join(ROOT, 'shared'), path.join(TMP, 'shared'), { recursive: true });
+fs.cpSync(path.join(ROOT, 'server'), path.join(TMP, 'server'), { recursive: true });   // D1: test-bot-sprache-server.js fährt den echten Server (Game, Bots)
+if (fs.existsSync(path.join(ROOT, 'package.json'))) fs.copyFileSync(path.join(ROOT, 'package.json'), path.join(TMP, 'package.json'));   // D1: test-bot-sprache-net.js braucht Matcher und Protokoll, den Kanon und die Muster
+fs.cpSync(path.join(ROOT, 'content'), path.join(TMP, 'content'), { recursive: true });   // D1: auch der Servertest liest Spieldaten (Waren, Bots)
+for (const f of ['hud.js', 'bot-sprache.js', 'bot-menue.js', 'consoles.js']) { const p = path.join(TMP, 'public', 'js', f); fs.writeFileSync(p, fs.readFileSync(p, 'utf8').replace(/\r\n/g, '\n')); }   // Anker ohne CRLF-Sorgen
+for (const f of ['test-bot-sprache.js', 'test-bot-sprache-net.js', 'test-bot-sprache-server.js', 'test-bot-sprache-pegel.js', 'test-bot-katalog.js']) fs.copyFileSync(path.join(ROOT, 'tools', f), path.join(TMP, 'tools', f));
+fs.cpSync(path.join(ROOT, 'tools', 'fixtures', 'bot-messung'), path.join(TMP, 'tools', 'fixtures', 'bot-messung'), { recursive: true });   // D2: der Katalogtest liest die Phrasenlisten
 
-const CL = 'public/js/client.js', HU = 'public/js/hud.js', BS = 'public/js/bot-sprache.js', CO = 'public/js/consoles.js';
-// [Datei, alter Text (genau einmal), neuer Text, Beschreibung]
+const CL = 'public/js/client.js', HU = 'public/js/hud.js', BS = 'public/js/bot-sprache.js', CO = 'public/js/consoles.js', BMN = 'public/js/bot-menue.js';
+const NET = 'test-bot-sprache-net.js';   // D1: Mutationen am Net-Transport und an sprachBefehl prüft dieser Test (fünftes Element), alle anderen test-bot-sprache.js
+const PEG = 'test-bot-sprache-pegel.js', KAT = 'test-bot-katalog.js';   // D2: Stille-Schranke und Messkatalog gegen den Matcher
+const SRV = 'test-bot-sprache-server.js';   // D1: Mutationen an der Reihenfolge Eintrag/Senden prüft der Servertest (synchrone Brücke: die Antwort kommt noch im send)
+// [Datei, alter Text (genau einmal), neuer Text, Beschreibung, Testdatei?]
 const MUTATIONEN = [
   [HU, "const oda = view.voxel && window.Sitz && Sitz.station ? this.odaHoeheOben() : 0;", "const oda = 0;", 'Voxel-Sitz: Spalte ignoriert die ODA oben'],
   [HU, "const oda = view.voxel && window.Sitz && Sitz.station ? this.odaHoeheOben() : 0;", "const oda = this.odaHoeheOben();", 'Konsole 2D: auch eine verdeckte ODA zählt'],
@@ -58,8 +66,8 @@ const MUTATIONEN = [
   [HU, "length / 15))", "length / 10))", 'Dauer: Zeichen je Sekunde'],
   [HU, "while (E.length > 2) E.shift();", "while (E.length > 3) E.shift();", 'Stapel: mehr als 2 Einträge'],
   [HU, "let n = rec ? 1 : 2;", "let n = 2;", 'Aufnahme ersetzt den untersten Platz nicht'],
-  [HU, "if (this.sprech.aktiv && !inConsole) Net.guard('Hud.sprechspalte'", "if (this.sprech.aktiv) Net.guard('Hud.sprechspalte'", 'Sprechspalte auch vor der Konsole (die Konsole deckt sie zu)'],
-  [CL, "if (H.sprech.aktiv) Net.guard('Hud.sprechspalteKonsole', () => H.zeichneSprechspalte(ctx, v));", "", 'Sprechspalte an der Konsole fehlt'],
+  [HU, "if ((this.sprech.aktiv || this.sprech.bots) && !inConsole) Net.guard('Hud.sprechspalte'", "if (this.sprech.aktiv || this.sprech.bots) Net.guard('Hud.sprechspalte'", 'Sprechspalte auch vor der Konsole (die Konsole deckt sie zu)'],
+  [CL, "if (H.sprech.aktiv || H.sprech.bots) Net.guard('Hud.sprechspalteKonsole', () => H.zeichneSprechspalte(ctx, v));", "", 'Sprechspalte an der Konsole fehlt'],
   [HU, "return e.halt ? e.t + 30 : (e.bis || e.t + e.d);", "return e.halt ? Infinity : (e.bis || e.t + e.d);", 'Halt ohne Obergrenze'],
   [HU, "performance.now() / 1000 + 0.5); }", "performance.now() / 1000); }", 'nach Clip-Ende keine 0,5 s'],
   [HU, "e.bis = Math.max(e.t + e.d, performance", "e.bis = Math.max(0, performance", 'nach Clip-Ende nicht mindestens die Grunddauer'],
@@ -91,17 +99,79 @@ const MUTATIONEN = [
   [BS, "feld.setAttribute('maxlength', '120');", "feld.setAttribute('maxlength', '999');", 'Eingabe nicht auf 120 begrenzt'],
   [BS, "pointerEvents: 'none', margin: '0', padding: '0' });", "pointerEvents: 'auto', margin: '0', padding: '0' });", 'geschlossenes Eingabefeld fängt Mausklicks'],
   [BS, "t === TEXT.maxDauer ? 3600 : 6", "6", 'Meldung „Aufnahme nach 60 s beendet“ verschwindet'],
-  [BS, "if (an) { h.sprech.verarbeitet = false; entferne(stickyText); stickyText = null; }", "if (an) { h.sprech.verarbeitet = false; }", 'Dauer-Meldung bleibt nach der nächsten Aufnahme'],
+  [BS, "if (an) { h.sprech.verarbeitet = false; entferne(stickyText); stickyText = null; entferne", "if (an) { h.sprech.verarbeitet = false; entferne", 'Dauer-Meldung bleibt nach der nächsten Aufnahme'],
   [BS, "h.pushNotice(t, FN().warn,", "h.pushNotice(t, FN().sensor,", 'Meldung nicht in Warnfarbe'],
   [BS, "e && e.fehler === 'stt-aus' ? TEXT.sttNichtEingerichtet : TEXT.sttAus", "TEXT.sttAus", 'STT nicht eingerichtet nicht unterschieden'],
   [BS, "if (j && j.fehler === 'stt-aus') e.fehler = 'stt-aus';", "", 'Client liest 503 stt-aus nicht'],
   [BS, "' halten = sprechen, '", "' = sprechen, '", 'Startnotiz ohne „halten“'],
+  // BOT-04 D1: Net-Transport, Anschluss an das Menü, Sprach-Einträge
+  [BS, "try { vermerk = env.vorSenden(msg); } catch (e) { vermerk = null; }", "vermerk = null;", 'D1: die Sprache ruft sprachBefehl nicht auf (kein Eintrag, keine Quittung, kein „gilt“)', NET],
+  [BS, "if (!ok) { if (env.verworfen && vermerk)", "if (!ok) { if (false)", 'D1: Sendefehler nimmt den Eintrag nicht zurück', NET],
+  [BS, "send(obj) { if (!offen()) return false;", "send(obj) {", 'D1: Net-Transport meldet bei getrennter Verbindung Erfolg', NET],
+  [BS, "const weg = Net.on((m) => { if (m && m.t === 'bot.antwort') fn(m); });", "const weg = Net.on((m) => { fn(m); });", 'D1: Net-Transport reicht jede Nachricht durch', NET],
+  [BS, "netz: true,", "netz: false,", 'D1: Net-Transport meldet netz: false (zwei Verarbeiter je Antwort)', NET],
+  [BS, "win.Net ? transportNet(win.Net) : transportNetStub();", "transportNetStub();", 'D1: starte nimmt nie den Net-Transport', NET],
+  [BS, "(mockOk ? transportWebSocket(mockUrl, win.WebSocket) : transportNetStub())", "(mockOk ? transportWebSocket(mockUrl, win.WebSocket) : transportNet(win.Net))", 'D1: verbotener Mock fällt auf die echte Verbindung', NET],
+  [BS, "...(transport.netz === true ? menueAnschluss(", "...(false ? menueAnschluss(", 'D1: starte hängt die Sprache nicht an das Menü', NET],
+  [BMN, "if (p.gilt && offene === 1) s.gilt[rolle] = p.gilt; else delete s.gilt[rolle];", "s.gilt[rolle] = p.gilt;", 'D1: nicht abbildbarer Wert setzt ein falsches „gilt“', NET],
+  [BMN, "if (Object.keys(a0).some((k) => k !== 'meter' && namen.indexOf(k) < 0)) continue;", "", 'D1: fremde Argumente passen auf einen Eintrag', NET],
+  [BMN, "msg.an === 'alle' ? Math.max(1, s.botsN) : 1, gilt);", "1, gilt);", 'D1: an alle erwartet nur eine Antwort', NET],
+  [BMN, "? msg.an : botRolle || e.an;   // botId", "? e.an : botRolle || e.an;   // botId", 'D1: Rolle des Adressaten wird ignoriert', NET],
+  [BMN, "s.ausstehend.splice(i, 1);", "", 'D1: verworfener Eintrag bleibt stehen', NET],
+  [BS, "if (env.vorSenden) { try { vermerk = env.vorSenden(msg); } catch (e) { vermerk = null; } }\n      let ok = false;\n      try { ok = env.transport.send(msg) !== false; } catch (e) { ok = false; }", "let ok = false;\n      try { ok = env.transport.send(msg) !== false; } catch (e) { ok = false; }\n      if (env.vorSenden) { try { vermerk = env.vorSenden(msg); } catch (e) { vermerk = null; } }", 'D1: vorSenden (Eintrag) erst nach dem Senden', SRV],
+  [BMN, "{ if (!p) p = q; offene++; }", "{ p = q; offene++; }", 'D1: Antwort wird dem JÜNGSTEN offenen Eintrag zugeordnet (LIFO statt FIFO)', NET],
+  [BMN, "if (p.gilt && offene === 1) s.gilt[rolle]", "if (p.gilt) s.gilt[rolle]", 'D1: „gilt“ auch bei mehreren offenen Einträgen', NET],
+  [BMN, "? s.botRolle[msg.an] : null;", "? null : null;", 'D1: bot.status an botId: Quittung ignoriert die bekannte Rolle des Bots', NET],
+  [BMN, "msg.an === 'alle' ? Math.max(1, s.botsN) : 1, gilt);", "an === 'alle' ? Math.max(1, s.botsN) : 1, gilt);", 'D1: erwartet folgt dem aufgelösten Adressaten statt dem genannten (botId erwartet 4)', NET],
+  [BMN, "s.quittung = p.vorher || null;", "s.quittung = null;", 'D1: Verwerfen stellt die vorige Quittung nicht wieder her', NET],
+  // BOT-04 D2: Stille-Schranke und Messkatalog (pegelMesser läuft in test-bot-sprache-pegel.js gegen ein Fake-Fenster mit AudioContext/MediaRecorder; nur das echte Web Audio ist Handarbeit: --use-fake-device-for-media-stream)
+  [BS, "if (typeof aufn.pegel === 'number' && aufn.pegel < PEGEL_MIN) {", "if (false) {", 'D2: Stille-Schranke entfernt (Stille geht an STT)', PEG],
+  [BS, "aufn.pegel < PEGEL_MIN) {", "aufn.pegel > PEGEL_MIN) {", 'D2: Vergleich der Stille-Schranke invertiert', PEG],
+  [BS, "aufn.pegel < PEGEL_MIN) {", "aufn.pegel <= PEGEL_MIN) {", 'D2: Grenze exakt zählt schon als Stille', PEG],
+  [BS, "const PEGEL_MIN = 0.005;", "const PEGEL_MIN = 0.2;", 'D2: Grenze auf hohen Wert (leises Sprechen wird verworfen)', PEG],
+  [BS, "if (typeof aufn.pegel === 'number' && aufn.pegel < PEGEL_MIN) {", "if (aufn.pegel < PEGEL_MIN) {", 'D2: pegel null (kein Web Audio) blockiert STT', PEG],
+  [BS, "if (s.messmodus) await messeStille(aufn);", "", 'D2: Stille im Messmodus ohne eigenen Eintrag', PEG],
+  [BS, "meldung(TEXT.stille); return false;", "return false;", 'D2: Stille ohne Meldung', PEG],
+  [BS, "stille: true, pegel: aufn.pegel,", "stille: false, pegel: aufn.pegel,", 'D2: Stille-Eintrag nicht als stille markiert', PEG],
+  [BS, "pegel: x.pegel == null ? null : x.pegel,", "", 'D2: Messeintrag ohne Pegel', PEG],
+  [BS, "pegel: typeof aufn.pegel === 'number' ? aufn.pegel : null });", "});", 'D2: Pegel erreicht den Messeintrag nicht', PEG],
+  [BS, "const v = Math.abs(samples[i]); if (v > m && isFinite(v)) m = v;", "const v = samples[i]; if (v > m && isFinite(v)) m = v;", 'D2: Spitze ohne Betrag (negative Ausschläge zählen nicht)', PEG],
+  [BS, "if (v > m && isFinite(v)) m = v;", "if (v > m) m = v;", 'D2: Spitze lässt Unendlich zu', PEG],
+  [BS, "    if (erwartet === null) return !res;\n", "", 'D2: erwartet null (bewusst nicht erkennbar) wird nicht als richtig gewertet', KAT],
+  [BS, "    if (Object.keys(ra).some((k) => !(k in ea) && k !== 'meter')) return false;\n", "", 'D2: zusätzliche Argumente im Matcher-Ergebnis zählen als richtig', KAT],
+  [BS, "!(k in ea) && k !== 'meter'", "!(k in ea)", 'D2: zusätzliches meter zählt als falsch', KAT],
+  [BS, "return lief && pegelAbdeckungReicht(tErst === null ? null : tErst - t0, fenster, dauer, luecke) ? spitze : null;", "return spitze;", 'D2: pegelMesser ohne Lauf- und Abdeckungsprüfung', PEG],
+  [BS, "return lief && pegelAbdeckungReicht(", "return pegelAbdeckungReicht(", 'D2: pegelMesser prüft nicht, ob der Kontext beim Loslassen läuft', PEG],
+  [BS, "tErst === null ? null : tErst - t0, fenster, dauer, luecke) ? spitze : null;", "0, fenster, dauer, luecke) ? spitze : null;", 'D2: Spätstart (erstes Fenster spät) wird nicht erkannt', PEG],
+  [BS, "    if (verzugMs > PEGEL_START_MAX_MS) return false;\n", "", 'D2: Abdeckung: Verzug des ersten Fensters nicht geprüft', PEG],
+  [BS, "    return fenster * PEGEL_TAKT_MS >= dauerMs * PEGEL_ABDECKUNG_MIN;", "    return true;", 'D2: Abdeckung: Anteil der gelesenen Fenster nicht geprüft', PEG],
+  [BS, "!(fenster > 0) || ", "", 'D2: Abdeckung: keine Fenster gelesen (fenster 0) zählt als abgedeckt', PEG],
+  [BS, "|| !(dauerMs >= 0)) return false;", ") return false;", 'D2: Abdeckung: kaputte Dauer zählt als abgedeckt', PEG],
+  [BS, "typeof verzugMs !== 'number' || !isFinite(verzugMs) || ", "", 'D2: Abdeckung: nie gelesen (Verzug null/NaN) zählt als abgedeckt', PEG],
+  [BS, "if (lueckeMs !== undefined && !(typeof lueckeMs === 'number' && lueckeMs >= 0 && lueckeMs <= PEGEL_LUECKE_MAX_MS)) return false;", "", 'D2: Abdeckung: größte Lücke zwischen zwei Lesungen (Blockade mitten in der Aufnahme) nicht geprüft', PEG],
+  [BS, "lueckeMs <= PEGEL_LUECKE_MAX_MS)) return false;", "lueckeMs < PEGEL_LUECKE_MAX_MS)) return false;", 'D2: Lücke genau an der Grenze zählt schon als zu groß', PEG],
+  [BS, "const PEGEL_LUECKE_MAX_MS = 250;", "const PEGEL_LUECKE_MAX_MS = 5000;", 'D2: Lückengrenze viel zu hoch (Blockade von 900 ms zählt als Messung)', PEG],
+  [BS, "const PEGEL_LUECKE_MAX_MS = 250;", "const PEGEL_LUECKE_MAX_MS = 20;", 'D2: Lückengrenze unter dem Takt (normaler Jitter verwirft die Messung)', PEG],
+  [BS, "fenster, dauer, luecke) ? spitze : null;", "fenster, dauer) ? spitze : null;", 'D2: pegelMesser gibt die größte Lücke nicht an die Prüfung weiter', PEG],
+  [BS, "if (tLetzt !== null) luecke = Math.max(luecke, jetzt - tLetzt); ", "", 'D2: pegelMesser merkt die größte Lücke nicht', PEG],
+  [BS, "luecke = Math.max(luecke, jetzt - tLetzt);", "luecke = Math.min(luecke, jetzt - tLetzt);", 'D2: pegelMesser merkt die kleinste statt der größten Lücke', PEG],
+  // bewusst keine Mutation auf das letzte Lesen in ende(): das Intervall tickt bis zu ende() weiter, eine Blockade kurz vor dem Loslassen zeigt sich schon am naechsten Tick (aequivalente Mutante, der Test unterscheidet sie nicht)
+  [BS, "fenster++; const jetzt = Date.now();", "const jetzt = Date.now();", 'D2: Fenster ohne Zählung (fenster++ fehlt)', PEG],
+  [BS, "if (fertig || !ctx) return null;", "if (!ctx) return null;", 'D2: pegelMesser.ende läuft mehrfach (zweimal close)', PEG],
+  [BS, "fertig = true; if (timer) clearInterval(timer); timer = null;", "fertig = true;", 'D2: pegelMesser stoppt das Intervall nicht', PEG],
+  [BS, "        try { if (ctx.close) abgefangen(ctx.close()); } catch (e) { /* egal */ }\n", "", 'D2: pegelMesser schließt den AudioContext nicht', PEG],
+  [BS, "abgefangen(ctx.resume())", "ctx.resume()", 'D2: resume() ohne catch (unbehandelte Ablehnung)', PEG],
+  [BS, "        try { if (ctx.close) abgefangen(ctx.close()); } catch (e) { /* egal */ }\n        return", "        try { if (ctx.close) ctx.close(); } catch (e) { /* egal */ }\n        return", 'D2: close() ohne catch (unbehandelte Ablehnung)', PEG],
+  [BS, "const frei2 = () => { frei(); pm.ende(); };", "const frei2 = () => { frei(); };", 'D2: Abbruch gibt den Pegelmesser nicht frei', PEG],
+  [BS, "const pegel = pm.ende(); frei();", "const pegel = null; frei();", 'D2: stop() liefert keinen Pegel', PEG],
+  [BS, "entferne(stickyText); stickyText = null; entferne(letzteMeldung); letzteMeldung = null; } },", "entferne(stickyText); stickyText = null; } },", 'D2: neue Aufnahme räumt die alte Meldung nicht weg'],
 ];
 
 const nur = process.argv.slice(2).filter((a) => !a.startsWith('--'));
 const trocken = process.argv.includes('--trocken');
 let schlecht = 0;
-for (const [datei, alt] of MUTATIONEN) {
+for (const [datei, alt, , text] of MUTATIONEN) {
+  if (nur.length && !nur.some((b) => text.includes(b))) continue;   // mit Begriff: nur die gewählten Anker prüfen
   const n = fs.readFileSync(path.join(TMP, datei), 'utf8').split(alt).length - 1;
   if (n !== 1) { console.log('ANKER ' + (n ? 'mehrfach (' + n + 'x)' : 'fehlt') + ': ' + datei + ' :: ' + alt.slice(0, 70)); schlecht++; }
 }
@@ -109,14 +179,13 @@ if (schlecht) { console.log(schlecht + ' Anker ungültig'); ende(2); }
 if (trocken) { console.log('alle ' + MUTATIONEN.length + ' Anker eindeutig'); ende(0); }
 
 let erkannt = 0, offen = 0, abstuerze = 0;
-const lauf = () => spawnSync(process.execPath, ['tools/test-bot-sprache.js'], { cwd: TMP, encoding: 'utf8', timeout: 120000 });
-const basis = lauf();
-if (basis.status !== 0) { console.log('Basis ist nicht grün (Exit ' + basis.status + ')'); ende(2); }
-for (const [datei, alt, neu, text] of MUTATIONEN) {
+const lauf = (test) => spawnSync(process.execPath, ['tools/' + (test || 'test-bot-sprache.js')], { cwd: TMP, encoding: 'utf8', timeout: 120000 });
+for (const t of [null, NET, SRV, PEG, KAT]) { const basis = lauf(t); if (basis.status !== 0) { console.log('Basis ist nicht grün (' + (t || 'test-bot-sprache.js') + ', Exit ' + basis.status + ')'); console.log(String(basis.stderr || basis.stdout || '').slice(-500)); ende(2); } }
+for (const [datei, alt, neu, text, test] of MUTATIONEN) {
   if (nur.length && !nur.some((b) => text.includes(b))) continue;
   const pfad = path.join(TMP, datei), orig = fs.readFileSync(pfad, 'utf8');
   fs.writeFileSync(pfad, orig.replace(alt, () => neu));
-  const r = lauf();
+  const r = lauf(test);
   fs.writeFileSync(pfad, orig);
   const rot = r.status === 1 && /FEHLER/.test(r.stdout || '');
   if (rot) erkannt++; else if (r.status === 0) { offen++; console.log('NICHT ERKANNT: ' + text); } else { abstuerze++; console.log('ABSTURZ (zählt nicht): ' + text + ' (Exit ' + r.status + ')'); }
