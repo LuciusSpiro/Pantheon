@@ -17,6 +17,13 @@
           "propertyNames": { "pattern": "^[0-9a-f]{12}$" }, "additionalProperties": { "type": "string" } },
         "loadout": { "type": "object", "description": "AUS-01 A (optional, additiv): Hash der Browser-Kennung (12 Hex-Zeichen) -> Loadout-Slots (Waffen-Id oder null, höchstens 3; wirksam sind die ersten N nach Slotzahl der Partie). Hat beim Laden Vorrang vor crew.waffen. Nie Namen.",
           "propertyNames": { "pattern": "^[0-9a-f]{12}$" }, "additionalProperties": { "type": "array", "maxItems": 3, "items": { "type": ["string", "null"] } } },
+        "botFiguren": { "type": "object", "additionalProperties": false,
+          "description": "BOT-05 A4 (optional, additiv; fehlt, solange kein Eintrag existiert): Gedächtnis der Bot-Figuren, botId (b0 Livia, b1 Cassius, b2 Titus; Figur, nicht Platz) -> { gedaechtnis }. Je Figur höchstens C.weltstand.botMemoryMax (12) Einträge, Verdrängung wie npc.gedaechtnis (kleinstes Gewicht, dann ältester). Nie Namen von Menschen; geht nie in den Spielleiter-Kontext.",
+          "properties": {
+            "b0": { "type": "object", "additionalProperties": false, "required": ["gedaechtnis"], "properties": { "gedaechtnis": { "type": "array", "maxItems": 12, "items": { "type": "object", "additionalProperties": false, "required": ["ereignis", "text", "spielzeit_s"], "properties": { "ereignis": { "type": "string" }, "text": { "type": "string", "maxLength": 120 }, "spielzeit_s": { "type": "number", "minimum": 0 }, "mission": { "type": "string" }, "gewicht": { "type": "number" } } } } } },
+            "b1": { "type": "object", "additionalProperties": false, "required": ["gedaechtnis"], "properties": { "gedaechtnis": { "type": "array", "maxItems": 12, "items": { "type": "object", "additionalProperties": false, "required": ["ereignis", "text", "spielzeit_s"], "properties": { "ereignis": { "type": "string" }, "text": { "type": "string", "maxLength": 120 }, "spielzeit_s": { "type": "number", "minimum": 0 }, "mission": { "type": "string" }, "gewicht": { "type": "number" } } } } } },
+            "b2": { "type": "object", "additionalProperties": false, "required": ["gedaechtnis"], "properties": { "gedaechtnis": { "type": "array", "maxItems": 12, "items": { "type": "object", "additionalProperties": false, "required": ["ereignis", "text", "spielzeit_s"], "properties": { "ereignis": { "type": "string" }, "text": { "type": "string", "maxLength": 120 }, "spielzeit_s": { "type": "number", "minimum": 0 }, "mission": { "type": "string" }, "gewicht": { "type": "number" } } } } } }
+          } },
         "rollen_gesehen": { "type": "array", "items": { "type": "string" }, "description": "Gegnerrollen, die die Crew schon gesehen hat (Einführungsregel E24)" }
       }
     },

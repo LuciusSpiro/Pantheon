@@ -348,12 +348,14 @@ function folgenAbgleich(game) {
   }
 }
 // Spieler bewusstlos (Betäuber) bzw. gefesselt: liegt, keine Pistole, kein Ausbluten, niemand kann aufhelfen (B2 §2)
+function botGedaechtnis(game, p) { if (!p.bot) return; try { require('../bots/gedaechtnis.js').beiBewusstlos(game, p); } catch (e) { game.countError('bot-gedaechtnis', e); } }   // BOT-05 A4
 function bewusstlosPlayer(game, p) {
   const it = interior();
   p.holT = 0;
   if (p.console) it.konsoleVerlassen(game, p, 'bewusstlos');
   if (p.carry) it.dropCarry(game, p);
   p.downed = true; p.downedFor = 0; p.wound = true; p.bewusstlos = true; p.bleed = null; p.crouch = false;
+  botGedaechtnis(game, p);
   p.hold = null; p.input.mx = 0; p.input.my = 0;
   if (p.zustand === 'bewusstlos') game.oda(`${p.name} ist bewusstlos! Kameraden: Gegner fernhalten – in ${Math.round(cfg(game).koerper.bewusstlos)} s kommt ${p.name} wieder zu sich.`, null);
   squad.onPlayerWounded(game, p);
@@ -533,6 +535,7 @@ function woundPlayer(game, p, source) {
   if (p.console) it.konsoleVerlassen(game, p, 'niedergestreckt');
   if (p.carry) it.dropCarry(game, p);
   p.downed = true; p.downedFor = 0; p.wound = true; p.hp = 0; p.crouch = false;
+  botGedaechtnis(game, p);
   p.bleed = C.wounded.bleedout;
   p.hold = null; p.input.mx = 0; p.input.my = 0;
   if (!p.shield) initShield(game, p);

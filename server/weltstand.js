@@ -20,6 +20,7 @@ const Kriegslage = require('./sim/kriegslage.js');   // SUND-01 B: welt.sim (Wel
 const Spur = require('./sim/spur.js');   // SL5: welt.spur (Ionenspur: Id, Hex-Index, gelesen)
 const Sektorplan = require('./sim/sektorplan.js');   // SL4: welt.sektorplan (gesichtete Hexe, Marken, Schiffe)
 const Zonen = require('./sim/zonen.js');   // SL6: Zonen mit Wirkung (schiff.zonen)
+const BotGedaechtnis = require('./bots/gedaechtnis.js');   // BOT-05 A4: crew.botFiguren (Gedächtnis der Bot-Figuren, optional)
 const Welt = require('./sim/welt.js');   // SL1: Startort der aktiven Karte
 
 const ROOT = path.join(__dirname, '..');
@@ -754,6 +755,7 @@ function capture(game) {
   data.crew = { waffen: blockSave(game, 'waffen'), rollen_gesehen: (ws.data.rollen_gesehen || []).slice() };
   const loadout = blockSave(game, 'loadout');   // AUS-01 A: optional und additiv; ohne Einträge fehlt der Block (ältere Spielversionen lehnen Stände mit diesem Block per Schema ab)
   if (Object.keys(loadout).length) data.crew.loadout = loadout;
+  { const bf = BotGedaechtnis.toSave(game); if (bf) data.crew.botFiguren = bf; }   // BOT-05 A4: optional und additiv; ohne Einträge fehlt der Block (ältere Spielversionen lehnen Stände mit diesem Block per Schema ab)
   return data;
 }
 
@@ -867,6 +869,7 @@ function apply(game, data) {
   blockRestore(game, 'landepunkte', ws.data.bloecke.landepunkte);
   blockRestore(game, 'wracks', ws.data.bloecke.wracks);
   blockRestore(game, 'waffen', ws.data.bloecke.waffen);
+  BotGedaechtnis.restore(game, d.crew && d.crew.botFiguren);   // BOT-05 A4: fehlt im Altstand = leeres Gedächtnis
   blockRestore(game, 'loadout', ws.data.bloecke.loadout);   // AUS-01 A: nach waffen (crew.loadout hat Vorrang, Altstand crew.waffen = Slot 1)
   game.odaSeen = new Set(w.odaSeen || []);
   game.scans = new Set(w.scans || []);
