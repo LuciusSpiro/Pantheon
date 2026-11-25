@@ -436,6 +436,7 @@ function healPlayer(game, p, amount) {
 
 function downPlayer(game, p, source) {
   p.downed = true; p.downedFor = 0; p.hp = 0;
+  { try { require('../bots/gedaechtnis.js').beiBewusstlos(game, p); } catch (e) { game.countError('bot-gedaechtnis', e); } }   // BOT-05 A4
   if (p.console) konsoleVerlassen(game, p, 'niedergestreckt');
   p.hold = null; p.input.mx = 0; p.input.my = 0;
   if (p.carry) dropCarry(game, p);
@@ -1127,6 +1128,7 @@ function damageSystemRoh(game, sys, toState, opts) {   // opts.quiet (keine ODA)
   if (s[sys] !== 'ok') {
     if (!(opts && opts.dauer)) Fracht.systemTreffer(game, sys);   // EK3 Teil A: ein Systemtreffer bricht das Fracht-Beamen ab (Schildtreffer erreichen diese Stelle nie)
     game.emit('systemHit', { system: sys, state: s[sys] });
+    if (s[sys] === 'broken') { try { require('../bots/gedaechtnis.js').beiSystemAusfall(game, sys); } catch (e) { game.countError('bot-gedaechtnis', e); } }   // BOT-05 A4: Ausfall, entprellt
     Tel.zoneAus(game, sys, systemSector(sys), s[sys], before);   // TEL-01 B1
     if (!(opts && opts.quiet)) queueSystemAnnounce(game, sys, s[sys]);
   }

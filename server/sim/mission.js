@@ -531,6 +531,7 @@ class Mission {
     this.missions[id].ausgang = ausgang;
     this.game.stats.missions[id].end = this.playTime();
     this.game.emit('missionDone', { id, title: def.title, ausgang });
+    try { require('../bots/gedaechtnis.js').beiMissionEnde(this.game, id, def.title, ausgang); } catch (e) { this.game.countError('bot-gedaechtnis', e); }   // BOT-05 A4
     Tel.missionEnde(this.game, id, ausgang);   // TEL-01 B1
     // B3 §4: temporäre Sprungpunkte mit bis 'mission' schließen (sprung.js, SEKTOR); fehlt die Funktion: nichts
     try { const S = require('./sprung.js'); if (S && typeof S.missionEnde === 'function') S.missionEnde(this.game); } catch (e) { this.game.countError('mission-sprung', e); }
