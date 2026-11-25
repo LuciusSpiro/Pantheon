@@ -241,7 +241,7 @@ const sprechen = async (k) => { k.tasteRunter(); await tick(); return k.tasteHoc
     const FNT = { sensor: '#A9D6E5', warn: '#F2C94C' };
     const gesendet = [];
     const hud = fakeHud();
-    const win = { document: doc, Hud: hud, Client: { scale: 3 }, Menue: { TOKENS: { FN: FNT, FARBE: {} } } };
+    const win = { document: doc, Hud: hud, Client: { scale: 3, state: { players: [{ id: 'p1', name: 'Kai' }, { id: 'p2', name: 'Cassius', bot: 1, rolle: 'technik', botId: 'b1' }] } }, Menue: { TOKENS: { FN: FNT, FARBE: {} } } };
     const an = BS.anzeigeHud(win, (t) => gesendet.push(t), () => {});
     ok(hud.sprech.aktiv && hud.sprech.zeile === an.zeile, 'Anzeige meldet sich beim HUD an (Sprechspalte aktiv, Textzeile eingehaengt)');
     ok(an.wurzel.style.pointerEvents === 'none' && an.zeile.offen === false && an.wurzel.children[0].style.display === 'none' && an.wurzel.children[0].style.pointerEvents === 'none', 'DOM: faengt keine Mausklicks ab, Textzeile zu');
@@ -250,8 +250,8 @@ const sprechen = async (k) => { k.tasteRunter(); await tick(); return k.tasteHoc
     an.aufnahme(true); ok(hud.sprech.aufnahme === true, 'Aufnahme-Anzeige an'); an.aufnahme(false); ok(hud.sprech.aufnahme === false, 'Aufnahme-Anzeige aus');
     an.verarbeitet(true); ok(hud.sprech.verarbeitet === true, 'Zwischenzustand an'); an.aufnahme(true); ok(hud.sprech.verarbeitet === false, 'neue Aufnahme beendet den Zwischenzustand'); an.aufnahme(false);
     const idU = an.untertitel('Aye', { botId: 'b1' });
-    ok(idU === 1 && eq(hud.titel[0], { t: 'Aye', wer: 'OPS', farbe: FNT.sensor, dauer: undefined }), 'Untertitel: HUD-Eintrag, Name = Rolle des Bots (b1 OPS), Farbe sensor');
-    ok(['b0', 'b1', 'b2', 'b3', null, undefined, 'x'].map(BS.sprecherName).join() === 'NAVIGATION,OPS,TECHNIK,BORD,BORD,BORD,BORD', 'Sprechername: b0 NAVIGATION, b1 OPS, b2 TECHNIK, sonst BORD');
+    ok(idU === 1 && eq(hud.titel[0], { t: 'Aye', wer: 'CASSIUS', farbe: FNT.sensor, dauer: undefined }), 'Untertitel: HUD-Eintrag, Name = Name der Figur (b1 Cassius, auch mit Rolle technik), Farbe sensor');
+    ok(['b0', 'b1', 'b2', 'b3', null, undefined, 'x'].map((b) => BS.sprecherName(b, win.Client.state.players)).join() === 'BORD,CASSIUS,BORD,BORD,BORD,BORD,BORD', 'Sprechername: nur die Figur mit Eintrag im Snapshot hat einen Namen, sonst BORD');
     an.clip(idU, true); an.clip(idU, false); an.clip(null, true);
     ok(eq(hud.halt, [[1, true], [1, false]]), 'Clip-Rueckruf haelt/loest den Untertitel (ohne Kennung nichts)');
     an.meldung('Fehler'); ok(eq(hud.notices.at(-1), { text: 'Fehler', color: FNT.warn, d: 6 }), 'Meldung = Hud.pushNotice(text, FN.warn, 6)');

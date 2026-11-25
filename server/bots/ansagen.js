@@ -142,10 +142,10 @@ function artRaetsel(game, z, e, p) {
 
 // ---------- Eingang ----------
 const menschenUnten = (game) => game.players.filter((p) => p && p.connected && p.conn && !Crew.istBot(p) && p.zone === 'away' && !p.downed);
-function sende(game, p, z, a) {
+function sende(game, p, z, a, bot) {
   const f = formuliere(z, 'bord.ansage.' + a.art, a.werte);
   if (!f) return false;
-  game.sendTo(p.conn, { t: Protocol.C.BOT_ANTWORT, botId: null, befehl: BEFEHL, status: 'ok', textId: 'bord.ansage.' + a.art, text: f.text, variante: f.variante });
+  game.sendTo(p.conn, { t: Protocol.C.BOT_ANTWORT, botId: null, befehl: BEFEHL, status: 'ok', textId: 'bord.ansage.' + a.art, text: f.text, variante: f.variante, ...(bot && bot.botId ? { von: bot.botId } : {}) });   // BOT-05 A2: von = Figur des Bord-Bots (nur fuer den Sprechernamen im Untertitel; botId bleibt null: kein Clip, keine Quittung)
   return true;
 }
 function tick(game, bot) {
@@ -160,7 +160,7 @@ function tick(game, bot) {
       // Anlaesse einsammeln, die Art mit der aeltesten letzten Ansage kommt zuerst (bei Gleichstand code, gegner, raetsel): in einer Flut von Gegnermeldungen verhungert der Raetselhinweis nicht
       const a = [artCode(game, z, e, p), artGegner(game, z, e, p, jetzt), artRaetsel(game, z, e, p)].filter(Boolean).sort((x, y) => e.zuletzt[x.art] - e.zuletzt[y.art])[0];
       if (!a) continue;
-      if (sende(game, p, z, a)) { a.fertig(); e.letzte = jetzt; e.zuletzt[a.art] = jetzt; }
+      if (sende(game, p, z, a, bot)) { a.fertig(); e.letzte = jetzt; e.zuletzt[a.art] = jetzt; }
     }
   } catch (err) { game.countError('bot.ansage', err); }
 }

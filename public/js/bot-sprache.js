@@ -32,8 +32,11 @@
     messungFehler: 'Messung nicht gespeichert.',
     platzhalter: 'Befehl an die Crew · Enter senden · Esc zu',
   };
-  const ROLLEN = { b0: 'NAVIGATION', b1: 'OPS', b2: 'TECHNIK' };   // Sprechername der Untertitel, bis die Bots eigene Namen und Farben haben (BOT-05); sonst BORD
-  const sprecherName = (botId) => ROLLEN[botId] || 'BORD';
+  // BOT-05 A2: Sprechername der Untertitel = Name der Figur (Snapshot: der Bot-Spieler mit dieser botId, HUD-Schreibweise Grossbuchstaben); die Figur haengt nicht an der Rolle. Ohne Treffer (Snapshot fehlt, Figur nicht in der Partie): BORD.
+  const sprecherName = (botId, spieler) => {
+    const p = typeof botId === 'string' && Array.isArray(spieler) ? spieler.find((q) => q && q.bot && q.botId === botId && typeof q.name === 'string' && q.name) : null;
+    return p ? p.name.toUpperCase() : 'BORD';
+  };
   const UNKLAR_DAUER_S = 2.5;                                                   // „Bitte wiederholen“ im Untertitel
   const STIMMEN = { b0: 'b0', b1: 'b1', b2: 'b2', b3: 'b0' };   // Ordnername im Clip-Vorrat je botId (Kai 2026-11-18: drei Stimmen b0 bis b2, mehr als 3 Bots gibt es nicht; b3 fällt auf b0 zurück); env.stimmen oder msg.stimme überschreiben
   const MAX_MS = 60000;                                                        // Höchstdauer einer Aufnahme (Auto-Stop); der Server nimmt ohnehin nur 1 MB
@@ -237,7 +240,7 @@
     function empfange(msg) {
       if (!s.an || !msg || msg.t !== 'bot.antwort') return false;
       if (typeof msg.botId === 'string' && msg.botId) s.letzterBot = msg.botId;
-      const id = untertitel(typeof msg.text === 'string' && msg.text ? msg.text : String(msg.textId || ''), { botId: msg.botId });
+      const id = untertitel(typeof msg.text === 'string' && msg.text ? msg.text : String(msg.textId || ''), { botId: msg.botId, von: msg.von });
       if (!s.aufnahme && msg.textId && msg.befehl !== 'bord.ansage') {   // gehaltene Sprechtaste = Mikrofon offen: nichts abspielen; BOT-02 B4: Ansagen des Bord-Bots haben keinen Clip-Vorrat (nur Untertitel, kein 404 je Ansage)
         const urls = clipKandidaten(msg.textId, stimmeFuer(msg), msg.variante, env.clipBasis);
         // Läuft der Clip länger als die Standarddauer, bleibt der Untertitel bis Clip-Ende (+ 0,5 s in der Anzeige)
@@ -438,8 +441,8 @@
         const m = gefunden();
         if (!m) return null;
         try {
-          const [mu, ka] = await Promise.all(['/content/bots/muster.json', '/content/bots/kanon.json'].map((u) => win.fetch(u).then((r) => { if (!r.ok) throw new Error(u + ' ' + r.status); return r.json(); })));
-          m.setzeMuster(Object.assign({}, mu, { kanon: ka }));
+          const [mu, ka, fi] = await Promise.all(['/content/bots/muster.json', '/content/bots/kanon.json', '/content/bots/figuren.json'].map((u) => win.fetch(u).then((r) => { if (!r.ok) throw new Error(u + ' ' + r.status); return r.json(); })));
+          m.setzeMuster(Object.assign({}, mu, { kanon: ka, figuren: fi }));   // BOT-05 A2: Figurnamen = Adressen (figuren.json ist die einzige Quelle)
           return m;
         } catch (e) { ladeMatcher.p = null; return null; }
       };
@@ -506,7 +509,7 @@
       feld, wurzel, zeile,
       aufnahme(an) { const h = hud(); if (!h) return; h.sprech.aufnahme = !!an; if (an) { h.sprech.verarbeitet = false; entferne(stickyText); stickyText = null; entferne(letzteMeldung); letzteMeldung = null; } },   // neue Aufnahme räumt die alte Meldung weg (z. B. „Mikrofon liefert keinen Ton.“)
       verarbeitet(an) { const h = hud(); if (h) h.sprech.verarbeitet = !!an; },
-      untertitel(t, info) { const h = hud(); return h ? h.pushCrewFunk(t, sprecherName(info && info.botId), FN().sensor, info && info.dauerS) : 0; },
+      untertitel(t, info) { const h = hud(); const st = win.Client && win.Client.state; return h ? h.pushCrewFunk(t, sprecherName(info && (info.botId || info.von), st && st.players), FN().sensor, info && info.dauerS) : 0; },   // von: Figur des Bord-Bots bei Ansagen (botId null)
       clip(id, an) { const h = hud(); if (h && id) h.crewFunkHalte(id, an); },
       meldung(t) {
         const h = hud(); if (!h) return;

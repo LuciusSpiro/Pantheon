@@ -4,6 +4,7 @@
 // gibt n, Trefferquote (positiv + stt-fehler), Falsch-Positiv-Zahl und die Fehlfaelle aus.
 //   node tools/bot-eval.js [datei.json] [--art kanon|frei] [--schwelle 0.85] [--json]
 // Treffer: Befehl und Argumente stimmen (Argumente werden als Text verglichen, "3" gleich 3; fehlende Argumente gleich {}).
+// erwartet.an (optional, nur eval-namen.json): der Adressat (botId oder Rolle) muss stimmen.
 // Falsch-Positiv: match liefert einen Befehl, obwohl keiner erwartet war (negativ) oder einen anderen als den erwarteten.
 // --art legt die Kriterien je Set fest (Standard: kanon fuer Dateien eval-kanon*.json, sonst frei):
 //   kanon  Sprechformen des Kanons (eval-kanon.json): Quote 100 % UND Falsch-Positiv 0
@@ -53,7 +54,7 @@ for (const f of eval_) {
     if (!ok) { falschPositiv++; grund = 'falsch-positiv'; }
   } else {
     erwartetBefehle++;
-    if (r && r.befehl === f.erwartet.befehl && argsGleich(r.args, f.erwartet.args)) { ok = true; treffer++; }
+    if (r && r.befehl === f.erwartet.befehl && argsGleich(r.args, f.erwartet.args) && (f.erwartet.an == null || r.an === f.erwartet.an)) { ok = true; treffer++; }   // BOT-05 A2: erwartet.an (optional) prueft auch den Adressaten (eval-namen.json); falscher Adressat = falscher Befehl
     else if (r) { ok = false; falschPositiv++; grund = 'falscher Befehl'; }
     else { ok = false; grund = 'nicht erkannt'; }
   }

@@ -19,8 +19,8 @@ const ok = (c, msg) => { n++; if (!c) { fails++; console.log('  FEHLER ' + msg);
   const base = 'http://127.0.0.1:' + port;
   const get = async (p) => { const r = await fetch(base + p); return { status: r.status, text: await r.text() }; };
 
-  const ka = await get('/content/bots/kanon.json'), mu = await get('/content/bots/muster.json'), te = await get('/content/bots/texte.json'), ma = await get('/shared/bot-matcher.js');
-  ok(ka.status === 200 && mu.status === 200, 'Server liefert kanon.json und muster.json');
+  const ka = await get('/content/bots/kanon.json'), mu = await get('/content/bots/muster.json'), te = await get('/content/bots/texte.json'), ma = await get('/shared/bot-matcher.js'), fi = await get('/content/bots/figuren.json');
+  ok(ka.status === 200 && mu.status === 200 && fi.status === 200, 'Server liefert kanon.json, muster.json und figuren.json (BOT-05 A2: die Figurnamen sind Adressen)');
   ok(te.status !== 200, 'texte.json bleibt auf dem Server (' + te.status + ')');
   ok(ma.status === 200, 'Server liefert shared/bot-matcher.js');
 
@@ -30,7 +30,9 @@ const ok = (c, msg) => { n++; if (!c) { fails++; console.log('  FEHLER ' + msg);
   vm.runInContext(ma.text, ctx);
   const M = ctx.Shared_BotMatcher;
   ok(M && typeof M.match === 'function', 'Browser-Global Shared_BotMatcher da');
-  M.setzeMuster(Object.assign({}, JSON.parse(mu.text), { kanon: JSON.parse(ka.text) }));
+  let ohneFiguren = null; M.setzeMuster(Object.assign({}, JSON.parse(mu.text), { kanon: JSON.parse(ka.text) })); try { M.match('Schilde Steuerbord'); } catch (e) { ohneFiguren = e; }
+  ok(!!ohneFiguren && /Figuren/.test(ohneFiguren.message), 'Browser ohne figuren.json: der Matcher meldet es laut statt still ohne Namen zu laufen');
+  M.setzeMuster(Object.assign({}, JSON.parse(mu.text), { kanon: JSON.parse(ka.text), figuren: JSON.parse(fi.text) }));
   const r = M.match('Schilde Steuerbord');
   ok(r && r.befehl === 'tech.schild' && r.args && r.args.sektor === 'stb', 'Browser-Matcher mit geholten Daten: Schilde Steuerbord -> tech.schild stb');
   ok(M.match('Kapitän an Deck') === null, 'Browser-Matcher: Kapitän an Deck -> null');

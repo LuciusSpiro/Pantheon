@@ -214,10 +214,10 @@ section('7 Reine Menschenpartie unverändert');
   ok(g.phase === 'play' && funde.length === 0, 'ohne Bots: weder Spieler noch Snapshot (Lobby und Partie) tragen bot, rolle, botId, stimme, persoenlichkeit oder figur ' + funde.join(','));
   ok([c1, c2].every((c) => FELDER.every((f) => !(f in c.player))), 'die Spielerobjekte der Menschen tragen keines der Felder');
   ok(!/botId|stimme|persoenlichkeit/.test(JSON.stringify(snap)) && !/botId|stimme|persoenlichkeit/.test(JSON.stringify(lobbySnap)), 'Snapshot (JSON) enthält keines der Wörter botId, stimme, persoenlichkeit');
-  // mit Bot: A1 ändert den Snapshot nicht (botId im Snapshot folgt in einem späteren Paket)
+  // mit Bot: seit A2 trägt der Snapshot botId (nur bei Bots), aber weiter keine Stimme und keine Persönlichkeit (test-bot-namen)
   const h = neu(), d = mensch(h, 0, 0); bot(h, d, 'add', { rolle: 'ops' });
   const sj = JSON.stringify(h.snapshot());
-  ok(!/botId|stimme|persoenlichkeit/.test(sj), 'mit Bot: Snapshot trägt botId, Stimme und Persönlichkeit nicht (A1 ändert den Snapshot nicht)');
+  ok(/"botId":"b0"/.test(sj) && !/stimme|persoenlichkeit/.test(sj), 'mit Bot: Snapshot trägt botId (A2), Stimme und Persönlichkeit nicht');
 }
 
 console.log('\ntest-bot-figuren: ' + (n - fails) + '/' + n + ' ok');

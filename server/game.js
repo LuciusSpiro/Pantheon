@@ -2391,7 +2391,7 @@ class Game {
       ...(this.phase === 'end' && this.abspann ? { abspann: this.abspann } : {}),   // EK8: Abspann (Titel, Text, Blöcke), nur in Phase end
       campaign: !!(this.weltstand && this.weltstand.persistent),   // S1: Kampagne mit Weltstand (Hinweis beim Beenden)
       players: this.players.map((p) => ({
-        id: p.id, name: p.name, color: p.color, ready: p.bot ? true : p.ready, connected: p.connected, ...(p.bot ? { bot: 1, rolle: p.rolle } : {}),
+        id: p.id, name: p.name, color: p.color, ready: p.bot ? true : p.ready, connected: p.connected, ...(p.bot ? { bot: 1, rolle: p.rolle, botId: p.botId } : {}),   // BOT-05 A2: botId = feste Figur (Client: Sprechername, Name -> botId); Menschen tragen es nie
         zone: p.zone, x: r1(p.x), y: r1(p.y), dir: p.dir, moving: p.moving, console: p.console, ...Station.snapFelder(p), carry: p.carry,
         hp: Math.round(p.hp), downed: p.downed, downedFor: r1(p.downedFor), ...(this.time < (p.stunBis || 0) ? { stun: 1 } : {}),
         action: p.hold ? this.holdSnap(p.hold)
