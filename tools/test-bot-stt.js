@@ -188,7 +188,9 @@ function roh(port, pfad, body, headers) {
     ok(ph.status === 200 && (await ph.json()).phrasen.length >= 24, 'GET /bot-messung/phrasen.json liefert die Phrasenliste');
     ok((await fetch('http://127.0.0.1:' + P + '/bot-messung/../../package.json')).status !== 200 && (await fetch('http://127.0.0.1:' + P + '/bot-messung/katalog.json')).status === 403, 'dort nur phrasen.json');
     ok((await fetch('http://127.0.0.1:' + P + '/assets/bots/stimmen/navigation/nav.stopp.ok.0.ogg')).status === 404, 'Clip fehlt: 404 (der Client faellt auf den Untertitel zurueck)');
-    ok((await fetch('http://127.0.0.1:' + P + '/assets/bots/stimmen/x/y.json')).status === 403, 'unter /assets/bots/stimmen/ nur ogg und wav');
+    ok((await fetch('http://127.0.0.1:' + P + '/assets/bots/stimmen/x/y.json')).status === 403, 'unter /assets/bots/stimmen/ nur ogg, wav und clips.json');
+    const mf = await fetch('http://127.0.0.1:' + P + '/assets/bots/stimmen/b0/clips.json');
+    ok(mf.status === 200 && (await mf.json()).format === 'bot-clips/1', 'BOT-05 A3: das Clip-Manifest der Stimme wird ausgeliefert');
     ok((await fetch('http://127.0.0.1:' + P + '/version.json')).status === 200, 'uebrige Auslieferung unberuehrt');
     ok(/maxPayload: 16 \* 1024/.test(fs.readFileSync(path.join(__dirname, '..', 'server', 'index.js'), 'utf8')), 'WebSocket-maxPayload unveraendert (16 KB)');
     if (alt === undefined) delete process.env.STT_URL; else process.env.STT_URL = alt;

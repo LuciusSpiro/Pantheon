@@ -241,7 +241,7 @@ const sprechen = async (k) => { k.tasteRunter(); await tick(); return k.tasteHoc
     const FNT = { sensor: '#A9D6E5', warn: '#F2C94C' };
     const gesendet = [];
     const hud = fakeHud();
-    const win = { document: doc, Hud: hud, Client: { scale: 3 }, Menue: { TOKENS: { FN: FNT, FARBE: {} } } };
+    const win = { document: doc, Hud: hud, Client: { scale: 3, state: { players: [{ id: 'p1', name: 'Kai' }, { id: 'p2', name: 'Cassius', bot: 1, rolle: 'technik', botId: 'b1' }] } }, Menue: { TOKENS: { FN: FNT, FARBE: {} } } };
     const an = BS.anzeigeHud(win, (t) => gesendet.push(t), () => {});
     ok(hud.sprech.aktiv && hud.sprech.zeile === an.zeile, 'Anzeige meldet sich beim HUD an (Sprechspalte aktiv, Textzeile eingehaengt)');
     ok(an.wurzel.style.pointerEvents === 'none' && an.zeile.offen === false && an.wurzel.children[0].style.display === 'none' && an.wurzel.children[0].style.pointerEvents === 'none', 'DOM: faengt keine Mausklicks ab, Textzeile zu');
@@ -250,8 +250,8 @@ const sprechen = async (k) => { k.tasteRunter(); await tick(); return k.tasteHoc
     an.aufnahme(true); ok(hud.sprech.aufnahme === true, 'Aufnahme-Anzeige an'); an.aufnahme(false); ok(hud.sprech.aufnahme === false, 'Aufnahme-Anzeige aus');
     an.verarbeitet(true); ok(hud.sprech.verarbeitet === true, 'Zwischenzustand an'); an.aufnahme(true); ok(hud.sprech.verarbeitet === false, 'neue Aufnahme beendet den Zwischenzustand'); an.aufnahme(false);
     const idU = an.untertitel('Aye', { botId: 'b1' });
-    ok(idU === 1 && eq(hud.titel[0], { t: 'Aye', wer: 'OPS', farbe: FNT.sensor, dauer: undefined }), 'Untertitel: HUD-Eintrag, Name = Rolle des Bots (b1 OPS), Farbe sensor');
-    ok(['b0', 'b1', 'b2', 'b3', null, undefined, 'x'].map(BS.sprecherName).join() === 'NAVIGATION,OPS,TECHNIK,BORD,BORD,BORD,BORD', 'Sprechername: b0 NAVIGATION, b1 OPS, b2 TECHNIK, sonst BORD');
+    ok(idU === 1 && eq(hud.titel[0], { t: 'Aye', wer: 'CASSIUS', farbe: FNT.sensor, dauer: undefined }), 'Untertitel: HUD-Eintrag, Name = Name der Figur (b1 Cassius, auch mit Rolle technik), Farbe sensor');
+    ok(['b0', 'b1', 'b2', 'b3', null, undefined, 'x'].map((b) => BS.sprecherName(b, win.Client.state.players)).join() === 'BORD,CASSIUS,BORD,BORD,BORD,BORD,BORD', 'Sprechername: nur die Figur mit Eintrag im Snapshot hat einen Namen, sonst BORD');
     an.clip(idU, true); an.clip(idU, false); an.clip(null, true);
     ok(eq(hud.halt, [[1, true], [1, false]]), 'Clip-Rueckruf haelt/loest den Untertitel (ohne Kennung nichts)');
     an.meldung('Fehler'); ok(eq(hud.notices.at(-1), { text: 'Fehler', color: FNT.warn, d: 6 }), 'Meldung = Hud.pushNotice(text, FN.warn, 6)');
@@ -262,8 +262,12 @@ const sprechen = async (k) => { k.tasteRunter(); await tick(); return k.tasteHoc
     an.meldung(BS.TEXT.stille); ok(hud.notices.some((x) => x.text === BS.TEXT.stille), 'Stille-Meldung steht');
     an.aufnahme(true); ok(!hud.notices.some((x) => x.text === BS.TEXT.stille), 'neue Aufnahme raeumt "Mikrofon liefert keinen Ton." weg'); an.aufnahme(false);
     an.hinweis('Hallo'); ok(eq(hud.notices.at(-1), { text: 'Hallo', color: FNT.sensor, d: 6 }), 'Hinweis beim Einschalten: pushNotice, 6 s');
-    ok(BS.startHinweis({ kappe: (id) => ({ 'allgemein.sprechen': '^', 'allgemein.botText': '#' }[id]) }) === 'Bot-Sprache an: ^ halten = sprechen, # = tippen', 'Startnotiz mit den echten Tastenbeschriftungen');
-    ok(BS.startHinweis({ kappe: (id) => (id === 'allgemein.sprechen' ? 'F9' : '–') }) === 'Bot-Sprache an: F9 halten = sprechen, # = tippen', 'Startnotiz: umbelegte Taste, Ersatz bei fehlender Belegung');
+    // BOT-05 B-Nacharbeit: ohne Bots nur der Befehl, mit Bots auch das Gespräch (Ä halten, Ö tippen); die Tasten kommen immer aus der Belegung (kappe), mit Ersatz bei fehlender Belegung
+    const kap = { 'allgemein.sprechen': '^', 'allgemein.botText': '#', 'allgemein.gespraechSprechen': 'Ä', 'allgemein.gespraechText': 'Ö' };
+    ok(BS.startHinweis({ kappe: (id) => kap[id] }, false) === 'Befehl ^ halten, # tippen' && BS.startHinweis({ kappe: (id) => kap[id] }) === 'Befehl ^ halten, # tippen', 'Startnotiz ohne Bots: nur der Befehl, mit den echten Tastenbeschriftungen');
+    ok(BS.startHinweis({ kappe: (id) => kap[id] }, true) === 'Befehl ^ halten, # tippen · Gespräch Ä halten, Ö tippen', 'Startnotiz mit Bots: Befehl und Gespräch');
+    ok(BS.startHinweis({ kappe: (id) => (id === 'allgemein.sprechen' ? 'F9' : id === 'allgemein.gespraechText' ? 'F8' : '–') }, true) === 'Befehl F9 halten, # tippen · Gespräch Ä halten, F8 tippen', 'Startnotiz: umbelegte Tasten, Ersatz bei fehlender Belegung');
+    ok(BS.startHinweis({ kappe: (id) => (id === 'allgemein.sprechen' ? 'F9' : '–') }, false) === 'Befehl F9 halten, # tippen', 'Startnotiz ohne Bots: umbelegte Taste, Ersatz bei fehlender Belegung');
     // Textzeile: offen nur mit Spielbild; Enter sendet und schliesst, Esc schliesst ohne Senden, Fokusverlust schliesst nur, wenn leer
     const zf = an.wurzel.children[0];
     hud.bereit = false; ok(an.textzeile(true) === false && !an.zeile.offen, 'Textzeile oeffnet nicht ohne Spielbild (Lobby/Menue)'); hud.bereit = true;
@@ -331,7 +335,7 @@ const sprechen = async (k) => { k.tasteRunter(); await tick(); return k.tasteHoc
     // Stimme aus env.stimmen (b3 faellt auf b0)
     const b3 = fake({ text: 'Quatsch' }); const k3 = BS.erzeuge(b3.env); k3.schalte(true);
     k3.empfange({ t: 'bot.antwort', botId: 'b3', textId: 'x.ok' }); await sprechen(k3);
-    ok(b3.L.clips.at(-1)[0].includes('/b0/bot.unklar.'), 'b3 spricht mit der Stimme b0');
+    ok(b3.L.clips.at(-1)[0].includes('/b0/bot.unklar.'), 'bot.unklar nach einer botId ohne Figur (b3): Stimme b0 (nie eine Stimme b3)');
 
     // H6: Hoechstdauer 60 s (Auto-Stop mit Anzeige), Timer wird beim Loslassen geraeumt
     const timers = []; let geraeumt = 0;
@@ -653,6 +657,56 @@ const sprechen = async (k) => { k.tasteRunter(); await tick(); return k.tasteHoc
       const id4 = H.pushCrewFunk('Haengt', 'OPS', '#fff'); const t2 = tMs; H.crewFunkHalte(id4, true); tMs = t2 + 31000; calls.length = 0; H.zeichneSprechspalte(ctx, fuss());
       ok(!calls.some((c) => c.s === 'Haengt'), 'bleibt das Clip-Ende aus, haelt der Untertitel hoechstens 30 s');
     }
+    // BOT-05 B-Nacharbeit (Designer): gemeinsame linke Kante, 3 px Abstand, Farben je Sprecher; wartende Untertitel (W2); Art der Textzeile (W1)
+    {
+      const w = neu(), H = w.Hud; H.sprechAn(true); H.sprech.bots = true; tMs = 70000;
+      H.pushCrewFunk('Kurz.', 'LIVIA', '#56B4E9', 20);
+      H.pushCrewFunk('Ein deutlich laengerer Satz im Untertitel, Captain.', 'CASSIUS', '#CC79A7', 20, { textFarbe: '#8EA3B5' });
+      H.pushCrewFunk('Mittel lang.', 'BORD', '#8EA3B5', 20);
+      calls.length = 0; H.zeichneSprechspalte(ctx, fuss());
+      const bd = calls.filter((c) => c.n === 'backdrop'), slot = H.sprechSlot(fuss());
+      const maxW = Math.max(...bd.map((b) => b.w));
+      ok(bd.length === 3 && new Set(bd.map((b) => b.x)).size === 1, 'alle sichtbaren Eintraege teilen EINE linke Kante (x ' + bd.map((b) => b.x).join('/') + ', Breiten ' + bd.map((b) => b.w).join('/') + ')');
+      ok(bd[0].x === Math.round(slot.x + (slot.w - maxW) / 2) && maxW === Math.max(...bd.map((b) => b.w)) && bd.some((b) => b.w < maxW), 'die Kante liegt so, dass der breiteste Eintrag mittig im Slot steht (die schmaleren schliessen links buendig an)');
+      const sortiert = bd.slice().sort((a, b) => a.y - b.y);
+      ok(sortiert.slice(1).every((b, i) => b.y - (sortiert[i].y + sortiert[i].h) === 3), '3 px Abstand zwischen den Eintraegen (Luecken ' + sortiert.slice(1).map((b, i) => b.y - (sortiert[i].y + sortiert[i].h)).join('/') + ')');
+      const balken = calls.filter((c) => c.n === 'fillRect' && c.w === 2).map((c) => c.c);
+      ok(eq(balken.sort(), ['#56B4E9', '#8EA3B5', '#CC79A7']), 'Balken in der Farbe des Sprechers (Spielerfarben, BORD neutral)');
+      const tx = (s) => calls.find((c) => c.n === 'text' && c.s === s);
+      ok(tx('LIVIA:').o.color === '#56B4E9' && tx('CASSIUS:').o.color === '#CC79A7' && tx('BORD:').o.color === '#8EA3B5', 'Sprechername in der Farbe des Sprechers');
+      ok(tx('Kurz.').o.color === '#F4EEDC' && calls.filter((c) => c.n === 'text' && /^Ein deutlich/.test(c.s)).every((c) => c.o.color === '#8EA3B5'), 'Satztext FN.cmd; mit textFarbe (denkt nach) in dieser Farbe');
+      // ohne Bots (Standard 2 Eintraege) bleibt es beim Stapel: aelteste faellt raus, Abstand gilt auch dort
+      const w2 = neu(), H2 = w2.Hud; H2.sprechAn(true); tMs = 70000;
+      for (const t of ['Eins', 'Zwei', 'Drei']) H2.pushCrewFunk(t, 'BORD', '#fff');
+      calls.length = 0; H2.zeichneSprechspalte(ctx, fuss());
+      ok(calls.filter((c) => c.n === 'backdrop').length === 2, 'ohne Bots weiter hoechstens zwei Eintraege');
+      // wartet / crewFunkFrei (W2)
+      const w3 = neu(), H3 = w3.Hud; H3.sprechAn(true); H3.sprech.bots = true; tMs = 100000;
+      const id = H3.pushCrewFunk('Wartet auf den Ton.', 'LIVIA', '#fff', undefined, { wartet: true });
+      const zeigt = (dt) => { tMs = 100000 + dt * 1000; calls.length = 0; H3.zeichneSprechspalte(ctx, fuss()); return calls.some((c) => c.n === 'text' && c.s === 'Wartet auf den Ton.'); };
+      ok(zeigt(0.1) && zeigt(30) && zeigt(59), 'wartender Eintrag: steht weit ueber die Grunddauer (59 s)');
+      ok(!zeigt(61), 'Sicherung: ohne Freigabe nach 60 s weg');
+      tMs = 100000; const id2 = H3.pushCrewFunk('Zweiter wartet.', 'LIVIA', '#fff', undefined, { wartet: true });
+      const zeigt2 = (dt) => { tMs = 100000 + dt * 1000; calls.length = 0; H3.zeichneSprechspalte(ctx, fuss()); return calls.some((c) => c.n === 'text' && c.s === 'Zweiter wartet.'); };
+      tMs = 110000; H3.crewFunkFrei(id2, false);
+      ok(zeigt2(10.4) && !zeigt2(10.6), 'Frei nach gelaufenem Ton: noch 0,5 s, dann weg');
+      tMs = 100000; const id3 = H3.pushCrewFunk('Dritter ohne Ton.', 'LIVIA', '#fff', undefined, { wartet: true }); const d3 = H3.crewFunkDauer('Dritter ohne Ton.');
+      tMs = 120000; H3.crewFunkFrei(id3, true);
+      const zeigt3 = (dt) => { tMs = 120000 + dt * 1000; calls.length = 0; H3.zeichneSprechspalte(ctx, fuss()); return calls.some((c) => c.n === 'text' && c.s === 'Dritter ohne Ton.'); };
+      ok(zeigt3(d3 - 0.2) && !zeigt3(d3 + 0.2), 'Frei mit Ausfall: die normale Dauer ab jetzt (' + d3.toFixed(2) + ' s), nicht ab dem Eintreffen');
+      tMs = 130000; const id4 = H3.pushCrewFunk('Clip laeuft.', 'LIVIA', '#fff', undefined, { wartet: true });
+      tMs = 131000; H3.crewFunkHalte(id4, true); H3.crewFunkFrei(id4, false); tMs = 150000; calls.length = 0; H3.zeichneSprechspalte(ctx, fuss());
+      ok(calls.some((c) => c.s === 'Clip laeuft.'), 'frei, aber der Clip laeuft noch (halt): der Eintrag bleibt (Halt hoechstens 30 s ab Tonbeginn)');
+      // Textzeile: die Art steht vorn, auch mit Text (W1)
+      const w4 = neu(), H4 = w4.Hud; H4.sprechAn(true); tMs = 160000;
+      const feld = { value: 'Schilde Steuerbord', selectionStart: 18 };
+      H4.sprech.zeile = { offen: true, feld, platzhalter: 'x', kopf: 'GESPRÄCH', kopfArt: 'gespraech', platziere() {} };
+      calls.length = 0; H4.zeichneSprechspalte(ctx, fuss());
+      const kopf = calls.find((c) => c.n === 'text' && /^GESPRÄCH/.test(c.s)), text = calls.find((c) => c.n === 'text' && c.s === 'Schilde Steuerbord');
+      ok(kopf && text && kopf.o.color === '#A9D6E5' && text.x > kopf.x + R.measure(kopf.s) - 1, 'Textzeile mit Text: der Kopf GESPRÄCH (Farbe sensor) steht vor dem Text');
+      H4.sprech.zeile.kopf = 'BEFEHL'; H4.sprech.zeile.kopfArt = 'befehl'; calls.length = 0; H4.zeichneSprechspalte(ctx, fuss());
+      ok(calls.some((c) => c.n === 'text' && /^BEFEHL/.test(c.s) && c.o.color === '#FFC66B'), 'Befehlszeile: Kopf BEFEHL in der Befehlsfarbe (drive)');
+    }
     // Zeichnen: Reihenfolge, Spalte, Aufnahme ersetzt den untersten Platz, Textzeile
     {
       const w = neu(), H = w.Hud; H.sprechAn(true); tMs = 50000;
@@ -725,6 +779,65 @@ const sprechen = async (k) => { k.tasteRunter(); await tick(); return k.tasteHoc
       let ef = true; const w6 = neu({ Client: { eingabeFrei: () => ef } }), H6 = w6.Hud; H6.sprechAn(true); let zu6 = 0; H6.sprech.zeile = { offen: true, schliessen: () => { zu6++; } }; tMs = 20000; H6.sprech.tFrame = tMs;
       H6.update(0.016); ok(zu6 === 0, 'Eingabe frei: die Zeile bleibt offen'); ef = false; H6.update(0.016); ok(zu6 === 1, 'ein Overlay ging auf: update() schliesst die Textzeile');
     }
+  }
+
+  section('i) BOT-05 Nacharbeit: Stimme ohne botId, botId ohne Figur, Manifest-Neuversuch');
+  {
+    const GRUND = 'Das geht gerade nicht.';
+    const MAN = (stimme) => ({ format: 'bot-clips/1', stimme, clips: { 'nav.stopp.abgelehnt.phase.0': 'aaaa1111.wav', 'bot.unklar.0': 'bbbb2222.wav', 'x.0': 'cccc3333.wav' }, texte: { 'aaaa1111.wav': 'Figurtext Phase.', 'bbbb2222.wav': 'Noch mal bitte.', 'cccc3333.wav': GRUND } });
+    let jetzt = 1000;
+    const bau = (o) => {
+      const w = fake(); w.env.uhr = () => jetzt; const infos = []; const geladen = [];
+      w.env.anzeige.untertitel = (t, info) => { w.L.ereignisse.push('untertitel'); w.L.untertitel.push(t); infos.push(info); return infos.length; };
+      w.env.ladeManifest = (url) => { geladen.push(url); const st = url.split('/').at(-2); return Promise.resolve(o && o.fehler && o.fehler(geladen.length) ? null : MAN(st)); };
+      const k = BS.erzeuge(w.env); k.schalte(true);
+      return { w, k, infos, geladen };
+    };
+    // Standard: STIMMEN kennt nur b0 bis b2
+    ok(Object.keys(BS.STIMMEN).join() === 'b0,b1,b2', 'STIMMEN: nur b0, b1, b2 (kein b3)');
+    // botId null, noch kein Bot angesprochen: Stimme b0, Sprecher BORD (kein Name), Clip nur bei exakt gleichem Text im Manifest
+    let t = bau();
+    t.k.empfange({ t: 'bot.antwort', botId: null, befehl: 'nav.stopp', status: 'abgelehnt', textId: 'nav.stopp.abgelehnt.phase', text: GRUND }); await tick(); await tick();
+    ok(t.geladen.join() === '/assets/bots/stimmen/b0/clips.json', 'botId null ohne letzten Bot: Manifest der Stimme b0 (nie "[object Object]", ' + t.geladen + ')');
+    ok(t.w.L.clips.length === 1 && t.w.L.clips[0].join() === '/assets/bots/stimmen/b0/cccc3333.wav', 'Text steht im Manifest: genau dieser Clip (' + t.w.L.clips.map((c) => c.join()) + ')');
+    ok(t.infos[0].botId === null && t.w.L.untertitel[0] === GRUND, 'Untertitel mit Grundtext, ohne Bot (Anzeige: BORD)');
+    // anderer Text: kein Clip, nur Untertitel
+    t.k.empfange({ t: 'bot.antwort', botId: null, befehl: 'nav.stopp', status: 'abgelehnt', textId: 'nav.stopp.abgelehnt.rate', text: 'Etwas ganz anderes.' }); await tick(); await tick();
+    ok(t.w.L.clips.length === 1 && t.w.L.untertitel.at(-1) === 'Etwas ganz anderes.', 'Text nicht im Manifest: nur Untertitel, kein Clip mit anderem Text');
+    // ein Clip ohne Text-Eintrag im Manifest (texte fehlt): nie ein Clip
+    const o2 = bau(); o2.w.env.ladeManifest = (u) => { o2.geladen.push(u); const m = MAN('b0'); delete m.texte; return Promise.resolve(m); };
+    o2.k.empfange({ t: 'bot.antwort', botId: null, textId: 'nav.stopp.abgelehnt.phase', text: GRUND }); await tick(); await tick();
+    ok(o2.w.L.clips.length === 0 && o2.w.L.untertitel.length === 1, 'Manifest ohne texte: kein Clip');
+    // nach einer Antwort von b2: botId null -> Stimme b2 und Name von b2
+    t = bau();
+    t.k.empfange({ t: 'bot.antwort', botId: 'b2', befehl: 'ops.scan', status: 'ok', textId: 'ops.scan.ok', text: 'Figurtext.', variante: 0 }); await tick(); await tick();
+    t.k.empfange({ t: 'bot.antwort', botId: null, befehl: 'nav.stopp', status: 'abgelehnt', textId: 'x', text: GRUND }); await tick(); await tick();
+    ok(t.infos[1].botId === 'b2' && t.w.L.clips.at(-1).join() === '/assets/bots/stimmen/b2/cccc3333.wav', 'botId null nach b2: Sprecher b2, Stimme b2, Clip mit gleichem Text (' + t.w.L.clips.at(-1) + ')');
+    // von (Bord-Ansage) behaelt Vorrang vor dem letzten Bot
+    t.k.empfange({ t: 'bot.antwort', botId: null, von: 'b0', befehl: 'bord.ansage', textId: 'bord.ansage', text: 'Ansage.' });
+    ok(t.infos.at(-1).botId === null && t.infos.at(-1).von === 'b0', 'Bord-Ansage: Sprecher aus von, nicht der letzte Bot');
+    // botId ohne Figur (b3, b7): nur Untertitel, kein Manifest, kein Clip
+    t = bau();
+    t.k.empfange({ t: 'bot.antwort', botId: 'b3', befehl: 'ops.scan', status: 'ok', textId: 'ops.scan.ok', text: 'Aye.', variante: 0 }); await tick(); await tick();
+    t.k.empfange({ t: 'bot.antwort', botId: 'b7', befehl: 'ops.scan', status: 'ok', textId: 'ops.scan.ok', text: 'Aye.', variante: 0 }); await tick(); await tick();
+    ok(t.w.L.clips.length === 0 && t.geladen.length === 0 && t.w.L.untertitel.length === 2, 'botId ohne Figur (b3, b7): Untertitel, aber kein Clip und kein Manifest-Abruf');
+    // Manifest-Fehler wird nicht dauerhaft gemerkt, hoechstens ein Neuversuch je 30 s
+    t = bau({ fehler: (n) => n === 1 });
+    const figurAntwort = () => t.k.empfange({ t: 'bot.antwort', botId: 'b1', befehl: 'ops.scan', status: 'ok', textId: 'bot.unklar', text: 'Figurtext.', variante: 0 });
+    figurAntwort(); await tick(); await tick();
+    ok(t.geladen.length === 1 && t.w.L.clips[0].join().includes('/b1/bot.unklar.0.wav'), 'erster Abruf scheitert: Namensregel als Rueckfall');
+    jetzt += 10000; figurAntwort(); await tick(); await tick();
+    ok(t.geladen.length === 1, 'nach 10 s kein neuer Abruf (keine Schleife)');
+    jetzt += 25000; figurAntwort(); await tick(); await tick();
+    ok(t.geladen.length === 2 && t.w.L.clips.at(-1)[0] === '/assets/bots/stimmen/b1/bbbb2222.wav', 'nach 35 s zweiter Abruf, diesmal mit Erfolg: Clip aus dem Manifest');
+    jetzt += 100000; figurAntwort(); await tick(); await tick();
+    ok(t.geladen.length === 2, 'geladenes Manifest bleibt im Cache');
+    // dauerhaft kaputt: je 30 s hoechstens ein Versuch
+    t = bau({ fehler: () => true });
+    for (let i = 0; i < 5; i++) { t.k.empfange({ t: 'bot.antwort', botId: 'b0', textId: 'x', text: 'T', variante: 0 }); await tick(); await tick(); }
+    ok(t.geladen.length === 1, 'dauerhaft kaputt: innerhalb von 30 s bleibt es bei einem Abruf (' + t.geladen.length + ')');
+    jetzt += 31000; t.k.empfange({ t: 'bot.antwort', botId: 'b0', textId: 'x', text: 'T', variante: 0 }); await tick(); await tick();
+    ok(t.geladen.length === 2, 'nach 30 s wieder ein Versuch');
   }
 
   console.log('\n' + (n - fails) + '/' + n + ' ok' + (fails ? ', ' + fails + ' FEHLER' : ''));

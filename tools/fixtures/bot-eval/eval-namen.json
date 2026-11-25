@@ -1,0 +1,1661 @@
+[
+ {
+  "text": "Livia, Schilde Steuerbord",
+  "art": "positiv",
+  "erwartet": {
+   "befehl": "tech.schild",
+   "args": {
+    "sektor": "stb"
+   },
+   "an": "b0"
+  }
+ },
+ {
+  "text": "Livia Schilde Steuerbord",
+  "art": "positiv",
+  "erwartet": {
+   "befehl": "tech.schild",
+   "args": {
+    "sektor": "stb"
+   },
+   "an": "b0"
+  }
+ },
+ {
+  "text": "livia, Schilde Steuerbord.",
+  "art": "positiv",
+  "erwartet": {
+   "befehl": "tech.schild",
+   "args": {
+    "sektor": "stb"
+   },
+   "an": "b0"
+  }
+ },
+ {
+  "text": "Livia, bitte Schilde Steuerbord",
+  "art": "positiv",
+  "erwartet": {
+   "befehl": "tech.schild",
+   "args": {
+    "sektor": "stb"
+   },
+   "an": "b0"
+  }
+ },
+ {
+  "text": "Schilde Steuerbord, Livia",
+  "art": "positiv",
+  "erwartet": {
+   "befehl": "tech.schild",
+   "args": {
+    "sektor": "stb"
+   },
+   "an": "b0"
+  }
+ },
+ {
+  "text": "Schilde Steuerbord Livia",
+  "art": "positiv",
+  "erwartet": {
+   "befehl": "tech.schild",
+   "args": {
+    "sektor": "stb"
+   },
+   "an": "b0"
+  }
+ },
+ {
+  "text": "Livia, Statusbericht",
+  "art": "positiv",
+  "erwartet": {
+   "befehl": "bot.status",
+   "args": {},
+   "an": "b0"
+  }
+ },
+ {
+  "text": "Livia Statusbericht",
+  "art": "positiv",
+  "erwartet": {
+   "befehl": "bot.status",
+   "args": {},
+   "an": "b0"
+  }
+ },
+ {
+  "text": "livia, Statusbericht.",
+  "art": "positiv",
+  "erwartet": {
+   "befehl": "bot.status",
+   "args": {},
+   "an": "b0"
+  }
+ },
+ {
+  "text": "Livia, bitte Statusbericht",
+  "art": "positiv",
+  "erwartet": {
+   "befehl": "bot.status",
+   "args": {},
+   "an": "b0"
+  }
+ },
+ {
+  "text": "Statusbericht, Livia",
+  "art": "positiv",
+  "erwartet": {
+   "befehl": "bot.status",
+   "args": {},
+   "an": "b0"
+  }
+ },
+ {
+  "text": "Livia, Stopp",
+  "art": "positiv",
+  "erwartet": {
+   "befehl": "nav.stopp",
+   "args": {},
+   "an": "b0"
+  }
+ },
+ {
+  "text": "Livia Stopp",
+  "art": "positiv",
+  "erwartet": {
+   "befehl": "nav.stopp",
+   "args": {},
+   "an": "b0"
+  }
+ },
+ {
+  "text": "livia, Stopp.",
+  "art": "positiv",
+  "erwartet": {
+   "befehl": "nav.stopp",
+   "args": {},
+   "an": "b0"
+  }
+ },
+ {
+  "text": "Livia, bitte Stopp",
+  "art": "positiv",
+  "erwartet": {
+   "befehl": "nav.stopp",
+   "args": {},
+   "an": "b0"
+  }
+ },
+ {
+  "text": "Stopp, Livia",
+  "art": "positiv",
+  "erwartet": {
+   "befehl": "nav.stopp",
+   "args": {},
+   "an": "b0"
+  }
+ },
+ {
+  "text": "Livia, Feuer frei",
+  "art": "positiv",
+  "erwartet": {
+   "befehl": "ops.feuer_frei",
+   "args": {},
+   "an": "b0"
+  }
+ },
+ {
+  "text": "Livia Feuer frei",
+  "art": "positiv",
+  "erwartet": {
+   "befehl": "ops.feuer_frei",
+   "args": {},
+   "an": "b0"
+  }
+ },
+ {
+  "text": "livia, Feuer frei.",
+  "art": "positiv",
+  "erwartet": {
+   "befehl": "ops.feuer_frei",
+   "args": {},
+   "an": "b0"
+  }
+ },
+ {
+  "text": "Livia, bitte Feuer frei",
+  "art": "positiv",
+  "erwartet": {
+   "befehl": "ops.feuer_frei",
+   "args": {},
+   "an": "b0"
+  }
+ },
+ {
+  "text": "Feuer frei, Livia",
+  "art": "positiv",
+  "erwartet": {
+   "befehl": "ops.feuer_frei",
+   "args": {},
+   "an": "b0"
+  }
+ },
+ {
+  "text": "Feuer frei Livia",
+  "art": "positiv",
+  "erwartet": {
+   "befehl": "ops.feuer_frei",
+   "args": {},
+   "an": "b0"
+  }
+ },
+ {
+  "text": "Livia, volle Kraft voraus",
+  "art": "positiv",
+  "erwartet": {
+   "befehl": "nav.schub",
+   "args": {
+    "stufe": "voll"
+   },
+   "an": "b0"
+  }
+ },
+ {
+  "text": "Livia volle Kraft voraus",
+  "art": "positiv",
+  "erwartet": {
+   "befehl": "nav.schub",
+   "args": {
+    "stufe": "voll"
+   },
+   "an": "b0"
+  }
+ },
+ {
+  "text": "livia, volle Kraft voraus.",
+  "art": "positiv",
+  "erwartet": {
+   "befehl": "nav.schub",
+   "args": {
+    "stufe": "voll"
+   },
+   "an": "b0"
+  }
+ },
+ {
+  "text": "Livia, bitte volle Kraft voraus",
+  "art": "positiv",
+  "erwartet": {
+   "befehl": "nav.schub",
+   "args": {
+    "stufe": "voll"
+   },
+   "an": "b0"
+  }
+ },
+ {
+  "text": "volle Kraft voraus, Livia",
+  "art": "positiv",
+  "erwartet": {
+   "befehl": "nav.schub",
+   "args": {
+    "stufe": "voll"
+   },
+   "an": "b0"
+  }
+ },
+ {
+  "text": "volle Kraft voraus Livia",
+  "art": "positiv",
+  "erwartet": {
+   "befehl": "nav.schub",
+   "args": {
+    "stufe": "voll"
+   },
+   "an": "b0"
+  }
+ },
+ {
+  "text": "Livia, Reparatur Antrieb",
+  "art": "positiv",
+  "erwartet": {
+   "befehl": "tech.reparieren",
+   "args": {
+    "system": "engines"
+   },
+   "an": "b0"
+  }
+ },
+ {
+  "text": "Livia Reparatur Antrieb",
+  "art": "positiv",
+  "erwartet": {
+   "befehl": "tech.reparieren",
+   "args": {
+    "system": "engines"
+   },
+   "an": "b0"
+  }
+ },
+ {
+  "text": "livia, Reparatur Antrieb.",
+  "art": "positiv",
+  "erwartet": {
+   "befehl": "tech.reparieren",
+   "args": {
+    "system": "engines"
+   },
+   "an": "b0"
+  }
+ },
+ {
+  "text": "Livia, bitte Reparatur Antrieb",
+  "art": "positiv",
+  "erwartet": {
+   "befehl": "tech.reparieren",
+   "args": {
+    "system": "engines"
+   },
+   "an": "b0"
+  }
+ },
+ {
+  "text": "Reparatur Antrieb, Livia",
+  "art": "positiv",
+  "erwartet": {
+   "befehl": "tech.reparieren",
+   "args": {
+    "system": "engines"
+   },
+   "an": "b0"
+  }
+ },
+ {
+  "text": "Reparatur Antrieb Livia",
+  "art": "positiv",
+  "erwartet": {
+   "befehl": "tech.reparieren",
+   "args": {
+    "system": "engines"
+   },
+   "an": "b0"
+  }
+ },
+ {
+  "text": "Lyvia, Schilde Steuerbord",
+  "art": "stt-fehler",
+  "erwartet": {
+   "befehl": "tech.schild",
+   "args": {
+    "sektor": "stb"
+   },
+   "an": "b0"
+  }
+ },
+ {
+  "text": "Lyvia, Statusbericht",
+  "art": "stt-fehler",
+  "erwartet": {
+   "befehl": "bot.status",
+   "args": {},
+   "an": "b0"
+  }
+ },
+ {
+  "text": "Lyvia, volle Kraft voraus",
+  "art": "stt-fehler",
+  "erwartet": {
+   "befehl": "nav.schub",
+   "args": {
+    "stufe": "voll"
+   },
+   "an": "b0"
+  }
+ },
+ {
+  "text": "Livya, Schilde Steuerbord",
+  "art": "stt-fehler",
+  "erwartet": {
+   "befehl": "tech.schild",
+   "args": {
+    "sektor": "stb"
+   },
+   "an": "b0"
+  }
+ },
+ {
+  "text": "Livya, Statusbericht",
+  "art": "stt-fehler",
+  "erwartet": {
+   "befehl": "bot.status",
+   "args": {},
+   "an": "b0"
+  }
+ },
+ {
+  "text": "Livya, volle Kraft voraus",
+  "art": "stt-fehler",
+  "erwartet": {
+   "befehl": "nav.schub",
+   "args": {
+    "stufe": "voll"
+   },
+   "an": "b0"
+  }
+ },
+ {
+  "text": "Lifia, Schilde Steuerbord",
+  "art": "stt-fehler",
+  "erwartet": {
+   "befehl": "tech.schild",
+   "args": {
+    "sektor": "stb"
+   },
+   "an": "b0"
+  }
+ },
+ {
+  "text": "Lifia, Statusbericht",
+  "art": "stt-fehler",
+  "erwartet": {
+   "befehl": "bot.status",
+   "args": {},
+   "an": "b0"
+  }
+ },
+ {
+  "text": "Lifia, volle Kraft voraus",
+  "art": "stt-fehler",
+  "erwartet": {
+   "befehl": "nav.schub",
+   "args": {
+    "stufe": "voll"
+   },
+   "an": "b0"
+  }
+ },
+ {
+  "text": "Liwia, Schilde Steuerbord",
+  "art": "stt-fehler",
+  "erwartet": {
+   "befehl": "tech.schild",
+   "args": {
+    "sektor": "stb"
+   },
+   "an": "b0"
+  }
+ },
+ {
+  "text": "Liwia, Statusbericht",
+  "art": "stt-fehler",
+  "erwartet": {
+   "befehl": "bot.status",
+   "args": {},
+   "an": "b0"
+  }
+ },
+ {
+  "text": "Liwia, volle Kraft voraus",
+  "art": "stt-fehler",
+  "erwartet": {
+   "befehl": "nav.schub",
+   "args": {
+    "stufe": "voll"
+   },
+   "an": "b0"
+  }
+ },
+ {
+  "text": "Lievia, Schilde Steuerbord",
+  "art": "stt-fehler",
+  "erwartet": {
+   "befehl": "tech.schild",
+   "args": {
+    "sektor": "stb"
+   },
+   "an": "b0"
+  }
+ },
+ {
+  "text": "Lievia, Statusbericht",
+  "art": "stt-fehler",
+  "erwartet": {
+   "befehl": "bot.status",
+   "args": {},
+   "an": "b0"
+  }
+ },
+ {
+  "text": "Lievia, volle Kraft voraus",
+  "art": "stt-fehler",
+  "erwartet": {
+   "befehl": "nav.schub",
+   "args": {
+    "stufe": "voll"
+   },
+   "an": "b0"
+  }
+ },
+ {
+  "text": "Livie, Schilde Steuerbord",
+  "art": "stt-fehler",
+  "erwartet": {
+   "befehl": "tech.schild",
+   "args": {
+    "sektor": "stb"
+   },
+   "an": "b0"
+  }
+ },
+ {
+  "text": "Livie, Statusbericht",
+  "art": "stt-fehler",
+  "erwartet": {
+   "befehl": "bot.status",
+   "args": {},
+   "an": "b0"
+  }
+ },
+ {
+  "text": "Livie, volle Kraft voraus",
+  "art": "stt-fehler",
+  "erwartet": {
+   "befehl": "nav.schub",
+   "args": {
+    "stufe": "voll"
+   },
+   "an": "b0"
+  }
+ },
+ {
+  "text": "Livia",
+  "art": "negativ",
+  "erwartet": null
+ },
+ {
+  "text": "Livia, Schilde nicht auf Steuerbord",
+  "art": "negativ",
+  "erwartet": null
+ },
+ {
+  "text": "Livia, stop the engines",
+  "art": "negativ",
+  "erwartet": null
+ },
+ {
+  "text": "Livia, wie ist der Status",
+  "art": "negativ",
+  "erwartet": null
+ },
+ {
+  "text": "Danke Livia",
+  "art": "negativ",
+  "erwartet": null
+ },
+ {
+  "text": "Cassius, Schilde Steuerbord",
+  "art": "positiv",
+  "erwartet": {
+   "befehl": "tech.schild",
+   "args": {
+    "sektor": "stb"
+   },
+   "an": "b1"
+  }
+ },
+ {
+  "text": "Cassius Schilde Steuerbord",
+  "art": "positiv",
+  "erwartet": {
+   "befehl": "tech.schild",
+   "args": {
+    "sektor": "stb"
+   },
+   "an": "b1"
+  }
+ },
+ {
+  "text": "cassius, Schilde Steuerbord.",
+  "art": "positiv",
+  "erwartet": {
+   "befehl": "tech.schild",
+   "args": {
+    "sektor": "stb"
+   },
+   "an": "b1"
+  }
+ },
+ {
+  "text": "Cassius, bitte Schilde Steuerbord",
+  "art": "positiv",
+  "erwartet": {
+   "befehl": "tech.schild",
+   "args": {
+    "sektor": "stb"
+   },
+   "an": "b1"
+  }
+ },
+ {
+  "text": "Schilde Steuerbord, Cassius",
+  "art": "positiv",
+  "erwartet": {
+   "befehl": "tech.schild",
+   "args": {
+    "sektor": "stb"
+   },
+   "an": "b1"
+  }
+ },
+ {
+  "text": "Schilde Steuerbord Cassius",
+  "art": "positiv",
+  "erwartet": {
+   "befehl": "tech.schild",
+   "args": {
+    "sektor": "stb"
+   },
+   "an": "b1"
+  }
+ },
+ {
+  "text": "Cassius, Statusbericht",
+  "art": "positiv",
+  "erwartet": {
+   "befehl": "bot.status",
+   "args": {},
+   "an": "b1"
+  }
+ },
+ {
+  "text": "Cassius Statusbericht",
+  "art": "positiv",
+  "erwartet": {
+   "befehl": "bot.status",
+   "args": {},
+   "an": "b1"
+  }
+ },
+ {
+  "text": "cassius, Statusbericht.",
+  "art": "positiv",
+  "erwartet": {
+   "befehl": "bot.status",
+   "args": {},
+   "an": "b1"
+  }
+ },
+ {
+  "text": "Cassius, bitte Statusbericht",
+  "art": "positiv",
+  "erwartet": {
+   "befehl": "bot.status",
+   "args": {},
+   "an": "b1"
+  }
+ },
+ {
+  "text": "Statusbericht, Cassius",
+  "art": "positiv",
+  "erwartet": {
+   "befehl": "bot.status",
+   "args": {},
+   "an": "b1"
+  }
+ },
+ {
+  "text": "Cassius, Stopp",
+  "art": "positiv",
+  "erwartet": {
+   "befehl": "nav.stopp",
+   "args": {},
+   "an": "b1"
+  }
+ },
+ {
+  "text": "Cassius Stopp",
+  "art": "positiv",
+  "erwartet": {
+   "befehl": "nav.stopp",
+   "args": {},
+   "an": "b1"
+  }
+ },
+ {
+  "text": "cassius, Stopp.",
+  "art": "positiv",
+  "erwartet": {
+   "befehl": "nav.stopp",
+   "args": {},
+   "an": "b1"
+  }
+ },
+ {
+  "text": "Cassius, bitte Stopp",
+  "art": "positiv",
+  "erwartet": {
+   "befehl": "nav.stopp",
+   "args": {},
+   "an": "b1"
+  }
+ },
+ {
+  "text": "Stopp, Cassius",
+  "art": "positiv",
+  "erwartet": {
+   "befehl": "nav.stopp",
+   "args": {},
+   "an": "b1"
+  }
+ },
+ {
+  "text": "Cassius, Feuer frei",
+  "art": "positiv",
+  "erwartet": {
+   "befehl": "ops.feuer_frei",
+   "args": {},
+   "an": "b1"
+  }
+ },
+ {
+  "text": "Cassius Feuer frei",
+  "art": "positiv",
+  "erwartet": {
+   "befehl": "ops.feuer_frei",
+   "args": {},
+   "an": "b1"
+  }
+ },
+ {
+  "text": "cassius, Feuer frei.",
+  "art": "positiv",
+  "erwartet": {
+   "befehl": "ops.feuer_frei",
+   "args": {},
+   "an": "b1"
+  }
+ },
+ {
+  "text": "Cassius, bitte Feuer frei",
+  "art": "positiv",
+  "erwartet": {
+   "befehl": "ops.feuer_frei",
+   "args": {},
+   "an": "b1"
+  }
+ },
+ {
+  "text": "Feuer frei, Cassius",
+  "art": "positiv",
+  "erwartet": {
+   "befehl": "ops.feuer_frei",
+   "args": {},
+   "an": "b1"
+  }
+ },
+ {
+  "text": "Feuer frei Cassius",
+  "art": "positiv",
+  "erwartet": {
+   "befehl": "ops.feuer_frei",
+   "args": {},
+   "an": "b1"
+  }
+ },
+ {
+  "text": "Cassius, volle Kraft voraus",
+  "art": "positiv",
+  "erwartet": {
+   "befehl": "nav.schub",
+   "args": {
+    "stufe": "voll"
+   },
+   "an": "b1"
+  }
+ },
+ {
+  "text": "Cassius volle Kraft voraus",
+  "art": "positiv",
+  "erwartet": {
+   "befehl": "nav.schub",
+   "args": {
+    "stufe": "voll"
+   },
+   "an": "b1"
+  }
+ },
+ {
+  "text": "cassius, volle Kraft voraus.",
+  "art": "positiv",
+  "erwartet": {
+   "befehl": "nav.schub",
+   "args": {
+    "stufe": "voll"
+   },
+   "an": "b1"
+  }
+ },
+ {
+  "text": "Cassius, bitte volle Kraft voraus",
+  "art": "positiv",
+  "erwartet": {
+   "befehl": "nav.schub",
+   "args": {
+    "stufe": "voll"
+   },
+   "an": "b1"
+  }
+ },
+ {
+  "text": "volle Kraft voraus, Cassius",
+  "art": "positiv",
+  "erwartet": {
+   "befehl": "nav.schub",
+   "args": {
+    "stufe": "voll"
+   },
+   "an": "b1"
+  }
+ },
+ {
+  "text": "volle Kraft voraus Cassius",
+  "art": "positiv",
+  "erwartet": {
+   "befehl": "nav.schub",
+   "args": {
+    "stufe": "voll"
+   },
+   "an": "b1"
+  }
+ },
+ {
+  "text": "Cassius, Reparatur Antrieb",
+  "art": "positiv",
+  "erwartet": {
+   "befehl": "tech.reparieren",
+   "args": {
+    "system": "engines"
+   },
+   "an": "b1"
+  }
+ },
+ {
+  "text": "Cassius Reparatur Antrieb",
+  "art": "positiv",
+  "erwartet": {
+   "befehl": "tech.reparieren",
+   "args": {
+    "system": "engines"
+   },
+   "an": "b1"
+  }
+ },
+ {
+  "text": "cassius, Reparatur Antrieb.",
+  "art": "positiv",
+  "erwartet": {
+   "befehl": "tech.reparieren",
+   "args": {
+    "system": "engines"
+   },
+   "an": "b1"
+  }
+ },
+ {
+  "text": "Cassius, bitte Reparatur Antrieb",
+  "art": "positiv",
+  "erwartet": {
+   "befehl": "tech.reparieren",
+   "args": {
+    "system": "engines"
+   },
+   "an": "b1"
+  }
+ },
+ {
+  "text": "Reparatur Antrieb, Cassius",
+  "art": "positiv",
+  "erwartet": {
+   "befehl": "tech.reparieren",
+   "args": {
+    "system": "engines"
+   },
+   "an": "b1"
+  }
+ },
+ {
+  "text": "Reparatur Antrieb Cassius",
+  "art": "positiv",
+  "erwartet": {
+   "befehl": "tech.reparieren",
+   "args": {
+    "system": "engines"
+   },
+   "an": "b1"
+  }
+ },
+ {
+  "text": "Kassius, Schilde Steuerbord",
+  "art": "stt-fehler",
+  "erwartet": {
+   "befehl": "tech.schild",
+   "args": {
+    "sektor": "stb"
+   },
+   "an": "b1"
+  }
+ },
+ {
+  "text": "Kassius, Statusbericht",
+  "art": "stt-fehler",
+  "erwartet": {
+   "befehl": "bot.status",
+   "args": {},
+   "an": "b1"
+  }
+ },
+ {
+  "text": "Kassius, volle Kraft voraus",
+  "art": "stt-fehler",
+  "erwartet": {
+   "befehl": "nav.schub",
+   "args": {
+    "stufe": "voll"
+   },
+   "an": "b1"
+  }
+ },
+ {
+  "text": "Cassios, Schilde Steuerbord",
+  "art": "stt-fehler",
+  "erwartet": {
+   "befehl": "tech.schild",
+   "args": {
+    "sektor": "stb"
+   },
+   "an": "b1"
+  }
+ },
+ {
+  "text": "Cassios, Statusbericht",
+  "art": "stt-fehler",
+  "erwartet": {
+   "befehl": "bot.status",
+   "args": {},
+   "an": "b1"
+  }
+ },
+ {
+  "text": "Cassios, volle Kraft voraus",
+  "art": "stt-fehler",
+  "erwartet": {
+   "befehl": "nav.schub",
+   "args": {
+    "stufe": "voll"
+   },
+   "an": "b1"
+  }
+ },
+ {
+  "text": "Kassios, Schilde Steuerbord",
+  "art": "stt-fehler",
+  "erwartet": {
+   "befehl": "tech.schild",
+   "args": {
+    "sektor": "stb"
+   },
+   "an": "b1"
+  }
+ },
+ {
+  "text": "Kassios, Statusbericht",
+  "art": "stt-fehler",
+  "erwartet": {
+   "befehl": "bot.status",
+   "args": {},
+   "an": "b1"
+  }
+ },
+ {
+  "text": "Kassios, volle Kraft voraus",
+  "art": "stt-fehler",
+  "erwartet": {
+   "befehl": "nav.schub",
+   "args": {
+    "stufe": "voll"
+   },
+   "an": "b1"
+  }
+ },
+ {
+  "text": "Cassus, Schilde Steuerbord",
+  "art": "stt-fehler",
+  "erwartet": {
+   "befehl": "tech.schild",
+   "args": {
+    "sektor": "stb"
+   },
+   "an": "b1"
+  }
+ },
+ {
+  "text": "Cassus, Statusbericht",
+  "art": "stt-fehler",
+  "erwartet": {
+   "befehl": "bot.status",
+   "args": {},
+   "an": "b1"
+  }
+ },
+ {
+  "text": "Cassus, volle Kraft voraus",
+  "art": "stt-fehler",
+  "erwartet": {
+   "befehl": "nav.schub",
+   "args": {
+    "stufe": "voll"
+   },
+   "an": "b1"
+  }
+ },
+ {
+  "text": "Cacius, Schilde Steuerbord",
+  "art": "stt-fehler",
+  "erwartet": {
+   "befehl": "tech.schild",
+   "args": {
+    "sektor": "stb"
+   },
+   "an": "b1"
+  }
+ },
+ {
+  "text": "Cacius, Statusbericht",
+  "art": "stt-fehler",
+  "erwartet": {
+   "befehl": "bot.status",
+   "args": {},
+   "an": "b1"
+  }
+ },
+ {
+  "text": "Cacius, volle Kraft voraus",
+  "art": "stt-fehler",
+  "erwartet": {
+   "befehl": "nav.schub",
+   "args": {
+    "stufe": "voll"
+   },
+   "an": "b1"
+  }
+ },
+ {
+  "text": "Kassjus, Schilde Steuerbord",
+  "art": "stt-fehler",
+  "erwartet": {
+   "befehl": "tech.schild",
+   "args": {
+    "sektor": "stb"
+   },
+   "an": "b1"
+  }
+ },
+ {
+  "text": "Kassjus, Statusbericht",
+  "art": "stt-fehler",
+  "erwartet": {
+   "befehl": "bot.status",
+   "args": {},
+   "an": "b1"
+  }
+ },
+ {
+  "text": "Kassjus, volle Kraft voraus",
+  "art": "stt-fehler",
+  "erwartet": {
+   "befehl": "nav.schub",
+   "args": {
+    "stufe": "voll"
+   },
+   "an": "b1"
+  }
+ },
+ {
+  "text": "Cassius",
+  "art": "negativ",
+  "erwartet": null
+ },
+ {
+  "text": "Cassius, Schilde nicht auf Steuerbord",
+  "art": "negativ",
+  "erwartet": null
+ },
+ {
+  "text": "Cassius, stop the engines",
+  "art": "negativ",
+  "erwartet": null
+ },
+ {
+  "text": "Cassius, wie ist der Status",
+  "art": "negativ",
+  "erwartet": null
+ },
+ {
+  "text": "Danke Cassius",
+  "art": "negativ",
+  "erwartet": null
+ },
+ {
+  "text": "Titus, Schilde Steuerbord",
+  "art": "positiv",
+  "erwartet": {
+   "befehl": "tech.schild",
+   "args": {
+    "sektor": "stb"
+   },
+   "an": "b2"
+  }
+ },
+ {
+  "text": "Titus Schilde Steuerbord",
+  "art": "positiv",
+  "erwartet": {
+   "befehl": "tech.schild",
+   "args": {
+    "sektor": "stb"
+   },
+   "an": "b2"
+  }
+ },
+ {
+  "text": "titus, Schilde Steuerbord.",
+  "art": "positiv",
+  "erwartet": {
+   "befehl": "tech.schild",
+   "args": {
+    "sektor": "stb"
+   },
+   "an": "b2"
+  }
+ },
+ {
+  "text": "Titus, bitte Schilde Steuerbord",
+  "art": "positiv",
+  "erwartet": {
+   "befehl": "tech.schild",
+   "args": {
+    "sektor": "stb"
+   },
+   "an": "b2"
+  }
+ },
+ {
+  "text": "Schilde Steuerbord, Titus",
+  "art": "positiv",
+  "erwartet": {
+   "befehl": "tech.schild",
+   "args": {
+    "sektor": "stb"
+   },
+   "an": "b2"
+  }
+ },
+ {
+  "text": "Schilde Steuerbord Titus",
+  "art": "positiv",
+  "erwartet": {
+   "befehl": "tech.schild",
+   "args": {
+    "sektor": "stb"
+   },
+   "an": "b2"
+  }
+ },
+ {
+  "text": "Titus, Statusbericht",
+  "art": "positiv",
+  "erwartet": {
+   "befehl": "bot.status",
+   "args": {},
+   "an": "b2"
+  }
+ },
+ {
+  "text": "Titus Statusbericht",
+  "art": "positiv",
+  "erwartet": {
+   "befehl": "bot.status",
+   "args": {},
+   "an": "b2"
+  }
+ },
+ {
+  "text": "titus, Statusbericht.",
+  "art": "positiv",
+  "erwartet": {
+   "befehl": "bot.status",
+   "args": {},
+   "an": "b2"
+  }
+ },
+ {
+  "text": "Titus, bitte Statusbericht",
+  "art": "positiv",
+  "erwartet": {
+   "befehl": "bot.status",
+   "args": {},
+   "an": "b2"
+  }
+ },
+ {
+  "text": "Statusbericht, Titus",
+  "art": "positiv",
+  "erwartet": {
+   "befehl": "bot.status",
+   "args": {},
+   "an": "b2"
+  }
+ },
+ {
+  "text": "Titus, Stopp",
+  "art": "positiv",
+  "erwartet": {
+   "befehl": "nav.stopp",
+   "args": {},
+   "an": "b2"
+  }
+ },
+ {
+  "text": "Titus Stopp",
+  "art": "positiv",
+  "erwartet": {
+   "befehl": "nav.stopp",
+   "args": {},
+   "an": "b2"
+  }
+ },
+ {
+  "text": "titus, Stopp.",
+  "art": "positiv",
+  "erwartet": {
+   "befehl": "nav.stopp",
+   "args": {},
+   "an": "b2"
+  }
+ },
+ {
+  "text": "Titus, bitte Stopp",
+  "art": "positiv",
+  "erwartet": {
+   "befehl": "nav.stopp",
+   "args": {},
+   "an": "b2"
+  }
+ },
+ {
+  "text": "Stopp, Titus",
+  "art": "positiv",
+  "erwartet": {
+   "befehl": "nav.stopp",
+   "args": {},
+   "an": "b2"
+  }
+ },
+ {
+  "text": "Titus, Feuer frei",
+  "art": "positiv",
+  "erwartet": {
+   "befehl": "ops.feuer_frei",
+   "args": {},
+   "an": "b2"
+  }
+ },
+ {
+  "text": "Titus Feuer frei",
+  "art": "positiv",
+  "erwartet": {
+   "befehl": "ops.feuer_frei",
+   "args": {},
+   "an": "b2"
+  }
+ },
+ {
+  "text": "titus, Feuer frei.",
+  "art": "positiv",
+  "erwartet": {
+   "befehl": "ops.feuer_frei",
+   "args": {},
+   "an": "b2"
+  }
+ },
+ {
+  "text": "Titus, bitte Feuer frei",
+  "art": "positiv",
+  "erwartet": {
+   "befehl": "ops.feuer_frei",
+   "args": {},
+   "an": "b2"
+  }
+ },
+ {
+  "text": "Feuer frei, Titus",
+  "art": "positiv",
+  "erwartet": {
+   "befehl": "ops.feuer_frei",
+   "args": {},
+   "an": "b2"
+  }
+ },
+ {
+  "text": "Feuer frei Titus",
+  "art": "positiv",
+  "erwartet": {
+   "befehl": "ops.feuer_frei",
+   "args": {},
+   "an": "b2"
+  }
+ },
+ {
+  "text": "Titus, volle Kraft voraus",
+  "art": "positiv",
+  "erwartet": {
+   "befehl": "nav.schub",
+   "args": {
+    "stufe": "voll"
+   },
+   "an": "b2"
+  }
+ },
+ {
+  "text": "Titus volle Kraft voraus",
+  "art": "positiv",
+  "erwartet": {
+   "befehl": "nav.schub",
+   "args": {
+    "stufe": "voll"
+   },
+   "an": "b2"
+  }
+ },
+ {
+  "text": "titus, volle Kraft voraus.",
+  "art": "positiv",
+  "erwartet": {
+   "befehl": "nav.schub",
+   "args": {
+    "stufe": "voll"
+   },
+   "an": "b2"
+  }
+ },
+ {
+  "text": "Titus, bitte volle Kraft voraus",
+  "art": "positiv",
+  "erwartet": {
+   "befehl": "nav.schub",
+   "args": {
+    "stufe": "voll"
+   },
+   "an": "b2"
+  }
+ },
+ {
+  "text": "volle Kraft voraus, Titus",
+  "art": "positiv",
+  "erwartet": {
+   "befehl": "nav.schub",
+   "args": {
+    "stufe": "voll"
+   },
+   "an": "b2"
+  }
+ },
+ {
+  "text": "volle Kraft voraus Titus",
+  "art": "positiv",
+  "erwartet": {
+   "befehl": "nav.schub",
+   "args": {
+    "stufe": "voll"
+   },
+   "an": "b2"
+  }
+ },
+ {
+  "text": "Titus, Reparatur Antrieb",
+  "art": "positiv",
+  "erwartet": {
+   "befehl": "tech.reparieren",
+   "args": {
+    "system": "engines"
+   },
+   "an": "b2"
+  }
+ },
+ {
+  "text": "Titus Reparatur Antrieb",
+  "art": "positiv",
+  "erwartet": {
+   "befehl": "tech.reparieren",
+   "args": {
+    "system": "engines"
+   },
+   "an": "b2"
+  }
+ },
+ {
+  "text": "titus, Reparatur Antrieb.",
+  "art": "positiv",
+  "erwartet": {
+   "befehl": "tech.reparieren",
+   "args": {
+    "system": "engines"
+   },
+   "an": "b2"
+  }
+ },
+ {
+  "text": "Titus, bitte Reparatur Antrieb",
+  "art": "positiv",
+  "erwartet": {
+   "befehl": "tech.reparieren",
+   "args": {
+    "system": "engines"
+   },
+   "an": "b2"
+  }
+ },
+ {
+  "text": "Reparatur Antrieb, Titus",
+  "art": "positiv",
+  "erwartet": {
+   "befehl": "tech.reparieren",
+   "args": {
+    "system": "engines"
+   },
+   "an": "b2"
+  }
+ },
+ {
+  "text": "Reparatur Antrieb Titus",
+  "art": "positiv",
+  "erwartet": {
+   "befehl": "tech.reparieren",
+   "args": {
+    "system": "engines"
+   },
+   "an": "b2"
+  }
+ },
+ {
+  "text": "Titos, Schilde Steuerbord",
+  "art": "stt-fehler",
+  "erwartet": {
+   "befehl": "tech.schild",
+   "args": {
+    "sektor": "stb"
+   },
+   "an": "b2"
+  }
+ },
+ {
+  "text": "Titos, Statusbericht",
+  "art": "stt-fehler",
+  "erwartet": {
+   "befehl": "bot.status",
+   "args": {},
+   "an": "b2"
+  }
+ },
+ {
+  "text": "Titos, volle Kraft voraus",
+  "art": "stt-fehler",
+  "erwartet": {
+   "befehl": "nav.schub",
+   "args": {
+    "stufe": "voll"
+   },
+   "an": "b2"
+  }
+ },
+ {
+  "text": "Tytus, Schilde Steuerbord",
+  "art": "stt-fehler",
+  "erwartet": {
+   "befehl": "tech.schild",
+   "args": {
+    "sektor": "stb"
+   },
+   "an": "b2"
+  }
+ },
+ {
+  "text": "Tytus, Statusbericht",
+  "art": "stt-fehler",
+  "erwartet": {
+   "befehl": "bot.status",
+   "args": {},
+   "an": "b2"
+  }
+ },
+ {
+  "text": "Tytus, volle Kraft voraus",
+  "art": "stt-fehler",
+  "erwartet": {
+   "befehl": "nav.schub",
+   "args": {
+    "stufe": "voll"
+   },
+   "an": "b2"
+  }
+ },
+ {
+  "text": "Tidus, Schilde Steuerbord",
+  "art": "stt-fehler",
+  "erwartet": {
+   "befehl": "tech.schild",
+   "args": {
+    "sektor": "stb"
+   },
+   "an": "b2"
+  }
+ },
+ {
+  "text": "Tidus, Statusbericht",
+  "art": "stt-fehler",
+  "erwartet": {
+   "befehl": "bot.status",
+   "args": {},
+   "an": "b2"
+  }
+ },
+ {
+  "text": "Tidus, volle Kraft voraus",
+  "art": "stt-fehler",
+  "erwartet": {
+   "befehl": "nav.schub",
+   "args": {
+    "stufe": "voll"
+   },
+   "an": "b2"
+  }
+ },
+ {
+  "text": "Titu, Schilde Steuerbord",
+  "art": "stt-fehler",
+  "erwartet": {
+   "befehl": "tech.schild",
+   "args": {
+    "sektor": "stb"
+   },
+   "an": "b2"
+  }
+ },
+ {
+  "text": "Titu, Statusbericht",
+  "art": "stt-fehler",
+  "erwartet": {
+   "befehl": "bot.status",
+   "args": {},
+   "an": "b2"
+  }
+ },
+ {
+  "text": "Titu, volle Kraft voraus",
+  "art": "stt-fehler",
+  "erwartet": {
+   "befehl": "nav.schub",
+   "args": {
+    "stufe": "voll"
+   },
+   "an": "b2"
+  }
+ },
+ {
+  "text": "Dittus, Schilde Steuerbord",
+  "art": "stt-fehler",
+  "erwartet": {
+   "befehl": "tech.schild",
+   "args": {
+    "sektor": "stb"
+   },
+   "an": "b2"
+  }
+ },
+ {
+  "text": "Dittus, Statusbericht",
+  "art": "stt-fehler",
+  "erwartet": {
+   "befehl": "bot.status",
+   "args": {},
+   "an": "b2"
+  }
+ },
+ {
+  "text": "Dittus, volle Kraft voraus",
+  "art": "stt-fehler",
+  "erwartet": {
+   "befehl": "nav.schub",
+   "args": {
+    "stufe": "voll"
+   },
+   "an": "b2"
+  }
+ },
+ {
+  "text": "Titas, Schilde Steuerbord",
+  "art": "stt-fehler",
+  "erwartet": {
+   "befehl": "tech.schild",
+   "args": {
+    "sektor": "stb"
+   },
+   "an": "b2"
+  }
+ },
+ {
+  "text": "Titas, Statusbericht",
+  "art": "stt-fehler",
+  "erwartet": {
+   "befehl": "bot.status",
+   "args": {},
+   "an": "b2"
+  }
+ },
+ {
+  "text": "Titas, volle Kraft voraus",
+  "art": "stt-fehler",
+  "erwartet": {
+   "befehl": "nav.schub",
+   "args": {
+    "stufe": "voll"
+   },
+   "an": "b2"
+  }
+ },
+ {
+  "text": "Titus",
+  "art": "negativ",
+  "erwartet": null
+ },
+ {
+  "text": "Titus, Schilde nicht auf Steuerbord",
+  "art": "negativ",
+  "erwartet": null
+ },
+ {
+  "text": "Titus, stop the engines",
+  "art": "negativ",
+  "erwartet": null
+ },
+ {
+  "text": "Titus, wie ist der Status",
+  "art": "negativ",
+  "erwartet": null
+ },
+ {
+  "text": "Danke Titus",
+  "art": "negativ",
+  "erwartet": null
+ }
+]

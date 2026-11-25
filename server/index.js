@@ -9,6 +9,7 @@ const CONFIG = require('../shared/config.js');
 const Protocol = require('../shared/protocol.js');
 const { Game } = require('./game.js');
 const Weltstand = require('./weltstand.js');
+const BotRede = require('./bots/gespraech-audio.js');   // BOT-05 B1: GET /api/bot-rede/<id>.wav (Sprachclips des Bot-Gesprächs aus dem Speicher)
 const Stt = require('./stt.js');   // BOT-04 C: POST /api/stt und /api/bot-messung (nur mit STT_URL)
 const Haken = require('./telemetrie/haken.js');   // TEL-01 B2: Tickschleife meldet Snapshot-Zeit und Kappung ans Protokoll
 
@@ -24,8 +25,8 @@ const STATIC_DIRS = [
   { prefix: '/content/kampf/', dir: path.join(ROOT, 'content', 'kampf'), nur: ['zielsysteme-werte.json', 'gegner-systeme.json'] },   // SUND-04a-1 A: Zielsysteme der Ops (Namen, Klassen, Stufen; public/js/zielsysteme.js), nur diese Datei, nur lesen (verfolgung-werte.json bleibt auf dem Server)
   { prefix: '/content/scanner/', dir: path.join(ROOT, 'content', 'scanner'), nur: ['datenblaetter.json'] },   // SCA-01 P4: Texte der Scan-Ergebnisse (public/js/scan-anzeige.js), nur lesen
   { prefix: '/content/kreaturen/', dir: path.join(ROOT, 'content', 'kreaturen'), nur: ['modelle.json'] },   // MON-02 O3a: Zuordnung Kreatur-Typ -> Voxelmodell (public/js/voxel/actors.js), nur lesen
-  { prefix: '/assets/bots/stimmen/', dir: path.join(ROOT, 'assets', 'bots', 'stimmen'), only: ['.ogg', '.wav'] },   // BOT-04 C: Sprach-Clips der Bots (assets/bots/stimmen/<stimme>/<textId>[.<variante>].ogg|wav), nur Audio, nur lesen
-  { prefix: '/content/bots/', dir: path.join(ROOT, 'content', 'bots'), nur: ['kanon.json', 'muster.json'] },   // BOT-04 Integration: Kanon der Sprechformen und Wortfamilien für den Matcher im Browser (public/js/bot-sprache.js), nur lesen; texte.json bleibt auf dem Server
+  { prefix: '/assets/bots/stimmen/', dir: path.join(ROOT, 'assets', 'bots', 'stimmen'), only: ['.ogg', '.wav', '.json'], jsonNur: 'clips.json' },   // BOT-04 C: Sprach-Clips der Bots (assets/bots/stimmen/<stimme>/<textId>[.<variante>].ogg|wav), nur Audio, nur lesen; BOT-05 A3: dazu das Manifest <stimme>/clips.json ("<textId>.<variante>" -> Datei)
+  { prefix: '/content/bots/', dir: path.join(ROOT, 'content', 'bots'), nur: ['kanon.json', 'muster.json', 'figuren.json'] },   // BOT-05 A2: figuren.json = Figurnamen als Matcher-Adressen   // BOT-04 Integration: Kanon der Sprechformen und Wortfamilien für den Matcher im Browser (public/js/bot-sprache.js), nur lesen; texte.json bleibt auf dem Server
   { prefix: '/bot-messung/', dir: path.join(ROOT, 'tools', 'fixtures', 'bot-messung'), nur: ['phrasen.json'] },   // BOT-04 C: Phrasenliste des Messmodus (?botmessung=1), nur diese Datei, nur lesen
   { prefix: '/content/', dir: path.join(ROOT, 'content'), nur: ['waren.json'] },   // LAD-01 A1: Warenmodell (Anzeigenamen der Ladung; shared/waren.js), nur lesen
   { prefix: '/', dir: path.join(ROOT, 'public') },
@@ -49,6 +50,7 @@ function resolveStatic(urlPath) {
     if (full !== s.dir && !full.startsWith(s.dir + path.sep)) return null;
     if (s.only && (full === s.dir || !s.only.includes(path.extname(full).toLowerCase()))) return null;
     if (s.nur && !s.nur.includes(rel)) return null;
+    if (s.jsonNur && path.extname(full).toLowerCase() === '.json' && path.basename(full) !== s.jsonNur) return null;   // BOT-05 A3: unter den Clips nur das Manifest, sonst kein JSON
     return full;
   }
   return null;
@@ -172,8 +174,8 @@ function startServer(opts) {
   try { werkstatt = require('./werkstatt.js'); } catch (e) { console.warn('[Pantheon] server/werkstatt.js nicht geladen:', e && e.message); }
   const werkstattOpts = { speichern: werkstattSpeichern };
   const server = http.createServer(werkstatt
-    ? (req, res) => { if (Stt.route(req, res)) return; if (!werkstatt.route(req, res, werkstattOpts)) serveStatic(req, res); }
-    : (req, res) => { if (!Stt.route(req, res)) serveStatic(req, res); });
+    ? (req, res) => { if (BotRede.route(req, res) || Stt.route(req, res)) return; if (!werkstatt.route(req, res, werkstattOpts)) serveStatic(req, res); }
+    : (req, res) => { if (!BotRede.route(req, res) && !Stt.route(req, res)) serveStatic(req, res); });
   const wss = new WebSocketServer({ noServer: true, maxPayload: 16 * 1024 });
 
   server.on('upgrade', (req, socket, head) => {

@@ -143,6 +143,7 @@ section('2 Codefolge: der Bord-Bot sagt sie an, die ODA schweigt; ohne Bord-Bot 
     ok(a.length === 1, 'genau eine Ansage (' + a.length + ')');
     const m = a[0] && a[0].m;
     ok(m && m.t === 'bot.antwort' && m.befehl === 'bord.ansage' && m.status === 'ok' && m.botId === null && m.textId === 'bord.ansage.code' && typeof m.text === 'string' && m.text === TEXTE['bord.ansage.code'][m.variante].replace('{FOLGE}', folgeSoll(P.g)), 'Form: bot.antwort, befehl bord.ansage, status ok, botId null, textId bord.ansage.code, text = Vorlage mit der Folge: ' + (m && m.text));
+    ok(m && typeof m.von === 'string' && m.von === Lauf.bordBot(P.g).botId, 'BOT-05 A2: die Ansage nennt mit von die Figur des Bord-Bots (botId bleibt null): ' + (m && m.von));
     ok(m && m.text.length <= 90 && !/[\x00-\x1F]/.test(m.text) && /Kreis|Dreieck|Raute|Stern|Welle|Kreuz/.test(m.text), 'hoechstens 90 Zeichen, keine Steuerzeichen, Symbolnamen der Folge im Text (die Umlaute prueft Abschnitt 1)');
     ok(a[0] && a[0].t >= P.g.away.noHumanT - 1 && a[0].t - 8 < VERZ + 2, 'zeitlich beim Ereignis der ODA (nach odaCodeHelpDelay)');
     lauf(P, 60);

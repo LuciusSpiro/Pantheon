@@ -1,7 +1,7 @@
 'use strict';
 // BOT-01 B2: Bots als Spieler auf Slots (server/bots/spieler.js, shared/charakter.js zufallskarte, Nachricht lobbyBot). Echtes Game, Bots ohne Spielverhalten (das ist B3).
 //  1. Zufallskarte: 200 Würfe gültig und unverändert durch pruefeKarte, deterministisch, Namen eindeutig, Namenspool komplett gültig
-//  2. Lobby: hinzufügen, würfeln, entfernen, Rollenwechsel; Ablehnungen (doppelte Rolle, vierter Bot, ungültige Rolle/pid, pid eines Menschen)
+//  2. Lobby: hinzufügen (BOT-05 A1: feste Figur, Würfeln gibt es nicht mehr), entfernen, Rollenwechsel; Ablehnungen (doppelte Rolle, vierter Bot, ungültige Rolle/pid, pid eines Menschen)
 //  3. nur in der Lobby: außerhalb der Lobby lehnt jede op mit notice ab
 //  4. Farbe 0 gehört nie einem Bot (auch Bots zuerst)
 //  5. Lobby-Start: Bots sind immer bereit, nur Menschen entscheiden; letzter Mensch weg: Bots weg
@@ -24,7 +24,9 @@ const BotSpieler = require('../server/bots/spieler.js');
 const Charakter = require('../shared/charakter.js');
 const Protocol = require('../shared/protocol.js');
 const katalog = require('../content/katalog/charakter.json');
-const namen = require('../content/bots/namen.json').namen;
+const FIG = require('../content/bots/figuren.json').figuren;
+// BOT-05 A1: content/bots/namen.json ist weg (die Bots sind feste Figuren); die reine Funktion zufallskarte bleibt und wird hier mit einem Testpool geprüft
+const namen = ['Marcus', 'Lucia', 'Gaius', 'Julia', 'Flavia', 'Decimus', 'Octavia', 'Quintus', 'Aurelia', 'Marius', 'Claudia', 'Sextus'];
 
 let fails = 0, n = 0;
 const ok = (c, t) => { n++; if (c) console.log('  ok   ' + t); else { fails++; console.log('  FEHLER ' + t); } };
@@ -57,7 +59,7 @@ section('1 Zufallskarte (rein, deterministisch)');
   ok(nurFrei === 200, 'nur freie Teile (der Editor würfelt nichts Gesperrtes)');
   const viele = new Set(Array.from({ length: 200 }, (_, i) => JSON.stringify(Charakter.zufallskarte(katalog, strom(i), [], namen))));
   ok(viele.size > 150, 'die Würfe streuen (' + viele.size + ' verschiedene Karten in 200)');
-  ok(namen.length >= 40 && new Set(namen.map((x) => x.toLowerCase())).size === namen.length && namen.every((x) => Charakter.pruefeName(x) === x), `Namenspool: ${namen.length} Namen, alle gültig und verschieden`);
+  ok(new Set(namen.map((x) => x.toLowerCase())).size === namen.length && namen.every((x) => Charakter.pruefeName(x) === x), `Testpool: ${namen.length} Namen, alle gültig und verschieden`);
   const rand0 = Charakter.zufallskarte(katalog, () => 0, [], namen), rand1 = Charakter.zufallskarte(katalog, () => 0.9999999, [], namen);
   ok(JSON.stringify(Charakter.pruefeKarte(rand0, katalog)) === JSON.stringify(rand0) && JSON.stringify(Charakter.pruefeKarte(rand1, katalog)) === JSON.stringify(rand1), 'Grenzwerte des Zufalls (0 und fast 1) bleiben gültig');
   const ohneKatalog = Charakter.zufallskarte(null, strom(1), [], namen);
@@ -86,22 +88,24 @@ const karten = (c) => c.inbox.filter((m) => m.kind === 'karte');
 const run = (g, sec) => { for (let k = 0; k < Math.round(sec * 30); k++) g.step(); };
 
 // ---------- 2 Lobby ----------
-section('2 Lobby: hinzufügen, würfeln, entfernen, Rollenwechsel');
+section('2 Lobby: hinzufügen, würfeln (abgelehnt), entfernen, Rollenwechsel');
 {
   const g = neu(), c = mensch(g, 0, 0), h = c.player;
   ok(Protocol.C.LOBBY_BOT === 'lobbyBot', 'Protokoll: C.LOBBY_BOT = lobbyBot');
   bot(g, c, 'add', { rolle: 'navigation' });
   let b = botsVon(g)[0];
-  ok(botsVon(g).length === 1 && b.rolle === 'navigation' && b.botId === 'b0' && b.id === 'p2' && b.clientId === null && b.bot === true && b.stimme === null, 'add: Bot p2 mit Rolle navigation, botId b0, ohne clientId');
+  ok(botsVon(g).length === 1 && b.rolle === 'navigation' && b.botId === 'b0' && b.id === 'p2' && b.clientId === null && b.bot === true && b.stimme === 'b0', 'add: Bot p2 mit Rolle navigation, botId b0, Stimme b0 (Figur Livia), ohne clientId');
   ok(b.connected === true && b.color === 1 && b.ready === true && typeof b.conn.send === 'function' && b.conn.bot === true, 'Bot verbunden, Farbe 1 (nicht 0), Fake-Verbindung');
   ok(b.karte && JSON.stringify(Charakter.pruefeKarte(b.karte, katalog)) === JSON.stringify(b.karte) && b.name === b.karte.name, 'Karte gültig (unverändert durch pruefeKarte), Name aus der Karte');
   ok(karten(c).some((m) => m.pid === 'p2' && m.k && m.k.name === b.name), 'Ereignis karte an den Menschen (Figur und Name wie bei Menschen)');
   ok(Crew.menschen(g) === 1 && Crew.koepfe(g) === 2, 'Crew: 1 Mensch, 2 Köpfe');
   const name1 = b.name, karte1 = JSON.stringify(b.karte);
+  ok(name1 === 'Livia' && karte1 === JSON.stringify(FIG[0].karte), 'BOT-05 A1: botId b0 ist die feste Figur Livia (Name und Karte aus figuren.json)');
+  const nW = notices(c).length;
   bot(g, c, 'wuerfeln', { pid: 'p2' });
   b = botsVon(g)[0];
-  ok(JSON.stringify(b.karte) !== karte1 && b.id === 'p2' && b.botId === 'b0' && b.rolle === 'navigation' && b.color === 1 && b.name === b.karte.name, 'wuerfeln: neue Karte, Id, botId, Rolle und Farbe bleiben (Name vorher ' + name1 + ', jetzt ' + b.name + ')');
-  ok(karten(c).filter((m) => m.pid === 'p2').length === 2, 'wuerfeln: Ereignis karte erneut');
+  ok(JSON.stringify(b.karte) === karte1 && b.name === name1 && b.id === 'p2' && b.botId === 'b0' && b.rolle === 'navigation' && b.color === 1 && notices(c).length === nW + 1, 'wuerfeln: gibt es nicht mehr (unbekannte op, notice), Karte, Name, Id, botId, Rolle und Farbe bleiben');
+  ok(karten(c).filter((m) => m.pid === 'p2').length === 1, 'wuerfeln: keine neue Ereignis karte');
   ok(g.players.filter((p) => p !== b).every((p) => p.name !== b.name), 'Name eindeutig in der Crew');
   const n0 = notices(c).length;
   bot(g, c, 'add', { rolle: 'navigation' });

@@ -288,12 +288,11 @@
     txt(c, fit(text, w - 4, 1), x + w / 2, y + 2, onClick ? farbe : MF.dim, 'center');
     if (onClick) klick({ x, y, w, h: 11 }, name || text, onClick);
   }
-  // Bot-Zeile: Rolle (Klick: nächste freie Rolle), Würfeln, Entfernen; Tasten P / Umschalt+P siehe Hinweise
+  // Bot-Zeile: Rolle (Klick: nächste freie Rolle), Entfernen (BOT-05 A1: kein Würfeln, jeder Bot ist eine feste Figur); Tasten P / Umschalt+P siehe Hinweise
   function botKnoepfe(c, x, y, w, h, p, view) {
-    const a = view.actions, kx = x + 6, kw = w - 12, ky = y + h - 36, alle = spielerVon(view), naechste = F.botNaechsteRolle(alle, p);
+    const a = view.actions, kx = x + 6, kw = w - 12, ky = y + h - 24, alle = spielerVon(view), naechste = F.botNaechsteRolle(alle, p);
     botKnopf(c, kx, ky, kw, (T.bot[p.rolle] || p.rolle || '?').toUpperCase(), MF.messing, naechste ? () => a.botRolleWechseln && a.botRolleWechseln(p.id, naechste) : null, T.bot.rolleWechseln);
-    botKnopf(c, kx, ky + 12, kw, T.bot.wuerfeln, MF.text, () => a.botWuerfeln && a.botWuerfeln(p.id));
-    botKnopf(c, kx, ky + 24, kw, T.bot.entfernen, MF.nichtBereit, () => a.botEntfernen && a.botEntfernen(p.id));
+    botKnopf(c, kx, ky + 12, kw, T.bot.entfernen, MF.nichtBereit, () => a.botEntfernen && a.botEntfernen(p.id));
   }
   // leerer Platz: ein Knopf je noch freie Rolle (nur für Spieler im Raum)
   function botHinzufuegenKnoepfe(c, x, y, w, h, view) {

@@ -140,6 +140,7 @@
   // ---------- Daten laden und bauen ----------
   let MUSTER = null;     // roh (muster.json)
   let KANON = null;      // roh (kanon.json)
+  let FIGUREN = null;    // roh (figuren.json, BOT-05 A2): die Figurnamen sind Adressen fuer ihre botId; einzige Quelle der Namen
   let GEL = null;        // gebaut
   let nodeLaden = null;  // in Node: Dateien laden, wenn nichts gesetzt wurde
   if (req) {
@@ -185,7 +186,14 @@
   }
   function gruppen(liste) { return (liste || []).map((p) => wortMuster(p)).filter((g) => g.length); }
 
-  function bauen(muster, kanon) {
+  // BOT-05 A2: { b0: ['livia'], ... } normalisiert aus figuren.json (eine Figur = ein Name = ein Adresswort)
+  function figurNamen(figuren) {
+    const out = {};
+    for (const f of (figuren && figuren.figuren) || []) { const w = norm(f.name); if (w) out[f.botId] = [w]; }
+    return out;
+  }
+
+  function bauen(muster, kanon, figuren) {
     SYN = Object.create(null); for (const k of Object.keys(muster.synonyme || {})) SYN[norm(k)] = norm(muster.synonyme[k]);
     const fuell = new Set((muster.fuellwoerter || []).map(norm));
     const neg = new Set((muster.negation || []).map(norm));
@@ -196,7 +204,9 @@
     const hinten = new Set((muster.adressierung_hinten || []).map(norm));
     const adressen = [];
     for (const rolle of Object.keys(muster.adressierung || {})) for (const w of muster.adressierung[rolle]) adressen.push({ w: norm(w), an: rolle, name: false });
+    const namen = figurNamen(figuren);   // Namen sind Adressen, keine Sprechformen: sie kommen aus figuren.json, nicht aus dem Kanon
     for (const id of Object.keys(muster.namen || {})) for (const w of muster.namen[id]) adressen.push({ w: norm(w), an: id, name: true });
+    for (const id of Object.keys(namen)) for (const w of namen[id]) { adressen.push({ w, an: id, name: true }); hinten.add(w); }   // ein Name steht auch ohne Komma hinten ("Schilde Steuerbord Titus"): so eindeutig wie ein Rollenwort
     const ohneFuell = (arr) => arr.filter((t) => !fuell.has(t));
 
     // Slots (Argumentvokabular): Aliase als Tokenfolgen, laengste zuerst
@@ -257,17 +267,24 @@
     kanonFormen(obj);   // prueft die Struktur
     KANON = obj; GEL = null;
   }
-  // setzeMuster(obj): obj kann zusaetzlich 'kanon' tragen (Browser: ein Aufruf mit beiden Dateien)
+  function setzeFiguren(obj) {
+    if (!obj || typeof obj !== 'object' || !Array.isArray(obj.figuren)) throw new Error('setzeFiguren: ungueltige Figurendaten');
+    for (const f of obj.figuren) if (!f || typeof f.botId !== 'string' || typeof f.name !== 'string') throw new Error('setzeFiguren: Figur ohne botId oder Name');
+    FIGUREN = obj; GEL = null;
+  }
+  // setzeMuster(obj): obj kann zusaetzlich 'kanon' und 'figuren' tragen (Browser: ein Aufruf mit allen Dateien)
   function setzeMuster(obj) {
     if (!obj || typeof obj !== 'object' || !obj.befehle) throw new Error('setzeMuster: ungueltige Musterdaten');
     if (obj.kanon) setzeKanon(obj.kanon);
+    if (obj.figuren) setzeFiguren(obj.figuren);
     MUSTER = obj; GEL = null; simCache.clear();
   }
   function geladen() {
     if (!GEL) {
       if (!MUSTER) { if (!nodeLaden) throw new Error('Bot-Matcher: keine Muster gesetzt (setzeMuster)'); MUSTER = nodeLaden('muster.json'); }
       if (!KANON) { if (!nodeLaden) throw new Error('Bot-Matcher: kein Kanon gesetzt (setzeKanon)'); KANON = nodeLaden('kanon.json'); }
-      GEL = bauen(MUSTER, KANON);
+      if (!FIGUREN) { if (!nodeLaden) throw new Error('Bot-Matcher: keine Figuren gesetzt (setzeFiguren)'); FIGUREN = nodeLaden('figuren.json'); }
+      GEL = bauen(MUSTER, KANON, FIGUREN);
     }
     return GEL;
   }
@@ -512,12 +529,14 @@
     for (const t of tokens(roh)) if (g.neg.has(t) || g.frage.has(t) || g.fremd.has(t)) return null;
     const teile = roh.split(/\s*(?:[,;.!?]+|\bund\b)\s*/i).filter((p) => norm(p));
     if (teile.length < 2 || teile.length > 3) return null;
-    let erg = null, kmin = 1, rolle = null; const unklar = [];
+    let erg = null, kmin = 1, rolle = null, nameAn = null; const unklar = [];
     for (const teil of teile) {
       const tt = tokens(teil);
       if (tt.length === 1) {   // reines Rollenwort ("Technik, ..."): gilt fuer den ganzen Text
         const a = g.adressen.find((x) => !x.name && wortSim(tt[0], x.w) >= 0.85);
         if (a) { rolle = a.an; continue; }
+        const nm = g.adressen.find((x) => x.name && wortSim(tt[0], x.w) >= 0.85);   // BOT-05 A2: ein Name allein als Teil ("Livia, bitte, Schilde Steuerbord") adressiert wie vorn: die Figur, nie still eine Rolle
+        if (nm) { if (nameAn && nameAn !== nm.an) return null; nameAn = nm.an; continue; }
       }
       const x = matchGanz(teil, opts);
       if (x) {
@@ -541,7 +560,8 @@
         if (g.kenn.some((m) => passt(rest[i], m, i))) return null;
       }
     } else if (erg) for (const rest of unklar) for (let i = 0; i < rest.length; i++) if (g.kenn.some((m) => passt(rest[i], m, i))) return null;
-    if (erg && rolle && erg.an !== 'alle' && rolle !== 'alle' && rolle !== erg.an) return null;   // falsche Rolle angesprochen
+    if (erg && !nameAn && rolle && erg.an !== 'alle' && rolle !== 'alle' && rolle !== erg.an) return null;   // falsche Rolle angesprochen (ein Name geht ohne Rollenpruefung durch: der Server lehnt eine falsche Rolle ab)
+    if (erg && nameAn) return Object.assign({}, erg, { an: nameAn, konfidenz: kmin });
     return erg ? Object.assign({}, erg, { konfidenz: kmin }) : null;
   }
   function matchGanz(text, opts) {
@@ -594,9 +614,24 @@
     return { an: an || hanAn, befehl, args, konfidenz: konf };
   }
 
+  // BOT-05 B2: steht am Anfang des Textes ein Figurname ("Livia, wie steht es?" / "Livia wie steht es"), ist es die Figur: { botId, name } sonst null.
+  // Gleiche Namensaufloesung und Schwelle wie die Adressierung der Befehle (adressen mit name, wortSim >= SCHWELLE); der Text wird nicht veraendert, und match() bleibt unberuehrt.
+  function figurAnrede(text) {
+    const g = geladen();
+    const m = /^[^\p{L}\p{N}]*([\p{L}\p{N}]+)/u.exec(String(text == null ? '' : text));
+    if (!m) return null;
+    const w = norm(m[1]);
+    if (!w) return null;
+    let best = null, bestS = SCHWELLE;
+    for (const a of g.adressen) { if (!a.name) continue; const s = wortSim(w, a.w); if (s >= bestS) { bestS = s; best = a; } }
+    if (!best) return null;
+    const f = ((FIGUREN && FIGUREN.figuren) || []).find((x) => x.botId === best.an);
+    return { botId: best.an, name: f ? f.name : best.an };
+  }
+
   // Test/Menue: Sprechformen (flach) und Anzahl je Befehl
   function formen() { return kanonFormen(geladen() && KANON); }
   function info() { const g = geladen(); const b = {}; for (const p of g.formen) b[p.befehl] = (b[p.befehl] || 0) + 1; return { muster: g.formen.length, befehle: b, familien: Object.keys(g.fam) }; }
 
-  return { match, SCHWELLE, setzeMuster, setzeKanon, formen, kanonFormen, info, _intern: { norm, koelner, wortSim } };
+  return { match, figurAnrede, SCHWELLE, setzeMuster, setzeKanon, setzeFiguren, formen, kanonFormen, info, _intern: { norm, koelner, wortSim } };
 });

@@ -26,6 +26,8 @@
   const HUD_LAYOUT = { top: 2, kopfH: 28, marksY: 15, shieldY: 12, roomY: 32, jumpY: 45, hintY: 48 };
   const FUNK_W = 228, FUNK_BILD_W = 28;   // Breite der Funktafel (x 204) und des Funkporträts samt Rand
   const SPRECH_MAXZEICHEN = 300;   // BOT-04 C2: so viele Zeichen eines Untertitels werden höchstens umbrochen und gemessen
+  const SPRECH_WARTE_MAX = 60;   // BOT-05 B-Nacharbeit W2: ein Untertitel, der auf seinen Ton wartet (wartet), bleibt höchstens so lange (Sicherung, falls Ton und Ausfallmeldung ausbleiben)
+  const SPRECH_ABSTAND = 3;      // BOT-05 B-Nacharbeit (Designer): Abstand zwischen den Untertiteln der Sprechspalte
   const SPRECH_W = 284;   // BOT-04 C2: Breite der Sprechspalte = Breite der ODA-Zeile (x 178..462)
   // BOT-01 C3 (Designer-Review W3): benannter Slot der Sprechspalte je Captain-Reiter. 'oben' = ab y 20 (Standard), 'unten' = am unteren Rand der Anzeige, 4 px über der Frachtleiste des Pults.
   // Reiter Funk (0) und Außenteam (3) tragen im oberen Drittel Inhalt und Bedienflächen (Funksprüche, Orbit-Unterstützung): dort wandert die Spalte nach unten (tools/test-bot-sprache.js, Abschnitt h).
@@ -328,7 +330,8 @@
     // BOT-02 B4: so viele Untertitel stehen höchstens in der Sprechspalte: 2 wie bisher, 3 nur wenn Bots im Spiel sind (sprech.bots; Ansagen des Bord-Bots kommen zu den Antworten hinzu). Rein, nur der Zustand.
     sprechMax(sp) { return (sp || this.sprech).bots ? 3 : 2; },
     // Untertitel eines Bots: Name in Versalien und Farbe, Text creme; höchstens 2 Einträge, mit Bots im Spiel 3 (der älteste fällt raus). dauerS ohne Angabe nach crewFunkDauer. Liefert die Kennung (für crewFunkHalte).
-    pushCrewFunk(text, sprecher, farbe, dauerS) {
+    // opt (BOT-05 B-Nacharbeit, nur Bot-Sprache): { wartet: true } hält den Eintrag, bis crewFunkFrei(kennung) kommt (sein Ton ist gelaufen oder ausgefallen; Sicherung SPRECH_WARTE_MAX); { textFarbe } färbt den Satztext (sonst FN.cmd).
+    pushCrewFunk(text, sprecher, farbe, dauerS, opt) {
       if (!text) return 0;
       const sp = this.sprech, E = sp.eintraege;
       text = String(text).slice(0, SPRECH_MAXZEICHEN);   // sehr lange Server-Texte: Messen und Umbrechen bleiben klein
@@ -339,7 +342,7 @@
       if (lines.length > 2) lines = [lines[0], this.fitWort(lines.slice(1).join(' '), maxT, 1)];
       let tw = 0; for (const l of lines) tw = Math.max(tw, R.measure(l, 1));
       for (let i = E.length - 1; i >= 0; i--) if (E[i].text === text && E[i].who === who) E.splice(i, 1);
-      const e = { id: sp.naechste++, text, who, wWho, farbe: farbe || fnFarben().sensor, lines, w: Math.min(SPRECH_W, 10 + wWho + tw + 6), h: 2 + lines.length * 10, t: performance.now() / 1000, d: dauerS > 0 ? +dauerS : this.crewFunkDauer(text), halt: false, bis: 0 };
+      const e = { id: sp.naechste++, text, who, wWho, farbe: farbe || fnFarben().sensor, lines, w: Math.min(SPRECH_W, 10 + wWho + tw + 6), h: 2 + lines.length * 10, t: performance.now() / 1000, d: dauerS > 0 ? +dauerS : this.crewFunkDauer(text), halt: false, haltT: 0, bis: 0, wartet: !!(opt && opt.wartet), textFarbe: opt && opt.textFarbe ? opt.textFarbe : null };
       E.push(e);
       while (E.length > this.sprechMax(sp)) E.shift();
       return e.id;
@@ -348,10 +351,21 @@
     crewFunkHalte(id, an) {
       for (const e of this.sprech.eintraege) {
         if (e.id !== id) continue;
-        if (an) e.halt = true; else { e.halt = false; e.bis = Math.max(e.t + e.d, performance.now() / 1000 + 0.5); }
+        if (an) { e.halt = true; e.haltT = performance.now() / 1000; } else { e.halt = false; e.bis = Math.max(e.bis, e.t + e.d, performance.now() / 1000 + 0.5); }
       }
     },
-    crewFunkEnde(e) { return e.halt ? e.t + 30 : (e.bis || e.t + e.d); },
+    // BOT-05 B-Nacharbeit W2: der Ton zu einem wartenden Untertitel ist gelaufen (ausfall false: noch 0,5 s, mindestens die Grunddauer) oder nie gekommen (ausfall true: die normale Dauer ab jetzt)
+    crewFunkFrei(id, ausfall) {
+      for (const e of this.sprech.eintraege) {
+        if (e.id !== id) continue;
+        const jetzt = performance.now() / 1000;
+        e.wartet = false;
+        e.bis = Math.max(e.bis, ausfall ? jetzt + e.d : Math.max(e.t + e.d, jetzt + 0.5));
+      }
+    },
+    // BOT-05 B2: einen Untertitel sofort entfernen (z. B. „denkt nach …“, sobald der erste Satz kommt)
+    crewFunkWeg(id) { const E = this.sprech.eintraege; for (let i = E.length - 1; i >= 0; i--) if (E[i].id === id) E.splice(i, 1); },
+    crewFunkEnde(e) { return e.wartet ? e.t + SPRECH_WARTE_MAX : e.halt ? e.haltT + 30 : (e.bis || e.t + e.d); },   // höchstens 30 s Halt ab Tonbeginn, höchstens SPRECH_WARTE_MAX Warten auf den Ton
     zeichneSprechspalte(ctx, view) {
       const sp = this.sprech;
       sp.tFrame = performance.now();
@@ -361,7 +375,7 @@
       if (!E.length && !rec && !z) return;
       const FN = fnFarben(), slot = this.sprechSlot(view), hoch = slot.richtung === 'hoch';
       let y = slot.y;
-      const stelle = (h) => { if (hoch) { y -= h; const r = y; y -= 1; return r; } const r = y; y += h + 1; return r; };
+      const stelle = (h, ab) => { const g = ab == null ? 1 : ab; if (hoch) { y -= h; const r = y; y -= g; return r; } const r = y; y += h + g; return r; };
       if (z) this.zeichneTextzeile(ctx, view, z, slot.x, stelle(14), slot.w, FN);
       if (rec) {
         const aufn = sp.aufnahme, label = 'FUNK OFFEN', w = aufn ? 5 + 4 + 3 + R.measure(label, 1) + 7 : R.measure('…', 1) + 12, x = Math.round(slot.x + (slot.w - w) / 2), ry = stelle(12), col = aufn ? FN.drive : FN.neutral;
@@ -372,14 +386,18 @@
           R.text(ctx, label, x + 12, ry + 2, { color: col, shadow: false });
         } else R.text(ctx, '…', x + 6, ry + 2, { color: col, shadow: false });
       }
-      let n = this.sprechMax(sp) - (rec ? 1 : 0);
-      for (let i = E.length - 1; i >= 0 && n > 0; i--, n--) {
-        const e = E[i], x = Math.round(slot.x + (slot.w - e.w) / 2), ey = stelle(e.h);
+      // Untertitel: gemeinsame linke Kante für alle gezeichneten Einträge (die Spalte ist so breit wie der breiteste, mittig im Slot), 3 px Abstand dazwischen (BOT-05 B-Nacharbeit, Designer)
+      const sicht = []; let n = this.sprechMax(sp) - (rec ? 1 : 0);
+      for (let i = E.length - 1; i >= 0 && n > 0; i--, n--) sicht.push(E[i]);
+      let maxW = 0; for (const e of sicht) maxW = Math.max(maxW, e.w);
+      const x = Math.round(slot.x + (slot.w - maxW) / 2);
+      for (const e of sicht) {
+        const ey = stelle(e.h, SPRECH_ABSTAND);
         ctx.globalAlpha = Math.max(0, Math.min(1, (this.crewFunkEnde(e) - now) / 0.4));
         R.backdrop(ctx, x, ey, e.w, e.h, 0.85);
         ctx.fillStyle = e.farbe; ctx.fillRect(x, ey, 2, e.h);
         if (e.who) R.text(ctx, e.who + ':', x + 6, ey + 2, { color: e.farbe, shadow: false });
-        for (let k = 0; k < e.lines.length; k++) R.text(ctx, e.lines[k], x + 10 + e.wWho, ey + 2 + k * 10, { color: FN.cmd, shadow: false });
+        for (let k = 0; k < e.lines.length; k++) R.text(ctx, e.lines[k], x + 10 + e.wWho, ey + 2 + k * 10, { color: e.textFarbe || FN.cmd, shadow: false });
         ctx.globalAlpha = 1;
       }
     },
@@ -388,13 +406,16 @@
       R.backdrop(ctx, x, y, w, 14, 0.92);
       ctx.strokeStyle = FN.drive; ctx.lineWidth = 1; ctx.strokeRect(x + 0.5, y + 0.5, w - 1, 13);
       const wert = z.feld ? String(z.feld.value || '') : '', cur = z.feld && z.feld.selectionStart != null ? Math.min(wert.length, z.feld.selectionStart) : wert.length;
-      const innen = w - 10;
+      // BOT-05 B-Nacharbeit W1: die Art der Zeile (BEFEHL | GESPRÄCH) steht immer vorn, auch mit Text im Feld (z.kopf, z.kopfArt)
+      const kopf = z.kopf ? z.kopf + ' ' : '', kw = kopf ? R.measure(kopf, 1) + 2 : 0, tx = x + 5 + kw;
+      const innen = w - 10 - kw;
       let von = 0;
       while (von < cur && R.measure(wert.slice(von, cur), 1) > innen - 6) von++;   // lange Eingabe: der Anfang scrollt heraus, der Cursor bleibt sichtbar
       ctx.save(); ctx.beginPath(); ctx.rect(x + 1, y + 1, w - 2, 12); ctx.clip();
-      if (!wert) R.text(ctx, z.platzhalter || '', x + 5, y + 3, { color: FN.neutral, shadow: false });
-      else R.text(ctx, wert.slice(von), x + 5, y + 3, { color: FN.cmd, shadow: false });
-      if (Math.floor(((view && view.time) || 0) * 3) % 2 === 0) { ctx.fillStyle = FN.drive; ctx.fillRect(x + 5 + (wert ? R.measure(wert.slice(von, cur), 1) : 0) + 1, y + 3, 4, 7); }
+      if (kopf) R.text(ctx, kopf, x + 5, y + 3, { color: z.kopfArt === 'gespraech' ? FN.sensor : FN.drive, shadow: false });
+      if (!wert) R.text(ctx, z.platzhalter || '', tx, y + 3, { color: FN.neutral, shadow: false });
+      else R.text(ctx, wert.slice(von), tx, y + 3, { color: FN.cmd, shadow: false });
+      if (Math.floor(((view && view.time) || 0) * 3) % 2 === 0) { ctx.fillStyle = FN.drive; ctx.fillRect(tx + (wert ? R.measure(wert.slice(von, cur), 1) : 0) + 1, y + 3, 4, 7); }
       ctx.restore();
       if (z.platziere) z.platziere({ x, y, w, h: 14 });
     },

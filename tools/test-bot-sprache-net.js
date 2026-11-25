@@ -230,7 +230,7 @@ for (const e of KANON.befehle) {
       const win = {
         location: { search }, document: doc, Net: o.ohneNet ? undefined : net, Hud: hud, WebSocket: WS,
         Shared_BotMatcher: M, addEventListener() {}, removeEventListener() {},
-        fetch: (u) => { L.fetch.push(u); const j = /muster/.test(u) ? MUSTER : /kanon/.test(u) ? KANON : null; return Promise.resolve({ ok: !!j, json: () => Promise.resolve(j) }); },
+        fetch: (u) => { L.fetch.push(u); const j = /muster/.test(u) ? MUSTER : /kanon/.test(u) ? KANON : /figuren/.test(u) ? require('../content/bots/figuren.json') : null; return Promise.resolve({ ok: !!j, json: () => Promise.resolve(j) }); },
       };
       return { win, net, L, hud };
     };

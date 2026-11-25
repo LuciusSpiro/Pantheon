@@ -13,6 +13,8 @@ const Befehle = require('./befehle/index.js');
 const KANON = require('../../content/bots/kanon.json');
 const GRUENDE = require('../../content/bots/gruende.json');
 const TEXTE = require('../../content/bots/texte.json');
+const StatusTon = require('./status-ton.js');   // BOT-05 B2: Stimme zur Statusantwort (nur mit Voicebox)
+const TexteFiguren = require('./texte-figuren.js');   // BOT-05 A3: Liste je Figur (Rueckfall: texte.json); dieselbe Quelle wie der Clip-Vorrat
 
 const QUELLEN = ['menu', 'taste', 'sprache', 'text'];
 const ROLLEN_AN = ['navigation', 'ops', 'technik', 'bord'];
@@ -113,7 +115,7 @@ function antwort(game, botId, befehl, status, grund) {
   const name = befehl || UNBEKANNT;
   const textId = grund ? `${name}.${status}.${grund}` : `${name}.${status}`;
   const msg = { t: Protocol.C.BOT_ANTWORT, botId: botId || null, befehl: befehl || null, status, textId };
-  const liste = hat(TEXTE, textId) && Array.isArray(TEXTE[textId]) ? TEXTE[textId] : null;
+  const liste = TexteFiguren.listeFuer(botId, textId, TEXTE);   // BOT-05 A3: Figurvarianten ersetzen die Grundliste nur fuer diese Figur; ohne botId oder ohne Figurliste gilt texte.json
   if (liste && liste.length) {
     let m = VARIANTEN.get(game); if (!m) { m = new Map(); VARIANTEN.set(game, m); }
     const key = (botId || '') + '|' + textId;
@@ -180,7 +182,7 @@ function antworten(game, spieler, msg) {
   const args = pruefeArgs(k, msg.args, msg.quelle === 'menu' || msg.quelle === 'taste');
   if (!args) return [antwort(game, BOT_ID.test(an) ? an : null, name, 'abgelehnt', 'argument')];
   const bots = botsFuer(game, an);
-  if (!bots.length) return [antwort(game, BOT_ID.test(an) ? an : null, name, 'unmoeglich', 'kein_bot')];
+  if (!bots.length) return [antwort(game, null, name, 'unmoeglich', 'kein_bot')];   // BOT-05 Nacharbeit: die Figur spielt nicht mit, also spricht sie auch nicht (kein Figurtext, keine eigene Stimme): Grundtext, botId null
   if (k.an !== 'alle' && bots.some((b) => !passtZurRolle(game, k, b))) return [antwort(game, an, name, 'abgelehnt', 'adressat')];   // botId eines Bots mit anderer Rolle (bord: nicht der Bord-Bot)
   return bots.map((b) => fuerBot(game, b, name, args));
 }
@@ -188,7 +190,10 @@ function antworten(game, spieler, msg) {
 function annehmen(game, spieler, msg) {
   try {
     if (!spieler || !spieler.conn || Crew.istBot(spieler) || !msg || typeof msg !== 'object') return;
-    for (const a of antworten(game, spieler, msg)) game.sendTo(spieler.conn, a);
+    const liste = antworten(game, spieler, msg);
+    const runde = msg.befehl === 'bot.status' ? StatusTon.vorbereiten(game, spieler, liste) : null;   // BOT-05 B2: Stimme zur Statusantwort; markiert die Antworten (tonRunde), nur mit VOICEBOX_URL, sonst null
+    for (const a of liste) game.sendTo(spieler.conn, a);
+    if (runde) StatusTon.sprechen(game, spieler, liste, runde);   // asynchron; ohne Voicebox ohne Wirkung
   } catch (e) { game.countError('bot.annahme', e); }
 }
 
