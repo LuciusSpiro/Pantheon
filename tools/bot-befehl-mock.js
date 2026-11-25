@@ -1,7 +1,7 @@
 'use strict';
 // BOT-04 C: Mock-Server fuer den Bot-Befehlsweg (Vertrag Bot-Befehle). Nimmt { t: 'bot.befehl', an, befehl, args?, quelle } an, protokolliert
 // (stdout, optional --log <datei> als JSON-Zeilen) und antwortet { t: 'bot.antwort', botId, befehl, status: 'ok', textId: '<befehl>.ok', text, variante }.
-// Texte: content/bots/texte.json ({ "<textId>": ["Variante 0", ...] }). botId nach Rolle: navigation b0, ops b1, technik b2, bord b3, alle b0; eine botId bleibt.
+// Texte: content/bots/texte.json ({ "<textId>": ["Variante 0", ...] }). botId nach Rolle: navigation b0, ops b1, technik b2, bord b2 (der Server vergibt nie b3; in der Partie haelt meist die Technik den Bord-Dienst), alle b0; eine botId bleibt.
 // "variante" (Index in der Textliste) ist ein Vorschlag fuer den Vertrag: so spielt der Client den Clip zu genau dem Text, den der Untertitel zeigt.
 // Aufruf:  node tools/bot-befehl-mock.js [--port 8710] [--log mock.log]      (npm run bot:mock)     Client: ?botmock=ws://localhost:8710
 const fs = require('fs');
@@ -10,7 +10,7 @@ const { WebSocketServer } = require('ws');
 
 const KATALOG = JSON.parse(fs.readFileSync(path.join(__dirname, 'fixtures', 'bot-messung', 'katalog.json'), 'utf8'));
 const TEXTE = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'content', 'bots', 'texte.json'), 'utf8'));
-const ROLLEN = { navigation: 'b0', ops: 'b1', technik: 'b2', bord: 'b3', alle: 'b0' };
+const ROLLEN = { navigation: 'b0', ops: 'b1', technik: 'b2', bord: 'b2', alle: 'b0' };
 const QUELLEN = ['menu', 'taste', 'sprache', 'text'];
 
 function botIdFuer(an) { return ROLLEN[an] || (/^b\d$/.test(String(an)) ? an : null); }
