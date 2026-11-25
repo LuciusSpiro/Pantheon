@@ -79,7 +79,7 @@ function partie(o) {
 }
 const spiel = (P, ticks) => { for (let i = 0; i < ticks; i++) { P.g.step(); if (P.g.wantsSnapshot()) P.g.snapshot(); } };
 const ENDE = ['ende', 'nicht_erreichbar', 'abgelehnt'];
-const reden = (c, n0, gid) => c.inbox.slice(n0 || 0).filter((m) => m.t === 'bot.rede' && (!gid || m.gid === gid));
+const reden = (c, n0, gid) => c.inbox.slice(n0 || 0).filter((m) => m.t === 'bot.rede' && !m.zu && (!gid || m.gid === gid));   // BOT-05 B2: Toene zu bot.status (zu) gehoeren nicht zum Gespraech
 const abgeschlossen = (msgs, gid) => msgs.some((m) => (!gid || m.gid === gid) && ENDE.includes(m.zustand));
 // sendet eine Frage und wartet auf den Abschluss dieser Anfrage; liefert die bot.rede-Nachrichten dieser Anfrage
 async function frage(P, text, o) {
@@ -577,6 +577,67 @@ const ZEIT = (ms) => { process.env.BOT_GESPRAECH_ERSTES_TOKEN_MS = String(ms); p
     ok(/case C\.BOT_GESPRAECH: BotGespraech\.annehmen\(this, p, msg\); break;/.test(gsrc), 'game.js: ein duenner Aufruf');
     const isrc = fs.readFileSync(path.join(ROOT, 'server', 'index.js'), 'utf8');
     ok(/BotRede\.route\(req, res\)/.test(isrc), 'index.js: Route /api/bot-rede eingehaengt');
+  }
+
+  // ---------------------------------------------------------------------------------------------
+  section('9 BOT-05 B2: bot.status mit Stimme (server/bots/status-ton.js)');
+  {
+    const STIMMEN = require('../content/bots/stimmen.json');
+    const Figuren = require('../server/bots/figuren.js');
+    llm.reset(); vb.reset(); ZEIT(5000);
+    const P = partie({ mensch: 'Hannibal' });
+    spiel(P, 20);
+    // a) alle drei: eine Antwort je Bot, danach je Bot ton (nr 0, audio, zu) und ende, nacheinander; kein Gespraech, kein LLM
+    let n0 = P.c.inbox.length;
+    P.g.handleMessage(P.c, { t: 'bot.befehl', an: 'alle', befehl: 'bot.status', quelle: 'text' });
+    const antw = P.c.inbox.slice(n0).filter((m) => m.t === 'bot.antwort');
+    ok(antw.length === 3 && antw.every((a) => a.status === 'ok' && a.text), 'bot.status an alle: drei Antworten mit Text');
+    const zu = () => P.c.inbox.slice(n0).filter((m) => m.t === 'bot.rede' && m.zu === 'bot.status');
+    await bis(() => zu().length >= 6, 3000);
+    const z = zu();
+    ok(z.length === 6 && z.every((m, i) => (i % 2 === 0 ? m.zustand === 'ton' && m.nr === 0 && /^\/api\/bot-rede\/[0-9a-f]{32}\.wav$/.test(m.audio) : m.zustand === 'ende' && m.gid === z[i - 1].gid)), 'je Bot ton (nr 0, audio, zu) und danach ende mit derselben gid (' + z.map((m) => m.zustand).join(',') + ')');
+    ok(JSON.stringify(z.filter((m) => m.zustand === 'ton').map((m) => m.botId)) === JSON.stringify(antw.map((a) => a.botId)), 'Reihenfolge wie die Antworten');
+    ok(new Set(z.map((m) => m.gid)).size === 3 && !P.c.inbox.slice(n0).some((m) => m.t === 'bot.rede' && !m.zu), 'drei eigene gid, kein denkt/satz');
+    ok(vb.anfragen.length === 3 && antw.every((a, i) => vb.anfragen[i].body.input === a.text && vb.anfragen[i].body.voice === STIMMEN[Figuren.figurMitId(a.botId).stimme].profilName), 'Voicebox: der Statustext der Antwort in der Stimme der Figur');
+    ok(llm.anfragen.length === 0, 'kein LLM-Aufruf');
+    const holen = Audio.holen(z[0].audio.split('/').pop().replace('.wav', ''));
+    ok(Buffer.isBuffer(holen) && holen.toString('latin1', 0, 4) === 'RIFF', 'die Audio-URL liefert die WAV');
+    // b) nur ein Bot angesprochen: ein Ton; ein Befehl ohne Status: keiner
+    n0 = P.c.inbox.length; vb.reset();
+    P.g.handleMessage(P.c, { t: 'bot.befehl', an: 'b1', befehl: 'bot.status', quelle: 'text' });
+    await bis(() => zu().length >= 2, 3000);
+    ok(zu().length === 2 && zu()[0].botId === 'b1' && vb.anfragen.length === 1, 'bot.status an b1: ein Ton');
+    n0 = P.c.inbox.length; vb.reset();
+    P.g.handleMessage(P.c, { t: 'bot.befehl', an: 'navigation', befehl: 'nav.stopp', quelle: 'text' });
+    await sleep(150);
+    ok(zu().length === 0 && vb.anfragen.length === 0, 'andere Befehle: keine Stimme');
+    // c) Voicebox weg oder 401: nur die Antworten wie bisher, keine Toene, nur ein Versuch
+    n0 = P.c.inbox.length; vb.reset(); vb.modus = '401';
+    P.g.handleMessage(P.c, { t: 'bot.befehl', an: 'alle', befehl: 'bot.status', quelle: 'text' });
+    await bis(() => vb.anfragen.length >= 1, 2000); await sleep(150);
+    ok(P.c.inbox.slice(n0).filter((m) => m.t === 'bot.antwort').length === 3 && zu().length === 0 && vb.anfragen.length === 1, 'Voicebox 401: Antworten wie bisher, kein Ton, kein Wiederholen je Bot (' + vb.anfragen.length + ' Versuch)');
+    // d) ohne konfigurierte Voicebox (weder VOICEBOX_URL noch VOICEBOX_AUTH): nichts geht hinaus
+    n0 = P.c.inbox.length; vb.reset();
+    const url = process.env.VOICEBOX_URL; delete process.env.VOICEBOX_URL;
+    P.g.handleMessage(P.c, { t: 'bot.befehl', an: 'alle', befehl: 'bot.status', quelle: 'text' });
+    await sleep(150);
+    process.env.VOICEBOX_URL = url;
+    ok(P.c.inbox.slice(n0).filter((m) => m.t === 'bot.antwort').length === 3 && zu().length === 0 && vb.anfragen.length === 0, 'ohne Voicebox-Konfiguration: Antworten wie bisher, kein Aufruf');
+    // e) Partie vorbei waehrend der Sprachausgabe: nichts mehr
+    n0 = P.c.inbox.length; vb.reset(); vb.verzoegerung = 200;
+    P.g.handleMessage(P.c, { t: 'bot.befehl', an: 'alle', befehl: 'bot.status', quelle: 'text' });
+    await bis(() => vb.anfragen.length >= 1, 2000);
+    P.g.reset(); await sleep(500);
+    ok(zu().length === 0, 'Partie vorbei: kein Ton mehr');
+    vb.reset();
+    // f) Quellscan: status-ton.js laedt weder annahme noch befehle noch lauf, und das Gespraechsmodul nicht
+    const qs = fs.readFileSync(path.join(ROOT, 'server', 'bots', 'status-ton.js'), 'utf8').split('\n').filter((l) => !/^\s*\/\//.test(l)).join('\n');
+    ok(!/require\([^)]*(annahme|befehle|lauf|absicht|gespraech\.js|llm|transport)/.test(qs) && !/handleMessage\(|\.befehl\(/.test(qs), 'status-ton.js: keine verbotenen Module, kein Befehlsaufruf');
+    // g) Prompt geschaerft (B3-Befund): keine Zusage/Erledigt-Behauptung, kein Verstanden/Aye, keine erfundenen Wetter-/Seebilder
+    const RG = Prompt.REGELN.join('\n');
+    ok(/nie zu, etwas zu tun/.test(RG) && /nie, etwas getan zu haben/.test(RG) && /nie mit „Verstanden“, „Aye“/.test(RG) && /Wetter-, See- oder Stimmungsbilder als Tatsache/.test(RG) && /Seemannsbilder nur als Redewendung/.test(RG), 'Regeln 2 und 3: keine Zusage, keine Erledigt-Behauptung, kein Verstanden/Aye, keine erfundenen Wetter-/Seebilder');
+    ok(Prompt.REGELN.length === 5 && RG.length < 1500, 'Regeln bleiben kurz (5 Regeln, ' + RG.length + ' Zeichen)');
+    ok(/StatusTon\.sprechen\(game, spieler, liste\)/.test(fs.readFileSync(path.join(ROOT, 'server', 'bots', 'annahme.js'), 'utf8')), 'annahme.js: ein duenner Aufruf nur fuer bot.status');
   }
 
   await llm.stop(); await vb.stop();

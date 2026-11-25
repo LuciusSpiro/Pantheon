@@ -614,9 +614,24 @@
     return { an: an || hanAn, befehl, args, konfidenz: konf };
   }
 
+  // BOT-05 B2: steht am Anfang des Textes ein Figurname ("Livia, wie steht es?" / "Livia wie steht es"), ist es die Figur: { botId, name } sonst null.
+  // Gleiche Namensaufloesung und Schwelle wie die Adressierung der Befehle (adressen mit name, wortSim >= SCHWELLE); der Text wird nicht veraendert, und match() bleibt unberuehrt.
+  function figurAnrede(text) {
+    const g = geladen();
+    const m = /^[^\p{L}\p{N}]*([\p{L}\p{N}]+)/u.exec(String(text == null ? '' : text));
+    if (!m) return null;
+    const w = norm(m[1]);
+    if (!w) return null;
+    let best = null, bestS = SCHWELLE;
+    for (const a of g.adressen) { if (!a.name) continue; const s = wortSim(w, a.w); if (s >= bestS) { bestS = s; best = a; } }
+    if (!best) return null;
+    const f = ((FIGUREN && FIGUREN.figuren) || []).find((x) => x.botId === best.an);
+    return { botId: best.an, name: f ? f.name : best.an };
+  }
+
   // Test/Menue: Sprechformen (flach) und Anzahl je Befehl
   function formen() { return kanonFormen(geladen() && KANON); }
   function info() { const g = geladen(); const b = {}; for (const p of g.formen) b[p.befehl] = (b[p.befehl] || 0) + 1; return { muster: g.formen.length, befehle: b, familien: Object.keys(g.fam) }; }
 
-  return { match, SCHWELLE, setzeMuster, setzeKanon, setzeFiguren, formen, kanonFormen, info, _intern: { norm, koelner, wortSim } };
+  return { match, figurAnrede, SCHWELLE, setzeMuster, setzeKanon, setzeFiguren, formen, kanonFormen, info, _intern: { norm, koelner, wortSim } };
 });

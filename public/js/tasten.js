@@ -65,6 +65,10 @@
     // BOT-04 C: Sprache zu den Bots (nur wirksam, wenn Sprache in den Optionen an ist; sonst tut die Taste nichts). ^ (Backquote) halten = sprechen, # (Backslash) = Textzeile öffnen; beide im Spiel sonst unbelegt
     A('allgemein.sprechen', 'allgemein', 'Bots: Sprechtaste (halten, nur mit Sprache an)', ['Backquote']),
     A('allgemein.botText', 'allgemein', 'Bots: Textzeile öffnen (nur mit Sprache an)', ['Backslash']),
+    // BOT-05 B2: freies Gespräch mit den Bots, getrennt von den Befehlswegen (Kai): Ö (Semicolon) = Gesprächszeile, Ä (Quote) halten = Gespräch sprechen. Wirksam nur mit Sprache an UND Bots in der Partie; sonst tut die Taste nichts und schluckt nichts.
+    // Ö/Ä: rechte Hand auf der Grundreihe, WASD und die Konsolentasten (links) bleiben frei; im Spiel sonst unbelegt (auf US-Tastatur ; und ')
+    A('allgemein.gespraechText', 'allgemein', 'Bots: Gespräch tippen (nur mit Sprache an und Bots an Bord)', ['Semicolon']),
+    A('allgemein.gespraechSprechen', 'allgemein', 'Bots: Gespräch sprechen (halten, nur mit Sprache an und Bots an Bord)', ['Quote']),
 
     // ------------------------------------------------------------ Steuer (helm)
     A('steuer.ruderBb', 'steuer', 'Ruder Backbord (halten)', ['KeyA', 'ArrowLeft']),

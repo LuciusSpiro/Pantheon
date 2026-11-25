@@ -351,6 +351,8 @@
         if (an) e.halt = true; else { e.halt = false; e.bis = Math.max(e.t + e.d, performance.now() / 1000 + 0.5); }
       }
     },
+    // BOT-05 B2: einen Untertitel sofort entfernen (z. B. „denkt nach …“, sobald der erste Satz kommt)
+    crewFunkWeg(id) { const E = this.sprech.eintraege; for (let i = E.length - 1; i >= 0; i--) if (E[i].id === id) E.splice(i, 1); },
     crewFunkEnde(e) { return e.halt ? e.t + 30 : (e.bis || e.t + e.d); },
     zeichneSprechspalte(ctx, view) {
       const sp = this.sprech;

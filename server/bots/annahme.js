@@ -13,6 +13,7 @@ const Befehle = require('./befehle/index.js');
 const KANON = require('../../content/bots/kanon.json');
 const GRUENDE = require('../../content/bots/gruende.json');
 const TEXTE = require('../../content/bots/texte.json');
+const StatusTon = require('./status-ton.js');   // BOT-05 B2: Stimme zur Statusantwort (nur mit Voicebox)
 const TexteFiguren = require('./texte-figuren.js');   // BOT-05 A3: Liste je Figur (Rueckfall: texte.json); dieselbe Quelle wie der Clip-Vorrat
 
 const QUELLEN = ['menu', 'taste', 'sprache', 'text'];
@@ -189,7 +190,9 @@ function antworten(game, spieler, msg) {
 function annehmen(game, spieler, msg) {
   try {
     if (!spieler || !spieler.conn || Crew.istBot(spieler) || !msg || typeof msg !== 'object') return;
-    for (const a of antworten(game, spieler, msg)) game.sendTo(spieler.conn, a);
+    const liste = antworten(game, spieler, msg);
+    for (const a of liste) game.sendTo(spieler.conn, a);
+    if (msg.befehl === 'bot.status') StatusTon.sprechen(game, spieler, liste);   // BOT-05 B2: Stimme zur Statusantwort (asynchron, ohne Voicebox ohne Wirkung)
   } catch (e) { game.countError('bot.annahme', e); }
 }
 

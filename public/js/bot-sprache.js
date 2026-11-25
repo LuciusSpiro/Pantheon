@@ -31,12 +31,19 @@
     unklar2: 'Das habe ich nicht verstanden',
     messungFehler: 'Messung nicht gespeichert.',
     platzhalter: 'Befehl an die Crew · Enter senden · Esc zu',
+    platzhalterGespraech: 'Gespräch mit der Crew · Enter senden · Esc zu',
+    denkt: 'denkt nach …',
+    rate: 'Einen Moment, Captain.',
+    keinBot: 'Diese Figur ist nicht an Bord.',
+    nichtsVerstanden: 'Nichts verstanden – bitte noch einmal.',
   };
   // BOT-05 A2: Sprechername der Untertitel = Name der Figur (Snapshot: der Bot-Spieler mit dieser botId, HUD-Schreibweise Grossbuchstaben); die Figur haengt nicht an der Rolle. Ohne Treffer (Snapshot fehlt, Figur nicht in der Partie): BORD.
   const sprecherName = (botId, spieler) => {
     const p = typeof botId === 'string' && Array.isArray(spieler) ? spieler.find((q) => q && q.bot && q.botId === botId && typeof q.name === 'string' && q.name) : null;
     return p ? p.name.toUpperCase() : 'BORD';
   };
+  const TON_MAX_MS = 30000;          // BOT-05 B2: Sicherung der Tonbahn (ein Satz dauert nie so lang)
+  const CLIP_WARTE_MAX_MS = 8000;    // so lange wartet ein Statuston höchstens auf den Bestätigungs-Clip
   const UNKLAR_DAUER_S = 2.5;                                                   // „Bitte wiederholen“ im Untertitel
   const STIMMEN = { b0: 'b0', b1: 'b1', b2: 'b2' };   // Ordnername im Clip-Vorrat je botId (drei Figuren b0 bis b2, Stimme = botId, erzwingt shared/bot-figuren.js); eine botId ohne Eintrag hat keine Stimme: kein Clip, nur Untertitel; env.stimmen oder msg.stimme überschreiben
   const MAX_MS = 60000;                                                        // Höchstdauer einer Aufnahme (Auto-Stop); der Server nimmt ohnehin nur 1 MB
@@ -110,6 +117,7 @@
   }
 
   // ------------------------------------------------------------------ Kern
+  // BOT-05 B2 (Gespräch): env.partie() -> { bots: [{ botId, name }] } (leer/fehlt = keine Bots: Gesprächstasten tun nichts), anzeige.untertitel(text, { botId?, sprecher?, dauerS? }) und anzeige.untertitelWeg?(kennung); der Matcher liefert figurAnrede(text) -> { botId, name } | null.
   // env: { transport: { send(obj) -> bool, onMessage(fn) -> abmelden }, matcher: () -> { match } | Promise, stt: (blob, mime) -> Promise<text>,
   //        mikrofon: { start() -> Promise<{ stop() -> Promise<{ blob, mime, dauerMs }>, abbruch() }> }, audio: { spiele(urls, { start?, ende? }) -> Promise<url|null>, stumm(bool), stopp() },
   //        vorSenden?(msg) -> Vermerk (BotMenue.sprachBefehl: legt den Eintrag für Quittung und „gilt“ an, BEVOR gesendet wird), verworfen?(vermerk) (Sendefehler: Eintrag zurück), siehe menueAnschluss,
@@ -118,7 +126,7 @@
     const uhr = env.uhr || (() => Date.now());
     const stimmen = Object.assign({}, STIMMEN, env.stimmen || {});
     const A = env.anzeige;
-    const s = { an: false, verarbeitet: false, aufnahme: false, gehalten: false, lauf: 0, handle: null, start: null, abmelden: null, letzte: Promise.resolve(), messmodus: null, timer: null, unklarN: 0, letzterBot: null, verarbN: 0 };
+    const s = { an: false, verarbeitet: false, aufnahme: false, gehalten: false, lauf: 0, handle: null, start: null, abmelden: null, letzte: Promise.resolve(), messmodus: null, timer: null, unklarN: 0, letzterBot: null, verarbN: 0, art: 'befehl', partner: null, rede: null, spielt: null, clipsOffen: 0 };
     const setzeTimer = env.setTimeout || ((f, ms) => setTimeout(f, ms)), loescheTimer = env.clearTimeout || ((t) => clearTimeout(t));
     const stopTimer = () => { if (s.timer != null) { loescheTimer(s.timer); s.timer = null; } };
 
@@ -158,13 +166,16 @@
       if (an === s.an) return s.an;
       s.an = an;
       if (an) { s.abmelden = env.transport.onMessage(empfange); }
-      else { abbrechen(); if (s.abmelden) { s.abmelden(); s.abmelden = null; } meldung(null); if (A.aus) A.aus(); }
+      else { abbrechen(); for (const st of Array.from(streams.values())) stoppeStream(st.gid); s.rede = null; s.clipsOffen = 0; if (s.abmelden) { s.abmelden(); s.abmelden = null; } meldung(null); if (A.aus) A.aus(); }
       return s.an;
     }
 
     // ---- Sprechtaste: Aufnahme NUR zwischen Drücken und Loslassen
-    function tasteRunter() {
+    function tasteRunter() { return nimmAuf('befehl'); }
+    function gespraechSprechenRunter() { return botsDa() ? nimmAuf('gespraech') : false; }   // eigene Taste: ohne Bots tut sie nichts
+    function nimmAuf(art) {
       if (!s.an || s.aufnahme) return false;
+      s.art = art;
       s.aufnahme = true; s.gehalten = true; s.maxHinweis = false;
       const lauf = ++s.lauf;
       env.audio.stumm(true); env.audio.stopp();   // Echo: nichts abspielen, solange gesprochen wird
@@ -191,14 +202,14 @@
       if (!s.aufnahme) return Promise.resolve(false);   // außerhalb der Taste passiert nichts
       s.aufnahme = false; s.gehalten = false; stopTimer();
       A.aufnahme(false); env.audio.stumm(false);
-      const t0 = uhr(), start = s.start; s.handle = null;
+      const t0 = uhr(), start = s.start, art = s.art; s.handle = null;
       const marke = verarbBeginn();   // Zwischenzustand „…“ zwischen Loslassen und Ergebnis
       s.letzte = (async () => {
         try {
           const h = await start;
           if (!h) return false;
           let aufn; try { aufn = await h.stop(); } catch (e) { meldung(TEXT.mikro); return false; }
-          return await verarbeiteAufnahme(aufn, t0, marke);
+          return art === 'gespraech' ? await verarbeiteGespraech(aufn, marke) : await verarbeiteAufnahme(aufn, t0, marke);
         } finally { verarbEnde(marke); }
       })().catch(() => false);
       return s.letzte;
@@ -215,25 +226,183 @@
     async function matcher() { try { return (await env.matcher()) || null; } catch (e) { return null; } }
     async function gleiche(text) { const m = await matcher(); if (!m) return { fehlt: true }; try { return { res: m.match(text) || null }; } catch (e) { return { res: null }; } }
 
-    async function verarbeiteAufnahme(aufn, t0, marke) {
-      if (!s.an) return false;   // Sprache inzwischen aus: nichts mehr an STT schicken
-      if (!aufn || !aufn.blob || !(aufn.blob.size > 0) || (aufn.dauerMs != null && aufn.dauerMs < MIN_MS)) { meldung(TEXT.zuKurz); return false; }
+    // gemeinsamer Teil beider Sprechtasten (Befehl und Gespräch): Schranken (zu kurz, Stille), STT; liefert { text, tStt0, tText } oder null (mit Meldung). beiStille läuft, wenn die Stille-Schranke greift (Messmodus).
+    async function aufnahmeText(aufn, beiStille) {
+      if (!s.an) return null;   // Sprache inzwischen aus: nichts mehr an STT schicken
+      if (!aufn || !aufn.blob || !(aufn.blob.size > 0) || (aufn.dauerMs != null && aufn.dauerMs < MIN_MS)) { meldung(TEXT.zuKurz); return null; }
       if (typeof aufn.pegel === 'number' && aufn.pegel < PEGEL_MIN) {   // D2: kein Ton angekommen: nichts an STT, keine Befehlsauswertung
-        if (s.messmodus) await messeStille(aufn);
-        meldung(TEXT.stille); return false;
+        await beiStille(aufn);
+        meldung(TEXT.stille); return null;
       }
       const tStt0 = uhr();
       let text;
-      try { text = await env.stt(aufn.blob, aufn.mime); } catch (e) { meldung(e && e.status === 413 ? TEXT.zuLang : e && e.fehler === 'stt-aus' ? TEXT.sttNichtEingerichtet : TEXT.sttAus); return false; }
-      if (!s.an) return false;   // während der Erkennung ausgeschaltet: verwerfen, nichts senden
-      const tText = uhr();
+      try { text = await env.stt(aufn.blob, aufn.mime); } catch (e) { meldung(e && e.status === 413 ? TEXT.zuLang : e && e.fehler === 'stt-aus' ? TEXT.sttNichtEingerichtet : TEXT.sttAus); return null; }
+      if (!s.an) return null;   // während der Erkennung ausgeschaltet: verwerfen, nichts senden
+      return { text: String(text == null ? '' : text).trim(), tStt0, tText: uhr() };
+    }
+    async function verarbeiteAufnahme(aufn, t0, marke) {
+      const r = await aufnahmeText(aufn, async (a) => { if (s.messmodus) await messeStille(a); });
+      if (!r) return false;
+      const { text, tStt0, tText } = r;
       if (!s.maxHinweis) meldung(null);   // Hinweis Aufnahme nach 60 s beendet bleibt stehen
-      text = String(text == null ? '' : text).trim();
       const g = text ? await gleiche(text) : { res: null };
       if (g.fehlt) { meldung(TEXT.keinMatcher); return false; }
       const tMatcher = uhr();
       if (s.messmodus) return messeEin({ text, res: g.res, t_stt_ms: tText - tStt0, t_text_ms: tText - t0, t_matcher_ms: tMatcher - t0, dauer_aufnahme_ms: aufn.dauerMs == null ? null : Math.round(aufn.dauerMs), pegel: typeof aufn.pegel === 'number' ? aufn.pegel : null });
       return ergebnis(g.res, 'sprache', marke);
+    }
+
+
+    // ================================================================== BOT-05 B2: freies Gespräch (bot.gespraech -> bot.rede)
+    // Eigene Wege, getrennt von den Befehlen: Gesprächszeile und Gesprächs-Sprechtaste senden NUR bot.gespraech, nie bot.befehl und nie über den Matcher-Befehlsweg (der Matcher liefert hier nur den Namen am Anfang, figurAnrede).
+    // Wirksam nur, wenn Sprache an ist UND Bots in der Partie sind (env.partie() -> { bots: [{ botId, name }] }); ohne Bots tut nichts etwas.
+    const partieBots = () => { try { const p = env.partie ? env.partie() : null; return p && Array.isArray(p.bots) ? p.bots.filter((b) => b && typeof b.botId === 'string' && b.botId) : []; } catch (e) { return []; } };
+    const botsDa = () => s.an && partieBots().length > 0;
+    const nameVon = (botId) => { const b = partieBots().find((x) => x.botId === botId); return b && typeof b.name === 'string' && b.name ? b.name : 'Der Bot'; };
+    const streams = new Map();   // gid -> { gid, art: 'gespraech' | 'status', naechste, puffer: Map(nr -> url|null), fertig, saetze: Map(nr -> Untertitel-Kennung) }
+    const untertitelWeg = (id) => { try { if (A.untertitelWeg && id != null) A.untertitelWeg(id); } catch (e) { /* egal */ } };
+    const streamFuer = (gid, art) => { let st = streams.get(gid); if (!st) { st = { gid, art, naechste: 0, puffer: new Map(), fertig: false, saetze: new Map() }; streams.set(gid, st); } return st; };
+
+    // Adressat: Name am Anfang (Fuzzy wie beim Matcher), sonst letzter Gesprächspartner, sonst zuletzt per Befehl angesprochener Bot, sonst der erste Bot der Partie. Liefert { bot } oder { fehlt: Name } (Figur nicht an Bord)
+    async function adressat(text) {
+      const bots = partieBots();
+      const m = await matcher();
+      let anrede = null;
+      if (m && typeof m.figurAnrede === 'function') { try { anrede = m.figurAnrede(text) || null; } catch (e) { anrede = null; } }
+      if (anrede) {
+        const b = bots.find((x) => x.botId === anrede.botId);
+        return b ? { bot: b } : { fehlt: anrede.name || anrede.botId };
+      }
+      return { bot: bots.find((x) => x.botId === s.partner) || bots.find((x) => x.botId === s.letzterBot) || bots[0] };
+    }
+    async function sendeGespraech(text, quelle) {
+      if (!botsDa()) return false;
+      text = String(text == null ? '' : text).trim();
+      if (!text) return false;
+      const a = await adressat(text);
+      if (!botsDa()) return false;   // währenddessen aus oder ohne Bots
+      if (a.fehlt) { untertitel(a.fehlt + ' ist nicht an Bord.', { botId: null, dauerS: 4 }); return false; }
+      const msg = { t: 'bot.gespraech', an: a.bot.botId, text: text.slice(0, 200), quelle };
+      let ok = false;
+      try { ok = env.transport.send(msg) !== false; } catch (e) { ok = false; }
+      if (!ok) { meldung(TEXT.keinBotServer); return false; }
+      s.partner = a.bot.botId;
+      untertitel(text, { sprecher: 'DU', dauerS: 3 });   // die eigene Zeile kurz mitzeigen
+      return true;
+    }
+    function sendeGespraechText(text) { return sendeGespraech(text, 'text'); }
+
+    async function verarbeiteGespraech(aufn, marke) {
+      const r = await aufnahmeText(aufn, async () => {});
+      verarbEnde(marke);
+      if (!r) return false;
+      if (!s.maxHinweis) meldung(null);
+      if (!r.text) { meldung(TEXT.nichtsVerstanden); return false; }
+      return sendeGespraech(r.text, 'sprache');
+    }
+
+    // ---- bot.rede: Anzeige (denkt nach -> Sätze -> Ende) und Ton
+    const REDE_URL = /^\/api\/bot-rede\/[0-9a-f]{32}\.wav$/;
+    const DENKT_MAX_S = 35;
+    function beendeRede(r) {   // still: Anzeige der alten Anfrage weg, ihre Töne stoppen
+      if (!r) return;
+      untertitelWeg(r.denktId); r.denktId = null;
+      stoppeStream(r.gid);
+      if (s.rede === r) s.rede = null;
+    }
+    function stoppeStream(gid) {
+      const st = streams.get(gid);
+      streams.delete(gid);
+      if (s.spielt && s.spielt.gid === gid) { const sp = s.spielt; s.spielt = null; if (sp.haltAus) sp.haltAus(); try { env.audio.stopp(); } catch (e) { /* egal */ } bahnWeiter(); }
+      return st;
+    }
+    function ablehnung(msg) {   // abgelehnt ohne laufende Anfrage (rate, kein_bot, text, quelle, phase)
+      const g = msg.grund;
+      if (g === 'rate') untertitel(TEXT.rate, { botId: typeof msg.botId === 'string' ? msg.botId : s.partner, dauerS: 3 });
+      else if (g === 'kein_bot') untertitel(TEXT.keinBot, { botId: null, dauerS: 4 });
+      else if (g === 'text') meldung(TEXT.nichtsVerstanden);
+      return true;
+    }
+    function redeEmpfangen(msg) {
+      const z = msg.zustand, gid = typeof msg.gid === 'string' && msg.gid ? msg.gid : null;
+      if (!gid || typeof z !== 'string') return false;
+      if (msg.zu === 'bot.status') {   // Stimme zur Statusantwort: kein eigener Untertitel (der Text steht in der bot.antwort), nur der Ton, nach dem Bestätigungs-Clip, ein Bot nach dem anderen
+        const st = streamFuer(gid, 'status');
+        if (z === 'ton') st.puffer.set(Number.isInteger(msg.nr) ? msg.nr : 0, typeof msg.audio === 'string' && REDE_URL.test(msg.audio) ? msg.audio : null);
+        else if (z === 'ende') st.fertig = true;
+        bahnWeiter();
+        return true;
+      }
+      const r = s.rede;
+      const botId = typeof msg.botId === 'string' ? msg.botId : null;
+      if (z === 'denkt') {
+        if (r) beendeRede(r);
+        for (const st of Array.from(streams.values())) if (st.art === 'gespraech') stoppeStream(st.gid);   // ein neuer gid stoppt die alte Wiedergabe
+        s.rede = { gid, botId, denktId: untertitel(TEXT.denkt, { botId, dauerS: DENKT_MAX_S }), saetze: new Map() };
+        if (botId) s.partner = botId;
+        return true;
+      }
+      if (z === 'abgelehnt' && (!r || r.gid !== gid)) return ablehnung(msg);
+      if (!r || r.gid !== gid) return false;   // eine ältere, schon ersetzte Anfrage
+      const st = streamFuer(gid, 'gespraech');
+      const nr = Number.isInteger(msg.nr) && msg.nr >= 0 ? msg.nr : null;
+      if (z === 'satz') {
+        untertitelWeg(r.denktId); r.denktId = null;
+        if (typeof msg.text === 'string' && msg.text && nr !== null) { const id = untertitel(msg.text, { botId: r.botId }); st.saetze.set(nr, id); }
+        return true;
+      }
+      if (z === 'ton') {
+        if (nr !== null) st.puffer.set(nr, typeof msg.audio === 'string' && REDE_URL.test(msg.audio) ? msg.audio : null);
+        bahnWeiter();
+        return true;
+      }
+      if (z === 'ende') { untertitelWeg(r.denktId); r.denktId = null; st.fertig = true; s.rede = null; bahnWeiter(); return true; }
+      if (z === 'nicht_erreichbar') { untertitelWeg(r.denktId); r.denktId = null; st.fertig = true; s.rede = null; meldung(nameVon(r.botId) + ' ist nicht erreichbar.'); bahnWeiter(); return true; }
+      if (z === 'abgelehnt') { beendeRede(r); if (msg.grund !== 'ersetzt') ablehnung(msg); return true; }   // ersetzt: still, die neue Anfrage zeigt sich selbst
+      return false;
+    }
+
+    // Tonbahn: je gid in nr-Reihenfolge (auch wenn die Töne vertauscht ankommen), ein Ton zugleich; Statustöne erst, wenn die Bestätigungs-Clips durch sind. Gehaltene Sprechtaste = kein Ton.
+    function bahnWeiter() {
+      if (s.spielt || !s.an) return;
+      for (const st of Array.from(streams.values())) {
+        if (st.art === 'status' && s.clipsOffen > 0) continue;
+        for (;;) {
+          if (!st.puffer.has(st.naechste) && st.fertig && st.puffer.size) st.naechste = Math.min(...st.puffer.keys());   // Lücke nach dem Ende: überspringen
+          if (!st.puffer.has(st.naechste)) break;
+          const nr = st.naechste, url = st.puffer.get(nr);
+          st.puffer.delete(nr); st.naechste++;
+          if (!url || s.aufnahme) continue;   // ohne Audio oder bei gehaltener Sprechtaste: nur der Untertitel
+          spieleTon(st, nr, url);
+          return;
+        }
+        if (st.art === 'status' ? (st.naechste > 0 || st.fertig) : (st.fertig && !st.puffer.size)) streams.delete(st.gid);
+      }
+    }
+    function spieleTon(st, nr, url) {
+      const id = st.saetze.get(nr);
+      const mein = { gid: st.gid, haltAus: null };
+      s.spielt = mein;
+      let frei = false, timer = null;
+      const halt = (an) => clipHalt(id, an);
+      const fertig = () => {
+        if (frei) return;
+        frei = true; if (timer != null) loescheTimer(timer);
+        halt(false);
+        if (s.spielt === mein) s.spielt = null;
+        bahnWeiter();
+      };
+      mein.haltAus = () => { if (!frei) { frei = true; if (timer != null) loescheTimer(timer); halt(false); } };
+      timer = setzeTimer(fertig, TON_MAX_MS);   // Sicherung: bleibt das Ende aus, geht die Bahn trotzdem weiter
+      try { Promise.resolve(env.audio.spiele([url], { start: () => halt(true), ende: fertig })).then((u) => { if (!u) fertig(); }, fertig); } catch (e) { fertig(); }
+    }
+    // Bestätigungs-Clip einer Statusantwort läuft: der Statuston wartet darauf (Zähler, je Clip genau einmal frei)
+    function clipOffen() {
+      s.clipsOffen++;
+      let frei = false, timer = null;
+      const f = () => { if (frei) return; frei = true; if (timer != null) loescheTimer(timer); s.clipsOffen--; bahnWeiter(); };
+      timer = setzeTimer(f, CLIP_WARTE_MAX_MS);
+      return f;
     }
 
     // ---- Texteingabe (Chat-Zeile) als Gegenstück
@@ -276,6 +445,7 @@
 
     // ---- bot.antwort: Untertitel und Clip gleichzeitig; fehlt der Clip, bleibt der Untertitel
     function empfange(msg) {
+      if (s.an && msg && msg.t === 'bot.rede') return redeEmpfangen(msg);   // BOT-05 B2
       if (!s.an || !msg || msg.t !== 'bot.antwort') return false;
       // Ohne botId (Ablehnungen phase, rate, adressat, kein_bot ...; der Server schickt den Grundtext): Sprecher und Stimme des zuletzt angesprochenen Bots (sonst BORD bzw. b0), Clip nur bei exakt gleichem Text im Manifest
       const figur = typeof msg.botId === 'string' && msg.botId ? msg.botId : null;
@@ -285,12 +455,13 @@
       if (!s.aufnahme && msg.textId && msg.befehl !== 'bord.ansage') {   // gehaltene Sprechtaste = Mikrofon offen: nichts abspielen; BOT-02 B4: Ansagen des Bord-Bots haben keinen Clip-Vorrat (nur Untertitel, kein 404 je Ansage)
         const stimme = figur ? stimmeFuer(msg) : stimmeOhneFigur();
         // Läuft der Clip länger als die Standarddauer, bleibt der Untertitel bis Clip-Ende (+ 0,5 s in der Anzeige)
+        const frei = stimme && msg.befehl === 'bot.status' && msg.status === 'ok' && figur ? clipOffen() : null;   // BOT-05 B2: der Statuston kommt erst nach diesem Clip (frei, wenn der Clip endet, fehlt oder fehlschlägt)
         const spiele = (man) => {
           const kand = figur ? clipKandidaten(msg.textId, stimme, msg.variante, env.clipBasis, man) : clipFuerText(msg.text, stimme, env.clipBasis, man);
-          if (!kand.length) return null;   // ohne Figur ohne passenden Clip: nur der Untertitel
-          return Promise.resolve(env.audio.spiele(kand, { start: () => clipHalt(id, true), ende: () => clipHalt(id, false) })).catch(() => null);
+          if (!kand.length) { if (frei) frei(); return null; }   // ohne Figur ohne passenden Clip: nur der Untertitel
+          return Promise.resolve(env.audio.spiele(kand, { start: () => clipHalt(id, true), ende: () => { clipHalt(id, false); if (frei) frei(); } })).catch(() => null).then((u) => { if (!u && frei) frei(); return u; });
         };
-        if (stimme) { try { Promise.resolve(mitManifest(stimme, spiele)).catch(() => null); } catch (e) { /* nur Untertitel */ } }   // ohne Stimme (botId ohne Figur): kein Clip, nur Untertitel
+        if (stimme) { try { Promise.resolve(mitManifest(stimme, spiele)).catch(() => { if (frei) frei(); }); } catch (e) { if (frei) frei(); } }   // ohne Stimme (botId ohne Figur): kein Clip, nur Untertitel
       }
       return true;
     }
@@ -337,7 +508,7 @@
     }
 
     return {
-      schalte, tasteRunter, tasteHoch, abbrechen, sendeText, empfange, setzeMessmodus, messeWeiter, aktuellePhrase,
+      schalte, tasteRunter, tasteHoch, abbrechen, sendeText, empfange, gespraechSprechenRunter, gespraechSprechenHoch: tasteHoch, sendeGespraechText, botsDa, partner: () => s.partner, setzeMessmodus, messeWeiter, aktuellePhrase,
       istAn: () => s.an, lies: () => ({ an: s.an, aufnahme: s.aufnahme }), warte: () => s.letzte, clipKandidaten: (t, st, v, man) => clipKandidaten(t, st, v, env.clipBasis, man),
     };
   }
@@ -373,7 +544,7 @@
       send(obj) { if (!offen()) return false; try { return Net.send(obj) !== false; } catch (e) { return false; } },
       onMessage(fn) {
         if (!Net || typeof Net.on !== 'function') return () => {};
-        const weg = Net.on((m) => { if (m && m.t === 'bot.antwort') fn(m); });
+        const weg = Net.on((m) => { if (m && (m.t === 'bot.antwort' || m.t === 'bot.rede')) fn(m); });   // BOT-05 B2: bot.rede = Gespräch
         return typeof weg === 'function' ? weg : () => {};
       },
       schliessen() {},
@@ -479,6 +650,12 @@
     };
   }
 
+  // BOT-05 B2: die Bots der laufenden Partie aus dem Snapshot (players[].bot, botId, name); in Lobby und Menü keine (das Gespräch gibt es nur im Spiel)
+  function partieBrowser(win) {
+    const st = win.Client && win.Client.state;
+    if (!st || st.phase !== 'play' || !Array.isArray(st.players)) return { bots: [] };
+    return { bots: st.players.filter((p) => p && p.bot && typeof p.botId === 'string' && p.botId).map((p) => ({ botId: p.botId, name: typeof p.name === 'string' ? p.name : '' })) };
+  }
   function ladeMatcher(win) {
     if (ladeMatcher.p) return ladeMatcher.p;
     const gefunden = () => win.Shared_BotMatcher || win.BotMatcher || null;
@@ -506,7 +683,7 @@
   // so skaliert alles mit dem Bild und weicht ODA, Funkwahl, Scanner und Konsolen-Bedienfeldern aus. Im DOM bleiben nur das unsichtbare <input> der Textzeile (Tastatur, IME, maxlength 120) und
   // der Messmodus-Kasten (Entwicklerwerkzeug, ?botmessung=1). Ruhig: keine Animation. Austauschbar: Der Kern kennt nur die Schnittstelle
   // aufnahme(bool), verarbeitet(bool), untertitel(text, { botId?, dauerS? }) -> Kennung, clip(kennung, bool), meldung(text|null), textzeile(bool), messung(stand), aus().
-  function anzeigeHud(win, onText, onMesse) {
+  function anzeigeHud(win, onText, onMesse, onGespraech) {
     const d = win.document, hud = () => win.Hud || null;
     const FN = () => (win.Menue && win.Menue.TOKENS && win.Menue.TOKENS.FN) || { sensor: '#A9D6E5', warn: '#F2C94C' };
     const F = (win.Menue && win.Menue.TOKENS && win.Menue.TOKENS.FARBE) || { kachel: '#09090C', kachelRand: '#3A3428', text: '#F4EEDC', dim: '#B3A48E', gold: '#FFC66B' };
@@ -519,7 +696,7 @@
     feld.type = 'text'; feld.setAttribute('autocomplete', 'off'); feld.setAttribute('maxlength', '120'); feld.setAttribute('aria-label', TEXT.platzhalter);
     zeileForm.appendChild(feld); wurzel.appendChild(zeileForm);
     d.body.appendChild(wurzel);
-    let lage = '', stickyText = null, letzteMeldung = null, mess = null;
+    let lage = '', stickyText = null, letzteMeldung = null, mess = null, zeileFuer = 'befehl';   // zeileFuer: wohin die offene Zeile sendet (befehl | gespraech)
     const zeile = { offen: false, feld, platzhalter: TEXT.platzhalter, schliessen: () => schliesse(), platziere(r) {   // Rasterrechteck -> Bildschirmpixel wie #lobbyCode in client.js layout() (Raster * Client.scale + Canvas-Versatz)
       const c = d.getElementById && d.getElementById('game'); if (!c || !c.getBoundingClientRect) return;
       const b = c.getBoundingClientRect(), sc = (win.Client && win.Client.scale) || b.width / 640;
@@ -528,12 +705,13 @@
       lage = k; const [l, t, w, h] = k.split(',');
       zeileForm.style.left = l + 'px'; zeileForm.style.top = t + 'px'; zeileForm.style.width = w + 'px'; zeileForm.style.height = h + 'px';
     } };
-    function oeffne() {
+    function oeffne(fuer) {
       const h = hud();
       if (!h || !h.sprechBereit || !h.sprechBereit()) return false;   // nur mit Spielbild: im Menü/Lobby wäre eine unsichtbare Zeile eine Falle
       const c = win.Client;
       if (c && c.eingabeFrei && !c.eingabeFrei()) return false;   // Pausenmenü, Minispiel, Zusehen am Terminal, Kapitelkarte: dort wäre die Zeile eine Falle
       if (c && c.tastenFreigeben) c.tastenFreigeben();   // gehaltene Spieltasten (WASD, Umschalt, E) loslassen: ihr keyup erreicht das Spiel nicht mehr (die Zeile schluckt es)
+      zeileFuer = fuer === 'gespraech' ? 'gespraech' : 'befehl'; zeile.platzhalter = zeileFuer === 'gespraech' ? TEXT.platzhalterGespraech : TEXT.platzhalter; feld.setAttribute('aria-label', zeile.platzhalter);
       zeile.offen = true; lage = ''; zeileForm.style.display = 'block'; zeileForm.style.pointerEvents = 'auto';
       try { feld.focus(); } catch (e) { /* egal */ }
       return true;
@@ -548,14 +726,15 @@
     // Tasten in der Textzeile gehören der Textzeile, nie dem Spiel (WASD & Co. laufen sonst mit); Esc schließt ohne Senden, Enter (submit) sendet und schließt
     for (const n of ['keydown', 'keyup', 'keypress']) feld.addEventListener(n, (e) => { e.stopPropagation(); if (n === 'keydown' && e.key === 'Escape') { if (e.preventDefault) e.preventDefault(); schliesse(); } });
     feld.addEventListener('blur', () => { if (zeile.offen && !feld.value) schliesse(); });   // Fokusverlust schließt eine leere Zeile; mit Text bleibt sie offen
-    zeileForm.addEventListener('submit', (e) => { e.preventDefault(); const t = feld.value; schliesse(); onText(t); });
+    zeileForm.addEventListener('submit', (e) => { e.preventDefault(); const t = feld.value, fuer = zeileFuer; schliesse(); if (fuer === 'gespraech' && onGespraech) onGespraech(t); else onText(t); });
     const entferne = (text) => { const h = hud(); if (h && text != null) h.notices = h.notices.filter((n) => n.text !== text); };
     const h0 = hud(); if (h0 && h0.sprechAn) { h0.sprechAn(true); h0.sprech.zeile = zeile; }
     return {
       feld, wurzel, zeile,
       aufnahme(an) { const h = hud(); if (!h) return; h.sprech.aufnahme = !!an; if (an) { h.sprech.verarbeitet = false; entferne(stickyText); stickyText = null; entferne(letzteMeldung); letzteMeldung = null; } },   // neue Aufnahme räumt die alte Meldung weg (z. B. „Mikrofon liefert keinen Ton.“)
       verarbeitet(an) { const h = hud(); if (h) h.sprech.verarbeitet = !!an; },
-      untertitel(t, info) { const h = hud(); const st = win.Client && win.Client.state; return h ? h.pushCrewFunk(t, sprecherName(info && (info.botId || info.von), st && st.players), FN().sensor, info && info.dauerS) : 0; },   // von: Figur des Bord-Bots bei Ansagen (botId null)
+      untertitel(t, info) { const h = hud(); const st = win.Client && win.Client.state; return h ? h.pushCrewFunk(t, info && info.sprecher ? info.sprecher : sprecherName(info && (info.botId || info.von), st && st.players), FN().sensor, info && info.dauerS) : 0; },   // BOT-05 B2: info.sprecher überschreibt den Figurnamen (DU)
+      untertitelWeg(id) { const h = hud(); if (h && id && h.crewFunkWeg) h.crewFunkWeg(id); },   // von: Figur des Bord-Bots bei Ansagen (botId null)
       clip(id, an) { const h = hud(); if (h && id) h.crewFunkHalte(id, an); },
       meldung(t) {
         const h = hud(); if (!h) return;
@@ -566,7 +745,8 @@
         h.pushNotice(t, FN().warn, t === TEXT.maxDauer ? 3600 : 6);
       },
       hinweis(t) { const h = hud(); if (h) h.pushNotice(t, FN().sensor, 6); },
-      textzeile(an) { return an ? oeffne() : schliesse(); },
+      textzeile(an) { return an ? oeffne('befehl') : schliesse(); },
+      gespraechszeile(an) { return an ? oeffne('gespraech') : schliesse(); },   // BOT-05 B2: dieselbe Zeile, sendet aber bot.gespraech
       fokus() { return oeffne(); },
       messung(stand) {
         if (!stand) { if (mess) { mess.remove(); mess = null; } return; }
@@ -612,9 +792,9 @@
     const transport = mockUrl !== null ? (mockOk ? transportWebSocket(mockUrl, win.WebSocket) : transportNetStub()) : win.Net ? transportNet(win.Net) : transportNetStub();   // ?botmock= hat Vorrang (verboten: Stub, nie still die echte Verbindung)
     const sitzung = 'messung-' + new Date().toISOString().replace(/[^0-9]/g, '').slice(0, 14);
     let kern = null;
-    const anzeige = anzeigeHud(win, (t) => kern.sendeText(t), (dd) => kern.messeWeiter(dd));
+    const anzeige = anzeigeHud(win, (t) => kern.sendeText(t), (dd) => kern.messeWeiter(dd), (t) => kern.sendeGespraechText(t));
     const env = {
-      transport, matcher: () => ladeMatcher(win), stt: sttBrowser(win), mikrofon: mikrofonBrowser(win), audio: audioBrowser(win), anzeige,
+      transport, matcher: () => ladeMatcher(win), partie: () => partieBrowser(win), stt: sttBrowser(win), mikrofon: mikrofonBrowser(win), audio: audioBrowser(win), anzeige,
       ladeManifest: (url) => win.fetch(url).then((r) => (r.ok ? r.json() : null)).catch(() => null),   // BOT-05 A3: clips.json je Stimme, null = Namensregel
       ...(transport.netz === true ? menueAnschluss(() => win.PultBefehl && win.PultBefehl.menue) : {}),   // nur am Spielnetz: nur dort erreichen die Antworten das Menü
       postMessung: (sit, eintrag) => win.fetch('/api/bot-messung', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ sitzung: sit, eintrag }) }).then((r) => { if (!r.ok) throw new Error('messung ' + r.status); }),
@@ -628,9 +808,11 @@
       if (!kern.istAn() || tippt()) return;
       if (passt(e, 'allgemein.sprechen', 'Backquote')) { e.preventDefault(); if (!e.repeat) kern.tasteRunter(); return; }
       if (passt(e, 'allgemein.botText', 'Backslash')) { e.preventDefault(); if (!e.repeat) anzeige.textzeile(true); return; }
+      if (passt(e, 'allgemein.gespraechSprechen', 'Quote')) { if (!kern.botsDa()) return; e.preventDefault(); if (!e.repeat) kern.gespraechSprechenRunter(); return; }   // BOT-05 B2: ohne Bots tut die Taste nichts und schluckt nichts
+      if (passt(e, 'allgemein.gespraechText', 'Semicolon')) { if (!kern.botsDa()) return; e.preventDefault(); if (!e.repeat) anzeige.gespraechszeile(true); return; }
       if (e.code === 'PageDown' || e.code === 'PageUp') { if (kern.messeWeiter(e.code === 'PageDown' ? 1 : -1)) e.preventDefault(); }
     };
-    const hoch = (e) => { if (!kern.istAn()) return; const code = e && e.code; const ids = T && T.belegung ? T.belegung('allgemein.sprechen').map((t) => t.replace(/^Shift\+/, '')) : ['Backquote']; if (ids.indexOf(code) >= 0) kern.tasteHoch(); };
+    const hoch = (e) => { if (!kern.istAn()) return; const code = e && e.code; const ids = (id, std) => (T && T.belegung ? T.belegung(id).map((t) => t.replace(/^Shift\+/, '')) : [std]); if (ids('allgemein.sprechen', 'Backquote').indexOf(code) >= 0 || ids('allgemein.gespraechSprechen', 'Quote').indexOf(code) >= 0) kern.tasteHoch(); };
     const weg = () => kern.abbrechen();
     win.addEventListener('keydown', runter, true); win.addEventListener('keyup', hoch, true); win.addEventListener('blur', weg);
     instanz = { kern, anzeige, transport, aufraeumen() { win.removeEventListener('keydown', runter, true); win.removeEventListener('keyup', hoch, true); win.removeEventListener('blur', weg); } };
@@ -653,5 +835,5 @@
 
   // BOT-01 C3: verarbeitet die Sprache die bot.antwort der Spielverbindung selbst? Dann zeigt public/js/pult-befehl.js sie nicht noch einmal (genau ein Verarbeiter je Antwort). Der Net-Transport (transportNet, BOT-04 D) setzt `netz: true`.
   const netAntworten = () => !!(instanz && instanz.transport && instanz.transport.netz === true);
-  return { erzeuge, spitzeAusSamples, pegelAbdeckungReicht, PEGEL_MIN, PEGEL_START_MAX_MS, PEGEL_LUECKE_MAX_MS, PEGEL_ABDECKUNG_MIN, PEGEL_TAKT_MS, clipKandidaten, clipFuerText, netAntworten, erwartungErfuellt, transportNet, menueAnschluss, mockUrlErlaubt, TEXT, MAX_MS, STIMMEN, CLIP_BASIS, transportWebSocket, transportNetStub, anzeigeHud, sprecherName, startHinweis, UNKLAR_DAUER_S, mikrofonBrowser, audioBrowser, sttBrowser, starte, stoppe, laeuft: () => !!instanz };
+  return { erzeuge, spitzeAusSamples, pegelAbdeckungReicht, PEGEL_MIN, PEGEL_START_MAX_MS, PEGEL_LUECKE_MAX_MS, PEGEL_ABDECKUNG_MIN, PEGEL_TAKT_MS, clipKandidaten, clipFuerText, netAntworten, erwartungErfuellt, transportNet, menueAnschluss, mockUrlErlaubt, TEXT, MAX_MS, STIMMEN, CLIP_BASIS, transportWebSocket, transportNetStub, partieBrowser, anzeigeHud, sprecherName, startHinweis, UNKLAR_DAUER_S, mikrofonBrowser, audioBrowser, sttBrowser, starte, stoppe, laeuft: () => !!instanz };
 });
