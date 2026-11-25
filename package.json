@@ -41,6 +41,7 @@
     "spiel:wrack": "node tools/spiel-wrack.js",
     "test:bot-clips": "node tools/test-bot-clips.js",
     "mess:bot-latenz": "node tools/bot-latenz.js",
+    "mess:bot-gespraech": "node tools/mess-bot-gespraech.js",
     "test:bot-integration": "node tools/test-bot-integration.js",
     "test:wrack-bot": "node tools/test-wrack-bot.js",
     "test:wrack-bot-mutation": "node tools/mutation-wrack-bot.js",
