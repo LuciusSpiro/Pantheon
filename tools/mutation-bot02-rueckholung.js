@@ -30,9 +30,12 @@ const gewaehlt = process.argv.slice(2).length ? process.argv.slice(2) : alle;
 let fails = 0;
 for (const m of ['', ...gewaehlt]) {
   const r = spawnSync(process.execPath, [test], { env: Object.assign({}, process.env, { BOT_RUECK_MUT: m }), encoding: 'utf8', maxBuffer: 1 << 26 });
-  const rot = r.status !== 0;
   const zeilen = (r.stdout || '').split('\n').filter((l) => l.includes('FEHLER'));
-  const gut = m ? rot : !rot;
+  // erkannt zaehlt nur ein Test, der mit Exit 1 UND einer FEHLER-Zeile anschlaegt; ein Absturz (Exit != 0 ohne FEHLER-Zeile) ist nicht erkannt
+  const rot = r.status === 1 && zeilen.length > 0;
+  const gut = m ? rot : r.status === 0;
+  // N1: ist die Gegenprobe (ohne Mutation) nicht gruen, sagt keine Mutation etwas aus: hart abbrechen
+  if (!m && r.status !== 0) { console.log('FEHLER ohne Mutation: Test ist NICHT gruen (Exit ' + r.status + '), Abbruch: ' + (zeilen[0] || (r.stderr || '').split('\n')[0] || '').trim().slice(0, 160)); process.exit(2); }
   if (!gut) fails++;
   console.log(`${gut ? 'ok  ' : 'FEHLER'} ${m ? 'Mutation ' + m + ': Test ist ' + (rot ? 'rot (' + zeilen.length + ' Fehler, z. B. ' + (zeilen[0] || '').trim().slice(0, 100) + ')' : 'GRUEN (nicht erkannt)') : 'ohne Mutation: Test ist ' + (rot ? 'ROT' : 'gruen')}`);
 }

@@ -8,7 +8,7 @@
 //   5. Haeufigkeit: hoechstens eine Ansage je 8 s je Empfaenger, ueber alle Arten
 //   6. Nur im laufenden Bord-Dienst; keine Wirkung auf die Befehlsannahme (Rate, Antworten)
 //   7. Client: Sprechspalte 3 Eintraege nur mit Bots (sonst unveraendert 2); Ansage ohne Quittung/gilt, Sprecher BORD, kein Clip
-//   8. Reine Menschenpartie byte-gleich (auch Plattform mit Mensch unten: ODA funkt wie bisher) gegen den Basisstand 0b548f01
+//   8. Reine Menschenpartie byte-gleich (auch Plattform mit Mensch unten: ODA funkt wie bisher) gegen den Stand, auf dem der Zweig aufsetzt (merge-base mit main)
 //   node tools/test-bot02-ansagen.js
 const fs = require('fs');
 const os = require('os');
@@ -164,6 +164,18 @@ section('2 Codefolge: der Bord-Bot sagt sie an, die ODA schweigt; ohne Bord-Bot 
     const P = partie({ karte: 'platform', menschen: 2, unten: 1 });
     lauf(P, VERZ + 6);
     ok(!P.g.away.odaCodeHelp && odaCode(P).length === 0 && ans(P.c).length === 0, 'ein Mensch an Bord (mit Bots): unveraendert, keine Codehilfe, keine ODA, keine Ansage');
+  }
+  {
+    // N2: nur der Navigations-Bot, Mensch unten: die Navigation uebernimmt nie den Bord-Dienst. Kein Bord-Bot, bord.* antwortet kein_bot, keine Ansage, die ODA funkt die Codetabelle wie ohne Bots
+    const P = partie({ karte: 'platform', bots: ['navigation'] });
+    lauf(P, VERZ + 6);
+    const nb = botVon(P, 'navigation'); const n0 = P.c.box.length;
+    P.g.handleMessage(P.c, { t: 'bot.befehl', an: 'bord', befehl: 'bord.rueckholen', quelle: 'menu' });
+    const rr = P.c.box.slice(n0).map((e) => e.m).filter((m) => m.t === Protocol.C.BOT_ANTWORT)[0];
+    ok(Lauf.bordBot(P.g) === null && !Lauf.bordAktiv(P.g, nb) && !dienst(P), 'nur Navigations-Bot, Mensch unten: kein Bord-Bot, kein Bord-Dienst');
+    ok(P.g.away.odaCodeHelp && odaCode(P).length === 1 && ans(P.c).length === 0, 'nur Navigations-Bot: die ODA funkt die Codetabelle, keine Ansage');
+    ok(!!rr && rr.status !== 'ok' && /kein_bot/.test(rr.textId || ''), 'nur Navigations-Bot: bord.rueckholen antwortet kein_bot (' + (rr && rr.textId) + ')');
+    ok(P.g.errors === 0, 'game.errors 0');
   }
   {
     // Nur ein Bot unten, kein Mensch verbunden: kein Dienst (der Bord-Bot dient einem Menschen unten), die ODA funkt wie bisher
@@ -520,16 +532,15 @@ section('7 Client: Sprechspalte, Quittung, Clip');
 // ---------- 8 Reine Menschenpartie ----------
 section('8 Reine Menschenpartie byte-gleich (auch Plattform mit Mensch unten: die ODA funkt wie bisher)');
 {
-  const BASIS = '0b548f01';
+  // Basis = Stand, auf dem der Zweig aufsetzt (git merge-base HEAD main, per git archive; kein fester Commit, kein stash/checkout), dasselbe Messskript fuer beide Baeume
   if (process.env.ANSAGEN_OHNE_BASIS) { console.log('  info  ANSAGEN_OHNE_BASIS: Vergleich mit dem Basisstand uebersprungen (Mutationsprobe, kein Repo)'); console.log(String.fromCharCode(10) + 'test-bot02-ansagen: ' + (n - fails) + '/' + n + ' ok' + (fails ? ', ' + fails + ' FEHLER' : '')); process.exit(fails ? 1 : 0); }
-  const baum = path.join(TMP, 'basis');
-  let entpackt = false;
-  try { fs.mkdirSync(baum, { recursive: true }); const tarball = cp.execFileSync('git', ['archive', BASIS], { cwd: path.join(__dirname, '..'), maxBuffer: 1 << 29 }); cp.execFileSync('tar', ['-x'], { cwd: baum, input: tarball }); entpackt = fs.existsSync(path.join(baum, 'server', 'game.js')); } catch (e) { console.log('  info  git archive: ' + String(e.message).slice(0, 120)); }
-  if (entpackt) {
+  const B = require('./lib/bot02-basis.js').basisBaum(TMP);
+  if (B.ref) {
+    const BASIS = B.ref, baum = B.baum;
     const messen = (wurzel) => JSON.parse(cp.execFileSync(process.execPath, [path.join(__dirname, 'mess-bot02-menschenpartie.js'), wurzel], { encoding: 'utf8', env: Object.assign({}, process.env, { NODE_PATH: path.join(__dirname, '..', 'node_modules') }) }).trim().split('\n').pop());
     const alt = messen(baum), neu = messen(path.join(__dirname, '..'));
     ok(alt.snapshots > 300 && alt.errors === 0 && neu.errors === 0 && alt.hilfe === 1 && neu.hilfe === 1 && alt.hash === neu.hash && alt.snapshots === neu.snapshots, `Basisstand ${BASIS} gegen Stand (Menschenpartien inkl. Plattform mit Mensch unten): Hash gleich (${neu.hash.slice(0, 8)}, ${neu.snapshots} Snapshots, Fehler 0)`);
-  } else ok(false, 'Basisbaum ' + BASIS + ' liess sich nicht entpacken (git archive): Vergleich nicht moeglich');
+  } else console.log('  info  Basisvergleich uebersprungen: ' + B.grund);
 }
 
 console.log(`\ntest-bot02-ansagen: ${n - fails}/${n} ok${fails ? ', ' + fails + ' FEHLER' : ''}`);

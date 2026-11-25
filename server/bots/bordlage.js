@@ -13,7 +13,7 @@
 //   kuppelNoetig(game)            ein aufrechter Mensch unten unter 50 % Gesundheit (die Automatik setzt die Kuppel nur zusammen mit gegnerAktiv, mannschaft.js bordWegWaehlen)
 //   landescanOffen(game)          BOT-02 B3: der gewaehlte Landepunkt (game.transferZiel) ist noch nicht gescannt und der Scan laeuft oder ist jetzt moeglich (Landepunkt in Scanreichweite, lpscan.ziele): die EINE Frage fuer den Auto-Scan des Ops-Bots und den Scan-Vorlauf des Bord-Bots
 //   beamInReichweite(game)        BOT-02 B3-Nacharbeit: das Schiff liegt in der Beamreichweite des Transferpunkts, den auch away.canBeam nutzt (away.beamSpot: gewaehlter Landepunkt, sonst Standardort); die EINE Quelle fuer Vorlauf, Stopp und Sperre
-//   padMenschZuSchnell(game)      BOT-02 B3-Nacharbeit: ein Mensch (verbunden, kein Bot, nicht downed) steht auf einem Schiffspad, das Schiff faehrt schneller als beamMaxSpeed und liegt in Beamreichweite: er will beamen, das Tempo verhindert es (Signal nur fuer den Stopp des Navigations-Bots)
+//   padMenschZuSchnell(game)      BOT-02 B3-Nacharbeit: ein Mensch (verbunden, kein Bot, nicht downed) steht auf einem Schiffspad UND will beamen (haelt E oder hatte in den letzten 20 s einen Beamversuch mit tooFast), das Schiff faehrt schneller als beamMaxSpeed und liegt in Beamreichweite: das Tempo verhindert es (Signal nur fuer den Stopp des Navigations-Bots)
 //   gegnerImRaum(enemies)         BOT-02 B3-Nacharbeit: feindliche Gegner im Raum (ohne Relais); die EINE Definition fuer den Steuer-Dienst (Gefecht) und das Ende des Vorlaufs (enemies: game.space.enemies oder S.space.enemies)
 //   gegnerAktiv(game)             unten sind Gegner aktiv: ein Trupp ist alarmiert oder eine wache Drohne ist nah (NAH_PX) an einem aufrechten Menschen unten
 const Station = require('../sim/station.js');
@@ -80,10 +80,13 @@ function beamInReichweite(game) {
   const sp = Away.beamSpot(game);
   return !!sp && Math.hypot(game.ship.x - sp.x, game.ship.y - sp.y) <= sp.range;
 }
+// Beamabsicht eines Menschen auf dem Pad (S1): er haelt E (hold beam) oder hat gerade einen Beamversuch am Tempo scheitern sehen (away.tooFastHint setzt ship.tooFastOdaAt, einmal je 20 s). Nur auf dem Pad zu stehen zaehlt nicht: nach dem Aufstieg steht jeder dort.
+const TOOFAST_FENSTER = 20;   // s, wie die Sperre von away.tooFastHint
+const beamAbsicht = (game, p) => (!!p.hold && p.hold.kind === 'beam') || (game.ship.tooFastOdaAt != null && game.time - game.ship.tooFastOdaAt < TOOFAST_FENSTER);
 function padMenschZuSchnell(game) {
   if (!(game.ship.speed > game.C.ship.beamMaxSpeed)) return false;
-  const aufPad = game.players.some((p) => p && p.connected && !p.bot && !p.downed && p.zone === 'ship' && Away.onPad(game, p));
-  return aufPad && beamInReichweite(game);
+  const will = game.players.some((p) => p && p.connected && !p.bot && !p.downed && p.zone === 'ship' && Away.onPad(game, p) && beamAbsicht(game, p));
+  return will && beamInReichweite(game);
 }
 const gegnerImRaum = (enemies) => (enemies || []).some((e) => e && e.kind !== 'relay');
 

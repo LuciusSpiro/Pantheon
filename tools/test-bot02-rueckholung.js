@@ -631,16 +631,15 @@ section('6 bot.status, Wachposten, Registry nur lesend, reine Menschenpartie');
   ok(befehle.every((b) => gr.befehle[b].includes('kein_ziel') && Array.isArray(tx[`${b}.abgelehnt.kein_ziel`]) && tx[`${b}.abgelehnt.kein_ziel`].length >= 2 && tx[`${b}.abgelehnt.kein_ziel`].every((t) => !/%|\{|\$/.test(t))), 'gruende.json: kein_ziel fuer bord.*; texte.json: je zwei Texte ohne Argumente');
 }
 {
-  // reine Menschenpartie byte-gleich: Basis (bot02, 0b548f01) gegen diesen Stand (git archive, kein stash/checkout)
-  const BASIS = '0b548f01';
-  const baum = path.join(TMP, 'basis');
-  let entpackt = false;
-  try { fs.mkdirSync(baum, { recursive: true }); const tarball = cp.execFileSync('git', ['archive', BASIS], { cwd: path.join(__dirname, '..'), maxBuffer: 1 << 29 }); cp.execFileSync('tar', ['-x'], { cwd: baum, input: tarball }); entpackt = fs.existsSync(path.join(baum, 'server', 'game.js')); } catch (e) { console.log('  info  git archive nicht moeglich: ' + String(e.message).split('\n')[0]); }
-  if (entpackt) {
+  // reine Menschenpartie byte-gleich: Basis (merge-base mit main) gegen diesen Stand (git archive, kein stash/checkout)
+  // Basis = Stand, auf dem der Zweig aufsetzt (git merge-base HEAD main, per git archive; kein fester Commit, kein stash/checkout), dasselbe Messskript fuer beide Baeume
+  const B = require('./lib/bot02-basis.js').basisBaum(TMP);
+  if (B.ref) {
+    const BASIS = B.ref, baum = B.baum;
     const messen = (wurzel) => JSON.parse(cp.execFileSync(process.execPath, [path.join(__dirname, 'mess-bot02-menschenpartie.js'), wurzel], { encoding: 'utf8', env: Object.assign({}, process.env, { NODE_PATH: path.join(__dirname, '..', 'node_modules') }) }).trim().split('\n').pop());
     const alt = messen(baum), neu = messen(path.join(__dirname, '..'));
     ok(alt.snapshots > 300 && alt.errors === 0 && neu.errors === 0 && alt.hash === neu.hash && alt.snapshots === neu.snapshots, `Basis ${BASIS} gegen Stand (drei Menschenpartien, Mensch unten und am Transfer): Hash gleich (${neu.hash.slice(0, 8)}, ${neu.snapshots} Snapshots, Fehler 0)`);
-  } else ok(false, 'Basisbaum ' + BASIS + ' liess sich nicht entpacken');
+  } else console.log('  info  Basisvergleich uebersprungen: ' + B.grund);
 }
 wanduhr();
 

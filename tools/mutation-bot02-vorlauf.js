@@ -16,6 +16,8 @@
 //   frist_ausserhalb          V-2: die Frist zaehlt auch ausserhalb der Reichweite
 //   pad_signal_aus            V-3: ein Mensch auf dem Pad bei zu schnellem Schiff loest keinen Stopp aus
 //   pad_ohne_mensch           V-3: Stopp bei zu schnellem Schiff auch ohne Mensch auf dem Pad
+//   pad_ohne_absicht          S1: schon das blosse Stehen auf dem Pad gilt als Beamabsicht (Stopp ohne E und ohne Versuch)
+//   pad_verwirft              S1: das Pad-Signal verwirft den laufenden Befehl des Menschen
 //   gegner_ignorieren         V-4: Gegner im Raum beenden den Vorlauf nicht
 //   countdown_ignorieren      V-4: Reaktor-Countdown beendet den Vorlauf nicht
 //   abbruch_beendet           V-5: ein abgebrochener (haltender) Beam beendet den Vorlauf
@@ -25,7 +27,7 @@ const { spawnSync } = require('child_process');
 const path = require('path');
 const test = path.join(__dirname, 'test-bot02-vorlauf.js');
 const testNs = path.join(__dirname, 'test-bot02-notsprung.js');
-const alle = ['vorlauf_aus', 'frist_raus', 'ziel_mehrfach', 'scan_auto_aus', 'scan_doppelt', 'scan_vor_transfer_raus', 'stopp_aus', 'stopp_immer', 'mensch_gewinnt_raus', 'vorlauf_nav_offen', 'bereich_ignorieren', 'frist_ausserhalb', 'pad_signal_aus', 'pad_ohne_mensch', 'gegner_ignorieren', 'countdown_ignorieren', 'abbruch_beendet', 'downed_zaehlt', 'nav_bord'];
+const alle = ['vorlauf_aus', 'frist_raus', 'ziel_mehrfach', 'scan_auto_aus', 'scan_doppelt', 'scan_vor_transfer_raus', 'stopp_aus', 'stopp_immer', 'mensch_gewinnt_raus', 'vorlauf_nav_offen', 'bereich_ignorieren', 'frist_ausserhalb', 'pad_signal_aus', 'pad_ohne_mensch', 'pad_ohne_absicht', 'pad_verwirft', 'gegner_ignorieren', 'countdown_ignorieren', 'abbruch_beendet', 'downed_zaehlt', 'nav_bord'];
 const NS = ['nav_bord'];   // laeuft gegen den Notsprung-Test (BOT_NS_MUT)
 const gewaehlt = process.argv.slice(2).length ? process.argv.slice(2) : alle;
 let fails = 0;
@@ -35,9 +37,12 @@ if (gewaehlt.some((m) => NS.includes(m))) laeufe.splice(1, 0, { m: '', ns: true 
 for (const { m, ns } of laeufe) {
   const env = Object.assign({}, process.env, { BOT_VOR_MUT: ns ? '' : m, BOT_NS_MUT: ns ? m : '', VORLAUF_OHNE_BASIS: '1' });
   const r = spawnSync(process.execPath, [ns ? testNs : test], { env, encoding: 'utf8', maxBuffer: 1 << 26 });
-  const rot = r.status !== 0;
   const zeilen = (r.stdout || '').split('\n').filter((l) => l.includes('FEHLER'));
-  const gut = m ? rot : !rot;
+  // erkannt zaehlt nur ein Test, der mit Exit 1 UND einer FEHLER-Zeile anschlaegt; ein Absturz (Exit != 0 ohne FEHLER-Zeile) ist nicht erkannt
+  const rot = r.status === 1 && zeilen.length > 0;
+  const gut = m ? rot : r.status === 0;
+  // N1: ist die Gegenprobe (ohne Mutation) nicht gruen, sagt keine Mutation etwas aus: hart abbrechen
+  if (!m && r.status !== 0) { console.log('FEHLER ohne Mutation: Test ist NICHT gruen (Exit ' + r.status + '), Abbruch: ' + (zeilen[0] || (r.stderr || '').split('\n')[0] || '').trim().slice(0, 160)); process.exit(2); }
   if (!gut) fails++;
   console.log(`${gut ? 'ok  ' : 'FEHLER'} ${m ? 'Mutation ' + m + ': Test ist ' + (rot ? 'rot (' + zeilen.length + ' Fehler, z. B. ' + (zeilen[0] || '').trim().slice(0, 100) + ')' : 'GRUEN (nicht erkannt)') : 'ohne Mutation (' + (ns ? 'Notsprung-Test' : 'Vorlauf-Test') + '): Test ist ' + (rot ? 'ROT' : 'gruen')}`);
 }

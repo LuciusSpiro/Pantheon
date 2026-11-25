@@ -647,7 +647,7 @@ section('13 Ops: die Marke des Captains (captain.anzeigeziel) geht vor');
 section('14 Navigation: Aussenteam unten, das Schiff haelt Kurs und Stufe');
 {
   const lage = (away, tele) => {
-    const P = partie({ bots: ['navigation', 'technik'] });   // BOT-02 B1: ein Technik-Bot haelt den Bord-Dienst, die Navigation bleibt mit Aussenteam unten am Steuer (allein haette sie den Dienst)
+    const P = partie({ bots: ['navigation', 'technik'] });   // BOT-02 B1: ein Technik-Bot haelt den Bord-Dienst, die Navigation bleibt mit Aussenteam unten am Steuer (die Navigation uebernimmt nie den Bord-Dienst: Fall nur mit Navigations-Bot in test-bot02-ansagen.js und test-bot02-bord.js Abschnitt 2)
     lauf(P, 30, () => stationVon(P, 'navigation') === 'helm' && stationVon(P, 'technik') === 'technik');
     const g = P.g;
     g.ship.helm.stage = 3; g.ship.vx = 0; g.ship.vy = 0;

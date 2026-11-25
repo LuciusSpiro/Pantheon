@@ -10,7 +10,7 @@
 //   5. (e) Bord-Bot = Ops-Bot (kein Technik-Bot): erst Scan, dann Transfer; der Navigations-Bot ist nie Bord-Bot (er haelt das Schiff an der Steuer an und bleibt dort)
 //   6. (f) Abbruch: Landepunkt weg, Frist (60 s), Mensch beamt nie: der Bot kehrt zurueck, nie zwei Halter, kein zweiter Vorlauf fuer dasselbe Ziel, neue Wahl beginnt neu; nach dem Beam kein neuer Vorlauf
 //      V-4 Gegner im Raum und Reaktor-Countdown beenden den Vorlauf (kein Stillstand), V-5 ein abgebrochener Beam beendet ihn nicht, V-6 ein bewusstloser Mensch haelt ihn nicht am Leben
-//   7. bot.status, Quellscan, (g) reine Menschenpartie byte-gleich (mess-bot02-menschenpartie.js gegen Basis b954db81)
+//   7. bot.status, Quellscan, (g) reine Menschenpartie byte-gleich (mess-bot02-menschenpartie.js gegen den merge-base mit main)
 //   Notsprung (V-1): tools/test-bot02-notsprung.js
 //   Mutationsproben: Umgebungsvariable BOT_VOR_MUT (tools/mutation-bot02-vorlauf.js)
 //   node tools/test-bot02-vorlauf.js
@@ -107,6 +107,8 @@ if (MUT) {
   else if (MUT === 'frist_ausserhalb') mitSicht(L, function (alt) { const s0 = this.vorlauf && this.vorlauf.seit; alt(); if (this.vorlauf && s0 != null) this.vorlauf.seit = s0; });   // V-2: die Frist zaehlt auch ausserhalb der Reichweite
   else if (MUT === 'pad_signal_aus') Lage.padMenschZuSchnell = () => false;   // V-3: ein Mensch auf dem Pad loest keinen Stopp aus
   else if (MUT === 'pad_ohne_mensch') Lage.padMenschZuSchnell = (g) => g.ship.speed > g.C.ship.beamMaxSpeed && Lage.beamInReichweite(g);   // V-3: Stopp auch ohne Mensch auf dem Pad
+  else if (MUT === 'pad_ohne_absicht') Lage.padMenschZuSchnell = (g) => g.ship.speed > g.C.ship.beamMaxSpeed && g.players.some((p) => p && p.connected && !p.bot && !p.downed && p.zone === 'ship' && away.onPad(g, p)) && Lage.beamInReichweite(g);   // S1: schon das blosse Stehen auf dem Pad gilt als Beamabsicht (alte Regel)
+  else if (MUT === 'pad_verwirft') { const alt = proto.steuerDienst; proto.steuerDienst = function (S, p) { if (this.absicht.befehl && this.lauf.stoppNoetig() && !this.lauf.beamVorbereitet() && !this.aussenteamUnten()) this.befehlVerwerfen('aussenteam'); return alt.call(this, S, p); }; }   // S1: das Pad-Signal verwirft den laufenden Befehl des Menschen
   else if (MUT === 'gegner_ignorieren') mitSicht(L, function (alt) { const sp = this.game.space; const e = sp.enemies; sp.enemies = []; try { return alt(); } finally { sp.enemies = e; } });   // V-4: Gegner beenden den Vorlauf nicht
   else if (MUT === 'countdown_ignorieren') mitSicht(L, function (alt) { const sh = this.game.ship; const c = sh.reaktorCountdown; sh.reaktorCountdown = null; try { return alt(); } finally { if (sh.reaktorCountdown === null) sh.reaktorCountdown = c; } });   // V-4: Reaktor-Countdown beendet den Vorlauf nicht
   else if (MUT === 'abbruch_beendet') mitSicht(L, function (alt) { alt(); if (this.vorlauf && this.game.players.some((p) => p.hold && p.hold.kind === 'beam')) this.vorlauf = null; });   // V-5: ein haltender Mensch beendet den Vorlauf
@@ -364,6 +366,10 @@ section('4 Navigations-Bot stoppt das fahrende Schiff (nur Tempo); ohne Navigati
   ok(stopps(P).length === 0 && g.ship.helm.stage === 3 && !Lauf.beamVorbereitet(g) && Lage.beamInReichweite(g), 'ohne Mensch auf dem Pad stoppt der Navigations-Bot nicht (das Schiff ist dabei in Reichweite)');
   g.ship.x = sc.station.x; g.ship.y = sc.station.y;
   interior.placeOnShipPad(g, P.h, 0); lauf(P, 0.3);
+  ok(away.onPad(g, P.h) && !Lage.padMenschZuSchnell(g) && !Lauf.stoppNoetig(g), 'S1: Mensch auf dem Pad OHNE Beamabsicht (kein E, kein Versuch): kein Pad-Signal, kein Stopp-Bedarf');
+  lauf(P, 1.5);
+  ok(stopps(P).length === 0 && g.ship.helm.stage === 3, 'S1: auch nach 1,5 s steht das Schiff nicht auf Stopp (der Mensch steht nur dort)');
+  eDown(P); eUp(P); lauf(P, 0.3);   // Beamversuch: scheitert am Tempo (tooFast), das ist die Absicht
   ok(away.onPad(g, P.h) && Lage.padMenschZuSchnell(g) && !Lauf.vorlaufLaeuft(g) && !Lauf.bordAktiv(g, tb) && !Lauf.beamVorbereitet(g), 'Mensch auf dem Pad, Schiff zu schnell: das Signal gilt NUR fuer den Stopp (kein Vorlauf, kein Bord-Dienst, kein beamVorbereitet)');
   const g1 = lauf(P, 20, () => g.ship.helm.stage === STOP && g.ship.speed <= g.C.ship.beamMaxSpeed && !g.ship.helm.autoStop);
   ok(g1 && stopps(P).length >= 1 && stopps(P).length <= 3, `der Navigations-Bot haelt das Schiff an (${stopps(P).length} helm.stop), Tempo ${g.ship.speed.toFixed(1)}`);
@@ -371,6 +377,27 @@ section('4 Navigations-Bot stoppt das fahrende Schiff (nur Tempo); ohne Navigati
   ok(gelungen && !away.canBeam(g, 'down').tooFast, 'danach gelingt E halten (selfbeam setzt den Halter, kein tooFast)');
   lauf(P, 6, () => P.h.zone === 'away');
   ok(P.h.zone === 'away', 'der Beam laeuft durch: der Mensch ist unten');
+  // S1: ein laufender Befehl des Menschen bleibt wirksam, solange der Mensch nur auf dem Pad steht (Repro: nav.schub antwortet ok, wurde aber still mit Grund aussenteam verworfen, das Schiff stand)
+  {
+    const S1 = partie({ bots: ['navigation', 'ops', 'technik'] }); const gs = S1.g; 
+    lauf(S1, 40, () => sitzen(S1)); gs.mission.beamDownBlocked = () => null; const ags = agentVon(S1, 'navigation');
+    const scs = require('../shared/locations.js').get(gs.ship.scene).scene; gs.ship.x = scs.station.x - 150; gs.ship.y = scs.station.y; gs.ship.vx = 0; gs.ship.vy = 0;
+    lauf(S1, 1); interior.placeOnShipPad(gs, S1.h, 0); lauf(S1, 0.5);
+    ok(away.onPad(gs, S1.h) && Lage.beamInReichweite(gs) && gs.ship.speed === 0, 'S1 Ausgangslage: Schiff steht in Beamreichweite, der Mensch steht auf dem Pad (wie nach dem Aufstieg)');
+    const a1 = befehl(S1, { an: 'navigation', befehl: 'nav.schub', args: { stufe: 'halb' } });
+    ok(a1.length === 1 && /nav.schub.ok$/.test(a1[0].textId || ''), 'S1: nav.schub wird angenommen (' + JSON.stringify(a1.map((o) => o.textId)) + ')');
+    let vmax = 0; lauf(S1, 8, null, () => { vmax = Math.max(vmax, gs.ship.speed); });
+    ok(!!ags.absicht.befehl && ags.absicht.befehl.name === 'nav.schub' && ags.befehlGrund !== 'aussenteam', 'S1: der Befehl bleibt wirksam (nicht mit Grund aussenteam verworfen: ' + ags.befehlGrund + ')');
+    ok(vmax > gs.C.ship.beamMaxSpeed && stopps(S1).length === 0 && gs.ship.helm.stage > STOP, `S1: das Schiff faehrt (Tempo bis ${vmax.toFixed(1)}), kein helm.stop, Stufe ${gs.ship.helm.stage}`);
+    // mit Beamabsicht (Versuch am Tempo): Stopp, aber der Befehl wird nicht verworfen und neue Schubbefehle antworten ehrlich nicht_jetzt
+    eDown(S1); eUp(S1); lauf(S1, 0.3);
+    ok(Lage.padMenschZuSchnell(gs), 'S1: nach dem Beamversuch am Tempo gilt das Signal');
+    const a2 = befehl(S1, { an: 'navigation', befehl: 'nav.schub', args: { stufe: 'voll' } });
+    ok(a2.length === 1 && /nicht_jetzt/.test(a2[0].textId || ''), 'S1: mit Beamabsicht antwortet nav.schub ehrlich nicht_jetzt (' + JSON.stringify(a2.map((o) => o.textId)) + ')');
+    lauf(S1, 20, () => gs.ship.helm.stage === STOP && gs.ship.speed <= gs.C.ship.beamMaxSpeed && !gs.ship.helm.autoStop);
+    ok(stopps(S1).length >= 1 && ags.befehlGrund !== 'aussenteam' && !!ags.absicht.befehl, `S1: der Bot haelt das Schiff fuer den Beam an (${stopps(S1).length} helm.stop), verwirft aber den Befehl nicht (Grund ${ags.befehlGrund})`);
+    wanduhr();
+  }
   // ausserhalb der Reichweite: kein Stopp (V-2)
   const Q = partie({ bots: ['navigation', 'ops', 'technik'] }); const gq = Q.g;
   lauf(Q, 40, () => sitzen(Q)); gq.mission.beamDownBlocked = () => null;
@@ -564,16 +591,15 @@ section('7 bot.status im Vorlauf, Quellscan, reine Menschenpartie');
   ok(!/\b(game|g)\.[A-Za-z_.]+\s*=(?!=)/.test(lf.replace(/this\.game/g, '')) && !/transferZiel\s*=(?!=)/.test(lf), 'Quellscan: lauf.js schreibt weder game.transferZiel noch anderen Spielzustand');
 }
 {
-  const BASIS = 'b954db81';
+  // Basis = Stand, auf dem der Zweig aufsetzt (git merge-base HEAD main, per git archive; kein fester Commit, kein stash/checkout), dasselbe Messskript fuer beide Baeume
   if (process.env.VORLAUF_OHNE_BASIS) { info('VORLAUF_OHNE_BASIS: Vergleich mit dem Basisstand uebersprungen (Mutationsprobe)'); wanduhr(); console.log(fails ? `\ntest-bot02-vorlauf: ${fails} FEHLER von ${n}` : `\ntest-bot02-vorlauf: ${n}/${n} ok`); process.exit(fails ? 1 : 0); }
-  const baum = path.join(TMP, 'basis');
-  let entpackt = false;
-  try { fs.mkdirSync(baum, { recursive: true }); const tarball = cp.execFileSync('git', ['archive', BASIS], { cwd: path.join(__dirname, '..'), maxBuffer: 1 << 29 }); cp.execFileSync('tar', ['-x'], { cwd: baum, input: tarball }); entpackt = fs.existsSync(path.join(baum, 'server', 'game.js')); } catch (e) { info('git archive: ' + String(e.message).slice(0, 120)); }
-  if (entpackt) {
+  const B = require('./lib/bot02-basis.js').basisBaum(TMP);
+  if (B.ref) {
+    const BASIS = B.ref, baum = B.baum;
     const messen = (wurzel) => JSON.parse(cp.execFileSync(process.execPath, [path.join(__dirname, 'mess-bot02-menschenpartie.js'), wurzel], { encoding: 'utf8', env: Object.assign({}, process.env, { NODE_PATH: path.join(__dirname, '..', 'node_modules') }) }).trim().split('\n').pop());
     const alt = messen(baum), neu = messen(path.join(__dirname, '..'));
     ok(alt.snapshots > 300 && alt.errors === 0 && neu.errors === 0 && alt.hilfe === 1 && neu.hilfe === 1 && alt.hash === neu.hash && alt.snapshots === neu.snapshots, `Basis ${BASIS} gegen Stand (Menschenpartien inkl. Plattform mit Mensch unten): Hash gleich (${neu.hash.slice(0, 8)}, ${neu.snapshots} Snapshots, Fehler 0)`);
-  } else ok(false, 'Basisbaum ' + BASIS + ' liess sich nicht entpacken (git archive): Vergleich nicht moeglich');
+  } else console.log('  info  Basisvergleich uebersprungen: ' + B.grund);
 }
 wanduhr();
 

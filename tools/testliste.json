@@ -524,6 +524,7 @@
   {"datei":"tools/mutation-faden-rettung.js","grund":"Mutationsprobe auf Abruf (npm run test:faden-rettung-mutation), zu langsam und zu breit fuer die Kette"},
   {"datei":"tools/mutation-faden-hinterhalt.js","grund":"Mutationsprobe auf Abruf (npm run test:faden-hinterhalt-mutation), zu langsam und zu breit fuer die Kette"},
   {"datei":"tools/mess-bot02-notsprung.js","grund":"Messskript (BOT-02 B5): protokolliert den Notsprung des Navigations-Bots mit und ohne Aussenteam fuer Kais Bewertung, kein Test mit Soll"},
+  {"datei":"tools/mess-bot02-menschenpartie.js","grund":"Messskript (BOT-02): gibt den Hash dreier Menschenpartien aus, Eingabe der byte-gleich-Vergleiche in test-bot02-bord/-ansagen/-rueckholung/-vorlauf (gegen den merge-base mit main), kein Test mit Soll"},
   {"datei":"tools/mutation-bot02-vorlauf.js","grund":"Mutationsprobe auf Abruf (npm run test:bot02-vorlauf-mutation), startet je Mutation den Test neu"},
   {"datei":"tools/mutation-bot02-ansagen.js","grund":"Mutationsprobe auf Abruf (npm run test:bot02-ansagen-mutation), startet je Mutation den Test neu"},
   {"datei":"tools/mutation-bot-sprache.js","grund":"Mutationsprobe auf Abruf (npm run test:bot-sprache-mutation), startet je Mutation den Test neu"},

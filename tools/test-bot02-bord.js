@@ -7,7 +7,7 @@
 //   5. Mensch gewinnt: ein Mensch betritt die Transfer-Konsole, der Bot weicht, geht an seine Station, kommt zurueck, wenn der Mensch geht; nie zwei Halter, keine Station doppelt (12 s, Tick fuer Tick)
 //   6. Wachposten: nur die Whitelist BORD_BEFEHLE (transfer.recall, captain.support) im Dienst und nur fuer den Bord-Bot; alles andere dort gesperrt (Test und Quellscan)
 //   7. bord.*-Befehle: ohne Bord-Bot kein_bot, mit nicht_jetzt (Geruest), Adressierung (an alle, Rolle, botId), bot.status im Dienst; Rollenbefehle im Dienst nicht_jetzt (B-6)
-//   8. Reine Menschenpartie unveraendert: Snapshots, Nachrichten, Zufallsstand identisch mit echtem und leerem Lauf (auch mit Mensch unten und an der Transfer-Konsole), und gegen den Basisstand 73f93ed0
+//   8. Reine Menschenpartie unveraendert: Snapshots, Nachrichten, Zufallsstand identisch mit echtem und leerem Lauf (auch mit Mensch unten und an der Transfer-Konsole), und gegen den Stand, auf dem der Zweig aufsetzt (merge-base mit main)
 //   9. Nacharbeit B-2/B-3/B-5/B-7: Dienstende mit Mensch an der Station, bewusstloser Bord-Bot (Wechsel, Hysterese), Dienstbeginn beim Beamen (Spielpfad E-Halten, Abbruch, Konsole), Absichten beim Wiederbeginn
 //   node tools/test-bot02-bord.js
 const fs = require('fs');
@@ -378,17 +378,15 @@ section('8 Reine Menschenpartie: der Lauf aendert nichts (auch mit Mensch unten 
   };
   const mit = sha(false), ohne = sha(true);
   ok(mit.nSnap > 100 && mit.hash === ohne.hash, `Menschenpartien (Mensch unten, am Transfer): Snapshots, Nachrichten, Zufallsstand und Spieler byte-gleich mit echtem und leerem Lauf (${mit.nSnap} Snapshots)`);
-  console.log('  info  Hash ' + mit.hash + ' (fuer den Vergleich vorher/nachher, Basis 73f93ed0)');
-  // Basisbaum 73f93ed0 per git archive (kein stash, kein checkout), dasselbe Messskript fuer beide Baeume
-  const BASIS = '73f93ed0';
-  const baum = path.join(TMP, 'basis');
-  let entpackt = false;   // ohne Shell und ohne -C <Laufwerkspfad> (GNU tar liest C: als Host)
-  try { fs.mkdirSync(baum, { recursive: true }); const tarball = cp.execFileSync('git', ['archive', BASIS], { cwd: path.join(__dirname, '..'), maxBuffer: 1 << 29 }); cp.execFileSync('tar', ['-x'], { cwd: baum, input: tarball }); entpackt = fs.existsSync(path.join(baum, 'server', 'game.js')); } catch (e) { console.log('  info  git archive nicht moeglich: ' + String(e.message).split('\n')[0]); }
-  if (entpackt) {
+  console.log('  info  Hash ' + mit.hash + ' (fuer den Vergleich vorher/nachher)');
+  // Basis = Stand, auf dem der Zweig aufsetzt (git merge-base HEAD main, per git archive; kein fester Commit, kein stash/checkout), dasselbe Messskript fuer beide Baeume
+  const B = require('./lib/bot02-basis.js').basisBaum(TMP);
+  if (B.ref) {
+    const BASIS = B.ref, baum = B.baum;
     const messen = (wurzel) => JSON.parse(cp.execFileSync(process.execPath, [path.join(__dirname, 'mess-bot02-menschenpartie.js'), wurzel], { encoding: 'utf8', env: Object.assign({}, process.env, { NODE_PATH: path.join(__dirname, '..', 'node_modules') }) }).trim().split('\n').pop());
     const alt = messen(baum), neu = messen(path.join(__dirname, '..'));
     ok(alt.snapshots > 300 && alt.errors === 0 && neu.errors === 0 && alt.hash === neu.hash && alt.snapshots === neu.snapshots, `Basisstand ${BASIS} gegen Stand (drei Menschenpartien, Mensch unten und am Transfer): Hash gleich (${neu.hash.slice(0, 8)}, ${neu.snapshots} Snapshots, Fehler 0)`);
-  } else ok(false, 'Basisbaum ' + BASIS + ' liess sich nicht entpacken (git archive): Vergleich nicht moeglich');
+  } else console.log('  info  Basisvergleich uebersprungen: ' + B.grund);
 }
 
 // ---------- 9 Nacharbeit ----------

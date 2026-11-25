@@ -291,7 +291,9 @@ class BotMannschaft extends BotKern {
     if (this.reaktorNotsprung(S, p)) return;
     const b = this.absicht.befehl;
     if (b && b.name.startsWith('nav.') && this.game.ship.scene !== b.szene) this.befehlVerwerfen('szene');
-    if (this.aussenteamUnten() || this.lauf.stoppNoetig()) {   // stoppNoetig: auch ein Mensch auf dem Pad bei zu schnellem Schiff (Review V-3, lauf.js): Befehle enden, das Schiff haelt an
+    // S1: nur Aussenteam unten oder ein vorbereiteter Beam beendet Befehle. Das Pad-Signal (Mensch will beamen, Schiff zu schnell, Review V-3) haelt das Schiff an, verwirft aber nie einen laufenden Befehl des Menschen
+    if (!this.aussenteamUnten() && this.lauf.stoppNoetig()) { this.stoppFuerBeam(S); this.kursHaltenFuerAussenteam(S); return; }
+    if (this.aussenteamUnten()) {
       const a = this.absicht.befehl;
       if (a && a.name === 'nav.schub') this.anhalten('aussenteam');
       else if (a) this.befehlVerwerfen('aussenteam');

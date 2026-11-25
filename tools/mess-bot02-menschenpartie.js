@@ -1,7 +1,7 @@
 'use strict';
 // BOT-02 B1 Nacharbeit: Hash dreier reiner Menschenpartien (Snapshots, Nachrichten, Zufallsstand, Spieler) eines Baums.
 //   node tools/mess-bot02-menschenpartie.js [Wurzel]     Wurzel = Verzeichnis mit server/ (Standard: dieses Repo); Ausgabe eine Zeile JSON { hash, snapshots, errors, hilfe }
-// tools/test-bot02-bord.js Abschnitt 8 ruft es fuer diesen Stand und fuer einen mit git archive entpackten Basisbaum (73f93ed0) und vergleicht. Das Skript ist baumunabhaengig: es laedt nur server/ der Wurzel.
+// tools/test-bot02-bord.js Abschnitt 8 ruft es fuer diesen Stand und fuer einen mit git archive entpackten Basisbaum (git merge-base HEAD main, tools/lib/bot02-basis.js) und vergleicht. Das Skript ist baumunabhaengig: es laedt nur server/ der Wurzel.
 const fs = require('fs');
 const os = require('os');
 const path = require('path');

@@ -25,7 +25,7 @@ function vorab(game, bot, o) {
   const agent = Lauf.agent(game, bot);
   if (!agent || bot.downed || bot.zone !== 'ship') return { fehler: NICHT_JETZT };
   if (o.station && Station.stationOf(bot) !== 'helm') return { fehler: NICHT_JETZT };
-  if (o.aussenteam && agent.aussenteamUnten()) return { fehler: NICHT_JETZT };
+  if (o.aussenteam && (agent.aussenteamUnten() || agent.lauf.stoppNoetig())) return { fehler: NICHT_JETZT };   // stoppNoetig: auch das Pad-Signal (Mensch will beamen, Schiff zu schnell): ehrlich nicht_jetzt statt ok ohne Wirkung
   if (o.bewegt && maschineAus(game)) return { fehler: SYSTEM };
   return { agent };
 }
