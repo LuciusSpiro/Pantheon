@@ -71,4 +71,4 @@ function text(game, agent) {
   return s.length > MAX ? s.slice(0, MAX - 1) + '.' : s;
 }
 
-module.exports = { text, MAX };
+module.exports = { text, MAX, stufeWort };   // BOT-05 B1: stufeWort fuer die Lage im Gespraech (gespraech-lage.js), Verhalten unveraendert

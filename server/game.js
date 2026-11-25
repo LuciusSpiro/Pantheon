@@ -53,7 +53,9 @@ const Ruf = require('./sim/ruf.js');   // SUND-02b B: Ruf je Fraktion und Dienst
 const FunkAntwort = require('./sim/funk-antwort.js');   // SUND-03b A: Funk-Antworten mit Folgen (nur Freie Fahrt Sund, folgt dem Reise-Ereignis-Schalter)
 const BotAnnahme = require('./bots/annahme.js');   // BOT-01 C1: Annahme der Bot-Befehle (bot.befehl)
 const BotSpieler = require('./bots/spieler.js');   // BOT-01 B2: Bots als Spieler auf Slots (Lobby)
+const BotGespraech = require('./bots/gespraech.js');   // BOT-05 B1: freies Gespräch mit einem Bot (bot.gespraech -> bot.rede), nur lesend, lokal; lädt weder Annahme noch Befehle noch lauf.js
 const BotLauf = require('./bots/lauf.js');   // BOT-01 B3: Spielverhalten der Bots (Agenten je Bot-Spieler, Tick am Ende von tickKern)
+BotGespraech.verdrahten({ agent: require('./bots/lauf.js').agent });   // BOT-05 B1: schmaler Lesezugang auf den Agenten (Absicht), damit gespraech.js lauf.js nicht laden muss
 const Kontingent = require('./sim/kontingent.js');   // LIV-01: Schwelle des Token-Zählers, Befehle kontingent.freigeben/ablehnen, Frage an den Spieler mit color 0
 const AbenteuerBrett = require('./sim/abenteuer-brett.js');   // SUND-04b C: Auftragsbrett (nur mit FAEDEN=1, Freie Fahrt Sund)
 const FadenBitte = require('./sim/faden-bitte.js');   // SUND-04a-2 P2: Bitten der Geschichtsfäden (nur mit FAEDEN=1, Freie Fahrt Sund)
@@ -393,6 +395,7 @@ class Game {
     this.stats.playTimeStart = this.time;
     this.players.forEach((p, i) => { this.resetPlayer(p, i); p.ready = true; });
     this.runId = 'run-' + Date.now() + '-' + (++this.runCounter);
+    BotGespraech.vorwaermen(this);   // BOT-05 B1: nur mit BOT_GESPRAECH_VORWAERMEN=1
     this.telemetrie.sessionBeginnen();   // TEL-01 A: Kopfzeile reserviert, Ereignisse des Starts landen schon im Protokoll
     try {
       Weltstand.apply(this, r.data);
@@ -794,7 +797,8 @@ class Game {
           }
           break;
         case C.LOBBY_BOT: BotSpieler.lobbyBotBefehl(this, p, msg); break;   // BOT-01 B2: nur Lobby, die Prüfung steht in den Funktionen
-        case C.BOT_BEFEHL: BotAnnahme.annehmen(this, p, msg); break;   // BOT-01 C1: Regeln und Antwort in bots/annahme.js
+        case C.BOT_BEFEHL: BotAnnahme.annehmen(this, p, msg); break;
+        case C.BOT_GESPRAECH: BotGespraech.annehmen(this, p, msg); break;   // BOT-05 B1: Regeln, Antwort und Ablauf in bots/gespraech.js   // BOT-01 C1: Regeln und Antwort in bots/annahme.js
         case C.WORLD: this.onWorldMsg(conn, p, msg); break;   // S1 §6
         case C.MENU: this.onMenuMsg(p, msg); break;           // S1 §6
         case C.INPUT: {
@@ -1187,6 +1191,7 @@ class Game {
     this.players.forEach((p, i) => { this.resetPlayer(p, i); p.ready = true; });
     Kontingent.frageZustellen(this);   // LIV-02: eine noch offene Limit-Frage (prozessweit) kommt beim Start der Live-Partie an den Spieler mit color 0; in der Lobby wurde nichts zugestellt
     this.runId = 'run-' + Date.now() + '-' + (++this.runCounter);
+    BotGespraech.vorwaermen(this);   // BOT-05 B1: nur mit BOT_GESPRAECH_VORWAERMEN=1
     this.telemetrie.sessionBeginnen();   // TEL-01 A: Kopfzeile reserviert, Ereignisse des Starts landen schon im Protokoll
     if (campaign) {
       this.weltstand = Weltstand.create(this, { tutorial: sm === 'm1' || (!!CAMPAIGN_KETTEN[sm] && CAMPAIGN_KETTEN[sm].tutorial), persistent: true, dir: this.worldDir, countMissing: this.worldsEnabled });

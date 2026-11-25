@@ -9,6 +9,7 @@ const CONFIG = require('../shared/config.js');
 const Protocol = require('../shared/protocol.js');
 const { Game } = require('./game.js');
 const Weltstand = require('./weltstand.js');
+const BotRede = require('./bots/gespraech-audio.js');   // BOT-05 B1: GET /api/bot-rede/<id>.wav (Sprachclips des Bot-Gesprächs aus dem Speicher)
 const Stt = require('./stt.js');   // BOT-04 C: POST /api/stt und /api/bot-messung (nur mit STT_URL)
 const Haken = require('./telemetrie/haken.js');   // TEL-01 B2: Tickschleife meldet Snapshot-Zeit und Kappung ans Protokoll
 
@@ -173,8 +174,8 @@ function startServer(opts) {
   try { werkstatt = require('./werkstatt.js'); } catch (e) { console.warn('[Pantheon] server/werkstatt.js nicht geladen:', e && e.message); }
   const werkstattOpts = { speichern: werkstattSpeichern };
   const server = http.createServer(werkstatt
-    ? (req, res) => { if (Stt.route(req, res)) return; if (!werkstatt.route(req, res, werkstattOpts)) serveStatic(req, res); }
-    : (req, res) => { if (!Stt.route(req, res)) serveStatic(req, res); });
+    ? (req, res) => { if (BotRede.route(req, res) || Stt.route(req, res)) return; if (!werkstatt.route(req, res, werkstattOpts)) serveStatic(req, res); }
+    : (req, res) => { if (!BotRede.route(req, res) && !Stt.route(req, res)) serveStatic(req, res); });
   const wss = new WebSocketServer({ noServer: true, maxPayload: 16 * 1024 });
 
   server.on('upgrade', (req, socket, head) => {
