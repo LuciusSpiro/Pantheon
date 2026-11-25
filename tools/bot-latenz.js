@@ -47,6 +47,7 @@ const PORT_MIN = 3470, PORT_ZAHL = 10;   // alle benutzten Ports liegen in 3470 
 // zustand: Quelltext einer Funktion (s, b) -> bool; s = Schiff im Snapshot (verkleinert, siehe PICK), b = dasselbe zum Zeitpunkt des Loslassens. null = im Spiel nicht beobachtbar -> "nicht trennbar".
 const SEND = (an, befehl, args) => ({ send: { t: 'bot.befehl', an, befehl, args, quelle: 'menu' } });
 const DEBUG = (cmd, rest) => ({ send: Object.assign({ t: 'debug', cmd }, rest || {}) });   // Debug-Befehle des Servers (--debug), wie die Sitz-Anweisung beim Start
+const WAFFEN_HEIL = ['weapon_bow', 'battery_port', 'battery_stbd', 'lafette_5', 'lafette_7', 'lafette_9', 'lafette_1', 'lafette_3', 'lafette_2'].map((k) => DEBUG('damage', { system: k, state: 'ok' }));   // je Wiederholung alle Waffensysteme heil (interior.WEAPON_SYSTEMS): der Raider beschaedigt sie, der Server lehnt sonst ab (system)
 const GEGNER = [DEBUG('god', { on: true }), DEBUG('spawn', { kind: 'raider', dist: 500, winkel: 0 })];   // ein Gegner in Sensorreichweite (Ziel fuer ops.*); die Lerche bleibt unverwundbar
 const BEFEHLE = [
   { id: 'nav.kurs', an: 'navigation', text: 'Kurs auf die Basis', args: { ziel: 'basis' }, vor: [SEND('navigation', 'nav.stopp', {}), { warte: 's.stage === s.stop && s.speed < 3' }],   // die Markierung ist das Anzeigeziel eines OBJEKTS (Gegner, Mine, Station): ohne Objekte in der Szene kein_ziel; die Basis geht
@@ -57,7 +58,7 @@ const BEFEHLE = [
   { id: 'nav.abstand', an: 'navigation', text: 'Abstand zur Basis halten', args: { ziel: 'basis' }, vor: [SEND('navigation', 'nav.stopp', {}), { warte: 's.stage === s.stop && s.speed < 3' }], zustand: 's.stage !== b.stage || s.turn !== b.turn' },
   { id: 'nav.andocken', an: 'navigation', text: 'Andocken', args: {}, vor: [SEND('navigation', 'nav.stopp', {}), { warte: 's.stage === s.stop && s.speed < 3' }], zustand: 's.stage !== b.stage || s.turn !== b.turn' },
   { id: 'ops.ziel', an: 'ops', text: 'Nächstes Ziel', args: { ziel: 'naechstes' }, vor: GEGNER, zustand: null },   // ohne Gegner kein_ziel: je Wiederholung ein Gegner per Debug-Spawn; ob der Server ihn annimmt (Sensorreichweite), zeigt die Messung
-  { id: 'ops.feuer_frei', an: 'ops', text: 'Feuer frei Bugwaffen', args: { waffen: 'bug' }, vor: GEGNER, zustand: null },   // ohne Gegner/Marke immer kein_ziel; Feuerzustand ist Absicht des Server-Bots, im Snapshot nicht sichtbar
+  { id: 'ops.feuer_frei', an: 'ops', text: 'Feuer frei Bugwaffen', args: { waffen: 'bug' }, vor: WAFFEN_HEIL.concat(GEGNER), zustand: null },   // ohne Gegner/Marke immer kein_ziel; Feuerzustand ist Absicht des Server-Bots, im Snapshot nicht sichtbar
   { id: 'ops.feuer_halt', an: 'ops', text: 'Feuer einstellen', args: {}, vor: [], zustand: null },
   { id: 'ops.scan', an: 'ops', text: 'Scannen', args: {}, vor: GEGNER.concat([SEND('ops', 'ops.ziel', { ziel: 'naechstes' })]), zustand: null },   // das Spiel scannt nur ein Ziel
   { id: 'ops.landescan', an: 'ops', text: 'Landepunkt scannen', args: {}, vor: [], zustand: null },
