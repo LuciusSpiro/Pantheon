@@ -78,6 +78,7 @@ const pos = [
   ['Statusbericht', b('bot.status', {}, 'alle')],
   ['Technik, Statusbericht', b('bot.status', {}, 'technik')],
   ['Automatik', b('bot.automatik', {}, 'alle')],
+  ['Automatisch', b('bot.automatik', {}, 'alle')], ['Ops, automatisch', b('bot.automatik', {}, 'ops')],
 ];
 for (const [t, e] of pos) pruefe(t, e);
 
