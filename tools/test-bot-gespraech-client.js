@@ -219,9 +219,9 @@ const letzte = (L) => L.send[L.send.length - 1];
     const e = fake(); await e.k.sendeGespraechText('Titus, Lage?');
     rede(e.k, { botId: 'b2', gid: gid(3), zustand: 'denkt' });
     rede(e.k, { botId: 'b2', gid: gid(3), zustand: 'nicht_erreichbar', grund: 'llm' });
-    ok(e.L.meldung.at(-1) === 'Titus ist nicht erreichbar.' && e.L.weg.length === 1, 'nicht_erreichbar: "Titus ist nicht erreichbar.", denkt weg');
+    ok(e.L.untertitel.at(-1).t === 'Titus ist nicht erreichbar.' && !e.L.untertitel.at(-1).info.botId && e.L.weg.length === 1 && e.L.meldung.length === 0, 'nicht_erreichbar: Untertitel "Titus ist nicht erreichbar." (Sprecher BORD), denkt weg');
     for (const grund of ['zeit', 'leer']) { rede(e.k, { botId: 'b2', gid: gid(4), zustand: 'denkt' }); rede(e.k, { botId: 'b2', gid: gid(4), zustand: 'nicht_erreichbar', grund }); }
-    ok(e.L.meldung.filter((m) => m === 'Titus ist nicht erreichbar.').length === 3, 'auch bei Zeitlimit und leerer Antwort');
+    ok(e.L.untertitel.filter((u) => u.t === 'Titus ist nicht erreichbar.').length === 3, 'auch bei Zeitlimit und leerer Antwort');
     // abgelehnt ohne denkt
     const r = fake();
     rede(r.k, { botId: 'b1', gid: gid(5), zustand: 'abgelehnt', grund: 'rate' });

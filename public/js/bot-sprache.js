@@ -357,7 +357,7 @@
         return true;
       }
       if (z === 'ende') { untertitelWeg(r.denktId); r.denktId = null; st.fertig = true; s.rede = null; bahnWeiter(); return true; }
-      if (z === 'nicht_erreichbar') { untertitelWeg(r.denktId); r.denktId = null; st.fertig = true; s.rede = null; meldung(nameVon(r.botId) + ' ist nicht erreichbar.'); bahnWeiter(); return true; }
+      if (z === 'nicht_erreichbar') { untertitelWeg(r.denktId); r.denktId = null; st.fertig = true; s.rede = null; untertitel(nameVon(r.botId) + ' ist nicht erreichbar.', { botId: null, dauerS: 5 }); bahnWeiter(); return true; }   // als Untertitel (Sprechspalte, Sprecher BORD): die Hinweisleiste reiht Meldungen hinter anderen ein
       if (z === 'abgelehnt') { beendeRede(r); if (msg.grund !== 'ersetzt') ablehnung(msg); return true; }   // ersetzt: still, die neue Anfrage zeigt sich selbst
       return false;
     }
