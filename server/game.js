@@ -55,7 +55,7 @@ const BotAnnahme = require('./bots/annahme.js');   // BOT-01 C1: Annahme der Bot
 const BotSpieler = require('./bots/spieler.js');   // BOT-01 B2: Bots als Spieler auf Slots (Lobby)
 const BotGespraech = require('./bots/gespraech.js');   // BOT-05 B1: freies Gespräch mit einem Bot (bot.gespraech -> bot.rede), nur lesend, lokal; lädt weder Annahme noch Befehle noch lauf.js
 const BotLauf = require('./bots/lauf.js');   // BOT-01 B3: Spielverhalten der Bots (Agenten je Bot-Spieler, Tick am Ende von tickKern)
-BotGespraech.verdrahten({ agent: BotLauf.agent });   // BOT-05 B1: schmaler Lesezugang auf den Agenten (Absicht), damit gespraech.js lauf.js nicht laden muss
+BotGespraech.verdrahten({ agent: require('./bots/lauf.js').agent });   // BOT-05 B1: schmaler Lesezugang auf den Agenten (Absicht), damit gespraech.js lauf.js nicht laden muss
 const Kontingent = require('./sim/kontingent.js');   // LIV-01: Schwelle des Token-Zählers, Befehle kontingent.freigeben/ablehnen, Frage an den Spieler mit color 0
 const AbenteuerBrett = require('./sim/abenteuer-brett.js');   // SUND-04b C: Auftragsbrett (nur mit FAEDEN=1, Freie Fahrt Sund)
 const FadenBitte = require('./sim/faden-bitte.js');   // SUND-04a-2 P2: Bitten der Geschichtsfäden (nur mit FAEDEN=1, Freie Fahrt Sund)
