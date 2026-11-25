@@ -348,7 +348,7 @@ function folgenAbgleich(game) {
   }
 }
 // Spieler bewusstlos (Betäuber) bzw. gefesselt: liegt, keine Pistole, kein Ausbluten, niemand kann aufhelfen (B2 §2)
-function botGedaechtnis(game, p) { if (!p.bot) return; try { require('../bots/gedaechtnis.js').beiBewusstlos(game, p); } catch (e) { game.countError('bot-gedaechtnis', e); } }   // BOT-05 A4
+function botGedaechtnis(game, p) { try { require('../bots/gedaechtnis.js').beiBewusstlos(game, p); } catch (e) { game.countError('bot-gedaechtnis', e); } }   // BOT-05 A4
 function bewusstlosPlayer(game, p) {
   const it = interior();
   p.holT = 0;
