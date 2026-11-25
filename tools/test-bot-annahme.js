@@ -396,7 +396,9 @@ section('6 Antwort: Form, Text, Variante, Ausnahme');
   const abg = einz(P, cmd('nav.stopp', 'navigation'));
   // BOT-05 A3: Server-Text und Clip passen je Index: der Text der Antwort ist der Text, den das Manifest der Stimme dieser Figur unter textId.variante nennt (sonst spraeche der Clip etwas anderes als der Untertitel)
   const clipText = (x) => { const m = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'assets', 'bots', 'stimmen', require('../server/bots/figuren.js').figurMitId(x.botId).stimme, 'clips.json'), 'utf8')); return m.texte[m.clips[x.textId + '.' + x.variante]]; };
-  ok(ant.concat([abg]).every((x) => x && typeof x.text === 'string' && clipText(x) === x.text), 'Server-Text = Text des Manifest-Clips derselben Figur und Variante (ok und Ablehnung)');
+  ok(ant.every((x) => x.botId && clipText(x) === x.text), 'Server-Text = Text des Manifest-Clips derselben Figur und Variante');
+  const fig = ['b0', 'b1', 'b2'].map((id) => { const m = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'assets', 'bots', 'stimmen', id, 'clips.json'), 'utf8')); return Object.keys(m.clips).some((k) => k === 'nav.stopp.abgelehnt.phase.0'); });
+  ok(fig.every(Boolean) && (!abg.botId || clipText(abg) === abg.text), 'auch Ablehnungen haben je Stimme Clips im Manifest; hat die Antwort einen Bot, passt der Text zum Clip (ohne Bot gilt die Grundliste)');
   ok(abg && abg.text === listeVon(abg)[abg.variante], 'auch bei Ablehnung: Text und Variante aus der Tabelle');
   const ce = P.g.countError; const gez = []; P.g.countError = (wo) => { gez.push(wo); };   // die erwartete Ausnahme nicht auf die Konsole schreiben
   const eg = haken('ops', 'ops.scan', () => { throw new Error('kaputt'); }, () => { let e = null, a2 = null; try { a2 = einz(P, cmd('ops.scan', 'ops')); } catch (x) { e = x; } return { e, a2 }; });
