@@ -51,6 +51,7 @@ ok(s('Fast voll, Backbord leer.') === 'ausweichend', 'voll/leer ohne Zahl: auswe
 ok(s('Alle Schilde bei 100 Prozent.') === 'falsch', 'pauschaler Wert, der nicht fuer alle Sektoren stimmt: falsch');
 ok(A.schildeUrteil('Alle Schilde bei 50 Prozent.', { bug: 50, steuerbord: 50, heck: 50, backbord: 50 }).urteil === 'richtig', 'pauschaler Wert, der fuer alle stimmt: richtig');
 ok(s('Kurs 270 Grad, Bug 50 Prozent.') === 'richtig', 'Gradzahl in der Schilde-Antwort wird ignoriert');
+ok(s('Die Bugschilde liegen bei 50 Prozent. Backbord weist 0 Prozent auf. Steuerbord und Heck sind mit 100 Prozent stabil.') === 'falsch' && s('Die Bugschilde liegen bei 50 Prozent. Backbord weist 0 Prozent auf. Steuerbord 100 Prozent und Heck 13 Prozent.') === 'richtig', 'Zusammensetzungen (Bugschilde) zählen als Sektor; Heck 13 nicht 100');
 const sf = A.schildeUrteil('Bug 50 Prozent, Heck 14 Prozent.', S);
 ok(sf.abweichungen.length === 1 && sf.abweichungen[0].sektor === 'heck' && sf.abweichungen[0].genannt === 14 && sf.abweichungen[0].soll === 13, 'Abweichung nennt Sektor, genannten Wert und Soll');
 ok(A.schildeUrteil('Bug 3,5 Prozent', { bug: 3.5, steuerbord: 0, heck: 0, backbord: 0 }).urteil === 'richtig', 'Dezimalkomma wird nicht als Satzgrenze zerschnitten');

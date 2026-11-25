@@ -83,7 +83,7 @@ function schildeUrteil(antwort, soll) {
     const zs = zahlen(t).filter((z) => z.einheit !== 'grad' && z.einheit !== 'meter' && z.einheit !== 'zeit');
     if (!zs.length) continue;
     const sek = []; let m;
-    const re = /\b(bug|steuerbord|heck|backbord|vorne|vorn|hinten)\b/gi;
+    const re = /\b(bug|steuerbord|heck|backbord)|\b(vorne|vorn|hinten)\b/gi;   // auch Bugschilde, Heckschild, Backbordseite
     while ((m = re.exec(t))) { const s = sektorVon(m[0]); if (!sek.includes(s)) sek.push(s); }
     if (!sek.length) { for (const z of zs) pauschal.push(z.wert); continue; }
     const nimm = (s, w) => { (genannt[s] = genannt[s] || []).push(w); };
