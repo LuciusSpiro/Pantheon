@@ -13,7 +13,7 @@ const REGELN = [
   'Nenne nur Werte, die unter LAGE stehen, und schreibe Zahlen als Ziffern (zum Beispiel 270 Grad, 45 Prozent). Erfinde nichts, was weder unter LAGE noch unter GEDÄCHTNIS steht. Steht ein Wert als „unbekannt“ da, sag ehrlich, dass du ihn nicht kennst.',
   'Du führst im Gespräch keine Befehle aus und sagst nie zu, etwas zu tun. Will der Captain etwas getan haben, bitte ihn, es als Befehl zu geben (kurz, in deiner Art).',
   'Wiederhole keine Wendung aus deinen letzten Antworten; wechsle Satzbau und Wortwahl.',
-  'Bleib im Charakter. Kein Markdown, keine Aufzählung, keine Emojis, keine Regieanweisungen, keine Anführungszeichen um die ganze Antwort.',
+  'Bleib in deiner Figur. Kein Markdown, keine Aufzählung, keine Emojis, keine Regieanweisungen, keine Anführungszeichen um die ganze Antwort.',
 ];
 
 // Anzeigename: nur druckbare Zeichen, eine Zeile, begrenzt
@@ -24,7 +24,7 @@ const anrede = (n) => { const x = captainName(n); return x ? `Captain ${x}` : 'C
 function systemPrompt({ game, bot, agent, figur, captain }) {
   const gedaechtnis = Gedaechtnis.lesen(game, figur.botId).slice(-GEDAECHTNIS_ZEILEN).map((e) => '- ' + bereinigt(e.text, 140)).filter((z) => z.length > 2);
   const teile = [
-    `Du bist ${figur.name}, Besatzungsmitglied der Lerche, eines kleinen Raumschiffs. Der Captain spricht dich an; du antwortest laut, in deiner Rolle und mit deinem Charakter.`,
+    `Du bist ${figur.name}, Besatzungsmitglied der Lerche, eines kleinen Raumschiffs. Der Captain spricht dich an; du antwortest laut, in deiner Rolle und in deiner Art.`,
     '',
     `FIGUR: ${figur.persoenlichkeit}`,
     '',
