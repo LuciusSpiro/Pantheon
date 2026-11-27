@@ -269,10 +269,15 @@
   // ---------------------------------------------------------------- Unterseite TRAINING (TRA-01 A2)
   // Überlagerung wie die Moduswahl (nichts scheint durch): Kopf, fünf Kacheln, darunter die Kachel der Auswahl mit Start. Gesperrte Kacheln („folgt“) haben keine Klickfläche.
   const TK = { x: 32, y: 92, w: 108, h: 96, fuge: 9 }, TD = { x: 32, y: 204, w: 576, h: 116 };
-  // Platz für Paket C: erreicht = Gold gefüllt, sonst gestrichelter leerer Rahmen (k.abzeichen kommt aus MenueFluss.abzeichenStand)
+  // Abzeichen (TRA-01 C): erreicht = Gold gefüllt mit Haken, Kleintext darunter nennt die Variante (Captain: Tafel, Sprache oder beide); sonst gestrichelter leerer Rahmen
+  // (k.abzeichen kommt aus MenueFluss.abzeichenStand: false | { varianten })
+  const HAKEN = [[1, 4], [2, 5], [3, 6], [4, 5], [5, 4], [6, 3], [7, 2]];
   function abzeichenFeld(c, x, y, k) {
-    const s = 9; if (k.abzeichen) rect(c, x, y, s, s, MF.gold); else dash(c, x, y, s, s, MF.dim, 2);
-    txt(c, T.training.abzeichen, x + s + 5, y + 1, k.abzeichen ? MF.gold : MF.dim);
+    const s = 9, a = k.abzeichen;
+    if (a) { rect(c, x, y, s, s, MF.gold); for (const [px, py] of HAKEN) rect(c, x + px, y + py, 1, 2, MF.tinte); } else dash(c, x, y, s, s, MF.dim, 2);
+    txt(c, T.training.abzeichen, x + s + 5, y + 1, a ? MF.gold : MF.dim);
+    const v = a && a.varianten ? a.varianten.map((n) => T.training.abzeichenVariante[n]).filter(Boolean).join(' + ') : '';
+    if (v) txt(c, fit(v, TK.w - 16, 1), x, y + s + 4, MF.dim);
   }
   function trainingKachel(c, view, k, x, y, an) {
     const w = TK.w, h = TK.h, tx = T.training.kacheln[k.id];
@@ -288,7 +293,7 @@
     kappeM(c, x + 6, y + 6, k.taste, an ? MF.gold : MF.kappe, an ? MF.tinte : MF.kappeText);
     txtSp(c, fit(tx.name.toUpperCase(), w - 16, 1), x + 8, y + 28, an ? MF.gold : MF.text, MS.name.sp);
     R.wrap(tx.zeile, w - 16, 1).slice(0, 3).forEach((z, i) => txt(c, z, x + 8, y + 42 + i * 11, MF.dim));
-    abzeichenFeld(c, x + 8, y + h - 16, k);
+    abzeichenFeld(c, x + 8, y + h - 24, k);
     if (an) cursorRahmen(c, x, y, w, h);
     klick({ x, y, w, h }, tx.name, () => { F.trainingWaehleId(k.id); });
   }

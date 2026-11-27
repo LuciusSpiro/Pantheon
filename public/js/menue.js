@@ -16,6 +16,7 @@
       debug: () => { try { return new URLSearchParams(root.location.search).get('debug') === '1'; } catch (e) { return false; } },
       szenenIds: () => { const c = root.Shared_Config; return ((c && c.arena && c.arena.szenen) || []).map((z) => z.id); },
       charaktere: () => root.Charaktere,
+      abzeichen: () => root.Abzeichen,   // TRA-01 C: Browser-Speicher der Abzeichen (public/js/abzeichen.js)
       weltstandMax: () => { const c = root.Shared_Config; return (c && c.weltstand && c.weltstand.max) || 5; },
       oeffneKammer: () => { const c = root.Client; if (!(c && c.actions && c.actions.openKammer)) return false; c.actions.openKammer(); return true; },
       verlasseRaum: () => { const c = root.Client; return !!(c && c.actions && c.actions.verlasseRaum && c.actions.verlasseRaum()); },
@@ -45,7 +46,7 @@
     eingang: { abgelehnt: 'EINLADUNG ABGELEHNT', raumcode: 'RAUMCODE', satz: 'Code eingeben, den du vom Gastgeber bekommst.', knopf: 'An Bord gehen', falsch: 'Falscher Raumcode – bitte nachfragen.' },
     kammer: { lobby: 'In die Lobby', einladung: 'Zur Einladung', menue: 'Zum Hauptmenü', titel: 'Zum Titel' },
     karte: { du: 'DU', escZeile: ['Esc geht zum', 'Hauptmenü'], linkKopiert: 'Link kopiert!' },
-    training: { titel: 'Training', art: 'TRAINING', beschreibung: 'Abzeichen-Übungen: Fliegen, Captain und mehr', oeffnen: 'Training öffnen', kopf: 'TRAINING', untertitel: 'Eine Übung je Station. Fliegen und Captain sind startklar.', folgt: 'folgt', gesperrt: 'gesperrt', eingabe: 'Eingabe', tafel: 'Befehlstafel/Tasten', sprache: 'mit Sprache', start: 'In die Lobby', abzeichen: 'Abzeichen', zurueck: 'Zurück', waehlen: 'wählen', starten: 'Start',   // TRA-01 A2
+    training: { titel: 'Training', art: 'TRAINING', beschreibung: 'Abzeichen-Übungen: Fliegen, Captain und mehr', oeffnen: 'Training öffnen', kopf: 'TRAINING', untertitel: 'Eine Übung je Station. Fliegen und Captain sind startklar.', folgt: 'folgt', gesperrt: 'gesperrt', eingabe: 'Eingabe', tafel: 'Befehlstafel/Tasten', sprache: 'mit Sprache', start: 'In die Lobby', abzeichen: 'Abzeichen', abzeichenVariante: { tafel: 'Tafel', sprache: 'Sprache' }, zurueck: 'Zurück', waehlen: 'wählen', starten: 'Start',   // TRA-01 A2
       kacheln: { fliegen: { name: 'Fliegen', zeile: 'Tempo, Ruder, Sprung, Andocken' }, captain: { name: 'Captain', zeile: 'Karte, Marker, Bots führen' }, ops: { name: 'Ops', zeile: 'Waffen und Ladung' }, technik: { name: 'Technik', zeile: 'Systeme und Reaktor' }, aussen: { name: 'Außeneinsatz', zeile: 'Boden und Anzug' } } },
     gruppen: { spielen: 'SPIELEN', fortsetzen: 'FORTSETZEN', uebung: 'ÜBUNGSPLATZ', debug: 'STERNENSCHICHT (DEBUG)' },
   };
@@ -96,6 +97,7 @@
     const debugAn = () => !!(typeof opt.debug === 'function' ? opt.debug() : opt.debug);
     const szenenIds = () => (opt.szenenIds ? opt.szenenIds() : []) || [];
     const charaktere = () => (typeof opt.charaktere === 'function' ? opt.charaktere() : opt.charaktere) || null;
+    const abzeichenQuelle = () => (typeof opt.abzeichen === 'function' ? opt.abzeichen() : opt.abzeichen) || null;
     const LOBBY_OPT = () => (proto().C && proto().C.LOBBY_OPT) || 'lobbyOpt';
     const maxWelten = () => +(typeof opt.weltstandMax === 'function' ? opt.weltstandMax() : opt.weltstandMax) || 5;
     const READY = () => (proto().C && proto().C.READY) || 'ready';
@@ -104,7 +106,7 @@
     // unterseite = 'training' | null (TRA-01 A2: liegt über Hauptmenü bzw. Moduswahl); trainingAuswahl = id der gewählten startbaren Kachel; trainingSprache = Merker „Captain mit Sprache“ (wird beim Start mitgesendet)
     // schirm: 'titel' | 'menue' | 'lobby' | 'einladung'; auswahl = id des gewählten Eintrags (Hauptmenü und Moduswahl-Überlagerung teilen sie);
     // abgelehnt = die Einladung wurde bewusst abgelehnt (der Raumcode-Eingang zeigt dann keinen Fehlerton); modusOffen = Moduswahl-Überlagerung in der Lobby; tutorial = Eisenwald mit Tutorial (Merker für den nächsten Start); lobbyModus = zuletzt gesehener Modus der Lobby (nur dessen Wechsel setzt den Merker); einladungCursor = Platz in der Charakterliste der Einladung
-    const store = { schirm: 'titel', unterseite: null, trainingAuswahl: 'fliegen', trainingSprache: false, auswahl: null, modusOffen: false, tutorial: true, lobbyModus: null, modusPruefen: false, einladungCursor: 0, abgelehnt: false, version: null, rev: 0 };
+    const store = { schirm: 'titel', unterseite: null, trainingAuswahl: 'fliegen', trainingSprache: false, abzeichen: null, auswahl: null, modusOffen: false, tutorial: true, lobbyModus: null, modusPruefen: false, einladungCursor: 0, abgelehnt: false, version: null, rev: 0 };
     const aenderung = () => { store.rev++; };
     // HYG-02 A: Versionsnummer (Server: GET /version.json = package.json); null = unbekannt, die Zeile bleibt dann leer. Ein Fehler beim Holen ändert nichts am Menü.
     function setzeVersion(v) { store.version = typeof v === 'string' && /^\d+\.\d+\.\d+[\w.+-]*$/.test(v) ? v : null; aenderung(); return store.version; }
@@ -231,11 +233,17 @@
       { id: 'technik', taste: '4', modus: null },
       { id: 'aussen', taste: '5', modus: null },
     ];
-    // Paket C (Abzeichen): erreicht/nicht erreicht je Kachel – hier der einzige Platz dafür; A2 liefert noch nichts (immer false), C liest den Browser-Speicher.
-    function abzeichenStand(id) { return false; }
+    // Paket C (Abzeichen): erreicht/nicht erreicht je Kachel aus dem Browser-Speicher (Abzeichen.ueberblick). Der Stand wird beim Öffnen der Unterseite NEU gelesen (abzeichenNeuLesen), nicht je Frame;
+    // false = nicht erreicht, { varianten: ['tafel','sprache'] } = erreicht (Captain mit den erreichten Varianten). Ohne Speicher/Modul: false. Nichts im Spiel liest das.
+    function abzeichenNeuLesen() {
+      const A = abzeichenQuelle(); let r = {};
+      try { r = (A && A.ueberblick()) || {}; } catch (e) { r = {}; }
+      store.abzeichen = r; aenderung(); return r;
+    }
+    function abzeichenStand(id) { if (!store.abzeichen) { const A = abzeichenQuelle(); try { store.abzeichen = (A && A.ueberblick()) || {}; } catch (e) { store.abzeichen = {}; } } return store.abzeichen[id] || false; }
     function trainingKacheln() {
       const modi = proto().LOBBY_MODI || [];
-      return TRAINING_KACHELN.map((k) => { const startbar = !!(k.modus && modi.includes(k.modus)); return Object.assign({}, k, { startbar, gesperrt: !startbar, sprachwahl: !!k.sprachwahl, abzeichen: abzeichenStand(k.id) }); });
+      return TRAINING_KACHELN.map((k) => { const startbar = !!(k.modus && modi.includes(k.modus)); return Object.assign({}, k, { startbar, gesperrt: !startbar, sprachwahl: !!k.sprachwahl, abzeichen: startbar ? abzeichenStand(k.id) : false }); });
     }
     const trainingStartbare = () => trainingKacheln().filter((k) => k.startbar);
     // gewählte Kachel (immer eine startbare; sonst die erste), null wenn keine startbar ist
@@ -244,7 +252,7 @@
     // Öffnen aus dem Hauptmenü (Enter auf TRAINING) oder aus der Moduswahl der Lobby; steht die Lobby gerade auf dem Captain-Training, gilt deren Eingabewahl
     function oeffneUnterseite(e, lob) {
       if (!e || !e.unterseite) return { ok: false, grund: 'keine-unterseite' };
-      store.unterseite = e.unterseite;
+      store.unterseite = e.unterseite; abzeichenNeuLesen();
       const g = trainingGewaehlt(); store.trainingAuswahl = g ? g.id : 'fliegen';
       if (lob && lob.startMission === 'training_captain') store.trainingSprache = lob.trainingSprache === true;
       aenderung(); return { ok: true, unterseite: store.unterseite };
@@ -509,7 +517,7 @@
       bewege, waehleTaste, waehleEintragId, schalteTutorialMerker, schalteTutorialDerRunde, nachrichtFuer, bestaetige, oeffneModusWahl, schliesseModusWahl,
       starte, weiter, zurueck, imRaum, weltstaende, weltstandGewaehlt, neuerWeltstandGewaehlt, sichtbarenModusSichern, einladungAblehnen, einladungNeuerCharakter, laborAuswahl, startOptionen, bewegeEinladung, setzeEinladungCursor, einladungAnnehmen, einladungAufGewaehlten,
       gastgeber, zaehlung, verbunden, BOT_ROLLEN, botRollenFrei, botNaechsteRolle, botLetzter, optionenFuer, optionFuerTaste,
-      TRAINING_KACHELN, abzeichenStand, trainingKacheln, trainingGewaehlt, unterseiteOffen, oeffneUnterseite, schliesseUnterseite, trainingBewege, trainingWaehleId, trainingWaehleTaste, setzeTrainingSprache, schalteTrainingSprache, trainingSprachwahl, trainingNachricht, trainingStarte,
+      TRAINING_KACHELN, abzeichenStand, abzeichenNeuLesen, trainingKacheln, trainingGewaehlt, unterseiteOffen, oeffneUnterseite, schliesseUnterseite, trainingBewege, trainingWaehleId, trainingWaehleTaste, setzeTrainingSprache, schalteTrainingSprache, trainingSprachwahl, trainingNachricht, trainingStarte,
       eintragTitel, modusTitel, bereitAnzeige, eintragAktiv, kammerKnopfText, titelUmbruch, lobbyKopf, satzZeile, lobbyChips, chipReihen, grabenAbschnitte, laborSatz, einladungBesatzung, raumcodeEingang,
     };
   }

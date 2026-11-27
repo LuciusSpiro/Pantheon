@@ -2,7 +2,7 @@
 // TRA-01 A2: Trainingsmenü – Eintrag TRAINING (Taste T) im Hauptmenü, Unterseite mit fünf Kacheln (Fliegen, Captain startbar; Ops, Technik, Außeneinsatz gesperrt „folgt“),
 // Captain-Eingabewahl (Befehlstafel/Tasten oder mit Sprache → lobbyOpt trainingSprache). Zustand und Regeln: public/js/menue.js (Node, ohne Browser), Tastenzuordnung: public/js/menue-ui.js taste().
 //   Eintrag     TRAINING, Taste T, Übungsplatz-Gruppe, ohne Debug sichtbar, deckt genau die Trainingsmodi ab; T wählt, Enter öffnet die Unterseite (sendet nichts), Esc schließt sie
-//   Kacheln     fünf; drei gesperrt: weder per Taste noch per Klick-Action wählbar, nie startbar; Abzeichen-Stand (Paket C) vorerst false
+//   Kacheln     fünf; drei gesperrt: weder per Taste noch per Klick-Action wählbar, nie startbar; Abzeichen-Stand ohne Speicher false
 //   Start       Fliegen/Captain senden Modus wie jeder Menüeintrag und wechseln in die Lobby; Captain trägt die Eingabewahl (Standard false), der echte Server nimmt sie an
 //   Lobby       training_captain hat die Option S (Eingabe) als Chip und Taste; Moduswahl der Lobby öffnet dieselbe Unterseite
 //   Tasten      Strg/Alt/Meta+Buchstabe/Ziffer startet nichts und wird nicht verbraucht
@@ -75,7 +75,7 @@ function pruefe(api, quelleUi, laut) {
     p(ks.filter((k) => k.startbar).every((k) => Protocol.LOBBY_MODI.includes(k.modus)) && gleich(ks.filter((k) => k.startbar).map((k) => k.modus), TRAINING_MODI), 'startbare Kacheln tragen Modi aus LOBBY_MODI');
     p(new Set(ks.map((k) => k.taste)).size === 5 && ks.every((k) => F.TEXT.training.kacheln[k.id] && F.TEXT.training.kacheln[k.id].name), 'Tasten 1–5 eindeutig, jede Kachel hat Name und Zeile');
     p(F.TEXT.training.folgt === 'folgt', 'Beschriftung gesperrter Kacheln: „folgt“');
-    p(ks.every((k) => k.abzeichen === false) && F.abzeichenStand('fliegen') === false && F.abzeichenStand('captain') === false, 'Abzeichen-Stand (Paket C): vorerst für alle Kacheln false');
+    p(ks.every((k) => k.abzeichen === false) && F.abzeichenStand('fliegen') === false && F.abzeichenStand('captain') === false, 'Abzeichen-Stand (Paket C): ohne Browser-Speicher für alle Kacheln false (Paket C: tools/test-training-abzeichen.js)');
     const ohne = api.erzeuge({ protokoll: { LOBBY_MODI: ['m1'] }, senden: () => true, debug: false });
     p(ohne.trainingKacheln().every((k) => k.gesperrt), 'kennt das Protokoll die Trainingsmodi nicht, ist alles gesperrt (startbar nur mit Lobby-Modus)'); }
 

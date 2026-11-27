@@ -1241,7 +1241,7 @@
     if (Net.guard('Client.eventM3', () => onEventM3(ev), false)) return;
     if (Net.guard('Client.eventB', () => onEventB(ev), false)) return;
     switch (ev.kind) {
-      case 'oda': H.pushOda(ev.text); break;
+      case 'oda': if (window.Abzeichen && Abzeichen.istOdaZeile(ev.text)) break; H.pushOda(ev.text); break;   // TRA-01 C: „Abzeichen erreicht: …“ zeigt Abzeichen.beiEreignis als Hinweis (die ODA steht nicht an der Konsole): genau eine Meldung
       case 'funkAntwort': if (!ev.ok && ev.pid === Client.pid) { H.pushNotice(ev.text, PAL.warn); audio.play('error'); } break;
       case 'fadenBitteAntwort': if (!ev.ok && ev.pid === Client.pid) { H.pushNotice(ev.text, PAL.warn); audio.play('error'); } break;   // SUND-04a-2 P2: Weigerung der Bitte eines Fadens (wie funkAntwort)   // SUND-03b A: Weigerung des Servers (schon beantwortet, kein Angebot mehr, nicht ruhig)
       case 'odaWeg': H.odaWeg(); break;
