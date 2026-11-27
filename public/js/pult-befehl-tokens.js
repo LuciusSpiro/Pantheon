@@ -30,7 +30,7 @@
     tafel: { x: 62, y: 262, w: 572, h: 64, deckeRand: 2 },
     raster: { x: 62, y: 275, zw: 188, zh: 14, sx: 4, sy: 3, spalten: 3, reihen: 3, infoRechts: 5 },
     faenger: { x: 60, y: 261, w: 576, h: 65 },   // deckender Klickfänger über der ganzen Tafel (Titelzeile bis letzte Reihe): leere Felder und Lücken schlucken Klicks, der Reiter-Knopf darunter bleibt unberührt
-    crew: { x: 62, y: 330, breiten: [88, 64, 92, 70, 82, 82, 70], zh: 14, sx: 4, trenner: 327, trennerAlpha: 0.35 },   // TRA-01 Nacharbeit S4: sieben Knöpfe (Befehle + 6 Direkttasten) in 572 px, je nach Textlänge verschieden breit
+    crew: { x: 62, y: 330, breiten: [70, 64, 92, 70, 92, 92, 68], zh: 14, sx: 4, trenner: 327, trennerAlpha: 0.35 },   // TRA-01 Nacharbeit S4: sieben Knöpfe (Befehle + 6 Direkttasten) in 572 px, je nach Textlänge verschieden breit
     einblendung: { deckung: 0.92 },   // Ego-Sitz, Blick VORN/CREW: Tafel und Crew-Zeile (y 261 bis 346) mit dieser Deckung über dem Bild
   };
   const ZEIT = { autoZu: 6000, frage: 3000, sperrGrund: 2000, warten: 3000, aye: 2000, nein: 4000, keineAntwort: 2000, ausstehend: 12000 };

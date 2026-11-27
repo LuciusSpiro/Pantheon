@@ -97,7 +97,9 @@ function kern(Mod) {
     { const a = bau(Mod, { pult: 'ohneS' }); p(a.api.platz(a.view(), 80) === null); }   // Pult meldet sich ohne Statusleiste: nichts raten
     { const a = bau(Mod, { konsole: 'captain', buch: 'tra_captain', S: 258, tab: 2 }); const pl = a.api.platz(a.view(), 90); p(pl && pl.x >= 506 && pl.kompakt === false);
       const b = bau(Mod, { konsole: 'captain', buch: 'tra_captain', S: 258, tab: 1 }); const pk = b.api.platz(b.view(), 90); p(pk && pk.kompakt === true && pk.x === 69 && pk.y === 14);   // S6: Streifen der Sternkarte oben links auf der Karte, nicht über der Kanten-Legende
-      const c = bau(Mod, { konsole: 'captain', buch: 'tra_captain', S: 258, tab: 0 }); p(c.api.platz(c.view(), 90) === null); c.api.zeichne(c.f.ctx, c.view()); p(c.f.calls.texte.length === 0); }   // S5: Funk-Reiter zeigt die volle Liste selbst: kein Streifen
+      const c = bau(Mod, { konsole: 'captain', buch: 'tra_fliegen', S: 258, tab: 0 }); p(c.api.platz(c.view(), 90) === null);   // auch an der fremden Konsole (Captain im Fliegen-Training): der Funk-Reiter zeigt die Liste selbst
+      c.api.zeichne(c.f.ctx, c.view()); p(c.f.calls.texte.length === 0);
+      const c2 = bau(Mod, { konsole: 'captain', buch: 'tra_captain', S: 258, tab: 0 }); p(c2.api.platz(c2.view(), 90) === null); c.api.zeichne(c.f.ctx, c.view()); p(c.f.calls.texte.length === 0); }   // S5: Funk-Reiter zeigt die volle Liste selbst: kein Streifen
     { const a = bau(Mod, { konsole: 'captain', buch: 'tra_captain', S: 258, tab: 2, objs: [{ text: 'Marker setzen (Reiter 3, Lagekarte anklicken)', done: false }] }); a.api.zeichne(a.f.ctx, a.view());   // S2: umbrechen statt kürzen
       const z = a.f.calls.texte.map((t) => t.s).join(' '); p(/anklicken\)/.test(z) && !/…/.test(z) && a.f.calls.texte.filter((t) => /Marker|Reiter|Lagekarte|anklicken/.test(t.s)).length >= 2); }
     { const a = bau(Mod, { konsole: 'weapons', S: 197, buch: 'tra_fliegen' }); a.api.zeichne(a.f.ctx, a.view()); const r = a.f.calls.rects[0];   // S7: an der Ops-Konsole kein Steuer-Tastenhinweis, nur der Streifen
@@ -112,7 +114,8 @@ function kern(Mod) {
     { const a = bau(Mod, {}); a.api.ziele({ mission: mission('tra_fliegen', ZIELE7) }, { title: 'T', objs: ZIELE7 }); a.api.abschluss({ id: 'tra_fliegen', ausgang: 'verloren' });
       p(a.api.ziele({ mission: mission(null, []) }, { title: 'Frei', objs: [] }).title === 'Frei'); }   // verloren: keine Abschlussliste
     { const a = bau(Mod, {}); a.api.ziele({ mission: mission('tra_fliegen', ZIELE7) }, { title: 'T', objs: ZIELE7 }); a.api.abschluss({ id: 'tra_fliegen', ausgang: 'erfolg' });
-      p(a.api.ziele({ mission: mission('tra_fliegen', ZIELE7) }, { title: 'T', objs: ZIELE7 }).rest === undefined && a.api.eingefroren({ mission: mission(null, []) }) === null); }   // neuer Versuch (Pflichtziele wieder offen) beendet den Abschluss
+      a.api.ziele({ mission: mission('tra_fliegen', ZIELE7) }, { title: 'T', objs: ZIELE7 }); p(a.api.eingefroren({ mission: mission(null, []) }) !== null);   // Snapshot des Abschlusses (Ziele noch offen) beendet ihn nicht sofort
+      a.zeit.t += 3; a.api.ziele({ mission: mission('tra_fliegen', ZIELE7) }, { title: 'T', objs: ZIELE7 }); p(a.api.eingefroren({ mission: mission(null, []) }) === null); }   // neuer Versuch (Pflichtziele wieder offen) beendet den Abschluss
     { const a = bau(Mod, { oda: { text: 'S nimmt eine Stufe zurück. Die Stufe steht am Temporegler.' } }); a.api.zeichne(a.f.ctx, a.view());
       p(a.f.calls.fills.filter((r) => r.c === '#M' && r.w === 3 && r.h === 3).length === 2);   // zwei Haken
       p(a.f.calls.texte.some((t) => /\(opt\.\)$/.test(t.s)));
@@ -210,7 +213,7 @@ section('Verdrahtung (Quelltext)', () => {
   ok(block && block[0].includes('TrainingHud.zeichne'), 'der Aufruf steht im Zweig „Spieler an einer Konsole“ (zu Fuß zeichnet nur das HUD)');
   ok(/js\/training-hud\.js/.test(Q_INDEX), 'index.html lädt training-hud.js');
   ok(/const \{ title, objs, rest \} = this\.zieleVon\(st\)/.test(Q_HUD), 'drawObjectives liest die Ziele aus Hud.zieleVon (eine Quelle für HUD und Konsole)');
-  ok(/window\.TrainingHud\.ziele\(st, q\)/.test(Q_HUD) && /TrainingHud\.abschluss\(ev\)/.test(Q_CLIENT) && /TH\.eingefroren\(st\)/.test(Q_CONSOLES) && /TrainingHud\.laeuft\(st\)/.test(Q_HUD), 'S3: Hud.zieleVon ruft TrainingHud.ziele, client.js meldet den Abschluss, Funk-Reiter und HUD fragen laeuft/eingefroren');
+  ok(/window\.TrainingHud\.ziele\(st, q\)/.test(Q_HUD) && /TrainingHud\.abschluss\(ev\)/.test(Q_CLIENT) && /TH\.eingefroren\(st\)/.test(Q_CONSOLES) && [Q_CONSOLES, Q_HUD, Q_CLIENT].every((q) => { try { new Function(q); return true; } catch (e) { return false; } }) &&/TrainingHud\.laeuft\(st\)/.test(Q_HUD), 'S3: Hud.zieleVon ruft TrainingHud.ziele, client.js meldet den Abschluss, Funk-Reiter und HUD fragen laeuft/eingefroren');
   ok(/if \(!inConsole\) \{[\s\S]{0,200}drawObjectives/.test(Q_HUD), 'das HUD zeichnet seine Zielliste weiter nur zu Fuß (nicht doppelt)');
   ok(/abschlussSchonGemeldet\(ev\)/.test(Q_CLIENT) && /case 'missionDone'/.test(Q_CLIENT), 'client.js: missionDone fragt abschlussSchonGemeldet');
 });

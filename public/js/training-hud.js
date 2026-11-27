@@ -25,6 +25,7 @@
   const HINWEIS_ZEILEN = 3;      // Hinweis: höchstens drei Zeilen (die letzte endet mit „…“, wenn der Text länger ist)
   const HINWEIS_DAUER = 25;      // s: so lange bleibt die letzte ODA-Zeile in der Liste stehen, nachdem die ODA selbst verschwand
   const ZEILE = 10, RAND = 5, KOPF = 13;
+  const ABSCHLUSS_RUHE = 2;      // s nach dem Abschluss, in denen ein Snapshot mit dem alten Buch den Abschluss nicht beendet (Ereignis und Snapshot kommen nicht im selben Takt)
   const NEUSTART_STD = 8;        // s nach dem Abschluss bis zum Neustart (Server: Protocol.TRAINING_NEUSTART_S)
   // Heimatkonsole je Buch: dort steht die volle Liste; an jeder anderen Konsole nur ein Streifen „am Steuer: …“ ohne Tasten (die Tasten gehören der Heimatkonsole)
   const HEIMAT = [['tra_fliegen', 'helm', 'Steuer'], ['tra_captain', 'captain', 'Captain']];
@@ -39,7 +40,7 @@
   const SLOTS = {
     helm: { x: 446, w: 186, unten: 6, hoeheMax: 130 },
     weapons: { x: 472, w: 160, unten: 28, hoeheMax: 106 },
-    captain: { x: 510, w: 122, unten: 20, hoeheMax: 150, kompakt: [1], still: [0], kx: 486, kw: 146, kompaktOrt: { 1: { x: 69, y: 14, w: 146 } } },   // kx/kw: Streifen (breiter, die Spalte der Sternkarte beginnt bei x 485); die Liste beginnt rechts der Karte des Reiters Lage (Kante x 506)
+    captain: { x: 510, w: 122, unten: 20, hoeheMax: 128, kompakt: [1], still: [0], kx: 486, kw: 146, kompaktOrt: { 1: { x: 69, y: 14, w: 146 } } },   // kx/kw: Streifen (breiter, die Spalte der Sternkarte beginnt bei x 485); die Liste beginnt rechts der Karte des Reiters Lage (Kante x 506)
   };
   const KOMPAKT_H = 22;
   const SITZ_VORN = { x: 4, y: 4, w: 170 };   // Voxel-Sitz, Blick Hauptschirm/Crew: oben links frei (die ODA steht mittig ab x 178)
@@ -69,7 +70,7 @@
     function ziele(state, q) {
       const mission = state && state.mission;
       if (istTraining(mission)) {
-        if (((q && q.objs) || []).some((o) => o && !o.done && !o.optional)) abschlussT = null;   // neuer Versuch (Pflichtziele wieder offen); das Ereignis kann dem Snapshot vorauseilen: dann stehen noch alle Haken
+        if (abschlussT != null && dep('jetzt') - abschlussT > ABSCHLUSS_RUHE && ((q && q.objs) || []).some((o) => o && !o.done && !o.optional)) abschlussT = null;   // neuer Versuch (Pflichtziele wieder offen); das Ereignis kann dem Snapshot vorauseilen, dann zählt der Schnappschuss des Abschlusses noch nicht
         letzte = { titel: q && q.title, objs: ((q && q.objs) || []).map((o) => ({ text: o && o.text, done: !!(o && o.done), optional: !!(o && o.optional) })), id: mission.active.id };
         return q;
       }
@@ -121,7 +122,7 @@
       const tab = C && typeof C.tab === 'number' ? C.tab : 0;
       const kompakt = fremd(view) || !!(s.kompakt && s.kompakt.includes(tab));   // fremde Konsole: nur der Streifen
       const ort = kompakt && s.kompaktOrt ? s.kompaktOrt[tab] : null;
-      return Object.assign({}, s, kompakt && s.kx != null ? { x: s.kx, w: s.kw } : {}, ort || {}, { kompakt, still: !!(s.still && s.still.includes(tab) && !fremd(view)), tab });
+      return Object.assign({}, s, kompakt && s.kx != null ? { x: s.kx, w: s.kw } : {}, ort || {}, { kompakt, still: !!(s.still && s.still.includes(tab)), tab });
     }
     // Text auf Pixelbreite kürzen („…“)
     const kuerze = (text, w) => {
@@ -150,7 +151,7 @@
       const zeilen = zielZeilen(m, w, hMax);
       const grund = KOPF + zeilen.reduce((s, x) => s + x.length, 0) * ZEILE + (m.mehr ? ZEILE : 0) + RAND - 1;
       const platzZeilen = Math.max(0, Math.floor(((hMax == null ? Infinity : hMax) - grund - 5) / ZEILE));
-      const alle = m.hinweis ? R.wrap(m.hinweis, w - 2 * RAND, 1) : [];
+      const alle = !m.hinweis ? [] : m.abschluss ? m.hinweis.split(' · ') : R.wrap(m.hinweis, w - 2 * RAND, 1);   // Abschluss: „Abzeichen erreicht“ und „Neustart in N s“ je eine Zeile (kein einsames „s“)
       const n = Math.min(HINWEIS_ZEILEN, platzZeilen);
       const hint = alle.slice(0, n);
       if (alle.length > hint.length && hint.length) hint[hint.length - 1] = kuerze(hint[hint.length - 1] + '…', w - 2 * RAND);   // abgeschnitten: sichtbar machen

@@ -101,9 +101,14 @@ async function lauf(render, port) {
     if (NUR.includes('zufuss')) { Interior.konsoleVerlassen(g, p, 'sicht'); await sleep(voxel ? 2500 : 900); await shot('zufuss', 700); }
     if (NUR.includes('abschluss') && !voxel && BUCH === 'fliegen') {   // S3: echter Abschluss; die Bilder müssen innerhalb der 8 s bis zum Neustart fallen
       await anSitz('helm');
+      await page.evaluate(() => { window.__ab = []; const o = TrainingHud.abschluss; TrainingHud.abschluss = (ev) => { window.__ab.push(JSON.stringify(ev)); return o(ev); }; });   // DEBUG
+      console.log('vor Abschluss:', JSON.stringify(await page.evaluate(() => { const m = __game.state.mission; return { aktiv: m.active && m.active.id, istT: TrainingHud.istTraining(m), q: Hud.zieleVon(__game.state).title, laeuft: TrainingHud.laeuft(__game.state) }; })));
       g.mission.flags.trainingFertig = true;
       await sleep(1200);
       await shot('abschluss-steuer', 100);
+      const lg = await page.evaluate(() => ({ laeuft: window.TrainingHud.laeuft(__game.state), aktiv: __game.state.mission.active && __game.state.mission.active.id, ziele: Hud.zieleVon(__game.state), ab: window.__ab }));
+      console.log(render, 'Abschluss im Client:', JSON.stringify(lg).slice(0, 400));
+      if (!lg.laeuft) fehler.push(render + ': nach dem Abschluss kennt der Client das Training nicht mehr (Liste weg)');
       await anSitz('captain'); await page.keyboard.press('1'); await sleep(200); await shot('abschluss-captain-funk', 100);
       Interior.konsoleVerlassen(g, p, 'sicht'); await sleep(500); await shot('abschluss-zufuss', 100);
       console.log(render, 'Abschluss-Stand: Neustart-Versuch', g.arena.training.versuch, 'Zeit seit Erfolg', (g.time - g.arena.training.erfolgAb).toFixed(1), 's');

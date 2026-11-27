@@ -61,6 +61,7 @@ async function bild(page, name) {
   await page.screenshot({ path: f });
   log('Bild ' + f);
 }
+const meldungWarten = (page) => page.waitForFunction(() => (Hud.notices || []).some((n) => /^Abzeichen erreicht/.test(n.text)), null, { timeout: 20000 }).catch(() => {});
 const taste = async (page, k) => { await page.keyboard.press(k); await page.waitForTimeout(150); };
 const stand = (page) => page.evaluate(() => Object.fromEntries(MenueFluss.trainingKacheln().map((k) => [k.id, k.abzeichen])));
 const speicherInhalt = (page) => page.evaluate((key) => { try { return localStorage.getItem(key); } catch (e) { return 'WIRFT'; } }, KEY);
@@ -128,7 +129,7 @@ const meldungen = (page) => page.evaluate(() => ({
       ok(await trainingStarten(page, srvB), 'Training Fliegen läuft');
       await bild(page, '06-im-training-vor-dem-ziel');
       srvB.game.mission.flags.trainingFertig = true;
-      await sleep(1800);
+      await meldungWarten(page);   // Nacharbeit R2: auf die Meldung warten statt fest 1,8 s (Software-GL und ein belasteter Rechner brauchen länger)
       const m = await meldungen(page);
       ok(m.hinweise.filter((t) => /^Abzeichen erreicht: Fliegen/.test(t)).length === 1, 'genau ein Hinweis „Abzeichen erreicht: Fliegen“ im HUD: ' + JSON.stringify(m.hinweise));
       ok(!m.oda.some((t) => /Abzeichen/.test(t)), 'die ODA-Zeile des Servers wird nicht zusätzlich gezeigt (ODA-Warteschlange: ' + JSON.stringify(m.oda) + ')');
@@ -159,7 +160,7 @@ const meldungen = (page) => page.evaluate(() => ({
       await bild(page, '09-ohne-speicher-unterseite');
       ok(await trainingStarten(page, srvD), 'Training Fliegen läuft ohne Speicher');
       srvD.game.mission.flags.trainingFertig = true;
-      await sleep(1800);
+      await meldungWarten(page);   // Nacharbeit R2: auf die Meldung warten statt fest 1,8 s (Software-GL und ein belasteter Rechner brauchen länger)
       const m = await meldungen(page);
       ok(m.hinweise.filter((t) => /^Abzeichen erreicht: Fliegen/.test(t)).length === 1, 'die Meldung kommt trotzdem (einmal): ' + JSON.stringify(m.hinweise));
       await bild(page, '10-ohne-speicher-meldung');
