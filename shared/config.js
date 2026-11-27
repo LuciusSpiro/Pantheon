@@ -773,6 +773,15 @@
     // trefferFenster_s: ein System, das gerade eine Stufe verloren hat, verliert innerhalb dieser Zeit keine weitere (Salven im selben Moment brauchen nicht zwei Stufen auf).
     systemModell: {
       integ: { default: 10, reactor: 12, shields: 12 },   // Maximum je System (Start, Reparatur voll, abgeleiteter Wert je Stufe)
+      // TEC-01 A1: Komponenten der Schildkette (server/sim/komponenten.js). Rezept = Liste der Komponentenarten (K Steuerkern, S Spannungsregler, R Relais, L Leitung);
+      // systeme ordnet einem System sein Rezept zu (ein neues System mit Komponenten = eine Zeile). Systemzustand: 0 defekt ok, 1 beschädigt, ab 2 zerstört. Systeme ohne Zeile bleiben systemweit.
+      komponenten: {
+        rezepte: { schilde: ['K', 'S', 'R'], emitter: ['R', 'L'] },
+        ueberlast: { schilde: 'S' },   // Komponentenart, die die Überlast (Hitze bei Energie 4) zuerst trifft, je Rezept
+        sprungBruch: { grund: 0.3, proSprung: 0.1 },   // Bruchwahrscheinlichkeit eines Flickens je Sprung: grund + proSprung * (überstandene Sprünge), höchstens 1 (Standard im Format-Modul identisch; ein Test prüft den Gleichstand)
+        ausfallSperre: 3,   // ab so vielen Ausfällen (Relais, Steuerkern) ist das Relais verschlissen: kein Minispiel mehr, nur Flicken oder Tausch
+        systeme: { shields: 'schilde', emitter_bow: 'emitter', emitter_stbd: 'emitter', emitter_aft: 'emitter', emitter_port: 'emitter' },
+      },
       reparatur: { damaged: 0.5 },   // Grundwert nach Reparatur auf beschädigt (Anteil des Maximums); ok = Maximum
       trefferFenster_s: 0.25,     // s: Treffer-Fenster je System (SYS-03 B1); ein Treffer im Fenster sucht ein anderes System der Zone. Sturm-Treffer haben ein eigenes, längeres Fenster (sturm.trefferFenster_s)
       reaktorFenster_s: 6,        // s: eigenes Treffer-Fenster des Reaktors (SYS-03 D, Binär-Prüfung): zwei Stufen am Reaktor brauchen mindestens so lange (Lerche, Gegner, Verbündete gleich); ein Treffer im Fenster sucht ein anderes System der Mitte

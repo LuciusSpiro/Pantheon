@@ -12,6 +12,7 @@ const CONFIG = require('../shared/config.js');
 const { Game } = require('../server/game.js');
 const Finale = require('../server/sim/finale.js');
 const Kriegslage = require('../server/sim/kriegslage.js');
+const { makeRng } = require('../server/util.js');
 
 const HZ = CONFIG.tickHz;
 const RW = require('../content/welt/ruf-werte.json').werte;
@@ -53,6 +54,9 @@ function neuesSpiel(seed, crew, opts, tmp) {
 const PASSIV_VERLUST_NACH = 90;   // s: passive Crew verliert nach dieser Kampfzeit über die Naht verlustAusloesen (Hülle entfällt)
 async function lauf(seed, crew, o) {
   const opt = o || {};
+  // TEC-01 Nacharbeit 1.7: der Kampf-Bot zieht seinen Zufall aus EINEM Modulstrom (bots/kern.js simRng), den ein Lauf sonst vom vorigen erbt: dasselbe (seed, crew) gab je nach den
+  // Läufen davor ein anderes Ergebnis (Test im Prozess nach anderen Läufen != Sim-Tool allein). Wie runScenario/golden-trace: je Lauf neu aus (seed, crew) setzen.
+  Sim.setSimRng(makeRng(seed * 7919 + crew));
   const tmp = opt.tmp || fs.mkdtempSync(path.join(os.tmpdir(), 'pantheon-orbitbot-'));
   const { game: g, agents } = neuesSpiel(seed, crew, { passiv: !!opt.passiv }, tmp);
   g.space.enemies = [];

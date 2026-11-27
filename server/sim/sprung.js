@@ -24,6 +24,7 @@ let spaceMod = null;   // lazy wegen Zirkelbezug space -> sprung
 const space = () => spaceMod || (spaceMod = require('./space.js'));
 let reiseMod = null;
 const Reise = () => reiseMod || (reiseMod = require('./reise.js'));
+const Komp = () => require('./komponenten.js');   // TEC-01 C: Sprungbruch der Notflicken
 const SK = (game) => (game.C && game.C.sektoren) || {};
 
 // ---------- Tutorial (CONTRACT-B3 §0.1, CONTRACT-W1 §4) ----------
@@ -196,6 +197,7 @@ function springeNach(game, dest) {
   const pflicht = anflugPflicht(game);
   game._jumpAuto = false;
   Reaktortod.sprungZurueck(game);   // SYS-01 A2a: jeder Sprung setzt den Ausfallzähler des Reaktors zurück
+  Komp().sprungBruch(game);   // TEC-01 C: jeder Sprung (auch jeder Hop des Schnellsprungs) bricht Notflicken der Schildkette mit Wahrscheinlichkeit
   if (vonHex && nachHex) game._jumpSperre = Sektoren.kanteId(vonHex, nachHex);   // Gegen-Sprungpunkt der Ankunft: erst verlassen, dann wieder Ziel
   game.emit('sfx', { name: 'jump' });
   Kriegslage.tick(game, 'sprung', dest);   // SUND-01 B: ein Tick je Sprung (auch jeder Hop des Schnellsprungs), vor dem Szenenaufbau; ohne Modus nichts
@@ -359,6 +361,7 @@ function notsprung(game) {
   const reaktorZerstoert = ship.systems.reactor === 'broken';
   notrueckholungBeimSprung(game);
   Reaktortod.sprungZurueck(game);
+  Komp().sprungBruch(game);   // TEC-01 C: der Notsprung bricht Flicken ZUERST, danach erst der Notsprung-Systemschaden (kein Flicken doppelt behandelt)
   if (reaktorZerstoert) require('./interior.js').setzeZustand(game, 'reactor', 'damaged');
   // Wirkung: Reaktor offline (Neustart über die Schalter), Sprung, Kosten: ein zufälliges ok-System beschädigt (SYS-01 A1b, notsprung.systemSchaden)
   const rc = ship.reactorCtl;

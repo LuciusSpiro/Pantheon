@@ -276,6 +276,7 @@ function reactorAutoLeft(game) {
 function update(game, dt) {
   ensureStats(game);
   interior.nachStufenHolen(game);   // SYS-03 B: zweite Stufe eines gezielten Antrieb-Treffers nach der Sperre
+  require('./komponenten.js').konsistentAlle(game);   // TEC-01 A1: Wächter, direkt geschriebene Systemzustände der Schildkette ziehen die Komponenten nach
   updateEscalation(game, dt);
   updateReactorAuto(game);
 }

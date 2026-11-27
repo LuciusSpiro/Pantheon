@@ -1152,13 +1152,14 @@
         const alt = ia.alt || null;
         const info = !!ia.info;   // reiner Namenshinweis (heiles System): ohne Tastensymbol
         const versiegelt = !!ia.versiegelt;   // Welle 5 (S6): gesperrter Anker (Schrein): keine Tastenkappe, nur „Versiegelt“ gedämpft in dünnem Messingrahmen
-        const w = Math.max(R.measure(label, 1), alt ? R.measure(alt.label, 1) : 0) + (info || versiegelt ? 8 : 20);
-        const h = alt ? 25 : 13;
+        const alt2 = ia.alt2 || null;   // TEC-01 B2: dritte Zeile (Q: Ziel wechseln) an Stationen mit mehreren möglichen Komponenten
+        const w = Math.max(R.measure(label, 1), alt ? R.measure(alt.label, 1) : 0, alt2 ? R.measure(alt2.label, 1) : 0) + (info || versiegelt ? 8 : 20);
+        const h = alt2 ? 37 : alt ? 25 : 13;
         const yy = v3 ? s.y - h - (ia.sys ? 16 : 4) : ia.sys ? s.y + 34 : s.y - 22;   // 2D: an Stationen unter die Kachel; 3D: darüber, Platz für die Zustandsmarke
         const x = Math.round(Math.max(2, Math.min(VW - w - 2, s.x - w / 2))), y = Math.round(Math.max(2, Math.min(VH - h - 2, yy)));
         R.backdrop(ctx, x, y, w, h, 0.8);
         if (versiegelt) { const C = window.KarteTokens && window.KarteTokens.PULT; ctx.strokeStyle = C ? C.messing : '#C9974A'; ctx.lineWidth = 1; ctx.strokeRect(x + 0.5, y + 0.5, w - 1, h - 1); this.iaOben = { y, t: performance.now() }; }
-        const key = (k, kx, ky, on) => { ctx.fillStyle = on ? PAL.amber : '#4A5260'; ctx.fillRect(kx, ky, 9, 9); R.text(ctx, k, kx + 2, ky + 1, { color: PAL.space, shadow: false }); };
+        const key = (k, kx, ky, on) => { ctx.fillStyle = on ? PAL.amber : '#2A303A'; ctx.fillRect(kx, ky, 9, 9); R.text(ctx, k, kx + 2, ky + 1, { color: on ? PAL.space : '#939AA7', shadow: false }); };   // gesperrt: Kappe #2A303A, Buchstabe #939AA7 (Kontrast 4,69:1; #8C93A0 hätte nur 4,30:1)
         if (versiegelt) R.text(ctx, label, x + 4, y + 3, { color: window.KarteTokens ? window.KarteTokens.PULT.grau : '#9AA6B8', shadow: false });
         else if (info) R.text(ctx, label, x + 4, y + 3, { color: PAL.star, shadow: false });
         else {
@@ -1168,6 +1169,10 @@
         if (alt) {
           key(alt.key, x + 2, y + 14, alt.ok !== false);
           R.text(ctx, alt.label, x + 15, y + 15, { color: alt.ok !== false ? PAL.star : '#8C93A0', shadow: false });
+        }
+        if (alt2) {
+          key(alt2.key, x + 2, y + 26, alt2.ok !== false);
+          R.text(ctx, alt2.label, x + 15, y + 27, { color: alt2.ok !== false ? PAL.star : '#8C93A0', shadow: false });
         }
       }
       if (me && me.action && !(me.action.kind === 'flick' || me.action.kind === 'swap' || me.action.kind === 'minigame' || me.action.kind === 'scan')) {
@@ -1186,9 +1191,10 @@
       R.panel(ctx, x, y, w, h, { style: 'screen', title: 'REPARATUR' });
       const st = view.state;
       const state = R.sysState(st, mg.system);
-      R.text(ctx, SYS_NAMES[mg.system] || mg.system, x + 12, y + 10, { color: PAL.star });
-      R.stateBadge(ctx, x + w - 46, y + 9, 34, 10, state, R.fragileOf(st, mg.system));
-      R.text(ctx, 'Leertaste im grünen Feld · 3 Treffer', x + 12, y + 22, { color: PAL.panelLight });
+      const KFm = window.Shared_KomponentenFormat, sn = SYS_NAMES[mg.system] || mg.system;
+      R.text(ctx, KFm ? KFm.minispielTitel(sn, CFG.systemModell && CFG.systemModell.komponenten, mg.system) : sn, x + 12, y + 12, { color: PAL.star });   // Schildkette: „Backbord-Emitter · Relais“ (Titel unter der Reiterkante, nicht an ihr)
+      R.stateBadge(ctx, x + w - 46, y + 11, 34, 10, state, R.fragileOf(st, mg.system));
+      R.text(ctx, 'Leertaste im grünen Feld · 3 Treffer', x + 12, y + 24, { color: PAL.panelLight });
       // Leiste
       const bx = x + 20, bw = w - 40, by = y + 40, bh = 16;
       ctx.fillStyle = '#151B2B'; ctx.fillRect(bx, by, bw, bh);
@@ -1426,7 +1432,7 @@
       const lf = y0 == null && this.sitzVersatz(view) > 0 ? this.radioAktuell() : null;
       if (lf && lf.lage) y = Math.max(y, LAGEFUNK_Y + this.sitzVersatz(view) + this.funkTafelHoehe(lf, null) + 4);
       let all = this.notices.slice();
-      if (R.uiDenied && performance.now() - R.uiDenied.t < 1800) all.push({ text: R.uiDenied.text, color: PAL.warn, t: R.uiDenied.t / 1000 });
+      if (R.uiDenied && performance.now() - R.uiDenied.t < 1800) all.push({ text: R.uiDenied.text, color: PAL.warn, t: R.uiDenied.t / 1000, d: 1.8 });   // d: blendet in den letzten Sekunden aus und endet mit dem Fenster von 1,8 s
       if (max > 0) all = all.slice(-max);   // S1: über Overlays nur der neueste Hinweis
       // QA-Abnahme S2: lange Hinweise (z. B. Logbuch-Notizen) umbrechen statt abschneiden – höchstens 2 Zeilen
       const maxW = Math.min(VW - 40, 440);
@@ -1678,7 +1684,7 @@
     },
     // Tasten außerhalb der Konsolen (nicht umbelegbar) – Reiter „Sonstiges“ der Steuerungsseite
     CONTROLS: [
-      ['Laufen', 'WASD/Pfeile · E interagieren (halten: löschen, flicken, beamen) · G ablegen · V Schubs (betäubt Mitspieler 1 s, holt sie von der Konsole) · R Minispiel an einer Station · Tab Crew · Esc Menü'],
+      ['Laufen', 'WASD/Pfeile · E interagieren (halten: löschen, flicken, beamen) · G ablegen · V Schubs (betäubt Mitspieler 1 s, holt sie von der Konsole) · R Minispiel an einer Station · Q Ziel wechseln (Schilde/Emitter: welche Komponente E flickt oder tauscht) · Tab Crew · Esc Menü'],
       ['Außenteam', 'Leertaste/Linksklick Blaster (zielt auf die Maus) · Q Markierung für Hilfe von oben · Waffe wechseln: Reiter Boden (umbelegbar) · C ducken (Kesh) · E halten: wiederbeleben'],
       ['Station', 'Tab / Shift+Tab an Steuer, Ops, Captain oder Technik: Interface wechseln, du bleibst stehen. Ohne Ops schießt die Automatik nur bei 1–2 Spielern'],
       ['Planungstisch', '1–5 Pin-Art · Klick Pin · Enter Detailkarte · D Decksplan · Backspace zurück · M Missionsbuch (Enter annehmen · Entf ablehnen)'],

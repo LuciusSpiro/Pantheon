@@ -1,0 +1,217 @@
+{
+  "_kommentar": "TEC-01 (Paket F und F-Nacharbeit; Kai: Abweichungen im Schildgenerator-Pfad von m1 und deren Folgen sind gewollt, kein Schalter). Vergleich: node tools/golden-trace.js --compare <frischer Lauf von main> <Lauf tec01> --allow tools/fixtures/golden/allow-tec01.json (Läufe: --all --seeds 3 --jobs 4 --dir <Ordner>; main = eace3501, frisch gefahren). Die globalen Listen erlauben nur Paket F selbst (vier m1-Texte, Skriptaktion damage_component) und die F-Nacharbeit (Ansage beim ersten Systemschaden an das Komponentenmodell angepasst, kein Verhaltenseffekt; wirkt auch in m2/m3). Alles andere steht je Trace unter „traces“ (nur für Seeds 1-3, die Texte/Flags/Inventar sind je Trace die tatsächlich abweichenden). Ursachen: a = Komponentenmodell (Reparatur je Komponente/Zwei-Tausch ändert Schrittzeiten und Ersatzteilstand), b = eigener Zufallsstrom kompRng statt game.rng (andere Zielwahl/Zufallsfolge), c = Bot-Plan komponenten-plan.js wählt Flicken/Tausch anders als der alte Schrauber, d = m2 folgt aus abweichendem m1 (Startzustand, durchlaufender Bot-Zufallsstrom) oder Bot-Softlock in m1/return (Seed/Crew-abhängig, auch auf main). m3 ist gegen main byte-identisch (c3) bzw. weicht nur im neuen Ansagetext ab (c1). Nicht in dieser Datei: Schrittzeiten (nur berichtet, nicht rot).",
+  "stages": [],
+  "texts": [
+    "^Korvette! (Seine erste Salve hat den Schildgenerator zerlegt|Erste Salve: Spannungsregler und Relais im Schildgenerator hin)",
+    "^(Ein Treffer schlägt durch – Schildgenerator hinüber!|Durchschlag! Schildgenerator: Spannungsregler und Relais hin[.])",
+    "^Schäden[?] Die Schrauber reparieren selbst[.] Technik",
+    "^(Ein System ist beschädigt – |.+ ist zerstört! )E halten: flicken "
+  ],
+  "flags": [],
+  "inventory": [],
+  "duration": [],
+  "traces": {
+    "m1/1/1": {
+      "ursache": "a,b,c",
+      "begruendung": "Erste Abweichung t=245,7: Schrauber-Reparatur im Schritt combat 4,7 s früher als auf main (250,4); Reparatur je Schildkette-Komponente (a) nach Plan komponenten-plan (c); danach andere Zielwahl aus kompRng (b: „Korvette lädt – Steuerbord!“ statt „Bug!“); Schrittzeiten scan bis port verschoben.",
+      "texts": [
+        "^Korvette lädt – Bug!$",
+        "^Korvette lädt – Steuerbord!$"
+      ]
+    },
+    "m1/1/2": {
+      "ursache": "a,c",
+      "begruendung": "Erste Abweichung t=206,5: Schrauber-Reparatur im Schritt combat 1,4 s früher als auf main (207,9). Ersatzteil am Ende 1 -> 0: der Zwei-Tausch der Schildkette verbraucht ein Teil mehr (a); Brand-/Schadensmeldungen verschoben (b, kompRng).",
+      "texts": [
+        "^Liegengeblieben – es brennt neben der Station Schildgenerator! Löschgel und Werkzeug, bitte\\.$",
+        "^Schildgenerator beschädigt\\.$"
+      ],
+      "inventory": [
+        "ersatzteil"
+      ]
+    },
+    "m1/1/3": {
+      "ursache": "a,c,d",
+      "begruendung": "Erste Abweichung t=233,8: Schrauber-Reparatur im Schritt combat früher als auf main (240,5/243,1). Danach anderer Verlauf; tec01 bleibt in m1/return hängen (Bot-Softlock, kein TEC-Effekt: main hängt in 3 von 40 Läufen Seeds 1-20 ebenfalls in m1/return, s. Bericht); Endinventar (marks, deko) folgt daraus.",
+      "softlock": true,
+      "texts": [
+        "^Angedockt! Die Bojen-Trophäe liegt im Inventar – an der eigenen Koje aufstellen\\. Terminal ist offen\\.$",
+        "^Backbord-Batterie beschädigt\\.$",
+        "^Backbord-Düse zerstört – kaum Drehung nach Backbord!$",
+        "^Backbord-Emitter beschädigt\\.$",
+        "^Backbord-Emitter zerstört – Backbordsektor offen!$",
+        "^Bug-Waffe zerstört – Lanze feuert nicht! Modul in Raum 1 zerstört – ausgefallen! Modul in Raum 2 zerstört – ausgefallen!$",
+        "^Bug-Waffe zerstört – Lanze feuert nicht! Schildgenerator beschädigt\\. Reaktor beschädigt\\.$",
+        "^Frachtraum ohne Strom – die Sicherungen sind aus, die Ladung ist ungesichert!$",
+        "^Hafenmeisterin Tesk: Willkommen zurück, Lerche\\. B-7 sendet wieder – sauber gemacht\\. Hier, eine Kleinigkeit für die Vitrine\\.$",
+        "^Heck-Emitter beschädigt\\.$",
+        "^Keine Ersatzteile mehr – ich habe das Modul in Raum 1 mit Draht und Gebet notrepariert\\. Jetzt nur noch beschädigt\\.$",
+        "^Keine Ersatzteile mehr – ich habe den Schildgenerator mit Draht und Gebet notrepariert\\. Jetzt nur noch beschädigt\\.$",
+        "^Keine Ersatzteile mehr – ich habe den Steuerbord-Emitter mit Draht und Gebet notrepariert\\. Jetzt nur noch beschädigt\\.$",
+        "^Keine Ersatzteile mehr – ich habe den Transfer mit Draht und Gebet notrepariert\\. Jetzt nur noch beschädigt\\.$",
+        "^Keine Ersatzteile mehr – ich habe die Backbord-Batterie mit Draht und Gebet notrepariert\\. Jetzt nur noch beschädigt\\.$",
+        "^Keine Ersatzteile mehr – ich habe die Steuerbord-Batterie mit Draht und Gebet notrepariert\\. Jetzt nur noch beschädigt\\.$",
+        "^Keine Ersatzteile mehr – ich habe die Steuerbord-Düse mit Draht und Gebet notrepariert\\. Jetzt nur noch beschädigt\\.$",
+        "^Modul in Raum 1 zerstört – ausgefallen!$",
+        "^Modul in Raum 1 zerstört – ausgefallen! Schildgenerator beschädigt\\.$",
+        "^Modul in Raum 2 beschädigt\\.$",
+        "^Modul in Raum 2 zerstört – ausgefallen!$",
+        "^Modul in Raum 2 zerstört – ausgefallen! Backbord-Batterie zerstört – Batterie feuert nicht! Bug-Emitter beschädigt\\.$",
+        "^Notfallprotokoll! Feuer erstickt, Lecks verschäumt\\. Kostet 50 Marken – und Würde\\.$",
+        "^Reaktor wieder ganz, aber kalt\\. Neustart: Schalter A und B im Maschinenraum halten \\(E\\) – gleichzeitig oder nacheinander, der erste rastet ein\\.$",
+        "^Reaktor zerstört – nur Notstrom!$",
+        "^Reaktor zerstört – nur Notstrom! Schildgenerator zerstört – keine Schilde!$",
+        "^Reaktor zerstört! In 10 s ist das Schiff verloren\\. Reparatur am Reaktor \\(E halten\\) oder Notsprung!$",
+        "^Reaktor zerstört! In 20 s ist das Schiff verloren\\. Reparatur am Reaktor \\(E halten\\) oder Notsprung!$",
+        "^Schildgenerator zerstört – keine Schilde! Reaktor beschädigt\\.$",
+        "^Schrauber melden: Kein Ersatzteil mehr im Lager – wir flicken nur\\. Nachschub gibt es im Hafen\\.$",
+        "^Steuerbord-Düse beschädigt\\.$",
+        "^Steuerbord-Düse zerstört – kaum Drehung nach Steuerbord!$",
+        "^Steuerbord-Emitter zerstört – Steuerbordsektor offen! Steuerbord-Batterie beschädigt\\.$",
+        "^Steuerbord-Emitter zerstört – Steuerbordsektor offen! Steuerbord-Batterie zerstört – Batterie feuert nicht! Modul in Raum 1 beschädigt\\.$",
+        "^Transfer beschädigt\\.$",
+        "^Transfer beschädigt\\. Steuerbord-Batterie beschädigt\\.$",
+        "^Transfer zerstört – kein Beamen!$",
+        "^Transfer zerstört – kein Beamen! Steuerbord-Batterie zerstört – Batterie feuert nicht! Modul in Raum 2 beschädigt\\.$",
+        "^Transfer zerstört – kein Beamen! Steuerbord-Düse zerstört – kaum Drehung nach Steuerbord! Steuerbord-Batterie zerstört – Batterie feuert nicht!$",
+        "^Treffer im Sektor – die Reparatur ist halb wieder auf\\. Zwischen den Salven schrauben!$",
+        "^Triebwerk beschädigt\\.$",
+        "^Zuhause! Steuer: langsam in den Dock-Ring neben der Station\\. Unter 28 px/s docke ich an\\.$"
+      ],
+      "flags": [
+        "vaelenHelped"
+      ],
+      "inventory": [
+        "marks",
+        "deko"
+      ]
+    },
+    "m1/3/1": {
+      "ursache": "a",
+      "begruendung": "Ereignisstrom byte-gleich zu main; nur Endinventar ersatzteil 3 -> 2: die Schrauber verbauen im Schildgenerator-Pfad ein Ersatzteil für die zweite Komponente (Komponentenmodell).",
+      "inventory": [
+        "ersatzteil"
+      ]
+    },
+    "m1/3/2": {
+      "ursache": "a,c",
+      "begruendung": "Erste Abweichung t=187: „Feuer gelöscht“ 1,9 s später. Gegenprobe (GOLDEN_DEBUG, c3 s2): bei t=175 steht der Schildgenerator auf main ok, auf tec01 damaged (zweite Komponente noch offen); die Schrauber sind länger am Schildgenerator beschäftigt. Folgen: Schrittzeit port -16 s, „Triebwerk zerstört“ entfällt.",
+      "texts": [
+        "^Triebwerk zerstört – kein Schub, kein Sprung!$"
+      ]
+    },
+    "m1/3/3": {
+      "ursache": "a,d",
+      "begruendung": "Erste echte Abweichung t=322,2 (Reparaturmeldung/ODA-Reihenfolge nach dem Treffer-Block ab t=170,6); Ersatzteil 3 -> 0 (Zwei-Tausch, a). main hängt hier in m1/return (Bot-Softlock, Basis-Hinweis), tec01 erledigt m1; Texte/Inventar nach dem Hängen nicht vergleichbar.",
+      "texts": [
+        "^Angedockt! Die Bojen-Trophäe liegt im Inventar – an der eigenen Koje aufstellen\\. Terminal ist offen\\.$",
+        "^Backbord-Batterie beschädigt\\. Backbord-Düse beschädigt\\.$",
+        "^Backbord-Emitter beschädigt\\.$",
+        "^Backbord-Emitter zerstört – Backbordsektor offen! Backbord-Batterie zerstört – Batterie feuert nicht! Backbord-Düse zerstört – kaum Drehung nach Backbord!$",
+        "^Bug-Emitter zerstört – Bugsektor offen!$",
+        "^Bug-Waffe beschädigt\\.$",
+        "^Bug-Waffe zerstört – Lanze feuert nicht!$",
+        "^Frachtraum ohne Strom – die Sicherungen sind aus, die Ladung ist ungesichert!$",
+        "^Hafenmeisterin Tesk: Willkommen zurück, Lerche\\. B-7 sendet wieder – sauber gemacht\\. Hier, eine Kleinigkeit für die Vitrine\\.$",
+        "^Liegengeblieben – es brennt neben der Station Triebwerk! Löschgel und Werkzeug, bitte\\.$",
+        "^Modul in Raum 1 beschädigt\\.$",
+        "^Modul in Raum 1 zerstört – ausgefallen!$",
+        "^Notfallprotokoll! Feuer erstickt, Lecks verschäumt\\. Kostet 50 Marken – und Würde\\.$",
+        "^Notflicken gebrochen: Relais am Heck-Emitter\\.$",
+        "^Reaktor beschädigt\\.$",
+        "^Reaktor kalt – ich schicke einen Schrauber an Schalter B\\. Den anderen hältst du\\.$",
+        "^Reaktor wieder ganz, aber kalt\\. Neustart: Schalter A und B im Maschinenraum halten \\(E\\) – gleichzeitig oder nacheinander, der erste rastet ein\\.$",
+        "^Reaktor zerstört – nur Notstrom!$",
+        "^Reaktor zerstört! In 20 s ist das Schiff verloren\\. Reparatur am Reaktor \\(E halten\\) oder Notsprung!$",
+        "^Schildgenerator beschädigt\\.$",
+        "^Schrauber melden: Kein Ersatzteil mehr im Lager – wir flicken nur\\. Nachschub gibt es im Hafen\\.$",
+        "^Steuerbord-Emitter zerstört – Steuerbordsektor offen! Transfer zerstört – kein Beamen!$",
+        "^Transfer beschädigt\\.$",
+        "^Zuhause! Steuer: langsam in den Dock-Ring neben der Station\\. Unter 28 px/s docke ich an\\.$"
+      ],
+      "flags": [
+        "vaelenHelped"
+      ],
+      "inventory": [
+        "marks",
+        "deko",
+        "ersatzteil"
+      ]
+    },
+    "m2/1/1": {
+      "ursache": "d",
+      "begruendung": "Folge aus m1 (Ursachen a/b/c in m1/1/1): Bot-Zufallsstrom läuft über m1 und m2 weiter (ein setSimRng je Lauf), m2 startet daher mit anderer Zufallsfolge; erste Abweichung t=155,8 vs 166,8 (Faltsprung bereit), später Notflicken/Zielwahl anders (b); Ersatzteil am Ende 2 -> 0.",
+      "texts": [
+        "^Bug-Waffe zerstört – Lanze feuert nicht!$",
+        "^Wächter lädt – Backbord!$",
+        "^Wächter lädt – Steuerbord!$"
+      ],
+      "inventory": [
+        "ersatzteil"
+      ]
+    },
+    "m2/1/2": {
+      "ursache": "d",
+      "begruendung": "Folge aus m1/1/2 (Ersatzteil am m1-Ende 1 -> 0, andere Bot-Zufallsfolge): erste Abweichung t=166/170 (andere Komponente getroffen: Backbord-Batterie statt Steuerbord-Düse, kompRng b); Ersatzteil am Ende 1 -> 0.",
+      "texts": [
+        "^Backbord-Düse zerstört – kaum Drehung nach Backbord!$",
+        "^Backbord-Düse zerstört – kaum Drehung nach Backbord! Backbord-Batterie zerstört – Batterie feuert nicht!$",
+        "^Schrauber melden: Kein Ersatzteil mehr im Lager – wir flicken nur\\. Nachschub gibt es im Hafen\\.$",
+        "^Steuerbord-Batterie beschädigt\\.$",
+        "^Steuerbord-Düse beschädigt\\.$",
+        "^Steuerbord-Emitter beschädigt\\.$",
+        "^Transfer beschädigt\\.$",
+        "^Transfer zerstört – kein Beamen!$"
+      ]
+    },
+    "m2/1/3": {
+      "ursache": "d",
+      "begruendung": "m1 c1 s3 bleibt auf tec01 in m1/return hängen (Bot-Softlock; main hängt in c1 nur bei Seed 16), deshalb gibt es auf tec01 keinen m2-Trace; nicht vergleichbar.",
+      "softlock": true,
+      "texts": [
+        "."
+      ]
+    },
+    "m2/3/1": {
+      "ursache": "d",
+      "begruendung": "Folge aus m1/3/1 (Ersatzteil am m1-Ende 3 -> 2, andere Bot-Zufallsfolge): erste Abweichung t=245 (anderer Brandort Bug-Emitter, kompRng b); Ersatzteil am Ende 3 -> 0.",
+      "texts": [
+        "^Bug-Emitter zerstört – Bugsektor offen!$",
+        "^Eine Seite ist unter 40 % Integrität\\. Ich will nicht drängeln, aber… doch, ich dränge\\.$",
+        "^Halt ihn fest – ich schicke einen Schrauber an Schalter B\\.$",
+        "^Liegengeblieben – es brennt neben der Station Bug-Emitter! Löschgel und Werkzeug, bitte\\.$",
+        "^Reaktor kalt – ich schicke einen Schrauber an Schalter B\\. Den anderen hältst du\\.$"
+      ],
+      "inventory": [
+        "ersatzteil"
+      ]
+    },
+    "m2/3/2": {
+      "ursache": "d",
+      "begruendung": "Folge aus m1/3/2 (abweichender Startzustand/Schrittzeiten): erste Abweichung t=114/121,6 (Zielwahl der Waffen, Ausweichrolle statt Batterie Backbord, kompRng b); Ersatzteil am Ende 1 -> 0.",
+      "texts": [
+        "^Ada ist k\\.o\\.! Jemand E halten zum Aufhelfen – sonst rappelst du dich in 15 s auf\\.$",
+        "^Bo ist k\\.o\\.! Jemand E halten zum Aufhelfen – sonst rappelst du dich in 15 s auf\\.$",
+        "^Bug-Waffe beschädigt\\.$",
+        "^Das Echo kommt von westlich von uns\\. Hinfliegen und nochmal Weitscan \\(W\\)!$",
+        "^Keine Ersatzteile mehr – ich habe das Modul in Raum 2 mit Draht und Gebet notrepariert\\. Jetzt nur noch beschädigt\\.$",
+        "^Liegengeblieben – es brennt neben der Station Modul in Raum 2! Löschgel und Werkzeug, bitte\\.$",
+        "^Modul in Raum 2 zerstört – ausgefallen!$",
+        "^Reaktor beschädigt\\. Modul in Raum 2 beschädigt\\.$",
+        "^Schildgenerator beschädigt\\.$",
+        "^Schrauber melden: Kein Ersatzteil mehr im Lager – wir flicken nur\\. Nachschub gibt es im Hafen\\.$",
+        "^Weitscan: Boje eines Sprungpunkts gefunden – auf der Sternkarte eingetragen\\.$"
+      ],
+      "inventory": [
+        "ersatzteil"
+      ]
+    },
+    "m2/3/3": {
+      "ursache": "d",
+      "begruendung": "m1 c3 s3 hängt auf main in m1/return (Bot-Softlock), deshalb gibt es auf main keinen m2-Trace; nicht vergleichbar.",
+      "texts": [
+        "."
+      ]
+    }
+  }
+}

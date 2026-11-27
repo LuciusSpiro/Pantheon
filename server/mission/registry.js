@@ -112,6 +112,15 @@ define({ id: 'damage_system', art: 'aktion', effekt: 'schaden', ereignisse: ['sy
     if (a.hitSector != null) g.emit('hit', { sector: a.hitSector, shield: false, dmg: 2 });
     if (a.text) g.oda(txt(m, a.text), null);
   } });
+define({ id: 'damage_component', art: 'aktion', effekt: 'schaden', ereignisse: ['systemDamaged'],
+  beschreibung: 'Bestimmte Komponenten eines Schildkette-Systems zerstören (TEC-01: komp = Typbuchstaben, z. B. "SR"; ohne Zufall; optional Treffer in einem Schildsektor + ODA-Text)',
+  params: { system: { typ: 'system', pflicht: true }, komp: { typ: 'string', pflicht: true }, hitSector: { typ: 'sector' }, text: { typ: 'text', oda: true } },
+  run(m, a) {
+    const g = g_(m);
+    if (!interior().komponentenSchaden(g, a.system, a.komp)) { g.countError('mission-komponente', new Error('damage_component: ' + a.system + ' hat keine Komponenten')); return; }
+    if (a.hitSector != null) g.emit('hit', { sector: a.hitSector, shield: false, dmg: 2 });
+    if (a.text) g.oda(txt(m, a.text), null);
+  } });
 define({ id: 'pay_marks', art: 'aktion', beschreibung: 'Marken abziehen (Bestechung, Kauf)',
   params: { marks: { typ: 'number', pflicht: true, min: 0 } },
   run(m, a) { Geld.abziehenHoechstens(g_(m), a.marks, 'mission'); } });

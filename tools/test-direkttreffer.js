@@ -105,7 +105,8 @@ section('Schild über 0 fängt ab; Fragiles bricht direkt', () => {
   const vor = stand(g);
   space.shipHit(g, 0, 50, {}); space.shipHit(g, 1, 0.1, {}); space.shipHit(g, 2, 3, { sturm: true, sperrfeuer: true });
   ok(geaendert(g, vor).length === 0, 'Schild 6: Treffer 50, 0,1 und Sturm ändern keine Stufe');
-  const g2 = newGame(52); const ks = zone(g2, 0); g2.ship.fragile[ks[0]] = true;
+  const g2 = newGame(52); const ks = zone(g2, 0).filter((k) => !require('../server/sim/komponenten.js').hatKomponenten(g2, k));   // TEC-01 A2: Schildkette-Systeme haben keinen Flicken auf Systemebene mehr (Komponenten, tools/test-komponenten.js)
+  g2.ship.fragile[ks[0]] = true;
   space.shipHit(g2, 0, 0.1, {});
   ok(g2.ship.systems[ks[0]] === 'broken' && !g2.ship.fragile[ks[0]], 'fragiles ok-System bricht beim Treffer direkt auf zerstört');
 });
