@@ -48,7 +48,7 @@ for (const [modus, buch] of MODI) {
     ok(g.phase === 'play' && g.arena && g.arena.kind === modus, 'Menümodus läuft: phase play, arena.kind ' + modus);
     ok(g.weltId === 'limes', 'Karte limes (Standard), nicht sund (' + g.weltId + ')');
     ok(g.ship.scene === 'hafen' && Sektoren.hexDaten(Sektoren.hexVonOrt(g.ship.scene)).region === 'saumraum', 'Schiff im Saumraum: Szene ' + g.ship.scene + ', Hex ' + Sektoren.hexVonOrt(g.ship.scene));
-    ok(g.mission.activeId === buch && g.mission.step && g.mission.step.id === 'platzhalter', 'Platzhalter-Buch ' + buch + ' aktiv im ersten Schritt');
+    ok(g.mission.activeId === buch && g.mission.step && g.mission.step.id === g.mission.def.steps[0].id, 'Trainingsbuch ' + buch + ' aktiv im ersten Schritt');
     ok(!g.weltstand || g.weltstand.persistent === false, 'kein persistenter Weltstand');
     ok(!g.mission.kette && g.mission.mode === 'arena' && !g.mission.pending.length, 'keine Kampagnenkette, Modus arena, kein Kampagnen-Gerücht');
     ok(g.inventory.marks !== g.C.werft.testmarken, 'kein Testgeld (' + g.inventory.marks + ' Marken, Testmarken wären ' + g.C.werft.testmarken + ')');

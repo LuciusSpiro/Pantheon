@@ -1,12 +1,17 @@
 'use strict';
 // TRA-01 A1: Rahmen der Trainingsmodi (Lobby-Modi training_fliegen, training_captain) nach dem Muster arena_forschung (UEB-01),
 // aber tabellengesteuert: ein neuer Modus ist ein Eintrag in TRAININGSMODI, kein neuer if-Zweig im Spielcode.
-//   TRAININGSMODI        Tabelle Modus -> { buch, ort, angedockt, consoleHelpAus, sprachwahl, startSchritt? }
+//   TRAININGSMODI        Tabelle Modus -> { buch, ort, angedockt, consoleHelpAus, sprachwahl, abzeichen, startSchritt?, buchSprache?, bots?, konsole?, vorerkunden?, halter? }
+//                        TRA-01 E (Captain): buchSprache = Buch der Sprachvariante (Lobby-Option trainingSprache), bots = Rollen der Bots (vor dem Start angelegt, botsVorStart),
+//                        konsole = Konsole, an die sich der Mensch setzt, vorerkunden = { hex: [...], kanten: [[a, b], ...] } (Sprungvorerkundung, explore.vorerkunden),
+//                        halter = je Tick laufende Wächter aus training-captain.js (HALTER)
 //   KINDS                Schlüssel der Tabelle (arena.js hängt sie an seine KINDS)
 //   istTraining(kind)    Ist dies ein Trainingsmodus?
 //   hatSprachwahl(kind)  Kennt der Modus die Lobby-Option trainingSprache?
 //   laeuft(game)         Läuft gerade eine Trainingspartie (game.arena.training gesetzt)?
+//   buchFuer(game)       Id des laufenden Trainingsbuchs (Standardbuch oder Sprachvariante buchSprache)
 //   consoleHelpAus(game) Soll die ODA-Zeile CONSOLE_HELP (mission.js, consoleEnter) unterbleiben?
+//   botsVorStart(game)   TRA-01 E: Aufruf am Anfang von startGame (Lobby-Phase): legt die Bots des gewählten Trainingsmodus an; für jeden anderen Modus ohne Wirkung
 //   start(game, kind)    Ausgangszustand herstellen, Platzhalter-/Trainingsbuch direkt starten (startMissionAb), ohne Kette
 //   update(game)         Tick: Erkennung pollen (training-erkennung.js), Szenenende melden, Neustart nach Verlust und NEUSTART_NACH_ERFOLG s nach Erfolg
 //   ereignis(game, n, d) Weiterleitung von mission.onEvent an die Erkennung (flüchtige Ereignisse)
@@ -15,16 +20,21 @@
 // Direktstart ohne Kampagnenkette, ohne persistenten Weltstand (g.weltstand ist nie persistent, damit tutorialLaeuft true: Sprünge nur im
 // Saumraum, bewusst), kein Testgeld (arena.istUebungsszene). Karte ist der Standard limes: kein Eintrag in UEBUNG_WELTEN (game.js).
 // Neues Buch eintragen: Datei content/regiebuecher/<buch>.regiebuch.json mit kopf.art 'intern', in TRAININGSMODI unter buch nennen.
-// game.arena.training = { modus, sprache, start, versuch, verlustAb, gemeldet, erfolgAb, abzeichenVersuch, erreicht, erk }; Lobby-Option trainingSprache (nur Captain) landet in sprache.
-//   erreicht = Set der erkannten Ziel-Ids, erk = Ausgangslage des letzten Ticks (beides training-erkennung.js, kein Snapshot-Feld).
+// game.arena.training = { modus, sprache, start, versuch, verlustAb, gemeldet, erfolgAb, abzeichenVersuch, erreicht, erk, repariere, uebung, uebungOrt }; Lobby-Option trainingSprache (nur Captain) landet in sprache.
+//   erreicht = Set der erkannten Ziel-Ids, erk = Ausgangslage des letzten Ticks, repariere = befohlene Reparaturen (alles training-erkennung.js), uebung = Übungsziele (training-captain.js); kein Snapshot-Feld.
 const Erkennung = require('./training-erkennung.js');
+const lazy = (p) => { let m = null; return () => m || (m = require(p)); };
+const Captain = lazy('./training-captain.js');   // TRA-01 E: Bots, Übungsziele, Wächter (schwere Abhängigkeiten erst beim Gebrauch)
 const NEUSTART_MAX_WARTEN = 30;   // s nach dem Verlust (wie uebung-forschung.js)
 const NEUSTART_NACH_ERFOLG = 8;   // s nach Erfolg und Abzeichen-Meldung: Szene von vorn, damit man wiederholen kann
 const FERTIG_FLAG = 'trainingFertig';   // Buchflag (erwartet im Buch): gesetzt = Training geschafft, update() schließt das Buch mit erfolg ab
 
 const TRAININGSMODI = {
   training_fliegen: { buch: 'tra_fliegen', ort: 'hafen', angedockt: true, consoleHelpAus: true, sprachwahl: false, abzeichen: 'fliegen' },
-  training_captain: { buch: 'tra_captain', ort: 'hafen', angedockt: true, consoleHelpAus: true, sprachwahl: true, abzeichen: 'captain' },
+  training_captain: { buch: 'tra_captain', buchSprache: 'tra_captain_sprache', ort: 'hafen', angedockt: true, consoleHelpAus: true, sprachwahl: true, abzeichen: 'captain',
+    bots: ['navigation', 'ops', 'technik'], konsole: 'captain', halter: ['feuersperre', 'uebungsziele', 'reiseruhe', 'sicherheitsstopp'],
+    // Saumraum: hafen (0206) -> splitter (0306) -> b7 (0406), wrack (0405), vaelen (0207): Schnellsprung braucht erkundete Hexe und bekannte Bojen (E0 F4)
+    vorerkunden: { hex: ['0206', '0306', '0406', '0405', '0207'], kanten: [['0206', '0306'], ['0306', '0406'], ['0306', '0405'], ['0406', '0405'], ['0206', '0207']] } },
 };
 // Abzeichen: Name für die ODA-Zeile; Varianten (nur Captain: Tafel/Tasten oder Sprache) mit Anhang. Ohne Wirkung im Spiel, der Client merkt sie sich.
 const ABZEICHEN = {
@@ -40,6 +50,8 @@ function hatSprachwahl(kind) { return istTraining(kind) && TRAININGSMODI[kind].s
 function stand(game) { return game && game.arena && game.arena.training || null; }
 function laeuft(game) { return !!(game && game.arena && istTraining(game.arena.kind) && game.arena.training); }
 function def(game) { const T = stand(game); return T ? TRAININGSMODI[T.modus] : null; }
+// Buch der laufenden Partie: die Sprachvariante, wenn der Modus eines hat und trainingSprache gewählt war, sonst das Standardbuch
+function buchFuer(game) { const d = def(game); return game.arena.training.sprache && d.buchSprache ? d.buchSprache : d.buch; }
 function consoleHelpAus(game) { const d = def(game); return !!(d && d.consoleHelpAus); }
 
 // Der Ausgangszustand der Szene, eine Funktion für Start und Neustart (wiederholbar)
@@ -58,16 +70,32 @@ function ausgangszustand(game) {
   const ex = game.explore;   // Ort still bekannt/besucht (keine Erstbesuch-Ansage, keine Marken)
   if (!ex.known.has(loc)) { ex.known.add(loc); ex.version++; }
   if (!ex.visited.has(loc)) { ex.visited.add(loc); ex.version++; }
+  vorerkundenSetzen(game, d);
   space.enterScene(game, loc, { docked: d.angedockt === true });
   A.repairShip(game);
   A.placeOnBridge(game);
+  if (d.konsole) Captain().konsoleBesetzen(game, d.konsole);   // TRA-01 E: Mensch an die Konsole (Captain), nach placeOnBridge
+}
+
+// TRA-01 E: Sprungvorerkundung (Tabellenfeld vorerkunden): ohne erkundete Hexe und bekannte Bojen gibt es keinen Schnellsprung (Reise.planen); idempotent, bleibt über den Neustart
+function vorerkundenSetzen(game, d) {
+  if (!d.vorerkunden) return;
+  const Sektoren = require('../../shared/sektoren.js');
+  game.explore.vorerkunden(d.vorerkunden.hex, d.vorerkunden.kanten.map(([a, b]) => Sektoren.kanteId(a, b)));
+}
+
+// TRA-01 E: Aufruf am Anfang von startGame (Lobby-Phase, vor Loadout.slotzahlFestsetzen): Trainingsmodi mit Tabellenfeld bots bekommen ihre Bots; nur danach lässt botHinzufuegen die Phase 'play' nicht ab
+function botsVorStart(game) {
+  const kind = game.lobbyOpts && game.lobbyOpts.startMission;
+  if (istTraining(kind) && TRAININGSMODI[kind].bots) Captain().botsAnlegen(game, TRAININGSMODI[kind].bots);
 }
 
 function buchStarten(game) {
   const m = game.mission; const d = def(game);
-  if (d.startSchritt) m.startMissionAb(d.buch, d.startSchritt);   // optional: mitten im Buch beginnen (wie UEB-01)
-  else m.startMission(d.buch);
-  if (m.activeId !== d.buch) { game.countError('training', new Error('Buch ' + d.buch + ' startet nicht')); return false; }
+  const buch = buchFuer(game);
+  if (d.startSchritt) m.startMissionAb(buch, d.startSchritt);   // optional: mitten im Buch beginnen (wie UEB-01)
+  else m.startMission(buch);
+  if (m.activeId !== buch) { game.countError('training', new Error('Buch ' + buch + ' startet nicht')); return false; }
   return true;
 }
 
@@ -78,11 +106,13 @@ function start(game, kind) {
   ausgangszustand(game);
   Erkennung.zuruecksetzen(game);   // nach dem Ausgangszustand: was beim Herrichten der Szene geschah, zählt nicht
   buchStarten(game);
+  if (d.bots) Captain().ansagenStummschalten(game);   // TRA-01 E: nach dem Start des Buchs (Schrittnamen), Schlüssel gelten für die Partie
   game.log('Training gestartet: ' + kind + (sprache ? ' (mit Sprache)' : '') + '.');
 }
 
 function neustart(game) {
   const T = stand(game);
+  if (def(game).bots) Captain().neuAufsetzen(game);   // TRA-01 E: Übungsziele weg, Absicht der Bots zurück (die Bots bleiben)
   ausgangszustand(game);
   T.versuch++; T.verlustAb = null; T.gemeldet = false; T.erfolgAb = null;
   game.mission.flags[FERTIG_FLAG] = false;
@@ -102,6 +132,13 @@ function abzeichenVergeben(game, id) {
   return true;
 }
 
+// TRA-01 E: benannte Buchaktion (Baustein training_aktion) aus training-captain.js; kennt der Modus sie nicht, ist es ein Fehler des Buchs
+function aktion(game, name) {
+  const fn = Captain().AKTIONEN[name];
+  if (!fn) { game.countError('training', new Error('Unbekannte Trainingsaktion ' + name)); return false; }
+  fn(game); return true;
+}
+
 function szeneDurch(game) {
   const T = stand(game);
   if (T.gemeldet) return;
@@ -114,11 +151,17 @@ function szeneDurch(game) {
 function erkennen(game) { try { Erkennung.update(game); } catch (e) { game.countError('training-erkennung', e); } }
 function ereignis(game, name, data) { if (laeuft(game)) Erkennung.ereignis(game, name, data); }
 
+// TRA-01 E: die Wächter des Modus (Tabellenfeld halter), nie den Tick abbrechen lassen
+function halten(game, d) {
+  if (!d.halter) return;
+  for (const name of d.halter) { try { Captain().HALTER[name](game); } catch (e) { game.countError('training-halter', e); } }
+}
+
 function update(game) {
   const T = stand(game);
   if (!T || game.phase !== 'play') return;
-  const m = game.mission; const d = TRAININGSMODI[T.modus];
-  const ms = m.missions[d.buch];
+  const m = game.mission; const d = TRAININGSMODI[T.modus]; const buch = buchFuer(game);
+  const ms = m.missions[buch];
   if (ms && ms.state === 'done') {
     if (ms.ausgang === 'verloren') {
       if (T.verlustAb == null) T.verlustAb = game.time;
@@ -130,8 +173,8 @@ function update(game) {
     }
     return;
   }
-  if (m.activeId === d.buch) erkennen(game);
-  if (m.activeId === d.buch && m.flags[FERTIG_FLAG] === true) { m.completeMission('erfolg'); szeneDurch(game); }
+  if (m.activeId === buch) { erkennen(game); halten(game, d); }
+  if (m.activeId === buch && m.flags[FERTIG_FLAG] === true) { m.completeMission('erfolg'); szeneDurch(game); }
 }
 
-module.exports = { TRAININGSMODI, ABZEICHEN, NEUSTART_NACH_ERFOLG, KINDS, istTraining, hatSprachwahl, laeuft, consoleHelpAus, start, update, ereignis, neustart, abzeichenVergeben };
+module.exports = { TRAININGSMODI, ABZEICHEN, NEUSTART_NACH_ERFOLG, KINDS, istTraining, hatSprachwahl, laeuft, consoleHelpAus, buchFuer, botsVorStart, start, update, ereignis, neustart, abzeichenVergeben, aktion };
