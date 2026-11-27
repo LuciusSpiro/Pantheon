@@ -18,7 +18,7 @@ const aufraeumen = () => { try { fs.rmSync(TMP, { recursive: true, force: true }
 const TC = 'server/sim/training-captain.js', TR = 'server/sim/training.js', TE = 'server/sim/training-erkennung.js', GM = 'server/game.js';
 // [Datei, alter Text (genau einmal), neuer Text, Beschreibung]
 const MUTATIONEN = [
-  [GM, 'Training.botsVorStart(this);', '', 'Bots-Setup entfernt (kein Bot vor dem Start)'],
+  [GM, 'if (!Training.botsVorStart(this)) return;', '', 'Bots-Setup entfernt (kein Bot vor dem Start)'],
   [TC, '  e.orbitDir = 0;      // steht still auf dem Ring (space.js dreht den Winkel sonst weiter)\n', '', 'Orbit-Stopp entfernt (die Relais kreisen)'],
   [TC, "if (a && a.absicht && a.absicht.feuer == null) a.feuerSetzen('halt', null);", '', 'Feuer-halt-Start entfernt (Cassius schießt unkommandiert)'],
   [TC, 'if (a && a.absicht && a.absicht.feuer == null)', "if (a && a.absicht && a.absicht.feuer == null && !game.arena.training.erreicht.has('bot_befehl:bot.automatik'))", 'Feuersperre wird nach bot.automatik nicht erneuert (Wächter hält nur den Start)'],

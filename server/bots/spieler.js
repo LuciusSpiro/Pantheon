@@ -5,6 +5,7 @@
 //   botRolleWechseln(game, spieler, pid, rolle)  op 'rolle': Rolle auf eine freie wechseln
 //   botVerdraengtFuerMensch(game)                ein Mensch tritt bei vollem Server bei: der zuletzt hinzugefuegte Bot raeumt (Lobby: weg; Partie: wird zum freien, nicht verbundenen Platz); sonst nichts
 //   botsNachLetztemMenschenRaeumen(game)         Lobby ohne Mensch: alle Bots weg
+//   botsRaeumen(game, liste)                     TRA-01 Nacharbeit: genau diese Bots aus der Lobby nehmen (Trainingsstart, Weg in die Lobby); alleBotsRaeumen(game): alle Bots der Lobby
 // `spieler` ist der Mensch, der die Aenderung verlangt; Ablehnungen gehen als notice an ihn. Rueckgabe der Befehle: true = geaendert, false = abgelehnt (nichts geaendert).
 // Bots tragen bot: true, rolle, botId (Figur der Stammcrew b0..b2, BOT-05 A1: erste freie Figur aus content/bots/figuren.json, unabhaengig von Rolle und Platz; b3 ist keine Figur und wird nie vergeben), stimme (Schluessel der Figur in stimmen.json) und keine clientId (clientId null; onHello sucht zusaetzlich nie unter Bots); Menschen tragen diese Felder nie. Bots bekommen nie Farbe 0 (die gehoert dem ersten Menschen, Kontingent-Frage).
 // Name, Karte und Stimme gehoeren der Figur und sind in jeder Partie gleich: kein Zufall mehr (BOT-05 A1, Lobby-Wuerfeln der Bots entfaellt; op 'wuerfeln' wird wie jede unbekannte op abgelehnt). Ein geraeumter Bot gibt seine Figur frei.
@@ -119,9 +120,16 @@ function botVerdraengtFuerMensch(game) {
 
 function botsNachLetztemMenschenRaeumen(game) {
   if (game.phase !== 'lobby' || Crew.menschen(game) > 0) return false;
-  const alle = bots(game);
-  for (const b of alle) ausLobbyNehmen(game, b);
-  return alle.length > 0;
+  return alleBotsRaeumen(game) > 0;
 }
 
-module.exports = { ROLLEN, lobbyBotBefehl, botHinzufuegen, botEntfernen, botRolleWechseln, botVerdraengtFuerMensch, botsNachLetztemMenschenRaeumen };
+// TRA-01 Nacharbeit: Bots aus der Lobby nehmen (Lobby-Phase: nach reset() beim Weg in die Lobby, vor dem Start); Rückgabe: Zahl der geräumten Bots
+function botsRaeumen(game, liste) {
+  if (game.phase !== 'lobby') return 0;
+  const ziel = liste.filter((b) => Crew.istBot(b) && game.players.includes(b));
+  for (const b of ziel) ausLobbyNehmen(game, b);
+  return ziel.length;
+}
+function alleBotsRaeumen(game) { return botsRaeumen(game, bots(game)); }
+
+module.exports = { ROLLEN, lobbyBotBefehl, botHinzufuegen, botEntfernen, botRolleWechseln, botVerdraengtFuerMensch, botsNachLetztemMenschenRaeumen, botsRaeumen, alleBotsRaeumen };

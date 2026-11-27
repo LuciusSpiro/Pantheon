@@ -1,6 +1,6 @@
 {
   "$schema": "../regiebuch/regiebuch.schema.json",
-  "_kommentar": "TRA-01 D: Training Fliegen (Abzeichen Fliegen), kopf.art intern: nie im Angebotsbrett, nie in der Kampagne. Rahmen und Start in server/sim/training.js (Tabelle TRAININGSMODI: vorerkunden, reise). Ein Schritt je Ziel, jeder Schritt zeigt die ganze Checkliste (Abschnitt A: Steuer im Hafen, B: Sprünge und Andocken); erreichte Ziele bleiben abgehakt (training_ziel ist dauerhaft). Der Hinweis-Timer eines Schritts zählt ab dem Schrittstart, also ab dem letzten erreichten Ziel: er feuert nur, wenn der Spieler dort hängt. Das Sprungziel setzt der Modus (training_sprungziel). Gegnerfrei: im Hafen, im Splittergürtel (Durchflug nur als Schnellsprung) und bei B-7 spawnt nichts; die Tabelle schaltet das Abfangen im Schnellsprung ab.",
+  "_kommentar": "TRA-01 D: Training Fliegen (Abzeichen Fliegen), kopf.art intern: nie im Angebotsbrett, nie in der Kampagne. Rahmen und Start in server/sim/training.js (Tabelle TRAININGSMODI: vorerkunden, reise). Ein Schritt je Ziel, jeder Schritt zeigt die ganze Checkliste (Abschnitt A: Steuer im Hafen, B: Sprünge und Andocken); erreichte Ziele bleiben abgehakt (training_ziel ist dauerhaft). Der Hinweis-Timer eines Schritts zählt ab dem Schrittstart, also ab dem letzten erreichten Ziel: er feuert nur, wenn der Spieler dort hängt. Das Sprungziel setzt der Modus (training_sprungziel). Gegnerfrei: im Hafen, bei der Vaelen-Karawane (Faltsprung der Übung), bei B-7 und im Splittergürtel (nur Zwischenhalt des Schnellsprungs, kein Aufenthalt) spawnt nichts, Brocken treffen im Zwischenhalt nicht (gemessen, tools/test-training-fliegen.js); die Tabelle schaltet das Abfangen im Schnellsprung ab.",
   "format": "regiebuch/1",
   "id": "tra_fliegen",
   "kopf": {
@@ -30,7 +30,8 @@
     "orte": [
       "hafen",
       "splitter",
-      "b7"
+      "b7",
+      "vaelen"
     ]
   },
   "steps": [
@@ -788,7 +789,7 @@
       "enter": [
         {
           "do": "training_sprungziel",
-          "ziel": "splitter"
+          "ziel": "vaelen"
         },
         {
           "oda": "@intro.sprung"
@@ -876,7 +877,7 @@
           "at": 40,
           "if": {
             "not": {
-              "atLocation": "splitter"
+              "atLocation": "vaelen"
             }
           },
           "oda": "@hinweis.falt",
@@ -933,7 +934,7 @@
       "next": [
         {
           "if": {
-            "atLocation": "splitter"
+            "atLocation": "vaelen"
           },
           "goto": "b_zurueck"
         }
@@ -1038,7 +1039,7 @@
       ],
       "timers": [
         {
-          "at": 40,
+          "at": 90,
           "if": {
             "not": {
               "atLocation": "b7"
@@ -1138,7 +1139,7 @@
       ],
       "timers": [
         {
-          "at": 40,
+          "at": 90,
           "if": {
             "not": {
               "atLocation": "hafen"
@@ -1481,15 +1482,15 @@
     "ziel.rolle": "Ausweichrolle (Shift+A / D)",
     "ziel.station": "Hafenstation anfliegen",
     "ziel.sprungpunkt": "Sprungpunkt anfliegen",
-    "ziel.falt": "Faltsprung (F) in den Gürtel",
+    "ziel.falt": "Faltsprung (F) zur Karawane",
     "ziel.schnell": "Schnellsprung (G) zu B-7",
     "ziel.dock": "Im Hafen andocken",
     "ziel.ablegen": "Wieder ablegen (W)",
     "intro.start": "Fliegen üben. Steuerkonsole ganz vorn auf der Brücke: E. Dann W – Schub hoch, die Lerche legt ab.",
-    "intro.sprung": "Sprungübung. Ziel Splittergürtel ist gesetzt. Steuer in den Ring der Sprungboje – der Randpfeil zeigt hin.",
-    "intro.zurueck": "Splittergürtel. Das Ziel Hafen ist gesetzt – gleich wieder F, wir bleiben nicht im Feld.",
-    "intro.schnell": "Zurück im Hafen. Neues Ziel: Boje B-7, hinter dem Gürtel. Mit G springst du alle Sektoren in einem Zug.",
-    "intro.zurueck_b7": "Schnellsprung abgebrochen. Das Ziel B-7 ist gesetzt: F springt zurück, dann G noch einmal.",
+    "intro.sprung": "Sprungübung. Ziel Vaelen-Karawane ist gesetzt. Steuer in den Ring der Sprungboje – der Randpfeil zeigt hin.",
+    "intro.zurueck": "Das Ziel Hafen ist gesetzt – gleich wieder F, wir bleiben nicht hier.",
+    "intro.schnell": "Neues Ziel: Boje B-7. Erst zur Sprungboje Richtung Gürtel (Randpfeil), dann G: alle Sektoren in einem Zug.",
+    "intro.zurueck_b7": "Du bist im Splittergürtel statt am Hafen. Das Ziel B-7 ist gesetzt: F springt zurück, dann G noch einmal.",
     "intro.rueckflug": "Boje B-7. Das Ziel Hafen ist gesetzt – G holt uns über den Gürtel zurück.",
     "hinweis.hoch": "Steuerkonsole vorn auf der Brücke: E. W gibt Schub, das erste W legt ab. Dann vom Liegeplatz wegfliegen.",
     "hinweis.runter": "S nimmt eine Stufe zurück. Die Stufe steht am Temporegler.",
@@ -1501,7 +1502,7 @@
     "hinweis.falt": "Steht das Schiff im Ring, lädt der Sprungantrieb. Ist er voll, löst F den Faltsprung aus.",
     "hinweis.zurueck": "Das Ziel Hafen steht. F springt zurück, sobald der Antrieb geladen ist.",
     "hinweis.zurueck_b7": "Das Ziel B-7 steht. F springt zurück, sobald der Antrieb geladen ist.",
-    "hinweis.schnell": "G löst den Schnellsprung aus: alle Sektoren der Route in einem Zug, sobald der Antrieb geladen ist.",
+    "hinweis.schnell": "Steuer in den Ring der Sprungboje Richtung Gürtel; ist der Antrieb voll, löst G die ganze Route aus.",
     "hinweis.rueckflug": "G bringt uns über den Gürtel zurück zum Hafen, sobald der Antrieb geladen ist.",
     "hinweis.andocken": "Der Liegeplatz liegt rechts der Station. Langsam heranfliegen, Temporegler runter – angedockt wird von selbst.",
     "hinweis.ablegen": "W gibt Schub und legt ab.",

@@ -6,7 +6,8 @@
 // helm.schnellsprung (Nachrichten wie handleMessage sie aus dem Client bekommt) und setzt sich per interior.enterConsole an die Konsole (Taste E).
 // Er liest dazu das Spiel wie ein Mensch den Bildschirm (Position, Stufe, Sprungbereitschaft) und folgt dem aktuellen Schritt des Buchs
 // (game.mission.state.stage), nicht den Zielen der Erkennung: ein Fehler in Buch oder Erkennung lässt den Lauf hängen statt ihn durchzuwinken.
-// Ein Lauf endet mit "Abzeichen erreicht" und wartet danach den Neustart ab (zweiter Versuch beginnt am Anfang des Buchs).
+// Ein Lauf spielt ZWEI Versuche: nach dem Abzeichen wartet er den Neustart ab (zweiter Versuch beginnt am Anfang des Buchs, alle Buchflags auf Standard, Checkliste leer) und spielt das Buch noch einmal
+// bis zum zweiten Abzeichen, mit denselben Schritten ohne Sprung (TRA-01 Nacharbeit W1).
 // Je Seed (game.seed und Entscheidungen des Mensch-Ersatzes wie Ruderrichtung, Reaktionszeit) ein Lauf; Ausgabe je Seed und die Zahl n.
 // Als Bibliothek: { partie, lauf, laufe, SKRIPTE, hilfen }. Ein neuer Modus ist ein Eintrag in SKRIPTE: { bots, mensch, schritt(P, S) }.
 //   bots     Rollen der Server-Bots (BotSpieler.botHinzufuegen vor dem Start), z. B. ['navigation', 'ops', 'technik']
@@ -89,10 +90,14 @@ const ZUGEHOERIG = {   // je Buchschritt: was der Mensch jetzt tippt
     if (!S.weg) ansteuern(P, 1300, 760, { stufe: 4 });
     else { const d = dist(s.x, s.y, st.x, st.y); ansteuern(P, st.x + 150, st.y, { stufe: 4, langsamAb: 300, maxSpeed: 40 }); if (d < 240) P.cmd({ c: 'helm.stop' }); }
   },
-  b_sprungpunkt(P, S) { const p = Sprung.sprungpunkt(P.g, '0306'); ansteuern(P, p.x, p.y, { stufe: 4, langsamAb: 400, maxSpeed: 40 }); },
+  b_sprungpunkt(P, S) { const p = Sprung.sprungpunkt(P.g, '0207'); ansteuern(P, p.x, p.y, { stufe: 4, langsamAb: 400, maxSpeed: 40 }); },   // Faltsprung der Übung: Vaelen-Karawane (0207), nicht der Splittergürtel
   b_falt(P, S) { halt(P); if (bereit(P)) gedrosselt(S, 'f', P.g, 1, () => P.cmd({ c: 'helm.jump' })); },
   b_zurueck(P, S) { if (bereit(P)) gedrosselt(S, 'f', P.g, 1, () => P.cmd({ c: 'helm.jump' })); },
-  b_schnell(P, S) { if (bereit(P) && !P.g.reise) gedrosselt(S, 'g', P.g, 1, () => P.cmd({ c: 'helm.schnellsprung' })); },
+  b_schnell(P, S) {   // Ankunft im Hafen ist auf der Seite der Karawane: erst zur Sprungboje Richtung Gürtel (0306), dann G
+    const p = Sprung.sprungpunkt(P.g, '0306');
+    if (P.g.reise) return;
+    if (bereit(P)) { halt(P); gedrosselt(S, 'g', P.g, 1, () => P.cmd({ c: 'helm.schnellsprung' })); } else ansteuern(P, p.x, p.y, { stufe: 4, langsamAb: 400, maxSpeed: 40 });
+  },
   b_rueckflug(P, S) { if (bereit(P) && !P.g.reise) gedrosselt(S, 'g', P.g, 1, () => P.cmd({ c: 'helm.schnellsprung' })); },
   b_andocken(P, S) {
     const d = P.g.mission.v; const l = require('../shared/locations.js').get('hafen').scene.dock; const s = P.g.ship;
@@ -103,7 +108,7 @@ const ZUGEHOERIG = {   // je Buchschritt: was der Mensch jetzt tippt
 };
 function skriptFliegen(P, S) {
   const id = P.schritt();
-  if (id !== S.letzterSchritt) { S.letzterSchritt = id; S.schrittAb = P.g.time; if (id === 'a_hoch') S.richtung = S.rng.chance(0.5) ? 1 : -1; }
+  if (id !== S.letzterSchritt) { S.letzterSchritt = id; S.schrittAb = P.g.time; if (id === 'a_hoch') { S.richtung = S.rng.chance(0.5) ? 1 : -1; S.weg = false; } }   // neuer Versuch: Skriptzustand zurück
   if (P.g.time - S.schrittAb < S.reaktion) return;   // Lesezeit nach jedem neuen Schritt
   if (id === 'a_ruder' && S.richtung == null) S.richtung = 1;
   const f = ZUGEHOERIG[id]; if (f) f(P, S);
@@ -118,12 +123,13 @@ const SKRIPTE = {
 function lauf(modus, seed, o) {
   o = o || {};
   const K = SKRIPTE[modus]; if (!K) throw new Error('Kein Skript für ' + modus);
-  const maxS = o.maxS || 1200;
+  const maxS = o.maxS || 2400;
   const P = partie(modus, { seed, bots: K.bots, sprache: o.sprache });
   const rng = makeRng((seed * 2654435761) >>> 0);
   const S = { rng, reaktion: 0.6 + rng.range(0, 1.4), schrittAb: 0 };
   const g = P.g;
-  const R = { modus, seed, ok: false, grund: '', abzeichen: 0, zeit: 0, schritte: [], ziele: [], hinweise: [], gegner: 0, fehler: 0, neustartOk: false };
+  const R = { modus, seed, ok: false, grund: '', abzeichen: 0, zeit: 0, schritte: [], schritte2: [], ziele: [], hinweise: [], gegner: 0, brocken: 0, fehler: 0, neustartOk: false, ok2: false, schritteGleich: false };
+  const me0 = g.missionEvent.bind(g); g.missionEvent = (name, d) => { if (name === 'asteroid') R.brocken++; return me0(name, d); };   // jeder Brockentreffer der Lerche
   const hinweisTexte = o.hinweisTexte || hinweisTexteDes(g);
   let letzter = null; let erfolgT = null; let odaN = 0;
   if (K.mensch) P.sitz(K.mensch);
@@ -132,20 +138,26 @@ function lauf(modus, seed, o) {
     K.schritt(P, S);
     g.step();
     const stage = g.mission.state.stage;
-    if (stage !== letzter && g.arena && g.arena.training.versuch === 1) { R.schritte.push({ id: stage, t: +(g.time - t0).toFixed(1) }); letzter = stage; }
+    const vers = g.arena && g.arena.training ? g.arena.training.versuch : 0;
+    if (stage !== letzter && (vers === 1 || vers === 2)) { (vers === 1 ? R.schritte : R.schritte2).push({ id: stage, t: +(g.time - t0).toFixed(1) }); letzter = stage; }
     if (g.space.enemies.length) R.gegner = Math.max(R.gegner, g.space.enemies.length);
     for (; odaN < P.odas.length; odaN++) if (hinweisTexte.has(P.odas[odaN].text)) R.hinweise.push({ t: +(P.odas[odaN].t - t0).toFixed(1), text: P.odas[odaN].text });
     const T = g.arena && g.arena.training;
     if (T && T.versuch === 1 && Erk.ziele(g).length !== zielN) { zielN = Erk.ziele(g).length; R.ziele = Erk.ziele(g).slice(); }
     if (T && T.versuch === 1 && T.gemeldet && erfolgT == null) { erfolgT = g.time; R.zeit = +(g.time - t0).toFixed(1); R.ok = true; R.abzeichen = P.abzeichen().length; R.zieleAmEnde = Erk.ziele(g).slice(); }
-    if (T && T.versuch === 2) { R.neustartOk = g.mission.activeId === (Training.TRAININGSMODI[modus].buch) && Erk.ziele(g).length === 0 && g.mission.flags.trainingFertig === false && !T.gemeldet; break; }
+    if (T && T.versuch === 2 && !R.neustartGeprueft) { R.neustartGeprueft = true; R.neustartOk = g.mission.activeId === (Training.TRAININGSMODI[modus].buch) && Erk.ziele(g).length === 0 && !T.gemeldet && flagsStandard(g) && g.mission.state.objectives.every((o) => !o.done); }
+    if (T && T.versuch === 2 && T.gemeldet && !R.ok2) { R.ok2 = P.abzeichen().length === 2; R.schritteGleich = R.schritte.map((x) => x.id).join() === R.schritte2.map((x) => x.id).join(); break; }
+    if (T && T.versuch > 2) break;
     if (g.phase !== 'play') { R.grund = 'Phase ' + g.phase; break; }
   }
   R.fehler = g.errors; R.versuch = g.arena && g.arena.training ? g.arena.training.versuch : null;
   if (!R.ok) R.grund = R.grund || ('kein Abzeichen nach ' + maxS + ' s, hängt in Schritt ' + g.mission.state.stage + ', Ziele ' + Erk.ziele(g).join(','));
+  else if (!R.ok2) R.grund = R.grund || ('zweiter Versuch ohne Abzeichen nach ' + maxS + ' s, hängt in Schritt ' + g.mission.state.stage + ', Ziele ' + Erk.ziele(g).join(','));
   R.letzterSchritt = g.mission.state.stage;
   return R;
 }
+// alle erwartet-Flags des laufenden Trainingsbuchs auf ihrem Standard (Neustart)
+function flagsStandard(g) { const e = g.mission.def.erwartet || {}; return Object.keys(e).every((k) => g.mission.flags[k] === e[k]); }
 // Texte der Hinweise des Buchs (texte.hinweis.*): ein ODA mit diesem Text ist ein Hänger-Hinweis
 function hinweisTexteDes(g) {
   const buch = g.mission.def && g.mission.def.texte ? g.mission.def : null;
@@ -160,7 +172,7 @@ function laufe(modus, seeds, o) {
 }
 
 function zeile(R) {
-  return `seed ${String(R.seed).padStart(3)}  ${R.ok ? 'OK ' : 'FEHL'}  ${R.ok ? R.zeit + ' s' : R.grund}  abzeichen ${R.abzeichen}  ziele ${R.ziele.length}  hinweise ${R.hinweise.length}  gegner max ${R.gegner}  fehler ${R.fehler}  neustart ${R.neustartOk ? 'ok' : 'nein'}`;
+  return `seed ${String(R.seed).padStart(3)}  ${R.ok ? 'OK ' : 'FEHL'}  ${R.ok ? R.zeit + ' s' : R.grund}  abzeichen ${R.abzeichen}  ziele ${R.ziele.length}  hinweise ${R.hinweise.length}  gegner max ${R.gegner}  brocken ${R.brocken}  fehler ${R.fehler}  neustart ${R.neustartOk ? 'ok' : 'nein'}  versuch2 ${R.ok2 && R.schritteGleich ? 'ok' : 'nein'}`;
 }
 
 function main(argv) {
@@ -168,11 +180,11 @@ function main(argv) {
   const modus = argv.find((a) => /^training_/.test(a)) || 'training_fliegen';
   const n = Number(arg('--seeds', 10)); const s0 = Number(arg('--seed', 1));
   const seeds = argv.includes('--seed') && !argv.includes('--seeds') ? [s0] : Array.from({ length: n }, (_, i) => s0 + i);
-  const maxS = Number(arg('--max-s', 1200));
+  const maxS = Number(arg('--max-s', 2400));
   const t0 = Date.now();
   const alle = [];
   for (const s of seeds) { const R = lauf(modus, s, { maxS }); alle.push(R); console.log(zeile(R)); if (argv.includes('--verbose')) { console.log('   schritte ' + R.schritte.map((x) => x.id + '@' + x.t).join(' ')); for (const h of R.hinweise) console.log('   HINWEIS ' + h.t + ' s: ' + h.text); } }
-  const ok = alle.filter((R) => R.ok && R.abzeichen === 1 && R.neustartOk && R.gegner === 0 && R.fehler === 0 && R.hinweise.length === 0).length;
+  const ok = alle.filter((R) => R.ok && R.abzeichen === 1 && R.neustartOk && R.ok2 && R.schritteGleich && R.gegner === 0 && R.brocken === 0 && R.fehler === 0 && R.hinweise.length === 0).length;
   const zeiten = alle.filter((R) => R.ok).map((R) => R.zeit).sort((a, b) => a - b);
   console.log(`\n${modus}: n = ${alle.length} Seeds, sauber durchgespielt ${ok}/${alle.length}; Spielzeit bis Abzeichen min ${zeiten[0]} / Median ${zeiten[Math.floor(zeiten.length / 2)]} / max ${zeiten[zeiten.length - 1]} s; Rechenzeit ${((Date.now() - t0) / 1000).toFixed(0)} s`);
   process.exit(ok === alle.length ? 0 : 1);

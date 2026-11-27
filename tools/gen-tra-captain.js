@@ -162,14 +162,12 @@ function buch(v) {
   kampf.next = [{ if: alle(...kampf.objectives.map((o) => o.done)), goto: 'reparatur' }];
 
   const rep = alle(bef(V, 'tech.reparieren'), mitQuelle(V, 'repariert'));
-  const alleHeil = alle(...['engines', 'transfer', 'weapon_bow', 'shields'].map((s) => ({ check: { name: 'system_ok', system: s } })));
-  const nochmal = (at) => ({ at, if: alle(nicht(rep), alleHeil), do: [{ do: 'training_aktion', name: 'schaeden' }, { oda: '@reparatur.nochmal' }] });
+  // Neue Schäden, solange das Ziel offen und alles heil ist: Wächter reparaturnachlegen (server/sim/training-captain.js), keine festen Timer (Sackgasse nach der letzten Runde)
   const reparatur = {
     id: 'reparatur',
     enter: [{ do: 'training_aktion', name: 'uebungsziele_weg' }, { do: 'training_aktion', name: 'schaeden' }],
     timers: [start('reparatur'),
-      hint(50, nicht(rep), 'h.reparieren'),
-      nochmal(75), nochmal(150), nochmal(225)],
+      hint(50, nicht(bef(V, 'tech.reparieren')), 'h.reparieren')],   // nur wenn der Befehl fehlt: ist er gegeben, repariert Titus gerade
     objectives: [obj('reparieren', 'reparieren', rep),
       obj('status', 'status', z('bot_befehl:bot.status'), { optional: true }),
       obj('automatik', 'automatik', z('bot_befehl:bot.automatik'), { optional: true }),

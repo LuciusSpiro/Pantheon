@@ -86,7 +86,7 @@ section('tempo_hoch / tempo_runter (helm.stage)', () => {
   S.g.ship.docked = false; S.run(0.1);
   alsBot(S.h); S.g.ship.helm.stage = 4; S.run(0.2);
   ok(!S.hat('tempo_hoch'), 'Bot statt Mensch am Steuer: kein tempo_hoch');
-  const B = partie('training_fliegen', { bots: ['navigation'] }); B.run(0.5); B.setze('helm'); B.run(0.2);
+  const B = partie('training_captain'); B.run(0.5);   // Nacharbeit W2/W3: Fliegen räumt Lobby-Bots; der Bot sitzt im Captain-Training (Navigation-Bot ist da) B.setze('helm'); B.run(0.2);
   B.g.ship.docked = false; B.run(0.1);
   const bot = B.g.players.find((p) => p.bot); bot.console = 'helm'; bot.station = null; B.poll();
   B.g.ship.helm.stage = 4; B.poll();

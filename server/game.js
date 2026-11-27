@@ -464,7 +464,7 @@ class Game {
     // QA-Abnahme S1: den gerade gespielten Stand in der Lobby vorauswählen (statt „Neu: Kampagne“), sofern er in der Liste ok ist
     this.lobbyOpts.world = prevWorld && this.worldList.some((w) => w.id === prevWorld && w.state === 'ok') ? prevWorld : null;
     this.lobbyOpts.liveSpielleiter = false;   // FRE-01 B: live gilt für eine Partie, nicht für die nächste
-    this.lobbyOpts.trainingSprache = false;   // TRA-01 A1: ebenso die Sprachwahl des Captain-Trainings
+    Training.botsNachTrainingRaeumen(this);   // TRA-01 Nacharbeit W2: Trainings-Bots bleiben nicht als Lobby-Bots; die Sprachwahl des Captain-Trainings bleibt (N1: Wiederholen)
     for (const q of this.players) q.ready = Crew.istBot(q);   // Bots sind immer bereit (Snapshot und Zustand stimmen überein)
     BotSpieler.botsNachLetztemMenschenRaeumen(this);   // BOT-01 B2: eine Lobby ohne verbundenen Menschen behält keine Bots für die nächste Gruppe
   }
@@ -807,7 +807,7 @@ class Game {
           break;
         case C.LOBBY_BOT: BotSpieler.lobbyBotBefehl(this, p, msg); break;   // BOT-01 B2: nur Lobby, die Prüfung steht in den Funktionen
         case C.BOT_BEFEHL: BotAnnahme.annehmen(this, p, msg); break;   // BOT-01 C1: Regeln und Antwort in bots/annahme.js
-        case C.BOT_GESPRAECH: BotGespraech.annehmen(this, p, msg); this.missionEvent('botGespraech', { p }); break;   // BOT-05 B1: Regeln, Antwort und Ablauf in bots/gespraech.js
+        case C.BOT_GESPRAECH: BotGespraech.annehmen(this, p, msg); break;   // BOT-05 B1: Regeln, Antwort und Ablauf in bots/gespraech.js
         case C.WORLD: this.onWorldMsg(conn, p, msg); break;   // S1 §6
         case C.MENU: this.onMenuMsg(p, msg); break;           // S1 §6
         case C.INPUT: {
@@ -1180,7 +1180,7 @@ class Game {
 
   startGame() {
     const sm = this.lobbyOpts.startMission;
-    Training.botsVorStart(this);   // TRA-01 E: Trainingsmodi mit Bots (Captain) legen sie noch in der Lobby-Phase an; sonst ohne Wirkung
+    if (!Training.botsVorStart(this)) return;   // TRA-01 E: Trainingsmodi: Ein-Spieler-Modus (sonst abgelehnt), Bots (Captain) in der Lobby-Phase anlegen; sonst ohne Wirkung
     Loadout.slotzahlFestsetzen(this);   // AUS-01 A: einmal je Partie, nach verbundenen Spielern; Nachzügler/Abgang ändern nichts mehr
     // S1 §6: gewählter Weltstand -> fortsetzen (startMission entfällt)
     if (this.lobbyOpts.world && this.worldsEnabled) return this.continueWorld(this.lobbyOpts.world);

@@ -4,6 +4,7 @@
 // Ein Lauf spielt alle Pflichtziele durch: Sprungziel, Marker, Tab zum Steuer und zurück (im Stand) · Kurs auf die Marke, Anflug, Stopp · zwei Übungsziele anvisieren (Anzeigeziel + ops.ziel markiert) ·
 // Abstand, Scan, Feuer frei, Abschuss, Feuer halt · Reparatur · Schnellsprung und normaler Sprung (je nach Seed in anderer Reihenfolge). Befehle gehen als echte Nachricht bot.befehl durch die Annahme,
 // Quellen je Variante: Tafel menu | taste (nach Seed), Sprache text | sprache (sprache nur mit --stt: ohne erreichbares STT bleibt es bei der Textzeile), nav.sprung immer menu | taste.
+// Jeder Lauf spielt ZWEI Versuche (TRA-01 Nacharbeit W1): nach dem Abzeichen den Neustart abwarten (Buch von vorn, Flags auf Standard, Checkliste leer) und alles noch einmal bis zum zweiten Abzeichen.
 // Die Sprachvariante spricht den Navigations-Bot mit der botId an (Namensadresse "Livia, …"). Ausgabe: je Lauf eine Zeile, am Ende Summe mit n.
 const CONFIG = require('../shared/config.js');
 const Protocol = require('../shared/protocol.js');
@@ -64,7 +65,7 @@ function lauf(o) {
   const sprungQuelle = ungerade ? 'menu' : 'taste';
   const nav = sprache ? 'b0' : 'navigation';   // Namensadresse: Livia ist die Figur b0 (erste Figur, Navigation zuerst angelegt)
   const res = { seed: o.seed, variante: o.variante, ok: false, schritt: null, t: 0, grund: null };
-  try {
+  const durchlauf = (nr) => {
     warten(P, 'Bots an den Stationen', WARTE.bots, () => ['helm', 'weapons', 'technik'].every((k) => g.players.some((p) => p.bot && Station.stationOf(p) === k)));
     // --- stand: Sprungziel, Marker, Tab (das Schiff steht, vorher gilt Allstopp)
     P.cmd({ c: 'captain.selectDest', dest: 'splitter' });
@@ -116,10 +117,20 @@ function lauf(o) {
     };
     if (normalZuerst) { springen('splitter', 'splitter', 'normaler Sprung'); springen('vaelen', 'vaelen', 'Schnellsprung'); }
     else { springen('b7', 'b7', 'Schnellsprung'); springen('splitter', 'splitter', 'normaler Sprung'); }
-    warten(P, 'Abzeichen', 6, () => P.abzeichenEreignisse().length > 0);
+    warten(P, 'Abzeichen', 6, () => P.abzeichenEreignisse().length >= nr);
     const a = P.abzeichenEreignisse();
-    res.ok = a.length === 1 && a[0].id === 'captain' && a[0].variante === (sprache ? 'sprache' : 'tafel') && g.errors === 0;
-    if (!res.ok) res.grund = 'Abzeichen ' + JSON.stringify(a.map((x) => [x.id, x.variante])) + ', errors ' + g.errors;
+    res.ok = a.length === nr && a[nr - 1].id === 'captain' && a[nr - 1].variante === (sprache ? 'sprache' : 'tafel') && g.errors === 0;
+    if (!res.ok) res.grund = 'Abzeichen (Versuch ' + nr + ') ' + JSON.stringify(a.map((x) => [x.id, x.variante])) + ', errors ' + g.errors;
+  };
+  try {
+    durchlauf(1);
+    if (res.ok) {   // zweiter Versuch: Neustart nach Erfolg, alles auf Anfang
+      warten(P, 'Neustart nach Erfolg', 30, () => T.versuch === 2);
+      const e = g.mission.def.erwartet || {};
+      const flagsStandard = Object.keys(e).every((k) => g.mission.flags[k] === e[k]);
+      res.neustartOk = flagsStandard && schritt(P) === g.mission.def.steps[0].id && g.mission.state.objectives.every((o) => !o.done) && T.erreicht.size === 0;
+      if (!res.neustartOk) { res.ok = false; res.grund = 'Neustart: Flags ' + flagsStandard + ', Schritt ' + schritt(P) + ', erreicht ' + T.erreicht.size; } else durchlauf(2);
+    }
   } catch (e) {
     if (e instanceof Haenger) res.grund = e.message; else throw e;
   }

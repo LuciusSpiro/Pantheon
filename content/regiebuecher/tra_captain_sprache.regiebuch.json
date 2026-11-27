@@ -1289,38 +1289,18 @@
           "at": 50,
           "if": {
             "not": {
-              "all": [
+              "any": [
                 {
-                  "any": [
-                    {
-                      "check": {
-                        "name": "training_ziel",
-                        "id": "bot_befehl:tech.reparieren:text"
-                      }
-                    },
-                    {
-                      "check": {
-                        "name": "training_ziel",
-                        "id": "bot_befehl:tech.reparieren:sprache"
-                      }
-                    }
-                  ]
+                  "check": {
+                    "name": "training_ziel",
+                    "id": "bot_befehl:tech.reparieren:text"
+                  }
                 },
                 {
-                  "any": [
-                    {
-                      "check": {
-                        "name": "training_ziel",
-                        "id": "repariert:text"
-                      }
-                    },
-                    {
-                      "check": {
-                        "name": "training_ziel",
-                        "id": "repariert:sprache"
-                      }
-                    }
-                  ]
+                  "check": {
+                    "name": "training_ziel",
+                    "id": "bot_befehl:tech.reparieren:sprache"
+                  }
                 }
               ]
             }
@@ -1332,290 +1312,24 @@
           "at": 56,
           "if": {
             "not": {
-              "all": [
+              "any": [
                 {
-                  "any": [
-                    {
-                      "check": {
-                        "name": "training_ziel",
-                        "id": "bot_befehl:tech.reparieren:text"
-                      }
-                    },
-                    {
-                      "check": {
-                        "name": "training_ziel",
-                        "id": "bot_befehl:tech.reparieren:sprache"
-                      }
-                    }
-                  ]
+                  "check": {
+                    "name": "training_ziel",
+                    "id": "bot_befehl:tech.reparieren:text"
+                  }
                 },
                 {
-                  "any": [
-                    {
-                      "check": {
-                        "name": "training_ziel",
-                        "id": "repariert:text"
-                      }
-                    },
-                    {
-                      "check": {
-                        "name": "training_ziel",
-                        "id": "repariert:sprache"
-                      }
-                    }
-                  ]
+                  "check": {
+                    "name": "training_ziel",
+                    "id": "bot_befehl:tech.reparieren:sprache"
+                  }
                 }
               ]
             }
           },
           "oda": "@h.reparieren2",
           "garantie": "hinweis"
-        },
-        {
-          "at": 75,
-          "if": {
-            "all": [
-              {
-                "not": {
-                  "all": [
-                    {
-                      "any": [
-                        {
-                          "check": {
-                            "name": "training_ziel",
-                            "id": "bot_befehl:tech.reparieren:text"
-                          }
-                        },
-                        {
-                          "check": {
-                            "name": "training_ziel",
-                            "id": "bot_befehl:tech.reparieren:sprache"
-                          }
-                        }
-                      ]
-                    },
-                    {
-                      "any": [
-                        {
-                          "check": {
-                            "name": "training_ziel",
-                            "id": "repariert:text"
-                          }
-                        },
-                        {
-                          "check": {
-                            "name": "training_ziel",
-                            "id": "repariert:sprache"
-                          }
-                        }
-                      ]
-                    }
-                  ]
-                }
-              },
-              {
-                "all": [
-                  {
-                    "check": {
-                      "name": "system_ok",
-                      "system": "engines"
-                    }
-                  },
-                  {
-                    "check": {
-                      "name": "system_ok",
-                      "system": "transfer"
-                    }
-                  },
-                  {
-                    "check": {
-                      "name": "system_ok",
-                      "system": "weapon_bow"
-                    }
-                  },
-                  {
-                    "check": {
-                      "name": "system_ok",
-                      "system": "shields"
-                    }
-                  }
-                ]
-              }
-            ]
-          },
-          "do": [
-            {
-              "do": "training_aktion",
-              "name": "schaeden"
-            },
-            {
-              "oda": "@reparatur.nochmal"
-            }
-          ]
-        },
-        {
-          "at": 150,
-          "if": {
-            "all": [
-              {
-                "not": {
-                  "all": [
-                    {
-                      "any": [
-                        {
-                          "check": {
-                            "name": "training_ziel",
-                            "id": "bot_befehl:tech.reparieren:text"
-                          }
-                        },
-                        {
-                          "check": {
-                            "name": "training_ziel",
-                            "id": "bot_befehl:tech.reparieren:sprache"
-                          }
-                        }
-                      ]
-                    },
-                    {
-                      "any": [
-                        {
-                          "check": {
-                            "name": "training_ziel",
-                            "id": "repariert:text"
-                          }
-                        },
-                        {
-                          "check": {
-                            "name": "training_ziel",
-                            "id": "repariert:sprache"
-                          }
-                        }
-                      ]
-                    }
-                  ]
-                }
-              },
-              {
-                "all": [
-                  {
-                    "check": {
-                      "name": "system_ok",
-                      "system": "engines"
-                    }
-                  },
-                  {
-                    "check": {
-                      "name": "system_ok",
-                      "system": "transfer"
-                    }
-                  },
-                  {
-                    "check": {
-                      "name": "system_ok",
-                      "system": "weapon_bow"
-                    }
-                  },
-                  {
-                    "check": {
-                      "name": "system_ok",
-                      "system": "shields"
-                    }
-                  }
-                ]
-              }
-            ]
-          },
-          "do": [
-            {
-              "do": "training_aktion",
-              "name": "schaeden"
-            },
-            {
-              "oda": "@reparatur.nochmal"
-            }
-          ]
-        },
-        {
-          "at": 225,
-          "if": {
-            "all": [
-              {
-                "not": {
-                  "all": [
-                    {
-                      "any": [
-                        {
-                          "check": {
-                            "name": "training_ziel",
-                            "id": "bot_befehl:tech.reparieren:text"
-                          }
-                        },
-                        {
-                          "check": {
-                            "name": "training_ziel",
-                            "id": "bot_befehl:tech.reparieren:sprache"
-                          }
-                        }
-                      ]
-                    },
-                    {
-                      "any": [
-                        {
-                          "check": {
-                            "name": "training_ziel",
-                            "id": "repariert:text"
-                          }
-                        },
-                        {
-                          "check": {
-                            "name": "training_ziel",
-                            "id": "repariert:sprache"
-                          }
-                        }
-                      ]
-                    }
-                  ]
-                }
-              },
-              {
-                "all": [
-                  {
-                    "check": {
-                      "name": "system_ok",
-                      "system": "engines"
-                    }
-                  },
-                  {
-                    "check": {
-                      "name": "system_ok",
-                      "system": "transfer"
-                    }
-                  },
-                  {
-                    "check": {
-                      "name": "system_ok",
-                      "system": "weapon_bow"
-                    }
-                  },
-                  {
-                    "check": {
-                      "name": "system_ok",
-                      "system": "shields"
-                    }
-                  }
-                ]
-              }
-            ]
-          },
-          "do": [
-            {
-              "do": "training_aktion",
-              "name": "schaeden"
-            },
-            {
-              "oda": "@reparatur.nochmal"
-            }
-          ]
         }
       ],
       "objectives": [

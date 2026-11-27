@@ -219,6 +219,7 @@ function rateFrei(z, spieler) {
 function annehmen(game, spieler, msg) {
   try {
     if (!spieler || !spieler.conn || Crew.istBot(spieler) || !msg || typeof msg !== 'object') return;
+    game.missionEvent('botGespraech', { p: spieler });   // TRA-01 E: Ereignis fuer die Trainingserkennung (bot_gespraech), unabhaengig vom Ausgang der Anfrage; ohne Wirkung auf das Spiel
     const an = typeof msg.an === 'string' && BOT_ID.test(msg.an) ? msg.an : null;
     const ablehnen = (grund) => game.sendTo(spieler.conn, { t: TYPE_REDE, botId: an, gid: neueGid(), zustand: 'abgelehnt', grund });
     if (game.phase !== 'play') return ablehnen('phase');

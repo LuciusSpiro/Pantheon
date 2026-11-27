@@ -1230,38 +1230,18 @@
           "at": 50,
           "if": {
             "not": {
-              "all": [
+              "any": [
                 {
-                  "any": [
-                    {
-                      "check": {
-                        "name": "training_ziel",
-                        "id": "bot_befehl:tech.reparieren:menu"
-                      }
-                    },
-                    {
-                      "check": {
-                        "name": "training_ziel",
-                        "id": "bot_befehl:tech.reparieren:taste"
-                      }
-                    }
-                  ]
+                  "check": {
+                    "name": "training_ziel",
+                    "id": "bot_befehl:tech.reparieren:menu"
+                  }
                 },
                 {
-                  "any": [
-                    {
-                      "check": {
-                        "name": "training_ziel",
-                        "id": "repariert:menu"
-                      }
-                    },
-                    {
-                      "check": {
-                        "name": "training_ziel",
-                        "id": "repariert:taste"
-                      }
-                    }
-                  ]
+                  "check": {
+                    "name": "training_ziel",
+                    "id": "bot_befehl:tech.reparieren:taste"
+                  }
                 }
               ]
             }
@@ -1273,290 +1253,24 @@
           "at": 56,
           "if": {
             "not": {
-              "all": [
+              "any": [
                 {
-                  "any": [
-                    {
-                      "check": {
-                        "name": "training_ziel",
-                        "id": "bot_befehl:tech.reparieren:menu"
-                      }
-                    },
-                    {
-                      "check": {
-                        "name": "training_ziel",
-                        "id": "bot_befehl:tech.reparieren:taste"
-                      }
-                    }
-                  ]
+                  "check": {
+                    "name": "training_ziel",
+                    "id": "bot_befehl:tech.reparieren:menu"
+                  }
                 },
                 {
-                  "any": [
-                    {
-                      "check": {
-                        "name": "training_ziel",
-                        "id": "repariert:menu"
-                      }
-                    },
-                    {
-                      "check": {
-                        "name": "training_ziel",
-                        "id": "repariert:taste"
-                      }
-                    }
-                  ]
+                  "check": {
+                    "name": "training_ziel",
+                    "id": "bot_befehl:tech.reparieren:taste"
+                  }
                 }
               ]
             }
           },
           "oda": "@h.reparieren2",
           "garantie": "hinweis"
-        },
-        {
-          "at": 75,
-          "if": {
-            "all": [
-              {
-                "not": {
-                  "all": [
-                    {
-                      "any": [
-                        {
-                          "check": {
-                            "name": "training_ziel",
-                            "id": "bot_befehl:tech.reparieren:menu"
-                          }
-                        },
-                        {
-                          "check": {
-                            "name": "training_ziel",
-                            "id": "bot_befehl:tech.reparieren:taste"
-                          }
-                        }
-                      ]
-                    },
-                    {
-                      "any": [
-                        {
-                          "check": {
-                            "name": "training_ziel",
-                            "id": "repariert:menu"
-                          }
-                        },
-                        {
-                          "check": {
-                            "name": "training_ziel",
-                            "id": "repariert:taste"
-                          }
-                        }
-                      ]
-                    }
-                  ]
-                }
-              },
-              {
-                "all": [
-                  {
-                    "check": {
-                      "name": "system_ok",
-                      "system": "engines"
-                    }
-                  },
-                  {
-                    "check": {
-                      "name": "system_ok",
-                      "system": "transfer"
-                    }
-                  },
-                  {
-                    "check": {
-                      "name": "system_ok",
-                      "system": "weapon_bow"
-                    }
-                  },
-                  {
-                    "check": {
-                      "name": "system_ok",
-                      "system": "shields"
-                    }
-                  }
-                ]
-              }
-            ]
-          },
-          "do": [
-            {
-              "do": "training_aktion",
-              "name": "schaeden"
-            },
-            {
-              "oda": "@reparatur.nochmal"
-            }
-          ]
-        },
-        {
-          "at": 150,
-          "if": {
-            "all": [
-              {
-                "not": {
-                  "all": [
-                    {
-                      "any": [
-                        {
-                          "check": {
-                            "name": "training_ziel",
-                            "id": "bot_befehl:tech.reparieren:menu"
-                          }
-                        },
-                        {
-                          "check": {
-                            "name": "training_ziel",
-                            "id": "bot_befehl:tech.reparieren:taste"
-                          }
-                        }
-                      ]
-                    },
-                    {
-                      "any": [
-                        {
-                          "check": {
-                            "name": "training_ziel",
-                            "id": "repariert:menu"
-                          }
-                        },
-                        {
-                          "check": {
-                            "name": "training_ziel",
-                            "id": "repariert:taste"
-                          }
-                        }
-                      ]
-                    }
-                  ]
-                }
-              },
-              {
-                "all": [
-                  {
-                    "check": {
-                      "name": "system_ok",
-                      "system": "engines"
-                    }
-                  },
-                  {
-                    "check": {
-                      "name": "system_ok",
-                      "system": "transfer"
-                    }
-                  },
-                  {
-                    "check": {
-                      "name": "system_ok",
-                      "system": "weapon_bow"
-                    }
-                  },
-                  {
-                    "check": {
-                      "name": "system_ok",
-                      "system": "shields"
-                    }
-                  }
-                ]
-              }
-            ]
-          },
-          "do": [
-            {
-              "do": "training_aktion",
-              "name": "schaeden"
-            },
-            {
-              "oda": "@reparatur.nochmal"
-            }
-          ]
-        },
-        {
-          "at": 225,
-          "if": {
-            "all": [
-              {
-                "not": {
-                  "all": [
-                    {
-                      "any": [
-                        {
-                          "check": {
-                            "name": "training_ziel",
-                            "id": "bot_befehl:tech.reparieren:menu"
-                          }
-                        },
-                        {
-                          "check": {
-                            "name": "training_ziel",
-                            "id": "bot_befehl:tech.reparieren:taste"
-                          }
-                        }
-                      ]
-                    },
-                    {
-                      "any": [
-                        {
-                          "check": {
-                            "name": "training_ziel",
-                            "id": "repariert:menu"
-                          }
-                        },
-                        {
-                          "check": {
-                            "name": "training_ziel",
-                            "id": "repariert:taste"
-                          }
-                        }
-                      ]
-                    }
-                  ]
-                }
-              },
-              {
-                "all": [
-                  {
-                    "check": {
-                      "name": "system_ok",
-                      "system": "engines"
-                    }
-                  },
-                  {
-                    "check": {
-                      "name": "system_ok",
-                      "system": "transfer"
-                    }
-                  },
-                  {
-                    "check": {
-                      "name": "system_ok",
-                      "system": "weapon_bow"
-                    }
-                  },
-                  {
-                    "check": {
-                      "name": "system_ok",
-                      "system": "shields"
-                    }
-                  }
-                ]
-              }
-            ]
-          },
-          "do": [
-            {
-              "do": "training_aktion",
-              "name": "schaeden"
-            },
-            {
-              "oda": "@reparatur.nochmal"
-            }
-          ]
         }
       ],
       "objectives": [

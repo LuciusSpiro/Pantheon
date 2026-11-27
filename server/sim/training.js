@@ -11,7 +11,10 @@
 //   laeuft(game)         Läuft gerade eine Trainingspartie (game.arena.training gesetzt)?
 //   buchFuer(game)       Id des laufenden Trainingsbuchs (Standardbuch oder Sprachvariante buchSprache)
 //   consoleHelpAus(game) Soll die ODA-Zeile CONSOLE_HELP (mission.js, consoleEnter) unterbleiben?
-//   botsVorStart(game)   TRA-01 E: Aufruf am Anfang von startGame (Lobby-Phase): legt die Bots des gewählten Trainingsmodus an; für jeden anderen Modus ohne Wirkung
+//   botsVorStart(game)   TRA-01 E: Aufruf am Anfang von startGame (Lobby-Phase), Rückgabe false = Start abgelehnt (refuseStart). Trainingsmodi sind Ein-Spieler-Modi: mehr als ein Mensch -> abgelehnt;
+//                        sonst alle Lobby-Bots räumen und die Bots des Modus (Tabellenfeld bots) in fester Reihenfolge neu anlegen (Fliegen: keine). Anderer Modus oder gewählter Weltstand: ohne Wirkung, true
+//   botsNachTrainingRaeumen(game)  Weg in die Lobby (game.js zurLobby): die Trainings-Bots verlassen die Lobby
+//   buchflagsZuruecksetzen(game)   Neustart: alle erwartet-Flags des Trainingsbuchs zurück auf ihren Standard
 //   start(game, kind)    Ausgangszustand herstellen, Platzhalter-/Trainingsbuch direkt starten (startMissionAb), ohne Kette
 //   update(game)         Tick: Erkennung pollen (training-erkennung.js), Szenenende melden, Neustart nach Verlust und NEUSTART_NACH_ERFOLG s nach Erfolg
 //   ereignis(game, n, d) Weiterleitung von mission.onEvent an die Erkennung (flüchtige Ereignisse)
@@ -27,6 +30,7 @@
 // Tabellenfelder (optional): vorerkunden { hexe: [Hex…], kanten: [Kanten-Id…] } und reise { feindChance, neutralChance, … } (TRA-01 D, Fliegen; Captain nutzt dieselben Felder).
 //   erreicht = Set der erkannten Ziel-Ids, erk = Ausgangslage des letzten Ticks, repariere = befohlene Reparaturen (alles training-erkennung.js), uebung = Übungsziele (training-captain.js); kein Snapshot-Feld.
 const Erkennung = require('./training-erkennung.js');
+const Crew = require('./crew.js');
 const lazy = (p) => { let m = null; return () => m || (m = require(p)); };
 const Captain = lazy('./training-captain.js');   // TRA-01 E: Bots, Übungsziele, Wächter (schwere Abhängigkeiten erst beim Gebrauch)
 const NEUSTART_MAX_WARTEN = 30;   // s nach dem Verlust (wie uebung-forschung.js)
@@ -35,10 +39,10 @@ const FERTIG_FLAG = 'trainingFertig';   // Buchflag (erwartet im Buch): gesetzt 
 
 const TRAININGSMODI = {
   training_fliegen: { buch: 'tra_fliegen', ort: 'hafen', angedockt: true, consoleHelpAus: true, sprachwahl: false, abzeichen: 'fliegen',
-    vorerkunden: { hexe: ['0206', '0306', '0406', '0405'], kanten: ['0206-0306', '0306-0406', '0306-0405'] },   // Schnellsprung hafen -> b7 über splitter (und zurück) braucht erkundete Hexe und bekannte Bojen
+    vorerkunden: { hexe: ['0206', '0306', '0406', '0405', '0207'], kanten: ['0206-0306', '0306-0406', '0306-0405', '0206-0207'] },   // Faltsprung der Übung hafen <-> vaelen (0207, ruhig: Händler, keine Brocken), Schnellsprung hafen -> b7 über splitter (nur Zwischenhalt) und zurück: erkundete Hexe, bekannte Bojen
     reise: { feindChance: 0, neutralChance: 0, neutralPlus: 0, neutralMax: 0 } },   // kein Abfangen im Schnellsprung: Fliegen ist gegnerfrei
   training_captain: { buch: 'tra_captain', buchSprache: 'tra_captain_sprache', ort: 'hafen', angedockt: true, consoleHelpAus: true, sprachwahl: true, abzeichen: 'captain',
-    bots: ['navigation', 'ops', 'technik'], konsole: 'captain', halter: ['feuersperre', 'uebungsziele', 'reiseruhe', 'sicherheitsstopp'],
+    bots: ['navigation', 'ops', 'technik'], konsole: 'captain', halter: ['feuersperre', 'uebungsziele', 'reiseruhe', 'sicherheitsstopp', 'reparaturnachlegen'],
     // Saumraum: hafen (0206) -> splitter (0306) -> b7 (0406), wrack (0405), vaelen (0207): Schnellsprung braucht erkundete Hexe und bekannte Bojen (E0 F4)
     vorerkunden: { hexe: ['0206', '0306', '0406', '0405', '0207'], kanten: ['0206-0306', '0306-0406', '0306-0405', '0405-0406', '0206-0207'] } },
 };
@@ -86,7 +90,15 @@ function ausgangszustand(game) {
 // TRA-01 E: Aufruf am Anfang von startGame (Lobby-Phase, vor Loadout.slotzahlFestsetzen): Trainingsmodi mit Tabellenfeld bots bekommen ihre Bots; nur danach lässt botHinzufuegen die Phase 'play' nicht ab
 function botsVorStart(game) {
   const kind = game.lobbyOpts && game.lobbyOpts.startMission;
-  if (istTraining(kind) && TRAININGSMODI[kind].bots) Captain().botsAnlegen(game, TRAININGSMODI[kind].bots);
+  if (!istTraining(kind) || game.lobbyOpts.world) return true;   // ein gewählter Weltstand setzt die Partie fort (startGame), kein Trainingsstart
+  if (Crew.menschen(game) > 1) { game.refuseStart('Training ist ein Ein-Spieler-Modus: Mit mehreren Spielern startet es nicht.'); return false; }
+  require('../bots/spieler.js').alleBotsRaeumen(game);
+  if (TRAININGSMODI[kind].bots) Captain().botsAnlegen(game, TRAININGSMODI[kind].bots);
+  return true;
+}
+// Weg in die Lobby: nur Trainings-Bots (Markierung trainingBot) gehen; ohne solche Bots wird training-captain.js nicht geladen
+function botsNachTrainingRaeumen(game) {
+  return game.players.some((p) => p.trainingBot) ? Captain().botsNachTrainingRaeumen(game) : 0;
 }
 
 // Start-Setup aus der Tabelle (TRA-01 D): Hexe/Bojen still als erkundet vormerken, damit der Schnellsprung eine Route findet (explore.vorerkunden, SUND-01 E)
@@ -130,12 +142,18 @@ function start(game, kind) {
   game.log('Training gestartet: ' + kind + (sprache ? ' (mit Sprache)' : '') + '.');
 }
 
+// Alle Flags, die das Buch unter erwartet deklariert, auf ihren Standard (applyExpected setzt nur fehlende Flags): ein zweiter Versuch beginnt mit leerer Checkliste
+function buchflagsZuruecksetzen(game) {
+  const buch = game.mission.loadDef(buchFuer(game));
+  for (const [k, v] of Object.entries((buch && buch.erwartet) || {})) game.mission.flags[k] = v;
+}
+
 function neustart(game) {
   const T = stand(game);
   if (def(game).bots) Captain().neuAufsetzen(game);   // TRA-01 E: Übungsziele weg, Absicht der Bots zurück (die Bots bleiben)
   ausgangszustand(game);
   T.versuch++; T.verlustAb = null; T.gemeldet = false; T.erfolgAb = null;
-  game.mission.flags[FERTIG_FLAG] = false;
+  buchflagsZuruecksetzen(game);   // enthält FERTIG_FLAG
   Erkennung.zuruecksetzen(game);
   buchStarten(game);
   game.log('Training ' + T.modus + ': Neustart (Versuch ' + T.versuch + ').');
@@ -197,4 +215,4 @@ function update(game) {
   if (m.activeId === buch && m.flags[FERTIG_FLAG] === true) { m.completeMission('erfolg'); szeneDurch(game); }
 }
 
-module.exports = { TRAININGSMODI, ABZEICHEN, NEUSTART_NACH_ERFOLG, KINDS, istTraining, hatSprachwahl, laeuft, consoleHelpAus, buchFuer, botsVorStart, start, update, ereignis, neustart, abzeichenVergeben, aktion, vorerkundenAnwenden, reiseWerteSetzen, sprungzielSetzen };
+module.exports = { TRAININGSMODI, ABZEICHEN, NEUSTART_NACH_ERFOLG, KINDS, istTraining, hatSprachwahl, laeuft, consoleHelpAus, buchFuer, botsVorStart, botsNachTrainingRaeumen, buchflagsZuruecksetzen, start, update, ereignis, neustart, abzeichenVergeben, aktion, vorerkundenAnwenden, reiseWerteSetzen, sprungzielSetzen };

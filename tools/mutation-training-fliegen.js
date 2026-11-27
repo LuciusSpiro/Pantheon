@@ -22,7 +22,7 @@ const MUTATIONEN = [
   { name: 'Flag trainingFertig wird nicht gesetzt', datei: BUCH, aendern: ersetzen('"trainingFertig": true', '"trainingFertig": false') },
   { name: 'Hinweis ohne Timer (a_hoch hat keinen Hänger-Hinweis mehr)', datei: BUCH, aendern: buch((d) => { const s = schritt(d, 'a_hoch'); s.timers = s.timers.filter((t) => !/^@hinweis\./.test(t.oda || '')); }) },
   { name: 'Hinweis feuert zu früh (a_hoch nach 3 s statt 45 s)', datei: BUCH, aendern: buch((d) => { const s = schritt(d, 'a_hoch'); s.timers.find((t) => t.oda === '@hinweis.hoch').at = 3; }) },
-  { name: 'vorerkunden entfernt: kein Schnellsprung hafen -> b7', datei: TRAINING, aendern: ersetzen('vorerkunden: { hexe:', 'vorerkundenX: { hexe:') },
+  { name: 'vorerkunden entfernt: kein Schnellsprung hafen -> b7', datei: TRAINING, aendern: ersetzen("vorerkunden: { hexe: ['0206', '0306', '0406', '0405', '0207'], kanten: ['0206-0306', '0306-0406', '0306-0405', '0206-0207']", "vorerkundenX: { hexe: ['0206', '0306', '0406', '0405', '0207'], kanten: ['0206-0306', '0306-0406', '0306-0405', '0206-0207']") },
   { name: 'Abzeichen fehlt: Tabelle verweist auf ein unbekanntes Abzeichen', datei: TRAINING, aendern: ersetzen("sprachwahl: false, abzeichen: 'fliegen',", "sprachwahl: false, abzeichen: 'fliegenX',") },
   { name: 'Abfangen im Schnellsprung bleibt an (Tabellenfeld reise entfällt)', datei: TRAINING, aendern: ersetzen('reise: { feindChance: 0,', 'reiseX: { feindChance: 0,') },
   { name: 'Der Modus setzt das Sprungziel nicht (b_sprungpunkt ohne training_sprungziel)', datei: BUCH, aendern: buch((d) => { const s = schritt(d, 'b_sprungpunkt'); s.enter = s.enter.filter((a) => a.do !== 'training_sprungziel'); }) },

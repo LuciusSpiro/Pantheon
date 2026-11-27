@@ -24,7 +24,7 @@ function training(modus, name) {
   const env = { MISSION_SOURCE: 'fallback', REGIE_DIR: path.join(root, 'regie-' + name), TELEMETRIE: 'an', TELEMETRIE_QUELLE: 'bot', TELEMETRIE_DIR: dir };
   const g = new Game({ noStore: true, worlds: false, seed: 21, debug: true, env, log: () => {} });
   const cs = [];
-  for (let i = 0; i < 2; i++) {
+  for (let i = 0; i < 1; i++) {   // Training ist ein Ein-Spieler-Modus (Nacharbeit W3)
     const c = { inbox: [], send(m) { if (this.inbox.length < 500) this.inbox.push(m); }, sendRaw(s) { this.send(JSON.parse(s)); } };
     g.addConnection(c);
     g.handleMessage(c, { t: 'hello', clientId: 'TT' + i, name: 'Geheimname' + i, color: i });
@@ -49,7 +49,7 @@ for (const [modus, buch] of [['training_fliegen', 'tra_fliegen'], ['training_cap
     ok(kopf.szenario === null && kopf.weltstand === null, 'Kopf: szenario und weltstand null (Training ohne Weltstand)');
     ok(!/Geheimname/.test(fs.readFileSync(f[0], 'utf8')), 'kein Spielername im Protokoll');
     const st = z.filter((x) => x.typ === 'szene_start');
-    ok(st.length === 1 && st[0].modus === modus && st[0].szene === buch && st[0].spielerzahl === 2, 'ein szene_start: modus ' + modus + ', szene ' + buch);
+    ok(st.length === 1 && st[0].modus === modus && st[0].szene === buch && st[0].spielerzahl === 1, 'ein szene_start: modus ' + modus + ', szene ' + buch);
     ok(!z.some((x) => x.modus === 'arena_raum') && !st.some((x) => x.modus === 'arena_raum' || x.modus === 'kampagne'), 'kein Rückfall auf arena_raum oder kampagne');
     ok(!z.some((x) => x.typ === 'buchung' && x.grund === 'testmarken'), 'keine Testmarken-Buchung');
   }

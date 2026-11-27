@@ -8,6 +8,7 @@
 //              Neustart nach 8 s, Buch von vorn, kein Gegner im Raum, g.errors 0, kein Hinweis solange der Spieler vorankommt
 //   Hinweis    hängt der Spieler in einem Schritt, feuert genau der Hinweis dieses Schritts, nicht vor seiner Zeit
 //   Sprungziel das Ziel setzt der Modus (kein sprungziel_gewaehlt), Route hafen -> b7 über splitter steht als Schnellsprung-Plan
+//   Vaelen     TRA-01 Nacharbeit W5: der Faltsprung der Übung geht in die ruhige Vaelen-Karawane (0207), nicht in den Splittergürtel; im Zwischenhalt des Schnellsprungs trifft kein Brocken
 //   Reise      Abfangen im Schnellsprung ist im Training abgeschaltet und danach (Lobby) wieder da
 const fs = require('fs');
 const path = require('path');
@@ -26,7 +27,7 @@ function section(name, body) {
 const BUCH = path.join(__dirname, '..', 'content', 'regiebuecher', 'tra_fliegen.regiebuch.json');
 const doc = () => JSON.parse(fs.readFileSync(BUCH, 'utf8'));
 const ZIELTEXTE = { hoch: 'Ablegen, Schub hoch (W)', runter: 'Temporegler runter (S)', ruder: 'Ruder legen (A / D)', stopp: 'Allstopp (X)', rolle: 'Ausweichrolle (Shift+A / D)',
-  station: 'Hafenstation anfliegen', sprungpunkt: 'Sprungpunkt anfliegen', falt: 'Faltsprung (F) in den Gürtel', schnell: 'Schnellsprung (G) zu B-7', dock: 'Im Hafen andocken', ablegen: 'Wieder ablegen (W)' };
+  station: 'Hafenstation anfliegen', sprungpunkt: 'Sprungpunkt anfliegen', falt: 'Faltsprung (F) zur Karawane', schnell: 'Schnellsprung (G) zu B-7', dock: 'Im Hafen andocken', ablegen: 'Wieder ablegen (W)' };
 // Abfolge der Schritte des normalen Durchlaufs (ohne Abbruch-Zweige)
 const ABFOLGE = ['a_hoch', 'a_runter', 'a_ruder', 'a_stopp', 'a_rolle', 'a_station', 'b_sprungpunkt', 'b_falt', 'b_zurueck', 'b_schnell', 'b_rueckflug', 'b_andocken', 'b_ablegen', 'b_fertig'];
 // Ziel-Id der Erkennung je Schritt (null: Bedingung im Buch)
@@ -91,7 +92,9 @@ section('Durchlauf: scripted Mensch-Ersatz bis Abzeichen', () => {
     const ids = R.schritte.map((x) => x.id).filter((x) => x && x !== 'b_fertig');   // b_fertig setzt das Flag und schließt im selben Tick ab
     ok(ids.join() === ABFOLGE.slice(0, 13).join(), 'Seed ' + s + ': Schritte in der geplanten Abfolge (' + ids.join('>') + ')');
     ok(R.abzeichen === 1, 'Seed ' + s + ': genau ein Abzeichen (EVT_ABZEICHEN fliegen)');
-    ok(R.neustartOk, 'Seed ' + s + ': Neustart nach Erfolg, Buch von vorn, Ziele leer, Flag zurück');
+    ok(R.neustartOk, 'Seed ' + s + ': Neustart nach Erfolg, Buch von vorn, Ziele leer, alle Buchflags auf Standard');
+    ok(R.ok2 && R.schritteGleich, 'Seed ' + s + ': zweiter Versuch bis zum zweiten Abzeichen, dieselben Schritte ohne Sprung (' + R.schritte2.map((x) => x.id).join('>') + ')');
+    ok(R.brocken === 0, 'Seed ' + s + ': kein Brockentreffer (Vaelen ohne Brocken, Zwischenhalt im Gürtel)');
     ok(R.gegner === 0, 'Seed ' + s + ': nie ein Gegner im Raum (Hafen, Gürtel, B-7, Schnellsprung)');
     ok(R.fehler === 0, 'Seed ' + s + ': g.errors 0');
     ok(R.hinweise.length === 0, 'Seed ' + s + ': kein Hinweis, solange der Spieler vorankommt (' + R.hinweise.length + ')');
@@ -104,7 +107,7 @@ section('Durchlauf: scripted Mensch-Ersatz bis Abzeichen', () => {
 
 section('Hinweis: feuert, wenn der Spieler hängt', () => {
   const d = doc();
-  const proben = [['a_hoch', 'hinweis.hoch'], ['a_ruder', 'hinweis.ruder'], ['b_falt', 'hinweis.falt'], ['b_andocken', 'hinweis.andocken']];
+  const proben = [['a_hoch', 'hinweis.hoch'], ['a_ruder', 'hinweis.ruder'], ['b_falt', 'hinweis.falt'], ['b_schnell', 'hinweis.schnell'], ['b_rueckflug', 'hinweis.rueckflug'], ['b_andocken', 'hinweis.andocken']];
   for (const [schritt, schluessel] of proben) {
     const at = d.steps.find((s) => s.id === schritt).timers.find((t) => t.oda === '@' + schluessel).at;
     const text = d.texte[schluessel];
@@ -150,7 +153,7 @@ section('Sprungziel: setzt der Modus', () => {
     if (id && !sah[id]) sah[id] = { dest: g.ship.jump.dest, plan: g.reisePlan ? g.reisePlan.hops.slice() : null, kapitaen: Erk.erreicht(g, 'sprungziel_gewaehlt'), t: g.time };
   }
   ok(sah.a_hoch && sah.a_hoch.dest === null, 'vor der Sprungübung ist kein Ziel gesetzt');
-  ok(sah.b_sprungpunkt && sah.b_sprungpunkt.dest === 'splitter', 'b_sprungpunkt: Ziel splitter (vom Modus)');
+  ok(sah.b_sprungpunkt && sah.b_sprungpunkt.dest === 'vaelen', 'b_sprungpunkt: Ziel vaelen (vom Modus, ruhiger Nachbar)');
   ok(sah.b_zurueck && sah.b_zurueck.dest === 'hafen', 'b_zurueck: Ziel hafen (vom Modus, F springt zurück)');
   ok(sah.b_schnell && sah.b_schnell.dest === 'splitter' && sah.b_schnell.plan && sah.b_schnell.plan.join() === '0306,0406', 'b_schnell: Ziel b7 als Schnellsprung-Plan über splitter (dest splitter, hops 0306,0406)');
   ok(sah.b_rueckflug && sah.b_rueckflug.plan && sah.b_rueckflug.plan.join() === '0306,0206', 'b_rueckflug: Rückweg b7 -> splitter -> hafen als Plan');
@@ -160,6 +163,32 @@ section('Sprungziel: setzt der Modus', () => {
   const Q = Sim.partie('training_fliegen', { seed: 4 });
   const e = Training.sprungzielSetzen(Q.g, 'hafen');
   ok(typeof e === 'string' && Q.g.errors === 1, 'Ziel = aktueller Ort: Fehlertext "' + e + '" und countError, kein Wurf');
+});
+
+section('Vaelen: ruhiger Faltsprung (W5)', () => {
+  const Sprung = require('../server/sim/sprung.js');
+  const T = Training.TRAININGSMODI.training_fliegen;
+  ok(T.vorerkunden.hexe.includes('0207') && T.vorerkunden.kanten.includes('0206-0207'), 'vorerkunden: Hex 0207 und Kante 0206-0207');
+  const P = Sim.partie('training_fliegen', { seed: 6 }); const g = P.g;
+  ok(Sprung.tutorialLaeuft(g) === true && Sprung.tutorialZielErlaubt(g, '0207'), 'Faltsprung nach 0207 erlaubt (Training: tutorialLaeuft, Saumraum)');
+  ok(Training.sprungzielSetzen(g, 'vaelen') === null && g.ship.jump.dest === 'vaelen', 'Sprungziel vaelen setzbar (vom Modus)');
+  Sprung.springeNach(g, 'vaelen');
+  ok(g.ship.scene === 'vaelen' && g.space.enemies.length === 0 && g.space.asteroids.length === 0, 'Vaelen: keine Gegner, keine Brocken');
+  const d = doc();
+  ok(!d.steps.some((s) => JSON.stringify(s).includes('"training_sprungziel"') && JSON.stringify(s.enter).includes('"splitter"') && s.id === 'b_sprungpunkt'), 'b_sprungpunkt setzt nicht den Splittergürtel');
+  ok(/Durchflug|Zwischenhalt/.test(d._kommentar) && !/Durchflug nur als Schnellsprung/.test(d._kommentar), 'Buchkommentar beschreibt den Gürtel als Zwischenhalt des Schnellsprungs');
+  // Zwischenhalt im Gürtel: die Ankunft des Schnellsprungs liegt in 30 Seeds frei von Brocken (die Lerche steht dort 4 s, hopZeit)
+  let nah = 0; let nMax = 0;
+  for (let s = 1; s <= 30; s++) {
+    const Q = Sim.partie('training_fliegen', { seed: s }); const q = Q.g;
+    Sprung.springeNach(q, 'splitter');
+    const abst = Math.min(...q.space.asteroids.map((a) => Math.hypot(a.x - q.ship.x, a.y - q.ship.y) - a.r - q.C.flight.radius));
+    if (q.space.asteroids.length > nMax) nMax = q.space.asteroids.length;
+    if (!(abst > 20)) nah++;
+  }
+  ok(nMax > 0 && nah === 0, 'Zwischenhalt Splittergürtel: Ankunftspunkt in 30 Seeds frei von Brocken (' + nMax + ' Brocken je Szene, zu nah: ' + nah + ')');
+  const hop = require('../server/sim/reise.js');
+  ok(typeof hop.update === 'function' && (T.reise.hopZeit == null), 'Hopzeit bleibt der Standard (4 s): kein langer Aufenthalt im Gürtel');
 });
 
 section('Reise: Abfangen im Training aus', () => {

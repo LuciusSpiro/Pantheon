@@ -43,7 +43,7 @@ const MODI = [['training_fliegen', 'tra_fliegen'], ['training_captain', 'tra_cap
 
 for (const [modus, buch] of MODI) {
   section('Start ' + modus, () => {
-    const T = lobbySpiel(modus, 2); const g = T.g;
+    const T = lobbySpiel(modus, 1); const g = T.g;   // Training ist ein Ein-Spieler-Modus (Nacharbeit W3: zwei Menschen lehnt der Start ab, tools/test-training-nacharbeit.js)
     T.run(2);
     ok(g.phase === 'play' && g.arena && g.arena.kind === modus, 'Menümodus läuft: phase play, arena.kind ' + modus);
     ok(g.weltId === 'limes', 'Karte limes (Standard), nicht sund (' + g.weltId + ')');
@@ -52,7 +52,7 @@ for (const [modus, buch] of MODI) {
     ok(!g.weltstand || g.weltstand.persistent === false, 'kein persistenter Weltstand');
     ok(!g.mission.kette && g.mission.mode === 'arena' && !g.mission.pending.length, 'keine Kampagnenkette, Modus arena, kein Kampagnen-Gerücht');
     ok(g.inventory.marks !== g.C.werft.testmarken, 'kein Testgeld (' + g.inventory.marks + ' Marken, Testmarken wären ' + g.C.werft.testmarken + ')');
-    ok(g.players.every((p) => p.zone === 'ship'), 'beide Spieler an Bord');
+    ok(g.players.every((p) => p.zone === 'ship'), 'der Mensch an Bord');
     ok(g.arena.training && g.arena.training.modus === modus && g.arena.training.versuch === 1 && g.arena.training.sprache === false, 'game.arena.training = { modus, sprache false, versuch 1 }');
     ok(g.errors === 0, 'g.errors 0 (' + g.errors + ')');
   });
@@ -71,7 +71,7 @@ section('Brett: nicht im Angebotsbrett', () => {
 });
 
 section('Neustart und Szenenende', () => {
-  const T = lobbySpiel('training_fliegen', 2); const g = T.g; T.run(2);
+  const T = lobbySpiel('training_fliegen', 1); const g = T.g; T.run(2);
   const tr = g.arena.training;
   g.mission.completeMission('verloren');
   ok(g.mission.missions.tra_fliegen.state === 'done' && g.mission.missions.tra_fliegen.ausgang === 'verloren', 'Buch endet mit verloren');
@@ -91,7 +91,7 @@ section('Neustart und Szenenende', () => {
   ok(tr.versuch === 3 && g.mission.activeId === 'tra_fliegen' && g.mission.missions.tra_fliegen.state === 'active', 'nach Erfolg und Frist: Neustart (Versuch 3), Buch wieder aktiv');
   ok(g.errors === 0, 'g.errors 0');
   // 30-s-Rückfall: die Spieler bleiben künstlich unten (jeder Tick setzt sie zurück), Neustart erst nach NEUSTART_MAX_WARTEN und holt sie an Bord
-  const U = lobbySpiel('training_captain', 2); const u = U.g; U.run(2);
+  const U = lobbySpiel('training_captain', 1); const u = U.g; U.run(2);
   const ut = u.arena.training;
   const halten = () => { for (const p of u.players) { p.zone = 'away'; p.downed = true; p.hp = 0; } if (u.away) u.away.recallT = 0; };
   u.mission.completeMission('verloren');
@@ -147,7 +147,7 @@ section('Option trainingSprache', () => {
 });
 
 section('Snapshot', () => {
-  const T = lobbySpiel('training_captain', 2, { sprache: true }); T.run(2);
+  const T = lobbySpiel('training_captain', 1, { sprache: true }); T.run(2);
   const s = JSON.stringify(T.g.snapshot());
   ok(!/"training"/.test(s) && !/trainingSprache/.test(s), 'Spiel-Snapshot ohne neues Feld (kein training, kein trainingSprache)');
   ok(T.g.errors === 0, 'g.errors 0');
