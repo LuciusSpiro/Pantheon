@@ -1373,7 +1373,7 @@ class Game {
         } else err = 'Unbekannte Priorität.';
         break;
       }
-      case 'technik.repair': err = bots.queueRepair(this, msg.system, msg.mode == null ? null : String(msg.mode)); break;
+      case 'technik.repair': err = bots.queueRepair(this, msg.system, msg.mode == null ? null : String(msg.mode), Protocol.normKomp(msg.komp)); break;   // TEC-01 D: optionale Zielkomponente der Schildkette (Typbuchstabe); ob und wie der Schrauber sie nutzt, regelt bots.queueRepair
       case 'technik.botAuto': err = bots.setBotAuto(this, !!msg.on); break;
       case 'captain.burst': err = 'Den Schildstoß gibt es nicht mehr.'; break;   // M3b §0.4: entfallen (Altname)
       case 'weapons.alloc': {

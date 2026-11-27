@@ -392,6 +392,7 @@
     // Unzulässiges Ziel = Hinweistext als notice, kein Halten. Das Feld ist optional und rückwärtskompatibel (kein VERSION-Sprung). normKomp: unbekannte Werte zählen als kein Wunsch.
     // Der Hold im Snapshot (players[].action) trägt komp (Art der Zielkomponente), solange er läuft.
     KOMP_ARTEN: ['K', 'S', 'R', 'L'],
+    // TEC-01 D: auch technik.repair { system, mode, komp? } (Reparaturliste der Technik-Konsole) trägt optional komp (normKomp). Ohne komp wie bisher; der Schrauber-Eintrag der Liste ist { system, mode, bot, komp? }.
     normKomp(v) { return typeof v === 'string' && ['K', 'S', 'R', 'L'].indexOf(v) >= 0 ? v : undefined; },
     // M3a §20.3: Lanze als Ladewaffe. cmd { c: 'weapons.charge', mount: 'bow', on: bool } (Ops) – on:true lädt auf,
     // on:false feuert sofort mit der aktuellen power. Snapshot mounts[bow].power (0..1), .charging (bool).
