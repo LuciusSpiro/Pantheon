@@ -19,6 +19,8 @@ Testhilfe.rohZaehlen();   // SYS-03 B2: Waffenschaden als Rohschaden zählen (ge
 const roh = Testhilfe.roh;
 const Gegnertod = require('../server/sim/gegnertod.js');   // SYS-01 C1a-2: Reaktor-Countdown der Gegner
 const interior = require('../server/sim/interior.js');
+// TEC-01 B1: das Minispiel repariert nur das Relais; ein direkt auf damaged geschriebener Emitter hat sonst die Leitung defekt (Wächter) und das Relais heil
+const relaisDefekt = (g, sys) => { const Komp = require('../server/sim/komponenten.js'); Komp.erzeugeAusZustand(g, sys); g.ship.komp[sys].forEach((k) => { k.z = k.t === 'R' ? 'defekt' : 'ok'; }); };
 const Flight = require('../shared/flight.js');
 let damage = null;
 try { damage = require('../server/sim/damage.js'); } catch (e) { damage = null; }
@@ -394,7 +396,7 @@ section('Reparatur: Austauschen (§8.1)', () => {
 section('Reparatur: Minispiel (§8.1)', () => {
   const { g, P, send, run, place, events, cmd, notices } = arena(2);
   noFire(g);
-  g.ship.systems.emitter_stbd = 'damaged'; g.ship.fragile.emitter_stbd = true;
+  g.ship.systems.emitter_stbd = 'damaged'; relaisDefekt(g, 'emitter_stbd');
   // zu weit weg
   place(0, conSpot('helm'));
   cmd(0, 'repair.start', { system: 'emitter_stbd' });
@@ -591,7 +593,7 @@ section('M3b: Rückschlag 50 % bei Hüllentreffer im Sektor (§4)', () => {
   ok(g.stats.repairSetbacks === sb0 + 1 && events('repairSetback').some((e) => e.system === 'battery_stbd'), `Ereignis repairSetback { system }, stats.repairSetbacks ${g.stats.repairSetbacks}`);
   send(0, { t: 'act', down: false }); run(0.1, tick);
   // Minispiel-Mindestzeit
-  resetSystems(g); g.ship.systems.emitter_port = 'damaged';
+  resetSystems(g); g.ship.systems.emitter_port = 'damaged'; relaisDefekt(g, 'emitter_port');
   place(0, sysSpot('emitter_port'));
   send(0, { t: 'cmd', c: 'repair.start', system: 'emitter_port' });
   run(1.6, tick);

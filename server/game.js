@@ -814,7 +814,7 @@ class Game {
           away.setAim(this, p, msg.aim);   // FIX-ZIELEN: Zielwinkel (Grad) → Blickrichtung; fehlt = Laufrichtung
           break;
         }
-        case C.ACT: if (this.phase !== 'lobby') interior.onAct(this, p, !!msg.down); break;
+        case C.ACT: if (this.phase !== 'lobby') interior.onAct(this, p, !!msg.down, typeof msg.komp === 'string' ? msg.komp : undefined); break;   // TEC-01 B1: optionaler Komponentenwunsch (Typbuchstabe)
         case C.SHOOT: if (this.phase !== 'lobby') {   // B2: los = Lanze loslassen; dist = Zielabstand in Kacheln (Wurfweite)
           const dist = msg.dist == null ? NaN : Number(msg.dist);
           away.shoot(this, p, Number(msg.angle), msg.los === true ? { los: true } : Number.isFinite(dist) && dist >= 0 ? { dist } : undefined);
@@ -1608,7 +1608,11 @@ class Game {
       case 'fragile': {
         const sys = String(msg.system != null ? msg.system : (typeof msg.args === 'string' ? msg.args.trim() : ''));
         if (!interior.SYSTEM_ORDER.includes(sys)) { err = 'Unbekanntes System.'; break; }
-        this.ship.fragile[sys] = true;
+        if (Komponenten.hatKomponenten(this, sys)) {   // TEC-01 B1: auf der Schildkette sitzt der Flicken in einer Komponente
+          const L = Komponenten.anlegen(this, sys);
+          const k = L.find((q) => q.z === 'ok') || L[0];
+          if (k && k.z === 'ok') Komponenten.setzeKomponente(this, sys, L.indexOf(k), 'geflickt');
+        } else this.ship.fragile[sys] = true;
         break;
       }
       case 'tele': {
@@ -2438,7 +2442,7 @@ class Game {
         shields: this.shieldsSnap(),
         // M3a §4.1/§9.3: 14 Systeme + berechneter Altname weapons (schlechteste der drei Waffen)
         systems: (() => { const so = Object.assign({}, ship.systems, { weapons: ship.systems.weapons }); for (const k of Object.keys(so)) if (!interior.systemAktiv(this, k)) delete so[k]; return so; })(),   // PAN-01 C: Lafetten ohne Waffe fehlen (Budget)
-        fragile: Object.keys(ship.fragile).filter((k) => ship.fragile[k]),
+        fragile: interior.fragileSystems(this),   // TEC-01 B1: Schildkette abgeleitet aus den geflickten Komponenten
         repairQueue: ship.repairQueue.map((e) => ({ system: e.system, mode: e.mode, bot: e.bot || null })),
         botAuto: !!ship.botAuto,
         turnVel: r3(ship.turnVel || 0),

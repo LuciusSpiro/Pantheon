@@ -697,7 +697,7 @@ function capture(game) {
   for (const k of SYSTEM_ORDER) {
     let st = ship.systems[k];
     if (st === 'offline') st = 'ok';
-    if (st === 'ok' && ship.fragile && ship.fragile[k]) st = 'damaged';
+    if (st === 'ok' && ship.fragile && ship.fragile[k] && !Komponenten.hatKomponenten(game, k)) st = 'damaged';   // TEC-01 B1: auf der Schildkette ist ok + Flicken ok (der Flicken steht im Block schiff.komp)
     systeme[k] = ['ok', 'damaged', 'broken'].includes(st) ? st : 'ok';
   }
   const loc = ship.docked && ship.dockedAt ? ship.dockedAt : (ws.lastDockedAt || Welt.startOrt());

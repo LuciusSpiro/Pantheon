@@ -75,7 +75,9 @@ section('Einhängen: damageSystem, setzeZustand, Reparatur', () => {
   ok(g.ship.systems.emitter_stbd === 'ok' && z(g, 'emitter_stbd') === 'oo', 'Reparatur (heutiger Weg): Komponenten folgen, Wächter bleibt still');
   I.damageSystem(g, 'emitter_bow', 'broken');
   I.repairSystem(g, 'emitter_bow', 'bot', 'swap');
-  ok(g.ship.systems.emitter_bow === 'ok' && z(g, 'emitter_bow') === 'oo', 'Reparatur broken per Ersatzteil (swap): wieder ok, beide Komponenten heil');
+  ok(g.ship.systems.emitter_bow === 'damaged' && K.defekteZahl(g, 'emitter_bow') === 1, 'B1: ein Tausch heilt nur EINE Komponente: broken wird damaged');
+  I.repairSystem(g, 'emitter_bow', 'bot', 'swap');
+  ok(g.ship.systems.emitter_bow === 'ok' && z(g, 'emitter_bow') === 'oo', 'Reparatur broken per Ersatzteil (swap): zwei Tausche, dann wieder ok, beide Komponenten heil');
   ok(K.konsistent(g, 'emitter_bow') === false, 'nach der Reparatur ist nichts mehr nachzuziehen');
   // Zufall nur unter funktionierenden, bevorzugt S
   const g2 = newGame(4); K.konsistentAlle(g2);
@@ -189,15 +191,15 @@ section('Weltstand: Block nur bei Abweichung, alter Stand lädt', () => {
   Weltstand.apply(g5, kaputt);
   ok(g5.ship.systems.shields === 'broken', 'unbrauchbarer Block: kein Absturz');
   const g6 = newGame(16); K.konsistentAlle(g6);
-  setz(g6, 'emitter_bow', 'gg'); g6.ship.fragile.emitter_bow = true;
+  setz(g6, 'emitter_bow', 'gg'); g6.ship.fragile.emitter_bow = true;   // Altlast-Flag: B1 ignoriert ship.fragile auf der Schildkette
   const d6 = Weltstand.capture(g6);
-  ok(d6.schiff.systeme.emitter_bow === 'damaged' && d6.schiff.komp === undefined, 'Zustand/Block widersprüchlich (fragil als damaged gespeichert), keine Zähler: Block entfällt');
+  ok(d6.schiff.systeme.emitter_bow === 'ok' && d6.schiff.komp && d6.schiff.komp.emitter_bow === 'gg', 'ok + geflickte Komponenten: als ok gespeichert (kein damaged), der Flicken steht im Block (B1)');
   g6.ship.komp.emitter_bow[0].n = 3; g6.ship.komp.emitter_bow[1].sp = 1;
   const d6b = Weltstand.capture(g6);
-  ok(d6b.schiff.komp && d6b.schiff.komp.emitter_bow === '--;3,0;0,1', 'ok + fragil (als damaged gespeichert): Codes verworfen, Zähler bleiben (' + (d6b.schiff.komp && d6b.schiff.komp.emitter_bow) + ')');
+  ok(d6b.schiff.komp && d6b.schiff.komp.emitter_bow === 'gg;3,0;0,1', 'ok + Flicken + Zähler: Codes und Zähler im Block (' + (d6b.schiff.komp && d6b.schiff.komp.emitter_bow) + ')');
   ok(!(Weltstand.validate(Object.assign(JSON.parse(JSON.stringify(d6b)), { id: 'test', name: 'Test' })) || []).length, 'Schema nimmt den Platzhalter an');
   const g6b = newGame(17); Weltstand.apply(g6b, JSON.parse(JSON.stringify(d6b)));
-  ok(g6b.ship.systems.emitter_bow === 'damaged' && K.defekteZahl(g6b, 'emitter_bow') === 1 && g6b.ship.komp.emitter_bow[0].n === 3 && g6b.ship.komp.emitter_bow[1].sp === 1, 'laden: Zustand aus dem Systemzustand (damaged = 1 defekt), Zähler aus dem Block');
+  ok(g6b.ship.systems.emitter_bow === 'ok' && z(g6b, 'emitter_bow') === 'gg' && I.isFragile(g6b, 'emitter_bow') && g6b.ship.komp.emitter_bow[0].n === 3 && g6b.ship.komp.emitter_bow[1].sp === 1, 'laden: ok, beide Flicken, fragil abgeleitet, Zähler aus dem Block');
   // EMP-Pause: offline wird als ok gespeichert, die Ableitung (prev) ist damaged
   const g7 = newGame(18); K.konsistentAlle(g7);
   setz(g7, 'emitter_aft', 'od'); g7.ship.komp.emitter_aft[0].n = 2;
@@ -445,6 +447,327 @@ section('Nacharbeit 4: frisches Spiel ohne Tick', () => {
   ga.space.enemies = []; ga.space.projectiles = [];
   I.direktTreffer(ga, 'shields');
   ok((ga.ship.kompKorrekturen | 0) === 0 && K.defekteZahl(ga, 'shields') === 1, 'erster Treffer im frischen Spiel zählt keine Wächterkorrektur');
+});
+
+// ---------- TEC-01 B1: Reparatur je Komponente ----------
+const WORLD = require('../server/world.js');
+const DT = 1 / CONFIG.tickHz;
+function lerche(seed) {   // Spiel in der Freien Fahrt mit einem Spieler (Hold-Tests laufen über onAct und Ticks)
+  const g = new Game({ noStore: true, seed: seed || 7, debug: true, env: { MISSION_SOURCE: 'fallback', SPIELLEITER_LLM: 'off' }, log: () => {} });
+  const c = { inbox: [], send(o) { this.inbox.push(o); }, sendRaw(s) { this.inbox.push(JSON.parse(s)); } };
+  g.addConnection(c); g.handleMessage(c, { t: 'hello', clientId: 'K0', name: 'K0', color: 0 });
+  g.handleMessage(c, { t: 'lobbyOpt', startMission: 'freie_fahrt' });
+  g.handleMessage(c, { t: 'ready', ready: true });
+  const run = (sec) => { for (let k = 0; k < Math.round(sec / DT); k++) g.step(); };
+  run(1); g.space.enemies = []; g.space.projectiles = [];
+  for (const k of I.SYSTEM_ORDER) g.ship.systems[k] = 'ok';
+  g.ship.fragile = {}; g.ship.offline = {}; g.ship.repairQueue = [];
+  I.integritaetVoll(g); K.neuAufstellen(g);
+  g.god = false;
+  const notices = []; const notice0 = g.notice.bind(g); g.notice = (pp, m) => { notices.push(m); return notice0(pp, m); };
+  return { g, p: g.players[0], c, run, notices };
+}
+const ankern = (g, p, sys) => { const st = WORLD.STATIONS.find((s) => s.system === sys); const c = WORLD.tileCenter(st.x, st.y); p.x = c.x; p.y = c.y; p.zone = 'ship'; p.console = null; p.hold = null; p.moving = false; p.input.mx = 0; p.input.my = 0; };
+const zaehler = (g, sys, n, sp) => g.ship.komp[sys].forEach((k, i) => { if (n) k.n = n[i]; if (sp) k.sp = sp[i]; });
+const nz = (g, sys) => g.ship.komp[sys].map((k) => k.n).join(',');
+const spz = (g, sys) => g.ship.komp[sys].map((k) => k.sp).join(',');
+
+section('B1: Flicken je Komponente (defekt -> geflickt, sp 0, Systemzustand abgeleitet)', () => {
+  const g = newGame(60); K.konsistentAlle(g);
+  for (const sys of KETTE) {
+    const rez = K.rezept(g, sys);
+    let alle = true; let detail = '';
+    rez.forEach((t, i) => {
+      const start = rez.map((_, j) => (j === i ? 'd' : 'o')).join('');
+      setz(g, sys, start); zaehler(g, sys, rez.map(() => 2), rez.map(() => 4));
+      const r = I.repairSystem(g, sys, 'player', 'flick', { komp: t });
+      const erwartet = rez.map((_, j) => (j === i ? 'g' : 'o')).join('');
+      const k = g.ship.komp[sys][i];
+      if (!(r === true && z(g, sys) === erwartet && k.sp === 0 && k.n === 2 && g.ship.systems[sys] === 'ok' && I.isFragile(g, sys) && !g.ship.fragile[sys])) { alle = false; detail += ` ${sys}/${t}:${r}/${z(g, sys)}`; }
+    });
+    ok(alle, `${sys}: Flicken je Komponente (${rez.join('')}): geflickt, sp 0, n bleibt, System ok (1 defekt + Flicken), fragil abgeleitet, kein ship.fragile${detail}`);
+  }
+  setz(g, 'shields', 'ddo');
+  I.repairSystem(g, 'shields', 'player', 'flick');
+  ok(z(g, 'shields') === 'gdo' && g.ship.systems.shields === 'damaged' && I.integOf(g, 'shields') === I.integAusZustand(g, 'shields', 'damaged'), 'zerstörter Generator ddo: ein Flicken (Standard: erste defekte = K) -> gdo, damaged, Integrität = Grundwert damaged');
+  I.repairSystem(g, 'shields', 'player', 'flick');
+  ok(z(g, 'shields') === 'ggo' && g.ship.systems.shields === 'ok' && I.integOf(g, 'shields') === I.integMax(g, 'shields'), 'zweiter Flicken -> ggo, ok, Integrität Maximum');
+  ok(I.repairSystem(g, 'shields', 'player', 'flick') === false && z(g, 'shields') === 'ggo', 'Flicken ohne defekte Komponente: abgewiesen, nichts ändert sich');
+  const ev = []; const emit0 = g.emit.bind(g); g.emit = (nm, d) => { if (nm === 'repairDone') ev.push(d); return emit0(nm, d); };
+  setz(g, 'emitter_aft', 'od');
+  const rep0 = g.stats.repairs; const fl0 = g.stats.flicks | 0;
+  I.repairSystem(g, 'emitter_aft', 'player', 'flick');
+  ok(ev.length === 1 && ev[0].komp === 'L' && ev[0].how === 'flick' && ev[0].fragile === true && ev[0].state === 'ok' && g.stats.repairs === rep0 + 1 && (g.stats.flicks | 0) === fl0 + 1, 'repairDone trägt den Komponententyp (komp), Statistik zählt wie bisher');
+  g.emit = emit0;
+  ok((g.ship.kompKorrekturen | 0) === 0, 'Wächter hat bei den Reparaturen nie korrigiert (kompKorrekturen 0)');
+});
+
+section('B1: Tausch (nur diese Komponente, n 0, sp 0, Ersatzteil weg) per Hold', () => {
+  const { g, p, run } = lerche(61);
+  setz(g, 'shields', 'dgd'); zaehler(g, 'shields', [2, 0, 3], [1, 1, 1]);
+  ankern(g, p, 'shields'); p.carry = 'ersatzteil'; I.onAct(g, p, true);
+  ok(p.hold && p.hold.kind === 'swap' && p.hold.komp === 'K' && p.hold.system === 'shields', 'Tausch-Hold trägt die Zielkomponente (komp K = erste defekte)');
+  run(3.3);
+  ok(!p.hold && p.carry === null, 'Tausch fertig: Ersatzteil verbraucht');
+  ok(z(g, 'shields') === 'ogd' && nz(g, 'shields') === '0,0,3' && spz(g, 'shields') === '0,1,1', 'nur der Steuerkern: ok, n 0, sp 0; geflickte S und defektes R unberührt');
+  ok(g.ship.systems.shields === 'damaged', 'Systemzustand abgeleitet: ogd = damaged');
+  I.onAct(g, p, false);
+  // Tausch auf eine geflickte Komponente (Wunsch) und Standard ohne defekte
+  setz(g, 'shields', 'gog'); zaehler(g, 'shields', [1, 0, 2], [3, 0, 3]);
+  p.carry = 'ersatzteil'; ankern(g, p, 'shields'); p.carry = 'ersatzteil';
+  I.onAct(g, p, true);
+  ok(p.hold && p.hold.kind === 'swap' && p.hold.komp === 'K', 'ok + Flicken, Ersatzteil in der Hand: Tausch möglich, Standard = erste geflickte');
+  run(3.3); I.onAct(g, p, false);
+  ok(z(g, 'shields') === 'oog' && nz(g, 'shields') === '0,0,2' && spz(g, 'shields') === '0,0,3' && g.ship.systems.shields === 'ok' && I.isFragile(g, 'shields'), 'geflickte K getauscht: ok, n 0, sp 0; R bleibt geflickt (System ok, fragil)');
+  p.carry = 'ersatzteil'; ankern(g, p, 'shields'); p.carry = 'ersatzteil'; I.onAct(g, p, true, 'R');
+  run(3.3); I.onAct(g, p, false);
+  ok(z(g, 'shields') === 'ooo' && !I.isFragile(g, 'shields') && I.repairable(g, 'shields') === false, 'Wunsch R: zweiter Tausch, nichts mehr geflickt, nicht mehr reparierbar');
+});
+
+section('B1: zerstörter Generator braucht zwei Tausche', () => {
+  const g = newGame(62); K.konsistentAlle(g);
+  setz(g, 'shields', 'ddo');
+  I.repairSystem(g, 'shields', 'player', 'swap');
+  ok(z(g, 'shields') === 'odo' && g.ship.systems.shields === 'damaged' && I.integOf(g, 'shields') === I.integAusZustand(g, 'shields', 'damaged'), 'erster Tausch: broken -> damaged (odo), Integrität Grundwert damaged');
+  I.repairSystem(g, 'shields', 'player', 'swap');
+  ok(z(g, 'shields') === 'ooo' && g.ship.systems.shields === 'ok' && I.integOf(g, 'shields') === I.integMax(g, 'shields'), 'zweiter Tausch: ok');
+  ok(I.repairSystem(g, 'shields', 'player', 'swap') === false, 'dritter Tausch auf ein heiles System: abgewiesen');
+  setz(g, 'emitter_port', 'dd');
+  I.repairSystem(g, 'emitter_port', 'player', 'swap', { komp: 'L' });
+  ok(z(g, 'emitter_port') === 'do' && g.ship.systems.emitter_port === 'damaged', 'Emitter dd, Tausch mit Wunsch L: nur die Leitung ok');
+  ok((g.ship.kompKorrekturen | 0) === 0, 'kompKorrekturen bleibt 0');
+});
+
+section('B1: Ausfallzähler n >= 3 sperrt das Relais-Minispiel, Flicken und Tausch gehen', () => {
+  const { g, p, run } = lerche(63);
+  setz(g, 'emitter_bow', 'do'); zaehler(g, 'emitter_bow', [3, 0], [2, 0]);
+  ankern(g, p, 'emitter_bow');
+  const e = I.repairCmd(g, p, 'repair.start', { system: 'emitter_bow' });
+  ok(e === 'Relais verschlissen: nur noch Flicken oder Tausch.' && !p.hold, 'n = 3: Minispiel abgewiesen mit Hinweis, kein Hold');
+  zaehler(g, 'emitter_bow', [2, 0]);
+  ok(I.repairCmd(g, p, 'repair.start', { system: 'emitter_bow' }) === null && p.hold && p.hold.kind === 'minigame' && p.hold.komp === 'R', 'n = 2: Minispiel startet, Hold trägt komp R');
+  p.hold = null; zaehler(g, 'emitter_bow', [3, 0]);
+  I.onAct(g, p, true); run(1.6); I.onAct(g, p, false);
+  ok(z(g, 'emitter_bow') === 'go' && g.ship.komp.emitter_bow[0].sp === 0 && g.ship.komp.emitter_bow[0].n === 3, 'Flicken geht bei n = 3 (n bleibt 3, sp 0)');
+  p.hold = null;
+  ok(I.repairCmd(g, p, 'repair.start', { system: 'emitter_bow' }) === 'Relais verschlissen: nur noch Flicken oder Tausch.', 'geflicktes Relais bei n = 3: Minispiel bleibt gesperrt');
+  p.carry = 'ersatzteil'; I.onAct(g, p, true); run(3.3); I.onAct(g, p, false);
+  ok(z(g, 'emitter_bow') === 'oo' && g.ship.komp.emitter_bow[0].n === 0, 'Tausch bei n = 3: Relais ok, n 0 (wieder reparierbar)');
+  // Steuerkern: kein Minispiel, Flicken und Tausch gehen
+  const q = lerche(64); const g2 = q.g;
+  setz(g2, 'shields', 'doo'); zaehler(g2, 'shields', [4, 0, 0]);
+  ankern(g2, q.p, 'shields');
+  ok(I.repairCmd(g2, q.p, 'repair.start', { system: 'shields' }) === 'Relais ist heil.' && !q.p.hold, 'Steuerkern defekt, Relais heil: Minispiel abgewiesen (Relais ist heil)');
+  ok(I.repairCmd(g2, q.p, 'repair.start', { system: 'shields', komp: 'K' }) === 'Steuerkern hat kein Minispiel: E halten zum Flicken oder Tauschen.', 'Wunsch K beim Minispiel: Hinweis, K hat keins');
+  I.onAct(g2, q.p, true); q.run(1.6); I.onAct(g2, q.p, false);
+  ok(z(g2, 'shields') === 'goo' && g2.ship.komp.shields[0].n === 4, 'Steuerkern n = 4: Flicken geht');
+  setz(g2, 'shields', 'doo'); zaehler(g2, 'shields', [4, 0, 0]);
+  q.p.carry = 'ersatzteil'; ankern(g2, q.p, 'shields'); q.p.carry = 'ersatzteil'; I.onAct(g2, q.p, true); q.run(3.3); I.onAct(g2, q.p, false);
+  ok(z(g2, 'shields') === 'ooo' && g2.ship.komp.shields[0].n === 0, 'Steuerkern n = 4: Tausch geht, n 0');
+});
+
+section('B1: Relais-Minispiel repariert nur R und lehnt K, S, L ab', () => {
+  const { g, p, run } = lerche(65);
+  setz(g, 'shields', 'dod'); zaehler(g, 'shields', [1, 0, 1], [2, 0, 2]);
+  ankern(g, p, 'shields');
+  ok(I.repairCmd(g, p, 'repair.start', { system: 'shields' }) === null && p.hold && p.hold.kind === 'minigame' && p.hold.komp === 'R', 'Generator K und R defekt: Minispiel bindet an R');
+  run(3);
+  ok(I.repairCmd(g, p, 'repair.done', { system: 'shields', errors: 0 }) === null && z(g, 'shields') === 'doo', 'Minispiel gelungen: R ok (kein Flicken), K bleibt defekt');
+  ok(g.ship.komp.shields[2].n === 1 && g.ship.komp.shields[2].sp === 0 && g.ship.komp.shields[0].sp === 2, 'n des Relais bleibt, sp des Relais 0, K unberührt');
+  ok(I.repairCmd(g, p, 'repair.start', { system: 'shields' }) === 'Relais ist heil.', 'nur K defekt: Minispiel abgewiesen');
+  setz(g, 'shields', 'odo');
+  ok(I.repairCmd(g, p, 'repair.start', { system: 'shields' }) === 'Relais ist heil.', 'nur S defekt: abgewiesen');
+  setz(g, 'emitter_bow', 'od'); ankern(g, p, 'emitter_bow');
+  ok(I.repairCmd(g, p, 'repair.start', { system: 'emitter_bow' }) === 'Relais ist heil.' && !p.hold, 'Emitter: nur die Leitung defekt: abgewiesen');
+  ok(I.repairCmd(g, p, 'repair.start', { system: 'emitter_bow', komp: 'L' }) === 'Leitung hat kein Minispiel: E halten zum Flicken oder Tauschen.', 'Wunsch L: Hinweis');
+  setz(g, 'emitter_bow', 'oo');
+  ok(I.repairCmd(g, p, 'repair.start', { system: 'emitter_bow' }) === 'Emitter Bug ist heil.' || /ist heil/.test(I.repairCmd(g, p, 'repair.start', { system: 'emitter_bow' }) || ''), 'heiles System: "ist heil"');
+  setz(g, 'emitter_bow', 'gg'); zaehler(g, 'emitter_bow', [1, 0]);
+  ok(I.repairCmd(g, p, 'repair.start', { system: 'emitter_bow' }) === null && p.hold.komp === 'R', 'geflicktes Relais: Minispiel startet (macht es ok)');
+  run(3); I.repairCmd(g, p, 'repair.done', { system: 'emitter_bow', errors: 0 });
+  ok(z(g, 'emitter_bow') === 'og' && g.ship.systems.emitter_bow === 'ok' && I.isFragile(g, 'emitter_bow'), 'Minispiel macht das geflickte Relais ok; die geflickte Leitung bleibt');
+  I.damageSystem(g, 'engines', 'damaged', { quiet: true }); ankern(g, p, 'engines');
+  ok(I.repairCmd(g, p, 'repair.start', { system: 'engines' }) === null && p.hold && p.hold.kind === 'minigame' && p.hold.komp === undefined, 'Nicht-Schildkette: Minispiel wie bisher (kein komp)');
+  p.hold = null;
+  ok((g.ship.kompKorrekturen | 0) === 0, 'kompKorrekturen bleibt 0');
+});
+
+section('B1: Komponentenwunsch gültig / ungültig', () => {
+  const { g, p, c, run, notices } = lerche(66);
+  setz(g, 'shields', 'dod'); ankern(g, p, 'shields');
+  I.onAct(g, p, true, 'S');
+  ok(!p.hold && notices.some((m) => /Spannungsregler ist nicht defekt/.test(m)), 'Flicken-Wunsch S (heil): Hinweis, kein Hold');
+  I.onAct(g, p, false); notices.length = 0;
+  I.onAct(g, p, true, 'D');
+  ok(p.hold && p.hold.kind === 'flick' && p.hold.komp === 'K', 'Wunsch D (nicht im Rezept): ignoriert, Standard (erste defekte = K)');
+  I.onAct(g, p, false);
+  I.onAct(g, p, true, 'K');
+  ok(p.hold && p.hold.komp === 'K', 'Wunsch K (defekt): Hold auf K');
+  I.onAct(g, p, false);
+  setz(g, 'shields', 'ddo'); ankern(g, p, 'shields');
+  I.onAct(g, p, true, 'R');
+  ok(!p.hold && notices.some((m) => /Relais ist nicht defekt/.test(m)), 'Wunsch R (heil): Hinweis');
+  I.onAct(g, p, false);
+  setz(g, 'shields', 'dod'); ankern(g, p, 'shields');
+  I.onAct(g, p, true, 'R');
+  ok(p.hold && p.hold.komp === 'R', 'Wunsch R bei defektem K und R: Hold auf R (nicht auf die erste defekte)');
+  run(1.6); I.onAct(g, p, false);
+  ok(z(g, 'shields') === 'dog', 'Flicken traf R, nicht K');
+  notices.length = 0; p.carry = 'ersatzteil'; ankern(g, p, 'shields'); p.carry = 'ersatzteil';
+  I.onAct(g, p, true, 'S');
+  ok(!p.hold && notices.some((m) => /Spannungsregler ist heil/.test(m)) && p.carry === 'ersatzteil', 'Tausch-Wunsch auf eine heile Komponente: Hinweis, Ersatzteil bleibt in der Hand');
+  I.onAct(g, p, false);
+  // über die Nachricht des Protokolls
+  p.carry = null; setz(g, 'shields', 'dod'); ankern(g, p, 'shields');
+  g.handleMessage(c, { t: 'act', down: true, komp: 'R' });
+  ok(p.hold && p.hold.kind === 'flick' && p.hold.komp === 'R', 'Nachricht {t:"act", down:true, komp:"R"} setzt den Wunsch');
+  g.handleMessage(c, { t: 'act', down: false });
+  g.handleMessage(c, { t: 'act', down: true, komp: 42 });
+  ok(p.hold && p.hold.komp === 'K', 'Nachricht mit unbrauchbarem komp: Standard');
+  g.handleMessage(c, { t: 'act', down: false });
+  // Reparaturwunsch bei Nicht-Schildkette bleibt wirkungslos
+  I.damageSystem(g, 'engines', 'damaged', { quiet: true }); ankern(g, p, 'engines');
+  I.onAct(g, p, true, 'R');
+  ok(p.hold && p.hold.kind === 'flick' && p.hold.komp === undefined, 'Nicht-Schildkette ignoriert den Wunsch');
+  I.onAct(g, p, false);
+});
+
+section('B1: holdValid und Ende prüfen die Zielkomponente', () => {
+  const { g, p, run } = lerche(67);
+  setz(g, 'shields', 'ddo'); ankern(g, p, 'shields'); I.onAct(g, p, true, 'K');
+  run(0.5);
+  ok(p.hold && p.hold.komp === 'K', 'Flicken auf K läuft');
+  K.flickenKomponente(g, 'shields', 'K');   // jemand anderes war schneller
+  run(0.1);
+  ok(!p.hold, 'Zielkomponente nicht mehr defekt: Abbruch während des Haltens');
+  I.onAct(g, p, false);
+  // Flicken auf R, während K getauscht wird: R weiter defekt, Halten geht weiter
+  setz(g, 'shields', 'dod'); ankern(g, p, 'shields'); I.onAct(g, p, true, 'R'); run(0.5);
+  K.tauschenKomponente(g, 'shields', 'K');
+  run(1.2);
+  ok(z(g, 'shields') === 'oog' && !p.hold, 'andere Komponente geändert: Halten läuft weiter und endet auf der gewählten (R)');
+  I.onAct(g, p, false);
+  // Tausch einer geflickten Komponente: ein Treffer bricht den Flicken (defekt) während des Tauschens -> weiter gültig
+  setz(g, 'shields', 'goo'); zaehler(g, 'shields', [1, 0, 0]);
+  p.carry = 'ersatzteil'; ankern(g, p, 'shields'); p.carry = 'ersatzteil'; I.onAct(g, p, true);
+  run(1);
+  K.setzeKomponente(g, 'shields', 0, 'defekt');   // Treffer bricht den Flicken
+  run(0.1);
+  ok(p.hold && p.hold.kind === 'swap', 'Treffer bricht den Flicken der Zielkomponente: Tausch läuft weiter (defekt ist tauschbar)');
+  run(2.3);
+  ok(!p.hold && z(g, 'shields') === 'ooo' && g.ship.komp.shields[0].n === 0, 'Tausch endet: K ok, n 0');
+  I.onAct(g, p, false);
+  // Tausch, die Komponente wird inzwischen anders getauscht -> Abbruch
+  setz(g, 'shields', 'doo'); p.carry = 'ersatzteil'; ankern(g, p, 'shields'); p.carry = 'ersatzteil'; I.onAct(g, p, true); run(1);
+  K.tauschenKomponente(g, 'shields', 'K'); run(0.1);
+  ok(!p.hold && p.carry === 'ersatzteil', 'Tausch: Zielkomponente inzwischen heil: Abbruch, Ersatzteil bleibt in der Hand');
+  I.onAct(g, p, false);
+  // Minispiel: Relais wird währenddessen getauscht -> Abbruch
+  setz(g, 'emitter_bow', 'do'); ankern(g, p, 'emitter_bow');
+  I.repairCmd(g, p, 'repair.start', { system: 'emitter_bow' }); run(0.3);
+  ok(p.hold && p.hold.kind === 'minigame', 'Minispiel läuft');
+  K.tauschenKomponente(g, 'emitter_bow', 'R'); run(0.1);
+  ok(!p.hold, 'Minispiel: Relais inzwischen heil: Abbruch');
+  // Ende: repair.done nach einem Tausch des Relais ändert nichts
+  setz(g, 'emitter_bow', 'do'); I.repairCmd(g, p, 'repair.start', { system: 'emitter_bow' }); run(3);
+  const hold = p.hold; K.flickenKomponente(g, 'emitter_bow', 'R'); K.tauschenKomponente(g, 'emitter_bow', 'R');
+  p.hold = hold;   // der Hold wäre schon gefallen; das Ende selbst muss ebenfalls prüfen
+  I.repairCmd(g, p, 'repair.done', { system: 'emitter_bow', errors: 0 });
+  ok(z(g, 'emitter_bow') === 'oo' && g.ship.komp.emitter_bow[0].n === 0, 'Ende prüft erneut: nichts doppelt gezählt');
+  // Sturm-Sperre gilt weiter (system-bezogen)
+  setz(g, 'shields', 'ddo'); ankern(g, p, 'shields'); I.onAct(g, p, true); run(0.7);
+  I.reparaturSperren(g, I.systemSector('shields'), 6);
+  ok(p.hold && p.hold.t === 0, 'Sturm-Sperre setzt den Fortschritt des Holds auf 0 (unverändert)');
+  I.onAct(g, p, false);
+});
+
+section('B1: Notreparatur durch ODA, Altweg bot, repairQueue', () => {
+  const { g, p } = lerche(68);
+  setz(g, 'shields', 'ddo'); zaehler(g, 'shields', [2, 0, 0]);
+  g.inventory.ersatzteil = 0; p.carry = null; g.ship.groundItems = [];
+  const rep0 = g.stats.repairs;
+  I.updateHazards(g, g.C.emergencyRepair.brokenDelay + 1);
+  ok(z(g, 'shields') === 'gdo' && g.ship.systems.shields === 'damaged' && g.stats.repairs === rep0 && I.isFragile(g, 'shields'), 'ODA-Notreparatur: ein Flicken auf die erste defekte (K), System beschädigt, n bleibt');
+  ok(g.ship.komp.shields[0].n === 2, 'Notreparatur zählt n nicht');
+  setz(g, 'shields', 'ddd'); zaehler(g, 'shields', [1, 0, 2], [3, 3, 3]);
+  I.repairSystem(g, 'shields', 'bot');
+  ok(z(g, 'shields') === 'odd' && g.ship.komp.shields[0].n === 1 && g.ship.komp.shields[0].sp === 0 && !I.isFragile(g, 'shields'), "Altweg how 'bot': erste defekte -> ok (kein Flicken), n unverändert");
+  I.repairSystem(g, 'shields', 'bot', 'flick');
+  ok(z(g, 'shields') === 'ogd', "Bot-Flicken ('flick'): erste defekte -> geflickt");
+  I.repairSystem(g, 'shields', 'bot', 'swap');
+  ok(z(g, 'shields') === 'ogo' && g.ship.komp.shields[2].n === 0, "Bot-Tausch ('swap'): erste defekte (R) -> ok, n 0");
+  // repairQueue / pruneRepairQueue: ein Eintrag bleibt, solange ein Flicken sitzt
+  setz(g, 'shields', 'goo');
+  g.ship.repairQueue = [{ system: 'shields', mode: 'part', bot: null }];
+  I.pruneRepairQueue(g);
+  ok(g.ship.repairQueue.length === 1, 'pruneRepairQueue: ok + Flicken (fragil abgeleitet) bleibt in der Liste');
+  I.repairSystem(g, 'shields', 'player', 'swap');
+  ok(g.ship.repairQueue.length === 0 && z(g, 'shields') === 'ooo', 'Tausch der letzten Flicken: Eintrag fällt weg');
+  const sn = g.snapshot();
+  setz(g, 'emitter_stbd', 'og');
+  const sn2 = g.snapshot();
+  ok(Array.isArray(sn2.ship.fragile) && sn2.ship.fragile.includes('emitter_stbd') && !sn.ship.fragile.includes('shields'), 'Snapshot-Feld fragile: abgeleitet aus den geflickten Komponenten');
+  g.ship.fragile.shields = true;   // Altlast-Flag
+  ok(!I.isFragile(g, 'shields') && !I.fragileSystems(g).includes('shields'), 'Altlast-Flag auf einem Schildkette-System zählt nicht');
+});
+
+section('B1: Nicht-Schildkette und Reaktor behalten das alte System-Flicken', () => {
+  const g = newGame(69); K.konsistentAlle(g);
+  I.damageSystem(g, 'engines', 'damaged', { quiet: true });
+  I.repairSystem(g, 'engines', 'player', 'flick');
+  ok(g.ship.systems.engines === 'ok' && g.ship.fragile.engines === true && I.isFragile(g, 'engines'), 'engines: Flicken = ok + fragil (ship.fragile)');
+  I.repairSystem(g, 'engines', 'player', 'swap');
+  ok(g.ship.systems.engines === 'ok' && !g.ship.fragile.engines, 'engines: Tausch räumt fragil');
+  I.damageSystem(g, 'engines', 'broken', { quiet: true });
+  I.repairSystem(g, 'engines', 'player', 'swap');
+  ok(g.ship.systems.engines === 'ok', 'engines broken: ein Tausch heilt das ganze System wie bisher');
+  I.damageSystem(g, 'reactor', 'damaged', { quiet: true });
+  I.repairSystem(g, 'reactor', 'player', 'flick');
+  ok(g.ship.systems.reactor === 'ok' && g.ship.fragile.reactor === true, 'Reaktor: Flicken = ok + fragil wie bisher');
+  I.repairSystem(g, 'reactor', 'player', 'minigame');
+  ok(g.ship.systems.reactor === 'ok' && !g.ship.fragile.reactor, 'Reaktor: Minispiel räumt fragil');
+  ok(I.fragileSystems(g).length === 0, 'fragileSystems: leer');
+  g.ship.fragile.weapon_bow = true;
+  ok(I.fragileSystems(g).join() === 'weapon_bow', 'fragileSystems: Altflag der Nicht-Schildkette zählt');
+});
+
+section('B1: Weltstand mit geflickter Komponente', () => {
+  const g = newGame(70); K.konsistentAlle(g);
+  setz(g, 'shields', 'gog'); zaehler(g, 'shields', [0, 0, 2], [3, 0, 1]);
+  const d = Weltstand.capture(g);
+  ok(d.schiff.systeme.shields === 'ok' && d.schiff.komp && d.schiff.komp.shields === 'gog;0,0,2;3,0,1', 'ok + 2 Flicken: als ok gespeichert, Block mit Flicken und Zählern (' + (d.schiff.komp && d.schiff.komp.shields) + ')');
+  const dv = JSON.parse(JSON.stringify(d)); dv.id = 'test'; dv.name = 'Test';
+  ok(!(Weltstand.validate(dv) || []).length, 'Schema-Prüfung');
+  const g2 = newGame(71); Weltstand.apply(g2, JSON.parse(JSON.stringify(d)));
+  ok(g2.ship.systems.shields === 'ok' && z(g2, 'shields') === 'gog' && I.isFragile(g2, 'shields') && g2.ship.komp.shields[2].n === 2 && g2.ship.komp.shields[0].sp === 3, 'laden: ok, geflickte Komponenten, Zähler');
+  ok(!(g2.ship.fragile && g2.ship.fragile.shields), 'laden: kein ship.fragile für die Schildkette');
+  ok((g2.ship.kompKorrekturen | 0) === 0, 'laden: kein Wächter-Eingriff');
+  const d2 = Weltstand.capture(g2);
+  ok(JSON.stringify(d2.schiff.komp) === JSON.stringify(d.schiff.komp) && d2.schiff.systeme.shields === 'ok', 'Rundlauf stabil');
+  // geflickt + 1 defekt: damaged
+  setz(g, 'shields', 'gdo');
+  const d3 = Weltstand.capture(g);
+  ok(d3.schiff.systeme.shields === 'damaged' && d3.schiff.komp && d3.schiff.komp.shields.startsWith('gdo'), 'geflickt + defekt: damaged mit Block gdo');
+  const g3 = newGame(72); Weltstand.apply(g3, JSON.parse(JSON.stringify(d3)));
+  ok(z(g3, 'shields') === 'gdo' && g3.ship.systems.shields === 'damaged', 'laden: gdo, damaged');
+  // Nicht-Schildkette: fragile wird weiter als damaged gespeichert
+  const g4 = newGame(73); K.konsistentAlle(g4); g4.ship.fragile.engines = true;
+  ok(Weltstand.capture(g4).schiff.systeme.engines === 'damaged', 'engines fragil: weiter als damaged gespeichert');
+});
+
+section('B1: sauberer Reparaturpfad ohne Wächterkorrektur', () => {
+  const { g, p, run } = lerche(74);
+  for (let i = 0; i < 6; i++) {
+    for (const sys of KETTE) I.damageSystem(g, sys, 'broken', { quiet: true });
+    for (const sys of KETTE) {
+      I.repairSystem(g, sys, 'player', 'flick'); I.repairSystem(g, sys, 'player', 'swap'); I.repairSystem(g, sys, 'bot', 'flick'); I.repairSystem(g, sys, 'bot'); I.repairSystem(g, sys, 'player', 'minigame');
+      I.repairSystem(g, sys, 'player', 'swap'); I.repairSystem(g, sys, 'player', 'swap');
+      I.repairable(g, sys); I.isFragile(g, sys);
+    }
+    run(0.1);
+  }
+  ok((g.ship.kompKorrekturen | 0) === 0, 'sechs Runden Schaden und Reparatur auf der ganzen Kette: kompKorrekturen ' + (g.ship.kompKorrekturen | 0));
+  ok(KETTE.every((s) => z(g, s).split('').every((c) => 'og'.includes(c) || c === 'd') && g.ship.systems[s] === K.abgeleitet(g, s)), 'Systemzustand folgt immer den Komponenten');
 });
 
 console.log(`\n${n - fails}/${n} Prüfungen grün${fails ? ', ' + fails + ' FEHLER' : ''}`);

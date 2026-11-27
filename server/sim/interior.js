@@ -715,7 +715,7 @@ function itemName(item) {
   return { ersatzteil: 'Ersatzteil', loeschgel: 'Löschgel', flickblech: 'Flickblech', bolzen: 'Torpedo', medipack: 'Medipack', datenkern: 'Datenkern', tafel: 'Vertragstafel' }[item] || item;
 }
 
-function onAct(game, p, down) {
+function onAct(game, p, down, kompWunsch) {   // TEC-01 B1: kompWunsch = Typbuchstabe der Schildkette-Komponente, die geflickt/getauscht werden soll (optional, sonst Standard)
   p.actDown = !!down;
   // M3a: das Minispiel läuft ohne E (Client sendet E dann nicht); ein verirrtes E bricht es nicht ab
   if (p.hold && (p.hold.kind === 'minigame' || p.hold.kind === 'scan')) return;   // SCA-01: auch der Scan läuft ohne E
@@ -728,7 +728,7 @@ function onAct(game, p, down) {
     const list = interactionsAt(game, p, t.x, t.y, t.x === own.x && t.y === own.y);
     if (!list.length) continue;
     const ok = list.find((i) => !i.blocked && i.kind === 'reden') || list.find((i) => !i.blocked);   // SL2: ein ansprechbarer NSC geht vor dem Anker unter ihm
-    if (ok) return performInteraction(game, p, ok);
+    if (ok) return performInteraction(game, p, ok, kompWunsch);
     if (!blocked) blocked = list[0].blocked;
     break;
   }
@@ -756,7 +756,7 @@ function holdDuration(game, p, kind, extra) {
   }
 }
 
-function performInteraction(game, p, it) {
+function performInteraction(game, p, it, kompWunsch) {
   if (istAnker(it.kind) || istB2(it.kind)) {   // B1 §6.2 / B2 §4: Halten über anker.js bzw. combat.js
     p.hold = Object.assign({}, it, { kind: it.kind, t: 0, dur: holdDuration(game, p, it.kind, it) });
     if (istAnker(it.kind)) ankerRuf(game, 'holdStart', null, p, p.hold);
@@ -767,8 +767,14 @@ function performInteraction(game, p, it) {
     case 'jammer': case 'archkey': case 'tablet': {
       // M3a: Reparatur-Halten heißt im Zustand nach dem Weg 'flick' bzw. 'swap'
       const hk = it.kind === 'repair' ? (it.how || 'flick') : it.kind;
+      let komp;   // TEC-01 B1: auf der Schildkette trägt der Hold die Zielkomponente (Art); kein gültiges Ziel = Hinweis, kein Halten
+      if (it.kind === 'repair' && Komp.hatKomponenten(game, it.system)) {
+        const ziel = Komp.reparaturZiel(game, it.system, hk, kompWunsch);
+        if (ziel.index == null) return game.notice(p, ziel.hinweis);
+        komp = ziel.t;
+      }
       p.hold = { kind: hk, t: 0, dur: holdDuration(game, p, it.kind, it), tx: it.tx, ty: it.ty, system: it.system, target: it.target, sw: it.sw, sx: it.sx, sy: it.sy,
-        i: it.i, medkit: it.kind === 'revive' && !!p.medkit, von: it.kind === 'repair' ? game.ship.systems[it.system] : undefined };   // von: Zustand beim Start (SYS-01 A2a: eine Stufe je Ausfall)
+        i: it.i, medkit: it.kind === 'revive' && !!p.medkit, von: it.kind === 'repair' ? game.ship.systems[it.system] : undefined, komp };   // von: Zustand beim Start (SYS-01 A2a: eine Stufe je Ausfall)
       if (it.kind === 'repair' && !game.flags.toldHold) { game.flags.toldHold = true; game.oda('E gedrückt halten und stillstehen – dann klappt\'s mit dem Schrauben.', null); }
       if (it.kind === 'switch') game.emit('sfx', { name: 'switch_hold', zone: 'ship', x: Math.round(p.x), y: Math.round(p.y) });
       return;
@@ -954,9 +960,15 @@ function holdValid(game, p, h) {
     case 'revive': return h.target.downed && h.target.zone === p.zone;
     case 'extinguish': return p.carry === 'loeschgel' && game.ship.fireList.some((f) => f.tx === h.tx && f.ty === h.ty);
     case 'patch': return p.carry === 'flickblech' && game.ship.breachList.some((b) => b.tx === h.tx && b.ty === h.ty);
-    case 'flick': { const st = game.ship.systems[h.system]; return p.zone === 'ship' && (st === 'damaged' || st === 'broken') && stufeGleich(game, h.system, h.von); }
-    case 'swap': return p.zone === 'ship' && p.carry === 'ersatzteil' && repairable(game, h.system) && !sonderReparatur(game, h.system);
-    case 'minigame': return repairable(game, h.system) && !sonderReparatur(game, h.system);
+    case 'flick': {
+      const st = game.ship.systems[h.system];
+      if (Komp.hatKomponenten(game, h.system)) return p.zone === 'ship' && st !== 'offline' && Komp.reparaturGueltig(game, h.system, 'flick', h.komp);   // TEC-01 B1: die Zielkomponente ist noch defekt
+      return p.zone === 'ship' && (st === 'damaged' || st === 'broken') && stufeGleich(game, h.system, h.von);
+    }
+    case 'swap': return p.zone === 'ship' && p.carry === 'ersatzteil' && repairable(game, h.system) && !sonderReparatur(game, h.system) &&
+      (!Komp.hatKomponenten(game, h.system) || Komp.reparaturGueltig(game, h.system, 'swap', h.komp));   // TEC-01 B1: die Zielkomponente ist nicht heil
+    case 'minigame': return repairable(game, h.system) && !sonderReparatur(game, h.system) &&
+      (!Komp.hatKomponenten(game, h.system) || Komp.reparaturGueltig(game, h.system, 'minigame', h.komp));   // TEC-01 B1: das Relais ist noch nicht heil und nicht verschlissen
     case 'beam': return game.transfer.canBeam(game, h.dir).ok;
     case 'reboot': return p.zone === 'away' && game.away.map === 'platform' && game.away.kustodenpult.disabled && !game.away.coreRebooted;
     case 'switch': return p.zone === 'ship' && game.ship.reactorCtl.state === 'offline';
@@ -990,10 +1002,10 @@ function completeHold(game, p, h) {
       Haken.loeschen(game, p, 'leck', h.tx, h.ty);   // TEL-01 B2
       p.carry = null;
       break;
-    case 'flick': if (repairSystem(game, h.system, 'player', 'flick', { von: h.von })) Haken.reparaturGelungen(game, p, h); break;   // TEL-01 B2: Erfolg fuer das Protokoll
+    case 'flick': if (repairSystem(game, h.system, 'player', 'flick', { von: h.von, komp: h.komp })) Haken.reparaturGelungen(game, p, h); break;   // TEL-01 B2: Erfolg fuer das Protokoll
     case 'swap':
       p.carry = null;
-      if (repairSystem(game, h.system, 'player', 'swap')) Haken.reparaturGelungen(game, p, h);   // TEL-01 B2
+      if (repairSystem(game, h.system, 'player', 'swap', { komp: h.komp })) Haken.reparaturGelungen(game, p, h);   // TEL-01 B2
       break;
     case 'beam':
       game.transfer.selfBeam(game, p, h.dir);
@@ -1054,10 +1066,18 @@ function systemSector(sys) {
   return st && Number.isInteger(st.sector) ? st.sector : -1;
 }
 function emitterFor(sector) { return EMITTERS[sector] || null; }
-function isFragile(game, sys) { return !!(game.ship.fragile && game.ship.fragile[sys]); }
-// Reparierbar = beschädigt/zerstört oder heil, aber geflickt (fragil); nie offline.
+// TEC-01 B1: auf der Schildkette gibt es kein ship.fragile als Wahrheit: fragil = irgendeine Komponente geflickt (abgeleitet, damit Leser und Snapshot unverändert bleiben)
+function isFragile(game, sys) { return Komp.hatKomponenten(game, sys) ? Komp.hatGeflickte(game, sys) : !!(game.ship.fragile && game.ship.fragile[sys]); }
+// Liste der fragilen Systeme (Snapshot-Feld fragile): Altflag für Systeme ohne Komponenten, abgeleitet für die Schildkette
+function fragileSystems(game) {
+  const out = Object.keys(game.ship.fragile || {}).filter((k) => game.ship.fragile[k] && !Komp.hatKomponenten(game, k));
+  for (const k of Komp.systeme(game)) if (Komp.hatGeflickte(game, k)) out.push(k);
+  return out;
+}
+// Reparierbar = beschädigt/zerstört oder heil, aber geflickt (fragil); nie offline. Schildkette: mindestens eine Komponente defekt oder geflickt.
 function repairable(game, sys) {
   const st = game.ship.systems[sys];
+  if (Komp.hatKomponenten(game, sys)) return st !== 'offline' && Komp.reparierbar(game, sys);
   return st === 'damaged' || st === 'broken' || (st === 'ok' && isFragile(game, sys));
 }
 // SYS-01 A2a (Kai): der zerstörte Reaktor hat genau einen Weg, die Sonderreparatur. Mit n gleichzeitigen Arbeitern (Spieler am Halten, Schrauber in der
@@ -1443,6 +1463,8 @@ function updateSystemAnnounce(game) {
   a.next = game.time + cd;
 }
 
+// TEC-01 B1: Schildkette (Systeme mit Komponenten) repariert je Komponente (flick = eine defekte -> geflickt, swap = nur die gewählte Komponente -> ok, minigame = Relais -> ok,
+// oda = ein Flicken auf die erste defekte, bot = erste defekte -> ok); opts.komp = Wunsch (Art). Kein ship.fragile: der Flicken sitzt in der Komponente. Andere Systeme wie bisher.
 // Reparatur um eine Stufe bzw. voll (§8.1). how: 'flick' (Stufe + fragil), 'swap' (voll, fragil weg),
 // 'minigame' (Stufe, fragil weg), 'bot' (Stufe, fragil weg; Altweg), 'oda' (Notreparatur: Stufe + fragil).
 // by: 'player'|'bot'|'oda'. Ein zerstörter Reaktor geht nach der Reparatur auf reactorCtl 'offline' (Neustart zu zweit).
@@ -1457,20 +1479,31 @@ function repairSystem(game, sys, by, how, opts) {
   if (sys === 'reactor' && opts && opts.von && opts.von !== s[sys]) return false;   // SYS-01 A2a: der Partner hat die Stufe schon geschafft; A2 Nacharbeit: der Zustand hat sich seit Arbeitsbeginn geändert (kein Schnellweg)
   if (!ship.fragile) ship.fragile = {};
   const before = s[sys];
-  const wasFragile = !!ship.fragile[sys];
-  if (before === 'ok' && !(wasFragile && (how === 'swap' || how === 'minigame'))) return false;
-  if (how === 'swap') s[sys] = 'ok';
-  else if (before !== 'ok') s[sys] = before === 'broken' ? 'damaged' : 'ok';
-  setInteg(game, sys, grundwert(game, sys, s[sys]));   // SYS-01 A1a: Reparatur setzt den Grundwert der erreichten Stufe
-  Komp.konsistent(game, sys);   // TEC-01 A1: Reparatur B kommt in B1; bis dahin folgen die Komponenten dem Zustand
-  if (how === 'flick' || how === 'oda') ship.fragile[sys] = true;
-  else delete ship.fragile[sys];
+  let kompT = null;
+  if (Komp.hatKomponenten(game, sys)) {
+    const wunsch = opts && opts.komp;
+    const r = how === 'swap' ? Komp.tauschenKomponente(game, sys, wunsch)
+      : how === 'minigame' ? Komp.reparierenRelais(game, sys)
+      : how === 'bot' ? Komp.reparierenErsteDefekte(game, sys)
+      : Komp.flickenKomponente(game, sys, wunsch);   // flick und oda
+    if (!r) return false;
+    kompT = r.t;
+    setInteg(game, sys, grundwert(game, sys, s[sys]));   // der Systemzustand folgt den Komponenten (synchronisieren); Reparatur setzt den Grundwert der erreichten Stufe
+  } else {
+    const wasFragile = !!ship.fragile[sys];
+    if (before === 'ok' && !(wasFragile && (how === 'swap' || how === 'minigame'))) return false;
+    if (how === 'swap') s[sys] = 'ok';
+    else if (before !== 'ok') s[sys] = before === 'broken' ? 'damaged' : 'ok';
+    setInteg(game, sys, grundwert(game, sys, s[sys]));   // SYS-01 A1a: Reparatur setzt den Grundwert der erreichten Stufe
+    if (how === 'flick' || how === 'oda') ship.fragile[sys] = true;
+    else delete ship.fragile[sys];
+  }
   ship.noPartT[sys] = 0;
   if (how !== 'oda') game.stats.repairs++;
   if (how === 'flick') game.stats.flicks = (game.stats.flicks || 0) + 1;
   else if (how === 'swap') game.stats.swaps = (game.stats.swaps || 0) + 1;
   else if (how === 'minigame') game.stats.minigames = (game.stats.minigames || 0) + 1;
-  game.emit('repairDone', { system: sys, how: by === 'bot' ? 'bot' : how, by: by || null, state: s[sys], fragile: !!ship.fragile[sys] });
+  game.emit('repairDone', { system: sys, how: by === 'bot' ? 'bot' : how, by: by || null, state: s[sys], fragile: isFragile(game, sys), ...(kompT ? { komp: kompT } : {}) });
   game.emit('sfx', { name: how === 'flick' ? 'flick' : how === 'swap' ? 'swap' : 'repair_done', zone: 'ship' });
   if (sys === 'reactor' && before === 'broken') reactorNeedsRestart(game);
   pruneRepairQueue(game);
@@ -1522,7 +1555,13 @@ function repairCmd(game, p, c, msg) {
     if (!repairable(game, sys)) return `${cap(sysNameNom(sys))} ist heil.`;
     if (sonderReparatur(game, sys)) return 'Der zerstörte Reaktor braucht die Sonderreparatur: E halten, am Reaktor schrauben.';   // SYS-01 A2a: kein Minispiel
     if (game.players.some((o) => o !== p && o.hold && o.hold.kind === 'minigame' && o.hold.system === sys)) return 'Da schraubt schon jemand.';
-    p.hold = { kind: 'minigame', system: sys, t: 0, dur: Infinity };
+    let komp;   // TEC-01 B1: nur das Relais hat ein Minispiel; ein Wunsch (msg.komp) muss R sein; sonst Hinweis
+    if (Komp.hatKomponenten(game, sys)) {
+      const ziel = Komp.reparaturZiel(game, sys, 'minigame', msg.komp);
+      if (ziel.index == null) return ziel.hinweis;
+      komp = ziel.t;
+    }
+    p.hold = { kind: 'minigame', system: sys, t: 0, dur: Infinity, komp };
     p.input.mx = 0; p.input.my = 0; p.moving = false;
     return null;
   }
@@ -1534,7 +1573,7 @@ function repairCmd(game, p, c, msg) {
     if (h.t < minT) return 'Zu hastig – die Verbindung hält nicht. Nochmal (R).';   // Mindestzeit nicht erreicht: abgebrochen
     const errs = Number(msg.errors);
     if (Number.isFinite(errs) && errs > 0) game.stats.minigameErrors = (game.stats.minigameErrors || 0) + Math.min(99, Math.round(errs));
-    if (repairSystem(game, h.system, 'player', 'minigame')) Haken.reparaturGelungen(game, p, h);   // TEL-01 B2
+    if (repairSystem(game, h.system, 'player', 'minigame', { komp: h.komp })) Haken.reparaturGelungen(game, p, h);   // TEL-01 B2
     return null;
   }
   return 'Unbekannter Befehl.';
@@ -1694,7 +1733,7 @@ module.exports = {
   // M4 Stufe 1 (CONTRACT-M4 §2.4)
   startRide, openLiftSel, finishLift, liftTime, ladderTime, lowPower, arrivalTile, deckSnap,
   // M3a (CONTRACT-M3 §9.5)
-  systemSector, emitterFor, isFragile, heatDamage, makeSystems, repairable, repairCmd, pruneRepairQueue,
+  systemSector, emitterFor, isFragile, fragileSystems, heatDamage, makeSystems, repairable, repairCmd, pruneRepairQueue,
   stationInReach, repairTime, WEAPON_SYSTEMS, EMITTERS, SYS_LABEL, SECTOR_LABEL,
   // SYS-01 A2a: Sonderreparatur des zerstörten Reaktors (Bots und Tests)
   sonderReparatur, stufeGleich, sonderZeit, sonderArbeiter, sonderRate, repairModus,

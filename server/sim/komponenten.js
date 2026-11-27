@@ -17,6 +17,9 @@ const CODE = { [OK]: 'o', [DEFEKT]: 'd', [GEFLICKT]: 'g' };
 const VON_CODE = { o: OK, d: DEFEKT, g: GEFLICKT };
 const RANG = { ok: 0, damaged: 1, broken: 2 };
 const MAX_DEFEKT_BROKEN = 2;
+const MINISPIEL_ART = 'R';           // TEC-01 B1: nur das Relais hat in Stufe 1 ein Reparatur-Minispiel (Leertasten-Spiel), die anderen Arten nur Flicken und Tausch
+const AUSFALL_SPERRE = 3;            // ab diesem Ausfallzähler n ist die Komponente nicht mehr reparierbar (Minispiel), nur noch Flicken und Tausch (Datum: komponenten.ausfallSperre)
+const NAMEN = { K: 'Steuerkern', S: 'Spannungsregler', R: 'Relais', L: 'Leitung' };
 const ZAEHLT_AUSFALL = ['R', 'K'];   // Relais und Steuerkern: ein Treffer (ok -> defekt) zählt im Ausfallzähler n mit
 
 let interiorMod = null;   // Zirkelbezug interior -> komponenten: lazy
@@ -165,6 +168,83 @@ function hebeAufZustand(game, sys, ziel, bevorzugt) {
   return neu;
 }
 
+// ---------- TEC-01 B1: Reparatur je Komponente ----------
+// Zustand und Zähler: Flicken = defekt -> geflickt (sp 0); Tausch = nur diese Komponente -> ok (n 0, sp 0); Relais-Minispiel = Relais -> ok (n bleibt, sp 0).
+// Eine Komponente wird durch ihre Art (Typbuchstabe) gewählt; ohne Wunsch gilt die Regel der Aktion. Alle Funktionen geben null zurück, wenn nichts zu tun ist.
+function ausfallSperre(game) { const v = Number(daten(game).ausfallSperre); return v >= 1 ? v : AUSFALL_SPERRE; }
+function name(t) { return NAMEN[t] || t; }
+// Ist am System etwas zu reparieren (eine Komponente defekt oder geflickt)?
+function reparierbar(game, sys) {
+  if (!hatKomponenten(game, sys)) return false;
+  konsistent(game, sys);
+  return liste(game, sys).some((k) => k.z !== OK);
+}
+// Hat das System einen Flicken? (liest nur: ohne Liste keiner) – daraus leitet interior.isFragile für die Schildkette ab
+function hatGeflickte(game, sys) { const L = game.ship.komp && game.ship.komp[sys]; return Array.isArray(L) && L.some((k) => k.z === GEFLICKT); }
+// Zielkomponente einer Aktion ('flick' | 'swap' | 'minigame'): { index, t } oder { hinweis }. wunsch = Typbuchstabe oder leer (Standard).
+// Standard: flick = erste defekte (Rezeptreihenfolge); swap = erste defekte, sonst erste geflickte; minigame = immer das Relais. Ein Wunsch, der nicht im Rezept steht, zählt als kein Wunsch;
+// ein Wunsch, der für die Aktion nicht zulässig ist, ergibt einen Hinweis (nie ein stiller Ersatz).
+function reparaturZiel(game, sys, aktion, wunsch) {
+  const r = rezept(game, sys);
+  if (!r) return { hinweis: 'Dieses System hat keine Komponenten.' };
+  konsistent(game, sys);
+  const L = liste(game, sys);
+  const w = typeof wunsch === 'string' && r.includes(wunsch) ? wunsch : null;
+  const treffer = (k) => ({ index: L.indexOf(k), t: k.t });
+  if (aktion === 'minigame') {
+    const k = L.find((q) => q.t === MINISPIEL_ART);
+    if (!k) return { hinweis: 'Hier gibt es kein Minispiel: E halten zum Flicken oder Tauschen.' };
+    if (w && w !== MINISPIEL_ART) return { hinweis: name(w) + ' hat kein Minispiel: E halten zum Flicken oder Tauschen.' };
+    if (k.z === OK) return { hinweis: 'Relais ist heil.' };
+    if (k.n >= ausfallSperre(game)) return { hinweis: 'Relais verschlissen: nur noch Flicken oder Tausch.' };
+    return treffer(k);
+  }
+  if (aktion === 'flick') {
+    const k = w ? L.find((q) => q.t === w) : L.find((q) => q.z === DEFEKT);
+    if (!k || k.z !== DEFEKT) return { hinweis: w ? name(w) + ' ist nicht defekt.' : 'Nichts zu flicken: nichts ist defekt.' };
+    return treffer(k);
+  }
+  if (aktion === 'swap') {
+    const k = w ? L.find((q) => q.t === w) : (L.find((q) => q.z === DEFEKT) || L.find((q) => q.z === GEFLICKT));
+    if (!k || k.z === OK) return { hinweis: w ? name(w) + ' ist heil.' : 'Nichts zu tauschen: alles heil.' };
+    return treffer(k);
+  }
+  return { hinweis: 'Unbekannte Reparatur.' };
+}
+// Während des Haltens und am Ende: ist die gewählte Komponente noch im nötigen Zustand? (komp = Art, die der Hold trägt)
+function reparaturGueltig(game, sys, aktion, komp) {
+  const z = reparaturZiel(game, sys, aktion, komp);
+  return z.index != null && (!komp || z.t === komp);
+}
+function setzeRepariert(game, sys, ziel, z, mitN0) {
+  const k = liste(game, sys)[ziel.index];
+  const vorher = k.z;
+  k.z = z; k.sp = 0;
+  if (mitN0) k.n = 0;
+  synchronisieren(game, sys);
+  return { index: ziel.index, t: k.t, vorher };
+}
+// Flicken: eine defekte Komponente -> geflickt (Sprungzähler 0)
+function flickenKomponente(game, sys, wunsch) {
+  const ziel = reparaturZiel(game, sys, 'flick', wunsch);
+  return ziel.index != null ? setzeRepariert(game, sys, ziel, GEFLICKT, false) : null;
+}
+// Tausch (Ersatzteil): NUR diese Komponente -> ok, Ausfallzähler 0, Sprungzähler 0; auch eine geflickte kann getauscht werden
+function tauschenKomponente(game, sys, wunsch) {
+  const ziel = reparaturZiel(game, sys, 'swap', wunsch);
+  return ziel.index != null ? setzeRepariert(game, sys, ziel, OK, true) : null;
+}
+// Relais-Minispiel gelungen: das Relais -> ok (kein Flicken, Ausfallzähler bleibt, Sprungzähler 0); gesperrt ab n >= ausfallSperre
+function reparierenRelais(game, sys) {
+  const ziel = reparaturZiel(game, sys, 'minigame', MINISPIEL_ART);
+  return ziel.index != null ? setzeRepariert(game, sys, ziel, OK, false) : null;
+}
+// Altweg der Bots (repairSystem how 'bot'): die erste defekte Komponente -> ok (Reparatur, kein Flicken), n unverändert
+function reparierenErsteDefekte(game, sys) {
+  const ziel = reparaturZiel(game, sys, 'flick', null);
+  return ziel.index != null ? setzeRepariert(game, sys, ziel, OK, false) : null;
+}
+
 // Wächter: weicht der (effektive) Systemzustand von der Ableitung ab, hat jemand ship.systems direkt geschrieben.
 // Der geschriebene Zustand gilt, die Komponenten werden daraus neu erzeugt. Rückgabe: true, wenn nachgezogen wurde.
 function konsistent(game, sys) {
@@ -246,5 +326,6 @@ function ausSpeicher(game, block) {
 
 module.exports = {
   rezept, hatKomponenten, systeme, ueberlastZiel, anlegen, erzeugeAusZustand, erzeugeAlleAusZustand, neuAufstellen, abgeleitet, synchronisieren, defekteZahl, funktionierende,
+  reparierbar, hatGeflickte, reparaturZiel, reparaturGueltig, flickenKomponente, tauschenKomponente, reparierenRelais, reparierenErsteDefekte, ausfallSperre,
   setzeKomponente, hebeAufZustand, trefferAuf, ueberlastTreffer, konsistent, konsistentAlle, kodiere, dekodiere, snapshot, fuerSpeicher, ausSpeicher,
 };
