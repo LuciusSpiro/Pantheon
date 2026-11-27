@@ -59,8 +59,7 @@ ok(!Arena.istTraining('arena_space') && !Arena.istTraining('arena_forschung') &&
 
 console.log('[4 Platzhalter-Bücher, Angebotsbrett]');
 const katalog = Mission.catalog();
-for (const m of MODI) {
-  const id = Training.TRAININGSMODI[m].buch;
+for (const id of MODI.flatMap((m) => [Training.TRAININGSMODI[m].buch, Training.TRAININGSMODI[m].buchSprache].filter(Boolean))) {   // TRA-01 E: auch die Sprachvariante des Captain-Buchs
   const doc = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'content', 'regiebuecher', id + '.regiebuch.json'), 'utf8'));
   const r = Checker.check(doc);
   ok(r.ok && !r.errors.length, id + ': Checker akzeptiert das Buch');

@@ -1,0 +1,2271 @@
+{
+  "$schema": "../regiebuch/regiebuch.schema.json",
+  "_kommentar": "TRA-01 E: ERZEUGT von tools/gen-tra-captain.js (nicht von Hand ändern; node tools/gen-tra-captain.js). Sprachvariante des Captain-Trainings (Lobby-Option trainingSprache, Tabelle TRAININGSMODI in server/sim/training.js: buch / buchSprache). Ablauf stand, kurs, ziele, kampf, reparatur, sprung; Ziel-Ids in server/sim/training-erkennung.js.",
+  "format": "regiebuch/1",
+  "id": "tra_captain_sprache",
+  "kopf": {
+    "titel": "Training Captain mit Sprache",
+    "art": "intern",
+    "auftraggeber": "tesk",
+    "zielspieldauer_min": 10,
+    "feldzug": null
+  },
+  "erwartet": {
+    "trainingFertig": false
+  },
+  "buch": {
+    "von": [
+      {
+        "npc": "tesk"
+      }
+    ],
+    "briefing": "@buch.briefing",
+    "belohnung": "@buch.belohnung"
+  },
+  "buehne": {
+    "orte": [
+      "hafen",
+      "splitter",
+      "b7",
+      "vaelen"
+    ]
+  },
+  "steps": [
+    {
+      "id": "stand",
+      "timers": [
+        {
+          "at": 0.5,
+          "oda": "@stand.start"
+        },
+        {
+          "at": 6.5,
+          "oda": "@stand.start2"
+        },
+        {
+          "at": 40,
+          "if": {
+            "not": {
+              "check": {
+                "name": "training_ziel",
+                "id": "sprungziel_gewaehlt"
+              }
+            }
+          },
+          "oda": "@h.sprungziel",
+          "garantie": "hinweis"
+        },
+        {
+          "at": 70,
+          "if": {
+            "not": {
+              "check": {
+                "name": "training_ziel",
+                "id": "marker"
+              }
+            }
+          },
+          "oda": "@h.marker",
+          "garantie": "hinweis"
+        },
+        {
+          "at": 100,
+          "if": {
+            "not": {
+              "all": [
+                {
+                  "check": {
+                    "name": "training_ziel",
+                    "id": "tab:helm"
+                  }
+                },
+                {
+                  "check": {
+                    "name": "training_ziel",
+                    "id": "tab:captain"
+                  }
+                }
+              ]
+            }
+          },
+          "oda": "@h.tab",
+          "garantie": "hinweis"
+        },
+        {
+          "at": 106,
+          "if": {
+            "not": {
+              "all": [
+                {
+                  "check": {
+                    "name": "training_ziel",
+                    "id": "tab:helm"
+                  }
+                },
+                {
+                  "check": {
+                    "name": "training_ziel",
+                    "id": "tab:captain"
+                  }
+                }
+              ]
+            }
+          },
+          "oda": "@h.tab2",
+          "garantie": "hinweis"
+        }
+      ],
+      "objectives": [
+        {
+          "id": "sprungziel",
+          "text": "@ziel.sprungziel",
+          "done": {
+            "check": {
+              "name": "training_ziel",
+              "id": "sprungziel_gewaehlt"
+            }
+          }
+        },
+        {
+          "id": "marker",
+          "text": "@ziel.marker",
+          "done": {
+            "check": {
+              "name": "training_ziel",
+              "id": "marker"
+            }
+          }
+        },
+        {
+          "id": "tab",
+          "text": "@ziel.tab",
+          "done": {
+            "all": [
+              {
+                "check": {
+                  "name": "training_ziel",
+                  "id": "tab:helm"
+                }
+              },
+              {
+                "check": {
+                  "name": "training_ziel",
+                  "id": "tab:captain"
+                }
+              }
+            ]
+          }
+        }
+      ],
+      "next": [
+        {
+          "if": {
+            "all": [
+              {
+                "check": {
+                  "name": "training_ziel",
+                  "id": "sprungziel_gewaehlt"
+                }
+              },
+              {
+                "check": {
+                  "name": "training_ziel",
+                  "id": "marker"
+                }
+              },
+              {
+                "all": [
+                  {
+                    "check": {
+                      "name": "training_ziel",
+                      "id": "tab:helm"
+                    }
+                  },
+                  {
+                    "check": {
+                      "name": "training_ziel",
+                      "id": "tab:captain"
+                    }
+                  }
+                ]
+              }
+            ]
+          },
+          "goto": "kurs"
+        }
+      ]
+    },
+    {
+      "id": "kurs",
+      "timers": [
+        {
+          "at": 0.5,
+          "oda": "@kurs.start"
+        },
+        {
+          "at": 40,
+          "if": {
+            "not": {
+              "any": [
+                {
+                  "check": {
+                    "name": "training_ziel",
+                    "id": "bot_befehl:nav.kurs:text"
+                  }
+                },
+                {
+                  "check": {
+                    "name": "training_ziel",
+                    "id": "bot_befehl:nav.kurs:sprache"
+                  }
+                }
+              ]
+            }
+          },
+          "oda": "@h.kurs",
+          "garantie": "hinweis"
+        },
+        {
+          "at": 90,
+          "if": {
+            "all": [
+              {
+                "any": [
+                  {
+                    "check": {
+                      "name": "training_ziel",
+                      "id": "bot_befehl:nav.kurs:text"
+                    }
+                  },
+                  {
+                    "check": {
+                      "name": "training_ziel",
+                      "id": "bot_befehl:nav.kurs:sprache"
+                    }
+                  }
+                ]
+              },
+              {
+                "not": {
+                  "check": {
+                    "name": "training_ziel",
+                    "id": "marke_erreicht"
+                  }
+                }
+              }
+            ]
+          },
+          "oda": "@h.anflug",
+          "garantie": "hinweis"
+        },
+        {
+          "at": 60,
+          "if": {
+            "all": [
+              {
+                "check": {
+                  "name": "training_ziel",
+                  "id": "marke_erreicht"
+                }
+              },
+              {
+                "not": {
+                  "any": [
+                    {
+                      "check": {
+                        "name": "training_ziel",
+                        "id": "bot_befehl:nav.stopp:text"
+                      }
+                    },
+                    {
+                      "check": {
+                        "name": "training_ziel",
+                        "id": "bot_befehl:nav.stopp:sprache"
+                      }
+                    }
+                  ]
+                }
+              }
+            ]
+          },
+          "oda": "@h.stopp",
+          "garantie": "hinweis"
+        },
+        {
+          "at": 75,
+          "if": {
+            "not": {
+              "any": [
+                {
+                  "check": {
+                    "name": "training_ziel",
+                    "id": "bot_name:text"
+                  }
+                },
+                {
+                  "check": {
+                    "name": "training_ziel",
+                    "id": "bot_name:sprache"
+                  }
+                }
+              ]
+            }
+          },
+          "oda": "@h.name",
+          "garantie": "hinweis"
+        }
+      ],
+      "objectives": [
+        {
+          "id": "kurs",
+          "text": "@ziel.kurs",
+          "done": {
+            "any": [
+              {
+                "check": {
+                  "name": "training_ziel",
+                  "id": "bot_befehl:nav.kurs:text"
+                }
+              },
+              {
+                "check": {
+                  "name": "training_ziel",
+                  "id": "bot_befehl:nav.kurs:sprache"
+                }
+              }
+            ]
+          }
+        },
+        {
+          "id": "name",
+          "text": "@ziel.name",
+          "done": {
+            "any": [
+              {
+                "check": {
+                  "name": "training_ziel",
+                  "id": "bot_name:text"
+                }
+              },
+              {
+                "check": {
+                  "name": "training_ziel",
+                  "id": "bot_name:sprache"
+                }
+              }
+            ]
+          }
+        },
+        {
+          "id": "anflug",
+          "text": "@ziel.anflug",
+          "done": {
+            "all": [
+              {
+                "any": [
+                  {
+                    "check": {
+                      "name": "training_ziel",
+                      "id": "bot_befehl:nav.kurs:text"
+                    }
+                  },
+                  {
+                    "check": {
+                      "name": "training_ziel",
+                      "id": "bot_befehl:nav.kurs:sprache"
+                    }
+                  }
+                ]
+              },
+              {
+                "check": {
+                  "name": "training_ziel",
+                  "id": "marke_erreicht"
+                }
+              }
+            ]
+          }
+        },
+        {
+          "id": "stopp",
+          "text": "@ziel.stopp",
+          "done": {
+            "all": [
+              {
+                "check": {
+                  "name": "training_ziel",
+                  "id": "marke_erreicht"
+                }
+              },
+              {
+                "any": [
+                  {
+                    "check": {
+                      "name": "training_ziel",
+                      "id": "bot_befehl:nav.stopp:text"
+                    }
+                  },
+                  {
+                    "check": {
+                      "name": "training_ziel",
+                      "id": "bot_befehl:nav.stopp:sprache"
+                    }
+                  }
+                ]
+              }
+            ]
+          }
+        }
+      ],
+      "next": [
+        {
+          "if": {
+            "all": [
+              {
+                "any": [
+                  {
+                    "check": {
+                      "name": "training_ziel",
+                      "id": "bot_befehl:nav.kurs:text"
+                    }
+                  },
+                  {
+                    "check": {
+                      "name": "training_ziel",
+                      "id": "bot_befehl:nav.kurs:sprache"
+                    }
+                  }
+                ]
+              },
+              {
+                "any": [
+                  {
+                    "check": {
+                      "name": "training_ziel",
+                      "id": "bot_name:text"
+                    }
+                  },
+                  {
+                    "check": {
+                      "name": "training_ziel",
+                      "id": "bot_name:sprache"
+                    }
+                  }
+                ]
+              },
+              {
+                "all": [
+                  {
+                    "any": [
+                      {
+                        "check": {
+                          "name": "training_ziel",
+                          "id": "bot_befehl:nav.kurs:text"
+                        }
+                      },
+                      {
+                        "check": {
+                          "name": "training_ziel",
+                          "id": "bot_befehl:nav.kurs:sprache"
+                        }
+                      }
+                    ]
+                  },
+                  {
+                    "check": {
+                      "name": "training_ziel",
+                      "id": "marke_erreicht"
+                    }
+                  }
+                ]
+              },
+              {
+                "all": [
+                  {
+                    "check": {
+                      "name": "training_ziel",
+                      "id": "marke_erreicht"
+                    }
+                  },
+                  {
+                    "any": [
+                      {
+                        "check": {
+                          "name": "training_ziel",
+                          "id": "bot_befehl:nav.stopp:text"
+                        }
+                      },
+                      {
+                        "check": {
+                          "name": "training_ziel",
+                          "id": "bot_befehl:nav.stopp:sprache"
+                        }
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          },
+          "goto": "ziele"
+        }
+      ]
+    },
+    {
+      "id": "ziele",
+      "enter": [
+        {
+          "do": "training_aktion",
+          "name": "uebungsziele"
+        }
+      ],
+      "timers": [
+        {
+          "at": 0.5,
+          "oda": "@ziele.start"
+        },
+        {
+          "at": 45,
+          "if": {
+            "not": {
+              "any": [
+                {
+                  "any": [
+                    {
+                      "check": {
+                        "name": "training_ziel",
+                        "id": "ziel_angewaehlt:a:text"
+                      }
+                    },
+                    {
+                      "check": {
+                        "name": "training_ziel",
+                        "id": "ziel_angewaehlt:a:sprache"
+                      }
+                    }
+                  ]
+                },
+                {
+                  "any": [
+                    {
+                      "check": {
+                        "name": "training_ziel",
+                        "id": "ziel_angewaehlt:b:text"
+                      }
+                    },
+                    {
+                      "check": {
+                        "name": "training_ziel",
+                        "id": "ziel_angewaehlt:b:sprache"
+                      }
+                    }
+                  ]
+                }
+              ]
+            }
+          },
+          "oda": "@h.ziel1",
+          "garantie": "hinweis"
+        },
+        {
+          "at": 100,
+          "if": {
+            "all": [
+              {
+                "any": [
+                  {
+                    "any": [
+                      {
+                        "check": {
+                          "name": "training_ziel",
+                          "id": "ziel_angewaehlt:a:text"
+                        }
+                      },
+                      {
+                        "check": {
+                          "name": "training_ziel",
+                          "id": "ziel_angewaehlt:a:sprache"
+                        }
+                      }
+                    ]
+                  },
+                  {
+                    "any": [
+                      {
+                        "check": {
+                          "name": "training_ziel",
+                          "id": "ziel_angewaehlt:b:text"
+                        }
+                      },
+                      {
+                        "check": {
+                          "name": "training_ziel",
+                          "id": "ziel_angewaehlt:b:sprache"
+                        }
+                      }
+                    ]
+                  }
+                ]
+              },
+              {
+                "not": {
+                  "all": [
+                    {
+                      "any": [
+                        {
+                          "check": {
+                            "name": "training_ziel",
+                            "id": "ziel_angewaehlt:a:text"
+                          }
+                        },
+                        {
+                          "check": {
+                            "name": "training_ziel",
+                            "id": "ziel_angewaehlt:a:sprache"
+                          }
+                        }
+                      ]
+                    },
+                    {
+                      "any": [
+                        {
+                          "check": {
+                            "name": "training_ziel",
+                            "id": "ziel_angewaehlt:b:text"
+                          }
+                        },
+                        {
+                          "check": {
+                            "name": "training_ziel",
+                            "id": "ziel_angewaehlt:b:sprache"
+                          }
+                        }
+                      ]
+                    }
+                  ]
+                }
+              }
+            ]
+          },
+          "oda": "@h.ziel2",
+          "garantie": "hinweis"
+        }
+      ],
+      "objectives": [
+        {
+          "id": "ziel1",
+          "text": "@ziel.ziel1",
+          "done": {
+            "any": [
+              {
+                "any": [
+                  {
+                    "check": {
+                      "name": "training_ziel",
+                      "id": "ziel_angewaehlt:a:text"
+                    }
+                  },
+                  {
+                    "check": {
+                      "name": "training_ziel",
+                      "id": "ziel_angewaehlt:a:sprache"
+                    }
+                  }
+                ]
+              },
+              {
+                "any": [
+                  {
+                    "check": {
+                      "name": "training_ziel",
+                      "id": "ziel_angewaehlt:b:text"
+                    }
+                  },
+                  {
+                    "check": {
+                      "name": "training_ziel",
+                      "id": "ziel_angewaehlt:b:sprache"
+                    }
+                  }
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "id": "ziel2",
+          "text": "@ziel.ziel2",
+          "done": {
+            "all": [
+              {
+                "any": [
+                  {
+                    "check": {
+                      "name": "training_ziel",
+                      "id": "ziel_angewaehlt:a:text"
+                    }
+                  },
+                  {
+                    "check": {
+                      "name": "training_ziel",
+                      "id": "ziel_angewaehlt:a:sprache"
+                    }
+                  }
+                ]
+              },
+              {
+                "any": [
+                  {
+                    "check": {
+                      "name": "training_ziel",
+                      "id": "ziel_angewaehlt:b:text"
+                    }
+                  },
+                  {
+                    "check": {
+                      "name": "training_ziel",
+                      "id": "ziel_angewaehlt:b:sprache"
+                    }
+                  }
+                ]
+              }
+            ]
+          }
+        }
+      ],
+      "next": [
+        {
+          "if": {
+            "all": [
+              {
+                "any": [
+                  {
+                    "any": [
+                      {
+                        "check": {
+                          "name": "training_ziel",
+                          "id": "ziel_angewaehlt:a:text"
+                        }
+                      },
+                      {
+                        "check": {
+                          "name": "training_ziel",
+                          "id": "ziel_angewaehlt:a:sprache"
+                        }
+                      }
+                    ]
+                  },
+                  {
+                    "any": [
+                      {
+                        "check": {
+                          "name": "training_ziel",
+                          "id": "ziel_angewaehlt:b:text"
+                        }
+                      },
+                      {
+                        "check": {
+                          "name": "training_ziel",
+                          "id": "ziel_angewaehlt:b:sprache"
+                        }
+                      }
+                    ]
+                  }
+                ]
+              },
+              {
+                "all": [
+                  {
+                    "any": [
+                      {
+                        "check": {
+                          "name": "training_ziel",
+                          "id": "ziel_angewaehlt:a:text"
+                        }
+                      },
+                      {
+                        "check": {
+                          "name": "training_ziel",
+                          "id": "ziel_angewaehlt:a:sprache"
+                        }
+                      }
+                    ]
+                  },
+                  {
+                    "any": [
+                      {
+                        "check": {
+                          "name": "training_ziel",
+                          "id": "ziel_angewaehlt:b:text"
+                        }
+                      },
+                      {
+                        "check": {
+                          "name": "training_ziel",
+                          "id": "ziel_angewaehlt:b:sprache"
+                        }
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          },
+          "goto": "kampf"
+        }
+      ]
+    },
+    {
+      "id": "kampf",
+      "enter": [
+        {
+          "do": "training_vergessen",
+          "praefix": "bot_befehl:ops.feuer_frei"
+        },
+        {
+          "do": "training_vergessen",
+          "praefix": "bot_befehl:ops.feuer_halt"
+        },
+        {
+          "do": "training_vergessen",
+          "praefix": "bot_befehl:nav.abstand"
+        },
+        {
+          "do": "training_vergessen",
+          "praefix": "bot_befehl:ops.scan"
+        },
+        {
+          "do": "training_vergessen",
+          "praefix": "abschuss"
+        }
+      ],
+      "timers": [
+        {
+          "at": 0.5,
+          "oda": "@kampf.start"
+        },
+        {
+          "at": 40,
+          "if": {
+            "not": {
+              "any": [
+                {
+                  "check": {
+                    "name": "training_ziel",
+                    "id": "bot_befehl:nav.abstand:text"
+                  }
+                },
+                {
+                  "check": {
+                    "name": "training_ziel",
+                    "id": "bot_befehl:nav.abstand:sprache"
+                  }
+                }
+              ]
+            }
+          },
+          "oda": "@h.abstand",
+          "garantie": "hinweis"
+        },
+        {
+          "at": 70,
+          "if": {
+            "all": [
+              {
+                "any": [
+                  {
+                    "check": {
+                      "name": "training_ziel",
+                      "id": "bot_befehl:nav.abstand:text"
+                    }
+                  },
+                  {
+                    "check": {
+                      "name": "training_ziel",
+                      "id": "bot_befehl:nav.abstand:sprache"
+                    }
+                  }
+                ]
+              },
+              {
+                "not": {
+                  "any": [
+                    {
+                      "check": {
+                        "name": "training_ziel",
+                        "id": "bot_befehl:ops.scan:text"
+                      }
+                    },
+                    {
+                      "check": {
+                        "name": "training_ziel",
+                        "id": "bot_befehl:ops.scan:sprache"
+                      }
+                    }
+                  ]
+                }
+              }
+            ]
+          },
+          "oda": "@h.scan",
+          "garantie": "hinweis"
+        },
+        {
+          "at": 100,
+          "if": {
+            "all": [
+              {
+                "any": [
+                  {
+                    "check": {
+                      "name": "training_ziel",
+                      "id": "bot_befehl:nav.abstand:text"
+                    }
+                  },
+                  {
+                    "check": {
+                      "name": "training_ziel",
+                      "id": "bot_befehl:nav.abstand:sprache"
+                    }
+                  }
+                ]
+              },
+              {
+                "not": {
+                  "any": [
+                    {
+                      "check": {
+                        "name": "training_ziel",
+                        "id": "bot_befehl:ops.feuer_frei:text"
+                      }
+                    },
+                    {
+                      "check": {
+                        "name": "training_ziel",
+                        "id": "bot_befehl:ops.feuer_frei:sprache"
+                      }
+                    }
+                  ]
+                }
+              }
+            ]
+          },
+          "oda": "@h.frei",
+          "garantie": "hinweis"
+        },
+        {
+          "at": 110,
+          "if": {
+            "all": [
+              {
+                "any": [
+                  {
+                    "check": {
+                      "name": "training_ziel",
+                      "id": "bot_befehl:ops.feuer_frei:text"
+                    }
+                  },
+                  {
+                    "check": {
+                      "name": "training_ziel",
+                      "id": "bot_befehl:ops.feuer_frei:sprache"
+                    }
+                  }
+                ]
+              },
+              {
+                "not": {
+                  "check": {
+                    "name": "training_ziel",
+                    "id": "abschuss"
+                  }
+                }
+              }
+            ]
+          },
+          "oda": "@h.abschuss",
+          "garantie": "hinweis"
+        },
+        {
+          "at": 60,
+          "if": {
+            "all": [
+              {
+                "check": {
+                  "name": "training_ziel",
+                  "id": "abschuss"
+                }
+              },
+              {
+                "not": {
+                  "any": [
+                    {
+                      "check": {
+                        "name": "training_ziel",
+                        "id": "bot_befehl:ops.feuer_halt:text"
+                      }
+                    },
+                    {
+                      "check": {
+                        "name": "training_ziel",
+                        "id": "bot_befehl:ops.feuer_halt:sprache"
+                      }
+                    }
+                  ]
+                }
+              }
+            ]
+          },
+          "oda": "@h.halt",
+          "garantie": "hinweis"
+        }
+      ],
+      "rules": [
+        {
+          "if": {
+            "check": {
+              "name": "training_ziel",
+              "id": "abschuss"
+            }
+          },
+          "do": [
+            {
+              "do": "training_vergessen",
+              "praefix": "bot_befehl:ops.feuer_halt"
+            }
+          ]
+        }
+      ],
+      "objectives": [
+        {
+          "id": "abstand",
+          "text": "@ziel.abstand",
+          "done": {
+            "any": [
+              {
+                "check": {
+                  "name": "training_ziel",
+                  "id": "bot_befehl:nav.abstand:text"
+                }
+              },
+              {
+                "check": {
+                  "name": "training_ziel",
+                  "id": "bot_befehl:nav.abstand:sprache"
+                }
+              }
+            ]
+          }
+        },
+        {
+          "id": "scan",
+          "text": "@ziel.scan",
+          "done": {
+            "any": [
+              {
+                "check": {
+                  "name": "training_ziel",
+                  "id": "bot_befehl:ops.scan:text"
+                }
+              },
+              {
+                "check": {
+                  "name": "training_ziel",
+                  "id": "bot_befehl:ops.scan:sprache"
+                }
+              }
+            ]
+          }
+        },
+        {
+          "id": "frei",
+          "text": "@ziel.frei",
+          "done": {
+            "any": [
+              {
+                "check": {
+                  "name": "training_ziel",
+                  "id": "bot_befehl:ops.feuer_frei:text"
+                }
+              },
+              {
+                "check": {
+                  "name": "training_ziel",
+                  "id": "bot_befehl:ops.feuer_frei:sprache"
+                }
+              }
+            ]
+          }
+        },
+        {
+          "id": "abschuss",
+          "text": "@ziel.abschuss",
+          "done": {
+            "all": [
+              {
+                "any": [
+                  {
+                    "check": {
+                      "name": "training_ziel",
+                      "id": "bot_befehl:ops.feuer_frei:text"
+                    }
+                  },
+                  {
+                    "check": {
+                      "name": "training_ziel",
+                      "id": "bot_befehl:ops.feuer_frei:sprache"
+                    }
+                  }
+                ]
+              },
+              {
+                "check": {
+                  "name": "training_ziel",
+                  "id": "abschuss"
+                }
+              }
+            ]
+          }
+        },
+        {
+          "id": "halt",
+          "text": "@ziel.halt",
+          "done": {
+            "all": [
+              {
+                "check": {
+                  "name": "training_ziel",
+                  "id": "abschuss"
+                }
+              },
+              {
+                "any": [
+                  {
+                    "check": {
+                      "name": "training_ziel",
+                      "id": "bot_befehl:ops.feuer_halt:text"
+                    }
+                  },
+                  {
+                    "check": {
+                      "name": "training_ziel",
+                      "id": "bot_befehl:ops.feuer_halt:sprache"
+                    }
+                  }
+                ]
+              }
+            ]
+          }
+        }
+      ],
+      "next": [
+        {
+          "if": {
+            "all": [
+              {
+                "any": [
+                  {
+                    "check": {
+                      "name": "training_ziel",
+                      "id": "bot_befehl:nav.abstand:text"
+                    }
+                  },
+                  {
+                    "check": {
+                      "name": "training_ziel",
+                      "id": "bot_befehl:nav.abstand:sprache"
+                    }
+                  }
+                ]
+              },
+              {
+                "any": [
+                  {
+                    "check": {
+                      "name": "training_ziel",
+                      "id": "bot_befehl:ops.scan:text"
+                    }
+                  },
+                  {
+                    "check": {
+                      "name": "training_ziel",
+                      "id": "bot_befehl:ops.scan:sprache"
+                    }
+                  }
+                ]
+              },
+              {
+                "any": [
+                  {
+                    "check": {
+                      "name": "training_ziel",
+                      "id": "bot_befehl:ops.feuer_frei:text"
+                    }
+                  },
+                  {
+                    "check": {
+                      "name": "training_ziel",
+                      "id": "bot_befehl:ops.feuer_frei:sprache"
+                    }
+                  }
+                ]
+              },
+              {
+                "all": [
+                  {
+                    "any": [
+                      {
+                        "check": {
+                          "name": "training_ziel",
+                          "id": "bot_befehl:ops.feuer_frei:text"
+                        }
+                      },
+                      {
+                        "check": {
+                          "name": "training_ziel",
+                          "id": "bot_befehl:ops.feuer_frei:sprache"
+                        }
+                      }
+                    ]
+                  },
+                  {
+                    "check": {
+                      "name": "training_ziel",
+                      "id": "abschuss"
+                    }
+                  }
+                ]
+              },
+              {
+                "all": [
+                  {
+                    "check": {
+                      "name": "training_ziel",
+                      "id": "abschuss"
+                    }
+                  },
+                  {
+                    "any": [
+                      {
+                        "check": {
+                          "name": "training_ziel",
+                          "id": "bot_befehl:ops.feuer_halt:text"
+                        }
+                      },
+                      {
+                        "check": {
+                          "name": "training_ziel",
+                          "id": "bot_befehl:ops.feuer_halt:sprache"
+                        }
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          },
+          "goto": "reparatur"
+        }
+      ]
+    },
+    {
+      "id": "reparatur",
+      "enter": [
+        {
+          "do": "training_aktion",
+          "name": "uebungsziele_weg"
+        },
+        {
+          "do": "training_aktion",
+          "name": "schaeden"
+        }
+      ],
+      "timers": [
+        {
+          "at": 0.5,
+          "oda": "@reparatur.start"
+        },
+        {
+          "at": 50,
+          "if": {
+            "not": {
+              "all": [
+                {
+                  "any": [
+                    {
+                      "check": {
+                        "name": "training_ziel",
+                        "id": "bot_befehl:tech.reparieren:text"
+                      }
+                    },
+                    {
+                      "check": {
+                        "name": "training_ziel",
+                        "id": "bot_befehl:tech.reparieren:sprache"
+                      }
+                    }
+                  ]
+                },
+                {
+                  "any": [
+                    {
+                      "check": {
+                        "name": "training_ziel",
+                        "id": "repariert:text"
+                      }
+                    },
+                    {
+                      "check": {
+                        "name": "training_ziel",
+                        "id": "repariert:sprache"
+                      }
+                    }
+                  ]
+                }
+              ]
+            }
+          },
+          "oda": "@h.reparieren",
+          "garantie": "hinweis"
+        },
+        {
+          "at": 56,
+          "if": {
+            "not": {
+              "all": [
+                {
+                  "any": [
+                    {
+                      "check": {
+                        "name": "training_ziel",
+                        "id": "bot_befehl:tech.reparieren:text"
+                      }
+                    },
+                    {
+                      "check": {
+                        "name": "training_ziel",
+                        "id": "bot_befehl:tech.reparieren:sprache"
+                      }
+                    }
+                  ]
+                },
+                {
+                  "any": [
+                    {
+                      "check": {
+                        "name": "training_ziel",
+                        "id": "repariert:text"
+                      }
+                    },
+                    {
+                      "check": {
+                        "name": "training_ziel",
+                        "id": "repariert:sprache"
+                      }
+                    }
+                  ]
+                }
+              ]
+            }
+          },
+          "oda": "@h.reparieren2",
+          "garantie": "hinweis"
+        },
+        {
+          "at": 75,
+          "if": {
+            "all": [
+              {
+                "not": {
+                  "all": [
+                    {
+                      "any": [
+                        {
+                          "check": {
+                            "name": "training_ziel",
+                            "id": "bot_befehl:tech.reparieren:text"
+                          }
+                        },
+                        {
+                          "check": {
+                            "name": "training_ziel",
+                            "id": "bot_befehl:tech.reparieren:sprache"
+                          }
+                        }
+                      ]
+                    },
+                    {
+                      "any": [
+                        {
+                          "check": {
+                            "name": "training_ziel",
+                            "id": "repariert:text"
+                          }
+                        },
+                        {
+                          "check": {
+                            "name": "training_ziel",
+                            "id": "repariert:sprache"
+                          }
+                        }
+                      ]
+                    }
+                  ]
+                }
+              },
+              {
+                "all": [
+                  {
+                    "check": {
+                      "name": "system_ok",
+                      "system": "engines"
+                    }
+                  },
+                  {
+                    "check": {
+                      "name": "system_ok",
+                      "system": "transfer"
+                    }
+                  },
+                  {
+                    "check": {
+                      "name": "system_ok",
+                      "system": "weapon_bow"
+                    }
+                  },
+                  {
+                    "check": {
+                      "name": "system_ok",
+                      "system": "shields"
+                    }
+                  }
+                ]
+              }
+            ]
+          },
+          "do": [
+            {
+              "do": "training_aktion",
+              "name": "schaeden"
+            },
+            {
+              "oda": "@reparatur.nochmal"
+            }
+          ]
+        },
+        {
+          "at": 150,
+          "if": {
+            "all": [
+              {
+                "not": {
+                  "all": [
+                    {
+                      "any": [
+                        {
+                          "check": {
+                            "name": "training_ziel",
+                            "id": "bot_befehl:tech.reparieren:text"
+                          }
+                        },
+                        {
+                          "check": {
+                            "name": "training_ziel",
+                            "id": "bot_befehl:tech.reparieren:sprache"
+                          }
+                        }
+                      ]
+                    },
+                    {
+                      "any": [
+                        {
+                          "check": {
+                            "name": "training_ziel",
+                            "id": "repariert:text"
+                          }
+                        },
+                        {
+                          "check": {
+                            "name": "training_ziel",
+                            "id": "repariert:sprache"
+                          }
+                        }
+                      ]
+                    }
+                  ]
+                }
+              },
+              {
+                "all": [
+                  {
+                    "check": {
+                      "name": "system_ok",
+                      "system": "engines"
+                    }
+                  },
+                  {
+                    "check": {
+                      "name": "system_ok",
+                      "system": "transfer"
+                    }
+                  },
+                  {
+                    "check": {
+                      "name": "system_ok",
+                      "system": "weapon_bow"
+                    }
+                  },
+                  {
+                    "check": {
+                      "name": "system_ok",
+                      "system": "shields"
+                    }
+                  }
+                ]
+              }
+            ]
+          },
+          "do": [
+            {
+              "do": "training_aktion",
+              "name": "schaeden"
+            },
+            {
+              "oda": "@reparatur.nochmal"
+            }
+          ]
+        },
+        {
+          "at": 225,
+          "if": {
+            "all": [
+              {
+                "not": {
+                  "all": [
+                    {
+                      "any": [
+                        {
+                          "check": {
+                            "name": "training_ziel",
+                            "id": "bot_befehl:tech.reparieren:text"
+                          }
+                        },
+                        {
+                          "check": {
+                            "name": "training_ziel",
+                            "id": "bot_befehl:tech.reparieren:sprache"
+                          }
+                        }
+                      ]
+                    },
+                    {
+                      "any": [
+                        {
+                          "check": {
+                            "name": "training_ziel",
+                            "id": "repariert:text"
+                          }
+                        },
+                        {
+                          "check": {
+                            "name": "training_ziel",
+                            "id": "repariert:sprache"
+                          }
+                        }
+                      ]
+                    }
+                  ]
+                }
+              },
+              {
+                "all": [
+                  {
+                    "check": {
+                      "name": "system_ok",
+                      "system": "engines"
+                    }
+                  },
+                  {
+                    "check": {
+                      "name": "system_ok",
+                      "system": "transfer"
+                    }
+                  },
+                  {
+                    "check": {
+                      "name": "system_ok",
+                      "system": "weapon_bow"
+                    }
+                  },
+                  {
+                    "check": {
+                      "name": "system_ok",
+                      "system": "shields"
+                    }
+                  }
+                ]
+              }
+            ]
+          },
+          "do": [
+            {
+              "do": "training_aktion",
+              "name": "schaeden"
+            },
+            {
+              "oda": "@reparatur.nochmal"
+            }
+          ]
+        }
+      ],
+      "objectives": [
+        {
+          "id": "reparieren",
+          "text": "@ziel.reparieren",
+          "done": {
+            "all": [
+              {
+                "any": [
+                  {
+                    "check": {
+                      "name": "training_ziel",
+                      "id": "bot_befehl:tech.reparieren:text"
+                    }
+                  },
+                  {
+                    "check": {
+                      "name": "training_ziel",
+                      "id": "bot_befehl:tech.reparieren:sprache"
+                    }
+                  }
+                ]
+              },
+              {
+                "any": [
+                  {
+                    "check": {
+                      "name": "training_ziel",
+                      "id": "repariert:text"
+                    }
+                  },
+                  {
+                    "check": {
+                      "name": "training_ziel",
+                      "id": "repariert:sprache"
+                    }
+                  }
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "id": "status",
+          "text": "@ziel.status",
+          "done": {
+            "check": {
+              "name": "training_ziel",
+              "id": "bot_befehl:bot.status"
+            }
+          },
+          "optional": true
+        },
+        {
+          "id": "automatik",
+          "text": "@ziel.automatik",
+          "done": {
+            "check": {
+              "name": "training_ziel",
+              "id": "bot_befehl:bot.automatik"
+            }
+          },
+          "optional": true
+        },
+        {
+          "id": "gespraech",
+          "text": "@ziel.gespraech",
+          "done": {
+            "check": {
+              "name": "training_ziel",
+              "id": "bot_gespraech"
+            }
+          },
+          "optional": true
+        }
+      ],
+      "next": [
+        {
+          "if": {
+            "all": [
+              {
+                "all": [
+                  {
+                    "any": [
+                      {
+                        "check": {
+                          "name": "training_ziel",
+                          "id": "bot_befehl:tech.reparieren:text"
+                        }
+                      },
+                      {
+                        "check": {
+                          "name": "training_ziel",
+                          "id": "bot_befehl:tech.reparieren:sprache"
+                        }
+                      }
+                    ]
+                  },
+                  {
+                    "any": [
+                      {
+                        "check": {
+                          "name": "training_ziel",
+                          "id": "repariert:text"
+                        }
+                      },
+                      {
+                        "check": {
+                          "name": "training_ziel",
+                          "id": "repariert:sprache"
+                        }
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          },
+          "goto": "sprung"
+        }
+      ]
+    },
+    {
+      "id": "sprung",
+      "timers": [
+        {
+          "at": 0.5,
+          "oda": "@sprung.start"
+        },
+        {
+          "at": 6.5,
+          "oda": "@sprung.start2"
+        },
+        {
+          "at": 120,
+          "if": {
+            "all": [
+              {
+                "not": {
+                  "all": [
+                    {
+                      "any": [
+                        {
+                          "check": {
+                            "name": "training_ziel",
+                            "id": "bot_befehl:nav.sprung:menu"
+                          }
+                        },
+                        {
+                          "check": {
+                            "name": "training_ziel",
+                            "id": "bot_befehl:nav.sprung:taste"
+                          }
+                        }
+                      ]
+                    },
+                    {
+                      "check": {
+                        "name": "training_ziel",
+                        "id": "schnellsprung"
+                      }
+                    }
+                  ]
+                }
+              },
+              {
+                "not": {
+                  "all": [
+                    {
+                      "any": [
+                        {
+                          "check": {
+                            "name": "training_ziel",
+                            "id": "bot_befehl:nav.sprung:menu"
+                          }
+                        },
+                        {
+                          "check": {
+                            "name": "training_ziel",
+                            "id": "bot_befehl:nav.sprung:taste"
+                          }
+                        }
+                      ]
+                    },
+                    {
+                      "check": {
+                        "name": "training_ziel",
+                        "id": "sprung"
+                      }
+                    }
+                  ]
+                }
+              }
+            ]
+          },
+          "oda": "@h.schnell",
+          "garantie": "hinweis"
+        },
+        {
+          "at": 126,
+          "if": {
+            "all": [
+              {
+                "not": {
+                  "all": [
+                    {
+                      "any": [
+                        {
+                          "check": {
+                            "name": "training_ziel",
+                            "id": "bot_befehl:nav.sprung:menu"
+                          }
+                        },
+                        {
+                          "check": {
+                            "name": "training_ziel",
+                            "id": "bot_befehl:nav.sprung:taste"
+                          }
+                        }
+                      ]
+                    },
+                    {
+                      "check": {
+                        "name": "training_ziel",
+                        "id": "schnellsprung"
+                      }
+                    }
+                  ]
+                }
+              },
+              {
+                "not": {
+                  "all": [
+                    {
+                      "any": [
+                        {
+                          "check": {
+                            "name": "training_ziel",
+                            "id": "bot_befehl:nav.sprung:menu"
+                          }
+                        },
+                        {
+                          "check": {
+                            "name": "training_ziel",
+                            "id": "bot_befehl:nav.sprung:taste"
+                          }
+                        }
+                      ]
+                    },
+                    {
+                      "check": {
+                        "name": "training_ziel",
+                        "id": "sprung"
+                      }
+                    }
+                  ]
+                }
+              }
+            ]
+          },
+          "oda": "@h.schnell2",
+          "garantie": "hinweis"
+        },
+        {
+          "at": 240,
+          "if": {
+            "all": [
+              {
+                "all": [
+                  {
+                    "any": [
+                      {
+                        "check": {
+                          "name": "training_ziel",
+                          "id": "bot_befehl:nav.sprung:menu"
+                        }
+                      },
+                      {
+                        "check": {
+                          "name": "training_ziel",
+                          "id": "bot_befehl:nav.sprung:taste"
+                        }
+                      }
+                    ]
+                  },
+                  {
+                    "check": {
+                      "name": "training_ziel",
+                      "id": "sprung"
+                    }
+                  }
+                ]
+              },
+              {
+                "not": {
+                  "all": [
+                    {
+                      "any": [
+                        {
+                          "check": {
+                            "name": "training_ziel",
+                            "id": "bot_befehl:nav.sprung:menu"
+                          }
+                        },
+                        {
+                          "check": {
+                            "name": "training_ziel",
+                            "id": "bot_befehl:nav.sprung:taste"
+                          }
+                        }
+                      ]
+                    },
+                    {
+                      "check": {
+                        "name": "training_ziel",
+                        "id": "schnellsprung"
+                      }
+                    }
+                  ]
+                }
+              }
+            ]
+          },
+          "oda": "@h.schnell",
+          "garantie": "hinweis"
+        },
+        {
+          "at": 246,
+          "if": {
+            "all": [
+              {
+                "all": [
+                  {
+                    "any": [
+                      {
+                        "check": {
+                          "name": "training_ziel",
+                          "id": "bot_befehl:nav.sprung:menu"
+                        }
+                      },
+                      {
+                        "check": {
+                          "name": "training_ziel",
+                          "id": "bot_befehl:nav.sprung:taste"
+                        }
+                      }
+                    ]
+                  },
+                  {
+                    "check": {
+                      "name": "training_ziel",
+                      "id": "sprung"
+                    }
+                  }
+                ]
+              },
+              {
+                "not": {
+                  "all": [
+                    {
+                      "any": [
+                        {
+                          "check": {
+                            "name": "training_ziel",
+                            "id": "bot_befehl:nav.sprung:menu"
+                          }
+                        },
+                        {
+                          "check": {
+                            "name": "training_ziel",
+                            "id": "bot_befehl:nav.sprung:taste"
+                          }
+                        }
+                      ]
+                    },
+                    {
+                      "check": {
+                        "name": "training_ziel",
+                        "id": "schnellsprung"
+                      }
+                    }
+                  ]
+                }
+              }
+            ]
+          },
+          "oda": "@h.schnell2",
+          "garantie": "hinweis"
+        },
+        {
+          "at": 240,
+          "if": {
+            "all": [
+              {
+                "all": [
+                  {
+                    "any": [
+                      {
+                        "check": {
+                          "name": "training_ziel",
+                          "id": "bot_befehl:nav.sprung:menu"
+                        }
+                      },
+                      {
+                        "check": {
+                          "name": "training_ziel",
+                          "id": "bot_befehl:nav.sprung:taste"
+                        }
+                      }
+                    ]
+                  },
+                  {
+                    "check": {
+                      "name": "training_ziel",
+                      "id": "schnellsprung"
+                    }
+                  }
+                ]
+              },
+              {
+                "not": {
+                  "all": [
+                    {
+                      "any": [
+                        {
+                          "check": {
+                            "name": "training_ziel",
+                            "id": "bot_befehl:nav.sprung:menu"
+                          }
+                        },
+                        {
+                          "check": {
+                            "name": "training_ziel",
+                            "id": "bot_befehl:nav.sprung:taste"
+                          }
+                        }
+                      ]
+                    },
+                    {
+                      "check": {
+                        "name": "training_ziel",
+                        "id": "sprung"
+                      }
+                    }
+                  ]
+                }
+              }
+            ]
+          },
+          "oda": "@h.normal",
+          "garantie": "hinweis"
+        }
+      ],
+      "rules": [
+        {
+          "if": {
+            "all": [
+              {
+                "all": [
+                  {
+                    "any": [
+                      {
+                        "check": {
+                          "name": "training_ziel",
+                          "id": "bot_befehl:nav.sprung:menu"
+                        }
+                      },
+                      {
+                        "check": {
+                          "name": "training_ziel",
+                          "id": "bot_befehl:nav.sprung:taste"
+                        }
+                      }
+                    ]
+                  },
+                  {
+                    "check": {
+                      "name": "training_ziel",
+                      "id": "schnellsprung"
+                    }
+                  }
+                ]
+              },
+              {
+                "all": [
+                  {
+                    "any": [
+                      {
+                        "check": {
+                          "name": "training_ziel",
+                          "id": "bot_befehl:nav.sprung:menu"
+                        }
+                      },
+                      {
+                        "check": {
+                          "name": "training_ziel",
+                          "id": "bot_befehl:nav.sprung:taste"
+                        }
+                      }
+                    ]
+                  },
+                  {
+                    "check": {
+                      "name": "training_ziel",
+                      "id": "sprung"
+                    }
+                  }
+                ]
+              }
+            ]
+          },
+          "do": [
+            {
+              "oda": "@ende"
+            },
+            {
+              "setFlag": {
+                "trainingFertig": true
+              }
+            }
+          ]
+        }
+      ],
+      "objectives": [
+        {
+          "id": "schnell",
+          "text": "@ziel.schnell",
+          "done": {
+            "all": [
+              {
+                "any": [
+                  {
+                    "check": {
+                      "name": "training_ziel",
+                      "id": "bot_befehl:nav.sprung:menu"
+                    }
+                  },
+                  {
+                    "check": {
+                      "name": "training_ziel",
+                      "id": "bot_befehl:nav.sprung:taste"
+                    }
+                  }
+                ]
+              },
+              {
+                "check": {
+                  "name": "training_ziel",
+                  "id": "schnellsprung"
+                }
+              }
+            ]
+          }
+        },
+        {
+          "id": "normal",
+          "text": "@ziel.normal",
+          "done": {
+            "all": [
+              {
+                "any": [
+                  {
+                    "check": {
+                      "name": "training_ziel",
+                      "id": "bot_befehl:nav.sprung:menu"
+                    }
+                  },
+                  {
+                    "check": {
+                      "name": "training_ziel",
+                      "id": "bot_befehl:nav.sprung:taste"
+                    }
+                  }
+                ]
+              },
+              {
+                "check": {
+                  "name": "training_ziel",
+                  "id": "sprung"
+                }
+              }
+            ]
+          }
+        }
+      ]
+    }
+  ],
+  "ausgaenge": {
+    "erfolg": {
+      "beschreibung": "Training geschafft (Abzeichen Captain).",
+      "folgen": []
+    },
+    "verloren": {
+      "beschreibung": "Training abgebrochen.",
+      "folgen": []
+    }
+  },
+  "texte": {
+    "buch.briefing": "Captain-Training: Du führst Livia (Navigation), Cassius (Ops) und Titus (Technik) per Textzeile oder Sprache.",
+    "buch.belohnung": "Abzeichen Captain",
+    "stand.start": "Captain-Training: Du führst Livia (Navigation), Cassius (Ops) und Titus (Technik).",
+    "stand.start2": "Befehle per Textzeile (#) oder Sprechtaste (^), Option „Sprache“ an. Erst die Grundlagen im Stand.",
+    "kurs.start": "Navigation: Livia fliegt, wohin du sie schickst, zum Beispiel „Livia, Kurs auf die Markierung“.",
+    "ziele.start": "Zwei Störrelais stehen still bei der Station und schießen nie. Cassius feuert erst auf dein Kommando.",
+    "kampf.start": "Kampf: Livia bringt das Schiff in Reichweite, Cassius schießt auf dein Kommando.",
+    "reparatur.start": "Mehrere Systeme sind beschädigt. Titus repariert von selbst, du bestimmst die Reihenfolge.",
+    "reparatur.nochmal": "Titus war schneller. Noch einmal: mehrere Systeme beschädigt, wähle eines für Titus.",
+    "sprung.start": "Zum Schluss Sprünge: ein Schnellsprung über mehrere Sektoren, ein normaler in einen Nachbarsektor.",
+    "sprung.start2": "Der Sprungbefehl geht nur über Befehlstafel oder Taste, nicht per Sprache.",
+    "ende": "Alle Aufgaben erledigt.",
+    "ziel.sprungziel": "Sprungziel wählen (Reiter 2, Sternkarte)",
+    "ziel.marker": "Marker setzen (Reiter 3, Lagekarte anklicken)",
+    "ziel.tab": "Tab zum Steuer und zurück (vorher Allstopp)",
+    "ziel.kurs": "Livia: Kurs auf die Markierung (Text oder Sprache)",
+    "ziel.name": "Einen Bot mit Namen ansprechen („Livia, …“)",
+    "ziel.anflug": "Das Schiff erreicht die Markierung",
+    "ziel.stopp": "Livia: Alle Maschinen stopp (Text oder Sprache)",
+    "ziel.ziel1": "Cassius: ein Störrelais anvisieren („Ziel markieren“)",
+    "ziel.scan": "Cassius: das Ziel scannen (in Reichweite)",
+    "ziel.ziel2": "Cassius: auch das andere Störrelais anvisieren",
+    "ziel.abstand": "Livia: Abstand zum Ziel halten (Schussbogen)",
+    "ziel.frei": "Cassius: Feuer frei (Text oder Sprache)",
+    "ziel.abschuss": "Ein Störrelais abschießen",
+    "ziel.halt": "Cassius: Feuer einstellen (Text oder Sprache)",
+    "ziel.reparieren": "Titus: ein beschädigtes System reparieren (bis es heil ist)",
+    "ziel.status": "Statusbericht abfragen (Text oder Sprache), freiwillig",
+    "ziel.automatik": "Automatik: Bots zurück auf Standard, freiwillig",
+    "ziel.gespraech": "Mit einem Bot reden (Ö tippen, Ä sprechen), freiwillig",
+    "ziel.schnell": "Schnellsprung: Route über mehrere Sektoren, Livia: Sprung (Tafel/Taste)",
+    "ziel.normal": "Normaler Sprung in einen Nachbarsektor, Livia: Sprung (Tafel/Taste)",
+    "h.sprungziel": "Sprungziel: Reiter 2 (Sternkarte) der Captain-Konsole, Sektor wählen, Enter.",
+    "h.marker": "Marker: Reiter 3 (Lagekarte), leere Stelle anklicken, ein Stück vom Schiff entfernt.",
+    "h.tab": "Tab wechselt die Station: erst zum Steuer, dann weiter zurück zum Captain. Vorher Allstopp.",
+    "h.tab2": "Wer am Steuer steht, verdrängt Livia: ihr Kurs ist weg und das Schiff läuft weiter.",
+    "h.kurs": "Kurs: # drücken, „Livia, Kurs auf die Markierung“ tippen, Enter. Oder ^ halten und sprechen.",
+    "h.anflug": "Livia ist unterwegs. Etwas Geduld; liegt der Marker sehr weit weg, setze ihn näher.",
+    "h.stopp": "Stopp: „Livia, Stopp“ per Textzeile (#) oder Sprechtaste (^).",
+    "h.name": "Mit Namen ansprechen: „Livia, Kurs auf die Markierung“ statt nur „Navigation, …“.",
+    "h.ziel1": "Ziel: Störrelais in der Lagekarte (Reiter 3) anklicken, dann „Cassius, markiertes Ziel“.",
+    "h.scan": "Scan: braucht Reichweite. Erst Livia näher ran, dann „Cassius, Scan“.",
+    "h.ziel2": "Anderes Relais: in der Lagekarte anklicken, dann wieder „Cassius, markiertes Ziel“.",
+    "h.abstand": "Livia muss Cassius in den Schussbogen bringen: „Livia, Abstand zum Ziel halten“.",
+    "h.frei": "Feuer frei: „Cassius, Feuer frei“. Bis dahin schießt Cassius nicht.",
+    "h.abschuss": "Kein Treffer? Cassius schießt nur im Bogen: Livia näher ran lassen (Abstand, kleinerer Wert).",
+    "h.halt": "Feuer einstellen: „Cassius, Feuer halt“.",
+    "h.reparieren": "Titus: „Titus, Antrieb reparieren“ oder ein anderes beschädigtes System.",
+    "h.reparieren2": "Ein System, das Titus schon repariert hat, zählt nicht.",
+    "h.schnell": "Schnellsprung: Reiter 2 (Sternkarte), einen Sektor über mindestens zwei Sprünge wählen, z. B. Boje B-7.",
+    "h.schnell2": "Dann Enter, danach Tafel B oder Taste, Navigation, Sprung (nicht sprechbar).",
+    "h.normal": "Normaler Sprung: einen Nachbarsektor wählen (Reiter 2, Enter), dann Tafel B, Navigation, Sprung."
+  }
+}

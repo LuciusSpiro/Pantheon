@@ -160,7 +160,7 @@ function fuerBot(game, bot, name, args, herkunft) {
   let r, ursache = null;
   try { r = Befehle.befehl(game, bot, name, Object.assign({}, args)); } catch (e) { ursache = 'ausnahme: ' + (e && e.message); }
   if (!ursache && r && r.ok === true) {
-    game.missionEvent('botBefehl', { befehl: name, an: herkunft.an, quelle: herkunft.quelle, botId: bot.botId });   // TRA-01 B1: nur der ok-Pfad (Training erkennt "Bot-Befehl gegeben"); nie in den Registries (Quellscan)
+    game.missionEvent('botBefehl', { befehl: name, an: herkunft.an, quelle: herkunft.quelle, botId: bot.botId, args });   // TRA-01 B1: nur der ok-Pfad (Training erkennt "Bot-Befehl gegeben"); nie in den Registries (Quellscan); TRA-01 E: args (die normalisierte Kopie) für ops.ziel / tech.reparieren
     return statusText(antwort(game, bot.botId, name, 'ok'), name, r);
   }
   const code = r && typeof r.code === 'string' ? r.code : null;

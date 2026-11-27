@@ -297,7 +297,7 @@ section('Registry training_ziel und Checker', () => {
 section('Abzeichen und Neustart nach Erfolg', () => {
   for (const [modus, id, sprache, variante] of [['training_fliegen', 'fliegen', false, undefined], ['training_captain', 'captain', false, 'tafel'], ['training_captain', 'captain', true, 'sprache']]) {
     const P = partie(modus, { sprache }); P.run(1);
-    const tr = P.g.arena.training; const buch = Training.TRAININGSMODI[modus].buch;
+    const tr = P.g.arena.training; const buch = Training.buchFuer(P.g);   // TRA-01 E: Standardbuch oder Sprachvariante
     P.g.mission.flags.trainingFertig = true;
     P.run(1);
     ok(P.g.mission.missions[buch].ausgang === 'erfolg', modus + (sprache ? ' (Sprache)' : '') + ': Buch endet mit erfolg');

@@ -71,7 +71,7 @@ section('Setup: Tabelle und Start', () => {
   ok(T.vorerkunden.kanten.includes('0206-0306') && T.vorerkunden.kanten.includes('0306-0406'), 'vorerkunden.kanten: hafen-splitter, splitter-b7');
   ok(!T.vorerkunden.hexe.includes('0205') && !T.vorerkunden.kanten.some((k) => k.includes('0205')), 'kein kesh (0205, gesperrt)');
   ok(T.reise && T.reise.neutralChance === 0 && T.reise.feindChance === 0, 'reise: Abfangen aus');
-  ok(Training.TRAININGSMODI.training_captain.vorerkunden === undefined, 'training_captain unberührt (Feld ist optional)');
+  ok(Training.TRAININGSMODI.training_captain.vorerkunden && Training.TRAININGSMODI.training_captain.vorerkunden.hexe.includes('0207'), 'training_captain nutzt dasselbe Feld vorerkunden (Form hexe, kanten)');
   const P = Sim.partie('training_fliegen', { seed: 3 }); const g = P.g;
   ok(g.explore.hexErkundet('0406') && g.explore.hexErkundet('0206'), 'Start: b7 und hafen sind erkundet');
   const plan = Reise.planen(g, '0206', '0406');
