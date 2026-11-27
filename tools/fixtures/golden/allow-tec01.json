@@ -1,0 +1,10 @@
+{
+  "_kommentar": "TEC-01 F (Tutorial m1 nimmt das Komponentenmodell mit; Kai: Abweichungen im Schildgenerator-Pfad sind gewollt, kein Schalter). Vergleich: node tools/golden-trace.js --compare <Lauf vor F> <Lauf nach F> --allow tools/fixtures/golden/allow-tec01.json (Läufe: --all --seeds 3 --dir <Ordner>). Gegen main (eace3501) weichen m1 und m2 schon VOR Paket F ab (Pakete A bis E: die Schrauber reparieren den Schildgenerator je Komponente, früher; erste abweichende Stelle in m1 immer die erste Schrauber-Reparatur im Schritt combat); m3 ist byte-identisch zu main. Diese Datei erlaubt nur, was Paket F selbst ändert: die vier neuen m1-Texte (Skriptaktion damage_component, Texte als Daten im Regiebuch). Die Folgen im Zufallsstrom (kompRng zieht nicht mehr für den Skripttreffer: andere Komponentenwahl in m2, andere Notflicken-Brüche) sind je Lauf im Bericht begründet, nicht pauschal erlaubt.",
+  "stages": [],
+  "texts": [
+    "^Korvette! (Seine erste Salve hat den Schildgenerator zerlegt|Erste Salve: Spannungsregler und Relais im Schildgenerator hin)",
+    "^(Ein Treffer schlägt durch – Schildgenerator hinüber!|Durchschlag! Schildgenerator: Spannungsregler und Relais hin[.])",
+    "^Schäden[?] Die Schrauber reparieren selbst[.] Technik"
+  ],
+  "flags": [], "inventory": [], "duration": []
+}

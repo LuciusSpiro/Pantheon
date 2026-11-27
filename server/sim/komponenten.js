@@ -148,6 +148,25 @@ function trefferAuf(game, sys) { return trefferMit(game, sys, null); }
 // Überlasttreffer: trifft die konfigurierte Überlastkomponente (ueberlastZiel, z. B. den Spannungsregler S), solange sie funktioniert, sonst zufällig. Sonst wie trefferAuf.
 function ueberlastTreffer(game, sys) { return trefferMit(game, sys, ueberlastZiel(game, sys)); }
 
+// TEC-01 F: Treffer auf bestimmte Komponenten (Skript, z. B. das Tutorial m1: der Korvetten-Treffer zerlegt immer dieselben zwei). arten = Typbuchstaben in der Reihenfolge der Treffer.
+// Je Art trifft es die erste funktionierende Komponente dieser Art (wie ein Treffer: ok -> defekt zählt für R und K im Ausfallzähler, geflickt bricht nur den Flicken);
+// ein zerstörtes System (ab 2 defekt) nimmt nichts mehr. Kein Zufall. Rückgabe: Liste der getroffenen { index, t, vorher }.
+function trefferArten(game, sys, arten) {
+  const L = liste(game, sys);
+  const getroffen = [];
+  if (!L) return getroffen;
+  for (const art of arten) {
+    if (defekteZahl(game, sys) >= MAX_DEFEKT_BROKEN) break;
+    const k = L.find((q) => q.t === art && q.z !== DEFEKT);
+    if (!k) continue;
+    const vorher = k.z;
+    faelltAus(k);
+    getroffen.push({ index: L.indexOf(k), t: k.t, vorher });
+  }
+  if (getroffen.length) synchronisieren(game, sys);
+  return getroffen;
+}
+
 // Hebt die Zahl der defekten Komponenten auf den Wert des Zielzustands ('damaged' = 1, 'broken' = 2). Senkt nie.
 // Wählt wie ein Treffer (waehleFrei): nur unter den funktionierenden Komponenten, optional bevorzugt eine Art.
 // Rückgabe: Zahl der neu ausgefallenen Komponenten.
@@ -342,5 +361,5 @@ function ausSpeicher(game, block) {
 module.exports = {
   rezept, hatKomponenten, systeme, ueberlastZiel, anlegen, erzeugeAusZustand, erzeugeAlleAusZustand, neuAufstellen, abgeleitet, synchronisieren, defekteZahl, funktionierende,
   MINISPIEL_ART, lage, minispielMoeglich, reparierbar, hatGeflickte, sprungBruch, sprungBruchChance, name, reparaturZiel, reparaturGueltig, flickenKomponente, tauschenKomponente, reparierenRelais, ausfallSperre,
-  setzeKomponente, hebeAufZustand, trefferAuf, ueberlastTreffer, konsistent, konsistentAlle, kodiere, dekodiere, snapshot, fuerSpeicher, ausSpeicher,
+  setzeKomponente, hebeAufZustand, trefferAuf, trefferArten, ueberlastTreffer, konsistent, konsistentAlle, kodiere, dekodiere, snapshot, fuerSpeicher, ausSpeicher,
 };

@@ -189,6 +189,7 @@
   {"id":"test-sprungbruch","kette":"test","cmd":["tools/test-sprungbruch.js"],"stufe":"fast","budget_s":20},
   {"id":"test-komp-bedienung","kette":"test","cmd":["tools/test-komp-bedienung.js"],"stufe":"fast","budget_s":8},
   {"id":"test-komp-uebersicht","kette":"test","cmd":["tools/test-komp-uebersicht.js"],"stufe":"fast","budget_s":8},
+  {"id":"test-m1-technik","kette":"test","cmd":["tools/test-m1-technik.js"],"stufe":"fast","budget_s":10},
   {"id":"test-direkttreffer","kette":"test","cmd":["tools/test-direkttreffer.js"],"stufe":"fast","budget_s":7},
   {"id":"test-direkttreffer-gegner","kette":"test","cmd":["tools/test-direkttreffer-gegner.js"],"stufe":"fast","budget_s":6},
   {"id":"test-reaktor-fenster","kette":"test","cmd":["tools/test-reaktor-fenster.js"],"stufe":"fast","budget_s":6},
@@ -502,6 +503,7 @@
   {"id":"test-visier-skin","kette":"test","cmd":["tools/test-visier-skin.js"],"stufe":"fast","budget_s":8}
  ],
  "ausgenommen": [
+  {"datei":"tools/mutation-technik.js","grund":"TEC-01 F Mutationsprobe auf Abruf (npm run mutation:technik), 22 Mutationen, gut 30 s; nur der Textanker-Check (--trocken) liefe schnell"},
   {"datei":"tools/bot-latenz.js","grund":"BOT-04 D3 Messwerkzeug (npm run mess:bot-latenz): echter Spielserver + Chrome + Sprache ueber Voicebox/STT auf Sleipnir, braucht SSH-Tunnel; Messung, kein Test"},
   {"datei":"tools/check-assets.mjs","grund":"Asset-Pruefung gegen public/voxel bzw. Voxelwerk (npm run check:assets), braucht gebaute Assets; nicht in der Kette"},
   {"datei":"tools/check-missions.js","grund":"nicht in der Kette, Altlast (npm run check-missions); vermutlich vergessener Eintrag, bewerten"},

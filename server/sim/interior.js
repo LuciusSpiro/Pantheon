@@ -1136,6 +1136,14 @@ function ueberlastSchaden(game, sys) {
 function sprungBruchSchaden(game, sys, bruchFn) {
   systemSchaden(game, sys, null, { dauer: true }, bruchFn);
 }
+// TEC-01 F: Schaden auf bestimmte Komponenten eines Schildkette-Systems (Regiebuch-Aktion damage_component): derselbe Weg wie ein Treffer (Zustandswechsel, Integrität, Ereignis
+// systemDamaged, Zone aus, gebündelte ODA), nur ohne Zufall. arten = Typbuchstaben ('SR'). Ein System ohne Komponenten bleibt unberührt (false).
+function komponentenSchaden(game, sys, arten, opts) {
+  sys = resolveSystem(game, sys, false);
+  if (!Komp.hatKomponenten(game, sys)) return false;
+  systemSchaden(game, sys, null, opts, (g, s) => Komp.trefferArten(g, s, String(arten).split('')));
+  return true;
+}
 // TEC-01 C: eine gebündelte ODA-Zeile für alle in einem Sprung gebrochenen Flicken [{ system, komp }]
 function flickBruchAnsage(game, gebrochen) {
   if (!gebrochen || !gebrochen.length) return;
@@ -1738,7 +1746,7 @@ module.exports = {
   // B1 (BODENKAMPF): gebaute Karten, Sicht/Schuss-Sperre, Deck-Links, Lift/Leiter in der Außenzone
   awayInfoOf, awaySight, awayShotBlock, awayLinks, awayDeckOf, awayLink, startAwayLift, finishAwayDeck, coverSpotsOf, kartenMap, mapFor, updatePlayers, damagePlayer, healPlayer, downPlayer, revivePlayer, placeOnShipPad,
   placeOnPlatformPad, placeOnAwayPad, dropCarry, onDrop, onAct, enterConsole, konsoleVerlassen, konsoleLoesen, interactionsAt, candidateTiles,
-  damageSystem, sprungBruchSchaden, flickBruchAnsage, repairSystem, setOffline, updateOffline, addFire, removeFire, addBreach, removeBreach, randomRegionFloor, updateHazards,
+  damageSystem, komponentenSchaden, sprungBruchSchaden, flickBruchAnsage, repairSystem, setOffline, updateOffline, addFire, removeFire, addBreach, removeBreach, randomRegionFloor, updateHazards,
   // SYS-01 A1a: Systemmodell (Integrität, Trefferweg, Schwächste Zone)
   integMax, integOf, setInteg, grundwert, zoneFrei, reparaturSperren, reparaturGesperrt, integAusZustand, effZustand, setzeZustand, integKonsistent, integritaetAusZustand, syncInteg, stufeAb, nachStufenHolen, direktTreffer, zerstoerenTreffer, trefferweg, imFenster, schwaechsteZone, integritaetSnapshot, zonenSnapshot, integritaetVoll,
   sysName, sysNameNom, itemName, SYSTEM_ORDER, systemAktiv, inaktiveHeilen, isDown,

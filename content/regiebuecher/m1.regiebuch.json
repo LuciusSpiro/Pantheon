@@ -214,7 +214,7 @@
             { "after": { "sec": 4, "do": [{ "oda": "@combat.korvette_laedt" }] } },
             { "wendung": "erste_salve",
               "ankuendigung": { "art": "sichtbar", "grund": "Gehört zum Korvetten-Auftritt; der Baustein meldet den Schaden per ODA." },
-              "wirkung": [{ "do": "damage_system", "system": "shields", "state": "broken", "hitSector": 1, "text": "@combat.erste_salve" }] }
+              "wirkung": [{ "do": "damage_component", "system": "shields", "komp": "SR", "hitSector": 1, "text": "@combat.erste_salve" }] }
           ] },
         { "if": { "enemyHpBelow": { "tag": "korvette", "frac": 0.5 } },
           "do": [
@@ -227,7 +227,7 @@
             { "set": { "shieldBreak": true } },
             { "wendung": "durchschlag",
               "ankuendigung": { "art": "sichtbar", "grund": "Treffer mitten im Gefecht; der Baustein meldet den Schaden per ODA." },
-              "wirkung": [{ "do": "damage_system", "system": "shields", "state": "broken", "hitSector": 1, "text": "@combat.durchschlag" }] }
+              "wirkung": [{ "do": "damage_component", "system": "shields", "komp": "SR", "hitSector": 1, "text": "@combat.durchschlag" }] }
           ] }
       ],
       "objectives": [
@@ -235,7 +235,8 @@
         { "id": "hintScan", "text": "@ziel.tipp_scan", "optional": true, "done": { "event": "enemyScanned" } },
         { "id": "hintTechnik", "text": "@ziel.technik_konsole", "optional": true, "done": { "check": { "name": "console_manned", "console": "technik" } } },
         { "id": "hintShields", "text": "@ziel.tipp_schilde", "optional": true, "done": { "event": "shieldsChanged" } },
-        { "id": "hintRepair", "text": "@ziel.tipp_reparatur", "optional": true, "done": { "event": "repaired" } }
+        { "id": "hintRepair", "text": "@ziel.tipp_reparatur", "optional": true,
+          "done": { "all": [{ "any": [{ "v": "korvette" }, { "v": "shieldBreak" }] }, { "check": { "name": "system_ok", "system": "shields" } }] } }
       ],
       "next": [
         { "if": { "all": [{ "v": "korvette" }, { "enemiesLeft": { "max": 0 } }] },
@@ -597,12 +598,12 @@
     "combat.breitseite": "Die Lerche feuert über die Seiten: Batterien backbord und steuerbord, vorn nur die Lanze. Pilot: Breitseite zum Gegner!",
     "combat.scan": "Ops: Gegner anvisieren und S halten – der Scan zeigt Schilde und Feuerbögen.",
     "combat.unbesetzt": "Unbesetzte Ops? Dann feuern die Waffen allein – mit halber Kraft. Besser als nichts.",
-    "combat.schaeden": "Schäden? Die Schrauber reparieren selbst. Technik setzt im Reiter „Schadensplan“ Prioritäten.",
+    "combat.schaeden": "Schäden? Die Schrauber reparieren selbst. Technik: Reiter „Schadensplan“ – Prioritäten und die Schildkette.",
     "combat.streifschuss": "Ein Streifschuss hat einen Kabelbaum entzündet. Feuer an Bord!",
     "combat.korvette_laedt": "Die Korvette lädt die Breitseite. Technik: Schilde auf die bedrohte Seite – Pilot: wegdrehen oder ausweichen!",
-    "combat.erste_salve": "Korvette! Seine erste Salve hat den Schildgenerator zerlegt – Ersatzteil, schnell!",
+    "combat.erste_salve": "Korvette! Erste Salve: Spannungsregler und Relais im Schildgenerator hin. Ersatzteil heilt ein Teil, Q wählt.",
     "combat.huellenbruch": "Breitseite backbord – Hüllenbruch! Flickblech aus dem Lager, E halten.",
-    "combat.durchschlag": "Ein Treffer schlägt durch – Schildgenerator hinüber! Maschinenraum: E flickt, Ersatzteil repariert voll.",
+    "combat.durchschlag": "Durchschlag! Schildgenerator: Spannungsregler und Relais hin. E flickt, Ersatzteil tauscht ein Teil, Q wählt.",
 
     "scan.ruhe": "Ruhe am Himmel. Gut gemacht! Jetzt zur Boje – die Markierung mitten in der Szene.",
     "scan.relais": "Drei Störrelais kreisen um die Boje und blockieren den Scan. Ops: abschießen! Steuer: Bug drauf.",
@@ -656,7 +657,7 @@
     "ziel.tipp_scan": "Tipp: Ops – Gegner scannen (S halten)",
     "ziel.tipp_schilde": "Tipp: Technik – Schilde zur bedrohten Seite",
     "ziel.technik_konsole": "Maschinenraum: Technik-Konsole betreten (E)",
-    "ziel.tipp_reparatur": "Tipp: Schäden reparieren (E halten) oder Bots machen lassen",
+    "ziel.tipp_reparatur": "Tipp: Schildgenerator, zwei Teile defekt: je Teil ein Ersatzteil (E halten, Q wählt) oder Bots machen lassen",
     "ziel.zur_boje": "Zur Boje fliegen",
     "ziel.relais": "Ops: Störrelais abschießen ({killed:relay}/3)",
     "ziel.boje_scannen": "Captain: Boje scannen (Leertaste halten)",
