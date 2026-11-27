@@ -34,7 +34,7 @@ const Crew = require('./crew.js');
 const lazy = (p) => { let m = null; return () => m || (m = require(p)); };
 const Captain = lazy('./training-captain.js');   // TRA-01 E: Bots, Übungsziele, Wächter (schwere Abhängigkeiten erst beim Gebrauch)
 const NEUSTART_MAX_WARTEN = 30;   // s nach dem Verlust (wie uebung-forschung.js)
-const NEUSTART_NACH_ERFOLG = 8;   // s nach Erfolg und Abzeichen-Meldung: Szene von vorn, damit man wiederholen kann
+const NEUSTART_NACH_ERFOLG = require('../../shared/protocol.js').TRAINING_NEUSTART_S;   // s nach Erfolg (8; der Client zeigt dieselbe Zahl) und Abzeichen-Meldung: Szene von vorn, damit man wiederholen kann
 const FERTIG_FLAG = 'trainingFertig';   // Buchflag (erwartet im Buch): gesetzt = Training geschafft, update() schließt das Buch mit erfolg ab
 
 const TRAININGSMODI = {

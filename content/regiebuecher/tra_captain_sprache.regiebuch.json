@@ -197,6 +197,24 @@
     },
     {
       "id": "kurs",
+      "enter": [
+        {
+          "do": "training_vergessen",
+          "praefix": "bot_befehl:nav.kurs"
+        },
+        {
+          "do": "training_vergessen",
+          "praefix": "bot_befehl:nav.stopp"
+        },
+        {
+          "do": "training_vergessen",
+          "praefix": "marke_erreicht"
+        },
+        {
+          "do": "training_vergessen",
+          "praefix": "bot_name"
+        }
+      ],
       "timers": [
         {
           "at": 0.5,
@@ -256,6 +274,39 @@
             ]
           },
           "oda": "@h.anflug",
+          "garantie": "hinweis"
+        },
+        {
+          "at": 96,
+          "if": {
+            "all": [
+              {
+                "any": [
+                  {
+                    "check": {
+                      "name": "training_ziel",
+                      "id": "bot_befehl:nav.kurs:text"
+                    }
+                  },
+                  {
+                    "check": {
+                      "name": "training_ziel",
+                      "id": "bot_befehl:nav.kurs:sprache"
+                    }
+                  }
+                ]
+              },
+              {
+                "not": {
+                  "check": {
+                    "name": "training_ziel",
+                    "id": "marke_erreicht"
+                  }
+                }
+              }
+            ]
+          },
+          "oda": "@h.anflug2",
           "garantie": "hinweis"
         },
         {
@@ -1278,6 +1329,22 @@
         {
           "do": "training_aktion",
           "name": "schaeden"
+        },
+        {
+          "do": "training_vergessen",
+          "praefix": "bot_befehl:tech.reparieren"
+        },
+        {
+          "do": "training_vergessen",
+          "praefix": "repariert"
+        },
+        {
+          "do": "training_vergessen",
+          "praefix": "bot_befehl:bot.status"
+        },
+        {
+          "do": "training_vergessen",
+          "praefix": "bot_befehl:bot.automatik"
         }
       ],
       "timers": [
@@ -1455,6 +1522,20 @@
     },
     {
       "id": "sprung",
+      "enter": [
+        {
+          "do": "training_vergessen",
+          "praefix": "bot_befehl:nav.sprung"
+        },
+        {
+          "do": "training_vergessen",
+          "praefix": "sprung"
+        },
+        {
+          "do": "training_vergessen",
+          "praefix": "schnellsprung"
+        }
+      ],
       "timers": [
         {
           "at": 0.5,
@@ -1949,9 +2030,9 @@
     "ziel.anflug": "Das Schiff erreicht die Markierung",
     "ziel.stopp": "Livia: Alle Maschinen stopp (Text oder Sprache)",
     "ziel.ziel1": "Cassius: ein Störrelais anvisieren („Ziel markieren“)",
-    "ziel.scan": "Cassius: das Ziel scannen (in Reichweite)",
+    "ziel.scan": "Cassius: Scan befehlen (das Ziel muss in Reichweite sein)",
     "ziel.ziel2": "Cassius: auch das andere Störrelais anvisieren",
-    "ziel.abstand": "Livia: Abstand zum Ziel halten (Schussbogen)",
+    "ziel.abstand": "Livia: Abstand zum Ziel befehlen (für den Schussbogen)",
     "ziel.frei": "Cassius: Feuer frei (Text oder Sprache)",
     "ziel.abschuss": "Ein Störrelais abschießen",
     "ziel.halt": "Cassius: Feuer einstellen (Text oder Sprache)",
@@ -1966,7 +2047,8 @@
     "h.tab": "Tab wechselt die Station: erst zum Steuer, dann weiter zurück zum Captain. Vorher Allstopp.",
     "h.tab2": "Wer am Steuer steht, verdrängt Livia: ihr Kurs ist weg und das Schiff läuft weiter.",
     "h.kurs": "Kurs: # drücken, „Livia, Kurs auf die Markierung“ tippen, Enter. Oder ^ halten und sprechen.",
-    "h.anflug": "Livia ist unterwegs. Etwas Geduld; liegt der Marker sehr weit weg, setze ihn näher.",
+    "h.anflug": "Livia ist unterwegs. Etwas Geduld. Fährt das Schiff kaum los, ist die Marke zu nah.",
+    "h.anflug2": "Marke mindestens 400 px vom Schiff entfernt neu setzen (Reiter 3), dann den Kurs noch einmal geben.",
     "h.stopp": "Stopp: „Livia, Stopp“ per Textzeile (#) oder Sprechtaste (^).",
     "h.name": "Mit Namen ansprechen: „Livia, Kurs auf die Markierung“ statt nur „Navigation, …“.",
     "h.ziel1": "Ziel: Störrelais in der Lagekarte (Reiter 3) anklicken, dann „Cassius, markiertes Ziel“.",

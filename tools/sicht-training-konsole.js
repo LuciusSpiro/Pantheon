@@ -5,6 +5,8 @@
 //   captain  Captain-Konsole         Bild:   <render>-captain-liste
 //   ops      Ops/Waffen (weapons)    Bild:   <render>-ops-liste
 //   zufuss   Konsole verlassen       Bild:   <render>-zufuss (Checkliste des HUD, die Trainingsliste darf nicht doppelt stehen)
+//   abschluss (nur 2d, Fliegen)      TRA-01 Nacharbeit S3: Training geschafft (Server-Flag trainingFertig, danach läuft der echte Abschluss: Abzeichen, Buch zu, Neustart nach 8 s): Bilder abschluss-steuer, abschluss-captain-funk, abschluss-zufuss (Liste mit Haken und „Neustart in N s“, kein „Frei erkunden“, keine Marken/Entdeckungen)
+//   Captain, Sternkarte: zusätzlich sternkarte-untertitel (Bot-Untertitel „NAVIGATION: …“ darf „SEKTOR …“ nicht überdecken; S6)
 // Im Voxel-Sitz je Blick: vorn (Hauptschirm, Standard) und pult (Rad nach unten).
 // Aufruf: node tools/sicht-training-konsole.js [--render 2d|voxel|beide] [--buch fliegen|captain] [--shots <Ordner>] [--port 3611] [--nur steuer,captain]
 'use strict';
@@ -19,7 +21,7 @@ const PORT0 = +arg('port', '3611');
 const SHOTS = path.resolve(arg('shots', path.join(os.tmpdir(), 'tra01-c2-shots')));
 const RENDER = arg('render', 'beide');
 const BUCH = arg('buch', 'fliegen');
-const NUR = arg('nur', 'steuer,captain,ops,zufuss').split(',');
+const NUR = arg('nur', 'steuer,captain,ops,zufuss,abschluss').split(',');
 const TMP = fs.mkdtempSync(path.join(os.tmpdir(), 'pantheon-sicht-tra01c2-'));
 process.env.MISSION_SOURCE = 'fallback'; process.env.REGIE_DIR = path.join(TMP, 'regie'); process.env.ERZEUGT_DIR = path.join(TMP, 'erzeugt');
 delete process.env.LLM_LIVE; delete process.env.SPIELLEITER_LLM;
@@ -74,7 +76,11 @@ async function lauf(render, port) {
         const suffix = voxel ? '-' + bl : '';
         await shot(key + '-liste' + suffix, 900);
         if (key === 'captain' && bl === 'pult') {   // die Reiter der Captain-Konsole: Sternkarte (kompakter Streifen), Lage, Sektorplan, Aufträge (volle Liste)
-          for (const [taste, name] of [['2', 'sternkarte'], ['3', 'lage'], ['5', 'sektorplan'], ['6', 'auftraege']]) { await page.keyboard.press(taste); await shot(key + '-' + name + suffix, 700); }
+          for (const [taste, name] of [['2', 'sternkarte'], ['3', 'lage'], ['5', 'sektorplan'], ['6', 'auftraege']]) { await page.keyboard.press(taste); await shot(key + '-' + name + suffix, 700);
+            if (name === 'sternkarte' && BUCH === 'captain') {   // S6: ein Bot-Untertitel (Ablehnung kein_ziel der Sprungtaste) steht neben „SEKTOR …“, nicht darauf
+              await send({ t: 'bot.befehl', an: 'navigation', befehl: 'nav.sprung', args: { ziel: 'marke' }, quelle: 'taste' });
+              await shot(key + '-sternkarte-untertitel' + suffix, 500);
+            } }
           await page.keyboard.press('1'); await sleep(300);
         }
         if (key === 'steuer' && BUCH === 'fliegen') {
@@ -93,6 +99,15 @@ async function lauf(render, port) {
       if (voxel) await blick('vorn');
     }
     if (NUR.includes('zufuss')) { Interior.konsoleVerlassen(g, p, 'sicht'); await sleep(voxel ? 2500 : 900); await shot('zufuss', 700); }
+    if (NUR.includes('abschluss') && !voxel && BUCH === 'fliegen') {   // S3: echter Abschluss; die Bilder müssen innerhalb der 8 s bis zum Neustart fallen
+      await anSitz('helm');
+      g.mission.flags.trainingFertig = true;
+      await sleep(1200);
+      await shot('abschluss-steuer', 100);
+      await anSitz('captain'); await page.keyboard.press('1'); await sleep(200); await shot('abschluss-captain-funk', 100);
+      Interior.konsoleVerlassen(g, p, 'sicht'); await sleep(500); await shot('abschluss-zufuss', 100);
+      console.log(render, 'Abschluss-Stand: Neustart-Versuch', g.arena.training.versuch, 'Zeit seit Erfolg', (g.time - g.arena.training.erfolgAb).toFixed(1), 's');
+    }
     console.log(render, 'g.errors', g.errors);
   } finally { await b.close(); await srv.close(); }
 }

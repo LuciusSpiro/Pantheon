@@ -20,6 +20,7 @@
     // TRA-01 C: Ereignis abzeichen { id: 'fliegen' | 'captain', variante?: 'tafel' | 'sprache' } (Broadcast, einmal je Versuch, wenn das Training geschafft ist; variante nur bei captain:
     // Befehlstafel/Tasten oder mit Sprache). Ohne Wirkung im Spiel, der Client merkt sich das Abzeichen im Browser. Dazu eine ODA-Zeile „Abzeichen erreicht: …“.
     EVT_ABZEICHEN: 'abzeichen',
+    TRAINING_NEUSTART_S: 8,   // TRA-01 Nacharbeit S3: Sekunden zwischen „Training geschafft“ und Neustart der Szene (Server: training.js; der Client zeigt „Neustart in N s“)
     // ---- B1 (CONTRACT-B1 §9): Bühnen – gebaute Außenkarten, Landepunkte, Anker ----
     // Ereignis awayMap { id, erzeuger, art, bauweise, besitz, zustand, w, h, rows, anker: [[id, rolle, x, y, attr?]], bereiche,
     //   decks, kv } – kompilierte Karte (≤ 16 KB (BOD-03, vorher 10 KB laut Nachtrag)), beim Betreten bzw. auf Anfrage (cmd awayMap.get). Nur an die betroffenen

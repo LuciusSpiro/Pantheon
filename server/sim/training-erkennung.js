@@ -38,7 +38,7 @@
 //   ziel_angewaehlt:<kennung>[:<quelle>]  ops.ziel hat das Übungsziel <kennung> (a | b, game.arena.training.uebung, training-captain.js) angewählt: objekt:<id>, markiert (Captain-Anzeigeziel) oder naechstes; mit Quelle
 //   bot_gespraech                   ein Mensch hat ein Gespräch mit einem Bot begonnen (Ö/Ä, Nachricht bot.gespraech; auch wenn der Dienst nicht erreichbar ist: der Versuch zählt)
 //   abschuss                        ein Übungsziel (tag training) wurde zerstört (Ereignis enemyKilled)
-//   marke_erreicht                  nach bot_befehl:nav.kurs: das Schiff ist (nicht angedockt) höchstens ANFLUG_R px von der Captain-Marke entfernt
+//   marke_erreicht                  nach bot_befehl:nav.kurs: das Schiff ist nach dem Befehl mindestens KURS_MIN_STRECKE px gefahren und (nicht angedockt) höchstens ANFLUG_R px von der Captain-Marke entfernt; nimmt bot_befehl:nav.stopp von vorher zurück
 //   repariert[:<quelle>]            ein mit tech.reparieren befohlenes, beschädigtes System ist wieder heil (Befehl: nur der ok-Pfad, args.system; Eigenreparatur ohne Befehl zählt nicht); mit Quelle des Befehls
 //   sprung                          normaler Sprung (jumped ohne laufende Reise) – wer ihn befohlen hat, sagt bot_befehl:nav.sprung
 //   schnellsprung                   Reise (game.reise) mit mindestens SCHNELL_MIN_HOPS Hops ist ohne Abbruch am letzten Hop angekommen
@@ -48,6 +48,7 @@ const Crew = require('./crew.js');
 const RUDER_MIN = 0.5;       // |helm.turn| (Eingabe -1..1), ab dem „Ruder gelegt“ gilt
 const FAHRT_MIN = 20;        // px/s: darüber ist das Schiff in Fahrt (Stufe VOLL der Lerche 130 px/s)
 const STEHT_MAX = 2;         // px/s: darunter steht es
+const KURS_MIN_STRECKE = 150;   // px: so weit muss das Schiff nach dem Kursbefehl gefahren sein, bevor „Marke erreicht“ gilt (eine Marke gleich neben dem Schiff ist keine Übung)
 const ANFLUG_R = 220;        // px: nav.kurs auf die Captain-Marke gilt als angekommen (der Bot hält ab 200 px, mannschaft.js ANKUNFT_OBJEKT)
 const SCHNELL_MIN_HOPS = 2;  // ein Schnellsprung über einen einzelnen Hop ist ein normaler Sprung
 const BOT_ID = /^b[0-3]$/;
@@ -88,7 +89,7 @@ function istZielId(id) {
 
 function zuruecksetzen(game) {
   const T = game && game.arena && game.arena.training; if (!T) return;
-  T.erreicht = new Set(); T.erk = null; T.repariere = [];
+  T.erreicht = new Set(); T.erk = null; T.repariere = []; T.kursFahrt = false; T.kursStart = null;
   const flags = game.mission && game.mission.flags;
   if (flags) for (const k of Object.keys(flags)) if (k.startsWith(FLAG_PRAEFIX)) delete flags[k];
 }
@@ -176,9 +177,14 @@ function pruefeTab(game, s, v) {
 }
 
 // TRA-01 E: Anflug an die Captain-Marke nach nav.kurs; Reise (Schnellsprung) angekommen; befohlene Reparatur geheilt
+// Die Marke zählt nur, wenn das Schiff nach dem Kursbefehl mindestens KURS_MIN_STRECKE px gefahren ist (kursFahrt) und dann ankommt. Ein Stopp-Befehl VOR der Ankunft zählt nicht für das Ziel "stopp" (vergessen).
 function pruefeAnflug(game, s) {
+  const T = stand(game);
   if (!s.markerPos || s.docked || !erreicht(game, 'bot_befehl:nav.kurs')) return;
-  if (dist(game.ship.x, game.ship.y, s.markerPos.x, s.markerPos.y) <= ANFLUG_R) markieren(game, 'marke_erreicht');
+  if (!T.kursFahrt && T.kursStart && dist(game.ship.x, game.ship.y, T.kursStart.x, T.kursStart.y) >= KURS_MIN_STRECKE) T.kursFahrt = true;
+  if (!T.kursFahrt || dist(game.ship.x, game.ship.y, s.markerPos.x, s.markerPos.y) > ANFLUG_R) return;
+  if (!erreicht(game, 'marke_erreicht')) vergessen(game, 'bot_befehl:nav.stopp');
+  markieren(game, 'marke_erreicht');
 }
 function pruefeReise(game, s, v) {
   if (v && v.reise && !s.reise && v.reise.n >= SCHNELL_MIN_HOPS && !v.reise.abbruch && v.reise.ziel && s.scene === v.reise.ziel) markieren(game, 'schnellsprung');
@@ -248,6 +254,7 @@ const EREIGNIS = {
     markieren(game, 'bot_befehl:' + d.befehl);
     if (typeof d.quelle === 'string') { markieren(game, 'bot_quelle:' + d.quelle); markieren(game, 'bot_befehl:' + d.befehl + ':' + d.quelle); }
     if (BOT_ID.test(d.an)) { markieren(game, 'bot_name'); if (typeof d.quelle === 'string') markieren(game, 'bot_name:' + d.quelle); }
+    if (d.befehl === 'nav.kurs') { const T = stand(game); T.kursFahrt = false; T.kursStart = { x: game.ship.x, y: game.ship.y }; }   // neuer Kurs: die Fahrt dahin muss neu stattfinden (pruefeAnflug)
     if (d.befehl === 'ops.ziel') zielAngewaehlt(game, d.args, d.quelle);
     if (d.befehl === 'tech.reparieren') reparaturMerken(game, d.args, d.quelle);
   },
@@ -260,4 +267,4 @@ function ereignis(game, name, data) {
   try { EREIGNIS[name](game, data || {}); } catch (e) { game.countError('training-erkennung', e); }
 }
 
-module.exports = { RUDER_MIN, FAHRT_MIN, STEHT_MAX, ANFLUG_R, SCHNELL_MIN_HOPS, FLAG_PRAEFIX, FESTE_ZIELE, istZielId, flagName, zuruecksetzen, vergessen, erreicht, ziele, update, ereignis };
+module.exports = { RUDER_MIN, FAHRT_MIN, STEHT_MAX, ANFLUG_R, KURS_MIN_STRECKE, SCHNELL_MIN_HOPS, FLAG_PRAEFIX, FESTE_ZIELE, istZielId, flagName, zuruecksetzen, vergessen, erreicht, ziele, update, ereignis };

@@ -16,6 +16,7 @@
       debug: () => { try { return new URLSearchParams(root.location.search).get('debug') === '1'; } catch (e) { return false; } },
       szenenIds: () => { const c = root.Shared_Config; return ((c && c.arena && c.arena.szenen) || []).map((z) => z.id); },
       charaktere: () => root.Charaktere,
+      botSprache: () => root.BotSpracheStart,   // TRA-01 Nacharbeit P2: Schalter der Bot-Sprache (public/js/bot-sprache-start.js)
       abzeichen: () => root.Abzeichen,   // TRA-01 C: Browser-Speicher der Abzeichen (public/js/abzeichen.js)
       weltstandMax: () => { const c = root.Shared_Config; return (c && c.weltstand && c.weltstand.max) || 5; },
       oeffneKammer: () => { const c = root.Client; if (!(c && c.actions && c.actions.openKammer)) return false; c.actions.openKammer(); return true; },
@@ -31,7 +32,7 @@
   const TEXT = {
     titel: { knopf: 'Spielen' },
     version: { praefix: 'v' },   // HYG-02 A: „v0.1.0“ unten rechts
-    detail: { spieler: '1–4 Spieler', neuerWeltstand: 'neuer Weltstand {n}/{max}', weltstandVoll: 'Alle {max} Plätze belegt · F löscht', weltstandVollKurz: 'Alle {max} Plätze belegt', weltstandVollLang: 'Alle {max} Plätze belegt – erst einen löschen (F)', keinWeltstand: 'kein Weltstand', raumOeffnen: 'Raum öffnen', fortsetzen: 'Fortsetzen', tutorial: 'Tutorial', an: 'an', aus: 'aus', optionen: 'OPTIONEN', inLobby: 'In der Lobby', crew: 'Crew' },
+    detail: { spieler: '1–4 Spieler', einSpieler: '1 Spieler', neuerWeltstand: 'neuer Weltstand {n}/{max}', weltstandVoll: 'Alle {max} Plätze belegt · F löscht', weltstandVollKurz: 'Alle {max} Plätze belegt', weltstandVollLang: 'Alle {max} Plätze belegt – erst einen löschen (F)', keinWeltstand: 'kein Weltstand', raumOeffnen: 'Raum öffnen', fortsetzen: 'Fortsetzen', tutorial: 'Tutorial', an: 'an', aus: 'aus', optionen: 'OPTIONEN', inLobby: 'In der Lobby', crew: 'Crew' },
     fortsetzen: { keiner: 'Noch kein Weltstand gespeichert', weitere: '+ {n} weitere · F öffnet die Liste', liste: 'F öffnet die Liste', unlesbar: 'nicht ladbar' },
     hinweise: { waehlen: 'wählen', charakter: 'Charakter', optionen: 'Optionen', zurueck: 'Titel', bereit: 'bereit', farbe: 'Farbe', modus: 'Modus', link: 'Link', menue: 'Hauptmenü', hilfe: 'Hilfe', bot: 'Bot' },
     bot: { hinzufuegen: 'BOT HINZUFÜGEN', navigation: 'Navigation', ops: 'Ops', technik: 'Technik', entfernen: 'Entfernen', rolleWechseln: 'Rolle wechseln' },   // BOT-01 B2: Bots auf freien Plätzen (Lobby)
@@ -46,7 +47,7 @@
     eingang: { abgelehnt: 'EINLADUNG ABGELEHNT', raumcode: 'RAUMCODE', satz: 'Code eingeben, den du vom Gastgeber bekommst.', knopf: 'An Bord gehen', falsch: 'Falscher Raumcode – bitte nachfragen.' },
     kammer: { lobby: 'In die Lobby', einladung: 'Zur Einladung', menue: 'Zum Hauptmenü', titel: 'Zum Titel' },
     karte: { du: 'DU', escZeile: ['Esc geht zum', 'Hauptmenü'], linkKopiert: 'Link kopiert!' },
-    training: { titel: 'Training', art: 'TRAINING', beschreibung: 'Abzeichen-Übungen: Fliegen, Captain und mehr', oeffnen: 'Training öffnen', kopf: 'TRAINING', untertitel: 'Eine Übung je Station. Fliegen und Captain sind startklar.', folgt: 'folgt', gesperrt: 'gesperrt', eingabe: 'Eingabe', tafel: 'Befehlstafel/Tasten', sprache: 'mit Sprache', start: 'In die Lobby', abzeichen: 'Abzeichen', abzeichenVariante: { tafel: 'Tafel', sprache: 'Sprache' }, zurueck: 'Zurück', waehlen: 'wählen', starten: 'Start',   // TRA-01 A2
+    training: { allein: ['Training: allein', 'Niemand wird eingeladen'], titel: 'Training', art: 'TRAINING', beschreibung: 'Abzeichen-Übungen: Fliegen, Captain und mehr', oeffnen: 'Training öffnen', kopf: 'TRAINING', untertitel: 'Eine Übung je Station. Fliegen und Captain sind startklar.', folgt: 'folgt', gesperrt: 'gesperrt', eingabe: 'Eingabe', tafel: 'Befehlstafel/Tasten', sprache: 'mit Sprache', start: 'In die Lobby', abzeichen: 'Abzeichen', abzeichenVariante: { tafel: 'Tafel', sprache: 'Sprache' }, zurueck: 'Zurück', waehlen: 'wählen', starten: 'Start',   // TRA-01 A2
       kacheln: { fliegen: { name: 'Fliegen', zeile: 'Tempo, Ruder, Sprung, Andocken' }, captain: { name: 'Captain', zeile: 'Karte, Marker, Bots führen' }, ops: { name: 'Ops', zeile: 'Waffen und Ladung' }, technik: { name: 'Technik', zeile: 'Systeme und Reaktor' }, aussen: { name: 'Außeneinsatz', zeile: 'Boden und Anzug' } } },
     gruppen: { spielen: 'SPIELEN', fortsetzen: 'FORTSETZEN', uebung: 'ÜBUNGSPLATZ', debug: 'STERNENSCHICHT (DEBUG)' },
   };
@@ -68,7 +69,7 @@
       { id: 'arena_forschung', taste: 'S', modi: ['arena_forschung'], art: 'ÜBUNGSPLATZ' },   // UEB-01: Forschungsstation direkt; Buchstabe statt Ziffer (alle Ziffern belegt), kein Optionsfeld (Name/Hinweis aus START_LABELS/START_HINTS)
       { id: 'arena_space', taste: '6', modi: ['arena_space'], art: 'ÜBUNGSPLATZ' },
       { id: 'labor', taste: '7', modi: ['labor'], art: 'ÜBUNGSPLATZ', nurMit: 'laborAn' },
-      { id: 'training', taste: 'T', modi: ['training_fliegen', 'training_captain'], art: 'TRAINING', titel: 'Training', unterseite: 'training' },   // TRA-01 A2: öffnet die Unterseite (kein Modus selbst); Buchstabe T ist im Menü frei (belegt: O H C F U S, in der Lobby M L P V …)
+      { id: 'training', taste: 'T', modi: ['training_fliegen', 'training_captain'], art: 'TRAINING', titel: 'Training', unterseite: 'training', solo: true },   // TRA-01 A2: öffnet die Unterseite (kein Modus selbst); Buchstabe T ist im Menü frei (belegt: O H C F U S, in der Lobby M L P V …)
     ] },
     { id: 'debug', debug: true, eintraege: [
       { id: 'm1', taste: '8', modi: ['m1'], art: 'STERNENSCHICHT', weltstand: true },
@@ -97,6 +98,7 @@
     const debugAn = () => !!(typeof opt.debug === 'function' ? opt.debug() : opt.debug);
     const szenenIds = () => (opt.szenenIds ? opt.szenenIds() : []) || [];
     const charaktere = () => (typeof opt.charaktere === 'function' ? opt.charaktere() : opt.charaktere) || null;
+    const botSpracheQuelle = () => (typeof opt.botSprache === 'function' ? opt.botSprache() : opt.botSprache) || null;
     const abzeichenQuelle = () => (typeof opt.abzeichen === 'function' ? opt.abzeichen() : opt.abzeichen) || null;
     const LOBBY_OPT = () => (proto().C && proto().C.LOBBY_OPT) || 'lobbyOpt';
     const maxWelten = () => +(typeof opt.weltstandMax === 'function' ? opt.weltstandMax() : opt.weltstandMax) || 5;
@@ -131,6 +133,8 @@
       return e.modi[0];
     }
     // Titel eines Menüeintrags: immer der Name des Eintrags (Eisenwald heißt „Kampagne Eisenwald“, mit oder ohne Tutorial; der Tutorial-Zustand steht nur im Chip)
+    // Im Training spielt man allein (der Server lehnt einen zweiten Menschen ab, die Bots setzt er selbst): die Lobby zeigt dort weder Einladung noch Bot-Plätze
+    const istTrainingLobby = (lob) => !!(lob && typeof lob.startMission === 'string' && lob.startMission.startsWith('training_'));
     const START_LABEL = (modus) => (proto().START_LABELS && proto().START_LABELS[modus]) || String(modus || '');
     const eintragTitel = (e) => (e && e.titel ? e.titel : e && e.modi.length ? START_LABEL(e.modi[0]) : '');   // TRA-01 A2: Unterseiten-Eintrag trägt seinen eigenen Titel
     const modusTitel = (modus) => { const e = eintragZuModus(modus); return e && e.modi.length && !e.unterseite ? eintragTitel(e) : START_LABEL(modus); };   // die Trainingsmodi heißen „Training Fliegen“ / „Training Captain“
@@ -285,9 +289,14 @@
       if (k.sprachwahl) msg.trainingSprache = store.trainingSprache === true;
       return msg;
     }
+    // Captain mit Sprache gewählt: die Bot-Sprache des Browsers einschalten (Textzeile # und Sprechtaste ^ tun sonst nichts). Nie ein Fehler im Menü; schon an = nichts zu tun
+    function botSpracheEinschalten() {
+      try { const S = botSpracheQuelle(); if (S && typeof S.an === 'function' && typeof S.setze === 'function' && !S.an()) { const r = S.setze(true); if (r && typeof r.catch === 'function') r.catch(() => {}); } } catch (e) { /* die Sprache bleibt aus */ }
+    }
     // Start der gewählten Kachel: Modus setzen, in die Lobby (bereit melden wie bei jedem Modus)
     function trainingStarte() {
       const k = trainingGewaehlt(), msg = trainingNachricht(k); if (!msg) return { ok: false, grund: 'gesperrt' };
+      if (k.sprachwahl && store.trainingSprache) botSpracheEinschalten();
       senden(msg);
       store.schirm = 'lobby'; store.modusOffen = false; store.unterseite = null; store.auswahl = (eintragZuModus(k.modus) || {}).id || store.auswahl; aenderung();
       return { ok: true, kachel: k.id, modus: k.modus, sprache: k.sprachwahl ? store.trainingSprache : null };
@@ -512,7 +521,7 @@
     function optionFuerTaste(code, modus, lob, welt) { return optionenFuer(modus, lob, welt).find((x) => x.code === code) || null; }
 
     return {
-      TEXT, GRUPPEN, ALLE, lies, setzeVersion, ladeVersion, eintragMitId, eintragZuModus, zugeordneteModi,
+      TEXT, GRUPPEN, ALLE, istTrainingLobby, lies, setzeVersion, ladeVersion, eintragMitId, eintragZuModus, zugeordneteModi,
       sichtbar, gruppen, modusVon, aktuellerEintrag, auswahlEintrag, synchronisiere, snapshotEingang, welten, neuesteWelt,
       bewege, waehleTaste, waehleEintragId, schalteTutorialMerker, schalteTutorialDerRunde, nachrichtFuer, bestaetige, oeffneModusWahl, schliesseModusWahl,
       starte, weiter, zurueck, imRaum, weltstaende, weltstandGewaehlt, neuerWeltstandGewaehlt, sichtbarenModusSichern, einladungAblehnen, einladungNeuerCharakter, laborAuswahl, startOptionen, bewegeEinladung, setzeEinladungCursor, einladungAnnehmen, einladungAufGewaehlten,

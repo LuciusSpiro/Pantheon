@@ -53,9 +53,9 @@ const TEXTE = {
   'ziel.anflug': DAS('Das Schiff erreicht die Markierung'),
   'ziel.stopp': T('Livia: Alle Maschinen stopp (Shift+X oder Tafel)', 'Livia: Alle Maschinen stopp (Text oder Sprache)'),
   'ziel.ziel1': DAS('Cassius: ein Störrelais anvisieren („Ziel markieren“)'),
-  'ziel.scan': DAS('Cassius: das Ziel scannen (in Reichweite)'),
+  'ziel.scan': DAS('Cassius: Scan befehlen (das Ziel muss in Reichweite sein)'),
   'ziel.ziel2': DAS('Cassius: auch das andere Störrelais anvisieren'),
-  'ziel.abstand': DAS('Livia: Abstand zum Ziel halten (Schussbogen)'),
+  'ziel.abstand': DAS('Livia: Abstand zum Ziel befehlen (für den Schussbogen)'),
   'ziel.frei': T('Cassius: Feuer frei (Shift+F oder Tafel)', 'Cassius: Feuer frei (Text oder Sprache)'),
   'ziel.abschuss': DAS('Ein Störrelais abschießen'),
   'ziel.halt': T('Cassius: Feuer einstellen (Shift+G oder Tafel)', 'Cassius: Feuer einstellen (Text oder Sprache)'),
@@ -72,7 +72,8 @@ const TEXTE = {
   'h.tab2': DAS('Wer am Steuer steht, verdrängt Livia: ihr Kurs ist weg und das Schiff läuft weiter.'),
   'h.kurs': T('Kurs: Tafel B, Navigation, Kurs, „die Markierung“. Ohne Marker hat Livia kein Ziel.',
     'Kurs: # drücken, „Livia, Kurs auf die Markierung“ tippen, Enter. Oder ^ halten und sprechen.'),
-  'h.anflug': DAS('Livia ist unterwegs. Etwas Geduld; liegt der Marker sehr weit weg, setze ihn näher.'),
+  'h.anflug': DAS('Livia ist unterwegs. Etwas Geduld. Fährt das Schiff kaum los, ist die Marke zu nah.'),
+  'h.anflug2': DAS('Marke mindestens 400 px vom Schiff entfernt neu setzen (Reiter 3), dann den Kurs noch einmal geben.'),
   'h.stopp': T('Stopp: Shift+X oder Tafel B, Navigation, Alle Maschinen stopp.', 'Stopp: „Livia, Stopp“ per Textzeile (#) oder Sprechtaste (^).'),
   'h.name': DAS('Mit Namen ansprechen: „Livia, Kurs auf die Markierung“ statt nur „Navigation, …“.'),
   'h.ziel1': T('Ziel: in der Lagekarte (Reiter 3) ein Störrelais anklicken, dann Tafel B, Ops, Ziel markieren.',
@@ -102,9 +103,10 @@ function texte(v) {
 function buch(v) {
   const V = VARIANTEN[v];
   const hinweis = (at, ifc, text) => ({ at, if: ifc, oda: '@' + text, garantie: 'hinweis' });
-  const ZWEITE = { 'h.tab': 'h.tab2', 'h.reparieren': 'h.reparieren2', 'h.schnell': 'h.schnell2' };   // lange Hinweise: zweite Zeile 6 s später
+  const ZWEITE = { 'h.anflug': 'h.anflug2', 'h.tab': 'h.tab2', 'h.reparieren': 'h.reparieren2', 'h.schnell': 'h.schnell2' };   // lange Hinweise: zweite Zeile 6 s später
   const hint = (at, ifc, text) => (ZWEITE[text] ? [hinweis(at, ifc, text), hinweis(at + 6, ifc, ZWEITE[text])] : [hinweis(at, ifc, text)]);
   const start = (k, zwei) => [{ at: 0.5, oda: '@' + k + '.start' }].concat(zwei ? [{ at: 6.5, oda: '@' + k + '.start2' }] : []);
+  const vergessen = (...praefixe) => praefixe.map((p) => ({ do: 'training_vergessen', praefix: p }));   // Buchaktion: der Schritt verlangt die Handlung frisch
   const obj = (id, textKey, done, extra) => Object.assign({ id, text: '@ziel.' + textKey, done }, extra || {});
 
   const stand = {
@@ -120,6 +122,7 @@ function buch(v) {
   const kursDone = alle(bef(V, 'nav.kurs'), z('marke_erreicht'));
   const kurs = {
     id: 'kurs',
+    enter: vergessen('bot_befehl:nav.kurs', 'bot_befehl:nav.stopp', 'marke_erreicht', 'bot_name'),   // nur was NACH Beginn des Schritts kommt, zählt (ein früherer Stopp aus dem Tab-Schritt erfüllt nichts)
     timers: [start('kurs'),
       hint(40, nicht(bef(V, 'nav.kurs')), 'h.kurs'),
       hint(90, alle(bef(V, 'nav.kurs'), nicht(z('marke_erreicht'))), 'h.anflug'),
@@ -149,7 +152,7 @@ function buch(v) {
   const scan = bef(V, 'ops.scan'); const frei = bef(V, 'ops.feuer_frei'); const halt = bef(V, 'ops.feuer_halt'); const abstand = bef(V, 'nav.abstand');
   const kampf = {
     id: 'kampf',
-    enter: ['bot_befehl:ops.feuer_frei', 'bot_befehl:ops.feuer_halt', 'bot_befehl:nav.abstand', 'bot_befehl:ops.scan', 'abschuss'].map((p) => ({ do: 'training_vergessen', praefix: p })),
+    enter: vergessen('bot_befehl:ops.feuer_frei', 'bot_befehl:ops.feuer_halt', 'bot_befehl:nav.abstand', 'bot_befehl:ops.scan', 'abschuss'),
     timers: [start('kampf'),
       hint(40, nicht(abstand), 'h.abstand'),
       hint(70, alle(abstand, nicht(scan)), 'h.scan'),
@@ -165,7 +168,7 @@ function buch(v) {
   // Neue Schäden, solange das Ziel offen und alles heil ist: Wächter reparaturnachlegen (server/sim/training-captain.js), keine festen Timer (Sackgasse nach der letzten Runde)
   const reparatur = {
     id: 'reparatur',
-    enter: [{ do: 'training_aktion', name: 'uebungsziele_weg' }, { do: 'training_aktion', name: 'schaeden' }],
+    enter: [{ do: 'training_aktion', name: 'uebungsziele_weg' }, { do: 'training_aktion', name: 'schaeden' }].concat(vergessen('bot_befehl:tech.reparieren', 'repariert', 'bot_befehl:bot.status', 'bot_befehl:bot.automatik')),
     timers: [start('reparatur'),
       hint(50, nicht(bef(V, 'tech.reparieren')), 'h.reparieren')],   // nur wenn der Befehl fehlt: ist er gegeben, repariert Titus gerade
     objectives: [obj('reparieren', 'reparieren', rep),
@@ -180,6 +183,7 @@ function buch(v) {
   const normal = alle(bef(V, 'nav.sprung'), z('sprung'));
   const sprung = {
     id: 'sprung',
+    enter: vergessen('bot_befehl:nav.sprung', 'sprung', 'schnellsprung'),
     timers: [start('sprung', true),
       hint(120, alle(nicht(schnell), nicht(normal)), 'h.schnell'),   // erst wenn noch kein Sprung gelang (ein Sprung braucht Anflug und Aufladen, bis 70 s)
       hint(240, alle(normal, nicht(schnell)), 'h.schnell'),

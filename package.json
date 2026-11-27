@@ -438,6 +438,8 @@
     "test:training-captain-mutation": "node tools/mutation-training-captain.js",
     "test:training-nacharbeit": "node tools/test-training-nacharbeit.js",
     "test:training-nacharbeit-mutation": "node tools/mutation-training-nacharbeit.js",
+    "test:training-nacharbeit2": "node tools/test-training-nacharbeit2.js",
+    "test:training-nacharbeit2-mutation": "node tools/mutation-training-nacharbeit2.js",
     "gen:tra-captain": "node tools/gen-tra-captain.js",
     "test:bot-befehle-ops-tech": "node tools/test-bot-befehle-ops-tech.js",
     "test:bot-menue": "node tools/test-bot-menue.js",

@@ -1264,7 +1264,7 @@
         break;
       }
       case 'missionStart': if (ev.title) H.pushNotice('Neuer Auftrag: ' + ev.title, PAL.amber); break;
-      case 'missionDone': if (ev.title && !(window.TrainingHud && TrainingHud.abschlussSchonGemeldet(ev))) H.pushNotice('Auftrag erledigt: ' + ev.title, PAL.mint); audio.play('repair_done'); break;
+      case 'missionDone': if (window.TrainingHud) TrainingHud.abschluss(ev); if (ev.title && !(window.TrainingHud && TrainingHud.abschlussSchonGemeldet(ev))) H.pushNotice('Auftrag erledigt: ' + ev.title, PAL.mint); audio.play('repair_done'); break;
       case 'hit':
         if (ev.emp) { audio.play('emp'); H.pushNotice('EMP-Treffer – ein System ist kurz offline', PAL.red); }
         Client.shipHit = { sector: ev.sector, t0: performance.now() };

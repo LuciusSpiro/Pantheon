@@ -838,8 +838,10 @@
       }
       R.text(ctx, 'MISSION', rx, ry, { color: PAL.brass });
       const disc = m.discoveries || {};
-      R.text(ctx, 'Entdeckungen ' + n(disc.found) + '/' + n(disc.total), rx + rw, ry, { color: PAL.mint, align: 'right' }); ry += 11;
-      const act = m.active;
+      const TH = window.TrainingHud, imTraining = !!(TH && TH.laeuft(st)), tz = TH ? TH.eingefroren(st) : null;   // TRA-01 Nacharbeit S3: im Training keine Entdeckungen; nach dem Abschluss die abgehakte Liste bis zum Neustart
+      if (!imTraining) R.text(ctx, 'Entdeckungen ' + n(disc.found) + '/' + n(disc.total), rx + rw, ry, { color: PAL.mint, align: 'right' });
+      ry += 11;
+      const act = tz ? { title: tz.title, objectives: tz.objs } : m.active;
       if (act) {
         for (const l of R.wrap(act.title || act.id || '', rw, 1).slice(0, 2)) { R.text(ctx, l, rx, ry, { color: PAL.amber }); ry += 10; }
         for (const o of (act.objectives || []).slice(0, 5)) {
@@ -848,6 +850,7 @@
           if (o.done) { ctx.fillStyle = PAL.moss; ctx.fillRect(rx + 2, ry + 2, 3, 3); }
           for (const l of lines) { R.text(ctx, l, rx + 10, ry, { color: o.done ? '#6E8A6A' : o.optional ? PAL.panelLight : PAL.star }); ry += 10; }
         }
+        if (tz) { R.text(ctx, tz.rest, rx, ry, { color: PAL.mint }); ry += 10; }   // „Abzeichen erreicht · Neustart in N s“
       } else if (window.StarMap && window.StarMap.lageAktiv()) { R.text(ctx, 'Freie Fahrt Sund', rx, ry, { color: PAL.amber }); ry += 10; R.text(ctx, 'Kein Auftrag. Die Welt läuft.', rx, ry, { color: PAL.panelLight }); ry += 10; }   // SUND-01 C
       else { R.text(ctx, 'Kein aktiver Auftrag – erkunden lohnt sich.', rx, ry, { color: PAL.panelLight }); ry += 10; }
       const list = (m.list || []).filter(x => !act || x.id !== act.id);

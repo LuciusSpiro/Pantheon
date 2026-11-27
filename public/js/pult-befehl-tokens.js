@@ -30,7 +30,7 @@
     tafel: { x: 62, y: 262, w: 572, h: 64, deckeRand: 2 },
     raster: { x: 62, y: 275, zw: 188, zh: 14, sx: 4, sy: 3, spalten: 3, reihen: 3, infoRechts: 5 },
     faenger: { x: 60, y: 261, w: 576, h: 65 },   // deckender Klickfänger über der ganzen Tafel (Titelzeile bis letzte Reihe): leere Felder und Lücken schlucken Klicks, der Reiter-Knopf darunter bleibt unberührt
-    crew: { x: 62, y: 330, zw: 92, zh: 14, sx: 4, trenner: 327, trennerAlpha: 0.35 },
+    crew: { x: 62, y: 330, breiten: [88, 64, 92, 70, 82, 82, 70], zh: 14, sx: 4, trenner: 327, trennerAlpha: 0.35 },   // TRA-01 Nacharbeit S4: sieben Knöpfe (Befehle + 6 Direkttasten) in 572 px, je nach Textlänge verschieden breit
     einblendung: { deckung: 0.92 },   // Ego-Sitz, Blick VORN/CREW: Tafel und Crew-Zeile (y 261 bis 346) mit dieser Deckung über dem Bild
   };
   const ZEIT = { autoZu: 6000, frage: 3000, sperrGrund: 2000, warten: 3000, aye: 2000, nein: 4000, keineAntwort: 2000, ausstehend: 12000 };
@@ -45,7 +45,7 @@
     rolleName: { navigation: 'NAVIGATION', ops: 'OPS', technik: 'TECHNIK', bord: 'BORD', alle: 'ALLE' },   // Sprechername der Quittung und der Untertitel
     rolleKurz: { navigation: 'NAV', ops: 'OPS', technik: 'TECH', bord: 'BORD', alle: 'ALLE' },   // Quittung, wenn „NAVIGATION abgelehnt“ nicht in den Knopf (92 px) passt
     unbekannterSprecher: 'CREW',
-    rechts: { stufe1: 'B / Esc schließt', sonst: 'B zurück · Esc zu', seite: 'R Seite {n}/{m} · {name}', seiteOhneName: 'R Seite {n}/{m}', frage: '{taste} nochmal = senden' },
+    rechts: { stufe1: 'B / Esc schließt', sonst: 'B zurück · Esc schließt', seite: 'R Seite {n}/{m} · {name}', seiteOhneName: 'R Seite {n}/{m}', frage: '{taste} nochmal = senden' },
     fussSprache: '{taste} halten und sagen, was hier steht: dieselben Befehle per Sprache',
     grund: { keinBot: 'kein Bot', mensch: 'Mensch an Station', aussen: 'nur Außenmission', keineBots: 'Keine Bots an Bord', laedt: 'Befehle werden geladen' },
     grundLang: { keinBot: 'Kein Bot an {rolle}', mensch: 'Ein Mensch sitzt an {rolle} – sag es ihm', aussen: 'Nur während der Außenmission', keineBots: 'Keine Bots an Bord' },   // {rolle}: rolleAn (Tooltip, Titelhinweis)
@@ -98,13 +98,10 @@
     direkt: [
       { aktion: 'captain.bot.stopp', key: 'nav.stopp', fn: 'weapon' },
       { aktion: 'captain.bot.ausweichen', key: 'nav.ausweichen', fn: 'drive' },
+      { aktion: 'captain.bot.sprung', key: 'nav.sprung:ziel=marke', fn: 'nav' },   // TRA-01 Nacharbeit S4: Shift+J, Eintrag in BotMenue.MENUE_ZUSATZ (nicht sprechbar, nicht im Kanon)
       { aktion: 'captain.bot.feuerFrei', key: 'ops.feuer_frei', fn: 'weapon' },
       { aktion: 'captain.bot.feuerHalt', key: 'ops.feuer_halt', fn: 'weapon' },
       { aktion: 'captain.bot.status', key: 'bot.status', fn: 'sensor' },
-    ],
-    // TRA-01 C3: Direkttasten ohne Knopf in der Crew-Zeile (6 Knöpfe füllen die 572 px). Der Eintrag liegt in BotMenue.MENUE_ZUSATZ (nicht sprechbar, nicht im Kanon).
-    direktOhneKnopf: [
-      { aktion: 'captain.bot.sprung', key: 'nav.sprung:ziel=marke' },
     ],
   };
 

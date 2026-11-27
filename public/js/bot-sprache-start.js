@@ -28,6 +28,22 @@
     if (window.BotSprache) window.BotSprache.stoppe();
     return Promise.resolve();
   }
-  window.BotSpracheStart = { an: () => wunsch, setze, umschalten: () => setze(!wunsch) };
+  // TRA-01 Nacharbeit P2: Ist die Sprache aus, tun Sprechtaste ^ und Textzeile # nichts. Im Training (Captain mit Sprache) sagt dann eine Meldung (Hud.pushNotice, wie die übrigen Hinweise), wie es weitergeht.
+  const AUS_TEXT = 'Bot-Sprache ist aus: Esc, Optionen, Bot-Sprache. Oder Befehlstafel (B).';
+  let letzteMeldung = 0;
+  function ausMeldung(e) {
+    try {
+      if (wunsch || e.repeat) return;
+      const T = window.Tasten, passt = (id, code) => (T && T.passt ? T.passt(e, id) : e.code === code);
+      if (!(passt('allgemein.sprechen', 'Backquote') || passt('allgemein.botText', 'Backslash'))) return;
+      const a = document.activeElement; if (a && (a.tagName === 'INPUT' || a.tagName === 'TEXTAREA')) return;
+      const st = window.Client && window.Client.state, TH = window.TrainingHud;
+      if (!(st && TH && TH.istTraining(st.mission)) || !window.Hud) return;
+      const jetzt = Date.now(); if (jetzt - letzteMeldung < 3000) return; letzteMeldung = jetzt;
+      window.Hud.pushNotice(AUS_TEXT, window.Render && window.Render.PAL ? window.Render.PAL.warn : undefined, 4);
+    } catch (err) { /* nur eine Meldung weniger */ }
+  }
+  if (typeof window.addEventListener === 'function') window.addEventListener('keydown', ausMeldung, true);
+  window.BotSpracheStart = { an: () => wunsch, setze, umschalten: () => setze(!wunsch), ausMeldung, AUS_TEXT };
   if (wunsch) laden().then((m) => m.starte(window)).catch(() => { wunsch = false; });
 })();

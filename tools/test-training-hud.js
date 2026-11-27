@@ -5,6 +5,8 @@
 //   Hinweis       letzte ODA-Zeile bleibt 25 s stehen; Voxel-Sitz vorn (die ODA steht selbst da): keine Hinweiszeile; Hinweis fehlt ohne ODA
 //   Platz         Voxel vorn oben links; Steuer, Ops, Captain (Reiter) im gemessenen freien Bereich über der Statusleiste; unbekannte Konsole: keine Liste; ohne Pult im Bild: keine Liste
 //   Zeichnen      gegen ein Fake-Canvas: Höhe und Zeilen begrenzt, Haken = erledigte Ziele, „(opt.)“ bleibt bei gekürztem Text, Hinweis höchstens drei Zeilen, kompakter Streifen, nichts außerhalb des Bilds/des freien Bereichs
+//   Nacharbeit 2  S2 Ziele umbrechen statt kürzen; S3 nach dem Abschluss bleibt die abgehakte Liste mit „Neustart in N s“ bis zum Neustart; S5 Captain-Reiter Funk: kein Streifen; S6 Streifen der Sternkarte oben links auf der Karte;
+//                 S7 fremde Konsole: Streifen „am Steuer: …“ ohne Taste; S8 Hauptschirm: Hinweis unter dem Strich, sobald die ODA weg ist
 //   Abschluss     Ereignis missionDone eines gewonnenen Trainings: „Auftrag erledigt“ entfällt (das Abzeichen meldet); verloren/Kampagne: bleibt
 //   Verdrahtung   client.js zeichnet nach der Konsole, index.html lädt die Datei, drawObjectives liest Hud.zieleVon, das HUD zeichnet zu Fuß weiter (nicht doppelt)
 //   Snapshot      die Anzeige braucht kein neues Feld: Snapshot-Missionsfelder unverändert (Liste der bekannten Schlüssel), Snapshot mit/ohne Client-Modul byte-gleich
@@ -17,7 +19,7 @@ const { Game } = require('../server/game.js');
 
 const ROOT = path.join(__dirname, '..');
 const lies = (...p) => fs.readFileSync(path.join(ROOT, ...p), 'utf8');
-const Q = lies('public', 'js', 'training-hud.js').replace(/\r?\n/g, '\n'), Q_CLIENT = lies('public', 'js', 'client.js'), Q_HUD = lies('public', 'js', 'hud.js'), Q_INDEX = lies('public', 'index.html');
+const Q = lies('public', 'js', 'training-hud.js').replace(/\r?\n/g, '\n'), Q_CLIENT = lies('public', 'js', 'client.js'), Q_CONSOLES = lies('public', 'js', 'consoles.js'), Q_HUD = lies('public', 'js', 'hud.js'), Q_INDEX = lies('public', 'index.html');
 const DT = 1 / CONFIG.tickHz;
 let n = 0, fails = 0;
 const ok = (c, msg) => { n++; if (!c) { fails++; console.log('  FEHLER ' + msg); } else console.log('  ok ' + msg); };
@@ -87,14 +89,30 @@ function kern(Mod) {
       a.zeit.t += 2; h = a.api.modell(a.view(), a.zeit.t).hinweis; p(h === ''); }   // nach 25 s weg
     { const a = bau(Mod, { voxel: true, sitz: { station: 'helm', blick: 'vorn' }, oda: { text: 'laeuft' } });
       p(a.api.modell(a.view(), a.zeit.t).hinweis === '');   // Voxel vorn: die ODA steht selbst da, nicht doppelt
-      a.H.oda.cur = null; p(a.api.modell(a.view(), a.zeit.t).hinweis === ''); }   // auch nach der ODA keine Hinweiszeile (Ecke der Frontsicht bleibt frei)
+      a.H.oda.cur = null; p(a.api.modell(a.view(), a.zeit.t).hinweis === 'laeuft'); }   // S8: ist die ODA weg, bleibt der Hinweis unter dem Strich stehen
     { const a = bau(Mod, { voxel: true, sitz: { station: 'helm', blick: 'vorn' } }); const pl = a.api.platz(a.view(), 80);
       p(pl && pl.x === 4 && pl.y === 4); }
     { const a = bau(Mod, { konsole: 'technik' }); p(a.api.platz(a.view(), 80) === null); }
     { const a = bau(Mod, { pult: false }); p(a.api.platz(a.view(), 80) === null); }
     { const a = bau(Mod, { pult: 'ohneS' }); p(a.api.platz(a.view(), 80) === null); }   // Pult meldet sich ohne Statusleiste: nichts raten
-    { const a = bau(Mod, { konsole: 'captain', S: 258, tab: 2 }); const pl = a.api.platz(a.view(), 90); p(pl && pl.x >= 506 && pl.kompakt === false);
-      const b = bau(Mod, { konsole: 'captain', S: 258, tab: 1 }); const pk = b.api.platz(b.view(), 90); p(pk && pk.kompakt === true && pk.x === 486); }
+    { const a = bau(Mod, { konsole: 'captain', buch: 'tra_captain', S: 258, tab: 2 }); const pl = a.api.platz(a.view(), 90); p(pl && pl.x >= 506 && pl.kompakt === false);
+      const b = bau(Mod, { konsole: 'captain', buch: 'tra_captain', S: 258, tab: 1 }); const pk = b.api.platz(b.view(), 90); p(pk && pk.kompakt === true && pk.x === 69 && pk.y === 14);   // S6: Streifen der Sternkarte oben links auf der Karte, nicht über der Kanten-Legende
+      const c = bau(Mod, { konsole: 'captain', buch: 'tra_captain', S: 258, tab: 0 }); p(c.api.platz(c.view(), 90) === null); c.api.zeichne(c.f.ctx, c.view()); p(c.f.calls.texte.length === 0); }   // S5: Funk-Reiter zeigt die volle Liste selbst: kein Streifen
+    { const a = bau(Mod, { konsole: 'captain', buch: 'tra_captain', S: 258, tab: 2, objs: [{ text: 'Marker setzen (Reiter 3, Lagekarte anklicken)', done: false }] }); a.api.zeichne(a.f.ctx, a.view());   // S2: umbrechen statt kürzen
+      const z = a.f.calls.texte.map((t) => t.s).join(' '); p(/anklicken\)/.test(z) && !/…/.test(z) && a.f.calls.texte.filter((t) => /Marker|Reiter|Lagekarte|anklicken/.test(t.s)).length >= 2); }
+    { const a = bau(Mod, { konsole: 'weapons', S: 197, buch: 'tra_fliegen' }); a.api.zeichne(a.f.ctx, a.view()); const r = a.f.calls.rects[0];   // S7: an der Ops-Konsole kein Steuer-Tastenhinweis, nur der Streifen
+      const tx = a.f.calls.texte.map((t) => t.s); p(r && r.h === 22 && tx.some((s) => s === 'am Steuer: Temporegler runter') && !tx.some((s) => /\(S\)/.test(s))); }
+    { const a = bau(Mod, { konsole: 'helm', S: 197, buch: 'tra_fliegen' }); a.api.zeichne(a.f.ctx, a.view()); p(a.f.calls.texte.some((t) => /\(S\)/.test(t.s)) && a.f.calls.rects[0].h > 22); }   // an der Heimatkonsole bleiben die Tasten
+    { const a = bau(Mod, {}); const st1 = { mission: mission('tra_fliegen', ZIELE7) }; const q1 = { title: 'Training Fliegen', objs: ZIELE7 };   // S3: Abschluss
+      a.api.ziele(st1, q1); a.api.abschluss({ id: 'tra_fliegen', ausgang: 'erfolg' });
+      const nach = { mission: mission(null, []) }; const f1 = a.api.ziele(nach, { title: 'Frei erkunden', objs: [{ text: 'Entdeckungen', done: false }] });
+      p(f1.title === 'Training Fliegen' && f1.objs.length === 7 && f1.objs.filter((o) => !o.optional).every((o) => o.done) && f1.objs[4].done === false && /Neustart in 8 s/.test(f1.rest) && a.api.laeuft(nach) === true);
+      a.zeit.t += 3; p(/Neustart in 5 s/.test(a.api.ziele(nach, { title: 'x', objs: [] }).rest));
+      a.zeit.t += 10; const f2 = a.api.ziele(nach, { title: 'Frei erkunden', objs: [] }); p(f2.title === 'Frei erkunden' && !f2.rest && a.api.laeuft(nach) === false); }
+    { const a = bau(Mod, {}); a.api.ziele({ mission: mission('tra_fliegen', ZIELE7) }, { title: 'T', objs: ZIELE7 }); a.api.abschluss({ id: 'tra_fliegen', ausgang: 'verloren' });
+      p(a.api.ziele({ mission: mission(null, []) }, { title: 'Frei', objs: [] }).title === 'Frei'); }   // verloren: keine Abschlussliste
+    { const a = bau(Mod, {}); a.api.ziele({ mission: mission('tra_fliegen', ZIELE7) }, { title: 'T', objs: ZIELE7 }); a.api.abschluss({ id: 'tra_fliegen', ausgang: 'erfolg' });
+      p(a.api.ziele({ mission: mission('tra_fliegen', ZIELE7) }, { title: 'T', objs: ZIELE7 }).rest === undefined && a.api.eingefroren({ mission: mission(null, []) }) === null); }   // neuer Versuch (Pflichtziele wieder offen) beendet den Abschluss
     { const a = bau(Mod, { oda: { text: 'S nimmt eine Stufe zurück. Die Stufe steht am Temporegler.' } }); a.api.zeichne(a.f.ctx, a.view());
       p(a.f.calls.fills.filter((r) => r.c === '#M' && r.w === 3 && r.h === 3).length === 2);   // zwei Haken
       p(a.f.calls.texte.some((t) => /\(opt\.\)$/.test(t.s)));
@@ -162,13 +180,13 @@ section('Modell, Hinweis, Platz, Zeichnen, Abschluss (Kernprüfung gegen das ech
     a.api.zeichne(a.f.ctx, a.view()); const r = a.f.calls.rects[0]; const mint = a.f.calls.texte.filter((t) => t.color === '#MI');
     ok(mint.length >= 1 && mint.length <= 3 && /…$/.test(mint[mint.length - 1].s), 'langer Hinweis: höchstens drei Zeilen, die letzte endet mit „…“ (' + mint.length + ')');
     ok(r.y + r.h <= 200 - Modul.SLOTS.helm.unten + 0.5 && r.h <= Modul.SLOTS.helm.hoeheMax, 'langer Hinweis: Kasten bleibt im freien Bereich (Unterkante ' + (r.y + r.h) + ', Höhe ' + r.h + ')'); }
-  { const a = bau(Modul, { konsole: 'captain', S: 258, tab: 1, oda: { text: 'S nimmt eine Stufe zurück. Die Stufe steht am Temporegler.' } }); a.api.zeichne(a.f.ctx, a.view()); const r = a.f.calls.rects[0];
-    ok(r && r.h === 22 && r.y + r.h <= 238 + 0.5, 'Captain Sternkarte: Streifen 22 px hoch, Unterkante ' + (r && r.y + r.h) + ' (Frachtraum-Feld ab 239)');
+  { const a = bau(Modul, { konsole: 'captain', buch: 'tra_captain', S: 258, tab: 1, oda: { text: 'S nimmt eine Stufe zurück. Die Stufe steht am Temporegler.' } }); a.api.zeichne(a.f.ctx, a.view()); const r = a.f.calls.rects[0];
+    ok(r && r.h === 22 && r.x === 69 && r.y === 14, 'Captain Sternkarte: Streifen 22 px hoch, oben links auf der Karte (x ' + (r && r.x) + ', y ' + (r && r.y) + '), nicht über der Kanten-Legende');
     ok(a.f.calls.texte.length === 3, 'Streifen: Titel, Stand, eine Zeile (' + a.f.calls.texte.length + ' Texte)');
     ok(a.f.calls.texte.some((t) => t.s === '2/6'), 'Streifen: Stand „2/6“ (zwei von sechs Pflichtzielen)');
     ok(a.f.calls.texte.some((t) => t.color === '#MI'), 'Streifen: Hinweis (Mint) hat Vorrang vor dem aktuellen Ziel'); }
-  { const a = bau(Modul, { konsole: 'captain', S: 258, tab: 3 }); a.api.zeichne(a.f.ctx, a.view()); const r = a.f.calls.rects[0];
-    ok(r && r.x >= 506 && r.x + r.w <= 640 && r.y + r.h <= 238 + 0.5 && r.h <= 120, 'Captain Lage: Liste rechts der Karte (x ' + (r && r.x) + '), über dem Frachtraum-Feld'); }
+  { const a = bau(Modul, { konsole: 'captain', buch: 'tra_captain', S: 258, tab: 3 }); a.api.zeichne(a.f.ctx, a.view()); const r = a.f.calls.rects[0];
+    ok(r && r.x >= 506 && r.x + r.w <= 640 && r.y + r.h <= 238 + 0.5 && r.h <= Modul.SLOTS.captain.hoeheMax, 'Captain Lage: Liste rechts der Karte (x ' + (r && r.x) + '), über dem Frachtraum-Feld'); }
   { const a = bau(Modul, { konsole: 'weapons', S: 197 }); a.api.zeichne(a.f.ctx, a.view()); const r = a.f.calls.rects[0];
     ok(r && r.y >= 62 && r.y + r.h <= 174, 'Ops: Liste zwischen „ZIEL“ (bis y 62) und Frachtraum-Feld (ab y 174): y ' + (r && r.y) + '..' + (r && r.y + r.h)); }
   { const a = bau(Modul, { konsole: 'technik' }); a.api.zeichne(a.f.ctx, a.view());
@@ -191,7 +209,8 @@ section('Verdrahtung (Quelltext)', () => {
   const block = /if \(v\.me\.console\) \{[\s\S]*?\} else if \(window\.TerminalUI/.exec(Q_CLIENT);
   ok(block && block[0].includes('TrainingHud.zeichne'), 'der Aufruf steht im Zweig „Spieler an einer Konsole“ (zu Fuß zeichnet nur das HUD)');
   ok(/js\/training-hud\.js/.test(Q_INDEX), 'index.html lädt training-hud.js');
-  ok(/const \{ title, objs \} = this\.zieleVon\(st\)/.test(Q_HUD), 'drawObjectives liest die Ziele aus Hud.zieleVon (eine Quelle für HUD und Konsole)');
+  ok(/const \{ title, objs, rest \} = this\.zieleVon\(st\)/.test(Q_HUD), 'drawObjectives liest die Ziele aus Hud.zieleVon (eine Quelle für HUD und Konsole)');
+  ok(/window\.TrainingHud\.ziele\(st, q\)/.test(Q_HUD) && /TrainingHud\.abschluss\(ev\)/.test(Q_CLIENT) && /TH\.eingefroren\(st\)/.test(Q_CONSOLES) && /TrainingHud\.laeuft\(st\)/.test(Q_HUD), 'S3: Hud.zieleVon ruft TrainingHud.ziele, client.js meldet den Abschluss, Funk-Reiter und HUD fragen laeuft/eingefroren');
   ok(/if \(!inConsole\) \{[\s\S]{0,200}drawObjectives/.test(Q_HUD), 'das HUD zeichnet seine Zielliste weiter nur zu Fuß (nicht doppelt)');
   ok(/abschlussSchonGemeldet\(ev\)/.test(Q_CLIENT) && /case 'missionDone'/.test(Q_CLIENT), 'client.js: missionDone fragt abschlussSchonGemeldet');
 });
@@ -222,13 +241,20 @@ section('Mutationen: Regeln im Quelltext zerstören, die Kernprüfung muss rot w
   mut('Ziele unbegrenzt', `objs.slice(0, MAX_ZIELE)`, `objs.slice(0)`);
   mut('aktuelles Ziel falsch (optionales zuerst)', `objs.findIndex((o) => o && !o.done && !o.optional)`, `objs.findIndex((o) => o && !o.done)`);
   mut('Hinweis ewig', `jetzt - letzteOda.t < HINWEIS_DAUER`, `jetzt - letzteOda.t < 1e9`);
-  mut('Hinweis doppelt im Voxel-Sitz vorn', `if (sitzVorn(view)) return '';`, ``);
+  mut('Hinweis doppelt im Voxel-Sitz vorn', `if (sitzVorn(view) && cur) return '';`, ``);
+  mut('S8: im Hauptschirm nie ein Hinweis', `if (sitzVorn(view) && cur) return '';`, `if (sitzVorn(view)) return '';`);
+  mut('S2: Ziele werden gekürzt statt umbrochen', `let l = m.zeilen.map(voll);`, `let l = m.zeilen.map(kurz);`);
+  mut('S5: Funk-Reiter bekommt den Streifen', `if (!s || s.still) return null;`, `if (!s) return null;`);
+  mut('S7: fremde Konsole zeigt die volle Liste mit Tasten', `const kompakt = fremd(view) || !!(`, `const kompakt = !!(`);
+  mut('S3: Abschluss wird nicht gemerkt', `if (abschlussSchonGemeldet(ev) && letzte) abschlussT`, `if (false) abschlussT`);
+  mut('S3: Neustart zählt nicht (Liste bleibt ewig)', `if (rest < -2) { abschlussT = null; return null; }`, ``);
   mut('keine Liste für unbekannte Konsole', `if (!s) return null;
       const C`, `if (!s) return SLOTS.helm;
       const C`);
   mut('Pult nicht im Bild: trotzdem zeichnen', `if (!k || typeof k.S !== 'number') return null;`, `if (!k) return null;`);
   mut('Abzeichen und Auftrag erledigt zugleich', `ev.ausgang === 'erfolg'`, `ev.ausgang === 'x'`);
-  mut('Streifen wird nie kompakt', `const kompakt = !!(s.kompakt && s.kompakt.includes(tab));`, `const kompakt = false;`);
+  mut('Streifen wird nie kompakt', `const kompakt = fremd(view) || !!(s.kompakt && s.kompakt.includes(tab));`, `const kompakt = false;`);
+  mut('S6: Streifen der Sternkarte bleibt unten rechts', `const ort = kompakt && s.kompaktOrt ? s.kompaktOrt[tab] : null;`, `const ort = null;`);
   mut('Sitz vorn nicht erkannt', `S.blick !== 'pult');`, `S.blick === 'pult');`);
 });
 

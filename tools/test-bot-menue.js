@@ -117,16 +117,17 @@ function bauePult(skin, ship) {
   // Crew-Zeile: Kurzformen sind Sprechformen aus dem Kanon
   const z0 = mk();
   const crew0 = z0.m.crew();
-  ok(crew0.length === 6 && crew0[0].aktion === 'captain.befehl' && eq(crew0.slice(1).map((c) => c.text), ['Stopp', 'Ausweichen', 'Feuer frei', 'Feuer halt', 'Status']), 'Crew-Zeile: Befehle, Stopp, Ausweichen, Feuer frei, Feuer halt, Status (' + crew0.map((c) => c.text).join(', ') + ')');
-  ok(TK.LAGE.direkt.every((d) => { const e = index.get(d.key), c = crew0.find((x) => x.aktion === d.aktion); return e && [e.anzeige].concat(e.kurz || []).includes(c.text) && c.label === e.anzeige; }), 'jede Kurzform der Crew-Zeile steht im Kanon, label = anzeige');
-  ok(eq(crew0.slice(1).map((c) => c.fn), ['weapon', 'drive', 'weapon', 'weapon', 'sensor']), 'Farben der Direkttasten: Stopp rot, Ausweichen bernstein, Feuer rot, Status blau');
+  ok(crew0.length === 7 && crew0[0].aktion === 'captain.befehl' && eq(crew0.slice(1).map((c) => c.text), ['Stopp', 'Ausweichen', 'Sprung', 'Feuer frei', 'Feuer halt', 'Status']), 'Crew-Zeile: Befehle, Stopp, Ausweichen, Sprung, Feuer frei, Feuer halt, Status (' + crew0.map((c) => c.text).join(', ') + ')');
+  const indexZ = BM.indexVon(KANON); for (const e of BM.MENUE_ZUSATZ) indexZ.set(BM.schluesselVon(e), e);   // TRA-01 Nacharbeit S4: Sh+J Sprung steht in der Crew-Zeile, sein Eintrag liegt im Zusatz (nicht sprechbar)
+  ok(TK.LAGE.direkt.every((d) => { const e = indexZ.get(d.key), c = crew0.find((x) => x.aktion === d.aktion); return e && [e.anzeige].concat(e.kurz || []).includes(c.text) && c.label === e.anzeige; }), 'jede Kurzform der Crew-Zeile steht im Kanon, label = anzeige');
+  ok(eq(crew0.slice(1).map((c) => c.fn), ['weapon', 'drive', 'nav', 'weapon', 'weapon', 'sensor']), 'Farben der Direkttasten: Stopp rot, Ausweichen bernstein, Sprung nav, Feuer rot, Status blau');
   // Kontraste (Spezifikation 6): roter Text nur titelRot
   const skinBg = {}; { const src = fs.readFileSync(path.join(PUB, 'pult.js'), 'utf8'); for (const sk of ['rom', 'germanen']) skinBg[sk] = new RegExp('SKINS\\.' + sk + ' = \\{[^}]*?\\bbg: \'(#[0-9A-Fa-f]{6})\'').exec(src)[1]; }
   ok(skinBg.rom && skinBg.germanen && Object.values(skinBg).every((bg) => PS.kontrast(TK.FARBE.titelRot, bg) >= 4.5), 'titelRot auf dem Grund beider Skins >= 4,5:1 (' + Object.values(skinBg).map((bg) => PS.kontrast(TK.FARBE.titelRot, bg).toFixed(1)).join(' / ') + ')');
   // Maße: alles innerhalb des Pult-Rahmens (Spezifikation 2)
   const Ms = TK.MASS;
   ok(Ms.S.ohneBots === 258 && Ms.S.mitBots === 240 && Ms.tafel.y === Ms.S.mitBots + 22, 'S 258 ohne, 240 mit Bots; Tafel beginnt am Pult (S + 22)');
-  ok(Ms.raster.x + 3 * Ms.raster.zw + 2 * Ms.raster.sx === Ms.tafel.x + Ms.tafel.w && Ms.raster.y + 3 * Ms.raster.zh + 2 * Ms.raster.sy <= Ms.tafel.y + Ms.tafel.h && Ms.crew.y > Ms.tafel.y + Ms.tafel.h && Ms.crew.y + Ms.crew.zh <= 346 && Ms.crew.x + 6 * Ms.crew.zw + 5 * Ms.crew.sx === Ms.tafel.x + Ms.tafel.w, 'Raster 3x3 füllt die Tafel, Crew-Zeile darunter, 6 Knöpfe füllen 572 px');
+  ok(Ms.raster.x + 3 * Ms.raster.zw + 2 * Ms.raster.sx === Ms.tafel.x + Ms.tafel.w && Ms.raster.y + 3 * Ms.raster.zh + 2 * Ms.raster.sy <= Ms.tafel.y + Ms.tafel.h && Ms.crew.y > Ms.tafel.y + Ms.tafel.h && Ms.crew.y + Ms.crew.zh <= 346 && Ms.crew.x + Ms.crew.breiten.reduce((s, b) => s + b, 0) + (Ms.crew.breiten.length - 1) * Ms.crew.sx === Ms.tafel.x + Ms.tafel.w && Ms.crew.breiten.length === 7, 'Raster 3x3 füllt die Tafel, Crew-Zeile darunter, 7 Knöpfe verschiedener Breite füllen 572 px');
   // Tasten
   const win = { localStorage: undefined }; vm.runInNewContext(fs.readFileSync(path.join(PUB, 'tasten.js'), 'utf8'), { window: win, console }, { filename: 'tasten.js' });
   const T = win.Tasten;
@@ -211,7 +212,7 @@ function bauePult(skin, ship) {
     x.m.oeffnen(); x.m.waehle('W');
     ok(x.m.lies().stufe === 2 && x.m.lies().rolle === 'ops', 'B W: Stufe 2 Ops');
     const a = x.m.ansicht();
-    ok(a.pfad === 'BEFEHL · OPS' && a.fn === 'weapon' && a.rechts.text === 'B zurück · Esc zu', 'Titel BEFEHL · OPS, rechts B zurück · Esc zu');
+    ok(a.pfad === 'BEFEHL · OPS' && a.fn === 'weapon' && a.rechts.text === 'B zurück · Esc schließt', 'Titel BEFEHL · OPS, rechts B zurück · Esc schließt (K3: nicht mehr „Esc zu“, das wie abgeschnitten las)');
     ok(texte(x.m) === 'Feuer frei|Feuer einstellen|Feuer frei …|Nächstes Ziel|Ziel markieren|Scannen|Landepunkt scannen|… an Bord|', 'Ops: Texte aus dem Kanon, „…“ für Werte (' + texte(x.m) + ')');
     ok(eq(a.zellen.map((z) => z.fn), ['weapon', 'weapon', 'weapon', 'sensor', 'sensor', 'sensor', 'sensor', 'neutral', 'neutral']), 'Ops: Funktionsfarben (Spezifikation Tabelle)');
     x.m.waehle('E');
@@ -340,7 +341,7 @@ function bauePult(skin, ship) {
     ok(r2.every((c) => !c.gesperrt), 'Crew-Zeile: alle Knöpfe frei (Navigation, Ops, Alle)');
     const y = mk({ crew: [mensch('captain'), bot('ops')] });
     const c = y.m.crew();
-    ok(c[1].gesperrt && /Kein Bot/.test(c[1].grund) && c[2].gesperrt && !c[3].gesperrt && !c[4].gesperrt && !c[5].gesperrt, 'ohne Navigation-Bot: Stopp und Ausweichen gesperrt (mit Grund), Ops und Status frei');
+    ok(c[1].gesperrt && /Kein Bot/.test(c[1].grund) && c[2].gesperrt && c[3].gesperrt && !c[4].gesperrt && !c[5].gesperrt && !c[6].gesperrt, 'ohne Navigation-Bot: Stopp, Ausweichen und Sprung gesperrt (mit Grund), Ops und Status frei');
     ok(y.m.taste('captain.bot.stopp').ok === false && y.L.senden.length === 0 && y.L.denied.length === 1 && /Kein Bot/.test(y.L.denied[0]), 'gesperrte Direkttaste: Grund, nichts gesendet');
     const z = mk({ crew: [mensch('captain'), mensch('helm'), bot('navigation')] });
     ok(z.m.taste('captain.bot.ausweichen').ok === false && z.L.senden.length === 0 && /Mensch/.test(z.L.denied[0]), 'Mensch am Steuer: Direkttaste sendet nichts („sag es ihm“)');
@@ -654,7 +655,7 @@ function bauePult(skin, ship) {
     const x = mk({ crew: [mensch('captain'), bot('ops'), bot('technik')] });
     const r = x.m.taste('captain.bot.stopp');
     ok(r.ok === false && r.grund === 'keinBot' && x.L.denied.at(-1) === 'Kein Bot an der Navigation' && x.m.crew()[1].grund === 'Kein Bot an der Navigation', 'Sh+X ohne Navigation-Bot: „Kein Bot an der Navigation“ (Denied und Tooltip der Crew-Zeile)');
-    ok(x.m.crew()[2].grund === 'Kein Bot an der Navigation' && x.m.crew()[3].gesperrt === false, 'Ausweichen hat denselben Grund wie Stopp (gleiche Rolle), Feuer frei ist frei');
+    ok(x.m.crew()[2].grund === 'Kein Bot an der Navigation' && x.m.crew()[4].gesperrt === false, 'Ausweichen hat denselben Grund wie Stopp (gleiche Rolle), Feuer frei ist frei');
     x.m.oeffnen(); x.m.waehle('Q');
     ok(x.L.denied.at(-1) === 'Kein Bot an der Navigation' && x.m.ansicht().rechts.text === 'Kein Bot an der Navigation', 'Tafel: Feld Navigation ohne Bot: derselbe Satz im Titelhinweis');
     x.m.schliessen(); x.m.oeffnen(); x.m.waehle('A');

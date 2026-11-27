@@ -237,7 +237,7 @@
     R.wrap(beschr, D.w - 20, 1).slice(0, 2).forEach((z, i) => txt(c, z, D.x + 10, D.y + 46 + i * 11, MF.dim));
     const crewListe = welt && Array.isArray(welt.spieler) && welt.spieler.length ? T.detail.crew + ': ' + welt.spieler.join(', ') : null;
     const voll = !e.fortsetzen && e.weltstand && ws.voll;
-    const meta = e.fortsetzen ? (crewListe || T.detail.spieler) : voll ? ME.text(T.detail.weltstandVoll, { max: ws.max }) : T.detail.spieler + ' · ' + (e.weltstand ? ME.text(T.detail.neuerWeltstand, { n: ws.naechste, max: ws.max }) : T.detail.keinWeltstand);
+    const meta = e.fortsetzen ? (crewListe || T.detail.spieler) : e.solo ? T.detail.einSpieler + ' · ' + T.detail.keinWeltstand : voll ? ME.text(T.detail.weltstandVoll, { max: ws.max }) : T.detail.spieler + ' · ' + (e.weltstand ? ME.text(T.detail.neuerWeltstand, { n: ws.naechste, max: ws.max }) : T.detail.keinWeltstand);
     txt(c, fit(meta, D.w - 20, 1), D.x + 10, D.y + 70, voll ? MF.nichtBereit : MF.text);
     if (e.tutorial) {   // Tutorial-Schalter im Hauptmenü (Chip „Tutorial: aus“: Name gedämpft, Wert hell)
       const k = kappeM(c, D.x + 10, D.y + 79, 'U'), n = txt(c, T.detail.tutorial + ': ', k + 5, D.y + 82, MF.dim);
@@ -284,9 +284,9 @@
     if (k.gesperrt) {
       rect(c, x, y, w, h, MF.karte); hatch(c, x, y, w, h, MF.freiSchraffur, 4); dash(c, x, y, w, h, MF.karteRand, 3);
       kappeM(c, x + 6, y + 6, k.taste, MF.karteRand, MF.dim);
-      rect(c, x + 4, y + 26, w - 8, 36, MF.karte);   // deckende Unterlage unter dem Text (liegt auf der Schraffur)
-      txtSp(c, fit(tx.name.toUpperCase(), w - 16, 1), x + 8, y + 31, MF.dim, MS.name.sp);
-      txt(c, T.training.folgt, x + 8, y + 46, MF.dim);
+      rect(c, x + 4, y + 24, w - 8, 32, MF.karte);   // deckende Unterlage unter dem Text (liegt auf der Schraffur)
+      txtSp(c, fit(tx.name.toUpperCase(), w - 16, 1), x + 8, y + 28, MF.dim, MS.name.sp);   // K5: gleiche Grundlinie (y 28) wie die startbaren Kacheln
+      txt(c, T.training.folgt, x + 8, y + 42, MF.dim);
       return;
     }
     kachelM(c, x, y, w, h); if (an) rect(c, x, y, w, 2, MF.gold);
@@ -317,13 +317,13 @@
     kachelM(c, TD.x, TD.y, TD.w, TD.h); rect(c, TD.x, TD.y, TD.w, 2, MF.gold);
     if (g) {
       txtSp(c, T.training.art, TD.x + 10, TD.y + 10, MF.messing, MS.gruppe.sp);
-      txt(c, fit(label(g.modus).toUpperCase(), TD.w - 220, MS.detail.skala), TD.x + 10, TD.y + 24, MF.text, 'left', MS.detail.skala);
+      txt(c, fit(T.training.kacheln[g.id].name.toUpperCase(), TD.w - 220, MS.detail.skala), TD.x + 10, TD.y + 24, MF.text, 'left', MS.detail.skala);   // K6: „FLIEGEN“, der Kicker TRAINING steht darüber
       R.wrap(hinweisText(g.modus), TD.w - 220, 1).slice(0, 2).forEach((z, i) => txt(c, z, TD.x + 10, TD.y + 46 + i * 11, MF.dim));
-      txt(c, T.detail.spieler + ' · ' + T.detail.keinWeltstand, TD.x + 10, TD.y + 70, MF.text);
+      txt(c, T.detail.einSpieler + ' · ' + T.detail.keinWeltstand, TD.x + 10, TD.y + 70, MF.text);
       if (g.sprachwahl) trainingSprachwahl(c, TD.x + 10, TD.y + 88);
       knopfGold(c, TD.x + TD.w - 190, TD.y + TD.h - 32, 180, T.tasten.enter, T.training.start, () => tue('trainingStart', view));
     }
-    hinweise(c, view, MM.menue.x, MM.menue.hinweise, [[T.tasten.stellen, T.training.waehlen], [T.tasten.enter, T.training.starten, 'trainingStart'], ['S', T.training.eingabe, 'trainingSprache'], [T.tasten.esc, T.training.zurueck, 'zurueck']]);
+    hinweise(c, view, MM.menue.x, MM.menue.hinweise, [[T.tasten.stellen, T.training.waehlen], [T.tasten.enter, T.training.starten, 'trainingStart']].concat(g && g.sprachwahl ? [['S', T.training.eingabe, 'trainingSprache']] : [], [[T.tasten.esc, T.training.zurueck, 'zurueck']]));   // K4: „S Eingabe“ nur beim Captain
   }
 
   // ---------------------------------------------------------------- Crew-Lobby
@@ -393,7 +393,7 @@
     return x + 4 * 11 + 8;
   }
   function lobby(c, view) {
-    const lob = lobbyVon(view), L = MM.lobby, players = F.verbunden(spielerVon(view)).slice(0, 4), ich = ichVon(view);
+    const lob = lobbyVon(view), L = MM.lobby, players = F.verbunden(spielerVon(view)).slice(0, 4), ich = ichVon(view), training = F.istTrainingLobby(lob);
     const gast = F.gastgeber(spielerVon(view)), z = F.zaehlung(spielerVon(view)), link = code() ? (window.Net ? Net.inviteLink() : '') : '';
     lockup(c);
     const m = modusAnzeige(lob), mitWaffe = !m.welt && ['arena_away', 'arena_graben', 'labor'].includes(lob.startMission);
@@ -405,7 +405,8 @@
     // Raumcode-Kachel
     const RC = L.raumcode; kachelM(c, RC.x, RC.y, RC.w, RC.h);
     txtSp(c, MX.raumcode, RC.x + 10, RC.y + 9, MF.messing, MS.gruppe.sp);
-    if (code()) {
+    if (training) { txt(c, T.training.allein[0], RC.x + RC.w / 2, RC.y + 30, MF.text, 'center'); txt(c, T.training.allein[1], RC.x + RC.w / 2, RC.y + 46, MF.dim, 'center'); }   // allein: kein Code, kein Link
+    else if (code()) {
       txtSp(c, code(), RC.x + RC.w / 2, RC.y + 25, MF.gold, MS.raumcode.sp, MS.raumcode.skala, 'center');
       rect(c, RC.x + 10, RC.y + 60, RC.w - 20, 1, MF.kachelRand);
       const kopiert = window.Client && Client.inviteCopiedT && performance.now() - Client.inviteCopiedT < 2500;
@@ -422,8 +423,8 @@
       if (!p) {
         rect(c, x, y, CR.w, CR.h, MF.karte); hatch(c, x, y, CR.w, CR.h, MF.freiSchraffur, 4); dash(c, x, y, CR.w, CR.h, MF.karteRand, 3);
         kappeM(c, x + 4, y + 4, String(i + 1), MF.karteRand, MF.dim);
-        txtSp(c, MX.frei, x + CR.w / 2, y + CR.h / 2 - 14, MF.dim, 1, MS.detail.skala, 'center'); if (code()) txt(c, MX.laedtEin, x + CR.w / 2, y + CR.h / 2 + 6, MF.dim, 'center');
-        if (ich) botHinzufuegenKnoepfe(c, x, y, CR.w, CR.h, view);
+        txtSp(c, MX.frei, x + CR.w / 2, y + CR.h / 2 - 14, MF.dim, 1, MS.detail.skala, 'center'); if (code() && !training) txt(c, MX.laedtEin, x + CR.w / 2, y + CR.h / 2 + 6, MF.dim, 'center');
+        if (ich && !training) botHinzufuegenKnoepfe(c, x, y, CR.w, CR.h, view);   // Training: Bots setzt der Server
         continue;
       }
       kartenFlaeche(c, x, y, CR.w, CR.h, i, Object.assign({ gastgeber: gast && gast.id === p.id, waffe: mitWaffe && !p.bot ? ((lob.waffen && lob.waffen[p.id]) ? (H.WAFFE_NAME[lob.waffen[p.id]] || lob.waffen[p.id]) : T.opt.waffeStandard) : null }, p), view);
@@ -448,11 +449,11 @@
     let rx = VW - 8; const rechts = [['H', T.hinweise.hilfe, 'hilfe'], ['O', T.hinweise.optionen, 'optionen']].map(([k, t, id]) => { const w = kappeBreite(k) + 4 + breite(t); rx -= w; const x0 = rx; rx -= 12; return { k, t, id, w, x: x0 }; });
     let hx = hinweise(c, view, L.modus.x, L.hinweise, [[T.tasten.enter, T.hinweise.bereit, 'bereit']], rx);
     hx = farbWahl(c, view, ich, hx, L.hinweise);
-    hinweise(c, view, hx, L.hinweise, [['C', T.hinweise.charakter, 'charakter'], ['M', T.hinweise.modus, 'modus'], ['L', T.hinweise.link, 'link'], [T.tasten.esc, T.hinweise.menue, 'zurueck'], ['P', T.hinweise.bot, 'bot']], rx);
+    hinweise(c, view, hx, L.hinweise, [['C', T.hinweise.charakter, 'charakter'], ['M', T.hinweise.modus, 'modus'], ['L', T.hinweise.link, 'link'], [T.tasten.esc, T.hinweise.menue, 'zurueck'], ['P', T.hinweise.bot, 'bot']].filter((h) => !training || (h[2] !== 'link' && h[2] !== 'bot')), rx);
     for (const r of rechts) { rect(c, r.x - 2, L.hinweise - 1, r.w + 4, 15, P.rgba(MF.kachel, MM.kachelDeckkraft)); hinweisEintrag(c, view, r.x, L.hinweise, r.k, r.t, r.id); }
     const SZ = MM.statuszeile; rect(c, 0, SZ.y, VW, SZ.h, MF.statuszeile); rect(c, 0, SZ.y, VW, 1, MF.kachelRand);
     let x = SZ.innen; const ty = SZ.y + Math.floor((SZ.h - 7) / 2);
-    [[MX.status.modus, fit(m.welt ? String(m.titel) : label(lob.startMission || 'm1'), 200, 1), MF.text], [MX.status.crew, z.an + T.status.crewEinheit, MF.text], [MX.status.bereit, z.bereit + '/' + z.an, z.alleBereit ? MF.bereit : MF.nichtBereit], [MX.status.raum, code() || '–', MF.gold]].forEach(([l, v, col]) => {
+    [[MX.status.modus, fit(m.welt ? String(m.titel) : label(lob.startMission || 'm1'), 200, 1), MF.text], [MX.status.crew, z.an + T.status.crewEinheit, MF.text], [MX.status.bereit, z.bereit + '/' + z.an, z.alleBereit ? MF.bereit : MF.nichtBereit]].concat(training ? [] : [[MX.status.raum, code() || '–', MF.gold]]).forEach(([l, v, col]) => {   // Training: kein Raumcode (niemand wird eingeladen)
       x = txtSp(c, l, x, ty, MF.dim, 1) + 6; x = txt(c, v, x, ty, col) + SZ.feldAbstand;
     });
     if (gast) { const gx = VW - SZ.innen - breite(gast.name || '?'); txt(c, gast.name || '?', gx, ty, spielerFarbe(gast).farbe); txtSp(c, MX.status.gastgeber, gx - 6, ty, MF.dim, 1, 1, 'right'); }

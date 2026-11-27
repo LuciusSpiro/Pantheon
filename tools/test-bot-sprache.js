@@ -560,10 +560,11 @@ const sprechen = async (k) => { k.tasteRunter(); await tick(); return k.tasteHoc
       const pult = (S, station) => ({ konsole: () => ({ S, station: station || 'captain' }) });
       const ort = (extra, v) => { const w = neu(extra); return { ort: w.Hud.sprechOrt(v || cap), slot: sl(w, v || cap) }; };
       const unten = (S) => ({ x: 178, w: 284, y: S - 24, richtung: 'hoch' }), oben = { x: 178, w: 284, y: 20, richtung: 'runter' };
-      const erwartet = ['unten', 'oben', 'oben', 'unten', 'oben', 'oben'];
+      const mitte = { x: 178, w: 284, y: 100, richtung: 'runter' };   // TRA-01 Nacharbeit S6: Sternkarte (1) mitte, nicht auf „SEKTOR …“ (y 20)
+      const erwartet = ['unten', 'mitte', 'oben', 'unten', 'oben', 'oben'];
       for (let tab = 0; tab < 6; tab++) {
         const r = ort({ Consoles: { tab }, Pult: pult(240) });
-        ok(r.ort === erwartet[tab] && eq(r.slot, erwartet[tab] === 'unten' ? unten(240) : oben), 'Captain Reiter ' + tab + ' (mit Bots, S 240): Slot ' + erwartet[tab] + ' ' + JSON.stringify(r.slot));
+        ok(r.ort === erwartet[tab] && eq(r.slot, erwartet[tab] === 'unten' ? unten(240) : erwartet[tab] === 'mitte' ? mitte : oben), 'Captain Reiter ' + tab + ' (mit Bots, S 240): Slot ' + erwartet[tab] + ' ' + JSON.stringify(r.slot));
       }
       ok(eq(ort({ Consoles: { tab: 0 }, Pult: pult(258) }).slot, unten(258)), 'ohne Bots (S 258): unten bei 234 (die Lage folgt der Statusleiste des Pults)');
       ok(eq(ort({ Consoles: { tab: 0 } }).slot, oben) && eq(ort({ Consoles: { tab: 0 }, Pult: { konsole: () => null } }).slot, oben), 'kein Pult gezeichnet (Pult.konsole null): bleibt oben');

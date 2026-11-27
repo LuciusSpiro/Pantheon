@@ -62,7 +62,7 @@ const eq = (a, b) => gleich(sortiert(a), sortiert(b));
   ok(T.AKTIONEN.filter((a) => a.std.includes('Shift+KeyJ')).length === 1, 'Kollisionsprobe: Shift+J ist in keiner anderen Aktion (keine Gruppe) belegt');
   ok(T.konflikte('captain').length === 0 && T.konflikte('allgemein').length === 0, 'keine Tastenkonflikte in captain und allgemein');
   ok(!/Shift\+KeyJ|shiftKey[^\n]{0,60}KeyJ|KeyJ[^\n]{0,60}shiftKey/.test(lies('public/js/consoles.js')), 'consoles.js: kein Shift+J-Sonderfall; die J-Tasten der Konsolen (Notsprung, Überladen, Sonde) sind ohne Shift');
-  ok(TK.LAGE.direkt.every((d) => d.aktion !== 'captain.bot.sprung') && TK.LAGE.direktOhneKnopf.length === 1 && TK.LAGE.direktOhneKnopf[0].aktion === 'captain.bot.sprung' && TK.LAGE.direktOhneKnopf[0].key === 'nav.sprung:ziel=marke', 'Direkttaste ohne Knopf in der Crew-Zeile (6 Knöpfe füllen die 572 px)');
+  ok(TK.LAGE.direkt.filter((d) => d.aktion === 'captain.bot.sprung').length === 1 && TK.LAGE.direkt.find((d) => d.aktion === 'captain.bot.sprung').key === 'nav.sprung:ziel=marke' && !TK.LAGE.direktOhneKnopf, 'S4: Shift+J Sprung ist ein Knopf der Crew-Zeile (sieben Knöpfe in 572 px)');
   ok(TK.LAGE.stufe2.navigation.X === 'nav.sprung:ziel=marke' && TK.FN_BEFEHL['nav.sprung'] === 'nav', 'Tafel: Navigation Feld X = Sprung, Funktionsfarbe nav');
 
   // ================================================================= 2. Tafel
@@ -109,11 +109,11 @@ const eq = (a, b) => gleich(sortiert(a), sortiert(b));
   {
     const Ms = TK.MASS;
     ok(Ms.S.ohneBots === 258 && Ms.S.mitBots === 240, 'Statusleiste 258 ohne, 240 mit Bots (unverändert; test-ui-03b liest sie aus den Tokens)');
-    ok(Ms.tafel.h === 64 && Ms.raster.reihen === 3 && Ms.raster.spalten === 3 && Ms.crew.x + 6 * Ms.crew.zw + 5 * Ms.crew.sx === Ms.tafel.x + Ms.tafel.w, 'Tafel 64 px hoch, Raster 3x3, Crew-Zeile 6 Knöpfe: der Eintrag nimmt Feld X einer vorhandenen Reihe');
+    ok(Ms.tafel.h === 64 && Ms.raster.reihen === 3 && Ms.raster.spalten === 3 && Ms.crew.x + Ms.crew.breiten.reduce((s, b) => s + b, 0) + (Ms.crew.breiten.length - 1) * Ms.crew.sx === Ms.tafel.x + Ms.tafel.w, 'Tafel 64 px hoch, Raster 3x3, Crew-Zeile 7 Knöpfe: der Eintrag nimmt Feld X einer vorhandenen Reihe');
     const x = mk(); x.m.oeffnen(); x.m.waehle('Q');
     const zs = x.m.ansicht().zellen;
     ok(zs.length === 9 && zs.filter((c) => c.zustand !== 'leer').length === 8, 'Navigation: 9 Felder, 8 belegt (vorher 7)');
-    ok(x.m.crew().length === 6, 'Crew-Zeile: weiter 6 Knöpfe (Befehle + 5)');
+    ok(x.m.crew().length === 7 && x.m.crew()[3].aktion === 'captain.bot.sprung' && x.m.crew()[3].text === 'Sprung', 'Crew-Zeile: 7 Knöpfe (Befehle + 6), Sprung an Stelle 4');
   }
 
   // ================================================================= 4. Server

@@ -80,14 +80,17 @@
   function crewZeile(c, K) {
     const CR = M.crew;
     c.fillStyle = P.rgba(K.dim, CR.trennerAlpha); c.fillRect(CR.x, CR.trenner, 572, 1);
+    let kx = CR.x;
     menue.crew().forEach((z, i) => {
+      const zw = CR.breiten[i] || CR.breiten[CR.breiten.length - 1];
       let text = z.text;
       if (z.textKurz) {   // Quittung: passt „NAVIGATION abgelehnt“ nicht neben die Kappe, die Kurzform der Rolle, sonst gekürzt
-        const frei = CR.zw - Math.max(13, P.tw(P.kappe(null, z.aktion)) + 7) - 7;
+        const frei = zw - Math.max(13, P.tw(P.kappe(null, z.aktion)) + 7) - 7;
         text = P.tw(text) <= frei ? text : P.tw(z.textKurz) <= frei ? z.textKurz : kuerze(z.textKurz, frei);
       }
       const onClick = i === 0 ? () => { sfxBefehl(menue.umschalten()); } : () => { const r = menue.taste(z.aktion, 'menu'); if (r.ok) sfx('ui_click'); };
-      P.knopf(c, CR.x + i * (CR.zw + CR.sx), CR.y, CR.zw, CR.zh, z.label, { aktion: z.aktion, fn: z.fn, text, disabled: z.gesperrt, reason: z.grund, active: !!z.active, onClick });
+      const x = kx; kx += zw + CR.sx;
+      P.knopf(c, x, CR.y, zw, CR.zh, z.label, { aktion: z.aktion, fn: z.fn, text, disabled: z.gesperrt, reason: z.grund, active: !!z.active, onClick });
     });
   }
   const sfxBefehl = (ok) => { if (ok) sfx('ui_click'); };

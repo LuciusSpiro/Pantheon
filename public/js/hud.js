@@ -31,7 +31,9 @@
   const SPRECH_W = 284;   // BOT-04 C2: Breite der Sprechspalte = Breite der ODA-Zeile (x 178..462)
   // BOT-01 C3 (Designer-Review W3): benannter Slot der Sprechspalte je Captain-Reiter. 'oben' = ab y 20 (Standard), 'unten' = am unteren Rand der Anzeige, 4 px über der Frachtleiste des Pults.
   // Reiter Funk (0) und Außenteam (3) tragen im oberen Drittel Inhalt und Bedienflächen (Funksprüche, Orbit-Unterstützung): dort wandert die Spalte nach unten (tools/test-bot-sprache.js, Abschnitt h).
-  const SPRECH_ORT_REITER = { captain: ['unten', 'oben', 'oben', 'unten', 'oben', 'oben'] };   // Funk, Sternkarte, Lage, Außenteam, Sektorplan, Notrufe
+  const SPRECH_ORT_REITER = { captain: ['unten', 'mitte', 'oben', 'unten', 'oben', 'oben'] };   // Funk, Sternkarte, Lage, Außenteam, Sektorplan, Notrufe; mitte (TRA-01 Nacharbeit S6): Sternkarte, unter Ort/Sprung und über der Bojen-Legende, nicht auf „SEKTOR …“
+  const SPRECH_MITTE_H = 61;   // höchste Spalte: offene Textzeile (15) + zwei Untertitel zu je zwei Zeilen (46)
+  const SPRECH_MITTE_Y = 100;   // Oberkante der Spalte im Slot mitte (Sternkarte: der Text der Sprungzeile endet bei y 95, die Bojen-Legende beginnt bei y 185)
   const SPRECH_UNTEN_ABSTAND = 24;   // Unterkante der Spalte unten = S (Oberkante der Statusleiste) - 6 (Schirm) - 14 (Frachtleiste) - 4
   const FN_STD = { drive: '#FFC66B', sensor: '#A9D6E5', cmd: '#F4EEDC', warn: '#F2C94C', neutral: '#8EA3B5' };   // Notbehelf, falls menue-tokens.js fehlt (Werte wie Menue.TOKENS.FN)
   const fnFarben = () => (window.Menue && Menue.TOKENS && Menue.TOKENS.FN) || FN_STD;
@@ -297,7 +299,7 @@
       if (window.Sitz && window.Sitz.station && window.Sitz.blick !== 'pult') return 'oben';
       const k = window.Pult && typeof window.Pult.konsole === 'function' ? window.Pult.konsole(view) : null;
       const tab = window.Consoles ? window.Consoles.tab : 0;
-      return k && k.station === view.me.console && tabelle[tab] === 'unten' ? 'unten' : 'oben';
+      return k && k.station === view.me.console && (tabelle[tab] === 'unten' || tabelle[tab] === 'mitte') ? tabelle[tab] : 'oben';
     },
     sprechSlot(view) {
       const x = Math.round(VW / 2 - SPRECH_W / 2);
@@ -307,6 +309,11 @@
           const fw = window.Funkwahl && Funkwahl.offen() ? Funkwahl.rechteck(Funkwahl.modell(), window.Pult.konsole(view)) : null;   // die aufgeklappte Antwortleiste (unten rechts auf dem Schirm) bleibt frei
           if (fw && fw.y > 20 && fw.x < x + SPRECH_W && fw.x + fw.w > x) unten = Math.min(unten, fw.y - 4);
           return { x, w: SPRECH_W, y: unten, richtung: 'hoch' };
+        }
+        if (this.sprechOrt(view) === 'mitte') {   // die aufgeklappte Funk-Antwortleiste (x 388.., y ab 141) liegt im Weg: dann wie oben (y 20)
+          const fwm = window.Funkwahl && Funkwahl.offen() ? Funkwahl.rechteck(Funkwahl.modell(), window.Pult.konsole(view)) : null;
+          const frei = !(fwm && fwm.y > 20 && fwm.y < SPRECH_MITTE_Y + SPRECH_MITTE_H && fwm.x < x + SPRECH_W && fwm.x + fwm.w > x);
+          if (frei) return { x, w: SPRECH_W, y: SPRECH_MITTE_Y, richtung: 'runter' };
         }
         const oda = view.voxel && window.Sitz && Sitz.station ? this.odaHoeheOben() : 0;   // nur im Voxel-Sitz steht die ODA (y 16) sichtbar; die Konsole des 2D-Bilds deckt sie zu (leerer Streifen)
         // Darunter, was an der Konsole oben steht und Anzeige ist: Lagetafel (ab LAGEFUNK_Y) und Ausweich-/Lanzen-Anzeige der Steuer (consoles.js helmAlerts); beide sind gezeichnet, bevor die Spalte kommt
@@ -584,7 +591,8 @@
       const focusObjs = srvFocus || (fe && Array.isArray(fe.objectives) && fe.objectives.length ? fe.objectives : null);
       const objs = focusObjs || (mi.active && Array.isArray(mi.active.objectives) && mi.active.objectives.length ? mi.active.objectives : mi.objectives) || [];
       const title = srvFocus ? (mi.focusTitle || (mi.active && mi.active.title)) : fe && fe.title ? fe.title : (mi.active && mi.active.title);
-      return { title, objs };
+      const q = { title, objs };
+      return typeof window !== 'undefined' && window.TrainingHud ? window.TrainingHud.ziele(st, q) : q;   // TRA-01 Nacharbeit S3: im Training die Liste des Buchs, nach dem Abschluss bis zum Neustart die abgehakte (training-hud.js)
     },
     drawObjectives(ctx, view) {
       const st = view.state;
@@ -593,7 +601,7 @@
       const lampCol = alert === 'red' ? PAL.red : alert === 'yellow' ? PAL.warn : PAL.moss;
       const on = alert === 'normal' || Math.floor(t * (alert === 'red' ? 2 : 1)) % 2 === 0;
       const label = alert === 'red' ? 'ALARM ROT' : alert === 'yellow' ? 'ALARM GELB' : 'NORMALBETRIEB';
-      const { title, objs } = this.zieleVon(st);
+      const { title, objs, rest } = this.zieleVon(st);
       const lines = [];
       // M1: Ort und aktiver Auftrag als Kopfzeilen
       if (st.world) {
@@ -605,6 +613,7 @@
         const wrapped = R.wrap(o.text, 172, 1);
         wrapped.forEach((l, i) => lines.push({ text: l, first: i === 0, done: o.done, optional: o.optional }));
       }
+      if (rest) lines.push({ text: rest, head: true, color: PAL.mint });   // nach dem Training-Abschluss: „Abzeichen erreicht · Neustart in N s“
       const h = 16 + Math.min(lines.length, 9) * 10 + (lines.length ? 4 : 0);
       R.backdrop(ctx, 4, 4, 192, h, 0.62);
       ctx.fillStyle = on ? lampCol : '#2A303A';
@@ -686,8 +695,10 @@
       R.backdrop(ctx, x0 - 4, L.top, 7 * 16 + 6, L.kopfH, 0.62);
       this.drawShieldMini(ctx, view, x0 + 90, L.shieldY);
       const inv = st.inventory || {};
-      R.icon(ctx, 'marks', x0 + 6, L.marksY + 3);
-      R.text(ctx, (inv.marks || 0) + ' Marken', x0 + 14, L.marksY, { color: PAL.brass });
+      if (!(window.TrainingHud && window.TrainingHud.laeuft(st))) {   // im Training ohne Marken (kein Handel, keine Wirkung)
+        R.icon(ctx, 'marks', x0 + 6, L.marksY + 3);
+        R.text(ctx, (inv.marks || 0) + ' Marken', x0 + 14, L.marksY, { color: PAL.brass });
+      }
       // M3a: Raumname über Maps.roomAt (oben links unter den Aufträgen wäre zu voll -> unter dem Systemraster)
       const tx = Math.floor(view.self.x / TILE), ty = Math.floor(view.self.y / TILE);
       const rn = roomOf(tx, ty, view.state);
