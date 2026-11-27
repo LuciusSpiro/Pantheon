@@ -17,9 +17,6 @@ const fs = require('fs');
 const os = require('os');
 const path = require('path');
 const Protocol = require('../shared/protocol.js');
-// TRA-01 A1: die Trainingsmodi sind in LOBBY_MODI, aber noch nicht im Hauptmenü; sie sind bis A2 nur über die Unterseite erreichbar (A2: Trainingsmenü).
-const TRAINING_MODI = ['training_fliegen', 'training_captain'];
-const MENUE_MODI = Protocol.LOBBY_MODI.filter((m) => !TRAINING_MODI.includes(m));
 const CONFIG = require('../shared/config.js');
 const { Game } = require('../server/game.js');
 const QUELLE = path.join(__dirname, '..', 'public', 'js', 'menue.js');
@@ -63,7 +60,7 @@ function pruefe(api, laut) {
   const p = (c, msg) => { if (laut) ok(c, msg); else if (!c) schlecht++; };
 
   // ---- 1 Gruppierung
-  { const modi = api.zugeordneteModi(), soll = MENUE_MODI.slice().sort();   // A2: Trainingsmenü (Trainingsmodi bis dahin ausgenommen)
+  { const modi = api.zugeordneteModi(), soll = Protocol.LOBBY_MODI.slice().sort();   // TRA-01 A2: die Trainingsmodi gehören dem Eintrag TRAINING (Unterseite mit den Kacheln Fliegen/Captain)
     p(gleich(modi.slice().sort(), soll), 'jeder Modus aus LOBBY_MODI gehört genau einem Eintrag (' + modi.length + ' von ' + soll.length + ')');
     p(new Set(modi).size === modi.length, 'kein Modus doppelt zugeordnet');
     const fremde = modi.filter((m) => !Protocol.LOBBY_MODI.includes(m));
@@ -73,7 +70,7 @@ function pruefe(api, laut) {
     p(api.eintragZuModus('eisenwald').id === 'eisenwald' && api.eintragZuModus('eisenwald_ohne').id === 'eisenwald', 'Eisenwald mit und ohne Tutorial ist ein Eintrag');
     p(api.GRUPPEN.find((g) => g.id === 'debug').eintraege.map((e) => e.modi[0]).sort().join() === 'free,m1,m3', 'Debug-Gruppe: genau die Sternenschicht-Modi m1, free, m3');
     p(api.GRUPPEN.find((g) => g.id === 'spielen').eintraege.map((e) => e.id).join() === 'schuld_der_lerche,freie_fahrt,eisenwald', 'Spielen: Schuld der Lerche, Freie Fahrt Sund, Kampagne Eisenwald');
-    p(api.GRUPPEN.find((g) => g.id === 'uebung').eintraege.map((e) => e.id).join() === 'arena_graben,arena_away,arena_forschung,arena_space,labor', 'Übungsplatz: Grabenangriff, Wellen Boden, Forschungsstation, Wellen All, Labor'); }
+    p(api.GRUPPEN.find((g) => g.id === 'uebung').eintraege.map((e) => e.id).join() === 'arena_graben,arena_away,arena_forschung,arena_space,labor,training', 'Übungsplatz: Grabenangriff, Wellen Boden, Forschungsstation, Wellen All, Labor, Training (TRA-01 A2)'); }
 
   // ---- 2 Sichtbarkeit
   { const sicht = (o, lob) => { const { F } = neu(api, o); return F.sichtbar(lob).flatMap((e) => e.modi); };
@@ -125,15 +122,25 @@ function pruefe(api, laut) {
   { const t = neu(api, { debug: true }), F = t.F, lob = Object.assign({}, LOB, { worlds: WELTEN });
     const msgs = {};
     for (const e of F.sichtbar(lob)) { const m = F.nachrichtFuer(e, lob); if (m) msgs[e.id] = m; }
-    p(F.sichtbar(lob).every((e) => msgs[e.id]), 'jeder sichtbare Eintrag erzeugt eine Nachricht');
+    p(F.sichtbar(lob).filter((e) => !e.unterseite).every((e) => msgs[e.id]) && !msgs.training, 'jeder sichtbare Eintrag erzeugt eine Nachricht (TRAINING öffnet nur die Unterseite, sendet nichts)');
     p(msgs.arena_away.wellen === Protocol.WELLEN_KARTEN[0] && msgs.arena_space.szene === 's_eins', 'Wellen Boden/All tragen die Kartenwahl (sonst startet der Server den Altweg)');
     p(gleich(msgs.arena_forschung, { t: 'lobbyOpt', startMission: 'arena_forschung', world: null }), 'Forschungsstation (UEB-01): nur Modus, keine Karten-/Szenenwahl, kein Weltstand');
     p(F.nachrichtFuer(F.eintragMitId('arena_away'), Object.assign({}, lob, { wellen: 'ruine' })).wellen === 'ruine', 'eine schon gewählte Karte bleibt');
     p(gleich(msgs.fortsetzen, { t: 'lobbyOpt', world: 'w2' }), 'Fortsetzen sendet nur den Weltstand');
     p(F.nachrichtFuer(F.eintragMitId('fortsetzen'), LOB) === null, 'Fortsetzen ohne Weltstand: keine Nachricht');
     // der echte Server nimmt sie an
-    const alle = MENUE_MODI, gesehen = new Set();   // A2: Trainingsmenü
-    for (const e of F.sichtbar(lob).filter((x) => !x.fortsetzen)) {
+    const alle = Protocol.LOBBY_MODI, gesehen = new Set();
+    for (const k of F.trainingKacheln().filter((x) => x.startbar)) {   // TRA-01 A2: die Kacheln der Unterseite (Captain mit und ohne Sprache)
+      for (const sprache of k.sprachwahl ? [false, true] : [false]) {
+        const t3 = neu(api, { debug: true }); t3.F.lies().trainingSprache = sprache;
+        const m = t3.F.trainingNachricht(t3.F.trainingKacheln().find((x) => x.id === k.id)), g = new Game({ noStore: true, seed: 7, env: { MISSION_SOURCE: 'fallback', SPIELLEITER_LLM: 'off', LLM_LIVE: '0' }, log: () => {} });
+        const c = { inbox: [], send(x) { this.inbox.push(x); } }; g.addConnection(c); g.handleMessage(c, { t: 'hello', clientId: 'M0', name: 'M0', color: 0 });
+        g.handleMessage(c, m);
+        const gut = g.lobbyOpts.startMission === m.startMission && g.lobbyOpts.world === null && g.lobbyOpts.trainingSprache === (k.sprachwahl ? sprache : false);
+        if (gut) gesehen.add(m.startMission); else p(false, 'Server lehnt Kachel ' + k.id + ' ab (Modus ' + g.lobbyOpts.startMission + ', Sprache ' + g.lobbyOpts.trainingSprache + ')');
+      }
+    }
+    for (const e of F.sichtbar(lob).filter((x) => !x.fortsetzen && !x.unterseite)) {
       for (const tutorial of e.tutorial ? [true, false] : [true]) {
         const t2 = neu(api, { debug: true }); t2.F.lies().tutorial = tutorial;
         const m = t2.F.nachrichtFuer(e, lob), g = new Game({ noStore: true, seed: 7, env: { MISSION_SOURCE: 'fallback', SPIELLEITER_LLM: 'off', LLM_LIVE: '0' }, log: () => {} });
@@ -251,7 +258,7 @@ function pruefe(api, laut) {
     const lade = (api2) => {
       const t = neu(api2, { debug: false }), win = { Render: {}, Pult: {}, Menue: TOKENS, MenueFluss: t.F, Hud: {}, Net: { serverRoomCode: 'AB' }, Tasten: { passt: (e, id) => id === 'allgemein.hilfe' && e.key === '?' } };
       new Function('window', 'Net', 'Tasten', quelleUi)(win, win.Net, win.Tasten);
-      const log = [], A = { sfx: () => {} }; for (const n of ['openOptions', 'openHilfe', 'openKammer', 'openWorlds', 'toggleReady', 'setColor', 'toggleWellenKarte', 'copyInvite', 'laborWahl', 'lobbyWaffe', 'toggleSkipDrill', 'toggleLiveSpielleiter']) A[n] = (x) => { log.push(n + (x !== undefined ? ':' + x : '')); };
+      const log = [], A = { sfx: () => {} }; for (const n of ['openOptions', 'openHilfe', 'openKammer', 'openWorlds', 'toggleReady', 'setColor', 'toggleWellenKarte', 'copyInvite', 'laborWahl', 'lobbyWaffe', 'toggleSkipDrill', 'toggleLiveSpielleiter', 'toggleTrainingSprache']) A[n] = (x) => { log.push(n + (x !== undefined ? ':' + x : '')); };
       const lob = { startMission: 'm1', worlds: [], laborAn: true }, view = { actions: A, pid: 'p1', state: { lobby: lob, players: [{ id: 'p1', name: 'A', ready: true, connected: true, color: 0 }] } };
       const druecke = (code, extra) => win.MenueUi.taste(Object.assign({ code, key: code, repeat: false }, extra || {}), view);
       return Object.assign(t, { win, log, view, lob, druecke, F: t.F });
@@ -307,7 +314,7 @@ function pruefe(api, laut) {
       const abgefangen = new Set([...ausCode, ...ABGEFANGEN_PER_TASTEN]);
       p(['O', 'H', 'F', 'U', 'C'].every((k) => abgefangen.has(k)), 'Kollisionsschutz: abgefangene Tasten aus menue-ui.js gelesen (O, H, F, U) plus C: ' + [...abgefangen].sort().join(''));
       const eintraege = api.GRUPPEN.flatMap((g) => g.eintraege), buchst = eintraege.filter((e) => /^[A-Z]$/.test(e.taste));
-      p(buchst.some((e) => e.id === 'arena_forschung'), 'Kollisionsschutz: Buchstabentasten im Menü gefunden (S Forschungsstation)');
+      p(buchst.some((e) => e.id === 'arena_forschung') && buchst.some((e) => e.id === 'training' && e.taste === 'T'), 'Kollisionsschutz: Buchstabentasten im Menü gefunden (S Forschungsstation, T Training)');
       const kollision = buchst.filter((e) => abgefangen.has(e.taste) && !(e.id === 'fortsetzen' && e.taste === 'F'));
       p(!kollision.length, 'Kollisionsschutz: keine Eintragstaste liegt in O/H/C/F/U (außer fortsetzen/F über openWorlds)' + (kollision.length ? ': ' + kollision.map((e) => e.id + '/' + e.taste).join() : '')); }
     p(r.lobby, 'Tasten Lobby: U Modus der Runde, Enter bereit, Ziffer Farbe, L Link, F Liste, H und ? Hilfe');
@@ -461,7 +468,7 @@ section('Mutationsproben (Regeln im Quelltext zerstören)', () => {
     ['G5 Satzzeile kürzt nicht von hinten', "while (t.length > 1 && mass(t.join(' · ')) > maxB) t.pop();", 'while (false) t.pop();'],
     ['G6 Einladung zählt sich selbst mit', 'verbunden(spieler).filter((p) => p.id !== pid)', 'verbunden(spieler)'],
     ['G7 Überlagerung kennzeichnet auch ohne Moduswahl', 'return !!(store.modusOffen && e && a && a.id === e.id);', 'return !!(e && a && a.id === e.id);'],
-    ['G8 Eisenwald-Titel hängt am Tutorial', 'return e && e.modi.length ? eintragTitel(e) : START_LABEL(modus);', 'return START_LABEL(modus);'],
+    ['G8 Eisenwald-Titel hängt am Tutorial', 'return e && e.modi.length && !e.unterseite ? eintragTitel(e) : START_LABEL(modus);', 'return START_LABEL(modus);'],
     ['G3 Ablehnung ändert den Raumcode-Eingang nicht', 'const abgelehnt = store.abgelehnt && !p.roomCode;', 'const abgelehnt = false;'],
     ['G11 Kammer-Hauptknopf kennt die Herkunft nicht', 'return TEXT.kammer[store.schirm] || TEXT.kammer.lobby;', 'return TEXT.kammer.lobby;'],
   ];

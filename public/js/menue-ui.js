@@ -5,6 +5,7 @@
 // Das Key-Art liegt als eigene Bildebene unter dem Canvas (<img id="keyart">, Client schaltet sie über ebene()); der Canvas ist hier durchsichtig und zeichnet
 // nur Abdunklung (VERLAUF) und Daten.
 // Globales `MenueUi`: zeichne(ctx, view), taste(e, view) -> true wenn verbraucht, ebene(view) -> { datei, hell, schirm } (Bildebene des aktuellen Bildschirms).
+// TRA-01 A2: auch die Unterseite „Training“ (fünf Kacheln, Captain-Eingabewahl) ist ein Bildschirm dieser Datei; Zustand und Regeln stehen in MenueFluss (trainingKacheln, trainingStarte …).
 // CHA-01 G: auch der Raumcode-Eingang (der Server hat den Beitritt mit badcode abgelehnt, es gibt noch keinen Spieler) ist ein Bildschirm dieser Datei (Stil A, Bild „beitritt“).
 (function () {
   'use strict';
@@ -145,6 +146,7 @@
       case 'menue.tutorialRunde': return lob.startMission === 'eisenwald' ? T.detail.an : T.detail.aus;   // in der Lobby gilt der Modus der Runde
       case 'toggleLiveSpielleiter': return lob.liveSpielleiter ? T.opt.liveAn : T.detail.aus;
       case 'toggleSkipDrill': return lob.skipDrill ? T.detail.an : T.detail.aus;
+      case 'toggleTrainingSprache': return lob.trainingSprache ? T.training.sprache : T.training.tafel;   // TRA-01 A2
       default: return '';
     }
   }
@@ -231,7 +233,7 @@
     if (!e) return;
     txtSp(c, e.art, D.x + 10, top + 10, MF.messing, MS.gruppe.sp);
     tu.zeilen.forEach((z, i) => txt(c, fit(z, D.w - 20, tu.skala), D.x + 10, top + 24 + i * 16, MF.text, 'left', tu.skala));
-    const beschr = welt ? welteZeile(welt) : hinweisText(modus);
+    const beschr = welt ? welteZeile(welt) : e.unterseite ? T.training.beschreibung : hinweisText(modus);
     R.wrap(beschr, D.w - 20, 1).slice(0, 2).forEach((z, i) => txt(c, z, D.x + 10, D.y + 46 + i * 11, MF.dim));
     const crewListe = welt && Array.isArray(welt.spieler) && welt.spieler.length ? T.detail.crew + ': ' + welt.spieler.join(', ') : null;
     const voll = !e.fortsetzen && e.weltstand && ws.voll;
@@ -250,7 +252,7 @@
     const lob = lobbyVon(view); lockup(c);
     liste(c, view, lob);
     const e = F.auswahlEintrag(lob);
-    detail(c, view, lob, e, e && e.fortsetzen ? T.detail.fortsetzen : T.detail.raumOeffnen, () => F.bestaetige(lob));
+    detail(c, view, lob, e, e && e.fortsetzen ? T.detail.fortsetzen : e && e.unterseite ? T.training.oeffnen : T.detail.raumOeffnen, () => F.bestaetige(lob));
     hinweise(c, view, MM.menue.x, MM.menue.hinweise, [[T.tasten.auswahl, T.hinweise.waehlen], ['C', T.hinweise.charakter, 'charakter'], ['O', T.hinweise.optionen, 'optionen'], ['H', T.hinweise.hilfe, 'hilfe'], [T.tasten.esc, T.hinweise.zurueck, 'zurueck']]);
     charakterOben(c, view);
   }
@@ -260,8 +262,63 @@
     txtSp(c, T.modus.titel, MM.lockup.x, MM.lockup.y + 2, MF.messing, MS.gruppe.sp);
     liste(c, view, lob);
     const e = F.auswahlEintrag(lob);
-    detail(c, view, lob, e, T.modus.knopf, () => F.bestaetige(lob));
+    detail(c, view, lob, e, e && e.unterseite ? T.training.oeffnen : T.modus.knopf, () => F.bestaetige(lob));
     hinweise(c, view, MM.menue.x, MM.menue.hinweise, [[T.tasten.auswahl, T.hinweise.waehlen], [T.tasten.enter, T.modus.enter, 'bestaetige'], ['F', T.modus.weltstaende, 'welten'], [T.tasten.esc, T.modus.esc, 'zurueck']]);
+  }
+
+  // ---------------------------------------------------------------- Unterseite TRAINING (TRA-01 A2)
+  // Überlagerung wie die Moduswahl (nichts scheint durch): Kopf, fünf Kacheln, darunter die Kachel der Auswahl mit Start. Gesperrte Kacheln („folgt“) haben keine Klickfläche.
+  const TK = { x: 32, y: 92, w: 108, h: 96, fuge: 9 }, TD = { x: 32, y: 204, w: 576, h: 116 };
+  // Platz für Paket C: erreicht = Gold gefüllt, sonst gestrichelter leerer Rahmen (k.abzeichen kommt aus MenueFluss.abzeichenStand)
+  function abzeichenFeld(c, x, y, k) {
+    const s = 9; if (k.abzeichen) rect(c, x, y, s, s, MF.gold); else dash(c, x, y, s, s, MF.dim, 2);
+    txt(c, T.training.abzeichen, x + s + 5, y + 1, k.abzeichen ? MF.gold : MF.dim);
+  }
+  function trainingKachel(c, view, k, x, y, an) {
+    const w = TK.w, h = TK.h, tx = T.training.kacheln[k.id];
+    if (k.gesperrt) {
+      rect(c, x, y, w, h, MF.karte); hatch(c, x, y, w, h, MF.freiSchraffur, 4); dash(c, x, y, w, h, MF.karteRand, 3);
+      kappeM(c, x + 6, y + 6, k.taste, MF.karteRand, MF.dim);
+      rect(c, x + 4, y + 26, w - 8, 36, MF.karte);   // deckende Unterlage unter dem Text (liegt auf der Schraffur)
+      txtSp(c, fit(tx.name.toUpperCase(), w - 16, 1), x + 8, y + 31, MF.dim, MS.name.sp);
+      txt(c, T.training.folgt, x + 8, y + 46, MF.dim);
+      return;
+    }
+    kachelM(c, x, y, w, h); if (an) rect(c, x, y, w, 2, MF.gold);
+    kappeM(c, x + 6, y + 6, k.taste, an ? MF.gold : MF.kappe, an ? MF.tinte : MF.kappeText);
+    txtSp(c, fit(tx.name.toUpperCase(), w - 16, 1), x + 8, y + 28, an ? MF.gold : MF.text, MS.name.sp);
+    R.wrap(tx.zeile, w - 16, 1).slice(0, 3).forEach((z, i) => txt(c, z, x + 8, y + 42 + i * 11, MF.dim));
+    abzeichenFeld(c, x + 8, y + h - 16, k);
+    if (an) cursorRahmen(c, x, y, w, h);
+    klick({ x, y, w, h }, tx.name, () => { F.trainingWaehleId(k.id); });
+  }
+  // Eingabewahl des Captains: „S Eingabe:“ und zwei Felder, das aktive in Gold; Klick setzt direkt
+  function trainingSprachwahl(c, x, y) {
+    let cx = kappeM(c, x, y, 'S') + 5; cx = txt(c, T.training.eingabe + ':', cx, y + 3, MF.dim) + 8;
+    for (const o of F.trainingSprachwahl()) {
+      const w = breite(o.label) + 12, r = { x: cx, y: y - 1, w, h: 15 };
+      rect(c, r.x, r.y, r.w, r.h, o.aktiv ? P.rgba(MF.gold, MM.auswahl.deckkraft) : MF.kappe); rand(c, r.x, r.y, r.w, r.h, o.aktiv ? MF.gold : MF.karteRand);
+      txt(c, o.label, cx + 6, y + 3, o.aktiv ? MF.gold : MF.dim);
+      klick(r, o.label, () => { F.setzeTrainingSprache(o.wert); });
+      cx += w + 6;
+    }
+  }
+  function trainingSeite(c, view) {
+    const g = F.trainingGewaehlt(), ks = F.trainingKacheln();
+    rect(c, 0, 0, VW, VH, P.rgba(MF.grund, 0.985)); rect(c, 0, MM.menue.hinweise - 6, VW, VH - MM.menue.hinweise + 6, MF.grund);
+    lockup(c);
+    txtSp(c, T.training.kopf, MM.menue.x, 54, MF.messing, MS.gruppe.sp); txt(c, T.training.untertitel, MM.menue.x, 68, MF.dim);
+    ks.forEach((k, i) => trainingKachel(c, view, k, TK.x + i * (TK.w + TK.fuge), TK.y, !!g && g.id === k.id));
+    kachelM(c, TD.x, TD.y, TD.w, TD.h); rect(c, TD.x, TD.y, TD.w, 2, MF.gold);
+    if (g) {
+      txtSp(c, T.training.art, TD.x + 10, TD.y + 10, MF.messing, MS.gruppe.sp);
+      txt(c, fit(label(g.modus).toUpperCase(), TD.w - 220, MS.detail.skala), TD.x + 10, TD.y + 24, MF.text, 'left', MS.detail.skala);
+      R.wrap(hinweisText(g.modus), TD.w - 220, 1).slice(0, 2).forEach((z, i) => txt(c, z, TD.x + 10, TD.y + 46 + i * 11, MF.dim));
+      txt(c, T.detail.spieler + ' · ' + T.detail.keinWeltstand, TD.x + 10, TD.y + 70, MF.text);
+      if (g.sprachwahl) trainingSprachwahl(c, TD.x + 10, TD.y + 88);
+      knopfGold(c, TD.x + TD.w - 190, TD.y + TD.h - 32, 180, T.tasten.enter, T.training.start, () => tue('trainingStart', view));
+    }
+    hinweise(c, view, MM.menue.x, MM.menue.hinweise, [[T.tasten.stellen, T.training.waehlen], [T.tasten.enter, T.training.starten, 'trainingStart'], ['S', T.training.eingabe, 'trainingSprache'], [T.tasten.esc, T.training.zurueck, 'zurueck']]);
   }
 
   // ---------------------------------------------------------------- Crew-Lobby
@@ -464,9 +521,9 @@
     verlauf(ctx, sk);
     if (ein) eingang(ctx, view, ein);
     else if (s === 'titel') titel(ctx, view);
-    else if (s === 'menue') hauptmenue(ctx, view);
+    else if (s === 'menue') { if (F.unterseiteOffen()) trainingSeite(ctx, view); else hauptmenue(ctx, view); }
     else if (s === 'einladung') einladung(ctx, view);
-    else if (F.lies().modusOffen) modusWahl(ctx, view);   // die Überlagerung ersetzt die Lobby (nichts scheint durch)
+    else if (F.lies().modusOffen) { if (F.unterseiteOffen()) trainingSeite(ctx, view); else modusWahl(ctx, view); }   // die Überlagerung ersetzt die Lobby (nichts scheint durch)
     else lobby(ctx, view);
     if (!ein && (s === 'titel' || s === 'menue')) versionZeile(ctx);
   }
@@ -493,6 +550,8 @@
     modus: { gilt: (v) => !!ichVon(v), tu: (v) => { F.oeffneModusWahl(lobbyVon(v)); sfx(v, 'ui_click'); } },
     link: { gilt: (v) => !!(ichVon(v) && v.actions.copyInvite && window.Net && Net.serverRoomCode), tu: (v) => v.actions.copyInvite() },
     bot: { gilt: (v) => !!(ichVon(v) && v.actions.botPlatzFuellen), tu: (v) => v.actions.botPlatzFuellen() },   // Umschalt+P (Bot entfernen) bleibt eine reine Taste
+    trainingStart: { gilt: () => !!F.trainingGewaehlt(), tu: (v) => { const r = F.trainingStarte(); sfx(v, r.ok ? 'ui_click' : 'error'); } },   // TRA-01 A2
+    trainingSprache: { gilt: () => { const g = F.trainingGewaehlt(); return !!(g && g.sprachwahl); }, tu: (v) => { F.schalteTrainingSprache(); sfx(v, 'ui_click'); } },
     einladungNeu: { gilt: () => true, tu: () => F.einladungNeuerCharakter() },
     einladungAnnehmen: { gilt: () => true, tu: (v) => { const r = F.einladungAnnehmen(); sfx(v, r.ok ? 'ui_click' : 'error'); } },
     einladungAblehnen: { gilt: () => true, tu: (v) => { F.einladungAblehnen(); sfx(v, 'ui_back'); } },
@@ -501,6 +560,20 @@
   function tue(id, view) { if (!gilt(id, view)) return false; AKTION[id].tu(view); return true; }
 
   // ---------------------------------------------------------------- Tasten
+  // Unterseite Training (TRA-01 A2): Pfeile/Ziffern wählen nur startbare Kacheln, Enter startet, S schaltet die Captain-Eingabe, Esc zurück; Strg/Alt/Meta+Taste bleibt dem Browser
+  function trainingTaste(e, view, gemeinsam) {
+    const code = e.code, ton = (n) => sfx(view, n);
+    if (gemeinsam()) return true;
+    if (code === 'ArrowLeft' || code === 'ArrowRight' || code === 'ArrowUp' || code === 'ArrowDown') { F.trainingBewege(code === 'ArrowLeft' || code === 'ArrowUp' ? -1 : 1); ton('ui_click'); return true; }
+    if (e.repeat) return true;
+    if (code === 'Enter' || code === 'NumpadEnter') { tue('trainingStart', view); return true; }
+    if (code === 'Escape') { tue('zurueck', view); return true; }
+    if (e.ctrlKey || e.altKey || e.metaKey) return false;
+    if (code === 'KeyS') { tue('trainingSprache', view); return true; }
+    const z = /^(?:Digit|Numpad)([1-5])$/.exec(code);
+    if (z) { const r = F.trainingWaehleTaste(z[1]); ton(r.ok ? 'ui_click' : 'error'); return true; }   // gesperrte Kacheln: nichts, nur der Fehlerton
+    return true;
+  }
   // true = Taste verbraucht. Navigation über MenueFluss, Lobby-Aktionen über view.actions; hier steht nur, welche Taste was auslöst.
   function taste(e, view) {
     const code = e.code, s = F.lies().schirm, lob = lobbyVon(view), ich = ichVon(view), a = view.actions, rep = e.repeat;
@@ -518,6 +591,7 @@
       if ((code === 'Enter' || code === 'NumpadEnter' || code === 'Space') && !rep) { tue('weiter', view); return true; }
       return true;
     }
+    if (F.unterseiteOffen()) return trainingTaste(e, view, gemeinsam);
     if (s === 'menue' || (s === 'lobby' && F.lies().modusOffen)) {
       if (gemeinsam()) return true;
       if (code === 'ArrowUp' || code === 'ArrowDown') { F.bewege(code === 'ArrowUp' ? -1 : 1, lob); ton('ui_click'); return true; }

@@ -2,6 +2,7 @@
 //   Store    = dieses Objekt (`lies()`): Bildschirm, Auswahl, Moduswahl-Überlagerung, Eisenwald-Tutorial (Merker), zuletzt gesehener Lobby-Modus, Cursor der Einladung
 //   Actions  = benannte Funktionen je Absicht (weiter, oeffneRaum, bestaetige, oeffneModusWahl, einladungAnnehmen, einladungAblehnen, zurueck, optionenFuer …); jede Regel steht hier
 //   Oberfläche = public/js/menue-ui.js: zeichnet nur und bildet Tasten auf diese Actions ab; Tokens = public/js/menue-tokens.js (Globales `Menue`)
+// TRA-01 A2: Der Eintrag TRAINING (Taste T) öffnet die Unterseite „Training“ (Store: unterseite) mit fünf Kacheln; Fliegen und Captain starten ihren Lobby-Modus, die übrigen sind gesperrt.
 // Die Menüs sind reiner Client-Zustand. Die Verbindung steht schon beim Laden; wer im Titel oder Hauptmenü steht, ist in der Lobby „nicht bereit“.
 // Die Modus-Gruppierung entsteht hier aus Shared_Protocol.LOBBY_MODI (bleibt unverändert): jeder Modus gehört genau einem Eintrag (Test: tools/test-menue.js).
 // UMD: im Browser `window.MenueFluss` (eine Instanz, Abhängigkeiten werden beim Aufruf aufgelöst), in Node `require('…/menue.js').erzeuge({ protokoll, senden, debug, szenenIds, charaktere, weltstandMax, verlasseRaum })`.
@@ -39,11 +40,13 @@
     hinweisEinladung: { charakter: 'Charakter', neu: 'neu', liste: 'Liste', anBord: 'an Bord', abbrechen: 'ablehnen' },
     status: { crewEinheit: '/4' },
     tasten: { auswahl: '↑↓', ziffern: '1–4', enter: 'Enter', esc: 'Esc', stellen: '←→' },
-    opt: { seedFest: 'Seed {n} fest', seedNeu: 'neuer Seed je Start', zuletzt: 'zuletzt W{n}', waffeStandard: 'Standard', karte: 'Karte', waffe: 'Waffe', szene: 'Szene', umsetzung: 'Umsetzung', staerke: 'Stärke', seed: 'Seed', god: 'Unverwundbar', hafenUebung: 'Hafen-Übung', liveSpielleiter: 'Live-Spielleiter', liveAn: 'an (Claude, Abo)', liveHinweis: 'Echter Claude, läuft auf dem Abo. Deckel: Zähler CLAUDE_TOKEN_BUDGET.', abschnitt: 'Abschnitt', standard: 'Standard', zufaellig: 'zufällig', altweg: 'Altweg', keschKlassisch: 'Kesh (klassisch)', rekord: 'Rekord W{n}', an: 'an', aus: 'aus', leer: '–', laborBoden: 'Boden', laborRaum: 'Raum', laborStart: 'Start: {z}', karteNamen: { wreck: 'Wrack', platform: 'Plattform' } },
+    opt: { eingabe: 'Eingabe', seedFest: 'Seed {n} fest', seedNeu: 'neuer Seed je Start', zuletzt: 'zuletzt W{n}', waffeStandard: 'Standard', karte: 'Karte', waffe: 'Waffe', szene: 'Szene', umsetzung: 'Umsetzung', staerke: 'Stärke', seed: 'Seed', god: 'Unverwundbar', hafenUebung: 'Hafen-Übung', liveSpielleiter: 'Live-Spielleiter', liveAn: 'an (Claude, Abo)', liveHinweis: 'Echter Claude, läuft auf dem Abo. Deckel: Zähler CLAUDE_TOKEN_BUDGET.', abschnitt: 'Abschnitt', standard: 'Standard', zufaellig: 'zufällig', altweg: 'Altweg', keschKlassisch: 'Kesh (klassisch)', rekord: 'Rekord W{n}', an: 'an', aus: 'aus', leer: '–', laborBoden: 'Boden', laborRaum: 'Raum', laborStart: 'Start: {z}', karteNamen: { wreck: 'Wrack', platform: 'Plattform' } },
     ton: { kappe: 'Taste', hinweis: 'oder Klick schaltet den Ton ein' },
     eingang: { abgelehnt: 'EINLADUNG ABGELEHNT', raumcode: 'RAUMCODE', satz: 'Code eingeben, den du vom Gastgeber bekommst.', knopf: 'An Bord gehen', falsch: 'Falscher Raumcode – bitte nachfragen.' },
     kammer: { lobby: 'In die Lobby', einladung: 'Zur Einladung', menue: 'Zum Hauptmenü', titel: 'Zum Titel' },
     karte: { du: 'DU', escZeile: ['Esc geht zum', 'Hauptmenü'], linkKopiert: 'Link kopiert!' },
+    training: { titel: 'Training', art: 'TRAINING', beschreibung: 'Abzeichen-Übungen: Fliegen, Captain und mehr', oeffnen: 'Training öffnen', kopf: 'TRAINING', untertitel: 'Eine Übung je Station. Fliegen und Captain sind startklar.', folgt: 'folgt', gesperrt: 'gesperrt', eingabe: 'Eingabe', tafel: 'Befehlstafel/Tasten', sprache: 'mit Sprache', start: 'In die Lobby', abzeichen: 'Abzeichen', zurueck: 'Zurück', waehlen: 'wählen', starten: 'Start',   // TRA-01 A2
+      kacheln: { fliegen: { name: 'Fliegen', zeile: 'Tempo, Ruder, Sprung, Andocken' }, captain: { name: 'Captain', zeile: 'Karte, Marker, Bots führen' }, ops: { name: 'Ops', zeile: 'Waffen und Ladung' }, technik: { name: 'Technik', zeile: 'Systeme und Reaktor' }, aussen: { name: 'Außeneinsatz', zeile: 'Boden und Anzug' } } },
     gruppen: { spielen: 'SPIELEN', fortsetzen: 'FORTSETZEN', uebung: 'ÜBUNGSPLATZ', debug: 'STERNENSCHICHT (DEBUG)' },
   };
 
@@ -64,6 +67,7 @@
       { id: 'arena_forschung', taste: 'S', modi: ['arena_forschung'], art: 'ÜBUNGSPLATZ' },   // UEB-01: Forschungsstation direkt; Buchstabe statt Ziffer (alle Ziffern belegt), kein Optionsfeld (Name/Hinweis aus START_LABELS/START_HINTS)
       { id: 'arena_space', taste: '6', modi: ['arena_space'], art: 'ÜBUNGSPLATZ' },
       { id: 'labor', taste: '7', modi: ['labor'], art: 'ÜBUNGSPLATZ', nurMit: 'laborAn' },
+      { id: 'training', taste: 'T', modi: ['training_fliegen', 'training_captain'], art: 'TRAINING', titel: 'Training', unterseite: 'training' },   // TRA-01 A2: öffnet die Unterseite (kein Modus selbst); Buchstabe T ist im Menü frei (belegt: O H C F U S, in der Lobby M L P V …)
     ] },
     { id: 'debug', debug: true, eintraege: [
       { id: 'm1', taste: '8', modi: ['m1'], art: 'STERNENSCHICHT', weltstand: true },
@@ -97,9 +101,10 @@
     const READY = () => (proto().C && proto().C.READY) || 'ready';
 
     // ------------------------------------------------------------------ Store
+    // unterseite = 'training' | null (TRA-01 A2: liegt über Hauptmenü bzw. Moduswahl); trainingAuswahl = id der gewählten startbaren Kachel; trainingSprache = Merker „Captain mit Sprache“ (wird beim Start mitgesendet)
     // schirm: 'titel' | 'menue' | 'lobby' | 'einladung'; auswahl = id des gewählten Eintrags (Hauptmenü und Moduswahl-Überlagerung teilen sie);
     // abgelehnt = die Einladung wurde bewusst abgelehnt (der Raumcode-Eingang zeigt dann keinen Fehlerton); modusOffen = Moduswahl-Überlagerung in der Lobby; tutorial = Eisenwald mit Tutorial (Merker für den nächsten Start); lobbyModus = zuletzt gesehener Modus der Lobby (nur dessen Wechsel setzt den Merker); einladungCursor = Platz in der Charakterliste der Einladung
-    const store = { schirm: 'titel', auswahl: null, modusOffen: false, tutorial: true, lobbyModus: null, modusPruefen: false, einladungCursor: 0, abgelehnt: false, version: null, rev: 0 };
+    const store = { schirm: 'titel', unterseite: null, trainingAuswahl: 'fliegen', trainingSprache: false, auswahl: null, modusOffen: false, tutorial: true, lobbyModus: null, modusPruefen: false, einladungCursor: 0, abgelehnt: false, version: null, rev: 0 };
     const aenderung = () => { store.rev++; };
     // HYG-02 A: Versionsnummer (Server: GET /version.json = package.json); null = unbekannt, die Zeile bleibt dann leer. Ein Fehler beim Holen ändert nichts am Menü.
     function setzeVersion(v) { store.version = typeof v === 'string' && /^\d+\.\d+\.\d+[\w.+-]*$/.test(v) ? v : null; aenderung(); return store.version; }
@@ -119,14 +124,14 @@
     const neuesteWelt = (lob) => welten(lob).find((w) => !w.state || w.state === 'ok') || null;
     // Modus-ID eines Eintrags (Eisenwald je nach Tutorial-Schalter)
     function modusVon(e) {
-      if (!e || !e.modi.length) return null;
+      if (!e || !e.modi.length || e.unterseite) return null;   // Unterseiten-Eintrag (Training) ist selbst kein Modus
       if (e.tutorial) return store.tutorial ? 'eisenwald' : 'eisenwald_ohne';
       return e.modi[0];
     }
     // Titel eines Menüeintrags: immer der Name des Eintrags (Eisenwald heißt „Kampagne Eisenwald“, mit oder ohne Tutorial; der Tutorial-Zustand steht nur im Chip)
     const START_LABEL = (modus) => (proto().START_LABELS && proto().START_LABELS[modus]) || String(modus || '');
-    const eintragTitel = (e) => (e && e.modi.length ? START_LABEL(e.modi[0]) : '');
-    const modusTitel = (modus) => { const e = eintragZuModus(modus); return e && e.modi.length ? eintragTitel(e) : START_LABEL(modus); };
+    const eintragTitel = (e) => (e && e.titel ? e.titel : e && e.modi.length ? START_LABEL(e.modi[0]) : '');   // TRA-01 A2: Unterseiten-Eintrag trägt seinen eigenen Titel
+    const modusTitel = (modus) => { const e = eintragZuModus(modus); return e && e.modi.length && !e.unterseite ? eintragTitel(e) : START_LABEL(modus); };   // die Trainingsmodi heißen „Training Fliegen“ / „Training Captain“
     // sichtbare Einträge in Menüreihenfolge: Debug nur mit ?debug=1, Labor nur wenn der Server es anbietet (lobby.laborAn), Fortsetzen nur mit Weltstand
     function sichtbar(lob) {
       const dbg = debugAn();
@@ -202,6 +207,7 @@
     // Nachricht für einen Eintrag: Modus, neuer Weltstand (world: null), bei Wellen Boden/All die Kartenwahl (ohne sie startet der Server den Altweg)
     function nachrichtFuer(e, lob) {
       if (e.fortsetzen) { const w = neuesteWelt(lob); return w ? { t: LOBBY_OPT(), world: w.id } : null; }
+      if (e.unterseite) return null;   // öffnet nur die Unterseite, setzt keinen Modus (die Kacheln senden: trainingNachricht)
       const modus = modusVon(e), msg = { t: LOBBY_OPT(), startMission: modus, world: null };
       if (modus === 'arena_away') msg.wellen = (lob && lob.wellen) || (proto().WELLEN_KARTEN || ['aussenposten'])[0];
       if (modus === 'arena_space') msg.szene = (lob && lob.szene) || szenenIds()[0] || null;
@@ -210,11 +216,75 @@
     // Den gewählten Eintrag als Modus der Runde setzen und in die Lobby wechseln (Enter im Hauptmenü und in der Moduswahl-Überlagerung)
     function bestaetige(lob) {
       const e = auswahlEintrag(lob); if (!e) return { ok: false, grund: 'leer' };
+      if (e.unterseite) return oeffneUnterseite(e, lob);
       const msg = nachrichtFuer(e, lob); if (!msg) return { ok: false, grund: 'kein-weltstand' };
       senden(msg);
       store.schirm = 'lobby'; store.modusOffen = false; store.auswahl = e.id; aenderung();
       return { ok: true, eintrag: e.id, modus: msg.startMission || null, welt: msg.world || null };
     }
+    // ------------------------------------------------------------------ Unterseite TRAINING (TRA-01 A2)
+    // Fünf Kacheln, eine je Abzeichen-Übung. Startbar ist eine Kachel nur mit Lobby-Modus (LOBBY_MODI); Ops, Technik, Außeneinsatz stehen gesperrt („folgt“) und sind weder anwählbar noch startbar.
+    const TRAINING_KACHELN = [
+      { id: 'fliegen', taste: '1', modus: 'training_fliegen' },
+      { id: 'captain', taste: '2', modus: 'training_captain', sprachwahl: true },
+      { id: 'ops', taste: '3', modus: null },
+      { id: 'technik', taste: '4', modus: null },
+      { id: 'aussen', taste: '5', modus: null },
+    ];
+    // Paket C (Abzeichen): erreicht/nicht erreicht je Kachel – hier der einzige Platz dafür; A2 liefert noch nichts (immer false), C liest den Browser-Speicher.
+    function abzeichenStand(id) { return false; }
+    function trainingKacheln() {
+      const modi = proto().LOBBY_MODI || [];
+      return TRAINING_KACHELN.map((k) => { const startbar = !!(k.modus && modi.includes(k.modus)); return Object.assign({}, k, { startbar, gesperrt: !startbar, sprachwahl: !!k.sprachwahl, abzeichen: abzeichenStand(k.id) }); });
+    }
+    const trainingStartbare = () => trainingKacheln().filter((k) => k.startbar);
+    // gewählte Kachel (immer eine startbare; sonst die erste), null wenn keine startbar ist
+    function trainingGewaehlt() { const s = trainingStartbare(); return s.find((k) => k.id === store.trainingAuswahl) || s[0] || null; }
+    function unterseiteOffen() { return !!store.unterseite && (store.schirm === 'menue' || (store.schirm === 'lobby' && store.modusOffen)); }
+    // Öffnen aus dem Hauptmenü (Enter auf TRAINING) oder aus der Moduswahl der Lobby; steht die Lobby gerade auf dem Captain-Training, gilt deren Eingabewahl
+    function oeffneUnterseite(e, lob) {
+      if (!e || !e.unterseite) return { ok: false, grund: 'keine-unterseite' };
+      store.unterseite = e.unterseite;
+      const g = trainingGewaehlt(); store.trainingAuswahl = g ? g.id : 'fliegen';
+      if (lob && lob.startMission === 'training_captain') store.trainingSprache = lob.trainingSprache === true;
+      aenderung(); return { ok: true, unterseite: store.unterseite };
+    }
+    function schliesseUnterseite() { if (store.unterseite) { store.unterseite = null; aenderung(); } return { ok: true }; }
+    function trainingBewege(d) {
+      const s = trainingStartbare(); if (!s.length) return { ok: false };
+      const i = Math.max(0, s.findIndex((k) => k.id === store.trainingAuswahl));
+      store.trainingAuswahl = s[(i + (d < 0 ? -1 : 1) + s.length) % s.length].id; aenderung();
+      return { ok: true, auswahl: store.trainingAuswahl };
+    }
+    // Wählen per Taste oder Klick: gesperrte Kacheln lassen sich nie wählen
+    function trainingWaehleId(id) {
+      const k = trainingStartbare().find((x) => x.id === id); if (!k) return { ok: false, grund: 'gesperrt' };
+      store.trainingAuswahl = k.id; aenderung(); return { ok: true, auswahl: k.id };
+    }
+    function trainingWaehleTaste(taste) { const k = trainingKacheln().find((x) => x.taste === String(taste)); return k ? trainingWaehleId(k.id) : { ok: false, grund: 'unbekannt' }; }
+    // Captain: Eingabe vor dem Start – Befehlstafel/Tasten (false) oder mit Sprache (true); nur für Kacheln mit Sprachwahl
+    function setzeTrainingSprache(an) {
+      const g = trainingGewaehlt(); if (!(g && g.sprachwahl)) return { ok: false, grund: 'keine-sprachwahl' };
+      store.trainingSprache = !!an; aenderung(); return { ok: true, sprache: store.trainingSprache };
+    }
+    function schalteTrainingSprache() { return setzeTrainingSprache(!store.trainingSprache); }
+    // Die zwei Möglichkeiten der Eingabe als Chips der Kachel: { wert, label, aktiv }
+    const trainingSprachwahl = () => [{ wert: false, label: TEXT.training.tafel, aktiv: !store.trainingSprache }, { wert: true, label: TEXT.training.sprache, aktiv: store.trainingSprache }];
+    // Lobby-Nachricht der Kachel: Modus wie bei jedem Menüeintrag (kein Weltstand), beim Captain mit der Eingabewahl (der Server verarbeitet sie nach dem Modus)
+    function trainingNachricht(k) {
+      if (!(k && k.startbar)) return null;
+      const msg = { t: LOBBY_OPT(), startMission: k.modus, world: null };
+      if (k.sprachwahl) msg.trainingSprache = store.trainingSprache === true;
+      return msg;
+    }
+    // Start der gewählten Kachel: Modus setzen, in die Lobby (bereit melden wie bei jedem Modus)
+    function trainingStarte() {
+      const k = trainingGewaehlt(), msg = trainingNachricht(k); if (!msg) return { ok: false, grund: 'gesperrt' };
+      senden(msg);
+      store.schirm = 'lobby'; store.modusOffen = false; store.unterseite = null; store.auswahl = (eintragZuModus(k.modus) || {}).id || store.auswahl; aenderung();
+      return { ok: true, kachel: k.id, modus: k.modus, sprache: k.sprachwahl ? store.trainingSprache : null };
+    }
+
     // Moduswahl-Überlagerung der Lobby (M)
     function oeffneModusWahl(lob) {
       if (store.schirm !== 'lobby') return { ok: false };
@@ -223,7 +293,7 @@
       store.modusOffen = true; aenderung();
       return { ok: true };
     }
-    function schliesseModusWahl() { if (store.modusOffen) { store.modusOffen = false; aenderung(); } return { ok: true }; }
+    function schliesseModusWahl() { if (store.modusOffen || store.unterseite) { store.modusOffen = false; store.unterseite = null; aenderung(); } return { ok: true }; }
     // Ein Weltstand wurde gewählt (Liste mit F): aus dem Hauptmenü in die Lobby, aus der Moduswahl-Überlagerung zurück in die Lobby
     function weltstandGewaehlt() { return store.schirm === 'menue' ? imRaum() : schliesseModusWahl(); }
     // „Neue Kampagne“ aus der Weltstandliste: wie weltstandGewaehlt, und der Modus der Lobby wird ein im Menü sichtbarer (der Server-Standard m1 ist ohne Debug unsichtbar)
@@ -246,12 +316,13 @@
     function starte(o) {
       o = o || {};
       store.schirm = o.link ? 'einladung' : o.direkt ? 'lobby' : 'titel';
-      store.modusOffen = false; store.abgelehnt = false; store.modusPruefen = !!o.direkt; aenderung();   // Direkteintritt in die Lobby: der erste Snapshot prüft, ob der Modus der Lobby sichtbar ist (snapshotEingang)
+      store.modusOffen = false; store.unterseite = null; store.abgelehnt = false; store.modusPruefen = !!o.direkt; aenderung();   // Direkteintritt in die Lobby: der erste Snapshot prüft, ob der Modus der Lobby sichtbar ist (snapshotEingang)
       return { ok: true, schirm: store.schirm };
     }
     function weiter() { if (store.schirm === 'titel') { store.schirm = 'menue'; aenderung(); return { ok: true }; } return { ok: false }; }
     // Esc: Moduswahl zu → Lobby → Hauptmenü (bereit zurücknehmen) → Titel (die Einladung hat ihr eigenes Esc: einladungAblehnen)
     function zurueck(ich) {
+      if (unterseiteOffen()) { store.unterseite = null; aenderung(); return { ok: true, schirm: store.schirm, unterseite: null }; }   // TRA-01 A2: zuerst die Unterseite zu
       if (store.modusOffen) { store.modusOffen = false; aenderung(); return { ok: true, schirm: store.schirm }; }
       if (store.schirm === 'lobby') {
         if (ich && ich.ready) senden({ t: READY(), ready: false });   // im Hauptmenü zählt man als „nicht bereit“
@@ -275,7 +346,7 @@
       return C.neuAnlegen();
     }
     // Die Runde endet und der Server holt alle zurück in die Lobby
-    function imRaum() { store.schirm = 'lobby'; store.modusOffen = false; aenderung(); return { ok: true }; }
+    function imRaum() { store.schirm = 'lobby'; store.modusOffen = false; store.unterseite = null; aenderung(); return { ok: true }; }
     function bewegeEinladung(d) { const n = (charaktere() && charaktere().MAX) || 4; store.einladungCursor = (store.einladungCursor + (d < 0 ? -1 : 1) + n) % n; aenderung(); return { ok: true, cursor: store.einladungCursor }; }
     function setzeEinladungCursor(i) { const n = (charaktere() && charaktere().MAX) || 4; if (!(i >= 0 && i < n)) return { ok: false }; store.einladungCursor = i; aenderung(); return { ok: true, cursor: i }; }
     // Einladung annehmen: den Charakter am Cursor wählen (Charaktere.waehle sendet das hello neu), dann in die Lobby; freier Platz → nichts
@@ -426,6 +497,7 @@
         { taste: 'R', code: 'KeyR', aktion: 'laborSeed', label: TEXT.opt.seed }, { taste: 'G', code: 'KeyG', aktion: 'laborGod', label: TEXT.opt.god }, waffe);
       if (modus === 'eisenwald' || modus === 'eisenwald_ohne') o.push({ taste: 'U', code: 'KeyU', aktion: 'menue.tutorialRunde', label: TEXT.detail.tutorial });
       if (modus === 'freie_fahrt') o.push({ taste: 'V', code: 'KeyV', aktion: 'toggleLiveSpielleiter', label: TEXT.opt.liveSpielleiter });   // FRE-01 B: Kostenentscheidung, Standard aus; V ist in Lobby und Menü frei (M, F, L, O, H, C, U, 1–4 belegt)
+      if (modus === 'training_captain') o.push({ taste: 'S', code: 'KeyS', aktion: 'toggleTrainingSprache', label: TEXT.opt.eingabe });   // TRA-01 A2: Befehlstafel/Tasten oder mit Sprache (lobbyOpt trainingSprache); S ist in der Lobby frei
       if (modus === 'm1') o.push({ taste: 'U', code: 'KeyU', aktion: 'toggleSkipDrill', label: TEXT.opt.hafenUebung });
       return o;
     }
@@ -437,6 +509,7 @@
       bewege, waehleTaste, waehleEintragId, schalteTutorialMerker, schalteTutorialDerRunde, nachrichtFuer, bestaetige, oeffneModusWahl, schliesseModusWahl,
       starte, weiter, zurueck, imRaum, weltstaende, weltstandGewaehlt, neuerWeltstandGewaehlt, sichtbarenModusSichern, einladungAblehnen, einladungNeuerCharakter, laborAuswahl, startOptionen, bewegeEinladung, setzeEinladungCursor, einladungAnnehmen, einladungAufGewaehlten,
       gastgeber, zaehlung, verbunden, BOT_ROLLEN, botRollenFrei, botNaechsteRolle, botLetzter, optionenFuer, optionFuerTaste,
+      TRAINING_KACHELN, abzeichenStand, trainingKacheln, trainingGewaehlt, unterseiteOffen, oeffneUnterseite, schliesseUnterseite, trainingBewege, trainingWaehleId, trainingWaehleTaste, setzeTrainingSprache, schalteTrainingSprache, trainingSprachwahl, trainingNachricht, trainingStarte,
       eintragTitel, modusTitel, bereitAnzeige, eintragAktiv, kammerKnopfText, titelUmbruch, lobbyKopf, satzZeile, lobbyChips, chipReihen, grabenAbschnitte, laborSatz, einladungBesatzung, raumcodeEingang,
     };
   }

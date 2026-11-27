@@ -534,6 +534,13 @@
       send({ t: (P.C && P.C.LOBBY_OPT) || 'lobbyOpt', liveSpielleiter: !cur });
       audio.play('ui_click');
     },
+    // TRA-01 A2: Eingabe des Captain-Trainings (Befehlstafel/Tasten oder mit Sprache) – nur Lobby im Modus training_captain; jeder darf umschalten, der Server hält den Zustand
+    toggleTrainingSprache() {
+      const st = Client.state;
+      const cur = !!(st && st.lobby && st.lobby.trainingSprache);
+      send({ t: (P.C && P.C.LOBBY_OPT) || 'lobbyOpt', trainingSprache: !cur });
+      audio.play('ui_click');
+    },
     // AP3a: Szenario-Labor – Auswahl (↑/↓) und Parameter (R Seed, ←/→ Stärke, G god); jeder darf umschalten
     laborWahl(dir) {
       const lob = Client.state && Client.state.lobby;

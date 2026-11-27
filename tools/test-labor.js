@@ -38,8 +38,7 @@ function lobbySpiel(np, seed) {
 const ticks = (g, sek) => { const k = Math.round(sek * CONFIG.tickHz); for (let i = 0; i < k; i++) g.step(); };
 
 section('Protokoll und Schalter', () => {
-  // TRA-01 A1: die Trainingsmodi sind bis A2 (Trainingsmenü) ausgenommen; sie prüft test-training-protokoll.js
-  ok(JSON.stringify(Protocol.LOBBY_MODI.filter((m) => !/^training_/.test(m))) === JSON.stringify(['m1', 'free', 'eisenwald', 'eisenwald_ohne', 'schuld_der_lerche', 'freie_fahrt', 'm3', 'arena_away', 'arena_graben', 'arena_forschung', 'arena_space', 'labor']), 'LOBBY_MODI: Kampagne, ohne Tutorial, Eisenwald (EK8, mit/ohne Tutorial), Die Schuld der Lerche (SL1), Freie Fahrt Sund (SUND-01 B), m3, Wellen Boden, Grabenangriff (BOD-01), Forschungsstation (UEB-01), Wellen All, Labor');
+  ok(JSON.stringify(Protocol.LOBBY_MODI) === JSON.stringify(['m1', 'free', 'eisenwald', 'eisenwald_ohne', 'schuld_der_lerche', 'freie_fahrt', 'm3', 'arena_away', 'arena_graben', 'arena_forschung', 'arena_space', 'labor', 'training_fliegen', 'training_captain']), 'LOBBY_MODI: Kampagne, ohne Tutorial, Eisenwald (EK8, mit/ohne Tutorial), Die Schuld der Lerche (SL1), Freie Fahrt Sund (SUND-01 B), m3, Wellen Boden, Grabenangriff (BOD-01), Forschungsstation (UEB-01), Wellen All, Labor, Training Fliegen und Captain (TRA-01 A1/A2)');
   ok(Protocol.START_LABELS.arena_away === 'Wellen Boden' && Protocol.START_LABELS.arena_space === 'Wellen All' && Protocol.START_LABELS.labor === 'Szenario-Labor', 'Labels Wellen Boden / Wellen All / Szenario-Labor');
   ok(CONFIG.lobby && CONFIG.lobby.labor === true, 'CONFIG.lobby.labor Standard an');
   ok(Labor.an(CONFIG) && !Labor.an({ lobby: { labor: false } }), 'Labor.an folgt dem Schalter');
