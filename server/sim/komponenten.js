@@ -20,6 +20,8 @@ const MAX_DEFEKT_BROKEN = 2;
 const MINISPIEL_ART = 'R';           // TEC-01 B1: nur das Relais hat in Stufe 1 ein Reparatur-Minispiel (Leertasten-Spiel), die anderen Arten nur Flicken und Tausch
 const AUSFALL_SPERRE = 3;            // ab diesem Ausfallzähler n ist die Komponente nicht mehr reparierbar (Minispiel), nur noch Flicken und Tausch (Datum: komponenten.ausfallSperre)
 const NAMEN = { K: 'Steuerkern', S: 'Spannungsregler', R: 'Relais', L: 'Leitung' };
+const BRUCH_GRUND = 0.3;             // TEC-01 C: Bruchwahrscheinlichkeit eines frischen Flickens beim Sprung (Datum: komponenten.sprungBruch.grund)
+const BRUCH_PRO_SPRUNG = 0.1;        // und Zuschlag je überstandenem Sprung (Datum: komponenten.sprungBruch.proSprung)
 const ZAEHLT_AUSFALL = ['R', 'K'];   // Relais und Steuerkern: ein Treffer (ok -> defekt) zählt im Ausfallzähler n mit
 
 let interiorMod = null;   // Zirkelbezug interior -> komponenten: lazy
@@ -245,6 +247,42 @@ function reparierenErsteDefekte(game, sys) {
   return ziel.index != null ? setzeRepariert(game, sys, ziel, OK, false) : null;
 }
 
+// ---------- TEC-01 C: Sprungbruch der Notflicken ----------
+// Jeder Systemsprung (springeNach, Notsprung, Finale-Orbit) bricht jeden Flicken der Schildkette mit p = grund + proSprung * sp (höchstens 1; Daten: komponenten.sprungBruch).
+// Überstanden (nicht gebrochen): sp + 1. Gebrochen: Komponente wieder defekt (wie vor dem Flicken, Ausfallzähler n unverändert), sp 0. Zufall nur aus ship.kompRng, ein Wurf je Flicken.
+function sprungBruchWerte(game) {
+  const d = daten(game).sprungBruch || {};
+  const grund = Number(d.grund); const pro = Number(d.proSprung);
+  return { grund: grund >= 0 ? grund : BRUCH_GRUND, proSprung: pro >= 0 ? pro : BRUCH_PRO_SPRUNG };
+}
+// Bruchwahrscheinlichkeit eines Flickens, der sp Sprünge überstanden hat
+function sprungBruchChance(game, sp) {
+  const w = sprungBruchWerte(game);
+  return Math.min(1, w.grund + w.proSprung * Math.max(0, sp | 0));
+}
+// Ein Sprung für die ganze Schildkette. Reihenfolge fest: System laut Konfig, dann Rezeptreihenfolge. Die Nachbehandlung eines geänderten Systemzustands (Ereignis, Integrität, Zone aus, ODA)
+// ist die des Treffers (interior.sprungBruchSchaden). Rückgabe: Liste der gebrochenen Flicken [{ system, komp }].
+function sprungBruch(game) {
+  const gebrochen = [];
+  for (const sys of systeme(game)) {
+    if (!hatGeflickte(game, sys)) continue;
+    interior().sprungBruchSchaden(game, sys, (g, s) => {
+      const L = liste(g, s);
+      for (const k of L) {
+        if (k.z !== GEFLICKT) continue;
+        if (strom(g)() < sprungBruchChance(g, k.sp)) {
+          faelltAus(k); k.sp = 0;
+          gebrochen.push({ system: s, komp: k.t });
+          g.emit('flickGebrochen', { system: s, komp: k.t });
+        } else k.sp = (k.sp | 0) + 1;
+      }
+      synchronisieren(g, s);
+    });
+  }
+  if (gebrochen.length) interior().flickBruchAnsage(game, gebrochen);
+  return gebrochen;
+}
+
 // Wächter: weicht der (effektive) Systemzustand von der Ableitung ab, hat jemand ship.systems direkt geschrieben.
 // Der geschriebene Zustand gilt, die Komponenten werden daraus neu erzeugt. Rückgabe: true, wenn nachgezogen wurde.
 function konsistent(game, sys) {
@@ -326,6 +364,6 @@ function ausSpeicher(game, block) {
 
 module.exports = {
   rezept, hatKomponenten, systeme, ueberlastZiel, anlegen, erzeugeAusZustand, erzeugeAlleAusZustand, neuAufstellen, abgeleitet, synchronisieren, defekteZahl, funktionierende,
-  reparierbar, hatGeflickte, reparaturZiel, reparaturGueltig, flickenKomponente, tauschenKomponente, reparierenRelais, reparierenErsteDefekte, ausfallSperre,
+  reparierbar, hatGeflickte, sprungBruch, sprungBruchChance, name, reparaturZiel, reparaturGueltig, flickenKomponente, tauschenKomponente, reparierenRelais, reparierenErsteDefekte, ausfallSperre,
   setzeKomponente, hebeAufZustand, trefferAuf, ueberlastTreffer, konsistent, konsistentAlle, kodiere, dekodiere, snapshot, fuerSpeicher, ausSpeicher,
 };

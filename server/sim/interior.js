@@ -1131,6 +1131,18 @@ function damageSystemRoh(game, sys, toState, opts) {   // opts.quiet (keine ODA)
 function ueberlastSchaden(game, sys) {
   systemSchaden(game, sys, null, null, Komp.ueberlastTreffer);
 }
+// TEC-01 C: Sprungbruch der Notflicken eines Schildkette-Systems: bruchFn(game, sys) bricht die Flicken (Komp.sprungBruch); die Nachbehandlung ist die des Treffers
+// (Zustandswechsel, Integrität, Ereignis, Zone aus, gebündelte ODA). opts.dauer: kein Abbruch des Fracht-Beamens (der Sprung ist kein Treffer).
+function sprungBruchSchaden(game, sys, bruchFn) {
+  systemSchaden(game, sys, null, { dauer: true }, bruchFn);
+}
+// TEC-01 C: eine gebündelte ODA-Zeile für alle in einem Sprung gebrochenen Flicken [{ system, komp }]
+function flickBruchAnsage(game, gebrochen) {
+  if (!gebrochen || !gebrochen.length) return;
+  if (game.mission && typeof game.mission.isDrill === 'function' && game.mission.isDrill()) return;
+  const teile = gebrochen.map((b) => `${Komp.name(b.komp)} am ${SYS_LABEL[b.system] || b.system}`);
+  game.oda(`Notflicken gebrochen: ${teile.join(', ')}.`, null);
+}
 // Gemeinsame Schadensbehandlung (Zustandswechsel, Integrität, ODA, Ereignisse). komponentenTrefferFn(game, sys) ist der Komponententreffer, den ein Schildkette-System
 // ohne gewünschten Zielzustand nimmt; Systeme ohne Rezept und Schäden mit toState gehen wie bisher.
 function systemSchaden(game, sys, toState, opts, komponentenTrefferFn) {
@@ -1726,7 +1738,7 @@ module.exports = {
   // B1 (BODENKAMPF): gebaute Karten, Sicht/Schuss-Sperre, Deck-Links, Lift/Leiter in der Außenzone
   awayInfoOf, awaySight, awayShotBlock, awayLinks, awayDeckOf, awayLink, startAwayLift, finishAwayDeck, coverSpotsOf, kartenMap, mapFor, updatePlayers, damagePlayer, healPlayer, downPlayer, revivePlayer, placeOnShipPad,
   placeOnPlatformPad, placeOnAwayPad, dropCarry, onDrop, onAct, enterConsole, konsoleVerlassen, konsoleLoesen, interactionsAt, candidateTiles,
-  damageSystem, repairSystem, setOffline, updateOffline, addFire, removeFire, addBreach, removeBreach, randomRegionFloor, updateHazards,
+  damageSystem, sprungBruchSchaden, flickBruchAnsage, repairSystem, setOffline, updateOffline, addFire, removeFire, addBreach, removeBreach, randomRegionFloor, updateHazards,
   // SYS-01 A1a: Systemmodell (Integrität, Trefferweg, Schwächste Zone)
   integMax, integOf, setInteg, grundwert, zoneFrei, reparaturSperren, reparaturGesperrt, integAusZustand, effZustand, setzeZustand, integKonsistent, integritaetAusZustand, syncInteg, stufeAb, nachStufenHolen, direktTreffer, zerstoerenTreffer, trefferweg, imFenster, schwaechsteZone, integritaetSnapshot, zonenSnapshot, integritaetVoll,
   sysName, sysNameNom, itemName, SYSTEM_ORDER, systemAktiv, inaktiveHeilen, isDown,
