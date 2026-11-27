@@ -261,6 +261,7 @@ const KEIN_SPRUNG = [
   'welt.js:bodenStarten',                                                                  // Boden-Start (Freie Fahrt)
   'arena.js:startSpace', 'arena.js:startWellenAll', 'arena.js:startAwayBuehne', 'arena.js:bodenSzene',   // Testgelände
   'mission.js:startDirect',                                                                // Szenenstart einer Direktstart-Mission
+  'training.js:ausgangszustand',                                                             // Start einer Trainingsübung (frischer Zustand, kein Sprung)
   'weltstand.js:apply',                                                                    // Weltstand laden
   'kriegslage-szene.js:finaleStarten',                                                     // Rückbau, wenn der Finale-Aufbau scheitert (zurück an den alten Ort)
 ];
