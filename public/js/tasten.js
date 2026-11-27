@@ -169,6 +169,7 @@
     A('captain.bot.feuerFrei', 'captain', 'Bots: Feuer frei (Ops)', ['Shift+KeyF']),
     A('captain.bot.feuerHalt', 'captain', 'Bots: Feuer einstellen (Ops)', ['Shift+KeyG']),
     A('captain.bot.status', 'captain', 'Bots: Statusbericht (alle)', ['Shift+KeyS']),
+    A('captain.bot.sprung', 'captain', 'Bots: Sprung zum gewählten Ziel (Navigation)', ['Shift+KeyJ']),
     A('captain.befehl.q', 'captain', 'Befehlstafel: Feld oben links (Q)', ['KeyQ'], 'captain.befehl'),
     A('captain.befehl.w', 'captain', 'Befehlstafel: Feld oben Mitte (W)', ['KeyW'], 'captain.befehl'),
     A('captain.befehl.e', 'captain', 'Befehlstafel: Feld oben rechts (E)', ['KeyE'], 'captain.befehl'),

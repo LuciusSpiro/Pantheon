@@ -66,6 +66,18 @@
     }
     return null;
   }
+  // Zusatz-Einträge der Tafel: gültige Befehle, die NICHT im Kanon stehen, weil sie nicht sprechbar sind (Vertrag Bot-Befehle: nav.sprung nur Menü/Taste, nie Sprache).
+  // Gleiche Form wie ein Kanon-Eintrag (befehl, an, args, anzeige, kurz), plus nichtSprechbar. Matcher, Sprechfamilie und Kanon kennen sie nicht; sprachBefehl/eintragFuerArgs sehen sie nie.
+  // Der Server (annahme.js) prüft ziel=marke gegen das vom Captain gewählte Sprungziel (kein_ziel ohne).
+  const MENUE_ZUSATZ = [
+    { befehl: 'nav.sprung', an: 'navigation', args: { ziel: 'marke' }, anzeige: 'Sprung (gewähltes Ziel)', kurz: ['Sprung'], nichtSprechbar: true },
+  ];
+  function indexMitZusatz(kanon) {
+    const m = indexVon(kanon);
+    if (m.size === 0) return m;   // Kanon noch nicht geladen: Tafel bleibt „laedt“
+    for (const e of MENUE_ZUSATZ) m.set(schluesselVon(e), e);
+    return m;
+  }
   const zahlWert = (v) => (/^(?:0|[1-9]\d{0,5})$/.test(String(v)) ? Number(v) : v);
 
   // ------------------------------------------------------------------ Kern
@@ -78,14 +90,14 @@
     const grundText = (grund, rolle) => fuellen(TX.grundLang[grund] || TX.grund[grund] || '', { rolle: TX.rolleAn ? TX.rolleAn[rolle] : null });
     const kappe = (id) => { try { return env.kappe ? env.kappe(id) : ''; } catch (e) { return ''; } };
     const stationVon = env.stationVon || ((p) => (p && p.console ? (p.station || p.console) : null));
-    let index = indexVon(env.kanon);
+    let index = indexMitZusatz(env.kanon);
     let befehlEintrag = new Map(); for (const e of index.values()) if (!befehlEintrag.has(e.befehl)) befehlEintrag.set(e.befehl, e);
     const s = { offen: false, stufe: 1, rolle: null, key: null, seite: 0, letzte: 0, frage: null, grund: null, quittung: null, gilt: {}, botsN: 0, aktiv: false, ausstehend: [], botRolle: {} };
     const rollen = {}; for (const r of ROLLEN) rollen[r] = { bot: false, mensch: false };
     const LEER = [];
 
     function setzeKanon(k) {
-      index = indexVon(k);
+      index = indexMitZusatz(k);
       befehlEintrag = new Map(); for (const e of index.values()) if (!befehlEintrag.has(e.befehl)) befehlEintrag.set(e.befehl, e);
     }
     const geladen = () => index.size > 0;
@@ -201,7 +213,7 @@
       if (!msg || msg.t !== befehlTyp || typeof msg.befehl !== 'string') return null;
       const f = eintragFuerArgs(msg.befehl, msg.args, index);
       const e = f ? f.e : befehlEintrag.get(msg.befehl);
-      if (!e) return null;
+      if (!e || e.nichtSprechbar) return null;   // nav.sprung (Zusatz-Eintrag): nie per Sprache oder Text
       const botRolle = msg.befehl.indexOf('bot.') === 0 && typeof msg.an === 'string' ? s.botRolle[msg.an] : null;   // bot.status an eine botId: die Rolle dieses Bots, wenn schon bekannt
       const an = typeof msg.an === 'string' && (msg.an === 'alle' || ROLLEN.indexOf(msg.an) >= 0) ? msg.an : botRolle || e.an;   // botId ('b0'): die Rolle des Befehls
       const gilt = f ? { key: schluesselVon(f.e), wert: f.wert, sprech: sprechform(f.e, f.wert) } : null;
@@ -218,7 +230,7 @@
     // Direkttaste (Aktion in tasten.js; quelle 'taste', beim Klick auf den Knopf der Crew-Zeile 'menu'): { ok, grund? }
     function taste(aktionId, quelle) {
       aktualisiere();
-      const d = LAGE.direkt.find((x) => x.aktion === aktionId);
+      const d = LAGE.direkt.concat(LAGE.direktOhneKnopf || LEER).find((x) => x.aktion === aktionId);
       const e = d ? index.get(d.key) : null;
       if (!e) return { ok: false };
       if (s.botsN === 0) { verweigere(grundText('keineBots')); return { ok: false, grund: 'keineBots' }; }
@@ -341,7 +353,7 @@
         if (ist('captain.befehl.weiter')) return { geschluckt: true, ton: blaettern() };
         if (ist('captain.befehl.zurueck') || ist('captain.befehl')) return { geschluckt: true, ton: zurueck() };
       } else if (ist('captain.befehl')) return { geschluckt: true, ton: oeffnen() };
-      for (const d of LAGE.direkt) if (ist(d.aktion)) return { geschluckt: true, ton: taste(d.aktion).ok };   // Direkttasten: immer geschluckt, der Reiter-Zweig kennt kein Shift
+      for (const d of LAGE.direkt.concat(LAGE.direktOhneKnopf || LEER)) if (ist(d.aktion)) return { geschluckt: true, ton: taste(d.aktion).ok };   // Direkttasten: immer geschluckt, der Reiter-Zweig kennt kein Shift
       return { geschluckt: s.offen, ton: false };
     }
     // Esc: Wiederholung (gehaltene Taste) tut nichts, solange Bots da sind; ein neuer Druck schließt die offene Tafel. true = Esc ist verbraucht, false = die Konsole darf verlassen werden.
@@ -411,5 +423,5 @@
     };
   }
 
-  return { erzeuge, eintragFuerArgs, schluesselVon, platzVon, indexVon, sprechform, kuerzeste, fuellen };
+  return { erzeuge, MENUE_ZUSATZ, eintragFuerArgs, schluesselVon, platzVon, indexVon, sprechform, kuerzeste, fuellen };
 });

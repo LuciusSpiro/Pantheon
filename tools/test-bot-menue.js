@@ -88,14 +88,16 @@ function bauePult(skin, ship) {
   const index = BM.indexVon(KANON);
   const keys = KANON.befehle.map(BM.schluesselVon);
   ok(index.size === KANON.befehle.length && new Set(keys).size === keys.length, 'Schlüssel der Kanon-Einträge eindeutig (' + keys.length + ')');
+  const zIdx = new Map(BM.MENUE_ZUSATZ.map((e) => [BM.schluesselVon(e), e]));   // TRA-01 C3: nicht sprechbare Zusatz-Einträge der Tafel (nav.sprung), nicht im Kanon
+  const platzHat = (k) => index.has(k) || zIdx.has(k), platzEintrag = (k) => index.get(k) || zIdx.get(k);
   const st2 = []; for (const r of Object.keys(TK.LAGE.stufe2)) for (const [f, k] of Object.entries(TK.LAGE.stufe2[r])) st2.push({ r, f, k });
   ok(TK.FELDER.length === 9 && new Set(TK.FELDER).size === 9, '3x3 Felder Q W E A S D Y X C');
   ok(st2.every((x) => TK.FELDER.includes(x.f)), 'Stufe 2: nur gültige Felder');
   const gezaehlt = {}; for (const x of st2) gezaehlt[x.k] = (gezaehlt[x.k] || 0) + 1;
-  ok(keys.every((k) => gezaehlt[k] === 1), 'jeder Kanon-Eintrag hat genau einen Platz in Stufe 2' + keys.filter((k) => gezaehlt[k] !== 1).map((k) => ' · ' + k).join(''));
-  ok(st2.every((x) => index.has(x.k)), 'jeder Platz zeigt auf einen Kanon-Eintrag' + st2.filter((x) => !index.has(x.k)).map((x) => ' · ' + x.k).join(''));
-  ok(st2.every((x) => index.get(x.k).an === x.r || (x.r === 'alle' && index.get(x.k).an === 'alle')), 'jede Rolle nur mit Befehlen ihres Kanon-Feldes an');
-  ok(!KANON.befehle.some((e) => e.befehl === 'nav.sprung') && !st2.some((x) => /sprung/.test(x.k)), 'nav.sprung kommt nicht ins Menü');
+  ok(keys.concat([...zIdx.keys()]).every((k) => gezaehlt[k] === 1), 'jeder Kanon- und Zusatz-Eintrag hat genau einen Platz in Stufe 2' + keys.filter((k) => gezaehlt[k] !== 1).map((k) => ' · ' + k).join(''));
+  ok(st2.every((x) => platzHat(x.k)), 'jeder Platz zeigt auf einen Kanon- oder Zusatz-Eintrag' + st2.filter((x) => !platzHat(x.k)).map((x) => ' · ' + x.k).join(''));
+  ok(st2.every((x) => platzEintrag(x.k).an === x.r || (x.r === 'alle' && platzEintrag(x.k).an === 'alle')), 'jede Rolle nur mit Befehlen ihres Kanon-Feldes an');
+  ok(!KANON.befehle.some((e) => e.befehl === 'nav.sprung') && st2.filter((x) => /sprung/.test(x.k)).length === 1 && zIdx.has('nav.sprung:ziel=marke'), 'nav.sprung steht nur als Zusatz-Eintrag in der Tafel (TRA-01 C3, Details tools/test-bot-menue-sprung.js), nie im Kanon');
   ok(Object.keys(TK.LAGE.stufe2).every((r) => Object.keys(TK.LAGE.stufe2[r]).length === new Set(Object.keys(TK.LAGE.stufe2[r])).size), 'kein Feld doppelt je Tabelle');
   // Werte (Stufe 3)
   const mitPlatz = KANON.befehle.filter((e) => platz(e));
@@ -239,7 +241,7 @@ function bauePult(skin, ship) {
     };
     for (const [rolle, tab] of Object.entries(TK.LAGE.stufe2)) {
       for (const [f, key] of Object.entries(tab)) {
-        const e = index.get(key), p = platz(e);
+        const e = platzEintrag(key), p = platz(e);
         if (key === 'tech.ueberladen') continue;   // fragt nach (eigener Test)
         if (!p) {
           x.m.oeffnen(); x.m.waehle(rollenFeld[rolle]); const vor = x.L.senden.length; const r = x.m.waehle(f);
@@ -261,10 +263,10 @@ function bauePult(skin, ship) {
       }
     }
     // Zähler der Erwartung: Felder ohne Wert + alle Werte (ohne tech.ueberladen)
-    const sollAnzahl = KANON.befehle.filter((e) => e.befehl !== 'tech.ueberladen').reduce((a, e) => a + (platz(e) ? Object.keys(platz(e).werte).length : 1), 0);
+    const sollAnzahl = KANON.befehle.filter((e) => e.befehl !== 'tech.ueberladen').reduce((a, e) => a + (platz(e) ? Object.keys(platz(e).werte).length : 1), 0) + BM.MENUE_ZUSATZ.length;   // + Zusatz-Einträge (TRA-01 C3)
     ok(falsch.length === 0, 'jedes Menüfeld sendet genau die erwartete bot.befehl' + falsch.slice(0, 3).map((s) => '\n         ' + s).join(''));
-    ok(anzahl === sollAnzahl, 'alle Befehle und Werte des Kanons sind per Menü erreichbar (' + anzahl + ' von ' + sollAnzahl + ')');
-    ok(x.L.senden.every((m) => m.t === 'bot.befehl' && m.quelle === 'menu' && ['navigation', 'ops', 'technik', 'bord', 'alle'].includes(m.an) && !/sprung/.test(m.befehl)), 'alle Nachrichten: t bot.befehl, quelle menu, an Rolle oder alle, nie nav.sprung');
+    ok(anzahl === sollAnzahl, 'alle Befehle und Werte des Kanons (+ Zusatz-Einträge) sind per Menü erreichbar (' + anzahl + ' von ' + sollAnzahl + ')');
+    ok(x.L.senden.every((m) => m.t === 'bot.befehl' && m.quelle === 'menu' && ['navigation', 'ops', 'technik', 'bord', 'alle'].includes(m.an) && (!/sprung/.test(m.befehl) || (m.befehl === 'nav.sprung' && m.an === 'navigation' && JSON.stringify(m.args) === '{"ziel":"marke"}'))), 'alle Nachrichten: t bot.befehl, quelle menu, an Rolle oder alle, nav.sprung nur mit ziel marke an navigation');
     ok(Protocol.C.BOT_BEFEHL === 'bot.befehl' && Protocol.C.BOT_ANTWORT === 'bot.antwort', 'Protokollkonstanten BOT_BEFEHL / BOT_ANTWORT');
     // Schubstufen als Wort (BOT-01 D: rueckwaerts, viertel, halb, dreiviertel, voll)
     x.m.oeffnen(); x.m.waehle('Q'); x.m.waehle('E'); x.m.waehle('S');

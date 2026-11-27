@@ -67,7 +67,7 @@
     station: { navigation: 'helm', ops: 'weapons', technik: 'technik' },   // Rolle -> Konsole; sitzt dort ein Mensch, wartet der Bot
     stufe1: { Q: 'navigation', W: 'ops', E: 'technik', A: 'bord', S: 'alle' },
     stufe2: {
-      navigation: { Q: 'nav.stopp', W: 'nav.ausweichen', E: 'nav.schub:stufe', A: 'nav.kurs:ziel', S: 'nav.abstand', D: 'nav.abstand:ziel', Y: 'nav.andocken' },
+      navigation: { Q: 'nav.stopp', W: 'nav.ausweichen', E: 'nav.schub:stufe', A: 'nav.kurs:ziel', S: 'nav.abstand', D: 'nav.abstand:ziel', Y: 'nav.andocken', X: 'nav.sprung:ziel=marke' },
       ops: { Q: 'ops.feuer_frei', W: 'ops.feuer_halt', E: 'ops.feuer_frei:waffen', A: 'ops.ziel:ziel=naechstes', S: 'ops.ziel:ziel=markiert', D: 'ops.scan', Y: 'ops.landescan', X: 'ops.beamen:was' },
       technik: { Q: 'tech.schild:sektor', W: 'tech.energie:delta=1', E: 'tech.energie:delta=-1', A: 'tech.reparieren:system', S: 'tech.prio:ziel', D: 'tech.ueberladen' },
       bord: { Q: 'bord.sensor', W: 'bord.kuppel', E: 'bord.rueckholen' },
@@ -102,11 +102,15 @@
       { aktion: 'captain.bot.feuerHalt', key: 'ops.feuer_halt', fn: 'weapon' },
       { aktion: 'captain.bot.status', key: 'bot.status', fn: 'sensor' },
     ],
+    // TRA-01 C3: Direkttasten ohne Knopf in der Crew-Zeile (6 Knöpfe füllen die 572 px). Der Eintrag liegt in BotMenue.MENUE_ZUSATZ (nicht sprechbar, nicht im Kanon).
+    direktOhneKnopf: [
+      { aktion: 'captain.bot.sprung', key: 'nav.sprung:ziel=marke' },
+    ],
   };
 
   // Funktionsfarbe je Befehl (Schlüssel in Pult.FN): derselbe Befehl sieht an jedem Pult gleich aus
   const FN_BEFEHL = {
-    'nav.kurs': 'nav', 'nav.stopp': 'weapon', 'nav.schub': 'drive', 'nav.ausweichen': 'drive', 'nav.abstand': 'nav', 'nav.andocken': 'nav',
+    'nav.kurs': 'nav', 'nav.stopp': 'weapon', 'nav.schub': 'drive', 'nav.ausweichen': 'drive', 'nav.abstand': 'nav', 'nav.andocken': 'nav', 'nav.sprung': 'nav',
     'ops.ziel': 'sensor', 'ops.feuer_frei': 'weapon', 'ops.feuer_halt': 'weapon', 'ops.scan': 'sensor', 'ops.landescan': 'sensor', 'ops.beamen': 'neutral',
     'tech.prio': 'neutral', 'tech.reparieren': 'neutral', 'tech.schild': 'shield', 'tech.energie': 'shield', 'tech.ueberladen': 'weapon',
     'bord.rueckholen': 'neutral', 'bord.sensor': 'sensor', 'bord.kuppel': 'shield',
