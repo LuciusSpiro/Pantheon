@@ -71,6 +71,7 @@ const Entschl = require('./sim/entschluesseln.js');   // SL5: Signal entschlüss
 const SimSzene = require('./sim/kriegslage-szene.js');   // SUND-02a A2: Sim-Szene (Freie Fahrt Sund, game.simSzene)
 const Flotte = require('./sim/flotte.js');   // EK4: Verbündete, Befehle des Legaten, Wellen (game.flotte, Snapshot flotte)
 const arena = require('./sim/arena.js');
+const Training = require('./sim/training.js');   // TRA-01 A1: Tabelle der Trainingsmodi
 const Labor = require('./mission/labor.js');   // AP3a: Szenario-Labor (Lobby-Modus 'labor')
 const shop = require('./sim/shop.js');
 const Preise = require('./sim/preise.js');   // SUND-03b P: Preisfaktor der Verbrauchsgüter im Terminal
@@ -223,7 +224,7 @@ class Game {
     this.telemetrie = new Telemetrie(this);   // TEL-01 A: vor reset() (reset beendet eine offene Session)
     this.mitschnitt = Mitschnitt.an(this) ? new Mitschnitt(this) : null;   // MIT-01 A: reiner Beobachter, ohne MITSCHNITT=1 null (jeder Haken: game.mitschnitt && …)
     this.roomCode = typeof o.roomCode === 'string' && o.roomCode ? o.roomCode.toUpperCase() : null;
-    this.lobbyOpts = { skipDrill: false, liveSpielleiter: false, startMission: 'm1', world: null, arena: null, wellen: null,   // wellen: Kartenwahl Bodenkampf: Wellen
+    this.lobbyOpts = { skipDrill: false, liveSpielleiter: false, trainingSprache: false, startMission: 'm1', world: null, arena: null, wellen: null,   // wellen: Kartenwahl Bodenkampf: Wellen
       szene: null,   // W2 AP3b: Szenenwahl Wellen All (CONFIG.arena.szenen); null = Altweg Testgelände Raumkampf
       graben: null,   // BOD-01: Variantenwahl Grabenangriff { abschnitt: variante } (null = Standard der Karte)
       labor: { id: null, seed: null, staerke: null, god: false } };   // AP3a: Szenario-Labor (Auswahl und Parameter)
@@ -463,6 +464,7 @@ class Game {
     // QA-Abnahme S1: den gerade gespielten Stand in der Lobby vorauswählen (statt „Neu: Kampagne“), sofern er in der Liste ok ist
     this.lobbyOpts.world = prevWorld && this.worldList.some((w) => w.id === prevWorld && w.state === 'ok') ? prevWorld : null;
     this.lobbyOpts.liveSpielleiter = false;   // FRE-01 B: live gilt für eine Partie, nicht für die nächste
+    this.lobbyOpts.trainingSprache = false;   // TRA-01 A1: ebenso die Sprachwahl des Captain-Trainings
     for (const q of this.players) q.ready = Crew.istBot(q);   // Bots sind immer bereit (Snapshot und Zustand stimmen überein)
     BotSpieler.botsNachLetztemMenschenRaeumen(this);   // BOT-01 B2: eine Lobby ohne verbundenen Menschen behält keine Bots für die nächste Gruppe
   }
@@ -691,7 +693,7 @@ class Game {
       this.raeumeKarte(p);   // die ID wird neu vergeben, die Mitspieler räumen die alte Karte
       this.players = this.players.filter((o) => o !== p);
       BotSpieler.botsNachLetztemMenschenRaeumen(this);   // BOT-01 B2: eine Lobby ohne Mensch ist leer
-      if (!this.players.length) this.lobbyOpts.liveSpielleiter = false;   // FRE-01 Nacharbeit W1: leere Lobby, die nächste Gruppe entscheidet neu
+      if (!this.players.length) { this.lobbyOpts.liveSpielleiter = false; this.lobbyOpts.trainingSprache = false; }   // FRE-01 Nacharbeit W1: leere Lobby, die nächste Gruppe entscheidet neu
       this.telemetrie.spielerWeg(p.id);   // TEL-01 A: nur Slot und Zahl; vor checkLobbyStart, sonst landet der Abgang als Phantom in der gerade begonnenen Session
       this.checkLobbyStart();
     } else {
@@ -743,6 +745,7 @@ class Game {
           // M2: Direktstart der Planetenmission (CONTRACT-M2 §3.3)
           if (this.phase === 'lobby' && this.startModi().includes(msg.startMission) && msg.startMission !== this.lobbyOpts.startMission) {
             this.lobbyOpts.startMission = msg.startMission;
+            if (!Training.hatSprachwahl(msg.startMission)) this.lobbyOpts.trainingSprache = false;   // TRA-01 A1: Sprachwahl gilt nur für das Captain-Training
             if (msg.startMission !== Kriegslage.MODUS) this.lobbyOpts.liveSpielleiter = false;   // FRE-01 B: Wechsel weg von der Freien Fahrt setzt die Kostenentscheidung zurück
             this.log(`${p.name}: Start ${(Protocol.START_LABELS && Protocol.START_LABELS[msg.startMission]) || msg.startMission}.`);
           } else if (this.phase === 'lobby' && msg.startMission === 'labor' && !Labor.an(this.C)) this.notice(p, 'Das Szenario-Labor ist auf diesem Server aus.');
@@ -794,6 +797,12 @@ class Game {
             && this.lobbyOpts.startMission === Kriegslage.MODUS && !this.lobbyOpts.world) {
             this.lobbyOpts.liveSpielleiter = msg.liveSpielleiter;
             this.log(`${p.name}: Live-Spielleiter ${msg.liveSpielleiter ? 'an (echter Claude)' : 'aus'}.`);
+          }
+          // TRA-01 A1: Sprachwahl des Captain-Trainings – nur Lobby, nur Modi mit Sprachwahl (training_captain), jeder darf umschalten (nach dem Modus verarbeitet)
+          if (this.phase === 'lobby' && typeof msg.trainingSprache === 'boolean' && msg.trainingSprache !== this.lobbyOpts.trainingSprache
+            && Training.hatSprachwahl(this.lobbyOpts.startMission)) {
+            this.lobbyOpts.trainingSprache = msg.trainingSprache;
+            this.log(`${p.name}: Training Captain ${msg.trainingSprache ? 'mit Sprache' : 'ohne Sprache'}.`);
           }
           break;
         case C.LOBBY_BOT: BotSpieler.lobbyBotBefehl(this, p, msg); break;   // BOT-01 B2: nur Lobby, die Prüfung steht in den Funktionen
@@ -2385,6 +2394,7 @@ class Game {
       lobby: this.phase === 'lobby'
         ? { skipDrill: this.lobbyOpts.skipDrill, startMission: this.lobbyOpts.startMission,   // S1 §6: Weltstände nur in der Lobby
           ...(this.lobbyOpts.startMission === Kriegslage.MODUS ? { liveSpielleiter: this.lobbyOpts.liveSpielleiter === true } : {}),   // FRE-01 B: nur in der Freien Fahrt
+          ...(Training.hatSprachwahl(this.lobbyOpts.startMission) ? { trainingSprache: this.lobbyOpts.trainingSprache === true } : {}),   // TRA-01 A1: nur im Captain-Training (Lobby-Snapshot, nicht der Spiel-Snapshot)
           worlds: this.worldList, world: this.lobbyOpts.world || null, worldsFull: this.worldsEnabled && this.worldList.length >= this.worldMax(),
           ...(this.lobbyOpts.arena ? { arena: this.lobbyOpts.arena } : {}),   // B1 §4: gewählte Testgelände-Karte
           ...(this.lobbyOpts.wellen ? { wellen: this.lobbyOpts.wellen } : {}),   // Bodenkampf: Wellen – Kartenwahl

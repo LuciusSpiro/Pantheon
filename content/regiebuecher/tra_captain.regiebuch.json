@@ -1,0 +1,48 @@
+{
+  "$schema": "../regiebuch/regiebuch.schema.json",
+  "_kommentar": "TRA-01 A1: Platzhalter-Buch des Trainingsmodus training_captain (kopf.art intern: nie im Angebotsbrett, nie in der Kampagne). Rahmen und Start stehen in server/sim/training.js (Tabelle TRAININGSMODI); der Inhalt (Ziele, Hinweise) ersetzt dieses Buch in einem späteren Paket.",
+  "format": "regiebuch/1",
+  "id": "tra_captain",
+
+  "kopf": {
+    "titel": "Training Captain",
+    "art": "intern",
+    "auftraggeber": "tesk",
+    "zielspieldauer_min": 1,
+    "feldzug": null
+  },
+
+  "erwartet": { "trainingFertig": false },
+
+  "buch": {
+    "von": [{ "npc": "tesk" }],
+    "briefing": "@buch.briefing",
+    "belohnung": "@buch.belohnung"
+  },
+
+  "buehne": { "orte": ["hafen"] },
+
+  "steps": [
+    {
+      "id": "platzhalter",
+      "timers": [
+        { "at": 60, "oda": "@hinweis.platzhalter", "garantie": "hinweis" }
+      ],
+      "objectives": [
+        { "id": "platzhalter", "text": "@ziel.platzhalter", "done": { "flag": "trainingFertig" } }
+      ]
+    }
+  ],
+
+  "ausgaenge": {
+    "erfolg": { "beschreibung": "Training geschafft (Platzhalter: nur von Tests ausgelöst).", "folgen": [] },
+    "verloren": { "beschreibung": "Training abgebrochen (Platzhalter: nur von Tests ausgelöst).", "folgen": [] }
+  },
+
+  "texte": {
+    "buch.briefing": "Training Captain.",
+    "buch.belohnung": "keine",
+    "ziel.platzhalter": "Platzhalter",
+    "hinweis.platzhalter": "Hier folgt das Training."
+  }
+}

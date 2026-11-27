@@ -8,6 +8,7 @@
 // Ein Schritt (step) hat: enter, timers, rules, objectives, next, jumpBlock, choices, scan, onAccept, on, allowBeam, skip,
 // drill, wiederaufnahme.
 const Geld = require('./geld.js');   // TEL-01 G: Marken nur über den Buchungsdienst
+const Training = require('./training.js');   // TRA-01 A1: Tabelle der Trainingsmodi (CONSOLE_HELP unterdrückt)
 const Crew = require('./crew.js');   // BOT-01 A2: Zählung über crew.js (Köpfe/Verbundene)
 const Tel = require('../telemetrie/gefecht.js');   // TEL-01 B1: szene_start / szene_ende (nur lesen)
 const path = require('path');
@@ -1160,7 +1161,7 @@ class Mission {
     } finally { this.ev = null; }
     // allgemeine ODA-Kommentare
     switch (name) {
-      case 'consoleEnter': { if (CONSOLE_HELP[data.kind]) g.oda(CONSOLE_HELP[data.kind], 'console_' + data.kind); break; }
+      case 'consoleEnter': { if (CONSOLE_HELP[data.kind] && !Training.consoleHelpAus(g)) g.oda(CONSOLE_HELP[data.kind], 'console_' + data.kind); break; }
       case 'undocked': g.oda('Abgelegt! Sanft wie eine Feder. Eine ziemlich schwere Feder.', 'undocked'); break;
       case 'docked': if (data.loc === 'vaelen') g.oda('Angedockt bei der Karawane! Die Handelskonsole im Meetingraum (Oberdeck) zeigt jetzt das Vaelen-Sortiment.', 'dockVaelen'); break;
       case 'jumpReady': g.oda('Faltsprung bereit – Steuer: F drücken!', 'jumpReady_' + (this.state.stage || 'free') + '_' + g.ship.scene); break;

@@ -10,6 +10,7 @@
 //
 // Ereignistypen und Felder stehen in schema.js (eine Stelle, die Auswertung liest nur das).
 
+const Training = require('../sim/training.js');   // TRA-01 A1: Modus-Namen der Trainingsmodi
 const Crew = require('../sim/crew.js');   // BOT-01 A1
 const Haken = require('./haken.js');   // inDeckung: der eine Rechenweg fuer die Deckung (Roh-Zustand siehe dort)
 
@@ -80,7 +81,7 @@ function szeneEnde(game, modus, szene, ausgang, extra) {
 function modusMission(game) {
   const a = game.arena;
   if (a && a.wellen) return null;
-  if (a) return a.kind === 'arena_away' ? 'arena_boden' : a.kind === 'arena_forschung' ? 'arena_forschung' : 'arena_raum';   // TEL-01 M2: Übungsplatz Forschungsstation (UEB-01) ist weder Raum- noch Bodenkampf
+  if (a) return a.kind === 'arena_away' ? 'arena_boden' : a.kind === 'arena_forschung' ? 'arena_forschung' : Training.istTraining(a.kind) ? a.kind : 'arena_raum';   // TEL-01 M2: Übungsplatz Forschungsstation (UEB-01) ist weder Raum- noch Bodenkampf
   return game.lobbyOpts && game.lobbyOpts.startMission === 'labor' ? 'labor' : 'kampagne';
 }
 function missionStart(game, id) { const m = modusMission(game); if (m) szeneStart(game, m, id); }

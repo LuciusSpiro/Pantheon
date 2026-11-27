@@ -21,18 +21,21 @@ const Tel = require('../telemetrie/gefecht.js');   // TEL-01 B1: Grund fuer gegn
 const away = require('./away.js');
 
 const TAG = 'arena';
-const KINDS = ['arena_space', 'arena_away', 'arena_graben', 'arena_forschung'];
+const Training = require('./training.js');   // TRA-01 A1: Tabelle der Trainingsmodi (lädt nichts Schweres beim Start)
+const KINDS = ['arena_space', 'arena_away', 'arena_graben', 'arena_forschung', ...Training.KINDS];
 const ENEMY_NAMES = { raider: 'Jäger', korvette: 'Korvette', fregatte: 'Fregatte', kreuzer: 'Kreuzer', sentinel: 'Kustoden-Wächter', pylon: 'Pylon', relay: 'Störrelais' };
 
 function isArena(kind) { return KINDS.includes(kind); }
 // Übungsszenen sind Testgelände-Modi, aber KEINE Testumgebung: kein Testgeld, Werft nur wie in der Kampagne (angedockt an Flottenbasen)
-function istUebungsszene(kind) { return kind === 'arena_forschung'; }
+function istUebungsszene(kind) { return kind === 'arena_forschung' || Training.istTraining(kind); }
+function istTraining(kind) { return Training.istTraining(kind); }   // TRA-01 A1
 function cfg(game) { return game.C.arena; }
 
 // opts.wellen = Kartenwahl (Protocol.WELLEN_KARTEN) -> Bodenkampf: Wellen; ohne: Altweg (Kesh/m3-Hof bzw. statische Karte)
 // opts.szene = Szenenwahl Wellen All (CONFIG.arena.szenen) -> Wellen im Raum; ohne: Altweg (feste Wellen zyklisch)
 function start(game, kind, params, opts) {
   if (kind === 'arena_graben') return startGraben(game, opts && opts.graben);
+  if (Training.istTraining(kind)) return Training.start(game, kind);   // TRA-01 A1: Trainingsmodi, Tabelle in training.js
   if (kind === 'arena_forschung') return require('./uebung-forschung.js').start(game);   // UEB-01: Forschungsstation direkt (Buch sl_forschung)
   const wk = opts && opts.wellen;
   if (kind === 'arena_away' && wk) return startWellen(game, wk, params);
@@ -345,7 +348,8 @@ function startWellen(game, karte, params) {
 
 function update(game, dt) {
   if (!game.arena) return;
-  if (game.arena.kind === 'arena_forschung') require('./uebung-forschung.js').update(game);   // UEB-01
+  if (Training.istTraining(game.arena.kind)) Training.update(game);   // TRA-01 A1
+  else if (game.arena.kind === 'arena_forschung') require('./uebung-forschung.js').update(game);   // UEB-01
   else if (game.arena.wellen) { require('./wellen.js').update(game, dt); wellenZiel(game); }   // Wellen Boden und Wellen All
   else if (game.arena.kind === 'arena_space') updateSpace(game);
 }
@@ -367,4 +371,4 @@ function wellenZiel(game) {
 }
 function wellenSnap(game) { return game.arena && game.arena.wellen ? require('./wellen.js').snap(game) : null; }
 
-module.exports = { KINDS, TAG, isArena, istUebungsszene, start, update, objectiveText, skipWave, spawnWave, besideConsole, placeOnBridge, repairShip, wellenSnap, KARTEN_WELLEN, szenen, szeneDef };
+module.exports = { KINDS, TAG, isArena, istUebungsszene, istTraining, start, update, objectiveText, skipWave, spawnWave, besideConsole, placeOnBridge, repairShip, wellenSnap, KARTEN_WELLEN, szenen, szeneDef };

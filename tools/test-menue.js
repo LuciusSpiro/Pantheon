@@ -17,6 +17,9 @@ const fs = require('fs');
 const os = require('os');
 const path = require('path');
 const Protocol = require('../shared/protocol.js');
+// TRA-01 A1: die Trainingsmodi sind in LOBBY_MODI, aber noch nicht im Hauptmenü; sie sind bis A2 nur über die Unterseite erreichbar (A2: Trainingsmenü).
+const TRAINING_MODI = ['training_fliegen', 'training_captain'];
+const MENUE_MODI = Protocol.LOBBY_MODI.filter((m) => !TRAINING_MODI.includes(m));
 const CONFIG = require('../shared/config.js');
 const { Game } = require('../server/game.js');
 const QUELLE = path.join(__dirname, '..', 'public', 'js', 'menue.js');
@@ -60,7 +63,7 @@ function pruefe(api, laut) {
   const p = (c, msg) => { if (laut) ok(c, msg); else if (!c) schlecht++; };
 
   // ---- 1 Gruppierung
-  { const modi = api.zugeordneteModi(), soll = Protocol.LOBBY_MODI.slice().sort();
+  { const modi = api.zugeordneteModi(), soll = MENUE_MODI.slice().sort();   // A2: Trainingsmenü (Trainingsmodi bis dahin ausgenommen)
     p(gleich(modi.slice().sort(), soll), 'jeder Modus aus LOBBY_MODI gehört genau einem Eintrag (' + modi.length + ' von ' + soll.length + ')');
     p(new Set(modi).size === modi.length, 'kein Modus doppelt zugeordnet');
     const fremde = modi.filter((m) => !Protocol.LOBBY_MODI.includes(m));
@@ -129,7 +132,7 @@ function pruefe(api, laut) {
     p(gleich(msgs.fortsetzen, { t: 'lobbyOpt', world: 'w2' }), 'Fortsetzen sendet nur den Weltstand');
     p(F.nachrichtFuer(F.eintragMitId('fortsetzen'), LOB) === null, 'Fortsetzen ohne Weltstand: keine Nachricht');
     // der echte Server nimmt sie an
-    const alle = Protocol.LOBBY_MODI, gesehen = new Set();
+    const alle = MENUE_MODI, gesehen = new Set();   // A2: Trainingsmenü
     for (const e of F.sichtbar(lob).filter((x) => !x.fortsetzen)) {
       for (const tutorial of e.tutorial ? [true, false] : [true]) {
         const t2 = neu(api, { debug: true }); t2.F.lies().tutorial = tutorial;

@@ -13,12 +13,13 @@
 //   SYS-01 A2b: der Tod bleibt gelatcht (game.zerstoertOffen, bis die Partie in der Lobby ist): Szene von vorn und Sprung setzen den Zerstört-Flag nicht zurück.
 // Sitzungszustand: Countdown und Zähler stehen nicht im Weltstand (der speichert nur die Systemzustände).
 const interior = require('./interior.js');
+const Training = require('./training.js');   // TRA-01 A1: im Training gilt kein Tod
 const Tel = require('../telemetrie/gefecht.js');   // TEL-01 B1: schiff_zerstoert (nur lesen)
 
 function cfg(game) { return game.C.reaktorTod; }
 function gilt(game) {
   const m = game.mission;
-  return !(m && typeof m.isDrill === 'function' && m.isDrill()) && !game.god && game.phase !== 'end';   // SYS-01 A2 Nacharbeit: in der Phase end (Partie vorbei) kein Tod mehr
+  return !(m && typeof m.isDrill === 'function' && m.isDrill()) && !game.god && game.phase !== 'end' && !Training.laeuft(game);   // TRA-01 A1: im Training kein Reaktor-Tod   // SYS-01 A2 Nacharbeit: in der Phase end (Partie vorbei) kein Tod mehr
 }
 function dauer(game, n) {
   const C = cfg(game);

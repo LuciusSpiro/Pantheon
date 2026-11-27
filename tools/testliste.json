@@ -493,6 +493,9 @@
   {"id":"test-telemetrie-oeffnen","kette":"test","cmd":["tools/test-telemetrie-oeffnen.js"],"stufe":"fast","budget_s":6},
   {"id":"test-telemetrie-uebung","kette":"test","cmd":["tools/test-telemetrie-uebung.js"],"stufe":"fast","budget_s":6},
   {"id":"test-uebung-lobby","kette":"test","cmd":["tools/test-uebung-lobby.js"],"stufe":"fast","budget_s":10},
+  {"id":"test-training-protokoll","kette":"test","cmd":["tools/test-training-protokoll.js"],"stufe":"fast","budget_s":6},
+  {"id":"test-training-lobby","kette":"test","cmd":["tools/test-training-lobby.js"],"stufe":"fast","budget_s":10},
+  {"id":"test-training-telemetrie","kette":"test","cmd":["tools/test-training-telemetrie.js"],"stufe":"fast","budget_s":8},
   {"id":"test-visier-lage","kette":"test","cmd":["tools/test-visier-lage.js"],"stufe":"fast","budget_s":6},
   {"id":"test-visier-skin","kette":"test","cmd":["tools/test-visier-skin.js"],"stufe":"fast","budget_s":8}
  ],
