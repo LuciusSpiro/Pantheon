@@ -17,6 +17,7 @@ const CODE = { [OK]: 'o', [DEFEKT]: 'd', [GEFLICKT]: 'g' };
 const VON_CODE = { o: OK, d: DEFEKT, g: GEFLICKT };
 const RANG = { ok: 0, damaged: 1, broken: 2 };
 const MAX_DEFEKT_BROKEN = 2;
+const ZAEHLT_AUSFALL = ['R', 'K'];   // Relais und Steuerkern: ein Treffer (ok -> defekt) zählt im Ausfallzähler n mit
 
 let interiorMod = null;   // Zirkelbezug interior -> komponenten: lazy
 const interior = () => interiorMod || (interiorMod = require('./interior.js'));
@@ -104,6 +105,28 @@ function setzeKomponente(game, sys, index, z) {
   return true;
 }
 
+// Eine Komponente fällt durch einen Treffer aus. Ein geflickter Platz bricht nur den Flicken (n bleibt), ein heiler zählt für R und K im Ausfallzähler.
+function faelltAus(k) {
+  if (k.z === OK && ZAEHLT_AUSFALL.includes(k.t)) k.n = (k.n | 0) + 1;
+  k.z = DEFEKT;
+}
+// Ein Komponententreffer: wählt per Zufallsstrom EINE funktionierende Komponente (ok oder geflickt); opts.bevorzugt = Art, die zuerst drankommt, solange sie funktioniert (Überlast: 'S').
+// Ein zerstörtes System (ab 2 defekt) nimmt keinen weiteren Schaden. Rückgabe: { index, t, vorher } der getroffenen Komponente oder null.
+function trefferAuf(game, sys, opts) {
+  const L = liste(game, sys);
+  if (!L || defekteZahl(game, sys) >= MAX_DEFEKT_BROKEN) return null;
+  const frei = L.filter((k) => k.z !== DEFEKT);
+  if (!frei.length) return null;
+  const bevorzugt = opts && opts.bevorzugt;
+  const bev = bevorzugt ? frei.filter((k) => k.t === bevorzugt) : [];
+  const pool = bev.length ? bev : frei;
+  const wahl = pool.length === 1 ? pool[0] : strom(game).pick(pool);
+  const vorher = wahl.z;
+  faelltAus(wahl);
+  synchronisieren(game, sys);
+  return { index: L.indexOf(wahl), t: wahl.t, vorher };
+}
+
 // Hebt die Zahl der defekten Komponenten auf den Wert des Zielzustands ('damaged' = 1, 'broken' = 2). Senkt nie.
 // Wählt per Zufallsstrom nur unter den funktionierenden Komponenten; bevorzugt optional die Art `bevorzugt` (z. B. 'S' bei Überlast).
 // Rückgabe: Zahl der neu ausgefallenen Komponenten.
@@ -118,7 +141,7 @@ function hebeAufZustand(game, sys, ziel, bevorzugt) {
     const bev = bevorzugt ? frei.filter((k) => k.t === bevorzugt) : [];
     const pool = bev.length ? bev : frei;
     const wahl = pool.length === 1 ? pool[0] : strom(game).pick(pool);
-    wahl.z = DEFEKT;
+    faelltAus(wahl);
     neu++;
   }
   if (neu) synchronisieren(game, sys);
@@ -134,8 +157,11 @@ function konsistent(game, sys) {
   const L = game.ship.komp && game.ship.komp[sys];
   if (Array.isArray(L) && L.length === rezept(game, sys).length && zustandZahl(L.filter((k) => k.z === DEFEKT).length) === st) return false;
   erzeugeAusZustand(game, sys);
+  korrekturZaehlen(game);
   return true;
 }
+// Testhilfe: wie oft der Wächter nachziehen musste (nicht aufgezählt, nicht im Snapshot). Im sauberen Trefferpfad bleibt er 0.
+function korrekturZaehlen(game) { Object.defineProperty(game.ship, 'kompKorrekturen', { enumerable: false, writable: true, configurable: true, value: (game.ship.kompKorrekturen | 0) + 1 }); }
 function konsistentAlle(game) { for (const sys of systeme(game)) konsistent(game, sys); }
 
 // ---------- Kompaktform (Snapshot und Weltstand) ----------
@@ -196,5 +222,5 @@ function ausSpeicher(game, block) {
 
 module.exports = {
   rezept, hatKomponenten, systeme, erzeugeAusZustand, erzeugeAlleAusZustand, abgeleitet, synchronisieren, defekteZahl, funktionierende,
-  setzeKomponente, hebeAufZustand, konsistent, konsistentAlle, kodiere, dekodiere, snapshot, fuerSpeicher, ausSpeicher,
+  setzeKomponente, hebeAufZustand, trefferAuf, konsistent, konsistentAlle, kodiere, dekodiere, snapshot, fuerSpeicher, ausSpeicher,
 };

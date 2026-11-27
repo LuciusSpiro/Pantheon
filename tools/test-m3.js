@@ -343,12 +343,12 @@ section('Reparatur: Flicken, Fragil, Werkzeuggürtel (§8.1, §4.3)', () => {
   ok(g.ship.systems.battery_port === 'broken' && !I.isFragile(g, 'battery_port'), 'fragil + Treffer in Sektor 3: sofort zerstört, Flag weg');
   // mehrere fragile im Sektor brechen alle, sonst kein weiterer Schaden
   resetSystems(g);
-  g.ship.fragile.battery_port = true; g.ship.fragile.emitter_port = true;
+  g.ship.fragile.battery_port = true; g.ship.fragile.thruster_port = true;   // TEC-01 A2: statt emitter_port (Schildkette, Flicken nur noch an Komponenten)
   g.time += 20;
   const before = JSON.stringify(g.ship.systems);
   I.trefferweg(g, 3);
   const changed = SYS14.filter((s) => g.ship.systems[s] !== 'ok');
-  ok(changed.sort().join() === 'battery_port,emitter_port' && !I.isFragile(g, 'emitter_port'), 'alle fragilen Systeme des Sektors brechen, kein weiterer Schaden (' + changed.join() + ')');
+  ok(changed.sort().join() === 'battery_port,thruster_port' && !I.isFragile(g, 'thruster_port'), 'alle fragilen Systeme des Sektors brechen, kein weiterer Schaden (' + changed.join() + ')');
   ok(before !== JSON.stringify(g.ship.systems), 'Systeme verändert');
   // Debug fragile
   resetSystems(g);

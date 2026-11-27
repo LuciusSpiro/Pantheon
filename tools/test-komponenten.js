@@ -194,5 +194,171 @@ section('Weltstand: Block nur bei Abweichung, alter Stand lädt', () => {
   ok(d6.schiff.systeme.emitter_bow === 'damaged' && d6.schiff.komp === undefined, 'Zustand/Block widersprüchlich (fragil als damaged gespeichert): Block entfällt');
 });
 
+// ---------- TEC-01 A2: Trefferwege auf Komponenten ----------
+const DAMAGE = require('../server/sim/damage.js');
+const heil = (g, sys) => { I.setzeZustand(g, sys, 'ok'); if (g.ship.trefferT) delete g.ship.trefferT[sys]; };
+const verteilung = (g, sys, start, lauf) => {   // wie oft ist welcher Platz der neu defekte? (Start: Codes, genau ein Treffer)
+  const h = new Array(g.ship.komp[sys].length).fill(0);
+  for (let i = 0; i < lauf; i++) {
+    setz(g, sys, start); if (g.ship.trefferT) delete g.ship.trefferT[sys];
+    I.direktTreffer(g, sys);
+    const zz = z(g, sys);
+    for (let j = 0; j < zz.length; j++) if (zz[j] === 'd' && start[j] !== 'd') h[j]++;
+  }
+  return h;
+};
+const EMITTER = ['emitter_bow', 'emitter_stbd', 'emitter_aft', 'emitter_port'];
+
+section('A2: Treffer wählt zufällig EINE funktionierende Komponente', () => {
+  const g = newGame(21); K.konsistentAlle(g);
+  const h = verteilung(g, 'shields', 'ooo', 600);
+  ok(h.every((x) => x >= 150 && x <= 250) && h.reduce((a, b) => a + b, 0) === 600, 'Generator, 600 Treffer: grob gleich über K, S, R ' + JSON.stringify(h));
+  const he = verteilung(g, 'emitter_bow', 'oo', 400);
+  ok(he.every((x) => x >= 150 && x <= 250), 'Emitter, 400 Treffer: grob gleich über R und L ' + JSON.stringify(he));
+  const hg = verteilung(g, 'shields', 'ggo', 600);
+  ok(hg.every((x) => x >= 150 && x <= 250), 'Pool schließt geflickte ein: ggo, jede der drei wird getroffen ' + JSON.stringify(hg));
+  setz(g, 'shields', 'ggg'); delete g.ship.trefferT.shields;
+  const r = I.direktTreffer(g, 'shields');
+  const zz = z(g, 'shields');
+  ok(r && r.state === 'damaged' && (zz.match(/d/g) || []).length === 1 && (zz.match(/g/g) || []).length === 2, 'ggg + Treffer: genau ein Flicken bricht, die beiden anderen bleiben geflickt (' + zz + '), System damaged');
+  let andereIntakt = true;
+  for (let i = 0; i < 60; i++) {
+    setz(g, 'emitter_aft', 'go'); setz(g, 'shields', 'gog'); delete g.ship.trefferT.emitter_aft;
+    I.direktTreffer(g, 'emitter_aft');
+    if (z(g, 'shields') !== 'gog') andereIntakt = false;
+  }
+  ok(andereIntakt, 'Treffer auf einen Emitter bricht nie den Flicken eines anderen Systems');
+  heil(g, 'shields'); I.direktTreffer(g, 'shields');
+  ok(I.direktTreffer(g, 'shields') === null && K.defekteZahl(g, 'shields') === 1, 'zweiter Treffer im Fenster wirkt nicht (null, weiter 1 defekt)');
+  g.time += 1;
+  const r2 = I.direktTreffer(g, 'shields');
+  ok(r2 && r2.state === 'broken' && K.defekteZahl(g, 'shields') === 2, 'nach dem Fenster: zweiter Treffer zerstört (2 defekt)');
+  g.time += 1;
+  const vor = z(g, 'shields');
+  ok(I.direktTreffer(g, 'shields') === null && z(g, 'shields') === vor && K.trefferAuf(g, 'shields') === null, 'zerstörtes System nimmt keinen weiteren Komponentenschaden');
+  setz(g, 'shields', 'ggg'); g.time += 1; delete g.ship.trefferT.shields;
+  I.direktTreffer(g, 'shields'); g.time += 1; I.direktTreffer(g, 'shields');
+  ok(g.ship.systems.shields === 'broken' && K.defekteZahl(g, 'shields') === 2 && (z(g, 'shields').match(/g/g) || []).length === 1, 'ggg: zwei Treffer = zerstört, ein Flicken bleibt');
+});
+
+section('A2: trefferweg und resolveHit, Fenster unverändert', () => {
+  const g = newGame(22); K.konsistentAlle(g);
+  const zone = I.systemSector('emitter_bow');
+  const opt = { ziel: 'emitter_bow', zugewandt: zone };
+  const t1 = I.trefferweg(g, zone, opt);
+  ok(t1 && t1.system === 'emitter_bow' && t1.state === 'damaged' && t1.wechsel === true && K.defekteZahl(g, 'emitter_bow') === 1, 'trefferweg (Ziel): ein Komponententreffer, damaged');
+  const t2 = I.trefferweg(g, zone, opt);
+  ok(K.defekteZahl(g, 'emitter_bow') === 1 && (!t2 || t2.system !== 'emitter_bow'), 'zweiter Treffer im Fenster wirkt nicht auf denselben Emitter');
+  g.time += 1;
+  I.trefferweg(g, zone, opt);
+  ok(g.ship.systems.emitter_bow === 'broken' && K.defekteZahl(g, 'emitter_bow') === 2, 'nach dem Fenster: zerstört');
+  const g2 = newGame(23); K.konsistentAlle(g2);
+  setz(g2, 'emitter_bow', 'gg');
+  const t3 = I.trefferweg(g2, zone, opt);
+  ok(t3 && t3.system === 'emitter_bow' && g2.ship.systems.emitter_bow === 'damaged' && (z(g2, 'emitter_bow').match(/g/g) || []).length === 1, 'emitter_bow gg: ein Flicken bricht, damaged (nicht broken)');
+  const g3 = newGame(24); K.konsistentAlle(g3);
+  g3.ship.shields.current = [0, 0, 0, 0];
+  const res = DAMAGE.resolveHit(g3, zone, 5, { pierce: true, zielt: 'emitter_bow' });
+  ok(res.systems.length === 1, 'resolveHit ohne Schild: ein Systemtreffer');
+  DAMAGE.resolveHit(g3, zone, 5, { pierce: true, zielt: 'emitter_bow' });
+  ok(K.defekteZahl(g3, 'emitter_bow') <= 1, 'resolveHit: derselbe Emitter verliert im Fenster keine zweite Komponente');
+});
+
+section('A2: Torpedo zerstört sicher', () => {
+  const g = newGame(25); K.konsistentAlle(g);
+  I.direktTreffer(g, 'shields');
+  const r = I.zerstoerenTreffer(g, 'shields');
+  ok(r && r.state === 'broken' && K.defekteZahl(g, 'shields') === 2 && g.ship.systems.shields === 'broken', 'zerstoerenTreffer im Fenster: zerstört (2 defekt)');
+  const g2 = newGame(26); K.konsistentAlle(g2);
+  I.zerstoerenTreffer(g2, 'emitter_stbd');
+  ok(z(g2, 'emitter_stbd') === 'dd' && g2.ship.systems.emitter_stbd === 'broken', 'Emitter: Torpedo = beide Komponenten defekt');
+  const g3 = newGame(27); K.konsistentAlle(g3);
+  const zone = I.systemSector('emitter_port');
+  I.trefferweg(g3, zone, { ziel: 'emitter_port', zugewandt: zone, zerstoeren: true });
+  ok(g3.ship.systems.emitter_port === 'broken', 'trefferweg mit zerstoeren: zerstört');
+});
+
+section('A2: Überlast trifft den Spannungsregler', () => {
+  const g = newGame(28); K.konsistentAlle(g);
+  let alleS = true;
+  for (let i = 0; i < 40; i++) { heil(g, 'shields'); I.heatDamage(g, 'shields'); if (z(g, 'shields') !== 'odo') alleS = false; }
+  ok(alleS, 'ok-Generator: Überlast bricht immer S');
+  alleS = true;
+  for (let i = 0; i < 40; i++) { setz(g, 'shields', 'ogo'); I.heatDamage(g, 'shields'); if (z(g, 'shields') !== 'odo') alleS = false; }
+  ok(alleS, 'S geflickt: der Flicken von S bricht (sicher), K und R bleiben');
+  setz(g, 'shields', 'ood');
+  I.heatDamage(g, 'shields');
+  ok(z(g, 'shields') === 'ood', 'beschädigter Generator: Überlast wirkt wie heute nicht (nur heile Systeme)');
+  setz(g, 'shields', 'odo');
+  K.trefferAuf(g, 'shields', { bevorzugt: 'S' });
+  ok(g.ship.systems.shields === 'broken' && z(g, 'shields')[1] === 'd' && K.defekteZahl(g, 'shields') === 2, 'S schon defekt: Vorzug greift nicht, ein anderer fällt aus');
+  const g2 = newGame(29); K.konsistentAlle(g2);
+  I.heatDamage(g2, 'emitter_bow');
+  ok(K.defekteZahl(g2, 'emitter_bow') === 1, 'sonstige Hitzeschäden bleiben normale Treffer');
+});
+
+section('A2: Ausfallzähler n für R und K', () => {
+  const g = newGame(30); K.konsistentAlle(g);
+  for (let i = 0; i < 30; i++) { heil(g, 'shields'); I.direktTreffer(g, 'shields'); }
+  const summe = (G, sys, t) => G.ship.komp[sys].filter((k) => k.t === t).reduce((a, k) => a + k.n, 0);
+  const kr = summe(g, 'shields', 'K') + summe(g, 'shields', 'R');
+  ok(kr > 10 && kr < 30 && summe(g, 'shields', 'S') === 0, 'Generator, 30 Treffer: K und R zählen, S nie (K+R=' + kr + ')');
+  const g2 = newGame(31); K.konsistentAlle(g2);
+  for (let i = 0; i < 30; i++) { setz(g2, 'shields', 'ggg'); if (g2.ship.trefferT) delete g2.ship.trefferT.shields; I.direktTreffer(g2, 'shields'); }
+  ok(g2.ship.komp.shields.every((k) => k.n === 0), 'geflickt -> defekt zählt nicht (n bleibt 0)');
+  const g3 = newGame(32); K.konsistentAlle(g3);
+  K.hebeAufZustand(g3, 'emitter_bow', 'broken');
+  ok(g3.ship.komp.emitter_bow[0].n === 1 && g3.ship.komp.emitter_bow[1].n === 0, 'Emitter: Relais zählt 1, Leitung nie');
+  const g4 = newGame(33); K.konsistentAlle(g4);
+  I.damageSystem(g4, 'shields', 'broken');
+  ok(g4.ship.komp.shields[1].n === 0 && g4.ship.komp.shields[0].n + g4.ship.komp.shields[2].n >= 1, 'Torpedo/broken: nur K und R zählen');
+});
+
+section('A2: Reaktor und Nicht-Schildkette behalten das alte Flicken-Verhalten', () => {
+  const g = newGame(34); K.konsistentAlle(g);
+  g.ship.fragile.reactor = true;
+  const r = I.trefferweg(g, I.systemSector('reactor'), {});
+  ok(g.ship.systems.reactor === 'broken' && r && !g.ship.fragile.reactor, 'Reaktor fragil: Treffer bricht direkt auf broken (frag-Schleife)');
+  const g2 = newGame(35); K.konsistentAlle(g2);
+  g2.ship.fragile.engines = true;
+  I.trefferweg(g2, I.systemSector('engines'), {});
+  ok(g2.ship.systems.engines === 'broken', 'engines fragil: bricht auf broken wie heute');
+  const g3 = newGame(36); K.konsistentAlle(g3);
+  I.direktTreffer(g3, 'transfer');
+  ok(g3.ship.systems.transfer === 'damaged' && !(g3.ship.komp && g3.ship.komp.transfer), 'transfer: eine Stufe systemweit, keine Komponenten');
+  g3.ship.fragile.weapon_bow = true; g3.time += 1;
+  I.direktTreffer(g3, 'weapon_bow');
+  ok(g3.ship.systems.weapon_bow === 'broken', 'weapon_bow fragil: direkt zerstört wie heute');
+});
+
+section('A2: EMP, Notsprung, Feuer, Wächter bleibt still', () => {
+  const g = newGame(37); K.konsistentAlle(g);
+  I.setOffline(g, 'shields', 10);
+  ok(g.ship.systems.shields === 'offline' && z(g, 'shields') === 'ooo', 'setOffline ändert keine Komponenten');
+  I.direktTreffer(g, 'shields');
+  ok(g.ship.systems.shields === 'offline' && g.ship.offline.shields.prev === 'damaged' && K.defekteZahl(g, 'shields') === 1, 'Treffer während offline: ein Komponententreffer, prev = damaged');
+  g.time += 1; I.direktTreffer(g, 'shields');
+  ok(g.ship.offline.shields.prev === 'broken' && K.defekteZahl(g, 'shields') === 2, 'zweiter Treffer: prev broken, 2 defekt');
+  const g2 = newGame(38); K.konsistentAlle(g2);
+  I.damageSystem(g2, 'emitter_aft', 'damaged');
+  ok(g2.ship.systems.emitter_aft === 'damaged' && K.defekteZahl(g2, 'emitter_aft') === 1, 'Notsprung-Schaden (damaged): ein Komponentenausfall');
+  const g3 = newGame(39); K.konsistentAlle(g3);
+  I.damageSystem(g3, 'shields');
+  ok(K.defekteZahl(g3, 'shields') === 1 && g3.ship.systems.shields === 'damaged', 'Feuerschaden: normaler Zufallstreffer');
+  const g4 = newGame(40); K.konsistentAlle(g4);
+  g4.ship.kompKorrekturen = 0;
+  for (let i = 0; i < 80; i++) {
+    g4.time += 1;
+    for (const s of KETTE) I.direktTreffer(g4, s);
+    I.direktTreffer(g4, 'reactor'); I.heatDamage(g4, 'shields');
+    DAMAGE.update(g4, 0.05);
+    if (i % 5 === 4) for (const s of KETTE) I.setzeZustand(g4, s, 'ok');
+  }
+  ok((g4.ship.kompKorrekturen | 0) === 0, 'Wächter hat nach 80 Treffer-Runden nie korrigiert (kompKorrekturen=' + (g4.ship.kompKorrekturen | 0) + ')');
+  ok(!('kompKorrekturen' in JSON.parse(JSON.stringify(g4.ship))), 'Zähler ist kein Snapshot-Feld');
+  g4.ship.systems.shields = 'broken'; K.konsistent(g4, 'shields');
+  ok(g4.ship.kompKorrekturen === 1, 'Gegenprobe: direkter Schreiber wird gezählt');
+});
+
 console.log(`\n${n - fails}/${n} Prüfungen grün${fails ? ', ' + fails + ' FEHLER' : ''}`);
 process.exit(fails ? 1 : 0);

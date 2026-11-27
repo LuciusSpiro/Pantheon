@@ -1104,13 +1104,19 @@ function damageSystem(game, sys, toState, opts) {
     require('./reaktortod.js').zerstoert(game, opts);
   }
 }
-function damageSystemRoh(game, sys, toState, opts) {   // opts.quiet (keine ODA), opts.dauer (Dauerdruck: kein Abbruch des Fracht-Beamens/Schöpfens)
+function damageSystemRoh(game, sys, toState, opts) {   // opts.quiet (keine ODA), opts.dauer (Dauerdruck: kein Abbruch des Fracht-Beamens/Schöpfens), opts.bevorzugt (Komponentenart, die ein Treffer zuerst trifft)
   const s = game.ship.systems;
   sys = resolveSystem(game, sys, false);
   if (!s[sys]) return;
+  // TEC-01 A2: ein Schildkette-System ohne gewünschten Zielzustand nimmt EINEN Komponententreffer; die Stufe ergibt sich aus der Zahl der defekten Komponenten
+  const komponentenTreffer = !toState && Komp.hatKomponenten(game, sys);
+  if (komponentenTreffer) Komp.konsistent(game, sys);   // direkt geschriebener Zustand gilt zuerst (Wächter)
   if (s[sys] === 'offline') {   // EMP-Pause: Schaden merken wir für danach
     const o = game.ship.offline[sys];
-    if (o) {   // SYS-01 A1 Nacharbeit: die vorgemerkte Stufe wird nie milder; die Integrität folgt ihr sofort
+    if (o && komponentenTreffer) {
+      Komp.trefferAuf(game, sys, opts);   // synchronisieren zieht o.prev und die Integrität nach
+      if (game.ship.fragile) delete game.ship.fragile[sys];
+    } else if (o) {   // SYS-01 A1 Nacharbeit: die vorgemerkte Stufe wird nie milder; die Integrität folgt ihr sofort
       const neu = toState || (o.prev === 'ok' && !isFragile(game, sys) ? 'damaged' : 'broken');
       if ((STATE_RANK[neu] || 0) > (STATE_RANK[o.prev] || 0)) o.prev = neu;
       if (o.prev === 'broken' && game.ship.fragile) delete game.ship.fragile[sys];
@@ -1120,11 +1126,16 @@ function damageSystemRoh(game, sys, toState, opts) {   // opts.quiet (keine ODA)
     return;
   }
   const before = s[sys];
-  if (toState) s[sys] = toState;
-  else s[sys] = before === 'ok' && !isFragile(game, sys) ? 'damaged' : 'broken';
-  if (s[sys] === 'broken' && game.ship.fragile) delete game.ship.fragile[sys];
-  if (s[sys] === 'ok' && toState === 'ok' && game.ship.fragile) delete game.ship.fragile[sys];
-  komponentenFolgen(game, sys);
+  if (komponentenTreffer) {
+    Komp.trefferAuf(game, sys, opts);   // setzt s[sys] aus den Komponenten
+    if (game.ship.fragile) delete game.ship.fragile[sys];   // Altlast: ein Flicken auf Systemebene gibt es hier nicht mehr
+  } else {
+    if (toState) s[sys] = toState;
+    else s[sys] = before === 'ok' && !isFragile(game, sys) ? 'damaged' : 'broken';
+    if (s[sys] === 'broken' && game.ship.fragile) delete game.ship.fragile[sys];
+    if (s[sys] === 'ok' && toState === 'ok' && game.ship.fragile) delete game.ship.fragile[sys];
+    komponentenFolgen(game, sys);
+  }
   syncInteg(game, sys);   // SYS-01 A1a: die Integrität folgt dem Zustand
   if (s[sys] === before) return;
   game.emit('sfx', { name: s[sys] === 'broken' ? 'system_break' : 'hull_hit', zone: 'ship' });
@@ -1153,8 +1164,11 @@ function heatDamage(game, powerSys) {
     if (cand.length) damageSystem(game, game.rng.pick(cand));
     return;
   }
-  if (game.ship.systems[powerSys] === 'ok') damageSystem(game, powerSys, 'damaged');
+  if (game.ship.systems[powerSys] !== 'ok') return;
+  if (powerSys === 'shields') { damageSystem(game, powerSys, null, { bevorzugt: UEBERLAST_ZIEL.shields }); return; }   // TEC-01 A2: die Überlast trifft den Spannungsregler
+  damageSystem(game, powerSys, 'damaged');
 }
+const UEBERLAST_ZIEL = { shields: 'S' };   // Komponentenart, die die Hitze bei Energie 4 zuerst trifft (solange sie funktioniert)
 
 // ---------- Systemmodell (SYS-01 A1a, Konzept „Systemmodell Zonen“) ----------
 // Integrität je System in ship.integ (Punkte, Maximum je System in config.systemModell.integ). Die Zustände
@@ -1233,8 +1247,9 @@ function stufeAb(game, sys, opts) {
   if (!(opts && opts.dauer)) Fracht.systemTreffer(game, sys);   // EK3 Teil A: jeder Systemtreffer bricht das Fracht-Beamen ab (auch ohne Zustandswechsel); Dauerdruck nicht (SYS-01 A1b)
   const before = effZustand(game, sys);   // offline (EMP) zählt als vorgemerkte Stufe
   if (before === 'broken') return null;
-  const ziel = before === 'ok' && !isFragile(game, sys) ? 'damaged' : 'broken';
-  damageSystem(game, sys, ziel, opts && opts.dauer ? { dauer: true } : null);
+  const dauer = opts && opts.dauer ? { dauer: true } : null;
+  if (Komp.hatKomponenten(game, sys)) damageSystem(game, sys, null, dauer);   // TEC-01 A2: ein Komponententreffer, die Stufe folgt aus der Komponentenlage
+  else damageSystem(game, sys, before === 'ok' && !isFragile(game, sys) ? 'damaged' : 'broken', dauer);
   if (effZustand(game, sys) === before) return null;
   fensterStempeln(game, sys, opts && opts.art);
   return { system: sys, state: s[sys] };
@@ -1281,7 +1296,7 @@ function trefferweg(game, zone, opts) {
   const treffen = (k) => (zerst ? zerstoerenTreffer(game, k) : direktTreffer(game, k, opts));
   const Zs = () => require('./zielsysteme.js');
   // Geflicktes in der Zone bricht beim Treffer direkt (wie bisher), kein weiterer Schaden in dieser Zone
-  const frag = SYSTEM_ORDER.filter((k) => systemSector(k) === zone && systemAktiv(game, k) && s[k] === 'ok' && isFragile(game, k));
+  const frag = SYSTEM_ORDER.filter((k) => systemSector(k) === zone && systemAktiv(game, k) && s[k] === 'ok' && isFragile(game, k) && !Komp.hatKomponenten(game, k));   // Schildkette: kein Flicken auf Systemebene, der Treffer wählt Komponenten
   if (frag.length) {
     for (const k of frag) { damageSystem(game, k, 'broken'); fensterStempeln(game, k, opts && opts.art); }
     return { system: frag[0], state: s[frag[0]], wechsel: true };
