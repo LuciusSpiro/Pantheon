@@ -11,11 +11,15 @@
 //   update(game)         Tick: Erkennung pollen (training-erkennung.js), Szenenende melden, Neustart nach Verlust und NEUSTART_NACH_ERFOLG s nach Erfolg
 //   ereignis(game, n, d) Weiterleitung von mission.onEvent an die Erkennung (flüchtige Ereignisse)
 //   neustart(game)       Szene von vorn
+//   vorerkundenAnwenden(game)  Tabellenfeld vorerkunden { hexe, kanten } (explore.vorerkunden): Start und Neustart; ohne Feld nichts
+//   reiseWerteSetzen(game)     Tabellenfeld reise (Überlagerung von C.reise in game.reiseWerte, z. B. kein Abfangen im Schnellsprung); Start
+//   sprungzielSetzen(game, ort)  Der Modus setzt das Sprungziel (selectDest, zählt nicht als sprungziel_gewaehlt); Buch-Aktion training_sprungziel
 //   abzeichenVergeben(game, id)  Abzeichen-Meldung (Broadcast EVT_ABZEICHEN { id, variante? }) plus ODA-Zeile, genau einmal je Versuch
 // Direktstart ohne Kampagnenkette, ohne persistenten Weltstand (g.weltstand ist nie persistent, damit tutorialLaeuft true: Sprünge nur im
 // Saumraum, bewusst), kein Testgeld (arena.istUebungsszene). Karte ist der Standard limes: kein Eintrag in UEBUNG_WELTEN (game.js).
 // Neues Buch eintragen: Datei content/regiebuecher/<buch>.regiebuch.json mit kopf.art 'intern', in TRAININGSMODI unter buch nennen.
 // game.arena.training = { modus, sprache, start, versuch, verlustAb, gemeldet, erfolgAb, abzeichenVersuch, erreicht, erk }; Lobby-Option trainingSprache (nur Captain) landet in sprache.
+// Tabellenfelder (optional): vorerkunden { hexe: [Hex…], kanten: [Kanten-Id…] } und reise { feindChance, neutralChance, … } (TRA-01 D, Fliegen; Captain nutzt dieselben Felder).
 //   erreicht = Set der erkannten Ziel-Ids, erk = Ausgangslage des letzten Ticks (beides training-erkennung.js, kein Snapshot-Feld).
 const Erkennung = require('./training-erkennung.js');
 const NEUSTART_MAX_WARTEN = 30;   // s nach dem Verlust (wie uebung-forschung.js)
@@ -23,7 +27,9 @@ const NEUSTART_NACH_ERFOLG = 8;   // s nach Erfolg und Abzeichen-Meldung: Szene 
 const FERTIG_FLAG = 'trainingFertig';   // Buchflag (erwartet im Buch): gesetzt = Training geschafft, update() schließt das Buch mit erfolg ab
 
 const TRAININGSMODI = {
-  training_fliegen: { buch: 'tra_fliegen', ort: 'hafen', angedockt: true, consoleHelpAus: true, sprachwahl: false, abzeichen: 'fliegen' },
+  training_fliegen: { buch: 'tra_fliegen', ort: 'hafen', angedockt: true, consoleHelpAus: true, sprachwahl: false, abzeichen: 'fliegen',
+    vorerkunden: { hexe: ['0206', '0306', '0406', '0405'], kanten: ['0206-0306', '0306-0406', '0306-0405'] },   // Schnellsprung hafen -> b7 über splitter (und zurück) braucht erkundete Hexe und bekannte Bojen
+    reise: { feindChance: 0, neutralChance: 0, neutralPlus: 0, neutralMax: 0 } },   // kein Abfangen im Schnellsprung: Fliegen ist gegnerfrei
   training_captain: { buch: 'tra_captain', ort: 'hafen', angedockt: true, consoleHelpAus: true, sprachwahl: true, abzeichen: 'captain' },
 };
 // Abzeichen: Name für die ODA-Zeile; Varianten (nur Captain: Tafel/Tasten oder Sprache) mit Anhang. Ohne Wirkung im Spiel, der Client merkt sie sich.
@@ -59,8 +65,29 @@ function ausgangszustand(game) {
   if (!ex.known.has(loc)) { ex.known.add(loc); ex.version++; }
   if (!ex.visited.has(loc)) { ex.visited.add(loc); ex.version++; }
   space.enterScene(game, loc, { docked: d.angedockt === true });
+  vorerkundenAnwenden(game);
   A.repairShip(game);
   A.placeOnBridge(game);
+}
+
+// Start-Setup aus der Tabelle (TRA-01 D): Hexe/Bojen still als erkundet vormerken, damit der Schnellsprung eine Route findet (explore.vorerkunden, SUND-01 E)
+function vorerkundenAnwenden(game) {
+  const d = def(game); const v = d && d.vorerkunden;
+  if (v) game.explore.vorerkunden(v.hexe, v.kanten);
+}
+// Überlagerung von C.reise für diese Partie (Reise.reset leert sie beim Verlassen)
+function reiseWerteSetzen(game) {
+  const d = def(game);
+  game.reiseWerte = d && d.reise ? Object.assign({}, d.reise) : null;
+}
+// Der Modus setzt das Sprungziel (Buch-Aktion training_sprungziel). Der Mensch am Steuer wählt nie selbst; der Wechsel des Ziels zählt nicht als sprungziel_gewaehlt.
+// Rückgabe: Fehlertext von selectDest | null
+function sprungzielSetzen(game, ort) {
+  const err = require('./space.js').selectDest(game, ort);
+  if (err) { game.countError('training', new Error('Sprungziel ' + ort + ': ' + err)); return err; }
+  const T = stand(game);
+  if (T && T.erk) T.erk.dest = game.ship.jump.dest || null;   // Ausgangslage nachziehen: das Pollen sieht keine Zielwahl
+  return null;
 }
 
 function buchStarten(game) {
@@ -75,6 +102,7 @@ function start(game, kind) {
   const d = TRAININGSMODI[kind];
   const sprache = !!(d.sprachwahl && game.lobbyOpts && game.lobbyOpts.trainingSprache === true);
   game.arena = { kind, training: { modus: kind, sprache, start: game.time, versuch: 1, verlustAb: null, gemeldet: false, erfolgAb: null, abzeichenVersuch: 0 } };
+  reiseWerteSetzen(game);
   ausgangszustand(game);
   Erkennung.zuruecksetzen(game);   // nach dem Ausgangszustand: was beim Herrichten der Szene geschah, zählt nicht
   buchStarten(game);
@@ -134,4 +162,4 @@ function update(game) {
   if (m.activeId === d.buch && m.flags[FERTIG_FLAG] === true) { m.completeMission('erfolg'); szeneDurch(game); }
 }
 
-module.exports = { TRAININGSMODI, ABZEICHEN, NEUSTART_NACH_ERFOLG, KINDS, istTraining, hatSprachwahl, laeuft, consoleHelpAus, start, update, ereignis, neustart, abzeichenVergeben };
+module.exports = { TRAININGSMODI, ABZEICHEN, NEUSTART_NACH_ERFOLG, KINDS, istTraining, hatSprachwahl, laeuft, consoleHelpAus, start, update, ereignis, neustart, abzeichenVergeben, vorerkundenAnwenden, reiseWerteSetzen, sprungzielSetzen };

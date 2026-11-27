@@ -48,7 +48,7 @@ for (const [modus, buch] of MODI) {
     ok(g.phase === 'play' && g.arena && g.arena.kind === modus, 'Menümodus läuft: phase play, arena.kind ' + modus);
     ok(g.weltId === 'limes', 'Karte limes (Standard), nicht sund (' + g.weltId + ')');
     ok(g.ship.scene === 'hafen' && Sektoren.hexDaten(Sektoren.hexVonOrt(g.ship.scene)).region === 'saumraum', 'Schiff im Saumraum: Szene ' + g.ship.scene + ', Hex ' + Sektoren.hexVonOrt(g.ship.scene));
-    ok(g.mission.activeId === buch && g.mission.step && g.mission.step.id === 'platzhalter', 'Platzhalter-Buch ' + buch + ' aktiv im ersten Schritt');
+    ok(g.mission.activeId === buch && g.mission.step && g.mission.step.id === g.mission.def.steps[0].id, 'Trainingsbuch ' + buch + ' aktiv im ersten Schritt');
     ok(!g.weltstand || g.weltstand.persistent === false, 'kein persistenter Weltstand');
     ok(!g.mission.kette && g.mission.mode === 'arena' && !g.mission.pending.length, 'keine Kampagnenkette, Modus arena, kein Kampagnen-Gerücht');
     ok(g.inventory.marks !== g.C.werft.testmarken, 'kein Testgeld (' + g.inventory.marks + ' Marken, Testmarken wären ' + g.C.werft.testmarken + ')');
@@ -65,7 +65,7 @@ section('Brett: nicht im Angebotsbrett', () => {
   ok(!g.mission.offers().some((id) => /^tra_/.test(id)), 'Angebote (offers) enthalten kein tra_*-Buch');
   ok(!g.mission.offerPending(), 'kein Angebot offen');
   ok(!g.mission.toSave().missionen.tra_fliegen && g.mission.toSave().aktiv === null, 'Weltstand-Speicherform lässt das interne Buch weg');
-  ok(g.mission.state.objectives.some((o) => o.text === 'Platzhalter'), 'HUD-Ziel „Platzhalter“ ist da (Checkliste aus dem Buch)');
+  ok(g.mission.state.objectives.length > 0 && g.mission.state.objectives.every((o) => o.text && !/^@/.test(o.text)), 'HUD-Checkliste ist da (Ziele aus dem Buch, Texte aufgelöst)');
   const g2 = lobbySpiel('arena_space', 1).g;   // Gegenprobe: das Testgelände-Buch (JS-Modul, intern) verhält sich gleich
   ok(!g2.mission.bookEntries().some((e) => e.id === 'arena_space'), 'Gegenprobe: auch arena_space (intern) steht nicht im Brett');
 });
@@ -77,8 +77,8 @@ section('Neustart und Szenenende', () => {
   ok(g.mission.missions.tra_fliegen.state === 'done' && g.mission.missions.tra_fliegen.ausgang === 'verloren', 'Buch endet mit verloren');
   T.run(3, () => tr.versuch === 2);
   ok(tr.versuch === 2 && g.mission.activeId === 'tra_fliegen' && g.mission.missions.tra_fliegen.state === 'active', 'Neustart: Versuch 2, Buch wieder aktiv');
-  ok(g.mission.step.id === 'platzhalter' && g.ship.scene === 'hafen' && g.ship.docked === true && g.players.every((p) => p.zone === 'ship'), 'Szene von vorn: Schritt platzhalter, Schiff am Hafen angedockt, Crew an Bord');
-  ok(g.mission.state.objectives.some((o) => o.text === 'Platzhalter' && !o.done), 'Ziel wieder offen');
+  ok(g.mission.step.id === g.mission.def.steps[0].id && g.ship.scene === 'hafen' && g.ship.docked === true && g.players.every((p) => p.zone === 'ship'), 'Szene von vorn: erster Schritt des Buchs, Schiff am Hafen angedockt, Crew an Bord');
+  ok(g.mission.state.objectives.length > 0 && g.mission.state.objectives.some((o) => !o.done), 'Ziel wieder offen');
   // Erfolg: das Buch setzt trainingFertig (Platzhalter: der Test), update schließt ab und meldet genau einmal
   const vorher = T.odas.length;
   g.mission.flags.trainingFertig = true;
