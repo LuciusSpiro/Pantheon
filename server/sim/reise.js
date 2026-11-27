@@ -19,7 +19,8 @@ let sprungMod = null;
 const sprung = () => sprungMod || (sprungMod = require('./sprung.js'));
 let spaceMod = null;
 const space = () => spaceMod || (spaceMod = require('./space.js'));
-const RC = (game) => (game.C && game.C.reise) || {};
+// TRA-01 D: game.reiseWerte (Training, nur Tabelle TRAININGSMODI in training.js) überlagert game.C.reise je Partie; Reise.reset leert es
+const RC = (game) => (game.reiseWerte ? Object.assign({}, game.C && game.C.reise, game.reiseWerte) : (game.C && game.C.reise) || {});
 const hexOf = (game) => Sektoren.hexVonOrt(game.ship.scene);
 
 function fraktionArt(game, hex) {
@@ -171,6 +172,6 @@ function snap(game) {
   if (!r) return null;
   return { i: r.i, n: r.hops.length, p: Math.min(1, Math.round(r.t / (RC(game).hopZeit || 4) * 100) / 100), von: r.i ? r.hops[r.i - 1] : hexOf(game), nach: r.hops[r.i], ziel: r.hops[r.hops.length - 1] };
 }
-function reset(game) { game.reisePlan = null; game.reise = null; game._reiseOhne = 0; }
+function reset(game) { game.reisePlan = null; game.reise = null; game._reiseOhne = 0; game.reiseWerte = null; }
 
 module.exports = { planen, weich, nachSprung, planGueltig, befehl, update, snap, reset, abfangen, fraktionArt };

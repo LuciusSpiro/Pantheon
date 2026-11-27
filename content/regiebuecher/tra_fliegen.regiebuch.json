@@ -1,48 +1,1510 @@
 {
   "$schema": "../regiebuch/regiebuch.schema.json",
-  "_kommentar": "TRA-01 A1: Platzhalter-Buch des Trainingsmodus training_fliegen (kopf.art intern: nie im Angebotsbrett, nie in der Kampagne). Rahmen und Start stehen in server/sim/training.js (Tabelle TRAININGSMODI); der Inhalt (Ziele, Hinweise) ersetzt dieses Buch in einem späteren Paket.",
+  "_kommentar": "TRA-01 D: Training Fliegen (Abzeichen Fliegen), kopf.art intern: nie im Angebotsbrett, nie in der Kampagne. Rahmen und Start in server/sim/training.js (Tabelle TRAININGSMODI: vorerkunden, reise). Ein Schritt je Ziel, jeder Schritt zeigt die ganze Checkliste (Abschnitt A: Steuer im Hafen, B: Sprünge und Andocken); erreichte Ziele bleiben abgehakt (training_ziel ist dauerhaft). Der Hinweis-Timer eines Schritts zählt ab dem Schrittstart, also ab dem letzten erreichten Ziel: er feuert nur, wenn der Spieler dort hängt. Das Sprungziel setzt der Modus (training_sprungziel). Gegnerfrei: im Hafen, im Splittergürtel (Durchflug nur als Schnellsprung) und bei B-7 spawnt nichts; die Tabelle schaltet das Abfangen im Schnellsprung ab.",
   "format": "regiebuch/1",
   "id": "tra_fliegen",
-
   "kopf": {
     "titel": "Training Fliegen",
     "art": "intern",
     "auftraggeber": "tesk",
-    "zielspieldauer_min": 1,
+    "zielspieldauer_min": 8,
     "feldzug": null
   },
-
-  "erwartet": { "trainingFertig": false },
-
+  "erwartet": {
+    "trainingFertig": false,
+    "hafenWeit": false,
+    "faltOk": false,
+    "schnellOk": false,
+    "dockOk": false
+  },
   "buch": {
-    "von": [{ "npc": "tesk" }],
+    "von": [
+      {
+        "npc": "tesk"
+      }
+    ],
     "briefing": "@buch.briefing",
     "belohnung": "@buch.belohnung"
   },
-
-  "buehne": { "orte": ["hafen"] },
-
+  "buehne": {
+    "orte": [
+      "hafen",
+      "splitter",
+      "b7"
+    ]
+  },
   "steps": [
     {
-      "id": "platzhalter",
+      "id": "a_hoch",
+      "loc": "hafen",
       "timers": [
-        { "at": 60, "oda": "@hinweis.platzhalter", "garantie": "hinweis" }
+        {
+          "at": 0.5,
+          "oda": "@intro.start"
+        },
+        {
+          "at": 45,
+          "if": {
+            "not": {
+              "all": [
+                {
+                  "check": {
+                    "name": "training_ziel",
+                    "id": "tempo_hoch"
+                  }
+                },
+                {
+                  "not": {
+                    "near": {
+                      "station": 400
+                    }
+                  }
+                }
+              ]
+            }
+          },
+          "oda": "@hinweis.hoch",
+          "garantie": "hinweis"
+        }
       ],
       "objectives": [
-        { "id": "platzhalter", "text": "@ziel.platzhalter", "done": { "flag": "trainingFertig" } }
-      ]
+        {
+          "id": "hoch",
+          "text": "@ziel.hoch",
+          "done": {
+            "all": [
+              {
+                "check": {
+                  "name": "training_ziel",
+                  "id": "tempo_hoch"
+                }
+              },
+              {
+                "not": {
+                  "near": {
+                    "station": 400
+                  }
+                }
+              }
+            ]
+          }
+        },
+        {
+          "id": "runter",
+          "text": "@ziel.runter",
+          "done": {
+            "check": {
+              "name": "training_ziel",
+              "id": "tempo_runter"
+            }
+          }
+        },
+        {
+          "id": "ruder",
+          "text": "@ziel.ruder",
+          "done": {
+            "check": {
+              "name": "training_ziel",
+              "id": "ruder"
+            }
+          }
+        },
+        {
+          "id": "stopp",
+          "text": "@ziel.stopp",
+          "done": {
+            "check": {
+              "name": "training_ziel",
+              "id": "allstopp"
+            }
+          }
+        },
+        {
+          "id": "rolle",
+          "text": "@ziel.rolle",
+          "done": {
+            "check": {
+              "name": "training_ziel",
+              "id": "ausweichen"
+            }
+          }
+        },
+        {
+          "id": "station",
+          "text": "@ziel.station",
+          "done": {
+            "all": [
+              {
+                "flag": "hafenWeit"
+              },
+              {
+                "near": {
+                  "station": 260
+                }
+              }
+            ]
+          }
+        }
+      ],
+      "next": [
+        {
+          "if": {
+            "all": [
+              {
+                "check": {
+                  "name": "training_ziel",
+                  "id": "tempo_hoch"
+                }
+              },
+              {
+                "not": {
+                  "near": {
+                    "station": 400
+                  }
+                }
+              }
+            ]
+          },
+          "goto": "a_runter"
+        }
+      ],
+      "skip": []
+    },
+    {
+      "id": "a_runter",
+      "loc": "hafen",
+      "timers": [
+        {
+          "at": 45,
+          "if": {
+            "not": {
+              "check": {
+                "name": "training_ziel",
+                "id": "tempo_runter"
+              }
+            }
+          },
+          "oda": "@hinweis.runter",
+          "garantie": "hinweis"
+        },
+        {
+          "at": 20,
+          "if": {
+            "docked": true
+          },
+          "oda": "@hinweis.wieder_ab",
+          "garantie": "hinweis"
+        }
+      ],
+      "objectives": [
+        {
+          "id": "hoch",
+          "text": "@ziel.hoch",
+          "done": {
+            "all": [
+              {
+                "check": {
+                  "name": "training_ziel",
+                  "id": "tempo_hoch"
+                }
+              },
+              {
+                "not": {
+                  "near": {
+                    "station": 400
+                  }
+                }
+              }
+            ]
+          }
+        },
+        {
+          "id": "runter",
+          "text": "@ziel.runter",
+          "done": {
+            "check": {
+              "name": "training_ziel",
+              "id": "tempo_runter"
+            }
+          }
+        },
+        {
+          "id": "ruder",
+          "text": "@ziel.ruder",
+          "done": {
+            "check": {
+              "name": "training_ziel",
+              "id": "ruder"
+            }
+          }
+        },
+        {
+          "id": "stopp",
+          "text": "@ziel.stopp",
+          "done": {
+            "check": {
+              "name": "training_ziel",
+              "id": "allstopp"
+            }
+          }
+        },
+        {
+          "id": "rolle",
+          "text": "@ziel.rolle",
+          "done": {
+            "check": {
+              "name": "training_ziel",
+              "id": "ausweichen"
+            }
+          }
+        },
+        {
+          "id": "station",
+          "text": "@ziel.station",
+          "done": {
+            "all": [
+              {
+                "flag": "hafenWeit"
+              },
+              {
+                "near": {
+                  "station": 260
+                }
+              }
+            ]
+          }
+        }
+      ],
+      "next": [
+        {
+          "if": {
+            "check": {
+              "name": "training_ziel",
+              "id": "tempo_runter"
+            }
+          },
+          "goto": "a_ruder"
+        }
+      ],
+      "skip": []
+    },
+    {
+      "id": "a_ruder",
+      "loc": "hafen",
+      "timers": [
+        {
+          "at": 45,
+          "if": {
+            "not": {
+              "check": {
+                "name": "training_ziel",
+                "id": "ruder"
+              }
+            }
+          },
+          "oda": "@hinweis.ruder",
+          "garantie": "hinweis"
+        },
+        {
+          "at": 20,
+          "if": {
+            "docked": true
+          },
+          "oda": "@hinweis.wieder_ab",
+          "garantie": "hinweis"
+        }
+      ],
+      "objectives": [
+        {
+          "id": "hoch",
+          "text": "@ziel.hoch",
+          "done": {
+            "all": [
+              {
+                "check": {
+                  "name": "training_ziel",
+                  "id": "tempo_hoch"
+                }
+              },
+              {
+                "not": {
+                  "near": {
+                    "station": 400
+                  }
+                }
+              }
+            ]
+          }
+        },
+        {
+          "id": "runter",
+          "text": "@ziel.runter",
+          "done": {
+            "check": {
+              "name": "training_ziel",
+              "id": "tempo_runter"
+            }
+          }
+        },
+        {
+          "id": "ruder",
+          "text": "@ziel.ruder",
+          "done": {
+            "check": {
+              "name": "training_ziel",
+              "id": "ruder"
+            }
+          }
+        },
+        {
+          "id": "stopp",
+          "text": "@ziel.stopp",
+          "done": {
+            "check": {
+              "name": "training_ziel",
+              "id": "allstopp"
+            }
+          }
+        },
+        {
+          "id": "rolle",
+          "text": "@ziel.rolle",
+          "done": {
+            "check": {
+              "name": "training_ziel",
+              "id": "ausweichen"
+            }
+          }
+        },
+        {
+          "id": "station",
+          "text": "@ziel.station",
+          "done": {
+            "all": [
+              {
+                "flag": "hafenWeit"
+              },
+              {
+                "near": {
+                  "station": 260
+                }
+              }
+            ]
+          }
+        }
+      ],
+      "next": [
+        {
+          "if": {
+            "check": {
+              "name": "training_ziel",
+              "id": "ruder"
+            }
+          },
+          "goto": "a_stopp"
+        }
+      ],
+      "skip": []
+    },
+    {
+      "id": "a_stopp",
+      "loc": "hafen",
+      "timers": [
+        {
+          "at": 45,
+          "if": {
+            "not": {
+              "check": {
+                "name": "training_ziel",
+                "id": "allstopp"
+              }
+            }
+          },
+          "oda": "@hinweis.stopp",
+          "garantie": "hinweis"
+        },
+        {
+          "at": 20,
+          "if": {
+            "docked": true
+          },
+          "oda": "@hinweis.wieder_ab",
+          "garantie": "hinweis"
+        }
+      ],
+      "objectives": [
+        {
+          "id": "hoch",
+          "text": "@ziel.hoch",
+          "done": {
+            "all": [
+              {
+                "check": {
+                  "name": "training_ziel",
+                  "id": "tempo_hoch"
+                }
+              },
+              {
+                "not": {
+                  "near": {
+                    "station": 400
+                  }
+                }
+              }
+            ]
+          }
+        },
+        {
+          "id": "runter",
+          "text": "@ziel.runter",
+          "done": {
+            "check": {
+              "name": "training_ziel",
+              "id": "tempo_runter"
+            }
+          }
+        },
+        {
+          "id": "ruder",
+          "text": "@ziel.ruder",
+          "done": {
+            "check": {
+              "name": "training_ziel",
+              "id": "ruder"
+            }
+          }
+        },
+        {
+          "id": "stopp",
+          "text": "@ziel.stopp",
+          "done": {
+            "check": {
+              "name": "training_ziel",
+              "id": "allstopp"
+            }
+          }
+        },
+        {
+          "id": "rolle",
+          "text": "@ziel.rolle",
+          "done": {
+            "check": {
+              "name": "training_ziel",
+              "id": "ausweichen"
+            }
+          }
+        },
+        {
+          "id": "station",
+          "text": "@ziel.station",
+          "done": {
+            "all": [
+              {
+                "flag": "hafenWeit"
+              },
+              {
+                "near": {
+                  "station": 260
+                }
+              }
+            ]
+          }
+        }
+      ],
+      "next": [
+        {
+          "if": {
+            "check": {
+              "name": "training_ziel",
+              "id": "allstopp"
+            }
+          },
+          "goto": "a_rolle"
+        }
+      ],
+      "skip": []
+    },
+    {
+      "id": "a_rolle",
+      "loc": "hafen",
+      "timers": [
+        {
+          "at": 45,
+          "if": {
+            "not": {
+              "check": {
+                "name": "training_ziel",
+                "id": "ausweichen"
+              }
+            }
+          },
+          "oda": "@hinweis.rolle",
+          "garantie": "hinweis"
+        },
+        {
+          "at": 20,
+          "if": {
+            "docked": true
+          },
+          "oda": "@hinweis.wieder_ab",
+          "garantie": "hinweis"
+        }
+      ],
+      "objectives": [
+        {
+          "id": "hoch",
+          "text": "@ziel.hoch",
+          "done": {
+            "all": [
+              {
+                "check": {
+                  "name": "training_ziel",
+                  "id": "tempo_hoch"
+                }
+              },
+              {
+                "not": {
+                  "near": {
+                    "station": 400
+                  }
+                }
+              }
+            ]
+          }
+        },
+        {
+          "id": "runter",
+          "text": "@ziel.runter",
+          "done": {
+            "check": {
+              "name": "training_ziel",
+              "id": "tempo_runter"
+            }
+          }
+        },
+        {
+          "id": "ruder",
+          "text": "@ziel.ruder",
+          "done": {
+            "check": {
+              "name": "training_ziel",
+              "id": "ruder"
+            }
+          }
+        },
+        {
+          "id": "stopp",
+          "text": "@ziel.stopp",
+          "done": {
+            "check": {
+              "name": "training_ziel",
+              "id": "allstopp"
+            }
+          }
+        },
+        {
+          "id": "rolle",
+          "text": "@ziel.rolle",
+          "done": {
+            "check": {
+              "name": "training_ziel",
+              "id": "ausweichen"
+            }
+          }
+        },
+        {
+          "id": "station",
+          "text": "@ziel.station",
+          "done": {
+            "all": [
+              {
+                "flag": "hafenWeit"
+              },
+              {
+                "near": {
+                  "station": 260
+                }
+              }
+            ]
+          }
+        }
+      ],
+      "next": [
+        {
+          "if": {
+            "check": {
+              "name": "training_ziel",
+              "id": "ausweichen"
+            }
+          },
+          "goto": "a_station"
+        }
+      ],
+      "skip": []
+    },
+    {
+      "id": "a_station",
+      "loc": "hafen",
+      "timers": [
+        {
+          "at": 60,
+          "if": {
+            "not": {
+              "all": [
+                {
+                  "flag": "hafenWeit"
+                },
+                {
+                  "near": {
+                    "station": 260
+                  }
+                }
+              ]
+            }
+          },
+          "oda": "@hinweis.station",
+          "garantie": "hinweis"
+        }
+      ],
+      "rules": [
+        {
+          "if": {
+            "not": {
+              "near": {
+                "station": 500
+              }
+            }
+          },
+          "do": [
+            {
+              "setFlag": {
+                "hafenWeit": true
+              }
+            }
+          ]
+        }
+      ],
+      "objectives": [
+        {
+          "id": "hoch",
+          "text": "@ziel.hoch",
+          "done": {
+            "all": [
+              {
+                "check": {
+                  "name": "training_ziel",
+                  "id": "tempo_hoch"
+                }
+              },
+              {
+                "not": {
+                  "near": {
+                    "station": 400
+                  }
+                }
+              }
+            ]
+          }
+        },
+        {
+          "id": "runter",
+          "text": "@ziel.runter",
+          "done": {
+            "check": {
+              "name": "training_ziel",
+              "id": "tempo_runter"
+            }
+          }
+        },
+        {
+          "id": "ruder",
+          "text": "@ziel.ruder",
+          "done": {
+            "check": {
+              "name": "training_ziel",
+              "id": "ruder"
+            }
+          }
+        },
+        {
+          "id": "stopp",
+          "text": "@ziel.stopp",
+          "done": {
+            "check": {
+              "name": "training_ziel",
+              "id": "allstopp"
+            }
+          }
+        },
+        {
+          "id": "rolle",
+          "text": "@ziel.rolle",
+          "done": {
+            "check": {
+              "name": "training_ziel",
+              "id": "ausweichen"
+            }
+          }
+        },
+        {
+          "id": "station",
+          "text": "@ziel.station",
+          "done": {
+            "all": [
+              {
+                "flag": "hafenWeit"
+              },
+              {
+                "near": {
+                  "station": 260
+                }
+              }
+            ]
+          }
+        }
+      ],
+      "next": [
+        {
+          "if": {
+            "all": [
+              {
+                "flag": "hafenWeit"
+              },
+              {
+                "near": {
+                  "station": 260
+                }
+              }
+            ]
+          },
+          "goto": "b_sprungpunkt"
+        }
+      ],
+      "skip": []
+    },
+    {
+      "id": "b_sprungpunkt",
+      "loc": "hafen",
+      "enter": [
+        {
+          "do": "training_sprungziel",
+          "ziel": "splitter"
+        },
+        {
+          "oda": "@intro.sprung"
+        }
+      ],
+      "timers": [
+        {
+          "at": 60,
+          "if": {
+            "not": {
+              "check": {
+                "name": "training_ziel",
+                "id": "sprungpunkt"
+              }
+            }
+          },
+          "oda": "@hinweis.sprungpunkt",
+          "garantie": "hinweis"
+        }
+      ],
+      "objectives": [
+        {
+          "id": "sprungpunkt",
+          "text": "@ziel.sprungpunkt",
+          "done": {
+            "check": {
+              "name": "training_ziel",
+              "id": "sprungpunkt"
+            }
+          }
+        },
+        {
+          "id": "falt",
+          "text": "@ziel.falt",
+          "done": {
+            "flag": "faltOk"
+          }
+        },
+        {
+          "id": "schnell",
+          "text": "@ziel.schnell",
+          "done": {
+            "flag": "schnellOk"
+          }
+        },
+        {
+          "id": "dock",
+          "text": "@ziel.dock",
+          "done": {
+            "flag": "dockOk"
+          }
+        },
+        {
+          "id": "ablegen",
+          "text": "@ziel.ablegen",
+          "done": {
+            "all": [
+              {
+                "flag": "dockOk"
+              },
+              {
+                "docked": false
+              }
+            ]
+          }
+        }
+      ],
+      "next": [
+        {
+          "if": {
+            "check": {
+              "name": "training_ziel",
+              "id": "sprungpunkt"
+            }
+          },
+          "goto": "b_falt"
+        }
+      ],
+      "skip": []
+    },
+    {
+      "id": "b_falt",
+      "timers": [
+        {
+          "at": 40,
+          "if": {
+            "not": {
+              "atLocation": "splitter"
+            }
+          },
+          "oda": "@hinweis.falt",
+          "garantie": "hinweis"
+        }
+      ],
+      "objectives": [
+        {
+          "id": "sprungpunkt",
+          "text": "@ziel.sprungpunkt",
+          "done": {
+            "check": {
+              "name": "training_ziel",
+              "id": "sprungpunkt"
+            }
+          }
+        },
+        {
+          "id": "falt",
+          "text": "@ziel.falt",
+          "done": {
+            "flag": "faltOk"
+          }
+        },
+        {
+          "id": "schnell",
+          "text": "@ziel.schnell",
+          "done": {
+            "flag": "schnellOk"
+          }
+        },
+        {
+          "id": "dock",
+          "text": "@ziel.dock",
+          "done": {
+            "flag": "dockOk"
+          }
+        },
+        {
+          "id": "ablegen",
+          "text": "@ziel.ablegen",
+          "done": {
+            "all": [
+              {
+                "flag": "dockOk"
+              },
+              {
+                "docked": false
+              }
+            ]
+          }
+        }
+      ],
+      "next": [
+        {
+          "if": {
+            "atLocation": "splitter"
+          },
+          "goto": "b_zurueck"
+        }
+      ],
+      "skip": []
+    },
+    {
+      "id": "b_zurueck",
+      "enter": [
+        {
+          "setFlag": {
+            "faltOk": true
+          }
+        },
+        {
+          "do": "training_sprungziel",
+          "ziel": "hafen"
+        },
+        {
+          "oda": "@intro.zurueck"
+        }
+      ],
+      "timers": [
+        {
+          "at": 40,
+          "if": {
+            "not": {
+              "atLocation": "hafen"
+            }
+          },
+          "oda": "@hinweis.zurueck",
+          "garantie": "hinweis"
+        }
+      ],
+      "objectives": [
+        {
+          "id": "sprungpunkt",
+          "text": "@ziel.sprungpunkt",
+          "done": {
+            "check": {
+              "name": "training_ziel",
+              "id": "sprungpunkt"
+            }
+          }
+        },
+        {
+          "id": "falt",
+          "text": "@ziel.falt",
+          "done": {
+            "flag": "faltOk"
+          }
+        },
+        {
+          "id": "schnell",
+          "text": "@ziel.schnell",
+          "done": {
+            "flag": "schnellOk"
+          }
+        },
+        {
+          "id": "dock",
+          "text": "@ziel.dock",
+          "done": {
+            "flag": "dockOk"
+          }
+        },
+        {
+          "id": "ablegen",
+          "text": "@ziel.ablegen",
+          "done": {
+            "all": [
+              {
+                "flag": "dockOk"
+              },
+              {
+                "docked": false
+              }
+            ]
+          }
+        }
+      ],
+      "next": [
+        {
+          "if": {
+            "atLocation": "hafen"
+          },
+          "goto": "b_schnell"
+        }
+      ],
+      "skip": []
+    },
+    {
+      "id": "b_schnell",
+      "enter": [
+        {
+          "do": "training_sprungziel",
+          "ziel": "b7"
+        },
+        {
+          "oda": "@intro.schnell"
+        }
+      ],
+      "timers": [
+        {
+          "at": 40,
+          "if": {
+            "not": {
+              "atLocation": "b7"
+            }
+          },
+          "oda": "@hinweis.schnell",
+          "garantie": "hinweis"
+        }
+      ],
+      "objectives": [
+        {
+          "id": "sprungpunkt",
+          "text": "@ziel.sprungpunkt",
+          "done": {
+            "check": {
+              "name": "training_ziel",
+              "id": "sprungpunkt"
+            }
+          }
+        },
+        {
+          "id": "falt",
+          "text": "@ziel.falt",
+          "done": {
+            "flag": "faltOk"
+          }
+        },
+        {
+          "id": "schnell",
+          "text": "@ziel.schnell",
+          "done": {
+            "flag": "schnellOk"
+          }
+        },
+        {
+          "id": "dock",
+          "text": "@ziel.dock",
+          "done": {
+            "flag": "dockOk"
+          }
+        },
+        {
+          "id": "ablegen",
+          "text": "@ziel.ablegen",
+          "done": {
+            "all": [
+              {
+                "flag": "dockOk"
+              },
+              {
+                "docked": false
+              }
+            ]
+          }
+        }
+      ],
+      "next": [
+        {
+          "if": {
+            "atLocation": "b7"
+          },
+          "goto": "b_rueckflug"
+        },
+        {
+          "if": {
+            "all": [
+              {
+                "atLocation": "splitter"
+              },
+              {
+                "not": {
+                  "check": "reise_laeuft"
+                }
+              }
+            ]
+          },
+          "goto": "b_zurueck"
+        }
+      ],
+      "skip": []
+    },
+    {
+      "id": "b_rueckflug",
+      "enter": [
+        {
+          "setFlag": {
+            "schnellOk": true
+          }
+        },
+        {
+          "do": "training_sprungziel",
+          "ziel": "hafen"
+        },
+        {
+          "oda": "@intro.rueckflug"
+        }
+      ],
+      "timers": [
+        {
+          "at": 40,
+          "if": {
+            "not": {
+              "atLocation": "hafen"
+            }
+          },
+          "oda": "@hinweis.rueckflug",
+          "garantie": "hinweis"
+        }
+      ],
+      "objectives": [
+        {
+          "id": "sprungpunkt",
+          "text": "@ziel.sprungpunkt",
+          "done": {
+            "check": {
+              "name": "training_ziel",
+              "id": "sprungpunkt"
+            }
+          }
+        },
+        {
+          "id": "falt",
+          "text": "@ziel.falt",
+          "done": {
+            "flag": "faltOk"
+          }
+        },
+        {
+          "id": "schnell",
+          "text": "@ziel.schnell",
+          "done": {
+            "flag": "schnellOk"
+          }
+        },
+        {
+          "id": "dock",
+          "text": "@ziel.dock",
+          "done": {
+            "flag": "dockOk"
+          }
+        },
+        {
+          "id": "ablegen",
+          "text": "@ziel.ablegen",
+          "done": {
+            "all": [
+              {
+                "flag": "dockOk"
+              },
+              {
+                "docked": false
+              }
+            ]
+          }
+        }
+      ],
+      "next": [
+        {
+          "if": {
+            "atLocation": "hafen"
+          },
+          "goto": "b_andocken"
+        },
+        {
+          "if": {
+            "all": [
+              {
+                "atLocation": "splitter"
+              },
+              {
+                "not": {
+                  "check": "reise_laeuft"
+                }
+              }
+            ]
+          },
+          "goto": "b_zurueck_b7"
+        }
+      ],
+      "skip": []
+    },
+    {
+      "id": "b_zurueck_b7",
+      "enter": [
+        {
+          "do": "training_sprungziel",
+          "ziel": "b7"
+        },
+        {
+          "oda": "@intro.zurueck_b7"
+        }
+      ],
+      "timers": [
+        {
+          "at": 40,
+          "if": {
+            "not": {
+              "atLocation": "b7"
+            }
+          },
+          "oda": "@hinweis.zurueck_b7",
+          "garantie": "hinweis"
+        }
+      ],
+      "objectives": [
+        {
+          "id": "sprungpunkt",
+          "text": "@ziel.sprungpunkt",
+          "done": {
+            "check": {
+              "name": "training_ziel",
+              "id": "sprungpunkt"
+            }
+          }
+        },
+        {
+          "id": "falt",
+          "text": "@ziel.falt",
+          "done": {
+            "flag": "faltOk"
+          }
+        },
+        {
+          "id": "schnell",
+          "text": "@ziel.schnell",
+          "done": {
+            "flag": "schnellOk"
+          }
+        },
+        {
+          "id": "dock",
+          "text": "@ziel.dock",
+          "done": {
+            "flag": "dockOk"
+          }
+        },
+        {
+          "id": "ablegen",
+          "text": "@ziel.ablegen",
+          "done": {
+            "all": [
+              {
+                "flag": "dockOk"
+              },
+              {
+                "docked": false
+              }
+            ]
+          }
+        }
+      ],
+      "next": [
+        {
+          "if": {
+            "atLocation": "b7"
+          },
+          "goto": "b_rueckflug"
+        }
+      ],
+      "skip": []
+    },
+    {
+      "id": "b_andocken",
+      "loc": "hafen",
+      "timers": [
+        {
+          "at": 60,
+          "if": {
+            "docked": false
+          },
+          "oda": "@hinweis.andocken",
+          "garantie": "hinweis"
+        }
+      ],
+      "objectives": [
+        {
+          "id": "sprungpunkt",
+          "text": "@ziel.sprungpunkt",
+          "done": {
+            "check": {
+              "name": "training_ziel",
+              "id": "sprungpunkt"
+            }
+          }
+        },
+        {
+          "id": "falt",
+          "text": "@ziel.falt",
+          "done": {
+            "flag": "faltOk"
+          }
+        },
+        {
+          "id": "schnell",
+          "text": "@ziel.schnell",
+          "done": {
+            "flag": "schnellOk"
+          }
+        },
+        {
+          "id": "dock",
+          "text": "@ziel.dock",
+          "done": {
+            "flag": "dockOk"
+          }
+        },
+        {
+          "id": "ablegen",
+          "text": "@ziel.ablegen",
+          "done": {
+            "all": [
+              {
+                "flag": "dockOk"
+              },
+              {
+                "docked": false
+              }
+            ]
+          }
+        }
+      ],
+      "next": [
+        {
+          "if": {
+            "docked": true
+          },
+          "goto": "b_ablegen"
+        }
+      ],
+      "skip": []
+    },
+    {
+      "id": "b_ablegen",
+      "loc": "hafen",
+      "enter": [
+        {
+          "setFlag": {
+            "dockOk": true
+          }
+        }
+      ],
+      "timers": [
+        {
+          "at": 30,
+          "if": {
+            "docked": true
+          },
+          "oda": "@hinweis.ablegen",
+          "garantie": "hinweis"
+        }
+      ],
+      "objectives": [
+        {
+          "id": "sprungpunkt",
+          "text": "@ziel.sprungpunkt",
+          "done": {
+            "check": {
+              "name": "training_ziel",
+              "id": "sprungpunkt"
+            }
+          }
+        },
+        {
+          "id": "falt",
+          "text": "@ziel.falt",
+          "done": {
+            "flag": "faltOk"
+          }
+        },
+        {
+          "id": "schnell",
+          "text": "@ziel.schnell",
+          "done": {
+            "flag": "schnellOk"
+          }
+        },
+        {
+          "id": "dock",
+          "text": "@ziel.dock",
+          "done": {
+            "flag": "dockOk"
+          }
+        },
+        {
+          "id": "ablegen",
+          "text": "@ziel.ablegen",
+          "done": {
+            "all": [
+              {
+                "flag": "dockOk"
+              },
+              {
+                "docked": false
+              }
+            ]
+          }
+        }
+      ],
+      "next": [
+        {
+          "if": {
+            "docked": false
+          },
+          "goto": "b_fertig"
+        }
+      ],
+      "skip": []
+    },
+    {
+      "id": "b_fertig",
+      "enter": [
+        {
+          "setFlag": {
+            "trainingFertig": true
+          }
+        }
+      ],
+      "objectives": [],
+      "next": [],
+      "skip": []
     }
   ],
-
   "ausgaenge": {
-    "erfolg": { "beschreibung": "Training geschafft (Platzhalter: nur von Tests ausgelöst).", "folgen": [] },
-    "verloren": { "beschreibung": "Training abgebrochen (Platzhalter: nur von Tests ausgelöst).", "folgen": [] }
+    "erfolg": {
+      "beschreibung": "Training geschafft (Flag trainingFertig, Abzeichen Fliegen).",
+      "folgen": []
+    },
+    "verloren": {
+      "beschreibung": "Training abgebrochen (nur von Tests ausgelöst).",
+      "folgen": []
+    }
   },
-
   "texte": {
-    "buch.briefing": "Training Fliegen.",
-    "buch.belohnung": "keine",
-    "ziel.platzhalter": "Platzhalter",
-    "hinweis.platzhalter": "Hier folgt das Training."
+    "buch.briefing": "Training Fliegen: Temporegler, Ruder, Allstopp, Ausweichrolle, Sprünge und Andocken, ohne Gegner.",
+    "buch.belohnung": "Abzeichen Fliegen",
+    "ziel.hoch": "Ablegen, Schub hoch (W)",
+    "ziel.runter": "Temporegler runter (S)",
+    "ziel.ruder": "Ruder legen (A / D)",
+    "ziel.stopp": "Allstopp (X)",
+    "ziel.rolle": "Ausweichrolle (Shift+A / D)",
+    "ziel.station": "Hafenstation anfliegen",
+    "ziel.sprungpunkt": "Sprungpunkt anfliegen",
+    "ziel.falt": "Faltsprung (F) in den Gürtel",
+    "ziel.schnell": "Schnellsprung (G) zu B-7",
+    "ziel.dock": "Im Hafen andocken",
+    "ziel.ablegen": "Wieder ablegen (W)",
+    "intro.start": "Fliegen üben. Steuerkonsole ganz vorn auf der Brücke: E. Dann W – Schub hoch, die Lerche legt ab.",
+    "intro.sprung": "Sprungübung. Ziel Splittergürtel ist gesetzt. Steuer in den Ring der Sprungboje – der Randpfeil zeigt hin.",
+    "intro.zurueck": "Splittergürtel. Das Ziel Hafen ist gesetzt – gleich wieder F, wir bleiben nicht im Feld.",
+    "intro.schnell": "Zurück im Hafen. Neues Ziel: Boje B-7, hinter dem Gürtel. Mit G springst du alle Sektoren in einem Zug.",
+    "intro.zurueck_b7": "Schnellsprung abgebrochen. Das Ziel B-7 ist gesetzt: F springt zurück, dann G noch einmal.",
+    "intro.rueckflug": "Boje B-7. Das Ziel Hafen ist gesetzt – G holt uns über den Gürtel zurück.",
+    "hinweis.hoch": "Steuerkonsole vorn auf der Brücke: E. W gibt Schub, das erste W legt ab. Dann vom Liegeplatz wegfliegen.",
+    "hinweis.runter": "S nimmt eine Stufe zurück. Die Stufe steht am Temporegler.",
+    "hinweis.ruder": "A dreht nach links, D nach rechts. Kurz halten genügt.",
+    "hinweis.stopp": "X ist der Allstopp: Schub auf Null, das Schiff bremst von selbst.",
+    "hinweis.rolle": "Shift+A rollt nach links, Shift+D nach rechts – ein Ruck zur Seite, danach lädt die Rolle kurz.",
+    "hinweis.station": "Erst ein Stück von der Station wegfliegen, dann wieder heran: Abstand unter 260.",
+    "hinweis.sprungpunkt": "Der Randpfeil zeigt zur Sprungboje. Steuer in den Ring um die Boje; mehr Schub spart Zeit.",
+    "hinweis.falt": "Steht das Schiff im Ring, lädt der Sprungantrieb. Ist er voll, löst F den Faltsprung aus.",
+    "hinweis.zurueck": "Das Ziel Hafen steht. F springt zurück, sobald der Antrieb geladen ist.",
+    "hinweis.zurueck_b7": "Das Ziel B-7 steht. F springt zurück, sobald der Antrieb geladen ist.",
+    "hinweis.schnell": "G löst den Schnellsprung aus: alle Sektoren der Route in einem Zug, sobald der Antrieb geladen ist.",
+    "hinweis.rueckflug": "G bringt uns über den Gürtel zurück zum Hafen, sobald der Antrieb geladen ist.",
+    "hinweis.andocken": "Der Liegeplatz liegt rechts der Station. Langsam heranfliegen, Temporegler runter – angedockt wird von selbst.",
+    "hinweis.ablegen": "W gibt Schub und legt ab.",
+    "hinweis.wieder_ab": "Wieder am Liegeplatz? W gibt Schub und legt ab, dann geht es weiter."
   }
 }

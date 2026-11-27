@@ -308,7 +308,7 @@ section('Abzeichen und Neustart nach Erfolg', () => {
     ok(P.abzeichen().length === 1 && tr.versuch === 1, '  vor Ablauf der Frist (' + Training.NEUSTART_NACH_ERFOLG + ' s): keine zweite Meldung, noch kein Neustart');
     ok(Training.abzeichenVergeben(P.g, id) === false && P.abzeichen().length === 1, '  direkter zweiter Aufruf im selben Versuch: nichts gesendet');
     P.run(5, () => tr.versuch === 2);
-    ok(tr.versuch === 2 && P.g.mission.activeId === buch && P.g.mission.missions[buch].state === 'active' && P.g.mission.step && P.g.mission.step.id === 'platzhalter', '  Neustart nach Erfolg: Versuch 2, neues Buch aktiv im ersten Schritt');
+    ok(tr.versuch === 2 && P.g.mission.activeId === buch && P.g.mission.missions[buch].state === 'active' && P.g.mission.step && P.g.mission.step.id === P.g.mission.def.steps[0].id, '  Neustart nach Erfolg: Versuch 2, neues Buch aktiv im ersten Schritt');
     ok(P.g.mission.flags.trainingFertig === false && tr.gemeldet === false && Erk.ziele(P.g).length === 0, '  Flag, Meldung und Ziele zurückgesetzt');
     ok(P.g.ship.docked === true && P.g.ship.scene === 'hafen' && P.g.players.every((p) => p.zone === 'ship'), '  Szene von vorn (angedockt am Hafen, Crew an Bord)');
     P.g.mission.flags.trainingFertig = true; P.run(1);
