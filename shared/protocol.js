@@ -17,6 +17,9 @@
     // Die Karte steht nicht im Snapshot und nicht im Weltstand; sie geht beim Wiederverbinden mit gleicher clientId nicht verloren. Spielernamen gehen nie an ein LLM.
     CMD_KARTE_OUTFIT: 'karte.outfit',
     EVT_KARTE: 'karte',
+    // TRA-01 C: Ereignis abzeichen { id: 'fliegen' | 'captain', variante?: 'tafel' | 'sprache' } (Broadcast, einmal je Versuch, wenn das Training geschafft ist; variante nur bei captain:
+    // Befehlstafel/Tasten oder mit Sprache). Ohne Wirkung im Spiel, der Client merkt sich das Abzeichen im Browser. Dazu eine ODA-Zeile „Abzeichen erreicht: …“.
+    EVT_ABZEICHEN: 'abzeichen',
     // ---- B1 (CONTRACT-B1 §9): Bühnen – gebaute Außenkarten, Landepunkte, Anker ----
     // Ereignis awayMap { id, erzeuger, art, bauweise, besitz, zustand, w, h, rows, anker: [[id, rolle, x, y, attr?]], bereiche,
     //   decks, kv } – kompilierte Karte (≤ 16 KB (BOD-03, vorher 10 KB laut Nachtrag)), beim Betreten bzw. auf Anfrage (cmd awayMap.get). Nur an die betroffenen

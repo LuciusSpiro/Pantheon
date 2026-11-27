@@ -1132,6 +1132,7 @@ class Mission {
   // ---------- Ereignisse ----------
   onEvent(name, data) {
     const g = this.game;
+    Training.ereignis(g, name, data);   // TRA-01 B2: Erkennung der Trainingsziele (nur wenn ein Trainingsmodus läuft)
     this.events.add(name);
     if (name === 'enemyKilled' && data.enemy) {
       this.kills[data.enemy.kind] = (this.kills[data.enemy.kind] || 0) + 1;

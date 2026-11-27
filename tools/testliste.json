@@ -285,6 +285,7 @@
   {"id":"test-bot-befehle-nav","kette":"test","cmd":["tools/test-bot-befehle-nav.js"],"stufe":"fast","budget_s":150},
   {"id":"mutation-bot-befehle-nav","kette":"test","cmd":["tools/mutation-bot-befehle-nav.js"],"stufe":"slow","budget_s":600},
   {"id":"test-training-ereignisse","kette":"test","cmd":["tools/test-training-ereignisse.js"],"stufe":"fast","budget_s":60},
+  {"id":"test-training-erkennung","kette":"test","cmd":["tools/test-training-erkennung.js"],"stufe":"fast","budget_s":60},
   {"id":"test-bot-befehle-ops-tech","kette":"test","cmd":["tools/test-bot-befehle-ops-tech.js"],"stufe":"fast","budget_s":200},
   {"id":"mutation-bot-befehle-ops-tech","kette":"test","cmd":["tools/mutation-bot-befehle-ops-tech.js"],"stufe":"slow","budget_s":600},
   {"id":"test-bot-menue","kette":"test","cmd":["tools/test-bot-menue.js"],"stufe":"fast","budget_s":8},
