@@ -1424,10 +1424,10 @@
       const unten = y + h;
       const klick = (rx, ry, rw, rh, fn) => R.ui.buttons.push({ x: rx, y: ry, w: rw, h: rh, label: '', disabled: false, onClick: fn });
       const restIds = ids.filter((id) => id !== selSys), schlecht = restIds.filter((id) => this.kompModell(st, id).ursache);
-      const grenze = unten - (schlecht.length ? P + 7 : 0);   // die Komponentenzeilen lassen eine Zeile (plus Trenner) für die übrigen beschädigten Systeme frei: sie fallen nie stumm weg
+      const grenze = unten - (restIds.length ? P + 7 : 0);   // die Komponentenzeilen lassen eine Zeile (plus Trenner) für die übrigen Systeme frei (beschädigte oder „übrige Schildkette: heil“): nichts ragt in die Zeile darunter
       let ly = y;
       R.text(ctx, 'SCHILDKETTE', x, ly, { color: PAL.brass });
-      R.text(ctx, wahl ? 'Komponenten' : '←/→ Ziel wählen', x + 70, ly, { color: PAL.panelLight });   // ohne Wahl der Hinweis auf die Tasten (das Hilfe-Overlay nennt sie ausführlich)
+      R.text(ctx, wahl ? 'Komponenten' : '←/→ Komponente', x + 70, ly, { color: PAL.panelLight });   // ohne Wahl der Hinweis auf die Tasten (das Hilfe-Overlay nennt sie ausführlich)
       ly += P + 1;
       const sz = (ship.systems || {})[selSys] || 'ok';
       const zc = sz === 'broken' || sz === 'offline' ? F.zerText : sz === 'damaged' ? F.besch : sel.l.some((k) => k.z === 'geflickt') ? R.FRAGILE_COL : PAL.mint;
@@ -1439,34 +1439,39 @@
       const NX = x + 11;
       const kopfEnde = (z) => NX + R.measure(z.name, 1) + 6 + R.measure(z.zustand, 1);
       const alleRechts = sel.zeilen.every((z) => !z.ausfall || kopfEnde(z) + 8 + R.measure(z.ausfall, 1) <= x + w);
-      for (let i = 0; i < sel.zeilen.length; i++) {
-        const z = sel.zeilen[i], n = sel.l[i].n;
-        const ausCol = z.verschlissen ? F.zerText : n >= sel.sperre - 1 ? PAL.amber : PAL.panelLight;
+      const ausColVon = (z, i) => z.verschlissen ? F.zerText : sel.l[i].n >= sel.sperre - 1 ? PAL.amber : PAL.panelLight;
+      const teileVon = (z, i) => {
         const teile = [];
-        if (z.ausfall && !alleRechts) teile.push({ t: z.ausfall, c: ausCol });
+        if (z.ausfall && !alleRechts) teile.push({ t: z.ausfall, c: ausColVon(z, i), k: 'ausfall' });
         if (z.bruch) teile.push({ t: z.bruch, c: R.FRAGILE_COL });
         if (z.aktion) teile.push({ t: z.aktion, c: PAL.panelLight });
-        const zeilenB = [];   // Folgezeilen: Teile mit ' · ' verbunden, solange sie in die Breite passen
-        teile.forEach((q) => {
-          const last = zeilenB[zeilenB.length - 1];
-          if (last && R.measure(last.map((p) => p.t).join(' · ') + ' · ' + q.t, 1) <= w - 11) last.push(q); else zeilenB.push([q]);
-        });
+        return teile;
+      };
+      // Layoutmodell (rein, shared/komponenten-format.js): reicht der Platz nicht für alle Komponenten voll, stehen die ungewählten nur als Kopfzeile; die gewählte bleibt immer sichtbar
+      const folgen = sel.zeilen.map((z, i) => KF.folgeZeilen(teileVon(z, i), w - 11, (s) => R.measure(s, 1)));
+      const lay = KF.uebersichtLayout(folgen.map((f) => f.length), sel.zeilen.findIndex((z) => z.t === wahl), grenze - ly, P);
+      for (const e of lay.eintraege) {
+        const i = e.i, z = sel.zeilen[i], zeilenB = folgen[i].slice(0, e.folgen);
+        const ausCol = ausColVon(z, i);
         const hh = (1 + zeilenB.length) * P;
-        if (ly + hh > grenze) { R.text(ctx, KF.mehrText(sel.zeilen.length - i), x + 3, ly, { color: PAL.amber }); ly += P; break; }   // kein stilles Verwerfen
+        // Kopfzeile nur mit gekürzten Folgezeilen: der Ausfallzähler steht rechts in der Kopfzeile, wenn er dort passt (sonst entfällt er)
+        const ausRechts = z.ausfall && (alleRechts || (zeilenB.length < folgen[i].length && kopfEnde(z) + 8 + R.measure(z.ausfall, 1) <= x + w));
         const gew = wahl === z.t;
         if (gew) { ctx.fillStyle = 'rgba(255,198,107,0.16)'; ctx.fillRect(x - 3, ly - 1, w + 3, hh); ctx.fillStyle = PAL.amber; ctx.fillRect(x - 3, ly - 1, 3, hh); }
         klick(x - 3, ly - 1, w + 3, hh, () => { if (gew) delete this.sel.komp[selSys]; else this.sel.komp[selSys] = z.t; });
         R.text(ctx, z.t, x + 3, ly, { color: PAL.panelLight });
         R.text(ctx, z.name, NX, ly, { color: PAL.star });
         R.text(ctx, z.zustand, NX + R.measure(z.name, 1) + 6, ly, { color: FARBE[z.z] || PAL.panelLight });
-        if (z.ausfall && alleRechts) R.text(ctx, z.ausfall, x + w, ly, { color: ausCol, align: 'right' });
+        if (ausRechts) R.text(ctx, z.ausfall, x + w, ly, { color: ausCol, align: 'right' });
         ly += P;
         zeilenB.forEach((zl2) => {
           let tx = NX;
-          zl2.forEach((q, j) => { const t = (j ? ' · ' : '') + q.t; R.text(ctx, t, tx, ly, { color: q.c }); tx += R.measure(t, 1); });
+          zl2.filter((q) => !(ausRechts && q.k === 'ausfall')).forEach((q, j) => { const t = (j ? ' · ' : '') + q.t; R.text(ctx, t, tx, ly, { color: q.c }); tx += R.measure(t, 1); });
           ly += P;
         });
       }
+      if (lay.mehr) { R.text(ctx, KF.mehrText(lay.mehr), x + 3, ly, { color: PAL.amber }); ly += P; }   // letzte Rückfallebene, kein stilles Verwerfen
+      this.kompLayout = { stufe: lay.stufe, eintraege: lay.eintraege, mehr: lay.mehr, wahl: sel.zeilen.findIndex((z) => z.t === wahl), ende: ly, grenze, folgen: folgen.map((f) => f.length) };   // Messpunkt für die Sichtprüfung
       // übrige Systeme: einzeilig, nur beschädigte
       ly += 2;
       ctx.fillStyle = PAL.panel; ctx.fillRect(x, ly, w, 1); ly += 4;
@@ -1585,7 +1590,7 @@
       const stock = (it) => (R.shelfStock ? R.shelfStock(inv, it) : n(inv[it]));
       R.text(ctx, 'Ersatzteile ' + stock('ersatzteil') + ' · Flickbleche ' + stock('flickblech'), px, ly, { color: stock('ersatzteil') ? PAL.panelLight : PAL.warn }); ly += 10;
       R.text(ctx, 'Löschgel ' + stock('loeschgel'), px, ly, { color: PAL.panelLight }); ly += 12;
-      R.text(ctx, 'Flicken: schnell, bricht beim Sprung', px, ly, { color: PAL.panelLight }); ly += 10;
+      R.text(ctx, window.Shared_KomponentenFormat.flickenLegende(kompAnsicht), px, ly, { color: PAL.panelLight }); ly += 10;
       R.text(ctx, 'Tausch: heil, Minispiel (R) vor Ort', px, ly, { color: PAL.panelLight });
       // TEC-01 D: ist keine Schildkette-Zeile gewählt (Decksplan statt Übersicht), verrät diese Zeile, dass dort Schäden an Komponenten stehen
       if (!kompAnsicht) {

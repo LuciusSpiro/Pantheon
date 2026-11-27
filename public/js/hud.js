@@ -1177,9 +1177,9 @@
       const st = view.state;
       const state = R.sysState(st, mg.system);
       const KFm = window.Shared_KomponentenFormat, sn = SYS_NAMES[mg.system] || mg.system;
-      R.text(ctx, KFm ? KFm.minispielTitel(sn, CFG.systemModell && CFG.systemModell.komponenten, mg.system) : sn, x + 12, y + 10, { color: PAL.star });   // Schildkette: „Backbord-Emitter · Relais“
-      R.stateBadge(ctx, x + w - 46, y + 9, 34, 10, state, R.fragileOf(st, mg.system));
-      R.text(ctx, 'Leertaste im grünen Feld · 3 Treffer', x + 12, y + 22, { color: PAL.panelLight });
+      R.text(ctx, KFm ? KFm.minispielTitel(sn, CFG.systemModell && CFG.systemModell.komponenten, mg.system) : sn, x + 12, y + 12, { color: PAL.star });   // Schildkette: „Backbord-Emitter · Relais“ (Titel unter der Reiterkante, nicht an ihr)
+      R.stateBadge(ctx, x + w - 46, y + 11, 34, 10, state, R.fragileOf(st, mg.system));
+      R.text(ctx, 'Leertaste im grünen Feld · 3 Treffer', x + 12, y + 24, { color: PAL.panelLight });
       // Leiste
       const bx = x + 20, bw = w - 40, by = y + 40, bh = 16;
       ctx.fillStyle = '#151B2B'; ctx.fillRect(bx, by, bw, bh);

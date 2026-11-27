@@ -52,6 +52,10 @@ async function main() {
     const waehle = async (sys) => { await page.evaluate((s) => { const rows = Consoles.damageRows(Client.state); Consoles.sel.damage = Math.max(0, rows.findIndex((r) => r.target === s)); }, sys); await sleep(500); };
     const shot = async (name, wartMs) => { await sleep(wartMs || 500); await page.screenshot({ path: path.join(SHOTS, name + '.png') }); console.log('Bild', name); };
     // Konsolenansicht (Canvas 640x360) ausgeschnitten: das Fenster ist 1280x720, die Konsole füllt das Canvas
+    // TEC-01 Designer-Nacharbeit 2 (N1): Messpunkt Consoles.kompLayout: jede Komponente sichtbar, die gewählte voll bzw. so voll wie möglich, nichts unter der Grenze
+    const layout = () => page.evaluate(() => (Consoles.kompLayout ? JSON.parse(JSON.stringify(Consoles.kompLayout)) : null));
+    const pruefeLayout = async (nm, wahlErwartet) => { const L = await layout(); const alle = L && L.eintraege.length === L.folgen.length && !L.mehr;
+      ok(L && alle && L.ende <= L.grenze && (wahlErwartet == null || L.wahl === wahlErwartet) && (L.wahl < 0 || L.eintraege.some((e) => e.i === L.wahl)), nm + ': jede Komponente sichtbar, Ende ' + (L && L.ende) + ' <= Grenze ' + (L && L.grenze) + ', Stufe ' + (L && L.stufe) + ', Wahl ' + (L && L.wahl) + ', Folgezeilen ' + (L && JSON.stringify(L.folgen))); };
     const modell = (sys) => page.evaluate((s) => (window.Consoles && Consoles.kompModell ? Consoles.kompModell(Client.state, s) : null), sys);
 
     g.ship.botAuto = false;
@@ -112,14 +116,18 @@ async function main() {
     setz('shields', 'ddd', [3, 0, 2], [0, 0, 0]);
     setz('emitter_bow', 'dg', [3, 0], [0, 7]); setz('emitter_stbd', 'gd', [2, 0], [4, 0]); setz('emitter_aft', 'dd', [1, 0], [0, 0]); setz('emitter_port', 'gg', [0, 0], [1, 2]);
     g.ship.systems.reactor = 'broken'; g.ship.systems.weapon_bow = 'damaged'; g.ship.systems.thruster_port = 'damaged';
-    await sleep(600); await waehle('shields'); await shot('11-platzprobe-generator', 300);
-    await waehle('emitter_stbd'); await shot('12-platzprobe-emitter', 300);
+    await sleep(600); await waehle('shields'); await shot('11-platzprobe-generator', 300); await pruefeLayout('Platzprobe 11 Generator');
+    await waehle('emitter_stbd'); await shot('12-platzprobe-emitter', 300); await pruefeLayout('Platzprobe 12 Emitter');
     await waehle('reactor'); await shot('13-platzprobe-reaktor-gewaehlt', 300);
     // H2 Worst Case: alles geflickt und verschlissen (Generator ggg, Ausfälle 3/0/3, sp 7), alle Emitter beschädigt
     alleHeil(); g.ship.botAuto = false;
     setz('shields', 'ggg', [3, 0, 3], [7, 7, 7]);
     setz('emitter_bow', 'dg', [3, 0], [0, 7]); setz('emitter_stbd', 'gd', [2, 0], [4, 0]); setz('emitter_aft', 'dd', [1, 0], [0, 0]); setz('emitter_port', 'gg', [0, 0], [1, 2]);
-    await sleep(600); await waehle('shields'); await shot('14-platzprobe-geflickt-verschlissen', 400);
+    await sleep(600); await waehle('shields'); await shot('14-platzprobe-geflickt-verschlissen', 400); await pruefeLayout('Platzprobe 14 ggg ohne Wahl');
+    for (let i = 0; i < 3; i++) { await page.keyboard.press('ArrowRight'); await sleep(200); }   // K, S, dann das Relais (die dritte Komponente, im Befund unsichtbar)
+    await sleep(300); await shot('14c-platzprobe-relais-gewaehlt', 300); await pruefeLayout('Platzprobe 14c Relais gewählt', 2);
+    await page.keyboard.press('ArrowLeft'); await sleep(200); await pruefeLayout('Platzprobe 14d Spannungsregler gewählt', 1);
+    await page.evaluate(() => { Consoles.sel.komp = {}; });
     await waehle('emitter_bow'); await shot('14b-platzprobe-emitter-ausfall-lage', 300);
   } finally {
     clearInterval(botsAus); await b.close(); await srv.close();

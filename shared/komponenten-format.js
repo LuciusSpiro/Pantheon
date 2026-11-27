@@ -201,12 +201,37 @@
   // Auslassungszeilen der Komponentenübersicht (Platz reicht nicht): übrige Komponenten des gewählten Systems; weitere Systeme der Kette mit Schaden
   function mehrText(anzahl) { return '… ' + anzahl + (anzahl === 1 ? ' Komponente' : ' Komponenten') + ' mehr'; }
   function weitereText(anzahl) { return '+' + anzahl + ' weitere (W/S im Plan)'; }
+  // TEC-01 Designer-Nacharbeit 2 (N1): Layoutmodell der Komponentenübersicht, rein (gezeichnet wird in public/js/consoles.js).
+  // folgeZeilen: Teile einer Komponente ([{ t, k }]) zu Folgezeilen umbrechen, solange ' · ' + Teil in die Breite passt (measure: Text -> px).
+  function folgeZeilen(teile, breite, measure) {
+    const z = [];
+    (teile || []).forEach((q) => { const last = z[z.length - 1]; if (last && measure(last.map((p) => p.t).join(' · ') + ' · ' + q.t) <= breite) last.push(q); else z.push([q]); });
+    return z;
+  }
+  // uebersichtLayout: folgen[i] = Zahl der Folgezeilen der Komponente i (voll = 1 Kopfzeile + folgen), wahl = Index der gewählten (-1: keine), platz = Höhe in px, P = Zeilenhöhe.
+  // Stufen: 'voll' (alles passt); 'kompakt' (jede Komponente als Kopfzeile, die gewählte so voll, wie der Rest erlaubt); 'mehr' (nicht einmal die Kopfzeilen passen: gewählte zuerst,
+  // dann in Reihenfolge, eine Zeile bleibt für mehrText). Ergebnis { stufe, eintraege: [{ i, folgen }] in Rezeptreihenfolge, mehr: Zahl ausgelassener Komponenten }.
+  function uebersichtLayout(folgen, wahl, platz, P) {
+    const n = folgen.length, h = (f) => (1 + f) * P;
+    if (folgen.reduce((s, f) => s + h(f), 0) <= platz) return { stufe: 'voll', eintraege: folgen.map((f, i) => ({ i, folgen: f })), mehr: 0 };
+    if (n * P <= platz) {
+      const rest = Math.floor((platz - n * P) / P);
+      return { stufe: 'kompakt', eintraege: folgen.map((f, i) => ({ i, folgen: i === wahl ? Math.min(f, rest) : 0 })), mehr: 0 };
+    }
+    const k = Math.max(0, Math.floor(platz / P) - 1), zeigen = new Set();
+    if (wahl >= 0 && wahl < n && k > 0) zeigen.add(wahl);
+    for (let i = 0; i < n && zeigen.size < k; i++) zeigen.add(i);
+    const eintraege = folgen.map((f, i) => ({ i, folgen: 0 })).filter((e) => zeigen.has(e.i));
+    return { stufe: 'mehr', eintraege, mehr: n - eintraege.length };
+  }
+  // Legendenzeile zu Flicken: Schildkette bricht am Sprung ODER Treffer, sonst nur am Treffer
+  function flickenLegende(kompAnsicht) { return kompAnsicht ? 'Flicken: bricht bei Sprung/Treffer' : 'Flicken: schnell, bricht bei Treffer'; }
   // Titel des Reparatur-Minispiels: Systemname, an Systemen mit Relais-Minispiel (Schildkette) mit der Komponente: „Backbord-Emitter · Relais“
   function minispielTitel(sysName, daten, sys) {
     const r = rezeptVon(daten, sys);
     return r && r.includes(MINISPIEL_ART) ? sysName + ' · ' + name(MINISPIEL_ART) : sysName;
   }
 
-  return { dekodiereStreng, hatZaehler, BRUCH_GRUND, BRUCH_PRO_SPRUNG, stationsHinweis, listeText, minispielTitel, mehrText, weitereText, NAMEN, MINISPIEL_ART, AUSFALL_SPERRE, MAX_DEFEKT_BROKEN, kodiere, zaehlerTeil, name, rezeptVon, sperreVon, dekodiere, ausZustand, liste, zulaessigeZiele, standardZiel, zielWahl, naechstesZiel, aktionFuerHand, bedienung,
+  return { dekodiereStreng, hatZaehler, BRUCH_GRUND, BRUCH_PRO_SPRUNG, stationsHinweis, listeText, minispielTitel, mehrText, weitereText, folgeZeilen, uebersichtLayout, flickenLegende, NAMEN, MINISPIEL_ART, AUSFALL_SPERRE, MAX_DEFEKT_BROKEN, kodiere, zaehlerTeil, name, rezeptVon, sperreVon, dekodiere, ausZustand, liste, zulaessigeZiele, standardZiel, zielWahl, naechstesZiel, aktionFuerHand, bedienung,
     bruchChance, bruchProzent, verschlissen, zustandText, ausfallText, bruchText, aktionText, zeilen, ursacheText, zusammenfassung, kompaktText, aktionFuerModus, ablehnGrund };
 });

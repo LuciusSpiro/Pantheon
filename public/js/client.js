@@ -2503,7 +2503,7 @@
         if (v.voxel && window.Sitz && Sitz.station) Net.guard('Sitz.draw', () => Sitz.draw(ctx, v));   // UI-Sitz (E2)
         else {
           K.verdeckt = null; Net.guard('Consoles.draw', () => K.draw(ctx, v));
-          // TEC-01 Nacharbeit M1: das deckende Pult übermalt den Ablehnhinweis (H.draw zeichnet davor): derselbe Kasten, NACH dem Pult, 3 px über der Statusleiste (gilt für jede Ablehnung an Pult-Stationen)
+          // TEC-01 Nacharbeit M1: das deckende Pult übermalt den Ablehnhinweis (H.draw zeichnet davor): derselbe Kasten, NACH dem Pult, 3 px über der Statusleiste (gilt für den K.draw-Pfad; an den Voxel-Sitzen Steuer, Ops, Captain übermalt Sitz.draw (sitz.js) den Kasten, das ist eine Folgeaufgabe)
           if (R.uiDenied && performance.now() - R.uiDenied.t < 1800 && window.Pult && Pult.statusOben && Pult.statusOben(v) != null) Net.guard('Hud.denyKonsole', () => H.drawNotices(ctx, v, Pult.statusOben(v) - 16, 1));
         }
         // W2 AP3b: Wellen All spielt an Konsolen – Banner und Ergebnis über der Konsole (sonst verdeckt)

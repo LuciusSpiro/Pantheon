@@ -186,5 +186,47 @@ section('Protokoll: technik.repair { system, mode, komp } bis queueRepairKompone
   ok(eq(treffer, ['game.js x1']), 'Quellscan: normKomp( kommt in server/ genau einmal vor (game.js): ' + treffer.join(', '));
 });
 
+section('Layoutmodell der Komponentenübersicht (N1): jede Komponente eine Zeile, die gewählte immer sichtbar, nichts über die Grenze', () => {
+  const P = 10, mess = (t) => t.length * 5, B = 182 - 11;   // Zeichen = 5 px (Näherung der Pixelschrift), Spaltenbreite wie im Schadensplan
+  const folgenVon = (l, alleRechts) => KF.zeilen(l, KD).map((z) => KF.folgeZeilen([].concat(z.ausfall && !alleRechts ? [{ t: z.ausfall, k: 'ausfall' }] : [], z.bruch ? [{ t: z.bruch }] : [], z.aktion ? [{ t: z.aktion }] : []), B, mess).length);
+  const hoehe = (lay, folgen) => lay.eintraege.reduce((h, e) => h + (1 + e.folgen) * P, 0) + (lay.mehr ? P : 0);
+  const verletzt = (l, platz, wahl, alleRechts) => {
+    const folgen = folgenVon(l, alleRechts), lay = KF.uebersichtLayout(folgen, wahl, platz, P), fehler = [];
+    if (platz >= P && hoehe(lay, folgen) > platz) fehler.push('Höhe ' + hoehe(lay, folgen) + ' > ' + platz);
+    const sichtbar = lay.eintraege.map((e) => e.i);
+    if (folgen.length * P <= platz && (lay.mehr || sichtbar.length !== folgen.length)) fehler.push('Komponente ohne Kopfzeile bei passenden Kopfzeilen');
+    if (wahl >= 0 && platz >= 2 * P && !sichtbar.includes(wahl)) fehler.push('gewählte unsichtbar');
+    if (lay.stufe === 'voll' && lay.eintraege.some((e) => e.folgen !== folgen[e.i])) fehler.push('voll, aber gekürzt');
+    if (lay.stufe === 'kompakt' && lay.eintraege.some((e) => e.i !== wahl && e.folgen !== 0)) fehler.push('kompakt: ungewählte nicht einzeilig');
+    if (wahl >= 0 && lay.stufe === 'kompakt' && folgen.reduce((h, f, i) => h + (i === wahl ? 1 + f : 1) * P, 0) <= platz && lay.eintraege.find((e) => e.i === wahl).folgen !== folgen[wahl]) fehler.push('gewählte nicht voll, obwohl Platz');
+    if (lay.mehr && lay.stufe !== 'mehr') fehler.push('mehrText vor der letzten Stufe');
+    if (lay.mehr !== folgen.length - lay.eintraege.length) fehler.push('mehr zählt falsch');
+    return fehler;
+  };
+  const worst = S('ggg'); worst[0].n = 3; worst[2].n = 3; worst.forEach((k) => { k.sp = 7; });
+  const emitter = (c) => { const l = KF.dekodiere(c, ['R', 'L']); l[0].n = 3; l[1].sp = 7; return l; };
+  const faelle = [['Generator ggg, Ausfälle 3/0/3, sp 7', worst], ['Generator ddd verschlissen', (() => { const l = S('ddd'); l[0].n = 3; l[2].n = 2; return l; })()], ['Generator ddg', S('ddg')], ['Generator ooo', S('ooo')], ['Emitter dg verschlissen, sp 7', emitter('dg')], ['Emitter gg', emitter('gg')]];
+  let geprueft = 0; const falsch = [];
+  for (const [nm, l] of faelle) for (const ar of [true, false]) for (let platz = 0; platz <= 260; platz += 1) for (let wahl = -1; wahl < l.length; wahl++) { geprueft++; const v = verletzt(l, platz, wahl, ar); if (v.length) falsch.push(nm + ' platz ' + platz + ' wahl ' + wahl + ' alleRechts ' + ar + ': ' + v.join('; ')); }
+  ok(!falsch.length, geprueft + ' Kombinationen (Fall, Umbruch, Platz 0..260 px, Wahl): jede Komponente mit Kopfzeile, gewählte sichtbar, Höhe <= Platz, mehrText nur zuletzt ' + falsch.slice(0, 2).join(' || '));
+  // der Befund: Generator ggg im Zustand „alles geflickt + verschlissen“ bei knappem Platz (der Plan zeigt 3 Komponenten, die dritte darf nicht fehlen)
+  const fw = folgenVon(worst, true), voll = fw.reduce((h, f) => h + (1 + f) * P, 0);
+  for (const wahl of [-1, 0, 1, 2]) {
+    const lay = KF.uebersichtLayout(fw, wahl, voll - 3, P);
+    ok(lay.stufe === 'kompakt' && lay.eintraege.length === 3 && lay.mehr === 0 && (wahl < 0 || lay.eintraege[wahl].folgen === fw[wahl]) && lay.eintraege.every((e) => wahl < 0 ? e.folgen === 0 : e.i === wahl || e.folgen === 0), 'ggg, 3 px zu wenig für alle voll, Wahl ' + wahl + ': alle drei Komponenten sichtbar, ' + (wahl < 0 ? 'alle als Kopfzeile' : 'die gewählte voll, die anderen als Kopfzeile'));
+  }
+  ok(KF.uebersichtLayout(fw, 2, voll, P).stufe === 'voll' && KF.uebersichtLayout(fw, -1, 3 * P - 1, P).stufe === 'mehr', 'Platz für alles: voll; nicht einmal drei Kopfzeilen: letzte Stufe (mehrText)');
+  const m = KF.uebersichtLayout([2, 2, 2, 2, 2], 4, 3 * P, P);
+  ok(m.stufe === 'mehr' && m.eintraege.some((e) => e.i === 4) && m.eintraege.length === 2 && m.mehr === 3, 'letzte Stufe mit fünf Komponenten und 3 Zeilen: die gewählte (5.) bleibt, eine Zeile für mehrText: ' + JSON.stringify(m));
+  // 3 defekte + 4 beschädigte Emitter + Reaktor + Waffe: das gewählte System ist der Generator (Reaktor/Waffe haben kein Komponentenmodell), die Emitter stehen einzeilig darunter (Konsole), hier der Generator allein
+  ok(!verletzt(S('ddd'), 80, 1, true).length && !verletzt(S('ddd'), 80, -1, true).length, 'Generator ddd bei 80 px: nichts ragt über die Grenze');
+});
+
+section('Legende zu Flicken (N2) nach Ansicht', () => {
+  ok(KF.flickenLegende(true) === 'Flicken: bricht bei Sprung/Treffer', 'Schildkette-Ansicht: „bricht bei Sprung/Treffer“');
+  ok(KF.flickenLegende(false) === 'Flicken: schnell, bricht bei Treffer', 'sonst (Reaktor, Waffe, Decksplan): „schnell, bricht bei Treffer“');
+  ok(KF.flickenLegende(true).length <= 36 && KF.flickenLegende(false).length <= 36, 'höchstens 36 Zeichen');
+});
+
 console.log(`\n${n - fails}/${n} Prüfungen grün${fails ? ', ' + fails + ' FEHLER' : ''}`);
 process.exit(fails ? 1 : 0);
