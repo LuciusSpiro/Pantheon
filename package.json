@@ -253,6 +253,7 @@
     "test:schubs": "node tools/test-schubs.js && node tools/test-schnellsprung.js",
     "test:zonen": "node tools/test-zonen.js",
     "test:systemmodell": "node tools/test-systemmodell.js",
+    "test:komponenten": "node tools/test-komponenten.js",
     "test:gegnersystem": "node tools/test-gegnersystem.js",
     "test:zonenkreuz": "node tools/test-zonenkreuz.js",
     "test:reaktortod": "node tools/test-reaktortod.js && node tools/test-reaktortod-bot.js && node tools/test-reaktortod-nach.js",

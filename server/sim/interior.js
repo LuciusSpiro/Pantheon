@@ -14,6 +14,7 @@ const Station = require('./station.js');   // R1 §4.4: aktive Station (lädt ni
 const BotWeichen = require('../bots/weichen.js');   // BOT-01 B3: Mensch gewinnt (Bots weichen an ihren Stationen)
 const Integ = require('./integritaet.js');   // SYS-01 C1a-1: Schwellen und Grundwert (Lerche und Gegner)
 const Fracht = require('./fracht.js');   // EK3 Teil A: Systemtreffer bricht das Fracht-Beamen ab (fracht.js lädt interior nicht)
+const Komp = require('./komponenten.js');   // TEC-01 A1: Komponenten der Schildkette (lädt interior lazy)
 
 const TILE = Physics.TILE;
 let combatMod = null;   // M2: Kampf v2 (lazy, wegen Zirkelbezug combat -> interior)
@@ -1113,6 +1114,7 @@ function damageSystemRoh(game, sys, toState, opts) {   // opts.quiet (keine ODA)
       const neu = toState || (o.prev === 'ok' && !isFragile(game, sys) ? 'damaged' : 'broken');
       if ((STATE_RANK[neu] || 0) > (STATE_RANK[o.prev] || 0)) o.prev = neu;
       if (o.prev === 'broken' && game.ship.fragile) delete game.ship.fragile[sys];
+      komponentenFolgen(game, sys);
       syncInteg(game, sys);
     }
     return;
@@ -1122,6 +1124,7 @@ function damageSystemRoh(game, sys, toState, opts) {   // opts.quiet (keine ODA)
   else s[sys] = before === 'ok' && !isFragile(game, sys) ? 'damaged' : 'broken';
   if (s[sys] === 'broken' && game.ship.fragile) delete game.ship.fragile[sys];
   if (s[sys] === 'ok' && toState === 'ok' && game.ship.fragile) delete game.ship.fragile[sys];
+  komponentenFolgen(game, sys);
   syncInteg(game, sys);   // SYS-01 A1a: die Integrität folgt dem Zustand
   if (s[sys] === before) return;
   game.emit('sfx', { name: s[sys] === 'broken' ? 'system_break' : 'hull_hit', zone: 'ship' });
@@ -1133,6 +1136,14 @@ function damageSystemRoh(game, sys, toState, opts) {   // opts.quiet (keine ODA)
     if (!(opts && opts.quiet)) queueSystemAnnounce(game, sys, s[sys]);
   }
   game.missionEvent('systemDamaged', { system: sys, state: s[sys] });
+}
+
+// TEC-01 A1: die Komponenten eines Systems mit Rezept (Schildkette) folgen dem geschriebenen Zustand: ein höherer Zustand lässt Komponenten ausfallen
+// (zufällig unter den funktionierenden), alles andere (heil gesetzt, repariert) erzeugt sie aus dem Zustand neu. Systeme ohne Rezept bleiben systemweit.
+function komponentenFolgen(game, sys) {
+  if (!Komp.hatKomponenten(game, sys)) return;
+  Komp.hebeAufZustand(game, sys, effZustand(game, sys));
+  Komp.konsistent(game, sys);
 }
 
 // Hitze bei Energie 4 (CONTRACT-M3 §4.2): weapons -> zufällige, nicht zerstörte Waffe; sonst das System selbst (nur wenn heil).
@@ -1187,6 +1198,7 @@ function setzeZustand(game, sys, state) {
     setInteg(game, k, integAusZustand(game, k, state));
     if (game.ship.fragile) delete game.ship.fragile[k];
     if (game.ship.offline) delete game.ship.offline[k];
+    Komp.erzeugeAusZustand(game, k);   // TEC-01 A1: Komponenten aus dem gesetzten Zustand (ohne Rezept: nichts)
   }
 }
 // Passt die Integrität nicht zum (effektiven) Zustand, wird sie auf dessen Grundwert gesetzt; sonst bleibt sie.
@@ -1426,6 +1438,7 @@ function repairSystem(game, sys, by, how, opts) {
   if (how === 'swap') s[sys] = 'ok';
   else if (before !== 'ok') s[sys] = before === 'broken' ? 'damaged' : 'ok';
   setInteg(game, sys, grundwert(game, sys, s[sys]));   // SYS-01 A1a: Reparatur setzt den Grundwert der erreichten Stufe
+  Komp.konsistent(game, sys);   // TEC-01 A1: Reparatur B kommt in B1; bis dahin folgen die Komponenten dem Zustand
   if (how === 'flick' || how === 'oda') ship.fragile[sys] = true;
   else delete ship.fragile[sys];
   ship.noPartT[sys] = 0;
@@ -1517,7 +1530,7 @@ function updateOffline(game, dt) {
   for (const sys of Object.keys(off)) {
     off[sys].t -= dt;
     if (off[sys].t > 0) continue;
-    if (game.ship.systems[sys] === 'offline') { game.ship.systems[sys] = off[sys].prev || 'ok'; delete off[sys]; integKonsistent(game, sys); } else delete off[sys];
+    if (game.ship.systems[sys] === 'offline') { game.ship.systems[sys] = off[sys].prev || 'ok'; delete off[sys]; integKonsistent(game, sys); Komp.konsistent(game, sys); } else delete off[sys];
     game.emit('sfx', { name: 'reactor_up', zone: 'ship', volume: 0.4 });
   }
 }

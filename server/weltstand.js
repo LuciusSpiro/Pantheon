@@ -19,6 +19,7 @@ const Besitz = require('./sim/besitz.js');   // SUND-02b A1: Rückfall beim Lade
 const Kriegslage = require('./sim/kriegslage.js');   // SUND-01 B: welt.sim (Weltsimulation im Modus Freie Fahrt Sund)
 const Spur = require('./sim/spur.js');   // SL5: welt.spur (Ionenspur: Id, Hex-Index, gelesen)
 const Sektorplan = require('./sim/sektorplan.js');   // SL4: welt.sektorplan (gesichtete Hexe, Marken, Schiffe)
+const Komponenten = require('./sim/komponenten.js');   // TEC-01 A1: Komponenten der Schildkette (schiff.komp)
 const Zonen = require('./sim/zonen.js');   // SL6: Zonen mit Wirkung (schiff.zonen)
 const BotGedaechtnis = require('./bots/gedaechtnis.js');   // BOT-05 A4: crew.botFiguren (Gedächtnis der Bot-Figuren, optional)
 const Welt = require('./sim/welt.js');   // SL1: Startort der aktiven Karte
@@ -691,6 +692,7 @@ function capture(game) {
   ws.data.tutorial = tutorial;
   const lager = {};
   for (const [k, v] of Object.entries(inv)) if (k !== 'marks' && Number.isFinite(v)) lager[k] = Math.max(0, Math.round(v));
+  Komponenten.konsistentAlle(game);   // TEC-01 A1: direkt geschriebene Zustände zuerst nachziehen
   const systeme = {};
   for (const k of SYSTEM_ORDER) {
     let st = ship.systems[k];
@@ -741,6 +743,7 @@ function capture(game) {
   if (Array.isArray(ws.data.faeden) && ws.data.faeden.length) data.welt.faeden = ws.data.faeden.slice();
   // EK3 Teil A: mitgeführte Ladung (nur wenn vorhanden; Ladung im Raum und Abnehmer sind Laufzeit und verfallen mit dem System)
   { const fr = Fracht.toSave(game); if (fr.length) data.schiff.fracht = fr; const fe = Fracht.toSaveEig(game); if (fe) data.schiff.frachtEig = fe; }   // LAD-01 B: Eigenschaften parallel (gleicher Index), additiv
+  { const kp = Komponenten.fuerSpeicher(game, systeme); if (kp) data.schiff.komp = kp; }   // TEC-01 A1: nur wo die Komponenten vom aus dem Systemzustand erzeugten Standard abweichen
   { const zo = Zonen.toSave(game); if (zo) data.schiff.zonen = zo; }   // SL6: erkundete Zonen und Zähler (nur wenn vorhanden)
   // B1–B3 (§8): Blöcke der Teams (explore.toSave darf sektoren selbst liefern, sonst sprung.js bzw. der geladene Block)
   { const nr = Notrufe.toSave(game); if (nr) data.welt.notrufe = nr; }   // SL8: nur wenn Rufe freigeschaltet wurden
@@ -850,6 +853,7 @@ function apply(game, data) {
   IN.integritaetVoll(game);
   for (const k of SYSTEM_ORDER) if (s.systeme && ['ok', 'damaged', 'broken'].includes(s.systeme[k])) ship.systems[k] = s.systeme[k];
   for (const k of SYSTEM_ORDER) IN.setInteg(game, k, IN.grundwert(game, k, ship.systems[k]));
+  require('./sim/komponenten.js').ausSpeicher(game, s.komp);   // TEC-01 A1: Komponenten der Schildkette aus dem Systemzustand, der Block schiff.komp legt Abweichungen darüber (fehlt im Altstand = Standard)
   IN.inaktiveHeilen(game);   // PAN-01 C: Lafetten ohne Platz/Bestückung stehen heil da
   ship.offline = {}; ship.fragile = {};
   // Welt

@@ -20,6 +20,7 @@ const Alarm = require('./sim/alarm.js');   // EK2: Raum-Alarm, Minen, Schleichfa
 const away = require('./sim/away.js');
 const combat = require('./sim/combat.js');
 const Zielsysteme = require('./sim/zielsysteme.js');
+const Komponenten = require('./sim/komponenten.js');   // TEC-01 A1
 const Gsys = require('./sim/gegnersystem.js');   // SYS-01 C1a-1: Systemzustand des anvisierten Ziels (ship.zielSys)
 const Hauptschirm = require('./sim/hauptschirm.js');   // KUL-02 A: Hauptschirm-Ansicht (ship.hs)
 const CaptainZiel = require('./sim/captainziel.js');   // OPS-01 C1: Anzeigeziel des Captains (ship.cz)
@@ -554,6 +555,7 @@ class Game {
       leakHits: 0, escalations: 0, repairSetbacks: 0, reactorAutoStarts: 0 };
     this.ship = {
       scene: Welt.startOrt(), docked: true, dockedAt: Welt.startOrt(), dockArmed: false, x: 0, y: 0, angle: 0, vx: 0, vy: 0, speed: 0,
+      komp: {},   // TEC-01 A1: Komponenten der Schildkette (komponenten.js, legt sich aus dem Systemzustand an)
       integ: {}, alert: 'normal',   // SYS-01 A1a: keine Hülle; Integrität je System (interior.integOf, Start = Maximum)
       helm: { turn: 0, thrust: 0, manned: false, autoStop: false },   // §21.1 autoStop = Allstopp aktiv
       power: Object.assign({}, C.power.default), reactor: { state: 'online', output: C.power.reactor, used: 8, overloadLeft: 0, switches: { A: false, B: false }, restartProgress: 0 },
@@ -2227,6 +2229,7 @@ class Game {
   snapshotBauen() {
     const C = this.C; const ship = this.ship; const sp = this.space; const aw = this.away;
     const integSnap = interior.integritaetSnapshot(this);   // SYS-01 A1: einmal je Snapshot, ohne Schreibzugriff
+    const kompSnap = Komponenten.snapshot(this);   // TEC-01 A1: ebenfalls nur lesend
     this.snapCount++;
     const includeAsteroids = this.asteroidsDirty || this.snapCount % C.net.asteroidSnapEvery === 0;
     this.asteroidsDirty = false;
@@ -2424,6 +2427,7 @@ class Game {
       }),
       ship: {
         scene: ship.scene, docked: ship.docked, dockedAt: ship.dockedAt, x: r1(ship.x), y: r1(ship.y), angle: r3(ship.angle), vx: r1(ship.vx), vy: r1(ship.vy), speed: r1(ship.speed),
+        ...(kompSnap ? { komp: kompSnap } : {}),   // TEC-01 A1: nur bei Abweichung, je System ein String (Zustandscodes o/d/g je Komponente, optional ;Ausfall;Sprung)
         integ: integSnap.pct, integPct: integSnap.gesamt, zonen: interior.zonenSnapshot(this), zielAuf: Zielsysteme.zielAuf(this), zielAufKl: Zielsysteme.zielAufKlasse(this), alert: ship.alert,
         helm: this.helmSnap(),
         power: ship.power, reactor: this.reactorSnap(), ...(Reaktortod.snapshotKompakt(this) ? { reaktorTod: Reaktortod.snapshotKompakt(this) } : {}),   // SYS-01 A2a: { rest (Zehntelsekunden, -1 kein Countdown), n, tot, wartet }; im Ruhezustand fehlt das Feld
