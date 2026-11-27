@@ -1421,10 +1421,10 @@
       const FARBE = { ok: PAL.mint, defekt: F.zerText, geflickt: R.FRAGILE_COL };
       const ids = Object.keys(CFG.systemModell.komponenten.systeme).filter((id) => this.kompModell(st, id));
       const sel = this.kompModell(st, selSys), wahl = this.kompGewaehlt(st, selSys);
-      const unten = y + h;
+      const kanteUnten = y + h;
       const klick = (rx, ry, rw, rh, fn) => R.ui.buttons.push({ x: rx, y: ry, w: rw, h: rh, label: '', disabled: false, onClick: fn });
       const restIds = ids.filter((id) => id !== selSys), schlecht = restIds.filter((id) => this.kompModell(st, id).ursache);
-      const grenze = unten - (restIds.length ? P + 7 : 0);   // die Komponentenzeilen lassen eine Zeile (plus Trenner) für die übrigen Systeme frei (beschädigte oder „übrige Schildkette: heil“): nichts ragt in die Zeile darunter
+      const grenze = kanteUnten - (restIds.length ? P + 7 : 0);   // die Komponentenzeilen lassen eine Zeile (plus Trenner) für die übrigen Systeme frei (beschädigte oder „übrige Schildkette: heil“): nichts ragt in die Zeile darunter
       let ly = y;
       R.text(ctx, 'SCHILDKETTE', x, ly, { color: PAL.brass });
       R.text(ctx, wahl ? 'Komponenten' : '←/→ Komponente', x + 70, ly, { color: PAL.panelLight });   // ohne Wahl der Hinweis auf die Tasten (das Hilfe-Overlay nennt sie ausführlich)
@@ -1475,7 +1475,7 @@
       // übrige Systeme: einzeilig, nur beschädigte
       ly += 2;
       ctx.fillStyle = PAL.panel; ctx.fillRect(x, ly, w, 1); ly += 4;
-      const platz = Math.floor((unten - ly) / P);
+      const platz = Math.floor((kanteUnten - ly) / P);
       const zeigen = schlecht.length > platz ? Math.max(0, platz - 1) : schlecht.length;
       schlecht.slice(0, zeigen).forEach((id) => {
         const m = this.kompModell(st, id), nm = H.SYS_SHORT[id] || H.sysName(id, ship), hat = m.l.some((k) => k.z === 'defekt');

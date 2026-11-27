@@ -2202,12 +2202,11 @@
       case 'Space': Client.lanzeSperre = false; shoot(); Client.fireHeld.key = true; break;
       case 'KeyC': toggleCrouch(); break;   // M2 §15: ducken (nur Außenzone auf v2-Karten)
       case 'KeyQ':
-        if (m.zone === 'ship') { kompWechseln(); break; }   // TEC-01 B2: an einer Schildkette-Station das Ziel wechseln (sonst ohne Wirkung an Bord)
         if (m.zone === 'away') {
           const w = Client.mouse.x >= 0 ? mouseWorld() : { x: Client.self.x, y: Client.self.y };
           send({ t: P.C.MARK || 'mark', x: Math.round(w.x), y: Math.round(w.y) });
           audio.play('ui_click');
-        }
+        } else if (m.zone === 'ship') kompWechseln();   // TEC-01 B2: an einer Schildkette-Station das Ziel wechseln (sonst ohne Wirkung an Bord)
         break;
       case 'Tab': H.showCrew = true; break;
       // S1 Esc-Kette: Ende-Screen -> Minispiel -> Konsole (oben) -> Crew-Overlay -> Spielmenü
