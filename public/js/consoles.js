@@ -97,7 +97,7 @@
     current: null,
     tab: 0,            // Reiter der Captain-Konsole
     ttab: 0,           // Reiter der Technik-Konsole
-    sel: { power: 0, damage: 0, shop: 0, deco: 0, slot: 0, qrow: 0, loc: 0, mount: 0 },
+    sel: { power: 0, damage: 0, shop: 0, deco: 0, slot: 0, qrow: 0, loc: 0, mount: 0, komp: {} },   // komp[sys] = Art der gewählten Komponente im Schadensplan (TEC-01 D; fehlt = ganzes System)
     lanceOn: null,     // §20.3: Lanze wird gerade aufgeladen ('key' | 'mouse')
     keys: {},
     mouseHold: null,
@@ -1372,13 +1372,105 @@
       return this._walk[sys];
     },
     queueOf(ship, sys) { return (ship.repairQueue || []).find(q => q && q.system === sys) || null; },
+    // TEC-01 D: Komponenten der Schildkette. Regeln und Texte stehen im gemeinsamen Modul (shared/komponenten-format.js); hier nur Auswahl und Zeichnen.
+    // null: das System hat keine Komponenten. Sonst { sys, l (Komponentenliste), sperre, zeilen, ursache, zusammenfassung }.
+    kompModell(st, sys) {
+      const KF = window.Shared_KomponentenFormat, d = CFG.systemModell && CFG.systemModell.komponenten;
+      if (!KF || !d || !sys) return null;
+      const l = KF.liste(st, d, sys);
+      if (!l) return null;
+      const ship = (st && st.ship) || {};
+      return { sys, l, sperre: KF.sperreVon(d), zeilen: KF.zeilen(l, d), ursache: KF.ursacheText(l), zusammenfassung: KF.zusammenfassung(H.sysName(sys, ship), (ship.systems || {})[sys] || 'ok', l) };
+    },
+    // gewählte Komponente (Art) eines Schildkette-Systems oder null
+    kompGewaehlt(st, sys) {
+      const m = this.kompModell(st, sys), w = this.sel.komp[sys];
+      return m && w && m.l.some((k) => k.t === w) ? w : null;
+    },
+    // ←/→ im Schadensplan: die nächste/vorige Komponente des gewählten Systems; vor der ersten und nach der letzten gilt wieder das ganze System
+    kompWechseln(view, sys, dir) {
+      const m = this.kompModell(view.state, sys);
+      if (!m) return false;
+      const folge = [null].concat(m.l.map((k) => k.t)), i = Math.max(0, folge.indexOf(this.kompGewaehlt(view.state, sys)));
+      const w = folge[(i + dir + folge.length) % folge.length];
+      if (w) this.sel.komp[sys] = w; else delete this.sel.komp[sys];
+      view.actions.sfx('ui_click');
+      return true;
+    },
     setRepair(view, sys, mode) {
       const ship = view.state.ship || {};
       const q = this.queueOf(ship, sys);
       const max = m3('repair.queueMax', 3);
+      // TEC-01 D: ist an einem Schildkette-System eine Komponente gewählt, trägt die Zuweisung sie (komp); ohne Wahl wie bisher
+      const komp = mode ? this.kompGewaehlt(view.state, sys) : null;
+      if (komp) {
+        const m = this.kompModell(view.state, sys), why = window.Shared_KomponentenFormat.ablehnGrund(m.l, mode, komp, m.sperre);
+        if (why) { this.denied(why); return; }
+      }
       if (mode && !q && (ship.repairQueue || []).length >= max) { this.denied('Reparaturliste voll (' + max + ') – erst einen Eintrag entfernen'); return; }
       if (!mode && !q) return;
-      this.cmd(view, 'technik.repair', { system: sys, mode: mode || null });
+      this.cmd(view, 'technik.repair', Object.assign({ system: sys, mode: mode || null }, komp ? { komp } : {}));
+    },
+    // TEC-01 D: Komponenten-Übersicht im Platz des Decksplans (x, y, w, h). Das gewählte System ist aufgeklappt (Zusammenfassung, je Komponente Zustand, Ausfälle, Bruchrisiko und mögliche Aktion in Klartext),
+    // die übrigen Schildkette-Systeme stehen einzeilig darunter (nur beschädigte; Klick wählt sie). Zustände stehen als Wort da, die Farbe unterstützt nur.
+    zeichneKomponenten(ctx, view, x, y, w, h, selSys, selectId) {
+      const st = view.state, ship = st.ship || {}, KF = window.Shared_KomponentenFormat;
+      const P = 10, FARBE = { ok: PAL.mint, defekt: PAL.red, geflickt: R.FRAGILE_COL };
+      const ids = Object.keys(CFG.systemModell.komponenten.systeme).filter((id) => this.kompModell(st, id));
+      const sel = this.kompModell(st, selSys), wahl = this.kompGewaehlt(st, selSys);
+      const unten = y + h;
+      const klick = (rx, ry, rw, rh, fn) => R.ui.buttons.push({ x: rx, y: ry, w: rw, h: rh, label: '', disabled: false, onClick: fn });
+      let ly = y;
+      R.text(ctx, 'SCHILDKETTE', x, ly, { color: PAL.brass });
+      R.text(ctx, 'Komponenten', x + 70, ly, { color: PAL.panelLight });
+      ly += P + 1;
+      const sz = (ship.systems || {})[selSys] || 'ok';
+      const zc = sz === 'broken' || sz === 'offline' ? PAL.red : sz === 'damaged' ? PAL.warn : sel.l.some((k) => k.z === 'geflickt') ? R.FRAGILE_COL : PAL.mint;
+      R.wrap(sel.zusammenfassung, w, 1).slice(0, 3).forEach((t) => { R.text(ctx, t, x, ly, { color: zc }); ly += P; });
+      ly += 2;
+      sel.zeilen.forEach((z, i) => {
+        const n = sel.l[i].n, kopfEnde = x + 3 + R.measure(z.name, 1) + 6 + R.measure(z.zustand, 1);
+        const rechts = z.ausfall && kopfEnde + 8 + R.measure(z.ausfall, 1) <= x + w;   // Ausfallzähler rechts in der Kopfzeile, sonst vorn in der Zeile darunter
+        const ausCol = z.verschlissen ? PAL.red : n >= sel.sperre - 1 ? PAL.amber : PAL.panelLight;
+        const teile = [];
+        if (z.ausfall && !rechts) teile.push({ t: z.ausfall, c: ausCol });
+        if (z.bruch) teile.push({ t: z.bruch, c: R.FRAGILE_COL });
+        if (z.aktion) teile.push({ t: z.aktion, c: PAL.panelLight });
+        const zeilenB = [];   // Folgezeilen: Teile mit ' · ' verbunden, solange sie in die Breite passen
+        teile.forEach((q) => {
+          const last = zeilenB[zeilenB.length - 1];
+          if (last && R.measure(last.map((p) => p.t).join(' · ') + ' · ' + q.t, 1) <= w - 8) last.push(q); else zeilenB.push([q]);
+        });
+        const hh = (1 + zeilenB.length) * P;
+        if (ly + hh > unten) return;
+        const gew = wahl === z.t;
+        if (gew) { ctx.fillStyle = 'rgba(255,198,107,0.16)'; ctx.fillRect(x - 3, ly - 1, w + 3, hh); ctx.fillStyle = PAL.amber; ctx.fillRect(x - 3, ly - 1, 2, hh); }
+        klick(x - 3, ly - 1, w + 3, hh, () => { if (gew) delete this.sel.komp[selSys]; else this.sel.komp[selSys] = z.t; });
+        R.text(ctx, z.name, x + 3, ly, { color: gew ? PAL.amber : PAL.star });
+        R.text(ctx, z.zustand, x + 3 + R.measure(z.name, 1) + 6, ly, { color: FARBE[z.z] || PAL.panelLight });
+        if (rechts) R.text(ctx, z.ausfall, x + w, ly, { color: ausCol, align: 'right' });
+        ly += P;
+        zeilenB.forEach((zl) => {
+          let tx = x + 8;
+          zl.forEach((q, j) => { const t = (j ? ' · ' : '') + q.t; R.text(ctx, t, tx, ly, { color: q.c }); tx += R.measure(t, 1); });
+          ly += P;
+        });
+      });
+      // übrige Systeme: einzeilig, nur beschädigte
+      const rest = ids.filter((id) => id !== selSys), schlecht = rest.filter((id) => this.kompModell(st, id).ursache);
+      ly += 2;
+      ctx.fillStyle = PAL.panel; ctx.fillRect(x, ly, w, 1); ly += 4;
+      const platz = Math.floor((unten - ly) / P);
+      const zeigen = schlecht.length > platz ? Math.max(0, platz - 1) : schlecht.length;
+      schlecht.slice(0, zeigen).forEach((id) => {
+        const m = this.kompModell(st, id), nm = H.SYS_SHORT[id] || H.sysName(id, ship), hat = m.l.some((k) => k.z === 'defekt');
+        klick(x - 3, ly - 1, w + 3, P, () => selectId(id));
+        R.text(ctx, nm, x, ly, { color: PAL.star });
+        R.text(ctx, KF.kompaktText(m.l), x + R.measure(nm, 1) + 8, ly, { color: hat ? PAL.red : R.FRAGILE_COL });
+        ly += P;
+      });
+      if (zeigen < schlecht.length) R.text(ctx, '+' + (schlecht.length - zeigen) + ' weitere beschädigt (Zeile wählen)', x, ly, { color: PAL.amber });
+      else if (!schlecht.length && rest.length) R.text(ctx, 'übrige Schildkette: heil', x, ly, { color: PAL.mint });
     },
     capDamage(ctx, view, a) {
       const st0 = view.state, ship0 = st0.ship || {};
@@ -1434,7 +1526,7 @@
           R.button(ctx, a.x, by, 62, 13, 'Flicken', { hotkey: 'F', active: !!(q && q.mode === 'flick'), disabled: dis, reason: 'System ist heil', onClick: () => this.setRepair(view, id, 'flick') });
           R.button(ctx, a.x + 66, by, 40, 13, 'Teil', { hotkey: 'T', active: !!(q && q.mode === 'part'), disabled: dis, reason: 'System ist heil', onClick: () => this.setRepair(view, id, 'part') });
           R.button(ctx, a.x + 110, by, 62, 13, 'Entfernen', { disabled: !q, reason: 'Nicht in der Liste', onClick: () => this.setRepair(view, id, null) });
-          R.text(ctx, q ? (q.bot ? botName(q.bot) + ' arbeitet daran' : 'in der Liste, wartet auf Schrauber') : 'nicht in der Liste', a.x + 178, by + 3, { color: q && q.bot ? PAL.amber : PAL.panelLight });
+          R.text(ctx, q ? (q.bot ? botName(q.bot) + ' arbeitet daran' : 'in der Liste, wartet auf Schrauber') + (q.komp && window.Shared_KomponentenFormat ? ' · ' + window.Shared_KomponentenFormat.name(q.komp) : '') : 'nicht in der Liste', a.x + 178, by + 3, { color: q && q.bot ? PAL.amber : PAL.panelLight });
         } else {
           R.text(ctx, 'Feuer oder Leck gewählt: Priorität unten', a.x, dy, { color: PAL.panelLight });
         }
@@ -1455,8 +1547,11 @@
       // rechts: Decksplan, Feuer/Lecks, Schrauber, Lager
       const px = a.x + 382, pw2 = a.w - 382;
       const cell = Math.max(3, Math.min(8, Math.floor(pw2 / Maps.ship.w)));
-      R.drawMiniPlan(ctx, view, px, a.y + 4, { zone: 'ship', cell });
-      let ly = a.y + 4 + R.miniPlanSize('ship', cell).h + 8;
+      const planH = R.miniPlanSize('ship', cell).h;
+      // TEC-01 D: bei gewähltem Schildkette-System steht an der Stelle des Decksplans die Komponenten-Übersicht
+      if (selRow && selRow.sys && this.kompModell(st, selRow.target)) this.zeichneKomponenten(ctx, view, px, a.y + 4, pw2, planH, selRow.target, selectId);
+      else R.drawMiniPlan(ctx, view, px, a.y + 4, { zone: 'ship', cell });
+      let ly = a.y + 4 + planH + 8;
       const fires = ship.fires || [], br = ship.breaches || [];
       R.text(ctx, 'Feuer: ' + (fires.length ? roomList(fires, 2) : 'keine'), px, ly, { color: fires.length ? PAL.red : PAL.moss }); ly += 11;
       R.text(ctx, 'Lecks: ' + (br.length ? roomList(br.map(b => [b.tx, b.ty]), 2) : 'keine'), px, ly, { color: br.length ? PAL.ice : PAL.moss }); ly += 11;
@@ -1480,7 +1575,12 @@
       R.text(ctx, 'Löschgel ' + stock('loeschgel'), px, ly, { color: PAL.panelLight }); ly += 12;
       R.text(ctx, 'Flicken = schnell, fragil', px, ly, { color: PAL.panelLight }); ly += 10;
       R.text(ctx, 'Teil = heil · Minispiel (R) vor Ort', px, ly, { color: PAL.panelLight });
-      return 'W/S wählen · F/Enter flicken · T Teil · Entf entfernen · P an die Spitze · A Bots automatisch · 1–2 Reiter';
+      // TEC-01 D: ist keine Schildkette-Zeile gewählt (Decksplan statt Übersicht), verrät diese Zeile, dass dort Schäden an Komponenten stehen
+      if (!(selRow && selRow.sys && this.kompModell(st, selRow.target))) {
+        const nSk = Object.keys((CFG.systemModell && CFG.systemModell.komponenten && CFG.systemModell.komponenten.systeme) || {}).filter((id) => { const m = this.kompModell(st, id); return m && m.ursache; }).length;
+        if (nSk) { ly += 12; R.text(ctx, 'Schildkette: ' + nSk + ' beschädigt', px, ly, { color: PAL.amber }); }
+      }
+      return 'W/S wählen · ' + (selRow && selRow.sys && this.kompModell(st, selRow.target) ? '←/→ Komponente · ' : '') + 'F/Enter flicken · T Teil · Entf entfernen · P an die Spitze · A Bots automatisch · 1–2 Reiter';
     },
     capDamageOld(ctx, view, a) {
       const st = view.state, ship = st.ship || {};
@@ -3365,6 +3465,7 @@
             if (code === 'ArrowDown' || code === 'KeyS') { this.sel.damage = (this.sel.damage + 1) % rows.length; return true; }
             const row = rows[this.sel.damage];
             if (row && row.sys) {
+              if ((code === 'ArrowLeft' || code === 'ArrowRight') && this.kompModell(st, row.target)) return press(() => this.kompWechseln(view, row.target, code === 'ArrowLeft' ? -1 : 1));   // TEC-01 D: Komponente des Schildkette-Systems wählen
               // M3a: Reparaturliste der Bots
               if (code === 'Enter' || code === 'KeyF') return press(() => this.setRepair(view, row.target, 'flick'));
               if (code === 'KeyT') return press(() => this.setRepair(view, row.target, 'part'));
