@@ -1,6 +1,6 @@
 // TEC-01 B2: Lesepunkt für das Komponentenformat der Schildkette (UMD: window.Shared_KomponentenFormat / require). Rein, ohne Abhängigkeiten.
-// Leser: Client (Bedienung der Komponentenwahl, später Übersicht TEC-01 D) und Tests. Der Server schreibt das Format in server/sim/komponenten.js (kodiere/dekodiere);
-// tools/test-komp-bedienung.js hält beide Seiten gleich (Gegenprobe), solange der Server nicht auf dieses Modul umgestellt ist.
+// Leser: Client (Bedienung der Komponentenwahl, Übersicht TEC-01 D) UND Server: server/sim/komponenten.js nutzt dieses Modul als einzige Quelle für Kodieren/Dekodieren, Namen,
+// Zulässigkeit der Ziele, Bruchformel und Konstanten (TEC-01 Nacharbeit 1.2). tools/test-komp-bedienung.js prüft den Roundtrip Server -> Format.
 //
 // Format (Snapshot ship.komp[sys], Weltstand schiff.komp[sys]): ein Zustandscode je Komponente in Rezeptreihenfolge (o ok, d defekt, g geflickt, - unbekannt),
 // bei gesetzten Zählern folgt ';Ausfall1,Ausfall2..;Sprung1,Sprung2..'. Fehlt das System im Snapshot, weicht keine Komponente ab (alles ok).
@@ -14,6 +14,7 @@
   'use strict';
   const OK = 'ok', DEFEKT = 'defekt', GEFLICKT = 'geflickt';
   const VON_CODE = { o: OK, d: DEFEKT, g: GEFLICKT };
+  const CODE = { [OK]: 'o', [DEFEKT]: 'd', [GEFLICKT]: 'g' };
   const NAMEN = { K: 'Steuerkern', S: 'Spannungsregler', R: 'Relais', L: 'Leitung' };
   const MINISPIEL_ART = 'R';
   const AUSFALL_SPERRE = 3;
@@ -29,6 +30,9 @@
   }
   function sperreVon(daten) { const v = Number(daten && daten.ausfallSperre); return v >= 1 ? v : AUSFALL_SPERRE; }
 
+  // [{ t, z, n, sp }] -> Text (Gegenstück zu dekodiere): Zustandscodes, bei gesetzten Zählern ';n1,n2..;sp1,sp2..'
+  function zaehlerTeil(l) { return l.some((k) => k.n > 0 || k.sp > 0) ? ';' + l.map((k) => k.n | 0).join(',') + ';' + l.map((k) => k.sp | 0).join(',') : ''; }
+  function kodiere(l) { return l.map((k) => CODE[k.z] || 'o').join('') + zaehlerTeil(l); }
   // Text -> [{ t, z, n, sp }] in Rezeptreihenfolge (z null bei '-'); null, wenn der Text nicht zum Rezept passt
   function dekodiere(text, rezept) {
     if (!Array.isArray(rezept) || typeof text !== 'string') return null;
@@ -96,7 +100,7 @@
   }
 
   // ---------- TEC-01 D: Übersicht (Schadensplan der Technik-Konsole). Nur Texte und Zahlen; gezeichnet wird in public/js/consoles.js ----------
-  const BRUCH_GRUND = 0.3, BRUCH_PRO_SPRUNG = 0.1;   // wie server/sim/komponenten.js (Standard, wenn komponenten.sprungBruch fehlt)
+  const BRUCH_GRUND = 0.3, BRUCH_PRO_SPRUNG = 0.1;   // Standard, wenn komponenten.sprungBruch fehlt (der Server nutzt bruchChance von hier)
   const ZUSTAND_TEXT = { ok: 'ok', defekt: 'DEFEKT', geflickt: 'geflickt' };
   const SYSTEM_TEXT = { ok: 'heil', damaged: 'beschädigt', broken: 'zerstört', offline: 'offline (EMP)' };
   const AKTION_NAMEN = { minigame: 'Minispiel', flick: 'Flicken', swap: 'Tausch' };
@@ -125,7 +129,7 @@
     const k = Array.isArray(l) ? l.find((q) => q.t === art) : null;
     if (!k || k.z === OK || k.z == null) return null;
     const a = ['minigame', 'flick', 'swap'].filter((x) => zulaessigeZiele(l, x, sperre).includes(art));
-    if (a.length === 2 && a[0] === 'flick' && verschlissen(k, sperre)) return 'nur Flicken oder Tausch';
+    if (a.length === 2 && a[0] === 'flick' && art === MINISPIEL_ART && verschlissen(k, sperre)) return 'nur Flicken oder Tausch';
     if (a.length === 1) return 'nur ' + AKTION_NAMEN[a[0]];
     return a.map((x) => AKTION_NAMEN[x]).join(' · ');
   }
@@ -159,9 +163,41 @@
     if (!aktion || !k) return 'Keine Komponente gewählt';
     if (zulaessigeZiele(l, aktion, sperre).includes(art)) return null;
     if (k.z === OK || k.z == null) return name(art) + ' ist heil';
-    return name(art) + ' ist schon geflickt – für dauerhaft: Teil';
+    return name(art) + ' ist schon geflickt – für dauerhaft: Tausch';
   }
 
-  return { NAMEN, MINISPIEL_ART, AUSFALL_SPERRE, name, rezeptVon, sperreVon, dekodiere, ausZustand, liste, zulaessigeZiele, standardZiel, zielWahl, naechstesZiel, aktionFuerHand, bedienung,
+  // ---------- TEC-01 Nacharbeit: Texte der Bedienung (reine Funktionen, vom Client nur angezeigt) ----------
+  // Stationshinweis an einer Schildkette-Station (E-Zeile, R-Zeile, Q-Zeile). kb = { l (Komponenten), b (bedienung), z (zulässige Ziele der E-Aktion), sperre }, sysName = Anzeigename des Systems,
+  // sek = { flick, swap } (Dauertexte wie „1,5 s“). Der Aktionsname heißt überall Tausch (Teil/Ersatzteil ist nur der Gegenstand); die Regel „bricht beim Sprung“ gilt für jeden Flicken der Kette.
+  function stationsHinweis(kb, sysName, sek) {
+    const b = kb.b;
+    let r;
+    if (b.minispiel) r = { label: 'Minispiel: reparieren (dauerhaft)', ok: true };
+    else {
+      const rk = kb.l.find((k) => k.t === MINISPIEL_ART);
+      r = { label: !rk ? 'kein Minispiel hier' : rk.z === 'ok' ? 'kein Minispiel: Relais ist heil' : 'Relais verschlissen: nur Flicken/Tausch', ok: false };
+    }
+    const q = kb.z.length > 1 ? { label: 'Ziel wechseln (' + (kb.z.indexOf(b.ziel) + 1) + '/' + kb.z.length + ')', ok: true } : null;
+    if (b.ziel == null) return { label: sysName + ': ' + b.geflickt.map(name).join(', ') + ' geflickt – bricht beim Sprung', ok: false, r, q };
+    const tausch = b.aktion === 'swap';
+    return { label: 'halten: ' + (tausch ? 'Tausch' : 'Flicken') + ' – ' + name(b.ziel) + ' (' + (tausch ? sek.swap + ', dauerhaft' : sek.flick + ', bricht beim Sprung') + ')', ok: true, r, q };
+  }
+  // Statuszeile eines Eintrags der Reparaturliste: q = { bot, komp } oder null, botName = Anzeigename des Schraubers (nur mit q.bot)
+  function listeText(q, botName) {
+    if (!q) return 'nicht in der Liste';
+    const k = q.komp ? name(q.komp) : null;
+    if (q.bot) return (botName || 'Schrauber') + ' arbeitet daran' + (k ? ' · ' + k : '');
+    return k ? 'in Liste: ' + k + ' · wartet' : 'in der Liste, wartet auf Schrauber';
+  }
+  // Auslassungszeilen der Komponentenübersicht (Platz reicht nicht): übrige Komponenten des gewählten Systems; weitere Systeme der Kette mit Schaden
+  function mehrText(anzahl) { return '… ' + anzahl + (anzahl === 1 ? ' Komponente' : ' Komponenten') + ' mehr'; }
+  function weitereText(anzahl) { return '+' + anzahl + ' weitere (W/S im Plan)'; }
+  // Titel des Reparatur-Minispiels: Systemname, an Systemen mit Relais-Minispiel (Schildkette) mit der Komponente: „Backbord-Emitter · Relais“
+  function minispielTitel(sysName, daten, sys) {
+    const r = rezeptVon(daten, sys);
+    return r && r.includes(MINISPIEL_ART) ? sysName + ' · ' + name(MINISPIEL_ART) : sysName;
+  }
+
+  return { stationsHinweis, listeText, minispielTitel, mehrText, weitereText, NAMEN, MINISPIEL_ART, AUSFALL_SPERRE, MAX_DEFEKT_BROKEN, kodiere, zaehlerTeil, name, rezeptVon, sperreVon, dekodiere, ausZustand, liste, zulaessigeZiele, standardZiel, zielWahl, naechstesZiel, aktionFuerHand, bedienung,
     bruchChance, bruchProzent, verschlissen, zustandText, ausfallText, bruchText, aktionText, zeilen, ursacheText, zusammenfassung, kompaktText, aktionFuerModus, ablehnGrund };
 });

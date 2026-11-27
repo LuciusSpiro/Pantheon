@@ -909,7 +909,7 @@
       case 'repairDone': {
         audio.play('repair_done');
         if (ev.by && ev.by === Client.pid) {
-          const how = { flick: 'geflickt (fragil)', swap: 'Teil eingebaut – heil', minigame: 'repariert (dauerhaft)' }[ev.how];
+          const how = { flick: ev.komp ? 'geflickt (bricht beim Sprung)' : 'geflickt (fragil)', swap: 'getauscht – heil', minigame: 'repariert (dauerhaft)' }[ev.how];   // Schildkette (ev.komp): der Flicken bricht auch beim Sprung
           if (how) H.pushNotice(name(ev.system) + ': ' + how, ev.how === 'flick' ? R.FRAGILE_COL : PAL.mint);
         }
         return true;
@@ -1626,22 +1626,12 @@
     audio.play('ui_click', { volume: 0.4 });
   }
   // Hinweis (E-Zeile, R-Zeile, Q-Zeile) an einer Station mit Komponenten; label/alt/alt2 wie bei den anderen Stationen
+  // Die Texte kommen rein aus KF.stationsHinweis (getestet); die Station trägt ihre Marke, deshalb steht der Systemname nicht in der E-Zeile (Prompt bleibt schmal)
   function kompHinweis(kb, sys, name, secs, RC) {
-    const { b } = kb, nm = (t) => KF.name(t);
-    const sperre = kb.sperre;
-    let alt;
-    if (b.minispiel) alt = { key: 'R', label: 'Relais reparieren (Minispiel, dauerhaft)', ok: true };
-    else {
-      const r = kb.l.find((k) => k.t === KF.MINISPIEL_ART);
-      alt = { key: 'R', label: !r ? 'kein Minispiel hier' : r.z === 'ok' ? 'kein Minispiel: Relais ist heil' : 'Relais verschlissen: nur Flicken/Tausch', ok: false };
-    }
-    const alt2 = kb.z.length > 1 ? { key: 'Q', label: 'Ziel wechseln (' + (kb.z.indexOf(b.ziel) + 1) + '/' + kb.z.length + ')', ok: true } : null;
-    if (b.ziel == null) {
-      const g = b.geflickt.map(nm).join(', ');
-      return { label: name + ': ' + g + ' geflickt – bricht beim nächsten Treffer', ok: false, sys, alt };
-    }
-    const tausch = b.aktion === 'swap';
-    return { label: 'halten: ' + (tausch ? 'Tausch' : 'Flicken') + ' – ' + nm(b.ziel) + ' (' + secs(tausch ? (RC.partTime || 3) : (RC.flickTime || 1.5)) + (tausch ? ', dauerhaft' : ', fragil') + ') · ' + name, ok: true, sys, alt, alt2 };
+    const t = KF.stationsHinweis(kb, name, { flick: secs(RC.flickTime || 1.5), swap: secs(RC.partTime || 3) });
+    const out = { label: t.label, ok: t.ok, sys, alt: Object.assign({ key: 'R' }, t.r) };
+    if (t.q) out.alt2 = { key: 'Q', label: t.q.label, ok: true };
+    return out;
   }
   // B1: E-Hinweise an Ankern gebauter Karten (Regeln wie server/sim/anker.js interactionsAt; der Server entscheidet)
   // F10: Tür-Kachel gehört zu einem tor-Anker an einem Rätselpaar (Regel wie raetselGebunden in server/sim/anker.js:
@@ -1866,7 +1856,7 @@
     }
     const sys = (R.sysOf ? R.sysOf(map, ch) : R.SYS_BY_CHAR[ch]) || (zone === 'ship' && R.modulSysAt ? R.modulSysAt(tx, ty) : null);   // SYS-01 A1c: Modulstation = Mitte des Modulraums
     if (sys && zone === 'ship') {
-      // M3a §8.1: drei Wege – E flicken (ohne Teil), E Teil einbauen (mit Teil, auch an heilem fragilem System), R Minispiel
+      // M3a §8.1: drei Wege – E flicken (ohne Teil), E Tausch (mit Teil, auch an heilem fragilem System), R Minispiel
       const state = R.sysState(st, sys);
       const fragile = R.fragileOf(st, sys);
       const name = H.sysName(sys, st.ship);
@@ -1878,10 +1868,10 @@
       if (state === 'ok' && !fragile) return { label: name, ok: false, info: true, sys };
       const kb = kompBedienung(st, m, sys);
       if (kb) return kompHinweis(kb, sys, name, secs, RC);   // TEC-01 B2: Schildkette: Ziel der Aktion zeigen
-      const alt = { key: 'R', label: 'reparieren (Minispiel, dauerhaft)', ok: true };
-      if (carry === 'ersatzteil') return { label: 'halten: Teil einbauen (' + secs(RC.partTime || 3) + ', dauerhaft) · ' + name, ok: true, sys, alt };
+      const alt = { key: 'R', label: 'Minispiel: reparieren (dauerhaft)', ok: true };
+      if (carry === 'ersatzteil') return { label: 'halten: Tausch (' + secs(RC.partTime || 3) + ', dauerhaft) · ' + name, ok: true, sys, alt };
       if (state === 'ok') return { label: name + ': geflickt – bricht beim nächsten Treffer', ok: false, sys, alt };
-      return { label: 'halten: flicken (' + secs(RC.flickTime || 1.5) + ', fragil) · ' + name, ok: true, sys, alt };
+      return { label: 'halten: Flicken (' + secs(RC.flickTime || 1.5) + ', fragil) · ' + name, ok: true, sys, alt };
     }
     const con = R.consoleOf ? R.consoleOf(map, ch) : R.CONSOLE_BY_CHAR[ch];
     if (con && zone === 'ship') {
@@ -2511,7 +2501,11 @@
       Net.guard('Hud.draw', () => H.draw(ctx, v));
       if (v.me.console) {
         if (v.voxel && window.Sitz && Sitz.station) Net.guard('Sitz.draw', () => Sitz.draw(ctx, v));   // UI-Sitz (E2)
-        else { K.verdeckt = null; Net.guard('Consoles.draw', () => K.draw(ctx, v)); }
+        else {
+          K.verdeckt = null; Net.guard('Consoles.draw', () => K.draw(ctx, v));
+          // TEC-01 Nacharbeit M1: das deckende Pult übermalt den Ablehnhinweis (H.draw zeichnet davor): derselbe Kasten, NACH dem Pult, 3 px über der Statusleiste (gilt für jede Ablehnung an Pult-Stationen)
+          if (R.uiDenied && performance.now() - R.uiDenied.t < 1800 && window.Pult && Pult.statusOben && Pult.statusOben(v) != null) Net.guard('Hud.denyKonsole', () => H.drawNotices(ctx, v, Pult.statusOben(v) - 16, 1));
+        }
         // W2 AP3b: Wellen All spielt an Konsolen – Banner und Ergebnis über der Konsole (sonst verdeckt)
         if (st.wellen) Net.guard('Hud.wellenKonsole', () => H.drawWellen(ctx, v, true));
         Net.guard('Hud.drawLagefunk', () => H.drawLagefunk(ctx, v));   // SUND-01 C: Lagemeldung (Freie Fahrt Sund) über der Konsole

@@ -1144,7 +1144,7 @@
         const x = Math.round(Math.max(2, Math.min(VW - w - 2, s.x - w / 2))), y = Math.round(Math.max(2, Math.min(VH - h - 2, yy)));
         R.backdrop(ctx, x, y, w, h, 0.8);
         if (versiegelt) { const C = window.KarteTokens && window.KarteTokens.PULT; ctx.strokeStyle = C ? C.messing : '#C9974A'; ctx.lineWidth = 1; ctx.strokeRect(x + 0.5, y + 0.5, w - 1, h - 1); this.iaOben = { y, t: performance.now() }; }
-        const key = (k, kx, ky, on) => { ctx.fillStyle = on ? PAL.amber : '#4A5260'; ctx.fillRect(kx, ky, 9, 9); R.text(ctx, k, kx + 2, ky + 1, { color: PAL.space, shadow: false }); };
+        const key = (k, kx, ky, on) => { ctx.fillStyle = on ? PAL.amber : '#2A303A'; ctx.fillRect(kx, ky, 9, 9); R.text(ctx, k, kx + 2, ky + 1, { color: on ? PAL.space : '#939AA7', shadow: false }); };   // gesperrt: Kappe #2A303A, Buchstabe #939AA7 (Kontrast 4,69:1; #8C93A0 hätte nur 4,30:1)
         if (versiegelt) R.text(ctx, label, x + 4, y + 3, { color: window.KarteTokens ? window.KarteTokens.PULT.grau : '#9AA6B8', shadow: false });
         else if (info) R.text(ctx, label, x + 4, y + 3, { color: PAL.star, shadow: false });
         else {
@@ -1176,7 +1176,8 @@
       R.panel(ctx, x, y, w, h, { style: 'screen', title: 'REPARATUR' });
       const st = view.state;
       const state = R.sysState(st, mg.system);
-      R.text(ctx, SYS_NAMES[mg.system] || mg.system, x + 12, y + 10, { color: PAL.star });
+      const KFm = window.Shared_KomponentenFormat, sn = SYS_NAMES[mg.system] || mg.system;
+      R.text(ctx, KFm ? KFm.minispielTitel(sn, CFG.systemModell && CFG.systemModell.komponenten, mg.system) : sn, x + 12, y + 10, { color: PAL.star });   // Schildkette: „Backbord-Emitter · Relais“
       R.stateBadge(ctx, x + w - 46, y + 9, 34, 10, state, R.fragileOf(st, mg.system));
       R.text(ctx, 'Leertaste im grünen Feld · 3 Treffer', x + 12, y + 22, { color: PAL.panelLight });
       // Leiste
@@ -1416,7 +1417,7 @@
       const lf = y0 == null && this.sitzVersatz(view) > 0 ? this.radioAktuell() : null;
       if (lf && lf.lage) y = Math.max(y, LAGEFUNK_Y + this.sitzVersatz(view) + this.funkTafelHoehe(lf, null) + 4);
       let all = this.notices.slice();
-      if (R.uiDenied && performance.now() - R.uiDenied.t < 1800) all.push({ text: R.uiDenied.text, color: PAL.warn, t: R.uiDenied.t / 1000 });
+      if (R.uiDenied && performance.now() - R.uiDenied.t < 1800) all.push({ text: R.uiDenied.text, color: PAL.warn, t: R.uiDenied.t / 1000, d: 1.8 });   // d: blendet in den letzten Sekunden aus und endet mit dem Fenster von 1,8 s
       if (max > 0) all = all.slice(-max);   // S1: über Overlays nur der neueste Hinweis
       // QA-Abnahme S2: lange Hinweise (z. B. Logbuch-Notizen) umbrechen statt abschneiden – höchstens 2 Zeilen
       const maxW = Math.min(VW - 40, 440);

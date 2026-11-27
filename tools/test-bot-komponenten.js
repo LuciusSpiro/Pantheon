@@ -346,5 +346,24 @@ section('7 Einzeldefekte (K, S, L, Relais): Schrauber, Spieler-Bot, tech.reparie
   }
 }
 
+// ---------- 8 Zielkomponente des Eintrags: der Schrauber arbeitet an der gewählten Komponente (TEC-01 Nacharbeit 1.6) ----------
+section('8 Schrauber nutzt die gewählte Zielkomponente der Reparaturliste');
+{
+  const ersteReparatur = (seed, wunsch, modus) => {
+    const g = menschenPartie(seed, { teile: 4 }); setz(g, 'shields', 'ddo');   // Steuerkern und Spannungsregler defekt (zerstört)
+    ok(Bots.queueRepairKomponente(g, 'shields', modus, wunsch) === null, `Eintrag (${modus}, Wunsch ${wunsch || 'keiner'}) angenommen`);
+    lauf(g, 240, () => K.lage(g, 'shields').filter((c) => c.z === 'defekt').length < 2);
+    return codes(g, 'shields');
+  };
+  for (const seed of [1, 2]) {
+    const ohne = ersteReparatur(seed, undefined, 'flick');
+    const mit = ersteReparatur(seed, 'S', 'flick');
+    ok(mit === 'dgo', `Seed ${seed} Flicken mit Wunsch S: zuerst der Spannungsregler (ist ${mit})`);
+    ok(ohne === 'gdo', `Seed ${seed} Flicken ohne Wunsch: Standard = erste defekte in Rezeptreihenfolge, der Steuerkern (ist ${ohne})`);
+    const tausch = ersteReparatur(seed, 'S', 'part');
+    ok(tausch === 'doo', `Seed ${seed} Tausch mit Wunsch S: der Spannungsregler wird ersetzt (ist ${tausch})`);
+  }
+}
+
 console.log(`\ntest-bot-komponenten: ${n - fails}/${n} ok`);
 process.exit(fails ? 1 : 0);

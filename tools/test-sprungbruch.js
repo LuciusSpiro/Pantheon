@@ -127,10 +127,12 @@ section('Bruch: Komponente wieder defekt, n unverändert, Zustand abgeleitet, Er
   setz(g2, 'shields', 'ggd'); setz(g2, 'emitter_stbd', 'og');
   fest(g2, 0);
   const res2 = K.sprungBruch(g2);
-  ok(z(g2, 'shields') === 'ddd' && g2.ship.systems.shields === 'broken', 'Schildgenerator: damaged -> broken (K, S defekt zusätzlich zu R)');
-  ok(res2.length === 3 && res2.map((r) => r.system + r.komp).join() === 'shieldsK,shieldsS,emitter_stbdL', 'feste Reihenfolge: System laut Konfig, dann Rezept: ' + res2.map((r) => r.system + r.komp).join());
+  // Nacharbeit 1.1: ein zerstörtes System (ab 2 defekt) nimmt keinen weiteren Komponentenschaden. Der erste Bruch (K) bringt das System auf 2 defekt, der Flicken S ist danach geschützt.
+  ok(z(g2, 'shields') === 'dgd' && g2.ship.systems.shields === 'broken', 'Schildgenerator: damaged -> broken (K bricht, S bleibt geschützt geflickt): ' + z(g2, 'shields'));
+  ok(res2.length === 2 && res2.map((r) => r.system + r.komp).join() === 'shieldsK,emitter_stbdL', 'feste Reihenfolge: System laut Konfig, dann Rezept: ' + res2.map((r) => r.system + r.komp).join());
+  ok(g2.ship.komp.shields[1].z === 'geflickt' && g2.ship.komp.shields[1].sp === 1, 'geschützter Flicken: kein Wurf, bleibt geflickt, Sprung überstanden (sp 1)');
   const zeilen = log2.oda.filter((t) => /Notflicken/.test(t));
-  ok(zeilen.length === 1 && zeilen[0] === 'Notflicken gebrochen: Steuerkern am Schildgenerator, Spannungsregler am Schildgenerator, Leitung am Steuerbord-Emitter.', 'mehrere Brüche = eine gebündelte ODA-Zeile: ' + JSON.stringify(zeilen));
+  ok(zeilen.length === 1 && zeilen[0] === 'Notflicken gebrochen: Steuerkern am Schildgenerator, Leitung am Steuerbord-Emitter.', 'mehrere Brüche = eine gebündelte ODA-Zeile: ' + JSON.stringify(zeilen));
   ok(log2.ev.some((e) => e.name === 'sfx' && e.p.name === 'system_break'), 'Sfx system_break bei broken');
   // kein Flicken: nichts passiert, kein Zufall verbraucht
   const g3 = newGame(15); let zug = 0; const r3 = () => { zug++; return 0; }; r3.pick = (a) => a[0]; g3.ship.kompRng = r3;
@@ -140,6 +142,43 @@ section('Bruch: Komponente wieder defekt, n unverändert, Zustand abgeleitet, Er
   setz(g3, 'shields', 'ggg'); zug = 0; fest(g3, 0.9999999); const w = g3.ship.kompRng; let c3 = 0; g3.ship.kompRng = Object.assign(() => { c3++; return w(); }, { pick: w.pick });
   K.sprungBruch(g3);
   ok(c3 === 3, 'genau ein Wurf je Flicken (3 Flicken, ' + c3 + ' Würfe)');
+});
+
+section('Nacharbeit 1.1: ein zerstörtes System nimmt keinen weiteren Schaden (nie 3 defekt)', () => {
+  // Szenario des Reviews: ddo -> beide geflickt (ggo) -> Treffer aufs Relais (ggd) -> Treffer (broken) -> Sprung: vorher ddd (3 defekt), jetzt bleibt es bei 2
+  const g = newGame(31);
+  setz(g, 'shields', 'ddo');
+  K.flickenKomponente(g, 'shields'); K.flickenKomponente(g, 'shields');
+  ok(z(g, 'shields') === 'ggo', 'Ausgangslage ggo');
+  g.ship.kompRng = Object.assign(() => 0.5, { pick: (a) => a.find((k) => k.t === 'R') || a[0] });
+  ok(K.trefferAuf(g, 'shields') && z(g, 'shields') === 'ggd' && g.ship.systems.shields === 'damaged', 'Treffer aufs Relais: ggd, damaged');
+  g.ship.kompRng = Object.assign(() => 0.5, { pick: (a) => a[a.length - 1] });
+  ok(K.trefferAuf(g, 'shields') && K.defekteZahl(g, 'shields') === 2 && g.ship.systems.shields === 'broken', 'zweiter Treffer: 2 defekt, broken');
+  const vor = z(g, 'shields'); const spVor = g.ship.komp.shields.map((k) => k.sp);
+  fest(g, 0);   // jeder Wurf würde brechen – wenn gewürfelt würde
+  const res = K.sprungBruch(g);
+  ok(K.defekteZahl(g, 'shields') === 2 && z(g, 'shields') === vor && g.ship.systems.shields === 'broken', 'Sprung im zerstörten System: bleibt bei 2 defekt (' + vor + ' -> ' + z(g, 'shields') + ')');
+  ok(res.length === 0, 'kein gebrochener Flicken gemeldet');
+  const sp = g.ship.komp.shields.map((k, i) => (k.z === 'geflickt' ? k.sp - spVor[i] : 0));
+  ok(sp.every((d) => d === 0 || d === 1) && sp.some((d) => d === 1), 'der geschützte Flicken zählt den Sprung als überstanden (sp + 1)');
+  // geschützt = kein Wurf
+  const g2 = newGame(32); setz(g2, 'shields', 'ddg'); let zug = 0; const r = () => { zug++; return 0; }; r.pick = (a) => a[0]; g2.ship.kompRng = r;
+  K.sprungBruch(g2);
+  ok(zug === 0 && z(g2, 'shields') === 'ddg' && g2.ship.komp.shields[2].sp === 1, 'zerstört (ddg): kein Wurf verbraucht, Flicken bleibt, sp 1');
+  // Reihenfolge-Regel: 1 defekt + 2 Flicken: der erste Flicken (Rezeptreihenfolge K, S, R) bricht, die folgenden sind geschützt
+  const g3 = newGame(33); setz(g3, 'shields', 'ggd'); fest(g3, 0);
+  K.sprungBruch(g3);
+  ok(z(g3, 'shields') === 'dgd', 'Reihenfolge: bei 1 defekt (ggd) bricht nur der erste Flicken (K), ergibt dgd, nicht ddd: ' + z(g3, 'shields'));
+  const g4 = newGame(34); setz(g4, 'shields', 'gdg'); fest(g4, 0);
+  K.sprungBruch(g4);
+  ok(z(g4, 'shields') === 'ddg', 'Reihenfolge: gdg -> ddg (R als dritter bleibt geschützt): ' + z(g4, 'shields'));
+  // ohne Schutz greift weiter: 0 defekt, drei Flicken, Wurf 0: der erste und zweite brechen (2 defekt), der dritte ist geschützt
+  const g5 = newGame(35); setz(g5, 'shields', 'ggg'); fest(g5, 0);
+  K.sprungBruch(g5);
+  ok(z(g5, 'shields') === 'ddg' && K.defekteZahl(g5, 'shields') === 2, 'ggg mit Wurf 0: höchstens 2 brechen (ddg), der dritte ist geschützt: ' + z(g5, 'shields'));
+  // Notreparatur-Ansage (interior.js): Satz folgt dem tatsächlichen Zustand
+  const quelle = fs.readFileSync(path.join(__dirname, '..', 'server/sim/interior.js'), 'utf8');
+  ok(/notrepariert\.\$\{ship\.systems\[sys\] === 'damaged' \?/.test(quelle), 'ODA der Notreparatur sagt "Jetzt nur noch beschädigt" nur, wenn der Zustand danach damaged ist');
 });
 
 section('Zufall nur über kompRng: game.rng bleibt unberührt', () => {
@@ -209,25 +248,166 @@ section('Nur die Schildkette: ship.fragile anderer Systeme bricht nicht beim Spr
   ok(!K.hatKomponenten(g, 'weapon_bow') && K.sprungBruch(g).length === 0, 'keine Komponenten: kein Sprungbruch');
 });
 
-section('Quellscan-Wächter: jeder Sprungpfad ruft sprungBruch', () => {
+// ---------- Quellscan-Wächter (TEC-01 Nacharbeit 1.5) ----------
+// Gegen das stille Vergessen: ein neuer Sprungpfad ohne sprungBruch lässt den Test rot werden.
+// Gescannt wird der Quelltext von server/ ohne Kommentare, Zeichenketten und Regex-Inhalte (Hilfen unten), und zwar nach FUNKTIONSKÖRPERN (Klammerzählung; Funktionen, Methoden, Pfeilfunktionen).
+//  1. Jede Stelle mit emit('jump') oder emit('notsprung') braucht im selben Funktionskörper einen echten Aufruf sprungBruch( (ein Kommentar oder Text reicht nicht).
+//  2. Jeder Aufrufer von enterScene( steht in einer Allowlist: SPRUNG_PFADE (Sprungpfade: der Körper muss sprungBruch( aufrufen) oder KEIN_SPRUNG (bekannte Szenenwechsel ohne Sprung).
+//     Ein neuer Aufrufer außerhalb beider Listen lässt den Test scheitern: ist das ein Sprung, sprungBruch einhängen und in SPRUNG_PFADE eintragen, sonst in KEIN_SPRUNG ergänzen.
+const SPRUNG_PFADE = ['sprung.js:springeNach', 'sprung.js:notsprung', 'kriegslage-szene.js:finaleAufbauen'];   // Systemsprung, Notsprung, Finale-Orbit-Ankunft
+const KEIN_SPRUNG = [
+  'game.js:reset', 'game.js:debugGoto',                                                   // Start der Partie, Debug-Versetzen
+  'sprung.js:debugHex',                                                                    // Debug-Hex
+  'welt.js:bodenStarten',                                                                  // Boden-Start (Freie Fahrt)
+  'arena.js:startSpace', 'arena.js:startWellenAll', 'arena.js:startAwayBuehne', 'arena.js:bodenSzene',   // Testgelände
+  'mission.js:startDirect',                                                                // Szenenstart einer Direktstart-Mission
+  'weltstand.js:apply',                                                                    // Weltstand laden
+  'kriegslage-szene.js:finaleStarten',                                                     // Rückbau, wenn der Finale-Aufbau scheitert (zurück an den alten Ort)
+];
+// Gleich lange Kopie des Quelltexts: Kommentare, Zeichenketten- und Regex-Inhalte durch Leerzeichen ersetzt (Zeilenumbrüche bleiben), damit Klammern und Aufrufe nur im echten Code zählen
+function blanke(src) {
+  const out = src.split('');
+  const n = src.length;
+  const leer = (a, b) => { for (let k = a; k < b; k++) if (out[k] !== '\n' && out[k] !== '\r') out[k] = ' '; };
+  const stack = [];   // offene Template-Ausdrücke ${ ... }: Klammertiefe
+  let i = 0, tiefe = 0;
+  const letzter = () => { let k = i - 1; while (k >= 0 && /\s/.test(out[k])) k--; return k >= 0 ? out[k] : ''; };
+  const template = (start) => {   // i steht hinter dem öffnenden ` oder hinter einem schließenden } eines ${...}; liest Text bis ` oder ${
+    let k = start;
+    while (k < n) {
+      const c = src[k];
+      if (c === '\\') { k += 2; continue; }
+      if (c === '`') { leer(start, k); return { ende: k + 1, ausdruck: false }; }
+      if (c === '$' && src[k + 1] === '{') { leer(start, k); return { ende: k + 2, ausdruck: true }; }
+      k++;
+    }
+    leer(start, n);
+    return { ende: n, ausdruck: false };
+  };
+  while (i < n) {
+    const c = src[i], d = src[i + 1];
+    if (c === '/' && d === '/') { let k = i; while (k < n && src[k] !== '\n') k++; leer(i, k); i = k; continue; }
+    if (c === '/' && d === '*') { let k = src.indexOf('*/', i + 2); k = k < 0 ? n : k + 2; leer(i, k); i = k; continue; }
+    if (c === '\'' || c === '"') {
+      let k = i + 1;
+      while (k < n && src[k] !== c && src[k] !== '\n') k += src[k] === '\\' ? 2 : 1;
+      leer(i + 1, k); i = k + 1; continue;
+    }
+    if (c === '`') {
+      const r = template(i + 1);
+      if (r.ausdruck) stack.push(tiefe);
+      i = r.ende; continue;
+    }
+    if (c === '/') {
+      const l = letzter();
+      if (l === '' || '(,=:[!&|?{};+-*%<>~^'.includes(l) || /(?:return|typeof|case)$/.test(out.slice(Math.max(0, i - 8), i).join('').trimEnd())) {   // Regex-Literal
+        let k = i + 1, kl = false;
+        while (k < n && src[k] !== '\n') {
+          if (src[k] === '\\') { k += 2; continue; }
+          if (src[k] === '[') kl = true; else if (src[k] === ']') kl = false; else if (src[k] === '/' && !kl) break;
+          k++;
+        }
+        leer(i + 1, k); i = k + 1; continue;
+      }
+    }
+    if (c === '{') tiefe++;
+    else if (c === '}') {
+      if (stack.length && stack[stack.length - 1] === tiefe) {   // Ende eines ${...}: Template geht weiter
+        stack.pop();
+        const r = template(i + 1);
+        if (r.ausdruck) stack.push(tiefe);
+        i = r.ende; continue;
+      }
+      tiefe--;
+    }
+    i++;
+  }
+  return out.join('');
+}
+
+const WORT_BLOCK = new Set(['if', 'for', 'while', 'switch', 'catch', 'with']);
+// Passende Klammer zu s[pos] (Öffner) bzw. rückwärts zu s[pos] (Schließer); -1 ohne Partner
+function passend(s, pos, auf, zu, rueck) {
+  let t = 0;
+  if (!rueck) { for (let k = pos; k < s.length; k++) { if (s[k] === auf) t++; else if (s[k] === zu && --t === 0) return k; } }
+  else { for (let k = pos; k >= 0; k--) { if (s[k] === zu) t++; else if (s[k] === auf && --t === 0) return k; } }
+  return -1;
+}
+// Ist der Block, der bei s[brace] === '{' beginnt, ein Funktionskörper? Gibt { name } oder null
+function funktionskopf(s, brace) {
+  let k = brace - 1; while (k >= 0 && /\s/.test(s[k])) k--;
+  if (k < 0) return null;
+  if (s[k] === '>' && s[k - 1] === '=') {   // Pfeilfunktion: Name aus 'const x = (..) =>' wenn erkennbar
+    const kopf = s.slice(Math.max(0, k - 200), k - 1);
+    const m = /([A-Za-z_$][\w$]*)\s*=\s*(?:async\s*)?(?:\([^()]*\)|[A-Za-z_$][\w$]*)\s*$/.exec(kopf);
+    return { name: m ? m[1] : '(Pfeil)' };
+  }
+  if (s[k] !== ')') return null;
+  const auf = passend(s, k, '(', ')', true);
+  if (auf < 0) return null;
+  let w = auf - 1; while (w >= 0 && /\s/.test(s[w])) w--;
+  let e = w; while (w >= 0 && /[\w$]/.test(s[w])) w--;
+  const wort = s.slice(w + 1, e + 1);
+  if (!wort || WORT_BLOCK.has(wort)) return null;
+  if (wort === 'function') return { name: '(anonym)' };
+  return { name: wort };
+}
+// Umschließende Funktion der Stelle pos: { name, von, bis } (von/bis = Klammern des Körpers); null außerhalb jeder Funktion
+function umschliessendeFunktion(s, pos) {
+  let k = pos, t = 0;
+  for (; k >= 0; k--) {
+    if (s[k] === '}') t++;
+    else if (s[k] === '{') {
+      if (t > 0) { t--; continue; }
+      const f = funktionskopf(s, k);
+      if (f) { const bis = passend(s, k, '{', '}', false); return { name: f.name, von: k, bis }; }
+    }
+  }
+  return null;
+}
+const zeileVon = (s, pos) => s.slice(0, pos).split('\n').length;
+function sucheServer() {
   const wurzel = path.join(__dirname, '..', 'server');
+  const stellen = { emits: [], enterScene: [] };
   const dateien = [];
   (function lauf(d) { for (const e of fs.readdirSync(d, { withFileTypes: true })) { const p = path.join(d, e.name); if (e.isDirectory()) lauf(p); else if (/\.js$/.test(e.name)) dateien.push(p); } })(wurzel);
-  const funde = []; const fehlen = [];
   for (const f of dateien) {
-    const zeilen = fs.readFileSync(f, 'utf8').split(/\r?\n/);
-    zeilen.forEach((t, i) => {
-      if (!/emit\('(jump|notsprung)'/.test(t)) return;
-      let start = i; while (start > 0 && !/^(async )?function\b/.test(zeilen[start])) start--;
-      const block = zeilen.slice(start, i + 1).join('\n');   // vom Funktionskopf bis zum Ereignis
-      const rel = path.relative(path.join(__dirname, '..'), f).replace(/\\/g, '/') + ':' + (i + 1);
-      funde.push(rel);
-      if (!/sprungBruch\(/.test(block)) fehlen.push(rel);
-    });
+    const roh = fs.readFileSync(f, 'utf8'); const s = blanke(roh);
+    const datei = path.basename(f); const rel = path.relative(path.join(__dirname, '..'), f).replace(/\\/g, '/');
+    const stelle = (pos, art) => {
+      const fn = umschliessendeFunktion(s, pos);
+      const koerper = fn ? s.slice(fn.von, fn.bis) : '';
+      return { art, id: datei + ':' + (fn ? fn.name : '(ohne Funktion)'), ort: rel + ':' + zeileVon(s, pos), ruftBruch: /\bsprungBruch\(/.test(koerper.replace(/function\s+sprungBruch\(/g, '')) };
+    };
+    for (const m of s.matchAll(/emit\(\s*'\s+'/g)) if (/^emit\(\s*'(jump|notsprung)'/.test(roh.slice(m.index, m.index + 40))) stellen.emits.push(stelle(m.index, 'emit'));
+    for (const m of s.matchAll(/enterScene\(/g)) { if (/function\s+$/.test(s.slice(Math.max(0, m.index - 12), m.index))) continue; stellen.enterScene.push(stelle(m.index, 'enterScene')); }
   }
-  console.log('  Fundstellen: ' + funde.join(', '));
-  ok(funde.length >= 3, 'mindestens drei Sprungpfade gefunden (springeNach, Notsprung, Finale-Orbit): ' + funde.length);
-  ok(fehlen.length === 0, 'jede Stelle mit emit(\'jump\'/\'notsprung\') hat sprungBruch im selben Block' + (fehlen.length ? ' – OHNE: ' + fehlen.join(', ') : ''));
+  return stellen;
+}
+section('Quellscan-Wächter: jeder Sprungpfad ruft sprungBruch, jeder enterScene-Aufrufer ist bekannt', () => {
+  const st = sucheServer();
+  console.log('  emit(jump/notsprung): ' + st.emits.map((e) => e.ort + ' (' + e.id + ')').join(', '));
+  console.log('  enterScene-Aufrufer: ' + st.enterScene.map((e) => e.id).join(', '));
+  ok(st.emits.length >= 3, 'mindestens drei Stellen mit emit(jump/notsprung) gefunden (springeNach, Notsprung, Finale-Orbit): ' + st.emits.length);
+  const ohne = st.emits.filter((e) => !e.ruftBruch).map((e) => e.ort + ' (' + e.id + ')');
+  ok(ohne.length === 0, 'jede Stelle mit emit(jump/notsprung) hat einen echten Aufruf sprungBruch( im selben Funktionskörper' + (ohne.length ? ' – OHNE: ' + ohne.join(', ') : ''));
+  const unbekannt = st.enterScene.filter((e) => !SPRUNG_PFADE.includes(e.id) && !KEIN_SPRUNG.includes(e.id)).map((e) => e.ort + ' (' + e.id + ')');
+  ok(unbekannt.length === 0, 'jeder enterScene-Aufrufer steht in der Allowlist' + (unbekannt.length ? ' – UNBEKANNT: ' + unbekannt.join(', ') + ' – Ist das ein Sprung? Dann sprungBruch einhängen und in SPRUNG_PFADE eintragen, sonst KEIN_SPRUNG ergänzen' : ''));
+  const sprungOhne = st.enterScene.filter((e) => SPRUNG_PFADE.includes(e.id) && !e.ruftBruch).map((e) => e.ort + ' (' + e.id + ')');
+  ok(sprungOhne.length === 0, 'jeder Sprungpfad der Allowlist ruft sprungBruch(' + (sprungOhne.length ? ' – OHNE: ' + sprungOhne.join(', ') : ''));
+  const gefunden = new Set(st.enterScene.map((e) => e.id));
+  const veraltet = SPRUNG_PFADE.concat(KEIN_SPRUNG).filter((id) => !gefunden.has(id));
+  ok(veraltet.length === 0, 'keine veralteten Allowlist-Einträge' + (veraltet.length ? ': ' + veraltet.join(', ') : ''));
+});
+// Selbsttest der Scan-Hilfen: Kommentar, Zeichenkette, Pfeilfunktion und Methode
+section('Quellscan-Wächter: Selbsttest der Hilfen', () => {
+  const q = "function a() { // sprungBruch(game)\n  game.emit('jump', {});\n}\nconst b = (g) => { g.emit('jump', 1); sprungBruch(g); };\nclass C { m() { if (x) { foo(\"sprungBruch(\"); } this.emit('jump'); } }\nfunction d() { /* sprungBruch( */ x = `${sprungBruch(1)}`; }";
+  const s = blanke(q);
+  const pruefe = (suche, erwartung, was) => { const pos = s.indexOf(suche); const fn = umschliessendeFunktion(s, pos); ok(!!fn && /\bsprungBruch\(/.test(s.slice(fn.von, fn.bis)) === erwartung, 'Selbsttest: ' + was); };
+  pruefe("emit('", false, 'Kommentar mit sprungBruch( zählt nicht (function a)');
+  pruefe("g.emit", true, 'Pfeilfunktion mit Aufruf zählt');
+  pruefe("this.emit", false, 'Methode: Zeichenkette mit sprungBruch( zählt nicht');
+  ok(/sprungBruch\(/.test(s.slice(s.indexOf('function d'))), 'Selbsttest: Aufruf im Template-Ausdruck bleibt sichtbar');
 });
 
 console.log(`\n${n - fails}/${n} ok` + (fails ? `, ${fails} FEHLER` : ''));

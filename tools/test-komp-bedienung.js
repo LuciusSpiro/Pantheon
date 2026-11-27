@@ -171,5 +171,60 @@ section('Protokoll: normKomp, act/repair.start mit komp bis in den Hold', () => 
   send({ t: 'cmd', c: 'repair.cancel', system: 'engines' });
 });
 
+section('TEC-01 Nacharbeit 1.2: der Server nutzt das gemeinsame Modul (Roundtrip, Zulässigkeit)', () => {
+  const g = new Game({ noStore: true, seed: 5, debug: true, env: { MISSION_SOURCE: 'fallback' }, log: () => {} });
+  I.integritaetVoll(g); K.konsistentAlle(g);
+  const Z = ['ok', 'defekt', 'geflickt'];
+  let geprueft = 0; const falsch = [];
+  for (const [sys, rezept] of [['shields', ['K', 'S', 'R']], ['emitter_bow', ['R', 'L']]]) {
+    for (let c = 0; c < Math.pow(3, rezept.length); c++) for (const nn of [0, 3]) for (const sp of [0, 4]) {
+      K.erzeugeAusZustand(g, sys);
+      rezept.forEach((t, i) => { const k = g.ship.komp[sys][i]; k.z = Z[Math.floor(c / Math.pow(3, i)) % 3]; k.n = nn; k.sp = sp; });
+      K.synchronisieren(g, sys);
+      const text = K.kodiere(g, sys);
+      const l = KF.dekodiere(text, rezept);
+      geprueft++;
+      if (!l || text !== KF.kodiere(l) || !eq(l, g.ship.komp[sys].map((k) => ({ t: k.t, z: k.z, n: k.n, sp: k.sp }))) || !eq(K.dekodiere(g, sys, text), l)) falsch.push(sys + ' ' + text);
+      for (const aktion of ['flick', 'swap', 'minigame']) {
+        const soll = KF.zulaessigeZiele(l, aktion, KF.sperreVon(KD));
+        for (const t of rezept) if ((K.reparaturZiel(g, sys, aktion, t).index != null) !== soll.includes(t)) falsch.push(sys + ' ' + text + ' ' + aktion + ' ' + t);
+        const std = K.reparaturZiel(g, sys, aktion, undefined);
+        if ((std.t || null) !== (soll[0] || null)) falsch.push(sys + ' ' + text + ' ' + aktion + ' Standard');
+      }
+    }
+  }
+  ok(!falsch.length && geprueft > 50, geprueft + ' Zustände: kodieren (Server) == KF.kodiere, dekodieren == Liste, Zulässigkeit und Standard von reparaturZiel == KF.zulaessigeZiele ' + falsch.slice(0, 2).join(' || '));
+  ok(K.name === KF.name && K.name('R') === 'Relais' && K.MINISPIEL_ART === KF.MINISPIEL_ART && K.ausfallSperre(g) === KF.sperreVon(KD), 'Namen, Minispielart und Sperre kommen aus dem gemeinsamen Modul');
+  for (const sp of [0, 1, 5, 9]) if (K.sprungBruchChance(g, sp) !== KF.bruchChance(sp, KD)) falsch.push('bruch ' + sp);
+  ok(!falsch.length, 'Bruchformel: Server == KF.bruchChance');
+  const quelle = require('fs').readFileSync(require('path').join(__dirname, '..', 'server/sim/komponenten.js'), 'utf8');
+  ok(!/NAMEN\s*=|VON_CODE|AUSFALL_SPERRE\s*=|BRUCH_GRUND\s*=/.test(quelle), 'komponenten.js führt keine eigene Kopie von Namen, Codes, Sperre oder Bruchwerten mehr');
+});
+
+section('TEC-01 Nacharbeit: Texte der Bedienung (stationsHinweis, listeText, minispielTitel)', () => {
+  const S = (c, z) => KF.dekodiere(c, ['K', 'S', 'R']).map((k, i) => Object.assign(k, { n: (z && z[i]) || 0 }));
+  const kb = (l, traegt, gew) => { const b = KF.bedienung(l, traegt, gew, 3); return { l, b, z: KF.zulaessigeZiele(l, b.aktion, 3), sperre: 3 }; };
+  const sek = { flick: '1,5 s', swap: '3 s' };
+  const t1 = KF.stationsHinweis(kb(S('odo')), 'Schildgenerator', sek);
+  ok(t1.label === 'halten: Flicken – Spannungsregler (1,5 s, bricht beim Sprung)' && t1.ok && !t1.q, 'Flicken: ' + t1.label + ' (kein Systemname in der Zeile, Regel „bricht beim Sprung“)');
+  ok(t1.r.label === 'kein Minispiel hier' || t1.r.label === 'kein Minispiel: Relais ist heil', 'R-Zeile ohne defektes Relais: ' + t1.r.label);
+  const t2 = KF.stationsHinweis(kb(S('ddo'), 'ersatzteil'), 'Schildgenerator', sek);
+  ok(t2.label === 'halten: Tausch – Steuerkern (3 s, dauerhaft)' && t2.q && t2.q.label === 'Ziel wechseln (1/2)', 'Tausch mit Teil in der Hand: ' + t2.label + ' / ' + (t2.q && t2.q.label));
+  const t3 = KF.stationsHinweis(kb(S('ood')), 'Schildgenerator', sek);
+  ok(t3.r.label === 'Minispiel: reparieren (dauerhaft)' && t3.r.ok, 'R-Zeile einheitlich: ' + t3.r.label);
+  const t4 = KF.stationsHinweis(kb(S('ood', [0, 0, 3])), 'Schildgenerator', sek);
+  ok(t4.r.label === 'Relais verschlissen: nur Flicken/Tausch' && !t4.r.ok, 'verschlissenes Relais: ' + t4.r.label);
+  const t5 = KF.stationsHinweis(kb(S('ogo')), 'Schildgenerator', sek);
+  ok(t5.label === 'Schildgenerator: Spannungsregler geflickt – bricht beim Sprung' && !t5.ok, 'nur Geflicktes (ohne Teil): ' + t5.label);
+  ok(![t1, t2, t3, t4, t5].some((t) => /Teil|fragil|nächsten Treffer/.test(t.label + t.r.label + (t.q ? t.q.label : ''))), 'kein „Teil“ als Aktionsname, kein „fragil“, nicht „nächsten Treffer“ in den Stationstexten');
+  ok(KF.listeText(null) === 'nicht in der Liste' && KF.listeText({ bot: null }) === 'in der Liste, wartet auf Schrauber' && KF.listeText({ bot: null, komp: 'S' }) === 'in Liste: Spannungsregler · wartet', 'Reparaturliste: ' + KF.listeText({ komp: 'S' }));
+  ok(KF.listeText({ bot: 'b1', komp: 'S' }, 'S1') === 'S1 arbeitet daran · Spannungsregler' && KF.listeText({ bot: 'b1' }, 'S2') === 'S2 arbeitet daran', 'Reparaturliste mit Schrauber');
+  ok(KF.minispielTitel('Backbord-Emitter', KD, 'emitter_port') === 'Backbord-Emitter · Relais' && KF.minispielTitel('Schildgenerator', KD, 'shields') === 'Schildgenerator · Relais' && KF.minispielTitel('Antrieb', KD, 'engines') === 'Antrieb', 'Minispiel-Titel: Systemname + Komponente (nur Schildkette)');
+  ok(KF.ablehnGrund(S('ogo'), 'flick', 'S', 3) === 'Spannungsregler ist schon geflickt – für dauerhaft: Tausch', 'Ablehngrund nennt Tausch');
+  ok(KF.aktionText(S('doo', [3, 0, 0]), 'K', 3) === 'Flicken · Tausch' && KF.aktionText(KF.dekodiere('dd;3,0;0,0', ['R', 'L']), 'R', 3) === 'nur Flicken oder Tausch', 'H1: „nur Flicken oder Tausch“ nur am Relais, Steuerkern verschlissen: „Flicken · Tausch“');
+  ok(KF.mehrText(1) === '… 1 Komponente mehr' && KF.mehrText(2) === '… 2 Komponenten mehr' && KF.weitereText(4) === '+4 weitere (W/S im Plan)', 'H2: Auslassungstexte der Übersicht');
+  ok(KF.ausfallText(S('doo', [3, 0, 0])[0], 3) === 'verschlissen (3/3)', 'H1: der Zähler „verschlissen (3/3)“ bleibt beim Steuerkern als Information');
+});
+
 console.log(`\n${n - fails}/${n} Prüfungen grün${fails ? ', ' + fails + ' FEHLER' : ''}`);
 process.exit(fails ? 1 : 0);

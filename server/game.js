@@ -734,6 +734,7 @@ class Game {
       }
       const p = conn.player;
       if (!p || p.conn !== conn) return;
+      if ('komp' in msg) msg.komp = Protocol.normKomp(msg.komp);   // TEC-01 Nacharbeit 1.3: der Komponentenwunsch (Typbuchstabe, act / repair.start / technik.repair) wird HIER an der einen Stelle normalisiert; unbekannt = kein Wunsch
       if (msg.t !== C.DEBUG && msg.t !== 'clientError') Haken.eingabe(this, p, msg.t === C.INPUT ? 'bew' : 'akt');   // TEL-01 B2: Eingaben je Slot und Fenster zaehlen (nur Anzahl und grobe Art, nie Inhalt)
       if (this.zerstoertOffen && msg.t !== C.MENU && msg.t !== C.PING && msg.t !== C.LEAVE && msg.t !== C.DEBUG) return;   // SYS-01 A2b: nach dem Tod der Lerche keine Befehle mehr, nur OK und Verlassen (Debug-Befehle bleiben für die Sichtprüfung)
       switch (msg.t) {
@@ -814,7 +815,7 @@ class Game {
           away.setAim(this, p, msg.aim);   // FIX-ZIELEN: Zielwinkel (Grad) → Blickrichtung; fehlt = Laufrichtung
           break;
         }
-        case C.ACT: if (this.phase !== 'lobby') interior.onAct(this, p, !!msg.down, Protocol.normKomp(msg.komp)); break;   // TEC-01 B1: optionaler Komponentenwunsch (Typbuchstabe)
+        case C.ACT: if (this.phase !== 'lobby') interior.onAct(this, p, !!msg.down, msg.komp); break;   // TEC-01 B1: optionaler Komponentenwunsch (Typbuchstabe, schon normalisiert)
         case C.SHOOT: if (this.phase !== 'lobby') {   // B2: los = Lanze loslassen; dist = Zielabstand in Kacheln (Wurfweite)
           const dist = msg.dist == null ? NaN : Number(msg.dist);
           away.shoot(this, p, Number(msg.angle), msg.los === true ? { los: true } : Number.isFinite(dist) && dist >= 0 ? { dist } : undefined);
@@ -1373,7 +1374,7 @@ class Game {
         } else err = 'Unbekannte Priorität.';
         break;
       }
-      case 'technik.repair': err = bots.queueRepairKomponente(this, msg.system, msg.mode == null ? null : String(msg.mode), Protocol.normKomp(msg.komp)); break;   // TEC-01 E: optionale Zielkomponente (Art) im Eintrag
+      case 'technik.repair': err = bots.queueRepairKomponente(this, msg.system, msg.mode == null ? null : String(msg.mode), msg.komp); break;   // TEC-01 E: optionale Zielkomponente (Art) im Eintrag
       case 'technik.botAuto': err = bots.setBotAuto(this, !!msg.on); break;
       case 'captain.burst': err = 'Den Schildstoß gibt es nicht mehr.'; break;   // M3b §0.4: entfallen (Altname)
       case 'weapons.alloc': {
@@ -1610,8 +1611,9 @@ class Game {
         if (!interior.SYSTEM_ORDER.includes(sys)) { err = 'Unbekanntes System.'; break; }
         if (Komponenten.hatKomponenten(this, sys)) {   // TEC-01 B1: auf der Schildkette sitzt der Flicken in einer Komponente
           const L = Komponenten.anlegen(this, sys);
-          const k = L.find((q) => q.z === 'ok') || L[0];
-          if (k && k.z === 'ok') Komponenten.setzeKomponente(this, sys, L.indexOf(k), 'geflickt');
+          const k = L.find((q) => q.z === 'ok');
+          if (k) Komponenten.setzeKomponente(this, sys, L.indexOf(k), 'geflickt');
+          else err = 'Keine heile Komponente zu flicken.';   // TEC-01 Nacharbeit 1.4: nicht stumm
         } else this.ship.fragile[sys] = true;
         break;
       }

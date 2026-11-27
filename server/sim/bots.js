@@ -59,7 +59,7 @@ function queueRepair(game, sys, mode) {
   if (mode == null) { if (i >= 0) q.splice(i, 1); return null; }
   if (i >= 0) { q[i].mode = mode; return null; }
   if (!interior.repairable(game, sys) && game.ship.systems[sys] !== 'offline') return `${cap(interior.sysNameNom(sys))} ist heil.`;
-  if (mode === 'flick' && game.ship.systems[sys] === 'ok') return `${cap(interior.sysNameNom(sys))} ist schon geflickt – für dauerhaft: Teil.`;
+  if (mode === 'flick' && game.ship.systems[sys] === 'ok') return `${cap(interior.sysNameNom(sys))} ist schon geflickt – für dauerhaft: Tausch.`;
   if (q.length >= queueMax(game)) return `Reparaturliste voll (${queueMax(game)}) – erst einen Eintrag entfernen.`;
   q.push({ system: sys, mode, bot: null });
   return null;

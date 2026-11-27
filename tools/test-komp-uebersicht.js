@@ -9,6 +9,8 @@ const { Game } = require('../server/game.js');
 const I = require('../server/sim/interior.js');
 const K = require('../server/sim/komponenten.js');
 const BOTS = require('../server/sim/bots.js');
+const fs = require('fs');
+const path = require('path');
 
 let fails = 0, n = 0;
 const ok = (c, t) => { n++; if (c) console.log('  ok   ' + t); else { fails++; console.log('  FEHLER ' + t); } };
@@ -70,7 +72,7 @@ section('Aktionstext je Komponente (dieselben Regeln wie zulaessigeZiele)', () =
   const v = E('dd'); v[0].n = 3;
   ok(a(v, 'R') === 'nur Flicken oder Tausch', 'Relais defekt und verschlissen: „nur Flicken oder Tausch“');
   const kv = S('ddd'); kv[0].n = 3;
-  ok(a(kv, 'K') === 'nur Flicken oder Tausch', 'Steuerkern defekt und verschlissen (n 3): „nur Flicken oder Tausch“');
+  ok(a(kv, 'K') === 'Flicken · Tausch', 'Steuerkern defekt und verschlissen (n 3): „Flicken · Tausch“ (kein Minispiel in Stufe 1, „nur Flicken oder Tausch“ steht nur am Relais)');
   ok(a(E('gg'), 'R') === 'Minispiel · Tausch', 'Relais geflickt, n < 3: „Minispiel · Tausch“ (Flicken nur an defekten)');
   const gv = E('gg'); gv[0].n = 3;
   ok(a(gv, 'R') === 'nur Tausch' && a(E('gg'), 'L') === 'nur Tausch' && a(S('ggg'), 'K') === 'nur Tausch', 'geflickt und verschlissen / Leitung / Steuerkern geflickt: „nur Tausch“');
@@ -128,15 +130,15 @@ section('Zeilenmodell, Ursache, Zusammenfassung, Kompakttext', () => {
 });
 
 section('Ziel der Reparaturliste: Modus -> Aktion, Ablehnungsgrund', () => {
-  ok(KF.aktionFuerModus('flick') === 'flick' && KF.aktionFuerModus('part') === 'swap' && KF.aktionFuerModus(null) === null && KF.aktionFuerModus('x') === null, "Modus flick -> flick, part (Teil) -> swap, sonst null");
+  ok(KF.aktionFuerModus('flick') === 'flick' && KF.aktionFuerModus('part') === 'swap' && KF.aktionFuerModus(null) === null && KF.aktionFuerModus('x') === null, "Modus flick -> flick, part (Tausch) -> swap, sonst null");
   const l = S('dgo');
-  ok(KF.ablehnGrund(l, 'flick', 'K', 3) === null && KF.ablehnGrund(l, 'part', 'K', 3) === null, 'defekte K: Flicken und Teil zulässig');
-  ok(KF.ablehnGrund(l, 'flick', 'S', 3) === 'Spannungsregler ist schon geflickt – für dauerhaft: Teil' && KF.ablehnGrund(l, 'part', 'S', 3) === null, 'geflickte S: Flicken abgelehnt mit Grund, Teil zulässig');
-  ok(KF.ablehnGrund(l, 'flick', 'R', 3) === 'Relais ist heil' && KF.ablehnGrund(l, 'part', 'R', 3) === 'Relais ist heil', 'heiles Relais: weder Flicken noch Teil');
+  ok(KF.ablehnGrund(l, 'flick', 'K', 3) === null && KF.ablehnGrund(l, 'part', 'K', 3) === null, 'defekte K: Flicken und Tausch zulässig');
+  ok(KF.ablehnGrund(l, 'flick', 'S', 3) === 'Spannungsregler ist schon geflickt – für dauerhaft: Tausch' && KF.ablehnGrund(l, 'part', 'S', 3) === null, 'geflickte S: Flicken abgelehnt mit Grund, Tausch zulässig');
+  ok(KF.ablehnGrund(l, 'flick', 'R', 3) === 'Relais ist heil' && KF.ablehnGrund(l, 'part', 'R', 3) === 'Relais ist heil', 'heiles Relais: weder Flicken noch Tausch');
   ok(KF.ablehnGrund(l, 'flick', 'Q', 3) === 'Keine Komponente gewählt' && KF.ablehnGrund(l, 'x', 'K', 3) === 'Keine Komponente gewählt' && KF.ablehnGrund(null, 'flick', 'K', 3) === 'Keine Komponente gewählt', 'unbekannte Art, unbekannter Modus, keine Liste: Hinweis statt Absturz');
 });
 
-section('Protokoll: technik.repair { system, mode, komp } bis queueRepair', () => {
+section('Protokoll: technik.repair { system, mode, komp } bis queueRepairKomponente und in die Liste', () => {
   ok(Protocol.normKomp('S') === 'S' && Protocol.normKomp('z') === undefined, 'normKomp (gemeinsam mit act/repair.start)');
   const g = new Game({ noStore: true, seed: 7, debug: true, env: { MISSION_SOURCE: 'fallback', SPIELLEITER_LLM: 'off' }, log: () => {} });
   const c = { inbox: [], send(o) { this.inbox.push(o); }, sendRaw(s) { this.inbox.push(JSON.parse(s)); } };
@@ -148,21 +150,40 @@ section('Protokoll: technik.repair { system, mode, komp } bis queueRepair', () =
   g.ship.fragile = {}; g.ship.offline = {}; g.ship.repairQueue = []; I.integritaetVoll(g); K.neuAufstellen(g);
   K.erzeugeAusZustand(g, 'shields'); g.ship.komp.shields[1].z = 'defekt'; K.synchronisieren(g, 'shields');
   const p = g.players[0]; p.console = 'technik';
-  const bekommen = []; const q0 = BOTS.queueRepair; BOTS.queueRepair = function (...a) { bekommen.push(a.slice(1)); return q0.apply(this, a); };
+  // Der Server-Befehl technik.repair ruft bots.queueRepairKomponente(game, system, mode, komp) (TEC-01 E). Hier wird DIESE Funktion abgehört (Argumente) und die Wirkung geprüft (Eintrag, Snapshot).
+  const bekommen = []; const q0 = BOTS.queueRepairKomponente; BOTS.queueRepairKomponente = function (...a) { bekommen.push(a.slice(1)); return q0.apply(this, a); };
+  const eintrag = () => g.ship.repairQueue.find((e) => e.system === 'shields');
+  const snapEintrag = () => g.snapshot().ship.repairQueue.find((e) => e.system === 'shields');
   try {
     const send = (m) => g.handleMessage(c, Object.assign({ t: 'cmd', c: 'technik.repair' }, m));
     send({ system: 'shields', mode: 'flick', komp: 'S' });
-    ok(eq(bekommen[0], ['shields', 'flick', 'S']), 'komp S kommt normalisiert bei queueRepair an: ' + JSON.stringify(bekommen[0]));
+    ok(eq(bekommen[0], ['shields', 'flick', 'S']), 'komp S kommt normalisiert bei queueRepairKomponente an: ' + JSON.stringify(bekommen[0]));
+    ok(eintrag() && eintrag().komp === 'S' && eintrag().mode === 'flick', 'Wirkung: der Eintrag der Reparaturliste trägt komp S: ' + JSON.stringify(eintrag()));
+    ok(eq(snapEintrag(), { system: 'shields', mode: 'flick', bot: null, komp: 'S' }), 'Wirkung: der Snapshot-Eintrag ist { system, mode, bot, komp }: ' + JSON.stringify(snapEintrag()));
     send({ system: 'shields', mode: 'flick' });
     ok(eq(bekommen[1], ['shields', 'flick', undefined]), 'ohne komp: undefined (wie bisher)');
+    ok(eintrag() && !('komp' in eintrag()) && !('komp' in snapEintrag()), 'Wirkung: ohne komp trägt weder Eintrag noch Snapshot das Feld (Format unverändert)');
     send({ system: 'shields', mode: 'part', komp: 'Z' });
-    ok(eq(bekommen[2], ['shields', 'part', undefined]), "unbekannte Art 'Z': kein Wunsch");
+    ok(eq(bekommen[2], ['shields', 'part', undefined]) && eintrag() && eintrag().mode === 'part' && !('komp' in eintrag()), "unbekannte Art 'Z': kein Wunsch, Eintrag ohne komp");
     send({ system: 'shields', mode: 'part', komp: { x: 1 } });
-    ok(eq(bekommen[3], ['shields', 'part', undefined]), 'komp als Objekt: kein Wunsch, kein Absturz');
+    ok(eq(bekommen[3], ['shields', 'part', undefined]) && !('komp' in eintrag()), 'komp als Objekt: kein Wunsch, kein Absturz');
+    send({ system: 'shields', mode: 'part', komp: 'K' });
+    ok(eintrag() && eintrag().komp === 'K', 'Wunsch K nach einem Wunsch-losen Eintrag: der Eintrag wird aktualisiert (K)');
     send({ system: 'shields', mode: null, komp: 'K' });
-    ok(eq(bekommen[4], ['shields', null, 'K']), 'Entfernen (mode null) trägt komp unverändert weiter; der Server entscheidet');
+    ok(eq(bekommen[5], ['shields', null, 'K']) && !eintrag(), 'Entfernen (mode null) trägt komp weiter; der Server entfernt den Eintrag');
     ok(g.ship.repairQueue.every((e) => e && typeof e.system === 'string' && typeof e.mode === 'string'), 'Reparaturliste bleibt wohlgeformt: ' + JSON.stringify(g.ship.repairQueue));
-  } finally { BOTS.queueRepair = q0; }
+  } finally { BOTS.queueRepairKomponente = q0; }
+  // TEC-01 Nacharbeit 1.3: normKomp sitzt an EINER Stelle (game.handleMessage); act und repair.start bekommen den Wunsch schon normalisiert
+  const act0 = I.onAct, rep0 = I.repairCmd; const gesehen = [];
+  I.onAct = function (game, pl, down, komp) { gesehen.push(['act', komp]); };
+  I.repairCmd = function (game, pl, cmd, msg) { gesehen.push([cmd, msg.komp]); return null; };
+  try {
+    g.handleMessage(c, { t: 'act', down: true, komp: 'Z' }); g.handleMessage(c, { t: 'act', down: true, komp: 'S' }); g.handleMessage(c, { t: 'act', down: true });
+    g.handleMessage(c, { t: 'cmd', c: 'repair.start', system: 'shields', komp: { x: 1 } }); g.handleMessage(c, { t: 'cmd', c: 'repair.start', system: 'shields', komp: 'R' });
+    ok(eq(gesehen, [['act', undefined], ['act', 'S'], ['act', undefined], ['repair.start', undefined], ['repair.start', 'R']]), 'act und repair.start erhalten komp schon normalisiert (unbekannt = kein Wunsch): ' + JSON.stringify(gesehen));
+  } finally { I.onAct = act0; I.repairCmd = rep0; }
+  const treffer = []; (function lauf(d) { for (const e of fs.readdirSync(d, { withFileTypes: true })) { const p = path.join(d, e.name); if (e.isDirectory()) lauf(p); else if (/\.js$/.test(e.name)) { const t = fs.readFileSync(p, 'utf8').split(/\r?\n/).filter((z) => /normKomp\(/.test(z) && !/^\s*\/\//.test(z)).length; if (t) treffer.push(path.basename(p) + ' x' + t); } } })(path.join(__dirname, '..', 'server'));
+  ok(eq(treffer, ['game.js x1']), 'Quellscan: normKomp( kommt in server/ genau einmal vor (game.js): ' + treffer.join(', '));
 });
 
 console.log(`\n${n - fails}/${n} Prüfungen grün${fails ? ', ' + fails + ' FEHLER' : ''}`);

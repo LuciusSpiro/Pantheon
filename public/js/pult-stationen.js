@@ -50,7 +50,9 @@
           Net.guard('Hud.flotteStrips', () => { sy = H.drawAlliesStrip(ctx, view, sy, { row: true }); H.drawBefehlStrip(ctx, view, sy); });
         }
       });
-      P.zeichneHilfe(ctx);
+      // TEC-01 Nacharbeit M2: das Hilfe-Overlay listet nur Knöpfe mit Hotkey; die Komponentenwahl (←/→) ist eine Taste ohne Knopf und steht deshalb als Zusatzzeile da
+      const sr = c === 'technik' && this.ttab === 1 ? this.damageRows(view.state)[this.sel.damage] : null;
+      P.zeichneHilfe(ctx, sr && sr.sys && this.kompModell(view.state, sr.target) ? { zeilen: [['←/→', 'Komponente der Schildkette wählen'], ['W/S', 'System wählen']] } : undefined);
       R.drawTooltip(ctx);
       return ctl;
     },

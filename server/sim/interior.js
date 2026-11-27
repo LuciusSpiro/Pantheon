@@ -5,7 +5,6 @@ const Vorrat = require('./vorrat.js');   // TEL-01 G: Verbrauchsgüter nur über
 const Crew = require('./crew.js');   // BOT-01 A2: Zählung über crew.js (Köpfe/Verbundene)
 const Tel = require('../telemetrie/gefecht.js');   // TEL-01 B1: zone_aus (nur lesen)
 const Physics = require('../../shared/physics.js');
-const Protocol = require('../../shared/protocol.js');   // TEC-01 B2: normKomp (Komponentenwunsch)
 const W = require('../world.js');
 const Buehne = require('../../shared/buehne.js');
 const { DIRS, NEIGHBOR_ORDER, dist } = require('../util.js');
@@ -1569,7 +1568,7 @@ function repairCmd(game, p, c, msg) {
     if (game.players.some((o) => o !== p && o.hold && o.hold.kind === 'minigame' && o.hold.system === sys)) return 'Da schraubt schon jemand.';
     let komp;   // TEC-01 B1: nur das Relais hat ein Minispiel; ein Wunsch (msg.komp) muss R sein; sonst Hinweis
     if (Komp.hatKomponenten(game, sys)) {
-      const ziel = Komp.reparaturZiel(game, sys, 'minigame', Protocol.normKomp(msg.komp));
+      const ziel = Komp.reparaturZiel(game, sys, 'minigame', msg.komp);   // TEC-01 Nacharbeit 1.3: schon in game.handleMessage normalisiert
       if (ziel.index == null) return ziel.hinweis;
       komp = ziel.t;
     }
@@ -1688,7 +1687,8 @@ function updateHazards(game, dt) {
     if (ship.noPartT[sys] >= C.emergencyRepair.brokenDelay) {
       ship.noPartT[sys] = 0;
       repairSystem(game, sys, 'oda', 'oda');
-      game.oda(`Keine Ersatzteile mehr – ich habe ${sysName(sys)} mit Draht und Gebet notrepariert. Jetzt nur noch beschädigt.`, null);
+      // TEC-01 Nacharbeit 1.1: der Satz folgt dem tatsächlichen Zustand nach der Notreparatur (Schildkette: ein Flicken hebt broken -> damaged, nie mehr als das)
+      game.oda(`Keine Ersatzteile mehr – ich habe ${sysName(sys)} mit Draht und Gebet notrepariert.${ship.systems[sys] === 'damaged' ? ' Jetzt nur noch beschädigt.' : ''}`, null);
     }
   }
   // QA S2b: Softlock-Schutz gegen Dauerbrand außerhalb des Kampfs (Brandschutz-Flutung, emergencyRepair.fireMin/fireDelay)

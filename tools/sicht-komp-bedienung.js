@@ -79,7 +79,11 @@ async function main() {
     alleHeil(); await ankern('shields'); setz('shields', 'ddo'); await sleep(900);
     let h = await ia(); console.log('  Hinweis:', JSON.stringify(h));
     ok(h && /Flicken – Steuerkern/.test(h.label) && /kein Minispiel: Relais ist heil/.test(h.alt || '') && /Ziel wechseln \(1\/2\)/.test(h.alt2 || ''), 'Schilde K,S defekt: „halten: Flicken – Steuerkern“, Q-Zeile (1/2), Relais ohne Minispiel');
+    ok(h && h.label === 'halten: Flicken – Steuerkern (1,5 s, bricht beim Sprung)', 'H8: Prompt ohne Systemname, Regel „bricht beim Sprung“: ' + (h && h.label));
     await shot('01-schilde-flicken-steuerkern', 400);
+    // H8: dieselbe Station mit einer vierzeiligen Funkmeldung (Abstand zwischen Funktafel und Prompt)
+    g.emit('radio', { from: 'Hafenmeister', text: 'Hier Hafenmeister, Lerche bitte kommen. Wir haben euer Transpondersignal verloren, bitte meldet euch auf Kanal vier und bestätigt Position, Kurs und Zustand eurer Schildanlage, bevor ihr weiterfliegt, sonst müssen wir den Sektor sperren.' });
+    await sleep(1500); await shot('01b-schilde-prompt-mit-funk', 200);
     // 2) Q: Spannungsregler
     await page.keyboard.press('KeyQ'); await sleep(400);
     h = await ia(); ok(h && /Flicken – Spannungsregler/.test(h.label) && /\(2\/2\)/.test(h.alt2 || ''), 'Q wechselt auf Spannungsregler (2/2): ' + (h && h.label));
@@ -108,7 +112,7 @@ async function main() {
     await shot('07-emitter-r-gesperrt', 100);
     // 7) Emitter: Relais n 1 defekt -> Minispiel möglich
     alleHeil(); await ankern('emitter_port'); setz('emitter_port', 'dd'); g.ship.komp.emitter_port[0].n = 1; await sleep(900);
-    h = await ia(); ok(h && /Relais reparieren \(Minispiel/.test(h.alt || '') && /Ziel wechseln \(1\/2\)/.test(h.alt2 || ''), 'Emitter R und L defekt: R-Zeile Minispiel, Q-Zeile (1/2): ' + JSON.stringify(h));
+    h = await ia(); ok(h && /^Minispiel: reparieren \(dauerhaft\)$/.test(h.alt || '') && /Ziel wechseln \(1\/2\)/.test(h.alt2 || ''), 'Emitter R und L defekt: R-Zeile „Minispiel: reparieren (dauerhaft)“, Q-Zeile (1/2): ' + JSON.stringify(h));
     await shot('08-emitter-minispiel-moeglich', 300);
     await page.keyboard.press('KeyR'); await sleep(900);
     ok(await page.evaluate(() => !!Client.minigame) && p.hold && p.hold.kind === 'minigame' && p.hold.komp === 'R', 'R startet das Minispiel am Relais (Hold komp R)');
@@ -116,7 +120,7 @@ async function main() {
     await page.keyboard.press('Escape'); await sleep(300);
     // 8) Nicht-Schildkette unverändert
     alleHeil(); await ankern('reactor'); g.ship.systems.reactor = 'damaged'; await sleep(900);
-    h = await ia(); ok(h && /^halten: flicken \(/.test(h.label) && /Minispiel, dauerhaft/.test(h.alt || '') && !h.alt2, 'Reaktor beschädigt: Hinweis wie bisher (flicken, Minispiel), keine Q-Zeile: ' + JSON.stringify(h));
+    h = await ia(); ok(h && /^halten: Flicken \(/.test(h.label) && /^Minispiel: reparieren \(dauerhaft\)$/.test(h.alt || '') && !h.alt2, 'Reaktor beschädigt: Hinweis wie bisher (flicken, Minispiel), keine Q-Zeile: ' + JSON.stringify(h));
     await shot('10-reaktor-unveraendert', 300);
   } finally {
     clearInterval(botsAus); await b.close(); await srv.close();

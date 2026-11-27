@@ -55,7 +55,7 @@ async function main() {
     const modell = (sys) => page.evaluate((s) => (window.Consoles && Consoles.kompModell ? Consoles.kompModell(Client.state, s) : null), sys);
 
     g.ship.botAuto = false;
-    const bekommen = []; const q0 = BOTS.queueRepair; BOTS.queueRepair = function (...a) { bekommen.push(a.slice(1)); return q0.apply(this, a); };   // Server-Seite: was kommt bei queueRepair an (system, mode, komp)
+    const bekommen = []; const q0 = BOTS.queueRepairKomponente; BOTS.queueRepairKomponente = function (...a) { bekommen.push(a.slice(1)); return q0.apply(this, a); };   // Server-Seite: was kommt bei queueRepairKomponente an (system, mode, komp)
     await page.evaluate(() => { window.__gesendet = []; const o = Net.send.bind(Net); Net.send = (m) => { window.__gesendet.push(m); return o(m); }; });
     const gesendet = async () => { const l = await page.evaluate(() => { const r = window.__gesendet.filter((m) => m.c === 'technik.repair'); window.__gesendet = []; return r; }); return l; };
     const text = (sys) => page.evaluate((s) => { const m = Consoles.kompModell(Client.state, s); return m && { zusammenfassung: m.zusammenfassung, zeilen: m.zeilen.map((z) => [z.name, z.zustand, z.ausfall, z.bruch, z.aktion].filter(Boolean).join(' | ')) }; }, sys);
@@ -85,12 +85,17 @@ async function main() {
     await shot('08-generator-spannungsregler-gewaehlt', 300);
     await page.keyboard.press('KeyF'); await sleep(500);
     let m = await gesendet(); ok(m.length === 1 && m[0].system === 'shields' && m[0].mode === 'flick' && m[0].komp === 'S', 'F mit gewähltem Spannungsregler sendet komp S: ' + JSON.stringify(m));
-    ok(bekommen.some((a) => a[0] === 'shields' && a[1] === 'flick' && a[2] === 'S'), 'Server: queueRepair erhält komp S (normalisiert): ' + JSON.stringify(bekommen.slice(-1)));
+    ok(bekommen.some((a) => a[0] === 'shields' && a[1] === 'flick' && a[2] === 'S'), 'Server: queueRepairKomponente erhält komp S (normalisiert): ' + JSON.stringify(bekommen.slice(-1)));
     await page.keyboard.press('ArrowRight'); await sleep(200);   // Relais (geflickt): Flicken geht nicht
     await page.keyboard.press('KeyF'); await sleep(500);
     m = await gesendet(); const dn = await page.evaluate(() => Render.uiDenied && Render.uiDenied.text);
     ok(m.length === 0 && /Relais ist schon geflickt/.test(dn || ''), 'Flicken am geflickten Relais: nichts gesendet, Hinweis „' + dn + '“');
     await shot('09-relais-flicken-abgelehnt', 100);
+    // M1: der Ablehnkasten liegt NACH dem Pult über der Statusleiste: Pixel prüfen (Warn-Gelb #F2C94C im Streifen 18 px über der Oberkante der Statusleiste)
+    const px = await page.evaluate(() => { const c = document.getElementById('game'), x = c.getContext('2d'), S = window.Pult && Pult.statusOben(Client.view); if (S == null) return null; const k = c.width / 640, y0 = Math.round((S - 18) * k), hh = Math.round(18 * k);
+      const d = x.getImageData(0, y0, c.width, hh).data; let n = 0, minX = 1e9, maxX = -1; for (let i = 0; i < d.length; i += 4) { if (Math.abs(d[i] - 0xF2) < 40 && Math.abs(d[i + 1] - 0xC9) < 40 && Math.abs(d[i + 2] - 0x4C) < 60) { n++; const xx = (i / 4) % c.width; if (xx < minX) minX = xx; if (xx > maxX) maxX = xx; } } return { S, n, von: Math.round(minX / k), bis: Math.round(maxX / k) }; });
+    console.log('  Pixel Ablehnkasten:', JSON.stringify(px));
+    ok(px && px.n > 120 && px.von > 120 && px.bis < 520, 'M1: Warn-Gelb-Pixel des Ablehnkastens über der Statusleiste: ' + JSON.stringify(px));
     await page.keyboard.press('KeyT'); await sleep(500);
     m = await gesendet(); ok(m.length === 1 && m[0].mode === 'part' && m[0].komp === 'R', 'T (Tausch) am geflickten Relais sendet komp R: ' + JSON.stringify(m));
     await page.keyboard.press('ArrowRight'); await sleep(200);   // wieder das ganze System
@@ -110,6 +115,12 @@ async function main() {
     await sleep(600); await waehle('shields'); await shot('11-platzprobe-generator', 300);
     await waehle('emitter_stbd'); await shot('12-platzprobe-emitter', 300);
     await waehle('reactor'); await shot('13-platzprobe-reaktor-gewaehlt', 300);
+    // H2 Worst Case: alles geflickt und verschlissen (Generator ggg, Ausfälle 3/0/3, sp 7), alle Emitter beschädigt
+    alleHeil(); g.ship.botAuto = false;
+    setz('shields', 'ggg', [3, 0, 3], [7, 7, 7]);
+    setz('emitter_bow', 'dg', [3, 0], [0, 7]); setz('emitter_stbd', 'gd', [2, 0], [4, 0]); setz('emitter_aft', 'dd', [1, 0], [0, 0]); setz('emitter_port', 'gg', [0, 0], [1, 2]);
+    await sleep(600); await waehle('shields'); await shot('14-platzprobe-geflickt-verschlissen', 400);
+    await waehle('emitter_bow'); await shot('14b-platzprobe-emitter-ausfall-lage', 300);
   } finally {
     clearInterval(botsAus); await b.close(); await srv.close();
   }

@@ -11,17 +11,13 @@
 // Wahrheit bei Konflikt: schreibt jemand ship.systems[sys] direkt, gilt der geschriebene Zustand; konsistent() erzeugt die Komponenten dann neu.
 // EMP-Zustand 'offline' wird nie überschrieben: während offline gilt die Ableitung für ship.offline[sys].prev.
 const { makeRng } = require('../util.js');
+// TEC-01 Nacharbeit 1.2: Namen, Konstanten, Kodieren/Dekodieren, Zulässigkeit der Ziele und die Bruchformel kommen aus dem gemeinsamen Modul (einzige Quelle, auch für den Client)
+const F = require('../../shared/komponenten-format.js');
 
 const OK = 'ok'; const DEFEKT = 'defekt'; const GEFLICKT = 'geflickt';
-const CODE = { [OK]: 'o', [DEFEKT]: 'd', [GEFLICKT]: 'g' };
-const VON_CODE = { o: OK, d: DEFEKT, g: GEFLICKT };
 const RANG = { ok: 0, damaged: 1, broken: 2 };
-const MAX_DEFEKT_BROKEN = 2;
-const MINISPIEL_ART = 'R';           // TEC-01 B1: nur das Relais hat in Stufe 1 ein Reparatur-Minispiel (Leertasten-Spiel), die anderen Arten nur Flicken und Tausch
-const AUSFALL_SPERRE = 3;            // ab diesem Ausfallzähler n ist die Komponente nicht mehr reparierbar (Minispiel), nur noch Flicken und Tausch (Datum: komponenten.ausfallSperre)
-const NAMEN = { K: 'Steuerkern', S: 'Spannungsregler', R: 'Relais', L: 'Leitung' };
-const BRUCH_GRUND = 0.3;             // TEC-01 C: Bruchwahrscheinlichkeit eines frischen Flickens beim Sprung (Datum: komponenten.sprungBruch.grund)
-const BRUCH_PRO_SPRUNG = 0.1;        // und Zuschlag je überstandenem Sprung (Datum: komponenten.sprungBruch.proSprung)
+const MAX_DEFEKT_BROKEN = F.MAX_DEFEKT_BROKEN;
+const MINISPIEL_ART = F.MINISPIEL_ART;   // TEC-01 B1: nur das Relais hat in Stufe 1 ein Reparatur-Minispiel (Leertasten-Spiel), die anderen Arten nur Flicken und Tausch
 const ZAEHLT_AUSFALL = ['R', 'K'];   // Relais und Steuerkern: ein Treffer (ok -> defekt) zählt im Ausfallzähler n mit
 
 let interiorMod = null;   // Zirkelbezug interior -> komponenten: lazy
@@ -173,8 +169,8 @@ function hebeAufZustand(game, sys, ziel, bevorzugt) {
 // ---------- TEC-01 B1: Reparatur je Komponente ----------
 // Zustand und Zähler: Flicken = defekt -> geflickt (sp 0); Tausch = nur diese Komponente -> ok (n 0, sp 0); Relais-Minispiel = Relais -> ok (n bleibt, sp 0).
 // Eine Komponente wird durch ihre Art (Typbuchstabe) gewählt; ohne Wunsch gilt die Regel der Aktion. Alle Funktionen geben null zurück, wenn nichts zu tun ist.
-function ausfallSperre(game) { const v = Number(daten(game).ausfallSperre); return v >= 1 ? v : AUSFALL_SPERRE; }
-function name(t) { return NAMEN[t] || t; }
+function ausfallSperre(game) { return F.sperreVon(daten(game)); }   // Datum: komponenten.ausfallSperre
+const name = F.name;
 // Ist am System etwas zu reparieren (eine Komponente defekt oder geflickt)?
 function reparierbar(game, sys) {
   if (!hatKomponenten(game, sys)) return false;
@@ -200,26 +196,20 @@ function reparaturZiel(game, sys, aktion, wunsch) {
   konsistent(game, sys);
   const L = liste(game, sys);
   const w = typeof wunsch === 'string' && r.includes(wunsch) ? wunsch : null;
-  const treffer = (k) => ({ index: L.indexOf(k), t: k.t });
+  const treffer = (art) => ({ index: L.findIndex((q) => q.t === art), t: art });
+  if (!['minigame', 'flick', 'swap'].includes(aktion)) return { hinweis: 'Unbekannte Reparatur.' };
+  // Zulässigkeit: die Regel des gemeinsamen Moduls (Client und Server gleich); der Standard ist das erste zulässige Ziel. Hier entstehen nur die Hinweistexte.
+  const ziele = F.zulaessigeZiele(L, aktion, ausfallSperre(game));
+  if (w ? ziele.includes(w) : ziele.length) return treffer(w || ziele[0]);
   if (aktion === 'minigame') {
     const k = L.find((q) => q.t === MINISPIEL_ART);
     if (!k) return { hinweis: 'Hier gibt es kein Minispiel: E halten zum Flicken oder Tauschen.' };
     if (w && w !== MINISPIEL_ART) return { hinweis: name(w) + ' hat kein Minispiel: E halten zum Flicken oder Tauschen.' };
     if (k.z === OK) return { hinweis: 'Relais ist heil.' };
-    if (k.n >= ausfallSperre(game)) return { hinweis: 'Relais verschlissen: nur noch Flicken oder Tausch.' };
-    return treffer(k);
+    return { hinweis: 'Relais verschlissen: nur noch Flicken oder Tausch.' };
   }
-  if (aktion === 'flick') {
-    const k = w ? L.find((q) => q.t === w) : L.find((q) => q.z === DEFEKT);
-    if (!k || k.z !== DEFEKT) return { hinweis: w ? name(w) + ' ist nicht defekt.' : 'Nichts zu flicken: nichts ist defekt.' };
-    return treffer(k);
-  }
-  if (aktion === 'swap') {
-    const k = w ? L.find((q) => q.t === w) : (L.find((q) => q.z === DEFEKT) || L.find((q) => q.z === GEFLICKT));
-    if (!k || k.z === OK) return { hinweis: w ? name(w) + ' ist heil.' : 'Nichts zu tauschen: alles heil.' };
-    return treffer(k);
-  }
-  return { hinweis: 'Unbekannte Reparatur.' };
+  if (aktion === 'flick') return { hinweis: w ? name(w) + ' ist nicht defekt.' : 'Nichts zu flicken: nichts ist defekt.' };
+  return { hinweis: w ? name(w) + ' ist heil.' : 'Nichts zu tauschen: alles heil.' };
 }
 // Während des Haltens und am Ende: ist die gewählte Komponente noch im nötigen Zustand? (komp = Art, die der Hold trägt)
 function reparaturGueltig(game, sys, aktion, komp) {
@@ -252,17 +242,11 @@ function reparierenRelais(game, sys) {
 
 // ---------- TEC-01 C: Sprungbruch der Notflicken ----------
 // Jeder Systemsprung (springeNach, Notsprung, Finale-Orbit) bricht jeden Flicken der Schildkette mit p = grund + proSprung * sp (höchstens 1; Daten: komponenten.sprungBruch).
+// Ein zerstörtes System (ab 2 defekt) nimmt keinen weiteren Komponentenschaden: sind vor einem Wurf schon 2 Komponenten defekt, wird für diesen Flicken nicht gewürfelt, er bleibt geflickt und
+// zählt den Sprung als überstanden (sp + 1). Bricht der erste Flicken eines Systems mit 1 defekten Komponente, sind damit die folgenden Flicken dieses Sprungs geschützt.
 // Überstanden (nicht gebrochen): sp + 1. Gebrochen: Komponente wieder defekt (wie vor dem Flicken, Ausfallzähler n unverändert), sp 0. Zufall nur aus ship.kompRng, ein Wurf je Flicken.
-function sprungBruchWerte(game) {
-  const d = daten(game).sprungBruch || {};
-  const grund = Number(d.grund); const pro = Number(d.proSprung);
-  return { grund: grund >= 0 ? grund : BRUCH_GRUND, proSprung: pro >= 0 ? pro : BRUCH_PRO_SPRUNG };
-}
-// Bruchwahrscheinlichkeit eines Flickens, der sp Sprünge überstanden hat
-function sprungBruchChance(game, sp) {
-  const w = sprungBruchWerte(game);
-  return Math.min(1, w.grund + w.proSprung * Math.max(0, sp | 0));
-}
+// Bruchwahrscheinlichkeit eines Flickens, der sp Sprünge überstanden hat (Formel und Standardwerte im gemeinsamen Modul, Daten: komponenten.sprungBruch)
+function sprungBruchChance(game, sp) { return F.bruchChance(sp, daten(game)); }
 // Ein Sprung für die ganze Schildkette. Reihenfolge fest: System laut Konfig, dann Rezeptreihenfolge. Die Nachbehandlung eines geänderten Systemzustands (Ereignis, Integrität, Zone aus, ODA)
 // ist die des Treffers (interior.sprungBruchSchaden). Rückgabe: Liste der gebrochenen Flicken [{ system, komp }].
 function sprungBruch(game) {
@@ -273,7 +257,7 @@ function sprungBruch(game) {
       const L = liste(g, s);
       for (const k of L) {
         if (k.z !== GEFLICKT) continue;
-        if (strom(g)() < sprungBruchChance(g, k.sp)) {
+        if (defekteZahl(g, s) < MAX_DEFEKT_BROKEN && strom(g)() < sprungBruchChance(g, k.sp)) {
           faelltAus(k); k.sp = 0;
           gebrochen.push({ system: s, komp: k.t });
           g.emit('flickGebrochen', { system: s, komp: k.t });
@@ -308,21 +292,11 @@ function konsistentAlle(game) { for (const sys of systeme(game)) konsistent(game
 function kodiere(game, sys) {
   const L = liste(game, sys);
   if (!L) return null;
-  let s = L.map((k) => CODE[k.z] || 'o').join('');
-  return s + zaehlerTeil(L);
+  return F.kodiere(L);
 }
-function zaehlerTeil(L) { return L.some((k) => k.n > 0 || k.sp > 0) ? ';' + L.map((k) => k.n | 0).join(',') + ';' + L.map((k) => k.sp | 0).join(',') : ''; }
+const zaehlerTeil = F.zaehlerTeil;
 // Zurück in eine Liste (z ist null bei '-'); null, wenn der Text nicht zum Rezept passt
-function dekodiere(game, sys, text) {
-  const r = rezept(game, sys);
-  if (!r || typeof text !== 'string') return null;
-  const teile = text.split(';');
-  const codes = teile[0];
-  if (codes.length !== r.length || ![...codes].every((c) => c in VON_CODE || c === '-')) return null;
-  const zahlen = (t) => { const a = String(t || '').split(',').map((x) => Math.max(0, Math.min(9999, parseInt(x, 10) || 0))); return a.length === r.length ? a : r.map(() => 0); };
-  const n = zahlen(teile[1]); const sp = zahlen(teile[2]);
-  return r.map((t, i) => ({ t, z: VON_CODE[codes[i]] || null, n: n[i], sp: sp[i] }));
-}
+function dekodiere(game, sys, text) { return F.dekodiere(text, rezept(game, sys)); }
 // Snapshot: nur Systeme mit Abweichung (Komponente nicht ok oder Zähler > 0); null, wenn nichts abweicht
 function snapshot(game) {
   let out = null;
