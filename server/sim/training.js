@@ -8,21 +8,32 @@
 //   laeuft(game)         Läuft gerade eine Trainingspartie (game.arena.training gesetzt)?
 //   consoleHelpAus(game) Soll die ODA-Zeile CONSOLE_HELP (mission.js, consoleEnter) unterbleiben?
 //   start(game, kind)    Ausgangszustand herstellen, Platzhalter-/Trainingsbuch direkt starten (startMissionAb), ohne Kette
-//   update(game)         Tick: Szenenende melden, Neustart nach Verlust
+//   update(game)         Tick: Erkennung pollen (training-erkennung.js), Szenenende melden, Neustart nach Verlust und NEUSTART_NACH_ERFOLG s nach Erfolg
+//   ereignis(game, n, d) Weiterleitung von mission.onEvent an die Erkennung (flüchtige Ereignisse)
 //   neustart(game)       Szene von vorn
+//   abzeichenVergeben(game, id)  Abzeichen-Meldung (Broadcast EVT_ABZEICHEN { id, variante? }) plus ODA-Zeile, genau einmal je Versuch
 // Direktstart ohne Kampagnenkette, ohne persistenten Weltstand (g.weltstand ist nie persistent, damit tutorialLaeuft true: Sprünge nur im
 // Saumraum, bewusst), kein Testgeld (arena.istUebungsszene). Karte ist der Standard limes: kein Eintrag in UEBUNG_WELTEN (game.js).
 // Neues Buch eintragen: Datei content/regiebuecher/<buch>.regiebuch.json mit kopf.art 'intern', in TRAININGSMODI unter buch nennen.
-// game.arena.training = { modus, sprache, start, versuch, verlustAb, gemeldet }; Lobby-Option trainingSprache (nur Captain) landet in sprache.
+// game.arena.training = { modus, sprache, start, versuch, verlustAb, gemeldet, erfolgAb, abzeichenVersuch, erreicht, erk }; Lobby-Option trainingSprache (nur Captain) landet in sprache.
+//   erreicht = Set der erkannten Ziel-Ids, erk = Ausgangslage des letzten Ticks (beides training-erkennung.js, kein Snapshot-Feld).
+const Erkennung = require('./training-erkennung.js');
 const NEUSTART_MAX_WARTEN = 30;   // s nach dem Verlust (wie uebung-forschung.js)
+const NEUSTART_NACH_ERFOLG = 8;   // s nach Erfolg und Abzeichen-Meldung: Szene von vorn, damit man wiederholen kann
 const FERTIG_FLAG = 'trainingFertig';   // Buchflag (erwartet im Buch): gesetzt = Training geschafft, update() schließt das Buch mit erfolg ab
 
 const TRAININGSMODI = {
-  training_fliegen: { buch: 'tra_fliegen', ort: 'hafen', angedockt: true, consoleHelpAus: true, sprachwahl: false },
-  training_captain: { buch: 'tra_captain', ort: 'hafen', angedockt: true, consoleHelpAus: true, sprachwahl: true },
+  training_fliegen: { buch: 'tra_fliegen', ort: 'hafen', angedockt: true, consoleHelpAus: true, sprachwahl: false, abzeichen: 'fliegen' },
+  training_captain: { buch: 'tra_captain', ort: 'hafen', angedockt: true, consoleHelpAus: true, sprachwahl: true, abzeichen: 'captain' },
+};
+// Abzeichen: Name für die ODA-Zeile; Varianten (nur Captain: Tafel/Tasten oder Sprache) mit Anhang. Ohne Wirkung im Spiel, der Client merkt sie sich.
+const ABZEICHEN = {
+  fliegen: { name: 'Fliegen' },
+  captain: { name: 'Captain', varianten: { tafel: 'Befehlstafel', sprache: 'mit Sprache' } },
 };
 const KINDS = Object.keys(TRAININGSMODI);
 
+const Protocol = require('../../shared/protocol.js');
 function arena() { return require('./arena.js'); }   // lazy: arena.js bindet dieses Modul beim Start ein
 function istTraining(kind) { return typeof kind === 'string' && Object.prototype.hasOwnProperty.call(TRAININGSMODI, kind); }
 function hatSprachwahl(kind) { return istTraining(kind) && TRAININGSMODI[kind].sprachwahl === true; }
@@ -63,8 +74,9 @@ function buchStarten(game) {
 function start(game, kind) {
   const d = TRAININGSMODI[kind];
   const sprache = !!(d.sprachwahl && game.lobbyOpts && game.lobbyOpts.trainingSprache === true);
-  game.arena = { kind, training: { modus: kind, sprache, start: game.time, versuch: 1, verlustAb: null, gemeldet: false } };
+  game.arena = { kind, training: { modus: kind, sprache, start: game.time, versuch: 1, verlustAb: null, gemeldet: false, erfolgAb: null, abzeichenVersuch: 0 } };
   ausgangszustand(game);
+  Erkennung.zuruecksetzen(game);   // nach dem Ausgangszustand: was beim Herrichten der Szene geschah, zählt nicht
   buchStarten(game);
   game.log('Training gestartet: ' + kind + (sprache ? ' (mit Sprache)' : '') + '.');
 }
@@ -72,18 +84,35 @@ function start(game, kind) {
 function neustart(game) {
   const T = stand(game);
   ausgangszustand(game);
-  T.versuch++; T.verlustAb = null; T.gemeldet = false;
+  T.versuch++; T.verlustAb = null; T.gemeldet = false; T.erfolgAb = null;
   game.mission.flags[FERTIG_FLAG] = false;
+  Erkennung.zuruecksetzen(game);
   buchStarten(game);
   game.log('Training ' + T.modus + ': Neustart (Versuch ' + T.versuch + ').');
+}
+
+// Abzeichen für das geschaffte Training: Broadcast + ODA-Zeile, einmal je Versuch (auch bei direktem Aufruf). Rückgabe: wurde gesendet?
+function abzeichenVergeben(game, id) {
+  const T = stand(game); const a = ABZEICHEN[id];
+  if (!T || !a || T.abzeichenVersuch === T.versuch) return false;
+  T.abzeichenVersuch = T.versuch;
+  const variante = a.varianten ? (T.sprache ? 'sprache' : 'tafel') : null;
+  game.emit(Protocol.EVT_ABZEICHEN, variante ? { id, variante } : { id });
+  game.oda('Abzeichen erreicht: ' + a.name + (variante ? ' (' + a.varianten[variante] + ')' : '') + '.', null);
+  return true;
 }
 
 function szeneDurch(game) {
   const T = stand(game);
   if (T.gemeldet) return;
-  T.gemeldet = true;
-  game.oda('Training geschafft. Esc → „Partie beenden“ führt zurück in die Lobby.', null);
+  T.gemeldet = true; T.erfolgAb = game.time;
+  game.oda('Training geschafft. In ' + NEUSTART_NACH_ERFOLG + ' s geht es von vorn los; Esc → „Partie beenden“ führt zurück in die Lobby.', null);
+  abzeichenVergeben(game, def(game).abzeichen);
 }
+
+// Erkennung nie den Tick abbrechen lassen
+function erkennen(game) { try { Erkennung.update(game); } catch (e) { game.countError('training-erkennung', e); } }
+function ereignis(game, name, data) { if (laeuft(game)) Erkennung.ereignis(game, name, data); }
 
 function update(game) {
   const T = stand(game);
@@ -95,10 +124,14 @@ function update(game) {
       if (T.verlustAb == null) T.verlustAb = game.time;
       const obenAlle = game.players.every((p) => p.zone !== 'away' && !p.downed);
       if (obenAlle || game.time - T.verlustAb >= NEUSTART_MAX_WARTEN) neustart(game);
-    } else szeneDurch(game);
+    } else {
+      szeneDurch(game);
+      if (game.time - T.erfolgAb >= NEUSTART_NACH_ERFOLG) neustart(game);
+    }
     return;
   }
+  if (m.activeId === d.buch) erkennen(game);
   if (m.activeId === d.buch && m.flags[FERTIG_FLAG] === true) { m.completeMission('erfolg'); szeneDurch(game); }
 }
 
-module.exports = { TRAININGSMODI, KINDS, istTraining, hatSprachwahl, laeuft, consoleHelpAus, start, update, neustart };
+module.exports = { TRAININGSMODI, ABZEICHEN, NEUSTART_NACH_ERFOLG, KINDS, istTraining, hatSprachwahl, laeuft, consoleHelpAus, start, update, ereignis, neustart, abzeichenVergeben };

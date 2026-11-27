@@ -86,7 +86,9 @@ section('Neustart und Szenenende', () => {
   ok(g.mission.missions.tra_fliegen.state === 'done' && g.mission.missions.tra_fliegen.ausgang === 'erfolg', 'Flag trainingFertig schließt das Buch mit erfolg ab');
   ok(T.odas.slice(vorher).filter((t) => /Training geschafft/.test(t)).length === 1 && tr.gemeldet === true, 'Meldung „Training geschafft“ genau einmal');
   T.run(5);
-  ok(tr.versuch === 2 && T.odas.filter((t) => /Training geschafft/.test(t)).length === 1, 'nach Erfolg kein Neustart und keine zweite Meldung');
+  ok(tr.versuch === 2 && T.odas.filter((t) => /Training geschafft/.test(t)).length === 1, 'nach Erfolg vor Ablauf der Frist kein Neustart und keine zweite Meldung');
+  T.run(5, () => tr.versuch === 3);   // TRA-01 B2: nach NEUSTART_NACH_ERFOLG (8 s) geht die Szene von vorn los
+  ok(tr.versuch === 3 && g.mission.activeId === 'tra_fliegen' && g.mission.missions.tra_fliegen.state === 'active', 'nach Erfolg und Frist: Neustart (Versuch 3), Buch wieder aktiv');
   ok(g.errors === 0, 'g.errors 0');
   // 30-s-Rückfall: die Spieler bleiben künstlich unten (jeder Tick setzt sie zurück), Neustart erst nach NEUSTART_MAX_WARTEN und holt sie an Bord
   const U = lobbySpiel('training_captain', 2); const u = U.g; U.run(2);
