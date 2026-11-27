@@ -149,7 +149,7 @@
     A('technik.schaden.hoch', 'technik', 'Zeile hoch', ['ArrowUp', 'KeyW'], 'technik.schaden'),
     A('technik.schaden.runter', 'technik', 'Zeile runter', ['ArrowDown', 'KeyS'], 'technik.schaden'),
     A('technik.flicken', 'technik', 'Bots: flicken', ['Enter', 'KeyF'], 'technik.schaden'),
-    A('technik.teil', 'technik', 'Bots: Ersatzteil einbauen', ['KeyT'], 'technik.schaden'),
+    A('technik.teil', 'technik', 'Bots: Tausch (Ersatzteil)', ['KeyT'], 'technik.schaden'),
     A('technik.auftragWeg', 'technik', 'Reparaturauftrag entfernen', ['Delete', 'Backspace', 'Digit0'], 'technik.schaden'),
     A('technik.prioritaet', 'technik', 'Priorität setzen', ['KeyP'], 'technik.schaden'),
     A('technik.botsAuto', 'technik', 'Bots automatisch', ['KeyA'], 'technik.schaden'),

@@ -739,6 +739,7 @@ function finaleAufbauen(game, { hex } = {}, merk) {
   require('./space.js').enterScene(game, ort, { docked: false });
   if (game.ship.scene !== ort) return null;
   game.emit('sfx', { name: 'jump' });
+  require('./komponenten.js').sprungBruch(game);   // TEC-01 C: die Ankunft im Orbit zählt als Sprung (Notflicken der Schildkette)
   game.emit('jump', { scene: ort, location: ort, from: von });
   try { if (game.explore) game.explore.arrive(ort); } catch (e) { if (game.countError) game.countError('finale-orbit-arrive', e); }
   const vorlauf = Math.max(0, Number(D.orbit_vorwarnung.wert) || 0);

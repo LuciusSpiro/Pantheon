@@ -320,13 +320,18 @@ const toete = (g, e) => Testhilfe.toeten(g, e);
 
   await section('Bot-Läufe (echter Kampf)', async () => {
     zurueck();
-    // SYS-03 C-Nacharbeit: Zusage als Quote über feste, vorab festgelegte Seeds 21–28 je Crewgröße (der Ausgang einer Einzelschlacht ist chaotisch, die Quote nicht).
-    // Gemessen (max 600 s wie tools/sim-finale-orbit.js): SYS-03 C-Nacharbeit (Pool 8) Crew 1 5/8, Crew 2 6/8, Crew 3 7/8; SYS-03 D (Pool 12, Reaktor-Fenster): Crew 1 6/8 (Seed 25 Zeitlimit, Seed 27 Niederlage), Crew 2 7/8 (Seed 27), Crew 3 7/8 (Seed 27).
-    // Mindestquote je Crew mit einem Seed Reserve: Crew 1 5/8, Crew 2 und 3 je 6/8; Abbruch, sobald sie erreicht (oder nicht mehr erreichbar) ist.
-    // Das Zeitlimit ist dasselbe wie in der Sim (600 s): bei 400 s kippte z. B. Seed 22 Crew 2 (Sieg nach 405 s) – kein Zufall, die Läufe sind deterministisch.
-    const SEEDS = [21, 22, 23, 24, 25, 26, 27, 28]; const MINDEST_JE_CREW = { 1: 5, 2: 6, 3: 6 };
+    // Zusage als Quote über feste, vorab festgelegte Seeds (der Ausgang einer Einzelschlacht ist chaotisch, die Quote nicht). Bot-Läufe mit echtem Kampf, max 600 s wie tools/sim-finale-orbit.js.
+    // Kalibrierung TEC-01 Nacharbeit 1.7 (2026-11-27): Crew 2 und 3 laufen über 40 Seeds (21–60) mit Schwelle >= 24 Siege (60 %). Der alte Test forderte 6 von 8 (75 %) und lag mit main auf der Kante
+    // (Messung 40 Seeds, Kai/Leiter: main Crew 2 28/40, Crew 3 26/40; tec01 Crew 2 27/40, Crew 3 27/40: ein Zufallsmaß, kein Fähigkeitsmaß).
+    // URSACHE der Abweichung Test vs. Sim-Tool: der Kampf-Bot (tools/sim-headless.js) zieht seinen Zufall aus EINEM Modulstrom (server/bots/kern.js simRng), und tools/sim-finale-orbit.js setzte ihn nie
+    // zurück: dasselbe (seed, crew) lief je nach den Läufen davor im Prozess anders (Crew 2 Seed 21: allein Niederlage nach 89 s, nach sieben Solo-Läufen Sieg nach 62 s). Seit lauf() den Strom je
+    // (seed, crew) neu setzt, ist jeder Lauf unabhängig von Reihenfolge und Prozess; Test und Sim-Tool liefern dieselben Zahlen (zwei Testläufe: gleiche Siege und Läufe).
+    // Gemessen mit festem Strom (tec01, 40 Seeds 21–60, max 600 s): Crew 1 29/40, Crew 2 32/40, Crew 3 28/40; Seeds 21–28: Crew 1 7/8. Crew 1 behält die kleine Stichprobe (5 von 8), die Schwelle liegt mit Abstand.
+    // Abbruch, sobald die Schwelle erreicht (oder nicht mehr erreichbar) ist. Die Spielregeln und Bot-Werte sind dafür nicht angefasst.
+    const SEEDS8 = [21, 22, 23, 24, 25, 26, 27, 28]; const SEEDS40 = Array.from({ length: 40 }, (_, i) => 21 + i);
+    const PLAN = { 1: { seeds: SEEDS8, mindest: 5 }, 2: { seeds: SEEDS40, mindest: 24 }, 3: { seeds: SEEDS40, mindest: 24 } };
     for (const crew of [1, 2, 3]) {
-      const MINDEST = MINDEST_JE_CREW[crew];
+      const SEEDS = PLAN[crew].seeds, MINDEST = PLAN[crew].mindest;
       let siege = 0; let gelaufen = 0; const alle = [];
       for (const seed of SEEDS) {
         if (siege >= MINDEST || siege + (SEEDS.length - gelaufen) < MINDEST) break;

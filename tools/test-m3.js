@@ -19,6 +19,8 @@ Testhilfe.rohZaehlen();   // SYS-03 B2: Waffenschaden als Rohschaden zählen (ge
 const roh = Testhilfe.roh;
 const Gegnertod = require('../server/sim/gegnertod.js');   // SYS-01 C1a-2: Reaktor-Countdown der Gegner
 const interior = require('../server/sim/interior.js');
+// TEC-01 B1: das Minispiel repariert nur das Relais; ein direkt auf damaged geschriebener Emitter hat sonst die Leitung defekt (Wächter) und das Relais heil
+const relaisDefekt = (g, sys) => { const Komp = require('../server/sim/komponenten.js'); Komp.erzeugeAusZustand(g, sys); g.ship.komp[sys].forEach((k) => { k.z = k.t === 'R' ? 'defekt' : 'ok'; }); };
 const Flight = require('../shared/flight.js');
 let damage = null;
 try { damage = require('../server/sim/damage.js'); } catch (e) { damage = null; }
@@ -343,12 +345,12 @@ section('Reparatur: Flicken, Fragil, Werkzeuggürtel (§8.1, §4.3)', () => {
   ok(g.ship.systems.battery_port === 'broken' && !I.isFragile(g, 'battery_port'), 'fragil + Treffer in Sektor 3: sofort zerstört, Flag weg');
   // mehrere fragile im Sektor brechen alle, sonst kein weiterer Schaden
   resetSystems(g);
-  g.ship.fragile.battery_port = true; g.ship.fragile.emitter_port = true;
+  g.ship.fragile.battery_port = true; g.ship.fragile.thruster_port = true;   // TEC-01 A2: statt emitter_port (Schildkette, Flicken nur noch an Komponenten)
   g.time += 20;
   const before = JSON.stringify(g.ship.systems);
   I.trefferweg(g, 3);
   const changed = SYS14.filter((s) => g.ship.systems[s] !== 'ok');
-  ok(changed.sort().join() === 'battery_port,emitter_port' && !I.isFragile(g, 'emitter_port'), 'alle fragilen Systeme des Sektors brechen, kein weiterer Schaden (' + changed.join() + ')');
+  ok(changed.sort().join() === 'battery_port,thruster_port' && !I.isFragile(g, 'thruster_port'), 'alle fragilen Systeme des Sektors brechen, kein weiterer Schaden (' + changed.join() + ')');
   ok(before !== JSON.stringify(g.ship.systems), 'Systeme verändert');
   // Debug fragile
   resetSystems(g);
@@ -394,7 +396,7 @@ section('Reparatur: Austauschen (§8.1)', () => {
 section('Reparatur: Minispiel (§8.1)', () => {
   const { g, P, send, run, place, events, cmd, notices } = arena(2);
   noFire(g);
-  g.ship.systems.emitter_stbd = 'damaged'; g.ship.fragile.emitter_stbd = true;
+  g.ship.systems.emitter_stbd = 'damaged'; relaisDefekt(g, 'emitter_stbd');
   // zu weit weg
   place(0, conSpot('helm'));
   cmd(0, 'repair.start', { system: 'emitter_stbd' });
@@ -591,7 +593,7 @@ section('M3b: Rückschlag 50 % bei Hüllentreffer im Sektor (§4)', () => {
   ok(g.stats.repairSetbacks === sb0 + 1 && events('repairSetback').some((e) => e.system === 'battery_stbd'), `Ereignis repairSetback { system }, stats.repairSetbacks ${g.stats.repairSetbacks}`);
   send(0, { t: 'act', down: false }); run(0.1, tick);
   // Minispiel-Mindestzeit
-  resetSystems(g); g.ship.systems.emitter_port = 'damaged';
+  resetSystems(g); g.ship.systems.emitter_port = 'damaged'; relaisDefekt(g, 'emitter_port');
   place(0, sysSpot('emitter_port'));
   send(0, { t: 'cmd', c: 'repair.start', system: 'emitter_port' });
   run(1.6, tick);
@@ -1169,12 +1171,12 @@ section('Bots auf Befehl, Reparaturliste, Automatik (§8.2)', () => {
   // solo: Automatik an
   {
     const { g, run } = arena(1);
-    g.ship.systems.battery_stbd = 'broken'; g.ship.systems.emitter_bow = 'damaged';
+    g.ship.systems.battery_stbd = 'broken'; g.ship.systems.thruster_port = 'damaged';   // TEC-01 E: ein beschädigter Emitter (Schildkette) wird mit Teilen über der Reserve getauscht (part, test-bot-komponenten); der Flick-Fall braucht ein System ohne Komponenten
     run(1, () => noFire(g));
     const q = g.ship.repairQueue.map((x) => x.system + ':' + x.mode);
-    ok(q[0] === 'battery_stbd:part' && q.includes('emitter_bow:flick'), 'solo Automatik: zuerst zerstört (part), dann beschädigt (flick): ' + q.join(' '));
+    ok(q[0] === 'battery_stbd:part' && q.includes('thruster_port:flick'), 'solo Automatik: zuerst zerstört (part), dann beschädigt (flick): ' + q.join(' '));
     run(90, () => noFire(g));
-    ok(g.ship.systems.battery_stbd === 'ok' && g.ship.systems.emitter_bow === 'ok', 'solo: Bots reparieren selbst (' + g.ship.systems.battery_stbd + ', ' + g.ship.systems.emitter_bow + ')');
+    ok(g.ship.systems.battery_stbd === 'ok' && g.ship.systems.thruster_port === 'ok', 'solo: Bots reparieren selbst (' + g.ship.systems.battery_stbd + ', ' + g.ship.systems.thruster_port + ')');
   }
   // Notreparatur-Schutz für alle 14 Systeme (kein Teil, niemand da)
   {

@@ -75,7 +75,8 @@ section('3b setzeAusgabe: verbose und log');
   const ausgabe = (verbose) => {
     const sammler = [];
     Kern.setzeAusgabe({ verbose, log: (z) => sammler.push(z) });
-    const g = { time: 0, players: [{ id: 'p1', x: 100, y: 100, console: null }], ship: { repairQueue: [] }, handleMessage() {} };
+    // TEC-01 E: queueRepairs fragt den Reparaturplan (liest game.C, game.ship.systems/komp, game.space, game.inventory): der Attrappe-Zustand bekommt diese Felder
+    const g = { time: 0, players: [{ id: 'p1', x: 100, y: 100, console: null }], ship: { repairQueue: [], systems: { shields: 'broken' }, offline: {}, fragile: {} }, C: require('../shared/config.js'), space: { enemies: [] }, inventory: {}, handleMessage() {} };
     const b = new Kern.BotKern(g, 0, 'solo', {});
     b.onMsg({ t: 'welcome', pid: 'p1' });
     const SS = { time: 10, players: [], world: {}, space: { enemies: [] }, inventory: {}, ship: { systems: { shields: 'broken' }, fires: [], repairQueue: [] } };

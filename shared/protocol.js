@@ -5,6 +5,7 @@
   else root.Shared_Protocol = factory();
 })(typeof self !== 'undefined' ? self : this, function () {
   'use strict';
+  const KOMP_ARTEN = ['K', 'S', 'R', 'L'];   // TEC-01 Endreview N1: die eine Liste der Komponentenarten für KOMP_ARTEN und normKomp (ein Test prüft den Gleichstand mit shared/komponenten-format.js NAMEN)
   return {
     VERSION: 8,   // CHA-01 B1 „Charakterkarte“ (7 = B1–B3 „Bühnen & Bodenkampf“, 6 = S2 „Spielleiter an der Missionsgrenze“, 5 = S1 „Regiebuch & Weltstand“, 4 = M4)
     // ---- CHA-01 B1: Charakterkarte (shared/charakter.js, Katalog content/katalog/charakter.json) ----
@@ -368,6 +369,7 @@
       'lafette_5', 'lafette_7', 'lafette_9', 'lafette_1', 'lafette_3', 'lafette_2',
       'modul_1', 'modul_2', 'modul_3', 'modul_4'],   // SYS-01 A1a: Bordmodule als Systeme (Mitte); PAN-01 C: Lafetten als echte Systeme (nur mit offenem, bestücktem Platz aktiv)
     // SYS-01 A1: ship.integ im Snapshot ist positionsbasiert (Prozent je System, -1 = nicht aktiv) in genau dieser Reihenfolge (= interior.SYSTEM_ORDER, ohne den Altnamen 'weapons'; tools/test-systemmodell.js prüft die Gleichheit). Eine Quelle für den Client.
+    // TEC-01 A1: ship.komp (nur bei Abweichung, sonst fehlt das Feld) = Komponenten der Schildkette, je System (shields, emitter_*) ein String: ein Zustandscode je Komponente in Rezeptreihenfolge (o ok, d defekt, g geflickt; Rezepte config.systemModell.komponenten, shields = K S R, Emitter = R L), bei gesetzten Zählern folgt ';Ausfall1,Ausfall2..;Sprung1,Sprung2..'. Quelle komponenten.snapshot; der Client wertet es ab TEC-01 aus.
     // SYS-01 A1c: ship.zonen = Integrität je Seite in % (0 Bug, 1 Steuerbord, 2 Heck, 3 Backbord; -1 keine aktive Seite), Mitte zählt nicht. Vier Zahlen, Quelle interior.zonenSnapshot.
     // SYS-01 A1c: ship.zielAuf = Index (in SYSTEMS_INTEG) des Lerche-Systems, auf das ein Gegner gezielt anlegt, -1 = niemand (Quelle zielsysteme.zielAuf, Abbildung aus content/kampf/zielsysteme-werte.json Feld `lerche`).
     // SYS-01 C1a-1: ship.zielSys = flaches Array [Zustand, Integrität %] je System des ANVISIERTEN Gegners (Reihenfolge wie content/kampf/gegner-systeme.json, Zustand 0 ok, 1 beschädigt, 2 zerstört). Fehlt ohne gesetztes Ziel und bei Klassen ohne Modell (relay). Nur das Ziel, nicht alle Gegner (Budget). SYS-01 C1a-2: letztes Element = Restzeit des Reaktor-Countdowns in Zehntelsekunden (-1 kein Countdown), also ein Element mehr als 2 × Systeme.
@@ -385,6 +387,14 @@
     BEAM_KINDS: ['phase', 'lance', 'battery', 'enemy_heavy', 'bolzen'],
     SIDES: ['bow', 'stbd', 'aft', 'port', 'mid'],
     CMD_REPAIR: ['repair.start', 'repair.done', 'repair.cancel'],   // M3a: ohne Konsole, nur Zone ship
+    // TEC-01 B2: Zielkomponente der Schildkette (Technik Stufe 1). act { down: true, komp? } (E halten: Flicken/Tausch) und cmd repair.start { system, komp? } (Relais-Minispiel) tragen optional
+    // komp = Komponentenart: 'K' Steuerkern, 'S' Spannungsregler, 'R' Relais, 'L' Leitung (KOMP_ARTEN). Ohne komp gilt der Standard des Servers (erste defekte Komponente in Rezeptreihenfolge,
+    // beim Tausch sonst die erste geflickte; Minispiel = Relais). Der Client sendet komp nur, wenn der Spieler das Ziel gewählt hat (Taste Q), und nur an Systemen mit Komponenten.
+    // Unzulässiges Ziel = Hinweistext als notice, kein Halten. Das Feld ist optional und rückwärtskompatibel (kein VERSION-Sprung). normKomp: unbekannte Werte zählen als kein Wunsch.
+    // Der Hold im Snapshot (players[].action) trägt komp (Art der Zielkomponente), solange er läuft.
+    KOMP_ARTEN,
+    // TEC-01 D: auch technik.repair { system, mode, komp? } (Reparaturliste der Technik-Konsole) trägt optional komp (normKomp). Ohne komp wie bisher; der Schrauber-Eintrag der Liste ist { system, mode, bot, komp? }.
+    normKomp(v) { return typeof v === 'string' && KOMP_ARTEN.indexOf(v) >= 0 ? v : undefined; },
     // M3a §20.3: Lanze als Ladewaffe. cmd { c: 'weapons.charge', mount: 'bow', on: bool } (Ops) – on:true lädt auf,
     // on:false feuert sofort mit der aktuellen power. Snapshot mounts[bow].power (0..1), .charging (bool).
     CMD_LANCE_CHARGE: 'weapons.charge',

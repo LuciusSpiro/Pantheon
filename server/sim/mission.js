@@ -158,6 +158,8 @@ function rewardText(r) {
   return parts.join(', ');
 }
 
+// TEC-01 F-Nacharbeit: Ansage beim ersten Systemschaden, wahr fuer alle Systeme (Schildkette: Ersatzteil heilt ein Teil; R ist nur dort ein Minispiel, wo es eines gibt)
+const SCHADEN_HINWEIS = 'E halten: flicken (hält nicht ewig) · Ersatzteil: einbauen · R: ggf. Minispiel.';
 const CONSOLE_HELP = {
   helm: 'Steuer: W/S Tempostufe (½ = wendig), A/D Ruder, X Allstopp, Shift+A/D ausweichen, F Faltsprung. Lanze: Bug drauf!',
   captain: 'Captain: Funk, Sternkarte, Lage, Außenteam. Energie, Schilde und Schäden macht die Technik (Maschinenraum).',
@@ -1170,8 +1172,8 @@ class Mission {
       case 'breach': g.oda('Hüllenbruch! Er zieht – Flickblech holen, E halten 3 s. Sonst: Bots.', 'firstBreach'); break;
       case 'systemDamaged':
         // M3a §8.1: drei Reparaturwege
-        if (data.state === 'broken') g.oda(`${cap(interior.sysNameNom(data.system))} ist zerstört! E halten: flicken (hält nicht) · R: reparieren · mit Ersatzteil: voll.`, 'firstBroken');
-        else g.oda('Ein System ist beschädigt – E halten: flicken (schnell, hält nicht) · R: reparieren · mit Ersatzteil: voll.', 'firstDamaged');
+        if (data.state === 'broken') g.oda(`${cap(interior.sysNameNom(data.system))} ist zerstört! ${SCHADEN_HINWEIS}`, 'firstBroken');
+        else g.oda(`Ein System ist beschädigt – ${SCHADEN_HINWEIS}`, 'firstDamaged');
         break;
       case 'shieldDown': g.oda('Schildsektor leer! Technik: Punkte umverteilen oder mehr Energie auf Schilde.', 'shieldDown'); break;
       case 'repaired':

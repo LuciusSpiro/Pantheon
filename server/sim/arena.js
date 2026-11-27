@@ -79,6 +79,7 @@ function repairShip(game) {
   }
   ship.offline = {};
   ship.fragile = {};
+  require('./komponenten.js').neuAufstellen(game);   // TEC-01 A1: Komponenten der Schildkette heil, Ausfallzähler 0 (neu aufgestellte Lerche)
   if (Array.isArray(ship.repairQueue)) ship.repairQueue = [];
   ship.fireList = []; ship.breachList = [];
   require('./interior.js').integritaetVoll(game);   // SYS-01 A1a: Hülle entfällt, Rücksetzer = Integrität aller Systeme auf Maximum

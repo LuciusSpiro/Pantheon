@@ -29,7 +29,9 @@
 //     "texts":    ["Tafel", "^Tesk:"],             // Regex auf Funk-/ODA-/Notice-Text ("<von>: <text>" bei Funk)
 //     "flags":    ["m3Direct"],                    // Flag-Namen am Ende
 //     "inventory":["tafel"],                       // Inventar-Schlüssel am Ende (auch "marks")
-//     "duration": ["m3/1"] }                       // Median-Prüfung für <mission>/<crew> nur berichten, nicht werten
+//     "duration": ["m3/1"],                      // Median-Prüfung für <mission>/<crew> nur berichten, nicht werten
+//     "traces":   { "m1/3/2": { "ursache": "..", "texts": ["regex"], "flags": ["f"], "inventory": ["ersatzteil"], "softlock": true } } }
+//     (TEC-01 F-Nacharbeit: Ausnahmen nur für EINEN Trace <mission>/<crew>/<seed>; softlock:true erlaubt „Erfolg true -> false“ dieses Traces (Bot-Softlock); ursache/begruendung werden nicht ausgewertet, nur dokumentiert)
 //
 // Die Bots kommen aus tools/sim-headless.js (Quelltext wird ohne den Hauptteil geladen; sim-headless selbst bleibt
 // unverändert). Ausgabe der Basis: tools/fixtures/golden/base/<mission>-c<crew>-s<seed>.json
@@ -319,7 +321,7 @@ function cmdCompare() {
   const strictSteps = has('--strict-steps');
   const lenient = has('--lenient');
   const allowFile = val('--allow', null);
-  const allow = Object.assign({ stages: [], texts: [], flags: [], inventory: [], duration: [] }, allowFile ? JSON.parse(fs.readFileSync(allowFile, 'utf8')) : {});
+  const allow = Object.assign({ stages: [], texts: [], flags: [], inventory: [], duration: [], traces: {} }, allowFile ? JSON.parse(fs.readFileSync(allowFile, 'utf8')) : {});
   const stageAllowed = (mission, stage) => allow.stages.some((p) => p === `${mission}/${stage}` || p === `${mission}/*`);
   const textRes = allow.texts.map((s) => new RegExp(s));
   const textAllowed = (s) => textRes.some((re) => re.test(s));
@@ -331,6 +333,8 @@ function cmdCompare() {
   let identical = 0;
   for (const k of keys) {
     const a = A[k], b = B[k];
+    const pt = allow.traces[k] || {};   // TEC-01 F-Nacharbeit: Ausnahmen je Trace
+    const ptRes = (pt.texts || []).map((x) => new RegExp(x));
     if (!a || !b) { line(`  ${k}: fehlt in ${a ? 'B' : 'A'}`); red++; continue; }
     const strip = (t) => JSON.stringify(Object.assign({}, t, { errors: undefined }));
     if (strip(a) === strip(b)) { identical++; continue; }
@@ -338,7 +342,7 @@ function cmdCompare() {
     const qa = sa.map((s) => s.stage).join('>'), qb = sb.map((s) => s.stage).join('>');
     const msgs = [];
     // Basis-Lauf blieb hängen (Bot-Schwäche, z. B. m1 solo Seed 8): kein Rot, wenn B weiterkommt; Folge nur als Präfix prüfen
-    if (a.success && !b.success) { msgs.push(`Erfolg true -> false${b.softlock ? ' (Softlock ' + b.softlock + ')' : ''}`); red++; }
+    if (a.success && !b.success) { msgs.push(`Erfolg true -> false${b.softlock ? ' (Softlock ' + b.softlock + ')' : ''}${pt.softlock ? ' – erlaubt (Trace-Eintrag)' : ''}`); if (!pt.softlock) red++; }
     else if (!a.success && b.success) msgs.push(`Hinweis: Basis blieb hängen (${a.softlock || a.stageAtEnd}), B erledigt`);
     const prefixOnly = !a.success || !b.success;
     const seqOk = prefixOnly ? (qa.startsWith(qb) || qb.startsWith(qa)) : qa === qb;
@@ -350,7 +354,7 @@ function cmdCompare() {
       if (big.length) { const s = `Schrittzeiten > ±${stepTol} s: ` + big.map((x) => `${x.stage} ${x.d > 0 ? '+' : ''}${x.d}`).join(', '); msgs.push(s); if (strictSteps) red++; }
     }
     // Texte (Funk/ODA) als Menge, ohne Zeit
-    const texts = (t) => new Set([...t.radio.map((r) => r.from + ': ' + r.text), ...t.oda.map((o) => o.text)].filter((s) => !textAllowed(s)));
+    const texts = (t) => new Set([...t.radio.map((r) => r.from + ': ' + r.text), ...t.oda.map((o) => o.text)].filter((s) => !textAllowed(s) && !ptRes.some((re) => re.test(s))));
     const ta = texts(a), tb = texts(b);
     const gone = [...ta].filter((s) => !tb.has(s)), added = [...tb].filter((s) => !ta.has(s));
     // S1-QA: nicht erlaubte Abweichungen bei Texten, Flags und Inventar zählen als Befund (früher nur berichtet);
@@ -358,10 +362,10 @@ function cmdCompare() {
     if (gone.length || added.length) { msgs.push(`Texte: ${gone.length} fehlen, ${added.length} neu` + gone.slice(0, 3).map((s) => `\n      - ${s}`).join('') + added.slice(0, 3).map((s) => `\n      + ${s}`).join('')); if (!lenient) red++; }
     // Endzustand
     if (a.end && b.end) {
-      const fk = [...new Set([...Object.keys(a.end.flags || {}), ...Object.keys(b.end.flags || {})])].filter((f) => !allow.flags.includes(f));
+      const fk = [...new Set([...Object.keys(a.end.flags || {}), ...Object.keys(b.end.flags || {})])].filter((f) => !allow.flags.includes(f) && !(pt.flags || []).includes(f));
       const fd = fk.filter((f) => JSON.stringify(a.end.flags[f]) !== JSON.stringify(b.end.flags[f]));
       if (fd.length) { msgs.push('Flags anders: ' + fd.map((f) => `${f} ${JSON.stringify(a.end.flags[f])}->${JSON.stringify(b.end.flags[f])}`).join(', ')); if (!lenient) red++; }
-      const ik = [...new Set([...Object.keys(a.end.inventory || {}), ...Object.keys(b.end.inventory || {})])].filter((x) => !allow.inventory.includes(x));
+      const ik = [...new Set([...Object.keys(a.end.inventory || {}), ...Object.keys(b.end.inventory || {})])].filter((x) => !allow.inventory.includes(x) && !(pt.inventory || []).includes(x));
       const id = ik.filter((x) => JSON.stringify(a.end.inventory[x]) !== JSON.stringify(b.end.inventory[x]));
       if (id.length) { msgs.push('Inventar anders: ' + id.map((x) => `${x} ${JSON.stringify(a.end.inventory[x])}->${JSON.stringify(b.end.inventory[x])}`).join(', ')); if (!lenient) red++; }
     }

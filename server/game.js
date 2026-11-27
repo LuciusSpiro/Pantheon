@@ -20,6 +20,7 @@ const Alarm = require('./sim/alarm.js');   // EK2: Raum-Alarm, Minen, Schleichfa
 const away = require('./sim/away.js');
 const combat = require('./sim/combat.js');
 const Zielsysteme = require('./sim/zielsysteme.js');
+const Komponenten = require('./sim/komponenten.js');   // TEC-01 A1
 const Gsys = require('./sim/gegnersystem.js');   // SYS-01 C1a-1: Systemzustand des anvisierten Ziels (ship.zielSys)
 const Hauptschirm = require('./sim/hauptschirm.js');   // KUL-02 A: Hauptschirm-Ansicht (ship.hs)
 const CaptainZiel = require('./sim/captainziel.js');   // OPS-01 C1: Anzeigeziel des Captains (ship.cz)
@@ -554,6 +555,7 @@ class Game {
       leakHits: 0, escalations: 0, repairSetbacks: 0, reactorAutoStarts: 0 };
     this.ship = {
       scene: Welt.startOrt(), docked: true, dockedAt: Welt.startOrt(), dockArmed: false, x: 0, y: 0, angle: 0, vx: 0, vy: 0, speed: 0,
+      komp: {},   // TEC-01 A1: Komponenten der Schildkette (komponenten.js, legt sich aus dem Systemzustand an)
       integ: {}, alert: 'normal',   // SYS-01 A1a: keine Hülle; Integrität je System (interior.integOf, Start = Maximum)
       helm: { turn: 0, thrust: 0, manned: false, autoStop: false },   // §21.1 autoStop = Allstopp aktiv
       power: Object.assign({}, C.power.default), reactor: { state: 'online', output: C.power.reactor, used: 8, overloadLeft: 0, switches: { A: false, B: false }, restartProgress: 0 },
@@ -580,6 +582,7 @@ class Game {
       noPartT: {}, noPlateT: 0, asteroidImmune: {}, beaming: null, sysHitAt: {},
       escalateT: {}, escAnnounce: { list: [], next: 0 },   // M3b §4 Eskalation
     };
+    Komponenten.erzeugeAlleAusZustand(this);   // TEC-01 A1: Komponenten der Schildkette von Anfang an (alle heil), damit der erste Treffer keine Wächterkorrektur zählt
     this.space = { w: 0, h: 0, enemies: [], projectiles: [], beams: [], asteroids: [], markers: [], salvage: [] };
     this.salvaged = 0;
     this.fracht = Fracht.neu();   // EK3 Teil A: { lager, draussen, halt, gesichert, abnehmer, … }
@@ -731,6 +734,7 @@ class Game {
       }
       const p = conn.player;
       if (!p || p.conn !== conn) return;
+      if ('komp' in msg) msg.komp = Protocol.normKomp(msg.komp);   // TEC-01 Nacharbeit 1.3: der Komponentenwunsch (Typbuchstabe, act / repair.start / technik.repair) wird HIER an der einen Stelle normalisiert; unbekannt = kein Wunsch
       if (msg.t !== C.DEBUG && msg.t !== 'clientError') Haken.eingabe(this, p, msg.t === C.INPUT ? 'bew' : 'akt');   // TEL-01 B2: Eingaben je Slot und Fenster zaehlen (nur Anzahl und grobe Art, nie Inhalt)
       if (this.zerstoertOffen && msg.t !== C.MENU && msg.t !== C.PING && msg.t !== C.LEAVE && msg.t !== C.DEBUG) return;   // SYS-01 A2b: nach dem Tod der Lerche keine Befehle mehr, nur OK und Verlassen (Debug-Befehle bleiben für die Sichtprüfung)
       switch (msg.t) {
@@ -811,7 +815,7 @@ class Game {
           away.setAim(this, p, msg.aim);   // FIX-ZIELEN: Zielwinkel (Grad) → Blickrichtung; fehlt = Laufrichtung
           break;
         }
-        case C.ACT: if (this.phase !== 'lobby') interior.onAct(this, p, !!msg.down); break;
+        case C.ACT: if (this.phase !== 'lobby') interior.onAct(this, p, !!msg.down, msg.komp); break;   // TEC-01 B1: optionaler Komponentenwunsch (Typbuchstabe, schon normalisiert)
         case C.SHOOT: if (this.phase !== 'lobby') {   // B2: los = Lanze loslassen; dist = Zielabstand in Kacheln (Wurfweite)
           const dist = msg.dist == null ? NaN : Number(msg.dist);
           away.shoot(this, p, Number(msg.angle), msg.los === true ? { los: true } : Number.isFinite(dist) && dist >= 0 ? { dist } : undefined);
@@ -1370,7 +1374,7 @@ class Game {
         } else err = 'Unbekannte Priorität.';
         break;
       }
-      case 'technik.repair': err = bots.queueRepair(this, msg.system, msg.mode == null ? null : String(msg.mode)); break;
+      case 'technik.repair': err = bots.queueRepairKomponente(this, msg.system, msg.mode == null ? null : String(msg.mode), msg.komp); break;   // TEC-01 E: optionale Zielkomponente (Art) im Eintrag
       case 'technik.botAuto': err = bots.setBotAuto(this, !!msg.on); break;
       case 'captain.burst': err = 'Den Schildstoß gibt es nicht mehr.'; break;   // M3b §0.4: entfallen (Altname)
       case 'weapons.alloc': {
@@ -1605,7 +1609,12 @@ class Game {
       case 'fragile': {
         const sys = String(msg.system != null ? msg.system : (typeof msg.args === 'string' ? msg.args.trim() : ''));
         if (!interior.SYSTEM_ORDER.includes(sys)) { err = 'Unbekanntes System.'; break; }
-        this.ship.fragile[sys] = true;
+        if (Komponenten.hatKomponenten(this, sys)) {   // TEC-01 B1: auf der Schildkette sitzt der Flicken in einer Komponente
+          const L = Komponenten.anlegen(this, sys);
+          const k = L.find((q) => q.z === 'ok');
+          if (k) Komponenten.setzeKomponente(this, sys, L.indexOf(k), 'geflickt');
+          else err = 'Keine heile Komponente zu flicken.';   // TEC-01 Nacharbeit 1.4: nicht stumm
+        } else this.ship.fragile[sys] = true;
         break;
       }
       case 'tele': {
@@ -2068,11 +2077,12 @@ class Game {
     if (h.kind === 'switch') return { kind: 'switch', progress: r2(Math.min(1, this.ship.reactorCtl.restartProgress / C.reactorM1.restartTime)) };
     if (h.kind === 'minigame') {
       const minT = (C.spaceM3 && C.spaceM3.repair && C.spaceM3.repair.minigameMinTime) || 2.5;
-      return { kind: 'minigame', system: h.system, progress: r2(Math.min(1, h.t / minT)) };
+      return { kind: 'minigame', system: h.system, progress: r2(Math.min(1, h.t / minT)), ...(h.komp ? { komp: h.komp } : {}) };   // TEC-01 B2: Zielkomponente (Art) nur auf der Schildkette
     }
     if (h.kind === 'scan') return { kind: 'scan', progress: r2(Math.min(1, h.scan.halt)) };   // SCA-01 P1: Fortschritt aus dem Scan-Zustand
     const o = { kind: h.kind, progress: r2(Math.min(1, h.t / h.dur)) };
     if (h.system) o.system = h.system;
+    if (h.komp) o.komp = h.komp;   // TEC-01 B2: Zielkomponente (Art) nur auf der Schildkette
     return o;
   }
 
@@ -2227,6 +2237,7 @@ class Game {
   snapshotBauen() {
     const C = this.C; const ship = this.ship; const sp = this.space; const aw = this.away;
     const integSnap = interior.integritaetSnapshot(this);   // SYS-01 A1: einmal je Snapshot, ohne Schreibzugriff
+    const kompSnap = Komponenten.snapshot(this);   // TEC-01 A1: ebenfalls nur lesend
     this.snapCount++;
     const includeAsteroids = this.asteroidsDirty || this.snapCount % C.net.asteroidSnapEvery === 0;
     this.asteroidsDirty = false;
@@ -2424,6 +2435,7 @@ class Game {
       }),
       ship: {
         scene: ship.scene, docked: ship.docked, dockedAt: ship.dockedAt, x: r1(ship.x), y: r1(ship.y), angle: r3(ship.angle), vx: r1(ship.vx), vy: r1(ship.vy), speed: r1(ship.speed),
+        ...(kompSnap ? { komp: kompSnap } : {}),   // TEC-01 A1: nur bei Abweichung, je System ein String (Zustandscodes o/d/g je Komponente, optional ;Ausfall;Sprung)
         integ: integSnap.pct, integPct: integSnap.gesamt, zonen: interior.zonenSnapshot(this), zielAuf: Zielsysteme.zielAuf(this), zielAufKl: Zielsysteme.zielAufKlasse(this), alert: ship.alert,
         helm: this.helmSnap(),
         power: ship.power, reactor: this.reactorSnap(), ...(Reaktortod.snapshotKompakt(this) ? { reaktorTod: Reaktortod.snapshotKompakt(this) } : {}),   // SYS-01 A2a: { rest (Zehntelsekunden, -1 kein Countdown), n, tot, wartet }; im Ruhezustand fehlt das Feld
@@ -2433,8 +2445,8 @@ class Game {
         shields: this.shieldsSnap(),
         // M3a §4.1/§9.3: 14 Systeme + berechneter Altname weapons (schlechteste der drei Waffen)
         systems: (() => { const so = Object.assign({}, ship.systems, { weapons: ship.systems.weapons }); for (const k of Object.keys(so)) if (!interior.systemAktiv(this, k)) delete so[k]; return so; })(),   // PAN-01 C: Lafetten ohne Waffe fehlen (Budget)
-        fragile: Object.keys(ship.fragile).filter((k) => ship.fragile[k]),
-        repairQueue: ship.repairQueue.map((e) => ({ system: e.system, mode: e.mode, bot: e.bot || null })),
+        fragile: interior.fragileSystems(this),   // TEC-01 B1: Schildkette abgeleitet aus den geflickten Komponenten
+        repairQueue: ship.repairQueue.map((e) => ({ system: e.system, mode: e.mode, bot: e.bot || null, ...(e.komp ? { komp: e.komp } : {}) })),   // TEC-01 E: komp nur, wenn der Eintrag eine Zielkomponente trägt
         botAuto: !!ship.botAuto,
         turnVel: r3(ship.turnVel || 0),
         turnCap: hasFn('turnCaps') ? space.turnCaps(this) : fallbackTurnCaps(this),
