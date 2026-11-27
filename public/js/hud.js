@@ -1137,8 +1137,9 @@
         const alt = ia.alt || null;
         const info = !!ia.info;   // reiner Namenshinweis (heiles System): ohne Tastensymbol
         const versiegelt = !!ia.versiegelt;   // Welle 5 (S6): gesperrter Anker (Schrein): keine Tastenkappe, nur „Versiegelt“ gedämpft in dünnem Messingrahmen
-        const w = Math.max(R.measure(label, 1), alt ? R.measure(alt.label, 1) : 0) + (info || versiegelt ? 8 : 20);
-        const h = alt ? 25 : 13;
+        const alt2 = ia.alt2 || null;   // TEC-01 B2: dritte Zeile (Q: Ziel wechseln) an Stationen mit mehreren möglichen Komponenten
+        const w = Math.max(R.measure(label, 1), alt ? R.measure(alt.label, 1) : 0, alt2 ? R.measure(alt2.label, 1) : 0) + (info || versiegelt ? 8 : 20);
+        const h = alt2 ? 37 : alt ? 25 : 13;
         const yy = v3 ? s.y - h - (ia.sys ? 16 : 4) : ia.sys ? s.y + 34 : s.y - 22;   // 2D: an Stationen unter die Kachel; 3D: darüber, Platz für die Zustandsmarke
         const x = Math.round(Math.max(2, Math.min(VW - w - 2, s.x - w / 2))), y = Math.round(Math.max(2, Math.min(VH - h - 2, yy)));
         R.backdrop(ctx, x, y, w, h, 0.8);
@@ -1153,6 +1154,10 @@
         if (alt) {
           key(alt.key, x + 2, y + 14, alt.ok !== false);
           R.text(ctx, alt.label, x + 15, y + 15, { color: alt.ok !== false ? PAL.star : '#8C93A0', shadow: false });
+        }
+        if (alt2) {
+          key(alt2.key, x + 2, y + 26, alt2.ok !== false);
+          R.text(ctx, alt2.label, x + 15, y + 27, { color: alt2.ok !== false ? PAL.star : '#8C93A0', shadow: false });
         }
       }
       if (me && me.action && !(me.action.kind === 'flick' || me.action.kind === 'swap' || me.action.kind === 'minigame' || me.action.kind === 'scan')) {
@@ -1663,7 +1668,7 @@
     },
     // Tasten außerhalb der Konsolen (nicht umbelegbar) – Reiter „Sonstiges“ der Steuerungsseite
     CONTROLS: [
-      ['Laufen', 'WASD/Pfeile · E interagieren (halten: löschen, flicken, beamen) · G ablegen · V Schubs (betäubt Mitspieler 1 s, holt sie von der Konsole) · R Minispiel an einer Station · Tab Crew · Esc Menü'],
+      ['Laufen', 'WASD/Pfeile · E interagieren (halten: löschen, flicken, beamen) · G ablegen · V Schubs (betäubt Mitspieler 1 s, holt sie von der Konsole) · R Minispiel an einer Station · Q Ziel wechseln (Schilde/Emitter: welche Komponente E flickt oder tauscht) · Tab Crew · Esc Menü'],
       ['Außenteam', 'Leertaste/Linksklick Blaster (zielt auf die Maus) · Q Markierung für Hilfe von oben · Waffe wechseln: Reiter Boden (umbelegbar) · C ducken (Kesh) · E halten: wiederbeleben'],
       ['Station', 'Tab / Shift+Tab an Steuer, Ops, Captain oder Technik: Interface wechseln, du bleibst stehen. Ohne Ops schießt die Automatik nur bei 1–2 Spielern'],
       ['Planungstisch', '1–5 Pin-Art · Klick Pin · Enter Detailkarte · D Decksplan · Backspace zurück · M Missionsbuch (Enter annehmen · Entf ablehnen)'],
