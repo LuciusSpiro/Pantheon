@@ -11,6 +11,8 @@ const { bfs, clamp, makeRng } = require('../util.js');
 const W = require('../world.js');
 const Crew = require('../sim/crew.js');   // BOT-01 A1
 const Station = require('../sim/station.js');   // R1: aktive Station der Bots (Tab-Wechsel)
+const Komp = require('../sim/komponenten.js');   // TEC-01 E: Komponenten der Schildkette (liest nur)
+const Plan = require('../sim/komponenten-plan.js');   // TEC-01 E: Aufgabenwahl je Komponente, eine Quelle mit Schrauber und Befehl tech.reparieren
 const Gsys = require('../sim/gegnersystem.js');   // SYS-02c: Zonen und Systeme der Gegner (Katalogdaten) fuer die Zonen-Taktik
 const BOT_SCHILD_SEKTOR_MAX = 4;   // SYS-01 B2: Bot-Heuristik (Schildverteilung), unabhängig von CONFIG.shields.maxPerSector. SYS-03 C1 (Pool 8, Kappe 8): bleibt bei 4 (Pool 8 = zwei volle Sektoren, die Bedrohungsseite bekommt trotzdem bis 4). Probelauf Arena maneuver, Crew 3, 3 Seeds: Max 4 → 4,7 Wellen/68 Hülle, Max 6 → 5,3/46, Max 8 → 2,3/245 (die anderen Seiten stehen leer). Die Solo-Kette (sim-headless kette, Crew 1, Seed 1, K6 Orbit) gelang ohne Auffüllen nur mit Max 4 (95 min; Max 5, 6, 8: Spielzeit über 14000 s, K6 endet jedes Mal im Rückzug); K6 ist solo ein Glücksspiel (Einstieg k6_orbit Crew 1, Seeds 1–6: 4/6 ok mit Max 6, vor C1 3/6). Mit dem Auffüllen (schildVerteilung: übrige Poolpunkte an die schwächste Nebenseite) laufen beide Kettenläufe (Crew 1: 142 min, Crew 3: 111 min)
 
@@ -103,6 +105,8 @@ class BotKern {
     this.send({ t: 'input', seq: ++this.seq, mx, my });
   }
   act(down) { if (down !== this.actDown) { this.actDown = down; this.send({ t: 'act', down }); } }
+  // TEC-01 E: E halten mit Komponentenwunsch (Art) auf der Schildkette
+  actKomponente(down, komp) { if (down !== this.actDown) { this.actDown = down; this.send({ t: 'act', down, komp }); } }
   cmd(c, extra) {
     const key = c + JSON.stringify(extra || {});
     const now = this.game.time;
@@ -232,7 +236,7 @@ class BotKern {
       ix.phase = 'stop'; return 'running';
     }
     if (ix.phase === 'stop') { this.input(0, 0); ix.phase = 'down'; return 'running'; }
-    if (ix.phase === 'down') { this.act(true); ix.phase = o.hold ? 'hold' : 'up'; ix.t = 0; return 'running'; }
+    if (ix.phase === 'down') { if (o.komp) this.actKomponente(true, o.komp); else this.act(true); ix.phase = o.hold ? 'hold' : 'up'; ix.t = 0; return 'running'; }
     if (ix.phase === 'up') { this.act(false); this.ix = null; return 'done'; }
     if (ix.phase === 'hold') {
       ix.t += DT;
@@ -287,10 +291,13 @@ class BotKern {
 
   // Reparatur an einer Station (M3a §8.1). how: 'swap' (Ersatzteil holen, E halten 3 s -> ok), 'flick' (E halten 1,5 s, eine Stufe,
   // fragil) oder 'minigame' (R: repair.start, nach 3,5 s repair.done – simuliertes Minispiel). Ohne how: zerstört -> swap, sonst flick.
-  repair(S, p, sys, how) {
+  // TEC-01 E: komp = Zielkomponente (Art) auf der Schildkette (Plan); dort gilt die Arbeit, solange diese Komponente sie braucht (Flicken: defekt, Tausch: nicht heil)
+  repair(S, p, sys, how, komp) {
     const st = S.ship.systems[sys];
     const fragile = (S.ship.fragile || []).includes(sys);
-    if ((st === 'ok' && !(how === 'swap' && fragile)) || st === 'offline' || st == null) { this.memo.mg = null; return 'done'; }
+    const schild = !!komp && Komp.hatKomponenten(this.game, sys);
+    const nichtsMehr = schild ? !Plan.wunschZulaessig(this.game, sys, how === 'swap' ? 'swap' : 'flick', komp) : (st === 'ok' && !(how === 'swap' && fragile));
+    if (nichtsMehr || st === 'offline' || st == null) { this.memo.mg = null; return 'done'; }
     if (p.zone !== 'ship') return 'skip';
     if (p.console) { this.send({ t: 'leave' }); return 'running'; }
     if (sys === 'reactor' && st === 'broken') {   // SYS-01 A2a: der zerstörte Reaktor hat nur die Sonderreparatur (E halten, kein Ersatzteil in der Hand)
@@ -309,15 +316,17 @@ class BotKern {
     }
     if (how === 'flick' && p.carry === 'ersatzteil') how = 'swap';   // E mit Teil in der Hand ist immer Austausch
     if (how === 'flick' && p.carry && p.carry !== 'ersatzteil') { this.send({ t: 'drop' }); return 'running'; }
+    if (schild && how === 'flick' && !Plan.wunschZulaessig(this.game, sys, 'flick', komp)) { this.memo.mg = null; return 'done'; }   // ein geflickter Platz ohne Teil bleibt, wie er ist
     const t = stationTile(sys);
-    if (how === 'minigame') return this.minigame(S, p, sys, t);
-    const before = st + (fragile ? '!' : '');
-    const r = this.interact(S, t.x, t.y, { hold: true, until: (S2) => S2.ship.systems[sys] + ((S2.ship.fragile || []).includes(sys) ? '!' : '') !== before });
+    if (how === 'minigame') return this.minigame(S, p, sys, t, schild ? komp : undefined);
+    const marke = (S2) => S2.ship.systems[sys] + ((S2.ship.fragile || []).includes(sys) ? '!' : '') + (schild ? '|' + (S2.ship.komp && S2.ship.komp[sys]) : '');
+    const before = marke(S);
+    const r = this.interact(S, t.x, t.y, Object.assign({ hold: true, until: (S2) => marke(S2) !== before }, schild ? { komp } : {}));
     if (r === 'fail') this.waitT = 0.3;
     return 'running';
   }
   // Minispiel wie ein Mensch: hingehen, zur Station drehen, R (repair.start), 3,5 s spielen, repair.done
-  minigame(S, p, sys, t) {
+  minigame(S, p, sys, t, komp) {
     const m = this.memo;
     if (!m.mg || m.mg.sys !== sys) m.mg = { sys, phase: 'go', t: 0 };
     const mg = m.mg;
@@ -337,12 +346,13 @@ class BotKern {
     }
     if (mg.phase === 'stop') { this.input(0, 0); mg.phase = 'start'; return 'running'; }
     if (mg.phase === 'start') {
-      this.send({ t: 'cmd', c: 'repair.start', system: sys });
+      this.send(Object.assign({ t: 'cmd', c: 'repair.start', system: sys }, komp ? { komp } : {}));
       mg.phase = 'play'; mg.t = 0; return 'running';
     }
     if (mg.phase === 'play') {
       mg.t += DT;
-      if (mg.t > 0.5 && !(p.action && p.action.kind === 'minigame')) { m.mg = null; this.waitT = 0.5; statistik(this.game).minigameRejected = (statistik(this.game).minigameRejected || 0) + 1; return 'running'; }
+      if (mg.t > 0.5 && !(p.action && p.action.kind === 'minigame')) { m.mg = null; m.job = null; m.jobCd = 0; this.waitT = 0.5;   // TEC-01 E: abgelehnt (z. B. Relais heil): nie dasselbe Minispiel wiederholen, der Plan wählt neu
+         statistik(this.game).minigameRejected = (statistik(this.game).minigameRejected || 0) + 1; return 'running'; }
       if (mg.t >= 3.5) {
         this.send({ t: 'cmd', c: 'repair.done', system: sys, errors: Math.floor(this.zufall() * 3) });
         mg.phase = 'done'; mg.t = 0;
@@ -373,9 +383,10 @@ class BotKern {
       m.job.seen = S.time;
       const st = sh.systems[m.job.sys];
       const fragile = (sh.fragile || []).includes(m.job.sys);
-      const done = st === 'offline' || (st === 'ok' && !(m.job.how === 'swap' && fragile)) || (m.job.how === 'flick' && st !== m.job.from) || (S.time - m.job.at > 60);
-      if (done) { m.job = null; m.mg = null; this.ix = null; if (this.actDown) this.act(false); return false; }
-      const r = this.repair(S, p, m.job.sys, m.job.how);
+      const kompFertig = !!m.job.komp && this.kompMarke(m.job.sys) !== m.job.kompVon;   // TEC-01 E: die Zielkomponente hat sich geändert (geflickt, getauscht, repariert oder neu getroffen)
+      const done = st === 'offline' || (m.job.komp ? kompFertig : (st === 'ok' && !(m.job.how === 'swap' && fragile)) || (m.job.how === 'flick' && st !== m.job.from)) || (S.time - m.job.at > 60);
+      if (done) { if (kompFertig) m.jobCd = 0; m.job = null; m.mg = null; this.ix = null; if (this.actDown) this.act(false); return false; }   // Schildkette: gleich die nächste Komponente, ohne Wartezeit
+      const r = this.repair(S, p, m.job.sys, m.job.how, m.job.komp);
       if (r === 'skip') { m.job = null; return false; }
       return true;
     }
@@ -385,18 +396,36 @@ class BotKern {
       .filter((s) => o.damaged || sh.systems[s] === 'broken' || (o.kritisch && s === 'shields'))
       .filter((s) => !o.kritisch || s === 'reactor' || s === 'shields')   // SYS-02c: im Solo-Gefecht nur die kritischen Systeme
       .sort((a, b) => (sh.systems[a] === 'broken' ? 0 : 1) - (sh.systems[b] === 'broken' ? 0 : 1) || (b === 'reactor' && sh.systems.reactor === 'broken' ? 1 : 0) - (a === 'reactor' && sh.systems.reactor === 'broken' ? 1 : 0));   // SYS-01 A2a: der zerstörte Reaktor (Countdown) zuerst
-    const sys = cand[0];
+    const pressure = S.space.enemies.some((e) => e.tele);
+    // TEC-01 E: ruhige Phase (kein Gegner): geflickte Komponenten der Schildkette tauschen, solange Teile übrig sind
+    const ruhig = !S.space.enemies.some((e) => e.kind !== 'relay');
+    const aufraeumen = () => (o.damaged && ruhig ? Komp.systeme(this.game).find((s) => sh.systems[s] === 'ok' && (sh.fragile || []).includes(s) && !botBusy(s) && !taken(s)
+      && Plan.reparaturPlan(this.game, s, Plan.kontextFuer(this.game, s, { druck: false, traegtTeil: p.carry === 'ersatzteil', minispiel: true }))) : undefined);
+    const sys = cand[0] || aufraeumen();
     if (!sys) return false;
     const st = sh.systems[sys];
-    const pressure = S.space.enemies.some((e) => e.tele);
-    let how;
-    if (st === 'broken') how = S.inventory.ersatzteil > 0 && !pressure && sys !== 'reactor' ? 'swap' : 'flick';   // SYS-01 A2a: Reaktor nur Sonderreparatur
+    let how; let komp;
+    if (Komp.hatKomponenten(this.game, sys)) {   // TEC-01 E: je Komponente laut Plan (Flicken unter Druck, sonst Tausch mit Teil, Relais per Minispiel)
+      const plan = Plan.reparaturPlan(this.game, sys, Plan.kontextFuer(this.game, sys, { druck: pressure || !!o.fast, traegtTeil: p.carry === 'ersatzteil', minispiel: true }));
+      if (!plan) return false;
+      how = plan.aktion; komp = plan.komp;
+    } else if (st === 'broken') how = S.inventory.ersatzteil > 0 && !pressure && sys !== 'reactor' ? 'swap' : 'flick';   // SYS-01 A2a: Reaktor nur Sonderreparatur
     else how = pressure || o.fast ? 'flick' : 'minigame';
-    m.job = { sys, how, from: st, at: S.time, seen: S.time, kritisch: !!o.kritisch };
+    m.job = { sys, how, komp, kompVon: komp ? this.kompMarke(sys) : undefined, from: st, at: S.time, seen: S.time, kritisch: !!o.kritisch };
     m.jobCd = S.time + (o.cooldown || 4);
     statistik(this.game).jobs = statistik(this.game).jobs || {};
     statistik(this.game).jobs[how] = (statistik(this.game).jobs[how] || 0) + 1;
-    return this.repair(S, p, sys, how) === 'running';
+    return this.repair(S, p, sys, how, komp) === 'running';
+  }
+  // TEC-01 E: Kennung der Komponentenlage eines Systems (Zustand und Ausfallzähler je Komponente); ändert sich, sobald eine Komponente repariert, getauscht oder getroffen wird
+  kompMarke(sys) { const L = Komp.lage(this.game, sys); return L ? L.map((c) => c.z[0] + c.n).join(',') : ''; }
+  // TEC-01 E: Eintrag für die Reparaturliste (technik.repair) nach Plan: { mode, komp? }. Ohne Komponenten (oder ohne Aufgabe): Teil bei zerstörtem System mit Lager, sonst Flicken.
+  // Eine Quelle für die Listenführung des Captain-Bots (queueRepairs) und den Befehl tech.reparieren.
+  reparaturEintrag(sys) {
+    const g = this.game;
+    const plan = Komp.hatKomponenten(g, sys) ? Plan.reparaturPlan(g, sys, Plan.kontextFuer(g, sys, { druck: g.space.enemies.some((e) => e.tele), minispiel: false })) : null;
+    if (plan) return { mode: Plan.listenModus(plan), komp: plan.komp };
+    return { mode: g.ship.systems[sys] === 'broken' && g.inventory.ersatzteil > 0 ? 'part' : 'flick' };
   }
 
   // ---------- Flug ----------
@@ -935,11 +964,15 @@ class BotKern {
       const busyPlayer = (s) => this.kollegen().some((a) => a.memo.job && a.memo.job.sys === s && S.time - (a.memo.job.seen || 0) < 2);
       const want = REPAIR_PRIO.filter((s) => (sh.systems[s] === 'broken' || sh.systems[s] === 'damaged') && !busyPlayer(s))
         .sort((a, b) => (sh.systems[a] === 'broken' ? 0 : 1) - (sh.systems[b] === 'broken' ? 0 : 1));
+      if (!S.space.enemies.some((e) => e.kind !== 'relay')) {   // TEC-01 E: ruhige Phase: geflickte Schildkette mit Teilen über der Reserve tauschen
+        for (const s of Komp.systeme(this.game)) if (sh.systems[s] === 'ok' && (sh.fragile || []).includes(s) && !busyPlayer(s) && this.reparaturEintrag(s).mode === 'part') want.push(s);
+      }
       for (const s of want) {
         if (q.length >= (M3.repair ? M3.repair.queueMax : 3)) break;
         if (q.some((x) => x.system === s)) continue;
-        const mode = sh.systems[s] === 'broken' && S.inventory.ersatzteil > 0 ? 'part' : 'flick';
-        this.technikCmd(S, 'technik.repair', { system: s, mode });
+        const eintrag = this.reparaturEintrag(s);
+        const mode = eintrag.mode;
+        this.technikCmd(S, 'technik.repair', Object.assign({ system: s }, eintrag));
         if (einstellung.verbose) einstellung.log(`  [Captain ${S.time}] Reparaturliste: ${s} ${mode} -> ${JSON.stringify(this.game.ship.repairQueue)} ${this.notices.slice(-1)}`);
         statistik(this.game).queued = (statistik(this.game).queued || 0) + 1;
         break;

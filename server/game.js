@@ -1373,7 +1373,7 @@ class Game {
         } else err = 'Unbekannte Priorität.';
         break;
       }
-      case 'technik.repair': err = bots.queueRepair(this, msg.system, msg.mode == null ? null : String(msg.mode)); break;
+      case 'technik.repair': err = bots.queueRepairKomponente(this, msg.system, msg.mode == null ? null : String(msg.mode), Protocol.normKomp(msg.komp)); break;   // TEC-01 E: optionale Zielkomponente (Art) im Eintrag
       case 'technik.botAuto': err = bots.setBotAuto(this, !!msg.on); break;
       case 'captain.burst': err = 'Den Schildstoß gibt es nicht mehr.'; break;   // M3b §0.4: entfallen (Altname)
       case 'weapons.alloc': {
@@ -2444,7 +2444,7 @@ class Game {
         // M3a §4.1/§9.3: 14 Systeme + berechneter Altname weapons (schlechteste der drei Waffen)
         systems: (() => { const so = Object.assign({}, ship.systems, { weapons: ship.systems.weapons }); for (const k of Object.keys(so)) if (!interior.systemAktiv(this, k)) delete so[k]; return so; })(),   // PAN-01 C: Lafetten ohne Waffe fehlen (Budget)
         fragile: interior.fragileSystems(this),   // TEC-01 B1: Schildkette abgeleitet aus den geflickten Komponenten
-        repairQueue: ship.repairQueue.map((e) => ({ system: e.system, mode: e.mode, bot: e.bot || null })),
+        repairQueue: ship.repairQueue.map((e) => ({ system: e.system, mode: e.mode, bot: e.bot || null, ...(e.komp ? { komp: e.komp } : {}) })),   // TEC-01 E: komp nur, wenn der Eintrag eine Zielkomponente trägt
         botAuto: !!ship.botAuto,
         turnVel: r3(ship.turnVel || 0),
         turnCap: hasFn('turnCaps') ? space.turnCaps(this) : fallbackTurnCaps(this),

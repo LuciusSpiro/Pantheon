@@ -202,6 +202,7 @@
   {"id":"test-gegner-tod","kette":"test","cmd":["tools/test-gegner-tod.js"],"stufe":"fast","budget_s":7},
   {"id":"test-bot-gegnertod","kette":"test","cmd":["tools/test-bot-gegnertod.js"],"stufe":"fast","budget_s":6},
   {"id":"test-bot-reparatur","kette":"test","cmd":["tools/test-bot-reparatur.js"],"stufe":"fast","budget_s":12},
+  {"id":"test-bot-komponenten","kette":"test","cmd":["tools/test-bot-komponenten.js"],"stufe":"fast","budget_s":30},
   {"id":"test-gegner-reparatur","kette":"test","cmd":["tools/test-gegner-reparatur.js"],"stufe":"fast","budget_s":7},
   {"id":"test-verbuendete-systeme","kette":"test","cmd":["tools/test-verbuendete-systeme.js"],"stufe":"fast","budget_s":7},
   {"id":"test-verbuendete-wie-gegner","kette":"test","cmd":["tools/test-verbuendete-wie-gegner.js"],"stufe":"fast","budget_s":9},

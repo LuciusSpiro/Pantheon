@@ -44,13 +44,13 @@ tech['tech.prio'] = (game, bot, args) => {
   return OK;
 };
 
-// Reparaturliste (technik.repair): Ersatzteil, wenn das System zerstoert ist und eines im Lager liegt, sonst Flicken (wie die Standard-Technik). Liste voll oder System heil: nicht_jetzt.
+// Reparaturliste (technik.repair): Art und Zielkomponente nach dem Plan des Agenten (reparaturEintrag, eine Quelle mit der Standard-Technik): Ersatzteil, wenn das System zerstoert ist und eines im Lager liegt,
+// auf der Schildkette je Komponente Flicken oder Tausch; sonst Flicken. Liste voll oder System heil: nicht_jetzt.
 tech['tech.reparieren'] = (game, bot, args) => {
   const v = vorab(game, bot, { station: true });
   if (v.fehler) return v.fehler;
   if (!interior.systemAktiv(game, args.system)) return SYSTEM;   // Lafette/Modul nicht eingebaut
-  const mode = game.ship.systems[args.system] === 'broken' && game.inventory.ersatzteil > 0 ? 'part' : 'flick';
-  return v.agent.einmalig('technik.repair', { system: args.system, mode }) ? NICHT_JETZT : OK;
+  return v.agent.einmalig('technik.repair', Object.assign({ system: args.system }, v.agent.reparaturEintrag(args.system))) ? NICHT_JETZT : OK;
 };
 
 // Schild auf den Sektor verlagern: der Agent schiebt Punkte dorthin (bis zur Bot-Obergrenze) und haelt das, statt der Verteilung nach Bedrohung. Schilde oder der Emitter dieses Sektors ausgefallen: system.

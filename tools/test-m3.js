@@ -1171,12 +1171,12 @@ section('Bots auf Befehl, Reparaturliste, Automatik (§8.2)', () => {
   // solo: Automatik an
   {
     const { g, run } = arena(1);
-    g.ship.systems.battery_stbd = 'broken'; g.ship.systems.emitter_bow = 'damaged';
+    g.ship.systems.battery_stbd = 'broken'; g.ship.systems.thruster_port = 'damaged';   // TEC-01 E: ein beschädigter Emitter (Schildkette) wird mit Teilen über der Reserve getauscht (part, test-bot-komponenten); der Flick-Fall braucht ein System ohne Komponenten
     run(1, () => noFire(g));
     const q = g.ship.repairQueue.map((x) => x.system + ':' + x.mode);
-    ok(q[0] === 'battery_stbd:part' && q.includes('emitter_bow:flick'), 'solo Automatik: zuerst zerstört (part), dann beschädigt (flick): ' + q.join(' '));
+    ok(q[0] === 'battery_stbd:part' && q.includes('thruster_port:flick'), 'solo Automatik: zuerst zerstört (part), dann beschädigt (flick): ' + q.join(' '));
     run(90, () => noFire(g));
-    ok(g.ship.systems.battery_stbd === 'ok' && g.ship.systems.emitter_bow === 'ok', 'solo: Bots reparieren selbst (' + g.ship.systems.battery_stbd + ', ' + g.ship.systems.emitter_bow + ')');
+    ok(g.ship.systems.battery_stbd === 'ok' && g.ship.systems.thruster_port === 'ok', 'solo: Bots reparieren selbst (' + g.ship.systems.battery_stbd + ', ' + g.ship.systems.thruster_port + ')');
   }
   // Notreparatur-Schutz für alle 14 Systeme (kein Teil, niemand da)
   {

@@ -691,11 +691,11 @@ section('B1: Notreparatur durch ODA, Altweg bot, repairQueue', () => {
   ok(g.ship.komp.shields[0].n === 2, 'Notreparatur zählt n nicht');
   setz(g, 'shields', 'ddd'); zaehler(g, 'shields', [1, 0, 2], [3, 3, 3]);
   I.repairSystem(g, 'shields', 'bot');
-  ok(z(g, 'shields') === 'odd' && g.ship.komp.shields[0].n === 1 && g.ship.komp.shields[0].sp === 0 && !I.isFragile(g, 'shields'), "Altweg how 'bot': erste defekte -> ok (kein Flicken), n unverändert");
+  ok(z(g, 'shields') === 'gdd' && g.ship.komp.shields[0].n === 1 && g.ship.komp.shields[0].sp === 0 && I.isFragile(g, 'shields'), "TEC-01 E: der Altweg how 'bot' ist für die Schildkette entfallen (er umging die Sperre n >= 3): wie Flicken, erste defekte -> geflickt, n unverändert");
   I.repairSystem(g, 'shields', 'bot', 'flick');
-  ok(z(g, 'shields') === 'ogd', "Bot-Flicken ('flick'): erste defekte -> geflickt");
+  ok(z(g, 'shields') === 'ggd', "Bot-Flicken ('flick'): erste defekte -> geflickt");
   I.repairSystem(g, 'shields', 'bot', 'swap');
-  ok(z(g, 'shields') === 'ogo' && g.ship.komp.shields[2].n === 0, "Bot-Tausch ('swap'): erste defekte (R) -> ok, n 0");
+  ok(z(g, 'shields') === 'ggo' && g.ship.komp.shields[2].n === 0, "Bot-Tausch ('swap'): erste defekte (R) -> ok, n 0");
   // repairQueue / pruneRepairQueue: ein Eintrag bleibt, solange ein Flicken sitzt
   setz(g, 'shields', 'goo');
   g.ship.repairQueue = [{ system: 'shields', mode: 'part', bot: null }];

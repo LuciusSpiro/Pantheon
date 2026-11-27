@@ -266,6 +266,7 @@
     "test:verbuendete-wie-gegner": "node tools/test-verbuendete-wie-gegner.js",
     "test:gegner-nacharbeit": "node tools/test-gegner-nacharbeit.js",
     "test:bot-reparatur": "node tools/test-bot-reparatur.js",
+    "test:bot-komponenten": "node tools/test-bot-komponenten.js",
     "test:banderole": "node tools/test-banderole.js",
     "sicht:zonenkreuz": "node tools/sicht-zonenkreuz.js",
     "test:lpscan": "node tools/test-lpscan.js",

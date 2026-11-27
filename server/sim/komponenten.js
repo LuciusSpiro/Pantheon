@@ -181,6 +181,14 @@ function reparierbar(game, sys) {
   konsistent(game, sys);
   return liste(game, sys).some((k) => k.z !== OK);
 }
+// TEC-01 E: Lesesicht für Bots und Pläne: Kopie der Komponenten [{ t, z, n, sp }] in Rezeptreihenfolge (nach dem Wächter); null ohne Rezept
+function lage(game, sys) {
+  if (!hatKomponenten(game, sys)) return null;
+  konsistent(game, sys);
+  return liste(game, sys).map((k) => ({ t: k.t, z: k.z, n: k.n | 0, sp: k.sp | 0 }));
+}
+// Geht das Relais-Minispiel jetzt (Relais defekt und nicht verschlissen)?
+function minispielMoeglich(game, sys) { return reparaturZiel(game, sys, 'minigame', MINISPIEL_ART).index != null; }
 // Hat das System einen Flicken? (liest nur: ohne Liste keiner) – daraus leitet interior.isFragile für die Schildkette ab
 function hatGeflickte(game, sys) { const L = game.ship.komp && game.ship.komp[sys]; return Array.isArray(L) && L.some((k) => k.z === GEFLICKT); }
 // Zielkomponente einer Aktion ('flick' | 'swap' | 'minigame'): { index, t } oder { hinweis }. wunsch = Typbuchstabe oder leer (Standard).
@@ -239,11 +247,6 @@ function tauschenKomponente(game, sys, wunsch) {
 // Relais-Minispiel gelungen: das Relais -> ok (kein Flicken, Ausfallzähler bleibt, Sprungzähler 0); gesperrt ab n >= ausfallSperre
 function reparierenRelais(game, sys) {
   const ziel = reparaturZiel(game, sys, 'minigame', MINISPIEL_ART);
-  return ziel.index != null ? setzeRepariert(game, sys, ziel, OK, false) : null;
-}
-// Altweg der Bots (repairSystem how 'bot'): die erste defekte Komponente -> ok (Reparatur, kein Flicken), n unverändert
-function reparierenErsteDefekte(game, sys) {
-  const ziel = reparaturZiel(game, sys, 'flick', null);
   return ziel.index != null ? setzeRepariert(game, sys, ziel, OK, false) : null;
 }
 
@@ -364,6 +367,6 @@ function ausSpeicher(game, block) {
 
 module.exports = {
   rezept, hatKomponenten, systeme, ueberlastZiel, anlegen, erzeugeAusZustand, erzeugeAlleAusZustand, neuAufstellen, abgeleitet, synchronisieren, defekteZahl, funktionierende,
-  reparierbar, hatGeflickte, sprungBruch, sprungBruchChance, name, reparaturZiel, reparaturGueltig, flickenKomponente, tauschenKomponente, reparierenRelais, reparierenErsteDefekte, ausfallSperre,
+  MINISPIEL_ART, lage, minispielMoeglich, reparierbar, hatGeflickte, sprungBruch, sprungBruchChance, name, reparaturZiel, reparaturGueltig, flickenKomponente, tauschenKomponente, reparierenRelais, ausfallSperre,
   setzeKomponente, hebeAufZustand, trefferAuf, ueberlastTreffer, konsistent, konsistentAlle, kodiere, dekodiere, snapshot, fuerSpeicher, ausSpeicher,
 };

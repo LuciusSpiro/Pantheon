@@ -6,6 +6,8 @@ const Vorrat = require('./vorrat.js');   // TEL-01 G: Verbrauchsgüter nur über
 const Physics = require('../../shared/physics.js');
 const W = require('../world.js');
 const interior = require('./interior.js');
+const Komp = require('./komponenten.js');   // TEC-01 E: Komponenten der Schildkette
+const Plan = require('./komponenten-plan.js');   // TEC-01 E: Aufgabenwahl der Bots (eine Quelle mit Spieler-Bot und Befehl tech.reparieren)
 const Station = require('./station.js');   // R1: Bot-Automatik nach Spielerzahl
 const { bfs } = require('../util.js');
 
@@ -62,6 +64,15 @@ function queueRepair(game, sys, mode) {
   q.push({ system: sys, mode, bot: null });
   return null;
 }
+// TEC-01 E: wie queueRepair; der Eintrag trägt zusätzlich die Zielkomponente (Art) auf der Schildkette. Ein Wunsch, der nicht im Rezept des Systems steht, zählt als keiner (und löscht einen alten).
+function queueRepairKomponente(game, sys, mode, komp) {
+  const err = queueRepair(game, sys, mode);
+  if (err || mode == null) return err;
+  const e = queueOf(game).find((q) => q.system === resolveSys(game, String(sys)));
+  const rezept = e && Komp.rezept(game, e.system);
+  if (e) { if (komp && rezept && rezept.includes(komp)) e.komp = komp; else delete e.komp; }
+  return null;
+}
 // technik.priority mit System-ID: flick-Eintrag an die Spitze (§8.2)
 function queueFront(game, sys) {
   sys = resolveSys(game, String(sys));
@@ -80,6 +91,18 @@ function setBotAuto(game, on) {
   game.ship.botAutoChosen = true;
   return null;
 }
+// ---------- TEC-01 E: Komponentenlage der Schildkette ----------
+// Art der Arbeit für einen Automatik-Eintrag auf der Schildkette laut Plan (Schrauber spielen kein Minispiel); null = nichts zu tun
+function automatikModus(game, sys) { return Plan.listenModus(Plan.reparaturPlan(game, sys, Plan.kontextFuer(game, sys, { minispiel: false }))); }
+// Zielkomponente der fertigen Schrauberarbeit als Option für repairSystem ({} = Standardziel, System ohne Komponenten): ein zulässiger Wunsch des Eintrags (Technik-Konsole) gilt, sonst der Plan
+function zielKomponente(game, sys, aktion) {
+  if (!Komp.hatKomponenten(game, sys)) return {};
+  const e = queueOf(game).find((q) => q.system === sys);
+  if (e && e.komp && Plan.wunschZulaessig(game, sys, aktion, e.komp)) return { komp: e.komp };
+  const plan = Plan.reparaturPlan(game, sys, { druck: aktion === 'flick', ersatzteile: aktion === 'swap' ? 1 : 0, minispiel: false });
+  return plan ? { komp: plan.komp } : {};
+}
+
 function updateBotAuto(game) {
   const ship = game.ship;
   if (!ship.botAutoChosen) ship.botAuto = Station.botAutomatikStandard(game);   // R1 §4.5: genau 1 oder 2 verbundene Spieler
@@ -92,12 +115,18 @@ function updateBotAuto(game) {
   for (const sys of interior.SYSTEM_ORDER) {
     if (q.length >= max) break;
     if (!interior.systemAktiv(game, sys)) continue;
-    if (ship.systems[sys] === 'broken' && !has(sys)) q.push({ system: sys, mode: game.inventory.ersatzteil > 0 ? 'part' : 'flick', bot: null });
+    if (ship.systems[sys] === 'broken' && !has(sys)) q.push({ system: sys, mode: Komp.hatKomponenten(game, sys) ? (automatikModus(game, sys) || 'flick') : game.inventory.ersatzteil > 0 ? 'part' : 'flick', bot: null });
   }
   for (const sys of interior.SYSTEM_ORDER) {
     if (q.length >= max) break;
     if (!interior.systemAktiv(game, sys)) continue;
-    if (ship.systems[sys] === 'damaged' && !has(sys)) q.push({ system: sys, mode: 'flick', bot: null });
+    if (ship.systems[sys] === 'damaged' && !has(sys)) q.push({ system: sys, mode: Komp.hatKomponenten(game, sys) ? (automatikModus(game, sys) || 'flick') : 'flick', bot: null });
+  }
+  // Ruhige Phase: geflickte Komponenten der Schildkette tauschen, solange Teile übrig sind (ein Flicken bricht sonst beim Sprung)
+  for (const sys of Komp.systeme(game)) {
+    if (q.length >= max) break;
+    if (!interior.systemAktiv(game, sys) || has(sys) || ship.systems[sys] !== 'ok' || !interior.isFragile(game, sys)) continue;
+    if (automatikModus(game, sys) === 'part') q.push({ system: sys, mode: 'part', bot: null });
   }
 }
 
@@ -366,9 +395,9 @@ function update(game, dt) {
       if (bot.progress >= 1) {
         bot.progress = 0;
         if (t.kind === 'repair') {
-          if (t.mode === 'part') { bot.carry = null; interior.repairSystem(game, t.system, 'bot', 'swap'); }
+          if (t.mode === 'part') { bot.carry = null; interior.repairSystem(game, t.system, 'bot', 'swap', zielKomponente(game, t.system, 'swap')); }
           else {
-            interior.repairSystem(game, t.system, 'bot', 'flick', { von: t.von });
+            interior.repairSystem(game, t.system, 'bot', 'flick', Object.assign({ von: t.von }, zielKomponente(game, t.system, 'flick')));
             if (game.ship.systems[t.system] === 'damaged') { t.dur = workDuration(game, bot, t); t.von = 'damaged'; continue; } // gleich weiter bis heil
           }
         } else if (t.kind === 'extinguish') {
@@ -390,4 +419,4 @@ function update(game, dt) {
 
 const cap = (s) => s.charAt(0).toUpperCase() + s.slice(1);
 
-module.exports = { update, ensureBotCount, botAnzahl, makeBot, candidates, reportNoPart, queueRepair, queueFront, setBotAuto, updateBotAuto };
+module.exports = { update, ensureBotCount, botAnzahl, makeBot, candidates, reportNoPart, queueRepair, queueRepairKomponente, queueFront, setBotAuto, updateBotAuto };

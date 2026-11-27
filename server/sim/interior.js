@@ -1477,7 +1477,7 @@ function updateSystemAnnounce(game) {
 }
 
 // TEC-01 B1: Schildkette (Systeme mit Komponenten) repariert je Komponente (flick = eine defekte -> geflickt, swap = nur die gewählte Komponente -> ok, minigame = Relais -> ok,
-// oda = ein Flicken auf die erste defekte, bot = erste defekte -> ok); opts.komp = Wunsch (Art). Kein ship.fragile: der Flicken sitzt in der Komponente. Andere Systeme wie bisher.
+// oda = ein Flicken auf die erste defekte; ein unbekanntes how, auch 'bot', gilt dort als Flicken: die Bots wählen die Art selbst, server/sim/komponenten-plan.js); opts.komp = Wunsch (Art). Kein ship.fragile: der Flicken sitzt in der Komponente. Andere Systeme wie bisher.
 // Reparatur um eine Stufe bzw. voll (§8.1). how: 'flick' (Stufe + fragil), 'swap' (voll, fragil weg),
 // 'minigame' (Stufe, fragil weg), 'bot' (Stufe, fragil weg; Altweg), 'oda' (Notreparatur: Stufe + fragil).
 // by: 'player'|'bot'|'oda'. Ein zerstörter Reaktor geht nach der Reparatur auf reactorCtl 'offline' (Neustart zu zweit).
@@ -1497,7 +1497,6 @@ function repairSystem(game, sys, by, how, opts) {
     const wunsch = opts && opts.komp;
     const r = how === 'swap' ? Komp.tauschenKomponente(game, sys, wunsch)
       : how === 'minigame' ? Komp.reparierenRelais(game, sys)
-      : how === 'bot' ? Komp.reparierenErsteDefekte(game, sys)
       : Komp.flickenKomponente(game, sys, wunsch);   // flick und oda
     if (!r) return false;
     kompT = r.t;
