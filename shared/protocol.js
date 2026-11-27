@@ -386,6 +386,13 @@
     BEAM_KINDS: ['phase', 'lance', 'battery', 'enemy_heavy', 'bolzen'],
     SIDES: ['bow', 'stbd', 'aft', 'port', 'mid'],
     CMD_REPAIR: ['repair.start', 'repair.done', 'repair.cancel'],   // M3a: ohne Konsole, nur Zone ship
+    // TEC-01 B2: Zielkomponente der Schildkette (Technik Stufe 1). act { down: true, komp? } (E halten: Flicken/Tausch) und cmd repair.start { system, komp? } (Relais-Minispiel) tragen optional
+    // komp = Komponentenart: 'K' Steuerkern, 'S' Spannungsregler, 'R' Relais, 'L' Leitung (KOMP_ARTEN). Ohne komp gilt der Standard des Servers (erste defekte Komponente in Rezeptreihenfolge,
+    // beim Tausch sonst die erste geflickte; Minispiel = Relais). Der Client sendet komp nur, wenn der Spieler das Ziel gewählt hat (Taste Q), und nur an Systemen mit Komponenten.
+    // Unzulässiges Ziel = Hinweistext als notice, kein Halten. Das Feld ist optional und rückwärtskompatibel (kein VERSION-Sprung). normKomp: unbekannte Werte zählen als kein Wunsch.
+    // Der Hold im Snapshot (players[].action) trägt komp (Art der Zielkomponente), solange er läuft.
+    KOMP_ARTEN: ['K', 'S', 'R', 'L'],
+    normKomp(v) { return typeof v === 'string' && ['K', 'S', 'R', 'L'].indexOf(v) >= 0 ? v : undefined; },
     // M3a §20.3: Lanze als Ladewaffe. cmd { c: 'weapons.charge', mount: 'bow', on: bool } (Ops) – on:true lädt auf,
     // on:false feuert sofort mit der aktuellen power. Snapshot mounts[bow].power (0..1), .charging (bool).
     CMD_LANCE_CHARGE: 'weapons.charge',

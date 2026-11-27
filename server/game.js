@@ -814,7 +814,7 @@ class Game {
           away.setAim(this, p, msg.aim);   // FIX-ZIELEN: Zielwinkel (Grad) → Blickrichtung; fehlt = Laufrichtung
           break;
         }
-        case C.ACT: if (this.phase !== 'lobby') interior.onAct(this, p, !!msg.down, typeof msg.komp === 'string' ? msg.komp : undefined); break;   // TEC-01 B1: optionaler Komponentenwunsch (Typbuchstabe)
+        case C.ACT: if (this.phase !== 'lobby') interior.onAct(this, p, !!msg.down, Protocol.normKomp(msg.komp)); break;   // TEC-01 B1: optionaler Komponentenwunsch (Typbuchstabe)
         case C.SHOOT: if (this.phase !== 'lobby') {   // B2: los = Lanze loslassen; dist = Zielabstand in Kacheln (Wurfweite)
           const dist = msg.dist == null ? NaN : Number(msg.dist);
           away.shoot(this, p, Number(msg.angle), msg.los === true ? { los: true } : Number.isFinite(dist) && dist >= 0 ? { dist } : undefined);
@@ -2075,11 +2075,12 @@ class Game {
     if (h.kind === 'switch') return { kind: 'switch', progress: r2(Math.min(1, this.ship.reactorCtl.restartProgress / C.reactorM1.restartTime)) };
     if (h.kind === 'minigame') {
       const minT = (C.spaceM3 && C.spaceM3.repair && C.spaceM3.repair.minigameMinTime) || 2.5;
-      return { kind: 'minigame', system: h.system, progress: r2(Math.min(1, h.t / minT)) };
+      return { kind: 'minigame', system: h.system, progress: r2(Math.min(1, h.t / minT)), ...(h.komp ? { komp: h.komp } : {}) };   // TEC-01 B2: Zielkomponente (Art) nur auf der Schildkette
     }
     if (h.kind === 'scan') return { kind: 'scan', progress: r2(Math.min(1, h.scan.halt)) };   // SCA-01 P1: Fortschritt aus dem Scan-Zustand
     const o = { kind: h.kind, progress: r2(Math.min(1, h.t / h.dur)) };
     if (h.system) o.system = h.system;
+    if (h.komp) o.komp = h.komp;   // TEC-01 B2: Zielkomponente (Art) nur auf der Schildkette
     return o;
   }
 

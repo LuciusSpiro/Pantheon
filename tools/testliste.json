@@ -187,6 +187,7 @@
   {"id":"test-systemmodell","kette":"test","cmd":["tools/test-systemmodell.js"],"stufe":"fast","budget_s":7},
   {"id":"test-komponenten","kette":"test","cmd":["tools/test-komponenten.js"],"stufe":"fast","budget_s":7},
   {"id":"test-sprungbruch","kette":"test","cmd":["tools/test-sprungbruch.js"],"stufe":"fast","budget_s":20},
+  {"id":"test-komp-bedienung","kette":"test","cmd":["tools/test-komp-bedienung.js"],"stufe":"fast","budget_s":8},
   {"id":"test-direkttreffer","kette":"test","cmd":["tools/test-direkttreffer.js"],"stufe":"fast","budget_s":7},
   {"id":"test-direkttreffer-gegner","kette":"test","cmd":["tools/test-direkttreffer-gegner.js"],"stufe":"fast","budget_s":6},
   {"id":"test-reaktor-fenster","kette":"test","cmd":["tools/test-reaktor-fenster.js"],"stufe":"fast","budget_s":6},

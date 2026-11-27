@@ -255,6 +255,7 @@
     "test:systemmodell": "node tools/test-systemmodell.js",
     "test:komponenten": "node tools/test-komponenten.js",
     "test:sprungbruch": "node tools/test-sprungbruch.js",
+    "test:komp-bedienung": "node tools/test-komp-bedienung.js",
     "test:gegnersystem": "node tools/test-gegnersystem.js",
     "test:zonenkreuz": "node tools/test-zonenkreuz.js",
     "test:reaktortod": "node tools/test-reaktortod.js && node tools/test-reaktortod-bot.js && node tools/test-reaktortod-nach.js",

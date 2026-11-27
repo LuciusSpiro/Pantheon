@@ -1593,6 +1593,56 @@
   // ------------------------------------------------------------------ Interaktions-Hinweis (§4.2)
   const DIRV = { up: [0, -1], down: [0, 1], left: [-1, 0], right: [1, 0] };
   const ITEM_LABEL = H.ITEM_NAMES;
+  // TEC-01 B2: Komponentenwahl der Schildkette. Die Regeln (Zielliste, Standard, Rückfall, Wechsel) stehen rein in shared/komponenten-format.js; hier nur der Merkzettel je System und das Senden.
+  // kompWahl[sys] = Art, die der Spieler mit Q gewählt hat (fehlt = Standard des Servers). Wird die Komponente für die Aktion unzulässig, fällt der Eintrag weg (zurück auf Standard).
+  const KF = window.Shared_KomponentenFormat;
+  const kompWahl = {};
+  Client.kompWahl = kompWahl;
+  function kompDaten() { return CFG.systemModell && CFG.systemModell.komponenten; }
+  // { l (Komponentenliste), b (KF.bedienung), z (zulässige Ziele der E-Aktion), sperre } oder null (kein Schildkette-System)
+  function kompBedienung(st, m, sys) {
+    const d = kompDaten();
+    if (!KF || !d || !sys) return null;
+    const l = KF.liste(st, d, sys);
+    if (!l) return null;
+    const sperre = KF.sperreVon(d);
+    const b = KF.bedienung(l, m && m.carry, kompWahl[sys], sperre);
+    if (kompWahl[sys] && b.ziel !== kompWahl[sys]) delete kompWahl[sys];
+    return { l, b, z: KF.zulaessigeZiele(l, b.aktion, sperre), sperre };
+  }
+  // Wunsch für die Nachricht (nur Schildkette, nur wenn gewählt); leer = weglassen, der Server nimmt den Standard
+  function kompWunsch(sys, nurArt) {
+    const kb = kompBedienung(Client.state, me(), sys);
+    const w = kb && kompWahl[sys];
+    return w && (!nurArt || w === nurArt) ? { komp: w } : {};
+  }
+  // Wechsel-Taste Q an einer Schildkette-Station: das nächste zulässige Ziel der E-Aktion
+  function kompWechseln() {
+    const st = Client.state, m = me(), ia = Client.view && Client.view.interaction;
+    if (!st || !m || m.zone !== 'ship' || !ia || !ia.sys || Client.actDown) return;
+    const kb = kompBedienung(st, m, ia.sys);
+    if (!kb || kb.z.length < 2) return;
+    kompWahl[ia.sys] = KF.naechstesZiel(kb.l, kb.b.aktion, kompWahl[ia.sys], kb.sperre);
+    audio.play('ui_click', { volume: 0.4 });
+  }
+  // Hinweis (E-Zeile, R-Zeile, Q-Zeile) an einer Station mit Komponenten; label/alt/alt2 wie bei den anderen Stationen
+  function kompHinweis(kb, sys, name, secs, RC) {
+    const { b } = kb, nm = (t) => KF.name(t);
+    const sperre = kb.sperre;
+    let alt;
+    if (b.minispiel) alt = { key: 'R', label: 'Relais reparieren (Minispiel, dauerhaft)', ok: true };
+    else {
+      const r = kb.l.find((k) => k.t === KF.MINISPIEL_ART);
+      alt = { key: 'R', label: !r ? 'kein Minispiel hier' : r.z === 'ok' ? 'kein Minispiel: Relais ist heil' : 'Relais verschlissen: nur Flicken/Tausch', ok: false };
+    }
+    const alt2 = kb.z.length > 1 ? { key: 'Q', label: 'Ziel wechseln (' + (kb.z.indexOf(b.ziel) + 1) + '/' + kb.z.length + ')', ok: true } : null;
+    if (b.ziel == null) {
+      const g = b.geflickt.map(nm).join(', ');
+      return { label: name + ': ' + g + ' geflickt – bricht beim nächsten Treffer', ok: false, sys, alt };
+    }
+    const tausch = b.aktion === 'swap';
+    return { label: 'halten: ' + (tausch ? 'Tausch' : 'Flicken') + ' – ' + nm(b.ziel) + ' (' + secs(tausch ? (RC.partTime || 3) : (RC.flickTime || 1.5)) + (tausch ? ', dauerhaft' : ', fragil') + ') · ' + name, ok: true, sys, alt, alt2 };
+  }
   // B1: E-Hinweise an Ankern gebauter Karten (Regeln wie server/sim/anker.js interactionsAt; der Server entscheidet)
   // F10: Tür-Kachel gehört zu einem tor-Anker an einem Rätselpaar (Regel wie raetselGebunden in server/sim/anker.js:
   // gleiches paar, oder Tor ohne paar und die Karte hat Rätselanker). Kanten über Shared_Buehne.ankerKanten (eine Quelle).
@@ -1826,6 +1876,8 @@
       if (state === 'offline') return { label: name + ': offline (EMP) – startet selbst neu', ok: false, sys };
       // Kai 2026-10-07: Namen auch am heilen System zeigen (zum Lernen), aber ohne Bedienoption
       if (state === 'ok' && !fragile) return { label: name, ok: false, info: true, sys };
+      const kb = kompBedienung(st, m, sys);
+      if (kb) return kompHinweis(kb, sys, name, secs, RC);   // TEC-01 B2: Schildkette: Ziel der Aktion zeigen
       const alt = { key: 'R', label: 'reparieren (Minispiel, dauerhaft)', ok: true };
       if (carry === 'ersatzteil') return { label: 'halten: Teil einbauen (' + secs(RC.partTime || 3) + ', dauerhaft) · ' + name, ok: true, sys, alt };
       if (state === 'ok') return { label: name + ': geflickt – bricht beim nächsten Treffer', ok: false, sys, alt };
@@ -2004,11 +2056,14 @@
     const state = R.sysState(st, sys);
     if (state === 'offline') { H.pushNotice(H.sysName(sys, st.ship) + ' ist offline (EMP) – startet selbst neu', R.PAL.warn); return; }
     if (state === 'ok' && !R.fragileOf(st, sys)) { H.pushNotice(H.sysName(sys, st.ship) + ' ist heil', R.PAL.mint); return; }
+    // TEC-01 B2: Schildkette: das Minispiel gibt es nur für ein defektes/geflicktes, nicht verschlissenes Relais; sonst kein lokales Minispiel, der Server nennt den Grund als notice
+    const kb = kompBedienung(st, m, sys);
+    if (kb && !kb.b.minispiel) { send({ t: P.C.CMD || 'cmd', c: 'repair.start', system: sys }); return; }
     if (Client.actDown) { Client.actDown = false; send({ t: P.C.ACT || 'act', down: false }); }
     const mg = { system: sys, broken: state === 'broken', phase: 'wait', t0: Client.time, confirmT: null, pos: 0, dir: 1, speed: 0.85, hits: 0, errors: 0, lockUntil: -1, sent: false };
     mg.zone = mgZone(mg);
     Client.minigame = mg;
-    send({ t: P.C.CMD || 'cmd', c: 'repair.start', system: sys });
+    send(Object.assign({ t: P.C.CMD || 'cmd', c: 'repair.start', system: sys }, kompWunsch(sys, KF && KF.MINISPIEL_ART)));   // TEC-01 B2: komp nur, wenn der Spieler das Relais gewählt hat
     audio.play('ui_click');
   }
   function closeMinigame(reason) {
@@ -2149,7 +2204,7 @@
       case 'KeyE': {
         const iaz = Client.view && Client.view.interaction;
         if (iaz && iaz.zusehen === 'shop' && window.TerminalUI) { Client.keys = {}; TerminalUI.zusehen(Client.view, true); break; }   // PAN-01 D2: am besetzten Terminal zusehen
-        if (!Client.actDown) { Client.actDown = true; send({ t: P.C.ACT || 'act', down: true }); }
+        if (!Client.actDown) { Client.actDown = true; send(Object.assign({ t: P.C.ACT || 'act', down: true }, iaz && iaz.sys && m.zone === 'ship' ? kompWunsch(iaz.sys) : {})); }   // TEC-01 B2: gewählte Komponente der Schildkette
         break;
       }
       case 'KeyG': if (m.carry) send({ t: P.C.DROP || 'drop' }); break;
@@ -2157,6 +2212,7 @@
       case 'Space': Client.lanzeSperre = false; shoot(); Client.fireHeld.key = true; break;
       case 'KeyC': toggleCrouch(); break;   // M2 §15: ducken (nur Außenzone auf v2-Karten)
       case 'KeyQ':
+        if (m.zone === 'ship') { kompWechseln(); break; }   // TEC-01 B2: an einer Schildkette-Station das Ziel wechseln (sonst ohne Wirkung an Bord)
         if (m.zone === 'away') {
           const w = Client.mouse.x >= 0 ? mouseWorld() : { x: Client.self.x, y: Client.self.y };
           send({ t: P.C.MARK || 'mark', x: Math.round(w.x), y: Math.round(w.y) });
