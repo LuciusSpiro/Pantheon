@@ -422,6 +422,7 @@
     "test:bot-lauf": "node tools/test-bot-lauf.js",
     "test:bot-annahme": "node tools/test-bot-annahme.js",
     "test:bot-befehle-nav": "node tools/test-bot-befehle-nav.js",
+    "test:training-ereignisse": "node tools/test-training-ereignisse.js",
     "test:bot-befehle-ops-tech": "node tools/test-bot-befehle-ops-tech.js",
     "test:bot-menue": "node tools/test-bot-menue.js",
     "sicht:bot-menue": "node tools/sicht-bot-menue.js",
