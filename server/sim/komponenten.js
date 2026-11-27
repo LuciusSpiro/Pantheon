@@ -3,7 +3,7 @@
 // Die Systeme `shields` (Generator: Steuerkern K, Spannungsregler S, Relais R) und die vier Emitter (Relais R, Leitung L) bestehen aus Komponenten.
 // Zustand je Komponente: ok | defekt | geflickt (geflickt zählt als funktionierend). Der Systemzustand wird abgeleitet:
 // 0 defekt = ok, 1 = damaged, ab 2 = broken. ship.systems[sys] bleibt die Schnittstelle für alle Leser; hier lebt nur die Ableitung.
-// Rezepte und Zuordnung System -> Rezept sind Daten (config.systemModell.komponenten); ein neues System = eine Datenzeile.
+// Rezepte, Zuordnung System -> Rezept und das Überlastziel je Rezept sind Daten (config.systemModell.komponenten); ein neues System = eine Datenzeile.
 //
 // Zustand: ship.komp[sys] = [{ t: 'K'|'S'|'R'|'L', z: 'ok'|'defekt'|'geflickt', n: Ausfallzähler, sp: Flicken-Sprungzähler }]  (nur Systeme mit Rezept)
 // Der Zufall kommt aus einem eigenen Strom (ship.kompRng, aus dem Spielseed), nie aus game.rng: Komponentenwahl darf die Strecke der Simulation nicht verschieben.
@@ -31,6 +31,12 @@ function rezept(game, sys) {
 }
 function hatKomponenten(game, sys) { return !!rezept(game, sys); }
 function systeme(game) { return Object.keys(daten(game).systeme || {}); }
+// Komponentenart, die die Überlast (Hitze bei Energie 4) zuerst trifft; null = das System hat kein Überlastziel (Datum: komponenten.ueberlast[rezeptname])
+function ueberlastZiel(game, sys) {
+  const d = daten(game); const r = rezept(game, sys);
+  const t = r && d.ueberlast && d.ueberlast[d.systeme[sys]];
+  return typeof t === 'string' && r.includes(t) ? t : null;
+}
 
 function strom(game) {
   const ship = game.ship;
@@ -45,6 +51,9 @@ function liste(game, sys) {   // legt die Liste bei Bedarf aus dem Systemzustand
   if (!Array.isArray(K[sys]) || K[sys].length !== r.length) erzeugeAusZustand(game, sys);
   return K[sys];
 }
+
+// Stellt sicher, dass die Komponentenliste eines Systems mit Rezept besteht (aus dem aktuellen Systemzustand, ohne Wächterzählung); vor jedem Schreiben des Zustands aufrufen
+function anlegen(game, sys) { return liste(game, sys); }
 
 function zustandZahl(zahl) { return zahl >= MAX_DEFEKT_BROKEN ? 'broken' : zahl >= 1 ? 'damaged' : 'ok'; }
 function zielZahl(ziel) { return ziel === 'broken' ? MAX_DEFEKT_BROKEN : ziel === 'damaged' ? 1 : 0; }
@@ -80,6 +89,9 @@ function erzeugeAusZustand(game, sys) {
   return neu;
 }
 function erzeugeAlleAusZustand(game) { for (const sys of systeme(game)) erzeugeAusZustand(game, sys); }
+// Neu aufgestellte Lerche (Szenenreset, Arena): Komponenten aus dem Zustand UND Ausfall-/Sprungzähler 0 (wie reaktortod.zuruecksetzen).
+// erzeugeAlleAusZustand dagegen behält die Zähler bei gleicher Art (Wächter, Laden).
+function neuAufstellen(game) { game.ship.komp = {}; erzeugeAlleAusZustand(game); }
 
 // Systemzustand (systems bzw. offline.prev) und Integrität folgen den Komponenten
 function synchronisieren(game, sys) {
@@ -110,25 +122,33 @@ function faelltAus(k) {
   if (k.z === OK && ZAEHLT_AUSFALL.includes(k.t)) k.n = (k.n | 0) + 1;
   k.z = DEFEKT;
 }
-// Ein Komponententreffer: wählt per Zufallsstrom EINE funktionierende Komponente (ok oder geflickt); opts.bevorzugt = Art, die zuerst drankommt, solange sie funktioniert (Überlast: 'S').
-// Ein zerstörtes System (ab 2 defekt) nimmt keinen weiteren Schaden. Rückgabe: { index, t, vorher } der getroffenen Komponente oder null.
-function trefferAuf(game, sys, opts) {
-  const L = liste(game, sys);
-  if (!L || defekteZahl(game, sys) >= MAX_DEFEKT_BROKEN) return null;
+// Auswahl der getroffenen Komponente (gemeinsam für Treffer und hebeAufZustand): per Zufallsstrom unter den funktionierenden (ok oder geflickt);
+// die Art `bevorzugt` kommt zuerst dran, solange eine davon funktioniert. null, wenn nichts mehr funktioniert.
+function waehleFrei(game, L, bevorzugt) {
   const frei = L.filter((k) => k.z !== DEFEKT);
   if (!frei.length) return null;
-  const bevorzugt = opts && opts.bevorzugt;
   const bev = bevorzugt ? frei.filter((k) => k.t === bevorzugt) : [];
   const pool = bev.length ? bev : frei;
-  const wahl = pool.length === 1 ? pool[0] : strom(game).pick(pool);
+  return pool.length === 1 ? pool[0] : strom(game).pick(pool);
+}
+function trefferMit(game, sys, bevorzugt) {
+  const L = liste(game, sys);
+  if (!L || defekteZahl(game, sys) >= MAX_DEFEKT_BROKEN) return null;
+  const wahl = waehleFrei(game, L, bevorzugt);
+  if (!wahl) return null;
   const vorher = wahl.z;
   faelltAus(wahl);
   synchronisieren(game, sys);
   return { index: L.indexOf(wahl), t: wahl.t, vorher };
 }
+// Ein Komponententreffer: EINE funktionierende Komponente zufällig (Zufallsstrom). Ein zerstörtes System (ab 2 defekt) nimmt keinen weiteren Schaden.
+// Rückgabe: { index, t, vorher } der getroffenen Komponente oder null.
+function trefferAuf(game, sys) { return trefferMit(game, sys, null); }
+// Überlasttreffer: trifft die konfigurierte Überlastkomponente (ueberlastZiel, z. B. den Spannungsregler S), solange sie funktioniert, sonst zufällig. Sonst wie trefferAuf.
+function ueberlastTreffer(game, sys) { return trefferMit(game, sys, ueberlastZiel(game, sys)); }
 
 // Hebt die Zahl der defekten Komponenten auf den Wert des Zielzustands ('damaged' = 1, 'broken' = 2). Senkt nie.
-// Wählt per Zufallsstrom nur unter den funktionierenden Komponenten; bevorzugt optional die Art `bevorzugt` (z. B. 'S' bei Überlast).
+// Wählt wie ein Treffer (waehleFrei): nur unter den funktionierenden Komponenten, optional bevorzugt eine Art.
 // Rückgabe: Zahl der neu ausgefallenen Komponenten.
 function hebeAufZustand(game, sys, ziel, bevorzugt) {
   const L = liste(game, sys);
@@ -136,11 +156,8 @@ function hebeAufZustand(game, sys, ziel, bevorzugt) {
   const soll = zielZahl(ziel);
   let neu = 0;
   while (defekteZahl(game, sys) < soll) {
-    const frei = L.filter((k) => k.z !== DEFEKT);
-    if (!frei.length) break;
-    const bev = bevorzugt ? frei.filter((k) => k.t === bevorzugt) : [];
-    const pool = bev.length ? bev : frei;
-    const wahl = pool.length === 1 ? pool[0] : strom(game).pick(pool);
+    const wahl = waehleFrei(game, L, bevorzugt);
+    if (!wahl) break;
     faelltAus(wahl);
     neu++;
   }
@@ -165,24 +182,25 @@ function korrekturZaehlen(game) { Object.defineProperty(game.ship, 'kompKorrektu
 function konsistentAlle(game) { for (const sys of systeme(game)) konsistent(game, sys); }
 
 // ---------- Kompaktform (Snapshot und Weltstand) ----------
-// Je System ein String: ein Zustandscode je Komponente (o ok, d defekt, g geflickt) in Rezeptreihenfolge; sind Zähler gesetzt, folgt ';n1,n2..;sp1,sp2..'.
+// Je System ein String: ein Zustandscode je Komponente (o ok, d defekt, g geflickt, - unbekannt) in Rezeptreihenfolge; sind Zähler gesetzt, folgt ';n1,n2..;sp1,sp2..'.
+// '-' steht im Weltstand dort, wo die Codes dem gespeicherten Systemzustand widersprechen: nur die Zähler gelten, die Zustände folgen dem Systemzustand.
 function kodiere(game, sys) {
   const L = liste(game, sys);
   if (!L) return null;
   let s = L.map((k) => CODE[k.z] || 'o').join('');
-  if (L.some((k) => k.n > 0 || k.sp > 0)) s += ';' + L.map((k) => k.n | 0).join(',') + ';' + L.map((k) => k.sp | 0).join(',');
-  return s;
+  return s + zaehlerTeil(L);
 }
-// Zurück in eine Liste; null, wenn der Text nicht zum Rezept passt
+function zaehlerTeil(L) { return L.some((k) => k.n > 0 || k.sp > 0) ? ';' + L.map((k) => k.n | 0).join(',') + ';' + L.map((k) => k.sp | 0).join(',') : ''; }
+// Zurück in eine Liste (z ist null bei '-'); null, wenn der Text nicht zum Rezept passt
 function dekodiere(game, sys, text) {
   const r = rezept(game, sys);
   if (!r || typeof text !== 'string') return null;
   const teile = text.split(';');
   const codes = teile[0];
-  if (codes.length !== r.length || ![...codes].every((c) => c in VON_CODE)) return null;
+  if (codes.length !== r.length || ![...codes].every((c) => c in VON_CODE || c === '-')) return null;
   const zahlen = (t) => { const a = String(t || '').split(',').map((x) => Math.max(0, Math.min(9999, parseInt(x, 10) || 0))); return a.length === r.length ? a : r.map(() => 0); };
   const n = zahlen(teile[1]); const sp = zahlen(teile[2]);
-  return r.map((t, i) => ({ t, z: VON_CODE[codes[i]], n: n[i], sp: sp[i] }));
+  return r.map((t, i) => ({ t, z: VON_CODE[codes[i]] || null, n: n[i], sp: sp[i] }));
 }
 // Snapshot: nur Systeme mit Abweichung (Komponente nicht ok oder Zähler > 0); null, wenn nichts abweicht
 function snapshot(game) {
@@ -195,32 +213,38 @@ function snapshot(game) {
   return out;
 }
 
-// Weltstand: Block schiff.komp, nur wo die Komponenten vom Standard (aus dem gespeicherten Systemzustand erzeugt) abweichen und zu ihm passen.
-// `gespeichert`: System -> gespeicherter Zustand (Weltstand bildet offline und geflickt ab; passt die Ableitung nicht dazu, gilt der Standard).
+// Weltstand: Block schiff.komp, nur wo die Komponenten vom Standard (aus dem gespeicherten Systemzustand erzeugt) abweichen.
+// `gespeichert`: System -> gespeicherter Zustand (Weltstand bildet offline und geflickt ab). Passt die Ableitung nicht dazu, werden die Zustandscodes verworfen ('-'),
+// die Zähler (n, sp) bleiben erhalten.
 function fuerSpeicher(game, gespeichert) {
   let out = null;
   for (const sys of systeme(game)) {
     const L = game.ship.komp && game.ship.komp[sys];
     if (!Array.isArray(L) || !L.some((k) => k.z !== OK || k.n > 0 || k.sp > 0)) continue;
-    if (zustandZahl(L.filter((k) => k.z === DEFEKT).length) !== gespeichert[sys]) continue;
+    if (zustandZahl(L.filter((k) => k.z === DEFEKT).length) !== gespeichert[sys]) {
+      const zt = zaehlerTeil(L);
+      if (zt) (out || (out = {}))[sys] = '-'.repeat(L.length) + zt;
+      continue;
+    }
     const standard = L.map((k, i) => (i >= L.length - Math.min(zielZahl(gespeichert[sys]), L.length) ? 'd' : 'o')).join('');
     if (kodiere(game, sys) === standard) continue;
     (out || (out = {}))[sys] = kodiere(game, sys);
   }
   return out;
 }
-// Laden: Komponenten aus dem Systemzustand erzeugen, dann den gespeicherten Block darüberlegen, wo er zum Zustand passt. Ein Altstand ohne Block ist der Normalfall.
+// Laden: Komponenten aus dem Systemzustand erzeugen, dann den gespeicherten Block darüberlegen: Zustandscodes nur, wo sie zum Systemzustand passen, Zähler immer. Ein Altstand ohne Block ist der Normalfall.
 function ausSpeicher(game, block) {
   erzeugeAlleAusZustand(game);
   if (!block || typeof block !== 'object') return;
   for (const sys of systeme(game)) {
     const L = dekodiere(game, sys, block[sys]);
-    if (!L || zustandZahl(L.filter((k) => k.z === DEFEKT).length) !== interior().effZustand(game, sys)) continue;
-    game.ship.komp[sys] = L;
+    if (!L) continue;
+    if (L.every((k) => k.z) && zustandZahl(L.filter((k) => k.z === DEFEKT).length) === interior().effZustand(game, sys)) game.ship.komp[sys] = L;
+    else game.ship.komp[sys].forEach((k, i) => { k.n = L[i].n; k.sp = L[i].sp; });
   }
 }
 
 module.exports = {
-  rezept, hatKomponenten, systeme, erzeugeAusZustand, erzeugeAlleAusZustand, abgeleitet, synchronisieren, defekteZahl, funktionierende,
-  setzeKomponente, hebeAufZustand, trefferAuf, konsistent, konsistentAlle, kodiere, dekodiere, snapshot, fuerSpeicher, ausSpeicher,
+  rezept, hatKomponenten, systeme, ueberlastZiel, anlegen, erzeugeAusZustand, erzeugeAlleAusZustand, neuAufstellen, abgeleitet, synchronisieren, defekteZahl, funktionierende,
+  setzeKomponente, hebeAufZustand, trefferAuf, ueberlastTreffer, konsistent, konsistentAlle, kodiere, dekodiere, snapshot, fuerSpeicher, ausSpeicher,
 };

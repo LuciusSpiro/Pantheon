@@ -692,7 +692,7 @@ function capture(game) {
   ws.data.tutorial = tutorial;
   const lager = {};
   for (const [k, v] of Object.entries(inv)) if (k !== 'marks' && Number.isFinite(v)) lager[k] = Math.max(0, Math.round(v));
-  Komponenten.konsistentAlle(game);   // TEC-01 A1: direkt geschriebene Zustände zuerst nachziehen
+  Komponenten.konsistentAlle(game);   // TEC-01 A1: ändert nur ship.komp (nie Systemzustand): direkt geschriebene Zustände zuerst nachziehen, damit fuerSpeicher gegen aktuelle Komponenten arbeitet
   const systeme = {};
   for (const k of SYSTEM_ORDER) {
     let st = ship.systems[k];

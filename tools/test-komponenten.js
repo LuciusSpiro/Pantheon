@@ -75,7 +75,7 @@ section('Einhängen: damageSystem, setzeZustand, Reparatur', () => {
   ok(g.ship.systems.emitter_stbd === 'ok' && z(g, 'emitter_stbd') === 'oo', 'Reparatur (heutiger Weg): Komponenten folgen, Wächter bleibt still');
   I.damageSystem(g, 'emitter_bow', 'broken');
   I.repairSystem(g, 'emitter_bow', 'bot', 'swap');
-  ok(g.ship.systems.emitter_bow === 'ok' || (g.ship.systems.emitter_bow === 'damaged' && K.defekteZahl(g, 'emitter_bow') === 1), 'Reparatur broken -> ...: Komponenten zum Zustand passend');
+  ok(g.ship.systems.emitter_bow === 'ok' && z(g, 'emitter_bow') === 'oo', 'Reparatur broken per Ersatzteil (swap): wieder ok, beide Komponenten heil');
   ok(K.konsistent(g, 'emitter_bow') === false, 'nach der Reparatur ist nichts mehr nachzuziehen');
   // Zufall nur unter funktionierenden, bevorzugt S
   const g2 = newGame(4); K.konsistentAlle(g2);
@@ -191,7 +191,24 @@ section('Weltstand: Block nur bei Abweichung, alter Stand lädt', () => {
   const g6 = newGame(16); K.konsistentAlle(g6);
   setz(g6, 'emitter_bow', 'gg'); g6.ship.fragile.emitter_bow = true;
   const d6 = Weltstand.capture(g6);
-  ok(d6.schiff.systeme.emitter_bow === 'damaged' && d6.schiff.komp === undefined, 'Zustand/Block widersprüchlich (fragil als damaged gespeichert): Block entfällt');
+  ok(d6.schiff.systeme.emitter_bow === 'damaged' && d6.schiff.komp === undefined, 'Zustand/Block widersprüchlich (fragil als damaged gespeichert), keine Zähler: Block entfällt');
+  g6.ship.komp.emitter_bow[0].n = 3; g6.ship.komp.emitter_bow[1].sp = 1;
+  const d6b = Weltstand.capture(g6);
+  ok(d6b.schiff.komp && d6b.schiff.komp.emitter_bow === '--;3,0;0,1', 'ok + fragil (als damaged gespeichert): Codes verworfen, Zähler bleiben (' + (d6b.schiff.komp && d6b.schiff.komp.emitter_bow) + ')');
+  ok(!(Weltstand.validate(Object.assign(JSON.parse(JSON.stringify(d6b)), { id: 'test', name: 'Test' })) || []).length, 'Schema nimmt den Platzhalter an');
+  const g6b = newGame(17); Weltstand.apply(g6b, JSON.parse(JSON.stringify(d6b)));
+  ok(g6b.ship.systems.emitter_bow === 'damaged' && K.defekteZahl(g6b, 'emitter_bow') === 1 && g6b.ship.komp.emitter_bow[0].n === 3 && g6b.ship.komp.emitter_bow[1].sp === 1, 'laden: Zustand aus dem Systemzustand (damaged = 1 defekt), Zähler aus dem Block');
+  // EMP-Pause: offline wird als ok gespeichert, die Ableitung (prev) ist damaged
+  const g7 = newGame(18); K.konsistentAlle(g7);
+  setz(g7, 'emitter_aft', 'od'); g7.ship.komp.emitter_aft[0].n = 2;
+  g7.ship.offline.emitter_aft = { t: 10, prev: 'damaged' }; g7.ship.systems.emitter_aft = 'offline';
+  const d7 = Weltstand.capture(g7);
+  ok(d7.schiff.systeme.emitter_aft === 'ok' && d7.schiff.komp && d7.schiff.komp.emitter_aft === '--;2,0;0,0', 'EMP-Pause (offline als ok gespeichert): Zähler bleiben, Codes entfallen (' + (d7.schiff.komp && d7.schiff.komp.emitter_aft) + ')');
+  const g7b = newGame(19); Weltstand.apply(g7b, JSON.parse(JSON.stringify(d7)));
+  ok(g7b.ship.systems.emitter_aft === 'ok' && K.defekteZahl(g7b, 'emitter_aft') === 0 && g7b.ship.komp.emitter_aft[0].n === 2, 'laden: ok, alles heil, Ausfallzähler 2 erhalten');
+  const alt7 = JSON.parse(JSON.stringify(d7)); alt7.schiff.komp = { emitter_aft: 'oo;2,0;0,0' };
+  const g7c = newGame(20); Weltstand.apply(g7c, alt7);
+  ok(g7c.ship.komp.emitter_aft[0].n === 2 && z(g7c, 'emitter_aft') === 'oo', 'alter Format-String (nur Codes + Zähler) lädt weiter');
 });
 
 // ---------- TEC-01 A2: Trefferwege auf Komponenten ----------
@@ -260,8 +277,9 @@ section('A2: trefferweg und resolveHit, Fenster unverändert', () => {
   g3.ship.shields.current = [0, 0, 0, 0];
   const res = DAMAGE.resolveHit(g3, zone, 5, { pierce: true, zielt: 'emitter_bow' });
   ok(res.systems.length === 1, 'resolveHit ohne Schild: ein Systemtreffer');
+  ok(K.defekteZahl(g3, 'emitter_bow') === 1 && g3.ship.systems.emitter_bow === 'damaged', 'resolveHit: der erste Treffer kam an (genau 1 defekt)');
   DAMAGE.resolveHit(g3, zone, 5, { pierce: true, zielt: 'emitter_bow' });
-  ok(K.defekteZahl(g3, 'emitter_bow') <= 1, 'resolveHit: derselbe Emitter verliert im Fenster keine zweite Komponente');
+  ok(K.defekteZahl(g3, 'emitter_bow') === 1 && g3.ship.systems.emitter_bow === 'damaged', 'resolveHit: derselbe Emitter verliert im Fenster keine zweite Komponente');
 });
 
 section('A2: Torpedo zerstört sicher', () => {
@@ -290,8 +308,14 @@ section('A2: Überlast trifft den Spannungsregler', () => {
   I.heatDamage(g, 'shields');
   ok(z(g, 'shields') === 'ood', 'beschädigter Generator: Überlast wirkt wie heute nicht (nur heile Systeme)');
   setz(g, 'shields', 'odo');
-  K.trefferAuf(g, 'shields', { bevorzugt: 'S' });
+  K.ueberlastTreffer(g, 'shields');
   ok(g.ship.systems.shields === 'broken' && z(g, 'shields')[1] === 'd' && K.defekteZahl(g, 'shields') === 2, 'S schon defekt: Vorzug greift nicht, ein anderer fällt aus');
+  ok(K.ueberlastZiel(g, 'shields') === 'S' && KETTE.slice(1).every((s) => K.ueberlastZiel(g, s) === null) && K.ueberlastZiel(g, 'reactor') === null, 'Überlastziel ist ein Datum (systemModell.komponenten.ueberlast): nur der Generator hat eines');
+  const g3 = newGame(41); K.konsistentAlle(g3);
+  const ev = []; const emit0 = g3.emit.bind(g3); g3.emit = (n, d) => { ev.push(n + ':' + (d && d.system)); return emit0(n, d); };
+  I.heatDamage(g3, 'shields');
+  ok(ev.includes('systemHit:shields') && g3.ship.sysAnnounce.list.some((e) => e.system === 'shields') && I.integOf(g3, 'shields') === I.integAusZustand(g3, 'shields', 'damaged'),
+    'Überlast: gleiche Nachbehandlung wie ein Treffer (systemHit, ODA-Meldung, Integrität)');
   const g2 = newGame(29); K.konsistentAlle(g2);
   I.heatDamage(g2, 'emitter_bow');
   ok(K.defekteZahl(g2, 'emitter_bow') === 1, 'sonstige Hitzeschäden bleiben normale Treffer');
@@ -346,7 +370,6 @@ section('A2: EMP, Notsprung, Feuer, Wächter bleibt still', () => {
   I.damageSystem(g3, 'shields');
   ok(K.defekteZahl(g3, 'shields') === 1 && g3.ship.systems.shields === 'damaged', 'Feuerschaden: normaler Zufallstreffer');
   const g4 = newGame(40); K.konsistentAlle(g4);
-  g4.ship.kompKorrekturen = 0;
   for (let i = 0; i < 80; i++) {
     g4.time += 1;
     for (const s of KETTE) I.direktTreffer(g4, s);
@@ -358,6 +381,70 @@ section('A2: EMP, Notsprung, Feuer, Wächter bleibt still', () => {
   ok(!('kompKorrekturen' in JSON.parse(JSON.stringify(g4.ship))), 'Zähler ist kein Snapshot-Feld');
   g4.ship.systems.shields = 'broken'; K.konsistent(g4, 'shields');
   ok(g4.ship.kompKorrekturen === 1, 'Gegenprobe: direkter Schreiber wird gezählt');
+});
+
+// ---------- TEC-01 A-Nacharbeit ----------
+section('Nacharbeit 1: Schildkette bleibt aus der Flicken-Schleife von trefferweg', () => {
+  const zone = I.systemSector('emitter_aft');   // Zone 2: engines, emitter_aft, lafette_2
+  ok(I.systemSector('engines') === zone, 'Voraussetzung: engines liegt in der Zone des Emitters');
+  const g = newGame(50); K.konsistentAlle(g);
+  g.ship.fragile.emitter_aft = true;   // Altlast-Flag auf einem Schildkette-System
+  const r = I.trefferweg(g, zone, {});
+  ok(r && r.wechsel === true, 'trefferweg: der Treffer kam an (Wechsel)');
+  ok(g.ship.systems.emitter_aft !== 'broken' && K.defekteZahl(g, 'emitter_aft') <= 1, 'Emitter ok + fragile-Altlast: kein Direktbruch auf zerstört, höchstens 1 Komponente defekt');
+  // Gegenprobe: ein System der Zone ohne Komponenten bricht mit fragile weiter direkt
+  const g2 = newGame(51); K.konsistentAlle(g2);
+  g2.ship.fragile.engines = true;
+  const r2 = I.trefferweg(g2, zone, {});
+  ok(r2 && r2.system === 'engines' && g2.ship.systems.engines === 'broken' && g2.ship.systems.emitter_aft === 'ok', 'Gegenprobe: engines fragile bricht direkt auf broken, der Emitter bleibt unberührt');
+  // beide fragil: nur das Nicht-Schildkette-System bricht direkt
+  const g3 = newGame(52); K.konsistentAlle(g3);
+  g3.ship.fragile.engines = true; g3.ship.fragile.emitter_aft = true;
+  I.trefferweg(g3, zone, {});
+  ok(g3.ship.systems.engines === 'broken' && g3.ship.systems.emitter_aft === 'ok' && K.defekteZahl(g3, 'emitter_aft') === 0, 'beide fragil: engines bricht direkt, der Emitter nimmt keinen Direktbruch');
+});
+
+section('Nacharbeit 3: neu aufgestellte Lerche hat Ausfallzähler 0', () => {
+  const zaehler = (g) => KETTE.reduce((a, s) => a + g.ship.komp[s].reduce((b, k) => b + k.n + k.sp, 0), 0);
+  const belegen = (g) => { for (const s of KETTE) g.ship.komp[s].forEach((k) => { k.n = 3; k.sp = 2; }); };
+  const g = newGame(53); K.konsistentAlle(g); belegen(g);
+  I.setzeZustand(g, 'shields', 'damaged');
+  ok(g.ship.komp.shields.every((k) => k.n === 3 && k.sp === 2), 'Gegenprobe: Zustand setzen / Wächter behält die Zähler (erzeugeAusZustand)');
+  require('../server/sim/szenenreset.js').zuruecksetzen(g, {});
+  ok(zaehler(g) === 0 && z(g, 'shields') === 'ooo' && g.ship.systems.shields === 'ok', 'Szenenreset: alle Komponenten heil, n und sp 0');
+  const g2 = newGame(54); K.konsistentAlle(g2); belegen(g2);
+  I.damageSystem(g2, 'emitter_port', 'broken');
+  require('../server/sim/arena.js').repairShip(g2);
+  ok(zaehler(g2) === 0 && z(g2, 'emitter_port') === 'oo' && g2.ship.systems.emitter_port === 'ok', 'Arena-Rücksetzer: alle Komponenten heil, n und sp 0');
+  const g3 = newGame(55); K.konsistentAlle(g3); belegen(g3);
+  K.neuAufstellen(g3);
+  ok(zaehler(g3) === 0, 'K.neuAufstellen setzt die Zähler auf 0');
+});
+
+section('Nacharbeit 4: frisches Spiel ohne Tick', () => {
+  const g0 = new Game({ noStore: true, seed: 3, debug: true, env: { MISSION_SOURCE: 'fallback' }, log: () => {} });
+  ok(KETTE.every((s) => Array.isArray(g0.ship.komp[s])) && z(g0, 'shields') === 'ooo', 'game.reset legt die Komponenten an (alle heil)');
+  const idx = new Set(); let nOk = true; let korr = 0; let broken = true;
+  for (let seed = 1; seed <= 30; seed++) {
+    const g = new Game({ noStore: true, seed, debug: true, env: { MISSION_SOURCE: 'fallback' }, log: () => {} });
+    g.space.enemies = []; g.space.projectiles = [];
+    I.damageSystem(g, 'shields', 'damaged');   // toState, kein Tick davor
+    const zz = z(g, 'shields'); const i = zz.indexOf('d'); idx.add(i);
+    const KR = g.ship.komp.shields.filter((k) => k.t !== 'S').reduce((a, k) => a + k.n, 0);
+    if (zz.split('d').length !== 2 || KR !== (i === 1 ? 0 : 1)) nOk = false;
+    I.damageSystem(g, 'emitter_bow', 'broken');
+    const e = g.ship.komp.emitter_bow;
+    if (z(g, 'emitter_bow') !== 'dd' || e[0].n !== 1 || e[1].n !== 0 || g.ship.systems.emitter_bow !== 'broken') broken = false;
+    korr += g.ship.kompKorrekturen | 0;
+  }
+  ok(idx.size === 3, 'damaged mit toState: der Ausfall verteilt sich zufällig über K, S, R (kompRng), nicht fest auf das Rezeptende ' + [...idx].join(','));
+  ok(nOk, 'damaged mit toState: genau 1 defekt, Ausfallzähler zählt für K und R (nie für S)');
+  ok(broken, 'broken mit toState am Emitter: 2 defekt, Relais zählt 1, Leitung 0');
+  ok(korr === 0, 'Wächter hat dabei nie korrigiert (kompKorrekturen 0)');
+  const ga = new Game({ noStore: true, seed: 9, debug: true, env: { MISSION_SOURCE: 'fallback' }, log: () => {} });
+  ga.space.enemies = []; ga.space.projectiles = [];
+  I.direktTreffer(ga, 'shields');
+  ok((ga.ship.kompKorrekturen | 0) === 0 && K.defekteZahl(ga, 'shields') === 1, 'erster Treffer im frischen Spiel zählt keine Wächterkorrektur');
 });
 
 console.log(`\n${n - fails}/${n} Prüfungen grün${fails ? ', ' + fails + ' FEHLER' : ''}`);

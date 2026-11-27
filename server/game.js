@@ -582,6 +582,7 @@ class Game {
       noPartT: {}, noPlateT: 0, asteroidImmune: {}, beaming: null, sysHitAt: {},
       escalateT: {}, escAnnounce: { list: [], next: 0 },   // M3b §4 Eskalation
     };
+    Komponenten.erzeugeAlleAusZustand(this);   // TEC-01 A1: Komponenten der Schildkette von Anfang an (alle heil), damit der erste Treffer keine Wächterkorrektur zählt
     this.space = { w: 0, h: 0, enemies: [], projectiles: [], beams: [], asteroids: [], markers: [], salvage: [] };
     this.salvaged = 0;
     this.fracht = Fracht.neu();   // EK3 Teil A: { lager, draussen, halt, gesichert, abnehmer, … }

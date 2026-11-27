@@ -777,6 +777,7 @@
       // systeme ordnet einem System sein Rezept zu (ein neues System mit Komponenten = eine Zeile). Systemzustand: 0 defekt ok, 1 beschädigt, ab 2 zerstört. Systeme ohne Zeile bleiben systemweit.
       komponenten: {
         rezepte: { schilde: ['K', 'S', 'R'], emitter: ['R', 'L'] },
+        ueberlast: { schilde: 'S' },   // Komponentenart, die die Überlast (Hitze bei Energie 4) zuerst trifft, je Rezept
         systeme: { shields: 'schilde', emitter_bow: 'emitter', emitter_stbd: 'emitter', emitter_aft: 'emitter', emitter_port: 'emitter' },
       },
       reparatur: { damaged: 0.5 },   // Grundwert nach Reparatur auf beschädigt (Anteil des Maximums); ok = Maximum

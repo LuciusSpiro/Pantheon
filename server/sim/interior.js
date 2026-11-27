@@ -1104,17 +1104,27 @@ function damageSystem(game, sys, toState, opts) {
     require('./reaktortod.js').zerstoert(game, opts);
   }
 }
-function damageSystemRoh(game, sys, toState, opts) {   // opts.quiet (keine ODA), opts.dauer (Dauerdruck: kein Abbruch des Fracht-Beamens/Schöpfens), opts.bevorzugt (Komponentenart, die ein Treffer zuerst trifft)
+function damageSystemRoh(game, sys, toState, opts) {   // opts.quiet (keine ODA), opts.dauer (Dauerdruck: kein Abbruch des Fracht-Beamens/Schöpfens)
+  systemSchaden(game, sys, toState, opts, Komp.trefferAuf);
+}
+// TEC-01 A2: Überlast (Hitze bei Energie 4) auf ein System mit Überlastziel: derselbe Weg wie ein Treffer, nur trifft er zuerst die Überlastkomponente (Komp.ueberlastTreffer)
+function ueberlastSchaden(game, sys) {
+  systemSchaden(game, sys, null, null, Komp.ueberlastTreffer);
+}
+// Gemeinsame Schadensbehandlung (Zustandswechsel, Integrität, ODA, Ereignisse). komponentenTrefferFn(game, sys) ist der Komponententreffer, den ein Schildkette-System
+// ohne gewünschten Zielzustand nimmt; Systeme ohne Rezept und Schäden mit toState gehen wie bisher.
+function systemSchaden(game, sys, toState, opts, komponentenTrefferFn) {
   const s = game.ship.systems;
   sys = resolveSystem(game, sys, false);
   if (!s[sys]) return;
   // TEC-01 A2: ein Schildkette-System ohne gewünschten Zielzustand nimmt EINEN Komponententreffer; die Stufe ergibt sich aus der Zahl der defekten Komponenten
   const komponentenTreffer = !toState && Komp.hatKomponenten(game, sys);
+  if (Komp.hatKomponenten(game, sys)) Komp.anlegen(game, sys);   // Komponenten VOR dem Schreiben des Zustands anlegen: auch ein Schaden mit toState wird zufällig verteilt und zählt
   if (komponentenTreffer) Komp.konsistent(game, sys);   // direkt geschriebener Zustand gilt zuerst (Wächter)
   if (s[sys] === 'offline') {   // EMP-Pause: Schaden merken wir für danach
     const o = game.ship.offline[sys];
     if (o && komponentenTreffer) {
-      Komp.trefferAuf(game, sys, opts);   // synchronisieren zieht o.prev und die Integrität nach
+      komponentenTrefferFn(game, sys);   // synchronisieren zieht o.prev und die Integrität nach
       if (game.ship.fragile) delete game.ship.fragile[sys];
     } else if (o) {   // SYS-01 A1 Nacharbeit: die vorgemerkte Stufe wird nie milder; die Integrität folgt ihr sofort
       const neu = toState || (o.prev === 'ok' && !isFragile(game, sys) ? 'damaged' : 'broken');
@@ -1127,7 +1137,7 @@ function damageSystemRoh(game, sys, toState, opts) {   // opts.quiet (keine ODA)
   }
   const before = s[sys];
   if (komponentenTreffer) {
-    Komp.trefferAuf(game, sys, opts);   // setzt s[sys] aus den Komponenten
+    komponentenTrefferFn(game, sys);   // setzt s[sys] aus den Komponenten
     if (game.ship.fragile) delete game.ship.fragile[sys];   // Altlast: ein Flicken auf Systemebene gibt es hier nicht mehr
   } else {
     if (toState) s[sys] = toState;
@@ -1165,10 +1175,9 @@ function heatDamage(game, powerSys) {
     return;
   }
   if (game.ship.systems[powerSys] !== 'ok') return;
-  if (powerSys === 'shields') { damageSystem(game, powerSys, null, { bevorzugt: UEBERLAST_ZIEL.shields }); return; }   // TEC-01 A2: die Überlast trifft den Spannungsregler
+  if (Komp.ueberlastZiel(game, powerSys)) { ueberlastSchaden(game, powerSys); return; }   // TEC-01 A2: datengetrieben (systemModell.komponenten.ueberlast): die Überlast trifft die Überlastkomponente
   damageSystem(game, powerSys, 'damaged');
 }
-const UEBERLAST_ZIEL = { shields: 'S' };   // Komponentenart, die die Hitze bei Energie 4 zuerst trifft (solange sie funktioniert)
 
 // ---------- Systemmodell (SYS-01 A1a, Konzept „Systemmodell Zonen“) ----------
 // Integrität je System in ship.integ (Punkte, Maximum je System in config.systemModell.integ). Die Zustände
