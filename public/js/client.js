@@ -1264,7 +1264,7 @@
         break;
       }
       case 'missionStart': if (ev.title) H.pushNotice('Neuer Auftrag: ' + ev.title, PAL.amber); break;
-      case 'missionDone': if (ev.title) H.pushNotice('Auftrag erledigt: ' + ev.title, PAL.mint); audio.play('repair_done'); break;
+      case 'missionDone': if (ev.title && !(window.TrainingHud && TrainingHud.abschlussSchonGemeldet(ev))) H.pushNotice('Auftrag erledigt: ' + ev.title, PAL.mint); audio.play('repair_done'); break;
       case 'hit':
         if (ev.emp) { audio.play('emp'); H.pushNotice('EMP-Treffer – ein System ist kurz offline', PAL.red); }
         Client.shipHit = { sector: ev.sector, t0: performance.now() };
@@ -2465,6 +2465,7 @@
         else { K.verdeckt = null; Net.guard('Consoles.draw', () => K.draw(ctx, v)); }
         // W2 AP3b: Wellen All spielt an Konsolen – Banner und Ergebnis über der Konsole (sonst verdeckt)
         if (st.wellen) Net.guard('Hud.wellenKonsole', () => H.drawWellen(ctx, v, true));
+        if (window.TrainingHud) Net.guard('TrainingHud.zeichne', () => TrainingHud.zeichne(ctx, v));   // TRA-01 C2: Checkliste und letzter Hinweis des Trainings auch an der Konsole (das HUD zeichnet die Zielliste nur zu Fuß)
         Net.guard('Hud.drawLagefunk', () => H.drawLagefunk(ctx, v));   // SUND-01 C: Lagemeldung (Freie Fahrt Sund) über der Konsole
         if (H.sprech.aktiv || H.sprech.bots) Net.guard('Hud.sprechspalteKonsole', () => H.zeichneSprechspalte(ctx, v));   // BOT-04 C2: Bot-Untertitel, Aufnahme, Textzeile über der Konsole (sonst deckt sie die Konsole zu)
       } else if (window.TerminalUI && TerminalUI.zusehend) {   // PAN-01 D2: Zuschauer am besetzten Terminal (rein lesend)

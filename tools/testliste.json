@@ -502,6 +502,7 @@
   {"id":"test-training-menue","kette":"test","cmd":["tools/test-training-menue.js"],"stufe":"fast","budget_s":8},
   {"id":"test-training-abzeichen","kette":"test","cmd":["tools/test-training-abzeichen.js"],"stufe":"fast","budget_s":20},
   {"id":"test-training-fliegen","kette":"test","cmd":["tools/test-training-fliegen.js"],"stufe":"fast","budget_s":25},
+  {"id":"test-training-hud","kette":"test","cmd":["tools/test-training-hud.js"],"stufe":"fast","budget_s":15},
   {"id":"sim-training training_fliegen","kette":"test","cmd":["tools/sim-training.js","training_fliegen","--seeds","10"],"stufe":"fast","budget_s":40},
   {"id":"test-visier-lage","kette":"test","cmd":["tools/test-visier-lage.js"],"stufe":"fast","budget_s":6},
   {"id":"test-visier-skin","kette":"test","cmd":["tools/test-visier-skin.js"],"stufe":"fast","budget_s":8}

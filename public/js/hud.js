@@ -575,6 +575,17 @@
       R.button(ctx, VW / 2 - 70, y + bh - 26, 140, 18, 'Zur Lobby', { hotkey: 'Enter', onClick: () => view.actions.wellenLobby && view.actions.wellenLobby() });
     },
 
+    // §21.2: Titel und Ziele der HUD-Liste: die fokussierte Mission aus dem Missionsbuch (Planungstisch), ohne Fokus die laufende. drawObjectives und die Trainingsliste an der Konsole (training-hud.js) lesen dieselbe Quelle.
+    zieleVon(st) {
+      const mi = (st && st.mission) || {};
+      const book = mi.book, fe = book && book.focus != null && Array.isArray(book.entries) ? book.entries.find(e => e.id === book.focus) : null;
+      // Server liefert focusTitle/focusObjectives (immer, klein) – sonst aus dem zwischengespeicherten Buch
+      const srvFocus = Array.isArray(mi.focusObjectives) ? mi.focusObjectives : null;
+      const focusObjs = srvFocus || (fe && Array.isArray(fe.objectives) && fe.objectives.length ? fe.objectives : null);
+      const objs = focusObjs || (mi.active && Array.isArray(mi.active.objectives) && mi.active.objectives.length ? mi.active.objectives : mi.objectives) || [];
+      const title = srvFocus ? (mi.focusTitle || (mi.active && mi.active.title)) : fe && fe.title ? fe.title : (mi.active && mi.active.title);
+      return { title, objs };
+    },
     drawObjectives(ctx, view) {
       const st = view.state;
       const alert = (st.ship && st.ship.alert) || 'normal';
@@ -582,14 +593,7 @@
       const lampCol = alert === 'red' ? PAL.red : alert === 'yellow' ? PAL.warn : PAL.moss;
       const on = alert === 'normal' || Math.floor(t * (alert === 'red' ? 2 : 1)) % 2 === 0;
       const label = alert === 'red' ? 'ALARM ROT' : alert === 'yellow' ? 'ALARM GELB' : 'NORMALBETRIEB';
-      const mi = st.mission || {};
-      // §21.2: fokussierte Mission aus dem Missionsbuch (Planungstisch) bestimmt Titel und Ziele; ohne Fokus die laufende
-      const book = mi.book, fe = book && book.focus != null && Array.isArray(book.entries) ? book.entries.find(e => e.id === book.focus) : null;
-      // Server liefert focusTitle/focusObjectives (immer, klein) – sonst aus dem zwischengespeicherten Buch
-      const srvFocus = Array.isArray(mi.focusObjectives) ? mi.focusObjectives : null;
-      const focusObjs = srvFocus || (fe && Array.isArray(fe.objectives) && fe.objectives.length ? fe.objectives : null);
-      const objs = focusObjs || (mi.active && Array.isArray(mi.active.objectives) && mi.active.objectives.length ? mi.active.objectives : mi.objectives) || [];
-      const title = srvFocus ? (mi.focusTitle || (mi.active && mi.active.title)) : fe && fe.title ? fe.title : (mi.active && mi.active.title);
+      const { title, objs } = this.zieleVon(st);
       const lines = [];
       // M1: Ort und aktiver Auftrag als Kopfzeilen
       if (st.world) {
