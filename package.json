@@ -439,6 +439,7 @@
     "gen:tra-captain": "node tools/gen-tra-captain.js",
     "test:bot-befehle-ops-tech": "node tools/test-bot-befehle-ops-tech.js",
     "test:bot-menue": "node tools/test-bot-menue.js",
+    "test:bot-menue-sprung": "node tools/test-bot-menue-sprung.js",
     "sicht:bot-menue": "node tools/sicht-bot-menue.js",
     "test:kontingent": "node tools/test-kontingent.js",
     "test:kontingent-frage": "node tools/test-kontingent-frage.js",
