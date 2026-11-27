@@ -95,7 +95,7 @@ section('tempo_hoch / tempo_runter (helm.stage)', () => {
   A.g.ship.docked = false; A.poll(); A.g.ship.helm.stage = 4; A.g.ship.scene = 'andere'; A.poll();
   ok(!A.hat('tempo_hoch'), 'Szene wechselt im selben Tick (Stufe wird zurückgesetzt): kein Ziel');
   const D = partie('training_fliegen'); D.run(0.5); D.setze('helm'); D.run(0.2);
-  D.g.ship.docked = false; D.poll(); D.g.ship.helm.stage = 1; D.g.ship.docked = true; D.poll();
+  D.g.ship.docked = false; D.poll(); D.g.ship.helm.stage = 4; D.poll(); D.g.ship.helm.stage = 1; D.g.ship.docked = true; D.poll();
   ok(!D.hat('tempo_runter'), 'Andocken stellt die Stufe auf Stopp: kein tempo_runter');
 });
 
