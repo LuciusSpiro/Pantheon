@@ -153,13 +153,16 @@ function statusText(msg, name, r) {
 // BOT-02 B1: haelt der Bot den Bord-Dienst (lauf.js dienstLaeuft), steht er nicht an seiner Station: Rollenbefehle (nav., ops., tech.) gehen nicht, ehrlich nicht_jetzt statt ok mit spaeterer Wirkung.
 // Ausnahmen: bot.* (status, automatik) und bord.* (eigene Registry).
 const ROLLENBEFEHL = /^(?:nav|ops|tech)\./;
-function fuerBot(game, bot, name, args) {
+function fuerBot(game, bot, name, args, herkunft) {
   const gruende = GRUENDE.befehle[name] || [];
   if (gruende.includes('wartet') && wartetAn(game, bot)) return antwort(game, bot.botId, name, 'abgelehnt', 'wartet');
   if (ROLLENBEFEHL.test(name) && gruende.includes('nicht_jetzt') && Lauf.dienstLaeuft(game, bot)) return antwort(game, bot.botId, name, GRUENDE.gruende.nicht_jetzt, 'nicht_jetzt');
   let r, ursache = null;
   try { r = Befehle.befehl(game, bot, name, Object.assign({}, args)); } catch (e) { ursache = 'ausnahme: ' + (e && e.message); }
-  if (!ursache && r && r.ok === true) return statusText(antwort(game, bot.botId, name, 'ok'), name, r);
+  if (!ursache && r && r.ok === true) {
+    game.missionEvent('botBefehl', { befehl: name, an: herkunft.an, quelle: herkunft.quelle, botId: bot.botId });   // TRA-01 B1: nur der ok-Pfad (Training erkennt "Bot-Befehl gegeben"); nie in den Registries (Quellscan)
+    return statusText(antwort(game, bot.botId, name, 'ok'), name, r);
+  }
   const code = r && typeof r.code === 'string' ? r.code : null;
   if (!ursache && code && gruende.includes(code)) return antwort(game, bot.botId, name, GRUENDE.gruende[code], code);
   // Ein Fehlerpfad: Ausnahme, kein Code oder ein Code, der fuer den Befehl nicht in gruende.json steht -> abgelehnt fehler, sichtbar gezaehlt (Luecken in gruende.json)
@@ -184,7 +187,7 @@ function antworten(game, spieler, msg) {
   const bots = botsFuer(game, an);
   if (!bots.length) return [antwort(game, null, name, 'unmoeglich', 'kein_bot')];   // BOT-05 Nacharbeit: die Figur spielt nicht mit, also spricht sie auch nicht (kein Figurtext, keine eigene Stimme): Grundtext, botId null
   if (k.an !== 'alle' && bots.some((b) => !passtZurRolle(game, k, b))) return [antwort(game, an, name, 'abgelehnt', 'adressat')];   // botId eines Bots mit anderer Rolle (bord: nicht der Bord-Bot)
-  return bots.map((b) => fuerBot(game, b, name, args));
+  return bots.map((b) => fuerBot(game, b, name, args, { an, quelle: msg.quelle }));
 }
 
 function annehmen(game, spieler, msg) {

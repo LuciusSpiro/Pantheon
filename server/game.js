@@ -1340,11 +1340,11 @@ class Game {
       case 'helm.input':   // §21.1: Eingabe ≠ 0 beendet den Allstopp (space.helmInput)
         space.helmInput(this, clamp(Number(msg.turn) || 0, -1, 1), clamp(Number(msg.thrust) || 0, -1, 1));
         break;
-      case 'helm.stop': err = space.helmStop(this); break;   // §21.1 Allstopp
+      case 'helm.stop': err = space.helmStop(this); if (!err) this.missionEvent('allstopp', { p }); break;   // §21.1 Allstopp
       case 'helm.throttle':   // M3b §2: { delta: ±1 } oder { set: index } (SERVER-FLIGHT)
         err = hasFn('helmThrottle') ? space.helmThrottle(this, msg) : 'Temporegler noch nicht verfügbar.';
         break;
-      case 'helm.dodge': err = space.dodge(this, Number(msg.dir) >= 0 ? 1 : -1); break;
+      case 'helm.dodge': { const dir = Number(msg.dir) >= 0 ? 1 : -1; err = space.dodge(this, dir); if (!err) this.missionEvent('ausweichen', { p, richtung: dir > 0 ? 'rechts' : 'links' }); break; }
       case Protocol.CMD_HELM_HAUPTSCHIRM: err = Hauptschirm.ansichtSetzen(this, p, String(msg.ansicht)); break;   // KUL-02 A: Hauptschirm für alle umschalten
       case 'helm.jump': err = space.doJump(this); break;
       case 'helm.schnellsprung': err = Reise.befehl(this); break;   // Spieltest: alle Hops der gewählten Route; während der Reise = abbrechen
