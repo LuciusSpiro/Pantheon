@@ -82,10 +82,10 @@ section('Einhängen: damageSystem, setzeZustand, Reparatur', () => {
   // Zufall nur unter funktionierenden, bevorzugt S
   const g2 = newGame(4); K.konsistentAlle(g2);
   let alleS = true;
-  for (let i = 0; i < 20; i++) { I.setzeZustand(g2, 'shields', 'ok'); K.hebeAufZustand(g2, 'shields', 'damaged', 'S'); if (z(g2, 'shields') !== 'odo') alleS = false; }
-  ok(alleS, 'hebeAufZustand mit Vorzug S: immer der Spannungsregler');
+  for (let i = 0; i < 20; i++) { I.setzeZustand(g2, 'shields', 'ok'); K.ueberlastTreffer(g2, 'shields'); if (z(g2, 'shields') !== 'odo') alleS = false; }
+  ok(alleS, 'Überlasttreffer mit Vorzug S: immer der Spannungsregler');
   setz(g2, 'shields', 'dgo');
-  K.hebeAufZustand(g2, 'shields', 'broken', 'K');
+  K.hebeAufZustand(g2, 'shields', 'broken');
   ok(z(g2, 'shields') === 'dgo' || z(g2, 'shields') === 'ddo' || z(g2, 'shields') === 'dgd', 'hebeAufZustand wählt nur unter funktionierenden (hier schon 1 defekt, kein Dritter)');
   ok(K.defekteZahl(g2, 'shields') === 2 && z(g2, 'shields')[0] === 'd', 'bereits defekter Steuerkern bleibt, genau ein weiterer fällt aus');
   const g3 = newGame(4); K.konsistentAlle(g3);
@@ -768,6 +768,121 @@ section('B1: sauberer Reparaturpfad ohne Wächterkorrektur', () => {
   }
   ok((g.ship.kompKorrekturen | 0) === 0, 'sechs Runden Schaden und Reparatur auf der ganzen Kette: kompKorrekturen ' + (g.ship.kompKorrekturen | 0));
   ok(KETTE.every((s) => z(g, s).split('').every((c) => 'og'.includes(c) || c === 'd') && g.ship.systems[s] === K.abgeleitet(g, s)), 'Systemzustand folgt immer den Komponenten');
+});
+
+// ---------- TEC-01 Endreview ----------
+section('Endreview M3: Hold bricht ab, wenn Ersatzteil weg ist oder die gewählte Komponente nicht mehr Ziel ist', () => {
+  const a = lerche(81);
+  setz(a.g, 'shields', 'odo'); ankern(a.g, a.p, 'shields'); a.p.carry = 'ersatzteil';
+  I.onAct(a.g, a.p, true);
+  ok(a.p.hold && a.p.hold.kind === 'swap', 'Tausch-Hold läuft mit Ersatzteil in der Hand');
+  a.p.carry = null; a.run(0.3);
+  ok(!a.p.hold && z(a.g, 'shields') === 'odo', 'Ersatzteil nicht mehr in der Hand: Hold bricht ab, nichts getauscht (Ersatzteil ist Voraussetzung)');
+  const b = lerche(82);
+  setz(b.g, 'shields', 'ddo'); ankern(b.g, b.p, 'shields');
+  I.onAct(b.g, b.p, true, 'S');
+  ok(b.p.hold && b.p.hold.kind === 'flick' && b.p.hold.komp === 'S', 'Flick-Hold mit Wunsch S (K und S defekt)');
+  b.g.ship.komp.shields[1].z = 'geflickt'; K.synchronisieren(b.g, 'shields');   // S ist inzwischen geflickt, K weiter defekt: der Hold auf S hat kein Ziel mehr
+  b.run(0.3);
+  ok(!b.p.hold && z(b.g, 'shields') === 'dgo', 'gewählte Komponente nicht mehr Ziel: Hold bricht ab, die andere defekte (K) wird nicht stillschweigend geflickt: ' + z(b.g, 'shields'));
+  I.onAct(b.g, b.p, false);
+});
+
+section('Endreview M4: kaputter Komponentenblock macht den Weltstand nicht unladbar (echter Lade-Pfad: Datei -> Weltstand.load mit Schema-Prüfung)', () => {
+  const fs = require('fs'), os = require('os'), path = require('path');
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'pantheon-komp-m4-'));
+  const g = newGame(70); K.konsistentAlle(g);
+  setz(g, 'shields', 'ddo'); g.ship.komp.shields[1].n = 2;
+  const basis = Weltstand.capture(g); basis.id = 'tecm4-test'; basis.name = 'Test';
+  ok(basis.schiff.komp && basis.schiff.komp.shields === 'ddo;0,2,0;0,0,0', 'Ausgangsstand: guter Block ' + JSON.stringify(basis.schiff.komp));
+  const laden = (komp, wie) => {
+    const d = JSON.parse(JSON.stringify(basis));
+    if (komp === undefined) delete d.schiff.komp; else d.schiff.komp = komp;
+    fs.writeFileSync(path.join(dir, 'tecm4-test.json'), JSON.stringify(d));
+    const r = Weltstand.load(dir, 'tecm4-test', newGame(71));
+    ok(r.ok && !r.fromBak, wie + ': Weltstand lädt (Schema lehnt nicht ab) ' + (r.ok ? '' : JSON.stringify(r).slice(0, 160)));
+    if (!r.ok) return null;
+    const g2 = newGame(72);
+    Weltstand.apply(g2, r.data);
+    return g2;
+  };
+  const ausZustand = (g2, wie) => ok(g2 && g2.ship.systems.shields === 'broken' && z(g2, 'shields') === 'odd' && nz(g2, 'shields') === '0,0,0' && spz(g2, 'shields') === '0,0,0' && KETTE.every((s) => g2.ship.komp[s].length === K.rezept(g2, s).length), wie + ': Komponenten aus dem Systemzustand, Zähler 0');
+  const gut = laden(basis.schiff.komp, 'guter Block');
+  ok(gut && z(gut, 'shields') === 'ddo' && nz(gut, 'shields') === '0,2,0', 'guter Block: Zähler und Zustände übernommen');
+  ausZustand(laden({ shields: 'zz' }, 'kaputter Code'), 'kaputter Code');
+  ausZustand(laden({ shields: 'o'.repeat(500) + ';1;1' }, 'Überlänge'), 'Überlänge');
+  ausZustand(laden({ shields: 5, emitter_bow: null }, 'falscher Typ der Werte (Zahl, null)'), 'falscher Typ der Werte');
+  ausZustand(laden(5, 'Block als Zahl'), 'Block als Zahl');
+  ausZustand(laden(['ddo'], 'Block als Array'), 'Block als Array');
+  ausZustand(laden('ddo;0,2,0;0,0,0', 'Block als Text'), 'Block als Text');
+  ausZustand(laden({ shields: 'ddo;0,10000,0;0,0,0' }, 'Zähler über 9999'), 'Zähler über 9999');
+  ausZustand(laden({ shields: 'ddo;0,2;0,0,0' }, 'Zählerliste zu kurz'), 'Zählerliste zu kurz');
+  ausZustand(laden({ shields: 'dd' }, 'Code zu kurz für das Rezept'), 'Code zu kurz');
+  ausZustand(laden({ shields: 'ddo;0,-2,0;0,0,0' }, 'negativer Zähler'), 'negativer Zähler');
+  const unb = laden({ unbekannt: 'oo', shields: 'ddo;0,2,0;0,0,0', toString: 'x' }, 'unbekanntes System');
+  ok(unb && !('unbekannt' in unb.ship.komp) && z(unb, 'shields') === 'ddo' && nz(unb, 'shields') === '0,2,0', 'unbekanntes System ignoriert, bekanntes übernommen');
+  const wid = laden({ shields: 'ooo;0,2,0;0,0,0' }, 'Code widerspricht dem Systemzustand');
+  ok(wid && z(wid, 'shields') === 'odd' && nz(wid, 'shields') === '0,2,0', 'Codes widersprechen dem Zustand: Zustand gilt, Zähler bleiben');
+  const kein = laden(undefined, 'Altstand ohne Block');
+  ausZustand(kein, 'Altstand ohne Block');
+  ok(KETTE.every((s) => !gut.ship.komp[s].some((k) => !['ok', 'defekt', 'geflickt'].includes(k.z))), 'kein ungültiger Komponentenzustand nach dem Laden');
+  // Speichern-Pfad: Schema-Prüfung beim Speichern (capture + validate) nimmt den guten Block an
+  ok(!(Weltstand.validate(JSON.parse(JSON.stringify(basis))) || []).length, 'Speichern-Pfad: Schema nimmt den erfassten Block an');
+  ok(!Weltstand.fallbackValidate(JSON.parse(JSON.stringify(basis)), Weltstand.schema()).length, 'eigener Schema-Prüfer (Rückfall) nimmt den Stand mit Block an');
+  try { fs.rmSync(dir, { recursive: true, force: true }); } catch (e) { /* egal */ }
+});
+
+section('Endreview N2: lesende Zugriffe (lage, Plan, minispielMoeglich) ohne Nebenwirkung', () => {
+  const Plan = require('../server/sim/komponenten-plan.js');
+  const tief = (o) => JSON.stringify(o);
+  const g = newGame(73); K.konsistentAlle(g);
+  setz(g, 'shields', 'ddo'); g.ship.komp.shields[2].n = 1;
+  g.ship.systems.shields = 'damaged';   // direkt geschrieben: widerspricht den Komponenten (zwei defekt); der Wächter würde nachziehen
+  g.ship.komp.emitter_bow = null;       // fehlt ganz
+  delete g.ship.kompKorrekturen;
+  const vorher = tief(g.ship.komp), kk = g.ship.kompKorrekturen | 0;
+  const l = K.lage(g, 'shields');
+  ok(l && l.map((k) => k.z[0]).join('') === 'ood' && l[2].n === 1, 'lage folgt dem geschriebenen Systemzustand (damaged = 1 defekt), Zähler bleiben: ' + (l && l.map((k) => k.z[0] + k.n).join(',')));
+  const le = K.lage(g, 'emitter_bow');
+  ok(le && le.length === 2 && le.every((k) => k.z === 'ok'), 'fehlende Liste: Berechnung aus dem Zustand');
+  Plan.reparaturPlan(g, 'shields', { druck: false, ersatzteile: 2, minispiel: true }); Plan.reparaturPlan(g, 'emitter_bow', { druck: true });
+  Plan.wunschZulaessig(g, 'shields', 'flick', 'S'); Plan.kontextFuer(g, 'shields', {}); K.minispielMoeglich(g, 'shields'); K.minispielMoeglich(g, 'emitter_bow');
+  ok(tief(g.ship.komp) === vorher && (g.ship.kompKorrekturen | 0) === kk && g.ship.komp.emitter_bow === null, 'lage/Plan/minispielMoeglich: ship.komp und kompKorrekturen unverändert (Deep-Equal)');
+  ok(K.lage(g, 'reactor') === null && Plan.reparaturPlan(g, 'reactor', {}) === null, 'System ohne Rezept: null');
+  // schreibende Wege ziehen den Wächter weiter nach
+  K.reparaturZiel(g, 'shields', 'flick');
+  ok((g.ship.kompKorrekturen | 0) === kk + 1 && z(g, 'shields') === 'ood', 'reparaturZiel (schreibend) zieht den Wächter nach');
+});
+
+section('Endreview N5: Haltezeiten nach oben UND unten geprüft (Flicken 1,5 s, Tausch 3 s aus spaceM3.repair)', () => {
+  const RC = CONFIG.spaceM3.repair;
+  ok(RC.flickTime === 1.5 && RC.partTime === 3, 'Konfig spaceM3.repair: flickTime 1,5 / partTime 3');
+  const probe = (wie, aktion, codes, sek) => {
+    const { g, p, run } = lerche(80);
+    setz(g, 'shields', codes); ankern(g, p, 'shields'); if (aktion === 'swap') p.carry = 'ersatzteil';
+    I.onAct(g, p, true);
+    ok(p.hold && p.hold.kind === aktion, wie + ': Hold läuft an');
+    run(sek - 0.1);
+    ok(p.hold && p.hold.kind === aktion && z(g, 'shields') === codes, wie + ': nach ' + (sek - 0.1).toFixed(1) + ' s noch nicht fertig (Hold aktiv, Zustand unverändert)');
+    run(0.1 + 2 * DT);
+    ok(!p.hold && z(g, 'shields') !== codes, wie + ': nach ' + sek + ' s + 2 Ticks fertig');
+    I.onAct(g, p, false);
+  };
+  probe('Flicken', 'flick', 'odo', RC.flickTime);
+  probe('Tausch', 'swap', 'odo', RC.partTime);
+});
+
+section('Endreview N1/N3: eine Quelle, kein Drift zwischen Konfig und Standardwerten', () => {
+  const F = require('../shared/komponenten-format.js');
+  const KD = CONFIG.systemModell.komponenten;
+  ok(KD.sprungBruch && KD.sprungBruch.grund === F.BRUCH_GRUND && KD.sprungBruch.proSprung === F.BRUCH_PRO_SPRUNG, 'Konfig sprungBruch = Standardwerte des Format-Moduls (' + JSON.stringify(KD.sprungBruch) + ')');
+  ok(KD.ausfallSperre === F.AUSFALL_SPERRE && F.sperreVon(KD) === F.sperreVon({}), 'Konfig ausfallSperre = Standard des Format-Moduls');
+  ok([0, 1, 4, 9].every((sp) => F.bruchChance(sp, KD) === F.bruchChance(sp, {})), 'bruchChance mit Konfig = bruchChance mit Standards');
+  const lies = (f) => require('fs').readFileSync(require('path').join(__dirname, '..', f), 'utf8');
+  ok(!/ZAEHLT_AUSFALL/.test(lies('server/sim/komponenten.js')) && /F\.hatZaehler\(/.test(lies('server/sim/komponenten.js')), 'komponenten.js nutzt F.hatZaehler statt einer zweiten Liste');
+  ok(/F\.zulaessigeZiele\(/.test(lies('server/sim/komponenten-plan.js')) && !require('../server/sim/komponenten-plan.js').TEILE_RESERVE, 'Plan: wunschZulaessig nutzt F.zulaessigeZiele; TEILE_RESERVE nicht mehr exportiert');
+  const g = newGame(74); K.konsistentAlle(g);
+  for (const [st, codes] of [['ok', 'ooo'], ['damaged', 'ood'], ['broken', 'odd']]) { I.setzeZustand(g, 'shields', st); ok(F.kodiere(F.ausZustand(K.rezept(g, 'shields'), st)) === codes && z(g, 'shields') === codes, 'Standard aus dem Zustand ' + st + ' = ' + codes + ' (Server = Format-Modul)'); }
 });
 
 console.log(`\n${n - fails}/${n} Prüfungen grün${fails ? ', ' + fails + ' FEHLER' : ''}`);

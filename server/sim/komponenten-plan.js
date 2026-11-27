@@ -13,6 +13,7 @@
 //   Nichts defekt, aber geflickt: nur ohne Druck und nur mit Teilen über der Reserve wird die erste geflickte Komponente getauscht (sonst bricht der Flicken beim Sprung).
 //   Die Reihenfolge innerhalb gleicher Güte ist die Rezeptreihenfolge (Generator: Steuerkern, Spannungsregler, Relais).
 const Komp = require('./komponenten.js');
+const F = require('../../shared/komponenten-format.js');
 
 const DEFEKT = 'defekt';
 const GEFLICKT = 'geflickt';
@@ -55,12 +56,10 @@ function reparaturPlan(game, sys, kontext) {
   return { aktion: 'flick', komp: defekt[0].t };
 }
 
-// Ist ein vorgemerkter Komponentenwunsch (Reparaturliste: Eintrag mit komp) für die Aktion zulässig? aktion 'flick' | 'swap'. Dann gilt er statt der Wahl des Plans.
+// Ist ein vorgemerkter Komponentenwunsch (Reparaturliste: Eintrag mit komp) für die Aktion zulässig? aktion 'flick' | 'swap'. Dann gilt er statt der Wahl des Plans. Lesend (Komp.lage schreibt nichts).
 function wunschZulaessig(game, sys, aktion, komp) {
   const lage = Komp.lage(game, sys);
-  const c = lage && lage.find((q) => q.t === komp);
-  if (!c) return false;
-  return aktion === 'flick' ? c.z === DEFEKT : c.z !== 'ok';
+  return !!lage && F.zulaessigeZiele(lage, aktion, Komp.ausfallSperre(game)).includes(komp);   // dieselbe Regel wie die Zielwahl (eine Quelle: shared/komponenten-format.js)
 }
 
-module.exports = { reparaturPlan, wunschZulaessig, kontextFuer, listenModus, gefecht, TEILE_RESERVE };
+module.exports = { reparaturPlan, wunschZulaessig, kontextFuer, listenModus, gefecht };

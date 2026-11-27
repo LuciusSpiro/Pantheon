@@ -43,6 +43,14 @@
     const n = zahlen(teile[1]), sp = zahlen(teile[2]);
     return rezept.map((t, i) => ({ t, z: VON_CODE[codes[i]] || null, n: n[i], sp: sp[i] }));
   }
+  // Strenge Prüfung für den Weltstand (TEC-01 Endreview M4): Text muss dem Format ganz genau entsprechen (Muster, ein Code je Rezeptart, Zählerlisten gleicher Länge, je Zähler höchstens 4 Ziffern = bis 9999); sonst null
+  const BLOCK_MUSTER = /^[odg-]{1,6}(;[0-9,]{1,40};[0-9,]{1,40})?$/;
+  function dekodiereStreng(text, rezept) {
+    if (typeof text !== 'string' || !BLOCK_MUSTER.test(text) || !Array.isArray(rezept)) return null;
+    const teile = text.split(';');
+    for (const t of teile.slice(1)) { const a = t.split(','); if (a.length !== rezept.length || a.some((x) => !/^[0-9]{1,4}$/.test(x))) return null; }
+    return dekodiere(text, rezept);
+  }
   // Wie der Server ohne Komponentenliste: damaged = letzte Komponente defekt, broken = die letzten zwei (die Rezeptenden fallen zuerst aus)
   function ausZustand(rezept, zustand) {
     const zahl = Math.min(zustand === 'broken' ? MAX_DEFEKT_BROKEN : zustand === 'damaged' ? 1 : 0, rezept.length);
@@ -170,15 +178,16 @@
   // Stationshinweis an einer Schildkette-Station (E-Zeile, R-Zeile, Q-Zeile). kb = { l (Komponenten), b (bedienung), z (zulässige Ziele der E-Aktion), sperre }, sysName = Anzeigename des Systems,
   // sek = { flick, swap } (Dauertexte wie „1,5 s“). Der Aktionsname heißt überall Tausch (Teil/Ersatzteil ist nur der Gegenstand); die Regel „bricht beim Sprung“ gilt für jeden Flicken der Kette.
   function stationsHinweis(kb, sysName, sek) {
-    const b = kb.b;
+    const b = kb.b, l = Array.isArray(kb.l) ? kb.l : [], zz = Array.isArray(kb.z) ? kb.z : [], gef = Array.isArray(b.geflickt) ? b.geflickt : [];
     let r;
     if (b.minispiel) r = { label: 'Minispiel: reparieren (dauerhaft)', ok: true };
     else {
-      const rk = kb.l.find((k) => k.t === MINISPIEL_ART);
+      const rk = l.find((k) => k.t === MINISPIEL_ART);
       r = { label: !rk ? 'kein Minispiel hier' : rk.z === 'ok' ? 'kein Minispiel: Relais ist heil' : 'Relais verschlissen: nur Flicken/Tausch', ok: false };
     }
-    const q = kb.z.length > 1 ? { label: 'Ziel wechseln (' + (kb.z.indexOf(b.ziel) + 1) + '/' + kb.z.length + ')', ok: true } : null;
-    if (b.ziel == null) return { label: sysName + ': ' + b.geflickt.map(name).join(', ') + ' geflickt – bricht beim Sprung', ok: false, r, q };
+    const q = zz.length > 1 ? { label: 'Ziel wechseln (' + (zz.indexOf(b.ziel) + 1) + '/' + zz.length + ')', ok: true } : null;
+    // Ohne Komponentenliste (Dev-Mock, Altstand: nur das Systemflag fragile) bleibt die Systemvariante: kein Doppelleerzeichen, keine leere Komponentenliste
+    if (b.ziel == null) return { label: sysName + ': ' + (gef.length ? gef.map(name).join(', ') + ' geflickt – bricht beim Sprung' : 'geflickt – bricht beim nächsten Treffer'), ok: false, r, q };
     const tausch = b.aktion === 'swap';
     return { label: 'halten: ' + (tausch ? 'Tausch' : 'Flicken') + ' – ' + name(b.ziel) + ' (' + (tausch ? sek.swap + ', dauerhaft' : sek.flick + ', bricht beim Sprung') + ')', ok: true, r, q };
   }
@@ -198,6 +207,6 @@
     return r && r.includes(MINISPIEL_ART) ? sysName + ' · ' + name(MINISPIEL_ART) : sysName;
   }
 
-  return { stationsHinweis, listeText, minispielTitel, mehrText, weitereText, NAMEN, MINISPIEL_ART, AUSFALL_SPERRE, MAX_DEFEKT_BROKEN, kodiere, zaehlerTeil, name, rezeptVon, sperreVon, dekodiere, ausZustand, liste, zulaessigeZiele, standardZiel, zielWahl, naechstesZiel, aktionFuerHand, bedienung,
+  return { dekodiereStreng, hatZaehler, BRUCH_GRUND, BRUCH_PRO_SPRUNG, stationsHinweis, listeText, minispielTitel, mehrText, weitereText, NAMEN, MINISPIEL_ART, AUSFALL_SPERRE, MAX_DEFEKT_BROKEN, kodiere, zaehlerTeil, name, rezeptVon, sperreVon, dekodiere, ausZustand, liste, zulaessigeZiele, standardZiel, zielWahl, naechstesZiel, aktionFuerHand, bedienung,
     bruchChance, bruchProzent, verschlissen, zustandText, ausfallText, bruchText, aktionText, zeilen, ursacheText, zusammenfassung, kompaktText, aktionFuerModus, ablehnGrund };
 });

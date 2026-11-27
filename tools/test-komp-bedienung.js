@@ -226,5 +226,18 @@ section('TEC-01 Nacharbeit: Texte der Bedienung (stationsHinweis, listeText, min
   ok(KF.ausfallText(S('doo', [3, 0, 0])[0], 3) === 'verschlissen (3/3)', 'H1: der Zähler „verschlissen (3/3)“ bleibt beim Steuerkern als Information');
 });
 
+section('TEC-01 Endreview N1/N6: eine Liste der Komponentenarten; stationsHinweis ohne Komponentenliste', () => {
+  ok(eq(Object.keys(KF.NAMEN), Protocol.KOMP_ARTEN) && eq(Protocol.KOMP_ARTEN, ['K', 'S', 'R', 'L']), 'KOMP_ARTEN (Protokoll) und NAMEN (Format-Modul) sind dieselbe Liste: ' + Protocol.KOMP_ARTEN.join(''));
+  ok(Protocol.KOMP_ARTEN.every((a) => Protocol.normKomp(a) === a) && ['K', 'S', 'R', 'L'].every((a) => Protocol.KOMP_ARTEN.includes(a)) && Protocol.normKomp('X') === undefined, 'normKomp lässt genau KOMP_ARTEN durch');
+  ok(!/\['K', 'S', 'R', 'L'\]\.indexOf/.test(require('fs').readFileSync(require('path').join(__dirname, '..', 'shared/protocol.js'), 'utf8')), 'protocol.js: normKomp führt kein zweites Literal');
+  const sek = { flick: '1,5 s', swap: '3 s' };
+  const ohneL = KF.stationsHinweis({ l: [], b: { aktion: 'flick', ziel: null, anzahl: 0, minispiel: false, geflickt: [] }, z: [], sperre: 3 }, 'Schildgenerator', sek);
+  ok(ohneL.label === 'Schildgenerator: geflickt – bricht beim nächsten Treffer' && !/  /.test(ohneL.label) && !ohneL.ok, 'ohne Flickenliste: Systemvariante, kein Doppelleerzeichen: "' + ohneL.label + '"');
+  const roh = KF.stationsHinweis({ b: { ziel: null } }, 'Antrieb', sek);
+  ok(roh.label === 'Antrieb: geflickt – bricht beim nächsten Treffer' && roh.r && roh.q === null, 'ohne Komponentenliste, Zielliste und Flickenliste: kein Absturz, "' + roh.label + '"');
+  const mit = KF.stationsHinweis({ l: KF.dekodiere('ogo', ['K', 'S', 'R']), b: { aktion: 'flick', ziel: null, anzahl: 0, minispiel: false, geflickt: ['S'] }, z: [], sperre: 3 }, 'Schildgenerator', sek);
+  ok(mit.label === 'Schildgenerator: Spannungsregler geflickt – bricht beim Sprung', 'mit Flickenliste bleibt der Komponententext: "' + mit.label + '"');
+});
+
 console.log(`\n${n - fails}/${n} Prüfungen grün${fails ? ', ' + fails + ' FEHLER' : ''}`);
 process.exit(fails ? 1 : 0);

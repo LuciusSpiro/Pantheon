@@ -18,7 +18,6 @@ const OK = 'ok'; const DEFEKT = 'defekt'; const GEFLICKT = 'geflickt';
 const RANG = { ok: 0, damaged: 1, broken: 2 };
 const MAX_DEFEKT_BROKEN = F.MAX_DEFEKT_BROKEN;
 const MINISPIEL_ART = F.MINISPIEL_ART;   // TEC-01 B1: nur das Relais hat in Stufe 1 ein Reparatur-Minispiel (Leertasten-Spiel), die anderen Arten nur Flicken und Tausch
-const ZAEHLT_AUSFALL = ['R', 'K'];   // Relais und Steuerkern: ein Treffer (ok -> defekt) zählt im Ausfallzähler n mit
 
 let interiorMod = null;   // Zirkelbezug interior -> komponenten: lazy
 const interior = () => interiorMod || (interiorMod = require('./interior.js'));
@@ -44,7 +43,6 @@ function strom(game) {
   if (!ship.kompRng) Object.defineProperty(ship, 'kompRng', { enumerable: false, writable: true, configurable: true, value: makeRng((((game.seed >>> 0) * 6151 + 977) >>> 0)) });
   return ship.kompRng;
 }
-function neueKomponente(t) { return { t, z: OK, n: 0, sp: 0 }; }
 function liste(game, sys) {   // legt die Liste bei Bedarf aus dem Systemzustand an; null ohne Rezept
   const r = rezept(game, sys);
   if (!r) return null;
@@ -74,20 +72,21 @@ function funktionierende(game, sys) {
 // Komponenten aus dem Systemzustand neu erzeugen (Wahrheit = Zustand): damaged -> 1 defekt, broken -> 2 defekt, ohne Zufall (die Rezeptenden fallen zuerst aus).
 // Ausfallzähler und Sprungzähler bleiben je Platz erhalten, wenn die Art dieselbe ist.
 function erzeugeAusZustand(game, sys) {
-  const r = rezept(game, sys);
-  if (!r) return null;
   const K = game.ship.komp || (game.ship.komp = {});
-  const alt = Array.isArray(K[sys]) ? K[sys] : [];
-  const st = interior().effZustand(game, sys);
-  const zahl = Math.min(zielZahl(st), r.length);
-  const neu = r.map((t, i) => {
-    const k = neueKomponente(t);
-    if (alt[i] && alt[i].t === t) { k.n = alt[i].n | 0; k.sp = alt[i].sp | 0; }
-    if (i >= r.length - zahl) k.z = DEFEKT;
-    return k;
-  });
+  const neu = ausZustandRein(game, sys, K[sys]);
+  if (!neu) return null;
   K[sys] = neu;
   return neu;
+}
+// Reine Berechnung (schreibt nichts): Komponenten eines Systems aus dem Systemzustand (Format-Modul F.ausZustand, eine Quelle); Zähler n/sp je Platz aus `alt`, wenn die Art dieselbe ist. null ohne Rezept.
+function ausZustandRein(game, sys, alt) {
+  const r = rezept(game, sys);
+  if (!r) return null;
+  const vorher = Array.isArray(alt) ? alt : [];
+  return F.ausZustand(r, interior().effZustand(game, sys)).map((k, i) => {
+    if (vorher[i] && vorher[i].t === k.t) { k.n = vorher[i].n | 0; k.sp = vorher[i].sp | 0; }
+    return k;
+  });
 }
 function erzeugeAlleAusZustand(game) { for (const sys of systeme(game)) erzeugeAusZustand(game, sys); }
 // Neu aufgestellte Lerche (Szenenreset, Arena): Komponenten aus dem Zustand UND Ausfall-/Sprungzähler 0 (wie reaktortod.zuruecksetzen).
@@ -120,7 +119,7 @@ function setzeKomponente(game, sys, index, z) {
 
 // Eine Komponente fällt durch einen Treffer aus. Ein geflickter Platz bricht nur den Flicken (n bleibt), ein heiler zählt für R und K im Ausfallzähler.
 function faelltAus(k) {
-  if (k.z === OK && ZAEHLT_AUSFALL.includes(k.t)) k.n = (k.n | 0) + 1;
+  if (k.z === OK && F.hatZaehler(k.t)) k.n = (k.n | 0) + 1;
   k.z = DEFEKT;
 }
 // Auswahl der getroffenen Komponente (gemeinsam für Treffer und hebeAufZustand): per Zufallsstrom unter den funktionierenden (ok oder geflickt);
@@ -168,15 +167,15 @@ function trefferArten(game, sys, arten) {
 }
 
 // Hebt die Zahl der defekten Komponenten auf den Wert des Zielzustands ('damaged' = 1, 'broken' = 2). Senkt nie.
-// Wählt wie ein Treffer (waehleFrei): nur unter den funktionierenden Komponenten, optional bevorzugt eine Art.
+// Wählt wie ein Treffer (waehleFrei): nur unter den funktionierenden Komponenten, zufällig (ohne Vorzugsart; die gilt nur für den Überlasttreffer).
 // Rückgabe: Zahl der neu ausgefallenen Komponenten.
-function hebeAufZustand(game, sys, ziel, bevorzugt) {
+function hebeAufZustand(game, sys, ziel) {
   const L = liste(game, sys);
   if (!L) return 0;
   const soll = zielZahl(ziel);
   let neu = 0;
   while (defekteZahl(game, sys) < soll) {
-    const wahl = waehleFrei(game, L, bevorzugt);
+    const wahl = waehleFrei(game, L, null);
     if (!wahl) break;
     faelltAus(wahl);
     neu++;
@@ -196,14 +195,18 @@ function reparierbar(game, sys) {
   konsistent(game, sys);
   return liste(game, sys).some((k) => k.z !== OK);
 }
-// TEC-01 E: Lesesicht für Bots und Pläne: Kopie der Komponenten [{ t, z, n, sp }] in Rezeptreihenfolge (nach dem Wächter); null ohne Rezept
+// TEC-01 E: Lesesicht für Bots und Pläne: Kopie der Komponenten [{ t, z, n, sp }] in Rezeptreihenfolge; null ohne Rezept.
+// TEC-01 Endreview N2: NEBENWIRKUNGSFREI. Kein Wächter, kein Schreiben (weder ship.komp noch kompKorrekturen): ist ship.komp[sys] vorhanden und passt zum Systemzustand, gilt es;
+// fehlt es oder widerspricht es dem geschriebenen Systemzustand, kommt dasselbe Ergebnis, das der Wächter erzeugen würde, aus der reinen Berechnung (ausZustandRein).
 function lage(game, sys) {
   if (!hatKomponenten(game, sys)) return null;
-  konsistent(game, sys);
-  return liste(game, sys).map((k) => ({ t: k.t, z: k.z, n: k.n | 0, sp: k.sp | 0 }));
+  const alt = game.ship.komp && game.ship.komp[sys];
+  const st = interior().effZustand(game, sys);
+  const passt = Array.isArray(alt) && alt.length === rezept(game, sys).length && (!(st in RANG) || zustandZahl(alt.filter((k) => k.z === DEFEKT).length) === st);
+  return (passt ? alt : ausZustandRein(game, sys, alt)).map((k) => ({ t: k.t, z: k.z, n: k.n | 0, sp: k.sp | 0 }));
 }
-// Geht das Relais-Minispiel jetzt (Relais defekt und nicht verschlissen)?
-function minispielMoeglich(game, sys) { return reparaturZiel(game, sys, 'minigame', MINISPIEL_ART).index != null; }
+// Geht das Relais-Minispiel jetzt (Relais defekt und nicht verschlissen)? Lesend (über lage), schreibt nichts.
+function minispielMoeglich(game, sys) { const L = lage(game, sys); return !!L && F.zulaessigeZiele(L, 'minigame', ausfallSperre(game)).length > 0; }
 // Hat das System einen Flicken? (liest nur: ohne Liste keiner) – daraus leitet interior.isFragile für die Schildkette ab
 function hatGeflickte(game, sys) { const L = game.ship.komp && game.ship.komp[sys]; return Array.isArray(L) && L.some((k) => k.z === GEFLICKT); }
 // Zielkomponente einer Aktion ('flick' | 'swap' | 'minigame'): { index, t } oder { hinweis }. wunsch = Typbuchstabe oder leer (Standard).
@@ -340,18 +343,21 @@ function fuerSpeicher(game, gespeichert) {
       if (zt) (out || (out = {}))[sys] = '-'.repeat(L.length) + zt;
       continue;
     }
-    const standard = L.map((k, i) => (i >= L.length - Math.min(zielZahl(gespeichert[sys]), L.length) ? 'd' : 'o')).join('');
+    const standard = F.kodiere(F.ausZustand(L.map((k) => k.t), gespeichert[sys]));   // der Standard: aus dem gespeicherten Systemzustand erzeugt, ohne Zähler
     if (kodiere(game, sys) === standard) continue;
     (out || (out = {}))[sys] = kodiere(game, sys);
   }
   return out;
 }
 // Laden: Komponenten aus dem Systemzustand erzeugen, dann den gespeicherten Block darüberlegen: Zustandscodes nur, wo sie zum Systemzustand passen, Zähler immer. Ein Altstand ohne Block ist der Normalfall.
+// TEC-01 Endreview M4: der Block ist abgeleitete, entbehrliche Information. Das Schema prüft ihn nicht (sonst machte ein kaputter Eintrag den ganzen Weltstand unladbar); hier wird er STRENG geprüft
+// (Muster, Länge je Rezept, Zähler bis 9999, Typ) und alles Ungültige verworfen: der Eintrag fällt auf die Komponenten aus dem Systemzustand zurück. Nie Absturz, nie Ablehnen des Weltstands.
 function ausSpeicher(game, block) {
   erzeugeAlleAusZustand(game);
-  if (!block || typeof block !== 'object') return;
+  if (!block || typeof block !== 'object' || Array.isArray(block)) return;
   for (const sys of systeme(game)) {
-    const L = dekodiere(game, sys, block[sys]);
+    if (!Object.prototype.hasOwnProperty.call(block, sys)) continue;
+    const L = F.dekodiereStreng(block[sys], rezept(game, sys));
     if (!L) continue;
     if (L.every((k) => k.z) && zustandZahl(L.filter((k) => k.z === DEFEKT).length) === interior().effZustand(game, sys)) game.ship.komp[sys] = L;
     else game.ship.komp[sys].forEach((k, i) => { k.n = L[i].n; k.sp = L[i].sp; });

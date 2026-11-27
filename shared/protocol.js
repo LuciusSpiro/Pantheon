@@ -5,6 +5,7 @@
   else root.Shared_Protocol = factory();
 })(typeof self !== 'undefined' ? self : this, function () {
   'use strict';
+  const KOMP_ARTEN = ['K', 'S', 'R', 'L'];   // TEC-01 Endreview N1: die eine Liste der Komponentenarten für KOMP_ARTEN und normKomp (ein Test prüft den Gleichstand mit shared/komponenten-format.js NAMEN)
   return {
     VERSION: 8,   // CHA-01 B1 „Charakterkarte“ (7 = B1–B3 „Bühnen & Bodenkampf“, 6 = S2 „Spielleiter an der Missionsgrenze“, 5 = S1 „Regiebuch & Weltstand“, 4 = M4)
     // ---- CHA-01 B1: Charakterkarte (shared/charakter.js, Katalog content/katalog/charakter.json) ----
@@ -391,9 +392,9 @@
     // beim Tausch sonst die erste geflickte; Minispiel = Relais). Der Client sendet komp nur, wenn der Spieler das Ziel gewählt hat (Taste Q), und nur an Systemen mit Komponenten.
     // Unzulässiges Ziel = Hinweistext als notice, kein Halten. Das Feld ist optional und rückwärtskompatibel (kein VERSION-Sprung). normKomp: unbekannte Werte zählen als kein Wunsch.
     // Der Hold im Snapshot (players[].action) trägt komp (Art der Zielkomponente), solange er läuft.
-    KOMP_ARTEN: ['K', 'S', 'R', 'L'],
+    KOMP_ARTEN,
     // TEC-01 D: auch technik.repair { system, mode, komp? } (Reparaturliste der Technik-Konsole) trägt optional komp (normKomp). Ohne komp wie bisher; der Schrauber-Eintrag der Liste ist { system, mode, bot, komp? }.
-    normKomp(v) { return typeof v === 'string' && ['K', 'S', 'R', 'L'].indexOf(v) >= 0 ? v : undefined; },
+    normKomp(v) { return typeof v === 'string' && KOMP_ARTEN.indexOf(v) >= 0 ? v : undefined; },
     // M3a §20.3: Lanze als Ladewaffe. cmd { c: 'weapons.charge', mount: 'bow', on: bool } (Ops) – on:true lädt auf,
     // on:false feuert sofort mit der aktuellen power. Snapshot mounts[bow].power (0..1), .charging (bool).
     CMD_LANCE_CHARGE: 'weapons.charge',

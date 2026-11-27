@@ -778,6 +778,8 @@
       komponenten: {
         rezepte: { schilde: ['K', 'S', 'R'], emitter: ['R', 'L'] },
         ueberlast: { schilde: 'S' },   // Komponentenart, die die Überlast (Hitze bei Energie 4) zuerst trifft, je Rezept
+        sprungBruch: { grund: 0.3, proSprung: 0.1 },   // Bruchwahrscheinlichkeit eines Flickens je Sprung: grund + proSprung * (überstandene Sprünge), höchstens 1 (Standard im Format-Modul identisch; ein Test prüft den Gleichstand)
+        ausfallSperre: 3,   // ab so vielen Ausfällen (Relais, Steuerkern) ist das Relais verschlissen: kein Minispiel mehr, nur Flicken oder Tausch
         systeme: { shields: 'schilde', emitter_bow: 'emitter', emitter_stbd: 'emitter', emitter_aft: 'emitter', emitter_port: 'emitter' },
       },
       reparatur: { damaged: 0.5 },   // Grundwert nach Reparatur auf beschädigt (Anteil des Maximums); ok = Maximum
